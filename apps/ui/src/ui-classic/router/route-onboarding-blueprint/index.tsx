@@ -2,20 +2,23 @@ import {
 	extractFormValuesFromBlueprint,
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
-import { createRoute, useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
-import { arrowLeft } from '@wordpress/icons';
+import { createRoute, useNavigate, useSearch } from '@tanstack/react-router';
+import { speak } from '@wordpress/a11y';
+import { __, sprintf } from '@wordpress/i18n';
+import { chevronLeft } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
 import { BlueprintSelector, type PickedBlueprint } from '@/components/blueprint-selector';
 import { CreateSiteForm } from '@/components/create-site-form';
+import { OnboardingFooter } from '@/components/onboarding-footer';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useFeaturedBlueprints } from '@/data/queries/use-featured-blueprints';
 import { useCreateSite } from '@/data/queries/use-sites';
+import { useSeededSiteName } from '@/hooks/use-seeded-site-name';
+import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import styles from '../layout-onboarding/style.module.css';
-import localStyles from './style.module.css';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
 
 type Step = 'select' | 'configure';
@@ -24,8 +27,10 @@ interface BlueprintSearch {
 	step?: Step;
 }
 
-function OnboardingBlueprintPage() {
-	const { step } = onboardingBlueprintRoute.useSearch();
+export function OnboardingBlueprintPage() {
+	// Loose useSearch (rather than the route instance's) so the component
+	// works when mounted under the desks router's copy of this path too.
+	const { step } = useSearch( { strict: false } ) as BlueprintSearch;
 	const navigate = useNavigate();
 	const activeStep: Step = step === 'configure' ? 'configure' : 'select';
 
@@ -34,21 +39,44 @@ function OnboardingBlueprintPage() {
 	const createSite = useCreateSite();
 
 	// Picked blueprint lives in component state — survives navigation between
-	// steps but not a hard refresh. If the user lands on `step=configure` with
-	// no picked blueprint (refresh, direct URL), the effect below bounces them
-	// back to the selector.
+	// steps but not a hard refresh. The pending-blueprint slot (populated by
+	// the `wp-studio://add-site` deep link before it navigates here) hands a
+	// blueprint over from outside the route.
 	const [ picked, setPicked ] = useState< PickedBlueprint | null >( null );
 	const [ submitError, setSubmitError ] = useState( '' );
+	const pending = useSyncExternalStore( pendingBlueprintSlot.subscribe, pendingBlueprintSlot.peek );
 
+	// Adopt a pending hand-off whenever one arrives on the configure step —
+	// including while another blueprint is already being configured, so a
+	// fresh deep link always wins and the slot never holds a stale value.
 	useEffect( () => {
-		if ( activeStep === 'configure' && ! picked ) {
-			void navigate( {
-				to: '/onboarding/blueprint',
-				search: { step: 'select' },
-				replace: true,
-			} );
+		if ( activeStep !== 'configure' || ! pending ) {
+			return;
 		}
-	}, [ activeStep, picked, navigate ] );
+		setPicked( pending );
+		setSubmitError( '' );
+		pendingBlueprintSlot.clear();
+	}, [ activeStep, pending ] );
+
+	// Landing on `step=configure` with nothing picked and nothing pending
+	// (hard refresh, direct URL, history navigation) bounces to the selector.
+	useEffect( () => {
+		if ( activeStep !== 'configure' || picked || pending ) {
+			return;
+		}
+		void navigate( {
+			to: '/onboarding/blueprint',
+			search: { step: 'select' },
+			replace: true,
+		} );
+	}, [ activeStep, picked, pending, navigate ] );
+
+	// The blueprint's suggested site name can collide with an existing site
+	// folder; resolve an available variant ("Name", "Name 2", ...) before
+	// seeding the form, like the desktop renderer does.
+	const seededName = useSeededSiteName(
+		picked ? extractFormValuesFromBlueprint( picked.blueprint ).siteName || picked.title : null
+	);
 
 	const handlePick = useCallback(
 		( blueprint: PickedBlueprint ) => {
@@ -109,6 +137,13 @@ function OnboardingBlueprintPage() {
 					filePath: picked.filePath,
 				},
 			} );
+			speak(
+				sprintf(
+					// translators: %s is the site name.
+					__( '%s site added.' ),
+					values.name
+				)
+			);
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setSubmitError(
@@ -121,18 +156,28 @@ function OnboardingBlueprintPage() {
 
 	if ( activeStep === 'select' ) {
 		return (
-			<div className={ styles.page }>
-				<h1 className={ styles.title }>{ __( 'Start from a Blueprint' ) }</h1>
+			<div className={ `${ styles.page } ${ styles.pageSpacious }` }>
+				<h1 className={ styles.title }>{ __( 'Build a new site' ) }</h1>
 				<p className={ styles.subtitle }>
-					{ __(
-						'Pick a featured Blueprint or drop in your own to provision plugins, content, and settings.'
-					) }
+					{ __( 'Choose a starting point for your new WordPress site.' ) }
 				</p>
 				<BlueprintSelector
-					featured={ featured.data }
-					isFeaturedLoading={ featured.isLoading }
+					blueprints={ featured.data }
+					isLoading={ featured.isLoading }
 					onPick={ handlePick }
+					onPickEmpty={ () => void navigate( { to: '/onboarding/create' } ) }
 				/>
+				<OnboardingFooter>
+					<Button
+						type="button"
+						variant="minimal"
+						tone="neutral"
+						onClick={ () => void navigate( { to: '/onboarding' } ) }
+					>
+						<Icon icon={ chevronLeft } size={ 16 } />
+						<span>{ __( 'Back' ) }</span>
+					</Button>
+				</OnboardingFooter>
 			</div>
 		);
 	}
@@ -141,33 +186,30 @@ function OnboardingBlueprintPage() {
 	// above; render nothing in the intermediate frame to avoid a flash.
 	if ( ! picked ) return null;
 
-	const initialValues = mapBlueprintSettingsToFormValues(
-		extractFormValuesFromBlueprint( picked.blueprint ),
-		picked.title
-	);
+	// Hold the form until the collision-checked name resolves — initial
+	// values are applied once, so seeding early with a colliding name would
+	// lock it in.
+	const initialValues = seededName
+		? {
+				...mapBlueprintSettingsToFormValues(
+					extractFormValuesFromBlueprint( picked.blueprint ),
+					picked.title
+				),
+				name: seededName,
+		  }
+		: undefined;
 
 	return (
 		<div className={ styles.page }>
-			<Button
-				type="button"
-				variant="minimal"
-				tone="neutral"
-				className={ localStyles.backLink }
-				onClick={ handleBackToSelect }
-			>
-				<Icon icon={ arrowLeft } />
-				<span>{ __( 'Back to Blueprints' ) }</span>
-			</Button>
 			<h1 className={ styles.title }>{ picked.title }</h1>
 			{ picked.excerpt && <p className={ styles.subtitle }>{ picked.excerpt }</p> }
 			<CreateSiteForm
 				initialValues={ initialValues }
 				existingDomainNames={ existingDomainNames ?? [] }
 				onSubmit={ handleSubmit }
-				onCancel={ () => void navigate( { to: '/onboarding' } ) }
+				onCancel={ handleBackToSelect }
 				isSubmitting={ createSite.isPending }
 				submitError={ submitError }
-				submitLabel={ __( 'Create site from Blueprint' ) }
 			/>
 		</div>
 	);
@@ -193,15 +235,19 @@ function mapBlueprintSettingsToFormValues(
 	};
 }
 
+// Exported so the desks router can register the same page under its own
+// route tree with identical search semantics.
+export function validateBlueprintSearch( search: Record< string, unknown > ): BlueprintSearch {
+	const value = search.step;
+	if ( value === 'configure' || value === 'select' ) {
+		return { step: value };
+	}
+	return {};
+}
+
 export const onboardingBlueprintRoute = createRoute( {
 	getParentRoute: () => onboardingLayoutRoute,
 	path: '/onboarding/blueprint',
-	validateSearch: ( search: Record< string, unknown > ): BlueprintSearch => {
-		const value = search.step;
-		if ( value === 'configure' || value === 'select' ) {
-			return { step: value };
-		}
-		return {};
-	},
+	validateSearch: validateBlueprintSearch,
 	component: OnboardingBlueprintPage,
 } );

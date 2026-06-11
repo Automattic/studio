@@ -1,4 +1,5 @@
 import { copyFileSync, cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { builtinModules } from 'module';
 import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
@@ -17,49 +18,6 @@ if ( ! minimumNodeVersion ) {
 		`Invalid engines.node range in apps/cli/package.json: ${ minimumNodeVersionRange }`
 	);
 }
-
-// Node.js built-in modules that must always be externalized
-export const nodeBuiltins = [
-	'assert',
-	'async_hooks',
-	'buffer',
-	'child_process',
-	'cluster',
-	'constants',
-	'crypto',
-	'dgram',
-	'diagnostics_channel',
-	'dns',
-	'domain',
-	'events',
-	'fs',
-	'http',
-	'http2',
-	'https',
-	'inspector',
-	'module',
-	'net',
-	'os',
-	'path',
-	'perf_hooks',
-	'process',
-	'punycode',
-	'querystring',
-	'readline',
-	'stream',
-	'string_decoder',
-	'timers',
-	'tls',
-	'trace_events',
-	'tty',
-	'url',
-	'util',
-	'v8',
-	'vm',
-	'wasi',
-	'worker_threads',
-	'zlib',
-];
 
 // Packages that cannot be bundled by Vite and must remain as external node_modules.
 // Reasons: native .node addons, WASM binaries, platform-specific binaries,
@@ -88,11 +46,11 @@ export function isNodeBuiltin( id: string ): boolean {
 		return true;
 	}
 	// Match builtins and their subpaths (e.g., 'fs/promises', 'stream/promises')
-	if ( nodeBuiltins.some( ( b ) => id === b || id.startsWith( b + '/' ) ) ) {
+	if ( builtinModules.some( ( b ) => id === b || id.startsWith( b + '/' ) ) ) {
 		return true;
 	}
 	// Handle trailing slash (e.g., 'string_decoder/')
-	if ( id.endsWith( '/' ) && nodeBuiltins.includes( id.slice( 0, -1 ) ) ) {
+	if ( id.endsWith( '/' ) && builtinModules.includes( id.slice( 0, -1 ) ) ) {
 		return true;
 	}
 	return false;
@@ -118,7 +76,7 @@ export const baseConfig = defineConfig( {
 			// that some CJS-to-ESM interop generates.
 			name: 'fix-trailing-slash-imports',
 			resolveId( source ) {
-				if ( source.endsWith( '/' ) && nodeBuiltins.includes( source.slice( 0, -1 ) ) ) {
+				if ( source.endsWith( '/' ) && builtinModules.includes( source.slice( 0, -1 ) ) ) {
 					return { id: source.slice( 0, -1 ), external: true };
 				}
 				return null;

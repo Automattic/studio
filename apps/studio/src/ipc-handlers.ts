@@ -2124,7 +2124,7 @@ export function showSiteContextMenu(
 
 	menu.append(
 		new MenuItem( {
-			label: __( 'Copy site…' ),
+			label: __( 'Duplicate site…' ),
 			enabled: ! isLoading && ! isAnySiteAdding,
 			click: () => {
 				sendIpcEventToRendererWithWindow(

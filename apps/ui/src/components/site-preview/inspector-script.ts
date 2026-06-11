@@ -8,10 +8,16 @@
  * `console-message` event:
  *   guest -> host: `__studio-inspector__:{ "type": "done", ... }`
  *
- * The same bridge also forwards browser keyboard shortcuts (reload,
- * back, forward) pressed while focus is inside the guest page, so the
- * host toolbar can handle them:
+ * The same bridge also reports picking/annotation-count state changes and
+ * forwards browser keyboard shortcuts (reload, back, forward) pressed while
+ * focus is inside the guest page, so the host toolbar can handle them:
+ *   guest -> host: `__studio-inspector__:{ "type": "state", ... }`
  *   guest -> host: `__studio-inspector__:{ "type": "browser-command", ... }`
+ *
+ * The annotation controls live in the host toolbar (not in the page), and
+ * drive the inspector by dispatching `INSPECTOR_COMMAND_EVENT` custom events
+ * on the guest `window` via `webview.executeJavaScript()`:
+ *   host -> guest: `{ "type": "toggle-picking" | "submit" | "report-state" }`
  *
  * Layout strategy: markers and the picking highlight use `position: absolute`
  * anchored at *document* coordinates (viewport rect + scroll offset). They
@@ -20,17 +26,26 @@
  */
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
+export const INSPECTOR_COMMAND_EVENT = '__studio-inspector-command';
 
 export const INSPECTOR_PAGE_SCRIPT =
 	String.raw`
 ( () => {
 	if ( window.__studioInspectorMounted ) {
+		window.dispatchEvent(
+			new CustomEvent( '` +
+	INSPECTOR_COMMAND_EVENT +
+	String.raw`', { detail: { type: 'report-state' } } )
+		);
 		return;
 	}
 	window.__studioInspectorMounted = true;
 
 	const BRIDGE_PREFIX = '` +
 	INSPECTOR_BRIDGE_PREFIX +
+	String.raw`';
+	const COMMAND_EVENT = '` +
+	INSPECTOR_COMMAND_EVENT +
 	String.raw`';
 	const HOST_ID = '__studio-inspector-host';
 
@@ -193,35 +208,6 @@ export const INSPECTOR_PAGE_SCRIPT =
 		.popup .cancel:hover { background: rgba(255,255,255,0.08); }
 		.popup .save { background: #fff; color: #1a1a1a; }
 		.popup .save[disabled] { opacity: 0.4; cursor: default; }
-		.toolbar {
-			position: fixed; bottom: 1.25rem; right: 1.25rem;
-			display: flex; align-items: center; gap: 6px;
-			background: #1a1a1a; color: #fff; border-radius: 22px;
-			padding: 6px;
-			box-shadow: 0 2px 8px rgba(0,0,0,0.2), 0 4px 16px rgba(0,0,0,0.1);
-			pointer-events: auto;
-		}
-		.toolbar button {
-			height: 32px; padding: 0 12px;
-			background: transparent; color: #fff;
-			border: none; border-radius: 16px;
-			font: 600 12px/1 inherit; cursor: pointer;
-			white-space: nowrap;
-		}
-		.toolbar button:hover { background: rgba(255,255,255,0.1); }
-		.toolbar button.active { background: #2563eb; color: #fff; }
-		.toolbar button.active:hover { background: #2563eb; }
-		.toolbar button.primary { background: #fff; color: #1a1a1a; }
-		.toolbar button.primary:hover { background: #f0f0f0; }
-		.toolbar button.primary[disabled] {
-			opacity: 0.5; cursor: default; background: #fff;
-		}
-		.toolbar .count {
-			min-width: 22px; height: 22px; padding: 0 6px;
-			display: inline-flex; align-items: center; justify-content: center;
-			background: rgba(255,255,255,0.15); color: #fff;
-			border-radius: 11px; font: 600 11px/1 inherit;
-		}
 	` +
 	'`' +
 	String.raw`;
@@ -240,10 +226,17 @@ export const INSPECTOR_PAGE_SCRIPT =
 	const markerNodes = new Map(); /* id -> marker element */
 	let highlightNode = null;
 	let popupNode = null;
-	let toolbarNode = null;
 
 	function persistAnnotations() {
 		window.__studioInspectorState = annotations;
+	}
+
+	function sendState() {
+		send( {
+			type: 'state',
+			isPicking,
+			annotationCount: annotations.length,
+		} );
 	}
 
 	function syncMarkers() {
@@ -305,64 +298,50 @@ export const INSPECTOR_PAGE_SCRIPT =
 		}
 	}
 
-	function showToolbar() {
-		if ( toolbarNode ) {
-			toolbarNode.remove();
-			toolbarNode = null;
-		}
-		toolbarNode = document.createElement( 'div' );
-		toolbarNode.className = 'toolbar';
-
-		const pickBtn = document.createElement( 'button' );
-		pickBtn.textContent = isPicking ? 'Picking… click an element' : 'Annotate';
-		if ( isPicking ) pickBtn.className = 'active';
-		pickBtn.addEventListener( 'click', () => {
-			isPicking = ! isPicking;
-			if ( ! isPicking ) hoveredEl = null;
-			activePopup = null;
-			persistAnnotations();
-			render();
-		} );
-		toolbarNode.appendChild( pickBtn );
-
-		if ( annotations.length > 0 ) {
-			const count = document.createElement( 'span' );
-			count.className = 'count';
-			count.textContent = String( annotations.length );
-			count.title = annotations.length + ' annotation(s) pending';
-			toolbarNode.appendChild( count );
-		}
-
-		const submitBtn = document.createElement( 'button' );
-		submitBtn.className = 'primary';
-		submitBtn.textContent = 'Submit';
-		submitBtn.disabled = annotations.length === 0;
-		submitBtn.title =
-			annotations.length === 0
-				? 'Add at least one annotation first'
-				: 'Submit annotations to the agent';
-		submitBtn.addEventListener( 'click', () => {
-			if ( annotations.length === 0 ) return;
-			const sent = annotations.slice();
-			send( { type: 'done', annotations: sent } );
-			annotations = [];
-			activePopup = null;
-			isPicking = false;
-			hoveredEl = null;
-			persistAnnotations();
-			render();
-		} );
-		toolbarNode.appendChild( submitBtn );
-
-		root.appendChild( toolbarNode );
-	}
-
 	function render() {
 		syncMarkers();
 		showHighlight( hoveredEl );
 		showPopup();
-		showToolbar();
+		sendState();
 	}
+
+	function togglePicking() {
+		isPicking = ! isPicking;
+		if ( ! isPicking ) hoveredEl = null;
+		activePopup = null;
+		persistAnnotations();
+		render();
+	}
+
+	function submitAnnotations() {
+		if ( annotations.length === 0 ) {
+			sendState();
+			return;
+		}
+		const sent = annotations.slice();
+		send( { type: 'done', annotations: sent } );
+		annotations = [];
+		activePopup = null;
+		isPicking = false;
+		hoveredEl = null;
+		persistAnnotations();
+		render();
+	}
+
+	window.addEventListener( COMMAND_EVENT, ( event ) => {
+		const command = event.detail || {};
+		if ( command.type === 'toggle-picking' ) {
+			togglePicking();
+			return;
+		}
+		if ( command.type === 'submit' ) {
+			submitAnnotations();
+			return;
+		}
+		if ( command.type === 'report-state' ) {
+			sendState();
+		}
+	} );
 
 	function buildPopup( state ) {
 		const popup = document.createElement( 'div' );

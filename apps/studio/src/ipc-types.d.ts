@@ -98,7 +98,6 @@ type IpcApi = {
 };
 
 interface FeatureFlags {
-	enableBlueprints: boolean;
 	enableAgenticUi: boolean;
 	enableDesksUi: boolean;
 }

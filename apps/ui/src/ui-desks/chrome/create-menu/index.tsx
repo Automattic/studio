@@ -80,7 +80,9 @@ export function DeskCreateMenu() {
 	};
 
 	const openImportSite = () => {
-		void navigate( { to: '/onboarding/import', search: { step: 'select' } } );
+		// Importing starts from the onboarding home screen's drop card — the
+		// import route itself only configures a backup that's already picked.
+		void navigate( { to: '/onboarding' } );
 	};
 
 	return (

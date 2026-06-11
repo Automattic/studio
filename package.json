@@ -58,7 +58,7 @@
 		"download-language-packs": "tsx ./scripts/download-language-packs.ts",
 		"download-agent-skills": "tsx ./scripts/download-agent-skills.ts",
 		"download:php-binary": "tsx ./scripts/download-php-binary.ts",
-		"eval": "npm run cli:build --silent && npx promptfoo@0.121.4 eval -c eval/promptfoo.config.yaml",
+		"eval": "npm run cli:build --silent && npx promptfoo@0.121.4 eval -c scripts/eval/promptfoo.config.yaml",
 		"eval:view": "npx promptfoo@0.121.4 view"
 	},
 	"devDependencies": {

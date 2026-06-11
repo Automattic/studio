@@ -21,11 +21,11 @@ import {
 	visibleWidth,
 	truncateToWidth,
 	CURSOR_MARKER,
-} from '@mariozechner/pi-tui';
+} from '@earendil-works/pi-tui';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
-import { getToolDetail, getToolDisplayName } from '@studio/common/ai/tools';
+import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -39,8 +39,9 @@ import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
-import type { ToolResultMessage } from '@mariozechner/pi-ai';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import { formatTosNoticeLines } from 'cli/lib/tos-notice';
+import type { ToolResultMessage } from '@earendil-works/pi-ai';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 interface TodoWriteInput {
@@ -266,7 +267,7 @@ function formatToolName( name: string, input?: Record< string, unknown > ): stri
 	const displayName = chalk.bold( getToolDisplayName( name ) );
 	const detail = getToolDetail( name, input );
 	if ( detail ) {
-		return displayName + ' ' + chalk.dim( '(' + detail + ')' );
+		return displayName + ' ' + chalk.dim( detail );
 	}
 	return displayName;
 }
@@ -281,7 +282,23 @@ interface ToolUseResultContent {
 interface PendingTodoRender {
 	diff: TodoDiff;
 	toolLabel: string;
+	startedAtMs: number;
 	shouldRender: boolean;
+}
+
+interface ToolRenderState {
+	container: Container;
+	rowText: Text;
+	progressText: Text | null;
+	progressLines: string[];
+}
+
+interface PendingToolCall {
+	name: string;
+	input: Record< string, unknown >;
+	label: string;
+	startedAtMs: number;
+	render: ToolRenderState | null;
 }
 
 function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
@@ -321,11 +338,6 @@ export class AiChatUI implements AiOutputAdapter {
 	private usageCapReached = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
-	private toolStartTime: number | null = null;
-	private toolDotText: Text | null = null;
-	private toolDotTimer: ReturnType< typeof setInterval > | null = null;
-	private toolDotVisible = true;
-	private toolDotLabel = '';
 	private todoSnapshot: TodoEntry[] = [];
 	private latestTodoSnapshot: TodoEntry[] = [];
 	private lastRenderedTodoSignature: string | null = null;
@@ -338,10 +350,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
 	private replayMode = false;
 	private replayTimestampMs: number | null = null;
-	private pendingToolCalls = new Map<
-		string,
-		{ name: string; input: Record< string, unknown > }
-	>();
+	private pendingToolCalls = new Map< string, PendingToolCall >();
 	currentModel: AiModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 	private numTurns = 0;
@@ -414,6 +423,8 @@ export class AiChatUI implements AiOutputAdapter {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 	}
 
 	finishReplay(): void {
@@ -422,6 +433,8 @@ export class AiChatUI implements AiOutputAdapter {
 		this.hideLoader();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
+		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 	}
 
 	clearTranscript(): void {
@@ -948,7 +961,7 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'preview_create':
 			case 'preview_list':
 			case 'preview_update':
-			case 'validate_blocks': {
+			case 'validate_and_fix_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath );
@@ -1116,6 +1129,10 @@ export class AiChatUI implements AiOutputAdapter {
 
 	start(): void {
 		this.tui.start();
+		// Logger progress and daemon-status updates can request renders while
+		// the TUI is stopped for an external prompt. pi-tui leaves that request
+		// pending, so force a fresh render when resuming.
+		this.tui.requestRender( true );
 	}
 
 	showWelcome(): void {
@@ -1184,6 +1201,14 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
+	showTosNotice(): void {
+		const lines = formatTosNoticeLines().map( ( line ) =>
+			line ? ' ' + chalk.dim( line ) : line
+		);
+		this.messages.addChild( new Text( lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
 	set onInterrupt( fn: ( () => void ) | null ) {
 		this.interruptCallback = fn;
 		this.updateHints();
@@ -1219,8 +1244,6 @@ export class AiChatUI implements AiOutputAdapter {
 
 		this.interruptionNoticeShown = true;
 		this.hideLoader();
-		this.stopToolDotBlink();
-		this.toolDotText = null;
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
 
@@ -1278,18 +1301,26 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
-	private lastProgressText: Text | null = null;
+	private fallbackProgressText: Text | null = null;
 
 	setLoaderMessage( message: string, update?: boolean ): void {
 		if ( ! message ) {
 			return;
 		}
-		const formatted = '   ' + chalk.dim( '⎿ ' ) + chalk.dim( message );
-		if ( update && this.lastProgressText ) {
-			this.lastProgressText.setText( formatted );
+
+		const toolCall = this.getActiveProgressToolCall();
+		if ( toolCall ) {
+			this.addToolProgress( toolCall, message, update === true );
+			this.tui.requestRender();
+			return;
+		}
+
+		const formatted = formatToolOutputLines( [ chalk.dim( message ) ] );
+		if ( update && this.fallbackProgressText ) {
+			this.fallbackProgressText.setText( formatted );
 		} else {
-			this.lastProgressText = new Text( formatted, 0, 0 );
-			this.messages.addChild( this.lastProgressText );
+			this.fallbackProgressText = new Text( formatted, 0, 0 );
+			this.messages.addChild( this.fallbackProgressText );
 		}
 		this.tui.requestRender();
 	}
@@ -1323,7 +1354,7 @@ export class AiChatUI implements AiOutputAdapter {
 			this.loader.stop();
 			this.tui.removeChild( this.loader );
 			this.loaderVisible = false;
-			this.lastProgressText = null;
+			this.fallbackProgressText = null;
 			this.tui.requestRender();
 		}
 	}
@@ -1383,6 +1414,8 @@ export class AiChatUI implements AiOutputAdapter {
 		this.todoSnapshot = [];
 		this.latestTodoSnapshot = [];
 		this.lastRenderedTodoSignature = null;
+		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 		this.pendingTodoRenders.clear();
 		this.pendingTodoRenderOrder = [];
 	}
@@ -1395,11 +1428,10 @@ export class AiChatUI implements AiOutputAdapter {
 	 */
 	endAgentTurn(): void {
 		this.hideLoader();
-		this.stopToolDotBlink();
-		this.toolDotText = null;
 		this.interruptCallback = null;
 		this._inAgentTurn = false;
 		this.pendingToolCalls.clear();
+		this.fallbackProgressText = null;
 		this.updateHints();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
@@ -1436,6 +1468,10 @@ export class AiChatUI implements AiOutputAdapter {
 		const b = chalk.bold;
 		const d = chalk.dim;
 		const separator = d( ' ─'.padEnd( 80, '─' ) );
+		// Applies chalk.bold to any <b>…</b> tags in a translated string, then
+		// strips the tags. Translators can place <b> anywhere in the sentence.
+		const applyBold = ( str: string ) =>
+			str.replace( /<b>(.*?)<\/b>/g, ( _, text: string ) => b( text ) );
 
 		const lines = [
 			' ' +
@@ -1445,33 +1481,20 @@ export class AiChatUI implements AiOutputAdapter {
 			'',
 			'  ' + b( __( 'Local Sites Management' ) ),
 			'',
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
 			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Create" */
-					__( '%s new local WordPress sites instantly (fully configured, ready to use)' ),
-					b( __( 'Create' ) )
+				applyBold(
+					__( '<b>Create</b> new local WordPress sites instantly (fully configured, ready to use)' )
 				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Start / stop" */
-					__( '%s existing local sites' ),
-					b( __( 'Start / stop' ) )
-				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "List" */
-					__( '%s all your local sites and their status' ),
-					b( __( 'List' ) )
-				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Start / stop</b> existing local sites' ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>List</b> all your local sites and their status' ) ),
 			'',
 			'  ' + b( __( 'Design & Development' ) ),
 			'',
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Build" */
-					__( '%s block themes with striking, memorable designs' ),
-					b( __( 'Build' ) )
-				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Build</b> block themes with striking, memorable designs' ) ),
 			'  - ' +
 				sprintf(
 					/* translators: %s: bold "CSS, PHP, and JavaScript" */
@@ -1521,24 +1544,14 @@ export class AiChatUI implements AiOutputAdapter {
 					__( 'Take %s (desktop + mobile) to verify the design is well crafted' ),
 					b( __( 'screenshots' ) )
 				),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
 			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Validate" */
-					__( "%s all block content to ensure it's editor-compatible" ),
-					b( __( 'Validate' ) )
-				),
+				applyBold( __( "<b>Validate</b> all block content to ensure it's editor-compatible" ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
+			'  - ' + applyBold( __( '<b>Push</b> your local site to the cloud in WordPress.com' ) ),
+			/* translators: <b> and </b> wrap the action verb, which translators can move anywhere in the sentence */
 			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Push" */
-					__( '%s your local site to the cloud in WordPress.com' ),
-					b( __( 'Push' ) )
-				),
-			'  - ' +
-				sprintf(
-					/* translators: %s: bold "Generate preview sites" */
-					__( '%s with shareable URLs for quick feedback' ),
-					b( __( 'Generate preview sites' ) )
-				),
+				applyBold( __( '<b>Generate preview sites</b> with shareable URLs for quick feedback' ) ),
 			'',
 			separator,
 			'',
@@ -1614,7 +1627,11 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private showFilePreview( toolName: string, input: Record< string, unknown > ): void {
+	private showFilePreview(
+		toolName: string,
+		input: Record< string, unknown >,
+		target: Container = this.messages
+	): void {
 		let preview: { collapsed: string; expanded: string } | null = null;
 
 		if ( toolName === 'Write' && typeof input.content === 'string' ) {
@@ -1631,12 +1648,15 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		this.addExpandablePreview( preview );
+		this.addExpandablePreview( preview, target );
 	}
 
-	private addExpandablePreview( preview: { collapsed: string; expanded: string } ): void {
+	private addExpandablePreview(
+		preview: { collapsed: string; expanded: string },
+		target: Container = this.messages
+	): void {
 		const textComponent = new Text( preview.collapsed, 0, 0 );
-		this.messages.addChild( textComponent );
+		target.addChild( textComponent );
 
 		if ( preview.collapsed !== preview.expanded ) {
 			this.activeExpandablePreview = {
@@ -1670,6 +1690,23 @@ export class AiChatUI implements AiOutputAdapter {
 			);
 
 		return { collapsed, expanded };
+	}
+
+	private generateHiddenDetailsPreview(
+		text: string,
+		label: string,
+		maxLength = 4000
+	): { collapsed: string; expanded: string } {
+		const expandedText =
+			text.length > maxLength
+				? text.slice( 0, maxLength ) + '\n' + __( '... output truncated' )
+				: text;
+		return {
+			collapsed: formatToolOutputLines( [ chalk.dim( label ) ] ),
+			expanded: formatToolOutputLines(
+				expandedText.split( '\n' ).map( ( line ) => chalk.dim( line ) )
+			),
+		};
 	}
 
 	private generateWritePreview( content: string ): { collapsed: string; expanded: string } {
@@ -1717,50 +1754,12 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.requestRender();
 	}
 
-	private stopToolDotBlink(): void {
-		if ( this.toolDotTimer ) {
-			clearInterval( this.toolDotTimer );
-			this.toolDotTimer = null;
-		}
-		// Ensure the dot is visible when we stop
-		if ( this.toolDotText && ! this.toolDotVisible ) {
-			this.toolDotVisible = true;
-			this.toolDotText.setText( '\n ' + '⏺' + ' ' + this.toolDotLabel );
-		}
-	}
-
-	private showToolUse( toolLabel: string ): void {
-		this.showLoader( randomThinkingMessage() );
-		this.stopToolDotBlink();
-		this.lastProgressText = null;
-		this.toolDotLabel = toolLabel;
-		this.toolDotText = new Text( '\n ' + '⏺' + ' ' + toolLabel, 0, 0 );
-		this.messages.addChild( this.toolDotText );
-		this.toolDotVisible = true;
-		if ( this.replayMode ) {
-			this.tui.requestRender();
-			return;
-		}
-		this.toolDotTimer = setInterval( () => {
-			if ( ! this.toolDotText ) {
-				return;
-			}
-			this.toolDotVisible = ! this.toolDotVisible;
-			const dot = this.toolDotVisible ? '⏺' : ' ';
-			this.toolDotText.setText( '\n ' + dot + ' ' + toolLabel );
-			this.tui.requestRender();
-		}, 500 );
-	}
-
-	private getToolResultContent( result: ToolResultMessage ): ToolUseResultContent | null {
+	private getToolResultContent( result: ToolResultMessage ): ToolUseResultContent {
 		const blocks: Array< { type: string; text?: string } > = [];
 		for ( const block of result.content ) {
 			if ( block.type === 'text' && typeof block.text === 'string' ) {
 				blocks.push( { type: 'text', text: block.text } );
 			}
-		}
-		if ( blocks.length === 0 && ! result.isError ) {
-			return null;
 		}
 		return {
 			content: blocks.length > 0 ? blocks : undefined,
@@ -1768,26 +1767,93 @@ export class AiChatUI implements AiOutputAdapter {
 		};
 	}
 
-	private finalizeToolUseLine( isError: boolean, label: string ): void {
-		const elapsed = this.toolStartTime ? this.nowMs() - this.toolStartTime : 0;
-		this.toolStartTime = null;
+	private formatToolUseLine(
+		isError: boolean,
+		label: string,
+		startedAtMs: number | null = null
+	): string {
+		const elapsed = startedAtMs === null ? 0 : this.nowMs() - startedAtMs;
 		const elapsedSeconds = Math.max( elapsed, 0 ) / 1000;
 		const elapsedStr =
 			elapsed > 0 || this.replayMode ? chalk.dim( ` (${ elapsedSeconds.toFixed( 1 ) }s)` ) : '';
 		const statusIcon = isError ? chalk.red( '⏺' ) : '⏺';
 
-		if ( this.toolDotText ) {
-			this.toolDotText.setText( '\n ' + statusIcon + ' ' + label + elapsedStr );
-			this.toolDotText = null;
+		return '\n ' + statusIcon + ' ' + label + elapsedStr;
+	}
+
+	private renderToolUseLine(
+		isError: boolean,
+		label: string,
+		startedAtMs: number | null = null,
+		target: Container = this.messages
+	): Text {
+		const rowText = new Text( this.formatToolUseLine( isError, label, startedAtMs ), 0, 0 );
+		target.addChild( rowText );
+		return rowText;
+	}
+
+	private ensureToolRender( toolCall: PendingToolCall ): ToolRenderState {
+		if ( toolCall.render ) {
+			return toolCall.render;
+		}
+
+		const container = new Container();
+		const rowText = this.renderToolUseLine( false, toolCall.label, null, container );
+		toolCall.render = {
+			container,
+			rowText,
+			progressText: null,
+			progressLines: [],
+		};
+		this.messages.addChild( container );
+		return toolCall.render;
+	}
+
+	private finalizeToolRender( toolCall: PendingToolCall, isError: boolean ): ToolRenderState {
+		const render = this.ensureToolRender( toolCall );
+		render.rowText.setText(
+			this.formatToolUseLine( isError, toolCall.label, toolCall.startedAtMs )
+		);
+		return render;
+	}
+
+	private getActiveProgressToolCall(): PendingToolCall | null {
+		const toolCalls = Array.from( this.pendingToolCalls.values() );
+		for ( let i = toolCalls.length - 1; i >= 0; i-- ) {
+			const toolCall = toolCalls[ i ];
+			if ( toolCall.render ) {
+				return toolCall;
+			}
+		}
+		return null;
+	}
+
+	private addToolProgress( toolCall: PendingToolCall, message: string, update: boolean ): void {
+		const render = this.ensureToolRender( toolCall );
+		const lastLine = render.progressLines[ render.progressLines.length - 1 ];
+		if ( update && render.progressLines.length > 0 ) {
+			render.progressLines[ render.progressLines.length - 1 ] = message;
+		} else if ( lastLine !== message ) {
+			render.progressLines.push( message );
+		} else {
 			return;
 		}
 
-		if ( isError ) {
-			this.messages.addChild( new Text( '\n ' + statusIcon + ' ' + label + elapsedStr, 0, 0 ) );
+		const formatted = formatToolOutputLines(
+			render.progressLines.map( ( progressLine ) => chalk.dim( progressLine ) )
+		);
+		if ( render.progressText ) {
+			render.progressText.setText( formatted );
+		} else {
+			render.progressText = new Text( formatted, 0, 0 );
+			render.container.addChild( render.progressText );
 		}
 	}
 
-	private renderTodoUpdate( pendingTodoRender: PendingTodoRender ): void {
+	private renderTodoUpdate(
+		pendingTodoRender: PendingTodoRender,
+		target: Container = this.messages
+	): void {
 		const lines: TodoRenderLine[] = buildTodoUpdateLines( pendingTodoRender.diff.snapshot );
 		if ( lines.length === 0 ) {
 			return;
@@ -1795,7 +1861,7 @@ export class AiChatUI implements AiOutputAdapter {
 		const rendered = formatToolOutputLines(
 			lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) )
 		);
-		this.messages.addChild( new Text( rendered, 0, 0 ) );
+		target.addChild( new Text( rendered, 0, 0 ) );
 	}
 
 	private syncLatestTodoSnapshot(): void {
@@ -1816,31 +1882,11 @@ export class AiChatUI implements AiOutputAdapter {
 		return pendingTodoRender;
 	}
 
-	private consumeLatestPendingToolCall(): {
-		id: string;
-		name: string;
-		input: Record< string, unknown >;
-	} | null {
-		let latestPendingToolCall: {
-			id: string;
-			name: string;
-			input: Record< string, unknown >;
-		} | null = null;
-
-		for ( const [ id, toolCall ] of this.pendingToolCalls.entries() ) {
-			latestPendingToolCall = { id, ...toolCall };
-		}
-
-		if ( latestPendingToolCall ) {
-			this.pendingToolCalls.delete( latestPendingToolCall.id );
-		}
-
-		return latestPendingToolCall;
-	}
-
 	private renderToolResultText(
 		content: string | Array< { type: string; text?: string } >,
-		toolName?: string
+		toolCall?: PendingToolCall,
+		isError = false,
+		target: Container = this.messages
 	): void {
 		let text: string;
 		if ( typeof content === 'string' ) {
@@ -1855,32 +1901,58 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		const maxLength = toolName === 'validate_blocks' ? 2000 : 500;
+		const toolName = toolCall?.name;
+		const preview = getToolResultPreview( toolName, toolCall?.input, text, isError );
+		if ( preview ) {
+			target.addChild(
+				new Text(
+					formatToolOutputLines(
+						preview.summaryLines.map( ( line ) =>
+							isError ? chalk.red( line ) : chalk.dim( line )
+						)
+					),
+					0,
+					0
+				)
+			);
+			if ( preview.detailText ) {
+				this.addExpandablePreview(
+					this.generateHiddenDetailsPreview(
+						preview.detailText,
+						preview.detailLabel ?? __( 'Full output hidden · ctrl+o to expand' ),
+						preview.detailMaxLength
+					),
+					target
+				);
+			}
+			return;
+		}
+
+		const maxLength =
+			toolName === 'validate_html_blocks' || toolName === 'validate_and_fix_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
 		this.addExpandablePreview(
-			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) )
+			this.generateExpandablePreview( resultLines.map( ( line ) => chalk.dim( line ) ) ),
+			target
 		);
 	}
 
-	// Render a batch of tool results (turn-end boundary live, full
-	// turn replay on resume). Pi already routes individual
-	// `tool_execution_end` events, but the turn-end batch is the
-	// canonical post-tool boundary — closing the markdown block here
-	// mirrors the old `'user'` branch behavior.
+	// Finalize tool rows created at message_end and append each result inside
+	// its matching tool container.
 	renderToolResults( results: readonly ToolResultMessage[] ): void {
 		for ( const toolResult of results ) {
 			const toolCallId = toolResult.toolCallId;
 			const toolCall = this.pendingToolCalls.get( toolCallId );
+			if ( this.pendingTodoRenders.has( toolCallId ) ) {
+				this.showTodoToolResult( toolResult, toolCallId, toolCall );
+			} else if ( this.pendingTodoRenderOrder.length > 0 && toolCall?.name === 'TodoWrite' ) {
+				this.showTodoToolResult( toolResult, this.pendingTodoRenderOrder[ 0 ], toolCall );
+			} else {
+				this.showToolResult( toolResult, toolCall );
+			}
 			if ( toolCall ) {
 				this.pendingToolCalls.delete( toolCallId );
-			}
-			if ( this.pendingTodoRenders.has( toolCallId ) ) {
-				this.showTodoToolResult( toolResult, toolCallId );
-			} else if ( this.pendingTodoRenderOrder.length > 0 && toolCall?.name === 'TodoWrite' ) {
-				this.showTodoToolResult( toolResult, this.pendingTodoRenderOrder[ 0 ] );
-			} else {
-				this.showToolResult( toolResult, toolCall?.name, toolCall?.input );
 			}
 		}
 		if ( results.length > 0 ) {
@@ -1889,55 +1961,57 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private showToolResult(
-		result: ToolResultMessage,
-		toolName?: string,
-		toolInput?: Record< string, unknown > | null
-	): void {
-		this.stopToolDotBlink();
+	private showToolResult( result: ToolResultMessage, toolCall?: PendingToolCall ): void {
 		const typedResult = this.getToolResultContent( result );
-		if ( ! typedResult ) {
-			this.toolDotText = null;
-			return;
-		}
 		const isError = typedResult.isError === true;
+		const label = toolCall?.label ?? chalk.bold( __( 'Tool' ) );
+		const target = toolCall
+			? this.finalizeToolRender( toolCall, isError ).container
+			: this.messages;
 
 		// Auto-select the site that was operated on
-		if ( ! isError && toolName && toolInput ) {
-			void this.autoSelectSiteFromToolResult( toolName, toolInput );
+		if ( ! isError && toolCall ) {
+			void this.autoSelectSiteFromToolResult( toolCall.name, toolCall.input );
 		}
 
-		const label = this.toolDotLabel;
-
-		this.finalizeToolUseLine( isError, label );
+		if ( ! toolCall ) {
+			this.renderToolUseLine( isError, label, null, target );
+		}
+		if ( toolCall && ( toolCall.name === 'Write' || toolCall.name === 'Edit' ) ) {
+			this.showFilePreview( toolCall.name, toolCall.input, target );
+		}
 
 		const content = typedResult.content;
 		if ( content === undefined ) {
 			this.tui.requestRender();
 			return;
 		}
-		this.renderToolResultText( content, toolName );
+		this.renderToolResultText( content, toolCall, isError, target );
 		this.tui.requestRender();
 	}
 
-	private showTodoToolResult( result: ToolResultMessage, toolUseId: string ): void {
-		this.stopToolDotBlink();
+	private showTodoToolResult(
+		result: ToolResultMessage,
+		toolUseId: string,
+		toolCall?: PendingToolCall
+	): void {
 		const typedResult = this.getToolResultContent( result );
 		const pendingTodoRender = this.consumePendingTodoRender( toolUseId );
 
-		if ( ! typedResult || ! pendingTodoRender ) {
-			this.toolDotText = null;
+		if ( ! pendingTodoRender ) {
 			return;
 		}
 
 		const isError = typedResult.isError === true;
 
 		if ( isError ) {
-			// Errors always finalize the tool-use line (showToolUse may or may not have been called)
-			this.finalizeToolUseLine( true, pendingTodoRender.toolLabel );
+			const target = toolCall ? this.finalizeToolRender( toolCall, true ).container : this.messages;
+			if ( ! toolCall ) {
+				this.renderToolUseLine( true, pendingTodoRender.toolLabel, pendingTodoRender.startedAtMs );
+			}
 			this.syncLatestTodoSnapshot();
 			if ( typedResult.content !== undefined ) {
-				this.renderToolResultText( typedResult.content, 'TodoWrite' );
+				this.renderToolResultText( typedResult.content, toolCall, true, target );
 			}
 			this.tui.requestRender();
 			return;
@@ -1947,14 +2021,16 @@ export class AiChatUI implements AiOutputAdapter {
 		this.syncLatestTodoSnapshot();
 
 		if ( ! pendingTodoRender.shouldRender ) {
-			// No showToolUse was called for suppressed renders, so don't touch toolStartTime
 			this.tui.requestRender();
 			return;
 		}
 
-		this.finalizeToolUseLine( false, pendingTodoRender.toolLabel );
+		const target = toolCall ? this.finalizeToolRender( toolCall, false ).container : this.messages;
+		if ( ! toolCall ) {
+			this.renderToolUseLine( false, pendingTodoRender.toolLabel, pendingTodoRender.startedAtMs );
+		}
 		this.lastRenderedTodoSignature = pendingTodoRender.diff.signature;
-		this.renderTodoUpdate( pendingTodoRender );
+		this.renderTodoUpdate( pendingTodoRender, target );
 		this.tui.requestRender();
 	}
 
@@ -2115,10 +2191,16 @@ export class AiChatUI implements AiOutputAdapter {
 						);
 						this.tui.requestRender();
 					} else if ( block.type === 'toolCall' ) {
-						this.toolStartTime = this.nowMs();
+						const startedAtMs = this.nowMs();
 						const input = ( block.arguments ?? {} ) as Record< string, unknown >;
-						this.pendingToolCalls.set( block.id, { name: block.name, input } );
 						const toolLabel = formatToolName( block.name, input );
+						const toolCall: PendingToolCall = {
+							name: block.name,
+							input,
+							label: toolLabel,
+							startedAtMs,
+							render: null,
+						};
 						if ( block.name === 'TodoWrite' && isTodoWriteInput( input ) ) {
 							const diff = diffTodoSnapshot( this.latestTodoSnapshot, input.todos );
 							const shouldRender =
@@ -2126,19 +2208,18 @@ export class AiChatUI implements AiOutputAdapter {
 							this.pendingTodoRenders.set( block.id, {
 								diff,
 								toolLabel,
+								startedAtMs,
 								shouldRender,
 							} );
 							this.pendingTodoRenderOrder.push( block.id );
 							this.latestTodoSnapshot = diff.snapshot;
 							if ( shouldRender ) {
-								this.showToolUse( toolLabel );
+								this.ensureToolRender( toolCall );
 							}
 						} else {
-							this.showToolUse( toolLabel );
+							this.ensureToolRender( toolCall );
 						}
-						if ( ( block.name === 'Write' || block.name === 'Edit' ) && input ) {
-							this.showFilePreview( block.name, input );
-						}
+						this.pendingToolCalls.set( block.id, toolCall );
 					}
 				}
 				if ( ! this.replayMode && ! this.loaderVisible ) {

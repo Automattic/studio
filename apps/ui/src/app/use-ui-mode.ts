@@ -1,61 +1,51 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 export type UiMode = 'classic' | 'desks';
 
-const UI_MODE_STORAGE_KEY = 'studio.uiMode';
+const STUDIO_UI_MODE_PARAM = 'studio-ui-mode';
+const DEFAULT_UI_MODE: UiMode = 'desks';
 
-function isUiMode( value: string | null ): value is UiMode {
-	return value === 'classic' || value === 'desks';
-}
-
-function readStoredUiMode(): UiMode {
+function readLaunchUiMode(): UiMode | undefined {
 	if ( typeof window === 'undefined' ) {
-		return 'classic';
+		return undefined;
 	}
 
 	try {
-		const storedMode = window.localStorage.getItem( UI_MODE_STORAGE_KEY );
-		return isUiMode( storedMode ) ? storedMode : 'classic';
+		const mode = new URLSearchParams( window.location.search ).get( STUDIO_UI_MODE_PARAM );
+		if ( mode === 'desks' ) {
+			return 'desks';
+		}
+		if ( mode === 'agentic' ) {
+			return 'classic';
+		}
 	} catch {
-		return 'classic';
+		return undefined;
 	}
 }
 
-function writeStoredUiMode( mode: UiMode ) {
-	try {
-		window.localStorage.setItem( UI_MODE_STORAGE_KEY, mode );
-	} catch {
-		// Local storage is best-effort; the in-memory mode switch still works.
-	}
+function readInitialUiMode(): UiMode {
+	return readLaunchUiMode() ?? DEFAULT_UI_MODE;
 }
 
-function resetRouteAndReload() {
+function resetRoute() {
 	if ( typeof window === 'undefined' ) {
+		return;
+	}
+
+	if ( window.location.protocol === 'file:' ) {
+		if ( window.location.hash !== '#/' ) {
+			window.history.replaceState( window.history.state, '', '#/' );
+		}
 		return;
 	}
 
 	if ( window.location.pathname !== '/' || window.location.search || window.location.hash ) {
 		window.history.replaceState( window.history.state, '', '/' );
 	}
-
-	window.location.reload();
-}
-
-function isEditableTarget( target: EventTarget | null ) {
-	if ( ! ( target instanceof HTMLElement ) ) {
-		return false;
-	}
-
-	return (
-		target.isContentEditable ||
-		target instanceof HTMLInputElement ||
-		target instanceof HTMLTextAreaElement ||
-		target instanceof HTMLSelectElement
-	);
 }
 
 export function useUiMode() {
-	const [ mode, setModeState ] = useState< UiMode >( readStoredUiMode );
+	const [ mode, setModeState ] = useState< UiMode >( readInitialUiMode );
 
 	const setMode = useCallback(
 		( nextMode: UiMode ) => {
@@ -64,31 +54,10 @@ export function useUiMode() {
 			}
 
 			setModeState( nextMode );
-			writeStoredUiMode( nextMode );
-			resetRouteAndReload();
+			resetRoute();
 		},
 		[ mode ]
 	);
-
-	useEffect( () => {
-		function handleKeyDown( event: KeyboardEvent ) {
-			if (
-				event.defaultPrevented ||
-				isEditableTarget( event.target ) ||
-				event.key.toLowerCase() !== 'd' ||
-				! event.shiftKey ||
-				! ( event.metaKey || event.ctrlKey )
-			) {
-				return;
-			}
-
-			event.preventDefault();
-			setMode( mode === 'classic' ? 'desks' : 'classic' );
-		}
-
-		window.addEventListener( 'keydown', handleKeyDown );
-		return () => window.removeEventListener( 'keydown', handleKeyDown );
-	}, [ mode, setMode ] );
 
 	return { mode, setMode };
 }

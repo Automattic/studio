@@ -16,7 +16,7 @@
  * compatibility with other MCP servers that may be wrapped through this
  * package in the future.
  */
-import type { ImageContent, TextContent } from '@mariozechner/pi-ai';
+import type { ImageContent, TextContent } from '@earendil-works/pi-ai';
 
 /**
  * The subset of the MCP `ContentBlock` discriminated union that the bridge

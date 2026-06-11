@@ -103,6 +103,13 @@ const childMessageActivity = z.object( {
 	topic: z.literal( 'activity' ),
 } );
 
+const childMessageServerProcessStarted = z.object( {
+	topic: z.literal( 'server-process-started' ),
+	data: z.object( {
+		pid: z.number(),
+	} ),
+} );
+
 const childMessageResult = z.object( {
 	originalMessageId: z.string(),
 	topic: z.literal( 'result' ),
@@ -164,6 +171,7 @@ const childMessageSiteStopped = z.object( {
 const childMessageRaw = z.discriminatedUnion( 'topic', [
 	childMessageReady,
 	childMessageActivity,
+	childMessageServerProcessStarted,
 	childMessageResult,
 	childMessageError,
 	childMessageConsole,

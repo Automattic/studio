@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { resolveActiveSiteFromEntries } from '../active-site';
 import { deriveEffectiveEnvironment } from '../effective-site';
 import { appendStudioEntry, createAiSession, loadAiSession } from '../store';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 describe( 'site.selected — environment flips', () => {
 	let rootDirectory: string | undefined;
@@ -43,7 +43,7 @@ describe( 'site.selected — environment flips', () => {
 		const { summary } = await loadAiSession( rootDirectory, created.id );
 		expect( summary.activeEnvironment ).toBe( 'live' );
 		expect( summary.lastSelectedWpcomSiteId ).toBe( 42 );
-		expect( summary.ownerSitePath ).toBe( '/tmp/my-site' );
+		expect( summary.ownerSitePath ).toBeUndefined();
 	} );
 
 	it( 'resolver preserves owner name/path when flipping to live', () => {

@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { update } from '@wordpress/icons';
-import { LoadingWidgetComponent } from './component';
+import { LoadingWidgetComponent, LoadingWidgetThumbnailComponent } from './component';
 import { isLoadingWidgetProps, LOADING_WIDGET_TYPE, type LoadingWidget } from './types';
 import type { WidgetDefinition } from '@/ui-desks/widgets/types';
 
@@ -8,6 +8,7 @@ export const loadingWidgetDefinition = {
 	type: LOADING_WIDGET_TYPE,
 	name: () => __( 'Loading' ),
 	Component: LoadingWidgetComponent,
+	thumbnail: LoadingWidgetThumbnailComponent,
 	isCreatable: false,
 	isWidgetProps: isLoadingWidgetProps,
 	labels: {

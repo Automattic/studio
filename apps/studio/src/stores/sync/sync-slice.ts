@@ -1,5 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { TreeNode } from 'src/components/tree-view';
+import { userLoggedOut } from 'src/stores/auth-actions';
 import { fetchRemoteFileTree } from './sync-api';
 
 type RemoteFileTreeState = {
@@ -33,6 +34,7 @@ const syncSlice = createSlice( {
 	},
 	extraReducers: ( builder ) => {
 		builder
+			.addCase( userLoggedOut, () => initialState )
 			.addCase( fetchRemoteFileTree.pending, ( state ) => {
 				state.remoteFileTrees.loading = true;
 				state.remoteFileTrees.error = null;

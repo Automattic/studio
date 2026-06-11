@@ -1,4 +1,4 @@
-import { SessionManager } from '@mariozechner/pi-coding-agent';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runStudioAgentTurn, type StudioAgentTurnConfig } from 'cli/ai/runtimes/pi';
 import type {
@@ -6,7 +6,7 @@ import type {
 	CreateAgentSessionOptions,
 	DefaultResourceLoader as DefaultResourceLoaderType,
 	ExtensionFactory,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 
 type DefaultResourceLoaderOptions = ConstructorParameters< typeof DefaultResourceLoaderType >[ 0 ];
 
@@ -35,8 +35,8 @@ vi.mock( '@studio/dla', async ( importOriginal ) => {
 	};
 } );
 
-vi.mock( '@mariozechner/pi-coding-agent', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@mariozechner/pi-coding-agent') >();
+vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@earendil-works/pi-coding-agent') >();
 	const stub = ( name: string ) => ( {
 		name,
 		label: name,
@@ -81,7 +81,7 @@ class FakeSession {
 	}
 
 	async prompt(): Promise< void > {
-		this.listener?.( { type: 'agent_end', messages: [] } );
+		this.listener?.( { type: 'agent_end', messages: [], willRetry: false } );
 	}
 
 	async abort(): Promise< void > {

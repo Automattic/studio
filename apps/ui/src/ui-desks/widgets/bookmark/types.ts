@@ -1,5 +1,5 @@
-import { normalizeHttpUrl } from '@/ui-desks/widgets/url';
-import type { RectangleWidgetShapeProps } from '@/ui-desks/widgets/geometry';
+import { normalizeHttpUrl } from '@/ui-desks/widget-actions/url';
+import type { RectangleWidgetShapeProps } from '@/ui-desks/widget-actions/geometry';
 import type { DeskWidgetBase } from '@studio/common/types/desk';
 
 export const BOOKMARK_WIDGET_TYPE = 'bookmark';

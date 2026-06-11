@@ -1,14 +1,13 @@
 {
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"module": "ESNext",
-		"moduleResolution": "Bundler",
-		"baseUrl": "../..",
+		"module": "es2022",
+		"moduleResolution": "bundler",
 		"paths": {
-			"cli/*": [ "apps/cli/*" ],
-			"@studio/common/*": [ "tools/common/*" ],
-			"@studio/dla": [ "tools/dla/index.ts" ],
-			"@studio/dla/*": [ "tools/dla/*" ]
+			"cli/*": [ "./*" ],
+			"@studio/common/*": [ "../../tools/common/*" ],
+			"@studio/dla": [ "../../tools/dla/index.ts" ],
+			"@studio/dla/*": [ "../../tools/dla/*" ]
 		}
 	},
 	"include": [ "**/*" ],
@@ -17,6 +16,6 @@
 		"**/node_modules/**/*",
 		"**/dist/**/*",
 		"**/out/**/*",
-		"vitest.config.ts"
+		"./vitest.config.ts"
 	]
 }

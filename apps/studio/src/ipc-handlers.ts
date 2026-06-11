@@ -18,6 +18,8 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
+import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
@@ -34,6 +36,10 @@ import {
 	removeSkillFromSite,
 	updateManagedInstructionFiles,
 } from '@studio/common/lib/agent-skills';
+import {
+	downloadAndExtractBlueprintBundle,
+	removeBlueprintTempDir,
+} from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
@@ -53,6 +59,14 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import {
+	getDaemonStatus,
+	DaemonStartTimeoutError,
+	toRemoteSessionStatus,
+	type RemoteSessionStatus,
+	type StartDaemonResult,
+	type StopDaemonResult,
+} from '@studio/common/lib/remote-session';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -74,16 +88,31 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import {
+	deleteAiSessionPlacement,
+	hydrateAiSessionSummaryWithPlacement,
+	readAiSessionPlacement,
+	readAiSessionPlacements,
+	setAiSessionSitePlacement,
+} from 'src/lib/ai-session-placement';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
-import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
+import {
+	bumpAggregatedUniqueStat,
+	bumpStat,
+	getBlueprintMetric,
+	getPlatformMetric,
+	StatsGroup,
+} from 'src/lib/bump-stats';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
-import { download } from 'src/lib/download';
-import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
+import {
+	extractErrorFromProcessManagerLogs,
+	simplifyErrorForDisplay,
+} from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
@@ -111,8 +140,14 @@ import {
 	removeSkillById,
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
-import { answerAgentRun, interruptAgentRun, startAgentRun } from 'src/modules/ai-agent/run-manager';
+import {
+	answerAgentRun,
+	interruptAgentRun,
+	listActiveAgentRuns,
+	startAgentRun,
+} from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -137,6 +172,9 @@ import {
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
+import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
@@ -195,21 +233,16 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
 export {
+	exportDeskConfig,
 	getDeskSettings,
 	getSiteDeskConfig,
 	getUserDeskConfig,
+	importDeskConfig,
 	saveDeskSettings,
 	saveSiteDeskConfig,
 	saveUserDeskConfig,
 } from 'src/modules/desks/lib/ipc-handlers';
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
-
-export {
-	studioCodeSendMessage,
-	studioCodeRespondToPermission,
-	studioCodeAbort,
-	studioCodeCheckProvider,
-} from 'src/modules/studio-code/ipc-handlers';
 
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
@@ -223,12 +256,16 @@ function hydrateAiSessionSummary(
 }
 
 async function listHydratedAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
-	const [ sessions, sessionMetadata ] = await Promise.all( [
+	const [ sessions, sessionMetadata, placements ] = await Promise.all( [
 		listAiSessionsFromStore( rootDirectory ),
 		readSharedSessions(),
+		readAiSessionPlacements(),
 	] );
 	return sessions.map( ( session ) =>
-		hydrateAiSessionSummary( session, sessionMetadata[ session.id ] )
+		hydrateAiSessionSummary(
+			hydrateAiSessionSummaryWithPlacement( session, placements[ session.id ] ),
+			sessionMetadata[ session.id ]
+		)
 	);
 }
 
@@ -237,10 +274,16 @@ async function loadHydratedAiSession(
 	sessionIdOrPrefix: string
 ): Promise< LoadedAiSession > {
 	const session = await loadAiSessionFromStore( rootDirectory, sessionIdOrPrefix );
-	const metadata = await readSharedSession( session.summary.id );
+	const [ metadata, placement ] = await Promise.all( [
+		readSharedSession( session.summary.id ),
+		readAiSessionPlacement( session.summary.id ),
+	] );
 	return {
 		...session,
-		summary: hydrateAiSessionSummary( session.summary, metadata ),
+		summary: hydrateAiSessionSummary(
+			hydrateAiSessionSummaryWithPlacement( session.summary, placement ),
+			metadata
+		),
 	};
 }
 
@@ -261,6 +304,7 @@ export async function deleteAiSession(
 ): Promise< AiSessionSummary > {
 	const deleted = await deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
 	await deleteSharedSession( deleted.id );
+	await deleteAiSessionPlacement( deleted.id );
 	return deleted;
 }
 
@@ -305,14 +349,23 @@ export async function createAiSession(
 		return emptyForSite;
 	}
 
-	return hydrateAiSessionSummary(
-		await createAiSessionInStore( sitesRoot, {
-			site: {
-				name: server.details.name,
-				path: sitePath,
-			},
-		} )
-	);
+	const created = await createAiSessionInStore( sitesRoot, {
+		site: {
+			name: server.details.name,
+			path: sitePath,
+		},
+	} );
+	await setAiSessionSitePlacement( created.id, {
+		siteId: server.details.id,
+		siteName: server.details.name,
+		sitePath,
+	} );
+	return hydrateAiSessionSummaryWithPlacement( created, {
+		kind: 'site',
+		siteId: server.details.id,
+		siteName: server.details.name,
+		sitePath,
+	} );
 }
 
 export async function updateAiSessionMetadata(
@@ -324,8 +377,14 @@ export async function updateAiSessionMetadata(
 		getAiSessionsRootDirectory(),
 		sessionIdOrPrefix
 	);
-	const metadata = await updateSharedSession( summary.id, patch );
-	return hydrateAiSessionSummary( summary, metadata );
+	const [ metadata, placement ] = await Promise.all( [
+		updateSharedSession( summary.id, patch ),
+		readAiSessionPlacement( summary.id ),
+	] );
+	return hydrateAiSessionSummary(
+		hydrateAiSessionSummaryWithPlacement( summary, placement ),
+		metadata
+	);
 }
 
 /**
@@ -341,7 +400,7 @@ export async function updateAiSessionMetadata(
  */
 async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promise< void > {
 	const root = getAiSessionsRootDirectory();
-	const { summary } = await loadAiSessionFromStore( root, sessionId );
+	const { summary } = await loadHydratedAiSession( root, sessionId );
 
 	if ( summary.activeEnvironment !== 'live' ) {
 		return;
@@ -391,15 +450,33 @@ export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
 	prompt: string,
-	options: { displayMessage?: string } = {}
+	options: {
+		displayMessage?: string;
+		images?: StudioChatImage[];
+		files?: StudioChatFileAttachment[];
+	} = {}
 ): Promise< { runId: string } > {
+	if ( ! ( await oauthClient.isAuthenticated() ) ) {
+		throw new Error( __( 'WordPress.com login required. Log in to use Studio Desk chat.' ) );
+	}
+
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
+	const images = validateStudioChatImages( options.images );
+	const files = validateStudioChatFiles( options.files );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		displayMessage: options.displayMessage,
+		images,
+		files,
 		webContents: event.sender,
 	} );
+}
+
+export async function listActiveAiAgentRuns(
+	_event: IpcMainInvokeEvent
+): Promise< ActiveAgentRun[] > {
+	return listActiveAgentRuns();
 }
 
 export async function setAiSessionModel(
@@ -434,7 +511,7 @@ export async function setSessionEnvironment(
 	sessionId: string,
 	environment: 'local' | 'live'
 ): Promise< SetSessionEnvironmentResult > {
-	const { summary } = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+	const { summary } = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
 
 	if ( ! summary.ownerSitePath || ! summary.ownerSiteName ) {
 		throw new Error( 'Cannot change environment: session has no owner site' );
@@ -459,24 +536,20 @@ export async function setSessionEnvironment(
 
 		await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
 			siteName: liveSite.name,
-			// Keep the owner's path on remote picks too, so the renderer
-			// (which groups the sidebar by `ownerSitePath`) still resolves
-			// the session to its owner while the active environment is live.
+			// Keep the desktop placement path on remote picks too, so live/local
+			// environment flips still resolve against the same local site.
 			sitePath: summary.ownerSitePath,
 			remote: true,
 			url: liveSite.url,
 			wpcomSiteId: liveSite.id,
 		} );
 
-		const refreshed = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+		const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
 		return {
 			environment: 'live',
 			url: liveSite.url,
 			wpcomSiteId: liveSite.id,
-			summary: hydrateAiSessionSummary(
-				refreshed.summary,
-				await readSharedSession( refreshed.summary.id )
-			),
+			summary: refreshed.summary,
 		};
 	}
 
@@ -487,13 +560,10 @@ export async function setSessionEnvironment(
 		url: 'url' in details ? details.url : undefined,
 	} );
 
-	const refreshed = await loadAiSessionFromStore( getAiSessionsRootDirectory(), sessionId );
+	const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
 	return {
 		environment: 'local',
-		summary: hydrateAiSessionSummary(
-			refreshed.summary,
-			await readSharedSession( refreshed.summary.id )
-		),
+		summary: refreshed.summary,
 	};
 }
 
@@ -673,14 +743,28 @@ function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 
+function findMostRecentLog( logsDir: string, prefix: string, suffix: string ): string | undefined {
+	try {
+		const files = fs.readdirSync( logsDir );
+		const matching = files
+			.filter( ( f ) => f.startsWith( prefix ) && f.endsWith( suffix ) )
+			.sort()
+			.reverse();
+		return matching.length > 0 ? nodePath.join( logsDir, matching[ 0 ] ) : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
 	const logsDir = nodePath.join( PROCESS_MANAGER_HOME, 'logs' );
-	const stdoutPath = nodePath.join( logsDir, `studio-site-${ siteId }-out.log` );
-	const stderrPath = nodePath.join( logsDir, `studio-site-${ siteId }-error.log` );
+	const prefix = `studio-site-${ siteId }`;
+	const stdoutPath = findMostRecentLog( logsDir, `${ prefix }-out-`, '.log' );
+	const stderrPath = findMostRecentLog( logsDir, `${ prefix }-error-`, '.log' );
 
 	return {
-		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
-		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
+		stdout: stdoutPath ? readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ) : undefined,
+		stderr: stderrPath ? readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ) : undefined,
 	};
 }
 
@@ -832,6 +916,14 @@ export async function createSite(
 			},
 			contexts,
 		} );
+
+		// If the error message is generic, try to surface a more useful message from
+		// the process manager logs. The detailed error is often captured in stdout
+		// (e.g. blueprint execution errors logged by playground-cli).
+		const logErrorMessage = extractErrorFromProcessManagerLogs( processManagerLogs );
+		if ( logErrorMessage ) {
+			throw new Error( logErrorMessage );
+		}
 
 		throw error;
 	} finally {
@@ -1329,6 +1421,61 @@ export async function openLocalPath( _event: IpcMainInvokeEvent, path: string ) 
 
 export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
+}
+
+export async function readLocalMediaFile(
+	_event: IpcMainInvokeEvent,
+	path: string
+): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
+	const stats = await fsPromises.stat( path );
+	if ( ! stats.isFile() ) {
+		throw new Error( 'Local media path must be a file.' );
+	}
+
+	const mimeType = getLocalMediaMimeType( path );
+	if ( ! mimeType ) {
+		throw new Error( 'Local media file type is not supported.' );
+	}
+
+	const buffer = await fsPromises.readFile( path );
+	return {
+		name: nodePath.basename( path ),
+		mimeType,
+		data: buffer.buffer.slice(
+			buffer.byteOffset,
+			buffer.byteOffset + buffer.byteLength
+		) as ArrayBuffer,
+	};
+}
+
+function getLocalMediaMimeType( path: string ) {
+	const extension = nodePath.extname( path ).toLowerCase().slice( 1 );
+	const mimeTypes: Record< string, string > = {
+		avif: 'image/avif',
+		avi: 'video/x-msvideo',
+		bmp: 'image/bmp',
+		gif: 'image/gif',
+		heic: 'image/heic',
+		heif: 'image/heif',
+		ico: 'image/x-icon',
+		jpeg: 'image/jpeg',
+		jpg: 'image/jpeg',
+		m4v: 'video/x-m4v',
+		mkv: 'video/x-matroska',
+		mov: 'video/quicktime',
+		mp4: 'video/mp4',
+		mpeg: 'video/mpeg',
+		mpg: 'video/mpeg',
+		ogv: 'video/ogg',
+		png: 'image/png',
+		svg: 'image/svg+xml',
+		tif: 'image/tiff',
+		tiff: 'image/tiff',
+		webm: 'video/webm',
+		webp: 'image/webp',
+	};
+
+	return mimeTypes[ extension ] ?? '';
 }
 
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
@@ -1977,7 +2124,7 @@ export function showSiteContextMenu(
 
 	menu.append(
 		new MenuItem( {
-			label: __( 'Copy site…' ),
+			label: __( 'Duplicate site…' ),
 			enabled: ! isLoading && ! isAnySiteAdding,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
@@ -2124,59 +2271,6 @@ export async function listLocalFileTree(
 	}
 }
 
-/**
- * Downloads a blueprint bundle zip from a URL, extracts it to a temp directory,
- * and returns the path to the extracted blueprint.json.
- * Used for API blueprints that reference bundled resources (e.g. theme zips, WXR files).
- */
-async function downloadAndExtractBlueprintBundle( bundleUrl: string ): Promise< {
-	blueprintJsonPath: string;
-	tempDir: string;
-} > {
-	const tempDir = await fsPromises.mkdtemp(
-		nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' )
-	);
-	const tempZipPath = nodePath.join( tempDir, 'bundle.zip' );
-
-	try {
-		await download( bundleUrl, tempZipPath );
-		await extractZip( tempZipPath, tempDir );
-		await fsPromises.unlink( tempZipPath ).catch( () => {} );
-
-		// Find blueprint.json in the extracted contents
-		let blueprintJsonPath = nodePath.join( tempDir, 'blueprint.json' );
-		try {
-			await fsPromises.access( blueprintJsonPath );
-		} catch {
-			// Some zips have a single root directory — check one level deeper
-			const files = await fsPromises.readdir( tempDir );
-			for ( const file of files ) {
-				const nestedPath = nodePath.join( tempDir, file, 'blueprint.json' );
-				try {
-					await fsPromises.access( nestedPath );
-					blueprintJsonPath = nestedPath;
-					break;
-				} catch {
-					// continue checking
-				}
-			}
-		}
-
-		try {
-			await fsPromises.access( blueprintJsonPath );
-		} catch {
-			throw new Error(
-				'No blueprint.json found in the downloaded bundle. Ensure the bundle zip contains a blueprint.json.'
-			);
-		}
-
-		return { blueprintJsonPath, tempDir };
-	} catch ( error ) {
-		await fsPromises.rm( tempDir, { recursive: true, force: true } ).catch( () => {} );
-		throw error;
-	}
-}
-
 export async function validateBlueprint(
 	_event: IpcMainInvokeEvent,
 	blueprintJson: Blueprint[ 'blueprint' ]
@@ -2235,15 +2329,6 @@ export async function extractBlueprintBundle(
 		await fsPromises.rm( tempDir, { recursive: true, force: true } );
 		throw error;
 	}
-}
-
-async function removeBlueprintTempDir( tempDir: string ): Promise< void > {
-	const allowedPrefix = nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' );
-	const resolvedDir = nodePath.resolve( tempDir );
-	if ( ! resolvedDir.startsWith( allowedPrefix ) ) {
-		throw new Error( 'Invalid temp directory path' );
-	}
-	await fsPromises.rm( resolvedDir, { recursive: true, force: true } );
 }
 
 export async function cleanupBlueprintTempDir(
@@ -2319,4 +2404,96 @@ export async function updateSitesSortOrder(
 	} finally {
 		await unlockAppdata();
 	}
+}
+
+export async function getRemoteSessionDaemonStatus(
+	_event: IpcMainInvokeEvent
+): Promise< RemoteSessionStatus > {
+	// Project at the IPC boundary — the renderer only needs the boolean.
+	// Keeping `pid` / `pidFile` / `staleFileRemoved` on the main-process side
+	// avoids shipping data the UI doesn't read.
+	return toRemoteSessionStatus( getDaemonStatus() );
+}
+
+export async function startRemoteSessionDaemon(
+	_event: IpcMainInvokeEvent
+): Promise< StartDaemonResult > {
+	// The CLI fires its own `STUDIO_CLI_DOLLY_START` bump when the child
+	// process boots. The desktop-side bump captures only bolt-icon clicks, so
+	// we can separate UI-driven starts from direct CLI invocations.
+	// De-dupe on rapid clicks happens in `useRemoteSessionStatus` via
+	// `pendingRunningRef`/`isLoadingRef` before the IPC even fires.
+	bumpStat( StatsGroup.STUDIO_APP_DOLLY_START, getPlatformMetric() );
+	bumpAggregatedUniqueStat(
+		StatsGroup.STUDIO_APP_DOLLY_WKLY_UNQ,
+		getPlatformMetric(),
+		'weekly'
+	).catch( ( err ) => Sentry.captureException( err ) );
+	bumpAggregatedUniqueStat(
+		StatsGroup.STUDIO_APP_DOLLY_MON_UNQ,
+		getPlatformMetric(),
+		'monthly'
+	).catch( ( err ) => Sentry.captureException( err ) );
+
+	// Treat the CLI as an external program (same pattern as every other
+	// CLI-backed operation in Studio): fork it as a child process and let it
+	// own the spawn/detach lifecycle. `cli code remote-session start` already
+	// does exactly that.
+	//
+	// `STUDIO_ENABLE_REMOTE_SESSION=true` is required: the CLI gates the entire
+	// `code remote-session` subcommand tree behind that env var (see
+	// `apps/cli/lib/feature-flags.ts`). Without it, the spawned child fails with
+	// "Unknown arguments: remote-session, start". The `remoteSession` beta
+	// feature is the user-facing opt-in, so we lift the CLI gate in the spawned
+	// child rather than asking users to set the env var manually.
+	return new Promise( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand( [ 'code', 'remote-session', 'start' ], {
+			output: 'capture',
+			env: { STUDIO_ENABLE_REMOTE_SESSION: 'true' },
+		} );
+		emitter.on( 'success', () => {
+			// The CLI returns once the daemon has written its PID file. Re-read it
+			// here so the renderer gets a strongly-typed result with the live PID.
+			const status = getDaemonStatus();
+			if ( status.running && status.pid !== undefined ) {
+				resolve( { pid: status.pid, pidFile: status.pidFile } );
+				return;
+			}
+			reject(
+				new DaemonStartTimeoutError(
+					`Remote-session daemon CLI exited successfully but no live PID file was found at ${ status.pidFile }.`
+				)
+			);
+		} );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
+}
+
+export async function stopRemoteSessionDaemon(
+	_event: IpcMainInvokeEvent
+): Promise< StopDaemonResult > {
+	bumpStat( StatsGroup.STUDIO_APP_DOLLY_STOP, getPlatformMetric() );
+
+	return new Promise( ( resolve, reject ) => {
+		// Same env-flag handshake as `startRemoteSessionDaemon` — without it
+		// the CLI doesn't register the `code remote-session` subcommand tree
+		// and the spawned child fails with "Unknown argument: stop".
+		const [ emitter ] = executeCliCommand( [ 'code', 'remote-session', 'stop' ], {
+			output: 'capture',
+			env: { STUDIO_ENABLE_REMOTE_SESSION: 'true' },
+		} );
+		emitter.on( 'success', () => {
+			// CLI exit-code 0 indicates the daemon is no longer running (either
+			// stopped this invocation or was already gone). The CLI doesn't
+			// surface the granular SIGTERM/SIGKILL distinction or the
+			// "alreadyStopped" flag over its IPC channel, and the renderer
+			// doesn't read those fields anyway, so we just report success.
+			// A non-zero exit (e.g. SIGKILL refused) lands in the `failure`
+			// branch via CliCommandError.
+			resolve( { stopped: true } );
+		} );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
 }

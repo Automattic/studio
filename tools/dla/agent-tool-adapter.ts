@@ -15,8 +15,8 @@
  */
 import { adaptMcpContent, type McpContentBlock } from './content-adapter';
 import { defaultPolicyBuckets, shouldBlock, type DlaPolicyBuckets } from './policy';
-import type { AgentToolResult } from '@mariozechner/pi-agent-core';
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { AgentToolResult } from '@earendil-works/pi-agent-core';
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { TSchema } from 'typebox';
 

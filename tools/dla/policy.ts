@@ -25,7 +25,7 @@ import type {
 	ExtensionAPI,
 	ExtensionFactory,
 	ToolCallEventResult,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 
 /**
  * Permission buckets supported by the bridge. The five buckets follow the

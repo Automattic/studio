@@ -5,7 +5,9 @@ import {
 	app,
 	nativeTheme,
 } from 'electron';
+import fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
 	DEFAULT_HEIGHT,
@@ -16,6 +18,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
 import { SiteServer } from 'src/site-server';
@@ -25,9 +28,112 @@ import {
 	loadWindowBounds,
 	saveWindowBounds,
 } from 'src/storage/user-data';
+import type { StudioUiMode } from '@studio/common/types/desk';
 import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
+let currentRendererUrl: string | undefined;
+
+interface RendererLocation {
+	url: string;
+	filePath?: string;
+	query?: Record< string, string >;
+}
+
+export function getPreferredStudioUiMode(): StudioUiMode {
+	if ( getFeatureFlagFromEnv( 'enableDesksUi' ) ) {
+		return 'desks';
+	}
+	if ( getFeatureFlagFromEnv( 'enableAgenticUi' ) ) {
+		return 'agentic';
+	}
+	return 'default';
+}
+
+function getRendererFilePath( mode: StudioUiMode ) {
+	return path.join(
+		__dirname,
+		mode === 'default' ? '../renderer/index.html' : '../renderer-desks/index.html'
+	);
+}
+
+function getRendererQuery( mode: StudioUiMode ): Record< string, string > | undefined {
+	return mode === 'default' ? undefined : { 'studio-ui-mode': mode };
+}
+
+function appendRendererQuery( url: string, query: Record< string, string > | undefined ) {
+	if ( ! query ) {
+		return url;
+	}
+
+	const rendererUrl = new URL( url );
+	for ( const [ key, value ] of Object.entries( query ) ) {
+		rendererUrl.searchParams.set( key, value );
+	}
+	return rendererUrl.toString();
+}
+
+function getRendererLocation( preferredMode: StudioUiMode ): RendererLocation {
+	const preferredQuery = getRendererQuery( preferredMode );
+
+	if (
+		! app.isPackaged &&
+		preferredMode !== 'default' &&
+		process.env[ 'ELECTRON_DESKS_RENDERER_URL' ]
+	) {
+		return {
+			url: appendRendererQuery( process.env[ 'ELECTRON_DESKS_RENDERER_URL' ], preferredQuery ),
+		};
+	}
+
+	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
+		return {
+			url: process.env[ 'ELECTRON_RENDERER_URL' ],
+		};
+	}
+
+	let mode = preferredMode;
+	let filePath = getRendererFilePath( mode );
+	if ( mode !== 'default' && ! fs.existsSync( filePath ) ) {
+		mode = 'default';
+		filePath = getRendererFilePath( mode );
+	}
+	const query = getRendererQuery( mode );
+
+	return {
+		filePath,
+		query,
+		url: appendRendererQuery( pathToFileURL( filePath ).href, query ),
+	};
+}
+
+function rememberRendererLocation( location: RendererLocation ) {
+	currentRendererUrl = location.url;
+}
+
+async function loadRendererLocation( window: BrowserWindow, location: RendererLocation ) {
+	rememberRendererLocation( location );
+	if ( location.filePath ) {
+		await window.loadFile(
+			location.filePath,
+			location.query ? { query: location.query } : undefined
+		);
+		return;
+	}
+	await window.loadURL( location.url );
+}
+
+export async function loadMainWindowRenderer( window: BrowserWindow ): Promise< void > {
+	await loadRendererLocation( window, getRendererLocation( getPreferredStudioUiMode() ) );
+}
+
+export function getCurrentRendererUrl(): string {
+	if ( currentRendererUrl ) {
+		return currentRendererUrl;
+	}
+
+	return getRendererLocation( 'default' ).url;
+}
 
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
 	if ( devToolsOpen || ( process.env.NODE_ENV === 'development' && devToolsOpen === undefined ) ) {
@@ -102,11 +208,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
-		void mainWindow.loadURL( process.env[ 'ELECTRON_RENDERER_URL' ] );
-	} else {
-		void mainWindow.loadFile( path.join( __dirname, '../renderer/index.html' ) );
-	}
+	void loadRendererLocation( mainWindow, getRendererLocation( getPreferredStudioUiMode() ) );
 
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.

@@ -31,6 +31,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		autoLoginUrl.pathname = `/studio-auto-login`;
 		autoLoginUrl.searchParams.set( 'redirect_to', `/wp-admin/` );
 
+		/* translators: status value for the Xdebug setting in the site status output */
 		const xdebugStatus = site.enableXdebug ? __( 'Enabled' ) : __( 'Disabled' );
 
 		const siteData: {
@@ -88,7 +89,14 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			console.table( table.toString() );
 		} else {
 			const logData = Object.fromEntries(
-				siteData.map( ( { jsonKey, value } ) => [ jsonKey, value ] )
+				siteData.flatMap( ( { jsonKey, value } ) =>
+					jsonKey === 'status'
+						? [
+								[ jsonKey, value ],
+								[ 'isOnline', isOnline ],
+						  ]
+						: [ [ jsonKey, value ] ]
+				)
 			);
 
 			console.log( JSON.stringify( logData, null, 2 ) );

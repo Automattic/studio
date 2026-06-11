@@ -1,8 +1,8 @@
 import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
-import { type AgentEvent, type AgentTool } from '@mariozechner/pi-agent-core';
-import { type Model, type SimpleStreamOptions } from '@mariozechner/pi-ai';
-import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
+import { type AgentTool } from '@earendil-works/pi-agent-core';
+import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
+import { streamAnthropic, type AnthropicOptions } from '@earendil-works/pi-ai/anthropic';
 import {
 	AuthStorage,
 	createAgentSession,
@@ -21,13 +21,14 @@ import {
 	type ExtensionFactory,
 	type SessionManager,
 	type ToolDefinition,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 import {
 	DEFAULT_MODEL,
 	getAiModelFamily,
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import {
 	createDlaPolicyFactory,
 	defaultPolicyBuckets,
@@ -43,6 +44,15 @@ import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { stripStaleImagesFromContext } from './strip-stale-images';
+import {
+	getIncompleteToolCallReason,
+	getPayloadLimitDescription,
+	getPayloadLimitViolation,
+	type StudioToolPayloadGuardState,
+	updateStudioToolPayloadGuardState,
+} from './tool-safety';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -52,6 +62,8 @@ type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
 const STUDIO_AGENT_DIR = STUDIO_SITES_ROOT;
+const STUDIO_WPCOM_BODY_FILES_ROOT = getConfigDirectory();
+const STUDIO_WPCOM_BODY_FILES_DIR = getAiPayloadsPath();
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
 	reserveTokens: 16_384,
@@ -60,6 +72,7 @@ const STUDIO_COMPACTION_SETTINGS = {
 
 export interface StudioAgentTurnConfig {
 	prompt: string;
+	images?: StudioChatImage[];
 	session: SessionManager;
 	env?: Record< string, string >;
 	model?: AiModelId;
@@ -90,6 +103,9 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 
 	if ( ! fs.existsSync( STUDIO_SITES_ROOT ) ) {
 		fs.mkdirSync( STUDIO_SITES_ROOT, { recursive: true } );
+	}
+	if ( resolvedConfig.activeSite?.remote ) {
+		fs.mkdirSync( STUDIO_WPCOM_BODY_FILES_DIR, { recursive: true } );
 	}
 
 	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
@@ -170,9 +186,10 @@ function resolveCredentials(
 function syntheticErrorAgentEnd(
 	stopReason: 'error' | 'aborted',
 	errorMessage: string
-): AgentEvent {
+): AgentSessionEvent {
 	return {
 		type: 'agent_end',
+		willRetry: false,
 		messages: [
 			{
 				role: 'assistant',
@@ -211,10 +228,20 @@ async function runAgentSessionTurn(
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
 	const dlaBridge = await maybeStartDlaBridge( config );
+	const payloadGuardState: StudioToolPayloadGuardState = {};
 	try {
-		session = await createStudioAgentSession( config, family, resolved.creds, dlaBridge );
+		session = await createStudioAgentSession(
+			config,
+			family,
+			resolved.creds,
+			payloadGuardState,
+			dlaBridge
+		);
 		setActiveSession( session );
-		unsubscribe = session.subscribe( config.onEvent );
+		unsubscribe = session.subscribe( ( event ) => {
+			updateStudioToolPayloadGuardState( event, payloadGuardState );
+			config.onEvent( event );
+		} );
 
 		if ( controller.signal.aborted ) {
 			await session.abort();
@@ -222,7 +249,15 @@ async function runAgentSessionTurn(
 			return;
 		}
 
-		await session.prompt( config.prompt, { expandPromptTemplates: false, source: 'rpc' } );
+		await session.prompt( config.prompt, {
+			expandPromptTemplates: false,
+			source: 'rpc',
+			images: config.images?.map( ( image ) => ( {
+				type: 'image' as const,
+				data: image.dataBase64,
+				mimeType: image.mimeType,
+			} ) ),
+		} );
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
@@ -285,12 +320,13 @@ async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
 	creds: ResolvedCredentials,
+	payloadGuardState: StudioToolPayloadGuardState,
 	dlaBridge?: DlaBridge
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
-	const isForkedByDesktop = typeof process.send === 'function';
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
+	const chatArtifactsEnabled = typeof process.send === 'function';
 
 	const systemPrompt = buildSystemPrompt(
 		isRemoteSite
@@ -302,10 +338,16 @@ async function createStudioAgentSession(
 					},
 					remoteSession,
 			  }
-			: { previewSteering: isForkedByDesktop, remoteSession }
+			: { chatArtifactsEnabled, remoteSession }
 	);
 
-	const toolDefinitions = buildAgentTools( config, isForkedByDesktop, remoteSession, dlaBridge );
+	const toolDefinitions = buildAgentTools(
+		config,
+		chatArtifactsEnabled,
+		remoteSession,
+		payloadGuardState,
+		dlaBridge
+	);
 	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const extensionFactories = resolveDlaExtensionFactories( config.env );
@@ -329,7 +371,7 @@ async function createStudioAgentSession(
 		authStorage,
 		modelRegistry,
 		model,
-		thinkingLevel: 'high',
+		thinkingLevel: 'medium',
 		sessionManager: config.session,
 		settingsManager,
 		resourceLoader,
@@ -351,7 +393,7 @@ function buildModel(
 		id: modelId,
 		name: modelId,
 		baseUrl,
-		input: [ 'text' as const ],
+		input: [ 'text' as const, 'image' as const ],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 	};
@@ -372,7 +414,10 @@ function buildModel(
 		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
 		reasoning: true,
 		contextWindow: 200_000,
-		maxTokens: 8_192,
+		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
+		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
+		// output so single tool calls can emit a full-page HTML payload.
+		maxTokens: 32_000,
 	};
 }
 
@@ -396,13 +441,25 @@ function createModelRegistry(
 	return { authStorage, modelRegistry };
 }
 
+// pi (>= 0.78) parses `registerProvider` config values (apiKey, headers) as
+// templates: a `$NAME` / `${NAME}` sequence is read as an environment-variable
+// reference and a leading `!` is read as a shell command. wpcom OAuth tokens are
+// random strings that can contain `$` followed by a name-like sequence, so pi
+// resolves that fragment to an undefined env var and treats the provider as
+// unauthenticated ("No API key found for studio-wpcom-anthropic."). Escape the
+// token so pi treats it as a literal: `$` -> `$$`, and a leading `!` -> `$!`.
+function escapePiConfigValue( value: string ): string {
+	const dollarEscaped = value.replace( /\$/g, () => '$$' );
+	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
+}
+
 function createWpcomAnthropicProviderConfig(
 	model: Model< 'anthropic-messages' >,
 	creds: ResolvedCredentials
 ): ProviderConfigInput {
 	return {
 		baseUrl: creds.baseURL,
-		apiKey: creds.apiKey,
+		apiKey: escapePiConfigValue( creds.apiKey ),
 		api: 'anthropic-messages',
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) => {
@@ -414,10 +471,14 @@ function createWpcomAnthropicProviderConfig(
 				defaultHeaders: options?.headers,
 			} );
 			const clientForPi = client as unknown as AnthropicOptions[ 'client' ];
-			return streamAnthropic( m as Model< 'anthropic-messages' >, ctx, {
-				...( options as AnthropicOptions | undefined ),
-				client: clientForPi,
-			} );
+			return streamAnthropic(
+				m as Model< 'anthropic-messages' >,
+				stripStaleImagesFromContext( ctx ),
+				{
+					...( options as AnthropicOptions | undefined ),
+					client: clientForPi,
+				}
+			);
 		},
 		models: [
 			{
@@ -471,16 +532,28 @@ function resolveDlaExtensionFactories( env: Record< string, string > ): Extensio
 	return [ createDlaPolicyFactory( defaultPolicyBuckets ) ];
 }
 
-function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
+function toToolDefinition(
+	tool: AgentToolAny,
+	payloadGuardState: StudioToolPayloadGuardState
+): ToolDefinition {
 	return {
 		name: tool.name,
 		label: tool.label,
-		description: tool.description,
+		description: getPayloadLimitDescription( tool.name, tool.description ),
 		parameters: tool.parameters,
 		prepareArguments: tool.prepareArguments,
 		executionMode: tool.executionMode,
-		execute: async ( toolCallId, params, signal, onUpdate ) =>
-			tool.execute( toolCallId, params, signal, onUpdate ),
+		execute: async ( toolCallId, params, signal, onUpdate ) => {
+			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
+			if ( incompleteToolCallReason ) {
+				throw new Error( incompleteToolCallReason );
+			}
+			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
+			if ( payloadLimitViolation ) {
+				throw new Error( payloadLimitViolation );
+			}
+			return tool.execute( toolCallId, params, signal, onUpdate );
+		},
 	};
 }
 
@@ -497,9 +570,11 @@ function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
  * loops back into Studio itself.
  *
  * @param config - The resolved per-turn session config.
- * @param enablePreviewSteering - Whether the runtime is forked by the
- *   desktop app (which steers users toward the Preview Site flow).
+ * @param chatArtifactsEnabled - Whether chat artifacts should be emitted
+ *   (true when the runtime is forked by the desktop app).
  * @param remoteSession - Whether this is a remote, WPCOM-backed session.
+ * @param payloadGuardState - Mutable guard state threaded into each tool's
+ *   `execute` to enforce payload limits and incomplete-tool-call checks.
  * @param dlaBridge - Optional DLA bridge handle; when present, its
  *   `tools` are spliced into the local-site tool list. When absent
  *   (e.g. `STUDIO_DLA_ENABLED` is unset or the bridge failed to spawn)
@@ -508,8 +583,9 @@ function toToolDefinition( tool: AgentToolAny ): ToolDefinition {
  */
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
-	enablePreviewSteering: boolean,
+	chatArtifactsEnabled: boolean,
 	remoteSession: boolean,
+	payloadGuardState: StudioToolPayloadGuardState,
 	dlaBridge?: DlaBridge
 ): ToolDefinition[] {
 	const isRemoteSite = Boolean(
@@ -523,23 +599,31 @@ function buildAgentTools(
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
 
+	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
+		...tool,
+		name,
+		label: name,
+	} );
+
+	const remoteScratchTools: AgentToolAny[] = [
+		renameTool( createReadTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Read' ),
+		renameTool( createWriteTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Write' ),
+		renameTool( createEditTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Edit' ),
+		renameTool( createLsTool( STUDIO_WPCOM_BODY_FILES_ROOT ), 'Ls' ),
+	];
+
 	if ( isRemoteSite ) {
 		const remoteTools: AgentToolAny[] = [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
 			takeScreenshotTool,
 			createSiteTool,
 			pullSiteTool,
+			...remoteScratchTools,
 			...askUserTool,
 			...skillTool,
 		];
-		return remoteTools.map( toToolDefinition );
+		return remoteTools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	}
-
-	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
-		...tool,
-		name,
-		label: name,
-	} );
 
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( STUDIO_SITES_ROOT ), 'Read' ),
@@ -550,13 +634,15 @@ function buildAgentTools(
 		renameTool( createFindTool( STUDIO_SITES_ROOT ), 'Glob' ),
 		renameTool( createLsTool( STUDIO_SITES_ROOT ), 'Ls' ),
 	];
-	const studioTools: AgentToolAny[] = [
-		...resolveStudioToolDefinitions( { enablePreviewSteering, remoteSession } ),
-		...askUserTool,
-		...skillTool,
-		...piTools,
+	const studioTools = resolveStudioToolDefinitions( {
+		emitChatArtifacts: chatArtifactsEnabled,
+		remoteSession,
+	} ) as unknown as AgentToolAny[];
+	const localTools: AgentToolAny[] = [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
+	return [
+		...localTools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) ),
+		...( dlaBridge?.tools ?? [] ),
 	];
-	return [ ...studioTools.map( toToolDefinition ), ...( dlaBridge?.tools ?? [] ) ];
 }
 
 function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {

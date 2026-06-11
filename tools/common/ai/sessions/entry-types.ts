@@ -2,11 +2,14 @@
 // `SessionEntry` schema. The renderer never imports pi at runtime — these
 // types are only used at the type-check boundary (`import type` is erased).
 
-import type { CustomEntry, SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { StudioChatArtifactData } from '../chat-artifacts';
+import type { StudioChatImageAttachment } from '../chat-images';
+import type { CustomEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export type StudioCustomEntryType =
 	| 'studio.site_selected'
 	| 'studio.tool_progress'
+	| 'studio.chat_artifact'
 	| 'studio.agent_question'
 	| 'studio.turn_closed'
 	| 'studio.session_context'
@@ -40,17 +43,40 @@ export interface StudioSessionContextData {
 	model: string;
 }
 
+// Lightweight attachment summaries persisted on a user-prompt entry so the
+// conversation transcript can render chips. Neither the image bytes nor the
+// file's disk path are persisted — only what the chip needs to display.
+export interface StudioChatImageAttachmentSummary extends StudioChatImageAttachment {
+	kind: 'image';
+	// `data:` URL for rendering a thumbnail in the transcript. Persisted so the
+	// preview survives a session reload (the raw bytes are not kept elsewhere).
+	previewDataUrl?: string;
+}
+
+export interface StudioChatFileAttachmentSummary {
+	kind: 'file';
+	name: string;
+	mimeType?: string;
+	size?: number;
+}
+
+export type StudioChatAttachmentSummary =
+	| StudioChatImageAttachmentSummary
+	| StudioChatFileAttachmentSummary;
+
 // `source` distinguishes a user-typed prompt from an `ask_user` answer the
 // runtime forwarded to the model — the renderer only shows `'prompt'`.
 export interface StudioUserPromptData {
 	text: string;
 	source: 'prompt' | 'ask_user';
 	sitePath?: string;
+	attachments?: StudioChatAttachmentSummary[];
 }
 
 export interface StudioCustomEntryDataMap {
 	'studio.site_selected': StudioSiteSelectedData;
 	'studio.tool_progress': StudioToolProgressData;
+	'studio.chat_artifact': StudioChatArtifactData;
 	'studio.agent_question': StudioAgentQuestionData;
 	'studio.turn_closed': StudioTurnClosedData;
 	'studio.session_context': StudioSessionContextData;

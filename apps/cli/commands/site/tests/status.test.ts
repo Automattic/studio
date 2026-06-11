@@ -1,4 +1,5 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -81,6 +82,7 @@ describe( 'CLI: studio site status', () => {
 						siteUrl: 'http://localhost:8080/',
 						sitePath: '/path/to/site',
 						status: '🔴 Offline',
+						isOnline: false,
 						phpVersion: '8.0',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
@@ -101,6 +103,7 @@ describe( 'CLI: studio site status', () => {
 				pmId: 0,
 				status: 'online',
 				pid: 12345,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 
 			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
@@ -114,6 +117,7 @@ describe( 'CLI: studio site status', () => {
 						autoLoginUrl: 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
 						sitePath: '/path/to/site',
 						status: '🟢 Online',
+						isOnline: true,
 						phpVersion: '8.0',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
@@ -155,6 +159,7 @@ describe( 'CLI: studio site status', () => {
 						siteUrl: 'http://localhost:8080/',
 						sitePath: '/path/to/site',
 						status: '🔴 Offline',
+						isOnline: false,
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',

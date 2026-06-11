@@ -33,7 +33,7 @@ export type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
 	| { type: 'preview/navigate'; path: string }
-	| { type: 'preview/reload' };
+	| { type: 'preview/update-path'; path: string };
 
 const INITIAL_STATE: SessionUIState = {
 	preview: { open: false, path: '/', reloadNonce: 0 },
@@ -57,15 +57,10 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 					open: true,
 				},
 			};
-		case 'preview/reload':
-			return {
-				...state,
-				preview: {
-					...state.preview,
-					reloadNonce: state.preview.reloadNonce + 1,
-					open: true,
-				},
-			};
+		case 'preview/update-path':
+			return state.preview.path === action.path
+				? state
+				: { ...state, preview: { ...state.preview, path: action.path } };
 	}
 }
 
@@ -105,6 +100,7 @@ export interface SessionPreviewUI {
 	readonly reloadNonce: number;
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
+	updatePath: ( path: string ) => void;
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {
@@ -115,6 +111,10 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 		[ dispatch ]
 	);
 	const toggle = useCallback( () => dispatch( { type: 'preview/toggle' } ), [ dispatch ] );
+	const updatePath = useCallback(
+		( path: string ) => dispatch( { type: 'preview/update-path', path } ),
+		[ dispatch ]
+	);
 	return useMemo(
 		() => ( {
 			open: state.preview.open,
@@ -122,7 +122,15 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 			reloadNonce: state.preview.reloadNonce,
 			setOpen,
 			toggle,
+			updatePath,
 		} ),
-		[ state.preview.open, state.preview.path, state.preview.reloadNonce, setOpen, toggle ]
+		[
+			state.preview.open,
+			state.preview.path,
+			state.preview.reloadNonce,
+			setOpen,
+			toggle,
+			updatePath,
+		]
 	);
 }

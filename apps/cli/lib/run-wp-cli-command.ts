@@ -1,7 +1,7 @@
 import { ChildProcess, spawn } from 'node:child_process';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import { text } from 'node:stream/consumers';
+import { PassThrough, Readable } from 'node:stream';
+import { buffer, text } from 'node:stream/consumers';
 import { rootCertificates } from 'node:tls';
 import { loadNodeRuntime, createNodeFsMountHandler } from '@php-wasm/node';
 import {
@@ -18,7 +18,8 @@ import {
 	getMuPlugins,
 	writeStudioMuPluginsForNativePhpRuntime,
 } from '@studio/common/lib/mu-plugins';
-import { validateNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { SITE_RUNTIME_NATIVE_PHP, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
@@ -27,7 +28,14 @@ import {
 	getSqliteCommandPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { validatePhpVersion } from 'cli/lib/utils';
+import { getDefaultPhpArgs } from './native-php/config';
+import {
+	DETACH_FOR_GROUP_KILL,
+	killPhpProcessTree,
+	reapPhpTreeOnInterrupt,
+} from './native-php/php-process';
 import type { SiteData } from 'cli/lib/cli-config/core';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
@@ -38,6 +46,10 @@ const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
  * Runtime-agnostic WP-CLI invocation result. Both the native PHP runtime and
  * the Playground runtime produce instances of this class, so callers stay
  * decoupled from Playground's `StreamedPHPResponse`.
+ *
+ * `stdout`/`stderr` are always in-memory streams (Playground produces them in
+ * memory; the native runtime pre-drains its OS pipes via `drainToMemory`), so
+ * the text getters are safe to read in any order relative to `exitCode`.
  *
  * The text getters consume the same underlying stream as `stdout`/`stderr` —
  * use one or the other, not both.
@@ -64,6 +76,32 @@ export class WpCliResponse {
 		this.#stderrText ??= text( this.stderr );
 		return this.#stderrText;
 	}
+}
+
+/**
+ * Eagerly drain a child process's OS-pipe `stdout`/`stderr` into an in-memory
+ * stream.
+ *
+ * Once the OS pipe's buffer fills up and nothing is reading the other end, the
+ * child process can't write any more and stalls — so a caller that awaits
+ * `exitCode` before reading the output would deadlock: the process can't exit
+ * until we read, and we don't read until it exits. Draining now keeps the pipe
+ * flowing no matter when, or whether, a consumer reads.
+ */
+function drainToMemory( source: Readable ): Readable {
+	const sink = new PassThrough();
+
+	// `buffer()` reads `source` right away; replay it once drained, or forward
+	// a read error to whoever consumes `sink`.
+	buffer( source )
+		.then( ( data ) => sink.end( data ) )
+		.catch( ( error ) => sink.destroy( error ) );
+
+	// `sink` may go unread (a caller may only await `exitCode`), so swallow the
+	// error to avoid an uncaught exception; a consumer still sees it via its read.
+	sink.on( 'error', () => {} );
+
+	return sink;
 }
 
 type RunWpCliCommandOptions = {
@@ -122,18 +160,22 @@ async function runNativeWpCliCommand(
 	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse > {
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
-	const phpVersion = validateNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
+	const phpVersion = resolveNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	// Don't apply open_basedir or disable_functions to the WP-CLI process
+	const defaultArgs = getDefaultPhpArgs( phpVersion );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
-		[ getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
+		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
 		{
 			cwd: site.path,
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
+			detached: DETACH_FOR_GROUP_KILL,
 		}
 	);
 
 	await ensureChildSpawned( child );
+	const removeReaper = reapPhpTreeOnInterrupt( child );
 
 	const exitCode = new Promise< number >( ( resolve, reject ) => {
 		child.once( 'error', ( error: Error ) => reject( error ) );
@@ -141,10 +183,16 @@ async function runNativeWpCliCommand(
 	} );
 
 	return {
-		response: new WpCliResponse( child.stdout, child.stderr, exitCode ),
+		response: new WpCliResponse(
+			drainToMemory( child.stdout ),
+			drainToMemory( child.stderr ),
+			exitCode
+		),
 		[ Symbol.dispose ]() {
+			removeReaper();
+			// Tree-kill so any subprocess WP-CLI spawned dies with it, not just the php.exe itself.
 			if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
-				child.kill( 'SIGKILL' );
+				killPhpProcessTree( child, 'SIGKILL' );
 			}
 		},
 	};
@@ -178,7 +226,7 @@ export async function runWpCliCommand(
 ): Promise< DisposableWpCliResponse > {
 	const siteFolder = site.path;
 
-	if ( site.runtime === 'native-php' ) {
+	if ( getSiteRuntime() === SITE_RUNTIME_NATIVE_PHP ) {
 		return runNativeWpCliCommand( site, args, options );
 	}
 
@@ -209,6 +257,7 @@ export async function runWpCliCommand(
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
+			'curl.cainfo': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
 		} );
 
@@ -258,12 +307,17 @@ export async function runWpCliCommand(
 }
 
 async function runNativeGlobalWpCliCommand( args: string[] ): Promise< DisposableWpCliResponse > {
-	const phpVersion = validateNativePhpVersion( DEFAULT_PHP_VERSION );
-	const child = spawn( getPhpBinaryPath( phpVersion ), [ getWpCliPharPath(), ...args ], {
-		stdio: [ 'ignore', 'pipe', 'pipe' ],
-	} );
+	const phpVersion = resolveNativePhpVersion( DEFAULT_PHP_VERSION );
+	// Don't apply open_basedir or disable_functions to the WP-CLI process
+	const defaultArgs = getDefaultPhpArgs( phpVersion );
+	const child = spawn(
+		getPhpBinaryPath( phpVersion ),
+		[ ...defaultArgs, getWpCliPharPath(), ...args ],
+		{ stdio: [ 'ignore', 'pipe', 'pipe' ], detached: DETACH_FOR_GROUP_KILL }
+	);
 
 	await ensureChildSpawned( child );
+	const removeReaper = reapPhpTreeOnInterrupt( child );
 
 	const exitCode = new Promise< number >( ( resolve, reject ) => {
 		child.once( 'error', ( error: Error ) => reject( error ) );
@@ -271,17 +325,23 @@ async function runNativeGlobalWpCliCommand( args: string[] ): Promise< Disposabl
 	} );
 
 	return {
-		response: new WpCliResponse( child.stdout, child.stderr, exitCode ),
+		response: new WpCliResponse(
+			drainToMemory( child.stdout ),
+			drainToMemory( child.stderr ),
+			exitCode
+		),
 		[ Symbol.dispose ]() {
+			removeReaper();
+			// Tree-kill so any subprocess WP-CLI spawned dies with it, not just the php.exe itself.
 			if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
-				child.kill( 'SIGKILL' );
+				killPhpProcessTree( child, 'SIGKILL' );
 			}
 		},
 	};
 }
 
 type RunGlobalWpCliCommandOptions = {
-	runtime?: 'wasm' | 'native-php';
+	runtime?: SiteRuntime;
 };
 
 /**
@@ -292,7 +352,7 @@ export async function runGlobalWpCliCommand(
 	args: string[],
 	options: RunGlobalWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse > {
-	if ( options.runtime === 'native-php' ) {
+	if ( options.runtime === SITE_RUNTIME_NATIVE_PHP ) {
 		return runNativeGlobalWpCliCommand( args );
 	}
 
@@ -313,6 +373,7 @@ export async function runGlobalWpCliCommand(
 		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
 		await setPhpIniEntries( php, {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
+			'curl.cainfo': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
 		} );
 

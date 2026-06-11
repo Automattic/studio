@@ -1,3 +1,9 @@
+import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
+import {
+	buildAttachedFilesPromptBlock,
+	type StudioChatFileAttachment,
+} from '@studio/common/ai/chat-files';
+import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
@@ -13,6 +19,7 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { closeSharedBrowser } from 'cli/ai/browser-utils';
+import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
 import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
@@ -25,15 +32,16 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
+import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
-import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
+import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import type { SessionManager } from '@mariozechner/pi-coding-agent';
+import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import type {
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
@@ -81,6 +89,8 @@ export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
 	initialDisplayMessage?: string;
+	initialImages?: StudioChatImage[];
+	initialFiles?: StudioChatFileAttachment[];
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	showLegacyCommandNotice?: boolean;
@@ -113,6 +123,8 @@ export async function runCommand( options: {
 	}
 	ui.start();
 	ui.showWelcome();
+
+	await maybeShowTosNotice( () => ui.showTosNotice() );
 
 	if ( options.showLegacyCommandNotice && ! isJsonMode ) {
 		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
@@ -182,6 +194,10 @@ export async function runCommand( options: {
 		void append( ( sm ) => appendStudioEntry( sm, 'studio.tool_progress', { message } ) );
 	} );
 
+	setChatArtifactCallback( ( artifact ) =>
+		append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) )
+	);
+
 	ui.onSiteSelected = ( site ) => {
 		void append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.site_selected', {
@@ -193,6 +209,20 @@ export async function runCommand( options: {
 			} )
 		);
 	};
+
+	setLocalSiteSelectedCallback(
+		ui instanceof JsonAdapter
+			? async ( site ) => {
+					ui.activeSite = site;
+					await append( ( sm ) =>
+						appendStudioEntry( sm, 'studio.site_selected', {
+							siteName: site.name,
+							sitePath: site.path,
+						} )
+					);
+			  }
+			: null
+	);
 
 	if ( options.resumeSession ) {
 		ui.showInfo(
@@ -287,6 +317,12 @@ export async function runCommand( options: {
 
 	const config = await readCliConfig();
 	let showCapabilitiesOnConnect = ! config.aiProvider;
+
+	// Studio Code Desktop defaults to WordPress.com provider.
+	if ( isJsonMode && showCapabilitiesOnConnect ) {
+		await switchProvider( 'wpcom', false );
+		showCapabilitiesOnConnect = false;
+	}
 
 	if ( showCapabilitiesOnConnect ) {
 		ui.showOnboarding();
@@ -407,7 +443,9 @@ export async function runCommand( options: {
 
 	async function runAgentTurn(
 		prompt: string,
-		displayMessage = prompt
+		displayMessage = prompt,
+		images: StudioChatImage[] = [],
+		files: StudioChatFileAttachment[] = []
 	): Promise< { status: TurnStatus; sessionId: string } > {
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
@@ -430,6 +468,12 @@ export async function runCommand( options: {
 			}]\n\n${ prompt }`;
 		}
 
+		// Non-image files ride as absolute-path references the agent reads with
+		// its file tools (images travel separately as multimodal content blocks).
+		if ( files.length > 0 ) {
+			enrichedPrompt = `${ enrichedPrompt }${ buildAttachedFilesPromptBlock( files ) }`;
+		}
+
 		// Read the WP.com access token for remote sites
 		let wpcomAccessToken: string | undefined;
 		if ( site?.remote ) {
@@ -445,6 +489,7 @@ export async function runCommand( options: {
 				text: displayMessage,
 				source: 'prompt',
 				sitePath: site?.path,
+				attachments: buildChatAttachmentSummaries( images, files ),
 			} )
 		);
 
@@ -452,6 +497,7 @@ export async function runCommand( options: {
 
 		const agentQuery = runStudioAgentTurn( {
 			prompt: enrichedPrompt,
+			images,
 			env,
 			model: currentModel,
 			session: sm,
@@ -511,7 +557,12 @@ export async function runCommand( options: {
 		try {
 			const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
 			ui.addUserMessage( displayMessage );
-			const result = await runAgentTurn( options.initialMessage, displayMessage );
+			const result = await runAgentTurn(
+				options.initialMessage,
+				displayMessage,
+				options.initialImages,
+				options.initialFiles
+			);
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
 			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.sessionId );
 		} catch ( error ) {
@@ -519,6 +570,7 @@ export async function runCommand( options: {
 			handleAgentTurnError( error );
 			( ui as JsonAdapter ).emitTurnCompleted( 'error', session?.getSessionId() ?? '' );
 		} finally {
+			setLocalSiteSelectedCallback( null );
 			ui.stop();
 			await closeSharedBrowser();
 		}
@@ -530,7 +582,12 @@ export async function runCommand( options: {
 		const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
 		ui.addUserMessage( displayMessage );
 		try {
-			await runAgentTurn( options.initialMessage, displayMessage );
+			await runAgentTurn(
+				options.initialMessage,
+				displayMessage,
+				options.initialImages,
+				options.initialFiles
+			);
 		} catch ( error ) {
 			handleAgentTurnError( error );
 		}
@@ -584,8 +641,7 @@ export async function runCommand( options: {
 
 	// Surface remote-session daemon status in the editor's bottom bar. Cheap
 	// fs poll catches external start/stop (e.g. `studio code remote-session
-	// stop` from another terminal) without blocking the REPL. Skipped entirely
-	// when the feature flag is off.
+	// stop` from another terminal) without blocking the REPL.
 	const stopDaemonStatusPolling = startDaemonStatusPolling( ui );
 
 	// --- Main loop ---
@@ -641,7 +697,7 @@ export async function runCommand( options: {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: '$0 [message]',
-		describe: __( 'AI agent for building WordPress' ),
+		describe: __( 'Start an interactive AI chat to build WordPress sites' ),
 		builder: ( yargs ) => {
 			let chain = yargs
 				.positional( 'message', {
@@ -674,16 +730,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 			// `--message-from-stdin` is the headless turn entry point used by the
 			// remote-session daemon (see `apps/cli/remote-session/turn-runner.ts`).
-			// It stays hidden and is gated behind STUDIO_ENABLE_REMOTE_SESSION so
-			// it isn't dispatchable for users who haven't opted in.
-			if ( isRemoteSessionEnabled() ) {
-				chain = chain.option( 'message-from-stdin', {
-					type: 'boolean',
-					hidden: true,
-					default: false,
-					description: __( 'Read the initial message from stdin (for headless drivers)' ),
-				} );
-			}
+			// It stays hidden so it doesn't clutter `--help` for direct callers.
+			chain = chain.option( 'message-from-stdin', {
+				type: 'boolean',
+				hidden: true,
+				default: false,
+				description: __( 'Read the initial message from stdin (for headless drivers)' ),
+			} );
 
 			return chain.check( ( argv ) => {
 				if ( argv.json && ! argv.message && ! argv.messageFromStdin ) {
@@ -706,7 +759,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				const adapter: AiOutputAdapter = typedArgv.json ? new JsonAdapter() : new AiChatUI();
 
 				let initialMessage = typedArgv.message;
-				if ( typedArgv.messageFromStdin && isRemoteSessionEnabled() ) {
+				if ( typedArgv.messageFromStdin ) {
 					initialMessage = await readAllStdin();
 					if ( ! initialMessage ) {
 						process.stderr.write(

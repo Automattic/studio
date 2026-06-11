@@ -28,7 +28,6 @@ interface Blueprint {
 }
 
 interface NewSiteOptionsProps {
-	enableBlueprints: boolean;
 	blueprints: Blueprint[];
 	isLoadingBlueprints: boolean;
 	blueprintsErrorMessage?: string;
@@ -61,6 +60,7 @@ function EmptySiteCard( { isSelected, onClick }: { isSelected: boolean; onClick:
 	return (
 		<button
 			onClick={ onClick }
+			data-testid="empty-site-card"
 			className={ cx(
 				'flex flex-col h-full rounded-lg border overflow-hidden text-left transition-colors',
 				isSelected
@@ -212,7 +212,6 @@ function renameBlueprintsForDisplay(
 }
 
 export function NewSiteOptions( {
-	enableBlueprints,
 	blueprints,
 	isLoadingBlueprints,
 	blueprintsErrorMessage,
@@ -287,7 +286,6 @@ export function NewSiteOptions( {
 						{ __( 'Could not load templates.' ) }
 					</div>
 				) : (
-					enableBlueprints &&
 					renameBlueprintsForDisplay( featuredBlueprints, __ ).map( ( item ) => (
 						<BlueprintCard
 							key={ item.slug }
@@ -299,7 +297,7 @@ export function NewSiteOptions( {
 				) }
 			</div>
 
-			{ enableBlueprints && ! isLoadingBlueprints && exploreBlueprints.length > 0 && (
+			{ ! isLoadingBlueprints && exploreBlueprints.length > 0 && (
 				<>
 					<div className="flex items-center justify-between w-full max-w-2xl mx-auto mt-8 mb-4">
 						<Heading className="text-[18px] text-frame-text" weight={ 500 }>

@@ -1,13 +1,25 @@
 import fs from 'fs/promises';
 import { isStudioCustomEntryOfType } from './entry-types';
 import type { AiSessionSummary } from './types';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 interface PiSessionHeader {
 	type: 'session';
 	id: string;
 	timestamp: string;
 }
+
+interface PiAssistantContentBlock {
+	type: string;
+	text?: unknown;
+}
+
+interface PiAssistantMessageLike {
+	role?: unknown;
+	content?: unknown;
+}
+
+const ASSISTANT_REPLY_PREVIEW_MAX_LENGTH = 180;
 
 function isPiHeader( value: unknown ): value is PiSessionHeader {
 	return (
@@ -17,6 +29,40 @@ function isPiHeader( value: unknown ): value is PiSessionHeader {
 		typeof ( value as { id?: unknown } ).id === 'string' &&
 		typeof ( value as { timestamp?: unknown } ).timestamp === 'string'
 	);
+}
+
+function getAssistantReplyPreview( entry: SessionEntry ): string | undefined {
+	if ( entry.type !== 'message' ) {
+		return undefined;
+	}
+
+	const message = ( entry as { message?: unknown } ).message as PiAssistantMessageLike | undefined;
+	if ( ! message || message.role !== 'assistant' || ! Array.isArray( message.content ) ) {
+		return undefined;
+	}
+
+	const text = message.content
+		.filter(
+			( block ): block is PiAssistantContentBlock =>
+				!! block &&
+				typeof block === 'object' &&
+				( block as PiAssistantContentBlock ).type === 'text' &&
+				typeof ( block as PiAssistantContentBlock ).text === 'string'
+		)
+		.map( ( block ) => block.text as string )
+		.join( ' ' )
+		.replace( /\s+/g, ' ' )
+		.trim();
+
+	if ( ! text ) {
+		return undefined;
+	}
+
+	if ( text.length <= ASSISTANT_REPLY_PREVIEW_MAX_LENGTH ) {
+		return text;
+	}
+
+	return `${ text.slice( 0, ASSISTANT_REPLY_PREVIEW_MAX_LENGTH ).trimEnd() }...`;
 }
 
 export async function readAiSessionSummaryFromEntries(
@@ -30,8 +76,7 @@ export async function readAiSessionSummaryFromEntries(
 	let updatedAt = header?.timestamp;
 	const sessionId = header?.id ?? '';
 	let firstPrompt: string | undefined;
-	let ownerSitePath: string | undefined;
-	let ownerSiteName: string | undefined;
+	let assistantReplyPreview: string | undefined;
 	let selectedSiteName: string | undefined;
 	let activeEnvironment: 'local' | 'live' = 'local';
 	let lastSelectedWpcomSiteId: number | undefined;
@@ -44,6 +89,11 @@ export async function readAiSessionSummaryFromEntries(
 		const ts = entry.timestamp;
 		if ( typeof ts === 'string' ) updatedAt = ts;
 
+		const replyPreview = getAssistantReplyPreview( entry );
+		if ( replyPreview ) {
+			assistantReplyPreview = replyPreview;
+		}
+
 		if ( isStudioCustomEntryOfType( entry, 'studio.site_selected' ) ) {
 			const data = entry.data;
 			if ( ! data ) continue;
@@ -51,12 +101,6 @@ export async function readAiSessionSummaryFromEntries(
 			const isLive = data.remote === true;
 			activeEnvironment = isLive ? 'live' : 'local';
 			lastSelectedWpcomSiteId = isLive ? data.wpcomSiteId : undefined;
-			// Anchor the owner on the first *local* site; remote-only sessions
-			// stay ownerless (sidebar Unassigned).
-			if ( ownerSitePath === undefined && ! isLive ) {
-				ownerSitePath = data.sitePath;
-				ownerSiteName = data.siteName;
-			}
 			continue;
 		}
 
@@ -85,8 +129,9 @@ export async function readAiSessionSummaryFromEntries(
 		createdAt: createdAt ?? fallbackTimestamp,
 		updatedAt: updatedAt ?? createdAt ?? fallbackTimestamp,
 		firstPrompt,
-		ownerSitePath,
-		ownerSiteName,
+		assistantReplyPreview,
+		ownerSitePath: undefined,
+		ownerSiteName: undefined,
 		selectedSiteName,
 		activeEnvironment,
 		lastSelectedWpcomSiteId,

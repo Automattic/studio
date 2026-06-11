@@ -6,8 +6,6 @@ import {
 	LOCKFILE_WAIT_TIME,
 } from '@studio/common/constants';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
-export { siteRuntimeSchema } from '@studio/common/lib/cli-events';
-export type { SiteRuntime } from '@studio/common/lib/cli-events';
 import { hideDirectoryOnWindows } from '@studio/common/lib/hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getCliConfigPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
@@ -49,6 +47,8 @@ const cliConfigSchema = z.object( {
 		.optional(),
 	lastDependencyCheckTime: z.number().optional(),
 	updateCheck: updateCheckSchema.optional(),
+	// Unix ms timestamp of when the one-time ToS/Privacy notice was displayed.
+	tosNoticeShownAt: z.number().optional(),
 } );
 
 type CliConfig = z.infer< typeof cliConfigSchema >;
@@ -99,15 +99,19 @@ export async function readCliConfig(): Promise< CliConfig > {
 	}
 }
 
+async function ensureConfigDirectory(): Promise< void > {
+	const configDir = getConfigDirectory();
+	if ( ! fs.existsSync( configDir ) ) {
+		fs.mkdirSync( configDir, { recursive: true } );
+		await hideDirectoryOnWindows( configDir );
+	}
+}
+
 export async function saveCliConfig( config: CliConfig ): Promise< void > {
 	try {
 		config.version = CLI_CONFIG_VERSION;
 
-		const configDir = getConfigDirectory();
-		if ( ! fs.existsSync( configDir ) ) {
-			fs.mkdirSync( configDir, { recursive: true } );
-			await hideDirectoryOnWindows( configDir );
-		}
+		await ensureConfigDirectory();
 
 		const configPath = getCliConfigPath();
 		const fileContent = JSON.stringify( config, null, 2 ) + '\n';
@@ -124,6 +128,10 @@ export async function saveCliConfig( config: CliConfig ): Promise< void > {
 const LOCKFILE_PATH = path.join( getConfigDirectory(), CLI_CONFIG_LOCKFILE_NAME );
 
 export async function lockCliConfig(): Promise< void > {
+	// The lockfile lives inside the config directory. On a first run that directory may not exist
+	// yet (e.g. telemetry bumps fire before `setupServerFiles()` creates it), and `lockfile.lock`
+	// would reject with ENOENT instead of waiting. Ensure the directory exists before locking.
+	await ensureConfigDirectory();
 	await lockFileAsync( LOCKFILE_PATH, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
 }
 

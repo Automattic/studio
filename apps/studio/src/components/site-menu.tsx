@@ -9,8 +9,9 @@ import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
-import { isMac, isWindows } from 'src/lib/app-globals';
+import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
+import { getFileManagerLabel } from 'src/lib/file-manager';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
@@ -188,7 +189,7 @@ function SiteItem( {
 		const isLoading = loadingServer[ site.id ] || false;
 		const isAddingSite = site.isAddingSite || false;
 		const isAnySiteAdding = sites.some( ( s ) => s.isAddingSite );
-		const finderLabel = isWindows() ? __( 'File Explorer' ) : __( 'Finder' );
+		const finderLabel = getFileManagerLabel();
 		const editorLabel =
 			editor && supportedEditorConfig[ editor ] ? supportedEditorConfig[ editor ].label : null;
 		const terminalLabel = getTerminalName( terminal );

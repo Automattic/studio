@@ -22,8 +22,8 @@ export const SiteManagementActions = ( {
 }: SiteManagementActionProps ) => {
 	const { __ } = useI18n();
 	const { isSiteImporting } = useImportExport();
-	const isPulling = useRootSelector(
-		syncOperationsSelectors.selectIsSiteIdPulling( selectedSite?.id ?? '' )
+	const isPullingLocally = useRootSelector( ( state ) =>
+		syncOperationsSelectors.selectIsSiteIdPullingLocally( selectedSite?.id )( state )
 	);
 
 	if ( ! selectedSite ) {
@@ -31,10 +31,10 @@ export const SiteManagementActions = ( {
 	}
 
 	const isImporting = isSiteImporting( selectedSite.id );
-	const disabled = isImporting || isPulling;
+	const disabled = isImporting || isPullingLocally;
 
 	let buttonLabelOnDisabled: string = __( 'Importing…' );
-	if ( isPulling ) {
+	if ( isPullingLocally ) {
 		buttonLabelOnDisabled = __( 'Pulling…' );
 	}
 

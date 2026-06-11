@@ -25,7 +25,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { adaptMcpToolToPi, type RemoteMcpTool } from './agent-tool-adapter';
 import { defaultPolicyBuckets, type DlaPolicyBuckets } from './policy';
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
+import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
 const require = createRequire( import.meta.url );
 

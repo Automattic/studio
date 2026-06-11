@@ -19,7 +19,7 @@ import { StudioArgv } from 'cli/types';
 function buildSnapshotTable( snapshots: Snapshot[] ): string {
 	const colWidths = getColumnWidths( [ 0.4, 0.25, 0.175, 0.175 ] );
 	const table = new CliTable3( {
-		head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires in' ) ],
+		head: [ __( 'URL' ), __( 'Site Name' ), __( 'Updated' ), __( 'Expires' ) ],
 		wordWrap: true,
 		wrapOnWordBoundary: false,
 		colWidths,

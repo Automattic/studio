@@ -112,19 +112,33 @@ textarea,
 
 /* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
    :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
-   `a` covers Button primitives rendered as links via its `render` prop.
-   Also revert the background/border shift @wordpress/ui's Button applies on
-   `:focus` — when a Dialog auto-focuses a button on open, the "active" look
-   would otherwise show without any user intent. Leave `color` alone:
-   loading buttons rely on `color: transparent` to hide their label while
-   the spinner runs, and overriding that here would make the label visible
-   again. */
+   `a` covers Button primitives rendered as links via its `render` prop. */
 button:focus:not( :focus-visible ),
 a:focus:not( :focus-visible ),
 [role='button']:focus:not( :focus-visible ) {
 	outline: none;
-	background-color: var( --wp-ui-button-background-color );
-	border-color: var( --wp-ui-button-border-color );
+}
+
+/* Revert the background/border shift @wordpress/ui's Button applies on
+   `:focus` — when a Dialog auto-focuses a button on open, the "active" look
+   would otherwise show without any user intent. Leave `color` alone:
+   loading buttons rely on `color: transparent` to hide their label while
+   the spinner runs, and overriding that here would make the label visible
+   again.
+
+   Declared inside WP UI's own `wp-ui-overrides` layer (its highest), NOT
+   unlayered: it must beat the layered focus shift but lose to unlayered
+   component styles. Custom buttons (the onboarding cards) don't define
+   the --wp-ui-button-* props, and an unlayered declaration here would
+   evaluate the undefined var() and reset their backgrounds to transparent
+   on click. */
+@layer wp-ui-overrides {
+	button:focus:not( :focus-visible ),
+	a:focus:not( :focus-visible ),
+	[role='button']:focus:not( :focus-visible ) {
+		background-color: var( --wp-ui-button-background-color );
+		border-color: var( --wp-ui-button-border-color );
+	}
 }
 
 /* Compact density: shrink icons to match the tighter spacing tokens.
@@ -135,6 +149,45 @@ a:focus:not( :focus-visible ),
 [data-wpds-density='compact'] [data-ui-mode='classic'] svg {
 	width: 16px;
 	height: 16px;
+}
+
+/* Escape hatch for non-icon SVGs (illustrations, thumbnails) that size
+   themselves through their width/height attributes — `auto` defers back to
+   the attribute values the compact-density rule above would override. */
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
+	width: auto;
+	height: auto;
+}
+
+/* Step transitions for the classic router (`defaultViewTransition` in
+   createAppRouter) — the outgoing view fades while the incoming one fades
+   in with a slight rise, echoing the desktop renderer's Navigator slide. */
+@keyframes view-transition-exit {
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes view-transition-enter {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+}
+
+::view-transition-old(root) {
+	animation: 120ms ease-out both view-transition-exit;
+}
+
+::view-transition-new(root) {
+	animation: 220ms ease-out both view-transition-enter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+	}
 }
 
 /* Desks uses each shape's indicator as the visible selection outline.
@@ -158,6 +211,33 @@ a:focus:not( :focus-visible ),
 .components-combobox-control__suggestions-container,
 .components-form-token-field__suggestions-list {
 	background-color: var( --wp-components-color-background, #fff );
+}
+
+/* Input prefix icons (e.g. the email field's envelope) render with the SVG
+   default black fill; inherit the input's foreground so they track dark
+   mode. */
+.components-input-control-prefix-wrapper svg {
+	fill: currentColor;
+}
+
+/* The combobox suggestions popup defines no focus outline of its own, so
+   keyboard focus falls back to the UA default ring, which follows the OS
+   accent color (orange, green, …). Suppress it entirely: the combobox
+   input keeps its own focus ring, and a second ring around the popup reads
+   as a double focus indicator. The active option's highlight carries the
+   selection state inside the list. */
+.components-combobox-control__suggestions-container:focus-visible,
+.components-form-token-field__suggestions-list:focus-visible,
+.components-popover [role='listbox']:focus-visible {
+	outline: none;
+}
+
+/* CheckboxControl hardcodes a white box; defer to the themed input
+   background so unchecked boxes don't glow in dark mode. Specificity beats
+   the emotion-generated class that ships the hardcoded white; scoped to
+   :not(:checked) so the checked state keeps its accent fill. */
+input.components-checkbox-control__input[type='checkbox']:not(:checked) {
+	background: var( --wp-components-color-background, #fff );
 }
 
 /* Honor the user's reduced-motion preference across the entire app. Class-

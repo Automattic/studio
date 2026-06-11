@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
+import { analyzer } from 'vite-bundle-analyzer';
 import packageJson from './package.json';
 
 const nodeBuiltinExternals: RegExp[] = [
@@ -34,6 +35,7 @@ const skillsSourcePath = resolve( __dirname, 'ai/skills' );
 
 export const baseConfig = defineConfig( {
 	plugins: [
+		analyzer(),
 		{
 			name: 'write-dist-extras',
 			apply: 'build',

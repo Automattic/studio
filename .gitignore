@@ -139,6 +139,6 @@ apps/studio/php-bin/
 bin/studio-cli.exe
 
 # PromptFoo evaluation outputs
-eval/output/
-eval/test-sites/
+scripts/eval/output/
+scripts/eval/test-sites/
 .promptfoo/

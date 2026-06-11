@@ -69,6 +69,13 @@
 	line-height: 16px;
 }
 
+.annotationControls {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	flex-shrink: 0;
+}
+
 /* 2px bar overlapping the header's bottom border, like a browser's page-load
    indicator. The inner span is scaled by inline style as progress advances. */
 .loadingProgress {

@@ -29,8 +29,7 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
-		"@formatjs/intl-locale": "^3.4.5",
-		"@formatjs/intl-localematcher": "^0.5.4",
+		"@formatjs/intl-localematcher": "^0.8.10",
 		"@sentry/electron": "^7.13.0",
 		"@studio/common": "file:../../tools/common",
 		"@vscode/sudo-prompt": "^9.3.1",

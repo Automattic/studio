@@ -34,7 +34,7 @@ wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registere
 
 4. If you expect a plugin block but it is missing, check whether the plugin uses modules or feature flags, then activate the relevant module.
 5. Use the registered block in editable block markup.
-6. Validate generated block markup with `validate_html_blocks`, then `validate_and_fix_blocks` with `filePath` when the content lives in a file so safe editor fixes are applied automatically.
+6. Validate generated block markup with `validate_blocks`, passing `filePath` when the content lives in a file so safe editor fixes are applied automatically.
 
 ## WooCommerce Shop Sites
 
@@ -164,4 +164,4 @@ Then activate the needed module:
 wp_cli jetpack module activate <slug>
 ```
 
-3. Use the registered block in page markup and validate with `validate_html_blocks`, then `validate_and_fix_blocks` with `filePath` when possible.
+3. Use the registered block in page markup and validate with `validate_blocks`, passing `filePath` when possible.

@@ -27,7 +27,7 @@ describe( 'API Module', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( fs.createReadStream ).mockReturnValue( mockReadStream );
+		vi.spyOn( fs, 'createReadStream' ).mockReturnValue( mockReadStream );
 		vi.stubGlobal( 'fetch', vi.fn() );
 	} );
 

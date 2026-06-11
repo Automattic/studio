@@ -1,20 +1,27 @@
 #!/usr/bin/env tsx
 /**
- * Creates a standalone Studio CLI binary.
+ * Creates a standalone Studio CLI bundle for terminal installs.
  *
- * The CLI bundle is embedded inside the Node binary. The large node_modules
- * archive ships as a sidecar next to the binary and is extracted on first run.
+ * The bundle is a tarball with the same layout the desktop app ships in its
+ * resources directory — a real Node binary plus the CLI files — fronted by a
+ * small `studio` launcher script:
+ *
+ *   bin/node[.exe]      Official Node.js binary for the target platform
+ *   bin/studio[.cmd]    Launcher: runs `node --experimental-wasm-jspi cli/main.mjs`
+ *   cli/                CLI bundle (main.mjs, node_modules, wp-files, …)
  *
  * Output:
- *   standalone-bundles/studio-cli-{platform}-{arch}[.exe]
- *   standalone-bundles/studio-cli-{platform}-{arch}[.exe].sha256
- *   standalone-bundles/studio-cli-{platform}-{arch}[.exe].node_modules.tar.gz
- *   standalone-bundles/studio-cli-{platform}-{arch}[.exe].node_modules.tar.gz.sha256
+ *   standalone-bundles/studio-cli-{platform}-{arch}.tar.gz
+ *   standalone-bundles/studio-cli-{platform}-{arch}.tar.gz.sha256
  *
- * Prerequisites: Node.js >= 24, npm dependencies installed
+ * Prerequisites: Node.js >= 22, npm dependencies installed
  *
  * NOTE: The `cli:package` step mutates `apps/cli/node_modules`. If you need a
  * clean tree afterwards, run `npm ci` from the repo root to reset it.
+ *
+ * Native modules in cli/node_modules are built for the platform running this
+ * script, so cross-platform bundles only get the right Node binary — CI must
+ * build each platform's bundle on its own runner.
  *
  * Usage:
  *   npx tsx scripts/create-standalone-bundle.ts
@@ -50,17 +57,10 @@ if ( ! supportedArchs.includes( archArg ) ) {
 }
 
 const isWindows = platformArg === 'win32';
-const isDarwin = platformArg === 'darwin';
-const bundleName = `studio-cli-${ platformArg }-${ archArg }${ isWindows ? '.exe' : '' }`;
+const bundleName = `studio-cli-${ platformArg }-${ archArg }.tar.gz`;
 const outputDir = path.join( repoRoot, 'standalone-bundles' );
-const bundleDir = path.join( repoRoot, 'apps', 'cli', 'bundle' );
-const bundleBuildDir = path.join( bundleDir, 'build' );
+const stagingDir = path.join( outputDir, `staging-${ platformArg }-${ archArg }` );
 const cliDistDir = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' );
-
-// Convert Windows paths to POSIX for tar (backslashes and colons cause issues)
-function posix( p: string ): string {
-	return p.split( path.sep ).join( '/' );
-}
 
 function run( cmd: string, cwd?: string ): void {
 	execSync( cmd, { cwd: cwd ?? repoRoot, stdio: 'inherit' } );
@@ -84,8 +84,8 @@ function createTarball( archivePath: string, cwd: string, extraArgs: string[] ):
 		child.stdout.pipe( out );
 
 		// Resolve only once tar has exited 0 AND the write stream has flushed and
-		// closed. Resolving on tar's exit alone can leave a large sidecar still
-		// buffering, producing a truncated archive (and a mismatched checksum).
+		// closed. Resolving on tar's exit alone can leave a large archive still
+		// buffering, producing a truncated file (and a mismatched checksum).
 		let tarExitCode: number | null = null;
 		let tarExited = false;
 		let outClosed = false;
@@ -126,56 +126,50 @@ function createTarball( archivePath: string, cwd: string, extraArgs: string[] ):
 }
 
 async function main(): Promise< void > {
-	console.log( `==> Building standalone binary: ${ bundleName }\n` );
+	console.log( `==> Building standalone bundle: ${ bundleName }\n` );
 
-	// Step 1: Build CLI
-	console.log( '==> Step 1/5: Building CLI package...' );
+	// Step 1: Build CLI (dist/cli with bundled node_modules — the same output
+	// the desktop app packages into its resources directory)
+	console.log( '==> Step 1/4: Building CLI package...' );
 	run( 'npm run cli:package' );
 
-	// Step 2: Create bundle assets
-	// We ship two SEA assets plus one sidecar:
-	//   - main.mjs: the CLI source itself (raw, not tarred). Fredrik's
-	//     single-file Vite build means this is a single bundle that the SEA
-	//     bootstrap writes to disk and import()s at startup.
-	//   - resources.tar.gz: everything else from dist/cli (wp-files/, ai/plugin,
-	//     etc.) — runtime assets that the CLI reads via `import.meta.dirname`.
-	//   - node_modules.tar.gz: sidecar archive for native-external packages
-	//     that Vite leaves as bare imports (can't be inlined because of .node
-	//     addons / WASM). Keeping it out of the SEA blob avoids postject's
-	//     large-asset abort on Linux.
-	console.log( '\n==> Step 2/5: Creating bundle assets...' );
-	fs.rmSync( bundleBuildDir, { recursive: true, force: true } );
-	fs.mkdirSync( bundleBuildDir, { recursive: true } );
+	// Step 2: Assemble the bundle layout in a staging dir
+	console.log( '\n==> Step 2/4: Assembling bundle...' );
+	fs.rmSync( stagingDir, { recursive: true, force: true } );
+	fs.mkdirSync( path.join( stagingDir, 'bin' ), { recursive: true } );
 
-	// Copy main.mjs directly as a raw SEA asset (no tarball).
-	const mainMjsFullPath = path.join( bundleBuildDir, 'main.mjs' );
-	fs.copyFileSync( path.join( cliDistDir, 'main.mjs' ), mainMjsFullPath );
+	fs.cpSync( cliDistDir, path.join( stagingDir, 'cli' ), { recursive: true } );
 
-	// Everything else in dist/cli (wp-files, ai/plugin, …) minus node_modules
-	// and main.mjs. We stream tar's output to a file via Node (see createTarball)
-	// so "C:" never enters tar's argv — GNU tar on Windows would otherwise read
-	// it as a remote host.
-	const resourcesTarFullPath = path.join( bundleBuildDir, 'resources.tar.gz' );
-	await createTarball( resourcesTarFullPath, cliDistDir, [
-		'--exclude=node_modules',
-		'--exclude=main.mjs',
-	] );
+	const launcherName = isWindows ? 'studio.cmd' : 'studio';
+	const launcherPath = path.join( stagingDir, 'bin', launcherName );
+	fs.copyFileSync( path.join( repoRoot, 'scripts', 'standalone', launcherName ), launcherPath );
+	if ( ! isWindows ) {
+		fs.chmodSync( launcherPath, 0o755 );
+	}
 
-	// node_modules — use source node_modules (not dist) because externalized
-	// native packages have transitive deps (e.g. ws, ini) that they need at runtime.
-	// Strip browser dirs to save space. Keep asyncify as fallback for JSPI.
-	const cliNodeModules = path.join( repoRoot, 'apps', 'cli', 'node_modules' );
-	const nmTarFullPath = path.join( bundleBuildDir, 'node_modules.tar.gz' );
-	await createTarball( nmTarFullPath, cliNodeModules, [
+	// Step 3: Download the Node binary for the target platform into bin/
+	console.log( `\n==> Step 3/4: Downloading Node.js binary for ${ platformArg }-${ archArg }...` );
+	run(
+		`npx tsx scripts/download-node-binary.ts ${ platformArg } ${ archArg } "${ path.join(
+			stagingDir,
+			'bin'
+		) }"`
+	);
+
+	// Step 4: Create the tarball + checksum
+	console.log( '\n==> Step 4/4: Creating tarball...' );
+	fs.mkdirSync( outputDir, { recursive: true } );
+	const outputPath = path.join( outputDir, bundleName );
+	fs.rmSync( outputPath, { force: true } );
+
+	// Same node_modules prunes the desktop packaging applies: browser caches and
+	// AI provider SDKs that pi-ai loads lazily but Studio never uses. @mistralai's
+	// ~200-char generated filenames can also exceed Windows' 260-char path limit
+	// on extraction. Patterns are unanchored, so they match at any nesting depth.
+	await createTarball( outputPath, stagingDir, [
 		'--exclude=.cache',
 		'--exclude=playwright/browsers',
 		'--exclude=playwright-core/browsers',
-		// Unused AI provider SDKs: pi-ai loads them lazily and Studio only exposes
-		// Anthropic/OpenAI. Dead weight, and @mistralai's ~200-char generated
-		// filenames (nested under pi-coding-agent) can exceed Windows' 260-char
-		// path limit when the sidecar is extracted on first run. Exclusion
-		// patterns are unanchored, so these match at any nesting depth — same
-		// prune trunk applies to the desktop CLI bundle (#3735).
 		'--exclude=@mistralai',
 		'--exclude=@aws-sdk',
 		'--exclude=@aws-crypto',
@@ -183,92 +177,18 @@ async function main(): Promise< void > {
 		'--exclude=@google/genai',
 	] );
 
-	const mainSize = ( fs.statSync( mainMjsFullPath ).size / 1024 / 1024 ).toFixed( 1 );
-	const resourcesSize = ( fs.statSync( resourcesTarFullPath ).size / 1024 / 1024 ).toFixed( 1 );
-	const nmSize = ( fs.statSync( nmTarFullPath ).size / 1024 / 1024 ).toFixed( 1 );
-	console.log(
-		`   main.mjs: ${ mainSize } MB, resources: ${ resourcesSize } MB, node_modules: ${ nmSize } MB`
-	);
-
-	const mainSha = sha256( mainMjsFullPath );
-	const resourcesSha = sha256( resourcesTarFullPath );
-	const nodeModulesSha = sha256( nmTarFullPath );
-
-	// Include asset fingerprints in the marker so replacing a sidecar archive
-	// with the same package version still triggers re-extraction.
-	const cliPackageJsonPath = path.join( repoRoot, 'apps', 'cli', 'package.json' );
-	const { version: bundleVersion } = JSON.parse( fs.readFileSync( cliPackageJsonPath, 'utf8' ) );
-	fs.writeFileSync(
-		path.join( bundleBuildDir, 'bundle-version.txt' ),
-		[ bundleVersion, mainSha, resourcesSha, nodeModulesSha ].join( ':' )
-	);
-
-	// Step 3: Generate bundle blob
-	console.log( '\n==> Step 3/5: Generating bundle blob...' );
-	run( 'node --experimental-sea-config config.json', bundleDir );
-
-	// Step 4: Download Node binary into the build dir. Keeping it there (instead
-	// of next to the shipping studio-cli.sh/.bat in apps/studio/bin) avoids
-	// using a production-facing dir as scratch space.
-	console.log( `\n==> Step 4/5: Downloading Node.js binary for ${ platformArg }-${ archArg }...` );
-	run(
-		`npx tsx scripts/download-node-binary.ts ${ platformArg } ${ archArg } "${ bundleBuildDir }"`
-	);
-
-	// Step 5: Inject bundle blob into Node binary
-	console.log( '\n==> Step 5/5: Injecting bundle blob into Node binary...' );
-	fs.mkdirSync( outputDir, { recursive: true } );
-
-	const nodeBinary = isWindows ? 'node.exe' : 'node';
-	const outputPath = path.join( outputDir, bundleName );
-
-	fs.copyFileSync( path.join( bundleBuildDir, nodeBinary ), outputPath );
-	if ( ! isWindows ) {
-		fs.chmodSync( outputPath, 0o755 );
-	}
-
-	// macOS: remove code signature before injection
-	if ( isDarwin ) {
-		run( `codesign --remove-signature "${ outputPath }"` );
-	}
-
-	// Inject the bundle blob
-	const blobPath = path.join( bundleDir, 'bundle.blob' );
-	run(
-		`npx postject "${ posix( outputPath ) }" NODE_SEA_BLOB "${ posix( blobPath ) }" ` +
-			'--sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2' +
-			( isDarwin ? ' --macho-segment-name NODE_SEA' : '' )
-	);
-
-	// macOS: re-sign with ad-hoc signature
-	if ( isDarwin ) {
-		run( `codesign -s - "${ outputPath }"` );
-	}
-
-	// Emit a SHA-256 checksum file alongside the binary so the curl installers
-	// can verify the download before executing it.
-	const binarySha = sha256( outputPath );
+	// Emit a SHA-256 checksum file alongside the tarball so the curl installers
+	// can verify the download before installing it.
+	const bundleSha = sha256( outputPath );
 	const checksumPath = `${ outputPath }.sha256`;
-	fs.writeFileSync( checksumPath, `${ binarySha }  ${ path.basename( outputPath ) }\n` );
+	fs.writeFileSync( checksumPath, `${ bundleSha }  ${ bundleName }\n` );
 
-	const sidecarPath = `${ outputPath }.node_modules.tar.gz`;
-	fs.copyFileSync( nmTarFullPath, sidecarPath );
-	const sidecarSha = sha256( sidecarPath );
-	const sidecarChecksumPath = `${ sidecarPath }.sha256`;
-	fs.writeFileSync( sidecarChecksumPath, `${ sidecarSha }  ${ path.basename( sidecarPath ) }\n` );
-
-	// Cleanup build artifacts
-	fs.rmSync( bundleBuildDir, { recursive: true, force: true } );
-	fs.rmSync( blobPath, { force: true } );
+	fs.rmSync( stagingDir, { recursive: true, force: true } );
 
 	const size = ( fs.statSync( outputPath ).size / 1024 / 1024 ).toFixed( 1 );
-	const sidecarSize = ( fs.statSync( sidecarPath ).size / 1024 / 1024 ).toFixed( 1 );
-	console.log( `\n==> Done! Binary: ${ outputPath } (${ size } MB)` );
-	console.log( `    SHA-256:   ${ binarySha }` );
-	console.log( `    Checksum:  ${ checksumPath }` );
-	console.log( `    Sidecar:   ${ sidecarPath } (${ sidecarSize } MB)` );
-	console.log( `    SHA-256:   ${ sidecarSha }` );
-	console.log( `    Checksum:  ${ sidecarChecksumPath }` );
+	console.log( `\n==> Done! Bundle: ${ outputPath } (${ size } MB)` );
+	console.log( `    SHA-256:  ${ bundleSha }` );
+	console.log( `    Checksum: ${ checksumPath }` );
 }
 
 main().catch( ( error ) => {

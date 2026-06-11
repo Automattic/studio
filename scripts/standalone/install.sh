@@ -93,50 +93,44 @@ verify_checksum() {
 # --- Install ---
 
 install_studio() {
-	BINARY_NAME="studio-cli-${PLATFORM}-${ARCH}"
-	BINARY_URL="${BASE_URL}/${BINARY_NAME}"
-	SIDECAR_URL="${BINARY_URL}.node_modules.tar.gz"
+	BUNDLE_NAME="studio-cli-${PLATFORM}-${ARCH}.tar.gz"
+	BUNDLE_URL="${BASE_URL}/${BUNDLE_NAME}"
 
-	mkdir -p "$INSTALL_DIR/bin"
-	BINARY_PATH="$INSTALL_DIR/bin/studio"
-	SIDECAR_PATH="${BINARY_PATH}.node_modules.tar.gz"
+	mkdir -p "$INSTALL_DIR"
 
-	# Download + verify in a staging dir on the same filesystem as the final
-	# paths, then move the verified files into place. A failed or corrupt
-	# upgrade never touches a previously working install.
-	STAGING_DIR="$(mktemp -d "${INSTALL_DIR}/bin/.studio-install.XXXXXX")"
+	# Download, verify, and extract in a staging dir on the same filesystem as
+	# the final paths. A failed or corrupt download never touches a previously
+	# working install.
+	STAGING_DIR="$(mktemp -d "${INSTALL_DIR}/.studio-install.XXXXXX")"
 	trap 'rm -rf "$STAGING_DIR"' EXIT
 
-	TMP_BINARY="$STAGING_DIR/studio"
-	TMP_BINARY_SUM="$TMP_BINARY.sha256"
-	TMP_SIDECAR="$STAGING_DIR/studio.node_modules.tar.gz"
-	TMP_SIDECAR_SUM="$TMP_SIDECAR.sha256"
+	TMP_BUNDLE="$STAGING_DIR/$BUNDLE_NAME"
 
 	echo "Downloading Studio CLI..."
-	download "$BINARY_URL" "$TMP_BINARY"
-	download "${BINARY_URL}.sha256" "$TMP_BINARY_SUM"
-	download "$SIDECAR_URL" "$TMP_SIDECAR"
-	download "${SIDECAR_URL}.sha256" "$TMP_SIDECAR_SUM"
+	download "$BUNDLE_URL" "$TMP_BUNDLE"
+	download "${BUNDLE_URL}.sha256" "$TMP_BUNDLE.sha256"
 
 	echo "Verifying checksum..."
-	if ! verify_checksum "$TMP_BINARY" "$TMP_BINARY_SUM" ||
-		! verify_checksum "$TMP_SIDECAR" "$TMP_SIDECAR_SUM"; then
+	if ! verify_checksum "$TMP_BUNDLE" "$TMP_BUNDLE.sha256"; then
 		echo "Error: checksum verification failed. Aborting; existing install left untouched." >&2
 		exit 1
 	fi
 
-	chmod +x "$TMP_BINARY"
+	echo "Installing to $INSTALL_DIR..."
+	mkdir -p "$STAGING_DIR/extracted"
+	tar -xzf "$TMP_BUNDLE" -C "$STAGING_DIR/extracted"
 
-	# Move the verified files into place (atomic rename on the same filesystem).
-	# Sidecar first, binary last: if the second move fails, a still-old binary
-	# keeps working with its already-extracted runtime, whereas a new binary next
-	# to an old sidecar would re-extract a version-skewed runtime.
-	mv -f "$TMP_SIDECAR" "$SIDECAR_PATH"
-	mv -f "$TMP_BINARY" "$BINARY_PATH"
+	# Replace only the runtime dirs. Config files in $INSTALL_DIR (shared.json,
+	# cli.json, app.json, …) are left untouched.
+	rm -rf "$INSTALL_DIR/cli" "$INSTALL_DIR/bin"
+	mv "$STAGING_DIR/extracted/cli" "$INSTALL_DIR/cli"
+	mv "$STAGING_DIR/extracted/bin" "$INSTALL_DIR/bin"
+
+	chmod +x "$INSTALL_DIR/bin/node" "$INSTALL_DIR/bin/studio"
 
 	# Symlink to PATH
 	mkdir -p "$BIN_DIR"
-	ln -sf "$BINARY_PATH" "$BIN_DIR/studio"
+	ln -sf "$INSTALL_DIR/bin/studio" "$BIN_DIR/studio"
 }
 
 # --- PATH setup ---

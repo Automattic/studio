@@ -52,46 +52,47 @@ function Test-Checksum {
 
 function Install-StudioCli {
     $Arch = Get-Platform
-    $BinaryName = "studio-cli-win32-${Arch}.exe"
-    $BinaryUrl = "${BaseUrl}/${BinaryName}"
-    $SidecarUrl = "${BinaryUrl}.node_modules.tar.gz"
+    $BundleName = "studio-cli-win32-${Arch}.tar.gz"
+    $BundleUrl = "${BaseUrl}/${BundleName}"
 
     Write-Host "Studio CLI Installer"
     Write-Host ""
     Write-Host "Detected platform: win32-$Arch"
 
+    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     $BinDir = Join-Path $InstallDir "bin"
-    New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
 
-    $BinaryPath = Join-Path $BinDir "studio.exe"
-    $SidecarPath = "$BinaryPath.node_modules.tar.gz"
-
-    # Download + verify in a staging dir, then move the verified files into
-    # place. A failed or corrupt upgrade never clobbers a working install.
-    $StagingDir = Join-Path $BinDir (".studio-install-" + [guid]::NewGuid().ToString("N"))
+    # Download, verify, and extract in a staging dir, then swap the runtime
+    # dirs into place. A failed or corrupt download never clobbers a working
+    # install.
+    $StagingDir = Join-Path $InstallDir (".studio-install-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
     try {
-        $TmpBinary = Join-Path $StagingDir "studio.exe"
-        $TmpBinaryChecksum = "$TmpBinary.sha256"
-        $TmpSidecar = Join-Path $StagingDir "studio.exe.node_modules.tar.gz"
-        $TmpSidecarChecksum = "$TmpSidecar.sha256"
+        $TmpBundle = Join-Path $StagingDir $BundleName
 
         Write-Host "Downloading Studio CLI..."
-        Get-Bundle -Url $BinaryUrl -Dest $TmpBinary
-        Get-Bundle -Url "$BinaryUrl.sha256" -Dest $TmpBinaryChecksum
-        Get-Bundle -Url $SidecarUrl -Dest $TmpSidecar
-        Get-Bundle -Url "$SidecarUrl.sha256" -Dest $TmpSidecarChecksum
+        Get-Bundle -Url $BundleUrl -Dest $TmpBundle
+        Get-Bundle -Url "$BundleUrl.sha256" -Dest "$TmpBundle.sha256"
 
         Write-Host "Verifying checksum..."
-        Test-Checksum -File $TmpBinary -ChecksumFile $TmpBinaryChecksum
-        Test-Checksum -File $TmpSidecar -ChecksumFile $TmpSidecarChecksum
+        Test-Checksum -File $TmpBundle -ChecksumFile "$TmpBundle.sha256"
 
-        # Move the verified files into place (replaces any existing install).
-        # Sidecar first, binary last: if the second move fails, a still-old binary
-        # keeps working with its already-extracted runtime, whereas a new binary
-        # next to an old sidecar would re-extract a version-skewed runtime.
-        Move-Item -Path $TmpSidecar -Destination $SidecarPath -Force
-        Move-Item -Path $TmpBinary -Destination $BinaryPath -Force
+        Write-Host "Installing to $InstallDir..."
+        $ExtractDir = Join-Path $StagingDir "extracted"
+        New-Item -ItemType Directory -Path $ExtractDir -Force | Out-Null
+        # Use the Windows-provided BSD tar explicitly: a GNU tar earlier on PATH
+        # (e.g. Git Bash) would misread "C:" in the archive path as a remote host.
+        & "$env:SystemRoot\System32\tar.exe" -xzf $TmpBundle -C $ExtractDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to extract $BundleName (tar exited with $LASTEXITCODE)"
+        }
+
+        # Replace only the runtime dirs; anything else in $InstallDir is left
+        # untouched.
+        Remove-Item (Join-Path $InstallDir "cli") -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item $BinDir -Recurse -Force -ErrorAction SilentlyContinue
+        Move-Item -Path (Join-Path $ExtractDir "cli") -Destination (Join-Path $InstallDir "cli")
+        Move-Item -Path (Join-Path $ExtractDir "bin") -Destination $BinDir
     }
     finally {
         Remove-Item $StagingDir -Recurse -Force -ErrorAction SilentlyContinue

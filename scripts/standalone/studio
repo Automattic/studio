@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# Studio CLI standalone launcher
+# Runs the CLI using the bundled Node.js binary
+# Layout: INSTALL_DIR/bin/studio (this script), INSTALL_DIR/bin/node, INSTALL_DIR/cli/main.mjs
+
+SCRIPT_PATH="$(realpath "$0")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+INSTALL_DIR="$(dirname "$SCRIPT_DIR")"
+NODE_EXECUTABLE="$INSTALL_DIR/bin/node"
+CLI_SCRIPT="$INSTALL_DIR/cli/main.mjs"
+
+if ! [ -x "$NODE_EXECUTABLE" ]; then
+	echo "Error: Bundled Node.js not found at $NODE_EXECUTABLE" >&2
+	echo "Reinstall with: curl -fsSL https://wp.build/install.sh | bash" >&2
+	exit 1
+fi
+
+if ! [ -f "$CLI_SCRIPT" ]; then
+	echo "Error: CLI entry point not found at $CLI_SCRIPT" >&2
+	exit 1
+fi
+
+unset NODE_OPTIONS
+exec "$NODE_EXECUTABLE" --experimental-wasm-jspi "$CLI_SCRIPT" "$@"

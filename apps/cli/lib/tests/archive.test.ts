@@ -1,36 +1,26 @@
-import fs from 'fs';
 import path from 'path';
-import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { ZipArchive } from 'archiver';
 import { glob } from 'glob';
+import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 
 vi.mock( 'fs' );
-vi.mock( 'path', () => ( {
-	default: {
-		join: vi.fn(),
-	},
-} ) );
 vi.mock( 'archiver', () => ( {
 	ZipArchive: vi.fn(),
 } ) );
 vi.mock( 'glob', () => ( {
 	glob: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
-	createDeployIgnoreFilter: vi.fn(),
-} ) );
 
 describe( 'Archive Module', () => {
 	const mockSiteFolder = '/mock/site/folder';
 	const mockArchivePath = '/mock/archive.zip';
-	const mockWpContentPath = '/mock/site/folder/wp-content';
-	const mockWpConfigPath = '/mock/site/folder/wp-config.php';
+	const mockWpContentPath = path.join( mockSiteFolder, 'wp-content' );
+	const mockWpConfigPath = path.join( mockSiteFolder, 'wp-config.php' );
 
 	let mockArchiver: ReturnType< typeof createMockArchiver >;
-	let mockWriteStream: ReturnType< typeof createMockWriteStream >;
 
 	function createMockArchiver(): {
 		pipe: ReturnType< typeof vi.fn >;
@@ -40,18 +30,16 @@ describe( 'Archive Module', () => {
 		on: ReturnType< typeof vi.fn >;
 	} {
 		return {
-			pipe: vi.fn().mockReturnThis(),
+			// Ending the (real memfs) output stream makes it emit 'close', which is
+			// what resolves archiveSiteContent. The real archiver would do this after
+			// streaming the entries; the mock just ends it immediately.
+			pipe: vi.fn( ( dest: { end: () => void } ) => {
+				dest.end();
+				return mockArchiver;
+			} ),
 			directory: vi.fn().mockReturnThis(),
 			file: vi.fn().mockReturnThis(),
 			finalize: vi.fn().mockResolvedValue( undefined ),
-			on: vi.fn().mockReturnThis(),
-		};
-	}
-
-	function createMockWriteStream(): {
-		on: ReturnType< typeof vi.fn >;
-	} {
-		return {
 			on: vi.fn().mockReturnThis(),
 		};
 	}
@@ -63,59 +51,35 @@ describe( 'Archive Module', () => {
 		);
 	}
 
-	// Resolves the output stream's 'close' event so archiveSiteContent settles.
-	function resolveOnClose(): void {
-		mockWriteStream.on.mockImplementation( ( event, callback ) => {
-			if ( event === 'close' ) {
-				setTimeout( () => callback(), 0 );
-			}
-			return mockWriteStream;
-		} );
-		mockArchiver.on.mockImplementation( () => mockArchiver );
+	function archivedNames(): unknown[] {
+		return mockArchiver.file.mock.calls.map( ( call ) => call[ 1 ].name );
 	}
 
 	beforeEach( () => {
-		vi.clearAllMocks();
+		vol.reset();
+		// Parent directory for the archive's output write stream.
+		vol.mkdirSync( '/mock', { recursive: true } );
 		mockArchiver = createMockArchiver();
-		mockWriteStream = createMockWriteStream();
 		// `new ZipArchive()` must return our mock; a regular function is
 		// constructable (an arrow function is not), so use one here.
 		vi.mocked( ZipArchive ).mockImplementation( function (): ZipArchive {
 			return mockArchiver as unknown as ZipArchive;
 		} );
-		vi.mocked( fs.createWriteStream ).mockReturnValue(
-			mockWriteStream as unknown as ReturnType< typeof fs.createWriteStream >
-		);
-		vi.mocked( path.join ).mockImplementation( ( ...args ) => args.join( '/' ) );
-		// Default to an "ignore nothing" filter.
-		vi.mocked( createDeployIgnoreFilter ).mockResolvedValue( {
-			ignores: () => false,
-		} as unknown as Awaited< ReturnType< typeof createDeployIgnoreFilter > > );
 		// Default to an empty wp-content; individual tests override as needed.
 		mockGlobResults( [] );
 	} );
 
 	describe( 'createArchive', () => {
 		it( 'should create a zip archive and stream it to the output file', async () => {
-			vi.mocked( fs.existsSync ).mockReturnValue( false );
-			resolveOnClose();
-
 			const result = await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
-			expect( fs.createWriteStream ).toHaveBeenCalledWith( mockArchivePath );
-			expect( ZipArchive ).toHaveBeenCalledWith( {
-				zlib: { level: 9 },
-			} );
-			expect( mockArchiver.pipe ).toHaveBeenCalledWith( mockWriteStream );
+			expect( ZipArchive ).toHaveBeenCalledWith( { zlib: { level: 9 } } );
 			expect( mockArchiver.directory ).not.toHaveBeenCalled();
 			expect( mockArchiver.finalize ).toHaveBeenCalled();
 			expect( result ).toBe( mockArchiver );
 		} );
 
 		it( 'should enumerate wp-content following symlinks', async () => {
-			vi.mocked( fs.existsSync ).mockReturnValue( false );
-			resolveOnClose();
-
 			await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
 			expect( glob ).toHaveBeenCalledWith(
@@ -131,9 +95,7 @@ describe( 'Archive Module', () => {
 		} );
 
 		it( 'should add each globbed wp-content file individually', async () => {
-			vi.mocked( fs.existsSync ).mockReturnValue( false );
 			mockGlobResults( [ 'index.php', 'plugins/my-plugin.php' ] );
-			resolveOnClose();
 
 			await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
@@ -147,51 +109,49 @@ describe( 'Archive Module', () => {
 		} );
 
 		it( 'should skip deploy-ignored entries and the Studio loader mu-plugin', async () => {
-			vi.mocked( fs.existsSync ).mockReturnValue( false );
-			vi.mocked( createDeployIgnoreFilter ).mockResolvedValue( {
-				ignores: ( p: string ) => p === 'wp-content/debug.log',
-			} as unknown as Awaited< ReturnType< typeof createDeployIgnoreFilter > > );
+			// A real .deployignore in the volume drives the real ignore filter.
+			vol.fromJSON( { [ path.join( mockSiteFolder, '.deployignore' ) ]: 'debug.log\n' } );
 			mockGlobResults( [
 				'keep.php',
 				'debug.log',
 				`mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`,
 			] );
-			resolveOnClose();
 
 			await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
-			const archivedNames = mockArchiver.file.mock.calls.map( ( call ) => call[ 1 ].name );
-			expect( archivedNames ).toContain( 'wp-content/keep.php' );
-			expect( archivedNames ).not.toContain( 'wp-content/debug.log' );
-			expect( archivedNames ).not.toContain(
+			expect( archivedNames() ).toContain( 'wp-content/keep.php' );
+			expect( archivedNames() ).not.toContain( 'wp-content/debug.log' );
+			expect( archivedNames() ).not.toContain(
 				`wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`
 			);
 		} );
 
-		it( 'should include wp-config.php if it exists', async () => {
-			vi.mocked( fs.existsSync ).mockReturnValue( true );
-			resolveOnClose();
+		it( 'should include wp-config.php when it exists', async () => {
+			vol.fromJSON( { [ mockWpConfigPath ]: '<?php' } );
 
 			await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
-			expect( fs.existsSync ).toHaveBeenCalledWith( mockWpConfigPath );
 			expect( mockArchiver.file ).toHaveBeenCalledWith( mockWpConfigPath, {
 				name: 'wp-config.php',
 			} );
 		} );
 
+		it( 'should not include wp-config.php when it does not exist', async () => {
+			await archiveSiteContent( mockSiteFolder, mockArchivePath );
+
+			expect( archivedNames() ).not.toContain( 'wp-config.php' );
+		} );
+
 		it( 'should reject if archiver emits an error', async () => {
+			// Don't end the output stream, so the rejection (not 'close') settles it.
+			mockArchiver.pipe.mockReturnValue( mockArchiver );
 			const mockError = new Error( 'Archive error' );
-
-			mockWriteStream.on.mockReturnThis();
-
 			mockArchiver.on.mockImplementation( ( event, callback ) => {
 				if ( event === 'error' ) {
 					setTimeout( () => callback( mockError ), 0 );
 				}
 				return mockArchiver;
 			} );
-
 			mockArchiver.finalize.mockRejectedValue( mockError );
 
 			await expect( archiveSiteContent( mockSiteFolder, mockArchivePath ) ).rejects.toThrow(
@@ -205,28 +165,21 @@ describe( 'Archive Module', () => {
 			vi.useFakeTimers();
 		} );
 
-		afterEach( () => {} );
-
 		it( 'should remove the archive file if it exists', async () => {
-			vi.mocked( fs.existsSync ).mockReturnValue( true );
+			vol.fromJSON( { [ mockArchivePath ]: 'data' } );
 
 			const cleanupPromise = cleanup( mockArchivePath );
 			vi.runAllTimers();
 			await cleanupPromise;
 
-			expect( fs.existsSync ).toHaveBeenCalledWith( mockArchivePath );
-			expect( fs.unlinkSync ).toHaveBeenCalledWith( mockArchivePath );
+			expect( vol.existsSync( mockArchivePath ) ).toBe( false );
 		} );
 
-		it( 'should not attempt to remove the file if it does not exist', async () => {
-			vi.mocked( fs.existsSync ).mockReturnValue( false );
-
+		it( 'should resolve without error if the file does not exist', async () => {
 			const cleanupPromise = cleanup( mockArchivePath );
 			vi.runAllTimers();
-			await cleanupPromise;
 
-			expect( fs.existsSync ).toHaveBeenCalledWith( mockArchivePath );
-			expect( fs.unlinkSync ).not.toHaveBeenCalled();
+			await expect( cleanupPromise ).resolves.toBeUndefined();
 		} );
 	} );
 } );

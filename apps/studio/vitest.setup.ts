@@ -174,8 +174,6 @@ vi.mock( import( './src/storage/paths' ), () => ( {
 	getOldUserDataCertificatesPath: vi.fn().mockReturnValue( '/mock/certificates' ),
 	getOldServerFilesPath: vi.fn().mockReturnValue( '/mock/server/files' ),
 	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
-	getCliBinaryPath: vi.fn().mockReturnValue( null ),
-	getCliExtractionDir: vi.fn().mockReturnValue( '/mock/cli' ),
 	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
 	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
 	DEFAULT_SITE_PATH: '/mock/default/site/path',

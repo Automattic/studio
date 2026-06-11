@@ -1,9 +1,9 @@
 import { app } from 'electron';
-import { spawnSync, ChildProcess, StdioOptions } from 'node:child_process';
+import { fork, spawnSync, ChildProcess, StdioOptions } from 'node:child_process';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
-import { spawnCliProcess } from 'src/modules/cli/lib/spawn-cli-process';
 import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
+import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
 export type CliCommandResult = {
 	stdout: string;
@@ -113,19 +113,26 @@ export function executeCliCommand(
 	args: string[],
 	options: ExecuteCliCommandOptions = { output: 'ignore' }
 ): [ CliCommandEventEmitter< boolean >, ChildProcess ] {
+	const cliPath = getCliPath();
+
+	let stdio: StdioOptions | undefined;
 	/**
 	 * If there's an IPC channel, the CLI `Logger` uses IPC to communicate all expected events. This
 	 * means that for many CLI commands, the captured stdout/stderr will be empty, unless something
 	 * unexpected was logged.
 	 */
-	let stdio: StdioOptions | undefined;
 	if ( options.output === 'capture' ) {
 		stdio = [ 'ignore', 'pipe', 'pipe', 'ipc' ];
 	} else if ( options.output === 'ignore' ) {
 		stdio = [ 'ignore', 'ignore', 'ignore', 'ipc' ];
 	}
 
-	const child = spawnCliProcess( [ ...args, '--avoid-telemetry' ], { stdio, env: options.env } );
+	const child = fork( cliPath, [ ...args, '--avoid-telemetry' ], {
+		stdio,
+		execPath: getBundledNodeBinaryPath(),
+		execArgv: [ '--experimental-wasm-jspi' ],
+		env: { ...process.env, ...options.env },
+	} );
 	const eventEmitter = new TypedEventEmitter< CliCommandEventMap< boolean > >();
 
 	child.on( 'spawn', () => {

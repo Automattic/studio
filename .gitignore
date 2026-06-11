@@ -1,10 +1,6 @@
 # Standalone CLI bundles
 standalone-bundles/
 
-# Bundle build artifacts
-apps/cli/bundle/build/
-apps/cli/bundle/bundle.blob
-
 # Logs
 logs
 *.log
@@ -135,16 +131,14 @@ artifacts
 CLAUDE.md
 !skills/CLAUDE.md
 
-# Bundled binaries (built during packaging)
-apps/studio/bin/studio
-apps/studio/bin/studio.exe
-apps/studio/bin/studio.node_modules.tar.gz
-apps/studio/bin/studio.exe.node_modules.tar.gz
+# Bundled Node binary (downloaded during build)
+apps/studio/bin/node
+apps/studio/bin/node.exe
 
 # Bundled PHP binary (downloaded during packaging)
 apps/studio/php-bin/
 
-# CLI launcher executable (built during packaging)
+# CLI launcher executable (built during packaging via @yao-pkg/pkg)
 bin/studio-cli.exe
 
 # PromptFoo evaluation outputs

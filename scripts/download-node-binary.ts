@@ -5,10 +5,9 @@
  * Usage: npx tsx scripts/download-node-binary.ts <platform> <arch> [destDir]
  * Example: npx tsx scripts/download-node-binary.ts darwin arm64 ./build
  *
- * When destDir is omitted, the binary is placed in apps/cli/bundle/build/ —
- * a dedicated build-artifact location that `create-standalone-bundle.ts`
- * cleans up once the SEA has been generated. Callers can override it to
- * land the binary anywhere (e.g. for manual testing).
+ * When destDir is omitted, the binary is placed in apps/studio/bin/ for the
+ * desktop packaging step. Callers can override it to land the binary anywhere
+ * (e.g. `create-standalone-bundle.ts` points it at its staging dir).
  */
 
 import fs from 'fs';
@@ -64,7 +63,7 @@ if ( ! nodeArch ) {
 
 const binDir = destOverride
 	? path.resolve( destOverride )
-	: path.join( import.meta.dirname, '..', 'apps', 'cli', 'bundle', 'build' );
+	: path.join( import.meta.dirname, '..', 'apps', 'studio', 'bin' );
 const tmpDir = os.tmpdir();
 
 if ( ! fs.existsSync( binDir ) ) {

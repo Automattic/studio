@@ -43,24 +43,6 @@ export function getResourcesPath(): string {
 	return path.join( exePath, 'resources' );
 }
 
-export function getCliBinaryPath(): string | null {
-	// The bundled binary is only produced by the packaging step, so in test
-	// and development we fall back to running the CLI script with system node.
-	if ( process.env.NODE_ENV !== 'production' ) {
-		return null;
-	}
-	const binaryName = process.platform === 'win32' ? 'studio.exe' : 'studio';
-	return path.join( getResourcesPath(), 'bin', binaryName );
-}
-
-// Where the standalone binary extracts its embedded runtime assets (main.mjs,
-// wp-files, node_modules) on first run. We point it at a per-user writable dir
-// rather than the app bundle's Resources, which can be read-only for
-// non-admin/managed installs and whose code signature we must not mutate.
-export function getCliExtractionDir(): string {
-	return path.join( app.getPath( 'userData' ), 'cli' );
-}
-
 export function getCliPath(): string {
 	return process.env.NODE_ENV === 'development'
 		? path.join( getResourcesPath(), '..', 'cli', 'dist', 'cli', 'main.mjs' )

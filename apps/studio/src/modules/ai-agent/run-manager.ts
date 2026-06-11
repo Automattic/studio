@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { type ChildProcess } from 'node:child_process';
+import { fork, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,7 +12,7 @@ import {
 	StatsGroup,
 	StatsMetric,
 } from 'src/lib/bump-stats';
-import { spawnCliProcess } from 'src/modules/cli/lib/spawn-cli-process';
+import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
@@ -157,8 +157,8 @@ export interface StartAgentRunOptions {
 // the CLI child via a temp JSON file rather than process args, which have a
 // platform-dependent length cap. The dir is removed when the run exits.
 //
-// The write is synchronous because `startAgentRun` starts the child and returns a
-// run id without awaiting. This blocks the main process for
+// The write is synchronous because `startAgentRun` is synchronous (it forks the
+// child and returns a run id without awaiting). This blocks the main process for
 // the write — bounded and one-time, and only meaningful at the max image batch
 // (~12 MB → ~16 MB of base64 JSON). Kept sync to avoid a guard window where two
 // concurrent sends for the same session could both pass the in-flight check.
@@ -181,6 +181,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 
 	const runId = crypto.randomUUID();
 	const startedAt = Date.now();
+	const cliPath = getCliPath();
 	const inputPayload =
 		images.length > 0 || files.length > 0
 			? writeInputPayloadFile( { prompt, displayMessage, images, files } )
@@ -195,10 +196,15 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	if ( displayMessage && ! inputPayload ) {
 		args.push( '--display-message', displayMessage );
 	}
-	// Agent events arrive over the Node IPC channel (via `process.send` in the
-	// child). stdout/stderr are ignored — the child's `emitEvent` falls back to
-	// stdout only when IPC isn't available.
-	const child = spawnCliProcess( args, { stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ] } );
+	const child = fork( cliPath, args, {
+		// Agent events arrive over the Node IPC channel (via `process.send`
+		// in the child). stdout/stderr are ignored — the child's
+		// `emitEvent` falls back to stdout only when IPC isn't available.
+		stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
+		execPath: getBundledNodeBinaryPath(),
+		execArgv: [ '--experimental-wasm-jspi' ],
+		env: { ...process.env },
+	} );
 
 	const run: AgentRun = {
 		runId,

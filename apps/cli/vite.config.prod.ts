@@ -8,22 +8,6 @@ import { baseConfig } from './vite.config.base';
 const cliNodeModulesPath = resolve( __dirname, 'node_modules' );
 const distCliNodeModulesPath = resolve( __dirname, 'dist/cli/node_modules' );
 
-// Only copy native/WASM packages to dist (pure JS deps are inlined by Vite)
-// Only copy packages that can't be bundled or must stay externalized.
-const nativeModulePaths = [
-	{ src: 'node_modules/@php-wasm', dest: 'node_modules' },
-	{ src: 'node_modules/@wp-playground', dest: 'node_modules' },
-	{ src: 'node_modules/@anthropic-ai', dest: 'node_modules' },
-	{ src: 'node_modules/@img', dest: 'node_modules' },
-	{ src: 'node_modules/@silvia-odwyer/photon-node', dest: 'node_modules/@silvia-odwyer' },
-	{ src: 'node_modules/fs-ext-extra-prebuilt', dest: 'node_modules' },
-	{ src: 'node_modules/koffi', dest: 'node_modules' },
-	{ src: 'node_modules/sharp', dest: 'node_modules' },
-	{ src: 'node_modules/playwright', dest: 'node_modules' },
-	{ src: 'node_modules/playwright-core', dest: 'node_modules' },
-	{ src: 'node_modules/zod', dest: 'node_modules' },
-];
-
 export default mergeConfig(
 	baseConfig,
 	defineConfig( {
@@ -31,9 +15,12 @@ export default mergeConfig(
 			...( existsSync( cliNodeModulesPath )
 				? [
 						viteStaticCopy( {
-							targets: nativeModulePaths.filter( ( { src } ) =>
-								existsSync( resolve( __dirname, src ) )
-							),
+							targets: [
+								{
+									src: 'node_modules',
+									dest: '.',
+								},
+							],
 						} ),
 						{
 							// Remove PHP-WASM asyncify binaries from dist. JSPI is newer and faster
@@ -59,9 +46,10 @@ export default mergeConfig(
 		build: {
 			rollupOptions: {
 				output: {
-					// Single-file bundle so the SEA can embed one self-contained main.mjs
-					// without a chunk-name scavenger hunt at runtime. Requires a single
-					// entry — ok for prod since there's only `main`.
+					// Single-file bundle: everything the CLI needs at runtime is either
+					// inlined into main.mjs or resolved from the copied node_modules —
+					// no chunk files to ship or resolve. Requires a single entry — ok
+					// for prod since there's only `main`.
 					inlineDynamicImports: true,
 				},
 			},

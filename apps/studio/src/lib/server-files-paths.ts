@@ -6,7 +6,7 @@
 import os from 'os';
 import path from 'path';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
-import { getCliExtractionDir, getCliPath } from 'src/storage/paths';
+import { getCliPath } from 'src/storage/paths';
 
 // SQLite integration folder name
 const SQLITE_FILENAME = 'sqlite-database-integration';
@@ -53,15 +53,6 @@ export function getSqlitePath(): string {
  * The path to the bundled `wp-files/` directory that ships with the CLI.
  */
 function getBundledWpFilesPath(): string {
-	// In production the CLI's runtime assets (including wp-files) are extracted
-	// from the standalone binary into the per-user CLI dir on first run. The
-	// SEA entrypoint extracts before running any command, and app startup
-	// awaits a first CLI command (`SiteServer.fetchAll()`) before creating the
-	// main window — so extraction is complete before any consumer of this path
-	// can run. In dev/test the assets sit next to the CLI script.
-	if ( process.env.NODE_ENV === 'production' ) {
-		return path.join( getCliExtractionDir(), 'wp-files' );
-	}
 	return path.join( path.dirname( getCliPath() ), 'wp-files' );
 }
 

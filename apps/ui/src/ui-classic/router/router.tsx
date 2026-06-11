@@ -35,6 +35,9 @@ export function createAppRouter( context: RouterContext ) {
 		routeTree,
 		context,
 		defaultPreload: 'intent',
+		// Animate route (and step) changes with the View Transitions API —
+		// the fade-and-rise keyframes live in index.css.
+		defaultViewTransition: true,
 		history: createPackagedRouterHistory(),
 	} );
 }

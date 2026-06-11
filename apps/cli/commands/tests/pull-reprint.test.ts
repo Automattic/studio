@@ -11,7 +11,6 @@ import {
 	applyDownloadedDatabase,
 	downloadSkippedFiles,
 	findMatchingWpComSite,
-	formatWpComSitesList,
 	getReprintApiUrlForSite,
 	getPrivateDirNameForImportSession,
 	inferSiteNameFromUrl,
@@ -89,30 +88,6 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 			isStaging: false,
 			isAtomic: true,
 		} );
-	} );
-
-	it( 'formats the truncated WordPress.com site list with a remaining-count suffix', () => {
-		expect(
-			formatWpComSitesList(
-				[
-					{
-						id: 1,
-						name: 'One',
-						url: 'https://one.wordpress.com',
-						isStaging: false,
-						isAtomic: true,
-					},
-					{
-						id: 2,
-						name: 'Two',
-						url: 'https://two.wordpress.com',
-						isStaging: false,
-						isAtomic: true,
-					},
-				],
-				1
-			)
-		).toContain( '... and 1 more.' );
 	} );
 
 	it( 'restarts files-sync indexing only when the saved state has no resumable cursor', () => {
@@ -454,7 +429,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
-	it( 'prints the list and aborts for multiple sites when not in a TTY (no picker)', async () => {
+	it( 'aborts with an error for multiple sites when not in a TTY (no picker)', async () => {
 		setTTY( false );
 		vi.mocked( getWpComSites ).mockResolvedValue( sites );
 

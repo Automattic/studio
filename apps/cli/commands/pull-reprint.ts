@@ -133,13 +133,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
  */
 const PULLS_ROOT = path.join( os.homedir(), '.studio', 'pulls' );
 
-/**
- * Display a hint with this many WordPress.com sites when the user calls just
- * `studio pull-reprint` without the `--url`. Some accounts have hundreds of sites.
- * Let's only display the first few.
- */
-const DEFAULT_WPCOM_SITE_LIST_LIMIT = 15;
-
 const pullStageOrder = [
 	'initialized',
 	'essential-files-complete',
@@ -1081,22 +1074,6 @@ export function findMatchingWpComSite(
 	} );
 }
 
-export function formatWpComSitesList(
-	sites: WpComSiteInfo[],
-	limit = DEFAULT_WPCOM_SITE_LIST_LIMIT
-): string {
-	const visibleSites = sites.slice( 0, limit );
-	const lines = visibleSites.map(
-		( site, index ) => `${ index + 1 }. ${ site.name } - ${ site.url }`
-	);
-
-	if ( sites.length > visibleSites.length ) {
-		lines.push( `... and ${ sites.length - visibleSites.length } more.` );
-	}
-
-	return lines.join( '\n' );
-}
-
 /**
  * Turns the CLI arguments into a `ResolvedImportSource` the pull
  * pipeline can act on.  Handles three input patterns:
@@ -1198,13 +1175,10 @@ export async function resolveSourceSite(
 
 		if ( pullableSites.length > 1 ) {
 			// In a real terminal, let the user pick interactively. Outside a
-			// TTY (CI, Desktop driving the command), keep the original
-			// print-list-and-abort behavior so scripted callers are
-			// unaffected.
+			// TTY (CI, or Studio driving the command) there's no way to
+			// prompt, so exit with guidance to pass `--url` — the realistic
+			// non-TTY caller already does.
 			if ( ! process.stdin.isTTY ) {
-				console.log( __( 'Connected WordPress.com sites:' ) );
-				console.log( formatWpComSitesList( pullableSites ) );
-				console.log( '' );
 				throw new LoggerError(
 					__( 'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`.' )
 				);

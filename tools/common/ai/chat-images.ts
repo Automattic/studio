@@ -18,6 +18,10 @@ export interface StudioChatImageAttachment {
 	size: number;
 	width?: number;
 	height?: number;
+	// Downscaled `data:` URL thumbnail for transcript chips. Never sent to the
+	// model — the full bytes ride separately as `dataBase64`. Generated where a
+	// canvas is available (the renderer composer); absent otherwise.
+	previewDataUrl?: string;
 }
 
 export interface StudioChatImage extends StudioChatImageAttachment {
@@ -35,6 +39,9 @@ export const STUDIO_CHAT_MAX_IMAGES = 4;
 export const STUDIO_CHAT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES = 12 * 1024 * 1024;
 export const STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX = 8000;
+// Hard cap on the thumbnail data URL so a full-size image can't masquerade as
+// a "preview" and double the transcript's on-disk size.
+export const STUDIO_CHAT_MAX_IMAGE_PREVIEW_BYTES = 256 * 1024;
 
 export function toStudioChatImageAttachment( image: StudioChatImage ): StudioChatImageAttachment {
 	const { dataBase64: _dataBase64, ...attachment } = image;
@@ -105,6 +112,18 @@ export function validateStudioChatImages(
 			( height !== undefined && height > STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX )
 		) {
 			throw new Error( 'Attached images must be 8000 pixels or smaller on each side.' );
+		}
+
+		if ( image.previewDataUrl !== undefined ) {
+			if (
+				typeof image.previewDataUrl !== 'string' ||
+				! image.previewDataUrl.startsWith( 'data:image/' )
+			) {
+				throw new Error( 'Attached image previews must be data URLs.' );
+			}
+			if ( image.previewDataUrl.length > STUDIO_CHAT_MAX_IMAGE_PREVIEW_BYTES ) {
+				throw new Error( 'Attached image previews must be 256 KB or smaller.' );
+			}
 		}
 	}
 

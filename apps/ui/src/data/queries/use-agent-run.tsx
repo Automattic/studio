@@ -1,4 +1,4 @@
-import { toStudioChatImageAttachment } from '@studio/common/ai/chat-images';
+import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -458,34 +458,10 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				data: {
 					text: displayMessage,
 					source: 'prompt',
-					attachments: images.length > 0 ? images.map( toStudioChatImageAttachment ) : undefined,
+					attachments: buildChatAttachmentSummaries( images ),
 				},
 			} as SessionEntry;
-			const optimisticUserMessageEntry: SessionEntry | null =
-				images.length > 0
-					? ( {
-							type: 'message',
-							id: shortEntryId(),
-							parentId: null,
-							timestamp: nowIso(),
-							message: {
-								role: 'user',
-								content: [
-									{ type: 'text', text: prompt },
-									...images.map( ( image ) => ( {
-										type: 'image' as const,
-										data: image.dataBase64,
-										mimeType: image.mimeType,
-									} ) ),
-								],
-							},
-					  } as unknown as SessionEntry )
-					: null;
-			updateCache( sessionId, ( entries ) => [
-				...entries,
-				optimisticEntry,
-				...( optimisticUserMessageEntry ? [ optimisticUserMessageEntry ] : [] ),
-			] );
+			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );
 			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
 
 			try {
@@ -513,14 +489,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				subscribedRunIdsBySessionRef.current.set( sessionId, newRunId );
 			} catch ( err ) {
 				// Match by id: concurrent cache updates recreate the entries array,
-				// so the optimistic objects can't be found by reference.
-				const optimisticIds = new Set(
-					[ optimisticEntry.id, optimisticUserMessageEntry?.id ].filter(
-						( id ): id is string => !! id
-					)
-				);
+				// so the optimistic object can't be found by reference.
 				updateCache( sessionId, ( entries ) =>
-					entries.filter( ( entry ) => ! optimisticIds.has( entry.id ) )
+					entries.filter( ( entry ) => entry.id !== optimisticEntry.id )
 				);
 				const message = err instanceof Error ? err.message : String( err );
 				dispatchSession( sessionId, { type: 'error_set', message } );

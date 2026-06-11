@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	STUDIO_CHAT_MAX_IMAGE_BYTES,
 	STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX,
+	STUDIO_CHAT_MAX_IMAGE_PREVIEW_BYTES,
 	STUDIO_CHAT_MAX_IMAGES,
 	validateStudioChatImages,
 } from '../chat-images';
@@ -105,5 +106,37 @@ describe( 'validateStudioChatImages', () => {
 				},
 			] )
 		).toThrow( 'Attached images must be 8000 pixels or smaller on each side.' );
+	} );
+
+	it( 'rejects previews that are not data URLs', () => {
+		expect( () =>
+			validateStudioChatImages( [
+				{
+					id: 'image-1',
+					name: 'logo.png',
+					mimeType: 'image/png',
+					size: 3,
+					previewDataUrl: 'https://example.com/logo.png',
+					dataBase64: 'YWJj',
+				},
+			] )
+		).toThrow( 'Attached image previews must be data URLs.' );
+	} );
+
+	it( 'rejects previews above the maximum preview size', () => {
+		expect( () =>
+			validateStudioChatImages( [
+				{
+					id: 'image-1',
+					name: 'logo.png',
+					mimeType: 'image/png',
+					size: 3,
+					previewDataUrl: `data:image/png;base64,${ 'a'.repeat(
+						STUDIO_CHAT_MAX_IMAGE_PREVIEW_BYTES
+					) }`,
+					dataBase64: 'YWJj',
+				},
+			] )
+		).toThrow( 'Attached image previews must be 256 KB or smaller.' );
 	} );
 } );

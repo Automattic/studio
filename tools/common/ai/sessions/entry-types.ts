@@ -45,12 +45,10 @@ export interface StudioSessionContextData {
 
 // Lightweight attachment summaries persisted on a user-prompt entry so the
 // conversation transcript can render chips. Neither the image bytes nor the
-// file's disk path are persisted — only what the chip needs to display.
+// file's disk path are persisted — only what the chip needs to display,
+// including the `previewDataUrl` thumbnail inherited from the attachment.
 export interface StudioChatImageAttachmentSummary extends StudioChatImageAttachment {
 	kind: 'image';
-	// `data:` URL for rendering a thumbnail in the transcript. Persisted so the
-	// preview survives a session reload (the raw bytes are not kept elsewhere).
-	previewDataUrl?: string;
 }
 
 export interface StudioChatFileAttachmentSummary {

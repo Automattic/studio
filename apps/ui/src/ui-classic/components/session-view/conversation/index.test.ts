@@ -3,7 +3,7 @@ import { entriesToRenderItems } from './index';
 import type { SessionEntry } from '@/data/core';
 
 describe( 'entriesToRenderItems', () => {
-	it( 'attaches image previews to the matching user prompt', () => {
+	it( 'renders image attachments from the user prompt entry thumbnails', () => {
 		const items = entriesToRenderItems( [
 			{
 				type: 'custom',
@@ -16,26 +16,15 @@ describe( 'entriesToRenderItems', () => {
 					source: 'prompt',
 					attachments: [
 						{
+							kind: 'image',
 							id: 'image-1',
 							name: 'logo.png',
 							mimeType: 'image/png',
 							size: 123,
 							width: 80,
 							height: 40,
+							previewDataUrl: 'data:image/png;base64,abc123',
 						},
-					],
-				},
-			},
-			{
-				type: 'message',
-				id: 'user',
-				parentId: null,
-				timestamp: '2026-06-02T12:00:00.001Z',
-				message: {
-					role: 'user',
-					content: [
-						{ type: 'text', text: 'Use this logo' },
-						{ type: 'image', data: 'abc123', mimeType: 'image/png' },
 					],
 				},
 			},
@@ -52,6 +41,43 @@ describe( 'entriesToRenderItems', () => {
 						src: 'data:image/png;base64,abc123',
 					},
 				],
+			},
+		] );
+	} );
+
+	it( 'falls back to a src-less chip when the attachment has no thumbnail', () => {
+		const items = entriesToRenderItems( [
+			{
+				type: 'custom',
+				id: 'prompt',
+				parentId: null,
+				timestamp: '2026-06-02T12:00:00.000Z',
+				customType: 'studio.user_prompt',
+				data: {
+					text: 'Use this logo',
+					source: 'prompt',
+					attachments: [
+						{
+							id: 'image-1',
+							name: 'logo.png',
+							mimeType: 'image/png',
+							size: 123,
+						},
+						{
+							kind: 'file',
+							name: 'notes.txt',
+							size: 12,
+						},
+					],
+				},
+			},
+		] as SessionEntry[] );
+
+		expect( items ).toMatchObject( [
+			{
+				kind: 'user-turn',
+				text: 'Use this logo',
+				attachments: [ { id: 'image-1', name: 'logo.png', src: undefined } ],
 			},
 		] );
 	} );

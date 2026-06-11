@@ -21,7 +21,7 @@ import {
 	visibleWidth,
 	truncateToWidth,
 	CURSOR_MARKER,
-} from '@mariozechner/pi-tui';
+} from '@earendil-works/pi-tui';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
@@ -39,8 +39,9 @@ import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
-import type { ToolResultMessage } from '@mariozechner/pi-ai';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import { formatTosNoticeLines } from 'cli/lib/tos-notice';
+import type { ToolResultMessage } from '@earendil-works/pi-ai';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 interface TodoWriteInput {
@@ -1197,6 +1198,14 @@ export class AiChatUI implements AiOutputAdapter {
 		} );
 
 		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showTosNotice(): void {
+		const lines = formatTosNoticeLines().map( ( line ) =>
+			line ? ' ' + chalk.dim( line ) : line
+		);
+		this.messages.addChild( new Text( lines.join( '\n' ) + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 

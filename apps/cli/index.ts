@@ -17,6 +17,7 @@ import {
 } from 'cli/lib/bump-stat';
 import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { loadTranslations } from 'cli/lib/i18n';
+import { setupTosNotice } from 'cli/lib/tos-notice';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { setupUpdateNotifier } from 'cli/lib/update-notifier';
 import { untildify } from 'cli/lib/utils';
@@ -43,6 +44,8 @@ async function main() {
 		);
 		process.exit( 1 );
 	}
+
+	await setupTosNotice();
 
 	const studioArgv: StudioArgv = yargs( process.argv.slice( 2 ) )
 		.scriptName( 'studio' )
@@ -126,28 +129,59 @@ async function main() {
 		registerAiCommand( aiYargs );
 		const { registerRemoteSessionCommand } = await import( 'cli/commands/ai/remote-session' );
 		registerRemoteSessionCommand( aiYargs );
-		aiYargs.command( 'sessions', __( 'Manage code sessions' ), async ( sessionsYargs ) => {
-			const [
-				{ registerCommand: registerAiSessionsDeleteCommand },
-				{ registerCommand: registerAiSessionsListCommand },
-				{ registerCommand: registerAiSessionsResumeCommand },
-			] = await Promise.all( [
-				import( 'cli/commands/ai/sessions/delete' ),
-				import( 'cli/commands/ai/sessions/list' ),
-				import( 'cli/commands/ai/sessions/resume' ),
-			] );
+		aiYargs.command(
+			'sessions',
+			__( 'List, resume, and delete code sessions' ),
+			async ( sessionsYargs ) => {
+				const [
+					{ registerCommand: registerAiSessionsDeleteCommand },
+					{ registerCommand: registerAiSessionsListCommand },
+					{ registerCommand: registerAiSessionsResumeCommand },
+				] = await Promise.all( [
+					import( 'cli/commands/ai/sessions/delete' ),
+					import( 'cli/commands/ai/sessions/list' ),
+					import( 'cli/commands/ai/sessions/resume' ),
+				] );
 
-			sessionsYargs.option( 'path', {
-				hidden: true,
-			} );
-			registerAiSessionsDeleteCommand( sessionsYargs );
-			registerAiSessionsListCommand( sessionsYargs );
-			registerAiSessionsResumeCommand( sessionsYargs );
-			sessionsYargs
-				.version( false )
-				.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
-		} );
-		aiYargs.version( false );
+				sessionsYargs.option( 'path', {
+					hidden: true,
+				} );
+				registerAiSessionsDeleteCommand( sessionsYargs );
+				registerAiSessionsListCommand( sessionsYargs );
+				registerAiSessionsResumeCommand( sessionsYargs );
+				sessionsYargs
+					.version( false )
+					.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
+			}
+		);
+		aiYargs
+			.example( [
+				[ 'studio code', __( 'Start an interactive chat with the AI agent' ) ],
+				[
+					'studio code "Create a portfolio site"',
+					__( 'Start the agent with an initial message' ),
+				],
+				[
+					'studio code --json "Add a contact page"',
+					__( 'Run a single headless turn, printing NDJSON events' ),
+				],
+				[ 'studio code sessions list', __( 'List previous code sessions' ) ],
+				[ 'studio code sessions resume latest', __( 'Resume the most recent session' ) ],
+			] )
+			.epilogue(
+				[
+					__(
+						'Studio Code is an AI agent that builds WordPress sites: it creates and manages local and remote sites, builds themes, writes code, generates content, and publishes to WordPress.com.'
+					),
+					'',
+					sprintf(
+						/* translators: %s: Studio Code support documentation URL */
+						__( 'Learn more: %s' ),
+						'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/'
+					),
+				].join( '\n' )
+			)
+			.version( false );
 	};
 	studioArgv.command(
 		'code',

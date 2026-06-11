@@ -74,6 +74,7 @@ type UserDataSafeKeys =
 	| 'colorScheme'
 	| 'defaultSiteDirectory'
 	| 'cliAutoInstalled'
+	| 'cliUserUninstalled'
 	| 'wapuuScore'
 	| 'lastNightlyUpdateCheck'
 	| 'nightlyPromptResult';

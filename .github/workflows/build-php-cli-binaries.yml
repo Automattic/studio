@@ -117,7 +117,7 @@ jobs:
         # Linux runs SPC inside the spc-gnu-docker container, which ships
         # its own PHP + Composer; host PHP is only needed for the macOS path.
         if: runner.os == 'macOS'
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # 2.37.1
         with:
           coverage: none
           tools: composer:v2
@@ -544,7 +544,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@afeafc3d1ab54a631816aba4c914a0081c12ff2f # v1.310.0
         with:
           bundler-cache: true
 

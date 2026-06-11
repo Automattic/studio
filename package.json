@@ -58,7 +58,7 @@
 		"download-language-packs": "tsx ./scripts/download-language-packs.ts",
 		"download-agent-skills": "tsx ./scripts/download-agent-skills.ts",
 		"download:php-binary": "tsx ./scripts/download-php-binary.ts",
-		"eval": "npm run cli:build --silent && npx promptfoo@0.121.4 eval -c eval/promptfoo.config.yaml",
+		"eval": "npm run cli:build --silent && npx promptfoo@0.121.4 eval -c scripts/eval/promptfoo.config.yaml",
 		"eval:view": "npx promptfoo@0.121.4 view"
 	},
 	"devDependencies": {
@@ -89,8 +89,10 @@
 		"patch-package": "^8.0.1",
 		"prettier": "npm:wp-prettier@3.0.3",
 		"tsx": "^4.22.1",
+		"undici": "^8.3.0",
 		"typescript": "~6.0.3",
 		"typescript-eslint": "^8.59.4",
+		"vite": "^8.0.16",
 		"vitest": "^4.0.18",
 		"web-streams-polyfill": "^4.2.0"
 	}

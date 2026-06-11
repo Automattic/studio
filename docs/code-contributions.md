@@ -117,7 +117,7 @@ apps/studio/src/modules/
   │   ├── hooks/             # Feature-specific hooks
   │   └── lib/               # Feature-specific utilities
   │
-  ├── ai-assistant/          # AI Assistant feature
+  ├── ai-agent/              # Studio Code AI agent feature
   │   └── ...
   │
   └── sidebar/               # Sites sidebar feature

@@ -879,13 +879,14 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 				apiNamespace: 'wpcom/v2',
 				backup_id: backupId,
 			} );
-			const response = syncBackupResponseSchema.parse( rawResponse );
+			const parseResult = syncBackupResponseSchema.safeParse( rawResponse );
+			if ( ! parseResult.success ) {
+				console.error( 'Unexpected backup status response:', rawResponse );
+				throw new Error( __( 'Unexpected response from server while checking backup status' ) );
+			}
+			const response = parseResult.data;
 
 			signal.throwIfAborted();
-
-			if ( ! response.status ) {
-				throw new Error( 'Unexpected backup response: missing status' );
-			}
 
 			const hasBackupCompleted = response.status === 'finished';
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;

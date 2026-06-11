@@ -1,5 +1,5 @@
 import { isStudioCustomEntryOfType } from './entry-types';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export interface ResolvedActiveSite {
 	name: string;

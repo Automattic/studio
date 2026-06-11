@@ -275,7 +275,7 @@ function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 						{ __( 'Site settings' ) }
 					</Menu.Item>
 					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
-						{ copySite.isPending ? __( 'Copying…' ) : __( 'Copy site' ) }
+						{ copySite.isPending ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>

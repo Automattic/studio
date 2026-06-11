@@ -1,3 +1,9 @@
+import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
+import {
+	buildAttachedFilesPromptBlock,
+	type StudioChatFileAttachment,
+} from '@studio/common/ai/chat-files';
+import { type StudioChatImage } from '@studio/common/ai/chat-images';
 import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
@@ -32,9 +38,10 @@ import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import type { SessionManager } from '@mariozechner/pi-coding-agent';
+import type { SessionManager } from '@earendil-works/pi-coding-agent';
 import type {
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
@@ -82,6 +89,8 @@ export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
 	initialDisplayMessage?: string;
+	initialImages?: StudioChatImage[];
+	initialFiles?: StudioChatFileAttachment[];
 	resumeSession?: LoadedAiSession;
 	resumeSessionId?: string;
 	showLegacyCommandNotice?: boolean;
@@ -114,6 +123,8 @@ export async function runCommand( options: {
 	}
 	ui.start();
 	ui.showWelcome();
+
+	await maybeShowTosNotice( () => ui.showTosNotice() );
 
 	if ( options.showLegacyCommandNotice && ! isJsonMode ) {
 		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
@@ -307,6 +318,12 @@ export async function runCommand( options: {
 	const config = await readCliConfig();
 	let showCapabilitiesOnConnect = ! config.aiProvider;
 
+	// Studio Code Desktop defaults to WordPress.com provider.
+	if ( isJsonMode && showCapabilitiesOnConnect ) {
+		await switchProvider( 'wpcom', false );
+		showCapabilitiesOnConnect = false;
+	}
+
 	if ( showCapabilitiesOnConnect ) {
 		ui.showOnboarding();
 
@@ -426,7 +443,9 @@ export async function runCommand( options: {
 
 	async function runAgentTurn(
 		prompt: string,
-		displayMessage = prompt
+		displayMessage = prompt,
+		images: StudioChatImage[] = [],
+		files: StudioChatFileAttachment[] = []
 	): Promise< { status: TurnStatus; sessionId: string } > {
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
@@ -449,6 +468,12 @@ export async function runCommand( options: {
 			}]\n\n${ prompt }`;
 		}
 
+		// Non-image files ride as absolute-path references the agent reads with
+		// its file tools (images travel separately as multimodal content blocks).
+		if ( files.length > 0 ) {
+			enrichedPrompt = `${ enrichedPrompt }${ buildAttachedFilesPromptBlock( files ) }`;
+		}
+
 		// Read the WP.com access token for remote sites
 		let wpcomAccessToken: string | undefined;
 		if ( site?.remote ) {
@@ -464,6 +489,7 @@ export async function runCommand( options: {
 				text: displayMessage,
 				source: 'prompt',
 				sitePath: site?.path,
+				attachments: buildChatAttachmentSummaries( images, files ),
 			} )
 		);
 
@@ -471,6 +497,7 @@ export async function runCommand( options: {
 
 		const agentQuery = runStudioAgentTurn( {
 			prompt: enrichedPrompt,
+			images,
 			env,
 			model: currentModel,
 			session: sm,
@@ -530,7 +557,12 @@ export async function runCommand( options: {
 		try {
 			const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
 			ui.addUserMessage( displayMessage );
-			const result = await runAgentTurn( options.initialMessage, displayMessage );
+			const result = await runAgentTurn(
+				options.initialMessage,
+				displayMessage,
+				options.initialImages,
+				options.initialFiles
+			);
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
 			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.sessionId );
 		} catch ( error ) {
@@ -550,7 +582,12 @@ export async function runCommand( options: {
 		const displayMessage = options.initialDisplayMessage ?? options.initialMessage;
 		ui.addUserMessage( displayMessage );
 		try {
-			await runAgentTurn( options.initialMessage, displayMessage );
+			await runAgentTurn(
+				options.initialMessage,
+				displayMessage,
+				options.initialImages,
+				options.initialFiles
+			);
 		} catch ( error ) {
 			handleAgentTurnError( error );
 		}
@@ -660,7 +697,7 @@ export async function runCommand( options: {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: '$0 [message]',
-		describe: __( 'AI agent for building WordPress' ),
+		describe: __( 'Start an interactive AI chat to build WordPress sites' ),
 		builder: ( yargs ) => {
 			let chain = yargs
 				.positional( 'message', {

@@ -524,7 +524,11 @@ export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Pro
 	if ( ! token?.accessToken ) {
 		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
 	}
-	return fetchSyncableSites( token.accessToken );
+	// Pass the already-connected remote IDs so the transform can mark those
+	// sites 'already-connected' instead of offering them as syncable again.
+	const connectedSites = await getAllConnectedWpcomSitesForCurrentUser();
+	const connectedSiteIds = connectedSites.map( ( site ) => site.id );
+	return fetchSyncableSites( token.accessToken, { connectedSiteIds } );
 }
 
 export async function getConnectedWpcomSites(

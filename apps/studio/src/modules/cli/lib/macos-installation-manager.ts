@@ -123,20 +123,6 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			return;
 		}
 
-		// Migration: before cliUserUninstalled existed, an absent symlink with cliAutoInstalled
-		// set was the only signal that the user had uninstalled the CLI via Settings. Preserve
-		// that intent rather than silently reinstalling on the first launch of this version.
-		if ( userData.cliAutoInstalled ) {
-			const symlinkExists = await fs.promises
-				.lstat( cliSymlinkPath )
-				.then( () => true )
-				.catch( () => false );
-			if ( ! symlinkExists ) {
-				await updateAppdata( { cliUserUninstalled: true } );
-				return;
-			}
-		}
-
 		await this.installCli();
 	}
 

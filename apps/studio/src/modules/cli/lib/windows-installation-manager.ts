@@ -44,14 +44,6 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 			return;
 		}
 
-		// Migration: before cliUserUninstalled existed, an absent CLI dir with cliAutoInstalled
-		// set was the only signal that the user had uninstalled the CLI via Settings. Preserve
-		// that intent rather than silently reinstalling on the first launch of this version.
-		if ( userData.cliAutoInstalled && ! ( await this.isCliInstalled() ) ) {
-			await updateAppdata( { cliUserUninstalled: true } );
-			return;
-		}
-
 		if ( await this.isCliInstalled() ) {
 			// Update the proxy bat file to point at the current app version.
 			await this.updateWindowsCliVersionedPathIfNeeded();

@@ -254,6 +254,14 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 		if ( ! isSymlink ) {
 			return false;
 		}
+		// A dangling symlink (e.g. a standalone install that was deleted without
+		// removing the link) is broken, not externally managed — reclaim it so a
+		// reinstall can repair `studio` instead of refusing to touch it.
+		try {
+			await fs.promises.stat( symlinkPath );
+		} catch {
+			return false;
+		}
 		// A symlink that doesn't point at our packaged CLI is managed outside the
 		// app (e.g. a standalone curl install at <STUDIO_CLI_HOME>/bin/studio, any
 		// location). Treat it as installed and never overwrite it.

@@ -215,7 +215,9 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	/**
 	 * Check if a standalone CLI (installed via install.ps1) is present.
 	 * Detects the standalone launcher and its bundled Node binary in the
-	 * default or custom install path.
+	 * default or custom install path. Requiring both files means a broken
+	 * install (e.g. a launcher without its runtime) is not treated as
+	 * standalone, so the app can still install its own CLI.
 	 */
 	private async isStandaloneCli(): Promise< boolean > {
 		const currentPath = await this.getPathFromRegistry();

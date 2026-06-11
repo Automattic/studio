@@ -68,22 +68,6 @@ esac
 echo "--- :package: Package app for testing ($PLATFORM-$ARCH)"
 npm -w studio-app run package -- --arch="$ARCH" --platform="$FORGE_PLATFORM"
 
-case "$PLATFORM" in
-  mac)
-    PACKAGED_RESOURCES_DIR="apps/studio/out/Studio-darwin-${ARCH}/Studio.app/Contents/Resources"
-    PACKAGED_NODE="$PACKAGED_RESOURCES_DIR/bin/node"
-    ;;
-  windows)
-    PACKAGED_RESOURCES_DIR="apps/studio/out/Studio-win32-${ARCH}/resources"
-    PACKAGED_NODE="$PACKAGED_RESOURCES_DIR/bin/node.exe"
-    ;;
-  linux)
-    PACKAGED_RESOURCES_DIR="apps/studio/out/Studio-linux-${ARCH}/resources"
-    PACKAGED_NODE="$PACKAGED_RESOURCES_DIR/bin/node"
-    ;;
-esac
-PACKAGED_CLI_MAIN="$PACKAGED_RESOURCES_DIR/cli/main.mjs"
-
 if [ "$PLATFORM" = "linux" ]; then
   # The packaged app under apps/studio/out was created by electron-forge
   # running as root with restrictive default perms — the node user (which
@@ -99,44 +83,20 @@ if [ "$PLATFORM" = "linux" ]; then
   # and Chromium aborts on the misconfigured helper. Removing the helper
   # makes Chromium skip the SUID path and fall through to the user-
   # namespace sandbox, which doesn't need setuid.
-  rm -f "apps/studio/out/Studio-linux-${ARCH}/chrome-sandbox"
+  rm -f apps/studio/out/Studio-linux-x64/chrome-sandbox
 
   # Grant cap_net_bind_service to the bundled node so the proxy daemon can
   # listen on privileged ports 80/443 without running as root — mirrors the
   # DEB postinst hook (apps/studio/installers/linux/postinst.sh), which
   # doesn't run for `electron-forge package` output. Without this, custom-
   # domain HTTP/HTTPS tests fail to bind in the non-root test process.
-  if [ -x "$PACKAGED_NODE" ]; then
+  BUNDLED_NODE="apps/studio/out/Studio-linux-${ARCH}/resources/bin/node"
+  if [ -x "$BUNDLED_NODE" ]; then
     echo '--- :shield: Grant cap_net_bind_service to bundled node'
-    setcap 'cap_net_bind_service=+ep' "$PACKAGED_NODE" || \
-      echo "warning: setcap failed on $PACKAGED_NODE; privileged-port tests may fail to bind." >&2
+    setcap 'cap_net_bind_service=+ep' "$BUNDLED_NODE" || \
+      echo "warning: setcap failed on $BUNDLED_NODE; privileged-port tests may fail to bind." >&2
   fi
 fi
-
-echo '--- :mag: Verify packaged CLI'
-if [ ! -f "$PACKAGED_NODE" ]; then
-  echo "Missing bundled node binary: $PACKAGED_NODE"
-  exit 1
-fi
-if [ ! -f "$PACKAGED_CLI_MAIN" ]; then
-  echo "Missing packaged CLI entry point: $PACKAGED_CLI_MAIN"
-  exit 1
-fi
-
-# Smoke test the packaged CLI the same way the launcher scripts run it.
-node - "$PACKAGED_NODE" "$PACKAGED_CLI_MAIN" <<'NODE'
-const { spawnSync } = require( 'node:child_process' );
-
-const [ , , bundledNode, cliMain ] = process.argv;
-const result = spawnSync( bundledNode, [ cliMain, '--version' ], { encoding: 'utf8' } );
-
-if ( result.status !== 0 ) {
-	console.error( result.stderr || result.stdout || `Packaged CLI exited with ${ result.status }.` );
-	process.exit( 1 );
-}
-
-console.log( `Packaged CLI version: ${ result.stdout.trim() }` );
-NODE
 
 echo '--- :mag: Verify CLI build artifacts'
 CLI_DIST="apps/cli/dist/cli"

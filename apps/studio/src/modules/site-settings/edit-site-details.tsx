@@ -511,7 +511,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 															? __( 'The sandbox can only access the site directory.' )
 															: usedFileAccess === SITE_FILE_ACCESS_ALL_FILES
 															? __( 'PHP can access any file your user account can access.' )
-															: __( 'PHP can only access files inside the site directory.' ) }
+															: __( "Restricts the site's file access to the site directory." ) }
 													</span>
 												</label>
 											</div>

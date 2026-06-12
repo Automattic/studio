@@ -459,6 +459,9 @@ end
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
 #
 lane :publish_release do |version:, skip_confirm: false, github_username: nil|
+  # Required by update_apps_cdn_build_metadata to flip CDN visibility; check early for a clear failure
+  get_required_env('WPCOM_API_TOKEN')
+
   release_branch = "release/#{version}"
 
   UI.important <<~PROMPT
@@ -1219,7 +1222,13 @@ def create_draft_github_release(version:, release_tag:, builds:)
   # Coerce to Integer defensively: the CDN API returns integer post IDs, but the
   # update action requires Integers, so don't rely on the API's serialization.
   cdn_post_ids = builds.values.filter_map { |b| b[:post_id]&.to_i }.select(&:positive?)
-  body += "\n<!-- CDN_POST_IDS:#{cdn_post_ids.join(',')} -->" unless cdn_post_ids.empty?
+
+  # Every build must have a post ID: builds missing from the embedded list would
+  # silently stay Internal after publish_release and never reach users.
+  missing = builds.values.reject { |b| b[:post_id]&.to_i&.positive? }.map { |b| b[:name] }
+  UI.user_error!("Missing CDN post IDs for: #{missing.join(', ')}. publish_release needs every build's post ID to flip its visibility to External.") unless missing.empty?
+
+  body += "\n<!-- CDN_POST_IDS:#{cdn_post_ids.join(',')} -->"
 
   release_name = github_release_name(version:)
   release_notes_path = File.join(PROJECT_ROOT_FOLDER, 'fastlane', 'github_release_notes.txt')

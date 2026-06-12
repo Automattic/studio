@@ -1,4 +1,5 @@
 import { createDefaultDeskSettings } from '@studio/common/lib/desk-settings';
+import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
@@ -57,6 +58,9 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	let eventSource: EventSource | undefined;
+	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
+	// don't trigger an extra round-trip to the WordPress.com API.
+	let lastSites: SiteDetails[] | undefined;
 
 	async function api< T >( path: string, init?: RequestInit ): Promise< T > {
 		const response = await fetch( `${ base }${ path }`, {
@@ -126,7 +130,8 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
-			return api< SiteDetails[] >( '/sites' );
+			lastSites = await api< SiteDetails[] >( '/sites' );
+			return lastSites;
 		},
 		async createSite() {
 			throw new WebUnsupportedError( 'createSite' );
@@ -174,49 +179,17 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			return [];
 		},
 
-		// Featured blueprints — public endpoint, identical to the IPC connector.
-		async getFeaturedBlueprints( locale ) {
-			const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/blueprints' );
-			if ( locale ) {
-				url.searchParams.set( 'locale', locale );
-			}
-			const response = await fetch( url.toString() );
-			if ( ! response.ok ) {
-				throw new Error( `Failed to fetch blueprints: ${ response.status }` );
-			}
-			const body = ( await response.json() ) as {
-				blueprints?: Array< {
-					slug?: string;
-					title?: string;
-					excerpt?: string;
-					image?: string;
-					playground_url?: string;
-					blueprint?: unknown;
-				} >;
-			};
-			const list: FeaturedBlueprint[] = [];
-			for ( const item of body.blueprints ?? [] ) {
-				if (
-					typeof item.slug !== 'string' ||
-					typeof item.title !== 'string' ||
-					typeof item.excerpt !== 'string' ||
-					typeof item.image !== 'string' ||
-					typeof item.playground_url !== 'string' ||
-					! item.blueprint ||
-					typeof item.blueprint !== 'object'
-				) {
-					continue;
-				}
-				list.push( {
-					slug: item.slug,
-					title: item.title,
-					excerpt: item.excerpt,
-					image: item.image,
-					playgroundUrl: item.playground_url,
-					blueprint: item.blueprint as FeaturedBlueprint[ 'blueprint' ],
-				} );
-			}
-			return list;
+		// Featured blueprints — public endpoint, same source as the desktop app.
+		async getFeaturedBlueprints( locale ): Promise< FeaturedBlueprint[] > {
+			const blueprints = await fetchStudioBlueprints( locale );
+			return blueprints.map( ( blueprint ) => ( {
+				slug: blueprint.slug,
+				title: blueprint.title,
+				excerpt: blueprint.excerpt,
+				image: blueprint.image,
+				playgroundUrl: blueprint.playground_url,
+				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
+			} ) );
 		},
 
 		async getFilePath() {
@@ -390,7 +363,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
 		async openSiteUrl( siteId, relativeUrl = '' ) {
-			const sites = await api< SiteDetails[] >( '/sites' );
+			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
 			window.open( target, '_blank', 'noopener,noreferrer' );
 		},

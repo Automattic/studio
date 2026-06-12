@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import dsTokenFallbacks from '@wordpress/theme/vite-plugins/vite-ds-token-fallbacks';
 import dsTokenFallbacksPostcss from '@wordpress/theme/postcss-plugins/postcss-ds-token-fallbacks';
@@ -28,22 +28,12 @@ const isWeb = process.env.STUDIO_TARGET === 'web';
 // Serve `index.web.html` instead for any document navigation (`/`, `/sites`,
 // `/sessions/:id`, …) so the web entry + web connector load and client-side
 // routing/refresh works. Module and asset requests pass through untouched.
-const webDevEntryPlugin = {
+const webDevEntryPlugin: Plugin = {
 	name: 'studio-web-dev-entry',
-	apply: 'serve' as const,
-	configureServer( server: {
-		middlewares: {
-			use: (
-				fn: (
-					req: { url?: string; headers?: Record< string, unknown > },
-					res: unknown,
-					next: () => void
-				) => void
-			) => void;
-		};
-	} ) {
+	apply: 'serve',
+	configureServer( server ) {
 		server.middlewares.use( ( req, _res, next ) => {
-			const accept = String( req.headers?.accept ?? '' );
+			const accept = req.headers.accept ?? '';
 			const [ pathname ] = ( req.url ?? '' ).split( '?' );
 			const isInternal =
 				pathname.startsWith( '/@' ) ||

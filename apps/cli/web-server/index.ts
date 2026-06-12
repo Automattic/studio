@@ -27,10 +27,6 @@ function getPort(): number {
 	return parseInt( process.env.STUDIO_WEB_SERVER_PORT ?? String( DEFAULT_PORT ), 10 );
 }
 
-function param( req: Request, name: string ): string {
-	return req.params[ name ] ?? '';
-}
-
 const root = getAiSessionsRootDirectory();
 const app = express();
 
@@ -179,18 +175,18 @@ app.post( '/sessions', async ( _req: Request, res: Response ) => {
 } );
 
 app.get( '/sessions/:id', async ( req: Request, res: Response ) => {
-	res.json( await loadAiSession( root, param( req, 'id' ) ) );
+	res.json( await loadAiSession( root, req.params.id ) );
 } );
 
 app.delete( '/sessions/:id', async ( req: Request, res: Response ) => {
-	await deleteAiSession( root, param( req, 'id' ) );
+	await deleteAiSession( root, req.params.id );
 	res.sendStatus( 204 );
 } );
 
 app.patch( '/sessions/:id', async ( req: Request, res: Response ) => {
 	// Star/archive aren't persisted in the PoC (no shared store helper); echo
 	// the requested state on top of the current summary so the UI stays in sync.
-	const { summary } = await loadAiSession( root, param( req, 'id' ) );
+	const { summary } = await loadAiSession( root, req.params.id );
 	const patch = req.body as { starred?: boolean; archived?: boolean };
 	res.json( { ...summary, ...patch } );
 } );
@@ -201,7 +197,7 @@ app.post( '/sessions/:id/model', async ( req: Request, res: Response ) => {
 		res.status( 400 ).json( { error: `Unknown AI model: ${ model }` } );
 		return;
 	}
-	await appendModelChangeEntry( root, param( req, 'id' ), '', model );
+	await appendModelChangeEntry( root, req.params.id, '', model );
 	res.sendStatus( 204 );
 } );
 
@@ -211,7 +207,7 @@ app.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
 		res.status( 400 ).json( { error: 'prompt is required' } );
 		return;
 	}
-	const { runId } = startAgentRun( { sessionId: param( req, 'id' ), prompt, displayMessage } );
+	const { runId } = startAgentRun( { sessionId: req.params.id, prompt, displayMessage } );
 	res.json( { runId } );
 } );
 
@@ -222,13 +218,13 @@ app.get( '/runs/active', ( _req: Request, res: Response ) => {
 } );
 
 app.post( '/runs/:runId/interrupt', ( req: Request, res: Response ) => {
-	interruptAgentRun( param( req, 'runId' ) );
+	interruptAgentRun( req.params.runId );
 	res.sendStatus( 204 );
 } );
 
 app.post( '/runs/:runId/answer', ( req: Request, res: Response ) => {
 	const { answers } = req.body as { answers?: Record< string, string > };
-	answerAgentRun( param( req, 'runId' ), answers ?? {} );
+	answerAgentRun( req.params.runId, answers ?? {} );
 	res.sendStatus( 204 );
 } );
 

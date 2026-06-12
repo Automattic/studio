@@ -3,6 +3,7 @@ import { defaultI18n } from '@wordpress/i18n';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
+import { seedDefaultUiMode } from '@/app/use-ui-mode';
 import { persistPromise } from '@/data/core';
 import { createWebConnector } from '@/data/core/connectors/web';
 import type { Connector } from '@/data/core';
@@ -22,22 +23,10 @@ async function loadTranslations( connector: Connector ) {
 	}
 }
 
-// Studio Web defaults to the classic (agentic) UI — it uses real-path routing
-// that survives reloads/deep links. Seed the persisted mode only when the user
-// hasn't already chosen one.
-function seedDefaultUiMode() {
-	try {
-		const hasParam = new URLSearchParams( window.location.search ).has( 'studio-ui-mode' );
-		if ( ! hasParam && ! window.localStorage.getItem( 'studio-ui-mode' ) ) {
-			window.localStorage.setItem( 'studio-ui-mode', 'classic' );
-		}
-	} catch {
-		// Ignore storage failures.
-	}
-}
-
 async function bootstrap() {
-	seedDefaultUiMode();
+	// Studio Web defaults to the classic (agentic) UI — it uses real-path
+	// routing that survives reloads/deep links.
+	seedDefaultUiMode( 'classic' );
 
 	const connector = createWebConnector( {
 		apiBaseUrl: import.meta.env.VITE_STUDIO_API_URL ?? 'http://localhost:8088',

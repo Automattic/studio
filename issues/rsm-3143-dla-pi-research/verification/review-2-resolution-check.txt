@@ -1,0 +1,2 @@
+tsx/cli resolved at: /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-3143-dla-pi-research/node_modules/tsx/dist/cli.mjs
+mcp-server resolved at: /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-3143-dla-pi-research/node_modules/data-liberation/src/mcp-server.ts

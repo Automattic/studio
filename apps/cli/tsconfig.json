@@ -5,7 +5,9 @@
 		"moduleResolution": "bundler",
 		"paths": {
 			"cli/*": [ "./*" ],
-			"@studio/common/*": [ "../../tools/common/*" ]
+			"@studio/common/*": [ "../../tools/common/*" ],
+			"@studio/dla": [ "../../tools/dla/index.ts" ],
+			"@studio/dla/*": [ "../../tools/dla/*" ]
 		}
 	},
 	"include": [ "**/*" ],

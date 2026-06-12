@@ -3,8 +3,16 @@
 
 # IMAGE_ID is an env var that only macOS agents need.
 # Defining it at the root level propagates it too all agents, which can seem unnecessary but is a the same time convenient and DRY.
+#
+# PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 prevents the `playwright install chromium`
+# postinstall (pulled in transitively by the `data-liberation` agent dep) from
+# downloading ~150 MB of Chromium during every CI `npm install` / `npm ci`. The
+# DLA runtime bootstraps Chromium lazily on first use of a Wix/Squarespace
+# adapter, so CI builds never need it. End-user `npm install -g wp-studio` runs
+# the postinstall normally and pays the cost once on first install.
 env:
   IMAGE_ID: $IMAGE_ID
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
 
 e2e_config: &e2e_config
   command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"

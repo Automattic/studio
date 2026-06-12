@@ -1,0 +1,9 @@
+
+ RUN  v4.1.5 /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-3143-dla-pi-research
+
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  00:51:41
+   Duration  369ms (transform 21ms, setup 19ms, import 12ms, tests 34ms, environment 236ms)
+

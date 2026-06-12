@@ -1,0 +1,22 @@
+{
+	"name": "@studio/dla",
+	"private": true,
+	"version": "1.0.0",
+	"description": "Data Liberation Agent MCP-stdio bridge shared between Studio app and CLI",
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"lint": "eslint .",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.27.1"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-agent-core": "0.78.0",
+		"@earendil-works/pi-ai": "0.78.0",
+		"@earendil-works/pi-coding-agent": "0.78.0",
+		"data-liberation": "github:Automattic/data-liberation-agent#17219c42b0420267302b138bf402930508006e0e",
+		"tsx": "^4.19.0",
+		"typebox": "^1.1.24"
+	}
+}

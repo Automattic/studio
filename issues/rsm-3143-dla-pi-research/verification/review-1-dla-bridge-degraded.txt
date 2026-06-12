@@ -1,0 +1,17 @@
+$ STUDIO_DLA_ENABLED=1 OPENAI_API_KEY=sk-test-fake OPENAI_BASE_URL=https://example.invalid/v1 node apps/cli/dist/cli/main.mjs code --json "hello world"
+
+Captured stderr:
+[@studio/dla] failed to spawn DLA MCP server (Package subpath './dist/cli.mjs' is not defined by "exports" in /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-3143-dla-pi-research/node_modules/tsx/package.json); continuing without DLA tools.
+[studio code] DLA bridge degraded; continuing without DLA tools (Package subpath './dist/cli.mjs' is not defined by "exports" in /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-3143-dla-pi-research/node_modules/tsx/package.json).
+
+Outcome:
+- Agent boots and answers normally (graceful degradation works).
+- BUT no `liberate_*` tools are ever registered.
+- T6 acceptance criterion "liberate_detect shows up in the tool list" is NOT satisfied.
+
+Root cause:
+- tools/dla/bridge.ts line 267 calls require.resolve('tsx/dist/cli.mjs').
+- The tsx package's exports map only exposes "./cli" → "./dist/cli.mjs".
+- "./dist/cli.mjs" is not an exported subpath, so resolution throws ERR_PACKAGE_PATH_NOT_EXPORTED.
+- The standalone migrate command (apps/cli/commands/migrate/resolvers.ts) already
+  uses the correct "tsx/cli" form — the bridge needs the same fix.

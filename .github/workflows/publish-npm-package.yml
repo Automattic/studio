@@ -12,6 +12,15 @@ permissions:
   contents: read
   id-token: write # Required for npm trusted publishing (OIDC)
 
+# PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 prevents the `playwright install chromium`
+# postinstall (pulled in transitively by the `data-liberation` agent dep) from
+# downloading ~150 MB of Chromium during `npm ci`. The DLA runtime bootstraps
+# Chromium lazily on first use of a Wix/Squarespace adapter, so the publish job
+# doesn't need it. End-user `npm install -g wp-studio` runs the postinstall
+# normally and pays the cost once on first install.
+env:
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
 jobs:
   publish:
     runs-on: ubuntu-latest

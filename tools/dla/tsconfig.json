@@ -1,0 +1,20 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"outDir": "dist",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"target": "ES2022",
+		"declaration": true,
+		"emitDeclarationOnly": true
+	},
+	"include": [ "**/*" ],
+	"exclude": [
+		"**/__mocks__/**/*",
+		"**/node_modules/**/*",
+		"**/dist/**/*",
+		"**/out/**/*",
+		"vitest.config.ts"
+	]
+}

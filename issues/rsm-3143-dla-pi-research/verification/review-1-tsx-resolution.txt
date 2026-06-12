@@ -1,0 +1,2 @@
+FAILED tsx/dist/cli.mjs: ERR_PACKAGE_PATH_NOT_EXPORTED
+data-liberation/src/mcp-server.ts: /Users/iamposti/Automattic/repos/studio/.claude/worktrees/rsm-3143-dla-pi-research/node_modules/data-liberation/src/mcp-server.ts

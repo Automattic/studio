@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { isAiModelId } from '@studio/common/ai/models';
 import {
 	appendModelChangeEntry,
@@ -45,6 +48,18 @@ function hydrateAiSessionSummary(
 
 const root = getAiSessionsRootDirectory();
 const app = express();
+// All API routes live under `/api` so they can't collide with the SPA's
+// real-path routes (`/sessions/:id` is both an app URL and an API resource).
+const api = express.Router();
+
+// Express 4 doesn't forward async rejections to the error middleware — an
+// unhandled rejection would take the whole process down — so async routes go
+// through this wrapper.
+function asyncHandler( fn: ( req: Request, res: Response ) => Promise< void > ) {
+	return ( req: Request, res: Response, next: ( e?: unknown ) => void ) => {
+		fn( req, res ).catch( next );
+	};
+}
 
 // Permissive CORS for local development: the SPA dev server (5300) and this
 // backend live on different ports. EventSource (GET /events) needs no
@@ -78,7 +93,7 @@ app.use( express.json() );
 
 const sseClients = new Set< Response >();
 
-app.get( '/events', ( req: Request, res: Response ) => {
+api.get( '/events', ( req: Request, res: Response ) => {
 	res.setHeader( 'Content-Type', 'text/event-stream' );
 	res.setHeader( 'Cache-Control', 'no-cache' );
 	res.setHeader( 'Connection', 'keep-alive' );
@@ -104,7 +119,7 @@ setBroadcast( ( event: AgentRunEvent ) => {
 
 // --- Health ------------------------------------------------------------------
 
-app.get( '/health', ( _req: Request, res: Response ) => {
+api.get( '/health', ( _req: Request, res: Response ) => {
 	res.json( { status: 'ok' } );
 } );
 
@@ -131,122 +146,145 @@ const WPCOM_SITE_FIELDS = [
 	'options',
 ].join( ',' );
 
-app.get( '/sites', async ( _req: Request, res: Response ) => {
-	const token = await readAuthToken();
-	if ( ! token ) {
-		// Not signed in to WordPress.com — no sites to show.
-		res.json( [] );
-		return;
-	}
-
-	const url = new URL( 'https://public-api.wordpress.com/rest/v1.1/me/sites' );
-	url.searchParams.set( 'fields', WPCOM_SITE_FIELDS );
-	// `wpcom_staging_blog_ids` lets us point the browser at a site's staging
-	// environment instead of production (see below).
-	url.searchParams.set( 'options', 'wpcom_staging_blog_ids' );
-	const response = await fetch( url, {
-		headers: { Authorization: `Bearer ${ token.accessToken }` },
-	} );
-	if ( ! response.ok ) {
-		res.status( response.status ).json( {
-			error: `WordPress.com sites fetch failed (${ response.status })`,
-		} );
-		return;
-	}
-
-	const body = ( await response.json() ) as { sites?: SitesEndpointSite[] };
-	const allSites = body.sites ?? [];
-
-	// Look up any site's URL by blog id, and collect every staging blog id so
-	// staging environments aren't listed as their own cards (they're surfaced
-	// through their production parent below).
-	const urlByBlogId = new Map< number, string >();
-	const stagingBlogIds = new Set< number >();
-	for ( const site of allSites ) {
-		urlByBlogId.set( site.ID, site.URL );
-		for ( const stagingId of site.options?.wpcom_staging_blog_ids ?? [] ) {
-			stagingBlogIds.add( stagingId );
+api.get(
+	'/sites',
+	asyncHandler( async ( _req: Request, res: Response ) => {
+		const token = await readAuthToken();
+		if ( ! token ) {
+			// Not signed in to WordPress.com — no sites to show.
+			res.json( [] );
+			return;
 		}
-	}
 
-	const sites = allSites
-		// `getSyncSupport` with no connected ids returns 'syncable' for sites the
-		// user administers on a supported host/plan — i.e. usable in Studio.
-		.filter( ( site ) => getSyncSupport( site, [] ) === 'syncable' )
-		.filter( ( site ) => ! stagingBlogIds.has( site.ID ) )
-		.map( ( site ) => {
-			// Studio Web edits sites on their staging environment, never
-			// production. When a site has a staging blog, surface its URL.
-			const stagingId = site.options?.wpcom_staging_blog_ids?.[ 0 ];
-			const siteUrl = ( stagingId && urlByBlogId.get( stagingId ) ) || site.URL;
-			return {
-				id: String( site.ID ),
-				name: site.name || site.URL || String( site.ID ),
-				path: '',
-				port: 0,
-				running: true,
-				url: siteUrl,
-				phpVersion: '',
-				siteIcon: site.icon?.img ?? null,
-			};
+		const url = new URL( 'https://public-api.wordpress.com/rest/v1.1/me/sites' );
+		url.searchParams.set( 'fields', WPCOM_SITE_FIELDS );
+		// `wpcom_staging_blog_ids` lets us point the browser at a site's staging
+		// environment instead of production (see below).
+		url.searchParams.set( 'options', 'wpcom_staging_blog_ids' );
+		const response = await fetch( url, {
+			headers: { Authorization: `Bearer ${ token.accessToken }` },
 		} );
-	res.json( sites );
-} );
+		if ( ! response.ok ) {
+			res.status( response.status ).json( {
+				error: `WordPress.com sites fetch failed (${ response.status })`,
+			} );
+			return;
+		}
+
+		const body = ( await response.json() ) as { sites?: SitesEndpointSite[] };
+		const allSites = body.sites ?? [];
+
+		// Look up any site's URL by blog id, and collect every staging blog id so
+		// staging environments aren't listed as their own cards (they're surfaced
+		// through their production parent below).
+		const urlByBlogId = new Map< number, string >();
+		const stagingBlogIds = new Set< number >();
+		for ( const site of allSites ) {
+			urlByBlogId.set( site.ID, site.URL );
+			for ( const stagingId of site.options?.wpcom_staging_blog_ids ?? [] ) {
+				stagingBlogIds.add( stagingId );
+			}
+		}
+
+		const sites = allSites
+			// `getSyncSupport` with no connected ids returns 'syncable' for sites the
+			// user administers on a supported host/plan — i.e. usable in Studio.
+			.filter( ( site ) => getSyncSupport( site, [] ) === 'syncable' )
+			.filter( ( site ) => ! stagingBlogIds.has( site.ID ) )
+			.map( ( site ) => {
+				// Studio Web edits sites on their staging environment, never
+				// production. When a site has a staging blog, surface its URL.
+				const stagingId = site.options?.wpcom_staging_blog_ids?.[ 0 ];
+				const siteUrl = ( stagingId && urlByBlogId.get( stagingId ) ) || site.URL;
+				return {
+					id: String( site.ID ),
+					name: site.name || site.URL || String( site.ID ),
+					path: '',
+					port: 0,
+					running: true,
+					url: siteUrl,
+					phpVersion: '',
+					siteIcon: site.icon?.img ?? null,
+				};
+			} );
+		res.json( sites );
+	} )
+);
 
 // --- AI sessions -------------------------------------------------------------
 
-app.get( '/sessions', async ( _req: Request, res: Response ) => {
-	const [ sessions, sessionMetadata ] = await Promise.all( [
-		listAiSessions( root ),
-		readSharedSessions(),
-	] );
-	res.json(
-		sessions.map( ( session ) => hydrateAiSessionSummary( session, sessionMetadata[ session.id ] ) )
-	);
-} );
+api.get(
+	'/sessions',
+	asyncHandler( async ( _req: Request, res: Response ) => {
+		const [ sessions, sessionMetadata ] = await Promise.all( [
+			listAiSessions( root ),
+			readSharedSessions(),
+		] );
+		res.json(
+			sessions.map( ( session ) =>
+				hydrateAiSessionSummary( session, sessionMetadata[ session.id ] )
+			)
+		);
+	} )
+);
 
-app.post( '/sessions', async ( _req: Request, res: Response ) => {
-	// `siteId` is accepted but not yet wired: sessions start unbound and the
-	// agent creates/binds a site during the run.
-	res.json( await createAiSession( root ) );
-} );
+api.post(
+	'/sessions',
+	asyncHandler( async ( _req: Request, res: Response ) => {
+		// `siteId` is accepted but not yet wired: sessions start unbound and the
+		// agent creates/binds a site during the run.
+		res.json( await createAiSession( root ) );
+	} )
+);
 
-app.get( '/sessions/:id', async ( req: Request, res: Response ) => {
-	const [ loaded, sessionMetadata ] = await Promise.all( [
-		loadAiSession( root, req.params.id ),
-		readSharedSessions(),
-	] );
-	res.json( {
-		...loaded,
-		summary: hydrateAiSessionSummary( loaded.summary, sessionMetadata[ loaded.summary.id ] ),
-	} );
-} );
+api.get(
+	'/sessions/:id',
+	asyncHandler( async ( req: Request, res: Response ) => {
+		const [ loaded, sessionMetadata ] = await Promise.all( [
+			loadAiSession( root, req.params.id ),
+			readSharedSessions(),
+		] );
+		res.json( {
+			...loaded,
+			summary: hydrateAiSessionSummary( loaded.summary, sessionMetadata[ loaded.summary.id ] ),
+		} );
+	} )
+);
 
-app.delete( '/sessions/:id', async ( req: Request, res: Response ) => {
-	await deleteAiSession( root, req.params.id );
-	res.sendStatus( 204 );
-} );
+api.delete(
+	'/sessions/:id',
+	asyncHandler( async ( req: Request, res: Response ) => {
+		await deleteAiSession( root, req.params.id );
+		res.sendStatus( 204 );
+	} )
+);
 
-app.patch( '/sessions/:id', async ( req: Request, res: Response ) => {
-	const { summary } = await loadAiSession( root, req.params.id );
-	const patch = req.body as { starred?: boolean; archived?: boolean };
-	// Same persistence the desktop app uses (updateAiSessionMetadata in
-	// ipc-handlers.ts): flags go to the shared config under its lock.
-	const metadata = await updateSharedSession( summary.id, patch );
-	res.json( hydrateAiSessionSummary( summary, metadata ) );
-} );
+api.patch(
+	'/sessions/:id',
+	asyncHandler( async ( req: Request, res: Response ) => {
+		const { summary } = await loadAiSession( root, req.params.id );
+		const patch = req.body as { starred?: boolean; archived?: boolean };
+		// Same persistence the desktop app uses (updateAiSessionMetadata in
+		// ipc-handlers.ts): flags go to the shared config under its lock.
+		const metadata = await updateSharedSession( summary.id, patch );
+		res.json( hydrateAiSessionSummary( summary, metadata ) );
+	} )
+);
 
-app.post( '/sessions/:id/model', async ( req: Request, res: Response ) => {
-	const { model } = req.body as { model?: string };
-	if ( ! model || ! isAiModelId( model ) ) {
-		res.status( 400 ).json( { error: `Unknown AI model: ${ model }` } );
-		return;
-	}
-	await appendModelChangeEntry( root, req.params.id, '', model );
-	res.sendStatus( 204 );
-} );
+api.post(
+	'/sessions/:id/model',
+	asyncHandler( async ( req: Request, res: Response ) => {
+		const { model } = req.body as { model?: string };
+		if ( ! model || ! isAiModelId( model ) ) {
+			res.status( 400 ).json( { error: `Unknown AI model: ${ model }` } );
+			return;
+		}
+		await appendModelChangeEntry( root, req.params.id, '', model );
+		res.sendStatus( 204 );
+	} )
+);
 
-app.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
+api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
 	const { prompt, displayMessage } = req.body as { prompt?: string; displayMessage?: string };
 	if ( ! prompt ) {
 		res.status( 400 ).json( { error: 'prompt is required' } );
@@ -258,20 +296,48 @@ app.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
 
 // --- Runs --------------------------------------------------------------------
 
-app.get( '/runs/active', ( _req: Request, res: Response ) => {
+api.get( '/runs/active', ( _req: Request, res: Response ) => {
 	res.json( listActiveAgentRuns() );
 } );
 
-app.post( '/runs/:runId/interrupt', ( req: Request, res: Response ) => {
+api.post( '/runs/:runId/interrupt', ( req: Request, res: Response ) => {
 	interruptAgentRun( req.params.runId );
 	res.sendStatus( 204 );
 } );
 
-app.post( '/runs/:runId/answer', ( req: Request, res: Response ) => {
+api.post( '/runs/:runId/answer', ( req: Request, res: Response ) => {
 	const { answers } = req.body as { answers?: Record< string, string > };
 	answerAgentRun( req.params.runId, answers ?? {} );
 	res.sendStatus( 204 );
 } );
+
+app.use( '/api', api );
+
+// --- Web UI ------------------------------------------------------------------
+
+// Serve the built browser UI (apps/ui `npm run build:web`) so `studio
+// web-server` is the only command needed: API and SPA share one origin. When
+// the build output isn't there (API-only usage, or UI served by the Vite dev
+// server on :5300), the server still works and the startup message says how to
+// get the UI.
+const uiDist =
+	process.env.STUDIO_WEB_UI_DIST ??
+	path.resolve( path.dirname( fileURLToPath( import.meta.url ) ), '../../../ui/dist-web' );
+const uiIndex = path.join( uiDist, 'index.web.html' );
+const hasUi = existsSync( uiIndex );
+if ( hasUi ) {
+	app.use( express.static( uiDist ) );
+	// SPA fallback: the app uses real-path routing (/sessions/:id, /sites/:id),
+	// so any unmatched HTML navigation reloads into the app shell. API routes
+	// are registered above and keep precedence.
+	app.get( '*', ( req: Request, res: Response, next ) => {
+		if ( ( req.headers.accept ?? '' ).includes( 'text/html' ) ) {
+			res.sendFile( uiIndex );
+			return;
+		}
+		next();
+	} );
+}
 
 // --- Error handling ----------------------------------------------------------
 
@@ -287,12 +353,19 @@ const port = getPort();
 const server = app.listen( port, '127.0.0.1', () => {
 	console.log( `\nWordPress Studio Web Server` );
 	console.log( `==========================` );
-	console.log( `Listening:  http://localhost:${ port }` );
-	console.log( `Health:     http://localhost:${ port }/health` );
-	console.log( `Events:     http://localhost:${ port }/events (SSE)` );
+	if ( hasUi ) {
+		console.log( `Open:       http://localhost:${ port }` );
+	}
+	console.log( `Health:     http://localhost:${ port }/api/health` );
+	console.log( `Events:     http://localhost:${ port }/api/events (SSE)` );
 	console.log( '' );
-	console.log( `Point the web UI at this with VITE_STUDIO_API_URL=http://localhost:${ port }` );
-	console.log( '' );
+	if ( ! hasUi ) {
+		console.log( `No web UI build found at ${ uiDist }.` );
+		console.log(
+			`Build it with \`npm run build:web --workspace=apps/ui\`, or run the dev server with \`npm run dev:web --workspace=apps/ui\` and open http://localhost:5300.`
+		);
+		console.log( '' );
+	}
 } );
 
 process.on( 'SIGINT', () => {

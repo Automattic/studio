@@ -55,7 +55,9 @@ type ServerEvent =
  * throw) or throw `WebUnsupportedError` for user-triggered actions.
  */
 export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Connector {
-	const base = apiBaseUrl.replace( /\/$/, '' );
+	// The backend namespaces its API under /api so the SPA's real-path routes
+	// (also /sessions/:id, /sites/:id) can share the same origin.
+	const base = `${ apiBaseUrl.replace( /\/$/, '' ) }/api`;
 
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();

@@ -7,10 +7,16 @@ capabilities the desktop app reaches over IPC, but over HTTP, so the portable
 (`apps/ui/src/data/core/connectors/web`).
 
 ```
+npm run build:web --workspace=apps/ui        # once, or after UI changes
 node apps/cli/dist/cli/main.mjs web-server   # listens on 127.0.0.1:8088 (--port / STUDIO_WEB_SERVER_PORT)
 ```
 
-To run the UI against it:
+The server serves the built UI itself — open http://localhost:8088 and that's
+the whole setup. The API is namespaced under `/api` so the SPA's real-path
+routes (`/sessions/:id`, `/sites/:id`) can share the origin.
+
+For UI development with hot reload, run the Vite dev server instead (it targets
+the backend's default port cross-origin):
 
 ```
 cd apps/ui && npm run dev:web                # serves the browser entry on :5300
@@ -52,13 +58,13 @@ new always-on server.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET`  | `/health` | liveness check |
-| `GET`  | `/events` | SSE stream carrying every run's `AgentRunEvent`s |
-| `GET`  | `/sites` | the user's workable WordPress.com sites (requires `studio auth login`) |
-| `GET/POST` | `/sessions` | list / create AI sessions (shared session store) |
-| `GET/PATCH/DELETE` | `/sessions/:id` | load / star-archive / delete a session |
-| `POST` | `/sessions/:id/messages` | send a prompt — forks the agent, returns `{ runId }` |
-| `POST` | `/sessions/:id/model` | persist a model override for the session |
-| `GET`  | `/runs/active` | active agent runs |
-| `POST` | `/runs/:runId/interrupt` | graceful interrupt, SIGKILL on second attempt |
-| `POST` | `/runs/:runId/answer` | answer an agent question |
+| `GET`  | `/api/health` | liveness check |
+| `GET`  | `/api/events` | SSE stream carrying every run's `AgentRunEvent`s |
+| `GET`  | `/api/sites` | the user's workable WordPress.com sites (requires `studio auth login`) |
+| `GET/POST` | `/api/sessions` | list / create AI sessions (shared session store) |
+| `GET/PATCH/DELETE` | `/api/sessions/:id` | load / star-archive / delete a session |
+| `POST` | `/api/sessions/:id/messages` | send a prompt — forks the agent, returns `{ runId }` |
+| `POST` | `/api/sessions/:id/model` | persist a model override for the session |
+| `GET`  | `/api/runs/active` | active agent runs |
+| `POST` | `/api/runs/:runId/interrupt` | graceful interrupt, SIGKILL on second attempt |
+| `POST` | `/api/runs/:runId/answer` | answer an agent question |

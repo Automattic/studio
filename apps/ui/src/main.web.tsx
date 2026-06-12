@@ -23,13 +23,20 @@ async function loadTranslations( connector: Connector ) {
 	}
 }
 
+function getDefaultApiBaseUrl(): string {
+	// Production builds are served by `studio web-server` itself, so the API is
+	// same-origin. The Vite dev server (:5300) is a separate origin and targets
+	// the backend's default port instead.
+	return import.meta.env.DEV ? 'http://localhost:8088' : window.location.origin;
+}
+
 async function bootstrap() {
 	// Studio Web defaults to the classic (agentic) UI — it uses real-path
 	// routing that survives reloads/deep links.
 	seedDefaultUiMode( 'classic' );
 
 	const connector = createWebConnector( {
-		apiBaseUrl: import.meta.env.VITE_STUDIO_API_URL ?? 'http://localhost:8088',
+		apiBaseUrl: import.meta.env.VITE_STUDIO_API_URL ?? getDefaultApiBaseUrl(),
 	} );
 
 	await Promise.all( [ connector.init?.(), loadTranslations( connector ), persistPromise ] );

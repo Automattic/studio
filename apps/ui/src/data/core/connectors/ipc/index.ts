@@ -714,5 +714,11 @@ export function createIpcConnector(): Connector {
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'site-event', () => listener() );
 		},
+
+		onToggleSitePreview( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'toggle-site-preview', () => listener() );
+		},
 	};
 }

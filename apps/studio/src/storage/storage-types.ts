@@ -15,6 +15,9 @@ export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
 	siteIconPath?: SiteDetails[ 'siteIconPath' ];
 	sortOrder?: number;
+	// Unix ms of the last time this site's runtime was counted in usage stats.
+	// Dedupes the weekly per-site runtime bump so restarts don't inflate it.
+	runtimeStatBumpedAt?: number;
 }
 
 export interface AiSessionSitePlacement {

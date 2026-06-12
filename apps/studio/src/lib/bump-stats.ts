@@ -4,6 +4,16 @@ import {
 	LastBumpStatsProvider,
 	AggregateInterval,
 } from '@studio/common/lib/bump-stat';
+import {
+	getSiteFileAccess,
+	SITE_FILE_ACCESS_ALL_FILES,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { ImporterType } from '@studio/common/lib/import-export-events';
 
@@ -31,6 +41,9 @@ export enum StatsGroup {
 	STUDIO_CODE_UI_RUN = 'studio-code-ui-run',
 	STUDIO_CODE_UI_WKLY_UNQ = 'studio-code-ui-wk-unq',
 	STUDIO_CODE_UI_MON_UNQ = 'studio-code-ui-mon-unq',
+	// Weekly count of active sites by runtime + file access. Bumped on site
+	// start, deduped to once per site per week so restarts don't inflate it.
+	STUDIO_SITE_RUNTIME_WEEKLY = 'studio-app-runtime-wk',
 }
 
 export enum StatsMetric {
@@ -56,6 +69,10 @@ export enum StatsMetric {
 	REMOTE_BLUEPRINT = 'remote-blueprint',
 	FILE_BLUEPRINT = 'file-blueprint',
 	NO_BLUEPRINT = 'no-blueprint',
+	// Site runtime (composite of runtime + file access)
+	RUNTIME_NATIVE_SITE_DIR = 'native-site-dir',
+	RUNTIME_NATIVE_ALL_FILES = 'native-all-files',
+	RUNTIME_SANDBOX = 'sandbox',
 }
 
 const lastBumpStatsProvider: LastBumpStatsProvider = {
@@ -115,6 +132,20 @@ export function getImporterMetric( importer?: ImporterType ): StatsMetric {
 		default:
 			return StatsMetric.UNKNOWN_IMPORTER;
 	}
+}
+
+// Composite runtime + file-access metric for the weekly active-sites stat.
+// Sandbox is always confined to the site directory, so it has no file-access split.
+export function getSiteRuntimeStat( site: {
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
+} ): StatsMetric {
+	if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
+		return getSiteFileAccess( site ) === SITE_FILE_ACCESS_ALL_FILES
+			? StatsMetric.RUNTIME_NATIVE_ALL_FILES
+			: StatsMetric.RUNTIME_NATIVE_SITE_DIR;
+	}
+	return StatsMetric.RUNTIME_SANDBOX;
 }
 
 export function getBlueprintMetric( blueprintSlug: string | undefined ): string {

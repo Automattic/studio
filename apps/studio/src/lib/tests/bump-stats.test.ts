@@ -3,7 +3,14 @@ import { waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import { EMPTY_USER_DATA } from 'src/storage/storage-types';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
-import { bumpStat, bumpAggregatedUniqueStat, StatsGroup, StatsMetric } from '../bump-stats';
+import {
+	bumpStat,
+	bumpAggregatedUniqueStat,
+	getSiteRuntimeStat,
+	StatsGroup,
+	StatsMetric,
+} from '../bump-stats';
+import { recordSiteRuntimeUsage } from '../site-runtime-stats';
 
 vi.mock( 'src/storage/user-data', () => ( {
 	loadUserData: vi.fn(),
@@ -223,4 +230,88 @@ describe( 'bumpAggregatedUniqueStat', () => {
 			expect( saveUserData ).not.toHaveBeenCalled();
 		}
 	);
+} );
+
+describe( 'getSiteRuntimeStat', () => {
+	test( 'maps native + all files to the all-files metric', () => {
+		expect( getSiteRuntimeStat( { runtime: 'native-php', fileAccess: 'all-files' } ) ).toBe(
+			StatsMetric.RUNTIME_NATIVE_ALL_FILES
+		);
+	} );
+
+	test( 'maps native + site directory to the site-dir metric', () => {
+		expect( getSiteRuntimeStat( { runtime: 'native-php', fileAccess: 'site-directory' } ) ).toBe(
+			StatsMetric.RUNTIME_NATIVE_SITE_DIR
+		);
+	} );
+
+	test( 'defaults native without file access to the site-dir metric', () => {
+		expect( getSiteRuntimeStat( { runtime: 'native-php' } ) ).toBe(
+			StatsMetric.RUNTIME_NATIVE_SITE_DIR
+		);
+	} );
+
+	test( 'maps sandbox to the sandbox metric regardless of file access', () => {
+		expect( getSiteRuntimeStat( { runtime: 'playground', fileAccess: 'all-files' } ) ).toBe(
+			StatsMetric.RUNTIME_SANDBOX
+		);
+	} );
+
+	test( 'defaults an unset runtime to sandbox', () => {
+		expect( getSiteRuntimeStat( {} ) ).toBe( StatsMetric.RUNTIME_SANDBOX );
+	} );
+} );
+
+describe( 'recordSiteRuntimeUsage', () => {
+	const nativeAllFilesSite = {
+		id: 'site-1',
+		runtime: 'native-php',
+		fileAccess: 'all-files',
+	} as const;
+
+	test( 'bumps the weekly runtime stat and records the marker on first start', async () => {
+		const mockRequest = mockBumpStatRequest(
+			StatsGroup.STUDIO_SITE_RUNTIME_WEEKLY,
+			StatsMetric.RUNTIME_NATIVE_ALL_FILES
+		);
+
+		await recordSiteRuntimeUsage( nativeAllFilesSite );
+
+		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
+		expect( mockUserData.siteMetadata[ 'site-1' ]?.runtimeStatBumpedAt ).toBeTypeOf( 'number' );
+	} );
+
+	test( 'does not bump again within the same week', async () => {
+		// Feb 6 2024 and Feb 4 2024 fall in the same week (Sunday starts the week).
+		mockCurrentTime( Date.UTC( 2024, 1, 6 ) );
+		mockUserData.siteMetadata[ 'site-1' ] = { runtimeStatBumpedAt: Date.UTC( 2024, 1, 4 ) };
+
+		await recordSiteRuntimeUsage( nativeAllFilesSite );
+
+		expect( saveUserData ).not.toHaveBeenCalled();
+	} );
+
+	test( 'bumps again once a new week has started', async () => {
+		// Feb 1 2024 and Feb 4 2024 fall in different weeks (Feb 4 is a Sunday).
+		mockCurrentTime( Date.UTC( 2024, 1, 4 ) );
+		mockUserData.siteMetadata[ 'site-1' ] = { runtimeStatBumpedAt: Date.UTC( 2024, 1, 1 ) };
+		const mockRequest = mockBumpStatRequest(
+			StatsGroup.STUDIO_SITE_RUNTIME_WEEKLY,
+			StatsMetric.RUNTIME_NATIVE_ALL_FILES
+		);
+
+		await recordSiteRuntimeUsage( nativeAllFilesSite );
+
+		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
+		expect( saveUserData ).toHaveBeenCalled();
+	} );
+
+	test( 'preserves existing site metadata when recording the marker', async () => {
+		mockUserData.siteMetadata[ 'site-1' ] = { sortOrder: 3 };
+
+		await recordSiteRuntimeUsage( nativeAllFilesSite );
+
+		expect( mockUserData.siteMetadata[ 'site-1' ]?.sortOrder ).toBe( 3 );
+		expect( mockUserData.siteMetadata[ 'site-1' ]?.runtimeStatBumpedAt ).toBeTypeOf( 'number' );
+	} );
 } );

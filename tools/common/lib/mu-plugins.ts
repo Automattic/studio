@@ -14,11 +14,18 @@ export interface MuPlugin {
 	content: string;
 }
 
+// Written inside the site's wp-content directory by the 0-error-capture
+// mu-plugin; read back by the CLI when `site start` fails.
+export const STUDIO_ERROR_LOG_FILENAME = 'studio-error.log';
+
 export type MuPluginRuntime = 'playground' | 'native-php';
 
 export interface MuPluginOptions {
 	isWpAutoUpdating?: boolean;
 	runtime?: MuPluginRuntime;
+	// PHP errors are captured to this path (as seen by PHP, e.g. a VFS path
+	// for the Playground runtime) even when WP debug logging is off.
+	errorLogPath?: string;
 }
 
 /**
@@ -164,6 +171,30 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		define('QM_TESTS', true);
 		`,
 	} );
+
+	// Capture PHP errors while the user's debug-log setting is off, so site
+	// start failures (e.g. a plugin fatal during WordPress load) remain
+	// diagnosable. The path is baked in at write time because blueprint
+	// constants are not yet applied during the first boot request — exactly
+	// the one that fails (STU-1757). Playground's platform mu-plugins disable
+	// log_errors when WP_DEBUG_LOG is falsy and load after the Studio ones,
+	// so re-assert from a late muplugins_loaded hook in addition to setting
+	// immediately (the hook still fires within the current do_action pass).
+	if ( options.errorLogPath ) {
+		muPlugins.push( {
+			filename: '0-error-capture.php',
+			content: `<?php
+		$studio_enable_error_capture = function () {
+			ini_set( 'log_errors', '1' );
+			ini_set( 'error_log', '${ escapePhpSingleQuotedString( options.errorLogPath ) }' );
+		};
+		$studio_enable_error_capture();
+		if ( function_exists( 'add_action' ) ) {
+			add_action( 'muplugins_loaded', $studio_enable_error_capture, PHP_INT_MAX );
+		}
+		`,
+		} );
+	}
 
 	// HTTPS detection for reverse proxy
 	muPlugins.push( {

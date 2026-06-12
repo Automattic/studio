@@ -21,6 +21,10 @@ export const SYNC_IGNORE_DEFAULTS = [
 	'database',
 	'db.php',
 	'debug.log',
+	// Keep in sync with STUDIO_ERROR_LOG_FILENAME (mu-plugins.ts) — not
+	// imported because this module is bundled into the renderer and
+	// mu-plugins.ts pulls in fs/promises.
+	'studio-error.log',
 	'sqlite-database-integration',
 	'cache',
 ];

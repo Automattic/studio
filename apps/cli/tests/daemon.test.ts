@@ -179,6 +179,51 @@ describe( 'ProcessManagerDaemon', () => {
 		expect( payload.stderrTail ).toContain( 'at Module._compile' );
 	} );
 
+	it( 'includes stdout error lines in the exit event payload, skipping other stdout output', async () => {
+		const child = new MockChildProcess();
+		spawnMock.mockReturnValue( child );
+		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+		const daemon = new ProcessManagerDaemon();
+		const daemonInternal = daemon as unknown as {
+			handleRequest: ( request: unknown ) => Promise< unknown >;
+			broadcastEvent: ( event: unknown ) => Promise< void >;
+		};
+		const broadcastSpy = vi
+			.spyOn( daemonInternal, 'broadcastEvent' )
+			.mockResolvedValue( undefined );
+
+		await daemonInternal.handleRequest( {
+			type: 'start-process',
+			requestId: '1',
+			processName: testProcessName,
+			scriptPath: '/tmp/test-child.js',
+			env: {},
+			args: [],
+		} );
+
+		// Playground CLI prints boot failures to stdout, followed by the crash-page HTML.
+		child.stdout.write( 'WordPress Playground CLI\n' );
+		child.stdout.write( 'Error: PHP.run() failed with exit code 255.\n' );
+		child.stdout.write( '<!DOCTYPE html>\n' );
+		// Let readline consume the lines before triggering exit.
+		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
+
+		child.emit( 'exit', 1 );
+		await new Promise( ( resolve ) => setTimeout( resolve, 25 ) );
+
+		const exitCall = broadcastSpy.mock.calls.find( ( [ event ] ) => {
+			const payload = ( event as { type: string; payload: { event: string } } ).payload;
+			return payload.event === 'exit';
+		} );
+
+		expect( exitCall ).toBeDefined();
+		const payload = ( exitCall![ 0 ] as { payload: { stderrTail?: string } } ).payload;
+		expect( payload.stderrTail ).toContain( 'Error: PHP.run() failed with exit code 255.' );
+		expect( payload.stderrTail ).not.toContain( 'DOCTYPE' );
+		expect( payload.stderrTail ).not.toContain( 'WordPress Playground CLI' );
+	} );
+
 	it( 'reuses duplicate starts, forwards messages, and resolves missing stops', async () => {
 		const child = new MockChildProcess();
 		spawnMock.mockReturnValue( child );

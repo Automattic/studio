@@ -11,6 +11,7 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
 	SITE_RUNTIME_NATIVE_PHP,
@@ -31,6 +32,7 @@ import {
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { getSiteRuntime } from 'cli/lib/feature-flags';
+import { readFileTail } from 'cli/lib/read-file-tail';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
@@ -231,6 +233,9 @@ export async function startWordPressServer(
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, runtime, options );
 
+	const startedAt = Date.now();
+	await clearStudioErrorLog( site );
+
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
 		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
@@ -246,9 +251,59 @@ export async function startWordPressServer(
 		);
 
 		return withSiteRuntime( processDesc );
+	} catch ( error ) {
+		throw await withCapturedPhpErrors( error, site, startedAt );
 	} finally {
 		readyOrExit.dispose();
 	}
+}
+
+async function clearStudioErrorLog( site: SiteData ): Promise< void > {
+	const logPath = path.join( site.path, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
+	await fs.promises.rm( logPath, { force: true } ).catch( () => undefined );
+}
+
+const PHP_ERROR_TAIL_MAX_BYTES = 4096;
+
+/**
+ * Appends the PHP errors recorded during this start attempt to a startup
+ * failure, so users see why WordPress died (e.g. a plugin fatal) instead of
+ * just "process exited unexpectedly" (STU-1757).
+ */
+async function withCapturedPhpErrors(
+	error: unknown,
+	site: SiteData,
+	startedAt: number
+): Promise< unknown > {
+	if (
+		! ( error instanceof Error ) ||
+		error.name === 'AbortError' ||
+		error.message === 'Operation aborted'
+	) {
+		return error;
+	}
+
+	// With the debug-log setting on, WordPress records errors to debug.log
+	// instead of the Studio-managed log.
+	const logFilename = site.enableDebugLog ? 'debug.log' : STUDIO_ERROR_LOG_FILENAME;
+	const logPath = path.join( site.path, 'wp-content', logFilename );
+
+	try {
+		const stats = await fs.promises.stat( logPath );
+		// Only surface errors written during this start attempt; debug.log can
+		// hold stale entries from previous runs.
+		if ( stats.mtimeMs < startedAt ) {
+			return error;
+		}
+		const tail = await readFileTail( logPath, PHP_ERROR_TAIL_MAX_BYTES );
+		if ( tail ) {
+			error.message += `\nRecent PHP errors (${ logPath }):\n${ tail }`;
+		}
+	} catch {
+		// No PHP error log to surface.
+	}
+
+	return error;
 }
 
 function buildChildExitedError( processName: string, stderrTail?: string ): Error {

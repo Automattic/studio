@@ -7,6 +7,7 @@ import { generateBackupFilename } from '@studio/common/lib/generate-backup-filen
 import { createExportErrorPayload, ExportEvents } from '@studio/common/lib/import-export-events';
 import {
 	LEGACY_MU_PLUGIN_FILENAMES,
+	STUDIO_ERROR_LOG_FILENAME,
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
 } from '@studio/common/lib/mu-plugins';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
@@ -45,6 +46,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			'wp-content/database',
 			'wp-content/db.php',
 			'wp-content/debug.log',
+			`wp-content/${ STUDIO_ERROR_LOG_FILENAME }`,
 			...prefixedLegacyMuPluginNames,
 			`wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`,
 		];

@@ -4,6 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import {
 	cleanupLegacyMuPlugins,
+	getMuPlugins,
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
 	writeStudioMuPluginsForNativePhpRuntime,
 } from '@studio/common/lib/mu-plugins';
@@ -113,5 +114,21 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 		const generatedPlugins = await readdir( muPluginsDir as string );
 		expect( generatedPlugins ).toContain( '0-enable-auto-updates.php' );
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
+	} );
+} );
+
+describe( 'getMuPlugins error capture', () => {
+	it( 'should write the error-capture mu-plugin only when errorLogPath is set', async () => {
+		const [ withCapture ] = await getMuPlugins( {
+			errorLogPath: "/wordpress/wp-content/it's-a-log.log",
+		} );
+		const capturePath = join( withCapture, '0-error-capture.php' );
+		expect( existsSync( capturePath ) ).toBe( true );
+		const content = await readFile( capturePath, 'utf8' );
+		expect( content ).toContain( "ini_set( 'log_errors', '1' );" );
+		expect( content ).toContain( "'/wordpress/wp-content/it\\'s-a-log.log'" );
+
+		const [ withoutCapture ] = await getMuPlugins();
+		expect( existsSync( join( withoutCapture, '0-error-capture.php' ) ) ).toBe( false );
 	} );
 } );

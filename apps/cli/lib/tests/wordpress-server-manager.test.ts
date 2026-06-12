@@ -1,4 +1,8 @@
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
@@ -263,6 +267,72 @@ describe( 'WordPress Server Manager', () => {
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
 				/early crash/
 			);
+		} );
+
+		it( 'should append PHP errors captured during the start attempt to the failure', async () => {
+			const sitePath = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-test-site-' ) );
+			await fs.promises.mkdir( path.join( sitePath, 'wp-content' ), { recursive: true } );
+			const logPath = path.join( sitePath, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
+
+			setTimeout( () => {
+				fs.writeFileSync( logPath, 'PHP Fatal error: Uncaught Error: Failed opening required' );
+				mockBus.emit( 'process-event', {
+					process: {
+						name: mockProcessDescription.name,
+						pm_id: mockProcessDescription.pmId,
+					},
+					event: 'exit',
+				} );
+			}, 10 );
+
+			await expect(
+				startWordPressServer( { ...mockSiteData, path: sitePath }, mockLogger )
+			).rejects.toThrow( /Recent PHP errors[\s\S]*PHP Fatal error/ );
+		} );
+
+		it( 'should not append stale PHP errors from a previous run', async () => {
+			const sitePath = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-test-site-' ) );
+			await fs.promises.mkdir( path.join( sitePath, 'wp-content' ), { recursive: true } );
+			// Sites with the debug-log setting on read from debug.log, which Studio
+			// does not clear on start, so stale entries must be filtered by mtime.
+			const logPath = path.join( sitePath, 'wp-content', 'debug.log' );
+			fs.writeFileSync( logPath, 'PHP Fatal error: from a previous run' );
+			const past = new Date( Date.now() - 60_000 );
+			fs.utimesSync( logPath, past, past );
+
+			setTimeout( () => {
+				mockBus.emit( 'process-event', {
+					process: {
+						name: mockProcessDescription.name,
+						pm_id: mockProcessDescription.pmId,
+					},
+					event: 'exit',
+				} );
+			}, 10 );
+
+			const error: Error = await startWordPressServer(
+				{ ...mockSiteData, path: sitePath, enableDebugLog: true },
+				mockLogger
+			).then(
+				() => {
+					throw new Error( 'expected startWordPressServer to reject' );
+				},
+				( e ) => e
+			);
+			expect( error.message ).toContain( 'exited before becoming ready' );
+			expect( error.message ).not.toContain( 'Recent PHP errors' );
+		} );
+
+		it( 'should clear the studio error log from a previous run before starting', async () => {
+			setupIpcMocks();
+			const sitePath = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-test-site-' ) );
+			await fs.promises.mkdir( path.join( sitePath, 'wp-content' ), { recursive: true } );
+			const logPath = path.join( sitePath, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
+			fs.writeFileSync( logPath, 'PHP Fatal error: from a previous run' );
+
+			await startWordPressServer( { ...mockSiteData, path: sitePath }, mockLogger );
+
+			expect( fs.existsSync( logPath ) ).toBe( false );
 		} );
 	} );
 

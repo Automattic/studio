@@ -47,7 +47,7 @@ export default defineConfig(
 						'tools/eslint-plugin-studio/vitest.config.ts',
 						'tools/eslint-plugin-studio/src/index.js',
 						'tools/eslint-plugin-studio/src/rules/*.js',
-						'tools/eslint-plugin-studio/tests/*.test.ts',
+						'tools/eslint-plugin-studio/tests/*.ts',
 					],
 				},
 			},
@@ -105,6 +105,7 @@ export default defineConfig(
 			],
 			'react-hooks/set-state-in-effect': 'off',
 			'studio/no-module-level-translations': 'error',
+			'studio/no-redundant-cx': 'error',
 			'studio/require-lock-before-save': [
 				'error',
 				{

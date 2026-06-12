@@ -7,7 +7,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 **Dev/Build**: `npm start` | `npm run cli:build` | `node apps/cli/dist/cli/main.mjs`
 **Test**: `npm test [-- path/to/test.test.ts]` | `npm run e2e`
 **Quality**: `npx eslint --fix <files>` (lint and format ONLY modified files)
-**IMPORTANT - Post-Change Verification**: After applying code changes, always run the linter and format modified files (`npx eslint --fix <files>`), the type checker (`npm run typecheck`) and run relevant tests (`npm test [-- path/to/test]`) before considering the work complete.
+**IMPORTANT - Post-Change Verification**: After applying code changes, always run the linter and format modified files (`npx eslint --fix <files>`), the type checker (`npm run typecheck`) and run relevant tests (`npm test [-- path/to/test]`) before considering the work complete. For any UI/CSS change, also verify the result in **both light and dark** color schemes.
 **Package**: `npm run make` (builds installers for current platform)
 
 **IMPORTANT - Hot Reload**: Renderer auto-reloads, Main process needs restart (or `rs` in terminal). Changes to Main process IPC handlers require full restart.
@@ -57,6 +57,12 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 ## Conventions
 
 **Files**: React components (PascalCase), utils (camelCase), tests (.test.ts/.tsx)
+**Class names (`cx`)**: Use `cx()` (`apps/studio/src/lib/cx.ts`) only to join classes with conditions (e.g. `cx( 'base', isActive && 'active' )`). For a single static string, pass the bare string instead of wrapping it — `className="h-full"`, not `className={ cx( 'h-full' ) }`. Enforced (and auto-fixed) by the `studio/no-redundant-cx` ESLint rule (`tools/eslint-plugin-studio`).
+**Theming / colors (renderer CSS)**: Each app in `apps/` has its own dark-mode strategy — identify which app a file belongs to before picking color tokens:
+- **`apps/studio` (legacy renderer)**: supports light + dark via `@media (prefers-color-scheme: dark)`. For any **color** (text, background, border, fill, brand/theme, error/running states) **MUST** use Studio's dark-aware `--color-frame-*` tokens defined in `apps/studio/src/index.css` (e.g. `--color-frame-text`, `--color-frame-bg`, `--color-frame-surface`, `--color-frame-border`, `--color-frame-theme`, `--color-frame-error`). **NEVER** use `--wpds-color-*` tokens for color here — no app-wide color `ThemeProvider` wraps this app (only density-scoped ones inside Studio Code), so they fall back to light-only values from `@wordpress/ui` and render broken (invisible text, wrong borders) in dark mode. When a needed color has no `--color-frame-*` token, add one (with both light and dark values) rather than reaching for `--wpds-color-*`. As of June 2026 there is no plan to refactor `apps/studio` onto `ThemeProvider` — it may be replaced entirely.
+- **`apps/ui` (agentic UI)**: the whole canvas is wrapped in `ThemeProvider` (`apps/ui/src/app/app-providers.tsx`), so the rule is the **opposite** — always use `--wpds-color-*` variables for color; they adapt to the active theme. Do not use `--color-frame-*` tokens here.
+- Non-color `--wpds-*` tokens (`--wpds-dimension-*`, `--wpds-typography-*`, `--wpds-border-width-*`, `--wpds-elevation-*`, `--wpds-cursor-*`) are theme-independent and fine to use in any app.
+
 **IPC Handlers** (`apps/studio/src/ipc-handlers.ts`): **MUST** `export async function handlerName(event, ...args): Promise<ReturnType>` | Handler names in `apps/studio/src/constants.ts` | All handlers MUST be async and return Promises
 **Storage**: **CRITICAL** - Always use file locking when writing config. Each config file has its own lockfile and helpers: `lockAppdata()` / `unlockAppdata()` for `app.json` (`apps/studio/src/storage/user-data.ts`), `lockCliConfig()` / `unlockCliConfig()` for `cli.json` (`apps/cli/lib/cli-config/core.ts`), and `lockSharedConfig()` / `unlockSharedConfig()` for `shared.json` (`tools/common/lib/shared-config.ts`).
 **i18n**: `@wordpress/i18n` (`__()` function), `tools/common/translations/`, `<I18nProvider>` (renderer), `loadTranslations()` (CLI)
@@ -95,6 +101,8 @@ If you've built a substantial new feature — especially one generated with AI a
 - **Keep scope visible**: If the change touches many files or crosses architectural boundaries (e.g., new IPC handlers + new Redux slices + new UI), call that out explicitly so reviewers know what they're evaluating.
 
 ## Common Pitfalls
+
+**CRITICAL - Dark Mode Color Tokens**: The right color tokens depend on the app. In `apps/studio`, use `--color-frame-*` tokens for all colors, never `--wpds-color-*` — without a `ThemeProvider`, the wpds color tokens keep their hardcoded light fallbacks and do not respond to dark mode, so components look correct in light mode but break in dark (regression fixed in "Fix Dark theme for Studio Code"). In `apps/ui`, do the opposite: use `--wpds-color-*` tokens — the app-wide `ThemeProvider` makes them adapt to the active theme. In all apps, always test new/changed UI in BOTH color schemes before declaring done — macOS: System Settings → Appearance → Dark.
 
 **CRITICAL - WordPress Core Files**: Do NOT edit WordPress core files within site directories. Studio uses WordPress Playground (PHP WASM), and core modifications won't persist or function correctly.
 

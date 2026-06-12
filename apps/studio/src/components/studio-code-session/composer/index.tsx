@@ -1,18 +1,25 @@
+import { toImageDataUrl } from '@studio/common/ai/chat-images';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
-import { getAiSkillCommands } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { arrowUp, chevronDownSmall } from '@wordpress/icons';
+import { arrowUp, chevronDownSmall, closeSmall, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import * as Menu from '../menu';
 import { SESSIONS_QUERY_KEY } from '../use-session';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import {
+	toComposerSendAttachments,
+	useComposerAttachments,
+	type ComposerSendAttachments,
+} from './use-composer-attachments';
+import { useSlashCommands } from './use-slash-commands';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
@@ -42,7 +49,7 @@ interface ComposerProps {
 	isInterrupting?: boolean;
 	error: string | null;
 	model: AiModelId;
-	onSend: ( prompt: string ) => Promise< void >;
+	onSend: ( prompt: string, attachments: ComposerSendAttachments ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	entries?: SessionEntry[];
@@ -65,6 +72,32 @@ interface ComposerProps {
 const isMacPlatform =
 	typeof navigator !== 'undefined' && /mac/i.test( navigator.platform || navigator.userAgent );
 
+// @wordpress/icons has no paperclip; this matches the others' 24×24 viewBox.
+const paperclipIcon = (
+	<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" aria-hidden="true">
+		<path
+			d="M16.5 6.5 9 14a2 2 0 1 0 2.8 2.8l7-7a4 4 0 1 0-5.6-5.6l-7 7a6 6 0 0 0 8.5 8.5l5.3-5.3"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+function formatAttachmentSize( bytes: number ): string {
+	if ( ! bytes ) {
+		return '';
+	}
+	if ( bytes < 1024 ) {
+		return `${ bytes } B`;
+	}
+	if ( bytes < 1024 * 1024 ) {
+		return `${ Math.round( bytes / 1024 ) } KB`;
+	}
+	return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
+}
+
 export function Composer( {
 	busy,
 	isInterrupting = false,
@@ -81,8 +114,22 @@ export function Composer( {
 }: ComposerProps ) {
 	const [ value, setValue ] = useState( '' );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
+	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const appliedDraftPromptIdRef = useRef< number | null >( null );
 	const queryClient = useQueryClient();
+
+	// File/image attachments (attach button + drag-and-drop). Images ride as
+	// base64 content blocks; other files are referenced by disk path.
+	const {
+		attachments,
+		error: attachmentError,
+		isDraggingOver,
+		addFiles,
+		removeAttachment,
+		clear: clearAttachments,
+		restore: restoreAttachments,
+		dragHandlers,
+	} = useComposerAttachments();
 
 	useEffect( () => {
 		if ( ! draftPrompt || appliedDraftPromptIdRef.current === draftPrompt.id ) {
@@ -101,6 +148,10 @@ export function Composer( {
 		} );
 	}, [ draftPrompt ] );
 
+	// Inline slash-command autocomplete (popup, keyboard nav, ARIA wiring, and
+	// the toolbar "/" toggle). Kept in its own hook so the Composer stays lean.
+	const slash = useSlashCommands( { value, setValue, textareaRef, previewPrompt } );
+
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
 	// confirms.
@@ -109,20 +160,41 @@ export function Composer( {
 
 	const send = useCallback( async () => {
 		const trimmed = value.trim();
-		if ( ! trimmed ) {
+		// Allow sending attachments on their own; fall back to a minimal prompt so
+		// the backend (which requires a non-empty message) still has one.
+		if ( ! trimmed && attachments.length === 0 ) {
 			return;
 		}
+		const prompt = trimmed || __( 'Please review the attached files.' );
+		const sentAttachments = attachments;
 		setValue( '' );
+		clearAttachments();
 		try {
-			await onSend( trimmed );
+			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
 		} catch {
-			// Restore the draft so the user can retry; the parent surfaces the
-			// error message via `error`. Queued sends never throw from onSend
-			// (the parent swallows the failure and clears the queue instead),
+			// Restore the draft and attachments so the user can retry; the parent
+			// surfaces the error message via `error`. Queued sends never throw from
+			// onSend (the parent swallows the failure and clears the queue instead),
 			// so this path only trips for direct sends from the idle state.
 			setValue( trimmed );
+			restoreAttachments( sentAttachments );
 		}
-	}, [ value, onSend ] );
+	}, [ value, attachments, clearAttachments, restoreAttachments, onSend ] );
+
+	const openFilePicker = useCallback( () => {
+		fileInputRef.current?.click();
+	}, [] );
+
+	const onFileInputChange = useCallback(
+		( event: React.ChangeEvent< HTMLInputElement > ) => {
+			if ( event.target.files && event.target.files.length > 0 ) {
+				void addFiles( event.target.files );
+			}
+			// Reset so picking the same file again re-triggers change.
+			event.target.value = '';
+		},
+		[ addFiles ]
+	);
 
 	// Same-family swap: optimistic `model_change` entry; refetch on write fail.
 	const applySameFamilyModel = useCallback(
@@ -219,7 +291,7 @@ export function Composer( {
 		}
 	}, [ onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = value.trim().length > 0;
+	const canSend = value.trim().length > 0 || attachments.length > 0;
 	const placeholder = busy
 		? __( 'Queue a follow-up instruction…' )
 		: __( 'Set your next instruction…' );
@@ -229,57 +301,105 @@ export function Composer( {
 	return (
 		<>
 			<div className={ styles.root }>
-				<div className={ styles.shell }>
-					<textarea
-						ref={ textareaRef }
-						className={ styles.input }
-						placeholder={ placeholder }
-						value={ previewPrompt ?? value }
-						data-preview={ previewPrompt ? 'true' : 'false' }
-						onChange={ ( event ) => setValue( event.target.value ) }
-						onKeyDown={ ( event ) => {
-							if ( event.key === 'Escape' && busy ) {
-								event.preventDefault();
-								void onInterrupt();
-								return;
-							}
-							if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
-								event.preventDefault();
-								void send();
-							}
-						} }
-						rows={ 2 }
-					/>
+				<div
+					className={ cx( styles.shell, isDraggingOver && styles.shellDragging ) }
+					onDragOver={ dragHandlers.onDragOver }
+					onDragLeave={ dragHandlers.onDragLeave }
+					onDrop={ dragHandlers.onDrop }
+				>
+					{ isDraggingOver ? (
+						<div className={ styles.dropOverlay } aria-hidden="true">
+							{ __( 'Drop files to attach' ) }
+						</div>
+					) : null }
+					{ attachments.length > 0 ? (
+						<ul className={ styles.attachments }>
+							{ attachments.map( ( attachment ) => (
+								<li key={ attachment.id } className={ styles.attachmentChip }>
+									{ attachment.kind === 'image' ? (
+										<img
+											className={ styles.attachmentThumb }
+											src={ toImageDataUrl( attachment.mimeType, attachment.dataBase64 ) }
+											alt={ attachment.name }
+										/>
+									) : (
+										<span className={ styles.attachmentIcon }>
+											<Icon icon={ page } size={ 16 } />
+										</span>
+									) }
+									<span className={ styles.attachmentName } title={ attachment.name }>
+										{ attachment.name }
+									</span>
+									{ formatAttachmentSize( attachment.size ) ? (
+										<span className={ styles.attachmentSize }>
+											{ formatAttachmentSize( attachment.size ) }
+										</span>
+									) : null }
+									<button
+										type="button"
+										className={ styles.attachmentRemove }
+										aria-label={ __( 'Remove attachment' ) }
+										onClick={ () => removeAttachment( attachment.id ) }
+									>
+										<Icon icon={ closeSmall } size={ 16 } />
+									</button>
+								</li>
+							) ) }
+						</ul>
+					) : null }
+					<div className={ styles.inputWrapper }>
+						<textarea
+							ref={ textareaRef }
+							className={ styles.input }
+							placeholder={ placeholder }
+							value={ previewPrompt ?? value }
+							data-preview={ previewPrompt ? 'true' : 'false' }
+							{ ...slash.comboboxProps }
+							onChange={ ( event ) => setValue( event.target.value ) }
+							onKeyDown={ ( event ) => {
+								if ( slash.handleKeyDown( event ) ) {
+									return;
+								}
+								if ( event.key === 'Escape' && busy ) {
+									event.preventDefault();
+									void onInterrupt();
+									return;
+								}
+								if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
+									event.preventDefault();
+									void send();
+								}
+							} }
+							rows={ 2 }
+						/>
+						{ slash.popup }
+					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
-							<Menu.Root modal={ false }>
-								<Menu.Trigger
-									render={
-										<button
-											type="button"
-											className={ `${ styles.iconButton } ${ styles.glyphButton }` }
-											aria-label={ __( 'Commands' ) }
-										>
-											/
-										</button>
-									}
-								/>
-								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
-									{ getAiSkillCommands().map( ( command ) => (
-										<Menu.Item
-											key={ command.name }
-											onClick={ () => {
-												void onSend( `/${ command.name }` );
-											} }
-										>
-											<span className={ styles.commandItem }>
-												<span className={ styles.commandName }>/{ command.name }</span>
-												<span className={ styles.commandDescription }>{ command.description }</span>
-											</span>
-										</Menu.Item>
-									) ) }
-								</Menu.Popup>
-							</Menu.Root>
+							<button
+								type="button"
+								className={ `${ styles.iconButton } ${ styles.glyphButton }` }
+								aria-label={ __( 'Skills' ) }
+								onClick={ slash.toggle }
+							>
+								/
+							</button>
+							<button
+								type="button"
+								className={ styles.iconButton }
+								aria-label={ __( 'Attach files' ) }
+								title={ __( 'Attach files' ) }
+								onClick={ openFilePicker }
+							>
+								<Icon icon={ paperclipIcon } size={ 16 } />
+							</button>
+							<input
+								ref={ fileInputRef }
+								type="file"
+								multiple
+								className={ styles.fileInput }
+								onChange={ onFileInputChange }
+							/>
 						</div>
 						<div className={ styles.rightActions }>
 							<Menu.Root modal={ false }>
@@ -345,7 +465,9 @@ export function Composer( {
 							}
 						) }
 					</span>
-					{ error ? <span className={ styles.error }>{ error }</span> : null }
+					{ error || attachmentError ? (
+						<span className={ styles.error }>{ error ?? attachmentError }</span>
+					) : null }
 					<span className={ styles.metaUses }>{ __( 'Uses 1 message' ) }</span>
 				</div>
 			</div>

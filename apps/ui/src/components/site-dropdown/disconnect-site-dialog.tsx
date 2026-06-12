@@ -48,12 +48,14 @@ export function DisconnectSiteDialog( { localSiteId, liveSite, open, onOpenChang
 						{ sprintf( __( 'Disconnect %s' ), stripProtocol( liveSite.url ) ) }
 					</Dialog.Title>
 				</Dialog.Header>
-				<p className={ styles.dialogText }>
-					{ __(
-						'Your WordPress.com site will not be affected. You can reconnect it later from this menu.'
-					) }
-				</p>
-				{ error ? <div className={ styles.dialogError }>{ error }</div> : null }
+				<Dialog.Content>
+					<p className={ styles.dialogText }>
+						{ __(
+							'Your WordPress.com site will not be affected. You can reconnect it later from this menu.'
+						) }
+					</p>
+					{ error ? <div className={ styles.dialogError }>{ error }</div> : null }
+				</Dialog.Content>
 				<Dialog.Footer>
 					<Dialog.Action variant="minimal" tone="neutral" disabled={ disconnect.isPending }>
 						{ __( 'Cancel' ) }

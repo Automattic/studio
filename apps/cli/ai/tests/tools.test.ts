@@ -184,8 +184,9 @@ describe( 'Studio AI MCP tools', () => {
 		);
 	} );
 
-	it( 'reports invalid core/html blocks', async () => {
-		const result = await getTool( 'validate_html_blocks' ).rawHandler( {
+	it( 'reports invalid core/html blocks and skips editor validation', async () => {
+		const result = await getTool( 'validate_blocks' ).rawHandler( {
+			nameOrPath: 'My Site',
 			content:
 				'<!-- wp:html --><form><label>Email<input type="email" /></label></form><!-- /wp:html -->',
 		} as never );
@@ -193,6 +194,8 @@ describe( 'Studio AI MCP tools', () => {
 		const text = getTextContent( result );
 		expect( text ).toContain( 'HTML block policy: 1/1 core/html blocks invalid' );
 		expect( text ).toContain( '<form>' );
+		// The HTML policy gate short-circuits before the live editor runs.
+		expect( validateBlocks ).not.toHaveBeenCalled();
 	} );
 
 	it( 'returns fixed inline block content', async () => {
@@ -202,7 +205,7 @@ describe( 'Studio AI MCP tools', () => {
 			'<!-- wp:paragraph {"align":"center"} -->\n<p class="has-text-align-center">Hello</p>\n<!-- /wp:paragraph -->';
 		mockValidatedFix( fixedContent );
 
-		const result = await getTool( 'validate_and_fix_blocks' ).rawHandler( {
+		const result = await getTool( 'validate_blocks' ).rawHandler( {
 			nameOrPath: 'My Site',
 			content: originalContent,
 		} as never );
@@ -227,7 +230,7 @@ describe( 'Studio AI MCP tools', () => {
 		mockValidatedFix( fixedContent, 'core/separator' );
 
 		try {
-			const result = await getTool( 'validate_and_fix_blocks' ).rawHandler( {
+			const result = await getTool( 'validate_blocks' ).rawHandler( {
 				nameOrPath: 'My Site',
 				filePath,
 			} as never );
@@ -384,6 +387,83 @@ describe( 'Studio AI MCP tools', () => {
 				)
 			);
 		}
+	} );
+
+	it( 'inspect_design returns rendered DOM facts for the requested selectors', async () => {
+		const report = [
+			{
+				selector: '.wp-block-button__link',
+				matchCount: 1,
+				matches: [
+					{
+						tag: 'a',
+						classes: [ 'wp-block-button__link', 'wp-element-button' ],
+						boundingBox: { x: 0, y: 0, width: 120, height: 44 },
+						computedStyle: { 'background-color': 'rgb(0, 0, 0)' },
+						ancestors: [ 'div.wp-block-button' ],
+					},
+				],
+			},
+		];
+		const page = {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi.fn().mockResolvedValueOnce( undefined ).mockResolvedValueOnce( report ),
+			hover: vi.fn(),
+			mouse: { move: vi.fn() },
+			close: vi.fn(),
+		};
+		const browser = { newPage: vi.fn().mockResolvedValue( page ) };
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+		const result = await getTool( 'inspect_design' ).rawHandler( {
+			url: 'http://localhost:8903/',
+			selectors: [ '.wp-block-button__link' ],
+		} as never );
+
+		const parsed = JSON.parse( getTextContent( result )! );
+		expect( parsed.viewport ).toBe( 'desktop' );
+		expect( parsed.viewportWidth ).toBe( 1040 );
+		expect( parsed.selectors[ 0 ].matchCount ).toBe( 1 );
+		expect( parsed.selectors[ 0 ].matches[ 0 ].computedStyle[ 'background-color' ] ).toBe(
+			'rgb(0, 0, 0)'
+		);
+		expect( parsed.hover ).toBeUndefined();
+		expect( page.hover ).not.toHaveBeenCalled();
+		expect( page.close ).toHaveBeenCalled();
+	} );
+
+	it( 'inspect_design captures hover styles when includeHover is set', async () => {
+		const report = [ { selector: '.wp-block-button__link', matchCount: 1, matches: [] } ];
+		const page = {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi
+				.fn()
+				.mockResolvedValueOnce( undefined )
+				.mockResolvedValueOnce( report )
+				.mockResolvedValueOnce( { 'background-color': 'rgb(255, 0, 0)' } ),
+			hover: vi.fn().mockResolvedValue( undefined ),
+			mouse: { move: vi.fn().mockResolvedValue( undefined ) },
+			close: vi.fn(),
+		};
+		const browser = { newPage: vi.fn().mockResolvedValue( page ) };
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+		const result = await getTool( 'inspect_design' ).rawHandler( {
+			url: 'http://localhost:8903/',
+			selectors: [ '.wp-block-button__link' ],
+			viewport: 'mobile',
+			includeHover: true,
+		} as never );
+
+		const parsed = JSON.parse( getTextContent( result )! );
+		expect( parsed.viewport ).toBe( 'mobile' );
+		expect( parsed.viewportWidth ).toBe( 390 );
+		expect( page.hover ).toHaveBeenCalledWith( '.wp-block-button__link', expect.anything() );
+		expect( parsed.hover[ 0 ].computedStyle[ 'background-color' ] ).toBe( 'rgb(255, 0, 0)' );
 	} );
 
 	it( 'emits explicit Studio widget artifacts from studio_present', async () => {

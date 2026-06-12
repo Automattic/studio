@@ -26,16 +26,78 @@
 }
 
 .header {
+	position: relative;
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-lg);
+	gap: var(--wpds-dimension-padding-md);
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-lg);
 	min-height: 32px;
 	flex-shrink: 0;
-	background-color: #fff;
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-top-left-radius: inherit;
 	border-top-right-radius: inherit;
+}
+
+.browserControls {
+	display: flex;
+	align-items: center;
+	gap: 0;
+	flex-shrink: 0;
+}
+
+.browserLocation {
+	display: flex;
+	flex: 1 1 auto;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+	padding: 0 var(--wpds-dimension-padding-md);
+	text-align: center;
+}
+
+.browserTitle {
+	display: inline-block;
+	min-width: 0;
+	max-width: min(420px, 100%);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 600;
+	line-height: 16px;
+}
+
+.annotationControls {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	flex-shrink: 0;
+}
+
+/* 2px bar overlapping the header's bottom border, like a browser's page-load
+   indicator. The inner span is scaled by inline style as progress advances. */
+.loadingProgress {
+	position: absolute;
+	bottom: -1px;
+	left: 0;
+	right: 0;
+	z-index: 1;
+	height: 2px;
+	overflow: hidden;
+	pointer-events: none;
+	background-color: transparent;
+}
+
+.loadingProgress span {
+	position: absolute;
+	inset: 0;
+	display: block;
+	width: 100%;
+	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	transform-origin: left center;
+	transition: transform 160ms ease-out;
 }
 
 .trafficLights {
@@ -71,7 +133,7 @@
 	min-height: 0;
 	display: flex;
 	position: relative;
-	background-color: #fff;
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	overflow: hidden;
 	border-bottom-right-radius: inherit;
 	border-bottom-left-radius: inherit;
@@ -84,7 +146,11 @@
 	align-items: center;
 	justify-content: center;
 	pointer-events: none;
-	background-color: rgba(255, 255, 255, 0.6);
+	background-color: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral-strong, #fff) 60%,
+		transparent
+	);
 }
 
 .spinner {
@@ -107,7 +173,7 @@
 	width: 100%;
 	height: 100%;
 	border: 0;
-	background-color: #fff;
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 }
 
 .empty {

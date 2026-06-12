@@ -266,6 +266,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						path={ preview.path }
 						reloadNonce={ preview.reloadNonce }
 						onAnnotationsDone={ handleAnnotationsDone }
+						onPathChange={ preview.updatePath }
 					/>
 				) : null
 			}

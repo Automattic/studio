@@ -9,7 +9,7 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
-		"@automattic/generate-password": "^0.1.0",
+		"@automattic/generate-password": "^0.2.0",
 		"@wordpress/i18n": "^6.20.0",
 		"cross-port-killer": "^1.4.0",
 		"date-fns": "^4.1.0",
@@ -22,9 +22,9 @@
 		"zod": "^4.0.0"
 	},
 	"devDependencies": {
-		"@mariozechner/pi-coding-agent": "0.70.2",
+		"@earendil-works/pi-coding-agent": "0.78.0",
 		"@types/lockfile": "^1.0.4",
 		"@types/yauzl": "^2.10.3",
-		"@wp-playground/blueprints": "3.1.36"
+		"@wp-playground/blueprints": "3.1.38"
 	}
 }

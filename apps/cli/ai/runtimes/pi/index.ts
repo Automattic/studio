@@ -1,8 +1,8 @@
 import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
-import { type AgentEvent, type AgentTool } from '@mariozechner/pi-agent-core';
-import { type Model, type SimpleStreamOptions } from '@mariozechner/pi-ai';
-import { streamAnthropic, type AnthropicOptions } from '@mariozechner/pi-ai/anthropic';
+import { type AgentTool } from '@earendil-works/pi-agent-core';
+import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
+import { streamAnthropic, type AnthropicOptions } from '@earendil-works/pi-ai/anthropic';
 import {
 	AuthStorage,
 	createAgentSession,
@@ -20,7 +20,7 @@ import {
 	type AgentSessionEvent,
 	type SessionManager,
 	type ToolDefinition,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 import {
 	DEFAULT_MODEL,
 	getAiModelFamily,
@@ -45,6 +45,7 @@ import {
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,6 +65,7 @@ const STUDIO_COMPACTION_SETTINGS = {
 
 export interface StudioAgentTurnConfig {
 	prompt: string;
+	images?: StudioChatImage[];
 	session: SessionManager;
 	env?: Record< string, string >;
 	model?: AiModelId;
@@ -177,9 +179,10 @@ function resolveCredentials(
 function syntheticErrorAgentEnd(
 	stopReason: 'error' | 'aborted',
 	errorMessage: string
-): AgentEvent {
+): AgentSessionEvent {
 	return {
 		type: 'agent_end',
+		willRetry: false,
 		messages: [
 			{
 				role: 'assistant',
@@ -232,7 +235,15 @@ async function runAgentSessionTurn(
 			return;
 		}
 
-		await session.prompt( config.prompt, { expandPromptTemplates: false, source: 'rpc' } );
+		await session.prompt( config.prompt, {
+			expandPromptTemplates: false,
+			source: 'rpc',
+			images: config.images?.map( ( image ) => ( {
+				type: 'image' as const,
+				data: image.dataBase64,
+				mimeType: image.mimeType,
+			} ) ),
+		} );
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
@@ -361,13 +372,25 @@ function createModelRegistry(
 	return { authStorage, modelRegistry };
 }
 
+// pi (>= 0.78) parses `registerProvider` config values (apiKey, headers) as
+// templates: a `$NAME` / `${NAME}` sequence is read as an environment-variable
+// reference and a leading `!` is read as a shell command. wpcom OAuth tokens are
+// random strings that can contain `$` followed by a name-like sequence, so pi
+// resolves that fragment to an undefined env var and treats the provider as
+// unauthenticated ("No API key found for studio-wpcom-anthropic."). Escape the
+// token so pi treats it as a literal: `$` -> `$$`, and a leading `!` -> `$!`.
+function escapePiConfigValue( value: string ): string {
+	const dollarEscaped = value.replace( /\$/g, () => '$$' );
+	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
+}
+
 function createWpcomAnthropicProviderConfig(
 	model: Model< 'anthropic-messages' >,
 	creds: ResolvedCredentials
 ): ProviderConfigInput {
 	return {
 		baseUrl: creds.baseURL,
-		apiKey: creds.apiKey,
+		apiKey: escapePiConfigValue( creds.apiKey ),
 		api: 'anthropic-messages',
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) => {

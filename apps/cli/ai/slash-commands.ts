@@ -15,7 +15,7 @@ import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { loadRemoteSessionConfig } from 'cli/remote-session/config';
 import { DaemonAlreadyRunningError, startDaemon, stopDaemon } from 'cli/remote-session/daemon';
-import type { AutocompleteItem } from '@mariozechner/pi-tui';
+import type { AutocompleteItem } from '@earendil-works/pi-tui';
 import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {

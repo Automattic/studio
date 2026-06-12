@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { SessionManager } from '@mariozechner/pi-coding-agent';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { migrateLegacyFileInPlace } from '@studio/common/ai/sessions/migration';
 import { getAiSessionsDirectoryForDate } from '@studio/common/ai/sessions/paths';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';

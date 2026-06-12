@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { MakerDeb } from '@electron-forge/maker-deb';
@@ -7,6 +7,7 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { exec as pkgExec } from '@yao-pkg/pkg';
+import { globSync } from 'glob';
 import { RecommendedPHPVersion } from '../../tools/common/types/php-versions';
 import { windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
@@ -86,7 +87,7 @@ const config: ForgeConfig = {
 				// Description block. Copy mirrors the Microsoft Store listing.
 				description: 'Meet Studio - a fast, free way to develop locally with WordPress.',
 				productDescription:
-					"Simplify WordPress site creation and management with Studio - WordPress.com's powerful, lightweight local development tool. Studio streamlines your workflow with instant WordPress setup, one-click WP Admin access, and a code-agnostic environment. No Docker, MySQL, or NGINX required. Get real-time feedback from clients or collaborators with easy-to-share demo sites. And with help from Studio Assistant, you can speed up plugin management, run WP-CLI commands, and automate tasks right from the intuitive chat interface.",
+					"Simplify WordPress site creation and management with Studio - WordPress.com's powerful, lightweight local development tool. Studio streamlines your workflow with instant WordPress setup, one-click WP Admin access, and a code-agnostic environment. No Docker, MySQL, or NGINX required. Get real-time feedback from clients or collaborators with easy-to-share demo sites. And with help from Studio Code, you can speed up plugin management, run WP-CLI commands, and automate tasks right from the intuitive chat interface.",
 				mimeType: [ 'x-scheme-handler/wp-studio' ],
 				icon: path.join( __dirname, 'assets', 'studio-app-icon.png' ),
 				desktopTemplate: path.join( __dirname, 'installers', 'desktop.ejs' ),
@@ -166,15 +167,22 @@ const config: ForgeConfig = {
 	plugins: [ new AutoUnpackNativesPlugin( {} ) ],
 	hooks: {
 		prePackage: async ( _forgeConfig, platform, arch ) => {
-			const execAsync = ( command: string, env: NodeJS.ProcessEnv = {} ) =>
+			// Use execFile with shell:true and an explicit args array. The shell
+			// is required on Windows so that npm (a .cmd batch file) can be
+			// resolved; passing args as an array rather than an interpolated
+			// string still prevents shell metacharacters in path values from
+			// altering the meaning of the command.
+			const execAsync = ( args: string[], env: NodeJS.ProcessEnv = {} ) =>
 				new Promise< void >( ( resolve, reject ) => {
-					exec(
-						command,
+					execFile(
+						args[ 0 ],
+						args.slice( 1 ),
 						{
 							cwd: repoRoot,
 							env: { ...process.env, ...env },
 							maxBuffer: 50 * 1024 * 1024,
 							windowsHide: true,
+							shell: true,
 						},
 						( error, stdout, stderr ) => {
 							if ( error ) {
@@ -191,19 +199,19 @@ const config: ForgeConfig = {
 			console.log( 'Installing Studio app dependencies for bundling ...' );
 			// NOTE: The `app:install:bundle` script mutates the `apps/studio/node_modules` directory. You
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await execAsync( 'npm run app:install:bundle' );
+			await execAsync( [ 'npm', 'run', 'app:install:bundle' ] );
 
 			if ( process.env.SKIP_LANGUAGE_PACKS ) {
 				console.log( 'Skipping language packs because SKIP_LANGUAGE_PACKS is set ...' );
 			} else {
 				console.log( 'Downloading language packs ...' );
-				await execAsync( 'npm run download-language-packs' );
+				await execAsync( [ 'npm', 'run', 'download-language-packs' ] );
 			}
 
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
-			await execAsync( 'npm run cli:package' );
+			await execAsync( [ 'npm', 'run', 'cli:package' ] );
 
 			// Remove native binaries for other platforms from CLI's node_modules.
 			// Some packages ship binaries for all platforms which causes code-signing failures
@@ -270,27 +278,59 @@ const config: ForgeConfig = {
 				}
 			}
 
-			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
-			await execAsync(
-				`npx tsx ${ path.join(
-					repoRoot,
-					'scripts',
-					'download-node-binary.ts'
-				) } ${ platform } ${ arch }`
+			// Strip AI provider SDKs Studio never loads (Mistral, AWS Bedrock, Google). pi-ai
+			// loads them lazily and Studio only exposes Anthropic/OpenAI, so they're dead weight —
+			// and @mistralai's ~200-char generated filenames, nested under pi-coding-agent, blow
+			// past Windows' 260-char path limit and crash the Squirrel maker.
+			console.log( 'Removing unused AI provider SDKs from CLI bundle...' );
+			const unusedProviderPaths = globSync(
+				'**/node_modules/{@mistralai,@aws-sdk,@aws-crypto,@smithy,@google/genai}/',
+				{ cwd: cliNodeModules, absolute: true }
 			);
+			for ( const providerPath of unusedProviderPaths ) {
+				fs.rmSync( providerPath, { recursive: true, force: true } );
+				console.log( `Removed ${ providerPath }` );
+			}
+			if ( platform === 'win32' ) {
+				// Verify the prune succeeded — a leftover provider tree on Windows resurfaces as
+				// the PathTooLongException the prune exists to prevent. Fail now with context
+				// instead of letting the Squirrel maker crash later.
+				const remaining = globSync(
+					'**/node_modules/{@mistralai,@aws-sdk,@aws-crypto,@smithy,@google/genai}/',
+					{ cwd: cliNodeModules, absolute: true }
+				);
+				if ( remaining.length > 0 ) {
+					throw new Error(
+						`Could not prune ${ remaining.length } provider director(ies) that exceed ` +
+							`Windows' 260-char path limit: ${ remaining.join( ', ' ) }`
+					);
+				}
+			}
+
+			console.log( `Downloading Node.js binary for ${ platform }-${ arch }...` );
+			await execAsync( [
+				'npx',
+				'tsx',
+				path.join( repoRoot, 'scripts', 'download-node-binary.ts' ),
+				platform,
+				arch,
+			] );
 
 			console.log(
 				`Downloading PHP ${ RecommendedPHPVersion } package for ${ platform }-${ arch }...`
 			);
 			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
 			await execAsync(
-				`npx tsx ${ path.join(
-					repoRoot,
-					'scripts',
-					'download-php-binary.ts'
-				) } ${ RecommendedPHPVersion } ${ platform } ${ arch } --install-root ${ JSON.stringify(
-					bundledPhpBinaryRoot
-				) }`,
+				[
+					'npx',
+					'tsx',
+					path.join( repoRoot, 'scripts', 'download-php-binary.ts' ),
+					RecommendedPHPVersion,
+					platform,
+					arch,
+					'--install-root',
+					bundledPhpBinaryRoot,
+				],
 				{
 					STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
 				}

@@ -212,7 +212,7 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 	);
 }
 
-function NewSessionButton( { site }: { site: SiteDetails } ) {
+function useNewSessionAction( site: SiteDetails ) {
 	const navigate = useNavigate();
 	const [ isPending, setIsPending ] = useState( false );
 	const handleClick = async () => {
@@ -223,6 +223,13 @@ function NewSessionButton( { site }: { site: SiteDetails } ) {
 			setIsPending( false );
 		}
 	};
+
+	return { isPending, handleClick };
+}
+
+function NewSessionButton( { site }: { site: SiteDetails } ) {
+	const { isPending, handleClick } = useNewSessionAction( site );
+
 	return (
 		<IconButton
 			variant="minimal"
@@ -235,6 +242,24 @@ function NewSessionButton( { site }: { site: SiteDetails } ) {
 			loadingAnnouncement={ __( 'Creating chat' ) }
 			onClick={ handleClick }
 		/>
+	);
+}
+
+function NewSessionTextButton( { site }: { site: SiteDetails } ) {
+	const { isPending, handleClick } = useNewSessionAction( site );
+
+	return (
+		<Button
+			variant="unstyled"
+			tone="neutral"
+			size="small"
+			className={ styles.emptyChatButton }
+			loading={ isPending }
+			loadingAnnouncement={ __( 'Creating chat' ) }
+			onClick={ handleClick }
+		>
+			{ __( 'New chat' ) }
+		</Button>
 	);
 }
 
@@ -552,6 +577,14 @@ function SiteSection( {
 							<SessionItem key={ session.id } session={ session } isVisible={ isOpen } />
 						) ) }
 					</ul>
+				</div>
+			) : group.site && isOpen ? (
+				<div className={ styles.emptyChatState }>
+					<span className={ styles.emptyChatText }>{ __( 'No active chats' ) }</span>
+					<span className={ styles.emptyChatSeparator } aria-hidden="true">
+						•
+					</span>
+					<NewSessionTextButton site={ group.site } />
 				</div>
 			) : null }
 		</section>

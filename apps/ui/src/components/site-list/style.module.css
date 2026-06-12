@@ -273,6 +273,53 @@
 	margin: 0;
 }
 
+.emptyChatState {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-height: 28px;
+	margin: var(--wpds-dimension-padding-xs) 0 var(--wpds-dimension-padding-sm);
+	padding: 0 var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.2;
+	text-align: center;
+}
+
+.emptyChatText {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.emptyChatSeparator {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.emptyChatButton {
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-xs);
+	--_gcd-button-font-size: var(--wpds-typography-font-size-xs);
+
+	display: inline-flex;
+	align-items: center;
+	min-height: 20px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--wpds-color-fg-interactive-neutral);
+	font: inherit;
+	line-height: inherit;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.emptyChatButton:not([data-disabled]) {
+	cursor: var(--wpds-cursor-control);
+}
+
+.emptyChatButton:not([data-disabled]):is(:hover, :focus-visible) {
+	color: var(--wpds-color-fg-interactive-brand-active, var(--wpds-color-fg-interactive-brand));
+}
+
 .sessionListFrame {
 	display: grid;
 	grid-template-rows: 0fr;

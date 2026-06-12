@@ -21,12 +21,7 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 import { PullReprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
-import {
-	enableReprintExporter,
-	getWpComSites,
-	rotateReprintSecret,
-	type WpComSiteInfo,
-} from 'cli/lib/api';
+import { enableReprintExporter, rotateReprintSecret } from 'cli/lib/api';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -53,11 +48,13 @@ import {
 } from 'cli/lib/pull/runtime-start-options';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
+import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getPrettyPath } from 'cli/lib/utils';
 import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
-import { pickWpComSite } from 'cli/lib/wpcom-site-picker';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 const logger = new Logger< LoggerAction >();
 
@@ -197,14 +194,14 @@ interface PullSessionMetadata {
  * Normalized result of turning CLI arguments into something the pull
  * pipeline can act on: a remote URL to fetch from and the HMAC secret
  * the exporter will check.  For WordPress.com sources we also stash
- * the matched `WpComSiteInfo` and auth token so the preflight failure
+ * the matched `SyncSite` and auth token so the preflight failure
  * path can rotate a fresh secret without loading the full site list a
  * second time.
  */
 interface PullSource {
 	secret: string;
 	url: string;
-	wpComSite?: WpComSiteInfo;
+	wpComSite?: SyncSite;
 	wpComToken?: StoredAuthToken;
 }
 
@@ -375,11 +372,11 @@ export async function runCommand(
 				if ( ! token ) {
 					throw preflightError;
 				}
-				const sites = await getWpComSites( token.accessToken );
+				const sites = await fetchSyncableSites( token.accessToken );
 				const matched = findMatchingWpComSite( sites, sourceSiteUrl );
-				// Simple sites can't rotate a secret — wpcomsh (and the
-				// exporter inside it) only exists on Atomic sites.
-				if ( ! matched || ! matched.isAtomic ) {
+				// Only syncable sites (hosting features enabled) can run the
+				// reprint exporter and rotate a secret.
+				if ( ! matched || matched.syncSupport !== 'syncable' ) {
 					throw preflightError;
 				}
 				sourceSite.wpComSite = matched;
@@ -1053,10 +1050,10 @@ export function getPrivateDirNameForImportSession(
  * pull-reprint; if a second caller ever needs the same shape, the
  * natural home would be `cli/lib/wpcom-sites`.
  */
-export function findMatchingWpComSite(
-	sites: WpComSiteInfo[],
+export function findMatchingWpComSite< T extends { url: string } >(
+	sites: T[],
 	url: string
-): WpComSiteInfo | undefined {
+): T | undefined {
 	const normalizedUrl = normalizeSiteUrl( url );
 	const target = new URL( normalizedUrl );
 
@@ -1082,12 +1079,11 @@ export function findMatchingWpComSite(
  *      sites and arbitrary URLs).
  *   2. `--url` alone — try a previously cached secret from an earlier
  *      run for this URL; fall back to rotating a fresh WP.com secret.
- *   3. No `--url` — among pullable (Atomic) sites only: if the user
+ *   3. No `--url` — among pullable (`syncable`) sites only: if the user
  *      has exactly one, pick it; with several, show an interactive
- *      picker in a TTY (returning `null` if the user cancels) or fall
- *      back to listing them and aborting when run non-interactively.
- *      Simple WordPress.com sites can't run the reprint exporter, so
- *      they are excluded everywhere here.
+ *      picker in a TTY (returning `null` if the user cancels) or error
+ *      out when run non-interactively. Non-pullable sites (Simple, or
+ *      missing hosting features) are surfaced as disabled in the picker.
  */
 export async function resolveSourceSite(
 	url?: string,
@@ -1129,15 +1125,15 @@ export async function resolveSourceSite(
 			)
 		);
 	}
-	let sites: WpComSiteInfo[];
+	let sites: SyncSite[];
 	try {
-		sites = await getWpComSites( token.accessToken );
+		sites = await fetchSyncableSites( token.accessToken );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to load WordPress.com sites' ), error );
 	}
 
 	let resolvedUrl: string;
-	let wpComSite: WpComSiteInfo;
+	let wpComSite: SyncSite;
 
 	if ( url ) {
 		const matched = findMatchingWpComSite( sites, url );
@@ -1148,12 +1144,12 @@ export async function resolveSourceSite(
 				)
 			);
 		}
-		if ( ! matched.isAtomic ) {
+		if ( matched.syncSupport !== 'syncable' ) {
 			throw new LoggerError(
 				sprintf(
 					// translators: %s: the site URL.
 					__(
-						'%s is a Simple WordPress.com site, which cannot be pulled. Pulling requires the reprint exporter to run on the source, which is only possible on WordPress.com sites with hosting features or self-hosted sites.'
+						'%s cannot be pulled. Pulling requires a WordPress.com site with hosting features enabled, or a self-hosted site (with `--url` and `--secret`).'
 					),
 					matched.url
 				)
@@ -1162,9 +1158,9 @@ export async function resolveSourceSite(
 		resolvedUrl = url;
 		wpComSite = matched;
 	} else {
-		// Simple WordPress.com sites can't run the reprint exporter, so
-		// they are never suggested as pull candidates.
-		const pullableSites = sites.filter( ( site ) => site.isAtomic );
+		// Only sites that can run the reprint exporter — those with hosting
+		// features enabled (`syncable`) — are pull candidates.
+		const pullableSites = sites.filter( ( site ) => site.syncSupport === 'syncable' );
 		if ( pullableSites.length === 0 ) {
 			throw new LoggerError(
 				__(
@@ -1184,7 +1180,9 @@ export async function resolveSourceSite(
 				);
 			}
 
-			const picked = await pickWpComSite( pullableSites, __( 'Select a site to pull from' ) );
+			// Pass the full list so non-pullable sites render disabled with a
+			// reason, matching the `pull` command.
+			const picked = await pickSyncSite( sites, __( 'Select a site to pull from' ) );
 			// Esc / Ctrl-C cancels the picker. Treat it as a clean no-op: the
 			// caller returns early without creating any local state.
 			if ( ! picked ) {

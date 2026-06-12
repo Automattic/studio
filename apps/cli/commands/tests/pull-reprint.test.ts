@@ -3,10 +3,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getWpComSites, rotateReprintSecret, type WpComSiteInfo } from 'cli/lib/api';
+import { rotateReprintSecret } from 'cli/lib/api';
 import * as migrationClient from 'cli/lib/pull/migration-client';
 import { shouldRestartFilesSyncIndex } from 'cli/lib/pull/reprint-state';
-import { pickWpComSite } from 'cli/lib/wpcom-site-picker';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
+import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import {
 	applyDownloadedDatabase,
 	downloadSkippedFiles,
@@ -17,6 +18,7 @@ import {
 	normalizeSiteUrl,
 	resolveSourceSite,
 } from '../pull-reprint';
+import type { SyncSite } from '@studio/common/types/sync';
 
 vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
@@ -24,11 +26,15 @@ vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/api') >() ),
-	getWpComSites: vi.fn(),
 	rotateReprintSecret: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/wpcom-site-picker', () => ( {
-	pickWpComSite: vi.fn(),
+vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/sync-api') >() ),
+	fetchSyncableSites: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/sync-site-picker', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/sync-site-picker') >() ),
+	pickSyncSite: vi.fn(),
 } ) );
 
 describe( 'CLI: studio pull-reprint helpers', () => {
@@ -70,24 +76,10 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 	it( 'matches WordPress.com sites by normalized URL or host', () => {
 		expect(
 			findMatchingWpComSite(
-				[
-					{
-						id: 1,
-						name: 'Example',
-						url: 'https://example.wordpress.com/',
-						isStaging: false,
-						isAtomic: true,
-					},
-				],
+				[ { id: 1, name: 'Example', url: 'https://example.wordpress.com/' } ],
 				'https://example.wordpress.com'
 			)
-		).toEqual( {
-			id: 1,
-			name: 'Example',
-			url: 'https://example.wordpress.com/',
-			isStaging: false,
-			isAtomic: true,
-		} );
+		).toEqual( { id: 1, name: 'Example', url: 'https://example.wordpress.com/' } );
 	} );
 
 	it( 'restarts files-sync indexing only when the saved state has no resumable cursor', () => {
@@ -376,9 +368,23 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expirationTime: Date.now() + 1209600000,
 	};
 
-	const sites: WpComSiteInfo[] = [
-		{ id: 11, name: 'One', url: 'https://one.wordpress.com', isStaging: false, isAtomic: true },
-		{ id: 22, name: 'Two', url: 'https://two.wordpress.com', isStaging: true, isAtomic: true },
+	function syncSite(
+		over: Partial< SyncSite > & { id: number; name: string; url: string }
+	): SyncSite {
+		return {
+			localSiteId: '',
+			isStaging: false,
+			isPressable: false,
+			syncSupport: 'syncable',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+			...over,
+		};
+	}
+
+	const sites: SyncSite[] = [
+		syncSite( { id: 11, name: 'One', url: 'https://one.wordpress.com' } ),
+		syncSite( { id: 22, name: 'Two', url: 'https://two.wordpress.com', isStaging: true } ),
 	];
 
 	const originalIsTTY = process.stdin.isTTY;
@@ -401,14 +407,14 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'opens the interactive picker for multiple sites in a TTY and returns the chosen site', async () => {
+	it( 'opens the interactive picker for multiple syncable sites in a TTY and returns the chosen site', async () => {
 		setTTY( true );
-		vi.mocked( getWpComSites ).mockResolvedValue( sites );
-		vi.mocked( pickWpComSite ).mockResolvedValue( sites[ 1 ] );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+		vi.mocked( pickSyncSite ).mockResolvedValue( sites[ 1 ] );
 
 		const source = await resolveSourceSite();
 
-		expect( pickWpComSite ).toHaveBeenCalledWith( sites, expect.any( String ) );
+		expect( pickSyncSite ).toHaveBeenCalledWith( sites, expect.any( String ) );
 		expect( source ).toMatchObject( {
 			url: 'https://two.wordpress.com',
 			secret: 'fresh-secret',
@@ -420,8 +426,8 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 
 	it( 'returns null without rotating a secret when the user cancels the picker', async () => {
 		setTTY( true );
-		vi.mocked( getWpComSites ).mockResolvedValue( sites );
-		vi.mocked( pickWpComSite ).mockResolvedValue( undefined );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+		vi.mocked( pickSyncSite ).mockResolvedValue( undefined );
 
 		const source = await resolveSourceSite();
 
@@ -431,20 +437,20 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 
 	it( 'aborts with an error for multiple sites when not in a TTY (no picker)', async () => {
 		setTTY( false );
-		vi.mocked( getWpComSites ).mockResolvedValue( sites );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
 
 		await expect( resolveSourceSite() ).rejects.toThrow( /Re-run with `--url/ );
-		expect( pickWpComSite ).not.toHaveBeenCalled();
+		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 
 	it( 'auto-picks the only connected site without prompting (single-site path unchanged)', async () => {
 		setTTY( true );
-		vi.mocked( getWpComSites ).mockResolvedValue( [ sites[ 0 ] ] );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ sites[ 0 ] ] );
 
 		const source = await resolveSourceSite();
 
-		expect( pickWpComSite ).not.toHaveBeenCalled();
+		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( source ).toMatchObject( {
 			url: 'https://one.wordpress.com',
 			secret: 'fresh-secret',
@@ -452,67 +458,78 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		} );
 	} );
 
-	it( 'errors when no connected sites exist', async () => {
+	it( 'errors when no syncable sites exist', async () => {
 		setTTY( true );
-		vi.mocked( getWpComSites ).mockResolvedValue( [] );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [] );
 
 		await expect( resolveSourceSite() ).rejects.toThrow( /No pullable WordPress\.com sites/ );
-		expect( pickWpComSite ).not.toHaveBeenCalled();
+		expect( pickSyncSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'offers only Atomic sites to the picker, excluding Simple sites', async () => {
+	it( 'passes the full site list to the picker so non-syncable sites can be shown disabled', async () => {
 		setTTY( true );
-		const simple: WpComSiteInfo = {
+		const nonSyncable = syncSite( {
 			id: 33,
 			name: 'Simple',
 			url: 'https://simple.wordpress.com',
-			isStaging: false,
-			isAtomic: false,
-		};
-		vi.mocked( getWpComSites ).mockResolvedValue( [ sites[ 0 ], simple, sites[ 1 ] ] );
-		vi.mocked( pickWpComSite ).mockResolvedValue( sites[ 1 ] );
+			syncSupport: 'needs-transfer',
+		} );
+		const all = [ sites[ 0 ], nonSyncable, sites[ 1 ] ];
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( all );
+		vi.mocked( pickSyncSite ).mockResolvedValue( sites[ 1 ] );
 
 		const source = await resolveSourceSite();
 
-		// The Simple site is filtered out before the picker sees the list.
-		expect( pickWpComSite ).toHaveBeenCalledWith(
-			[ sites[ 0 ], sites[ 1 ] ],
-			expect.any( String )
-		);
+		// pickSyncSite itself disables non-syncable entries, so it receives the
+		// full list rather than a pre-filtered one.
+		expect( pickSyncSite ).toHaveBeenCalledWith( all, expect.any( String ) );
 		expect( source ).toMatchObject( { wpComSite: sites[ 1 ] } );
 	} );
 
-	it( 'auto-picks the only Atomic site when the rest are Simple', async () => {
+	it( 'auto-picks the only syncable site when the rest are non-syncable', async () => {
 		setTTY( true );
-		const simple: WpComSiteInfo = {
+		const nonSyncable = syncSite( {
 			id: 33,
 			name: 'Simple',
 			url: 'https://simple.wordpress.com',
-			isStaging: false,
-			isAtomic: false,
-		};
-		vi.mocked( getWpComSites ).mockResolvedValue( [ simple, sites[ 0 ] ] );
+			syncSupport: 'needs-upgrade',
+		} );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ nonSyncable, sites[ 0 ] ] );
 
 		const source = await resolveSourceSite();
 
-		expect( pickWpComSite ).not.toHaveBeenCalled();
+		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( source ).toMatchObject( { url: 'https://one.wordpress.com', wpComSite: sites[ 0 ] } );
 	} );
 
-	it( 'rejects a Simple site passed via --url with a clear message', async () => {
+	it( 'rotates a secret for a syncable site matched by --url', async () => {
 		setTTY( true );
-		vi.mocked( getWpComSites ).mockResolvedValue( [
-			{
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+
+		const source = await resolveSourceSite( 'https://two.wordpress.com' );
+
+		expect( source ).toMatchObject( {
+			url: 'https://two.wordpress.com',
+			secret: 'fresh-secret',
+			wpComSite: sites[ 1 ],
+		} );
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
+		expect( pickSyncSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'rejects a non-syncable site passed via --url with a clear message', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
+			syncSite( {
 				id: 44,
 				name: 'Simple',
 				url: 'https://only-simple.example.com',
-				isStaging: false,
-				isAtomic: false,
-			},
+				syncSupport: 'needs-transfer',
+			} ),
 		] );
 
 		await expect( resolveSourceSite( 'https://only-simple.example.com' ) ).rejects.toThrow(
-			/Simple WordPress\.com site, which cannot be pulled/
+			/cannot be pulled/
 		);
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
@@ -526,8 +543,8 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 			url: 'https://self-hosted.example',
 			secret: 'my-secret',
 		} );
-		expect( getWpComSites ).not.toHaveBeenCalled();
-		expect( pickWpComSite ).not.toHaveBeenCalled();
+		expect( fetchSyncableSites ).not.toHaveBeenCalled();
+		expect( pickSyncSite ).not.toHaveBeenCalled();
 	} );
 } );
 

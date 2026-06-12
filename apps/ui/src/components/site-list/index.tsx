@@ -1,13 +1,24 @@
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronRight, moreHorizontal, plus } from '@wordpress/icons';
-import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
+import {
+	box,
+	chevronDown,
+	chevronRight,
+	moreHorizontal,
+	plus,
+	starEmpty,
+	starFilled,
+} from '@wordpress/icons';
+import { Button, Dialog, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
+import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { SiteIcon } from '@/components/site-icon';
-import { useSessions } from '@/data/queries/use-sessions';
+import { Spinner } from '@/components/spinner';
+import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
+import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
 	useDeleteSite,
@@ -41,6 +52,12 @@ function groupSessionsByOwner(
 	const unassigned: AiSessionSummary[] = [];
 
 	for ( const session of sessions ?? [] ) {
+		// Archived chats stay out of the sidebar; they remain reachable from
+		// the session data and will get a dedicated list with the site
+		// overview screens.
+		if ( session.archived ) {
+			continue;
+		}
 		if ( ! session.ownerSitePath || ! knownSitePaths.has( session.ownerSitePath ) ) {
 			unassigned.push( session );
 			continue;
@@ -89,13 +106,65 @@ function groupSessionsByOwner(
 	return groups;
 }
 
+function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
+	const updateSessionMetadata = useUpdateSessionMetadata();
+	const isPending = updateSessionMetadata.isPending;
+	const starred = !! session.starred;
+	const archived = !! session.archived;
+
+	// Same persistence path as the ui-desks chats panel: optimistic
+	// starred/archived patches through `connector.updateSessionMetadata`.
+	const updateMetadata = ( patch: { starred: boolean; archived: boolean } ) => {
+		updateSessionMetadata.mutate( {
+			sessionId: session.id,
+			patch,
+		} );
+	};
+
+	return (
+		<Menu.Root modal={ false }>
+			<Menu.Trigger
+				render={
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ moreHorizontal }
+						label={ __( 'Chat actions' ) }
+						className={ styles.sessionAction }
+						disabled={ isPending }
+					/>
+				}
+			/>
+			<Menu.Popup side="bottom" align="end">
+				<Menu.Item
+					disabled={ isPending }
+					onClick={ () => updateMetadata( { starred: ! starred, archived } ) }
+				>
+					<Icon icon={ starred ? starFilled : starEmpty } size={ 16 } />
+					{ starred ? __( 'Unstar conversation' ) : __( 'Star conversation' ) }
+				</Menu.Item>
+				<Menu.Item
+					disabled={ isPending }
+					onClick={ () => updateMetadata( { starred, archived: ! archived } ) }
+				>
+					<Icon icon={ box } size={ 16 } />
+					{ archived ? __( 'Unarchive conversation' ) : __( 'Archive conversation' ) }
+				</Menu.Item>
+			</Menu.Popup>
+		</Menu.Root>
+	);
+}
+
 function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVisible: boolean } ) {
-	const label = session.firstPrompt?.trim() || __( '(No prompt yet)' );
+	const label = session.firstPrompt?.trim();
+	const isRunning = useIsSessionRunning( session.id );
+	const hasPendingQuestion = useSessionHasPendingQuestion( session.id );
 
 	return (
 		<li className={ styles.sessionItem }>
 			<SidebarButton
-				className={ styles.sessionLink }
+				className={ clsx( styles.sessionLink, isRunning && styles.sessionLinkRunning ) }
 				render={
 					<Link
 						to="/sessions/$sessionId"
@@ -107,14 +176,43 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 					/>
 				}
 			>
-				<span className={ styles.sessionLabel }>{ label }</span>
+				{ hasPendingQuestion ? (
+					<Tooltip.Provider delay={ 0 }>
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								render={
+									<span
+										className={ styles.sessionQuestionIndicator }
+										role="status"
+										aria-label={ __( 'Studio needs an answer.' ) }
+									>
+										?
+									</span>
+								}
+							/>
+							<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+								{ __( 'Studio needs an answer.' ) }
+							</Tooltip.Popup>
+						</Tooltip.Root>
+					</Tooltip.Provider>
+				) : isRunning ? (
+					<Spinner className={ styles.sessionInlineSpinner } label={ __( 'Working…' ) } />
+				) : null }
+				<span className={ clsx( styles.sessionLabel, ! label && styles.sessionLabelUntitled ) }>
+					{ label || __( 'Untitled chat' ) }
+				</span>
 				<span className={ styles.sessionTime }>{ formatRelativeTime( session.updatedAt ) }</span>
 			</SidebarButton>
+			{ isVisible && ! isRunning ? (
+				<div className={ styles.sessionActions }>
+					<SessionActionsMenu session={ session } />
+				</div>
+			) : null }
 		</li>
 	);
 }
 
-function NewSessionButton( { site }: { site: SiteDetails } ) {
+function useNewSessionAction( site: SiteDetails ) {
 	const navigate = useNavigate();
 	const [ isPending, setIsPending ] = useState( false );
 	const handleClick = async () => {
@@ -125,18 +223,43 @@ function NewSessionButton( { site }: { site: SiteDetails } ) {
 			setIsPending( false );
 		}
 	};
+
+	return { isPending, handleClick };
+}
+
+function NewSessionButton( { site }: { site: SiteDetails } ) {
+	const { isPending, handleClick } = useNewSessionAction( site );
+
 	return (
 		<IconButton
 			variant="minimal"
 			tone="neutral"
 			size="small"
 			icon={ plus }
-			label={ __( 'New session' ) }
+			label={ __( 'New chat' ) }
 			className={ styles.siteAction }
 			loading={ isPending }
-			loadingAnnouncement={ __( 'Creating session' ) }
+			loadingAnnouncement={ __( 'Creating chat' ) }
 			onClick={ handleClick }
 		/>
+	);
+}
+
+function NewSessionTextButton( { site }: { site: SiteDetails } ) {
+	const { isPending, handleClick } = useNewSessionAction( site );
+
+	return (
+		<Button
+			variant="unstyled"
+			tone="neutral"
+			size="small"
+			className={ styles.emptyChatButton }
+			loading={ isPending }
+			loadingAnnouncement={ __( 'Creating chat' ) }
+			onClick={ handleClick }
+		>
+			{ __( 'New chat' ) }
+		</Button>
 	);
 }
 
@@ -225,15 +348,21 @@ function DeleteSiteDialog( {
 	);
 }
 
-function SiteActionsMenu( { site }: { site: SiteDetails } ) {
+function SiteActionsMenu( {
+	site,
+	isStarting,
+	isStopping,
+}: {
+	site: SiteDetails;
+	isStarting: boolean;
+	isStopping: boolean;
+} ) {
 	const navigate = useNavigate();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
-	const isStarting = useIsSiteStarting( site.id );
-	const isStopping = useIsSiteStopping( site.id );
 	const busy = isStarting || isStopping;
 	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
@@ -288,8 +417,92 @@ function SiteActionsMenu( { site }: { site: SiteDetails } ) {
 					<Menu.Item onClick={ () => setDeleteOpen( true ) }>{ __( 'Delete site' ) }</Menu.Item>
 				</Menu.Popup>
 			</Menu.Root>
-			<DeleteSiteDialog site={ site } open={ deleteOpen } onOpenChange={ setDeleteOpen } />
+			{ deleteOpen ? (
+				<DeleteSiteDialog site={ site } open={ deleteOpen } onOpenChange={ setDeleteOpen } />
+			) : null }
 		</>
+	);
+}
+
+function SiteStatusButton( {
+	site,
+	isStarting,
+	isStopping,
+}: {
+	site: SiteDetails;
+	isStarting: boolean;
+	isStopping: boolean;
+} ) {
+	const startSite = useStartSite();
+	const stopSite = useStopSite();
+	const { status } = deriveSiteStatus( site, isStarting, isStopping );
+	const busy = isStarting || isStopping;
+	const statusName =
+		status === 'running'
+			? __( 'Running' )
+			: status === 'transitioning'
+			? isStopping
+				? __( 'Stopping' )
+				: __( 'Starting' )
+			: __( 'Stopped' );
+	const tooltipLabel = sprintf( __( 'Site status: %s' ), statusName );
+	const actionLabel = site.running ? __( 'Stop site' ) : __( 'Start site' );
+	const label = busy ? tooltipLabel : sprintf( __( '%1$s. %2$s' ), tooltipLabel, actionLabel );
+	const handleClick = () => {
+		if ( busy ) {
+			return;
+		}
+		if ( site.running ) {
+			stopSite.mutate( site.id );
+		} else {
+			startSite.mutate( site.id );
+		}
+	};
+
+	return (
+		<Tooltip.Provider delay={ 0 }>
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					render={
+						<button
+							type="button"
+							className={ styles.siteStatus }
+							aria-label={ label }
+							aria-busy={ busy || undefined }
+							aria-disabled={ busy || undefined }
+							data-state={ status }
+							onClick={ busy ? undefined : handleClick }
+						>
+							<svg
+								className={ styles.siteStatusGlyph }
+								viewBox="0 0 8 8"
+								aria-hidden="true"
+								focusable="false"
+							>
+								<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+							</svg>
+							{ ! busy ? (
+								<svg
+									className={ styles.siteStatusActionGlyph }
+									viewBox="0 0 10 10"
+									aria-hidden="true"
+									focusable="false"
+								>
+									{ site.running ? (
+										<rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor" />
+									) : (
+										<path d="M2.5 1 L9 5 L2.5 9 Z" fill="currentColor" />
+									) }
+								</svg>
+							) : null }
+						</button>
+					}
+				/>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+					{ tooltipLabel }
+				</Tooltip.Popup>
+			</Tooltip.Root>
+		</Tooltip.Provider>
 	);
 }
 
@@ -306,6 +519,9 @@ function SiteSection( {
 	isOpen: boolean;
 	onToggle: () => void;
 } ) {
+	const isStarting = useIsSiteStarting( group.site?.id );
+	const isStopping = useIsSiteStopping( group.site?.id );
+
 	return (
 		<section
 			className={ clsx(
@@ -337,8 +553,17 @@ function SiteSection( {
 				</div>
 				{ group.site ? (
 					<div className={ styles.siteActions }>
-						<SiteActionsMenu site={ group.site } />
+						<SiteActionsMenu
+							site={ group.site }
+							isStarting={ isStarting }
+							isStopping={ isStopping }
+						/>
 						<NewSessionButton site={ group.site } />
+						<SiteStatusButton
+							site={ group.site }
+							isStarting={ isStarting }
+							isStopping={ isStopping }
+						/>
 					</div>
 				) : null }
 			</header>
@@ -352,6 +577,14 @@ function SiteSection( {
 							<SessionItem key={ session.id } session={ session } isVisible={ isOpen } />
 						) ) }
 					</ul>
+				</div>
+			) : group.site && isOpen ? (
+				<div className={ styles.emptyChatState }>
+					<span className={ styles.emptyChatText }>{ __( 'No active chats' ) }</span>
+					<span className={ styles.emptyChatSeparator } aria-hidden="true">
+						•
+					</span>
+					<NewSessionTextButton site={ group.site } />
 				</div>
 			) : null }
 		</section>

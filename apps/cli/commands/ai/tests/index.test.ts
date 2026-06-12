@@ -3,7 +3,11 @@ import { vi, type Mock } from 'vitest';
 import { resolveInitialAiProvider, saveSelectedAiProvider } from 'cli/ai/auth';
 import { JsonAdapter } from 'cli/ai/output-adapter';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { createStudioSession, listStudioSessionFiles, openStudioSession } from 'cli/ai/sessions/pi-session';
+import {
+	createStudioSession,
+	listStudioSessionFiles,
+	openStudioSession,
+} from 'cli/ai/sessions/pi-session';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { runCommand } from '../index';
 
@@ -121,7 +125,13 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 		// Build a minimal session whose entries record a model_change to a
 		// non-default model — the same shape that `resolveSessionModel` reads.
 		const sessionEntries = [
-			{ type: 'model_change', id: 'e1', parentId: null, timestamp: '2024-01-01T00:00:00Z', modelId: 'claude-opus-4-8' },
+			{
+				type: 'model_change',
+				id: 'e1',
+				parentId: null,
+				timestamp: '2024-01-01T00:00:00Z',
+				modelId: 'claude-opus-4-8',
+			},
 		];
 		const mockSm = {
 			appendCustomEntry: vi.fn( () => 'entry-id' ),

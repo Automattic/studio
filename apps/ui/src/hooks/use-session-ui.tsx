@@ -2,11 +2,13 @@ import {
 	createContext,
 	useCallback,
 	useContext,
+	useEffect,
 	useMemo,
 	useReducer,
 	type Dispatch,
 	type ReactNode,
 } from 'react';
+import { useConnector } from '@/data/core';
 
 // Session-scoped UI store. Holds the slices of UI state that the chat agent
 // can influence (preview panel today; future: composer, conversation pane,
@@ -36,7 +38,7 @@ export type SessionUIAction =
 	| { type: 'preview/update-path'; path: string };
 
 const INITIAL_STATE: SessionUIState = {
-	preview: { open: false, path: '/', reloadNonce: 0 },
+	preview: { open: true, path: '/', reloadNonce: 0 },
 };
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
@@ -71,6 +73,12 @@ const SessionUIDispatchContext = createContext< Dispatch< SessionUIAction > | nu
 
 export function SessionUIProvider( { children }: { children: ReactNode } ) {
 	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE );
+	const connector = useConnector();
+	useEffect( () => {
+		return connector.onToggleSitePreview( () => {
+			dispatch( { type: 'preview/toggle' } );
+		} );
+	}, [ connector ] );
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>
 			<SessionUIStateContext.Provider value={ state }>{ children }</SessionUIStateContext.Provider>

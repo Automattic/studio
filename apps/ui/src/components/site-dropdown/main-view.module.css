@@ -1,12 +1,10 @@
 .rows {
 	display: flex;
 	flex-direction: column;
-	/* One unified box of padding around the entire main view plus a fixed
-	   gap between rows — individual rows no longer carry their own
-	   padding, which keeps the rhythm consistent regardless of row count
-	   or which actions each row renders. */
-	padding: var(--wpds-dimension-padding-lg);
-	gap: var(--wpds-dimension-padding-lg);
+}
+
+.rows > * + * {
+	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
 }
 
 .rowActions {
@@ -15,13 +13,74 @@
 	gap: var(--wpds-dimension-padding-xs);
 }
 
-/* The site-dropdown popup strips the default Menu popup padding/gap (so the
-   environment rows can own their own layout), so the Menu.Items we append
-   below the rows need their own padded band. Mirrors the default Menu popup
-   spacing. */
-.menuItems {
+.localServerButton {
+	min-width: 48px;
+}
+
+.urlLink {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	line-height: inherit;
+	text-align: left;
+	cursor: var(--wpds-cursor-control);
+}
+
+.urlLink:hover {
+	color: var(--wpds-color-fg-content-neutral);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.urlLink span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.urlLink svg {
+	flex: 0 0 auto;
+	fill: currentColor;
+}
+
+.environmentActionRow {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-gap-md);
+	padding: var(--wpds-dimension-padding-lg);
+}
+
+.environmentActionText {
+	flex: 1 1 auto;
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
-	padding: var(--wpds-dimension-padding-xs);
+	gap: 4px;
+	min-width: 0;
+}
+
+.environmentActionTitle {
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.35;
+	font-weight: 500;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.environmentActionCopy {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.4;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.environmentActionButton {
+	flex: 0 0 auto;
+	align-self: flex-start;
 }

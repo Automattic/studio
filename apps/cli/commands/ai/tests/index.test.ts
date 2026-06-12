@@ -3,7 +3,11 @@ import { vi, type Mock } from 'vitest';
 import { resolveInitialAiProvider, saveSelectedAiProvider } from 'cli/ai/auth';
 import { JsonAdapter } from 'cli/ai/output-adapter';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { createStudioSession } from 'cli/ai/sessions/pi-session';
+import {
+	createStudioSession,
+	listStudioSessionFiles,
+	openStudioSession,
+} from 'cli/ai/sessions/pi-session';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { runCommand } from '../index';
 
@@ -99,5 +103,53 @@ describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {
 
 		expect( runStudioAgentTurn ).toHaveBeenCalled();
 		expect( saveSelectedAiProvider ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'AI runCommand — resume by id restores session model', () => {
+	let stdoutSpy: ReturnType< typeof vi.spyOn >;
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		( readAuthToken as Mock ).mockResolvedValue( null );
+		( readCliConfig as Mock ).mockResolvedValue( { aiProvider: 'wpcom' } );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
+		stdoutSpy = vi.spyOn( process.stdout, 'write' ).mockImplementation( () => true );
+	} );
+
+	afterEach( () => {
+		stdoutSpy.mockRestore();
+	} );
+
+	it( 'uses the model recorded in the session rather than DEFAULT_MODEL', async () => {
+		// Build a minimal session whose entries record a model_change to a
+		// non-default model — the same shape that `resolveSessionModel` reads.
+		const sessionEntries = [
+			{
+				type: 'model_change',
+				id: 'e1',
+				parentId: null,
+				timestamp: '2024-01-01T00:00:00Z',
+				modelId: 'claude-opus-4-8',
+			},
+		];
+		const mockSm = {
+			appendCustomEntry: vi.fn( () => 'entry-id' ),
+			getSessionId: () => 'resume-id-123',
+			getEntries: () => sessionEntries,
+		};
+
+		( listStudioSessionFiles as Mock ).mockResolvedValue( [ '/sessions/session-1.jsonl' ] );
+		( openStudioSession as Mock ).mockResolvedValue( mockSm );
+
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			resumeSessionId: 'resume-id-123',
+		} );
+
+		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
+		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { model: string };
+		expect( callArgs.model ).toBe( 'claude-opus-4-8' );
 	} );
 } );

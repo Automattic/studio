@@ -65,7 +65,7 @@
 		"build": "vite build --config ./vite.config.dev.ts",
 		"build:prod": "vite build --config ./vite.config.prod.ts",
 		"build:npm": "vite build --config ./vite.config.npm.ts",
-		"install:bundle": "npm install --omit=dev --no-package-lock --no-progress --install-links --no-workspaces && patch-package && node ../../scripts/remove-fs-ext-other-platform-binaries.mjs",
+		"install:bundle": "npm install --omit=dev --no-audit --no-fund --no-package-lock --no-progress --install-links --no-workspaces && node ../../scripts/apply-available-patches.mjs patches && node ../../scripts/remove-fs-ext-other-platform-binaries.mjs",
 		"package": "npm run install:bundle && npm run build:prod",
 		"lint": "eslint .",
 		"watch": "vite build --config ./vite.config.dev.ts --watch",
@@ -81,6 +81,6 @@
 		"@types/yargs": "^17.0.35",
 		"glob": "^13.0.6",
 		"vite": "^8.0.16",
-		"vite-plugin-static-copy": "^4.1.0"
+		"vite-plugin-static-copy": "^4.1.1"
 	}
 }

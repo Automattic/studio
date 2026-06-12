@@ -3,14 +3,59 @@
 	flex-direction: row;
 	height: 100%;
 	min-height: 0;
+	position: relative;
+	overflow: hidden;
 }
 
+/* Opaque and above the preview slot so it fully covers the (still mounted)
+   preview while the panel is toggled off. */
 .chatColumn {
 	display: flex;
 	flex-direction: column;
-	flex: 1;
+	flex: 0 0 100%;
 	min-width: 0;
 	min-height: 0;
+	position: relative;
+	z-index: 1;
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
+.rootPreviewOpen .chatColumn {
+	flex-basis: calc(100% - var(--site-preview-width, 520px));
+}
+
+/* Applied only around open/close toggles (see PREVIEW_TOGGLE_DURATION) so
+   the initial layout and drag-resizing stay instant. */
+.rootPreviewAnimating .chatColumn {
+	transition: flex-basis 150ms ease;
+}
+
+.previewSlot {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: var(--site-preview-width, 520px);
+	/* Once the close animation finishes, drop the slot out of the focus and
+	   accessibility tree — the webview behind the chat column stays mounted
+	   but must not be reachable. The delay keeps it visible while it slides
+	   closed; opening flips visibility immediately. */
+	visibility: hidden;
+	transition: visibility 0s linear 150ms;
+}
+
+.previewSlotOpen {
+	visibility: visible;
+	transition-delay: 0s;
+}
+
+/* Centers the 8px hit area on the chat/preview boundary. */
+.previewResizeHandle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: calc(var(--site-preview-width, 520px) - 4px);
+	justify-content: center;
 }
 
 .state {

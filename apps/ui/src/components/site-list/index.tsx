@@ -563,12 +563,14 @@ function SiteSection( {
 	group,
 	isUnassigned,
 	isActive,
+	isSelected,
 	isOpen,
 	onToggle,
 }: {
 	group: SiteGroup;
 	isUnassigned: boolean;
 	isActive: boolean;
+	isSelected: boolean;
 	isOpen: boolean;
 	onToggle: () => void;
 } ) {
@@ -580,7 +582,8 @@ function SiteSection( {
 			className={ clsx(
 				styles.site,
 				isUnassigned && styles.unassigned,
-				isActive && styles.siteActive
+				isActive && styles.siteActive,
+				isSelected && styles.siteSelected
 			) }
 		>
 			<header className={ styles.siteHeader }>
@@ -708,6 +711,7 @@ export function SiteList() {
 							group={ group }
 							isUnassigned={ group.key === UNASSIGNED_KEY }
 							isActive={ group.key === activeSiteKey }
+							isSelected={ !! group.site && group.site.id === activeSiteId }
 							isOpen={ isOpen( group.key ) }
 							onToggle={ () => toggleSite( group.key ) }
 						/>

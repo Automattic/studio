@@ -3,13 +3,11 @@
 	--site-list-row-background-hover: rgb(0 0 0 / 4%);
 	--site-list-row-background-active: rgb(0 0 0 / 7%);
 
-	/* Left padding matches the sidebar footer (user-menu) so
-	   the row highlight boxes share the same left edge as the rest of the
-	   sidebar chrome. The right side is smaller: rows carry `sm` of their
-	   own right padding, and `xl + sm` keeps the row icons (site status,
-	   actions) visually aligned with the header's drawer icon. */
-	padding: var(--wpds-dimension-padding-3xl) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-2xl);
+	/* Tight inline inset so the row highlight boxes stretch close to the
+	   sidebar edges; rows carry `sm` of their own right padding on top of
+	   this. */
+	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-md)
+		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-md);
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-sm);
@@ -47,12 +45,9 @@
 	transition: background-color 100ms ease;
 }
 
-.siteHeader:hover,
-.siteHeader:focus-within {
-	background-color: var(--site-list-row-background-hover);
-}
-
-.siteActive .siteHeader {
+/* Only a directly selected site (its settings/overview route) highlights the
+   row — a selected chat highlights its own row instead. */
+.siteSelected .siteHeader {
 	background-color: var(--site-list-row-background-active);
 }
 
@@ -74,27 +69,10 @@
 	display: inline-grid;
 	place-items: center;
 	flex-shrink: 0;
-	inline-size: 0;
-	margin-inline-end: 0;
-	opacity: 0;
-	transform: translateX(-4px) scale(0.75);
-	transform-origin: left center;
-	overflow: hidden;
-	transition: inline-size 150ms ease, margin-inline-end 150ms ease, opacity 150ms ease,
-		transform 150ms ease;
-}
-
-.siteActive .siteIconSlot {
 	inline-size: 16px;
-	margin-inline-end: var(--wpds-dimension-padding-xs);
-	opacity: 1;
-	transform: translateX(0) scale(1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.siteIconSlot {
-		transition: none;
-	}
+	/* The app's compact density halves the smaller padding steps (`sm` = 4px),
+	   so `md` (8px) is what actually reads as a gap next to the 16px icon. */
+	margin-inline-end: var(--wpds-dimension-padding-md);
 }
 
 .siteName {
@@ -347,8 +325,8 @@
 	margin-bottom: 0;
 	opacity: 0;
 	pointer-events: none;
-	transition: grid-template-rows 160ms ease, margin-top 160ms ease, margin-bottom 160ms ease,
-		opacity 120ms ease;
+	transition: grid-template-rows 100ms ease, margin-top 100ms ease, margin-bottom 100ms ease,
+		opacity 80ms ease;
 }
 
 .sessionListFrameOpen {
@@ -387,13 +365,22 @@
 	width: 100%;
 	box-sizing: border-box;
 	height: var(--site-list-row-height);
+	/* Indent the chat label to the site title's text column: the title sits
+	   behind the header's `xs` padding, the toggle button's `sm` padding, the
+	   16px icon, and the icon's `md` gap. */
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
-		var(--wpds-dimension-padding-xs) calc(var(--wpds-dimension-padding-sm) + 24px);
+		var(--wpds-dimension-padding-xs)
+		calc(
+			var(--wpds-dimension-padding-xs) + var(--wpds-dimension-padding-sm) + 16px +
+				var(--wpds-dimension-padding-md)
+		);
 	border-radius: 6px;
 	background-color: var(--session-link-background);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	font-weight: var(--wpds-typography-font-weight-regular);
+	/* Snappier than the Button primitive's 100ms color ease-out. */
+	transition: color 50ms ease;
 }
 
 .sessionLinkRunning {

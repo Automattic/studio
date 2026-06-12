@@ -1,8 +1,16 @@
 /* Pinning to the sidebar bottom is handled by the layout's
    `sidebarFooter` wrapper. */
 .root {
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl)
-		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-2xl);
+	/* Inline padding tracks the site rows' columns: on the right, list `md` +
+	   row `sm` puts the theme toggle on the rows' status/actions column; on
+	   the left, list `md` + row `xs` minus 2px — half the size difference
+	   between the 20px gravatar and the 16px site icon — centers the gravatar
+	   on the site icon column (the trigger button contributes the same `sm`
+	   as the site toggle, so it cancels out). */
+	padding: var(--wpds-dimension-padding-sm)
+		calc(var(--wpds-dimension-padding-md) + var(--wpds-dimension-padding-sm))
+		var(--wpds-dimension-padding-xl)
+		calc(var(--wpds-dimension-padding-md) + var(--wpds-dimension-padding-xs) - 2px);
 }
 
 .row {
@@ -29,6 +37,9 @@
 .userTrigger {
 	flex: 1;
 	font-weight: var(--wpds-typography-font-weight-regular);
+	/* The site icon's `md` gap minus the gravatar's 2px overhang, so the
+	   user name starts on the same text column as site titles and chats. */
+	gap: calc(var(--wpds-dimension-padding-md) - 2px);
 }
 
 .userName {

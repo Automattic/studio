@@ -32,6 +32,12 @@
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 }
 
+/* The width transition is for collapse/expand only — during a drag-resize it
+   would lag the panel behind the cursor, so it's switched off. */
+.sidebarResizing {
+	transition: none;
+}
+
 .sidebarCollapsed {
 	width: 0;
 	min-width: 0;

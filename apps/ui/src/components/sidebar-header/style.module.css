@@ -4,8 +4,11 @@
 	gap: var(--wpds-dimension-padding-sm);
 	/* Leave room for macOS traffic lights at {20, 20} plus a visible gap.
 	   min-height is tuned so the flex-centered content lines up with the
-	   vertical center of the traffic lights. */
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl)
+	   vertical center of the traffic lights. The right padding mirrors the
+	   site rows' trailing inset (list `md` + row `sm`) so the header icon
+	   buttons line up with the rows' status/actions column. */
+	padding: var(--wpds-dimension-padding-sm)
+		calc(var(--wpds-dimension-padding-md) + var(--wpds-dimension-padding-sm))
 		var(--wpds-dimension-padding-sm) 94px;
 	min-height: 46px;
 	-webkit-app-region: drag;
@@ -19,14 +22,12 @@
 
 /* In macOS fullscreen the traffic lights are hidden, so reclaim the
    padding that was reserved for them and align the title with the
-   site list entries below — the site list outer padding is `2xl`, each
+   site list entries below — the site list outer padding is `md`, each
    row carries `xs` of padding-inline, and the site label sits inside a
-   button with another `sm`, so its text starts at `2xl + xs + sm`
-   (= `xl + 2*sm`) from the sidebar edge. */
+   button with another `sm`, so its text starts at `md + xs + sm`
+   (= `2xl`) from the sidebar edge. */
 .fullscreen {
-	padding-left: calc(
-		var(--wpds-dimension-padding-xl) + 2 * var(--wpds-dimension-padding-sm)
-	);
+	padding-left: var(--wpds-dimension-padding-2xl);
 }
 
 .title {
@@ -43,7 +44,9 @@
 .actions {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
+	/* No gap, matching the site rows' action cluster, so the new-site button
+	   also lands on the same column as the rows' new-chat button. */
+	gap: 0;
 	opacity: 0.65;
 }
 

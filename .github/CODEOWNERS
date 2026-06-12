@@ -13,3 +13,6 @@ fastlane/             @Automattic/apps-infra-tooling
 .ruby-version         @Automattic/apps-infra-tooling
 .xcode-version        @Automattic/apps-infra-tooling
 .nvmrc                @Automattic/apps-infra-tooling
+
+# Secrets
+.configure-files/      @Automattic/apps-infra-tooling

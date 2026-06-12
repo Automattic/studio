@@ -94,6 +94,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		async init() {
 			// One SSE connection carries both agent and placement events; the
 			// browser's EventSource reconnects automatically.
+			eventSource?.close();
 			eventSource = new EventSource( `${ base }/events` );
 			eventSource.onmessage = ( message ) => {
 				let parsed: ServerEvent;

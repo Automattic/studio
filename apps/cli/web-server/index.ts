@@ -6,7 +6,11 @@ import {
 	listAiSessions,
 	loadAiSession,
 } from '@studio/common/ai/sessions/store';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	readAuthToken,
+	readSharedSessions,
+	updateSharedSession,
+} from '@studio/common/lib/shared-config';
 import { getSyncSupport } from '@studio/common/lib/sync/sync-support';
 import express from 'express';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
@@ -18,6 +22,7 @@ import {
 	startAgentRun,
 } from './agent-runs';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
@@ -25,6 +30,16 @@ const DEFAULT_PORT = 8088;
 
 function getPort(): number {
 	return parseInt( process.env.STUDIO_WEB_SERVER_PORT ?? String( DEFAULT_PORT ), 10 );
+}
+
+// Star/archive live in the shared config (`~/.studio/shared.json`), not the
+// session JSONL — the same store the desktop app reads, so flags set in either
+// surface show up in both.
+function hydrateAiSessionSummary(
+	summary: AiSessionSummary,
+	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
+): AiSessionSummary {
+	return { ...summary, starred: metadata?.starred, archived: metadata?.archived };
 }
 
 const root = getAiSessionsRootDirectory();
@@ -65,6 +80,9 @@ app.get( '/events', ( req: Request, res: Response ) => {
 // Broadcast every agent event to all connected SSE clients, in the same
 // envelope the web connector expects (channel + payload).
 setBroadcast( ( event: AgentRunEvent ) => {
+	if ( sseClients.size === 0 ) {
+		return;
+	}
 	const data = JSON.stringify( { channel: 'agent', payload: event } );
 	for ( const client of sseClients ) {
 		client.write( `data: ${ data }\n\n` );
@@ -165,7 +183,13 @@ app.get( '/sites', async ( _req: Request, res: Response ) => {
 // --- AI sessions -------------------------------------------------------------
 
 app.get( '/sessions', async ( _req: Request, res: Response ) => {
-	res.json( await listAiSessions( root ) );
+	const [ sessions, sessionMetadata ] = await Promise.all( [
+		listAiSessions( root ),
+		readSharedSessions(),
+	] );
+	res.json(
+		sessions.map( ( session ) => hydrateAiSessionSummary( session, sessionMetadata[ session.id ] ) )
+	);
 } );
 
 app.post( '/sessions', async ( _req: Request, res: Response ) => {
@@ -175,7 +199,14 @@ app.post( '/sessions', async ( _req: Request, res: Response ) => {
 } );
 
 app.get( '/sessions/:id', async ( req: Request, res: Response ) => {
-	res.json( await loadAiSession( root, req.params.id ) );
+	const [ loaded, sessionMetadata ] = await Promise.all( [
+		loadAiSession( root, req.params.id ),
+		readSharedSessions(),
+	] );
+	res.json( {
+		...loaded,
+		summary: hydrateAiSessionSummary( loaded.summary, sessionMetadata[ loaded.summary.id ] ),
+	} );
 } );
 
 app.delete( '/sessions/:id', async ( req: Request, res: Response ) => {
@@ -184,11 +215,12 @@ app.delete( '/sessions/:id', async ( req: Request, res: Response ) => {
 } );
 
 app.patch( '/sessions/:id', async ( req: Request, res: Response ) => {
-	// Star/archive aren't persisted in the PoC (no shared store helper); echo
-	// the requested state on top of the current summary so the UI stays in sync.
 	const { summary } = await loadAiSession( root, req.params.id );
 	const patch = req.body as { starred?: boolean; archived?: boolean };
-	res.json( { ...summary, ...patch } );
+	// Same persistence the desktop app uses (updateAiSessionMetadata in
+	// ipc-handlers.ts): flags go to the shared config under its lock.
+	const metadata = await updateSharedSession( summary.id, patch );
+	res.json( hydrateAiSessionSummary( summary, metadata ) );
 } );
 
 app.post( '/sessions/:id/model', async ( req: Request, res: Response ) => {

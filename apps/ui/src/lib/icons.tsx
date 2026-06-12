@@ -7,14 +7,14 @@ export const playIcon = (
 export const refreshIcon = (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
 		<path
-			d="M21.8883 13.5C21.1645 18.3113 17.013 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C16.1006 2 19.6248 4.46819 21.1679 8"
+			d="M20.9 13.35C20.248 17.68 16.512 21 12 21C7.029 21 3 16.971 3 12C3 7.029 7.029 3 12 3C15.691 3 18.862 5.221 20.251 8.4"
 			stroke="currentColor"
 			strokeWidth="1.5"
 			strokeLinecap="round"
 			strokeLinejoin="round"
 		/>
 		<path
-			d="M17 8H21.4C21.7314 8 22 7.73137 22 7.4V3"
+			d="M16.5 8.4H20.46C20.758 8.4 21 8.158 21 7.86V3.9"
 			stroke="currentColor"
 			strokeWidth="1.5"
 			strokeLinecap="round"

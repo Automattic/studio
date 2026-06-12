@@ -18,6 +18,7 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
 import type {
 	ColorScheme,
+	Density,
 	InstalledApps,
 	SupportedEditor,
 	SupportedLocale,
@@ -44,6 +45,7 @@ interface FormData {
 	editor: SupportedEditor | typeof UNSET;
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
+	density: Density;
 	locale: SupportedLocale;
 }
 
@@ -59,6 +61,7 @@ function toFormData( prefs: UserPreferences ): FormData {
 		editor: prefs.editor ?? UNSET,
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
+		density: prefs.density,
 		locale: resolveFormLocale( prefs.locale ),
 	};
 }
@@ -73,6 +76,7 @@ function diffFromSaved(
 	if ( nextEditor !== saved.editor ) patch.editor = nextEditor;
 	if ( nextTerminal !== saved.terminal ) patch.terminal = nextTerminal;
 	if ( next.colorScheme !== saved.colorScheme ) patch.colorScheme = next.colorScheme;
+	if ( next.density !== saved.density ) patch.density = next.density;
 	if ( next.locale !== resolveFormLocale( saved.locale ) ) patch.locale = next.locale;
 	return patch;
 }
@@ -101,6 +105,11 @@ const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
 	{ value: 'system', label: __( 'System' ) },
 	{ value: 'light', label: __( 'Light' ) },
 	{ value: 'dark', label: __( 'Dark' ) },
+];
+
+const DENSITY_ELEMENTS: { value: Density; label: string }[] = [
+	{ value: 'compact', label: __( 'Compact' ) },
+	{ value: 'comfortable', label: __( 'Comfortable' ) },
 ];
 
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
@@ -265,6 +274,12 @@ export function SettingsView( {
 				elements: COLOR_SCHEME_ELEMENTS,
 			},
 			{
+				id: 'density',
+				type: 'text',
+				label: __( 'Density' ),
+				elements: DENSITY_ELEMENTS,
+			},
+			{
 				id: 'locale',
 				type: 'text',
 				label: __( 'Language' ),
@@ -283,7 +298,11 @@ export function SettingsView( {
 					layout: { type: 'row' },
 					children: [ 'editor', 'terminal' ],
 				},
-				'colorScheme',
+				{
+					id: 'appearance',
+					layout: { type: 'row' },
+					children: [ 'colorScheme', 'density' ],
+				},
 				'locale',
 			],
 		} ),

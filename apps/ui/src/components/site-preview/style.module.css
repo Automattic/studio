@@ -18,7 +18,7 @@
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-md);
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-lg);
+	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-xl);
 	min-height: 32px;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
@@ -30,6 +30,12 @@
 	align-items: center;
 	gap: 0;
 	flex-shrink: 0;
+}
+
+/* Back/forward read as one cluster; refresh is a different kind of action,
+   so set it slightly apart. */
+.refreshControl {
+	margin-inline-start: var(--wpds-dimension-gap-xs);
 }
 
 .browserLocation {

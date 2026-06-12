@@ -72,6 +72,7 @@ type UserDataSafeKeys =
 	| 'preferredEditor'
 	| 'betaFeatures'
 	| 'colorScheme'
+	| 'density'
 	| 'defaultSiteDirectory'
 	| 'cliAutoInstalled'
 	| 'cliUserUninstalled'

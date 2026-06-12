@@ -108,6 +108,15 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	return colorScheme;
 }
 
+export async function saveDensity( event: IpcMainInvokeEvent, density: 'compact' | 'comfortable' ) {
+	await updateAppdata( { density } );
+}
+
+export async function getDensity(): Promise< 'compact' | 'comfortable' > {
+	const userData = await loadUserData();
+	return userData.density ?? 'compact';
+}
+
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {
 	if ( ! Number.isFinite( score ) || score < 0 || score > 100_000 ) {
 		return;

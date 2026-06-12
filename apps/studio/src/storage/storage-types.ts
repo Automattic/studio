@@ -42,6 +42,7 @@ export interface UserData {
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
 	colorScheme?: 'system' | 'light' | 'dark';
+	density?: 'compact' | 'comfortable';
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
 	defaultSiteDirectory?: string;

@@ -7,6 +7,7 @@ import type {
 	AuthUser,
 	ColorScheme,
 	Connector,
+	Density,
 	DeskConfig,
 	DeskSettings,
 	ExtractedBlueprintBundle,
@@ -596,18 +597,20 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale ] = ( await Promise.all( [
+			const [ editor, terminal, colorScheme, density, locale ] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
+				ipcApi.getDensity(),
 				ipcApi.getUserLocale(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
+				Density,
 				string | undefined,
 			];
-			return { editor, terminal, colorScheme, locale };
+			return { editor, terminal, colorScheme, density, locale };
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -620,6 +623,9 @@ export function createIpcConnector(): Connector {
 			}
 			if ( 'colorScheme' in partial && partial.colorScheme ) {
 				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
+			}
+			if ( 'density' in partial && partial.density ) {
+				writes.push( ipcApi.saveDensity( partial.density ) );
 			}
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );

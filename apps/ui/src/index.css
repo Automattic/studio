@@ -34,6 +34,30 @@
 		0 18px 44px rgba( 15, 23, 42, 0.1 );
 }
 
+/* Comfortable density (Settings → Preferences → Density): the design
+   system's default body size (md) is 13px, which can read small in the
+   desktop chrome. Bump it a step — md drives body text, site names, and
+   nav labels. The attribute lives on `<html>` (set by `DensityBridge` in
+   `app/app-providers.tsx`) so the override also reaches portals mounted
+   on `body`. Loaded after design-tokens.css so this wins. */
+:root[data-studio-density='comfortable'] {
+	--wpds-typography-font-size-md: 14px;
+}
+
+/* Comfortable density: give `size="small"` buttons a step more height.
+   @wordpress/ui hardcodes the 24px small-button height (sizes don't track
+   density tokens), which reads cramped against the larger base font. The
+   package bakes its CSS-module classes as `<hash>__is-small`, so the suffix
+   is the only stable hook; being unlayered, this rule wins over the
+   package's `@layer wp-ui-components` declarations. Other components'
+   `__is-small` modifiers (e.g. Dialog.Popup) match too, but the
+   `--wp-ui-button-*` variables are inert outside Button — and they can't
+   leak to descendant buttons because every button re-declares them on
+   itself. */
+:root[data-studio-density='comfortable'] [class*='__is-small'] {
+	--wp-ui-button-height: 28px;
+}
+
 body {
 	margin: 0;
 	padding: 0;
@@ -135,6 +159,17 @@ a:focus:not( :focus-visible ),
 [data-wpds-density='compact'] [data-ui-mode='classic'] svg {
 	width: 16px;
 	height: 16px;
+}
+
+/* Comfortable density (see the `data-studio-density` rules above): give
+   icons a step more presence alongside the larger type. `:where()` keeps
+   the specificity identical to the compact rule above — (0,2,1) — so this
+   only outranks it by source order, and component rules that deliberately
+   beat the base rule (e.g. the site-list status glyph's doubled-class
+   selector) keep their custom sizes in comfortable too. */
+:root[data-studio-density='comfortable'] :where([data-wpds-density='compact'] [data-ui-mode='classic']) svg {
+	width: 18px;
+	height: 18px;
 }
 
 /* Desks uses each shape's indicator as the visible selection outline.

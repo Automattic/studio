@@ -7,6 +7,7 @@ export type {
 	ColorScheme,
 	Connector,
 	CreateSiteParams,
+	Density,
 	DeskConfig,
 	DeskSettings,
 	DeskWidgetBase,

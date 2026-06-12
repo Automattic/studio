@@ -319,10 +319,15 @@ export interface Connector {
 
 export type ColorScheme = 'system' | 'light' | 'dark';
 
+// 'compact' is the design-system default the app ships with; 'comfortable'
+// bumps the base UI font size for legibility (see `index.css`).
+export type Density = 'compact' | 'comfortable';
+
 export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
+	density: Density;
 	locale: string | undefined;
 }
 

@@ -327,6 +327,7 @@ export function SitePreview( {
 								variant="minimal"
 								tone="neutral"
 								size="small"
+								className={ styles.refreshControl }
 								icon={ refreshIcon }
 								label={ __( 'Refresh' ) }
 								shortcut={ browserShortcuts.reload }

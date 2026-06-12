@@ -215,6 +215,7 @@ export {
 
 export {
 	getColorScheme,
+	getDensity,
 	getInstalledAppsAndTerminals,
 	getUserEditor,
 	getUserLocale,
@@ -222,6 +223,7 @@ export {
 	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
+	saveDensity,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,

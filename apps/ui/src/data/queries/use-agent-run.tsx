@@ -1,3 +1,4 @@
+import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -11,7 +12,14 @@ import {
 } from 'react';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
-import type { AgentEvent, AgentRunEvent, LoadedAiSession, SessionEntry } from '@/data/core';
+import type {
+	AgentEvent,
+	AgentRunEvent,
+	LoadedAiSession,
+	SessionEntry,
+	StudioChatFileAttachment,
+	StudioChatImage,
+} from '@/data/core';
 
 function nowIso(): string {
 	return new Date().toISOString();
@@ -35,10 +43,14 @@ export interface QueuedPrompt {
 	id: string;
 	prompt: string;
 	displayMessage?: string;
+	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
 }
 
 export interface SendMessageOptions {
 	displayMessage?: string;
+	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
 }
 
 export interface LiveAgentEvents {
@@ -437,6 +449,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
 			const displayMessage = options.displayMessage ?? prompt;
+			const images = options.images ?? [];
+			const files = options.files ?? [];
 			dispatchSession( sessionId, { type: 'error_set', message: null } );
 
 			const optimisticEntry: SessionEntry = {
@@ -445,7 +459,11 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				parentId: null,
 				timestamp: nowIso(),
 				customType: 'studio.user_prompt',
-				data: { text: displayMessage, source: 'prompt' },
+				data: {
+					text: displayMessage,
+					source: 'prompt',
+					attachments: buildChatAttachmentSummaries( images, files ),
+				},
 			} as SessionEntry;
 			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );
 			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
@@ -454,6 +472,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				await interruptRequestsBySessionRef.current.get( sessionId );
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt, {
 					displayMessage,
+					images,
+					files,
 				} );
 				if ( interruptPendingStartSessionIdsRef.current.has( sessionId ) ) {
 					interruptPendingStartSessionIdsRef.current.delete( sessionId );
@@ -606,7 +626,11 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		dispatchingQueuedRef.current = true;
 		void ( async () => {
 			try {
-				await startRun( sessionId, next.prompt, { displayMessage: next.displayMessage } );
+				await startRun( sessionId, next.prompt, {
+					displayMessage: next.displayMessage,
+					images: next.images,
+					files: next.files,
+				} );
 				dispatchSession( sessionId, { type: 'queue_shift' } );
 			} catch {
 				dispatchSession( sessionId, { type: 'queue_clear' } );
@@ -627,7 +651,13 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			if ( phase !== 'idle' || pendingQuestions.length > 0 || queuedPrompts.length > 0 ) {
 				dispatchSession( sessionId, {
 					type: 'queue_append',
-					prompt: { id: newId(), prompt, displayMessage: options.displayMessage },
+					prompt: {
+						id: newId(),
+						prompt,
+						displayMessage: options.displayMessage,
+						images: options.images,
+						files: options.files,
+					},
 				} );
 				return;
 			}

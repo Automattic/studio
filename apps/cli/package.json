@@ -25,11 +25,12 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.91.1",
-		"@inquirer/prompts": "^8.5.2",
 		"@earendil-works/pi-agent-core": "0.78.0",
 		"@earendil-works/pi-ai": "0.78.0",
 		"@earendil-works/pi-coding-agent": "0.78.0",
 		"@earendil-works/pi-tui": "0.78.0",
+		"@formatjs/intl-localematcher": "^0.8.10",
+		"@inquirer/prompts": "^8.5.2",
 		"@modelcontextprotocol/sdk": "^1.27.1",
 		"@php-wasm/node": "3.1.38",
 		"@php-wasm/universal": "3.1.38",
@@ -80,6 +81,6 @@
 		"@types/yargs": "^17.0.35",
 		"glob": "^13.0.6",
 		"vite": "^8.0.16",
-		"vite-plugin-static-copy": "^4.1.0"
+		"vite-plugin-static-copy": "^4.1.1"
 	}
 }

@@ -6,7 +6,6 @@ import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SidebarSettingsButton } from '@/components/sidebar-settings-button';
 import { SiteList } from '@/components/site-list';
-import { UserMenu } from '@/components/user-menu';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
@@ -38,7 +37,6 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					<SiteList />
 					<div className={ styles.sidebarFooter }>
 						<SidebarSettingsButton />
-						<UserMenu />
 					</div>
 				</aside>
 				{ ! collapsed ? (

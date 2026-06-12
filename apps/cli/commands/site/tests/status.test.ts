@@ -84,6 +84,8 @@ describe( 'CLI: studio site status', () => {
 						status: '🔴 Offline',
 						isOnline: false,
 						phpVersion: '8.0',
+						runtime: 'sandbox',
+						fileAccess: 'site-directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',
@@ -119,6 +121,8 @@ describe( 'CLI: studio site status', () => {
 						status: '🟢 Online',
 						isOnline: true,
 						phpVersion: '8.0',
+						runtime: 'sandbox',
+						fileAccess: 'site-directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',
@@ -127,6 +131,25 @@ describe( 'CLI: studio site status', () => {
 					null,
 					2
 				)
+			);
+
+			consoleSpy.mockRestore();
+		} );
+
+		it( 'should report the native runtime and file access', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( {
+				...testSite,
+				runtime: 'native-php',
+				fileAccess: 'all-files',
+			} );
+
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+			await runCommand( '/path/to/site', 'json' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( '"runtime": "native"' ) );
+			expect( consoleSpy ).toHaveBeenCalledWith(
+				expect.stringContaining( '"fileAccess": "all-files"' )
 			);
 
 			consoleSpy.mockRestore();
@@ -160,6 +183,8 @@ describe( 'CLI: studio site status', () => {
 						sitePath: '/path/to/site',
 						status: '🔴 Offline',
 						isOnline: false,
+						runtime: 'sandbox',
+						fileAccess: 'site-directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',

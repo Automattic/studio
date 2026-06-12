@@ -10,7 +10,7 @@ export function getSiteRuntime( site: { runtime?: SiteRuntime } ): SiteRuntime {
 	return site.runtime ?? SITE_RUNTIME_PLAYGROUND;
 }
 
-// User-facing names for the runtimes ("mode"), used by the CLI and the app UI.
+// User-facing short names for the runtimes, used by the CLI (--runtime) and the app UI.
 export const SITE_MODE_NATIVE = 'native';
 export const SITE_MODE_SANDBOX = 'sandbox';
 

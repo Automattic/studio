@@ -215,7 +215,9 @@ describe( 'AddSite', () => {
 			false,
 			'admin',
 			expect.any( String ),
-			'admin@localhost.com'
+			'admin@localhost.com',
+			'playground',
+			'site-directory'
 		);
 	} );
 
@@ -433,8 +435,62 @@ describe( 'AddSite', () => {
 			false,
 			'admin',
 			expect.any( String ),
-			'admin@localhost.com'
+			'admin@localhost.com',
+			'playground',
+			'site-directory'
 		);
+	} );
+
+	it( 'should allow selecting the native PHP runtime and file access', async () => {
+		const user = userEvent.setup();
+		mockGenerateProposedSitePath.mockResolvedValue( {
+			path: '/default_path/my-wordpress-website',
+			name: 'My WordPress Website',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+
+		renderWithProvider( <AddSite /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+		await user.click( screen.getByTestId( 'create-site-option-button' ) );
+		await user.click( await screen.findByRole( 'button', { name: /Empty site/ } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
+
+		// File access only becomes selectable with the native PHP runtime
+		expect( screen.getByLabelText( 'File access' ) ).toBeDisabled();
+		await user.selectOptions( screen.getByLabelText( 'PHP runtime' ), 'native-php' );
+		await user.selectOptions( screen.getByLabelText( 'File access' ), 'all-files' );
+
+		mockShowOpenFolderDialog.mockResolvedValue( {
+			path: 'test',
+			name: 'test',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		await user.click( screen.getByTestId( 'select-path-button' ) );
+		const dialog = screen.getByRole( 'dialog' );
+		await user.click( within( dialog ).getByRole( 'button', { name: 'Add site' } ) );
+
+		await waitFor( () => {
+			expect( mockCreateSite ).toHaveBeenCalledWith(
+				'test',
+				'My WordPress Website',
+				'latest',
+				undefined,
+				false,
+				expect.objectContaining( { slug: 'empty' } ),
+				'8.4',
+				expect.any( Function ),
+				false,
+				'admin',
+				expect.any( String ),
+				'admin@localhost.com',
+				'native-php',
+				'all-files'
+			);
+		} );
 	} );
 
 	it( 'should allow selecting a different PHP version', async () => {

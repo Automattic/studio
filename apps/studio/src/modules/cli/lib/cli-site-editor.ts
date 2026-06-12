@@ -18,7 +18,7 @@ export interface EditSiteOptions {
 	https?: boolean;
 	php?: string;
 	wp?: string;
-	mode?: SiteMode;
+	runtime?: SiteMode;
 	fileAccess?: SiteFileAccess;
 	xdebug?: boolean;
 	adminUsername?: string;
@@ -84,8 +84,8 @@ function buildCliArgs( options: EditSiteOptions ): string[] {
 		args.push( '--wp', options.wp );
 	}
 
-	if ( options.mode !== undefined ) {
-		args.push( '--mode', options.mode );
+	if ( options.runtime !== undefined ) {
+		args.push( '--runtime', options.runtime );
 	}
 
 	if ( options.fileAccess !== undefined ) {

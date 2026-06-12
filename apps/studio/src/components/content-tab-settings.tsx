@@ -202,8 +202,8 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 							) }
 						</div>
 					</SettingsRow>
-					<SettingsRow label={ __( 'Mode' ) }>
-						{ /* translators: value for the Mode setting on the site settings screen */ }
+					<SettingsRow label={ __( 'PHP runtime' ) }>
+						{ /* translators: value for the PHP runtime setting on the site settings screen */ }
 						<span>{ isNativePhpRuntime ? __( 'Native' ) : __( 'Sandbox' ) }</span>
 					</SettingsRow>
 					<SettingsRow label={ __( 'File access' ) }>

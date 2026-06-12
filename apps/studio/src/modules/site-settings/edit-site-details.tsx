@@ -461,12 +461,12 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 
 											<div className="flex flex-row gap-x-6 mt-4">
 												<label
-													htmlFor="site-mode-select"
+													htmlFor="php-runtime-select"
 													className="flex flex-1 flex-col gap-1.5 leading-4"
 												>
-													<span className="font-semibold">{ __( 'Mode' ) }</span>
+													<span className="font-semibold">{ __( 'PHP runtime' ) }</span>
 													<SelectControl< SiteRuntime >
-														id="site-mode-select"
+														id="php-runtime-select"
 														disabled={ isEditingSite }
 														value={ selectedRuntime }
 														options={ [

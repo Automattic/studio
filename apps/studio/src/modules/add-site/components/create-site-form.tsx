@@ -9,6 +9,16 @@ import {
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
 import {
+	SITE_FILE_ACCESS_ALL_FILES,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
+import {
 	RecommendedPHPVersion,
 	SupportedPHPVersion,
 	SupportedPHPVersions,
@@ -27,6 +37,7 @@ import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
+import { useRootSelector } from 'src/stores';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
@@ -89,6 +100,20 @@ export const CreateSiteForm = ( {
 	const [ wpVersion, setWpVersion ] = useState(
 		defaultValues.wpVersion ?? DEFAULT_WORDPRESS_VERSION
 	);
+	// The "Native PHP runtime" beta feature selects the default mode for new sites
+	const defaultRuntime = useRootSelector( ( state ) =>
+		state.betaFeatures.features.nativePhpRuntime ? SITE_RUNTIME_NATIVE_PHP : SITE_RUNTIME_PLAYGROUND
+	);
+	const [ selectedRuntime, setSelectedRuntime ] = useState< SiteRuntime >( defaultRuntime );
+	const [ selectedFileAccess, setSelectedFileAccess ] = useState< SiteFileAccess >(
+		SITE_FILE_ACCESS_SITE_DIRECTORY
+	);
+	// The sandbox only has access to the site directory, so "all files" is
+	// forced back to "site directory" when the sandbox mode is selected.
+	const usedFileAccess =
+		selectedRuntime === SITE_RUNTIME_PLAYGROUND
+			? SITE_FILE_ACCESS_SITE_DIRECTORY
+			: selectedFileAccess;
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
@@ -319,6 +344,8 @@ export const CreateSiteForm = ( {
 			sitePath,
 			phpVersion,
 			wpVersion,
+			runtime: selectedRuntime,
+			fileAccess: usedFileAccess,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -331,6 +358,8 @@ export const CreateSiteForm = ( {
 			sitePath,
 			phpVersion,
 			wpVersion,
+			selectedRuntime,
+			usedFileAccess,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -497,6 +526,58 @@ export const CreateSiteForm = ( {
 											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
 										) }
 									/>
+								</div>
+
+								<div className="grid grid-cols-2 gap-4 mt-4">
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="font-semibold" htmlFor="php-runtime-select">
+											{ __( 'PHP runtime' ) }
+										</label>
+										<SelectControl< SiteRuntime >
+											id="php-runtime-select"
+											value={ selectedRuntime }
+											options={ [
+												{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
+												{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
+											] }
+											onChange={ ( value ) => setSelectedRuntime( value ) }
+											__next40pxDefaultSize
+											__nextHasNoMarginBottom
+										/>
+										<span className="text-frame-text-secondary text-xs">
+											{ selectedRuntime === SITE_RUNTIME_NATIVE_PHP
+												? __( 'Runs the site with native PHP for the best performance.' )
+												: __( 'Runs the site in an isolated WordPress Playground sandbox.' ) }
+										</span>
+									</div>
+
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="font-semibold" htmlFor="file-access-select">
+											{ __( 'File access' ) }
+										</label>
+										<SelectControl< SiteFileAccess >
+											id="file-access-select"
+											disabled={ selectedRuntime === SITE_RUNTIME_PLAYGROUND }
+											value={ usedFileAccess }
+											options={ [
+												{
+													label: __( 'Site directory' ),
+													value: SITE_FILE_ACCESS_SITE_DIRECTORY,
+												},
+												{ label: __( 'All files' ), value: SITE_FILE_ACCESS_ALL_FILES },
+											] }
+											onChange={ ( value ) => setSelectedFileAccess( value ) }
+											__next40pxDefaultSize
+											__nextHasNoMarginBottom
+										/>
+										<span className="text-frame-text-secondary text-xs">
+											{ selectedRuntime === SITE_RUNTIME_PLAYGROUND
+												? __( 'The sandbox can only access the site directory.' )
+												: usedFileAccess === SITE_FILE_ACCESS_ALL_FILES
+												? __( 'PHP can access any file your user account can access.' )
+												: __( 'PHP can only access files inside the site directory.' ) }
+										</span>
+									</div>
 								</div>
 
 								<div className="flex flex-col gap-2 mt-4">

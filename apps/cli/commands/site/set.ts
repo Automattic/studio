@@ -60,7 +60,7 @@ export interface SetCommandOptions {
 	https?: boolean;
 	php?: string;
 	wp?: string;
-	mode?: SiteMode;
+	runtime?: SiteMode;
 	fileAccess?: SiteFileAccess;
 	xdebug?: boolean;
 	adminUsername?: string;
@@ -77,7 +77,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		https,
 		php,
 		wp,
-		mode,
+		runtime,
 		fileAccess,
 		xdebug,
 		adminUsername,
@@ -93,7 +93,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		https === undefined &&
 		php === undefined &&
 		wp === undefined &&
-		mode === undefined &&
+		runtime === undefined &&
 		fileAccess === undefined &&
 		xdebug === undefined &&
 		adminUsername === undefined &&
@@ -104,7 +104,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 	) {
 		throw new LoggerError(
 			__(
-				'At least one option (--name, --domain, --https, --php, --wp, --mode, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
 			)
 		);
 	}
@@ -140,12 +140,12 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		let site = await getSiteByFolder( sitePath );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
-		const effectiveRuntime = mode ? siteRuntimeFromMode( mode ) : getSiteRuntime( site );
+		const effectiveRuntime = runtime ? siteRuntimeFromMode( runtime ) : getSiteRuntime( site );
 		const effectiveFileAccess = fileAccess ?? getSiteFileAccess( site );
 		if ( ! isFileAccessAllowedForRuntime( effectiveRuntime, effectiveFileAccess ) ) {
 			throw new LoggerError(
 				__(
-					'File access "all-files" requires native mode. The sandbox only has access to the site directory. Use --mode native or --file-access site-directory.'
+					'File access "all-files" requires the native PHP runtime. The sandbox only has access to the site directory. Use --runtime native or --file-access site-directory.'
 				)
 			);
 		}
@@ -191,7 +191,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const httpsChanged = https !== undefined && https !== site.enableHttps;
 		const phpChanged = validatedPhp !== undefined && validatedPhp !== site.phpVersion;
 		const wpChanged = wp !== undefined;
-		const runtimeChanged = mode !== undefined && effectiveRuntime !== getSiteRuntime( site );
+		const runtimeChanged = runtime !== undefined && effectiveRuntime !== getSiteRuntime( site );
 		const fileAccessChanged = fileAccess !== undefined && fileAccess !== getSiteFileAccess( site );
 		const xdebugChanged = xdebug !== undefined && xdebug !== site.enableXdebug;
 		const adminUsernameChanged =
@@ -410,7 +410,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						return value;
 					},
 				} )
-				.option( 'mode', {
+				.option( 'runtime', {
 					type: 'string',
 					description: __(
 						'Run the site with native PHP ("native") or in the Playground sandbox ("sandbox")'
@@ -420,7 +420,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'file-access', {
 					type: 'string',
 					description: __(
-						'Which files PHP can access in native mode: the site directory only, or all files'
+						'Which files PHP can access with the native PHP runtime: the site directory only, or all files'
 					),
 					choices: [ SITE_FILE_ACCESS_SITE_DIRECTORY, SITE_FILE_ACCESS_ALL_FILES ],
 				} )
@@ -457,7 +457,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					https: argv.https,
 					php: argv.php,
 					wp: argv.wp,
-					mode: argv.mode as SiteMode | undefined,
+					runtime: argv.runtime as SiteMode | undefined,
 					fileAccess: argv.fileAccess as SiteFileAccess | undefined,
 					xdebug: argv.xdebug,
 					adminUsername: argv.adminUsername,

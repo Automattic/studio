@@ -109,27 +109,27 @@ describe( 'CLI: studio site set', () => {
 	describe( 'Validation', () => {
 		it( 'should throw when no options provided', async () => {
 			await expect( runCommand( testSitePath, {} ) ).rejects.toThrow(
-				'At least one option (--name, --domain, --https, --php, --wp, --mode, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
 			);
 		} );
 
-		it( 'should throw when "all-files" file access is combined with sandbox mode', async () => {
+		it( 'should throw when "all-files" file access is combined with the sandbox runtime', async () => {
 			await expect(
-				runCommand( testSitePath, { mode: SITE_MODE_SANDBOX, fileAccess: 'all-files' } )
-			).rejects.toThrow( 'File access "all-files" requires native mode.' );
+				runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX, fileAccess: 'all-files' } )
+			).rejects.toThrow( 'File access "all-files" requires the native PHP runtime.' );
 
 			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );
 
-		it( 'should throw when switching an "all-files" site to sandbox mode without resetting file access', async () => {
+		it( 'should throw when switching an "all-files" site to the sandbox runtime without resetting file access', async () => {
 			vi.mocked( getSiteByFolder ).mockResolvedValue( {
 				...getTestSite(),
 				runtime: 'native-php',
 				fileAccess: 'all-files',
 			} );
 
-			await expect( runCommand( testSitePath, { mode: SITE_MODE_SANDBOX } ) ).rejects.toThrow(
-				'File access "all-files" requires native mode.'
+			await expect( runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } ) ).rejects.toThrow(
+				'File access "all-files" requires the native PHP runtime.'
 			);
 		} );
 
@@ -343,9 +343,9 @@ describe( 'CLI: studio site set', () => {
 		} );
 	} );
 
-	describe( 'Mode and file access changes', () => {
-		it( 'should update the runtime when the mode changes', async () => {
-			await runCommand( testSitePath, { mode: SITE_MODE_NATIVE } );
+	describe( 'Runtime and file access changes', () => {
+		it( 'should update the stored runtime when it changes', async () => {
+			await runCommand( testSitePath, { runtime: SITE_MODE_NATIVE } );
 
 			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
@@ -356,10 +356,10 @@ describe( 'CLI: studio site set', () => {
 			);
 		} );
 
-		it( 'should restart a running site when the mode changes', async () => {
+		it( 'should restart a running site when the runtime changes', async () => {
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
-			await runCommand( testSitePath, { mode: SITE_MODE_NATIVE } );
+			await runCommand( testSitePath, { runtime: SITE_MODE_NATIVE } );
 
 			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
 			expect( startWordPressServer ).toHaveBeenCalled();
@@ -382,8 +382,8 @@ describe( 'CLI: studio site set', () => {
 			);
 		} );
 
-		it( 'should report no changes when the mode matches the current runtime', async () => {
-			await expect( runCommand( testSitePath, { mode: SITE_MODE_SANDBOX } ) ).rejects.toThrow(
+		it( 'should report no changes when the runtime matches the current one', async () => {
+			await expect( runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } ) ).rejects.toThrow(
 				'No changes to apply. The site already has the specified settings.'
 			);
 		} );

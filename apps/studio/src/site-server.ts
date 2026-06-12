@@ -183,6 +183,7 @@ export class SiteServer {
 		const runtime = options.runtime ?? ( await getDefaultSiteRuntime() );
 		const result = await createSiteViaCli( { ...options, runtime, siteId } );
 		server.details.runtime = runtime;
+		server.details.fileAccess = options.fileAccess;
 
 		server.details.port = result.port;
 		if ( result.running ) {

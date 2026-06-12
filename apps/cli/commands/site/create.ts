@@ -125,7 +125,7 @@ export async function runCommand(
 	if ( options.fileAccess && ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
 		throw new LoggerError(
 			__(
-				'File access "all-files" requires native mode. The sandbox only has access to the site directory.'
+				'File access "all-files" requires the native PHP runtime. The sandbox only has access to the site directory.'
 			)
 		);
 	}
@@ -545,7 +545,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					choices: SupportedPHPVersions,
 					defaultDescription: RecommendedPHPVersion,
 				} )
-				.option( 'mode', {
+				.option( 'runtime', {
 					type: 'string',
 					describe: __(
 						'Run the site with native PHP ("native") or in the Playground sandbox ("sandbox")'
@@ -556,7 +556,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'file-access', {
 					type: 'string',
 					describe: __(
-						'Which files PHP can access in native mode: the site directory only, or all files'
+						'Which files PHP can access with the native PHP runtime: the site directory only, or all files'
 					),
 					choices: [ SITE_FILE_ACCESS_SITE_DIRECTORY, SITE_FILE_ACCESS_ALL_FILES ],
 					defaultDescription: SITE_FILE_ACCESS_SITE_DIRECTORY,
@@ -618,15 +618,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminUsername = argv.adminUsername;
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
-			const runtime = argv.mode
-				? siteRuntimeFromMode( argv.mode as SiteMode )
+			const runtime = argv.runtime
+				? siteRuntimeFromMode( argv.runtime as SiteMode )
 				: SITE_RUNTIME_PLAYGROUND;
 			const fileAccess = argv.fileAccess as SiteFileAccess | undefined;
 			if ( fileAccess && ! isFileAccessAllowedForRuntime( runtime, fileAccess ) ) {
 				logger.reportError(
 					new LoggerError(
 						__(
-							'File access "all-files" requires native mode. The sandbox only has access to the site directory.'
+							'File access "all-files" requires the native PHP runtime. The sandbox only has access to the site directory.'
 						)
 					)
 				);

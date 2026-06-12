@@ -143,7 +143,7 @@ function buildCliArgs( options: CreateSiteOptions ): string[] {
 	}
 
 	if ( options.runtime ) {
-		args.push( '--mode', siteModeFromRuntime( options.runtime ) );
+		args.push( '--runtime', siteModeFromRuntime( options.runtime ) );
 	}
 
 	if ( options.fileAccess ) {

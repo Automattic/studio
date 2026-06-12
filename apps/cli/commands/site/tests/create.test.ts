@@ -337,7 +337,7 @@ describe( 'CLI: studio site create', () => {
 					...defaultTestOptions,
 					fileAccess: 'all-files',
 				} )
-			).rejects.toThrow( 'File access "all-files" requires native mode.' );
+			).rejects.toThrow( 'File access "all-files" requires the native PHP runtime.' );
 
 			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );

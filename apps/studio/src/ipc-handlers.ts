@@ -815,6 +815,8 @@ export async function createSite(
 		enableHttps?: boolean;
 		siteId?: string;
 		phpVersion?: string;
+		runtime?: SiteRuntime;
+		fileAccess?: SiteFileAccess;
 		blueprint?: Blueprint;
 		adminUsername?: string;
 		adminPassword?: string;
@@ -830,6 +832,8 @@ export async function createSite(
 		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
+		runtime,
+		fileAccess,
 		adminUsername,
 		adminPassword,
 		adminEmail,
@@ -858,6 +862,8 @@ export async function createSite(
 				name: siteName,
 				wpVersion,
 				phpVersion,
+				runtime,
+				fileAccess,
 				customDomain,
 				enableHttps,
 				siteId,
@@ -978,7 +984,7 @@ export async function updateSite(
 	}
 
 	if ( getSiteRuntime( updatedSite ) !== getSiteRuntime( currentSite ) ) {
-		options.mode = siteModeFromRuntime( getSiteRuntime( updatedSite ) );
+		options.runtime = siteModeFromRuntime( getSiteRuntime( updatedSite ) );
 	}
 
 	if ( getSiteFileAccess( updatedSite ) !== getSiteFileAccess( currentSite ) ) {

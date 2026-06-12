@@ -311,6 +311,10 @@ export interface Connector {
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
 	onSiteEvent( listener: () => void ): () => void;
+
+	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
+	// application menu.
+	onToggleSitePreview( listener: () => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

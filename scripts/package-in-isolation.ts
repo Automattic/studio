@@ -30,17 +30,17 @@ import { z } from 'zod';
 
 const REPO_ROOT = path.resolve( import.meta.dirname, '..' );
 const STUDIO_APP_PACKAGE_JSON = path.join( REPO_ROOT, 'apps', 'studio', 'package.json' );
+const ROOT_PACKAGE_JSON = path.join( REPO_ROOT, 'package.json' );
 const COPY_MODE = fs.constants.COPYFILE_FICLONE;
-const WORKSPACE_NODE_MODULES = [
-	path.join( 'apps', 'studio', 'node_modules' ),
-	path.join( 'apps', 'ui', 'node_modules' ),
-	path.join( 'apps', 'cli', 'node_modules' ),
-];
 const BUILD_OUTPUT_DIRS = new Set( [ 'out', 'dist', 'test-results' ] );
 const useFreshLocalPackage = process.env.STUDIO_PACKAGE_FRESH === '1';
 
 const STUDIO_APP_PACKAGE_JSON_SCHEMA = z.object( {
 	scripts: z.record( z.string(), z.string() ),
+} );
+
+const ROOT_PACKAGE_JSON_SCHEMA = z.object( {
+	workspaces: z.array( z.string() ),
 } );
 
 function getStudioAppScripts(): Record< string, string > {
@@ -82,16 +82,39 @@ function linkWorkspaceDependencies( stagingRoot: string ): boolean {
 	return true;
 }
 
+function getWorkspaceDirectories(): string[] {
+	const rootPackage = JSON.parse( fs.readFileSync( ROOT_PACKAGE_JSON, 'utf-8' ) );
+	const { workspaces } = ROOT_PACKAGE_JSON_SCHEMA.parse( rootPackage );
+
+	return workspaces.flatMap( ( pattern ) => {
+		if ( ! pattern.includes( '*' ) ) {
+			return [ pattern ];
+		}
+
+		const parentDir = pattern.slice( 0, -2 );
+		if ( ! pattern.endsWith( '/*' ) || parentDir.includes( '*' ) ) {
+			throw new Error( `Unsupported workspaces pattern "${ pattern }" in root package.json` );
+		}
+
+		return fs
+			.readdirSync( path.join( REPO_ROOT, parentDir ), { withFileTypes: true } )
+			.filter( ( entry ) => entry.isDirectory() )
+			.map( ( entry ) => path.join( parentDir, entry.name ) );
+	} );
+}
+
 function linkWorkspaceNodeModules( stagingRoot: string ) {
-	for ( const relativePath of WORKSPACE_NODE_MODULES ) {
-		const sourcePath = path.join( REPO_ROOT, relativePath );
+	// npm places version-conflicting dependencies in per-workspace `node_modules` directories, so
+	// every existing one must be linked for staging resolution to match the real repo.
+	for ( const workspaceDir of getWorkspaceDirectories() ) {
+		const sourcePath = path.join( REPO_ROOT, workspaceDir, 'node_modules' );
 		if ( ! fs.existsSync( sourcePath ) ) {
 			continue;
 		}
 
 		fs.symlinkSync(
 			sourcePath,
-			path.join( stagingRoot, relativePath ),
+			path.join( stagingRoot, workspaceDir, 'node_modules' ),
 			process.platform === 'win32' ? 'junction' : 'dir'
 		);
 	}

@@ -378,5 +378,9 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		onSiteEvent() {
 			return () => {};
 		},
+		onToggleSitePreview() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
 	};
 }

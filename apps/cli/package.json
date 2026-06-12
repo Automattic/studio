@@ -47,6 +47,7 @@
 		"chokidar": "^5.0.0",
 		"cli-table3": "^0.6.5",
 		"express": "^4.22.0",
+		"express-rate-limit": "^8.5.2",
 		"fs-extra": "^11.3.4",
 		"http-proxy": "^1.18.1",
 		"ignore": "^7.0.5",

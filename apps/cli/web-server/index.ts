@@ -13,6 +13,7 @@ import {
 } from '@studio/common/lib/shared-config';
 import { getSyncSupport } from '@studio/common/lib/sync/sync-support';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import {
 	answerAgentRun,
@@ -58,6 +59,18 @@ app.use( ( req: Request, res: Response, next ) => {
 	}
 	next();
 } );
+
+// Generous ceiling a single local user never hits in practice — the server is
+// loopback-only, but a runaway client (or anything that does slip through)
+// shouldn't be able to hammer the session store or the WordPress.com API.
+app.use(
+	rateLimit( {
+		windowMs: 60_000,
+		limit: 1_000,
+		standardHeaders: true,
+		legacyHeaders: false,
+	} )
+);
 
 app.use( express.json() );
 

@@ -12,7 +12,10 @@ export function getSupportedLocale() {
 	// `app.getLocale` returns the current application locale, acquired using
 	// Chromium's `l10n_util` library. This value is utilized to determine
 	// the best fit for supported locales.
-	return match( [ app.getLocale() ], supportedLocales, DEFAULT_LOCALE ) as SupportedLocale;
+	const matched = match( [ app.getLocale() ], supportedLocales, DEFAULT_LOCALE );
+	// `match` canonicalizes BCP-47 casing (e.g. `zh-cn` -> `zh-CN`), but our
+	// supported-locale keys are lowercase
+	return matched.toLowerCase() as SupportedLocale;
 }
 
 export async function getUserLocaleWithFallback() {

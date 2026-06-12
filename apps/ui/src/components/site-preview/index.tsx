@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, external } from '@wordpress/icons';
+import { chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
@@ -11,7 +11,11 @@ import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
 import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
-import { INSPECTOR_BRIDGE_PREFIX, INSPECTOR_PAGE_SCRIPT } from './inspector-script';
+import {
+	INSPECTOR_BRIDGE_PREFIX,
+	INSPECTOR_COMMAND_EVENT,
+	INSPECTOR_PAGE_SCRIPT,
+} from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
@@ -27,7 +31,7 @@ interface SitePreviewProps {
 	path: string;
 	// Bumped by the parent to force a webview reload.
 	reloadNonce: number;
-	// Called when the user clicks "Submit" in the inspector toolbar. Receives
+	// Called when the user clicks "Submit" in the annotation controls. Receives
 	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 	// Called when the user navigates within the preview (link clicks,
@@ -37,9 +41,22 @@ interface SitePreviewProps {
 }
 
 interface InspectorEvent {
-	type: 'browser-command' | 'done';
+	type: 'browser-command' | 'done' | 'state';
 	annotations?: Annotation[];
+	isPicking?: boolean;
+	annotationCount?: number;
 	command?: BrowserShortcutCommandType;
+}
+
+interface InspectorState {
+	ready: boolean;
+	isPicking: boolean;
+	annotationCount: number;
+}
+
+interface InspectorCommand {
+	id: number;
+	type: 'toggle-picking' | 'submit';
 }
 
 interface BrowserNavigationState {
@@ -93,6 +110,12 @@ const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	loading: false,
 	progress: 0,
 	title: null,
+};
+
+const EMPTY_INSPECTOR_STATE: InspectorState = {
+	ready: false,
+	isPicking: false,
+	annotationCount: 0,
 };
 
 function safeWebviewBoolean( webview: WebviewTag | null, method: 'canGoBack' | 'canGoForward' ) {
@@ -195,8 +218,11 @@ export function SitePreview( {
 	const [ browserState, setBrowserState ] =
 		useState< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const [ browserCommand, setBrowserCommand ] = useState< BrowserCommand | null >( null );
+	const [ inspectorState, setInspectorState ] = useState< InspectorState >( EMPTY_INSPECTOR_STATE );
+	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommand | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const commandIdRef = useRef( 0 );
+	const canAnnotate = canPreview && inspectorState.ready;
 	const pageTitle = getToolbarPageTitle( browserState.title, site.name );
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
@@ -224,9 +250,16 @@ export function SitePreview( {
 	const handleBrowserStateChange = useCallback( ( state: BrowserNavigationState ) => {
 		setBrowserState( ( current ) => ( areBrowserStatesEqual( current, state ) ? current : state ) );
 	}, [] );
+	const handleInspectorState = useCallback( ( state: InspectorState ) => {
+		setInspectorState( state );
+	}, [] );
 	const sendBrowserCommand = useCallback( ( type: BrowserCommand[ 'type' ] ) => {
 		commandIdRef.current += 1;
 		setBrowserCommand( { id: commandIdRef.current, type } );
+	}, [] );
+	const sendInspectorCommand = useCallback( ( type: InspectorCommand[ 'type' ] ) => {
+		commandIdRef.current += 1;
+		setInspectorCommand( { id: commandIdRef.current, type } );
 	}, [] );
 
 	const browserShortcuts = useMemo(
@@ -240,6 +273,7 @@ export function SitePreview( {
 
 	useEffect( () => {
 		setBrowserState( EMPTY_BROWSER_STATE );
+		setInspectorState( EMPTY_INSPECTOR_STATE );
 	}, [ site.id ] );
 
 	// Browser shortcuts (⌘R / ⌘[ / ⌘]) pressed while focus is in the host
@@ -332,6 +366,30 @@ export function SitePreview( {
 								<span className={ styles.browserTitle }>{ pageTitle }</span>
 							</ToolbarTooltip>
 						</div>
+						<div className={ styles.annotationControls }>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ pencil }
+								label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
+								disabled={ ! canAnnotate }
+								aria-pressed={ inspectorState.isPicking }
+								onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
+							/>
+							{ inspectorState.annotationCount > 0 ? (
+								<Button
+									variant="solid"
+									tone="brand"
+									size="small"
+									disabled={ ! canAnnotate }
+									aria-label={ __( 'Submit annotations' ) }
+									onClick={ () => sendInspectorCommand( 'submit' ) }
+								>
+									{ __( 'Submit' ) }
+								</Button>
+							) : null }
+						</div>
 					</>
 				) : (
 					<span className={ styles.headerSpacer } aria-hidden="true" />
@@ -360,6 +418,8 @@ export function SitePreview( {
 							url={ previewUrl }
 							reloadNonce={ reloadNonce }
 							onAnnotationsDone={ onAnnotationsDone }
+							onInspectorState={ handleInspectorState }
+							inspectorCommand={ inspectorCommand }
 							browserCommand={ browserCommand }
 							onBrowserStateChange={ handleBrowserStateChange }
 							onBrowserCommand={ sendBrowserCommand }
@@ -445,6 +505,8 @@ interface WebviewSurfaceProps {
 	url: string;
 	reloadNonce: number;
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
+	onInspectorState?: ( state: InspectorState ) => void;
+	inspectorCommand?: InspectorCommand | null;
 	browserCommand?: BrowserCommand | null;
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
@@ -463,6 +525,8 @@ function WebviewSurface( {
 	url,
 	reloadNonce,
 	onAnnotationsDone,
+	onInspectorState,
+	inspectorCommand,
 	browserCommand,
 	onBrowserStateChange,
 	onBrowserCommand,
@@ -471,6 +535,7 @@ function WebviewSurface( {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
 	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
+	const onInspectorStateRef = useRef( onInspectorState );
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onBrowserCommandRef = useRef( onBrowserCommand );
 	const onNavigateRef = useRef( onNavigate );
@@ -483,6 +548,9 @@ function WebviewSurface( {
 	useEffect( () => {
 		onAnnotationsDoneRef.current = onAnnotationsDone;
 	}, [ onAnnotationsDone ] );
+	useEffect( () => {
+		onInspectorStateRef.current = onInspectorState;
+	}, [ onInspectorState ] );
 	useEffect( () => {
 		onBrowserStateChangeRef.current = onBrowserStateChange;
 	}, [ onBrowserStateChange ] );
@@ -583,10 +651,22 @@ function WebviewSurface( {
 			domReadyRef.current = true;
 			setReady( true );
 			publishDocumentTitle();
-			webview.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false ).catch( () => {
-				// Transient injection failures (e.g. frame swapped mid-eval)
-				// are recoverable on the next dom-ready.
-			} );
+			webview
+				.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false )
+				.then( () => {
+					// The injected script reports the real picking/count state
+					// through the console bridge; this just flips `ready` so the
+					// host controls enable without waiting for that round-trip.
+					onInspectorStateRef.current?.( {
+						ready: true,
+						isPicking: false,
+						annotationCount: 0,
+					} );
+				} )
+				.catch( () => {
+					// Transient injection failures (e.g. frame swapped mid-eval)
+					// are recoverable on the next dom-ready.
+				} );
 		};
 
 		const handleConsoleMessage = ( event: Event ) => {
@@ -604,6 +684,14 @@ function WebviewSurface( {
 				if ( isBrowserShortcutCommand( parsed.command ) ) {
 					onBrowserCommandRef.current?.( parsed.command );
 				}
+				return;
+			}
+			if ( parsed.type === 'state' ) {
+				onInspectorStateRef.current?.( {
+					ready: true,
+					isPicking: Boolean( parsed.isPicking ),
+					annotationCount: typeof parsed.annotationCount === 'number' ? parsed.annotationCount : 0,
+				} );
 				return;
 			}
 			if ( parsed.type !== 'done' || ! parsed.annotations ) return;
@@ -627,6 +715,7 @@ function WebviewSurface( {
 		};
 		const handleStartLoading = () => {
 			didReadTitleAfterLoad = false;
+			onInspectorStateRef.current?.( EMPTY_INSPECTOR_STATE );
 			publishBrowserState( { title: null } );
 			startProgress();
 		};
@@ -678,6 +767,21 @@ function WebviewSurface( {
 		lastReloadNonceRef.current = reloadNonce;
 		webview.loadURL( url ).catch( () => undefined );
 	}, [ url, reloadNonce, ready, initialNav.url, initialNav.reloadNonce ] );
+
+	useEffect( () => {
+		if ( ! ready || ! inspectorCommand ) return;
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview ) return;
+		const detail = JSON.stringify( { type: inspectorCommand.type } );
+		webview
+			.executeJavaScript(
+				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
+					INSPECTOR_COMMAND_EVENT
+				) }, { detail: ${ detail } }));`,
+				false
+			)
+			.catch( () => undefined );
+	}, [ inspectorCommand, ready ] );
 
 	useEffect( () => {
 		if ( ! ready || ! browserCommand ) return;

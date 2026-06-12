@@ -32,17 +32,18 @@ import {
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import {
 	isFileAccessAllowedForRuntime,
+	siteFileAccessSchema,
 	SITE_FILE_ACCESS_ALL_FILES,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
 import {
+	siteModeSchema,
 	SITE_MODE_NATIVE,
 	SITE_MODE_SANDBOX,
 	SITE_RUNTIME_NATIVE_PHP,
 	SITE_RUNTIME_PLAYGROUND,
 	siteRuntimeFromMode,
-	type SiteMode,
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
 import { sortSites } from '@studio/common/lib/sort-sites';
@@ -53,11 +54,7 @@ import {
 } from '@studio/common/lib/wordpress-version-utils';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import {
-	RecommendedPHPVersion,
-	SupportedPHPVersions,
-	type SupportedPHPVersion,
-} from '@studio/common/types/php-versions';
+import { RecommendedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
@@ -100,8 +97,8 @@ export type CreateCommandOptions = {
 	name?: string;
 	siteId?: string;
 	wpVersion: string;
-	phpVersion: SupportedPHPVersion;
-	runtime: SiteRuntime;
+	phpVersion: string;
+	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
 	customDomain?: string;
 	enableHttps: boolean;
@@ -121,7 +118,7 @@ export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions
 ): Promise< void > {
-	const siteRuntime = options.runtime;
+	const siteRuntime = options.runtime ?? SITE_RUNTIME_PLAYGROUND;
 	if ( options.fileAccess && ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
 		throw new LoggerError(
 			__(
@@ -619,10 +616,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
 			const runtime = argv.runtime
-				? siteRuntimeFromMode( argv.runtime as SiteMode )
-				: SITE_RUNTIME_PLAYGROUND;
-			const fileAccess = argv.fileAccess as SiteFileAccess | undefined;
-			if ( fileAccess && ! isFileAccessAllowedForRuntime( runtime, fileAccess ) ) {
+				? siteRuntimeFromMode( siteModeSchema.parse( argv.runtime ) )
+				: undefined;
+			const fileAccess = siteFileAccessSchema.optional().parse( argv.fileAccess );
+			if (
+				fileAccess &&
+				! isFileAccessAllowedForRuntime( runtime ?? SITE_RUNTIME_PLAYGROUND, fileAccess )
+			) {
 				logger.reportError(
 					new LoggerError(
 						__(
@@ -796,7 +796,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				name: siteName,
 				siteId: argv.id,
 				wpVersion,
-				phpVersion: ( phpVersion ?? RecommendedPHPVersion ) as SupportedPHPVersion,
+				phpVersion: phpVersion ?? RecommendedPHPVersion,
 				runtime,
 				fileAccess,
 				customDomain,

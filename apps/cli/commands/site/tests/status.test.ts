@@ -84,8 +84,8 @@ describe( 'CLI: studio site status', () => {
 						status: '🔴 Offline',
 						isOnline: false,
 						phpVersion: '8.0',
-						runtime: 'sandbox',
-						fileAccess: 'site-directory',
+						runtime: 'Sandbox',
+						fileAccess: 'Site directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',
@@ -121,8 +121,8 @@ describe( 'CLI: studio site status', () => {
 						status: '🟢 Online',
 						isOnline: true,
 						phpVersion: '8.0',
-						runtime: 'sandbox',
-						fileAccess: 'site-directory',
+						runtime: 'Sandbox',
+						fileAccess: 'Site directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',
@@ -147,9 +147,9 @@ describe( 'CLI: studio site status', () => {
 
 			await runCommand( '/path/to/site', 'json' );
 
-			expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( '"runtime": "native"' ) );
+			expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( '"runtime": "Native"' ) );
 			expect( consoleSpy ).toHaveBeenCalledWith(
-				expect.stringContaining( '"fileAccess": "all-files"' )
+				expect.stringContaining( '"fileAccess": "All files"' )
 			);
 
 			consoleSpy.mockRestore();
@@ -183,8 +183,8 @@ describe( 'CLI: studio site status', () => {
 						sitePath: '/path/to/site',
 						status: '🔴 Offline',
 						isOnline: false,
-						runtime: 'sandbox',
-						fileAccess: 'site-directory',
+						runtime: 'Sandbox',
+						fileAccess: 'Site directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',

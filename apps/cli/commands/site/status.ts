@@ -1,11 +1,7 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getSiteFileAccess, SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
-import {
-	getSiteRuntime,
-	SITE_RUNTIME_NATIVE_PHP,
-	siteModeFromRuntime,
-} from '@studio/common/lib/site-runtime';
+import { getSiteRuntime, SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
@@ -52,8 +48,6 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			key: string;
 			jsonKey: string;
 			value: string | undefined;
-			// Raw machine-readable value for the JSON output; defaults to `value`
-			jsonValue?: string;
 			type?: string;
 			hidden?: boolean;
 		}[] = [
@@ -73,18 +67,8 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			{ key: __( 'Site Path' ), jsonKey: 'sitePath', value: sitePath },
 			{ key: __( 'Status' ), jsonKey: 'status', value: status },
 			{ key: __( 'PHP version' ), jsonKey: 'phpVersion', value: site.phpVersion },
-			{
-				key: __( 'PHP runtime' ),
-				jsonKey: 'runtime',
-				value: runtimeLabel,
-				jsonValue: siteModeFromRuntime( runtime ),
-			},
-			{
-				key: __( 'File access' ),
-				jsonKey: 'fileAccess',
-				value: fileAccessLabel,
-				jsonValue: fileAccess,
-			},
+			{ key: __( 'PHP runtime' ), jsonKey: 'runtime', value: runtimeLabel },
+			{ key: __( 'File access' ), jsonKey: 'fileAccess', value: fileAccessLabel },
 			{ key: __( 'WP version' ), jsonKey: 'wpVersion', value: wpVersion },
 			{ key: __( 'Xdebug' ), jsonKey: 'xdebug', value: xdebugStatus },
 			{
@@ -117,13 +101,13 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			console.table( table.toString() );
 		} else {
 			const logData = Object.fromEntries(
-				siteData.flatMap( ( { jsonKey, value, jsonValue } ) =>
+				siteData.flatMap( ( { jsonKey, value } ) =>
 					jsonKey === 'status'
 						? [
 								[ jsonKey, value ],
 								[ 'isOnline', isOnline ],
 						  ]
-						: [ [ jsonKey, jsonValue ?? value ] ]
+						: [ [ jsonKey, value ] ]
 				)
 			);
 

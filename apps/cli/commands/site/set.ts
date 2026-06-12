@@ -10,6 +10,7 @@ import {
 import {
 	getSiteFileAccess,
 	isFileAccessAllowedForRuntime,
+	siteFileAccessSchema,
 	SITE_FILE_ACCESS_ALL_FILES,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
@@ -17,6 +18,7 @@ import {
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
 import {
 	getSiteRuntime,
+	siteModeSchema,
 	SITE_MODE_NATIVE,
 	SITE_MODE_SANDBOX,
 	siteRuntimeFromMode,
@@ -457,8 +459,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					https: argv.https,
 					php: argv.php,
 					wp: argv.wp,
-					runtime: argv.runtime as SiteMode | undefined,
-					fileAccess: argv.fileAccess as SiteFileAccess | undefined,
+					runtime: siteModeSchema.optional().parse( argv.runtime ),
+					fileAccess: siteFileAccessSchema.optional().parse( argv.fileAccess ),
 					xdebug: argv.xdebug,
 					adminUsername: argv.adminUsername,
 					adminPassword: argv.adminPassword,

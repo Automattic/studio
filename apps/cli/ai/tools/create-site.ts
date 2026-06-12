@@ -1,6 +1,5 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { Type } from 'typebox';
 import { emitLocalSiteSelected } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
@@ -30,7 +29,6 @@ export const createSiteTool = defineTool(
 				name: args.name,
 				wpVersion: 'latest',
 				phpVersion: DEFAULT_PHP_VERSION,
-				runtime: SITE_RUNTIME_PLAYGROUND,
 				enableHttps: false,
 				noStart: false,
 				skipBrowser: true,

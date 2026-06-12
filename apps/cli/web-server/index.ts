@@ -46,7 +46,7 @@ function hydrateAiSessionSummary(
 const root = getAiSessionsRootDirectory();
 const app = express();
 
-// Permissive CORS for the localhost PoC: the SPA dev server (5300) and this
+// Permissive CORS for local development: the SPA dev server (5300) and this
 // backend live on different ports. EventSource (GET /events) needs no
 // preflight, but the JSON POST/PATCH/DELETE routes do.
 app.use( ( req: Request, res: Response, next ) => {
@@ -206,8 +206,8 @@ app.get( '/sessions', async ( _req: Request, res: Response ) => {
 } );
 
 app.post( '/sessions', async ( _req: Request, res: Response ) => {
-	// `siteId` is accepted but ignored for the PoC: sessions start unbound and
-	// the agent creates/binds a site during the run.
+	// `siteId` is accepted but not yet wired: sessions start unbound and the
+	// agent creates/binds a site during the run.
 	res.json( await createAiSession( root ) );
 } );
 

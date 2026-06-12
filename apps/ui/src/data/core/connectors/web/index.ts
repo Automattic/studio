@@ -47,7 +47,9 @@ type ServerEvent =
  * It is the web analog of the Electron IPC connector: the same React app, the
  * same `AgentRunEvent` stream, a different transport.
  *
- * Only the surface the PoC exercises is implemented for real (AI sessions and
+ * This is the first Studio Web increment, extracted from the broader
+ * exploration in https://github.com/Automattic/studio/pull/3746. Only the
+ * surface it exercises is implemented for real (AI sessions and
  * runs, the site list, featured blueprints, external links). Desktop-only
  * capabilities either return benign defaults (so mount-time queries don't
  * throw) or throw `WebUnsupportedError` for user-triggered actions.
@@ -111,7 +113,8 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			};
 		},
 
-		// Auth — the PoC runs unauthenticated, like the desktop app.
+		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
+		// in the browser is a follow-up (explored in the PR linked above).
 		requiresAuth: false,
 		async isAuthenticated() {
 			return true;
@@ -120,7 +123,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			return null;
 		},
 		async authenticate() {
-			// No-op: the PoC has no login gate.
+			// No-op: there is no login gate yet.
 		},
 		async logout() {
 			// No-op.
@@ -210,7 +213,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			throw new WebUnsupportedError( 'importSiteFromBackup' );
 		},
 
-		// Preview snapshots / sync — out of PoC scope.
+		// Preview snapshots / sync — out of scope for this increment.
 		async getSnapshots(): Promise< Snapshot[] > {
 			return [];
 		},
@@ -290,7 +293,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			} );
 		},
 		async setSessionEnvironment( _sessionId, environment ) {
-			// The PoC's agent always acts on the backend's local runtime.
+			// The agent always acts on the backend's local runtime.
 			return { environment };
 		},
 		onAgentEvent( listener ) {
@@ -312,7 +315,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			};
 		},
 		async setUserPreferences() {
-			// No-op for the PoC.
+			// No-op: preferences aren't persisted in the browser yet.
 		},
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;
@@ -323,7 +326,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			return createDefaultDeskSettings();
 		},
 		async saveDeskSettings() {
-			// No-op for the PoC.
+			// No-op: desk settings aren't persisted in the browser yet.
 		},
 		async exportDeskConfig(): Promise< string | null > {
 			return null;
@@ -335,13 +338,13 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			return undefined;
 		},
 		async saveUserDeskConfig() {
-			// No-op for the PoC.
+			// No-op: desk settings aren't persisted in the browser yet.
 		},
 		async getSiteDeskConfig(): Promise< DeskConfig | undefined > {
 			return undefined;
 		},
 		async saveSiteDeskConfig() {
-			// No-op for the PoC.
+			// No-op: desk settings aren't persisted in the browser yet.
 		},
 
 		async fetchSiteRest() {

@@ -1215,8 +1215,10 @@ def create_draft_github_release(version:, release_tag:, builds:)
             'The latest version is always available on the [WordPress Studio](https://developer.wordpress.com/studio/) site.'
   end
 
-  # Embed CDN post IDs so publish_release can update their visibility later
-  cdn_post_ids = builds.values.filter_map { |b| b[:post_id] }.select(&:positive?)
+  # Embed CDN post IDs so publish_release can update their visibility later.
+  # Coerce to Integer defensively: the CDN API returns integer post IDs, but the
+  # update action requires Integers, so don't rely on the API's serialization.
+  cdn_post_ids = builds.values.filter_map { |b| b[:post_id]&.to_i }.select(&:positive?)
   body += "\n<!-- CDN_POST_IDS:#{cdn_post_ids.join(',')} -->" unless cdn_post_ids.empty?
 
   release_name = github_release_name(version:)
@@ -1246,7 +1248,7 @@ end
 # @param version [String] The version to publish (e.g., '1.7.5')
 #
 def make_cdn_builds_public(version:)
-  release_name = "v#{version}"
+  release_name = github_release_name(version:)
   post_ids = extract_cdn_post_ids_from_draft_release(release_name: release_name)
 
   if post_ids.empty?
@@ -1279,7 +1281,8 @@ end
 # The post IDs are embedded as an HTML comment by {create_draft_github_release}:
 #   <!-- CDN_POST_IDS:123,456,789 -->
 #
-# @param release_name [String] The release name (e.g., 'v1.7.5')
+# @param release_name [String] The release name as created by {create_draft_github_release},
+#   i.e. {github_release_name} (e.g., 'Version 1.7.5')
 # @return [Array<Integer>] An array of post IDs, or empty array if not found
 #
 def extract_cdn_post_ids_from_draft_release(release_name:)

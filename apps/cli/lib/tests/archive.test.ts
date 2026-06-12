@@ -99,11 +99,12 @@ describe( 'Archive Module', () => {
 
 			await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
-			expect( mockArchiver.file ).toHaveBeenCalledWith( `${ mockWpContentPath }/index.php`, {
-				name: 'wp-content/index.php',
-			} );
 			expect( mockArchiver.file ).toHaveBeenCalledWith(
-				`${ mockWpContentPath }/plugins/my-plugin.php`,
+				path.join( mockWpContentPath, 'index.php' ),
+				{ name: 'wp-content/index.php' }
+			);
+			expect( mockArchiver.file ).toHaveBeenCalledWith(
+				path.join( mockWpContentPath, 'plugins', 'my-plugin.php' ),
 				{ name: 'wp-content/plugins/my-plugin.php' }
 			);
 		} );

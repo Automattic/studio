@@ -1,0 +1,54 @@
+/* Pinning to the sidebar bottom is handled by the layout's
+   `sidebarFooter` wrapper, which stacks this menu under the settings
+   button. */
+.root {
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl)
+		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-2xl);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.userName,
+.themeToggle {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.row:hover .userName,
+.row:hover .themeToggle,
+.row:focus-within .userName,
+.row:focus-within .themeToggle {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.userTrigger {
+	flex: 1;
+	font-weight: var(--wpds-typography-font-weight-regular);
+}
+
+.userName {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+.loginButton {
+	flex: 1;
+}
+
+.popup {
+	min-width: 220px;
+}
+
+.email {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

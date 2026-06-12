@@ -14,7 +14,6 @@ export function SidebarSettingsButton() {
 				render={
 					<Link
 						to="/settings"
-						activeOptions={ { exact: true, includeSearch: false } }
 						activeProps={ {
 							className: clsx( styles.button, styles.buttonActive ),
 						} }

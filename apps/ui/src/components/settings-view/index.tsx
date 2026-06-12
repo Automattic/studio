@@ -5,15 +5,11 @@ import { DataForm } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Gravatar } from '@/components/gravatar';
 import * as Tabs from '@/components/tabs';
-import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
-import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useFullscreen } from '@/hooks/use-fullscreen';
-import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
 import type {
@@ -28,10 +24,10 @@ import type {
 import type { Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
-type TabId = 'preferences' | 'account';
+type TabId = 'preferences';
 
 export function isSettingsTab( value: string ): value is TabId {
-	return value === 'preferences' || value === 'account';
+	return value === 'preferences';
 }
 
 export type SettingsTabId = TabId;
@@ -106,110 +102,6 @@ const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
-
-const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
-const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
-const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
-
-function AccountSettingsPanel() {
-	const connector = useConnector();
-	const { data: user } = useAuthUser();
-	const { data: preferences } = useUserPreferences();
-	const login = useLogin();
-	const logout = useLogout();
-	const effectiveScheme = usePrefersColorScheme();
-	const savedScheme = preferences?.colorScheme;
-	const themeIsDark =
-		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
-
-	const openLink = ( url: string ) => {
-		void connector.openExternalUrl( url );
-	};
-
-	return (
-		<div className={ styles.accountPanel }>
-			<section className={ styles.accountSection }>
-				<div className={ styles.accountSectionText }>
-					<h2>{ __( 'WordPress.com account' ) }</h2>
-					{ user ? (
-						<div className={ styles.accountIdentity }>
-							<Gravatar
-								email={ user.email }
-								isDark={ themeIsDark }
-								className={ styles.accountAvatar }
-							/>
-							<div className={ styles.accountDetails }>
-								<span className={ styles.accountName }>{ user.displayName }</span>
-								<span className={ styles.accountEmail }>{ user.email }</span>
-							</div>
-						</div>
-					) : (
-						<p>{ __( 'Log in to connect Studio with your WordPress.com account.' ) }</p>
-					) }
-				</div>
-				<div className={ styles.accountActions }>
-					{ user ? (
-						<>
-							<Button
-								type="button"
-								variant="outline"
-								tone="neutral"
-								onClick={ () => openLink( WPCOM_PROFILE_URL ) }
-							>
-								{ __( 'Edit WordPress.com profile' ) }
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								tone="neutral"
-								loading={ logout.isPending }
-								loadingAnnouncement={ __( 'Logging out' ) }
-								onClick={ () => logout.mutate() }
-							>
-								{ __( 'Log out' ) }
-							</Button>
-						</>
-					) : (
-						<Button
-							type="button"
-							variant="outline"
-							tone="neutral"
-							loading={ login.isPending }
-							loadingAnnouncement={ __( 'Logging in' ) }
-							onClick={ () => login.mutate() }
-						>
-							{ __( 'Log in with WordPress.com' ) }
-						</Button>
-					) }
-				</div>
-			</section>
-			<section className={ styles.accountSection }>
-				<div className={ styles.accountSectionText }>
-					<h2>{ __( 'Help' ) }</h2>
-					<p>{ __( 'Find Studio documentation or report an issue on GitHub.' ) }</p>
-				</div>
-				<div className={ styles.accountActions }>
-					<Button
-						type="button"
-						variant="outline"
-						tone="neutral"
-						onClick={ () => openLink( DOCS_URL ) }
-					>
-						{ __( 'Documentation' ) }
-					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						tone="neutral"
-						onClick={ () => openLink( REPORT_ISSUE_URL ) }
-					>
-						{ __( 'Report an issue' ) }
-					</Button>
-				</div>
-			</section>
-		</div>
-	);
-}
 
 function SettingsHeader() {
 	const sidebarCollapsed = useSidebarCollapsed();
@@ -342,7 +234,6 @@ export function SettingsView( {
 					<div className={ styles.tabsBarInner }>
 						<Tabs.List>
 							<Tabs.Tab tabId="preferences">{ __( 'Preferences' ) }</Tabs.Tab>
-							<Tabs.Tab tabId="account">{ __( 'Account' ) }</Tabs.Tab>
 						</Tabs.List>
 					</div>
 				</div>
@@ -358,24 +249,19 @@ export function SettingsView( {
 									onChange={ handleChange }
 								/>
 							</Tabs.Panel>
-							<Tabs.Panel tabId="account">
-								<AccountSettingsPanel />
-							</Tabs.Panel>
 
-							{ activeTab !== 'account' ? (
-								<div className={ styles.actions }>
-									<Button
-										type="submit"
-										variant="solid"
-										tone="brand"
-										disabled={ ! canSubmit }
-										loading={ savePreferences.isPending }
-										loadingAnnouncement={ __( 'Saving settings' ) }
-									>
-										{ __( 'Save settings' ) }
-									</Button>
-								</div>
-							) : null }
+							<div className={ styles.actions }>
+								<Button
+									type="submit"
+									variant="solid"
+									tone="brand"
+									disabled={ ! canSubmit }
+									loading={ savePreferences.isPending }
+									loadingAnnouncement={ __( 'Saving settings' ) }
+								>
+									{ __( 'Save settings' ) }
+								</Button>
+							</div>
 						</form>
 					</div>
 				</div>

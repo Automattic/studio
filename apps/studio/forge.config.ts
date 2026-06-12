@@ -15,20 +15,6 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 const repoRoot = path.resolve( __dirname, '../..' );
 const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 
-function removeNodeModules( modulePath: string ) {
-	const stat = fs.lstatSync( modulePath, { throwIfNoEntry: false } );
-	if ( ! stat ) {
-		return;
-	}
-
-	if ( stat.isSymbolicLink() ) {
-		fs.unlinkSync( modulePath );
-		return;
-	}
-
-	fs.rmSync( modulePath, { recursive: true, force: true } );
-}
-
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
@@ -216,7 +202,7 @@ const config: ForgeConfig = {
 			// NOTE: The `app:install:bundle` script mutates the `apps/studio/node_modules` directory. You
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
 			const studioNodeModules = path.join( repoRoot, 'apps', 'studio', 'node_modules' );
-			removeNodeModules( studioNodeModules );
+			fs.rmSync( studioNodeModules, { recursive: true, force: true } );
 			await execAsync( [ 'npm', 'run', 'app:install:bundle' ] );
 
 			if ( process.env.SKIP_LANGUAGE_PACKS ) {
@@ -230,7 +216,7 @@ const config: ForgeConfig = {
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
 			const cliNodeModulesSource = path.join( repoRoot, 'apps', 'cli', 'node_modules' );
-			removeNodeModules( cliNodeModulesSource );
+			fs.rmSync( cliNodeModulesSource, { recursive: true, force: true } );
 			await execAsync( [ 'npm', 'run', 'cli:package' ] );
 
 			// Remove native binaries for other platforms from CLI's node_modules.

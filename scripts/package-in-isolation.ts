@@ -16,10 +16,9 @@
  * In CI, where we have a clean, ephemeral environment, we short-circuit the behavior and run the
  * relevant script in place.
  *
- * Local packaging optimizes for fast iteration: it links the current workspace `node_modules` into
- * the staging directory and reuses bundled WordPress/server files when they already exist. Set
- * `STUDIO_PACKAGE_FRESH=1` to use the slower release-grade local path: lockfile-fresh `npm ci` in
- * staging, with postinstall re-downloading bundled files.
+ * Local packaging installs the build toolchain with a lockfile-accurate `npm ci --ignore-scripts`
+ * and reuses bundled WordPress/server files when they already exist. Set `STUDIO_PACKAGE_FRESH=1`
+ * to run a full `npm ci` instead, with postinstall re-downloading all bundled files.
  */
 
 import { spawnSync, type SpawnSyncOptions } from 'child_process';
@@ -30,17 +29,12 @@ import { z } from 'zod';
 
 const REPO_ROOT = path.resolve( import.meta.dirname, '..' );
 const STUDIO_APP_PACKAGE_JSON = path.join( REPO_ROOT, 'apps', 'studio', 'package.json' );
-const ROOT_PACKAGE_JSON = path.join( REPO_ROOT, 'package.json' );
 const COPY_MODE = fs.constants.COPYFILE_FICLONE;
 const BUILD_OUTPUT_DIRS = new Set( [ 'out', 'dist', 'test-results' ] );
 const useFreshLocalPackage = process.env.STUDIO_PACKAGE_FRESH === '1';
 
 const STUDIO_APP_PACKAGE_JSON_SCHEMA = z.object( {
 	scripts: z.record( z.string(), z.string() ),
-} );
-
-const ROOT_PACKAGE_JSON_SCHEMA = z.object( {
-	workspaces: z.array( z.string() ),
 } );
 
 function getStudioAppScripts(): Record< string, string > {
@@ -66,60 +60,6 @@ function runOrFail( command: string, args: string[], cwd: string ) {
 	}
 }
 
-function linkWorkspaceDependencies( stagingRoot: string ): boolean {
-	const sourceNodeModules = path.join( REPO_ROOT, 'node_modules' );
-	const stagingNodeModules = path.join( stagingRoot, 'node_modules' );
-
-	if ( ! fs.existsSync( sourceNodeModules ) ) {
-		return false;
-	}
-
-	fs.symlinkSync(
-		sourceNodeModules,
-		stagingNodeModules,
-		process.platform === 'win32' ? 'junction' : 'dir'
-	);
-	return true;
-}
-
-function getWorkspaceDirectories(): string[] {
-	const rootPackage = JSON.parse( fs.readFileSync( ROOT_PACKAGE_JSON, 'utf-8' ) );
-	const { workspaces } = ROOT_PACKAGE_JSON_SCHEMA.parse( rootPackage );
-
-	return workspaces.flatMap( ( pattern ) => {
-		if ( ! pattern.includes( '*' ) ) {
-			return [ pattern ];
-		}
-
-		const parentDir = pattern.slice( 0, -2 );
-		if ( ! pattern.endsWith( '/*' ) || parentDir.includes( '*' ) ) {
-			throw new Error( `Unsupported workspaces pattern "${ pattern }" in root package.json` );
-		}
-
-		return fs
-			.readdirSync( path.join( REPO_ROOT, parentDir ), { withFileTypes: true } )
-			.filter( ( entry ) => entry.isDirectory() )
-			.map( ( entry ) => path.join( parentDir, entry.name ) );
-	} );
-}
-
-function linkWorkspaceNodeModules( stagingRoot: string ) {
-	// npm places version-conflicting dependencies in per-workspace `node_modules` directories, so
-	// every existing one must be linked for staging resolution to match the real repo.
-	for ( const workspaceDir of getWorkspaceDirectories() ) {
-		const sourcePath = path.join( REPO_ROOT, workspaceDir, 'node_modules' );
-		if ( ! fs.existsSync( sourcePath ) ) {
-			continue;
-		}
-
-		fs.symlinkSync(
-			sourcePath,
-			path.join( stagingRoot, workspaceDir, 'node_modules' ),
-			process.platform === 'win32' ? 'junction' : 'dir'
-		);
-	}
-}
-
 function ensureBuildToolchain( stagingRoot: string ) {
 	if ( useFreshLocalPackage ) {
 		console.log( 'Installing lockfile-fresh workspace dependencies in packaging directory ...' );
@@ -127,12 +67,9 @@ function ensureBuildToolchain( stagingRoot: string ) {
 		return;
 	}
 
-	if ( linkWorkspaceDependencies( stagingRoot ) ) {
-		console.log( 'Linked workspace dependencies into packaging directory.' );
-		linkWorkspaceNodeModules( stagingRoot );
-		return;
-	}
-
+	// `--ignore-scripts` skips the root postinstall, which would re-download bundled server files
+	// the staging copy already has. The postinstall steps that are still required (patches, fs-ext
+	// binary filtering) run explicitly below.
 	console.log( 'Installing workspace dependencies in packaging directory ...' );
 	runOrFail(
 		'npm',

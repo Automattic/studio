@@ -99,7 +99,7 @@ function formatAttachmentSize( bytes: number ): string {
 }
 
 function getDraftStorageKey( sessionId: string | undefined ): string | null {
-	return sessionId ? `studio_code_composer_draft:${ sessionId }` : null;
+	return sessionId ? `studio_code_session_draft:${ sessionId }` : null;
 }
 
 function loadDraft( storageKey: string | null ): string {

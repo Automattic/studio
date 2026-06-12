@@ -6,7 +6,6 @@ import { CheckboxControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
-import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LearnHowLink } from '@/components/learn-more';
 import { SiteDropdown } from '@/components/site-dropdown';
@@ -28,7 +27,6 @@ import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers
 import { useSites, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { isMacPlatform } from '@/lib/platform';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -80,12 +78,14 @@ function initialFormData( site: SiteDetails ): FormData {
 function SettingsHeader( { site }: { site: SiteDetails } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const isFullscreen = useFullscreen();
-	const reserveTrafficLightSpace = sidebarCollapsed && isMacPlatform() && ! isFullscreen;
+	const toggleSpacerClass = sidebarCollapsed
+		? isFullscreen
+			? styles.toggleSpacerFullscreen
+			: styles.toggleSpacer
+		: null;
 	return (
-		<div className={ clsx( styles.header, ! sidebarCollapsed && styles.headerSidebarOpen ) }>
-			{ reserveTrafficLightSpace ? (
-				<span className={ styles.trafficLightSpacer } aria-hidden="true" />
-			) : null }
+		<div className={ styles.header }>
+			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
 			<SiteDropdown site={ site } showSiteIcon={ sidebarCollapsed } />
 		</div>
 	);
@@ -135,27 +135,17 @@ export function SiteSettingsView( {
 		);
 	}
 
-	return (
-		<div className={ styles.root }>
-			<SettingsHeader site={ site } />
-			<div className={ styles.titleBlock }>
-				<h1>{ __( 'Site settings' ) }</h1>
-			</div>
-			<SiteSettingsForm site={ site } activeTab={ activeTab } onTabChange={ onTabChange } />
-		</div>
-	);
+	return <SiteSettingsBody site={ site } activeTab={ activeTab } onTabChange={ onTabChange } />;
 }
 
-export function SiteSettingsForm( {
+function SiteSettingsBody( {
 	site,
 	activeTab,
 	onTabChange,
-	embedded = false,
 }: {
 	site: SiteDetails;
 	activeTab: TabId;
 	onTabChange: ( tab: TabId ) => void;
-	embedded?: boolean;
 } ) {
 	const { data: allDomains } = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
@@ -299,66 +289,72 @@ export function SiteSettingsForm( {
 	};
 
 	return (
-		<Tabs.Root
-			selectedTabId={ activeTab }
-			onSelect={ ( tabId ) => {
-				if ( tabId && isSiteSettingsTab( tabId ) ) {
-					onTabChange( tabId );
-				}
-			} }
-		>
-			{ /* Tabs sit outside the scroll container so the tablist's border-bottom
-				 spans the full main-area width. Only the form content scrolls in the
-				 standalone settings route; embedded forms let the parent page scroll. */ }
-			<div className={ clsx( styles.tabsBar, embedded && styles.embeddedTabsBar ) }>
-				<div className={ clsx( styles.tabsBarInner, embedded && styles.embeddedTabsBarInner ) }>
-					<Tabs.List>
-						<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
-						<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
-					</Tabs.List>
+		<div className={ styles.root }>
+			<SettingsHeader site={ site } />
+			<Tabs.Root
+				selectedTabId={ activeTab }
+				onSelect={ ( tabId ) => {
+					if ( tabId && isSiteSettingsTab( tabId ) ) {
+						onTabChange( tabId );
+					}
+				} }
+			>
+				{ /* Title + tabs sit outside the scroll container so the tablist's
+					 border-bottom spans the full main-area width. Only the form
+					 content scrolls — tabs stay pinned. */ }
+				<div className={ styles.titleBlock }>
+					<h1>{ __( 'Site settings' ) }</h1>
 				</div>
-			</div>
-
-			<div className={ clsx( styles.scroll, embedded && styles.embeddedScroll ) }>
-				<div className={ clsx( styles.contentBlock, embedded && styles.embeddedContentBlock ) }>
-					<form onSubmit={ handleSubmit } className={ styles.form }>
-						<Tabs.Panel tabId="general">
-							<DataForm< FormData >
-								data={ data }
-								fields={ fields }
-								form={ generalForm }
-								onChange={ handleChange }
-								validity={ validity }
-							/>
-						</Tabs.Panel>
-						<Tabs.Panel tabId="debugging">
-							<DataForm< FormData >
-								data={ data }
-								fields={ fields }
-								form={ debuggingForm }
-								onChange={ handleChange }
-								validity={ validity }
-							/>
-						</Tabs.Panel>
-
-						{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
-
-						<div className={ styles.actions }>
-							<Button
-								type="submit"
-								variant="solid"
-								tone="brand"
-								disabled={ ! canSubmit }
-								loading={ updateSite.isPending }
-								loadingAnnouncement={ __( 'Saving settings' ) }
-							>
-								{ __( 'Save settings' ) }
-							</Button>
-						</div>
-					</form>
+				<div className={ styles.tabsBar }>
+					<div className={ styles.tabsBarInner }>
+						<Tabs.List>
+							<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
+							<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
+						</Tabs.List>
+					</div>
 				</div>
-			</div>
-		</Tabs.Root>
+
+				<div className={ styles.scroll }>
+					<div className={ styles.contentBlock }>
+						<form onSubmit={ handleSubmit } className={ styles.form }>
+							<Tabs.Panel tabId="general">
+								<DataForm< FormData >
+									data={ data }
+									fields={ fields }
+									form={ generalForm }
+									onChange={ handleChange }
+									validity={ validity }
+								/>
+							</Tabs.Panel>
+							<Tabs.Panel tabId="debugging">
+								<DataForm< FormData >
+									data={ data }
+									fields={ fields }
+									form={ debuggingForm }
+									onChange={ handleChange }
+									validity={ validity }
+								/>
+							</Tabs.Panel>
+
+							{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
+
+							<div className={ styles.actions }>
+								<Button
+									type="submit"
+									variant="solid"
+									tone="brand"
+									disabled={ ! canSubmit }
+									loading={ updateSite.isPending }
+									loadingAnnouncement={ __( 'Saving settings' ) }
+								>
+									{ __( 'Save settings' ) }
+								</Button>
+							</div>
+						</form>
+					</div>
+				</div>
+			</Tabs.Root>
+		</div>
 	);
 }
 

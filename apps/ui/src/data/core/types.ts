@@ -1,15 +1,12 @@
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
-import type {
-	AiSessionMetadata,
-	AiSessionSummary,
-	LoadedAiSession,
-} from '@studio/common/ai/sessions/types';
+import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
-import type { DeskConfig, DeskSettings, StudioUiMode } from '@studio/common/types/desk';
+import type { DeskConfig, DeskSettings } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -17,12 +14,9 @@ import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wor
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 export type { StudioChatImage, StudioChatImageAttachment } from '@studio/common/ai/chat-images';
-export type {
-	AiSessionMetadata,
-	AiSessionSummary,
-	LoadedAiSession,
-} from '@studio/common/ai/sessions/types';
+export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type {
 	StudioCustomEntry,
@@ -38,12 +32,7 @@ export type {
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
-export type {
-	DeskConfig,
-	DeskSettings,
-	DeskWidgetBase,
-	StudioUiMode,
-} from '@studio/common/types/desk';
+export type { DeskConfig, DeskSettings, DeskWidgetBase } from '@studio/common/types/desk';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -243,7 +232,7 @@ export interface Connector {
 	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
-		patch: Partial< AiSessionMetadata >
+		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
@@ -256,7 +245,11 @@ export interface Connector {
 	continueSession(
 		sessionId: string,
 		prompt: string,
-		options?: { displayMessage?: string; images?: StudioChatImage[] }
+		options?: {
+			displayMessage?: string;
+			images?: StudioChatImage[];
+			files?: StudioChatFileAttachment[];
+		}
 	): Promise< { runId: string } >;
 	getActiveAgentRuns(): Promise< ActiveAgentRun[] >;
 	// Persist a UI-driven model override for the session. The CLI picks this up
@@ -296,9 +289,6 @@ export interface Connector {
 	getInstalledApps(): Promise< InstalledApps >;
 
 	// Desks
-	getFeatureFlags(): Promise< FeatureFlags >;
-	getStudioUiMode(): Promise< StudioUiMode >;
-	setStudioUiMode( mode: StudioUiMode ): Promise< void >;
 	getDeskSettings(): Promise< DeskSettings >;
 	saveDeskSettings( settings: DeskSettings ): Promise< void >;
 	exportDeskConfig( config: DeskConfig, suggestedFilename: string ): Promise< string | null >;
@@ -336,10 +326,10 @@ export interface Connector {
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
 	onSiteEvent( listener: () => void ): () => void;
-}
 
-export interface FeatureFlags {
-	enableDesksUiSwitch: boolean;
+	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
+	// application menu.
+	onToggleSitePreview( listener: () => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

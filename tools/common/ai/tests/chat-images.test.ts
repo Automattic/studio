@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	STUDIO_CHAT_MAX_IMAGE_BYTES,
-	STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX,
 	STUDIO_CHAT_MAX_IMAGES,
 	validateStudioChatImages,
 } from '../chat-images';
@@ -73,37 +72,5 @@ describe( 'validateStudioChatImages', () => {
 				},
 			] )
 		).toThrow( 'Attached images must be 5 MB or smaller.' );
-	} );
-
-	it( 'rejects non-finite image dimensions', () => {
-		expect( () =>
-			validateStudioChatImages( [
-				{
-					id: 'image-1',
-					name: 'logo.png',
-					mimeType: 'image/png',
-					size: 3,
-					width: Number.NaN,
-					height: Number.POSITIVE_INFINITY,
-					dataBase64: 'YWJj',
-				},
-			] )
-		).toThrow( 'Attached image dimensions must be finite numbers.' );
-	} );
-
-	it( 'rejects images above the maximum dimensions', () => {
-		expect( () =>
-			validateStudioChatImages( [
-				{
-					id: 'image-1',
-					name: 'large.png',
-					mimeType: 'image/png',
-					size: 3,
-					width: STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX + 1,
-					height: STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX,
-					dataBase64: 'YWJj',
-				},
-			] )
-		).toThrow( 'Attached images must be 8000 pixels or smaller on each side.' );
 	} );
 } );

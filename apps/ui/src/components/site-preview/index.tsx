@@ -1,15 +1,12 @@
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, chevronRight } from '@wordpress/icons';
+import { chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
+import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
-import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
+import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
-import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
-import { getNavigatorPlatform, isMacPlatform } from '@/lib/platform';
-import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
@@ -18,7 +15,7 @@ import {
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
-import type { CSSProperties, ReactElement } from 'react';
+import type { ReactElement } from 'react';
 
 export type { Annotation } from './types';
 
@@ -33,12 +30,13 @@ interface SitePreviewProps {
 	// Called when the user clicks "Submit" in the annotation controls. Receives
 	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
-	// When true the panel stays mounted but animates its width to zero, so the
-	// open/close toggle is a transition rather than a mount/unmount.
-	collapsed?: boolean;
-	layoutWidth?: number;
-	hideResizeHandle?: boolean;
+	// Called when the user navigates within the preview (link clicks,
+	// back/forward) so the parent can keep its `path` in sync without
+	// forcing a reload.
 	onPathChange?: ( path: string ) => void;
+	// True while the panel is toggled off but kept mounted (so the webview
+	// stays warm). Disables the global browser shortcuts in that state.
+	collapsed?: boolean;
 }
 
 interface InspectorEvent {
@@ -66,17 +64,13 @@ interface BrowserNavigationState {
 	loading: boolean;
 	progress: number;
 	title: string | null;
-	hasAdminBar: boolean;
-	adminBarBackgroundColor: string | null;
-	adminBarForegroundColor: string | null;
 }
 
 type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
-type BrowserCommandType = BrowserShortcutCommandType | 'stop';
 
 interface BrowserCommand {
 	id: number;
-	type: BrowserCommandType;
+	type: BrowserShortcutCommandType;
 }
 
 // Electron's `<webview>` is a custom element with non-standard methods. Type
@@ -89,7 +83,6 @@ interface WebviewTag extends HTMLElement {
 	goBack?(): void;
 	goForward?(): void;
 	reload?(): void;
-	stop?(): void;
 	isLoading?(): boolean;
 }
 
@@ -110,95 +103,19 @@ const isElectron = (): boolean => {
 	return /\bElectron\//.test( navigator.userAgent );
 };
 
-const EMPTY_INSPECTOR_STATE: InspectorState = {
-	ready: false,
-	isPicking: false,
-	annotationCount: 0,
-};
-
 const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	canGoBack: false,
 	canGoForward: false,
 	loading: false,
 	progress: 0,
 	title: null,
-	hasAdminBar: false,
-	adminBarBackgroundColor: null,
-	adminBarForegroundColor: null,
 };
 
-const EMPTY_ADMIN_BAR_BROWSER_STATE = {
-	hasAdminBar: false,
-	adminBarBackgroundColor: null,
-	adminBarForegroundColor: null,
-} satisfies Pick<
-	BrowserNavigationState,
-	'hasAdminBar' | 'adminBarBackgroundColor' | 'adminBarForegroundColor'
->;
-
-const ADMIN_BAR_STYLE_SCRIPT = `(() => {
-	const adminBar = document.getElementById( 'wpadminbar' );
-	if ( ! adminBar ) {
-		return { hasAdminBar: false, backgroundColor: null, foregroundColor: null };
-	}
-	const isVisibleColor = ( color ) => {
-		if ( ! color ) {
-			return false;
-		}
-		const normalized = color.replace( /\\s+/g, '' ).toLowerCase();
-		if ( normalized === 'transparent' ) {
-			return false;
-		}
-		const rgba = normalized.match( /^rgba\\([^,]+,[^,]+,[^,]+,([^)]+)\\)$/ );
-		if ( rgba ) {
-			return Number.parseFloat( rgba[ 1 ] ) > 0;
-		}
-		const rgbAlpha = normalized.match( /^rgb\\([^/]+\\/([^)]+)\\)$/ );
-		if ( rgbAlpha ) {
-			const alpha = rgbAlpha[ 1 ].endsWith( '%' )
-				? Number.parseFloat( rgbAlpha[ 1 ] ) / 100
-				: Number.parseFloat( rgbAlpha[ 1 ] );
-			return alpha > 0;
-		}
-		return true;
-	};
-	const getPaintedBackgroundColor = () => {
-		const rect = adminBar.getBoundingClientRect();
-		const y = Math.min( Math.max( rect.top + rect.height / 2, 0 ), window.innerHeight - 1 );
-		const sampleXs = [
-			rect.left + 4,
-			rect.left + rect.width / 4,
-			rect.left + rect.width / 2,
-			rect.right - 4,
-		].filter( ( x ) => x >= 0 && x < window.innerWidth );
-		for ( const x of sampleXs ) {
-			let element = document.elementFromPoint( x, y );
-			while ( element ) {
-				const color = window.getComputedStyle( element ).backgroundColor;
-				if ( isVisibleColor( color ) ) {
-					return color;
-				}
-				if ( element === adminBar ) {
-					break;
-				}
-				element = element.parentElement;
-			}
-		}
-		for ( const element of [ adminBar, ...adminBar.querySelectorAll( '*' ) ] ) {
-			const color = window.getComputedStyle( element ).backgroundColor;
-			if ( isVisibleColor( color ) ) {
-				return color;
-			}
-		}
-		return null;
-	};
-	const style = window.getComputedStyle( adminBar );
-	return {
-		hasAdminBar: true,
-		backgroundColor: getPaintedBackgroundColor(),
-		foregroundColor: style.color || null,
-	};
-})()`;
+const EMPTY_INSPECTOR_STATE: InspectorState = {
+	ready: false,
+	isPicking: false,
+	annotationCount: 0,
+};
 
 function safeWebviewBoolean( webview: WebviewTag | null, method: 'canGoBack' | 'canGoForward' ) {
 	try {
@@ -216,41 +133,8 @@ function safeWebviewIsLoading( webview: WebviewTag | null, fallback: boolean ) {
 	}
 }
 
-function getAdminBarBrowserState( value: unknown ) {
-	if ( ! value || typeof value !== 'object' ) {
-		return EMPTY_ADMIN_BAR_BROWSER_STATE;
-	}
-	const candidate = value as {
-		hasAdminBar?: unknown;
-		backgroundColor?: unknown;
-		foregroundColor?: unknown;
-	};
-	if ( ! candidate.hasAdminBar ) {
-		return EMPTY_ADMIN_BAR_BROWSER_STATE;
-	}
-	return {
-		hasAdminBar: true,
-		adminBarBackgroundColor: normalizeCssColor( candidate.backgroundColor ),
-		adminBarForegroundColor: normalizeCssColor( candidate.foregroundColor ),
-	};
-}
-
-function getIframeAdminBarBrowserState( iframe: HTMLIFrameElement ) {
-	try {
-		const adminBar = iframe.contentDocument?.getElementById( 'wpadminbar' );
-		if ( ! adminBar ) {
-			return EMPTY_ADMIN_BAR_BROWSER_STATE;
-		}
-		const window = iframe.contentWindow;
-		const style = window?.getComputedStyle( adminBar );
-		return {
-			hasAdminBar: true,
-			adminBarBackgroundColor: getIframePaintedAdminBarBackground( iframe, adminBar ),
-			adminBarForegroundColor: normalizeCssColor( style?.color ),
-		};
-	} catch {
-		return EMPTY_ADMIN_BAR_BROWSER_STATE;
-	}
+function normalizeDocumentTitle( value: unknown ) {
+	return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 function getIframeTitle( iframe: HTMLIFrameElement ) {
@@ -261,106 +145,26 @@ function getIframeTitle( iframe: HTMLIFrameElement ) {
 	}
 }
 
-function getIframePaintedAdminBarBackground( iframe: HTMLIFrameElement, adminBar: HTMLElement ) {
-	const window = iframe.contentWindow;
-	const document = iframe.contentDocument;
-	if ( ! window || ! document ) {
-		return null;
-	}
-	const rect = adminBar.getBoundingClientRect();
-	const y = Math.min( Math.max( rect.top + rect.height / 2, 0 ), window.innerHeight - 1 );
-	const sampleXs = [
-		rect.left + 4,
-		rect.left + rect.width / 4,
-		rect.left + rect.width / 2,
-		rect.right - 4,
-	].filter( ( x ) => x >= 0 && x < window.innerWidth );
-	for ( const x of sampleXs ) {
-		let element = document.elementFromPoint( x, y );
-		while ( element ) {
-			const color = window.getComputedStyle( element ).backgroundColor;
-			if ( isVisibleCssColor( color ) ) {
-				return color;
-			}
-			if ( element === adminBar ) {
-				break;
-			}
-			element = element.parentElement;
-		}
-	}
-	for ( const element of [ adminBar, ...adminBar.querySelectorAll( '*' ) ] ) {
-		const color = window.getComputedStyle( element ).backgroundColor;
-		if ( isVisibleCssColor( color ) ) {
-			return color;
-		}
-	}
-	return null;
-}
-
-function normalizeCssColor( value: unknown ) {
-	return typeof value === 'string' && value.trim() ? value : null;
-}
-
-function normalizeDocumentTitle( value: unknown ) {
-	return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function isVisibleCssColor( value: unknown ) {
-	if ( typeof value !== 'string' || ! value.trim() ) {
-		return false;
-	}
-	const normalized = value.replace( /\s+/g, '' ).toLowerCase();
-	if ( normalized === 'transparent' ) {
-		return false;
-	}
-	const rgba = normalized.match( /^rgba\([^,]+,[^,]+,[^,]+,([^)]+)\)$/ );
-	if ( rgba ) {
-		return Number.parseFloat( rgba[ 1 ] ) > 0;
-	}
-	const rgbAlpha = normalized.match( /^rgb\([^/]+\/([^)]+)\)$/ );
-	if ( rgbAlpha ) {
-		const alpha = rgbAlpha[ 1 ].endsWith( '%' )
-			? Number.parseFloat( rgbAlpha[ 1 ] ) / 100
-			: Number.parseFloat( rgbAlpha[ 1 ] );
-		return alpha > 0;
-	}
-	return true;
-}
-
 function getBrowserShortcutDescriptor( key: string ) {
-	const platform = getNavigatorPlatform();
-	const keyLabel = key.toUpperCase();
-	const isMac = isMacPlatform( platform );
-	const modifier = isMac ? '⌘' : 'Ctrl';
-
 	return {
-		displayShortcut: isMac ? `${ modifier }${ keyLabel }` : `${ modifier }+${ keyLabel }`,
-		ariaKeyShortcut: `${ isMac ? 'Meta' : 'Control' }+${ keyLabel }`,
+		displayShortcut: displayShortcut.primary( key ),
+		ariaKeyShortcut: ariaKeyShortcut.primary( key ),
 	};
 }
 
 function getBrowserShortcutCommand(
-	event: Pick<
-		globalThis.KeyboardEvent,
-		'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey' | 'repeat' | 'defaultPrevented'
-	>
+	event: globalThis.KeyboardEvent
 ): BrowserShortcutCommandType | null {
-	if ( event.defaultPrevented || event.repeat || event.shiftKey || event.altKey ) {
+	if ( event.defaultPrevented || event.repeat ) {
 		return null;
 	}
-	const platform = getNavigatorPlatform();
-	const hasPrimaryModifier = isMacPlatform( platform ) ? event.metaKey : event.ctrlKey;
-	if ( ! hasPrimaryModifier ) {
-		return null;
-	}
-	const key = event.key.toLowerCase();
-	if ( key === 'r' ) {
+	if ( isKeyboardEvent.primary( event, 'r' ) ) {
 		return 'reload';
 	}
-	if ( key === '[' ) {
+	if ( isKeyboardEvent.primary( event, '[' ) ) {
 		return 'back';
 	}
-	if ( key === ']' ) {
+	if ( isKeyboardEvent.primary( event, ']' ) ) {
 		return 'forward';
 	}
 	return null;
@@ -393,10 +197,7 @@ function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationS
 		a.canGoForward === b.canGoForward &&
 		a.loading === b.loading &&
 		a.progress === b.progress &&
-		a.title === b.title &&
-		a.hasAdminBar === b.hasAdminBar &&
-		a.adminBarBackgroundColor === b.adminBarBackgroundColor &&
-		a.adminBarForegroundColor === b.adminBarForegroundColor
+		a.title === b.title
 	);
 }
 
@@ -405,56 +206,29 @@ export function SitePreview( {
 	path,
 	reloadNonce,
 	onAnnotationsDone,
-	collapsed = false,
-	layoutWidth,
-	hideResizeHandle = false,
 	onPathChange,
+	collapsed = false,
 }: SitePreviewProps ) {
+	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
+	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
 	const [ browserState, setBrowserState ] =
 		useState< BrowserNavigationState >( EMPTY_BROWSER_STATE );
-	const activeBrowserState = browserState;
-	const toolbarHasAdminBar = canPreview && activeBrowserState.hasAdminBar;
-	const toolbarAdminBarBackground = activeBrowserState.adminBarBackgroundColor ?? '#1d1d1d';
-	const toolbarAdminBarForeground = activeBrowserState.adminBarForegroundColor ?? '#f0f0f1';
-	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
-	const pageTitle = getToolbarPageTitle( activeBrowserState.title, site.name );
-	const toolbarStyle = toolbarHasAdminBar
-		? ( {
-				'--site-preview-toolbar-admin-bar-background': toolbarAdminBarBackground,
-				'--site-preview-toolbar-admin-bar-foreground': toolbarAdminBarForeground,
-		  } as CSSProperties )
-		: undefined;
-	const progress = activeBrowserState.loading
-		? Math.max( activeBrowserState.progress, 0.12 )
-		: activeBrowserState.progress;
-	const showLoadingProgress = canPreview && progress > 0;
-	const [ inspectorState, setInspectorState ] = useState< InspectorState >( EMPTY_INSPECTOR_STATE );
-	const activeInspectorState = inspectorState;
-	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommand | null >( null );
 	const [ browserCommand, setBrowserCommand ] = useState< BrowserCommand | null >( null );
+	const [ inspectorState, setInspectorState ] = useState< InspectorState >( EMPTY_INSPECTOR_STATE );
+	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommand | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const commandIdRef = useRef( 0 );
-	const parentSized = hideResizeHandle && layoutWidth === undefined;
-	const previewResize = useResizablePanel( {
-		config: PREVIEW_PANEL_CONFIG,
-		disabled: hideResizeHandle,
-		edge: 'left',
-		storageKey: PREVIEW_PANEL_STORAGE_KEY,
-	} );
-	const previewStyle = parentSized
-		? ( {
-				'--site-preview-width': `${ previewResize.width }px`,
-		  } as CSSProperties )
-		: ( {
-				'--site-preview-layout-width': `${ layoutWidth ?? previewResize.width }px`,
-				'--site-preview-width': `${ previewResize.width }px`,
-		  } as CSSProperties );
-	const showResizeHandle = ! collapsed && ! hideResizeHandle;
-	const canAnnotate = canPreview && activeInspectorState.ready;
+	const canAnnotate = canPreview && inspectorState.ready;
+	const pageTitle = getToolbarPageTitle( browserState.title, site.name );
+	const progress = browserState.loading
+		? Math.max( browserState.progress, 0.12 )
+		: browserState.progress;
+	const showLoadingProgress = canPreview && progress > 0;
+
 	const handlePreviewNavigation = useCallback(
 		( url: string ) => {
 			const nextPath = getPathFromPreviewUrl( url, siteUrl );
@@ -468,53 +242,17 @@ export function SitePreview( {
 	const handleBrowserStateChange = useCallback( ( state: BrowserNavigationState ) => {
 		setBrowserState( ( current ) => ( areBrowserStatesEqual( current, state ) ? current : state ) );
 	}, [] );
-	const handleInspectorReady = useCallback( () => {
-		setInspectorState( ( current ) => ( {
-			...current,
-			ready: true,
-		} ) );
-	}, [] );
 	const handleInspectorState = useCallback( ( state: InspectorState ) => {
 		setInspectorState( state );
 	}, [] );
-
-	useEffect( () => {
-		if ( typeof document === 'undefined' ) {
-			return;
-		}
-		const body = document.body;
-		body.dataset.sitePreviewToolbarTheme = toolbarHasAdminBar ? 'admin-bar' : 'surface';
-		if ( toolbarHasAdminBar ) {
-			body.style.setProperty(
-				'--site-preview-toggle-active-background',
-				`color-mix(in srgb, ${ toolbarAdminBarBackground } 94%, ${ toolbarAdminBarForeground })`
-			);
-			body.style.setProperty(
-				'--site-preview-toggle-active-background-hover',
-				`color-mix(in srgb, ${ toolbarAdminBarBackground } 90%, ${ toolbarAdminBarForeground })`
-			);
-			body.style.setProperty(
-				'--site-preview-toggle-active-foreground',
-				toolbarAdminBarForeground
-			);
-			body.style.setProperty(
-				'--site-preview-toggle-active-foreground-hover',
-				toolbarAdminBarForeground
-			);
-		} else {
-			body.style.removeProperty( '--site-preview-toggle-active-background' );
-			body.style.removeProperty( '--site-preview-toggle-active-background-hover' );
-			body.style.removeProperty( '--site-preview-toggle-active-foreground' );
-			body.style.removeProperty( '--site-preview-toggle-active-foreground-hover' );
-		}
-		return () => {
-			delete body.dataset.sitePreviewToolbarTheme;
-			body.style.removeProperty( '--site-preview-toggle-active-background' );
-			body.style.removeProperty( '--site-preview-toggle-active-background-hover' );
-			body.style.removeProperty( '--site-preview-toggle-active-foreground' );
-			body.style.removeProperty( '--site-preview-toggle-active-foreground-hover' );
-		};
-	}, [ toolbarAdminBarBackground, toolbarAdminBarForeground, toolbarHasAdminBar ] );
+	const sendBrowserCommand = useCallback( ( type: BrowserCommand[ 'type' ] ) => {
+		commandIdRef.current += 1;
+		setBrowserCommand( { id: commandIdRef.current, type } );
+	}, [] );
+	const sendInspectorCommand = useCallback( ( type: InspectorCommand[ 'type' ] ) => {
+		commandIdRef.current += 1;
+		setInspectorCommand( { id: commandIdRef.current, type } );
+	}, [] );
 
 	const browserShortcuts = useMemo(
 		() => ( {
@@ -524,27 +262,17 @@ export function SitePreview( {
 		} ),
 		[]
 	);
-	const annotateTooltipLabel = activeInspectorState.isPicking
-		? __( 'Stop annotating' )
-		: __( 'Annotate' );
-	const submitAnnotationTooltipLabel = __( 'Submit annotations' );
 
 	useEffect( () => {
 		setBrowserState( EMPTY_BROWSER_STATE );
 		setInspectorState( EMPTY_INSPECTOR_STATE );
 	}, [ site.id ] );
 
-	const sendInspectorCommand = useCallback( ( type: InspectorCommand[ 'type' ] ) => {
-		commandIdRef.current += 1;
-		setInspectorCommand( { id: commandIdRef.current, type } );
-	}, [] );
-	const sendBrowserCommand = useCallback( ( type: BrowserCommand[ 'type' ] ) => {
-		commandIdRef.current += 1;
-		setBrowserCommand( { id: commandIdRef.current, type } );
-	}, [] );
-
+	// Browser shortcuts (⌘R / ⌘[ / ⌘]) pressed while focus is in the host
+	// document. Shortcuts pressed inside the guest page are forwarded by the
+	// inspector script through the console bridge instead.
 	useEffect( () => {
-		if ( collapsed || ! canPreview ) {
+		if ( ! canPreview || collapsed ) {
 			return;
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
@@ -570,187 +298,147 @@ export function SitePreview( {
 	}, [ canPreview, collapsed, sendBrowserCommand ] );
 
 	return (
-		<aside
-			ref={ rootRef }
-			className={ clsx(
-				styles.root,
-				parentSized && styles.rootParentSized,
-				collapsed && styles.rootCollapsed,
-				previewResize.isResizing && styles.rootResizing
-			) }
-			style={ previewStyle }
-			aria-label={ __( 'Site preview' ) }
-			aria-hidden={ collapsed || undefined }
-		>
-			{ showResizeHandle ? (
-				<ResizeHandle
-					className={ styles.resizeHandle }
-					label={ __( 'Resize site preview' ) }
-					minWidth={ previewResize.minWidth }
-					maxWidth={ previewResize.maxWidth }
-					width={ previewResize.width }
-					isResizing={ previewResize.isResizing }
-					onResizeStart={ previewResize.handleResizeStart }
-					onKeyDown={ previewResize.handleKeyDown }
-				/>
-			) : null }
-			<div className={ styles.viewport }>
-				<div className={ styles.surface }>
-					{ canPreview ? (
-						<div
-							className={ clsx( styles.header, toolbarHasAdminBar && styles.headerAdminBar ) }
-							style={ toolbarStyle }
-						>
-							<div className={ styles.browserControls } aria-label={ __( 'Browser navigation' ) }>
-								<IconButton
-									className={ styles.browserControlButton }
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ chevronLeft }
-									label={ __( 'Back' ) }
-									shortcut={ browserShortcuts.back }
-									disabled={ ! activeBrowserState.canGoBack }
-									onClick={ () => sendBrowserCommand( 'back' ) }
-								/>
-								<IconButton
-									className={ styles.browserControlButton }
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ chevronRight }
-									label={ __( 'Forward' ) }
-									shortcut={ browserShortcuts.forward }
-									disabled={ ! activeBrowserState.canGoForward }
-									onClick={ () => sendBrowserCommand( 'forward' ) }
-								/>
-								<IconButton
-									className={ styles.browserControlButton }
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ refreshIcon }
-									label={ __( 'Refresh' ) }
-									shortcut={ browserShortcuts.reload }
-									onClick={ () => sendBrowserCommand( 'reload' ) }
-								/>
-							</div>
-							<div className={ styles.browserLocation }>
-								<ToolbarTooltip label={ previewUrl }>
-									<span className={ styles.browserTitle }>{ pageTitle }</span>
-								</ToolbarTooltip>
-							</div>
-							<div className={ styles.annotationControls }>
-								<ToolbarTooltip label={ annotateTooltipLabel }>
-									<button
-										type="button"
-										className={ clsx(
-											styles.annotationButton,
-											activeInspectorState.isPicking && styles.annotationButtonActive
-										) }
-										disabled={ ! canAnnotate }
-										aria-label={ annotateTooltipLabel }
-										aria-pressed={ activeInspectorState.isPicking }
-										onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-									>
-										{ activeInspectorState.isPicking ? __( 'Picking...' ) : __( 'Annotate' ) }
-									</button>
-								</ToolbarTooltip>
-								{ activeInspectorState.annotationCount > 0 ? (
-									<ToolbarTooltip label={ submitAnnotationTooltipLabel }>
-										<button
-											type="button"
-											className={ clsx( styles.annotationButton, styles.annotationButtonPrimary ) }
-											disabled={ ! canAnnotate }
-											aria-label={ submitAnnotationTooltipLabel }
-											onClick={ () => sendInspectorCommand( 'submit' ) }
-										>
-											<span>{ __( 'Submit' ) }</span>
-											<span className={ styles.annotationCount }>
-												{ activeInspectorState.annotationCount }
-											</span>
-										</button>
-									</ToolbarTooltip>
-								) : null }
-							</div>
+		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
+			<div className={ styles.header }>
+				{ canPreview ? (
+					<>
+						<div className={ styles.browserControls } aria-label={ __( 'Browser navigation' ) }>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ chevronLeft }
+								label={ __( 'Back' ) }
+								shortcut={ browserShortcuts.back }
+								disabled={ ! browserState.canGoBack }
+								onClick={ () => sendBrowserCommand( 'back' ) }
+							/>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ chevronRight }
+								label={ __( 'Forward' ) }
+								shortcut={ browserShortcuts.forward }
+								disabled={ ! browserState.canGoForward }
+								onClick={ () => sendBrowserCommand( 'forward' ) }
+							/>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ refreshIcon }
+								label={ __( 'Refresh' ) }
+								shortcut={ browserShortcuts.reload }
+								onClick={ () => sendBrowserCommand( 'reload' ) }
+							/>
 						</div>
-					) : null }
-					{ showLoadingProgress ? (
-						<div className={ styles.loadingProgress } aria-hidden="true">
-							<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />
+						<div className={ styles.browserLocation }>
+							<ToolbarTooltip label={ previewUrl }>
+								<span className={ styles.browserTitle }>{ pageTitle }</span>
+							</ToolbarTooltip>
 						</div>
-					) : null }
-					<div className={ styles.body }>
-						{ canPreview ? (
-							isElectron() ? (
-								<WebviewSurface
-									key={ site.id }
-									active={ ! collapsed }
-									url={ previewUrl }
-									reloadNonce={ reloadNonce }
-									onAnnotationsDone={ onAnnotationsDone }
-									onInspectorReady={ handleInspectorReady }
-									onInspectorState={ handleInspectorState }
-									inspectorCommand={ inspectorCommand }
-									browserCommand={ browserCommand }
-									onBrowserStateChange={ handleBrowserStateChange }
-									onBrowserCommand={ sendBrowserCommand }
-									onNavigate={ handlePreviewNavigation }
-								/>
-							) : (
-								<div
-									className={ clsx(
-										styles.previewSurface,
-										! collapsed && styles.previewSurfaceActive
-									) }
-									aria-hidden={ collapsed }
-								>
-									<iframe
-										key={ `${ previewUrl }#${ reloadNonce }#${
-											browserCommand?.type === 'reload' ? browserCommand.id : 0
-										}` }
-										className={ styles.iframe }
-										src={ previewUrl }
-										title={ site.name }
-										onLoad={ ( event ) => {
-											handlePreviewNavigation( event.currentTarget.src );
-											setBrowserState( ( current ) => {
-												const next = {
-													...current,
-													loading: false,
-													progress: 0,
-													title: getIframeTitle( event.currentTarget ),
-													...getIframeAdminBarBrowserState( event.currentTarget ),
-												};
-												return areBrowserStatesEqual( current, next ) ? current : next;
-											} );
-										} }
-									/>
-								</div>
-							)
-						) : (
-							<div className={ styles.empty }>
-								<p className={ styles.emptyText }>
-									{ __( 'Start the site to see a live preview.' ) }
-								</p>
+						<div className={ styles.annotationControls }>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ pencil }
+								label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
+								disabled={ ! canAnnotate }
+								aria-pressed={ inspectorState.isPicking }
+								onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
+							/>
+							{ inspectorState.annotationCount > 0 ? (
 								<Button
 									variant="solid"
 									tone="brand"
-									loading={ isStarting }
-									loadingAnnouncement={ __( 'Starting site' ) }
-									onClick={ () => startSite.mutate( site.id ) }
+									size="small"
+									disabled={ ! canAnnotate }
+									aria-label={ __( 'Submit annotations' ) }
+									onClick={ () => sendInspectorCommand( 'submit' ) }
 								>
-									<span className={ styles.startIcon } aria-hidden="true">
-										{ playIcon }
-									</span>
-									{ __( 'Start site' ) }
+									{ __( 'Submit' ) }
 								</Button>
-							</div>
-						) }
+							) : null }
+						</div>
+					</>
+				) : (
+					<span className={ styles.headerSpacer } aria-hidden="true" />
+				) }
+				<span className={ styles.separator } aria-hidden="true" />
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ external }
+					label={ __( 'Open site in browser' ) }
+					disabled={ ! canPreview }
+					onClick={ () => void connector.openExternalUrl( previewUrl ) }
+				/>
+				{ showLoadingProgress ? (
+					<div className={ styles.loadingProgress } aria-hidden="true">
+						<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />
 					</div>
-				</div>
+				) : null }
 			</div>
-			{ previewResize.isResizing ? <ResizeOverlay /> : null }
+			<div className={ styles.body }>
+				{ canPreview ? (
+					isElectron() ? (
+						<WebviewSurface
+							key={ site.id }
+							url={ previewUrl }
+							reloadNonce={ reloadNonce }
+							onAnnotationsDone={ onAnnotationsDone }
+							onInspectorState={ handleInspectorState }
+							inspectorCommand={ inspectorCommand }
+							browserCommand={ browserCommand }
+							onBrowserStateChange={ handleBrowserStateChange }
+							onBrowserCommand={ sendBrowserCommand }
+							onNavigate={ handlePreviewNavigation }
+						/>
+					) : (
+						// Non-Electron fallback: plain iframe, no inspector. Reloads
+						// by remounting; back/forward aren't reachable from the host.
+						<iframe
+							key={ `${ previewUrl }#${ reloadNonce }#${
+								browserCommand?.type === 'reload' ? browserCommand.id : 0
+							}` }
+							className={ styles.iframe }
+							src={ previewUrl }
+							title={ site.name }
+							onLoad={ ( event ) => {
+								handlePreviewNavigation( event.currentTarget.src );
+								setBrowserState( ( current ) => {
+									const next = {
+										...current,
+										loading: false,
+										progress: 0,
+										title: getIframeTitle( event.currentTarget ),
+									};
+									return areBrowserStatesEqual( current, next ) ? current : next;
+								} );
+							} }
+						/>
+					)
+				) : (
+					<div className={ styles.empty }>
+						<p className={ styles.emptyText }>{ __( 'Start the site to see a live preview.' ) }</p>
+						<Button
+							variant="solid"
+							tone="brand"
+							loading={ isStarting }
+							loadingAnnouncement={ __( 'Starting site' ) }
+							onClick={ () => startSite.mutate( site.id ) }
+						>
+							<span className={ styles.startIcon } aria-hidden="true">
+								{ playIcon }
+							</span>
+							{ __( 'Start site' ) }
+						</Button>
+					</div>
+				) }
+			</div>
 		</aside>
 	);
 }
@@ -759,19 +447,19 @@ function getSafePath( path: unknown ) {
 	return typeof path === 'string' && path.trim() ? path : '/';
 }
 
-function getToolbarPageTitle( title: string | null, siteName: string ) {
+export function getToolbarPageTitle( title: string | null, siteName: string ) {
 	const trimmedTitle = normalizeDocumentTitle( title );
 	if ( trimmedTitle ) {
-		const [ wordPressAdminTitle ] = trimmedTitle.split( /\s+\u2039\s+/ );
+		const [ wordPressAdminTitle ] = trimmedTitle.split( /\s+‹\s+/ );
 		const withoutWordPressSuffix = wordPressAdminTitle
-			.replace( /\s+[\u2013\u2014-]\s+WordPress$/i, '' )
+			.replace( /\s+[–—-]\s+WordPress$/i, '' )
 			.trim();
 		return withoutWordPressSuffix || trimmedTitle;
 	}
 	return siteName || __( 'Site preview' );
 }
 
-function getPathFromPreviewUrl( url: string, baseUrl: string ) {
+export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
 		const parsedUrl = new URL( url );
 		const parsedBaseUrl = new URL( baseUrl );
@@ -785,11 +473,9 @@ function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 }
 
 interface WebviewSurfaceProps {
-	active: boolean;
 	url: string;
 	reloadNonce: number;
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
-	onInspectorReady?: () => void;
 	onInspectorState?: ( state: InspectorState ) => void;
 	inspectorCommand?: InspectorCommand | null;
 	browserCommand?: BrowserCommand | null;
@@ -807,11 +493,9 @@ interface WebviewSurfaceProps {
  * which we receive through the webview's `console-message` event.
  */
 function WebviewSurface( {
-	active,
 	url,
 	reloadNonce,
 	onAnnotationsDone,
-	onInspectorReady,
 	onInspectorState,
 	inspectorCommand,
 	browserCommand,
@@ -822,7 +506,6 @@ function WebviewSurface( {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
 	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
-	const onInspectorReadyRef = useRef( onInspectorReady );
 	const onInspectorStateRef = useRef( onInspectorState );
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onBrowserCommandRef = useRef( onBrowserCommand );
@@ -836,9 +519,6 @@ function WebviewSurface( {
 	useEffect( () => {
 		onAnnotationsDoneRef.current = onAnnotationsDone;
 	}, [ onAnnotationsDone ] );
-	useEffect( () => {
-		onInspectorReadyRef.current = onInspectorReady;
-	}, [ onInspectorReady ] );
 	useEffect( () => {
 		onInspectorStateRef.current = onInspectorState;
 	}, [ onInspectorState ] );
@@ -886,12 +566,14 @@ function WebviewSurface( {
 		}
 	}, [] );
 
+	// The webview emits no incremental load progress, so the bar is
+	// simulated: it eases toward 88% while loading and snaps to 100% on
+	// completion before resetting.
 	const startProgress = useCallback( () => {
 		clearProgressTimers();
 		publishBrowserState( {
 			loading: true,
 			progress: Math.max( browserStateRef.current.progress, 0.12 ),
-			...EMPTY_ADMIN_BAR_BROWSER_STATE,
 		} );
 		progressTimerRef.current = setInterval( () => {
 			const current = browserStateRef.current.progress;
@@ -922,17 +604,6 @@ function WebviewSurface( {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
 
-		const detectAdminBar = () => {
-			webview
-				.executeJavaScript( ADMIN_BAR_STYLE_SCRIPT, false )
-				.then( ( adminBarStyle ) => {
-					publishBrowserState( getAdminBarBrowserState( adminBarStyle ) );
-				} )
-				.catch( () => {
-					publishBrowserState( EMPTY_ADMIN_BAR_BROWSER_STATE );
-				} );
-		};
-
 		const publishDocumentTitle = ( title?: unknown ) => {
 			if ( typeof title === 'string' ) {
 				publishBrowserState( { title: normalizeDocumentTitle( title ) } );
@@ -950,13 +621,13 @@ function WebviewSurface( {
 		const handleDomReady = () => {
 			domReadyRef.current = true;
 			setReady( true );
-			publishBrowserState( EMPTY_ADMIN_BAR_BROWSER_STATE );
-			detectAdminBar();
 			publishDocumentTitle();
 			webview
 				.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false )
 				.then( () => {
-					onInspectorReadyRef.current?.();
+					// The injected script reports the real picking/count state
+					// through the console bridge; this just flips `ready` so the
+					// host controls enable without waiting for that round-trip.
 					onInspectorStateRef.current?.( {
 						ready: true,
 						isPicking: false,
@@ -1000,23 +671,29 @@ function WebviewSurface( {
 		const handlePageTitleUpdated = ( event: Event ) => {
 			publishDocumentTitle( ( event as WebviewPageTitleUpdatedEvent ).title );
 		};
+		// `did-finish-load` and `did-stop-loading` both fire at the end of a
+		// successful load; without a per-load guard the title query would run
+		// once per event instead of once per navigation.
+		let didReadTitleAfterLoad = false;
 		const handleNavigate = ( event: Event ) => {
 			const navigateEvent = event as { url?: unknown };
 			if ( typeof navigateEvent.url === 'string' ) {
 				currentUrlRef.current = navigateEvent.url;
 				onNavigateRef.current?.( navigateEvent.url );
 			}
+			didReadTitleAfterLoad = false;
 			publishBrowserState();
 		};
 		const handleStartLoading = () => {
+			didReadTitleAfterLoad = false;
 			onInspectorStateRef.current?.( EMPTY_INSPECTOR_STATE );
 			publishBrowserState( { title: null } );
 			startProgress();
 		};
 		const handleStopLoading = () => {
 			finishProgress();
-			if ( domReadyRef.current ) {
-				detectAdminBar();
+			if ( domReadyRef.current && ! didReadTitleAfterLoad ) {
+				didReadTitleAfterLoad = true;
 				publishDocumentTitle();
 			}
 		};
@@ -1046,15 +723,11 @@ function WebviewSurface( {
 		};
 	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );
 
-	useEffect( () => {
-		if ( active ) {
-			publishBrowserState();
-		}
-	}, [ active, publishBrowserState ] );
-
 	// Navigation effect — gated on `ready` so the first call happens after
 	// `dom-ready`. If url/nonce changed while loading, the latest values are
-	// flushed when `ready` flips to true.
+	// flushed when `ready` flips to true. In-preview navigation reported via
+	// `onNavigate` round-trips through the parent's `path` state, so skip the
+	// reload when the webview is already showing the requested url.
 	useEffect( () => {
 		if ( ! ready ) return;
 		if ( url === initialNav.url && reloadNonce === initialNav.reloadNonce ) return;
@@ -1092,20 +765,14 @@ function WebviewSurface( {
 				webview.goForward?.();
 			} else if ( browserCommand.type === 'reload' ) {
 				webview.reload?.();
-			} else if ( browserCommand.type === 'stop' ) {
-				webview.stop?.();
-				finishProgress();
 			}
 		} finally {
 			publishBrowserState();
 		}
-	}, [ browserCommand, finishProgress, publishBrowserState, ready ] );
+	}, [ browserCommand, publishBrowserState, ready ] );
 
 	return (
-		<div
-			className={ clsx( styles.previewSurface, active && styles.previewSurfaceActive ) }
-			aria-hidden={ ! active }
-		>
+		<>
 			<webview
 				ref={ ref }
 				src={ initialNav.url }
@@ -1113,11 +780,11 @@ function WebviewSurface( {
 				allowpopups={ true }
 				partition="persist:site-preview"
 			/>
-			{ active && ! ready ? (
+			{ ! ready ? (
 				<div className={ styles.spinnerOverlay } aria-hidden="true">
 					<span className={ styles.spinner } />
 				</div>
 			) : null }
-		</div>
+		</>
 	);
 }

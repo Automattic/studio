@@ -9,20 +9,22 @@ import {
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { __ } from '@wordpress/i18n';
+import { image, page } from '@wordpress/icons';
+import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import { Markdown } from '@/components/markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
-import type { LoadedAiSession, StudioChatImageAttachment } from '@/data/core';
+import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 type RenderItem =
 	| {
-			kind: 'user-turn';
+			kind: 'user-text';
 			key: string;
 			text: string;
-			attachments: UserImageAttachment[];
+			attachments?: StudioChatAttachmentSummary[];
 	  }
 	| { kind: 'assistant-text'; key: string; text: string }
 	| {
@@ -53,17 +55,6 @@ interface PiAssistantMessageLike {
 	content: PiAssistantContentBlock[];
 }
 
-interface PiImageContentBlock {
-	type: 'image';
-	data: string;
-	mimeType: string;
-}
-
-interface PiUserMessageLike {
-	role: 'user';
-	content: string | Array< { type: string; text?: string; data?: string; mimeType?: string } >;
-}
-
 interface PiToolResultLike {
 	role: 'toolResult';
 	toolCallId: string;
@@ -72,77 +63,6 @@ interface PiToolResultLike {
 }
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
-
-interface UserImageAttachment extends StudioChatImageAttachment {
-	src?: string;
-}
-
-type UserPromptAttachmentMetadata = StudioChatAttachmentSummary | StudioChatImageAttachment;
-
-function isUserImageAttachmentMetadata(
-	attachment: UserPromptAttachmentMetadata
-): attachment is StudioChatImageAttachment & { previewDataUrl?: string } {
-	return ! ( 'kind' in attachment ) || attachment.kind === 'image';
-}
-
-function getUserImageBlocksAfter(
-	entries: SessionEntry[],
-	entryIndex: number
-): PiImageContentBlock[] {
-	for ( let i = entryIndex + 1; i < entries.length; i += 1 ) {
-		const entry = entries[ i ];
-		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
-			return [];
-		}
-		if ( entry.type !== 'message' ) {
-			continue;
-		}
-		const message = ( entry as { message?: unknown } ).message as PiUserMessageLike | undefined;
-		if ( ! message || message.role !== 'user' || ! Array.isArray( message.content ) ) {
-			return [];
-		}
-		return message.content
-			.filter(
-				( block ): block is PiImageContentBlock =>
-					block.type === 'image' &&
-					typeof block.data === 'string' &&
-					typeof block.mimeType === 'string' &&
-					block.mimeType.startsWith( 'image/' )
-			)
-			.map( ( block ) => ( {
-				type: 'image',
-				data: block.data,
-				mimeType: block.mimeType,
-			} ) );
-	}
-	return [];
-}
-
-function buildUserImageAttachments(
-	metadata: UserPromptAttachmentMetadata[] | undefined,
-	imageBlocks: PiImageContentBlock[]
-): UserImageAttachment[] {
-	const imageMetadata = metadata?.filter( isUserImageAttachmentMetadata );
-	const max = Math.max( imageMetadata?.length ?? 0, imageBlocks.length );
-	const attachments: UserImageAttachment[] = [];
-	for ( let index = 0; index < max; index += 1 ) {
-		const meta = imageMetadata?.[ index ];
-		const block = imageBlocks[ index ];
-		if ( ! meta && ! block ) {
-			continue;
-		}
-		attachments.push( {
-			id: meta?.id ?? `${ index }`,
-			name: meta?.name ?? __( 'Attached image' ),
-			mimeType: meta?.mimeType ?? ( block?.mimeType as StudioChatImageAttachment[ 'mimeType' ] ),
-			size: meta?.size ?? 0,
-			width: meta?.width,
-			height: meta?.height,
-			src: block ? `data:${ block.mimeType };base64,${ block.data }` : meta?.previewDataUrl,
-		} );
-	}
-	return attachments;
-}
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
@@ -167,12 +87,11 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) return;
-			const imageBlocks = getUserImageBlocksAfter( entries, entryIndex );
 			items.push( {
-				kind: 'user-turn',
+				kind: 'user-text',
 				key: `${ entryIndex }:user`,
 				text: data.text,
-				attachments: buildUserImageAttachments( data.attachments, imageBlocks ),
+				attachments: data.attachments,
 			} );
 			return;
 		}
@@ -258,28 +177,42 @@ function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 	return null;
 }
 
-function UserTurn( { text, attachments }: { text: string; attachments: UserImageAttachment[] } ) {
+function UserTurn( {
+	text,
+	attachments,
+}: {
+	text: string;
+	attachments?: StudioChatAttachmentSummary[];
+} ) {
 	return (
 		<div className={ styles.userTurn }>
-			{ attachments.length > 0 ? (
-				<div className={ styles.userAttachments }>
-					{ attachments.map( ( attachment ) => (
-						<div key={ attachment.id } className={ styles.userAttachment }>
-							{ attachment.src ? (
+			<div className={ styles.userText }>{ text }</div>
+			{ attachments && attachments.length > 0 ? (
+				<ul className={ styles.userAttachments }>
+					{ attachments.map( ( attachment, index ) =>
+						attachment.kind === 'image' && attachment.previewDataUrl ? (
+							<li
+								key={ `${ attachment.name }:${ index }` }
+								className={ styles.userAttachmentThumbItem }
+							>
 								<img
-									className={ styles.userAttachmentImage }
-									src={ attachment.src }
+									className={ styles.userAttachmentThumb }
+									src={ attachment.previewDataUrl }
 									alt={ attachment.name }
-									draggable={ false }
+									title={ attachment.name }
 								/>
-							) : (
-								<span className={ styles.userAttachmentFallback }>{ attachment.name }</span>
-							) }
-						</div>
-					) ) }
-				</div>
+							</li>
+						) : (
+							<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachmentChip }>
+								<Icon icon={ attachment.kind === 'image' ? image : page } size={ 16 } />
+								<span className={ styles.userAttachmentName } title={ attachment.name }>
+									{ attachment.name }
+								</span>
+							</li>
+						)
+					) }
+				</ul>
 			) : null }
-			{ text ? <div className={ styles.userText }>{ text }</div> : null }
 		</div>
 	);
 }
@@ -404,7 +337,7 @@ export function Conversation( {
 		<div className={ styles.root }>
 			{ items.map( ( item ) => {
 				switch ( item.kind ) {
-					case 'user-turn':
+					case 'user-text':
 						return (
 							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
 						);

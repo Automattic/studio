@@ -5,12 +5,12 @@
    overrides are needed here. */
 .root {
 	justify-content: flex-start;
-	/* @wordpress/ui 0.14 centers button content with both justify-content and
-	   text-align; neutralize the text-align too so sidebar row labels stay
-	   left-aligned. */
-	text-align: start;
 	min-width: 0;
 	background-color: transparent;
-	background-clip: border-box;
 	border-color: transparent;
+
+	/* The primitive clips the background to the padding box, which insets any
+	   row highlight by the 1px (transparent) border and shrinks its corner
+	   radius, making button rows render differently from plain-div rows. */
+	background-clip: border-box;
 }

@@ -235,19 +235,21 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		}
 	} );
 
-	let didCleanup = false;
 	const cleanup = ( code: number | null ) => {
-		if ( didCleanup ) {
-			return;
-		}
-		didCleanup = true;
-
 		runsBySessionId.delete( sessionId );
 		runsById.delete( runId );
 
 		bumpCodeRunStat( run, code );
 
-		void run.eventQueue.finally( async () => {
+		if ( inputPayload ) {
+			fs.rm( inputPayload.dir, { recursive: true, force: true }, ( error ) => {
+				if ( error ) {
+					console.warn( 'Failed to clean AI session input payload', error );
+				}
+			} );
+		}
+
+		void run.eventQueue.finally( () => {
 			if ( run.interrupted ) {
 				sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
 			}
@@ -257,13 +259,6 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 				status: code === 0 ? 'success' : 'error',
 				code,
 			} );
-			if ( inputPayload ) {
-				fs.rm( inputPayload.dir, { recursive: true, force: true }, ( error ) => {
-					if ( error ) {
-						console.warn( 'Failed to clean AI session input payload', error );
-					}
-				} );
-			}
 		} );
 	};
 
@@ -273,7 +268,6 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 			timestamp: nowIso(),
 			message: error.message || 'CLI subprocess failed to start',
 		} );
-		cleanup( null );
 	} );
 
 	child.on( 'exit', cleanup );

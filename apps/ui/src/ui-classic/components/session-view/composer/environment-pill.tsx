@@ -1,12 +1,10 @@
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { chevronDownSmall } from '@wordpress/icons';
-import { Icon, Tooltip } from '@wordpress/ui';
-import { useState } from 'react';
+import { Icon } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
 import { useSetSessionEnvironment } from '@/data/queries/use-sessions';
 import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
-import type { ReactElement } from 'react';
 
 interface EnvironmentPillProps {
 	sessionId: string;
@@ -20,40 +18,6 @@ function pickLiveSite( connectedSites: SyncSite[] | undefined ): SyncSite | unde
 		return undefined;
 	}
 	return connectedSites.find( ( site ) => ! site.isStaging ) ?? connectedSites[ 0 ];
-}
-
-function EnvironmentTooltip( {
-	label,
-	children,
-}: {
-	label: string;
-	children: ReactElement< Record< string, unknown > >;
-} ) {
-	return (
-		<Tooltip.Provider delay={ 0 }>
-			<Tooltip.Root>
-				<Tooltip.Trigger render={ children } />
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
-			</Tooltip.Root>
-		</Tooltip.Provider>
-	);
-}
-
-function EnvironmentMenuTrigger( {
-	label,
-	children,
-}: {
-	label: string;
-	children: ReactElement< Record< string, unknown > >;
-} ) {
-	return (
-		<Tooltip.Provider delay={ 0 }>
-			<Tooltip.Root>
-				<Menu.Trigger render={ <Tooltip.Trigger render={ children } /> } />
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
-			</Tooltip.Root>
-		</Tooltip.Provider>
-	);
 }
 
 /**
@@ -74,10 +38,8 @@ export function EnvironmentPill( {
 	disabled = false,
 }: EnvironmentPillProps ) {
 	const setEnvironment = useSetSessionEnvironment( sessionId, liveSite?.id );
-	const [ menuOpen, setMenuOpen ] = useState( false );
 	const isLive = effectiveEnvironment === 'live';
 	const label = isLive ? __( 'Live' ) : __( 'Local' );
-	const tooltipLabel = sprintf( __( 'Environment: %s' ), label );
 	const canGoLive = !! liveSite;
 
 	const onValueChange = ( value: string ) => {
@@ -85,43 +47,41 @@ export function EnvironmentPill( {
 			return;
 		}
 		if ( value === effectiveEnvironment ) {
-			setMenuOpen( false );
 			return;
 		}
 		if ( value === 'live' && ! canGoLive ) {
 			return;
 		}
 		setEnvironment.mutate( value );
-		setMenuOpen( false );
 	};
 
 	if ( disabled ) {
 		return (
-			<EnvironmentTooltip label={ tooltipLabel }>
-				<button type="button" className={ styles.pill } aria-label={ tooltipLabel } disabled>
-					<span
-						className={ `${ styles.pillDot } ${ isLive ? styles.pillDotLive : '' }` }
-						aria-hidden="true"
-					/>
-					<span>{ label }</span>
-					<Icon icon={ chevronDownSmall } size={ 16 } />
-				</button>
-			</EnvironmentTooltip>
+			<button type="button" className={ styles.pill } disabled>
+				<span
+					className={ `${ styles.pillDot } ${ isLive ? styles.pillDotLive : '' }` }
+					aria-hidden="true"
+				/>
+				<span>{ label }</span>
+				<Icon icon={ chevronDownSmall } size={ 16 } />
+			</button>
 		);
 	}
 
 	return (
-		<Menu.Root modal={ false } open={ menuOpen } onOpenChange={ setMenuOpen }>
-			<EnvironmentMenuTrigger label={ tooltipLabel }>
-				<button type="button" className={ styles.pill } aria-label={ tooltipLabel }>
-					<span
-						className={ `${ styles.pillDot } ${ isLive ? styles.pillDotLive : '' }` }
-						aria-hidden="true"
-					/>
-					<span>{ label }</span>
-					<Icon icon={ chevronDownSmall } size={ 16 } />
-				</button>
-			</EnvironmentMenuTrigger>
+		<Menu.Root modal={ false }>
+			<Menu.Trigger
+				render={
+					<button type="button" className={ styles.pill }>
+						<span
+							className={ `${ styles.pillDot } ${ isLive ? styles.pillDotLive : '' }` }
+							aria-hidden="true"
+						/>
+						<span>{ label }</span>
+						<Icon icon={ chevronDownSmall } size={ 16 } />
+					</button>
+				}
+			/>
 			<Menu.Popup side="top" align="end" className={ styles.envMenuPopup }>
 				<Menu.RadioGroup value={ effectiveEnvironment } onValueChange={ onValueChange }>
 					<Menu.RadioItem value="local">{ __( 'Local' ) }</Menu.RadioItem>

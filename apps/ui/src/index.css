@@ -2,17 +2,6 @@
 	/* Default is 2px; 4px reads a bit softer. */
 	--wpds-border-radius-sm: 4px;
 
-	/* The design system's default body size (md) is 13px, which reads small in
-	   the desktop chrome. Bump it a step for legibility — md drives body text,
-	   site names, and nav labels. Loaded after design-tokens.css so this wins. */
-	--wpds-typography-font-size-md: 14px;
-
-	--site-preview-header-height: 54px;
-	--site-preview-control-height: 38px;
-	--site-preview-toggle-offset-block: calc(
-		( var( --site-preview-header-height ) - var( --site-preview-control-height ) ) / 2
-	);
-
 	/* Overlay stacking — portals mount into `document.body` and must beat
 	   app-chrome stacking contexts (sidebar header z-index: 1, floating
 	   toggle z-index: 10). Menus stay below modal surfaces; tooltips live
@@ -56,10 +45,6 @@ body {
 	color-scheme: light dark;
 	scrollbar-width: thin;
 	scrollbar-color: gray transparent;
-}
-
-body[data-studio-ui-mode='classic'] {
-	background-color: transparent;
 }
 
 /* Universal heading styles derived from the design system's font-size /
@@ -150,11 +135,6 @@ a:focus:not( :focus-visible ),
 [data-wpds-density='compact'] [data-ui-mode='classic'] svg {
 	width: 16px;
 	height: 16px;
-}
-
-[data-wpds-density='compact'] [data-ui-mode='classic'] [data-sidebar-primary-icon] {
-	width: 22px;
-	height: 22px;
 }
 
 /* Desks uses each shape's indicator as the visible selection outline.

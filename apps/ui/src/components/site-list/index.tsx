@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams, useRouterState } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	box,
@@ -17,13 +17,9 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { SiteIcon } from '@/components/site-icon';
 import { Spinner } from '@/components/spinner';
+import { useConnector } from '@/data/core';
 import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
-import {
-	useArchiveSession,
-	useSessions,
-	useUnarchiveSession,
-	useUpdateSessionMetadata,
-} from '@/data/queries/use-sessions';
+import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
 	useDeleteSite,
@@ -35,7 +31,9 @@ import {
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { formatRelativeTime } from '@/lib/format-relative-time';
+import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -57,10 +55,14 @@ function groupSessionsByOwner(
 	const unassigned: AiSessionSummary[] = [];
 
 	for ( const session of sessions ?? [] ) {
+		// Archived chats stay out of the sidebar; they remain reachable from
+		// the session data and will get a dedicated list with the site
+		// overview screens.
+		if ( session.archived ) {
+			continue;
+		}
 		if ( ! session.ownerSitePath || ! knownSitePaths.has( session.ownerSitePath ) ) {
-			if ( ! session.archived ) {
-				unassigned.push( session );
-			}
+			unassigned.push( session );
 			continue;
 		}
 
@@ -109,13 +111,12 @@ function groupSessionsByOwner(
 
 function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
 	const updateSessionMetadata = useUpdateSessionMetadata();
-	const archiveSession = useArchiveSession();
-	const unarchiveSession = useUnarchiveSession();
-	const isPending =
-		updateSessionMetadata.isPending || archiveSession.isPending || unarchiveSession.isPending;
+	const isPending = updateSessionMetadata.isPending;
 	const starred = !! session.starred;
 	const archived = !! session.archived;
 
+	// Same persistence path as the ui-desks chats panel: optimistic
+	// starred/archived patches through `connector.updateSessionMetadata`.
 	const updateMetadata = ( patch: { starred: boolean; archived: boolean } ) => {
 		updateSessionMetadata.mutate( {
 			sessionId: session.id,
@@ -148,9 +149,7 @@ function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
 				</Menu.Item>
 				<Menu.Item
 					disabled={ isPending }
-					onClick={ () =>
-						archived ? unarchiveSession.mutate( session ) : archiveSession.mutate( session )
-					}
+					onClick={ () => updateMetadata( { starred, archived: ! archived } ) }
 				>
 					<Icon icon={ box } size={ 16 } />
 					{ archived ? __( 'Unarchive conversation' ) : __( 'Archive conversation' ) }
@@ -207,13 +206,28 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 				</span>
 				<span className={ styles.sessionTime }>{ formatRelativeTime( session.updatedAt ) }</span>
 			</SidebarButton>
-			{ ! isRunning ? (
+			{ isVisible && ! isRunning ? (
 				<div className={ styles.sessionActions }>
 					<SessionActionsMenu session={ session } />
 				</div>
 			) : null }
 		</li>
 	);
+}
+
+function useNewSessionAction( site: SiteDetails ) {
+	const navigate = useNavigate();
+	const [ isPending, setIsPending ] = useState( false );
+	const handleClick = async () => {
+		setIsPending( true );
+		try {
+			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		} finally {
+			setIsPending( false );
+		}
+	};
+
+	return { isPending, handleClick };
 }
 
 function NewSessionButton( { site }: { site: SiteDetails } ) {
@@ -250,21 +264,6 @@ function NewSessionTextButton( { site }: { site: SiteDetails } ) {
 			{ __( 'New chat' ) }
 		</Button>
 	);
-}
-
-function useNewSessionAction( site: SiteDetails ) {
-	const navigate = useNavigate();
-	const [ isPending, setIsPending ] = useState( false );
-	const handleClick = async () => {
-		setIsPending( true );
-		try {
-			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
-		} finally {
-			setIsPending( false );
-		}
-	};
-
-	return { isPending, handleClick };
 }
 
 function DeleteSiteDialog( {
@@ -362,6 +361,8 @@ function SiteActionsMenu( {
 	isStopping: boolean;
 } ) {
 	const navigate = useNavigate();
+	const connector = useConnector();
+	const { data: userPreferences } = useUserPreferences();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const copySite = useCopySite();
@@ -370,6 +371,44 @@ function SiteActionsMenu( {
 	const busy = isStarting || isStopping;
 	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
+
+	const handleOpenFolder = () => {
+		void connector.openSiteFolder( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site folder:', error );
+		} );
+	};
+
+	const handleOpenInEditor = () => {
+		// No editor preference yet — send the user to Settings so they can
+		// pick one before the action becomes useful.
+		if ( ! userPreferences?.editor ) {
+			void navigate( { to: '/settings' } );
+			return;
+		}
+		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site in editor:', error );
+		} );
+	};
+
+	const handleOpenInTerminal = () => {
+		void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site in terminal:', error );
+		} );
+	};
+
+	const handleOpenPhpMyAdmin = () => {
+		void connector.openExternalUrl(
+			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
+		);
+	};
+
+	const handleOpenWpAdmin = () => {
+		const siteUrl = getSiteUrl( site );
+		const redirectTo = new URL( '/wp-admin/', siteUrl ).toString();
+		const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
+		autoLoginUrl.searchParams.set( 'redirect_to', redirectTo );
+		void connector.openExternalUrl( autoLoginUrl.toString() );
+	};
 
 	return (
 		<>
@@ -408,7 +447,17 @@ function SiteActionsMenu( {
 						{ __( 'Site settings' ) }
 					</Menu.Item>
 					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
-						{ copySite.isPending ? __( 'Copying…' ) : __( 'Copy site' ) }
+						{ copySite.isPending ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
+					</Menu.Item>
+					<Menu.Separator />
+					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
+					<Menu.Item onClick={ handleOpenInEditor }>{ __( 'Open in editor' ) }</Menu.Item>
+					<Menu.Item onClick={ handleOpenInTerminal }>{ __( 'Open in terminal' ) }</Menu.Item>
+					<Menu.Item disabled={ ! site.running } onClick={ handleOpenPhpMyAdmin }>
+						{ __( 'Open phpMyAdmin' ) }
+					</Menu.Item>
+					<Menu.Item disabled={ ! site.running } onClick={ handleOpenWpAdmin }>
+						{ __( 'Open WP admin' ) }
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>
@@ -485,6 +534,20 @@ function SiteStatusButton( {
 							>
 								<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
 							</svg>
+							{ ! busy ? (
+								<svg
+									className={ styles.siteStatusActionGlyph }
+									viewBox="0 0 10 10"
+									aria-hidden="true"
+									focusable="false"
+								>
+									{ site.running ? (
+										<rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor" />
+									) : (
+										<path d="M2.5 1 L9 5 L2.5 9 Z" fill="currentColor" />
+									) }
+								</svg>
+							) : null }
 						</button>
 					}
 				/>
@@ -502,33 +565,15 @@ function SiteSection( {
 	isActive,
 	isOpen,
 	onToggle,
-	onSelect,
 }: {
 	group: SiteGroup;
 	isUnassigned: boolean;
 	isActive: boolean;
 	isOpen: boolean;
 	onToggle: () => void;
-	onSelect: () => void;
 } ) {
-	const siteIconSeed = group.site
-		? `${ group.site.id }:${ group.site.name }:${ group.site.path }`
-		: group.key;
-	const toggleLabel = isOpen ? __( 'Hide chats' ) : __( 'Show chats' );
-	const activeSessions = useMemo(
-		() => group.sessions.filter( ( session ) => ! session.archived ),
-		[ group.sessions ]
-	);
 	const isStarting = useIsSiteStarting( group.site?.id );
 	const isStopping = useIsSiteStopping( group.site?.id );
-	const navigate = useNavigate();
-	const selectGroup = () => {
-		onSelect();
-		void navigate( {
-			to: group.site ? '/sites/$siteId' : '/unassigned',
-			params: group.site ? { siteId: group.site.id } : undefined,
-		} );
-	};
 
 	return (
 		<section
@@ -539,58 +584,25 @@ function SiteSection( {
 			) }
 		>
 			<header className={ styles.siteHeader }>
-				{ group.site || isUnassigned ? (
-					<button
-						type="button"
-						className={ styles.siteRowButton }
-						onClick={ selectGroup }
-						aria-label={
-							group.site
-								? sprintf( __( 'View %s site details' ), group.label )
-								: __( 'View unassigned chats' )
-						}
-					/>
-				) : null }
 				<div className={ styles.siteText }>
-					<Tooltip.Provider delay={ 0 }>
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								render={
-									<button
-										type="button"
-										className={ styles.siteIconToggle }
-										onClick={ onToggle }
-										aria-expanded={ isOpen }
-										aria-label={ toggleLabel }
-									>
-										<span className={ styles.siteIconSlot } aria-hidden="true">
-											<SiteIcon
-												seed={ siteIconSeed }
-												imageSrc={ group.site?.siteIcon }
-												grayscale={ ! group.site }
-												style={ { width: 24, height: 24 } }
-											/>
-										</span>
-										<span className={ styles.siteIconChevron } aria-hidden="true">
-											<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />
-										</span>
-									</button>
-								}
-							/>
-							<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-								{ toggleLabel }
-							</Tooltip.Popup>
-						</Tooltip.Root>
-					</Tooltip.Provider>
-					{ group.site ? (
-						<span className={ styles.siteCopy }>
-							<span className={ styles.siteName }>{ group.label }</span>
+					<SidebarButton
+						className={ styles.siteToggle }
+						onClick={ onToggle }
+						aria-expanded={ isOpen }
+					>
+						{ group.site ? (
+							<span className={ styles.siteIconSlot } aria-hidden="true">
+								<SiteIcon
+									seed={ `${ group.site.id }:${ group.site.name }:${ group.site.path }` }
+									imageSrc={ group.site.siteIcon }
+								/>
+							</span>
+						) : null }
+						<span className={ styles.siteName }>{ group.label }</span>
+						<span className={ styles.siteChevron } aria-hidden="true">
+							<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />
 						</span>
-					) : (
-						<span className={ styles.siteCopy }>
-							<span className={ styles.siteName }>{ group.label }</span>
-						</span>
-					) }
+					</SidebarButton>
 				</div>
 				{ group.site ? (
 					<div className={ styles.siteActions }>
@@ -608,18 +620,16 @@ function SiteSection( {
 					</div>
 				) : null }
 			</header>
-			{ activeSessions.length > 0 ? (
+			{ group.sessions.length > 0 ? (
 				<div
 					className={ clsx( styles.sessionListFrame, isOpen && styles.sessionListFrameOpen ) }
 					aria-hidden={ ! isOpen }
 				>
-					{ isOpen ? (
-						<ul className={ styles.sessionList }>
-							{ activeSessions.map( ( session ) => (
-								<SessionItem key={ session.id } session={ session } isVisible />
-							) ) }
-						</ul>
-					) : null }
+					<ul className={ styles.sessionList }>
+						{ group.sessions.map( ( session ) => (
+							<SessionItem key={ session.id } session={ session } isVisible={ isOpen } />
+						) ) }
+					</ul>
 				</div>
 			) : group.site && isOpen ? (
 				<div className={ styles.emptyChatState }>
@@ -658,54 +668,30 @@ export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
-	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
-	const isUnassignedRoute = pathname === '/unassigned';
 
 	const groups = useMemo( () => groupSessionsByOwner( sites, sessions ), [ sites, sessions ] );
 	const activeSiteKey = useMemo(
-		() =>
-			isUnassignedRoute
-				? UNASSIGNED_KEY
-				: findActiveSiteKey( groups, activeSessionId, activeSiteId ),
-		[ groups, activeSessionId, activeSiteId, isUnassignedRoute ]
+		() => findActiveSiteKey( groups, activeSessionId, activeSiteId ),
+		[ groups, activeSessionId, activeSiteId ]
 	);
 
-	// Expansion is derived: by default only the active site/chat group is open.
-	// Manual toggles are stored as overrides so the user's explicit choice wins
-	// until they toggle again.
+	// Expansion is derived: by default the active site (or, if none, the
+	// MRU site — first in the list) is open. Manual toggles are stored as
+	// overrides so the user's explicit choice wins until they toggle again.
+	const mruKey = groups[ 0 ]?.key;
 	const [ overrides, setOverrides ] = useState< Record< string, boolean > >( {} );
-
-	const isDefaultOpen = ( key: string ): boolean => {
-		return key === activeSiteKey;
-	};
 
 	const isOpen = ( key: string ): boolean => {
 		if ( key in overrides ) {
 			return overrides[ key ];
 		}
-		return isDefaultOpen( key );
+		return key === activeSiteKey || ( ! activeSiteKey && key === mruKey );
 	};
 
 	const toggleSite = ( key: string ) => {
-		setOverrides( ( prev ) => {
-			if ( key in prev ) {
-				const { [ key ]: _removed, ...next } = prev;
-				return next;
-			}
-			return { ...prev, [ key ]: ! isDefaultOpen( key ) };
-		} );
-	};
-
-	const clearSiteOverride = ( key: string ) => {
-		setOverrides( ( prev ) => {
-			if ( ! ( key in prev ) ) {
-				return prev;
-			}
-			const { [ key ]: _removed, ...next } = prev;
-			return next;
-		} );
+		setOverrides( ( prev ) => ( { ...prev, [ key ]: ! isOpen( key ) } ) );
 	};
 
 	return (
@@ -721,12 +707,9 @@ export function SiteList() {
 							key={ group.key }
 							group={ group }
 							isUnassigned={ group.key === UNASSIGNED_KEY }
-							isActive={
-								group.site ? !! activeSiteId && group.site.id === activeSiteId : isUnassignedRoute
-							}
+							isActive={ group.key === activeSiteKey }
 							isOpen={ isOpen( group.key ) }
 							onToggle={ () => toggleSite( group.key ) }
-							onSelect={ () => clearSiteOverride( group.key ) }
 						/>
 					) ) }
 				</div>

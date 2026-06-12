@@ -2,7 +2,6 @@ export { ConnectorProvider, useConnector } from './connector-context';
 export { queryClient, persistPromise } from './query-client';
 export type {
 	AiModelId,
-	AiSessionMetadata,
 	AiSessionSummary,
 	AuthUser,
 	ColorScheme,
@@ -13,7 +12,6 @@ export type {
 	DeskWidgetBase,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
-	FeatureFlags,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
@@ -24,6 +22,7 @@ export type {
 	SitePreviewFile,
 	Snapshot,
 	StudioAgentQuestionData,
+	StudioChatFileAttachment,
 	StudioChatImage,
 	StudioChatImageAttachment,
 	StudioCustomEntry,

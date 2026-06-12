@@ -46,6 +46,7 @@ export interface UserData {
 	stopSitesOnQuit?: boolean;
 	defaultSiteDirectory?: string;
 	cliAutoInstalled?: boolean;
+	cliUserUninstalled?: boolean;
 	wapuuScore?: number;
 	desks?: DesksConfig;
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;

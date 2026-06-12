@@ -1,4 +1,4 @@
-import { toStudioChatImageAttachment } from '@studio/common/ai/chat-images';
+import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -6,8 +6,9 @@ import {
 	useContext,
 	useEffect,
 	useMemo,
-	useReducer,
 	useRef,
+	useState,
+	useSyncExternalStore,
 	type PropsWithChildren,
 } from 'react';
 import { useConnector } from '@/data/core';
@@ -17,6 +18,7 @@ import type {
 	AgentRunEvent,
 	LoadedAiSession,
 	SessionEntry,
+	StudioChatFileAttachment,
 	StudioChatImage,
 } from '@/data/core';
 
@@ -43,11 +45,13 @@ export interface QueuedPrompt {
 	prompt: string;
 	displayMessage?: string;
 	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
 }
 
 export interface SendMessageOptions {
 	displayMessage?: string;
 	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
 }
 
 export interface LiveAgentEvents {
@@ -223,8 +227,40 @@ function getTimestampMs( timestamp: string ): number {
 	return Number.isNaN( parsed ) ? Date.now() : parsed;
 }
 
+// External store instead of useReducer state so per-session hooks can
+// subscribe with `useSyncExternalStore` and re-render only when their own
+// session's slice changes — a streaming tick for one session must not
+// re-render every sidebar row.
+interface SessionStateStore {
+	getState: () => StatesBySession;
+	dispatch: ( action: StoreAction ) => void;
+	subscribe: ( listener: () => void ) => () => void;
+}
+
+function createSessionStateStore(): SessionStateStore {
+	let state: StatesBySession = {};
+	const listeners = new Set< () => void >();
+	return {
+		getState: () => state,
+		dispatch: ( action ) => {
+			const next = storeReducer( state, action );
+			if ( next === state ) {
+				return;
+			}
+			state = next;
+			listeners.forEach( ( listener ) => listener() );
+		},
+		subscribe: ( listener ) => {
+			listeners.add( listener );
+			return () => {
+				listeners.delete( listener );
+			};
+		},
+	};
+}
+
 interface AgentRunStore {
-	states: StatesBySession;
+	stateStore: SessionStateStore;
 	dispatchSession: ( sessionId: string, action: Action ) => void;
 	startRun: ( sessionId: string, prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: ( sessionId: string ) => Promise< void >;
@@ -236,20 +272,18 @@ const AgentRunContext = createContext< AgentRunStore | null >( null );
 export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	const [ states, dispatch ] = useReducer( storeReducer, {} );
-	const statesRef = useRef< StatesBySession >( states );
+	const [ stateStore ] = useState( createSessionStateStore );
 	const subscribedRunIdsBySessionRef = useRef< Map< string, string > >( new Map() );
 	const ignoredRunIdsRef = useRef< Set< string > >( new Set() );
 	const interruptRequestsBySessionRef = useRef< Map< string, Promise< void > > >( new Map() );
 	const interruptPendingStartSessionIdsRef = useRef< Set< string > >( new Set() );
 
-	useEffect( () => {
-		statesRef.current = states;
-	}, [ states ] );
-
-	const dispatchSession = useCallback( ( sessionId: string, action: Action ) => {
-		dispatch( { sessionId, action } );
-	}, [] );
+	const dispatchSession = useCallback(
+		( sessionId: string, action: Action ) => {
+			stateStore.dispatch( { sessionId, action } );
+		},
+		[ stateStore ]
+	);
 
 	const updateCache = useCallback(
 		( sessionId: string, updater: ( entries: SessionEntry[] ) => SessionEntry[] ) => {
@@ -447,6 +481,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
 			const displayMessage = options.displayMessage ?? prompt;
 			const images = options.images ?? [];
+			const files = options.files ?? [];
 			dispatchSession( sessionId, { type: 'error_set', message: null } );
 
 			const optimisticEntry: SessionEntry = {
@@ -458,34 +493,10 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				data: {
 					text: displayMessage,
 					source: 'prompt',
-					attachments: images.length > 0 ? images.map( toStudioChatImageAttachment ) : undefined,
+					attachments: buildChatAttachmentSummaries( images, files ),
 				},
 			} as SessionEntry;
-			const optimisticUserMessageEntry: SessionEntry | null =
-				images.length > 0
-					? ( {
-							type: 'message',
-							id: shortEntryId(),
-							parentId: null,
-							timestamp: nowIso(),
-							message: {
-								role: 'user',
-								content: [
-									{ type: 'text', text: prompt },
-									...images.map( ( image ) => ( {
-										type: 'image' as const,
-										data: image.dataBase64,
-										mimeType: image.mimeType,
-									} ) ),
-								],
-							},
-					  } as unknown as SessionEntry )
-					: null;
-			updateCache( sessionId, ( entries ) => [
-				...entries,
-				optimisticEntry,
-				...( optimisticUserMessageEntry ? [ optimisticUserMessageEntry ] : [] ),
-			] );
+			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );
 			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
 
 			try {
@@ -493,6 +504,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt, {
 					displayMessage,
 					images,
+					files,
 				} );
 				if ( interruptPendingStartSessionIdsRef.current.has( sessionId ) ) {
 					interruptPendingStartSessionIdsRef.current.delete( sessionId );
@@ -515,9 +527,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				updateCache( sessionId, ( entries ) => {
 					const idx = entries.lastIndexOf( optimisticEntry );
 					if ( idx === -1 ) return entries;
-					const removeCount =
-						optimisticUserMessageEntry && entries[ idx + 1 ] === optimisticUserMessageEntry ? 2 : 1;
-					return [ ...entries.slice( 0, idx ), ...entries.slice( idx + removeCount ) ];
+					return [ ...entries.slice( 0, idx ), ...entries.slice( idx + 1 ) ];
 				} );
 				const message = err instanceof Error ? err.message : String( err );
 				dispatchSession( sessionId, { type: 'error_set', message } );
@@ -529,7 +539,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 	const interrupt = useCallback(
 		async ( sessionId: string ) => {
-			const state = statesRef.current[ sessionId ] ?? initialState;
+			const state = stateStore.getState()[ sessionId ] ?? initialState;
 			if ( state.phase === 'idle' ) {
 				return;
 			}
@@ -566,12 +576,12 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			interruptRequestsBySessionRef.current.set( sessionId, interruptRequest );
 			await interruptRequest;
 		},
-		[ connector, dispatchSession, updateCache ]
+		[ connector, dispatchSession, stateStore, updateCache ]
 	);
 
 	const answerQuestion = useCallback(
 		( sessionId: string, question: string, answer: string ) => {
-			const state = statesRef.current[ sessionId ] ?? initialState;
+			const state = stateStore.getState()[ sessionId ] ?? initialState;
 			if ( ! state.runId ) {
 				return;
 			}
@@ -586,18 +596,18 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				dispatchSession( sessionId, { type: 'question_answered', question, answer } );
 			}
 		},
-		[ connector, dispatchSession ]
+		[ connector, dispatchSession, stateStore ]
 	);
 
 	const value = useMemo< AgentRunStore >(
 		() => ( {
-			states,
+			stateStore,
 			dispatchSession,
 			startRun,
 			interrupt,
 			answerQuestion,
 		} ),
-		[ answerQuestion, dispatchSession, interrupt, startRun, states ]
+		[ answerQuestion, dispatchSession, interrupt, startRun, stateStore ]
 	);
 
 	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
@@ -610,13 +620,17 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	}
 
 	const {
-		states,
+		stateStore,
 		dispatchSession,
 		startRun,
 		interrupt: interruptRun,
 		answerQuestion: answerRunQuestion,
 	} = store;
-	const state = sessionId ? states[ sessionId ] ?? initialState : initialState;
+	// Per-session slices keep their identity while other sessions update, so
+	// this only re-renders when this session's state actually changes.
+	const state = useSyncExternalStore( stateStore.subscribe, () =>
+		sessionId ? stateStore.getState()[ sessionId ] ?? initialState : initialState
+	);
 	const {
 		phase,
 		startedAt,
@@ -650,6 +664,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				await startRun( sessionId, next.prompt, {
 					displayMessage: next.displayMessage,
 					images: next.images,
+					files: next.files,
 				} );
 				dispatchSession( sessionId, { type: 'queue_shift' } );
 			} catch {
@@ -676,6 +691,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 						prompt,
 						displayMessage: options.displayMessage,
 						images: options.images,
+						files: options.files,
 					},
 				} );
 				return;
@@ -740,8 +756,11 @@ export function useIsSessionRunning( sessionId: string | undefined ): boolean {
 	if ( ! store ) {
 		throw new Error( 'useIsSessionRunning must be used within AgentRunProvider' );
 	}
-	const phase = sessionId ? store.states[ sessionId ]?.phase : undefined;
-	return phase === 'starting' || phase === 'running';
+	// Boolean snapshot: rows only re-render when their own flag flips.
+	return useSyncExternalStore( store.stateStore.subscribe, () => {
+		const phase = sessionId ? store.stateStore.getState()[ sessionId ]?.phase : undefined;
+		return phase === 'starting' || phase === 'running';
+	} );
 }
 
 export function useSessionHasPendingQuestion( sessionId: string | undefined ): boolean {
@@ -749,10 +768,12 @@ export function useSessionHasPendingQuestion( sessionId: string | undefined ): b
 	if ( ! store ) {
 		throw new Error( 'useSessionHasPendingQuestion must be used within AgentRunProvider' );
 	}
-	const state = sessionId ? store.states[ sessionId ] : undefined;
-	return (
-		state?.pendingQuestions.some(
-			( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
-		) ?? false
-	);
+	return useSyncExternalStore( store.stateStore.subscribe, () => {
+		const state = sessionId ? store.stateStore.getState()[ sessionId ] : undefined;
+		return (
+			state?.pendingQuestions.some(
+				( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
+			) ?? false
+		);
+	} );
 }

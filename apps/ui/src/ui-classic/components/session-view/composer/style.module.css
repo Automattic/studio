@@ -7,82 +7,113 @@
 	position: relative;
 	display: flex;
 	flex-direction: column;
-	border: 0;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 16px;
-	background-color: var(--wpds-color-bg-surface-neutral-weak, #f4f4f4);
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
 	padding: var(--wpds-dimension-padding-lg);
-	box-shadow: 0 0 0 1px var(--wpds-color-stroke-surface-neutral) inset;
-	cursor: text;
-	transition: background-color 120ms ease, box-shadow 120ms ease;
-}
-
-.shell::before {
-	position: absolute;
-	inset: 0;
-	border: 2px solid transparent;
-	border-radius: inherit;
-	pointer-events: none;
-	content: '';
-	transition: border-color 120ms ease;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 4px 12px rgb(0 0 0 / 6%);
+	transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .shell:focus-within {
-	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	box-shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 6px 16px rgb(0 0 0 / 8%);
 }
 
-.shell:focus-within::before {
-	border-color: var(--wpds-color-stroke-focus-brand, #3858e9);
+.shellDragging {
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	border-style: dashed;
 }
 
-.shell[data-dragging-image='true']::before {
-	border-color: var(--wpds-color-stroke-focus-brand, #3858e9);
+.dropOverlay {
+	position: absolute;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 16px;
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	font-size: var(--wpds-typography-font-size-sm);
+	pointer-events: none;
+}
+
+.fileInput {
+	display: none;
 }
 
 .attachments {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--wpds-dimension-padding-xs);
-	padding-bottom: var(--wpds-dimension-padding-sm);
+	margin: 0 0 var(--wpds-dimension-padding-xs);
+	padding: 0;
+	list-style: none;
 }
 
-.attachment {
-	position: relative;
-	width: 64px;
-	height: 64px;
+.attachmentChip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 220px;
+	height: 28px;
+	padding: 0 4px 0 6px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-sm, 4px);
-	overflow: hidden;
 	background-color: var(--wpds-color-bg-surface-neutral);
-	box-shadow: inset 0 0 0 1px var(--wpds-color-stroke-surface-neutral);
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral);
 }
 
-.attachmentImage {
-	display: block;
-	width: 100%;
-	height: 100%;
+.attachmentThumb {
+	flex-shrink: 0;
+	width: 20px;
+	height: 20px;
+	border-radius: 2px;
 	object-fit: cover;
 }
 
-.removeAttachment {
-	position: absolute;
-	top: 4px;
-	right: 4px;
+.attachmentIcon {
 	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.attachmentName {
+	min-width: 0;
+	flex-shrink: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.attachmentSize {
+	flex-shrink: 0;
+	white-space: nowrap;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.attachmentRemove {
+	display: inline-flex;
+	flex-shrink: 0;
 	align-items: center;
 	justify-content: center;
 	width: 20px;
 	height: 20px;
 	padding: 0;
 	border: 0;
-	border-radius: 50%;
-	background-color: rgb(0 0 0 / 72%);
-	color: #fff;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
 	cursor: pointer;
 }
 
-.removeAttachment:hover,
-.removeAttachment:focus-visible {
-	background-color: rgb(0 0 0 / 88%);
+.attachmentRemove:hover,
+.attachmentRemove:focus-visible {
+	background-color: var(--wpds-color-bg-surface-neutral-weak, #f4f4f4);
+	color: var(--wpds-color-fg-content-neutral);
 }
 
 .input {
@@ -152,15 +183,6 @@
 .iconButton:disabled {
 	cursor: not-allowed;
 	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.fileInput {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	clip: rect(0 0 0 0);
-	white-space: nowrap;
 }
 
 .pill {
@@ -295,6 +317,12 @@
 	min-height: 16px;
 	font-size: var(--wpds-typography-font-size-xs);
 	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.metaHint {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 }
 
 .metaUses {

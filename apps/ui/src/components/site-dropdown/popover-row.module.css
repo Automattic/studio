@@ -14,10 +14,13 @@
 }
 
 .label {
+	/* Allow callers to tuck an inline affordance (e.g. an "open external"
+	   IconButton) right next to the label text. A plain text label still
+	   renders correctly inside this flex row. */
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
-	font-size: var(--wpds-typography-font-size-sm);
+	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.25;
 	font-weight: 500;
 	color: var(--wpds-color-fg-content-neutral);

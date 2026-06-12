@@ -7,14 +7,12 @@ import type {
 	Connector,
 	DeskConfig,
 	DeskSettings,
-	FeatureFlags,
 	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
 	SitePreviewFile,
 	Snapshot,
-	StudioUiMode,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
@@ -363,16 +361,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			return {} as InstalledApps;
 		},
 
-		// Desks / feature flags — defaults so both UI modes mount cleanly.
-		async getFeatureFlags(): Promise< FeatureFlags > {
-			return { enableDesksUiSwitch: false };
-		},
-		async getStudioUiMode(): Promise< StudioUiMode > {
-			return 'agentic';
-		},
-		async setStudioUiMode() {
-			// No-op: UI mode is chosen client-side on the web.
-		},
+		// Desks — defaults so both UI modes mount cleanly.
 		async getDeskSettings(): Promise< DeskSettings > {
 			return createDefaultDeskSettings();
 		},
@@ -431,6 +420,10 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			return () => {};
 		},
 		onSiteEvent() {
+			return () => {};
+		},
+		onToggleSitePreview() {
+			// No application menu in a browser tab.
 			return () => {};
 		},
 	};

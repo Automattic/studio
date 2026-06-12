@@ -184,8 +184,9 @@ describe( 'Studio AI MCP tools', () => {
 		);
 	} );
 
-	it( 'reports invalid core/html blocks', async () => {
-		const result = await getTool( 'validate_html_blocks' ).rawHandler( {
+	it( 'reports invalid core/html blocks and skips editor validation', async () => {
+		const result = await getTool( 'validate_blocks' ).rawHandler( {
+			nameOrPath: 'My Site',
 			content:
 				'<!-- wp:html --><form><label>Email<input type="email" /></label></form><!-- /wp:html -->',
 		} as never );
@@ -193,6 +194,8 @@ describe( 'Studio AI MCP tools', () => {
 		const text = getTextContent( result );
 		expect( text ).toContain( 'HTML block policy: 1/1 core/html blocks invalid' );
 		expect( text ).toContain( '<form>' );
+		// The HTML policy gate short-circuits before the live editor runs.
+		expect( validateBlocks ).not.toHaveBeenCalled();
 	} );
 
 	it( 'returns fixed inline block content', async () => {
@@ -202,7 +205,7 @@ describe( 'Studio AI MCP tools', () => {
 			'<!-- wp:paragraph {"align":"center"} -->\n<p class="has-text-align-center">Hello</p>\n<!-- /wp:paragraph -->';
 		mockValidatedFix( fixedContent );
 
-		const result = await getTool( 'validate_and_fix_blocks' ).rawHandler( {
+		const result = await getTool( 'validate_blocks' ).rawHandler( {
 			nameOrPath: 'My Site',
 			content: originalContent,
 		} as never );
@@ -227,7 +230,7 @@ describe( 'Studio AI MCP tools', () => {
 		mockValidatedFix( fixedContent, 'core/separator' );
 
 		try {
-			const result = await getTool( 'validate_and_fix_blocks' ).rawHandler( {
+			const result = await getTool( 'validate_blocks' ).rawHandler( {
 				nameOrPath: 'My Site',
 				filePath,
 			} as never );

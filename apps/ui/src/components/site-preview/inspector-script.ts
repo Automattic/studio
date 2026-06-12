@@ -8,6 +8,17 @@
  * `console-message` event:
  *   guest -> host: `__studio-inspector__:{ "type": "done", ... }`
  *
+ * The same bridge also reports picking/annotation-count state changes and
+ * forwards browser keyboard shortcuts (reload, back, forward) pressed while
+ * focus is inside the guest page, so the host toolbar can handle them:
+ *   guest -> host: `__studio-inspector__:{ "type": "state", ... }`
+ *   guest -> host: `__studio-inspector__:{ "type": "browser-command", ... }`
+ *
+ * The annotation controls live in the host toolbar (not in the page), and
+ * drive the inspector by dispatching `INSPECTOR_COMMAND_EVENT` custom events
+ * on the guest `window` via `webview.executeJavaScript()`:
+ *   host -> guest: `{ "type": "toggle-picking" | "submit" | "report-state" }`
+ *
  * Layout strategy: markers and the picking highlight use `position: absolute`
  * anchored at *document* coordinates (viewport rect + scroll offset). They
  * scroll with the page automatically — no scroll listener, no rAF loop. The

@@ -131,9 +131,11 @@ export function DeskMenu( { siteId, disabled = false, showSiteName = true }: Des
 				) : (
 					<Menu.Item disabled>{ __( 'No sites yet' ) }</Menu.Item>
 				) }
-				<Menu.Separator />
 				{ user ? (
-					<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
+					<>
+						<Menu.Separator />
+						<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
+					</>
 				) : null }
 			</Menu.Popup>
 		</Menu.Root>

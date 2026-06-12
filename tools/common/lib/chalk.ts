@@ -22,12 +22,12 @@ import { styleText } from 'node:util';
 type Format = Parameters< typeof styleText >[ 0 ];
 
 function supportsTrueColor(): boolean {
+	if ( process.env.NO_COLOR ) {
+		return false;
+	}
 	const force = process.env.FORCE_COLOR;
 	if ( force === '3' || force === 'true' ) {
 		return true;
-	}
-	if ( process.env.NO_COLOR ) {
-		return false;
 	}
 	if ( force !== undefined ) {
 		// FORCE_COLOR is set but not to truecolor — respect the cap.

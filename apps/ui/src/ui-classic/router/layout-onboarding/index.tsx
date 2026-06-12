@@ -6,7 +6,7 @@ import { rootRoute } from '../layout-root';
 function OnboardingShell() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
-	const firstSiteId = sites?.[ 0 ]?.id;
+	const hasSites = ( sites?.length ?? 0 ) > 0;
 	// Grid-heavy pages (onboarding home with its flow picker cards, and the
 	// blueprint selector's "select" step) need more horizontal room than the
 	// single-column form pages; thread the variant through here so each child
@@ -22,15 +22,7 @@ function OnboardingShell() {
 	} );
 	return (
 		<OnboardingLayout
-			onClose={
-				firstSiteId
-					? () =>
-							void navigate( {
-								to: '/sites/$siteId',
-								params: { siteId: firstSiteId },
-							} )
-					: undefined
-			}
+			onClose={ hasSites ? () => void navigate( { to: '/' } ) : undefined }
 			width={ isWide ? 'wide' : 'default' }
 		>
 			<Outlet />

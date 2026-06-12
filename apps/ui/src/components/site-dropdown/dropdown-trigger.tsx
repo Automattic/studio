@@ -18,10 +18,6 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	showSiteIcon?: boolean;
 	siteIconSeed?: string;
 	siteIconImage?: string | null;
-	shortcut?: {
-		displayShortcut: string;
-		ariaKeyShortcut: string;
-	};
 };
 
 export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
@@ -35,7 +31,6 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 			showSiteIcon = false,
 			siteIconSeed,
 			siteIconImage,
-			shortcut,
 			className,
 			...props
 		},
@@ -47,21 +42,12 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 		const isLive = environment === 'live';
 		const dotClass = environment === 'live' ? styles.dot_live : styles[ `dot_${ status }` ];
 		const dotLabel = isLive ? __( 'Live site' ) : statusLabel;
-		const tooltipLabel = __( 'Open site menu' );
 		return (
 			<Tooltip.Provider delay={ 0 }>
 				<Tooltip.Root>
 					<Tooltip.Trigger
 						ref={ ref }
-						render={
-							<Button
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								aria-keyshortcuts={ shortcut?.ariaKeyShortcut }
-								{ ...props }
-							/>
-						}
+						render={ <Button variant="minimal" tone="neutral" size="small" { ...props } /> }
 						className={ clsx( styles.trigger, className ) }
 					>
 						{ showSiteIcon ? (
@@ -72,12 +58,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 							/>
 						) : null }
 						<span
-							className={ clsx( styles.statusBadge, {
-								[ styles.statusBadge_live ]: isLive,
-								[ styles.statusBadge_running ]: status === 'running' && ! isLive,
-								[ styles.statusBadge_stopped ]: status === 'stopped' && ! isLive,
-								[ styles.statusBadge_transitioning ]: status === 'transitioning' && ! isLive,
-							} ) }
+							className={ clsx( styles.statusBadge, isLive && styles.statusBadge_live ) }
 							role="img"
 							aria-label={ dotLabel }
 							title={ dotLabel }
@@ -92,13 +73,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 						<Icon className={ styles.chevron } icon={ chevronDownSmall } />
 					</Tooltip.Trigger>
 					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ tooltipLabel }
-						{ shortcut ? (
-							<>
-								{ ' ' }
-								<span aria-hidden="true">{ shortcut.displayShortcut }</span>
-							</>
-						) : null }
+						{ __( 'Open site menu' ) }
 					</Tooltip.Popup>
 				</Tooltip.Root>
 			</Tooltip.Provider>

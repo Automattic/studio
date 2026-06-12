@@ -60,6 +60,37 @@ function singleThemeSlug( files: SitePreviewFile[] ): string | undefined {
 	return slugs.size === 1 ? [ ...slugs ][ 0 ] : undefined;
 }
 
+// A cheap content signature of the preview files, used as a React `key` on the
+// live preview. Playground caches its SQLite connection, so overlaying a changed
+// DB in place + reloading does NOT reflect it — only a fresh boot reads the new
+// DB. Keying the preview on this signature re-mounts it (and re-boots Playground)
+// exactly when the files actually change, so each agent turn's edits show up.
+export function livePreviewSignature( files: SitePreviewFile[] ): string {
+	let hash = 5381;
+	for ( const file of files ) {
+		const str = `${ file.path }:${ file.contentBase64 }`;
+		for ( let i = 0; i < str.length; i++ ) {
+			hash = ( ( hash << 5 ) + hash + str.charCodeAt( i ) ) | 0;
+		}
+	}
+	return `${ files.length }-${ hash }`;
+}
+
+// Bare preview for hosted/web sites that render via WordPress Playground on a
+// foreign origin. Intentionally has no effects, no postMessage listeners, and no
+// guest-script injection — unlike SitePreview, whose same-origin machinery would
+// thrash a cross-origin iframe and OOM-crash the tab.
+export function PlaygroundPreviewFrame( { url }: { url: string } ) {
+	return (
+		<iframe
+			src={ url }
+			title="Site preview"
+			style={ { width: '100%', height: '100%', border: 0, background: '#fff' } }
+			sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+		/>
+	);
+}
+
 /**
  * Renders a live, client-side WordPress Playground preview of what the agent
  * built. WordPress runs entirely in the visitor's browser (PHP-WASM); the

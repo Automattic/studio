@@ -11,9 +11,7 @@ import { onboardingHomeRoute } from './route-onboarding-home';
 import { onboardingImportRoute } from './route-onboarding-import';
 import { sessionDetailRoute } from './route-session-detail';
 import { settingsRoute } from './route-settings';
-import { siteOverviewRoute } from './route-site-overview';
 import { siteSettingsRoute } from './route-site-settings';
-import { unassignedOverviewRoute } from './route-unassigned-overview';
 import type { RouterContext } from './layout-root';
 
 const routeTree = rootRoute.addChildren( [
@@ -21,10 +19,8 @@ const routeTree = rootRoute.addChildren( [
 	dashboardLayoutRoute.addChildren( [
 		newSessionRoute,
 		sessionDetailRoute,
-		siteOverviewRoute,
 		siteSettingsRoute,
 		settingsRoute,
-		unassignedOverviewRoute,
 	] ),
 	onboardingLayoutRoute.addChildren( [
 		onboardingHomeRoute,

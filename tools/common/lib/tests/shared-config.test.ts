@@ -213,27 +213,22 @@ describe( 'Shared Config', () => {
 			await expect( readSharedSessions() ).resolves.toEqual( {
 				abc123: { starred: true },
 			} );
-			await expect( readSharedSession( 'abc123' ) ).resolves.toEqual( {
-				starred: true,
-			} );
+			await expect( readSharedSession( 'abc123' ) ).resolves.toEqual( { starred: true } );
 			await expect( readSharedSession( 'missing' ) ).resolves.toBeUndefined();
 		} );
 
 		it( 'updates session metadata in place', async () => {
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { version: 1 } ) ) );
 
-			await expect(
-				updateSharedSession( 'abc123', { starred: true, archived: true } )
-			).resolves.toEqual( {
+			await expect( updateSharedSession( 'abc123', { starred: true } ) ).resolves.toEqual( {
 				starred: true,
-				archived: true,
 			} );
 
 			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
 			expect( JSON.parse( written ) ).toEqual( {
 				version: 1,
 				sessions: {
-					abc123: { starred: true, archived: true },
+					abc123: { starred: true },
 				},
 			} );
 		} );

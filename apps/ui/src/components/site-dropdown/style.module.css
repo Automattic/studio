@@ -1,7 +1,6 @@
 .root {
 	display: inline-flex;
 	align-items: center;
-	flex: 0 1 auto;
 	gap: var(--wpds-dimension-padding-lg);
 	min-width: 0;
 }

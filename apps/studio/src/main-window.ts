@@ -1,7 +1,6 @@
 import {
 	BrowserWindow,
 	type BrowserWindowConstructorOptions,
-	Menu,
 	screen,
 	app,
 	nativeTheme,
@@ -19,6 +18,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
 import { SiteServer } from 'src/site-server';
@@ -29,13 +29,10 @@ import {
 	saveWindowBounds,
 } from 'src/storage/user-data';
 import type { StudioUiMode } from '@studio/common/types/desk';
-import type { UserData, WindowBounds } from 'src/storage/storage-types';
+import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
 let currentRendererUrl: string | undefined;
-
-const OPAQUE_WINDOW_BACKGROUND = 'rgba(30, 30, 30, 1)';
-const TRANSPARENT_WINDOW_BACKGROUND = '#00000000';
 
 interface RendererLocation {
 	url: string;
@@ -43,9 +40,14 @@ interface RendererLocation {
 	query?: Record< string, string >;
 }
 
-export function getPreferredStudioUiMode( userData: Pick< UserData, 'desks' > ): StudioUiMode {
-	const preferredMode = userData.desks?.defaultUiMode;
-	return preferredMode === 'desks' || preferredMode === 'agentic' ? preferredMode : 'default';
+export function getPreferredStudioUiMode(): StudioUiMode {
+	if ( getFeatureFlagFromEnv( 'enableDesksUi' ) ) {
+		return 'desks';
+	}
+	if ( getFeatureFlagFromEnv( 'enableAgenticUi' ) ) {
+		return 'agentic';
+	}
+	return 'default';
 }
 
 function getRendererFilePath( mode: StudioUiMode ) {
@@ -56,8 +58,7 @@ function getRendererFilePath( mode: StudioUiMode ) {
 }
 
 function getRendererQuery( mode: StudioUiMode ): Record< string, string > | undefined {
-	const query: Record< string, string > = mode === 'default' ? {} : { 'studio-ui-mode': mode };
-	return Object.keys( query ).length ? query : undefined;
+	return mode === 'default' ? undefined : { 'studio-ui-mode': mode };
 }
 
 function appendRendererQuery( url: string, query: Record< string, string > | undefined ) {
@@ -72,8 +73,7 @@ function appendRendererQuery( url: string, query: Record< string, string > | und
 	return rendererUrl.toString();
 }
 
-function getRendererLocation( userData: Pick< UserData, 'desks' > ): RendererLocation {
-	const preferredMode = getPreferredStudioUiMode( userData );
+function getRendererLocation( preferredMode: StudioUiMode ): RendererLocation {
 	const preferredQuery = getRendererQuery( preferredMode );
 
 	if (
@@ -88,7 +88,7 @@ function getRendererLocation( userData: Pick< UserData, 'desks' > ): RendererLoc
 
 	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
 		return {
-			url: appendRendererQuery( process.env[ 'ELECTRON_RENDERER_URL' ], preferredQuery ),
+			url: process.env[ 'ELECTRON_RENDERER_URL' ],
 		};
 	}
 
@@ -123,18 +123,8 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 	await window.loadURL( location.url );
 }
 
-export async function loadMainWindowRenderer(
-	window: BrowserWindow,
-	mode?: StudioUiMode
-): Promise< void > {
-	const userData = await loadUserData();
-	const location = getRendererLocation( {
-		desks: {
-			...userData.desks,
-			...( mode ? { defaultUiMode: mode } : {} ),
-		},
-	} );
-	await loadRendererLocation( window, location );
+export async function loadMainWindowRenderer( window: BrowserWindow ): Promise< void > {
+	await loadRendererLocation( window, getRendererLocation( getPreferredStudioUiMode() ) );
 }
 
 export function getCurrentRendererUrl(): string {
@@ -142,7 +132,7 @@ export function getCurrentRendererUrl(): string {
 		return currentRendererUrl;
 	}
 
-	return getRendererLocation( { desks: undefined } ).url;
+	return getRendererLocation( 'default' ).url;
 }
 
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
@@ -188,7 +178,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	let windowOptions: BrowserWindowConstructorOptions = {
 		height: DEFAULT_HEIGHT,
 		width: DEFAULT_WIDTH,
-		backgroundColor: OPAQUE_WINDOW_BACKGROUND,
+		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,
 		minWidth: MAIN_MIN_WIDTH,
 		webPreferences: {
@@ -218,7 +208,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	void loadRendererLocation( mainWindow, getRendererLocation( userData ) );
+	void loadRendererLocation( mainWindow, getRendererLocation( getPreferredStudioUiMode() ) );
 
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.
@@ -237,37 +227,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow.webContents.once( 'did-finish-load', () => {
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
-	} );
-
-	// Cmd/Ctrl +/-/0 zoom. The classic shell gets these from the application
-	// menu's zoom roles (see menu.ts); the apps/ui shell never builds that
-	// menu, so the accelerators are dead there. Wire them at the webContents
-	// level, but defer to the application menu when one is present so the
-	// classic shell doesn't zoom twice per keypress.
-	mainWindow.webContents.on( 'before-input-event', ( event, input ) => {
-		if ( input.type !== 'keyDown' || ! ( input.meta || input.control ) ) {
-			return;
-		}
-		if ( Menu.getApplicationMenu() ) {
-			return;
-		}
-		const contents = mainWindow?.webContents;
-		if ( ! contents ) {
-			return;
-		}
-		const ZOOM_STEP = 0.5;
-		const ZOOM_MIN = -3;
-		const ZOOM_MAX = 5;
-		if ( input.key === '=' || input.key === '+' ) {
-			event.preventDefault();
-			contents.setZoomLevel( Math.min( ZOOM_MAX, contents.getZoomLevel() + ZOOM_STEP ) );
-		} else if ( input.key === '-' || input.key === '_' ) {
-			event.preventDefault();
-			contents.setZoomLevel( Math.max( ZOOM_MIN, contents.getZoomLevel() - ZOOM_STEP ) );
-		} else if ( input.key === '0' ) {
-			event.preventDefault();
-			contents.setZoomLevel( 0 );
-		}
 	} );
 
 	mainWindow.on( 'closed', () => {
@@ -316,32 +275,17 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 	switch ( process.platform ) {
 		case 'darwin':
 			return {
-				backgroundColor: TRANSPARENT_WINDOW_BACKGROUND,
 				frame: false,
-				transparent: true,
 				titleBarStyle: 'hidden',
 				trafficLightPosition: MACOS_TRAFFIC_LIGHT_POSITION,
-				vibrancy: 'sidebar',
-				visualEffectState: 'active',
 			};
 
 		case 'win32':
-			return {
-				backgroundMaterial: 'acrylic',
-				titleBarStyle: 'hidden',
-				titleBarOverlay: {
-					color: OPAQUE_WINDOW_BACKGROUND,
-					symbolColor: 'white',
-					height: WINDOWS_TITLEBAR_HEIGHT,
-				},
-				minHeight: MAIN_MIN_HEIGHT + WINDOWS_TITLEBAR_HEIGHT,
-			};
-
 		case 'linux':
 			return {
 				titleBarStyle: 'hidden',
 				titleBarOverlay: {
-					color: OPAQUE_WINDOW_BACKGROUND,
+					color: 'rgba(30, 30, 30, 1)',
 					symbolColor: 'white',
 					height: WINDOWS_TITLEBAR_HEIGHT,
 				},

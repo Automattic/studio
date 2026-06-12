@@ -10,25 +10,11 @@
 .rowActions {
 	display: flex;
 	align-items: center;
-	gap: 2px;
-}
-
-.compactIconButton {
-	width: 28px;
-	height: 28px;
-	min-width: 28px;
-	padding: 0;
-}
-
-.compactIconButton svg {
-	width: 16px;
-	height: 16px;
-	fill: currentColor;
+	gap: var(--wpds-dimension-padding-xs);
 }
 
 .localServerButton {
 	min-width: 48px;
-	color: var(--wpds-color-fg-content-neutral);
 }
 
 .urlLink {

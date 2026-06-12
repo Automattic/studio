@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import styles from './style.module.css';
@@ -14,6 +15,7 @@ export function DeskHeader( { children, centerChildren, rightChildren }: DeskHea
 
 	return (
 		<div className={ clsx( styles.root, isFullscreen && styles.fullscreen ) }>
+			<span className={ styles.title }>{ __( 'Studio' ) }</span>
 			<div className={ styles.actions }>{ children }</div>
 			{ centerChildren && <div className={ styles.centerActions }>{ centerChildren }</div> }
 			{ rightChildren && <div className={ styles.rightActions }>{ rightChildren }</div> }

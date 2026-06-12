@@ -1,46 +1,8 @@
 .trigger {
-	--site-dropdown-trigger-background: color-mix(
-		in srgb,
-		var(--wpds-color-bg-surface-neutral) 76%,
-		transparent
-	);
-	--site-dropdown-trigger-background-hover: var(
-		--wpds-color-bg-interactive-neutral-weak-active,
-		#ededed
-	);
-	--site-dropdown-trigger-border: color-mix(
-		in srgb,
-		var(--wpds-color-stroke-surface-neutral) 72%,
-		transparent
-	);
-	--wp-ui-button-background-color: var(--site-dropdown-trigger-background);
-	--wp-ui-button-background-color-active: var(--site-dropdown-trigger-background-hover);
-	--wp-ui-button-border-color: var(--site-dropdown-trigger-border);
-	--wp-ui-button-border-color-active: var(--site-dropdown-trigger-border);
-	--wp-ui-button-border-color-hover: var(--site-dropdown-trigger-border);
-	--wp-ui-button-height: var(--site-preview-control-height, 38px);
-
-	flex: 0 1 auto;
-	box-sizing: border-box;
 	gap: var(--wpds-dimension-padding-xs);
 	max-width: 100%;
 	min-width: 0;
-	height: var(--site-preview-control-height, 38px);
-	min-height: var(--site-preview-control-height, 38px);
-	padding: 0 var(--wpds-dimension-padding-xs);
-	border: 1px solid var(--site-dropdown-trigger-border);
-	border-radius: 8px;
-	background: var(--site-dropdown-trigger-background);
 	white-space: nowrap;
-	transition:
-		background-color 120ms ease,
-		border-color 120ms ease,
-		box-shadow 120ms ease;
-}
-
-.trigger:is(:hover, :focus-visible, [data-popup-open]) {
-	background-color: var(--site-dropdown-trigger-background-hover);
-	border-color: var(--site-dropdown-trigger-border);
 }
 
 .siteIcon {
@@ -88,8 +50,8 @@
 }
 
 .dot {
-	width: 7px;
-	height: 7px;
+	width: 6px;
+	height: 6px;
 	border-radius: 50%;
 	flex-shrink: 0;
 }
@@ -101,7 +63,7 @@
 }
 
 .dot_stopped {
-	border: 1.5px solid var(--wpds-color-fg-content-neutral-weak);
+	background-color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .dot_transitioning {
@@ -145,10 +107,4 @@
 	flex: 0 0 auto;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	fill: currentColor;
-}
-
-@container (max-width: 560px) {
-	.url {
-		display: none;
-	}
 }

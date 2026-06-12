@@ -75,7 +75,6 @@ import {
 	readSharedSessions,
 	updateSharedConfig,
 	updateSharedSession,
-	type SharedSessionMetadata,
 } from '@studio/common/lib/shared-config';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
@@ -237,19 +236,17 @@ export {
 	exportDeskConfig,
 	getDeskSettings,
 	getSiteDeskConfig,
-	getStudioUiMode,
 	getUserDeskConfig,
 	importDeskConfig,
 	saveDeskSettings,
 	saveSiteDeskConfig,
-	setStudioUiMode,
 	saveUserDeskConfig,
 } from 'src/modules/desks/lib/ipc-handlers';
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
-	metadata?: SharedSessionMetadata
+	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
 ): AiSessionSummary {
 	return {
 		...summary,
@@ -374,7 +371,7 @@ export async function createAiSession(
 export async function updateAiSessionMetadata(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string,
-	patch: Partial< SharedSessionMetadata >
+	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
 ): Promise< AiSessionSummary > {
 	const { summary } = await loadAiSessionFromStore(
 		getAiSessionsRootDirectory(),
@@ -2127,7 +2124,7 @@ export function showSiteContextMenu(
 
 	menu.append(
 		new MenuItem( {
-			label: __( 'Copy site…' ),
+			label: __( 'Duplicate site…' ),
 			enabled: ! isLoading && ! isAnySiteAdding,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
@@ -2372,11 +2369,7 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	if (
-		! parentWindow ||
-		process.platform === 'darwin' ||
-		( process.platform !== 'win32' && process.platform !== 'linux' )
-	) {
+	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
 		return;
 	}
 

@@ -38,6 +38,7 @@ import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
@@ -122,6 +123,8 @@ export async function runCommand( options: {
 	}
 	ui.start();
 	ui.showWelcome();
+
+	await maybeShowTosNotice( () => ui.showTosNotice() );
 
 	if ( options.showLegacyCommandNotice && ! isJsonMode ) {
 		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );

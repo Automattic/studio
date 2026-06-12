@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import type { AiSessionMetadata, AiSessionSummary, LoadedAiSession } from '@/data/core';
+import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
 
 export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
 
@@ -50,11 +50,12 @@ export function useCreateSession() {
 
 function mergeSessionMetadata(
 	summary: AiSessionSummary,
-	patch: Partial< AiSessionMetadata >
+	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
 ): AiSessionSummary {
 	return {
 		...summary,
-		...patch,
+		starred: patch.starred,
+		archived: patch.archived,
 	};
 }
 
@@ -66,7 +67,7 @@ export function useUpdateSessionMetadata() {
 		Error,
 		{
 			sessionId: string;
-			patch: Partial< AiSessionMetadata >;
+			patch: Pick< AiSessionSummary, 'starred' | 'archived' >;
 		},
 		{
 			previousSessions: AiSessionSummary[] | undefined;
@@ -121,7 +122,8 @@ export function useUpdateSessionMetadata() {
 								...current,
 								summary: {
 									...current.summary,
-									...summary,
+									starred: summary.starred,
+									archived: summary.archived,
 								},
 						  }
 						: current
@@ -132,32 +134,6 @@ export function useUpdateSessionMetadata() {
 			void queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 		},
 	} );
-}
-
-function useSessionArchivedMutation( archived: boolean ) {
-	const updateSessionMetadata = useUpdateSessionMetadata();
-
-	return {
-		...updateSessionMetadata,
-		mutate: ( session: AiSessionSummary ) =>
-			updateSessionMetadata.mutate( {
-				sessionId: session.id,
-				patch: { archived, starred: session.starred },
-			} ),
-		mutateAsync: ( session: AiSessionSummary ) =>
-			updateSessionMetadata.mutateAsync( {
-				sessionId: session.id,
-				patch: { archived, starred: session.starred },
-			} ),
-	};
-}
-
-export function useArchiveSession() {
-	return useSessionArchivedMutation( true );
-}
-
-export function useUnarchiveSession() {
-	return useSessionArchivedMutation( false );
 }
 
 export function useSetSessionEnvironment(

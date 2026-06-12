@@ -7,7 +7,6 @@ import type {
 	Connector,
 	DeskConfig,
 	DeskSettings,
-	FeatureFlags,
 	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
@@ -15,7 +14,6 @@ import type {
 	SiteDetails,
 	SitePreviewFile,
 	Snapshot,
-	StudioUiMode,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
@@ -1142,16 +1140,7 @@ export function createSecexConnector( { runUrl, token }: SecexConnectorOptions )
 			return {} as InstalledApps;
 		},
 
-		// Desks / feature flags — defaults so both UI modes mount cleanly.
-		async getFeatureFlags(): Promise< FeatureFlags > {
-			return { enableDesksUiSwitch: false };
-		},
-		async getStudioUiMode(): Promise< StudioUiMode > {
-			return 'agentic';
-		},
-		async setStudioUiMode() {
-			// No-op.
-		},
+		// Desks — defaults so both UI modes mount cleanly.
 		async getDeskSettings(): Promise< DeskSettings > {
 			return createDefaultDeskSettings();
 		},
@@ -1205,6 +1194,10 @@ export function createSecexConnector( { runUrl, token }: SecexConnectorOptions )
 			return () => {};
 		},
 		onSiteEvent() {
+			return () => {};
+		},
+		onToggleSitePreview() {
+			// No application menu in a browser tab.
 			return () => {};
 		},
 	};

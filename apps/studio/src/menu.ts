@@ -34,10 +34,12 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
-import { getMainWindow, getPreferredStudioUiMode, loadMainWindowRenderer } from 'src/main-window';
-import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
+import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
-import type { StudioUiMode } from '@studio/common/types/desk';
+
+// Feature flags that select which Studio UI is shown; toggling them requires
+// reloading the main window renderer.
+const UI_MODE_FEATURE_FLAGS: ( keyof FeatureFlags )[] = [ 'enableAgenticUi', 'enableDesksUi' ];
 
 export async function setupMenu( config: {
 	needsOnboarding: boolean;
@@ -71,84 +73,37 @@ export async function popupMenu( position?: { x: number; y: number } ) {
 	menu.popup( { window: window ?? undefined, ...position } );
 }
 
-async function setStudioUiModeFromMenu(
-	mode: StudioUiMode,
-	window: BrowserWindow | null | undefined
-): Promise< void > {
-	await lockAppdata();
-	try {
-		const userData = await loadUserData();
-		await saveUserData( {
-			...userData,
-			desks: {
-				...userData.desks,
-				defaultUiMode: mode,
-			},
-		} );
-	} finally {
-		await unlockAppdata();
-	}
-
-	if ( window && ! window.isDestroyed() ) {
-		setTimeout( () => {
-			void loadMainWindowRenderer( window, mode );
-		}, 0 );
-	}
-}
-
-async function buildBetaFeaturesMenu(
-	mainWindow: BrowserWindow | null
-): Promise< MenuItemConstructorOptions[] > {
+async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
 	const currentBetaFeatures = await getBetaFeatures();
-	const currentUiMode = getPreferredStudioUiMode( await loadUserData() );
-	const betaFeatureItems = Object.entries< BetaFeatureDefinition >(
-		getBetaFeaturesDefinition()
-	).map( ( [ key, definition ] ) => {
-		// On Windows, use the description as the label for a more compact display
-		const label =
-			process.platform === 'win32' && definition.description
-				? definition.description
-				: definition.label;
+	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() ).map(
+		( [ key, definition ] ) => {
+			// On Windows, use the description as the label for a more compact display
+			const label =
+				process.platform === 'win32' && definition.description
+					? definition.description
+					: definition.label;
 
-		return {
-			label,
-			type: 'checkbox' as const,
-			checked: currentBetaFeatures[ key as keyof BetaFeatures ],
-			// Only use sublabel on macOS where it displays nicely
-			sublabel: process.platform === 'darwin' ? definition.description : undefined,
-			click: async ( menuItem: MenuItem ) => {
-				await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
-				if ( key === 'remoteSession' ) {
-					bumpStat(
-						menuItem.checked
-							? StatsGroup.STUDIO_APP_DOLLY_ENABLE
-							: StatsGroup.STUDIO_APP_DOLLY_DISABLE,
-						getPlatformMetric()
-					);
-				}
-				void sendIpcEventToRenderer( 'beta-features-updated' );
-			},
-		};
-	} );
-	const items: MenuItemConstructorOptions[] = [
-		{
-			label:
-				process.platform === 'win32'
-					? __( 'Use the new agentic Studio interface.' )
-					: __( 'Agentic UI' ),
-			type: 'checkbox',
-			checked: currentUiMode === 'agentic',
-			sublabel:
-				process.platform === 'darwin'
-					? __( 'Use a new AI agent focused interface for managing and editing your sites.' )
-					: undefined,
-			click: async ( menuItem: MenuItem ) => {
-				await setStudioUiModeFromMenu( menuItem.checked ? 'agentic' : 'default', mainWindow );
-			},
-		},
-	];
-
-	return [ ...items, ...betaFeatureItems ];
+			return {
+				label,
+				type: 'checkbox' as const,
+				checked: currentBetaFeatures[ key as keyof BetaFeatures ],
+				// Only use sublabel on macOS where it displays nicely
+				sublabel: process.platform === 'darwin' ? definition.description : undefined,
+				click: async ( menuItem: MenuItem ) => {
+					await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
+					if ( key === 'remoteSession' ) {
+						bumpStat(
+							menuItem.checked
+								? StatsGroup.STUDIO_APP_DOLLY_ENABLE
+								: StatsGroup.STUDIO_APP_DOLLY_DISABLE,
+							getPlatformMetric()
+						);
+					}
+					void sendIpcEventToRenderer( 'beta-features-updated' );
+				},
+			};
+		}
+	);
 }
 
 async function getAppMenu(
@@ -188,11 +143,20 @@ async function getAppMenu(
 		checked: getFeatureFlagFromEnv( flag as keyof FeatureFlags ),
 		click: ( menuItem: MenuItem ) => {
 			setFeatureFlagInEnv( flag as keyof FeatureFlags, menuItem.checked );
+			if (
+				UI_MODE_FEATURE_FLAGS.includes( flag as keyof FeatureFlags ) &&
+				mainWindow &&
+				! mainWindow.isDestroyed()
+			) {
+				setTimeout( () => {
+					void loadMainWindowRenderer( mainWindow );
+				}, 0 );
+			}
 			void sendIpcEventToRenderer( 'refresh-app-globals' );
 		},
 	} ) );
 
-	const betaFeaturesMenu = await buildBetaFeaturesMenu( mainWindow );
+	const betaFeaturesMenu = await buildBetaFeaturesMenu();
 
 	return Menu.buildFromTemplate( [
 		{
@@ -287,6 +251,7 @@ async function getAppMenu(
 			submenu: [
 				{
 					label: __( 'Add Site…' ),
+					accelerator: 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},
@@ -348,7 +313,7 @@ async function getAppMenu(
 					label: __( 'Toggle Site Preview' ),
 					accelerator: 'CommandOrControl+Shift+B',
 					enabled: ! needsOnboarding,
-					click: async () => {
+					click: () => {
 						void sendIpcEventToRenderer( 'toggle-site-preview' );
 					},
 				},

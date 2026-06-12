@@ -1,17 +1,42 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import { PreviewSplitContent } from '@/components/preview-split-frame';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type CSSProperties,
+	type ReactNode,
+	type Ref,
+} from 'react';
+import {
+	LivePlaygroundPreview,
+	livePreviewSignature,
+	PlaygroundPreviewFrame,
+} from '@/components/live-playground-preview';
+import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
+import { SiteDropdown } from '@/components/site-dropdown';
+import { SiteIcon } from '@/components/site-icon';
+import { SitePreview } from '@/components/site-preview';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
+import { useSiteFiles } from '@/data/queries/use-site-files';
 import { useSites } from '@/data/queries/use-sites';
+import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
-import { SiteMenuHeader } from '@/ui-classic/components/site-menu-header';
+import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { getSiteUrl } from '@/lib/get-site-url';
+import { drawerIcon } from '@/lib/icons';
+import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton } from './composer';
 import { pickLiveSite } from './composer/environment-pill';
@@ -21,12 +46,25 @@ import { QueuedPrompts } from './queued-prompts';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
+// Keep in sync with the flex-basis transition duration in style.module.css.
+const PREVIEW_TOGGLE_DURATION = 150;
+
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
+	previewOpen: boolean;
+	onTogglePreview: () => void;
+	canTogglePreview: boolean;
 }
 
-function SessionHeader( { summary }: SessionHeaderProps ) {
+function SessionHeader( {
+	summary,
+	previewOpen,
+	onTogglePreview,
+	canTogglePreview,
+}: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
+	const sidebarCollapsed = useSidebarCollapsed();
+	const isFullscreen = useFullscreen();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
@@ -34,36 +72,158 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 		return null;
 	}
 
+	const toggleSpacerClass = sidebarCollapsed
+		? isFullscreen
+			? styles.toggleSpacerFullscreen
+			: styles.toggleSpacer
+		: null;
+
 	return (
-		<SiteMenuHeader
-			site={ site }
-			fallbackSiteName={ siteName }
-			activeEnvironment={ effectiveEnvironment }
-		/>
+		<div className={ styles.header }>
+			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
+			{ site ? (
+				<SiteDropdown
+					site={ site }
+					activeEnvironment={ effectiveEnvironment }
+					showSiteIcon={ sidebarCollapsed }
+				/>
+			) : (
+				<>
+					{ sidebarCollapsed ? (
+						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+					) : null }
+					<span className={ styles.headerSite }>{ siteName }</span>
+					<span className={ styles.headerDot } aria-hidden="true" />
+					<span className={ styles.headerEnv }>
+						{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
+					</span>
+				</>
+			) }
+			<span className={ styles.headerSpacer } aria-hidden="true" />
+			{ canTogglePreview ? (
+				<div className={ styles.headerActions }>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ drawerIcon }
+						label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
+						aria-pressed={ previewOpen }
+						onClick={ onTogglePreview }
+					/>
+				</div>
+			) : null }
+		</div>
 	);
 }
 
-export function SessionView( {
-	sessionId,
-	autoFocusComposer = false,
-}: {
-	sessionId: string;
-	autoFocusComposer?: boolean;
-} ) {
+interface SessionFrameProps {
+	header?: ReactNode;
+	composer?: ReactNode;
+	// The preview panel content. Kept mounted (hidden behind the chat column)
+	// while `previewOpen` is false so the webview stays warm and the panel can
+	// slide in and out.
+	preview?: ReactNode;
+	previewOpen?: boolean;
+	scrollRef?: Ref< HTMLDivElement >;
+	children?: ReactNode;
+}
+
+// Splits the session screen between the chat column and the site preview. The
+// preview slot is pinned to the right edge at its resizable width; the chat
+// column sits on top of it and shrinks to reveal it, so toggling animates by
+// transitioning only the chat column's flex-basis while the preview keeps a
+// constant width (no mid-animation webview reflow).
+function SessionFrame( {
+	header,
+	composer,
+	preview,
+	previewOpen = false,
+	scrollRef,
+	children,
+}: SessionFrameProps ) {
+	const previewMounted = preview != null;
+	const showPreview = previewMounted && previewOpen;
+	const previewResize = useResizablePanel( {
+		config: PREVIEW_PANEL_CONFIG,
+		edge: 'left',
+		storageKey: PREVIEW_PANEL_STORAGE_KEY,
+	} );
+	// Animate only open/close toggles of an already-mounted preview — never
+	// the initial layout, so a session loading with the preview visible
+	// doesn't replay the slide-in. The render-phase update makes the
+	// transition class land in the same commit as the flex-basis change; an
+	// effect-based update would race it.
+	const [ animating, setAnimating ] = useState( false );
+	const [ previousPreview, setPreviousPreview ] = useState( {
+		mounted: previewMounted,
+		open: showPreview,
+	} );
+	if ( previousPreview.mounted !== previewMounted || previousPreview.open !== showPreview ) {
+		setPreviousPreview( { mounted: previewMounted, open: showPreview } );
+		if ( previousPreview.mounted && previewMounted ) {
+			setAnimating( true );
+		}
+	}
+	useEffect( () => {
+		if ( ! animating ) {
+			return;
+		}
+		const timeoutId = window.setTimeout( () => setAnimating( false ), PREVIEW_TOGGLE_DURATION );
+		return () => window.clearTimeout( timeoutId );
+	}, [ animating, showPreview ] );
+
+	const rootStyle = { '--site-preview-width': `${ previewResize.width }px` } as CSSProperties;
+
+	return (
+		<div
+			className={ clsx(
+				styles.root,
+				showPreview && styles.rootPreviewOpen,
+				animating && styles.rootPreviewAnimating
+			) }
+			style={ rootStyle }
+		>
+			<div className={ styles.chatColumn }>
+				{ header }
+				<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
+					{ children }
+				</div>
+				<div className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }>
+					{ composer }
+				</div>
+			</div>
+			{ preview != null ? (
+				<div className={ clsx( styles.previewSlot, showPreview && styles.previewSlotOpen ) }>
+					{ preview }
+				</div>
+			) : null }
+			{ showPreview && ! animating ? (
+				<ResizeHandle
+					className={ styles.previewResizeHandle }
+					label={ __( 'Resize site preview' ) }
+					minWidth={ previewResize.minWidth }
+					maxWidth={ previewResize.maxWidth }
+					width={ previewResize.width }
+					isResizing={ previewResize.isResizing }
+					onResizeStart={ previewResize.handleResizeStart }
+					onKeyDown={ previewResize.handleKeyDown }
+				/>
+			) : null }
+			{ previewResize.isResizing ? <ResizeOverlay /> : null }
+		</div>
+	);
+}
+
+export function SessionView( { sessionId }: { sessionId: string } ) {
 	return (
 		<SessionUIProvider>
-			<SessionViewContent sessionId={ sessionId } autoFocusComposer={ autoFocusComposer } />
+			<SessionViewContent sessionId={ sessionId } />
 		</SessionUIProvider>
 	);
 }
 
-function SessionViewContent( {
-	sessionId,
-	autoFocusComposer,
-}: {
-	sessionId: string;
-	autoFocusComposer: boolean;
-} ) {
+function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
@@ -106,7 +266,20 @@ function SessionViewContent( {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	useSessionCommands( sessionId );
-	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
+	const preview = useSessionPreviewUI();
+	// Studio Web: the agent's workspace files, previewed via a client-side
+	// Playground. Non-empty only for the web connector; desktop returns [].
+	const { data: siteFiles } = useSiteFiles( sessionId );
+	const hasLivePreview = ( siteFiles?.length ?? 0 ) > 0;
+	const livePreviewKey = useMemo( () => livePreviewSignature( siteFiles ?? [] ), [ siteFiles ] );
+	// Hosted/web sites (Studio Web) render via WordPress Playground on a foreign
+	// origin. SitePreview's same-origin guest-script + postMessage machinery
+	// thrashes that iframe (OOM-crashes the tab), so they get a bare frame.
+	const ownerSiteUrl = ownerSite ? getSiteUrl( ownerSite ) : undefined;
+	const isPlaygroundHostedSite = !! ownerSiteUrl?.startsWith( 'https://playground.wordpress.net' );
+	const canTogglePreview = hasLivePreview || ( !! ownerSite && effectiveEnvironment === 'local' );
+	const showPreview = preview.open && canTogglePreview;
+
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
 			if ( annotations.length === 0 ) return;
@@ -116,7 +289,6 @@ function SessionViewContent( {
 		},
 		[ sendMessage ]
 	);
-	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview && !! ownerSite );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -131,15 +303,13 @@ function SessionViewContent( {
 	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
 
 	if ( isLoading ) {
-		// Use the same PreviewSplitFrame with an empty header and a structural
+		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
 		// as the loaded view — otherwise the EmptyBackground canvas jumps
 		// mid-transition.
 		return (
-			<PreviewSplitContent
-				scrollClassName={ clsx( styles.scroll, styles.classicScroll ) }
-				composerOuterClassName={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
-				header={ <SiteMenuHeader /> }
+			<SessionFrame
+				header={ <div className={ styles.header } /> }
 				composer={
 					<div className={ styles.classicColumn }>
 						<ComposerSkeleton />
@@ -147,7 +317,7 @@ function SessionViewContent( {
 				}
 			>
 				<EmptyBackground />
-			</PreviewSplitContent>
+			</SessionFrame>
 		);
 	}
 
@@ -161,11 +331,16 @@ function SessionViewContent( {
 	}
 
 	return (
-		<PreviewSplitContent
+		<SessionFrame
 			scrollRef={ scrollRef }
-			scrollClassName={ clsx( styles.scroll, styles.classicScroll ) }
-			composerOuterClassName={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
-			header={ <SessionHeader summary={ data.summary } /> }
+			header={
+				<SessionHeader
+					summary={ data.summary }
+					previewOpen={ showPreview }
+					onTogglePreview={ preview.toggle }
+					canTogglePreview={ canTogglePreview }
+				/>
+			}
 			composer={
 				<div className={ styles.classicColumn }>
 					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
@@ -181,7 +356,6 @@ function SessionViewContent( {
 						liveSite={ liveSite }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
-						autoFocus={ autoFocusComposer }
 						onSwitchSession={ ( nextSessionId ) =>
 							void navigate( {
 								to: '/sessions/$sessionId',
@@ -190,6 +364,32 @@ function SessionViewContent( {
 						}
 					/>
 				</div>
+			}
+			previewOpen={ showPreview }
+			preview={
+				hasLivePreview ? (
+					// Studio Web: render the agent's workspace live in a client-side
+					// Playground. Takes precedence over the SiteDetails-based previews,
+					// which are for local/hosted sites with a server URL.
+					showPreview ? (
+						<LivePlaygroundPreview key={ livePreviewKey } files={ siteFiles ?? [] } />
+					) : null
+				) : canTogglePreview && ownerSite ? (
+					isPlaygroundHostedSite ? (
+						showPreview && ownerSiteUrl ? (
+							<PlaygroundPreviewFrame url={ ownerSiteUrl } />
+						) : null
+					) : (
+						<SitePreview
+							site={ ownerSite }
+							path={ preview.path }
+							reloadNonce={ preview.reloadNonce }
+							onAnnotationsDone={ handleAnnotationsDone }
+							onPathChange={ preview.updatePath }
+							collapsed={ ! showPreview }
+						/>
+					)
+				) : null
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
@@ -203,6 +403,6 @@ function SessionViewContent( {
 					onAnswerQuestion={ answerQuestion }
 				/>
 			</div>
-		</PreviewSplitContent>
+		</SessionFrame>
 	);
 }

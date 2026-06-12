@@ -166,132 +166,127 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 	);
 
 	return (
-		<>
-			<div className={ styles.rows }>
+		<div className={ styles.rows }>
+			<PopoverRow
+				label={ __( 'Local' ) }
+				sublabel={ renderUrlLink( {
+					text: localSublabel,
+					url: localSiteUrl,
+					label: __( 'Open local site in your browser' ),
+				} ) }
+				action={
+					<Button
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						className={ styles.localServerButton }
+						loading={ isLocalTransitioning }
+						loadingAnnouncement={
+							isLocalTransitioning
+								? isStopping
+									? __( 'Stopping local site' )
+									: __( 'Starting local site' )
+								: undefined
+						}
+						disabled={ isLocalTransitioning || isSyncing }
+						onClick={ handleLocalServerClick }
+					>
+						{ site.running ? __( 'Stop' ) : __( 'Start' ) }
+					</Button>
+				}
+			/>
+
+			{ liveSite ? (
 				<PopoverRow
-					label={ __( 'Local' ) }
+					label={ __( 'Live' ) }
 					sublabel={ renderUrlLink( {
-						text: localSublabel,
-						url: localSiteUrl,
-						label: __( 'Open local site in your browser' ),
+						text: stripProtocol( liveSite.url ),
+						url: ensureProtocol( liveSite.url ),
+						label: __( 'Open live site in your browser' ),
 					} ) }
 					action={
-						<Button
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							className={ styles.localServerButton }
-							loading={ isLocalTransitioning }
-							loadingAnnouncement={
-								isLocalTransitioning
-									? isStopping
-										? __( 'Stopping local site' )
-										: __( 'Starting local site' )
-									: undefined
-							}
-							disabled={ isLocalTransitioning || isSyncing }
-							onClick={ handleLocalServerClick }
-						>
-							{ site.running ? __( 'Stop' ) : __( 'Start' ) }
-						</Button>
+						<div className={ styles.rowActions }>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ arrowDown }
+								label={ isPullPending ? __( 'Pulling from live' ) : __( 'Pull from live' ) }
+								disabled={ isSyncing }
+								focusableWhenDisabled
+								onClick={ handlePullClick }
+							/>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ arrowUp }
+								label={ isPushPending ? __( 'Pushing to live' ) : __( 'Push to live' ) }
+								disabled={ isSyncing }
+								focusableWhenDisabled
+								onClick={ handlePushClick }
+							/>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ linkOff }
+								label={ __( 'Disconnect live site' ) }
+								disabled={ isSyncing }
+								focusableWhenDisabled
+								onClick={ onDisconnectClick }
+							/>
+						</div>
 					}
 				/>
+			) : (
+				<EnvironmentActionPanel
+					title={ __( 'Launch on WordPress.com' ) }
+					copy={ __(
+						'Make it available to visitors when you’re ready to share it with the world.'
+					) }
+					buttonLabel={ __( 'Publish' ) }
+					variant="solid"
+					tone="brand"
+					disabled={ isSyncing }
+					onClick={ onSetupClick }
+				/>
+			) }
 
-				{ liveSite ? (
-					<PopoverRow
-						label={ __( 'Live' ) }
-						sublabel={ renderUrlLink( {
-							text: stripProtocol( liveSite.url ),
-							url: ensureProtocol( liveSite.url ),
-							label: __( 'Open live site in your browser' ),
-						} ) }
-						action={
-							<div className={ styles.rowActions }>
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ arrowDown }
-									label={ isPullPending ? __( 'Pulling from live' ) : __( 'Pull from live' ) }
-									disabled={ isSyncing }
-									focusableWhenDisabled
-									className={ styles.compactIconButton }
-									onClick={ handlePullClick }
-								/>
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ arrowUp }
-									label={ isPushPending ? __( 'Pushing to live' ) : __( 'Push to live' ) }
-									disabled={ isSyncing }
-									focusableWhenDisabled
-									className={ styles.compactIconButton }
-									onClick={ handlePushClick }
-								/>
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ linkOff }
-									label={ __( 'Disconnect live site' ) }
-									disabled={ isSyncing }
-									focusableWhenDisabled
-									className={ styles.compactIconButton }
-									onClick={ onDisconnectClick }
-								/>
-							</div>
-						}
-					/>
-				) : (
-					<EnvironmentActionPanel
-						title={ __( 'Launch on WordPress.com' ) }
-						copy={ __(
-							'Make it available to visitors when you’re ready to share it with the world.'
-						) }
-						buttonLabel={ __( 'Publish' ) }
-						variant="solid"
-						tone="brand"
-						disabled={ isSyncing }
-						onClick={ onSetupClick }
-					/>
-				) }
-
-				{ previewSnapshot ? (
-					<PopoverRow
-						label={ __( 'Preview' ) }
-						sublabel={ renderUrlLink( {
-							text: __( 'Open preview' ),
-							url: ensureProtocol( previewSnapshot.url ),
-							label: __( 'Open preview site in your browser' ),
-						} ) }
-						action={ renderTooltipButton( {
-							tooltip: __( 'Update preview site' ),
-							variant: 'minimal',
-							tone: 'neutral',
-							size: 'small',
-							loading: isPreviewPending,
-							loadingAnnouncement: __( 'Updating preview' ),
-							disabled: isSyncing,
-							onClick: handlePreviewClick,
-							children: __( 'Update' ),
-						} ) }
-					/>
-				) : (
-					<EnvironmentActionPanel
-						title={ __( 'Share a preview' ) }
-						copy={ __( 'Send a temporary link for feedback before you launch.' ) }
-						buttonLabel={ __( 'Share' ) }
-						variant="solid"
-						tone="neutral"
-						loading={ isPreviewPending }
-						loadingAnnouncement={ __( 'Creating preview' ) }
-						disabled={ isSyncing }
-						onClick={ handlePreviewClick }
-					/>
-				) }
-			</div>
-		</>
+			{ previewSnapshot ? (
+				<PopoverRow
+					label={ __( 'Preview' ) }
+					sublabel={ renderUrlLink( {
+						text: __( 'Open preview' ),
+						url: ensureProtocol( previewSnapshot.url ),
+						label: __( 'Open preview site in your browser' ),
+					} ) }
+					action={ renderTooltipButton( {
+						tooltip: __( 'Update preview site' ),
+						variant: 'minimal',
+						tone: 'neutral',
+						size: 'small',
+						loading: isPreviewPending,
+						loadingAnnouncement: __( 'Updating preview' ),
+						disabled: isSyncing,
+						onClick: handlePreviewClick,
+						children: __( 'Update' ),
+					} ) }
+				/>
+			) : (
+				<EnvironmentActionPanel
+					title={ __( 'Share a preview' ) }
+					copy={ __( 'Send a temporary link for feedback before you launch.' ) }
+					buttonLabel={ __( 'Share' ) }
+					variant="solid"
+					tone="neutral"
+					loading={ isPreviewPending }
+					loadingAnnouncement={ __( 'Creating preview' ) }
+					disabled={ isSyncing }
+					onClick={ handlePreviewClick }
+				/>
+			) }
+		</div>
 	);
 }
 

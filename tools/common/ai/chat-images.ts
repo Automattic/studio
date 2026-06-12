@@ -34,7 +34,6 @@ export interface StudioAiSessionInputPayload {
 export const STUDIO_CHAT_MAX_IMAGES = 4;
 export const STUDIO_CHAT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES = 12 * 1024 * 1024;
-export const STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX = 8000;
 
 export function toStudioChatImageAttachment( image: StudioChatImage ): StudioChatImageAttachment {
 	const { dataBase64: _dataBase64, ...attachment } = image;
@@ -54,16 +53,6 @@ export function getStudioChatImageDecodedBytes( dataBase64: string ): number {
 	const normalized = dataBase64.replace( /\s/g, '' );
 	const padding = normalized.endsWith( '==' ) ? 2 : normalized.endsWith( '=' ) ? 1 : 0;
 	return Math.max( 0, Math.floor( ( normalized.length * 3 ) / 4 ) - padding );
-}
-
-function assertValidImageDimension( value: unknown ): number | undefined {
-	if ( value === undefined ) {
-		return undefined;
-	}
-	if ( typeof value !== 'number' || ! Number.isFinite( value ) ) {
-		throw new Error( 'Attached image dimensions must be finite numbers.' );
-	}
-	return value;
 }
 
 export function validateStudioChatImages(
@@ -96,15 +85,6 @@ export function validateStudioChatImages(
 		totalBytes += Math.max( size, decodedBytes );
 		if ( totalBytes > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) {
 			throw new Error( 'Attached images are too large to send together.' );
-		}
-
-		const width = assertValidImageDimension( image.width );
-		const height = assertValidImageDimension( image.height );
-		if (
-			( width !== undefined && width > STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX ) ||
-			( height !== undefined && height > STUDIO_CHAT_MAX_IMAGE_DIMENSION_PX )
-		) {
-			throw new Error( 'Attached images must be 8000 pixels or smaller on each side.' );
 		}
 	}
 

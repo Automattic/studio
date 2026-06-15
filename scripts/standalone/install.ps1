@@ -1,5 +1,12 @@
 # Studio CLI installer for Windows
-# Usage: irm https://wp.build/install.ps1 | iex
+#
+# Usage (production): irm https://wp.build/install.ps1 | iex
+#   Piping to `iex` runs the script as an expression, so PowerShell's execution
+#   policy doesn't apply.
+#
+# Running the .ps1 file directly is gated by the execution policy, so for local
+# testing pass -ExecutionPolicy Bypass:
+#   powershell -ExecutionPolicy Bypass -File scripts\standalone\install.ps1
 #
 # Environment variables:
 #   STUDIO_CLI_HOME — Installation directory (default: %LOCALAPPDATA%\studio)

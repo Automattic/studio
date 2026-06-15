@@ -14,7 +14,6 @@ export interface MuPlugin {
 	content: string;
 }
 
-// PHP error log written by the 0-error-capture mu-plugin; read on a failed start.
 export const STUDIO_ERROR_LOG_FILENAME = 'studio-error.log';
 
 export type MuPluginRuntime = 'playground' | 'native-php';
@@ -22,9 +21,7 @@ export type MuPluginRuntime = 'playground' | 'native-php';
 export interface MuPluginOptions {
 	isWpAutoUpdating?: boolean;
 	runtime?: MuPluginRuntime;
-	// Path PHP errors are logged to (a Playground VFS path), even with WP debug logging off.
 	errorLogPath?: string;
-	// Stop logging once WordPress boots, so runtime errors aren't recorded when debug logging is off.
 	errorLogStopAfterBoot?: boolean;
 }
 
@@ -172,13 +169,8 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Capture PHP errors so site-start failures stay diagnosable (STU-1757).
-	// WP_DEBUG_LOG alone won't do it: WordPress's platform mu-plugin disables
-	// log_errors early when it's falsy, so we re-enable it here — this loads
-	// after, via the Studio loader. Defers to logging the user already set up.
+	// Capture PHP errors so a failed site start can show why (STU-1757).
 	if ( options.errorLogPath ) {
-		// Stop after boot (debug logging off) to record startup failures only;
-		// a boot fatal fires before wp_loaded, so it's still caught.
 		const stopAfterBoot = options.errorLogStopAfterBoot
 			? `if ( function_exists( 'add_action' ) ) {
 				add_action( 'wp_loaded', function () { ini_set( 'log_errors', '0' ); }, PHP_INT_MAX );

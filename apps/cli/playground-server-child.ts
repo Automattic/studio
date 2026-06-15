@@ -254,8 +254,6 @@ async function getBaseRunCLIArgs(
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,
-		// Capture startup errors (STU-1757). When debug logging is on, log to the
-		// user's debug.log where they expect it; otherwise to a Studio-managed log.
 		errorLogPath: config.enableDebugLog
 			? '/wordpress/wp-content/debug.log'
 			: `/wordpress/wp-content/${ STUDIO_ERROR_LOG_FILENAME }`,

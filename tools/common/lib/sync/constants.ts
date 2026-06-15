@@ -21,7 +21,6 @@ export const SYNC_IGNORE_DEFAULTS = [
 	'database',
 	'db.php',
 	'debug.log',
-	// STUDIO_ERROR_LOG_FILENAME; inlined since mu-plugins.ts (fs/promises) can't load in the renderer.
 	'studio-error.log',
 	'sqlite-database-integration',
 	'cache',

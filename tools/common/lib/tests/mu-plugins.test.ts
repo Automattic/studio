@@ -127,6 +127,8 @@ describe( 'getMuPlugins error capture', () => {
 		const content = await readFile( capturePath, 'utf8' );
 		expect( content ).toContain( "ini_set( 'log_errors', '1' );" );
 		expect( content ).toContain( "'/wordpress/wp-content/it\\'s-a-log.log'" );
+		// Defers to logging the user already configured.
+		expect( content ).toContain( "if ( ! ini_get( 'log_errors' ) || ! ini_get( 'error_log' ) )" );
 
 		const [ withoutCapture ] = await getMuPlugins();
 		expect( existsSync( join( withoutCapture, '0-error-capture.php' ) ) ).toBe( false );

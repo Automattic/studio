@@ -179,12 +179,18 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	// is falsy, so re-enabling it has to happen *after* that runs. This
 	// mu-plugin loads after the platform one (via the Studio loader) and does
 	// exactly that — a constant alone cannot.
+	//
+	// Defer to any logging that's already configured (a user's own
+	// WP_DEBUG_LOG / error_log), so we only fill the silent gap and never
+	// redirect errors the user expects elsewhere.
 	if ( options.errorLogPath ) {
 		muPlugins.push( {
 			filename: '0-error-capture.php',
 			content: `<?php
-		ini_set( 'log_errors', '1' );
-		ini_set( 'error_log', '${ escapePhpSingleQuotedString( options.errorLogPath ) }' );
+		if ( ! ini_get( 'log_errors' ) || ! ini_get( 'error_log' ) ) {
+			ini_set( 'log_errors', '1' );
+			ini_set( 'error_log', '${ escapePhpSingleQuotedString( options.errorLogPath ) }' );
+		}
 		`,
 		} );
 	}

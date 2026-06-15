@@ -5,12 +5,16 @@ set -eu
 # Usage: curl -fsSL https://wp.build/install.sh | bash
 #
 # Environment variables:
-#   STUDIO_CLI_HOME    — Installation directory (default: ~/.studio)
-#   STUDIO_CLI_URL     — Base URL for downloading bundles (default: https://wp.build/releases)
+#   STUDIO_CLI_HOME     — Installation directory (default: ~/.studio)
+#   STUDIO_CLI_VERSION  — Version to install from the CDN (default: latest, e.g. v1.11.0)
+#   STUDIO_CLI_URL      — Override the download source with a base URL or local dir,
+#                         bypassing the CDN. Expects studio-cli-<platform>-<arch>.tar.gz
+#                         plus a matching .sha256 sidecar (used for testing and mirrors).
 
 INSTALL_DIR="${STUDIO_CLI_HOME:-$HOME/.studio}"
-BASE_URL="${STUDIO_CLI_URL:-https://wp.build/releases}"
 BIN_DIR="$HOME/.local/bin"
+CDN_BASE="https://appscdn.wordpress.com/downloads/wordpress-com-studio-cli"
+CDN_VERSION="${STUDIO_CLI_VERSION:-latest}"
 
 # --- Platform detection ---
 
@@ -35,6 +39,14 @@ detect_platform() {
 			echo "Error: Unsupported architecture: $ARCH" >&2
 			exit 1
 			;;
+	esac
+
+	# Apps CDN platform slug used to build the default download path.
+	case "$PLATFORM-$ARCH" in
+		darwin-arm64) SLUG="mac-silicon" ;;
+		darwin-x64)   SLUG="mac-intel" ;;
+		linux-x64)    SLUG="linux-x64" ;;
+		linux-arm64)  SLUG="linux-arm64" ;;
 	esac
 
 	echo "Detected platform: $PLATFORM-$ARCH"
@@ -94,13 +106,24 @@ verify_checksum() {
 
 install_studio() {
 	BUNDLE_NAME="studio-cli-${PLATFORM}-${ARCH}.tar.gz"
-	BUNDLE_URL="${BASE_URL}/${BUNDLE_NAME}"
+
+	# Default to the Apps CDN, which 302-redirects "latest" (or a pinned version) to
+	# the newest published bundle. STUDIO_CLI_URL overrides this with a base URL or
+	# local dir that serves the bundle by name plus a .sha256 sidecar — used for
+	# local testing, mirrors, or pinning an arbitrary build.
+	if [ -n "${STUDIO_CLI_URL:-}" ]; then
+		BUNDLE_URL="${STUDIO_CLI_URL}/${BUNDLE_NAME}"
+		HAS_SHA256_SIDECAR=1
+	else
+		BUNDLE_URL="${CDN_BASE}/${SLUG}/${CDN_VERSION}/full-install"
+		HAS_SHA256_SIDECAR=0
+	fi
 
 	mkdir -p "$INSTALL_DIR"
 
-	# Download, verify, and extract in a staging dir on the same filesystem as
-	# the final paths. A failed or corrupt download never touches a previously
-	# working install.
+	# Download and extract in a staging dir on the same filesystem as the final
+	# paths. A failed, corrupt, or truncated download fails at extraction below and
+	# never touches a previously working install.
 	STAGING_DIR="$(mktemp -d "${INSTALL_DIR}/.studio-install.XXXXXX")"
 	trap 'rm -rf "$STAGING_DIR"' EXIT
 
@@ -108,17 +131,26 @@ install_studio() {
 
 	echo "Downloading Studio CLI..."
 	download "$BUNDLE_URL" "$TMP_BUNDLE"
-	download "${BUNDLE_URL}.sha256" "$TMP_BUNDLE.sha256"
 
-	echo "Verifying checksum..."
-	if ! verify_checksum "$TMP_BUNDLE" "$TMP_BUNDLE.sha256"; then
-		echo "Error: checksum verification failed. Aborting; existing install left untouched." >&2
-		exit 1
+	# The CDN exposes the SHA-256 only as build metadata, not as a downloadable
+	# sidecar, so checksum verification applies to STUDIO_CLI_URL sources (which do
+	# ship one). The CDN path relies on HTTPS for transport integrity plus the
+	# staging-extraction guard below.
+	if [ "$HAS_SHA256_SIDECAR" = "1" ]; then
+		download "${BUNDLE_URL}.sha256" "$TMP_BUNDLE.sha256"
+		echo "Verifying checksum..."
+		if ! verify_checksum "$TMP_BUNDLE" "$TMP_BUNDLE.sha256"; then
+			echo "Error: checksum verification failed. Aborting; existing install left untouched." >&2
+			exit 1
+		fi
 	fi
 
 	echo "Installing to $INSTALL_DIR..."
 	mkdir -p "$STAGING_DIR/extracted"
-	tar -xzf "$TMP_BUNDLE" -C "$STAGING_DIR/extracted"
+	if ! tar -xzf "$TMP_BUNDLE" -C "$STAGING_DIR/extracted"; then
+		echo "Error: failed to extract bundle (corrupt or incomplete download). Aborting; existing install left untouched." >&2
+		exit 1
+	fi
 
 	# A previous standalone install may have a running daemon and site servers
 	# holding open handles on bin/node and cli/. Stop them first so replacing the

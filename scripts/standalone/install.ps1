@@ -9,13 +9,17 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\standalone\install.ps1
 #
 # Environment variables:
-#   STUDIO_CLI_HOME — Installation directory (default: %LOCALAPPDATA%\studio)
-#   STUDIO_CLI_URL  — Base URL for downloading bundles (default: https://wp.build/releases)
+#   STUDIO_CLI_HOME     — Installation directory (default: %LOCALAPPDATA%\studio)
+#   STUDIO_CLI_VERSION  — Version to install from the CDN (default: latest, e.g. v1.11.0)
+#   STUDIO_CLI_URL      — Override the download source with a base URL or local dir,
+#                         bypassing the CDN. Expects studio-cli-<platform>-<arch>.tar.gz
+#                         plus a matching .sha256 sidecar (used for testing and mirrors).
 
 $ErrorActionPreference = "Stop"
 
 $InstallDir = if ($env:STUDIO_CLI_HOME) { $env:STUDIO_CLI_HOME } else { "$env:LOCALAPPDATA\studio" }
-$BaseUrl = if ($env:STUDIO_CLI_URL) { $env:STUDIO_CLI_URL } else { "https://wp.build/releases" }
+$CdnBase = "https://appscdn.wordpress.com/downloads/wordpress-com-studio-cli"
+$CdnVersion = if ($env:STUDIO_CLI_VERSION) { $env:STUDIO_CLI_VERSION } else { "latest" }
 
 # --- Platform detection ---
 
@@ -60,7 +64,20 @@ function Test-Checksum {
 function Install-StudioCli {
     $Arch = Get-Platform
     $BundleName = "studio-cli-win32-${Arch}.tar.gz"
-    $BundleUrl = "${BaseUrl}/${BundleName}"
+
+    # Default to the Apps CDN, which 302-redirects "latest" (or a pinned version) to
+    # the newest published bundle. STUDIO_CLI_URL overrides this with a base URL or
+    # local dir that serves the bundle by name plus a .sha256 sidecar — used for
+    # local testing, mirrors, or pinning an arbitrary build.
+    if ($env:STUDIO_CLI_URL) {
+        $BundleUrl = "$($env:STUDIO_CLI_URL)/${BundleName}"
+        $HasSha256Sidecar = $true
+    }
+    else {
+        $Slug = if ($Arch -eq "arm64") { "windows-arm64" } else { "windows-x64" }
+        $BundleUrl = "${CdnBase}/${Slug}/${CdnVersion}/full-install"
+        $HasSha256Sidecar = $false
+    }
 
     Write-Host "Studio CLI Installer"
     Write-Host ""
@@ -69,9 +86,9 @@ function Install-StudioCli {
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     $BinDir = Join-Path $InstallDir "bin"
 
-    # Download, verify, and extract in a staging dir, then swap the runtime
-    # dirs into place. A failed or corrupt download never clobbers a working
-    # install.
+    # Download and extract in a staging dir, then swap the runtime dirs into place.
+    # A failed, corrupt, or truncated download fails at extraction below and never
+    # clobbers a working install.
     $StagingDir = Join-Path $InstallDir (".studio-install-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
     try {
@@ -79,10 +96,15 @@ function Install-StudioCli {
 
         Write-Host "Downloading Studio CLI..."
         Get-Bundle -Url $BundleUrl -Dest $TmpBundle
-        Get-Bundle -Url "$BundleUrl.sha256" -Dest "$TmpBundle.sha256"
 
-        Write-Host "Verifying checksum..."
-        Test-Checksum -File $TmpBundle -ChecksumFile "$TmpBundle.sha256"
+        # The CDN exposes the SHA-256 only as build metadata, not as a downloadable
+        # sidecar, so checksum verification applies to STUDIO_CLI_URL sources (which
+        # do ship one). The CDN path relies on HTTPS plus the extraction guard below.
+        if ($HasSha256Sidecar) {
+            Get-Bundle -Url "$BundleUrl.sha256" -Dest "$TmpBundle.sha256"
+            Write-Host "Verifying checksum..."
+            Test-Checksum -File $TmpBundle -ChecksumFile "$TmpBundle.sha256"
+        }
 
         Write-Host "Installing to $InstallDir..."
         $ExtractDir = Join-Path $StagingDir "extracted"

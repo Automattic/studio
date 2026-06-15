@@ -71,3 +71,7 @@ If ($LastExitCode -ne 0) { Exit $LastExitCode }
 Write-Host "--- :package: Building AppX package"
 node scripts/package-appx.mjs
 If ($LastExitCode -ne 0) { Exit $LastExitCode }
+
+Write-Host "--- :package: Building standalone CLI bundle"
+npm run cli:bundle -- win32 $Architecture
+If ($LastExitCode -ne 0) { Exit $LastExitCode }

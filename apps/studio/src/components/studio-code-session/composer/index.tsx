@@ -128,6 +128,10 @@ function saveDraft( storageKey: string | null, value: string ): void {
 	}
 }
 
+export function clearSessionDraft( sessionId: string | undefined ): void {
+	saveDraft( getDraftStorageKey( sessionId ), '' );
+}
+
 export function Composer( {
 	busy,
 	isInterrupting = false,

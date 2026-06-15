@@ -2,7 +2,7 @@ import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Composer } from '.';
+import { clearSessionDraft, Composer } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';
 
 const defaultProps = {
@@ -71,5 +71,13 @@ describe( 'Composer', () => {
 		renderComposer();
 
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
+	} );
+
+	it( 'clears a stored draft by session id', () => {
+		localStorage.setItem( 'studio_code_session_draft:session-1', 'Update the homepage copy' );
+
+		clearSessionDraft( 'session-1' );
+
+		expect( localStorage.getItem( 'studio_code_session_draft:session-1' ) ).toBeNull();
 	} );
 } );

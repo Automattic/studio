@@ -26,6 +26,10 @@ export interface MuPluginOptions {
 	// PHP errors are captured to this path (as seen by PHP, e.g. a VFS path
 	// for the Playground runtime) even when WP debug logging is off.
 	errorLogPath?: string;
+	// Stop capturing once WordPress finishes booting, so we record only
+	// startup failures and don't keep logging at runtime. Used when the user's
+	// debug-log setting is off (their setting is respected once the site is up).
+	errorLogStopAfterBoot?: boolean;
 }
 
 /**
@@ -184,12 +188,22 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	// WP_DEBUG_LOG / error_log), so we only fill the silent gap and never
 	// redirect errors the user expects elsewhere.
 	if ( options.errorLogPath ) {
+		// When the debug-log setting is off, capture only startup errors: stop
+		// logging once WordPress has booted so normal-use errors aren't recorded
+		// and the user's "off" choice is honored at runtime. A boot fatal fires
+		// before `wp_loaded`, so it's still captured.
+		const stopAfterBoot = options.errorLogStopAfterBoot
+			? `if ( function_exists( 'add_action' ) ) {
+				add_action( 'wp_loaded', function () { ini_set( 'log_errors', '0' ); }, PHP_INT_MAX );
+			}`
+			: '';
 		muPlugins.push( {
 			filename: '0-error-capture.php',
 			content: `<?php
 		if ( ! ini_get( 'log_errors' ) || ! ini_get( 'error_log' ) ) {
 			ini_set( 'log_errors', '1' );
 			ini_set( 'error_log', '${ escapePhpSingleQuotedString( options.errorLogPath ) }' );
+			${ stopAfterBoot }
 		}
 		`,
 		} );

@@ -263,6 +263,9 @@ async function getBaseRunCLIArgs(
 		errorLogPath: config.enableDebugLog
 			? '/wordpress/wp-content/debug.log'
 			: `/wordpress/wp-content/${ STUDIO_ERROR_LOG_FILENAME }`,
+		// With debug logging off, capture only startup errors — don't keep
+		// logging the user's runtime errors once the site is up.
+		errorLogStopAfterBoot: ! config.enableDebugLog,
 	} );
 
 	if ( ! useExactMountLayout ) {

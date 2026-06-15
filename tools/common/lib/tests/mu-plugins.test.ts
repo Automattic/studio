@@ -133,4 +133,19 @@ describe( 'getMuPlugins error capture', () => {
 		const [ withoutCapture ] = await getMuPlugins();
 		expect( existsSync( join( withoutCapture, '0-error-capture.php' ) ) ).toBe( false );
 	} );
+
+	it( 'should stop capturing after boot only when errorLogStopAfterBoot is set', async () => {
+		const [ bootOnly ] = await getMuPlugins( {
+			errorLogPath: '/wordpress/wp-content/studio-error.log',
+			errorLogStopAfterBoot: true,
+		} );
+		const bootOnlyContent = await readFile( join( bootOnly, '0-error-capture.php' ), 'utf8' );
+		expect( bootOnlyContent ).toContain( "add_action( 'wp_loaded'" );
+
+		const [ session ] = await getMuPlugins( {
+			errorLogPath: '/wordpress/wp-content/debug.log',
+		} );
+		const sessionContent = await readFile( join( session, '0-error-capture.php' ), 'utf8' );
+		expect( sessionContent ).not.toContain( 'wp_loaded' );
+	} );
 } );

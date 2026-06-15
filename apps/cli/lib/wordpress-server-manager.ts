@@ -265,11 +265,8 @@ async function clearStudioErrorLog( site: SiteData ): Promise< void > {
 
 const PHP_ERROR_TAIL_MAX_LINES = 50;
 
-/**
- * Appends the PHP errors recorded during this start attempt to a startup
- * failure, so users see why WordPress died (e.g. a plugin fatal) instead of
- * just "process exited unexpectedly" (STU-1757).
- */
+// Appends the PHP errors recorded during this start attempt to the failure, so
+// users see why WordPress died instead of just "process exited..." (STU-1757).
 async function withCapturedPhpErrors(
 	error: unknown,
 	site: SiteData,
@@ -283,15 +280,12 @@ async function withCapturedPhpErrors(
 		return error;
 	}
 
-	// With the debug-log setting on, WordPress records errors to debug.log
-	// instead of the Studio-managed log.
 	const logFilename = site.enableDebugLog ? 'debug.log' : STUDIO_ERROR_LOG_FILENAME;
 	const logPath = path.join( site.path, 'wp-content', logFilename );
 
 	try {
 		const stats = await fs.promises.stat( logPath );
-		// Only surface errors written during this start attempt; debug.log can
-		// hold stale entries from previous runs.
+		// Skip stale entries from previous runs (debug.log isn't cleared on start).
 		if ( stats.mtimeMs < startedAt ) {
 			return error;
 		}

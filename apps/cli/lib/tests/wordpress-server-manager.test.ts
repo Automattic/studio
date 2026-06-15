@@ -293,8 +293,7 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should not append stale PHP errors from a previous run', async () => {
 			const sitePath = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-test-site-' ) );
 			await fs.promises.mkdir( path.join( sitePath, 'wp-content' ), { recursive: true } );
-			// Sites with the debug-log setting on read from debug.log, which Studio
-			// does not clear on start, so stale entries must be filtered by mtime.
+			// debug.log isn't cleared on start, so stale entries are filtered by mtime.
 			const logPath = path.join( sitePath, 'wp-content', 'debug.log' );
 			fs.writeFileSync( logPath, 'PHP Fatal error: from a previous run' );
 			const past = new Date( Date.now() - 60_000 );

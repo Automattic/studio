@@ -33,6 +33,7 @@ import { execSync, spawn } from 'child_process';
 import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { downloadNodeBinary } from './download-node-binary';
 
 const repoRoot = path.join( __dirname, '..' );
 
@@ -153,12 +154,7 @@ async function main(): Promise< void > {
 
 	// Step 3: Download the Node binary for the target platform into bin/
 	console.log( `\n==> Step 3/4: Downloading Node.js binary for ${ platformArg }-${ archArg }...` );
-	run(
-		`npx tsx scripts/download-node-binary.ts ${ platformArg } ${ archArg } "${ path.join(
-			stagingDir,
-			'bin'
-		) }"`
-	);
+	await downloadNodeBinary( platformArg, archArg, path.join( stagingDir, 'bin' ) );
 
 	// Step 4: Create the tarball + checksum
 	console.log( '\n==> Step 4/4: Creating tarball...' );

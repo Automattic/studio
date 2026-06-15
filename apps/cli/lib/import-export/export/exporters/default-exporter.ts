@@ -265,7 +265,9 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			) {
 				continue;
 			}
-			this.archiveBuilder.file( fullEntryPathOnDisk, { name: entryPathRelativeToArchiveRoot } );
+			this.archiveBuilder.append( fs.createReadStream( fullEntryPathOnDisk ), {
+				name: entryPathRelativeToArchiveRoot,
+			} );
 		}
 	}
 

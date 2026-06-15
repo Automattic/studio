@@ -52,12 +52,16 @@ export async function archiveSiteContent(
 			if ( deployIgnore.ignores( archiveEntryPath ) ) {
 				continue;
 			}
-			archiveBuilder.file( path.join( wpContentPath, relativePath ), { name: archiveEntryPath } );
+			archiveBuilder.append( fs.createReadStream( path.join( wpContentPath, relativePath ) ), {
+				name: archiveEntryPath,
+			} );
 		}
 
 		const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
-			archiveBuilder.file( wpConfigPath, { name: 'wp-config.php' } );
+			archiveBuilder.append( fs.createReadStream( wpConfigPath ), {
+				name: 'wp-config.php',
+			} );
 		}
 
 		archiveBuilder.finalize().catch( reject );

@@ -254,13 +254,15 @@ async function getBaseRunCLIArgs(
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,
-		// With the debug-log setting off nothing records PHP errors, leaving
-		// startup failures undiagnosable (STU-1757). Capture them to a
-		// Studio-managed log; `startWordPressServer` reads it back when the
-		// start fails.
-		...( config.enableDebugLog
-			? {}
-			: { errorLogPath: `/wordpress/wp-content/${ STUDIO_ERROR_LOG_FILENAME }` } ),
+		// Capture PHP errors so startup failures stay diagnosable (STU-1757).
+		// WordPress's own WP_DEBUG_LOG isn't effective early enough to record a
+		// boot fatal, so we always lay down the capture mu-plugin: pointed at
+		// the user's debug.log when their debug-log setting is on (where they
+		// expect it), otherwise a Studio-managed log. `startWordPressServer`
+		// reads the matching file back when the start fails.
+		errorLogPath: config.enableDebugLog
+			? '/wordpress/wp-content/debug.log'
+			: `/wordpress/wp-content/${ STUDIO_ERROR_LOG_FILENAME }`,
 	} );
 
 	if ( ! useExactMountLayout ) {

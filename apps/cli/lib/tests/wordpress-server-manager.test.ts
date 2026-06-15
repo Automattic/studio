@@ -323,6 +323,30 @@ describe( 'WordPress Server Manager', () => {
 			expect( error.message ).not.toContain( 'Recent PHP errors' );
 		} );
 
+		it( 'should append PHP errors from debug.log when the debug-log setting is on', async () => {
+			const sitePath = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-test-site-' ) );
+			await fs.promises.mkdir( path.join( sitePath, 'wp-content' ), { recursive: true } );
+			const logPath = path.join( sitePath, 'wp-content', 'debug.log' );
+
+			setTimeout( () => {
+				fs.writeFileSync( logPath, 'PHP Fatal error: Uncaught Error: Failed opening required' );
+				mockBus.emit( 'process-event', {
+					process: {
+						name: mockProcessDescription.name,
+						pm_id: mockProcessDescription.pmId,
+					},
+					event: 'exit',
+				} );
+			}, 10 );
+
+			await expect(
+				startWordPressServer(
+					{ ...mockSiteData, path: sitePath, enableDebugLog: true },
+					mockLogger
+				)
+			).rejects.toThrow( /Recent PHP errors[\s\S]*debug\.log[\s\S]*PHP Fatal error/ );
+		} );
+
 		it( 'should clear the studio error log from a previous run before starting', async () => {
 			setupIpcMocks();
 			const sitePath = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-test-site-' ) );

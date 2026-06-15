@@ -1,19 +1,41 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { rotateReprintSecret } from 'cli/lib/api';
 import * as migrationClient from 'cli/lib/pull/migration-client';
 import { shouldRestartFilesSyncIndex } from 'cli/lib/pull/reprint-state';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
+import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import {
 	applyDownloadedDatabase,
 	downloadSkippedFiles,
 	findMatchingWpComSite,
-	formatWpComSitesList,
 	getReprintApiUrlForSite,
 	getPrivateDirNameForImportSession,
 	inferSiteNameFromUrl,
 	normalizeSiteUrl,
+	resolveSourceSite,
 } from '../pull-reprint';
+import type { SyncSite } from '@studio/common/types/sync';
+
+vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
+	readAuthToken: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/api') >() ),
+	rotateReprintSecret: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/sync-api') >() ),
+	fetchSyncableSites: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/sync-site-picker', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/sync-site-picker') >() ),
+	pickSyncSite: vi.fn(),
+} ) );
 
 describe( 'CLI: studio pull-reprint helpers', () => {
 	it( 'normalizes URLs by stripping hashes and trailing slashes', () => {
@@ -54,32 +76,10 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 	it( 'matches WordPress.com sites by normalized URL or host', () => {
 		expect(
 			findMatchingWpComSite(
-				[
-					{
-						id: 1,
-						name: 'Example',
-						url: 'https://example.wordpress.com/',
-					},
-				],
+				[ { id: 1, name: 'Example', url: 'https://example.wordpress.com/' } ],
 				'https://example.wordpress.com'
 			)
-		).toEqual( {
-			id: 1,
-			name: 'Example',
-			url: 'https://example.wordpress.com/',
-		} );
-	} );
-
-	it( 'formats the truncated WordPress.com site list with a remaining-count suffix', () => {
-		expect(
-			formatWpComSitesList(
-				[
-					{ id: 1, name: 'One', url: 'https://one.wordpress.com' },
-					{ id: 2, name: 'Two', url: 'https://two.wordpress.com' },
-				],
-				1
-			)
-		).toContain( '... and 1 more.' );
+		).toEqual( { id: 1, name: 'Example', url: 'https://example.wordpress.com/' } );
 	} );
 
 	it( 'restarts files-sync indexing only when the saved state has no resumable cursor', () => {
@@ -355,6 +355,196 @@ describe( 'CLI: studio pull-reprint db-apply phase', () => {
 		expect( fs.existsSync( path.join( technicalSiteDirectory, 'pull.json' ) ) ).toBe( false );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+} );
+
+describe( 'CLI: studio pull-reprint source resolution', () => {
+	const token = {
+		accessToken: 'access-token',
+		id: 1,
+		email: 'user@example.com',
+		displayName: 'User',
+		expiresIn: 1209600,
+		expirationTime: Date.now() + 1209600000,
+	};
+
+	function syncSite(
+		over: Partial< SyncSite > & { id: number; name: string; url: string }
+	): SyncSite {
+		return {
+			localSiteId: '',
+			isStaging: false,
+			isPressable: false,
+			syncSupport: 'syncable',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+			...over,
+		};
+	}
+
+	const sites: SyncSite[] = [
+		syncSite( { id: 11, name: 'One', url: 'https://one.wordpress.com' } ),
+		syncSite( { id: 22, name: 'Two', url: 'https://two.wordpress.com', isStaging: true } ),
+	];
+
+	const originalIsTTY = process.stdin.isTTY;
+
+	function setTTY( value: boolean ): void {
+		Object.defineProperty( process.stdin, 'isTTY', {
+			value,
+			configurable: true,
+		} );
+	}
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.mocked( readAuthToken ).mockResolvedValue( token );
+		vi.mocked( rotateReprintSecret ).mockResolvedValue( 'fresh-secret' );
+	} );
+
+	afterEach( () => {
+		setTTY( originalIsTTY );
+		vi.restoreAllMocks();
+	} );
+
+	it( 'opens the interactive picker for multiple syncable sites in a TTY and returns the chosen site', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+		vi.mocked( pickSyncSite ).mockResolvedValue( sites[ 1 ] );
+
+		const source = await resolveSourceSite();
+
+		expect( pickSyncSite ).toHaveBeenCalledWith( sites, expect.any( String ) );
+		expect( source ).toMatchObject( {
+			url: 'https://two.wordpress.com',
+			secret: 'fresh-secret',
+			wpComSite: sites[ 1 ],
+		} );
+		// A fresh secret is rotated for the picked site only.
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
+	} );
+
+	it( 'returns null without rotating a secret when the user cancels the picker', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+		vi.mocked( pickSyncSite ).mockResolvedValue( undefined );
+
+		const source = await resolveSourceSite();
+
+		expect( source ).toBeNull();
+		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+	} );
+
+	it( 'aborts with an error for multiple sites when not in a TTY (no picker)', async () => {
+		setTTY( false );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+
+		await expect( resolveSourceSite() ).rejects.toThrow( /Re-run with `--url/ );
+		expect( pickSyncSite ).not.toHaveBeenCalled();
+		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+	} );
+
+	it( 'auto-picks the only connected site without prompting (single-site path unchanged)', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ sites[ 0 ] ] );
+
+		const source = await resolveSourceSite();
+
+		expect( pickSyncSite ).not.toHaveBeenCalled();
+		expect( source ).toMatchObject( {
+			url: 'https://one.wordpress.com',
+			secret: 'fresh-secret',
+			wpComSite: sites[ 0 ],
+		} );
+	} );
+
+	it( 'errors when no syncable sites exist', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [] );
+
+		await expect( resolveSourceSite() ).rejects.toThrow( /No pullable WordPress\.com sites/ );
+		expect( pickSyncSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'passes the full site list to the picker so non-syncable sites can be shown disabled', async () => {
+		setTTY( true );
+		const nonSyncable = syncSite( {
+			id: 33,
+			name: 'Simple',
+			url: 'https://simple.wordpress.com',
+			syncSupport: 'needs-transfer',
+		} );
+		const all = [ sites[ 0 ], nonSyncable, sites[ 1 ] ];
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( all );
+		vi.mocked( pickSyncSite ).mockResolvedValue( sites[ 1 ] );
+
+		const source = await resolveSourceSite();
+
+		// pickSyncSite itself disables non-syncable entries, so it receives the
+		// full list rather than a pre-filtered one.
+		expect( pickSyncSite ).toHaveBeenCalledWith( all, expect.any( String ) );
+		expect( source ).toMatchObject( { wpComSite: sites[ 1 ] } );
+	} );
+
+	it( 'auto-picks the only syncable site when the rest are non-syncable', async () => {
+		setTTY( true );
+		const nonSyncable = syncSite( {
+			id: 33,
+			name: 'Simple',
+			url: 'https://simple.wordpress.com',
+			syncSupport: 'needs-upgrade',
+		} );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ nonSyncable, sites[ 0 ] ] );
+
+		const source = await resolveSourceSite();
+
+		expect( pickSyncSite ).not.toHaveBeenCalled();
+		expect( source ).toMatchObject( { url: 'https://one.wordpress.com', wpComSite: sites[ 0 ] } );
+	} );
+
+	it( 'rotates a secret for a syncable site matched by --url', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+
+		const source = await resolveSourceSite( 'https://two.wordpress.com' );
+
+		expect( source ).toMatchObject( {
+			url: 'https://two.wordpress.com',
+			secret: 'fresh-secret',
+			wpComSite: sites[ 1 ],
+		} );
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
+		expect( pickSyncSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'rejects a non-syncable site passed via --url with a clear message', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
+			syncSite( {
+				id: 44,
+				name: 'Simple',
+				url: 'https://only-simple.example.com',
+				syncSupport: 'needs-transfer',
+			} ),
+		] );
+
+		await expect( resolveSourceSite( 'https://only-simple.example.com' ) ).rejects.toThrow(
+			/cannot be pulled/
+		);
+		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+	} );
+
+	it( 'bypasses the picker entirely when --url and --secret are provided', async () => {
+		setTTY( true );
+
+		const source = await resolveSourceSite( 'https://self-hosted.example', 'my-secret' );
+
+		expect( source ).toEqual( {
+			url: 'https://self-hosted.example',
+			secret: 'my-secret',
+		} );
+		expect( fetchSyncableSites ).not.toHaveBeenCalled();
+		expect( pickSyncSite ).not.toHaveBeenCalled();
 	} );
 } );
 

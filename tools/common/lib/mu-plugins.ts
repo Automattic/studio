@@ -174,24 +174,17 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 
 	// Capture PHP errors while the user's debug-log setting is off, so site
 	// start failures (e.g. a plugin fatal during WordPress load) remain
-	// diagnosable. The path is baked in at write time because blueprint
-	// constants are not yet applied during the first boot request — exactly
-	// the one that fails (STU-1757). Playground's platform mu-plugins disable
-	// log_errors when WP_DEBUG_LOG is falsy and load after the Studio ones,
-	// so re-assert from a late muplugins_loaded hook in addition to setting
-	// immediately (the hook still fires within the current do_action pass).
+	// diagnosable (STU-1757). Setting WP_DEBUG_LOG isn't enough: WordPress's
+	// platform mu-plugin disables log_errors early in boot when WP_DEBUG_LOG
+	// is falsy, so re-enabling it has to happen *after* that runs. This
+	// mu-plugin loads after the platform one (via the Studio loader) and does
+	// exactly that — a constant alone cannot.
 	if ( options.errorLogPath ) {
 		muPlugins.push( {
 			filename: '0-error-capture.php',
 			content: `<?php
-		$studio_enable_error_capture = function () {
-			ini_set( 'log_errors', '1' );
-			ini_set( 'error_log', '${ escapePhpSingleQuotedString( options.errorLogPath ) }' );
-		};
-		$studio_enable_error_capture();
-		if ( function_exists( 'add_action' ) ) {
-			add_action( 'muplugins_loaded', $studio_enable_error_capture, PHP_INT_MAX );
-		}
+		ini_set( 'log_errors', '1' );
+		ini_set( 'error_log', '${ escapePhpSingleQuotedString( options.errorLogPath ) }' );
 		`,
 		} );
 	}

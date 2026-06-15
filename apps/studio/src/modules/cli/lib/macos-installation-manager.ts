@@ -44,6 +44,13 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			return false;
 		}
 
+		// A standalone (curl) install is managed outside the app: report it as
+		// installed — matching the Windows manager — so the UI doesn't offer an
+		// install that would silently no-op. We never install over or uninstall it.
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return true;
+		}
+
 		return await this.doesSymlinkLeadToPackagedCli( cliSymlinkPath );
 	}
 
@@ -158,6 +165,12 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			}
 		}
 
+		// Never overwrite a CLI the app didn't install — e.g. a standalone curl
+		// install symlinking studio at <STUDIO_CLI_HOME>/bin/studio (any location).
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return;
+		}
+
 		if ( await this.isCliInstalled() ) {
 			return;
 		}
@@ -190,6 +203,11 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 				return;
 			}
 			throw error;
+		}
+
+		// Don't remove a CLI the app didn't install (e.g. a standalone curl install).
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return;
 		}
 
 		await fs.promises.unlink( cliSymlinkPath );
@@ -248,6 +266,30 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			}
 			throw error;
 		}
+	}
+
+	private async isExternallyManagedCli( symlinkPath: string ): Promise< boolean > {
+		let isSymlink = false;
+		try {
+			isSymlink = ( await fs.promises.lstat( symlinkPath ) ).isSymbolicLink();
+		} catch {
+			return false;
+		}
+		if ( ! isSymlink ) {
+			return false;
+		}
+		// A dangling symlink (e.g. a standalone install that was deleted without
+		// removing the link) is broken, not externally managed — reclaim it so a
+		// reinstall can repair `studio` instead of refusing to touch it.
+		try {
+			await fs.promises.stat( symlinkPath );
+		} catch {
+			return false;
+		}
+		// A symlink that doesn't point at our packaged CLI is managed outside the
+		// app (e.g. a standalone curl install at <STUDIO_CLI_HOME>/bin/studio, any
+		// location). Treat it as installed and never overwrite it.
+		return ! ( await this.doesSymlinkLeadToPackagedCli( symlinkPath ) );
 	}
 
 	private async doesSymlinkLeadToPackagedCli( symlinkPath: string ): Promise< boolean > {

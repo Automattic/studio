@@ -3,7 +3,13 @@
 	--site-list-row-background-hover: rgb(0 0 0 / 4%);
 	--site-list-row-background-active: rgb(0 0 0 / 7%);
 
-	padding: 0 var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-xl);
+	/* Left padding matches the sidebar footer (user-menu) so
+	   the row highlight boxes share the same left edge as the rest of the
+	   sidebar chrome. The right side is smaller: rows carry `sm` of their
+	   own right padding, and `xl + sm` keeps the row icons (site status,
+	   actions) visually aligned with the header's drawer icon. */
+	padding: var(--wpds-dimension-padding-3xl) var(--wpds-dimension-padding-xl)
+		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-2xl);
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-sm);
@@ -163,7 +169,21 @@
 	background: transparent;
 	color: inherit;
 	cursor: var(--wpds-cursor-control);
-	transition: background-color 100ms ease;
+	transition: background-color 100ms ease, opacity 100ms ease;
+}
+
+/* A stopped site carries no signal worth surfacing, so its gray status square
+   stays hidden until the row is hovered, focused, has an open menu, or is the
+   active site; running/transitioning dots remain always visible. */
+.siteStatus[data-state='stopped'] {
+	opacity: 0;
+}
+
+.siteActive .siteStatus[data-state='stopped'],
+.siteHeader:hover .siteStatus[data-state='stopped'],
+.siteHeader:focus-within .siteStatus[data-state='stopped'],
+.siteHeader:has(.siteAction[data-popup-open]) .siteStatus[data-state='stopped'] {
+	opacity: 1;
 }
 
 .siteStatus:not([aria-disabled='true']):is(:hover, :focus-visible) {

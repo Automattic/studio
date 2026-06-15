@@ -3,7 +3,7 @@ Unreleased
 
 1.11.0
 =====
-* Integrated Studio Code into Studio Assistant #3696, #3709, #3725, #3733, #3741
+* Made Studio Code the default in the Studio app, replacing the previous Studio Assistant tab #3696, #3709, #3725, #3733, #3741
 * Improved site status check for json format #3485
 * Improved context for errors that bubble up from wordpress-server-child #3477
 * Fixed multiple issues with the Dark theme for Studio Code #3744, #3745

@@ -174,17 +174,24 @@
 }
 
 .questionOption {
-	background: none;
-	border: none;
-	padding: 0;
-	color: var(--color-frame-theme);
+	display: inline-flex;
+	align-items: center;
+	background-color: var(--color-frame-surface);
+	border: 1px solid var(--color-frame-border);
+	border-radius: 6px;
+	padding: 4px 10px;
+	color: var(--color-frame-text);
 	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
 	cursor: pointer;
+	transition: background-color 120ms ease, border-color 120ms ease;
 }
 
 .questionOption:hover:not(:disabled),
 .questionOption:focus-visible:not(:disabled) {
-	text-decoration: underline;
+	background-color: var(--color-frame-surface-alt);
+	border-color: var(--color-frame-text-secondary);
 }
 
 .questionOption:disabled {
@@ -198,7 +205,9 @@
 .questionOptionPicked,
 .questionOptionPicked:disabled {
 	font-weight: 600;
-	color: var(--color-frame-theme);
+	background-color: var(--color-frame-theme);
+	border-color: var(--color-frame-theme);
+	color: var(--color-frame-bg);
 	opacity: 1;
 }
 

@@ -251,14 +251,7 @@ export class ProcessManagerDaemon {
 
 		this.managedProcesses.set( pmId, managedProcess );
 
-		this.pipeOutputWithTimestamp( child.stdout, stdoutStream, ( line ) => {
-			// Playground CLI prints boot failures to stdout (with the noisy
-			// crash-page HTML on the following lines); keep the error line in
-			// the exit tail so start failures carry a reason.
-			if ( line.startsWith( 'Error:' ) ) {
-				this.recordStderrLine( managedProcess, line );
-			}
-		} );
+		this.pipeOutputWithTimestamp( child.stdout, stdoutStream );
 		this.pipeOutputWithTimestamp( child.stderr, stderrStream, ( line ) => {
 			this.recordStderrLine( managedProcess, line );
 		} );

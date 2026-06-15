@@ -620,24 +620,26 @@ function SiteSection( {
 					</div>
 				) : null }
 			</header>
-			{ group.sessions.length > 0 ? (
+			{ group.sessions.length > 0 || group.site ? (
 				<div
 					className={ clsx( styles.sessionListFrame, isOpen && styles.sessionListFrameOpen ) }
 					aria-hidden={ ! isOpen }
 				>
-					<ul className={ styles.sessionList }>
-						{ group.sessions.map( ( session ) => (
-							<SessionItem key={ session.id } session={ session } isVisible={ isOpen } />
-						) ) }
-					</ul>
-				</div>
-			) : group.site && isOpen ? (
-				<div className={ styles.emptyChatState }>
-					<span className={ styles.emptyChatText }>{ __( 'No active chats' ) }</span>
-					<span className={ styles.emptyChatSeparator } aria-hidden="true">
-						•
-					</span>
-					<NewSessionTextButton site={ group.site } />
+					{ group.sessions.length > 0 ? (
+						<ul className={ styles.sessionList }>
+							{ group.sessions.map( ( session ) => (
+								<SessionItem key={ session.id } session={ session } isVisible={ isOpen } />
+							) ) }
+						</ul>
+					) : group.site ? (
+						<div className={ styles.emptyChatState }>
+							<span className={ styles.emptyChatText }>{ __( 'No active chats' ) }</span>
+							<span className={ styles.emptyChatSeparator } aria-hidden="true">
+								•
+							</span>
+							<NewSessionTextButton site={ group.site } />
+						</div>
+					) : null }
 				</div>
 			) : null }
 		</section>

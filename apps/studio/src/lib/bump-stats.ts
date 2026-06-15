@@ -41,9 +41,10 @@ export enum StatsGroup {
 	STUDIO_CODE_UI_RUN = 'studio-code-ui-run',
 	STUDIO_CODE_UI_WKLY_UNQ = 'studio-code-ui-wk-unq',
 	STUDIO_CODE_UI_MON_UNQ = 'studio-code-ui-mon-unq',
-	// Weekly count of active sites by runtime + file access. Bumped on site
-	// start, deduped to once per site per week so restarts don't inflate it.
-	STUDIO_SITE_RUNTIME_WEEKLY = 'studio-app-runtime-wk',
+	// Daily count of active sites by runtime + file access. Bumped on site start,
+	// deduped to once per site per day (re-counted when the runtime changes) so
+	// restarts don't inflate it.
+	STUDIO_SITE_RUNTIME_DAILY = 'studio-app-runtime-day',
 }
 
 export enum StatsMetric {

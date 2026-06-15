@@ -269,9 +269,9 @@ describe( 'recordSiteRuntimeUsage', () => {
 		fileAccess: 'all-files',
 	} as const;
 
-	test( 'bumps the weekly runtime stat and records the marker on first start', async () => {
+	test( 'bumps the daily runtime stat and records the marker on first start', async () => {
 		const mockRequest = mockBumpStatRequest(
-			StatsGroup.STUDIO_SITE_RUNTIME_WEEKLY,
+			StatsGroup.STUDIO_SITE_RUNTIME_DAILY,
 			StatsMetric.RUNTIME_NATIVE_ALL_FILES
 		);
 
@@ -279,24 +279,32 @@ describe( 'recordSiteRuntimeUsage', () => {
 
 		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 		expect( mockUserData.siteMetadata[ 'site-1' ]?.runtimeStatBumpedAt ).toBeTypeOf( 'number' );
+		expect( mockUserData.siteMetadata[ 'site-1' ]?.runtimeStat ).toBe(
+			StatsMetric.RUNTIME_NATIVE_ALL_FILES
+		);
 	} );
 
-	test( 'does not bump again within the same week', async () => {
-		// Feb 6 2024 and Feb 4 2024 fall in the same week (Sunday starts the week).
-		mockCurrentTime( Date.UTC( 2024, 1, 6 ) );
-		mockUserData.siteMetadata[ 'site-1' ] = { runtimeStatBumpedAt: Date.UTC( 2024, 1, 4 ) };
+	test( 'does not bump again the same day for the same runtime', async () => {
+		const today = Date.UTC( 2024, 1, 6 );
+		mockCurrentTime( today );
+		mockUserData.siteMetadata[ 'site-1' ] = {
+			runtimeStatBumpedAt: today,
+			runtimeStat: StatsMetric.RUNTIME_NATIVE_ALL_FILES,
+		};
 
 		await recordSiteRuntimeUsage( nativeAllFilesSite );
 
 		expect( saveUserData ).not.toHaveBeenCalled();
 	} );
 
-	test( 'bumps again once a new week has started', async () => {
-		// Feb 1 2024 and Feb 4 2024 fall in different weeks (Feb 4 is a Sunday).
-		mockCurrentTime( Date.UTC( 2024, 1, 4 ) );
-		mockUserData.siteMetadata[ 'site-1' ] = { runtimeStatBumpedAt: Date.UTC( 2024, 1, 1 ) };
+	test( 'bumps again once a new day has started', async () => {
+		mockCurrentTime( Date.UTC( 2024, 1, 7 ) );
+		mockUserData.siteMetadata[ 'site-1' ] = {
+			runtimeStatBumpedAt: Date.UTC( 2024, 1, 6 ),
+			runtimeStat: StatsMetric.RUNTIME_NATIVE_ALL_FILES,
+		};
 		const mockRequest = mockBumpStatRequest(
-			StatsGroup.STUDIO_SITE_RUNTIME_WEEKLY,
+			StatsGroup.STUDIO_SITE_RUNTIME_DAILY,
 			StatsMetric.RUNTIME_NATIVE_ALL_FILES
 		);
 
@@ -304,6 +312,27 @@ describe( 'recordSiteRuntimeUsage', () => {
 
 		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 		expect( saveUserData ).toHaveBeenCalled();
+	} );
+
+	test( 'bumps again the same day when the runtime changed', async () => {
+		const today = Date.UTC( 2024, 1, 6 );
+		mockCurrentTime( today );
+		// Counted earlier today as sandbox; the site is now native + all files.
+		mockUserData.siteMetadata[ 'site-1' ] = {
+			runtimeStatBumpedAt: today,
+			runtimeStat: StatsMetric.RUNTIME_SANDBOX,
+		};
+		const mockRequest = mockBumpStatRequest(
+			StatsGroup.STUDIO_SITE_RUNTIME_DAILY,
+			StatsMetric.RUNTIME_NATIVE_ALL_FILES
+		);
+
+		await recordSiteRuntimeUsage( nativeAllFilesSite );
+
+		await waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
+		expect( mockUserData.siteMetadata[ 'site-1' ]?.runtimeStat ).toBe(
+			StatsMetric.RUNTIME_NATIVE_ALL_FILES
+		);
 	} );
 
 	test( 'preserves existing site metadata when recording the marker', async () => {

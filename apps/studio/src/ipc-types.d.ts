@@ -106,7 +106,6 @@ interface FeatureFlags {
 
 interface BetaFeatures {
 	remoteSession: boolean;
-	nativePhpRuntime?: boolean;
 }
 
 interface AppGlobals extends FeatureFlags {

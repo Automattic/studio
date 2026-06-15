@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
 import { siteListSchema, type SiteListItem } from '@studio/common/lib/cli-events';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
@@ -11,7 +12,6 @@ import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
-import { getDefaultSiteRuntime } from 'src/lib/beta-features';
 import { recordSiteRuntimeUsage } from 'src/lib/site-runtime-stats';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
@@ -181,7 +181,9 @@ export class SiteServer {
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
 
-		const runtime = options.runtime ?? ( await getDefaultSiteRuntime() );
+		// New sites default to the native PHP runtime; existing sites keep
+		// whatever they have (sandbox when unset, via getSiteRuntime).
+		const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
 		const result = await createSiteViaCli( { ...options, runtime, siteId } );
 		server.details.runtime = runtime;
 		server.details.fileAccess = options.fileAccess;

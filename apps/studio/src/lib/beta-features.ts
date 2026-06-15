@@ -1,8 +1,3 @@
-import {
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-	type SiteRuntime,
-} from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
 
@@ -18,7 +13,6 @@ export interface BetaFeatureDefinition {
  */
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
 	remoteSession: false,
-	nativePhpRuntime: false,
 };
 
 /**
@@ -32,12 +26,6 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			key: 'remoteSession',
 			default: BETA_FEATURE_DEFAULTS.remoteSession,
 			description: __( 'Control Studio from Telegram via the remote-session daemon.' ),
-		},
-		nativePhpRuntime: {
-			key: 'nativePhpRuntime',
-			label: __( 'Native PHP runtime' ),
-			default: BETA_FEATURE_DEFAULTS.nativePhpRuntime,
-			description: __( 'Use native PHP instead of the Playground sandbox for new sites.' ),
 		},
 	};
 }
@@ -54,13 +42,6 @@ function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 export async function getBetaFeatures(): Promise< BetaFeatures > {
 	const userData = await loadUserData();
 	return buildBetaFeatures( userData.betaFeatures );
-}
-
-// The runtime is a per-site setting; the beta feature only selects the
-// default for newly created sites.
-export async function getDefaultSiteRuntime(): Promise< SiteRuntime > {
-	const betaFeatures = await getBetaFeatures();
-	return betaFeatures.nativePhpRuntime ? SITE_RUNTIME_NATIVE_PHP : SITE_RUNTIME_PLAYGROUND;
 }
 
 export async function updateBetaFeature(

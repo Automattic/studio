@@ -46,6 +46,7 @@ import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { getFileAccessDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 
 type EditSiteDetailsProps = {
@@ -98,6 +99,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		selectedRuntime === SITE_RUNTIME_PLAYGROUND
 			? SITE_FILE_ACCESS_SITE_DIRECTORY
 			: selectedFileAccess;
+	const fileAccessDescription = getFileAccessDescription( __, selectedRuntime, usedFileAccess );
 	const selectedSitePhpVersion = selectedSite?.phpVersion;
 	const resolvedSitePhpVersion = resolvePhpVersion( selectedSitePhpVersion );
 	const phpVersionWarning =
@@ -507,11 +509,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														__nextHasNoMarginBottom
 													/>
 													<span className="text-frame-text-secondary text-xs">
-														{ selectedRuntime === SITE_RUNTIME_PLAYGROUND
-															? __( 'The sandbox can only access the site directory.' )
-															: usedFileAccess === SITE_FILE_ACCESS_ALL_FILES
-															? __( 'PHP can access any file your user account can access.' )
-															: __( "Restricts the site's file access to the site directory." ) }
+														{ fileAccessDescription }
 													</span>
 												</label>
 											</div>

@@ -216,7 +216,7 @@ describe( 'AddSite', () => {
 			'admin',
 			expect.any( String ),
 			'admin@localhost.com',
-			'playground',
+			'native-php',
 			'site-directory'
 		);
 	} );
@@ -436,12 +436,12 @@ describe( 'AddSite', () => {
 			'admin',
 			expect.any( String ),
 			'admin@localhost.com',
-			'playground',
+			'native-php',
 			'site-directory'
 		);
 	} );
 
-	it( 'should allow selecting the native PHP runtime and file access', async () => {
+	it( 'should allow selecting the runtime and file access', async () => {
 		const user = userEvent.setup();
 		mockGenerateProposedSitePath.mockResolvedValue( {
 			path: '/default_path/my-wordpress-website',
@@ -458,7 +458,10 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		// File access only becomes selectable with the native PHP runtime
+		// Native is the default, so File access is selectable; switching to the
+		// sandbox disables it (the sandbox only sees the site directory).
+		expect( screen.getByLabelText( 'File access' ) ).toBeEnabled();
+		await user.selectOptions( screen.getByLabelText( 'PHP runtime' ), 'playground' );
 		expect( screen.getByLabelText( 'File access' ) ).toBeDisabled();
 		await user.selectOptions( screen.getByLabelText( 'PHP runtime' ), 'native-php' );
 		await user.selectOptions( screen.getByLabelText( 'File access' ), 'all-files' );

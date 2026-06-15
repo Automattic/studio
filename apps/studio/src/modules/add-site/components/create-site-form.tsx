@@ -37,7 +37,7 @@ import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
-import { useRootSelector } from 'src/stores';
+import { getFileAccessDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
@@ -100,11 +100,9 @@ export const CreateSiteForm = ( {
 	const [ wpVersion, setWpVersion ] = useState(
 		defaultValues.wpVersion ?? DEFAULT_WORDPRESS_VERSION
 	);
-	// The "Native PHP runtime" beta feature selects the default mode for new sites
-	const defaultRuntime = useRootSelector( ( state ) =>
-		state.betaFeatures.features.nativePhpRuntime ? SITE_RUNTIME_NATIVE_PHP : SITE_RUNTIME_PLAYGROUND
-	);
-	const [ selectedRuntime, setSelectedRuntime ] = useState< SiteRuntime >( defaultRuntime );
+	// New sites default to the native PHP runtime.
+	const [ selectedRuntime, setSelectedRuntime ] =
+		useState< SiteRuntime >( SITE_RUNTIME_NATIVE_PHP );
 	const [ selectedFileAccess, setSelectedFileAccess ] = useState< SiteFileAccess >(
 		SITE_FILE_ACCESS_SITE_DIRECTORY
 	);
@@ -114,6 +112,7 @@ export const CreateSiteForm = ( {
 		selectedRuntime === SITE_RUNTIME_PLAYGROUND
 			? SITE_FILE_ACCESS_SITE_DIRECTORY
 			: selectedFileAccess;
+	const fileAccessDescription = getFileAccessDescription( __, selectedRuntime, usedFileAccess );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
@@ -571,11 +570,7 @@ export const CreateSiteForm = ( {
 											__nextHasNoMarginBottom
 										/>
 										<span className="text-frame-text-secondary text-xs">
-											{ selectedRuntime === SITE_RUNTIME_PLAYGROUND
-												? __( 'The sandbox can only access the site directory.' )
-												: usedFileAccess === SITE_FILE_ACCESS_ALL_FILES
-												? __( 'PHP can access any file your user account can access.' )
-												: __( "Restricts the site's file access to the site directory." ) }
+											{ fileAccessDescription }
 										</span>
 									</div>
 								</div>

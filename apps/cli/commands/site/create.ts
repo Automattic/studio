@@ -118,7 +118,7 @@ export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions
 ): Promise< void > {
-	const siteRuntime = options.runtime ?? SITE_RUNTIME_PLAYGROUND;
+	const siteRuntime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
 	if ( options.fileAccess && ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
 		throw new LoggerError(
 			__(

@@ -275,15 +275,7 @@ async function main() {
 			command: 'wp',
 			describe: __( 'WP-CLI' ),
 			builder: ( wpYargs ) => {
-				return wpYargs
-					.help( false )
-					.showHelpOnFail( false )
-					.strict( false )
-					.version( false )
-					.option( 'studio-no-path', {
-						type: 'boolean',
-						hidden: true,
-					} );
+				return wpYargs.help( false ).showHelpOnFail( false ).strict( false ).version( false );
 			},
 			handler: async ( argv ) => {
 				const { commandHandler: wpCliCommandHandler } = await import( 'cli/commands/wp' );

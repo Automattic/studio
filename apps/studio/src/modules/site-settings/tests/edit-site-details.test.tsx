@@ -69,11 +69,11 @@ vi.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: vi.fn().mockReturnValue( false ),
 } ) );
 
-const renderWithProvider = ( children: React.ReactElement, nativePhpRuntime = false ) => {
+const renderWithProvider = ( children: React.ReactElement ) => {
 	const store = createTestStore( {
 		preloadedState: {
 			betaFeatures: {
-				features: { remoteSession: false, nativePhpRuntime },
+				features: { remoteSession: false },
 				loading: false,
 			},
 		},

@@ -45,6 +45,7 @@
 		"cli:build:prod": "npm -w wp-studio run build:prod",
 		"cli:build:npm": "npm -w wp-studio run build:npm",
 		"cli:package": "npm -w wp-studio run package",
+		"cli:bundle": "tsx scripts/create-standalone-bundle.ts",
 		"cli:watch": "npm -w wp-studio run watch",
 		"app:install:bundle": "npm -w studio-app run install:bundle",
 		"compare:perf": "npm -w compare-perf run compare",
@@ -58,7 +59,7 @@
 		"download-language-packs": "tsx ./scripts/download-language-packs.ts",
 		"download-agent-skills": "tsx ./scripts/download-agent-skills.ts",
 		"download:php-binary": "tsx ./scripts/download-php-binary.ts",
-		"eval": "npm run cli:build --silent && npx promptfoo@0.121.4 eval -c eval/promptfoo.config.yaml",
+		"eval": "npm run cli:build --silent && npx promptfoo@0.121.4 eval -c scripts/eval/promptfoo.config.yaml",
 		"eval:view": "npx promptfoo@0.121.4 view"
 	},
 	"devDependencies": {
@@ -91,6 +92,8 @@
 		"tsx": "^4.22.1",
 		"typescript": "~6.0.3",
 		"typescript-eslint": "^8.59.4",
+		"undici": "^8.3.0",
+		"vite": "^8.0.16",
 		"vitest": "^4.0.18",
 		"web-streams-polyfill": "^4.2.0"
 	}

@@ -23,8 +23,7 @@ export function getToolDisplayName( name: string ): string {
 		preview_delete: __( 'Delete preview' ),
 		wp_cli: __( 'Run WP-CLI' ),
 		scaffold_theme: __( 'Scaffold theme' ),
-		validate_html_blocks: __( 'Check HTML blocks' ),
-		validate_and_fix_blocks: __( 'Validate and fix blocks' ),
+		validate_blocks: __( 'Validate blocks' ),
 		take_screenshot: __( 'Take screenshot' ),
 		share_screenshot: __( 'Share screenshot' ),
 		need_for_speed: __( 'Audit performance' ),
@@ -84,8 +83,7 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
 		case 'scaffold_theme':
 			return typeof input.name === 'string' ? input.name : '';
-		case 'validate_html_blocks':
-		case 'validate_and_fix_blocks':
+		case 'validate_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}

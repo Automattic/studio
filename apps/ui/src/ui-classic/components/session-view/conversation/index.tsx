@@ -1,5 +1,6 @@
 import {
 	isStudioCustomEntryOfType,
+	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
@@ -8,16 +9,23 @@ import {
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { __ } from '@wordpress/i18n';
+import { image, page } from '@wordpress/icons';
+import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import { Markdown } from '@/components/markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 type RenderItem =
-	| { kind: 'user-text'; key: string; text: string }
+	| {
+			kind: 'user-text';
+			key: string;
+			text: string;
+			attachments?: StudioChatAttachmentSummary[];
+	  }
 	| { kind: 'assistant-text'; key: string; text: string }
 	| {
 			kind: 'tool-use';
@@ -83,6 +91,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				kind: 'user-text',
 				key: `${ entryIndex }:user`,
 				text: data.text,
+				attachments: data.attachments,
 			} );
 			return;
 		}
@@ -168,10 +177,42 @@ function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 	return null;
 }
 
-function UserTurn( { text }: { text: string } ) {
+function UserTurn( {
+	text,
+	attachments,
+}: {
+	text: string;
+	attachments?: StudioChatAttachmentSummary[];
+} ) {
 	return (
 		<div className={ styles.userTurn }>
 			<div className={ styles.userText }>{ text }</div>
+			{ attachments && attachments.length > 0 ? (
+				<ul className={ styles.userAttachments }>
+					{ attachments.map( ( attachment, index ) =>
+						attachment.kind === 'image' && attachment.previewDataUrl ? (
+							<li
+								key={ `${ attachment.name }:${ index }` }
+								className={ styles.userAttachmentThumbItem }
+							>
+								<img
+									className={ styles.userAttachmentThumb }
+									src={ attachment.previewDataUrl }
+									alt={ attachment.name }
+									title={ attachment.name }
+								/>
+							</li>
+						) : (
+							<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachmentChip }>
+								<Icon icon={ attachment.kind === 'image' ? image : page } size={ 16 } />
+								<span className={ styles.userAttachmentName } title={ attachment.name }>
+									{ attachment.name }
+								</span>
+							</li>
+						)
+					) }
+				</ul>
+			) : null }
 		</div>
 	);
 }
@@ -297,7 +338,9 @@ export function Conversation( {
 			{ items.map( ( item ) => {
 				switch ( item.kind ) {
 					case 'user-text':
-						return <UserTurn key={ item.key } text={ item.text } />;
+						return (
+							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
+						);
 					case 'assistant-text':
 						return <AssistantText key={ item.key } text={ item.text } />;
 					case 'tool-use':

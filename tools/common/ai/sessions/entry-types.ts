@@ -4,7 +4,7 @@
 
 import type { StudioChatArtifactData } from '../chat-artifacts';
 import type { StudioChatImageAttachment } from '../chat-images';
-import type { CustomEntry, SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { CustomEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export type StudioCustomEntryType =
 	| 'studio.site_selected'

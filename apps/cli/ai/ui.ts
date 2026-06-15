@@ -21,7 +21,7 @@ import {
 	visibleWidth,
 	truncateToWidth,
 	CURSOR_MARKER,
-} from '@mariozechner/pi-tui';
+} from '@earendil-works/pi-tui';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
@@ -39,8 +39,9 @@ import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
-import type { ToolResultMessage } from '@mariozechner/pi-ai';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import { formatTosNoticeLines } from 'cli/lib/tos-notice';
+import type { ToolResultMessage } from '@earendil-works/pi-ai';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 interface TodoWriteInput {
@@ -960,7 +961,7 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'preview_create':
 			case 'preview_list':
 			case 'preview_update':
-			case 'validate_and_fix_blocks': {
+			case 'validate_blocks': {
 				const nameOrPath = toolInput?.nameOrPath;
 				if ( typeof nameOrPath === 'string' ) {
 					await this.selectLocalSiteFromTool( nameOrPath );
@@ -1197,6 +1198,14 @@ export class AiChatUI implements AiOutputAdapter {
 		} );
 
 		this.messages.addChild( new Text( '\n' + lines.join( '\n' ) + '\n', 0, 0 ) );
+		this.tui.requestRender();
+	}
+
+	showTosNotice(): void {
+		const lines = formatTosNoticeLines().map( ( line ) =>
+			line ? ' ' + chalk.dim( line ) : line
+		);
+		this.messages.addChild( new Text( lines.join( '\n' ) + '\n', 0, 0 ) );
 		this.tui.requestRender();
 	}
 
@@ -1919,8 +1928,7 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 
-		const maxLength =
-			toolName === 'validate_html_blocks' || toolName === 'validate_and_fix_blocks' ? 2000 : 500;
+		const maxLength = toolName === 'validate_blocks' ? 2000 : 500;
 		const truncated = text.length > maxLength ? text.slice( 0, maxLength ) + '…' : text;
 		const resultLines = truncated.split( '\n' );
 		this.addExpandablePreview(

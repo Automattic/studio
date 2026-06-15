@@ -141,9 +141,9 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Log out' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
-				expect( screen.getByText( 'AI assistant' ) ).toBeInTheDocument();
+				expect( screen.getByText( 'Studio Code' ) ).toBeInTheDocument();
 				expect(
-					screen.getByText( 'Unlimited tokens while Studio Code is in beta.' )
+					screen.getByText( 'Generous token limits while Studio Code is in beta.' )
 				).toBeInTheDocument();
 				expect( screen.queryByText( /monthly prompts used/ ) ).not.toBeInTheDocument();
 			} );

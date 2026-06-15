@@ -37,7 +37,7 @@ import {
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { DeskWidget } from '@/ui-desks/widgets/types';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 type RenderItem =
 	| { kind: 'user-text'; key: string; text: string }

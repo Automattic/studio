@@ -2,15 +2,11 @@ import { __ } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
-import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
-import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
-import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
@@ -19,7 +15,7 @@ import {
 import styles from './style.module.css';
 import type { Annotation } from './types';
 import type { SiteDetails } from '@/data/core';
-import type { CSSProperties, ReactElement } from 'react';
+import type { ReactElement } from 'react';
 
 export type { Annotation } from './types';
 
@@ -38,6 +34,9 @@ interface SitePreviewProps {
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
 	onPathChange?: ( path: string ) => void;
+	// True while the panel is toggled off but kept mounted (so the webview
+	// stays warm). Disables the global browser shortcuts in that state.
+	collapsed?: boolean;
 }
 
 interface InspectorEvent {
@@ -208,6 +207,7 @@ export function SitePreview( {
 	reloadNonce,
 	onAnnotationsDone,
 	onPathChange,
+	collapsed = false,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
@@ -228,14 +228,6 @@ export function SitePreview( {
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
 	const showLoadingProgress = canPreview && progress > 0;
-	const previewResize = useResizablePanel( {
-		config: PREVIEW_PANEL_CONFIG,
-		edge: 'left',
-		storageKey: PREVIEW_PANEL_STORAGE_KEY,
-	} );
-	const previewStyle = {
-		'--site-preview-width': `${ previewResize.width }px`,
-	} as CSSProperties;
 
 	const handlePreviewNavigation = useCallback(
 		( url: string ) => {
@@ -280,7 +272,7 @@ export function SitePreview( {
 	// document. Shortcuts pressed inside the guest page are forwarded by the
 	// inspector script through the console bridge instead.
 	useEffect( () => {
-		if ( ! canPreview ) {
+		if ( ! canPreview || collapsed ) {
 			return;
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
@@ -303,31 +295,11 @@ export function SitePreview( {
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ canPreview, sendBrowserCommand ] );
+	}, [ canPreview, collapsed, sendBrowserCommand ] );
 
 	return (
-		<aside
-			ref={ rootRef }
-			className={ styles.root }
-			style={ previewStyle }
-			aria-label={ __( 'Site preview' ) }
-		>
-			<ResizeHandle
-				className={ styles.resizeHandle }
-				label={ __( 'Resize site preview' ) }
-				minWidth={ previewResize.minWidth }
-				maxWidth={ previewResize.maxWidth }
-				width={ previewResize.width }
-				isResizing={ previewResize.isResizing }
-				onResizeStart={ previewResize.handleResizeStart }
-				onKeyDown={ previewResize.handleKeyDown }
-			/>
+		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
 			<div className={ styles.header }>
-				<div className={ styles.trafficLights } aria-hidden="true">
-					<span className={ clsx( styles.trafficLight, styles.trafficLightActive ) } />
-					<span className={ styles.trafficLight } />
-					<span className={ styles.trafficLight } />
-				</div>
 				{ canPreview ? (
 					<>
 						<div className={ styles.browserControls } aria-label={ __( 'Browser navigation' ) }>
@@ -467,7 +439,6 @@ export function SitePreview( {
 					</div>
 				) }
 			</div>
-			{ previewResize.isResizing ? <ResizeOverlay /> : null }
 		</aside>
 	);
 }

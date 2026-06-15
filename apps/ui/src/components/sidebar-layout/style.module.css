@@ -44,10 +44,16 @@
 	position: relative;
 }
 
+/* The negative margin cancels the handle's width so it adds no space to the
+   flex row — the main content butts straight against the sidebar's border and
+   the hit area overlays main's left edge. position/z-index lift it above main
+   (a later flex sibling) so the full-height indicator sits on the border. */
 .resizeHandle {
+	position: relative;
+	z-index: 20;
 	flex-shrink: 0;
+	margin-right: -8px;
 	justify-content: flex-start;
-	padding-left: 4px;
 }
 
 .floatingToggle {

@@ -7,6 +7,7 @@
  *   - `phpmyadmin/` (phpMyAdmin)
  *   - `wp-cli.phar` (WP-CLI)
  *   - `wordpress-versions/latest/available-site-translations.json`
+ *   - `language-packs/` (WordPress translations, plus its lockfile)
  *
  * Safe to re-run: `needsToRun()` checks for the presence of any obsolete
  * entry, and `run()` tolerates missing paths.
@@ -31,6 +32,8 @@ function getObsoletePaths(): string[] {
 			'latest',
 			'available-site-translations.json'
 		),
+		path.join( serverFilesPath, 'language-packs' ),
+		path.join( serverFilesPath, 'language-packs.lock' ),
 	];
 }
 

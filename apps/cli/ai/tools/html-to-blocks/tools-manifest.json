@@ -1,0 +1,676 @@
+[
+  {
+    "name": "create_workspace",
+    "description": "Create an html-to-blocks workspace with mockup, plan, wordpress, rendered, editor, and report folders.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot",
+        "prompt"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "force": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  {
+    "name": "import_provided_markup",
+    "description": "Import an existing HTML/CSS site export into a workspace mockup path instead of generating a new mockup.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot",
+        "sourceHtmlPath"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "sourceHtmlPath": {
+          "type": "string"
+        },
+        "sourceRoot": {
+          "type": "string"
+        },
+        "mockupPath": {
+          "type": "string",
+          "default": "mockup/index.html"
+        },
+        "cssOutPath": {
+          "type": "string",
+          "default": "mockup/style.css"
+        },
+        "cssPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "copyAssets": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  },
+  {
+    "name": "analyze_mockup",
+    "description": "Analyze mockup/index.html and mockup/style.css into content inventory and CSS selector summaries.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "htmlPath": {
+          "type": "string",
+          "default": "mockup/index.html"
+        },
+        "cssPath": {
+          "type": "string",
+          "default": "mockup/style.css"
+        }
+      }
+    }
+  },
+  {
+    "name": "scaffold_custom_block",
+    "description": "Generate a vanilla JavaScript WordPress custom block baseline with block.json, index.js, and style.css.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot",
+        "name",
+        "attributes"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "form": {
+          "type": "boolean",
+          "default": false
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "name",
+              "type"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "array",
+                  "object"
+                ]
+              },
+              "role": {
+                "type": "string"
+              },
+              "default": {}
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "serialize_wordpress_blocks",
+    "description": "Serialize wordpress/block-tree.json with @wordpress/blocks into canonical wordpress/content.html, frontend rendered/rendered-blocks.html, editor/block-editor.html, and CSS reports.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "treePath": {
+          "type": "string",
+          "default": "wordpress/block-tree.json"
+        },
+        "contentPath": {
+          "type": "string",
+          "default": "wordpress/content.html"
+        },
+        "outPath": {
+          "type": "string",
+          "default": "rendered/rendered-blocks.html"
+        },
+        "editorPath": {
+          "type": "string",
+          "default": "editor/block-editor.html"
+        },
+        "includeMockupCss": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  },
+  {
+    "name": "create_block_editor_preview",
+    "description": "Create a reusable no-build WordPress block editor preview that loads a generated data-only block tree, custom blocks, and CSS sources.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "treePath": {
+          "type": "string",
+          "default": "wordpress/block-tree.json"
+        },
+        "editorPath": {
+          "type": "string",
+          "default": "editor/block-editor.html"
+        },
+        "cssPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "includeMockupCss": {
+          "type": "boolean",
+          "default": false
+        },
+        "validateTree": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  },
+  {
+    "name": "screenshot_html",
+    "description": "Capture screenshots for mockup, rendered, editor, or arbitrary workspace HTML files without running a pixel diff.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "outDir": {
+          "type": "string",
+          "default": "visual"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "path"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "html",
+                  "editor"
+                ],
+                "default": "html"
+              }
+            }
+          }
+        },
+        "viewports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "width",
+              "height"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              },
+              "fullPage": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "compare_html",
+    "description": "Capture mockup/rendered/editor screenshots, generate pixel diffs, and write a per-page comparison report plus repair tasks. Reports and screenshots are namespaced by the mockup filename, so multi-page comparisons never overwrite each other.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "mockupPath": {
+          "type": "string",
+          "default": "mockup/index.html"
+        },
+        "renderedPath": {
+          "type": "string",
+          "default": "rendered/rendered-blocks.html"
+        },
+        "editorPath": {
+          "type": "string",
+          "default": "editor/block-editor.html"
+        },
+        "reportPath": {
+          "type": "string",
+          "description": "Override the comparison JSON path. Default: reports/comparison.json for index, reports/<page>.comparison.json otherwise."
+        },
+        "tasksPath": {
+          "type": "string",
+          "description": "Override the repair-tasks markdown path. Default: reports/repair-tasks.md for index, reports/<page>.repair-tasks.md otherwise."
+        },
+        "compareEditor": {
+          "type": "boolean",
+          "default": true
+        },
+        "maxMismatchPercent": {
+          "type": "number",
+          "default": 1
+        },
+        "maxHeightDelta": {
+          "type": "number",
+          "default": 8
+        },
+        "viewports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "width",
+              "height"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              },
+              "fullPage": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "measure_layout",
+    "description": "Compare element geometry (offsetTop/height) between the mockup and a rendered or editor page, aligned by selector match order. Localizes vertical drift to specific sections far faster than reading pixel diffs — use it to find WHERE a height delta comes from, then drill with a narrower selector.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "mockupPath": {
+          "type": "string",
+          "default": "mockup/index.html"
+        },
+        "candidatePath": {
+          "type": "string",
+          "default": "rendered/rendered-blocks.html"
+        },
+        "candidateKind": {
+          "type": "string",
+          "enum": [
+            "html",
+            "editor"
+          ],
+          "default": "html"
+        },
+        "selector": {
+          "type": "string",
+          "description": "CSS selector evaluated in both pages; matches are aligned by index. Default: main sections plus footer."
+        },
+        "viewports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "width",
+              "height"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "validate_content_model",
+    "description": "Validate an agent-authored WordPress content model JSON for CPT, taxonomy, meta, REST, and seed-content consistency. Writes reports/content-model-validation.json.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "modelPath": {
+          "type": "string",
+          "default": "content-model/content-model.json"
+        },
+        "reportPath": {
+          "type": "string",
+          "default": "reports/content-model-validation.json"
+        }
+      }
+    }
+  },
+  {
+    "name": "scaffold_content_model_plugin",
+    "description": "Generate an installable WordPress plugin from content-model/content-model.json. The plugin registers CPTs, taxonomies, post meta, and submission REST routes while active, plus a Tools screen to import/remove generated seed content with state and collision reporting.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "modelPath": {
+          "type": "string",
+          "default": "content-model/content-model.json"
+        },
+        "reportPath": {
+          "type": "string",
+          "default": "reports/content-model-validation.json"
+        },
+        "outDir": {
+          "type": "string",
+          "default": "content-model/plugin"
+        }
+      }
+    }
+  },
+  {
+    "name": "analyze_theme_evidence",
+    "description": "Scan all page block trees and workspace CSS into a style-evidence report (recurring colors/fonts/spacing with occurrence counts, custom properties, support usage, lift buckets per CSS rule). Facts only — the agent decides what lifts into theme.json.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "name": "infer_template_parts",
+    "description": "Group top-level subtrees across pages by exact and structural hashes into template-part candidates with occurrence, position, tag evidence and per-page variance tables. No header/footer assumptions — evidence only.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "name": "fetch_theme_fonts",
+    "description": "Resolve the mockup CSS Google Fonts @import to local woff2 files under the theme assets and return ready theme.json fontFace entries. Fails explicitly offline.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot",
+        "slug"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "importUrl": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "name": "scaffold_block_theme",
+    "description": "Write the block theme (style.css, theme.json, templates incl. default archive/single/404, parts, functions.php, assets), the blocks plugin, and the content plugin payload from agent-authored decisions. Owns serialization and the mechanical rewrites (preset refs, --wp--custom-- renames, permalinks, media placeholders).",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot",
+        "slug",
+        "name",
+        "tokenMap",
+        "themeSettings",
+        "themeStyles",
+        "parts",
+        "templates",
+        "pages"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "tokenMap": {
+          "type": "object"
+        },
+        "themeSettings": {
+          "type": "object"
+        },
+        "themeStyles": {
+          "type": "object"
+        },
+        "fontFamilies": {
+          "type": "array"
+        },
+        "customCss": {
+          "type": "string"
+        },
+        "parts": {
+          "type": "array"
+        },
+        "templates": {
+          "type": "object"
+        },
+        "pages": {
+          "type": "array",
+          "description": "Page manifest entries: { page, slug, title, front?, stripIndexes?, sourceFile? }. sourceFile is the original mockup filename (e.g. \"Bucharest Feline Show.html\"); it keys the permalink link map so cross-page <a href> rewrites resolve — required whenever the mockup filename differs from \"<page>.html\"."
+        },
+        "mediaMap": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  {
+    "name": "validate_block_theme",
+    "description": "Static gate: theme.json schema (vendored), template/part parse with all blocks registered, header/file/ref/fontFace/remote-url/payload checks. Writes reports/theme-validation.json.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot",
+        "slug"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "name": "playground_render",
+    "description": "Boot the theme + plugins in WordPress Playground, import the pages through the content plugin, screenshot every page logged-out at both viewports, and diff against the mockups. Writes reports/theme-comparison.json with the standard thresholds.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot",
+        "slug"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "port": {
+          "type": "number"
+        },
+        "maxMismatchPercent": {
+          "type": "number"
+        },
+        "maxHeightDelta": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  {
+    "name": "fix_block_markup",
+    "description": "Canonicalize block markup: parse, recreate every block from its attributes, and re-serialize so the markup byte-matches save() output, eliminating editor block-validation errors. Pass raw markup, or workspace-relative file paths to fix in place. Registers the workspace custom blocks before parsing.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "markup": {
+          "type": "string"
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+]

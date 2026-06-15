@@ -1,0 +1,27 @@
+{
+  "name": "html-to-wordpress-blocks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Codex/Claude plugin tools for transforming designed HTML into editable WordPress blocks.",
+  "bin": {
+    "html-to-blocks-mcp": "./tools/mcp-server.mjs"
+  },
+  "scripts": {
+    "check": "node --check tools/mcp-server.mjs && node --check tools/lib/workspace.mjs && node --check tools/lib/capture.mjs && node --check tools/lib/wp-serialize.mjs && node --check tools/content/model.mjs",
+    "test": "node --test 'tools/theme/**/*.test.mjs' 'tools/content/**/*.test.mjs'"
+  },
+  "dependencies": {
+    "@wordpress/block-library": "^9.48.0",
+    "@wordpress/blocks": "^15.21.0",
+    "@wordpress/element": "^8.0.0",
+    "ajv": "^8.20.0",
+    "jsdom": "^27.0.1",
+    "pixelmatch": "^7.1.0",
+    "playwright": "^1.54.0",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@wp-playground/cli": "^3.1.38"
+  }
+}

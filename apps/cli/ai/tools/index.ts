@@ -18,6 +18,7 @@ import { auditSeoTool } from './rank-me-up';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { shareScreenshotTool } from './share-screenshot';
 import { getSiteInfoTool } from './site-info';
+import { htmlToBlocksTools } from './html-to-blocks';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
 import { studioPresentTool } from './studio-present';
@@ -57,6 +58,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	exportSiteTool,
 	openAnnotationBrowserTool,
 	waitForAnnotationsTool,
+	...htmlToBlocksTools,
 ];
 
 export interface CreateStudioToolsOptions {

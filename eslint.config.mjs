@@ -13,6 +13,7 @@ export default defineConfig(
 	globalIgnores( [
 		'**/node_modules/',
 		'**/__mocks__',
+		'apps/cli/ai/html-to-blocks-engine/',
 		'apps/cli/dist/',
 		'dist/',
 		'out/',

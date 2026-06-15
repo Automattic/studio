@@ -1,19 +1,52 @@
 .trigger {
-	gap: var(--wpds-dimension-padding-lg);
+	gap: var(--wpds-dimension-padding-xs);
+	max-width: 100%;
+	min-width: 0;
+	white-space: nowrap;
 }
 
 .siteIcon {
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+	width: 20px;
+	height: 20px;
+	border-radius: 6px;
+}
+
+.identity {
+	display: inline-flex;
+	align-items: baseline;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+	max-width: min(420px, 56vw);
+	padding-inline: 2px var(--wpds-dimension-padding-xs);
+	text-align: left;
 }
 
 .site {
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
 	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-sm);
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.status {
+.statusBadge {
 	display: inline-flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	border-radius: 999px;
+	flex-shrink: 0;
+}
+
+.statusBadge_live {
+	width: auto;
+	gap: 4px;
+	padding: 0 6px;
+	background: color-mix(in srgb, #2563eb 9%, transparent);
+	color: #2563eb;
 }
 
 .dot {
@@ -30,7 +63,7 @@
 }
 
 .dot_stopped {
-	background-color: #dc2626;
+	background-color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .dot_transitioning {
@@ -40,6 +73,12 @@
 
 .dot_live {
 	background-color: #2563eb;
+}
+
+.statusLabel {
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 500;
+	line-height: 1;
 }
 
 @keyframes siteDotBlink {
@@ -52,17 +91,20 @@
 	}
 }
 
-.env {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-}
-
 .url {
+	flex: 0 1 auto;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.6;
 	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	min-width: 0;
+}
+
+.chevron {
+	flex: 0 0 auto;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	fill: currentColor;
 }

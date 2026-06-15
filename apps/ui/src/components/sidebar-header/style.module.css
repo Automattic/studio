@@ -19,10 +19,10 @@
 
 /* In macOS fullscreen the traffic lights are hidden, so reclaim the
    padding that was reserved for them and align the title with the
-   site list entries below — the site list outer padding is `xl + sm`
-   and each site label sits inside a button with another `sm` of
-   padding-inline, so its text starts at `xl + 2*sm` from the sidebar
-   edge. */
+   site list entries below — the site list outer padding is `2xl`, each
+   row carries `xs` of padding-inline, and the site label sits inside a
+   button with another `sm`, so its text starts at `2xl + xs + sm`
+   (= `xl + 2*sm`) from the sidebar edge. */
 .fullscreen {
 	padding-left: calc(
 		var(--wpds-dimension-padding-xl) + 2 * var(--wpds-dimension-padding-sm)

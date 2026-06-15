@@ -11,7 +11,7 @@ export function PromptInfo() {
 					<div className="flex w-full flex-row justify-between gap-8 ">
 						<div className="flex flex-row items-center text-right">
 							<span className="text-frame-text-secondary">
-								{ __( 'Unlimited tokens while Studio Code is in beta.' ) }
+								{ __( 'Generous token limits while Studio Code is in beta.' ) }
 							</span>
 						</div>
 					</div>

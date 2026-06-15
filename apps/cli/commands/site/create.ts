@@ -50,11 +50,7 @@ import {
 	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import {
-	removeSiteFromConfig,
-	updateSiteAutoStart,
-	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config/sites';
+import { removeSiteFromConfig, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	getAiInstructionsPath,
@@ -355,7 +351,6 @@ export async function runCommand(
 				if ( processDesc.status === 'online' ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
 				}
-				await updateSiteAutoStart( siteDetails.id, true );
 
 				siteDetails.running = true;
 				siteDetails.url = siteDetails.customDomain

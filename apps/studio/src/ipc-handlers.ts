@@ -780,6 +780,7 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 			site.sortOrder = appdataSite.sortOrder;
 			site.themeDetails = appdataSite.themeDetails;
 			site.siteIconPath = appdataSite.siteIconPath;
+			site.autoStart = appdataSite.autoStart;
 
 			// Read the icon file from disk and hand the renderer a data URL.
 			// Keeping the base64 out of the persisted appdata avoids bloating
@@ -1087,10 +1088,13 @@ export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promi
 	}
 
 	await server.stop();
+	// Stopping a single site by hand clears its auto-start. SiteServer.stop() pre-empts the running
+	// transition the events subscriber relies on, so persist it explicitly here.
+	await server.persistAutoStart( false );
 }
 
 export async function stopAllServers(): Promise< void > {
-	await triggerStopAllServers( false );
+	await triggerStopAllServers();
 }
 
 export interface FolderDialogResponse {

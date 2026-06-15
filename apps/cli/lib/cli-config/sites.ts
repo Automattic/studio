@@ -78,23 +78,6 @@ export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
 	}
 }
 
-export async function updateSiteAutoStart( siteId: string, autoStart: boolean ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
-		const site = config.sites.find( ( s ) => s.id === siteId );
-
-		if ( ! site ) {
-			throw new LoggerError( __( 'Site not found' ) );
-		}
-
-		site.autoStart = autoStart;
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
-	}
-}
-
 export async function updateSitePhpVersion( siteId: string, phpVersion: string ): Promise< void > {
 	try {
 		await lockCliConfig();

@@ -29,7 +29,7 @@ import {
 	type SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { getSiteUrl, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	type ReprintProcessResult,
@@ -475,7 +475,6 @@ export async function runCommand(
 				if ( processDesc.status === 'online' ) {
 					await updateSiteLatestCliPid( site.id, processDesc.pid );
 				}
-				await updateSiteAutoStart( site.id, true );
 				studioMetadata.localUrl = getSiteUrl( site );
 				savePullMetadata( studioMetadata );
 				recordCompletedStage( studioMetadata, 'site-started' );

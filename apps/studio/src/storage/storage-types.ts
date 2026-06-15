@@ -11,10 +11,13 @@ export interface WindowBounds {
 	isFullScreen?: boolean;
 }
 
+export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
+
 export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
 	siteIconPath?: SiteDetails[ 'siteIconPath' ];
 	sortOrder?: number;
+	autoStart?: boolean;
 }
 
 export interface AiSessionSitePlacement {
@@ -43,7 +46,9 @@ export interface UserData {
 	preferredEditor?: SupportedEditor;
 	colorScheme?: 'system' | 'light' | 'dark';
 	betaFeatures?: BetaFeatures;
-	stopSitesOnQuit?: boolean;
+	quitSitesBehavior?: QuitSitesBehavior;
+	// One-time marker: autoStart relocated from cli.json to per-site app.json metadata (migration 06).
+	autoStartRelocated?: boolean;
 	defaultSiteDirectory?: string;
 	cliAutoInstalled?: boolean;
 	cliUserUninstalled?: boolean;

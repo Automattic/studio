@@ -16,7 +16,7 @@ import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __, _n } from '@wordpress/i18n';
 import {
 	installExtension,
 	REACT_DEVELOPER_TOOLS,
@@ -52,7 +52,12 @@ import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installat
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
 import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
-import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
+import {
+	getRunningSiteCount,
+	persistAutoStartForRunningSites,
+	SiteServer,
+	stopAllServers,
+} from 'src/site-server';
 import {
 	loadUserData,
 	lockAppdata,
@@ -428,7 +433,13 @@ async function appBoot() {
 	 * - There are running sites, and the user has confirmed they want to stop them upon closing the app
 	 */
 	let shouldStopSitesOnQuit = true;
+	let clearAutoStartOnQuit = false;
 	let isQuittingConfirmed = false;
+
+	const applyQuitSitesBehavior = ( behavior: 'stop' | 'stop-and-auto-start' | 'leave-running' ) => {
+		shouldStopSitesOnQuit = behavior !== 'leave-running';
+		clearAutoStartOnQuit = behavior === 'stop';
+	};
 
 	app.on( 'before-quit', ( event ) => {
 		if ( isQuittingConfirmed ) {
@@ -478,8 +489,8 @@ async function appBoot() {
 			void ( async () => {
 				const userData = await loadUserData();
 
-				if ( userData.stopSitesOnQuit !== undefined ) {
-					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
+				if ( userData.quitSitesBehavior !== undefined ) {
+					applyQuitSitesBehavior( userData.quitSitesBehavior );
 					isQuittingConfirmed = true;
 					app.quit();
 					return;
@@ -491,22 +502,18 @@ async function appBoot() {
 					return;
 				}
 
-				const STOP_SITES_BUTTON_INDEX = 0;
-				const LEAVE_RUNNING_BUTTON_INDEX = 1;
-				const CANCEL_BUTTON_INDEX = 2;
+				const STOP_BUTTON_INDEX = 0;
+				const STOP_AND_AUTO_START_BUTTON_INDEX = 1;
+				const LEAVE_RUNNING_BUTTON_INDEX = 2;
+				const CANCEL_BUTTON_INDEX = 3;
 
 				const { response, checkboxChecked } = await dialog.showMessageBox( {
 					type: 'question',
 					message: _n( 'You have a running site', 'You have running sites', runningSiteCount ),
-					detail: sprintf(
-						_n(
-							'%d site is currently running. Do you want to stop it before quitting?',
-							'%d sites are currently running. Do you want to stop them before quitting?',
-							runningSiteCount
-						),
-						runningSiteCount
+					detail: __(
+						'Choose what to do with your running sites when Studio quits:\n\n• Leave running — they keep running while Studio is closed.\n• Auto-start — they restart when you reopen Studio.\n• Stop — they stay stopped next time you open Studio.'
 					),
-					buttons: [ __( 'Stop sites' ), __( 'Leave running' ), __( 'Cancel' ) ],
+					buttons: [ __( 'Stop' ), __( 'Auto-start' ), __( 'Leave running' ), __( 'Cancel' ) ],
 					checkboxLabel: __( "Don't ask again" ),
 					cancelId: CANCEL_BUTTON_INDEX,
 					defaultId: LEAVE_RUNNING_BUTTON_INDEX,
@@ -516,13 +523,18 @@ async function appBoot() {
 					return;
 				}
 
-				const stopSites = response === STOP_SITES_BUTTON_INDEX;
+				const behavior =
+					response === STOP_BUTTON_INDEX
+						? 'stop'
+						: response === STOP_AND_AUTO_START_BUTTON_INDEX
+						? 'stop-and-auto-start'
+						: 'leave-running';
 
 				if ( checkboxChecked ) {
-					await updateAppdata( { stopSitesOnQuit: stopSites } );
+					await updateAppdata( { quitSitesBehavior: behavior } );
 				}
 
-				shouldStopSitesOnQuit = stopSites;
+				applyQuitSitesBehavior( behavior );
 				isQuittingConfirmed = true;
 				app.quit();
 			} )();
@@ -539,13 +551,17 @@ async function appBoot() {
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();
-			stopAllServers( true, STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS )
-				.then( () => {
+			void ( async () => {
+				try {
+					// The events subscriber is already stopped, so the "Stop" choice clears autoStart here.
+					if ( clearAutoStartOnQuit ) {
+						await persistAutoStartForRunningSites( false );
+					}
+					await stopAllServers( STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS );
+				} finally {
 					app.exit();
-				} )
-				.catch( () => {
-					app.exit();
-				} );
+				}
+			} )();
 		}
 	} );
 

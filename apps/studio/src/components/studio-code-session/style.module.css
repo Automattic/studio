@@ -3,6 +3,7 @@
 	flex-direction: row;
 	height: 100%;
 	min-height: 0;
+	color: var(--color-frame-text);
 }
 
 .chatColumn {
@@ -15,7 +16,7 @@
 
 .state {
 	padding: var(--wpds-dimension-padding-xl);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 }
 
 .loading {
@@ -38,7 +39,7 @@
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--color-frame-text);
 	-webkit-app-region: drag;
 }
 
@@ -51,6 +52,15 @@
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
 	-webkit-app-region: no-drag;
+}
+
+.headerActions :global(button) {
+	color: var(--color-frame-text-secondary) !important;
+}
+
+.headerActions :global(button:hover),
+.headerActions :global(button:focus-visible) {
+	color: var(--color-frame-text) !important;
 }
 
 .scroll {
@@ -129,7 +139,7 @@
 }
 
 .emptyConversationPrompt {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 	font-size: var(--wpds-typography-font-size-sm);
 	text-align: center;
 }
@@ -146,9 +156,9 @@
    unlayered `[type='button'] { background-color: transparent }` reset — see
    wp-ui-button-defense.module.css for the full rationale. */
 .emptyConversationExample.emptyConversationExample {
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	background: var(--wpds-color-bg-surface-neutral-weak);
-	color: var(--wpds-color-fg-content-neutral);
+	border: 1px solid var(--color-frame-border);
+	background: var(--color-frame-surface);
+	color: var(--color-frame-text);
 	font: inherit;
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 20px;
@@ -160,6 +170,6 @@
 
 .emptyConversationExample:hover,
 .emptyConversationExample:focus-visible {
-	background: var(--wpds-color-bg-surface-brand);
-	border-color: var(--wpds-color-fg-interactive-brand);
+	background: color-mix(in srgb, var(--color-frame-theme) 12%, transparent);
+	border-color: var(--color-frame-theme);
 }

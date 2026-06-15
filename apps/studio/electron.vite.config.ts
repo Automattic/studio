@@ -38,7 +38,7 @@ export default defineConfig( {
 			externalizeDeps: {
 				exclude: [ '@studio/common' ],
 			},
-			rollupOptions: {
+			rolldownOptions: {
 				input: {
 					index: resolve( __dirname, 'src/index.ts' ),
 				},
@@ -52,7 +52,7 @@ export default defineConfig( {
 	preload: {
 		build: {
 			externalizeDeps: { exclude: [ '@sentry/electron' ] },
-			rollupOptions: {
+			rolldownOptions: {
 				input: {
 					preload: resolve( __dirname, 'src/preload.ts' ),
 				},
@@ -93,10 +93,12 @@ export default defineConfig( {
 					{
 						src: normalizePath( resolve( __dirname, 'src/about-menu/about-menu.html' ) ),
 						dest: '.',
+						rename: { stripBase: true },
 					},
 					{
 						src: normalizePath( resolve( __dirname, 'src/about-menu/studio-app-icon.png' ) ),
 						dest: '.',
+						rename: { stripBase: true },
 					},
 				],
 			} ),
@@ -133,7 +135,7 @@ export default defineConfig( {
 		},
 		build: {
 			sourcemap: true,
-			rollupOptions: {
+			rolldownOptions: {
 				input: resolve( __dirname, 'index.html' ),
 				output: {
 					// Extract CSS into separate files (like Webpack's MiniCssExtractPlugin)

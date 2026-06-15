@@ -1,15 +1,32 @@
 .root {
-	padding: 0 var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
-		calc(var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-sm));
+	--site-list-row-height: 32px;
+	--site-list-row-background-hover: rgb(0 0 0 / 4%);
+	--site-list-row-background-active: rgb(0 0 0 / 7%);
+
+	/* Left padding matches the sidebar footer (user-menu) so
+	   the row highlight boxes share the same left edge as the rest of the
+	   sidebar chrome. The right side is smaller: rows carry `sm` of their
+	   own right padding, and `xl + sm` keeps the row icons (site status,
+	   actions) visually aligned with the header's drawer icon. */
+	padding: var(--wpds-dimension-padding-3xl) var(--wpds-dimension-padding-xl)
+		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-2xl);
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-sm);
+	user-select: none;
+}
+
+@media (prefers-color-scheme: dark) {
+	.root {
+		--site-list-row-background-hover: rgb(255 255 255 / 8%);
+		--site-list-row-background-active: rgb(255 255 255 / 12%);
+	}
 }
 
 .sites {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: 2px;
 }
 
 .site {
@@ -22,7 +39,21 @@
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
 	min-width: 0;
-	padding-right: var(--wpds-dimension-padding-sm);
+	box-sizing: border-box;
+	height: var(--site-list-row-height);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
+		var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-xs);
+	border-radius: 6px;
+	transition: background-color 100ms ease;
+}
+
+.siteHeader:hover,
+.siteHeader:focus-within {
+	background-color: var(--site-list-row-background-hover);
+}
+
+.siteActive .siteHeader {
+	background-color: var(--site-list-row-background-active);
 }
 
 .siteText {
@@ -70,7 +101,7 @@
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.2;
 	font-weight: var(--wpds-typography-font-weight-regular);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--wpds-color-fg-content-neutral);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -98,32 +129,157 @@
 	opacity: 1;
 }
 
-.siteToggle:hover .siteName {
-	color: var(--wpds-color-fg-content-neutral);
-}
-
 .siteActive .siteName {
-	color: var(--wpds-color-fg-content-neutral);
 	font-weight: var(--wpds-typography-font-weight-medium);
 }
 
 .siteActions {
 	display: flex;
 	align-items: center;
+	justify-content: flex-end;
 	flex-shrink: 0;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: 0;
+	max-width: 24px;
+	overflow: hidden;
+	transition: max-width 100ms ease;
 }
 
 .siteAction {
+	flex-shrink: 0;
+}
+
+/* Collapsed, only the trailing status button shows; hover/focus/active
+   slides the menu and new-chat buttons in next to it. */
+.siteActive .siteActions,
+.siteHeader:hover .siteActions,
+.siteHeader:focus-within .siteActions,
+.siteHeader:has(.siteAction[data-popup-open]) .siteActions {
+	max-width: 80px;
+}
+
+.siteStatus {
+	display: inline-grid;
+	place-items: center;
+	flex: 0 0 24px;
+	inline-size: 24px;
+	block-size: 24px;
+	padding: 0;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	cursor: var(--wpds-cursor-control);
+	transition: background-color 100ms ease, opacity 100ms ease;
+}
+
+/* A stopped site carries no signal worth surfacing, so its gray status square
+   stays hidden until the row is hovered, focused, has an open menu, or is the
+   active site; running/transitioning dots remain always visible. */
+.siteStatus[data-state='stopped'] {
+	opacity: 0;
+}
+
+.siteActive .siteStatus[data-state='stopped'],
+.siteHeader:hover .siteStatus[data-state='stopped'],
+.siteHeader:focus-within .siteStatus[data-state='stopped'],
+.siteHeader:has(.siteAction[data-popup-open]) .siteStatus[data-state='stopped'] {
+	opacity: 1;
+}
+
+.siteStatus:not([aria-disabled='true']):is(:hover, :focus-visible) {
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.siteStatus:focus-visible {
+	outline: 2px solid var(--ui-desks-focus, #3858e9);
+	outline-offset: -2px;
+}
+
+.siteStatus[aria-disabled='true'] {
+	cursor: default;
+}
+
+.siteStatus .siteStatusGlyph.siteStatusGlyph {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	inline-size: 8px;
+	block-size: 8px;
+	width: 8px;
+	height: 8px;
+	flex-shrink: 0;
+	overflow: visible;
+	transition: opacity 100ms ease;
+}
+
+/* Hovering the status button itself (not the row) crossfades the status dot
+   into the action it triggers: play when stopped, stop when running. The
+   transitioning state keeps the blinking dot — there's no action to take. */
+.siteStatus .siteStatusActionGlyph.siteStatusActionGlyph {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	inline-size: 10px;
+	block-size: 10px;
+	width: 10px;
+	height: 10px;
+	color: var(--wpds-color-fg-content-neutral);
 	opacity: 0;
 	transition: opacity 100ms ease;
 }
 
-.siteActive .siteAction,
-.siteHeader:hover .siteAction,
-.siteHeader:focus-within .siteAction,
-.siteAction[data-popup-open] {
+.siteStatus:not([data-state='transitioning']):is(:hover, :focus-visible) .siteStatusGlyph {
+	opacity: 0;
+}
+
+.siteStatus:not([data-state='transitioning']):is(:hover, :focus-visible) .siteStatusActionGlyph {
 	opacity: 1;
+}
+
+.siteStatusShape {
+	x: 0;
+	y: 0;
+	width: 8px;
+	height: 8px;
+	rx: 4px;
+	fill: #16a34a;
+	transition: fill 160ms ease, rx 160ms ease;
+}
+
+.siteStatus[data-state='running'] .siteStatusShape {
+	fill: #16a34a;
+	rx: 4px;
+}
+
+.siteStatus[data-state='stopped'] .siteStatusShape {
+	fill: var(--wpds-color-fg-content-neutral-weak);
+	rx: 1px;
+}
+
+.siteStatus[data-state='transitioning'] .siteStatusShape {
+	fill: #a16207;
+	rx: 4px;
+	animation: siteStatusBlink 1s ease-in-out infinite;
+}
+
+@keyframes siteStatusBlink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.25;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.siteStatusShape {
+		transition: none;
+		animation: none;
+	}
+
+	.siteStatusGlyph,
+	.siteStatusActionGlyph {
+		transition: none;
+	}
 }
 
 .unassigned {
@@ -137,16 +293,68 @@
 	margin: 0;
 }
 
+.emptyChatState {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--wpds-dimension-padding-xs);
+	min-height: 28px;
+	margin: var(--wpds-dimension-padding-xs) 0 var(--wpds-dimension-padding-sm);
+	padding: 0 var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.2;
+	text-align: center;
+}
+
+.emptyChatText {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.emptyChatSeparator {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.emptyChatButton {
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-xs);
+	--_gcd-button-font-size: var(--wpds-typography-font-size-xs);
+
+	display: inline-flex;
+	align-items: center;
+	min-height: 20px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--wpds-color-fg-interactive-neutral);
+	font: inherit;
+	line-height: inherit;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.emptyChatButton:not([data-disabled]) {
+	cursor: var(--wpds-cursor-control);
+}
+
+.emptyChatButton:not([data-disabled]):is(:hover, :focus-visible) {
+	color: var(--wpds-color-fg-interactive-brand-active, var(--wpds-color-fg-interactive-brand));
+}
+
 .sessionListFrame {
 	display: grid;
 	grid-template-rows: 0fr;
+	margin-top: 0;
+	margin-bottom: 0;
 	opacity: 0;
 	pointer-events: none;
-	transition: grid-template-rows 160ms ease, opacity 120ms ease;
+	transition: grid-template-rows 160ms ease, margin-top 160ms ease, margin-bottom 160ms ease,
+		opacity 120ms ease;
 }
 
 .sessionListFrameOpen {
 	grid-template-rows: 1fr;
+	margin-top: 2px;
+	margin-bottom: var(--wpds-dimension-padding-sm);
 	opacity: 1;
 	pointer-events: auto;
 }
@@ -156,34 +364,40 @@
 	min-height: 0;
 	list-style: none;
 	padding: 0;
-	margin: 0 0 var(--wpds-dimension-padding-sm);
+	margin: 0;
 	display: flex;
 	flex-direction: column;
+	gap: 2px;
 }
 
 .sessionItem {
+	position: relative;
+	display: flex;
 	min-width: 0;
 }
 
 .sessionLink {
+	--session-link-background: transparent;
+	--wp-ui-button-background-color: var(--session-link-background);
+	--wp-ui-button-background-color-active: var(--session-link-background);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-height: var(--site-list-row-height);
+
 	width: 100%;
-	height: 26px;
-	padding: 0 var(--wpds-dimension-padding-md) 0 var(--wpds-dimension-padding-xl);
+	box-sizing: border-box;
+	height: var(--site-list-row-height);
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
+		var(--wpds-dimension-padding-xs) calc(var(--wpds-dimension-padding-sm) + 24px);
+	border-radius: 6px;
+	background-color: var(--session-link-background);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	font-weight: var(--wpds-typography-font-weight-regular);
 }
 
-/* Use ::after so we don't collide with the Button primitive's ::before
-   (which it uses for the loading spinner). */
-.sessionLink::after {
-	content: '';
-	position: absolute;
-	left: var(--wpds-dimension-padding-sm);
-	top: 4px;
-	bottom: 4px;
-	width: 1px;
-	background: transparent;
+.sessionLinkRunning {
+	position: relative;
 }
 
 .sessionLabel {
@@ -192,26 +406,108 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	text-align: start;
+}
+
+.sessionLabelUntitled {
+	font-style: italic;
 }
 
 .sessionTime {
 	flex-shrink: 0;
-	font-size: 10px;
+	margin-inline-end: var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
 	opacity: 0.55;
+	transition: opacity 100ms ease;
+}
+
+/* The running spinner and question indicator sit in the indent gutter to
+   the left of the chat label. */
+.sessionInlineSpinner {
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-start: calc(var(--wpds-dimension-padding-sm) + 6px);
+	margin-block-start: -6px;
+}
+
+.sessionQuestionIndicator {
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-start: calc(var(--wpds-dimension-padding-sm) + 4px);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 16px;
+	block-size: 16px;
+	border-radius: 50%;
+	background-color: #facc15;
+	color: #422006;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1;
+	transform: translateY(-50%);
 }
 
 .sessionLink:hover,
-.sessionLink:focus-visible {
+.sessionLink:focus-visible,
+.sessionItem:hover .sessionLink,
+.sessionItem:focus-within .sessionLink,
+.sessionItem:has(.sessionAction[data-popup-open]) .sessionLink {
+	--session-link-background: var(--site-list-row-background-hover);
+
 	color: var(--wpds-color-fg-content-neutral);
+}
+
+.sessionLink:focus-visible {
+	outline: 2px solid var(--ui-desks-focus, #3858e9);
+	outline-offset: -2px;
 }
 
 .sessionLinkActive {
+	--session-link-background: var(--site-list-row-background-active);
+
 	color: var(--wpds-color-fg-content-neutral);
 }
 
-.sessionLinkActive::after {
-	background: var(--wpds-color-fg-content-neutral);
+.sessionItem:hover .sessionLinkActive,
+.sessionItem:focus-within .sessionLinkActive,
+.sessionItem:has(.sessionAction[data-popup-open]) .sessionLinkActive {
+	--session-link-background: var(--site-list-row-background-active);
+}
+
+/* Chat actions overlay the timestamp's spot at the row end; the timestamp
+   fades out as the actions fade in. */
+.sessionActions {
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-end: var(--wpds-dimension-padding-sm);
+	display: flex;
+	align-items: center;
+	opacity: 0;
+	pointer-events: auto;
+	transform: translateY(-50%);
+	transition: opacity 100ms ease;
+}
+
+.sessionAction {
+	flex-shrink: 0;
+}
+
+.sessionItem:hover .sessionLink:not(.sessionLinkActive) ~ .sessionActions,
+.sessionItem:focus-within .sessionLink:not(.sessionLinkActive) ~ .sessionActions,
+.sessionActions:hover,
+.sessionActions:focus-within,
+.sessionItem:has(.sessionAction[data-popup-open]) .sessionActions {
+	opacity: 1;
+}
+
+.sessionItem:hover .sessionLink:not(.sessionLinkActive) .sessionTime,
+.sessionItem:focus-within .sessionLink:not(.sessionLinkActive) .sessionTime,
+.sessionItem:has(.sessionActions:hover) .sessionTime,
+.sessionItem:has(.sessionActions:focus-within) .sessionTime,
+.sessionItem:has(.sessionAction[data-popup-open]) .sessionLink:not(.sessionLinkActive) .sessionTime {
+	opacity: 0;
 }
 
 .dialogText {

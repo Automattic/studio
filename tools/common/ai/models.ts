@@ -20,7 +20,6 @@ export interface AiModel {
 // reasoning turns.
 export const AI_MODELS = [
 	{ id: 'claude-sonnet-4-6', label: 'Sonnet 4.6', family: 'anthropic' },
-	{ id: 'claude-opus-4-7', label: 'Opus 4.7', family: 'anthropic' },
 	{ id: 'claude-opus-4-8', label: 'Opus 4.8', family: 'anthropic' },
 	{ id: 'gpt-5.5', label: 'GPT 5.5', family: 'openai' },
 ] as const satisfies readonly AiModel[];

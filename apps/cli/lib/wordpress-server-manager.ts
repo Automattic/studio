@@ -11,6 +11,7 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { readLastLines } from '@studio/common/lib/fs-utils';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
@@ -32,7 +33,6 @@ import {
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { getSiteRuntime } from 'cli/lib/feature-flags';
-import { readFileTail } from 'cli/lib/read-file-tail';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
@@ -263,7 +263,7 @@ async function clearStudioErrorLog( site: SiteData ): Promise< void > {
 	await fs.promises.rm( logPath, { force: true } ).catch( () => undefined );
 }
 
-const PHP_ERROR_TAIL_MAX_BYTES = 4096;
+const PHP_ERROR_TAIL_MAX_LINES = 50;
 
 /**
  * Appends the PHP errors recorded during this start attempt to a startup
@@ -295,9 +295,9 @@ async function withCapturedPhpErrors(
 		if ( stats.mtimeMs < startedAt ) {
 			return error;
 		}
-		const tail = await readFileTail( logPath, PHP_ERROR_TAIL_MAX_BYTES );
-		if ( tail ) {
-			error.message += `\nRecent PHP errors (${ logPath }):\n${ tail }`;
+		const lines = readLastLines( logPath, PHP_ERROR_TAIL_MAX_LINES );
+		if ( lines?.length ) {
+			error.message += `\nRecent PHP errors (${ logPath }):\n${ lines.join( '\n' ) }`;
 		}
 	} catch {
 		// No PHP error log to surface.

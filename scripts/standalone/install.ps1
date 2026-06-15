@@ -87,6 +87,20 @@ function Install-StudioCli {
             throw "Failed to extract $BundleName (tar exited with $LASTEXITCODE)"
         }
 
+        # A previous standalone install may have a running daemon and site
+        # servers holding open handles on bin\node.exe and cli\. Windows blocks
+        # removing files that are still open, so stop them first. Best-effort: a
+        # missing or broken prior install shouldn't block the reinstall.
+        $ExistingLauncher = Join-Path $BinDir "studio.cmd"
+        if (Test-Path $ExistingLauncher) {
+            Write-Host "Stopping running Studio sites and daemon..."
+            try {
+                & $ExistingLauncher site stop --all
+            }
+            catch {
+            }
+        }
+
         # Replace only the runtime dirs; anything else in $InstallDir is left
         # untouched.
         Remove-Item (Join-Path $InstallDir "cli") -Recurse -Force -ErrorAction SilentlyContinue

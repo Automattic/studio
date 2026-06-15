@@ -120,6 +120,14 @@ install_studio() {
 	mkdir -p "$STAGING_DIR/extracted"
 	tar -xzf "$TMP_BUNDLE" -C "$STAGING_DIR/extracted"
 
+	# A previous standalone install may have a running daemon and site servers
+	# holding open handles on bin/node and cli/. Stop them first so replacing the
+	# runtime doesn't orphan those processes. Best-effort: never abort a reinstall.
+	if [ -x "$INSTALL_DIR/bin/studio" ]; then
+		echo "Stopping running Studio sites and daemon..."
+		"$INSTALL_DIR/bin/studio" site stop --all || true
+	fi
+
 	# Replace only the runtime dirs. Config files in $INSTALL_DIR (shared.json,
 	# cli.json, app.json, …) are left untouched.
 	rm -rf "$INSTALL_DIR/cli" "$INSTALL_DIR/bin"

@@ -23,8 +23,7 @@ import { stopSiteTool } from './stop-site';
 import { studioPresentTool } from './studio-present';
 import { takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
-import { validateAndFixBlocksTool } from './validate-and-fix-blocks';
-import { validateHtmlBlocksTool } from './validate-html-blocks';
+import { validateBlocksTool } from './validate-blocks';
 import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
 import type { AnyStudioAgentTool } from './define-tool';
@@ -44,8 +43,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	deletePreviewTool,
 	runWpCliTool,
 	scaffoldThemeTool,
-	validateHtmlBlocksTool,
-	validateAndFixBlocksTool,
+	validateBlocksTool,
 	takeScreenshotTool,
 	inspectDesignTool,
 	shareScreenshotTool,

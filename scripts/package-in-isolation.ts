@@ -76,7 +76,6 @@ function ensureBuildToolchain( stagingRoot: string ) {
 		[ 'ci', '--ignore-scripts', '--no-audit', '--no-fund', '--no-progress' ],
 		stagingRoot
 	);
-	runOrFail( 'npx', [ 'patch-package', '--patch-dir', 'apps/cli/patches' ], stagingRoot );
 	runOrFail( 'npx', [ 'patch-package', '--patch-dir', 'apps/studio/patches' ], stagingRoot );
 	runOrFail( 'node', [ './scripts/remove-fs-ext-other-platform-binaries.mjs' ], stagingRoot );
 }

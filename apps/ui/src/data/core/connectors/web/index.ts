@@ -1,9 +1,11 @@
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
 	AuthUser,
+	AvailableSitePath,
 	Connector,
 	FeaturedBlueprint,
 	InstalledApps,
@@ -11,6 +13,7 @@ import type {
 	SiteDetails,
 	Snapshot,
 	SyncSite,
+	SyncableWpcomSitesPage,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -177,6 +180,9 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		async generateProposedSitePath() {
 			throw new WebUnsupportedError( 'generateProposedSitePath' );
 		},
+		async findAvailableSitePath(): Promise< AvailableSitePath > {
+			throw new WebUnsupportedError( 'findAvailableSitePath' );
+		},
 		async selectSiteFolder() {
 			throw new WebUnsupportedError( 'selectSiteFolder' );
 		},
@@ -198,6 +204,9 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 				playgroundUrl: blueprint.playground_url,
 				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
 			} ) );
+		},
+		async getWordPressVersions() {
+			return fetchWordPressVersions();
 		},
 
 		async getFilePath() {
@@ -229,6 +238,23 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		},
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return [];
+		},
+		async fetchSyncableWpcomSitesPage( {
+			page = 1,
+			perPage = 20,
+		}: {
+			page?: number;
+			perPage?: number;
+			search?: string;
+		} ): Promise< SyncableWpcomSitesPage > {
+			return {
+				sites: [],
+				total: 0,
+				page,
+				perPage,
+				hasMore: false,
+				nextPage: null,
+			};
 		},
 		async connectWpcomSite() {
 			throw new WebUnsupportedError( 'connectWpcomSite' );

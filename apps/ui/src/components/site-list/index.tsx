@@ -115,7 +115,7 @@ function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
 	const starred = !! session.starred;
 	const archived = !! session.archived;
 
-	// Same persistence path as the ui-desks chats panel: optimistic
+	// Same persistence path as the assistant tab: optimistic
 	// starred/archived patches through `connector.updateSessionMetadata`.
 	const updateMetadata = ( patch: { starred: boolean; archived: boolean } ) => {
 		updateSessionMetadata.mutate( {

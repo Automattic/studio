@@ -192,7 +192,7 @@
 }
 
 .siteStatus:focus-visible {
-	outline: 2px solid var(--ui-desks-focus, #3858e9);
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
 	outline-offset: -2px;
 }
 
@@ -473,7 +473,7 @@
 }
 
 .sessionLink:focus-visible {
-	outline: 2px solid var(--ui-desks-focus, #3858e9);
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
 	outline-offset: -2px;
 }
 

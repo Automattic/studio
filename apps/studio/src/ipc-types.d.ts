@@ -99,7 +99,6 @@ type IpcApi = {
 
 interface FeatureFlags {
 	enableAgenticUi: boolean;
-	enableDesksUi: boolean;
 }
 
 interface BetaFeatures {

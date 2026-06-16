@@ -1,24 +1,15 @@
-import { spawn } from 'node:child_process';
-import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
-import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
-import {
-	getSiteRuntime,
-	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
-} from '@studio/common/lib/site-runtime';
+import { SITE_RUNTIME_NATIVE_PHP, getSiteRuntime } from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
-import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
-import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
-import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
-import { DETACH_FOR_GROUP_KILL, reapPhpTreeOnInterrupt } from 'cli/lib/native-php/php-process';
-import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
+import {
+	WpCliResponse,
+	runWpCliCommandWithMessaging,
+	runWpCliCommand,
+} from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
-import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { GlobalOptions } from 'cli/types';
 
@@ -45,94 +36,38 @@ async function pipePHPResponse( response: WpCliResponse ) {
 	await Promise.all( [ stderrPipe(), stdoutPipe() ] );
 }
 
-async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promise< void > {
-	const phpVersion = resolveNativePhpVersion( site.phpVersion );
-	await ensurePhpBinaryAvailable( phpVersion );
-	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
-	// Don't apply open_basedir or disable_functions to the WP-CLI process
-	const defaultArgs = getDefaultPhpArgs( phpVersion );
-	const child = spawn(
-		getPhpBinaryPath( phpVersion ),
-		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...args ],
-		{
-			cwd: site.path,
-			stdio: 'inherit',
-			detached: DETACH_FOR_GROUP_KILL,
-		}
-	);
-
-	// Reap php.exe and any subprocess it spawned if this command is interrupted before the child exits.
-	const removeReaper = reapPhpTreeOnInterrupt( child );
-
-	let code: number | null;
-	let signal: NodeJS.Signals | null;
-	try {
-		( { code, signal } = await new Promise< {
-			code: number | null;
-			signal: NodeJS.Signals | null;
-		} >( ( resolve, reject ) => {
-			child.once( 'error', reject );
-			child.once( 'exit', ( exitCode, exitSignal ) =>
-				resolve( { code: exitCode, signal: exitSignal } )
-			);
-		} ) );
-	} finally {
-		removeReaper();
-	}
-
-	if ( signal ) {
-		process.kill( process.pid, signal );
-		return;
-	}
-
-	process.exit( code ?? 1 );
-}
-
 export async function runCommand(
 	siteFolder: string,
 	args: string[],
 	options: { phpVersion?: string } = {}
 ): Promise< void > {
 	const site = await getSiteByFolder( siteFolder );
+	const phpVersion = validatePhpVersion( options.phpVersion ?? site.phpVersion );
 
+	// The native runtime always spawns a local PHP child, so connect it directly to
+	// the terminal for piped/interactive stdin, live streaming output and colors. It
+	// never uses the daemon, and `reapPhpTreeOnInterrupt` handles Ctrl+C, so there's
+	// no daemon connection or signal handler to set up here.
 	if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
-		await runNativePhpWpCliCommand( site, args );
+		await using command = await runWpCliCommand( site, args, { phpVersion, stdio: 'inherit' } );
+		process.exitCode = await command.exitCode;
 		return;
 	}
 
-	const phpVersion = validatePhpVersion( options.phpVersion ?? site.phpVersion );
+	// Playground sites run in the daemon (when running) or a fresh in-process PHP-WASM
+	// instance (when stopped), so their output can only be streamed, not inherited.
+	process.on( 'SIGINT', disconnectFromDaemon );
+	process.on( 'SIGTERM', disconnectFromDaemon );
 
-	// If there's already a running Playground instance for this site AND we're not requesting
-	// a different PHP version, pass the command to it…
-	const useCustomPhpVersion = options.phpVersion && options.phpVersion !== site.phpVersion;
+	try {
+		await connectToDaemon();
 
-	if ( ! useCustomPhpVersion ) {
-		process.on( 'SIGINT', disconnectFromDaemon );
-		process.on( 'SIGTERM', disconnectFromDaemon );
-
-		try {
-			await connectToDaemon();
-
-			const runningProcess = await isServerRunning( site.id );
-			if ( runningProcess?.runtime === SITE_RUNTIME_PLAYGROUND ) {
-				const result = await sendWpCliCommand( site.id, args );
-				process.stdout.write( result.stdout );
-				process.stderr.write( result.stderr );
-				process.exit( result.exitCode );
-			}
-		} finally {
-			await disconnectFromDaemon();
-		}
+		await using command = await runWpCliCommandWithMessaging( site, args, { phpVersion } );
+		await pipePHPResponse( command.response );
+		process.exitCode = await command.response.exitCode;
+	} finally {
+		await disconnectFromDaemon();
 	}
-
-	process.on( 'SIGINT', () => process.exit( 1 ) );
-	process.on( 'SIGTERM', () => process.exit( 1 ) );
-
-	// …If not, run the command in a new runtime instance (PHP-WASM or native PHP)
-	await using command = await runWpCliCommand( site, args, { phpVersion } );
-
-	await pipePHPResponse( command.response );
-	process.exitCode = await command.response.exitCode;
 }
 
 function removeArgumentFromArgv(

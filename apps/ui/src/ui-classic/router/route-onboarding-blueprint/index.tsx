@@ -2,7 +2,7 @@ import {
 	extractFormValuesFromBlueprint,
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
-import { createRoute, useNavigate } from '@tanstack/react-router';
+import { createRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowLeft } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
@@ -24,8 +24,8 @@ interface BlueprintSearch {
 	step?: Step;
 }
 
-function OnboardingBlueprintPage() {
-	const { step } = onboardingBlueprintRoute.useSearch();
+export function OnboardingBlueprintPage() {
+	const { step } = useSearch( { strict: false } ) as BlueprintSearch;
 	const navigate = useNavigate();
 	const activeStep: Step = step === 'configure' ? 'configure' : 'select';
 
@@ -193,15 +193,17 @@ function mapBlueprintSettingsToFormValues(
 	};
 }
 
+export function validateBlueprintSearch( search: Record< string, unknown > ): BlueprintSearch {
+	const value = search.step;
+	if ( value === 'configure' || value === 'select' ) {
+		return { step: value };
+	}
+	return {};
+}
+
 export const onboardingBlueprintRoute = createRoute( {
 	getParentRoute: () => onboardingLayoutRoute,
 	path: '/onboarding/blueprint',
-	validateSearch: ( search: Record< string, unknown > ): BlueprintSearch => {
-		const value = search.step;
-		if ( value === 'configure' || value === 'select' ) {
-			return { step: value };
-		}
-		return {};
-	},
+	validateSearch: validateBlueprintSearch,
 	component: OnboardingBlueprintPage,
 } );

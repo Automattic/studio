@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import styles from '../layout-onboarding/style.module.css';
 
-function OnboardingHomePage() {
+export function OnboardingHomePage() {
 	return (
 		<div className={ styles.page }>
 			<h1 className={ styles.title }>{ __( 'Start a new site' ) }</h1>

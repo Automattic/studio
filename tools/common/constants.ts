@@ -36,6 +36,7 @@ export const CERT_UNTRUSTED_ROOT = 'CERT_TRUST_IS_UNTRUSTED_ROOT'; // Windows AP
 export const DEFAULT_CUSTOM_DOMAIN_SUFFIX = '.wp.local';
 
 // WordPress constants
+export const EMPTY_SITE_PLAYGROUND_URL = 'https://playground.wordpress.net/';
 export const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version
 export const DEFAULT_WORDPRESS_VERSION = 'latest' as const;
 export const DEFAULT_PHP_VERSION: typeof RecommendedPHPVersion = RecommendedPHPVersion;

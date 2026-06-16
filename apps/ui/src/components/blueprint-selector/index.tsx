@@ -1,11 +1,17 @@
+import { EMPTY_SITE_PLAYGROUND_URL } from '@studio/common/constants';
+import {
+	curateBlueprintsForDisplay,
+	FEATURED_BLUEPRINT_SLUGS,
+} from '@studio/common/lib/blueprint-curation';
 import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
+import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { external } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
-import { useCallback, useState } from 'react';
-import { FileDropzone } from '@/components/file-dropzone';
+import { seen } from '@wordpress/icons';
+import { Button, Icon, Tooltip } from '@wordpress/ui';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useGridArrowNavigation } from '@/hooks/use-grid-arrow-navigation';
 import styles from './style.module.css';
 import type { FeaturedBlueprint } from '@/data/core';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
@@ -23,20 +29,158 @@ export interface PickedBlueprint {
 }
 
 interface BlueprintSelectorProps {
-	featured: FeaturedBlueprint[] | undefined;
-	isFeaturedLoading: boolean;
+	blueprints: FeaturedBlueprint[] | undefined;
+	isLoading: boolean;
 	onPick: ( blueprint: PickedBlueprint ) => void;
+	// Picking the "Empty site" card — callers route this to the plain
+	// create-site flow rather than running an empty blueprint.
+	onPickEmpty: () => void;
 }
 
 const FILE_ACCEPT = 'application/json,.json,application/zip,.zip';
 
-export function BlueprintSelector( {
-	featured,
-	isFeaturedLoading,
+/**
+ * Preview (eye) button overlaid on a card's image. Rendered as a sibling of
+ * the card's pick button (inside `cardMediaOverlay`) rather than nested in
+ * it, so the markup stays valid — nested interactive elements aren't.
+ */
+function PreviewOverlay( { url, title }: { url: string; title: string } ) {
+	const connector = useConnector();
+	const label = __( 'Preview in your browser' );
+	return (
+		<div className={ styles.cardMediaOverlay }>
+			<Tooltip.Provider delay={ 200 }>
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						render={
+							<button
+								type="button"
+								className={ styles.previewButton }
+								onClick={ () => void connector.openExternalUrl( url ) }
+								aria-label={ sprintf(
+									// translators: %s is the blueprint title.
+									__( 'Preview %s in Playground' ),
+									title
+								) }
+							>
+								<Icon icon={ seen } size={ 16 } />
+							</button>
+						}
+					/>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+						{ label }
+					</Tooltip.Popup>
+				</Tooltip.Root>
+			</Tooltip.Provider>
+		</div>
+	);
+}
+
+function EmptySiteCard( { onPick }: { onPick: () => void } ) {
+	return (
+		<li className={ styles.cardWrapper }>
+			<button type="button" className={ styles.card } onClick={ onPick } data-arrow-nav-item>
+				<span className={ styles.emptyMedia }>
+					<span className={ styles.emptyMediaGrid } />
+					{ /* Centered document glyph */ }
+					<svg
+						width="44"
+						height="56"
+						viewBox="0 0 44 56"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+						aria-hidden="true"
+						data-keep-size
+					>
+						<path
+							d="M 4 4 L 28 4 L 40 16 L 40 52 L 4 52 Z"
+							stroke="currentColor"
+							strokeWidth="1.5"
+							strokeLinejoin="round"
+							fill="none"
+						/>
+						<path
+							d="M 28 4 L 28 16 L 40 16"
+							stroke="currentColor"
+							strokeWidth="1.5"
+							strokeLinejoin="round"
+							fill="none"
+						/>
+					</svg>
+				</span>
+				<span className={ styles.cardBody }>
+					<h3 className={ styles.cardTitle }>{ __( 'Empty site' ) }</h3>
+					<p className={ styles.cardExcerpt }>
+						{ __( 'A clean WordPress install. Build whatever you want from scratch.' ) }
+					</p>
+				</span>
+			</button>
+			<PreviewOverlay url={ EMPTY_SITE_PLAYGROUND_URL } title={ __( 'Empty site' ) } />
+		</li>
+	);
+}
+
+function BlueprintCard( {
+	blueprint,
 	onPick,
+}: {
+	blueprint: FeaturedBlueprint;
+	onPick: ( blueprint: FeaturedBlueprint ) => void;
+} ) {
+	return (
+		<li className={ styles.cardWrapper }>
+			<button
+				type="button"
+				className={ styles.card }
+				onClick={ () => onPick( blueprint ) }
+				data-arrow-nav-item
+			>
+				{ blueprint.image ? (
+					<img className={ styles.cardImage } src={ blueprint.image } alt="" loading="lazy" />
+				) : (
+					<span className={ styles.cardImageFallback }>{ blueprint.title }</span>
+				) }
+				<span className={ styles.cardBody }>
+					<h3 className={ styles.cardTitle }>{ blueprint.title }</h3>
+					<p className={ styles.cardExcerpt } title={ blueprint.excerpt }>
+						{ blueprint.excerpt }
+					</p>
+				</span>
+			</button>
+			{ blueprint.playgroundUrl && (
+				<PreviewOverlay url={ blueprint.playgroundUrl } title={ blueprint.title } />
+			) }
+		</li>
+	);
+}
+
+export function BlueprintSelector( {
+	blueprints,
+	isLoading,
+	onPick,
+	onPickEmpty,
 }: BlueprintSelectorProps ) {
 	const connector = useConnector();
+	const uploadInputRef = useRef< HTMLInputElement | null >( null );
+	const handleGridKeyDown = useGridArrowNavigation();
 	const [ uploadError, setUploadError ] = useState< string | null >( null );
+
+	// The endpoint returns blueprints oldest-first; newest-first reads better
+	// in the Explore grid (matches the desktop renderer).
+	const allBlueprints = useMemo( () => ( blueprints ?? [] ).slice().reverse(), [ blueprints ] );
+
+	const featuredBlueprints = useMemo(
+		() =>
+			curateBlueprintsForDisplay(
+				allBlueprints.filter( ( blueprint ) => FEATURED_BLUEPRINT_SLUGS.has( blueprint.slug ) ),
+				__
+			),
+		[ allBlueprints ]
+	);
+	const exploreBlueprints = useMemo(
+		() => allBlueprints.filter( ( blueprint ) => ! FEATURED_BLUEPRINT_SLUGS.has( blueprint.slug ) ),
+		[ allBlueprints ]
+	);
 
 	const handleFeaturedClick = useCallback(
 		( item: FeaturedBlueprint ) => {
@@ -49,18 +193,6 @@ export function BlueprintSelector( {
 			} );
 		},
 		[ onPick ]
-	);
-
-	const handlePreviewClick = useCallback(
-		( event: React.MouseEvent< HTMLButtonElement >, item: FeaturedBlueprint ) => {
-			// Stop the click from bubbling to the card's pick handler — the
-			// user explicitly asked to preview, not to select.
-			event.stopPropagation();
-			if ( item.playgroundUrl ) {
-				void connector.openExternalUrl( item.playgroundUrl );
-			}
-		},
-		[ connector ]
 	);
 
 	/**
@@ -170,64 +302,94 @@ export function BlueprintSelector( {
 		[ acceptParsedBlueprint, connector ]
 	);
 
+	// Callers advertise "drop in your own", so the whole selector accepts
+	// blueprint drops; any validation error renders next to the Upload
+	// button above the explore grid.
+	const handleRootDrop = useCallback(
+		( event: React.DragEvent< HTMLDivElement > ) => {
+			if ( event.defaultPrevented ) {
+				return;
+			}
+			event.preventDefault();
+			const file = event.dataTransfer.files[ 0 ];
+			if ( ! file ) {
+				return;
+			}
+			void handleFile( file );
+		},
+		[ handleFile ]
+	);
+
 	return (
-		<div className={ styles.root }>
+		<div
+			className={ styles.root }
+			onDragOver={ ( event ) => event.preventDefault() }
+			onDrop={ handleRootDrop }
+		>
 			<section className={ styles.section }>
-				<h2 className={ styles.sectionTitle }>{ __( 'Upload your own' ) }</h2>
-				<FileDropzone
-					accept={ FILE_ACCEPT }
-					prompt={ __( 'Drop a Blueprint JSON or ZIP bundle here, or' ) }
-					onFile={ ( file ) => void handleFile( file ) }
-					error={ uploadError }
-				/>
+				<ul
+					className={ `${ styles.grid } ${ styles.gridFeatured }` }
+					onKeyDown={ handleGridKeyDown }
+				>
+					<EmptySiteCard onPick={ onPickEmpty } />
+					{ isLoading && (
+						<li className={ styles.gridStatus }>
+							<Spinner />
+						</li>
+					) }
+					{ ! isLoading && allBlueprints.length === 0 && (
+						<li className={ styles.gridStatus }>{ __( 'Could not load templates.' ) }</li>
+					) }
+					{ featuredBlueprints.map( ( item ) => (
+						<BlueprintCard key={ item.slug } blueprint={ item } onPick={ handleFeaturedClick } />
+					) ) }
+				</ul>
 			</section>
 
-			<section className={ styles.section }>
-				<h2 className={ styles.sectionTitle }>{ __( 'Featured blueprints' ) }</h2>
-				{ isFeaturedLoading && (
-					<p className={ styles.featuredHint }>{ __( 'Loading featured blueprints…' ) }</p>
-				) }
-				{ ! isFeaturedLoading && ( ! featured || featured.length === 0 ) && (
-					<p className={ styles.featuredHint }>
-						{ __( 'No featured blueprints available right now.' ) }
+			<section className={ `${ styles.section } ${ styles.exploreSection }` }>
+				<header className={ styles.exploreHeader }>
+					<h2 className={ styles.sectionTitle }>{ __( 'More blueprints' ) }</h2>
+					<p className={ styles.exploreSubtitle }>
+						{ __( 'Get started quickly with a one of our blueprints, or' ) }{ ' ' }
+						<Button
+							type="button"
+							variant="minimal"
+							tone="brand"
+							className={ styles.uploadLink }
+							onClick={ () => uploadInputRef.current?.click() }
+						>
+							{ __( 'upload a blueprint' ) }
+						</Button>
+						{ '.' }
+					</p>
+				</header>
+				{ uploadError && (
+					<p role="alert" className={ styles.uploadError }>
+						{ uploadError }
 					</p>
 				) }
-				{ featured && featured.length > 0 && (
-					<ul className={ styles.grid }>
-						{ featured.map( ( item ) => (
-							<li key={ item.slug } className={ styles.cardWrapper }>
-								<button
-									type="button"
-									className={ styles.card }
-									onClick={ () => handleFeaturedClick( item ) }
-								>
-									{ item.image && (
-										<img className={ styles.cardImage } src={ item.image } alt="" loading="lazy" />
-									) }
-									<div className={ styles.cardBody }>
-										<h3 className={ styles.cardTitle }>{ item.title }</h3>
-										<p className={ styles.cardExcerpt }>{ item.excerpt }</p>
-									</div>
-								</button>
-								{ item.playgroundUrl && (
-									<Button
-										type="button"
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										className={ styles.previewButton }
-										onClick={ ( event ) => handlePreviewClick( event, item ) }
-										aria-label={ sprintf(
-											// translators: %s is the blueprint title.
-											__( 'Preview %s in Playground' ),
-											item.title
-										) }
-									>
-										<Icon icon={ external } />
-										<span>{ __( 'Preview' ) }</span>
-									</Button>
-								) }
-							</li>
+				<input
+					ref={ uploadInputRef }
+					type="file"
+					accept={ FILE_ACCEPT }
+					className={ styles.hiddenInput }
+					onChange={ ( event ) => {
+						const file = event.target.files?.[ 0 ];
+						if ( file ) {
+							void handleFile( file );
+						}
+						// Reset so re-picking the same file after an error re-fires
+						// `change`.
+						event.target.value = '';
+					} }
+				/>
+				{ exploreBlueprints.length > 0 && (
+					<ul
+						className={ `${ styles.grid } ${ styles.gridCompact }` }
+						onKeyDown={ handleGridKeyDown }
+					>
+						{ exploreBlueprints.map( ( item ) => (
+							<BlueprintCard key={ item.slug } blueprint={ item } onPick={ handleFeaturedClick } />
 						) ) }
 					</ul>
 				) }

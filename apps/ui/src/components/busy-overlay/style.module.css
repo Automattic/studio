@@ -1,0 +1,7 @@
+.overlay {
+	position: fixed;
+	inset: 0;
+	/* Above the onboarding close button (7) and footer actions (6). */
+	z-index: 8;
+	cursor: progress;
+}

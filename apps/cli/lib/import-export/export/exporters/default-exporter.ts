@@ -15,7 +15,8 @@ import {
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import { __, sprintf } from '@wordpress/i18n';
-import archiver from 'archiver';
+import { Archiver, TarArchive, ZipArchive } from 'archiver';
+import { glob } from 'glob';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -35,7 +36,7 @@ const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
 );
 
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
-	private archiveBuilder!: archiver.Archiver;
+	private archiveBuilder!: Archiver;
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
 
@@ -150,11 +151,12 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		}
 	}
 
-	private createArchiveBuilder(): archiver.Archiver {
+	private createArchiveBuilder(): Archiver {
 		this.emit( ExportEvents.BACKUP_CREATE_START );
-		const isZip = this.options.backupFile.endsWith( '.zip' );
-		const format = isZip ? 'zip' : 'tar';
-		return archiver( format, ARCHIVER_OPTIONS[ format ] );
+
+		return this.options.backupFile.endsWith( '.zip' )
+			? new ZipArchive( ARCHIVER_OPTIONS.zip )
+			: new TarArchive( ARCHIVER_OPTIONS.tar );
 	}
 
 	private setupArchiveListeners( output: fs.WriteStream ): Promise< void > {
@@ -221,21 +223,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 
 				const stat = await fsPromises.stat( fullPath );
 				if ( stat.isDirectory() ) {
-					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
-						const entryPathRelativeToArchiveRoot = path.join( archivePath, entry.name );
-						const fullEntryPathOnDisk = path.join(
-							this.options.site.path,
-							entryPathRelativeToArchiveRoot
-						);
-						if (
-							this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
-							this.isPathExcludedByPattern( fullEntryPathOnDisk ) ||
-							this.options.ignoreFilter?.ignores( entryPathRelativeToArchiveRoot )
-						) {
-							return false;
-						}
-						return entry;
-					} );
+					await this.addDirectory( fullPath, archivePath );
 				} else {
 					if (
 						this.isExactPathExcluded( archivePath ) ||
@@ -249,6 +237,42 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		}
 
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE );
+	}
+
+	// `Archiver.directory()` does not follow symlinks, so we glob the directory
+	// ourselves to support symlinked plugins/themes, then add each file
+	// individually via `Archiver.file()`. If the source path is a symlink,
+	// `Archiver.file()` appends a symlink to the archive instead of the target
+	// file. We don't want this. By calling realpath first, we ensure the source
+	// file data is always appended. This is preferable to passing readable
+	// streams to `Archiver.append()`, which can lead to EMFILE errors.
+	private async addDirectory( dirPath: string, archivePath: string ): Promise< void > {
+		const relativePaths = await glob( '**/*', {
+			cwd: dirPath,
+			dot: true,
+			follow: true,
+			nodir: true,
+			// Keep entry names forward-slashed on Windows
+			posix: true,
+		} );
+
+		for ( const relativePath of relativePaths ) {
+			const entryPathRelativeToArchiveRoot = path.join( archivePath, relativePath );
+			const fullEntryPathOnDisk = path.join(
+				this.options.site.path,
+				entryPathRelativeToArchiveRoot
+			);
+			if (
+				this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
+				this.isPathExcludedByPattern( fullEntryPathOnDisk ) ||
+				this.options.ignoreFilter?.ignores( entryPathRelativeToArchiveRoot )
+			) {
+				continue;
+			}
+			this.archiveBuilder.file( fs.realpathSync( fullEntryPathOnDisk ), {
+				name: entryPathRelativeToArchiveRoot,
+			} );
+		}
 	}
 
 	private async addDatabase(): Promise< void > {

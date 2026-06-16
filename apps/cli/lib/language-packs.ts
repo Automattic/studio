@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { pathExists } from '@studio/common/lib/fs-utils';
+import { WP_LOCALES } from '@studio/common/lib/wp-locales';
 import { getLanguagePacksPath } from 'cli/lib/dependency-management/paths';
 
 /**
@@ -51,6 +52,12 @@ export async function copyLanguagePackToSite(
 	sitePath: string,
 	wpLocale: string
 ): Promise< boolean > {
+	// Translations are only bundled for `WP_LOCALES`; skip the readdir() calls over the
+	// ~1,400-entry bundled languages directories when no files could match anyway.
+	if ( ! WP_LOCALES.includes( wpLocale ) ) {
+		return false;
+	}
+
 	const languagePacksDir = getLanguagePacksPath();
 	if ( ! ( await pathExists( languagePacksDir ) ) ) {
 		return false;

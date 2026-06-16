@@ -18,15 +18,12 @@
 }
 
 /* In macOS fullscreen the traffic lights are hidden, so reclaim the
-   padding that was reserved for them and align the title with the
-   site list entries below — the site list outer padding is `xl + sm`
-   and each site label sits inside a button with another `sm` of
-   padding-inline, so its text starts at `xl + 2*sm` from the sidebar
-   edge. */
+   padding that was reserved for them and align the title with the site
+   list entries below. The site list outer padding is `2xl` and its rows
+   now start flush with that edge (no row/button inline-start padding), so
+   the site label text starts at `2xl` from the sidebar edge. */
 .fullscreen {
-	padding-left: calc(
-		var(--wpds-dimension-padding-xl) + 2 * var(--wpds-dimension-padding-sm)
-	);
+	padding-left: var(--wpds-dimension-padding-2xl);
 }
 
 .title {
@@ -43,7 +40,9 @@
 .actions {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
+	/* Match the site-row action buttons (`.siteActions` in site-list), which
+	   sit flush with no gap. */
+	gap: 0;
 	opacity: 0.65;
 }
 

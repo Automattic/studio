@@ -1,6 +1,5 @@
 /* Pinning to the sidebar bottom is handled by the layout's
-   `sidebarFooter` wrapper, which stacks this menu under the settings
-   button. */
+   `sidebarFooter` wrapper. */
 .root {
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl)
 		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-2xl);
@@ -13,14 +12,17 @@
 }
 
 .userName,
-.themeToggle {
+.themeToggle,
+.settingsButton {
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .row:hover .userName,
 .row:hover .themeToggle,
+.row:hover .settingsButton,
 .row:focus-within .userName,
-.row:focus-within .themeToggle {
+.row:focus-within .themeToggle,
+.row:focus-within .settingsButton {
 	color: var(--wpds-color-fg-content-neutral);
 }
 

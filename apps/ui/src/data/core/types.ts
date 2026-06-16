@@ -1,4 +1,6 @@
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SupportedLocale } from '@studio/common/lib/locale';
@@ -12,6 +14,8 @@ import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wor
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+export type { StudioChatImage, StudioChatImageAttachment } from '@studio/common/ai/chat-images';
 export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type {
@@ -233,7 +237,11 @@ export interface Connector {
 	continueSession(
 		sessionId: string,
 		prompt: string,
-		options?: { displayMessage?: string }
+		options?: {
+			displayMessage?: string;
+			images?: StudioChatImage[];
+			files?: StudioChatFileAttachment[];
+		}
 	): Promise< { runId: string } >;
 	getActiveAgentRuns(): Promise< ActiveAgentRun[] >;
 	// Persist a UI-driven model override for the session. The CLI picks this up
@@ -303,6 +311,10 @@ export interface Connector {
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
 	onSiteEvent( listener: () => void ): () => void;
+
+	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
+	// application menu.
+	onToggleSitePreview( listener: () => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

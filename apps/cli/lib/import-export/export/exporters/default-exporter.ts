@@ -239,9 +239,13 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE );
 	}
 
-	// `archiver.directory()` does not follow symlinks, so we glob the directory
+	// `Archiver.directory()` does not follow symlinks, so we glob the directory
 	// ourselves to support symlinked plugins/themes, then add each file
-	// individually
+	// individually via `Archiver.file()`. If the source path is a symlink,
+	// `Archiver.file()` appends a symlink to the archive instead of the target
+	// file. We don't want this. By calling realpath first, we ensure the source
+	// file data is always appended. This is preferable to passing readable
+	// streams to `Archiver.append()`, which can lead to EMFILE errors.
 	private async addDirectory( dirPath: string, archivePath: string ): Promise< void > {
 		const relativePaths = await glob( '**/*', {
 			cwd: dirPath,
@@ -265,7 +269,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			) {
 				continue;
 			}
-			this.archiveBuilder.append( fs.createReadStream( fullEntryPathOnDisk ), {
+			this.archiveBuilder.file( fs.realpathSync( fullEntryPathOnDisk ), {
 				name: entryPathRelativeToArchiveRoot,
 			} );
 		}

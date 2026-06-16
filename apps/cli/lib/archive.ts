@@ -52,16 +52,19 @@ export async function archiveSiteContent(
 			if ( deployIgnore.ignores( archiveEntryPath ) ) {
 				continue;
 			}
-			archiveBuilder.append( fs.createReadStream( path.join( wpContentPath, relativePath ) ), {
+			// If the source path is a symlink, `Archiver.file()` appends a symlink to
+			// the archive instead of the target file. We don't want this. By calling
+			// realpath first, we ensure the source file data is always appended. This
+			// is preferable to passing readable streams to `Archiver.append()`, which
+			// can lead to EMFILE errors.
+			archiveBuilder.file( fs.realpathSync( path.join( wpContentPath, relativePath ) ), {
 				name: archiveEntryPath,
 			} );
 		}
 
 		const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
-			archiveBuilder.append( fs.createReadStream( wpConfigPath ), {
-				name: 'wp-config.php',
-			} );
+			archiveBuilder.file( wpConfigPath, { name: 'wp-config.php' } );
 		}
 
 		archiveBuilder.finalize().catch( reject );

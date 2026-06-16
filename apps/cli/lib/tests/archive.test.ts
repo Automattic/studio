@@ -25,7 +25,7 @@ describe( 'Archive Module', () => {
 	function createMockArchiver(): {
 		pipe: ReturnType< typeof vi.fn >;
 		directory: ReturnType< typeof vi.fn >;
-		append: ReturnType< typeof vi.fn >;
+		file: ReturnType< typeof vi.fn >;
 		finalize: ReturnType< typeof vi.fn >;
 		on: ReturnType< typeof vi.fn >;
 	} {
@@ -38,7 +38,7 @@ describe( 'Archive Module', () => {
 				return mockArchiver;
 			} ),
 			directory: vi.fn().mockReturnThis(),
-			append: vi.fn().mockReturnThis(),
+			file: vi.fn().mockReturnThis(),
 			finalize: vi.fn().mockResolvedValue( undefined ),
 			on: vi.fn().mockReturnThis(),
 		};
@@ -52,7 +52,7 @@ describe( 'Archive Module', () => {
 	}
 
 	function archivedNames(): unknown[] {
-		return mockArchiver.append.mock.calls.map( ( call ) => call[ 1 ].name );
+		return mockArchiver.file.mock.calls.map( ( call ) => call[ 1 ].name );
 	}
 
 	beforeEach( () => {
@@ -103,16 +103,17 @@ describe( 'Archive Module', () => {
 
 			await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
-			// Each entry is appended as a read stream of the on-disk file (so that
-			// symlinks are followed) keyed by its archive-relative name.
-			expect( mockArchiver.append ).toHaveBeenCalledWith(
-				expect.objectContaining( { path: path.join( mockWpContentPath, 'index.php' ) } ),
-				{ name: 'wp-content/index.php' }
+			// Each entry is added via `archiver.file()` with its symlink-resolved
+			// on-disk path (so symlink content is followed) keyed by its
+			// archive-relative name.
+			expect( mockArchiver.file ).toHaveBeenCalledWith(
+				path.join( mockWpContentPath, 'index.php' ),
+				{
+					name: 'wp-content/index.php',
+				}
 			);
-			expect( mockArchiver.append ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					path: path.join( mockWpContentPath, 'plugins', 'my-plugin.php' ),
-				} ),
+			expect( mockArchiver.file ).toHaveBeenCalledWith(
+				path.join( mockWpContentPath, 'plugins', 'my-plugin.php' ),
 				{ name: 'wp-content/plugins/my-plugin.php' }
 			);
 		} );
@@ -145,10 +146,9 @@ describe( 'Archive Module', () => {
 
 			await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
-			expect( mockArchiver.append ).toHaveBeenCalledWith(
-				expect.objectContaining( { path: mockWpConfigPath } ),
-				{ name: 'wp-config.php' }
-			);
+			expect( mockArchiver.file ).toHaveBeenCalledWith( mockWpConfigPath, {
+				name: 'wp-config.php',
+			} );
 		} );
 
 		it( 'should not include wp-config.php when it does not exist', async () => {

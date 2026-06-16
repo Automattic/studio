@@ -109,7 +109,7 @@ ruby fastlane/test/studio_release_git_test.rb
 
 Alongside the desktop app, every Studio build also publishes the standalone Studio CLI bundles — the `tar.gz` archives the `install.sh` / `install.ps1` curl installers download — to the Apps CDN under the **`WordPress.com Studio CLI`** product. This is part of the normal build/distribute flow, so it happens for nightly/dev, beta, and stable builds with no separate step to run:
 
-- Each platform's build group builds its own bundle (`npm run cli:bundle <platform> <arch>`) on its own runner, producing `standalone-bundles/studio-cli-<platform>-<arch>.tar.gz` + a `.sha256` sidecar for all six platform/arch targets.
+- Each platform's build group builds its own bundle (`npm run cli:bundle <platform> <arch>`) on its own runner, producing `standalone-bundles/studio-cli-<platform>-<arch>.tgz` + a `.sha256` sidecar for all six platform/arch targets.
 - `distribute_builds` uploads the bundles with the **same version, build type, and visibility as the app build**, so the CLI tracks the app exactly: External for nightly/beta, and Internal-then-flipped-public for stable (their CDN post IDs ride the draft GitHub release and are flipped to External by `publish_release`, just like the app builds).
 
 ### How the installers find a bundle
@@ -123,7 +123,7 @@ https://appscdn.wordpress.com/downloads/wordpress-com-studio-cli/<slug>/latest/f
 `<slug>` is the CDN platform slug (`mac-silicon`, `mac-intel`, `windows-x64`, `windows-arm64`, `linux-x64`, `linux-arm64`). Two env vars adjust this:
 
 - `STUDIO_CLI_VERSION` — install a specific version instead of `latest` (e.g. `v1.11.0`).
-- `STUDIO_CLI_URL` — bypass the CDN entirely and fetch `studio-cli-<platform>-<arch>.tar.gz` (+ `.sha256` sidecar) from a base URL or local dir. Used for local testing and mirrors; this path verifies the checksum, whereas the CDN path relies on HTTPS plus a staged-extraction guard (the CDN exposes the SHA-256 only as build metadata, not a downloadable sidecar).
+- `STUDIO_CLI_URL` — bypass the CDN entirely and fetch `studio-cli-<platform>-<arch>.tgz` (+ `.sha256` sidecar) from a base URL or local dir. Used for local testing and mirrors; this path verifies the checksum, whereas the CDN path relies on HTTPS plus a staged-extraction guard (the CDN exposes the SHA-256 only as build metadata, not a downloadable sidecar).
 
 Only the `install.sh` / `install.ps1` scripts themselves still need public hosting — the `curl … | bash` / `irm … | iex` entry points (e.g. `wp.build/install.sh`); the bundles come directly from the CDN.
 

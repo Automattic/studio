@@ -12,7 +12,7 @@
 #   STUDIO_CLI_HOME     — Installation directory (default: %LOCALAPPDATA%\studio)
 #   STUDIO_CLI_VERSION  — Version to install from the CDN (default: latest, e.g. v1.11.0)
 #   STUDIO_CLI_URL      — Override the download source with a base URL or local dir,
-#                         bypassing the CDN. Expects studio-cli-<platform>-<arch>.tar.gz
+#                         bypassing the CDN. Expects studio-cli-<platform>-<arch>.tgz
 #                         plus a matching .sha256 sidecar (used for testing and mirrors).
 
 $ErrorActionPreference = "Stop"
@@ -63,7 +63,7 @@ function Test-Checksum {
 
 function Install-StudioCli {
     $Arch = Get-Platform
-    $BundleName = "studio-cli-win32-${Arch}.tar.gz"
+    $BundleName = "studio-cli-win32-${Arch}.tgz"
 
     # Default to the Apps CDN, which 302-redirects "latest" (or a pinned version) to
     # the newest published bundle. STUDIO_CLI_URL overrides this with a base URL or

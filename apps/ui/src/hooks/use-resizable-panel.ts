@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import {
 	clampResizablePanelWidth,
 	getResizablePanelMaxWidth,
@@ -7,7 +8,7 @@ import {
 	storeResizablePanelWidth,
 	type ResizablePanelConfig,
 } from '@/lib/resizable-panels';
-import type { KeyboardEvent, MouseEvent } from 'react';
+import type { KeyboardEvent } from 'react';
 
 interface UseResizablePanelOptions {
 	config: ResizablePanelConfig;
@@ -20,9 +21,6 @@ export function useResizablePanel( { config, edge, storageKey }: UseResizablePan
 	const [ width, setWidth ] = useState( () =>
 		getStoredResizablePanelWidth( storageKey, config, getViewportWidth() )
 	);
-	const [ isResizing, setIsResizing ] = useState( false );
-	const dragStartX = useRef( 0 );
-	const dragStartWidth = useRef( 0 );
 
 	const maxWidth = useMemo(
 		() => getResizablePanelMaxWidth( viewportWidth, config ),
@@ -34,22 +32,24 @@ export function useResizablePanel( { config, edge, storageKey }: UseResizablePan
 			const clampedWidth = clampResizablePanelWidth( nextWidth, config, getViewportWidth() );
 			setWidth( clampedWidth );
 			storeResizablePanelWidth( storageKey, clampedWidth );
+			return clampedWidth;
 		},
 		[ config, storageKey ]
 	);
 
-	const handleResizeStart = useCallback(
-		( event: MouseEvent< HTMLElement > ) => {
-			if ( event.button !== 0 ) {
-				return;
-			}
-			event.preventDefault();
-			setIsResizing( true );
-			dragStartX.current = event.clientX;
-			dragStartWidth.current = width;
+	const { isDragging, onMouseDown } = usePointerDrag( {
+		onStart: () => width,
+		onMove: ( start, deltaX ) => {
+			// `edge` decides which way a rightward drag grows the panel.
+			const delta = edge === 'right' ? deltaX : -deltaX;
+			const nextWidth = clampResizablePanelWidth( start + delta, config, getViewportWidth() );
+			setWidth( nextWidth );
+			return nextWidth;
 		},
-		[ width ]
-	);
+		onCommit: ( latest ) => {
+			saveWidth( latest );
+		},
+	} );
 
 	const handleKeyDown = useCallback(
 		( event: KeyboardEvent< HTMLElement > ) => {
@@ -87,62 +87,12 @@ export function useResizablePanel( { config, edge, storageKey }: UseResizablePan
 		return () => window.removeEventListener( 'resize', handleResize );
 	}, [ config ] );
 
-	useEffect( () => {
-		if ( ! isResizing ) {
-			return;
-		}
-
-		let rafId: number | undefined;
-		const originalCursor = document.body.style.cursor;
-		const originalUserSelect = document.body.style.userSelect;
-		document.body.style.cursor = 'col-resize';
-		document.body.style.userSelect = 'none';
-
-		const handleMouseMove = ( event: globalThis.MouseEvent ) => {
-			if ( rafId ) {
-				cancelAnimationFrame( rafId );
-			}
-			rafId = requestAnimationFrame( () => {
-				const delta =
-					edge === 'right'
-						? event.clientX - dragStartX.current
-						: dragStartX.current - event.clientX;
-				setWidth(
-					clampResizablePanelWidth( dragStartWidth.current + delta, config, getViewportWidth() )
-				);
-			} );
-		};
-
-		const handleMouseUp = ( event: globalThis.MouseEvent ) => {
-			setIsResizing( false );
-			if ( rafId ) {
-				cancelAnimationFrame( rafId );
-			}
-			const delta =
-				edge === 'right' ? event.clientX - dragStartX.current : dragStartX.current - event.clientX;
-			saveWidth( dragStartWidth.current + delta );
-		};
-
-		document.addEventListener( 'mousemove', handleMouseMove );
-		document.addEventListener( 'mouseup', handleMouseUp );
-
-		return () => {
-			if ( rafId ) {
-				cancelAnimationFrame( rafId );
-			}
-			document.body.style.cursor = originalCursor;
-			document.body.style.userSelect = originalUserSelect;
-			document.removeEventListener( 'mousemove', handleMouseMove );
-			document.removeEventListener( 'mouseup', handleMouseUp );
-		};
-	}, [ config, edge, isResizing, saveWidth ] );
-
 	return {
 		width,
 		minWidth: config.minWidth,
 		maxWidth,
-		isResizing,
-		handleResizeStart,
+		isResizing: isDragging,
+		handleResizeStart: onMouseDown,
 		handleKeyDown,
 	};
 }

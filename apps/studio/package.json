@@ -52,7 +52,7 @@
 		"semver": "^7.7.3",
 		"shell-quote": "^1.8.4",
 		"strip-ansi": "^7.1.2",
-		"tar": "^7.5.11",
+		"tar": "^7.5.16",
 		"tus-js-client": "^4.3.1",
 		"winreg": "1.2.4",
 		"yauzl": "^3.2.1",

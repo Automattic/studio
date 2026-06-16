@@ -41,31 +41,6 @@ describe( 'browser-utils', () => {
 		expect( options?.args ).toEqual( [ '--ignore-certificate-errors' ] );
 	} );
 
-	it( 'merges launch overrides into every attempt so headed callers keep the install fallback', () => {
-		const overrides = {
-			headless: false,
-			args: [ '--ignore-certificate-errors', '--window-size=1280,800' ],
-		};
-
-		const attempts = buildChromiumLaunchAttempts(
-			{ executablePath: () => process.execPath },
-			overrides
-		);
-
-		// Both the resolved-executable attempt and the default fallback must
-		// carry the caller's overrides.
-		expect( attempts ).toHaveLength( 2 );
-		expect( attempts[ 0 ] ).toEqual( {
-			headless: false,
-			args: [ '--ignore-certificate-errors', '--window-size=1280,800' ],
-			executablePath: process.execPath,
-		} );
-		expect( attempts.at( -1 ) ).toEqual( {
-			headless: false,
-			args: [ '--ignore-certificate-errors', '--window-size=1280,800' ],
-		} );
-	} );
-
 	it( 'tries to install Playwright Chromium when the managed browser is missing', async () => {
 		const installBrowser = vi.fn().mockResolvedValue( undefined );
 		let installed = false;

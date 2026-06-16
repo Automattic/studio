@@ -1023,7 +1023,14 @@ def upload_studio_cli_binaries_to_apps_cdn(version:, artifacts_dir:, build_type:
   builds = {}
   studio_cli_cdn_builds.each do |build|
     file_path = File.join(artifacts_dir, build[:file_name])
-    UI.user_error!("File #{file_path} does not exist") unless File.exist?(file_path)
+
+    # A real upload requires every bundle; a dry run still previews the rest, so you
+    # can sanity-check the lane after building only your current platform locally.
+    unless File.exist?(file_path)
+      UI.user_error!("File #{file_path} does not exist") unless dry_run
+      UI.important("[DRY RUN] #{build[:file_name]} not found in #{artifacts_dir} — skipping (would upload to '#{WPCOM_STUDIO_CLI_PRODUCT}' / #{build[:platform]} / #{version}).")
+      next
+    end
 
     sha = read_sha256_sidecar(file_path:)
     release_notes = "Studio CLI #{version} for #{build[:name]}"

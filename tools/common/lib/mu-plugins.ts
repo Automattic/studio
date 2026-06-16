@@ -14,11 +14,15 @@ export interface MuPlugin {
 	content: string;
 }
 
+export const STUDIO_ERROR_LOG_FILENAME = 'studio-error.log';
+
 export type MuPluginRuntime = 'playground' | 'native-php';
 
 export interface MuPluginOptions {
 	isWpAutoUpdating?: boolean;
 	runtime?: MuPluginRuntime;
+	errorLogPath?: string;
+	errorLogStopAfterBoot?: boolean;
 }
 
 /**
@@ -164,6 +168,25 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		define('QM_TESTS', true);
 		`,
 	} );
+
+	// Capture PHP errors so a failed site start can show why (STU-1757).
+	if ( options.errorLogPath ) {
+		const stopAfterBoot = options.errorLogStopAfterBoot
+			? `if ( function_exists( 'add_action' ) ) {
+				add_action( 'wp_loaded', function () { ini_set( 'log_errors', '0' ); }, PHP_INT_MAX );
+			}`
+			: '';
+		muPlugins.push( {
+			filename: '0-error-capture.php',
+			content: `<?php
+		if ( ! ini_get( 'log_errors' ) || ! ini_get( 'error_log' ) ) {
+			ini_set( 'log_errors', '1' );
+			ini_set( 'error_log', '${ escapePhpSingleQuotedString( options.errorLogPath ) }' );
+			${ stopAfterBoot }
+		}
+		`,
+		} );
+	}
 
 	// HTTPS detection for reverse proxy
 	muPlugins.push( {

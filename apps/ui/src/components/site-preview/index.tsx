@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
@@ -297,6 +298,10 @@ export function SitePreview( {
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
 	}, [ canPreview, collapsed, sendBrowserCommand ] );
 
+	// Kept mounted while collapsed so the webview stays warm; `active` gates the
+	// surface's visibility and interactivity.
+	const active = ! collapsed;
+
 	return (
 		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
 			<div className={ styles.header }>
@@ -384,43 +389,48 @@ export function SitePreview( {
 			</div>
 			<div className={ styles.body }>
 				{ canPreview ? (
-					isElectron() ? (
-						<WebviewSurface
-							key={ site.id }
-							url={ previewUrl }
-							reloadNonce={ reloadNonce }
-							onAnnotationsDone={ onAnnotationsDone }
-							onInspectorState={ handleInspectorState }
-							inspectorCommand={ inspectorCommand }
-							browserCommand={ browserCommand }
-							onBrowserStateChange={ handleBrowserStateChange }
-							onBrowserCommand={ sendBrowserCommand }
-							onNavigate={ handlePreviewNavigation }
-						/>
-					) : (
-						// Non-Electron fallback: plain iframe, no inspector. Reloads
-						// by remounting; back/forward aren't reachable from the host.
-						<iframe
-							key={ `${ previewUrl }#${ reloadNonce }#${
-								browserCommand?.type === 'reload' ? browserCommand.id : 0
-							}` }
-							className={ styles.iframe }
-							src={ previewUrl }
-							title={ site.name }
-							onLoad={ ( event ) => {
-								handlePreviewNavigation( event.currentTarget.src );
-								setBrowserState( ( current ) => {
-									const next = {
-										...current,
-										loading: false,
-										progress: 0,
-										title: getIframeTitle( event.currentTarget ),
-									};
-									return areBrowserStatesEqual( current, next ) ? current : next;
-								} );
-							} }
-						/>
-					)
+					<div
+						className={ clsx( styles.previewSurface, active && styles.previewSurfaceActive ) }
+						aria-hidden={ ! active }
+					>
+						{ isElectron() ? (
+							<WebviewSurface
+								key={ site.id }
+								url={ previewUrl }
+								reloadNonce={ reloadNonce }
+								onAnnotationsDone={ onAnnotationsDone }
+								onInspectorState={ handleInspectorState }
+								inspectorCommand={ inspectorCommand }
+								browserCommand={ browserCommand }
+								onBrowserStateChange={ handleBrowserStateChange }
+								onBrowserCommand={ sendBrowserCommand }
+								onNavigate={ handlePreviewNavigation }
+							/>
+						) : (
+							// Non-Electron fallback: plain iframe, no inspector. Reloads
+							// by remounting; back/forward aren't reachable from the host.
+							<iframe
+								key={ `${ previewUrl }#${ reloadNonce }#${
+									browserCommand?.type === 'reload' ? browserCommand.id : 0
+								}` }
+								className={ styles.iframe }
+								src={ previewUrl }
+								title={ site.name }
+								onLoad={ ( event ) => {
+									handlePreviewNavigation( event.currentTarget.src );
+									setBrowserState( ( current ) => {
+										const next = {
+											...current,
+											loading: false,
+											progress: 0,
+											title: getIframeTitle( event.currentTarget ),
+										};
+										return areBrowserStatesEqual( current, next ) ? current : next;
+									} );
+								} }
+							/>
+						) }
+					</div>
 				) : (
 					<div className={ styles.empty }>
 						<p className={ styles.emptyText }>{ __( 'Start the site to see a live preview.' ) }</p>

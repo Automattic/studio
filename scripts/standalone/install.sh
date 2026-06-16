@@ -152,6 +152,15 @@ install_studio() {
 		exit 1
 	fi
 
+	# macOS tags browser-downloaded archives with com.apple.quarantine, and tar
+	# propagates it to the extracted files — which makes Gatekeeper refuse to load
+	# the unsigned native .node modules ("library load disallowed by system policy").
+	# A curl/wget install isn't quarantined, but clear it defensively so installs from
+	# a manually-downloaded bundle (or on quarantine-strict/MDM Macs) still work.
+	if [ "$(uname)" = "Darwin" ]; then
+		xattr -dr com.apple.quarantine "$STAGING_DIR/extracted" 2>/dev/null || true
+	fi
+
 	# A previous standalone install may have a running daemon and site servers
 	# holding open handles on bin/node and cli/. Stop them first so replacing the
 	# runtime doesn't orphan those processes. Best-effort: never abort a reinstall.

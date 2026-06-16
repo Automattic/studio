@@ -11,7 +11,7 @@ import { onboardingLayoutRoute } from '../layout-onboarding';
 import styles from '../layout-onboarding/style.module.css';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
 
-function CreateSitePage() {
+export function CreateSitePage() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const { data: existingDomainNames } = useExistingCustomDomains();

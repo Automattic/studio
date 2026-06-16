@@ -1,5 +1,5 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
-import { createRoute, useNavigate } from '@tanstack/react-router';
+import { createRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { arrowLeft, download } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
@@ -50,8 +50,8 @@ function nameFromFilename( filename: string ): string {
 		.trim();
 }
 
-function OnboardingImportPage() {
-	const { step } = onboardingImportRoute.useSearch();
+export function OnboardingImportPage() {
+	const { step } = useSearch( { strict: false } ) as ImportSearch;
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const activeStep: Step = step === 'configure' ? 'configure' : 'select';
@@ -211,15 +211,17 @@ function OnboardingImportPage() {
 	);
 }
 
+export function validateImportSearch( search: Record< string, unknown > ): ImportSearch {
+	const value = search.step;
+	if ( value === 'configure' || value === 'select' ) {
+		return { step: value };
+	}
+	return {};
+}
+
 export const onboardingImportRoute = createRoute( {
 	getParentRoute: () => onboardingLayoutRoute,
 	path: '/onboarding/import',
-	validateSearch: ( search: Record< string, unknown > ): ImportSearch => {
-		const value = search.step;
-		if ( value === 'configure' || value === 'select' ) {
-			return { step: value };
-		}
-		return {};
-	},
+	validateSearch: validateImportSearch,
 	component: OnboardingImportPage,
 } );

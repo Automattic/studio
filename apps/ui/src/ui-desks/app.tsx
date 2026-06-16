@@ -2,10 +2,13 @@ import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { createPackagedRouterHistory } from '@/app/router-history';
 import {
+	desksDashboardRedirectRoute,
+	desksNewSiteRedirectRoute,
 	desksOnboardingBlueprintRoute,
 	desksOnboardingCreateRoute,
 	desksOnboardingHomeRoute,
 	desksOnboardingImportRoute,
+	desksOnboardingLayoutRoute,
 } from './onboarding';
 import { desksRootRoute } from './router/root';
 import { siteDeskRoute } from './site-desk';
@@ -16,10 +19,14 @@ const routeTree = desksRootRoute.addChildren( [
 	userDeskRoute,
 	desksSiteSettingsRoute,
 	siteDeskRoute,
-	desksOnboardingHomeRoute,
-	desksOnboardingCreateRoute,
-	desksOnboardingBlueprintRoute,
-	desksOnboardingImportRoute,
+	desksOnboardingLayoutRoute.addChildren( [
+		desksOnboardingHomeRoute,
+		desksOnboardingCreateRoute,
+		desksOnboardingBlueprintRoute,
+		desksOnboardingImportRoute,
+	] ),
+	desksDashboardRedirectRoute,
+	desksNewSiteRedirectRoute,
 ] );
 
 export function createDesksRouter() {

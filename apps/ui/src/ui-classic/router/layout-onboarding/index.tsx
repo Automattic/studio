@@ -3,7 +3,7 @@ import { OnboardingLayout } from '@/components/onboarding-layout';
 import { useSites } from '@/data/queries/use-sites';
 import { rootRoute } from '../layout-root';
 
-function OnboardingShell() {
+export function OnboardingShell() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const hasSites = ( sites?.length ?? 0 ) > 0;

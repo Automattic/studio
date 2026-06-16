@@ -196,6 +196,7 @@ export {
 	downloadSyncBackup,
 	exportSiteForPush,
 	fetchSyncableWpcomSites,
+	fetchSyncableWpcomSitesPage,
 	getConnectedWpcomSites,
 	pauseSyncUpload,
 	pullSiteFromLive,

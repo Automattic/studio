@@ -15,9 +15,10 @@ interface OnboardingLayoutProps {
 	/**
 	 * Content width variant. Defaults to a narrow column (`'default'`) sized
 	 * for forms and short cards; `'wide'` is used by pages that host grids of
-	 * content (e.g. the blueprint selector).
+	 * content (e.g. the blueprint selector); `'full'` is used by richer picker
+	 * pages that need room for responsive card grids.
 	 */
-	width?: 'default' | 'wide';
+	width?: 'default' | 'wide' | 'full';
 }
 
 export function OnboardingLayout( {
@@ -38,7 +39,11 @@ export function OnboardingLayout( {
 					onClick={ onClose }
 				/>
 			) }
-			<div className={ `${ styles.content } ${ width === 'wide' ? styles.contentWide : '' }` }>
+			<div
+				className={ `${ styles.content } ${
+					width === 'full' ? styles.contentFull : width === 'wide' ? styles.contentWide : ''
+				}` }
+			>
 				{ children }
 			</div>
 		</Stack>

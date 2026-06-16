@@ -14,6 +14,7 @@ function OnboardingShell() {
 	// "configure" step reuses the shared site form and should match the
 	// narrow "/onboarding/create" width.
 	const matches = useMatches();
+	const isFull = matches.some( ( match ) => match.pathname === '/onboarding/connect' );
 	const isWide = matches.some( ( match ) => {
 		if ( match.pathname === '/onboarding' ) return true;
 		if ( match.pathname !== '/onboarding/blueprint' ) return false;
@@ -23,7 +24,7 @@ function OnboardingShell() {
 	return (
 		<OnboardingLayout
 			onClose={ hasSites ? () => void navigate( { to: '/' } ) : undefined }
-			width={ isWide ? 'wide' : 'default' }
+			width={ isFull ? 'full' : isWide ? 'wide' : 'default' }
 		>
 			<Outlet />
 		</OnboardingLayout>

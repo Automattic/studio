@@ -51,6 +51,14 @@ export interface AiSessionPlacementUpdatedEvent {
 	placement: AiSessionSitePlacement;
 }
 
+// A single deployable file from a session's workspace: its path relative to the
+// WordPress root and its base64 content. Fed to a client-side Playground to
+// render a live preview of what the agent built (Studio Web "Carril A").
+export interface SitePreviewFile {
+	path: string;
+	contentBase64: string;
+}
+
 export interface SiteDetails {
 	id: string;
 	name: string;
@@ -254,6 +262,14 @@ export interface Connector {
 	onSessionPlacementUpdated(
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
 	): () => void;
+
+	// The session workspace's deployable files, for a client-side Playground
+	// preview of what the agent built. Empty when the connector has no
+	// browser-previewable workspace for the session.
+	getSiteFiles( sessionId: string ): Promise< SitePreviewFile[] >;
+	// Fires when a session's workspace files change (e.g. after an agent turn),
+	// so the live preview can re-fetch and re-overlay.
+	onPreviewChanged( listener: ( sessionId: string ) => void ): () => void;
 
 	// Flip the session between acting on its owner site's local runtime vs.
 	// its linked WordPress.com live site. The owner site itself never changes.

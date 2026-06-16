@@ -12,6 +12,7 @@ import type {
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
+	SitePreviewFile,
 	Snapshot,
 	SyncSite,
 	UserPreferences,
@@ -40,7 +41,8 @@ export class WebUnsupportedError extends Error {
 // can carry both agent-run events and session-placement updates.
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
-	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent };
+	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
+	| { channel: 'preview'; payload: { sessionId: string } };
 
 /**
  * Connector that talks to the headless `studio web-server` over HTTP + SSE.
@@ -61,6 +63,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
+	const previewListeners = new Set< ( sessionId: string ) => void >();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip to the WordPress.com API.
@@ -111,6 +114,8 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 					agentListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'placement' ) {
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'preview' ) {
+					previewListeners.forEach( ( listener ) => listener( parsed.payload.sessionId ) );
 				}
 			};
 		},
@@ -305,6 +310,18 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		onSessionPlacementUpdated( listener ) {
 			placementListeners.add( listener );
 			return () => placementListeners.delete( listener );
+		},
+
+		// The session workspace's deployable files, for the client-side Playground
+		// preview. The web-server reads them from the session's git workspace.
+		async getSiteFiles( sessionId ): Promise< SitePreviewFile[] > {
+			return api< SitePreviewFile[] >(
+				`/sessions/${ encodeURIComponent( sessionId ) }/site-files`
+			);
+		},
+		onPreviewChanged( listener ) {
+			previewListeners.add( listener );
+			return () => previewListeners.delete( listener );
 		},
 
 		// User preferences — sensible browser defaults.

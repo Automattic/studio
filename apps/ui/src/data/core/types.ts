@@ -6,6 +6,7 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { DeskConfig, DeskSettings } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
@@ -151,6 +152,11 @@ export interface Connector {
 	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
 	// no auth required, localized by the user's current UI locale.
 	getFeaturedBlueprints( locale?: string ): Promise< FeaturedBlueprint[] >;
+
+	// Installable WordPress versions from the wordpress.org version-check
+	// API: a "latest" auto-updating option first, then nightly/beta and
+	// stable releases down to Playground's minimum supported version.
+	getWordPressVersions(): Promise< WordPressVersion[] >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
 	// in the renderer. Returns an empty string when the underlying file lacks

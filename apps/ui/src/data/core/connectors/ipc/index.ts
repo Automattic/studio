@@ -1,4 +1,5 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import type {
 	ActiveAgentRun,
@@ -334,6 +335,13 @@ export function createIpcConnector(): Connector {
 				} );
 			}
 			return list;
+		},
+
+		async getWordPressVersions() {
+			// Fetches straight from the wordpress.org version-check API (the
+			// renderer CSP allows api.wordpress.org) using the same shared
+			// helper the desktop renderer's version selector relies on.
+			return fetchWordPressVersions();
 		},
 
 		async getFilePath( file ) {

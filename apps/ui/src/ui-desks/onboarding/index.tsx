@@ -223,9 +223,10 @@ export function DeskOnboardingBlueprint() {
 						) }
 					</p>
 					<BlueprintSelector
-						featured={ featured.data }
-						isFeaturedLoading={ featured.isLoading }
+						blueprints={ featured.data }
+						isLoading={ featured.isLoading }
 						onPick={ handlePick }
+						onPickEmpty={ () => void navigate( { to: '/onboarding/create' } ) }
 					/>
 				</div>
 			</OnboardingLayout>

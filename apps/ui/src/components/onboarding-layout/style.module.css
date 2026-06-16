@@ -15,6 +15,10 @@
 	max-width: 820px;
 }
 
+.contentFull {
+	max-width: min(1180px, 100vw);
+}
+
 .close {
 	position: absolute;
 	top: 16px;

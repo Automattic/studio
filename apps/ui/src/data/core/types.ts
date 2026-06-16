@@ -91,6 +91,15 @@ export interface AuthUser {
 	displayName: string;
 }
 
+export interface SyncableWpcomSitesPage {
+	sites: SyncSite[];
+	total: number;
+	page: number;
+	perPage: number;
+	hasMore: boolean;
+	nextPage: number | null;
+}
+
 export interface Connector {
 	/**
 	 * Optional hook for connector-specific setup that must run after the
@@ -102,7 +111,9 @@ export interface Connector {
 	requiresAuth: boolean;
 	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
-	authenticate(): Promise< void >;
+	// Starts the WordPress.com OAuth flow in the browser. Pass `signup` to
+	// land on account creation instead of login.
+	authenticate( signup?: boolean ): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
 
@@ -143,6 +154,11 @@ export interface Connector {
 	// and domain lookups).
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
+	// Resolves a base name to one that doesn't collide with an existing site
+	// name or a non-empty site folder ("My Site", "My Site 2", ...), returning
+	// it with its proposed directory. The collision search runs in the main
+	// process so callers pay a constant number of IPC round-trips.
+	findAvailableSitePath( baseName: string ): Promise< AvailableSitePath >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 	getAllCustomDomains(): Promise< string[] >;
@@ -188,6 +204,13 @@ export interface Connector {
 	// of which (if any) local site they're already connected to. The publish
 	// picker filters this list to sites that aren't connected anywhere yet.
 	fetchSyncableWpcomSites(): Promise< SyncSite[] >;
+	// Paged variant used by picker flows so large accounts don't fetch every
+	// site and start every thumbnail preview at once.
+	fetchSyncableWpcomSitesPage( options: {
+		page?: number;
+		perPage?: number;
+		search?: string;
+	} ): Promise< SyncableWpcomSitesPage >;
 	// Persists a new local↔live connection so the dropdown picks it up via
 	// `getConnectedWpcomSites`. Safe to call with the minimal `SyncSite` we
 	// receive from a sync-connect-site deep link — later fetches backfill the
@@ -352,6 +375,10 @@ export interface CreateSiteParams {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
+	// Skips starting the site server after creation. Used by flows that
+	// immediately overwrite the fresh install (pulling a connected
+	// WordPress.com site), where the sync handler restarts the server itself.
+	skipStart?: boolean;
 	// Optional blueprint payload. When present, `blueprint` is the parsed
 	// blueprint JSON; `slug` is set for featured blueprints (used for stats);
 	// `filePath` points at the extracted `blueprint.json` inside a ZIP bundle
@@ -375,6 +402,11 @@ export interface ProposedSitePath {
 	isEmpty: boolean;
 	isWordPress: boolean;
 	isNameTooLong?: boolean;
+}
+
+export interface AvailableSitePath {
+	name: string;
+	path: string;
 }
 
 export interface SelectedSiteFolder {

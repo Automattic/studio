@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import type { SyncSite } from '@/data/core';
 
 const SYNCABLE_WPCOM_SITES_QUERY_KEY = [ 'syncable-wpcom-sites' ] as const;
+const SYNCABLE_WPCOM_SITES_PAGE_SIZE = 12;
 const ALL_CONNECTED_WPCOM_SITES_QUERY_KEY = [ 'all-connected-wpcom-sites' ] as const;
 
 export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
@@ -15,6 +16,24 @@ export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
 		// This query hits the network and the data doesn't change often.
 		// Keep it fresh for a few minutes so opening/closing the picker
 		// repeatedly doesn't spam WordPress.com.
+		staleTime: 5 * 60 * 1000,
+	} );
+}
+
+export function useSyncableWpcomSitesPages( options: { enabled?: boolean; search?: string } = {} ) {
+	const connector = useConnector();
+	const search = options.search?.trim() ?? '';
+	return useInfiniteQuery( {
+		queryKey: [ ...SYNCABLE_WPCOM_SITES_QUERY_KEY, 'pages', search ],
+		queryFn: ( { pageParam } ) =>
+			connector.fetchSyncableWpcomSitesPage( {
+				page: pageParam,
+				perPage: SYNCABLE_WPCOM_SITES_PAGE_SIZE,
+				search: search || undefined,
+			} ),
+		initialPageParam: 1,
+		getNextPageParam: ( lastPage ) => lastPage.nextPage ?? undefined,
+		enabled: options.enabled ?? true,
 		staleTime: 5 * 60 * 1000,
 	} );
 }

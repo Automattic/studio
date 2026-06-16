@@ -4,6 +4,7 @@ export type {
 	AiModelId,
 	AiSessionSummary,
 	AuthUser,
+	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	CreateSiteParams,
@@ -36,6 +37,7 @@ export type {
 	SupportedLocale,
 	SupportedTerminal,
 	SyncSite,
+	SyncableWpcomSitesPage,
 	UserPreferences,
 	WritableUserPreferences,
 } from './types';

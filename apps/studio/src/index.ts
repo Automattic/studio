@@ -64,6 +64,7 @@ import {
 	saveUserData,
 	unlockAppdata,
 	updateAppdata,
+	type QuitSitesBehavior,
 } from 'src/storage/user-data';
 import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 // eslint-disable-next-line import-x/order
@@ -436,7 +437,7 @@ async function appBoot() {
 	let clearAutoStartOnQuit = false;
 	let isQuittingConfirmed = false;
 
-	const applyQuitSitesBehavior = ( behavior: 'stop' | 'stop-and-auto-start' | 'leave-running' ) => {
+	const applyQuitSitesBehavior = ( behavior: QuitSitesBehavior ) => {
 		shouldStopSitesOnQuit = behavior !== 'leave-running';
 		clearAutoStartOnQuit = behavior === 'stop';
 	};
@@ -502,10 +503,15 @@ async function appBoot() {
 					return;
 				}
 
-				const STOP_BUTTON_INDEX = 0;
-				const STOP_AND_AUTO_START_BUTTON_INDEX = 1;
-				const LEAVE_RUNNING_BUTTON_INDEX = 2;
-				const CANCEL_BUTTON_INDEX = 3;
+				const quitChoices: { label: string; behavior: QuitSitesBehavior }[] = [
+					{ label: __( 'Stop' ), behavior: 'stop' },
+					{ label: __( 'Auto-start' ), behavior: 'stop-and-auto-start' },
+					{ label: __( 'Leave running' ), behavior: 'leave-running' },
+				];
+				const cancelButtonIndex = quitChoices.length;
+				const defaultButtonIndex = quitChoices.findIndex(
+					( choice ) => choice.behavior === 'leave-running'
+				);
 
 				const { response, checkboxChecked } = await dialog.showMessageBox( {
 					type: 'question',
@@ -513,22 +519,17 @@ async function appBoot() {
 					detail: __(
 						'Choose what to do with your running sites when Studio quits:\n\n• Leave running — they keep running while Studio is closed.\n• Auto-start — they restart when you reopen Studio.\n• Stop — they stay stopped next time you open Studio.'
 					),
-					buttons: [ __( 'Stop' ), __( 'Auto-start' ), __( 'Leave running' ), __( 'Cancel' ) ],
+					buttons: [ ...quitChoices.map( ( choice ) => choice.label ), __( 'Cancel' ) ],
 					checkboxLabel: __( "Don't ask again" ),
-					cancelId: CANCEL_BUTTON_INDEX,
-					defaultId: LEAVE_RUNNING_BUTTON_INDEX,
+					cancelId: cancelButtonIndex,
+					defaultId: defaultButtonIndex,
 				} );
 
-				if ( response === CANCEL_BUTTON_INDEX ) {
+				if ( response === cancelButtonIndex ) {
 					return;
 				}
 
-				const behavior =
-					response === STOP_BUTTON_INDEX
-						? 'stop'
-						: response === STOP_AND_AUTO_START_BUTTON_INDEX
-						? 'stop-and-auto-start'
-						: 'leave-running';
+				const { behavior } = quitChoices[ response ];
 
 				if ( checkboxChecked ) {
 					await updateAppdata( { quitSitesBehavior: behavior } );

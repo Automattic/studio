@@ -8,7 +8,14 @@ import { getAppConfigLockFilePath } from '@studio/common/lib/well-known-paths';
 import { readFile, writeFile } from 'atomically';
 import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { getUserDataFilePath } from 'src/storage/paths';
-import { EMPTY_USER_DATA, type UserData, type WindowBounds } from 'src/storage/storage-types';
+import {
+	EMPTY_USER_DATA,
+	type QuitSitesBehavior,
+	type UserData,
+	type WindowBounds,
+} from 'src/storage/storage-types';
+
+export type { QuitSitesBehavior };
 
 export async function loadUserData(): Promise< UserData > {
 	const filePath = getUserDataFilePath();
@@ -66,7 +73,6 @@ type UserDataSafeKeys =
 	| 'onboardingCompleted'
 	| 'promptWindowsSpeedUpResult'
 	| 'quitSitesBehavior'
-	| 'autoStartRelocated'
 	| 'sentryUserId'
 	| 'lastSeenVersion'
 	| 'preferredTerminal'

@@ -47,8 +47,6 @@ export interface UserData {
 	colorScheme?: 'system' | 'light' | 'dark';
 	betaFeatures?: BetaFeatures;
 	quitSitesBehavior?: QuitSitesBehavior;
-	// One-time marker: autoStart relocated from cli.json to per-site app.json metadata (migration 06).
-	autoStartRelocated?: boolean;
 	defaultSiteDirectory?: string;
 	cliAutoInstalled?: boolean;
 	cliUserUninstalled?: boolean;

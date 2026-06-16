@@ -31,9 +31,11 @@
 	color: inherit;
 	text-decoration: none;
 	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	font: inherit;
 }
 
-.card:hover {
+.card:hover,
+.cardDragging {
 	border-color: var(--wpds-color-stroke-interactive-neutral, #bbb);
 }
 
@@ -52,6 +54,13 @@
 	font-size: 0.875rem;
 }
 
+.cardError {
+	display: block;
+	margin-top: 8px;
+	font-size: 0.75rem;
+	color: var(--wpds-color-fg-content-error, #b32d2e);
+}
+
 .cardBadge {
 	position: absolute;
 	top: 12px;
@@ -60,4 +69,8 @@
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 	color: var(--wpds-color-fg-content-neutral-weak, #555);
+}
+
+.hiddenInput {
+	display: none;
 }

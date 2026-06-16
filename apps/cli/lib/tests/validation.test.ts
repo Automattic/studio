@@ -1,19 +1,9 @@
-import fs from 'fs';
 import path from 'path';
-import {
-	calculateDirectorySizeForArchive,
-	isWordPressDirectory,
-} from '@studio/common/lib/fs-utils';
+import { calculateDirectorySizeForArchive } from '@studio/common/lib/fs-utils';
 import { vi } from 'vitest';
 import { validateSiteSize } from 'cli/lib/validation';
 import { LoggerError } from 'cli/logger';
 
-vi.mock( 'fs' );
-vi.mock( 'path', () => ( {
-	default: {
-		join: vi.fn(),
-	},
-} ) );
 vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
 	createDeployIgnoreFilter: vi.fn().mockResolvedValue( { ignores: vi.fn() } ),
 } ) );
@@ -24,12 +14,10 @@ vi.mock( '@studio/common/lib/fs-utils', () => ( {
 
 describe( 'Validation Module', () => {
 	const mockSiteFolder = '/mock/site';
+	const mockWpContentPath = path.join( mockSiteFolder, 'wp-content' );
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( path.join ).mockImplementation( ( ...args ) => args.join( '/' ) );
-		vi.mocked( fs.existsSync ).mockReturnValue( true );
-		vi.mocked( isWordPressDirectory ).mockReturnValue( true );
 		vi.mocked( calculateDirectorySizeForArchive ).mockResolvedValue( 1024 * 1024 * 1024 ); // 1GB
 	} );
 
@@ -42,7 +30,7 @@ describe( 'Validation Module', () => {
 				'Your site exceeds the 2 GB size limit. Please, consider removing unnecessary media files, plugins, or themes from wp-content.'
 			);
 			expect( calculateDirectorySizeForArchive ).toHaveBeenCalledWith(
-				mockSiteFolder + '/wp-content',
+				mockWpContentPath,
 				expect.anything(),
 				'wp-content'
 			);
@@ -53,7 +41,7 @@ describe( 'Validation Module', () => {
 
 			expect( await validateSiteSize( mockSiteFolder ) ).toBe( true );
 			expect( calculateDirectorySizeForArchive ).toHaveBeenCalledWith(
-				mockSiteFolder + '/wp-content',
+				mockWpContentPath,
 				expect.anything(),
 				'wp-content'
 			);

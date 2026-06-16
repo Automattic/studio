@@ -127,8 +127,8 @@ function OnboardingBlueprintPage() {
 					{ __( 'Start from scratch or choose a Blueprint to provision plugins and settings.' ) }
 				</p>
 				<BlueprintSelector
-					featured={ featured.data }
-					isFeaturedLoading={ featured.isLoading }
+					blueprints={ featured.data }
+					isLoading={ featured.isLoading }
 					onPick={ handlePick }
 					onPickEmpty={ () => void navigate( { to: '/onboarding/create' } ) }
 				/>

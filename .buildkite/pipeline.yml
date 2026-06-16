@@ -248,8 +248,8 @@ steps:
           - apps\studio\out\**\studio-update.nupkg
           - apps\studio\out\**\RELEASES
           - apps\studio\out\**\*.appx
-          - standalone-bundles\studio-cli-*.tar.gz
-          - standalone-bundles\studio-cli-*.tar.gz.sha256
+          - standalone-bundles/studio-cli-*.tar.gz
+          - standalone-bundles/studio-cli-*.tar.gz.sha256
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - x64

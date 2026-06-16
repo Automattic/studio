@@ -4,7 +4,7 @@ import {
 	type StudioChatFileAttachment,
 } from '@studio/common/ai/chat-files';
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
-import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -146,6 +146,8 @@ export async function runCommand( options: {
 					if ( sm.getSessionId() === options.resumeSessionId ) {
 						session = sm;
 						match = file;
+						currentModel = resolveSessionModel( sm.getEntries() );
+						ui.currentModel = currentModel;
 						break;
 					}
 				} catch {

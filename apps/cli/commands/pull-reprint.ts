@@ -21,12 +21,7 @@ import { sortSites } from '@studio/common/lib/sort-sites';
 import { PullReprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
-import {
-	enableReprintExporter,
-	getWpComSites,
-	rotateReprintSecret,
-	type WpComSiteInfo,
-} from 'cli/lib/api';
+import { enableReprintExporter, rotateReprintSecret } from 'cli/lib/api';
 import {
 	lockCliConfig,
 	readCliConfig,
@@ -53,10 +48,13 @@ import {
 } from 'cli/lib/pull/runtime-start-options';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
+import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getPrettyPath } from 'cli/lib/utils';
 import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { SyncSite } from '@studio/common/types/sync';
 
 const logger = new Logger< LoggerAction >();
 
@@ -132,13 +130,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
  */
 const PULLS_ROOT = path.join( os.homedir(), '.studio', 'pulls' );
 
-/**
- * Display a hint with this many WordPress.com sites when the user calls just
- * `studio pull-reprint` without the `--url`. Some accounts have hundreds of sites.
- * Let's only display the first few.
- */
-const DEFAULT_WPCOM_SITE_LIST_LIMIT = 15;
-
 const pullStageOrder = [
 	'initialized',
 	'essential-files-complete',
@@ -203,14 +194,14 @@ interface PullSessionMetadata {
  * Normalized result of turning CLI arguments into something the pull
  * pipeline can act on: a remote URL to fetch from and the HMAC secret
  * the exporter will check.  For WordPress.com sources we also stash
- * the matched `WpComSiteInfo` and auth token so the preflight failure
+ * the matched `SyncSite` and auth token so the preflight failure
  * path can rotate a fresh secret without loading the full site list a
  * second time.
  */
 interface PullSource {
 	secret: string;
 	url: string;
-	wpComSite?: WpComSiteInfo;
+	wpComSite?: SyncSite;
 	wpComToken?: StoredAuthToken;
 }
 
@@ -381,9 +372,11 @@ export async function runCommand(
 				if ( ! token ) {
 					throw preflightError;
 				}
-				const sites = await getWpComSites( token.accessToken );
+				const sites = await fetchSyncableSites( token.accessToken );
 				const matched = findMatchingWpComSite( sites, sourceSiteUrl );
-				if ( ! matched ) {
+				// Only syncable sites (hosting features enabled) can run the
+				// reprint exporter and rotate a secret.
+				if ( ! matched || matched.syncSupport !== 'syncable' ) {
 					throw preflightError;
 				}
 				sourceSite.wpComSite = matched;
@@ -1057,10 +1050,10 @@ export function getPrivateDirNameForImportSession(
  * pull-reprint; if a second caller ever needs the same shape, the
  * natural home would be `cli/lib/wpcom-sites`.
  */
-export function findMatchingWpComSite(
-	sites: WpComSiteInfo[],
+export function findMatchingWpComSite< T extends { url: string } >(
+	sites: T[],
 	url: string
-): WpComSiteInfo | undefined {
+): T | undefined {
 	const normalizedUrl = normalizeSiteUrl( url );
 	const target = new URL( normalizedUrl );
 
@@ -1078,22 +1071,6 @@ export function findMatchingWpComSite(
 	} );
 }
 
-export function formatWpComSitesList(
-	sites: WpComSiteInfo[],
-	limit = DEFAULT_WPCOM_SITE_LIST_LIMIT
-): string {
-	const visibleSites = sites.slice( 0, limit );
-	const lines = visibleSites.map(
-		( site, index ) => `${ index + 1 }. ${ site.name } - ${ site.url }`
-	);
-
-	if ( sites.length > visibleSites.length ) {
-		lines.push( `... and ${ sites.length - visibleSites.length } more.` );
-	}
-
-	return lines.join( '\n' );
-}
-
 /**
  * Turns the CLI arguments into a `ResolvedImportSource` the pull
  * pipeline can act on.  Handles three input patterns:
@@ -1102,10 +1079,13 @@ export function formatWpComSitesList(
  *      sites and arbitrary URLs).
  *   2. `--url` alone — try a previously cached secret from an earlier
  *      run for this URL; fall back to rotating a fresh WP.com secret.
- *   3. No `--url` — if the user has exactly one connected WP.com
- *      site, pick it; otherwise list and abort.
+ *   3. No `--url` — among pullable (`syncable`) sites only: if the user
+ *      has exactly one, pick it; with several, show an interactive
+ *      picker in a TTY (returning `null` if the user cancels) or error
+ *      out when run non-interactively. Non-pullable sites (Simple, or
+ *      missing hosting features) are surfaced as disabled in the picker.
  */
-async function resolveSourceSite(
+export async function resolveSourceSite(
 	url?: string,
 	providedSecret?: string,
 	providedName?: string,
@@ -1145,15 +1125,15 @@ async function resolveSourceSite(
 			)
 		);
 	}
-	let sites: WpComSiteInfo[];
+	let sites: SyncSite[];
 	try {
-		sites = await getWpComSites( token.accessToken );
+		sites = await fetchSyncableSites( token.accessToken );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to load WordPress.com sites' ), error );
 	}
 
 	let resolvedUrl: string;
-	let wpComSite: WpComSiteInfo;
+	let wpComSite: SyncSite;
 
 	if ( url ) {
 		const matched = findMatchingWpComSite( sites, url );
@@ -1164,31 +1144,60 @@ async function resolveSourceSite(
 				)
 			);
 		}
+		if ( matched.syncSupport !== 'syncable' ) {
+			throw new LoggerError(
+				sprintf(
+					// translators: %s: the site URL.
+					__(
+						'%s cannot be pulled. Pulling requires a WordPress.com site with hosting features enabled, or a self-hosted site (with `--url` and `--secret`).'
+					),
+					matched.url
+				)
+			);
+		}
 		resolvedUrl = url;
 		wpComSite = matched;
 	} else {
-		if ( sites.length === 0 ) {
+		// Only sites that can run the reprint exporter — those with hosting
+		// features enabled (`syncable`) — are pull candidates.
+		const pullableSites = sites.filter( ( site ) => site.syncSupport === 'syncable' );
+		if ( pullableSites.length === 0 ) {
 			throw new LoggerError(
 				__(
-					'No active WordPress.com sites found. Provide both `--url` and `--secret` to pull a non-WordPress.com site.'
+					'No pullable WordPress.com sites found. Pulling requires a WordPress.com site with hosting features; provide both `--url` and `--secret` to pull a self-hosted site.'
 				)
 			);
 		}
 
-		if ( sites.length > 1 ) {
-			console.log( __( 'Connected WordPress.com sites:' ) );
-			console.log( formatWpComSitesList( sites ) );
-			console.log( '' );
-			throw new LoggerError(
-				__( 'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`.' )
-			);
-		}
+		if ( pullableSites.length > 1 ) {
+			// In a real terminal, let the user pick interactively. Outside a
+			// TTY (CI, or Studio driving the command) there's no way to
+			// prompt, so exit with guidance to pass `--url` — the realistic
+			// non-TTY caller already does.
+			if ( ! process.stdin.isTTY ) {
+				throw new LoggerError(
+					__( 'Multiple WordPress.com sites are available. Re-run with `--url <site-url>`.' )
+				);
+			}
 
-		// If the user only has one connected WordPress.com site, pull it by default.
-		wpComSite = sites[ 0 ];
-		resolvedUrl = wpComSite.url;
-		console.log( `${ __( 'Using your only connected WordPress.com site:' ) } ${ resolvedUrl }` );
-		console.log( '' );
+			// Pass the full list so non-pullable sites render disabled with a
+			// reason, matching the `pull` command.
+			const picked = await pickSyncSite( sites, __( 'Select a site to pull from' ) );
+			// Esc / Ctrl-C cancels the picker. Treat it as a clean no-op: the
+			// caller returns early without creating any local state.
+			if ( ! picked ) {
+				return null;
+			}
+
+			wpComSite = picked;
+			resolvedUrl = picked.url;
+		} else {
+			// If the user only has one pullable WordPress.com site, pull it by default.
+			wpComSite = pullableSites[ 0 ];
+			resolvedUrl = wpComSite.url;
+			console.log( `${ __( 'Using your only connected WordPress.com site:' ) } ${ resolvedUrl }` );
+			console.log( '' );
+		}
 	}
 
 	return {

@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { ZipArchive } from 'archiver';
@@ -103,17 +104,12 @@ describe( 'Archive Module', () => {
 
 			await archiveSiteContent( mockSiteFolder, mockArchivePath );
 
-			// Each entry is added via `archiver.file()` with its symlink-resolved
-			// on-disk path (so symlink content is followed) keyed by its
-			// archive-relative name.
 			expect( mockArchiver.file ).toHaveBeenCalledWith(
-				path.join( mockWpContentPath, 'index.php' ),
-				{
-					name: 'wp-content/index.php',
-				}
+				fs.realpathSync( path.join( mockWpContentPath, 'index.php' ) ),
+				{ name: 'wp-content/index.php' }
 			);
 			expect( mockArchiver.file ).toHaveBeenCalledWith(
-				path.join( mockWpContentPath, 'plugins', 'my-plugin.php' ),
+				fs.realpathSync( path.join( mockWpContentPath, 'plugins', 'my-plugin.php' ) ),
 				{ name: 'wp-content/plugins/my-plugin.php' }
 			);
 		} );

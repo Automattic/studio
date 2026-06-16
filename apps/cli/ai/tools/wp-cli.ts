@@ -171,7 +171,7 @@ function getWpCliArtifacts(
 
 export const runWpCliTool = defineTool(
 	'wp_cli',
-	'Runs a WP-CLI command on a specific WordPress site. The site must be running. ' +
+	'Runs a WP-CLI command on a specific WordPress site. ' +
 		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),

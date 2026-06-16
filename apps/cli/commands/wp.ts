@@ -53,8 +53,12 @@ export async function runCommand(
 
 	// Playground sites run in the daemon (when running) or a fresh in-process PHP-WASM
 	// instance (when stopped), so their output can only be streamed, not inherited.
-	process.on( 'SIGINT', disconnectFromDaemon );
-	process.on( 'SIGTERM', disconnectFromDaemon );
+	const onSignal = async () => {
+		await disconnectFromDaemon();
+		process.exit( 1 );
+	};
+	process.on( 'SIGINT', onSignal );
+	process.on( 'SIGTERM', onSignal );
 
 	try {
 		await connectToDaemon();

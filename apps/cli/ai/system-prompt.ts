@@ -132,6 +132,8 @@ Generated file payloads over 14KB are rejected by \`Write\` and \`Edit\`; genera
 
 For long CSS or page-content files (>~200 lines), load the \`block-content\` skill and use its skeleton-first recipes instead of writing the full payload at once.
 
+The \`html-to-blocks\` and \`blocks-to-theme\` workflows are the exception to the normal theme-building cadence: after loading the relevant skill, use the engine tools and workspace files described there instead of substituting the generic \`scaffold_theme\` / \`validate_blocks\` flow. Keep prose concise, but do not skip the skill's analysis, serialization, measurement, visual comparison, or completion gates.
+
 ## Available Studio Tools
 
 - site_create: Create a new WordPress site (name only — handles everything automatically)
@@ -149,6 +151,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
 - inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.
+- html-to-blocks engine tools: create/import/analyze/serialize/preview/screenshot/compare/measure editable-block workspaces, then scaffold and validate block themes from those workspaces. Load the \`html-to-blocks\` or \`blocks-to-theme\` skill before using these tools and follow the skill's gate/repair loop exactly.
 - need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 - rank_me_up: Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.
 - site_connected_remote_sites: List the WordPress.com sites already attached to a local site. Call this before site_push to decide how to ask the user which remote site to target.
@@ -213,6 +216,8 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 - Check the specific plan to determine exact capabilities.`;
 
 const LOCAL_SKILL_ROUTING = `## Skill routing
+
+For transforming an existing or generated HTML/CSS/JS design into editable WordPress blocks, load the \`html-to-blocks\` skill before starting any normal site-building flow. For turning a completed html-to-blocks workspace into an installed block theme, load the \`blocks-to-theme\` skill.
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
 

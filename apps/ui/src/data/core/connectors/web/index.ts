@@ -43,16 +43,21 @@ type ServerEvent =
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent };
 
 /**
- * Connector that talks to the headless `studio web-server` over HTTP + SSE.
- * It is the web analog of the Electron IPC connector: the same React app, the
- * same `AgentRunEvent` stream, a different transport.
+ * The Studio Web data source: the web analog of the Electron IPC connector.
+ * Same React app, same `AgentRunEvent` stream, different transport — it speaks
+ * HTTP + SSE instead of IPC.
+ *
+ * Its peer is whatever implements that HTTP/SSE contract. Today that's the
+ * local `studio web-server` (a development stand-in); later it's the hosted
+ * Studio Web backend. This connector doesn't care which — that's the point of
+ * the boundary, and why the UI needs no changes to move from local to hosted.
  *
  * This is the first Studio Web increment, extracted from the broader
  * exploration in https://github.com/Automattic/studio/pull/3746. Only the
- * surface it exercises is implemented for real (AI sessions and
- * runs, the site list, featured blueprints, external links). Desktop-only
- * capabilities either return benign defaults (so mount-time queries don't
- * throw) or throw `WebUnsupportedError` for user-triggered actions.
+ * surface it exercises is implemented for real (AI sessions and runs, the site
+ * list, featured blueprints, external links). Desktop-only capabilities either
+ * return benign defaults (so mount-time queries don't throw) or throw
+ * `WebUnsupportedError` for user-triggered actions.
  */
 export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Connector {
 	// The backend namespaces its API under /api so the SPA's real-path routes

@@ -3,7 +3,6 @@ import { useCallback, useState } from 'react';
 export type UiMode = 'classic' | 'desks';
 
 const STUDIO_UI_MODE_PARAM = 'studio-ui-mode';
-const STUDIO_UI_MODE_STORAGE_KEY = 'studio-ui-mode';
 const DEFAULT_UI_MODE: UiMode = 'desks';
 
 function readLaunchUiMode(): UiMode | undefined {
@@ -24,38 +23,8 @@ function readLaunchUiMode(): UiMode | undefined {
 	}
 }
 
-// Persisted so a real-path web build keeps its mode across reloads/deep links.
-// On desktop the launch query param (derived from feature flags, see
-// apps/studio/src/main-window.ts) is always present and takes precedence, so
-// the stored value only ever decides the mode in the web build.
-function readStoredUiMode(): UiMode | undefined {
-	try {
-		const stored = window.localStorage?.getItem( STUDIO_UI_MODE_STORAGE_KEY );
-		return stored === 'desks' || stored === 'classic' ? stored : undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-function storeUiMode( mode: UiMode ) {
-	try {
-		window.localStorage?.setItem( STUDIO_UI_MODE_STORAGE_KEY, mode );
-	} catch {
-		// Ignore storage failures (private mode, etc.).
-	}
-}
-
 function readInitialUiMode(): UiMode {
-	return readLaunchUiMode() ?? readStoredUiMode() ?? DEFAULT_UI_MODE;
-}
-
-// Entries whose default differs from DEFAULT_UI_MODE (the web build defaults
-// to classic) call this at bootstrap. It only seeds when the user hasn't
-// already chosen a mode via query param or an earlier visit.
-export function seedDefaultUiMode( defaultMode: UiMode ) {
-	if ( readLaunchUiMode() === undefined && readStoredUiMode() === undefined ) {
-		storeUiMode( defaultMode );
-	}
+	return readLaunchUiMode() ?? DEFAULT_UI_MODE;
 }
 
 function resetRoute() {
@@ -85,7 +54,6 @@ export function useUiMode() {
 			}
 
 			setModeState( nextMode );
-			storeUiMode( nextMode );
 			resetRoute();
 		},
 		[ mode ]

@@ -3,7 +3,6 @@ import { defaultI18n } from '@wordpress/i18n';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
-import { seedDefaultUiMode } from '@/app/use-ui-mode';
 import { persistPromise } from '@/data/core';
 import { createWebConnector } from '@/data/core/connectors/web';
 import type { Connector } from '@/data/core';
@@ -31,10 +30,6 @@ function getDefaultApiBaseUrl(): string {
 }
 
 async function bootstrap() {
-	// Studio Web defaults to the classic (agentic) UI — it uses real-path
-	// routing that survives reloads/deep links.
-	seedDefaultUiMode( 'classic' );
-
 	const connector = createWebConnector( {
 		apiBaseUrl: import.meta.env.VITE_STUDIO_API_URL ?? getDefaultApiBaseUrl(),
 	} );
@@ -43,7 +38,9 @@ async function bootstrap() {
 
 	createRoot( document.getElementById( 'root' )! ).render(
 		<StrictMode>
-			<App connector={ connector } />
+			{ /* Studio Web stays on the agentic UI; it doesn't use the desk/agentic
+			     mode switcher. */ }
+			<App connector={ connector } forcedMode="classic" />
 		</StrictMode>
 	);
 }

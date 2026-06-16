@@ -30,6 +30,24 @@ import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
+/**
+ * Studio Web's **local development backend**.
+ *
+ * It is NOT the eventual Studio Web server. It is a stand-in that runs the
+ * agent on this machine (forking the same `studio code` subcommand the desktop
+ * app forks) so the browser UI has something to talk to while the real hosted
+ * backend — where the agent runs in a per-session SecEx sandbox and sites are
+ * persisted (git is the leading proposal) — is designed and built.
+ *
+ * The durable, portable contract is the pair {@link Connector} interface +
+ * this HTTP/SSE API shape, not Express. Swapping this for the hosted backend
+ * means re-implementing the same routes against that infrastructure; the
+ * browser UI and the web connector don't change. Express is just the most
+ * boring way to stand the contract up locally.
+ *
+ * See `apps/cli/web-server/README.md` for the local↔hosted topology.
+ */
+
 const DEFAULT_PORT = 8088;
 
 function getPort(): number {

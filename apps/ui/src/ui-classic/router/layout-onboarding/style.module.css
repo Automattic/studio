@@ -18,6 +18,14 @@
 	margin: 0 0 32px;
 }
 
+.outlet {
+	display: contents;
+}
+
+.outlet h1:focus:not(:focus-visible) {
+	outline: none;
+}
+
 .cards {
 	display: flex;
 	gap: 16px;

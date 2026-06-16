@@ -3,7 +3,8 @@ import {
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
 import { createRoute, useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
+import { speak } from '@wordpress/a11y';
+import { __, sprintf } from '@wordpress/i18n';
 import { arrowLeft } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
@@ -109,6 +110,13 @@ function OnboardingBlueprintPage() {
 					filePath: picked.filePath,
 				},
 			} );
+			speak(
+				sprintf(
+					// translators: %s is the site name.
+					__( '%s site added.' ),
+					values.name
+				)
+			);
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setSubmitError(

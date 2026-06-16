@@ -37,6 +37,7 @@ export function createAppRouter( context: RouterContext ) {
 		routeTree,
 		context,
 		defaultPreload: 'intent',
+		defaultViewTransition: true,
 		history: createPackagedRouterHistory(),
 	} );
 }

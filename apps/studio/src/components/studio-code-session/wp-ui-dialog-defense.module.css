@@ -1,0 +1,21 @@
+/*
+ * @wordpress/ui's Dialog reads its colors from `--wpds-color-*` tokens, but
+ * apps/studio has no app-wide color ThemeProvider (only the density-scoped one
+ * in Studio Code), so those tokens keep their light-only fallbacks from
+ * `@wordpress/theme`. The popup also portals out to <body>, beyond any Studio
+ * frame styling. The result: a white popup with dark, near-invisible text in
+ * dark mode (STU-1835).
+ *
+ * Remap the few color tokens the Dialog chrome consumes onto Studio's
+ * dark-aware `--color-frame-*` tokens so the popup follows the active scheme.
+ * Set on the popup itself (where the tokens are read); the header, content,
+ * footer, title and neutral buttons inherit them. The doubled class (0,2,0)
+ * out-specifies `@wordpress/ui`'s own `.popup`. Apply to every Dialog.Popup we
+ * render in this app.
+ */
+.popup.popup {
+	--wpds-color-bg-surface-neutral-strong: var(--color-frame-bg);
+	--wpds-color-fg-content-neutral: var(--color-frame-text);
+	--wpds-color-stroke-surface-neutral: var(--color-frame-border);
+	--wpds-color-fg-interactive-neutral: var(--color-frame-text);
+}

@@ -11,18 +11,10 @@ function OnboardingHomePage() {
 				{ __( 'WordPress can power anything. What are you building?' ) }
 			</p>
 			<div className={ styles.cards }>
-				<Link to="/onboarding/create" className={ styles.card }>
-					<h3 className={ styles.cardTitle }>{ __( 'Create new' ) }</h3>
-					<p className={ styles.cardBody }>
-						{ __( 'Start fresh with a blank site and build it with AI' ) }
-					</p>
-				</Link>
 				<Link to="/onboarding/blueprint" className={ styles.card }>
-					<h3 className={ styles.cardTitle }>{ __( 'Start from a blueprint' ) }</h3>
+					<h3 className={ styles.cardTitle }>{ __( 'Build a new site' ) }</h3>
 					<p className={ styles.cardBody }>
-						{ __(
-							'Pick a featured blueprint or drop in your own to provision plugins, content, and settings.'
-						) }
+						{ __( 'Start from scratch or choose a Blueprint to provision plugins and settings.' ) }
 					</p>
 				</Link>
 				<Link to="/onboarding/import" className={ styles.card }>

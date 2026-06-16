@@ -122,16 +122,15 @@ function OnboardingBlueprintPage() {
 	if ( activeStep === 'select' ) {
 		return (
 			<div className={ styles.page }>
-				<h1 className={ styles.title }>{ __( 'Start from a Blueprint' ) }</h1>
+				<h1 className={ styles.title }>{ __( 'Build a new site' ) }</h1>
 				<p className={ styles.subtitle }>
-					{ __(
-						'Pick a featured Blueprint or drop in your own to provision plugins, content, and settings.'
-					) }
+					{ __( 'Start from scratch or choose a Blueprint to provision plugins and settings.' ) }
 				</p>
 				<BlueprintSelector
 					featured={ featured.data }
 					isFeaturedLoading={ featured.isLoading }
 					onPick={ handlePick }
+					onPickEmpty={ () => void navigate( { to: '/onboarding/create' } ) }
 				/>
 			</div>
 		);

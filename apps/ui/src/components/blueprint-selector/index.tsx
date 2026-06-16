@@ -26,6 +26,7 @@ interface BlueprintSelectorProps {
 	featured: FeaturedBlueprint[] | undefined;
 	isFeaturedLoading: boolean;
 	onPick: ( blueprint: PickedBlueprint ) => void;
+	onPickEmpty: () => void;
 }
 
 const FILE_ACCEPT = 'application/json,.json,application/zip,.zip';
@@ -34,6 +35,7 @@ export function BlueprintSelector( {
 	featured,
 	isFeaturedLoading,
 	onPick,
+	onPickEmpty,
 }: BlueprintSelectorProps ) {
 	const connector = useConnector();
 	const [ uploadError, setUploadError ] = useState< string | null >( null );
@@ -183,7 +185,7 @@ export function BlueprintSelector( {
 			</section>
 
 			<section className={ styles.section }>
-				<h2 className={ styles.sectionTitle }>{ __( 'Featured blueprints' ) }</h2>
+				<h2 className={ styles.sectionTitle }>{ __( 'Choose a starting point' ) }</h2>
 				{ isFeaturedLoading && (
 					<p className={ styles.featuredHint }>{ __( 'Loading featured blueprints…' ) }</p>
 				) }
@@ -192,45 +194,54 @@ export function BlueprintSelector( {
 						{ __( 'No featured blueprints available right now.' ) }
 					</p>
 				) }
-				{ featured && featured.length > 0 && (
-					<ul className={ styles.grid }>
-						{ featured.map( ( item ) => (
-							<li key={ item.slug } className={ styles.cardWrapper }>
-								<button
-									type="button"
-									className={ styles.card }
-									onClick={ () => handleFeaturedClick( item ) }
-								>
-									{ item.image && (
-										<img className={ styles.cardImage } src={ item.image } alt="" loading="lazy" />
-									) }
-									<div className={ styles.cardBody }>
-										<h3 className={ styles.cardTitle }>{ item.title }</h3>
-										<p className={ styles.cardExcerpt }>{ item.excerpt }</p>
-									</div>
-								</button>
-								{ item.playgroundUrl && (
-									<Button
-										type="button"
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										className={ styles.previewButton }
-										onClick={ ( event ) => handlePreviewClick( event, item ) }
-										aria-label={ sprintf(
-											// translators: %s is the blueprint title.
-											__( 'Preview %s in Playground' ),
-											item.title
-										) }
-									>
-										<Icon icon={ external } />
-										<span>{ __( 'Preview' ) }</span>
-									</Button>
+				<ul className={ styles.grid }>
+					<li className={ styles.cardWrapper }>
+						<button type="button" className={ styles.card } onClick={ onPickEmpty }>
+							<span className={ styles.emptySiteMedia } aria-hidden="true" />
+							<div className={ styles.cardBody }>
+								<h3 className={ styles.cardTitle }>{ __( 'Empty site' ) }</h3>
+								<p className={ styles.cardExcerpt }>
+									{ __( 'Start with a clean WordPress install and build from scratch.' ) }
+								</p>
+							</div>
+						</button>
+					</li>
+					{ featured?.map( ( item ) => (
+						<li key={ item.slug } className={ styles.cardWrapper }>
+							<button
+								type="button"
+								className={ styles.card }
+								onClick={ () => handleFeaturedClick( item ) }
+							>
+								{ item.image && (
+									<img className={ styles.cardImage } src={ item.image } alt="" loading="lazy" />
 								) }
-							</li>
-						) ) }
-					</ul>
-				) }
+								<div className={ styles.cardBody }>
+									<h3 className={ styles.cardTitle }>{ item.title }</h3>
+									<p className={ styles.cardExcerpt }>{ item.excerpt }</p>
+								</div>
+							</button>
+							{ item.playgroundUrl && (
+								<Button
+									type="button"
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									className={ styles.previewButton }
+									onClick={ ( event ) => handlePreviewClick( event, item ) }
+									aria-label={ sprintf(
+										// translators: %s is the blueprint title.
+										__( 'Preview %s in Playground' ),
+										item.title
+									) }
+								>
+									<Icon icon={ external } />
+									<span>{ __( 'Preview' ) }</span>
+								</Button>
+							) }
+						</li>
+					) ) }
+				</ul>
 			</section>
 		</div>
 	);

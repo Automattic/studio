@@ -51,7 +51,7 @@ function CreateSitePage() {
 				initialValues={ proposedName ? { name: proposedName } : undefined }
 				existingDomainNames={ existingDomainNames ?? [] }
 				onSubmit={ handleSubmit }
-				onCancel={ () => void navigate( { to: '/onboarding' } ) }
+				onCancel={ () => void navigate( { to: '/onboarding/blueprint' } ) }
 				isSubmitting={ createSite.isPending }
 				submitError={ submitError }
 			/>

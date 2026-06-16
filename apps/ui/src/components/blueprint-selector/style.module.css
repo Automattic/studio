@@ -78,6 +78,26 @@
 	background: #f0f0f0;
 }
 
+.emptySiteMedia {
+	display: block;
+	width: 100%;
+	aspect-ratio: 16 / 9;
+	background:
+		linear-gradient(
+			90deg,
+			color-mix(in srgb, var(--wpds-color-stroke-interactive-brand, #3858e9) 18%, transparent)
+				1px,
+			transparent 1px
+		),
+		linear-gradient(
+			color-mix(in srgb, var(--wpds-color-stroke-interactive-brand, #3858e9) 18%, transparent)
+				1px,
+			transparent 1px
+		),
+		var(--wpds-color-bg-surface-neutral, #f6f7f7);
+	background-size: 24px 24px;
+}
+
 .cardBody {
 	display: flex;
 	flex-direction: column;

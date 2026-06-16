@@ -132,3 +132,16 @@ export async function isEmptyDir( directory: string ): Promise< boolean > {
 	const files = await fsPromises.readdir( directory );
 	return files.length === 0;
 }
+
+export function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
+	try {
+		if ( ! fs.existsSync( filePath ) ) {
+			return undefined;
+		}
+		const content = fs.readFileSync( filePath, 'utf-8' );
+		const lines = content.split( '\n' ).filter( ( line ) => line.trim() );
+		return lines.slice( -maxLines );
+	} catch {
+		return undefined;
+	}
+}

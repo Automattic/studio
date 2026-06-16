@@ -29,7 +29,13 @@ import {
 	type SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { getSiteUrl, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import {
+	clearSiteLatestCliPid,
+	findSiteByFolder,
+	getSiteUrl,
+	updateSiteAutoStart,
+	updateSiteLatestCliPid,
+} from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	type ReprintProcessResult,
@@ -51,7 +57,11 @@ import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getPrettyPath } from 'cli/lib/utils';
-import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	isServerRunning,
+	startWordPressServer,
+	stopWordPressServer,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -103,7 +113,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					argv.name as string | undefined,
 					verbose,
 					argv.abort as boolean,
-					argv.yes as boolean
+					argv.yes as boolean,
+					argv.path as string | undefined,
+					wasPathExplicitlyProvided()
 				);
 			} catch ( error ) {
 				if ( error instanceof PullError ) {
@@ -123,6 +135,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		},
 	} );
 };
+
+/**
+ * `--path` is a global option that defaults to the current working directory,
+ * so `argv.path` is always populated.  Inspect the raw CLI args to tell an
+ * explicit `--path` (a target site location) apart from the cwd default.
+ */
+function wasPathExplicitlyProvided(): boolean {
+	return process.argv.slice( 2 ).some( ( arg ) => arg === '--path' || arg.startsWith( '--path=' ) );
+}
 
 /**
  * Where Studio stores the metadata and the raw filesystem structure
@@ -241,7 +262,9 @@ export async function runCommand(
 	userProvidedName?: string,
 	verbose = false,
 	abort = false,
-	yes = false
+	yes = false,
+	sitePath?: string,
+	pathWasExplicit = false
 ): Promise< void > {
 	if ( abort ) {
 		if ( ! userProvidedUrl ) {
@@ -265,16 +288,30 @@ export async function runCommand(
 
 	const { url: sourceSiteUrl } = sourceSite;
 	let secret = sourceSite.secret;
+
+	// The resolved path (explicit `--path`, or the current directory by
+	// default) decides the local site:
+	//   - if a Studio site is already registered there → overwrite it;
+	//   - else if `--path` was given explicitly → create the new site there;
+	//   - else → create under the default ~/Studio/<name>.
+	const targetSite = sitePath ? await findSiteByFolder( sitePath ) : undefined;
+	const isOverwrite = !! targetSite;
+	const explicitSitePath = pathWasExplicit ? sitePath : undefined;
+
 	const { created, studioMetadata } = await getPullSessionMetadata(
 		sourceSiteUrl,
-		userProvidedName
+		userProvidedName,
+		targetSite,
+		explicitSitePath
 	);
 	const apiUrl = getReprintApiUrlForSite( studioMetadata.normalizedUrl );
 
-	// Refuse to clobber an existing non-empty site directory before the
-	// flatten stage.  Once flattened, the directory legitimately holds
-	// reprint's output; before that, anything there is user data.
-	if ( ! hasPullCompletedStage( studioMetadata, 'flattened' ) ) {
+	// In create mode, refuse to clobber an existing non-empty site directory
+	// before the flatten stage.  Once flattened, the directory legitimately
+	// holds reprint's output; before that, anything there is user data.
+	// Overwrite mode (`--path`) intentionally targets an existing site and
+	// clears it after confirmation, so it skips this guard.
+	if ( ! isOverwrite && ! hasPullCompletedStage( studioMetadata, 'flattened' ) ) {
 		if (
 			( await fsUtils.pathExists( studioMetadata.sitePath ) ) &&
 			! ( await fsUtils.isEmptyDir( studioMetadata.sitePath ) )
@@ -283,31 +320,51 @@ export async function runCommand(
 		}
 	}
 
-	// A fresh pull silently creates a brand-new local site (in the ~/Studio folder).
-	// Confirm first so the user understands a new site will be created.
-	// Only ask on a fresh, interactive run when `--yes` was not passed;
-	// resumes already made this choice and non-interactive callers
+	// A fresh pull either creates a brand-new local site or overwrites the one
+	// targeted by `--path`.  Confirm first so the user understands what will
+	// happen.  Only ask on a fresh, interactive run when `--yes` was not
+	// passed; resumes already made this choice and non-interactive callers
 	// (CI, Desktop) must keep the current non-prompting behavior.
-	const shouldConfirmSiteCreation = created && !! process.stdin.isTTY && ! yes;
-	if ( shouldConfirmSiteCreation ) {
-		const shouldContinue = await confirm( {
-			message: sprintf(
+	const shouldConfirm = created && !! process.stdin.isTTY && ! yes;
+	if ( shouldConfirm ) {
+		let message: string;
+		if ( isOverwrite ) {
+			message = sprintf(
+				// translators: 1: local site name, 2: local site path, 3: remote source URL.
+				__(
+					'This will overwrite the local site "%1$s" at %2$s with content pulled from %3$s. Continue?'
+				),
+				studioMetadata.siteName,
+				getPrettyPath( studioMetadata.sitePath ),
+				studioMetadata.normalizedUrl
+			);
+		} else {
+			message = sprintf(
 				// translators: 1: local site name, 2: local site path, 3: remote source URL.
 				__( 'This will create a new local site "%1$s" at %2$s, pulling from %3$s. Continue?' ),
 				studioMetadata.siteName,
 				getPrettyPath( studioMetadata.sitePath ),
 				studioMetadata.normalizedUrl
-			),
-			default: true,
-		} );
+			);
+		}
+		const shouldContinue = await confirm( { message, default: true } );
 		if ( ! shouldContinue ) {
 			// `getPullSessionMetadata` just wrote `pull.json` here. If we leave
 			// it, the next run reads it back and returns `created: false`,
-			// silently resuming this declined pull instead of re-prompting.
+			// silently resuming this declined pull instead of re-prompting. This
+			// only removes the technical/scratch dir, never the targeted site's
+			// own files.
 			fs.rmSync( studioMetadata.technicalSiteDirectory, { recursive: true, force: true } );
 			console.log( __( 'Cancelled.' ) );
 			return;
 		}
+	}
+
+	// Overwrite mode: now that the user has confirmed (or bypassed via `--yes`
+	// or a non-interactive run), stop the targeted site's server and clear its
+	// files so reprint flattens into a clean directory (mirrors `studio pull`).
+	if ( isOverwrite && ! hasPullCompletedStage( studioMetadata, 'flattened' ) ) {
+		await prepareTargetSiteForOverwrite( studioMetadata );
 	}
 
 	// Create the `~/.studio/pulls/<pull-key>` directory structure for the
@@ -419,11 +476,17 @@ export async function runCommand(
 		if ( ! hasPullCompletedStage( studioMetadata, 'site-registered' ) ) {
 			logger.reportStart(
 				LoggerAction.CREATE_SITE,
-				`Creating site "${ studioMetadata.siteName }"…`
+				isOverwrite
+					? `Updating site "${ studioMetadata.siteName }"…`
+					: `Creating site "${ studioMetadata.siteName }"…`
 			);
 			const result = await registerSite( studioMetadata );
 			createdSiteRecord = result.created;
-			logger.reportSuccess( `Site "${ studioMetadata.siteName }" created` );
+			logger.reportSuccess(
+				isOverwrite
+					? `Site "${ studioMetadata.siteName }" updated`
+					: `Site "${ studioMetadata.siteName }" created`
+			);
 			recordCompletedStage( studioMetadata, 'site-registered' );
 			logger.reportKeyValuePair( 'id', result.site.id );
 
@@ -1208,9 +1271,25 @@ export async function resolveSourceSite(
 	};
 }
 
-export async function getPullSessionMetadata( url: string, explicitName?: string ) {
+export async function getPullSessionMetadata(
+	url: string,
+	explicitName?: string,
+	targetSite?: SiteData,
+	explicitSitePath?: string
+) {
 	const normalizedUrl = normalizeSiteUrl( url );
-	const pullKey = getPrivateDirNameForImportSession( normalizedUrl, explicitName );
+	// Key the resume directory by the target location so re-runs resume the
+	// same session and distinct targets (overwriting a site, creating at a
+	// given path, or the default create) never collide for the same URL.
+	let keySeed: string | undefined;
+	if ( targetSite ) {
+		keySeed = `site:${ targetSite.id }`;
+	} else if ( explicitSitePath ) {
+		keySeed = `path:${ explicitSitePath }`;
+	} else {
+		keySeed = explicitName;
+	}
+	const pullKey = getPrivateDirNameForImportSession( normalizedUrl, keySeed );
 	const technicalSiteDirectory = path.join( PULLS_ROOT, pullKey );
 	const metadataPath = getMetadataPath( technicalSiteDirectory );
 	const existing = readPullMetadata( metadataPath );
@@ -1219,26 +1298,39 @@ export async function getPullSessionMetadata( url: string, explicitName?: string
 		return { created: false, studioMetadata: existing };
 	}
 
-	// Pick the Studio-local site name: use --name verbatim if given,
-	// otherwise derive from the remote host and disambiguate against
-	// existing Studio sites and on-disk directories with a numeric
-	// suffix.  The name refers to the local site we're about to
-	// create, not the remote source site.
+	// Decide the local site name and location:
+	//   - Overwrite mode: reuse the targeted site's identity and path verbatim
+	//     (the caller clears it after confirmation, so skip the non-empty guard).
+	//   - Explicit `--path`: create a new site at that path, named after --name
+	//     or the folder.
+	//   - Otherwise: create under ~/Studio, named after --name or the remote
+	//     host, disambiguated against existing sites/dirs with a numeric suffix.
+	// The name refers to the local site, not the remote source site.
 	let siteName: string;
-	if ( explicitName ) {
-		siteName = explicitName;
+	let sitePath: string;
+	if ( targetSite ) {
+		siteName = targetSite.name;
+		sitePath = targetSite.path;
 	} else {
-		const cliConfig = await readCliConfig();
-		const baseName = inferSiteNameFromUrl( normalizedUrl );
-		siteName = await generateNumberedName(
-			baseName,
-			cliConfig.sites.map( ( site ) => site.name ),
-			path.dirname( getDefaultSitePath( baseName ) )
-		);
-	}
-	const sitePath = getDefaultSitePath( siteName );
-	if ( ( await fsUtils.pathExists( sitePath ) ) && ! ( await fsUtils.isEmptyDir( sitePath ) ) ) {
-		throw new LoggerError( __( 'Site directory already exists and is not empty.' ) );
+		if ( explicitSitePath ) {
+			sitePath = explicitSitePath;
+			siteName = explicitName || path.basename( explicitSitePath );
+		} else if ( explicitName ) {
+			siteName = explicitName;
+			sitePath = getDefaultSitePath( siteName );
+		} else {
+			const cliConfig = await readCliConfig();
+			const baseName = inferSiteNameFromUrl( normalizedUrl );
+			siteName = await generateNumberedName(
+				baseName,
+				cliConfig.sites.map( ( site ) => site.name ),
+				path.dirname( getDefaultSitePath( baseName ) )
+			);
+			sitePath = getDefaultSitePath( siteName );
+		}
+		if ( ( await fsUtils.pathExists( sitePath ) ) && ! ( await fsUtils.isEmptyDir( sitePath ) ) ) {
+			throw new LoggerError( __( 'Site directory already exists and is not empty.' ) );
+		}
 	}
 	const metadata: PullSessionMetadata = {
 		version: PULL_METADATA_VERSION,
@@ -1252,6 +1344,7 @@ export async function getPullSessionMetadata( url: string, explicitName?: string
 		runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
 		runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
 		stage: 'initialized',
+		...( targetSite ? { siteId: targetSite.id } : {} ),
 	};
 
 	savePullMetadata( metadata );
@@ -1402,11 +1495,6 @@ function printCompletionMessage( metadata: PullSessionMetadata ): void {
 async function registerSite(
 	metadata: PullSessionMetadata
 ): Promise< { created: boolean; site: SiteData } > {
-	const existingSite = await findExistingSite( metadata );
-	if ( existingSite ) {
-		return { created: false, site: existingSite };
-	}
-
 	await ensurePort( metadata );
 
 	const siteId = metadata.siteId || crypto.randomUUID();
@@ -1426,18 +1514,26 @@ async function registerSite(
 	try {
 		await lockCliConfig();
 		const cliConfig = await readCliConfig();
-		const existingByPath = cliConfig.sites.find(
+		const existing = cliConfig.sites.find(
 			( site ) =>
+				( metadata.siteId && site.id === metadata.siteId ) ||
 				fsUtils.arePathsEqual( site.path, metadata.sitePath ) ||
 				site.technicalSiteDirectory === metadata.technicalSiteDirectory
 		);
 
-		if ( existingByPath ) {
-			metadata.siteId = existingByPath.id;
-			metadata.port = existingByPath.port;
-			metadata.localUrl = getSiteUrl( existingByPath );
+		if ( existing ) {
+			// Reusing an existing site (a resumed pull or a `--path` overwrite):
+			// repoint it at this pull's freshly generated runtime so the site
+			// boots from the new content on the next `studio site start`.  Other
+			// settings (port, PHP version, HTTPS) are preserved.
+			existing.technicalSiteDirectory = metadata.technicalSiteDirectory;
+			existing.runtimeBlueprintPath = metadata.runtimeBlueprintPath;
+			await saveCliConfig( cliConfig );
+			metadata.siteId = existing.id;
+			metadata.port = existing.port;
+			metadata.localUrl = getSiteUrl( existing );
 			savePullMetadata( metadata );
-			return { created: false, site: existingByPath };
+			return { created: false, site: existing };
 		}
 
 		cliConfig.sites.push( siteDetails );
@@ -1450,4 +1546,31 @@ async function registerSite(
 	metadata.siteId = siteId;
 	savePullMetadata( metadata );
 	return { created: true, site: siteDetails };
+}
+
+/**
+ * Prepares an existing site to be overwritten by a `--path` pull: stops its
+ * WordPress server if running (so we can safely replace its files and
+ * database, mirroring `studio pull`) and clears its directory so reprint
+ * flattens into a clean tree.  Safe to call again on resume — the raw download
+ * lives in the technical directory, not the site directory.
+ */
+async function prepareTargetSiteForOverwrite( metadata: PullSessionMetadata ): Promise< void > {
+	if ( metadata.siteId ) {
+		try {
+			await connectToDaemon();
+			if ( await isServerRunning( metadata.siteId ) ) {
+				logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
+				await stopWordPressServer( metadata.siteId );
+				await clearSiteLatestCliPid( metadata.siteId );
+				logger.reportSuccess( __( 'WordPress server stopped' ) );
+			}
+		} finally {
+			await disconnectFromDaemon();
+		}
+	}
+
+	if ( await fsUtils.pathExists( metadata.sitePath ) ) {
+		fs.rmSync( metadata.sitePath, { recursive: true, force: true } );
+	}
 }

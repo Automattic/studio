@@ -548,6 +548,122 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 	} );
 } );
 
+describe( 'CLI: studio pull-reprint --path overwrite', () => {
+	let fakeHome: string;
+
+	afterEach( () => {
+		vi.resetModules();
+		vi.doUnmock( 'os' );
+		if ( fakeHome ) {
+			fs.rmSync( fakeHome, { recursive: true, force: true } );
+		}
+	} );
+
+	/**
+	 * Loads a fresh `pull-reprint` module whose `PULLS_ROOT` (~/.studio/pulls)
+	 * resolves under a throwaway home directory, so writing the pull session
+	 * never touches the developer's machine.
+	 */
+	async function loadWithFakeHome() {
+		fakeHome = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-overwrite-home-' ) );
+		vi.resetModules();
+		vi.doMock( 'os', async () => {
+			const actual = await vi.importActual< typeof import('os') >( 'os' );
+			return {
+				...actual,
+				default: { ...actual, homedir: () => fakeHome },
+				homedir: () => fakeHome,
+			};
+		} );
+		return import( '../pull-reprint' );
+	}
+
+	it( 'reuses the targeted site (path, name, id) and skips the non-empty-dir guard', async () => {
+		const { getPullSessionMetadata } = await loadWithFakeHome();
+
+		// An existing, non-empty Studio site directory we intend to overwrite —
+		// in create mode this would throw "already exists and is not empty".
+		const sitePath = path.join( fakeHome, 'Studio', 'existing-site' );
+		fs.mkdirSync( sitePath, { recursive: true } );
+		fs.writeFileSync( path.join( sitePath, 'wp-config.php' ), '<?php' );
+
+		const targetSite = {
+			id: 'site-123',
+			name: 'Existing Site',
+			path: sitePath,
+			port: 8881,
+		} as never;
+
+		const { created, studioMetadata } = await getPullSessionMetadata(
+			'https://example.com',
+			undefined,
+			targetSite
+		);
+
+		// A fresh pull session, but pointed at the existing site instead of a
+		// brand-new ~/Studio directory.
+		expect( created ).toBe( true );
+		expect( studioMetadata.sitePath ).toBe( sitePath );
+		expect( studioMetadata.siteName ).toBe( 'Existing Site' );
+		expect( studioMetadata.siteId ).toBe( 'site-123' );
+	} );
+
+	it( 'keys the resume directory by site id so it does not collide with a create-mode pull', async () => {
+		const { getPullSessionMetadata, getPrivateDirNameForImportSession, normalizeSiteUrl } =
+			await loadWithFakeHome();
+
+		const sitePath = path.join( fakeHome, 'Studio', 'existing-site' );
+		fs.mkdirSync( sitePath, { recursive: true } );
+
+		const targetSite = {
+			id: 'site-abc',
+			name: 'Existing Site',
+			path: sitePath,
+			port: 8881,
+		} as never;
+
+		const { studioMetadata } = await getPullSessionMetadata(
+			'https://example.com',
+			undefined,
+			targetSite
+		);
+
+		const overwriteKey = getPrivateDirNameForImportSession(
+			normalizeSiteUrl( 'https://example.com' ),
+			'site:site-abc'
+		);
+		const createKey = getPrivateDirNameForImportSession(
+			normalizeSiteUrl( 'https://example.com' ),
+			undefined
+		);
+		expect( path.basename( studioMetadata.technicalSiteDirectory ) ).toBe( overwriteKey );
+		expect( overwriteKey ).not.toBe( createKey );
+	} );
+
+	it( 'creates a new site at an explicit --path when no site is registered there', async () => {
+		const { getPullSessionMetadata } = await loadWithFakeHome();
+
+		// A brand-new location the user wants the pulled site to live at — no
+		// registered site, so this is a create (not an overwrite).
+		const sitePath = path.join( fakeHome, 'Studio', 'my-new-pulled-site' );
+
+		const { created, studioMetadata } = await getPullSessionMetadata(
+			'https://example.com',
+			undefined,
+			undefined,
+			sitePath
+		);
+
+		expect( created ).toBe( true );
+		// Honors --path rather than falling back to ~/Studio/<name-from-url>.
+		expect( studioMetadata.sitePath ).toBe( sitePath );
+		// Named after the target folder.
+		expect( studioMetadata.siteName ).toBe( 'my-new-pulled-site' );
+		// Brand-new site: no existing id is reused.
+		expect( studioMetadata.siteId ).toBeUndefined();
+	} );
+} );
+
 describe( 'CLI: studio pull-reprint confirmation before creating a site', () => {
 	const confirmMock = vi.fn();
 	let fakeHome: string;

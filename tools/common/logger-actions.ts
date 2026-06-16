@@ -64,6 +64,7 @@ export enum PullReprintCommandLoggerAction {
 	DOWNLOAD_FILES = 'downloadFiles',
 	DOWNLOAD_SQL = 'downloadSql',
 	START_SITE = 'startSite',
+	STOP_SITE = 'stopSite',
 	IMPORT_SQL = 'importSql',
 	URL_REWRITE = 'urlRewrite',
 }

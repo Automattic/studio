@@ -21,6 +21,7 @@ export const SYNC_IGNORE_DEFAULTS = [
 	'database',
 	'db.php',
 	'debug.log',
+	'studio-error.log',
 	'sqlite-database-integration',
 	'cache',
 ];

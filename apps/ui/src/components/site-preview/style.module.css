@@ -23,6 +23,14 @@
 	flex-shrink: 0;
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	-webkit-app-region: drag;
+}
+
+/* The toolbar doubles as a window drag region; the controls and the
+   tooltip-bearing title opt back out so they keep receiving mouse events. */
+.header button,
+.browserTitle {
+	-webkit-app-region: no-drag;
 }
 
 .browserControls {

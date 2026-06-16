@@ -312,8 +312,9 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 
 	const handleNewConversation = useCallback( () => {
 		clearSessionDraft( sessionId );
+		selectPrompt( '' );
 		void newSession();
-	}, [ newSession, sessionId ] );
+	}, [ newSession, sessionId, selectPrompt ] );
 
 	// A fresh session starts pinned to the bottom.
 	useLayoutEffect( () => {

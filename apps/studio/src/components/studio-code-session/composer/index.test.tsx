@@ -80,4 +80,29 @@ describe( 'Composer', () => {
 
 		expect( localStorage.getItem( 'studio_code_session_draft:session-1' ) ).toBeNull();
 	} );
+
+	it( 'clears the live textarea when an empty draft prompt is pushed', () => {
+		// "New conversation" reuses the current session id when it's empty, so it
+		// resets the composer by pushing an empty draft prompt rather than relying
+		// on the session-change resync.
+		const { rerender } = render(
+			<QueryClientProvider client={ new QueryClient() }>
+				<Composer { ...defaultProps } sessionId="session-1" />
+			</QueryClientProvider>
+		);
+
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: 'Update the homepage copy' },
+		} );
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Update the homepage copy' );
+
+		rerender(
+			<QueryClientProvider client={ new QueryClient() }>
+				<Composer { ...defaultProps } sessionId="session-1" draftPrompt={ { id: 1, prompt: '' } } />
+			</QueryClientProvider>
+		);
+
+		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
+		expect( localStorage.getItem( 'studio_code_session_draft:session-1' ) ).toBeNull();
+	} );
 } );

@@ -107,7 +107,7 @@ ruby fastlane/test/studio_release_git_test.rb
 
 ## Standalone Studio CLI Bundles (curl installer)
 
-Alongside the desktop app, every Studio build also publishes the standalone Studio CLI bundles — the `tar.gz` archives the `install.sh` / `install.ps1` curl installers download — to the Apps CDN under the **`WordPress.com Studio CLI`** product. This is part of the normal build/distribute flow, so it happens for nightly/dev, beta, and stable builds with no separate step to run:
+Alongside the desktop app, every Studio build also publishes the standalone Studio CLI bundles — the `.tgz` (gzipped tar) archives the `install.sh` / `install.ps1` curl installers download — to the Apps CDN under the **`WordPress.com Studio CLI`** product. This is part of the normal build/distribute flow, so it happens for nightly/dev, beta, and stable builds with no separate step to run:
 
 - Each platform's build group builds its own bundle (`npm run cli:bundle <platform> <arch>`) on its own runner, producing `standalone-bundles/studio-cli-<platform>-<arch>.tgz` + a `.sha256` sidecar for all six platform/arch targets.
 - `distribute_builds` uploads the bundles with the **same version, build type, and visibility as the app build**, so the CLI tracks the app exactly: External for nightly/beta, and Internal-then-flipped-public for stable (their CDN post IDs ride the draft GitHub release and are flipped to External by `publish_release`, just like the app builds).

@@ -11,7 +11,7 @@ import {
 } from '@wordpress/icons';
 import { Button, Dialog, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
@@ -36,8 +36,13 @@ import { formatRelativeTime } from '@/lib/format-relative-time';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
+import type { RefObject } from 'react';
 
 const UNASSIGNED_KEY = '__unassigned__';
+const SITE_ROW_HEIGHT = 32;
+const SESSION_ROW_HEIGHT = 26;
+const SESSION_LIST_MARGIN = 8;
+const VIRTUAL_OVERSCAN = 12;
 
 type SiteGroup = {
 	key: string;
@@ -50,6 +55,15 @@ function groupSessionsByOwner(
 	sites: SiteDetails[] | undefined,
 	sessions: AiSessionSummary[] | undefined
 ): SiteGroup[] {
+	if ( ! sessions?.length ) {
+		return ( sites ?? [] ).map( ( site ) => ( {
+			key: site.id,
+			site,
+			label: site.name,
+			sessions: [],
+		} ) );
+	}
+
 	const knownSitePaths = new Set( ( sites ?? [] ).map( ( site ) => site.path ) );
 	const sessionsByPath = new Map< string, AiSessionSummary[] >();
 	const unassigned: AiSessionSummary[] = [];
@@ -666,7 +680,65 @@ function findActiveSiteKey(
 	return undefined;
 }
 
+function getGroupHeight( group: SiteGroup, isOpen: boolean ): number {
+	return (
+		SITE_ROW_HEIGHT +
+		( isOpen && group.sessions.length > 0
+			? group.sessions.length * SESSION_ROW_HEIGHT + SESSION_LIST_MARGIN
+			: 0 )
+	);
+}
+
+function findStartIndex( offsets: number[], scrollTop: number ): number {
+	let low = 0;
+	let high = offsets.length - 1;
+	while ( low < high ) {
+		const mid = Math.floor( ( low + high ) / 2 );
+		if ( offsets[ mid ] < scrollTop ) {
+			low = mid + 1;
+		} else {
+			high = mid;
+		}
+	}
+	return Math.max( 0, low - 1 );
+}
+
+function useSidebarViewport( rootRef: RefObject< HTMLDivElement | null > ) {
+	const [ viewport, setViewport ] = useState( { scrollTop: 0, height: 0 } );
+
+	useEffect( () => {
+		const root = rootRef.current;
+		const scroller = root?.parentElement;
+		if ( ! root || ! scroller ) {
+			return;
+		}
+
+		let frame = 0;
+		const update = () => {
+			cancelAnimationFrame( frame );
+			frame = requestAnimationFrame( () => {
+				setViewport( {
+					scrollTop: Math.max( 0, scroller.scrollTop - root.offsetTop ),
+					height: scroller.clientHeight,
+				} );
+			} );
+		};
+
+		update();
+		scroller.addEventListener( 'scroll', update, { passive: true } );
+		window.addEventListener( 'resize', update );
+		return () => {
+			cancelAnimationFrame( frame );
+			scroller.removeEventListener( 'scroll', update );
+			window.removeEventListener( 'resize', update );
+		};
+	}, [ rootRef ] );
+
+	return viewport;
+}
+
 export function SiteList() {
+	const rootRef = useRef< HTMLDivElement >( null );
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
@@ -695,24 +767,66 @@ export function SiteList() {
 	const toggleSite = ( key: string ) => {
 		setOverrides( ( prev ) => ( { ...prev, [ key ]: ! isOpen( key ) } ) );
 	};
+	const viewport = useSidebarViewport( rootRef );
+	const virtualLayout = useMemo( () => {
+		const offsets: number[] = [];
+		const heights: number[] = [];
+		let totalHeight = 0;
+		for ( const group of groups ) {
+			offsets.push( totalHeight );
+			const height = getGroupHeight( group, isOpen( group.key ) );
+			heights.push( height );
+			totalHeight += height;
+		}
+		return { offsets, heights, totalHeight };
+		// `isOpen` is derived from groups, activeSiteKey, mruKey, and overrides.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ groups, activeSiteKey, mruKey, overrides ] );
+	const visibleGroups = useMemo( () => {
+		if ( groups.length === 0 ) {
+			return [];
+		}
+		const start = Math.max(
+			0,
+			findStartIndex( virtualLayout.offsets, viewport.scrollTop ) - VIRTUAL_OVERSCAN
+		);
+		const endBoundary = viewport.scrollTop + viewport.height;
+		let end = start;
+		while (
+			end < groups.length - 1 &&
+			virtualLayout.offsets[ end ] + virtualLayout.heights[ end ] < endBoundary
+		) {
+			end++;
+		}
+		end = Math.min( groups.length - 1, end + VIRTUAL_OVERSCAN );
+		return groups.slice( start, end + 1 ).map( ( group, index ) => ( {
+			group,
+			index: start + index,
+		} ) );
+	}, [ groups, virtualLayout, viewport ] );
 
 	return (
-		<div className={ styles.root }>
+		<div ref={ rootRef } className={ styles.root }>
 			{ sitesLoading || sessionsLoading ? (
 				<p className={ styles.empty }>{ __( 'Loading…' ) }</p>
 			) : groups.length === 0 ? (
 				<p className={ styles.empty }>{ __( 'No sites yet' ) }</p>
 			) : (
-				<div className={ styles.sites }>
-					{ groups.map( ( group ) => (
-						<SiteSection
+				<div className={ styles.sitesVirtual } style={ { height: virtualLayout.totalHeight } }>
+					{ visibleGroups.map( ( { group, index } ) => (
+						<div
 							key={ group.key }
-							group={ group }
-							isUnassigned={ group.key === UNASSIGNED_KEY }
-							isActive={ group.key === activeSiteKey }
-							isOpen={ isOpen( group.key ) }
-							onToggle={ () => toggleSite( group.key ) }
-						/>
+							className={ styles.siteVirtualRow }
+							style={ { transform: `translateY(${ virtualLayout.offsets[ index ] }px)` } }
+						>
+							<SiteSection
+								group={ group }
+								isUnassigned={ group.key === UNASSIGNED_KEY }
+								isActive={ group.key === activeSiteKey }
+								isOpen={ isOpen( group.key ) }
+								onToggle={ () => toggleSite( group.key ) }
+							/>
+						</div>
 					) ) }
 				</div>
 			) }

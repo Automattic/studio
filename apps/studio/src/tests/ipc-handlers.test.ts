@@ -6,8 +6,16 @@ import { normalize } from 'path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import { createSite, isFullscreen, getXdebugEnabledSite, loadThemeDetails } from 'src/ipc-handlers';
+import {
+	createSite,
+	isFullscreen,
+	getSiteDetails,
+	getXdebugEnabledSite,
+	loadSiteIcon,
+	loadThemeDetails,
+} from 'src/ipc-handlers';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
+import { getImageData } from 'src/lib/get-image-data';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
 
@@ -85,6 +93,7 @@ const mockUserData = {
 };
 
 beforeEach( () => {
+	vi.clearAllMocks();
 	vol.reset();
 	vol.fromJSON( {
 		[ normalize( '/path/to/app/appData/App Name/appdata-v1.json' ) ]:
@@ -149,6 +158,66 @@ describe( 'isFullscreen', () => {
 		const result = await isFullscreen( mockIpcMainInvokeEvent );
 
 		expect( result ).toBe( true );
+	} );
+} );
+
+describe( 'getSiteDetails', () => {
+	it( 'does not load site icon image data for the bulk site list', async () => {
+		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
+			{
+				id: 'site-1',
+				name: 'Site 1',
+				path: '/path/to/site-1',
+				running: false,
+				phpVersion: '8.4',
+				port: 9999,
+			},
+		] as SiteDetails[] );
+		vi.mocked( readFile ).mockResolvedValueOnce(
+			Buffer.from(
+				JSON.stringify( {
+					version: 1,
+					siteMetadata: {
+						'site-1': {
+							siteIconPath: '/path/to/site-1/wp-content/uploads/icon.png',
+							sortOrder: 2,
+						},
+					},
+				} )
+			)
+		);
+
+		const result = await getSiteDetails( mockIpcMainInvokeEvent );
+
+		expect( getImageData ).not.toHaveBeenCalled();
+		expect( result[ 0 ] ).toEqual(
+			expect.objectContaining( {
+				id: 'site-1',
+				siteIconPath: '/path/to/site-1/wp-content/uploads/icon.png',
+				sortOrder: 2,
+				siteIcon: undefined,
+			} )
+		);
+	} );
+} );
+
+describe( 'loadSiteIcon', () => {
+	it( 'returns image data only for the requested site icon', async () => {
+		const mockServer = {
+			details: {
+				id: 'site-1',
+				siteIconPath: '/old/icon.png',
+			},
+			getSiteIcon: vi.fn().mockResolvedValue( '/new/icon.png' ),
+			persistSiteIcon: vi.fn().mockResolvedValue( undefined ),
+		};
+		vi.mocked( SiteServer.get ).mockReturnValue( mockServer as unknown as SiteServer );
+
+		const result = await loadSiteIcon( mockIpcMainInvokeEvent, 'site-1' );
+
+		expect( mockServer.persistSiteIcon ).toHaveBeenCalled();
+		expect( getImageData ).toHaveBeenCalledWith( '/new/icon.png' );
+		expect( result ).toBe( 'data:image/png;base64,mock' );
 	} );
 } );
 

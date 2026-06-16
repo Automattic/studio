@@ -17,6 +17,7 @@ import { registerSiteCardEditSession, type SiteCardEditAction } from '../edit-se
 import { SITE_CARD_WIDGET_TYPE, type SiteCardWidgetProps } from '../types';
 import { parseSiteIdentitySettings, type SiteIdentitySettings } from './settings';
 import styles from './style.module.css';
+import type { SiteDetails } from '@/data/core';
 import type {
 	DeskWidgetComponentProps,
 	DeskWidgetThumbnailComponentProps,
@@ -219,11 +220,24 @@ function SiteCardWidgetContent( {
 				await connector.updateSite( { ...site, name: nextTitle } );
 			}
 
-			if ( nextSiteIconId !== undefined ) {
-				await connector.refreshSiteIcon( effectiveSiteId );
-			}
+			const nextSiteIcon =
+				nextSiteIconId !== undefined
+					? await connector.refreshSiteIcon( effectiveSiteId )
+					: undefined;
 
-			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			if ( nextSiteIcon !== undefined ) {
+				queryClient.setQueryData< SiteDetails[] >(
+					SITES_QUERY_KEY,
+					( sites ) =>
+						sites?.map( ( cachedSite ) =>
+							cachedSite.id === effectiveSiteId
+								? { ...cachedSite, siteIcon: nextSiteIcon }
+								: cachedSite
+						)
+				);
+			} else {
+				await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			}
 			setDraftIconFile( null );
 			setDraftIconPreview( null );
 			setIsIconRemoved( false );

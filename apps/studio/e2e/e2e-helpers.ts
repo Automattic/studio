@@ -8,6 +8,11 @@ import { rimraf } from 'rimraf';
 import type { TestInfo } from '@playwright/test';
 import type { ChildProcess } from 'node:child_process';
 
+type E2ELaunchOptions = {
+	initialAppdata?: Record< string, unknown >;
+	beforeLaunch?: ( session: E2ESession ) => Promise< void >;
+};
+
 export class E2ESession {
 	electronApp!: ElectronApplication;
 	mainWindow!: Page;
@@ -31,7 +36,7 @@ export class E2ESession {
 		this.sharedConfigPath = path.join( this.sessionPath, 'sharedConfig' );
 	}
 
-	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
+	async launch( testEnv: NodeJS.ProcessEnv = {}, options: E2ELaunchOptions = {} ) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
 		await fs.mkdir( this.cliConfigPath, { recursive: true } );
@@ -42,7 +47,7 @@ export class E2ESession {
 		const studioAppDataPath = path.join( this.appDataPath, 'Studio' );
 		await fs.mkdir( studioAppDataPath, { recursive: true } );
 
-		const initialAppdata = {
+		const initialAppdata = options.initialAppdata ?? {
 			version: 1,
 			sites: [],
 			snapshots: [],
@@ -57,10 +62,17 @@ export class E2ESession {
 			JSON.stringify( initialAppdata, null, 2 )
 		);
 
+		await options.beforeLaunch?.( this );
+
 		await this.launchFirstWindow( testEnv );
 	}
 
 	async closeApp() {
+		if ( ! this.electronApp ) {
+			this.stopCapturingMainProcessLogs();
+			return;
+		}
+
 		console.log( 'Closing app...' );
 		const childProcess = this.electronApp.process();
 
@@ -136,6 +148,8 @@ export class E2ESession {
 			appInfo.platform === 'linux'
 				? [
 						'--no-sandbox',
+						'--headless',
+						'--ozone-platform=headless',
 						'--disable-gpu',
 						'--use-gl=swiftshader',
 						'--disable-dev-shm-usage',

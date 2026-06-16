@@ -18,5 +18,5 @@ else
 fi
 
 echo '--- :npm: Run Unit Tests'
+unset STUDIO_RUNTIME
 npm run test
-

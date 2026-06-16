@@ -759,26 +759,18 @@ function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?:
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	const sites = SiteServer.getAllDetails();
 	const userData = await loadUserData();
-	await Promise.all(
-		sites.map( async ( site ) => {
-			const appdataSite = userData.siteMetadata[ site.id ];
-			if ( ! appdataSite ) {
-				return;
-			}
-			site.sortOrder = appdataSite.sortOrder;
-			site.themeDetails = appdataSite.themeDetails;
-			site.siteIconPath = appdataSite.siteIconPath;
-
-			// Read the icon file from disk and hand the renderer a data URL.
-			// Keeping the base64 out of the persisted appdata avoids bloating
-			// app.json with image bytes.
-			if ( appdataSite.siteIconPath ) {
-				site.siteIcon = await getImageData( appdataSite.siteIconPath );
-			} else if ( appdataSite.siteIconPath === null ) {
-				site.siteIcon = null;
-			}
-		} )
-	);
+	for ( const site of sites ) {
+		const appdataSite = userData.siteMetadata[ site.id ];
+		if ( ! appdataSite ) {
+			continue;
+		}
+		site.sortOrder = appdataSite.sortOrder;
+		site.themeDetails = appdataSite.themeDetails;
+		site.siteIconPath = appdataSite.siteIconPath;
+		// Keep bulk site enumeration small. Icon bytes are loaded only through
+		// loadSiteIcon() for the site that needs them.
+		site.siteIcon = appdataSite.siteIconPath === null ? null : undefined;
+	}
 
 	return sites;
 }
@@ -1507,7 +1499,7 @@ export async function loadThemeDetails(
 export async function loadSiteIcon(
 	_event: IpcMainInvokeEvent,
 	id: string
-): Promise< StartedSiteDetails[ 'siteIconPath' ] > {
+): Promise< StartedSiteDetails[ 'siteIcon' ] > {
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
@@ -1521,7 +1513,7 @@ export async function loadSiteIcon(
 		await server.persistSiteIcon();
 	}
 
-	return iconPath;
+	return iconPath ? getImageData( iconPath ) : iconPath;
 }
 
 export async function getOnboardingData( _event: IpcMainInvokeEvent ): Promise< boolean > {

@@ -29,6 +29,18 @@
 	gap: 2px;
 }
 
+.sitesVirtual {
+	position: relative;
+	min-height: 0;
+}
+
+.siteVirtualRow {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+}
+
 .site {
 	display: flex;
 	flex-direction: column;

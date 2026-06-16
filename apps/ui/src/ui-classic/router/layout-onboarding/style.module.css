@@ -3,6 +3,10 @@
 	text-align: left;
 }
 
+.pageSpacious {
+	padding-top: 64px;
+}
+
 /* Typography comes from the universal `h1` rule in index.css — this class
    only layers on the layout spacing above the subtitle. */
 .title {

@@ -6,6 +6,7 @@ import type {
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
 	AuthUser,
+	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
@@ -191,8 +192,8 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async authenticate(): Promise< void > {
-			await ipcApi.authenticate( false );
+		async authenticate( signup = false ): Promise< void > {
+			await ipcApi.authenticate( signup );
 		},
 
 		async logout(): Promise< void > {
@@ -220,6 +221,7 @@ export function createIpcConnector(): Connector {
 				adminPassword,
 				adminEmail,
 				blueprint,
+				skipStart,
 			} = params;
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
@@ -231,6 +233,7 @@ export function createIpcConnector(): Connector {
 				adminPassword,
 				adminEmail,
 				blueprint,
+				noStart: skipStart,
 			} ) ) as SiteDetails;
 		},
 
@@ -255,6 +258,16 @@ export function createIpcConnector(): Connector {
 
 		async generateProposedSiteName( usedSites ): Promise< string > {
 			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
+		},
+
+		async findAvailableSitePath( baseName ): Promise< AvailableSitePath > {
+			// The main process resolves the numbered-name collision search in a
+			// single call (checking both existing site names and non-empty site
+			// folders) — same helper `copySite` uses above.
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const name = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
+			const { path } = ( await ipcApi.generateProposedSitePath( name ) ) as { path: string };
+			return { name, path };
 		},
 
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
@@ -470,6 +483,10 @@ export function createIpcConnector(): Connector {
 
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return ( await ipcApi.fetchSyncableWpcomSites() ) as SyncSite[];
+		},
+
+		async fetchSyncableWpcomSitesPage( options ) {
+			return await ipcApi.fetchSyncableWpcomSitesPage( options );
 		},
 
 		async connectWpcomSite( localSiteId, site ): Promise< void > {

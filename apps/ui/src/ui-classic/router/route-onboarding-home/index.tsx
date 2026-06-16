@@ -88,6 +88,12 @@ function OnboardingHomePage() {
 						</span>
 					) }
 				</button>
+				<Link to="/onboarding/connect" className={ styles.card }>
+					<h3 className={ styles.cardTitle }>{ __( 'Connect a site' ) }</h3>
+					<p className={ styles.cardBody }>
+						{ __( 'Edit a WordPress.com or Pressable site locally, then push changes back' ) }
+					</p>
+				</Link>
 			</div>
 		</div>
 	);

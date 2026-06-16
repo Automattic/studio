@@ -39,6 +39,7 @@ import {
 	reapPhpTreeOnInterrupt,
 } from './native-php/php-process';
 import { isServerRunning, sendWpCliCommand } from './wordpress-server-manager';
+import { stripLeadingShebang } from './wp-cli-shebang';
 import type { SiteData } from 'cli/lib/cli-config/core';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 
@@ -53,6 +54,9 @@ const PLAYGROUND_INTERNAL_SHARED_FOLDER = '/internal/shared';
  * `stdout`/`stderr` are always in-memory streams (Playground produces them in
  * memory; the native runtime pre-drains its OS pipes via `drainToMemory`), so
  * the text getters are safe to read in any order relative to `exitCode`.
+ *
+ * For Playground-produced stdout the leading shebang line is already stripped at
+ * construction (see `stripLeadingShebang`), so consumers get clean output.
  *
  * The text getters consume the same underlying stream as `stdout`/`stderr` —
  * use one or the other, not both.
@@ -114,14 +118,6 @@ type RunWpCliCommandOptions = {
 	stdio?: 'inherit' | 'pipe';
 };
 
-type DisposableWpCliResponse = Disposable & {
-	response: WpCliResponse;
-};
-
-type DisposableExitCode = Disposable & {
-	exitCode: Promise< number >;
-};
-
 const WASM_SQLITE_COMMAND_PATH = '/tmp/sqlite-command/command.php';
 
 function applyWpCliCommandOptions(
@@ -162,16 +158,29 @@ async function ensureChildSpawned( child: ChildProcess ): Promise< void > {
 	} );
 }
 
-// Spawn the native PHP WP-CLI child for a site and wire up the interrupt reaper.
-// `stdio` controls how the child's streams are connected: `'pipe'` captures
-// stdout/stderr (callers read them via `WpCliResponse`), while `'inherit'` hands
-// the child the parent's terminal fds so it gets stdin, live streaming and TTY
-// detection (colors) — used for interactive terminal passthrough.
-async function spawnNativeWpCli(
+type DisposableWpCliResponse = Disposable & {
+	response: WpCliResponse;
+};
+
+type DisposableExitCode = Disposable & {
+	exitCode: Promise< number >;
+};
+
+async function runNativeWpCliCommand(
+	site: SiteData,
+	args: string[],
+	options: RunWpCliCommandOptions & { stdio: 'inherit' }
+): Promise< DisposableExitCode >;
+async function runNativeWpCliCommand(
 	site: SiteData,
 	args: string[],
 	options: RunWpCliCommandOptions
-): Promise< Disposable & { child: ChildProcess; exitCode: Promise< number > } > {
+): Promise< DisposableWpCliResponse >;
+async function runNativeWpCliCommand(
+	site: SiteData,
+	args: string[],
+	options: RunWpCliCommandOptions = {}
+): Promise< DisposableWpCliResponse | DisposableExitCode > {
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
 	const phpVersion = resolveNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
@@ -195,53 +204,29 @@ async function spawnNativeWpCli(
 		child.once( 'exit', ( code ) => resolve( code ?? 1 ) );
 	} );
 
-	return {
-		child,
-		exitCode,
-		// Tear down the child: stop reaping interrupts and tree-kill so any subprocess
-		// WP-CLI spawned dies with it, not just the php.exe itself.
-		[ Symbol.dispose ]() {
-			removeReaper();
-			// Tree-kill so any subprocess WP-CLI spawned dies with it, not just the php.exe itself.
-			if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
-				killPhpProcessTree( child, 'SIGKILL' );
-			}
-		},
+	const dispose = () => {
+		removeReaper();
+		// Tree-kill so any subprocess WP-CLI spawned dies with it, not just the php.exe itself.
+		if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
+			killPhpProcessTree( child, 'SIGKILL' );
+		}
 	};
-}
-
-async function runNativeWpCliCommand(
-	site: SiteData,
-	args: string[],
-	options: RunWpCliCommandOptions & { stdio: 'inherit' }
-): Promise< DisposableExitCode >;
-async function runNativeWpCliCommand(
-	site: SiteData,
-	args: string[],
-	options: RunWpCliCommandOptions
-): Promise< DisposableWpCliResponse >;
-async function runNativeWpCliCommand(
-	site: SiteData,
-	args: string[],
-	options: RunWpCliCommandOptions = {}
-): Promise< DisposableWpCliResponse | DisposableExitCode > {
-	const spawned = await spawnNativeWpCli( site, args, options );
 
 	if ( options.stdio === 'inherit' ) {
 		return {
-			exitCode: spawned.exitCode,
-			[ Symbol.dispose ]: spawned[ Symbol.dispose ],
+			exitCode: exitCode,
+			[ Symbol.dispose ]: dispose,
 		};
 	}
 
 	return {
 		response: new WpCliResponse(
 			// Non-null: the 'pipe' stdio mode always provides stdout/stderr streams.
-			drainToMemory( spawned.child.stdout! ),
-			drainToMemory( spawned.child.stderr! ),
-			spawned.exitCode
+			drainToMemory( child.stdout! ),
+			drainToMemory( child.stderr! ),
+			exitCode
 		),
-		[ Symbol.dispose ]: spawned[ Symbol.dispose ],
+		[ Symbol.dispose ]: dispose,
 	};
 }
 
@@ -357,7 +342,7 @@ export async function runWpCliCommand(
 
 		return {
 			response: new WpCliResponse(
-				Readable.fromWeb( streamedResponse.stdout as WebReadableStream ),
+				stripLeadingShebang( Readable.fromWeb( streamedResponse.stdout as WebReadableStream ) ),
 				Readable.fromWeb( streamedResponse.stderr as WebReadableStream ),
 				streamedResponse.exitCode
 			),
@@ -390,11 +375,12 @@ export async function runWpCliCommandWithMessaging(
 			if ( runningProcess ) {
 				const response = await sendWpCliCommand( site.id, args );
 
-				// `Readable.from( [ str ] )` emits the whole string as one chunk
+				// `Readable.from( [ Buffer ] )` emits all of the contents as one chunk;
+				// `stripLeadingShebang` removes the Playground shebang line if present.
 				return {
 					response: new WpCliResponse(
-						Readable.from( [ response.stdout ] ),
-						Readable.from( [ response.stderr ] ),
+						stripLeadingShebang( Readable.from( [ Buffer.from( response.stdout ) ] ) ),
+						Readable.from( [ Buffer.from( response.stderr ) ] ),
 						Promise.resolve( response.exitCode )
 					),
 					[ Symbol.dispose ]() {
@@ -406,10 +392,6 @@ export async function runWpCliCommandWithMessaging(
 			// The server is running but the command couldn't be sent over IPC (e.g. the
 			// process predates WP-CLI messaging support, or messaging failed). Fall back to a
 			// fresh PHP-WASM instance below rather than surfacing the error to the caller.
-			console.warn(
-				'Failed to run WP-CLI command via the running server; falling back to a new PHP-WASM instance:',
-				error
-			);
 		}
 	}
 

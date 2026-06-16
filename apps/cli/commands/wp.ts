@@ -15,9 +15,9 @@ import { GlobalOptions } from 'cli/types';
 
 const logger = new Logger< '' >();
 
+// `response.stdout` is already shebang-stripped by `runWpCliCommand` /
+// `runWpCliCommandWithMessaging`, so this just forwards the streams verbatim.
 async function pipePHPResponse( response: WpCliResponse ) {
-	const decoder = new TextDecoder();
-
 	const stderrPipe = async () => {
 		for await ( const chunk of response.stderr ) {
 			process.stderr.write( chunk );
@@ -26,10 +26,7 @@ async function pipePHPResponse( response: WpCliResponse ) {
 
 	const stdoutPipe = async () => {
 		for await ( const chunk of response.stdout ) {
-			const text = decoder.decode( chunk, { stream: true } );
-			if ( ! text.startsWith( '#!/usr/bin/env' ) ) {
-				process.stdout.write( chunk );
-			}
+			process.stdout.write( chunk );
 		}
 	};
 

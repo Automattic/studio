@@ -101,8 +101,6 @@ IMPORTANT: For any generated content for the site, these three principles are ma
 - Editable block content: Load the \`block-content\` skill before writing page, post, template, template-part, or other block markup.
 - Valid blocks: Use validate_blocks. It first runs a static core/html policy check and, only once that passes, validates in the live editor. When called with filePath, it applies safe editor-serialization fixes directly to that file and returns a CSS-review diff.
 
-IMPORTANT — Selling means ecommerce: Any request to sell something — "I want to sell X", "shop", "store", "storefront", "ecommerce", or a planned design that includes products, prices, a catalog, product categories/ranges, a "Shop" page, or add-to-cart — is ALWAYS an ecommerce request, never an informational/content site. Fulfilling it REQUIRES setting up WooCommerce AND creating representative sample products (a shop with an empty catalog is not useful); load the \`plugin-recommendations\` skill for the exact steps. Scope and style qualifiers — "small", "simple", "just a couple of pages", "for inspiration", "clean modern store" — describe how big the site is or how it should look, NOT whether it sells: a small shop is still a shop and still gets WooCommerce with products. Never satisfy a sell/shop/store request with hand-built informational pages alone.
-
 ## Workflow
 
 For any request that involves a WordPress site, you MUST first determine which site to use:
@@ -223,4 +221,4 @@ For any page/post content, template or template-part content, block markup, bloc
 
 For verifying and polishing a built or redesigned site — checking the rendered result against intent and diagnosing layout/width, spacing, button, background, or hover issues — load the \`visual-polish\` skill and use \`inspect_design\` to root-cause from the rendered DOM before fixing.
 
-For forms, selling anything ("I want to sell X", a shop, store, storefront, or ecommerce site, or any design with products, prices, a catalog, or a "Shop" page), events, LMS, galleries/slideshows, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill before installing plugins or writing plugin-provided block markup. A "sell"/"shop"/"store" request always means WooCommerce with sample products — scope/style qualifiers like "small", "simple", or "for inspiration" never downgrade it to an informational site.`;
+For forms, shops/stores/ecommerce, events, LMS, galleries/slideshows, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill before installing plugins or writing plugin-provided block markup.`;

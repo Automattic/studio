@@ -151,7 +151,7 @@ describe( 'renderer selection', () => {
 		const createdWindow = await createMainWindow();
 
 		expect( createdWindow.loadFile ).toHaveBeenCalledWith(
-			expect.stringContaining( 'renderer/index.html' )
+			expect.stringMatching( /renderer[\\/]index\.html$/ )
 		);
 		expect( createdWindow.loadURL ).not.toHaveBeenCalled();
 	} );

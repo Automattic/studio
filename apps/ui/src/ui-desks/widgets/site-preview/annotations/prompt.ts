@@ -40,7 +40,7 @@ export function formatAnnotationsAsPrompt( annotations: DeskSitePreviewAnnotatio
 	const lines: string[] = [
 		`The user submitted ${ describeCount( annotations.length ) } from the site preview.`,
 		'',
-		'Call `TodoWrite` (the Todo tool) with one task for each annotation, then make the requested changes and keep the todo list updated as you complete the work.',
+		'Make the requested changes. When there are several annotations, address them in the order they were submitted.',
 		'',
 		'When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.',
 		'',

@@ -8,7 +8,7 @@ describe( 'formatAnnotationsAsPrompt', () => {
 		expect( formatAnnotationsSubmittedMessage( 2 ) ).toBe( '2 annotations submitted' );
 	} );
 
-	it( 'asks the agent to track work with todos and make the changes', () => {
+	it( 'asks the agent to make the changes directly without a confirmation gate', () => {
 		const annotations: Annotation[] = [
 			{
 				id: 'a_1',
@@ -26,10 +26,9 @@ describe( 'formatAnnotationsAsPrompt', () => {
 		const prompt = formatAnnotationsAsPrompt( annotations );
 
 		expect( prompt ).toContain( 'The user submitted 1 visual annotation' );
-		expect( prompt ).toContain(
-			'Call `TodoWrite` (the Todo tool) with one task for each annotation'
-		);
+		expect( prompt ).toContain( 'Make the requested changes' );
 		expect( prompt ).not.toContain( 'AskUserQuestion' );
+		expect( prompt ).not.toContain( 'TodoWrite' );
 		expect( prompt ).toContain( '- Selector: `main h1`' );
 		expect( prompt ).toContain( '"comment": "Make the hero heading smaller"' );
 	} );

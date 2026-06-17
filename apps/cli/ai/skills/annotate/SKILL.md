@@ -38,11 +38,9 @@ Each annotation includes:
 - **User feedback (comment)** — what the user wants changed
 - **pathname** — which page of the site the annotation was made on
 
-### 3. Track the work
+### 3. Review the annotations
 
-Call `TodoWrite` (the Todo tool) with one task for each annotation, then keep that todo list updated as you complete the work.
-
-When you reference an annotation for the user, identify the element by what they can see — the tag name plus `nearbyText` — rather than by selector. Selectors are noisy and unreadable; use them only for implementation.
+Address the annotations in the order they were submitted. When you reference one for the user, identify the element by what they can see — the tag name plus `nearbyText` — rather than by selector. Selectors are noisy and unreadable; use them only for implementation.
 
 If the user wants to re-annotate, point them back to the open browser and call `wait_for_annotations` again — the inspector keeps working without re-opening the browser.
 

@@ -199,6 +199,7 @@ const REMOTE_CONTENT_GUIDELINES = `## Block content guidelines
 
 - Use only core WordPress blocks. No custom HTML blocks except for inline SVGs.
 - No decorative HTML comments (e.g. \`<!-- Hero Section -->\`). Only block delimiter comments are allowed.
+- Color content from the active theme's palette using block color-slug attributes (e.g. \`{"backgroundColor":"primary","textColor":"base"}\`) rather than hardcoded hex values; only introduce a custom color when the palette genuinely lacks one.
 - No emojis anywhere in generated content.`;
 
 const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan

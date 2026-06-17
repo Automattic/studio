@@ -18,6 +18,7 @@ Use this skill before writing or editing page content, post content, templates, 
 - No custom class names on inner DOM elements. Put custom classes only on the outermost block wrapper via the block `className` attribute.
 - Style buttons via `.wp-element-button` — the inner element WordPress applies the button's padding, background, and border to (shared by the button block and buttons from other blocks). A custom class on a button block sits on the `.wp-block-button` wrapper, so descend to `.your-class .wp-element-button`; never style the wrapper directly, or its padding stacks on top of the default and the button doubles in size.
 - No inline `style` attributes or block `style` attributes for styling. Use `className` plus the theme's `style.css`.
+- Color from the theme palette, not hardcoded hex. Apply block colors with palette **slug** attributes — `{"backgroundColor":"accent-1","textColor":"base"}` — and in `style.css` reference palette colors as `var(--wp--preset--color--<slug>)`. Never write raw hex color values (e.g. `#1a1a1a`) into block markup or section CSS. Discover the available slugs from the active theme's `theme.json` `settings.color.palette` (for a theme you are building, the palette you defined there). If a section needs a color the palette lacks, add an entry to the `theme.json` palette and reference its new slug — do not inline a hex value. This keeps sections in sync with Global Styles, theme switching, and light/dark variations. Custom hex is a deliberate exception, not the default.
 - Use `core/spacer` for empty spacing elements, not empty `core/group` blocks.
 - No emojis anywhere in generated content.
 
@@ -43,8 +44,10 @@ For `style.css`, start with custom properties and anchor comments only:
 
 ```css
 :root {
-	--site-bg: #ffffff;
-	--site-text: #111111;
+	/* Map section variables onto the theme palette — reference preset slugs,
+	   never hardcode hex here. The slugs come from theme.json's color palette. */
+	--site-bg: var( --wp--preset--color--base );
+	--site-text: var( --wp--preset--color--contrast );
 }
 
 /* === reset === */

@@ -107,7 +107,15 @@ export function validateBlockTheme(args) {
     for (const [label, text] of themeTexts) {
         // www.w3.org appears as the xmlns of inline data-URI SVGs — a namespace
         // identifier, never fetched
-        const remotes = (text.match(/https?:\/\/[^"')\s]+/g) || []).filter((u) => !u.includes('schemas.wp.org') && !u.includes('gnu.org') && !u.includes('www.w3.org'));
+        const allowedHosts = new Set(['schemas.wp.org', 'gnu.org', 'www.w3.org']);
+        const remotes = (text.match(/https?:\/\/[^"')\s]+/g) || []).filter((u) => {
+            try {
+                const host = new URL(u).hostname.toLowerCase();
+                return !allowedHosts.has(host);
+            } catch {
+                return true;
+            }
+        });
         for (const u of remotes) errors.push(`${label}: remote url ${u}`);
     }
 

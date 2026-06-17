@@ -42,6 +42,7 @@ export default defineConfig(
 					allowDefaultProject: [
 						'apps/studio/forge.config.ts',
 						'apps/studio/tailwind.config.js',
+						'apps/ui/vite.config.ts',
 						'eslint.config.mjs',
 						'vitest.config.ts',
 						'tools/eslint-plugin-studio/vitest.config.ts',

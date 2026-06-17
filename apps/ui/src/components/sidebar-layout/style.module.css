@@ -6,7 +6,11 @@
 
 .sidebar {
 	width: var(--sidebar-width, 320px);
-	min-width: 240px;
+	/* The 240px floor is owned by useResizablePanel, which clamps
+	   --sidebar-width on every path. A CSS min-width here would be redundant
+	   while open and, because it can't transition in lockstep with width, would
+	   snap the panel to 240px at the start of the open animation. */
+	min-width: 0;
 	max-width: 25vw;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
@@ -19,6 +23,14 @@
 	   inner wrapper. */
 	overflow-y: auto;
 	transition: width 150ms ease;
+}
+
+/* While dragging the handle the width updates every frame; the collapse
+   transition above would animate toward each step and lag behind the cursor.
+   Drop it for the duration of the drag (mirrors `.rootPreviewResizing` in
+   preview-split-frame). */
+.sidebarResizing {
+	transition: none;
 }
 
 /* Stay pinned at the bottom as the sidebar scrolls; `margin-top: auto`
@@ -34,7 +46,6 @@
 
 .sidebarCollapsed {
 	width: 0;
-	min-width: 0;
 }
 
 .main {

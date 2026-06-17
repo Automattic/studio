@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 import { readFile, writeFile } from 'atomically';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { removeDesksConfig } from 'src/migrations/06-remove-desks-config';
+import { removeDesksConfig } from 'src/migrations/07-remove-desks-config';
 import { lockAppdata, unlockAppdata } from 'src/storage/user-data';
 
 vi.mock( 'node:fs' );

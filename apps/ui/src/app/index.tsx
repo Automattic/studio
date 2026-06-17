@@ -8,6 +8,7 @@ import type { Connector } from '@/data/core';
 
 interface AppProps {
 	connector: Connector;
+	forcedMode?: 'classic';
 }
 
 export function App( { connector }: AppProps ) {

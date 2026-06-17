@@ -82,7 +82,8 @@ wp_cli post create --post_content=""
 ```
 
 3. Fill one anchor per `Edit` using editable blocks. Never wrap a section in `core/html`.
-4. Apply the content once:
+4. **Validate before applying (mandatory gate).** Once all anchors are filled, you MUST call `validate_blocks` with `filePath` pointing at `<site>/tmp/page-<slug>.html` and get a passing result — the core/html policy passes and editor validation reports all blocks valid. This is not optional and not a step you can defer to after `wp_cli eval`: the scratch file is block content, so it must be validated as a file while it still lives in a file. If validation reports invalid blocks, fix them in the file and call `validate_blocks` again until it passes. Never apply block content you have not validated.
+5. Apply the validated content once:
 
 ```text
 wp_cli eval '$content = file_get_contents(ABSPATH . "tmp/page-<slug>.html"); wp_update_post(["ID" => <id>, "post_content" => $content]); echo "ok";'
@@ -92,4 +93,5 @@ Do not use `--post_content-file=<host path>`. `wp_cli` runs inside the PHP-WASM 
 
 ## Validation
 
-- Run `validate_blocks` after every write or edit that creates or changes block content. Call it with `filePath` whenever the content lives in a file. It first runs a static `core/html` policy check: if that reports invalid `core/html` blocks, editor validation is skipped — rewrite only those blocks as editable core or plugin blocks, then call `validate_blocks` again. Once the policy passes it validates in the live editor and applies safe serialization fixes directly to the file. If it says an auto-fix was applied, do not manually replace markup or call validation again unless you intentionally change block markup afterward. Use the diff only to inspect structural changes for CSS impact. Classes added or removed by the validator can affect layout and styling.
+- Validation is a mandatory gate, not a cleanup step. You MUST call `validate_blocks` and get a passing result for any block content you generate **before** that content reaches the live site — before `wp_cli post create/update`, before `wp_cli eval`, and before importing a scratch file. Never apply, import, or save block content you have not validated. A build that skips validation is incomplete, even if the page renders.
+- Run `validate_blocks` after every write or edit that creates or changes block content. Call it with `filePath` whenever the content lives in a file — including scratch files such as `<site>/tmp/page-<slug>.html` that you later import with `wp_cli eval`. The scratch file is the block content; validate the file, not just the eventual post. It first runs a static `core/html` policy check: if that reports invalid `core/html` blocks, editor validation is skipped — rewrite only those blocks as editable core or plugin blocks, then call `validate_blocks` again. Once the policy passes it validates in the live editor and applies safe serialization fixes directly to the file. If it says an auto-fix was applied, do not manually replace markup or call validation again unless you intentionally change block markup afterward. Use the diff only to inspect structural changes for CSS impact. Classes added or removed by the validator can affect layout and styling.

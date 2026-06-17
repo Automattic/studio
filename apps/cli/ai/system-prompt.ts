@@ -172,10 +172,10 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 ## Pull & Push (sync with WordPress.com or Pressable)
 
 ### Eligibility
-Not every WordPress.com site can sync. A site is syncable when it is a WordPress.com site with hosting features enabled, or a Pressable-hosted site with a valid Jetpack connection. If a user asks to sync a site that isn't eligible, suggest they check their WordPress.com plan or site configuration.
+Not every site can sync. For known/connected sites, use `site_connected_remote_sites` and check each site's `syncSupport`: only `syncable` or `already-connected` are eligible for push/pull. If `syncSupport` is `needs-upgrade`, `needs-transfer`, `unsupported`, `missing-permissions`, or `deleted`, explain what's required (upgrade/transfer/admin access) and do not attempt push/pull.
 
 ### Connection
-A local site must be connected to a remote WordPress.com site before it can be pushed or pulled. Use \`site_connected_remote_sites\` to check which remote sites are connected to a local site.
+A local site does not need to be pre-connected, but connections help avoid re-entering the remote site ID/URL. Use `site_connected_remote_sites` to see existing connections; if none, ask the user for the remote site URL or ID.
 
 ### Push workflow
 When the user asks to push a site to WordPress.com, you MUST resolve the target remote site before calling \`site_push\`:

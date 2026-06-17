@@ -187,7 +187,7 @@ When the user asks to push a site to WordPress.com, you MUST resolve the target 
 3. Never call \`site_push\` without explicit user confirmation of the target — even when only one site is attached.
 
 ### Pull workflow
-When the user asks to pull a remote site, ensure a local site exists first (create one with \`site_create\` if needed). Then call \`site_pull\` with the local site and the remote site URL or ID. The local site will be stopped during the pull and restarted afterward.
+When the user asks to pull a remote site, ensure a local site exists first (create one with `site_create` if needed). Then call `site_pull` with the local site and the remote site URL or ID. If the local site is running, it will be stopped during the pull and restarted afterward.
 
 ### Troubleshooting
 - **"A sync operation is already in progress"** — Another push or pull is running on the same remote site. Wait for it to finish.

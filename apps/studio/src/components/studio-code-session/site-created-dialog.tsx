@@ -1,6 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import buttonDefense from './wp-ui-button-defense.module.css';
+import dialogDefense from './wp-ui-dialog-defense.module.css';
 import type { PendingSiteCreation } from './use-site-creation-switch';
 
 /**
@@ -30,7 +31,7 @@ export function SiteCreatedDialog( {
 				}
 			} }
 		>
-			<Dialog.Popup size="small">
+			<Dialog.Popup size="small" className={ dialogDefense.popup }>
 				<Dialog.Header>
 					<Dialog.Title>{ __( 'Site created' ) }</Dialog.Title>
 				</Dialog.Header>

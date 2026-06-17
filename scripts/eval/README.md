@@ -19,6 +19,7 @@ npm run eval:view
 - **screenshot-all-timing** — Agent creates a minimal site and visually verifies the homepage on desktop and mobile. Asserts the agent uses one `take_screenshot` call with `viewport: "all"`, returns valid desktop/mobile PNG payloads, and keeps the screenshot tool under 15s.
 - **single-page-build-turn-cadence** — Agent builds a simple one-page site. Asserts (a) every individual turn stays under 60s (wall-clock between successive assistant messages) and (b) no `wp_cli` call uses `--post_content-file=` (which silently fails inside PHP-WASM).
 - **jetpack-catchall-slideshow** — Agent reaches for Jetpack on a slideshow request. Asserts the generated page content uses a `jetpack/*` block (i.e. the catch-all rule fired instead of the agent falling back to raw HTML).
+- **section-uses-theme-palette** — Agent adds sections to a site that keeps its default theme. Asserts the section block markup colors are drawn from the theme palette (color-slug attributes like `{"backgroundColor":"accent-1"}` or `var(--wp--preset--color--*)` in CSS) rather than hardcoded hex values. `theme.json` is excluded from the hex check since a palette is legitimately defined there.
 
 ## Adding tests
 

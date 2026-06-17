@@ -326,7 +326,7 @@ api.post(
 
 // The session workspace's files (path + base64 content). The browser overlays
 // these onto a client-side WordPress Playground to render a live preview of what
-// the agent built — no server-side site serving needed (Studio Web "Carril A").
+// the agent built — no server-side site serving needed.
 api.get( '/sessions/:id/site-files', ( req: Request, res: Response ) => {
 	res.json( getWorkspaceFiles( req.params.id ) );
 } );

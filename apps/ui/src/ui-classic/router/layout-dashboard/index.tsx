@@ -71,8 +71,8 @@ function DashboardLayoutContent() {
 
 	// Studio Web: the agent builds into a per-session workspace that isn't a
 	// registered Studio site, so there's no `previewSite` to drive a SitePreview.
-	// Instead the workspace's files render in a client-side WordPress Playground
-	// (Carril A). Empty on desktop, where SitePreview handles the running site.
+	// Instead the workspace's files render in a client-side WordPress Playground.
+	// Empty on desktop, where SitePreview handles the running site.
 	const { data: siteFiles } = useSiteFiles( sessionId );
 	const hasLivePreview = ( siteFiles?.length ?? 0 ) > 0;
 	// Re-key on a content signature so each agent turn re-boots Playground with

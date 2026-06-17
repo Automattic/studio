@@ -87,7 +87,7 @@ export interface LocalMediaFile {
 
 // A single file from the agent's workspace, addressed by its path relative to
 // the WordPress root and its base64 content. Fed to a client-side Playground to
-// render a live preview of what the agent built (Studio Web "Carril A").
+// render a live preview of what the agent built, entirely in the browser.
 export interface SitePreviewFile {
 	path: string;
 	contentBase64: string;
@@ -263,7 +263,7 @@ export interface Connector {
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
 	): () => void;
 
-	// Studio Web live preview ("Carril A"): the files of what the agent built
+	// Studio Web live preview: the files of what the agent built
 	// for this session, overlaid onto a client-side WordPress Playground in the
 	// browser. `onPreviewChanged` fires when those files may have changed (after
 	// an agent turn) so the preview can re-fetch. Connectors without a browser-

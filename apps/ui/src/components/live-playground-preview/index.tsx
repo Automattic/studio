@@ -81,9 +81,8 @@ export function livePreviewSignature( files: SitePreviewFile[] ): string {
 /**
  * Renders a live, client-side WordPress Playground preview of what the agent
  * built. WordPress runs entirely in the visitor's browser (PHP-WASM); the
- * agent's workspace files are overlaid onto it. This is "Carril A" of Studio
- * Web preview: no server-side site serving — the preview scales to the
- * visitor's CPU and updates as the agent edits.
+ * agent's workspace files are overlaid onto it. There's no server-side site
+ * serving — the preview runs on the visitor's CPU and updates as the agent edits.
  *
  * `files` is re-overlaid whenever its identity changes (the parent re-fetches
  * after each agent turn via the `preview` signal), so the preview follows the

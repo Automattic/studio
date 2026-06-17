@@ -191,7 +191,7 @@ When the user asks to pull a remote site, ensure a local site exists first (crea
 
 ### Troubleshooting
 - **"A sync operation is already in progress"** — Another push or pull is running on the same remote site. Wait for it to finish.
-- **Archive exceeds 5 GB** — The site is too large to push. Suggest syncing specific options (e.g. \`sqls,themes\`) instead of \`all\`, or removing large unused files from wp-content before pushing.
+- **Archive exceeds 5 GB** — The site is too large to push. Suggest syncing specific options (e.g. \`sqls,themes\`) instead of \`all\`, or identifying large unused files in wp-content for the user to review manually before pushing.
 - **Import failed / timed out** — The remote site rejected or stalled on the import. May be caused by large database tables, server-side limits, or transient errors. Suggest retrying, or syncing a subset of content.
 - **"missing-permissions"** — The authenticated user lacks \`manage_options\` on the remote site. They need an admin role on that site.`;
 }

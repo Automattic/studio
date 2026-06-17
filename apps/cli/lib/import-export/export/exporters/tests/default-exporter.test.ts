@@ -1,43 +1,46 @@
 import { describe, it, expect } from 'vitest';
-import { bumpStylesheetVersion, isThemeStylesheet } from '../default-exporter';
+import { buildCacheBustMuPlugin, CACHE_BUST_MU_PLUGIN_PATH } from '../default-exporter';
 
-describe( 'isThemeStylesheet', () => {
-	it( 'matches a theme root stylesheet', () => {
-		expect( isThemeStylesheet( 'wp-content/themes/my-theme/style.css' ) ).toBe( true );
-	} );
-
-	it( 'does not match nested or non-stylesheet files', () => {
-		expect( isThemeStylesheet( 'wp-content/themes/my-theme/assets/style.css' ) ).toBe( false );
-		expect( isThemeStylesheet( 'wp-content/themes/my-theme/functions.php' ) ).toBe( false );
-		expect( isThemeStylesheet( 'wp-content/plugins/my-plugin/style.css' ) ).toBe( false );
+describe( 'CACHE_BUST_MU_PLUGIN_PATH', () => {
+	it( 'lands in mu-plugins so it auto-loads without activation', () => {
+		expect( CACHE_BUST_MU_PLUGIN_PATH ).toBe( 'wp-content/mu-plugins/studio-asset-cache-bust.php' );
 	} );
 } );
 
-describe( 'bumpStylesheetVersion', () => {
-	const suffix = 'studio-1718560000000';
+describe( 'buildCacheBustMuPlugin', () => {
+	const token = 'studio-1718560000000';
 
-	it( 'appends the cache-busting suffix to the Version header', () => {
-		const stylesheet = [ '/*', 'Theme Name: My Theme', 'Version: 1.4.2', '*/' ].join( '\n' );
-		const result = bumpStylesheetVersion( stylesheet, suffix );
-		expect( result ).toContain( `Version: 1.4.2-${ suffix }` );
+	it( 'embeds the per-push token as the asset version', () => {
+		const php = buildCacheBustMuPlugin( token );
+		expect( php ).toContain( `define( 'STUDIO_ASSET_CACHE_BUST_VERSION', '${ token }' )` );
 	} );
 
-	it( 'preserves indentation and only touches the version line', () => {
-		const stylesheet = [ '/*', ' * Theme Name: My Theme', ' * Version: 2.0', ' */' ].join( '\n' );
-		const result = bumpStylesheetVersion( stylesheet, suffix );
-		expect( result ).toContain( ` * Version: 2.0-${ suffix }` );
-		expect( result ).toContain( ' * Theme Name: My Theme' );
-	} );
-
-	it( 'returns the content unchanged when no Version header is present', () => {
-		const stylesheet = [ '/*', 'Theme Name: My Theme', '*/' ].join( '\n' );
-		expect( bumpStylesheetVersion( stylesheet, suffix ) ).toBe( stylesheet );
-	} );
-
-	it( 'is stable for the same input and suffix', () => {
-		const stylesheet = 'Version: 1.0';
-		expect( bumpStylesheetVersion( stylesheet, suffix ) ).toBe(
-			bumpStylesheetVersion( stylesheet, suffix )
+	it( 'filters both style and script srcs at runtime', () => {
+		const php = buildCacheBustMuPlugin( token );
+		expect( php ).toContain(
+			"add_filter( 'style_loader_src', 'studio_asset_cache_bust_src', 9999 )"
 		);
+		expect( php ).toContain(
+			"add_filter( 'script_loader_src', 'studio_asset_cache_bust_src', 9999 )"
+		);
+	} );
+
+	it( 'only versions local assets, leaving external URLs untouched', () => {
+		const php = buildCacheBustMuPlugin( token );
+		expect( php ).toContain( '/wp-content/' );
+		expect( php ).toContain( '/wp-includes/' );
+		expect( php ).toContain( "add_query_arg( 'ver', STUDIO_ASSET_CACHE_BUST_VERSION, $src )" );
+	} );
+
+	it( 'sanitizes the token so it cannot break out of the PHP string literal', () => {
+		const php = buildCacheBustMuPlugin( "abc'; system('x'); //" );
+		expect( php ).toContain( "define( 'STUDIO_ASSET_CACHE_BUST_VERSION', 'abcsystemx' )" );
+		expect( php ).not.toContain( 'system(' );
+	} );
+
+	it( 'guards against direct access and double definition', () => {
+		const php = buildCacheBustMuPlugin( token );
+		expect( php ).toContain( "defined( 'ABSPATH' ) || exit;" );
+		expect( php ).toContain( "if ( ! defined( 'STUDIO_ASSET_CACHE_BUST_VERSION' ) )" );
 	} );
 } );

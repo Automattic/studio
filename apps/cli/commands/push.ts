@@ -268,6 +268,13 @@ export async function runCommand(
 		logger.reportSuccess(
 			sprintf( __( 'Successfully pushed to %1$s (%2$s)' ), remoteSite.name, remoteSite.url )
 		);
+		if ( includes.wpContent ) {
+			logger.reportSuccess(
+				__(
+					'Asset cache versions were refreshed, so your changes appear without a hard refresh. Visitors re-download CSS/JS once after this push.'
+				)
+			);
+		}
 	} finally {
 		fs.rmSync( tempDir, { recursive: true, force: true } );
 	}

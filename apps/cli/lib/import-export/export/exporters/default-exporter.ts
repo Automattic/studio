@@ -36,29 +36,53 @@ const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
 	( name ) => `wp-content/mu-plugins/${ name }`
 );
 
-// Matches a theme root stylesheet, e.g. `wp-content/themes/my-theme/style.css`.
-// Archive names use forward slashes, but normalize defensively for safety.
-export function isThemeStylesheet( archiveName: string ): boolean {
-	const normalized = archiveName.split( path.sep ).join( '/' );
-	return /^wp-content\/themes\/[^/]+\/style\.css$/.test( normalized );
+// Archive path of the per-push cache-busting mu-plugin.
+export const CACHE_BUST_MU_PLUGIN_PATH = 'wp-content/mu-plugins/studio-asset-cache-bust.php';
+
+// Builds a small mu-plugin that stamps a per-push version onto every locally enqueued
+// style/script. Because it filters `style_loader_src`/`script_loader_src` at runtime, it
+// busts the browser cache for ALL assets a site enqueues — theme, plugin, auto-injected,
+// or hand-written `wp_enqueue_*` calls with hard-coded versions — without parsing or
+// rewriting any source files. The token changes once per push, so assets are re-fetched
+// after a deploy and cached normally between deploys.
+export function buildCacheBustMuPlugin( token: string ): string {
+	const safeToken = token.replace( /[^a-zA-Z0-9._-]/g, '' );
+	return `<?php
+/**
+ * Studio: bust browser caches for pushed asset changes.
+ *
+ * Generated automatically on each push so that styles/scripts changed locally are
+ * re-fetched by browsers instead of served stale. Safe to delete; it is regenerated
+ * on the next push.
+ */
+defined( 'ABSPATH' ) || exit;
+
+if ( ! defined( 'STUDIO_ASSET_CACHE_BUST_VERSION' ) ) {
+	define( 'STUDIO_ASSET_CACHE_BUST_VERSION', '${ safeToken }' );
 }
 
-// Appends a cache-busting suffix to the theme stylesheet's `Version:` header so the
-// theme version (and thus the `?ver=` of every asset enqueued with it) changes on
-// each push. Returns the content unchanged when no `Version:` header is present.
-export function bumpStylesheetVersion( content: string, suffix: string ): string {
-	return content.replace(
-		/^([ \t]*\*?[ \t]*Version:[ \t]*)(.+?)[ \t]*$/m,
-		( _match, prefix, version ) => `${ prefix }${ version }-${ suffix }`
-	);
+function studio_asset_cache_bust_src( $src ) {
+	if ( ! is_string( $src ) || '' === $src ) {
+		return $src;
+	}
+	// Only version assets served from this site; leave external URLs untouched.
+	if ( false === strpos( $src, '/wp-content/' ) && false === strpos( $src, '/wp-includes/' ) ) {
+		return $src;
+	}
+	return add_query_arg( 'ver', STUDIO_ASSET_CACHE_BUST_VERSION, $src );
+}
+
+add_filter( 'style_loader_src', 'studio_asset_cache_bust_src', 9999 );
+add_filter( 'script_loader_src', 'studio_asset_cache_bust_src', 9999 );
+`;
 }
 
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
 	private archiveBuilder!: Archiver;
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
-	// Per-export cache-busting suffix; empty unless `bumpAssetVersions` is set.
-	private readonly assetVersionSuffix: string;
+	// Per-push cache-busting token; empty unless `bumpAssetVersions` is set.
+	private readonly cacheBustToken: string;
 
 	isExactPathExcluded( pathToCheck: string ) {
 		const PATHS_TO_EXCLUDE = [
@@ -102,7 +126,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 	constructor( options: ExportOptions ) {
 		super();
 		this.options = options;
-		this.assetVersionSuffix = options.bumpAssetVersions ? `studio-${ Date.now() }` : '';
+		this.cacheBustToken = options.bumpAssetVersions ? `studio-${ Date.now() }` : '';
 		this.backup = {
 			backupFile: options.backupFile,
 			sqlFiles: [],
@@ -155,6 +179,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		try {
 			this.addWpConfig();
 			await this.addWpContent();
+			this.addCacheBustMuPlugin();
 			await this.addDatabase();
 			const studioJsonPath = await this.createStudioJsonFile();
 			this.archiveBuilder.file( studioJsonPath, { name: 'meta.json' } );
@@ -253,7 +278,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 					) {
 						continue;
 					}
-					this.addContentFile( fullPath, archivePath );
+					this.archiveBuilder.file( fullPath, { name: archivePath } );
 				}
 			}
 		}
@@ -291,24 +316,23 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			) {
 				continue;
 			}
-			this.addContentFile( fs.realpathSync( fullEntryPathOnDisk ), entryPathRelativeToArchiveRoot );
+			this.archiveBuilder.file( fs.realpathSync( fullEntryPathOnDisk ), {
+				name: entryPathRelativeToArchiveRoot,
+			} );
 		}
 	}
 
-	// Adds a wp-content file to the archive. When cache-busting is enabled and the
-	// file is a theme stylesheet, its `Version:` header is bumped in the archived
-	// copy (the source file on disk is never modified) so WordPress re-enqueues the
-	// theme's assets with a fresh `?ver=`, forcing browsers to drop stale CSS/JS.
-	private addContentFile( diskPath: string, archiveName: string ): void {
-		if ( this.assetVersionSuffix && isThemeStylesheet( archiveName ) ) {
-			const original = fs.readFileSync( diskPath, 'utf-8' );
-			const bumped = bumpStylesheetVersion( original, this.assetVersionSuffix );
-			if ( bumped !== original ) {
-				this.archiveBuilder.append( bumped, { name: archiveName } );
-				return;
-			}
+	// On a push (cache-busting enabled), inject a mu-plugin that stamps a per-push
+	// version onto every locally enqueued asset so browsers re-fetch changed CSS/JS
+	// instead of serving stale copies. Added directly to the archive; never written
+	// to the local site. Skipped for database-only pushes.
+	private addCacheBustMuPlugin(): void {
+		if ( ! this.cacheBustToken || ! this.options.includes.wpContent ) {
+			return;
 		}
-		this.archiveBuilder.file( diskPath, { name: archiveName } );
+		this.archiveBuilder.append( buildCacheBustMuPlugin( this.cacheBustToken ), {
+			name: CACHE_BUST_MU_PLUGIN_PATH,
+		} );
 	}
 
 	private async addDatabase(): Promise< void > {

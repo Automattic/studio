@@ -50,10 +50,20 @@ export function firstMatch(value, pattern, group = 1) {
     return match ? match[group] : '';
 }
 
+function replaceUntilStable(input, pattern, replacement) {
+    let current = input;
+    let previous;
+    do {
+        previous = current;
+        current = current.replace(pattern, replacement);
+    } while (current !== previous);
+    return current;
+}
+
 export function cleanText(value) {
-    return String(value || '')
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
+    const withoutScripts = replaceUntilStable(String(value || ''), /<script[\s\S]*?<\/script>/gi, '');
+    const withoutStyles = replaceUntilStable(withoutScripts, /<style[\s\S]*?<\/style>/gi, '');
+    return withoutStyles
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();

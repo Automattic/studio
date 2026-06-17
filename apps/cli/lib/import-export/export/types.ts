@@ -10,6 +10,10 @@ export interface ExportOptions {
 	splitDatabaseDumpByTable?: boolean;
 	specificSelectionPaths?: string[];
 	ignoreFilter?: Ignore;
+	// When set, bump the `Version:` header of each exported theme stylesheet so
+	// pushed asset changes invalidate the browser cache. Only the push/deploy
+	// path enables this; plain backups stay byte-for-byte faithful.
+	bumpAssetVersions?: boolean;
 }
 
 export type ExportOptionsIncludes = 'wpContent' | 'database';

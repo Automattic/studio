@@ -121,6 +121,7 @@ export async function runCommand(
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths,
 			ignoreFilter: deployIgnore,
+			bumpAssetVersions: true,
 		} );
 
 		if ( ! exporter ) {

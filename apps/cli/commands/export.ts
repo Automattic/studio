@@ -126,7 +126,8 @@ export async function runCommand(
 	mode: 'full' | 'content' | 'db' = 'full',
 	splitDbDumpByTable = false,
 	includeOnlyPaths?: string[],
-	applyDeployIgnore = false
+	applyDeployIgnore = false,
+	bumpAssetVersions = false
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -164,6 +165,7 @@ export async function runCommand(
 			splitDatabaseDumpByTable: splitDbDumpByTable,
 			specificSelectionPaths: includeOnlyPaths,
 			ignoreFilter,
+			bumpAssetVersions,
 		} );
 
 		if ( ! exporter ) {
@@ -243,6 +245,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					default: false,
 					description: __( 'Apply .deployignore patterns when exporting' ),
 					hidden: true,
+				} )
+				.option( 'bump-asset-versions', {
+					type: 'boolean',
+					default: false,
+					description: __(
+						'Bump theme stylesheet versions so pushed asset changes bust the browser cache'
+					),
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -276,7 +286,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					argv.mode,
 					argv.splitDbDumpByTable,
 					argv.includeOnly,
-					argv.applyDeployIgnore
+					argv.applyDeployIgnore,
+					argv.bumpAssetVersions
 				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

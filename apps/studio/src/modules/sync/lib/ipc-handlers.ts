@@ -198,6 +198,7 @@ export async function exportSiteForPush(
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths: configuration?.specificSelectionPaths,
 			applyDeployIgnore: true,
+			bumpAssetVersions: true,
 			abortSignal: abortController.signal,
 		} );
 

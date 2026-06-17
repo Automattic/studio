@@ -36,10 +36,29 @@ const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
 	( name ) => `wp-content/mu-plugins/${ name }`
 );
 
+// Matches a theme root stylesheet, e.g. `wp-content/themes/my-theme/style.css`.
+// Archive names use forward slashes, but normalize defensively for safety.
+export function isThemeStylesheet( archiveName: string ): boolean {
+	const normalized = archiveName.split( path.sep ).join( '/' );
+	return /^wp-content\/themes\/[^/]+\/style\.css$/.test( normalized );
+}
+
+// Appends a cache-busting suffix to the theme stylesheet's `Version:` header so the
+// theme version (and thus the `?ver=` of every asset enqueued with it) changes on
+// each push. Returns the content unchanged when no `Version:` header is present.
+export function bumpStylesheetVersion( content: string, suffix: string ): string {
+	return content.replace(
+		/^([ \t]*\*?[ \t]*Version:[ \t]*)(.+?)[ \t]*$/m,
+		( _match, prefix, version ) => `${ prefix }${ version }-${ suffix }`
+	);
+}
+
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
 	private archiveBuilder!: Archiver;
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
+	// Per-export cache-busting suffix; empty unless `bumpAssetVersions` is set.
+	private readonly assetVersionSuffix: string;
 
 	isExactPathExcluded( pathToCheck: string ) {
 		const PATHS_TO_EXCLUDE = [
@@ -83,6 +102,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 	constructor( options: ExportOptions ) {
 		super();
 		this.options = options;
+		this.assetVersionSuffix = options.bumpAssetVersions ? `studio-${ Date.now() }` : '';
 		this.backup = {
 			backupFile: options.backupFile,
 			sqlFiles: [],
@@ -233,7 +253,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 					) {
 						continue;
 					}
-					this.archiveBuilder.file( fullPath, { name: archivePath } );
+					this.addContentFile( fullPath, archivePath );
 				}
 			}
 		}
@@ -271,10 +291,24 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			) {
 				continue;
 			}
-			this.archiveBuilder.file( fs.realpathSync( fullEntryPathOnDisk ), {
-				name: entryPathRelativeToArchiveRoot,
-			} );
+			this.addContentFile( fs.realpathSync( fullEntryPathOnDisk ), entryPathRelativeToArchiveRoot );
 		}
+	}
+
+	// Adds a wp-content file to the archive. When cache-busting is enabled and the
+	// file is a theme stylesheet, its `Version:` header is bumped in the archived
+	// copy (the source file on disk is never modified) so WordPress re-enqueues the
+	// theme's assets with a fresh `?ver=`, forcing browsers to drop stale CSS/JS.
+	private addContentFile( diskPath: string, archiveName: string ): void {
+		if ( this.assetVersionSuffix && isThemeStylesheet( archiveName ) ) {
+			const original = fs.readFileSync( diskPath, 'utf-8' );
+			const bumped = bumpStylesheetVersion( original, this.assetVersionSuffix );
+			if ( bumped !== original ) {
+				this.archiveBuilder.append( bumped, { name: archiveName } );
+				return;
+			}
+		}
+		this.archiveBuilder.file( diskPath, { name: archiveName } );
 	}
 
 	private async addDatabase(): Promise< void > {

@@ -200,6 +200,7 @@ type ExportOptions = {
 	splitDatabaseDumpByTable?: boolean;
 	specificSelectionPaths?: string[];
 	applyDeployIgnore?: boolean;
+	bumpAssetVersions?: boolean;
 	abortSignal?: AbortSignal;
 };
 
@@ -222,6 +223,7 @@ export async function exportSite(
 		splitDatabaseDumpByTable = false,
 		specificSelectionPaths = [],
 		applyDeployIgnore = false,
+		bumpAssetVersions = false,
 		abortSignal,
 	} = options;
 
@@ -234,6 +236,10 @@ export async function exportSite(
 
 	if ( applyDeployIgnore ) {
 		args.push( '--apply-deploy-ignore' );
+	}
+
+	if ( bumpAssetVersions ) {
+		args.push( '--bump-asset-versions' );
 	}
 
 	if ( specificSelectionPaths.length > 0 ) {

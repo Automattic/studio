@@ -47,11 +47,24 @@ function gitOut( cwd: string, args: string[] ): string {
 	} ).trim();
 }
 
+// Session ids come from HTTP requests. They're UUIDs, but validate before
+// using one in a filesystem path — and derive the slug from an allowlisted
+// slice — so a crafted id (e.g. containing `../`) can't escape
+// STUDIO_SITES_ROOT (CodeQL js/path-injection).
+function safeSessionToken( sessionId: string ): string {
+	if ( ! /^[a-zA-Z0-9-]+$/.test( sessionId ) ) {
+		throw new Error( `Invalid session id: ${ sessionId }` );
+	}
+	// The slug only ever contains these chars — no path separators can survive.
+	return sessionId.replace( /[^a-zA-Z0-9]/g, '' ).slice( 0, 8 );
+}
+
 /** The workspace identity for a session (slug/name/path), without touching disk. */
 export function workspaceFor( sessionId: string ): Workspace {
-	const slug = `${ WORKSPACE_PREFIX }-${ sessionId.slice( 0, 8 ) }`;
+	const token = safeSessionToken( sessionId );
+	const slug = `${ WORKSPACE_PREFIX }-${ token }`;
 	return {
-		name: `Studio Web (${ sessionId.slice( 0, 8 ) })`,
+		name: `Studio Web (${ token })`,
 		slug,
 		path: path.join( STUDIO_SITES_ROOT, slug ),
 	};

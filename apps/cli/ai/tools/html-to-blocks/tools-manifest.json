@@ -484,6 +484,50 @@
     }
   },
   {
+    "name": "audit_standins",
+    "description": "List every stand-in mark (attrs.metadata.standin) across the page block trees: query loops, comments, and per-field marks. Validates them against content-model/content-model.json when present. Writes reports/standins.json so the run can see which regions are still static placeholders awaiting hydration.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "modelPath": {
+          "type": "string",
+          "default": "content-model/content-model.json"
+        },
+        "reportPath": {
+          "type": "string",
+          "default": "reports/standins.json"
+        }
+      }
+    }
+  },
+  {
+    "name": "hydrate_standins",
+    "description": "Swap marked stand-ins into real dynamic core blocks: query stand-ins become core/query + core/post-template (with field marks turned into core/post-title/featured-image/terms/excerpt/date), comments stand-ins become core/comments. Preserves className/style so lifted theme CSS still applies. Run AFTER the html-to-blocks visual gate passes and the content-model plugin exists; the result feeds blocks-to-theme. Backs up the pre-hydration trees and writes reports/standins-hydration.json.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspaceRoot"
+      ],
+      "properties": {
+        "workspaceRoot": {
+          "type": "string"
+        },
+        "modelPath": {
+          "type": "string",
+          "default": "content-model/content-model.json"
+        }
+      }
+    }
+  },
+  {
     "name": "analyze_theme_evidence",
     "description": "Scan all page block trees and workspace CSS into a style-evidence report (recurring colors/fonts/spacing with occurrence counts, custom properties, support usage, lift buckets per CSS rule). Facts only — the agent decides what lifts into theme.json.",
     "inputSchema": {

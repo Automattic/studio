@@ -17,8 +17,10 @@ import {
 import {
     DEFAULT_VIEWPORTS, loadCaptureDeps, serveDirectory, capture, captureEditor,
     editorComparisonCss, motionFreezeCss, transientOverlayCaptureCss, comparePngs,
+    launchBrowser,
 } from './lib/capture.mjs';
 import { serializeBlockTreeWithWordPress, stripBlockComments, ensureBlocksRegistered } from './lib/wp-serialize.mjs';
+import { DEFAULT_PREVIEW_CONTEXT, EDITOR_SHIM_BLOCKS } from './lib/dynamic-render.mjs';
 import { fixBlockMarkup } from './lib/fix-markup.mjs';
 import { analyzeThemeEvidence } from './theme/evidence.mjs';
 import { inferTemplateParts } from './theme/parts.mjs';
@@ -27,6 +29,8 @@ import { scaffoldBlockTheme } from './theme/scaffold.mjs';
 import { validateBlockTheme } from './theme/validate.mjs';
 import { playgroundRender } from './theme/playground.mjs';
 import { validateContentModel, scaffoldContentModelPlugin } from './content/model.mjs';
+import { auditStandins, checkStandins, hydrateStandins } from './content/standins.mjs';
+import * as profile from './lib/profile.mjs';
 
 const TOOLS = [
   {
@@ -276,6 +280,33 @@ const TOOLS = [
     },
   },
   {
+    name: 'audit_standins',
+    description: 'List every stand-in mark (attrs.metadata.standin) across the page block trees: query loops, comments, and per-field marks. Validates them against content-model/content-model.json when present. Writes reports/standins.json so the run can see which regions are still static placeholders awaiting hydration.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['workspaceRoot'],
+      properties: {
+        workspaceRoot: { type: 'string' },
+        modelPath: { type: 'string', default: 'content-model/content-model.json' },
+        reportPath: { type: 'string', default: 'reports/standins.json' },
+      },
+    },
+  },
+  {
+    name: 'hydrate_standins',
+    description: 'Swap marked stand-ins into real dynamic core blocks: query stand-ins become core/query + core/post-template (with field marks turned into core/post-title/featured-image/terms/excerpt/date), comments stand-ins become core/comments. Preserves className/style so lifted theme CSS still applies. Run AFTER the html-to-blocks visual gate passes and the content-model plugin exists; the result feeds blocks-to-theme. Backs up the pre-hydration trees and writes reports/standins-hydration.json.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['workspaceRoot'],
+      properties: {
+        workspaceRoot: { type: 'string' },
+        modelPath: { type: 'string', default: 'content-model/content-model.json' },
+      },
+    },
+  },
+  {
     name: 'analyze_theme_evidence',
     description: 'Scan all page block trees and workspace CSS into a style-evidence report (recurring colors/fonts/spacing with occurrence counts, custom properties, support usage, lift buckets per CSS rule). Facts only — the agent decides what lifts into theme.json.',
     inputSchema: { type: 'object', additionalProperties: false, required: ['workspaceRoot'], properties: { workspaceRoot: { type: 'string' } } },
@@ -343,6 +374,8 @@ const handlers = {
   measure_layout: measureLayout,
   validate_content_model: (args) => validateContentModel(args),
   scaffold_content_model_plugin: (args) => scaffoldContentModelPlugin(args),
+  audit_standins: (args) => auditStandinsHandler(args),
+  hydrate_standins: (args) => hydrateStandinsHandler(args),
   analyze_theme_evidence: (args) => analyzeThemeEvidence(args),
   infer_template_parts: (args) => inferTemplateParts(args),
   fetch_theme_fonts: (args) => {
@@ -432,7 +465,23 @@ async function handleMessage(message) {
     if (message.method === 'tools/call') {
       const { name, arguments: args = {} } = message.params || {};
       if (!handlers[name]) throw new Error(`Unknown tool: ${name}`);
-      const result = await handlers[name](args);
+      // Per-tool wall-clock profiling. mark/measure spans the await so async
+      // handlers are timed correctly; meta carries arg/result JSON sizes. All
+      // profiler output goes to files/stderr only — never the stdout protocol
+      // stream below. flush() persists incrementally for a long-lived server.
+      profile.setRunMeta({ tool: name });
+      const _argBytes = profile.isOn() ? Buffer.byteLength(JSON.stringify(args ?? null), 'utf8') : 0;
+      const _toolMark = profile.mark('tool.' + name);
+      let result;
+      try {
+        result = await handlers[name](args);
+      } finally {
+        if (_toolMark) {
+          const _resultBytes = Buffer.byteLength(JSON.stringify(result ?? null), 'utf8');
+          profile.measure(_toolMark, { argBytes: _argBytes, resultBytes: _resultBytes });
+          profile.flush();
+        }
+      }
       return send({
         jsonrpc: '2.0',
         id: message.id,
@@ -719,14 +768,22 @@ async function serializeWordPressBlocks(args) {
   const editorPath = path.join(workspaceRoot, args.editorPath || 'editor/block-editor.html');
   const treeExists = fs.existsSync(treePath);
   const tree = treeExists ? readJson(treePath) : null;
+  const previewContext = readPreviewContext(workspaceRoot);
+  // content.html is the canonical (un-shimmed) WordPress block markup. The
+  // rendered/ preview is serialized with dynamic-block shims so navigation,
+  // search, site-title, pagination etc. actually show their frontend HTML —
+  // letting the visual gate pass on REAL core blocks instead of custom stand-ins.
   const blockMarkup = treeExists
     ? serializeBlockTreeWithWordPress(tree, { workspaceRoot })
     : fs.readFileSync(contentPath, 'utf8');
+  const renderedMarkup = treeExists
+    ? serializeBlockTreeWithWordPress(tree, { workspaceRoot }, { shimDynamic: true, previewContext })
+    : blockMarkup;
   const cssSources = workspaceCssSources(workspaceRoot, args);
   const styleAudit = auditStyleUsage(tree, cssSources);
 
   if (treeExists) writeFile(contentPath, `${blockMarkup.trim()}\n`);
-  writeFile(outPath, renderedPreviewHtml('Rendered WordPress Blocks', path.dirname(outPath), cssSources, stripBlockComments(blockMarkup)));
+  writeFile(outPath, renderedPreviewHtml('Rendered WordPress Blocks', path.dirname(outPath), cssSources, stripBlockComments(renderedMarkup)));
   if (treeExists) writeFile(editorPath, editorPreviewHtml({ workspaceRoot, editorPath, treePath, cssSources }));
   writeJson(path.join(workspaceRoot, 'reports/style-audit.json'), styleAudit);
   return {
@@ -738,6 +795,71 @@ async function serializeWordPressBlocks(args) {
     styleAuditPath: path.join(workspaceRoot, 'reports/style-audit.json'),
     styleAudit,
     next: 'Call compare_html, inspect rendered and editor screenshots/diffs, then write repair tasks against wordpress/block-tree.json, custom block edit/save code, or CSS.',
+  };
+}
+
+// Page block-tree files, mirroring loadPageTrees: wordpress/pages/*.block-tree.json
+// when present, else the single wordpress/block-tree.json.
+function pageTreeFiles(workspaceRoot) {
+  const pagesDir = path.join(workspaceRoot, 'wordpress/pages');
+  if (fs.existsSync(pagesDir)) {
+    return fs.readdirSync(pagesDir)
+      .filter((f) => f.endsWith('.block-tree.json'))
+      .sort()
+      .map((f) => ({ page: f.replace(/\.block-tree\.json$/, ''), file: path.join(pagesDir, f) }));
+  }
+  const single = path.join(workspaceRoot, 'wordpress/block-tree.json');
+  return fs.existsSync(single) ? [{ page: 'index', file: single }] : [];
+}
+
+function auditStandinsHandler(args) {
+  const workspaceRoot = resolvePath(args.workspaceRoot);
+  const pages = pageTreeFiles(workspaceRoot).map(({ page, file }) => ({ page, tree: readJson(file) }));
+  const standins = auditStandins(pages);
+  const model = readJsonIfExists(path.join(workspaceRoot, args.modelPath || 'content-model/content-model.json'));
+  const errors = model ? checkStandins(standins, model) : [];
+  const reportPath = path.join(workspaceRoot, args.reportPath || 'reports/standins.json');
+  const byKind = standins.reduce((acc, s) => { acc[s.kind] = (acc[s.kind] || 0) + 1; return acc; }, {});
+  const report = { count: standins.length, byKind, modelChecked: Boolean(model), errors, standins };
+  writeJson(reportPath, report);
+  return {
+    reportPath,
+    count: standins.length,
+    byKind,
+    errors,
+    next: errors.length
+      ? 'Fix the stand-in marks or the content model, then re-run audit_standins.'
+      : 'After the html-to-blocks visual gate passes and the content-model plugin exists, run hydrate_standins.',
+  };
+}
+
+function hydrateStandinsHandler(args) {
+  const workspaceRoot = resolvePath(args.workspaceRoot);
+  const files = pageTreeFiles(workspaceRoot);
+  const pages = files.map(({ page, file }) => ({ page, file, tree: readJson(file) }));
+  const standins = auditStandins(pages.map(({ page, tree }) => ({ page, tree })));
+  const model = readJsonIfExists(path.join(workspaceRoot, args.modelPath || 'content-model/content-model.json'));
+  if (model) {
+    const errors = checkStandins(standins, model);
+    if (errors.length) throw new Error(`Cannot hydrate: ${errors.join(' ')}`);
+  }
+  const { trees, swaps } = hydrateStandins(pages.map(({ page, tree }) => ({ page, tree })));
+  const backupDir = path.join(workspaceRoot, 'wordpress/standin-backup');
+  const fileByPage = new Map(pages.map(({ page, file }) => [page, file]));
+  for (const { page, tree } of trees) {
+    const original = readJson(fileByPage.get(page));
+    writeJson(path.join(backupDir, `${page}.json`), original);
+    writeJson(fileByPage.get(page), tree);
+  }
+  const reportPath = path.join(workspaceRoot, 'reports/standins-hydration.json');
+  writeJson(reportPath, { swaps, backupDir, pages: trees.map((t) => t.page) });
+  return {
+    reportPath,
+    backupDir,
+    swaps,
+    next: swaps.length
+      ? 'Stand-ins swapped to dynamic core blocks. Run blocks-to-theme; the playground gate renders them against the seeded content.'
+      : 'No stand-in marks found; page trees unchanged.',
   };
 }
 
@@ -790,6 +912,45 @@ function cssSource(workspaceRoot, filePath) {
   };
 }
 
+// Preview values for entity-backed dynamic blocks (site title/logo, post date,
+// post terms). Lets site-title etc. render with real-looking text on both
+// surfaces. Optional: wordpress/preview-context.json overrides the defaults.
+function readPreviewContext(workspaceRoot) {
+  const fromFile = readJsonIfExists(path.join(workspaceRoot, 'wordpress/preview-context.json')) || {};
+  return { ...DEFAULT_PREVIEW_CONTEXT, ...fromFile };
+}
+
+// The dynamic-render module is pure (no imports); strip its `export` keywords
+// and inline it so the editor canvas can render the entity-backed blocks
+// identically to the static preview. navigation/search/pagination/etc. keep
+// their native edit(); only EDITOR_SHIM_BLOCKS are overridden.
+function dynamicRenderBrowserScript(previewContext) {
+  const source = readIfExists(path.join(PLUGIN_ROOT, 'tools/lib/dynamic-render.mjs'))
+    .replace(/^export\s+/gm, '');
+  return `<script>
+      (function () {
+        ${source}
+        window.__wbdcPreviewContext = ${JSON.stringify(previewContext)};
+        window.__wbdcApplyEditorShims = function () {
+          if (!window.wp || !wp.blocks) return;
+          EDITOR_SHIM_BLOCKS.forEach(function (name) {
+            var type = wp.blocks.getBlockType(name);
+            if (!type) return;
+            wp.blocks.unregisterBlockType(name);
+            wp.blocks.registerBlockType(name, Object.assign({}, type, {
+              edit: function (props) {
+                var html = renderDynamicBlock(name, props.attributes, [], window.__wbdcPreviewContext);
+                var blockProps = wp.blockEditor.useBlockProps();
+                return wp.element.createElement('div', blockProps,
+                  html == null ? null : wp.element.createElement(wp.element.RawHTML, null, html));
+              }
+            }));
+          });
+        };
+      })();
+    </script>`;
+}
+
 function editorPreviewHtml({ workspaceRoot, editorPath, treePath, cssSources }) {
   const editorDir = path.dirname(editorPath);
   const tree = readJson(treePath);
@@ -805,6 +966,7 @@ function editorPreviewHtml({ workspaceRoot, editorPath, treePath, cssSources }) 
   const scriptTags = wordpressBrowserScripts()
     .map((src) => `<script src="${src}"></script>`)
     .join('\n    ');
+  const dynamicShimScript = dynamicRenderBrowserScript(readPreviewContext(workspaceRoot));
 
   return `<!doctype html>
 <html lang="en">
@@ -926,6 +1088,7 @@ function editorPreviewHtml({ workspaceRoot, editorPath, treePath, cssSources }) 
       <pre class="wbdc-editor-error">Loading WordPress block editor...</pre>
     </div>
     ${scriptTags}
+    ${dynamicShimScript}
     <script>
       window.wpEditorL10n = window.wpEditorL10n || {};
       window.__unstableAutoRegisterBlocks = false;
@@ -1053,6 +1216,7 @@ function editorPreviewHtml({ workspaceRoot, editorPath, treePath, cssSources }) 
           if (wp.blockLibrary && wp.blockLibrary.registerCoreBlocks) {
             wp.blockLibrary.registerCoreBlocks();
           }
+          if (window.__wbdcApplyEditorShims) window.__wbdcApplyEditorShims();
           await registerCustomBlocks();
           const tree = ${JSON.stringify(tree)};
           window.__wbdcInitialBlocks = (Array.isArray(tree) ? tree : tree.blocks || []).map(toWpBlock);
@@ -1219,7 +1383,7 @@ async function compareHtml(args) {
     workspaceRoot,
     args.tasksPath || (pageSlug === 'index' ? 'reports/repair-tasks.md' : `reports/${pageSlug}.repair-tasks.md`),
   );
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser(chromium, { headless: true }, { tool: 'compare_html' });
   const results = [];
   const server = shouldCompareEditor ? await serveDirectory(workspaceRoot) : null;
 
@@ -1320,7 +1484,7 @@ async function measureLayout(args) {
     if (!fs.existsSync(file)) throw new Error(`measure_layout target does not exist: ${file}`);
   }
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser(chromium, { headless: true }, { tool: 'measure_layout' });
   const server = candidateKind === 'editor' ? await serveDirectory(workspaceRoot) : null;
   const measurements = [];
 
@@ -1426,7 +1590,7 @@ async function screenshotHtml(args) {
   const viewports = Array.isArray(args.viewports) && args.viewports.length ? args.viewports : DEFAULT_VIEWPORTS;
   const targets = normalizeScreenshotTargets(workspaceRoot, args.targets);
   const needsServer = targets.some((target) => target.kind === 'editor');
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser(chromium, { headless: true }, { tool: 'screenshot_html' });
   const server = needsServer ? await serveDirectory(workspaceRoot) : null;
   const screenshots = [];
 

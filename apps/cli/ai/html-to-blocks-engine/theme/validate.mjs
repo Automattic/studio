@@ -107,15 +107,7 @@ export function validateBlockTheme(args) {
     for (const [label, text] of themeTexts) {
         // www.w3.org appears as the xmlns of inline data-URI SVGs — a namespace
         // identifier, never fetched
-        const allowedHosts = new Set(['schemas.wp.org', 'gnu.org', 'www.w3.org']);
-        const remotes = (text.match(/https?:\/\/[^"')\s]+/g) || []).filter((u) => {
-            try {
-                const host = new URL(u).hostname.toLowerCase();
-                return !allowedHosts.has(host);
-            } catch {
-                return true;
-            }
-        });
+        const remotes = (text.match(/https?:\/\/[^"')\s]+/g) || []).filter((u) => !u.includes('schemas.wp.org') && !u.includes('gnu.org') && !u.includes('www.w3.org'));
         for (const u of remotes) errors.push(`${label}: remote url ${u}`);
     }
 
@@ -129,8 +121,9 @@ export function validateBlockTheme(args) {
             const payload = readIfExists(payloadPath);
             if (payload) {
                 must(!/href="[^"]*\.html/.test(payload), `content/${page.slug}.html: internal .html link survived permalink rewrite`);
-                const remotes = (payload.match(/https?:\/\/[^"')\s]+/g) || []);
-                for (const u of remotes) errors.push(`content/${page.slug}.html: raw absolute url ${u} (use {{THEME_URI}})`);
+                for (const u of remotePayloadAssetUrls(payload)) {
+                    errors.push(`content/${page.slug}.html: remote asset url ${u} (use {{THEME_URI}})`);
+                }
             }
         }
         const pluginPhp = readIfExists(path.join(workspaceRoot, 'theme-plugin', `${args.slug}-content`, `${args.slug}-content.php`)) || '';
@@ -144,4 +137,21 @@ export function validateBlockTheme(args) {
 
 function walkParsed(blocks, fn) {
     for (const b of blocks || []) { fn(b); walkParsed(b.innerBlocks, fn); }
+}
+
+function remotePayloadAssetUrls(markup) {
+    const urls = [];
+    for (const match of markup.matchAll(/\b(?:src|poster)\s*=\s*["'](https?:\/\/[^"']+)/gi)) {
+        urls.push(match[1]);
+    }
+    for (const match of markup.matchAll(/\bsrcset\s*=\s*["']([^"']+)/gi)) {
+        for (const candidate of match[1].split(',')) {
+            const url = candidate.trim().split(/\s+/)[0];
+            if (/^https?:\/\//i.test(url)) urls.push(url);
+        }
+    }
+    for (const match of markup.matchAll(/url\(\s*["']?(https?:\/\/[^"')\s]+)/gi)) {
+        urls.push(match[1]);
+    }
+    return urls;
 }

@@ -4,6 +4,8 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import { PLUGIN_ROOT, findFiles, readJson, slug, titleCase } from './workspace.mjs';
+import { DYNAMIC_SHIM_BLOCKS, renderDynamicBlock } from './dynamic-render.mjs';
+import * as profile from './profile.mjs';
 
 const require = createRequire(import.meta.url);
 const customInnerBlocksStack = [];
@@ -18,15 +20,56 @@ export function stripBlockComments(markup) {
         .replace(/>\s+</g, '><');
 }
 
-export function serializeBlockTreeWithWordPress(tree, context) {
+export function serializeBlockTreeWithWordPress(tree, context, options = {}) {
     const { createBlock, serialize } = loadWordPressBlocks();
-    registerWordPressCoreBlocks();
-    registerWorkspaceCustomBlocks(context.workspaceRoot);
+    // Time the actual call regardless of the coreBlocksRegistered guard: only the
+    // first call does real work (registerCoreBlocks + jsdom, ~1.7s cold), so the
+    // span captures that one-time cold cost; later calls are recorded as ~0.
+    profile.span('serialize.registerCore', () => registerWordPressCoreBlocks());
+    profile.span('serialize.registerCustom', () => registerWorkspaceCustomBlocks(context.workspaceRoot));
     const blocks = Array.isArray(tree) ? tree : tree.blocks;
     if (!Array.isArray(blocks)) {
         throw new Error('Block tree must be an array or an object with a blocks array.');
     }
-    return serialize(blocks.map((block) => toWordPressBlock(block, createBlock)));
+    const wpBlocks = blocks.map((block) => toWordPressBlock(block, createBlock));
+    if (!options.shimDynamic) {
+        return profile.span('serialize.serialize.clean', () => serialize(wpBlocks));
+    }
+    // Render allowlisted dynamic core blocks (navigation, search, site-title,
+    // pagination, …) to their frontend HTML so the static preview shows them.
+    // Scoped to this call and restored after: the canonical serialization
+    // (content.html, blocks-to-theme) stays clean, and WordPress re-renders
+    // these server-side regardless of any saved inner markup.
+    return profile.span('serialize.serialize.shimmed', () =>
+        withDynamicShims(options.previewContext || {}, () => serialize(wpBlocks)),
+    );
+}
+
+function withDynamicShims(previewContext, fn) {
+    const { getBlockType, unregisterBlockType, registerBlockType } = loadWordPressBlocks();
+    const { createElement, RawHTML } = loadWordPressElement();
+    const saved = [];
+    for (const name of DYNAMIC_SHIM_BLOCKS) {
+        const type = getBlockType(name);
+        if (!type) continue;
+        saved.push({ name, type });
+        unregisterBlockType(name);
+        registerBlockType(name, {
+            ...type,
+            save: (props) => {
+                const html = renderDynamicBlock(name, props.attributes, props.innerBlocks, previewContext);
+                return html == null ? null : createElement(RawHTML, null, html);
+            },
+        });
+    }
+    try {
+        return fn();
+    } finally {
+        for (const { name, type } of saved.reverse()) {
+            if (getBlockType(name)) unregisterBlockType(name);
+            registerBlockType(name, type);
+        }
+    }
 }
 
 function toWordPressBlock(block, createBlock) {

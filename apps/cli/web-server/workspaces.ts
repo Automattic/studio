@@ -47,10 +47,8 @@ function gitOut( cwd: string, args: string[] ): string {
 	} ).trim();
 }
 
-// Session ids come from HTTP requests. They're UUIDs, but validate before
-// using one in a filesystem path — and derive the slug from an allowlisted
-// slice — so a crafted id (e.g. containing `../`) can't escape
-// STUDIO_SITES_ROOT (CodeQL js/path-injection).
+// Session ids come from HTTP requests. They're UUIDs, but validate before using
+// one in a filesystem path — derive the slug from an allowlisted slice only.
 function safeSessionToken( sessionId: string ): string {
 	if ( ! /^[a-zA-Z0-9-]+$/.test( sessionId ) ) {
 		throw new Error( `Invalid session id: ${ sessionId }` );
@@ -63,11 +61,16 @@ function safeSessionToken( sessionId: string ): string {
 export function workspaceFor( sessionId: string ): Workspace {
 	const token = safeSessionToken( sessionId );
 	const slug = `${ WORKSPACE_PREFIX }-${ token }`;
-	return {
-		name: `Studio Web (${ token })`,
-		slug,
-		path: path.join( STUDIO_SITES_ROOT, slug ),
-	};
+	const workspacePath = path.join( STUDIO_SITES_ROOT, slug );
+	// Containment check: even with the token allowlist above, confirm the
+	// resolved path stays inside STUDIO_SITES_ROOT before anything touches the
+	// filesystem with it — a crafted session id must not escape the sites root
+	// (defends against CodeQL js/path-injection).
+	const relative = path.relative( STUDIO_SITES_ROOT, workspacePath );
+	if ( relative.startsWith( '..' ) || path.isAbsolute( relative ) ) {
+		throw new Error( `Workspace path escapes the sites root: ${ sessionId }` );
+	}
+	return { name: `Studio Web (${ token })`, slug, path: workspacePath };
 }
 
 /**

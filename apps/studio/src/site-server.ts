@@ -12,7 +12,6 @@ import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
-import { recordSiteRuntimeUsage } from 'src/lib/site-runtime-stats';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
@@ -234,11 +233,6 @@ export class SiteServer {
 
 		console.log( `Starting server for '${ this.details.name }'` );
 		await this.server.start();
-
-		// Fire-and-forget: telemetry must never block or fail a site start.
-		recordSiteRuntimeUsage( this.details ).catch( ( error ) => {
-			console.error( 'Failed to record site runtime usage stat:', error );
-		} );
 	}
 
 	updateSiteDetails( site: SiteDetails ) {

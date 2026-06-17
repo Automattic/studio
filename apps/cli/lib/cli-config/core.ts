@@ -45,6 +45,10 @@ const cliConfigSchema = z.object( {
 	lastBumpStats: z
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 		.optional(),
+	// Per-site daily dedup markers for the runtime adoption stat (RSM-3958).
+	siteRuntimeStats: z
+		.record( z.string(), z.object( { bumpedAt: z.number(), stat: z.string() } ) )
+		.optional(),
 	lastDependencyCheckTime: z.number().optional(),
 	updateCheck: updateCheckSchema.optional(),
 	// Unix ms timestamp of when the one-time ToS/Privacy notice was displayed.

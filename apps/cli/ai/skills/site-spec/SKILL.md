@@ -29,6 +29,8 @@ Call `site_create` with the provided name and use the layout preference to guide
 
 State the plan as a short **Site Spec** summary before building, alongside the design direction. The summary MUST include a **Functionality & plugins** line: review the requested features, load the `plugin-recommendations` skill, and list the specific plugins the site needs — e.g. WooCommerce for selling products, Jetpack Forms for a contact form — or "None — core blocks only" when nothing beyond static content is required. Install the listed plugins while building (Workflow Step 4); do not silently hand-build static markup for a feature a plugin should provide.
 
+If the user wants to sell anything — "I want to sell X", a shop, store, storefront, or ecommerce site, or a design with products, prices, a catalog, or a "Shop" page — the **Functionality & plugins** line MUST include WooCommerce with sample products, never "None — core blocks only". Scope or style qualifiers ("small", "simple", "just a couple of pages", "for inspiration", "clean modern store") describe the site's size or look, not whether it sells: a small shop is still a shop. Classifying such a request as informational and building only static pages is wrong.
+
 ## After site_create returns
 
 The turn immediately after `site_create` is the biggest source of perceived hangs. Acknowledge the site in ≤2 lines of prose, then make your next tool call a small one — `site_info`, or a single ≤50-line first `Write`. Do NOT scaffold the theme, chain multiple Writes, or write a long design-plan essay in this turn. Grow the build across many small turns (see the "Working cadence" section of the system prompt).

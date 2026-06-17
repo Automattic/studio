@@ -175,7 +175,7 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 Not every WordPress.com site can sync. A site is syncable when it is a WordPress.com site with hosting features enabled, or a Pressable-hosted site with a valid Jetpack connection. If a user asks to sync a site that isn't eligible, suggest they check their WordPress.com plan or site configuration.
 
 ### Connection
-A local site can be connected to one or more remote WordPress.com sites. Connections are stored in \`~/.studio/shared.json\`. When the agent completes a push or pull, the connection is recorded automatically — the user does not need a separate "connect" step. Use \`site_connected_remote_sites\` to see existing connections before pushing or pulling.
+A local site must be connected to a remote WordPress.com site before it can be pushed or pulled. Use \`site_connected_remote_sites\` to check which remote sites are connected to a local site.
 
 ### Push workflow
 When the user asks to push a site to WordPress.com, you MUST resolve the target remote site before calling \`site_push\`:

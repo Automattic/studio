@@ -169,16 +169,31 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
 - All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).
 
-## Push workflow
+## Pull & Push (sync with WordPress.com or Pressable)
 
+### Eligibility
+Not every WordPress.com site can sync. A site is syncable when it is a WordPress.com site with hosting features enabled, or a Pressable-hosted site with a valid Jetpack connection. If a user asks to sync a site that isn't eligible, suggest they check their WordPress.com plan or site configuration.
+
+### Connection
+A local site can be connected to one or more remote WordPress.com sites. Connections are stored in \`~/.studio/shared.json\`. When the agent completes a push or pull, the connection is recorded automatically — the user does not need a separate "connect" step. Use \`site_connected_remote_sites\` to see existing connections before pushing or pulling.
+
+### Push workflow
 When the user asks to push a site to WordPress.com, you MUST resolve the target remote site before calling \`site_push\`:
-
 1. Call \`site_connected_remote_sites\` with the local site's name or path to get the list of already-attached WordPress.com sites.
 2. Branch on how many remote sites are attached:
    - **Exactly one attached site**: Use \`AskUserQuestion\` to confirm pushing to that site. Present two options labeled "Yes" and "No" with a description that includes the remote site's name and URL. Only call \`site_push\` if the user confirms.
    - **Multiple attached sites**: Use \`AskUserQuestion\` with one question whose options are the attached sites (label = site name, description = URL). Then call \`site_push\` with the chosen site's ID or URL as \`remoteSite\`.
    - **No attached sites**: Do NOT use \`AskUserQuestion\`. Ask an open-ended question in plain text for the URL or ID of the WordPress.com site to push to, then wait for the user's reply before calling \`site_push\`.
-3. Never call \`site_push\` without explicit user confirmation of the target — even when only one site is attached.`;
+3. Never call \`site_push\` without explicit user confirmation of the target — even when only one site is attached.
+
+### Pull workflow
+When the user asks to pull a remote site, ensure a local site exists first (create one with \`site_create\` if needed). Then call \`site_pull\` with the local site and the remote site URL or ID. The local site will be stopped during the pull and restarted afterward.
+
+### Troubleshooting
+- **"A sync operation is already in progress"** — Another push or pull is running on the same remote site. Wait for it to finish.
+- **Archive exceeds 5 GB** — The site is too large to push. Suggest syncing specific options (e.g. \`sqls,themes\`) instead of \`all\`, or removing large unused files from wp-content before pushing.
+- **Import failed / timed out** — The remote site rejected or stalled on the import. May be caused by large database tables, server-side limits, or transient errors. Suggest retrying, or syncing a subset of content.
+- **"missing-permissions"** — The authenticated user lacks \`manage_options\` on the remote site. They need an admin role on that site.`;
 }
 
 const REMOTE_SESSION_GUIDANCE = `## Telegram remote session

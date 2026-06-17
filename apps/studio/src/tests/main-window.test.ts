@@ -149,10 +149,9 @@ describe( 'renderer selection', () => {
 
 	it( 'loads the legacy renderer by default', async () => {
 		const createdWindow = await createMainWindow();
+		const rendererPath = vi.mocked( createdWindow.loadFile ).mock.calls[ 0 ][ 0 ];
 
-		expect( createdWindow.loadFile ).toHaveBeenCalledWith(
-			expect.stringMatching( /renderer[\\/]index\.html$/ )
-		);
+		expect( rendererPath.replace( /\\/g, '/' ) ).toContain( 'renderer/index.html' );
 		expect( createdWindow.loadURL ).not.toHaveBeenCalled();
 	} );
 

@@ -61,8 +61,16 @@ function replaceUntilStable(input, pattern, replacement) {
 }
 
 export function cleanText(value) {
-    const withoutScripts = replaceUntilStable(String(value || ''), /<script[\s\S]*?<\/script>/gi, '');
-    const withoutStyles = replaceUntilStable(withoutScripts, /<style[\s\S]*?<\/style>/gi, '');
+    const withoutScripts = replaceUntilStable(
+        String(value || ''),
+        /<script\b[^>]*>[\s\S]*?<\/script\s*[^>]*>/gi,
+        ''
+    );
+    const withoutStyles = replaceUntilStable(
+        withoutScripts,
+        /<style\b[^>]*>[\s\S]*?<\/style\s*[^>]*>/gi,
+        ''
+    );
     return withoutStyles
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')

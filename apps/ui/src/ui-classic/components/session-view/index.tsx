@@ -10,6 +10,7 @@ import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
+import { useSiteFiles } from '@/data/queries/use-site-files';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSessionCommands } from '@/hooks/use-session-commands';
@@ -173,7 +174,12 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const scrollRef = useRef< HTMLDivElement >( null );
 	useSessionCommands( sessionId );
 	const preview = useSessionPreviewUI();
-	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
+	// Studio Web: the session's workspace renders as a client-side Playground
+	// preview, so the toggle is available whenever the agent has built files —
+	// even though the workspace isn't a registered Studio site. Empty on desktop.
+	const { data: siteFiles } = useSiteFiles( sessionId );
+	const hasLivePreview = ( siteFiles?.length ?? 0 ) > 0;
+	const canTogglePreview = hasLivePreview || ( !! ownerSite && effectiveEnvironment === 'local' );
 	const showPreview = preview.open && canTogglePreview;
 
 	const handleAnnotationsDone = useCallback(

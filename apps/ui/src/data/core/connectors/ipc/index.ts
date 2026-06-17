@@ -592,6 +592,16 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
+		// Client-side Playground preview is a Studio Web (browser) feature; the
+		// desktop app renders its own server-backed SitePreview, so there are no
+		// workspace files to overlay and nothing to signal.
+		async getSiteFiles() {
+			return [];
+		},
+		onPreviewChanged() {
+			return () => {};
+		},
+
 		// User preferences — the underlying main-process handlers are split
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.

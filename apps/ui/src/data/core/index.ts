@@ -19,6 +19,7 @@ export type {
 	SelectedSiteFolder,
 	SessionEntry,
 	SiteDetails,
+	SitePreviewFile,
 	Snapshot,
 	StudioAgentQuestionData,
 	StudioChatFileAttachment,

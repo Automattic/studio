@@ -1,9 +1,11 @@
 import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { LivePlaygroundPreview, livePreviewSignature } from '@/components/live-playground-preview';
 import { PreviewSplitFrame } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
+import { useSiteFiles } from '@/data/queries/use-site-files';
 import { useSites } from '@/data/queries/use-sites';
 import {
 	SessionUIProvider,
@@ -66,14 +68,27 @@ function DashboardLayoutContent() {
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;
 	const previewSite = routeSite ?? lastPreviewSite;
-	const showPreview = preview.open && supportsPreview && !! previewSite;
+
+	// Studio Web: the agent builds into a per-session workspace that isn't a
+	// registered Studio site, so there's no `previewSite` to drive a SitePreview.
+	// Instead the workspace's files render in a client-side WordPress Playground
+	// (Carril A). Empty on desktop, where SitePreview handles the running site.
+	const { data: siteFiles } = useSiteFiles( sessionId );
+	const hasLivePreview = ( siteFiles?.length ?? 0 ) > 0;
+	// Re-key on a content signature so each agent turn re-boots Playground with
+	// the new files (it caches its SQLite connection across in-place overlays).
+	const livePreviewKey = useMemo( () => livePreviewSignature( siteFiles ?? [] ), [ siteFiles ] );
+
+	const showPreview = preview.open && ( hasLivePreview || ( supportsPreview && !! previewSite ) );
 
 	return (
 		<SidebarLayout>
 			<PreviewSplitFrame
 				previewOpen={ showPreview }
 				preview={
-					previewSite ? (
+					hasLivePreview ? (
+						<LivePlaygroundPreview key={ livePreviewKey } files={ siteFiles ?? [] } />
+					) : previewSite ? (
 						<SitePreview
 							site={ previewSite }
 							path={ preview.path }

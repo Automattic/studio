@@ -85,6 +85,14 @@ export interface LocalMediaFile {
 	data: ArrayBuffer;
 }
 
+// A single file from the agent's workspace, addressed by its path relative to
+// the WordPress root and its base64 content. Fed to a client-side Playground to
+// render a live preview of what the agent built (Studio Web "Carril A").
+export interface SitePreviewFile {
+	path: string;
+	contentBase64: string;
+}
+
 export interface AuthUser {
 	id: number;
 	email: string;
@@ -254,6 +262,15 @@ export interface Connector {
 	onSessionPlacementUpdated(
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
 	): () => void;
+
+	// Studio Web live preview ("Carril A"): the files of what the agent built
+	// for this session, overlaid onto a client-side WordPress Playground in the
+	// browser. `onPreviewChanged` fires when those files may have changed (after
+	// an agent turn) so the preview can re-fetch. Connectors without a browser-
+	// previewable workspace (desktop IPC, which renders its own SitePreview)
+	// return an empty list and never fire.
+	getSiteFiles( sessionId: string ): Promise< SitePreviewFile[] >;
+	onPreviewChanged( listener: ( sessionId: string ) => void ): () => void;
 
 	// Flip the session between acting on its owner site's local runtime vs.
 	// its linked WordPress.com live site. The owner site itself never changes.

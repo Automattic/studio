@@ -12,6 +12,7 @@ import type {
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
+	SitePreviewFile,
 	Snapshot,
 	SyncSite,
 	UserPreferences,
@@ -40,7 +41,8 @@ export class WebUnsupportedError extends Error {
 // can carry both agent-run events and session-placement updates.
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
-	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent };
+	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
+	| { channel: 'preview'; payload: { sessionId: string } };
 
 /**
  * The Studio Web data source: the web analog of the Electron IPC connector.
@@ -66,6 +68,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
+	const previewListeners = new Set< ( sessionId: string ) => void >();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip to the WordPress.com API.
@@ -116,6 +119,8 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 					agentListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'placement' ) {
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'preview' ) {
+					previewListeners.forEach( ( listener ) => listener( parsed.payload.sessionId ) );
 				}
 			};
 		},
@@ -310,6 +315,19 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		onSessionPlacementUpdated( listener ) {
 			placementListeners.add( listener );
 			return () => placementListeners.delete( listener );
+		},
+
+		// Studio Web live preview: the session workspace's files, read by the
+		// backend from the agent's git-backed workspace. The browser overlays them
+		// onto a client-side Playground.
+		async getSiteFiles( sessionId ): Promise< SitePreviewFile[] > {
+			return api< SitePreviewFile[] >(
+				`/sessions/${ encodeURIComponent( sessionId ) }/site-files`
+			);
+		},
+		onPreviewChanged( listener ) {
+			previewListeners.add( listener );
+			return () => previewListeners.delete( listener );
 		},
 
 		// User preferences — sensible browser defaults.

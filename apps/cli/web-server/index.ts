@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { isAiModelId } from '@studio/common/ai/models';
 import {
 	appendModelChangeEntry,
+	appendStudioEntry,
 	createAiSession,
 	deleteAiSession,
 	listAiSessions,
@@ -25,6 +26,7 @@ import {
 	setBroadcast,
 	startAgentRun,
 } from './agent-runs';
+import { ensureWorkspace, getWorkspaceFiles } from './workspaces';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
@@ -123,15 +125,24 @@ api.get( '/events', ( req: Request, res: Response ) => {
 	} );
 } );
 
-// Broadcast every agent event to all connected SSE clients, in the same
-// envelope the web connector expects (channel + payload).
-setBroadcast( ( event: AgentRunEvent ) => {
+function broadcastSse( envelope: unknown ): void {
 	if ( sseClients.size === 0 ) {
 		return;
 	}
-	const data = JSON.stringify( { channel: 'agent', payload: event } );
+	const data = JSON.stringify( envelope );
 	for ( const client of sseClients ) {
 		client.write( `data: ${ data }\n\n` );
+	}
+}
+
+// Broadcast every agent event to all connected SSE clients, in the same
+// envelope the web connector expects (channel + payload). When a run ends, also
+// emit a `preview` signal so the client-side Playground re-fetches the session's
+// workspace files and re-renders the live preview.
+setBroadcast( ( event: AgentRunEvent ) => {
+	broadcastSse( { channel: 'agent', payload: event } );
+	if ( event.event.type === 'run.exited' ) {
+		broadcastSse( { channel: 'preview', payload: { sessionId: event.sessionId } } );
 	}
 } );
 
@@ -249,9 +260,20 @@ api.get(
 api.post(
 	'/sessions',
 	asyncHandler( async ( _req: Request, res: Response ) => {
-		// `siteId` is accepted but not yet wired: sessions start unbound and the
-		// agent creates/binds a site during the run.
-		res.json( await createAiSession( root ) );
+		// Studio Web runs the agent on a per-session, git-backed workspace — the
+		// cloud analog of Studio App's local site, and where the live preview
+		// reads from. Create the session, provision its workspace, and bind it
+		// via a `studio.site_selected` entry so the forked agent (`code sessions
+		// resume`) resolves the workspace as its active site. (Seeding from an
+		// existing WordPress.com site via `siteId` is a later increment.)
+		const session = await createAiSession( root );
+		const workspace = ensureWorkspace( session.id );
+		await appendStudioEntry( root, session.id, 'studio.site_selected', {
+			siteName: workspace.name,
+			sitePath: workspace.path,
+			remote: false,
+		} );
+		res.json( await loadAiSession( root, session.id ) );
 	} )
 );
 
@@ -301,6 +323,13 @@ api.post(
 		res.sendStatus( 204 );
 	} )
 );
+
+// The session workspace's files (path + base64 content). The browser overlays
+// these onto a client-side WordPress Playground to render a live preview of what
+// the agent built — no server-side site serving needed (Studio Web "Carril A").
+api.get( '/sessions/:id/site-files', ( req: Request, res: Response ) => {
+	res.json( getWorkspaceFiles( req.params.id ) );
+} );
 
 api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
 	const { prompt, displayMessage } = req.body as { prompt?: string; displayMessage?: string };

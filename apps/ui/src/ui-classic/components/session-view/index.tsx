@@ -6,7 +6,6 @@ import { clsx } from 'clsx';
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
-import { SitePreview } from '@/components/site-preview';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
@@ -14,7 +13,11 @@ import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-s
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
+import {
+	SessionUIProvider,
+	useSessionPreviewAnnotations,
+	useSessionPreviewUI,
+} from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
@@ -97,24 +100,23 @@ function SessionHeader( {
 interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
-	preview?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
 
-function SessionFrame( { header, composer, preview, scrollRef, children }: SessionFrameProps ) {
+// Lays out the chat column: header on top, scrollable conversation in the
+// middle, composer pinned at the bottom. The site preview panel lives in the
+// dashboard layout's PreviewSplitFrame, which keeps it mounted across routes.
+function SessionFrame( { header, composer, scrollRef, children }: SessionFrameProps ) {
 	return (
 		<div className={ styles.root }>
-			<div className={ styles.chatColumn }>
-				{ header }
-				<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
-					{ children }
-				</div>
-				<div className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }>
-					{ composer }
-				</div>
+			{ header }
+			<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
+				{ children }
 			</div>
-			{ preview }
+			<div className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }>
+				{ composer }
+			</div>
 		</div>
 	);
 }
@@ -183,6 +185,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ sendMessage ]
 	);
+	// The preview panel itself is hosted by the dashboard layout; route its
+	// annotation submissions to this session while it is on screen.
+	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -258,17 +263,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						}
 					/>
 				</div>
-			}
-			preview={
-				showPreview && ownerSite ? (
-					<SitePreview
-						site={ ownerSite }
-						path={ preview.path }
-						reloadNonce={ preview.reloadNonce }
-						onAnnotationsDone={ handleAnnotationsDone }
-						onPathChange={ preview.updatePath }
-					/>
-				) : null
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }

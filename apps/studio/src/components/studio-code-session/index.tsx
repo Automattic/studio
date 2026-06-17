@@ -28,7 +28,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { Composer, ComposerSkeleton } from './composer';
+import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
 import { Conversation } from './conversation';
 import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
@@ -310,6 +310,12 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		setStickToBottom( true );
 	}, [ scrollToBottom ] );
 
+	const handleNewConversation = useCallback( () => {
+		clearSessionDraft( sessionId );
+		selectPrompt( '' );
+		void newSession();
+	}, [ newSession, sessionId, selectPrompt ] );
+
 	// A fresh session starts pinned to the bottom.
 	useLayoutEffect( () => {
 		setStickToBottom( true );
@@ -361,7 +367,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 			<SessionFrame
 				scrollRef={ scrollRef }
 				onScroll={ handleScroll }
-				header={ <SessionHeader onNewConversation={ () => void newSession() } /> }
+				header={ <SessionHeader onNewConversation={ handleNewConversation } /> }
 				scrollToBottomButton={
 					! stickToBottom && (
 						<div className={ styles.scrollToBottom }>

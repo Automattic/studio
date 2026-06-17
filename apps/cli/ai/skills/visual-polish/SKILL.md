@@ -6,7 +6,7 @@ user-invokable: true
 
 # Visual Polish
 
-Use this skill to verify a built or redesigned site and fix the design issues that make generated sites feel unpolished. The generated block markup, the editor serialization fixes from `validate_and_fix_blocks`, and WordPress's own injected layout classes mean the rendered page often differs from what you intended. This skill closes that gap.
+Use this skill to verify a built or redesigned site and fix the design issues that make generated sites feel unpolished. The generated block markup, the editor serialization fixes from `validate_blocks`, and WordPress's own injected layout classes mean the rendered page often differs from what you intended. This skill closes that gap.
 
 The core method is **diagnose from evidence, not from memory**. Do not guess why something looks wrong from the screenshot alone — the rendered DOM usually differs from the markup you wrote. Read the real DOM with `inspect_design`, find the actual cause, then fix it.
 
@@ -38,7 +38,7 @@ Do not make a single edit until you have diagnosed every section and listed ever
 
 ### Phase 2 — Fix the whole batch
 
-Work through the plan with targeted `Edit` calls (one `Write`/`Edit` per turn, per the system prompt cadence — never batch files into one turn). Do **not** screenshot between edits. If an edit changes block markup (not just CSS), re-run `validate_and_fix_blocks` on that file and re-check its diff, since the serializer can change classes again.
+Work through the plan with targeted `Edit` calls (one `Write`/`Edit` per turn, per the system prompt cadence — never batch files into one turn). Do **not** screenshot between edits. If an edit changes block markup (not just CSS), re-run `validate_blocks` on that file and re-check its diff, since the serializer can change classes again.
 
 ### Phase 3 — Verify and loop
 

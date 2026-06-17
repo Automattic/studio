@@ -1,28 +1,16 @@
+/* Fills the preview slot of the session frame's split layout; the slot owns
+   the panel's width, this panel just provides the border separator. */
 .root {
 	display: flex;
 	flex-direction: column;
 	position: relative;
-	width: var(--site-preview-width, 520px);
-	min-width: 360px;
-	max-width: 50vw;
-	flex-shrink: 0;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
 	min-height: 0;
-	margin: calc(var(--wpds-dimension-padding-md) * 2) calc(var(--wpds-dimension-padding-md) * 2)
-		calc(var(--wpds-dimension-padding-md) * 2) 0;
 	background-color: var(--wpds-color-bg-surface-neutral);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-lg, 12px);
-	overflow: visible;
-	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-
-.resizeHandle {
-	position: absolute;
-	top: 0;
-	bottom: 0;
-	left: -15px;
-	justify-content: flex-end;
-	padding-right: 4px;
+	border-left: 1px solid var(--wpds-color-stroke-surface-neutral);
+	overflow: hidden;
 }
 
 .header {
@@ -33,10 +21,16 @@
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-lg);
 	min-height: 32px;
 	flex-shrink: 0;
-	background-color: #fff;
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-top-left-radius: inherit;
-	border-top-right-radius: inherit;
+	-webkit-app-region: drag;
+}
+
+/* The toolbar doubles as a window drag region; the controls and the
+   tooltip-bearing title opt back out so they keep receiving mouse events. */
+.header button,
+.browserTitle {
+	-webkit-app-region: no-drag;
 }
 
 .browserControls {
@@ -69,6 +63,13 @@
 	line-height: 16px;
 }
 
+.annotationControls {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	flex-shrink: 0;
+}
+
 /* 2px bar overlapping the header's bottom border, like a browser's page-load
    indicator. The inner span is scaled by inline style as progress advances. */
 .loadingProgress {
@@ -93,28 +94,11 @@
 	transition: transform 160ms ease-out;
 }
 
-.trafficLights {
-	display: flex;
-	align-items: center;
-	gap: 5px;
-}
-
 .separator {
 	width: 1px;
 	height: 14px;
 	background-color: var(--wpds-color-stroke-surface-neutral);
 	opacity: 0.6;
-}
-
-.trafficLight {
-	width: 7px;
-	height: 7px;
-	border-radius: 50%;
-	background-color: var(--wpds-color-stroke-surface-neutral);
-}
-
-.trafficLightActive {
-	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 }
 
 .headerSpacer {
@@ -126,10 +110,8 @@
 	min-height: 0;
 	display: flex;
 	position: relative;
-	background-color: #fff;
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	overflow: hidden;
-	border-bottom-right-radius: inherit;
-	border-bottom-left-radius: inherit;
 }
 
 .spinnerOverlay {
@@ -139,7 +121,11 @@
 	align-items: center;
 	justify-content: center;
 	pointer-events: none;
-	background-color: rgba(255, 255, 255, 0.6);
+	background-color: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral-strong, #fff) 60%,
+		transparent
+	);
 }
 
 .spinner {
@@ -162,7 +148,7 @@
 	width: 100%;
 	height: 100%;
 	border: 0;
-	background-color: #fff;
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 }
 
 .empty {

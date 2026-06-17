@@ -51,6 +51,7 @@ import {
 	arePathsEqual,
 	isEmptyDir,
 	pathExists,
+	readLastLines,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
@@ -724,19 +725,6 @@ export async function removeWordPressSkillFromAllSites(
 const DEBUG_LOG_MAX_LINES = 50;
 const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
 const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
-
-function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
-	try {
-		if ( ! fs.existsSync( filePath ) ) {
-			return undefined;
-		}
-		const content = fs.readFileSync( filePath, 'utf-8' );
-		const lines = content.split( '\n' ).filter( ( line ) => line.trim() );
-		return lines.slice( -maxLines );
-	} catch {
-		return undefined;
-	}
-}
 
 function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	const debugLogPath = nodePath.join( sitePath, 'wp-content', 'debug.log' );
@@ -2124,7 +2112,7 @@ export function showSiteContextMenu(
 
 	menu.append(
 		new MenuItem( {
-			label: __( 'Copy site…' ),
+			label: __( 'Duplicate site…' ),
 			enabled: ! isLoading && ! isAnySiteAdding,
 			click: () => {
 				sendIpcEventToRendererWithWindow(

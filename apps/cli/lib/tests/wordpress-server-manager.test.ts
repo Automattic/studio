@@ -228,7 +228,10 @@ describe( 'WordPress Server Manager', () => {
 		it( 'records site runtime usage after a successful start', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer( { ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP }, mockLogger );
+			await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP },
+				mockLogger
+			);
 
 			expect( vi.mocked( recordSiteRuntimeUsage ) ).toHaveBeenCalledWith(
 				expect.objectContaining( { id: mockSiteData.id, runtime: SITE_RUNTIME_NATIVE_PHP } )

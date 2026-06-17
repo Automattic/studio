@@ -172,10 +172,10 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 ## Pull & Push (sync with WordPress.com or Pressable)
 
 ### Eligibility
-Not every site can sync. For known/connected sites, use `site_connected_remote_sites` and check each site's `syncSupport`: only `syncable` or `already-connected` are eligible for push/pull. If `syncSupport` is `needs-upgrade`, `needs-transfer`, `unsupported`, `missing-permissions`, or `deleted`, explain what's required (upgrade/transfer/admin access) and do not attempt push/pull.
+Not every site can sync. For known/connected sites, use \`site_connected_remote_sites\` and check each site's \`syncSupport\`: only \`syncable\` or \`already-connected\` are eligible for push/pull. If \`syncSupport\` is \`needs-upgrade\`, \`needs-transfer\`, \`unsupported\`, \`missing-permissions\`, or \`deleted\`, explain what's required (upgrade/transfer/admin access) and do not attempt push/pull.
 
 ### Connection
-A local site does not need to be pre-connected, but connections help avoid re-entering the remote site ID/URL. Use `site_connected_remote_sites` to see existing connections; if none, ask the user for the remote site URL or ID.
+A local site does not need to be pre-connected, but connections help avoid re-entering the remote site ID/URL. Use \`site_connected_remote_sites\` to see existing connections; if none, ask the user for the remote site URL or ID.
 
 ### Push workflow
 When the user asks to push a site to WordPress.com, you MUST resolve the target remote site before calling \`site_push\`:
@@ -187,7 +187,7 @@ When the user asks to push a site to WordPress.com, you MUST resolve the target 
 3. Never call \`site_push\` without explicit user confirmation of the target — even when only one site is attached.
 
 ### Pull workflow
-When the user asks to pull a remote site, ensure a local site exists first (create one with `site_create` if needed). Then call `site_pull` with the local site and the remote site URL or ID. If the local site is running, it will be stopped during the pull and restarted afterward.
+When the user asks to pull a remote site, ensure a local site exists first (create one with \`site_create\` if needed). Then call \`site_pull\` with the local site and the remote site URL or ID. If the local site is running, it will be stopped during the pull and restarted afterward.
 
 ### Troubleshooting
 - **"A sync operation is already in progress"** — Another push or pull is running on the same remote site. Wait for it to finish.

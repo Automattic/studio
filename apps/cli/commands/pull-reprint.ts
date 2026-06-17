@@ -17,6 +17,7 @@ import { generateNumberedName } from '@studio/common/lib/generate-site-name';
 import { encodePassword } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { PullReprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -31,6 +32,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, updateSiteAutoStart, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { getSiteRuntime } from 'cli/lib/feature-flags';
 import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
@@ -45,13 +47,14 @@ import {
 import {
 	ensureImportedSiteSqliteReady,
 	loadImportedRuntimeStartOptions,
+	loadImportedRuntimeStartOptionsNative,
 } from 'cli/lib/pull/runtime-start-options';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getPrettyPath } from 'cli/lib/utils';
-import { startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { startWordPressServer, type StartServerOptions } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -454,10 +457,21 @@ export async function runCommand(
 		}
 
 		if ( ! hasPullCompletedStage( studioMetadata, 'site-started' ) ) {
-			await ensureImportedSiteSqliteReady( studioMetadata.runtimeBlueprintPath );
-			const runtimeStartOptions = await loadImportedRuntimeStartOptions(
-				studioMetadata.runtimeBlueprintPath
-			);
+			let runtimeStartOptions: StartServerOptions;
+			if ( getSiteRuntime() === SITE_RUNTIME_NATIVE_PHP ) {
+				// The native runtime serves the flattened site directly and loads
+				// reprint's host-targeted runtime.php as a PHP auto_prepend_file,
+				// which owns the site's constants and SQLite — no Playground
+				// blueprint/mounts or Studio SQLite drop-in to set up.
+				runtimeStartOptions = loadImportedRuntimeStartOptionsNative(
+					studioMetadata.runtimeDirectory
+				);
+			} else {
+				await ensureImportedSiteSqliteReady( studioMetadata.runtimeBlueprintPath );
+				runtimeStartOptions = await loadImportedRuntimeStartOptions(
+					studioMetadata.runtimeBlueprintPath
+				);
+			}
 
 			// Persist the computed start options so `studio site start` and
 			// the daemon can re-read them without recomputing (which spins
@@ -481,7 +495,7 @@ export async function runCommand(
 				recordCompletedStage( studioMetadata, 'site-started' );
 			} catch ( serverError ) {
 				throw new LoggerError(
-					__( 'Failed to start the WordPress server for the pulled site.' ),
+					__( 'Failed to start the WordPress server for the pulled site' ),
 					serverError
 				);
 			} finally {
@@ -885,11 +899,16 @@ export async function downloadRemoteDatabase(
 }
 
 /**
- * Produce the Playground CLI start script + runtime blueprint that
- * Studio uses to boot the imported site.  reprint reads the flattened
- * site layout and preflight output, and emits a ready-to-run runtime
- * under `runtimeDirectory`.  Both directories are mounted into WASM
- * so the runtime output lands on the host filesystem.
+ * Produce the runtime configuration that Studio uses to boot the imported
+ * site.  reprint reads the flattened site layout and preflight output and
+ * emits a ready-to-run runtime under `runtimeDirectory`.
+ *
+ * The runtime target follows `STUDIO_RUNTIME`: `playground-cli` emits a
+ * blueprint + start.json whose paths are the Playground VFS (`/wordpress/…`),
+ * while `nginx-fpm` emits a `runtime.php` whose paths are the real host
+ * document root — which the native PHP runtime loads as an
+ * `auto_prepend_file`.  Both directories are mounted into WASM so the runtime
+ * output lands on the host filesystem (a no-op when reprint runs natively).
  *
  * Advances the pull stage to 'runtime-generated'.
  */
@@ -897,6 +916,11 @@ export async function generateRuntimeConfiguration(
 	metadata: PullSessionMetadata,
 	verbose: boolean
 ): Promise< void > {
+	// `nginx-fpm` is the runtime whose runtime.php is a pure prepend (constants
+	// + SQLite loader + route handlers, no router) resolved against the host
+	// document root — exactly what the native `php -S` workers consume.
+	const runtimeTarget =
+		getSiteRuntime() === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
 	logger.reportStart( LoggerAction.URL_REWRITE, __( 'Generating runtime configuration…' ) );
 	await runReprintCommandUntilComplete(
 		metadata.stateDirectory,
@@ -907,7 +931,7 @@ export async function generateRuntimeConfiguration(
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--flat-document-root=${ metadata.sitePath }`,
 			`--output-dir=${ metadata.runtimeDirectory }`,
-			'--runtime=playground-cli',
+			`--runtime=${ runtimeTarget }`,
 		],
 		undefined,
 		{

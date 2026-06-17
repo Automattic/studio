@@ -94,6 +94,7 @@ export interface StartServerOptions {
 	wordpressInstallMode?: WordPressInstallMode;
 	skipSqliteSetup?: boolean;
 	useExactMountLayout?: boolean;
+	autoPrependFile?: string;
 }
 
 function buildServerConfig(
@@ -166,6 +167,10 @@ function buildServerConfig(
 
 	if ( options?.useExactMountLayout ) {
 		serverConfig.useExactMountLayout = true;
+	}
+
+	if ( options?.autoPrependFile ) {
+		serverConfig.autoPrependFile = options.autoPrependFile;
 	}
 
 	if ( site.enableXdebug ) {

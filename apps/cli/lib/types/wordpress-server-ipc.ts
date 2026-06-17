@@ -40,6 +40,7 @@ const serverConfig = z.object( {
 	wordpressInstallMode: wordpressInstallModeSchema.optional(),
 	skipSqliteSetup: z.boolean().optional(),
 	useExactMountLayout: z.boolean().optional(),
+	autoPrependFile: z.string().optional(),
 } );
 
 export type ServerConfig = z.infer< typeof serverConfig >;

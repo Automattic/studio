@@ -181,8 +181,7 @@ export class SiteServer {
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
 
-		// New sites default to the native PHP runtime; existing sites keep
-		// whatever they have (sandbox when unset, via getSiteRuntime).
+		// Default to the native PHP runtime when the caller doesn't specify one.
 		const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
 		const result = await createSiteViaCli( { ...options, runtime, siteId } );
 		server.details.runtime = runtime;

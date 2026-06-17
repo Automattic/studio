@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { SITE_RUNTIME_NATIVE_PHP, type SiteRuntime } from '@studio/common/lib/site-runtime';
 
-export const SITE_FILE_ACCESS_SITE_DIRECTORY = 'site-directory';
-export const SITE_FILE_ACCESS_ALL_FILES = 'all-files';
+export const SITE_FILE_ACCESS_SITE_DIRECTORY = 'site-directory' as const;
+export const SITE_FILE_ACCESS_ALL_FILES = 'all-files' as const;
 
 export const siteFileAccessSchema = z.enum( [
 	SITE_FILE_ACCESS_SITE_DIRECTORY,

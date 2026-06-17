@@ -122,6 +122,7 @@ import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { recordSiteRuntimeUsage } from 'src/lib/site-runtime-stats';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
@@ -983,11 +984,13 @@ export async function updateSite(
 		options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
 	}
 
-	if ( getSiteRuntime( updatedSite ) !== getSiteRuntime( currentSite ) ) {
+	const runtimeChanged = getSiteRuntime( updatedSite ) !== getSiteRuntime( currentSite );
+	if ( runtimeChanged ) {
 		options.runtime = siteModeFromRuntime( getSiteRuntime( updatedSite ) );
 	}
 
-	if ( getSiteFileAccess( updatedSite ) !== getSiteFileAccess( currentSite ) ) {
+	const fileAccessChanged = getSiteFileAccess( updatedSite ) !== getSiteFileAccess( currentSite );
+	if ( fileAccessChanged ) {
 		options.fileAccess = getSiteFileAccess( updatedSite );
 	}
 
@@ -1023,6 +1026,16 @@ export async function updateSite(
 
 	if ( hasCliChanges ) {
 		await editSiteViaCli( options );
+
+		// Capture a runtime/file-access switch right away, rather than waiting for
+		// the next start or day boundary, so the daily stat reflects the change.
+		if ( runtimeChanged || fileAccessChanged ) {
+			await recordSiteRuntimeUsage( {
+				id: updatedSite.id,
+				runtime: getSiteRuntime( updatedSite ),
+				fileAccess: getSiteFileAccess( updatedSite ),
+			} );
+		}
 	}
 }
 

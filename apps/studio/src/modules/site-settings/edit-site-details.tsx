@@ -46,7 +46,7 @@ import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getFileAccessDescription } from 'src/lib/site-runtime-copy';
+import { getFileAccessDescription, getRuntimeDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 
 type EditSiteDetailsProps = {
@@ -480,9 +480,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														__nextHasNoMarginBottom
 													/>
 													<span className="text-frame-text-secondary text-xs">
-														{ selectedRuntime === SITE_RUNTIME_NATIVE_PHP
-															? __( 'Runs the site with native PHP for the best performance.' )
-															: __( 'Runs the site in an isolated WordPress Playground sandbox.' ) }
+														{ getRuntimeDescription( __, selectedRuntime ) }
 													</span>
 												</label>
 

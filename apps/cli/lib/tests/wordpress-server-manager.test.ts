@@ -138,7 +138,10 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should start WordPress server with basic configuration', async () => {
 			setupIpcMocks();
 
-			const result = await startWordPressServer( mockSiteData, mockLogger );
+			const result = await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_PLAYGROUND },
+				mockLogger
+			);
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
@@ -187,15 +190,15 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'should use the playground child script when the site has no runtime set', async () => {
+		it( 'should default to the native-php child script when the site has no runtime set', async () => {
 			setupIpcMocks();
 
 			await startWordPressServer( mockSiteData, mockLogger );
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringMatching( /playground-server-child\.mjs$/ ),
-				{ runtime: SITE_RUNTIME_PLAYGROUND }
+				expect.stringMatching( /php-server-child\.mjs$/ ),
+				{ runtime: SITE_RUNTIME_NATIVE_PHP }
 			);
 		} );
 

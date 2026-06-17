@@ -257,8 +257,8 @@ describe( 'getSiteRuntimeStat', () => {
 		);
 	} );
 
-	test( 'defaults an unset runtime to sandbox', () => {
-		expect( getSiteRuntimeStat( {} ) ).toBe( StatsMetric.RUNTIME_SANDBOX );
+	test( 'defaults an unset runtime to native', () => {
+		expect( getSiteRuntimeStat( {} ) ).toBe( StatsMetric.RUNTIME_NATIVE_SITE_DIR );
 	} );
 } );
 

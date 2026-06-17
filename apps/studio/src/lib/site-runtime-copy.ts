@@ -22,3 +22,12 @@ export function getFileAccessDescription(
 	}
 	return __( "Restricts the site's file access to the site directory." );
 }
+
+// Explainer copy shown under the PHP runtime control in the create/edit site
+// forms and in the read-only site settings.
+export function getRuntimeDescription( __: Translate, runtime: SiteRuntime ): string {
+	if ( runtime === SITE_RUNTIME_PLAYGROUND ) {
+		return __( 'Runs the site in an isolated WordPress Playground sandbox.' );
+	}
+	return __( 'Runs the site with native PHP for the best performance.' );
+}

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { rotateReprintSecret } from 'cli/lib/api';
+import { enableReprintExporter, rotateReprintSecret } from 'cli/lib/api';
 import * as migrationClient from 'cli/lib/pull/migration-client';
 import { shouldRestartFilesSyncIndex } from 'cli/lib/pull/reprint-state';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
@@ -27,6 +27,7 @@ vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/api') >() ),
 	rotateReprintSecret: vi.fn(),
+	enableReprintExporter: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/sync-api') >() ),
@@ -821,6 +822,121 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 
 		// The user sees update messaging, not a no-op success.
 		expect( logSpy.mock.calls.flat().join( '\n' ) ).toContain( 'Updating "My Completed Site"' );
+	} );
+} );
+
+describe( 'CLI: studio pull-reprint preflight retry re-enables the exporter', () => {
+	let fakeHome: string;
+
+	const token = {
+		accessToken: 'access-token',
+		id: 1,
+		email: 'user@example.com',
+		displayName: 'User',
+		expiresIn: 1209600,
+		expirationTime: Date.now() + 1209600000,
+	};
+
+	const sites: SyncSite[] = [
+		{
+			id: 22,
+			name: 'Example',
+			url: 'https://example.com',
+			localSiteId: '',
+			isStaging: false,
+			isPressable: false,
+			syncSupport: 'syncable',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		},
+	];
+
+	afterEach( () => {
+		vi.restoreAllMocks();
+		vi.resetModules();
+		if ( fakeHome ) {
+			fs.rmSync( fakeHome, { recursive: true, force: true } );
+		}
+	} );
+
+	async function loadRunCommandWithFakeHome() {
+		fakeHome = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-retry-home-' ) );
+
+		vi.resetModules();
+		vi.doMock( 'os', async () => {
+			const actual = await vi.importActual< typeof import('os') >( 'os' );
+			return {
+				...actual,
+				default: { ...actual, homedir: () => fakeHome },
+				homedir: () => fakeHome,
+			};
+		} );
+
+		const mod = await import( '../pull-reprint' );
+		return mod;
+	}
+
+	it( 're-enables the exporter (not just rotates the secret) before retrying a failed preflight', async () => {
+		const { runCommand, getPrivateDirNameForImportSession, normalizeSiteUrl } =
+			await loadRunCommandWithFakeHome();
+
+		// Seed a previously-completed pull with a cached secret but no
+		// wpComSite/wpComToken — exactly the delta-re-pull shape that makes
+		// resolveSourceSite short-circuit on the cached secret and skip the
+		// happy-path exporter enable.
+		const normalizedUrl = normalizeSiteUrl( 'https://example.com' );
+		const pullKey = getPrivateDirNameForImportSession( normalizedUrl, 'My Retry Site' );
+		const pullsRoot = path.join( fakeHome, '.studio', 'pulls' );
+		const technicalSiteDirectory = path.join( pullsRoot, pullKey );
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const sitePath = path.join( fakeHome, 'Studio', 'My-Retry-Site' );
+
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( sitePath, { recursive: true } );
+		fs.writeFileSync( path.join( sitePath, 'wp-config.php' ), '<?php // flattened output' );
+		fs.writeFileSync(
+			path.join( technicalSiteDirectory, 'pull.json' ),
+			JSON.stringify( {
+				version: 1,
+				pullKey,
+				normalizedUrl,
+				siteName: 'My Retry Site',
+				sitePath,
+				technicalSiteDirectory,
+				rawDirectory: path.join( technicalSiteDirectory, 'raw' ),
+				stateDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				stage: 'initialized',
+				hasCompletedOnce: true,
+				secret: 'cached-secret',
+			} )
+		);
+
+		vi.mocked( readAuthToken ).mockResolvedValue( token );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );
+		vi.mocked( rotateReprintSecret ).mockResolvedValue( 'fresh-secret' );
+		vi.mocked( enableReprintExporter ).mockResolvedValue( undefined );
+
+		// Every preflight attempt fails (the closed wpcomsh gate returns HTML),
+		// so the command ultimately rejects — but the retry path must still
+		// rotate the secret AND re-enable the exporter before giving up.
+		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
+		vi.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' ).mockRejectedValue(
+			new Error( 'preflight failed: HTML response' )
+		);
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+		await expect(
+			runCommand( 'https://example.com', undefined, 'My Retry Site', false, false, true )
+		).rejects.toThrow();
+
+		// The fix: the retry resolves the WP.com site, rotates the secret, AND
+		// re-opens the exporter gate. Without the enable call the retry would
+		// hit the same closed window and fail identically.
+		expect( rotateReprintSecret ).toHaveBeenCalledWith( 22, token.accessToken );
+		expect( enableReprintExporter ).toHaveBeenCalledWith( 22, token.accessToken, false );
 	} );
 } );
 

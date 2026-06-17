@@ -402,9 +402,14 @@ export async function runCommand(
 		try {
 			preflight = await runPreflight( studioMetadata, apiUrl, secret, verbose );
 		} catch ( preflightError ) {
-			// The stored secret may have expired.  Resolve the WP.com site
-			// (loading the site list only now, if we haven't already) and
-			// rotate the secret before retrying the preflight.
+			// Preflight against ?reprint-api can fail for two reasons we can
+			// recover from on WP.com: the stored secret expired, or the
+			// wpcomsh exporter gate (`reprint_exporter_enabled`, a 60-minute
+			// sliding window) closed since the last run.  A cached-secret
+			// resume skips the happy-path enable above, so this is the common
+			// case on a delta re-pull.  Resolve the WP.com site (loading the
+			// site list only now, if we haven't already), then both rotate the
+			// secret AND re-enable the exporter before retrying.
 			if ( sourceSite.wpComSite && sourceSite.wpComToken ) {
 				secret = await rotateReprintSecret(
 					sourceSite.wpComSite.id,
@@ -431,6 +436,14 @@ export async function runCommand(
 				sourceSite.wpComToken = token;
 				secret = await rotateReprintSecret( matched.id, token.accessToken );
 			}
+			// Rotating the secret does not bump `reprint_exporter_enabled`, so
+			// re-open the gate explicitly; otherwise the retry hits the same
+			// closed window and ?reprint-api falls through to an HTML page.
+			await enableReprintExporter(
+				sourceSite.wpComSite.id,
+				sourceSite.wpComToken.accessToken,
+				verbose
+			);
 			preflight = await runPreflight( studioMetadata, apiUrl, secret, verbose );
 		}
 		studioMetadata.remoteSiteUrl = preflight.siteurl || studioMetadata.normalizedUrl;

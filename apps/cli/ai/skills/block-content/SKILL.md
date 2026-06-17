@@ -8,6 +8,8 @@ user-invokable: true
 
 Use this skill before writing or editing page content, post content, templates, template parts, patterns, or any other WordPress block markup.
 
+> For block **patterns** as theme assets — the pattern file header, the "every pattern must appear in a template" visibility rule, landing-page section recipes, and CTA rules — see the Patterns section of the `theme-development` skill.
+
 ## Core Policy
 
 - Use editable WordPress blocks for content and layout. Prefer `core/group`, `core/columns`, `core/heading`, `core/paragraph`, `core/list`, `core/image`, `core/buttons`, and theme CSS.

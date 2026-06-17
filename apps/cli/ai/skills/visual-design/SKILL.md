@@ -8,6 +8,8 @@ user-invokable: true
 
 Use this skill before creating or redesigning a site, landing page, homepage, layout, style system, typography, color palette, animation system, or other visual polish.
 
+> For the structural side of a theme — `theme.json` values (`contentSize`/`wideSize`, the type scale, line height, spacing presets, template-part registration), templates, navigation, query loops, and patterns — load the `theme-development` skill. This skill owns aesthetic *direction*; `theme-development` owns structure. Keep the structural values there and do not restate them here.
+
 ## Design Direction
 
 Understand the context and commit to a clear aesthetic direction:

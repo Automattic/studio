@@ -32,8 +32,6 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
-import { buildTodoUpdateLines, type TodoRenderLine } from 'cli/ai/todo-render';
-import { diffTodoSnapshot, type TodoDiff, type TodoEntry } from 'cli/ai/todo-stream';
 import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
@@ -43,14 +41,6 @@ import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
-
-interface TodoWriteInput {
-	todos: Array< {
-		content: string;
-		activeForm: string;
-		status: 'pending' | 'in_progress' | 'completed';
-	} >;
-}
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
@@ -279,13 +269,6 @@ interface ToolUseResultContent {
 	isError?: boolean;
 }
 
-interface PendingTodoRender {
-	diff: TodoDiff;
-	toolLabel: string;
-	startedAtMs: number;
-	shouldRender: boolean;
-}
-
 interface ToolRenderState {
 	container: Container;
 	rowText: Text;
@@ -299,25 +282,6 @@ interface PendingToolCall {
 	label: string;
 	startedAtMs: number;
 	render: ToolRenderState | null;
-}
-
-function isTodoWriteInput( input: unknown ): input is TodoWriteInput {
-	if (
-		! input ||
-		typeof input !== 'object' ||
-		! Array.isArray( ( input as TodoWriteInput ).todos )
-	) {
-		return false;
-	}
-
-	return ( input as TodoWriteInput ).todos.every(
-		( todo ) =>
-			typeof todo === 'object' &&
-			todo !== null &&
-			typeof todo.content === 'string' &&
-			typeof todo.activeForm === 'string' &&
-			( todo.status === 'pending' || todo.status === 'in_progress' || todo.status === 'completed' )
-	);
 }
 
 export class AiChatUI implements AiOutputAdapter {
@@ -338,11 +302,6 @@ export class AiChatUI implements AiOutputAdapter {
 	private usageCapReached = false;
 	private hasShownResponseMarker = false;
 	private turnStartTime = 0;
-	private todoSnapshot: TodoEntry[] = [];
-	private latestTodoSnapshot: TodoEntry[] = [];
-	private lastRenderedTodoSignature: string | null = null;
-	private pendingTodoRenders = new Map< string, PendingTodoRender >();
-	private pendingTodoRenderOrder: string[] = [];
 	private _activeSite: SiteInfo | null = null;
 	private activeExpandablePreview: ExpandablePreview | null = null;
 	private _inAgentTurn = false;
@@ -1411,20 +1370,12 @@ export class AiChatUI implements AiOutputAdapter {
 		this.usageCapReached = false;
 		this.turnStartTime = this.nowMs();
 		this.numTurns = 0;
-		this.todoSnapshot = [];
-		this.latestTodoSnapshot = [];
-		this.lastRenderedTodoSignature = null;
 		this.pendingToolCalls.clear();
 		this.fallbackProgressText = null;
-		this.pendingTodoRenders.clear();
-		this.pendingTodoRenderOrder = [];
 	}
 
 	/**
 	 * End an agent turn: hide loader, clean up response state.
-	 * todoSnapshot, latestTodoSnapshot, and lastRenderedTodoSignature are deliberately
-	 * preserved across turns so the next turn's diff is computed against the latest
-	 * known state, rendering only genuinely new changes.
 	 */
 	endAgentTurn(): void {
 		this.hideLoader();
@@ -1435,8 +1386,6 @@ export class AiChatUI implements AiOutputAdapter {
 		this.updateHints();
 		this.currentMarkdown = null;
 		this.currentResponseText = '';
-		this.pendingTodoRenders.clear();
-		this.pendingTodoRenderOrder = [];
 	}
 
 	/**
@@ -1850,38 +1799,6 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private renderTodoUpdate(
-		pendingTodoRender: PendingTodoRender,
-		target: Container = this.messages
-	): void {
-		const lines: TodoRenderLine[] = buildTodoUpdateLines( pendingTodoRender.diff.snapshot );
-		if ( lines.length === 0 ) {
-			return;
-		}
-		const rendered = formatToolOutputLines(
-			lines.map( ( line ) => ( line.dim ? chalk.dim( line.text ) : line.text ) )
-		);
-		target.addChild( new Text( rendered, 0, 0 ) );
-	}
-
-	private syncLatestTodoSnapshot(): void {
-		let latestPendingSnapshot: TodoEntry[] | null = null;
-		for ( const toolUseId of this.pendingTodoRenderOrder ) {
-			const pendingTodoRender = this.pendingTodoRenders.get( toolUseId );
-			if ( pendingTodoRender ) {
-				latestPendingSnapshot = pendingTodoRender.diff.snapshot;
-			}
-		}
-		this.latestTodoSnapshot = latestPendingSnapshot ?? this.todoSnapshot;
-	}
-
-	private consumePendingTodoRender( toolUseId: string ): PendingTodoRender | null {
-		const pendingTodoRender = this.pendingTodoRenders.get( toolUseId ) ?? null;
-		this.pendingTodoRenders.delete( toolUseId );
-		this.pendingTodoRenderOrder = this.pendingTodoRenderOrder.filter( ( id ) => id !== toolUseId );
-		return pendingTodoRender;
-	}
-
 	private renderToolResultText(
 		content: string | Array< { type: string; text?: string } >,
 		toolCall?: PendingToolCall,
@@ -1943,13 +1860,7 @@ export class AiChatUI implements AiOutputAdapter {
 		for ( const toolResult of results ) {
 			const toolCallId = toolResult.toolCallId;
 			const toolCall = this.pendingToolCalls.get( toolCallId );
-			if ( this.pendingTodoRenders.has( toolCallId ) ) {
-				this.showTodoToolResult( toolResult, toolCallId, toolCall );
-			} else if ( this.pendingTodoRenderOrder.length > 0 && toolCall?.name === 'TodoWrite' ) {
-				this.showTodoToolResult( toolResult, this.pendingTodoRenderOrder[ 0 ], toolCall );
-			} else {
-				this.showToolResult( toolResult, toolCall );
-			}
+			this.showToolResult( toolResult, toolCall );
 			if ( toolCall ) {
 				this.pendingToolCalls.delete( toolCallId );
 			}
@@ -1986,50 +1897,6 @@ export class AiChatUI implements AiOutputAdapter {
 			return;
 		}
 		this.renderToolResultText( content, toolCall, isError, target );
-		this.tui.requestRender();
-	}
-
-	private showTodoToolResult(
-		result: ToolResultMessage,
-		toolUseId: string,
-		toolCall?: PendingToolCall
-	): void {
-		const typedResult = this.getToolResultContent( result );
-		const pendingTodoRender = this.consumePendingTodoRender( toolUseId );
-
-		if ( ! pendingTodoRender ) {
-			return;
-		}
-
-		const isError = typedResult.isError === true;
-
-		if ( isError ) {
-			const target = toolCall ? this.finalizeToolRender( toolCall, true ).container : this.messages;
-			if ( ! toolCall ) {
-				this.renderToolUseLine( true, pendingTodoRender.toolLabel, pendingTodoRender.startedAtMs );
-			}
-			this.syncLatestTodoSnapshot();
-			if ( typedResult.content !== undefined ) {
-				this.renderToolResultText( typedResult.content, toolCall, true, target );
-			}
-			this.tui.requestRender();
-			return;
-		}
-
-		this.todoSnapshot = pendingTodoRender.diff.snapshot;
-		this.syncLatestTodoSnapshot();
-
-		if ( ! pendingTodoRender.shouldRender ) {
-			this.tui.requestRender();
-			return;
-		}
-
-		const target = toolCall ? this.finalizeToolRender( toolCall, false ).container : this.messages;
-		if ( ! toolCall ) {
-			this.renderToolUseLine( false, pendingTodoRender.toolLabel, pendingTodoRender.startedAtMs );
-		}
-		this.lastRenderedTodoSignature = pendingTodoRender.diff.signature;
-		this.renderTodoUpdate( pendingTodoRender, target );
 		this.tui.requestRender();
 	}
 
@@ -2200,24 +2067,7 @@ export class AiChatUI implements AiOutputAdapter {
 							startedAtMs,
 							render: null,
 						};
-						if ( block.name === 'TodoWrite' && isTodoWriteInput( input ) ) {
-							const diff = diffTodoSnapshot( this.latestTodoSnapshot, input.todos );
-							const shouldRender =
-								diff.hasVisibleChanges && diff.signature !== this.lastRenderedTodoSignature;
-							this.pendingTodoRenders.set( block.id, {
-								diff,
-								toolLabel,
-								startedAtMs,
-								shouldRender,
-							} );
-							this.pendingTodoRenderOrder.push( block.id );
-							this.latestTodoSnapshot = diff.snapshot;
-							if ( shouldRender ) {
-								this.ensureToolRender( toolCall );
-							}
-						} else {
-							this.ensureToolRender( toolCall );
-						}
+						this.ensureToolRender( toolCall );
 						this.pendingToolCalls.set( block.id, toolCall );
 					}
 				}

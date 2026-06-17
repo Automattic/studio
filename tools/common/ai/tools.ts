@@ -40,7 +40,6 @@ export function getToolDisplayName( name: string ): string {
 		Ls: __( 'List' ),
 		Skill: __( 'Load skill' ),
 		Task: __( 'Run task' ),
-		TodoWrite: __( 'Update todo list' ),
 	};
 	return displayNames[ name ] ?? name;
 }

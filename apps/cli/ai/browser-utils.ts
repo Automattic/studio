@@ -24,21 +24,21 @@ let browserPromise: Promise< Browser > | null = null;
 const execFileAsync = promisify( execFile );
 
 export function buildChromiumLaunchAttempts(
-	chromium: Pick< Chromium, 'executablePath' >
+	chromium: Pick< Chromium, 'executablePath' >,
+	overrides: ChromiumLaunchOptions = {}
 ): ChromiumLaunchOptions[] {
 	const attempts: ChromiumLaunchOptions[] = [];
 	const executablePath = chromium.executablePath();
+	const base: ChromiumLaunchOptions = {
+		args: DEFAULT_BROWSER_ARGS,
+		...overrides,
+	};
 
 	if ( executablePath && existsSync( executablePath ) ) {
-		attempts.push( {
-			args: DEFAULT_BROWSER_ARGS,
-			executablePath,
-		} );
+		attempts.push( { ...base, executablePath } );
 	}
 
-	attempts.push( {
-		args: DEFAULT_BROWSER_ARGS,
-	} );
+	attempts.push( { ...base } );
 
 	return attempts;
 }
@@ -82,38 +82,52 @@ export async function ensurePlaywrightChromiumInstalled(
 }
 
 /**
+ * Launch a Chromium browser, auto-installing Playwright's managed Chromium if
+ * it is missing. Accepts launch `overrides` (e.g. `headless: false` and custom
+ * `args`) so callers that need their own window configuration still get the
+ * executable-path fallback and on-demand install behaviour. Throws a
+ * diagnostic error if no browser can be launched.
+ */
+export async function launchChromiumWithInstall(
+	overrides: ChromiumLaunchOptions = {},
+	toolContext = 'Studio MCP screenshot/validation tools'
+): Promise< Browser > {
+	const { chromium } = await import( 'playwright' );
+	const launchErrors: string[] = [];
+	let browser = await tryLaunchChromium( chromium, launchErrors, overrides );
+	let installError: string | null = null;
+
+	if ( ! browser ) {
+		installError = await ensurePlaywrightChromiumInstalled( chromium );
+		if ( ! installError ) {
+			browser = await tryLaunchChromium( chromium, launchErrors, overrides );
+		}
+	}
+
+	if ( ! browser ) {
+		const repairGuidance =
+			installError ??
+			'If Playwright Chromium is missing, run `studio mcp` again with network access so Studio can install it automatically.';
+
+		throw new Error(
+			`Unable to launch a browser for ${ toolContext }. ` +
+				`Tried ${ launchErrors.map( ( error ) => error.split( ': ', 1 )[ 0 ] ).join( ', ' ) }. ` +
+				`${ repairGuidance } ` +
+				`Launch errors: ${ launchErrors.join( ' | ' ) }`
+		);
+	}
+
+	return browser;
+}
+
+/**
  * Returns (and lazily launches) a shared Chromium browser instance.
  * The browser is cleaned up automatically on process exit.
  */
 export async function getSharedBrowser(): Promise< Browser > {
 	if ( ! browserPromise ) {
 		browserPromise = ( async () => {
-			const { chromium } = await import( 'playwright' );
-			const launchErrors: string[] = [];
-			let browser = await tryLaunchChromium( chromium, launchErrors );
-			let installError: string | null = null;
-
-			if ( ! browser ) {
-				installError = await ensurePlaywrightChromiumInstalled( chromium );
-				if ( ! installError ) {
-					browser = await tryLaunchChromium( chromium, launchErrors );
-				}
-			}
-
-			if ( ! browser ) {
-				const repairGuidance =
-					installError ??
-					'If Playwright Chromium is missing, run `studio mcp` again with network access so Studio can install it automatically.';
-
-				throw new Error(
-					'Unable to launch a browser for Studio MCP screenshot/validation tools. ' +
-						`Tried ${ launchErrors
-							.map( ( error ) => error.split( ': ', 1 )[ 0 ] )
-							.join( ', ' ) }. ` +
-						`${ repairGuidance } ` +
-						`Launch errors: ${ launchErrors.join( ' | ' ) }`
-				);
-			}
+			const browser = await launchChromiumWithInstall();
 
 			const cleanup = () => {
 				browser.close().catch( () => {} );
@@ -143,9 +157,10 @@ export async function closeSharedBrowser(): Promise< void > {
 
 async function tryLaunchChromium(
 	chromium: Pick< Chromium, 'launch' | 'executablePath' >,
-	launchErrors: string[]
+	launchErrors: string[],
+	overrides: ChromiumLaunchOptions = {}
 ): Promise< Browser | undefined > {
-	for ( const attempt of buildChromiumLaunchAttempts( chromium ) ) {
+	for ( const attempt of buildChromiumLaunchAttempts( chromium, overrides ) ) {
 		if ( ! attempt ) {
 			continue;
 		}

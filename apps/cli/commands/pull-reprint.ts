@@ -563,6 +563,14 @@ export async function runCommand(
 					: 'unreachable';
 				if ( runningProcess && credentialsResult !== 'unreachable' ) {
 					logger.reportSuccess( __( 'WordPress server already running' ) );
+					// Mirror the start branch (and `studio site start`'s
+					// already-running path): refresh latestCliPid so
+					// running-status checks match the live process, and keep
+					// autoStart enabled as every pull has.
+					if ( runningProcess.status === 'online' ) {
+						await updateSiteLatestCliPid( site.id, runningProcess.pid );
+					}
+					await updateSiteAutoStart( site.id, true );
 					studioMetadata.localUrl = getSiteUrl( site );
 					savePullMetadata( studioMetadata );
 					recordCompletedStage( studioMetadata, 'site-started' );

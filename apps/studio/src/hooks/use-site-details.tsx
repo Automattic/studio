@@ -35,7 +35,9 @@ interface SiteDetailsContext {
 		noStart?: boolean,
 		adminUsername?: string,
 		adminPassword?: string,
-		adminEmail?: string
+		adminEmail?: string,
+		runtime?: SiteRuntime,
+		fileAccess?: SiteFileAccess
 	) => Promise< SiteDetails | void >;
 	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
 	startServer: ( site: SiteDetails ) => Promise< void >;
@@ -249,7 +251,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			noStart?: boolean,
 			adminUsername?: string,
 			adminPassword?: string,
-			adminEmail?: string
+			adminEmail?: string,
+			runtime?: SiteRuntime,
+			fileAccess?: SiteFileAccess
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -322,6 +326,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					enableHttps,
 					siteId: tempSiteId,
 					phpVersion,
+					runtime,
+					fileAccess,
 					blueprint,
 					adminUsername,
 					adminPassword,

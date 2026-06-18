@@ -1,3 +1,5 @@
+import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
+import { type SiteMode } from '@studio/common/lib/site-runtime';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { z } from 'zod';
 import { executeCliCommand } from './execute-command';
@@ -16,6 +18,8 @@ export interface EditSiteOptions {
 	https?: boolean;
 	php?: string;
 	wp?: string;
+	runtime?: SiteMode;
+	fileAccess?: SiteFileAccess;
 	xdebug?: boolean;
 	adminUsername?: string;
 	adminPassword?: string;
@@ -78,6 +82,14 @@ function buildCliArgs( options: EditSiteOptions ): string[] {
 
 	if ( options.wp !== undefined ) {
 		args.push( '--wp', options.wp );
+	}
+
+	if ( options.runtime !== undefined ) {
+		args.push( '--runtime', options.runtime );
+	}
+
+	if ( options.fileAccess !== undefined ) {
+		args.push( '--file-access', options.fileAccess );
 	}
 
 	if ( options.xdebug !== undefined ) {

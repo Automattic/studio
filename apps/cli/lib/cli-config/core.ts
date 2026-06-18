@@ -36,7 +36,7 @@ export const updateCheckSchema = z.object( {
 	latestVersion: z.string(),
 } );
 
-const cliConfigSchema = z.object( {
+const cliConfigSchema = z.looseObject( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
 	snapshots: z.array( snapshotSchema ).default( () => [] ),
@@ -44,6 +44,10 @@ const cliConfigSchema = z.object( {
 	anthropicApiKey: z.string().optional(),
 	lastBumpStats: z
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
+		.optional(),
+	// Per-site daily dedup markers for the runtime adoption stat (RSM-3958).
+	siteRuntimeStats: z
+		.record( z.string(), z.object( { bumpedAt: z.number(), stat: z.string() } ) )
 		.optional(),
 	lastDependencyCheckTime: z.number().optional(),
 	updateCheck: updateCheckSchema.optional(),

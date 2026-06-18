@@ -5,14 +5,22 @@ import type { JsonEvent } from '@studio/common/ai/json-events';
 /**
  * Runs the agent inside a hosted SecEx sandbox by driving the wpcom
  * `studio-code` endpoint (Automattic/wpcom: `POST /wpcom/v2/studio-code/run`).
- * The endpoint runs `studio code --json <prompt>` in a per-user sandbox and
- * streams the CLI's events back over SSE; this runtime relays them through the
- * same {@link AgentRuntime} callbacks the local runtime uses, so the run-manager
- * and the browser don't change.
+ * The endpoint runs `studio code --json` in a per-user sandbox and streams the
+ * CLI's events back over SSE; this runtime relays them through the same
+ * {@link AgentRuntime} callbacks the local runtime uses, so the run-manager and
+ * the browser don't change.
  *
  * One sandbox per user (the endpoint resolves it from the caller's token), the
  * cloud analog of "your laptop" — the same `~/Studio/` sites and `~/.claude`
  * sessions live inside it, like the desktop app.
+ *
+ * Interactive questions work like the desktop, despite there being no live
+ * process to answer: when a turn pauses on a question, the CLI ends the turn
+ * with `status: 'paused'`; the agent process here stays "connected" rather than
+ * exiting, and a later {@link AgentProcess.answer} re-drives the endpoint with
+ * the user's choice as the next message on the same sandbox session (the proven
+ * headless resume pattern — see apps/cli/remote-session/turn-runner.ts). The
+ * web-server and UI see an ordinary live run that asks and gets answered.
  *
  * Opt-in: the web-server only installs this runtime when `STUDIO_WEB_BACKEND=secex`,
  * so the default (local child process) path is untouched.
@@ -20,13 +28,23 @@ import type { JsonEvent } from '@studio/common/ai/json-events';
 
 const DEFAULT_RUN_URL = 'https://public-api.wordpress.com/wpcom/v2/studio-code/run';
 
-// Maps our web-server session id to the CLI `session_id` the endpoint returns,
-// so the next turn resumes the same conversation in the sandbox.
+// Maps the web-server session id to the CLI/SDK session id the endpoint reports
+// (via `turn.completed.sessionId`), so the next message resumes the same
+// conversation in the sandbox.
 const cliSessionIds = new Map< string, string >();
 
 export interface SecexRuntimeOptions {
 	// The studio-code `/run` endpoint. Override for sandboxes / testing.
 	runUrl?: string;
+}
+
+// Outcome of one turn (one `/run` request/stream).
+interface TurnResult {
+	// True when the turn reached a terminal state (the agent is done for now);
+	// false when it paused on a question and is waiting for an answer.
+	done: boolean;
+	// Exit code for terminal turns. Ignored while paused.
+	code: number;
 }
 
 export function createSecexRuntime( {
@@ -41,106 +59,121 @@ export function createSecexRuntime( {
 			onError,
 			onExit,
 		}: AgentProcessOptions ): AgentProcess {
-			const controller = new AbortController();
-			let open = true;
+			let controller = new AbortController();
+			let connected = true;
+			let spawned = false;
 
-			void runTurn( {
-				runUrl,
-				sessionId,
-				prompt,
-				signal: controller.signal,
-				onSpawn,
-				onEvent,
-				onError,
-			} )
-				.catch( ( error ) => {
-					if ( ! controller.signal.aborted ) {
-						onError( error instanceof Error ? error.message : String( error ) );
-					}
-					return { code: 1 };
-				} )
-				.then( ( result ) => {
-					open = false;
-					onExit( controller.signal.aborted ? null : result.code );
+			// Run a single turn against the endpoint and report whether it ended
+			// terminally or paused on a question.
+			const runTurn = async ( message: string ): Promise< TurnResult > => {
+				controller = new AbortController();
+
+				const token = await readAuthToken().catch( () => null );
+				if ( ! token ) {
+					onError( 'Not signed in to WordPress.com — run `studio auth login` first.' );
+					return { done: true, code: 1 };
+				}
+
+				const response = await fetch( runUrl, {
+					method: 'POST',
+					signal: controller.signal,
+					headers: {
+						Authorization: `Bearer ${ token.accessToken }`,
+						'X-WPCOM-AI-Feature': 'studio-code',
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify( {
+						prompt: message,
+						session_id: cliSessionIds.get( sessionId ),
+					} ),
 				} );
+
+				if ( ! response.ok || ! response.body ) {
+					const text = await response.text().catch( () => '' );
+					onError( `studio-code /run failed (${ response.status }): ${ text }` );
+					return { done: true, code: 1 };
+				}
+
+				if ( ! spawned ) {
+					spawned = true;
+					onSpawn();
+				}
+
+				let paused = false;
+				let errored = false;
+
+				await readSse( response.body, ( event, data ) => {
+					if ( event === 'data' ) {
+						const jsonEvent = data as JsonEvent;
+						if ( jsonEvent.type === 'turn.completed' ) {
+							if ( jsonEvent.sessionId ) {
+								cliSessionIds.set( sessionId, jsonEvent.sessionId );
+							}
+							// A paused turn isn't an error or an ending — the agent
+							// asked a question and is waiting for the next message.
+							paused = jsonEvent.status === 'paused';
+							errored = jsonEvent.status === 'error';
+						}
+						onEvent( jsonEvent );
+					} else if ( event === 'error' ) {
+						errored = true;
+						const payload = data as { message?: string; stderr?: string };
+						onError( payload.message ?? payload.stderr ?? 'studio-code run error' );
+					}
+					// 'done' just marks the end of the stream; the loop ends on its own.
+				} );
+
+				return { done: ! paused, code: errored ? 1 : 0 };
+			};
+
+			// Drive one turn; exit only when it ends terminally. While paused we
+			// stay connected and wait for answer() to drive the next turn.
+			const drive = ( message: string ): void => {
+				void runTurn( message )
+					.catch( ( error ): TurnResult => {
+						if ( ! controller.signal.aborted ) {
+							onError( error instanceof Error ? error.message : String( error ) );
+						}
+						return { done: true, code: 1 };
+					} )
+					.then( ( result ) => {
+						if ( controller.signal.aborted ) {
+							connected = false;
+							onExit( null );
+						} else if ( result.done ) {
+							connected = false;
+							onExit( result.code );
+						}
+						// Paused: stay connected; answer() will resume.
+					} );
+			};
+
+			drive( prompt );
 
 			return {
 				get connected() {
-					return open;
+					return connected;
 				},
 				interrupt() {
-					// The endpoint has no interrupt route; closing the stream makes it
-					// kill the CLI in the sandbox (and still snapshot partial state).
+					// No interrupt route on the endpoint; aborting the stream makes
+					// the sandbox kill the CLI (and still snapshot partial state).
 					controller.abort();
 				},
 				kill() {
+					connected = false;
 					controller.abort();
 				},
-				answer() {
-					// No-op: the endpoint runs `studio code --json` with --auto-approve,
-					// so the agent never blocks waiting for an answer.
+				answer( answers: Record< string, string > ) {
+					// The agent paused on a question; the user's choice resumes the
+					// conversation as the next message on the same sandbox session.
+					const message = Object.values( answers ).join( '\n' ).trim();
+					if ( message ) {
+						drive( message );
+					}
 				},
 			};
 		},
 	};
-}
-
-interface RunTurnArgs {
-	runUrl: string;
-	sessionId: string;
-	prompt: string;
-	signal: AbortSignal;
-	onSpawn: () => void;
-	onEvent: ( event: JsonEvent ) => void;
-	onError: ( message: string ) => void;
-}
-
-async function runTurn( args: RunTurnArgs ): Promise< { code: number } > {
-	const { runUrl, sessionId, prompt, signal, onSpawn, onEvent, onError } = args;
-
-	const token = await readAuthToken().catch( () => null );
-	if ( ! token ) {
-		onError( 'Not signed in to WordPress.com — run `studio auth login` first.' );
-		return { code: 1 };
-	}
-
-	const response = await fetch( runUrl, {
-		method: 'POST',
-		signal,
-		headers: {
-			Authorization: `Bearer ${ token.accessToken }`,
-			'X-WPCOM-AI-Feature': 'studio-code',
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify( { prompt, session_id: cliSessionIds.get( sessionId ) } ),
-	} );
-
-	if ( ! response.ok || ! response.body ) {
-		const text = await response.text().catch( () => '' );
-		onError( `studio-code /run failed (${ response.status }): ${ text }` );
-		return { code: 1 };
-	}
-
-	onSpawn();
-
-	let errored = false;
-	await readSse( response.body, ( event, data ) => {
-		if ( event === 'session' ) {
-			const id = ( data as { session_id?: string } ).session_id;
-			if ( id ) {
-				cliSessionIds.set( sessionId, id );
-			}
-		} else if ( event === 'data' ) {
-			onEvent( data as JsonEvent );
-		} else if ( event === 'error' ) {
-			errored = true;
-			const payload = data as { message?: string; stderr?: string };
-			onError( payload.message ?? payload.stderr ?? 'studio-code run error' );
-		}
-		// 'done' just marks the end of the stream; the loop ends on its own.
-	} );
-
-	return { code: errored ? 1 : 0 };
 }
 
 /**

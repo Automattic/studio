@@ -36,14 +36,14 @@ export default class SiteContent {
 		return this.locator.getByLabel( 'Copy site url', { exact: false } );
 	}
 
-	getTabButton( tabName: 'Preview' | 'Settings' | 'Import / Export' ) {
+	getTabButton( tabName: 'Preview' | 'Site Settings' | 'Import / Export' ) {
 		return this.locator.getByRole( 'tab', { name: tabName } );
 	}
 
-	async navigateToTab( tabName: 'Settings' ): Promise< SettingsTab >;
+	async navigateToTab( tabName: 'Site Settings' ): Promise< SettingsTab >;
 	async navigateToTab( tabName: 'Import / Export' ): Promise< ImportExportTab >;
 	async navigateToTab(
-		tabName: 'Preview' | 'Settings' | 'Import / Export'
+		tabName: 'Preview' | 'Site Settings' | 'Import / Export'
 	): Promise< SettingsTab | ImportExportTab > {
 		const tabButton = this.getTabButton( tabName );
 		await tabButton.click();
@@ -51,7 +51,7 @@ export default class SiteContent {
 		switch ( tabName ) {
 			case 'Preview':
 				throw new Error( 'Not implemented' );
-			case 'Settings': {
+			case 'Site Settings': {
 				const tab = new SettingsTab( this.page, this.siteName );
 				await expect( tab.locator ).toBeVisible();
 				return tab;

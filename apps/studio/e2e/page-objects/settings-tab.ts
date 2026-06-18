@@ -7,7 +7,7 @@ export default class SettingsTab {
 	) {}
 
 	get locator() {
-		return this.page.getByRole( 'tabpanel', { name: 'Settings' } );
+		return this.page.getByRole( 'tabpanel', { name: 'Site Settings' } );
 	}
 
 	get copyWPAdminButton() {

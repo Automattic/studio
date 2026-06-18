@@ -210,12 +210,25 @@ export function createSecexRuntime( {
 	};
 }
 
+// True when a JSONL line is the session header (`{"type":"session",...}`).
+function isSessionHeaderLine( line: string ): boolean {
+	try {
+		return 'session' === ( JSON.parse( line ) as { type?: string } ).type;
+	} catch {
+		return false;
+	}
+}
+
 /**
  * Cache the sandbox's canonical session JSONL into the broker's local session
  * store, so the web-server's own `getSession` returns the conversation that ran
- * remotely (the sandbox snapshot remains the source of truth). The sandbox file
- * headers the session with the SDK's id; rewrite it to the web-server session id
- * so `loadAiSession` resolves the cache by the id the browser already uses.
+ * remotely (the sandbox snapshot remains the source of truth).
+ *
+ * The local file (from createAiSession) is headed with a `session` line carrying
+ * the web-server session id — the id getSession resolves by. The sandbox JSONL
+ * holds only the SDK's conversation entries (no such header). So we KEEP the
+ * local header and replace the body with the sandbox's entries, rather than
+ * overwriting (which would drop the id and break resolution).
  *
  * @param webSessionId The web-server session id (what the browser holds).
  * @param jsonl        The canonical session JSONL read from the sandbox.
@@ -227,20 +240,15 @@ async function cacheSandboxSession( webSessionId: string, jsonl: string ): Promi
 	// by createAiSession). If it's gone, there's nothing to cache into.
 	const { summary } = await loadAiSession( root, webSessionId );
 
-	const lines = jsonl.split( '\n' );
-	if ( lines.length > 0 ) {
-		try {
-			const header = JSON.parse( lines[ 0 ] ) as { type?: string; id?: string };
-			if ( 'session' === header.type ) {
-				header.id = webSessionId;
-				lines[ 0 ] = JSON.stringify( header );
-			}
-		} catch {
-			// Header isn't JSON; leave the snapshot untouched.
-		}
-	}
+	const existing = await fs.readFile( summary.filePath, 'utf8' );
+	const header = existing.split( '\n' ).find( isSessionHeaderLine );
 
-	await fs.writeFile( summary.filePath, lines.join( '\n' ) + '\n', 'utf8' );
+	const body = jsonl
+		.split( '\n' )
+		.filter( ( line ) => line.trim() && ! isSessionHeaderLine( line ) );
+
+	const out = [ header, ...body ].filter( Boolean ).join( '\n' ) + '\n';
+	await fs.writeFile( summary.filePath, out, 'utf8' );
 }
 
 /**

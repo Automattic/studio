@@ -14,6 +14,7 @@ import {
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
+	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
@@ -43,11 +44,7 @@ export function getSiteRuntimeStat( site: {
  * `--avoid-telemetry`): that flag only distinguishes app-backed runs from direct
  * terminal use, not a user telemetry opt-out. `bumpStat` still no-ops in dev/E2E.
  */
-export async function recordSiteRuntimeUsage( site: {
-	id: string;
-	runtime?: SiteRuntime;
-	fileAccess?: SiteFileAccess;
-} ): Promise< void > {
+export async function recordSiteRuntimeUsage( site: SiteData ): Promise< void > {
 	if ( ! __ENABLE_CLI_TELEMETRY__ ) {
 		return;
 	}

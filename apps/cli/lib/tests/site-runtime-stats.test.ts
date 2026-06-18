@@ -1,9 +1,11 @@
+import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { bumpStat } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
+	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
@@ -17,10 +19,14 @@ vi.mock( 'cli/lib/cli-config/core', () => ( {
 	saveCliConfig: vi.fn(),
 } ) );
 
-const nativeAllFilesSite = {
+const nativeAllFilesSite: SiteData = {
 	id: 'site-1',
+	name: 'My WordPress Site',
+	path: '/home/user/Studio/my-wordpress-site',
+	port: 8888,
 	runtime: 'native-php',
 	fileAccess: 'all-files',
+	phpVersion: DEFAULT_PHP_VERSION,
 } as const;
 
 let mockConfig: Awaited< ReturnType< typeof readCliConfig > >;

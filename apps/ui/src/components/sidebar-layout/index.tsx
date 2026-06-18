@@ -30,7 +30,11 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		<SidebarCollapsedContext.Provider value={ collapsed }>
 			<div className={ styles.root }>
 				<aside
-					className={ clsx( styles.sidebar, collapsed && styles.sidebarCollapsed ) }
+					className={ clsx(
+						styles.sidebar,
+						collapsed && styles.sidebarCollapsed,
+						sidebarResize.isResizing && styles.sidebarResizing
+					) }
 					style={ sidebarStyle }
 				>
 					<SidebarHeader onToggleSidebar={ () => setCollapsed( true ) } />

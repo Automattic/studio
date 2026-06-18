@@ -647,7 +647,7 @@ async function abortPull( url: string, providedName?: string, verbose = false ):
 
 	if ( metadata.stage === 'completed' ) {
 		throw new LoggerError(
-			__( 'This pull has already completed. Use `studio site delete` to remove the site.' )
+			__( 'This pull has already completed. Use `studio delete` to remove the site.' )
 		);
 	}
 

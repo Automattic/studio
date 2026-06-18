@@ -9,7 +9,7 @@ set -eu
 #   STUDIO_CLI_VERSION  — Version to install from the CDN (default: latest, e.g. v1.11.0)
 #   STUDIO_CLI_URL      — Override the download source with a base URL or local dir,
 #                         bypassing the CDN. Expects studio-cli-<platform>-<arch>.tgz
-#                         plus a matching .sha256 sidecar (used for testing and mirrors).
+#                         (used for testing and mirrors).
 
 INSTALL_DIR="${STUDIO_CLI_HOME:-$HOME/.studio}"
 BIN_DIR="$HOME/.local/bin"
@@ -76,32 +76,6 @@ download() {
 	fi
 }
 
-# --- Checksum verification ---
-
-verify_checksum() {
-	BINARY="$1"
-	CHECKSUM_FILE="$2"
-
-	# Checksum file format: "<sha256>  <filename>". Only the hash field matters.
-	EXPECTED="$(awk '{print $1}' "$CHECKSUM_FILE")"
-
-	if command -v shasum >/dev/null 2>&1; then
-		ACTUAL="$(shasum -a 256 "$BINARY" | awk '{print $1}')"
-	elif command -v sha256sum >/dev/null 2>&1; then
-		ACTUAL="$(sha256sum "$BINARY" | awk '{print $1}')"
-	elif command -v openssl >/dev/null 2>&1; then
-		ACTUAL="$(openssl dgst -sha256 "$BINARY" | awk '{print $NF}')"
-	else
-		echo "Error: shasum, sha256sum, or openssl is required to verify the download" >&2
-		return 1
-	fi
-
-	if [ "$EXPECTED" != "$ACTUAL" ]; then
-		echo "Error: checksum mismatch (expected $EXPECTED, got $ACTUAL)" >&2
-		return 1
-	fi
-}
-
 # --- Install ---
 
 install_studio() {
@@ -109,14 +83,12 @@ install_studio() {
 
 	# Default to the Apps CDN, which 302-redirects "latest" (or a pinned version) to
 	# the newest published bundle. STUDIO_CLI_URL overrides this with a base URL or
-	# local dir that serves the bundle by name plus a .sha256 sidecar — used for
-	# local testing, mirrors, or pinning an arbitrary build.
+	# local dir that serves the bundle by name — used for local testing, mirrors, or
+	# pinning an arbitrary build.
 	if [ -n "${STUDIO_CLI_URL:-}" ]; then
 		BUNDLE_URL="${STUDIO_CLI_URL}/${BUNDLE_NAME}"
-		HAS_SHA256_SIDECAR=1
 	else
 		BUNDLE_URL="${CDN_BASE}/${SLUG}/${CDN_VERSION}/full-install"
-		HAS_SHA256_SIDECAR=0
 	fi
 
 	mkdir -p "$INSTALL_DIR"
@@ -131,19 +103,6 @@ install_studio() {
 
 	echo "Downloading Studio CLI..."
 	download "$BUNDLE_URL" "$TMP_BUNDLE"
-
-	# The CDN exposes the SHA-256 only as build metadata, not as a downloadable
-	# sidecar, so checksum verification applies to STUDIO_CLI_URL sources (which do
-	# ship one). The CDN path relies on HTTPS for transport integrity plus the
-	# staging-extraction guard below.
-	if [ "$HAS_SHA256_SIDECAR" = "1" ]; then
-		download "${BUNDLE_URL}.sha256" "$TMP_BUNDLE.sha256"
-		echo "Verifying checksum..."
-		if ! verify_checksum "$TMP_BUNDLE" "$TMP_BUNDLE.sha256"; then
-			echo "Error: checksum verification failed. Aborting; existing install left untouched." >&2
-			exit 1
-		fi
-	fi
 
 	echo "Installing to $INSTALL_DIR..."
 	mkdir -p "$STAGING_DIR/extracted"

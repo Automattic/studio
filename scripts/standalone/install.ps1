@@ -13,7 +13,7 @@
 #   STUDIO_CLI_VERSION  — Version to install from the CDN (default: latest, e.g. v1.11.0)
 #   STUDIO_CLI_URL      — Override the download source with a base URL or local dir,
 #                         bypassing the CDN. Expects studio-cli-<platform>-<arch>.tgz
-#                         plus a matching .sha256 sidecar (used for testing and mirrors).
+#                         (used for testing and mirrors).
 
 $ErrorActionPreference = "Stop"
 
@@ -45,20 +45,6 @@ function Get-Bundle {
     Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing
 }
 
-# --- Checksum verification ---
-
-function Test-Checksum {
-    param([string]$File, [string]$ChecksumFile)
-
-    # Checksum file format: "<sha256>  <filename>"
-    $Expected = ((Get-Content $ChecksumFile -Raw) -split '\s+')[0].ToLower()
-    $Actual = (Get-FileHash -Path $File -Algorithm SHA256).Hash.ToLower()
-
-    if ($Expected -ne $Actual) {
-        throw "Checksum mismatch: expected $Expected, got $Actual"
-    }
-}
-
 # --- Install ---
 
 function Install-StudioCli {
@@ -67,16 +53,14 @@ function Install-StudioCli {
 
     # Default to the Apps CDN, which 302-redirects "latest" (or a pinned version) to
     # the newest published bundle. STUDIO_CLI_URL overrides this with a base URL or
-    # local dir that serves the bundle by name plus a .sha256 sidecar — used for
-    # local testing, mirrors, or pinning an arbitrary build.
+    # local dir that serves the bundle by name — used for local testing, mirrors, or
+    # pinning an arbitrary build.
     if ($env:STUDIO_CLI_URL) {
         $BundleUrl = "$($env:STUDIO_CLI_URL)/${BundleName}"
-        $HasSha256Sidecar = $true
     }
     else {
         $Slug = if ($Arch -eq "arm64") { "windows-arm64" } else { "windows-x64" }
         $BundleUrl = "${CdnBase}/${Slug}/${CdnVersion}/full-install"
-        $HasSha256Sidecar = $false
     }
 
     Write-Host "Studio CLI Installer"
@@ -96,15 +80,6 @@ function Install-StudioCli {
 
         Write-Host "Downloading Studio CLI..."
         Get-Bundle -Url $BundleUrl -Dest $TmpBundle
-
-        # The CDN exposes the SHA-256 only as build metadata, not as a downloadable
-        # sidecar, so checksum verification applies to STUDIO_CLI_URL sources (which
-        # do ship one). The CDN path relies on HTTPS plus the extraction guard below.
-        if ($HasSha256Sidecar) {
-            Get-Bundle -Url "$BundleUrl.sha256" -Dest "$TmpBundle.sha256"
-            Write-Host "Verifying checksum..."
-            Test-Checksum -File $TmpBundle -ChecksumFile "$TmpBundle.sha256"
-        }
 
         Write-Host "Installing to $InstallDir..."
         $ExtractDir = Join-Path $StagingDir "extracted"

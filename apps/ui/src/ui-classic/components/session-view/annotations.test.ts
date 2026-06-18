@@ -8,7 +8,7 @@ describe( 'formatAnnotationsAsPrompt', () => {
 		expect( formatAnnotationsSubmittedMessage( 2 ) ).toBe( '2 annotations submitted' );
 	} );
 
-	it( 'asks the agent to summarize, confirm, and use todos before editing', () => {
+	it( 'asks the agent to make the changes directly without a confirmation gate', () => {
 		const annotations: Annotation[] = [
 			{
 				id: 'a_1',
@@ -26,12 +26,9 @@ describe( 'formatAnnotationsAsPrompt', () => {
 		const prompt = formatAnnotationsAsPrompt( annotations );
 
 		expect( prompt ).toContain( 'The user submitted 1 visual annotation' );
-		expect( prompt ).toContain( 'First, reply with a markdown summary' );
-		expect( prompt ).toContain( 'Use `AskUserQuestion` for that confirmation' );
-		expect( prompt ).toContain( 'Do not edit files, run WP-CLI mutations, or change the site' );
-		expect( prompt ).toContain(
-			'call `TodoWrite` (the Todo tool) with one task for each confirmed annotation'
-		);
+		expect( prompt ).toContain( 'Make the requested changes' );
+		expect( prompt ).not.toContain( 'AskUserQuestion' );
+		expect( prompt ).not.toContain( 'TodoWrite' );
 		expect( prompt ).toContain( '- Selector: `main h1`' );
 		expect( prompt ).toContain( '"comment": "Make the hero heading smaller"' );
 	} );

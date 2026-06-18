@@ -38,36 +38,15 @@ Each annotation includes:
 - **User feedback (comment)** — what the user wants changed
 - **pathname** — which page of the site the annotation was made on
 
-### 3. Summarize and confirm — REQUIRED before making any changes
+### 3. Review the annotations
 
-Do **not** start editing yet. First, present a numbered summary of every request, then ask the user to confirm before you proceed.
-
-Format the summary like this — one entry per annotation, in the order received:
-
-```
-Here's what you asked me to change:
-
-  1. <one-line description in your own words> — <element + nearby text>
-     (your note: "<the user's comment, verbatim>")
-
-  2. …
-
-Want me to go ahead with these N change(s)?
-```
-
-Rules for the summary:
-- **Restate intent in your own words** so the user can spot misunderstandings (e.g. "Make the title smaller" rather than echoing the comment).
-- **Identify the element by what they can see**, not by selector — use the tag name plus `nearbyText`. Selectors are noisy and unreadable; keep them out of the summary.
-- **Always include the user's verbatim comment** in parentheses so they know nothing was lost in your paraphrase.
-- If anything is ambiguous, list the ambiguity as a question in the same numbered item rather than guessing.
-
-Then call `AskUserQuestion` with a single yes/no question ("Proceed with these changes?") offering options like "Yes, go ahead", "No, let me re-annotate", and "Skip some — I'll tell you which". Only continue past this step on an explicit confirmation.
+Address the annotations in the order they were submitted. When you reference one for the user, identify the element by what they can see — the tag name plus `nearbyText` — rather than by selector. Selectors are noisy and unreadable; use them only for implementation.
 
 If the user wants to re-annotate, point them back to the open browser and call `wait_for_annotations` again — the inspector keeps working without re-opening the browser.
 
 ### 4. Make changes
 
-For each confirmed annotation:
+For each annotation:
 1. **Identify what to change:**
    - Use the CSS selector to find the element in theme templates or stylesheets
    - Use `wp_cli` with `post list --post_type=wp_template --format=json` to check if it's in a template override

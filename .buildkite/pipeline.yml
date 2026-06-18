@@ -94,10 +94,6 @@ steps:
         key: e2e_tests
         # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
 
-  # Linux E2E tests run on the shared `default` queue inside a Debian Node
-  # container — the same pattern the Linux build/unit-test steps use. Kept as
-  # a separate step (rather than another matrix entry on *e2e_config) because
-  # Mac and Windows share queue/plugin defaults that Linux doesn't.
       # Linux E2E tests run on the shared `default` queue inside a Debian Node
       # container — the same pattern the Linux build/unit-test steps use. Kept as
       # a separate step (rather than another matrix entry on *e2e_config) because

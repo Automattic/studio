@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { wdbg } from './debug';
 import { localRuntime } from './local-runtime';
 import type { AgentProcess, AgentRuntime } from './runtime';
 import type { ActiveAgentRun, AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -65,15 +66,26 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 	const runId = crypto.randomUUID();
 	const startedAt = Date.now();
 
+	wdbg( 'run', 'start', { sessionId, runId, prompt: prompt.slice( 0, 80 ) } );
+
 	const agentProcess = runtime.start( {
 		sessionId,
 		prompt,
 		displayMessage,
-		onSpawn: () => emit( runId, sessionId, { type: 'run.started', timestamp: nowIso() } ),
-		onEvent: ( event ) => emit( runId, sessionId, event ),
-		onError: ( message ) =>
-			emit( runId, sessionId, { type: 'error', timestamp: nowIso(), message } ),
+		onSpawn: () => {
+			wdbg( 'run', 'spawned', { runId } );
+			emit( runId, sessionId, { type: 'run.started', timestamp: nowIso() } );
+		},
+		onEvent: ( event ) => {
+			wdbg( 'event', event.type, event.type === 'message' ? event.message?.type : '' );
+			emit( runId, sessionId, event );
+		},
+		onError: ( message ) => {
+			wdbg( 'run', 'error', { runId, message } );
+			emit( runId, sessionId, { type: 'error', timestamp: nowIso(), message } );
+		},
 		onExit: ( code ) => {
+			wdbg( 'run', 'exit', { runId, code } );
 			const interrupted = runsById.get( runId )?.interrupted ?? false;
 			runsBySessionId.delete( sessionId );
 			runsById.delete( runId );
@@ -150,7 +162,9 @@ export function interruptAgentRun( runId: string ): void {
 export function answerAgentRun( runId: string, answers: Record< string, string > ): void {
 	const run = runsById.get( runId );
 	if ( ! run ) {
+		wdbg( 'run', 'answer (no run found)', { runId } );
 		return;
 	}
+	wdbg( 'run', 'answer', { runId, answers } );
 	run.process.answer( answers );
 }

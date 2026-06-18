@@ -26,6 +26,7 @@ import {
 	setBroadcast,
 	startAgentRun,
 } from './agent-runs';
+import { wdbg } from './debug';
 import { createSecexRuntime } from './secex-runtime';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
@@ -272,6 +273,10 @@ api.get(
 			loadAiSession( root, req.params.id ),
 			readSharedSessions(),
 		] );
+		wdbg( 'session', 'getSession', {
+			id: req.params.id,
+			entries: Array.isArray( loaded.entries ) ? loaded.entries.length : 'n/a',
+		} );
 		res.json( {
 			...loaded,
 			summary: hydrateAiSessionSummary( loaded.summary, sessionMetadata[ loaded.summary.id ] ),
@@ -318,6 +323,7 @@ api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
 		res.status( 400 ).json( { error: 'prompt is required' } );
 		return;
 	}
+	wdbg( 'session', 'message', { id: req.params.id, prompt: prompt.slice( 0, 80 ) } );
 	const { runId } = startAgentRun( { sessionId: req.params.id, prompt, displayMessage } );
 	res.json( { runId } );
 } );

@@ -1,4 +1,8 @@
+import fs from 'node:fs/promises';
+import { loadAiSession } from '@studio/common/ai/sessions/store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
+import { wdbg } from './debug';
 import type { AgentProcess, AgentProcessOptions, AgentRuntime } from './runtime';
 import type { JsonEvent } from '@studio/common/ai/json-events';
 
@@ -74,6 +78,13 @@ export function createSecexRuntime( {
 					return { done: true, code: 1 };
 				}
 
+				const resumeId = cliSessionIds.get( sessionId );
+				wdbg( 'secex', 'POST /run', {
+					runUrl,
+					resume: resumeId ?? '(new)',
+					message: message.slice( 0, 80 ),
+				} );
+
 				const response = await fetch( runUrl, {
 					method: 'POST',
 					signal: controller.signal,
@@ -84,9 +95,11 @@ export function createSecexRuntime( {
 					},
 					body: JSON.stringify( {
 						prompt: message,
-						session_id: cliSessionIds.get( sessionId ),
+						session_id: resumeId,
 					} ),
 				} );
+
+				wdbg( 'secex', 'response', { status: response.status, ok: response.ok } );
 
 				if ( ! response.ok || ! response.body ) {
 					const text = await response.text().catch( () => '' );
@@ -113,12 +126,28 @@ export function createSecexRuntime( {
 							// asked a question and is waiting for the next message.
 							paused = jsonEvent.status === 'paused';
 							errored = jsonEvent.status === 'error';
+							wdbg( 'secex', 'turn.completed', {
+								status: jsonEvent.status,
+								cliSessionId: jsonEvent.sessionId,
+							} );
 						}
 						onEvent( jsonEvent );
 					} else if ( event === 'error' ) {
 						errored = true;
 						const payload = data as { message?: string; stderr?: string };
 						onError( payload.message ?? payload.stderr ?? 'studio-code run error' );
+					} else if ( event === 'session' ) {
+						// The endpoint's run-boundary sync: the canonical session
+						// JSONL from the sandbox. Cache it locally so the broker's own
+						// getSession returns the conversation (the sandbox stays the
+						// source of truth). Fire-and-forget; never blocks the stream.
+						const payload = data as { jsonl?: string };
+						if ( typeof payload.jsonl === 'string' && payload.jsonl ) {
+							wdbg( 'secex', 'session snapshot', { bytes: payload.jsonl.length } );
+							void cacheSandboxSession( sessionId, payload.jsonl ).catch( ( cacheError ) => {
+								wdbg( 'secex', 'session cache failed', { error: String( cacheError ) } );
+							} );
+						}
 					}
 					// 'done' just marks the end of the stream; the loop ends on its own.
 				} );
@@ -138,11 +167,15 @@ export function createSecexRuntime( {
 					} )
 					.then( ( result ) => {
 						if ( controller.signal.aborted ) {
+							wdbg( 'secex', 'drive: aborted' );
 							connected = false;
 							onExit( null );
 						} else if ( result.done ) {
+							wdbg( 'secex', 'drive: done', { code: result.code } );
 							connected = false;
 							onExit( result.code );
+						} else {
+							wdbg( 'secex', 'drive: paused (awaiting answer)' );
 						}
 						// Paused: stay connected; answer() will resume.
 					} );
@@ -167,6 +200,7 @@ export function createSecexRuntime( {
 					// The agent paused on a question; the user's choice resumes the
 					// conversation as the next message on the same sandbox session.
 					const message = Object.values( answers ).join( '\n' ).trim();
+					wdbg( 'secex', 'answer', { answers, message: message.slice( 0, 80 ) } );
 					if ( message ) {
 						drive( message );
 					}
@@ -174,6 +208,39 @@ export function createSecexRuntime( {
 			};
 		},
 	};
+}
+
+/**
+ * Cache the sandbox's canonical session JSONL into the broker's local session
+ * store, so the web-server's own `getSession` returns the conversation that ran
+ * remotely (the sandbox snapshot remains the source of truth). The sandbox file
+ * headers the session with the SDK's id; rewrite it to the web-server session id
+ * so `loadAiSession` resolves the cache by the id the browser already uses.
+ *
+ * @param webSessionId The web-server session id (what the browser holds).
+ * @param jsonl        The canonical session JSONL read from the sandbox.
+ */
+async function cacheSandboxSession( webSessionId: string, jsonl: string ): Promise< void > {
+	const root = getAiSessionsRootDirectory();
+
+	// Resolve the local file the browser's session id maps to (created up front
+	// by createAiSession). If it's gone, there's nothing to cache into.
+	const { summary } = await loadAiSession( root, webSessionId );
+
+	const lines = jsonl.split( '\n' );
+	if ( lines.length > 0 ) {
+		try {
+			const header = JSON.parse( lines[ 0 ] ) as { type?: string; id?: string };
+			if ( 'session' === header.type ) {
+				header.id = webSessionId;
+				lines[ 0 ] = JSON.stringify( header );
+			}
+		} catch {
+			// Header isn't JSON; leave the snapshot untouched.
+		}
+	}
+
+	await fs.writeFile( summary.filePath, lines.join( '\n' ) + '\n', 'utf8' );
 }
 
 /**

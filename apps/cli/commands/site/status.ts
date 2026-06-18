@@ -3,7 +3,7 @@ import { decodePassword } from '@studio/common/lib/passwords';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
-import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, getSiteUrl, getWpPath, getWpUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
@@ -26,8 +26,11 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 		const status = isOnline ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
 		const siteUrl = getSiteUrl( site );
 		const sitePath = getPrettyPath( site.path );
-		const wpVersion = getWordPressVersion( site.path );
-		const autoLoginUrl = new URL( siteUrl );
+		const wpVersion = getWordPressVersion( getWpPath( site ) );
+		// Auto-login lands in wp-admin, which lives on the WordPress backend — for headless sites
+		// that's the `wpPort` origin, not the frontend `siteUrl`.
+		const wpUrl = getWpUrl( site );
+		const autoLoginUrl = new URL( wpUrl );
 		autoLoginUrl.pathname = `/studio-auto-login`;
 		autoLoginUrl.searchParams.set( 'redirect_to', `/wp-admin/` );
 
@@ -45,6 +48,18 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 				key: __( 'Site URL' ),
 				jsonKey: 'siteUrl',
 				value: new URL( siteUrl ).toString(),
+				type: 'url',
+			},
+			{
+				key: __( 'Type' ),
+				jsonKey: 'type',
+				value: site.headless ? __( 'Headless' ) : __( 'Standard' ),
+			},
+			{
+				// Headless only: the WordPress backend origin (surfaces the backend `wpPort`).
+				key: __( 'WordPress URL' ),
+				jsonKey: 'wpUrl',
+				value: site.headless ? new URL( wpUrl ).toString() : undefined,
 				type: 'url',
 			},
 			{
@@ -94,6 +109,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 						? [
 								[ jsonKey, value ],
 								[ 'isOnline', isOnline ],
+								[ 'headless', Boolean( site.headless ) ],
 						  ]
 						: [ [ jsonKey, value ] ]
 				)

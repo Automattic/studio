@@ -638,6 +638,7 @@ export class AiChatUI implements AiOutputAdapter {
 			name: site.name,
 			path: site.path,
 			running: runningStatus.get( site.id ) ?? false,
+			headless: site.headless,
 		} ) );
 		this.sitePickerVisible = true;
 		this.editor.showBottomBar = false;
@@ -856,6 +857,7 @@ export class AiChatUI implements AiOutputAdapter {
 			name: site.name,
 			path: site.path,
 			running: await isSiteRunning( site ),
+			headless: site.headless,
 		};
 	}
 

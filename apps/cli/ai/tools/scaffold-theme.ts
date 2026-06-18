@@ -1,6 +1,7 @@
 import { mkdir, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
+import { getWpPath } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { defineTool } from './define-tool';
@@ -312,7 +313,7 @@ export const scaffoldThemeTool = defineTool(
 				);
 			}
 
-			const themesDir = path.join( site.path, 'wp-content', 'themes' );
+			const themesDir = path.join( getWpPath( site ), 'wp-content', 'themes' );
 			if ( ! ( await pathExists( themesDir ) ) ) {
 				throw new Error( `wp-content/themes directory not found in site: ${ themesDir }` );
 			}

@@ -8,6 +8,10 @@ user-invokable: true
 
 Run an on-page SEO audit on a WordPress site to surface missing meta tags, broken heading structure, alt-text gaps, missing structured data, and indexing issues — then provide concrete, ordered fixes.
 
+## Headless sites
+
+If the active site is **headless** (the active-site context line tells you), the audit still runs against the rendered frontend — but the SEO lives in the static frontend, not in WordPress. Apply fixes by editing the frontend files directly: page `<title>`/meta description, Open Graph/Twitter tags, heading structure, image `alt`, and JSON-LD structured data go in the frontend HTML. Do NOT recommend or rely on WordPress SEO plugins (Jetpack SEO Tools, Yoast, Rank Math, etc.) or `wp-admin` settings — they do not affect the headless frontend visitors load. Skip the "Check Active Plugins First" plugin-routing below; it applies only to standard WordPress sites.
+
 ## How to Run
 
 1. Determine which site to audit. If the user hasn't specified, ask them or use the site from the current context.

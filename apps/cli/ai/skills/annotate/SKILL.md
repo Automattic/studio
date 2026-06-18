@@ -63,7 +63,13 @@ After all annotations are addressed, take a screenshot and confirm with the user
 
 The browser window auto-closes about 10 seconds after the user clicks **Done**, so by the time you finish making changes it's already gone. If they want another round, run the skill again from the top — `/annotate` opens a fresh browser. Don't try to "reattach" to the previous window.
 
+## Headless sites
+
+If the active site is **headless** (the active-site context line tells you), the page you annotated is the static frontend, not a WordPress theme. Apply the changes by editing the site's frontend files directly — the annotation's CSS selector/element maps to the frontend HTML/CSS. Do NOT use Global Styles, template overrides, or WP-CLI for these visual fixes (they affect WordPress, which visitors never load). Use WordPress only when the change is about the underlying content/data the frontend fetches from the REST API.
+
 ## Making changes the WordPress way
+
+(For standard WordPress sites — see "Headless sites" above when the active site is headless.)
 
 Always prefer WordPress APIs over direct file edits or custom plugins.
 

@@ -6,7 +6,7 @@ import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
 import { SiteData } from 'cli/lib/cli-config/core';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, getWpPath } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
@@ -50,14 +50,15 @@ enum Mode {
 async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promise< void > {
 	const phpVersion = resolveNativePhpVersion( site.phpVersion );
 	await ensurePhpBinaryAvailable( phpVersion );
-	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	const wpPath = getWpPath( site );
+	await writeStudioMuPluginsForNativePhpRuntime( wpPath, site.isWpAutoUpdating );
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
 	const defaultArgs = getDefaultPhpArgs( phpVersion );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
-		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...args ],
+		[ ...defaultArgs, getWpCliPharPath(), `--path=${ wpPath }`, ...args ],
 		{
-			cwd: site.path,
+			cwd: wpPath,
 			stdio: 'inherit',
 			detached: DETACH_FOR_GROUP_KILL,
 		}

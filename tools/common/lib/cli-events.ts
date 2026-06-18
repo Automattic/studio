@@ -31,6 +31,14 @@ export const siteDetailsSchema = z.object( {
 	technicalSiteDirectory: z.string().optional(),
 	runtimeBlueprintPath: z.string().optional(),
 	landingPage: z.string().optional(),
+	// Headless sites: the top-level `port`/`url` describe the static frontend the user visits,
+	// while WordPress runs as an always-present backend on `wpPort`. Classic sites leave these
+	// unset (`port` is WordPress, as before). `frontendPath` is the served web root (a subfolder
+	// of the `frontend/` project dir, per the chosen `frontendTemplate`).
+	headless: z.boolean().optional(),
+	wpPort: z.number().optional(),
+	frontendPath: z.string().optional(),
+	frontendTemplate: z.string().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

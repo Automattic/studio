@@ -80,9 +80,11 @@ describe( 'CLI: studio site status', () => {
 				JSON.stringify(
 					{
 						siteUrl: 'http://localhost:8080/',
+						type: 'Standard',
 						sitePath: '/path/to/site',
 						status: '🔴 Offline',
 						isOnline: false,
+						headless: false,
 						phpVersion: '8.0',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
@@ -114,10 +116,12 @@ describe( 'CLI: studio site status', () => {
 				JSON.stringify(
 					{
 						siteUrl: 'http://localhost:8080/',
+						type: 'Standard',
 						autoLoginUrl: 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
 						sitePath: '/path/to/site',
 						status: '🟢 Online',
 						isOnline: true,
+						headless: false,
 						phpVersion: '8.0',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
@@ -157,9 +161,11 @@ describe( 'CLI: studio site status', () => {
 				JSON.stringify(
 					{
 						siteUrl: 'http://localhost:8080/',
+						type: 'Standard',
 						sitePath: '/path/to/site',
 						status: '🔴 Offline',
 						isOnline: false,
+						headless: false,
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',

@@ -31,7 +31,7 @@ import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { runBlueprint, startSite } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../create';
 
@@ -166,7 +166,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( updateServerFiles ).mockResolvedValue( true );
 		vi.mocked( downloadWordPress ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
-		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
+		vi.mocked( startSite ).mockResolvedValue( mockProcessDescription );
 		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
@@ -293,7 +293,7 @@ describe( 'CLI: studio site create', () => {
 			expect( lockCliConfig ).toHaveBeenCalled();
 			expect( saveCliConfig ).toHaveBeenCalled();
 			expect( connectToDaemon ).toHaveBeenCalled();
-			expect( startWordPressServer ).toHaveBeenCalled();
+			expect( startSite ).toHaveBeenCalled();
 			expect( updateSiteAutoStart ).toHaveBeenCalledWith( expect.any( String ), true );
 			expect( logSiteDetails ).toHaveBeenCalled();
 			expect( openSiteInBrowser ).toHaveBeenCalled();
@@ -325,7 +325,7 @@ describe( 'CLI: studio site create', () => {
 				} )
 			);
 			// blogname is now set by playground-server-child via buildSetupSteps, not create.ts
-			expect( startWordPressServer ).toHaveBeenCalled();
+			expect( startSite ).toHaveBeenCalled();
 		} );
 
 		it( 'should NOT override blogname when adding existing WordPress directory with wp-config.php and name', async () => {
@@ -348,7 +348,7 @@ describe( 'CLI: studio site create', () => {
 			} );
 
 			// Verify setSiteOptions step is NOT in the blueprint steps
-			const calls = vi.mocked( startWordPressServer ).mock.calls;
+			const calls = vi.mocked( startSite ).mock.calls;
 			const blueprintCall = calls.find(
 				( call ) =>
 					( call[ 2 ] as { blueprint?: BlueprintV1Declaration } )?.blueprint?.steps?.some(
@@ -376,7 +376,7 @@ describe( 'CLI: studio site create', () => {
 			} );
 
 			// blogname is now set by playground-server-child via buildSetupSteps, not create.ts
-			expect( startWordPressServer ).toHaveBeenCalled();
+			expect( startSite ).toHaveBeenCalled();
 		} );
 
 		it( 'should use folder name as site name if no name provided', async () => {
@@ -540,7 +540,7 @@ describe( 'CLI: studio site create', () => {
 			} );
 
 			expect( validateBlueprintData ).toHaveBeenCalled();
-			expect( startWordPressServer ).toHaveBeenCalledWith(
+			expect( startSite ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
 				expect.objectContaining( {
@@ -560,7 +560,7 @@ describe( 'CLI: studio site create', () => {
 			} );
 
 			// blogname is now set by playground-server-child via buildSetupSteps, not prepended here
-			expect( startWordPressServer ).toHaveBeenCalledWith(
+			expect( startSite ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
 				expect.objectContaining( {
@@ -601,7 +601,7 @@ describe( 'CLI: studio site create', () => {
 				},
 			} );
 
-			expect( startWordPressServer ).toHaveBeenCalled();
+			expect( startSite ).toHaveBeenCalled();
 		} );
 	} );
 
@@ -613,7 +613,7 @@ describe( 'CLI: studio site create', () => {
 			} );
 
 			expect( connectToDaemon ).not.toHaveBeenCalled();
-			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( startSite ).not.toHaveBeenCalled();
 			expect( setupCustomDomain ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully' );
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio site start" to start the site.' );
@@ -634,7 +634,7 @@ describe( 'CLI: studio site create', () => {
 
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( runBlueprint ).toHaveBeenCalled();
-			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( startSite ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio site start" to start the site.' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
@@ -650,7 +650,7 @@ describe( 'CLI: studio site create', () => {
 			// No blueprint to run — language steps are applied by playground-server-child on first start
 			expect( connectToDaemon ).not.toHaveBeenCalled();
 			expect( runBlueprint ).not.toHaveBeenCalled();
-			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( startSite ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully' );
 		} );
 	} );
@@ -665,7 +665,7 @@ describe( 'CLI: studio site create', () => {
 			expect( copyLanguagePackToSite ).toHaveBeenCalledWith( mockSitePath, 'sv_SE' );
 			// Language steps (defineWpConfigConsts / setSiteLanguage) are now built by
 			// playground-server-child's buildSetupSteps, not by create.ts
-			expect( startWordPressServer ).toHaveBeenCalledWith(
+			expect( startSite ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
 				expect.objectContaining( { siteLanguage: 'sv_SE' } )
@@ -679,7 +679,7 @@ describe( 'CLI: studio site create', () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			// setSiteLanguage vs defineWpConfigConsts is now decided by playground-server-child
-			expect( startWordPressServer ).toHaveBeenCalledWith(
+			expect( startSite ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
 				expect.objectContaining( { siteLanguage: 'sv_SE' } )
@@ -696,7 +696,7 @@ describe( 'CLI: studio site create', () => {
 
 			expect( copyLanguagePackToSite ).not.toHaveBeenCalled();
 			// setSiteLanguage step is now built by playground-server-child, not create.ts
-			expect( startWordPressServer ).toHaveBeenCalledWith(
+			expect( startSite ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
 				expect.objectContaining( { siteLanguage: 'sv_SE' } )
@@ -714,7 +714,7 @@ describe( 'CLI: studio site create', () => {
 
 	describe( 'Error Handling', () => {
 		it( 'should handle WordPress server start failure', async () => {
-			vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
+			vi.mocked( startSite ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow(
 				'Failed to start WordPress server'
@@ -778,7 +778,7 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should remove site from appdata when server start fails', async () => {
-			vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
+			vi.mocked( startSite ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
 
@@ -806,7 +806,7 @@ describe( 'CLI: studio site create', () => {
 		it( 'should delete site directory when server start fails for new directory', async () => {
 			createPathExistsMock( false );
 			vi.mocked( isWordPressDirectory ).mockReturnValue( false );
-			vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
+			vi.mocked( startSite ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
 
@@ -819,7 +819,7 @@ describe( 'CLI: studio site create', () => {
 			createPathExistsMock( true );
 			vi.mocked( isEmptyDir ).mockResolvedValue( false );
 			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
-			vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
+			vi.mocked( startSite ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
 

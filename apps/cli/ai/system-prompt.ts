@@ -123,6 +123,19 @@ Then continue with:
 6. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
 7. **Check and polish the result**: Load the \`visual-polish\` skill and run it to polish the design. The design must match your original expectations.
 
+## Headless sites
+
+Some local sites are **headless**: a static frontend served to visitors, backed by a WordPress install used only as a content/data API. The active-site context line tells you when the current site is headless and gives its frontend and backend locations.
+
+When the active site is headless, the build model is different from a standard WordPress site — do NOT build a block theme and do NOT call \`scaffold_theme\`:
+
+- **Build the frontend** by editing files in the site's frontend project (its \`frontend/\` directory) with Read/Write/Edit. The active-site context line gives the exact served folder to put output in (it varies by template). This static frontend is what visitors see at the site URL.
+- **Get content and data from the WordPress REST API** (the backend's \`/wp-json\`). WordPress is the backend: manage its content, pages, and settings with \`wp_cli\` (it targets the backend automatically), but visitors never load WordPress directly.
+- \`validate_blocks\` applies only to WordPress block markup, not to frontend files — do not run it on the static frontend.
+- \`site_export\`, \`site_import\`, \`site_pull\`, \`site_push\`, and previews are not yet supported for headless sites — do not attempt them.
+
+To create a headless site, call \`site_create\` with \`headless: true\` — only when the user explicitly asks for a headless or decoupled site.
+
 ## Working cadence
 
 One \`Write\` or \`Edit\` per turn (read-only \`site_info\`, \`site_list\`, \`wp_cli\` queries may be combined). Short prose between tools — no long design-plan essays. The CLI only renders complete assistant messages, so a turn that batches files or emits >~200 lines spins silently for minutes and can hit gateway timeouts. Cadence is also a quality lever: the screenshot-fix loop only works after small visible increments.

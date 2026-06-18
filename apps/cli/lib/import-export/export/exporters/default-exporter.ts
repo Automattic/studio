@@ -18,7 +18,7 @@ import {
 import { __, sprintf } from '@wordpress/i18n';
 import { Archiver, TarArchive, ZipArchive } from 'archiver';
 import { glob } from 'glob';
-import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getWpPath, getWpUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { ImportExportEventEmitter } from '../../events';
@@ -108,7 +108,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		try {
 			for ( const requiredPath of requiredPaths ) {
 				const stats = await fsPromises.stat(
-					path.join( this.options.site.path, requiredPath.path )
+					path.join( getWpPath( this.options.site ), requiredPath.path )
 				);
 				if ( requiredPath.isDir && ! stats.isDirectory() ) {
 					return false;
@@ -185,7 +185,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 	}
 
 	private addWpConfig(): void {
-		const wpConfigPath = path.join( this.options.site.path, 'wp-config.php' );
+		const wpConfigPath = path.join( getWpPath( this.options.site ), 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
 			const content = fs.readFileSync( wpConfigPath, 'utf-8' );
 			if ( hasDefaultDbBlock( content ) ) {
@@ -207,12 +207,12 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		let pathsToArchive = this.options.specificSelectionPaths;
 		if ( ! pathsToArchive ) {
 			// Read the wp-content directory and get all the paths to be archived
-			pathsToArchive = fs.readdirSync( path.join( this.options.site.path, 'wp-content' ) );
+			pathsToArchive = fs.readdirSync( path.join( getWpPath( this.options.site ), 'wp-content' ) );
 		}
 
 		if ( Array.isArray( pathsToArchive ) ) {
 			for ( const itemPath of pathsToArchive ) {
-				const fullPath = path.join( this.options.site.path, 'wp-content', itemPath );
+				const fullPath = path.join( getWpPath( this.options.site ), 'wp-content', itemPath );
 				const archivePath = path.join( 'wp-content', itemPath );
 
 				if ( ! fs.existsSync( fullPath ) ) {
@@ -261,7 +261,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		for ( const relativePath of relativePaths ) {
 			const entryPathRelativeToArchiveRoot = path.join( archivePath, relativePath );
 			const fullEntryPathOnDisk = path.join(
-				this.options.site.path,
+				getWpPath( this.options.site ),
 				entryPathRelativeToArchiveRoot
 			);
 			if (
@@ -311,9 +311,10 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 	}
 
 	private async createStudioJsonFile(): Promise< string > {
-		const wpVersion = await getWordPressVersionFromInstallation( this.options.site.path );
+		const wpVersion = await getWordPressVersionFromInstallation( getWpPath( this.options.site ) );
 		const studioJson: StudioJson = {
-			siteUrl: getSiteUrl( this.options.site ),
+			// The WordPress site's own URL (backend for headless), matching what import rewrites.
+			siteUrl: getWpUrl( this.options.site ),
 			phpVersion: this.options.phpVersion,
 			wordpressVersion: wpVersion ? wpVersion : '',
 			plugins: [],

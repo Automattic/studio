@@ -5,6 +5,8 @@ import { domainToASCII } from 'node:url';
 import httpProxy from 'http-proxy';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { readCliConfig } from 'cli/lib/cli-config/core';
+import { getWpServerPort, isHeadless } from 'cli/lib/cli-config/sites';
+import { isWordPressRequest } from 'cli/lib/headless-routing';
 
 let httpProxyServer: http.Server | null = null;
 let httpsProxyServer: https.Server | null = null;
@@ -112,8 +114,15 @@ async function handleProxyRequest(
 		headers[ 'X-Forwarded-Proto' ] = 'https';
 	}
 
+	// For headless sites the domain serves the static frontend (`site.port`); WordPress paths go
+	// to the backend (`wpPort`). Classic sites have everything on `site.port`.
+	const targetPort =
+		isHeadless( site ) && isWordPressRequest( req.url ?? '/' )
+			? getWpServerPort( site )
+			: site.port;
+
 	proxy.web( req, res, {
-		target: `http://localhost:${ site.port }`,
+		target: `http://localhost:${ targetPort }`,
 		xfwd: true, // Pass along x-forwarded headers
 		headers,
 	} );

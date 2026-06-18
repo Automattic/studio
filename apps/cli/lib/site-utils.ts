@@ -5,7 +5,7 @@ import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
-import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, getWpAdminUrl, isHeadless } from 'cli/lib/cli-config/sites';
 import {
 	isProxyProcessRunning,
 	listProcesses,
@@ -59,6 +59,11 @@ export function buildAutoLoginUrl( siteUrl: string, redirectTo?: string ): strin
 export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 	const siteUrl = getSiteUrl( site );
 	try {
+		// Headless sites open the static frontend (no WordPress auto-login into the static app).
+		if ( isHeadless( site ) ) {
+			await openBrowser( siteUrl );
+			return;
+		}
 		const targetPath = site.landingPage || '/wp-admin/';
 		const target = new URL( targetPath, siteUrl ).toString();
 		await openBrowser( buildAutoLoginUrl( siteUrl, target ) );
@@ -73,6 +78,10 @@ export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 export function logSiteDetails( site: SiteData ): void {
 	const siteUrl = getSiteUrl( site );
 	console.log( __( 'Site URL: ' ), siteUrl );
+	if ( isHeadless( site ) ) {
+		console.log( __( 'Type: ' ), __( 'Headless (static frontend + WordPress backend)' ) );
+		console.log( __( 'WP Admin: ' ), getWpAdminUrl( site ) );
+	}
 	console.log( __( 'Username: ' ), site.adminUsername || 'admin' );
 	if ( site.adminPassword ) {
 		console.log( __( 'Password: ' ), decodePassword( site.adminPassword ) );

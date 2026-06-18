@@ -3,7 +3,7 @@ import { Type } from 'typebox';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
 import { createUnifiedDiff } from 'cli/ai/content-diff';
-import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getWpUrl } from 'cli/lib/cli-config/sites';
 import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
@@ -107,7 +107,9 @@ export const validateBlocksTool = defineTool(
 			emitProgress( `Validating and fixing blocks in ${ fileName }…` );
 
 			const site = await resolveSite( args.nameOrPath );
-			const siteUrl = getSiteUrl( site );
+			// Block validation drives the WordPress block editor (wp-admin), so target the WordPress
+			// backend — for headless sites that's the `wpPort` origin, not the static frontend.
+			const siteUrl = getWpUrl( site );
 			const report = await validateBlocks( blockContent, siteUrl );
 
 			if ( report.error ) {

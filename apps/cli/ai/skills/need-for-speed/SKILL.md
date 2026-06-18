@@ -8,6 +8,10 @@ user-invokable: true
 
 Run a performance audit on a WordPress site to measure Core Web Vitals and page composition, then provide actionable recommendations.
 
+## Headless sites
+
+If the active site is **headless** (the active-site context line tells you), the audit still runs against the rendered frontend — but performance fixes belong in the static frontend, not WordPress. Apply them by editing the frontend files and assets: size/compress images, set explicit image dimensions, defer or trim non-critical CSS/JS, reduce font loads, and minimize markup. Do NOT recommend WordPress caching or optimization plugins (e.g. `wp-super-cache`) or deactivating WordPress plugins — visitors never load WordPress, so those have no effect on the headless frontend. The plugin-oriented suggestions below apply only to standard WordPress sites.
+
 ## How to Run
 
 1. Determine which site to audit. If the user hasn't specified, ask them or use the site from the current context.

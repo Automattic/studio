@@ -15,4 +15,6 @@ export interface SiteInfo {
 	remote?: boolean;
 	url?: string;
 	wpcomSiteId?: number;
+	// True for local headless sites (static frontend + WordPress backend).
+	headless?: boolean;
 }

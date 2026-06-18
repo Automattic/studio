@@ -37,7 +37,15 @@ import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-c
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
-import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import {
+	findSiteByFolder,
+	getFrontendPath,
+	getSiteUrl,
+	getWpAdminUrl,
+	getWpPath,
+	getWpUrl,
+	isHeadless,
+} from 'cli/lib/cli-config/sites';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -465,9 +473,26 @@ export async function runCommand( options: {
 		if ( site?.remote && site?.url ) {
 			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
 		} else if ( site ) {
-			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
-				site.running ? ' (running)' : ' (stopped)'
-			}]\n\n${ prompt }`;
+			const runState = site.running ? ' (running)' : ' (stopped)';
+			// Headless sites need the agent to know the frontend/backend split and the data API,
+			// otherwise it treats them as a standard WordPress site.
+			const localData = await findSiteByFolder( site.path );
+			if ( localData && isHeadless( localData ) ) {
+				enrichedPrompt =
+					`[Active site: "${ site.name }" at ${ site.path }${ runState } — Headless site. ` +
+					`Static frontend in ${ getFrontendPath(
+						localData
+					) } (served to visitors at ${ getSiteUrl(
+						localData
+					) }); WordPress backend in ${ getWpPath( localData ) } (admin ${ getWpAdminUrl(
+						localData
+					) }, REST ${ getWpUrl(
+						localData
+					) }/wp-json). Build the frontend by editing files in the served folder; get content from the WordPress REST API.]` +
+					`\n\n${ prompt }`;
+			} else {
+				enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${ runState }]\n\n${ prompt }`;
+			}
 		}
 
 		// Non-image files ride as absolute-path references the agent reads with

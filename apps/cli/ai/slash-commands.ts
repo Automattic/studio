@@ -441,6 +441,10 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				ctx.ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
 				return 'continue';
 			}
+			if ( site.headless ) {
+				ctx.ui.showInfo( __( 'Previews are not yet supported for headless sites.' ) );
+				return 'continue';
+			}
 
 			const token = await readAuthToken();
 			if ( ! token ) {

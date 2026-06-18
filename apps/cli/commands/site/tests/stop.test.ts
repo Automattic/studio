@@ -13,7 +13,7 @@ import {
 } from 'cli/lib/daemon-client';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { isServerRunning, stopSite } from 'cli/lib/wordpress-server-manager';
 import { Mode, runCommand } from '../stop';
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
@@ -64,7 +64,7 @@ describe( 'CLI: studio site stop', () => {
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
-		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
+		vi.mocked( stopSite ).mockResolvedValue( undefined );
 		vi.mocked( clearSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
 		vi.mocked( killDaemonAndChildren ).mockResolvedValue( undefined );
@@ -97,7 +97,7 @@ describe( 'CLI: studio site stop', () => {
 
 		it( 'should throw when WordPress server stop fails', async () => {
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
-			vi.mocked( stopWordPressServer ).mockRejectedValue( new Error( 'Server stop failed' ) );
+			vi.mocked( stopSite ).mockRejectedValue( new Error( 'Server stop failed' ) );
 
 			await expect( runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false ) ).rejects.toThrow(
 				'Failed to stop WordPress server'
@@ -110,7 +110,7 @@ describe( 'CLI: studio site stop', () => {
 		it( 'should skip stop if server is not running', async () => {
 			await runCommand( Mode.STOP_SINGLE_SITE, '/test/site', false );
 
-			expect( stopWordPressServer ).not.toHaveBeenCalled();
+			expect( stopSite ).not.toHaveBeenCalled();
 			expect( clearSiteLatestCliPid ).not.toHaveBeenCalled();
 			expect( stopProxyIfNoSitesNeedIt ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -124,7 +124,7 @@ describe( 'CLI: studio site stop', () => {
 			expect( getSiteByFolder ).toHaveBeenCalledWith( '/test/site' );
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
-			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
+			expect( stopSite ).toHaveBeenCalledWith( testSite.id );
 			expect( clearSiteLatestCliPid ).toHaveBeenCalledWith( testSite.id );
 			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalledWith( testSite.id, expect.any( Object ) );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();

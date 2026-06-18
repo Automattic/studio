@@ -18,7 +18,7 @@ import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SyncOption } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { assertHeadlessUnsupported, getSiteByFolder, getWpPath } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -50,6 +50,7 @@ export async function runCommand(
 
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 	const site = await getSiteByFolder( siteFolder );
+	assertHeadlessUnsupported( site, __( 'Push' ) );
 	logger.reportSuccess( __( 'Site loaded' ) );
 
 	logger.reportStart(
@@ -79,7 +80,7 @@ export async function runCommand(
 	if ( syncOptions ) {
 		optionsToSync = syncOptions;
 	} else {
-		const selection = await selectSyncItemsForPush( site.path );
+		const selection = await selectSyncItemsForPush( getWpPath( site ) );
 		if ( ! selection ) {
 			return;
 		}
@@ -111,7 +112,7 @@ export async function runCommand(
 			};
 		}
 
-		const deployIgnore = await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS );
+		const deployIgnore = await createDeployIgnoreFilter( getWpPath( site ), SYNC_IGNORE_DEFAULTS );
 
 		const exporter = await getExporter( {
 			site,

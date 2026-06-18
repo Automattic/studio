@@ -51,9 +51,11 @@ import {
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import {
+	FRONTEND_SUBDIR,
 	removeSiteFromConfig,
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
+	WORDPRESS_SUBDIR,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
@@ -63,6 +65,7 @@ import {
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { getSiteRuntime } from 'cli/lib/feature-flags';
+import { DEFAULT_FRONTEND_TEMPLATE, getFrontendTemplate } from 'cli/lib/frontend-templates';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import {
 	getRecommendedPhpVersionForSiteRuntime,
@@ -77,7 +80,7 @@ import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { untildify } from 'cli/lib/utils';
 import { ValidationError } from 'cli/lib/validation-error';
-import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { runBlueprint, startSite } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -100,6 +103,8 @@ export type CreateCommandOptions = {
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
+	headless?: boolean;
+	frontendTemplate?: string;
 };
 
 export async function runCommand(
@@ -109,6 +114,20 @@ export async function runCommand(
 	const phpVersion = validatePhpVersionForSiteRuntime( options.phpVersion );
 	const siteRuntime = getSiteRuntime();
 	const isOnlineStatus = await isOnline();
+
+	// Headless sites place WordPress in a `wordpress/` subfolder of the container, with the frontend
+	// project as a sibling (`frontend/`). The frontend template decides which subfolder of the
+	// project is the served web root (e.g. `frontend/public`). Classic sites keep WordPress at root.
+	const headless = !! options.headless;
+	const wpPath = headless ? path.join( sitePath, WORDPRESS_SUBDIR ) : sitePath;
+	const frontendTemplate = headless
+		? getFrontendTemplate( options.frontendTemplate ?? DEFAULT_FRONTEND_TEMPLATE )
+		: undefined;
+	const frontendProjectDir = headless ? path.join( sitePath, FRONTEND_SUBDIR ) : undefined;
+	const frontendPath =
+		frontendTemplate && frontendProjectDir
+			? path.join( frontendProjectDir, frontendTemplate.servedSubdir )
+			: undefined;
 
 	try {
 		if ( isOnlineStatus ) {
@@ -131,7 +150,9 @@ export async function runCommand(
 
 		const pathExistsResult = await pathExists( sitePath );
 		const isEmptyDirResult = pathExistsResult && ( await isEmptyDir( sitePath ) );
-		const isWordPressDirResult = pathExistsResult && isWordPressDirectory( sitePath );
+		// Check for an existing WordPress install at its real location (the `wordpress/` subfolder
+		// for headless sites, the site root otherwise).
+		const isWordPressDirResult = ( await pathExists( wpPath ) ) && isWordPressDirectory( wpPath );
 
 		if ( pathExistsResult && ! isEmptyDirResult && ! isWordPressDirResult ) {
 			throw new LoggerError(
@@ -208,6 +229,12 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Site directory created' ) );
 		}
 
+		// Ensure the WordPress subfolder exists before copying WordPress into it (headless only;
+		// for classic sites wpPath === sitePath, already created above).
+		if ( headless ) {
+			fs.mkdirSync( wpPath, { recursive: true } );
+		}
+
 		if ( options.wpVersion === 'latest' ) {
 			const bundledWPPath = path.join( getServerFilesPath(), 'wordpress-versions', 'latest' );
 
@@ -220,7 +247,7 @@ export async function runCommand(
 			}
 
 			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress…' ) );
-			await recursiveCopyDirectory( bundledWPPath, sitePath );
+			await recursiveCopyDirectory( bundledWPPath, wpPath );
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		} else if ( ! isOnlineStatus ) {
 			throw new LoggerError(
@@ -240,12 +267,12 @@ export async function runCommand(
 				LoggerAction.SETUP_WORDPRESS,
 				sprintf( __( 'Copying WordPress %s…' ), options.wpVersion )
 			);
-			await recursiveCopyDirectory( getWordPressVersionPath( options.wpVersion ), sitePath );
+			await recursiveCopyDirectory( getWordPressVersionPath( options.wpVersion ), wpPath );
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		}
 
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
-		const isSqliteUpdated = await keepSqliteIntegrationUpdated( sitePath );
+		const isSqliteUpdated = await keepSqliteIntegrationUpdated( wpPath );
 		logger.reportSuccess(
 			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
 		);
@@ -265,6 +292,17 @@ export async function runCommand(
 		const port = await portFinder.getOpenPort();
 		// translators: %d is the port number
 		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
+
+		// Headless sites front WordPress with a static frontend. The top-level `port` serves the
+		// frontend; WordPress runs on its own `wpPort`. The template scaffolds the frontend project.
+		let wpPort: number | undefined;
+		if ( headless && frontendTemplate && frontendProjectDir ) {
+			wpPort = await portFinder.getOpenPort();
+			await frontendTemplate.scaffold(
+				frontendProjectDir,
+				options.name || path.basename( sitePath )
+			);
+		}
 
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = options.siteId || crypto.randomUUID();
@@ -296,7 +334,7 @@ export async function runCommand(
 			siteLanguage !== DEFAULT_LOCALE &&
 			options.wpVersion === DEFAULT_WORDPRESS_VERSION
 		) {
-			await copyLanguagePackToSite( sitePath, siteLanguage );
+			await copyLanguagePackToSite( wpPath, siteLanguage );
 		}
 
 		const siteDetails: SiteData = {
@@ -313,6 +351,10 @@ export async function runCommand(
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
 			landingPage: normalizeLandingPage( blueprint?.landingPage ),
+			headless: headless || undefined,
+			wpPort,
+			frontendPath,
+			frontendTemplate: frontendTemplate?.id,
 		};
 
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
@@ -342,7 +384,7 @@ export async function runCommand(
 				: __( 'Starting WordPress server…' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
-				const processDesc = await startWordPressServer( siteDetails, logger, {
+				const processDesc = await startSite( siteDetails, logger, {
 					wpVersion: options.wpVersion,
 					blueprint,
 					blueprintUri,
@@ -350,7 +392,7 @@ export async function runCommand(
 				} );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
-				stripWpConfigDbConstants( sitePath );
+				stripWpConfigDbConstants( wpPath );
 
 				if ( processDesc.status === 'online' ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
@@ -394,7 +436,7 @@ export async function runCommand(
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 
-					stripWpConfigDbConstants( sitePath );
+					stripWpConfigDbConstants( wpPath );
 				} catch ( error ) {
 					await removeSiteFromConfig( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
@@ -568,6 +610,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					describe: __( 'Skip printing site URL and admin credentials after creating' ),
 					default: false,
+				} )
+				.option( 'headless', {
+					type: 'boolean',
+					describe: __(
+						'Create a headless site: WordPress runs as a backend behind a static frontend'
+					),
+					default: false,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -580,6 +629,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminUsername = argv.adminUsername;
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
+			let headless = !! argv.headless;
 			const supportedPhpVersions = getSupportedPhpVersionsForSiteRuntime();
 			const recommendedPhpVersion = getRecommendedPhpVersionForSiteRuntime();
 
@@ -650,6 +700,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 							default: suggestedPath,
 						} );
 						sitePath = path.resolve( untildify( promptedPath ) );
+					}
+
+					if ( ! argv.headless ) {
+						headless = await confirm( {
+							message: __(
+								'Make this a headless site? (WordPress runs as a backend behind a static frontend)'
+							),
+							default: false,
+						} );
 					}
 
 					if ( ! wpVersion ) {
@@ -758,6 +817,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,
+				headless,
 			};
 
 			if ( argv.blueprint ) {

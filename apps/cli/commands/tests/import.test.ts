@@ -17,9 +17,11 @@ import type { SiteData } from 'cli/lib/cli-config/core';
 import type { ImporterResult } from 'cli/lib/import-export/import/importers/importer';
 
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
+	assertHeadlessUnsupported: vi.fn(),
 	clearSiteLatestCliPid: vi.fn(),
 	getSiteByFolder: vi.fn(),
 	getSiteUrl: vi.fn(),
+	getWpPath: vi.fn( ( site ) => site.path ),
 	updateSitePhpVersion: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );

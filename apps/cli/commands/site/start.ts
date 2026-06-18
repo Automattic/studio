@@ -3,6 +3,7 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __ } from '@wordpress/i18n';
 import {
 	getSiteByFolder,
+	getWpPath,
 	updateSiteAutoStart,
 	updateSiteLatestCliPid,
 } from 'cli/lib/cli-config/sites';
@@ -10,7 +11,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
-import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { isServerRunning, startSite } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -51,7 +52,7 @@ export async function runCommand(
 			LoggerAction.INSTALL_SQLITE,
 			__( 'Setting up SQLite integration, if needed…' )
 		);
-		await keepSqliteIntegrationUpdated( sitePath );
+		await keepSqliteIntegrationUpdated( getWpPath( site ) );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 		try {
@@ -65,7 +66,7 @@ export async function runCommand(
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 		try {
-			const processDesc = await startWordPressServer( site, logger );
+			const processDesc = await startSite( site, logger );
 
 			logger.reportSuccess( __( 'WordPress server started' ) );
 			if ( processDesc.status === 'online' ) {

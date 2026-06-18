@@ -23,6 +23,7 @@ import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
+import { getWpPath, getWpServerPort, isHeadless } from 'cli/lib/cli-config/sites';
 import {
 	isProcessRunning,
 	startProcess,
@@ -50,6 +51,12 @@ export function getProcessName( siteId: string ): string {
 	return `${ SITE_PROCESS_PREFIX }${ siteId }`;
 }
 
+// Headless sites run an additional static frontend process alongside the canonical WordPress
+// process. WordPress keeps `getProcessName` so wp-cli/status targeting stays stable.
+export function getFrontendProcessName( siteId: string ): string {
+	return `${ SITE_PROCESS_PREFIX }${ siteId }-frontend`;
+}
+
 function getChildScriptPath( runtime: SiteRuntime ): string {
 	switch ( runtime ) {
 		case SITE_RUNTIME_NATIVE_PHP:
@@ -58,6 +65,10 @@ function getChildScriptPath( runtime: SiteRuntime ): string {
 		default:
 			return path.resolve( import.meta.dirname, 'playground-server-child.mjs' );
 	}
+}
+
+function getFrontendChildScriptPath(): string {
+	return path.resolve( import.meta.dirname, 'frontend-server-child.mjs' );
 }
 
 function withSiteRuntime( processDescription: ProcessDescription ): ProcessDescription {
@@ -103,8 +114,8 @@ function buildServerConfig(
 ): ServerConfig {
 	const serverConfig: ServerConfig = {
 		siteId: site.id,
-		sitePath: site.path,
-		port: site.port,
+		sitePath: getWpPath( site ),
+		port: getWpServerPort( site ),
 		phpVersion:
 			runtime === SITE_RUNTIME_NATIVE_PHP
 				? resolveNativePhpVersion( site.phpVersion )
@@ -235,7 +246,7 @@ export async function startWordPressServer(
 
 	await clearStudioErrorLog( site );
 	const phpErrorLogPath = path.join(
-		site.path,
+		getWpPath( site ),
 		'wp-content',
 		site.enableDebugLog ? 'debug.log' : STUDIO_ERROR_LOG_FILENAME
 	);
@@ -264,7 +275,7 @@ export async function startWordPressServer(
 }
 
 async function clearStudioErrorLog( site: SiteData ): Promise< void > {
-	const logPath = path.join( site.path, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
+	const logPath = path.join( getWpPath( site ), 'wp-content', STUDIO_ERROR_LOG_FILENAME );
 	await fs.promises.rm( logPath, { force: true } ).catch( () => undefined );
 }
 
@@ -580,6 +591,80 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 	} catch {
 		return stopProcess( processName );
 	}
+}
+
+/**
+ * Start the static frontend process for a headless site. It serves files from `frontendPath` and
+ * reverse-proxies WordPress paths to the backend (`wpPort`). Unlike the WordPress children it
+ * self-starts from env config, so there is no `start-server` handshake — we just wait for `ready`.
+ */
+export async function startFrontendServer(
+	site: SiteData,
+	logger: Logger< string >
+): Promise< ProcessDescription > {
+	if ( site.wpPort === undefined || ! site.frontendPath ) {
+		throw new Error( 'Headless site is missing wpPort or frontendPath.' );
+	}
+
+	const processName = getFrontendProcessName( site.id );
+	const childScriptPath = getFrontendChildScriptPath();
+
+	logger.reportStart( SiteCommandLoggerAction.START_SITE, __( 'Starting frontend server…' ) );
+
+	const readyOrExit = await subscribeForReadyOrExit( processName );
+	try {
+		const processDesc = await startProcess( processName, childScriptPath, {
+			env: {
+				...process.env,
+				STUDIO_FRONTEND_PORT: String( site.port ),
+				STUDIO_FRONTEND_PATH: site.frontendPath,
+				STUDIO_WP_BACKEND_URL: `http://localhost:${ site.wpPort }`,
+			},
+		} );
+		await readyOrExit.waitFor( processDesc.pmId );
+		return processDesc;
+	} finally {
+		readyOrExit.dispose();
+	}
+}
+
+export async function stopFrontendServer( siteId: string ): Promise< void > {
+	const processName = getFrontendProcessName( siteId );
+	if ( ! ( await isProcessRunning( processName ) ) ) {
+		return;
+	}
+	await stopProcess( processName );
+}
+
+/**
+ * Start a site end to end: always start WordPress, and for headless sites also start the static
+ * frontend that sits in front of it. Returns the WordPress process description (the canonical one).
+ */
+export async function startSite(
+	site: SiteData,
+	logger: Logger< string >,
+	options?: StartServerOptions
+): Promise< ProcessDescription > {
+	const wpProcessDesc = await startWordPressServer( site, logger, options );
+	if ( isHeadless( site ) ) {
+		try {
+			await startFrontendServer( site, logger );
+		} catch ( error ) {
+			// Don't leave a half-started site: tear WordPress back down if the frontend fails.
+			await stopWordPressServer( site.id ).catch( () => undefined );
+			throw error;
+		}
+	}
+	return wpProcessDesc;
+}
+
+/**
+ * Stop a site end to end. Safe for both classic and headless sites — the frontend stop is a no-op
+ * when there is no frontend process running.
+ */
+export async function stopSite( siteId: string ): Promise< void > {
+	await stopFrontendServer( siteId );
+	await stopWordPressServer( siteId );
 }
 
 export interface RunBlueprintOptions {

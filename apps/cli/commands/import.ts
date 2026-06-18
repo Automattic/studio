@@ -14,9 +14,11 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
 import {
+	assertHeadlessUnsupported,
 	clearSiteLatestCliPid,
 	getSiteByFolder,
 	getSiteUrl,
+	getWpPath,
 	updateSitePhpVersion,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
@@ -272,6 +274,7 @@ export async function runCommand(
 
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		site = await getSiteByFolder( siteFolder );
+		assertHeadlessUnsupported( site, __( 'Import' ) );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		if ( ! fs.existsSync( importFile ) ) {
@@ -287,9 +290,9 @@ export async function runCommand(
 			logger.reportSuccess( __( 'WordPress server stopped' ) );
 		}
 
-		if ( ! isWordPressDirectory( site.path ) ) {
+		if ( ! isWordPressDirectory( getWpPath( site ) ) ) {
 			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress…' ) );
-			await setupWordPressFilesOnly( site.path );
+			await setupWordPressFilesOnly( getWpPath( site ) );
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		}
 
@@ -326,7 +329,7 @@ export async function runCommand(
 					LoggerAction.INSTALL_SQLITE,
 					__( 'Setting up SQLite integration, if needed…' )
 				);
-				await keepSqliteIntegrationUpdated( siteFolder );
+				await keepSqliteIntegrationUpdated( getWpPath( site ) );
 				logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );

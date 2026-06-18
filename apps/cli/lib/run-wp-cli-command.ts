@@ -23,6 +23,7 @@ import { SITE_RUNTIME_NATIVE_PHP, type SiteRuntime } from '@studio/common/lib/si
 import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
+import { getWpPath } from 'cli/lib/cli-config/sites';
 import {
 	getPhpBinaryPath,
 	getSqliteCommandPath,
@@ -161,14 +162,15 @@ async function runNativeWpCliCommand(
 ): Promise< DisposableWpCliResponse > {
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
 	const phpVersion = resolveNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
-	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	const wpPath = getWpPath( site );
+	await writeStudioMuPluginsForNativePhpRuntime( wpPath, site.isWpAutoUpdating );
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
 	const defaultArgs = getDefaultPhpArgs( phpVersion );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
-		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
+		[ ...defaultArgs, getWpCliPharPath(), `--path=${ wpPath }`, ...nativeArgs ],
 		{
-			cwd: site.path,
+			cwd: wpPath,
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
 			detached: DETACH_FOR_GROUP_KILL,
 		}
@@ -224,7 +226,7 @@ export async function runWpCliCommand(
 	args: string[],
 	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse > {
-	const siteFolder = site.path;
+	const siteFolder = getWpPath( site );
 
 	if ( getSiteRuntime() === SITE_RUNTIME_NATIVE_PHP ) {
 		return runNativeWpCliCommand( site, args, options );

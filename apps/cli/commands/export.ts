@@ -5,7 +5,7 @@ import { ExportEvents, ExportIpcEvent } from '@studio/common/lib/import-export-e
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { assertHeadlessUnsupported, getSiteByFolder, getWpPath } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
@@ -135,6 +135,7 @@ export async function runCommand(
 
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		const site = await getSiteByFolder( siteFolder );
+		assertHeadlessUnsupported( site, __( 'Export' ) );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		logger.reportStart(
@@ -153,7 +154,7 @@ export async function runCommand(
 		}
 
 		const ignoreFilter = applyDeployIgnore
-			? await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS )
+			? await createDeployIgnoreFilter( getWpPath( site ), SYNC_IGNORE_DEFAULTS )
 			: undefined;
 
 		const exporter = await getExporter( {

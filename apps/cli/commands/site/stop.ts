@@ -18,7 +18,7 @@ import {
 	killDaemonAndChildren,
 } from 'cli/lib/daemon-client';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
-import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { isServerRunning, stopSite } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -60,7 +60,7 @@ export async function runCommand(
 			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
 
 			try {
-				await stopWordPressServer( site.id );
+				await stopSite( site.id );
 				await clearSiteLatestCliPid( site.id );
 				logger.reportSuccess( __( 'WordPress server stopped' ) );
 				await stopProxyIfNoSitesNeedIt( site.id, logger );

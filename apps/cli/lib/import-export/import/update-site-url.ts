@@ -1,11 +1,13 @@
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getWpUrl } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
-// Search the database for the old site URL and replace it with the new one
+// Search the database for the old site URL and replace it with the new one. This rewrites
+// WordPress's own siteurl/home, so it must target the WordPress URL — for headless sites that's
+// the backend (`wpPort`), not the static frontend.
 export const updateSiteUrl = async ( site: SiteData ) => {
-	const newUrl = getSiteUrl( site );
+	const newUrl = getWpUrl( site );
 
 	await using command = await runWpCliCommand(
 		site,

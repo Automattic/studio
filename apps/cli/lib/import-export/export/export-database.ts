@@ -4,6 +4,7 @@ import { generateBackupFilename } from '@studio/common/lib/generate-backup-filen
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
+import { getWpPath } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -30,7 +31,7 @@ export async function exportDatabaseToFile(
 	}
 
 	// Move the file to its final destination
-	const tempFilePath = path.join( site.path, tempFileName );
+	const tempFilePath = path.join( getWpPath( site ), tempFileName );
 	await move( tempFilePath, finalDestination );
 }
 
@@ -105,7 +106,7 @@ export async function exportDatabaseToMultipleFiles(
 		}
 
 		// Move the file to its final destination
-		const tempFilePath = path.join( site.path, fileName );
+		const tempFilePath = path.join( getWpPath( site ), fileName );
 		const finalDestination = path.join( finalDestinationDir, fileName );
 		await move( tempFilePath, finalDestination );
 

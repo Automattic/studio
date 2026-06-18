@@ -3,16 +3,22 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { Type } from 'typebox';
 import { emitLocalSiteSelected } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
-import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, getWpAdminUrl } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 export const createSiteTool = defineTool(
 	'site_create',
-	'Creates a new WordPress site with the latest WordPress version. Automatically sets up the site directory, installs WordPress, registers the site, and starts the server. Returns the site URL and credentials.',
+	'Creates a new local WordPress site with the latest WordPress version. Set `headless: true` to create a headless site instead — a static frontend (in frontend/public) backed by a WordPress REST API — when the user asks for a headless or decoupled site. Automatically sets up the site directory, installs WordPress, registers the site, and starts the server. Returns the site URL and credentials.',
 	{
 		name: Type.String( { description: 'The name for the new site (e.g., "My Coffee Shop")' } ),
+		headless: Type.Optional(
+			Type.Boolean( {
+				description:
+					'When true, create a headless site: a static frontend served to visitors, backed by a WordPress install used as a REST API. Use only when the user explicitly asks for a headless or decoupled site. Defaults to false (standard WordPress site).',
+			} )
+		),
 	},
 	async ( args ) => {
 		try {
@@ -33,6 +39,7 @@ export const createSiteTool = defineTool(
 				noStart: false,
 				skipBrowser: true,
 				skipLogDetails: true,
+				headless: args.headless,
 			} );
 
 			const site = await resolveSite( args.name );
@@ -41,6 +48,7 @@ export const createSiteTool = defineTool(
 				name: site.name,
 				path: site.path,
 				running: true,
+				headless: site.headless,
 			} );
 			return {
 				...textResult(
@@ -50,10 +58,11 @@ export const createSiteTool = defineTool(
 							name: site.name,
 							path: site.path,
 							url,
-							adminUrl: `${ url }/wp-admin`,
+							adminUrl: getWpAdminUrl( site ),
 							username: 'admin',
 							password: site.adminPassword,
 							phpVersion: site.phpVersion,
+							headless: Boolean( site.headless ),
 						},
 						null,
 						2

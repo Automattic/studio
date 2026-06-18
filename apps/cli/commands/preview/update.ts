@@ -10,7 +10,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { addDays } from 'date-fns';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { assertHeadlessUnsupported, getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
 import { normalizeHostname } from 'cli/lib/utils';
@@ -24,6 +24,7 @@ async function getSnapshotToUpdate(
 	overwrite: boolean
 ) {
 	const site = await getSiteByFolder( siteFolder );
+	assertHeadlessUnsupported( site, __( 'Updating a preview' ) );
 	const currentSiteId = site.id;
 
 	const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );

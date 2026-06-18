@@ -10,7 +10,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { isServerRunning, startSite } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../start';
 
@@ -59,7 +59,7 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
-		vi.mocked( startWordPressServer ).mockResolvedValue( testProcessDescription );
+		vi.mocked( startSite ).mockResolvedValue( testProcessDescription );
 		vi.mocked( updateSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
@@ -89,7 +89,7 @@ describe( 'CLI: studio site start', () => {
 		} );
 
 		it( 'should throw when WordPress server fails to start', async () => {
-			vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
+			vi.mocked( startSite ).mockRejectedValue( new Error( 'Server start failed' ) );
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow(
 				'Failed to start WordPress server'
@@ -141,7 +141,7 @@ describe( 'CLI: studio site start', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
-			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
+			expect( startSite ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
 				testSite.id,
 				testProcessDescription.pid
@@ -157,7 +157,7 @@ describe( 'CLI: studio site start', () => {
 
 			await runCommand( '/test/site' );
 
-			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( startSite ).not.toHaveBeenCalled();
 			expect( setupCustomDomain ).not.toHaveBeenCalled();
 			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
 				testSite.id,
@@ -174,10 +174,7 @@ describe( 'CLI: studio site start', () => {
 			await runCommand( '/test/site' );
 
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSiteWithDomain, expect.any( Logger ) );
-			expect( startWordPressServer ).toHaveBeenCalledWith(
-				testSiteWithDomain,
-				expect.any( Logger )
-			);
+			expect( startSite ).toHaveBeenCalledWith( testSiteWithDomain, expect.any( Logger ) );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
@@ -190,7 +187,7 @@ describe( 'CLI: studio site start', () => {
 		it( 'should skip browser when skipBrowser is true', async () => {
 			await runCommand( '/test/site', true );
 
-			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
+			expect( startSite ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -201,7 +198,7 @@ describe( 'CLI: studio site start', () => {
 
 			await runCommand( '/test/site', true );
 
-			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( startSite ).not.toHaveBeenCalled();
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();

@@ -12,6 +12,7 @@ import { move } from 'fs-extra';
 import semver from 'semver';
 import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
+import { getWpPath } from 'cli/lib/cli-config/sites';
 import {
 	getRecommendedPhpVersionForSiteRuntime,
 	getSupportedPhpVersionsForSiteRuntime,
@@ -79,7 +80,7 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 
 		for ( const sqlFile of sortedSqlFiles ) {
 			const sqlTempFile = `${ generateBackupFilename( 'sql' ) }.sql`;
-			const tmpPath = path.join( site.path, sqlTempFile );
+			const tmpPath = path.join( getWpPath( site ), sqlTempFile );
 			processedFiles++;
 
 			this.emit( ImportEvents.IMPORT_DATABASE_PROGRESS, {
@@ -146,15 +147,15 @@ abstract class BaseBackupImporter extends BaseImporter {
 	async import( site: SiteData ): Promise< ImporterResult > {
 		try {
 			if ( this.shouldCleanUpBeforeImport ) {
-				await this.moveExistingWpContentToTrash( site.path );
+				await this.moveExistingWpContentToTrash( getWpPath( site ) );
 			}
-			await this.importWpConfig( site.path );
-			await this.importWpContent( site.path );
+			await this.importWpConfig( getWpPath( site ) );
+			await this.importWpContent( getWpPath( site ) );
 			if ( this.backup.metaFile ) {
 				this.meta = await this.parseMetaFile();
 			}
 			if ( this.backup.sqlFiles.length ) {
-				const databaseDir = path.join( site.path, 'wp-content', 'database' );
+				const databaseDir = path.join( getWpPath( site ), 'wp-content', 'database' );
 				const dbPath = path.join( databaseDir, '.ht.sqlite' );
 
 				await this.moveExistingDatabaseToTrash( dbPath );
@@ -396,7 +397,7 @@ export class PlaygroundImporter extends BaseBackupImporter {
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 
 		for ( const sqlFile of sqlFiles ) {
-			await move( sqlFile, path.join( site.path, 'wp-content', 'database', '.ht.sqlite' ), {
+			await move( sqlFile, path.join( getWpPath( site ), 'wp-content', 'database', '.ht.sqlite' ), {
 				overwrite: true,
 			} );
 		}

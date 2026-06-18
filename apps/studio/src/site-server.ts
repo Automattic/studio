@@ -143,6 +143,11 @@ export class SiteServer {
 			} );
 
 			for ( const site of sites ) {
+				// Headless sites are CLI-only for now — keep them invisible to the desktop app
+				// (sidebar, lifecycle, IPC) until the app UI for them lands.
+				if ( site.headless ) {
+					continue;
+				}
 				if ( ! SiteServer.get( site.id ) ) {
 					SiteServer.register( site );
 				}

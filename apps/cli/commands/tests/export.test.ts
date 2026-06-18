@@ -24,7 +24,9 @@ function getYargsArgvMock() {
 }
 
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
+	assertHeadlessUnsupported: vi.fn(),
 	getSiteByFolder: vi.fn(),
+	getWpPath: vi.fn( ( site ) => site.path ),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/sqlite-integration' );

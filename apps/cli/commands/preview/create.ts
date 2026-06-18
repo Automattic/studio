@@ -7,7 +7,7 @@ import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logge
 import { __, sprintf } from '@wordpress/i18n';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { assertHeadlessUnsupported, getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
@@ -24,7 +24,7 @@ export async function runCommand( siteFolder: string, name?: string ): Promise< 
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating…' ) );
-		await getSiteByFolder( siteFolder );
+		assertHeadlessUnsupported( await getSiteByFolder( siteFolder ), __( 'Creating a preview' ) );
 		await validateSiteSize( siteFolder );
 		const token = await readAuthToken();
 		if ( ! token ) {

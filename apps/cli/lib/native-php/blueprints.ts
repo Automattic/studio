@@ -45,12 +45,8 @@ export async function runBlueprint(
 	// Passing preferredVersions makes blueprints.phar validate versions it does not manage here.
 	delete blueprint.contents.preferredVersions;
 
-	// Write the modified blueprint next to the original so blueprints.phar
-	// resolves relative resource paths the same way — e.g. a bundle's theme zips
-	// or WXR files sitting alongside blueprint.json. When that directory isn't
-	// writable (a read-only upload location, or the checked-out repo under CI's
-	// user-remapped Docker), fall back to a private temp dir; self-contained
-	// blueprints (remote/literal resources) still apply correctly from there.
+	// Co-locate the modified blueprint with the original so blueprints.phar can
+	// resolve sibling resources; fall back to a temp dir if that dir is read-only.
 	const serializedBlueprint = JSON.stringify( blueprint.contents );
 	const blueprintFilename = `studio-blueprint-${ config.siteId }.json`;
 	let fallbackTempDir: string | undefined;

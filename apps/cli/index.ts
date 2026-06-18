@@ -308,9 +308,7 @@ async function main() {
 		// subcommand is now available at the top level, and `site set` lives under
 		// `config set`.
 		.command( 'site', false, async ( sitesYargs ) => {
-			const { registerCommand: registerSiteSetCommand } = await import(
-				'cli/commands/config/set'
-			);
+			const { registerCommand: registerSiteSetCommand } = await import( 'cli/commands/config/set' );
 
 			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );

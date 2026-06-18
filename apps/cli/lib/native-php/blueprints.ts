@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { getBlueprintsPharPath } from 'cli/lib/dependency-management/paths';
+import { getBlueprintsPharPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import { runPhpCommand } from './php-process';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
@@ -72,7 +72,18 @@ export async function runBlueprint(
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
 				'--db-engine=sqlite',
 			],
-			{ phpVersion, signal }
+			{
+				phpVersion,
+				signal,
+				// blueprints.phar runs `wp-cli` steps by shelling out to `php` on the
+				// PATH. Expose the bundled binary so blueprints work on machines
+				// without a system PHP install (e.g. CI and most users).
+				env: {
+					PATH: `${ path.dirname( getPhpBinaryPath( phpVersion ) ) }${ path.delimiter }${
+						process.env.PATH ?? ''
+					}`,
+				},
+			}
 		);
 	} finally {
 		await fs.promises.unlink( tmpPath ).catch( () => {} );

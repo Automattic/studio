@@ -1,15 +1,9 @@
+/* The chat column. The site preview panel lives in the dashboard layout's
+   PreviewSplitFrame, which hosts this view in its content column. */
 .root {
 	display: flex;
-	flex-direction: row;
-	height: 100%;
-	min-height: 0;
-}
-
-.chatColumn {
-	display: flex;
 	flex-direction: column;
-	flex: 1;
-	min-width: 0;
+	height: 100%;
 	min-height: 0;
 }
 

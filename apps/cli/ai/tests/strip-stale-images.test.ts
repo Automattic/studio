@@ -3,7 +3,7 @@ import {
 	STALE_IMAGE_PLACEHOLDER_TEXT,
 	stripStaleImagesFromContext,
 } from '../runtimes/pi/strip-stale-images';
-import type { Context, ImageContent, TextContent } from '@mariozechner/pi-ai';
+import type { Context, ImageContent, TextContent } from '@earendil-works/pi-ai';
 
 function imageBlock( label = 'pixels' ): ImageContent {
 	return { type: 'image', data: Buffer.from( label ).toString( 'base64' ), mimeType: 'image/jpeg' };

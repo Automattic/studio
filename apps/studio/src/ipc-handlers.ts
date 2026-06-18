@@ -18,6 +18,8 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
+import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
@@ -49,6 +51,7 @@ import {
 	arePathsEqual,
 	isEmptyDir,
 	pathExists,
+	readLastLines,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
@@ -74,6 +77,8 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
@@ -107,7 +112,10 @@ import {
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
-import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
+import {
+	extractErrorFromProcessManagerLogs,
+	simplifyErrorForDisplay,
+} from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
@@ -168,6 +176,8 @@ import {
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
@@ -229,12 +239,10 @@ export {
 	exportDeskConfig,
 	getDeskSettings,
 	getSiteDeskConfig,
-	getStudioUiMode,
 	getUserDeskConfig,
 	importDeskConfig,
 	saveDeskSettings,
 	saveSiteDeskConfig,
-	setStudioUiMode,
 	saveUserDeskConfig,
 } from 'src/modules/desks/lib/ipc-handlers';
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
@@ -445,17 +453,25 @@ export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
 	prompt: string,
-	options: { displayMessage?: string } = {}
+	options: {
+		displayMessage?: string;
+		images?: StudioChatImage[];
+		files?: StudioChatFileAttachment[];
+	} = {}
 ): Promise< { runId: string } > {
 	if ( ! ( await oauthClient.isAuthenticated() ) ) {
 		throw new Error( __( 'WordPress.com login required. Log in to use Studio Desk chat.' ) );
 	}
 
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
+	const images = validateStudioChatImages( options.images );
+	const files = validateStudioChatFiles( options.files );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		displayMessage: options.displayMessage,
+		images,
+		files,
 		webContents: event.sender,
 	} );
 }
@@ -712,32 +728,33 @@ const DEBUG_LOG_MAX_LINES = 50;
 const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
 const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
 
-function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
-	try {
-		if ( ! fs.existsSync( filePath ) ) {
-			return undefined;
-		}
-		const content = fs.readFileSync( filePath, 'utf-8' );
-		const lines = content.split( '\n' ).filter( ( line ) => line.trim() );
-		return lines.slice( -maxLines );
-	} catch {
-		return undefined;
-	}
-}
-
 function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	const debugLogPath = nodePath.join( sitePath, 'wp-content', 'debug.log' );
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 
+function findMostRecentLog( logsDir: string, prefix: string, suffix: string ): string | undefined {
+	try {
+		const files = fs.readdirSync( logsDir );
+		const matching = files
+			.filter( ( f ) => f.startsWith( prefix ) && f.endsWith( suffix ) )
+			.sort()
+			.reverse();
+		return matching.length > 0 ? nodePath.join( logsDir, matching[ 0 ] ) : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
 	const logsDir = nodePath.join( PROCESS_MANAGER_HOME, 'logs' );
-	const stdoutPath = nodePath.join( logsDir, `studio-site-${ siteId }-out.log` );
-	const stderrPath = nodePath.join( logsDir, `studio-site-${ siteId }-error.log` );
+	const prefix = `studio-site-${ siteId }`;
+	const stdoutPath = findMostRecentLog( logsDir, `${ prefix }-out-`, '.log' );
+	const stderrPath = findMostRecentLog( logsDir, `${ prefix }-error-`, '.log' );
 
 	return {
-		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
-		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
+		stdout: stdoutPath ? readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ) : undefined,
+		stderr: stderrPath ? readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ) : undefined,
 	};
 }
 
@@ -786,6 +803,8 @@ export async function createSite(
 		enableHttps?: boolean;
 		siteId?: string;
 		phpVersion?: string;
+		runtime?: SiteRuntime;
+		fileAccess?: SiteFileAccess;
 		blueprint?: Blueprint;
 		adminUsername?: string;
 		adminPassword?: string;
@@ -801,6 +820,8 @@ export async function createSite(
 		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
+		runtime,
+		fileAccess,
 		adminUsername,
 		adminPassword,
 		adminEmail,
@@ -829,6 +850,8 @@ export async function createSite(
 				name: siteName,
 				wpVersion,
 				phpVersion,
+				runtime,
+				fileAccess,
 				customDomain,
 				enableHttps,
 				siteId,
@@ -890,6 +913,14 @@ export async function createSite(
 			contexts,
 		} );
 
+		// If the error message is generic, try to surface a more useful message from
+		// the process manager logs. The detailed error is often captured in stdout
+		// (e.g. blueprint execution errors logged by playground-cli).
+		const logErrorMessage = extractErrorFromProcessManagerLogs( processManagerLogs );
+		if ( logErrorMessage ) {
+			throw new Error( logErrorMessage );
+		}
+
 		throw error;
 	} finally {
 		if ( bundleTempDir ) {
@@ -938,6 +969,14 @@ export async function updateSite(
 
 	if ( wpVersion ) {
 		options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
+	}
+
+	if ( getSiteRuntime( updatedSite ) !== getSiteRuntime( currentSite ) ) {
+		options.runtime = siteModeFromRuntime( getSiteRuntime( updatedSite ) );
+	}
+
+	if ( getSiteFileAccess( updatedSite ) !== getSiteFileAccess( currentSite ) ) {
+		options.fileAccess = getSiteFileAccess( updatedSite );
 	}
 
 	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
@@ -1185,6 +1224,10 @@ export async function copySite(
 		name: siteName,
 		siteId: newSiteId,
 		phpVersion: sourceSite.phpVersion,
+		// Copies keep the source site's runtime settings rather than picking up
+		// the default for new sites.
+		runtime: getSiteRuntime( sourceSite ),
+		fileAccess: sourceSite.fileAccess,
 		adminUsername: sourceSite.adminUsername,
 		adminPassword: sourceSite.adminPassword
 			? decodePassword( sourceSite.adminPassword )
@@ -2089,7 +2132,7 @@ export function showSiteContextMenu(
 
 	menu.append(
 		new MenuItem( {
-			label: __( 'Copy site…' ),
+			label: __( 'Duplicate site…' ),
 			enabled: ! isLoading && ! isAnySiteAdding,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
@@ -2407,7 +2450,7 @@ export async function startRemoteSessionDaemon(
 	//
 	// `STUDIO_ENABLE_REMOTE_SESSION=true` is required: the CLI gates the entire
 	// `code remote-session` subcommand tree behind that env var (see
-	// `apps/cli/lib/feature-flags.ts`). Without it, the spawned child fails with
+	// `tools/common/lib/remote-session.ts`). Without it, the spawned child fails with
 	// "Unknown arguments: remote-session, start". The `remoteSession` beta
 	// feature is the user-facing opt-in, so we lift the CLI gate in the spawned
 	// child rather than asking users to set the env var manually.

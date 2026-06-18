@@ -1,4 +1,4 @@
-import { copyFileSync, cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
@@ -28,9 +28,14 @@ if ( ! minimumNodeVersion ) {
 
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
-const bundledReprintPhar = resolve( __dirname, 'lib/pull/reprint.phar' );
+// The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
+// `ai/skills.ts`), so they must sit directly next to the built chunks.
+const skillsSourcePath = resolve( __dirname, 'ai/skills' );
 
 export const baseConfig = defineConfig( {
+	oxc: {
+		target: `node${ semver.major( minimumNodeVersion ) }`,
+	},
 	plugins: [
 		{
 			name: 'write-dist-extras',
@@ -48,8 +53,8 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( bundledWpFilesPath ) ) {
 					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
 				}
-				if ( existsSync( bundledReprintPhar ) ) {
-					copyFileSync( bundledReprintPhar, resolve( outDir, 'reprint.phar' ) );
+				if ( existsSync( skillsSourcePath ) ) {
+					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
 			},
 		},
@@ -59,6 +64,7 @@ export const baseConfig = defineConfig( {
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'index.ts' ),
+				'web-server': resolve( __dirname, 'web-server/index.ts' ),
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'playground-server-child': resolve( __dirname, 'playground-server-child.ts' ),
@@ -70,11 +76,26 @@ export const baseConfig = defineConfig( {
 		},
 		outDir: 'dist/cli',
 		target: 'node22',
-		rollupOptions: {
+		rolldownOptions: {
 			output: {
 				format: 'es',
 				entryFileNames: '[name].mjs',
 				chunkFileNames: '[name]-[hash].mjs',
+				// Some bundled CommonJS dependencies (e.g. `lockfile`, `debug`) call
+				// `require( ... )` for Node built-ins at module init. Rolldown (the
+				// default bundler in Vite 8) emits a shim that throws when those calls
+				// run in an ESM output (`.mjs`), since ESM has no implicit `require`.
+				// Provide a real `require` per chunk via `createRequire` so the shim
+				// uses it instead of throwing. `main.mjs` additionally gets a shebang so
+				// the npm-published bundle can be executed directly as a CLI (harmless in
+				// other builds — Node ignores it when the file is run via `node main.mjs`).
+				banner: ( chunk ) => {
+					const requireShim =
+						'import { createRequire as __studioCreateRequire } from "node:module"; const require = __studioCreateRequire(import.meta.url);';
+					return chunk.fileName === 'main.mjs'
+						? `#!/usr/bin/env node\n${ requireShim }`
+						: requireShim;
+				},
 			},
 			external: ( id ) => {
 				// Bundle the `@wp-playground/blueprints/blueprint-schema-validator` module since we've defined

@@ -7,13 +7,30 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
+import {
+	getSiteFileAccess,
+	isFileAccessAllowedForRuntime,
+	siteFileAccessSchema,
+	SITE_FILE_ACCESS_ALL_FILES,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
+import {
+	getSiteRuntime,
+	siteModeSchema,
+	SITE_MODE_NATIVE,
+	SITE_MODE_SANDBOX,
+	siteRuntimeFromMode,
+	type SiteMode,
+} from '@studio/common/lib/site-runtime';
 import {
 	getWordPressVersionUrl,
 	isValidWordPressVersion,
 	isWordPressVersionAtLeast,
 } from '@studio/common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import {
@@ -25,10 +42,7 @@ import {
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
-import {
-	getSupportedPhpVersionsForSiteRuntime,
-	validatePhpVersionForSiteRuntime,
-} from 'cli/lib/php-versions';
+import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
 import { ValidationError } from 'cli/lib/validation-error';
@@ -48,6 +62,8 @@ export interface SetCommandOptions {
 	https?: boolean;
 	php?: string;
 	wp?: string;
+	runtime?: SiteMode;
+	fileAccess?: SiteFileAccess;
 	xdebug?: boolean;
 	adminUsername?: string;
 	adminPassword?: string;
@@ -63,6 +79,8 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		https,
 		php,
 		wp,
+		runtime,
+		fileAccess,
 		xdebug,
 		adminUsername,
 		adminPassword,
@@ -70,7 +88,6 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		debugDisplay,
 	} = options;
 	let { adminEmail } = options;
-	const validatedPhp = php === undefined ? undefined : validatePhpVersionForSiteRuntime( php );
 
 	if (
 		name === undefined &&
@@ -78,6 +95,8 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		https === undefined &&
 		php === undefined &&
 		wp === undefined &&
+		runtime === undefined &&
+		fileAccess === undefined &&
 		xdebug === undefined &&
 		adminUsername === undefined &&
 		adminPassword === undefined &&
@@ -87,7 +106,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 	) {
 		throw new LoggerError(
 			__(
-				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
 			)
 		);
 	}
@@ -122,6 +141,17 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		let site = await getSiteByFolder( sitePath );
 		logger.reportSuccess( __( 'Site loaded' ) );
+
+		const effectiveRuntime = runtime ? siteRuntimeFromMode( runtime ) : getSiteRuntime( site );
+		const effectiveFileAccess = fileAccess ?? getSiteFileAccess( site );
+		if ( ! isFileAccessAllowedForRuntime( effectiveRuntime, effectiveFileAccess ) ) {
+			throw new LoggerError(
+				__(
+					'File access "all-files" requires the native PHP runtime. The sandbox only has access to the site directory. Use --runtime native or --file-access site-directory.'
+				)
+			);
+		}
+		const validatedPhp = php === undefined ? undefined : validateSupportedPhpVersion( php );
 
 		const initialCliConfig = await readCliConfig();
 
@@ -163,6 +193,8 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 		const httpsChanged = https !== undefined && https !== site.enableHttps;
 		const phpChanged = validatedPhp !== undefined && validatedPhp !== site.phpVersion;
 		const wpChanged = wp !== undefined;
+		const runtimeChanged = runtime !== undefined && effectiveRuntime !== getSiteRuntime( site );
+		const fileAccessChanged = fileAccess !== undefined && fileAccess !== getSiteFileAccess( site );
 		const xdebugChanged = xdebug !== undefined && xdebug !== site.enableXdebug;
 		const adminUsernameChanged =
 			adminUsername !== undefined && adminUsername !== ( site.adminUsername ?? 'admin' );
@@ -179,6 +211,8 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			httpsChanged ||
 			phpChanged ||
 			wpChanged ||
+			runtimeChanged ||
+			fileAccessChanged ||
 			xdebugChanged ||
 			credentialsChanged ||
 			debugLogChanged ||
@@ -194,6 +228,8 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			httpsChanged,
 			phpChanged,
 			wpChanged,
+			runtimeChanged,
+			fileAccessChanged,
 			xdebugChanged,
 			credentialsChanged,
 			debugLogChanged,
@@ -220,6 +256,12 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 			if ( phpChanged ) {
 				foundSite.phpVersion = validatedPhp!;
+			}
+			if ( runtimeChanged ) {
+				foundSite.runtime = effectiveRuntime;
+			}
+			if ( fileAccessChanged ) {
+				foundSite.fileAccess = fileAccess;
 			}
 			if ( xdebugChanged ) {
 				foundSite.enableXdebug = xdebug;
@@ -329,7 +371,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'set',
 		describe: __( 'Configure site settings' ),
 		builder: ( yargs ) => {
-			const supportedPhpVersions = getSupportedPhpVersionsForSiteRuntime();
 			return yargs
 				.option( 'name', {
 					type: 'string',
@@ -346,7 +387,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'php', {
 					type: 'string',
 					description: __( 'PHP version' ),
-					choices: supportedPhpVersions,
+					choices: SupportedPHPVersions,
 				} )
 				.option( 'wp', {
 					type: 'string',
@@ -370,6 +411,20 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						}
 						return value;
 					},
+				} )
+				.option( 'runtime', {
+					type: 'string',
+					description: __(
+						'Run the site with native PHP ("native") or in the Playground sandbox ("sandbox")'
+					),
+					choices: [ SITE_MODE_NATIVE, SITE_MODE_SANDBOX ],
+				} )
+				.option( 'file-access', {
+					type: 'string',
+					description: __(
+						'Which files PHP can access with the native PHP runtime: the site directory only, or all files'
+					),
+					choices: [ SITE_FILE_ACCESS_SITE_DIRECTORY, SITE_FILE_ACCESS_ALL_FILES ],
 				} )
 				.option( 'xdebug', {
 					type: 'boolean',
@@ -404,6 +459,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					https: argv.https,
 					php: argv.php,
 					wp: argv.wp,
+					runtime: siteModeSchema.optional().parse( argv.runtime ),
+					fileAccess: siteFileAccessSchema.optional().parse( argv.fileAccess ),
 					xdebug: argv.xdebug,
 					adminUsername: argv.adminUsername,
 					adminPassword: argv.adminPassword,

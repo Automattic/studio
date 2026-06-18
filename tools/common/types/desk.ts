@@ -77,7 +77,6 @@ export interface DeskConfig< TWidget extends DeskWidgetBase = DeskWidgetBase > {
 }
 
 export interface DesksConfig {
-	defaultUiMode?: StudioUiMode;
 	settings?: DeskSettings;
 	user?: DeskConfig;
 	sites?: Record< string, DeskConfig >;

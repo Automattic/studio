@@ -1,7 +1,7 @@
-import fs from 'fs';
 import { isOnline } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand } from '../use';
@@ -66,7 +66,10 @@ describe( 'CLI: studio blueprint use', () => {
 		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1 } );
 		vi.mocked( fetchStudioBlueprints ).mockResolvedValue( testBlueprints );
 		vi.mocked( runCreateSiteCommand ).mockResolvedValue( undefined );
-		vi.mocked( fs.promises.writeFile ).mockResolvedValue( undefined );
+		// The blueprint JSON is written into the (mocked) temp dir, which must
+		// exist in the memfs volume.
+		vol.reset();
+		vol.mkdirSync( '/tmp/studio-blueprint-bundle-mock', { recursive: true } );
 	} );
 
 	afterEach( () => {

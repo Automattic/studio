@@ -8,6 +8,7 @@
  * "Done" to send everything back to the CLI via `window.__studioAnnotateDone`.
  */
 
+import { launchChromiumWithInstall } from 'cli/ai/browser-utils';
 import { INSPECTOR_PAGE_SCRIPT } from 'cli/ai/inspector/page-script';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
@@ -137,15 +138,20 @@ export async function openAnnotationBrowser( siteUrl: string ): Promise< string 
 		}
 	}
 
-	const { chromium } = await import( 'playwright' );
-	inspectorBrowser = await chromium.launch( {
-		headless: false,
-		// 1280x800 fits comfortably on a 13" MacBook (1440x900 native) once
-		// macOS chrome and the Chrome url bar are accounted for. With a larger
-		// window the bottom of the page can be clipped off-screen, hiding the
-		// `position: fixed; bottom: 1.25rem` toolbar.
-		args: [ '--ignore-certificate-errors', '--window-size=1280,800' ],
-	} );
+	// Reuse the shared launcher so a missing/outdated Playwright Chromium is
+	// auto-installed on demand, exactly like the screenshot and validation
+	// tools — instead of failing with a raw "please run install" error.
+	inspectorBrowser = await launchChromiumWithInstall(
+		{
+			headless: false,
+			// 1280x800 fits comfortably on a 13" MacBook (1440x900 native) once
+			// macOS chrome and the Chrome url bar are accounted for. With a larger
+			// window the bottom of the page can be clipped off-screen, hiding the
+			// `position: fixed; bottom: 1.25rem` toolbar.
+			args: [ '--ignore-certificate-errors', '--window-size=1280,800' ],
+		},
+		'the Studio annotation browser'
+	);
 
 	// `viewport: null` makes the page area follow the actual window size, so
 	// `position: fixed` lands inside the visible region regardless of the

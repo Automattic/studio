@@ -1,4 +1,3 @@
-import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
 
@@ -13,9 +12,7 @@ export interface BetaFeatureDefinition {
  * Default values for beta features.
  */
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
-	enableStudioCodeUi: false,
 	remoteSession: false,
-	nativePhpRuntime: false,
 };
 
 /**
@@ -24,23 +21,11 @@ const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
  */
 export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFeatureDefinition > {
 	return {
-		enableStudioCodeUi: {
-			label: __( 'Studio Code Desktop' ),
-			key: 'enableStudioCodeUi',
-			default: BETA_FEATURE_DEFAULTS.enableStudioCodeUi,
-			description: __( 'Try the new Studio Code Desktop assistant.' ),
-		},
 		remoteSession: {
 			label: __( 'Remote Session' ),
 			key: 'remoteSession',
 			default: BETA_FEATURE_DEFAULTS.remoteSession,
 			description: __( 'Control Studio from Telegram via the remote-session daemon.' ),
-		},
-		nativePhpRuntime: {
-			key: 'nativePhpRuntime',
-			label: __( 'Native PHP runtime' ),
-			default: BETA_FEATURE_DEFAULTS.nativePhpRuntime,
-			description: __( 'Run Studio sites with native PHP instead of Playground.' ),
 		},
 	};
 }
@@ -54,17 +39,9 @@ function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 	return features as BetaFeatures;
 }
 
-function applyBetaFeaturesToEnvironment( features: BetaFeatures ): void {
-	process.env.STUDIO_RUNTIME = features.nativePhpRuntime
-		? SITE_RUNTIME_NATIVE_PHP
-		: SITE_RUNTIME_PLAYGROUND;
-}
-
 export async function getBetaFeatures(): Promise< BetaFeatures > {
 	const userData = await loadUserData();
-	const betaFeatures = buildBetaFeatures( userData.betaFeatures );
-	applyBetaFeaturesToEnvironment( betaFeatures );
-	return betaFeatures;
+	return buildBetaFeatures( userData.betaFeatures );
 }
 
 export async function updateBetaFeature(
@@ -79,7 +56,6 @@ export async function updateBetaFeature(
 		// line stops type-checking. That's fine — rely on type checking at the call site.
 		betaFeatures[ key ] = value;
 		userData.betaFeatures = betaFeatures;
-		applyBetaFeaturesToEnvironment( betaFeatures );
 		await saveUserData( userData );
 	} finally {
 		await unlockAppdata();

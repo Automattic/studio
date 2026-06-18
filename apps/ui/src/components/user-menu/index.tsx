@@ -1,11 +1,12 @@
+import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { cog } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
-import { useFeatureFlags } from '@/data/queries/use-feature-flags';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { moonIcon, sunIcon } from '@/lib/icons';
@@ -20,10 +21,10 @@ export function UserMenu() {
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
-	const { data: featureFlags } = useFeatureFlags();
 	const savePreferences = useSaveUserPreferences();
 	const login = useLogin();
 	const logout = useLogout();
+	const navigate = useNavigate();
 	const effectiveScheme = usePrefersColorScheme();
 
 	const savedScheme = preferences?.colorScheme;
@@ -33,10 +34,6 @@ export function UserMenu() {
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );
-	};
-
-	const switchToDefaultUi = () => {
-		void connector.setStudioUiMode( 'default' );
 	};
 
 	return (
@@ -56,6 +53,9 @@ export function UserMenu() {
 							<div className={ styles.email } title={ user.email }>
 								{ user.email }
 							</div>
+							<Menu.Item onClick={ () => void navigate( { to: '/settings' } ) }>
+								{ __( 'Settings' ) }
+							</Menu.Item>
 							<Menu.Item onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
 								{ __( 'Edit WordPress.com profile' ) }
 							</Menu.Item>
@@ -65,14 +65,6 @@ export function UserMenu() {
 							<Menu.Item onClick={ () => openLink( REPORT_ISSUE_URL ) }>
 								{ __( 'Report an issue' ) }
 							</Menu.Item>
-							{ featureFlags?.enableDesksUiSwitch ? (
-								<>
-									<Menu.Separator />
-									<Menu.Item onClick={ switchToDefaultUi }>
-										{ __( 'Switch to default Studio UI' ) }
-									</Menu.Item>
-								</>
-							) : null }
 							<Menu.Separator />
 							<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
 						</Menu.Popup>
@@ -82,6 +74,19 @@ export function UserMenu() {
 						{ __( 'Log in with WordPress.com' ) }
 					</SidebarButton>
 				) }
+				{ ! user ? (
+					// Logged in, Settings lives in the user menu; logged out
+					// there is no menu, so keep the page reachable here.
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						className={ styles.settingsButton }
+						icon={ cog }
+						label={ __( 'Settings' ) }
+						onClick={ () => void navigate( { to: '/settings' } ) }
+					/>
+				) : null }
 				<Menu.Root modal={ false }>
 					<Menu.Trigger
 						render={

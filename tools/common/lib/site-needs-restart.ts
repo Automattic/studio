@@ -3,6 +3,8 @@ export interface SiteSettingChanges {
 	httpsChanged?: boolean;
 	phpChanged?: boolean;
 	wpChanged?: boolean;
+	runtimeChanged?: boolean;
+	fileAccessChanged?: boolean;
 	xdebugChanged?: boolean;
 	credentialsChanged?: boolean;
 	debugLogChanged?: boolean;
@@ -15,6 +17,8 @@ export function siteNeedsRestart( changes: SiteSettingChanges ): boolean {
 		httpsChanged,
 		phpChanged,
 		wpChanged,
+		runtimeChanged,
+		fileAccessChanged,
 		xdebugChanged,
 		credentialsChanged,
 		debugLogChanged,
@@ -26,6 +30,8 @@ export function siteNeedsRestart( changes: SiteSettingChanges ): boolean {
 		httpsChanged ||
 		phpChanged ||
 		wpChanged ||
+		runtimeChanged ||
+		fileAccessChanged ||
 		xdebugChanged ||
 		credentialsChanged ||
 		debugLogChanged ||

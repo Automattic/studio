@@ -11,7 +11,6 @@ import type {
 	DeskSettings,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
-	FeatureFlags,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
@@ -22,7 +21,6 @@ import type {
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
-	StudioUiMode,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -633,21 +631,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
 
-		async getFeatureFlags(): Promise< FeatureFlags > {
-			const appGlobals = ( await ipcApi.getAppGlobals() ) as Partial< FeatureFlags >;
-			return {
-				enableDesksUiSwitch: appGlobals.enableDesksUiSwitch ?? false,
-			};
-		},
-
-		async getStudioUiMode(): Promise< StudioUiMode > {
-			return ( await ipcApi.getStudioUiMode() ) as StudioUiMode;
-		},
-
-		async setStudioUiMode( mode ): Promise< void > {
-			await ipcApi.setStudioUiMode( mode );
-		},
-
 		async getDeskSettings(): Promise< DeskSettings > {
 			return ( await ipcApi.getDeskSettings() ) as DeskSettings;
 		},
@@ -730,6 +713,12 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'site-event', () => listener() );
+		},
+
+		onToggleSitePreview( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'toggle-site-preview', () => listener() );
 		},
 	};
 }

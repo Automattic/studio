@@ -506,7 +506,7 @@ async function appBoot() {
 				const quitChoices: { label: string; behavior: QuitSitesBehavior }[] = [
 					{ label: __( 'Stop' ), behavior: 'stop' },
 					{ label: __( 'Auto-start' ), behavior: 'stop-and-auto-start' },
-					{ label: __( 'Leave running' ), behavior: 'leave-running' },
+					{ label: __( 'Keep running' ), behavior: 'leave-running' },
 				];
 				const cancelButtonIndex = quitChoices.length;
 				const defaultButtonIndex = quitChoices.findIndex(
@@ -517,7 +517,7 @@ async function appBoot() {
 					type: 'question',
 					message: _n( 'You have a running site', 'You have running sites', runningSiteCount ),
 					detail: __(
-						'Choose what to do with your running sites when Studio quits:\n\n• Leave running — they keep running while Studio is closed.\n• Auto-start — they restart when you reopen Studio.\n• Stop — they stay stopped next time you open Studio.'
+						'Choose what to do with your running sites when Studio quits:\n\n• Keep running — sites stay running after Studio closes.\n• Auto-start — sites stop now and start again when you reopen Studio.\n• Stop — sites stop now and stay stopped.'
 					),
 					buttons: [ ...quitChoices.map( ( choice ) => choice.label ), __( 'Cancel' ) ],
 					checkboxLabel: __( "Don't ask again" ),

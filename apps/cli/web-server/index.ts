@@ -28,7 +28,7 @@ import {
 } from './agent-runs';
 import { wdbg } from './debug';
 import { createSecexRuntime } from './secex-runtime';
-import { serveSiteForSession } from './site-server';
+import { serveSiteForSession, syncSiteFromSandbox } from './site-server';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
@@ -331,10 +331,15 @@ api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
 
 // Serve the session's site from the broker (the desktop's Playground server runs
 // in Node, where PHP-WASM works) and return its URL for the browser to iframe.
+// With `sandboxSitePath`, first overlay the agent's site (theme via /export) so
+// the served WordPress reflects what the agent built in the sandbox.
 api.post(
 	'/sessions/:id/preview',
 	asyncHandler( async ( req: Request, res: Response ) => {
-		const url = await serveSiteForSession( req.params.id );
+		const { sandboxSitePath } = req.body as { sandboxSitePath?: string };
+		const url = sandboxSitePath
+			? await syncSiteFromSandbox( req.params.id, sandboxSitePath )
+			: await serveSiteForSession( req.params.id );
 		res.json( { url } );
 	} )
 );

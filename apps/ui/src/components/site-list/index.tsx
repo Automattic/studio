@@ -17,6 +17,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { SiteIcon } from '@/components/site-icon';
 import { Spinner } from '@/components/spinner';
+import { useConnector } from '@/data/core';
 import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import {
@@ -30,7 +31,9 @@ import {
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { formatRelativeTime } from '@/lib/format-relative-time';
+import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -358,6 +361,8 @@ function SiteActionsMenu( {
 	isStopping: boolean;
 } ) {
 	const navigate = useNavigate();
+	const connector = useConnector();
+	const { data: userPreferences } = useUserPreferences();
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
 	const copySite = useCopySite();
@@ -366,6 +371,44 @@ function SiteActionsMenu( {
 	const busy = isStarting || isStopping;
 	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
+
+	const handleOpenFolder = () => {
+		void connector.openSiteFolder( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site folder:', error );
+		} );
+	};
+
+	const handleOpenInEditor = () => {
+		// No editor preference yet — send the user to Settings so they can
+		// pick one before the action becomes useful.
+		if ( ! userPreferences?.editor ) {
+			void navigate( { to: '/settings' } );
+			return;
+		}
+		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site in editor:', error );
+		} );
+	};
+
+	const handleOpenInTerminal = () => {
+		void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site in terminal:', error );
+		} );
+	};
+
+	const handleOpenPhpMyAdmin = () => {
+		void connector.openExternalUrl(
+			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
+		);
+	};
+
+	const handleOpenWpAdmin = () => {
+		const siteUrl = getSiteUrl( site );
+		const redirectTo = new URL( '/wp-admin/', siteUrl ).toString();
+		const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
+		autoLoginUrl.searchParams.set( 'redirect_to', redirectTo );
+		void connector.openExternalUrl( autoLoginUrl.toString() );
+	};
 
 	return (
 		<>
@@ -405,6 +448,16 @@ function SiteActionsMenu( {
 					</Menu.Item>
 					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
 						{ copySite.isPending ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
+					</Menu.Item>
+					<Menu.Separator />
+					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
+					<Menu.Item onClick={ handleOpenInEditor }>{ __( 'Open in editor' ) }</Menu.Item>
+					<Menu.Item onClick={ handleOpenInTerminal }>{ __( 'Open in terminal' ) }</Menu.Item>
+					<Menu.Item disabled={ ! site.running } onClick={ handleOpenPhpMyAdmin }>
+						{ __( 'Open phpMyAdmin' ) }
+					</Menu.Item>
+					<Menu.Item disabled={ ! site.running } onClick={ handleOpenWpAdmin }>
+						{ __( 'Open WP admin' ) }
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>
@@ -567,24 +620,26 @@ function SiteSection( {
 					</div>
 				) : null }
 			</header>
-			{ group.sessions.length > 0 ? (
+			{ group.sessions.length > 0 || group.site ? (
 				<div
 					className={ clsx( styles.sessionListFrame, isOpen && styles.sessionListFrameOpen ) }
 					aria-hidden={ ! isOpen }
 				>
-					<ul className={ styles.sessionList }>
-						{ group.sessions.map( ( session ) => (
-							<SessionItem key={ session.id } session={ session } isVisible={ isOpen } />
-						) ) }
-					</ul>
-				</div>
-			) : group.site && isOpen ? (
-				<div className={ styles.emptyChatState }>
-					<span className={ styles.emptyChatText }>{ __( 'No active chats' ) }</span>
-					<span className={ styles.emptyChatSeparator } aria-hidden="true">
-						•
-					</span>
-					<NewSessionTextButton site={ group.site } />
+					{ group.sessions.length > 0 ? (
+						<ul className={ styles.sessionList }>
+							{ group.sessions.map( ( session ) => (
+								<SessionItem key={ session.id } session={ session } isVisible={ isOpen } />
+							) ) }
+						</ul>
+					) : group.site ? (
+						<div className={ styles.emptyChatState }>
+							<span className={ styles.emptyChatText }>{ __( 'No active chats' ) }</span>
+							<span className={ styles.emptyChatSeparator } aria-hidden="true">
+								•
+							</span>
+							<NewSessionTextButton site={ group.site } />
+						</div>
+					) : null }
 				</div>
 			) : null }
 		</section>

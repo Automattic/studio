@@ -17,7 +17,11 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
-import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
+import {
+	cleanupLegacyMuPlugins,
+	getMuPlugins,
+	STUDIO_ERROR_LOG_FILENAME,
+} from '@studio/common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -250,6 +254,10 @@ async function getBaseRunCLIArgs(
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,
+		errorLogPath: config.enableDebugLog
+			? '/wordpress/wp-content/debug.log'
+			: `/wordpress/wp-content/${ STUDIO_ERROR_LOG_FILENAME }`,
+		errorLogStopAfterBoot: ! config.enableDebugLog,
 	} );
 
 	if ( ! useExactMountLayout ) {

@@ -11,6 +11,8 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { readLastLines } from '@studio/common/lib/fs-utils';
+import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
 	getSiteRuntime,
@@ -236,6 +238,14 @@ export async function startWordPressServer(
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, runtime, options );
 
+	await clearStudioErrorLog( site );
+	const phpErrorLogPath = path.join(
+		site.path,
+		'wp-content',
+		site.enableDebugLog ? 'debug.log' : STUDIO_ERROR_LOG_FILENAME
+	);
+	const phpErrorLogSizeAtStart = await fileSize( phpErrorLogPath );
+
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
 		const processDesc = await startProcess( processName, wordPressServerChildPath, { runtime } );
@@ -253,9 +263,54 @@ export async function startWordPressServer(
 		await recordSiteRuntimeUsage( site );
 
 		return withSiteRuntime( processDesc );
+	} catch ( error ) {
+		throw await withCapturedPhpErrors( error, phpErrorLogPath, phpErrorLogSizeAtStart );
 	} finally {
 		readyOrExit.dispose();
 	}
+}
+
+async function clearStudioErrorLog( site: SiteData ): Promise< void > {
+	const logPath = path.join( site.path, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
+	await fs.promises.rm( logPath, { force: true } ).catch( () => undefined );
+}
+
+async function fileSize( filePath: string ): Promise< number > {
+	try {
+		return ( await fs.promises.stat( filePath ) ).size;
+	} catch {
+		return 0;
+	}
+}
+
+const PHP_ERROR_TAIL_MAX_LINES = 50;
+
+// Appends the PHP errors recorded during this start attempt to the failure, so
+// users see why WordPress died instead of just "process exited..." (STU-1757).
+async function withCapturedPhpErrors(
+	error: unknown,
+	logPath: string,
+	sizeAtStart: number
+): Promise< unknown > {
+	if (
+		! ( error instanceof Error ) ||
+		error.name === 'AbortError' ||
+		error.message === 'Operation aborted'
+	) {
+		return error;
+	}
+
+	// Only surface errors this attempt appended — debug.log isn't cleared and may
+	// hold entries from previous runs.
+	if ( ( await fileSize( logPath ) ) <= sizeAtStart ) {
+		return error;
+	}
+	const lines = readLastLines( logPath, PHP_ERROR_TAIL_MAX_LINES );
+	if ( lines?.length ) {
+		error.message += `\nRecent PHP errors (${ logPath }):\n${ lines.join( '\n' ) }`;
+	}
+
+	return error;
 }
 
 function buildChildExitedError( processName: string, stderrTail?: string ): Error {

@@ -259,7 +259,7 @@ steps:
 
   # Agent evaluation. Runs automatically on the daily schedule (or with
   # EVAL_PIPELINE=true), and optionally on a PR via the gate above.
-  # Setup details in eval/README.md.
+  # Setup details in scripts/eval/README.md.
   - label: ":test_tube: Agent Evaluation"
     key: agent_eval
     depends_on: input-eval
@@ -268,7 +268,7 @@ steps:
     command: bash .buildkite/commands/run-eval.sh
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     artifact_paths:
-      - eval/results.json
+      - scripts/eval/results.json
     timeout_in_minutes: 25
     if: build.source == 'schedule' || build.env('EVAL_PIPELINE') == 'true' || (build.branch != 'trunk' && build.tag !~ /^v[0-9]+/)
 

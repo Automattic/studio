@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RESULTS_FILE="eval/results.json"
+RESULTS_FILE="scripts/eval/results.json"
 
 echo '--- :npm: Install Node dependencies'
 bash .buildkite/commands/install-node-dependencies.sh
@@ -18,7 +18,7 @@ if [[ -n "${EVAL_TEST_FILTER:-}" ]]; then
   fi
   eval_args+=( -n "$EVAL_TEST_FILTER" )
 fi
-npx promptfoo@0.121.4 eval -c eval/promptfoo.config.yaml "${eval_args[@]}"
+npx promptfoo@0.121.4 eval -c scripts/eval/promptfoo.config.yaml "${eval_args[@]}"
 
 echo '--- :slack: Send Slack notification'
 if [[ -z "${EVAL_SLACK_CHANNEL:-}" || -z "${SLACK_TOKEN:-}" || ! -f "$RESULTS_FILE" ]]; then

@@ -1028,6 +1028,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
 		}
 
+		// Capacity limit is expected behavior, not a bug — skip Sentry
+		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
+			throw new Error( 'CAPACITY_LIMIT_REACHED' );
+		}
+
 		const contexts: Record< string, Record< string, unknown > > = {
 			server: {
 				running: server.details.running,

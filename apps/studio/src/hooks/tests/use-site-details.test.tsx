@@ -328,6 +328,121 @@ describe( 'useSiteDetails', () => {
 				} )
 			);
 		} );
+
+		it( 'should show capacity limit error and return capacityLimitReached', async () => {
+			const { showErrorMessageBox } = setupStartServerError(
+				new Error( 'CAPACITY_LIMIT_REACHED' )
+			);
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			let startResult: { capacityLimitReached: boolean } | undefined;
+			await act( async () => {
+				startResult = await result.current.startServer( mockSites[ 0 ] as SiteDetails );
+			} );
+
+			expect( startResult?.capacityLimitReached ).toBe( true );
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Failed to start 'Site 1'",
+					message: expect.stringContaining( 'maximum number of running sites' ),
+				} )
+			);
+		} );
+	} );
+
+	describe( 'autoStart stops on capacity limit', () => {
+		it( 'should stop auto-starting sites after capacity limit is reached', async () => {
+			const autoStartSites = [
+				{ ...mockSites[ 0 ], autoStart: true },
+				{ ...mockSites[ 1 ], autoStart: true },
+				{ ...mockSites[ 2 ], autoStart: true },
+			];
+
+			const startServer = vi
+				.fn()
+				.mockResolvedValueOnce( undefined )
+				.mockRejectedValueOnce( new Error( 'CAPACITY_LIMIT_REACHED' ) )
+				.mockResolvedValueOnce( undefined );
+
+			const showErrorMessageBox = vi.fn();
+			const stopServer = vi.fn( () => Promise.resolve() );
+
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( autoStartSites ),
+				startServer,
+				showErrorMessageBox,
+				stopServer,
+				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			// Wait for autoStart loop to complete
+			await waitFor( () => {
+				// First site succeeds, second hits capacity limit, third should not be attempted
+				expect( startServer ).toHaveBeenCalledWith( 'site-1' );
+				expect( startServer ).toHaveBeenCalledWith( 'site-2' );
+				expect( startServer ).not.toHaveBeenCalledWith( 'site-3' );
+			} );
+		} );
+	} );
+
+	describe( 'startAllStoppedSites stops on capacity limit', () => {
+		it( 'should stop starting sites after capacity limit is reached', async () => {
+			const allStopped = [
+				{ ...mockSites[ 0 ], running: false as const, autoStart: false },
+				{ ...mockSites[ 1 ], running: false as const, autoStart: false },
+				{ ...mockSites[ 2 ], running: false as const, autoStart: false },
+			];
+
+			const startServer = vi
+				.fn()
+				.mockResolvedValueOnce( undefined )
+				.mockRejectedValueOnce( new Error( 'CAPACITY_LIMIT_REACHED' ) )
+				.mockResolvedValueOnce( undefined );
+
+			const showErrorMessageBox = vi.fn();
+			const stopServer = vi.fn( () => Promise.resolve() );
+
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( allStopped ),
+				startServer,
+				showErrorMessageBox,
+				stopServer,
+				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			startServer.mockClear();
+			startServer
+				.mockResolvedValueOnce( undefined )
+				.mockRejectedValueOnce( new Error( 'CAPACITY_LIMIT_REACHED' ) )
+				.mockResolvedValueOnce( undefined );
+
+			await act( async () => {
+				await result.current.startAllStoppedSites();
+			} );
+
+			expect( startServer ).toHaveBeenCalledWith( 'site-1' );
+			expect( startServer ).toHaveBeenCalledWith( 'site-2' );
+			expect( startServer ).not.toHaveBeenCalledWith( 'site-3' );
+		} );
 	} );
 
 	describe( 'site deletion selection behavior', () => {

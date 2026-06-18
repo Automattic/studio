@@ -3,7 +3,11 @@ import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
 import readline from 'readline';
-import { SITE_RUNTIME_PLAYGROUND, type SiteRuntime } from '@studio/common/lib/site-runtime';
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import semver from 'semver';
 import {
 	PROCESS_MANAGER_LOGS_DIR,
@@ -28,6 +32,16 @@ const STOP_TIMEOUT_MS = 2_500;
 // output in the `exit` event. Bounded to avoid unbounded memory growth on chatty processes.
 const STDERR_BUFFER_MAX_LINES = 100;
 const STDERR_BUFFER_MAX_BYTES = 16 * 1024;
+
+// Weighted capacity limit for site processes. Playground (PHP WASM) sites use ~6x more memory
+// than native PHP sites (~720 MB vs ~120 MB), so they carry a heavier weight. The cap of 24
+// allows up to 24 native-PHP sites or 4 Playground sites (or a mix).
+const SITE_PROCESS_PREFIX = 'studio-site-';
+const CAPACITY_WEIGHTS: Record< SiteRuntime, number > = {
+	[ SITE_RUNTIME_NATIVE_PHP ]: 1,
+	[ SITE_RUNTIME_PLAYGROUND ]: 6,
+};
+const MAX_WEIGHTED_CAPACITY = 24;
 
 type ManagedProcessBase = {
 	pmId: number;
@@ -202,6 +216,16 @@ export class ProcessManagerDaemon {
 		return undefined;
 	}
 
+	private getWeightedCapacityUsage(): number {
+		let usage = 0;
+		for ( const proc of this.managedProcesses.values() ) {
+			if ( proc.status === 'online' && proc.name.startsWith( SITE_PROCESS_PREFIX ) ) {
+				usage += CAPACITY_WEIGHTS[ proc.runtime ] ?? CAPACITY_WEIGHTS[ SITE_RUNTIME_PLAYGROUND ];
+			}
+		}
+		return usage;
+	}
+
 	private async startProcess(
 		processName: string,
 		scriptPath: string,
@@ -212,6 +236,16 @@ export class ProcessManagerDaemon {
 		const existing = this.getManagedProcessByName( processName );
 		if ( existing && existing.status === 'online' ) {
 			return this.toProcessDescription( existing );
+		}
+
+		if ( processName.startsWith( SITE_PROCESS_PREFIX ) ) {
+			const weight = CAPACITY_WEIGHTS[ runtime ] ?? CAPACITY_WEIGHTS[ SITE_RUNTIME_PLAYGROUND ];
+			const currentUsage = this.getWeightedCapacityUsage();
+			if ( currentUsage + weight > MAX_WEIGHTED_CAPACITY ) {
+				throw new Error(
+					`CAPACITY_LIMIT_REACHED: Cannot start site — the weighted capacity limit of ${ MAX_WEIGHTED_CAPACITY } has been reached (current usage: ${ currentUsage }, requested: ${ weight }). Stop some running sites first.`
+				);
+			}
 		}
 
 		const pmId = this.nextPmId++;

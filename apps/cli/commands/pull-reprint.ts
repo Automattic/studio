@@ -451,6 +451,21 @@ export async function runCommand(
 		studioMetadata.secret = secret;
 		savePullMetadata( studioMetadata );
 
+		// On a delta re-pull, the reprint sub-command state in the shared
+		// state directory still reads "complete" from the previous pull, so a
+		// plain re-run makes files-sync refuse the run (a --filter change
+		// throws "Cannot change --filter … while a sync is in progress") and
+		// lets db-sync/db-apply skip their work. Clear that state with --abort
+		// so each phase re-runs as a delta. Gated on hasCompletedOnce (the
+		// persisted "this pull finished once" flag) rather than the local
+		// isRepull, because the first re-pull attempt already reset stage to
+		// 'initialized'; a later retry must still abort. The helper itself
+		// only aborts stages still pending, so a mid-pull resume is safe.
+		// Placed after preflight because files-sync/db-sync --abort require it.
+		if ( studioMetadata.hasCompletedOnce ) {
+			await clearCompletedSubcommandState( studioMetadata, apiUrl, secret, verbose );
+		}
+
 		if ( ! hasPullCompletedStage( studioMetadata, 'essential-files-complete' ) ) {
 			await downloadEssentialSiteFiles( studioMetadata, apiUrl, secret, verbose );
 		}
@@ -874,6 +889,72 @@ export async function applyDownloadedDatabase(
 	);
 	logger.reportSuccess( __( 'Database applied' ) );
 	recordCompletedStage( metadata, 'db-applied' );
+}
+
+/**
+ * Clear leftover "complete" reprint sub-command state before a delta
+ * re-pull re-runs each phase.
+ *
+ * After a finished pull, files-sync / db-sync / db-apply all report
+ * "complete" in the shared state directory. A plain re-run then either
+ * throws (files-sync rejects a `--filter` change while a sync still
+ * looks in progress: "Cannot change --filter … while a sync is in
+ * progress") or silently no-ops. `--abort` resets each command without
+ * losing useful work: files-sync keeps the local file index (so the
+ * re-run is a delta, not a full re-download), db-sync deletes db.sql
+ * (so the dump is re-fetched), and db-apply clears its apply tracking
+ * without touching the target tables (the next apply re-creates them;
+ * the dump is idempotent).
+ *
+ * files-sync and db-sync `--abort` require a prior preflight, so this
+ * must run after {@link runPreflight}. Each command is aborted only while
+ * its stage is still pending in the current re-pull, so re-running this on
+ * a resumed re-pull never wipes a phase that already re-ran.
+ */
+async function clearCompletedSubcommandState(
+	metadata: PullSessionMetadata,
+	apiUrl: string,
+	secret: string,
+	verbose: boolean
+): Promise< void > {
+	const stateArgs = [
+		`--secret=${ secret }`,
+		`--state-dir=${ metadata.stateDirectory }`,
+		`--fs-root=${ metadata.rawDirectory }`,
+	];
+	// Only abort a command whose stage hasn't completed yet in this re-pull
+	// cycle. Once a phase has re-run, its output must be preserved: aborting
+	// files-sync would delete the freshly written skipped-files list the tail
+	// needs, and aborting db-sync would delete the db.sql that db-apply reads.
+	const aborts: Array< { stage: PullStage; args: string[] } > = [
+		// files-sync --abort keeps the local index, so the re-run deltas.
+		{
+			stage: 'essential-files-complete',
+			args: buildFilesSyncArgs( metadata, apiUrl, secret, [ '--abort' ] ),
+		},
+		// --sql-output=file so the abort also removes the stale db.sql.
+		{
+			stage: 'db-downloaded',
+			args: [ 'db-sync', apiUrl, '--abort', '--sql-output=file', ...stateArgs ],
+		},
+		// Clears apply tracking only; target tables are re-created on apply.
+		{ stage: 'db-applied', args: [ 'db-apply', apiUrl, '--abort', ...stateArgs ] },
+	];
+	const pending = aborts.filter( ( { stage } ) => ! hasPullCompletedStage( metadata, stage ) );
+	if ( pending.length === 0 ) {
+		return;
+	}
+	logger.reportStart( LoggerAction.ABORT_IMPORT, __( 'Preparing delta re-pull…' ) );
+	for ( const { args } of pending ) {
+		await runReprintCommandUntilComplete(
+			metadata.stateDirectory,
+			metadata.rawDirectory,
+			args,
+			undefined,
+			{ verboseCommands: verbose }
+		);
+	}
+	logger.reportSuccess( __( 'Previous pull state cleared' ) );
 }
 
 /**

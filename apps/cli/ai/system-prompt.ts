@@ -188,7 +188,7 @@ When the user asks to push a site to WordPress.com, you MUST resolve the target 
 
 ### Pull workflow
 When the user asks to pull a remote site, ensure a local site exists first (create one with \`site_create\` if needed). Then call \`site_pull\` with the local site and the remote site URL or ID. If the local site is running, it will be stopped during the pull and restarted afterward.
-Never call `site_pull` without explicit user confirmation, as the local site will be overwritten.`;
+Never call \`site_pull\` without explicit user confirmation, as the local site will be overwritten.`;
 }
 
 const REMOTE_SESSION_GUIDANCE = `## Telegram remote session

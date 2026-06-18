@@ -447,10 +447,9 @@ export async function runCommand(
 
 		// A single `reprint pull` runs the whole pipeline in one PHP-WASM
 		// fork: files-pull → db-pull → db-apply → flat-docroot →
-		// apply-runtime. reprint owns stage ordering internally and, on a
-		// delta re-pull, resets its own sub-command state via
-		// prepare_repull() — so the former clearCompletedSubcommandState
-		// (--abort) wiring and per-phase stage gating are gone.
+		// apply-runtime. reprint owns the stage ordering internally and, on
+		// a delta re-pull, resets its own sub-command state via
+		// prepare_repull().
 		if ( ! hasPullCompletedStage( studioMetadata, 'pulled' ) ) {
 			await runFullPull( studioMetadata, apiUrl, secret, verbose );
 		}
@@ -811,14 +810,14 @@ function readPullMetadata( metadataPath: string ): PullSessionMetadata | null {
 }
 
 /**
- * Run reprint's composite `pull` command — the whole site-clone
+ * Run reprint's composite `pull` command: the whole site-clone
  * pipeline (preflight → files-pull → db-pull → db-apply →
- * flat-docroot → apply-runtime) in a single PHP-WASM fork.  This
- * replaces the former per-sub-command orchestration: reprint owns the
- * stage ordering and, when the prior pull already completed, resets
- * its own sub-command state for a delta re-pull via prepare_repull().
+ * flat-docroot → apply-runtime) in a single PHP-WASM fork, with
+ * reprint owning the stage ordering and, when the prior pull already
+ * completed, resetting its own sub-command state for a delta re-pull
+ * via prepare_repull().
  *
- * The SQLite target follows the same geometry db-apply used before:
+ * The SQLite target geometry:
  *   - If preflight exposed the remote `wp-content` (contentDir set),
  *     the database lands under `rawDirectory + contentDir`, an
  *     already-mounted host path that flat-docroot later symlinks into

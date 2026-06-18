@@ -50,7 +50,6 @@ import {
 	getReprintStatePath,
 	hasSkippedFiles,
 	readReprintState,
-	shouldRestartFilesSyncIndex,
 } from 'cli/lib/pull/reprint-state';
 import {
 	ensureImportedSiteSqliteReady,
@@ -142,11 +141,7 @@ const PULLS_ROOT = path.join( os.homedir(), '.studio', 'pulls' );
 
 const pullStageOrder = [
 	'initialized',
-	'essential-files-complete',
-	'flattened',
-	'db-downloaded',
-	'db-applied',
-	'runtime-generated',
+	'pulled',
 	'site-registered',
 	'site-started',
 	'completed',
@@ -238,27 +233,24 @@ class PullError extends LoggerError {
  *   resolvePullSource →
  *   resolvePullMetadata →
  *   runPreflight (with secret-rotate retry on WP.com) →
- *   downloadEssentialSiteFiles →
- *   refreshFlattenedSiteDirectory →
- *   downloadRemoteDatabase →
  *   ensurePort →
- *   applyDownloadedDatabase →
- *   generateRuntimeConfiguration →
+ *   runFullPull (one `reprint pull`: files-pull → db-pull → db-apply →
+ *     flat-docroot → apply-runtime) →
  *   registerSite →
  *   startWordPressServer →
  *   downloadSkippedFiles.
  *
- * Every stage persists its completion to `pull.json` before moving
- * on (see {@link recordCompletedStage}), so a crash anywhere in the
- * pipeline resumes at the next stage on re-run.  `--abort` detours to
- * {@link abortPull} instead.
+ * Each Studio stage persists to `pull.json` (see {@link
+ * recordCompletedStage}), so a crash resumes at the next stage; within
+ * the pull, reprint resumes its own pipeline from its last completed
+ * sub-stage.  `--abort` detours to {@link abortPull} instead.
  *
  * Re-running after a pull reached 'completed' performs a delta
- * re-pull: the stage machine resets to 'initialized' and every phase
- * re-executes against the preserved reprint state directory.  Reprint
- * makes each phase incremental — files re-sync as a delta (re-index +
- * diff), the database is fully re-downloaded and re-applied (the dump
- * is idempotent, so edits, inserts, and deletes all propagate).
+ * re-pull: Studio's stage machine resets to 'initialized' and reprint
+ * resets its own sub-command state via prepare_repull().  Each phase is
+ * incremental — files re-sync as a delta (re-index + diff), the
+ * database is fully re-downloaded and re-applied (the dump is
+ * idempotent, so edits, inserts, and deletes all propagate).
  */
 export async function runCommand(
 	userProvidedUrl?: string,
@@ -319,10 +311,7 @@ export async function runCommand(
 	// reprint's output; before that, anything there is user data.  On a
 	// re-pull (hasCompletedOnce) the directory holds the previous pull's
 	// output, so the guard doesn't apply.
-	if (
-		! studioMetadata.hasCompletedOnce &&
-		! hasPullCompletedStage( studioMetadata, 'flattened' )
-	) {
+	if ( ! studioMetadata.hasCompletedOnce && ! hasPullCompletedStage( studioMetadata, 'pulled' ) ) {
 		if (
 			( await fsUtils.pathExists( studioMetadata.sitePath ) ) &&
 			! ( await fsUtils.isEmptyDir( studioMetadata.sitePath ) )
@@ -451,44 +440,19 @@ export async function runCommand(
 		studioMetadata.secret = secret;
 		savePullMetadata( studioMetadata );
 
-		// On a delta re-pull, the reprint sub-command state in the shared
-		// state directory still reads "complete" from the previous pull, so a
-		// plain re-run makes files-sync refuse the run (a --filter change
-		// throws "Cannot change --filter … while a sync is in progress") and
-		// lets db-sync/db-apply skip their work. Clear that state with --abort
-		// so each phase re-runs as a delta. Gated on hasCompletedOnce (the
-		// persisted "this pull finished once" flag) rather than the local
-		// isRepull, because the first re-pull attempt already reset stage to
-		// 'initialized'; a later retry must still abort. The helper itself
-		// only aborts stages still pending, so a mid-pull resume is safe.
-		// Placed after preflight because files-sync/db-sync --abort require it.
-		if ( studioMetadata.hasCompletedOnce ) {
-			await clearCompletedSubcommandState( studioMetadata, apiUrl, secret, verbose );
-		}
-
-		if ( ! hasPullCompletedStage( studioMetadata, 'essential-files-complete' ) ) {
-			await downloadEssentialSiteFiles( studioMetadata, apiUrl, secret, verbose );
-		}
-
-		if ( ! hasPullCompletedStage( studioMetadata, 'flattened' ) ) {
-			logger.reportStart( LoggerAction.CREATE_SITE, __( 'Preparing site directory…' ) );
-			await refreshFlattenedSiteDirectory( studioMetadata, verbose );
-			logger.reportSuccess( __( 'Site directory prepared' ) );
-			recordCompletedStage( studioMetadata, 'flattened' );
-		}
-
-		if ( ! hasPullCompletedStage( studioMetadata, 'db-downloaded' ) ) {
-			await downloadRemoteDatabase( studioMetadata, apiUrl, secret, verbose );
-		}
-
+		// Allocate the local port before the pull so db-apply (run inside
+		// the composite `pull`) can rewrite the remote site URL to the
+		// local one the Studio server will serve.
 		await ensurePort( studioMetadata );
 
-		if ( ! hasPullCompletedStage( studioMetadata, 'db-applied' ) ) {
-			await applyDownloadedDatabase( studioMetadata, secret, verbose );
-		}
-
-		if ( ! hasPullCompletedStage( studioMetadata, 'runtime-generated' ) ) {
-			await generateRuntimeConfiguration( studioMetadata, verbose );
+		// A single `reprint pull` runs the whole pipeline in one PHP-WASM
+		// fork: files-pull → db-pull → db-apply → flat-docroot →
+		// apply-runtime. reprint owns stage ordering internally and, on a
+		// delta re-pull, resets its own sub-command state via
+		// prepare_repull() — so the former clearCompletedSubcommandState
+		// (--abort) wiring and per-phase stage gating are gone.
+		if ( ! hasPullCompletedStage( studioMetadata, 'pulled' ) ) {
+			await runFullPull( studioMetadata, apiUrl, secret, verbose );
 		}
 
 		let createdSiteRecord = false;
@@ -847,243 +811,61 @@ function readPullMetadata( metadataPath: string ): PullSessionMetadata | null {
 }
 
 /**
- * Apply the downloaded SQL dump into an SQLite database that Studio
- * will mount as the imported site's `wp-content/database/.ht.sqlite`.
+ * Run reprint's composite `pull` command — the whole site-clone
+ * pipeline (preflight → files-pull → db-pull → db-apply →
+ * flat-docroot → apply-runtime) in a single PHP-WASM fork.  This
+ * replaces the former per-sub-command orchestration: reprint owns the
+ * stage ordering and, when the prior pull already completed, resets
+ * its own sub-command state for a delta re-pull via prepare_repull().
  *
- * Mount strategy depends on whether preflight told us where the
- * remote site kept its `wp-content`:
- *   - If it did (contentDir set), reprint writes the SQLite file under
- *     `rawDirectory + contentDir`, which is already a mounted host path,
- *     so no extra mount is needed.
- *   - If not, we write into `sitePath/wp-content` directly and mount
- *     that host path into the PHP WASM runtime so reprint can see it.
+ * The SQLite target follows the same geometry db-apply used before:
+ *   - If preflight exposed the remote `wp-content` (contentDir set),
+ *     the database lands under `rawDirectory + contentDir`, an
+ *     already-mounted host path that flat-docroot later symlinks into
+ *     the flattened site.
+ *   - Otherwise it falls back to `sitePath/wp-content`.
  *
- * Advances the pull stage to 'db-applied' on success; thrown errors
- * propagate up to the pull orchestrator for a user-facing abort.
+ * The flattened site (`--flatten-to`) and runtime output
+ * (`--output-dir`) directories are mounted up front so the single
+ * fork can write them onto the host filesystem.  `ensurePort` must
+ * run first so `--new-site-url` points at the local server.
+ *
+ * Advances the pull stage to 'pulled'.
  */
-export async function applyDownloadedDatabase(
+export async function runFullPull(
 	metadata: PullSessionMetadata,
+	apiUrl: string,
 	secret: string,
 	verbose: boolean
 ): Promise< void > {
-	logger.reportStart( LoggerAction.IMPORT_SQL, __( 'Applying database…' ) );
 	const contentDir = getContentDirFromState( metadata.stateDirectory );
 	const sqlitePath = contentDir
 		? `${ metadata.rawDirectory }${ contentDir }/database/.ht.sqlite`
 		: `${ metadata.sitePath }/wp-content/database/.ht.sqlite`;
-	const dbApplyMounts = contentDir
-		? []
-		: [ { hostPath: metadata.sitePath, vfsPath: metadata.sitePath } ];
+
+	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 	await runReprintCommandUntilComplete(
 		metadata.stateDirectory,
 		metadata.rawDirectory,
 		[
-			'db-apply',
-			getReprintApiUrlForSite( metadata.normalizedUrl ),
-			`--state-dir=${ metadata.stateDirectory }`,
-			`--fs-root=${ metadata.rawDirectory }`,
+			'pull',
+			apiUrl,
+			`--secret=${ secret }`,
+			'--filter=essential-files',
 			'--target-engine=sqlite',
 			`--target-sqlite-path=${ sqlitePath }`,
 			`--new-site-url=${ metadata.localUrl! }`,
-			`--secret=${ secret }`,
-			'--no-adaptive',
-		],
-		( progress ) => logger.reportProgress( progress ),
-		{
-			progressLabel: __( 'Applying database' ),
-			mounts: dbApplyMounts,
-			verboseCommands: verbose,
-		}
-	);
-	logger.reportSuccess( __( 'Database applied' ) );
-	recordCompletedStage( metadata, 'db-applied' );
-}
-
-/**
- * Clear leftover "complete" reprint sub-command state before a delta
- * re-pull re-runs each phase.
- *
- * After a finished pull, files-sync / db-sync / db-apply all report
- * "complete" in the shared state directory. A plain re-run then either
- * throws (files-sync rejects a `--filter` change while a sync still
- * looks in progress: "Cannot change --filter … while a sync is in
- * progress") or silently no-ops. `--abort` resets each command without
- * losing useful work: files-sync keeps the local file index (so the
- * re-run is a delta, not a full re-download), db-sync deletes db.sql
- * (so the dump is re-fetched), and db-apply clears its apply tracking
- * without touching the target tables (the next apply re-creates them;
- * the dump is idempotent).
- *
- * files-sync and db-sync `--abort` require a prior preflight, so this
- * must run after {@link runPreflight}. Each command is aborted only while
- * its stage is still pending in the current re-pull, so re-running this on
- * a resumed re-pull never wipes a phase that already re-ran.
- */
-async function clearCompletedSubcommandState(
-	metadata: PullSessionMetadata,
-	apiUrl: string,
-	secret: string,
-	verbose: boolean
-): Promise< void > {
-	const stateArgs = [
-		`--secret=${ secret }`,
-		`--state-dir=${ metadata.stateDirectory }`,
-		`--fs-root=${ metadata.rawDirectory }`,
-	];
-	// Only abort a command whose stage hasn't completed yet in this re-pull
-	// cycle. Once a phase has re-run, its output must be preserved: aborting
-	// files-sync would delete the freshly written skipped-files list the tail
-	// needs, and aborting db-sync would delete the db.sql that db-apply reads.
-	const aborts: Array< { stage: PullStage; args: string[] } > = [
-		// files-sync --abort keeps the local index, so the re-run deltas.
-		{
-			stage: 'essential-files-complete',
-			args: buildFilesSyncArgs( metadata, apiUrl, secret, [ '--abort' ] ),
-		},
-		// --sql-output=file so the abort also removes the stale db.sql.
-		{
-			stage: 'db-downloaded',
-			args: [ 'db-sync', apiUrl, '--abort', '--sql-output=file', ...stateArgs ],
-		},
-		// Clears apply tracking only; target tables are re-created on apply.
-		{ stage: 'db-applied', args: [ 'db-apply', apiUrl, '--abort', ...stateArgs ] },
-	];
-	const pending = aborts.filter( ( { stage } ) => ! hasPullCompletedStage( metadata, stage ) );
-	if ( pending.length === 0 ) {
-		return;
-	}
-	logger.reportStart( LoggerAction.ABORT_IMPORT, __( 'Preparing delta re-pull…' ) );
-	for ( const { args } of pending ) {
-		await runReprintCommandUntilComplete(
-			metadata.stateDirectory,
-			metadata.rawDirectory,
-			args,
-			undefined,
-			{ verboseCommands: verbose }
-		);
-	}
-	logger.reportSuccess( __( 'Previous pull state cleared' ) );
-}
-
-/**
- * Fetch the minimum set of files needed to produce a usable flattened
- * site directory: wp-config.php, wp-includes, active plugins/themes,
- * uploads.  Heavier wp-content payload (unused plugins, dev caches)
- * is deferred to {@link downloadSkippedFiles} so the site becomes
- * runnable sooner.
- *
- * Advances the pull stage to 'essential-files-complete'.
- */
-export async function downloadEssentialSiteFiles(
-	metadata: PullSessionMetadata,
-	apiUrl: string,
-	secret: string,
-	verbose: boolean
-): Promise< void > {
-	// When reprint crashed mid-indexing on a previous run without
-	// persisting a cursor, a plain files-sync would try to resume from
-	// a cursor that doesn't exist.  Clear that state via
-	// `files-sync --abort` so the real sync below starts fresh.
-	if ( shouldRestartFilesSyncIndex( metadata.stateDirectory ) ) {
-		logger.reportWarning(
-			__(
-				'Restarting remote file indexing before resume because the previous run did not save a resumable cursor.'
-			)
-		);
-		await runReprintCommandUntilComplete(
-			metadata.stateDirectory,
-			metadata.rawDirectory,
-			buildFilesSyncArgs( metadata, apiUrl, secret, [ '--abort' ] ),
-			undefined,
-			{
-				verboseCommands: verbose,
-			}
-		);
-		logger.reportSuccess( __( 'Interrupted file indexing state cleared' ) );
-	}
-
-	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading site files…' ) );
-	await runReprintCommandUntilComplete(
-		metadata.stateDirectory,
-		metadata.rawDirectory,
-		buildFilesSyncArgs( metadata, apiUrl, secret, [
-			'--filter=essential-files',
-			'--follow-symlinks',
-		] ),
-		( progress ) => logger.reportProgress( progress ),
-		{
-			progressLabel: 'Downloading files',
-			verboseCommands: verbose,
-		}
-	);
-	logger.reportSuccess( __( 'Files downloaded' ) );
-	recordCompletedStage( metadata, 'essential-files-complete' );
-}
-
-/**
- * Stream the remote database into `stateDirectory/db.sql` via reprint's
- * `db-sync` command.  We download-first-then-apply (rather than piping
- * straight into sqlite) so a crash during apply can resume without
- * re-fetching the dump.
- *
- * Advances the pull stage to 'db-downloaded'.
- */
-export async function downloadRemoteDatabase(
-	metadata: PullSessionMetadata,
-	apiUrl: string,
-	secret: string,
-	verbose: boolean
-): Promise< void > {
-	logger.reportStart( LoggerAction.DOWNLOAD_SQL, __( 'Downloading database…' ) );
-	await runReprintCommandUntilComplete(
-		metadata.stateDirectory,
-		metadata.rawDirectory,
-		[
-			'db-sync',
-			apiUrl,
-			`--secret=${ secret }`,
-			'--sql-output=file',
+			`--flatten-to=${ metadata.sitePath }`,
+			'--runtime=playground-cli',
+			'--start-runtime=none',
+			`--output-dir=${ metadata.runtimeDirectory }`,
 			'--no-adaptive',
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		],
 		( progress ) => logger.reportProgress( progress ),
 		{
-			progressLabel: __( 'Downloading database' ),
-			verboseCommands: verbose,
-		}
-	);
-	logger.reportSuccess( __( 'Database downloaded' ) );
-	recordCompletedStage( metadata, 'db-downloaded' );
-}
-
-/**
- * Produce the Playground CLI start script + runtime blueprint that
- * Studio uses to boot the imported site.  reprint reads the flattened
- * site layout and preflight output, and emits a ready-to-run runtime
- * under `runtimeDirectory`.  Both directories are mounted into WASM
- * so the runtime output lands on the host filesystem.
- *
- * Advances the pull stage to 'runtime-generated'.
- */
-export async function generateRuntimeConfiguration(
-	metadata: PullSessionMetadata,
-	verbose: boolean
-): Promise< void > {
-	logger.reportStart( LoggerAction.URL_REWRITE, __( 'Generating runtime configuration…' ) );
-	await runReprintCommandUntilComplete(
-		metadata.stateDirectory,
-		metadata.rawDirectory,
-		[
-			'apply-runtime',
-			'--no-adaptive',
-			`--state-dir=${ metadata.stateDirectory }`,
-			`--flat-document-root=${ metadata.sitePath }`,
-			`--output-dir=${ metadata.runtimeDirectory }`,
-			'--runtime=playground-cli',
-		],
-		undefined,
-		{
+			progressLabel: __( 'Pulling site' ),
 			mounts: [
 				{ hostPath: metadata.sitePath, vfsPath: metadata.sitePath },
 				{ hostPath: metadata.runtimeDirectory, vfsPath: metadata.runtimeDirectory },
@@ -1091,8 +873,8 @@ export async function generateRuntimeConfiguration(
 			verboseCommands: verbose,
 		}
 	);
-	logger.reportSuccess( __( 'Runtime configuration generated' ) );
-	recordCompletedStage( metadata, 'runtime-generated' );
+	logger.reportSuccess( __( 'Site pulled' ) );
+	recordCompletedStage( metadata, 'pulled' );
 }
 
 /**
@@ -1524,36 +1306,6 @@ async function ensurePort( metadata: PullSessionMetadata ): Promise< void > {
 	metadata.port = port;
 	metadata.localUrl = `http://localhost:${ port }`;
 	savePullMetadata( metadata );
-}
-
-/**
- * Runs reprint's `flat-document-root` to produce the flattened site
- * directory (symlinks + merged wp-content layout) from the raw tree.
- */
-async function refreshFlattenedSiteDirectory(
-	metadata: Pick<
-		PullSessionMetadata,
-		'stateDirectory' | 'rawDirectory' | 'sitePath' | 'runtimeBlueprintPath' | 'normalizedUrl'
-	>,
-	verbose: boolean
-): Promise< void > {
-	await runReprintCommandUntilComplete(
-		metadata.stateDirectory,
-		metadata.rawDirectory,
-		[
-			'flat-document-root',
-			getReprintApiUrlForSite( metadata.normalizedUrl ),
-			'--no-adaptive',
-			`--state-dir=${ metadata.stateDirectory }`,
-			`--fs-root=${ metadata.rawDirectory }`,
-			`--flatten-to=${ metadata.sitePath }`,
-		],
-		undefined,
-		{
-			mounts: [ { hostPath: metadata.sitePath, vfsPath: metadata.sitePath } ],
-			verboseCommands: verbose,
-		}
-	);
 }
 
 async function findExistingSite( metadata: PullSessionMetadata ): Promise< SiteData | undefined > {

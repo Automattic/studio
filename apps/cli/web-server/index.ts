@@ -28,6 +28,7 @@ import {
 } from './agent-runs';
 import { wdbg } from './debug';
 import { createSecexRuntime } from './secex-runtime';
+import { serveSiteForSession } from './site-server';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
@@ -327,6 +328,16 @@ api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
 	const { runId } = startAgentRun( { sessionId: req.params.id, prompt, displayMessage } );
 	res.json( { runId } );
 } );
+
+// Serve the session's site from the broker (the desktop's Playground server runs
+// in Node, where PHP-WASM works) and return its URL for the browser to iframe.
+api.post(
+	'/sessions/:id/preview',
+	asyncHandler( async ( req: Request, res: Response ) => {
+		const url = await serveSiteForSession( req.params.id );
+		res.json( { url } );
+	} )
+);
 
 // --- Runs --------------------------------------------------------------------
 

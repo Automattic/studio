@@ -770,20 +770,17 @@ def distribute_builds(
   # Upload the standalone Studio CLI bundles alongside the app so the curl installers
   # track every Studio build (nightly/dev, beta, stable). Merging them into
   # builds_to_upload routes their post IDs through create_draft_github_release, so
-  # publish_release flips them to External exactly like the app builds. Skipped when no
-  # bundles are present (e.g. a local app-only distribute run that didn't build them).
-  if Dir.exist?(STANDALONE_BUNDLES_FOLDER)
-    cli_builds = upload_studio_cli_binaries_to_apps_cdn(
-      version: version,
-      artifacts_dir: STANDALONE_BUNDLES_FOLDER,
-      build_type: build_type,
-      visibility: visibility,
-      error_on_duplicate: false
-    )
-    builds_to_upload = builds_to_upload.merge(cli_builds)
-  else
-    UI.important("No standalone CLI bundles in #{STANDALONE_BUNDLES_FOLDER}; skipping Studio CLI CDN upload.")
-  end
+  # publish_release flips them to External exactly like the app builds. A real run
+  # hard-fails if a bundle is missing — we don't want to silently publish a release
+  # without the CLI — while a dry run still previews the planned uploads.
+  cli_builds = upload_studio_cli_binaries_to_apps_cdn(
+    version: version,
+    artifacts_dir: STANDALONE_BUNDLES_FOLDER,
+    build_type: build_type,
+    visibility: visibility,
+    error_on_duplicate: false
+  )
+  builds_to_upload = builds_to_upload.merge(cli_builds)
 
   unless DRY_RUN
     buildkite_annotate(

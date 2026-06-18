@@ -59,7 +59,14 @@ export async function runBlueprint(
 		}
 		fallbackTempDir = await createBlueprintTempDir();
 		tmpPath = path.join( fallbackTempDir, blueprintFilename );
-		await fs.promises.writeFile( tmpPath, serializedBlueprint );
+		try {
+			await fs.promises.writeFile( tmpPath, serializedBlueprint );
+		} catch ( fallbackError ) {
+			// The finally below only runs once the run-blueprint try starts, so clean
+			// up the just-created temp dir here to avoid leaking it under os.tmpdir().
+			await removeBlueprintTempDir( fallbackTempDir ).catch( () => {} );
+			throw fallbackError;
+		}
 	}
 
 	// blueprints.phar detects SQLite under plugins, while Studio installs it under mu-plugins.

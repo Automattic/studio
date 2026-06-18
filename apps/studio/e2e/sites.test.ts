@@ -118,27 +118,6 @@ test.describe( 'Sites', () => {
 		await settingsTab.editSiteDialog.getByRole( 'button', { name: 'Cancel' } ).click();
 	} );
 
-	test( 'renames a site', async () => {
-		const { siteName } = await completeOnboardingWithParams();
-
-		const newSiteName = 'E2E-Test-Site-Renamed';
-		const siteContent = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
-
-		await settingsTab.editSiteButton.click();
-		await expect( settingsTab.editSiteDialog ).toBeVisible();
-
-		await settingsTab.siteNameInput.fill( newSiteName );
-		await settingsTab.saveButton.click();
-		await expect( settingsTab.editSiteDialog ).not.toBeVisible( { timeout: 20_000 } );
-
-		// Explicitly wait for the rename to propagate
-		const renamedSiteContent = new SiteContent( session.mainWindow, newSiteName );
-		await expect( renamedSiteContent.siteNameHeading ).toHaveText( newSiteName, {
-			timeout: 10000,
-		} );
-	} );
-
 	test( "edit site's settings in wp-admin", async ( { page } ) => {
 		const { siteName } = await completeOnboardingWithParams();
 

@@ -467,4 +467,92 @@ describe( 'ContentTabSettings', () => {
 			} );
 		} );
 	} );
+
+	describe( 'Site name', () => {
+		it( 'renames the site', async () => {
+			const user = userEvent.setup();
+
+			const updateSite = vi.fn();
+			const startServer = vi.fn();
+			const stopServer = vi.fn();
+
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+				selectedSite: { ...selectedSite, running: false } as SiteDetails,
+				updateSite,
+				startServer,
+				stopServer,
+				isEditModalOpen: false,
+				setIsEditModalOpen: vi.fn(),
+				editModalInitialTab: 'general',
+				setEditModalInitialTab: vi.fn(),
+			} );
+
+			const { rerender } = renderWithProvider(
+				<ContentTabSettings selectedSite={ selectedSite } />
+			);
+
+			// The current name is shown on the Settings tab.
+			expect( screen.getByText( 'Test Site' ) ).toBeVisible();
+
+			// Open the Edit site dialog. Its visibility is driven by
+			// `isEditModalOpen` from the (mocked) useSiteDetails hook, so we
+			// re-mock the hook as open and re-render to reflect the click.
+			await user.click( screen.getByRole( 'button', { name: 'Edit site' } ) );
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+				selectedSite: { ...selectedSite, running: false } as SiteDetails,
+				updateSite,
+				startServer,
+				stopServer,
+				isEditModalOpen: true,
+				setIsEditModalOpen: vi.fn(),
+				editModalInitialTab: 'general',
+				setEditModalInitialTab: vi.fn(),
+			} );
+			rerenderWithProvider( rerender, <ContentTabSettings selectedSite={ selectedSite } /> );
+			await waitFor( () => {
+				expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
+			} );
+
+			const dialog = screen.getByRole( 'dialog' );
+			const nameInput = within( dialog ).getByLabelText( 'Site name' );
+			await user.clear( nameInput );
+			await user.type( nameInput, 'Renamed Site' );
+			await user.click( within( dialog ).getByRole( 'button', { name: 'Save' } ) );
+
+			// The renderer delegates persistence (and any restart) to the backend
+			// via updateSite; no WordPress version change → second arg is undefined.
+			await waitFor( () => {
+				expect( updateSite ).toHaveBeenCalledWith(
+					expect.objectContaining( { name: 'Renamed Site' } ),
+					undefined
+				);
+			} );
+			expect( stopServer ).not.toHaveBeenCalled();
+			expect( startServer ).not.toHaveBeenCalled();
+
+			// Simulate the saved name propagating back: the modal closes and the
+			// selected site re-renders with the new name shown on the Settings tab.
+			vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+				selectedSite: {
+					...selectedSite,
+					running: false,
+					name: 'Renamed Site',
+				} as SiteDetails,
+				updateSite,
+				startServer,
+				stopServer,
+				isEditModalOpen: false,
+				setIsEditModalOpen: vi.fn(),
+				editModalInitialTab: 'general',
+				setEditModalInitialTab: vi.fn(),
+			} );
+			rerenderWithProvider(
+				rerender,
+				<ContentTabSettings selectedSite={ { ...selectedSite, name: 'Renamed Site' } } />
+			);
+			await waitFor( () => {
+				expect( screen.getByText( 'Renamed Site' ) ).toBeVisible();
+			} );
+		} );
+	} );
 } );

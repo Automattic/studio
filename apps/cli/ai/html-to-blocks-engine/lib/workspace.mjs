@@ -51,9 +51,19 @@ export function firstMatch(value, pattern, group = 1) {
 }
 
 export function cleanText(value) {
-    return String(value || '')
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
+    let text = String(value || '');
+    // Drop <script>/<style> blocks (tag + inner code) before stripping the
+    // remaining tags. Loop until the string stops changing so a nested or
+    // re-exposed opener can't survive a single pass, and tolerate whitespace
+    // in the closing tag (e.g. `</script >`).
+    let previous;
+    do {
+        previous = text;
+        text = text
+            .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
+            .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, '');
+    } while (text !== previous);
+    return text
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();

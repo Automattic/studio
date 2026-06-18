@@ -20,7 +20,7 @@ describe( 'PromptInfo', () => {
 	} );
 
 	it( 'shows Studio Code dollar usage and reset date', () => {
-		vi.mocked( useGetStudioAssistantQuota ).mockReturnValue( {
+		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
 			data: {
 				costUsage: 33392,
 				costCap: 20000000,
@@ -29,7 +29,7 @@ describe( 'PromptInfo', () => {
 			isError: false,
 			isLoading: false,
 			refetch: vi.fn(),
-		} as unknown as ReturnType< typeof useGetStudioAssistantQuota > );
+		} );
 
 		render( <PromptInfo /> );
 
@@ -42,7 +42,7 @@ describe( 'PromptInfo', () => {
 	} );
 
 	it( 'shows unavailable message when cost cap is missing', () => {
-		vi.mocked( useGetStudioAssistantQuota ).mockReturnValue( {
+		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
 			data: {
 				costUsage: 0,
 				costCap: 0,
@@ -51,7 +51,7 @@ describe( 'PromptInfo', () => {
 			isError: false,
 			isLoading: false,
 			refetch: vi.fn(),
-		} as unknown as ReturnType< typeof useGetStudioAssistantQuota > );
+		} );
 
 		render( <PromptInfo /> );
 
@@ -61,7 +61,7 @@ describe( 'PromptInfo', () => {
 	} );
 
 	it( 'caps over-limit usage at 100%', () => {
-		vi.mocked( useGetStudioAssistantQuota ).mockReturnValue( {
+		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
 			data: {
 				costUsage: 3403700000,
 				costCap: 20000000,
@@ -70,7 +70,7 @@ describe( 'PromptInfo', () => {
 			isError: false,
 			isLoading: false,
 			refetch: vi.fn(),
-		} as unknown as ReturnType< typeof useGetStudioAssistantQuota > );
+		} );
 
 		render( <PromptInfo /> );
 

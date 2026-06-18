@@ -191,7 +191,7 @@ async function main() {
 	};
 	studioArgv.command(
 		'code',
-		__( 'AI agent for building WordPress sites' ),
+		__( 'AI agent for building and managing WordPress sites' ),
 		studioCodeCommandBuilder
 	);
 	studioArgv.command( 'ai', false, studioCodeCommandBuilder );

@@ -374,3 +374,77 @@ tests:
             const n = (d.toolCalls || []).filter(t => t.name === 'wp_cli' && /wc\s+product\s+create/.test(t.input?.command || '')).length;
             return { pass: n >= 1, score: n >= 1 ? 1 : 0, reason: n >= 1 ? `${n} product(s) created` : 'no `wc product create` calls' };
           });
+
+  # When adding sections to a site that already has an active theme, the agent
+  # should color them from the theme's color palette (block color-slug
+  # attributes like {"backgroundColor":"accent-1"} or var(--wp--preset--color--*)
+  # in CSS) instead of hardcoding hex values. Hardcoded hex detaches the section
+  # from Global Styles / theme switching / dark variations and is the behavior
+  # this case guards against. theme.json is excluded from the hex check because
+  # the palette is legitimately *defined* there with hex.
+  - description: added sections use the theme color palette, not hardcoded hex
+    vars:
+      caseId: section-uses-theme-palette
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Palette Site" exists using
+        site_list. If it does, delete it with site_delete so we start from a
+        clean slate. Do NOT touch any other site.
+
+        Then create a new site named "Eval Palette Site". Keep its current
+        default theme — do not create, scaffold, or switch themes.
+
+        Add two visually distinct sections to the site's homepage: a hero
+        section with a colored background and a heading, and a call-to-action
+        section with a contrasting colored background and a button. Make the
+        colors feel cohesive with the site's existing theme.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls || [];
+            const pathOf = (i) => String((i && (i.file_path || i.path || i.filePath)) || '').toLowerCase();
+            // Collect every place a color can land. Block markup and theme CSS
+            // reach the site through Write/Edit (a scratch .html, style.css, or
+            // raw block markup) OR through wp_cli — both as post_content and as
+            // CSS injected via `wp_cli eval '$css = "..."'`. theme.json is the one
+            // exclusion: a palette is legitimately defined there with hex.
+            const blobs = [];
+            for (const c of calls) {
+              const i = c.input || {};
+              if ((c.name === 'Write' || c.name === 'Edit') && !pathOf(i).endsWith('.json')) {
+                for (const k of ['content', 'new_string', 'replacement', 'text']) {
+                  if (typeof i[k] === 'string') blobs.push(i[k]);
+                }
+                // The Edit tool applies changes as { edits: [{ oldText, newText }] }.
+                if (Array.isArray(i.edits)) {
+                  for (const e of i.edits) if (e && typeof e.newText === 'string') blobs.push(e.newText);
+                }
+              }
+              if (c.name === 'wp_cli' && typeof i.command === 'string') {
+                blobs.push(i.command);
+              }
+            }
+            const markup = blobs.join('\n');
+            if (!/<!--\s*wp:/.test(markup)) {
+              return { pass: false, score: 0, reason: `no block markup found in Write/wp_cli calls; tool calls: ${JSON.stringify(calls.map(c => c.name))}` };
+            }
+            // Hardcoded hex colors in section markup / theme CSS = custom colors (the bug).
+            const hex = markup.match(/#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g) || [];
+            // Palette references: block color-slug attributes or preset CSS vars.
+            const slugAttr = markup.match(/"(?:backgroundColor|textColor|borderColor|overlayColor|gradient)"\s*:\s*"[a-z][a-z0-9-]*"/g) || [];
+            const presetVar = markup.match(/var\(\s*--wp--preset--color--[a-z0-9-]+/g) || [];
+            const paletteRefs = slugAttr.length + presetVar.length;
+            if (hex.length > 0) {
+              const uniq = [...new Set(hex)].slice(0, 8);
+              return { pass: false, score: 0, reason: `section markup/CSS hardcodes ${hex.length} custom hex color(s) (${uniq.join(', ')}) instead of theme palette colors; palette refs found: ${paletteRefs}` };
+            }
+            if (paletteRefs === 0) {
+              return { pass: false, score: 0, reason: `sections apply no theme-palette colors (no color-slug attributes or --wp--preset--color-- vars) — cannot confirm the section is colored from the palette` };
+            }
+            return { pass: true, score: 1, reason: `sections colored from the theme palette (${paletteRefs} palette color ref(s)) with no hardcoded hex` };
+          });

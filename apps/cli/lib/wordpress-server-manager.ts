@@ -454,9 +454,13 @@ export async function sendMessage(
 					totalElapsedTime > maxTotalElapsedTime
 						? `Maximum timeout of ${ maxTotalElapsedTime / 1000 }s exceeded`
 						: `No activity for ${ PLAYGROUND_CLI_INACTIVITY_TIMEOUT / 1000 }s`;
+				const hint =
+					message.topic === 'start-server'
+						? ' Sites with many plugins may need more time to initialize.'
+						: '';
 				reject(
 					new Error(
-						`Timeout waiting for response to message ${ message.topic }: ${ timeoutReason }`
+						`Timeout waiting for response to message ${ message.topic }: ${ timeoutReason }${ hint }`
 					)
 				);
 			}

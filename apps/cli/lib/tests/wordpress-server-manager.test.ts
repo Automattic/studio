@@ -9,6 +9,7 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
+import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import {
 	isServerRunning,
 	sendWpCliCommand,
@@ -20,6 +21,9 @@ import { Logger } from 'cli/logger';
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 	ensurePhpBinaryAvailable: vi.fn().mockResolvedValue( undefined ),
+} ) );
+vi.mock( 'cli/lib/site-runtime-stats', () => ( {
+	recordSiteRuntimeUsage: vi.fn(),
 } ) );
 
 describe( 'WordPress Server Manager', () => {
@@ -142,7 +146,10 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should start WordPress server with basic configuration', async () => {
 			setupIpcMocks();
 
-			const result = await startWordPressServer( mockSiteData, mockLogger );
+			const result = await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_PLAYGROUND },
+				mockLogger
+			);
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
@@ -153,11 +160,13 @@ describe( 'WordPress Server Manager', () => {
 			expect( result ).toEqual( mockProcessDescription );
 		} );
 
-		it( 'should use the native-php child script when STUDIO_RUNTIME is native-php', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
+		it( 'should use the native-php child script when the site runtime is native-php', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer( mockSiteData, mockLogger );
+			await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP },
+				mockLogger
+			);
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
@@ -167,10 +176,12 @@ describe( 'WordPress Server Manager', () => {
 		} );
 
 		it( 'should resolve older stored PHP versions to the closest native PHP version when starting native PHP', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
 			setupIpcMocks();
 
-			await startWordPressServer( { ...mockSiteData, phpVersion: '7.4' }, mockLogger );
+			await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP, phpVersion: '7.4' },
+				mockLogger
+			);
 
 			expect( vi.mocked( ensurePhpBinaryAvailable ) ).toHaveBeenCalledWith(
 				'8.2',
@@ -187,16 +198,58 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'should use the playground child script when STUDIO_RUNTIME is unset', async () => {
+		it( 'should default to the native-php child script when the site has no runtime set', async () => {
 			setupIpcMocks();
 
 			await startWordPressServer( mockSiteData, mockLogger );
 
 			expect( vi.mocked( daemonClient.startProcess ) ).toHaveBeenCalledWith(
 				'studio-site-test-site-id',
-				expect.stringMatching( /playground-server-child\.mjs$/ ),
-				{ runtime: SITE_RUNTIME_PLAYGROUND }
+				expect.stringMatching( /php-server-child\.mjs$/ ),
+				{ runtime: SITE_RUNTIME_NATIVE_PHP }
 			);
+		} );
+
+		it( 'should include the file access setting in the server config', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP, fileAccess: 'all-files' },
+				mockLogger
+			);
+
+			expect( vi.mocked( daemonClient.sendMessageToProcess ) ).toHaveBeenCalledWith(
+				mockProcessDescription.pmId,
+				expect.objectContaining( {
+					topic: 'start-server',
+					data: expect.objectContaining( {
+						config: expect.objectContaining( { fileAccess: 'all-files' } ),
+					} ),
+				} )
+			);
+		} );
+
+		it( 'records site runtime usage after a successful start', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer(
+				{ ...mockSiteData, runtime: SITE_RUNTIME_NATIVE_PHP },
+				mockLogger
+			);
+
+			expect( vi.mocked( recordSiteRuntimeUsage ) ).toHaveBeenCalledWith(
+				expect.objectContaining( { id: mockSiteData.id, runtime: SITE_RUNTIME_NATIVE_PHP } )
+			);
+		} );
+
+		it( 'does not record runtime usage when the start fails', async () => {
+			vi.mocked( daemonClient.startProcess ).mockRejectedValue(
+				new Error( 'Failed to start process' )
+			);
+
+			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow();
+
+			expect( vi.mocked( recordSiteRuntimeUsage ) ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should handle start process failure', async () => {

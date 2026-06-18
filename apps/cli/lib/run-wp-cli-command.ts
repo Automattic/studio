@@ -19,8 +19,7 @@ import {
 	writeStudioMuPluginsForNativePhpRuntime,
 } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
-import { SITE_RUNTIME_NATIVE_PHP, type SiteRuntime } from '@studio/common/lib/site-runtime';
-import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
+import { getSiteRuntime, SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
 import {
@@ -28,7 +27,6 @@ import {
 	getSqliteCommandPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
-import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { getDefaultPhpArgs } from './native-php/config';
 import {
@@ -226,7 +224,7 @@ export async function runWpCliCommand(
 ): Promise< DisposableWpCliResponse > {
 	const siteFolder = site.path;
 
-	if ( getSiteRuntime() === SITE_RUNTIME_NATIVE_PHP ) {
+	if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
 		return runNativeWpCliCommand( site, args, options );
 	}
 
@@ -289,99 +287,6 @@ export async function runWpCliCommand(
 			'--path=/wordpress',
 			...wasmArgs,
 		] );
-
-		return {
-			response: new WpCliResponse(
-				Readable.fromWeb( streamedResponse.stdout as WebReadableStream ),
-				Readable.fromWeb( streamedResponse.stderr as WebReadableStream ),
-				streamedResponse.exitCode
-			),
-			[ Symbol.dispose ]() {
-				php.exit();
-			},
-		};
-	} catch ( error ) {
-		php.exit();
-		throw new Error( __( 'An error occurred while running the WP-CLI command.' ) );
-	}
-}
-
-async function runNativeGlobalWpCliCommand( args: string[] ): Promise< DisposableWpCliResponse > {
-	const phpVersion = resolveNativePhpVersion( DEFAULT_PHP_VERSION );
-	// Don't apply open_basedir or disable_functions to the WP-CLI process
-	const defaultArgs = getDefaultPhpArgs( phpVersion );
-	const child = spawn(
-		getPhpBinaryPath( phpVersion ),
-		[ ...defaultArgs, getWpCliPharPath(), ...args ],
-		{ stdio: [ 'ignore', 'pipe', 'pipe' ], detached: DETACH_FOR_GROUP_KILL }
-	);
-
-	await ensureChildSpawned( child );
-	const removeReaper = reapPhpTreeOnInterrupt( child );
-
-	const exitCode = new Promise< number >( ( resolve, reject ) => {
-		child.once( 'error', ( error: Error ) => reject( error ) );
-		child.once( 'exit', ( code ) => resolve( code ?? 1 ) );
-	} );
-
-	return {
-		response: new WpCliResponse(
-			drainToMemory( child.stdout ),
-			drainToMemory( child.stderr ),
-			exitCode
-		),
-		[ Symbol.dispose ]() {
-			removeReaper();
-			// Tree-kill so any subprocess WP-CLI spawned dies with it, not just the php.exe itself.
-			if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
-				killPhpProcessTree( child, 'SIGKILL' );
-			}
-		},
-	};
-}
-
-type RunGlobalWpCliCommandOptions = {
-	runtime?: SiteRuntime;
-};
-
-/**
- * Run a global WP-CLI command without requiring a site.
- * Useful for commands like --version that don't need a WordPress installation.
- */
-export async function runGlobalWpCliCommand(
-	args: string[],
-	options: RunGlobalWpCliCommandOptions = {}
-): Promise< DisposableWpCliResponse > {
-	if ( options.runtime === SITE_RUNTIME_NATIVE_PHP ) {
-		return runNativeGlobalWpCliCommand( args );
-	}
-
-	const id = await loadNodeRuntime( LatestSupportedPHPVersion, {
-		followSymlinks: true,
-		withRedis: false,
-		withMemcached: false,
-		emscriptenOptions: {
-			processId: processIdAllocator.claim(),
-		},
-	} );
-	const php = new PHP( id );
-
-	try {
-		await php.setSapiName( 'cli' );
-
-		// Setup SSL certificates
-		php.writeFile( '/tmp/ca-bundle.crt', rootCertificates.join( '\n' ) );
-		await setPhpIniEntries( php, {
-			'openssl.cafile': '/tmp/ca-bundle.crt',
-			'curl.cainfo': '/tmp/ca-bundle.crt',
-			allow_url_fopen: 1,
-		} );
-
-		await php.setSpawnHandler( createNoopSpawnHandler() );
-
-		await php.mount( '/tmp/wp-cli.phar', createNodeFsMountHandler( getWpCliPharPath() ) );
-
-		const streamedResponse = await php.cli( [ 'php', '/tmp/wp-cli.phar', ...args ] );
 
 		return {
 			response: new WpCliResponse(

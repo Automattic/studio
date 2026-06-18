@@ -1,7 +1,7 @@
 import { sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import {
-	getClosestNativePhpVersion,
+	getClosestSupportedPhpVersion,
 	LatestNativePhpSupportedVersion,
 	NativePhpSupportedVersions,
 	type NativePhpSupportedVersion,
@@ -38,7 +38,7 @@ export function resolveNativePhpVersion( version: string ): NativePhpSupportedVe
 		return LatestNativePhpSupportedVersion;
 	}
 
-	const resolvedVersion = getClosestNativePhpVersion( version );
+	const resolvedVersion = getClosestSupportedPhpVersion( version );
 	return resolvedVersion ?? validateNativePhpVersion( version );
 }
 

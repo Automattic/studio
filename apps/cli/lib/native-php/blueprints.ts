@@ -1,9 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+	createBlueprintTempDir,
+	removeBlueprintTempDir,
+} from '@studio/common/lib/blueprint-bundle';
 import { getBlueprintsPharPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
 import { runPhpCommand } from './php-process';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
+
+function isWriteAccessError( error: unknown ): boolean {
+	const code = ( error as NodeJS.ErrnoException )?.code;
+	return code === 'EACCES' || code === 'EPERM' || code === 'EROFS';
+}
 
 export async function runBlueprint(
 	config: ServerConfig,
@@ -36,9 +45,26 @@ export async function runBlueprint(
 	// Passing preferredVersions makes blueprints.phar validate versions it does not manage here.
 	delete blueprint.contents.preferredVersions;
 
-	const blueprintDir = path.dirname( blueprint.uri );
-	const tmpPath = path.join( blueprintDir, `studio-blueprint-${ config.siteId }.json` );
-	await fs.promises.writeFile( tmpPath, JSON.stringify( blueprint.contents ) );
+	// Write the modified blueprint next to the original so blueprints.phar
+	// resolves relative resource paths the same way — e.g. a bundle's theme zips
+	// or WXR files sitting alongside blueprint.json. When that directory isn't
+	// writable (a read-only upload location, or the checked-out repo under CI's
+	// user-remapped Docker), fall back to a private temp dir; self-contained
+	// blueprints (remote/literal resources) still apply correctly from there.
+	const serializedBlueprint = JSON.stringify( blueprint.contents );
+	const blueprintFilename = `studio-blueprint-${ config.siteId }.json`;
+	let fallbackTempDir: string | undefined;
+	let tmpPath = path.join( path.dirname( blueprint.uri ), blueprintFilename );
+	try {
+		await fs.promises.writeFile( tmpPath, serializedBlueprint );
+	} catch ( error ) {
+		if ( ! isWriteAccessError( error ) ) {
+			throw error;
+		}
+		fallbackTempDir = await createBlueprintTempDir();
+		tmpPath = path.join( fallbackTempDir, blueprintFilename );
+		await fs.promises.writeFile( tmpPath, serializedBlueprint );
+	}
 
 	// blueprints.phar detects SQLite under plugins, while Studio installs it under mu-plugins.
 	const muPluginsSqlite = path.join(
@@ -87,6 +113,9 @@ export async function runBlueprint(
 		);
 	} finally {
 		await fs.promises.unlink( tmpPath ).catch( () => {} );
+		if ( fallbackTempDir ) {
+			await removeBlueprintTempDir( fallbackTempDir ).catch( () => {} );
+		}
 		if ( needsSymlink ) {
 			try {
 				if ( fs.statSync( pluginsSqlite ).ino === symlinkIno ) {

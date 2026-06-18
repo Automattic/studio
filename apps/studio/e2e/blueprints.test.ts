@@ -1,5 +1,3 @@
-import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { test, expect } from '@playwright/test';
 import { DEFAULT_SITE_NAME } from './constants';
@@ -11,21 +9,8 @@ import { getUrlWithAutoLogin } from './utils';
 
 test.describe( 'Blueprints', () => {
 	const session = new E2ESession();
-	// Applying a blueprint writes a sidecar file next to the uploaded blueprint,
-	// so it must sit in a writable directory. The repo checkout is read-only under
-	// Linux CI's user-remapped Docker, so copy the fixtures into a temp dir and
-	// upload from there — closer to how a real user picks a file off disk.
-	let blueprintsDir: string;
 
 	test.beforeAll( async () => {
-		blueprintsDir = path.join(
-			await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-e2e-blueprints-' ) ),
-			'blueprints'
-		);
-		await fs.promises.cp( path.join( __dirname, 'fixtures', 'blueprints' ), blueprintsDir, {
-			recursive: true,
-		} );
-
 		await session.launch();
 
 		const onboarding = new Onboarding( session.mainWindow );
@@ -58,14 +43,11 @@ test.describe( 'Blueprints', () => {
 
 	test.afterAll( async () => {
 		await session.cleanup();
-		await fs.promises
-			.rm( path.dirname( blueprintsDir ), { recursive: true, force: true } )
-			.catch( () => {} );
 	} );
 
 	test( 'create site with Blueprint that installs a theme', async ( { page } ) => {
 		const siteName = 'Blueprint-Theme-Install';
-		const blueprintPath = path.join( blueprintsDir, 'install-theme.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'install-theme.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -100,7 +82,7 @@ test.describe( 'Blueprints', () => {
 
 	test( 'create site with Blueprint that activates a theme', async ( { page } ) => {
 		const siteName = 'Blueprint-Theme-Activate';
-		const blueprintPath = path.join( blueprintsDir, 'activate-theme.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'activate-theme.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -137,7 +119,7 @@ test.describe( 'Blueprints', () => {
 
 	test( 'create site with Blueprint that installs a plugin', async ( { page } ) => {
 		const siteName = 'Blueprint-Plugin-Install';
-		const blueprintPath = path.join( blueprintsDir, 'install-plugin.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'install-plugin.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -172,7 +154,7 @@ test.describe( 'Blueprints', () => {
 
 	test( 'create site with Blueprint that activates a plugin', async ( { page } ) => {
 		const siteName = 'Blueprint-Plugin-Activate';
-		const blueprintPath = path.join( blueprintsDir, 'activate-plugin.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'activate-plugin.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -210,7 +192,7 @@ test.describe( 'Blueprints', () => {
 
 	test( 'create site with Blueprint that runs PHP code', async ( { page } ) => {
 		const siteName = 'Blueprint-PHP-Code';
-		const blueprintPath = path.join( blueprintsDir, 'run-php-code.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'run-php-code.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -248,7 +230,7 @@ test.describe( 'Blueprints', () => {
 
 	test( 'create site with Blueprint that runs WP-CLI commands', async ( { page } ) => {
 		const siteName = 'Blueprint-WP-CLI';
-		const blueprintPath = path.join( blueprintsDir, 'wp-cli-command.json' );
+		const blueprintPath = path.join( __dirname, 'fixtures', 'blueprints', 'wp-cli-command.json' );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();

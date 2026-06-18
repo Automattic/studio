@@ -4,7 +4,6 @@ import { clsx } from 'clsx';
 import { useState } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
-import { SidebarSettingsButton } from '@/components/sidebar-settings-button';
 import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
 import { useFullscreen } from '@/hooks/use-fullscreen';
@@ -31,13 +30,16 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		<SidebarCollapsedContext.Provider value={ collapsed }>
 			<div className={ styles.root }>
 				<aside
-					className={ clsx( styles.sidebar, collapsed && styles.sidebarCollapsed ) }
+					className={ clsx(
+						styles.sidebar,
+						collapsed && styles.sidebarCollapsed,
+						sidebarResize.isResizing && styles.sidebarResizing
+					) }
 					style={ sidebarStyle }
 				>
 					<SidebarHeader onToggleSidebar={ () => setCollapsed( true ) } />
 					<SiteList />
 					<div className={ styles.sidebarFooter }>
-						<SidebarSettingsButton />
 						<UserMenu />
 					</div>
 				</aside>

@@ -44,6 +44,13 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 			return false;
 		}
 
+		// A standalone (curl) install is managed outside the app: report it as
+		// installed — matching the Windows manager — so the UI doesn't offer an
+		// install that would silently no-op. We never install over or uninstall it.
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return true;
+		}
+
 		return await this.doesSymlinkLeadToPackagedCli( cliSymlinkPath );
 	}
 
@@ -120,24 +127,7 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 			return;
 		}
 
-		// Migration: before cliUserUninstalled existed, an absent symlink with cliAutoInstalled
-		// set was the only signal that the user had uninstalled the CLI via Settings. Preserve
-		// that intent rather than silently reinstalling on the first launch of this version.
-		if ( userData.cliAutoInstalled ) {
-			const symlinkExists = await fs.promises
-				.lstat( cliSymlinkPath )
-				.then( () => true )
-				.catch( () => false );
-			if ( ! symlinkExists ) {
-				await updateAppdata( { cliUserUninstalled: true } );
-				return;
-			}
-		}
-
 		await this.installCli();
-		if ( ! userData.cliAutoInstalled ) {
-			await updateAppdata( { cliAutoInstalled: true } );
-		}
 	}
 
 	private async installCli(): Promise< void > {
@@ -153,6 +143,12 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 			} else {
 				throw error;
 			}
+		}
+
+		// Never overwrite a CLI the app didn't install — e.g. a standalone curl
+		// install symlinking studio at <STUDIO_CLI_HOME>/bin/studio (any location).
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return;
 		}
 
 		if ( await this.isCliInstalled() ) {
@@ -186,6 +182,11 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 				return;
 			}
 			throw error;
+		}
+
+		// Don't remove a CLI the app didn't install (e.g. a standalone curl install).
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return;
 		}
 
 		await fs.promises.unlink( cliSymlinkPath );
@@ -224,6 +225,30 @@ export class LinuxCliInstallationManager implements StudioCliInstallationManager
 			}
 			throw error;
 		}
+	}
+
+	private async isExternallyManagedCli( symlinkPath: string ): Promise< boolean > {
+		let isSymlink = false;
+		try {
+			isSymlink = ( await fs.promises.lstat( symlinkPath ) ).isSymbolicLink();
+		} catch {
+			return false;
+		}
+		if ( ! isSymlink ) {
+			return false;
+		}
+		// A dangling symlink (e.g. a standalone install that was deleted without
+		// removing the link) is broken, not externally managed — reclaim it so a
+		// reinstall can repair `studio` instead of refusing to touch it.
+		try {
+			await fs.promises.stat( symlinkPath );
+		} catch {
+			return false;
+		}
+		// A symlink that doesn't point at our packaged CLI is managed outside the
+		// app (e.g. a standalone curl install at <STUDIO_CLI_HOME>/bin/studio, any
+		// location). Treat it as installed and never overwrite it.
+		return ! ( await this.doesSymlinkLeadToPackagedCli( symlinkPath ) );
 	}
 
 	private async doesSymlinkLeadToPackagedCli( symlinkPath: string ): Promise< boolean > {

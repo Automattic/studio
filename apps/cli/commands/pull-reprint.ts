@@ -54,7 +54,7 @@ import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getPrettyPath } from 'cli/lib/utils';
-import { startWordPressServer, type StartServerOptions } from 'cli/lib/wordpress-server-manager';
+import { startWordPressServer, StartServerOptions } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -459,11 +459,8 @@ export async function runCommand(
 		if ( ! hasPullCompletedStage( studioMetadata, 'site-started' ) ) {
 			let runtimeStartOptions: StartServerOptions;
 			if ( getSiteRuntime() === SITE_RUNTIME_NATIVE_PHP ) {
-				// The native runtime serves the flattened site directly and loads
-				// reprint's host-targeted runtime.php as a PHP auto_prepend_file,
-				// which owns the site's constants and SQLite — no Playground
-				// blueprint/mounts or Studio SQLite drop-in to set up.
 				runtimeStartOptions = loadImportedRuntimeStartOptionsNative(
+					studioMetadata.technicalSiteDirectory,
 					studioMetadata.runtimeDirectory
 				);
 			} else {
@@ -495,7 +492,7 @@ export async function runCommand(
 				recordCompletedStage( studioMetadata, 'site-started' );
 			} catch ( serverError ) {
 				throw new LoggerError(
-					__( 'Failed to start the WordPress server for the pulled site' ),
+					__( 'Failed to start the WordPress server for the pulled site.' ),
 					serverError
 				);
 			} finally {

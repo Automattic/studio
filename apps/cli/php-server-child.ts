@@ -497,16 +497,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		currentOpenBasedirAllowlist.add( muPluginsPath );
 		currentOpenBasedirAllowlist.add( os.tmpdir() );
 		symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
-
-		if ( config.autoPrependFile ) {
-			// runtime.php, reprint's copied SQLite plugin, the imported SQLite
-			// database, and the upload-proxy state files all live under the
-			// technical pull directory (…/runtime, …/state, …/raw), outside the
-			// site path. Grant open_basedir access to the whole pull directory
-			// (runtime.php is …/runtime/runtime.php, so its grandparent is it).
-			currentOpenBasedirAllowlist.add( config.autoPrependFile );
-			currentOpenBasedirAllowlist.add( path.dirname( path.dirname( config.autoPrependFile ) ) );
-		}
+		config.openBasedirAllowList?.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
 
 		runningConfig = config;
 

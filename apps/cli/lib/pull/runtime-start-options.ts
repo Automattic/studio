@@ -174,21 +174,8 @@ export async function ensureImportedSiteSqliteReady(
 	return sqlitePath;
 }
 
-/**
- * Build the start options for an imported site running on the native PHP
- * runtime.
- *
- * The Playground path ({@link loadImportedRuntimeStartOptions}) translates
- * reprint's `playground-cli` output (blueprint.json + start.json) into a
- * blueprint with VFS-path constants and a set of VFS mounts. The native
- * runtime needs none of that: reprint's `nginx-fpm` runtime.php — generated
- * with the host document root as its fs-root — already defines the site's
- * constants with real host paths, installs reprint's lazy SQLite $wpdb
- * loader, and registers the remote-upload proxy. We load it directly as a
- * PHP `auto_prepend_file`, so there is no path translation, blueprint
- * application, or SQLite drop-in to set up here.
- */
 export function loadImportedRuntimeStartOptionsNative(
+	technicalSiteDirectory: string,
 	runtimeDirectory: string
 ): StartServerOptions {
 	const runtimePhpPath = path.join( runtimeDirectory, 'runtime.php' );
@@ -198,7 +185,10 @@ export function loadImportedRuntimeStartOptionsNative(
 		);
 	}
 
-	return { autoPrependFile: runtimePhpPath };
+	return {
+		autoPrependFile: runtimePhpPath,
+		openBasedirAllowList: [ technicalSiteDirectory ],
+	};
 }
 
 export function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint {

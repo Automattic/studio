@@ -37,7 +37,7 @@ import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
-import { getFileAccessDescription } from 'src/lib/site-runtime-copy';
+import { FileAccessDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
@@ -112,7 +112,6 @@ export const CreateSiteForm = ( {
 		selectedRuntime === SITE_RUNTIME_PLAYGROUND
 			? SITE_FILE_ACCESS_SITE_DIRECTORY
 			: selectedFileAccess;
-	const fileAccessDescription = getFileAccessDescription( __, selectedRuntime, usedFileAccess );
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
@@ -570,7 +569,10 @@ export const CreateSiteForm = ( {
 											__nextHasNoMarginBottom
 										/>
 										<span className="text-frame-text-secondary text-xs">
-											{ fileAccessDescription }
+											<FileAccessDescription
+												runtime={ selectedRuntime }
+												fileAccess={ usedFileAccess }
+											/>
 										</span>
 									</div>
 								</div>

@@ -22,7 +22,7 @@ import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { getFileAccessDescription, getRuntimeDescription } from 'src/lib/site-runtime-copy';
+import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 import { useAppDispatch } from 'src/stores';
 import {
@@ -50,12 +50,6 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
 	const isNativePhpRuntime = getSiteRuntime( selectedSite ) === SITE_RUNTIME_NATIVE_PHP;
-	const runtimeDescription = getRuntimeDescription( __, getSiteRuntime( selectedSite ) );
-	const fileAccessDescription = getFileAccessDescription(
-		__,
-		getSiteRuntime( selectedSite ),
-		getSiteFileAccess( selectedSite )
-	);
 	const username = selectedSite.adminUsername || 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
@@ -213,7 +207,10 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						<div className="inline-flex items-center gap-2">
 							{ /* translators: value for the PHP runtime setting on the site settings screen */ }
 							<span>{ isNativePhpRuntime ? __( 'Native' ) : __( 'Sandbox' ) }</span>
-							<Tooltip text={ runtimeDescription } placement="top-start">
+							<Tooltip
+								text={ <RuntimeDescription runtime={ getSiteRuntime( selectedSite ) } /> }
+								placement="top-start"
+							>
 								<span
 									role="img"
 									aria-label={ __( 'About the PHP runtime setting' ) }
@@ -233,7 +230,15 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 									? __( 'All files' )
 									: __( 'Site directory' ) }
 							</span>
-							<Tooltip text={ fileAccessDescription } placement="top-start">
+							<Tooltip
+								text={
+									<FileAccessDescription
+										runtime={ getSiteRuntime( selectedSite ) }
+										fileAccess={ getSiteFileAccess( selectedSite ) }
+									/>
+								}
+								placement="top-start"
+							>
 								<span
 									role="img"
 									aria-label={ __( 'About the file access setting' ) }

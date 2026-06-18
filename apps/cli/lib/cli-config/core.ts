@@ -36,7 +36,7 @@ export const updateCheckSchema = z.object( {
 	latestVersion: z.string(),
 } );
 
-const cliConfigSchema = z.object( {
+const cliConfigSchema = z.looseObject( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
 	snapshots: z.array( snapshotSchema ).default( () => [] ),

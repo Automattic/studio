@@ -10,7 +10,7 @@ import {
 	__experimentalHeading as Heading,
 } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
-import { cautionFilled, moreVertical } from '@wordpress/icons';
+import { cautionFilled, info, moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 import StudioButton from 'src/components/button';
@@ -22,6 +22,7 @@ import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
 import { useAppDispatch } from 'src/stores';
 import {
@@ -203,16 +204,51 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						</div>
 					</SettingsRow>
 					<SettingsRow label={ __( 'PHP runtime' ) }>
-						{ /* translators: value for the PHP runtime setting on the site settings screen */ }
-						<span>{ isNativePhpRuntime ? __( 'Native' ) : __( 'Sandbox' ) }</span>
+						<div className="inline-flex items-center gap-2">
+							{ /* translators: value for the PHP runtime setting on the site settings screen */ }
+							<span>{ isNativePhpRuntime ? __( 'Native' ) : __( 'Sandbox' ) }</span>
+							<Tooltip
+								text={ <RuntimeDescription runtime={ getSiteRuntime( selectedSite ) } /> }
+								placement="top-start"
+							>
+								<span
+									role="img"
+									aria-label={ __( 'About the PHP runtime setting' ) }
+									tabIndex={ 0 }
+									className="text-frame-text-secondary inline-flex cursor-help items-center"
+								>
+									<Icon icon={ info } size={ 18 } className="fill-current" />
+								</span>
+							</Tooltip>
+						</div>
 					</SettingsRow>
 					<SettingsRow label={ __( 'File access' ) }>
-						{ /* translators: value for the File access setting on the site settings screen */ }
-						<span>
-							{ getSiteFileAccess( selectedSite ) === SITE_FILE_ACCESS_ALL_FILES
-								? __( 'All files' )
-								: __( 'Site directory' ) }
-						</span>
+						<div className="inline-flex items-center gap-2">
+							{ /* translators: value for the File access setting on the site settings screen */ }
+							<span>
+								{ getSiteFileAccess( selectedSite ) === SITE_FILE_ACCESS_ALL_FILES
+									? __( 'All files' )
+									: __( 'Site directory' ) }
+							</span>
+							<Tooltip
+								text={
+									<FileAccessDescription
+										runtime={ getSiteRuntime( selectedSite ) }
+										fileAccess={ getSiteFileAccess( selectedSite ) }
+									/>
+								}
+								placement="top-start"
+							>
+								<span
+									role="img"
+									aria-label={ __( 'About the file access setting' ) }
+									tabIndex={ 0 }
+									className="text-frame-text-secondary inline-flex cursor-help items-center"
+								>
+									<Icon icon={ info } size={ 18 } className="fill-current" />
+								</span>
+							</Tooltip>
+						</div>
 					</SettingsRow>
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">

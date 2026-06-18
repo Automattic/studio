@@ -12,6 +12,10 @@ import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
 import {
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import {
 	SITE_RUNTIME_NATIVE_PHP,
 	SITE_RUNTIME_PLAYGROUND,
 	type SiteRuntime,
@@ -97,6 +101,7 @@ describe( 'CLI: studio site create', () => {
 		wpVersion: 'latest',
 		phpVersion: '8.3' as const,
 		runtime: SITE_RUNTIME_PLAYGROUND as SiteRuntime,
+		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY as SiteFileAccess,
 		enableHttps: false,
 		noStart: false,
 		skipBrowser: false,

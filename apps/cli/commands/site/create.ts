@@ -32,17 +32,14 @@ import {
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import {
 	isFileAccessAllowedForRuntime,
-	siteFileAccessSchema,
 	SITE_FILE_ACCESS_ALL_FILES,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
 import {
-	siteModeSchema,
 	SITE_MODE_NATIVE,
 	SITE_MODE_SANDBOX,
 	SITE_RUNTIME_NATIVE_PHP,
-	SITE_RUNTIME_PLAYGROUND,
 	siteRuntimeFromMode,
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
@@ -54,7 +51,11 @@ import {
 } from '@studio/common/lib/wordpress-version-utils';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { RecommendedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
+import {
+	RecommendedPHPVersion,
+	SupportedPHPVersions,
+	type SupportedPHPVersion,
+} from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { isStepDefinition, type BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
@@ -97,9 +98,9 @@ export type CreateCommandOptions = {
 	name?: string;
 	siteId?: string;
 	wpVersion: string;
-	phpVersion: string;
-	runtime?: SiteRuntime;
-	fileAccess?: SiteFileAccess;
+	phpVersion: SupportedPHPVersion;
+	runtime: SiteRuntime;
+	fileAccess: SiteFileAccess;
 	customDomain?: string;
 	enableHttps: boolean;
 	blueprint?: {
@@ -118,8 +119,8 @@ export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions
 ): Promise< void > {
-	const siteRuntime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
-	if ( options.fileAccess && ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
+	const siteRuntime = options.runtime;
+	if ( ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
 		throw new LoggerError(
 			__(
 				'File access "all-files" requires the native PHP runtime. The sandbox only has access to the site directory.'
@@ -547,16 +548,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					describe: __(
 						'Run the site with native PHP ("native") or in the Playground sandbox ("sandbox")'
 					),
-					choices: [ SITE_MODE_NATIVE, SITE_MODE_SANDBOX ],
-					defaultDescription: SITE_MODE_SANDBOX,
+					choices: [ SITE_MODE_NATIVE, SITE_MODE_SANDBOX ] as const,
+					default: SITE_MODE_NATIVE,
 				} )
 				.option( 'file-access', {
 					type: 'string',
 					describe: __(
 						'Which files PHP can access with the native PHP runtime: the site directory only, or all files'
 					),
-					choices: [ SITE_FILE_ACCESS_SITE_DIRECTORY, SITE_FILE_ACCESS_ALL_FILES ],
-					defaultDescription: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					choices: [ SITE_FILE_ACCESS_SITE_DIRECTORY, SITE_FILE_ACCESS_ALL_FILES ] as const,
+					default: SITE_FILE_ACCESS_SITE_DIRECTORY,
 				} )
 				.option( 'domain', {
 					type: 'string',
@@ -615,14 +616,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminUsername = argv.adminUsername;
 			let adminPassword = argv.adminPassword;
 			let adminEmail = argv.adminEmail;
-			const runtime = argv.runtime
-				? siteRuntimeFromMode( siteModeSchema.parse( argv.runtime ) )
-				: undefined;
-			const fileAccess = siteFileAccessSchema.optional().parse( argv.fileAccess );
-			if (
-				fileAccess &&
-				! isFileAccessAllowedForRuntime( runtime ?? SITE_RUNTIME_PLAYGROUND, fileAccess )
-			) {
+			const runtime = siteRuntimeFromMode( argv.runtime );
+			const fileAccess = argv.fileAccess;
+			if ( ! isFileAccessAllowedForRuntime( runtime, fileAccess ) ) {
 				logger.reportError(
 					new LoggerError(
 						__(

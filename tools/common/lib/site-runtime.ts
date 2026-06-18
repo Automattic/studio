@@ -7,12 +7,12 @@ export const siteRuntimeSchema = z.enum( [ SITE_RUNTIME_PLAYGROUND, SITE_RUNTIME
 export type SiteRuntime = z.infer< typeof siteRuntimeSchema >;
 
 export function getSiteRuntime( site: { runtime?: SiteRuntime } ): SiteRuntime {
-	return site.runtime ?? SITE_RUNTIME_PLAYGROUND;
+	return site.runtime ?? SITE_RUNTIME_NATIVE_PHP;
 }
 
 // User-facing short names for the runtimes, used by the CLI (--runtime) and the app UI.
-export const SITE_MODE_NATIVE = 'native';
-export const SITE_MODE_SANDBOX = 'sandbox';
+export const SITE_MODE_NATIVE = 'native' as const;
+export const SITE_MODE_SANDBOX = 'sandbox' as const;
 
 export const siteModeSchema = z.enum( [ SITE_MODE_NATIVE, SITE_MODE_SANDBOX ] );
 export type SiteMode = z.infer< typeof siteModeSchema >;

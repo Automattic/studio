@@ -345,12 +345,12 @@ describe( 'CLI: studio site set', () => {
 
 	describe( 'Runtime and file access changes', () => {
 		it( 'should update the stored runtime when it changes', async () => {
-			await runCommand( testSitePath, { runtime: SITE_MODE_NATIVE } );
+			await runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } );
 
 			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
-						expect.objectContaining( { runtime: SITE_RUNTIME_NATIVE_PHP } ),
+						expect.objectContaining( { runtime: SITE_RUNTIME_PLAYGROUND } ),
 					] ),
 				} )
 			);
@@ -359,7 +359,7 @@ describe( 'CLI: studio site set', () => {
 		it( 'should restart a running site when the runtime changes', async () => {
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
-			await runCommand( testSitePath, { runtime: SITE_MODE_NATIVE } );
+			await runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } );
 
 			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
 			expect( startWordPressServer ).toHaveBeenCalled();
@@ -383,7 +383,7 @@ describe( 'CLI: studio site set', () => {
 		} );
 
 		it( 'should report no changes when the runtime matches the current one', async () => {
-			await expect( runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } ) ).rejects.toThrow(
+			await expect( runCommand( testSitePath, { runtime: SITE_MODE_NATIVE } ) ).rejects.toThrow(
 				'No changes to apply. The site already has the specified settings.'
 			);
 		} );

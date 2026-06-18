@@ -31,6 +31,7 @@ import {
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
+import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
@@ -248,6 +249,8 @@ export async function startWordPressServer(
 			},
 			{ logger }
 		);
+
+		await recordSiteRuntimeUsage( site );
 
 		return withSiteRuntime( processDesc );
 	} finally {

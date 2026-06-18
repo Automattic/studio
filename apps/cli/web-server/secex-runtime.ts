@@ -1,9 +1,11 @@
 import fs from 'node:fs/promises';
+import { detectSessionFormat, migrateLegacyEvents } from '@studio/common/ai/sessions/migration';
 import { loadAiSession } from '@studio/common/ai/sessions/store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { wdbg } from './debug';
 import type { AgentProcess, AgentProcessOptions, AgentRuntime } from './runtime';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { JsonEvent } from '@studio/common/ai/json-events';
 
 /**
@@ -210,25 +212,16 @@ export function createSecexRuntime( {
 	};
 }
 
-// True when a JSONL line is the session header (`{"type":"session",...}`).
-function isSessionHeaderLine( line: string ): boolean {
-	try {
-		return 'session' === ( JSON.parse( line ) as { type?: string } ).type;
-	} catch {
-		return false;
-	}
-}
-
 /**
- * Cache the sandbox's canonical session JSONL into the broker's local session
- * store, so the web-server's own `getSession` returns the conversation that ran
+ * Cache the sandbox's canonical session into the broker's local session store,
+ * so the web-server's own `getSession` returns the conversation that ran
  * remotely (the sandbox snapshot remains the source of truth).
  *
- * The local file (from createAiSession) is headed with a `session` line carrying
- * the web-server session id — the id getSession resolves by. The sandbox JSONL
- * holds only the SDK's conversation entries (no such header). So we KEEP the
- * local header and replace the body with the sandbox's entries, rather than
- * overwriting (which would drop the id and break resolution).
+ * The sandbox writes Studio sessions in the on-disk legacy format. We run the
+ * same legacy→pi migration `loadAiSession` applies on read, then re-id the
+ * session header to the web-server's session id — the id getSession resolves by,
+ * and the one thing the read-time migration can't fix. The result is written to
+ * the local file the browser's session id already maps to.
  *
  * @param webSessionId The web-server session id (what the browser holds).
  * @param jsonl        The canonical session JSONL read from the sandbox.
@@ -240,14 +233,30 @@ async function cacheSandboxSession( webSessionId: string, jsonl: string ): Promi
 	// by createAiSession). If it's gone, there's nothing to cache into.
 	const { summary } = await loadAiSession( root, webSessionId );
 
-	const existing = await fs.readFile( summary.filePath, 'utf8' );
-	const header = existing.split( '\n' ).find( isSessionHeaderLine );
+	const lines = jsonl.split( '\n' ).filter( ( line ) => line.trim() );
+	if ( 0 === lines.length ) {
+		return;
+	}
 
-	const body = jsonl
-		.split( '\n' )
-		.filter( ( line ) => line.trim() && ! isSessionHeaderLine( line ) );
+	let entries: SessionEntry[];
+	if ( 'legacy' === detectSessionFormat( lines[ 0 ] ) ) {
+		const events = lines.map( ( line ) => JSON.parse( line ) ) as Parameters<
+			typeof migrateLegacyEvents
+		>[ 0 ];
+		entries = migrateLegacyEvents( events, '~/Studio' ) as unknown as SessionEntry[];
+	} else {
+		entries = lines.map( ( line ) => JSON.parse( line ) as SessionEntry );
+	}
 
-	const out = [ header, ...body ].filter( Boolean ).join( '\n' ) + '\n';
+	for ( const entry of entries ) {
+		const header = entry as { type?: string; id?: string };
+		if ( 'session' === header.type ) {
+			header.id = webSessionId;
+			break;
+		}
+	}
+
+	const out = entries.map( ( entry ) => JSON.stringify( entry ) ).join( '\n' ) + '\n';
 	await fs.writeFile( summary.filePath, out, 'utf8' );
 }
 

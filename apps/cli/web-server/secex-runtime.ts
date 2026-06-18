@@ -116,6 +116,10 @@ export function createSecexRuntime( {
 
 				let paused = false;
 				let errored = false;
+				// The session cache write must finish before this turn resolves, so
+				// the run-end `getSession` the UI fires doesn't read a half-written
+				// file. Captured here and awaited after the stream drains.
+				let cacheWrite: Promise< void > | undefined;
 
 				await readSse( response.body, ( event, data ) => {
 					if ( event === 'data' ) {
@@ -146,13 +150,21 @@ export function createSecexRuntime( {
 						const payload = data as { jsonl?: string };
 						if ( typeof payload.jsonl === 'string' && payload.jsonl ) {
 							wdbg( 'secex', 'session snapshot', { bytes: payload.jsonl.length } );
-							void cacheSandboxSession( sessionId, payload.jsonl ).catch( ( cacheError ) => {
-								wdbg( 'secex', 'session cache failed', { error: String( cacheError ) } );
-							} );
+							cacheWrite = cacheSandboxSession( sessionId, payload.jsonl ).catch(
+								( cacheError ) => {
+									wdbg( 'secex', 'session cache failed', { error: String( cacheError ) } );
+								}
+							);
 						}
 					}
 					// 'done' just marks the end of the stream; the loop ends on its own.
 				} );
+
+				// Finish persisting the cache before the turn resolves and onExit
+				// triggers the UI's getSession refetch.
+				if ( cacheWrite ) {
+					await cacheWrite;
+				}
 
 				return { done: ! paused, code: errored ? 1 : 0 };
 			};

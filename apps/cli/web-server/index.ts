@@ -22,9 +22,11 @@ import {
 	answerAgentRun,
 	interruptAgentRun,
 	listActiveAgentRuns,
+	setAgentRuntime,
 	setBroadcast,
 	startAgentRun,
 } from './agent-runs';
+import { createSecexRuntime } from './secex-runtime';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
@@ -65,6 +67,14 @@ function hydrateAiSessionSummary(
 }
 
 const root = getAiSessionsRootDirectory();
+
+// Where the agent runs. Default: a local child process (this dev backend). Set
+// `STUDIO_WEB_BACKEND=secex` to run it in a hosted SecEx sandbox via the wpcom
+// `studio-code` endpoint instead — the run-manager and the browser don't change.
+if ( process.env.STUDIO_WEB_BACKEND === 'secex' ) {
+	setAgentRuntime( createSecexRuntime( { runUrl: process.env.STUDIO_SECEX_RUN_URL } ) );
+}
+
 const app = express();
 // All API routes live under `/api` so they can't collide with the SPA's
 // real-path routes (`/sessions/:id` is both an app URL and an API resource).

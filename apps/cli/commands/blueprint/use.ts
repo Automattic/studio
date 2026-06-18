@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { select, input } from '@inquirer/prompts';
-import { SupportedPHPVersions, type SupportedPHPVersion } from '@php-wasm/universal';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	createBlueprintTempDir,
@@ -10,16 +9,17 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { isOnline } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
+import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { fetchStudioBlueprints, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import { BlueprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { SupportedPHPVersions, type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { untildify } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-
-const ALLOWED_PHP_VERSIONS = [ ...SupportedPHPVersions ];
 
 const logger = new Logger< LoggerAction >();
 
@@ -52,7 +52,7 @@ export async function runCommand(
 	options: {
 		name?: string;
 		wpVersion?: string;
-		phpVersion?: string;
+		phpVersion?: SupportedPHPVersion;
 		customDomain?: string;
 		enableHttps: boolean;
 		adminUsername?: string;
@@ -123,7 +123,9 @@ export async function runCommand(
 		await runCreateSiteCommand( sitePath, {
 			name: options.name,
 			wpVersion: options.wpVersion ?? DEFAULT_WORDPRESS_VERSION,
-			phpVersion: ( options.phpVersion ?? DEFAULT_PHP_VERSION ) as SupportedPHPVersion,
+			phpVersion: options.phpVersion ?? DEFAULT_PHP_VERSION,
+			runtime: SITE_RUNTIME_NATIVE_PHP,
+			fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
 			blueprint: {
@@ -166,7 +168,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'php', {
 					type: 'string',
 					describe: __( 'PHP version' ),
-					choices: ALLOWED_PHP_VERSIONS,
+					choices: SupportedPHPVersions,
 					defaultDescription: DEFAULT_PHP_VERSION,
 				} )
 				.option( 'domain', {

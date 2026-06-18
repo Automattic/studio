@@ -33,6 +33,9 @@ const phpSourceCodePath = resolve( __dirname, 'php' );
 const skillsSourcePath = resolve( __dirname, 'ai/skills' );
 
 export const baseConfig = defineConfig( {
+	oxc: {
+		target: `node${ semver.major( minimumNodeVersion ) }`,
+	},
 	plugins: [
 		{
 			name: 'write-dist-extras',

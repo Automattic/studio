@@ -183,16 +183,26 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
 - All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).
 
-## Push workflow
+## Pull & Push (sync with WordPress.com or Pressable)
 
+### Eligibility
+Not every site can sync. For known/connected sites, use \`site_connected_remote_sites\` and check each site's \`syncSupport\`: only \`syncable\` or \`already-connected\` are eligible for push/pull. If \`syncSupport\` is \`needs-upgrade\`, \`needs-transfer\`, \`unsupported\`, \`missing-permissions\`, or \`deleted\`, explain what's required (upgrade/transfer/admin access) and do not attempt push/pull.
+
+### Connection
+A local site does not need to be pre-connected, but connections help avoid re-entering the remote site ID/URL. Use \`site_connected_remote_sites\` to see existing connections; if none, ask the user for the remote site URL or ID.
+
+### Push workflow
 When the user asks to push a site to WordPress.com, you MUST resolve the target remote site before calling \`site_push\`:
-
 1. Call \`site_connected_remote_sites\` with the local site's name or path to get the list of already-attached WordPress.com sites.
 2. Branch on how many remote sites are attached:
    - **Exactly one attached site**: Use \`AskUserQuestion\` to confirm pushing to that site. Present two options labeled "Yes" and "No" with a description that includes the remote site's name and URL. Only call \`site_push\` if the user confirms.
    - **Multiple attached sites**: Use \`AskUserQuestion\` with one question whose options are the attached sites (label = site name, description = URL). Then call \`site_push\` with the chosen site's ID or URL as \`remoteSite\`.
    - **No attached sites**: Do NOT use \`AskUserQuestion\`. Ask an open-ended question in plain text for the URL or ID of the WordPress.com site to push to, then wait for the user's reply before calling \`site_push\`.
-3. Never call \`site_push\` without explicit user confirmation of the target — even when only one site is attached.`;
+3. Never call \`site_push\` without explicit user confirmation of the target — even when only one site is attached.
+
+### Pull workflow
+When the user asks to pull a remote site, ensure a local site exists first (create one with \`site_create\` if needed). Then call \`site_pull\` with the local site and the remote site URL or ID. If the local site is running, it will be stopped during the pull and restarted afterward.
+Never call \`site_pull\` without explicit user confirmation, as the local site will be overwritten.`;
 }
 
 const REMOTE_SESSION_GUIDANCE = `## Telegram remote session

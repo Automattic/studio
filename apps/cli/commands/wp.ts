@@ -1,7 +1,11 @@
 import { spawn } from 'node:child_process';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
-import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+} from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { ArgumentsCamelCase } from 'yargs';
 import yargsParser from 'yargs-parser';
@@ -10,10 +14,9 @@ import { getSiteByFolder, getWpPath } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPhpBinaryPath, getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
-import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { getDefaultPhpArgs } from 'cli/lib/native-php/config';
 import { DETACH_FOR_GROUP_KILL, reapPhpTreeOnInterrupt } from 'cli/lib/native-php/php-process';
-import { runWpCliCommand, runGlobalWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
+import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -40,11 +43,6 @@ async function pipePHPResponse( response: WpCliResponse ) {
 	};
 
 	await Promise.all( [ stderrPipe(), stdoutPipe() ] );
-}
-
-enum Mode {
-	GLOBAL = 'global',
-	SITE = 'site',
 }
 
 async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promise< void > {
@@ -92,26 +90,13 @@ async function runNativePhpWpCliCommand( site: SiteData, args: string[] ): Promi
 }
 
 export async function runCommand(
-	mode: Mode,
 	siteFolder: string,
 	args: string[],
 	options: { phpVersion?: string } = {}
 ): Promise< void > {
-	const runtime = getSiteRuntime();
-
-	// Handle global WP-CLI commands that don't require a site path (--studio-no-path)
-	if ( mode === Mode.GLOBAL ) {
-		await using command = await runGlobalWpCliCommand( args, { runtime } );
-
-		await pipePHPResponse( command.response );
-		process.exitCode = await command.response.exitCode;
-
-		return;
-	}
-
 	const site = await getSiteByFolder( siteFolder );
 
-	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
+	if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
 		await runNativePhpWpCliCommand( site, args );
 		return;
 	}
@@ -172,14 +157,9 @@ function removeArgumentFromArgv(
 	return argv;
 }
 
-interface WpCommandOptions extends GlobalOptions {
-	studioNoPath?: boolean;
-}
-
-export async function commandHandler( argv: ArgumentsCamelCase< WpCommandOptions > ) {
+export async function commandHandler( argv: ArgumentsCamelCase< GlobalOptions > ) {
 	try {
 		let wpCliArgv = removeArgumentFromArgv( process.argv.slice( 3 ), 'path' );
-		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'studio-no-path', false );
 		const parsedWpCliArgs = yargsParser( wpCliArgv );
 
 		if ( parsedWpCliArgs._[ 0 ] === 'shell' ) {
@@ -197,9 +177,7 @@ export async function commandHandler( argv: ArgumentsCamelCase< WpCommandOptions
 		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'php-version' );
 		wpCliArgv = removeArgumentFromArgv( wpCliArgv, 'avoid-telemetry', false );
 
-		await runCommand( argv.studioNoPath ? Mode.GLOBAL : Mode.SITE, argv.path, wpCliArgv, {
-			phpVersion,
-		} );
+		await runCommand( argv.path, wpCliArgv, { phpVersion } );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

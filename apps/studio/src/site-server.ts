@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
 import { siteListSchema, type SiteListItem } from '@studio/common/lib/cli-events';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
@@ -184,7 +185,11 @@ export class SiteServer {
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
 
-		const result = await createSiteViaCli( { ...options, siteId } );
+		// Default to the native PHP runtime when the caller doesn't specify one.
+		const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
+		const result = await createSiteViaCli( { ...options, runtime, siteId } );
+		server.details.runtime = runtime;
+		server.details.fileAccess = options.fileAccess;
 
 		server.details.port = result.port;
 		if ( result.running ) {
@@ -241,6 +246,8 @@ export class SiteServer {
 			name: site.name,
 			path: site.path,
 			phpVersion: site.phpVersion,
+			runtime: site.runtime,
+			fileAccess: site.fileAccess,
 			isWpAutoUpdating: site.isWpAutoUpdating,
 			customDomain: site.customDomain,
 			enableHttps: site.enableHttps,

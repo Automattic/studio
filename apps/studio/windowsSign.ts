@@ -20,7 +20,11 @@ function getWindowsSign(): WindowsSignOptions | undefined {
 		return undefined;
 	}
 
-	if ( ! process.env.AZURE_CODE_SIGNING_DLIB || ! process.env.AZURE_METADATA_JSON || ! process.env.SIGNTOOL_PATH ) {
+	if (
+		! process.env.AZURE_CODE_SIGNING_DLIB ||
+		! process.env.AZURE_METADATA_JSON ||
+		! process.env.SIGNTOOL_PATH
+	) {
 		throw new Error(
 			'SIGN_WINDOWS_BUILD is set but Azure signing env vars ' +
 				'(AZURE_CODE_SIGNING_DLIB, AZURE_METADATA_JSON, SIGNTOOL_PATH) are missing. ' +

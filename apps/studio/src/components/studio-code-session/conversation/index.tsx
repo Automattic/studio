@@ -39,6 +39,7 @@ type RenderItem =
 			key: string;
 			question: string;
 			options: Array< { label: string; description: string } >;
+			answer?: string;
 	  }
 	| { kind: 'interrupted-marker'; key: string };
 
@@ -64,7 +65,7 @@ interface PiToolResultLike {
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
 
-function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
+export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -81,6 +82,27 @@ function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			isError: message.isError === true,
 		} );
 	}
+
+	// Answers picked for `studio.agent_question` entries are persisted as
+	// `studio.user_prompt` entries with `source: 'ask_user'` (the CLI writes all
+	// questions in a batch first, then all answers, in question order). They are
+	// not rendered as prompts, but we reuse them to keep the picked option
+	// highlighted in history after the turn moves on — and after a reload, since
+	// this is disk-backed (unlike the ephemeral `pendingAnswers` state).
+	const askUserAnswers: string[] = [];
+	for ( const entry of entries ) {
+		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
+			if ( data?.source === 'ask_user' ) {
+				askUserAnswers.push( data.text );
+			}
+		}
+	}
+	// ponytail: ordinal pairing — i-th question ↔ i-th ask_user answer. A skipped
+	// question (empty answer isn't persisted) would shift later pairings, but such
+	// batches are interrupted and become non-interactive. Upgrade to label-matching
+	// only if that case ever shows wrong highlights.
+	let questionOrdinal = 0;
 
 	const items: RenderItem[] = [];
 	entries.forEach( ( entry, entryIndex ) => {
@@ -139,7 +161,9 @@ function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				key: `${ entryIndex }:question`,
 				question: data.question,
 				options: data.options,
+				answer: askUserAnswers[ questionOrdinal ],
 			} );
+			questionOrdinal += 1;
 			return;
 		}
 
@@ -359,7 +383,7 @@ export function Conversation( {
 								question={ item.question }
 								options={ item.options }
 								isInteractive={ pendingQuestions.has( item.question ) }
-								pickedLabel={ pendingAnswers[ item.question ] }
+								pickedLabel={ pendingAnswers[ item.question ] ?? item.answer }
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 							/>
 						);

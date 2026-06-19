@@ -15,6 +15,11 @@ export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
 	siteIconPath?: SiteDetails[ 'siteIconPath' ];
 	sortOrder?: number;
+	// The last runtime stat counted for this site, and when (Unix ms). Dedupes
+	// the daily per-site runtime bump so restarts don't inflate it, while still
+	// re-counting when the day rolls over or the runtime/file-access choice changes.
+	runtimeStatBumpedAt?: number;
+	runtimeStat?: string;
 }
 
 export interface AiSessionSitePlacement {

@@ -14,7 +14,7 @@ import {
 	mockReportWarning,
 	mockReportKeyValuePair,
 } from 'cli/tests/test-utils';
-import { runCommand } from '../login';
+import { runCommand, isHeadlessEnvironment } from '../login';
 
 vi.mock( '@inquirer/prompts' );
 vi.mock( '@studio/common/lib/oauth' );
@@ -147,6 +147,29 @@ describe( 'Auth Login Command', () => {
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 
+	it( 'should skip the browser and surface the URL in headless mode', async () => {
+		const logSpy = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+
+		await runCommand( { headless: true } );
+
+		expect( openBrowser ).not.toHaveBeenCalled();
+		expect( logSpy ).toHaveBeenCalledWith( mockAuthUrl );
+		expect( input ).toHaveBeenCalled();
+
+		logSpy.mockRestore();
+	} );
+
+	it( 'should print the URL even when the browser opens', async () => {
+		const logSpy = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+
+		await runCommand();
+
+		expect( openBrowser ).toHaveBeenCalledWith( mockAuthUrl );
+		expect( logSpy ).toHaveBeenCalledWith( mockAuthUrl );
+
+		logSpy.mockRestore();
+	} );
+
 	it( 'should use provided locale', async () => {
 		vi.mocked( getAppLocale ).mockResolvedValue( 'fr' );
 
@@ -156,5 +179,62 @@ describe( 'Auth Login Command', () => {
 			'fr',
 			'https://developer.wordpress.com/copy-oauth-token'
 		);
+	} );
+} );
+
+describe( 'isHeadlessEnvironment', () => {
+	const envKeys = [ 'SSH_CONNECTION', 'SSH_TTY', 'SSH_CLIENT', 'DISPLAY', 'WAYLAND_DISPLAY' ];
+	let savedEnv: Record< string, string | undefined >;
+	let platformSpy: ReturnType< typeof vi.spyOn > | undefined;
+
+	beforeEach( () => {
+		savedEnv = {};
+		for ( const key of envKeys ) {
+			savedEnv[ key ] = process.env[ key ];
+			delete process.env[ key ];
+		}
+	} );
+
+	afterEach( () => {
+		for ( const key of envKeys ) {
+			if ( savedEnv[ key ] === undefined ) {
+				delete process.env[ key ];
+			} else {
+				process.env[ key ] = savedEnv[ key ];
+			}
+		}
+		platformSpy?.mockRestore();
+	} );
+
+	const mockPlatform = ( platform: NodeJS.Platform ) => {
+		platformSpy = vi
+			.spyOn( process, 'platform', 'get' )
+			.mockReturnValue( platform ) as unknown as ReturnType< typeof vi.spyOn >;
+	};
+
+	it( 'detects SSH sessions as headless', () => {
+		mockPlatform( 'darwin' );
+		process.env.SSH_CONNECTION = '10.0.0.1 22 10.0.0.2 22';
+
+		expect( isHeadlessEnvironment() ).toBe( true );
+	} );
+
+	it( 'detects Linux without a display server as headless', () => {
+		mockPlatform( 'linux' );
+
+		expect( isHeadlessEnvironment() ).toBe( true );
+	} );
+
+	it( 'does not flag Linux with a display server', () => {
+		mockPlatform( 'linux' );
+		process.env.DISPLAY = ':0';
+
+		expect( isHeadlessEnvironment() ).toBe( false );
+	} );
+
+	it( 'does not flag a local macOS session', () => {
+		mockPlatform( 'darwin' );
+
+		expect( isHeadlessEnvironment() ).toBe( false );
 	} );
 } );

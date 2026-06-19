@@ -4,7 +4,7 @@ import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { emitCliEvent } from 'cli/lib/daemon-client';
@@ -14,7 +14,24 @@ import { StudioArgv } from 'cli/types';
 
 const CLI_REDIRECT_URI = `https://developer.wordpress.com/copy-oauth-token`;
 
-export async function runCommand(): Promise< void > {
+/**
+ * Detects environments where no local browser can be opened (remote VMs, SSH
+ * sessions, Linux without a display server). In these cases we skip the browser
+ * launch and rely on the printed URL instead.
+ */
+export function isHeadlessEnvironment(): boolean {
+	if ( process.env.SSH_CONNECTION || process.env.SSH_TTY || process.env.SSH_CLIENT ) {
+		return true;
+	}
+	if ( process.platform === 'linux' && ! process.env.DISPLAY && ! process.env.WAYLAND_DISPLAY ) {
+		return true;
+	}
+	return false;
+}
+
+export async function runCommand( {
+	headless = false,
+}: { headless?: boolean } = {} ): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
@@ -30,26 +47,30 @@ export async function runCommand(): Promise< void > {
 		return;
 	}
 
-	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
-
 	const appLocale = await getAppLocale();
 	const authUrl = getAuthenticationUrl( appLocale, CLI_REDIRECT_URI );
 
-	try {
-		await openBrowser( authUrl );
-		logger.reportSuccess( __( 'Browser opened successfully' ) );
-	} catch ( error ) {
-		// If the browser fails to open, allow users to manually open the URL
-		const loggerError = new LoggerError(
-			sprintf( __( 'Failed to open browser. Please open the URL manually: %s' ), authUrl ),
-			error
-		);
-		logger.reportError( loggerError );
+	if ( headless ) {
+		logger.reportStart( LoggerAction.LOGIN, __( 'Authenticate with WordPress.com' ) );
+	} else {
+		logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
+		try {
+			await openBrowser( authUrl );
+			logger.reportSuccess( __( 'Browser opened successfully' ) );
+		} catch ( error ) {
+			logger.reportWarning(
+				__( "Couldn't open a browser automatically. Use the URL below instead." )
+			);
+		}
 	}
 
-	console.log(
-		__( 'Please complete authentication in your browser and paste the generated token here.' )
-	);
+	// Always surface the URL explicitly so users on remote/headless machines
+	// have a usable link to open on another device.
+	console.log( '' );
+	console.log( __( 'To authenticate, open this URL in a browser on any device:' ) );
+	console.log( authUrl );
+	console.log( '' );
+	console.log( __( 'After approving access, copy the generated token and paste it here.' ) );
 	console.log( '' );
 
 	let accessToken: Awaited< ReturnType< typeof input > >;
@@ -96,12 +117,21 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'login',
 		describe: __( 'Log in to WordPress.com' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'path', {
-				hidden: true,
-			} );
+			return yargs
+				.option( 'path', {
+					hidden: true,
+				} )
+				.option( 'browser', {
+					type: 'boolean',
+					default: true,
+					describe: __(
+						'Open a browser automatically. Use --no-browser on remote/headless machines.'
+					),
+				} );
 		},
-		handler: async () => {
-			await runCommand();
+		handler: async ( argv ) => {
+			const headless = argv.browser === false || isHeadlessEnvironment();
+			await runCommand( { headless } );
 		},
 	} );
 };

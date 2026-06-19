@@ -116,6 +116,11 @@ export function createSecexRuntime( {
 
 				let paused = false;
 				let errored = false;
+				// True once a turn.completed with status 'success' arrives. The
+				// studio-code resume command can exit non-zero AFTER a successful
+				// turn, emitting a trailing (often empty) `error` frame; that tail
+				// must not flip a turn the agent actually finished into a failure.
+				let completedOk = false;
 				// The session cache write must finish before this turn resolves, so
 				// the run-end `getSession` the UI fires doesn't read a half-written
 				// file. Captured here and awaited after the stream drains.
@@ -132,6 +137,7 @@ export function createSecexRuntime( {
 							// asked a question and is waiting for the next message.
 							paused = jsonEvent.status === 'paused';
 							errored = jsonEvent.status === 'error';
+							completedOk = jsonEvent.status === 'success';
 							wdbg( 'secex', 'turn.completed', {
 								status: jsonEvent.status,
 								cliSessionId: jsonEvent.sessionId,
@@ -139,9 +145,16 @@ export function createSecexRuntime( {
 						}
 						onEvent( jsonEvent );
 					} else if ( event === 'error' ) {
-						errored = true;
-						const payload = data as { message?: string; stderr?: string };
-						onError( payload.message ?? payload.stderr ?? 'studio-code run error' );
+						// Ignore a trailing error frame once the turn already finished
+						// successfully — the resume command's non-zero exit shouldn't
+						// fail a completed turn (the change is already applied).
+						if ( completedOk ) {
+							wdbg( 'secex', 'ignoring trailing error after successful turn', {} );
+						} else {
+							errored = true;
+							const payload = data as { message?: string; stderr?: string };
+							onError( payload.message ?? payload.stderr ?? 'studio-code run error' );
+						}
 					} else if ( event === 'session' ) {
 						// The endpoint's run-boundary sync: the canonical session
 						// JSONL from the sandbox. Cache it locally so the broker's own

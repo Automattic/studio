@@ -17,6 +17,7 @@ import { generateNumberedName } from '@studio/common/lib/generate-site-name';
 import { encodePassword } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { PullReprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -1374,10 +1375,15 @@ async function findExistingSite( metadata: PullSessionMetadata ): Promise< SiteD
 }
 
 function printSiteUrls( localUrl: string ): void {
-	console.log( __( 'Site URL: ' ), buildAutoLoginUrl( localUrl ) );
+	// Pulled sites always run on the Playground runtime today.
+	console.log( __( 'Site URL: ' ), buildAutoLoginUrl( SITE_RUNTIME_PLAYGROUND, localUrl ) );
 	console.log(
 		__( 'WP Admin: ' ),
-		buildAutoLoginUrl( localUrl, new URL( '/wp-admin/', localUrl ).toString() )
+		buildAutoLoginUrl(
+			SITE_RUNTIME_PLAYGROUND,
+			localUrl,
+			new URL( '/wp-admin/', localUrl ).toString()
+		)
 	);
 	console.log( '' );
 }

@@ -17,7 +17,8 @@ import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/upda
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
+import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
+import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback } from 'cli/logger';
 import {
 	captureCommandOutput,
@@ -96,9 +97,12 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 	disconnectFromDaemon: vi.fn(),
 } ) );
 
+vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
+	runWpCliCommandWithMessaging: vi.fn(),
+} ) );
+
 vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
 	isServerRunning: vi.fn(),
-	sendWpCliCommand: vi.fn(),
 } ) );
 
 describe( 'Studio AI MCP tools', () => {
@@ -126,6 +130,18 @@ describe( 'Studio AI MCP tools', () => {
 		tool: ReturnType< typeof resolveStudioToolDefinitions >[ number ],
 		args: Record< string, unknown >
 	) => tool.execute( 'tool-call-1', args as never, new AbortController().signal, () => {} );
+	const mockWpCliResponse = ( {
+		stdout = '',
+		stderr = '',
+		exitCode = 0,
+	}: { stdout?: string; stderr?: string; exitCode?: number } = {} ) => ( {
+		response: {
+			exitCode: Promise.resolve( exitCode ),
+			stdoutText: Promise.resolve( stdout ),
+			stderrText: Promise.resolve( stderr ),
+		},
+		[ Symbol.dispose ]() {},
+	} );
 	const mockValidatedFix = ( fixedContent: string, blockName = 'core/paragraph' ) => {
 		vi.mocked( validateBlocks ).mockResolvedValue( {
 			totalBlocks: 1,
@@ -878,7 +894,7 @@ describe( 'Studio AI MCP tools', () => {
 			} as never )
 		).rejects.toThrow( /does not run in a shell/ );
 
-		expect( sendWpCliCommand ).not.toHaveBeenCalled();
+		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 	} );
 
 	it( 'treats unquoted post_content as a single trailing literal argument', async () => {
@@ -889,11 +905,9 @@ describe( 'Studio AI MCP tools', () => {
 			pid: 1234,
 			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 
 		await getTool( 'wp_cli' ).rawHandler( {
 			nameOrPath: 'My Site',
@@ -902,7 +916,7 @@ describe( 'Studio AI MCP tools', () => {
 <!-- /wp:paragraph -->`,
 		} as never );
 
-		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -920,18 +934,16 @@ describe( 'Studio AI MCP tools', () => {
 			pid: 1234,
 			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 
 		await getTool( 'wp_cli' ).rawHandler( {
 			nameOrPath: 'My Site',
 			command: 'post create --post_type=page --post_title="About" --post_content="Hello world"',
 		} as never );
 
-		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -948,11 +960,9 @@ describe( 'Studio AI MCP tools', () => {
 			pid: 1234,
 			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 
 		await getTool( 'wp_cli' ).rawHandler( {
 			nameOrPath: 'My Site',
@@ -960,7 +970,7 @@ describe( 'Studio AI MCP tools', () => {
 				'post create --post_type=page --post_title="About" --post_content="Hello world" --porcelain',
 		} as never );
 
-		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -978,18 +988,16 @@ describe( 'Studio AI MCP tools', () => {
 			pid: 1234,
 			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 
 		await getTool( 'wp_cli' ).rawHandler( {
 			nameOrPath: 'My Site',
 			command: 'post create --post_type=page --post_title="About" --post_content="" --porcelain',
 		} as never );
 
-		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -1007,11 +1015,9 @@ describe( 'Studio AI MCP tools', () => {
 			pid: 1234,
 			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
 		} ).find( ( definition ) => definition.name === 'wp_cli' );
@@ -1040,11 +1046,9 @@ describe( 'Studio AI MCP tools', () => {
 			pid: 1234,
 			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
 		} ).find( ( definition ) => definition.name === 'wp_cli' );
@@ -1082,7 +1086,7 @@ describe( 'Studio AI MCP tools', () => {
 			} as never )
 		).rejects.toThrow( /typographic dash/ );
 
-		expect( sendWpCliCommand ).not.toHaveBeenCalled();
+		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 	} );
 
 	describe( 'scaffold_theme', () => {
@@ -1232,18 +1236,16 @@ describe( 'Studio AI MCP tools', () => {
 				pid: 1234,
 				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
-			vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-				stdout: "Success: Switched to 'Acme Studio' theme.",
-				stderr: '',
-				exitCode: 0,
-			} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCliResponse( { stdout: "Success: Switched to 'Acme Studio' theme." } ) as never
+			);
 
 			const result = await getTool( 'scaffold_theme' ).rawHandler( {
 				nameOrPath: scaffoldSite.name,
 				name: 'Acme Studio',
 			} as never );
 
-			expect( sendWpCliCommand ).toHaveBeenCalledWith( scaffoldSite.id, [
+			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( scaffoldSite, [
 				'theme',
 				'activate',
 				'acme-studio',
@@ -1269,7 +1271,7 @@ describe( 'Studio AI MCP tools', () => {
 				activate: false,
 			} as never );
 
-			expect( sendWpCliCommand ).not.toHaveBeenCalled();
+			expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 			expect( getTextContent( result ) ).toContain(
 				'Activate with: wp theme activate acme-studio'
 			);
@@ -1283,7 +1285,7 @@ describe( 'Studio AI MCP tools', () => {
 				name: 'Acme Studio',
 			} as never );
 
-			expect( sendWpCliCommand ).not.toHaveBeenCalled();
+			expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 			expect( getTextContent( result ) ).toContain( 'Activation skipped:' );
 			expect( getTextContent( result ) ).toContain( 'Site is not running' );
 			expect( getTextContent( result ) ).toContain(
@@ -1299,11 +1301,9 @@ describe( 'Studio AI MCP tools', () => {
 				pid: 1234,
 				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
-			vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-				stdout: '',
-				stderr: 'Error: stylesheet missing.',
-				exitCode: 1,
-			} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCliResponse( { stderr: 'Error: stylesheet missing.', exitCode: 1 } ) as never
+			);
 
 			const result = await getTool( 'scaffold_theme' ).rawHandler( {
 				nameOrPath: scaffoldSite.name,

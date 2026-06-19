@@ -41,6 +41,7 @@ export default defineConfig(
 				projectService: {
 					allowDefaultProject: [
 						'apps/studio/forge.config.ts',
+						'apps/studio/windowsSign.ts',
 						'apps/studio/tailwind.config.js',
 						'eslint.config.mjs',
 						'vitest.config.ts',

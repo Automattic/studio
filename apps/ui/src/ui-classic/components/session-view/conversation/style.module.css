@@ -220,7 +220,7 @@
 .question {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-sm);
+	gap: var(--wpds-dimension-padding-lg);
 }
 
 .questionText {
@@ -233,26 +233,113 @@
 	margin: 0;
 	padding: 0;
 	display: flex;
-	flex-wrap: wrap;
-	gap: var(--wpds-dimension-padding-md);
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-lg);
+	border-radius: var(--wpds-border-radius-lg);
+}
+
+.questionOptionItem {
+	margin: 0;
+	padding: 0;
 }
 
 .questionOption {
-	background: none;
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
+
+	display: flex;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-md);
+	width: 100%;
+	background: transparent;
 	border: none;
 	padding: 0;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	color: var(--wpds-color-fg-content-neutral);
 	font: inherit;
+	text-align: left;
 	cursor: pointer;
 }
 
 .questionOption:hover:not(:disabled),
 .questionOption:focus-visible:not(:disabled) {
-	text-decoration: underline;
+	outline: none;
+}
+
+.questionOption:focus:not(:focus-visible) {
+	outline: none;
+	background-color: transparent;
+}
+
+.questionOption:hover:focus:not(:focus-visible) {
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.questionOption:focus-visible:not(:disabled) {
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-interactive-focus, #2563eb);
+}
+
+.questionOption:hover:not(:disabled) .questionOptionLabel,
+.questionOption:focus-visible:not(:disabled) .questionOptionLabel {
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.questionOption:hover:not(:disabled) .questionOptionNumber,
+.questionOption:focus-visible:not(:disabled) .questionOptionNumber {
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.questionOptionNumber {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	min-width: 1.5em;
+	height: 1.5em;
+	margin-top: 3px;
+	padding: 0 0.35em;
+	border: 1px dashed var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1;
+	transition:
+		border-color 120ms ease,
+		color 120ms ease;
+}
+
+.questionOptionCheck {
+	width: 14px;
+	height: 14px;
+	color: currentColor;
+	fill: currentColor;
+}
+
+.questionOptionCheck :where(path:not([fill='none'])) {
+	fill: currentColor;
+}
+
+.questionOptionCopy {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	min-width: 0;
+}
+
+.questionOptionLabel {
+	color: var(--wpds-color-fg-content-neutral);
+	transition: color 120ms ease;
+}
+
+.questionOptionDescription {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
 }
 
 .questionOption:disabled {
-	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.6;
 	cursor: default;
 }
@@ -261,9 +348,20 @@
    can still see their choice once the batch is finalized. */
 .questionOptionPicked,
 .questionOptionPicked:disabled {
-	font-weight: 600;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	opacity: 1;
+}
+
+.questionOptionPicked .questionOptionNumber,
+.questionOptionPicked:disabled .questionOptionNumber {
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.questionOptionPicked .questionOptionLabel,
+.questionOptionPicked:disabled .questionOptionLabel {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 500;
 }
 
 .interruptedMarker {

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { Conversation } from './index';
+import { Conversation, entriesToRenderItems } from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 
 vi.mock( '@/components/markdown', () => ( {
@@ -114,6 +114,70 @@ describe( 'Conversation tool rows', () => {
 	} );
 } );
 
+describe( 'Conversation Ask User questions', () => {
+	it( 'shows option descriptions and a selected historical answer', () => {
+		const question = "What kind of vibe do you want for your blog's design?";
+		const data = loadedSession( [
+			agentQuestionEntry(
+				question,
+				[
+					{
+						label: 'Minimal & Clean',
+						description: 'Quiet typography, generous spacing, and simple structure.',
+					},
+					{
+						label: 'Bold & Editorial',
+						description: 'Large headlines, sharp contrast, and magazine-style pacing.',
+					},
+				],
+				'question',
+				'Bold & Editorial'
+			),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.getAllByRole( 'listitem' ) ).toHaveLength( 2 );
+		expect(
+			screen.getByText( 'Quiet typography, generous spacing, and simple structure.' )
+		).toBeInTheDocument();
+		expect(
+			screen.getByText( 'Large headlines, sharp contrast, and magazine-style pacing.' )
+		).toBeInTheDocument();
+
+		const pickedOption = screen.getByRole( 'button', { name: 'Bold & Editorial' } );
+		expect( pickedOption ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( pickedOption ).toBeDisabled();
+	} );
+
+	it( 'resolves picked answers positionally for a multi-question batch', () => {
+		const items = entriesToRenderItems( [
+			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+			agentQuestionEntry( 'Activate dark mode?', [ 'Yes', 'No' ], 'q2' ),
+			askUserAnswerEntry( 'a1', 'No' ),
+			askUserAnswerEntry( 'a2', 'Yes' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{ kind: 'agent-question', question: 'Install Jetpack?', pickedLabel: 'No' },
+			{ kind: 'agent-question', question: 'Activate dark mode?', pickedLabel: 'Yes' },
+		] );
+	} );
+
+	it( 'highlights no answer when a question batch has fewer answers than questions', () => {
+		const items = entriesToRenderItems( [
+			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+			agentQuestionEntry( 'Activate dark mode?', [ 'Yes', 'No' ], 'q2' ),
+			askUserAnswerEntry( 'a1', 'Yes' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{ kind: 'agent-question', question: 'Install Jetpack?', pickedLabel: undefined },
+			{ kind: 'agent-question', question: 'Activate dark mode?', pickedLabel: undefined },
+		] );
+	} );
+} );
+
 function renderConversation( data: LoadedAiSession ) {
 	return render(
 		createElement( Conversation, {
@@ -178,16 +242,38 @@ function toolResultEntry( text: string ): SessionEntry {
 	} as unknown as SessionEntry;
 }
 
-function agentQuestionEntry( question: string, labels: string[] ): SessionEntry {
+function agentQuestionEntry(
+	question: string,
+	options: Array< string | { label: string; description: string } >,
+	id = 'question',
+	selectedLabel?: string
+): SessionEntry {
 	return {
 		type: 'custom',
-		id: 'question',
+		id,
 		parentId: null,
 		timestamp: '2026-06-05T12:00:01.000Z',
 		customType: 'studio.agent_question',
 		data: {
 			question,
-			options: labels.map( ( label ) => ( { label, description: '' } ) ),
+			options: options.map( ( option ) =>
+				typeof option === 'string' ? { label: option, description: '' } : option
+			),
+			...( selectedLabel ? { selectedLabel } : {} ),
+		},
+	} as SessionEntry;
+}
+
+function askUserAnswerEntry( id: string, text: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:02.000Z',
+		customType: 'studio.user_prompt',
+		data: {
+			text,
+			source: 'ask_user',
 		},
 	} as SessionEntry;
 }

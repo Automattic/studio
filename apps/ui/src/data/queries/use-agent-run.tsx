@@ -20,6 +20,7 @@ import type {
 	SessionEntry,
 	StudioChatFileAttachment,
 	StudioChatImage,
+	StudioCustomEntry,
 } from '@/data/core';
 
 function nowIso(): string {
@@ -585,6 +586,36 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( ! state.runId ) {
 				return;
 			}
+			updateCache( sessionId, ( entries ) => {
+				let targetIndex = -1;
+				for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
+					const entry = entries[ index ];
+					if ( entry.type !== 'custom' || entry.customType !== 'studio.agent_question' ) {
+						continue;
+					}
+					const data = ( entry as StudioCustomEntry< 'studio.agent_question' > ).data;
+					if ( data?.question === question && ! data.selectedLabel ) {
+						targetIndex = index;
+						break;
+					}
+				}
+				if ( targetIndex === -1 ) {
+					return entries;
+				}
+				return entries.map( ( entry, index ) => {
+					if ( index !== targetIndex ) {
+						return entry;
+					}
+					const questionEntry = entry as StudioCustomEntry< 'studio.agent_question' >;
+					return {
+						...questionEntry,
+						data: {
+							...questionEntry.data,
+							selectedLabel: answer,
+						},
+					} as SessionEntry;
+				} );
+			} );
 			const nextAnswers = { ...state.pendingAnswers, [ question ]: answer };
 			const complete = state.pendingQuestions.every(
 				( q ) => typeof nextAnswers[ q.question ] === 'string'
@@ -596,7 +627,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				dispatchSession( sessionId, { type: 'question_answered', question, answer } );
 			}
 		},
-		[ connector, dispatchSession, stateStore ]
+		[ connector, dispatchSession, stateStore, updateCache ]
 	);
 
 	const value = useMemo< AgentRunStore >(

@@ -80,6 +80,7 @@ type RenderItem =
 			key: string;
 			question: string;
 			options: Array< { label: string; description: string } >;
+			pickedLabel?: string;
 	  }
 	| { kind: 'interrupted-marker'; key: string };
 
@@ -104,6 +105,56 @@ interface PiToolResultLike {
 }
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
+
+function findAskUserAnswerAfter(
+	entries: SessionEntry[],
+	entryIndex: number,
+	options: Array< { label: string } >
+): string | undefined {
+	const optionLabels = new Set( options.map( ( option ) => option.label ) );
+	let batchPosition = 0;
+	for ( let index = entryIndex - 1; index >= 0; index -= 1 ) {
+		if ( ! isStudioCustomEntryOfType( entries[ index ], 'studio.agent_question' ) ) {
+			break;
+		}
+		batchPosition += 1;
+	}
+
+	let batchSize = batchPosition + 1;
+	let index = entryIndex + 1;
+	while (
+		index < entries.length &&
+		isStudioCustomEntryOfType( entries[ index ], 'studio.agent_question' )
+	) {
+		batchSize += 1;
+		index += 1;
+	}
+
+	const answers: string[] = [];
+	for ( ; index < entries.length && answers.length < batchSize; index += 1 ) {
+		const entry = entries[ index ];
+		if (
+			isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ||
+			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
+		) {
+			break;
+		}
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			continue;
+		}
+		const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
+		if ( data?.source !== 'ask_user' ) {
+			break;
+		}
+		answers.push( data.text );
+	}
+
+	if ( answers.length !== batchSize ) {
+		return undefined;
+	}
+	const answer = answers[ batchPosition ];
+	return optionLabels.has( answer ) ? answer : undefined;
+}
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
@@ -180,6 +231,8 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				key: `${ entryIndex }:question`,
 				question: data.question,
 				options: data.options,
+				pickedLabel:
+					data.selectedLabel ?? findAskUserAnswerAfter( entries, entryIndex, data.options ),
 			} );
 			return;
 		}
@@ -553,28 +606,54 @@ function AgentQuestion( {
 	pickedLabel: string | undefined;
 	onAnswer: ( label: string ) => void;
 } ) {
+	const optionsId = useId();
+
 	return (
 		<div className={ styles.question }>
 			<p className={ styles.questionText }>{ question }</p>
 			{ options.length > 0 ? (
-				<ul className={ styles.questionOptions }>
+				<ol className={ styles.questionOptions }>
 					{ options.map( ( option, index ) => {
 						const picked = option.label === pickedLabel;
+						const descriptionId = option.description
+							? `${ optionsId }-option-${ index }-description`
+							: undefined;
 						return (
-							<li key={ index }>
+							<li key={ index } className={ styles.questionOptionItem }>
 								<button
 									type="button"
 									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
 									disabled={ ! isInteractive }
 									onClick={ () => onAnswer( option.label ) }
-									title={ option.description }
+									aria-label={ option.label }
+									aria-describedby={ descriptionId }
+									aria-pressed={ picked }
 								>
-									{ option.label }
+									<span className={ styles.questionOptionNumber } aria-hidden="true">
+										{ picked ? (
+											<Icon
+												icon={ check }
+												size={ 14 }
+												className={ styles.questionOptionCheck }
+												aria-hidden="true"
+											/>
+										) : (
+											index + 1
+										) }
+									</span>
+									<span className={ styles.questionOptionCopy }>
+										<span className={ styles.questionOptionLabel }>{ option.label }</span>
+										{ option.description ? (
+											<span id={ descriptionId } className={ styles.questionOptionDescription }>
+												{ option.description }
+											</span>
+										) : null }
+									</span>
 								</button>
 							</li>
 						);
 					} ) }
-				</ul>
+				</ol>
 			) : null }
 		</div>
 	);
@@ -628,7 +707,7 @@ export function Conversation( {
 								question={ item.question }
 								options={ item.options }
 								isInteractive={ pendingQuestions.has( item.question ) }
-								pickedLabel={ pendingAnswers[ item.question ] }
+								pickedLabel={ pendingAnswers[ item.question ] ?? item.pickedLabel }
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 							/>
 						);

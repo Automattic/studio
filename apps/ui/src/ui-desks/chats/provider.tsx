@@ -166,13 +166,18 @@ export function ChatsProvider( { siteId, children }: ChatsProviderProps ) {
 	);
 
 	const ensureAuthenticatedForChat = useCallback( async () => {
+		// Backends that don't gate on WordPress.com auth (e.g. Studio Web) have no
+		// auth user; chatting is always allowed there.
+		if ( ! connector.requiresAuth ) {
+			return true;
+		}
 		if ( authUser ) {
 			return true;
 		}
 
 		const result = await refetchAuthUser();
 		return !! result.data;
-	}, [ authUser, refetchAuthUser ] );
+	}, [ authUser, connector, refetchAuthUser ] );
 
 	const startNewChat = useCallback( async () => {
 		if ( ! ( await ensureAuthenticatedForChat() ) ) {

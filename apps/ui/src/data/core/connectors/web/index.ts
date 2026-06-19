@@ -99,6 +99,24 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		return site.url;
 	}
 
+	// When a run finishes successfully, ask the backend to serve the session's
+	// site and bind it. The backend replies with a `placement` SSE event, which
+	// lights up the same site-preview widget the desktop uses — so the live
+	// preview needs no Studio-Web-specific UI, just this trigger.
+	async function maybeServePreview( event: AgentRunEvent ): Promise< void > {
+		if ( event.event.type !== 'run.exited' || event.event.status !== 'success' ) {
+			return;
+		}
+		try {
+			await api( `/sessions/${ encodeURIComponent( event.sessionId ) }/preview`, {
+				method: 'POST',
+				body: JSON.stringify( {} ),
+			} );
+		} catch {
+			// Preview is best-effort; a failure here must never disrupt the chat.
+		}
+	}
+
 	return {
 		async init() {
 			// One SSE connection carries both agent and placement events; the
@@ -114,6 +132,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 				}
 				if ( parsed.channel === 'agent' ) {
 					agentListeners.forEach( ( listener ) => listener( parsed.payload ) );
+					void maybeServePreview( parsed.payload );
 				} else if ( parsed.channel === 'placement' ) {
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				}

@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isAiModelId } from '@studio/common/ai/models';
+import { resolveActiveSiteFromEntries } from '@studio/common/ai/sessions/active-site';
 import {
 	appendModelChangeEntry,
 	createAiSession,
@@ -28,11 +29,32 @@ import {
 } from './agent-runs';
 import { wdbg } from './debug';
 import { createSecexRuntime } from './secex-runtime';
-import { serveSiteForSession, syncSiteFromSandbox } from './site-server';
+import {
+	getServedSite,
+	listServedSites,
+	serveSiteForSession,
+	syncSiteFromSandbox,
+} from './site-server';
+import type { ServedSite } from './site-server';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
+
+// A site the broker is currently serving, shaped as the UI's `SiteDetails`. It's
+// a real running WordPress (Playground in this Node process), so `running: true`
+// with a real `url`; the shared site-preview widget needs nothing more.
+function servedSiteToDetails( served: ServedSite ) {
+	return {
+		id: served.site.id,
+		name: served.site.name,
+		path: served.site.path,
+		port: served.site.port,
+		running: true,
+		url: served.url,
+		phpVersion: served.site.phpVersion,
+	};
+}
 
 /**
  * Studio Web's **local development backend**.
@@ -65,7 +87,18 @@ function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
 	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
 ): AiSessionSummary {
-	return { ...summary, starred: metadata?.starred, archived: metadata?.archived };
+	// Bind the session to the site the broker is serving for it, the same way the
+	// desktop binds via its placement record. The shared UI resolves the session's
+	// owner site by matching `ownerSitePath` against `getSites()` and renders the
+	// site-preview widget for it — so this binding is all Studio Web needs.
+	const served = getServedSite( summary.id );
+	return {
+		...summary,
+		starred: metadata?.starred,
+		archived: metadata?.archived,
+		ownerSitePath: served?.site.path ?? summary.ownerSitePath,
+		ownerSiteName: served?.site.name ?? summary.ownerSiteName,
+	};
 }
 
 const root = getAiSessionsRootDirectory();
@@ -135,16 +168,22 @@ api.get( '/events', ( req: Request, res: Response ) => {
 	} );
 } );
 
-// Broadcast every agent event to all connected SSE clients, in the same
-// envelope the web connector expects (channel + payload).
-setBroadcast( ( event: AgentRunEvent ) => {
+// Write one envelope (channel + payload) to every connected SSE client. The web
+// connector demultiplexes on `channel` — 'agent' for run events, 'placement' for
+// session→site bindings.
+function broadcastSse( envelope: { channel: string; payload: unknown } ): void {
 	if ( sseClients.size === 0 ) {
 		return;
 	}
-	const data = JSON.stringify( { channel: 'agent', payload: event } );
+	const data = JSON.stringify( envelope );
 	for ( const client of sseClients ) {
 		client.write( `data: ${ data }\n\n` );
 	}
+}
+
+// Broadcast every agent event to all connected SSE clients.
+setBroadcast( ( event: AgentRunEvent ) => {
+	broadcastSse( { channel: 'agent', payload: event } );
 } );
 
 // --- Health ------------------------------------------------------------------
@@ -179,10 +218,15 @@ const WPCOM_SITE_FIELDS = [
 api.get(
 	'/sites',
 	asyncHandler( async ( _req: Request, res: Response ) => {
+		// Sites the broker is actively serving (the agent's work, rendered by a real
+		// WordPress in this process). They're local to the broker, so they show up
+		// regardless of WordPress.com auth.
+		const brokerSites = listServedSites().map( servedSiteToDetails );
+
 		const token = await readAuthToken();
 		if ( ! token ) {
-			// Not signed in to WordPress.com — no sites to show.
-			res.json( [] );
+			// Not signed in to WordPress.com — only broker-served sites to show.
+			res.json( brokerSites );
 			return;
 		}
 
@@ -237,7 +281,8 @@ api.get(
 					siteIcon: site.icon?.img ?? null,
 				};
 			} );
-		res.json( sites );
+		// Broker-served sites first: they're the live preview of the current work.
+		res.json( [ ...brokerSites, ...sites ] );
 	} )
 );
 
@@ -329,17 +374,50 @@ api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
 	res.json( { runId } );
 } );
 
+// On the SecEx backend, the agent's site lives inside the sandbox; its path is
+// recorded in the session's most recent `studio.site_selected` entry. We resolve
+// it server-side so the browser never has to know sandbox internals. (On the
+// local backend there is no sandbox, so any such path is local and must NOT be
+// sent to `/export` — hence the backend gate.)
+async function resolveSandboxSitePath( sessionId: string ): Promise< string | undefined > {
+	if ( process.env.STUDIO_WEB_BACKEND !== 'secex' ) {
+		return undefined;
+	}
+	const { entries } = await loadAiSession( root, sessionId );
+	return resolveActiveSiteFromEntries( entries )?.path;
+}
+
 // Serve the session's site from the broker (the desktop's Playground server runs
 // in Node, where PHP-WASM works) and return its URL for the browser to iframe.
-// With `sandboxSitePath`, first overlay the agent's site (theme via /export) so
-// the served WordPress reflects what the agent built in the sandbox.
+// When the agent built its site in a SecEx sandbox, first overlay that site
+// (theme via /export) so the served WordPress reflects what the agent built.
 api.post(
 	'/sessions/:id/preview',
 	asyncHandler( async ( req: Request, res: Response ) => {
-		const { sandboxSitePath } = req.body as { sandboxSitePath?: string };
+		const { sandboxSitePath: requestedPath } = req.body as { sandboxSitePath?: string };
+		const sandboxSitePath = requestedPath ?? ( await resolveSandboxSitePath( req.params.id ) );
 		const url = sandboxSitePath
 			? await syncSiteFromSandbox( req.params.id, sandboxSitePath )
 			: await serveSiteForSession( req.params.id );
+
+		// Tell any open UI the session is now bound to this site, so the shared
+		// site-preview widget can render it live without waiting for a refetch.
+		const served = getServedSite( req.params.id );
+		if ( served ) {
+			broadcastSse( {
+				channel: 'placement',
+				payload: {
+					sessionId: req.params.id,
+					placement: {
+						kind: 'site',
+						siteId: served.site.id,
+						sitePath: served.site.path,
+						siteName: served.site.name,
+					},
+				},
+			} );
+		}
+
 		res.json( { url } );
 	} )
 );

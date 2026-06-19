@@ -27,6 +27,27 @@ const SANDBOX_DB_PATH = 'wp-content/database/.ht.sqlite';
  * serving moves here.) The browser then iframes a real, running WordPress.
  */
 
+export interface ServedSite {
+	sessionId: string;
+	site: SiteData;
+	url: string;
+}
+
+// Sites the broker is currently serving, keyed by web-server session id. The
+// daemon is long-lived, so this stays warm across requests. The web-server reads
+// it to (a) list these as running sites via `/api/sites` and (b) bind a session
+// to its served site (`ownerSitePath`), which is exactly how the shared UI's
+// site-preview widget discovers a site to render — no Studio-Web-specific UI.
+const servedSites = new Map< string, ServedSite >();
+
+export function listServedSites(): ServedSite[] {
+	return [ ...servedSites.values() ];
+}
+
+export function getServedSite( sessionId: string ): ServedSite | undefined {
+	return servedSites.get( sessionId );
+}
+
 // Run a `studio <args>` subcommand in a child of the same CLI bundle the
 // web-server runs from, resolving on a clean exit. `--experimental-wasm-jspi`
 // matches how the agent is forked — the PHP-WASM server needs it.
@@ -88,6 +109,7 @@ export async function serveSiteForSession( sessionId: string ): Promise< string 
 	}
 
 	const url = getSiteUrl( site );
+	servedSites.set( sessionId, { sessionId, site, url } );
 	wdbg( 'site', 'serving', { name, url } );
 	return url;
 }

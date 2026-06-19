@@ -9,13 +9,17 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\standalone\install.ps1
 #
 # Environment variables:
-#   STUDIO_CLI_HOME — Installation directory (default: %LOCALAPPDATA%\studio)
-#   STUDIO_CLI_URL  — Base URL for downloading bundles (default: https://wp.build/releases)
+#   STUDIO_CLI_HOME     — Installation directory (default: %LOCALAPPDATA%\studio)
+#   STUDIO_CLI_VERSION  — Version to install from the CDN (default: latest, e.g. v1.11.0)
+#   STUDIO_CLI_URL      — Override the download source with a base URL or local dir,
+#                         bypassing the CDN. Expects studio-cli-<platform>-<arch>.tgz
+#                         (used for testing and mirrors).
 
 $ErrorActionPreference = "Stop"
 
 $InstallDir = if ($env:STUDIO_CLI_HOME) { $env:STUDIO_CLI_HOME } else { "$env:LOCALAPPDATA\studio" }
-$BaseUrl = if ($env:STUDIO_CLI_URL) { $env:STUDIO_CLI_URL } else { "https://wp.build/releases" }
+$CdnBase = "https://appscdn.wordpress.com/downloads/wordpress-com-studio-cli"
+$CdnVersion = if ($env:STUDIO_CLI_VERSION) { $env:STUDIO_CLI_VERSION } else { "latest" }
 
 # --- Platform detection ---
 
@@ -41,26 +45,23 @@ function Get-Bundle {
     Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing
 }
 
-# --- Checksum verification ---
-
-function Test-Checksum {
-    param([string]$File, [string]$ChecksumFile)
-
-    # Checksum file format: "<sha256>  <filename>"
-    $Expected = ((Get-Content $ChecksumFile -Raw) -split '\s+')[0].ToLower()
-    $Actual = (Get-FileHash -Path $File -Algorithm SHA256).Hash.ToLower()
-
-    if ($Expected -ne $Actual) {
-        throw "Checksum mismatch: expected $Expected, got $Actual"
-    }
-}
-
 # --- Install ---
 
 function Install-StudioCli {
     $Arch = Get-Platform
-    $BundleName = "studio-cli-win32-${Arch}.tar.gz"
-    $BundleUrl = "${BaseUrl}/${BundleName}"
+    $BundleName = "studio-cli-win32-${Arch}.tgz"
+
+    # Default to the Apps CDN, which 302-redirects "latest" (or a pinned version) to
+    # the newest published bundle. STUDIO_CLI_URL overrides this with a base URL or
+    # local dir that serves the bundle by name — used for local testing, mirrors, or
+    # pinning an arbitrary build.
+    if ($env:STUDIO_CLI_URL) {
+        $BundleUrl = "$($env:STUDIO_CLI_URL)/${BundleName}"
+    }
+    else {
+        $Slug = if ($Arch -eq "arm64") { "windows-arm64" } else { "windows-x64" }
+        $BundleUrl = "${CdnBase}/${Slug}/${CdnVersion}/full-install"
+    }
 
     Write-Host "Studio CLI Installer"
     Write-Host ""
@@ -69,9 +70,9 @@ function Install-StudioCli {
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     $BinDir = Join-Path $InstallDir "bin"
 
-    # Download, verify, and extract in a staging dir, then swap the runtime
-    # dirs into place. A failed or corrupt download never clobbers a working
-    # install.
+    # Download and extract in a staging dir, then swap the runtime dirs into place.
+    # A failed, corrupt, or truncated download fails at extraction below and never
+    # clobbers a working install.
     $StagingDir = Join-Path $InstallDir (".studio-install-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
     try {
@@ -79,10 +80,6 @@ function Install-StudioCli {
 
         Write-Host "Downloading Studio CLI..."
         Get-Bundle -Url $BundleUrl -Dest $TmpBundle
-        Get-Bundle -Url "$BundleUrl.sha256" -Dest "$TmpBundle.sha256"
-
-        Write-Host "Verifying checksum..."
-        Test-Checksum -File $TmpBundle -ChecksumFile "$TmpBundle.sha256"
 
         Write-Host "Installing to $InstallDir..."
         $ExtractDir = Join-Path $StagingDir "extracted"

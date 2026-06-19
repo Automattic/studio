@@ -72,7 +72,7 @@ test.describe( 'Import', () => {
 
 		await expect( siteContent.siteNameHeading ).toHaveText( siteName );
 
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		await expect( siteContent.siteNameHeading ).toHaveText( siteName );
 		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
 		expect( frontendUrl ).not.toBeNull();

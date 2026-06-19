@@ -388,22 +388,22 @@ async function resolveSandboxSitePath( sessionId: string ): Promise< string | un
 	if ( process.env.STUDIO_WEB_BACKEND !== 'secex' ) {
 		return undefined;
 	}
-	const remembered = sandboxSitePaths.get( sessionId );
-	if ( remembered ) {
-		return remembered;
-	}
 	const { entries } = await loadAiSession( root, sessionId );
 	// Prefer the structured entry; fall back to any sandbox site path left in the
-	// transcript (survives a re-cache that dropped the structured entry).
+	// transcript.
 	const resolved =
 		resolveActiveSiteFromEntries( entries )?.path ??
 		JSON.stringify( entries )
 			.match( /\/home\/user\/Studio\/[A-Za-z0-9._-]+/g )
 			?.at( -1 );
 	if ( resolved ) {
+		// Always prefer the latest active site — the agent can switch sites within
+		// a session, so a fresh `studio.site_selected` wins over what we cached.
 		sandboxSitePaths.set( sessionId, resolved );
+		return resolved;
 	}
-	return resolved;
+	// A re-cache can drop the structured entry; fall back to the last one we saw.
+	return sandboxSitePaths.get( sessionId );
 }
 
 // Serve the session's site from the broker (the desktop's Playground server runs

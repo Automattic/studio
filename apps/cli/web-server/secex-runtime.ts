@@ -142,6 +142,13 @@ export function createSecexRuntime( {
 								status: jsonEvent.status,
 								cliSessionId: jsonEvent.sessionId,
 							} );
+							// Don't surface a paused completion to the UI: the agent is
+							// waiting on an answer, and a `turn.completed` there would
+							// clear the just-asked question and make its answer options
+							// non-interactive. The `question.asked` event already drove it.
+							if ( paused ) {
+								return;
+							}
 						}
 						onEvent( jsonEvent );
 					} else if ( event === 'error' ) {

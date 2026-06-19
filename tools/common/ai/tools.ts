@@ -1,15 +1,193 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 
+function getInputString( input: Record< string, unknown > | undefined, key: string ): string {
+	const value = input?.[ key ];
+	return typeof value === 'string' ? value.trim() : '';
+}
+
+function splitCommandArgs( command: string ): string[] {
+	return (
+		command
+			.match( /(?:[^\s"']+|"[^"]*"|'[^']*')+/g )
+			?.map( ( arg ) => arg.replace( /^(['"])(.*)\1$/, '$2' ) )
+			.filter( Boolean ) ?? []
+	);
+}
+
+function getWpCliOptionValue( args: string[], option: string ): string | undefined {
+	const inlinePrefix = `${ option }=`;
+	for ( let index = 0; index < args.length; index += 1 ) {
+		const arg = args[ index ];
+		if ( arg.startsWith( inlinePrefix ) ) {
+			return arg.slice( inlinePrefix.length );
+		}
+		if ( arg === option ) {
+			return args[ index + 1 ];
+		}
+	}
+	return undefined;
+}
+
+function getPostTypeName( postType: string | undefined, plural: boolean ): string {
+	switch ( postType ) {
+		case 'page':
+			return plural ? __( 'pages' ) : __( 'page' );
+		case 'attachment':
+			return plural ? __( 'media items' ) : __( 'media item' );
+		case 'product':
+			return plural ? __( 'products' ) : __( 'product' );
+		case 'post':
+		case undefined:
+		case '':
+			return plural ? __( 'posts' ) : __( 'post' );
+		default:
+			return postType.replace( /[-_]+/g, ' ' );
+	}
+}
+
+function getWpCliPostLabel( args: string[] ): string {
+	const action = args[ 1 ];
+	const postType = getWpCliOptionValue( args, '--post_type' );
+	const postStatus = getWpCliOptionValue( args, '--post_status' );
+	const singularPostType = getPostTypeName( postType, false );
+	const pluralPostType = getPostTypeName( postType, true );
+
+	switch ( action ) {
+		case 'list':
+			if ( postStatus === 'publish' ) {
+				return sprintf(
+					/* translators: %s: plural post type, such as posts or pages. */
+					__( 'List published %s' ),
+					pluralPostType
+				);
+			}
+			return sprintf(
+				/* translators: %s: plural post type, such as posts or pages. */
+				__( 'List %s' ),
+				pluralPostType
+			);
+		case 'get':
+			return sprintf(
+				/* translators: %s: post type, such as post or page. */
+				__( 'Read %s' ),
+				singularPostType
+			);
+		case 'create':
+			return sprintf(
+				/* translators: %s: post type, such as post or page. */
+				__( 'Create %s' ),
+				singularPostType
+			);
+		case 'update':
+			return sprintf(
+				/* translators: %s: post type, such as post or page. */
+				__( 'Update %s' ),
+				singularPostType
+			);
+		case 'delete':
+			return sprintf(
+				/* translators: %s: post type, such as post or page. */
+				__( 'Delete %s' ),
+				singularPostType
+			);
+		default:
+			return __( 'Manage content' );
+	}
+}
+
+function getWpCliCommandLabel( command: string ): string {
+	const args = splitCommandArgs( command );
+	const [ entity, action, target ] = args;
+
+	switch ( entity ) {
+		case 'theme':
+			switch ( action ) {
+				case 'list':
+					return __( 'List themes' );
+				case 'activate':
+					return target ? sprintf( __( 'Activate theme %s' ), target ) : __( 'Activate theme' );
+				case 'install':
+					return target ? sprintf( __( 'Install theme %s' ), target ) : __( 'Install theme' );
+				case 'delete':
+					return target ? sprintf( __( 'Delete theme %s' ), target ) : __( 'Delete theme' );
+				default:
+					return __( 'Manage themes' );
+			}
+		case 'plugin':
+			switch ( action ) {
+				case 'list':
+					return __( 'List plugins' );
+				case 'activate':
+					return target ? sprintf( __( 'Activate plugin %s' ), target ) : __( 'Activate plugin' );
+				case 'deactivate':
+					return target
+						? sprintf( __( 'Deactivate plugin %s' ), target )
+						: __( 'Deactivate plugin' );
+				case 'install':
+					return target ? sprintf( __( 'Install plugin %s' ), target ) : __( 'Install plugin' );
+				case 'delete':
+					return target ? sprintf( __( 'Delete plugin %s' ), target ) : __( 'Delete plugin' );
+				case 'update':
+					return target ? sprintf( __( 'Update plugin %s' ), target ) : __( 'Update plugin' );
+				default:
+					return __( 'Manage plugins' );
+			}
+		case 'post':
+			return getWpCliPostLabel( args );
+		case 'option':
+			if ( action === 'get' ) {
+				return target === 'blogname' ? __( 'Read site title' ) : __( 'Read site option' );
+			}
+			if ( action === 'update' ) {
+				return target === 'blogname' ? __( 'Update site title' ) : __( 'Update site option' );
+			}
+			return __( 'Manage site options' );
+		case 'user':
+			switch ( action ) {
+				case 'list':
+					return __( 'List users' );
+				case 'create':
+					return __( 'Create user' );
+				case 'update':
+					return __( 'Update user' );
+				case 'delete':
+					return __( 'Delete user' );
+				default:
+					return __( 'Manage users' );
+			}
+		case 'media':
+			return action === 'import' ? __( 'Import media' ) : __( 'Manage media' );
+		case 'menu':
+			return action === 'list' ? __( 'List menus' ) : __( 'Manage menus' );
+		case 'term':
+			return action === 'list' ? __( 'List terms' ) : __( 'Manage terms' );
+		case 'cache':
+			return action === 'flush' ? __( 'Flush cache' ) : __( 'Manage cache' );
+		case 'rewrite':
+			return action === 'flush' ? __( 'Flush permalinks' ) : __( 'Manage permalinks' );
+		case 'eval':
+		case 'eval-file':
+			return __( 'Run WordPress code' );
+		default:
+			return __( 'Run WordPress command' );
+	}
+}
+
 /**
  * Human-facing display name for a tool, localized.
  * Falls back to the raw tool name (e.g. an unknown tool) so the UI/CLI
  * always has something to show.
  */
-export function getToolDisplayName( name: string ): string {
+export function getToolDisplayName( name: string, input?: Record< string, unknown > ): string {
+	if ( name === 'wp_cli' ) {
+		const command = getInputString( input, 'command' );
+		return command ? getWpCliCommandLabel( command ) : __( 'Run WordPress command' );
+	}
+
 	const displayNames: Record< string, string > = {
 		site_create: __( 'Create site' ),
 		site_list: __( 'List sites' ),
-		site_info: __( 'Get site info' ),
+		site_info: __( 'Inspect site' ),
 		site_start: __( 'Start site' ),
 		site_stop: __( 'Stop site' ),
 		site_delete: __( 'Delete site' ),
@@ -21,11 +199,15 @@ export function getToolDisplayName( name: string ): string {
 		preview_list: __( 'List previews' ),
 		preview_update: __( 'Update preview' ),
 		preview_delete: __( 'Delete preview' ),
-		wp_cli: __( 'Run WP-CLI' ),
+		site_connected_remote_sites: __( 'List connected remote sites' ),
+		wp_cli: __( 'Run WordPress command' ),
 		scaffold_theme: __( 'Scaffold theme' ),
+		inspect_design: __( 'Inspect design' ),
 		validate_blocks: __( 'Validate blocks' ),
-		take_screenshot: __( 'Take screenshot' ),
+		take_screenshot: __( 'Capture screenshot' ),
 		share_screenshot: __( 'Share screenshot' ),
+		open_annotation_browser: __( 'Open annotation browser' ),
+		wait_for_annotations: __( 'Wait for annotations' ),
 		need_for_speed: __( 'Audit performance' ),
 		rank_me_up: __( 'Audit SEO' ),
 		install_taxonomy_scripts: __( 'Install taxonomy scripts' ),
@@ -40,11 +222,37 @@ export function getToolDisplayName( name: string ): string {
 		Ls: __( 'List' ),
 		Skill: __( 'Load skill' ),
 		Task: __( 'Run task' ),
+		TodoWrite: __( 'Update todo list' ),
 	};
 	return displayNames[ name ] ?? name;
 }
 
 const BASH_DETAIL_MAX_LENGTH = 60;
+const TOOL_DETAIL_MAX_LENGTH = 96;
+
+function truncateToolDetail( value: string, maxLength = TOOL_DETAIL_MAX_LENGTH ): string {
+	if ( value.length <= maxLength ) {
+		return value;
+	}
+	return value.slice( 0, maxLength - 1 ).trimEnd() + '…';
+}
+
+function getAskUserDetail( input: Record< string, unknown > | undefined ): string {
+	const questions = input?.questions;
+	if ( ! Array.isArray( questions ) || questions.length === 0 ) {
+		return '';
+	}
+	const firstQuestion = questions[ 0 ];
+	if (
+		firstQuestion &&
+		typeof firstQuestion === 'object' &&
+		'question' in firstQuestion &&
+		typeof firstQuestion.question === 'string'
+	) {
+		return truncateToolDetail( firstQuestion.question );
+	}
+	return '';
+}
 
 /**
  * Short detail string extracted from a tool's input, suitable for display
@@ -73,6 +281,8 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 		case 'preview_update':
 		case 'preview_delete':
 			return typeof input.host === 'string' ? input.host : '';
+		case 'AskUserQuestion':
+			return getAskUserDetail( input );
 		case 'wpcom_request': {
 			const method = typeof input.method === 'string' ? input.method : '';
 			const path = typeof input.path === 'string' ? input.path : '';
@@ -82,6 +292,8 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
 		case 'scaffold_theme':
 			return typeof input.name === 'string' ? input.name : '';
+		case 'inspect_design':
+			return typeof input.url === 'string' ? input.url : '';
 		case 'validate_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
@@ -89,6 +301,7 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			return __( 'inline content' );
 		case 'take_screenshot':
 		case 'share_screenshot':
+		case 'open_annotation_browser':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'Read':
 		case 'Write':

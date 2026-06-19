@@ -14,24 +14,7 @@ import { StudioArgv } from 'cli/types';
 
 const CLI_REDIRECT_URI = `https://developer.wordpress.com/copy-oauth-token`;
 
-/**
- * Detects environments where no local browser can be opened (remote VMs, SSH
- * sessions, Linux without a display server). In these cases we skip the browser
- * launch and rely on the printed URL instead.
- */
-export function isHeadlessEnvironment(): boolean {
-	if ( process.env.SSH_CONNECTION || process.env.SSH_TTY || process.env.SSH_CLIENT ) {
-		return true;
-	}
-	if ( process.platform === 'linux' && ! process.env.DISPLAY && ! process.env.WAYLAND_DISPLAY ) {
-		return true;
-	}
-	return false;
-}
-
-export async function runCommand( {
-	headless = false,
-}: { headless?: boolean } = {} ): Promise< void > {
+export async function runCommand(): Promise< void > {
 	const logger = new Logger< LoggerAction >();
 
 	try {
@@ -50,18 +33,15 @@ export async function runCommand( {
 	const appLocale = await getAppLocale();
 	const authUrl = getAuthenticationUrl( appLocale, CLI_REDIRECT_URI );
 
-	if ( headless ) {
-		logger.reportStart( LoggerAction.LOGIN, __( 'Authenticate with WordPress.com' ) );
-	} else {
-		logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
-		try {
-			await openBrowser( authUrl );
-			logger.reportSuccess( __( 'Browser opened successfully' ) );
-		} catch ( error ) {
-			logger.reportWarning(
-				__( "Couldn't open a browser automatically. Use the URL below instead." )
-			);
-		}
+	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
+	try {
+		await openBrowser( authUrl );
+		logger.reportSuccess( __( 'Browser opened successfully' ) );
+	} catch ( error ) {
+		logger.reportWarning(
+			__( "Couldn't open a browser automatically. Use the URL below instead." ) +
+				( error instanceof Error ? `: ${ error.message }` : '' )
+		);
 	}
 
 	// Always surface the URL explicitly so users on remote/headless machines
@@ -117,21 +97,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'login',
 		describe: __( 'Log in to WordPress.com' ),
 		builder: ( yargs ) => {
-			return yargs
-				.option( 'path', {
-					hidden: true,
-				} )
-				.option( 'browser', {
-					type: 'boolean',
-					default: true,
-					describe: __(
-						'Open a browser automatically. Use --no-browser on remote/headless machines.'
-					),
-				} );
+			return yargs.option( 'path', {
+				hidden: true,
+			} );
 		},
-		handler: async ( argv ) => {
-			const headless = argv.browser === false || isHeadlessEnvironment();
-			await runCommand( { headless } );
+		handler: async () => {
+			await runCommand();
 		},
 	} );
 };

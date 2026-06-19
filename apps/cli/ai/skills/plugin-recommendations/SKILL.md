@@ -1,12 +1,12 @@
 ---
 name: plugin-recommendations
-description: Choose WordPress plugins and plugin-provided blocks for features that core WordPress blocks do not cover, while keeping generated content editable and avoiding raw HTML fallbacks.
+description: Choose WordPress plugins and plugin-provided blocks for features that core WordPress blocks do not cover, while keeping generated content editable and avoiding raw HTML fallbacks. Covers ecommerce - any request to sell products or build a shop, store, or storefront requires WooCommerce with products.
 user-invokable: true
 ---
 
 # Plugin Recommendations
 
-Use this skill when the user asks for a feature that core WordPress blocks do not cleanly provide, such as forms, slideshows, related content, business hours, shops/stores/ecommerce, events, LMS/course features, or third-party embeds.
+Use this skill when the user asks for a feature that core WordPress blocks do not cleanly provide, such as forms, slideshows, related content, business hours, selling products ("I want to sell …"), shops/stores/ecommerce, events, LMS/course features, or third-party embeds.
 
 ## Decision Rules
 
@@ -38,7 +38,11 @@ wp_cli eval 'foreach (\WP_Block_Type_Registry::get_instance()->get_all_registere
 
 ## WooCommerce Shop Sites
 
-A request for a "shop" or "store" is an ecommerce request by default unless the user explicitly specifies otherwise. Always set up WooCommerce with products whenever the request names a shop, store, or ecommerce site, OR the planned design includes products, product categories or ranges, prices, a catalog, a "Shop" page, or add-to-cart - even if the user does not name WooCommerce and does not explicitly ask for products. A shop with an empty catalog is not useful. Size and scope qualifiers like "small", "simple", or "just a few pages" describe how big the site is, not whether it sells - a small shop is still a shop and still gets WooCommerce.
+Selling means ecommerce, and ecommerce means WooCommerce with products. Any request to **sell** something - "I want to sell X", "a shop that sells …", "a store for …" - or any request that names a shop, store, storefront, or ecommerce site is an ecommerce request, full stop. You MUST set up WooCommerce AND create products for it. This also applies whenever the planned design includes products, product categories or ranges, prices, a catalog, a "Shop" page, or add-to-cart, even if the user never names WooCommerce and never explicitly asks for products. Treating such a request as an informational/content site and hand-building plain pages instead is wrong.
+
+This is not optional and is never downgraded by how the request is framed. Size, scope, and style qualifiers - "small", "simple", "just a few pages", "just a couple of pages", "keep it minimal", "for inspiration", "look at a clean modern store", "nothing fancy" - describe how big the site is or how it should look, not whether it sells. A small shop is still a shop: it still gets WooCommerce, and it still gets real products. When in doubt about whether a request is transactional, default to ecommerce and set up WooCommerce.
+
+**Do the WooCommerce setup early - install the plugin AND create the products before investing turns in custom theme design, scaffolding, and visual polish.** The catalog is the core of the site, not a finishing touch; building a shop and styling its pages before any product exists is backwards, and the design/polish phase is the slowest part of the build, so deferring products until after it risks leaving the shop with an empty catalog. Right after creating the site (and after `scaffold_theme` if you are building a custom theme), complete steps 1-4 below - install, configure, create the product categories, and create the products - as a tight, uninterrupted sequence. Only then move on to discovering WooCommerce blocks (step 5), wiring up the header/navigation (step 6), and the broader design and polish work. Never end a shop build without products in the catalog.
 
 1. Install and activate WooCommerce:
 
@@ -60,7 +64,7 @@ wp_cli option update woocommerce_currency USD
 wp_cli option update woocommerce_default_country "US:CA"
 ```
 
-4. Add products that match what the shop actually sells. Create real, contextual products - coffee products for a coffee shop, books for a bookstore, plants for a plant store - rather than generic placeholders. Only fall back to generic sample products when the shop's niche is genuinely unknown.
+4. Add products that match what the shop actually sells. Create real, contextual products - coffee products for a coffee shop, books for a bookstore, plants for a plant store - rather than generic placeholders. Only fall back to generic sample products when the shop's niche is genuinely unknown. Populate the catalog first: create each product with its core details (name, type, price, description, category) right away so the shop is functional, then enrich them with images. Sourcing images is the slowest part - never let it block products from being created, and never skip product creation because images are not ready yet.
 
 Products should ideally have a real, relevant image, and a storefront with product images looks far more complete than one with placeholder thumbnails. **Do not pass remote image URLs via `--images` with `src`.** WooCommerce derives the upload filename from the URL's basename, and the extension-less CDN URLs most image hosts return (e.g. `https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=600`) are rejected with `Invalid image: Sorry, you are not allowed to upload this file type`. Instead, download each image to the site with a real extension, import it into the media library, then reference the resulting attachment ID. The WooCommerce CLI requires a `--user`:
 

@@ -5,12 +5,16 @@ set -eu
 # Usage: curl -fsSL https://wp.build/install.sh | bash
 #
 # Environment variables:
-#   STUDIO_CLI_HOME    — Installation directory (default: ~/.studio)
-#   STUDIO_CLI_URL     — Base URL for downloading bundles (default: https://wp.build/releases)
+#   STUDIO_CLI_HOME     — Installation directory (default: ~/.studio)
+#   STUDIO_CLI_VERSION  — Version to install from the CDN (default: latest, e.g. v1.11.0)
+#   STUDIO_CLI_URL      — Override the download source with a base URL or local dir,
+#                         bypassing the CDN. Expects studio-cli-<platform>-<arch>.tgz
+#                         (used for testing and mirrors).
 
 INSTALL_DIR="${STUDIO_CLI_HOME:-$HOME/.studio}"
-BASE_URL="${STUDIO_CLI_URL:-https://wp.build/releases}"
 BIN_DIR="$HOME/.local/bin"
+CDN_BASE="https://appscdn.wordpress.com/downloads/wordpress-com-studio-cli"
+CDN_VERSION="${STUDIO_CLI_VERSION:-latest}"
 
 # --- Platform detection ---
 
@@ -35,6 +39,14 @@ detect_platform() {
 			echo "Error: Unsupported architecture: $ARCH" >&2
 			exit 1
 			;;
+	esac
+
+	# Apps CDN platform slug used to build the default download path.
+	case "$PLATFORM-$ARCH" in
+		darwin-arm64) SLUG="mac-silicon" ;;
+		darwin-x64)   SLUG="mac-intel" ;;
+		linux-x64)    SLUG="linux-x64" ;;
+		linux-arm64)  SLUG="linux-arm64" ;;
 	esac
 
 	echo "Detected platform: $PLATFORM-$ARCH"
@@ -64,43 +76,26 @@ download() {
 	fi
 }
 
-# --- Checksum verification ---
-
-verify_checksum() {
-	BINARY="$1"
-	CHECKSUM_FILE="$2"
-
-	# Checksum file format: "<sha256>  <filename>". Only the hash field matters.
-	EXPECTED="$(awk '{print $1}' "$CHECKSUM_FILE")"
-
-	if command -v shasum >/dev/null 2>&1; then
-		ACTUAL="$(shasum -a 256 "$BINARY" | awk '{print $1}')"
-	elif command -v sha256sum >/dev/null 2>&1; then
-		ACTUAL="$(sha256sum "$BINARY" | awk '{print $1}')"
-	elif command -v openssl >/dev/null 2>&1; then
-		ACTUAL="$(openssl dgst -sha256 "$BINARY" | awk '{print $NF}')"
-	else
-		echo "Error: shasum, sha256sum, or openssl is required to verify the download" >&2
-		return 1
-	fi
-
-	if [ "$EXPECTED" != "$ACTUAL" ]; then
-		echo "Error: checksum mismatch (expected $EXPECTED, got $ACTUAL)" >&2
-		return 1
-	fi
-}
-
 # --- Install ---
 
 install_studio() {
-	BUNDLE_NAME="studio-cli-${PLATFORM}-${ARCH}.tar.gz"
-	BUNDLE_URL="${BASE_URL}/${BUNDLE_NAME}"
+	BUNDLE_NAME="studio-cli-${PLATFORM}-${ARCH}.tgz"
+
+	# Default to the Apps CDN, which 302-redirects "latest" (or a pinned version) to
+	# the newest published bundle. STUDIO_CLI_URL overrides this with a base URL or
+	# local dir that serves the bundle by name — used for local testing, mirrors, or
+	# pinning an arbitrary build.
+	if [ -n "${STUDIO_CLI_URL:-}" ]; then
+		BUNDLE_URL="${STUDIO_CLI_URL}/${BUNDLE_NAME}"
+	else
+		BUNDLE_URL="${CDN_BASE}/${SLUG}/${CDN_VERSION}/full-install"
+	fi
 
 	mkdir -p "$INSTALL_DIR"
 
-	# Download, verify, and extract in a staging dir on the same filesystem as
-	# the final paths. A failed or corrupt download never touches a previously
-	# working install.
+	# Download and extract in a staging dir on the same filesystem as the final
+	# paths. A failed, corrupt, or truncated download fails at extraction below and
+	# never touches a previously working install.
 	STAGING_DIR="$(mktemp -d "${INSTALL_DIR}/.studio-install.XXXXXX")"
 	trap 'rm -rf "$STAGING_DIR"' EXIT
 
@@ -108,17 +103,22 @@ install_studio() {
 
 	echo "Downloading Studio CLI..."
 	download "$BUNDLE_URL" "$TMP_BUNDLE"
-	download "${BUNDLE_URL}.sha256" "$TMP_BUNDLE.sha256"
-
-	echo "Verifying checksum..."
-	if ! verify_checksum "$TMP_BUNDLE" "$TMP_BUNDLE.sha256"; then
-		echo "Error: checksum verification failed. Aborting; existing install left untouched." >&2
-		exit 1
-	fi
 
 	echo "Installing to $INSTALL_DIR..."
 	mkdir -p "$STAGING_DIR/extracted"
-	tar -xzf "$TMP_BUNDLE" -C "$STAGING_DIR/extracted"
+	if ! tar -xzf "$TMP_BUNDLE" -C "$STAGING_DIR/extracted"; then
+		echo "Error: failed to extract bundle (corrupt or incomplete download). Aborting; existing install left untouched." >&2
+		exit 1
+	fi
+
+	# macOS tags browser-downloaded archives with com.apple.quarantine, and tar
+	# propagates it to the extracted files — which makes Gatekeeper refuse to load
+	# the unsigned native .node modules ("library load disallowed by system policy").
+	# A curl/wget install isn't quarantined, but clear it defensively so installs from
+	# a manually-downloaded bundle (or on quarantine-strict/MDM Macs) still work.
+	if [ "$(uname)" = "Darwin" ]; then
+		xattr -dr com.apple.quarantine "$STAGING_DIR/extracted" 2>/dev/null || true
+	fi
 
 	# A previous standalone install may have a running daemon and site servers
 	# holding open handles on bin/node and cli/. Stop them first so replacing the

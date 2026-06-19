@@ -341,6 +341,7 @@ export function Conversation( {
 	startedAt,
 	pendingQuestions,
 	pendingAnswers,
+	answeredQuestions,
 	onAnswerQuestion,
 }: {
 	data: LoadedAiSession;
@@ -348,6 +349,7 @@ export function Conversation( {
 	startedAt: number | null;
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
+	answeredQuestions: Record< string, string >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
 } ) {
 	const entries = data.entries;
@@ -383,7 +385,11 @@ export function Conversation( {
 								question={ item.question }
 								options={ item.options }
 								isInteractive={ pendingQuestions.has( item.question ) }
-								pickedLabel={ pendingAnswers[ item.question ] ?? item.answer }
+								pickedLabel={
+									pendingAnswers[ item.question ] ??
+									answeredQuestions[ item.question ] ??
+									item.answer
+								}
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 							/>
 						);

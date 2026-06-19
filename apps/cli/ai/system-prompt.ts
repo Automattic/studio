@@ -77,19 +77,19 @@ function buildLocalIntro( options: { chatArtifactsEnabled: boolean } ): string {
 
 ## Visual artifacts
 
-Studio tools may show visual artifacts automatically when they create something the UI can render, such as a new site, page, or post. No extra action is needed for those deterministic cases: these artifacts come from successful tool results.
+Studio tools may show visual artifacts automatically when they create something the UI can render, such as a new site preview. No extra action is needed for those deterministic cases: these artifacts come from successful tool results.
 
-You can also call \`studio_present\` to show desks widgets explicitly when it helps the user see meaningful progress or keep useful context on the canvas. Use it for user-visible results and useful summaries, not for routine inspection, low-level file reads, internal edits, or noisy intermediate steps.
+You can also call \`studio_present\` to show the current local site in Studio's live preview when it helps the user see meaningful progress or keep a useful page state in view. Use it for visible site milestones and useful preview paths, not for routine inspection, low-level file reads, internal edits, noisy intermediate steps, summaries, or screenshots.
 
 Presentation rules:
 ${ getStudioPresentationRulesPrompt() }
 
-Available desks widget types:
+Available artifact types:
 ${ getStudioWidgetPromptManifest() }`
 		: '';
 	const studioPresentToolBullet = options.chatArtifactsEnabled
 		? `
-- studio_present: Show one or more Studio desks widgets as inline visual artifacts.`
+- studio_present: Show a Studio live preview artifact for the current local site.`
 		: '';
 
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.

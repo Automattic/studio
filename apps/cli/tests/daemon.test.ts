@@ -124,8 +124,8 @@ describe( 'ProcessManagerDaemon', () => {
 			'0'
 		) }${ String( now.getDate() ).padStart( 2, '0' ) }`;
 		// The daemon pipes child output through readline into a buffered WriteStream, so the
-		// bytes reach disk several async hops after we write them. Poll the logs instead of
-		// relying on a fixed sleep, which races on slower agents (notably Windows CI).
+		// bytes reach disk several async hops after we write them. Poll until the output
+		// lands; the flush can lag on slower agents (notably Windows CI).
 		await vi.waitFor(
 			() => {
 				expect(

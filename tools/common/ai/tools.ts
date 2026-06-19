@@ -200,7 +200,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		preview_update: __( 'Update preview' ),
 		preview_delete: __( 'Delete preview' ),
 		site_connected_remote_sites: __( 'List connected remote sites' ),
-		wp_cli: __( 'Run WordPress command' ),
 		scaffold_theme: __( 'Scaffold theme' ),
 		inspect_design: __( 'Inspect design' ),
 		validate_blocks: __( 'Validate blocks' ),

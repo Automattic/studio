@@ -1,5 +1,7 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { decodePassword } from '@studio/common/lib/passwords';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
@@ -14,38 +16,33 @@ type ConfigValue = string | boolean | undefined;
 
 interface ConfigEntry {
 	key: string;
-	label: string;
 	value: ConfigValue;
 }
 
-// The settable knobs exposed by `studio config set`, in display order. Reading
-// these mirrors what `set` can write, which is intentionally narrower than the
-// runtime-oriented `status` output (no URLs, no online state).
+// The settable knobs exposed by `studio config set`, keyed and ordered to match
+// that command's flags so the output round-trips: every key here can be read
+// back with `config get <key>` and written with `config set --<key>`. This is
+// intentionally narrower than the runtime-oriented `status` output (no URLs, no
+// online state). `runtime` is reported as the user-facing mode (`native`/
+// `sandbox`) rather than the internal runtime (`native-php`/`playground`).
 function getConfigEntries( site: SiteData ): ConfigEntry[] {
 	return [
-		{ key: 'name', label: __( 'Name' ), value: site.name },
-		{ key: 'domain', label: __( 'Custom domain' ), value: site.customDomain },
-		{ key: 'https', label: __( 'HTTPS' ), value: site.enableHttps ?? false },
-		{ key: 'php', label: __( 'PHP version' ), value: site.phpVersion },
-		{ key: 'wp', label: __( 'WordPress version' ), value: getWordPressVersion( site.path ) },
-		{ key: 'xdebug', label: __( 'Xdebug' ), value: site.enableXdebug ?? false },
-		{
-			key: 'admin-username',
-			label: __( 'Admin username' ),
-			value: site.adminUsername ?? 'admin',
-		},
+		{ key: 'name', value: site.name },
+		{ key: 'domain', value: site.customDomain },
+		{ key: 'https', value: site.enableHttps ?? false },
+		{ key: 'php', value: site.phpVersion },
+		{ key: 'wp', value: getWordPressVersion( site.path ) },
+		{ key: 'runtime', value: siteModeFromRuntime( getSiteRuntime( site ) ) },
+		{ key: 'file-access', value: getSiteFileAccess( site ) },
+		{ key: 'xdebug', value: site.enableXdebug ?? false },
+		{ key: 'admin-username', value: site.adminUsername ?? 'admin' },
 		{
 			key: 'admin-password',
-			label: __( 'Admin password' ),
 			value: site.adminPassword ? decodePassword( site.adminPassword ) : undefined,
 		},
-		{ key: 'admin-email', label: __( 'Admin email' ), value: site.adminEmail },
-		{ key: 'debug-log', label: __( 'WP_DEBUG_LOG' ), value: site.enableDebugLog ?? false },
-		{
-			key: 'debug-display',
-			label: __( 'WP_DEBUG_DISPLAY' ),
-			value: site.enableDebugDisplay ?? false,
-		},
+		{ key: 'admin-email', value: site.adminEmail },
+		{ key: 'debug-log', value: site.enableDebugLog ?? false },
+		{ key: 'debug-display', value: site.enableDebugDisplay ?? false },
 	];
 }
 

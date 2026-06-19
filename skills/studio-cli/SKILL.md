@@ -60,7 +60,7 @@ studio config get --path ~/Studio/my-site --format json  # All settings (JSON)
 studio config get php --path ~/Studio/my-site            # A single setting, printed raw (e.g. "8.4")
 ```
 
-Keys: `name`, `domain`, `https`, `php`, `wp`, `xdebug`, `admin-username`, `admin-password`, `admin-email`, `debug-log`, `debug-display`.
+Keys: `name`, `domain`, `https`, `php`, `wp`, `runtime` (`native`/`sandbox`), `file-access` (`site-directory`/`all-files`), `xdebug`, `admin-username`, `admin-password`, `admin-email`, `debug-log`, `debug-display`.
 
 Change settings with `studio config set`:
 

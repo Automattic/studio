@@ -87,6 +87,38 @@ describe( 'CLI: studio config get', () => {
 			expect( consoleSpy ).toHaveBeenCalledWith( '' );
 		} );
 
+		it( 'reports the user-facing runtime mode, not the internal runtime', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( {
+				...testSite,
+				runtime: 'playground',
+			} );
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+			await runCommand( '/path/to/site', 'runtime', 'table' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith( 'sandbox' );
+		} );
+
+		it( 'defaults runtime to native when unset', async () => {
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+			await runCommand( '/path/to/site', 'runtime', 'table' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith( 'native' );
+		} );
+
+		it( 'reports the file access value', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( {
+				...testSite,
+				fileAccess: 'all-files',
+			} );
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+			await runCommand( '/path/to/site', 'file-access', 'table' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith( 'all-files' );
+		} );
+
 		it( 'throws on an unknown key', async () => {
 			await expect( runCommand( '/path/to/site', 'nope', 'table' ) ).rejects.toThrow(
 				/Unknown config key "nope"/
@@ -108,6 +140,8 @@ describe( 'CLI: studio config get', () => {
 						https: true,
 						php: '8.0',
 						wp: '6.4',
+						runtime: 'native',
+						'file-access': 'site-directory',
 						xdebug: false,
 						'admin-username': 'root',
 						'admin-password': 'password123',
@@ -141,6 +175,8 @@ describe( 'CLI: studio config get', () => {
 						https: false,
 						php: '8.2',
 						wp: '6.4',
+						runtime: 'native',
+						'file-access': 'site-directory',
 						xdebug: false,
 						'admin-username': 'admin',
 						'admin-password': null,

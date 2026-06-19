@@ -21,7 +21,6 @@ const STUDIO_UPDATES_ENDPOINT = 'https://public-api.wordpress.com/wpcom/v2/studi
 const CLI_PRODUCT_SLUG = 'wordpress-com-studio-cli';
 
 const NPM_UPDATE_COMMAND = 'npm update -g wp-studio';
-const CURL_UPDATE_COMMAND = 'curl -fsSL https://wp.build/install.sh | bash';
 
 type UpdateCheck = z.infer< typeof updateCheckSchema >;
 type CliConfigUpdateCheckField = 'updateCheck' | 'standaloneUpdateCheck';
@@ -237,9 +236,45 @@ async function notifyStandalone( currentVersion: string ): Promise< void > {
 		semver.gt( latestVersion, currentVersion )
 	) {
 		process.stderr.write(
-			formatUpdateBanner( currentVersion, latestVersion, CURL_UPDATE_COMMAND )
+			formatUpdateBanner( currentVersion, latestVersion, standaloneUpdateCommand( currentVersion ) )
 		);
 	}
+}
+
+type UpdateChannel = 'production' | 'beta' | 'nightly';
+
+function channelForVersion( version: string ): UpdateChannel {
+	if ( /-dev\.|-dev\d/.test( version ) ) {
+		return 'nightly';
+	}
+	if ( version.includes( '-beta' ) ) {
+		return 'beta';
+	}
+	return 'production';
+}
+
+/**
+ * The OS-appropriate installer one-liner to update a standalone (curl-installed) CLI,
+ * pinned to the running version's channel via STUDIO_CLI_VERSION. Production uses the
+ * installer default (`latest`); nightly/beta use the matching CDN alias.
+ *
+ * The `beta` CDN alias is still pending (wpcom follow-up), but no beta CLI builds exist
+ * yet, so the beta branch is currently unreachable in practice.
+ */
+export function standaloneUpdateCommand(
+	currentVersion: string,
+	platform: NodeJS.Platform = process.platform
+): string {
+	const channel = channelForVersion( currentVersion );
+	const alias = channel === 'production' ? '' : channel;
+
+	if ( platform === 'win32' ) {
+		const prefix = alias ? `$env:STUDIO_CLI_VERSION='${ alias }'; ` : '';
+		return `${ prefix }irm https://wp.build/install.ps1 | iex`;
+	}
+
+	const prefix = alias ? `STUDIO_CLI_VERSION=${ alias } ` : '';
+	return `${ prefix }curl -fsSL https://wp.build/install.sh | bash`;
 }
 
 export function formatUpdateBanner(

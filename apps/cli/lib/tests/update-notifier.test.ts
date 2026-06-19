@@ -7,6 +7,7 @@ import {
 	formatUpdateBanner,
 	isStandaloneInstall,
 	setupUpdateNotifier,
+	standaloneUpdateCommand,
 } from 'cli/lib/update-notifier';
 
 // Stub the config writer so standalone checks don't touch disk / the lockfile.
@@ -71,6 +72,38 @@ describe( 'isStandaloneInstall', () => {
 	it( 'is false when the running binary is outside the studio home', () => {
 		process.env.STUDIO_CLI_HOME = path.join( os.tmpdir(), 'studio-not-installed-here' );
 		expect( isStandaloneInstall() ).toBe( false );
+	} );
+} );
+
+describe( 'standaloneUpdateCommand', () => {
+	it( 'uses the bare installer for a production version (macOS/Linux)', () => {
+		expect( standaloneUpdateCommand( '1.11.0', 'darwin' ) ).toBe(
+			'curl -fsSL https://wp.build/install.sh | bash'
+		);
+		expect( standaloneUpdateCommand( '1.11.0', 'linux' ) ).toBe(
+			'curl -fsSL https://wp.build/install.sh | bash'
+		);
+	} );
+
+	it( 'pins the nightly channel for a dev version', () => {
+		expect( standaloneUpdateCommand( '1.12.0-dev81', 'linux' ) ).toBe(
+			'STUDIO_CLI_VERSION=nightly curl -fsSL https://wp.build/install.sh | bash'
+		);
+	} );
+
+	it( 'pins the beta channel for a beta version', () => {
+		expect( standaloneUpdateCommand( '2.0.0-beta1', 'darwin' ) ).toBe(
+			'STUDIO_CLI_VERSION=beta curl -fsSL https://wp.build/install.sh | bash'
+		);
+	} );
+
+	it( 'uses the PowerShell installer on Windows', () => {
+		expect( standaloneUpdateCommand( '1.11.0', 'win32' ) ).toBe(
+			'irm https://wp.build/install.ps1 | iex'
+		);
+		expect( standaloneUpdateCommand( '1.12.0-dev81', 'win32' ) ).toBe(
+			"$env:STUDIO_CLI_VERSION='nightly'; irm https://wp.build/install.ps1 | iex"
+		);
 	} );
 } );
 

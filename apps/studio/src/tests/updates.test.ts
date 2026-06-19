@@ -16,6 +16,7 @@ function getLastDialogOptions(): MessageBoxOptions {
 
 vi.mock( 'src/main-window', () => ( {
 	getMainWindow: vi.fn().mockResolvedValue( {} ),
+	getExistingMainWindow: vi.fn().mockReturnValue( {} ),
 } ) );
 
 const originalFetch = global.fetch;

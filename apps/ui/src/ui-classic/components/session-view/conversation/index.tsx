@@ -62,7 +62,7 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
+const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'show_site_preview' ] );
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each

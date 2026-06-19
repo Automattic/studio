@@ -19,12 +19,12 @@ describe( 'buildSystemPrompt', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
 		expect( prompt ).toContain( '## Visual artifacts' );
-		expect( prompt ).toContain( '- live-preview:' );
-		expect( prompt ).toContain( '- site-preview:' );
-		expect( prompt ).toContain( 'Studio live preview' );
-		expect( prompt ).toContain( 'visible site milestones' );
-		expect( prompt ).toContain( 'Do not use this for captured screenshots' );
+		expect( prompt ).toContain( 'show_site_preview' );
+		expect( prompt ).toContain( "Studio's live preview" );
+		expect( prompt ).toContain( 'visible local site milestones' );
+		expect( prompt ).toContain( 'summaries, or screenshots' );
 		expect( prompt ).not.toContain( 'desk widgets' );
+		expect( prompt ).not.toContain( 'Available artifact types' );
 		expect( prompt ).not.toContain( '- post-lists:' );
 		expect( prompt ).not.toContain( '- site-code-scratchpad:' );
 		expect( prompt ).not.toContain( '- note:' );
@@ -82,7 +82,7 @@ describe( 'buildSystemPrompt', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
 
 		expect( prompt ).not.toContain( '## Visual artifacts' );
-		expect( prompt ).not.toContain( '- live-preview:' );
+		expect( prompt ).not.toContain( 'show_site_preview' );
 		expect( prompt ).not.toContain( 'studio_present' );
 	} );
 } );

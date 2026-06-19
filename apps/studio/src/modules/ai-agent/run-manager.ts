@@ -85,18 +85,13 @@ function getCreatedSiteFromArtifact( artifact: StudioChatArtifactData ):
 			siteName: string;
 	  }
 	| undefined {
-	for ( const widget of artifact.widgets ) {
-		if ( widget.type !== 'site-preview' ) {
-			continue;
-		}
-		const { siteId, sitePath, siteName } = widget.widgetProps;
-		if (
-			typeof siteId === 'string' &&
-			typeof sitePath === 'string' &&
-			typeof siteName === 'string'
-		) {
-			return { siteId, sitePath, siteName };
-		}
+	const { siteId, sitePath, siteName } = artifact.sitePreview;
+	if (
+		typeof siteId === 'string' &&
+		typeof sitePath === 'string' &&
+		typeof siteName === 'string'
+	) {
+		return { siteId, sitePath, siteName };
 	}
 	return undefined;
 }

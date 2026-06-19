@@ -1,4 +1,4 @@
-import { emitChatArtifactWidgets } from 'cli/ai/chat-artifacts';
+import { emitSitePreviewArtifact } from 'cli/ai/chat-artifacts';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
 import { deletePreviewTool } from './delete-preview';
@@ -17,10 +17,10 @@ import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { shareScreenshotTool } from './share-screenshot';
+import { showSitePreviewTool } from './show-site-preview';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
-import { studioPresentTool } from './studio-present';
 import { takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
@@ -76,7 +76,7 @@ export function resolveStudioToolDefinitions(
 ): AnyStudioAgentTool[] {
 	const definitions =
 		options.emitChatArtifacts === true
-			? [ ...studioToolDefinitions, studioPresentTool ]
+			? [ ...studioToolDefinitions, showSitePreviewTool ]
 			: studioToolDefinitions;
 
 	return definitions.flatMap( ( candidate ) => {
@@ -96,7 +96,7 @@ function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
 		execute: async ( _toolCallId, params ) => {
 			const result = await tool.rawHandler( params );
 			if ( emitChatArtifacts ) {
-				await emitChatArtifactWidgets( result.studioArtifacts );
+				await emitSitePreviewArtifact( result.sitePreview );
 			}
 			return { content: result.content, details: undefined };
 		},

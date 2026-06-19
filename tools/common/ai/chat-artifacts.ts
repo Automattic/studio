@@ -1,15 +1,17 @@
 export const STUDIO_CHAT_ARTIFACT_VERSION = 1 as const;
 
-export interface StudioChatArtifactWidgetDraft {
-	type: string;
-	widgetProps: Record< string, unknown >;
-	shapeProps?: Record< string, unknown >;
+export interface StudioChatSitePreviewArtifact {
+	path: string;
+	siteId?: string;
+	siteName?: string;
+	sitePath?: string;
+	url?: string;
 }
 
 export interface StudioChatArtifactData {
 	version: typeof STUDIO_CHAT_ARTIFACT_VERSION;
 	id: string;
-	widgets: StudioChatArtifactWidgetDraft[];
+	sitePreview: StudioChatSitePreviewArtifact;
 }
 
 export function isStudioChatArtifactData( value: unknown ): value is StudioChatArtifactData {
@@ -18,20 +20,19 @@ export function isStudioChatArtifactData( value: unknown ): value is StudioChatA
 		isRecord( value ) &&
 		candidate.version === STUDIO_CHAT_ARTIFACT_VERSION &&
 		typeof candidate.id === 'string' &&
-		Array.isArray( candidate.widgets ) &&
-		candidate.widgets.every( isStudioChatArtifactWidgetDraft )
+		isStudioChatSitePreviewArtifact( candidate.sitePreview )
 	);
 }
 
-export function isStudioChatArtifactWidgetDraft(
-	value: unknown
-): value is StudioChatArtifactWidgetDraft {
-	const candidate = value as Partial< StudioChatArtifactWidgetDraft >;
+function isStudioChatSitePreviewArtifact( value: unknown ): value is StudioChatSitePreviewArtifact {
+	const candidate = value as Partial< StudioChatSitePreviewArtifact >;
 	return (
 		isRecord( value ) &&
-		typeof candidate.type === 'string' &&
-		isRecord( candidate.widgetProps ) &&
-		( candidate.shapeProps === undefined || isRecord( candidate.shapeProps ) )
+		typeof candidate.path === 'string' &&
+		( candidate.siteId === undefined || typeof candidate.siteId === 'string' ) &&
+		( candidate.siteName === undefined || typeof candidate.siteName === 'string' ) &&
+		( candidate.sitePath === undefined || typeof candidate.sitePath === 'string' ) &&
+		( candidate.url === undefined || typeof candidate.url === 'string' )
 	);
 }
 

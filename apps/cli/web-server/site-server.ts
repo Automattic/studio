@@ -14,10 +14,10 @@ const SITES_ROOT = path.join( os.homedir(), 'Studio' );
 // The wpcom studio-code /export route (reads the agent's site from the sandbox).
 const DEFAULT_EXPORT_URL = 'https://public-api.wordpress.com/wpcom/v2/studio-code/export';
 
-// The sandbox's own SQLite DB. Skipped on overlay for now: applying it needs a
-// server restart (Playground caches the connection) plus a siteurl/home rewrite
-// to the broker's origin — a follow-up. Theme files alone give a live render of
-// the agent's design on the broker's clean WordPress.
+// The sandbox's own SQLite DB. When present in the export we apply it (so the
+// agent's content, active theme, and customizations show), but only while the
+// server is stopped — Playground caches the connection — and we then repoint the
+// DB's siteurl/home from the sandbox origin to the broker's.
 const SANDBOX_DB_PATH = 'wp-content/database/.ht.sqlite';
 
 /**
@@ -139,18 +139,22 @@ async function exportSandboxSite( sandboxSitePath: string ): Promise< Record< st
 	return data.files ?? {};
 }
 
-// Write the exported files into the local site, skipping the DB (for now) and
-// anything that would escape the site directory. Returns the overlaid theme's
-// slug, if any, so the caller can activate it.
+// Write the exported files into the local site, skipping the DB unless
+// `includeDb` is set, and never writing outside the site directory. Returns the
+// overlaid theme's slug, if any, so the caller can activate it when no DB came
+// across (the DB already records the active theme).
 async function overlayFiles(
 	sitePath: string,
-	files: Record< string, string >
+	files: Record< string, string >,
+	includeDb: boolean,
+	brokerUrl: string
 ): Promise< string | undefined > {
 	const root = path.resolve( sitePath );
 	let themeSlug: string | undefined;
 
 	for ( const [ relativePath, base64 ] of Object.entries( files ) ) {
-		if ( SANDBOX_DB_PATH === relativePath ) {
+		const isDb = SANDBOX_DB_PATH === relativePath;
+		if ( isDb && ! includeDb ) {
 			continue;
 		}
 
@@ -159,8 +163,10 @@ async function overlayFiles(
 			continue; // never write outside the site dir.
 		}
 
+		const raw = Buffer.from( base64, 'base64' );
+		const buffer = isDb ? repointDbBuffer( raw, brokerUrl ) : raw;
 		await fs.mkdir( path.dirname( dest ), { recursive: true } );
-		await fs.writeFile( dest, Buffer.from( base64, 'base64' ) );
+		await fs.writeFile( dest, buffer );
 
 		const themeMatch = relativePath.match( /^wp-content\/themes\/([^/]+)\// );
 		if ( themeMatch ) {
@@ -171,10 +177,45 @@ async function overlayFiles(
 	return themeSlug;
 }
 
+// The exported DB carries the sandbox's own origin in siteurl/home (and any
+// hard-coded links), so a freshly-loaded copy would 301 the browser to the
+// unreachable sandbox URL. The broker's forked WordPress server doesn't accept
+// WP-CLI over IPC, so we repoint by rewriting the origin directly in the SQLite
+// bytes before writing the file. This is only safe when the two origins are the
+// same byte length (SQLite/PHP length prefixes stay valid) — both are
+// `http://localhost:<4-digit port>` in practice, so they match; if they ever
+// don't, we skip the rewrite rather than corrupt the DB.
+function repointDbBuffer( db: Buffer, brokerUrl: string ): Buffer {
+	const text = db.toString( 'latin1' );
+	const origins = text.match( /https?:\/\/localhost:\d+/g );
+	if ( ! origins ) {
+		return db;
+	}
+	// The real siteurl recurs throughout the DB; a spurious match (a URL glued to
+	// a trailing number, where greedy `\d+` overshoots the port) appears once.
+	// Pick the most frequent origin so we rewrite the true one.
+	const counts = new Map< string, number >();
+	for ( const origin of origins ) {
+		counts.set( origin, ( counts.get( origin ) ?? 0 ) + 1 );
+	}
+	const sandboxUrl = [ ...counts.entries() ].sort( ( a, b ) => b[ 1 ] - a[ 1 ] )[ 0 ][ 0 ];
+	if ( sandboxUrl === brokerUrl ) {
+		return db;
+	}
+	if ( sandboxUrl.length !== brokerUrl.length ) {
+		wdbg( 'site', 'db repoint skipped (origin length mismatch)', { sandboxUrl, brokerUrl } );
+		return db;
+	}
+	wdbg( 'site', 'db repoint', { from: sandboxUrl, to: brokerUrl } );
+	return Buffer.from( text.split( sandboxUrl ).join( brokerUrl ), 'latin1' );
+}
+
 /**
- * Overlay the agent's site (the most-recently-edited theme, via /export) onto
- * the broker's local site and activate that theme, so the served WordPress
- * renders what the agent built. The site is created/started if needed.
+ * Overlay the agent's site (theme files + SQLite DB, via /export) onto the
+ * broker's local site so the served WordPress renders exactly what the agent
+ * built — content, active theme, and customizations included. The site is
+ * created/started if needed. Applying the DB requires stopping the server first
+ * (Playground caches the connection) and repointing its origin afterwards.
  *
  * @param sessionId        The web-server session id.
  * @param sandboxSitePath  The site's path inside the sandbox (e.g. /home/user/Studio/<name>).
@@ -184,22 +225,38 @@ export async function syncSiteFromSandbox(
 	sessionId: string,
 	sandboxSitePath: string
 ): Promise< string > {
-	const url = await serveSiteForSession( sessionId );
+	const brokerUrl = await serveSiteForSession( sessionId );
 	const sitePath = sitePathForSession( sessionId );
-	const site = await findSiteByFolder( sitePath );
+	let site = await findSiteByFolder( sitePath );
 	if ( ! site ) {
 		throw new Error( `Could not resolve the local site for session ${ sessionId }` );
 	}
 
 	const files = await exportSandboxSite( sandboxSitePath );
-	const themeSlug = await overlayFiles( sitePath, files );
-	wdbg( 'site', 'overlay', { fileCount: Object.keys( files ).length, theme: themeSlug } );
+	const hasDb = Object.prototype.hasOwnProperty.call( files, SANDBOX_DB_PATH );
+	wdbg( 'site', 'overlay', { fileCount: Object.keys( files ).length, db: hasDb } );
 
-	if ( themeSlug ) {
+	// Replace files (and the DB) with the server stopped — a running Playground
+	// holds the SQLite connection open and would never see a swapped DB file. The
+	// DB's origin is repointed to the broker inside overlayFiles before it lands.
+	if ( await isServerRunning( site.id ) ) {
+		await runCli( [ 'site', 'stop', '--path', sitePath ] );
+	}
+	const themeSlug = await overlayFiles( sitePath, files, hasDb, brokerUrl );
+	await runCli( [ 'site', 'start', '--path', sitePath ] );
+
+	site = ( await findSiteByFolder( sitePath ) ) ?? site;
+	const liveUrl = getSiteUrl( site );
+	servedSites.set( sessionId, { sessionId, site, url: liveUrl } );
+
+	// Without a DB, the active theme isn't carried over — activate the overlaid
+	// one so at least the design renders. (Best-effort: the broker's forked
+	// server may not accept WP-CLI; failures are non-fatal.)
+	if ( ! hasDb && themeSlug ) {
 		await sendWpCliCommand( site.id, [ 'theme', 'activate', themeSlug ] ).catch( ( error ) => {
 			wdbg( 'site', 'theme activate failed', { error: String( error ) } );
 		} );
 	}
 
-	return url;
+	return liveUrl;
 }

@@ -374,17 +374,36 @@ api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
 	res.json( { runId } );
 } );
 
+// The agent's site path inside the sandbox, remembered per session once seen.
+// A resume turn re-caches the session and can drop the `studio.site_selected`
+// entry, so we cache the first successful resolution and keep using it.
+const sandboxSitePaths = new Map< string, string >();
+
 // On the SecEx backend, the agent's site lives inside the sandbox; its path is
-// recorded in the session's most recent `studio.site_selected` entry. We resolve
-// it server-side so the browser never has to know sandbox internals. (On the
-// local backend there is no sandbox, so any such path is local and must NOT be
-// sent to `/export` — hence the backend gate.)
+// recorded in the session's `studio.site_selected` entry. We resolve it
+// server-side so the browser never has to know sandbox internals. (On the local
+// backend there is no sandbox, so any such path is local and must NOT be sent to
+// `/export` — hence the backend gate.)
 async function resolveSandboxSitePath( sessionId: string ): Promise< string | undefined > {
 	if ( process.env.STUDIO_WEB_BACKEND !== 'secex' ) {
 		return undefined;
 	}
+	const remembered = sandboxSitePaths.get( sessionId );
+	if ( remembered ) {
+		return remembered;
+	}
 	const { entries } = await loadAiSession( root, sessionId );
-	return resolveActiveSiteFromEntries( entries )?.path;
+	// Prefer the structured entry; fall back to any sandbox site path left in the
+	// transcript (survives a re-cache that dropped the structured entry).
+	const resolved =
+		resolveActiveSiteFromEntries( entries )?.path ??
+		JSON.stringify( entries )
+			.match( /\/home\/user\/Studio\/[A-Za-z0-9._-]+/g )
+			?.at( -1 );
+	if ( resolved ) {
+		sandboxSitePaths.set( sessionId, resolved );
+	}
+	return resolved;
 }
 
 // Serve the session's site from the broker (the desktop's Playground server runs

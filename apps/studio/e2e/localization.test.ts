@@ -149,9 +149,7 @@ test.describe( 'Localization', () => {
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		const settingsTabButton = session.mainWindow.getByRole( 'tab', {
-			name: /Site Settings|サイト設定|設定/i,
-		} );
+		const settingsTabButton = session.mainWindow.locator( '[role="tab"][id$="-settings"]' );
 		await settingsTabButton.click();
 		const copyWpAdminButton = session.mainWindow.getByTestId( 'copy-wp-admin-url' );
 		await expect( copyWpAdminButton ).toBeVisible();
@@ -177,7 +175,7 @@ test.describe( 'Localization', () => {
 		} );
 
 		const siteContentEnglish = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContentEnglish.navigateToTab( 'Site Settings' );
+		const settingsTab = await siteContentEnglish.navigateToTab( 'settings' );
 		await settingsTab.openDeleteSiteModal();
 
 		// Wait for the confirmation dialog to be auto-confirmed and deletion to complete

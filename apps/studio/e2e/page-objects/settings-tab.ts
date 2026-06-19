@@ -7,7 +7,7 @@ export default class SettingsTab {
 	) {}
 
 	get locator() {
-		return this.page.locator( '[role="tabpanel"][id$="-settings"]' );
+		return this.page.locator( '[role="tabpanel"][id$="-settings-view"]' );
 	}
 
 	get copyWPAdminButton() {

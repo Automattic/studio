@@ -9,25 +9,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const testProcessName = 'studio-site-process-manager-test';
 const tmpDir = path.join( os.tmpdir(), 'studio-daemon-test' );
 
-// Retries an assertion until it passes or the timeout elapses, rethrowing the last
-// failure. The daemon pipes child output through readline into a buffered WriteStream, so
-// the bytes reach disk several async hops after we write them — a fixed sleep races on
-// slower agents (notably Windows CI).
-async function waitFor( assertion: () => void, timeoutMs = 2000 ): Promise< void > {
-	const start = Date.now();
-	for (;;) {
-		try {
-			assertion();
-			return;
-		} catch ( error ) {
-			if ( Date.now() - start >= timeoutMs ) {
-				throw error;
-			}
-			await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
-		}
-	}
-}
-
 class MockChildProcess extends EventEmitter {
 	pid = 4321;
 	connected = true;
@@ -142,20 +123,26 @@ describe( 'ProcessManagerDaemon', () => {
 			2,
 			'0'
 		) }${ String( now.getDate() ).padStart( 2, '0' ) }`;
-		await waitFor( () => {
-			expect(
-				fs.readFileSync(
-					path.join( tmpDir, 'logs', `${ testProcessName }-out-${ dateTag }.log` ),
-					'utf8'
-				)
-			).toContain( 'fixture-stdout' );
-			expect(
-				fs.readFileSync(
-					path.join( tmpDir, 'logs', `${ testProcessName }-error-${ dateTag }.log` ),
-					'utf8'
-				)
-			).toContain( 'fixture-stderr' );
-		} );
+		// The daemon pipes child output through readline into a buffered WriteStream, so the
+		// bytes reach disk several async hops after we write them. Poll the logs instead of
+		// relying on a fixed sleep, which races on slower agents (notably Windows CI).
+		await vi.waitFor(
+			() => {
+				expect(
+					fs.readFileSync(
+						path.join( tmpDir, 'logs', `${ testProcessName }-out-${ dateTag }.log` ),
+						'utf8'
+					)
+				).toContain( 'fixture-stdout' );
+				expect(
+					fs.readFileSync(
+						path.join( tmpDir, 'logs', `${ testProcessName }-error-${ dateTag }.log` ),
+						'utf8'
+					)
+				).toContain( 'fixture-stderr' );
+			},
+			{ timeout: 2000 }
+		);
 	} );
 
 	it( 'includes captured stderr in the exit event payload', async () => {

@@ -95,7 +95,7 @@ Studio issues on the **Studio App & CLI** Linear team (`STU-*`) can be picked up
 
 - **Stay in scope.** Touch only the files the issue requires. Prefer the smallest change that resolves it; avoid unrelated refactors.
 - **Verify before claiming done.** Run `npx eslint --fix` on modified files, `npm run typecheck`, and `npm test -- <path>` for affected tests. e2e (`npm run e2e`) usually isn't runnable in the sandbox — rely on unit tests; if it is available, run it last, after everything else passes. If the toolchain or a dependency install is unavailable in the sandbox, say so explicitly — never assert a change is verified when it isn't.
-- **You cannot see the UI.** Visual and dark-mode correctness can't be confirmed headless. For UI/CSS changes, use the `--color-frame-*` tokens (never `--wpds-color-*`) and flag the PR for human visual review. Add this line to the PR description so reviewers don't miss it: `> ⚠️ Visual change — needs human review in light + dark mode.`
+- **You cannot see the UI.** Visual and dark-mode correctness can't be confirmed headless. For UI/CSS changes, use the `--color-frame-*` tokens (never `--wpds-color-*`) and flag the PR for human visual review. Add this line to the PR description so reviewers don't miss it: `> ⚠️ Visual change: needs human review in light + dark mode.`
 - **Open a draft PoC for big or speculative work.** If the change adds a new dependency, spans a new architectural boundary (e.g. a new IPC handler + Redux slice + UI), or touches many files, open it as a draft Proof of Concept (see below) instead of merge-ready.
 
 ## Large & Exploratory Contributions (Vibe-Coded Features)

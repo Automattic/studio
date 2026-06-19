@@ -1,6 +1,9 @@
 /**
  * @vitest-environment node
  */
+import fs from 'fs';
+import os from 'os';
+import nodePath from 'path';
 import { vi } from 'vitest';
 import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
 import { SiteServer } from 'src/site-server';
@@ -165,6 +168,71 @@ describe( 'SiteServer', () => {
 			await expect( server.start() ).rejects.toThrow(
 				"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
 			);
+		} );
+	} );
+
+	describe( 'getSiteIcon', () => {
+		const tempDirs: string[] = [];
+
+		afterEach( () => {
+			vi.restoreAllMocks();
+			for ( const dir of tempDirs.splice( 0 ) ) {
+				fs.rmSync( dir, { recursive: true, force: true } );
+			}
+		} );
+
+		function createRunningServer() {
+			const sitePath = fs.mkdtempSync( nodePath.join( os.tmpdir(), 'studio-site-icon-' ) );
+			tempDirs.push( sitePath );
+			return SiteServer.register( {
+				id: crypto.randomUUID(),
+				name: 'Test Site',
+				path: sitePath,
+				port: 8881,
+				url: 'http://localhost:8881',
+				phpVersion: '8.4',
+				running: true,
+			} );
+		}
+
+		it( 'resolves WordPress-root-relative site icon paths against the site directory', async () => {
+			const server = createRunningServer();
+			vi.spyOn( server, 'executeWpCliCommand' ).mockResolvedValue( {
+				stdout: JSON.stringify( { relativePath: 'wp-content/uploads/icon.png' } ),
+				stderr: '',
+				exitCode: 0,
+			} );
+
+			await expect( server.getSiteIcon() ).resolves.toBe(
+				nodePath.join( server.details.path, 'wp-content/uploads/icon.png' )
+			);
+		} );
+
+		it( 'resolves Playground-rooted site icon paths against the site directory', async () => {
+			const server = createRunningServer();
+			vi.spyOn( server, 'executeWpCliCommand' ).mockResolvedValue( {
+				stdout: JSON.stringify( { relativePath: '/wordpress/wp-content/uploads/icon.png' } ),
+				stderr: '',
+				exitCode: 0,
+			} );
+
+			await expect( server.getSiteIcon() ).resolves.toBe(
+				nodePath.join( server.details.path, 'wp-content/uploads/icon.png' )
+			);
+		} );
+
+		it( 'rehydrates host-absolute native PHP site icon paths with a trimmed leading slash', async () => {
+			const server = createRunningServer();
+			const iconPath = nodePath.join( server.details.path, 'wp-content/uploads/icon.png' );
+			fs.mkdirSync( nodePath.dirname( iconPath ), { recursive: true } );
+			fs.writeFileSync( iconPath, '' );
+			vi.spyOn( server, 'executeWpCliCommand' ).mockResolvedValue( {
+				stdout: JSON.stringify( { relativePath: iconPath.slice( 1 ) } ),
+				stderr: '',
+				exitCode: 0,
+			} );
+
+			await expect( server.getSiteIcon() ).resolves.toBe( iconPath );
 		} );
 	} );
 } );

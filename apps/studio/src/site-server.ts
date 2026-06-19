@@ -12,6 +12,7 @@ import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
 } from 'src/constants';
+import { resolveSiteIconPath } from 'src/lib/resolve-site-icon-path';
 import { CliServerProcess } from 'src/modules/cli/lib/cli-server-process';
 import { createSiteViaCli, type CreateSiteOptions } from 'src/modules/cli/lib/cli-site-creator';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
@@ -477,7 +478,7 @@ export class SiteServer {
 				this.details.siteIconPath = null;
 			} else {
 				const { relativePath } = SiteServer.siteIconSchema.parse( parsed );
-				this.details.siteIconPath = nodePath.join( this.details.path, relativePath );
+				this.details.siteIconPath = resolveSiteIconPath( this.details.path, relativePath );
 			}
 		} catch ( error ) {
 			console.error( 'Failed to get site icon:', error );

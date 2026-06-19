@@ -121,6 +121,7 @@ import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
+import { resolveSiteIconPath } from 'src/lib/resolve-site-icon-path';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { updateSiteUrl } from 'src/lib/update-site-url';
@@ -769,13 +770,15 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 			}
 			site.sortOrder = appdataSite.sortOrder;
 			site.themeDetails = appdataSite.themeDetails;
-			site.siteIconPath = appdataSite.siteIconPath;
+			site.siteIconPath = appdataSite.siteIconPath
+				? resolveSiteIconPath( site.path, appdataSite.siteIconPath )
+				: appdataSite.siteIconPath;
 
 			// Read the icon file from disk and hand the renderer a data URL.
 			// Keeping the base64 out of the persisted appdata avoids bloating
 			// app.json with image bytes.
-			if ( appdataSite.siteIconPath ) {
-				site.siteIcon = await getImageData( appdataSite.siteIconPath );
+			if ( site.siteIconPath ) {
+				site.siteIcon = await getImageData( site.siteIconPath );
 			} else if ( appdataSite.siteIconPath === null ) {
 				site.siteIcon = null;
 			}

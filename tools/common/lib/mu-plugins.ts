@@ -497,10 +497,18 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				return;
 			}
 
-			// get_attached_file() returns paths rooted at /wordpress
-			// (Studio's PHP-runtime mount point). Strip the leading
-			// /wordpress so the host can resolve against the site dir.
-			$relative = preg_replace( '#^/wordpress/?#', '', $path );
+			// get_attached_file() returns an absolute path in the active PHP
+			// runtime. Playground paths are rooted at /wordpress, while native
+			// PHP paths are rooted at the host site directory. In both cases,
+			// return a WordPress-root-relative path so Studio can resolve it
+			// against the local site directory.
+			$normalized_path = wp_normalize_path( $path );
+			$wp_root = wp_normalize_path( ABSPATH );
+			if ( 0 === strpos( $normalized_path, $wp_root ) ) {
+				$relative = substr( $normalized_path, strlen( $wp_root ) );
+			} else {
+				$relative = preg_replace( '#^/wordpress/?#', '', $normalized_path );
+			}
 			echo json_encode( [
 				'relativePath' => ltrim( $relative, '/' ),
 			] );

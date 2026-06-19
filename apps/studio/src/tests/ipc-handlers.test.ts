@@ -6,8 +6,15 @@ import { normalize } from 'path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import { createSite, isFullscreen, getXdebugEnabledSite, loadThemeDetails } from 'src/ipc-handlers';
+import {
+	createSite,
+	isFullscreen,
+	getXdebugEnabledSite,
+	loadThemeDetails,
+	getSiteDetails,
+} from 'src/ipc-handlers';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
+import { getImageData } from 'src/lib/get-image-data';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
 
@@ -149,6 +156,45 @@ describe( 'isFullscreen', () => {
 		const result = await isFullscreen( mockIpcMainInvokeEvent );
 
 		expect( result ).toBe( true );
+	} );
+} );
+
+describe( 'getSiteDetails', () => {
+	it( 'resolves malformed cached native PHP site icon paths before reading image data', async () => {
+		const sitePath = '/Users/test/Studio/site';
+		const correctedIconPath = `${ sitePath }/wp-content/uploads/icon.png`;
+		const malformedCachedIconPath = `${ sitePath }${ correctedIconPath }`;
+		vol.fromJSON( {
+			[ normalize( correctedIconPath ) ]: 'icon',
+		} );
+		vi.mocked( readFile ).mockResolvedValueOnce(
+			Buffer.from(
+				JSON.stringify( {
+					version: 1,
+					siteMetadata: {
+						'site-1': {
+							siteIconPath: malformedCachedIconPath,
+						},
+					},
+				} )
+			)
+		);
+		vi.mocked( SiteServer.getAllDetails ).mockReturnValue( [
+			{
+				id: 'site-1',
+				name: 'Site 1',
+				path: sitePath,
+				running: false,
+				phpVersion: '8.4',
+				port: 9999,
+			},
+		] as SiteDetails[] );
+
+		const result = await getSiteDetails( mockIpcMainInvokeEvent );
+
+		expect( getImageData ).toHaveBeenCalledWith( correctedIconPath );
+		expect( result[ 0 ].siteIconPath ).toBe( correctedIconPath );
+		expect( result[ 0 ].siteIcon ).toBe( 'data:image/png;base64,mock' );
 	} );
 } );
 

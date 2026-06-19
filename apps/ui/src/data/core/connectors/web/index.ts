@@ -107,14 +107,21 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		if ( event.event.type !== 'run.exited' || event.event.status !== 'success' ) {
 			return;
 		}
-		try {
-			await api( `/sessions/${ encodeURIComponent( event.sessionId ) }/preview`, {
-				method: 'POST',
-				body: JSON.stringify( {} ),
-			} );
-		} catch {
-			// Preview is best-effort; a failure here must never disrupt the chat.
-		}
+		const servePreview = async () => {
+			try {
+				await api( `/sessions/${ encodeURIComponent( event.sessionId ) }/preview`, {
+					method: 'POST',
+					body: JSON.stringify( {} ),
+				} );
+			} catch {
+				// Preview is best-effort; a failure here must never disrupt the chat.
+			}
+		};
+		// Fire immediately for fast feedback, then once more after a short delay:
+		// the sandbox's session cache and export snapshot can lag the run boundary
+		// by a few seconds, so the first pass may miss the agent's final state.
+		await servePreview();
+		setTimeout( () => void servePreview(), 12_000 );
 	}
 
 	return {

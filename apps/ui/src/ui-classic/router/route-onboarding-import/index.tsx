@@ -6,6 +6,7 @@ import { CreateSiteForm } from '@/components/create-site-form';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite } from '@/data/queries/use-sites';
+import { useSeededSiteName } from '@/hooks/use-seeded-site-name';
 import { nameFromFilename } from '@/lib/backup-files';
 import { pendingBackupSlot } from '@/lib/pending-backup';
 import { onboardingLayoutRoute } from '../layout-onboarding';
@@ -48,6 +49,8 @@ export function OnboardingImportPage() {
 		void navigate( { to: '/onboarding', replace: true } );
 	}, [ picked, pending, navigate ] );
 
+	const seededName = useSeededSiteName( picked ? nameFromFilename( picked.file.name ) : null );
+
 	const handleBack = useCallback( () => {
 		void navigate( { to: '/onboarding' } );
 	}, [ navigate ] );
@@ -89,9 +92,9 @@ export function OnboardingImportPage() {
 	if ( ! picked ) return null;
 
 	const isSubmitting = createSite.isPending || importSite.isPending;
-	const initialValues: Partial< CreateSiteFormValues > = {
-		name: nameFromFilename( picked.file.name ),
-	};
+	const initialValues: Partial< CreateSiteFormValues > | undefined = seededName
+		? { name: seededName }
+		: undefined;
 
 	return (
 		<div className={ sharedStyles.page }>

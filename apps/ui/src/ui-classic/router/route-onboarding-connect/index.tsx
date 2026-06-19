@@ -6,7 +6,7 @@ import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronLeft, check, external, search, wordpress } from '@wordpress/icons';
 import { Button, Icon, Input, InputLayout } from '@wordpress/ui';
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { BusyOverlay } from '@/components/busy-overlay';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import { useConnector } from '@/data/core';
@@ -15,7 +15,7 @@ import { useFindAvailableSiteName } from '@/data/queries/use-create-site-helpers
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
 import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useSyncableWpcomSitesPages } from '@/data/queries/use-wpcom-sites';
+import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useGridArrowNavigation } from '@/hooks/use-grid-arrow-navigation';
 import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink } from '@/lib/docs-links';
@@ -289,25 +289,33 @@ export function OnboardingConnectPage() {
 	const [ isConnecting, setIsConnecting ] = useState( false );
 	const [ submitError, setSubmitError ] = useState( '' );
 	const [ searchQuery, setSearchQuery ] = useState( '' );
-	const loadMoreRef = useRef< HTMLDivElement | null >( null );
 	const deferredSearchQuery = useDeferredValue( searchQuery );
-	const syncable = useSyncableWpcomSitesPages( {
-		enabled: !! user,
-		search: deferredSearchQuery,
-	} );
-	const {
-		fetchNextPage,
-		hasNextPage: hasNextSitesPage,
-		isFetchingNextPage: isFetchingNextSitesPage,
-	} = syncable;
+	const syncable = useSyncableWpcomSites( { enabled: !! user } );
 
-	const sites = useMemo(
-		() => syncable.data?.pages.flatMap( ( page ) => page.sites ) ?? [],
-		[ syncable.data ]
-	);
-	const totalSites = syncable.data?.pages.at( -1 )?.total ?? sites.length;
+	const allSites = useMemo( () => syncable.data ?? [], [ syncable.data ] );
+	const normalizedSearch = deferredSearchQuery.trim().toLocaleLowerCase();
+	const sites = useMemo( () => {
+		if ( ! normalizedSearch ) {
+			return allSites;
+		}
+		return allSites.filter( ( site ) => {
+			const searchableText = [
+				site.name,
+				site.url,
+				site.planName,
+				site.isPressable ? 'Pressable' : 'WordPress.com',
+				getEnvironmentLabel( getSiteEnvironment( site ) ),
+				getSyncStatusLabel( site ),
+			]
+				.filter( Boolean )
+				.join( ' ' )
+				.toLocaleLowerCase();
+			return searchableText.includes( normalizedSearch );
+		} );
+	}, [ allSites, normalizedSearch ] );
+	const totalSites = allSites.length;
 	const isSingleSite = totalSites === 1 && sites.length === 1;
-	const isLoadingFirstPage = syncable.isLoading || ( syncable.isFetching && sites.length === 0 );
+	const isLoadingSites = syncable.isLoading || ( syncable.isFetching && allSites.length === 0 );
 
 	// With exactly one site on the account, pre-select it so the user can
 	// proceed straight to Add site — mirrors the desktop renderer.
@@ -323,36 +331,12 @@ export function OnboardingConnectPage() {
 		}
 	}, [ selectedId, sites ] );
 
-	useEffect( () => {
-		const loadMoreTarget = loadMoreRef.current;
-		if (
-			! loadMoreTarget ||
-			! hasNextSitesPage ||
-			isFetchingNextSitesPage ||
-			typeof IntersectionObserver === 'undefined'
-		) {
-			return;
-		}
-
-		let requestedNextPage = false;
-		const observer = new IntersectionObserver(
-			( entries ) => {
-				if ( ! requestedNextPage && entries.some( ( entry ) => entry.isIntersecting ) ) {
-					requestedNextPage = true;
-					void fetchNextPage();
-				}
-			},
-			{ rootMargin: '240px 0px' }
-		);
-		observer.observe( loadMoreTarget );
-		return () => observer.disconnect();
-	}, [ fetchNextPage, hasNextSitesPage, isFetchingNextSitesPage ] );
-
 	const sections = useMemo( () => groupSites( sites ), [ sites ] );
 	// While a search narrows the list, hold the compact card size everywhere —
 	// the lead section's grow-to-fill sizing would balloon one or two matches
 	// and resize them with every keystroke.
 	const isSearching = deferredSearchQuery.trim().length > 0;
+	const shouldGrowSiteCards = ! isSearching && sections.length === 1;
 
 	const selectedSite = sites.find( ( site ) => site.id === selectedId );
 	const showSearch = searchQuery.length > 0 || totalSites > SEARCH_VISIBILITY_THRESHOLD;
@@ -473,7 +457,7 @@ export function OnboardingConnectPage() {
 					{ /* The helper links read "Refreshing…" during the initial
 					     load; hide the whole row until the list exists and let
 					     the loading state below carry the message. */ }
-					{ ! isSingleSite && ! isLoadingFirstPage && (
+					{ ! isSingleSite && ! isLoadingSites && (
 						<div className={ styles.searchHeader }>
 							{ showSearch && (
 								<Input
@@ -493,13 +477,13 @@ export function OnboardingConnectPage() {
 						</div>
 					) }
 
-					{ isLoadingFirstPage && (
+					{ isLoadingSites && (
 						<div className={ styles.loadingState }>
 							<Spinner />
 							<p className={ styles.listHint }>{ __( 'Loading your sites…' ) }</p>
 						</div>
 					) }
-					{ ! isLoadingFirstPage && ! isSearching && sites.length === 0 && (
+					{ ! isLoadingSites && ! isSearching && sites.length === 0 && (
 						<div className={ styles.emptyState }>
 							<p className={ styles.listHint }>
 								{ __( 'No WordPress.com sites found on this account.' ) }
@@ -516,7 +500,7 @@ export function OnboardingConnectPage() {
 							</Button>
 						</div>
 					) }
-					{ ! isLoadingFirstPage && isSearching && sites.length === 0 && (
+					{ ! isLoadingSites && isSearching && sites.length === 0 && (
 						<p className={ styles.listHint }>
 							{ sprintf(
 								// translators: %s is the search query.
@@ -526,7 +510,7 @@ export function OnboardingConnectPage() {
 						</p>
 					) }
 
-					{ ! isLoadingFirstPage && isSingleSite ? (
+					{ ! isLoadingSites && isSingleSite ? (
 						<div className={ styles.singleSite }>
 							<ul
 								className={ `${ styles.siteGrid } ${ styles.siteGridSingle }` }
@@ -540,7 +524,7 @@ export function OnboardingConnectPage() {
 							</ul>
 							{ helperLinks }
 						</div>
-					) : ! isLoadingFirstPage && sites.length > 0 ? (
+					) : ! isLoadingSites && sites.length > 0 ? (
 						<div className={ styles.sections }>
 							{ sections.map( ( section, sectionIndex ) => (
 								<section key={ section.key } className={ styles.section }>
@@ -552,12 +536,12 @@ export function OnboardingConnectPage() {
 											) }
 										</div>
 									) }
-									{ /* Only the lead section grows its cards to fill the
-									     row — and only when not searching; secondary groups
-									     and filtered results stay at the compact size. */ }
+									{ /* Grow cards only for an ungrouped list. Grouped results
+									     keep compact sizing in every section so a lone site in
+									     one group doesn't balloon beside other groups. */ }
 									<ul
 										className={
-											sectionIndex === 0 && ! isSearching
+											sectionIndex === 0 && shouldGrowSiteCards
 												? styles.siteGrid
 												: `${ styles.siteGrid } ${ styles.siteGridSecondary }`
 										}
@@ -574,27 +558,6 @@ export function OnboardingConnectPage() {
 									</ul>
 								</section>
 							) ) }
-							{ hasNextSitesPage && (
-								<div ref={ loadMoreRef } className={ styles.emptyState }>
-									<p className={ styles.listHint }>
-										{ sprintf(
-											// translators: 1: number of sites shown, 2: total number of sites.
-											__( 'Showing %1$d of %2$d sites.' ),
-											sites.length,
-											totalSites
-										) }
-									</p>
-									<Button
-										type="button"
-										variant="outline"
-										tone="neutral"
-										disabled={ isFetchingNextSitesPage }
-										onClick={ () => void fetchNextPage() }
-									>
-										{ isFetchingNextSitesPage ? __( 'Loading more…' ) : __( 'Load more sites' ) }
-									</Button>
-								</div>
-							) }
 						</div>
 					) : null }
 

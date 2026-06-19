@@ -117,6 +117,14 @@ a:focus:not( :focus-visible ),
 	height: 16px;
 }
 
+/* Escape hatch for non-icon SVGs (illustrations, thumbnails) that size
+   themselves through their width/height attributes — `auto` defers back to
+   the attribute values the compact-density rule above would override. */
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
+	width: auto;
+	height: auto;
+}
+
 @keyframes view-transition-exit {
 	to {
 		opacity: 0;

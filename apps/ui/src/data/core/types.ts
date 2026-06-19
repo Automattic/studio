@@ -90,15 +90,6 @@ export interface AuthUser {
 	displayName: string;
 }
 
-export interface SyncableWpcomSitesPage {
-	sites: SyncSite[];
-	total: number;
-	page: number;
-	perPage: number;
-	hasMore: boolean;
-	nextPage: number | null;
-}
-
 export interface Connector {
 	/**
 	 * Optional hook for connector-specific setup that must run after the
@@ -185,6 +176,9 @@ export interface Connector {
 	// temp directory automatically when it uses the extracted blueprint.
 	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
+	readBlueprintFile( filePath: string ): Promise< Record< string, unknown > >;
+	onAddSiteRequested( listener: () => void ): () => void;
+	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 
 	// Imports a backup archive into an already-created site. Extracts the
 	// archive, installs the SQLite integration if missing, then imports the
@@ -208,13 +202,6 @@ export interface Connector {
 	// of which (if any) local site they're already connected to. The publish
 	// picker filters this list to sites that aren't connected anywhere yet.
 	fetchSyncableWpcomSites(): Promise< SyncSite[] >;
-	// Paged variant used by picker flows so large accounts don't fetch every
-	// site and start every thumbnail preview at once.
-	fetchSyncableWpcomSitesPage( options: {
-		page?: number;
-		perPage?: number;
-		search?: string;
-	} ): Promise< SyncableWpcomSitesPage >;
 	// Persists a new local↔live connection so the dropdown picks it up via
 	// `getConnectedWpcomSites`. Safe to call with the minimal `SyncSite` we
 	// receive from a sync-connect-site deep link — later fetches backfill the

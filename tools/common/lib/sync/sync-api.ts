@@ -32,24 +32,12 @@ const SITE_FIELDS = [
 
 interface FetchSyncableSitesOptions {
 	connectedSiteIds?: number[];
-	page?: number;
-	perPage?: number;
 	search?: string;
-}
-
-export interface SyncableSitesPage {
-	sites: SyncSite[];
-	total: number;
-	page: number;
-	perPage: number;
-	hasMore: boolean;
-	nextPage: number | null;
 }
 
 async function fetchRawSitesPage(
 	token: string,
-	options: Required< Pick< FetchSyncableSitesOptions, 'page' | 'perPage' > > &
-		Pick< FetchSyncableSitesOptions, 'search' >
+	options: { page: number; perPage: number; search?: string }
 ) {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	const queryParams: Record< string, string | number | boolean > = {
@@ -76,38 +64,6 @@ async function fetchRawSitesPage(
 	);
 
 	return sitesEndpointResponseSchema.parse( rawResponse );
-}
-
-export async function fetchSyncableSitesPage(
-	token: string,
-	options: FetchSyncableSitesOptions = {}
-): Promise< SyncableSitesPage > {
-	const page = options.page ?? 1;
-	const perPage = options.perPage ?? 20;
-	const parsed = await fetchRawSitesPage( token, {
-		page,
-		perPage,
-		search: options.search,
-	} );
-	const responsePage = parsed.page ?? page;
-	const responsePerPage = parsed.per_page ?? perPage;
-	const sites = transformSitesResponse( parsed.sites, {
-		connectedSiteIds: options.connectedSiteIds,
-	} );
-	const total = parsed.total ?? ( responsePage - 1 ) * responsePerPage + sites.length;
-	const hasMore =
-		parsed.total !== undefined
-			? responsePage * responsePerPage < parsed.total
-			: parsed.sites.length >= responsePerPage;
-
-	return {
-		sites,
-		total,
-		page: responsePage,
-		perPage: responsePerPage,
-		hasMore,
-		nextPage: hasMore ? responsePage + 1 : null,
-	};
 }
 
 export async function fetchSyncableSites(

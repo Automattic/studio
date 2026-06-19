@@ -13,7 +13,6 @@ import type {
 	SiteDetails,
 	Snapshot,
 	SyncSite,
-	SyncableWpcomSitesPage,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -222,6 +221,15 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		async cleanupBlueprintTempDir() {
 			// No-op.
 		},
+		async readBlueprintFile(): Promise< Record< string, unknown > > {
+			throw new WebUnsupportedError( 'readBlueprintFile' );
+		},
+		onAddSiteRequested() {
+			return () => {};
+		},
+		onAddSiteWithBlueprint() {
+			return () => {};
+		},
 		async importSiteFromBackup(): Promise< SiteDetails > {
 			throw new WebUnsupportedError( 'importSiteFromBackup' );
 		},
@@ -238,23 +246,6 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		},
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return [];
-		},
-		async fetchSyncableWpcomSitesPage( {
-			page = 1,
-			perPage = 20,
-		}: {
-			page?: number;
-			perPage?: number;
-			search?: string;
-		} ): Promise< SyncableWpcomSitesPage > {
-			return {
-				sites: [],
-				total: 0,
-				page,
-				perPage,
-				hasMore: false,
-				nextPage: null,
-			};
 		},
 		async connectWpcomSite() {
 			throw new WebUnsupportedError( 'connectWpcomSite' );

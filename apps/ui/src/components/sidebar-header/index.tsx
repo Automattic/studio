@@ -39,7 +39,7 @@ export function SidebarHeader( { onToggleSidebar }: Props ) {
 							<Icon icon={ globe } />
 							<span>{ __( 'New site' ) }</span>
 						</Menu.Item>
-						<Menu.Item onClick={ () => void navigate( { to: '/onboarding/import' } ) }>
+						<Menu.Item onClick={ () => void navigate( { to: '/onboarding' } ) }>
 							<Icon icon={ download } />
 							<span>{ __( 'Import from…' ) }</span>
 						</Menu.Item>

@@ -34,7 +34,6 @@ export type {
 	SupportedLocale,
 	SupportedTerminal,
 	SyncSite,
-	SyncableWpcomSitesPage,
 	UserPreferences,
 	WritableUserPreferences,
 } from './types';

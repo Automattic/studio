@@ -156,10 +156,8 @@
 	}
 }
 
-/* Secondary sections (Already connected, upgrade/transfer, …): auto-fill
-   keeps the empty tracks, so a couple of sites render at the compact card
-   size instead of ballooning to fill the row — the count-aware sizing only
-   applies to the lead section. */
+/* Grouped or filtered lists: auto-fill keeps empty tracks, so a lone site
+   in one section stays compact instead of ballooning to fill the row. */
 .siteGridSecondary {
 	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }

@@ -12,11 +12,7 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
-import {
-	fetchSyncableSites,
-	fetchSyncableSitesPage,
-	type SyncableSitesPage,
-} from '@studio/common/lib/sync/sync-api';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { SyncSite } from '@studio/common/types/sync';
@@ -533,19 +529,6 @@ export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Pro
 	const connectedSites = await getAllConnectedWpcomSitesForCurrentUser();
 	const connectedSiteIds = connectedSites.map( ( site ) => site.id );
 	return fetchSyncableSites( token.accessToken, { connectedSiteIds } );
-}
-
-export async function fetchSyncableWpcomSitesPage(
-	_event: IpcMainInvokeEvent,
-	options: { page?: number; perPage?: number; search?: string } = {}
-): Promise< SyncableSitesPage > {
-	const token = await getAuthenticationToken();
-	if ( ! token?.accessToken ) {
-		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
-	}
-	const connectedSites = await getAllConnectedWpcomSitesForCurrentUser();
-	const connectedSiteIds = connectedSites.map( ( site ) => site.id );
-	return fetchSyncableSitesPage( token.accessToken, { ...options, connectedSiteIds } );
 }
 
 export async function getConnectedWpcomSites(

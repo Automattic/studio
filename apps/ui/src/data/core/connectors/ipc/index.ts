@@ -375,6 +375,21 @@ export function createIpcConnector(): Connector {
 			await ipcApi.cleanupBlueprintTempDir( tempDir );
 		},
 
+		async readBlueprintFile( filePath ): Promise< Record< string, unknown > > {
+			return ( await ipcApi.readBlueprintFile( filePath ) ) as Record< string, unknown >;
+		},
+
+		onAddSiteRequested( listener ) {
+			return ipcListener.subscribe( 'add-site', () => listener() );
+		},
+
+		onAddSiteWithBlueprint( listener ) {
+			return ipcListener.subscribe(
+				'add-site-with-blueprint',
+				( _event: unknown, payload: { blueprintPath: string } ) => listener( payload )
+			);
+		},
+
 		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
 			return ( await ipcApi.importSite( {
 				id: siteId,
@@ -483,10 +498,6 @@ export function createIpcConnector(): Connector {
 
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return ( await ipcApi.fetchSyncableWpcomSites() ) as SyncSite[];
-		},
-
-		async fetchSyncableWpcomSitesPage( options ) {
-			return await ipcApi.fetchSyncableWpcomSitesPage( options );
 		},
 
 		async connectWpcomSite( localSiteId, site ): Promise< void > {

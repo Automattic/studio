@@ -193,10 +193,11 @@ function reducer( state: State, action: Action ): State {
 				pendingQuestions: [ ...state.pendingQuestions, ...action.questions ],
 			};
 		case 'question_answered':
+			// `answeredQuestions` is only written on dispatch; mid-batch the live
+			// highlight comes from `pendingAnswers`.
 			return {
 				...state,
 				pendingAnswers: { ...state.pendingAnswers, [ action.question ]: action.answer },
-				answeredQuestions: { ...state.answeredQuestions, [ action.question ]: action.answer },
 			};
 		case 'batch_dispatched':
 			return {

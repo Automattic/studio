@@ -216,7 +216,7 @@
 }
 
 /* Once finalized, the picked option still reads as the selection (accent
-   ring) but dims so it clearly looks disabled rather than clickable. */
+   border) but dims so it clearly looks disabled rather than clickable. */
 .questionOptionPicked:disabled {
 	opacity: 0.6;
 	cursor: default;

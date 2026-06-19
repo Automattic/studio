@@ -451,10 +451,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						),
 						showOpenLogs: false,
 					} );
-				} else if (
-					error instanceof Error &&
-					error.message.includes( 'CAPACITY_LIMIT_REACHED' )
-				) {
+				} else if ( error instanceof Error && error.message.includes( 'CAPACITY_LIMIT_REACHED' ) ) {
 					capacityLimitReached = true;
 					getIpcApi().showErrorMessageBox( {
 						title: sprintf( __( "Failed to start '%s'" ), siteName ),

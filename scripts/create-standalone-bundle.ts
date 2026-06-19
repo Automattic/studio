@@ -11,8 +11,8 @@
  *   cli/                CLI bundle (main.mjs, node_modules, wp-files, …)
  *
  * Output:
- *   standalone-bundles/studio-cli-{platform}-{arch}.tar.gz
- *   standalone-bundles/studio-cli-{platform}-{arch}.tar.gz.sha256
+ *   standalone-bundles/studio-cli-{platform}-{arch}.tgz
+ *   standalone-bundles/studio-cli-{platform}-{arch}.tgz.sha256
  *
  * Prerequisites: Node.js >= 22, npm dependencies installed
  *
@@ -58,7 +58,7 @@ if ( ! supportedArchs.includes( archArg ) ) {
 }
 
 const isWindows = platformArg === 'win32';
-const bundleName = `studio-cli-${ platformArg }-${ archArg }.tar.gz`;
+const bundleName = `studio-cli-${ platformArg }-${ archArg }.tgz`;
 const outputDir = path.join( repoRoot, 'standalone-bundles' );
 const stagingDir = path.join( outputDir, `staging-${ platformArg }-${ archArg }` );
 const cliDistDir = path.join( repoRoot, 'apps', 'cli', 'dist', 'cli' );

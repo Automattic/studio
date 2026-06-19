@@ -1,7 +1,9 @@
-import { SITE_RUNTIME_NATIVE_PHP, type SiteRuntime } from '../lib/site-runtime';
-
-export const SupportedPHPVersions = [ '8.5', '8.4', '8.3', '8.2', '8.1', '8.0', '7.4' ] as const;
-export const NativePhpSupportedVersions = [ '8.5', '8.4', '8.3', '8.2' ] as const;
+// Studio offers the same PHP versions for both runtimes: the versions the
+// bundled native PHP binaries are built for. Playground (PHP WASM) supports
+// older versions at runtime, which keeps existing sites stored on a
+// no-longer-offered version working until they are edited.
+export const SupportedPHPVersions = [ '8.5', '8.4', '8.3', '8.2' ] as const;
+export const NativePhpSupportedVersions = SupportedPHPVersions;
 
 export const LatestSupportedPHPVersion = '8.5' as const;
 export const LatestNativePhpSupportedVersion = NativePhpSupportedVersions[ 0 ];
@@ -32,25 +34,17 @@ export function isSupportedPHPVersion(
 	return SupportedPHPVersions.includes( version as SupportedPHPVersion );
 }
 
-export function getSupportedPHPVersionsForRuntime(
-	runtime: SiteRuntime
-): readonly SupportedPHPVersion[] {
-	return runtime === SITE_RUNTIME_NATIVE_PHP ? NativePhpSupportedVersions : SupportedPHPVersions;
-}
-
-export function getClosestNativePhpVersion(
-	version: string
-): NativePhpSupportedVersion | undefined {
+export function getClosestSupportedPhpVersion( version: string ): SupportedPHPVersion | undefined {
 	const targetScore = getPhpVersionScore( version );
 	if ( targetScore === undefined ) {
 		return undefined;
 	}
 
-	return NativePhpSupportedVersions.reduce< NativePhpSupportedVersion >( ( closest, candidate ) => {
+	return SupportedPHPVersions.reduce< SupportedPHPVersion >( ( closest, candidate ) => {
 		const closestDistance = Math.abs( getPhpVersionScore( closest )! - targetScore );
 		const candidateDistance = Math.abs( getPhpVersionScore( candidate )! - targetScore );
 		return candidateDistance < closestDistance ? candidate : closest;
-	}, NativePhpSupportedVersions[ 0 ] );
+	}, SupportedPHPVersions[ 0 ] );
 }
 
 /**
@@ -58,10 +52,3 @@ export function getClosestNativePhpVersion(
  * This replaces RecommendedPHPVersion from @wp-playground/common.
  */
 export const RecommendedPHPVersion: SupportedPHPVersion = '8.4';
-
-export function getRecommendedPHPVersionForRuntime( runtime: SiteRuntime ): SupportedPHPVersion {
-	const supportedVersions = getSupportedPHPVersionsForRuntime( runtime );
-	return supportedVersions.includes( RecommendedPHPVersion )
-		? RecommendedPHPVersion
-		: supportedVersions[ 0 ] ?? RecommendedPHPVersion;
-}

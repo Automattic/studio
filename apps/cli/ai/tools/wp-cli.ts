@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getUnsupportedWpCliPostContentMessage } from 'cli/lib/rewrite-wp-cli-post-content';
-import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
+import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
 import { defineTool } from './define-tool';
 import { resolveSite } from './utils';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
@@ -169,10 +169,9 @@ function getWpCliArtifacts(
 	return undefined;
 }
 
-// Note: wp.ts runCommand calls process.exit(), so we use the lower-level sendWpCliCommand directly.
 export const runWpCliTool = defineTool(
 	'wp_cli',
-	'Runs a WP-CLI command on a specific WordPress site. The site must be running. ' +
+	'Runs a WP-CLI command on a specific WordPress site. ' +
 		'Examples: "plugin install woocommerce --activate", "option get blogname", "user list".',
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
@@ -188,13 +187,6 @@ export const runWpCliTool = defineTool(
 			try {
 				await connectToDaemon();
 
-				const runningProcess = await isServerRunning( site.id );
-				if ( ! runningProcess ) {
-					throw new Error(
-						`Site "${ site.name }" is not running. Start it first using site_start.`
-					);
-				}
-
 				const wpCliArgs = splitCommandArgs( args.command );
 				const unsupportedOptionMessage = getUnsupportedWpCliOptionMessage( wpCliArgs );
 				if ( unsupportedOptionMessage ) {
@@ -205,27 +197,30 @@ export const runWpCliTool = defineTool(
 					throw new Error( unsupportedPostContentMessage );
 				}
 
-				const result = await sendWpCliCommand( site.id, wpCliArgs );
+				await using command = await runWpCliCommandWithMessaging( site, wpCliArgs );
+				const exitCode = await command.response.exitCode;
+				const stdout = await command.response.stdoutText;
+				const stderr = await command.response.stderrText;
 
 				let output = '';
-				if ( result.stdout ) {
-					output += result.stdout;
+				if ( stdout ) {
+					output += stdout;
 				}
-				if ( result.stderr ) {
-					output += ( output ? '\n' : '' ) + `stderr: ${ result.stderr }`;
+				if ( stderr ) {
+					output += ( output ? '\n' : '' ) + `stderr: ${ stderr }`;
 				}
-				if ( result.exitCode !== 0 ) {
-					output += `\nExit code: ${ result.exitCode }`;
+				if ( exitCode !== 0 ) {
+					output += `\nExit code: ${ exitCode }`;
 				}
 
-				if ( result.exitCode !== 0 ) {
-					throw new Error( output || `WP-CLI exited with code ${ result.exitCode }` );
+				if ( exitCode !== 0 ) {
+					throw new Error( output || `WP-CLI exited with code ${ exitCode }` );
 				}
 				return {
 					content: [
 						{ type: 'text' as const, text: output || 'Command completed with no output.' },
 					],
-					studioArtifacts: getWpCliArtifacts( wpCliArgs, result.stdout ),
+					studioArtifacts: getWpCliArtifacts( wpCliArgs, stdout ),
 				};
 			} finally {
 				await disconnectFromDaemon();

@@ -1,22 +1,25 @@
-import { fork, type ChildProcess } from 'node:child_process';
 import crypto from 'node:crypto';
+import { localRuntime } from './local-runtime';
+import type { AgentProcess, AgentRuntime } from './runtime';
 import type { ActiveAgentRun, AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { JsonEvent } from '@studio/common/ai/json-events';
 
 /**
  * Headless analog of the desktop `run-manager` (apps/studio/src/modules/
- * ai-agent/run-manager.ts). It forks the exact same CLI subcommand the desktop
- * forks — `code sessions resume <id> <prompt> --json` — relays the child's
- * `JsonEvent`s as `AgentRunEvent`s, and synthesizes the same lifecycle events
- * (`run.started`, `run.exited`, ...). The only difference is the sink: instead
- * of `webContents.send`, events go to a broadcaster (SSE) injected via
- * `setBroadcast`.
+ * ai-agent/run-manager.ts). It runs the same `studio code sessions resume <id>
+ * <prompt> --json` agent the desktop runs, relays the agent's `JsonEvent`s as
+ * `AgentRunEvent`s, and synthesizes the same lifecycle events (`run.started`,
+ * `run.exited`, ...). The sink is a broadcaster (SSE) injected via
+ * `setBroadcast` instead of `webContents.send`.
+ *
+ * Where the agent actually runs is behind the {@link AgentRuntime} seam. Today
+ * that's a local child process; the hosted backend swaps in a SecEx-sandbox
+ * runtime via `setAgentRuntime` without touching any of this orchestration.
  */
 
 interface AgentRun {
 	runId: string;
 	sessionId: string;
-	child: ChildProcess;
+	process: AgentProcess;
 	interrupted: boolean;
 	interruptAttempts: number;
 	startedAt: number;
@@ -32,12 +35,18 @@ export function setBroadcast( fn: Broadcast ): void {
 	broadcast = fn;
 }
 
+let runtime: AgentRuntime = localRuntime;
+
+export function setAgentRuntime( next: AgentRuntime ): void {
+	runtime = next;
+}
+
 function nowIso(): string {
 	return new Date().toISOString();
 }
 
-function send( run: AgentRun, event: AgentEvent ): void {
-	broadcast( { runId: run.runId, sessionId: run.sessionId, event } );
+function emit( runId: string, sessionId: string, event: AgentEvent ): void {
+	broadcast( { runId, sessionId, event } );
 }
 
 export interface StartAgentRunOptions {
@@ -55,64 +64,41 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 
 	const runId = crypto.randomUUID();
 	const startedAt = Date.now();
-	const args = [ 'code', 'sessions', 'resume', sessionId, prompt, '--json', '--avoid-telemetry' ];
-	if ( displayMessage ) {
-		args.push( '--display-message', displayMessage );
-	}
 
-	// Re-invoke this same CLI bundle. The child emits JSON transport events over
-	// the Node IPC channel (process.send), which we read via `message`.
-	const child = fork( process.argv[ 1 ], args, {
-		stdio: [ 'ignore', 'inherit', 'inherit', 'ipc' ],
-		execArgv: [ '--experimental-wasm-jspi' ],
-		env: { ...process.env },
+	const agentProcess = runtime.start( {
+		sessionId,
+		prompt,
+		displayMessage,
+		onSpawn: () => emit( runId, sessionId, { type: 'run.started', timestamp: nowIso() } ),
+		onEvent: ( event ) => emit( runId, sessionId, event ),
+		onError: ( message ) =>
+			emit( runId, sessionId, { type: 'error', timestamp: nowIso(), message } ),
+		onExit: ( code ) => {
+			const interrupted = runsById.get( runId )?.interrupted ?? false;
+			runsBySessionId.delete( sessionId );
+			runsById.delete( runId );
+			if ( interrupted ) {
+				emit( runId, sessionId, { type: 'run.interrupted', timestamp: nowIso() } );
+			}
+			emit( runId, sessionId, {
+				type: 'run.exited',
+				timestamp: nowIso(),
+				status: code === 0 ? 'success' : 'error',
+				code,
+			} );
+		},
 	} );
 
 	const run: AgentRun = {
 		runId,
 		sessionId,
-		child,
+		process: agentProcess,
 		interrupted: false,
 		interruptAttempts: 0,
 		startedAt,
 	};
-
 	runsBySessionId.set( sessionId, run );
 	runsById.set( runId, run );
-
-	child.on( 'spawn', () => {
-		send( run, { type: 'run.started', timestamp: nowIso() } );
-	} );
-
-	child.on( 'message', ( message ) => {
-		// The CLI's Logger also writes to this channel with a different shape;
-		// forward only messages that look like the JSON transport envelope.
-		if ( message && typeof message === 'object' && 'type' in message ) {
-			send( run, message as JsonEvent );
-		}
-	} );
-
-	child.on( 'error', ( error ) => {
-		send( run, {
-			type: 'error',
-			timestamp: nowIso(),
-			message: error.message || 'CLI subprocess failed to start',
-		} );
-	} );
-
-	child.on( 'exit', ( code ) => {
-		runsBySessionId.delete( sessionId );
-		runsById.delete( runId );
-		if ( run.interrupted ) {
-			send( run, { type: 'run.interrupted', timestamp: nowIso() } );
-		}
-		send( run, {
-			type: 'run.exited',
-			timestamp: nowIso(),
-			status: code === 0 ? 'success' : 'error',
-			code,
-		} );
-	} );
 
 	return { runId };
 }
@@ -139,29 +125,32 @@ export function interruptAgentRun( runId: string ): void {
 		runsBySessionId.delete( run.sessionId );
 	}
 
+	// A second interrupt request escalates straight to a force kill.
 	if ( run.interruptAttempts > 1 ) {
-		run.child.kill( 'SIGKILL' );
+		run.process.kill();
 		return;
 	}
 
-	if ( run.child.connected ) {
-		run.child.send( { type: 'interrupt' } );
-		send( run, { type: 'run.interrupting', timestamp: nowIso() } );
+	// First request: ask the agent to stop cleanly, then force-kill if it
+	// hasn't exited within the grace window. If it can't be reached, kill now.
+	if ( run.process.connected ) {
+		run.process.interrupt();
+		emit( run.runId, run.sessionId, { type: 'run.interrupting', timestamp: nowIso() } );
 		setTimeout( () => {
-			if ( runsById.get( runId ) === run && ! run.child.killed ) {
-				run.child.kill( 'SIGKILL' );
+			if ( runsById.get( runId ) === run ) {
+				run.process.kill();
 			}
 		}, INTERRUPT_FORCE_KILL_TIMEOUT_MS ).unref();
 		return;
 	}
 
-	run.child.kill( 'SIGKILL' );
+	run.process.kill();
 }
 
 export function answerAgentRun( runId: string, answers: Record< string, string > ): void {
 	const run = runsById.get( runId );
-	if ( ! run || ! run.child.connected ) {
+	if ( ! run ) {
 		return;
 	}
-	run.child.send( { type: 'answer', answers } );
+	run.process.answer( answers );
 }

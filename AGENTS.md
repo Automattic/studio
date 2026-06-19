@@ -89,6 +89,15 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 **PRs**: Create PR against `trunk` branch. Use the template from `.github/PULL_REQUEST_TEMPLATE.md` (include Related issues, How AI was used in this PR, Proposed Changes, Testing Instructions, Pre-merge Checklist). In **Proposed Changes**, focus on the intent of the change and the user impact (the "why" and how the user experiences it) — do not list modified files or describe implementation mechanics; the diff already shows that. MUST pass all CI checks before merge.
 **IMPORTANT**: Prefer merging `trunk` into your branch over rebasing. Avoid force pushes to trunk/main branches. Avoid force pushes to already-pushed branches - add new commits instead.
 
+## Autonomous Agent (Agent Sandbox) Runs
+
+Studio issues on the **Studio App & CLI** Linear team (`STU-*`) can be picked up by the Agent Sandbox. The pipeline triages the assigned issue and invokes the agent, which opens a PR autonomously, headless, in a sandbox. If you are that agent:
+
+- **Stay in scope.** Touch only the files the issue requires. Prefer the smallest change that resolves it; avoid unrelated refactors.
+- **Verify before claiming done.** Run `npx eslint --fix` on modified files, `npm run typecheck`, and `npm test -- <path>` for affected tests. e2e (`npm run e2e`) usually isn't runnable in the sandbox — rely on unit tests; if it is available, run it last, after everything else passes. If the toolchain or a dependency install is unavailable in the sandbox, say so explicitly — never assert a change is verified when it isn't.
+- **You cannot see the UI.** Visual and dark-mode correctness can't be confirmed headless. For UI/CSS changes, use the `--color-frame-*` tokens (never `--wpds-color-*`) and flag the PR for human visual review. Add this line to the PR description so reviewers don't miss it: `> ⚠️ Visual change: needs human review in light + dark mode.`
+- **Open a draft PoC for big or speculative work.** If the change adds a new dependency, spans a new architectural boundary (e.g. a new IPC handler + Redux slice + UI), or touches many files, open it as a draft Proof of Concept (see below) instead of merge-ready.
+
 ## Large & Exploratory Contributions (Vibe-Coded Features)
 
 If you've built a substantial new feature — especially one generated with AI assistance or built rapidly without prior team alignment — treat your PR as a **Proof of Concept** rather than a merge-ready change:

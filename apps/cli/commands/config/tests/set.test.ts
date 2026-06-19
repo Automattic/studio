@@ -55,7 +55,7 @@ vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
-describe( 'CLI: studio site set', () => {
+describe( 'CLI: studio config set', () => {
 	const testSitePath = '/test/site';
 
 	const getTestSite = (): SiteData => ( {

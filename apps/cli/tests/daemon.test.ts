@@ -9,6 +9,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const testProcessName = 'studio-site-process-manager-test';
 const tmpDir = path.join( os.tmpdir(), 'studio-daemon-test' );
 
+// The daemon pipes child output through readline into a buffered WriteStream, so the
+// bytes reach disk several async hops after we write them. Poll instead of relying on a
+// fixed sleep, which races on slower agents (notably Windows CI).
+async function waitForFileToContain(
+	filePath: string,
+	expected: string,
+	timeoutMs = 2000
+): Promise< string > {
+	const start = Date.now();
+	let contents = '';
+	do {
+		try {
+			contents = fs.readFileSync( filePath, 'utf8' );
+		} catch {
+			contents = '';
+		}
+		if ( contents.includes( expected ) ) {
+			return contents;
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
+	} while ( Date.now() - start < timeoutMs );
+	return contents;
+}
+
 class MockChildProcess extends EventEmitter {
 	pid = 4321;
 	connected = true;
@@ -124,15 +148,15 @@ describe( 'ProcessManagerDaemon', () => {
 			'0'
 		) }${ String( now.getDate() ).padStart( 2, '0' ) }`;
 		expect(
-			fs.readFileSync(
+			await waitForFileToContain(
 				path.join( tmpDir, 'logs', `${ testProcessName }-out-${ dateTag }.log` ),
-				'utf8'
+				'fixture-stdout'
 			)
 		).toContain( 'fixture-stdout' );
 		expect(
-			fs.readFileSync(
+			await waitForFileToContain(
 				path.join( tmpDir, 'logs', `${ testProcessName }-error-${ dateTag }.log` ),
-				'utf8'
+				'fixture-stderr'
 			)
 		).toContain( 'fixture-stderr' );
 	} );

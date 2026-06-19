@@ -9,28 +9,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const testProcessName = 'studio-site-process-manager-test';
 const tmpDir = path.join( os.tmpdir(), 'studio-daemon-test' );
 
-// The daemon pipes child output through readline into a buffered WriteStream, so the
-// bytes reach disk several async hops after we write them. Poll instead of relying on a
-// fixed sleep, which races on slower agents (notably Windows CI).
-async function waitForFileToContain(
-	filePath: string,
-	expected: string,
-	timeoutMs = 2000
-): Promise< string > {
+// Retries an assertion until it passes or the timeout elapses, rethrowing the last
+// failure. The daemon pipes child output through readline into a buffered WriteStream, so
+// the bytes reach disk several async hops after we write them — a fixed sleep races on
+// slower agents (notably Windows CI).
+async function waitFor( assertion: () => void, timeoutMs = 2000 ): Promise< void > {
 	const start = Date.now();
-	let contents = '';
-	do {
+	for (;;) {
 		try {
-			contents = fs.readFileSync( filePath, 'utf8' );
-		} catch {
-			contents = '';
+			assertion();
+			return;
+		} catch ( error ) {
+			if ( Date.now() - start >= timeoutMs ) {
+				throw error;
+			}
+			await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
 		}
-		if ( contents.includes( expected ) ) {
-			return contents;
-		}
-		await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
-	} while ( Date.now() - start < timeoutMs );
-	return contents;
+	}
 }
 
 class MockChildProcess extends EventEmitter {
@@ -147,18 +142,20 @@ describe( 'ProcessManagerDaemon', () => {
 			2,
 			'0'
 		) }${ String( now.getDate() ).padStart( 2, '0' ) }`;
-		expect(
-			await waitForFileToContain(
-				path.join( tmpDir, 'logs', `${ testProcessName }-out-${ dateTag }.log` ),
-				'fixture-stdout'
-			)
-		).toContain( 'fixture-stdout' );
-		expect(
-			await waitForFileToContain(
-				path.join( tmpDir, 'logs', `${ testProcessName }-error-${ dateTag }.log` ),
-				'fixture-stderr'
-			)
-		).toContain( 'fixture-stderr' );
+		await waitFor( () => {
+			expect(
+				fs.readFileSync(
+					path.join( tmpDir, 'logs', `${ testProcessName }-out-${ dateTag }.log` ),
+					'utf8'
+				)
+			).toContain( 'fixture-stdout' );
+			expect(
+				fs.readFileSync(
+					path.join( tmpDir, 'logs', `${ testProcessName }-error-${ dateTag }.log` ),
+					'utf8'
+				)
+			).toContain( 'fixture-stderr' );
+		} );
 	} );
 
 	it( 'includes captured stderr in the exit event payload', async () => {

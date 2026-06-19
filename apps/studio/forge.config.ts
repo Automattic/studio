@@ -119,15 +119,9 @@ const config: ForgeConfig = {
 
 				setupExe: 'studio-setup.exe',
 
-				// Azure mode: use the custom signing hook that calls signtool
-				// with Azure Trusted Signing parameters.
-				// PFX mode: use the local certificate file and password.
-				...( windowsSign
-					? { windowsSign }
-					: {
-							certificateFile: path.join( repoRoot, 'certificate.pfx' ),
-							certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
-					  } ),
+				// Sign via the custom Azure Trusted Signing hook (signtool, SHA256-only).
+				// Undefined when SIGN_WINDOWS_BUILD isn't set (e.g. package-only jobs), leaving the build unsigned.
+				...( windowsSign ? { windowsSign } : {} ),
 			},
 			[ 'win32' ]
 		),

@@ -1,7 +1,12 @@
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { encodePassword } from '@studio/common/lib/passwords';
-import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
+import {
+	SITE_MODE_NATIVE,
+	SITE_MODE_SANDBOX,
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+} from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { readCliConfig, saveCliConfig, unlockCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -104,7 +109,27 @@ describe( 'CLI: studio site set', () => {
 	describe( 'Validation', () => {
 		it( 'should throw when no options provided', async () => {
 			await expect( runCommand( testSitePath, {} ) ).rejects.toThrow(
-				'At least one option (--name, --domain, --https, --php, --wp, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --runtime, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display) is required.'
+			);
+		} );
+
+		it( 'should throw when "all-files" file access is combined with the sandbox runtime', async () => {
+			await expect(
+				runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX, fileAccess: 'all-files' } )
+			).rejects.toThrow( 'File access "all-files" requires the native PHP runtime.' );
+
+			expect( saveCliConfig ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should throw when switching an "all-files" site to the sandbox runtime without resetting file access', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( {
+				...getTestSite(),
+				runtime: 'native-php',
+				fileAccess: 'all-files',
+			} );
+
+			await expect( runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } ) ).rejects.toThrow(
+				'File access "all-files" requires the native PHP runtime.'
 			);
 		} );
 
@@ -135,11 +160,9 @@ describe( 'CLI: studio site set', () => {
 			);
 		} );
 
-		it( 'should throw when PHP version is not supported by the native PHP runtime', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
-
+		it( 'should throw when PHP version is not supported', async () => {
 			await expect( runCommand( testSitePath, { php: '8.1' } ) ).rejects.toThrow(
-				'PHP 8.1 is not supported by the native PHP runtime. Supported versions: 8.5, 8.4, 8.3, 8.2.'
+				'PHP 8.1 is not supported. Supported versions: 8.5, 8.4, 8.3, 8.2.'
 			);
 
 			expect( saveCliConfig ).not.toHaveBeenCalled();
@@ -316,6 +339,58 @@ describe( 'CLI: studio site set', () => {
 						expect.objectContaining( { isWpAutoUpdating: false } ),
 					] ),
 				} )
+			);
+		} );
+	} );
+
+	describe( 'Runtime and file access changes', () => {
+		it( 'should update the stored runtime when it changes', async () => {
+			await runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } );
+
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( { runtime: SITE_RUNTIME_PLAYGROUND } ),
+					] ),
+				} )
+			);
+		} );
+
+		it( 'should restart a running site when the runtime changes', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( testSitePath, { runtime: SITE_MODE_SANDBOX } );
+
+			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
+			expect( startWordPressServer ).toHaveBeenCalled();
+		} );
+
+		it( 'should update file access for a native PHP site', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( {
+				...getTestSite(),
+				runtime: SITE_RUNTIME_NATIVE_PHP,
+			} );
+
+			await runCommand( testSitePath, { fileAccess: 'all-files' } );
+
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( { fileAccess: 'all-files' } ),
+					] ),
+				} )
+			);
+		} );
+
+		it( 'should report no changes when the runtime matches the current one', async () => {
+			await expect( runCommand( testSitePath, { runtime: SITE_MODE_NATIVE } ) ).rejects.toThrow(
+				'No changes to apply. The site already has the specified settings.'
+			);
+		} );
+
+		it( 'should report no changes when the file access matches the default', async () => {
+			await expect( runCommand( testSitePath, { fileAccess: 'site-directory' } ) ).rejects.toThrow(
+				'No changes to apply. The site already has the specified settings.'
 			);
 		} );
 	} );

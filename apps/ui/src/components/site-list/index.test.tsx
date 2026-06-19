@@ -55,21 +55,21 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
-const useConnectorMock = vi.mocked( useConnector );
-const useCopySiteMock = vi.mocked( useCopySite );
-const useDeleteSiteMock = vi.mocked( useDeleteSite );
-const useExportDatabaseMock = vi.mocked( useExportDatabase );
-const useExportFullSiteMock = vi.mocked( useExportFullSite );
+const useConnectorMock = vi.mocked( useConnector, { partial: true } );
+const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
+const useDeleteSiteMock = vi.mocked( useDeleteSite, { partial: true } );
+const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
+const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
 const useIsSessionRunningMock = vi.mocked( useIsSessionRunning );
 const useSessionHasPendingQuestionMock = vi.mocked( useSessionHasPendingQuestion );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
-const useSessionsMock = vi.mocked( useSessions );
-const useSitesMock = vi.mocked( useSites );
-const useStartSiteMock = vi.mocked( useStartSite );
-const useStopSiteMock = vi.mocked( useStopSite );
-const useUpdateSessionMetadataMock = vi.mocked( useUpdateSessionMetadata );
-const useUserPreferencesMock = vi.mocked( useUserPreferences );
+const useSessionsMock = vi.mocked( useSessions, { partial: true } );
+const useSitesMock = vi.mocked( useSites, { partial: true } );
+const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
+const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
+const useUpdateSessionMetadataMock = vi.mocked( useUpdateSessionMetadata, { partial: true } );
+const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 
 describe( 'SiteList', () => {
 	const startSite = vi.fn();
@@ -83,30 +83,37 @@ describe( 'SiteList', () => {
 			openSiteFolder: vi.fn(),
 			openSiteInEditor: vi.fn(),
 			openSiteInTerminal: vi.fn(),
-		} as never );
-		useCopySiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } as never );
-		useDeleteSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } as never );
-		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: vi.fn() } as never );
-		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } as never );
+		} );
+		useCopySiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
+		useDeleteSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
+		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
+		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useIsSessionRunningMock.mockReturnValue( false );
 		useSessionHasPendingQuestionMock.mockReturnValue( false );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
-		useSessionsMock.mockReturnValue( { data: [], isLoading: false } as never );
-		useStartSiteMock.mockReturnValue( { isPending: false, mutate: startSite } as never );
-		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } as never );
+		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
+		useStartSiteMock.mockReturnValue( { isPending: false, mutate: startSite } );
+		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } );
 		useUpdateSessionMetadataMock.mockReturnValue( {
 			isPending: false,
 			mutate: vi.fn(),
-		} as never );
-		useUserPreferencesMock.mockReturnValue( { data: { editor: 'zed' } } as never );
+		} );
+		useUserPreferencesMock.mockReturnValue( {
+			data: {
+				editor: 'zed',
+				terminal: 'terminal',
+				colorScheme: 'system',
+				locale: undefined,
+			},
+		} );
 		useSitesMock.mockReturnValue( {
 			data: [
 				createSite( { id: 'stopped-site', name: 'Stopped Site', running: false } ),
 				createSite( { id: 'running-site', name: 'Running Site', running: true } ),
 			],
 			isLoading: false,
-		} as never );
+		} );
 	} );
 
 	it( 'uses a play glyph for stopped site status and starts the site when clicked', () => {

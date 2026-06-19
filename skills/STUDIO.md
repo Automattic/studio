@@ -8,13 +8,20 @@ When following any WordPress skill or documentation that references `wp` command
 
 This applies to ALL `wp` commands. Studio runs WordPress through PHP WASM, and a standalone `wp` binary will NOT work. `wp shell` is NOT supported — use `studio wp eval` instead.
 
+## Prerequisites
+
+Before running any `studio` command, verify the CLI is installed by running `studio --version`. If the command is not found, **do not attempt to run any `studio` commands**. Instead, tell the user:
+
+> The Studio CLI is not installed. Open the WordPress Studio desktop app, go to **Settings → General → Studio CLI for terminal**, and enable the toggle. Then open a new terminal window and try again.
+
 ## Workflow
 
-1. **Check site status**: `studio site status` — get URL, credentials, PHP/WP versions
-2. **Ensure site is running**: `studio site start --skip-browser` if needed
-3. **Make changes**: Edit files in `wp-content/themes/` or `wp-content/plugins/`
-4. **Apply changes**: Use `studio wp` to activate themes/plugins, flush caches
-5. **Verify**: Visit the site URL or use `studio wp eval` to test
+1. **Verify CLI is available**: `studio --version` — if this fails, see Prerequisites above
+2. **Check site status**: `studio site status` — get URL, credentials, PHP/WP versions
+3. **Ensure site is running**: `studio site start --skip-browser` if needed
+4. **Make changes**: Edit files in `wp-content/themes/` or `wp-content/plugins/`
+5. **Apply changes**: Use `studio wp` to activate themes/plugins, flush caches
+6. **Verify**: Visit the site URL or use `studio wp eval` to test
 
 ## Common Workflows
 

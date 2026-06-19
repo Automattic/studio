@@ -81,75 +81,140 @@
 }
 
 .toolRow {
+	--tool-trigger-color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral-weak) 70%,
+		transparent
+	);
+	--tool-icon-color: var(--tool-trigger-color);
+
 	display: flex;
 	align-items: baseline;
-	gap: var(--wpds-dimension-padding-sm);
-	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	gap: var(--wpds-dimension-padding-xs);
+	box-sizing: border-box;
+	max-width: 100%;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.55;
+	color: var(--tool-trigger-color);
 	padding: 2px 0;
 	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.toolRowButton {
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
+
+	appearance: none;
+	align-self: flex-start;
+	max-width: 100%;
+	margin: -4px -8px;
+	padding: 4px 8px;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background: transparent;
+	font-family: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.toolRowButton:hover,
+.toolRowButton:focus-visible {
+	--tool-trigger-color: var(--wpds-color-fg-interactive-neutral-active);
+	--tool-icon-color: var(--tool-trigger-color);
+
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.toolRowButton:focus:not(:focus-visible) {
+	outline: none;
+	background-color: transparent;
+}
+
+.toolRowButton:hover:focus:not(:focus-visible) {
+	--tool-trigger-color: var(--wpds-color-fg-interactive-neutral-active);
+	--tool-icon-color: var(--tool-trigger-color);
+
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.toolRowButton:hover .toolLabel,
+.toolRowButton:hover .toolDetail,
+.toolRowButton:focus-visible .toolLabel,
+.toolRowButton:focus-visible .toolDetail {
+	color: var(--wpds-color-fg-interactive-neutral-active);
+}
+
+.toolRowButton:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline-offset: 2px;
 }
 
 .toolOutputWrap {
-	margin-left: var(--wpds-dimension-padding-md);
+	margin: 8px 0 0 -8px;
+	padding: var(--wpds-dimension-padding-lg);
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: var(--wpds-dimension-padding-xs);
+	box-sizing: border-box;
+	max-height: min(320px, 45vh);
+	overflow: auto;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
 }
 
+.toolInput,
 .toolOutput {
 	margin: 0;
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
-	border-left: 2px solid var(--wpds-color-stroke-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 1.5;
 	white-space: pre-wrap;
 	word-wrap: break-word;
-	overflow: hidden;
+	overflow: visible;
 }
 
-.toolOutputCollapsed {
-	max-height: calc(1.5em * 12);
-	mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+.toolInput {
+	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .toolOutputError {
-	border-left-color: var(--wpds-color-fg-content-error, #dc2626);
 	color: var(--wpds-color-fg-content-error, #dc2626);
 }
 
-.toolOutputToggle {
-	align-self: flex-start;
-	background: none;
-	border: none;
-	padding: 0;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
-	font: inherit;
-	font-size: var(--wpds-typography-font-size-xs);
-	cursor: pointer;
-}
-
-.toolOutputToggle:hover,
-.toolOutputToggle:focus-visible {
-	text-decoration: underline;
-}
-
 .toolLabel {
-	color: var(--wpds-color-fg-content-neutral);
-	font-weight: 600;
-	flex-shrink: 0;
+	color: var(--tool-trigger-color);
+	font-weight: 400;
+	min-width: 0;
+	flex: 0 1 auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .toolDetail {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--tool-trigger-color);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	min-width: 0;
-	flex: 1;
+	flex: 1 1 auto;
+}
+
+.toolIcon {
+	flex: 0 0 auto;
+	width: 18px;
+	height: 18px;
+	color: var(--tool-icon-color);
+	stroke: var(--tool-icon-color);
+	transform: translateY(3px);
+}
+
+.toolIcon,
+.toolIcon :where(path:not([fill='none']), rect:not([fill='none']), circle:not([fill='none']), polygon:not([fill='none'])) {
+	fill: var(--tool-icon-color);
 }
 
 .question {

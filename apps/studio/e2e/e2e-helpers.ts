@@ -48,7 +48,6 @@ export class E2ESession {
 			snapshots: [],
 			betaFeatures: {
 				studioSitesCli: true,
-				nativePhpRuntime: process.env.STUDIO_RUNTIME === 'native-php',
 			},
 		};
 

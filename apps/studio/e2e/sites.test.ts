@@ -72,7 +72,7 @@ test.describe( 'Sites', () => {
 			// Check a WordPress site has been created
 			expect( await pathExists( path.join( localPath, 'wp-config.php' ) ) ).toBe( true );
 
-			await siteContent.navigateToTab( 'Settings' );
+			await siteContent.navigateToTab( 'settings' );
 
 			await expect( siteContent.frontendButton ).toBeVisible();
 			const frontendUrl = await siteContent.frontendButton.textContent();
@@ -89,7 +89,7 @@ test.describe( 'Sites', () => {
 		const newPhpVersion = ALLOWED_PHP_VERSIONS.find( ( v ) => v !== DEFAULT_PHP_VERSION ) || '8.2';
 
 		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 
 		await settingsTab.editSiteButton.click();
 		await expect( settingsTab.editSiteDialog ).toBeVisible();
@@ -123,7 +123,7 @@ test.describe( 'Sites', () => {
 
 		const newSiteName = 'E2E-Test-Site-Renamed';
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 
 		await settingsTab.editSiteButton.click();
 		await expect( settingsTab.editSiteDialog ).toBeVisible();
@@ -143,7 +143,7 @@ test.describe( 'Sites', () => {
 		const { siteName } = await completeOnboardingWithParams();
 
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
@@ -165,7 +165,7 @@ test.describe( 'Sites', () => {
 		expect( await pathExists( path.join( localPath, 'wp-config.php' ) ) ).toBe( true );
 
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 
 		// Playwright lacks support for interacting with native dialogs, so we mock
 		// the dialog module to simulate the user clicking the "Delete site"
@@ -191,7 +191,7 @@ test.describe( 'Sites', () => {
 		const { siteName, localPath } = await completeOnboardingWithParams();
 
 		const siteContent = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 
 		// Playwright lacks support for interacting with native dialogs, so we mock
 		// the dialog module to simulate the user clicking the "Delete site"

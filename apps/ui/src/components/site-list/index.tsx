@@ -528,11 +528,15 @@ function SiteStatusButton( {
 						>
 							<svg
 								className={ styles.siteStatusGlyph }
-								viewBox="0 0 8 8"
+								viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
 								aria-hidden="true"
 								focusable="false"
 							>
-								<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+								{ status === 'stopped' ? (
+									<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
+								) : (
+									<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+								) }
 							</svg>
 							{ ! busy ? (
 								<svg

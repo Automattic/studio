@@ -87,7 +87,7 @@ export function createSecexRuntime( {
 					message: message.slice( 0, 80 ),
 				} );
 
-				const response = await fetch( runUrl, {
+				const requestInit: RequestInit = {
 					method: 'POST',
 					signal: controller.signal,
 					headers: {
@@ -99,7 +99,17 @@ export function createSecexRuntime( {
 						prompt: message,
 						session_id: resumeId,
 					} ),
-				} );
+				};
+
+				// The endpoint holds a per-user run lock; the just-ended turn's lock
+				// can linger briefly, so resuming right after answering a question may
+				// 429. Back off and retry a few times before giving up.
+				let response = await fetch( runUrl, requestInit );
+				for ( let attempt = 0; response.status === 429 && attempt < 6; attempt++ ) {
+					wdbg( 'secex', 'run busy (429) — backing off', { attempt } );
+					await new Promise( ( resolve ) => setTimeout( resolve, 3000 ) );
+					response = await fetch( runUrl, requestInit );
+				}
 
 				wdbg( 'secex', 'response', { status: response.status, ok: response.ok } );
 

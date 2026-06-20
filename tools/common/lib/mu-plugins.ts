@@ -292,17 +292,17 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			return 300; // 5 minutes - matches WordPress core, low-speed timeout catches stalls
 		} );
 
-		add_action('http_api_curl', function($curl, $url, $options) {
-			// Abort if connection can't be established within 30 seconds
+		add_action('http_api_curl', function( $curl, $r, $url ) {
 			curl_setopt( $curl, CURLOPT_CONNECTTIMEOUT, 30 );
 
-			// Abort if speed stays below 1KB/s for 120 consecutive seconds.
-			// The 120s window accommodates long time-to-first-byte on AI API requests
-			// (flagship LLMs commonly take 30-90s to emit the first token on long prompts)
-			// while still catching truly stalled connections. The 300s outer cap above
-			// remains the ultimate ceiling for any single request.
-			curl_setopt( $curl, CURLOPT_LOW_SPEED_LIMIT, 1024 ); // 1KB/s minimum
-			curl_setopt( $curl, CURLOPT_LOW_SPEED_TIME, 120 );   // Must stay above limit for 120s
+			$default_timeout   = 300; // matches the http_request_timeout filter above
+			$requested_timeout = isset( $r['timeout'] ) ? (int) $r['timeout'] : 0;
+			$low_speed_time     = ( $requested_timeout > 120 && $requested_timeout !== $default_timeout )
+				? min( $requested_timeout, 280 )
+				: 120;
+
+			curl_setopt( $curl, CURLOPT_LOW_SPEED_LIMIT, 1024 );
+			curl_setopt( $curl, CURLOPT_LOW_SPEED_TIME, $low_speed_time );
 			return $curl;
 		}, 1, 3);
 		`,

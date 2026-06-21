@@ -273,7 +273,7 @@ async function cacheSandboxSession( webSessionId: string, jsonl: string ): Promi
 
 	// Resolve the local file the browser's session id maps to (created up front
 	// by createAiSession). If it's gone, there's nothing to cache into.
-	const { summary } = await loadAiSession( root, webSessionId );
+	const { summary, entries: cached } = await loadAiSession( root, webSessionId );
 
 	const lines = jsonl.split( '\n' ).filter( ( line ) => line.trim() );
 	if ( 0 === lines.length ) {
@@ -296,6 +296,16 @@ async function cacheSandboxSession( webSessionId: string, jsonl: string ): Promi
 			header.id = webSessionId;
 			break;
 		}
+	}
+
+	// Never let a lagging run-boundary snapshot shrink the cached conversation —
+	// overwriting with fewer entries makes the UI jump back to an earlier state.
+	if ( Array.isArray( cached ) && entries.length < cached.length ) {
+		wdbg( 'secex', 'skip stale session snapshot', {
+			incoming: entries.length,
+			cached: cached.length,
+		} );
+		return;
 	}
 
 	const out = entries.map( ( entry ) => JSON.stringify( entry ) ).join( '\n' ) + '\n';

@@ -31,7 +31,17 @@ export function SidebarHeader( { onToggleSidebar }: Props ) {
 						}
 					/>
 					<Menu.Popup side="bottom" align="end" className={ styles.popup }>
-						<Menu.Item>
+						<Menu.Item
+							onClick={ () =>
+								void navigate( {
+									to: '.',
+									search: ( prev: Record< string, unknown > ) => ( {
+									...prev,
+									newChat: Date.now(),
+								} ),
+								} )
+							}
+						>
 							<Icon icon={ comment } />
 							<span>{ __( 'New chat' ) }</span>
 						</Menu.Item>

@@ -389,20 +389,19 @@ async function resolveSandboxSitePath( sessionId: string ): Promise< string | un
 		return undefined;
 	}
 	const { entries } = await loadAiSession( root, sessionId );
-	// Prefer the structured entry; fall back to any sandbox site path left in the
-	// transcript.
-	const resolved =
-		resolveActiveSiteFromEntries( entries )?.path ??
-		JSON.stringify( entries )
-			.match( /\/home\/user\/Studio\/[A-Za-z0-9._-]+/g )
-			?.at( -1 );
+	// Only the structured `studio.site_selected` is authoritative — scanning the
+	// transcript for any `/home/user/Studio/...` path would wrongly latch onto
+	// sites mentioned in tool output (e.g. a `site list`) that the agent isn't
+	// working on.
+	const resolved = resolveActiveSiteFromEntries( entries )?.path;
 	if ( resolved ) {
 		// Always prefer the latest active site — the agent can switch sites within
 		// a session, so a fresh `studio.site_selected` wins over what we cached.
 		sandboxSitePaths.set( sessionId, resolved );
 		return resolved;
 	}
-	// A re-cache can drop the structured entry; fall back to the last one we saw.
+	// The entry can be momentarily absent mid-stream; fall back to the last site
+	// we resolved for this session (kept warm in memory by the daemon).
 	return sandboxSitePaths.get( sessionId );
 }
 

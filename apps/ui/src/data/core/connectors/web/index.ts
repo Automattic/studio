@@ -104,7 +104,10 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 	// lights up the same site-preview widget the desktop uses — so the live
 	// preview needs no Studio-Web-specific UI, just this trigger.
 	async function maybeServePreview( event: AgentRunEvent ): Promise< void > {
-		if ( event.event.type !== 'run.exited' || event.event.status !== 'success' ) {
+		// Refresh on any run end, not just success: a build that erred or timed out
+		// partway (e.g. a long site build) may still have produced a usable site, so
+		// it's worth attempting to render what's there.
+		if ( event.event.type !== 'run.exited' ) {
 			return;
 		}
 		const servePreview = async () => {

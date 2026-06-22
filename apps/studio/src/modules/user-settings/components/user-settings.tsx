@@ -9,10 +9,12 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
+import { DevelopmentTab } from 'src/modules/user-settings/components/development-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
 import { SkillsTab } from 'src/modules/user-settings/components/skills-tab';
 import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
 import { useRootSelector } from 'src/stores';
+import { useGetPluginDevelopmentEnabledQuery } from 'src/stores/installed-apps-api';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
 import { useDeleteAllSnapshots, useGetSnapshotUsage } from 'src/stores/wpcom-api';
 
@@ -25,6 +27,8 @@ export default function UserSettings() {
 	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
 	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useGetSnapshotUsage();
 	const definitiveSnapshotCount = snapshotUsage?.siteCount ?? snapshotsByUser?.length ?? 0;
+	const { data: pluginDevelopmentEnabled } = useGetPluginDevelopmentEnabledQuery();
+	const showWordPressOrgAccount = pluginDevelopmentEnabled ?? false;
 
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 	const [ selectedTabName, setSelectedTabName ] = useState< string | undefined >();
@@ -81,7 +85,7 @@ export default function UserSettings() {
 
 		result.push( {
 			name: 'account',
-			title: __( 'Account' ),
+			title: showWordPressOrgAccount ? __( 'Accounts' ) : __( 'Account' ),
 		} );
 
 		result.push( {
@@ -94,8 +98,13 @@ export default function UserSettings() {
 			title: __( 'MCP' ),
 		} );
 
+		result.push( {
+			name: 'development',
+			title: __( 'Development' ),
+		} );
+
 		return result;
-	}, [ __ ] );
+	}, [ __, showWordPressOrgAccount ] );
 
 	return (
 		<>
@@ -119,6 +128,7 @@ export default function UserSettings() {
 						{ ( { name } ) => (
 							<div className="mt-6 px-8 pb-8 flex gap-4 flex-col">
 								{ name === 'general' && <PreferencesTab onClose={ resetLocalState } /> }
+								{ name === 'development' && <DevelopmentTab /> }
 								{ name === 'skills' && <SkillsTab /> }
 								{ name === 'mcp' && <McpSettings /> }
 								{ name === 'account' && (
@@ -129,6 +139,7 @@ export default function UserSettings() {
 										isOffline={ isOffline }
 										snapshotQuota={ snapshotQuota }
 										onRemoveSnapshots={ onRemoveSnapshots }
+										showWordPressOrgAccount={ showWordPressOrgAccount }
 									/>
 								) }
 							</div>

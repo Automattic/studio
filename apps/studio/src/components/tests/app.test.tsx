@@ -14,6 +14,7 @@ import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
+import type { DevelopmentProject, RemoteDevelopmentPlugin } from '@studio/common/types/publishing';
 
 vi.mock( 'src/index.css', () => ( {} ) );
 vi.mock( 'src/components/dot-grid', () => ( {
@@ -28,6 +29,39 @@ vi.mock( 'src/stores/onboarding-slice', async () => {
 } );
 vi.mock( 'src/modules/onboarding/hooks/use-onboarding' );
 vi.mock( 'src/hooks/use-site-details' );
+
+const mockDevelopmentProjects = vi.hoisted( () => ( {
+	projects: [] as DevelopmentProject[],
+	remotePlugins: [] as RemoteDevelopmentPlugin[],
+	loadingProjects: false,
+	loadingRemotePlugins: false,
+	isPluginDevelopmentEnabled: false,
+	loadingPluginDevelopmentEnabled: false,
+	selectedProject: null,
+	selectedProjectId: null,
+	selectedRemotePlugin: null,
+	selectedRemotePluginSlug: null,
+	remotePluginsError: null,
+	remotePluginsUsername: null,
+	cloningRemotePluginSlug: null,
+	startingPlaygroundProjectId: null,
+	selectProject: vi.fn(),
+	selectRemotePlugin: vi.fn(),
+	reloadProjects: vi.fn(),
+	reloadRemotePlugins: vi.fn(),
+	addProject: vi.fn(),
+	removeProject: vi.fn(),
+	refreshProject: vi.fn(),
+	cloneRemotePlugin: vi.fn(),
+	getProjectVersionState: vi.fn(),
+	bumpProjectVersion: vi.fn(),
+	startProjectPlayground: vi.fn(),
+} ) );
+
+vi.mock( 'src/modules/plugin-development/hooks/use-development-projects', () => ( {
+	useDevelopmentProjects: () => mockDevelopmentProjects,
+} ) );
+
 vi.mock( 'src/modules/whats-new/hooks/use-whats-new', () => ( {
 	useWhatsNew: () => ( {
 		showWhatsNew: false,
@@ -94,6 +128,28 @@ vi.mock( 'src/stores/wpcom-api', async () => {
 describe( 'App', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		Object.defineProperty( globalThis, 'localStorage', {
+			value: {
+				getItem: vi.fn().mockReturnValue( null ),
+				setItem: vi.fn(),
+				removeItem: vi.fn(),
+			},
+			configurable: true,
+		} );
+		mockDevelopmentProjects.projects = [];
+		mockDevelopmentProjects.remotePlugins = [];
+		mockDevelopmentProjects.loadingProjects = false;
+		mockDevelopmentProjects.loadingRemotePlugins = false;
+		mockDevelopmentProjects.isPluginDevelopmentEnabled = false;
+		mockDevelopmentProjects.loadingPluginDevelopmentEnabled = false;
+		mockDevelopmentProjects.selectedProject = null;
+		mockDevelopmentProjects.selectedProjectId = null;
+		mockDevelopmentProjects.selectedRemotePlugin = null;
+		mockDevelopmentProjects.selectedRemotePluginSlug = null;
+		mockDevelopmentProjects.remotePluginsError = null;
+		mockDevelopmentProjects.remotePluginsUsername = null;
+		mockDevelopmentProjects.cloningRemotePluginSlug = null;
+		mockDevelopmentProjects.startingPlaygroundProjectId = null;
 	} );
 
 	const renderWithProvider = ( component: React.ReactElement ) => {

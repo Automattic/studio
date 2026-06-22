@@ -8,6 +8,11 @@ import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from './execute-command';
 import type { Blueprint } from '@wp-playground/blueprints';
 
+export interface PlaygroundMount {
+	hostPath: string;
+	vfsPath: string;
+}
+
 const cliEventSchema = z.discriminatedUnion( 'action', [
 	z.object( {
 		action: z.enum( SiteCommandLoggerAction ),
@@ -41,6 +46,8 @@ export interface CreateSiteOptions {
 	adminPassword?: string;
 	adminEmail?: string;
 	noStart?: boolean;
+	mounts?: PlaygroundMount[];
+	autoStart?: boolean;
 }
 
 export async function createSiteViaCli( options: CreateSiteOptions ): Promise< CreateSiteResult > {
@@ -160,6 +167,14 @@ function buildCliArgs( options: CreateSiteOptions ): string[] {
 
 	if ( options.noStart ) {
 		args.push( '--no-start' );
+	}
+
+	if ( options.mounts && options.mounts.length > 0 ) {
+		args.push( '--mounts-json', JSON.stringify( options.mounts ) );
+	}
+
+	if ( options.autoStart === false ) {
+		args.push( '--no-auto-start' );
 	}
 
 	return args;

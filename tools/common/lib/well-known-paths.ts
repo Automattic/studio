@@ -1,6 +1,11 @@
 import os from 'os';
 import path from 'path';
-import { APP_CONFIG_LOCKFILE_NAME, REMOTE_SESSION_STATE_LOCKFILE_NAME } from '../constants';
+import {
+	APP_CONFIG_LOCKFILE_NAME,
+	PUBLISHING_CONFIG_LOCKFILE_NAME,
+	REMOTE_SESSION_STATE_LOCKFILE_NAME,
+	WORDPRESS_ORG_STORAGE_STATE_LOCKFILE_NAME,
+} from '../constants';
 
 export function getConfigDirectory(): string {
 	if ( process.env.DEV_CONFIG_DIR ) {
@@ -29,6 +34,30 @@ export function getCliConfigPath(): string {
 		return path.join( process.env.E2E_CLI_CONFIG_PATH, 'cli.json' );
 	}
 	return path.join( getConfigDirectory(), 'cli.json' );
+}
+
+export function getPublishingConfigPath(): string {
+	return path.join( getConfigDirectory(), 'publishing.json' );
+}
+
+export function getPublishingConfigLockFilePath(): string {
+	return path.join( getConfigDirectory(), PUBLISHING_CONFIG_LOCKFILE_NAME );
+}
+
+export function getDevelopmentProjectsDirectory(): string {
+	return path.join( os.homedir(), 'Studio', 'Plugins' );
+}
+
+export function getDevelopmentPlaygroundSitesDirectory(): string {
+	return path.join( os.homedir(), 'Studio', 'Plugin Playgrounds' );
+}
+
+export function getWordPressOrgStorageStatePath(): string {
+	return path.join( getConfigDirectory(), 'wordpress-org-storage.json' );
+}
+
+export function getWordPressOrgStorageStateLockFilePath(): string {
+	return path.join( getConfigDirectory(), WORDPRESS_ORG_STORAGE_STATE_LOCKFILE_NAME );
 }
 
 export function getCertificatesPath(): string {

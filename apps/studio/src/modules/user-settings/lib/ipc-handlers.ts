@@ -15,6 +15,12 @@ import {
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
+import {
+	clearWordPressOrgLogin,
+	getSavedWordPressOrgAccount,
+	startWordPressOrgLogin,
+} from './wordpress-org-auth';
+import type { WordPressOrgAccount } from '@studio/common/types/publishing';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
 	return {
@@ -60,6 +66,38 @@ export async function saveUserEditor( event: IpcMainInvokeEvent, editor: Support
 export async function getDefaultSiteDirectory(): Promise< string > {
 	const userData = await loadUserData();
 	return userData.defaultSiteDirectory || defaultSitePath;
+}
+
+export async function getPluginDevelopmentEnabled(): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.pluginDevelopmentEnabled ?? false;
+}
+
+export async function savePluginDevelopmentEnabled(
+	event: IpcMainInvokeEvent,
+	pluginDevelopmentEnabled: boolean
+): Promise< void > {
+	await sendIpcEventToRenderer( 'user-preference-changed' );
+	await updateAppdata( { pluginDevelopmentEnabled } );
+}
+
+export async function getWordPressOrgAccount(
+	_event: IpcMainInvokeEvent
+): Promise< WordPressOrgAccount | undefined > {
+	return getSavedWordPressOrgAccount();
+}
+
+export async function loginToWordPressOrg(
+	event: IpcMainInvokeEvent
+): Promise< WordPressOrgAccount > {
+	const account = await startWordPressOrgLogin( event );
+	await sendIpcEventToRenderer( 'user-preference-changed' );
+	return account;
+}
+
+export async function logoutFromWordPressOrg( _event: IpcMainInvokeEvent ): Promise< void > {
+	await clearWordPressOrgLogin();
+	await sendIpcEventToRenderer( 'user-preference-changed' );
 }
 
 export async function saveDefaultSiteDirectory( event: IpcMainInvokeEvent, directory: string ) {

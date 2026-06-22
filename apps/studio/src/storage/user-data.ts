@@ -73,6 +73,7 @@ type UserDataSafeKeys =
 	| 'betaFeatures'
 	| 'colorScheme'
 	| 'defaultSiteDirectory'
+	| 'pluginDevelopmentEnabled'
 	| 'cliAutoInstalled'
 	| 'cliUserUninstalled'
 	| 'wapuuScore'

@@ -79,6 +79,12 @@ const api: IpcApi = {
 	getDefaultSiteDirectory: () => ipcRendererInvoke( 'getDefaultSiteDirectory' ),
 	saveDefaultSiteDirectory: ( directory ) =>
 		ipcRendererInvoke( 'saveDefaultSiteDirectory', directory ),
+	getPluginDevelopmentEnabled: () => ipcRendererInvoke( 'getPluginDevelopmentEnabled' ),
+	savePluginDevelopmentEnabled: ( enabled ) =>
+		ipcRendererInvoke( 'savePluginDevelopmentEnabled', enabled ),
+	getWordPressOrgAccount: () => ipcRendererInvoke( 'getWordPressOrgAccount' ),
+	loginToWordPressOrg: () => ipcRendererInvoke( 'loginToWordPressOrg' ),
+	logoutFromWordPressOrg: () => ipcRendererInvoke( 'logoutFromWordPressOrg' ),
 	showUserSettings: ( tabName ) => ipcRendererInvoke( 'showUserSettings', tabName ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
@@ -226,6 +232,22 @@ const api: IpcApi = {
 	saveSiteDeskConfig: ( siteId, config ) =>
 		ipcRendererInvoke( 'saveSiteDeskConfig', siteId, config ),
 	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
+	listDevelopmentProjects: () => ipcRendererInvoke( 'listDevelopmentProjects' ),
+	listRemoteDevelopmentPlugins: () => ipcRendererInvoke( 'listRemoteDevelopmentPlugins' ),
+	addDevelopmentProject: ( projectPath ) =>
+		ipcRendererInvoke( 'addDevelopmentProject', projectPath ),
+	removeDevelopmentProject: ( projectId ) =>
+		ipcRendererInvoke( 'removeDevelopmentProject', projectId ),
+	refreshDevelopmentProject: ( projectId ) =>
+		ipcRendererInvoke( 'refreshDevelopmentProject', projectId ),
+	cloneRemoteDevelopmentPlugin: ( slug ) =>
+		ipcRendererInvoke( 'cloneRemoteDevelopmentPlugin', slug ),
+	getDevelopmentProjectVersionState: ( projectId ) =>
+		ipcRendererInvoke( 'getDevelopmentProjectVersionState', projectId ),
+	bumpDevelopmentProjectVersion: ( projectId, bump ) =>
+		ipcRendererInvoke( 'bumpDevelopmentProjectVersion', projectId, bump ),
+	startDevelopmentProjectPlayground: ( projectId, options ) =>
+		ipcRendererInvoke( 'startDevelopmentProjectPlayground', projectId, options ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

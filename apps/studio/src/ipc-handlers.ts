@@ -217,12 +217,17 @@ export {
 export {
 	getColorScheme,
 	getInstalledAppsAndTerminals,
+	getPluginDevelopmentEnabled,
+	getWordPressOrgAccount,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
 	getWapuuScore,
+	loginToWordPressOrg,
+	logoutFromWordPressOrg,
 	previewColorScheme,
 	saveColorScheme,
+	savePluginDevelopmentEnabled,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -244,6 +249,18 @@ export {
 	saveUserDeskConfig,
 } from 'src/modules/desks/lib/ipc-handlers';
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
+
+export {
+	addDevelopmentProject,
+	bumpDevelopmentProjectVersion,
+	cloneRemoteDevelopmentPlugin,
+	getDevelopmentProjectVersionState,
+	listDevelopmentProjects,
+	listRemoteDevelopmentPlugins,
+	refreshDevelopmentProject,
+	removeDevelopmentProject,
+	startDevelopmentProjectPlayground,
+} from 'src/modules/plugin-development/lib/ipc-handlers';
 
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
@@ -806,6 +823,8 @@ export async function createSite(
 		adminPassword?: string;
 		adminEmail?: string;
 		noStart?: boolean;
+		mounts?: Parameters< typeof SiteServer.create >[ 0 ][ 'mounts' ];
+		autoStart?: Parameters< typeof SiteServer.create >[ 0 ][ 'autoStart' ];
 	} = {}
 ): Promise< SiteDetails > {
 	const {
@@ -820,6 +839,8 @@ export async function createSite(
 		adminPassword,
 		adminEmail,
 		noStart = false,
+		mounts,
+		autoStart,
 	} = config;
 
 	const siteId = providedSiteId || crypto.randomUUID();
@@ -853,6 +874,8 @@ export async function createSite(
 				adminPassword,
 				adminEmail,
 				noStart,
+				mounts,
+				autoStart,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);

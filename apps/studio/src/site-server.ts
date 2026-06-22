@@ -221,13 +221,18 @@ export class SiteServer {
 		}
 	}
 
-	async start() {
+	async start(
+		options: {
+			mounts?: CreateSiteOptions[ 'mounts' ];
+			autoStart?: CreateSiteOptions[ 'autoStart' ];
+		} = {}
+	) {
 		if ( this.details.running ) {
 			return;
 		}
 
 		console.log( `Starting server for '${ this.details.name }'` );
-		await this.server.start();
+		await this.server.start( options );
 	}
 
 	updateSiteDetails( site: SiteDetails ) {

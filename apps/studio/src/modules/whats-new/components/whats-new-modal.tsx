@@ -59,9 +59,9 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const whatsNewPages: WhatsNewPage[] = [
 		{
 			image: nativePhpIllustration,
-			title: __( 'Run your sites with native PHP' ),
+			title: __( 'Faster local sites with native PHP' ),
 			description: __(
-				'Studio now runs your sites on native PHP by default for the best performance. Switch any site between the Native and Sandbox runtimes in its settings.'
+				'Studio now uses native PHP by default, running WordPress directly on your machine for better performance. You can switch between Native and Sandbox runtimes in your site settings.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsPhpRuntimes' ),
 		},

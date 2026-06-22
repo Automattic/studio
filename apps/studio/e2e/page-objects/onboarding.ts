@@ -1,5 +1,6 @@
 import { type Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import { type SiteRuntime } from '@studio/common/lib/site-runtime';
 import AddSiteModal from './add-site-modal';
 import WhatsNewModal from './whats-new-modal';
 
@@ -14,8 +15,12 @@ export default class Onboarding {
 		return this.locator.getByTestId( 'onboarding-welcome-title' );
 	}
 
-	async completeOnboarding( options?: { customSiteName?: string; customFolderName?: string } ) {
-		const { customSiteName, customFolderName } = options ?? {};
+	async completeOnboarding( options?: {
+		customSiteName?: string;
+		customFolderName?: string;
+		runtime?: SiteRuntime;
+	} ) {
+		const { customSiteName, customFolderName, runtime } = options ?? {};
 
 		await expect( this.heading ).toBeVisible();
 		await this.locator.getByRole( 'button', { name: 'Skip' } ).click();
@@ -38,6 +43,10 @@ export default class Onboarding {
 			await modal.selectLocalPathForTesting( customFolderName );
 		}
 		const localPath = await modal.localPathInput.inputValue();
+
+		if ( runtime ) {
+			await modal.selectRuntime( runtime );
+		}
 
 		await modal.continueButton.click();
 

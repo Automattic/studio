@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import {
-	getInitialPreviewLayout,
+	getInitialPreviewContentWidth,
 	getPreviewSplitLayout,
-	getViewportWidth,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
+	PREVIEW_PANEL_DEFAULT_WIDTH,
 	PREVIEW_PANEL_MIN_WIDTH,
-	PREVIEW_PANEL_STORAGE_KEY,
-	removeStoredResizablePanelWidth,
 	storeResizablePanelWidth,
 } from '@/lib/resizable-panels';
 import type { KeyboardEvent, MouseEventHandler, RefObject } from 'react';
@@ -28,7 +26,7 @@ interface PreviewSplitHandleProps {
 interface UsePreviewSplitResult {
 	rootRef: RefObject< HTMLDivElement | null >;
 	// The value for the --preview-frame-content-width CSS var: a px width once
-	// measured, or a `calc(100% - <legacy>px)` fallback that reserves preview
+	// measured, or a `calc(100% - <default>px)` fallback that reserves preview
 	// space before the first measurement.
 	contentWidthVar: string;
 	isResizing: boolean;
@@ -39,25 +37,22 @@ interface UsePreviewSplitResult {
 // both the rendered content width and the resize handle's reported bounds, so
 // CSS never re-clamps. Keeps two state atoms — the user's preferred content
 // width (persisted) and the measured container width — and derives everything
-// else. Also owns the legacy preview-width -> content-width migration.
+// else.
 export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UsePreviewSplitResult {
 	const rootRef = useRef< HTMLDivElement >( null );
-	const [ initialLayout ] = useState( () => getInitialPreviewLayout( getViewportWidth() ) );
-	const legacyPreviewWidth = initialLayout.legacyPreviewWidth;
 
 	// `preferredContentWidth` is the user's intent (persisted); the displayed
 	// width is always re-derived from it against the current container, never
 	// stored back. Recomputing from a previously-clamped displayed value would
 	// lose the intent on shrink-then-grow.
 	const [ preferredContentWidth, setPreferredContentWidth ] = useState< number | null >(
-		initialLayout.contentWidth
+		getInitialPreviewContentWidth
 	);
 	const [ containerWidth, setContainerWidth ] = useState< number | null >( null );
 	// Mirrors preferredContentWidth so event handlers read the latest value
 	// without re-subscribing. setPreferred is the only writer of the state, and
 	// it updates this ref in lockstep, so the two never drift.
 	const preferredRef = useRef( preferredContentWidth );
-	const hasLegacyPreviewWidthRef = useRef( initialLayout.hasLegacyPreviewWidth );
 
 	const measureRootWidth = useCallback( () => {
 		const width = rootRef.current?.getBoundingClientRect().width;
@@ -75,40 +70,27 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		setPreferredContentWidth( rounded );
 	}, [] );
 
-	const clearLegacyPreviewWidth = useCallback( () => {
-		if ( ! hasLegacyPreviewWidthRef.current ) {
-			return;
-		}
-		hasLegacyPreviewWidthRef.current = false;
-		removeStoredResizablePanelWidth( PREVIEW_PANEL_STORAGE_KEY );
-	}, [] );
-
 	const persistContentWidth = useCallback(
 		( next: number ) => {
 			setPreferred( next );
 			storeResizablePanelWidth( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, Math.round( next ) );
-			clearLegacyPreviewWidth();
 		},
-		[ clearLegacyPreviewWidth, setPreferred ]
+		[ setPreferred ]
 	);
 
-	// First open: convert the legacy preview width into a content width against
-	// the real container, then persist + drop the legacy key. This is also the
-	// only place the migration runs, so the legacy key survives while closed.
 	const ensurePreferred = useCallback(
 		( container: number ) => {
 			if ( preferredRef.current !== null ) {
 				return preferredRef.current;
 			}
-			const next = getPreviewSplitLayout( container, container - legacyPreviewWidth ).contentWidth;
+			const next = getPreviewSplitLayout(
+				container,
+				container - PREVIEW_PANEL_DEFAULT_WIDTH
+			).contentWidth;
 			setPreferred( next );
-			if ( hasLegacyPreviewWidthRef.current ) {
-				storeResizablePanelWidth( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, next );
-				clearLegacyPreviewWidth();
-			}
 			return next;
 		},
-		[ clearLegacyPreviewWidth, legacyPreviewWidth, setPreferred ]
+		[ setPreferred ]
 	);
 
 	// Measure synchronously on open so the clamped px var is present before
@@ -170,14 +152,6 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		}
 	}, [ cancel, showPreview ] );
 
-	// Once a content width exists (already-stored on mount, or just set), the
-	// legacy preview-width key is stale — drop it.
-	useEffect( () => {
-		if ( preferredContentWidth !== null ) {
-			clearLegacyPreviewWidth();
-		}
-	}, [ clearLegacyPreviewWidth, preferredContentWidth ] );
-
 	const handleKeyDown = useCallback(
 		( event: KeyboardEvent< HTMLElement > ) => {
 			if (
@@ -215,14 +189,14 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 				? null
 				: getPreviewSplitLayout(
 						containerWidth,
-						preferredContentWidth ?? containerWidth - legacyPreviewWidth
+						preferredContentWidth ?? containerWidth - PREVIEW_PANEL_DEFAULT_WIDTH
 				  ),
-		[ containerWidth, legacyPreviewWidth, preferredContentWidth ]
+		[ containerWidth, preferredContentWidth ]
 	);
 
 	const contentWidthVar =
 		layout === null || preferredContentWidth === null
-			? `calc(100% - ${ legacyPreviewWidth }px)`
+			? `calc(100% - ${ PREVIEW_PANEL_DEFAULT_WIDTH }px)`
 			: `${ layout.contentWidth }px`;
 
 	return {
@@ -231,8 +205,8 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 		isResizing: isDragging,
 		handleProps: {
 			minWidth: layout?.previewMinWidth ?? PREVIEW_PANEL_MIN_WIDTH,
-			maxWidth: layout?.previewMaxWidth ?? legacyPreviewWidth,
-			width: layout?.previewWidth ?? legacyPreviewWidth,
+			maxWidth: layout?.previewMaxWidth ?? PREVIEW_PANEL_DEFAULT_WIDTH,
+			width: layout?.previewWidth ?? PREVIEW_PANEL_DEFAULT_WIDTH,
 			isResizing: isDragging,
 			onResizeStart: onMouseDown,
 			onKeyDown: handleKeyDown,

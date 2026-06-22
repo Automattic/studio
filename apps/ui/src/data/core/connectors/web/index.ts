@@ -1,4 +1,3 @@
-import { createDefaultDeskSettings } from '@studio/common/lib/desk-settings';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import type {
 	ActiveAgentRun,
@@ -6,8 +5,6 @@ import type {
 	AiSessionSummary,
 	AuthUser,
 	Connector,
-	DeskConfig,
-	DeskSettings,
 	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
@@ -326,32 +323,6 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		},
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;
-		},
-
-		// Desks — defaults so both UI modes mount cleanly.
-		async getDeskSettings(): Promise< DeskSettings > {
-			return createDefaultDeskSettings();
-		},
-		async saveDeskSettings() {
-			// No-op: desk settings aren't persisted in the browser yet.
-		},
-		async exportDeskConfig(): Promise< string | null > {
-			return null;
-		},
-		async importDeskConfig(): Promise< DeskConfig | null > {
-			return null;
-		},
-		async getUserDeskConfig(): Promise< DeskConfig | undefined > {
-			return undefined;
-		},
-		async saveUserDeskConfig() {
-			// No-op: desk settings aren't persisted in the browser yet.
-		},
-		async getSiteDeskConfig(): Promise< DeskConfig | undefined > {
-			return undefined;
-		},
-		async saveSiteDeskConfig() {
-			// No-op: desk settings aren't persisted in the browser yet.
 		},
 
 		async fetchSiteRest() {

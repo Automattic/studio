@@ -34,5 +34,13 @@ test.describe( 'Sandbox runtime', () => {
 		// The Settings tab reports the site as running on the Sandbox runtime.
 		const settingsTab = await siteContent.navigateToTab( 'Settings' );
 		await expect( settingsTab.phpRuntimeDisplay ).toContainText( 'Sandbox' );
+
+		// The Sandbox site actually serves its home page over HTTP.
+		await expect( siteContent.frontendButton ).toBeVisible();
+		const frontendUrl = await siteContent.frontendButton.textContent();
+		expect( frontendUrl ).not.toBeNull();
+		const response = await fetch( `http://${ frontendUrl }` );
+		expect( [ 200, 302 ] ).toContain( response.status );
+		expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
 	} );
 } );

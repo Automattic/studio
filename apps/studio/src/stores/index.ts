@@ -1,7 +1,6 @@
 import { combineReducers, configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { setupListeners } from '@reduxjs/toolkit/query';
 import { useDispatch, useSelector } from 'react-redux';
-import { LOCAL_STORAGE_CHAT_API_IDS_KEY, LOCAL_STORAGE_CHAT_MESSAGES_KEY } from 'src/constants';
 import { generateStateId } from 'src/hooks/sync-sites/use-pull-push-states';
 import {
 	PullStateProgressInfo,
@@ -9,9 +8,9 @@ import {
 } from 'src/hooks/use-sync-states-progress-info';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { appVersionApi } from 'src/stores/app-version-api';
+import { userLoggedOut } from 'src/stores/auth-actions';
 import { betaFeaturesReducer, loadBetaFeatures } from 'src/stores/beta-features-slice';
 import { certificateTrustApi } from 'src/stores/certificate-trust-api';
-import { reducer as chatReducer } from 'src/stores/chat-slice';
 import i18nReducer from 'src/stores/i18n-slice';
 import { installedAppsApi } from 'src/stores/installed-apps-api';
 import onboardingReducer from 'src/stores/onboarding-slice';
@@ -23,20 +22,21 @@ import {
 import { syncReducer, syncOperationsActions } from 'src/stores/sync';
 import { connectedSitesApi, connectedSitesReducer } from 'src/stores/sync/connected-sites';
 import {
+	abortAllSyncOperations,
+	stopPullPoller,
+	stopPushPoller,
 	syncOperationsReducer,
-	syncOperationsSelectors,
 	syncOperationsThunks,
 } from 'src/stores/sync/sync-operations-slice';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import uiReducer from 'src/stores/ui-slice';
-import { getWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
+import { setWpcomClient, wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import { wordpressVersionsApi } from './wordpress-versions-api';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 
 export type RootState = {
 	appVersionApi: ReturnType< typeof appVersionApi.reducer >;
 	betaFeatures: ReturnType< typeof betaFeaturesReducer >;
-	chat: ReturnType< typeof chatReducer >;
 	installedAppsApi: ReturnType< typeof installedAppsApi.reducer >;
 	onboarding: ReturnType< typeof onboardingReducer >;
 	snapshot: ReturnType< typeof snapshotReducer >;
@@ -55,34 +55,6 @@ export type RootState = {
 
 const listenerMiddleware = createListenerMiddleware();
 const startAppListening = listenerMiddleware.startListening.withTypes< RootState, AppDispatch >();
-
-// Save chat messages to local storage
-startAppListening( {
-	predicate( action, currentState, previousState ) {
-		return currentState.chat.messagesDict !== previousState.chat.messagesDict;
-	},
-	effect( action, listenerApi ) {
-		const state = listenerApi.getState();
-		localStorage.setItem(
-			LOCAL_STORAGE_CHAT_MESSAGES_KEY,
-			JSON.stringify( state.chat.messagesDict )
-		);
-	},
-} );
-
-// Save chat API IDs to local storage
-startAppListening( {
-	predicate( action, currentState, previousState ) {
-		return currentState.chat.chatApiIdDict !== previousState.chat.chatApiIdDict;
-	},
-	effect( action, listenerApi ) {
-		const state = listenerApi.getState();
-		localStorage.setItem(
-			LOCAL_STORAGE_CHAT_API_IDS_KEY,
-			JSON.stringify( state.chat.chatApiIdDict )
-		);
-	},
-} );
 
 // Save snapshot changes to CLI config via preview set command
 startAppListening( {
@@ -183,148 +155,25 @@ startAppListening( {
 	},
 } );
 
-const PUSH_POLLING_KEYS = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
-const SYNC_POLLING_INTERVAL = 3000;
-
-const PUSH_POLLERS = new Map< string, AbortController >();
-const PULL_POLLERS = new Map< string, AbortController >();
-
-function isPushPollable( selectedSiteId: string, remoteSiteId: number ) {
-	const pushState = syncOperationsSelectors.selectPushState(
-		selectedSiteId,
-		remoteSiteId
-	)( store.getState() );
-	return pushState && PUSH_POLLING_KEYS.includes( pushState.status.key );
-}
-
-function isPullPollable( selectedSiteId: string, remoteSiteId: number ) {
-	const pullState = syncOperationsSelectors.selectPullState(
-		selectedSiteId,
-		remoteSiteId
-	)( store.getState() );
-	return pullState?.status.key === 'in-progress' && !! pullState.backupId;
-}
-
-function stopPushPoller( stateId: string ) {
-	PUSH_POLLERS.get( stateId )?.abort();
-	PUSH_POLLERS.delete( stateId );
-}
-
-function stopPullPoller( stateId: string ) {
-	PULL_POLLERS.get( stateId )?.abort();
-	PULL_POLLERS.delete( stateId );
-}
-
-async function startPushPoller( selectedSiteId: string, remoteSiteId: number ) {
-	const stateId = generateStateId( selectedSiteId, remoteSiteId );
-	if ( PUSH_POLLERS.has( stateId ) ) {
-		return;
-	}
-
-	const controller = new AbortController();
-	PUSH_POLLERS.set( stateId, controller );
-
-	try {
-		while ( ! controller.signal.aborted ) {
-			const client = getWpcomClient();
-			if ( ! client ) {
-				break;
-			}
-
-			await store.dispatch(
-				syncOperationsThunks.pollPushProgress( {
-					client,
-					signal: controller.signal,
-					selectedSiteId,
-					remoteSiteId,
-				} )
-			);
-
-			if ( controller.signal.aborted || ! isPushPollable( selectedSiteId, remoteSiteId ) ) {
-				break;
-			}
-
-			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
-		}
-	} finally {
-		if ( PUSH_POLLERS.get( stateId ) === controller ) {
-			PUSH_POLLERS.delete( stateId );
-		}
-	}
-}
-
-async function startPullPoller( selectedSiteId: string, remoteSiteId: number ) {
-	const stateId = generateStateId( selectedSiteId, remoteSiteId );
-	if ( PULL_POLLERS.has( stateId ) ) {
-		return;
-	}
-
-	const controller = new AbortController();
-	PULL_POLLERS.set( stateId, controller );
-
-	try {
-		while ( ! controller.signal.aborted ) {
-			const client = getWpcomClient();
-			if ( ! client ) {
-				break;
-			}
-
-			await store.dispatch(
-				syncOperationsThunks.pollPullBackup( {
-					client,
-					signal: controller.signal,
-					selectedSiteId,
-					remoteSiteId,
-				} )
-			);
-
-			if ( controller.signal.aborted || ! isPullPollable( selectedSiteId, remoteSiteId ) ) {
-				break;
-			}
-
-			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
-		}
-	} finally {
-		if ( PULL_POLLERS.get( stateId ) === controller ) {
-			PULL_POLLERS.delete( stateId );
-		}
-	}
-}
-
-// Poll push progress when state enters a pollable status
+// Clear all sync state when user logs out. Slice state is reset via
+// addCase(userLoggedOut) in sync-operations-slice; here we only abort the
+// in-flight side effects (pollers, upload aborts, main-process operations) so
+// they don't surface error UI after logout.
 startAppListening( {
-	actionCreator: syncOperationsActions.updatePushState,
-	effect( action ) {
-		const { selectedSiteId, remoteSiteId } = action.payload;
-		const stateId = generateStateId( selectedSiteId, remoteSiteId );
+	actionCreator: userLoggedOut,
+	effect( action, listenerApi ) {
+		setWpcomClient( undefined );
 
-		if ( isPushPollable( selectedSiteId, remoteSiteId ) ) {
-			void startPushPoller( selectedSiteId, remoteSiteId );
-		} else {
-			stopPushPoller( stateId );
-		}
-	},
-} );
+		abortAllSyncOperations();
 
-// Poll pull backup when state has a backupId and is in-progress
-startAppListening( {
-	actionCreator: syncOperationsActions.updatePullState,
-	effect( action ) {
-		const { selectedSiteId, remoteSiteId } = action.payload;
-		const stateId = generateStateId( selectedSiteId, remoteSiteId );
-
-		if ( isPullPollable( selectedSiteId, remoteSiteId ) ) {
-			void startPullPoller( selectedSiteId, remoteSiteId );
-		} else {
-			stopPullPoller( stateId );
-		}
+		listenerApi.dispatch( wpcomSitesApi.util.resetApiState() );
+		listenerApi.dispatch( wpcomApi.util.resetApiState() );
 	},
 } );
 
 export const rootReducer = combineReducers( {
 	appVersionApi: appVersionApi.reducer,
 	betaFeatures: betaFeaturesReducer,
-	chat: chatReducer,
 	installedAppsApi: installedAppsApi.reducer,
 	connectedSitesApi: connectedSitesApi.reducer,
 	connectedSites: connectedSitesReducer,

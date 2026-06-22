@@ -4,16 +4,24 @@ import fsPromises from 'fs/promises';
 import path from 'path';
 import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 
-export function getUserDataFilePath(): string {
-	return getAppConfigPath();
+// This file was renamed by apps/studio/src/migrations/02-migrate-to-split-config.ts
+// and later removed by apps/studio/src/migrations/05-remove-old-server-files-and-certificates.ts
+export function getOldAppdataFilePath(): string {
+	return path.join( getAppDataPath(), getAppName(), 'appdata-v1.json' );
 }
 
+// This directory was removed by apps/studio/src/migrations/05-remove-old-server-files-and-certificates.ts
 export function getOldServerFilesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'server-files' );
 }
 
+// This directory was removed by apps/studio/src/migrations/05-remove-old-server-files-and-certificates.ts
 export function getOldUserDataCertificatesPath(): string {
 	return path.join( getAppDataPath(), getAppName(), 'certificates' );
+}
+
+export function getUserDataFilePath(): string {
+	return getAppConfigPath();
 }
 
 export const defaultSitePath = path.join(

@@ -1,4 +1,3 @@
-import { getHtmlBlockPolicyIssues } from 'cli/ai/block-content-policy';
 import { EditorPage } from 'cli/ai/browser-utils';
 
 interface BlockValidationResult {
@@ -9,12 +8,21 @@ interface BlockValidationResult {
 	expectedContent?: string;
 }
 
-export interface ValidationReport {
+export interface ValidationReportBase {
 	totalBlocks: number;
 	validBlocks: number;
 	invalidBlocks: number;
 	results: BlockValidationResult[];
 	error?: string;
+}
+
+export interface BlockFixProposal {
+	fixedContent: string;
+	report: ValidationReportBase;
+}
+
+export interface ValidationReport extends ValidationReportBase {
+	proposedFix?: BlockFixProposal;
 }
 
 // Cache one EditorPage per site URL so repeated validations reuse the same
@@ -48,21 +56,20 @@ export async function validateBlocks(
 	try {
 		const page = await editorPage.getPage();
 
-		const report = await page.evaluate( ( html: string ) => {
+		const validation = await page.evaluate( ( html: string ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
 			const wpBlocks = ( window as any ).wp?.blocks;
 			if ( ! wpBlocks ) {
 				return {
-					totalBlocks: 0,
-					validBlocks: 0,
-					invalidBlocks: 0,
-					results: [] as any[],
-					error: 'wp.blocks is not available on this page.',
+					report: {
+						totalBlocks: 0,
+						validBlocks: 0,
+						invalidBlocks: 0,
+						results: [] as any[],
+						error: 'wp.blocks is not available on this page.',
+					},
 				};
 			}
-
-			const blocks = wpBlocks.parse( html );
-			const results: any[] = [];
 
 			function extractIssues( validationIssues: any[] ): string[] {
 				const issues: string[] = [];
@@ -87,88 +94,152 @@ export async function validateBlocks(
 				return issues;
 			}
 
-			function validateRecursive( block: any ) {
-				if ( ! block.name ) {
-					return;
+			function validateContent( blockHtml: string ) {
+				const blocks = wpBlocks.parse( blockHtml );
+				const results: any[] = [];
+
+				function validateRecursive( block: any ) {
+					if ( ! block.name ) {
+						return;
+					}
+					if ( block.name === 'core/freeform' || block.name === 'core/missing' ) {
+						return;
+					}
+
+					const blockType = wpBlocks.getBlockType( block.name );
+					let issues: string[] = [];
+					let isValid = true;
+					let expectedContent: string | undefined;
+
+					if ( ! blockType ) {
+						isValid = false;
+						issues.push(
+							`Block type "${ block.name }" is not registered. ` +
+								'It may require a plugin that is not active.'
+						);
+					} else {
+						// validateBlock performs the save-function comparison.
+						// Handle both return formats:
+						//   WP 6.3+: { isValid: boolean, validationIssues: Array }
+						//   Older:   [boolean, Array]
+						const validationResult = wpBlocks.validateBlock( block, blockType );
+
+						if ( Array.isArray( validationResult ) ) {
+							isValid = validationResult[ 0 ];
+							if ( ! isValid ) {
+								issues = extractIssues( validationResult[ 1 ] || [] );
+							}
+						} else {
+							isValid = validationResult.isValid;
+							if ( ! isValid ) {
+								issues = extractIssues( validationResult.validationIssues || [] );
+							}
+						}
+
+						if ( ! isValid ) {
+							// Re-render expected HTML including inner blocks for comparison
+							try {
+								expectedContent = wpBlocks.getSaveContent(
+									blockType,
+									block.attributes,
+									block.innerBlocks
+								);
+							} catch {
+								// If re-rendering fails, skip expected content
+							}
+						}
+					}
+
+					results.push( {
+						blockName: block.name,
+						isValid,
+						issues,
+						originalContent: block.originalContent || '',
+						expectedContent: isValid ? undefined : expectedContent,
+					} );
+
+					if ( block.innerBlocks ) {
+						for ( const inner of block.innerBlocks ) {
+							validateRecursive( inner );
+						}
+					}
 				}
-				if ( block.name === 'core/freeform' || block.name === 'core/missing' ) {
-					return;
+
+				for ( const block of blocks ) {
+					validateRecursive( block );
+				}
+
+				const validCount = results.filter( ( r: any ) => r.isValid ).length;
+				return {
+					blocks,
+					report: {
+						totalBlocks: results.length,
+						validBlocks: validCount,
+						invalidBlocks: results.length - validCount,
+						results,
+					},
+				};
+			}
+
+			function normalizeBlock( block: any ): any {
+				if ( ! block.name || block.name === 'core/freeform' || block.name === 'core/missing' ) {
+					return block;
 				}
 
 				const blockType = wpBlocks.getBlockType( block.name );
-				let issues: string[] = [];
-				let isValid = true;
-				let expectedContent: string | undefined;
+				if ( ! blockType || typeof wpBlocks.createBlock !== 'function' ) {
+					return block;
+				}
 
-				if ( ! blockType ) {
-					isValid = false;
-					issues.push(
-						`Block type "${ block.name }" is not registered. ` +
-							'It may require a plugin that is not active.'
+				const fixedInnerBlocks = Array.isArray( block.innerBlocks )
+					? block.innerBlocks.map( normalizeBlock )
+					: [];
+
+				try {
+					return wpBlocks.createBlock(
+						block.name,
+						block.attributes,
+						fixedInnerBlocks.length > 0 ? fixedInnerBlocks : undefined
 					);
-				} else {
-					// validateBlock performs the save-function comparison.
-					// Handle both return formats:
-					//   WP 6.3+: { isValid: boolean, validationIssues: Array }
-					//   Older:   [boolean, Array]
-					const validation = wpBlocks.validateBlock( block, blockType );
-
-					if ( Array.isArray( validation ) ) {
-						isValid = validation[ 0 ];
-						if ( ! isValid ) {
-							issues = extractIssues( validation[ 1 ] || [] );
-						}
-					} else {
-						isValid = validation.isValid;
-						if ( ! isValid ) {
-							issues = extractIssues( validation.validationIssues || [] );
-						}
-					}
-
-					if ( ! isValid ) {
-						// Re-render expected HTML including inner blocks for comparison
-						try {
-							expectedContent = wpBlocks.getSaveContent(
-								blockType,
-								block.attributes,
-								block.innerBlocks
-							);
-						} catch {
-							// If re-rendering fails, skip expected content
-						}
-					}
-				}
-
-				results.push( {
-					blockName: block.name,
-					isValid,
-					issues,
-					originalContent: block.originalContent || '',
-					expectedContent: isValid ? undefined : expectedContent,
-				} );
-
-				if ( block.innerBlocks ) {
-					for ( const inner of block.innerBlocks ) {
-						validateRecursive( inner );
-					}
+				} catch {
+					return block;
 				}
 			}
 
-			for ( const block of blocks ) {
-				validateRecursive( block );
+			const initial = validateContent( html );
+
+			if ( initial.report.invalidBlocks === 0 ) {
+				return { report: initial.report };
 			}
 
-			const validCount = results.filter( ( r: any ) => r.isValid ).length;
+			const fixedBlocks = initial.blocks.map( normalizeBlock );
+			const fixedContent = wpBlocks.serialize( fixedBlocks );
+
+			if ( fixedContent === html ) {
+				return { report: initial.report };
+			}
+
+			const fixed = validateContent( fixedContent );
 			return {
-				totalBlocks: results.length,
-				validBlocks: validCount,
-				invalidBlocks: results.length - validCount,
-				results,
+				report: initial.report,
+				proposedFix: {
+					fixedContent,
+					report: fixed.report,
+				},
 			};
 			/* eslint-enable @typescript-eslint/no-explicit-any */
 		}, content );
 
-		return applyBlockContentPolicy( report as ValidationReport );
+		const report = validation.report as ValidationReport;
+
+		if ( validation.proposedFix ) {
+			report.proposedFix = {
+				fixedContent: validation.proposedFix.fixedContent,
+				report: validation.proposedFix.report as ValidationReportBase,
+			};
+		}
+
+		return report;
 	} catch ( error ) {
 		// If navigation or evaluation failed, discard the cached page so the
 		// next call gets a fresh one.
@@ -185,33 +256,6 @@ export async function validateBlocks(
 			}`,
 		};
 	}
-}
-
-function applyBlockContentPolicy( report: ValidationReport ): ValidationReport {
-	const results = report.results.map( ( result ) => {
-		if ( result.blockName !== 'core/html' ) {
-			return result;
-		}
-
-		const policyIssues = getHtmlBlockPolicyIssues( result.originalContent );
-		if ( policyIssues.length === 0 ) {
-			return result;
-		}
-
-		return {
-			...result,
-			isValid: false,
-			issues: [ ...result.issues, ...policyIssues ],
-		};
-	} );
-
-	const validBlocks = results.filter( ( result ) => result.isValid ).length;
-	return {
-		...report,
-		results,
-		validBlocks,
-		invalidBlocks: results.length - validBlocks,
-	};
 }
 
 /** Clean up all cached editor pages. */

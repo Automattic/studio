@@ -1,10 +1,11 @@
-import { app, autoUpdater, dialog } from 'electron';
+import { app, autoUpdater, clipboard, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
-import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
+import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { isDevRelease } from 'src/lib/version-utils';
 import { getMainWindow } from 'src/main-window';
+import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 type UpdpaterState =
 	| 'init'
@@ -20,11 +21,39 @@ let timeout: NodeJS.Timeout | null = null;
 
 let showManualCheckDialogs = false;
 
-const shouldPoll =
-	process.env.NODE_ENV === 'production' && app.isPackaged && ! isDevRelease( app.getVersion() );
+const shouldPoll = process.env.NODE_ENV === 'production' && app.isPackaged;
+
+const STUDIO_UPDATES_ENDPOINT = 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates';
+
+function buildUpdateFeedUrl( { channel }: { channel?: 'nightly' } = {} ): string {
+	const url = new URL( STUDIO_UPDATES_ENDPOINT );
+	url.searchParams.append( 'platform', process.platform );
+	url.searchParams.append( 'studioArch', process.arch );
+	url.searchParams.append( 'version', app.getVersion() );
+	if ( channel ) {
+		url.searchParams.append( 'channel', channel );
+	}
+	return url.toString();
+}
 
 export function getAutoUpdaterState() {
 	return updaterState;
+}
+
+/**
+ * Switches the autoUpdater feed to the nightly channel and immediately checks for an update.
+ * On Linux, triggers a nightly poll directly since Electron's autoUpdater is not available.
+ */
+export function switchToNightlyAndUpdate(): void {
+	if ( process.platform === 'linux' ) {
+		console.log( 'Switching to nightly channel and polling for update (Linux)' );
+		void pollLinuxUpdates( { channel: 'nightly' } );
+		return;
+	}
+	const feedUrl = buildUpdateFeedUrl( { channel: 'nightly' } );
+	console.log( `Switching to nightly channel and checking for update: ${ feedUrl }` );
+	autoUpdater.setFeedURL( { url: feedUrl } );
+	autoUpdater.checkForUpdates();
 }
 
 export function setupUpdates() {
@@ -42,12 +71,7 @@ export function setupUpdates() {
 		return;
 	}
 
-	const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates' );
-	url.searchParams.append( 'platform', process.platform );
-	url.searchParams.append( 'studioArch', process.arch );
-	url.searchParams.append( 'version', app.getVersion() );
-
-	autoUpdater.setFeedURL( { url: url.toString() } );
+	autoUpdater.setFeedURL( { url: buildUpdateFeedUrl() } );
 
 	autoUpdater.on( 'checking-for-update', () => {
 		updaterState = 'checking-for-update';
@@ -56,6 +80,10 @@ export function setupUpdates() {
 	autoUpdater.on( 'update-available', async () => {
 		console.log( 'Update available' );
 		updaterState = 'downloading';
+
+		if ( isDevRelease( app.getVersion() ) ) {
+			await updateAppdata( { lastNightlyUpdateCheck: Date.now() } );
+		}
 
 		if ( showManualCheckDialogs ) {
 			await showUpdateAvailableNotice();
@@ -70,6 +98,10 @@ export function setupUpdates() {
 		if ( ! shouldPoll ) {
 			updaterState = 'done';
 			return;
+		}
+
+		if ( isDevRelease( app.getVersion() ) ) {
+			await updateAppdata( { lastNightlyUpdateCheck: Date.now() } );
 		}
 
 		queueUpdateCheck();
@@ -112,6 +144,31 @@ export function setupUpdates() {
 			isPackaged: app.isPackaged,
 			version: app.getVersion(),
 		} );
+		return;
+	}
+
+	if ( isDevRelease( app.getVersion() ) ) {
+		// For nightly builds, respect a 24-hour TTL to avoid checking on every launch.
+		// If the TTL hasn't elapsed, schedule the next check for the remaining time.
+		void ( async () => {
+			const userData = await loadUserData();
+			const lastCheck = userData.lastNightlyUpdateCheck ?? 0;
+			const elapsed = Date.now() - lastCheck;
+			if ( elapsed < NIGHTLY_UPDATE_TTL_MS ) {
+				const remaining = NIGHTLY_UPDATE_TTL_MS - elapsed;
+				console.log(
+					`Nightly update check skipped, next check in ${ Math.round( remaining / 60000 ) } minutes`
+				);
+				updaterState = 'polling';
+				timeout = setTimeout( () => {
+					console.log( `Automatically checking for nightly update: ${ autoUpdater.getFeedURL() }` );
+					autoUpdater.checkForUpdates();
+				}, remaining );
+				return;
+			}
+			console.log( `Checking for nightly update on app launch: ${ autoUpdater.getFeedURL() }` );
+			autoUpdater.checkForUpdates();
+		} )();
 		return;
 	}
 
@@ -235,16 +292,11 @@ function setupLinuxUpdates() {
 	void pollLinuxUpdates();
 }
 
-async function pollLinuxUpdates() {
+async function pollLinuxUpdates( { channel }: { channel?: 'nightly' } = {} ) {
 	updaterState = 'checking-for-update';
 
-	const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates' );
-	url.searchParams.append( 'platform', process.platform );
-	url.searchParams.append( 'studioArch', process.arch );
-	url.searchParams.append( 'version', app.getVersion() );
-
 	try {
-		const response = await fetch( url.toString() );
+		const response = await fetch( buildUpdateFeedUrl( { channel } ) );
 
 		if ( response.status === 204 ) {
 			if ( showManualCheckDialogs ) {
@@ -300,20 +352,20 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 	const mainWindow = await getMainWindow();
 
 	const command = `sudo apt install ~/Downloads/${ debFilenameFromUrl( downloadUrl ) }`;
-	const introLine = __(
-		'After downloading, quit Studio and run this command from a terminal to install:'
+	const actionDescription = __(
+		'Clicking the button below will download the new package and copy the install command to your clipboard.'
 	);
-	const doubleClickHint = __(
-		'On some distributions, double-clicking the downloaded file may also work.'
+	const followUpInstruction = __(
+		'Once the download finishes, quit Studio, open a terminal, and paste the command to install:'
 	);
 
 	const { response } = await dialog.showMessageBox( mainWindow, {
 		type: 'info',
-		buttons: [ __( 'Download' ), __( 'Later' ) ],
+		buttons: [ __( 'Download & copy command' ), __( 'Later' ) ],
 		title: __( 'New Version Available' ),
 		// translators: %s is the version number, e.g. "1.9.0".
 		message: sprintf( __( 'Studio %s is available' ), version ),
-		detail: `${ introLine }\n\n${ command }\n\n${ doubleClickHint }`,
+		detail: `${ actionDescription }\n\n${ followUpInstruction }\n\n${ command }`,
 		defaultId: 0,
 		cancelId: 1,
 	} );
@@ -330,6 +382,7 @@ async function showLinuxUpdateAvailableNotice( version: string, downloadUrl: str
 			);
 			return;
 		}
+		clipboard.writeText( command );
 		void shellOpenExternalWrapper( parsedUrl.toString() );
 	} catch {
 		Sentry.captureException( new Error( `Malformed downloadUrl: ${ downloadUrl }` ) );

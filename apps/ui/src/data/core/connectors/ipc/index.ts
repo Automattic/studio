@@ -7,8 +7,6 @@ import type {
 	AuthUser,
 	ColorScheme,
 	Connector,
-	DeskConfig,
-	DeskSettings,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
@@ -198,6 +196,10 @@ export function createIpcConnector(): Connector {
 
 		async logout(): Promise< void > {
 			await ipcApi.clearAuthenticationToken();
+		},
+
+		onAuthStateChanged( listener ) {
+			return ipcListener.subscribe( 'auth-updated', () => listener() );
 		},
 
 		// Sites
@@ -627,38 +629,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
 
-		async getDeskSettings(): Promise< DeskSettings > {
-			return ( await ipcApi.getDeskSettings() ) as DeskSettings;
-		},
-
-		async saveDeskSettings( settings ): Promise< void > {
-			await ipcApi.saveDeskSettings( settings );
-		},
-
-		async exportDeskConfig( config, suggestedFilename ): Promise< string | null > {
-			return ( await ipcApi.exportDeskConfig( config, suggestedFilename ) ) as string | null;
-		},
-
-		async importDeskConfig(): Promise< DeskConfig | null > {
-			return ( await ipcApi.importDeskConfig() ) as DeskConfig | null;
-		},
-
-		async getUserDeskConfig(): Promise< DeskConfig | undefined > {
-			return ( await ipcApi.getUserDeskConfig() ) as DeskConfig | undefined;
-		},
-
-		async saveUserDeskConfig( config ): Promise< void > {
-			await ipcApi.saveUserDeskConfig( config );
-		},
-
-		async getSiteDeskConfig( siteId ): Promise< DeskConfig | undefined > {
-			return ( await ipcApi.getSiteDeskConfig( siteId ) ) as DeskConfig | undefined;
-		},
-
-		async saveSiteDeskConfig( siteId, config ): Promise< void > {
-			await ipcApi.saveSiteDeskConfig( siteId, config );
-		},
-
 		async fetchSiteRest( siteId, request ) {
 			return await ipcApi.fetchSiteRestApi( siteId, request );
 		},
@@ -709,6 +679,12 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'site-event', () => listener() );
+		},
+
+		onToggleSitePreview( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'toggle-site-preview', () => listener() );
 		},
 	};
 }

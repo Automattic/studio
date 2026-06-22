@@ -1,0 +1,56 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-sm);
+	/* Reserves space so mounting / unmounting the inner content doesn't
+	   shift the surrounding layout. Holds ~one head line + one progress line. */
+	min-height: calc(1.5em * 2 + 2px);
+}
+
+.head {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: var(--color-frame-theme);
+	animation: pulse 1.2s ease-in-out infinite;
+	flex-shrink: 0;
+}
+
+.label {
+	font-style: italic;
+}
+
+.elapsed {
+	color: var(--color-frame-text-secondary);
+	opacity: 0.7;
+	font-variant-numeric: tabular-nums;
+}
+
+.progress {
+	padding-left: calc(8px + var(--wpds-dimension-padding-md));
+	color: var(--color-frame-text-secondary);
+	opacity: 0.8;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+@keyframes pulse {
+	0%,
+	100% {
+		opacity: 0.35;
+		transform: scale(0.85);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}

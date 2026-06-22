@@ -1,14 +1,8 @@
+/* Pinning to the sidebar bottom is handled by the layout's
+   `sidebarFooter` wrapper. */
 .root {
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl)
 		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-2xl);
-	/* Stay pinned at the bottom as the sidebar scrolls; `margin-top:
-	   auto` pushes it to the bottom in the flex column when content is
-	   shorter than the viewport. */
-	margin-top: auto;
-	position: sticky;
-	bottom: 0;
-	z-index: 1;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
 }
 
 .row {
@@ -18,14 +12,17 @@
 }
 
 .userName,
-.themeToggle {
+.themeToggle,
+.settingsButton {
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .row:hover .userName,
 .row:hover .themeToggle,
+.row:hover .settingsButton,
 .row:focus-within .userName,
-.row:focus-within .themeToggle {
+.row:focus-within .themeToggle,
+.row:focus-within .settingsButton {
 	color: var(--wpds-color-fg-content-neutral);
 }
 

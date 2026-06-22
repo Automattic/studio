@@ -22,6 +22,7 @@ import {
 	getBetaFeaturesDefinition,
 	updateBetaFeature,
 } from 'src/lib/beta-features';
+import { bumpStat, getPlatformMetric, StatsGroup } from 'src/lib/bump-stats';
 import {
 	FEATURE_FLAGS,
 	FeatureFlagDefinition,
@@ -33,8 +34,12 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
-import { getMainWindow } from 'src/main-window';
+import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
+
+// Feature flags that select which Studio UI is shown; toggling them requires
+// reloading the main window renderer.
+const UI_MODE_FEATURE_FLAGS: ( keyof FeatureFlags )[] = [ 'enableAgenticUi' ];
 
 export async function setupMenu( config: {
 	needsOnboarding: boolean;
@@ -86,6 +91,14 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 				sublabel: process.platform === 'darwin' ? definition.description : undefined,
 				click: async ( menuItem: MenuItem ) => {
 					await updateBetaFeature( key as keyof BetaFeatures, menuItem.checked );
+					if ( key === 'remoteSession' ) {
+						bumpStat(
+							menuItem.checked
+								? StatsGroup.STUDIO_APP_DOLLY_ENABLE
+								: StatsGroup.STUDIO_APP_DOLLY_DISABLE,
+							getPlatformMetric()
+						);
+					}
 					void sendIpcEventToRenderer( 'beta-features-updated' );
 				},
 			};
@@ -130,6 +143,15 @@ async function getAppMenu(
 		checked: getFeatureFlagFromEnv( flag as keyof FeatureFlags ),
 		click: ( menuItem: MenuItem ) => {
 			setFeatureFlagInEnv( flag as keyof FeatureFlags, menuItem.checked );
+			if (
+				UI_MODE_FEATURE_FLAGS.includes( flag as keyof FeatureFlags ) &&
+				mainWindow &&
+				! mainWindow.isDestroyed()
+			) {
+				setTimeout( () => {
+					void loadMainWindowRenderer( mainWindow );
+				}, 0 );
+			}
 			void sendIpcEventToRenderer( 'refresh-app-globals' );
 		},
 	} ) );
@@ -164,7 +186,7 @@ async function getAppMenu(
 				{
 					label: __( 'Beta Features' ),
 					submenu: betaFeaturesMenu,
-					enabled: false,
+					enabled: betaFeaturesMenu.length > 0,
 				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'
@@ -287,6 +309,14 @@ async function getAppMenu(
 			submenu: [
 				{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
 				{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
+				{
+					label: __( 'Toggle Site Preview' ),
+					accelerator: 'CommandOrControl+Shift+B',
+					enabled: ! needsOnboarding,
+					click: () => {
+						void sendIpcEventToRenderer( 'toggle-site-preview' );
+					},
+				},
 				...( process.env.NODE_ENV === 'development' ? devTools : [] ),
 				{
 					label: __( 'Actual Size' ),

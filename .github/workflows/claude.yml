@@ -21,11 +21,11 @@ jobs:
       github.event.comment.user.login == 'matticbot'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Run Claude
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1.0.152
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

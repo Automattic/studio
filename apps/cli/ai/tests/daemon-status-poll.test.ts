@@ -17,23 +17,7 @@ describe( 'startDaemonStatusPolling', () => {
 		vi.useRealTimers();
 	} );
 
-	it( 'is a no-op and returns a no-op stop fn when the feature flag is off', () => {
-		const ui = makeUi();
-		const readStatus = vi.fn().mockReturnValue( { running: false } );
-		const stop = startDaemonStatusPolling( ui, {
-			intervalMs: 100,
-			isEnabled: () => false,
-			readStatus,
-		} );
-
-		vi.advanceTimersByTime( 1000 );
-
-		expect( ui.setDaemonStatus ).not.toHaveBeenCalled();
-		expect( readStatus ).not.toHaveBeenCalled();
-		expect( () => stop() ).not.toThrow();
-	} );
-
-	it( 'mirrors daemon status on every tick when the feature flag is on', () => {
+	it( 'mirrors daemon status on every tick', () => {
 		const ui = makeUi();
 		const readStatus = vi
 			.fn()
@@ -43,7 +27,6 @@ describe( 'startDaemonStatusPolling', () => {
 
 		const stop = startDaemonStatusPolling( ui, {
 			intervalMs: 100,
-			isEnabled: () => true,
 			readStatus,
 		} );
 
@@ -73,7 +56,6 @@ describe( 'startDaemonStatusPolling', () => {
 
 		const stop = startDaemonStatusPolling( ui, {
 			intervalMs: 100,
-			isEnabled: () => true,
 			readStatus,
 		} );
 

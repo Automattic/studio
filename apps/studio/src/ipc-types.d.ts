@@ -6,6 +6,7 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 }
 
 type SiteRuntime = 'playground' | 'native-php';
+type SiteFileAccess = 'site-directory' | 'all-files';
 
 interface MailpitDetails {
 	enabled: boolean;
@@ -54,6 +55,7 @@ interface StoppedSiteDetails {
 	landingPage?: string;
 	runtime?: SiteRuntime;
 	mailpit?: MailpitDetails;
+	fileAccess?: SiteFileAccess;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -105,12 +107,12 @@ type IpcApi = {
 };
 
 interface FeatureFlags {
-	enableBlueprints: boolean;
-	enableStudioCodeUi: boolean;
+	enableAgenticUi: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface BetaFeatures {}
+interface BetaFeatures {
+	remoteSession: boolean;
+}
 
 interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;

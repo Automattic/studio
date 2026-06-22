@@ -18,6 +18,8 @@ import https from 'node:https';
 import os from 'os';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
+import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
@@ -49,6 +51,7 @@ import {
 	arePathsEqual,
 	isEmptyDir,
 	pathExists,
+	readLastLines,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
@@ -57,6 +60,14 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import {
+	getDaemonStatus,
+	DaemonStartTimeoutError,
+	toRemoteSessionStatus,
+	type RemoteSessionStatus,
+	type StartDaemonResult,
+	type StopDaemonResult,
+} from '@studio/common/lib/remote-session';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
@@ -66,6 +77,8 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
@@ -87,13 +100,22 @@ import {
 } from 'src/lib/ai-session-placement';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
-import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
+import {
+	bumpAggregatedUniqueStat,
+	bumpStat,
+	getBlueprintMetric,
+	getPlatformMetric,
+	StatsGroup,
+} from 'src/lib/bump-stats';
 import {
 	openCertificate as openCertificateDialog,
 	isRootCATrusted,
 	trustRootCA,
 } from 'src/lib/certificate-manager';
-import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
+import {
+	extractErrorFromProcessManagerLogs,
+	simplifyErrorForDisplay,
+} from 'src/lib/error-formatting';
 import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
@@ -128,6 +150,7 @@ import {
 	startAgentRun,
 } from 'src/modules/ai-agent/run-manager';
 import { editSiteViaCli, EditSiteOptions } from 'src/modules/cli/lib/cli-site-editor';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
 import { STABLE_BIN_DIR_PATH } from 'src/modules/cli/lib/windows-installation-manager';
 import { supportedEditorConfig, SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -153,6 +176,8 @@ import {
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
@@ -210,24 +235,7 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
-export {
-	exportDeskConfig,
-	getDeskSettings,
-	getSiteDeskConfig,
-	getUserDeskConfig,
-	importDeskConfig,
-	saveDeskSettings,
-	saveSiteDeskConfig,
-	saveUserDeskConfig,
-} from 'src/modules/desks/lib/ipc-handlers';
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
-
-export {
-	studioCodeSendMessage,
-	studioCodeRespondToPermission,
-	studioCodeAbort,
-	studioCodeCheckProvider,
-} from 'src/modules/studio-code/ipc-handlers';
 
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
@@ -300,14 +308,14 @@ export async function createAiSession(
 	const sitesRoot = getAiSessionsRootDirectory();
 	if ( ! siteId ) {
 		const existing = await listHydratedAiSessions( sitesRoot );
-		const emptyUserDeskSession = existing
+		const emptyUserSession = existing
 			.filter(
 				( session ) => ! session.ownerSitePath && ! session.firstPrompt && ! session.archived
 			)
 			.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
 
-		if ( emptyUserDeskSession ) {
-			return emptyUserDeskSession;
+		if ( emptyUserSession ) {
+			return emptyUserSession;
 		}
 
 		return hydrateAiSessionSummary( await createAiSessionInStore( sitesRoot ) );
@@ -435,13 +443,25 @@ export async function continueAiSession(
 	event: IpcMainInvokeEvent,
 	sessionId: string,
 	prompt: string,
-	options: { displayMessage?: string } = {}
+	options: {
+		displayMessage?: string;
+		images?: StudioChatImage[];
+		files?: StudioChatFileAttachment[];
+	} = {}
 ): Promise< { runId: string } > {
+	if ( ! ( await oauthClient.isAuthenticated() ) ) {
+		throw new Error( __( 'WordPress.com login required. Log in to use Studio Code.' ) );
+	}
+
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
+	const images = validateStudioChatImages( options.images );
+	const files = validateStudioChatFiles( options.files );
 	return startAgentRun( {
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		displayMessage: options.displayMessage,
+		images,
+		files,
 		webContents: event.sender,
 	} );
 }
@@ -698,32 +718,33 @@ const DEBUG_LOG_MAX_LINES = 50;
 const PROCESS_MANAGER_HOME = nodePath.join( os.homedir(), '.studio', 'daemon' );
 const DEFAULT_ENCODED_PASSWORD = encodePassword( 'password' );
 
-function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
-	try {
-		if ( ! fs.existsSync( filePath ) ) {
-			return undefined;
-		}
-		const content = fs.readFileSync( filePath, 'utf-8' );
-		const lines = content.split( '\n' ).filter( ( line ) => line.trim() );
-		return lines.slice( -maxLines );
-	} catch {
-		return undefined;
-	}
-}
-
 function readWordPressDebugLog( sitePath: string ): string[] | undefined {
 	const debugLogPath = nodePath.join( sitePath, 'wp-content', 'debug.log' );
 	return readLastLines( debugLogPath, DEBUG_LOG_MAX_LINES );
 }
 
+function findMostRecentLog( logsDir: string, prefix: string, suffix: string ): string | undefined {
+	try {
+		const files = fs.readdirSync( logsDir );
+		const matching = files
+			.filter( ( f ) => f.startsWith( prefix ) && f.endsWith( suffix ) )
+			.sort()
+			.reverse();
+		return matching.length > 0 ? nodePath.join( logsDir, matching[ 0 ] ) : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?: string[] } {
 	const logsDir = nodePath.join( PROCESS_MANAGER_HOME, 'logs' );
-	const stdoutPath = nodePath.join( logsDir, `studio-site-${ siteId }-out.log` );
-	const stderrPath = nodePath.join( logsDir, `studio-site-${ siteId }-error.log` );
+	const prefix = `studio-site-${ siteId }`;
+	const stdoutPath = findMostRecentLog( logsDir, `${ prefix }-out-`, '.log' );
+	const stderrPath = findMostRecentLog( logsDir, `${ prefix }-error-`, '.log' );
 
 	return {
-		stdout: readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ),
-		stderr: readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ),
+		stdout: stdoutPath ? readLastLines( stdoutPath, DEBUG_LOG_MAX_LINES ) : undefined,
+		stderr: stderrPath ? readLastLines( stderrPath, DEBUG_LOG_MAX_LINES ) : undefined,
 	};
 }
 
@@ -772,6 +793,8 @@ export async function createSite(
 		enableHttps?: boolean;
 		siteId?: string;
 		phpVersion?: string;
+		runtime?: SiteRuntime;
+		fileAccess?: SiteFileAccess;
 		blueprint?: Blueprint;
 		adminUsername?: string;
 		adminPassword?: string;
@@ -787,6 +810,8 @@ export async function createSite(
 		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
+		runtime,
+		fileAccess,
 		adminUsername,
 		adminPassword,
 		adminEmail,
@@ -815,6 +840,8 @@ export async function createSite(
 				name: siteName,
 				wpVersion,
 				phpVersion,
+				runtime,
+				fileAccess,
 				customDomain,
 				enableHttps,
 				siteId,
@@ -876,6 +903,14 @@ export async function createSite(
 			contexts,
 		} );
 
+		// If the error message is generic, try to surface a more useful message from
+		// the process manager logs. The detailed error is often captured in stdout
+		// (e.g. blueprint execution errors logged by playground-cli).
+		const logErrorMessage = extractErrorFromProcessManagerLogs( processManagerLogs );
+		if ( logErrorMessage ) {
+			throw new Error( logErrorMessage );
+		}
+
 		throw error;
 	} finally {
 		if ( bundleTempDir ) {
@@ -924,6 +959,14 @@ export async function updateSite(
 
 	if ( wpVersion ) {
 		options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
+	}
+
+	if ( getSiteRuntime( updatedSite ) !== getSiteRuntime( currentSite ) ) {
+		options.runtime = siteModeFromRuntime( getSiteRuntime( updatedSite ) );
+	}
+
+	if ( getSiteFileAccess( updatedSite ) !== getSiteFileAccess( currentSite ) ) {
+		options.fileAccess = getSiteFileAccess( updatedSite );
 	}
 
 	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
@@ -1171,6 +1214,10 @@ export async function copySite(
 		name: siteName,
 		siteId: newSiteId,
 		phpVersion: sourceSite.phpVersion,
+		// Copies keep the source site's runtime settings rather than picking up
+		// the default for new sites.
+		runtime: getSiteRuntime( sourceSite ),
+		fileAccess: sourceSite.fileAccess,
 		adminUsername: sourceSite.adminUsername,
 		adminPassword: sourceSite.adminPassword
 			? decodePassword( sourceSite.adminPassword )
@@ -2075,7 +2122,7 @@ export function showSiteContextMenu(
 
 	menu.append(
 		new MenuItem( {
-			label: __( 'Copy site…' ),
+			label: __( 'Duplicate site…' ),
 			enabled: ! isLoading && ! isAnySiteAdding,
 			click: () => {
 				sendIpcEventToRendererWithWindow(
@@ -2355,4 +2402,96 @@ export async function updateSitesSortOrder(
 	} finally {
 		await unlockAppdata();
 	}
+}
+
+export async function getRemoteSessionDaemonStatus(
+	_event: IpcMainInvokeEvent
+): Promise< RemoteSessionStatus > {
+	// Project at the IPC boundary — the renderer only needs the boolean.
+	// Keeping `pid` / `pidFile` / `staleFileRemoved` on the main-process side
+	// avoids shipping data the UI doesn't read.
+	return toRemoteSessionStatus( getDaemonStatus() );
+}
+
+export async function startRemoteSessionDaemon(
+	_event: IpcMainInvokeEvent
+): Promise< StartDaemonResult > {
+	// The CLI fires its own `STUDIO_CLI_DOLLY_START` bump when the child
+	// process boots. The desktop-side bump captures only bolt-icon clicks, so
+	// we can separate UI-driven starts from direct CLI invocations.
+	// De-dupe on rapid clicks happens in `useRemoteSessionStatus` via
+	// `pendingRunningRef`/`isLoadingRef` before the IPC even fires.
+	bumpStat( StatsGroup.STUDIO_APP_DOLLY_START, getPlatformMetric() );
+	bumpAggregatedUniqueStat(
+		StatsGroup.STUDIO_APP_DOLLY_WKLY_UNQ,
+		getPlatformMetric(),
+		'weekly'
+	).catch( ( err ) => Sentry.captureException( err ) );
+	bumpAggregatedUniqueStat(
+		StatsGroup.STUDIO_APP_DOLLY_MON_UNQ,
+		getPlatformMetric(),
+		'monthly'
+	).catch( ( err ) => Sentry.captureException( err ) );
+
+	// Treat the CLI as an external program (same pattern as every other
+	// CLI-backed operation in Studio): fork it as a child process and let it
+	// own the spawn/detach lifecycle. `cli code remote-session start` already
+	// does exactly that.
+	//
+	// `STUDIO_ENABLE_REMOTE_SESSION=true` is required: the CLI gates the entire
+	// `code remote-session` subcommand tree behind that env var (see
+	// `tools/common/lib/remote-session.ts`). Without it, the spawned child fails with
+	// "Unknown arguments: remote-session, start". The `remoteSession` beta
+	// feature is the user-facing opt-in, so we lift the CLI gate in the spawned
+	// child rather than asking users to set the env var manually.
+	return new Promise( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand( [ 'code', 'remote-session', 'start' ], {
+			output: 'capture',
+			env: { STUDIO_ENABLE_REMOTE_SESSION: 'true' },
+		} );
+		emitter.on( 'success', () => {
+			// The CLI returns once the daemon has written its PID file. Re-read it
+			// here so the renderer gets a strongly-typed result with the live PID.
+			const status = getDaemonStatus();
+			if ( status.running && status.pid !== undefined ) {
+				resolve( { pid: status.pid, pidFile: status.pidFile } );
+				return;
+			}
+			reject(
+				new DaemonStartTimeoutError(
+					`Remote-session daemon CLI exited successfully but no live PID file was found at ${ status.pidFile }.`
+				)
+			);
+		} );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
+}
+
+export async function stopRemoteSessionDaemon(
+	_event: IpcMainInvokeEvent
+): Promise< StopDaemonResult > {
+	bumpStat( StatsGroup.STUDIO_APP_DOLLY_STOP, getPlatformMetric() );
+
+	return new Promise( ( resolve, reject ) => {
+		// Same env-flag handshake as `startRemoteSessionDaemon` — without it
+		// the CLI doesn't register the `code remote-session` subcommand tree
+		// and the spawned child fails with "Unknown argument: stop".
+		const [ emitter ] = executeCliCommand( [ 'code', 'remote-session', 'stop' ], {
+			output: 'capture',
+			env: { STUDIO_ENABLE_REMOTE_SESSION: 'true' },
+		} );
+		emitter.on( 'success', () => {
+			// CLI exit-code 0 indicates the daemon is no longer running (either
+			// stopped this invocation or was already gone). The CLI doesn't
+			// surface the granular SIGTERM/SIGKILL distinction or the
+			// "alreadyStopped" flag over its IPC channel, and the renderer
+			// doesn't read those fields anyway, so we just report success.
+			// A non-zero exit (e.g. SIGKILL refused) lands in the `failure`
+			// branch via CliCommandError.
+			resolve( { stopped: true } );
+		} );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
 }

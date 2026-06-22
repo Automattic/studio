@@ -3,8 +3,7 @@ import path from 'path';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import semver from 'semver';
 import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
-import { getLanguagePacksPath, getWordPressVersionPath, getWpFilesPath } from './paths';
-import { areDirectoriesDifferentBySizeAndMtime } from './utils';
+import { getWordPressVersionPath, getWpFilesPath } from './paths';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 
 // Compare the WordPress version in the bundled `wp-files/latest/wordpress` directory (that ships
@@ -36,30 +35,9 @@ async function copyBundledLatestWpVersion() {
 	}
 }
 
-async function copyBundledLanguagePacks() {
-	const sourceLanguagePacksPath = path.join( getWpFilesPath(), 'latest', 'languages' );
-	if ( ! fs.existsSync( sourceLanguagePacksPath ) ) {
-		return;
-	}
-	const targetLanguagePacksPath = getLanguagePacksPath();
-	const isSourceDirectoryDifferent = await areDirectoriesDifferentBySizeAndMtime(
-		sourceLanguagePacksPath,
-		targetLanguagePacksPath
-	);
-	if ( isSourceDirectoryDifferent ) {
-		try {
-			await fs.promises.rm( targetLanguagePacksPath, { recursive: true, force: true } );
-		} catch {
-			// Do nothing if the target directory is missing or corrupted
-		}
-		await recursiveCopyDirectory( sourceLanguagePacksPath, targetLanguagePacksPath );
-	}
-}
-
 export async function setupServerFiles() {
 	const steps: [ string, () => Promise< void > ][] = [
 		[ 'WordPress version', copyBundledLatestWpVersion ],
-		[ 'language packs', copyBundledLanguagePacks ],
 	];
 
 	for ( const [ name, step ] of steps ) {

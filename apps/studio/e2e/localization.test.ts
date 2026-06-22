@@ -129,10 +129,8 @@ test.describe( 'Localization', () => {
 		await expect( addSiteModal.createSiteButton ).toBeVisible();
 		await addSiteModal.createSiteButton.click();
 
-		// Select "Empty site" and continue to the create form.
-		// "Empty site" is untranslated so the English text works in all locales.
 		// Use force:true because the app-drag-region overlay intercepts pointer events.
-		const emptySiteBtn = session.mainWindow.getByRole( 'button', { name: /Empty site/ } );
+		const emptySiteBtn = session.mainWindow.getByTestId( 'empty-site-card' );
 		await expect( emptySiteBtn ).toBeVisible( { timeout: 5000 } );
 		await emptySiteBtn.click( { force: true } );
 		await addSiteModal.continueButton.click();
@@ -151,7 +149,7 @@ test.describe( 'Localization', () => {
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		const settingsTabButton = session.mainWindow.getByRole( 'tab', { name: /Settings|設定/i } );
+		const settingsTabButton = session.mainWindow.locator( '[role="tab"][id$="-settings"]' );
 		await settingsTabButton.click();
 		const copyWpAdminButton = session.mainWindow.getByTestId( 'copy-wp-admin-url' );
 		await expect( copyWpAdminButton ).toBeVisible();
@@ -177,7 +175,7 @@ test.describe( 'Localization', () => {
 		} );
 
 		const siteContentEnglish = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContentEnglish.navigateToTab( 'Settings' );
+		const settingsTab = await siteContentEnglish.navigateToTab( 'settings' );
 		await settingsTab.openDeleteSiteModal();
 
 		// Wait for the confirmation dialog to be auto-confirmed and deletion to complete

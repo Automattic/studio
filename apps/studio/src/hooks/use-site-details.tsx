@@ -13,7 +13,7 @@ import {
 } from 'react';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
-import { simplifyErrorForDisplay } from 'src/lib/error-formatting';
+import { simplifyErrorForDisplay, simplifyErrorToFirstSentence } from 'src/lib/error-formatting';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { Blueprint } from 'src/stores/wpcom-api';
 
@@ -35,7 +35,9 @@ interface SiteDetailsContext {
 		noStart?: boolean,
 		adminUsername?: string,
 		adminPassword?: string,
-		adminEmail?: string
+		adminEmail?: string,
+		runtime?: SiteRuntime,
+		fileAccess?: SiteFileAccess
 	) => Promise< SiteDetails | void >;
 	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
 	startServer: ( site: SiteDetails ) => Promise< void >;
@@ -249,7 +251,9 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			noStart?: boolean,
 			adminUsername?: string,
 			adminPassword?: string,
-			adminEmail?: string
+			adminEmail?: string,
+			runtime?: SiteRuntime,
+			fileAccess?: SiteFileAccess
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -271,7 +275,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					message = __(
 						'The selected Blueprint failed to execute properly. This could be due to invalid PHP code, missing plugins, or other issues in the Blueprint file. Please check your Blueprint file and try again.'
 					);
-					errorToShow = undefined;
+					errorToShow = simplifyErrorToFirstSentence( error );
 				} else {
 					title = __( 'Failed to create site' );
 					message = __(
@@ -285,7 +289,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					title,
 					message,
 					error: errorToShow,
-					showOpenLogs: ! isBlueprintError || ! hasBlueprint,
+					showOpenLogs: true,
 				} );
 
 				// Remove the temporary site immediately, but with a minor delay to ensure state updates properly
@@ -322,6 +326,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					enableHttps,
 					siteId: tempSiteId,
 					phpVersion,
+					runtime,
+					fileAccess,
 					blueprint,
 					adminUsername,
 					adminPassword,
@@ -381,7 +387,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		setSites( sortSites( updatedSites ) );
 	}, [] );
 
-	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >();
+	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >( undefined );
 	const DEBOUNCE_SAVE_MS = 300;
 
 	const updateSitesSortOrder = useCallback( async ( sites: SiteDetails[] ) => {
@@ -535,7 +541,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 				getIpcApi().showNotification( {
 					title: newSite.name,
-					body: __( sprintf( 'Your site %s was copied successfully', sourceSite.name ) ),
+					body: sprintf( __( 'Your site %s was copied successfully' ), sourceSite.name ),
 				} );
 
 				void startServer( newSite );

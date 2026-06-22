@@ -1,4 +1,9 @@
 import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
@@ -35,7 +40,15 @@ export async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Prom
  * Centralised here so every caller agrees on the query-param shape
  * the studio-auto-login mu-plugin expects.
  */
-export function buildAutoLoginUrl( siteUrl: string, redirectTo?: string ): string {
+export function buildAutoLoginUrl(
+	runtime: SiteRuntime,
+	siteUrl: string,
+	redirectTo?: string
+): string {
+	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
+		return `${ siteUrl }/`;
+	}
+
 	const base = `${ siteUrl }/studio-auto-login`;
 	if ( ! redirectTo ) {
 		return base;
@@ -55,9 +68,7 @@ export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 	try {
 		const targetPath = site.landingPage || '/wp-admin/';
 		const target = new URL( targetPath, siteUrl ).toString();
-		const autoLoginUrl =
-			site.runtime === 'playground' ? buildAutoLoginUrl( siteUrl, target ) : `${ siteUrl }/`;
-		await openBrowser( autoLoginUrl );
+		await openBrowser( buildAutoLoginUrl( getSiteRuntime( site ), siteUrl, target ) );
 	} catch ( error ) {
 		// Silently fail if browser can't be opened
 	}

@@ -7,10 +7,9 @@
 import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { mailpitSchema } from '@studio/common/lib/mailpit';
+import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
+import { siteRuntimeSchema } from '@studio/common/lib/site-runtime';
 import { snapshotSchema } from '@studio/common/types/snapshot';
-
-export const siteRuntimeSchema = z.enum( [ 'playground', 'native-php' ] );
-export type SiteRuntime = z.infer< typeof siteRuntimeSchema >;
 
 /**
  * Site data included in events. This is the data Studio needs to display sites.
@@ -22,6 +21,8 @@ export const siteDetailsSchema = z.object( {
 	port: z.number(),
 	url: z.string(),
 	phpVersion: z.string(),
+	runtime: siteRuntimeSchema.optional(),
+	fileAccess: siteFileAccessSchema.optional(),
 	customDomain: z.string().optional(),
 	enableHttps: z.boolean().optional(),
 	adminUsername: z.string().optional(),
@@ -35,7 +36,6 @@ export const siteDetailsSchema = z.object( {
 	technicalSiteDirectory: z.string().optional(),
 	runtimeBlueprintPath: z.string().optional(),
 	landingPage: z.string().optional(),
-	runtime: siteRuntimeSchema.optional(),
 	mailpit: mailpitSchema.optional(),
 } );
 

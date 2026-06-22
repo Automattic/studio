@@ -11,12 +11,11 @@ import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { openBrowser } from 'cli/lib/browser';
-import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { LoggerError } from 'cli/logger';
 import { loadRemoteSessionConfig } from 'cli/remote-session/config';
 import { DaemonAlreadyRunningError, startDaemon, stopDaemon } from 'cli/remote-session/daemon';
-import type { AutocompleteItem } from '@mariozechner/pi-tui';
+import type { AutocompleteItem } from '@earendil-works/pi-tui';
 import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
@@ -44,13 +43,6 @@ export interface SlashCommandDef {
 	description: string;
 	handler?: SlashCommandHandler;
 	/**
-	 * Optional gate. When provided and returning false at evaluation time, the
-	 * command is hidden from autocomplete and unreachable from the dispatcher.
-	 * Used for feature-flagged commands so the surface stays clean for users
-	 * who haven't opted in.
-	 */
-	enabled?: () => boolean;
-	/**
 	 * Optional argument completion. When the user has typed past the first
 	 * whitespace (e.g. `/remote-session `), the autocomplete provider calls
 	 * this to surface subcommand suggestions.
@@ -58,18 +50,8 @@ export interface SlashCommandDef {
 	getArgumentCompletions?: ( argumentPrefix: string ) => AutocompleteItem[] | null;
 }
 
-/**
- * Returns the slash commands that are active at the time this function is
- * called.
- *
- * Consumers such as the dispatcher should call this rather than reading
- * `AI_CHAT_SLASH_COMMANDS` directly so feature-flag evaluation happens
- * against current state. Consumers that cache the returned list, or build
- * long-lived autocomplete providers from it, must refresh those consumers
- * separately for later feature-flag changes to be reflected.
- */
 export function getActiveSlashCommands(): SlashCommandDef[] {
-	return AI_CHAT_SLASH_COMMANDS.filter( ( c ) => c.enabled === undefined || c.enabled() );
+	return AI_CHAT_SLASH_COMMANDS;
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -514,7 +496,6 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	{
 		name: 'remote-session',
 		description: __( 'Manage the Telegram remote-session daemon (start, stop)' ),
-		enabled: isRemoteSessionEnabled,
 		getArgumentCompletions: ( argumentPrefix ) => {
 			const items: AutocompleteItem[] = [
 				{ value: 'start', label: 'start', description: __( 'Spawn the daemon' ) },

@@ -11,7 +11,7 @@ updates:
       interval: "weekly"
 
     cooldown:
-      default-days: 1
+      default-days: 2
 
     allow:
       # Automattic packages
@@ -283,3 +283,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+
+  # Enable version updates for Ruby gems
+  - package-ecosystem: "bundler"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      ruby-minor-and-patch:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5

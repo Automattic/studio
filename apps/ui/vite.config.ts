@@ -1,9 +1,9 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import dsTokenFallbacks from '@wordpress/theme/vite-plugins/vite-ds-token-fallbacks';
-import dsTokenFallbacksPostcss from '@wordpress/theme/postcss-plugins/postcss-ds-token-fallbacks';
-import { resolve } from 'path';
 import { createRequire } from 'module';
+import { resolve } from 'path';
+import react from '@vitejs/plugin-react';
+import dsTokenFallbacksPostcss from '@wordpress/theme/postcss-plugins/postcss-ds-token-fallbacks';
+import dsTokenFallbacks from '@wordpress/theme/vite-plugins/vite-ds-token-fallbacks';
+import { defineConfig, type Plugin } from 'vite';
 
 const require = createRequire( import.meta.url );
 const pkg = require( './package.json' ) as {
@@ -18,8 +18,38 @@ const directDeps = Object.entries( pkg.dependencies ?? {} )
 	.filter( ( [ , version ] ) => ! version.startsWith( 'file:' ) )
 	.map( ( [ name ] ) => name );
 
+// Web target (`STUDIO_TARGET=web`) builds a standalone browser app wired to the
+// HTTP/SSE web connector. It uses a separate entry/output/port so the default
+// Electron-renderer build (`dist/`, port 5200) stays byte-for-byte unchanged.
+const isWeb = process.env.STUDIO_TARGET === 'web';
+
+// In dev, Vite serves the root `index.html` (which loads the Electron entry,
+// `main.tsx`) for every SPA navigation, regardless of `build` input options.
+// Serve `index.web.html` instead for any document navigation (`/`, `/sites`,
+// `/sessions/:id`, …) so the web entry + web connector load and client-side
+// routing/refresh works. Module and asset requests pass through untouched.
+const webDevEntryPlugin: Plugin = {
+	name: 'studio-web-dev-entry',
+	apply: 'serve',
+	configureServer( server ) {
+		server.middlewares.use( ( req, _res, next ) => {
+			const accept = req.headers.accept ?? '';
+			const [ pathname ] = ( req.url ?? '' ).split( '?' );
+			const isInternal =
+				pathname.startsWith( '/@' ) ||
+				pathname.startsWith( '/src/' ) ||
+				pathname.startsWith( '/node_modules/' ) ||
+				pathname.includes( '.' );
+			if ( accept.includes( 'text/html' ) && ! isInternal ) {
+				req.url = '/index.web.html';
+			}
+			next();
+		} );
+	},
+};
+
 export default defineConfig( {
-	plugins: [ react(), dsTokenFallbacks() ],
+	plugins: [ react(), dsTokenFallbacks(), ...( isWeb ? [ webDevEntryPlugin ] : [] ) ],
 	css: {
 		postcss: {
 			plugins: [ dsTokenFallbacksPostcss ],
@@ -44,12 +74,12 @@ export default defineConfig( {
 		include: directDeps,
 	},
 	server: {
-		port: 5200,
+		port: isWeb ? 5300 : 5200,
 	},
 	build: {
-		outDir: 'dist',
-		rollupOptions: {
-			input: resolve( __dirname, 'index.html' ),
+		outDir: isWeb ? 'dist-web' : 'dist',
+		rolldownOptions: {
+			input: resolve( __dirname, isWeb ? 'index.web.html' : 'index.html' ),
 		},
 	},
 } );

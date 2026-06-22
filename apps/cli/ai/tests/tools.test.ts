@@ -1,7 +1,9 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
+import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { emitEvent } from 'cli/ai/json-events';
 import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
@@ -15,7 +17,8 @@ import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/upda
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
+import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
+import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { getProgressCallback, setProgressCallback } from 'cli/logger';
 import {
 	captureCommandOutput,
@@ -94,9 +97,12 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 	disconnectFromDaemon: vi.fn(),
 } ) );
 
+vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
+	runWpCliCommandWithMessaging: vi.fn(),
+} ) );
+
 vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
 	isServerRunning: vi.fn(),
-	sendWpCliCommand: vi.fn(),
 } ) );
 
 describe( 'Studio AI MCP tools', () => {
@@ -124,6 +130,49 @@ describe( 'Studio AI MCP tools', () => {
 		tool: ReturnType< typeof resolveStudioToolDefinitions >[ number ],
 		args: Record< string, unknown >
 	) => tool.execute( 'tool-call-1', args as never, new AbortController().signal, () => {} );
+	const mockWpCliResponse = ( {
+		stdout = '',
+		stderr = '',
+		exitCode = 0,
+	}: { stdout?: string; stderr?: string; exitCode?: number } = {} ) => ( {
+		response: {
+			exitCode: Promise.resolve( exitCode ),
+			stdoutText: Promise.resolve( stdout ),
+			stderrText: Promise.resolve( stderr ),
+		},
+		[ Symbol.dispose ]() {},
+	} );
+	const mockValidatedFix = ( fixedContent: string, blockName = 'core/paragraph' ) => {
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 0,
+			invalidBlocks: 1,
+			results: [
+				{
+					blockName,
+					isValid: false,
+					issues: [],
+					originalContent: '',
+				},
+			],
+			proposedFix: {
+				fixedContent,
+				report: {
+					totalBlocks: 1,
+					validBlocks: 1,
+					invalidBlocks: 0,
+					results: [
+						{
+							blockName,
+							isValid: true,
+							issues: [],
+							originalContent: '',
+						},
+					],
+				},
+			},
+		} );
+	};
 
 	beforeEach( () => {
 		vi.resetAllMocks();
@@ -149,6 +198,66 @@ describe( 'Studio AI MCP tools', () => {
 				'preview_delete',
 			] )
 		);
+	} );
+
+	it( 'reports invalid core/html blocks and skips editor validation', async () => {
+		const result = await getTool( 'validate_blocks' ).rawHandler( {
+			nameOrPath: 'My Site',
+			content:
+				'<!-- wp:html --><form><label>Email<input type="email" /></label></form><!-- /wp:html -->',
+		} as never );
+
+		const text = getTextContent( result );
+		expect( text ).toContain( 'HTML block policy: 1/1 core/html blocks invalid' );
+		expect( text ).toContain( '<form>' );
+		// The HTML policy gate short-circuits before the live editor runs.
+		expect( validateBlocks ).not.toHaveBeenCalled();
+	} );
+
+	it( 'returns fixed inline block content', async () => {
+		const originalContent =
+			'<!-- wp:paragraph {"align":"center"} --><p>Hello</p><!-- /wp:paragraph -->';
+		const fixedContent =
+			'<!-- wp:paragraph {"align":"center"} -->\n<p class="has-text-align-center">Hello</p>\n<!-- /wp:paragraph -->';
+		mockValidatedFix( fixedContent );
+
+		const result = await getTool( 'validate_blocks' ).rawHandler( {
+			nameOrPath: 'My Site',
+			content: originalContent,
+		} as never );
+
+		expect( validateBlocks ).toHaveBeenCalledWith(
+			originalContent,
+			expect.stringContaining( 'localhost:8888' )
+		);
+		const text = getTextContent( result );
+		expect( text ).toContain( 'Fixed block content:' );
+		expect( text ).toContain( fixedContent );
+	} );
+
+	it( 'applies valid editor serialization fixes to files', async () => {
+		const tempDir = await mkdtemp( path.join( os.tmpdir(), 'studio-block-fix-' ) );
+		const filePath = path.join( tempDir, 'page.html' );
+		const originalContent =
+			'<!-- wp:separator {"className":"section-rule"} --><hr class="wp-block-separator section-rule"/><!-- /wp:separator -->';
+		const fixedContent =
+			'<!-- wp:separator {"opacity":"css","className":"section-rule"} -->\n<hr class="wp-block-separator has-css-opacity section-rule"/>\n<!-- /wp:separator -->';
+		await writeFile( filePath, originalContent );
+		mockValidatedFix( fixedContent, 'core/separator' );
+
+		try {
+			const result = await getTool( 'validate_blocks' ).rawHandler( {
+				nameOrPath: 'My Site',
+				filePath,
+			} as never );
+
+			await expect( readFile( filePath, 'utf8' ) ).resolves.toBe( fixedContent );
+			const text = getTextContent( result );
+			expect( text ).toContain( 'Auto-fix applied: 1/1 blocks valid' );
+			expect( text ).not.toContain( 'Fixed block content:' );
+		} finally {
+			await rm( tempDir, { recursive: true, force: true } );
+		}
 	} );
 
 	it( 'exposes the explicit presentation tool when chat artifacts are enabled', () => {
@@ -199,12 +308,12 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'keeps take_screenshot output compact while returning a media payload', async () => {
-		const screenshotBuffer = Buffer.from( 'fake-png' );
+		const screenshotBuffer = Buffer.from( 'fake-jpeg' );
 		const page = {
 			emulateMedia: vi.fn(),
 			goto: vi.fn(),
 			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
-			evaluate: vi.fn(),
+			evaluate: vi.fn().mockResolvedValue( 2400 ),
 			addStyleTag: vi.fn(),
 			screenshot: vi.fn().mockResolvedValue( screenshotBuffer ),
 			close: vi.fn(),
@@ -218,7 +327,8 @@ describe( 'Studio AI MCP tools', () => {
 			url: 'http://localhost:8903/story-time',
 		} as never );
 		const text = getTextContent( result );
-		expect( text ).toContain( 'Screenshot captured (desktop).' );
+		expect( text ).toContain( 'Screenshot captured' );
+		expect( text ).toContain( 'desktop: captured full page (2400px tall)' );
 		expect( text ).toContain( 'mediaWidgetPayload=' );
 		expect( text ).not.toContain( 'When this screenshot is useful to show the user' );
 		expect( text ).not.toContain( 'Path:' );
@@ -226,13 +336,150 @@ describe( 'Studio AI MCP tools', () => {
 		expect( result.content[ 1 ] ).toEqual( {
 			type: 'image',
 			data: screenshotBuffer.toString( 'base64' ),
-			mimeType: 'image/png',
+			mimeType: 'image/jpeg',
 		} );
 
 		const payload = JSON.parse( text!.split( 'mediaWidgetPayload=' )[ 1 ] ) as {
 			widgetProps: { source: { path: string } };
 		};
 		await rm( path.dirname( payload.widgetProps.source.path ), { recursive: true, force: true } );
+	} );
+
+	it( 'can capture desktop and mobile screenshots in one take_screenshot call', async () => {
+		const desktopBuffer = Buffer.from( 'desktop-jpeg' );
+		const mobileBuffer = Buffer.from( 'mobile-jpeg' );
+		const createPage = ( buffer: Buffer ) => ( {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi.fn().mockResolvedValue( 2400 ),
+			addStyleTag: vi.fn(),
+			screenshot: vi.fn().mockResolvedValue( buffer ),
+			close: vi.fn(),
+		} );
+		const desktopPage = createPage( desktopBuffer );
+		const mobilePage = createPage( mobileBuffer );
+		const browser = {
+			newPage: vi.fn().mockResolvedValueOnce( desktopPage ).mockResolvedValueOnce( mobilePage ),
+		};
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+		const result = await getTool( 'take_screenshot' ).rawHandler( {
+			url: 'http://localhost:8903/story-time',
+			viewport: 'all',
+		} as never );
+		const text = getTextContent( result );
+
+		expect( text ).toContain( 'Screenshots captured:' );
+		expect( text ).toContain( '- desktop: captured full page (2400px tall)' );
+		expect( text ).toContain( '- mobile: captured full page (2400px tall)' );
+		expect( text ).toContain( 'mediaWidgetPayloads=' );
+		expect( browser.newPage ).toHaveBeenCalledTimes( 2 );
+		expect( result.content.slice( 1 ) ).toEqual( [
+			{
+				type: 'image',
+				data: desktopBuffer.toString( 'base64' ),
+				mimeType: 'image/jpeg',
+			},
+			{
+				type: 'image',
+				data: mobileBuffer.toString( 'base64' ),
+				mimeType: 'image/jpeg',
+			},
+		] );
+
+		const payloads = JSON.parse( text!.split( 'mediaWidgetPayloads=' )[ 1 ] ) as Array< {
+			widgetProps: { source: { path: string; name: string } };
+		} >;
+		try {
+			expect( payloads.map( ( payload ) => payload.widgetProps.source.name ) ).toEqual( [
+				'screenshot-desktop.jpg',
+				'screenshot-mobile.jpg',
+			] );
+		} finally {
+			await Promise.all(
+				payloads.map( ( payload ) =>
+					rm( path.dirname( payload.widgetProps.source.path ), { recursive: true, force: true } )
+				)
+			);
+		}
+	} );
+
+	it( 'inspect_design returns rendered DOM facts for the requested selectors', async () => {
+		const report = [
+			{
+				selector: '.wp-block-button__link',
+				matchCount: 1,
+				matches: [
+					{
+						tag: 'a',
+						classes: [ 'wp-block-button__link', 'wp-element-button' ],
+						boundingBox: { x: 0, y: 0, width: 120, height: 44 },
+						computedStyle: { 'background-color': 'rgb(0, 0, 0)' },
+						ancestors: [ 'div.wp-block-button' ],
+					},
+				],
+			},
+		];
+		const page = {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi.fn().mockResolvedValueOnce( undefined ).mockResolvedValueOnce( report ),
+			hover: vi.fn(),
+			mouse: { move: vi.fn() },
+			close: vi.fn(),
+		};
+		const browser = { newPage: vi.fn().mockResolvedValue( page ) };
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+		const result = await getTool( 'inspect_design' ).rawHandler( {
+			url: 'http://localhost:8903/',
+			selectors: [ '.wp-block-button__link' ],
+		} as never );
+
+		const parsed = JSON.parse( getTextContent( result )! );
+		expect( parsed.viewport ).toBe( 'desktop' );
+		expect( parsed.viewportWidth ).toBe( 1040 );
+		expect( parsed.selectors[ 0 ].matchCount ).toBe( 1 );
+		expect( parsed.selectors[ 0 ].matches[ 0 ].computedStyle[ 'background-color' ] ).toBe(
+			'rgb(0, 0, 0)'
+		);
+		expect( parsed.hover ).toBeUndefined();
+		expect( page.hover ).not.toHaveBeenCalled();
+		expect( page.close ).toHaveBeenCalled();
+	} );
+
+	it( 'inspect_design captures hover styles when includeHover is set', async () => {
+		const report = [ { selector: '.wp-block-button__link', matchCount: 1, matches: [] } ];
+		const page = {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi
+				.fn()
+				.mockResolvedValueOnce( undefined )
+				.mockResolvedValueOnce( report )
+				.mockResolvedValueOnce( { 'background-color': 'rgb(255, 0, 0)' } ),
+			hover: vi.fn().mockResolvedValue( undefined ),
+			mouse: { move: vi.fn().mockResolvedValue( undefined ) },
+			close: vi.fn(),
+		};
+		const browser = { newPage: vi.fn().mockResolvedValue( page ) };
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+		const result = await getTool( 'inspect_design' ).rawHandler( {
+			url: 'http://localhost:8903/',
+			selectors: [ '.wp-block-button__link' ],
+			viewport: 'mobile',
+			includeHover: true,
+		} as never );
+
+		const parsed = JSON.parse( getTextContent( result )! );
+		expect( parsed.viewport ).toBe( 'mobile' );
+		expect( parsed.viewportWidth ).toBe( 390 );
+		expect( page.hover ).toHaveBeenCalledWith( '.wp-block-button__link', expect.anything() );
+		expect( parsed.hover[ 0 ].computedStyle[ 'background-color' ] ).toBe( 'rgb(255, 0, 0)' );
 	} );
 
 	it( 'emits explicit Studio widget artifacts from studio_present', async () => {
@@ -298,6 +545,35 @@ describe( 'Studio AI MCP tools', () => {
 				type: 'chat.artifact',
 				artifact: expect.objectContaining( {
 					widgets: [ localMediaWidget ],
+				} ),
+			} )
+		);
+	} );
+
+	it( 'accepts PDF widget artifacts from studio_present', async () => {
+		const tool = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).find( ( definition ) => definition.name === 'studio_present' );
+		expect( tool ).toBeDefined();
+
+		const pdfWidget = {
+			type: 'pdf',
+			widgetProps: {
+				url: 'https://example.com/brief.pdf',
+				title: 'Brief',
+				mediaId: null,
+			},
+		};
+
+		await executeTool( tool!, {
+			widgets: [ pdfWidget ],
+		} );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'chat.artifact',
+				artifact: expect.objectContaining( {
+					widgets: [ pdfWidget ],
 				} ),
 			} )
 		);
@@ -607,6 +883,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 
 		await expect(
@@ -617,7 +894,7 @@ describe( 'Studio AI MCP tools', () => {
 			} as never )
 		).rejects.toThrow( /does not run in a shell/ );
 
-		expect( sendWpCliCommand ).not.toHaveBeenCalled();
+		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 	} );
 
 	it( 'treats unquoted post_content as a single trailing literal argument', async () => {
@@ -626,12 +903,11 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 
 		await getTool( 'wp_cli' ).rawHandler( {
 			nameOrPath: 'My Site',
@@ -640,7 +916,7 @@ describe( 'Studio AI MCP tools', () => {
 <!-- /wp:paragraph -->`,
 		} as never );
 
-		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -656,19 +932,18 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 
 		await getTool( 'wp_cli' ).rawHandler( {
 			nameOrPath: 'My Site',
 			command: 'post create --post_type=page --post_title="About" --post_content="Hello world"',
 		} as never );
 
-		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -683,12 +958,11 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 
 		await getTool( 'wp_cli' ).rawHandler( {
 			nameOrPath: 'My Site',
@@ -696,7 +970,7 @@ describe( 'Studio AI MCP tools', () => {
 				'post create --post_type=page --post_title="About" --post_content="Hello world" --porcelain',
 		} as never );
 
-		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -712,19 +986,18 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 
 		await getTool( 'wp_cli' ).rawHandler( {
 			nameOrPath: 'My Site',
 			command: 'post create --post_type=page --post_title="About" --post_content="" --porcelain',
 		} as never );
 
-		expect( sendWpCliCommand ).toHaveBeenCalledWith( 'site-123', [
+		expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( mockSite, [
 			'post',
 			'create',
 			'--post_type=page',
@@ -740,12 +1013,11 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
 		} ).find( ( definition ) => definition.name === 'wp_cli' );
@@ -772,12 +1044,11 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
-		vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-			stdout: '123',
-			stderr: '',
-			exitCode: 0,
-		} );
+		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+			mockWpCliResponse( { stdout: '123' } ) as never
+		);
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
 		} ).find( ( definition ) => definition.name === 'wp_cli' );
@@ -804,6 +1075,7 @@ describe( 'Studio AI MCP tools', () => {
 			pmId: 1,
 			status: 'online',
 			pid: 1234,
+			runtime: SITE_RUNTIME_PLAYGROUND,
 		} );
 
 		await expect(
@@ -814,7 +1086,7 @@ describe( 'Studio AI MCP tools', () => {
 			} as never )
 		).rejects.toThrow( /typographic dash/ );
 
-		expect( sendWpCliCommand ).not.toHaveBeenCalled();
+		expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 	} );
 
 	describe( 'scaffold_theme', () => {
@@ -962,19 +1234,18 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
-			vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-				stdout: "Success: Switched to 'Acme Studio' theme.",
-				stderr: '',
-				exitCode: 0,
-			} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCliResponse( { stdout: "Success: Switched to 'Acme Studio' theme." } ) as never
+			);
 
 			const result = await getTool( 'scaffold_theme' ).rawHandler( {
 				nameOrPath: scaffoldSite.name,
 				name: 'Acme Studio',
 			} as never );
 
-			expect( sendWpCliCommand ).toHaveBeenCalledWith( scaffoldSite.id, [
+			expect( runWpCliCommandWithMessaging ).toHaveBeenCalledWith( scaffoldSite, [
 				'theme',
 				'activate',
 				'acme-studio',
@@ -991,6 +1262,7 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
 
 			const result = await getTool( 'scaffold_theme' ).rawHandler( {
@@ -999,7 +1271,7 @@ describe( 'Studio AI MCP tools', () => {
 				activate: false,
 			} as never );
 
-			expect( sendWpCliCommand ).not.toHaveBeenCalled();
+			expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 			expect( getTextContent( result ) ).toContain(
 				'Activate with: wp theme activate acme-studio'
 			);
@@ -1013,7 +1285,7 @@ describe( 'Studio AI MCP tools', () => {
 				name: 'Acme Studio',
 			} as never );
 
-			expect( sendWpCliCommand ).not.toHaveBeenCalled();
+			expect( runWpCliCommandWithMessaging ).not.toHaveBeenCalled();
 			expect( getTextContent( result ) ).toContain( 'Activation skipped:' );
 			expect( getTextContent( result ) ).toContain( 'Site is not running' );
 			expect( getTextContent( result ) ).toContain(
@@ -1027,12 +1299,11 @@ describe( 'Studio AI MCP tools', () => {
 				pmId: 1,
 				status: 'online',
 				pid: 1234,
+				runtime: SITE_RUNTIME_PLAYGROUND,
 			} );
-			vi.mocked( sendWpCliCommand ).mockResolvedValue( {
-				stdout: '',
-				stderr: 'Error: stylesheet missing.',
-				exitCode: 1,
-			} );
+			vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
+				mockWpCliResponse( { stderr: 'Error: stylesheet missing.', exitCode: 1 } ) as never
+			);
 
 			const result = await getTool( 'scaffold_theme' ).rawHandler( {
 				nameOrPath: scaffoldSite.name,

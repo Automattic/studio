@@ -1401,7 +1401,7 @@ function printCompletionMessage( metadata: PullSessionMetadata ): void {
  * the same directory.  Returns `created: true` only on the create
  * path so the caller can emit a one-shot CREATED event.
  */
-async function registerSite(
+export async function registerSite(
 	metadata: PullSessionMetadata
 ): Promise< { created: boolean; site: SiteData } > {
 	const existingSite = await findExistingSite( metadata );
@@ -1423,6 +1423,14 @@ async function registerSite(
 		enableHttps: false,
 		technicalSiteDirectory: metadata.technicalSiteDirectory,
 		runtimeBlueprintPath: metadata.runtimeBlueprintPath,
+		// Reprint-pulled sites are laid out for the Playground runtime (VFS
+		// mounts place wp-content — and its SQLite db.php drop-in — at
+		// /wordpress/wp-content). Without this, the site falls back to the
+		// default native-php runtime, where the symlinked layout resolves
+		// WP_CONTENT_DIR to the WordPress core path, the SQLite drop-in is
+		// never loaded, and WordPress dies with "Error establishing a
+		// database connection" on start.
+		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 
 	try {

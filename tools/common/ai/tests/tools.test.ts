@@ -33,6 +33,16 @@ describe( 'tool display helpers', () => {
 		).toBe( 'Activate plugin: Classic Editor' );
 		expect(
 			getToolDisplayName( 'wp_cli', {
+				command: 'plugin install --activate woocommerce',
+			} )
+		).toBe( 'Install plugin: WooCommerce' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin install --version 9.0 woocommerce',
+			} )
+		).toBe( 'Install plugin: WooCommerce' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
 				command: 'theme activate my-custom-theme',
 			} )
 		).toBe( 'Activate theme: My Custom Theme' );
@@ -44,6 +54,26 @@ describe( 'tool display helpers', () => {
 				command: 'plugin update --all',
 			} )
 		).toBe( 'Update all plugins' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin activate --all',
+			} )
+		).toBe( 'Activate all plugins' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin deactivate --all',
+			} )
+		).toBe( 'Deactivate all plugins' );
+	} );
+
+	it( 'ignores large WP-CLI payload values when deriving labels', () => {
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: `post create --post_type=page --post_content=${ 'Block content '.repeat(
+					1000
+				) } --post_type=post`,
+			} )
+		).toBe( 'Create page' );
 	} );
 
 	it( 'keeps the full WP-CLI command available as detail', () => {

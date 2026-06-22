@@ -14,6 +14,22 @@ function splitCommandArgs( command: string ): string[] {
 	);
 }
 
+const WP_CLI_LARGE_PAYLOAD_OPTIONS = [ '--post_content', '--post_excerpt', '--meta_input' ];
+
+function trimWpCliCommandForLabel( command: string ): string {
+	const payloadOptionIndex = WP_CLI_LARGE_PAYLOAD_OPTIONS.map( ( option ) =>
+		[ `${ option }=`, `${ option } ` ]
+			.map( ( optionPattern ) => command.indexOf( optionPattern ) )
+			.filter( ( index ) => index >= 0 )
+	)
+		.flat()
+		.sort( ( a, b ) => a - b )[ 0 ];
+
+	return payloadOptionIndex === undefined
+		? command
+		: command.slice( 0, payloadOptionIndex ).trimEnd();
+}
+
 function getWpCliOptionValue( args: string[], option: string ): string | undefined {
 	const inlinePrefix = `${ option }=`;
 	for ( let index = 0; index < args.length; index += 1 ) {
@@ -98,6 +114,35 @@ function formatWpCliTargetActionLabel( label: string, target: string | undefined
 	);
 }
 
+const WP_CLI_OPTIONS_WITH_VALUES = new Set( [
+	'--context',
+	'--exec',
+	'--locale',
+	'--path',
+	'--prompt',
+	'--require',
+	'--skip-plugins',
+	'--skip-themes',
+	'--ssh',
+	'--url',
+	'--user',
+	'--version',
+] );
+
+function getWpCliCommandTarget( args: string[] ): string | undefined {
+	for ( let index = 2; index < args.length; index += 1 ) {
+		const arg = args[ index ];
+		if ( ! arg.startsWith( '-' ) ) {
+			return arg;
+		}
+
+		if ( WP_CLI_OPTIONS_WITH_VALUES.has( arg ) ) {
+			index += 1;
+		}
+	}
+	return undefined;
+}
+
 function getWpCliPostLabel( args: string[] ): string {
 	const action = args[ 1 ];
 	const postType = getWpCliOptionValue( args, '--post_type' );
@@ -149,8 +194,9 @@ function getWpCliPostLabel( args: string[] ): string {
 }
 
 function getWpCliCommandLabel( command: string ): string {
-	const args = splitCommandArgs( command );
-	const [ entity, action, target ] = args;
+	const args = splitCommandArgs( trimWpCliCommandForLabel( command ) );
+	const [ entity, action ] = args;
+	const target = getWpCliCommandTarget( args );
 
 	switch ( entity ) {
 		case 'theme':
@@ -171,8 +217,14 @@ function getWpCliCommandLabel( command: string ): string {
 				case 'list':
 					return __( 'List plugins' );
 				case 'activate':
+					if ( args.includes( '--all' ) ) {
+						return __( 'Activate all plugins' );
+					}
 					return formatWpCliTargetActionLabel( __( 'Activate plugin' ), target );
 				case 'deactivate':
+					if ( args.includes( '--all' ) ) {
+						return __( 'Deactivate all plugins' );
+					}
 					return formatWpCliTargetActionLabel( __( 'Deactivate plugin' ), target );
 				case 'install':
 					return formatWpCliTargetActionLabel( __( 'Install plugin' ), target );

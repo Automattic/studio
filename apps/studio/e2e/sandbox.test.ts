@@ -32,7 +32,7 @@ test.describe( 'Sandbox runtime', () => {
 		await expect( siteContent.siteNameHeading ).toHaveText( siteName );
 
 		// The Settings tab reports the site as running on the Sandbox runtime.
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		await expect( settingsTab.phpRuntimeDisplay ).toContainText( 'Sandbox' );
 
 		// The Sandbox site actually serves its home page over HTTP.

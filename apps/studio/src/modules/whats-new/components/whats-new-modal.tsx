@@ -9,6 +9,7 @@ import blueprintsIllustration from 'src/modules/whats-new/assets/blueprints-illu
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import darkModeIllustration from 'src/modules/whats-new/assets/dark-mode-illustration.svg';
 import phpMyAdminIllustration from 'src/modules/whats-new/assets/phpmyadmin-illustration.svg';
+import studioCodeIllustration from 'src/modules/whats-new/assets/studio-code-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {
@@ -57,6 +58,14 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
+		{
+			image: studioCodeIllustration,
+			title: __( 'Studio Code is now on desktop' ),
+			description: __(
+				'Studio Code replaces the AI assistant with a more powerful agent. Move faster just by talking. Spin up new sites, run performance audits, add pages and content, build plugins and themes, and generate preview sites, all from the Studio Code chat interface.'
+			),
+			learnMoreUrl: getLocalizedLink( locale, 'docsStudioCode' ),
+		},
 		{
 			image: darkModeIllustration,
 			title: __( 'Dark mode is here' ),

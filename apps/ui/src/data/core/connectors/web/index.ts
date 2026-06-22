@@ -18,7 +18,7 @@ import type {
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 
 export interface WebConnectorOptions {
-	// Base URL of the `studio web-server` backend, e.g. http://localhost:8088.
+	// Base URL of the Studio Web backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
 }
 
@@ -46,10 +46,10 @@ type ServerEvent =
  * Same React app, same `AgentRunEvent` stream, different transport — it speaks
  * HTTP + SSE instead of IPC.
  *
- * Its peer is whatever implements that HTTP/SSE contract. Today that's the
- * local `studio web-server` (a development stand-in); later it's the hosted
- * Studio Web backend. This connector doesn't care which — that's the point of
- * the boundary, and why the UI needs no changes to move from local to hosted.
+ * Its peer is whatever implements that HTTP/SSE contract: the Studio Web
+ * backend in `apps/hosted`, run locally today and hosted later. This connector
+ * doesn't care which — that's the point of the boundary, and why the UI needs no
+ * changes to move from local to hosted.
  *
  * This is the first Studio Web increment, extracted from the broader
  * exploration in https://github.com/Automattic/studio/pull/3746. Only the

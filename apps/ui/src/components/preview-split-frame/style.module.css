@@ -1,6 +1,4 @@
 .root {
-	display: flex;
-	flex-direction: row;
 	height: 100%;
 	min-height: 0;
 	position: relative;
@@ -14,23 +12,27 @@
 .contentColumn {
 	display: flex;
 	flex-direction: column;
-	flex: 0 0 100%;
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 100%;
 	min-width: 0;
 	min-height: 0;
-	position: relative;
 	z-index: 1;
 	overflow: auto;
 	background-color: var(--wpds-color-bg-surface-neutral);
 }
 
 .rootPreviewOpen .contentColumn {
-	flex-basis: calc(100% - var(--site-preview-width, 520px));
+	width: var(--preview-frame-content-width);
 }
 
-/* Applied only around open/close toggles (see PREVIEW_TOGGLE_DURATION) so
-   the initial layout and drag-resizing stay instant. */
 .rootPreviewAnimating .contentColumn {
-	transition: flex-basis 150ms ease;
+	transition: width 150ms ease;
+}
+
+.rootPreviewResizing .contentColumn {
+	user-select: none;
+	transition: none;
 }
 
 .previewSlot {
@@ -38,18 +40,19 @@
 	top: 0;
 	right: 0;
 	bottom: 0;
-	width: var(--site-preview-width, 520px);
-	/* Once the close animation finishes, drop the slot out of the focus and
-	   accessibility tree — the webview behind the content column stays
-	   mounted but must not be reachable. The delay keeps it visible while it
-	   slides closed; opening flips visibility immediately. */
+	z-index: 0;
+	width: calc(100% - var(--preview-frame-content-width));
+	min-width: 0;
+	pointer-events: none;
 	visibility: hidden;
-	transition: visibility 0s linear 150ms;
 }
 
-.previewSlotOpen {
+.previewSlotVisible {
 	visibility: visible;
-	transition-delay: 0s;
+}
+
+.previewSlotInteractive {
+	pointer-events: auto;
 }
 
 /* Centers the 8px hit area on the content/preview boundary. */
@@ -57,6 +60,8 @@
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	right: calc(var(--site-preview-width, 520px) - 4px);
+	left: var(--preview-frame-content-width);
+	z-index: 3;
+	transform: translateX(-4px);
 	justify-content: center;
 }

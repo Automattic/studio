@@ -86,6 +86,12 @@ const mockUserData = {
 };
 vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 
+beforeEach( () => {
+	delete process.env.ENABLE_AGENTIC_UI;
+	delete process.env.ELECTRON_UI_RENDERER_URL;
+	delete process.env.ELECTRON_RENDERER_URL;
+} );
+
 describe( 'getMainWindow', () => {
 	let createdWindow: BrowserWindow;
 
@@ -133,6 +139,30 @@ describe( 'getMainWindow', () => {
 		// Should return a BrowserWindow instance (creates a new one internally)
 		expect( window ).toBeInstanceOf( BrowserWindow );
 		expect( window.loadFile ).toHaveBeenCalled();
+	} );
+} );
+
+describe( 'renderer selection', () => {
+	afterEach( () => {
+		__resetMainWindow();
+	} );
+
+	it( 'loads the legacy renderer by default', async () => {
+		const createdWindow = await createMainWindow();
+		const rendererPath = vi.mocked( createdWindow.loadFile ).mock.calls[ 0 ][ 0 ];
+
+		expect( rendererPath.replace( /\\/g, '/' ) ).toContain( 'renderer/index.html' );
+		expect( createdWindow.loadURL ).not.toHaveBeenCalled();
+	} );
+
+	it( 'loads the UI dev server when the agentic UI flag is enabled', async () => {
+		process.env.ENABLE_AGENTIC_UI = 'true';
+		process.env.ELECTRON_UI_RENDERER_URL = 'http://localhost:5200';
+
+		const createdWindow = await createMainWindow();
+
+		expect( createdWindow.loadURL ).toHaveBeenCalledWith( 'http://localhost:5200' );
+		expect( createdWindow.loadFile ).not.toHaveBeenCalled();
 	} );
 } );
 

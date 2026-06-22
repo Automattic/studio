@@ -1,6 +1,5 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
-import type { DesksConfig } from '@studio/common/types/desk';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -15,6 +14,11 @@ export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
 	siteIconPath?: SiteDetails[ 'siteIconPath' ];
 	sortOrder?: number;
+	// The last runtime stat counted for this site, and when (Unix ms). Dedupes
+	// the daily per-site runtime bump so restarts don't inflate it, while still
+	// re-counting when the day rolls over or the runtime/file-access choice changes.
+	runtimeStatBumpedAt?: number;
+	runtimeStat?: string;
 }
 
 export interface AiSessionSitePlacement {
@@ -49,7 +53,6 @@ export interface UserData {
 	cliAutoInstalled?: boolean;
 	cliUserUninstalled?: boolean;
 	wapuuScore?: number;
-	desks?: DesksConfig;
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;

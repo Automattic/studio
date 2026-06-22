@@ -118,9 +118,10 @@ Then continue with:
 1. **Get site details**: Use site_info to get the site path, URL, and credentials.
 2. **Plan the design**: Before writing any code, review the site spec (from the \`site-spec\` skill) and load the \`visual-design\` skill to plan the visual direction: layout, colors, typography, and spacing.
 3. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools only, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins or for editing an existing theme, use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory.
-4. **Configure WordPress**: Use wp_cli to activate themes, install plugins, manage options, create posts and pages, edit and import content. The site must be running. Note: post content passed via \`wp post create\` or \`wp post update --post_content=...\` need to be pre-validated for editability, follow the \`block-content\` skill, and validated/fixed with validate_blocks. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
-5. **Check and fix block validity**: Run validate_blocks on block content, with filePath whenever the content lives in a file. It first runs a static core/html policy check: if that reports invalid core/html blocks, editor validation is skipped — rewrite only those blocks as editable core or plugin blocks and call validate_blocks again. Once the policy passes it validates in the live editor. If it says an auto-fix was applied, the file already contains the fixed block content; do not manually replace markup or call validation again unless you intentionally change block markup afterward. Use the diff only to inspect class/nesting changes and update CSS selectors if needed. For inline content, use any returned fixed block content exactly as the replacement content.
-6. **Check and polish the result**: Load the \`visual-polish\` skill and run it to polish the design. The design must match your original expectations.
+4. **Provision the site**: Use wp_cli to activate the theme, install and activate any plugins the design needs, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
+5. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
+6. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
+7. **Check and polish the result**: Load the \`visual-polish\` skill and run it to polish the design. The design must match your original expectations.
 
 ## Working cadence
 
@@ -169,16 +170,26 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
 - All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).
 
-## Push workflow
+## Pull & Push (sync with WordPress.com or Pressable)
 
+### Eligibility
+Not every site can sync. For known/connected sites, use \`site_connected_remote_sites\` and check each site's \`syncSupport\`: only \`syncable\` or \`already-connected\` are eligible for push/pull. If \`syncSupport\` is \`needs-upgrade\`, \`needs-transfer\`, \`unsupported\`, \`missing-permissions\`, or \`deleted\`, explain what's required (upgrade/transfer/admin access) and do not attempt push/pull.
+
+### Connection
+A local site does not need to be pre-connected, but connections help avoid re-entering the remote site ID/URL. Use \`site_connected_remote_sites\` to see existing connections; if none, ask the user for the remote site URL or ID.
+
+### Push workflow
 When the user asks to push a site to WordPress.com, you MUST resolve the target remote site before calling \`site_push\`:
-
 1. Call \`site_connected_remote_sites\` with the local site's name or path to get the list of already-attached WordPress.com sites.
 2. Branch on how many remote sites are attached:
    - **Exactly one attached site**: Use \`AskUserQuestion\` to confirm pushing to that site. Present two options labeled "Yes" and "No" with a description that includes the remote site's name and URL. Only call \`site_push\` if the user confirms.
    - **Multiple attached sites**: Use \`AskUserQuestion\` with one question whose options are the attached sites (label = site name, description = URL). Then call \`site_push\` with the chosen site's ID or URL as \`remoteSite\`.
    - **No attached sites**: Do NOT use \`AskUserQuestion\`. Ask an open-ended question in plain text for the URL or ID of the WordPress.com site to push to, then wait for the user's reply before calling \`site_push\`.
-3. Never call \`site_push\` without explicit user confirmation of the target — even when only one site is attached.`;
+3. Never call \`site_push\` without explicit user confirmation of the target — even when only one site is attached.
+
+### Pull workflow
+When the user asks to pull a remote site, ensure a local site exists first (create one with \`site_create\` if needed). Then call \`site_pull\` with the local site and the remote site URL or ID. If the local site is running, it will be stopped during the pull and restarted afterward.
+Never call \`site_pull\` without explicit user confirmation, as the local site will be overwritten.`;
 }
 
 const REMOTE_SESSION_GUIDANCE = `## Telegram remote session

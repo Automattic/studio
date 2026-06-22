@@ -39,7 +39,7 @@ import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 // Feature flags that select which Studio UI is shown; toggling them requires
 // reloading the main window renderer.
-const UI_MODE_FEATURE_FLAGS: ( keyof FeatureFlags )[] = [ 'enableAgenticUi', 'enableDesksUi' ];
+const UI_MODE_FEATURE_FLAGS: ( keyof FeatureFlags )[] = [ 'enableAgenticUi' ];
 
 export async function setupMenu( config: {
 	needsOnboarding: boolean;

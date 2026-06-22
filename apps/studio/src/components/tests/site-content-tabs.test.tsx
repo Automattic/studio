@@ -86,7 +86,7 @@ describe( 'SiteContentTabs', () => {
 			loadingServer: {},
 		} );
 		await act( async () => renderWithProvider( <SiteContentTabs /> ) );
-		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'tab', { name: 'Site Settings' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'tab', { name: 'Sync' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'tab', { name: 'Previews' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'tab', { name: 'Import / Export' } ) ).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe( 'SiteContentTabs', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Overview', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Sync', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Previews', selected: false } ) ).toBeVisible();
-		expect( screen.queryByRole( 'tab', { name: 'Settings', selected: false } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Site Settings', selected: false } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Studio Code', selected: false } ) ).toBeVisible();
 		expect(
 			screen.queryByRole( 'tab', { name: 'Backup', selected: false } )

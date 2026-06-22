@@ -187,7 +187,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 	const displayNames: Record< string, string > = {
 		site_create: __( 'Create site' ),
 		site_list: __( 'List sites' ),
-		site_info: __( 'Inspect site' ),
+		site_info: __( 'Get site info' ),
 		site_start: __( 'Start site' ),
 		site_stop: __( 'Stop site' ),
 		site_delete: __( 'Delete site' ),
@@ -203,7 +203,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		scaffold_theme: __( 'Scaffold theme' ),
 		inspect_design: __( 'Inspect design' ),
 		validate_blocks: __( 'Validate blocks' ),
-		take_screenshot: __( 'Capture screenshot' ),
+		take_screenshot: __( 'Take screenshot' ),
 		share_screenshot: __( 'Share screenshot' ),
 		open_annotation_browser: __( 'Open annotation browser' ),
 		wait_for_annotations: __( 'Wait for annotations' ),

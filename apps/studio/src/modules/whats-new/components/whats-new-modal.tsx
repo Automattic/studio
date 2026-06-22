@@ -61,7 +61,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: nativePhpIllustration,
 			title: __( 'Run your sites with native PHP' ),
 			description: __(
-				'Studio can now run your sites with native PHP for the best performance, plus real file access and broader plugin compatibility. Pick the Native or Sandbox runtime for any site in its settings.'
+				'Studio can now run your sites using native PHP for improved performance, real file system access, and broader plugin compatibility. Choose either the Native or Sandbox runtime for any site in its settings.'
 			),
 		},
 		{

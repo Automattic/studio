@@ -7,8 +7,7 @@ import type { PendingSiteCreation } from './use-site-creation-switch';
 /**
  * Shown when the agent creates a new site mid-conversation. The conversation
  * has already been re-homed to the new site; this asks whether to follow it
- * there or stay on the current site with a fresh chat. Mirrors the desk UI's
- * "Continue in the site desk?" prompt, adapted to the single-site tab.
+ * there or stay on the current site with a fresh chat.
  *
  * Pure presentation: the switch/new-chat logic lives in
  * `useSiteCreationSwitch`.

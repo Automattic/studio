@@ -431,7 +431,7 @@ export async function runCommand(
 			if ( ! options.skipLogDetails ) {
 				logSiteDetails( siteDetails );
 			}
-			console.log( __( 'Run "studio site start" to start the site.' ) );
+			console.log( __( 'Run "studio start" to start the site.' ) );
 		}
 
 		logger.reportKeyValuePair( 'id', siteDetails.id );

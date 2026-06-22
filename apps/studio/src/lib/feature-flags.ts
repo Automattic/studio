@@ -12,12 +12,6 @@ export const FEATURE_FLAGS: Record< keyof FeatureFlags, FeatureFlagDefinition > 
 		flag: 'enableAgenticUi',
 		default: false,
 	},
-	enableDesksUi: {
-		label: 'Enable Desks UI',
-		env: 'ENABLE_DESKS_UI',
-		flag: 'enableDesksUi',
-		default: false,
-	},
 } as const;
 
 export function getFeatureFlagFromEnv( flag: keyof FeatureFlags ): boolean {

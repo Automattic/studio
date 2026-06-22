@@ -46,7 +46,7 @@ async function main() {
 			cwd: resolve( root, 'apps/studio' ),
 			env: {
 				...process.env,
-				ELECTRON_DESKS_RENDERER_URL: `http://localhost:${ uiDevPort }`,
+				ELECTRON_UI_RENDERER_URL: `http://localhost:${ uiDevPort }`,
 			},
 		}
 	);

@@ -235,16 +235,6 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
-export {
-	exportDeskConfig,
-	getDeskSettings,
-	getSiteDeskConfig,
-	getUserDeskConfig,
-	importDeskConfig,
-	saveDeskSettings,
-	saveSiteDeskConfig,
-	saveUserDeskConfig,
-} from 'src/modules/desks/lib/ipc-handlers';
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 function hydrateAiSessionSummary(
@@ -318,14 +308,14 @@ export async function createAiSession(
 	const sitesRoot = getAiSessionsRootDirectory();
 	if ( ! siteId ) {
 		const existing = await listHydratedAiSessions( sitesRoot );
-		const emptyUserDeskSession = existing
+		const emptyUserSession = existing
 			.filter(
 				( session ) => ! session.ownerSitePath && ! session.firstPrompt && ! session.archived
 			)
 			.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
 
-		if ( emptyUserDeskSession ) {
-			return emptyUserDeskSession;
+		if ( emptyUserSession ) {
+			return emptyUserSession;
 		}
 
 		return hydrateAiSessionSummary( await createAiSessionInStore( sitesRoot ) );
@@ -460,7 +450,7 @@ export async function continueAiSession(
 	} = {}
 ): Promise< { runId: string } > {
 	if ( ! ( await oauthClient.isAuthenticated() ) ) {
-		throw new Error( __( 'WordPress.com login required. Log in to use Studio Desk chat.' ) );
+		throw new Error( __( 'WordPress.com login required. Log in to use Studio Code.' ) );
 	}
 
 	await reconcileSessionEnvironmentBeforeRun( sessionId );

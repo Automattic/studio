@@ -12,12 +12,68 @@ describe( 'tool display helpers', () => {
 			getToolDisplayName( 'wp_cli', {
 				command: 'plugin activate jetpack',
 			} )
-		).toBe( 'Activate plugin jetpack' );
+		).toBe( 'Activate plugin: Jetpack' );
 		expect(
 			getToolDisplayName( 'wp_cli', {
 				command: 'option get blogname',
 			} )
 		).toBe( 'Read site title' );
+	} );
+
+	it( 'formats WP-CLI plugin and theme targets as display names', () => {
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin install woocommerce',
+			} )
+		).toBe( 'Install plugin: WooCommerce' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin activate classic-editor',
+			} )
+		).toBe( 'Activate plugin: Classic Editor' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin install --activate woocommerce',
+			} )
+		).toBe( 'Install plugin: WooCommerce' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin install --version 9.0 woocommerce',
+			} )
+		).toBe( 'Install plugin: WooCommerce' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'theme activate my-custom-theme',
+			} )
+		).toBe( 'Activate theme: My Custom Theme' );
+	} );
+
+	it( 'does not treat WP-CLI flags as plugin names', () => {
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin update --all',
+			} )
+		).toBe( 'Update all plugins' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin activate --all',
+			} )
+		).toBe( 'Activate all plugins' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin deactivate --all',
+			} )
+		).toBe( 'Deactivate all plugins' );
+	} );
+
+	it( 'ignores large WP-CLI payload values when deriving labels', () => {
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: `post create --post_type=page --post_content=${ 'Block content '.repeat(
+					1000
+				) } --post_type=post`,
+			} )
+		).toBe( 'Create page' );
 	} );
 
 	it( 'keeps the full WP-CLI command available as detail', () => {
@@ -41,7 +97,7 @@ describe( 'tool display helpers', () => {
 	} );
 
 	it( 'adds human names for Studio-specific visual tools', () => {
-		expect( getToolDisplayName( 'take_screenshot' ) ).toBe( 'Capture screenshot' );
+		expect( getToolDisplayName( 'take_screenshot' ) ).toBe( 'Take screenshot' );
 		expect( getToolDisplayName( 'inspect_design' ) ).toBe( 'Inspect design' );
 		expect( getToolDisplayName( 'open_annotation_browser' ) ).toBe( 'Open annotation browser' );
 	} );

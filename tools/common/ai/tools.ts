@@ -227,14 +227,6 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 }
 
 const BASH_DETAIL_MAX_LENGTH = 60;
-const TOOL_DETAIL_MAX_LENGTH = 96;
-
-function truncateToolDetail( value: string, maxLength = TOOL_DETAIL_MAX_LENGTH ): string {
-	if ( value.length <= maxLength ) {
-		return value;
-	}
-	return value.slice( 0, maxLength - 1 ).trimEnd() + '…';
-}
 
 function getAskUserDetail( input: Record< string, unknown > | undefined ): string {
 	const questions = input?.questions;
@@ -248,7 +240,7 @@ function getAskUserDetail( input: Record< string, unknown > | undefined ): strin
 		'question' in firstQuestion &&
 		typeof firstQuestion.question === 'string'
 	) {
-		return truncateToolDetail( firstQuestion.question );
+		return firstQuestion.question;
 	}
 	return '';
 }

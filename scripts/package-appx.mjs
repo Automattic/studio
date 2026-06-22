@@ -4,28 +4,18 @@ import path from 'path';
 import convertToWindowsStore from 'electron2appx';
 import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
-const useAzureSigning = [ '1', 'true' ].includes(
-	( process.env.USE_AZURE_TRUSTED_SIGNING ?? '' ).trim().toLowerCase()
-);
-
 console.log( '--- :electron: Packaging AppX' );
 
-if ( useAzureSigning ) {
-	const azureSigning = await import( './azure-signing.cjs' );
-	const { assertAzureSigningEnv } = azureSigning.default;
-	console.log( '~~~ Verifying Azure Trusted Signing env vars...' );
-	try {
-		assertAzureSigningEnv();
-	} catch ( error ) {
-		console.error( error instanceof Error ? error.message : error );
-		process.exit( 1 );
-	}
-} else {
-	console.log( '~~~ Verifying WINDOWS_CODE_SIGNING_CERT_PASSWORD env var...' );
-	if ( ! process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD ) {
-		console.error( 'Required env var WINDOWS_CODE_SIGNING_CERT_PASSWORD is not set!' );
-		process.exit( 1 );
-	}
+const { assertAzureSigningEnv, getAzureSignArgs, getAzureSigningConfig } = (
+	await import( './azure-signing.cjs' )
+).default;
+
+console.log( '~~~ Verifying Azure Trusted Signing env vars...' );
+try {
+	assertAzureSigningEnv();
+} catch ( error ) {
+	console.error( error instanceof Error ? error.message : error );
+	process.exit( 1 );
 }
 
 // Get architecture from environment variable, default to x64 for backward compatibility
@@ -189,54 +179,40 @@ await convertToWindowsStore( {
 const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-${ architecture }-signed` );
 console.log( `~~~ Creating signed .appx for local testing at ${ appxOutputPathSigned }...` );
 
-if ( useAzureSigning ) {
-	const sideloadPublisher =
-		'CN=Automattic Inc., O=Automattic Inc., L=San Francisco, S=California, C=US';
+const sideloadPublisher =
+	'CN=Automattic Inc., O=Automattic Inc., L=San Francisco, S=California, C=US';
 
-	// Build unsigned, then sign with Azure Trusted Signing via signtool.
-	await convertToWindowsStore( {
-		...sharedOptions,
-		publisher: sideloadPublisher,
-		devCert: 'nil',
-		outputDirectory: appxOutputPathSigned,
+// Build unsigned, then sign with Azure Trusted Signing via signtool.
+await convertToWindowsStore( {
+	...sharedOptions,
+	publisher: sideloadPublisher,
+	devCert: 'nil',
+	outputDirectory: appxOutputPathSigned,
+} );
+
+console.log( '~~~ Signing sideload .appx with Azure Trusted Signing...' );
+const appxFiles = ( await fs.readdir( appxOutputPathSigned ) ).filter( ( f ) =>
+	f.endsWith( '.appx' )
+);
+if ( appxFiles.length === 0 ) {
+	console.error( 'No .appx file found to sign!' );
+	process.exit( 1 );
+}
+
+for ( const appxFile of appxFiles ) {
+	const appxPath = path.join( appxOutputPathSigned, appxFile );
+	console.log( `Signing ${ appxPath }...` );
+	const { signtoolPath } = getAzureSigningConfig();
+	execFileSync( signtoolPath, getAzureSignArgs( appxPath ), {
+		stdio: 'inherit',
 	} );
+	console.log( `Signed ${ appxFile } successfully.` );
 
-	console.log( '~~~ Signing sideload .appx with Azure Trusted Signing...' );
-	const azureSigning = await import( './azure-signing.cjs' );
-	const { getAzureSignArgs, getAzureSigningConfig } = azureSigning.default;
-	const appxFiles = ( await fs.readdir( appxOutputPathSigned ) ).filter( ( f ) =>
-		f.endsWith( '.appx' )
-	);
-	if ( appxFiles.length === 0 ) {
-		console.error( 'No .appx file found to sign!' );
-		process.exit( 1 );
+	// Rename to remove misleading "unsigned" from the filename
+	const renamedFile = appxFile.replace( ' unsigned', '' );
+	if ( renamedFile !== appxFile ) {
+		const renamedPath = path.join( appxOutputPathSigned, renamedFile );
+		await fs.rename( appxPath, renamedPath );
+		console.log( `Renamed to ${ renamedFile }` );
 	}
-
-	for ( const appxFile of appxFiles ) {
-		const appxPath = path.join( appxOutputPathSigned, appxFile );
-		console.log( `Signing ${ appxPath }...` );
-		const { signtoolPath } = getAzureSigningConfig();
-		execFileSync( signtoolPath, getAzureSignArgs( appxPath ), {
-			stdio: 'inherit',
-		} );
-		console.log( `Signed ${ appxFile } successfully.` );
-
-		// Rename to remove misleading "unsigned" from the filename
-		const renamedFile = appxFile.replace( ' unsigned', '' );
-		if ( renamedFile !== appxFile ) {
-			const renamedPath = path.join( appxOutputPathSigned, renamedFile );
-			await fs.rename( appxPath, renamedPath );
-			console.log( `Renamed to ${ renamedFile }` );
-		}
-	}
-} else {
-	// PFX certificate signing
-	await convertToWindowsStore( {
-		...sharedOptions,
-		publisher:
-			'CN=&quot;Automattic, Inc.&quot;, O=&quot;Automattic, Inc.&quot;, S=California, C=US',
-		devCert: 'certificate.pfx',
-		certPass: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
-		outputDirectory: appxOutputPathSigned,
-	} );
 }

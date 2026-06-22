@@ -10,8 +10,8 @@ This applies to ALL `wp` commands. Studio runs WordPress through PHP WASM, and a
 
 ## Workflow
 
-1. **Check site status**: `studio site status` — get URL, credentials, PHP/WP versions
-2. **Ensure site is running**: `studio site start --skip-browser` if needed
+1. **Check site status**: `studio status` — get URL, credentials, PHP/WP versions
+2. **Ensure site is running**: `studio start --skip-browser` if needed
 3. **Make changes**: Edit files in `wp-content/themes/` or `wp-content/plugins/`
 4. **Apply changes**: Use `studio wp` to activate themes/plugins, flush caches
 5. **Verify**: Visit the site URL or use `studio wp eval` to test
@@ -45,7 +45,7 @@ studio wp db query "SELECT option_name, option_value FROM wp_options WHERE optio
 
 **Restart the site after config changes:**
 ```bash
-studio site stop && studio site start --skip-browser
+studio stop && studio start --skip-browser
 ```
 
 ## Debugging
@@ -56,7 +56,7 @@ If the `studio` command is not available in the terminal (e.g., "command not fou
 
 **Enable WordPress debug logging:**
 ```bash
-studio site set --debug-log --debug-display
+studio config set --debug-log --debug-display
 ```
 
 **Check PHP errors (if debug logging is enabled):**
@@ -84,7 +84,7 @@ studio wp eval 'echo "OK";'
 | Reference `DB_HOST`, `DB_NAME`, etc. | Use `$wpdb` directly (SQLite handles it) |
 | Delete `wp-content/db.php` | It's the SQLite drop-in — leave it |
 | Delete `wp-content/mu-plugins/sqlite-*` | Required for database to work |
-| Hardcode port numbers | Use `studio site status` to get the current URL |
+| Hardcode port numbers | Use `studio status` to get the current URL |
 | Use `FULLTEXT` indexes | Use a search plugin or simple `LIKE` queries |
 | Build classic themes | Build block themes with `theme.json` |
 
@@ -94,11 +94,11 @@ Use the Studio CLI to manage this site. All `studio` commands accept a `--path <
 
 **Site lifecycle:**
 ```bash
-studio site start          # Start the WordPress server
-studio site stop           # Stop the WordPress server
-studio site status         # Show URL, admin credentials, PHP/WP versions
-studio site set --php 8.4  # Change PHP version
-studio site set --wp 6.8   # Update WordPress version
+studio start            # Start the WordPress server
+studio stop             # Stop the WordPress server
+studio status           # Show URL, admin credentials, PHP/WP versions
+studio config set --php 8.4  # Change PHP version
+studio config set --wp 6.8   # Update WordPress version
 ```
 
 **Cloud preview sites** (requires `studio auth login`):
@@ -145,7 +145,7 @@ add_action( 'wp_enqueue_scripts', function () {
 - **"Add a plugin/theme"**: Create files in `wp-content/plugins/` or `wp-content/themes/`
 - **"Change the site"**: Modify existing theme/plugin files, NEVER core files
 - **"Install X"**: Use `studio wp plugin install X --activate`
-- **"Debug/fix"**: Enable debug logging first: `studio site set --debug-log`
+- **"Debug/fix"**: Enable debug logging first: `studio config set --debug-log`
 
 ## Database: SQLite (not MySQL)
 
@@ -173,7 +173,7 @@ studio wp db query "SELECT option_name, option_value FROM wp_options LIMIT 10;"
 
 **Must-use plugins:** The `wp-content/mu-plugins/` directory contains the SQLite integration. Do NOT remove files from this directory.
 
-**Port and URL:** The local URL and port are assigned dynamically by Studio. Always retrieve the current URL with `studio site status` rather than hardcoding it.
+**Port and URL:** The local URL and port are assigned dynamically by Studio. Always retrieve the current URL with `studio status` rather than hardcoding it.
 
 **Multisite:** WordPress Multisite is supported in Studio sites when the site was created from a blueprint that includes the `enableMultisite` step. Multisite requires a custom domain: Studio will prompt for one during site creation when the blueprint includes that step.
 

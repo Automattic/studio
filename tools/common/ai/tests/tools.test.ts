@@ -12,12 +12,38 @@ describe( 'tool display helpers', () => {
 			getToolDisplayName( 'wp_cli', {
 				command: 'plugin activate jetpack',
 			} )
-		).toBe( 'Activate plugin jetpack' );
+		).toBe( 'Activate plugin: Jetpack' );
 		expect(
 			getToolDisplayName( 'wp_cli', {
 				command: 'option get blogname',
 			} )
 		).toBe( 'Read site title' );
+	} );
+
+	it( 'formats WP-CLI plugin and theme targets as display names', () => {
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin install woocommerce',
+			} )
+		).toBe( 'Install plugin: WooCommerce' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin activate classic-editor',
+			} )
+		).toBe( 'Activate plugin: Classic Editor' );
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'theme activate my-custom-theme',
+			} )
+		).toBe( 'Activate theme: My Custom Theme' );
+	} );
+
+	it( 'does not treat WP-CLI flags as plugin names', () => {
+		expect(
+			getToolDisplayName( 'wp_cli', {
+				command: 'plugin update --all',
+			} )
+		).toBe( 'Update all plugins' );
 	} );
 
 	it( 'keeps the full WP-CLI command available as detail', () => {

@@ -45,6 +45,59 @@ function getPostTypeName( postType: string | undefined, plural: boolean ): strin
 	}
 }
 
+const WP_CLI_TARGET_LABEL_OVERRIDES: Record< string, string > = {
+	woocommerce: 'WooCommerce',
+};
+
+const WP_CLI_TARGET_WORD_OVERRIDES: Record< string, string > = {
+	php: 'PHP',
+	seo: 'SEO',
+	ssl: 'SSL',
+	wp: 'WP',
+};
+
+function titleCaseWpCliSlug( value: string ): string {
+	return value
+		.replace( /[-_]+/g, ' ' )
+		.split( ' ' )
+		.map( ( word ) => {
+			const override = WP_CLI_TARGET_WORD_OVERRIDES[ word.toLowerCase() ];
+			return override ?? word.charAt( 0 ).toUpperCase() + word.slice( 1 ).toLowerCase();
+		} )
+		.join( ' ' );
+}
+
+function getWpCliTargetLabel( target: string | undefined ): string | undefined {
+	if ( ! target || target.startsWith( '-' ) ) {
+		return undefined;
+	}
+
+	const normalizedTarget = target.toLowerCase();
+	if ( WP_CLI_TARGET_LABEL_OVERRIDES[ normalizedTarget ] ) {
+		return WP_CLI_TARGET_LABEL_OVERRIDES[ normalizedTarget ];
+	}
+
+	if ( /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/i.test( target ) ) {
+		return titleCaseWpCliSlug( target );
+	}
+
+	return target;
+}
+
+function formatWpCliTargetActionLabel( label: string, target: string | undefined ): string {
+	const targetLabel = getWpCliTargetLabel( target );
+	if ( ! targetLabel ) {
+		return label;
+	}
+
+	return sprintf(
+		/* translators: 1: WP-CLI action label, 2: plugin or theme name. */
+		__( '%1$s: %2$s' ),
+		label,
+		targetLabel
+	);
+}
+
 function getWpCliPostLabel( args: string[] ): string {
 	const action = args[ 1 ];
 	const postType = getWpCliOptionValue( args, '--post_type' );
@@ -105,11 +158,11 @@ function getWpCliCommandLabel( command: string ): string {
 				case 'list':
 					return __( 'List themes' );
 				case 'activate':
-					return target ? sprintf( __( 'Activate theme %s' ), target ) : __( 'Activate theme' );
+					return formatWpCliTargetActionLabel( __( 'Activate theme' ), target );
 				case 'install':
-					return target ? sprintf( __( 'Install theme %s' ), target ) : __( 'Install theme' );
+					return formatWpCliTargetActionLabel( __( 'Install theme' ), target );
 				case 'delete':
-					return target ? sprintf( __( 'Delete theme %s' ), target ) : __( 'Delete theme' );
+					return formatWpCliTargetActionLabel( __( 'Delete theme' ), target );
 				default:
 					return __( 'Manage themes' );
 			}
@@ -118,17 +171,18 @@ function getWpCliCommandLabel( command: string ): string {
 				case 'list':
 					return __( 'List plugins' );
 				case 'activate':
-					return target ? sprintf( __( 'Activate plugin %s' ), target ) : __( 'Activate plugin' );
+					return formatWpCliTargetActionLabel( __( 'Activate plugin' ), target );
 				case 'deactivate':
-					return target
-						? sprintf( __( 'Deactivate plugin %s' ), target )
-						: __( 'Deactivate plugin' );
+					return formatWpCliTargetActionLabel( __( 'Deactivate plugin' ), target );
 				case 'install':
-					return target ? sprintf( __( 'Install plugin %s' ), target ) : __( 'Install plugin' );
+					return formatWpCliTargetActionLabel( __( 'Install plugin' ), target );
 				case 'delete':
-					return target ? sprintf( __( 'Delete plugin %s' ), target ) : __( 'Delete plugin' );
+					return formatWpCliTargetActionLabel( __( 'Delete plugin' ), target );
 				case 'update':
-					return target ? sprintf( __( 'Update plugin %s' ), target ) : __( 'Update plugin' );
+					if ( args.includes( '--all' ) ) {
+						return __( 'Update all plugins' );
+					}
+					return formatWpCliTargetActionLabel( __( 'Update plugin' ), target );
 				default:
 					return __( 'Manage plugins' );
 			}

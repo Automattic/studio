@@ -18,6 +18,8 @@ const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 const config: ForgeConfig = {
 	packagerConfig: {
 		asar: true,
+		// prePackage installs the self-contained production dependency tree.
+		prune: false,
 		extraResource: [
 			path.join( __dirname, 'assets' ),
 			path.join( __dirname, 'bin' ),
@@ -117,15 +119,9 @@ const config: ForgeConfig = {
 
 				setupExe: 'studio-setup.exe',
 
-				// Azure mode: use the custom signing hook that calls signtool
-				// with Azure Trusted Signing parameters.
-				// PFX mode: use the local certificate file and password.
-				...( windowsSign
-					? { windowsSign }
-					: {
-							certificateFile: path.join( repoRoot, 'certificate.pfx' ),
-							certificatePassword: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
-					  } ),
+				// Sign via the custom Azure Trusted Signing hook (signtool, SHA256-only).
+				// Undefined when SIGN_WINDOWS_BUILD isn't set (e.g. package-only jobs), leaving the build unsigned.
+				...( windowsSign ? { windowsSign } : {} ),
 			},
 			[ 'win32' ]
 		),
@@ -199,6 +195,8 @@ const config: ForgeConfig = {
 			console.log( 'Installing Studio app dependencies for bundling ...' );
 			// NOTE: The `app:install:bundle` script mutates the `apps/studio/node_modules` directory. You
 			// may need to rerun `npm ci` from the repo root to reset the dependency tree after packaging.
+			const studioNodeModules = path.join( repoRoot, 'apps', 'studio', 'node_modules' );
+			fs.rmSync( studioNodeModules, { recursive: true, force: true } );
 			await execAsync( [ 'npm', 'run', 'app:install:bundle' ] );
 
 			if ( process.env.SKIP_LANGUAGE_PACKS ) {
@@ -211,6 +209,8 @@ const config: ForgeConfig = {
 			console.log( 'Building CLI (with bundled node_modules) ...' );
 			// NOTE: The `cli:package` script mutates the `apps/cli/node_modules` directory. You may need to
 			// rerun `npm ci` from the repo root to reset the dependency tree after packaging.
+			const cliNodeModulesSource = path.join( repoRoot, 'apps', 'cli', 'node_modules' );
+			fs.rmSync( cliNodeModulesSource, { recursive: true, force: true } );
 			await execAsync( [ 'npm', 'run', 'cli:package' ] );
 
 			// Remove native binaries for other platforms from CLI's node_modules.
@@ -283,10 +283,14 @@ const config: ForgeConfig = {
 			// and @mistralai's ~200-char generated filenames, nested under pi-coding-agent, blow
 			// past Windows' 260-char path limit and crash the Squirrel maker.
 			console.log( 'Removing unused AI provider SDKs from CLI bundle...' );
-			const unusedProviderPaths = globSync(
+			const unusedProviderPatterns = [
+				'{@mistralai,@aws-sdk,@aws-crypto,@smithy,@google/genai}/',
 				'**/node_modules/{@mistralai,@aws-sdk,@aws-crypto,@smithy,@google/genai}/',
-				{ cwd: cliNodeModules, absolute: true }
-			);
+			];
+			const unusedProviderPaths = globSync( unusedProviderPatterns, {
+				cwd: cliNodeModules,
+				absolute: true,
+			} );
 			for ( const providerPath of unusedProviderPaths ) {
 				fs.rmSync( providerPath, { recursive: true, force: true } );
 				console.log( `Removed ${ providerPath }` );
@@ -295,10 +299,10 @@ const config: ForgeConfig = {
 				// Verify the prune succeeded — a leftover provider tree on Windows resurfaces as
 				// the PathTooLongException the prune exists to prevent. Fail now with context
 				// instead of letting the Squirrel maker crash later.
-				const remaining = globSync(
-					'**/node_modules/{@mistralai,@aws-sdk,@aws-crypto,@smithy,@google/genai}/',
-					{ cwd: cliNodeModules, absolute: true }
-				);
+				const remaining = globSync( unusedProviderPatterns, {
+					cwd: cliNodeModules,
+					absolute: true,
+				} );
 				if ( remaining.length > 0 ) {
 					throw new Error(
 						`Could not prune ${ remaining.length } provider director(ies) that exceed ` +

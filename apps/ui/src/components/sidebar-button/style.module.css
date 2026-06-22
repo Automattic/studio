@@ -8,4 +8,9 @@
 	min-width: 0;
 	background-color: transparent;
 	border-color: transparent;
+
+	/* The primitive clips the background to the padding box, which insets any
+	   row highlight by the 1px (transparent) border and shrinks its corner
+	   radius, making button rows render differently from plain-div rows. */
+	background-clip: border-box;
 }

@@ -10,6 +10,8 @@ export enum StatsGroup {
 	STUDIO_CLI_TOTAL_LAUNCHES_APP = 'studio-cli-lch-tot-app',
 	STUDIO_CLI_SITE_CREATE_NPM = 'studio-cli-site-crt-npm',
 	STUDIO_CLI_SITE_CREATE_APP = 'studio-cli-site-crt-app',
+	// Daily active sites by PHP runtime + file access — see RSM-3958.
+	STUDIO_CLI_RUNTIME_DAILY = 'studio-cli-runtime-day',
 	// Dolly remote-session (Telegram bot bridge) — see STU-1739.
 	STUDIO_CLI_DOLLY_START = 'studio-cli-dolly-start',
 	STUDIO_CLI_DOLLY_ATTACH = 'studio-cli-dolly-attach',
@@ -27,6 +29,10 @@ export enum StatsMetric {
 	LINUX = 'linux',
 	WINDOWS = 'win32',
 	UNKNOWN_PLATFORM = 'unknown-platform',
+	// Per-site daily active-runtime adoption — see RSM-3958.
+	RUNTIME_NATIVE_SITE_DIR = 'native-site-dir',
+	RUNTIME_NATIVE_ALL_FILES = 'native-all-files',
+	RUNTIME_SANDBOX = 'sandbox',
 	// Dolly turn outcomes — mirror `TurnOutcomeStatus` from turn-runner.ts, plus an `aborted`
 	// bucket for detach-mid-turn (signalled via the abort controller, not the status field).
 	TURN_ERROR = 'error',

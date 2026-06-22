@@ -39,7 +39,7 @@ import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 // Feature flags that select which Studio UI is shown; toggling them requires
 // reloading the main window renderer.
-const UI_MODE_FEATURE_FLAGS: ( keyof FeatureFlags )[] = [ 'enableAgenticUi', 'enableDesksUi' ];
+const UI_MODE_FEATURE_FLAGS: ( keyof FeatureFlags )[] = [ 'enableAgenticUi' ];
 
 export async function setupMenu( config: {
 	needsOnboarding: boolean;
@@ -309,6 +309,14 @@ async function getAppMenu(
 			submenu: [
 				{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
 				{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
+				{
+					label: __( 'Toggle Site Preview' ),
+					accelerator: 'CommandOrControl+Shift+B',
+					enabled: ! needsOnboarding,
+					click: () => {
+						void sendIpcEventToRenderer( 'toggle-site-preview' );
+					},
+				},
 				...( process.env.NODE_ENV === 'development' ? devTools : [] ),
 				{
 					label: __( 'Actual Size' ),

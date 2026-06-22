@@ -11,8 +11,11 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { readLastLines } from '@studio/common/lib/fs-utils';
+import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
 import {
+	getSiteRuntime,
 	SITE_RUNTIME_NATIVE_PHP,
 	SITE_RUNTIME_PLAYGROUND,
 	type SiteRuntime,
@@ -30,7 +33,7 @@ import {
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
-import { getSiteRuntime } from 'cli/lib/feature-flags';
+import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
@@ -166,6 +169,10 @@ function buildServerConfig(
 		serverConfig.useExactMountLayout = true;
 	}
 
+	if ( site.fileAccess ) {
+		serverConfig.fileAccess = site.fileAccess;
+	}
+
 	if ( site.enableXdebug ) {
 		serverConfig.enableXdebug = true;
 	}
@@ -200,6 +207,32 @@ async function ensurePhpBinaryAvailableIfNeeded(
 	}
 }
 
+/**
+ * Drops mounts of reprint state files whose host paths no longer exist.
+ *
+ * reprint's apply-runtime mounts importer state files (under /tmp/reprint
+ * in the VFS) for the temporary remote-uploads proxy. Those files are
+ * transient — a later sync can empty or remove them — so a persisted
+ * start-options.json can reference paths that are gone, and mounting a
+ * missing path crashes the server start with ENOENT. Critical site mounts
+ * (core, wp-content, wp-config.php) are intentionally NOT filtered: if
+ * those are missing, failing loudly is correct.
+ */
+function dropStaleReprintStateMounts( options: StartServerOptions ): StartServerOptions {
+	const isStale = ( mount: { hostPath: string; vfsPath: string } ) =>
+		mount.vfsPath.startsWith( '/tmp/reprint/' ) && ! fs.existsSync( mount.hostPath );
+
+	return {
+		...options,
+		...( options.mountsBeforeInstall && {
+			mountsBeforeInstall: options.mountsBeforeInstall.filter( ( m ) => ! isStale( m ) ),
+		} ),
+		...( options.mounts && {
+			mounts: options.mounts.filter( ( m ) => ! isStale( m ) ),
+		} ),
+	};
+}
+
 export async function startWordPressServer(
 	site: SiteData,
 	logger: Logger< string >,
@@ -216,10 +249,11 @@ export async function startWordPressServer(
 		);
 		if ( fs.existsSync( optionsPath ) ) {
 			options = JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) ) as StartServerOptions;
+			options = dropStaleReprintStateMounts( options );
 		}
 	}
 
-	const runtime = getSiteRuntime();
+	const runtime = getSiteRuntime( site );
 	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
 
 	const startMessage = options?.blueprint
@@ -230,6 +264,14 @@ export async function startWordPressServer(
 	const wordPressServerChildPath = getChildScriptPath( runtime );
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, runtime, options );
+
+	await clearStudioErrorLog( site );
+	const phpErrorLogPath = path.join(
+		site.path,
+		'wp-content',
+		site.enableDebugLog ? 'debug.log' : STUDIO_ERROR_LOG_FILENAME
+	);
+	const phpErrorLogSizeAtStart = await fileSize( phpErrorLogPath );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {
@@ -245,10 +287,57 @@ export async function startWordPressServer(
 			{ logger }
 		);
 
+		await recordSiteRuntimeUsage( site );
+
 		return withSiteRuntime( processDesc );
+	} catch ( error ) {
+		throw await withCapturedPhpErrors( error, phpErrorLogPath, phpErrorLogSizeAtStart );
 	} finally {
 		readyOrExit.dispose();
 	}
+}
+
+async function clearStudioErrorLog( site: SiteData ): Promise< void > {
+	const logPath = path.join( site.path, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
+	await fs.promises.rm( logPath, { force: true } ).catch( () => undefined );
+}
+
+async function fileSize( filePath: string ): Promise< number > {
+	try {
+		return ( await fs.promises.stat( filePath ) ).size;
+	} catch {
+		return 0;
+	}
+}
+
+const PHP_ERROR_TAIL_MAX_LINES = 50;
+
+// Appends the PHP errors recorded during this start attempt to the failure, so
+// users see why WordPress died instead of just "process exited..." (STU-1757).
+async function withCapturedPhpErrors(
+	error: unknown,
+	logPath: string,
+	sizeAtStart: number
+): Promise< unknown > {
+	if (
+		! ( error instanceof Error ) ||
+		error.name === 'AbortError' ||
+		error.message === 'Operation aborted'
+	) {
+		return error;
+	}
+
+	// Only surface errors this attempt appended — debug.log isn't cleared and may
+	// hold entries from previous runs.
+	if ( ( await fileSize( logPath ) ) <= sizeAtStart ) {
+		return error;
+	}
+	const lines = readLastLines( logPath, PHP_ERROR_TAIL_MAX_LINES );
+	if ( lines?.length ) {
+		error.message += `\nRecent PHP errors (${ logPath }):\n${ lines.join( '\n' ) }`;
+	}
+
+	return error;
 }
 
 function buildChildExitedError( processName: string, stderrTail?: string ): Error {
@@ -547,7 +636,7 @@ export async function runBlueprint(
 	logger: Logger< string >,
 	options: RunBlueprintOptions
 ): Promise< void > {
-	const runtime = getSiteRuntime();
+	const runtime = getSiteRuntime( site );
 	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
 	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
 

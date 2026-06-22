@@ -55,7 +55,7 @@ studio --help
 From anywhere on your system, run the following command to create a new WordPress site (with a step-by-step guide):
 
 ```bash
-studio site create
+studio create
 ```
 
 ## Usage
@@ -63,15 +63,17 @@ studio site create
 The Studio CLI integrates with Studio and uses the same list of sites. Similarly to Studio, the Studio CLI also runs sites in the background. To see the list of sites under management by Studio and their current status, run the command:
 
 ```bash
-studio site list
+studio list
 ```
 
 To start and stop sites, run these commands:
 
 ```bash
-studio site start --path ~/Studio/my-site
-studio site stop --path ~/Studio/my-site
+studio start --path ~/Studio/my-site
+studio stop --path ~/Studio/my-site
 ```
+
+> These site commands used to live under a `site` group (e.g. `studio site list`). That group is still accepted as a hidden alias for backward compatibility, but the top-level commands above are preferred. Site settings now live under `studio config get` / `studio config set`.
 
 Run WP-CLI commands in a site:
 

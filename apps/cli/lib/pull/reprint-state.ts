@@ -92,7 +92,13 @@ export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
 		return false;
 	}
 
-	if ( state.command !== 'files-sync' || state.status === 'complete' ) {
+	// reprint canonicalizes the legacy 'files-sync' command name to
+	// 'files-pull' when it saves state; accept both so this check keeps
+	// working across reprint versions.
+	if (
+		( state.command !== 'files-sync' && state.command !== 'files-pull' ) ||
+		state.status === 'complete'
+	) {
 		return false;
 	}
 

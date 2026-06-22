@@ -1,4 +1,3 @@
-import { createDefaultDeskSettings } from '@studio/common/lib/desk-settings';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import type {
 	ActiveAgentRun,
@@ -6,8 +5,6 @@ import type {
 	AiSessionSummary,
 	AuthUser,
 	Connector,
-	DeskConfig,
-	DeskSettings,
 	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
@@ -19,7 +16,7 @@ import type {
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 
 export interface WebConnectorOptions {
-	// Base URL of the `studio web-server` backend, e.g. http://localhost:8088.
+	// Base URL of the Studio Web backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
 }
 
@@ -47,10 +44,10 @@ type ServerEvent =
  * Same React app, same `AgentRunEvent` stream, different transport — it speaks
  * HTTP + SSE instead of IPC.
  *
- * Its peer is whatever implements that HTTP/SSE contract. Today that's the
- * local `studio web-server` (a development stand-in); later it's the hosted
- * Studio Web backend. This connector doesn't care which — that's the point of
- * the boundary, and why the UI needs no changes to move from local to hosted.
+ * Its peer is whatever implements that HTTP/SSE contract: the Studio Web
+ * backend in `apps/hosted`, run locally today and hosted later. This connector
+ * doesn't care which — that's the point of the boundary, and why the UI needs no
+ * changes to move from local to hosted.
  *
  * This is the first Studio Web increment, extracted from the broader
  * exploration in https://github.com/Automattic/studio/pull/3746. Only the
@@ -326,32 +323,6 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		},
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;
-		},
-
-		// Desks — defaults so both UI modes mount cleanly.
-		async getDeskSettings(): Promise< DeskSettings > {
-			return createDefaultDeskSettings();
-		},
-		async saveDeskSettings() {
-			// No-op: desk settings aren't persisted in the browser yet.
-		},
-		async exportDeskConfig(): Promise< string | null > {
-			return null;
-		},
-		async importDeskConfig(): Promise< DeskConfig | null > {
-			return null;
-		},
-		async getUserDeskConfig(): Promise< DeskConfig | undefined > {
-			return undefined;
-		},
-		async saveUserDeskConfig() {
-			// No-op: desk settings aren't persisted in the browser yet.
-		},
-		async getSiteDeskConfig(): Promise< DeskConfig | undefined > {
-			return undefined;
-		},
-		async saveSiteDeskConfig() {
-			// No-op: desk settings aren't persisted in the browser yet.
 		},
 
 		async fetchSiteRest() {

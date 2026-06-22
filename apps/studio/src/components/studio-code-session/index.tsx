@@ -253,6 +253,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		error: runError,
 		pendingQuestions,
 		pendingAnswers,
+		answeredQuestions,
 		queuedPrompts,
 		sendMessage,
 		interrupt,
@@ -418,6 +419,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							startedAt={ startedAt }
 							pendingQuestions={ pendingQuestionTexts }
 							pendingAnswers={ pendingAnswers }
+							answeredQuestions={ answeredQuestions }
 							onAnswerQuestion={ answerQuestion }
 						/>
 					) }

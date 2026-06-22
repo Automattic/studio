@@ -15,7 +15,7 @@ import {
 	type SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { getMailpitBinaryPath } from 'cli/lib/dependency-management/paths';
+import { ensureMailpitBinaryAvailable } from 'cli/lib/dependency-management/mailpit-binary';
 
 function reserveConfiguredPorts( sites: SiteData[] ): void {
 	for ( const site of sites ) {
@@ -110,9 +110,15 @@ export async function startMailpit(
 		return null;
 	}
 
-	const binaryPath = getMailpitBinaryPath();
-	if ( ! fs.existsSync( binaryPath ) ) {
-		console.warn( `MailPit binary not found at ${ binaryPath }. Email catching is disabled.` );
+	let binaryPath: string;
+	try {
+		binaryPath = await ensureMailpitBinaryAvailable();
+	} catch ( error ) {
+		console.warn(
+			`MailPit binary unavailable; email catching is disabled. ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
 		return null;
 	}
 

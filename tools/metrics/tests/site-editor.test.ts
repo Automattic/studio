@@ -47,7 +47,7 @@ test.describe( 'Site Editor Load Metrics', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Get the WordPress admin URL from settings
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 		// Remove trailing slash if present
 		wpAdminUrl = wpAdminUrl.replace( /\/$/, '' );

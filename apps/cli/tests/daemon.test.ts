@@ -123,18 +123,26 @@ describe( 'ProcessManagerDaemon', () => {
 			2,
 			'0'
 		) }${ String( now.getDate() ).padStart( 2, '0' ) }`;
-		expect(
-			fs.readFileSync(
-				path.join( tmpDir, 'logs', `${ testProcessName }-out-${ dateTag }.log` ),
-				'utf8'
-			)
-		).toContain( 'fixture-stdout' );
-		expect(
-			fs.readFileSync(
-				path.join( tmpDir, 'logs', `${ testProcessName }-error-${ dateTag }.log` ),
-				'utf8'
-			)
-		).toContain( 'fixture-stderr' );
+		// The daemon pipes child output through readline into a buffered WriteStream, so the
+		// bytes reach disk several async hops after we write them. Poll until the output
+		// lands; the flush can lag on slower agents (notably Windows CI).
+		await vi.waitFor(
+			() => {
+				expect(
+					fs.readFileSync(
+						path.join( tmpDir, 'logs', `${ testProcessName }-out-${ dateTag }.log` ),
+						'utf8'
+					)
+				).toContain( 'fixture-stdout' );
+				expect(
+					fs.readFileSync(
+						path.join( tmpDir, 'logs', `${ testProcessName }-error-${ dateTag }.log` ),
+						'utf8'
+					)
+				).toContain( 'fixture-stderr' );
+			},
+			{ timeout: 2000 }
+		);
 	} );
 
 	it( 'includes captured stderr in the exit event payload', async () => {

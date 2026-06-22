@@ -20,6 +20,8 @@ PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
 SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
 BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'out')
 PHP_CLI_BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out', 'php-binaries')
+# Standalone Studio CLI bundles (studio-cli-<platform>-<arch>.tgz) from `npm run cli:bundle`
+STANDALONE_BUNDLES_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'standalone-bundles')
 
 # Enable dry run mode through environment variable
 DRY_RUN = ENV['DRY_RUN'] == 'true'
@@ -43,6 +45,7 @@ APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_k
 # Site ID for WordPress.com Studio in the Apps CDN
 WPCOM_STUDIO_SITE_ID = '239164481'
 WPCOM_STUDIO_PHP_CLI_PRODUCT = 'WordPress.com Studio PHP CLI'
+WPCOM_STUDIO_CLI_PRODUCT = 'WordPress.com Studio CLI'
 
 GITHUB_REPO = 'Automattic/studio'
 MAIN_BRANCH = 'trunk'
@@ -297,6 +300,19 @@ lane :publish_php_cli_binaries do |version:, artifacts_dir: PHP_CLI_BUILDS_FOLDE
     visibility:,
     error_on_duplicate: error_on_duplicate.to_s != 'false',
     output_file:
+  )
+end
+
+desc 'Upload or update Studio CLI standalone bundles on Apps CDN'
+# version defaults to the app's `v`-prefixed form so a manual publish lands at the same CDN
+# path the release flow uses (distribute_builds passes the same v-prefixed version).
+lane :publish_studio_cli_binaries do |version: "v#{read_package_json_version}", artifacts_dir: STANDALONE_BUNDLES_FOLDER, build_type: 'Production', visibility: 'external', error_on_duplicate: false|
+  upload_studio_cli_binaries_to_apps_cdn(
+    version:,
+    artifacts_dir:,
+    build_type:,
+    visibility:,
+    error_on_duplicate: error_on_duplicate.to_s != 'false'
   )
 end
 
@@ -751,6 +767,21 @@ def distribute_builds(
     build[:post_id] = result[:post_id]
   end
 
+  # Upload the standalone Studio CLI bundles alongside the app so the curl installers
+  # track every Studio build (nightly/dev, beta, stable). Merging them into
+  # builds_to_upload routes their post IDs through create_draft_github_release, so
+  # publish_release flips them to External exactly like the app builds. A real run
+  # hard-fails if a bundle is missing — we don't want to silently publish a release
+  # without the CLI — while a dry run still previews the planned uploads.
+  cli_builds = upload_studio_cli_binaries_to_apps_cdn(
+    version: version,
+    artifacts_dir: STANDALONE_BUNDLES_FOLDER,
+    build_type: build_type,
+    visibility: visibility,
+    error_on_duplicate: false
+  )
+  builds_to_upload = builds_to_upload.merge(cli_builds)
+
   unless DRY_RUN
     buildkite_annotate(
       context: 'cdn-link',
@@ -951,6 +982,102 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
     FileUtils.mkdir_p(File.dirname(output_file))
     File.write(output_file, JSON.pretty_generate(builds))
     UI.message("Wrote PHP CLI Apps CDN upload results to #{output_file}")
+  end
+
+  builds
+end
+
+# The standalone Studio CLI bundles to publish, one per platform/arch. File names are
+# versionless (the curl installers fetch them by this exact name); the CDN path's version
+# comes from the upload's `version:`. `platform` maps to the Apps CDN platform label, the
+# same labels the desktop app and PHP CLI uploads use.
+def studio_cli_cdn_builds
+  [
+    { key: :cli_mac_arm64,     file_name: 'studio-cli-darwin-arm64.tgz', name: 'macOS arm64',   platform: 'Mac - Silicon' },
+    { key: :cli_mac_x64,       file_name: 'studio-cli-darwin-x64.tgz',   name: 'macOS x64',     platform: 'Mac - Intel' },
+    { key: :cli_windows_x64,   file_name: 'studio-cli-win32-x64.tgz',    name: 'Windows x64',   platform: 'Windows - x64' },
+    { key: :cli_windows_arm64, file_name: 'studio-cli-win32-arm64.tgz',  name: 'Windows arm64', platform: 'Windows - ARM64' },
+    { key: :cli_linux_x64,     file_name: 'studio-cli-linux-x64.tgz',    name: 'Linux x64',     platform: 'Linux - x64' },
+    { key: :cli_linux_arm64,   file_name: 'studio-cli-linux-arm64.tgz',  name: 'Linux arm64',   platform: 'Linux - ARM64' }
+  ]
+end
+
+# Upload (or update) the standalone Studio CLI bundles on the Apps CDN.
+#
+# Mirrors {upload_php_cli_binaries_to_apps_cdn} but targets the `WordPress.com Studio CLI`
+# product. Each bundle is verified against its `.sha256` sidecar before upload. `build_type`
+# and `visibility` are passed through from the caller so the CLI tracks the app exactly
+# (External for nightly/beta, Internal-then-flipped-public for stable). `build_number` is nil
+# so the CDN URL ends in `/full-install` (the path the curl installers expect). Returns a hash
+# keyed per build including each upload's `post_id`, so the caller can fold it into the release
+# builds and let publish_release flip visibility to External.
+def upload_studio_cli_binaries_to_apps_cdn(version:, artifacts_dir:, build_type:, visibility:, error_on_duplicate:, dry_run: DRY_RUN)
+  normalized_visibility = visibility.to_s.downcase.to_sym
+  unless %i[internal external].include?(normalized_visibility)
+    UI.user_error!('visibility must be :internal or :external')
+  end
+
+  builds = {}
+  studio_cli_cdn_builds.each do |build|
+    file_path = File.join(artifacts_dir, build[:file_name])
+
+    # A real upload requires every bundle; a dry run still previews the rest, so you
+    # can sanity-check the lane after building only your current platform locally.
+    unless File.exist?(file_path)
+      UI.user_error!("File #{file_path} does not exist") unless dry_run
+      UI.important("[DRY RUN] #{build[:file_name]} not found in #{artifacts_dir} — skipping (would upload to '#{WPCOM_STUDIO_CLI_PRODUCT}' / #{build[:platform]} / #{version}).")
+      next
+    end
+
+    sha = read_sha256_sidecar(file_path:)
+    release_notes = "Studio CLI #{version} for #{build[:name]}"
+    UI.message("Uploading Studio CLI bundle: #{build[:file_name]}")
+    media_url = nil
+    post_id = nil
+
+    if dry_run
+      UI.message('[DRY RUN] Upload step skipped due to dry run mode.')
+      UI.message("           File exists at: #{file_path}")
+      UI.message("           file size: #{File.size(file_path) / 1024 / 1024} MB")
+      UI.message("           product: #{WPCOM_STUDIO_CLI_PRODUCT}")
+      UI.message("           platform: #{build[:platform]}")
+      UI.message("           build type: #{build_type}")
+      UI.message('           install type: Full Install')
+      UI.message("           visibility: #{normalized_visibility}")
+      UI.message("           version: #{version}")
+      UI.message("           release notes: #{release_notes}")
+      UI.message("           sha: #{sha}")
+      UI.message("           error on duplicate: #{error_on_duplicate}")
+    else
+      result = upload_build_to_apps_cdn(
+        site_id: WPCOM_STUDIO_SITE_ID,
+        product: WPCOM_STUDIO_CLI_PRODUCT,
+        platform: build[:platform],
+        build_type: build_type,
+        install_type: 'Full Install',
+        visibility: normalized_visibility,
+        version: version,
+        build_number: nil,
+        release_notes: release_notes,
+        sha: sha,
+        file_path: file_path,
+        error_on_duplicate: error_on_duplicate
+      )
+      media_url = result[:media_url] || result['media_url']
+      post_id = result[:post_id] || result['post_id']
+      UI.user_error!('Apps CDN upload response did not include media_url') if media_url.to_s.empty?
+
+      UI.message('--------------------------------')
+      UI.message("✅ Uploaded Studio CLI bundle: #{file_path} to #{media_url}")
+    end
+
+    builds[build[:key]] = {
+      name: build[:name],
+      platform: build[:platform],
+      cdn_url: media_url,
+      post_id: post_id,
+      sha: sha
+    }
   end
 
   builds

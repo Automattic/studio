@@ -1,8 +1,13 @@
 import { platform } from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { writeHostsFile } from 'cli/lib/hosts-file';
+import { addDomainToHosts, removeDomainFromHosts, writeHostsFile } from 'cli/lib/hosts-file';
 import { sudoExec } from 'cli/lib/sudo-exec';
+
+const fsState = vi.hoisted( () => ( {
+	readContent: '',
+	writtenContent: null as string | null,
+} ) );
 
 vi.mock( 'os', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('os') >();
@@ -18,13 +23,18 @@ vi.mock( 'os', async ( importOriginal ) => {
 
 vi.mock( 'fs', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('fs') >();
-	const writeFile: typeof actual.writeFile = ( ( _p: unknown, _d: unknown, cb: unknown ) => {
+	const writeFile: typeof actual.writeFile = ( ( _p: unknown, data: unknown, cb: unknown ) => {
+		fsState.writtenContent = data as string;
 		( cb as ( err: null ) => void )( null );
 	} ) as typeof actual.writeFile;
+	const readFile: typeof actual.readFile = ( ( _p: unknown, _opts: unknown, cb: unknown ) => {
+		( cb as ( err: null, data: string ) => void )( null, fsState.readContent );
+	} ) as typeof actual.readFile;
 	return {
 		...actual,
-		default: { ...actual, writeFile },
+		default: { ...actual, writeFile, readFile },
 		writeFile,
+		readFile,
 	};
 } );
 
@@ -76,5 +86,70 @@ describe( 'writeHostsFile', () => {
 		expect( command ).toContain( 'hosts' );
 		expect( command ).not.toContain( 'tee ' );
 		expect( options ).toMatchObject( { name: 'WordPress Studio' } );
+	} );
+} );
+
+describe( 'addDomainToHosts', () => {
+	beforeEach( () => {
+		vi.mocked( platform ).mockReturnValue( 'darwin' );
+		fsState.readContent = '';
+		fsState.writtenContent = null;
+	} );
+
+	it( 'writes both an IPv4 and an IPv6 loopback entry for a new domain', async () => {
+		await addDomainToHosts( 'my-project.local', 8000 );
+
+		expect( fsState.writtenContent ).toContain( '127.0.0.1 my-project.local # Port 8000' );
+		expect( fsState.writtenContent ).toContain( '::1 my-project.local # Port 8000' );
+		expect( fsState.writtenContent ).toContain( '# BEGIN WordPress Studio' );
+		expect( fsState.writtenContent ).toContain( '# END WordPress Studio' );
+	} );
+
+	it( 'migrates a legacy IPv4-only entry by adding the IPv6 entry', async () => {
+		fsState.readContent = [
+			'# BEGIN WordPress Studio',
+			'127.0.0.1 my-project.local # Port 8000',
+			'# END WordPress Studio',
+		].join( '\n' );
+
+		await addDomainToHosts( 'my-project.local', 8000 );
+
+		expect( fsState.writtenContent ).toContain( '127.0.0.1 my-project.local # Port 8000' );
+		expect( fsState.writtenContent ).toContain( '::1 my-project.local # Port 8000' );
+	} );
+
+	it( 'does not rewrite the hosts file when the entries are already present', async () => {
+		fsState.readContent = [
+			'# BEGIN WordPress Studio',
+			'127.0.0.1 my-project.local # Port 8000',
+			'::1 my-project.local # Port 8000',
+			'# END WordPress Studio',
+		].join( '\n' );
+
+		await addDomainToHosts( 'my-project.local', 8000 );
+
+		expect( fsState.writtenContent ).toBeNull();
+		expect( vi.mocked( sudoExec ) ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'removeDomainFromHosts', () => {
+	beforeEach( () => {
+		vi.mocked( platform ).mockReturnValue( 'darwin' );
+		fsState.readContent = [
+			'# BEGIN WordPress Studio',
+			'127.0.0.1 my-project.local # Port 8000',
+			'::1 my-project.local # Port 8000',
+			'# END WordPress Studio',
+		].join( '\n' );
+		fsState.writtenContent = null;
+	} );
+
+	it( 'removes both the IPv4 and IPv6 entries', async () => {
+		await removeDomainFromHosts( 'my-project.local' );
+
+		// The block is emptied and removed entirely.
+		expect( fsState.writtenContent ).not.toContain( 'my-project.local' );
+		expect( fsState.writtenContent ).not.toContain( '# BEGIN WordPress Studio' );
 	} );
 } );

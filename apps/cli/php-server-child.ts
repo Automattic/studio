@@ -26,6 +26,7 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
+import { startMailpit, stopMailpit } from './lib/mailpit';
 import { runBlueprint } from './lib/native-php/blueprints';
 import {
 	killAllLivePhpProcesses,
@@ -39,7 +40,6 @@ import {
 	writeNativePhpMyAdminWpEnv,
 } from './lib/native-php/phpmyadmin';
 import { ensureWpConfig, installWordPress } from './lib/native-php/site-setup';
-import { startMailpit, stopMailpit } from './lib/mailpit';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 

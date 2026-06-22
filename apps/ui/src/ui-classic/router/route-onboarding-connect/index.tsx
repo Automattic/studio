@@ -4,18 +4,21 @@ import { createRoute, useNavigate } from '@tanstack/react-router';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronLeft, check, external, search, wordpress } from '@wordpress/icons';
-import { Button, Icon, Input, InputLayout } from '@wordpress/ui';
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { chevronLeft, check, external, info, search, wordpress } from '@wordpress/icons';
+import { Button, Icon, IconButton, Input, InputLayout } from '@wordpress/ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BusyOverlay } from '@/components/busy-overlay';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useFindAvailableSiteName } from '@/data/queries/use-create-site-helpers';
-import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
+import { useCreateSite, useDeleteSite, useSites } from '@/data/queries/use-sites';
 import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
+import {
+	useAllConnectedWpcomSites,
+	useSyncableWpcomSitesPage,
+} from '@/data/queries/use-wpcom-sites';
 import { useGridArrowNavigation } from '@/hooks/use-grid-arrow-navigation';
 import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink } from '@/lib/docs-links';
@@ -208,14 +211,56 @@ function ThumbnailCta( { site }: { site: SyncSite } ) {
 	return null;
 }
 
+function getConnectedSiteTooltip( localSiteNames: string[] ): string {
+	const uniqueNames = [ ...new Set( localSiteNames.filter( Boolean ) ) ];
+
+	if ( uniqueNames.length === 0 ) {
+		return __( 'Already connected to another local site.' );
+	}
+
+	if ( uniqueNames.length === 1 ) {
+		return sprintf(
+			// translators: %s is a local Studio site name.
+			__( 'Already connected to %s.' ),
+			uniqueNames[ 0 ]
+		);
+	}
+
+	return sprintf(
+		// translators: 1: local Studio site name, 2: number of additional local Studio sites.
+		__( 'Already connected to %1$s and %2$d more.' ),
+		uniqueNames[ 0 ],
+		uniqueNames.length - 1
+	);
+}
+
+function ConnectedSiteInfo( { localSiteNames }: { localSiteNames: string[] } ) {
+	const tooltipText = getConnectedSiteTooltip( localSiteNames );
+
+	return (
+		<div className={ styles.connectedInfoOverlay }>
+			<IconButton
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				icon={ info }
+				label={ tooltipText }
+				className={ styles.connectedInfoButton }
+			/>
+		</div>
+	);
+}
+
 function RemoteSiteCard( {
 	site,
 	isSelected,
 	onSelect,
+	connectedLocalSiteNames,
 }: {
 	site: SyncSite;
 	isSelected: boolean;
 	onSelect: ( id: number ) => void;
+	connectedLocalSiteNames?: string[];
 } ) {
 	const isSyncable = site.syncSupport === 'syncable';
 	const isDimmed =
@@ -269,6 +314,9 @@ function RemoteSiteCard( {
 				</span>
 			</button>
 			<ThumbnailCta site={ site } />
+			{ connectedLocalSiteNames && connectedLocalSiteNames.length > 0 && (
+				<ConnectedSiteInfo localSiteNames={ connectedLocalSiteNames } />
+			) }
 		</li>
 	);
 }
@@ -278,6 +326,8 @@ export function OnboardingConnectPage() {
 	const connector = useConnector();
 	const locale = useUserLocale();
 	const { data: user, isLoading: isAuthLoading } = useAuthUser();
+	const { data: localSites = [] } = useSites();
+	const { data: connectedWpcomSites = [] } = useAllConnectedWpcomSites( { enabled: !! user } );
 	const createSite = useCreateSite();
 	const deleteSite = useDeleteSite();
 	const pullSiteFromLive = usePullSiteFromLive();
@@ -289,33 +339,43 @@ export function OnboardingConnectPage() {
 	const [ isConnecting, setIsConnecting ] = useState( false );
 	const [ submitError, setSubmitError ] = useState( '' );
 	const [ searchQuery, setSearchQuery ] = useState( '' );
-	const deferredSearchQuery = useDeferredValue( searchQuery );
-	const syncable = useSyncableWpcomSites( { enabled: !! user } );
+	const [ debouncedSearchQuery, setDebouncedSearchQuery ] = useState( '' );
+	const isSearching = searchQuery.trim().length > 0;
+	const syncable = useSyncableWpcomSitesPage( {
+		enabled: !! user,
+		perPage: 100,
+		search: debouncedSearchQuery,
+	} );
 
-	const allSites = useMemo( () => syncable.data ?? [], [ syncable.data ] );
-	const normalizedSearch = deferredSearchQuery.trim().toLocaleLowerCase();
-	const sites = useMemo( () => {
-		if ( ! normalizedSearch ) {
-			return allSites;
+	const sites = useMemo( () => syncable.data?.sites ?? [], [ syncable.data ] );
+	const connectedLocalSiteNamesByRemoteId = useMemo( () => {
+		const localSiteNamesById = new Map( localSites.map( ( site ) => [ site.id, site.name ] ) );
+		const namesByRemoteId = new Map< number, string[] >();
+
+		for ( const connectedSite of connectedWpcomSites ) {
+			const localSiteName =
+				localSiteNamesById.get( connectedSite.localSiteId ) ?? __( 'another local Studio site' );
+			const names = namesByRemoteId.get( connectedSite.id ) ?? [];
+
+			if ( ! names.includes( localSiteName ) ) {
+				names.push( localSiteName );
+			}
+
+			namesByRemoteId.set( connectedSite.id, names );
 		}
-		return allSites.filter( ( site ) => {
-			const searchableText = [
-				site.name,
-				site.url,
-				site.planName,
-				site.isPressable ? 'Pressable' : 'WordPress.com',
-				getEnvironmentLabel( getSiteEnvironment( site ) ),
-				getSyncStatusLabel( site ),
-			]
-				.filter( Boolean )
-				.join( ' ' )
-				.toLocaleLowerCase();
-			return searchableText.includes( normalizedSearch );
-		} );
-	}, [ allSites, normalizedSearch ] );
-	const totalSites = allSites.length;
-	const isSingleSite = totalSites === 1 && sites.length === 1;
-	const isLoadingSites = syncable.isLoading || ( syncable.isFetching && allSites.length === 0 );
+
+		return namesByRemoteId;
+	}, [ connectedWpcomSites, localSites ] );
+	const totalSites = syncable.data?.total ?? sites.length;
+	const isSingleSite = ! isSearching && totalSites === 1 && sites.length === 1;
+	const isLoadingSites = syncable.isLoading || ( syncable.isFetching && sites.length === 0 );
+
+	useEffect( () => {
+		const timer = window.setTimeout( () => {
+			setDebouncedSearchQuery( searchQuery );
+		}, 300 );
+		return () => window.clearTimeout( timer );
+	}, [ searchQuery ] );
 
 	// With exactly one site on the account, pre-select it so the user can
 	// proceed straight to Add site — mirrors the desktop renderer.
@@ -332,11 +392,29 @@ export function OnboardingConnectPage() {
 	}, [ selectedId, sites ] );
 
 	const sections = useMemo( () => groupSites( sites ), [ sites ] );
-	// While a search narrows the list, hold the compact card size everywhere —
-	// the lead section's grow-to-fill sizing would balloon one or two matches
-	// and resize them with every keystroke.
-	const isSearching = deferredSearchQuery.trim().length > 0;
-	const shouldGrowSiteCards = ! isSearching && sections.length === 1;
+	const shouldGrowSection = useCallback(
+		( section: SiteSection, sectionIndex: number ) => {
+			if ( isSearching || section.key !== 'syncable' ) {
+				return false;
+			}
+			return sections.length === 1 || ( sectionIndex === 0 && section.sites.length >= 3 );
+		},
+		[ isSearching, sections.length ]
+	);
+	const getSectionGridClass = useCallback(
+		( section: SiteSection, sectionIndex: number ) => {
+			if ( shouldGrowSection( section, sectionIndex ) ) {
+				return `${ styles.siteGrid } ${ styles.siteGridPrimary }`;
+			}
+
+			if ( section.key === 'syncable' ) {
+				return `${ styles.siteGrid } ${ styles.siteGridSecondary }`;
+			}
+
+			return `${ styles.siteGrid } ${ styles.siteGridCompact }`;
+		},
+		[ shouldGrowSection ]
+	);
 
 	const selectedSite = sites.find( ( site ) => site.id === selectedId );
 	const showSearch = searchQuery.length > 0 || totalSites > SEARCH_VISIBILITY_THRESHOLD;
@@ -505,7 +583,7 @@ export function OnboardingConnectPage() {
 							{ sprintf(
 								// translators: %s is the search query.
 								__( 'No sites found for "%s"' ),
-								deferredSearchQuery
+								searchQuery
 							) }
 						</p>
 					) }
@@ -520,6 +598,7 @@ export function OnboardingConnectPage() {
 									site={ sites[ 0 ] }
 									isSelected={ selectedId === sites[ 0 ].id }
 									onSelect={ setSelectedId }
+									connectedLocalSiteNames={ connectedLocalSiteNamesByRemoteId.get( sites[ 0 ].id ) }
 								/>
 							</ul>
 							{ helperLinks }
@@ -527,7 +606,14 @@ export function OnboardingConnectPage() {
 					) : ! isLoadingSites && sites.length > 0 ? (
 						<div className={ styles.sections }>
 							{ sections.map( ( section, sectionIndex ) => (
-								<section key={ section.key } className={ styles.section }>
+								<section
+									key={ section.key }
+									className={ `${ styles.section } ${
+										sectionIndex > 0 && sections[ sectionIndex - 1 ]?.key === 'syncable'
+											? styles.sectionAfterAvailable
+											: ''
+									}` }
+								>
 									{ section.title && (
 										<div className={ styles.sectionHeader }>
 											<h3 className={ styles.sectionTitle }>{ section.title }</h3>
@@ -536,15 +622,11 @@ export function OnboardingConnectPage() {
 											) }
 										</div>
 									) }
-									{ /* Grow cards only for an ungrouped list. Grouped results
-									     keep compact sizing in every section so a lone site in
-									     one group doesn't balloon beside other groups. */ }
+									{ /* Grow the primary syncable row when it has enough sites to
+										     read as a gallery. Grouped one- and two-card rows stay
+										     compact and centered instead of ballooning. */ }
 									<ul
-										className={
-											sectionIndex === 0 && shouldGrowSiteCards
-												? styles.siteGrid
-												: `${ styles.siteGrid } ${ styles.siteGridSecondary }`
-										}
+										className={ getSectionGridClass( section, sectionIndex ) }
 										onKeyDown={ handleGridKeyDown }
 									>
 										{ section.sites.map( ( site ) => (
@@ -553,6 +635,7 @@ export function OnboardingConnectPage() {
 												site={ site }
 												isSelected={ selectedId === site.id }
 												onSelect={ setSelectedId }
+												connectedLocalSiteNames={ connectedLocalSiteNamesByRemoteId.get( site.id ) }
 											/>
 										) ) }
 									</ul>

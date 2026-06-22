@@ -115,6 +115,10 @@
 	gap: 16px;
 }
 
+.sectionAfterAvailable {
+	margin-top: 24px;
+}
+
 .sectionHeader {
 	display: flex;
 	flex-direction: column;
@@ -156,15 +160,40 @@
 	}
 }
 
-/* Grouped or filtered lists: auto-fill keeps empty tracks, so a lone site
-   in one section stays compact instead of ballooning to fill the row. */
+.siteGridPrimary {
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+@media (min-width: 1280px) {
+	.siteGridPrimary {
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+	}
+}
+
+/* Grouped or filtered lists: compact tracks are centered, so one- and
+   two-card sections don't balloon or hug the left edge. */
 .siteGridSecondary {
-	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 340px));
+	justify-content: center;
 }
 
 @media (min-width: 1280px) {
 	.siteGridSecondary {
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 340px));
+	}
+}
+
+/* Non-connectable groups stay intentionally smaller than the primary
+   connectable gallery so disabled states don't dominate the page. */
+.siteGridCompact {
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 240px));
+	justify-content: center;
+	gap: 16px;
+}
+
+@media (min-width: 1280px) {
+	.siteGridCompact {
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 260px));
 	}
 }
 
@@ -360,6 +389,42 @@
 	background: rgba(0, 0, 0, 0.5);
 	color: #fff;
 	backdrop-filter: blur(4px);
+}
+
+.connectedInfoOverlay {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	z-index: 2;
+}
+
+.connectedInfoButton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-radius: 999px;
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral, #fff) 92%,
+		transparent
+	);
+	color: var(--wpds-color-fg-content-neutral, #1e1e1e);
+	cursor: help;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+	backdrop-filter: blur(6px);
+}
+
+.connectedInfoButton:hover {
+	background: var(--wpds-color-bg-surface-neutral, #fff);
+}
+
+.connectedInfoButton:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
+	outline-offset: 2px;
 }
 
 .siteText {

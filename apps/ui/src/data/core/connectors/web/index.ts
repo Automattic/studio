@@ -247,6 +247,16 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return [];
 		},
+		async fetchSyncableWpcomSitesPage() {
+			return {
+				sites: [],
+				total: 0,
+				page: 1,
+				perPage: 100,
+				hasMore: false,
+				nextPage: null,
+			};
+		},
 		async connectWpcomSite() {
 			throw new WebUnsupportedError( 'connectWpcomSite' );
 		},

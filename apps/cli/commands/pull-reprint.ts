@@ -1423,13 +1423,10 @@ export async function registerSite(
 		enableHttps: false,
 		technicalSiteDirectory: metadata.technicalSiteDirectory,
 		runtimeBlueprintPath: metadata.runtimeBlueprintPath,
-		// Reprint-pulled sites are laid out for the Playground runtime (VFS
-		// mounts place wp-content — and its SQLite db.php drop-in — at
-		// /wordpress/wp-content). Without this, the site falls back to the
+		// Without this, the site falls back to the
 		// default native-php runtime, where the symlinked layout resolves
-		// WP_CONTENT_DIR to the WordPress core path, the SQLite drop-in is
-		// never loaded, and WordPress dies with "Error establishing a
-		// database connection" on start.
+		// WP_CONTENT_DIR to the WordPress core path, and some paths are
+		// not symlinked correctly (e.g. the SQLite drop-in is not loaded)
 		runtime: SITE_RUNTIME_PLAYGROUND,
 	};
 

@@ -1,9 +1,9 @@
-import { defineConfig, type Plugin } from 'vite';
-import react from '@vitejs/plugin-react';
-import dsTokenFallbacks from '@wordpress/theme/vite-plugins/vite-ds-token-fallbacks';
-import dsTokenFallbacksPostcss from '@wordpress/theme/postcss-plugins/postcss-ds-token-fallbacks';
-import { resolve } from 'path';
 import { createRequire } from 'module';
+import { resolve } from 'path';
+import react from '@vitejs/plugin-react';
+import dsTokenFallbacksPostcss from '@wordpress/theme/postcss-plugins/postcss-ds-token-fallbacks';
+import dsTokenFallbacks from '@wordpress/theme/vite-plugins/vite-ds-token-fallbacks';
+import { defineConfig, type Plugin } from 'vite';
 
 const require = createRequire( import.meta.url );
 const pkg = require( './package.json' ) as {
@@ -80,16 +80,6 @@ export default defineConfig( {
 		outDir: isWeb ? 'dist-web' : 'dist',
 		rolldownOptions: {
 			input: resolve( __dirname, isWeb ? 'index.web.html' : 'index.html' ),
-			onwarn( warning, defaultHandler ) {
-				// These dynamic imports break a circular dependency in ui-desks
-				// (definition.ts → widget-context/editor-commands → registry → definition.ts)
-				// and cannot be used for code-splitting because the modules are also
-				// statically imported elsewhere. Suppress the noise.
-				if ( warning.code === 'INEFFECTIVE_DYNAMIC_IMPORT' ) {
-					return;
-				}
-				defaultHandler( warning );
-			},
 		},
 	},
 } );

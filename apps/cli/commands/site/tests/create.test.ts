@@ -654,7 +654,7 @@ describe( 'CLI: studio site create', () => {
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( setupCustomDomain ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully' );
-			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio site start" to start the site.' );
+			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio start" to start the site.' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
@@ -673,7 +673,7 @@ describe( 'CLI: studio site create', () => {
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( runBlueprint ).toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
-			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio site start" to start the site.' );
+			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio start" to start the site.' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 

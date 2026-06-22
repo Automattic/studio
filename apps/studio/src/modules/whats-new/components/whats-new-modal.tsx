@@ -62,7 +62,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: studioCodeIllustration,
 			title: __( 'Studio Code is now on desktop' ),
 			description: __(
-				'Studio Code replaces the AI assistant with a more powerful agent. Move faster just by talking. Spin up new sites, run performance audits, add pages and content, build plugins and themes, and generate preview sites, all from the Studio Code chat interface.'
+				'Studio Code replaces the AI assistant with a more powerful agent. Build, edit, and manage your sites just by talking.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsStudioCode' ),
 		},

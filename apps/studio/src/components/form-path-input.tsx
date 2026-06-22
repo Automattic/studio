@@ -9,6 +9,7 @@ export interface FormPathInputComponentProps {
 	error?: string;
 	tipMessage?: string;
 	id?: string;
+	disabled?: boolean;
 }
 
 export function FormPathInputComponent( {
@@ -17,6 +18,7 @@ export function FormPathInputComponent( {
 	error,
 	tipMessage,
 	id = 'site-path',
+	disabled = false,
 }: FormPathInputComponentProps ) {
 	const { __ } = useI18n();
 	const errorId = `${ id }-error`;
@@ -43,6 +45,7 @@ export function FormPathInputComponent( {
 				data-testid="select-path-button"
 				onClick={ onClick }
 				id={ id }
+				disabled={ disabled }
 			>
 				<div
 					aria-hidden="true"

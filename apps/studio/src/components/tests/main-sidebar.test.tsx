@@ -6,8 +6,26 @@ import MainSidebar from 'src/components/main-sidebar';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { store } from 'src/stores';
+import type { StudioExtensionSidebarSection } from 'src/extensions/types';
 
 vi.mock( 'src/hooks/use-auth' );
+
+const mockExtensionSidebar = vi.hoisted( () => ( {
+	sections: [] as StudioExtensionSidebarSection[],
+	isLoading: false,
+} ) );
+
+vi.mock( 'src/extensions/components/studio-extension-sidebar-sections', () => ( {
+	useStudioExtensionSidebarSections: () => mockExtensionSidebar,
+	StudioExtensionSidebarSections: () => (
+		<>
+			{ mockExtensionSidebar.sections.map( ( section ) => {
+				const Section = section.component;
+				return <Section key={ section.id } />;
+			} ) }
+		</>
+	),
+} ) );
 
 vi.mock( 'src/stores/wordpress-versions-api', () => ( {
 	wordpressVersionsApi: {
@@ -109,6 +127,8 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 describe( 'MainSidebar Footer', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		mockExtensionSidebar.sections = [];
+		mockExtensionSidebar.isLoading = false;
 	} );
 	it( 'Has add site button', async () => {
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
@@ -133,6 +153,44 @@ describe( 'MainSidebar Footer', () => {
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Stop all' } ) ).toBeVisible();
 		site2.running = false;
+	} );
+
+	it( 'shows extension sidebar sections when an extension contributes one', async () => {
+		mockExtensionSidebar.sections = [
+			{
+				id: 'test-plugin-projects',
+				component: () => (
+					<nav aria-label="Plugin projects">
+						<button type="button">Add plugin project</button>
+					</nav>
+				),
+			},
+		];
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		expect( screen.getByRole( 'navigation', { name: 'Plugin projects' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Add plugin project' } ) ).toBeVisible();
+	} );
+
+	it( 'keeps extension section interactions inside contributed UI', async () => {
+		const user = userEvent.setup();
+		const selectRemotePlugin = vi.fn();
+		mockExtensionSidebar.sections = [
+			{
+				id: 'test-remote-plugins',
+				component: () => (
+					<nav aria-label="Plugin projects">
+						<button type="button" onClick={ () => selectRemotePlugin( 'remote-sample-plugin' ) }>
+							Remote Sample Plugin
+						</button>
+					</nav>
+				),
+			},
+		];
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		await user.click( screen.getByRole( 'button', { name: 'Remote Sample Plugin' } ) );
+
+		expect( selectRemotePlugin ).toHaveBeenCalledWith( 'remote-sample-plugin' );
 	} );
 } );
 

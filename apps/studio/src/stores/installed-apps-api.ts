@@ -11,6 +11,7 @@ import {
 	terminalConfig,
 	getTerminalsSupportedOnPlatform,
 } from 'src/modules/user-settings/lib/terminal';
+import type { StudioExtensionListItem } from 'src/extensions/types';
 
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
@@ -22,6 +23,7 @@ export const installedAppsApi = createApi( {
 		'UserTerminal',
 		'ColorScheme',
 		'DefaultSiteDirectory',
+		'StudioExtensions',
 	],
 	endpoints: ( builder ) => ( {
 		getStudioCliIsInstalled: builder.query< boolean, void >( {
@@ -105,6 +107,51 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'DefaultSiteDirectory' ],
 		} ),
+		getStudioExtensions: builder.query< StudioExtensionListItem[], void >( {
+			queryFn: async () => {
+				const extensions = await getIpcApi().listStudioExtensions();
+				return { data: extensions };
+			},
+			providesTags: [ 'StudioExtensions' ],
+		} ),
+		installStudioExtension: builder.mutation< StudioExtensionListItem, string >( {
+			queryFn: async ( extensionId ) => {
+				const extension = await getIpcApi().installStudioExtension( extensionId );
+				return { data: extension };
+			},
+			invalidatesTags: [ 'StudioExtensions' ],
+		} ),
+		installStudioExtensionFromUrl: builder.mutation< StudioExtensionListItem, string >( {
+			queryFn: async ( sourceUrl ) => {
+				const extension = await getIpcApi().installStudioExtensionFromUrl( sourceUrl );
+				return { data: extension };
+			},
+			invalidatesTags: [ 'StudioExtensions' ],
+		} ),
+		installStudioExtensionFromPath: builder.mutation< StudioExtensionListItem, string >( {
+			queryFn: async ( sourcePath ) => {
+				const extension = await getIpcApi().installStudioExtensionFromPath( sourcePath );
+				return { data: extension };
+			},
+			invalidatesTags: [ 'StudioExtensions' ],
+		} ),
+		uninstallStudioExtension: builder.mutation< StudioExtensionListItem, string >( {
+			queryFn: async ( extensionId ) => {
+				const extension = await getIpcApi().uninstallStudioExtension( extensionId );
+				return { data: extension };
+			},
+			invalidatesTags: [ 'StudioExtensions' ],
+		} ),
+		setStudioExtensionEnabled: builder.mutation<
+			StudioExtensionListItem,
+			{ extensionId: string; enabled: boolean }
+		>( {
+			queryFn: async ( { extensionId, enabled } ) => {
+				const extension = await getIpcApi().setStudioExtensionEnabled( extensionId, enabled );
+				return { data: extension };
+			},
+			invalidatesTags: [ 'StudioExtensions' ],
+		} ),
 	} ),
 } );
 
@@ -120,6 +167,12 @@ export const {
 	useSaveColorSchemeMutation,
 	useGetDefaultSiteDirectoryQuery,
 	useSaveDefaultSiteDirectoryMutation,
+	useGetStudioExtensionsQuery,
+	useInstallStudioExtensionMutation,
+	useInstallStudioExtensionFromPathMutation,
+	useInstallStudioExtensionFromUrlMutation,
+	useUninstallStudioExtensionMutation,
+	useSetStudioExtensionEnabledMutation,
 } = installedAppsApi;
 
 export const selectInstalledEditors = createSelector(

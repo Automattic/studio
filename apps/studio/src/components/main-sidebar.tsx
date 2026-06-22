@@ -1,6 +1,10 @@
 import { __ } from '@wordpress/i18n';
 import { RunningSites } from 'src/components/running-sites';
 import SiteMenu from 'src/components/site-menu';
+import {
+	StudioExtensionSidebarSections,
+	useStudioExtensionSidebarSections,
+} from 'src/extensions/components/studio-extension-sidebar-sections';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
@@ -13,6 +17,10 @@ interface MainSidebarProps {
 
 export default function MainSidebar( { className, style }: MainSidebarProps ) {
 	const { sites: localSites } = useSiteDetails();
+	const { sections: extensionSections, isLoading: loadingExtensions } =
+		useStudioExtensionSidebarSections();
+	const hasSidebarItems =
+		localSites.length > 0 || extensionSections.length > 0 || loadingExtensions;
 
 	return (
 		<div
@@ -20,9 +28,9 @@ export default function MainSidebar( { className, style }: MainSidebarProps ) {
 			className={ cx( 'text-chrome-inverted relative pt-[10px]', className ) }
 			style={ style }
 		>
-			{ ! localSites.length ? (
+			{ ! hasSidebarItems ? (
 				<div className="flex h-full px-[20px] justify-center items-center app-no-drag-region text-center text-[12px] text-a8c-gray-50">
-					{ __( 'Your sites will show up here once you create them' ) }
+					{ __( 'Your sites and extensions will show up here once you add them' ) }
 				</div>
 			) : (
 				<div className="flex flex-col h-full">
@@ -32,7 +40,8 @@ export default function MainSidebar( { className, style }: MainSidebarProps ) {
 							isMac() ? 'ms-4' : 'ms-3'
 						) }
 					>
-						<SiteMenu />
+						{ localSites.length > 0 && <SiteMenu /> }
+						<StudioExtensionSidebarSections />
 					</div>
 					<div className="flex flex-col gap-4 pt-5 border-white border-t border-opacity-10 app-no-drag-region">
 						<RunningSites />

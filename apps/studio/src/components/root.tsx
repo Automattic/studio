@@ -9,6 +9,7 @@ import AuthProvider from 'src/components/auth-provider';
 import CrashTester from 'src/components/crash-tester';
 import ErrorBoundary from 'src/components/error-boundary';
 import { WordPressStyles } from 'src/components/wordpress-styles';
+import { StudioExtensionProviders } from 'src/extensions/components/studio-extension-providers';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { FeatureFlagsProvider } from 'src/hooks/use-feature-flags';
 import { ImportExportProvider } from 'src/hooks/use-import-export';
@@ -40,11 +41,13 @@ const Root = () => {
 								<ContentTabsProvider>
 									<SiteDetailsProvider>
 										<ThemeDetailsProvider>
-											<OnboardingProvider>
-												<ImportExportProvider>
-													<App />
-												</ImportExportProvider>
-											</OnboardingProvider>
+											<StudioExtensionProviders>
+												<OnboardingProvider>
+													<ImportExportProvider>
+														<App />
+													</ImportExportProvider>
+												</OnboardingProvider>
+											</StudioExtensionProviders>
 										</ThemeDetailsProvider>
 									</SiteDetailsProvider>
 								</ContentTabsProvider>

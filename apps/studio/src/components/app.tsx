@@ -9,6 +9,10 @@ import MainSidebar from 'src/components/main-sidebar';
 import { NoStudioSites } from 'src/components/no-studio-sites';
 import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
+import {
+	StudioExtensionMainContent,
+	useHasActiveStudioExtensions,
+} from 'src/extensions/components/studio-extension-main-content';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { useAuth } from 'src/hooks/use-auth';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
@@ -41,7 +45,9 @@ export default function App() {
 	);
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 	const { sites: localSites, loadingSites } = useSiteDetails();
-	const isEmpty = ! loadingSites && ! localSites.length;
+	const { hasActiveExtensions, isLoading: loadingExtensions } = useHasActiveStudioExtensions();
+	const isEmpty =
+		! loadingSites && ! loadingExtensions && ! localSites.length && ! hasActiveExtensions;
 	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
 	const { client } = useAuth();
 	const dispatch = useAppDispatch();
@@ -120,7 +126,7 @@ export default function App() {
 							data-testid="site-content"
 							className="bg-frame text-frame-text h-full flex-grow rounded-chrome overflow-hidden z-10"
 						>
-							<SiteContentTabs />
+							<StudioExtensionMainContent fallback={ <SiteContentTabs /> } />
 						</main>
 					</HStack>
 				</VStack>

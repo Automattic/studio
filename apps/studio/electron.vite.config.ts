@@ -1,11 +1,12 @@
-import { resolve } from 'path';
 import { createRequire } from 'module';
+import { resolve } from 'path';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
+import react from '@vitejs/plugin-react';
 import { defineConfig } from 'electron-vite';
 import { normalizePath } from 'vite';
-import react from '@vitejs/plugin-react';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import wasm from 'vite-plugin-wasm';
-import { sentryVitePlugin } from '@sentry/vite-plugin';
+import { getStudioExtensionsDirectory } from '../../tools/common/lib/well-known-paths';
 import { getSentryReleaseInfo } from './src/lib/sentry-release';
 
 const version = process.env.npm_package_version || '';
@@ -45,7 +46,7 @@ export default defineConfig( {
 				output: {
 					entryFileNames: '[name].js',
 				},
-				external: [ /^@php-wasm\/.*/ ],
+				external: [ /^@php-wasm\/.*/, 'esbuild' ],
 			},
 		},
 	},
@@ -130,7 +131,7 @@ export default defineConfig( {
 		},
 		server: {
 			fs: {
-				allow: [ '..', '../..' ],
+				allow: [ '..', '../..', normalizePath( getStudioExtensionsDirectory() ) ],
 			},
 		},
 		build: {
@@ -147,10 +148,18 @@ export default defineConfig( {
 					},
 					// Optimize chunk splitting for better caching
 					manualChunks: ( id ) => {
-						if ( [ 'react', 'react-dom', '@wordpress/components', '@wordpress/element' ].some( ( pkg ) => id.includes( `/node_modules/${ pkg }/` ) ) ) {
+						if (
+							[ 'react', 'react-dom', '@wordpress/components', '@wordpress/element' ].some(
+								( pkg ) => id.includes( `/node_modules/${ pkg }/` )
+							)
+						) {
 							return 'vendor';
 						}
-						if ( [ '@sentry/react', '@sentry/electron' ].some( ( pkg ) => id.includes( `/node_modules/${ pkg }/` ) ) ) {
+						if (
+							[ '@sentry/react', '@sentry/electron' ].some( ( pkg ) =>
+								id.includes( `/node_modules/${ pkg }/` )
+							)
+						) {
 							return 'sentry';
 						}
 					},

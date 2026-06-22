@@ -43,6 +43,10 @@ export function getAiPayloadsPath(): string {
 	return path.join( getConfigDirectory(), 'tmp', 'ai-payloads' );
 }
 
+export function getStudioExtensionsDirectory(): string {
+	return path.join( getConfigDirectory(), 'extensions' );
+}
+
 export function getRemoteSessionConfigPath(): string {
 	return path.join( getConfigDirectory(), 'remote-session.json' );
 }

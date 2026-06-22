@@ -14,6 +14,7 @@ import { connectedSitesApi } from 'src/stores/sync/connected-sites';
 import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
+import type { ReactNode } from 'react';
 
 vi.mock( 'src/index.css', () => ( {} ) );
 vi.mock( 'src/components/dot-grid', () => ( {
@@ -28,6 +29,17 @@ vi.mock( 'src/stores/onboarding-slice', async () => {
 } );
 vi.mock( 'src/modules/onboarding/hooks/use-onboarding' );
 vi.mock( 'src/hooks/use-site-details' );
+
+const mockExtensionState = vi.hoisted( () => ( {
+	hasActiveExtensions: false,
+	isLoading: false,
+} ) );
+
+vi.mock( 'src/extensions/components/studio-extension-main-content', () => ( {
+	StudioExtensionMainContent: ( { fallback }: { fallback: ReactNode } ) => fallback,
+	useHasActiveStudioExtensions: () => mockExtensionState,
+} ) );
+
 vi.mock( 'src/modules/whats-new/hooks/use-whats-new', () => ( {
 	useWhatsNew: () => ( {
 		showWhatsNew: false,
@@ -94,6 +106,16 @@ vi.mock( 'src/stores/wpcom-api', async () => {
 describe( 'App', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		Object.defineProperty( globalThis, 'localStorage', {
+			value: {
+				getItem: vi.fn().mockReturnValue( null ),
+				setItem: vi.fn(),
+				removeItem: vi.fn(),
+			},
+			configurable: true,
+		} );
+		mockExtensionState.hasActiveExtensions = false;
+		mockExtensionState.isLoading = false;
 	} );
 
 	const renderWithProvider = ( component: React.ReactElement ) => {

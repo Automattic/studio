@@ -1,5 +1,6 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import type { StudioExtensionStorageState } from 'src/extensions/types';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -49,6 +50,7 @@ export interface UserData {
 	betaFeatures?: BetaFeatures;
 	stopSitesOnQuit?: boolean;
 	defaultSiteDirectory?: string;
+	extensions?: StudioExtensionStorageState;
 	/** @deprecated Used only for migration to cliUserUninstalled. Do not write; remove after one release cycle. */
 	cliAutoInstalled?: boolean;
 	cliUserUninstalled?: boolean;

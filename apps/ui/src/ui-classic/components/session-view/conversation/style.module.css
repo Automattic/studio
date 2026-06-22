@@ -105,6 +105,7 @@
 .toolRowButton {
 	--wp-ui-button-background-color: transparent;
 	--wp-ui-button-border-color: transparent;
+	--tool-row-active-background: var(--wpds-color-bg-interactive-neutral-weak-active, #ededed);
 
 	appearance: none;
 	align-self: flex-start;
@@ -117,32 +118,26 @@
 	font-family: inherit;
 	text-align: left;
 	cursor: pointer;
+	transition:
+		background-color 120ms ease,
+		color 120ms ease;
 }
 
-.toolRowButton:hover,
-.toolRowButton:focus-visible {
+.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) {
 	--tool-trigger-color: var(--wpds-color-fg-interactive-neutral-active);
 	--tool-icon-color: var(--tool-trigger-color);
+	--wp-ui-button-background-color: var(--tool-row-active-background);
 
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	background-color: var(--tool-row-active-background);
 }
 
-.toolRowButton:focus:not(:focus-visible) {
+.toolRowButton:focus:not(:focus-visible):not([data-expanded='true']) {
 	outline: none;
 	background-color: transparent;
 }
 
-.toolRowButton:hover:focus:not(:focus-visible) {
-	--tool-trigger-color: var(--wpds-color-fg-interactive-neutral-active);
-	--tool-icon-color: var(--tool-trigger-color);
-
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
-}
-
-.toolRowButton:hover .toolLabel,
-.toolRowButton:hover .toolDetail,
-.toolRowButton:focus-visible .toolLabel,
-.toolRowButton:focus-visible .toolDetail {
+.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolLabel,
+.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolDetail {
 	color: var(--wpds-color-fg-interactive-neutral-active);
 }
 
@@ -151,8 +146,33 @@
 	outline-offset: 2px;
 }
 
+.toolDetailsShell {
+	display: grid;
+	grid-template-rows: 0fr;
+	margin-left: -8px;
+	opacity: 0;
+	overflow: hidden;
+	transform: translateY(-2px);
+	transition:
+		grid-template-rows 180ms cubic-bezier(0.2, 0, 0, 1),
+		opacity 140ms ease,
+		transform 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.toolDetailsShell[data-expanded='true'] {
+	grid-template-rows: 1fr;
+	opacity: 1;
+	transform: translateY(0);
+	animation: toolDetailsExpand 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.toolDetailsClip {
+	min-height: 0;
+	overflow: hidden;
+}
+
 .toolOutputWrap {
-	margin: 8px 0 0 -8px;
+	margin: 8px 0 0;
 	padding: var(--wpds-dimension-padding-lg);
 	display: flex;
 	flex-direction: column;
@@ -215,6 +235,30 @@
 .toolIcon,
 .toolIcon :where(path:not([fill='none']), rect:not([fill='none']), circle:not([fill='none']), polygon:not([fill='none'])) {
 	fill: var(--tool-icon-color);
+}
+
+@keyframes toolDetailsExpand {
+	from {
+		grid-template-rows: 0fr;
+		opacity: 0;
+		transform: translateY(-2px);
+	}
+
+	to {
+		grid-template-rows: 1fr;
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.toolRowButton,
+	.toolDetailsShell,
+	.toolDetailsShell[data-expanded='true'] {
+		animation: none;
+		transform: none;
+		transition: none;
+	}
 }
 
 .question {

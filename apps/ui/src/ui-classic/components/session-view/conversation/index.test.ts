@@ -30,16 +30,22 @@ describe( 'Conversation tool rows', () => {
 
 		const toolRow = screen.getByRole( 'button', { name: 'Run terminal command' } );
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
 
 		fireEvent.click( toolRow );
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( toolRow ).toHaveAttribute( 'data-expanded', 'true' );
 		expect( screen.getByText( 'npm test' ) ).toBeInTheDocument();
 		expect( screen.getByText( /first output line/ ) ).toBeInTheDocument();
 
 		fireEvent.click( toolRow );
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
+		const hiddenDetails = screen.getByText( /first output line/ ).closest( '[aria-hidden="true"]' );
+		expect( hiddenDetails ).toBeInTheDocument();
+		fireEvent.transitionEnd( hiddenDetails! );
 		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
 	} );
 

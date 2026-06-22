@@ -53,7 +53,7 @@ import {
 } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Markdown } from '@/components/markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -502,6 +502,14 @@ function ToolUseRow( {
 	const hasInput = display.inputText.length > 0;
 	const hasExpandableDetails = hasInput || hasOutput;
 	const [ expanded, setExpanded ] = useState( false );
+	const [ detailsMounted, setDetailsMounted ] = useState( false );
+	useEffect( () => {
+		if ( expanded || ! detailsMounted ) {
+			return;
+		}
+		const timeoutId = window.setTimeout( () => setDetailsMounted( false ), 220 );
+		return () => window.clearTimeout( timeoutId );
+	}, [ detailsMounted, expanded ] );
 	const rowContent = (
 		<>
 			<ToolIcon name={ name } input={ input } />
@@ -518,7 +526,15 @@ function ToolUseRow( {
 					className={ clsx( styles.toolRow, styles.toolRowButton ) }
 					aria-expanded={ expanded }
 					aria-controls={ detailsId }
-					onClick={ () => setExpanded( ( previous ) => ! previous ) }
+					data-expanded={ expanded }
+					onClick={ () => {
+						if ( expanded ) {
+							setExpanded( false );
+							return;
+						}
+						setDetailsMounted( true );
+						setExpanded( true );
+					} }
 					title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
 				>
 					{ rowContent }
@@ -526,14 +542,30 @@ function ToolUseRow( {
 			) : (
 				<div className={ styles.toolRow }>{ rowContent }</div>
 			) }
-			{ hasExpandableDetails && expanded ? (
-				<div id={ detailsId } className={ styles.toolOutputWrap }>
-					{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
-					{ hasOutput ? (
-						<pre className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }>
-							{ resultText }
-						</pre>
-					) : null }
+			{ hasExpandableDetails && detailsMounted ? (
+				<div
+					id={ detailsId }
+					className={ styles.toolDetailsShell }
+					data-expanded={ expanded }
+					aria-hidden={ ! expanded }
+					onTransitionEnd={ ( event ) => {
+						if ( event.currentTarget === event.target && ! expanded ) {
+							setDetailsMounted( false );
+						}
+					} }
+				>
+					<div className={ styles.toolDetailsClip }>
+						<div className={ styles.toolOutputWrap }>
+							{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
+							{ hasOutput ? (
+								<pre
+									className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }
+								>
+									{ resultText }
+								</pre>
+							) : null }
+						</div>
+					</div>
 				</div>
 			) : null }
 		</div>

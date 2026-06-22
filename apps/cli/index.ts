@@ -287,22 +287,6 @@ async function main() {
 
 	registerMcpCommand( studioArgv );
 
-	studioArgv.command( {
-		command: 'web-server',
-		describe: __( 'Start the Studio Web backend (HTTP/SSE) for the browser UI' ),
-		builder: ( webYargs: StudioArgv ) => {
-			return webYargs.option( 'port', {
-				type: 'number',
-				description: __( 'Port to listen on' ),
-				default: 8088,
-			} );
-		},
-		handler: async ( argv ) => {
-			process.env.STUDIO_WEB_SERVER_PORT = String( ( argv as { port?: number } ).port ?? 8088 );
-			await import( 'cli/web-server/index.js' );
-		},
-	} );
-
 	studioArgv
 		// Deprecated `site` group, kept hidden for backward compatibility. Every
 		// subcommand is now available at the top level, and `site set` lives under

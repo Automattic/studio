@@ -7,7 +7,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import blueprintsIllustration from 'src/modules/whats-new/assets/blueprints-illustration.svg';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
-import darkModeIllustration from 'src/modules/whats-new/assets/dark-mode-illustration.svg';
+import nativePhpIllustration from 'src/modules/whats-new/assets/native-php-illustration.svg';
 import phpMyAdminIllustration from 'src/modules/whats-new/assets/phpmyadmin-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
@@ -58,10 +58,10 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
 		{
-			image: darkModeIllustration,
-			title: __( 'Dark mode is here' ),
+			image: nativePhpIllustration,
+			title: __( 'Run your sites with native PHP' ),
 			description: __(
-				'Studio now supports light, dark, and system appearance modes. Head to Settings to choose your preferred look.'
+				'Studio can now run your sites with native PHP for the best performance, plus real file access and broader plugin compatibility. Pick the Native or Sandbox runtime for any site in its settings.'
 			),
 		},
 		{

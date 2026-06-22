@@ -77,7 +77,7 @@ type FileToDownload = {
 	destinationPath?: string;
 };
 
-const REPRINT_VERSION = 'v0.8.1';
+const REPRINT_VERSION = 'v0.8.2';
 const REPRINT_PHAR_URL = `https://github.com/WordPress/reprint/releases/download/${ REPRINT_VERSION }/reprint.phar`;
 
 const FILES_TO_DOWNLOAD: FileToDownload[] = [

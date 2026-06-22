@@ -74,6 +74,44 @@ studio wp plugin list --status=active --format=csv
 studio wp eval 'echo "OK";'
 ```
 
+## Studio MCP Server (AI agent tools)
+
+Studio ships an MCP (Model Context Protocol) server so an AI assistant can drive Studio directly. It runs over stdio via `studio mcp` (requires the `studio` CLI installed). Add it under the `"mcpServers"` key:
+
+```json
+{
+  "wordpress-studio": {
+    "command": "studio",
+    "args": [ "mcp" ]
+  }
+}
+```
+
+Run `studio mcp --help` for per-assistant install commands and config paths. Docs: https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/
+
+**Available tools:**
+
+| Tool | What it does |
+|------|--------------|
+| `site_create` | Create a new local WordPress site (latest WP), register it, and start it |
+| `site_list` | List all Studio sites with name, path, URL, running status |
+| `site_info` | Site details: status, URL, PHP version, admin credentials |
+| `site_start` / `site_stop` | Start / stop a site server |
+| `site_delete` | Remove a site from Studio (optionally trash its files) |
+| `wp_cli` | Run a WP-CLI command against a site (e.g. `plugin install woocommerce --activate`) |
+| `scaffold_theme` | Scaffold + activate a minimal block theme (`theme.json`-based) |
+| `validate_blocks` | Validate block markup on a running site |
+| `take_screenshot` | Full-page screenshot of a URL (desktop/mobile/all viewports) for visual verification |
+| `inspect_design` | Inspect a live page's rendered DOM to diagnose visual issues |
+| `need_for_speed` | Frontend performance audit (Core Web Vitals, page weight, request count) |
+| `rank_me_up` | On-page SEO audit (title/meta, canonical, OG/Twitter cards, headings) |
+| `install_taxonomy_scripts` | Install Taxonomist PHP scripts for `wp_cli eval-file` use |
+| `open_annotation_browser` / `wait_for_annotations` | Open the annotation inspector and collect the user's element feedback |
+| `preview_create` / `preview_list` / `preview_update` / `preview_delete` | Manage WordPress.com preview sites (requires `studio auth login`) |
+| `site_connected_remote_sites` | List WordPress.com sites attached to a local site |
+| `site_push` / `site_pull` | Push to / pull from a connected WordPress.com site (requires `studio auth login`) |
+| `site_import` / `site_export` | Import/export a site backup (`.zip`, `.tar.gz`, `.sql`, `.wpress`) |
+
 ## Constraints
 
 | Don't | Do instead |

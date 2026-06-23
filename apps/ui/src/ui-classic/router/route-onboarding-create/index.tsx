@@ -1,5 +1,6 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
+import { speak } from '@wordpress/a11y';
+import { __, sprintf } from '@wordpress/i18n';
 import { useState } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
 import {
@@ -33,6 +34,13 @@ function CreateSitePage() {
 				adminPassword: values.adminPassword || undefined,
 				adminEmail: values.adminEmail || undefined,
 			} );
+			speak(
+				sprintf(
+					// translators: %s is the site name.
+					__( '%s site added.' ),
+					values.name
+				)
+			);
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setSubmitError(
@@ -51,7 +59,7 @@ function CreateSitePage() {
 				initialValues={ proposedName ? { name: proposedName } : undefined }
 				existingDomainNames={ existingDomainNames ?? [] }
 				onSubmit={ handleSubmit }
-				onCancel={ () => void navigate( { to: '/onboarding' } ) }
+				onCancel={ () => void navigate( { to: '/onboarding/blueprint' } ) }
 				isSubmitting={ createSite.isPending }
 				submitError={ submitError }
 			/>

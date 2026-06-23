@@ -1,9 +1,11 @@
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
 	AuthUser,
+	AvailableSitePath,
 	Connector,
 	FeaturedBlueprint,
 	InstalledApps,
@@ -177,6 +179,9 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		async generateProposedSitePath() {
 			throw new WebUnsupportedError( 'generateProposedSitePath' );
 		},
+		async findAvailableSitePath(): Promise< AvailableSitePath > {
+			throw new WebUnsupportedError( 'findAvailableSitePath' );
+		},
 		async selectSiteFolder() {
 			throw new WebUnsupportedError( 'selectSiteFolder' );
 		},
@@ -199,6 +204,9 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
 			} ) );
 		},
+		async getWordPressVersions() {
+			return fetchWordPressVersions();
+		},
 
 		async getFilePath() {
 			// Browsers can't resolve a real filesystem path for a File.
@@ -212,6 +220,15 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		},
 		async cleanupBlueprintTempDir() {
 			// No-op.
+		},
+		async readBlueprintFile(): Promise< Record< string, unknown > > {
+			throw new WebUnsupportedError( 'readBlueprintFile' );
+		},
+		onAddSiteRequested() {
+			return () => {};
+		},
+		onAddSiteWithBlueprint() {
+			return () => {};
 		},
 		async importSiteFromBackup(): Promise< SiteDetails > {
 			throw new WebUnsupportedError( 'importSiteFromBackup' );
@@ -229,6 +246,16 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		},
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return [];
+		},
+		async fetchSyncableWpcomSitesPage() {
+			return {
+				sites: [],
+				total: 0,
+				page: 1,
+				perPage: 100,
+				hasMore: false,
+				nextPage: null,
+			};
 		},
 		async connectWpcomSite() {
 			throw new WebUnsupportedError( 'connectWpcomSite' );

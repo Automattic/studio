@@ -1,24 +1,78 @@
 .root {
 	height: 100vh;
 	position: relative;
+	overflow-y: auto;
+	/* New stacking context so the backdrop layer's negative z-index nests
+	   here (behind the content, above the root's background) instead of
+	   escaping below an ancestor's paint. */
+	isolation: isolate;
 }
 
 .content {
 	max-width: 640px;
 	width: 100%;
 	padding: var(--wpds-dimension-padding-3xl);
+	/* Auto block margins center the content vertically when it's shorter
+	   than the viewport but — unlike `justify: center` on the flex parent —
+	   keep the top reachable by scrolling when it's taller (e.g. the full
+	   blueprint gallery). */
+	margin-block: auto;
 }
 
 /* `wide` variant — used by content-heavy onboarding pages like the blueprint
    selector. Sized to fit a 3-column card grid (see `blueprint-selector`). */
 .contentWide {
-	max-width: 820px;
+	max-width: 960px;
+}
+
+/* `full` variant — thumbnail grids that benefit from the extra room on
+   large windows, still capped so rows don't sprawl indefinitely. */
+.contentFull {
+	max-width: 1360px;
+}
+
+/* The onboarding flow fills the window with no title bar; invisible strips
+   along the top, left, and bottom edges act as the window drag region. A
+   full-background region would also work, but it would swallow the mouse
+   events the interactive dot grid depends on. The right edge is left free
+   for the scroll bar, and interactive elements overlapping a strip (the
+   close button) stay clickable via the global no-drag rule. */
+.dragEdge {
+	position: fixed;
+	pointer-events: none;
+	-webkit-app-region: drag;
+}
+
+.dragEdgeTop {
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 36px;
+}
+
+.dragEdgeLeft {
+	top: 36px;
+	left: 0;
+	bottom: 0;
+	width: 16px;
+}
+
+.dragEdgeBottom {
+	left: 16px;
+	right: 0;
+	bottom: 0;
+	height: 16px;
 }
 
 .close {
-	position: absolute;
+	/* Fixed so it stays in the corner while the page scrolls; above the
+	   footer scrim/actions (z-index 5/6). */
+	position: fixed;
 	top: 16px;
 	right: 16px;
+	z-index: 7;
+	/* Own snapshot group so route view transitions leave it stationary. */
+	view-transition-name: onboarding-close;
 }
 
 .close svg {

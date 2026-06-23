@@ -97,7 +97,7 @@ export function adminPasswordField< T extends { adminPassword: string } >(): Fie
 export function adminEmailField< T extends { adminEmail: string } >(): Field< T > {
 	return {
 		id: 'adminEmail',
-		type: 'email',
+		type: 'text',
 		label: __( 'Admin email' ),
 		isValid: {
 			required: true,

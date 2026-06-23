@@ -4,6 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
+import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
@@ -104,17 +105,63 @@ interface SessionFrameProps {
 	children?: ReactNode;
 }
 
-// Lays out the chat column: header on top, scrollable conversation in the
-// middle, composer pinned at the bottom. The site preview panel lives in the
-// dashboard layout's PreviewSplitFrame, which keeps it mounted across routes.
+// Lays out the chat column as fixed chrome over a full-height conversation
+// scroller. The site preview panel lives in the dashboard layout's
+// PreviewSplitFrame, which keeps it mounted across routes.
 function SessionFrame( { header, composer, scrollRef, children }: SessionFrameProps ) {
+	const rootRef = useRef< HTMLDivElement >( null );
+	const headerRef = useRef< HTMLDivElement >( null );
+	const composerRef = useRef< HTMLDivElement >( null );
+
+	useLayoutEffect( () => {
+		const root = rootRef.current;
+		if ( ! root ) {
+			return;
+		}
+
+		const updateChromeSize = () => {
+			root.style.setProperty(
+				'--classic-header-height',
+				`${ headerRef.current?.offsetHeight ?? 0 }px`
+			);
+			root.style.setProperty(
+				'--classic-composer-height',
+				`${ composerRef.current?.offsetHeight ?? 0 }px`
+			);
+		};
+
+		updateChromeSize();
+
+		if ( typeof ResizeObserver === 'undefined' ) {
+			window.addEventListener( 'resize', updateChromeSize );
+			return () => window.removeEventListener( 'resize', updateChromeSize );
+		}
+
+		const resizeObserver = new ResizeObserver( updateChromeSize );
+		if ( headerRef.current ) {
+			resizeObserver.observe( headerRef.current );
+		}
+		if ( composerRef.current ) {
+			resizeObserver.observe( composerRef.current );
+		}
+
+		return () => resizeObserver.disconnect();
+	}, [] );
+
 	return (
-		<div className={ styles.root }>
-			{ header }
+		<div ref={ rootRef } className={ styles.root }>
+			<div ref={ headerRef } className={ styles.headerLayer }>
+				{ header }
+			</div>
 			<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
 				{ children }
 			</div>
-			<div className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }>
+			<ProgressiveBlur direction="down" className={ styles.headerBlur } />
+			<ProgressiveBlur direction="up" className={ styles.composerBlur } />
+			<div
+				ref={ composerRef }
+				className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
+			>
 				{ composer }
 			</div>
 		</div>
@@ -210,7 +257,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			<SessionFrame
 				header={ <div className={ styles.header } /> }
 				composer={
-					<div className={ styles.classicColumn }>
+					<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
 						<ComposerSkeleton />
 					</div>
 				}
@@ -241,7 +288,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				/>
 			}
 			composer={
-				<div className={ styles.classicColumn }>
+				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
 					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
 					<Composer
 						busy={ composerBusy }

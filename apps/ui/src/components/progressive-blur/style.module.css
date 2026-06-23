@@ -1,0 +1,57 @@
+.root {
+	position: absolute;
+	pointer-events: none;
+	overflow: hidden;
+	contain: paint;
+}
+
+.down {
+	--progressive-blur-direction: to bottom;
+}
+
+.up {
+	--progressive-blur-direction: to top;
+}
+
+.layer {
+	position: absolute;
+	inset: 0;
+	backdrop-filter: blur(var(--progressive-blur-radius));
+	-webkit-backdrop-filter: blur(var(--progressive-blur-radius));
+	mask-image: linear-gradient(
+		var(--progressive-blur-direction),
+		black 0%,
+		black var(--progressive-blur-solid-stop),
+		transparent var(--progressive-blur-fade-stop)
+	);
+	-webkit-mask-image: linear-gradient(
+		var(--progressive-blur-direction),
+		black 0%,
+		black var(--progressive-blur-solid-stop),
+		transparent var(--progressive-blur-fade-stop)
+	);
+}
+
+.layerSoft {
+	--progressive-blur-radius: 1.5px;
+	--progressive-blur-solid-stop: 0%;
+	--progressive-blur-fade-stop: 100%;
+}
+
+.layerMedium {
+	--progressive-blur-radius: 3px;
+	--progressive-blur-solid-stop: 0%;
+	--progressive-blur-fade-stop: 72%;
+}
+
+.layerStrong {
+	--progressive-blur-radius: 6px;
+	--progressive-blur-solid-stop: 0%;
+	--progressive-blur-fade-stop: 48%;
+}
+
+.layerIntense {
+	--progressive-blur-radius: 12px;
+	--progressive-blur-solid-stop: 0%;
+	--progressive-blur-fade-stop: 28%;
+}

@@ -167,7 +167,7 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 	return (
 		<li className={ styles.sessionItem }>
 			<SidebarButton
-				className={ clsx( styles.sessionLink, isRunning && styles.sessionLinkRunning ) }
+				className={ styles.sessionLink }
 				render={
 					<Link
 						to="/sessions/$sessionId"
@@ -188,9 +188,7 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 										className={ styles.sessionQuestionIndicator }
 										role="status"
 										aria-label={ __( 'Studio needs an answer.' ) }
-									>
-										?
-									</span>
+									/>
 								}
 							/>
 							<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
@@ -578,6 +576,7 @@ function SiteSection( {
 } ) {
 	const isStarting = useIsSiteStarting( group.site?.id );
 	const isStopping = useIsSiteStopping( group.site?.id );
+	const isStopped = !! group.site && ! group.site.running && ! isStarting;
 
 	return (
 		<section
@@ -597,6 +596,7 @@ function SiteSection( {
 						{ group.site ? (
 							<span className={ styles.siteIconSlot } aria-hidden="true">
 								<SiteIcon
+									className={ clsx( styles.siteIcon, isStopped && styles.siteIconStopped ) }
 									seed={ `${ group.site.id }:${ group.site.name }:${ group.site.path }` }
 									imageSrc={ group.site.siteIcon }
 								/>

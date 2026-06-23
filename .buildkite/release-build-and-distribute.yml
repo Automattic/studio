@@ -51,10 +51,15 @@ steps:
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
+
+          echo "--- :package: Building standalone CLI bundle"
+          npm run cli:bundle -- darwin {{matrix}}
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
           - apps/studio/out/**/*.app.zip
           - apps/studio/out/*.dmg
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
         matrix:
           - x64
           - arm64
@@ -69,7 +74,7 @@ steps:
         agents:
           queue: windows
         env:
-          USE_AZURE_TRUSTED_SIGNING: 1
+          SIGN_WINDOWS_BUILD: 1
         command: |
           bash .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
           powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release -Architecture {{matrix}}
@@ -78,6 +83,8 @@ steps:
           - apps\studio\out\**\studio-update.nupkg
           - apps\studio\out\**\RELEASES
           - apps\studio\out\**\*.appx
+          - standalone-bundles\studio-cli-*.tgz
+          - standalone-bundles\studio-cli-*.tgz.sha256
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - x64
@@ -109,8 +116,13 @@ steps:
 
           echo "--- :node: Building DEB"
           npm run make:linux-{{matrix}}
+
+          echo "--- :package: Building standalone CLI bundle"
+          npm run cli:bundle -- linux {{matrix}}
         artifact_paths:
           - apps/studio/out/make/deb/**/*.deb
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
         plugins:
           # Same Docker-on-default-queue pattern as the dev Linux build group
           # (see .buildkite/pipeline.yml): Amazon Linux on `default` lacks
@@ -141,6 +153,8 @@ steps:
       buildkite-agent artifact download "*.nupkg" .
       buildkite-agent artifact download "*.deb" .
       buildkite-agent artifact download "*\\RELEASES" .
+      buildkite-agent artifact download "*.tgz" .
+      buildkite-agent artifact download "*.tgz.sha256" .
 
       .buildkite/commands/install-node-dependencies.sh
 

@@ -220,7 +220,7 @@ export class ProcessManagerDaemon {
 		let usage = 0;
 		for ( const proc of this.managedProcesses.values() ) {
 			if ( proc.status === 'online' && proc.name.startsWith( SITE_PROCESS_PREFIX ) ) {
-				usage += CAPACITY_WEIGHTS[ proc.runtime ] ?? CAPACITY_WEIGHTS[ SITE_RUNTIME_PLAYGROUND ];
+				usage += CAPACITY_WEIGHTS[ proc.runtime ];
 			}
 		}
 		return usage;
@@ -239,7 +239,7 @@ export class ProcessManagerDaemon {
 		}
 
 		if ( processName.startsWith( SITE_PROCESS_PREFIX ) ) {
-			const weight = CAPACITY_WEIGHTS[ runtime ] ?? CAPACITY_WEIGHTS[ SITE_RUNTIME_PLAYGROUND ];
+			const weight = CAPACITY_WEIGHTS[ runtime ];
 			const currentUsage = this.getWeightedCapacityUsage();
 			if ( currentUsage + weight > MAX_WEIGHTED_CAPACITY ) {
 				throw new Error(

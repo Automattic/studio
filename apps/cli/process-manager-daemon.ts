@@ -242,9 +242,11 @@ export class ProcessManagerDaemon {
 			const weight = CAPACITY_WEIGHTS[ runtime ];
 			const currentUsage = this.getWeightedCapacityUsage();
 			if ( currentUsage + weight > MAX_WEIGHTED_CAPACITY ) {
-				throw new Error(
-					`CAPACITY_LIMIT_REACHED: Cannot start site. The maximum number of running sites has been reached (${ currentUsage }/${ MAX_WEIGHTED_CAPACITY }). Stop some running sites first.`
-				);
+				const errorMessage =
+					runtime === SITE_RUNTIME_PLAYGROUND
+						? `Cannot start site. The maximum number of running sites has been reached (${ currentUsage }/${ MAX_WEIGHTED_CAPACITY }). Sandbox sites count as ${ weight } units. Stop some running sites first.`
+						: `Cannot start site. The maximum number of running sites has been reached (${ currentUsage }/${ MAX_WEIGHTED_CAPACITY }). Stop some running sites first.`;
+				throw new Error( `CAPACITY_LIMIT_REACHED: ${ errorMessage }` );
 			}
 		}
 

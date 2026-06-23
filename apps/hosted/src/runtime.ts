@@ -1,3 +1,5 @@
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { JsonEvent } from '@studio/common/ai/json-events';
 
 /**
@@ -14,6 +16,8 @@ export interface AgentProcessOptions {
 	sessionId: string;
 	prompt: string;
 	displayMessage?: string;
+	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
 	// The process has started.
 	onSpawn: () => void;
 	// A JSON transport event the agent emitted.

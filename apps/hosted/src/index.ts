@@ -1,6 +1,15 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+	validateStudioChatFiles,
+	type StudioChatFileAttachment,
+} from '@studio/common/ai/chat-files';
+import {
+	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
+	validateStudioChatImages,
+	type StudioChatImage,
+} from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import {
 	appendModelChangeEntry,
@@ -100,7 +109,10 @@ app.use(
 	} )
 );
 
-app.use( express.json() );
+// Image attachments travel as base64 JSON. Base64 expands bytes by ~4/3; leave
+// additional room for metadata and the prompt while keeping a bounded parser.
+const JSON_BODY_LIMIT_BYTES = Math.ceil( STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES * 1.5 );
+app.use( express.json( { limit: JSON_BODY_LIMIT_BYTES } ) );
 
 // --- Server-Sent Events: one stream carries every run's AgentRunEvents -------
 
@@ -298,12 +310,34 @@ api.post(
 );
 
 api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
-	const { prompt, displayMessage } = req.body as { prompt?: string; displayMessage?: string };
+	const { prompt, displayMessage, images, files } = req.body as {
+		prompt?: string;
+		displayMessage?: string;
+		images?: StudioChatImage[];
+		files?: StudioChatFileAttachment[];
+	};
 	if ( ! prompt ) {
 		res.status( 400 ).json( { error: 'prompt is required' } );
 		return;
 	}
-	const { runId } = startAgentRun( { sessionId: req.params.id, prompt, displayMessage } );
+	let validatedImages: StudioChatImage[];
+	let validatedFiles: StudioChatFileAttachment[];
+	try {
+		validatedImages = validateStudioChatImages( images );
+		validatedFiles = validateStudioChatFiles( files );
+	} catch ( error ) {
+		res.status( 400 ).json( {
+			error: error instanceof Error ? error.message : 'Invalid attachments',
+		} );
+		return;
+	}
+	const { runId } = startAgentRun( {
+		sessionId: req.params.id,
+		prompt,
+		displayMessage,
+		images: validatedImages,
+		files: validatedFiles,
+	} );
 	res.json( { runId } );
 } );
 

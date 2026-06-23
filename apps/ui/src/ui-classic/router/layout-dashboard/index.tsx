@@ -1,6 +1,9 @@
 import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
-import { PreviewSplitFrame } from '@/components/preview-split-frame';
+import { useCallback, useEffect, useState } from 'react';
+import {
+	PreviewSplitFrame,
+	type PreviewSplitFramePreviewProps,
+} from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
@@ -67,24 +70,24 @@ function DashboardLayoutContent() {
 		: undefined;
 	const previewSite = routeSite ?? lastPreviewSite;
 	const showPreview = preview.open && supportsPreview && !! previewSite;
+	const renderPreview = useCallback(
+		( { collapsed }: PreviewSplitFramePreviewProps ) =>
+			previewSite ? (
+				<SitePreview
+					site={ previewSite }
+					path={ preview.path }
+					reloadNonce={ preview.reloadNonce }
+					onAnnotationsDone={ onAnnotationsDone }
+					onPathChange={ preview.updatePath }
+					collapsed={ collapsed }
+				/>
+			) : null,
+		[ onAnnotationsDone, preview.path, preview.reloadNonce, preview.updatePath, previewSite ]
+	);
 
 	return (
 		<SidebarLayout>
-			<PreviewSplitFrame
-				previewOpen={ showPreview }
-				preview={
-					previewSite ? (
-						<SitePreview
-							site={ previewSite }
-							path={ preview.path }
-							reloadNonce={ preview.reloadNonce }
-							onAnnotationsDone={ onAnnotationsDone }
-							onPathChange={ preview.updatePath }
-							collapsed={ ! showPreview }
-						/>
-					) : undefined
-				}
-			>
+			<PreviewSplitFrame previewOpen={ showPreview } preview={ renderPreview }>
 				<Outlet />
 			</PreviewSplitFrame>
 		</SidebarLayout>

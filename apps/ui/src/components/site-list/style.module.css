@@ -173,7 +173,7 @@
 	transition: background-color 100ms ease, opacity 100ms ease;
 }
 
-/* A stopped site carries no signal worth surfacing, so its gray status square
+/* A stopped site carries no signal worth surfacing, so its play affordance
    stays hidden until the row is hovered, focused, has an open menu, or is the
    active site; running/transitioning dots remain always visible. */
 .siteStatus[data-state='stopped'] {
@@ -192,7 +192,7 @@
 }
 
 .siteStatus:focus-visible {
-	outline: 2px solid var(--ui-desks-focus, #3858e9);
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
 	outline-offset: -2px;
 }
 
@@ -245,14 +245,13 @@
 	transition: fill 160ms ease, rx 160ms ease;
 }
 
+.siteStatusPlayShape {
+	fill: var(--wpds-color-fg-content-neutral);
+}
+
 .siteStatus[data-state='running'] .siteStatusShape {
 	fill: #16a34a;
 	rx: 4px;
-}
-
-.siteStatus[data-state='stopped'] .siteStatusShape {
-	fill: var(--wpds-color-fg-content-neutral-weak);
-	rx: 1px;
 }
 
 .siteStatus[data-state='transitioning'] .siteStatusShape {
@@ -473,7 +472,7 @@
 }
 
 .sessionLink:focus-visible {
-	outline: 2px solid var(--ui-desks-focus, #3858e9);
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
 	outline-offset: -2px;
 }
 

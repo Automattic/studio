@@ -7,7 +7,7 @@ export default class SettingsTab {
 	) {}
 
 	get locator() {
-		return this.page.getByRole( 'tabpanel', { name: 'Settings' } );
+		return this.page.locator( '[role="tabpanel"][id$="-settings-view"]' );
 	}
 
 	get copyWPAdminButton() {
@@ -73,6 +73,12 @@ export default class SettingsTab {
 	 */
 	get phpVersionDisplay() {
 		return this.locator.getByRole( 'row', { name: /PHP version/i } );
+	}
+
+	// Read-only "PHP runtime" row on the Settings tab body. Reports "Native" or
+	// "Sandbox" for the site's configured runtime.
+	get phpRuntimeDisplay() {
+		return this.locator.getByRole( 'row', { name: /PHP runtime/i } );
 	}
 
 	get saveButton() {

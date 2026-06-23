@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { STUDIO_CHAT_MAX_FILES } from '../chat-files';
 import { STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES } from '../chat-images';
 import {
 	COMPOSER_FILE_IMAGE_PREVIEW_MAX_BYTES,
+	getComposerClipboardFiles,
 	mergeComposerAttachments,
 	prepareComposerAttachments,
 	type ComposerAttachment,
@@ -12,6 +13,9 @@ const prepareMessages = {
 	imageTooLarge: 'image too large',
 	imageReadFailed: 'image read failed',
 	fileAttachFailed: 'file attach failed',
+	maxImages: 'too many images',
+	totalImagesTooLarge: 'images too large',
+	maxFiles: 'too many files',
 };
 
 const mergeMessages = {
@@ -119,6 +123,78 @@ describe( 'prepareComposerAttachments', () => {
 			size: COMPOSER_FILE_IMAGE_PREVIEW_MAX_BYTES + 1,
 		} );
 		expect( ( result.attachments[ 0 ] as { preview?: unknown } ).preview ).toBeUndefined();
+	} );
+
+	it( 'does not resolve or preview files that exceed the current file limit', async () => {
+		const resolveFilePath = vi.fn( () => '/tmp/extra.txt' );
+		const result = await prepareComposerAttachments(
+			[ new File( [ 'extra' ], 'extra.txt', { type: 'text/plain' } ) ],
+			{
+				resolveFilePath,
+				messages: prepareMessages,
+				existingAttachments: Array.from( { length: STUDIO_CHAT_MAX_FILES }, ( _value, index ) =>
+					createFileAttachment( `file-${ index }` )
+				),
+			}
+		);
+
+		expect( resolveFilePath ).not.toHaveBeenCalled();
+		expect( result.attachments ).toEqual( [] );
+		expect( result.errors ).toEqual( [ prepareMessages.maxFiles ] );
+		expect( result.error ).toBe( prepareMessages.maxFiles );
+	} );
+
+	it( 'keeps each unique error from a mixed invalid batch', async () => {
+		const result = await prepareComposerAttachments(
+			[
+				new File( [ new Uint8Array( STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) ], 'large.png', {
+					type: 'image/png',
+				} ),
+				new File( [ '%PDF-1.7' ], 'missing.pdf', { type: 'application/pdf' } ),
+			],
+			{
+				resolveFilePath: async () => {
+					throw new Error( 'Missing path' );
+				},
+				messages: prepareMessages,
+			}
+		);
+
+		expect( result.attachments ).toEqual( [] );
+		expect( result.errors ).toEqual( [
+			prepareMessages.imageTooLarge,
+			prepareMessages.fileAttachFailed,
+		] );
+		expect( result.error ).toBe(
+			`${ prepareMessages.imageTooLarge } ${ prepareMessages.fileAttachFailed }`
+		);
+	} );
+
+	it( 'does not add a replacement character when a text preview cuts a multibyte character', async () => {
+		const result = await prepareComposerAttachments(
+			[ new File( [ `${ 'a'.repeat( 2047 ) }€` ], 'notes.txt', { type: 'text/plain' } ) ],
+			{
+				resolveFilePath: () => '/tmp/notes.txt',
+				messages: prepareMessages,
+			}
+		);
+
+		expect( result.error ).toBeNull();
+		expect( result.attachments[ 0 ] ).toMatchObject( {
+			kind: 'file',
+			preview: { kind: 'text', text: 'a'.repeat( 2047 ) },
+		} );
+	} );
+} );
+
+describe( 'getComposerClipboardFiles', () => {
+	it( 'uses common extensions for nameless pasted files', () => {
+		const files = getComposerClipboardFiles( {
+			files: [ new File( [ 'hello' ], '', { type: 'text/plain' } ) ],
+			items: [],
+		} as unknown as DataTransfer );
+
+		expect( files[ 0 ].name ).toBe( 'pasted-file.txt' );
 	} );
 } );
 

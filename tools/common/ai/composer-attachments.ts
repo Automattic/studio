@@ -39,6 +39,7 @@ export interface ComposerSendAttachments {
 }
 
 export const COMPOSER_FILE_IMAGE_PREVIEW_MAX_BYTES = 1 * 1024 * 1024;
+const COMPOSER_FILE_TEXT_PREVIEW_MAX_BYTES = 2048;
 
 type ComposerAttachmentMessages = {
 	imageTooLarge: string;
@@ -51,10 +52,8 @@ type ComposerAttachmentMessages = {
 
 type PrepareComposerAttachmentsOptions = {
 	resolveFilePath: ( file: File ) => string | Promise< string >;
-	messages: Pick<
-		ComposerAttachmentMessages,
-		'imageTooLarge' | 'imageReadFailed' | 'fileAttachFailed'
-	>;
+	messages: ComposerAttachmentMessages;
+	existingAttachments?: ComposerAttachment[];
 };
 
 export function toComposerSendAttachments(
@@ -104,17 +103,36 @@ function readFileAsDataUrl( file: File ): Promise< string > {
 	return readBlobWithFileReader( file, 'readAsDataURL' );
 }
 
+async function readBlobTextPreview( blob: Blob ): Promise< string > {
+	const text = await readBlobWithFileReader( blob, 'readAsText' );
+	// The preview slice may cut through the final multibyte character.
+	return text.replace( /\uFFFD$/, '' );
+}
+
 async function readFileAsBase64( file: File ): Promise< string > {
 	const dataUrl = await readFileAsDataUrl( file );
 	const comma = dataUrl.indexOf( ',' );
 	return comma >= 0 ? dataUrl.slice( comma + 1 ) : dataUrl;
 }
 
+const PASTED_FILE_EXTENSION_BY_MIME_TYPE: Record< string, string > = {
+	'application/javascript': 'js',
+	'application/json': 'json',
+	'application/pdf': 'pdf',
+	'image/jpeg': 'jpg',
+	'text/csv': 'csv',
+	'text/javascript': 'js',
+	'text/markdown': 'md',
+	'text/plain': 'txt',
+};
+
 function getExtensionForPastedFile( mimeType: string ): string {
-	if ( mimeType === 'image/jpeg' ) {
-		return 'jpg';
+	const normalizedMimeType = mimeType.toLowerCase();
+	const mappedExtension = PASTED_FILE_EXTENSION_BY_MIME_TYPE[ normalizedMimeType ];
+	if ( mappedExtension ) {
+		return mappedExtension;
 	}
-	const subtype = mimeType.split( '/' )[ 1 ]?.split( '+' )[ 0 ];
+	const subtype = normalizedMimeType.split( '/' )[ 1 ]?.split( '+' )[ 0 ];
 	return subtype || 'bin';
 }
 
@@ -168,7 +186,9 @@ async function buildFilePreview( file: File ): Promise< ComposerFilePreview | un
 	}
 
 	try {
-		const text = ( await readBlobWithFileReader( file.slice( 0, 2048 ), 'readAsText' ) ).trim();
+		const text = (
+			await readBlobTextPreview( file.slice( 0, COMPOSER_FILE_TEXT_PREVIEW_MAX_BYTES ) )
+		).trim();
 		return text ? { kind: 'text', text } : undefined;
 	} catch {
 		return undefined;
@@ -203,67 +223,101 @@ export function getComposerClipboardFiles( dataTransfer: DataTransfer ): File[] 
 		.map( normalizePastedFile );
 }
 
+function addUniqueError( errors: string[], error: string ): void {
+	if ( ! errors.includes( error ) ) {
+		errors.push( error );
+	}
+}
+
+function summarizeComposerAttachmentErrors( errors: string[] ): string | null {
+	return errors.length > 0 ? errors.join( ' ' ) : null;
+}
+
+function getAttachmentStats( attachments: ComposerAttachment[] ): {
+	imageCount: number;
+	fileCount: number;
+	imageBytes: number;
+} {
+	const images = attachments.filter( ( item ) => item.kind === 'image' );
+	return {
+		imageCount: images.length,
+		fileCount: attachments.length - images.length,
+		imageBytes: images.reduce( ( sum, item ) => sum + item.size, 0 ),
+	};
+}
+
 export async function prepareComposerAttachments(
 	incoming: File[],
-	{ resolveFilePath, messages }: PrepareComposerAttachmentsOptions
-): Promise< { attachments: ComposerAttachment[]; error: string | null } > {
-	const prepared = await Promise.all(
-		incoming.map(
-			async (
-				file
-			): Promise< { attachment: ComposerAttachment | null; error: string | null } > => {
-				if ( isStudioChatImageMimeType( file.type ) ) {
-					if ( file.size > STUDIO_CHAT_MAX_IMAGE_BYTES ) {
-						return { attachment: null, error: messages.imageTooLarge };
-					}
-					try {
-						const dataBase64 = await readFileAsBase64( file );
-						return {
-							attachment: {
-								id: newAttachmentId(),
-								kind: 'image',
-								name: file.name,
-								mimeType: file.type,
-								size: file.size,
-								dataBase64,
-							},
-							error: null,
-						};
-					} catch {
-						return { attachment: null, error: messages.imageReadFailed };
-					}
-				}
+	{ resolveFilePath, messages, existingAttachments = [] }: PrepareComposerAttachmentsOptions
+): Promise< { attachments: ComposerAttachment[]; error: string | null; errors: string[] } > {
+	const attachments: ComposerAttachment[] = [];
+	const errors: string[] = [];
+	let { imageCount, fileCount, imageBytes } = getAttachmentStats( existingAttachments );
 
-				let path = '';
-				try {
-					path = await resolveFilePath( file );
-				} catch {
-					return { attachment: null, error: messages.fileAttachFailed };
-				}
-				if ( ! path ) {
-					return { attachment: null, error: messages.fileAttachFailed };
-				}
-				return {
-					attachment: {
-						id: newAttachmentId(),
-						kind: 'file',
-						name: file.name,
-						path,
-						mimeType: file.type || undefined,
-						size: file.size,
-						preview: await buildFilePreview( file ),
-					},
-					error: null,
-				};
+	for ( const file of incoming ) {
+		if ( isStudioChatImageMimeType( file.type ) ) {
+			if ( file.size > STUDIO_CHAT_MAX_IMAGE_BYTES ) {
+				addUniqueError( errors, messages.imageTooLarge );
+				continue;
 			}
-		)
-	);
+			if ( imageCount >= STUDIO_CHAT_MAX_IMAGES ) {
+				addUniqueError( errors, messages.maxImages );
+				continue;
+			}
+			if ( imageBytes + file.size > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) {
+				addUniqueError( errors, messages.totalImagesTooLarge );
+				continue;
+			}
+			try {
+				const dataBase64 = await readFileAsBase64( file );
+				attachments.push( {
+					id: newAttachmentId(),
+					kind: 'image',
+					name: file.name,
+					mimeType: file.type,
+					size: file.size,
+					dataBase64,
+				} );
+				imageCount++;
+				imageBytes += file.size;
+			} catch {
+				addUniqueError( errors, messages.imageReadFailed );
+			}
+			continue;
+		}
+
+		if ( fileCount >= STUDIO_CHAT_MAX_FILES ) {
+			addUniqueError( errors, messages.maxFiles );
+			continue;
+		}
+
+		let path = '';
+		try {
+			path = await resolveFilePath( file );
+		} catch {
+			addUniqueError( errors, messages.fileAttachFailed );
+			continue;
+		}
+		if ( ! path ) {
+			addUniqueError( errors, messages.fileAttachFailed );
+			continue;
+		}
+		attachments.push( {
+			id: newAttachmentId(),
+			kind: 'file',
+			name: file.name,
+			path,
+			mimeType: file.type || undefined,
+			size: file.size,
+			preview: await buildFilePreview( file ),
+		} );
+		fileCount++;
+	}
 
 	return {
-		attachments: prepared
-			.map( ( item ) => item.attachment )
-			.filter( ( attachment ): attachment is ComposerAttachment => attachment !== null ),
-		error: prepared.reduce< string | null >( ( lastError, item ) => item.error ?? lastError, null ),
+		attachments,
+		error: summarizeComposerAttachmentErrors( errors ),
+		errors,
 	};
 }
 
@@ -271,29 +325,29 @@ export function mergeComposerAttachments(
 	current: ComposerAttachment[],
 	next: ComposerAttachment[],
 	messages: Pick< ComposerAttachmentMessages, 'maxImages' | 'totalImagesTooLarge' | 'maxFiles' >
-): { attachments: ComposerAttachment[]; error: string | null } {
+): { attachments: ComposerAttachment[]; error: string | null; errors: string[] } {
 	const merged = [ ...current ];
 	const images = current.filter( ( item ) => item.kind === 'image' );
 	let imageCount = images.length;
 	let fileCount = current.length - imageCount;
 	let imageBytes = images.reduce( ( sum, item ) => sum + item.size, 0 );
-	let error: string | null = null;
+	const errors: string[] = [];
 
 	for ( const attachment of next ) {
 		if ( attachment.kind === 'image' ) {
 			if ( imageCount >= STUDIO_CHAT_MAX_IMAGES ) {
-				error = messages.maxImages;
+				addUniqueError( errors, messages.maxImages );
 				continue;
 			}
 			if ( imageBytes + attachment.size > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) {
-				error = messages.totalImagesTooLarge;
+				addUniqueError( errors, messages.totalImagesTooLarge );
 				continue;
 			}
 			imageCount++;
 			imageBytes += attachment.size;
 		} else {
 			if ( fileCount >= STUDIO_CHAT_MAX_FILES ) {
-				error = messages.maxFiles;
+				addUniqueError( errors, messages.maxFiles );
 				continue;
 			}
 			fileCount++;
@@ -301,5 +355,5 @@ export function mergeComposerAttachments(
 		merged.push( attachment );
 	}
 
-	return { attachments: merged, error };
+	return { attachments: merged, error: summarizeComposerAttachmentErrors( errors ), errors };
 }

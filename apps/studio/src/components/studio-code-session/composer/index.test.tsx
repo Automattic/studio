@@ -123,15 +123,20 @@ describe( 'Composer', () => {
 		renderComposer();
 
 		const image = new File( [ 'image-bytes' ], '', { type: 'image/png' } );
-		fireEvent.paste( screen.getByRole( 'combobox' ), {
-			clipboardData: {
+		const pasteEvent = new Event( 'paste', { bubbles: true, cancelable: true } );
+		Object.defineProperty( pasteEvent, 'clipboardData', {
+			value: {
 				files: [ image ],
 				items: [],
-				getData: () => '',
+				getData: ( type: string ) => ( type === 'text/plain' ? 'caption' : '' ),
 			},
 		} );
+		fireEvent( screen.getByRole( 'combobox' ), pasteEvent );
 
-		expect( await screen.findByAltText( 'pasted-image.png' ) ).toBeInTheDocument();
+		expect( pasteEvent.defaultPrevented ).toBe( true );
+		expect(
+			await screen.findByRole( 'button', { name: 'Remove attachment: pasted-image.png' } )
+		).toBeInTheDocument();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
 
@@ -165,8 +170,16 @@ describe( 'Composer', () => {
 		expect( await screen.findAllByText( /"headline"/ ) ).not.toHaveLength( 0 );
 		expect( screen.getAllByText( 'PDF' ) ).not.toHaveLength( 0 );
 
-		expect( screen.getByLabelText( 'Attachment: data-sample.json' ) ).toBeInTheDocument();
-		expect( screen.getByLabelText( 'Attachment: sample-document.pdf' ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( /Attachment: data-sample\.json, application\/json,/ )
+		).toBeInTheDocument();
+		const removePdfButton = screen.getByRole( 'button', {
+			name: 'Remove attachment: sample-document.pdf',
+		} );
+		expect( removePdfButton ).toBeInTheDocument();
+
+		fireEvent.focus( removePdfButton );
+		expect( await screen.findByRole( 'tooltip' ) ).toHaveTextContent( 'sample-document.pdf' );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
 

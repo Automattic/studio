@@ -9,7 +9,7 @@ import {
 	type ComposerSendAttachments,
 } from '@studio/common/ai/composer-attachments';
 import { __, sprintf } from '@wordpress/i18n';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
 export { toComposerSendAttachments };
@@ -17,22 +17,35 @@ export type { ComposerAttachment, ComposerSendAttachments };
 
 export function useComposerAttachments() {
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( [] );
+	const attachmentsRef = useRef< ComposerAttachment[] >( [] );
 	const [ error, setError ] = useState< string | null >( null );
 	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
 
+	const setTrackedAttachments = useCallback( ( next: ComposerAttachment[] ) => {
+		attachmentsRef.current = next;
+		setAttachments( next );
+	}, [] );
+
 	const removeAttachment = useCallback( ( id: string ) => {
-		setAttachments( ( current ) => current.filter( ( item ) => item.id !== id ) );
+		setAttachments( ( current ) => {
+			const next = current.filter( ( item ) => item.id !== id );
+			attachmentsRef.current = next;
+			return next;
+		} );
 	}, [] );
 
 	const clear = useCallback( () => {
-		setAttachments( [] );
+		setTrackedAttachments( [] );
 		setError( null );
-	}, [] );
+	}, [ setTrackedAttachments ] );
 
 	// Put a batch back after a failed send so the user doesn't lose them.
-	const restore = useCallback( ( items: ComposerAttachment[] ) => {
-		setAttachments( items );
-	}, [] );
+	const restore = useCallback(
+		( items: ComposerAttachment[] ) => {
+			setTrackedAttachments( items );
+		},
+		[ setTrackedAttachments ]
+	);
 
 	const addFiles = useCallback( async ( incoming: FileList | File[] ) => {
 		const list = Array.from( incoming );
@@ -40,14 +53,27 @@ export function useComposerAttachments() {
 			return;
 		}
 		setError( null );
+		const messages = {
+			imageTooLarge: __( 'Images must be 5 MB or smaller.' ),
+			imageReadFailed: __( 'Failed to read the attached image.' ),
+			fileAttachFailed: __( 'This file could not be attached.' ),
+			maxImages: sprintf(
+				/* translators: %d: maximum number of images. */
+				__( 'You can attach up to %d images.' ),
+				STUDIO_CHAT_MAX_IMAGES
+			),
+			totalImagesTooLarge: __( 'Attached images are too large to send together.' ),
+			maxFiles: sprintf(
+				/* translators: %d: maximum number of files. */
+				__( 'You can attach up to %d files.' ),
+				STUDIO_CHAT_MAX_FILES
+			),
+		};
 
 		const prepared = await prepareComposerAttachments( list, {
 			resolveFilePath: ( file ) => getIpcApi().getPathForFile( file ),
-			messages: {
-				imageTooLarge: __( 'Images must be 5 MB or smaller.' ),
-				imageReadFailed: __( 'Failed to read the attached image.' ),
-				fileAttachFailed: __( 'This file could not be attached.' ),
-			},
+			messages,
+			existingAttachments: attachmentsRef.current,
 		} );
 		if ( prepared.error ) {
 			setError( prepared.error );
@@ -57,22 +83,11 @@ export function useComposerAttachments() {
 		}
 
 		setAttachments( ( current ) => {
-			const merged = mergeComposerAttachments( current, prepared.attachments, {
-				maxImages: sprintf(
-					/* translators: %d: maximum number of images. */
-					__( 'You can attach up to %d images.' ),
-					STUDIO_CHAT_MAX_IMAGES
-				),
-				totalImagesTooLarge: __( 'Attached images are too large to send together.' ),
-				maxFiles: sprintf(
-					/* translators: %d: maximum number of files. */
-					__( 'You can attach up to %d files.' ),
-					STUDIO_CHAT_MAX_FILES
-				),
-			} );
+			const merged = mergeComposerAttachments( current, prepared.attachments, messages );
 			if ( merged.error ) {
 				setError( merged.error );
 			}
+			attachmentsRef.current = merged.attachments;
 			return merged.attachments;
 		} );
 	}, [] );
@@ -110,9 +125,7 @@ export function useComposerAttachments() {
 			if ( files.length === 0 ) {
 				return;
 			}
-			if ( ! event.clipboardData.getData( 'text/plain' ) ) {
-				event.preventDefault();
-			}
+			event.preventDefault();
 			void addFiles( files );
 		},
 		[ addFiles ]

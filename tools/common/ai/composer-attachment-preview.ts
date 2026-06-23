@@ -27,21 +27,24 @@ export function formatComposerAttachmentSize( bytes: number ): string {
 	return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
 }
 
-export function getComposerAttachmentTypeLabel( name: string ): string {
+export function getComposerAttachmentTypeLabel( name: string, fallbackLabel: string ): string {
 	const extension = name.split( '.' ).pop();
 	if ( extension && extension !== name ) {
 		return extension.slice( 0, 4 ).toUpperCase();
 	}
-	return 'FILE';
+	return fallbackLabel;
 }
 
-export function getComposerAttachmentTypeDescription( attachment: ComposerAttachment ): string {
+export function getComposerAttachmentTypeDescription(
+	attachment: ComposerAttachment,
+	fallbackLabel: string
+): string {
 	const { mimeType } = attachment;
 	if ( mimeType ) {
 		return mimeType;
 	}
-	const typeLabel = getComposerAttachmentTypeLabel( attachment.name );
-	return typeLabel === 'FILE' ? 'File' : typeLabel;
+	const typeLabel = getComposerAttachmentTypeLabel( attachment.name, fallbackLabel );
+	return typeLabel === fallbackLabel ? fallbackLabel : typeLabel;
 }
 
 export function getComposerAttachmentImageSrc( attachment: ComposerAttachment ): string | null {

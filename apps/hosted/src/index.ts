@@ -112,7 +112,17 @@ app.use(
 // Image attachments travel as base64 JSON. Base64 expands bytes by ~4/3; leave
 // additional room for metadata and the prompt while keeping a bounded parser.
 const JSON_BODY_LIMIT_BYTES = Math.ceil( STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES * 1.5 );
-app.use( express.json( { limit: JSON_BODY_LIMIT_BYTES } ) );
+const defaultJsonParser = express.json();
+const messagesJsonParser = express.json( { limit: JSON_BODY_LIMIT_BYTES } );
+const messagesRoutePattern = /^\/sessions\/[^/]+\/messages$/;
+
+api.use( ( req: Request, res: Response, next ) => {
+	if ( req.method === 'POST' && messagesRoutePattern.test( req.path ) ) {
+		next();
+		return;
+	}
+	defaultJsonParser( req, res, next );
+} );
 
 // --- Server-Sent Events: one stream carries every run's AgentRunEvents -------
 
@@ -309,7 +319,7 @@ api.post(
 	} )
 );
 
-api.post( '/sessions/:id/messages', ( req: Request, res: Response ) => {
+api.post( '/sessions/:id/messages', messagesJsonParser, ( req: Request, res: Response ) => {
 	const { prompt, displayMessage, images, files } = req.body as {
 		prompt?: string;
 		displayMessage?: string;
@@ -387,9 +397,26 @@ if ( hasUi ) {
 
 // --- Error handling ----------------------------------------------------------
 
-app.use( ( err: unknown, _req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
-	const message = err instanceof Error ? err.message : String( err );
-	res.status( 500 ).json( { error: message } );
+function getErrorStatus( err: unknown ): number {
+	const { status, statusCode } = err as { status?: unknown; statusCode?: unknown };
+	const errorStatus = typeof status === 'number' ? status : statusCode;
+	return typeof errorStatus === 'number' && errorStatus >= 400 && errorStatus < 600
+		? errorStatus
+		: 500;
+}
+
+app.use( ( err: unknown, req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
+	const status = getErrorStatus( err );
+	const isMessagesPayload = /^\/api\/sessions\/[^/]+\/messages$/.test( req.path );
+	const message =
+		status === 413 && isMessagesPayload
+			? 'Attached images are too large to send together.'
+			: status === 413
+			? 'Request body is too large.'
+			: err instanceof Error
+			? err.message
+			: String( err );
+	res.status( status ).json( { error: message } );
 } );
 
 const port = getPort();

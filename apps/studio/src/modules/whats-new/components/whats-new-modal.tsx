@@ -60,9 +60,9 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 	const whatsNewPages: WhatsNewPage[] = [
 		{
 			image: studioCodeIllustration,
-			title: __( 'Studio Code is now on desktop' ),
+			title: __( 'Studio Code helps you get it done' ),
 			description: __(
-				'Studio Code replaces the AI assistant with a more powerful agent. Build, edit, and manage sites, plugins, and themes simply by chatting.'
+				'From quick edits to new features, Studio Code helps you move faster by translating your ideas into working code.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsStudioCode' ),
 		},

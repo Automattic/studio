@@ -12,4 +12,4 @@ jobs:
     if: ${{ github.actor != 'wpmobilebot' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: toshimaru/auto-author-assign@v3.0.2
+      - uses: toshimaru/auto-author-assign@3e19bfc990cb1cf0589dce95e9f75289bb1e22de # v3.0.3

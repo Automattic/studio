@@ -11,9 +11,7 @@
  */
 
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
-import * as Sentry from '@sentry/electron/main';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
 import { sharedConfigSchema } from '@studio/common/lib/shared-config';
 import {
@@ -25,22 +23,8 @@ import { snapshotSchema } from '@studio/common/types/snapshot';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { sanitizeUserpath } from 'src/lib/sanitize-for-logging';
+import { getOldAppdataFilePath } from 'src/storage/paths';
 import type { Migration } from '@studio/common/lib/migration';
-
-/**
- * Returns the old platform-specific appdata path used by previous Studio versions.
- * macOS: ~/Library/Application Support/Studio/appdata-v1.json
- * Windows: %APPDATA%\Studio\appdata-v1.json
- */
-function getOldAppdataPath(): string {
-	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
-		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio', 'appdata-v1.json' );
-	}
-	if ( process.platform === 'win32' ) {
-		return path.join( process.env.APPDATA || '', 'Studio', 'appdata-v1.json' );
-	}
-	return path.join( os.homedir(), 'Library', 'Application Support', 'Studio', 'appdata-v1.json' );
-}
 
 // Pick only the authToken and locale fields from the shared config schema, because this is what we
 // expected when this migration was implemented.
@@ -51,6 +35,9 @@ const sharedConfigExtractSchema = z.object( {
 const cliSiteSchema = siteDetailsSchema.extend( {
 	url: z.string().optional(),
 	latestCliPid: z.number().optional(),
+	// Kept after autoStart was removed from the shared schema so this migration still routes it to
+	// cli.json (and excludes it from app.json). Migration 08 then relocates it into app.json.
+	autoStart: z.boolean().optional(),
 } );
 
 function buildSharedConfig( oldData: Record< string, unknown > ): Record< string, unknown > {
@@ -70,10 +57,6 @@ function buildCliConfig( oldData: Record< string, unknown > ): Record< string, u
 			const result = cliSiteSchema.safeParse( site );
 			if ( result.success ) {
 				acc.push( result.data );
-			} else {
-				Sentry.captureException( result.error, {
-					extra: { siteId: site.id, context: 'migrate-to-split-config' },
-				} );
 			}
 			return acc;
 		}, [] );
@@ -85,10 +68,6 @@ function buildCliConfig( oldData: Record< string, unknown > ): Record< string, u
 				const result = snapshotSchema.safeParse( snapshot );
 				if ( result.success ) {
 					acc.push( result.data );
-				} else {
-					Sentry.captureException( result.error, {
-						extra: { snapshotUrl: snapshot.url, context: 'migrate-to-split-config' },
-					} );
 				}
 				return acc;
 			},
@@ -180,11 +159,11 @@ export const migrateAppConfig: Migration = {
 		if ( fs.existsSync( newAppdataPath ) ) {
 			return false;
 		}
-		const oldPath = getOldAppdataPath();
+		const oldPath = getOldAppdataFilePath();
 		return fs.existsSync( oldPath );
 	},
 	async run() {
-		const oldPath = getOldAppdataPath();
+		const oldPath = getOldAppdataFilePath();
 		const rawContent = await readFile( oldPath, { encoding: 'utf8' } );
 		const oldData: Record< string, unknown > = JSON.parse( rawContent );
 

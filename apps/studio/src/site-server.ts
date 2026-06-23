@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
 import { siteListSchema, type SiteListItem } from '@studio/common/lib/cli-events';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
@@ -27,17 +28,13 @@ const deletedServers: string[] = [];
 /**
  * Stop all running sites using the CLI `site stop --all` command.
  *
- * @param shouldSaveAutoStartProp Makes it so sites are automatically started the next time Studio launches. Typically only true when this function runs during the application close sequence.
  * @param timeoutAfterMs Optional timeout in milliseconds.
  */
-export async function stopAllServers( shouldSaveAutoStartProp: boolean, timeoutAfterMs?: number ) {
+export async function stopAllServers( timeoutAfterMs?: number ) {
 	let timeoutId: NodeJS.Timeout | undefined;
 
 	return new Promise< void >( ( resolve ) => {
 		const args = [ 'site', 'stop', '--all' ];
-		if ( shouldSaveAutoStartProp ) {
-			args.push( '--auto-start' );
-		}
 		const [ emitter, childProcess ] = executeCliCommand( args, { output: 'ignore' } );
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', () => resolve() );
@@ -61,6 +58,32 @@ export async function stopAllServers( shouldSaveAutoStartProp: boolean, timeoutA
 
 export function getRunningSiteCount(): number {
 	return Array.from( servers.values() ).filter( ( server ) => server.details.running ).length;
+}
+
+// Persist autoStart for every currently-running site in a single locked write. Used on quit, where the
+// CLI events subscriber (which normally mirrors autoStart into app.json) has already been stopped.
+export async function persistAutoStartForRunningSites( autoStart: boolean ): Promise< void > {
+	const runningServers = Array.from( servers.values() ).filter(
+		( server ) => server.details.running
+	);
+	if ( ! runningServers.length ) {
+		return;
+	}
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		for ( const server of runningServers ) {
+			const siteId = server.details.id;
+			userData.siteMetadata[ siteId ] = {
+				...userData.siteMetadata[ siteId ],
+				autoStart,
+			};
+			server.details.autoStart = autoStart;
+		}
+		await saveUserData( userData );
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 function getAbsoluteUrl( details: SiteDetails ): string {
@@ -179,7 +202,11 @@ export class SiteServer {
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
 
-		const result = await createSiteViaCli( { ...options, siteId } );
+		// Default to the native PHP runtime when the caller doesn't specify one.
+		const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
+		const result = await createSiteViaCli( { ...options, runtime, siteId } );
+		server.details.runtime = runtime;
+		server.details.fileAccess = options.fileAccess;
 
 		server.details.port = result.port;
 		if ( result.running ) {
@@ -236,6 +263,8 @@ export class SiteServer {
 			name: site.name,
 			path: site.path,
 			phpVersion: site.phpVersion,
+			runtime: site.runtime,
+			fileAccess: site.fileAccess,
 			isWpAutoUpdating: site.isWpAutoUpdating,
 			customDomain: site.customDomain,
 			enableHttps: site.enableHttps,
@@ -258,7 +287,7 @@ export class SiteServer {
 			console.error( error );
 		}
 
-		const { running, autoStart, ...rest } = this.details;
+		const { running, ...rest } = this.details;
 		if ( 'url' in rest ) {
 			const { url, ...stoppedRest } = rest;
 			this.details = { running: false, ...stoppedRest };
@@ -487,6 +516,22 @@ export class SiteServer {
 			userData.siteMetadata[ siteId ] = {
 				...userData.siteMetadata[ siteId ],
 				siteIconPath: this.details.siteIconPath,
+			};
+			await saveUserData( userData );
+		} finally {
+			await unlockAppdata();
+		}
+	}
+
+	async persistAutoStart( autoStart: boolean ): Promise< void > {
+		this.details.autoStart = autoStart;
+		try {
+			await lockAppdata();
+			const userData = await loadUserData();
+			const siteId = this.details.id;
+			userData.siteMetadata[ siteId ] = {
+				...userData.siteMetadata[ siteId ],
+				autoStart,
 			};
 			await saveUserData( userData );
 		} finally {

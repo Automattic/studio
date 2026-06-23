@@ -90,11 +90,11 @@ jobs:
 
     steps:
       - name: Checkout Studio
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Checkout static-php-cli
         if: runner.os == 'macOS' || runner.os == 'Linux'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: crazywhalecc/static-php-cli
           ref: ${{ env.SPC_REF }}
@@ -117,7 +117,7 @@ jobs:
         # Linux runs SPC inside the spc-gnu-docker container, which ships
         # its own PHP + Composer; host PHP is only needed for the macOS path.
         if: runner.os == 'macOS'
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           coverage: none
           tools: composer:v2
@@ -175,6 +175,8 @@ jobs:
           )
           build_args=(
             "$static_extensions"
+            # Give gd JPEG/WebP image support and FreeType (TrueType text).
+            --with-libs=freetype,libjpeg,libwebp
             --build-shared=xdebug
             --build-cli
           )
@@ -541,10 +543,10 @@ jobs:
       WPCOM_API_TOKEN: ${{ secrets.WPCOM_API_TOKEN }}
     steps:
       - name: Checkout Studio
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@89f90524b88a01fe6e0b732220432cc6142926af # v1.313.0
         with:
           bundler-cache: true
 

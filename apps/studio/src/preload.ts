@@ -215,18 +215,6 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
 	setSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
-	getDeskSettings: () => ipcRendererInvoke( 'getDeskSettings' ),
-	saveDeskSettings: ( settings ) => ipcRendererInvoke( 'saveDeskSettings', settings ),
-	getStudioUiMode: () => ipcRendererInvoke( 'getStudioUiMode' ),
-	setStudioUiMode: ( mode ) => ipcRendererInvoke( 'setStudioUiMode', mode ),
-	exportDeskConfig: ( config, suggestedFilename ) =>
-		ipcRendererInvoke( 'exportDeskConfig', config, suggestedFilename ),
-	importDeskConfig: () => ipcRendererInvoke( 'importDeskConfig' ),
-	getUserDeskConfig: () => ipcRendererInvoke( 'getUserDeskConfig' ),
-	saveUserDeskConfig: ( config ) => ipcRendererInvoke( 'saveUserDeskConfig', config ),
-	getSiteDeskConfig: ( siteId ) => ipcRendererInvoke( 'getSiteDeskConfig', siteId ),
-	saveSiteDeskConfig: ( siteId, config ) =>
-		ipcRendererInvoke( 'saveSiteDeskConfig', siteId, config ),
 	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 };
 

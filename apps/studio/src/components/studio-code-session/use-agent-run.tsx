@@ -1,3 +1,4 @@
+import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { useQueryClient } from '@tanstack/react-query';
 import {
 	createContext,
@@ -12,8 +13,10 @@ import {
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { SESSIONS_QUERY_KEY } from './use-session';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 function nowIso(): string {
@@ -38,10 +41,14 @@ export interface QueuedPrompt {
 	id: string;
 	prompt: string;
 	displayMessage?: string;
+	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
 }
 
 export interface SendMessageOptions {
 	displayMessage?: string;
+	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
 }
 
 export interface LiveAgentEvents {
@@ -62,6 +69,12 @@ export interface LiveAgentEvents {
 	// The user can re-click an option to change their pick until every
 	// question is answered, at which point the batch is dispatched.
 	pendingAnswers: Record< string, string >;
+	// Answers that have already been dispatched, kept for the lifetime of the
+	// session so the picked option stays highlighted in history. The persisted
+	// `ask_user` entry only reaches the transcript after a disk refetch (which
+	// lags the live run), so this in-memory map bridges that gap; on reload the
+	// transcript falls back to the disk-backed answer.
+	answeredQuestions: Record< string, string >;
 	// Follow-up prompts the user staged while a turn was in flight. FIFO:
 	// the head auto-dispatches when the current run ends.
 	queuedPrompts: QueuedPrompt[];
@@ -85,6 +98,7 @@ interface State {
 	isInterrupting: boolean;
 	pendingQuestions: PendingQuestion[];
 	pendingAnswers: Record< string, string >;
+	answeredQuestions: Record< string, string >;
 	queuedPrompts: QueuedPrompt[];
 }
 
@@ -96,6 +110,7 @@ const initialState: State = {
 	isInterrupting: false,
 	pendingQuestions: [],
 	pendingAnswers: {},
+	answeredQuestions: {},
 	queuedPrompts: [],
 };
 
@@ -109,7 +124,7 @@ type Action =
 	| { type: 'interrupt_requested' }
 	| { type: 'questions_added'; questions: PendingQuestion[] }
 	| { type: 'question_answered'; question: string; answer: string }
-	| { type: 'batch_dispatched' }
+	| { type: 'batch_dispatched'; answers: Record< string, string > }
 	| { type: 'queue_append'; prompt: QueuedPrompt }
 	| { type: 'queue_remove'; id: string }
 	| { type: 'queue_shift' }
@@ -155,8 +170,13 @@ function reducer( state: State, action: Action ): State {
 			};
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
-			// survive the transition. Everything else resets.
-			return { ...initialState, queuedPrompts: state.queuedPrompts };
+			// survive the transition, and the answered-question map so picked
+			// options stay highlighted in history. Everything else resets.
+			return {
+				...initialState,
+				queuedPrompts: state.queuedPrompts,
+				answeredQuestions: state.answeredQuestions,
+			};
 		case 'interrupt_requested':
 			return {
 				...state,
@@ -173,12 +193,19 @@ function reducer( state: State, action: Action ): State {
 				pendingQuestions: [ ...state.pendingQuestions, ...action.questions ],
 			};
 		case 'question_answered':
+			// `answeredQuestions` is only written on dispatch; mid-batch the live
+			// highlight comes from `pendingAnswers`.
 			return {
 				...state,
 				pendingAnswers: { ...state.pendingAnswers, [ action.question ]: action.answer },
 			};
 		case 'batch_dispatched':
-			return { ...state, pendingQuestions: [], pendingAnswers: {} };
+			return {
+				...state,
+				pendingQuestions: [],
+				pendingAnswers: {},
+				answeredQuestions: { ...state.answeredQuestions, ...action.answers },
+			};
 		case 'queue_append':
 			return { ...state, queuedPrompts: [ ...state.queuedPrompts, action.prompt ] };
 		case 'queue_remove':
@@ -450,7 +477,11 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				parentId: null,
 				timestamp: nowIso(),
 				customType: 'studio.user_prompt',
-				data: { text: displayMessage, source: 'prompt' },
+				data: {
+					text: displayMessage,
+					source: 'prompt',
+					attachments: buildChatAttachmentSummaries( options.images, options.files ),
+				},
 			} as SessionEntry;
 			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );
 			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
@@ -459,6 +490,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				await interruptRequestsBySessionRef.current.get( sessionId );
 				const { runId: newRunId } = await getIpcApi().continueAiSession( sessionId, prompt, {
 					displayMessage,
+					images: options.images,
+					files: options.files,
 				} );
 				if ( interruptPendingStartSessionIdsRef.current.has( sessionId ) ) {
 					interruptPendingStartSessionIdsRef.current.delete( sessionId );
@@ -548,7 +581,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				( q ) => typeof nextAnswers[ q.question ] === 'string'
 			);
 			if ( complete ) {
-				dispatchSession( sessionId, { type: 'batch_dispatched' } );
+				dispatchSession( sessionId, { type: 'batch_dispatched', answers: nextAnswers } );
 				void getIpcApi().answerAiAgentQuestion( state.runId, nextAnswers );
 			} else {
 				dispatchSession( sessionId, { type: 'question_answered', question, answer } );
@@ -592,6 +625,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		isInterrupting,
 		pendingQuestions,
 		pendingAnswers,
+		answeredQuestions,
 		queuedPrompts,
 	} = state;
 
@@ -615,7 +649,11 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		dispatchingQueuedRef.current = true;
 		void ( async () => {
 			try {
-				await startRun( sessionId, next.prompt, { displayMessage: next.displayMessage } );
+				await startRun( sessionId, next.prompt, {
+					displayMessage: next.displayMessage,
+					images: next.images,
+					files: next.files,
+				} );
 				dispatchSession( sessionId, { type: 'queue_shift' } );
 			} catch {
 				dispatchSession( sessionId, { type: 'queue_clear' } );
@@ -636,7 +674,13 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			if ( phase !== 'idle' || pendingQuestions.length > 0 || queuedPrompts.length > 0 ) {
 				dispatchSession( sessionId, {
 					type: 'queue_append',
-					prompt: { id: newId(), prompt, displayMessage: options.displayMessage },
+					prompt: {
+						id: newId(),
+						prompt,
+						displayMessage: options.displayMessage,
+						images: options.images,
+						files: options.files,
+					},
 				} );
 				return;
 			}
@@ -680,6 +724,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		error,
 		pendingQuestions,
 		pendingAnswers,
+		answeredQuestions,
 		queuedPrompts,
 		sendMessage,
 		interrupt,

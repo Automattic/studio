@@ -6,17 +6,139 @@
 .shell {
 	display: flex;
 	flex-direction: column;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--color-frame-border);
 	border-radius: 16px;
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	background-color: var(--color-frame-bg);
 	padding: var(--wpds-dimension-padding-lg);
 	box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 4px 12px rgb(0 0 0 / 6%);
 	transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .shell:focus-within {
-	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	border-color: var(--color-frame-theme);
 	box-shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 6px 16px rgb(0 0 0 / 8%);
+}
+
+.shell {
+	position: relative;
+}
+
+.shellDragging {
+	border-color: var(--color-frame-theme);
+	border-style: dashed;
+}
+
+.dropOverlay {
+	position: absolute;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 16px;
+	background-color: var(--color-frame-bg);
+	color: var(--color-frame-theme);
+	font-size: var(--wpds-typography-font-size-sm);
+	pointer-events: none;
+}
+
+/* Hidden native picker; the toolbar paperclip button triggers it. */
+.fileInput {
+	display: none;
+}
+
+.attachments {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-padding-xs);
+	margin: 0 0 var(--wpds-dimension-padding-xs);
+	padding: 0;
+	list-style: none;
+}
+
+.attachmentChip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 220px;
+	height: 28px;
+	padding: 0 4px 0 6px;
+	border: 1px solid var(--color-frame-border);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--color-frame-surface);
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--color-frame-text);
+}
+
+.attachmentThumb {
+	flex-shrink: 0;
+	width: 20px;
+	height: 20px;
+	border-radius: 2px;
+	object-fit: cover;
+}
+
+.attachmentIcon {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	color: var(--color-frame-text-secondary);
+}
+
+.attachmentName {
+	min-width: 0;
+	flex-shrink: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.attachmentSize {
+	flex-shrink: 0;
+	white-space: nowrap;
+	color: var(--color-frame-text-secondary);
+}
+
+.attachmentRemove {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: transparent;
+	color: var(--color-frame-text-secondary);
+	cursor: pointer;
+}
+
+.attachmentRemove:hover,
+.attachmentRemove:focus-visible {
+	background-color: var(--color-frame-bg);
+	color: var(--color-frame-text);
+}
+
+.inputWrapper {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+}
+
+/* Inline listbox anchored above the textarea. Reuses the Menu surface
+   (`.popup` from ../menu/style.module.css) for its look; this rule only adds
+   the anchor/layout bits the portaled Menu doesn't need. Stays a plain element
+   so the textarea keeps focus. */
+.autocompletePopup {
+	position: absolute;
+	bottom: calc(100% + 4px);
+	left: 0;
+	z-index: 100;
+	max-height: 240px;
+	overflow-y: auto;
+	margin: 0;
+	list-style: none;
 }
 
 .input {
@@ -24,7 +146,7 @@
 	padding: var(--wpds-dimension-padding-xs) 0;
 	border: 0;
 	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--color-frame-text);
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.5;
 	width: 100%;
@@ -35,11 +157,11 @@
 }
 
 .input::placeholder {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 }
 
 .input[data-preview='true'] {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 }
 
 .toolbar {
@@ -64,17 +186,12 @@
 	width: 22px;
 	height: 22px;
 	padding: 0;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--color-frame-border);
 	border-radius: var(--wpds-border-radius-sm, 4px);
 	background-color: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--color-frame-text);
 	cursor: pointer;
 	font: inherit;
-}
-
-.iconButton svg {
-	width: 14px;
-	height: 14px;
 }
 
 .glyphButton {
@@ -84,12 +201,12 @@
 
 .iconButton:hover:not(:disabled),
 .iconButton:focus-visible:not(:disabled) {
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--color-frame-surface);
 }
 
 .iconButton:disabled {
 	cursor: not-allowed;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 }
 
 .pill {
@@ -101,7 +218,7 @@
 	border: 0;
 	border-radius: var(--wpds-border-radius-sm, 4px);
 	background-color: transparent;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 	font: inherit;
 	font-size: var(--wpds-typography-font-size-sm);
 	cursor: pointer;
@@ -109,15 +226,11 @@
 
 .pill:hover:not(:disabled),
 .pill:focus-visible:not(:disabled) {
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--color-frame-surface);
 }
 
 .pill:disabled {
 	cursor: default;
-}
-
-.commandsMenuPopup {
-	min-width: 280px;
 }
 
 .commandItem {
@@ -129,12 +242,12 @@
 .commandName {
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, monospace);
 	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--color-frame-text);
 }
 
 .commandDescription {
 	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 }
 
 .sendButton,
@@ -156,7 +269,7 @@
    which has equal specificity to a single class and would otherwise win by
    load order, leaving the button invisible. */
 .toolbar .sendButton {
-	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: var(--color-frame-theme);
 	color: #fff;
 }
 
@@ -171,8 +284,8 @@
 }
 
 .toolbar .stopButton {
-	background-color: var(--wpds-color-fg-content-neutral);
-	color: var(--wpds-color-bg-surface-neutral-strong);
+	background-color: var(--color-frame-text);
+	color: var(--color-frame-bg);
 }
 
 .stopButton:hover,
@@ -211,7 +324,7 @@
 	padding: 0 var(--wpds-dimension-padding-xs);
 	min-height: 16px;
 	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 }
 
 .metaHint {
@@ -225,6 +338,6 @@
 }
 
 .error {
-	color: var(--wpds-color-fg-content-error, #dc2626);
+	color: var(--color-frame-error);
 	font-size: var(--wpds-typography-font-size-xs);
 }

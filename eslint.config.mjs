@@ -41,8 +41,15 @@ export default defineConfig(
 				projectService: {
 					allowDefaultProject: [
 						'apps/studio/forge.config.ts',
+						'apps/studio/windowsSign.ts',
 						'apps/studio/tailwind.config.js',
+						'apps/ui/vite.config.ts',
 						'eslint.config.mjs',
+						'vitest.config.ts',
+						'tools/eslint-plugin-studio/vitest.config.ts',
+						'tools/eslint-plugin-studio/src/index.js',
+						'tools/eslint-plugin-studio/src/rules/*.js',
+						'tools/eslint-plugin-studio/tests/*.ts',
 					],
 				},
 			},
@@ -99,6 +106,7 @@ export default defineConfig(
 				},
 			],
 			'react-hooks/set-state-in-effect': 'off',
+			'studio/no-redundant-cx': 'error',
 			'studio/require-lock-before-save': [
 				'error',
 				{

@@ -1,34 +1,42 @@
 import { mkdir, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
+import { SiteData } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { isServerRunning, sendWpCliCommand } from 'cli/lib/wordpress-server-manager';
+import { runWpCliCommandWithMessaging } from 'cli/lib/run-wp-cli-command';
+import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
 async function activateTheme(
-	siteId: string,
+	site: SiteData,
 	slug: string
 ): Promise< { ok: boolean; message: string } > {
 	try {
 		await connectToDaemon();
 		try {
-			const running = await isServerRunning( siteId );
+			const running = await isServerRunning( site.id );
 			if ( ! running ) {
 				return {
 					ok: false,
 					message: `Site is not running. Start it (site_start) then run \`wp theme activate ${ slug }\`.`,
 				};
 			}
-			const result = await sendWpCliCommand( siteId, [ 'theme', 'activate', slug ] );
-			if ( result.exitCode !== 0 ) {
-				const detail = ( result.stderr || result.stdout || '' ).trim();
+			await using command = await runWpCliCommandWithMessaging( site, [
+				'theme',
+				'activate',
+				slug,
+			] );
+			const exitCode = await command.response.exitCode;
+			const stderr = await command.response.stderrText;
+			const stdout = await command.response.stdoutText;
+			if ( exitCode !== 0 ) {
+				const detail = ( stderr || stdout || '' ).trim();
 				return {
 					ok: false,
-					message: `WP-CLI exited with code ${ result.exitCode }${ detail ? `: ${ detail }` : '' }`,
+					message: `WP-CLI exited with code ${ exitCode }${ detail ? `: ${ detail }` : '' }`,
 				};
 			}
-			const stdout = result.stdout.trim();
 			return { ok: true, message: stdout || `Activated theme '${ slug }'.` };
 		} finally {
 			await disconnectFromDaemon();
@@ -347,7 +355,7 @@ export const scaffoldThemeTool = defineTool(
 			}
 
 			const shouldActivate = args.activate ?? true;
-			const activation = shouldActivate ? await activateTheme( site.id, slug ) : null;
+			const activation = shouldActivate ? await activateTheme( site, slug ) : null;
 
 			const summaryLines = [
 				`Block theme '${ trimmedName }' scaffolded at wp-content/themes/${ slug }/.`,
@@ -358,6 +366,12 @@ export const scaffoldThemeTool = defineTool(
 				'Empty directories:',
 				'  assets/fonts/',
 				'  patterns/',
+				'',
+				// These files already contain standard WordPress headers and starter
+				// markup, so an Edit anchored on an assumed minimal header (e.g. just
+				// `Theme Name`) would fail to match. Nudge the agent to read first.
+				'These files already contain standard WordPress headers and starter content.',
+				'Read a file before editing it — do not assume its contents.',
 				'',
 			];
 

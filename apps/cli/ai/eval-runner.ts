@@ -6,11 +6,11 @@
  * promptfoo config, not here.
  */
 
-import { writeFileSync, writeSync as fsWriteSync } from 'node:fs';
+import { mkdirSync, writeFileSync, writeSync as fsWriteSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { SessionManager } from '@mariozechner/pi-coding-agent';
-import { isAiModelId, type AiModelId } from '@studio/common/ai/models';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
+import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import {
 	addConnectedWpcomSite,
@@ -33,7 +33,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { deleteSnapshotFromConfig } from 'cli/lib/cli-config/snapshots';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
 
 // Optional fixtures a test can pre-seed before the agent turn, so flows that
@@ -226,6 +226,8 @@ function readInput(): EvalRunnerInput {
 }
 
 async function runEval( input: EvalRunnerInput ) {
+	// Mirrors the fallback in runStudioAgentTurn (ai/runtimes/pi/index.ts) — keep in sync.
+	const resolvedModel = input.model ?? DEFAULT_MODEL;
 	const evalStartedAt = Date.now();
 	const elapsed = () => Date.now() - evalStartedAt;
 	const phaseTimingsMs: Record< string, number > = {};
@@ -276,7 +278,14 @@ async function runEval( input: EvalRunnerInput ) {
 	}
 
 	phaseStartedAt = Date.now();
-	const session = SessionManager.inMemory( STUDIO_SITES_ROOT );
+	const sessionDirEnv = process.env.STUDIO_EVAL_SESSION_DIR?.trim();
+	let session: SessionManager;
+	if ( sessionDirEnv ) {
+		mkdirSync( sessionDirEnv, { recursive: true } );
+		session = SessionManager.create( STUDIO_SITES_ROOT, sessionDirEnv );
+	} else {
+		session = SessionManager.inMemory( STUDIO_SITES_ROOT );
+	}
 	const queryStartedAt = Date.now();
 	let turnStart = queryStartedAt;
 
@@ -376,6 +385,7 @@ async function runEval( input: EvalRunnerInput ) {
 		success,
 		error,
 		timedOut,
+		model: resolvedModel,
 		numTurns: numTurnsResult,
 		phaseTimingsMs,
 		turnDurationsMs,

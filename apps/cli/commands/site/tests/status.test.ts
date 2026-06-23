@@ -82,7 +82,10 @@ describe( 'CLI: studio site status', () => {
 						siteUrl: 'http://localhost:8080/',
 						sitePath: '/path/to/site',
 						status: '🔴 Offline',
+						isOnline: false,
 						phpVersion: '8.0',
+						runtime: 'Native',
+						fileAccess: 'Site directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',
@@ -116,7 +119,10 @@ describe( 'CLI: studio site status', () => {
 						autoLoginUrl: 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
 						sitePath: '/path/to/site',
 						status: '🟢 Online',
+						isOnline: true,
 						phpVersion: '8.0',
+						runtime: 'Native',
+						fileAccess: 'Site directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',
@@ -125,6 +131,25 @@ describe( 'CLI: studio site status', () => {
 					null,
 					2
 				)
+			);
+
+			consoleSpy.mockRestore();
+		} );
+
+		it( 'should report the native runtime and file access', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( {
+				...testSite,
+				runtime: 'native-php',
+				fileAccess: 'all-files',
+			} );
+
+			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+			await runCommand( '/path/to/site', 'json' );
+
+			expect( consoleSpy ).toHaveBeenCalledWith( expect.stringContaining( '"runtime": "Native"' ) );
+			expect( consoleSpy ).toHaveBeenCalledWith(
+				expect.stringContaining( '"fileAccess": "All files"' )
 			);
 
 			consoleSpy.mockRestore();
@@ -157,6 +182,9 @@ describe( 'CLI: studio site status', () => {
 						siteUrl: 'http://localhost:8080/',
 						sitePath: '/path/to/site',
 						status: '🔴 Offline',
+						isOnline: false,
+						runtime: 'Native',
+						fileAccess: 'Site directory',
 						wpVersion: '6.4',
 						xdebug: 'Disabled',
 						adminUsername: 'admin',

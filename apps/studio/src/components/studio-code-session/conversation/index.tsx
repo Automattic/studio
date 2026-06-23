@@ -1,5 +1,6 @@
 import {
 	isStudioCustomEntryOfType,
+	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
@@ -8,16 +9,23 @@ import {
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { __ } from '@wordpress/i18n';
+import { image, page } from '@wordpress/icons';
+import { Icon } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { cx } from 'src/lib/cx';
 import { Markdown } from '../markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
-import type { SessionEntry } from '@mariozechner/pi-coding-agent';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 type RenderItem =
-	| { kind: 'user-text'; key: string; text: string }
+	| {
+			kind: 'user-text';
+			key: string;
+			text: string;
+			attachments?: StudioChatAttachmentSummary[];
+	  }
 	| { kind: 'assistant-text'; key: string; text: string }
 	| {
 			kind: 'tool-use';
@@ -31,6 +39,7 @@ type RenderItem =
 			key: string;
 			question: string;
 			options: Array< { label: string; description: string } >;
+			answer?: string;
 	  }
 	| { kind: 'interrupted-marker'; key: string };
 
@@ -56,7 +65,7 @@ interface PiToolResultLike {
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
 
-function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
+export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -74,6 +83,27 @@ function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 		} );
 	}
 
+	// Answers picked for `studio.agent_question` entries are persisted as
+	// `studio.user_prompt` entries with `source: 'ask_user'` (the CLI writes all
+	// questions in a batch first, then all answers, in question order). They are
+	// not rendered as prompts, but we reuse them to keep the picked option
+	// highlighted in history after the turn moves on — and after a reload, since
+	// this is disk-backed (unlike the ephemeral `pendingAnswers` state).
+	const askUserAnswers: string[] = [];
+	for ( const entry of entries ) {
+		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
+			if ( data?.source === 'ask_user' ) {
+				askUserAnswers.push( data.text );
+			}
+		}
+	}
+	// ponytail: ordinal pairing — i-th question ↔ i-th ask_user answer. A skipped
+	// question (empty answer isn't persisted) would shift later pairings, but such
+	// batches are interrupted and become non-interactive. Upgrade to label-matching
+	// only if that case ever shows wrong highlights.
+	let questionOrdinal = 0;
+
 	const items: RenderItem[] = [];
 	entries.forEach( ( entry, entryIndex ) => {
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
@@ -83,6 +113,7 @@ function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				kind: 'user-text',
 				key: `${ entryIndex }:user`,
 				text: data.text,
+				attachments: data.attachments,
 			} );
 			return;
 		}
@@ -130,7 +161,9 @@ function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				key: `${ entryIndex }:question`,
 				question: data.question,
 				options: data.options,
+				answer: askUserAnswers[ questionOrdinal ],
 			} );
+			questionOrdinal += 1;
 			return;
 		}
 
@@ -168,10 +201,42 @@ function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 	return null;
 }
 
-function UserTurn( { text }: { text: string } ) {
+function UserTurn( {
+	text,
+	attachments,
+}: {
+	text: string;
+	attachments?: StudioChatAttachmentSummary[];
+} ) {
 	return (
 		<div className={ styles.userTurn }>
 			<div className={ styles.userText }>{ text }</div>
+			{ attachments && attachments.length > 0 ? (
+				<ul className={ styles.userAttachments }>
+					{ attachments.map( ( attachment, index ) =>
+						attachment.kind === 'image' && attachment.previewDataUrl ? (
+							<li
+								key={ `${ attachment.name }:${ index }` }
+								className={ styles.userAttachmentThumbItem }
+							>
+								<img
+									className={ styles.userAttachmentThumb }
+									src={ attachment.previewDataUrl }
+									alt={ attachment.name }
+									title={ attachment.name }
+								/>
+							</li>
+						) : (
+							<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachmentChip }>
+								<Icon icon={ attachment.kind === 'image' ? image : page } size={ 16 } />
+								<span className={ styles.userAttachmentName } title={ attachment.name }>
+									{ attachment.name }
+								</span>
+							</li>
+						)
+					) }
+				</ul>
+			) : null }
 		</div>
 	);
 }
@@ -191,7 +256,7 @@ function ToolUseRow( {
 	input?: Record< string, unknown >;
 	result?: NormalizedToolResult;
 } ) {
-	const label = getToolDisplayName( name );
+	const label = getToolDisplayName( name, input );
 	const detail = getToolDetail( name, input );
 	const [ expanded, setExpanded ] = useState( false );
 	const resultText = result?.text?.trim() ?? '';
@@ -276,6 +341,7 @@ export function Conversation( {
 	startedAt,
 	pendingQuestions,
 	pendingAnswers,
+	answeredQuestions,
 	onAnswerQuestion,
 }: {
 	data: LoadedAiSession;
@@ -283,6 +349,7 @@ export function Conversation( {
 	startedAt: number | null;
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
+	answeredQuestions: Record< string, string >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
 } ) {
 	const entries = data.entries;
@@ -297,7 +364,9 @@ export function Conversation( {
 			{ items.map( ( item ) => {
 				switch ( item.kind ) {
 					case 'user-text':
-						return <UserTurn key={ item.key } text={ item.text } />;
+						return (
+							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
+						);
 					case 'assistant-text':
 						return <AssistantText key={ item.key } text={ item.text } />;
 					case 'tool-use':
@@ -316,7 +385,11 @@ export function Conversation( {
 								question={ item.question }
 								options={ item.options }
 								isInteractive={ pendingQuestions.has( item.question ) }
-								pickedLabel={ pendingAnswers[ item.question ] }
+								pickedLabel={
+									pendingAnswers[ item.question ] ??
+									answeredQuestions[ item.question ] ??
+									item.answer
+								}
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 							/>
 						);

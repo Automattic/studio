@@ -1,6 +1,18 @@
 Unreleased
 ==========
 
+1.11.0
+=====
+* Made Studio Code the default in the Studio app, replacing the previous Studio Assistant tab #3696, #3709, #3725, #3733, #3741
+* Improved site status check for json format #3485
+* Improved context for errors that bubble up from wordpress-server-child #3477
+* Fixed multiple issues with the Dark theme for Studio Code #3744, #3745
+* Fixed CLI symlink updates after Studio app update #3713
+* Adjusted error display when backup status response is unexpected #3702
+* Improved onboarding ToS/Privacy notices above the login CTA #3764
+* Added one-time ToS/Privacy disclaimer in Studio CLI and Studio Code #3763
+* Updated multiple dependencies, including WordPress packages and React
+
 1.10.0
 =====
 * Released remote-session as beta-feature #3406, #3513, #3450

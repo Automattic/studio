@@ -74,6 +74,13 @@ describe( 'CLI: studio import', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 
+		// Stub process.send to undefined so import.ts takes the logger event
+		// handler path rather than the IPC one. With pool:forks, process.send is
+		// defined (the forked process reports results via it), so without this
+		// stub the tests would exercise the wrong code path. Restored via
+		// vi.unstubAllGlobals() in afterEach. See AINFRA-2475.
+		vi.stubGlobal( 'process', { ...process, send: undefined } );
+
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
@@ -88,6 +95,7 @@ describe( 'CLI: studio import', () => {
 	} );
 
 	afterEach( () => {
+		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
 	} );
 

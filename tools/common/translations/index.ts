@@ -1,4 +1,5 @@
 import { locale_data as ar } from '@studio/common/translations/studio-ar.jed.json';
+import { locale_data as ckb } from '@studio/common/translations/studio-ckb.jed.json';
 import { locale_data as de } from '@studio/common/translations/studio-de.jed.json';
 import { locale_data as es } from '@studio/common/translations/studio-es.jed.json';
 import { locale_data as fr } from '@studio/common/translations/studio-fr.jed.json';
@@ -24,6 +25,7 @@ type LocaleData = {
 };
 type SupportedLocale =
 	| 'ar'
+	| 'ckb'
 	| 'de'
 	| 'en'
 	| 'es'
@@ -47,6 +49,7 @@ type SupportedLocale =
 
 export const localeDataDictionary: Record< SupportedLocale, LocaleData | null > = {
 	ar,
+	ckb,
 	de,
 	en: null,
 	es,

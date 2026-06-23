@@ -9,25 +9,8 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { defineTool } from './define-tool';
 import { textResult } from './utils';
 
-// The Data Liberation engine (https://github.com/Automattic/data-liberation-agent)
-// is used UNMODIFIED, as a downloaded dependency. We never bundle it: it is
-// cloned on the first `/liberate` run into `~/Studio/_liberations/data-liberation`,
-// co-located with the engine's own per-site output (`~/Studio/_liberations/<host>`)
-// so everything liberation-related lives in one place — and under
-// STUDIO_SITES_ROOT, so the agent's Read/Write/Bash tools (scoped to that root)
-// can reach the engine's skill files and outputs.
-//
-// The engine's public interface is its stdio MCP server (35 `liberate_*`
-// tools). pi (Studio Code's agent runtime) has no MCP client, so this tool IS
-// the bridge: it spawns the engine's MCP server once and forwards `tools/call`
-// over a single, long-lived connection. The connection is memoized for the
-// process lifetime so a full reconstruct (dozens of calls) reuses one warm
-// engine — and one warm Playwright browser — instead of cold-starting per call.
 const ENGINE_DIR = path.join( STUDIO_SITES_ROOT, '_liberations', 'data-liberation' );
-const ENGINE_REPO =
-	process.env.STUDIO_DATA_LIBERATION_REPO ??
-	'https://github.com/Automattic/data-liberation-agent.git';
-const ENGINE_REF = process.env.STUDIO_DATA_LIBERATION_REF ?? 'main';
+const ENGINE_REPO = 'https://github.com/Automattic/data-liberation-agent.git';
 
 // Engine operations (extract, screenshot, reconstruct) drive Playwright and
 // routinely run for minutes — far past the MCP SDK's 60s default request
@@ -38,15 +21,25 @@ const ENGINE_REF = process.env.STUDIO_DATA_LIBERATION_REF ?? 'main';
 // in case the engine adds notifications later). A single op that exceeds the
 // cap still returns -32001 while the engine keeps running in the background;
 // the `/liberate` skill handles that by polling `liberate_status` rather than
-// re-invoking. Bump STUDIO_DATA_LIBERATION_TIMEOUT_MS for very large sites.
-const ENGINE_CALL_TIMEOUT_MS = Number( process.env.STUDIO_DATA_LIBERATION_TIMEOUT_MS ) || 600_000;
+// re-invoking.
+const ENGINE_CALL_TIMEOUT_MS = 600_000;
+
+function appendBoundedOutput( current: string, chunk: unknown ): string {
+	const PROCESS_OUTPUT_LIMIT = 2000;
+
+	return ( current + String( chunk ) ).slice( -PROCESS_OUTPUT_LIMIT );
+}
 
 function runProcess( command: string, args: string[], cwd: string ): Promise< void > {
 	return new Promise( ( resolve, reject ) => {
 		const child = spawn( command, args, { cwd, stdio: [ 'ignore', 'pipe', 'pipe' ] } );
+		let stdout = '';
 		let stderr = '';
+		child.stdout?.on( 'data', ( chunk ) => {
+			stdout = appendBoundedOutput( stdout, chunk );
+		} );
 		child.stderr?.on( 'data', ( chunk ) => {
-			stderr += String( chunk );
+			stderr = appendBoundedOutput( stderr, chunk );
 		} );
 		child.on( 'error', reject );
 		child.on( 'close', ( code ) => {
@@ -55,9 +48,9 @@ function runProcess( command: string, args: string[], cwd: string ): Promise< vo
 			} else {
 				reject(
 					new Error(
-						`\`${ command } ${ args.join( ' ' ) }\` exited with code ${ code }: ${ stderr.slice(
-							-2000
-						) }`
+						`\`${ command } ${ args.join(
+							' '
+						) }\` exited with code ${ code }.\nstdout:\n${ stdout }\nstderr:\n${ stderr }`
 					)
 				);
 			}
@@ -65,9 +58,6 @@ function runProcess( command: string, args: string[], cwd: string ): Promise< vo
 	} );
 }
 
-// True when the engine is already cloned + installed on disk, so a setup call
-// can report "already ready" instead of claiming a multi-minute install on
-// every run.
 function isEngineInstalled(): boolean {
 	return (
 		existsSync( path.join( ENGINE_DIR, 'node_modules' ) ) &&
@@ -75,12 +65,9 @@ function isEngineInstalled(): boolean {
 	);
 }
 
-let enginePromise: Promise< string > | null = null;
+let enginePromise: Promise< boolean > | null = null;
 
-// Resolves once the engine is present and installed; returns its directory.
-// Idempotent and memoized; a failed attempt clears the memo so a later call
-// retries instead of caching the rejection forever.
-function ensureEngine(): Promise< string > {
+function ensureEngine(): Promise< boolean > {
 	if ( ! enginePromise ) {
 		enginePromise = installEngine().catch( ( error ) => {
 			enginePromise = null;
@@ -90,28 +77,22 @@ function ensureEngine(): Promise< string > {
 	return enginePromise;
 }
 
-async function installEngine(): Promise< string > {
+async function installEngine(): Promise< boolean > {
 	if ( isEngineInstalled() ) {
-		return ENGINE_DIR;
+		return true;
 	}
 
 	await fs.mkdir( path.dirname( ENGINE_DIR ), { recursive: true } );
 
-	if ( ! existsSync( path.join( ENGINE_DIR, '.git' ) ) ) {
-		await fs.rm( ENGINE_DIR, { recursive: true, force: true } );
-		await runProcess(
-			'git',
-			[ 'clone', '--depth', '1', '--branch', ENGINE_REF, ENGINE_REPO, ENGINE_DIR ],
-			STUDIO_SITES_ROOT
-		);
-	}
+	await runProcess(
+		'git',
+		[ 'clone', '--depth', '1', '--branch', 'main', ENGINE_REPO, ENGINE_DIR ],
+		STUDIO_SITES_ROOT
+	);
 
-	// `npm ci` installs deps incl. the dev `tsx` we launch the server with, and
-	// runs the engine's `postinstall` (`playwright install chromium`). This is
-	// the slow, one-time first-run cost.
 	await runProcess( 'npm', [ 'ci' ], ENGINE_DIR );
 
-	return ENGINE_DIR;
+	return false;
 }
 
 let clientPromise: Promise< Client > | null = null;
@@ -140,7 +121,6 @@ async function connectClient( engineDir: string ): Promise< Client > {
 		command: tsxBin,
 		args: [ 'src/mcp-server.ts' ],
 		cwd: engineDir,
-		env: process.env as Record< string, string >,
 		stderr: 'pipe',
 	} );
 	const client = new Client( { name: 'studio-code', version: '1.0.0' }, { capabilities: {} } );
@@ -218,34 +198,23 @@ export const dataLiberationTool = defineTool(
 		),
 	},
 	async ( args ) => {
-		const isSetup = ! args.tool || args.tool === 'setup';
-		// Capture state BEFORE ensureEngine() runs, so we can tell whether THIS
-		// call had to install (first run) or the engine was already on disk.
-		const alreadyInstalled = isSetup ? isEngineInstalled() : true;
-
-		const engineDir = await ensureEngine();
-
-		// Direct condition (not the `isSetup` alias) so TypeScript narrows
-		// `args.tool` to a string in the call branch below.
 		if ( ! args.tool || args.tool === 'setup' ) {
+			const wasEngineInstalled = await ensureEngine();
+
 			return textResult(
 				JSON.stringify( {
 					ready: true,
-					alreadyInstalled,
-					engineDir,
-					skillsDir: path.join( engineDir, 'skills' ),
-					liberateSkill: path.join( engineDir, 'skills', 'liberate', 'SKILL.md' ),
+					alreadyInstalled: wasEngineInstalled,
+					engineDir: ENGINE_DIR,
+					skillsDir: path.join( ENGINE_DIR, 'skills' ),
+					liberateSkill: path.join( ENGINE_DIR, 'skills', 'liberate', 'SKILL.md' ),
 				} )
 			);
 		}
 
-		const client = await getClient( engineDir );
+		const client = await getClient( ENGINE_DIR );
 
-		// `list` returns the engine's authoritative tool catalog (names +
-		// descriptions + JSON-Schema for arguments) so the model can call any
-		// engine tool with correct arguments, the same awareness it would have
-		// if the tools were registered natively.
-		if ( args.tool === 'list' || args.tool === 'catalog' ) {
+		if ( args.tool === 'list' ) {
 			const listed = await client.listTools();
 			return textResult( JSON.stringify( listed.tools, null, 2 ) );
 		}

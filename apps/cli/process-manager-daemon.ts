@@ -243,7 +243,7 @@ export class ProcessManagerDaemon {
 			const currentUsage = this.getWeightedCapacityUsage();
 			if ( currentUsage + weight > MAX_WEIGHTED_CAPACITY ) {
 				throw new Error(
-					`CAPACITY_LIMIT_REACHED: Cannot start site — the weighted capacity limit of ${ MAX_WEIGHTED_CAPACITY } has been reached (current usage: ${ currentUsage }, requested: ${ weight }). Stop some running sites first.`
+					`CAPACITY_LIMIT_REACHED: Cannot start site. The maximum number of running sites has been reached (${ currentUsage }/${ MAX_WEIGHTED_CAPACITY }). Stop some running sites first.`
 				);
 			}
 		}

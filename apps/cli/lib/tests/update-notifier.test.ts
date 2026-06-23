@@ -93,13 +93,13 @@ describe( 'standaloneUpdateCommand', () => {
 
 	it( 'pins the nightly channel for a dev version', () => {
 		expect( standaloneUpdateCommand( '1.12.0-dev81', 'linux' ) ).toBe(
-			'STUDIO_CLI_VERSION=nightly curl -fsSL https://public-api.wordpress.com/wpcom/v2/studio-app/install.sh | bash'
+			'curl -fsSL https://public-api.wordpress.com/wpcom/v2/studio-app/install.sh | STUDIO_CLI_VERSION=nightly bash'
 		);
 	} );
 
 	it( 'pins the beta channel for a beta version', () => {
 		expect( standaloneUpdateCommand( '2.0.0-beta1', 'darwin' ) ).toBe(
-			'STUDIO_CLI_VERSION=beta curl -fsSL https://public-api.wordpress.com/wpcom/v2/studio-app/install.sh | bash'
+			'curl -fsSL https://public-api.wordpress.com/wpcom/v2/studio-app/install.sh | STUDIO_CLI_VERSION=beta bash'
 		);
 	} );
 

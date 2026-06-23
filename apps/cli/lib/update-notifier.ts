@@ -274,8 +274,11 @@ export function standaloneUpdateCommand(
 		return `${ prefix }irm ${ STUDIO_API_BASE }/install.ps1 | iex`;
 	}
 
+	// The env var must sit on the `bash` side of the pipe. In `VAR=x curl … | bash`,
+	// `VAR=x` scopes to curl only, so the piped bash runs install.sh without it and
+	// falls back to `latest`. `curl … | VAR=x bash` is what actually pins the channel.
 	const prefix = alias ? `STUDIO_CLI_VERSION=${ alias } ` : '';
-	return `${ prefix }curl -fsSL ${ STUDIO_API_BASE }/install.sh | bash`;
+	return `curl -fsSL ${ STUDIO_API_BASE }/install.sh | ${ prefix }bash`;
 }
 
 export function formatUpdateBanner(

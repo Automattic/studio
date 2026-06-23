@@ -333,7 +333,7 @@ tests:
             lastPullTimestamp: null
             lastPushTimestamp: null
         snapshots:
-          - url: abc123.wpcomstaging.com
+          - url: abc123-studio.wp.build
             atomicSiteId: 111
             localSiteId: eval-site-categories
             date: 1900000000000
@@ -381,7 +381,7 @@ tests:
         value: |
           The assistant lists what the local site "Eval Site Categories" is
           connected or related to. PASS only if it classifies
-          "abc123.wpcomstaging.com" as a temporary/preview site (and NOT as a
+          "abc123-studio.wp.build" as a temporary/preview site (and NOT as a
           connected WordPress.com remote/production site), AND classifies
           "My Production Site" / "myprod.wordpress.com" as a connected
           WordPress.com remote site (and NOT as a preview site). FAIL if it

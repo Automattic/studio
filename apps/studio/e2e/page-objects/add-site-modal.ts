@@ -19,10 +19,6 @@ export default class AddSiteModal {
 	}
 
 	get importButton() {
-		// The "Import from a backup" option is a drop-zone card (a <div>), not a
-		// <button>: match its heading. Clicking it opens the native OS file dialog
-		// (which Playwright can't drive), so callers should set the file directly on
-		// the hidden input via selectBackupFile() instead of clicking this.
 		return this.page.getByText( 'Import from a backup' ).first();
 	}
 

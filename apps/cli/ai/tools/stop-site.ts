@@ -12,7 +12,7 @@ export const stopSiteTool = defineTool(
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
-			await runStopSiteCommand( StopMode.STOP_SINGLE_SITE, site.path, false );
+			await runStopSiteCommand( StopMode.STOP_SINGLE_SITE, site.path );
 			return textResult( `Site "${ site.name }" stopped.` );
 		} catch ( error ) {
 			throw new Error(

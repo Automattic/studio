@@ -17,7 +17,6 @@ import {
 import { getSyncSupport } from '@studio/common/lib/sync/sync-support';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
-import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import {
 	answerAgentRun,
 	interruptAgentRun,
@@ -25,27 +24,23 @@ import {
 	setBroadcast,
 	startAgentRun,
 } from './agent-runs';
+import { getAiSessionsRootDirectory } from './lib/paths';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 import type { SitesEndpointSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
 /**
- * Studio Web's **local development backend**.
+ * Studio Web's hosted backend (experimental).
  *
- * It is NOT the eventual Studio Web server. It is a stand-in that runs the
- * agent on this machine (forking the same `studio code` subcommand the desktop
- * app forks) so the browser UI has something to talk to while the real hosted
- * backend — where the agent runs in a per-session SecEx sandbox and sites are
- * persisted (git is the leading proposal) — is designed and built.
+ * This serves the browser UI (`apps/ui` built for web) over an HTTP/SSE API. It
+ * is the home of the eventual Studio Web server, which targets WordPress.com /
+ * Telex APIs and runs the agent in a per-session SecEx sandbox. Today the agent
+ * runtime is a stub ({@link stubRuntime}) — the durable contract is the pair
+ * {@link Connector} interface + this HTTP/SSE API shape, and the runtime is
+ * injected via `setAgentRuntime` once the sandbox backend lands.
  *
- * The durable, portable contract is the pair {@link Connector} interface +
- * this HTTP/SSE API shape, not Express. Swapping this for the hosted backend
- * means re-implementing the same routes against that infrastructure; the
- * browser UI and the web connector don't change. Express is just the most
- * boring way to stand the contract up locally.
- *
- * See `apps/cli/web-server/README.md` for the local↔hosted topology.
+ * See `apps/hosted/README.md` for the topology.
  */
 
 const DEFAULT_PORT = 8088;
@@ -333,14 +328,13 @@ app.use( '/api', api );
 
 // --- Web UI ------------------------------------------------------------------
 
-// Serve the built browser UI (apps/ui `npm run build:web`) so `studio
-// web-server` is the only command needed: API and SPA share one origin. When
-// the build output isn't there (API-only usage, or UI served by the Vite dev
-// server on :5300), the server still works and the startup message says how to
-// get the UI.
+// Serve the built browser UI (apps/ui `npm run build:web`) so the server is the
+// only process needed: API and SPA share one origin. When the build output
+// isn't there (API-only usage, or UI served by the Vite dev server on :5300),
+// the server still works and the startup message says how to get the UI.
 const uiDist =
 	process.env.STUDIO_WEB_UI_DIST ??
-	path.resolve( path.dirname( fileURLToPath( import.meta.url ) ), '../../../ui/dist-web' );
+	path.resolve( path.dirname( fileURLToPath( import.meta.url ) ), '../../ui/dist-web' );
 const uiIndex = path.join( uiDist, 'index.web.html' );
 const hasUi = existsSync( uiIndex );
 if ( hasUi ) {

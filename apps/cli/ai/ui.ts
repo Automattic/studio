@@ -254,7 +254,7 @@ const editorTheme: EditorTheme = {
 };
 
 function formatToolName( name: string, input?: Record< string, unknown > ): string {
-	const displayName = chalk.bold( getToolDisplayName( name ) );
+	const displayName = chalk.bold( getToolDisplayName( name, input ) );
 	const detail = getToolDetail( name, input );
 	if ( detail ) {
 		return displayName + ' ' + chalk.dim( detail );

@@ -5,9 +5,9 @@ import { ReactNode } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
-import blueprintsIllustration from 'src/modules/whats-new/assets/blueprints-illustration.svg';
 import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import darkModeIllustration from 'src/modules/whats-new/assets/dark-mode-illustration.svg';
+import nativePhpIllustration from 'src/modules/whats-new/assets/native-php-illustration.svg';
 import phpMyAdminIllustration from 'src/modules/whats-new/assets/phpmyadmin-illustration.svg';
 import studioCodeIllustration from 'src/modules/whats-new/assets/studio-code-illustration.svg';
 import { useI18nLocale } from 'src/stores';
@@ -67,6 +67,14 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			learnMoreUrl: getLocalizedLink( locale, 'docsStudioCode' ),
 		},
 		{
+			image: nativePhpIllustration,
+			title: __( 'Faster local sites with native PHP' ),
+			description: __(
+				'Studio now uses native PHP by default, running WordPress with fewer abstractions for better performance. You can switch between Native and Sandbox runtimes in your site settings.'
+			),
+			learnMoreUrl: getLocalizedLink( locale, 'docsPhpRuntimes' ),
+		},
+		{
 			image: darkModeIllustration,
 			title: __( 'Dark mode is here' ),
 			description: __(
@@ -96,14 +104,6 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				},
 			} ),
 			learnMoreUrl: getLocalizedLink( locale, 'docsCli' ),
-		},
-		{
-			image: blueprintsIllustration,
-			title: __( 'Introducing Blueprints, a new way to streamline site creation.' ),
-			description: __(
-				'Select a Blueprint that fits your needs and build your WordPress site even faster.'
-			),
-			learnMoreUrl: getLocalizedLink( locale, 'docsBlueprints' ),
 		},
 	];
 

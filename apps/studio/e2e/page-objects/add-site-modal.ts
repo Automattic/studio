@@ -19,7 +19,7 @@ export default class AddSiteModal {
 	}
 
 	get importButton() {
-		return this.page.locator( 'button:has-text("Import from a backup")' ).first();
+		return this.page.getByText( 'Import from a backup' ).first();
 	}
 
 	get continueButton() {

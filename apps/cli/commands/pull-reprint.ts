@@ -35,13 +35,7 @@ import {
 	type SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import {
-	clearSiteLatestCliPid,
-	findSiteByFolder,
-	getSiteUrl,
-	updateSiteAutoStart,
-	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config/sites';
+import { getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -596,12 +590,10 @@ export async function runCommand(
 					logger.reportSuccess( __( 'WordPress server already running' ) );
 					// Mirror the start branch (and `studio site start`'s
 					// already-running path): refresh latestCliPid so
-					// running-status checks match the live process, and keep
-					// autoStart enabled as every pull has.
+					// running-status checks match the live process.
 					if ( runningProcess.status === 'online' ) {
 						await updateSiteLatestCliPid( site.id, runningProcess.pid );
 					}
-					await updateSiteAutoStart( site.id, true );
 					studioMetadata.localUrl = getSiteUrl( site );
 					savePullMetadata( studioMetadata );
 					recordCompletedStage( studioMetadata, 'site-started' );
@@ -612,7 +604,6 @@ export async function runCommand(
 					if ( processDesc.status === 'online' ) {
 						await updateSiteLatestCliPid( site.id, processDesc.pid );
 					}
-					await updateSiteAutoStart( site.id, true );
 					studioMetadata.localUrl = getSiteUrl( site );
 					savePullMetadata( studioMetadata );
 					recordCompletedStage( studioMetadata, 'site-started' );

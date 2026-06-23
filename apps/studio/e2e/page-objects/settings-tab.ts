@@ -75,6 +75,12 @@ export default class SettingsTab {
 		return this.locator.getByRole( 'row', { name: /PHP version/i } );
 	}
 
+	// Read-only "PHP runtime" row on the Settings tab body. Reports "Native" or
+	// "Sandbox" for the site's configured runtime.
+	get phpRuntimeDisplay() {
+		return this.locator.getByRole( 'row', { name: /PHP runtime/i } );
+	}
+
 	get saveButton() {
 		return this.editSiteDialog.getByRole( 'button', { name: 'Save' } );
 	}

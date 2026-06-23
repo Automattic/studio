@@ -44,6 +44,7 @@ interface SiteDetailsContext {
 		site: SiteDetails,
 		options?: { suppressCapacityModal?: boolean }
 	) => Promise< { capacityLimitReached: boolean } >;
+	startServers: ( sites: SiteDetails[] ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
 	startAllStoppedSites: () => Promise< void >;
@@ -71,6 +72,7 @@ const defaultContext: SiteDetailsContext = {
 	createSite: async () => undefined,
 	copySite: async () => undefined,
 	startServer: async () => ( { capacityLimitReached: false } ),
+	startServers: async () => undefined,
 	stopServer: async () => undefined,
 	stopAllRunningSites: async () => undefined,
 	startAllStoppedSites: async () => undefined,
@@ -488,6 +490,30 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		[ toggleLoadingServerForSite ]
 	);
 
+	const startServers = useCallback(
+		async ( sitesToStart: SiteDetails[] ) => {
+			let capacityModalShown = false;
+			await Promise.all(
+				sitesToStart.map( async ( site ) => {
+					const { capacityLimitReached } = await startServer( site, {
+						suppressCapacityModal: true,
+					} );
+					if ( capacityLimitReached && ! capacityModalShown ) {
+						capacityModalShown = true;
+						getIpcApi().showErrorMessageBox( {
+							title: __( 'Some sites could not be started' ),
+							message: __(
+								'The maximum number of running sites has been reached. Please stop some running sites before starting new ones.'
+							),
+							showOpenLogs: false,
+						} );
+					}
+				} )
+			);
+		},
+		[ startServer ]
+	);
+
 	const copySite = useCallback(
 		async ( sourceSiteId: string ) => {
 			const sourceSite = sites.find( ( site ) => site.id === sourceSiteId );
@@ -584,19 +610,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					setSites( sortSites( data ) );
 					setLoadingSites( false );
 					const autoStartSites = data.filter( ( site ) => site.autoStart );
-					void Promise.all(
-						autoStartSites.map( ( site ) => startServer( site, { suppressCapacityModal: true } ) )
-					).then( ( results ) => {
-						if ( ! cancel && results.some( ( r ) => r.capacityLimitReached ) ) {
-							getIpcApi().showErrorMessageBox( {
-								title: __( 'Some sites could not be started' ),
-								message: __(
-									'The maximum number of running sites has been reached. Please stop some running sites before starting new ones.'
-								),
-								showOpenLogs: false,
-							} );
-						}
-					} );
+					void startServers( autoStartSites );
 				}
 			} )
 			.catch( ( error ) => {
@@ -625,8 +639,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const startAllStoppedSites = useCallback( async () => {
 		const stoppedSites = sites.filter( ( site ) => ! site.running && ! site.isAddingSite );
-		await Promise.allSettled( stoppedSites.map( ( site ) => startServer( site ) ) );
-	}, [ sites, startServer ] );
+		await startServers( stoppedSites );
+	}, [ sites, startServers ] );
 
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
 	const [ editModalInitialTab, setEditModalInitialTab ] = useState( 'general' );
@@ -647,6 +661,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			updateSite,
 			updateSitesSortOrder,
 			startServer,
+			startServers,
 			stopServer,
 			stopAllRunningSites,
 			startAllStoppedSites,
@@ -672,6 +687,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			updateSite,
 			updateSitesSortOrder,
 			startServer,
+			startServers,
 			stopServer,
 			stopAllRunningSites,
 			startAllStoppedSites,

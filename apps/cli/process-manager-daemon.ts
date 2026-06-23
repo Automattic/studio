@@ -34,14 +34,14 @@ const STDERR_BUFFER_MAX_LINES = 100;
 const STDERR_BUFFER_MAX_BYTES = 16 * 1024;
 
 // Weighted capacity limit for site processes. Playground (PHP WASM) sites use ~6x more memory
-// than native PHP sites (~720 MB vs ~120 MB), so they carry a heavier weight. The cap of 24
-// allows up to 24 native-PHP sites or 4 Playground sites (or a mix).
+// than native PHP sites (~720 MB vs ~120 MB), so they carry a heavier weight. The cap of 36
+// allows up to 36 native-PHP sites or 6 Playground sites (or a mix).
 const SITE_PROCESS_PREFIX = 'studio-site-';
 const CAPACITY_WEIGHTS: Record< SiteRuntime, number > = {
 	[ SITE_RUNTIME_NATIVE_PHP ]: 1,
 	[ SITE_RUNTIME_PLAYGROUND ]: 6,
 };
-const MAX_WEIGHTED_CAPACITY = 24;
+const MAX_WEIGHTED_CAPACITY = 36;
 
 type ManagedProcessBase = {
 	pmId: number;

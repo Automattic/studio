@@ -324,13 +324,13 @@ describe( 'ProcessManagerDaemon', () => {
 				'broadcastEvent'
 			).mockResolvedValue( undefined );
 
-			// Start 24 native-php sites (weight 1 each = 24 total, at the limit)
-			for ( let i = 0; i < 24; i++ ) {
+			// Start 36 native-php sites (weight 1 each = 36 total, at the limit)
+			for ( let i = 0; i < 36; i++ ) {
 				await startSiteProcess( handleRequest, i );
 			}
 
-			// The 25th native-php site should be rejected
-			await expect( startSiteProcess( handleRequest, 25 ) ).rejects.toThrow(
+			// The 37th native-php site should be rejected
+			await expect( startSiteProcess( handleRequest, 37 ) ).rejects.toThrow(
 				'CAPACITY_LIMIT_REACHED'
 			);
 		} );
@@ -348,13 +348,13 @@ describe( 'ProcessManagerDaemon', () => {
 				'broadcastEvent'
 			).mockResolvedValue( undefined );
 
-			// Start 4 playground sites (weight 6 each = 24 total, at the limit)
-			for ( let i = 0; i < 4; i++ ) {
+			// Start 6 playground sites (weight 6 each = 36 total, at the limit)
+			for ( let i = 0; i < 6; i++ ) {
 				await startSiteProcess( handleRequest, i, SITE_RUNTIME_PLAYGROUND );
 			}
 
-			// The 5th playground site should be rejected
-			await expect( startSiteProcess( handleRequest, 5, SITE_RUNTIME_PLAYGROUND ) ).rejects.toThrow(
+			// The 7th playground site should be rejected
+			await expect( startSiteProcess( handleRequest, 7, SITE_RUNTIME_PLAYGROUND ) ).rejects.toThrow(
 				'CAPACITY_LIMIT_REACHED'
 			);
 		} );
@@ -382,8 +382,8 @@ describe( 'ProcessManagerDaemon', () => {
 				args: [],
 			} );
 
-			// Should still be able to start 24 native-php site processes
-			for ( let i = 0; i < 24; i++ ) {
+			// Should still be able to start 36 native-php site processes
+			for ( let i = 0; i < 36; i++ ) {
 				await startSiteProcess( handleRequest, i );
 			}
 		} );
@@ -402,7 +402,7 @@ describe( 'ProcessManagerDaemon', () => {
 			).mockResolvedValue( undefined );
 
 			// Fill capacity
-			for ( let i = 0; i < 24; i++ ) {
+			for ( let i = 0; i < 36; i++ ) {
 				await startSiteProcess( handleRequest, i );
 			}
 

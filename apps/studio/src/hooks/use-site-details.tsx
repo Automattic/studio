@@ -40,7 +40,10 @@ interface SiteDetailsContext {
 		fileAccess?: SiteFileAccess
 	) => Promise< SiteDetails | void >;
 	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
-	startServer: ( site: SiteDetails ) => Promise< { capacityLimitReached: boolean } >;
+	startServer: (
+		site: SiteDetails,
+		options?: { suppressCapacityModal?: boolean }
+	) => Promise< { capacityLimitReached: boolean } >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
 	startAllStoppedSites: () => Promise< void >;
@@ -404,7 +407,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	}, [] );
 
 	const startServer = useCallback(
-		async ( site: SiteDetails ): Promise< { capacityLimitReached: boolean } > => {
+		async (
+			site: SiteDetails,
+			options?: { suppressCapacityModal?: boolean }
+		): Promise< { capacityLimitReached: boolean } > => {
 			const { id, name: siteName } = site;
 			toggleLoadingServerForSite( id );
 			let capacityLimitReached = false;
@@ -453,13 +459,15 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					} );
 				} else if ( error instanceof Error && error.message.includes( 'CAPACITY_LIMIT_REACHED' ) ) {
 					capacityLimitReached = true;
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Failed to start '%s'" ), siteName ),
-						message: __(
-							'The maximum number of running sites has been reached. Please stop some running sites before starting new ones.'
-						),
-						showOpenLogs: false,
-					} );
+					if ( ! options?.suppressCapacityModal ) {
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "Failed to start '%s'" ), siteName ),
+							message: __(
+								'The maximum number of running sites has been reached. Please stop some running sites before starting new ones.'
+							),
+							showOpenLogs: false,
+						} );
+					}
 				} else {
 					const errorToShow = simplifyErrorForDisplay( error );
 					getIpcApi().showErrorMessageBox( {
@@ -576,17 +584,19 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					setSites( sortSites( data ) );
 					setLoadingSites( false );
 					const autoStartSites = data.filter( ( site ) => site.autoStart );
-					void ( async () => {
-						for ( const site of autoStartSites ) {
-							if ( cancel ) {
-								break;
-							}
-							const { capacityLimitReached } = await startServer( site );
-							if ( capacityLimitReached ) {
-								break;
-							}
+					void Promise.all(
+						autoStartSites.map( ( site ) => startServer( site, { suppressCapacityModal: true } ) )
+					).then( ( results ) => {
+						if ( ! cancel && results.some( ( r ) => r.capacityLimitReached ) ) {
+							getIpcApi().showErrorMessageBox( {
+								title: __( 'Some sites could not be started' ),
+								message: __(
+									'The maximum number of running sites has been reached. Please stop some running sites before starting new ones.'
+								),
+								showOpenLogs: false,
+							} );
 						}
-					} )();
+					} );
 				}
 			} )
 			.catch( ( error ) => {
@@ -615,11 +625,20 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const startAllStoppedSites = useCallback( async () => {
 		const stoppedSites = sites.filter( ( site ) => ! site.running && ! site.isAddingSite );
-		for ( const site of stoppedSites ) {
-			const { capacityLimitReached } = await startServer( site );
-			if ( capacityLimitReached ) {
-				break;
-			}
+		const results = await Promise.allSettled(
+			stoppedSites.map( ( site ) => startServer( site, { suppressCapacityModal: true } ) )
+		);
+		const anyCapacityLimitReached = results.some(
+			( r ) => r.status === 'fulfilled' && r.value.capacityLimitReached
+		);
+		if ( anyCapacityLimitReached ) {
+			getIpcApi().showErrorMessageBox( {
+				title: __( 'Some sites could not be started' ),
+				message: __(
+					'The maximum number of running sites has been reached. Please stop some running sites before starting new ones.'
+				),
+				showOpenLogs: false,
+			} );
 		}
 	}, [ sites, startServer ] );
 

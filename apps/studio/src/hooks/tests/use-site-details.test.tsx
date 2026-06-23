@@ -357,8 +357,8 @@ describe( 'useSiteDetails', () => {
 		} );
 	} );
 
-	describe( 'autoStart stops on capacity limit', () => {
-		it( 'should stop auto-starting sites after capacity limit is reached', async () => {
+	describe( 'autoStart shows single error on capacity limit', () => {
+		it( 'should start all sites in parallel and show a single error when capacity limit is reached', async () => {
 			const autoStartSites = [
 				{ ...mockSites[ 0 ], autoStart: true },
 				{ ...mockSites[ 1 ], autoStart: true },
@@ -388,18 +388,25 @@ describe( 'useSiteDetails', () => {
 				expect( result.current.loadingSites ).toBe( false );
 			} );
 
-			// Wait for autoStart loop to complete
+			// Wait for parallel autoStart to complete
 			await waitFor( () => {
-				// First site succeeds, second hits capacity limit, third should not be attempted
+				// All sites are attempted in parallel
 				expect( startServer ).toHaveBeenCalledWith( 'site-1' );
 				expect( startServer ).toHaveBeenCalledWith( 'site-2' );
-				expect( startServer ).not.toHaveBeenCalledWith( 'site-3' );
+				expect( startServer ).toHaveBeenCalledWith( 'site-3' );
+				// A single consolidated error modal is shown
+				expect( showErrorMessageBox ).toHaveBeenCalledTimes( 1 );
+				expect( showErrorMessageBox ).toHaveBeenCalledWith(
+					expect.objectContaining( {
+						message: expect.stringContaining( 'maximum number of running sites' ),
+					} )
+				);
 			} );
 		} );
 	} );
 
-	describe( 'startAllStoppedSites stops on capacity limit', () => {
-		it( 'should stop starting sites after capacity limit is reached', async () => {
+	describe( 'startAllStoppedSites shows single error on capacity limit', () => {
+		it( 'should start all sites in parallel and show a single error when capacity limit is reached', async () => {
 			const allStopped = [
 				{ ...mockSites[ 0 ], running: false as const, autoStart: false },
 				{ ...mockSites[ 1 ], running: false as const, autoStart: false },
@@ -441,7 +448,13 @@ describe( 'useSiteDetails', () => {
 
 			expect( startServer ).toHaveBeenCalledWith( 'site-1' );
 			expect( startServer ).toHaveBeenCalledWith( 'site-2' );
-			expect( startServer ).not.toHaveBeenCalledWith( 'site-3' );
+			expect( startServer ).toHaveBeenCalledWith( 'site-3' );
+			expect( showErrorMessageBox ).toHaveBeenCalledTimes( 1 );
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					message: expect.stringContaining( 'maximum number of running sites' ),
+				} )
+			);
 		} );
 	} );
 

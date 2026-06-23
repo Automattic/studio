@@ -34,7 +34,7 @@ const skillsSourcePath = resolve( __dirname, 'ai/skills' );
 
 export const baseConfig = defineConfig( {
 	oxc: {
-		target: `node${ semver.major( minimumNodeVersion ) }`,
+		target: 'es2022',
 	},
 	plugins: [
 		{

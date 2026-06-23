@@ -175,6 +175,8 @@ jobs:
           )
           build_args=(
             "$static_extensions"
+            # Give gd JPEG/WebP image support and FreeType (TrueType text).
+            --with-libs=freetype,libjpeg,libwebp
             --build-shared=xdebug
             --build-cli
           )

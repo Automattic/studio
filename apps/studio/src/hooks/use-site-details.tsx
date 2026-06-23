@@ -625,21 +625,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const startAllStoppedSites = useCallback( async () => {
 		const stoppedSites = sites.filter( ( site ) => ! site.running && ! site.isAddingSite );
-		const results = await Promise.allSettled(
-			stoppedSites.map( ( site ) => startServer( site, { suppressCapacityModal: true } ) )
-		);
-		const anyCapacityLimitReached = results.some(
-			( r ) => r.status === 'fulfilled' && r.value.capacityLimitReached
-		);
-		if ( anyCapacityLimitReached ) {
-			getIpcApi().showErrorMessageBox( {
-				title: __( 'Some sites could not be started' ),
-				message: __(
-					'The maximum number of running sites has been reached. Please stop some running sites before starting new ones.'
-				),
-				showOpenLogs: false,
-			} );
-		}
+		await Promise.allSettled( stoppedSites.map( ( site ) => startServer( site ) ) );
 	}, [ sites, startServer ] );
 
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );

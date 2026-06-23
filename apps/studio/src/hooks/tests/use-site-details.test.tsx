@@ -405,59 +405,6 @@ describe( 'useSiteDetails', () => {
 		} );
 	} );
 
-	describe( 'startAllStoppedSites shows single error on capacity limit', () => {
-		it( 'should start all sites in parallel and show a single error when capacity limit is reached', async () => {
-			const allStopped = [
-				{ ...mockSites[ 0 ], running: false as const, autoStart: false },
-				{ ...mockSites[ 1 ], running: false as const, autoStart: false },
-				{ ...mockSites[ 2 ], running: false as const, autoStart: false },
-			];
-
-			const startServer = vi
-				.fn()
-				.mockResolvedValueOnce( undefined )
-				.mockRejectedValueOnce( new Error( 'CAPACITY_LIMIT_REACHED' ) )
-				.mockResolvedValueOnce( undefined );
-
-			const showErrorMessageBox = vi.fn();
-			const stopServer = vi.fn( () => Promise.resolve() );
-
-			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
-				getSiteDetails: vi.fn().mockResolvedValue( allStopped ),
-				startServer,
-				showErrorMessageBox,
-				stopServer,
-				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
-			} );
-
-			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
-
-			await waitFor( () => {
-				expect( result.current.loadingSites ).toBe( false );
-			} );
-
-			startServer.mockClear();
-			startServer
-				.mockResolvedValueOnce( undefined )
-				.mockRejectedValueOnce( new Error( 'CAPACITY_LIMIT_REACHED' ) )
-				.mockResolvedValueOnce( undefined );
-
-			await act( async () => {
-				await result.current.startAllStoppedSites();
-			} );
-
-			expect( startServer ).toHaveBeenCalledWith( 'site-1' );
-			expect( startServer ).toHaveBeenCalledWith( 'site-2' );
-			expect( startServer ).toHaveBeenCalledWith( 'site-3' );
-			expect( showErrorMessageBox ).toHaveBeenCalledTimes( 1 );
-			expect( showErrorMessageBox ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					message: expect.stringContaining( 'maximum number of running sites' ),
-				} )
-			);
-		} );
-	} );
-
 	describe( 'site deletion selection behavior', () => {
 		it( 'should select first site when deleting the currently selected site', async () => {
 			const { result } = renderHook( () => useSiteDetails(), { wrapper } );

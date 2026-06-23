@@ -3,12 +3,36 @@ import {
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
 import { SITE_RUNTIME_PLAYGROUND, type SiteRuntime } from '@studio/common/lib/site-runtime';
+import { createInterpolateElement } from '@wordpress/element';
 import { useI18n } from '@wordpress/react-i18n';
+import { LearnMoreLink } from 'src/components/learn-more';
 
 // Explainer copy shown under the PHP runtime control in the create/edit site
 // forms and in the read-only site settings.
-export function RuntimeDescription( { runtime }: { runtime: SiteRuntime } ) {
+export function RuntimeDescription( {
+	runtime,
+	learnMoreLink,
+}: {
+	runtime: SiteRuntime;
+	learnMoreLink?: boolean;
+} ) {
 	const { __ } = useI18n();
+
+	if ( learnMoreLink ) {
+		return (
+			<>
+				{ createInterpolateElement(
+					runtime === SITE_RUNTIME_PLAYGROUND
+						? __( 'Runs the site in an isolated WordPress Playground sandbox. <learn_more_link />' )
+						: __( 'Runs the site with native PHP for the best performance. <learn_more_link />' ),
+					{
+						learn_more_link: <LearnMoreLink docsLinksKey="docsPhpRuntimes" />,
+					}
+				) }
+			</>
+		);
+	}
+
 	return (
 		<>
 			{ runtime === SITE_RUNTIME_PLAYGROUND

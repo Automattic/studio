@@ -31,7 +31,7 @@ import {
 	unlockCliConfig,
 	SiteData,
 } from 'cli/lib/cli-config/core';
-import { removeSiteFromConfig, updateSiteAutoStart } from 'cli/lib/cli-config/sites';
+import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
@@ -71,7 +71,6 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 	return {
 		...actual,
 		updateSiteLatestCliPid: vi.fn(),
-		updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
 		removeSiteFromConfig: vi.fn(),
 		getSiteUrl: vi.fn().mockImplementation( ( site ) => `http://localhost:${ site.port }` ),
 	};
@@ -301,7 +300,6 @@ describe( 'CLI: studio site create', () => {
 			expect( saveCliConfig ).toHaveBeenCalled();
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( startWordPressServer ).toHaveBeenCalled();
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( expect.any( String ), true );
 			expect( logSiteDetails ).toHaveBeenCalled();
 			expect( openSiteInBrowser ).toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();

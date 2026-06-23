@@ -10,6 +10,10 @@
  *   bin/studio[.cmd]    Launcher (the desktop app's studio-cli script, renamed)
  *   cli/                CLI bundle (main.mjs, node_modules, wp-files, …)
  *
+ * The curl installers that consume this layout (`cli/` + `bin/`) live in wpcom
+ * (served at wp.build/install.sh & install.ps1), not in this repo — update them
+ * in lockstep if this layout changes.
+ *
  * Output:
  *   standalone-bundles/studio-cli-{platform}-{arch}.tgz
  *   standalone-bundles/studio-cli-{platform}-{arch}.tgz.sha256

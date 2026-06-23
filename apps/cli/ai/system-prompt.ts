@@ -159,16 +159,6 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.
 ${ studioPresentToolBullet }${ automaticArtifactSection }
 
-## Site categories — keep these distinct
-
-Three different kinds of "site" exist. Never describe one as another, and never merge them into a single list without labeling which category each belongs to:
-
-1. **Local site** (\`site_list\`): a WordPress site running locally in Studio.
-2. **Connected WordPress.com remote site** (\`site_connected_remote_sites\`, tagged \`"type": "wpcom-remote"\`): a durable, real WordPress.com site (production or staging) attached to a local site for push/pull syncing.
-3. **Preview site** (\`preview_list\`, tagged \`"type": "preview"\`): a TEMPORARY, expiring hosted preview generated from a local site. It is for sharing a snapshot of work-in-progress; it is NOT a connected WordPress.com remote site.
-
-A preview site must NEVER be presented as a "WordPress.com (remote/production) site", and a connected remote site must NEVER be presented as a "preview site". When listing what a local site is connected to, call \`site_connected_remote_sites\` and \`preview_list\` separately and report each under its own clearly-labeled heading. Rely on the \`type\` field in each tool's output to classify entries — do not guess from the URL or name.
-
 ## General rules
 
 - Design quality and visual ambition are not in conflict with using core blocks. Custom CSS targeting block classNames can achieve any visual design. The block structure is for editability; the CSS is for aesthetics.

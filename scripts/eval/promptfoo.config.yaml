@@ -369,7 +369,15 @@ tests:
             return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'preview output tagged type=preview' : `missing type discriminator: ${(r.text || '').slice(0, 300)}` };
           });
       # The behavioral guard: the agent must not merge the two categories.
+      # Grade the assistant's prose, not the EVAL_RUNNER_RESULT_FILE marker line.
       - type: llm-rubric
+        transform: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = String(output).split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return String(output);
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            return (d.textSegments || []).join('\n');
+          });
         value: |
           The assistant lists what the local site "Eval Site Categories" is
           connected or related to. PASS only if it classifies

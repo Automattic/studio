@@ -20,7 +20,9 @@ if ( ! commitCount && commitCount !== 0 ) {
 // Build a dev version targeting the next minor release (major.(minor+1).0-devN) from a base
 // version, so trunk builds sort above any stable or beta of that base. Strips a leading 'v'.
 function toDevVersion( baseVersion, source ) {
-	const parsed = semver.parse( baseVersion.startsWith( 'v' ) ? baseVersion.slice( 1 ) : baseVersion );
+	const parsed = semver.parse(
+		baseVersion.startsWith( 'v' ) ? baseVersion.slice( 1 ) : baseVersion
+	);
 	if ( ! parsed ) {
 		throw new Error( `Invalid version in ${ source }: ${ baseVersion }` );
 	}

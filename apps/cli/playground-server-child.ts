@@ -469,10 +469,6 @@ const startServer = wrapWithStartingPromise(
 			await setPhpIniEntries( server.playground, {
 				'openssl.cafile': '/internal/shared/ca-bundle.crt',
 				'curl.cainfo': '/internal/shared/ca-bundle.crt',
-				// Match the native PHP runtime's 512M (apps/cli/lib/native-php/config.ts). The
-				// PHP-WASM default of 256M is exhausted by real WooCommerce + Jetpack sites when
-				// loading wp-admin (STU-1821). memory_limit is a per-request ceiling, not a
-				// reservation, so this does not increase baseline host memory use.
 				memory_limit: '512M',
 			} );
 

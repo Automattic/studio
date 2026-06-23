@@ -1,3 +1,4 @@
+import { getMshotUrl } from '@studio/common/lib/sync/mshots';
 import { Icon, SearchControl as SearchControlWp, Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
@@ -416,10 +417,6 @@ function ListSites( {
 			<div className="pointer-events-none sticky bottom-0 h-10 -mt-10 z-10 bg-gradient-to-t from-frame to-transparent" />
 		</div>
 	);
-}
-
-function getMshotUrl( siteUrl: string ): string {
-	return `https://s0.wp.com/mshots/v1/${ encodeURIComponent( siteUrl ) }?w=600&h=400`;
 }
 
 function SiteThumbnail( {

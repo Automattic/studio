@@ -479,8 +479,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														__nextHasNoMarginBottom
 													/>
 													<span className="text-frame-text-secondary text-xs">
-														<RuntimeDescription runtime={ selectedRuntime } />{ ' ' }
-														<LearnMoreLink docsLinksKey="docsPhpRuntimes" />
+														<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
 													</span>
 												</label>
 

@@ -91,6 +91,19 @@ describe( 'Conversation tool rows', () => {
 		).toBeInTheDocument();
 	} );
 
+	it( 'combines the tool label and detail in the row accessible name', () => {
+		const data = loadedSession( [
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/studio/app.tsx' } ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.getByRole( 'button', { name: 'Read studio/app.tsx' } ) ).toHaveAttribute(
+			'aria-label',
+			'Read studio/app.tsx'
+		);
+	} );
+
 	it( 'hides the raw Ask User tool row while showing the question UI', () => {
 		const data = loadedSession( [
 			assistantToolCallEntry( 'AskUserQuestion', {

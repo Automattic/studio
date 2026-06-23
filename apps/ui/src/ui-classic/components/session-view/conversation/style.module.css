@@ -86,6 +86,7 @@
 		var(--wpds-color-fg-content-neutral-weak) 70%,
 		transparent
 	);
+	--tool-text-color: var(--tool-trigger-color);
 	--tool-icon-color: var(--tool-trigger-color);
 
 	display: flex;
@@ -95,16 +96,20 @@
 	max-width: 100%;
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.55;
-	color: var(--tool-trigger-color);
+	color: var(--tool-text-color);
 	padding: 2px 0;
 	min-width: 0;
 	overflow: hidden;
 	white-space: nowrap;
 }
 
+@media (prefers-color-scheme: light) {
+	.toolRow {
+		--tool-text-color: var(--wpds-color-fg-content-neutral-weak);
+	}
+}
+
 .toolRowButton {
-	--wp-ui-button-background-color: transparent;
-	--wp-ui-button-border-color: transparent;
 	--tool-row-active-background: var(--wpds-color-bg-interactive-neutral-weak-active, #ededed);
 
 	appearance: none;
@@ -124,9 +129,8 @@
 }
 
 .toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) {
-	--tool-trigger-color: var(--wpds-color-fg-interactive-neutral-active);
-	--tool-icon-color: var(--tool-trigger-color);
-	--wp-ui-button-background-color: var(--tool-row-active-background);
+	--tool-text-color: var(--wpds-color-fg-interactive-neutral-active);
+	--tool-icon-color: var(--wpds-color-fg-interactive-neutral-active);
 
 	background-color: var(--tool-row-active-background);
 }
@@ -138,7 +142,7 @@
 
 .toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolLabel,
 .toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolDetail {
-	color: var(--wpds-color-fg-interactive-neutral-active);
+	color: var(--tool-text-color);
 }
 
 .toolRowButton:focus-visible {
@@ -205,7 +209,7 @@
 }
 
 .toolLabel {
-	color: var(--tool-trigger-color);
+	color: var(--tool-text-color);
 	font-weight: 400;
 	min-width: 0;
 	flex: 0 1 auto;
@@ -215,7 +219,7 @@
 }
 
 .toolDetail {
-	color: var(--tool-trigger-color);
+	color: var(--tool-text-color);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;

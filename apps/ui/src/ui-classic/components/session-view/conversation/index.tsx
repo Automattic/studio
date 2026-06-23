@@ -4,8 +4,10 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
+	getInputString,
 	getToolDetail,
 	getToolDisplayName,
+	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { __ } from '@wordpress/i18n';
@@ -24,7 +26,6 @@ import {
 	download,
 	file,
 	globe,
-	help,
 	image,
 	info,
 	link,
@@ -270,29 +271,11 @@ interface ClassicToolDisplay {
 	inputText: string;
 }
 
-function getInputString( input: Record< string, unknown > | undefined, key: string ): string {
-	const value = input?.[ key ];
-	return typeof value === 'string' ? value.trim() : '';
-}
-
 function truncateToolDetail( value: string, maxLength = TOOL_DETAIL_MAX_LENGTH ): string {
 	if ( value.length <= maxLength ) {
 		return value;
 	}
 	return value.slice( 0, maxLength - 1 ).trimEnd() + '…';
-}
-
-function shortPath( value: string ): string {
-	return value.split( '/' ).filter( Boolean ).slice( -2 ).join( '/' ) || value;
-}
-
-function splitCommandArgs( command: string ): string[] {
-	return (
-		command
-			.match( /(?:[^\s"']+|"[^"]*"|'[^']*')+/g )
-			?.map( ( arg ) => arg.replace( /^(['"])(.*)\1$/, '$2' ) )
-			.filter( Boolean ) ?? []
-	);
 }
 
 function stringifyToolInput( input: Record< string, unknown > ): string {
@@ -341,11 +324,6 @@ function getClassicToolDisplay(
 		case 'Bash':
 			display.label = __( 'Run terminal command' );
 			display.detail = '';
-			break;
-		case 'Read':
-		case 'Write':
-		case 'Edit':
-			display.detail = genericDetail ? shortPath( genericDetail ) : '';
 			break;
 		case 'take_screenshot':
 		case 'inspect_design':
@@ -431,8 +409,6 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 			return pencil;
 		case 'wait_for_annotations':
 			return pending;
-		case 'AskUserQuestion':
-			return help;
 		case 'take_screenshot':
 			return capturePhoto;
 		case 'inspect_design':
@@ -524,6 +500,7 @@ function ToolUseRow( {
 				<button
 					type="button"
 					className={ clsx( styles.toolRow, styles.toolRowButton ) }
+					aria-label={ display.detail ? `${ display.label } ${ display.detail }` : display.label }
 					aria-expanded={ expanded }
 					aria-controls={ detailsId }
 					data-expanded={ expanded }

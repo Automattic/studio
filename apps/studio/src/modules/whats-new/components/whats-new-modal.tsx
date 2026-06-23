@@ -61,7 +61,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: nativePhpIllustration,
 			title: __( 'Faster local sites with native PHP' ),
 			description: __(
-				'Studio now uses native PHP by default, running WordPress directly on your machine for better performance. You can switch between Native and Sandbox runtimes in your site settings.'
+				'Studio now uses native PHP by default, running WordPress with fewer abstractions for better performance. You can switch between Native and Sandbox runtimes in your site settings.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsPhpRuntimes' ),
 		},

@@ -1,19 +1,19 @@
 import crypto from 'node:crypto';
-import { localRuntime } from './local-runtime';
+import { stubRuntime } from './stub-runtime';
 import type { AgentProcess, AgentRuntime } from './runtime';
 import type { ActiveAgentRun, AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
 
 /**
  * Headless analog of the desktop `run-manager` (apps/studio/src/modules/
- * ai-agent/run-manager.ts). It runs the same `studio code sessions resume <id>
- * <prompt> --json` agent the desktop runs, relays the agent's `JsonEvent`s as
- * `AgentRunEvent`s, and synthesizes the same lifecycle events (`run.started`,
+ * ai-agent/run-manager.ts). It relays the agent's `JsonEvent`s as
+ * `AgentRunEvent`s and synthesizes the same lifecycle events (`run.started`,
  * `run.exited`, ...). The sink is a broadcaster (SSE) injected via
  * `setBroadcast` instead of `webContents.send`.
  *
- * Where the agent actually runs is behind the {@link AgentRuntime} seam. Today
- * that's a local child process; the hosted backend swaps in a SecEx-sandbox
- * runtime via `setAgentRuntime` without touching any of this orchestration.
+ * Where the agent actually runs is behind the {@link AgentRuntime} seam. The
+ * default is {@link stubRuntime} (no execution backend yet); the hosted backend
+ * injects a SecEx-sandbox runtime via `setAgentRuntime` without touching any of
+ * this orchestration.
  */
 
 interface AgentRun {
@@ -35,7 +35,7 @@ export function setBroadcast( fn: Broadcast ): void {
 	broadcast = fn;
 }
 
-let runtime: AgentRuntime = localRuntime;
+let runtime: AgentRuntime = stubRuntime;
 
 export function setAgentRuntime( next: AgentRuntime ): void {
 	runtime = next;

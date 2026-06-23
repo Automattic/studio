@@ -545,7 +545,10 @@ export const CreateSiteForm = ( {
 										<span className="text-frame-text-secondary text-xs">
 											{ selectedRuntime === SITE_RUNTIME_NATIVE_PHP
 												? __( 'Runs the site with native PHP for the best performance.' )
-												: __( 'Runs the site in an isolated WordPress Playground sandbox.' ) }
+												: __(
+														'Runs the site in an isolated WordPress Playground sandbox.'
+												  ) }{ ' ' }
+											<LearnMoreLink docsLinksKey="docsPhpRuntimes" />
 										</span>
 									</div>
 

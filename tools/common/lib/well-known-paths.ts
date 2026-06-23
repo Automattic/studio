@@ -31,6 +31,10 @@ export function getCliConfigPath(): string {
 	return path.join( getConfigDirectory(), 'cli.json' );
 }
 
+export function getStudioCodeMcpConfigPath(): string {
+	return path.join( getConfigDirectory(), 'mcp.json' );
+}
+
 export function getCertificatesPath(): string {
 	return path.join( getConfigDirectory(), 'certificates' );
 }

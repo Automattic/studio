@@ -8,15 +8,20 @@ import {
 	saveStudioCodeMcpConfig,
 } from 'cli/ai/mcp-config';
 
-const { studioSitesRoot } = vi.hoisted( () => ( {
-	studioSitesRoot: `${ process.env.TMPDIR || '/tmp/' }studio-code-mcp-root-${ Math.random()
+const { studioConfigRoot } = vi.hoisted( () => ( {
+	studioConfigRoot: `${ process.env.TMPDIR || '/tmp/' }studio-code-mcp-config-${ Math.random()
 		.toString( 36 )
 		.slice( 2 ) }`,
 } ) );
 
-vi.mock( 'cli/lib/site-paths', () => ( {
-	STUDIO_SITES_ROOT: studioSitesRoot,
-} ) );
+vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/common/lib/well-known-paths') >();
+	return {
+		...actual,
+		getConfigDirectory: () => studioConfigRoot,
+		getStudioCodeMcpConfigPath: () => `${ studioConfigRoot }/mcp.json`,
+	};
+} );
 
 describe( 'Studio Code MCP config', () => {
 	beforeEach( () => {
@@ -24,7 +29,7 @@ describe( 'Studio Code MCP config', () => {
 	} );
 
 	afterEach( () => {
-		fs.rmSync( studioSitesRoot, { recursive: true, force: true } );
+		fs.rmSync( studioConfigRoot, { recursive: true, force: true } );
 	} );
 
 	it( 'returns an empty server list when no config file exists', async () => {
@@ -33,7 +38,7 @@ describe( 'Studio Code MCP config', () => {
 
 	it( 'reads stdio, http, and sse servers from config', async () => {
 		const configPath = getStudioCodeMcpConfigPath();
-		fs.mkdirSync( studioSitesRoot, { recursive: true } );
+		fs.mkdirSync( studioConfigRoot, { recursive: true } );
 		fs.writeFileSync(
 			configPath,
 			JSON.stringify( {

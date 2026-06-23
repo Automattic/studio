@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { getStudioCodeMcpConfigPath } from '@studio/common/lib/well-known-paths';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
-import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 
 const RESERVED_SERVER_NAMES = new Set( [ 'studio' ] );
 const SERVER_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
@@ -45,9 +45,7 @@ const configSchema = z
 export type StudioCodeMcpServerConfig = z.infer< typeof serverSchema >;
 export type StudioCodeMcpConfig = z.infer< typeof configSchema >;
 
-export function getStudioCodeMcpConfigPath(): string {
-	return path.join( STUDIO_SITES_ROOT, '.mcp.json' );
-}
+export { getStudioCodeMcpConfigPath };
 
 function validateServerName( name: string ): void {
 	if ( ! SERVER_NAME_PATTERN.test( name ) ) {

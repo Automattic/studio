@@ -28,6 +28,7 @@ import {
 	type AiModelId,
 } from '@studio/common/ai/models';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { resolveCustomMcpTools } from 'cli/ai/mcp-client-tools';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -279,7 +280,7 @@ async function createStudioAgentSession(
 			: { chatArtifactsEnabled, remoteSession }
 	);
 
-	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
+	const tools = await buildAgentTools( config, chatArtifactsEnabled, remoteSession );
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
 	const { authStorage, modelRegistry } = createModelRegistry( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -461,11 +462,11 @@ function toToolDefinition(
 	};
 }
 
-function buildAgentTools(
+async function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	chatArtifactsEnabled: boolean,
 	remoteSession: boolean
-): AgentToolAny[] {
+): Promise< AgentToolAny[] > {
 	const isRemoteSite = Boolean(
 		config.activeSite?.remote && config.activeSite?.wpcomSiteId && config.wpcomAccessToken
 	);
@@ -476,6 +477,7 @@ function buildAgentTools(
 
 	const skillToolDef = createSkillTool();
 	const skillTool: AgentToolAny[] = skillToolDef ? [ skillToolDef ] : [];
+	const customMcpTools = ( await resolveCustomMcpTools() ) as unknown as AgentToolAny[];
 
 	const renameTool = ( tool: AgentToolAny, name: string ): AgentToolAny => ( {
 		...tool,
@@ -496,6 +498,7 @@ function buildAgentTools(
 			takeScreenshotTool,
 			createSiteTool,
 			pullSiteTool,
+			...customMcpTools,
 			...remoteScratchTools,
 			...askUserTool,
 			...skillTool,
@@ -515,7 +518,7 @@ function buildAgentTools(
 		emitChatArtifacts: chatArtifactsEnabled,
 		remoteSession,
 	} ) as unknown as AgentToolAny[];
-	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
+	return [ ...studioTools, ...customMcpTools, ...askUserTool, ...skillTool, ...piTools ];
 }
 
 function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {

@@ -1,0 +1,140 @@
+/* The heading/subtitle use the shared classes from ../layout-onboarding so
+   the typography can't drift between the home screen and the steps it leads
+   to. Only `.page` stays local: the home screen has no fixed footer, so it
+   skips the shared footer-clearance padding. */
+.page {
+	width: 100%;
+	text-align: center;
+}
+
+.cards {
+	display: flex;
+	gap: 20px;
+	justify-content: center;
+}
+
+.card {
+	flex: 1 1 0;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+	padding: 24px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-radius: 12px;
+	/* Semi-transparent surface lets the dot grid glow through; the blur keeps
+	   text readable as dots drift underneath. */
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-strong, #fff) 50%, transparent);
+	backdrop-filter: blur(12px);
+	appearance: none;
+	font: inherit;
+	text-align: center;
+	color: inherit;
+	text-decoration: none;
+	cursor: pointer;
+	transition: border-color 0.15s ease;
+}
+
+/* Illustrations are authored at 198×110; let them shrink with the card so
+   four cards fit comfortably on narrower windows. */
+.card svg {
+	max-width: 100%;
+	height: auto;
+}
+
+/* The 1px border plus a 1px ring of the same color reads as a 2px edge
+   without shifting the layout. */
+.card:hover,
+.cardDragging {
+	border-color: var(--wpds-color-stroke-interactive-brand, #3858e9);
+	box-shadow: 0 0 0 1px var(--wpds-color-stroke-interactive-brand, #3858e9);
+}
+
+/* Keyboard focus mirrors the hover affordance, plus an offset ring so the
+   focused card is unmistakable against its neighbors. */
+.card:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
+	outline-offset: 2px;
+	border-color: var(--wpds-color-stroke-interactive-brand, #3858e9);
+}
+
+.card:focus-visible .cardTitle {
+	color: var(--wpds-color-fg-interactive-brand, #3858e9);
+}
+
+.cardDisabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.cardDisabled:hover {
+	border-color: var(--wpds-color-stroke-surface-neutral, #ddd);
+	box-shadow: none;
+}
+
+.cardDisabled:hover .cardTitle {
+	color: inherit;
+}
+
+.cardDragging {
+	background: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #3858e9) 5%, transparent);
+}
+
+.cardText {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.cardTitle {
+	font-size: 16px;
+	font-weight: 500;
+	margin: 0;
+	transition: color 0.15s ease;
+}
+
+.card:hover .cardTitle {
+	color: var(--wpds-color-fg-interactive-brand, #3858e9);
+}
+
+.cardBody {
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	font-size: 13px;
+	line-height: 1.4;
+	margin: 0;
+}
+
+.cardError {
+	margin-top: 4px;
+	font-size: 12px;
+	color: var(--wpds-color-fg-content-error, #b32d2e);
+}
+
+/* Narrow windows: stack the option cards and lay each one out
+   horizontally — illustration on the left, text on the right. */
+@media (max-width: 900px) {
+	.cards {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.card {
+		flex-direction: row;
+		align-items: center;
+		gap: 20px;
+		text-align: left;
+	}
+
+	.card svg {
+		flex-shrink: 0;
+	}
+
+	.cardText {
+		text-align: left;
+	}
+}
+
+.hiddenInput {
+	display: none;
+}

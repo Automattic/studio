@@ -25,6 +25,10 @@ const DOCS_LINKS = {
 	docsSkills: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/',
 	},
+	docsSyncSupportedSites: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/#sitios-compatibles',
+	},
 } as const satisfies Record< string, TranslatedLink >;
 
 export type DocsLinkKey = keyof typeof DOCS_LINKS;

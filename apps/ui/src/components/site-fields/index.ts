@@ -13,6 +13,7 @@ import {
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
+import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Field } from '@wordpress/dataviews';
 
@@ -39,15 +40,37 @@ export function phpVersionField< T extends { phpVersion: SupportedPHPVersion } >
 	};
 }
 
+/**
+ * Builder for the WordPress version field. With a fetched `versions` list it
+ * renders a select ordered like the desktop renderer's version picker —
+ * auto-updating "latest" first, then nightly/beta, then stable releases.
+ * Without one (offline, fetch failed, still loading) it stays a free-text
+ * input so site creation is never blocked on the wordpress.org API.
+ */
 export function wpVersionField< T extends { wpVersion: string } >(
-	placeholder: string
+	placeholder: string,
+	versions?: WordPressVersion[]
 ): Field< T > {
-	return {
+	const field: Field< T > = {
 		id: 'wpVersion',
 		type: 'text',
 		label: __( 'WordPress version' ),
 		placeholder,
 	};
+	if ( versions?.length ) {
+		const beta = versions.filter( ( version ) => version.isBeta || version.isDevelopment );
+		const stable = versions.filter(
+			( version ) => version.value !== 'latest' && ! version.isBeta && ! version.isDevelopment
+		);
+		field.elements = [
+			...versions
+				.filter( ( version ) => version.value === 'latest' )
+				.map( ( version ) => ( { value: version.value, label: __( 'latest' ) } ) ),
+			...beta.map( ( version ) => ( { value: version.value, label: version.label } ) ),
+			...stable.map( ( version ) => ( { value: version.value, label: version.label } ) ),
+		];
+	}
+	return field;
 }
 
 export function adminUsernameField< T extends { adminUsername: string } >(): Field< T > {

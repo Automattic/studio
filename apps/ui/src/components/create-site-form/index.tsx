@@ -5,10 +5,12 @@ import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronRight } from '@wordpress/icons';
+import { chevronLeft, chevronDown, chevronRight } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BusyOverlay } from '@/components/busy-overlay';
 import { LearnHowLink, LearnMoreLink } from '@/components/learn-more';
+import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
 	adminEmailField,
 	adminPasswordField,
@@ -21,6 +23,7 @@ import {
 } from '@/components/site-fields';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
+import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import styles from './style.module.css';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
@@ -302,6 +305,36 @@ export function CreateSiteForm( {
 		} );
 	}, [ initialValues ] );
 
+	const { data: wpVersions } = useWordPressVersions();
+
+	// Land keyboard focus in the Site name field on mount — it's the first
+	// thing every flow asks for. The onboarding layout's heading-focus
+	// fallback yields when a page claims focus itself.
+	const formRef = useRef< HTMLFormElement >( null );
+	useEffect( () => {
+		const input = formRef.current?.querySelector< HTMLInputElement >(
+			'input[type="text"], input:not([type])'
+		);
+		input?.focus();
+	}, [] );
+
+	// Drop a wpVersion that isn't in the installable-versions list (e.g. a
+	// blueprint preferring a release below the minimum supported version) —
+	// mirrors the desktop renderer, which silently ignores unsupported
+	// preferred versions. Keyed on the current value as well as the list:
+	// initial values seed asynchronously, so with a warm versions cache the
+	// list alone would never change again and a late seed would slip through.
+	useEffect( () => {
+		if ( ! wpVersions?.length ) {
+			return;
+		}
+		setData( ( prev ) =>
+			wpVersions.some( ( version ) => version.value === prev.wpVersion )
+				? prev
+				: { ...prev, wpVersion: DEFAULT_WORDPRESS_VERSION }
+		);
+	}, [ wpVersions, data.wpVersion ] );
+
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
 			siteNameField< FormData >(),
@@ -321,7 +354,7 @@ export function CreateSiteForm( {
 				},
 			},
 			phpVersionField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION ),
+			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions ),
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
@@ -335,7 +368,7 @@ export function CreateSiteForm( {
 				Edit: EnableHttpsControl,
 			},
 		],
-		[ existingDomainNames ]
+		[ existingDomainNames, wpVersions ]
 	);
 
 	const basicForm = useMemo< Form >(
@@ -425,70 +458,100 @@ export function CreateSiteForm( {
 
 	const advancedErrorCount = countAdvancedErrors( validity, advancedForm );
 
-	return (
-		<form className={ styles.form } onSubmit={ handleSubmit }>
-			<DataForm< FormData >
-				data={ data }
-				fields={ fields }
-				form={ basicForm }
-				onChange={ handleChange }
-				validity={ validity }
-			/>
-
+	// The buttons stay inside the <form> element so the submit button keeps
+	// its implicit form association while floating in the footer.
+	const actionButtons = (
+		<>
 			<Button
 				type="button"
-				variant="unstyled"
+				variant="minimal"
 				tone="neutral"
-				className={ styles.advancedToggle }
-				onClick={ () => setIsAdvancedOpen( ( value ) => ! value ) }
-				aria-expanded={ isAdvancedOpen }
+				onClick={ onCancel }
+				disabled={ isSubmitting }
 			>
-				<Icon icon={ isAdvancedOpen ? chevronDown : chevronRight } />
-				<span>{ __( 'Advanced settings' ) }</span>
-				{ ! isAdvancedOpen && advancedErrorCount > 0 && (
-					<span className={ styles.advancedErrorCount }>
-						{ advancedErrorCount === 1
-							? __( '1 error found' )
-							: /* translators: %d: number of errors */
-							  `${ advancedErrorCount } ${ __( 'errors found' ) }` }
-					</span>
-				) }
+				<Icon icon={ chevronLeft } size={ 16 } />
+				<span>{ __( 'Back' ) }</span>
 			</Button>
+			<Button
+				type="submit"
+				variant="solid"
+				tone="brand"
+				disabled={ ! canSubmit }
+				loading={ isSubmitting }
+				loadingAnnouncement={ __( 'Creating site' ) }
+				data-testid="create-site-submit"
+			>
+				{ submitLabel ?? __( 'Create site' ) }
+			</Button>
+		</>
+	);
 
-			{ isAdvancedOpen && (
+	return (
+		<form ref={ formRef } className={ styles.form } onSubmit={ handleSubmit }>
+			{ /* While creating, shield the rest of the window and freeze the
+			     fields (inert) — the submit button's spinner is the progress
+			     indication. */ }
+			<BusyOverlay active={ !! isSubmitting } />
+			{ /* The frosted panel wraps only the fields: its backdrop-filter
+			     turns it into a containing block for fixed descendants, so the
+			     fixed OnboardingFooter must stay outside (but inside the form
+			     for the submit button's implicit association). */ }
+			<div className={ styles.panel } inert={ isSubmitting || undefined }>
 				<DataForm< FormData >
 					data={ data }
 					fields={ fields }
-					form={ advancedForm }
+					form={ basicForm }
 					onChange={ handleChange }
 					validity={ validity }
 				/>
-			) }
 
-			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
-
-			<div className={ styles.actions }>
 				<Button
 					type="button"
-					variant="minimal"
+					variant="unstyled"
 					tone="neutral"
-					onClick={ onCancel }
-					disabled={ isSubmitting }
+					className={ styles.advancedToggle }
+					onClick={ () => setIsAdvancedOpen( ( value ) => ! value ) }
+					aria-expanded={ isAdvancedOpen }
 				>
-					{ __( 'Cancel' ) }
+					<Icon icon={ isAdvancedOpen ? chevronDown : chevronRight } />
+					<span>{ __( 'Advanced settings' ) }</span>
+					{ ! isAdvancedOpen && advancedErrorCount > 0 && (
+						<span className={ styles.advancedErrorCount }>
+							{ advancedErrorCount === 1
+								? __( '1 error found' )
+								: /* translators: %d: number of errors */
+								  `${ advancedErrorCount } ${ __( 'errors found' ) }` }
+						</span>
+					) }
 				</Button>
-				<Button
-					type="submit"
-					variant="solid"
-					tone="brand"
-					disabled={ ! canSubmit }
-					loading={ isSubmitting }
-					loadingAnnouncement={ __( 'Creating site' ) }
-					data-testid="create-site-submit"
+
+				<div
+					className={
+						isAdvancedOpen
+							? `${ styles.advancedCollapse } ${ styles.advancedCollapseOpen }`
+							: styles.advancedCollapse
+					}
+					inert={ ! isAdvancedOpen || undefined }
 				>
-					{ submitLabel ?? __( 'Create site' ) }
-				</Button>
+					<div className={ styles.advancedCollapseInner }>
+						<DataForm< FormData >
+							data={ data }
+							fields={ fields }
+							form={ advancedForm }
+							onChange={ handleChange }
+							validity={ validity }
+						/>
+					</div>
+				</div>
+
+				{ submitError && (
+					<div role="alert" className={ styles.submitError }>
+						{ submitError }
+					</div>
+				) }
 			</div>
+
+			<OnboardingFooter>{ actionButtons }</OnboardingFooter>
 		</form>
 	);
 }

@@ -16,7 +16,9 @@ import {
 	fetchLatestRewindId,
 	fetchRemoteFileTree,
 	fetchSyncableSites,
+	fetchSyncableSitesPage,
 	pollImportStatus,
+	type SyncableSitesPage,
 } from '@studio/common/lib/sync/sync-api';
 import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
@@ -692,7 +694,24 @@ export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Pro
 	if ( ! token?.accessToken ) {
 		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
 	}
-	return fetchSyncableSites( token.accessToken );
+	// Pass the already-connected remote IDs so the transform can mark those
+	// sites 'already-connected' instead of offering them as syncable again.
+	const connectedSites = await getAllConnectedWpcomSitesForCurrentUser();
+	const connectedSiteIds = connectedSites.map( ( site ) => site.id );
+	return fetchSyncableSites( token.accessToken, { connectedSiteIds } );
+}
+
+export async function fetchSyncableWpcomSitesPage(
+	_event: IpcMainInvokeEvent,
+	options: { page?: number; perPage?: number; search?: string } = {}
+): Promise< SyncableSitesPage > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
+	}
+	// Mirrors the default Add Site picker: a remote site connected to another
+	// local site is still selectable when creating a new local site.
+	return fetchSyncableSitesPage( token.accessToken, options );
 }
 
 export async function getConnectedWpcomSites(

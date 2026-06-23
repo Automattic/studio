@@ -1,13 +1,25 @@
 .form {
-	display: flex;
-	flex-direction: column;
-	gap: 24px;
 	text-align: left;
 }
 
-/* The path trigger is a <button>, but we style it to sit within the
-   DataForm grid the same way the text/email inputs do — 40px tall, 1px
-   neutral border, 2px radius, matching the InputBase chrome so the field
+/* Frosted panel around the fields so the fixed dot grid reads as a
+   backdrop instead of bleeding through the (transparent-filled) inputs —
+   same treatment as the onboarding home cards. Kept off the <form> itself:
+   backdrop-filter creates a containing block, which would capture the
+   fixed footer. */
+.panel {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	padding: 32px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-strong, #fff) 50%, transparent);
+	backdrop-filter: blur(12px);
+}
+
+/* The path trigger is a <button>, but it mirrors the @wordpress/ui
+   InputLayout chrome (height, border, radius, type, tokens) so the field
    reads as "one more input" alongside its siblings. The actual value is
    chosen via the OS folder picker opened by clicking the button. */
 .pathTrigger {
@@ -16,36 +28,38 @@
 	justify-content: space-between;
 	gap: 8px;
 	width: 100%;
-	min-height: 40px;
-	padding: 0 4px 0 12px;
-	border: 1px solid #8a8a8a;
+	height: 40px;
+	padding: 0 4px 0 var(--wpds-dimension-padding-md, 12px);
+	background-color: var(--wpds-color-bg-interactive-neutral-weak);
+	border: var(--wpds-border-width-xs, 1px) solid var(--wpds-color-stroke-interactive-neutral);
+	/* Fixed 2px, not the radius-sm token (this app bumps it to 4px): the
+	   sibling DataForm fields are @wordpress/components controls with a
+	   hardcoded 2px radius, and the path field must match them. */
 	border-radius: 2px;
-	background: #fff;
-	color: #1e1e1e;
-	font: inherit;
-	font-size: 16px;
+	color: var(--wpds-color-fg-interactive-neutral);
+	font-family: var(--wpds-typography-font-family-body);
+	font-size: var(--wpds-typography-font-size-md, 13px);
+	line-height: 1;
 	text-align: left;
 	cursor: pointer;
-	transition: border-color 0.15s, box-shadow 0.15s;
+	transition: border-color 0.15s;
 }
 
 .pathTrigger:hover {
-	border-color: #1e1e1e;
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
 }
 
 .pathTrigger:focus-visible {
-	border-color: #1e1e1e;
-	box-shadow: 0 0 0 0.5px #1e1e1e;
-	outline: none;
+	outline: 2px solid var(--wpds-color-stroke-focus-brand, #3858e9);
+	outline-offset: -1px;
 }
 
 .pathTriggerError {
-	border-color: #d63638;
+	border-color: var(--wpds-color-stroke-interactive-error, #d63638);
 }
 
 .pathTriggerError:focus-visible {
-	border-color: #d63638;
-	box-shadow: 0 0 0 0.5px #d63638;
+	outline-color: var(--wpds-color-stroke-interactive-error, #d63638);
 }
 
 .pathValue {
@@ -57,19 +71,19 @@
 }
 
 .pathValuePlaceholder {
-	color: #757575;
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
 }
 
 .pathTriggerAction {
 	flex: 0 0 auto;
 	padding: 6px 12px;
-	font-size: 13px;
+	font-size: var(--wpds-typography-font-size-md, 13px);
 	font-weight: 500;
-	color: #1e1e1e;
+	color: var(--wpds-color-fg-interactive-neutral);
 }
 
 .pathErrorHelp {
-	color: #d63638;
+	color: var(--wpds-color-fg-content-error, #d63638);
 }
 
 .advancedToggle {
@@ -79,23 +93,53 @@
 	align-self: flex-start;
 }
 
+/* Animated expand/collapse for the Advanced settings — the 0fr -> 1fr grid
+   row transition slides the content open without measuring heights. The
+   content stays mounted (inert while closed) so closing animates too. */
+.advancedCollapse {
+	display: grid;
+	grid-template-rows: 0fr;
+	opacity: 0;
+	/* Cancels the panel's 24px flex gap while collapsed — the zero-height
+	   row would otherwise leave a phantom gap under the toggle. */
+	margin-top: -24px;
+	transition: grid-template-rows 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease;
+}
+
+.advancedCollapseOpen {
+	grid-template-rows: 1fr;
+	opacity: 1;
+	margin-top: 0;
+}
+
+.advancedCollapseInner {
+	overflow: hidden;
+	min-height: 0;
+	/* The clip needed for the collapse animation would also shave outset
+	   focus rings off fields at the container edges; the negative margin +
+	   equal padding widens the clip box without moving the content. */
+	padding: 4px;
+	margin: -4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.advancedCollapse {
+		transition: none;
+	}
+}
+
 .advancedErrorCount {
 	margin-left: 8px;
 	font-size: 12px;
 	font-weight: 500;
-	color: #d63638;
+	color: var(--wpds-color-fg-content-error, #d63638);
 }
 
 .submitError {
 	padding: 10px 12px;
 	border-radius: 4px;
-	background: #fce8e8;
-	color: #7a1a1a;
+	background: color-mix(in srgb, var(--wpds-color-fg-content-error, #d63638) 12%, transparent);
+	color: var(--wpds-color-fg-content-error, #7a1a1a);
 	font-size: 13px;
 }
 
-.actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 8px;
-}

@@ -1,5 +1,19 @@
 .page {
 	width: 100%;
+	text-align: center;
+	/* Breathing room so content scrolls clear of the fixed footer bar. */
+	padding-bottom: 72px;
+}
+
+.pageSpacious {
+	padding-top: 64px;
+}
+
+/* Forms read better as a narrow left-aligned column centered in the
+   viewport — matches the desktop renderer's Add Site form layout. */
+.page form {
+	max-width: 480px;
+	margin-inline: auto;
 	text-align: left;
 }
 
@@ -14,50 +28,22 @@
 	margin: 0 0 32px;
 }
 
-.cards {
-	display: flex;
-	gap: 16px;
+.outlet {
+	display: contents;
 }
 
-.card {
-	position: relative;
-	display: block;
-	text-align: left;
-	padding: 24px;
-	width: 240px;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
-	border-radius: 8px;
-	cursor: pointer;
-	color: inherit;
-	text-decoration: none;
-	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
+.outlet h1:focus:not(:focus-visible) {
+	outline: none;
 }
 
-.card:hover {
-	border-color: var(--wpds-color-stroke-interactive-neutral, #bbb);
-}
-
-.cardDisabled {
-	opacity: 0.55;
-	cursor: not-allowed;
-}
-
-.cardTitle {
-	font-weight: 600;
-	margin-bottom: 8px;
-}
-
-.cardBody {
-	color: var(--wpds-color-fg-content-neutral-weak, #666);
-	font-size: 0.875rem;
-}
-
-.cardBadge {
-	position: absolute;
-	top: 12px;
-	right: 12px;
-	font-size: 11px;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	color: var(--wpds-color-fg-content-neutral-weak, #555);
+/* Decorative dot-grid backdrop behind every onboarding step. Fixed so it
+   stays put while tall pages (the gallery, the connect picker) scroll. */
+.dotGridLayer {
+	position: fixed;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+	/* Negative z-index puts it behind content inside onboarding-layout's
+	   isolated stacking context. */
+	z-index: -1;
 }

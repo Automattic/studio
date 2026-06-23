@@ -135,6 +135,8 @@ const api: IpcApi = {
 	getConnectedWpcomSites: ( localSiteId ) =>
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
 	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
+	fetchSyncableWpcomSitesPage: ( options ) =>
+		ipcRendererInvoke( 'fetchSyncableWpcomSitesPage', options ),
 	pullSiteFromLive: ( siteFolder, remoteSiteId, optionsToSync, includePathList ) =>
 		ipcRendererInvoke(
 			'pullSiteFromLive',

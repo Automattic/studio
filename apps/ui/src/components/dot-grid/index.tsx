@@ -1,6 +1,14 @@
-import { clsx } from 'clsx';
 import { useEffect, useRef } from 'react';
 import styles from './style.module.css';
+
+/**
+ * Animated dot-grid backdrop, ported from the desktop renderer's
+ * `DotGrid`. Renders a grid of crosses joined by dashed lines on a canvas;
+ * dots spring away from the cursor, mouse-down focuses the repulsion radius,
+ * and mouse-up emits a ripple. Honors `prefers-reduced-motion` by drawing a
+ * static grid instead. The draw color comes from the canvas' computed CSS
+ * `color`, so it tracks light/dark token changes for free.
+ */
 
 interface DotGridProps {
 	opacity?: number;
@@ -10,6 +18,13 @@ interface DotGridProps {
 	crossSize?: number;
 	crossThickness?: number;
 	className?: string;
+	/**
+	 * Set false while the grid is hidden (e.g. faded out behind a sub-page)
+	 * to pause the physics/render loop instead of burning CPU on invisible
+	 * frames. The simulation state survives, so re-activating doesn't replay
+	 * the intro sweep.
+	 */
+	active?: boolean;
 }
 
 const SPRING_K = 0.07;
@@ -36,18 +51,6 @@ interface Ripple {
 	maxRadius: number;
 }
 
-function getCanvasContext( canvas: HTMLCanvasElement ) {
-	try {
-		return canvas.getContext( '2d' );
-	} catch {
-		return null;
-	}
-}
-
-function getMediaQuery( query: string ) {
-	return typeof window.matchMedia === 'function' ? window.matchMedia( query ) : null;
-}
-
 export function DotGrid( {
 	opacity = 0.25,
 	repulsion = 0.25,
@@ -56,15 +59,19 @@ export function DotGrid( {
 	crossSize = 4,
 	crossThickness = 0.75,
 	className,
+	active = true,
 }: DotGridProps ) {
 	const canvasRef = useRef< HTMLCanvasElement >( null );
+	// Bridges the `active` prop into the long-lived effect below without
+	// tearing the simulation down (the effect's deps stay layout-only).
+	const setActiveRef = useRef< ( value: boolean ) => void >( () => {} );
 
 	useEffect( () => {
 		const canvas = canvasRef.current;
 		if ( ! canvas ) return;
-		const canvasElement = canvas;
 
 		let ctx: CanvasRenderingContext2D | null = null;
+		let isActive = true;
 		let color = '';
 		let mouseX = -9999;
 		let mouseY = -9999;
@@ -80,18 +87,20 @@ export function DotGrid( {
 
 		let cols = 0;
 		let rows = 0;
-		let ox = new Float32Array();
-		let oy = new Float32Array();
-		let vx = new Float32Array();
-		let vy = new Float32Array();
+		let ox: Float32Array;
+		let oy: Float32Array;
+		let vx: Float32Array;
+		let vy: Float32Array;
 
 		function readColor() {
-			color = getComputedStyle( canvasElement ).color;
+			if ( ! canvas ) return;
+			color = getComputedStyle( canvas ).color;
 		}
 
 		function initDots() {
-			cols = Math.ceil( canvasElement.offsetWidth / spacing ) + 1;
-			rows = Math.ceil( canvasElement.offsetHeight / spacing ) + 1;
+			if ( ! canvas ) return;
+			cols = Math.ceil( canvas.offsetWidth / spacing ) + 1;
+			rows = Math.ceil( canvas.offsetHeight / spacing ) + 1;
 			const n = cols * rows;
 			ox = new Float32Array( n );
 			oy = new Float32Array( n );
@@ -100,13 +109,13 @@ export function DotGrid( {
 		}
 
 		function tick( timestamp: number ): boolean {
-			if ( ! ctx ) return false;
+			if ( ! ctx || ! canvas ) return false;
 			const rawDt = lastTimestamp === 0 ? TARGET_MS : timestamp - lastTimestamp;
 			lastTimestamp = timestamp;
 			const dt = Math.min( rawDt / TARGET_MS, 3 );
 
-			const cssW = canvasElement.offsetWidth;
-			const cssH = canvasElement.offsetHeight;
+			const cssW = canvas.offsetWidth;
+			const cssH = canvas.offsetHeight;
 			ctx.clearRect( 0, 0, cssW, cssH );
 			ctx.fillStyle = color;
 
@@ -126,7 +135,7 @@ export function DotGrid( {
 			}
 
 			const dampFactor = Math.pow( DAMPING, dt );
-			const cursorActive = mouseX > -9998;
+			const cursorActive = isActive && mouseX > -9998;
 			let anyActive = false;
 
 			for ( let r = 0; r < rows; r++ ) {
@@ -140,6 +149,7 @@ export function DotGrid( {
 					let dox = ox[ i ];
 					let doy = oy[ i ];
 
+					// Hover repulsion
 					if ( cursorActive ) {
 						const cx2 = rx + dox;
 						const cy2 = ry + doy;
@@ -153,6 +163,7 @@ export function DotGrid( {
 						}
 					}
 
+					// Ripple wavefronts
 					for ( const ripple of ripples ) {
 						const cx2 = rx + dox;
 						const cy2 = ry + doy;
@@ -168,10 +179,15 @@ export function DotGrid( {
 						}
 					}
 
+					// Spring toward rest
 					dvx += SPRING_K * -dox * dt;
 					dvy += SPRING_K * -doy * dt;
+
+					// Damping
 					dvx *= dampFactor;
 					dvy *= dampFactor;
+
+					// Integrate
 					dox += dvx * dt;
 					doy += dvy * dt;
 
@@ -191,6 +207,7 @@ export function DotGrid( {
 				}
 			}
 
+			// Draw dotted connecting lines
 			ctx.strokeStyle = color;
 			ctx.lineWidth = crossThickness;
 			ctx.setLineDash( [ 1, 4 ] );
@@ -208,6 +225,7 @@ export function DotGrid( {
 						);
 					}
 
+					// Horizontal line to right neighbor
 					if ( c < cols - 1 ) {
 						const ni = r * cols + ( c + 1 );
 						const nx = ( c + 1 ) * spacing + ox[ ni ];
@@ -217,6 +235,7 @@ export function DotGrid( {
 						ctx.lineTo( nx - crossSize, ny );
 						ctx.stroke();
 					}
+					// Vertical line to bottom neighbor
 					if ( r < rows - 1 ) {
 						const ni = ( r + 1 ) * cols + c;
 						const nx = c * spacing + ox[ ni ];
@@ -230,6 +249,7 @@ export function DotGrid( {
 			}
 			ctx.setLineDash( [] );
 
+			// Draw crosses on top
 			ctx.fillStyle = color;
 			for ( let r = 0; r < rows; r++ ) {
 				for ( let c = 0; c < cols; c++ ) {
@@ -261,10 +281,10 @@ export function DotGrid( {
 		function loop( timestamp: number ) {
 			if ( tick( timestamp ) ) {
 				rafId = requestAnimationFrame( loop );
-				return;
+			} else {
+				rafId = null;
+				lastTimestamp = 0;
 			}
-			rafId = null;
-			lastTimestamp = 0;
 		}
 
 		function ensureLoop() {
@@ -275,9 +295,9 @@ export function DotGrid( {
 		}
 
 		function drawStatic() {
-			if ( ! ctx ) return;
-			const cssW = canvasElement.offsetWidth;
-			const cssH = canvasElement.offsetHeight;
+			if ( ! ctx || ! canvas ) return;
+			const cssW = canvas.offsetWidth;
+			const cssH = canvas.offsetHeight;
 			ctx.clearRect( 0, 0, cssW, cssH );
 
 			ctx.strokeStyle = color;
@@ -315,57 +335,50 @@ export function DotGrid( {
 		}
 
 		function setupCanvas() {
-			if ( canvasElement.offsetWidth === 0 || canvasElement.offsetHeight === 0 ) {
-				return false;
-			}
+			if ( ! canvas ) return;
 			const dpr = window.devicePixelRatio || 1;
-			canvasElement.width = Math.round( canvasElement.offsetWidth * dpr );
-			canvasElement.height = Math.round( canvasElement.offsetHeight * dpr );
-			ctx = getCanvasContext( canvasElement );
-			if ( ! ctx ) return false;
+			canvas.width = Math.round( canvas.offsetWidth * dpr );
+			canvas.height = Math.round( canvas.offsetHeight * dpr );
+			ctx = canvas.getContext( '2d' )!;
 			ctx.scale( dpr, dpr );
 			readColor();
 			initDots();
-			return true;
 		}
 
 		function resize() {
-			if ( setupCanvas() ) {
-				ensureLoop();
-			}
+			setupCanvas();
+			ensureLoop();
 		}
 
 		function resizeStatic() {
-			if ( setupCanvas() ) {
-				drawStatic();
-			}
+			setupCanvas();
+			drawStatic();
 		}
 
-		const reducedMotionQuery = getMediaQuery( '(prefers-reduced-motion: reduce)' );
-		const colorSchemeQuery = getMediaQuery( '(prefers-color-scheme: dark)' );
-		const prefersReducedMotion = reducedMotionQuery?.matches ?? false;
+		const prefersReducedMotion = window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 
 		if ( prefersReducedMotion ) {
 			resizeStatic();
 
-			const resizeObserver =
-				typeof ResizeObserver === 'undefined' ? null : new ResizeObserver( resizeStatic );
-			resizeObserver?.observe( canvasElement );
+			const resizeObserver = new ResizeObserver( resizeStatic );
+			resizeObserver.observe( canvas );
 
+			const mediaQuery = window.matchMedia( '(prefers-color-scheme: dark)' );
 			const onColorChange = () => {
 				readColor();
 				drawStatic();
 			};
-			colorSchemeQuery?.addEventListener( 'change', onColorChange );
+			mediaQuery.addEventListener( 'change', onColorChange );
 
 			return () => {
-				resizeObserver?.disconnect();
-				colorSchemeQuery?.removeEventListener( 'change', onColorChange );
+				resizeObserver.disconnect();
+				mediaQuery.removeEventListener( 'change', onColorChange );
 			};
 		}
 
 		function onMouseMove( e: MouseEvent ) {
-			const rect = canvasElement.getBoundingClientRect();
+			if ( ! canvas || ! isActive ) return;
+			const rect = canvas.getBoundingClientRect();
 			const x = e.clientX - rect.left;
 			const y = e.clientY - rect.top;
 			const inside = x >= 0 && x <= rect.width && y >= 0 && y <= rect.height;
@@ -375,7 +388,8 @@ export function DotGrid( {
 		}
 
 		function onMouseDown( e: MouseEvent ) {
-			const rect = canvasElement.getBoundingClientRect();
+			if ( ! canvas || ! isActive ) return;
+			const rect = canvas.getBoundingClientRect();
 			const x = e.clientX - rect.left;
 			const y = e.clientY - rect.top;
 			if ( x >= 0 && x <= rect.width && y >= 0 && y <= rect.height ) {
@@ -385,9 +399,10 @@ export function DotGrid( {
 		}
 
 		function onMouseUp( e: MouseEvent ) {
+			if ( ! canvas || ! isActive ) return;
 			targetRadius = RADIUS_BASE;
 			if ( mouseX > -9998 ) {
-				const rect = canvasElement.getBoundingClientRect();
+				const rect = canvas.getBoundingClientRect();
 				const x = e.clientX - rect.left;
 				const y = e.clientY - rect.top;
 				const diag = Math.sqrt( rect.width ** 2 + rect.height ** 2 );
@@ -401,11 +416,17 @@ export function DotGrid( {
 			ensureLoop();
 		}
 
-		const onColorChange = () => {
-			readColor();
-			if ( rafId === null ) {
-				drawStatic();
+		setActiveRef.current = ( value: boolean ) => {
+			if ( isActive === value ) return;
+			isActive = value;
+			if ( ! value ) {
+				// Forget the cursor and any pressed state so the springs settle
+				// to rest in a few frames and the loop goes to sleep.
+				mouseX = -9999;
+				mouseY = -9999;
+				targetRadius = RADIUS_BASE;
 			}
+			ensureLoop();
 		};
 
 		resize();
@@ -414,35 +435,38 @@ export function DotGrid( {
 		document.addEventListener( 'mousedown', onMouseDown );
 		document.addEventListener( 'mouseup', onMouseUp );
 
-		const resizeObserver =
-			typeof ResizeObserver === 'undefined' ? null : new ResizeObserver( resize );
-		resizeObserver?.observe( canvasElement );
+		const resizeObserver = new ResizeObserver( resize );
+		resizeObserver.observe( canvas );
 
-		const themeRoot =
-			canvasElement.closest( '[data-wpds-theme-provider-id]' ) ?? document.documentElement;
-		const themeObserver =
-			typeof MutationObserver === 'undefined' ? null : new MutationObserver( onColorChange );
-		themeObserver?.observe( themeRoot, {
-			attributes: true,
-			attributeFilter: [ 'class', 'style', 'data-wpds-density' ],
-		} );
-		colorSchemeQuery?.addEventListener( 'change', onColorChange );
+		const mediaQuery = window.matchMedia( '(prefers-color-scheme: dark)' );
+		// Wake the loop for at least one frame so a sleeping grid repaints in
+		// the new color (the reduced-motion branch does the drawStatic
+		// equivalent above).
+		const onColorChange = () => {
+			readColor();
+			ensureLoop();
+		};
+		mediaQuery.addEventListener( 'change', onColorChange );
 
 		return () => {
 			if ( rafId !== null ) cancelAnimationFrame( rafId );
+			setActiveRef.current = () => {};
 			document.removeEventListener( 'mousemove', onMouseMove );
 			document.removeEventListener( 'mousedown', onMouseDown );
 			document.removeEventListener( 'mouseup', onMouseUp );
-			resizeObserver?.disconnect();
-			themeObserver?.disconnect();
-			colorSchemeQuery?.removeEventListener( 'change', onColorChange );
+			resizeObserver.disconnect();
+			mediaQuery.removeEventListener( 'change', onColorChange );
 		};
 	}, [ spacing, repulsion, rippleStrength, crossSize, crossThickness ] );
+
+	useEffect( () => {
+		setActiveRef.current( active );
+	}, [ active ] );
 
 	return (
 		<canvas
 			ref={ canvasRef }
-			className={ clsx( styles.canvas, className ) }
+			className={ className ? `${ styles.canvas } ${ className }` : styles.canvas }
 			style={ { opacity } }
 		/>
 	);

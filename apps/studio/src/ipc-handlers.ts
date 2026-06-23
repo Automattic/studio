@@ -201,6 +201,7 @@ export {
 	downloadSyncBackup,
 	exportSiteForPush,
 	fetchSyncableWpcomSites,
+	fetchSyncableWpcomSitesPage,
 	getConnectedWpcomSites,
 	getLiveSyncImportStatus,
 	getLiveSyncItems,

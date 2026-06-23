@@ -90,19 +90,22 @@ textarea,
 
 /* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
    :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
-   `a` covers Button primitives rendered as links via its `render` prop.
-   Also revert the background/border shift @wordpress/ui's Button applies on
-   `:focus` — when a Dialog auto-focuses a button on open, the "active" look
-   would otherwise show without any user intent. Leave `color` alone:
-   loading buttons rely on `color: transparent` to hide their label while
-   the spinner runs, and overriding that here would make the label visible
-   again. */
+   `a` covers Button primitives rendered as links via its `render` prop. */
 button:focus:not( :focus-visible ),
 a:focus:not( :focus-visible ),
 [role='button']:focus:not( :focus-visible ) {
 	outline: none;
-	background-color: var( --wp-ui-button-background-color );
-	border-color: var( --wp-ui-button-border-color );
+}
+
+/* Revert the background/border shift @wordpress/ui's Button applies on
+   `:focus` without overriding unlayered custom component styles. */
+@layer wp-ui-overrides {
+	button:focus:not( :focus-visible ),
+	a:focus:not( :focus-visible ),
+	[role='button']:focus:not( :focus-visible ) {
+		background-color: var( --wp-ui-button-background-color );
+		border-color: var( --wp-ui-button-border-color );
+	}
 }
 
 /* Compact density: shrink icons to match the tighter spacing tokens.
@@ -124,6 +127,42 @@ a:focus:not( :focus-visible ),
 	) {
 	background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
 	color: var( --wpds-color-fg-interactive-neutral );
+}
+
+/* Escape hatch for non-icon SVGs (illustrations, thumbnails) that size
+   themselves through their width/height attributes — `auto` defers back to
+   the attribute values the compact-density rule above would override. */
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
+	width: auto;
+	height: auto;
+}
+
+@keyframes view-transition-exit {
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes view-transition-enter {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+}
+
+::view-transition-old(root) {
+	animation: 120ms ease-out both view-transition-exit;
+}
+
+::view-transition-new(root) {
+	animation: 220ms ease-out both view-transition-enter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+	}
 }
 
 /* @wordpress/components' ComboboxControl (used by DataForm's adaptive

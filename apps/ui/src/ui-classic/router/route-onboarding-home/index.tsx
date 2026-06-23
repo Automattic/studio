@@ -1,36 +1,156 @@
-import { createRoute, Link } from '@tanstack/react-router';
+import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { createRoute, Link, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { useCallback, useRef, useState } from 'react';
+import {
+	BuildNewSiteIllustration,
+	ConnectSiteIllustration,
+	DropBackupIllustration,
+	illustrationHostClass,
+} from '@/components/onboarding-illustrations';
+import { useConnector } from '@/data/core';
+import { useGridArrowNavigation } from '@/hooks/use-grid-arrow-navigation';
+import { useOffline } from '@/hooks/use-offline';
+import { isValidBackupFile } from '@/lib/backup-files';
+import { setPendingBackup } from '@/lib/pending-backup';
 import { onboardingLayoutRoute } from '../layout-onboarding';
-import styles from '../layout-onboarding/style.module.css';
+import sharedStyles from '../layout-onboarding/style.module.css';
+import styles from './style.module.css';
 
-function OnboardingHomePage() {
+const cardClass = `${ styles.card } ${ illustrationHostClass }`;
+
+// Connecting requires WordPress.com, so the card is disabled offline —
+// matching the desktop renderer's options screen.
+function ConnectSiteCard() {
+	const isOffline = useOffline();
+	return (
+		<Link
+			to="/onboarding/connect"
+			className={ isOffline ? `${ cardClass } ${ styles.cardDisabled }` : cardClass }
+			aria-disabled={ isOffline || undefined }
+			data-arrow-nav-item
+			onClick={ ( event ) => {
+				if ( isOffline ) {
+					event.preventDefault();
+				}
+			} }
+		>
+			<ConnectSiteIllustration />
+			<div className={ styles.cardText }>
+				<h3 className={ styles.cardTitle }>{ __( 'Connect a site' ) }</h3>
+				<p className={ styles.cardBody }>
+					{ __( 'Edit a WordPress.com or Pressable site locally, then push changes back' ) }
+				</p>
+			</div>
+		</Link>
+	);
+}
+
+/**
+ * The import card doubles as a drop target, mirroring the desktop renderer's
+ * options screen: dropping (or browsing to) a valid backup archive skips the
+ * import route's select step and lands straight on configure, with the file
+ * handed over through the pending-backup slot.
+ */
+function ImportDropCard() {
+	const navigate = useNavigate();
+	const connector = useConnector();
+	const fileRef = useRef< HTMLInputElement >( null );
+	const [ isDragging, setIsDragging ] = useState( false );
+	const [ error, setError ] = useState< string | null >( null );
+
+	const handleFile = useCallback(
+		async ( file: File | undefined ) => {
+			if ( ! file ) {
+				return;
+			}
+			if ( ! isValidBackupFile( file ) ) {
+				setError( __( 'Unsupported file type.' ) );
+				return;
+			}
+			const path = await connector.getFilePath( file );
+			if ( ! path ) {
+				setError( __( 'Unable to read the file. Try clicking the card to browse instead.' ) );
+				return;
+			}
+			setError( null );
+			setPendingBackup( { file, path } );
+			void navigate( { to: '/onboarding/import' } );
+		},
+		[ connector, navigate ]
+	);
+
+	return (
+		<>
+			<input
+				ref={ fileRef }
+				type="file"
+				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
+				className={ styles.hiddenInput }
+				onChange={ ( event ) => {
+					void handleFile( event.target.files?.[ 0 ] );
+					event.target.value = '';
+				} }
+			/>
+			<button
+				type="button"
+				className={ isDragging ? `${ cardClass } ${ styles.cardDragging }` : cardClass }
+				onClick={ () => fileRef.current?.click() }
+				data-arrow-nav-item
+				onDragOver={ ( event ) => {
+					event.preventDefault();
+					setIsDragging( true );
+					setError( null );
+				} }
+				onDragLeave={ ( event ) => {
+					event.preventDefault();
+					setIsDragging( false );
+				} }
+				onDrop={ ( event ) => {
+					event.preventDefault();
+					setIsDragging( false );
+					void handleFile( event.dataTransfer.files[ 0 ] );
+				} }
+			>
+				<DropBackupIllustration />
+				<div className={ styles.cardText }>
+					<h3 className={ styles.cardTitle }>{ __( 'Import from a backup' ) }</h3>
+					<p className={ styles.cardBody }>
+						{ __( 'Drop a file or click to browse (.zip, .tar.gz, .sql, .wpress)' ) }
+					</p>
+					{ error && (
+						<span role="alert" className={ styles.cardError }>
+							{ error }
+						</span>
+					) }
+				</div>
+			</button>
+		</>
+	);
+}
+
+export function OnboardingHomePage() {
+	const handleGridKeyDown = useGridArrowNavigation();
 	return (
 		<div className={ styles.page }>
-			<h1 className={ styles.title }>{ __( 'Start a new site' ) }</h1>
-			<p className={ styles.subtitle }>
-				{ __( 'WordPress can power anything. What are you building?' ) }
+			<h1 className={ sharedStyles.title }>{ __( 'Add a site' ) }</h1>
+			<p className={ sharedStyles.subtitle }>
+				{ __( 'Start fresh or bring an existing site into your Studio.' ) }
 			</p>
-			<div className={ styles.cards }>
-				<Link to="/onboarding/create" className={ styles.card }>
-					<h3 className={ styles.cardTitle }>{ __( 'Create new' ) }</h3>
-					<p className={ styles.cardBody }>
-						{ __( 'Start fresh with a blank site and build it with AI' ) }
-					</p>
+			<div className={ styles.cards } onKeyDown={ handleGridKeyDown }>
+				<Link to="/onboarding/blueprint" className={ cardClass } data-arrow-nav-item>
+					<BuildNewSiteIllustration />
+					<div className={ styles.cardText }>
+						<h3 className={ styles.cardTitle }>{ __( 'Build a new site' ) }</h3>
+						<p className={ styles.cardBody }>
+							{ __(
+								'Start from scratch or use a blueprint. Perfect for theme and plugin development.'
+							) }
+						</p>
+					</div>
 				</Link>
-				<Link to="/onboarding/blueprint" className={ styles.card }>
-					<h3 className={ styles.cardTitle }>{ __( 'Start from a blueprint' ) }</h3>
-					<p className={ styles.cardBody }>
-						{ __(
-							'Pick a featured blueprint or drop in your own to provision plugins, content, and settings.'
-						) }
-					</p>
-				</Link>
-				<Link to="/onboarding/import" className={ styles.card }>
-					<h3 className={ styles.cardTitle }>{ __( 'Bring existing' ) }</h3>
-					<p className={ styles.cardBody }>
-						{ __( 'Import from a Jetpack backup or another full-site export' ) }
-					</p>
-				</Link>
+				<ConnectSiteCard />
+				<ImportDropCard />
 			</div>
 		</div>
 	);

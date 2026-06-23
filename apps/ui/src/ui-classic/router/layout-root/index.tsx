@@ -2,6 +2,8 @@ import { createRootRouteWithContext, Outlet, useNavigate } from '@tanstack/react
 import { useEffect } from 'react';
 import { normalizeSettingsTab } from '@/components/settings-view';
 import { useConnector } from '@/data/core';
+import { useAddSiteListener } from '@/hooks/use-add-site-listener';
+import { useMouseNavigation } from '@/hooks/use-mouse-navigation';
 import type { Connector, UserSettingsEventTab } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -17,6 +19,9 @@ function getSettingsTabFromEvent( tabName: UserSettingsEventTab | undefined ) {
 function RootLayout() {
 	const connector = useConnector();
 	const navigate = useNavigate();
+
+	useAddSiteListener();
+	useMouseNavigation();
 
 	useEffect( () => {
 		return connector.onUserSettings( ( tabName ) => {

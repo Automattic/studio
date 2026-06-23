@@ -6,6 +6,7 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { ImportResponse, SyncOption, SyncSite } from '@studio/common/types/sync';
@@ -35,6 +36,21 @@ export type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 export type { SupportedLocale } from '@studio/common/lib/locale';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
+
+export interface SyncableWpcomSitesPageOptions {
+	page?: number;
+	perPage?: number;
+	search?: string;
+}
+
+export interface SyncableWpcomSitesPage {
+	sites: SyncSite[];
+	total: number;
+	page: number;
+	perPage: number;
+	hasMore: boolean;
+	nextPage: number | null;
+}
 
 export interface AiSessionSitePlacement {
 	kind: 'site';
@@ -139,7 +155,9 @@ export interface Connector {
 	requiresAuth: boolean;
 	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
-	authenticate(): Promise< void >;
+	// Starts the WordPress.com OAuth flow in the browser. Pass `signup` to
+	// land on account creation instead of login.
+	authenticate( signup?: boolean ): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
 
@@ -187,6 +205,11 @@ export interface Connector {
 	// and domain lookups).
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
+	// Resolves a base name to one that doesn't collide with an existing site
+	// name or a non-empty site folder ("My Site", "My Site 2", ...), returning
+	// it with its proposed directory. The collision search runs in the main
+	// process so callers pay a constant number of IPC round-trips.
+	findAvailableSitePath( baseName: string ): Promise< AvailableSitePath >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 	getAllCustomDomains(): Promise< string[] >;
@@ -195,6 +218,11 @@ export interface Connector {
 	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
 	// no auth required, localized by the user's current UI locale.
 	getFeaturedBlueprints( locale?: string ): Promise< FeaturedBlueprint[] >;
+
+	// Installable WordPress versions from the wordpress.org version-check
+	// API: a "latest" auto-updating option first, then nightly/beta and
+	// stable releases down to Playground's minimum supported version.
+	getWordPressVersions(): Promise< WordPressVersion[] >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
 	// in the renderer. Returns an empty string when the underlying file lacks
@@ -214,6 +242,9 @@ export interface Connector {
 	// temp directory automatically when it uses the extracted blueprint.
 	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
+	readBlueprintFile( filePath: string ): Promise< Record< string, unknown > >;
+	onAddSiteRequested( listener: () => void ): () => void;
+	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 
 	// Imports a backup archive into an already-created site. Extracts the
 	// archive, installs the SQLite integration if missing, then imports the
@@ -239,6 +270,11 @@ export interface Connector {
 	// of which (if any) local site they're already connected to. The publish
 	// picker filters this list to sites that aren't connected anywhere yet.
 	fetchSyncableWpcomSites(): Promise< SyncSite[] >;
+	// One page of the same list. Used by the onboarding picker to mirror the
+	// default Studio UI's first-page + server-side search behavior.
+	fetchSyncableWpcomSitesPage(
+		options?: SyncableWpcomSitesPageOptions
+	): Promise< SyncableWpcomSitesPage >;
 	// Persists a new local↔live connection so the dropdown picks it up via
 	// `getConnectedWpcomSites`. Safe to call with the minimal `SyncSite` we
 	// receive from a sync-connect-site deep link — later fetches backfill the
@@ -461,6 +497,10 @@ export interface CreateSiteParams {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
+	// Skips starting the site server after creation. Used by flows that
+	// immediately overwrite the fresh install (pulling a connected
+	// WordPress.com site), where the sync handler restarts the server itself.
+	skipStart?: boolean;
 	// Optional blueprint payload. When present, `blueprint` is the parsed
 	// blueprint JSON; `slug` is set for featured blueprints (used for stats);
 	// `filePath` points at the extracted `blueprint.json` inside a ZIP bundle
@@ -484,6 +524,11 @@ export interface ProposedSitePath {
 	isEmpty: boolean;
 	isWordPress: boolean;
 	isNameTooLong?: boolean;
+}
+
+export interface AvailableSitePath {
+	name: string;
+	path: string;
 }
 
 export interface SelectedSiteFolder {

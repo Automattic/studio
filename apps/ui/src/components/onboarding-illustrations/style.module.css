@@ -1,0 +1,89 @@
+/* Animation and hover treatment for the onboarding illustrations. The
+   `host` class goes on the hoverable card that contains an illustration —
+   hover effects on individual SVG parts key off it, mirroring the Tailwind
+   `group`/`group-hover` pairing the desktop renderer uses. */
+
+.host {
+	/* Hover scope only — no visual styles of its own. */
+}
+
+/* Rotate SVG children around their own centroid rather than the
+   document origin. */
+.spin,
+.hoverSpinReverse {
+	transform-box: fill-box;
+	transform-origin: center;
+}
+
+.spin {
+	animation: spin 20s linear infinite;
+}
+
+.host:hover .hoverSpinReverse {
+	animation: spin 24s linear infinite reverse;
+}
+
+.themeStroke {
+	transition: stroke 0.15s ease;
+}
+
+.host:hover .themeStroke {
+	stroke: var(--wpds-color-stroke-interactive-brand, #3858e9);
+}
+
+.themeFill {
+	transition: fill 0.15s ease;
+}
+
+.host:hover .themeFill {
+	fill: var(--wpds-color-fg-interactive-brand, #3858e9);
+}
+
+.host:hover .arrowNudge {
+	animation: arrow-nudge 1.2s ease-in-out infinite;
+}
+
+.host:hover .cardShift {
+	animation: card-shift 3s ease-in-out infinite;
+}
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes arrow-nudge {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+
+	50% {
+		transform: translateY(2px);
+	}
+}
+
+@keyframes card-shift {
+	0%,
+	100% {
+		transform: translate(0, 0);
+	}
+
+	50% {
+		transform: translate(-3px, -3px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.spin,
+	.host:hover .hoverSpinReverse,
+	.host:hover .arrowNudge,
+	.host:hover .cardShift {
+		animation: none;
+	}
+}

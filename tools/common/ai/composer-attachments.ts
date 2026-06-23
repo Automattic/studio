@@ -38,6 +38,8 @@ export interface ComposerSendAttachments {
 	files: StudioChatFileAttachment[];
 }
 
+export const COMPOSER_FILE_IMAGE_PREVIEW_MAX_BYTES = 1 * 1024 * 1024;
+
 type ComposerAttachmentMessages = {
 	imageTooLarge: string;
 	imageReadFailed: string;
@@ -151,6 +153,9 @@ function isTextPreviewableFile( file: File ): boolean {
 
 async function buildFilePreview( file: File ): Promise< ComposerFilePreview | undefined > {
 	if ( file.type.startsWith( 'image/' ) ) {
+		if ( file.size > COMPOSER_FILE_IMAGE_PREVIEW_MAX_BYTES ) {
+			return undefined;
+		}
 		try {
 			return { kind: 'image', dataUrl: await readFileAsDataUrl( file ) };
 		} catch {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { STUDIO_CHAT_MAX_FILES } from '../chat-files';
 import { STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES } from '../chat-images';
 import {
+	COMPOSER_FILE_IMAGE_PREVIEW_MAX_BYTES,
 	mergeComposerAttachments,
 	prepareComposerAttachments,
 	type ComposerAttachment,
@@ -69,6 +70,55 @@ describe( 'prepareComposerAttachments', () => {
 			size: 12,
 			preview: { kind: 'text', text: 'Hello Studio' },
 		} );
+	} );
+
+	it( 'builds image previews for small path-backed image attachments', async () => {
+		const result = await prepareComposerAttachments(
+			[ new File( [ 'fake-tiff' ], 'sample.tiff', { type: 'image/tiff' } ) ],
+			{
+				resolveFilePath: () => '/tmp/sample.tiff',
+				messages: prepareMessages,
+			}
+		);
+
+		expect( result.error ).toBeNull();
+		expect( result.attachments ).toHaveLength( 1 );
+		expect( result.attachments[ 0 ] ).toMatchObject( {
+			kind: 'file',
+			name: 'sample.tiff',
+			path: '/tmp/sample.tiff',
+			mimeType: 'image/tiff',
+			size: 9,
+			preview: {
+				kind: 'image',
+				dataUrl: expect.stringContaining( 'data:image/tiff' ),
+			},
+		} );
+	} );
+
+	it( 'skips image previews for oversized path-backed image attachments', async () => {
+		const result = await prepareComposerAttachments(
+			[
+				new File( [ new Uint8Array( COMPOSER_FILE_IMAGE_PREVIEW_MAX_BYTES + 1 ) ], 'large.tiff', {
+					type: 'image/tiff',
+				} ),
+			],
+			{
+				resolveFilePath: () => '/tmp/large.tiff',
+				messages: prepareMessages,
+			}
+		);
+
+		expect( result.error ).toBeNull();
+		expect( result.attachments ).toHaveLength( 1 );
+		expect( result.attachments[ 0 ] ).toMatchObject( {
+			kind: 'file',
+			name: 'large.tiff',
+			path: '/tmp/large.tiff',
+			mimeType: 'image/tiff',
+			size: COMPOSER_FILE_IMAGE_PREVIEW_MAX_BYTES + 1,
+		} );
+		expect( ( result.attachments[ 0 ] as { preview?: unknown } ).preview ).toBeUndefined();
 	} );
 } );
 

@@ -196,7 +196,7 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Studio Code' ) ).toBeInTheDocument();
 				expect(
-					screen.getByText( 'Generous token limits while Studio Code is in beta.' )
+					screen.getByText( 'Studio Code limits are temporarily unavailable.' )
 				).toBeInTheDocument();
 				expect( screen.queryByText( /monthly prompts used/ ) ).not.toBeInTheDocument();
 			} );

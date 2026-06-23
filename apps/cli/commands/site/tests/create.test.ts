@@ -11,8 +11,17 @@ import {
 import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
-import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
+import {
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
+import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
 import {
@@ -90,7 +99,9 @@ describe( 'CLI: studio site create', () => {
 
 	const defaultTestOptions = {
 		wpVersion: 'latest',
-		phpVersion: '8.0' as const,
+		phpVersion: '8.3' as const,
+		runtime: SITE_RUNTIME_PLAYGROUND as SiteRuntime,
+		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY as SiteFileAccess,
 		enableHttps: false,
 		noStart: false,
 		skipBrowser: false,
@@ -235,17 +246,13 @@ describe( 'CLI: studio site create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should error if PHP version is not supported by the native PHP runtime', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
-
+		it( 'should error if PHP version is not supported', async () => {
 			await expect(
 				runCommand( mockSitePath, {
 					...defaultTestOptions,
-					phpVersion: '8.1',
+					phpVersion: '8.1' as SupportedPHPVersion,
 				} )
-			).rejects.toThrow(
-				'PHP 8.1 is not supported by the native PHP runtime. Supported versions: 8.5, 8.4, 8.3, 8.2.'
-			);
+			).rejects.toThrow( 'PHP 8.1 is not supported. Supported versions: 8.5, 8.4, 8.3, 8.2.' );
 
 			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );
@@ -307,6 +314,37 @@ describe( 'CLI: studio site create', () => {
 
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
 			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration skipped' );
+		} );
+
+		it( 'should persist the runtime and file access on the created site', async () => {
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				runtime: SITE_RUNTIME_NATIVE_PHP,
+				phpVersion: '8.4',
+				fileAccess: 'all-files',
+			} );
+
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( {
+							runtime: SITE_RUNTIME_NATIVE_PHP,
+							fileAccess: 'all-files',
+						} ),
+					] ),
+				} )
+			);
+		} );
+
+		it( 'should reject "all-files" file access for sandbox sites', async () => {
+			await expect(
+				runCommand( mockSitePath, {
+					...defaultTestOptions,
+					fileAccess: 'all-files',
+				} )
+			).rejects.toThrow( 'File access "all-files" requires the native PHP runtime.' );
+
+			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should create site with custom name', async () => {
@@ -503,11 +541,11 @@ describe( 'CLI: studio site create', () => {
 		} );
 
 		it( 'should download and copy specific WordPress versions for native PHP runtime', async () => {
-			vi.stubEnv( 'STUDIO_RUNTIME', SITE_RUNTIME_NATIVE_PHP );
 			vi.mocked( recursiveCopyDirectory ).mockClear();
 
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
+				runtime: SITE_RUNTIME_NATIVE_PHP,
 				phpVersion: '8.3',
 				wpVersion: '6.4',
 			} );
@@ -616,7 +654,7 @@ describe( 'CLI: studio site create', () => {
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( setupCustomDomain ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully' );
-			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio site start" to start the site.' );
+			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio start" to start the site.' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
@@ -635,7 +673,7 @@ describe( 'CLI: studio site create', () => {
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( runBlueprint ).toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
-			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio site start" to start the site.' );
+			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio start" to start the site.' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 

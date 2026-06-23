@@ -32,3 +32,12 @@ packageJson.version = devVersion;
 
 const packageJsonPath = path.resolve( 'apps', 'studio', 'package.json' );
 await fs.writeFile( packageJsonPath, JSON.stringify( packageJson, null, '\t' ) + '\n' );
+
+// Also stamp the standalone Studio CLI so its baked `__STUDIO_CLI_VERSION__` matches this dev
+// build. The CLI's version drives its update channel (a `-devN` version → nightly), so without
+// this a nightly bundle reports the static base version, looks like production to the update
+// endpoint, and never sees nightly updates.
+const cliPackageJsonPath = path.resolve( 'apps', 'cli', 'package.json' );
+const cliPackageJson = JSON.parse( await fs.readFile( cliPackageJsonPath, 'utf8' ) );
+cliPackageJson.version = devVersion;
+await fs.writeFile( cliPackageJsonPath, JSON.stringify( cliPackageJson, null, '\t' ) + '\n' );

@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { E2ESession } from './e2e-helpers';
 
-// IPC "layer-health" smoke tests (STU-1864 spike PoC).
-//
 // Most of the IPC contract is already guaranteed at compile time: `window.ipcApi`
 // is typed as `IpcApi`, a mapped type derived from every export of `ipc-handlers.ts`
 // (see `src/ipc-types.d.ts`), so renames, signature drift, void/invoke mismatches and
@@ -65,9 +63,4 @@ test.describe( 'IPC bridge', () => {
 		expect( typeof globals.appVersion ).toBe( 'string' );
 		expect( globals.appVersion.length ).toBeGreaterThan( 0 );
 	} );
-
-	// ponytail: send-style (void) handlers are covered for exposure only above. Their effects
-	// (file logging, shell open) aren't cheaply observable from the renderer, so a round-trip
-	// assertion would need main-process log capture. Add one if the send/`ipcMain.on` path ever
-	// regresses; for a smoke layer, exposure + the two invoke round-trips are enough.
 } );

@@ -1,4 +1,8 @@
 import {
+	curateBlueprintsForDisplay,
+	FEATURED_BLUEPRINT_SLUGS,
+} from '@studio/common/lib/blueprint-curation';
+import {
 	__experimentalVStack as VStack,
 	__experimentalHeading as Heading,
 	__experimentalText as Text,
@@ -171,46 +175,6 @@ function BlueprintCard( {
 	);
 }
 
-const BLUEPRINT_DISPLAY_NAMES: Record< string, string > = {
-	'Quick Start': 'WordPress.com',
-	Development: 'WordPress Dev',
-	Commerce: 'WooCommerce',
-};
-
-function getBlueprintExcerptOverrides( __: ( text: string ) => string ): Record< string, string > {
-	return {
-		'Quick Start': __(
-			'A WordPress.com-like environment with Business plan plugins and themes pre-installed.'
-		),
-		Commerce: __(
-			'Create your next online store with WooCommerce and its companion plugins pre-installed.'
-		),
-		Development: __( 'A streamlined environment for building and testing themes or plugins.' ),
-	};
-}
-
-const BLUEPRINT_ORDER: Record< string, number > = {
-	'Quick Start': 1,
-	Commerce: 2,
-	Development: 3,
-};
-
-const FEATURED_BLUEPRINT_SLUGS = new Set( [ 'woo-shop', 'development', 'quick-start' ] );
-
-function renameBlueprintsForDisplay(
-	blueprints: Blueprint[],
-	__: ( text: string ) => string
-): Blueprint[] {
-	const excerptOverrides = getBlueprintExcerptOverrides( __ );
-	return [ ...blueprints ]
-		.sort( ( a, b ) => ( BLUEPRINT_ORDER[ a.title ] ?? 99 ) - ( BLUEPRINT_ORDER[ b.title ] ?? 99 ) )
-		.map( ( item ) => ( {
-			...item,
-			excerpt: excerptOverrides[ item.title ] || item.excerpt,
-			title: BLUEPRINT_DISPLAY_NAMES[ item.title ] || item.title,
-		} ) );
-}
-
 export function NewSiteOptions( {
 	blueprints,
 	isLoadingBlueprints,
@@ -286,7 +250,7 @@ export function NewSiteOptions( {
 						{ __( 'Could not load templates.' ) }
 					</div>
 				) : (
-					renameBlueprintsForDisplay( featuredBlueprints, __ ).map( ( item ) => (
+					curateBlueprintsForDisplay( featuredBlueprints, __ ).map( ( item ) => (
 						<BlueprintCard
 							key={ item.slug }
 							blueprint={ item }

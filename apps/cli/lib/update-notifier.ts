@@ -17,7 +17,8 @@ const CHANGELOG_URL = 'https://developer.wordpress.com/docs/developer-tools/stud
 // Standalone (curl-installed) CLIs check the same wpcom endpoint the desktop app uses; the
 // `product` param selects the Studio CLI builds. The server detects the channel from the
 // version, compares, and replies 204 (already current) or 200 { version }.
-const STUDIO_UPDATES_ENDPOINT = 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates';
+const STUDIO_API_BASE = 'https://public-api.wordpress.com/wpcom/v2/studio-app';
+const STUDIO_UPDATES_ENDPOINT = `${ STUDIO_API_BASE }/updates`;
 const CLI_PRODUCT_SLUG = 'wordpress-com-studio-cli';
 
 const NPM_UPDATE_COMMAND = 'npm update -g wp-studio';
@@ -270,11 +271,11 @@ export function standaloneUpdateCommand(
 
 	if ( platform === 'win32' ) {
 		const prefix = alias ? `$env:STUDIO_CLI_VERSION='${ alias }'; ` : '';
-		return `${ prefix }irm https://wp.build/install.ps1 | iex`;
+		return `${ prefix }irm ${ STUDIO_API_BASE }/install.ps1 | iex`;
 	}
 
 	const prefix = alias ? `STUDIO_CLI_VERSION=${ alias } ` : '';
-	return `${ prefix }curl -fsSL https://wp.build/install.sh | bash`;
+	return `${ prefix }curl -fsSL ${ STUDIO_API_BASE }/install.sh | bash`;
 }
 
 export function formatUpdateBanner(

@@ -35,7 +35,12 @@ import {
 	type SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import {
+	clearSiteLatestCliPid,
+	findSiteByFolder,
+	getSiteUrl,
+	updateSiteLatestCliPid,
+} from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,

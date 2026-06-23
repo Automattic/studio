@@ -3,12 +3,11 @@ import type { JsonEvent } from '@studio/common/ai/json-events';
 /**
  * Where the agent actually runs, behind a seam.
  *
- * Today there is one implementation: {@link localRuntime}, which forks the
- * `studio code` CLI as a local child process — the same thing the desktop app
- * does. The hosted backend will add a second implementation that runs the agent
- * inside a per-session SecEx sandbox. The run-manager (`agent-runs.ts`) owns all
- * the run bookkeeping (ids, lifecycle events, the interrupt policy) and only
- * delegates the spawn + control surface that genuinely differs per runtime.
+ * The run-manager (`agent-runs.ts`) owns all the run bookkeeping (ids, lifecycle
+ * events, the interrupt policy) and only delegates the spawn + control surface
+ * that genuinely differs per runtime. The hosted backend will plug in a runtime
+ * that runs the agent inside a per-session SecEx sandbox; until then the default
+ * is {@link stubRuntime}, which has no execution backend yet.
  */
 
 export interface AgentProcessOptions {

@@ -9,7 +9,7 @@ import type { Connector } from '@/data/core';
 
 // Web entry point. Identical to `main.tsx` except it wires the HTTP/SSE web
 // connector instead of the Electron IPC connector, so the same React app runs
-// in a plain browser tab against the `studio web-server` backend.
+// in a plain browser tab against the Studio Web backend (`apps/hosted`).
 
 async function loadTranslations( connector: Connector ) {
 	const { locale } = await connector.getUserPreferences();
@@ -23,7 +23,7 @@ async function loadTranslations( connector: Connector ) {
 }
 
 function getDefaultApiBaseUrl(): string {
-	// Production builds are served by `studio web-server` itself, so the API is
+	// Production builds are served by the Studio Web backend itself, so the API is
 	// same-origin. The Vite dev server (:5300) is a separate origin and targets
 	// the backend's default port instead.
 	return import.meta.env.DEV ? 'http://localhost:8088' : window.location.origin;

@@ -1,13 +1,31 @@
-import { toImageDataUrl } from '@studio/common/ai/chat-images';
+import {
+	formatComposerAttachmentSize,
+	getComposerAttachmentHoverPreviewPosition,
+	getComposerAttachmentImageSrc,
+	getComposerAttachmentTextPreview,
+	getComposerAttachmentTypeDescription,
+	getComposerAttachmentTypeLabel,
+	hasComposerAttachmentVisualPreview,
+	watchComposerAttachmentTextScroll,
+	type ComposerAttachmentHoverPreviewState,
+} from '@studio/common/ai/composer-attachment-preview';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { arrowUp, chevronDownSmall, closeSmall, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+	forwardRef,
+	useCallback,
+	useEffect,
+	useImperativeHandle,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -17,6 +35,7 @@ import styles from './style.module.css';
 import {
 	toComposerSendAttachments,
 	useComposerAttachments,
+	type ComposerAttachment,
 	type ComposerSendAttachments,
 } from './use-composer-attachments';
 import type { AiModelId, LoadedAiSession, SessionEntry, SyncSite } from '@/data/core';
@@ -34,17 +53,56 @@ const paperclipIcon = (
 	</svg>
 );
 
-function formatAttachmentSize( bytes: number ): string {
-	if ( ! bytes ) {
-		return '';
+function AttachmentHoverTextPreview( { text }: { text: string } ) {
+	const viewportRef = useRef< HTMLDivElement | null >( null );
+	const textRef = useRef< HTMLPreElement | null >( null );
+
+	useLayoutEffect( () => {
+		return watchComposerAttachmentTextScroll( viewportRef.current, textRef.current );
+	}, [ text ] );
+
+	return (
+		<div className={ styles.attachmentHoverTextViewport } aria-hidden="true" ref={ viewportRef }>
+			<pre className={ styles.attachmentHoverText } ref={ textRef }>
+				{ text }
+			</pre>
+		</div>
+	);
+}
+
+function renderAttachmentVisual(
+	attachment: ComposerAttachment,
+	variant: 'tile' | 'hover',
+	imageAlt = ''
+) {
+	const isHover = variant === 'hover';
+	const imageClassName = isHover ? styles.attachmentHoverImage : styles.attachmentPreviewImage;
+	const imageProps = imageAlt ? { alt: imageAlt } : { alt: '', 'aria-hidden': true };
+	const imageSrc = getComposerAttachmentImageSrc( attachment );
+
+	if ( imageSrc ) {
+		return <img className={ imageClassName } src={ imageSrc } { ...imageProps } />;
 	}
-	if ( bytes < 1024 ) {
-		return `${ bytes } B`;
+
+	const textPreview = getComposerAttachmentTextPreview( attachment );
+	if ( textPreview ) {
+		if ( isHover ) {
+			return <AttachmentHoverTextPreview text={ textPreview } />;
+		}
+
+		return (
+			<pre className={ styles.attachmentPreviewText } aria-hidden="true">
+				{ textPreview }
+			</pre>
+		);
 	}
-	if ( bytes < 1024 * 1024 ) {
-		return `${ Math.round( bytes / 1024 ) } KB`;
-	}
-	return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
+
+	return (
+		<span className={ styles.attachmentPreviewFallback } aria-hidden="true">
+			<Icon icon={ page } size={ 18 } />
+			<span>{ getComposerAttachmentTypeLabel( attachment.name ) }</span>
+		</span>
+	);
 }
 
 /**
@@ -123,6 +181,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	ref
 ) {
 	const [ value, setValue ] = useState( '' );
+	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
+		null
+	);
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const connector = useConnector();
@@ -139,6 +200,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		clear: clearAttachments,
 		restore: restoreAttachments,
 		dragHandlers,
+		pasteHandlers,
 	} = useComposerAttachments();
 
 	// Cross-family swap state. We hold the picked model here while the
@@ -313,6 +375,18 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		: __( 'Set your next instruction…' );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const modKey = isMacPlatform ? '⌘' : 'Ctrl';
+	const hoveredAttachment = hoverPreview
+		? attachments.find( ( attachment ) => attachment.id === hoverPreview.id )
+		: undefined;
+	const hoveredAttachmentSizeLabel = hoveredAttachment
+		? formatComposerAttachmentSize( hoveredAttachment.size )
+		: '';
+	const hoveredAttachmentTypeLabel = hoveredAttachment
+		? getComposerAttachmentTypeDescription( hoveredAttachment )
+		: '';
+	const hoveredAttachmentHasVisualPreview = hoveredAttachment
+		? hasComposerAttachmentVisualPreview( hoveredAttachment )
+		: false;
 
 	return (
 		<>
@@ -329,33 +403,43 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 					) : null }
 					{ attachments.length > 0 ? (
-						<ul className={ styles.attachments }>
+						<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
 							{ attachments.map( ( attachment ) => (
-								<li key={ attachment.id } className={ styles.attachmentChip }>
-									{ attachment.kind === 'image' ? (
-										<img
-											className={ styles.attachmentThumb }
-											src={ toImageDataUrl( attachment.mimeType, attachment.dataBase64 ) }
-											alt={ attachment.name }
-										/>
-									) : (
-										<span className={ styles.attachmentIcon }>
-											<Icon icon={ page } size={ 16 } />
-										</span>
-									) }
-									<span className={ styles.attachmentName } title={ attachment.name }>
-										{ attachment.name }
-									</span>
-									{ formatAttachmentSize( attachment.size ) ? (
-										<span className={ styles.attachmentSize }>
-											{ formatAttachmentSize( attachment.size ) }
-										</span>
-									) : null }
+								<li
+									key={ attachment.id }
+									className={ styles.attachmentItem }
+									onPointerEnter={ ( event ) => {
+										setHoverPreview( {
+											id: attachment.id,
+											...getComposerAttachmentHoverPreviewPosition(
+												event.currentTarget,
+												attachment
+											),
+										} );
+									} }
+									onPointerLeave={ () => {
+										setHoverPreview( ( current ) =>
+											current?.id === attachment.id ? null : current
+										);
+									} }
+								>
+									<div
+										className={ styles.attachmentTile }
+										aria-label={ sprintf(
+											/* translators: %s: attachment file name. */
+											__( 'Attachment: %s' ),
+											attachment.name
+										) }
+									>
+										{ renderAttachmentVisual( attachment, 'tile', attachment.name ) }
+									</div>
 									<button
 										type="button"
 										className={ styles.attachmentRemove }
 										aria-label={ __( 'Remove attachment' ) }
-										onClick={ () => removeAttachment( attachment.id ) }
+										onClick={ () => {
+											removeAttachment( attachment.id );
+										} }
 									>
 										<Icon icon={ closeSmall } size={ 16 } />
 									</button>
@@ -363,12 +447,44 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							) ) }
 						</ul>
 					) : null }
+					{ hoveredAttachment && hoverPreview ? (
+						<div
+							className={ styles.attachmentHoverPreview }
+							role="tooltip"
+							style={ {
+								left: hoverPreview.left,
+								bottom: hoverPreview.bottom,
+								width: hoverPreview.width,
+							} }
+						>
+							{ hoveredAttachmentHasVisualPreview ? (
+								<div className={ styles.attachmentHoverArtwork }>
+									{ renderAttachmentVisual( hoveredAttachment, 'hover' ) }
+								</div>
+							) : null }
+							<div className={ styles.attachmentHoverDetails }>
+								<span className={ styles.attachmentHoverName }>{ hoveredAttachment.name }</span>
+								<span className={ styles.attachmentHoverMeta }>
+									<span className={ styles.attachmentHoverType }>
+										{ hoveredAttachmentTypeLabel }
+									</span>
+									{ hoveredAttachmentSizeLabel ? (
+										<>
+											<span aria-hidden="true">·</span>
+											<span>{ hoveredAttachmentSizeLabel }</span>
+										</>
+									) : null }
+								</span>
+							</div>
+						</div>
+					) : null }
 					<textarea
 						ref={ textareaRef }
 						className={ styles.input }
 						placeholder={ placeholder }
 						value={ value }
 						onChange={ ( event ) => setValue( event.target.value ) }
+						onPaste={ pasteHandlers.onPaste }
 						onKeyDown={ ( event ) => {
 							if ( event.key === 'Escape' && busy ) {
 								event.preventDefault();

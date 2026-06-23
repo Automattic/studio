@@ -2,6 +2,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWebConnector } from '.';
 
 describe( 'createWebConnector', () => {
+	const attachments = {
+		images: [
+			{
+				id: 'image-1',
+				name: 'screenshot.png',
+				mimeType: 'image/png' as const,
+				size: 12,
+				dataBase64: 'aW1hZ2U=',
+			},
+		],
+		files: [
+			{
+				id: 'file-1',
+				name: 'notes.txt',
+				path: '/tmp/notes.txt',
+				mimeType: 'text/plain',
+				size: 18,
+			},
+		],
+	};
+
 	beforeEach( () => {
 		vi.stubGlobal(
 			'fetch',
@@ -18,24 +39,7 @@ describe( 'createWebConnector', () => {
 
 		await connector.continueSession( 'session-1', 'Please review the attachment.', {
 			displayMessage: 'Please review the attachment.',
-			images: [
-				{
-					id: 'image-1',
-					name: 'screenshot.png',
-					mimeType: 'image/png',
-					size: 12,
-					dataBase64: 'aW1hZ2U=',
-				},
-			],
-			files: [
-				{
-					id: 'file-1',
-					name: 'notes.txt',
-					path: '/tmp/notes.txt',
-					mimeType: 'text/plain',
-					size: 18,
-				},
-			],
+			...attachments,
 		} );
 
 		expect( fetch ).toHaveBeenCalledWith(
@@ -45,24 +49,7 @@ describe( 'createWebConnector', () => {
 				body: JSON.stringify( {
 					prompt: 'Please review the attachment.',
 					displayMessage: 'Please review the attachment.',
-					images: [
-						{
-							id: 'image-1',
-							name: 'screenshot.png',
-							mimeType: 'image/png',
-							size: 12,
-							dataBase64: 'aW1hZ2U=',
-						},
-					],
-					files: [
-						{
-							id: 'file-1',
-							name: 'notes.txt',
-							path: '/tmp/notes.txt',
-							mimeType: 'text/plain',
-							size: 18,
-						},
-					],
+					...attachments,
 				} ),
 			} )
 		);

@@ -1,13 +1,15 @@
-import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import chalk from '@studio/common/lib/chalk';
-import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import { z } from 'zod';
 import { renderBannerBox } from 'cli/lib/banner-box';
-import { updateCheckSchema, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
+import {
+	readCliConfig,
+	updateCheckSchema,
+	updateCliConfigWithPartial,
+} from 'cli/lib/cli-config/core';
 
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const FETCH_TIMEOUT_MS = 3000;
@@ -31,19 +33,17 @@ const npmRegistryResponseSchema = z.object( { version: z.string() } );
 const updatesEndpointResponseSchema = z.object( { version: z.string() } );
 
 /**
- * Reads a cached update check from cli.json synchronously.
- * Uses a direct fs.readFileSync + zod parse to avoid the async readCliConfig path,
- * so the banner can be printed before any command output.
+ * Reads a cached update check from cli.json. Fails safe: `readCliConfig` throws on a
+ * malformed or unreadable config, but a background update check must never crash the CLI,
+ * so any error — or a missing/invalid field — just means "no cached check".
  */
-function readUpdateCheck( field: CliConfigUpdateCheckField ): UpdateCheck | null {
+async function readUpdateCheck( field: CliConfigUpdateCheckField ): Promise< UpdateCheck | null > {
 	try {
-		const content = fs.readFileSync( getCliConfigPath(), 'utf8' );
-		const data = JSON.parse( content );
-		return updateCheckSchema.parse( data?.[ field ] );
+		const config = await readCliConfig();
+		return updateCheckSchema.parse( config[ field ] );
 	} catch {
-		// File doesn't exist, field missing, or invalid
+		return null;
 	}
-	return null;
 }
 
 function isPathInside( child: string, parent: string ): boolean {
@@ -130,7 +130,7 @@ async function fetchNpmLatestVersion(): Promise< string | null > {
 }
 
 async function notifyNpm( currentVersion: string ): Promise< void > {
-	const updateCheck = readUpdateCheck( 'updateCheck' );
+	const updateCheck = await readUpdateCheck( 'updateCheck' );
 	const now = Date.now();
 
 	// Fetch and cache if stale or missing (up to FETCH_TIMEOUT_MS)
@@ -148,7 +148,7 @@ async function notifyNpm( currentVersion: string ): Promise< void > {
 	}
 
 	// Read again in case we just updated the cache on the first run
-	const latestCheck = readUpdateCheck( 'updateCheck' );
+	const latestCheck = await readUpdateCheck( 'updateCheck' );
 
 	if (
 		latestCheck &&
@@ -156,7 +156,9 @@ async function notifyNpm( currentVersion: string ): Promise< void > {
 		semver.valid( currentVersion ) &&
 		semver.gt( latestCheck.latestVersion, currentVersion )
 	) {
-		process.stderr.write( formatUpdateBanner( currentVersion, latestCheck.latestVersion ) );
+		process.stderr.write(
+			formatUpdateBanner( currentVersion, latestCheck.latestVersion, NPM_UPDATE_COMMAND )
+		);
 	}
 }
 
@@ -198,7 +200,7 @@ async function fetchStandaloneUpdate( currentVersion: string ): Promise< Standal
 }
 
 async function notifyStandalone( currentVersion: string ): Promise< void > {
-	const cached = readUpdateCheck( 'standaloneUpdateCheck' );
+	const cached = await readUpdateCheck( 'standaloneUpdateCheck' );
 	const now = Date.now();
 
 	let latestVersion: string | null = null;
@@ -284,7 +286,7 @@ export function standaloneUpdateCommand(
 export function formatUpdateBanner(
 	currentVersion: string,
 	latestVersion: string,
-	updateCommand: string = NPM_UPDATE_COMMAND
+	updateCommand: string
 ): string {
 	const updateLine = sprintf(
 		/* translators: 1: current version, 2: latest version */

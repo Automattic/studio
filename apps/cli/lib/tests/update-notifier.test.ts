@@ -1,5 +1,4 @@
 /* eslint-disable no-control-regex */
-import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { type MockInstance, vi } from 'vitest';
@@ -13,27 +12,33 @@ import {
 // Stub the config writer so standalone checks don't touch disk / the lockfile.
 vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('cli/lib/cli-config/core') >();
-	return { ...actual, updateCliConfigWithPartial: vi.fn().mockResolvedValue( undefined ) };
+	return {
+		...actual,
+		updateCliConfigWithPartial: vi.fn().mockResolvedValue( undefined ),
+		// Reject so the update check finds no cache and exercises the crash-safe path
+		// (a failed config read must never throw out of the notifier).
+		readCliConfig: vi.fn().mockRejectedValue( new Error( 'no config in test' ) ),
+	};
 } );
 
 const stripAnsi = ( str: string ) => str.replace( /\u001B\[[0-9;]*m/g, '' );
 
 describe( 'formatUpdateBanner', () => {
 	it( 'should include version numbers', () => {
-		const plain = stripAnsi( formatUpdateBanner( '1.7.8', '1.8.0' ) );
+		const plain = stripAnsi( formatUpdateBanner( '1.7.8', '1.8.0', 'npm update -g wp-studio' ) );
 		expect( plain ).toContain( '1.7.8' );
 		expect( plain ).toContain( '1.8.0' );
 	} );
 
 	it( 'should include the changelog URL', () => {
-		const plain = stripAnsi( formatUpdateBanner( '1.7.8', '1.8.0' ) );
+		const plain = stripAnsi( formatUpdateBanner( '1.7.8', '1.8.0', 'npm update -g wp-studio' ) );
 		expect( plain ).toContain(
 			'https://developer.wordpress.com/docs/developer-tools/studio/changelog/'
 		);
 	} );
 
-	it( 'should include the npm update command by default', () => {
-		const plain = stripAnsi( formatUpdateBanner( '1.7.8', '1.8.0' ) );
+	it( 'should render the npm update command when given it', () => {
+		const plain = stripAnsi( formatUpdateBanner( '1.7.8', '1.8.0', 'npm update -g wp-studio' ) );
 		expect( plain ).toContain( 'npm update -g wp-studio' );
 	} );
 
@@ -52,7 +57,7 @@ describe( 'formatUpdateBanner', () => {
 	} );
 
 	it( 'should be wrapped in a box', () => {
-		const plain = stripAnsi( formatUpdateBanner( '1.0.0', '2.0.0' ) );
+		const plain = stripAnsi( formatUpdateBanner( '1.0.0', '2.0.0', 'npm update -g wp-studio' ) );
 		expect( plain ).toContain( '╭' );
 		expect( plain ).toContain( '╰' );
 		expect( plain ).toContain( '│' );
@@ -117,15 +122,10 @@ describe( 'setupUpdateNotifier', () => {
 	const originalSend = process.send;
 	const originalArgv = process.argv;
 	let stderrWriteSpy: MockInstance;
-	let readFileSpy: MockInstance;
 
 	beforeEach( () => {
 		process.send = undefined;
 		stderrWriteSpy = vi.spyOn( process.stderr, 'write' ).mockImplementation( () => true );
-		// No cache on disk → forces a fresh check.
-		readFileSpy = vi.spyOn( fs, 'readFileSync' ).mockImplementation( () => {
-			throw new Error( 'no cache' );
-		} );
 	} );
 
 	afterEach( () => {
@@ -133,7 +133,6 @@ describe( 'setupUpdateNotifier', () => {
 		process.argv = originalArgv;
 		vi.unstubAllGlobals();
 		stderrWriteSpy.mockRestore();
-		readFileSpy.mockRestore();
 		vi.clearAllMocks();
 	} );
 

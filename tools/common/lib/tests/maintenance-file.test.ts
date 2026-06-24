@@ -1,0 +1,91 @@
+import fs from 'fs';
+import path from 'path';
+import { checkMaintenanceFile } from '../maintenance-file';
+
+describe( 'checkMaintenanceFile', () => {
+	const sitePath = '/tmp/test-site';
+	const maintenancePath = path.join( sitePath, '.maintenance' );
+
+	beforeEach( () => {
+		vi.restoreAllMocks();
+	} );
+
+	it( 'returns exists: false when no .maintenance file exists', () => {
+		vi.spyOn( fs, 'existsSync' ).mockReturnValue( false );
+
+		const result = checkMaintenanceFile( sitePath );
+
+		expect( result ).toEqual( { exists: false } );
+	} );
+
+	it( 'returns fresh maintenance info for a recent timestamp', () => {
+		const nowSeconds = Math.floor( Date.now() / 1000 );
+		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
+		vi.spyOn( fs, 'readFileSync' ).mockReturnValue( `<?php $upgrading = ${ nowSeconds }; ?>` );
+
+		const result = checkMaintenanceFile( sitePath );
+
+		expect( result.exists ).toBe( true );
+		if ( result.exists ) {
+			expect( result.filePath ).toBe( maintenancePath );
+			expect( result.upgradingTimestamp ).toBe( nowSeconds );
+			expect( result.isStale ).toBe( false );
+			expect( result.expiresAt ).toBeInstanceOf( Date );
+		}
+	} );
+
+	it( 'returns stale maintenance info for an old timestamp', () => {
+		const oldTimestamp = Math.floor( Date.now() / 1000 ) - 700;
+		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
+		vi.spyOn( fs, 'readFileSync' ).mockReturnValue( `<?php $upgrading = ${ oldTimestamp }; ?>` );
+
+		const result = checkMaintenanceFile( sitePath );
+
+		expect( result.exists ).toBe( true );
+		if ( result.exists ) {
+			expect( result.upgradingTimestamp ).toBe( oldTimestamp );
+			expect( result.isStale ).toBe( true );
+			expect( result.expiresAt ).toBeNull();
+		}
+	} );
+
+	it( 'treats a malformed file as stale', () => {
+		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
+		vi.spyOn( fs, 'readFileSync' ).mockReturnValue( '<?php // broken file' );
+
+		const result = checkMaintenanceFile( sitePath );
+
+		expect( result.exists ).toBe( true );
+		if ( result.exists ) {
+			expect( result.isStale ).toBe( true );
+			expect( result.upgradingTimestamp ).toBe( 0 );
+			expect( result.expiresAt ).toBeNull();
+		}
+	} );
+
+	it( 'treats an empty file as stale', () => {
+		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
+		vi.spyOn( fs, 'readFileSync' ).mockReturnValue( '' );
+
+		const result = checkMaintenanceFile( sitePath );
+
+		expect( result.exists ).toBe( true );
+		if ( result.exists ) {
+			expect( result.isStale ).toBe( true );
+		}
+	} );
+
+	it( 'treats an unreadable file as stale', () => {
+		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
+		vi.spyOn( fs, 'readFileSync' ).mockImplementation( () => {
+			throw new Error( 'EACCES: permission denied' );
+		} );
+
+		const result = checkMaintenanceFile( sitePath );
+
+		expect( result.exists ).toBe( true );
+		if ( result.exists ) {
+			expect( result.isStale ).toBe( true );
+		}
+	} );
+} );

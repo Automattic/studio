@@ -42,6 +42,7 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { extractZip } from '@studio/common/lib/extract-zip';
@@ -1028,6 +1029,23 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		// Capacity limit is expected behavior, not a bug — skip Sentry
 		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
 			throw new Error( 'CAPACITY_LIMIT_REACHED' );
+		}
+
+		// Check if a .maintenance file is blocking the site from starting.
+		// WordPress creates this file during core/plugin/theme updates.
+		const maintenanceCheck = checkMaintenanceFile( server.details.path );
+		if ( maintenanceCheck.exists ) {
+			if ( maintenanceCheck.isStale ) {
+				throw new Error(
+					`MAINTENANCE_FILE_STALE:${ maintenanceCheck.filePath }`
+				);
+			}
+			const minutesLeft = maintenanceCheck.expiresAt
+				? Math.ceil( ( maintenanceCheck.expiresAt.getTime() - Date.now() ) / 60000 )
+				: 10;
+			throw new Error(
+				`MAINTENANCE_FILE_FRESH:${ minutesLeft }`
+			);
 		}
 
 		const contexts: Record< string, Record< string, unknown > > = {

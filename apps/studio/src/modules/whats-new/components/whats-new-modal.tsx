@@ -30,18 +30,10 @@ const PageContent = ( {
 	description,
 	learnMoreUrl,
 	learnMoreLabel,
-	isIntroPage = false,
-}: Omit< WhatsNewPage, 'image' > & { isIntroPage?: boolean } ) => (
+}: Omit< WhatsNewPage, 'image' > ) => (
 	<div className="px-8 pt-3 pb-2 flex flex-col h-full">
 		<h2 className="text-xl mb-2 text-frame-text line-clamp-2">{ title }</h2>
-		<p
-			className={ cx(
-				'text-frame-text text-m leading-s',
-				isIntroPage ? 'line-clamp-5' : 'line-clamp-3'
-			) }
-		>
-			{ description }
-		</p>
+		<p className="text-frame-text text-m leading-s line-clamp-5">{ description }</p>
 		<div className="mt-2 mb-4">
 			{ learnMoreUrl && (
 				<button
@@ -70,7 +62,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 			image: nativePhpIllustration,
 			title: __( 'Faster local sites with native PHP' ),
 			description: __(
-				'Studio now uses native PHP by default for better performance. Switch between Native and Sandbox runtimes in your site settings.'
+				'Studio now uses native PHP by default, running WordPress with fewer abstractions for better performance. You can switch between Native and Sandbox runtimes in your site settings.'
 			),
 			learnMoreUrl: getLocalizedLink( locale, 'docsPhpRuntimes' ),
 		},
@@ -120,7 +112,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 				'[&_*]:select-none',
 				'focus:outline-none'
 			) }
-			pages={ whatsNewPages.map( ( { image, title, ...pageContent }, index ) => ( {
+			pages={ whatsNewPages.map( ( { image, title, ...pageContent } ) => ( {
 				image: (
 					<div className="relative">
 						<div className="absolute top-[13px] left-[13px] rtl:left-auto rtl:right-[13px] bg-a8c-gray-90 text-a8c-gray-5 text-xs px-2 py-1 rounded-sm">
@@ -133,11 +125,7 @@ export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProp
 						/>
 					</div>
 				),
-				content: (
-					<div className={ index === 0 ? 'whats-new-intro-page' : '' }>
-						<PageContent title={ title } { ...pageContent } isIntroPage={ index === 0 } />
-					</div>
-				),
+				content: <PageContent title={ title } { ...pageContent } />,
 			} ) ) }
 			finishButtonText={ __( 'Done' ) }
 			nextButtonText={ __( 'Next' ) }

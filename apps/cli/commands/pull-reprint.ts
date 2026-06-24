@@ -848,7 +848,7 @@ function readPullMetadata( metadataPath: string ): PullSessionMetadata | null {
 /**
  * Run reprint's composite `pull` command: the whole site-clone
  * pipeline (preflight → files-pull → db-pull → db-apply →
- * flat-docroot → apply-runtime) in a single PHP-WASM fork, with
+ * flat-docroot → apply-runtime) in a single child process, with
  * reprint owning the stage ordering and, when the prior pull already
  * completed, resetting its own sub-command state for a delta re-pull
  * via prepare_repull().

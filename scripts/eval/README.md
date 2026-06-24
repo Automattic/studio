@@ -12,6 +12,8 @@ npm run eval:view
 
 `npm run eval -- -n 1` to run a single test.
 
+Run one named test with `npm run eval -- --filter-pattern "preview sites"` (regex against the test description). Note: the flag is `--filter-pattern`, **not** `--filter-description` (which is not a valid promptfoo flag).
+
 ## Tests
 
 - **identity** — Agent identifies itself correctly (verified by an LLM judge).

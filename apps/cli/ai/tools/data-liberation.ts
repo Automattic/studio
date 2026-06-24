@@ -1,98 +1,44 @@
-import { spawn } from 'child_process';
 import { existsSync } from 'fs';
-import fs from 'fs/promises';
 import path from 'path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { Type } from 'typebox';
-import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { defineTool } from './define-tool';
 import { textResult } from './utils';
-
-const ENGINE_DIR = path.join( STUDIO_SITES_ROOT, '_liberations', 'data-liberation' );
-const ENGINE_REPO = 'https://github.com/Automattic/data-liberation-agent.git';
 
 // Engine operations (extract, screenshot, reconstruct) drive Playwright and
 // routinely run for minutes — far past the MCP SDK's 60s default request
 // timeout, which otherwise surfaces as `MCP error -32001: Request timed out`.
-// Use a generous, env-overridable per-call timeout. NOTE: this is effectively a
-// FLAT cap — the engine emits no MCP progress notifications, so the
-// `resetTimeoutOnProgress` flag we pass is currently inert (kept as a no-op
-// in case the engine adds notifications later). A single op that exceeds the
-// cap still returns -32001 while the engine keeps running in the background;
-// the `/liberate` skill handles that by polling `liberate_status` rather than
-// re-invoking.
+// Use a generous per-call timeout. NOTE: this is effectively a FLAT cap — the
+// engine emits no MCP progress notifications, so the `resetTimeoutOnProgress`
+// flag we pass is currently inert (kept as a no-op in case the engine adds
+// notifications later). A single op that exceeds the cap still returns -32001
+// while the engine keeps running in the background; the `/liberate` skill
+// handles that by polling `liberate_status` rather than re-invoking.
 const ENGINE_CALL_TIMEOUT_MS = 600_000;
 
-function appendBoundedOutput( current: string, chunk: unknown ): string {
-	const PROCESS_OUTPUT_LIMIT = 2000;
-
-	return ( current + String( chunk ) ).slice( -PROCESS_OUTPUT_LIMIT );
+function hasCompiledServer( dir: string ): boolean {
+	return existsSync( path.join( dir, 'dist', 'mcp-server.js' ) );
 }
 
-function runProcess( command: string, args: string[], cwd: string ): Promise< void > {
-	return new Promise( ( resolve, reject ) => {
-		const child = spawn( command, args, { cwd, stdio: [ 'ignore', 'pipe', 'pipe' ] } );
-		let stdout = '';
-		let stderr = '';
-		child.stdout?.on( 'data', ( chunk ) => {
-			stdout = appendBoundedOutput( stdout, chunk );
-		} );
-		child.stderr?.on( 'data', ( chunk ) => {
-			stderr = appendBoundedOutput( stderr, chunk );
-		} );
-		child.on( 'error', reject );
-		child.on( 'close', ( code ) => {
-			if ( code === 0 ) {
-				resolve();
-			} else {
-				reject(
-					new Error(
-						`\`${ command } ${ args.join(
-							' '
-						) }\` exited with code ${ code }.\nstdout:\n${ stdout }\nstderr:\n${ stderr }`
-					)
-				);
-			}
-		} );
-	} );
-}
-
-function isEngineInstalled(): boolean {
-	return (
-		existsSync( path.join( ENGINE_DIR, 'node_modules' ) ) &&
-		existsSync( path.join( ENGINE_DIR, 'src', 'mcp-server.ts' ) )
-	);
-}
-
-let enginePromise: Promise< boolean > | null = null;
-
-function ensureEngine(): Promise< boolean > {
-	if ( ! enginePromise ) {
-		enginePromise = installEngine().catch( ( error ) => {
-			enginePromise = null;
-			throw error;
-		} );
+// Locate the build-time prepared engine. `import.meta.dirname` is the bundled
+// chunk dir (`dist/cli`) in the packaged app and `apps/cli/ai/tools` in source,
+// so check both the bundled sibling and the source build artifact.
+function resolveEngineDir(): string {
+	const candidates = [
+		// bundled: dist/cli/data-liberation-agent
+		path.join( import.meta.dirname, 'data-liberation-agent' ),
+		// source: <repo>/packages/data-liberation-agent
+		path.join( import.meta.dirname, '..', '..', '..', '..', 'packages', 'data-liberation-agent' ),
+	];
+	const dir = candidates.find( hasCompiledServer );
+	if ( ! dir ) {
+		throw new Error(
+			'Data Liberation engine is not prepared. Run `npm run prepare-data-liberation` ' +
+				'(it also runs automatically on `npm install`).'
+		);
 	}
-	return enginePromise;
-}
-
-async function installEngine(): Promise< boolean > {
-	if ( isEngineInstalled() ) {
-		return true;
-	}
-
-	await fs.mkdir( path.dirname( ENGINE_DIR ), { recursive: true } );
-
-	await runProcess(
-		'git',
-		[ 'clone', '--depth', '1', '--branch', 'main', ENGINE_REPO, ENGINE_DIR ],
-		STUDIO_SITES_ROOT
-	);
-
-	await runProcess( 'npm', [ 'ci' ], ENGINE_DIR );
-
-	return false;
+	return dir;
 }
 
 let clientPromise: Promise< Client > | null = null;
@@ -108,18 +54,10 @@ function getClient( engineDir: string ): Promise< Client > {
 }
 
 async function connectClient( engineDir: string ): Promise< Client > {
-	// Launch via the engine's own local `tsx` bin — matches how the engine runs
-	// its MCP server (`npx tsx src/mcp-server.ts`) and avoids depending on `npx`
-	// being on PATH inside the packaged app.
-	const tsxBin = path.join(
-		engineDir,
-		'node_modules',
-		'.bin',
-		process.platform === 'win32' ? 'tsx.cmd' : 'tsx'
-	);
+	// Run the compiled MCP server with the current Node binary
 	const transport = new StdioClientTransport( {
-		command: tsxBin,
-		args: [ 'src/mcp-server.ts' ],
+		command: process.execPath,
+		args: [ path.join( engineDir, 'dist', 'mcp-server.js' ) ],
 		cwd: engineDir,
 		stderr: 'pipe',
 	} );
@@ -176,8 +114,7 @@ export const dataLiberationTool = defineTool(
 		'(GoDaddy, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix) ' +
 		'and reconstructs it into a WordPress site. This tool forwards a single call to the engine; ' +
 		"the `/liberate` skill orchestrates the full sequence. Omit `tool` (or pass 'setup') to " +
-		'install/locate the engine and learn where its skill files live. The FIRST call downloads ' +
-		'the engine (git clone + npm install + a headless-browser download) and can take several minutes.',
+		'locate the engine and learn where its skill files live (the engine ships prebuilt with Studio).',
 	{
 		tool: Type.Optional(
 			Type.String( {
@@ -198,21 +135,20 @@ export const dataLiberationTool = defineTool(
 		),
 	},
 	async ( args ) => {
-		if ( ! args.tool || args.tool === 'setup' ) {
-			const wasEngineInstalled = await ensureEngine();
+		const engineDir = resolveEngineDir();
 
+		if ( ! args.tool || args.tool === 'setup' ) {
 			return textResult(
 				JSON.stringify( {
 					ready: true,
-					alreadyInstalled: wasEngineInstalled,
-					engineDir: ENGINE_DIR,
-					skillsDir: path.join( ENGINE_DIR, 'skills' ),
-					liberateSkill: path.join( ENGINE_DIR, 'skills', 'liberate', 'SKILL.md' ),
+					engineDir,
+					skillsDir: path.join( engineDir, 'skills' ),
+					liberateSkill: path.join( engineDir, 'skills', 'liberate', 'SKILL.md' ),
 				} )
 			);
 		}
 
-		const client = await getClient( ENGINE_DIR );
+		const client = await getClient( engineDir );
 
 		if ( args.tool === 'list' ) {
 			const listed = await client.listTools();

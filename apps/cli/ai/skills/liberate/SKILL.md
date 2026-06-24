@@ -7,14 +7,9 @@ description: Import and rebuild a website from a closed platform (Wix, Squarespa
 
 This skill is only a **redirect**. The real, always-up-to-date pipeline lives in the Data Liberation engine's own skill, which Studio downloads on first use. Do NOT re-plan or summarize the steps here — defer to the engine skill so its updates take effect automatically. Your job is just to (1) stand the engine up and (2) follow its skill, translating its tool calls into Studio's bridge.
 
-## Step 1 — Prepare and locate the engine
+## Step 1 — Locate the engine
 
-Tell the user one concise line first, e.g. *"Checking the Data Liberation engine — installing it if this is the first run."* Then call the `data_liberation` tool with **no arguments** (setup mode). It returns `{ ready, alreadyInstalled, engineDir, liberateSkill, skillsDir }`.
-
-Report accurately based on `alreadyInstalled`:
-
-- `alreadyInstalled: false` → this run performed the **one-time** install.
-- `alreadyInstalled: true` → the engine was already set up; just say it's ready and proceed immediately.
+Call the `data_liberation` tool with **no arguments** (setup mode). It returns `{ ready, engineDir, liberateSkill, skillsDir }`. The engine ships prebuilt with Studio, so this is instant — just proceed.
 
 ## Step 2 — Load the engine's tool catalog
 

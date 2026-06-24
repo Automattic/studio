@@ -31,6 +31,16 @@ const phpSourceCodePath = resolve( __dirname, 'php' );
 // The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
 // `ai/skills.ts`), so they must sit directly next to the built chunks.
 const skillsSourcePath = resolve( __dirname, 'ai/skills' );
+// The data_liberation bridge spawns the compiled engine from `<chunk dir>/data-liberation-agent`
+// (see `ai/tools/data-liberation.ts`); prepared by `scripts/prepare-data-liberation.ts` into
+// the repo-root `packages/` dir (where it will migrate to as a real workspace package).
+const dataLiberationSourcePath = resolve(
+	__dirname,
+	'..',
+	'..',
+	'packages',
+	'data-liberation-agent'
+);
 
 export const baseConfig = defineConfig( {
 	oxc: {
@@ -55,6 +65,11 @@ export const baseConfig = defineConfig( {
 				}
 				if ( existsSync( skillsSourcePath ) ) {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
+				}
+				if ( existsSync( dataLiberationSourcePath ) ) {
+					cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
+						recursive: true,
+					} );
 				}
 			},
 		},

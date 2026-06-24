@@ -13,6 +13,7 @@ export default defineConfig(
 	globalIgnores( [
 		'**/node_modules/',
 		'**/__mocks__',
+		'apps/cli/data-liberation/',
 		'apps/cli/dist/',
 		'dist/',
 		'out/',

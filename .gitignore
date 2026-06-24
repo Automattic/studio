@@ -101,6 +101,10 @@ out/
 wp-files/*
 !wp-files/blueprints/
 
+# Data Liberation engine prepared at build time (scripts/prepare-data-liberation.ts).
+# Lives under packages/ (its future workspace-package home); gitignored until migrated.
+packages/data-liberation-agent/
+
 # Release Tooling
 vendor/*
 /fastlane/report.xml

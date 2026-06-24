@@ -678,6 +678,41 @@ describe( 'CLI: studio pull-reprint --path overwrite', () => {
 		// Brand-new site: no existing id is reused.
 		expect( studioMetadata.siteId ).toBeUndefined();
 	} );
+
+	it( 'resumes the same session when an explicit --path later resolves to a registered site', async () => {
+		const { getPullSessionMetadata } = await loadWithFakeHome();
+		const sitePath = path.join( fakeHome, 'Studio', 'created-by-path' );
+
+		// Run 1: explicit --path, nothing registered there yet → a path-keyed
+		// create session.
+		const first = await getPullSessionMetadata(
+			'https://example.com',
+			undefined,
+			undefined,
+			sitePath
+		);
+		expect( first.created ).toBe( true );
+
+		// Run 2: same --path, but the first pull has since registered a site at
+		// that location. The session must resume the SAME technical directory
+		// instead of switching to a site-id key and forking a second one.
+		const targetSite = {
+			id: 'site-xyz',
+			name: 'created-by-path',
+			path: sitePath,
+			port: 8881,
+		} as never;
+		const second = await getPullSessionMetadata(
+			'https://example.com',
+			undefined,
+			targetSite,
+			sitePath
+		);
+		expect( second.created ).toBe( false );
+		expect( second.studioMetadata.technicalSiteDirectory ).toBe(
+			first.studioMetadata.technicalSiteDirectory
+		);
+	} );
 } );
 
 describe( 'CLI: studio pull-reprint confirmation before creating a site', () => {

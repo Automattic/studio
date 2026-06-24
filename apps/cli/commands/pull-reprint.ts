@@ -217,6 +217,13 @@ interface PullSessionMetadata {
 	 * pull's output).
 	 */
 	hasCompletedOnce?: boolean;
+	/**
+	 * True when this session overwrites a pre-existing Studio site (an explicit
+	 * `--path`, or the cwd, that resolved to a registered site).  The site
+	 * directory and config record are not ours to delete, so `--abort` only
+	 * tears down the technical directory in that case — never the site itself.
+	 */
+	isOverwrite?: boolean;
 	siteId?: string;
 	port?: number;
 	localUrl?: string;
@@ -290,7 +297,7 @@ export async function runCommand(
 				__( 'Provide `--url` to abort a pull and clean up its local state.' )
 			);
 		}
-		await abortPull( userProvidedUrl, userProvidedName, verbose );
+		await abortPull( userProvidedUrl, userProvidedName, sitePath, pathWasExplicit, verbose );
 		return;
 	}
 
@@ -648,6 +655,12 @@ export async function runCommand(
 		if ( userProvidedName ) {
 			resumeCommand.push( `--name "${ userProvidedName }"` );
 		}
+		// An explicit `--path` selects (and, for an existing site, overwrites) the
+		// target, and keys the session directory. Omitting it on resume would key a
+		// different default session and pull elsewhere, so echo it back verbatim.
+		if ( pathWasExplicit && sitePath ) {
+			resumeCommand.push( `--path "${ sitePath }"` );
+		}
 		console.log( '' );
 		console.log( 'To resume this pull, re-run the same command:' );
 		console.log( `  ${ resumeCommand.join( ' ' ) }` );
@@ -765,10 +778,27 @@ async function runPreflight(
  * pull is still in progress — once it reaches `completed`, the
  * user must use `studio site delete` instead (which also cleans up
  * the CLI config record, daemon auto-start, and preview snapshots).
+ *
+ * The session is found by the same key {@link getPullSessionMetadata}
+ * created it with, so `--abort` must be passed the same target inputs
+ * (`--path`, `--name`) as the original pull.  For an overwrite session
+ * the site directory and config record belong to a pre-existing Studio
+ * site, so we only remove the technical directory — never the site.
  */
-async function abortPull( url: string, providedName?: string, verbose = false ): Promise< void > {
+async function abortPull(
+	url: string,
+	providedName: string | undefined,
+	sitePath: string | undefined,
+	pathWasExplicit: boolean,
+	verbose = false
+): Promise< void > {
 	const normalizedUrl = normalizeSiteUrl( url );
-	const pullKey = getPrivateDirNameForImportSession( normalizedUrl, providedName );
+	const targetSite = sitePath ? await findSiteByFolder( sitePath ) : undefined;
+	const explicitSitePath = pathWasExplicit ? sitePath : undefined;
+	const pullKey = getPrivateDirNameForImportSession(
+		normalizedUrl,
+		getPullSessionKeySeed( { targetSite, explicitSitePath, explicitName: providedName } )
+	);
 	const technicalSiteDirectory = path.join( PULLS_ROOT, pullKey );
 	const metadata = readPullMetadata( getMetadataPath( technicalSiteDirectory ) );
 
@@ -789,9 +819,15 @@ async function abortPull( url: string, providedName?: string, verbose = false ):
 		__( 'Aborting pull and cleaning up local files…' )
 	);
 
-	const deleteTargets = [ metadata.sitePath, metadata.technicalSiteDirectory ].filter(
-		( value ): value is string => typeof value === 'string' && fs.existsSync( value )
-	);
+	// An overwrite targets a pre-existing Studio site; the directory and config
+	// record are not ours to delete (the original content is already gone, but
+	// removing the registered site is `studio site delete`'s job). Only clean up
+	// the technical directory. A create owns its site directory, so trash both.
+	const deleteTargets = (
+		metadata.isOverwrite
+			? [ metadata.technicalSiteDirectory ]
+			: [ metadata.sitePath, metadata.technicalSiteDirectory ]
+	).filter( ( value ): value is string => typeof value === 'string' && fs.existsSync( value ) );
 	if ( deleteTargets.length > 0 ) {
 		reportVerboseCommand( verbose, 'trash', deleteTargets );
 		const trash = ( await import( 'trash' ) ).default;
@@ -1226,6 +1262,38 @@ export async function resolveSourceSite(
 	};
 }
 
+/**
+ * Derives the stable disambiguator that keys a pull session's technical
+ * directory (under `~/.studio/pulls/`).  Both {@link getPullSessionMetadata}
+ * and {@link abortPull} go through here so a session is always found by the
+ * same key it was created with.
+ *
+ * An explicit `--path` wins over a discovered site so the key stays put across
+ * the create→register transition: before the first pull there's no site record
+ * yet (we only know the path), and after it completes the path resolves to a
+ * freshly registered site — keying by the path both times keeps re-runs (and
+ * delta re-pulls) on the same session instead of forking a second directory.
+ * A site discovered at the resolved path *without* an explicit `--path` (e.g.
+ * the cwd) keys by its id; everything else falls back to the optional `--name`.
+ */
+function getPullSessionKeySeed( {
+	targetSite,
+	explicitSitePath,
+	explicitName,
+}: {
+	targetSite?: SiteData;
+	explicitSitePath?: string;
+	explicitName?: string;
+} ): string | undefined {
+	if ( explicitSitePath ) {
+		return `path:${ explicitSitePath }`;
+	}
+	if ( targetSite ) {
+		return `site:${ targetSite.id }`;
+	}
+	return explicitName;
+}
+
 export async function getPullSessionMetadata(
 	url: string,
 	explicitName?: string,
@@ -1236,15 +1304,10 @@ export async function getPullSessionMetadata(
 	// Key the resume directory by the target location so re-runs resume the
 	// same session and distinct targets (overwriting a site, creating at a
 	// given path, or the default create) never collide for the same URL.
-	let keySeed: string | undefined;
-	if ( targetSite ) {
-		keySeed = `site:${ targetSite.id }`;
-	} else if ( explicitSitePath ) {
-		keySeed = `path:${ explicitSitePath }`;
-	} else {
-		keySeed = explicitName;
-	}
-	const pullKey = getPrivateDirNameForImportSession( normalizedUrl, keySeed );
+	const pullKey = getPrivateDirNameForImportSession(
+		normalizedUrl,
+		getPullSessionKeySeed( { targetSite, explicitSitePath, explicitName } )
+	);
 	const technicalSiteDirectory = path.join( PULLS_ROOT, pullKey );
 	const metadataPath = getMetadataPath( technicalSiteDirectory );
 	const existing = readPullMetadata( metadataPath );
@@ -1299,7 +1362,7 @@ export async function getPullSessionMetadata(
 		runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
 		runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
 		stage: 'initialized',
-		...( targetSite ? { siteId: targetSite.id } : {} ),
+		...( targetSite ? { siteId: targetSite.id, isOverwrite: true } : {} ),
 	};
 
 	savePullMetadata( metadata );

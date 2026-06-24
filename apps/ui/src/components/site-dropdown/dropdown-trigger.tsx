@@ -43,40 +43,38 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 		const dotClass = environment === 'live' ? styles.dot_live : styles[ `dot_${ status }` ];
 		const dotLabel = isLive ? __( 'Live site' ) : statusLabel;
 		return (
-			<Tooltip.Provider>
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						ref={ ref }
-						render={ <Button variant="minimal" tone="neutral" size="small" { ...props } /> }
-						className={ clsx( styles.trigger, className ) }
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					ref={ ref }
+					render={ <Button variant="minimal" tone="neutral" size="small" { ...props } /> }
+					className={ clsx( styles.trigger, className ) }
+				>
+					{ showSiteIcon ? (
+						<SiteIcon
+							className={ styles.siteIcon }
+							seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
+							imageSrc={ siteIconImage }
+						/>
+					) : null }
+					<span
+						className={ clsx( styles.statusBadge, isLive && styles.statusBadge_live ) }
+						role="img"
+						aria-label={ dotLabel }
+						title={ dotLabel }
 					>
-						{ showSiteIcon ? (
-							<SiteIcon
-								className={ styles.siteIcon }
-								seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
-								imageSrc={ siteIconImage }
-							/>
-						) : null }
-						<span
-							className={ clsx( styles.statusBadge, isLive && styles.statusBadge_live ) }
-							role="img"
-							aria-label={ dotLabel }
-							title={ dotLabel }
-						>
-							<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />
-							{ isLive ? <span className={ styles.statusLabel }>{ __( 'Live' ) }</span> : null }
-						</span>
-						<span className={ styles.identity }>
-							<span className={ styles.site }>{ siteName }</span>
-							<span className={ styles.url }>{ siteUrl }</span>
-						</span>
-						<Icon className={ styles.chevron } icon={ chevronDownSmall } />
-					</Tooltip.Trigger>
-					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ __( 'Open site menu' ) }
-					</Tooltip.Popup>
-				</Tooltip.Root>
-			</Tooltip.Provider>
+						<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />
+						{ isLive ? <span className={ styles.statusLabel }>{ __( 'Live' ) }</span> : null }
+					</span>
+					<span className={ styles.identity }>
+						<span className={ styles.site }>{ siteName }</span>
+						<span className={ styles.url }>{ siteUrl }</span>
+					</span>
+					<Icon className={ styles.chevron } icon={ chevronDownSmall } />
+				</Tooltip.Trigger>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+					{ __( 'Open site menu' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
 		);
 	}
 );

@@ -1,5 +1,5 @@
 diff --git a/node_modules/@wordpress/ui/build-module/icon-button/icon-button.mjs b/node_modules/@wordpress/ui/build-module/icon-button/icon-button.mjs
-index 1623748..d78b6c1 100644
+index 1623748..f2e8f9a 100644
 --- a/node_modules/@wordpress/ui/build-module/icon-button/icon-button.mjs
 +++ b/node_modules/@wordpress/ui/build-module/icon-button/icon-button.mjs
 @@ -110,7 +110,7 @@ var IconButton = forwardRef(
@@ -7,12 +7,21 @@ index 1623748..d78b6c1 100644
    }, ref) {
      const classes = clsx(style_default["icon-button"], className);
 -    return /* @__PURE__ */ jsx(Tooltip.Provider, { delay: 0, children: /* @__PURE__ */ jsxs(Tooltip.Root, { children: [
-+    return /* @__PURE__ */ jsx(Tooltip.Provider, { children: /* @__PURE__ */ jsxs(Tooltip.Root, { children: [
++    return /* @__PURE__ */ jsxs(Tooltip.Root, { children: [
        /* @__PURE__ */ jsx(
          Tooltip.Trigger,
          {
+@@ -143,7 +143,7 @@ var IconButton = forwardRef(
+           /* @__PURE__ */ jsx("span", { "aria-hidden": "true", children: shortcut.displayShortcut })
+         ] })
+       ] })
+-    ] }) });
++    ] });
+   }
+ );
+ export {
 diff --git a/node_modules/@wordpress/ui/build/icon-button/icon-button.cjs b/node_modules/@wordpress/ui/build/icon-button/icon-button.cjs
-index 3f2a8a4..a5cba59 100644
+index 3f2a8a4..ab4df38 100644
 --- a/node_modules/@wordpress/ui/build/icon-button/icon-button.cjs
 +++ b/node_modules/@wordpress/ui/build/icon-button/icon-button.cjs
 @@ -144,7 +144,7 @@ var IconButton = (0, import_element.forwardRef)(
@@ -20,7 +29,16 @@ index 3f2a8a4..a5cba59 100644
    }, ref) {
      const classes = (0, import_clsx.default)(style_default["icon-button"], className);
 -    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Tooltip.Provider, { delay: 0, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Tooltip.Root, { children: [
-+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Tooltip.Provider, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Tooltip.Root, { children: [
++    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Tooltip.Root, { children: [
        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
          Tooltip.Trigger,
          {
+@@ -177,7 +177,7 @@ var IconButton = (0, import_element.forwardRef)(
+           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { "aria-hidden": "true", children: shortcut.displayShortcut })
+         ] })
+       ] })
+-    ] }) });
++    ] });
+   }
+ );
+ // Annotate the CommonJS export names for ESM import in node:

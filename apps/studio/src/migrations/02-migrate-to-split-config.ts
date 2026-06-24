@@ -35,6 +35,9 @@ const sharedConfigExtractSchema = z.object( {
 const cliSiteSchema = siteDetailsSchema.extend( {
 	url: z.string().optional(),
 	latestCliPid: z.number().optional(),
+	// Kept after autoStart was removed from the shared schema so this migration still routes it to
+	// cli.json (and excludes it from app.json). Migration 08 then relocates it into app.json.
+	autoStart: z.boolean().optional(),
 } );
 
 function buildSharedConfig( oldData: Record< string, unknown > ): Record< string, unknown > {

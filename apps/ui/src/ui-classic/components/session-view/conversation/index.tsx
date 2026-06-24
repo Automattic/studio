@@ -4,8 +4,10 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
+	getInputString,
 	getToolDetail,
 	getToolDisplayName,
+	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { __ } from '@wordpress/i18n';
@@ -24,7 +26,6 @@ import {
 	download,
 	file,
 	globe,
-	help,
 	image,
 	info,
 	link,
@@ -53,7 +54,7 @@ import {
 } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Markdown } from '@/components/markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -323,29 +324,11 @@ interface ClassicToolDisplay {
 	inputText: string;
 }
 
-function getInputString( input: Record< string, unknown > | undefined, key: string ): string {
-	const value = input?.[ key ];
-	return typeof value === 'string' ? value.trim() : '';
-}
-
 function truncateToolDetail( value: string, maxLength = TOOL_DETAIL_MAX_LENGTH ): string {
 	if ( value.length <= maxLength ) {
 		return value;
 	}
 	return value.slice( 0, maxLength - 1 ).trimEnd() + '…';
-}
-
-function shortPath( value: string ): string {
-	return value.split( '/' ).filter( Boolean ).slice( -2 ).join( '/' ) || value;
-}
-
-function splitCommandArgs( command: string ): string[] {
-	return (
-		command
-			.match( /(?:[^\s"']+|"[^"]*"|'[^']*')+/g )
-			?.map( ( arg ) => arg.replace( /^(['"])(.*)\1$/, '$2' ) )
-			.filter( Boolean ) ?? []
-	);
 }
 
 function stringifyToolInput( input: Record< string, unknown > ): string {
@@ -394,11 +377,6 @@ function getClassicToolDisplay(
 		case 'Bash':
 			display.label = __( 'Run terminal command' );
 			display.detail = '';
-			break;
-		case 'Read':
-		case 'Write':
-		case 'Edit':
-			display.detail = genericDetail ? shortPath( genericDetail ) : '';
 			break;
 		case 'take_screenshot':
 		case 'inspect_design':
@@ -484,8 +462,6 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 			return pencil;
 		case 'wait_for_annotations':
 			return pending;
-		case 'AskUserQuestion':
-			return help;
 		case 'take_screenshot':
 			return capturePhoto;
 		case 'inspect_design':
@@ -555,6 +531,14 @@ function ToolUseRow( {
 	const hasInput = display.inputText.length > 0;
 	const hasExpandableDetails = hasInput || hasOutput;
 	const [ expanded, setExpanded ] = useState( false );
+	const [ detailsMounted, setDetailsMounted ] = useState( false );
+	useEffect( () => {
+		if ( expanded || ! detailsMounted ) {
+			return;
+		}
+		const timeoutId = window.setTimeout( () => setDetailsMounted( false ), 220 );
+		return () => window.clearTimeout( timeoutId );
+	}, [ detailsMounted, expanded ] );
 	const rowContent = (
 		<>
 			<ToolIcon name={ name } input={ input } />
@@ -569,9 +553,18 @@ function ToolUseRow( {
 				<button
 					type="button"
 					className={ clsx( styles.toolRow, styles.toolRowButton ) }
+					aria-label={ display.detail ? `${ display.label } ${ display.detail }` : display.label }
 					aria-expanded={ expanded }
 					aria-controls={ detailsId }
-					onClick={ () => setExpanded( ( previous ) => ! previous ) }
+					data-expanded={ expanded }
+					onClick={ () => {
+						if ( expanded ) {
+							setExpanded( false );
+							return;
+						}
+						setDetailsMounted( true );
+						setExpanded( true );
+					} }
 					title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
 				>
 					{ rowContent }
@@ -579,14 +572,30 @@ function ToolUseRow( {
 			) : (
 				<div className={ styles.toolRow }>{ rowContent }</div>
 			) }
-			{ hasExpandableDetails && expanded ? (
-				<div id={ detailsId } className={ styles.toolOutputWrap }>
-					{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
-					{ hasOutput ? (
-						<pre className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }>
-							{ resultText }
-						</pre>
-					) : null }
+			{ hasExpandableDetails && detailsMounted ? (
+				<div
+					id={ detailsId }
+					className={ styles.toolDetailsShell }
+					data-expanded={ expanded }
+					aria-hidden={ ! expanded }
+					onTransitionEnd={ ( event ) => {
+						if ( event.currentTarget === event.target && ! expanded ) {
+							setDetailsMounted( false );
+						}
+					} }
+				>
+					<div className={ styles.toolDetailsClip }>
+						<div className={ styles.toolOutputWrap }>
+							{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
+							{ hasOutput ? (
+								<pre
+									className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }
+								>
+									{ resultText }
+								</pre>
+							) : null }
+						</div>
+					</div>
 				</div>
 			) : null }
 		</div>

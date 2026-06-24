@@ -30,16 +30,22 @@ describe( 'Conversation tool rows', () => {
 
 		const toolRow = screen.getByRole( 'button', { name: 'Run terminal command' } );
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
 
 		fireEvent.click( toolRow );
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( toolRow ).toHaveAttribute( 'data-expanded', 'true' );
 		expect( screen.getByText( 'npm test' ) ).toBeInTheDocument();
 		expect( screen.getByText( /first output line/ ) ).toBeInTheDocument();
 
 		fireEvent.click( toolRow );
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
+		const hiddenDetails = screen.getByText( /first output line/ ).closest( '[aria-hidden="true"]' );
+		expect( hiddenDetails ).toBeInTheDocument();
+		fireEvent.transitionEnd( hiddenDetails! );
 		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
 	} );
 
@@ -83,6 +89,19 @@ describe( 'Conversation tool rows', () => {
 		expect(
 			screen.getByText( ( content ) => content.includes( `wp ${ command }` ) )
 		).toBeInTheDocument();
+	} );
+
+	it( 'combines the tool label and detail in the row accessible name', () => {
+		const data = loadedSession( [
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/studio/app.tsx' } ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.getByRole( 'button', { name: 'Read studio/app.tsx' } ) ).toHaveAttribute(
+			'aria-label',
+			'Read studio/app.tsx'
+		);
 	} );
 
 	it( 'hides the raw Ask User tool row while showing the question UI', () => {

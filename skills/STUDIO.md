@@ -8,13 +8,20 @@ When following any WordPress skill or documentation that references `wp` command
 
 This applies to ALL `wp` commands. Studio runs WordPress through PHP WASM, and a standalone `wp` binary will NOT work. `wp shell` is NOT supported — use `studio wp eval` instead.
 
+## Prerequisites
+
+Before running any `studio` command, verify the CLI is installed by running `studio --version`. If the command is not found, **do not attempt to run any `studio` commands**. Instead, tell the user:
+
+> The Studio CLI is not installed. Open the WordPress Studio desktop app, go to **Settings → General → Studio CLI for terminal**, and enable the toggle. Then open a new terminal window and try again.
+
 ## Workflow
 
-1. **Check site status**: `studio site status` — get URL, credentials, PHP/WP versions
-2. **Ensure site is running**: `studio site start --skip-browser` if needed
-3. **Make changes**: Edit files in `wp-content/themes/` or `wp-content/plugins/`
-4. **Apply changes**: Use `studio wp` to activate themes/plugins, flush caches
-5. **Verify**: Visit the site URL or use `studio wp eval` to test
+1. **Verify CLI is available**: `studio --version` — if this fails, see Prerequisites above
+2. **Check site status**: `studio status` — get URL, credentials, PHP/WP versions
+3. **Ensure site is running**: `studio start --skip-browser` if needed
+4. **Make changes**: Edit files in `wp-content/themes/` or `wp-content/plugins/`
+5. **Apply changes**: Use `studio wp` to activate themes/plugins, flush caches
+6. **Verify**: Visit the site URL or use `studio wp eval` to test
 
 ## Common Workflows
 
@@ -45,7 +52,7 @@ studio wp db query "SELECT option_name, option_value FROM wp_options WHERE optio
 
 **Restart the site after config changes:**
 ```bash
-studio site stop && studio site start --skip-browser
+studio stop && studio start --skip-browser
 ```
 
 ## Debugging
@@ -56,7 +63,7 @@ If the `studio` command is not available in the terminal (e.g., "command not fou
 
 **Enable WordPress debug logging:**
 ```bash
-studio site set --debug-log --debug-display
+studio config set --debug-log --debug-display
 ```
 
 **Check PHP errors (if debug logging is enabled):**
@@ -74,6 +81,44 @@ studio wp plugin list --status=active --format=csv
 studio wp eval 'echo "OK";'
 ```
 
+## Studio MCP Server (AI agent tools)
+
+Studio ships an MCP (Model Context Protocol) server so an AI assistant can drive Studio directly. It runs over stdio via `studio mcp` (requires the `studio` CLI installed). Add it under the `"mcpServers"` key:
+
+```json
+{
+  "wordpress-studio": {
+    "command": "studio",
+    "args": [ "mcp" ]
+  }
+}
+```
+
+Run `studio mcp --help` for per-assistant install commands and config paths. Docs: https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/
+
+**Available tools:**
+
+| Tool | What it does |
+|------|--------------|
+| `site_create` | Create a new local WordPress site (latest WP), register it, and start it |
+| `site_list` | List all Studio sites with name, path, URL, running status |
+| `site_info` | Site details: status, URL, PHP version, admin credentials |
+| `site_start` / `site_stop` | Start / stop a site server |
+| `site_delete` | Remove a site from Studio (optionally trash its files) |
+| `wp_cli` | Run a WP-CLI command against a site (e.g. `plugin install woocommerce --activate`) |
+| `scaffold_theme` | Scaffold + activate a minimal block theme (`theme.json`-based) |
+| `validate_blocks` | Validate block markup on a running site |
+| `take_screenshot` | Full-page screenshot of a URL (desktop/mobile/all viewports) for visual verification |
+| `inspect_design` | Inspect a live page's rendered DOM to diagnose visual issues |
+| `need_for_speed` | Frontend performance audit (Core Web Vitals, page weight, request count) |
+| `rank_me_up` | On-page SEO audit (title/meta, canonical, OG/Twitter cards, headings) |
+| `install_taxonomy_scripts` | Install Taxonomist PHP scripts for `wp_cli eval-file` use |
+| `open_annotation_browser` / `wait_for_annotations` | Open the annotation inspector and collect the user's element feedback |
+| `preview_create` / `preview_list` / `preview_update` / `preview_delete` | Manage WordPress.com preview sites (requires `studio auth login`) |
+| `site_connected_remote_sites` | List WordPress.com sites attached to a local site |
+| `site_push` / `site_pull` | Push to / pull from a connected WordPress.com site (requires `studio auth login`) |
+| `site_import` / `site_export` | Import/export a site backup (`.zip`, `.tar.gz`, `.sql`, `.wpress`) |
+
 ## Constraints
 
 | Don't | Do instead |
@@ -84,7 +129,7 @@ studio wp eval 'echo "OK";'
 | Reference `DB_HOST`, `DB_NAME`, etc. | Use `$wpdb` directly (SQLite handles it) |
 | Delete `wp-content/db.php` | It's the SQLite drop-in — leave it |
 | Delete `wp-content/mu-plugins/sqlite-*` | Required for database to work |
-| Hardcode port numbers | Use `studio site status` to get the current URL |
+| Hardcode port numbers | Use `studio status` to get the current URL |
 | Use `FULLTEXT` indexes | Use a search plugin or simple `LIKE` queries |
 | Build classic themes | Build block themes with `theme.json` |
 
@@ -94,11 +139,11 @@ Use the Studio CLI to manage this site. All `studio` commands accept a `--path <
 
 **Site lifecycle:**
 ```bash
-studio site start          # Start the WordPress server
-studio site stop           # Stop the WordPress server
-studio site status         # Show URL, admin credentials, PHP/WP versions
-studio site set --php 8.4  # Change PHP version
-studio site set --wp 6.8   # Update WordPress version
+studio start            # Start the WordPress server
+studio stop             # Stop the WordPress server
+studio status           # Show URL, admin credentials, PHP/WP versions
+studio config set --php 8.4  # Change PHP version
+studio config set --wp 6.8   # Update WordPress version
 ```
 
 **Cloud preview sites** (requires `studio auth login`):
@@ -145,7 +190,7 @@ add_action( 'wp_enqueue_scripts', function () {
 - **"Add a plugin/theme"**: Create files in `wp-content/plugins/` or `wp-content/themes/`
 - **"Change the site"**: Modify existing theme/plugin files, NEVER core files
 - **"Install X"**: Use `studio wp plugin install X --activate`
-- **"Debug/fix"**: Enable debug logging first: `studio site set --debug-log`
+- **"Debug/fix"**: Enable debug logging first: `studio config set --debug-log`
 
 ## Database: SQLite (not MySQL)
 
@@ -173,7 +218,7 @@ studio wp db query "SELECT option_name, option_value FROM wp_options LIMIT 10;"
 
 **Must-use plugins:** The `wp-content/mu-plugins/` directory contains the SQLite integration. Do NOT remove files from this directory.
 
-**Port and URL:** The local URL and port are assigned dynamically by Studio. Always retrieve the current URL with `studio site status` rather than hardcoding it.
+**Port and URL:** The local URL and port are assigned dynamically by Studio. Always retrieve the current URL with `studio status` rather than hardcoding it.
 
 **Multisite:** WordPress Multisite is supported in Studio sites when the site was created from a blueprint that includes the `enableMultisite` step. Multisite requires a custom domain: Studio will prompt for one during site creation when the blueprint includes that step.
 

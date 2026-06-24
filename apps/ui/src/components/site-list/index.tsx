@@ -115,7 +115,7 @@ function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
 	const starred = !! session.starred;
 	const archived = !! session.archived;
 
-	// Same persistence path as the ui-desks chats panel: optimistic
+	// Same persistence path as the assistant tab: optimistic
 	// starred/archived patches through `connector.updateSessionMetadata`.
 	const updateMetadata = ( patch: { starred: boolean; archived: boolean } ) => {
 		updateSessionMetadata.mutate( {
@@ -167,7 +167,7 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 	return (
 		<li className={ styles.sessionItem }>
 			<SidebarButton
-				className={ clsx( styles.sessionLink, isRunning && styles.sessionLinkRunning ) }
+				className={ styles.sessionLink }
 				render={
 					<Link
 						to="/sessions/$sessionId"
@@ -188,9 +188,7 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 										className={ styles.sessionQuestionIndicator }
 										role="status"
 										aria-label={ __( 'Studio needs an answer.' ) }
-									>
-										?
-									</span>
+									/>
 								}
 							/>
 							<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
@@ -528,11 +526,15 @@ function SiteStatusButton( {
 						>
 							<svg
 								className={ styles.siteStatusGlyph }
-								viewBox="0 0 8 8"
+								viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
 								aria-hidden="true"
 								focusable="false"
 							>
-								<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+								{ status === 'stopped' ? (
+									<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
+								) : (
+									<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+								) }
 							</svg>
 							{ ! busy ? (
 								<svg
@@ -574,6 +576,7 @@ function SiteSection( {
 } ) {
 	const isStarting = useIsSiteStarting( group.site?.id );
 	const isStopping = useIsSiteStopping( group.site?.id );
+	const isStopped = !! group.site && ! group.site.running && ! isStarting;
 
 	return (
 		<section
@@ -593,6 +596,7 @@ function SiteSection( {
 						{ group.site ? (
 							<span className={ styles.siteIconSlot } aria-hidden="true">
 								<SiteIcon
+									className={ clsx( styles.siteIcon, isStopped && styles.siteIconStopped ) }
 									seed={ `${ group.site.id }:${ group.site.name }:${ group.site.path }` }
 									imageSrc={ group.site.siteIcon }
 								/>

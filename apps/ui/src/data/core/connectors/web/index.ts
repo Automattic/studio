@@ -275,12 +275,7 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 		async continueSession( sessionId, prompt, options ): Promise< { runId: string } > {
 			return api< { runId: string } >( `/sessions/${ encodeURIComponent( sessionId ) }/messages`, {
 				method: 'POST',
-				body: JSON.stringify( {
-					prompt,
-					displayMessage: options?.displayMessage,
-					images: options?.images,
-					files: options?.files,
-				} ),
+				body: JSON.stringify( { prompt, displayMessage: options?.displayMessage } ),
 			} );
 		},
 		async getActiveAgentRuns(): Promise< ActiveAgentRun[] > {

@@ -90,11 +90,11 @@ jobs:
 
     steps:
       - name: Checkout Studio
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Checkout static-php-cli
         if: runner.os == 'macOS' || runner.os == 'Linux'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: crazywhalecc/static-php-cli
           ref: ${{ env.SPC_REF }}
@@ -175,6 +175,8 @@ jobs:
           )
           build_args=(
             "$static_extensions"
+            # Give gd JPEG/WebP image support and FreeType (TrueType text).
+            --with-libs=freetype,libjpeg,libwebp
             --build-shared=xdebug
             --build-cli
           )
@@ -541,7 +543,7 @@ jobs:
       WPCOM_API_TOKEN: ${{ secrets.WPCOM_API_TOKEN }}
     steps:
       - name: Checkout Studio
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@89f90524b88a01fe6e0b732220432cc6142926af # v1.313.0

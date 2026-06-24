@@ -38,18 +38,18 @@ const snapshotTestActions = {
 let testStore = createTestStore( {
 	preloadedState: {
 		betaFeatures: {
-			features: { remoteSession: false, nativePhpRuntime: false },
+			features: { remoteSession: false },
 			loading: false,
 		},
 	},
 } );
 
 // We need to create a new store each time to avoid reducer conflicts
-function createCustomTestStore( nativePhpRuntime = false ) {
+function createCustomTestStore() {
 	const store = createTestStore( {
 		preloadedState: {
 			betaFeatures: {
-				features: { remoteSession: false, nativePhpRuntime },
+				features: { remoteSession: false },
 				loading: false,
 			},
 		},
@@ -293,10 +293,11 @@ describe( 'ContentTabSettings', () => {
 	describe( 'PHP version', () => {
 		it( 'shows a native PHP fallback warning for unsupported stored PHP versions', async () => {
 			const user = userEvent.setup();
-			testStore = createCustomTestStore( true );
 
 			renderWithProvider(
-				<ContentTabSettings selectedSite={ { ...selectedSite, phpVersion: '7.4' } } />
+				<ContentTabSettings
+					selectedSite={ { ...selectedSite, runtime: 'native-php', phpVersion: '7.4' } }
+				/>
 			);
 
 			await waitFor( () => {

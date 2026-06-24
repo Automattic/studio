@@ -37,7 +37,7 @@ test.describe( 'Import / Export', () => {
 		const siteContent = new SiteContent( session.mainWindow, defaultSiteName );
 
 		// Navigate to the Import / Export tab
-		const tab = await siteContent.navigateToTab( 'Import / Export' );
+		const tab = await siteContent.navigateToTab( 'import-export' );
 
 		// TypeScript doesn't narrow the union type, so we need to assert it
 		// We know it's ImportExportTab because we passed 'Import / Export'

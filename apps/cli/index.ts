@@ -9,6 +9,12 @@ import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull';
 import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint';
 import { registerCommand as registerPushCommand } from 'cli/commands/push';
+import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
+import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
+import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
+import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
+import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
+import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -185,30 +191,29 @@ async function main() {
 	};
 	studioArgv.command(
 		'code',
-		__( 'AI agent for building WordPress sites' ),
+		__( 'AI agent for building and managing WordPress sites' ),
 		studioCodeCommandBuilder
 	);
 	studioArgv.command( 'ai', false, studioCodeCommandBuilder );
 
-	studioArgv.command( {
-		command: 'web-server',
-		describe: __( 'Start the Studio Web backend (HTTP/SSE) for the browser UI' ),
-		builder: ( webYargs: StudioArgv ) => {
-			return webYargs.option( 'port', {
-				type: 'number',
-				description: __( 'Port to listen on' ),
-				default: 8088,
-			} );
-		},
-		handler: async ( argv ) => {
-			process.env.STUDIO_WEB_SERVER_PORT = String( ( argv as { port?: number } ).port ?? 8088 );
-			await import( 'cli/web-server/index.js' );
-		},
-	} );
+	// Site management verbs are exposed at the top level (e.g. `studio create`,
+	// `studio start`, `studio list`). These used to live under the `site` group,
+	// which is kept hidden below for backward compatibility.
+	registerSiteCreateCommand( studioArgv );
+	registerSiteListCommand( studioArgv );
+	registerSiteStartCommand( studioArgv );
+	registerSiteStopCommand( studioArgv );
+	registerSiteDeleteCommand( studioArgv );
+	registerSiteStatusCommand( studioArgv );
 
-	registerExportCommand( studioArgv );
+	registerPushCommand( studioArgv );
+	registerPullCommand( studioArgv );
+	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
+		registerPullReprintCommand( studioArgv );
+	}
+
 	registerImportCommand( studioArgv );
-	registerMcpCommand( studioArgv );
+	registerExportCommand( studioArgv );
 
 	studioArgv.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
 		const [
@@ -233,6 +238,37 @@ async function main() {
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 	} );
 
+	// Per-site configuration lives under `config` (e.g. `studio config get php`,
+	// `studio config set --php 8.3`).
+	studioArgv.command( 'config', __( 'Manage site configuration' ), async ( configYargs ) => {
+		const [
+			{ registerCommand: registerConfigGetCommand },
+			{ registerCommand: registerConfigSetCommand },
+		] = await Promise.all( [
+			import( 'cli/commands/config/get' ),
+			import( 'cli/commands/config/set' ),
+		] );
+
+		registerConfigGetCommand( configYargs );
+		registerConfigSetCommand( configYargs );
+		configYargs
+			.version( false )
+			.demandCommand( 1, __( 'You must provide a valid config command' ) );
+	} );
+
+	studioArgv.command( {
+		command: 'wp',
+		describe: __( 'WP-CLI' ),
+		builder: ( wpYargs ) => {
+			return wpYargs.help( false ).showHelpOnFail( false ).strict( false ).version( false );
+		},
+		handler: async ( argv ) => {
+			const { commandHandler: wpCliCommandHandler } = await import( 'cli/commands/wp' );
+
+			return wpCliCommandHandler( argv );
+		},
+	} );
+
 	studioArgv.command( 'blueprint', __( 'Browse and use blueprints' ), async ( blueprintYargs ) => {
 		const [
 			{ registerCommand: registerBlueprintListCommand },
@@ -249,31 +285,14 @@ async function main() {
 			.demandCommand( 1, __( 'You must provide a valid blueprint command' ) );
 	} );
 
-	registerPullCommand( studioArgv );
-	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
-		registerPullReprintCommand( studioArgv );
-	}
-	registerPushCommand( studioArgv );
+	registerMcpCommand( studioArgv );
 
 	studioArgv
-		.command( 'site', __( 'Manage sites' ), async ( sitesYargs ) => {
-			const [
-				{ registerCommand: registerSiteStatusCommand },
-				{ registerCommand: registerSiteCreateCommand },
-				{ registerCommand: registerSiteListCommand },
-				{ registerCommand: registerSiteStartCommand },
-				{ registerCommand: registerSiteStopCommand },
-				{ registerCommand: registerSiteDeleteCommand },
-				{ registerCommand: registerSiteSetCommand },
-			] = await Promise.all( [
-				import( 'cli/commands/site/status' ),
-				import( 'cli/commands/site/create' ),
-				import( 'cli/commands/site/list' ),
-				import( 'cli/commands/site/start' ),
-				import( 'cli/commands/site/stop' ),
-				import( 'cli/commands/site/delete' ),
-				import( 'cli/commands/site/set' ),
-			] );
+		// Deprecated `site` group, kept hidden for backward compatibility. Every
+		// subcommand is now available at the top level, and `site set` lives under
+		// `config set`.
+		.command( 'site', false, async ( sitesYargs ) => {
+			const { registerCommand: registerSiteSetCommand } = await import( 'cli/commands/config/set' );
 
 			registerSiteStatusCommand( sitesYargs );
 			registerSiteCreateCommand( sitesYargs );
@@ -282,30 +301,8 @@ async function main() {
 			registerSiteStopCommand( sitesYargs );
 			registerSiteDeleteCommand( sitesYargs );
 			registerSiteSetCommand( sitesYargs );
-			registerImportCommand( studioArgv );
-			registerExportCommand( studioArgv );
 
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
-		} )
-		.command( {
-			command: 'wp',
-			describe: __( 'WP-CLI' ),
-			builder: ( wpYargs ) => {
-				return wpYargs
-					.help( false )
-					.showHelpOnFail( false )
-					.strict( false )
-					.version( false )
-					.option( 'studio-no-path', {
-						type: 'boolean',
-						hidden: true,
-					} );
-			},
-			handler: async ( argv ) => {
-				const { commandHandler: wpCliCommandHandler } = await import( 'cli/commands/wp' );
-
-				return wpCliCommandHandler( argv );
-			},
 		} )
 		.command( {
 			command: '_events',

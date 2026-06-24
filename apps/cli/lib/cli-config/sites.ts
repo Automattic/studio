@@ -16,7 +16,7 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	if ( ! site ) {
 		if ( isWordPressDirectory( siteFolder ) ) {
 			throw new LoggerError(
-				__( 'The specified directory is not added to Studio. Use `studio site create` to add it.' )
+				__( 'The specified directory is not added to Studio. Use `studio create` to add it.' )
 			);
 		}
 
@@ -72,23 +72,6 @@ export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
 		}
 
 		delete site.latestCliPid;
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
-	}
-}
-
-export async function updateSiteAutoStart( siteId: string, autoStart: boolean ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
-		const site = config.sites.find( ( s ) => s.id === siteId );
-
-		if ( ! site ) {
-			throw new LoggerError( __( 'Site not found' ) );
-		}
-
-		site.autoStart = autoStart;
 		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();

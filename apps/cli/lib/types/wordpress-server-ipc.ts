@@ -1,3 +1,4 @@
+import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { z } from 'zod';
 import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
@@ -27,6 +28,7 @@ export const serverConfigSchema = z.object( {
 	siteTitle: z.string().optional(),
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
+	fileAccess: siteFileAccessSchema.optional(),
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),

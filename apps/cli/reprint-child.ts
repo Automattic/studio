@@ -167,7 +167,11 @@ async function runReprint( msg: RunMessage ) {
 			'openssl.cafile': '/tmp/ca-bundle.crt',
 			'curl.cainfo': '/tmp/ca-bundle.crt',
 			allow_url_fopen: 1,
-			memory_limit: '512M',
+			// The composite `pull` runs the whole pipeline in one long-lived
+			// fork (no per-sub-command teardown to free the heap), so the
+			// WASM high-water-mark from the file index carries across phases.
+			// 1024M gives headroom over the ~510M peak seen on large sites.
+			memory_limit: '1024M',
 			error_reporting: String( 32767 & ~8192 ),
 			display_errors: 'stderr',
 			log_errors: 0,

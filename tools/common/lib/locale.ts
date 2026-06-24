@@ -7,6 +7,7 @@ export type SupportedLocale = keyof typeof localeDataDictionary;
 
 export const supportedLocaleNames: Record< SupportedLocale, string > = {
 	ar: 'العربية',
+	ckb: 'کوردیی ناوەندی',
 	de: 'Deutsch',
 	en: 'English',
 	es: 'Español',

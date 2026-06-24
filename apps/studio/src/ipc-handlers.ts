@@ -77,6 +77,8 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
@@ -233,16 +235,6 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
-export {
-	exportDeskConfig,
-	getDeskSettings,
-	getSiteDeskConfig,
-	getUserDeskConfig,
-	importDeskConfig,
-	saveDeskSettings,
-	saveSiteDeskConfig,
-	saveUserDeskConfig,
-} from 'src/modules/desks/lib/ipc-handlers';
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 function hydrateAiSessionSummary(
@@ -316,14 +308,14 @@ export async function createAiSession(
 	const sitesRoot = getAiSessionsRootDirectory();
 	if ( ! siteId ) {
 		const existing = await listHydratedAiSessions( sitesRoot );
-		const emptyUserDeskSession = existing
+		const emptyUserSession = existing
 			.filter(
 				( session ) => ! session.ownerSitePath && ! session.firstPrompt && ! session.archived
 			)
 			.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
 
-		if ( emptyUserDeskSession ) {
-			return emptyUserDeskSession;
+		if ( emptyUserSession ) {
+			return emptyUserSession;
 		}
 
 		return hydrateAiSessionSummary( await createAiSessionInStore( sitesRoot ) );
@@ -458,7 +450,7 @@ export async function continueAiSession(
 	} = {}
 ): Promise< { runId: string } > {
 	if ( ! ( await oauthClient.isAuthenticated() ) ) {
-		throw new Error( __( 'WordPress.com login required. Log in to use Studio Desk chat.' ) );
+		throw new Error( __( 'WordPress.com login required. Log in to use Studio Code.' ) );
 	}
 
 	await reconcileSessionEnvironmentBeforeRun( sessionId );
@@ -768,6 +760,7 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 			site.sortOrder = appdataSite.sortOrder;
 			site.themeDetails = appdataSite.themeDetails;
 			site.siteIconPath = appdataSite.siteIconPath;
+			site.autoStart = appdataSite.autoStart;
 
 			// Read the icon file from disk and hand the renderer a data URL.
 			// Keeping the base64 out of the persisted appdata avoids bloating
@@ -801,6 +794,8 @@ export async function createSite(
 		enableHttps?: boolean;
 		siteId?: string;
 		phpVersion?: string;
+		runtime?: SiteRuntime;
+		fileAccess?: SiteFileAccess;
 		blueprint?: Blueprint;
 		adminUsername?: string;
 		adminPassword?: string;
@@ -816,6 +811,8 @@ export async function createSite(
 		siteId: providedSiteId,
 		blueprint,
 		phpVersion,
+		runtime,
+		fileAccess,
 		adminUsername,
 		adminPassword,
 		adminEmail,
@@ -844,6 +841,8 @@ export async function createSite(
 				name: siteName,
 				wpVersion,
 				phpVersion,
+				runtime,
+				fileAccess,
 				customDomain,
 				enableHttps,
 				siteId,
@@ -963,6 +962,14 @@ export async function updateSite(
 		options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
 	}
 
+	if ( getSiteRuntime( updatedSite ) !== getSiteRuntime( currentSite ) ) {
+		options.runtime = siteModeFromRuntime( getSiteRuntime( updatedSite ) );
+	}
+
+	if ( getSiteFileAccess( updatedSite ) !== getSiteFileAccess( currentSite ) ) {
+		options.fileAccess = getSiteFileAccess( updatedSite );
+	}
+
 	if ( updatedSite.enableXdebug !== currentSite.enableXdebug ) {
 		options.xdebug = updatedSite.enableXdebug ?? false;
 	}
@@ -1075,10 +1082,13 @@ export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promi
 	}
 
 	await server.stop();
+	// Stopping a single site by hand clears its auto-start. SiteServer.stop() pre-empts the running
+	// transition the events subscriber relies on, so persist it explicitly here.
+	await server.persistAutoStart( false );
 }
 
 export async function stopAllServers(): Promise< void > {
-	await triggerStopAllServers( false );
+	await triggerStopAllServers();
 }
 
 export interface FolderDialogResponse {
@@ -1208,6 +1218,10 @@ export async function copySite(
 		name: siteName,
 		siteId: newSiteId,
 		phpVersion: sourceSite.phpVersion,
+		// Copies keep the source site's runtime settings rather than picking up
+		// the default for new sites.
+		runtime: getSiteRuntime( sourceSite ),
+		fileAccess: sourceSite.fileAccess,
 		adminUsername: sourceSite.adminUsername,
 		adminPassword: sourceSite.adminPassword
 			? decodePassword( sourceSite.adminPassword )
@@ -2430,7 +2444,7 @@ export async function startRemoteSessionDaemon(
 	//
 	// `STUDIO_ENABLE_REMOTE_SESSION=true` is required: the CLI gates the entire
 	// `code remote-session` subcommand tree behind that env var (see
-	// `apps/cli/lib/feature-flags.ts`). Without it, the spawned child fails with
+	// `tools/common/lib/remote-session.ts`). Without it, the spawned child fails with
 	// "Unknown arguments: remote-session, start". The `remoteSession` beta
 	// feature is the user-facing opt-in, so we lift the CLI gate in the spawned
 	// child rather than asking users to set the env var manually.

@@ -14,6 +14,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import {
+	getSiteFileAccess,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+} from '@studio/common/lib/site-file-access';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -104,6 +108,12 @@ let runningConfig: ServerConfig | null = null;
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
 const NATIVE_PHP_WORKER_POOL_SIZE = 4;
+
+// "Site directory" file access applies the open_basedir jail and
+// disable_functions list; "all files" runs PHP unrestricted.
+function isFileAccessRestricted( config: ServerConfig ): boolean {
+	return getSiteFileAccess( config ) === SITE_FILE_ACCESS_SITE_DIRECTORY;
+}
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -483,21 +493,25 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			}
 		}
 
-		// Snapshot existing symlink targets so open_basedir grants them upfront. New
-		// symlinks added while the server runs are picked up by startSymlinkWatcher
-		// below and trigger a debounced restart with an extended allowlist.
-		const symlinkAllowlistEntries = await collectSymlinkAllowlistEntries( config.sitePath );
-		stopSignal.throwIfAborted();
+		// With "all files" access the allowlist stays empty, which disables
+		// open_basedir entirely (see getDefaultPhpArgs).
+		if ( isFileAccessRestricted( config ) ) {
+			// Snapshot existing symlink targets so open_basedir grants them upfront. New
+			// symlinks added while the server runs are picked up by startSymlinkWatcher
+			// below and trigger a debounced restart with an extended allowlist.
+			const symlinkAllowlistEntries = await collectSymlinkAllowlistEntries( config.sitePath );
+			stopSignal.throwIfAborted();
 
-		currentOpenBasedirAllowlist.add( config.sitePath );
-		currentOpenBasedirAllowlist.add( ROUTER_PATH );
-		currentOpenBasedirAllowlist.add( getPhpMyAdminPath() );
-		currentOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
-		currentOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
-		currentOpenBasedirAllowlist.add( muPluginsPath );
-		currentOpenBasedirAllowlist.add( os.tmpdir() );
-		symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
-		config.openBasedirAllowList?.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
+			currentOpenBasedirAllowlist.add( config.sitePath );
+			currentOpenBasedirAllowlist.add( ROUTER_PATH );
+			currentOpenBasedirAllowlist.add( getPhpMyAdminPath() );
+			currentOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
+			currentOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
+			currentOpenBasedirAllowlist.add( muPluginsPath );
+			currentOpenBasedirAllowlist.add( os.tmpdir() );
+			symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
+			config.openBasedirAllowList?.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
+		}
 
 		runningConfig = config;
 
@@ -563,7 +577,7 @@ async function doStartServer(
 					STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
 				},
 				onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
-				disallowRiskyFunctions: true,
+				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
 				autoPrependFile: config.autoPrependFile,
 			} );
@@ -608,8 +622,11 @@ async function doStartServer(
 
 		// Watch for symlinks created after startup. open_basedir cannot be extended
 		// at runtime, so the watcher triggers a debounced restart with an updated
-		// allowlist when a new symlink target is discovered.
-		startSymlinkWatcher( config.sitePath );
+		// allowlist when a new symlink target is discovered. With "all files"
+		// access there is no open_basedir to extend, so no watcher is needed.
+		if ( isFileAccessRestricted( config ) ) {
+			startSymlinkWatcher( config.sitePath );
+		}
 		return spawnedChildren[ 0 ];
 	} catch ( error ) {
 		const serverToClose = proxyServer;

@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
+import { siteModeFromRuntime, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { z } from 'zod';
@@ -32,6 +34,8 @@ export interface CreateSiteOptions {
 	name?: string;
 	wpVersion?: string;
 	phpVersion?: string;
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 	customDomain?: string;
 	enableHttps?: boolean;
 	siteId?: string;
@@ -136,6 +140,14 @@ function buildCliArgs( options: CreateSiteOptions ): string[] {
 
 	if ( options.phpVersion ) {
 		args.push( '--php', options.phpVersion );
+	}
+
+	if ( options.runtime ) {
+		args.push( '--runtime', siteModeFromRuntime( options.runtime ) );
+	}
+
+	if ( options.fileAccess ) {
+		args.push( '--file-access', options.fileAccess );
 	}
 
 	if ( options.customDomain ) {

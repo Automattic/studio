@@ -138,6 +138,22 @@ describe( 'setupUpdateNotifier', () => {
 	} );
 
 	describe( 'standalone', () => {
+		const originalPlatform = process.platform;
+
+		// The banner's install command is OS-specific (curl on unix, irm on Windows), so pin
+		// the platform — otherwise these assertions are non-deterministic across the CI matrix
+		// (they failed on the Windows runner).
+		beforeEach( () => {
+			Object.defineProperty( process, 'platform', { value: 'linux', configurable: true } );
+		} );
+
+		afterEach( () => {
+			Object.defineProperty( process, 'platform', {
+				value: originalPlatform,
+				configurable: true,
+			} );
+		} );
+
 		it( 'shows a curl-install banner when the endpoint reports a newer version', async () => {
 			vi.stubGlobal(
 				'fetch',

@@ -1,7 +1,7 @@
 .spinner {
 	display: inline-block;
-	width: 12px;
-	height: 12px;
+	width: var(--spinner-size, 12px);
+	height: var(--spinner-size, 12px);
 	border: 2px solid var(--wpds-color-stroke-surface-neutral);
 	border-top-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	border-radius: 50%;

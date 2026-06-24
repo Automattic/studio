@@ -1014,9 +1014,20 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	try {
 		await server.start();
 	} catch ( error ) {
+		try {
+			await server.persistAutoStart( false );
+		} catch {
+			// Ignore errors persisting auto-start state
+		}
+
 		// Skip WASM memory errors - they're user system issues, not bugs
 		if ( errorMessageContains( error, 'Cannot allocate Wasm memory for new instance' ) ) {
 			throw new Error( 'WASM_ERROR_NOT_ENOUGH_MEMORY' );
+		}
+
+		// Capacity limit is expected behavior, not a bug — skip Sentry
+		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
+			throw new Error( 'CAPACITY_LIMIT_REACHED' );
 		}
 
 		const contexts: Record< string, Record< string, unknown > > = {

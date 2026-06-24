@@ -4,10 +4,18 @@ import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-type
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { arrowUp, chevronDownSmall, closeSmall, page } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { arrowUp, chevronDownSmall, closeSmall, page, plus } from '@wordpress/icons';
+import { Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+	forwardRef,
+	useCallback,
+	useEffect,
+	useImperativeHandle,
+	useRef,
+	useState,
+	type MouseEvent,
+} from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -15,24 +23,19 @@ import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
+	type ComposerAttachment,
 	toComposerSendAttachments,
 	useComposerAttachments,
 	type ComposerSendAttachments,
 } from './use-composer-attachments';
-import type { AiModelId, LoadedAiSession, SessionEntry, SyncSite } from '@/data/core';
-
-// @wordpress/icons has no paperclip; this matches the others' 24×24 viewBox.
-const paperclipIcon = (
-	<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" aria-hidden="true">
-		<path
-			d="M16.5 6.5 9 14a2 2 0 1 0 2.8 2.8l7-7a4 4 0 1 0-5.6-5.6l-7 7a6 6 0 0 0 8.5 8.5l5.3-5.3"
-			stroke="currentColor"
-			strokeWidth="1.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		/>
-	</svg>
-);
+import type {
+	AiModelId,
+	LoadedAiSession,
+	SessionEntry,
+	StudioChatFileAttachment,
+	StudioChatImage,
+	SyncSite,
+} from '@/data/core';
 
 function formatAttachmentSize( bytes: number ): string {
 	if ( ! bytes ) {
@@ -47,12 +50,49 @@ function formatAttachmentSize( bytes: number ): string {
 	return `${ ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) } MB`;
 }
 
+function formatSkillLabel( name: string ): string {
+	return name
+		.split( '-' )
+		.map( ( word ) => word.charAt( 0 ).toUpperCase() + word.slice( 1 ) )
+		.join( ' ' );
+}
+
+function toComposerDraftAttachments( {
+	images = [],
+	files = [],
+}: {
+	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
+} ): ComposerAttachment[] {
+	return [
+		...images.map(
+			( image ): ComposerAttachment => ( {
+				id: image.id,
+				kind: 'image',
+				name: image.name,
+				mimeType: image.mimeType,
+				size: image.size,
+				dataBase64: image.dataBase64,
+			} )
+		),
+		...files.map(
+			( file ): ComposerAttachment => ( {
+				id: file.id,
+				kind: 'file',
+				name: file.name,
+				path: file.path,
+				mimeType: file.mimeType,
+				size: file.size ?? 0,
+			} )
+		),
+	];
+}
+
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
- * textarea + toolbar + meta row) so the loading state can reserve the exact
- * same vertical space without rendering a visible composer. Heights track the
- * real composer's CSS automatically — no magic numbers that drift when the
- * composer changes.
+ * textarea + toolbar) so the loading state can reserve the exact same vertical
+ * space without rendering a visible composer. Heights track the real composer's
+ * CSS automatically — no magic numbers that drift when the composer changes.
  */
 export function ComposerSkeleton() {
 	return (
@@ -63,7 +103,6 @@ export function ComposerSkeleton() {
 					<span className={ styles.pill } />
 				</div>
 			</div>
-			<div className={ styles.meta }>{ ' ' }</div>
 		</div>
 	);
 }
@@ -99,10 +138,23 @@ interface ComposerProps {
  */
 export interface ComposerHandle {
 	appendDraft( text: string ): void;
+	replaceDraft(
+		text: string,
+		attachments?: { images?: StudioChatImage[]; files?: StudioChatFileAttachment[] }
+	): void;
 }
 
 const isMacPlatform =
 	typeof navigator !== 'undefined' && /mac/i.test( navigator.platform || navigator.userAgent );
+
+function shouldShellFocusTextarea( target: EventTarget ) {
+	if ( ! ( target instanceof Element ) ) {
+		return true;
+	}
+	return ! target.closest(
+		'button, input, textarea, select, a, [role="button"], [role="menuitem"]'
+	);
+}
 
 export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
 	{
@@ -123,6 +175,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	ref
 ) {
 	const [ value, setValue ] = useState( '' );
+	const [ placeholderIndex, setPlaceholderIndex ] = useState( 0 );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const connector = useConnector();
@@ -153,6 +206,16 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ autoFocus, sessionId ] );
 
+	useEffect( () => {
+		if ( value.trim().length > 0 ) {
+			return;
+		}
+		const interval = window.setInterval( () => {
+			setPlaceholderIndex( ( current ) => current + 1 );
+		}, 5000 );
+		return () => window.clearInterval( interval );
+	}, [ value ] );
+
 	useImperativeHandle(
 		ref,
 		() => ( {
@@ -171,8 +234,19 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					node.setSelectionRange( len, len );
 				} );
 			},
+			replaceDraft( text, draftAttachments ) {
+				setValue( text );
+				restoreAttachments( toComposerDraftAttachments( draftAttachments ?? {} ) );
+				queueMicrotask( () => {
+					const node = textareaRef.current;
+					if ( ! node ) return;
+					node.focus();
+					const len = node.value.length;
+					node.setSelectionRange( len, len );
+				} );
+			},
 		} ),
-		[]
+		[ restoreAttachments ]
 	);
 
 	const send = useCallback( async () => {
@@ -200,6 +274,14 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
+	}, [] );
+
+	const focusTextareaFromShell = useCallback( ( event: MouseEvent< HTMLDivElement > ) => {
+		if ( ! shouldShellFocusTextarea( event.target ) ) {
+			return;
+		}
+		event.preventDefault();
+		textareaRef.current?.focus();
 	}, [] );
 
 	const onFileInputChange = useCallback(
@@ -307,18 +389,33 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = value.trim().length > 0 || attachments.length > 0;
-	const placeholder = busy
-		? __( 'Queue a follow-up instruction…' )
-		: __( 'Set your next instruction…' );
-	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const modKey = isMacPlatform ? '⌘' : 'Ctrl';
+	const newlineHint = `${ modKey }↩ ${ __( 'for newline' ) }`;
+	const canSend = value.trim().length > 0 || attachments.length > 0;
+	const placeholderOptions = busy
+		? [
+				__( 'Add the next thought…' ),
+				__( 'Queue up the follow-up…' ),
+				__( 'Got one more thing?' ),
+		  ]
+		: [
+				__( 'What should we make better?' ),
+				__( 'What’s the next move?' ),
+				__( 'Tell me what to change next…' ),
+				__( 'Drop the next idea here…' ),
+				__( 'What are we tuning now?' ),
+		  ];
+	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
+	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
+	const sendShortcutLabel = __( 'Return to send' );
+	const composerError = attachmentError ?? error;
 
 	return (
 		<>
 			<div className={ styles.root }>
 				<div
 					className={ clsx( styles.shell, isDraggingOver && styles.shellDragging ) }
+					onMouseDown={ focusTextareaFromShell }
 					onDragOver={ dragHandlers.onDragOver }
 					onDragLeave={ dragHandlers.onDragLeave }
 					onDrop={ dragHandlers.onDrop }
@@ -377,6 +474,18 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							}
 							if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
 								event.preventDefault();
+								const node = event.currentTarget;
+								const start = node.selectionStart;
+								const end = node.selectionEnd;
+								const nextValue = `${ node.value.slice( 0, start ) }\n${ node.value.slice( end ) }`;
+								setValue( nextValue );
+								queueMicrotask( () => {
+									textareaRef.current?.setSelectionRange( start + 1, start + 1 );
+								} );
+								return;
+							}
+							if ( event.key === 'Enter' ) {
+								event.preventDefault();
 								void send();
 							}
 						} }
@@ -389,38 +498,33 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									render={
 										<button
 											type="button"
-											className={ `${ styles.iconButton } ${ styles.glyphButton }` }
-											aria-label={ __( 'Commands' ) }
+											className={ styles.iconButton }
+											aria-label={ __( 'Add skill or attachment' ) }
 										>
-											/
+											<Icon icon={ plus } size={ 16 } />
 										</button>
 									}
 								/>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
-									{ AI_SKILL_COMMANDS.map( ( command ) => (
-										<Menu.Item
-											key={ command.name }
-											onClick={ () => {
-												void onSend( `/${ command.name }` );
-											} }
-										>
-											<span className={ styles.commandItem }>
-												<span className={ styles.commandName }>/{ command.name }</span>
-												<span className={ styles.commandDescription }>{ command.description }</span>
-											</span>
-										</Menu.Item>
-									) ) }
+									<Menu.Item onClick={ openFilePicker }>{ __( 'Upload attachment' ) }</Menu.Item>
+									<Menu.SubmenuRoot>
+										<Menu.SubmenuTrigger>{ __( 'Skills' ) }</Menu.SubmenuTrigger>
+										<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
+											{ AI_SKILL_COMMANDS.map( ( command ) => (
+												<Menu.Item
+													key={ command.name }
+													onClick={ () => {
+														void onSend( `/${ command.name }` );
+													} }
+												>
+													{ formatSkillLabel( command.name ) }
+												</Menu.Item>
+											) ) }
+										</Menu.Popup>
+									</Menu.SubmenuRoot>
 								</Menu.Popup>
 							</Menu.Root>
-							<button
-								type="button"
-								className={ styles.iconButton }
-								aria-label={ __( 'Attach files' ) }
-								title={ __( 'Attach files' ) }
-								onClick={ openFilePicker }
-							>
-								<Icon icon={ paperclipIcon } size={ 16 } />
-							</button>
+							<span className={ styles.toolbarHint }>{ newlineHint }</span>
 							<input
 								ref={ fileInputRef }
 								type="file"
@@ -478,27 +582,34 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									<span className={ styles.stopGlyph } aria-hidden="true" />
 								</button>
 							) : null }
-							<button
-								type="button"
-								className={ styles.sendButton }
-								onClick={ () => void send() }
-								disabled={ ! canSend }
-								aria-label={ sendAriaLabel }
-							>
-								<Icon icon={ arrowUp } size={ 18 } />
-							</button>
+							<Tooltip.Provider delay={ 0 }>
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										render={
+											<button
+												type="button"
+												className={ styles.sendButton }
+												onClick={ () => void send() }
+												disabled={ ! canSend }
+												aria-label={ sendAriaLabel }
+											/>
+										}
+									>
+										<Icon icon={ arrowUp } size={ 18 } />
+									</Tooltip.Trigger>
+									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+										{ sendShortcutLabel }
+									</Tooltip.Popup>
+								</Tooltip.Root>
+							</Tooltip.Provider>
 						</div>
 					</div>
 				</div>
-				<div className={ styles.meta }>
-					<span className={ styles.metaHint }>
-						{ modKey }↩ { __( 'to send' ) } · shift↩ { __( 'for newline' ) }
-					</span>
-					{ attachmentError ?? error ? (
-						<span className={ styles.error }>{ attachmentError ?? error }</span>
-					) : null }
-					<span className={ styles.metaUses }>{ __( 'Uses 1 message' ) }</span>
-				</div>
+				{ composerError ? (
+					<div className={ styles.meta }>
+						<span className={ styles.error }>{ composerError }</span>
+					</div>
+				) : null }
 			</div>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }

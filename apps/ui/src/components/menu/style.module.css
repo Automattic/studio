@@ -47,6 +47,10 @@
 	cursor: not-allowed;
 }
 
+.submenuTrigger {
+	justify-content: space-between;
+}
+
 .radioItem {
 	padding-inline-start: var(--wpds-dimension-padding-xs);
 }

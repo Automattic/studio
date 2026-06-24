@@ -19,9 +19,15 @@ type Props = {
 	// "Local". Outside a session context this defaults to local.
 	activeEnvironment?: 'local' | 'live';
 	showSiteIcon?: boolean;
+	showStatus?: boolean;
 };
 
-export function SiteDropdown( { site, activeEnvironment = 'local', showSiteIcon = false }: Props ) {
+export function SiteDropdown( {
+	site,
+	activeEnvironment = 'local',
+	showSiteIcon = false,
+	showStatus = true,
+}: Props ) {
 	const [ view, setView ] = useState< 'main' | 'picker' >( 'main' );
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
@@ -67,6 +73,7 @@ export function SiteDropdown( { site, activeEnvironment = 'local', showSiteIcon 
 							statusLabel={ statusLabel }
 							environment={ activeEnvironment }
 							showSiteIcon={ showSiteIcon }
+							showStatus={ showStatus }
 							siteIconSeed={ `${ site.id }:${ site.name }:${ site.path }` }
 							siteIconImage={ site.siteIcon }
 						/>

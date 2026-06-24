@@ -3,6 +3,10 @@
 	pointer-events: none;
 	overflow: hidden;
 	contain: paint;
+	--progressive-blur-surface-color: var(--wpds-color-bg-surface-neutral, Canvas);
+	--progressive-blur-surface-strength: 78%;
+	--progressive-blur-surface-hold-stop: 58%;
+	--progressive-blur-surface-fade-stop: 100%;
 }
 
 .down {
@@ -29,6 +33,27 @@
 		black 0%,
 		black var(--progressive-blur-solid-stop),
 		transparent var(--progressive-blur-fade-stop)
+	);
+}
+
+.surfaceFade {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		var(--progressive-blur-direction),
+		color-mix(
+				in srgb,
+				var(--progressive-blur-surface-color) var(--progressive-blur-surface-strength),
+				transparent
+			)
+			0%,
+		color-mix(
+				in srgb,
+				var(--progressive-blur-surface-color) var(--progressive-blur-surface-strength),
+				transparent
+			)
+			var(--progressive-blur-surface-hold-stop),
+		transparent var(--progressive-blur-surface-fade-stop)
 	);
 }
 

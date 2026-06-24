@@ -4,25 +4,42 @@
 }
 
 .shell {
+	--composer-resting-fill: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral-weak, #f4f4f4) 82%,
+		transparent
+	);
+	--composer-resting-tint: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 5%,
+		transparent
+	);
+	--composer-focus-ring: var(--wpds-color-fg-interactive-brand, #2563eb);
+	--composer-border-radius: 8px 8px 20px 8px;
+
 	position: relative;
 	display: flex;
 	flex-direction: column;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: 16px;
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
-	padding: var(--wpds-dimension-padding-lg);
-	box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 4px 12px rgb(0 0 0 / 6%);
-	transition: border-color 120ms ease, box-shadow 120ms ease;
+	border-radius: var(--composer-border-radius);
+	background-color: var(--composer-resting-fill);
+	background-image: linear-gradient(var(--composer-resting-tint), var(--composer-resting-tint));
+	backdrop-filter: blur(20px) saturate(115%);
+	-webkit-backdrop-filter: blur(20px) saturate(115%);
+	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
+	outline: 0 solid transparent;
+	transition: outline-color 80ms ease, outline-width 80ms ease;
 }
 
 .shell:focus-within {
-	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
-	box-shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 6px 16px rgb(0 0 0 / 8%);
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	background-image: none;
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	outline: 2px solid var(--composer-focus-ring);
 }
 
 .shellDragging {
-	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
-	border-style: dashed;
+	outline: 2px dashed var(--composer-focus-ring);
 }
 
 .dropOverlay {
@@ -32,7 +49,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: 16px;
+	border-radius: var(--composer-border-radius);
 	background-color: var(--wpds-color-bg-surface-neutral-strong);
 	color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	font-size: var(--wpds-typography-font-size-sm);
@@ -140,7 +157,7 @@
 	align-items: flex-end;
 	justify-content: space-between;
 	gap: var(--wpds-dimension-padding-sm);
-	padding-top: var(--wpds-dimension-padding-xs);
+	margin-inline: calc(-1 * var(--wpds-dimension-padding-xs));
 }
 
 .leftActions,
@@ -168,11 +185,6 @@
 .iconButton svg {
 	width: 14px;
 	height: 14px;
-}
-
-.glyphButton {
-	font-size: 11px;
-	line-height: 1;
 }
 
 .iconButton:hover:not(:disabled),
@@ -226,24 +238,26 @@
 }
 
 .commandsMenuPopup {
-	min-width: 280px;
+	min-width: 172px;
 }
 
-.commandItem {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
+.skillsMenuPopup {
+	min-width: 180px;
 }
 
-.commandName {
-	font-family: var(--wpds-typography-font-family-mono, ui-monospace, monospace);
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral);
-}
-
-.commandDescription {
-	font-size: var(--wpds-typography-font-size-xs);
+.toolbarHint {
 	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1;
+	opacity: 0;
+	transition: opacity 80ms ease, visibility 80ms ease;
+	visibility: hidden;
+	white-space: nowrap;
+}
+
+.shell:focus-within .toolbarHint {
+	opacity: 1;
+	visibility: visible;
 }
 
 .sendButton,
@@ -310,23 +324,8 @@
 .meta {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-md);
 	margin-top: var(--wpds-dimension-padding-sm);
 	padding: 0 var(--wpds-dimension-padding-xs);
-	min-height: 16px;
-	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.metaHint {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-}
-
-.metaUses {
-	margin-left: auto;
 }
 
 .error {

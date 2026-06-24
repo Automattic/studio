@@ -1,13 +1,39 @@
 .trigger {
-	gap: var(--wpds-dimension-padding-xs);
+	--site-menu-border: color-mix(
+		in srgb,
+		var(--wpds-color-stroke-surface-neutral) 45%,
+		transparent
+	);
+	--site-menu-border-active: color-mix(
+		in srgb,
+		var(--wpds-color-stroke-surface-neutral) 70%,
+		transparent
+	);
+	--site-menu-resting-fill: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral) 96%,
+		transparent
+	);
+	--wp-ui-button-background-color: var(--site-menu-resting-fill);
+	--wp-ui-button-background-color-active: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral) 100%,
+		transparent
+	);
+	--wp-ui-button-border-color: var(--site-menu-border);
+	--wp-ui-button-border-color-active: var(--site-menu-border-active);
+
+	gap: var(--wpds-dimension-padding-sm);
 	max-width: 100%;
 	min-width: 0;
+	backdrop-filter: blur(20px) saturate(115%);
+	-webkit-backdrop-filter: blur(20px) saturate(115%);
 	white-space: nowrap;
 }
 
 .siteIcon {
-	width: 20px;
-	height: 20px;
+	width: 24px;
+	height: 24px;
 	border-radius: 6px;
 }
 
@@ -35,8 +61,8 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 18px;
-	height: 18px;
+	width: 20px;
+	height: 20px;
 	border-radius: 999px;
 	flex-shrink: 0;
 }
@@ -50,8 +76,8 @@
 }
 
 .dot {
-	width: 6px;
-	height: 6px;
+	width: 7px;
+	height: 7px;
 	border-radius: 50%;
 	flex-shrink: 0;
 }

@@ -16,6 +16,7 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	statusLabel: string;
 	environment: 'local' | 'live';
 	showSiteIcon?: boolean;
+	showStatus?: boolean;
 	siteIconSeed?: string;
 	siteIconImage?: string | null;
 };
@@ -29,6 +30,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 			statusLabel,
 			environment,
 			showSiteIcon = false,
+			showStatus = true,
 			siteIconSeed,
 			siteIconImage,
 			className,
@@ -47,7 +49,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 				<Tooltip.Root>
 					<Tooltip.Trigger
 						ref={ ref }
-						render={ <Button variant="minimal" tone="neutral" size="small" { ...props } /> }
+						render={ <Button variant="minimal" tone="neutral" { ...props } /> }
 						className={ clsx( styles.trigger, className ) }
 					>
 						{ showSiteIcon ? (
@@ -57,23 +59,25 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 								imageSrc={ siteIconImage }
 							/>
 						) : null }
-						<span
-							className={ clsx( styles.statusBadge, isLive && styles.statusBadge_live ) }
-							role="img"
-							aria-label={ dotLabel }
-							title={ dotLabel }
-						>
-							<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />
-							{ isLive ? <span className={ styles.statusLabel }>{ __( 'Live' ) }</span> : null }
-						</span>
 						<span className={ styles.identity }>
 							<span className={ styles.site }>{ siteName }</span>
 							<span className={ styles.url }>{ siteUrl }</span>
 						</span>
+						{ showStatus ? (
+							<span
+								className={ clsx( styles.statusBadge, isLive && styles.statusBadge_live ) }
+								role="img"
+								aria-label={ dotLabel }
+								title={ dotLabel }
+							>
+								<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />
+								{ isLive ? <span className={ styles.statusLabel }>{ __( 'Live' ) }</span> : null }
+							</span>
+						) : null }
 						<Icon className={ styles.chevron } icon={ chevronDownSmall } />
 					</Tooltip.Trigger>
 					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-						{ __( 'Open site menu' ) }
+						{ __( 'Publish, preview, and more' ) }
 					</Tooltip.Popup>
 				</Tooltip.Root>
 			</Tooltip.Provider>

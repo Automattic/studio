@@ -1,7 +1,6 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
 import { ProgressiveBlur } from '@/components/progressive-blur';
@@ -14,15 +13,10 @@ import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-s
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import {
-	SessionUIProvider,
-	useSessionPreviewAnnotations,
-	useSessionPreviewUI,
-} from '@/hooks/use-session-ui';
+import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { drawerIcon } from '@/lib/icons';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
-import { Composer, ComposerSkeleton } from './composer';
+import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { pickLiveSite } from './composer/environment-pill';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
@@ -32,17 +26,9 @@ import type { AiSessionSummary } from '@/data/core';
 
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
-	previewOpen: boolean;
-	onTogglePreview: () => void;
-	canTogglePreview: boolean;
 }
 
-function SessionHeader( {
-	summary,
-	previewOpen,
-	onTogglePreview,
-	canTogglePreview,
-}: SessionHeaderProps ) {
+function SessionHeader( { summary }: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
 	const isFullscreen = useFullscreen();
@@ -67,6 +53,7 @@ function SessionHeader( {
 					site={ site }
 					activeEnvironment={ effectiveEnvironment }
 					showSiteIcon={ sidebarCollapsed }
+					showStatus={ sidebarCollapsed }
 				/>
 			) : (
 				<>
@@ -81,19 +68,6 @@ function SessionHeader( {
 				</>
 			) }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ canTogglePreview ? (
-				<div className={ styles.headerActions }>
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ drawerIcon }
-						label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
-						aria-pressed={ previewOpen }
-						onClick={ onTogglePreview }
-					/>
-				</div>
-			) : null }
 		</div>
 	);
 }
@@ -156,7 +130,7 @@ function SessionFrame( { header, composer, scrollRef, children }: SessionFramePr
 			<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
 				{ children }
 			</div>
-			<ProgressiveBlur direction="down" className={ styles.headerBlur } />
+			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
 			<ProgressiveBlur direction="up" className={ styles.composerBlur } />
 			<div
 				ref={ composerRef }
@@ -218,10 +192,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ data?.entries ]
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
+	const composerRef = useRef< ComposerHandle >( null );
 	useSessionCommands( sessionId );
-	const preview = useSessionPreviewUI();
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const showPreview = preview.open && canTogglePreview;
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -235,6 +208,17 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	// The preview panel itself is hosted by the dashboard layout; route its
 	// annotation submissions to this session while it is on screen.
 	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview );
+
+	const reopenQueuedPrompt = useCallback(
+		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {
+			removeQueuedPrompt( queuedPrompt.id );
+			composerRef.current?.replaceDraft( queuedPrompt.prompt, {
+				images: queuedPrompt.images,
+				files: queuedPrompt.files,
+			} );
+		},
+		[ removeQueuedPrompt ]
+	);
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -279,18 +263,16 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	return (
 		<SessionFrame
 			scrollRef={ scrollRef }
-			header={
-				<SessionHeader
-					summary={ data.summary }
-					previewOpen={ showPreview }
-					onTogglePreview={ preview.toggle }
-					canTogglePreview={ canTogglePreview }
-				/>
-			}
+			header={ <SessionHeader summary={ data.summary } /> }
 			composer={
 				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
-					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
+					<QueuedPrompts
+						prompts={ queuedPrompts }
+						onRemove={ removeQueuedPrompt }
+						onEdit={ reopenQueuedPrompt }
+					/>
 					<Composer
+						ref={ composerRef }
 						busy={ composerBusy }
 						isInterrupting={ isInterrupting }
 						error={ runError }

@@ -146,3 +146,6 @@ bin/studio-cli.exe
 scripts/eval/output/
 scripts/eval/test-sites/
 .promptfoo/
+
+# Codex
+.codex/

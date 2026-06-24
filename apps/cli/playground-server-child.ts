@@ -469,6 +469,7 @@ const startServer = wrapWithStartingPromise(
 			await setPhpIniEntries( server.playground, {
 				'openssl.cafile': '/internal/shared/ca-bundle.crt',
 				'curl.cainfo': '/internal/shared/ca-bundle.crt',
+				memory_limit: '512M',
 			} );
 
 			stopSignal.throwIfAborted();

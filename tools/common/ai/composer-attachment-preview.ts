@@ -43,8 +43,7 @@ export function getComposerAttachmentTypeDescription(
 	if ( mimeType ) {
 		return mimeType;
 	}
-	const typeLabel = getComposerAttachmentTypeLabel( attachment.name, fallbackLabel );
-	return typeLabel === fallbackLabel ? fallbackLabel : typeLabel;
+	return getComposerAttachmentTypeLabel( attachment.name, fallbackLabel );
 }
 
 export function getComposerAttachmentImageSrc( attachment: ComposerAttachment ): string | null {

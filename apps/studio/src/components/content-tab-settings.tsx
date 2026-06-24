@@ -60,6 +60,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		? `${ selectedSite.customDomain }`
 		: `localhost:${ selectedSite.port }`;
 	const protocol = selectedSite.customDomain && selectedSite.enableHttps ? 'https' : 'http';
+	const mailpit = selectedSite.mailpit;
 	const resolvedNativePhpVersion = isNativePhpRuntime
 		? getClosestSupportedPhpVersion( selectedSite.phpVersion )
 		: undefined;
@@ -83,8 +84,15 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		await dispatch( certificateTrustApi.util.invalidateTags( [ 'CertificateTrust' ] ) );
 	};
 	const { handleDeleteSite } = useDeleteSite();
-	const { copySite, setIsEditModalOpen, setEditModalInitialTab } = useSiteDetails();
+	const {
+		copySite,
+		loadingServer = {},
+		setIsEditModalOpen,
+		setEditModalInitialTab,
+		startServer,
+	} = useSiteDetails();
 	const [ debugLogPath, setDebugLogPath ] = useState< string | null >( null );
+	const isServerLoading = loadingServer[ selectedSite.id ];
 
 	const openEditModal = ( tab: string ) => {
 		setEditModalInitialTab( tab );
@@ -274,6 +282,49 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						{ /* translators: status value for the Debug display setting on the site settings screen */ }
 						<span>{ selectedSite.enableDebugDisplay ? __( 'Enabled' ) : __( 'Disabled' ) }</span>
 					</SettingsRow>
+					{ mailpit?.enabled && (
+						<>
+							<tr>
+								<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
+									<h3 className="text-frame-text text-sm font-semibold mt-4">
+										{ __( 'Email testing' ) }
+									</h3>
+								</th>
+							</tr>
+							<SettingsRow label={ __( 'Inbox' ) }>
+								<Button
+									variant="link"
+									disabled={ isServerLoading }
+									onClick={ async () => {
+										if ( ! selectedSite.running ) {
+											await startServer( selectedSite );
+										}
+										getIpcApi().openURL( `http://127.0.0.1:${ mailpit.httpPort }` );
+									} }
+								>
+									{ __( 'Open inbox' ) }
+								</Button>
+							</SettingsRow>
+							<SettingsRow label={ __( 'SMTP host' ) }>
+								<CopyTextButton
+									copyConfirmation={ __( 'Copied!' ) }
+									label={ __( 'Copy SMTP host to clipboard' ) }
+									text="127.0.0.1"
+								>
+									127.0.0.1
+								</CopyTextButton>
+							</SettingsRow>
+							<SettingsRow label={ __( 'SMTP port' ) }>
+								<CopyTextButton
+									copyConfirmation={ __( 'Copied!' ) }
+									label={ __( 'Copy SMTP port to clipboard' ) }
+									text={ String( mailpit.smtpPort ) }
+								>
+									{ mailpit.smtpPort }
+								</CopyTextButton>
+							</SettingsRow>
+						</>
+					) }
 					<tr>
 						<th colSpan={ 2 } className="pb-4 ltr:text-left rtl:text-right">
 							<h3 className="text-frame-text text-sm font-semibold mt-4">{ __( 'WP Admin' ) }</h3>

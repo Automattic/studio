@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { mailpitSchema, type MailpitConfig } from '@studio/common/lib/mailpit';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
 import { siteModeFromRuntime, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -18,7 +19,7 @@ const cliEventSchema = z.discriminatedUnion( 'action', [
 	} ),
 	z.object( {
 		action: z.literal( 'keyValuePair' ),
-		key: z.enum( [ 'id', 'running', 'port' ] ),
+		key: z.enum( [ 'id', 'running', 'port', 'mailpit' ] ),
 		value: z.string(),
 	} ),
 ] );
@@ -27,6 +28,7 @@ interface CreateSiteResult {
 	id: string;
 	port: number;
 	running: boolean;
+	mailpit?: MailpitConfig;
 }
 
 export interface CreateSiteOptions {
@@ -87,6 +89,15 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 					}
 				} else if ( key === 'running' ) {
 					result.running = value === 'true';
+				} else if ( key === 'mailpit' ) {
+					try {
+						const parsedMailpit = mailpitSchema.safeParse( JSON.parse( value ) );
+						if ( parsedMailpit.success ) {
+							result.mailpit = parsedMailpit.data;
+						}
+					} catch {
+						// Ignore malformed optional metadata from older or interrupted CLI runs.
+					}
 				}
 			} else if ( parsed.data.status === 'inprogress' && siteId ) {
 				void sendIpcEventToRenderer( 'on-site-create-progress', {
@@ -106,7 +117,12 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 				reject( new Error( 'CLI create site succeeded but no port received' ) );
 				return;
 			}
-			resolve( { id: result.id, port: result.port, running: result.running ?? false } );
+			resolve( {
+				id: result.id,
+				port: result.port,
+				running: result.running ?? false,
+				mailpit: result.mailpit,
+			} );
 		} );
 
 		emitter.on( 'failure', ( { error } ) => {

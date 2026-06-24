@@ -1,3 +1,4 @@
+import { mailpitSchema } from '@studio/common/lib/mailpit';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { z } from 'zod';
 
@@ -31,6 +32,7 @@ const serverConfig = z.object( {
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
+	mailpit: mailpitSchema.optional(),
 	blueprint: z
 		.object( {
 			contents: z.any(), // Blueprint type is complex, allow any for now

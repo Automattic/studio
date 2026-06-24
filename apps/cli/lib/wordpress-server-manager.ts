@@ -37,6 +37,7 @@ import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
+import { ensureMailpitConfig } from './mailpit';
 import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
@@ -185,6 +186,10 @@ function buildServerConfig(
 		serverConfig.enableDebugDisplay = true;
 	}
 
+	if ( site.mailpit ) {
+		serverConfig.mailpit = site.mailpit;
+	}
+
 	return serverConfig;
 }
 
@@ -255,6 +260,7 @@ export async function startWordPressServer(
 
 	const runtime = getSiteRuntime( site );
 	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
+	const siteWithMailpit = await ensureMailpitConfig( site );
 
 	const startMessage = options?.blueprint
 		? __( 'Starting WordPress server and applying Blueprint…' )
@@ -262,8 +268,8 @@ export async function startWordPressServer(
 	logger.reportStart( SiteCommandLoggerAction.START_SITE, startMessage );
 
 	const wordPressServerChildPath = getChildScriptPath( runtime );
-	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, runtime, options );
+	const processName = getProcessName( siteWithMailpit.id );
+	const serverConfig = buildServerConfig( siteWithMailpit, runtime, options );
 
 	await clearStudioErrorLog( site );
 	const phpErrorLogPath = path.join(
@@ -638,11 +644,12 @@ export async function runBlueprint(
 ): Promise< void > {
 	const runtime = getSiteRuntime( site );
 	await ensurePhpBinaryAvailableIfNeeded( site, logger, runtime );
+	const siteWithMailpit = await ensureMailpitConfig( site );
 	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
 
 	const wordPressServerChildPath = getChildScriptPath( runtime );
-	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, runtime, options );
+	const processName = getProcessName( siteWithMailpit.id );
+	const serverConfig = buildServerConfig( siteWithMailpit, runtime, options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {

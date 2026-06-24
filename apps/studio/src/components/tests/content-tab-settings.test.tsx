@@ -105,6 +105,7 @@ function rerenderWithProvider(
 describe( 'ContentTabSettings', () => {
 	const copyText = vi.fn();
 	const openLocalPath = vi.fn();
+	const openURL = vi.fn();
 	const getAbsolutePathFromSite = vi.fn().mockResolvedValue( null );
 	const generateProposedSitePath = vi.fn();
 	const getAllCustomDomains = vi.fn().mockResolvedValue( [] );
@@ -128,6 +129,7 @@ describe( 'ContentTabSettings', () => {
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			copyText,
 			openLocalPath,
+			openURL,
 			getAbsolutePathFromSite,
 			generateProposedSitePath,
 			getAllCustomDomains,
@@ -231,6 +233,41 @@ describe( 'ContentTabSettings', () => {
 		await user.click( adminPasswordButton );
 		expect( copyText ).toHaveBeenCalledTimes( 1 );
 		expect( copyText ).toHaveBeenCalledWith( 'test-password' );
+	} );
+
+	test( 'renders MailPit email testing details', async () => {
+		const user = userEvent.setup();
+		const startServer = vi.fn();
+		const siteWithMailpit: SiteDetails = {
+			...selectedSite,
+			running: true,
+			url: 'http://localhost:8881',
+			mailpit: {
+				enabled: true,
+				httpPort: 8025,
+				smtpPort: 1025,
+			},
+		};
+
+		vi.mocked( useSiteDetails, { partial: true } ).mockReturnValue( {
+			selectedSite: siteWithMailpit,
+			loadingServer: {},
+			startServer,
+			uploadingSites: {},
+			deleteSite: vi.fn(),
+			isDeleting: false,
+			updateSite: vi.fn(),
+		} );
+
+		renderWithProvider( <ContentTabSettings selectedSite={ siteWithMailpit } /> );
+
+		expect( screen.getByRole( 'heading', { name: 'Email testing' } ) ).toBeVisible();
+		await user.click( screen.getByRole( 'button', { name: 'Open inbox' } ) );
+		expect( startServer ).not.toHaveBeenCalled();
+		expect( openURL ).toHaveBeenCalledWith( 'http://127.0.0.1:8025' );
+
+		await user.click( screen.getByRole( 'button', { name: 'Copy SMTP port to clipboard' } ) );
+		expect( copyText ).toHaveBeenCalledWith( '1025' );
 	} );
 
 	describe( 'when a legacy site lacks a stored password', () => {

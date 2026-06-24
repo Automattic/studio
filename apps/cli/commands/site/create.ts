@@ -63,7 +63,6 @@ import {
 	lockCliConfig,
 	readCliConfig,
 	saveCliConfig,
-	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
@@ -75,6 +74,7 @@ import {
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
+import { ensureMailpitConfig } from 'cli/lib/mailpit';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
@@ -200,6 +200,8 @@ export async function runCommand(
 
 		for ( const site of cliConfig.sites ) {
 			portFinder.addUnavailablePort( site.port );
+			portFinder.addUnavailablePort( site.mailpit?.httpPort );
+			portFinder.addUnavailablePort( site.mailpit?.smtpPort );
 		}
 
 		if ( options.customDomain ) {
@@ -315,7 +317,7 @@ export async function runCommand(
 			await copyLanguagePackToSite( sitePath, siteLanguage );
 		}
 
-		const siteDetails: SiteData = {
+		const siteDetails = await ensureMailpitConfig( {
 			id: siteId,
 			name: siteName,
 			path: sitePath,
@@ -331,7 +333,7 @@ export async function runCommand(
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
 			landingPage: normalizeLandingPage( blueprint?.landingPage ),
-		};
+		} );
 
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
 
@@ -432,6 +434,7 @@ export async function runCommand(
 		logger.reportKeyValuePair( 'id', siteDetails.id );
 		logger.reportKeyValuePair( 'port', String( siteDetails.port ) );
 		logger.reportKeyValuePair( 'running', String( siteDetails.running ) );
+		logger.reportKeyValuePair( 'mailpit', JSON.stringify( siteDetails.mailpit ) );
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
 		await disconnectFromDaemon();

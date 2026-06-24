@@ -195,4 +195,31 @@ describe( 'ShortcutsSection', () => {
 		expect( queryByLabelText( 'Visual Studio Code' ) ).not.toBeInTheDocument();
 		expect( queryByLabelText( 'PhpStorm' ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'opens the MailPit inbox when email testing is configured', async () => {
+		const openURLMock = vi.fn();
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			openURL: openURLMock,
+			getUserEditor: vi.fn().mockResolvedValue( null ),
+			getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+		} );
+
+		const { getByLabelText } = renderWithProvider(
+			<ContentTabOverview
+				selectedSite={ {
+					...selectedSite,
+					mailpit: {
+						enabled: true,
+						httpPort: 8025,
+						smtpPort: 1025,
+					},
+				} }
+			/>
+		);
+
+		const inboxButton = await waitFor( () => getByLabelText( 'Email Inbox' ) );
+		fireEvent.click( inboxButton );
+
+		expect( openURLMock ).toHaveBeenCalledWith( 'http://127.0.0.1:8025' );
+	} );
 } );

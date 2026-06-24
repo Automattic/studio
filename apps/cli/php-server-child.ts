@@ -26,6 +26,7 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
+import { startMailpit, stopMailpit } from './lib/mailpit';
 import { runBlueprint } from './lib/native-php/blueprints';
 import {
 	killAllLivePhpProcesses,
@@ -89,6 +90,7 @@ class PhpWorkerRequestTracker {
 }
 
 let phpProcess: ChildProcess | null = null;
+let mailpitProcess: ChildProcess | null = null;
 let phpWorkerProcesses: ChildProcess[] = [];
 let phpProxyServer: http.Server | null = null;
 let phpWorkerPorts: number[] = [];
@@ -114,6 +116,10 @@ const NATIVE_PHP_WORKER_POOL_SIZE = 4;
 function isFileAccessRestricted( config: ServerConfig ): boolean {
 	return getSiteFileAccess( config ) === SITE_FILE_ACCESS_SITE_DIRECTORY;
 }
+
+process.once( 'exit', () => {
+	stopMailpit( mailpitProcess );
+} );
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -461,7 +467,8 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 		const muPluginsPath = await writeStudioMuPluginsForNativePhpRuntime(
 			config.sitePath,
-			config.isWpAutoUpdating
+			config.isWpAutoUpdating,
+			config.mailpit
 		);
 		stopSignal.throwIfAborted();
 		await installWordPress(
@@ -498,12 +505,19 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		}
 
 		runningConfig = config;
+		mailpitProcess = await startMailpit( {
+			id: config.siteId,
+			name: config.siteTitle ?? config.siteId,
+			mailpit: config.mailpit,
+		} );
 
 		phpProcess = await doStartServer( config, currentOpenBasedirAllowlist, stopSignal );
 		stopSignal.throwIfAborted();
 		await setAdminCredentials( config, stopSignal );
 		stopSignal.throwIfAborted();
 	} catch ( error ) {
+		stopMailpit( mailpitProcess );
+		mailpitProcess = null;
 		killPhpProcess();
 		phpProcess = null;
 		await stopSymlinkWatcher();
@@ -652,6 +666,8 @@ async function stopServer(): Promise< StopServerResult > {
 	const children = getCurrentPhpProcesses();
 	if ( children.length === 0 && ! phpProxyServer ) {
 		logToConsole( 'No server running, nothing to stop' );
+		stopMailpit( mailpitProcess );
+		mailpitProcess = null;
 		return StopServerResult.OK;
 	}
 
@@ -661,12 +677,16 @@ async function stopServer(): Promise< StopServerResult > {
 		! phpProxyServer
 	) {
 		logToConsole( 'Server already stopped' );
+		stopMailpit( mailpitProcess );
+		mailpitProcess = null;
 		return StopServerResult.OK;
 	}
 
 	await stopCurrentPhpServer();
 
 	logToConsole( 'Server stopped gracefully' );
+	stopMailpit( mailpitProcess );
+	mailpitProcess = null;
 	return StopServerResult.OK;
 }
 
@@ -741,7 +761,8 @@ async function ipcMessageHandler( packet: unknown ) {
 				);
 				await writeStudioMuPluginsForNativePhpRuntime(
 					blueprintConfig.sitePath,
-					blueprintConfig.isWpAutoUpdating
+					blueprintConfig.isWpAutoUpdating,
+					blueprintConfig.mailpit
 				);
 				await installWordPress(
 					blueprintConfig,

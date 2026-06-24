@@ -184,7 +184,7 @@ async function runNativeWpCliCommand(
 ): Promise< DisposableWpCliResponse | DisposableExitCode > {
 	const phpVersion = resolveNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
-	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating, site.mailpit );
 
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
 	const defaultArgs = getDefaultPhpArgs( phpVersion );
@@ -321,6 +321,7 @@ export async function runWpCliCommand(
 		// Mount mu-plugins
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 			isWpAutoUpdating: false,
+			mailpit: site.mailpit,
 		} );
 		await php.mount(
 			'/internal/studio/mu-plugins',

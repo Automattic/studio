@@ -1,5 +1,10 @@
 import path from 'path';
 import {
+	getMailpitBinaryName,
+	getMailpitInstallDirName,
+	MAILPIT_VERSION,
+} from '@studio/common/lib/mailpit';
+import {
 	getConfiguredPhpBinaryVersion,
 	NativePhpSupportedVersions,
 	type NativePhpSupportedVersion,
@@ -83,4 +88,28 @@ export function getPhpMyAdminPath(): string {
 
 export function getBlueprintsPharPath(): string {
 	return path.join( getWpFilesPath(), 'blueprints', 'blueprints.phar' );
+}
+
+// MailPit binary bundled with desktop builds (one per-platform binary per
+// installer, populated by `download-mailpit` in forge.config.ts and shipped
+// inside the CLI's wp-files).
+export function getBundledMailpitBinaryPath(): string {
+	return path.join(
+		getWpFilesPath(),
+		'mailpit',
+		getMailpitInstallDirName( process.platform, process.arch ),
+		getMailpitBinaryName( process.platform )
+	);
+}
+
+// MailPit binary downloaded at runtime into ~/.studio. Used when no bundled
+// binary is present — e.g. the npm-published CLI, which ships cross-platform
+// and cannot bake in a native binary for every OS/arch.
+export function getRuntimeMailpitBinaryPath(): string {
+	return path.join(
+		getConfigDirectory(),
+		'mailpit-bin',
+		MAILPIT_VERSION,
+		getMailpitBinaryName( process.platform )
+	);
 }

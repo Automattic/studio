@@ -8,6 +8,7 @@
 import { copyFile, mkdir, mkdtemp, readdir, readFile, unlink, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
+import type { MailpitConfig } from '@studio/common/lib/mailpit';
 
 export interface MuPlugin {
 	filename: string;
@@ -21,6 +22,7 @@ export type MuPluginRuntime = 'playground' | 'native-php';
 export interface MuPluginOptions {
 	isWpAutoUpdating?: boolean;
 	runtime?: MuPluginRuntime;
+	mailpit?: MailpitConfig;
 	errorLogPath?: string;
 	errorLogStopAfterBoot?: boolean;
 }
@@ -35,6 +37,296 @@ const NATIVE_PHP_EXCLUDED_MU_PLUGINS = new Set( [
 	'0-suppress-dns-get-record-warnings.php',
 	'0-http-request-timeout.php',
 ] );
+
+function getMailpitMuPlugin( mailpit: MailpitConfig ): MuPlugin {
+	const endpoint = `http://127.0.0.1:${ mailpit.httpPort }/api/v1/send`;
+
+	return {
+		filename: '0-mailpit.php',
+		content: `<?php
+		/**
+		 * Send wp_mail() messages to the local Studio MailPit instance.
+		 */
+		if ( ! function_exists( 'studio_mailpit_header_lines' ) ) {
+			function studio_mailpit_header_lines( $headers ) {
+				if ( empty( $headers ) ) {
+					return array();
+				}
+
+				if ( is_string( $headers ) ) {
+					$headers = explode( "\n", str_replace( "\r\n", "\n", $headers ) );
+				}
+
+				if ( ! is_array( $headers ) ) {
+					return array();
+				}
+
+				return array_values( array_filter( array_map( 'trim', $headers ) ) );
+			}
+		}
+
+		if ( ! function_exists( 'studio_mailpit_parse_recipients' ) ) {
+			function studio_mailpit_parse_recipients( $recipients ) {
+				if ( empty( $recipients ) ) {
+					return array();
+				}
+
+				if ( is_string( $recipients ) ) {
+					$recipients = preg_split( '/,/', $recipients );
+				}
+
+				if ( ! is_array( $recipients ) ) {
+					return array();
+				}
+
+				$parsed = array();
+				foreach ( $recipients as $recipient ) {
+					if ( is_array( $recipient ) ) {
+						$recipient = implode( ',', $recipient );
+					}
+
+					$recipient = trim( (string) $recipient );
+					if ( '' === $recipient ) {
+						continue;
+					}
+
+					$name = '';
+					$email = $recipient;
+					if ( preg_match( '/^(.*)<([^>]+)>$/', $recipient, $matches ) ) {
+						$name = trim( trim( $matches[1] ), chr( 34 ) . "'" );
+						$email = $matches[2];
+					}
+
+					$email = sanitize_email( $email );
+					if ( ! $email ) {
+						continue;
+					}
+
+					$item = array( 'Email' => $email );
+					if ( $name ) {
+						$item['Name'] = sanitize_text_field( $name );
+					}
+					$parsed[] = $item;
+				}
+
+				return $parsed;
+			}
+		}
+
+		if ( ! function_exists( 'studio_mailpit_parse_headers' ) ) {
+			function studio_mailpit_parse_headers( $headers ) {
+				$parsed = array();
+				foreach ( studio_mailpit_header_lines( $headers ) as $line ) {
+					if ( false === strpos( $line, ':' ) ) {
+						continue;
+					}
+
+					list( $name, $value ) = explode( ':', $line, 2 );
+					$parsed[ trim( $name ) ] = trim( $value );
+				}
+				return $parsed;
+			}
+		}
+
+		if ( ! function_exists( 'studio_mailpit_filter_headers' ) ) {
+			function studio_mailpit_filter_headers( $headers ) {
+				$managed_headers = array(
+					'bcc',
+					'cc',
+					'content-transfer-encoding',
+					'content-type',
+					'date',
+					'from',
+					'message-id',
+					'mime-version',
+					'reply-to',
+					'sender',
+					'subject',
+					'to',
+				);
+
+				$filtered = array();
+				foreach ( $headers as $name => $value ) {
+					if ( in_array( strtolower( $name ), $managed_headers, true ) ) {
+						continue;
+					}
+
+					$filtered[ $name ] = $value;
+				}
+
+				return $filtered;
+			}
+		}
+
+		if ( ! function_exists( 'studio_mailpit_get_header_recipients' ) ) {
+			function studio_mailpit_get_header_recipients( $headers, $header_name ) {
+				foreach ( studio_mailpit_header_lines( $headers ) as $line ) {
+					if ( 0 !== stripos( $line, $header_name . ':' ) ) {
+						continue;
+					}
+
+					return studio_mailpit_parse_recipients( substr( $line, strlen( $header_name ) + 1 ) );
+				}
+
+				return array();
+			}
+		}
+
+		if ( ! function_exists( 'studio_mailpit_get_recipient_emails' ) ) {
+			function studio_mailpit_get_recipient_emails( $recipients ) {
+				$emails = array();
+				foreach ( $recipients as $recipient ) {
+					if ( ! empty( $recipient['Email'] ) ) {
+						$emails[] = $recipient['Email'];
+					}
+				}
+				return $emails;
+			}
+		}
+
+		if ( ! function_exists( 'studio_mailpit_get_from' ) ) {
+			function studio_mailpit_get_from( $headers ) {
+				$from = array(
+					'Email' => get_option( 'admin_email' ) ?: 'wordpress@localhost.localdomain',
+					'Name'  => get_bloginfo( 'name' ),
+				);
+
+				foreach ( studio_mailpit_header_lines( $headers ) as $line ) {
+					if ( 0 !== stripos( $line, 'From:' ) ) {
+						continue;
+					}
+
+					$parsed = studio_mailpit_parse_recipients( substr( $line, 5 ) );
+					if ( ! empty( $parsed[0]['Email'] ) ) {
+						return $parsed[0];
+					}
+				}
+
+				return $from;
+			}
+		}
+
+		if ( ! function_exists( 'studio_mailpit_get_attachments' ) ) {
+			function studio_mailpit_get_attachments( $attachments ) {
+				if ( empty( $attachments ) ) {
+					return array();
+				}
+
+				if ( is_string( $attachments ) ) {
+					$attachments = preg_split( '/\r\n|\r|\n/', $attachments );
+				}
+
+				if ( ! is_array( $attachments ) ) {
+					return array();
+				}
+
+				$parsed = array();
+				foreach ( $attachments as $attachment ) {
+					$path = (string) $attachment;
+					if ( ! is_readable( $path ) ) {
+						continue;
+					}
+
+					$filetype = wp_check_filetype( $path );
+					$item = array(
+						'Filename' => basename( $path ),
+						'Content'  => base64_encode( file_get_contents( $path ) ),
+					);
+
+					if ( ! empty( $filetype['type'] ) ) {
+						$item['ContentType'] = $filetype['type'];
+					}
+
+					$parsed[] = $item;
+				}
+
+				return $parsed;
+			}
+		}
+
+		if ( ! function_exists( 'studio_mailpit_is_html' ) ) {
+			function studio_mailpit_is_html( $headers, $message ) {
+				foreach ( $headers as $name => $value ) {
+					if ( 0 === strcasecmp( $name, 'Content-Type' ) && false !== stripos( $value, 'text/html' ) ) {
+						return true;
+					}
+				}
+
+				return $message !== wp_strip_all_tags( $message );
+			}
+		}
+
+		if ( ! function_exists( 'studio_mailpit_build_payload' ) ) {
+			function studio_mailpit_build_payload( $atts ) {
+				$headers = isset( $atts['headers'] ) ? $atts['headers'] : array();
+				$message = isset( $atts['message'] ) ? (string) $atts['message'] : '';
+				$parsed_headers = studio_mailpit_parse_headers( $headers );
+
+				$payload = array(
+					'From'    => studio_mailpit_get_from( $headers ),
+					'To'      => studio_mailpit_parse_recipients( isset( $atts['to'] ) ? $atts['to'] : array() ),
+					'Subject' => isset( $atts['subject'] ) ? (string) $atts['subject'] : '',
+					'Tags'    => array( 'Studio' ),
+				);
+
+				$cc = studio_mailpit_get_header_recipients( $headers, 'Cc' );
+				if ( ! empty( $cc ) ) {
+					$payload['Cc'] = $cc;
+				}
+
+				$bcc = studio_mailpit_get_header_recipients( $headers, 'Bcc' );
+				if ( ! empty( $bcc ) ) {
+					$payload['Bcc'] = studio_mailpit_get_recipient_emails( $bcc );
+				}
+
+				$reply_to = studio_mailpit_get_header_recipients( $headers, 'Reply-To' );
+				if ( ! empty( $reply_to ) ) {
+					$payload['ReplyTo'] = $reply_to;
+				}
+
+				$custom_headers = studio_mailpit_filter_headers( $parsed_headers );
+				if ( ! empty( $custom_headers ) ) {
+					$payload['Headers'] = $custom_headers;
+				}
+
+				if ( studio_mailpit_is_html( $parsed_headers, $message ) ) {
+					$payload['HTML'] = $message;
+				} else {
+					$payload['Text'] = $message;
+				}
+
+				$attachments = studio_mailpit_get_attachments( isset( $atts['attachments'] ) ? $atts['attachments'] : array() );
+				if ( $attachments ) {
+					$payload['Attachments'] = $attachments;
+				}
+
+				return $payload;
+			}
+		}
+
+		add_filter( 'pre_wp_mail', function( $pre, $atts ) {
+			$payload = studio_mailpit_build_payload( $atts );
+
+			$response = wp_remote_post( ${ JSON.stringify( endpoint ) }, array(
+				'headers' => array( 'Content-Type' => 'application/json' ),
+				'body'    => wp_json_encode( $payload ),
+				'timeout' => 5,
+			) );
+
+			if ( is_wp_error( $response ) ) {
+				return null;
+			}
+
+			$status = wp_remote_retrieve_response_code( $response );
+			if ( $status >= 200 && $status < 300 ) {
+				return true;
+			}
+
+			return null;
+		}, 10, 2 );
+		`,
+	};
+}
 
 function escapePhpSingleQuotedString( value: string ): string {
 	return value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
@@ -111,9 +403,10 @@ async function getExistingNativePhpMuPluginsDir(
 		return null;
 	}
 
-	const expectedFiles = getStandardMuPlugins( options )
-		.map( ( plugin ) => plugin.filename )
-		.sort();
+	const expectedPlugins = getStandardMuPlugins( options ).sort( ( a, b ) =>
+		a.filename.localeCompare( b.filename )
+	);
+	const expectedFiles = expectedPlugins.map( ( plugin ) => plugin.filename );
 	const actualFiles = existingFiles.filter( ( file ) => file.endsWith( '.php' ) ).sort();
 
 	if (
@@ -121,6 +414,19 @@ async function getExistingNativePhpMuPluginsDir(
 		expectedFiles.some( ( filename, index ) => filename !== actualFiles[ index ] )
 	) {
 		return null;
+	}
+
+	for ( const plugin of expectedPlugins ) {
+		let existingContent: string;
+		try {
+			existingContent = await readFile( path.join( muPluginsDir, plugin.filename ), 'utf8' );
+		} catch {
+			return null;
+		}
+
+		if ( existingContent !== plugin.content ) {
+			return null;
+		}
 	}
 
 	return muPluginsDir;
@@ -403,6 +709,10 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		}, 1, 3);
 		`,
 	} );
+
+	if ( options.mailpit?.enabled ) {
+		muPlugins.push( getMailpitMuPlugin( options.mailpit ) );
+	}
 
 	// Studio-specific: Fix plugin spinner display
 	muPlugins.push( {
@@ -711,7 +1021,8 @@ export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< [ 
 
 export async function writeStudioMuPluginsForNativePhpRuntime(
 	siteFolder: string,
-	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ]
+	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ],
+	mailpit?: MuPluginOptions[ 'mailpit' ]
 ): Promise< string > {
 	const muPluginsDir = path.join( siteFolder, 'wp-content', 'mu-plugins' );
 	await mkdir( muPluginsDir, { recursive: true } );
@@ -719,6 +1030,7 @@ export async function writeStudioMuPluginsForNativePhpRuntime(
 
 	const options: MuPluginOptions = {
 		isWpAutoUpdating,
+		mailpit,
 		runtime: 'native-php',
 	};
 	const existingMuPluginsDir = await getExistingNativePhpMuPluginsDir( loaderPath, options );
@@ -762,6 +1074,7 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-enable-auto-updates.php',
 	'0-http-request-timeout.php',
 	'0-https-for-reverse-proxy.php',
+	'0-mailpit.php',
 	'0-permalinks.php',
 	'0-redirect-to-siteurl-constant.php',
 	'0-sqlite-command.php',

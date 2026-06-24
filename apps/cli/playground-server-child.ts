@@ -47,6 +47,7 @@ import {
 	getSqliteCommandPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
+import { startMailpit, stopMailpit } from 'cli/lib/mailpit';
 import { rewriteWpCliPostContentToFile } from 'cli/lib/rewrite-wp-cli-post-content';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import {
@@ -54,9 +55,15 @@ import {
 	managerMessageSchema,
 	ChildMessageRaw,
 } from 'cli/lib/types/wordpress-server-ipc';
+import type { ChildProcess } from 'child_process';
 
 let server: RunCLIServer | null = null;
+let mailpitProcess: ChildProcess | null = null;
 let lastCliArgs: Record< string, unknown > | null = null;
+
+process.once( 'exit', () => {
+	stopMailpit( mailpitProcess );
+} );
 
 // Intercept and prefix all console output from playground-cli
 const originalConsoleLog = console.log;
@@ -254,6 +261,7 @@ async function getBaseRunCLIArgs(
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,
+		mailpit: config.mailpit,
 		errorLogPath: config.enableDebugLog
 			? '/wordpress/wp-content/debug.log'
 			: `/wordpress/wp-content/${ STUDIO_ERROR_LOG_FILENAME }`,
@@ -450,6 +458,11 @@ const startServer = wrapWithStartingPromise(
 			stopSignal.throwIfAborted();
 
 			const args = await getBaseRunCLIArgs( 'server', config );
+			mailpitProcess = await startMailpit( {
+				id: config.siteId,
+				name: config.siteTitle ?? config.siteId,
+				mailpit: config.mailpit,
+			} );
 
 			// Playground CLI's runCLI() has a top-level .catch() that calls
 			// process.exit(1) instead of re-throwing. If a non-fatal error
@@ -481,6 +494,8 @@ const startServer = wrapWithStartingPromise(
 				await server[ Symbol.asyncDispose ]();
 				server = null;
 			}
+			stopMailpit( mailpitProcess );
+			mailpitProcess = null;
 
 			if ( error instanceof Error && error.name === 'AbortError' ) {
 				logToConsole( `Aborted start server operation:`, error );
@@ -518,6 +533,8 @@ async function stopServer(): Promise< StopServerResult > {
 	// IPC and allow the process to (hopefully) exit cleanly.
 	if ( ! server ) {
 		logToConsole( 'No server running, nothing to stop' );
+		stopMailpit( mailpitProcess );
+		mailpitProcess = null;
 		return StopServerResult.OK;
 	}
 
@@ -535,6 +552,8 @@ async function stopServer(): Promise< StopServerResult > {
 		throw error;
 	} finally {
 		server = null;
+		stopMailpit( mailpitProcess );
+		mailpitProcess = null;
 	}
 }
 

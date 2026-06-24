@@ -6,6 +6,7 @@
  */
 import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
+import { mailpitSchema } from '@studio/common/lib/mailpit';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { siteRuntimeSchema } from '@studio/common/lib/site-runtime';
 import { snapshotSchema } from '@studio/common/types/snapshot';
@@ -34,6 +35,7 @@ export const siteDetailsSchema = z.object( {
 	technicalSiteDirectory: z.string().optional(),
 	runtimeBlueprintPath: z.string().optional(),
 	landingPage: z.string().optional(),
+	mailpit: mailpitSchema.optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

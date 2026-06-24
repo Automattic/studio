@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableReprintExporter, rotateReprintSecret } from 'cli/lib/api';
 import * as migrationClient from 'cli/lib/pull/migration-client';
@@ -153,6 +154,7 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		} );
 
 		await downloadSkippedFiles(
+			SITE_RUNTIME_PLAYGROUND,
 			{
 				normalizedUrl: 'https://example.com/',
 				stateDirectory,
@@ -235,7 +237,13 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			remoteSiteUrl: 'https://example.com',
 		} as never;
 
-		await runFullPull( metadata, 'https://example.com/?reprint-api', 'hmac-secret', false );
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			metadata,
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false
+		);
 
 		expect( reprint ).toHaveBeenCalledTimes( 1 );
 		const [ passedState, passedRaw, passedArgs, , passedOptions ] = reprint.mock.calls[ 0 ];
@@ -309,7 +317,13 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			remoteSiteUrl: 'https://example.com',
 		} as never;
 
-		await runFullPull( metadata, 'https://example.com/?reprint-api', 'hmac-secret', false );
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			metadata,
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false
+		);
 
 		const [ , , passedArgs, , passedOptions ] = reprint.mock.calls[ 0 ];
 		// With no content dir from preflight, the sqlite target falls back to
@@ -362,7 +376,13 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		};
 
 		await expect(
-			runFullPull( metadata as never, 'https://example.com/?reprint-api', 'hmac-secret', false )
+			runFullPull(
+				SITE_RUNTIME_PLAYGROUND,
+				metadata as never,
+				'https://example.com/?reprint-api',
+				'hmac-secret',
+				false
+			)
 		).rejects.toThrow( 'reprint exited with code 1' );
 
 		// Stage must NOT advance to 'pulled' — otherwise a resume would skip

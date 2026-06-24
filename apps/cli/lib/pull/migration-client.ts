@@ -15,10 +15,9 @@ import {
 	resolveNativePhpVersion,
 	type NativePhpSupportedVersion,
 } from '@studio/common/lib/php-binary-metadata';
-import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
+import { SITE_RUNTIME_NATIVE_PHP, SiteRuntime } from '@studio/common/lib/site-runtime';
 import { getReprintPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
-import { getSiteRuntime } from 'cli/lib/feature-flags';
 import { reapPhpTreeOnInterrupt, spawnPhpProcess } from 'cli/lib/native-php/php-process';
 
 export interface ReprintProcessResult {
@@ -55,9 +54,9 @@ export async function runReprintCommandUntilComplete(
 		mounts?: Array< { hostPath: string; vfsPath: string } >;
 		progressLabel?: string;
 		verboseCommands?: boolean;
+		runtime?: SiteRuntime;
 	} = {}
 ): Promise< ReprintProcessResult > {
-	const runtime = getSiteRuntime();
 	const pharPath = getBundledReprintPhar();
 	const tmpDir = path.join( path.dirname( stateDir ), 'tmp' );
 	fs.mkdirSync( tmpDir, { recursive: true } );
@@ -65,6 +64,7 @@ export async function runReprintCommandUntilComplete(
 	// The native runtime spawns the bundled `php` binary, so make sure it's
 	// downloaded before the first invocation. reprint.phar is PHP-version
 	// agnostic, so any supported native version works.
+	const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
 	let nativePhpVersion: NativePhpSupportedVersion | undefined;
 	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
 		nativePhpVersion = resolveNativePhpVersion( DEFAULT_PHP_VERSION );

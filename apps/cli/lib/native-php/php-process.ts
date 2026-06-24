@@ -194,7 +194,7 @@ export async function runPhpCommand(
 				return;
 			}
 
-			reject( new Error( `PHP command (${ args.join( ' ' ) }) failed (code: ${ code })` ) );
+			reject( new Error( `PHP command failed (code: ${ code })` ) );
 		} );
 	} );
 }

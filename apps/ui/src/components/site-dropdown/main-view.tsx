@@ -136,7 +136,7 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 		children,
 		...props
 	}: ButtonProps & { tooltip: string } ) => (
-		<Tooltip.Provider delay={ 0 }>
+		<Tooltip.Provider>
 			<Tooltip.Root>
 				<Tooltip.Trigger render={ <Button { ...props }>{ children }</Button> } />
 				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ tooltip }</Tooltip.Popup>
@@ -145,7 +145,7 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 	);
 
 	const renderUrlLink = ( { text, url, label }: { text: string; url: string; label: string } ) => (
-		<Tooltip.Provider delay={ 0 }>
+		<Tooltip.Provider>
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					render={

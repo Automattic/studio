@@ -180,7 +180,7 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 				}
 			>
 				{ hasPendingQuestion ? (
-					<Tooltip.Provider delay={ 0 }>
+					<Tooltip.Provider>
 						<Tooltip.Root>
 							<Tooltip.Trigger
 								render={
@@ -513,7 +513,7 @@ function SiteStatusButton( {
 	};
 
 	return (
-		<Tooltip.Provider delay={ 0 }>
+		<Tooltip.Provider>
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					render={

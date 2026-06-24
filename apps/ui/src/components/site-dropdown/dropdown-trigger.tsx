@@ -43,7 +43,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 		const dotClass = environment === 'live' ? styles.dot_live : styles[ `dot_${ status }` ];
 		const dotLabel = isLive ? __( 'Live site' ) : statusLabel;
 		return (
-			<Tooltip.Provider delay={ 0 }>
+			<Tooltip.Provider>
 				<Tooltip.Root>
 					<Tooltip.Trigger
 						ref={ ref }

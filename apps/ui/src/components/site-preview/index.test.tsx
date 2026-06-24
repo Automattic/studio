@@ -48,8 +48,12 @@ describe( 'SitePreview', () => {
 		expect( pageTitle ).toBeVisible();
 
 		fireEvent.mouseEnter( pageTitle );
+		fireEvent.mouseMove( pageTitle, { movementX: 1, movementY: 1 } );
 
-		expect( await screen.findByText( 'http://localhost:8881/wp-admin/' ) ).toBeVisible();
+		expect( screen.queryByText( 'http://localhost:8881/wp-admin/' ) ).not.toBeInTheDocument();
+		expect(
+			await screen.findByText( 'http://localhost:8881/wp-admin/', {}, { timeout: 2000 } )
+		).toBeVisible();
 	} );
 
 	it( 'hides the browser controls when the site is not running', () => {

@@ -182,7 +182,7 @@ function ToolbarTooltip( {
 	children: ReactElement< Record< string, unknown > >;
 } ) {
 	return (
-		<Tooltip.Provider delay={ 0 }>
+		<Tooltip.Provider>
 			<Tooltip.Root>
 				<Tooltip.Trigger render={ children } />
 				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>{ label }</Tooltip.Popup>

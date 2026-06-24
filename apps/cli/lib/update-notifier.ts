@@ -1,5 +1,3 @@
-import os from 'os';
-import path from 'path';
 import chalk from '@studio/common/lib/chalk';
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
@@ -46,31 +44,17 @@ async function readUpdateCheck( field: CliConfigUpdateCheckField ): Promise< Upd
 	}
 }
 
-function isPathInside( child: string, parent: string ): boolean {
-	const relative = path.relative( parent, child );
-	return relative !== '' && ! relative.startsWith( '..' ) && ! path.isAbsolute( relative );
-}
-
 /**
- * True when the running binary lives under the standalone install home
- * (`STUDIO_CLI_HOME`, defaulting to ~/.studio) — i.e. a curl-installed CLI.
- */
-export function isStandaloneInstall(): boolean {
-	const home = process.env.STUDIO_CLI_HOME || path.join( os.homedir(), '.studio' );
-	return isPathInside( process.execPath, home );
-}
-
-/**
- * Determines how this CLI was installed:
- * - `npm`: published to npm (build-time flag).
- * - `standalone`: curl-installed, running from the standalone install home.
+ * Determines how this CLI was built, from the flags baked in by the matching vite config:
+ * - `npm`: published to npm (`vite.config.npm.ts`).
+ * - `standalone`: the curl-installed bundle (`vite.config.standalone.ts`).
  * - `embedded`: bundled in the desktop app, or a dev build — no update notifier.
  */
 export function getCliInstallKind(): CliInstallKind {
 	if ( __IS_PACKAGED_FOR_NPM__ ) {
 		return 'npm';
 	}
-	if ( isStandaloneInstall() ) {
+	if ( __IS_PACKAGED_FOR_STANDALONE__ ) {
 		return 'standalone';
 	}
 	return 'embedded';

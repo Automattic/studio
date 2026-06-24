@@ -1,10 +1,7 @@
 /* eslint-disable no-control-regex */
-import os from 'os';
-import path from 'path';
 import { type MockInstance, vi } from 'vitest';
 import {
 	formatUpdateBanner,
-	isStandaloneInstall,
 	setupUpdateNotifier,
 	standaloneUpdateCommand,
 } from 'cli/lib/update-notifier';
@@ -61,28 +58,6 @@ describe( 'formatUpdateBanner', () => {
 		expect( plain ).toContain( '╭' );
 		expect( plain ).toContain( '╰' );
 		expect( plain ).toContain( '│' );
-	} );
-} );
-
-describe( 'isStandaloneInstall', () => {
-	const originalHome = process.env.STUDIO_CLI_HOME;
-
-	afterEach( () => {
-		if ( originalHome === undefined ) {
-			delete process.env.STUDIO_CLI_HOME;
-		} else {
-			process.env.STUDIO_CLI_HOME = originalHome;
-		}
-	} );
-
-	it( 'is true when the running binary lives under STUDIO_CLI_HOME', () => {
-		process.env.STUDIO_CLI_HOME = path.dirname( path.dirname( process.execPath ) );
-		expect( isStandaloneInstall() ).toBe( true );
-	} );
-
-	it( 'is false when the running binary is outside the studio home', () => {
-		process.env.STUDIO_CLI_HOME = path.join( os.tmpdir(), 'studio-not-installed-here' );
-		expect( isStandaloneInstall() ).toBe( false );
 	} );
 } );
 

@@ -42,9 +42,8 @@ function getErrorLabel( direction: SyncDirection ): string {
 }
 
 // All three states render an IconButton so we reuse its built-in tooltip
-// wiring (@wordpress/ui wraps each IconButton in its own Tooltip.Provider
-// with delay=0). `focusableWhenDisabled` keeps the tooltip trigger active
-// even when the button itself is visually disabled for pending/success.
+// wiring. `focusableWhenDisabled` keeps the tooltip trigger active even
+// when the button itself is visually disabled for pending/success.
 export function SyncActivityIndicator( { siteId }: { siteId: string } ) {
 	const activity = useSiteSyncActivity( siteId );
 	if ( ! activity ) {

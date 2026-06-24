@@ -180,22 +180,20 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 				}
 			>
 				{ hasPendingQuestion ? (
-					<Tooltip.Provider delay={ 0 }>
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								render={
-									<span
-										className={ styles.sessionQuestionIndicator }
-										role="status"
-										aria-label={ __( 'Studio needs an answer.' ) }
-									/>
-								}
-							/>
-							<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-								{ __( 'Studio needs an answer.' ) }
-							</Tooltip.Popup>
-						</Tooltip.Root>
-					</Tooltip.Provider>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<span
+									className={ styles.sessionQuestionIndicator }
+									role="status"
+									aria-label={ __( 'Studio needs an answer.' ) }
+								/>
+							}
+						/>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+							{ __( 'Studio needs an answer.' ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
 				) : isRunning ? (
 					<Spinner className={ styles.sessionInlineSpinner } label={ __( 'Working…' ) } />
 				) : null }
@@ -511,53 +509,51 @@ function SiteStatusButton( {
 	};
 
 	return (
-		<Tooltip.Provider delay={ 0 }>
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					render={
-						<button
-							type="button"
-							className={ styles.siteStatus }
-							aria-label={ label }
-							aria-busy={ busy || undefined }
-							aria-disabled={ busy || undefined }
-							data-state={ status }
-							onClick={ busy ? undefined : handleClick }
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<button
+						type="button"
+						className={ styles.siteStatus }
+						aria-label={ label }
+						aria-busy={ busy || undefined }
+						aria-disabled={ busy || undefined }
+						data-state={ status }
+						onClick={ busy ? undefined : handleClick }
+					>
+						<svg
+							className={ styles.siteStatusGlyph }
+							viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
+							aria-hidden="true"
+							focusable="false"
 						>
+							{ status === 'stopped' ? (
+								<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
+							) : (
+								<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+							) }
+						</svg>
+						{ ! busy ? (
 							<svg
-								className={ styles.siteStatusGlyph }
-								viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
+								className={ styles.siteStatusActionGlyph }
+								viewBox="0 0 10 10"
 								aria-hidden="true"
 								focusable="false"
 							>
-								{ status === 'stopped' ? (
-									<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
+								{ site.running ? (
+									<rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor" />
 								) : (
-									<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+									<path d="M2.5 1 L9 5 L2.5 9 Z" fill="currentColor" />
 								) }
 							</svg>
-							{ ! busy ? (
-								<svg
-									className={ styles.siteStatusActionGlyph }
-									viewBox="0 0 10 10"
-									aria-hidden="true"
-									focusable="false"
-								>
-									{ site.running ? (
-										<rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor" />
-									) : (
-										<path d="M2.5 1 L9 5 L2.5 9 Z" fill="currentColor" />
-									) }
-								</svg>
-							) : null }
-						</button>
-					}
-				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-					{ tooltipLabel }
-				</Tooltip.Popup>
-			</Tooltip.Root>
-		</Tooltip.Provider>
+						) : null }
+					</button>
+				}
+			/>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+				{ tooltipLabel }
+			</Tooltip.Popup>
+		</Tooltip.Root>
 	);
 }
 

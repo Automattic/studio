@@ -43,6 +43,9 @@ const DOCS_LINKS = {
 	docsSkills: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/',
 	},
+	docsStudioCode: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/',
+	},
 	docsPhpRuntimes: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/',
 	},

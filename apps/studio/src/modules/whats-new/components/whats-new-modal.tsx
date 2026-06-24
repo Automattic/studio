@@ -9,6 +9,7 @@ import cliIllustration from 'src/modules/whats-new/assets/cli-illustration.svg';
 import darkModeIllustration from 'src/modules/whats-new/assets/dark-mode-illustration.svg';
 import nativePhpIllustration from 'src/modules/whats-new/assets/native-php-illustration.svg';
 import phpMyAdminIllustration from 'src/modules/whats-new/assets/phpmyadmin-illustration.svg';
+import studioCodeIllustration from 'src/modules/whats-new/assets/studio-code-illustration.svg';
 import { useI18nLocale } from 'src/stores';
 
 interface WhatsNewPage {
@@ -57,6 +58,14 @@ const PageContent = ( {
 export default function WhatsNewModal( { showModal, onClose }: WhatsNewModalProps ) {
 	const locale = useI18nLocale();
 	const whatsNewPages: WhatsNewPage[] = [
+		{
+			image: studioCodeIllustration,
+			title: __( 'Studio Code helps you get it done' ),
+			description: __(
+				'From quick edits to new features, Studio Code helps you move faster by translating your ideas into working code.'
+			),
+			learnMoreUrl: getLocalizedLink( locale, 'docsStudioCode' ),
+		},
 		{
 			image: nativePhpIllustration,
 			title: __( 'Faster local sites with native PHP' ),

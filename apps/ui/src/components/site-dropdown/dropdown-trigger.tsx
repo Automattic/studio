@@ -43,7 +43,31 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 		// still reflects the active target.
 		const isLive = environment === 'live';
 		const dotClass = environment === 'live' ? styles.dot_live : styles[ `dot_${ status }` ];
+		const statusClass =
+			environment === 'live' ? styles.statusBadge_live : styles[ `statusBadge_${ status }` ];
 		const dotLabel = isLive ? __( 'Live site' ) : statusLabel;
+		const statusBadge = showStatus ? (
+			<span
+				className={ clsx(
+					styles.statusBadge,
+					showSiteIcon && styles.statusBadge_overlay,
+					statusClass
+				) }
+				role="img"
+				aria-label={ dotLabel }
+				title={ dotLabel }
+			>
+				{ status === 'stopped' && ! isLive ? (
+					<span className={ styles.pauseMark } aria-hidden="true" />
+				) : (
+					<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />
+				) }
+				{ ! showSiteIcon && isLive ? (
+					<span className={ styles.statusLabel }>{ __( 'Live' ) }</span>
+				) : null }
+			</span>
+		) : null;
+
 		return (
 			<Tooltip.Provider delay={ 0 }>
 				<Tooltip.Root>
@@ -53,27 +77,23 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 						className={ clsx( styles.trigger, className ) }
 					>
 						{ showSiteIcon ? (
-							<SiteIcon
-								className={ styles.siteIcon }
-								seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
-								imageSrc={ siteIconImage }
-							/>
+							<span className={ styles.siteIconWrap }>
+								<SiteIcon
+									className={ clsx(
+										styles.siteIcon,
+										status === 'stopped' && ! isLive && styles.siteIcon_stopped
+									) }
+									seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
+									imageSrc={ siteIconImage }
+								/>
+								{ statusBadge }
+							</span>
 						) : null }
 						<span className={ styles.identity }>
 							<span className={ styles.site }>{ siteName }</span>
 							<span className={ styles.url }>{ siteUrl }</span>
 						</span>
-						{ showStatus ? (
-							<span
-								className={ clsx( styles.statusBadge, isLive && styles.statusBadge_live ) }
-								role="img"
-								aria-label={ dotLabel }
-								title={ dotLabel }
-							>
-								<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />
-								{ isLive ? <span className={ styles.statusLabel }>{ __( 'Live' ) }</span> : null }
-							</span>
-						) : null }
+						{ showSiteIcon ? null : statusBadge }
 						<Icon className={ styles.chevron } icon={ chevronDownSmall } />
 					</Tooltip.Trigger>
 					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>

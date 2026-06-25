@@ -350,6 +350,10 @@ export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Conne
 			window.open( target, '_blank', 'noopener,noreferrer' );
 		},
 
+		async copyText( text ) {
+			await navigator.clipboard.writeText( text );
+		},
+
 		// Window chrome — no traffic lights in a browser tab.
 		async isFullscreen() {
 			return false;

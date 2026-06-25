@@ -290,6 +290,7 @@ export interface Connector {
 		relativeUrl?: string,
 		options?: { autoLogin?: boolean }
 	): Promise< void >;
+	copyText( text: string ): Promise< void >;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).

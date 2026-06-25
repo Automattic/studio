@@ -31,10 +31,22 @@
 	white-space: nowrap;
 }
 
+.siteIconWrap {
+	position: relative;
+	display: inline-flex;
+	flex: 0 0 auto;
+	width: 24px;
+	height: 24px;
+}
+
 .siteIcon {
 	width: 24px;
 	height: 24px;
 	border-radius: 6px;
+}
+
+.siteIcon_stopped {
+	opacity: 0.72;
 }
 
 .identity {
@@ -61,23 +73,46 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 20px;
-	height: 20px;
+	width: 8px;
+	height: 8px;
 	border-radius: 999px;
 	flex-shrink: 0;
 }
 
+.statusBadge_overlay {
+	position: absolute;
+	right: -1px;
+	bottom: -1px;
+	box-shadow: 0 0 0 1px var(--wpds-color-bg-surface-neutral-strong);
+}
+
 .statusBadge_live {
+	background: #2563eb;
+	color: var(--wpds-color-fg-content-inverted, #fff);
+}
+
+.statusBadge:not(.statusBadge_overlay).statusBadge_live {
 	width: auto;
+	height: 20px;
 	gap: 4px;
 	padding: 0 6px;
 	background: color-mix(in srgb, #2563eb 9%, transparent);
 	color: #2563eb;
 }
 
+.statusBadge_stopped {
+	border-radius: 2px;
+	background: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.statusBadge_transitioning {
+	background: #2563eb;
+	animation: siteDotBlink 1s ease-in-out infinite;
+}
+
 .dot {
-	width: 7px;
-	height: 7px;
+	width: 100%;
+	height: 100%;
 	border-radius: 50%;
 	flex-shrink: 0;
 }
@@ -94,11 +129,40 @@
 
 .dot_transitioning {
 	background-color: #2563eb;
-	animation: siteDotBlink 1s ease-in-out infinite;
 }
 
 .dot_live {
 	background-color: #2563eb;
+}
+
+.pauseMark,
+.pauseMark::before,
+.pauseMark::after {
+	display: block;
+	width: 1.5px;
+	height: 4px;
+	border-radius: 1px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.pauseMark {
+	position: relative;
+	background: transparent;
+}
+
+.pauseMark::before,
+.pauseMark::after {
+	position: absolute;
+	top: 0;
+	content: '';
+}
+
+.pauseMark::before {
+	left: -2px;
+}
+
+.pauseMark::after {
+	left: 1px;
 }
 
 .statusLabel {

@@ -1,8 +1,18 @@
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { arrowDown, arrowUp, external, Icon, linkOff } from '@wordpress/icons';
+import {
+	arrowDown,
+	arrowUp,
+	copy,
+	external,
+	Icon,
+	link as linkIcon,
+	moreHorizontal,
+} from '@wordpress/icons';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useMemo } from 'react';
+import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
@@ -93,6 +103,7 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 
 	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping );
 	const localSiteUrl = getSiteUrl( site );
+	const canOpenLocalSite = site.running && ! isStopping;
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
@@ -109,13 +120,18 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 		);
 	};
 
-	const handleLocalServerClick = () => {
-		if ( isLocalTransitioning || isSyncing ) return;
-		if ( site.running ) {
-			stopSite.mutate( site.id );
-		} else {
-			startSite.mutate( site.id );
-		}
+	const handleCopyPreviewClick = ( url: string ) => {
+		void connector.copyText( url );
+	};
+
+	const handleStartLocalClick = () => {
+		if ( isLocalTransitioning || isSyncing || site.running ) return;
+		startSite.mutate( site.id );
+	};
+
+	const handleStopLocalClick = () => {
+		if ( isLocalTransitioning || isSyncing || ! site.running ) return;
+		stopSite.mutate( site.id );
 	};
 
 	const handlePullClick = () => {
@@ -168,33 +184,81 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 	return (
 		<div className={ styles.rows }>
 			<PopoverRow
-				label={ __( 'Local' ) }
-				sublabel={ renderUrlLink( {
-					text: localSublabel,
-					url: localSiteUrl,
-					label: __( 'Open local site in your browser' ),
-				} ) }
+				label={ __( 'Studio' ) }
+				sublabel={
+					canOpenLocalSite
+						? renderUrlLink( {
+								text: localSublabel,
+								url: localSiteUrl,
+								label: __( 'Open Studio site in your browser' ),
+						  } )
+						: localSublabel
+				}
 				action={
-					<Button
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.localServerButton }
-						loading={ isLocalTransitioning }
-						loadingAnnouncement={
+					<LocalServerControl
+						running={ site.running }
+						starting={ isStarting }
+						stopping={ isStopping }
+						disabled={ isSyncing }
+						busyLabel={
 							isLocalTransitioning
 								? isStopping
-									? __( 'Stopping local site' )
-									: __( 'Starting local site' )
+									? __( 'Stopping Studio site' )
+									: __( 'Starting Studio site' )
 								: undefined
 						}
-						disabled={ isLocalTransitioning || isSyncing }
-						onClick={ handleLocalServerClick }
-					>
-						{ site.running ? __( 'Stop' ) : __( 'Start' ) }
-					</Button>
+						onStart={ handleStartLocalClick }
+						onStop={ handleStopLocalClick }
+					/>
 				}
 			/>
+
+			{ previewSnapshot ? (
+				<PopoverRow
+					label={ __( 'Preview' ) }
+					sublabel={ __( 'Ready to share for feedback.' ) }
+					action={
+						<div className={ styles.rowActions }>
+							{ renderTooltipButton( {
+								tooltip: __( 'Open preview site in your browser' ),
+								variant: 'minimal',
+								tone: 'neutral',
+								size: 'compact',
+								onClick: () => openExternal( ensureProtocol( previewSnapshot.url ) ),
+								children: __( 'View' ),
+							} ) }
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ copy }
+								label={ __( 'Copy preview URL' ) }
+								className={ styles.rowActionButton }
+								onClick={ () => handleCopyPreviewClick( ensureProtocol( previewSnapshot.url ) ) }
+							/>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ arrowUp }
+								label={ isPreviewPending ? __( 'Updating preview' ) : __( 'Update preview site' ) }
+								className={ styles.rowActionButton }
+								loading={ isPreviewPending }
+								loadingAnnouncement={ __( 'Updating preview' ) }
+								disabled={ isSyncing }
+								focusableWhenDisabled
+								onClick={ handlePreviewClick }
+							/>
+						</div>
+					}
+				/>
+			) : (
+				<PreviewEducationPanel
+					loading={ isPreviewPending }
+					disabled={ isSyncing }
+					onClick={ handlePreviewClick }
+				/>
+			) }
 
 			{ liveSite ? (
 				<PopoverRow
@@ -212,6 +276,7 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 								size="small"
 								icon={ arrowDown }
 								label={ isPullPending ? __( 'Pulling from live' ) : __( 'Pull from live' ) }
+								className={ styles.rowActionButton }
 								disabled={ isSyncing }
 								focusableWhenDisabled
 								onClick={ handlePullClick }
@@ -222,29 +287,32 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 								size="small"
 								icon={ arrowUp }
 								label={ isPushPending ? __( 'Pushing to live' ) : __( 'Push to live' ) }
+								className={ styles.rowActionButton }
 								disabled={ isSyncing }
 								focusableWhenDisabled
 								onClick={ handlePushClick }
 							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ linkOff }
-								label={ __( 'Disconnect live site' ) }
-								disabled={ isSyncing }
-								focusableWhenDisabled
-								onClick={ onDisconnectClick }
-							/>
+							<Menu.SubmenuRoot>
+								<Menu.SubmenuTrigger
+									className={ styles.moreMenuTrigger }
+									disabled={ isSyncing }
+									aria-label={ __( 'More live site actions' ) }
+								>
+									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
+								</Menu.SubmenuTrigger>
+								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
+									<Menu.Item disabled={ isSyncing } onClick={ onDisconnectClick }>
+										{ __( 'Disconnect' ) }
+									</Menu.Item>
+								</Menu.Popup>
+							</Menu.SubmenuRoot>
 						</div>
 					}
 				/>
 			) : (
 				<EnvironmentActionPanel
-					title={ __( 'Launch on WordPress.com' ) }
-					copy={ __(
-						'Make it available to visitors when you’re ready to share it with the world.'
-					) }
+					title={ __( 'Live' ) }
+					copy={ __( 'No connected site.' ) }
 					buttonLabel={ __( 'Publish' ) }
 					variant="solid"
 					tone="brand"
@@ -252,40 +320,99 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 					onClick={ onSetupClick }
 				/>
 			) }
+		</div>
+	);
+}
 
-			{ previewSnapshot ? (
-				<PopoverRow
-					label={ __( 'Preview' ) }
-					sublabel={ renderUrlLink( {
-						text: __( 'Open preview' ),
-						url: ensureProtocol( previewSnapshot.url ),
-						label: __( 'Open preview site in your browser' ),
-					} ) }
-					action={ renderTooltipButton( {
-						tooltip: __( 'Update preview site' ),
-						variant: 'minimal',
-						tone: 'neutral',
-						size: 'small',
-						loading: isPreviewPending,
-						loadingAnnouncement: __( 'Updating preview' ),
-						disabled: isSyncing,
-						onClick: handlePreviewClick,
-						children: __( 'Update' ),
-					} ) }
-				/>
-			) : (
-				<EnvironmentActionPanel
-					title={ __( 'Share a preview' ) }
-					copy={ __( 'Send a temporary link for feedback before you launch.' ) }
-					buttonLabel={ __( 'Share' ) }
-					variant="solid"
-					tone="neutral"
-					loading={ isPreviewPending }
-					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ isSyncing }
-					onClick={ handlePreviewClick }
-				/>
+function LocalServerControl( {
+	running,
+	starting,
+	stopping,
+	disabled,
+	busyLabel,
+	onStart,
+	onStop,
+}: {
+	running: boolean;
+	starting: boolean;
+	stopping: boolean;
+	disabled: boolean;
+	busyLabel?: string;
+	onStart: () => void;
+	onStop: () => void;
+} ) {
+	const pending = starting || stopping;
+	const targetRunning = starting ? true : stopping ? false : running;
+
+	return (
+		<button
+			type="button"
+			className={ clsx(
+				styles.localServerControl,
+				targetRunning && styles.localServerControl_running,
+				pending && styles.localServerControl_pending
 			) }
+			aria-label={
+				busyLabel ?? ( targetRunning ? __( 'Pause Studio site' ) : __( 'Start Studio site' ) )
+			}
+			role="switch"
+			aria-checked={ targetRunning }
+			aria-busy={ pending || undefined }
+			disabled={ disabled || pending }
+			onClick={ targetRunning ? onStop : onStart }
+		>
+			<span className={ styles.localServerThumb } aria-hidden="true">
+				<span
+					className={ clsx(
+						styles.localServerGlyph,
+						targetRunning ? styles.pauseIcon : styles.playIcon
+					) }
+				/>
+			</span>
+		</button>
+	);
+}
+
+function PreviewEducationPanel( {
+	loading,
+	disabled,
+	onClick,
+}: {
+	loading: boolean;
+	disabled: boolean;
+	onClick: () => void;
+} ) {
+	return (
+		<div className={ styles.previewEducationPanel }>
+			<div className={ styles.previewIllustrationStage } aria-hidden="true">
+				<div className={ styles.previewIllustration }>
+					<Icon icon={ linkIcon } size={ 18 } />
+				</div>
+			</div>
+			<div className={ styles.previewEducationBody }>
+				<div className={ styles.previewEducationText }>
+					<div className={ styles.previewEducationTitle }>{ __( 'Preview' ) }</div>
+					<p className={ styles.previewEducationCopy }>
+						{ __( 'Share a review link for this version.' ) }
+					</p>
+				</div>
+				<Button
+					variant="outline"
+					tone="neutral"
+					size="compact"
+					className={ clsx(
+						styles.environmentActionButton,
+						styles.environmentActionButton_outline,
+						styles.previewEducationButton
+					) }
+					loading={ loading }
+					loadingAnnouncement={ __( 'Creating preview' ) }
+					disabled={ disabled }
+					onClick={ onClick }
+				>
+					{ __( 'Share' ) }
+				</Button>
+			</div>
 		</div>
 	);
 }
@@ -320,8 +447,11 @@ function EnvironmentActionPanel( {
 			<Button
 				variant={ variant }
 				tone={ tone }
-				size="small"
-				className={ styles.environmentActionButton }
+				size="compact"
+				className={ clsx(
+					styles.environmentActionButton,
+					variant === 'outline' && styles.environmentActionButton_outline
+				) }
 				loading={ loading }
 				loadingAnnouncement={ loadingAnnouncement }
 				disabled={ disabled }

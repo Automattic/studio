@@ -661,6 +661,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
+		async copyText( text ): Promise< void > {
+			await ipcApi.copyText( text );
+		},
+
 		// Window state
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();

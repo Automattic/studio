@@ -1,8 +1,10 @@
 /**
  * @vitest-environment node
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildViewMenuItems } from 'src/menu';
+
+const originalEnableAgenticUi = process.env.ENABLE_AGENTIC_UI;
 
 function buildTestViewMenuItems(
 	overrides: Partial< Parameters< typeof buildViewMenuItems >[ 0 ] > = {}
@@ -22,8 +24,17 @@ function getLabels( items = buildTestViewMenuItems() ) {
 }
 
 describe( 'buildViewMenuItems', () => {
-	afterEach( () => {
+	beforeEach( () => {
 		delete process.env.ENABLE_AGENTIC_UI;
+	} );
+
+	afterEach( () => {
+		if ( originalEnableAgenticUi === undefined ) {
+			delete process.env.ENABLE_AGENTIC_UI;
+			return;
+		}
+
+		process.env.ENABLE_AGENTIC_UI = originalEnableAgenticUi;
 	} );
 
 	it( 'hides the site preview menu item when the agentic UI is disabled', () => {

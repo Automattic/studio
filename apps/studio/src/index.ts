@@ -37,6 +37,10 @@ import {
 	StatsGroup,
 } from 'src/lib/bump-stats';
 import { handleDeeplink } from 'src/lib/deeplink';
+import {
+	startFigmaImportHandoffServer,
+	stopFigmaImportHandoffServer,
+} from 'src/lib/figma-import-handoff-server';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
@@ -415,6 +419,7 @@ async function appBoot() {
 		await startCliEventsSubscriber();
 
 		await createMainWindow();
+		startFigmaImportHandoffServer();
 
 		void maybePromptNightlySwitch().catch( Sentry.captureException );
 		startNightlyPromptPoller();
@@ -588,6 +593,7 @@ async function appBoot() {
 	app.on( 'will-quit', ( event ) => {
 		markAppQuitting();
 		globalShortcut.unregisterAll();
+		stopFigmaImportHandoffServer();
 		stopCliEventsSubscriber();
 		stopRemoteSessionStatusPolling?.();
 

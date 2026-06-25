@@ -222,28 +222,6 @@ async function getBaseRunCLIArgs(
 	command: RunCLIArgs[ 'command' ],
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
-	// For sites imported via `studio pull-reprint`, the pull command
-	// persists the computed start options to start-options.json so the
-	// daemon doesn't need to recompute them (which would spin up PHP
-	// WASM to extract runtime.php constants from the imported site).
-	if ( ! config.useExactMountLayout && config.blueprint?.uri ) {
-		try {
-			const optionsPath = path.join( path.dirname( config.blueprint.uri ), 'start-options.json' );
-			if ( fs.existsSync( optionsPath ) ) {
-				const saved = JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) );
-				if ( saved.useExactMountLayout ) {
-					config.mountsBeforeInstall = saved.mountsBeforeInstall;
-					config.mounts = saved.mounts;
-					config.wordpressInstallMode = saved.wordpressInstallMode ?? config.wordpressInstallMode;
-					config.useExactMountLayout = true;
-					logToConsole( `Loaded persisted start options from ${ optionsPath } before startup` );
-				}
-			}
-		} catch {
-			// Ignore missing or invalid start options and continue with the provided config.
-		}
-	}
-
 	const wordpressInstallMode =
 		config.wordpressInstallMode ?? ( await getWordPressInstallMode( config.sitePath ) );
 	const useExactMountLayout = config.useExactMountLayout ?? false;
@@ -469,6 +447,7 @@ const startServer = wrapWithStartingPromise(
 			await setPhpIniEntries( server.playground, {
 				'openssl.cafile': '/internal/shared/ca-bundle.crt',
 				'curl.cainfo': '/internal/shared/ca-bundle.crt',
+				memory_limit: '512M',
 			} );
 
 			stopSignal.throwIfAborted();

@@ -18,12 +18,16 @@ if [[ -n "${EVAL_TEST_FILTER:-}" ]]; then
   fi
   eval_args+=( -n "$EVAL_TEST_FILTER" )
 fi
-npx promptfoo@0.121.4 eval -c scripts/eval/promptfoo.config.yaml "${eval_args[@]}"
+# promptfoo exits non-zero when assertions fail. Capture the status instead of
+# letting `set -e` abort here, so we still post the Slack notification (the
+# failure case is exactly when we want it) and then exit with the eval's status.
+eval_status=0
+npx promptfoo@0.121.4 eval -c scripts/eval/promptfoo.config.yaml "${eval_args[@]}" || eval_status=$?
 
 echo '--- :slack: Send Slack notification'
 if [[ -z "${EVAL_SLACK_CHANNEL:-}" || -z "${SLACK_TOKEN:-}" || ! -f "$RESULTS_FILE" ]]; then
   echo "Skipping Slack notification (missing channel/token/results)"
-  exit 0
+  exit "$eval_status"
 fi
 
 RUN_URL="${BUILDKITE_BUILD_URL:-https://buildkite.com}"
@@ -64,3 +68,6 @@ if curl -sf -o /dev/null -X POST https://slack.com/api/chat.postMessage \
 else
   echo "Warning: Slack notification failed"
 fi
+
+# Preserve the eval outcome so a failing eval still fails the CI step.
+exit "$eval_status"

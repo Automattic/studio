@@ -11,6 +11,7 @@ import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { useAuth } from 'src/hooks/use-auth';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useSidebarResize } from 'src/hooks/use-sidebar-resize';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
@@ -48,6 +49,7 @@ export default function App() {
 	const isWapuuWorldOpen = useRootSelector( selectIsWapuuWorldOpen );
 	const activateWapuuWorld = useCallback( () => dispatch( openWapuuWorld() ), [ dispatch ] );
 	useKonamiCode( activateWapuuWorld );
+	useIpcListener( 'toggle-sidebar', toggleSidebar );
 
 	// Initialize sync states from in-progress server operations
 	useEffect( () => {

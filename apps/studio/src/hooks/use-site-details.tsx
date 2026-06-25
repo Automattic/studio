@@ -470,18 +470,6 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 							showOpenLogs: false,
 						} );
 					}
-				} else if ( error instanceof Error && error.message.includes( 'MAINTENANCE_FILE_STALE' ) ) {
-					const filePath = error.message.split( ':' ).slice( 1 ).join( ':' );
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Failed to start '%s'" ), siteName ),
-						message:
-							__(
-								'A previous update left a .maintenance lock file behind that is preventing the site from starting. The update appears to have finished or failed. You can safely delete this file to start the site:'
-							) +
-							'\n\n' +
-							filePath,
-						showOpenLogs: false,
-					} );
 				} else if ( error instanceof Error && error.message.includes( 'MAINTENANCE_FILE_FRESH' ) ) {
 					getIpcApi().showErrorMessageBox( {
 						title: sprintf( __( "'%s' is in maintenance mode" ), siteName ),

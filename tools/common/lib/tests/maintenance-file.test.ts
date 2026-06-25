@@ -1,10 +1,8 @@
 import fs from 'fs';
-import path from 'path';
 import { checkMaintenanceFile } from '../maintenance-file';
 
 describe( 'checkMaintenanceFile', () => {
 	const sitePath = '/tmp/test-site';
-	const maintenancePath = path.join( sitePath, '.maintenance' );
 
 	beforeEach( () => {
 		vi.restoreAllMocks();
@@ -18,35 +16,24 @@ describe( 'checkMaintenanceFile', () => {
 		expect( result ).toEqual( { exists: false } );
 	} );
 
-	it( 'returns fresh maintenance info for a recent timestamp', () => {
+	it( 'returns isStale: false for a recent timestamp', () => {
 		const nowSeconds = Math.floor( Date.now() / 1000 );
 		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
 		vi.spyOn( fs, 'readFileSync' ).mockReturnValue( `<?php $upgrading = ${ nowSeconds }; ?>` );
 
 		const result = checkMaintenanceFile( sitePath );
 
-		expect( result.exists ).toBe( true );
-		if ( result.exists ) {
-			expect( result.filePath ).toBe( maintenancePath );
-			expect( result.upgradingTimestamp ).toBe( nowSeconds );
-			expect( result.isStale ).toBe( false );
-			expect( result.expiresAt ).toBeInstanceOf( Date );
-		}
+		expect( result ).toEqual( { exists: true, isStale: false } );
 	} );
 
-	it( 'returns stale maintenance info for an old timestamp', () => {
+	it( 'returns isStale: true for an old timestamp', () => {
 		const oldTimestamp = Math.floor( Date.now() / 1000 ) - 700;
 		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
 		vi.spyOn( fs, 'readFileSync' ).mockReturnValue( `<?php $upgrading = ${ oldTimestamp }; ?>` );
 
 		const result = checkMaintenanceFile( sitePath );
 
-		expect( result.exists ).toBe( true );
-		if ( result.exists ) {
-			expect( result.upgradingTimestamp ).toBe( oldTimestamp );
-			expect( result.isStale ).toBe( true );
-			expect( result.expiresAt ).toBeNull();
-		}
+		expect( result ).toEqual( { exists: true, isStale: true } );
 	} );
 
 	it( 'treats a malformed file as stale', () => {
@@ -55,12 +42,7 @@ describe( 'checkMaintenanceFile', () => {
 
 		const result = checkMaintenanceFile( sitePath );
 
-		expect( result.exists ).toBe( true );
-		if ( result.exists ) {
-			expect( result.isStale ).toBe( true );
-			expect( result.upgradingTimestamp ).toBe( 0 );
-			expect( result.expiresAt ).toBeNull();
-		}
+		expect( result ).toEqual( { exists: true, isStale: true } );
 	} );
 
 	it( 'treats an empty file as stale', () => {
@@ -69,10 +51,7 @@ describe( 'checkMaintenanceFile', () => {
 
 		const result = checkMaintenanceFile( sitePath );
 
-		expect( result.exists ).toBe( true );
-		if ( result.exists ) {
-			expect( result.isStale ).toBe( true );
-		}
+		expect( result ).toEqual( { exists: true, isStale: true } );
 	} );
 
 	it( 'treats an unreadable file as stale', () => {
@@ -83,9 +62,6 @@ describe( 'checkMaintenanceFile', () => {
 
 		const result = checkMaintenanceFile( sitePath );
 
-		expect( result.exists ).toBe( true );
-		if ( result.exists ) {
-			expect( result.isStale ).toBe( true );
-		}
+		expect( result ).toEqual( { exists: true, isStale: true } );
 	} );
 } );

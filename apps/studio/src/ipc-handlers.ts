@@ -1032,16 +1032,12 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		}
 
 		// Check if a .maintenance file is blocking the site from starting.
-		// WordPress creates this file during core/plugin/theme updates.
+		// WordPress creates this file during core/plugin/theme updates and
+		// blocks all requests for 10 minutes. After that WordPress ignores
+		// the file and the site starts normally, so only fresh locks matter.
 		const maintenanceCheck = checkMaintenanceFile( server.details.path );
-		if ( maintenanceCheck.exists ) {
-			if ( maintenanceCheck.isStale ) {
-				throw new Error( `MAINTENANCE_FILE_STALE:${ maintenanceCheck.filePath }` );
-			}
-			const minutesLeft = maintenanceCheck.expiresAt
-				? Math.ceil( ( maintenanceCheck.expiresAt.getTime() - Date.now() ) / 60000 )
-				: 10;
-			throw new Error( `MAINTENANCE_FILE_FRESH:${ minutesLeft }` );
+		if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
+			throw new Error( 'MAINTENANCE_FILE_FRESH' );
 		}
 
 		const contexts: Record< string, Record< string, unknown > > = {

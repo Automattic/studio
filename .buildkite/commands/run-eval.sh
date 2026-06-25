@@ -42,7 +42,7 @@ payload=$(jq --arg url "$RUN_URL" '
   (($s.successes + $s.failures + $s.errors) | tostring) as $total |
   (if $s.failures == 0 and $s.errors == 0
     then ":white_check_mark: Agent eval: " + ($s.successes | tostring) + "/" + $total + " passed"
-    else ":x: Agent eval: " + ($s.failures | tostring) + "/" + $total + " failed"
+    else ":x: Agent eval: " + (($s.failures + $s.errors) | tostring) + "/" + $total + " failed"
   end) as $header |
   (if $s.failures == 0 and $s.errors == 0 then "#36a64f" else "#e01e5a" end) as $color |
   {

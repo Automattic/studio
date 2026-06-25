@@ -3,6 +3,7 @@ import { check, copy, Icon } from '@wordpress/icons';
 import { isValidElement, useCallback, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Tooltip } from 'src/components/tooltip';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import styles from './style.module.css';
@@ -57,16 +58,26 @@ function CopyButton( { text }: { text: string } ) {
 		setCopied( true );
 	}, [ text ] );
 
+	const copyLabel = __( 'Copy code' );
+	const copiedLabel = __( 'Copied' );
+	const tooltipLabel = copied ? copiedLabel : copyLabel;
+
 	return (
-		<button
-			type="button"
-			className={ styles.copyButton }
-			onClick={ handleCopy }
-			aria-label={ copied ? __( 'Copied' ) : __( 'Copy code' ) }
-		>
-			<Icon icon={ copied ? check : copy } size={ 16 } fill="currentColor" />
-			<span>{ copied ? __( 'Copied' ) : __( 'Copy' ) }</span>
-		</button>
+		<div className={ styles.copyButtonContainer }>
+			<Tooltip text={ tooltipLabel }>
+				<button
+					type="button"
+					className={ styles.copyButton }
+					onClick={ handleCopy }
+					aria-label={ copyLabel }
+				>
+					<Icon icon={ copied ? check : copy } size={ 16 } fill="currentColor" aria-hidden="true" />
+				</button>
+			</Tooltip>
+			<span className={ styles.visuallyHidden } role="status" aria-live="polite" aria-atomic="true">
+				{ copied ? copiedLabel : '' }
+			</span>
+		</div>
 	);
 }
 

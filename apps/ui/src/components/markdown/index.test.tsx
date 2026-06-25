@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Markdown } from '.';
 
@@ -11,13 +12,21 @@ vi.mock( '@/data/core', () => ( {
 	} ),
 } ) );
 
+function renderMarkdown( children: string ) {
+	return render(
+		<Tooltip.Provider>
+			<Markdown>{ children }</Markdown>
+		</Tooltip.Provider>
+	);
+}
+
 describe( 'Markdown', () => {
 	beforeEach( () => {
 		copyText.mockClear();
 	} );
 
 	it( 'renders a copy button for fenced code blocks and copies the code', async () => {
-		render( <Markdown>{ '```js\nconst a = 1;\n```' }</Markdown> );
+		renderMarkdown( '```js\nconst a = 1;\n```' );
 
 		const button = screen.getByRole( 'button', { name: 'Copy code' } );
 		expect( button ).toBeInTheDocument();
@@ -25,13 +34,22 @@ describe( 'Markdown', () => {
 		fireEvent.click( button );
 
 		expect( copyText ).toHaveBeenCalledWith( 'const a = 1;' );
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Copied' } ) ).toBeInTheDocument()
-		);
+		await waitFor( () => expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Copied' ) );
+		expect( screen.getByRole( 'button', { name: 'Copy code' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows a tooltip for the copy button', async () => {
+		renderMarkdown( '```js\nconst a = 1;\n```' );
+
+		const button = screen.getByRole( 'button', { name: 'Copy code' } );
+		fireEvent.mouseEnter( button );
+		fireEvent.mouseMove( button, { movementX: 1, movementY: 1 } );
+
+		expect( await screen.findByText( 'Copy code', {}, { timeout: 2000 } ) ).toBeVisible();
 	} );
 
 	it( 'does not render a copy button for inline code', () => {
-		render( <Markdown>{ 'this is `inline` code' }</Markdown> );
+		renderMarkdown( 'this is `inline` code' );
 
 		expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
 	} );

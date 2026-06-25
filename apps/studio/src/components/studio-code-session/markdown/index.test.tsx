@@ -22,9 +22,16 @@ describe( 'Studio Code Markdown', () => {
 		fireEvent.click( button );
 
 		expect( copyText ).toHaveBeenCalledWith( 'body { color: red; }' );
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Copied' } ) ).toBeInTheDocument()
-		);
+		await waitFor( () => expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Copied' ) );
+		expect( screen.getByRole( 'button', { name: 'Copy code' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows a tooltip for the copy button', async () => {
+		render( <Markdown>{ '```css\nbody { color: red; }\n```' }</Markdown> );
+
+		fireEvent.mouseOver( screen.getByRole( 'button', { name: 'Copy code' } ) );
+
+		await waitFor( () => expect( screen.getByRole( 'tooltip' ) ).toHaveTextContent( 'Copy code' ) );
 	} );
 
 	it( 'does not render a copy button for inline code', () => {

@@ -270,7 +270,8 @@
 }
 
 .attachmentRemove.attachmentRemove:hover,
-.attachmentRemove.attachmentRemove:focus-visible {
+.attachmentRemove.attachmentRemove:focus-visible,
+.attachmentRemove.attachmentRemove:active {
 	background-color: var(--color-frame-bg);
 	color: var(--color-frame-text);
 }

@@ -261,7 +261,8 @@
 }
 
 .attachmentRemove:hover,
-.attachmentRemove:focus-visible {
+.attachmentRemove:focus-visible,
+.attachmentRemove:active {
 	background-color: var(--wpds-color-bg-surface-neutral-weak, #f4f4f4);
 	color: var(--wpds-color-fg-content-neutral);
 }

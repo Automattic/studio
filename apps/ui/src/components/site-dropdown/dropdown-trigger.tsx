@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import styles from './dropdown-trigger.module.css';
+import type { TriggerSecondaryTone } from './trigger-secondary';
 import type { ComponentProps, ElementRef } from 'react';
 
 export type SiteStatus = 'running' | 'stopped' | 'transitioning';
@@ -15,6 +16,8 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	status: SiteStatus;
 	statusLabel: string;
 	environment: 'local' | 'live';
+	secondaryLabel: string;
+	secondaryTone?: TriggerSecondaryTone;
 	showSiteIcon?: boolean;
 	showStatus?: boolean;
 	siteIconSeed?: string;
@@ -29,6 +32,8 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 			status,
 			statusLabel,
 			environment,
+			secondaryLabel,
+			secondaryTone = 'neutral',
 			showSiteIcon = false,
 			showStatus = true,
 			siteIconSeed,
@@ -91,7 +96,14 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 						) : null }
 						<span className={ styles.identity }>
 							<span className={ styles.site }>{ siteName }</span>
-							<span className={ styles.url }>{ siteUrl }</span>
+							<span
+								className={ clsx( styles.secondary, styles[ `secondary_${ secondaryTone }` ] ) }
+							>
+								{ secondaryTone !== 'neutral' ? (
+									<span className={ styles.secondaryMarker } aria-hidden="true" />
+								) : null }
+								<span className={ styles.secondaryLabel }>{ secondaryLabel }</span>
+							</span>
 						</span>
 						{ showSiteIcon ? null : statusBadge }
 						<Icon className={ styles.chevron } icon={ chevronDownSmall } />

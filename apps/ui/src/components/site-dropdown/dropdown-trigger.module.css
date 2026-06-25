@@ -25,7 +25,9 @@
 
 	gap: var(--wpds-dimension-padding-sm);
 	max-width: 100%;
+	min-height: 48px;
 	min-width: 0;
+	align-items: center;
 	backdrop-filter: blur(20px) saturate(115%);
 	-webkit-backdrop-filter: blur(20px) saturate(115%);
 	white-space: nowrap;
@@ -51,8 +53,10 @@
 
 .identity {
 	display: inline-flex;
-	align-items: baseline;
-	gap: var(--wpds-dimension-padding-sm);
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
+	gap: 2px;
 	min-width: 0;
 	max-width: min(420px, 56vw);
 	padding-inline: 2px var(--wpds-dimension-padding-xs);
@@ -67,6 +71,49 @@
 	line-height: var(--wpds-typography-line-height-sm);
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.secondary {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	max-width: 100%;
+	min-width: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 400;
+	line-height: 1.1;
+}
+
+.secondaryLabel {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.secondaryMarker {
+	width: 6px;
+	height: 6px;
+	border-radius: 999px;
+	flex: 0 0 auto;
+	background: currentColor;
+}
+
+.secondary_pending {
+	color: var(--wpds-color-fg-interactive-brand);
+}
+
+.secondary_pending .secondaryMarker {
+	animation: siteDotBlink 1s ease-in-out infinite;
+}
+
+.secondary_success {
+	color: var(--wpds-color-fg-content-success, var(--wpds-color-fg-content-neutral));
+}
+
+.secondary_error {
+	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
 }
 
 .statusBadge {
@@ -179,18 +226,6 @@
 	50% {
 		opacity: 0.25;
 	}
-}
-
-.url {
-	flex: 0 1 auto;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	opacity: 0.6;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	min-width: 0;
 }
 
 .chevron {

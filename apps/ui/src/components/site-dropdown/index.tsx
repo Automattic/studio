@@ -2,14 +2,16 @@ import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
+import { useSnapshots } from '@/data/queries/use-snapshots';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { DropdownTrigger } from './dropdown-trigger';
 import { MainView } from './main-view';
 import { PublishPickerView } from './publish-picker-view';
 import styles from './style.module.css';
-import { SyncActivityIndicator } from './sync-activity-indicator';
-import { deriveSiteStatus, pickLiveSite } from './utils';
+import { getSiteDropdownSecondary } from './trigger-secondary';
+import { deriveSiteStatus, pickLatestSnapshot, pickLiveSite } from './utils';
 import type { SiteDetails } from '@/data/core';
 
 type Props = {
@@ -41,7 +43,23 @@ export function SiteDropdown( {
 	// Only needed here so the disconnect dialog can reference the current live
 	// site. MainView fetches the same data independently for its action row.
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
+	const { data: snapshots } = useSnapshots();
+	const activity = useSiteSyncActivity( site.id );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
+	const previewSnapshot = useMemo(
+		() => pickLatestSnapshot( snapshots, site.id ),
+		[ snapshots, site.id ]
+	);
+	const secondary = useMemo(
+		() =>
+			getSiteDropdownSecondary( {
+				activity,
+				activeEnvironment,
+				liveSite,
+				previewSnapshot,
+			} ),
+		[ activity, activeEnvironment, liveSite, previewSnapshot ]
+	);
 
 	const handleDisconnectClick = () => {
 		// Close the dropdown before showing the confirmation dialog so the two
@@ -72,6 +90,8 @@ export function SiteDropdown( {
 							status={ status }
 							statusLabel={ statusLabel }
 							environment={ activeEnvironment }
+							secondaryLabel={ secondary.label }
+							secondaryTone={ secondary.tone }
 							showSiteIcon={ showSiteIcon }
 							showStatus={ showStatus }
 							siteIconSeed={ `${ site.id }:${ site.name }:${ site.path }` }
@@ -83,6 +103,7 @@ export function SiteDropdown( {
 					{ view === 'main' ? (
 						<MainView
 							site={ site }
+							activity={ activity }
 							onSetupClick={ () => setView( 'picker' ) }
 							onDisconnectClick={ handleDisconnectClick }
 						/>
@@ -91,7 +112,6 @@ export function SiteDropdown( {
 					) }
 				</Menu.Popup>
 			</Menu.Root>
-			<SyncActivityIndicator siteId={ site.id } />
 			{ liveSite ? (
 				<DisconnectSiteDialog
 					localSiteId={ site.id }

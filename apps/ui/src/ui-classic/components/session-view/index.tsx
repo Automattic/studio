@@ -8,7 +8,6 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
-import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
@@ -17,7 +16,6 @@ import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-ses
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
-import { pickLiveSite } from './composer/environment-pill';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
@@ -158,8 +156,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const ownerSite = ownerSitePath
 		? sites?.find( ( candidate ) => candidate.path === ownerSitePath )
 		: undefined;
-	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
-	const liveSite = pickLiveSite( connectedSites );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
 		isRunning,
@@ -280,8 +276,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onSend={ sendMessage }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
-						effectiveEnvironment={ effectiveEnvironment }
-						liveSite={ liveSite }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
 						onSwitchSession={ ( nextSessionId ) =>

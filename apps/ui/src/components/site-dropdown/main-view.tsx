@@ -1,14 +1,6 @@
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import {
-	arrowDown,
-	arrowUp,
-	copy,
-	external,
-	Icon,
-	link as linkIcon,
-	moreHorizontal,
-} from '@wordpress/icons';
+import { arrowDown, arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
@@ -32,6 +24,7 @@ import {
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
+import { getSyncActivityLabel } from './trigger-secondary';
 import {
 	deriveSiteStatus,
 	ensureProtocol,
@@ -41,12 +34,14 @@ import {
 	stripProtocol,
 } from './utils';
 import type { SiteDetails } from '@/data/core';
+import type { SyncActivity } from '@/data/sync-activity';
 import type { ComponentProps } from 'react';
 
 type ButtonProps = ComponentProps< typeof Button >;
 
 type Props = {
 	site: SiteDetails;
+	activity: SyncActivity | null;
 	// Switches the dropdown to the publish picker. Lives in the parent because
 	// the picker is a sibling view at the popup level.
 	onSetupClick: () => void;
@@ -75,7 +70,7 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 	return { push, pull };
 }
 
-export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
+export function MainView( { site, activity, onSetupClick, onDisconnectClick }: Props ) {
 	const connector = useConnector();
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
@@ -183,6 +178,8 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 
 	return (
 		<div className={ styles.rows }>
+			{ activity?.kind === 'error' ? <SyncActivityError activity={ activity } /> : null }
+
 			<PopoverRow
 				label={ __( 'Studio' ) }
 				sublabel={
@@ -253,8 +250,14 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 					}
 				/>
 			) : (
-				<PreviewEducationPanel
+				<EnvironmentActionPanel
+					title={ __( 'Preview' ) }
+					copy={ __( 'Share a review link for this version.' ) }
+					buttonLabel={ __( 'Share' ) }
+					variant="outline"
+					tone="neutral"
 					loading={ isPreviewPending }
+					loadingAnnouncement={ __( 'Creating preview' ) }
 					disabled={ isSyncing }
 					onClick={ handlePreviewClick }
 				/>
@@ -324,6 +327,19 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 	);
 }
 
+function SyncActivityError( {
+	activity,
+}: {
+	activity: Extract< SyncActivity, { kind: 'error' } >;
+} ) {
+	return (
+		<div className={ styles.activityError } role="status">
+			<div className={ styles.activityErrorTitle }>{ getSyncActivityLabel( activity ) }</div>
+			<div className={ styles.activityErrorMessage }>{ activity.message }</div>
+		</div>
+	);
+}
+
 function LocalServerControl( {
 	running,
 	starting,
@@ -352,9 +368,7 @@ function LocalServerControl( {
 				targetRunning && styles.localServerControl_running,
 				pending && styles.localServerControl_pending
 			) }
-			aria-label={
-				busyLabel ?? ( targetRunning ? __( 'Pause Studio site' ) : __( 'Start Studio site' ) )
-			}
+			aria-label={ busyLabel ?? __( 'Studio site status' ) }
 			role="switch"
 			aria-checked={ targetRunning }
 			aria-busy={ pending || undefined }
@@ -365,55 +379,11 @@ function LocalServerControl( {
 				<span
 					className={ clsx(
 						styles.localServerGlyph,
-						targetRunning ? styles.pauseIcon : styles.playIcon
+						targetRunning ? styles.playIcon : styles.pauseIcon
 					) }
 				/>
 			</span>
 		</button>
-	);
-}
-
-function PreviewEducationPanel( {
-	loading,
-	disabled,
-	onClick,
-}: {
-	loading: boolean;
-	disabled: boolean;
-	onClick: () => void;
-} ) {
-	return (
-		<div className={ styles.previewEducationPanel }>
-			<div className={ styles.previewIllustrationStage } aria-hidden="true">
-				<div className={ styles.previewIllustration }>
-					<Icon icon={ linkIcon } size={ 18 } />
-				</div>
-			</div>
-			<div className={ styles.previewEducationBody }>
-				<div className={ styles.previewEducationText }>
-					<div className={ styles.previewEducationTitle }>{ __( 'Preview' ) }</div>
-					<p className={ styles.previewEducationCopy }>
-						{ __( 'Share a review link for this version.' ) }
-					</p>
-				</div>
-				<Button
-					variant="outline"
-					tone="neutral"
-					size="compact"
-					className={ clsx(
-						styles.environmentActionButton,
-						styles.environmentActionButton_outline,
-						styles.previewEducationButton
-					) }
-					loading={ loading }
-					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ disabled }
-					onClick={ onClick }
-				>
-					{ __( 'Share' ) }
-				</Button>
-			</div>
-		</div>
 	);
 }
 

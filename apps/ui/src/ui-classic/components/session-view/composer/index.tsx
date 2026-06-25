@@ -19,7 +19,6 @@ import {
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
-import { EnvironmentPill } from './environment-pill';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -34,7 +33,6 @@ import type {
 	SessionEntry,
 	StudioChatFileAttachment,
 	StudioChatImage,
-	SyncSite,
 } from '@/data/core';
 
 function formatAttachmentSize( bytes: number ): string {
@@ -114,12 +112,7 @@ interface ComposerProps {
 	model: AiModelId;
 	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
-	// Environment pill: only rendered when both a `sessionId` and a linked
-	// `liveSite` are available. Without a live link the pill is hidden
-	// entirely (there'd be nothing to flip to).
 	sessionId?: string;
-	effectiveEnvironment?: 'local' | 'live';
-	liveSite?: SyncSite;
 	entries?: SessionEntry[];
 	// Local owner site id, when the session is anchored to one. Required to
 	// spin up a fresh session via `connector.createSession` on a confirmed
@@ -144,9 +137,6 @@ export interface ComposerHandle {
 	): void;
 }
 
-const isMacPlatform =
-	typeof navigator !== 'undefined' && /mac/i.test( navigator.platform || navigator.userAgent );
-
 function shouldShellFocusTextarea( target: EventTarget ) {
 	if ( ! ( target instanceof Element ) ) {
 		return true;
@@ -165,8 +155,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		onSend,
 		onInterrupt,
 		sessionId,
-		effectiveEnvironment = 'local',
-		liveSite,
 		entries,
 		ownerSiteId,
 		onSwitchSession,
@@ -389,8 +377,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const modKey = isMacPlatform ? '⌘' : 'Ctrl';
-	const newlineHint = `${ modKey }↩ ${ __( 'for newline' ) }`;
 	const canSend = value.trim().length > 0 || attachments.length > 0;
 	const placeholderOptions = busy
 		? [
@@ -524,7 +510,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									</Menu.SubmenuRoot>
 								</Menu.Popup>
 							</Menu.Root>
-							<span className={ styles.toolbarHint }>{ newlineHint }</span>
 							<input
 								ref={ fileInputRef }
 								type="file"
@@ -534,14 +519,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							/>
 						</div>
 						<div className={ styles.rightActions }>
-							{ sessionId && liveSite ? (
-								<EnvironmentPill
-									sessionId={ sessionId }
-									effectiveEnvironment={ effectiveEnvironment }
-									liveSite={ liveSite }
-									disabled={ busy }
-								/>
-							) : null }
 							<Menu.Root modal={ false }>
 								<Menu.Trigger
 									render={

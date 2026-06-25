@@ -157,6 +157,7 @@
 	align-items: flex-end;
 	justify-content: space-between;
 	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
 	margin-inline: calc(-1 * var(--wpds-dimension-padding-xs));
 }
 
@@ -167,24 +168,34 @@
 	gap: var(--wpds-dimension-padding-xs);
 }
 
+.leftActions {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.rightActions {
+	flex: 0 0 auto;
+}
+
 .iconButton {
 	display: inline-flex;
+	flex: 0 0 28px;
 	align-items: center;
 	justify-content: center;
-	width: 22px;
-	height: 22px;
+	width: 28px;
+	height: 28px;
 	padding: 0;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border: 0;
 	border-radius: var(--wpds-border-radius-sm, 4px);
 	background-color: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
 	cursor: pointer;
 	font: inherit;
 }
 
-.iconButton svg {
-	width: 14px;
-	height: 14px;
+.shell .iconButton.iconButton svg {
+	width: 18px;
+	height: 18px;
 }
 
 .iconButton:hover:not(:disabled),
@@ -199,8 +210,10 @@
 
 .pill {
 	display: inline-flex;
+	flex: 0 0 auto;
 	align-items: center;
 	gap: 6px;
+	max-width: min(42vw, 160px);
 	height: 28px;
 	padding: 0 var(--wpds-dimension-padding-sm);
 	border: 0;
@@ -210,6 +223,14 @@
 	font: inherit;
 	font-size: var(--wpds-typography-font-size-sm);
 	cursor: pointer;
+	white-space: nowrap;
+}
+
+.pill span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .pill:hover:not(:disabled),
@@ -221,22 +242,6 @@
 	cursor: default;
 }
 
-.pillDot {
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background-color: #16a34a;
-	flex-shrink: 0;
-}
-
-.pillDotLive {
-	background-color: #2563eb;
-}
-
-.envMenuPopup {
-	min-width: 140px;
-}
-
 .commandsMenuPopup {
 	min-width: 172px;
 }
@@ -245,24 +250,10 @@
 	min-width: 180px;
 }
 
-.toolbarHint {
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: 1;
-	opacity: 0;
-	transition: opacity 80ms ease, visibility 80ms ease;
-	visibility: hidden;
-	white-space: nowrap;
-}
-
-.shell:focus-within .toolbarHint {
-	opacity: 1;
-	visibility: visible;
-}
-
 .sendButton,
 .stopButton {
 	display: inline-flex;
+	flex: 0 0 28px;
 	align-items: center;
 	justify-content: center;
 	width: 28px;

@@ -18,18 +18,18 @@ const directDeps = Object.entries( pkg.dependencies ?? {} )
 	.filter( ( [ , version ] ) => ! version.startsWith( 'file:' ) )
 	.map( ( [ name ] ) => name );
 
-// Web target (`STUDIO_TARGET=web`) builds a standalone browser app wired to the
-// HTTP/SSE web connector. It uses a separate entry/output/port so the default
+// Hosted target (`STUDIO_TARGET=hosted`) builds a standalone browser app wired to
+// the HTTP/SSE hosted connector. It uses a separate entry/output/port so the default
 // Electron-renderer build (`dist/`, port 5200) stays byte-for-byte unchanged.
-const isWeb = process.env.STUDIO_TARGET === 'web';
+const isHosted = process.env.STUDIO_TARGET === 'hosted';
 
 // In dev, Vite serves the root `index.html` (which loads the Electron entry,
 // `main.tsx`) for every SPA navigation, regardless of `build` input options.
-// Serve `index.web.html` instead for any document navigation (`/`, `/sites`,
-// `/sessions/:id`, …) so the web entry + web connector load and client-side
+// Serve `index.hosted.html` instead for any document navigation (`/`, `/sites`,
+// `/sessions/:id`, …) so the hosted entry + hosted connector load and client-side
 // routing/refresh works. Module and asset requests pass through untouched.
-const webDevEntryPlugin: Plugin = {
-	name: 'studio-web-dev-entry',
+const hostedDevEntryPlugin: Plugin = {
+	name: 'studio-hosted-dev-entry',
 	apply: 'serve',
 	configureServer( server ) {
 		server.middlewares.use( ( req, _res, next ) => {
@@ -41,7 +41,7 @@ const webDevEntryPlugin: Plugin = {
 				pathname.startsWith( '/node_modules/' ) ||
 				pathname.includes( '.' );
 			if ( accept.includes( 'text/html' ) && ! isInternal ) {
-				req.url = '/index.web.html';
+				req.url = '/index.hosted.html';
 			}
 			next();
 		} );
@@ -49,7 +49,7 @@ const webDevEntryPlugin: Plugin = {
 };
 
 export default defineConfig( {
-	plugins: [ react(), dsTokenFallbacks(), ...( isWeb ? [ webDevEntryPlugin ] : [] ) ],
+	plugins: [ react(), dsTokenFallbacks(), ...( isHosted ? [ hostedDevEntryPlugin ] : [] ) ],
 	css: {
 		postcss: {
 			plugins: [ dsTokenFallbacksPostcss ],
@@ -74,12 +74,12 @@ export default defineConfig( {
 		include: directDeps,
 	},
 	server: {
-		port: isWeb ? 5300 : 5200,
+		port: isHosted ? 5300 : 5200,
 	},
 	build: {
-		outDir: isWeb ? 'dist-web' : 'dist',
+		outDir: isHosted ? 'dist-hosted' : 'dist',
 		rolldownOptions: {
-			input: resolve( __dirname, isWeb ? 'index.web.html' : 'index.html' ),
+			input: resolve( __dirname, isHosted ? 'index.hosted.html' : 'index.html' ),
 		},
 	},
 } );

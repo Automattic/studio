@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { PassThrough } from 'stream';
-import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const testProcessName = 'studio-site-process-manager-test';
@@ -296,6 +296,129 @@ describe( 'ProcessManagerDaemon', () => {
 			}
 		}
 	);
+
+	describe( 'weighted capacity limit', () => {
+		type HandleRequestFn = ( request: unknown ) => Promise< {
+			type: string;
+			payload: { process?: { pmId: number; name: string; status: string; pid?: number } };
+		} >;
+
+		async function startSiteProcess(
+			handleRequest: HandleRequestFn,
+			index: number,
+			runtime: string = SITE_RUNTIME_NATIVE_PHP
+		) {
+			return handleRequest( {
+				type: 'start-process',
+				requestId: String( index ),
+				processName: `studio-site-site-${ index }`,
+				scriptPath: '/tmp/test-child.js',
+				env: {},
+				args: [],
+				runtime,
+			} );
+		}
+
+		it( 'rejects a site process when the weighted capacity limit is exceeded', async () => {
+			spawnMock.mockImplementation( () => new MockChildProcess() );
+			const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+			const daemon = new ProcessManagerDaemon();
+			const handleRequest = (
+				daemon as unknown as { handleRequest: HandleRequestFn }
+			 ).handleRequest.bind( daemon );
+			vi.spyOn(
+				daemon as unknown as { broadcastEvent: ( event: unknown ) => Promise< void > },
+				'broadcastEvent'
+			).mockResolvedValue( undefined );
+
+			// Start 36 native-php sites (weight 1 each = 36 total, at the limit)
+			for ( let i = 0; i < 36; i++ ) {
+				await startSiteProcess( handleRequest, i );
+			}
+
+			// The 37th native-php site should be rejected
+			await expect( startSiteProcess( handleRequest, 37 ) ).rejects.toThrow(
+				'CAPACITY_LIMIT_REACHED'
+			);
+		} );
+
+		it( 'counts playground sites with weight 6', async () => {
+			spawnMock.mockImplementation( () => new MockChildProcess() );
+			const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+			const daemon = new ProcessManagerDaemon();
+			const handleRequest = (
+				daemon as unknown as { handleRequest: HandleRequestFn }
+			 ).handleRequest.bind( daemon );
+			vi.spyOn(
+				daemon as unknown as { broadcastEvent: ( event: unknown ) => Promise< void > },
+				'broadcastEvent'
+			).mockResolvedValue( undefined );
+
+			// Start 6 playground sites (weight 6 each = 36 total, at the limit)
+			for ( let i = 0; i < 6; i++ ) {
+				await startSiteProcess( handleRequest, i, SITE_RUNTIME_PLAYGROUND );
+			}
+
+			// The 7th playground site should be rejected
+			await expect( startSiteProcess( handleRequest, 7, SITE_RUNTIME_PLAYGROUND ) ).rejects.toThrow(
+				'CAPACITY_LIMIT_REACHED'
+			);
+		} );
+
+		it( 'does not count non-site processes toward capacity', async () => {
+			spawnMock.mockImplementation( () => new MockChildProcess() );
+			const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+			const daemon = new ProcessManagerDaemon();
+			const handleRequest = (
+				daemon as unknown as { handleRequest: HandleRequestFn }
+			 ).handleRequest.bind( daemon );
+			vi.spyOn(
+				daemon as unknown as { broadcastEvent: ( event: unknown ) => Promise< void > },
+				'broadcastEvent'
+			).mockResolvedValue( undefined );
+
+			// Start a non-site process (e.g. proxy)
+			await handleRequest( {
+				type: 'start-process',
+				requestId: '0',
+				processName: 'studio-proxy',
+				scriptPath: '/tmp/proxy.js',
+				env: {},
+				args: [],
+			} );
+
+			// Should still be able to start 36 native-php site processes
+			for ( let i = 0; i < 36; i++ ) {
+				await startSiteProcess( handleRequest, i );
+			}
+		} );
+
+		it( 'allows restarting an already-running process regardless of capacity', async () => {
+			spawnMock.mockImplementation( () => new MockChildProcess() );
+			const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
+
+			const daemon = new ProcessManagerDaemon();
+			const handleRequest = (
+				daemon as unknown as { handleRequest: HandleRequestFn }
+			 ).handleRequest.bind( daemon );
+			vi.spyOn(
+				daemon as unknown as { broadcastEvent: ( event: unknown ) => Promise< void > },
+				'broadcastEvent'
+			).mockResolvedValue( undefined );
+
+			// Fill capacity
+			for ( let i = 0; i < 36; i++ ) {
+				await startSiteProcess( handleRequest, i );
+			}
+
+			// Re-starting an existing process should succeed (early return, no capacity check)
+			const result = await startSiteProcess( handleRequest, 0 );
+			expect( result.payload.process?.status ).toBe( 'online' );
+		} );
+	} );
 
 	it( 'taskkills the wrapper and reported subprocess trees on Windows', async () => {
 		const child = new MockChildProcess();

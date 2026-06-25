@@ -5,6 +5,7 @@ import nodePath from 'path';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 const HANDOFF_PORT = 48732;
 const MAX_BODY_BYTES = 60 * 1024 * 1024;
@@ -161,15 +162,15 @@ async function handleImportRequest( body: FigmaImportRequest ) {
 		artifact,
 		payload: { artifact },
 	};
-	const blueprint = {
+	const blueprint: BlueprintV1Declaration = {
 		landingPage: '/',
 		features: {
 			networking: true,
 		},
 		meta: {
 			title: siteName,
+			author: 'WordPress Studio',
 			description: `Import ${ siteName } from Figma with Static Site Importer.`,
-			suggestedSiteName: siteName,
 		},
 		steps: [
 			{

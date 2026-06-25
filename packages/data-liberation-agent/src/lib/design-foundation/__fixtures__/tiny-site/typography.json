@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "sampledUrls": 3,
+  "bySelector": {
+    "body": [
+      { "fontFamily": "Inter, sans-serif", "fontSize": "16px", "fontWeight": "400", "lineHeight": "24px", "urls": 3 }
+    ],
+    "h1": [
+      { "fontFamily": "Reckless, serif", "fontSize": "48px", "fontWeight": "700", "lineHeight": "56px", "urls": 3 }
+    ],
+    "button": [
+      { "fontFamily": "Inter, sans-serif", "fontSize": "14px", "fontWeight": "600", "lineHeight": "20px", "urls": 3 }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "entries": {
+    "https://example.com/": {
+      "slug": "homepage",
+      "desktop": "screenshots/desktop/homepage.png",
+      "capturedAt": "2026-04-19T10:00:00.000Z"
+    },
+    "https://example.com/about": {
+      "slug": "about",
+      "desktop": "screenshots/desktop/about.png",
+      "capturedAt": "2026-04-19T10:00:00.000Z"
+    }
+  }
+}

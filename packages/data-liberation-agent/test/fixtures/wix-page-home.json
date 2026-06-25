@@ -1,0 +1,13 @@
+{
+  "title": "Welcome to Test Site",
+  "content": "<h2>Welcome</h2><p>This is the homepage of our test Wix site.</p><p>We have a blog, about page, and contact page.</p>",
+  "excerpt": "Welcome to our test Wix site",
+  "date": "",
+  "categories": [],
+  "tags": [],
+  "seoTitle": "Test Site - Home",
+  "seoDescription": "Welcome to our test Wix site",
+  "mediaUrls": ["https://static.wixstatic.com/media/hero-banner.jpg"],
+  "apiCallCount": 2,
+  "globalsFound": 3
+}

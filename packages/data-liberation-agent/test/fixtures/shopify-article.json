@@ -1,0 +1,15 @@
+{
+  "article": {
+    "id": 123456,
+    "title": "How to Choose the Best Coffee Beans",
+    "body_html": "<p>Choosing the right coffee beans can transform your morning routine.</p><h2>Origins Matter</h2><p>Where your beans come from affects flavor profiles dramatically. Ethiopian beans tend to have fruity, wine-like qualities, while Colombian beans offer nutty, chocolatey notes.</p><h2>Roast Levels</h2><p>Light roasts preserve the bean's original character. Medium roasts balance acidity and body. Dark roasts deliver bold, smoky flavors.</p><img src=\"https://cdn.shopify.com/s/files/1/0001/shop/articles/roast-levels.jpg\" alt=\"Coffee roast levels\" /><h2>Freshness Is Key</h2><p>Always check the roast date. Coffee is best consumed within 2-4 weeks of roasting. Store beans in an airtight container away from light and heat.</p>",
+    "author": "Coffee Expert",
+    "tags": "coffee, guide, beans",
+    "published_at": "2026-01-15T10:00:00-05:00",
+    "image": {
+      "src": "https://cdn.shopify.com/s/files/1/0001/shop/articles/coffee-beans.jpg"
+    },
+    "handle": "how-to-choose-the-best-coffee-beans",
+    "blog_id": 789
+  }
+}

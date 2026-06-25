@@ -1,10 +1,6 @@
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 
-/**
- * Where to send a site's REST request. Resolved by each host from its own site
- * representation (the desktop's `SiteServer`, the local server's site list) so
- * this proxy logic stays transport-agnostic and shared.
- */
+/** Where to send a site's REST request. */
 export interface SiteRestTarget {
 	siteId: string;
 	running: boolean;

@@ -1,10 +1,6 @@
 import path from 'node:path';
 
-/**
- * Supported local-media MIME types, keyed by lowercase extension. Shared so the
- * desktop app and the local web server accept exactly the same media files when
- * reading a path off disk for the agent's media widget.
- */
+/** Supported local-media MIME types, keyed by lowercase extension. */
 export const MEDIA_MIME_TYPES: Record< string, string > = {
 	avif: 'image/avif',
 	avi: 'video/x-msvideo',

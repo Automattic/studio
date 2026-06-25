@@ -6,9 +6,6 @@ import { SiteServer } from 'src/site-server';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { IpcMainInvokeEvent } from 'electron';
 
-// Thin desktop wrapper: resolve the running site's URLs from its SiteServer, then
-// hand off to the shared, transport-agnostic REST proxy (also used by the local
-// web server). Only site resolution is Electron-specific here.
 export async function fetchSiteRest(
 	_event: IpcMainInvokeEvent,
 	siteId: string,

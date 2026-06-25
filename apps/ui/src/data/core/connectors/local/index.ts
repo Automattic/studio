@@ -268,11 +268,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// Wait for the callback page to report success (it has already stored the
 			// token server-side); resolve quietly if the user closes the popup.
 			await new Promise< void >( ( resolve, reject ) => {
-				let closedTimer: ReturnType< typeof setInterval >;
-				function cleanup() {
-					window.removeEventListener( 'message', onMessage );
-					clearInterval( closedTimer );
-				}
 				function onMessage( event: MessageEvent ) {
 					if ( event.origin !== window.location.origin || ! event.data ) {
 						return;
@@ -286,12 +281,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					}
 				}
 				window.addEventListener( 'message', onMessage );
-				closedTimer = setInterval( () => {
+				const closedTimer = setInterval( () => {
 					if ( popup?.closed ) {
 						cleanup();
 						resolve();
 					}
 				}, 500 );
+				function cleanup() {
+					window.removeEventListener( 'message', onMessage );
+					clearInterval( closedTimer );
+				}
 			} );
 		},
 		async logout() {

@@ -161,6 +161,10 @@ function buildStaticSiteImporterPhp(
 ): string {
 	const artifactBase64 = Buffer.from( JSON.stringify( artifact ) ).toString( 'base64' );
 	return `<?php
+if ( ! defined( 'ABSPATH' ) ) {
+	require_once getcwd() . '/wp-load.php';
+}
+
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
 require_once ABSPATH . 'wp-admin/includes/file.php';
 

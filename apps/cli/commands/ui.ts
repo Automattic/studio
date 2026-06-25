@@ -25,17 +25,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			// `@studio/local` is bundled into the CLI from source (see the vite
 			// alias); the dynamic import keeps Express off the startup path of
 			// every other command.
-			const [
-				{ startLocalServer },
-				{ getAiSessionsRootDirectory },
-				{ lastBumpStatsProvider },
-				{ STUDIO_SITES_ROOT },
-			] = await Promise.all( [
-				import( '@studio/local' ),
-				import( 'cli/ai/sessions/paths' ),
-				import( 'cli/lib/bump-stat' ),
-				import( 'cli/lib/site-paths' ),
-			] );
+			const [ { startLocalServer }, { getAiSessionsRootDirectory }, { STUDIO_SITES_ROOT } ] =
+				await Promise.all( [
+					import( '@studio/local' ),
+					import( 'cli/ai/sessions/paths' ),
+					import( 'cli/lib/site-paths' ),
+				] );
 
 			// The server forks this same CLI for site + agent operations. When run
 			// from the packaged CLI, `process.argv[1]` is that binary;
@@ -56,7 +51,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				sitesRoot: STUDIO_SITES_ROOT,
 				port: argv.port as number | undefined,
 				uiDist,
-				lastBumpStatsProvider,
 				// WordPress.com OAuth client id for browser login (redirect flow).
 				// Defaults to the shipped public client; override for dev/testing.
 				uiClientId: process.env.STUDIO_LOCAL_UI_CLIENT_ID ?? LOCAL_UI_CLIENT_ID,

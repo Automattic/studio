@@ -1,5 +1,4 @@
 import { createAgentRunManager } from '@studio/common/ai/sessions/run-manager';
-import { lastBumpStatsProvider } from 'src/lib/bump-stats';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
@@ -22,7 +21,6 @@ const runManager = createAgentRunManager( {
 	cliBinary: getCliPath(),
 	nodeBinary: getBundledNodeBinaryPath(),
 	surface: 'desktop',
-	lastBumpStatsProvider,
 	emit: ( output ) => {
 		const webContents = sessionWebContents.get( output.event.sessionId );
 		if ( webContents && ! webContents.isDestroyed() ) {

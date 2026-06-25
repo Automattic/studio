@@ -60,7 +60,6 @@ import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
-import type { LastBumpStatsProvider } from '@studio/common/lib/bump-stat';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -99,9 +98,6 @@ export interface LocalServerOptions {
 	// Path to the built browser UI (apps/ui `dist-local`). Served when present
 	// so the server is the only process needed; omitted in dev (Vite serves it).
 	uiDist?: string;
-	// Store for the agent's weekly/monthly unique-user stat dedup. The `studio ui`
-	// command passes the CLI's cli.json-backed provider; omit to skip those stats.
-	lastBumpStatsProvider?: LastBumpStatsProvider;
 	// WordPress.com OAuth client id for the browser (redirect-based) login flow.
 	// When unset, login falls back to pasting the token (`studio auth login`-style).
 	uiClientId?: string;
@@ -207,7 +203,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		cliBinary,
 		nodeBinary,
 		surface: 'cliui',
-		lastBumpStatsProvider: options.lastBumpStatsProvider,
 		// Agent-run events on `agent`, session-placement updates on `placement`.
 		emit: ( output ) => sseSend( { channel: output.kind, payload: output.event } ),
 	} );

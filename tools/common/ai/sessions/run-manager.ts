@@ -13,7 +13,6 @@ import {
 	setAiSessionSitePlacement,
 	type AiSessionPlacementUpdatedEvent,
 } from '@studio/common/ai/sessions/placement';
-import { type LastBumpStatsProvider } from '@studio/common/lib/bump-stat';
 import { captureException } from '@studio/common/lib/error-reporting';
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
@@ -32,8 +31,8 @@ import type { JsonEvent } from '@studio/common/ai/json-events';
  * Only two things differ per host, both injected via {@link AgentRunManagerConfig}:
  * which CLI binary to fork, and how run output reaches the UI ({@link emit} —
  * `webContents.send` on desktop, SSE in the server). `surface` tags telemetry so
- * the two don't conflate, and `lastBumpStatsProvider` supplies the host's store
- * for the weekly/monthly unique-user stats.
+ * the two don't conflate; the weekly/monthly unique-user dedup store is shared
+ * (app.json), so a user is counted once per period across surfaces.
  */
 
 interface AgentRun {
@@ -65,9 +64,6 @@ export interface AgentRunManagerConfig {
 	emit: ( output: RunManagerOutput ) => void;
 	// Telemetry surface, so desktop and `studio ui` stats stay distinct.
 	surface: AgentSurface;
-	// Host store for weekly/monthly unique-user stat dedup (app.json on desktop,
-	// cli.json for the CLI/server). Omit to skip the aggregated stats.
-	lastBumpStatsProvider?: LastBumpStatsProvider;
 }
 
 export interface StartAgentRunOptions {
@@ -201,7 +197,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		runsBySessionId.set( sessionId, run );
 		runsById.set( runId, run );
 
-		recordAgentSend( surface, config.lastBumpStatsProvider );
+		recordAgentSend( surface );
 
 		child.on( 'spawn', () => {
 			sendEvent( run, { type: 'run.started', timestamp: nowIso() } );

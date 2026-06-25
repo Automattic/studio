@@ -1,19 +1,14 @@
-import {
-	__bumpAggregatedUniqueStat,
-	__bumpStat,
-	type LastBumpStatsProvider,
-} from '@studio/common/lib/bump-stat';
+import { appBumpStatsProvider } from '@studio/common/lib/app-bump-stats';
+import { __bumpAggregatedUniqueStat, __bumpStat } from '@studio/common/lib/bump-stat';
 
 /**
  * Studio Code agent usage stats, shared between the desktop app and the
- * `studio ui` server. Same bumping logic for both; the surface picks which stat
- * group is bumped so the two never conflate in dashboards. The desktop surface
- * keeps its established `studio-code-ui-*` groups; `studio ui` (the CLI-served
+ * `studio ui` server. Same bumping logic and the same store (the weekly/monthly
+ * unique-user dedup state lives in app.json via {@link appBumpStatsProvider}, so
+ * a user is counted once per period across surfaces). Only the surface differs:
+ * it picks which stat group is bumped so the two never conflate in dashboards —
+ * the desktop keeps its `studio-code-ui-*` groups; `studio ui` (the CLI-served
  * UI) uses `studio-code-cliui-*` (kept ≤27 chars, the backend's group limit).
- *
- * The weekly/monthly *unique* stats need a per-host store for their dedup state
- * (the desktop uses app.json, the CLI uses cli.json), so the host passes its
- * `LastBumpStatsProvider`. Without one, only the non-aggregated counts are sent.
  */
 
 export type AgentSurface = 'desktop' | 'cliui';
@@ -55,27 +50,22 @@ export function getPlatformMetric(): string {
 
 // One agent message was sent: a usage count plus weekly/monthly unique-user
 // approximations (the latter only when a dedup-state provider is supplied).
-export function recordAgentSend(
-	surface: AgentSurface,
-	lastBumpStatsProvider?: LastBumpStatsProvider
-): void {
+export function recordAgentSend( surface: AgentSurface ): void {
 	const groups = STAT_GROUPS[ surface ];
 	const platform = getPlatformMetric();
 	__bumpStat( groups.send, platform );
-	if ( lastBumpStatsProvider ) {
-		void __bumpAggregatedUniqueStat(
-			groups.weeklyUnique,
-			platform,
-			'weekly',
-			lastBumpStatsProvider
-		).catch( () => undefined );
-		void __bumpAggregatedUniqueStat(
-			groups.monthlyUnique,
-			platform,
-			'monthly',
-			lastBumpStatsProvider
-		).catch( () => undefined );
-	}
+	void __bumpAggregatedUniqueStat(
+		groups.weeklyUnique,
+		platform,
+		'weekly',
+		appBumpStatsProvider
+	).catch( () => undefined );
+	void __bumpAggregatedUniqueStat(
+		groups.monthlyUnique,
+		platform,
+		'monthly',
+		appBumpStatsProvider
+	).catch( () => undefined );
 }
 
 // A run finished: record its outcome.

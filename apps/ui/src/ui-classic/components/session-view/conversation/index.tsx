@@ -4,15 +4,57 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
+	getInputString,
 	getToolDetail,
 	getToolDisplayName,
+	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { __ } from '@wordpress/i18n';
-import { image, page } from '@wordpress/icons';
+import {
+	blockDefault,
+	brush,
+	capturePhoto,
+	category,
+	chartBar,
+	check,
+	cloud,
+	cloudDownload,
+	cloudUpload,
+	code,
+	create,
+	download,
+	file,
+	globe,
+	image,
+	info,
+	link,
+	list,
+	media,
+	navigation,
+	offline,
+	page,
+	pencil,
+	pending,
+	people,
+	plugins,
+	plusCircle,
+	post,
+	search,
+	seen,
+	settings,
+	share,
+	styles as stylesIcon,
+	tag,
+	tool,
+	trash,
+	trendingUp,
+	update,
+	upload,
+} from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Markdown } from '@/components/markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -62,7 +104,7 @@ interface PiToolResultLike {
 	isError?: boolean;
 }
 
-const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
+const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
@@ -221,7 +263,204 @@ function AssistantText( { text }: { text: string } ) {
 	return <Markdown>{ text }</Markdown>;
 }
 
-const TOOL_RESULT_PREVIEW_MAX_LINES = 12;
+const TOOL_DETAIL_MAX_LENGTH = 96;
+
+interface ClassicToolDisplay {
+	label: string;
+	detail: string;
+	inputText: string;
+}
+
+function truncateToolDetail( value: string, maxLength = TOOL_DETAIL_MAX_LENGTH ): string {
+	if ( value.length <= maxLength ) {
+		return value;
+	}
+	return value.slice( 0, maxLength - 1 ).trimEnd() + '…';
+}
+
+function stringifyToolInput( input: Record< string, unknown > ): string {
+	try {
+		return JSON.stringify( input, null, 2 );
+	} catch {
+		return String( input );
+	}
+}
+
+function getClassicToolInputText(
+	name: string,
+	input: Record< string, unknown > | undefined
+): string {
+	if ( ! input || Object.keys( input ).length === 0 ) {
+		return '';
+	}
+
+	if ( name === 'wp_cli' ) {
+		const command = getInputString( input, 'command' );
+		return command ? `wp ${ command }` : '';
+	}
+
+	if ( name === 'Bash' ) {
+		return getInputString( input, 'command' );
+	}
+
+	return stringifyToolInput( input );
+}
+
+function getClassicToolDisplay(
+	name: string,
+	input: Record< string, unknown > | undefined
+): ClassicToolDisplay {
+	const genericDetail = getToolDetail( name, input );
+	const display: ClassicToolDisplay = {
+		label: getToolDisplayName( name, input ),
+		detail: genericDetail,
+		inputText: getClassicToolInputText( name, input ),
+	};
+
+	switch ( name ) {
+		case 'wp_cli':
+			display.detail = '';
+			break;
+		case 'Bash':
+			display.label = __( 'Run terminal command' );
+			display.detail = '';
+			break;
+		case 'take_screenshot':
+		case 'inspect_design':
+		case 'open_annotation_browser':
+		case 'wait_for_annotations':
+			display.detail = '';
+			break;
+	}
+
+	display.detail = truncateToolDetail( display.detail );
+	return display;
+}
+
+function getWpCliToolIcon( command: string ) {
+	const [ entity ] = splitCommandArgs( command );
+
+	switch ( entity ) {
+		case 'theme':
+			return stylesIcon;
+		case 'plugin':
+			return plugins;
+		case 'post':
+			return post;
+		case 'option':
+			return settings;
+		case 'user':
+			return people;
+		case 'media':
+			return media;
+		case 'menu':
+			return navigation;
+		case 'term':
+			return tag;
+		case 'cache':
+			return update;
+		case 'rewrite':
+			return link;
+		case 'eval':
+		case 'eval-file':
+			return code;
+		default:
+			return code;
+	}
+}
+
+function getToolIcon( name: string, input: Record< string, unknown > | undefined ) {
+	switch ( name ) {
+		case 'site_create':
+			return plusCircle;
+		case 'site_list':
+			return list;
+		case 'site_info':
+			return info;
+		case 'site_start':
+			return globe;
+		case 'site_stop':
+			return offline;
+		case 'site_delete':
+			return trash;
+		case 'site_push':
+			return cloudUpload;
+		case 'site_pull':
+			return cloudDownload;
+		case 'site_import':
+			return upload;
+		case 'site_export':
+			return download;
+		case 'site_connected_remote_sites':
+			return link;
+		case 'preview_create':
+			return seen;
+		case 'preview_list':
+			return list;
+		case 'preview_update':
+			return update;
+		case 'preview_delete':
+			return trash;
+		case 'wp_cli': {
+			const command = getInputString( input, 'command' );
+			return command ? getWpCliToolIcon( command ) : code;
+		}
+		case 'open_annotation_browser':
+			return pencil;
+		case 'wait_for_annotations':
+			return pending;
+		case 'take_screenshot':
+			return capturePhoto;
+		case 'inspect_design':
+			return search;
+		case 'share_screenshot':
+			return share;
+		case 'validate_blocks':
+			return check;
+		case 'scaffold_theme':
+			return brush;
+		case 'install_taxonomy_scripts':
+			return category;
+		case 'need_for_speed':
+			return chartBar;
+		case 'rank_me_up':
+			return trendingUp;
+		case 'wpcom_request':
+			return cloud;
+		case 'Read':
+			return file;
+		case 'Write':
+			return create;
+		case 'Edit':
+			return pencil;
+		case 'Bash':
+			return code;
+		case 'Grep':
+		case 'Glob':
+			return search;
+		case 'Ls':
+			return list;
+		case 'Skill':
+			return blockDefault;
+		case 'Task':
+			return tool;
+		case 'TodoWrite':
+			return check;
+		default:
+			return tool;
+	}
+}
+
+function ToolIcon( { name, input }: { name: string; input?: Record< string, unknown > } ) {
+	return (
+		<Icon
+			icon={ getToolIcon( name, input ) }
+			size={ 18 }
+			className={ styles.toolIcon }
+			aria-hidden="true"
+		/>
+	);
+}
 
 function ToolUseRow( {
 	name,
@@ -232,39 +471,78 @@ function ToolUseRow( {
 	input?: Record< string, unknown >;
 	result?: NormalizedToolResult;
 } ) {
-	const label = getToolDisplayName( name, input );
-	const detail = getToolDetail( name, input );
-	const [ expanded, setExpanded ] = useState( false );
+	const display = getClassicToolDisplay( name, input );
+	const detailsId = useId();
 	const resultText = result?.text?.trim() ?? '';
 	const hasOutput = resultText.length > 0;
-	const isLong = resultText.split( '\n' ).length > TOOL_RESULT_PREVIEW_MAX_LINES;
+	const hasInput = display.inputText.length > 0;
+	const hasExpandableDetails = hasInput || hasOutput;
+	const [ expanded, setExpanded ] = useState( false );
+	const [ detailsMounted, setDetailsMounted ] = useState( false );
+	useEffect( () => {
+		if ( expanded || ! detailsMounted ) {
+			return;
+		}
+		const timeoutId = window.setTimeout( () => setDetailsMounted( false ), 220 );
+		return () => window.clearTimeout( timeoutId );
+	}, [ detailsMounted, expanded ] );
+	const rowContent = (
+		<>
+			<ToolIcon name={ name } input={ input } />
+			<span className={ styles.toolLabel }>{ display.label }</span>
+			{ display.detail ? <span className={ styles.toolDetail }>{ display.detail }</span> : null }
+		</>
+	);
 
 	return (
 		<div className={ styles.toolBlock }>
-			<div className={ styles.toolRow }>
-				<span className={ styles.toolLabel }>{ label }</span>
-				{ detail ? <span className={ styles.toolDetail }>{ detail }</span> : null }
-			</div>
-			{ hasOutput ? (
-				<div className={ styles.toolOutputWrap }>
-					<pre
-						className={ clsx(
-							styles.toolOutput,
-							result?.isError && styles.toolOutputError,
-							! expanded && isLong && styles.toolOutputCollapsed
-						) }
-					>
-						{ resultText }
-					</pre>
-					{ isLong ? (
-						<button
-							type="button"
-							className={ styles.toolOutputToggle }
-							onClick={ () => setExpanded( ( prev ) => ! prev ) }
-						>
-							{ expanded ? __( 'Show less' ) : __( 'Show more' ) }
-						</button>
-					) : null }
+			{ hasExpandableDetails ? (
+				<button
+					type="button"
+					className={ clsx( styles.toolRow, styles.toolRowButton ) }
+					aria-label={ display.detail ? `${ display.label } ${ display.detail }` : display.label }
+					aria-expanded={ expanded }
+					aria-controls={ detailsId }
+					data-expanded={ expanded }
+					onClick={ () => {
+						if ( expanded ) {
+							setExpanded( false );
+							return;
+						}
+						setDetailsMounted( true );
+						setExpanded( true );
+					} }
+					title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
+				>
+					{ rowContent }
+				</button>
+			) : (
+				<div className={ styles.toolRow }>{ rowContent }</div>
+			) }
+			{ hasExpandableDetails && detailsMounted ? (
+				<div
+					id={ detailsId }
+					className={ styles.toolDetailsShell }
+					data-expanded={ expanded }
+					aria-hidden={ ! expanded }
+					onTransitionEnd={ ( event ) => {
+						if ( event.currentTarget === event.target && ! expanded ) {
+							setDetailsMounted( false );
+						}
+					} }
+				>
+					<div className={ styles.toolDetailsClip }>
+						<div className={ styles.toolOutputWrap }>
+							{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
+							{ hasOutput ? (
+								<pre
+									className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }
+								>
+									{ resultText }
+								</pre>
+							) : null }
+						</div>
+					</div>
 				</div>
 			) : null }
 		</div>

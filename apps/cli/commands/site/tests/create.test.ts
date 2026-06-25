@@ -362,12 +362,12 @@ describe( 'CLI: studio site create', () => {
 			);
 			expect( importStep ).toEqual(
 				expect.objectContaining( {
-					code: expect.stringContaining( 'static_site_importer_ability_import_theme' ),
+					code: expect.stringContaining( 'static_site_importer_rest_source_artifact' ),
 				} )
 			);
 			expect( importStep ).toEqual(
 				expect.objectContaining( {
-					code: expect.stringContaining( indexPath ),
+					code: expect.stringContaining( sourceDir ),
 				} )
 			);
 		} );

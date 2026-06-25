@@ -806,7 +806,8 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'enrichPreviewListOutput tags each preview with type "preview" and an expiry flag', () => {
-		const futureDate = 1900000000000;
+		const dayMs = 24 * 60 * 60 * 1000;
+		const futureDate = Date.now() + 3 * dayMs;
 		const enriched = JSON.parse(
 			enrichPreviewListOutput(
 				JSON.stringify( [

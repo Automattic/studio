@@ -204,7 +204,9 @@ steps:
     steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:
-          queue: windows
+          # TEMP(AINFRA): route this build to the `windows-staging` queue to
+          # validate the new staging AMI (ami-07cda2742564aac11). DO NOT MERGE.
+          queue: windows-staging
         env:
           SIGN_WINDOWS_BUILD: 1
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}

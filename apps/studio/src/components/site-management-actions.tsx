@@ -9,7 +9,7 @@ import { syncOperationsSelectors } from 'src/stores/sync';
 
 export interface SiteManagementActionProps {
 	onStop: ( id: string ) => Promise< void >;
-	onStart: ( site: SiteDetails ) => Promise< void >;
+	onStart: ( site: SiteDetails ) => Promise< void | { capacityLimitReached: boolean } >;
 	selectedSite?: SiteDetails | null;
 	loading: boolean;
 }

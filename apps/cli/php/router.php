@@ -100,9 +100,20 @@ if (
 	return true;
 }
 
-// Existing file (static asset or PHP script): let the built-in server handle it.
+// Existing file: require PHP scripts ourselves, serve static assets via the
+// server. Returning false for PHP would run it as a second script, firing
+// auto_prepend_file (runtime.php) twice and redeclaring its classes.
 if ( '/' !== $path && is_file( $file ) ) {
-	return false;
+	if ( 'php' !== strtolower( pathinfo( $file, PATHINFO_EXTENSION ) ) ) {
+		return false;
+	}
+
+	$_SERVER['SCRIPT_NAME']     = $path;
+	$_SERVER['PHP_SELF']        = $path;
+	$_SERVER['SCRIPT_FILENAME'] = $file;
+	chdir( dirname( $file ) );
+	require $file;
+	return true;
 }
 
 // Existing directory with an index.php: dispatch to that script.

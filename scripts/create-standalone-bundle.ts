@@ -11,7 +11,8 @@
  *   cli/                CLI bundle (main.mjs, node_modules, wp-files, …)
  *
  * The curl installers that consume this layout (`cli/` + `bin/`) live in wpcom
- * (served at wp.build/install.sh & install.ps1), not in this repo — update them
+ * (served from public-api, branded as wordpress.studio/install.sh & install.ps1), not in
+ * this repo — update them
  * in lockstep if this layout changes.
  *
  * Output:

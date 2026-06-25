@@ -21,6 +21,11 @@ const STUDIO_API_BASE = 'https://public-api.wordpress.com/wpcom/v2/studio-app';
 const STUDIO_UPDATES_ENDPOINT = `${ STUDIO_API_BASE }/updates`;
 const CLI_PRODUCT_SLUG = 'wordpress-com-studio-cli';
 
+// Branded short URL for the installer scripts — redirects to public-api's install.sh/.ps1
+// (STU-1928). Only the banner's install command uses this; the update check above stays on
+// the API host.
+const STUDIO_INSTALL_BASE = 'https://wordpress.studio';
+
 const NPM_UPDATE_COMMAND = 'npm update -g wp-studio';
 
 type UpdateCheck = z.infer< typeof updateCheckSchema >;
@@ -257,14 +262,14 @@ export function standaloneUpdateCommand(
 
 	if ( platform === 'win32' ) {
 		const prefix = alias ? `$env:STUDIO_CLI_VERSION='${ alias }'; ` : '';
-		return `${ prefix }irm ${ STUDIO_API_BASE }/install.ps1 | iex`;
+		return `${ prefix }irm ${ STUDIO_INSTALL_BASE }/install.ps1 | iex`;
 	}
 
 	// The env var must sit on the `bash` side of the pipe. In `VAR=x curl … | bash`,
 	// `VAR=x` scopes to curl only, so the piped bash runs install.sh without it and
 	// falls back to `latest`. `curl … | VAR=x bash` is what actually pins the channel.
 	const prefix = alias ? `STUDIO_CLI_VERSION=${ alias } ` : '';
-	return `curl -fsSL ${ STUDIO_API_BASE }/install.sh | ${ prefix }bash`;
+	return `curl -fsSL ${ STUDIO_INSTALL_BASE }/install.sh | ${ prefix }bash`;
 }
 
 export function formatUpdateBanner(

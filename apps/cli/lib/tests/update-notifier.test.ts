@@ -44,12 +44,10 @@ describe( 'formatUpdateBanner', () => {
 			formatUpdateBanner(
 				'1.7.8',
 				'1.8.0',
-				'curl -fsSL https://public-api.wordpress.com/wpcom/v2/studio-app/install.sh | bash'
+				'curl -fsSL https://wordpress.studio/install.sh | bash'
 			)
 		);
-		expect( plain ).toContain(
-			'curl -fsSL https://public-api.wordpress.com/wpcom/v2/studio-app/install.sh | bash'
-		);
+		expect( plain ).toContain( 'curl -fsSL https://wordpress.studio/install.sh | bash' );
 		expect( plain ).not.toContain( 'npm update -g wp-studio' );
 	} );
 
@@ -64,31 +62,31 @@ describe( 'formatUpdateBanner', () => {
 describe( 'standaloneUpdateCommand', () => {
 	it( 'uses the bare installer for a production version (macOS/Linux)', () => {
 		expect( standaloneUpdateCommand( '1.11.0', 'darwin' ) ).toBe(
-			'curl -fsSL https://public-api.wordpress.com/wpcom/v2/studio-app/install.sh | bash'
+			'curl -fsSL https://wordpress.studio/install.sh | bash'
 		);
 		expect( standaloneUpdateCommand( '1.11.0', 'linux' ) ).toBe(
-			'curl -fsSL https://public-api.wordpress.com/wpcom/v2/studio-app/install.sh | bash'
+			'curl -fsSL https://wordpress.studio/install.sh | bash'
 		);
 	} );
 
 	it( 'pins the nightly channel for a dev version', () => {
 		expect( standaloneUpdateCommand( '1.12.0-dev81', 'linux' ) ).toBe(
-			'curl -fsSL https://public-api.wordpress.com/wpcom/v2/studio-app/install.sh | STUDIO_CLI_VERSION=nightly bash'
+			'curl -fsSL https://wordpress.studio/install.sh | STUDIO_CLI_VERSION=nightly bash'
 		);
 	} );
 
 	it( 'pins the beta channel for a beta version', () => {
 		expect( standaloneUpdateCommand( '2.0.0-beta1', 'darwin' ) ).toBe(
-			'curl -fsSL https://public-api.wordpress.com/wpcom/v2/studio-app/install.sh | STUDIO_CLI_VERSION=beta bash'
+			'curl -fsSL https://wordpress.studio/install.sh | STUDIO_CLI_VERSION=beta bash'
 		);
 	} );
 
 	it( 'uses the PowerShell installer on Windows', () => {
 		expect( standaloneUpdateCommand( '1.11.0', 'win32' ) ).toBe(
-			'irm https://public-api.wordpress.com/wpcom/v2/studio-app/install.ps1 | iex'
+			'irm https://wordpress.studio/install.ps1 | iex'
 		);
 		expect( standaloneUpdateCommand( '1.12.0-dev81', 'win32' ) ).toBe(
-			"$env:STUDIO_CLI_VERSION='nightly'; irm https://public-api.wordpress.com/wpcom/v2/studio-app/install.ps1 | iex"
+			"$env:STUDIO_CLI_VERSION='nightly'; irm https://wordpress.studio/install.ps1 | iex"
 		);
 	} );
 } );
@@ -171,9 +169,7 @@ describe( 'setupUpdateNotifier', () => {
 				stderrWriteSpy.mock.calls.map( ( call ) => String( call[ 0 ] ) ).join( '' )
 			);
 			expect( output ).toContain( '2.0.0' );
-			expect( output ).toContain(
-				'curl -fsSL https://public-api.wordpress.com/wpcom/v2/studio-app/install.sh | bash'
-			);
+			expect( output ).toContain( 'curl -fsSL https://wordpress.studio/install.sh | bash' );
 			expect( output ).not.toContain( 'npm update -g wp-studio' );
 		} );
 

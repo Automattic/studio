@@ -177,6 +177,9 @@ function buildStaticSiteImporterPhp(
 ): string {
 	const artifactBase64 = Buffer.from( JSON.stringify( artifact ) ).toString( 'base64' );
 	return `<?php
+require_once ABSPATH . 'wp-admin/includes/plugin.php';
+require_once ABSPATH . 'wp-admin/includes/file.php';
+
 $artifact = json_decode( base64_decode( ${ phpString( artifactBase64 ) } ), true );
 if ( ! is_array( $artifact ) ) {
 	throw new RuntimeException( 'Static site artifact payload could not be decoded.' );
@@ -201,6 +204,18 @@ update_option( 'studio_create_from_artifact_import_result', $result, false );
 
 if ( ! is_array( $result ) || empty( $result['success'] ) ) {
 	throw new RuntimeException( 'Static Site Importer artifact import failed: ' . wp_json_encode( $result ) );
+}
+
+$temporary_plugin = 'static-site-importer/static-site-importer.php';
+if ( is_plugin_active( $temporary_plugin ) ) {
+	deactivate_plugins( $temporary_plugin, true );
+}
+
+if ( file_exists( WP_PLUGIN_DIR . '/' . $temporary_plugin ) ) {
+	$delete_result = delete_plugins( array( $temporary_plugin ) );
+	if ( is_wp_error( $delete_result ) ) {
+		throw new RuntimeException( 'Static Site Importer cleanup failed: ' . $delete_result->get_error_message() );
+	}
 }
 ?>`;
 }

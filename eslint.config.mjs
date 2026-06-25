@@ -16,6 +16,7 @@ export default defineConfig(
 		'apps/cli/dist/',
 		'dist/',
 		'out/',
+		'packages/data-liberation-agent/',
 		'vendor/',
 		'wp-files/',
 	] ),

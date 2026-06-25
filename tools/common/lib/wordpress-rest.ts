@@ -19,11 +19,7 @@ interface SiteRestAuth {
 
 const siteRestAuthCache = new Map< string, SiteRestAuth >();
 
-/**
- * Proxy a WordPress REST request to a running local site. Shared verbatim
- * between the desktop app and the local web server — only resolving the
- * {@link SiteRestTarget} differs per host.
- */
+/** Proxy a WordPress REST request to a running local site. */
 export async function fetchSiteRest(
 	target: SiteRestTarget,
 	request: SiteRestRequest

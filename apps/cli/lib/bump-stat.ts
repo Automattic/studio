@@ -12,7 +12,9 @@ import {
 } from 'cli/lib/cli-config/core';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 
-const lastBumpStatsProvider: LastBumpStatsProvider = {
+// Exported so the shared agent run-manager (used by the `studio ui` server) can
+// record weekly/monthly unique stats against the CLI's cli.json store.
+export const lastBumpStatsProvider: LastBumpStatsProvider = {
 	load: async () => {
 		const { lastBumpStats } = await readCliConfig();
 		return lastBumpStats ?? {};

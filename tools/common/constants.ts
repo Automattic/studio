@@ -11,6 +11,12 @@ export const DEMO_SITE_EXPIRATION_DAYS = 7;
 
 // OAuth constants
 export const CLIENT_ID = '95109';
+// Public OAuth client id for the `studio ui` browser (redirect) login flow. It's
+// a separate app from the desktop/CLI client so it can allow loopback +
+// studio.local redirects. Public by design (it appears in the authorize URL);
+// no client secret is used — `studio ui` ships in the CLI, so an embedded secret
+// wouldn't be secret. Override with STUDIO_LOCAL_UI_CLIENT_ID for dev/testing.
+export const LOCAL_UI_CLIENT_ID = '142624';
 export const PROTOCOL_PREFIX = 'wp-studio';
 export const DEFAULT_TOKEN_LIFETIME_MS = DAY_MS * 14;
 

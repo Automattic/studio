@@ -5,13 +5,16 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"dev:web": "STUDIO_TARGET=web vite",
+		"dev:hosted": "STUDIO_TARGET=hosted vite",
+		"dev:local": "STUDIO_TARGET=local vite",
 		"build": "vite build",
-		"build:web": "STUDIO_TARGET=web vite build",
+		"build:hosted": "STUDIO_TARGET=hosted vite build",
+		"build:local": "STUDIO_TARGET=local vite build",
 		"lint": "eslint src",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"preview": "vite preview",
-		"preview:web": "STUDIO_TARGET=web vite preview"
+		"preview:hosted": "STUDIO_TARGET=hosted vite preview",
+		"preview:local": "STUDIO_TARGET=local vite preview"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.3.0",

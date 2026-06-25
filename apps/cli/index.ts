@@ -15,6 +15,7 @@ import { registerCommand as registerSiteListCommand } from 'cli/commands/site/li
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
+import { registerCommand as registerUiCommand } from 'cli/commands/ui';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -214,6 +215,8 @@ async function main() {
 
 	registerImportCommand( studioArgv );
 	registerExportCommand( studioArgv );
+
+	registerUiCommand( studioArgv );
 
 	studioArgv.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
 		const [

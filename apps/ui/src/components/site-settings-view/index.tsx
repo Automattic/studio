@@ -25,8 +25,8 @@ import {
 import * as Tabs from '@/components/tabs';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useSites, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
-import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -77,11 +77,11 @@ function initialFormData( site: SiteDetails ): FormData {
 
 function SettingsHeader( { site }: { site: SiteDetails } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
+		? reserveTrafficLightSpace
+			? styles.toggleSpacer
+			: styles.toggleSpacerFlush
 		: null;
 	return (
 		<div className={ styles.header }>

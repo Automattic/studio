@@ -10,6 +10,8 @@
 	},
 	"dependencies": {
 		"@automattic/generate-password": "^0.2.0",
+		"@sentry/core": "^10.50.0",
+		"atomically": "^2.1.0",
 		"@wordpress/i18n": "^6.20.0",
 		"cross-port-killer": "^1.4.0",
 		"date-fns": "^4.1.0",

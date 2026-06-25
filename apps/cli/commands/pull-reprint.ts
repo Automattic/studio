@@ -132,7 +132,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					argv.abort as boolean,
 					argv.yes as boolean,
 					argv.path as string | undefined,
-					wasPathExplicitlyProvided()
+					pathFlagWasPassed()
 				);
 			} catch ( error ) {
 				if ( error instanceof PullError ) {
@@ -154,11 +154,22 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 };
 
 /**
- * `--path` is a global option that defaults to the current working directory,
- * so `argv.path` is always populated.  Inspect the raw CLI args to tell an
- * explicit `--path` (a target site location) apart from the cwd default.
+ * Tells whether the user actually typed `--path` on the command line.
+ *
+ * The global `--path` option (see `apps/cli/index.ts`) is declared with
+ * `default: process.cwd()`, so yargs' parsed `argv.path` is *always* a string —
+ * either the value the user passed or the resolved current directory. That
+ * means `argv.path` alone can't distinguish "user passed `--path`" from
+ * "defaulted to cwd".
+ *
+ * pull-reprint needs that distinction because its default differs from the
+ * global one: with an explicit `--path` it targets that location (overwrite the
+ * site there, or create at that path); without it, it creates under
+ * `~/Studio/<name>` — not cwd. So we scan the raw `process.argv` tokens (the
+ * unparsed array, distinct from yargs' `argv` object) for an explicit
+ * `--path` / `--path=…`.
  */
-function wasPathExplicitlyProvided(): boolean {
+function pathFlagWasPassed(): boolean {
 	return process.argv.slice( 2 ).some( ( arg ) => arg === '--path' || arg.startsWith( '--path=' ) );
 }
 

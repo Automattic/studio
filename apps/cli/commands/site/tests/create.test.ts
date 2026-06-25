@@ -336,6 +336,14 @@ describe( 'CLI: studio site create', () => {
 					} ),
 				] )
 			);
+			const importStep = blueprint.contents.steps?.find(
+				( step ) => !! step && typeof step === 'object' && 'step' in step && step.step === 'runPHP'
+			);
+			expect( importStep ).toEqual(
+				expect.objectContaining( {
+					code: expect.stringContaining( 'delete_plugins( array( $temporary_plugin ) )' ),
+				} )
+			);
 		} );
 
 		it( 'should create a basic site successfully', async () => {

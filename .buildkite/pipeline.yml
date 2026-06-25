@@ -60,7 +60,25 @@ steps:
           queue: "{{matrix}}"
         matrix:
           - mac
-          - windows
+        notify:
+          - github_commit_status:
+              context: Unit Tests
+
+      # TEMP(AINFRA): Windows unit tests pinned to the `windows-staging` queue to
+      # exercise the new AMI (ami-07cda2742564aac11). Split out of the matrix above
+      # (mirroring the linux step) and inlines the same commands as run-unit-tests.sh
+      # WITHOUT its should-skip guard, which would otherwise skip this job on a
+      # `.buildkite/**`-only change. DO NOT MERGE.
+      - label: Unit Tests on windows-staging
+        key: unit_tests_windows_staging
+        command: |
+          echo '--- :package: Install deps'
+          bash .buildkite/commands/install-node-dependencies.sh
+          echo '--- :npm: Run Unit Tests'
+          npm run test
+        agents:
+          queue: windows-staging
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         notify:
           - github_commit_status:
               context: Unit Tests

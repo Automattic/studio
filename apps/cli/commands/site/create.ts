@@ -93,6 +93,17 @@ const logger = new Logger< LoggerAction >();
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
 	'https://github.com/Automattic/static-site-importer/releases/latest/download/static-site-importer.zip';
 
+type StaticSiteImporterSource =
+	| {
+			type: 'website-artifact';
+			path: string;
+			artifact: Record< string, unknown >;
+	  }
+	| {
+			type: 'html';
+			path: string;
+	  };
+
 export type CreateCommandOptions = {
 	name?: string;
 	siteId?: string;
@@ -134,6 +145,52 @@ function readSiteArtifact( artifactPath: string ): Record< string, unknown > {
 	}
 }
 
+function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImporterSource {
+	if ( ! fs.existsSync( sourcePath ) ) {
+		throw new LoggerError( sprintf( __( 'Import source not found: %s' ), sourcePath ) );
+	}
+
+	const stat = fs.statSync( sourcePath );
+	if ( stat.isDirectory() ) {
+		const htmlPath = path.join( sourcePath, 'index.html' );
+		if ( fs.existsSync( htmlPath ) && fs.statSync( htmlPath ).isFile() ) {
+			return { type: 'html', path: htmlPath };
+		}
+
+		throw new LoggerError(
+			sprintf( __( 'Import source directory must contain an index.html file: %s' ), sourcePath )
+		);
+	}
+
+	if ( ! stat.isFile() ) {
+		throw new LoggerError(
+			sprintf( __( 'Import source must be a file or directory: %s' ), sourcePath )
+		);
+	}
+
+	const extension = path.extname( sourcePath ).toLowerCase();
+	if ( extension === '.json' ) {
+		return {
+			type: 'website-artifact',
+			path: sourcePath,
+			artifact: readSiteArtifact( sourcePath ),
+		};
+	}
+
+	if ( extension === '.html' || extension === '.htm' ) {
+		return { type: 'html', path: sourcePath };
+	}
+
+	throw new LoggerError(
+		sprintf(
+			__(
+				'Unsupported import source: %s. This Studio CLI path currently accepts directories with index.html, HTML files, and website artifact JSON files.'
+			),
+			sourcePath
+		)
+	);
+}
+
 function artifactTitle( artifact: Record< string, unknown > ): string | undefined {
 	const directTitle = artifact.site_title || artifact.title || artifact.name;
 	if ( typeof directTitle === 'string' && directTitle.trim() ) {
@@ -155,11 +212,11 @@ function phpString( value: string ): string {
 	return JSON.stringify( value );
 }
 
-function buildStaticSiteImporterPhp(
-	artifact: Record< string, unknown >,
-	siteName: string
-): string {
-	const artifactBase64 = Buffer.from( JSON.stringify( artifact ) ).toString( 'base64' );
+function buildStaticSiteImporterPhp( source: StaticSiteImporterSource, siteName: string ): string {
+	const artifactBase64 =
+		source.type === 'website-artifact'
+			? Buffer.from( JSON.stringify( source.artifact ) ).toString( 'base64' )
+			: '';
 	return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
 	require_once getcwd() . '/wp-load.php';
@@ -168,7 +225,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
 require_once ABSPATH . 'wp-admin/includes/file.php';
 
-$artifact = json_decode( base64_decode( ${ phpString( artifactBase64 ) } ), true );
+${
+	source.type === 'website-artifact'
+		? `$artifact = json_decode( base64_decode( ${ phpString( artifactBase64 ) } ), true );
 if ( ! is_array( $artifact ) ) {
 	throw new RuntimeException( 'Static site artifact payload could not be decoded.' );
 }
@@ -184,14 +243,30 @@ $result = static_site_importer_ability_import_website_artifact( array(
 	'activate'        => true,
 	'overwrite'       => true,
 	'source_metadata' => array(
-		'source' => 'studio-create-from-artifact',
+		'source'      => 'studio-create-from',
+		'source_path' => ${ phpString( source.path ) },
 	),
-) );
+) );`
+		: `if ( ! function_exists( 'static_site_importer_ability_import_theme' ) ) {
+	throw new RuntimeException( 'Static Site Importer theme import ability is unavailable.' );
+}
 
-update_option( 'studio_create_from_artifact_import_result', $result, false );
+$result = static_site_importer_ability_import_theme( array(
+	'html_path'       => ${ phpString( source.path ) },
+	'name'            => ${ phpString( siteName ) },
+	'activate'        => true,
+	'overwrite'       => true,
+	'source_metadata' => array(
+		'source'      => 'studio-create-from',
+		'source_path' => ${ phpString( source.path ) },
+	),
+) );`
+}
+
+update_option( 'studio_create_from_import_result', $result, false );
 
 if ( ! is_array( $result ) || empty( $result['success'] ) ) {
-	throw new RuntimeException( 'Static Site Importer artifact import failed: ' . wp_json_encode( $result ) );
+	throw new RuntimeException( 'Static Site Importer import failed: ' . wp_json_encode( $result ) );
 }
 
 $temporary_plugin = 'static-site-importer/static-site-importer.php';
@@ -208,13 +283,13 @@ if ( file_exists( WP_PLUGIN_DIR . '/' . $temporary_plugin ) ) {
 ?>`;
 }
 
-export function buildCreateFromArtifactBlueprint(
-	artifactPath: string,
+export function buildCreateFromSourceBlueprint(
+	sourcePath: string,
 	siteName: string,
 	staticSiteImporterPluginUrl = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL
 ): { contents: BlueprintV1Declaration; uri: string } {
-	const artifact = readSiteArtifact( artifactPath );
-	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-from-artifact-' ) );
+	const source = resolveStaticSiteImporterSource( sourcePath );
+	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-from-' ) );
 	const blueprintPath = path.join( tempDir, 'blueprint.json' );
 	const blueprint: BlueprintV1Declaration = {
 		landingPage: '/',
@@ -235,7 +310,7 @@ export function buildCreateFromArtifactBlueprint(
 			},
 			{
 				step: 'runPHP',
-				code: buildStaticSiteImporterPhp( artifact, siteName ),
+				code: buildStaticSiteImporterPhp( source, siteName ),
 			},
 		],
 	};
@@ -703,9 +778,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'Path or URL to Blueprint JSON file' ),
 				} )
-				.option( 'from-artifact', {
+				.option( 'from', {
 					type: 'string',
-					describe: __( 'Create the site from a static site artifact JSON file' ),
+					describe: __( 'Create the site from a static import source' ),
 					conflicts: 'blueprint',
 					coerce: ( value ) => {
 						return path.resolve( untildify( value ) );
@@ -713,7 +788,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'static-site-importer-url', {
 					type: 'string',
-					describe: __( 'Static Site Importer plugin zip URL for --from-artifact' ),
+					describe: __( 'Static Site Importer plugin zip URL for --from imports' ),
 					default: DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
 				} )
 				.option( 'original-blueprint-path', {
@@ -751,7 +826,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			const artifact = argv.fromArtifact ? readSiteArtifact( argv.fromArtifact ) : undefined;
+			const source = argv.from ? resolveStaticSiteImporterSource( argv.from ) : undefined;
+			const artifact = source?.type === 'website-artifact' ? source.artifact : undefined;
 			let siteName = argv.name ?? ( artifact ? artifactTitle( artifact ) : undefined );
 			let sitePath = argv.path;
 			let wpVersion = argv.wp;
@@ -950,9 +1026,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				skipLogDetails: !! argv.skipLogDetails,
 			};
 
-			if ( argv.fromArtifact ) {
-				config.blueprint = buildCreateFromArtifactBlueprint(
-					argv.fromArtifact,
+			if ( argv.from ) {
+				config.blueprint = buildCreateFromSourceBlueprint(
+					argv.from,
 					siteName || __( 'Imported Site' ),
 					argv.staticSiteImporterUrl
 				);

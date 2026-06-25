@@ -98,13 +98,20 @@ const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
 
 type StaticSiteImporterSource =
 	| {
+			type: 'url';
+			path: string;
+			payload: Record< string, unknown >;
+	  }
+	| {
 			type: 'website-artifact';
 			path: string;
 			artifact: Record< string, unknown >;
+			payload: Record< string, unknown >;
 	  }
 	| {
-			type: 'html';
+			type: 'source';
 			path: string;
+			payload: Record< string, unknown >;
 	  };
 
 export type CreateCommandOptions = {
@@ -161,21 +168,65 @@ function readSiteArtifact( artifactPath: string ): Record< string, unknown > {
 	}
 }
 
+function isUrl( value: string ): boolean {
+	return value.startsWith( 'http://' ) || value.startsWith( 'https://' );
+}
+
+function sourceFilePayload( filePath: string, relativePath: string ): Record< string, string > {
+	return {
+		path: relativePath.replace( /\\/g, '/' ),
+		content_base64: fs.readFileSync( filePath ).toString( 'base64' ),
+	};
+}
+
+function collectSourceFiles( sourceDir: string ): Record< string, string >[] {
+	const files: Record< string, string >[] = [];
+	const walk = ( currentDir: string ) => {
+		for ( const entry of fs.readdirSync( currentDir, { withFileTypes: true } ) ) {
+			if ( entry.name === '.DS_Store' || entry.name === '__MACOSX' ) {
+				continue;
+			}
+
+			const entryPath = path.join( currentDir, entry.name );
+			if ( entry.isDirectory() ) {
+				walk( entryPath );
+				continue;
+			}
+
+			if ( entry.isFile() ) {
+				files.push( sourceFilePayload( entryPath, path.relative( sourceDir, entryPath ) ) );
+			}
+		}
+	};
+	walk( sourceDir );
+	return files;
+}
+
 function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImporterSource {
+	if ( isUrl( sourcePath ) ) {
+		return {
+			type: 'url',
+			path: sourcePath,
+			payload: { url: sourcePath },
+		};
+	}
+
 	if ( ! fs.existsSync( sourcePath ) ) {
 		throw new LoggerError( sprintf( __( 'Import source not found: %s' ), sourcePath ) );
 	}
 
 	const stat = fs.statSync( sourcePath );
 	if ( stat.isDirectory() ) {
-		const htmlPath = path.join( sourcePath, 'index.html' );
-		if ( fs.existsSync( htmlPath ) && fs.statSync( htmlPath ).isFile() ) {
-			return { type: 'html', path: htmlPath };
+		const files = collectSourceFiles( sourcePath );
+		if ( files.length > 0 ) {
+			return {
+				type: 'source',
+				path: sourcePath,
+				payload: { files },
+			};
 		}
 
-		throw new LoggerError(
-			sprintf( __( 'Import source directory must contain an index.html file: %s' ), sourcePath )
-		);
+		throw new LoggerError( sprintf( __( 'Import source directory is empty: %s' ), sourcePath ) );
 	}
 
 	if ( ! stat.isFile() ) {
@@ -186,25 +237,119 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 
 	const extension = path.extname( sourcePath ).toLowerCase();
 	if ( extension === '.json' ) {
+		const artifact = readSiteArtifact( sourcePath );
 		return {
 			type: 'website-artifact',
 			path: sourcePath,
-			artifact: readSiteArtifact( sourcePath ),
+			artifact,
+			payload: { artifact },
 		};
 	}
 
-	if ( extension === '.html' || extension === '.htm' ) {
-		return { type: 'html', path: sourcePath };
+	if ( extension === '.zip' ) {
+		return {
+			type: 'source',
+			path: sourcePath,
+			payload: {
+				archive: {
+					name: path.basename( sourcePath ),
+					content_base64: fs.readFileSync( sourcePath ).toString( 'base64' ),
+				},
+			},
+		};
 	}
 
-	throw new LoggerError(
-		sprintf(
-			__(
-				'Unsupported import source: %s. This Studio CLI path currently accepts directories with index.html, HTML files, and website artifact JSON files.'
-			),
-			sourcePath
-		)
-	);
+	if ( extension === '.fig' ) {
+		return {
+			type: 'source',
+			path: sourcePath,
+			payload: {
+				figma_file: {
+					name: path.basename( sourcePath ),
+					content_base64: fs.readFileSync( sourcePath ).toString( 'base64' ),
+				},
+			},
+		};
+	}
+
+	return {
+		type: 'source',
+		path: sourcePath,
+		payload: {
+			files: [ sourceFilePayload( sourcePath, path.basename( sourcePath ) ) ],
+		},
+	};
+}
+
+function buildStaticSiteImporterPhp( source: StaticSiteImporterSource, siteName: string ): string {
+	const sourceBase64 = Buffer.from( JSON.stringify( source.payload ) ).toString( 'base64' );
+	return `<?php
+if ( ! defined( 'ABSPATH' ) ) {
+	require_once getcwd() . '/wp-load.php';
+}
+
+require_once ABSPATH . 'wp-admin/includes/plugin.php';
+require_once ABSPATH . 'wp-admin/includes/file.php';
+
+$source = json_decode( base64_decode( ${ phpString( sourceBase64 ) } ), true );
+if ( ! is_array( $source ) ) {
+	throw new RuntimeException( 'Static Site Importer source payload could not be decoded.' );
+}
+
+$input = array(
+	'name'            => ${ phpString( siteName ) },
+	'site_title'      => ${ phpString( siteName ) },
+	'activate'        => true,
+	'overwrite'       => true,
+	'source_metadata' => array(
+		'source'      => 'studio-create-from',
+		'source_path' => ${ phpString( source.path ) },
+	),
+);
+
+if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_import_url' ) ) {
+	$input['url'] = $source['url'];
+	$result = static_site_importer_ability_import_url( $input );
+} else {
+	if ( isset( $source['artifact'] ) && is_array( $source['artifact'] ) ) {
+		$artifact = $source['artifact'];
+	} else {
+		if ( ! function_exists( 'static_site_importer_rest_source_artifact' ) ) {
+			throw new RuntimeException( 'Static Site Importer source artifact resolver is unavailable.' );
+		}
+
+		$artifact = static_site_importer_rest_source_artifact( $source );
+		if ( is_wp_error( $artifact ) ) {
+			throw new RuntimeException( 'Static Site Importer source resolution failed: ' . $artifact->get_error_message() );
+		}
+	}
+
+	if ( ! function_exists( 'static_site_importer_ability_import_website_artifact' ) ) {
+		throw new RuntimeException( 'Static Site Importer website artifact import ability is unavailable.' );
+	}
+
+	$input['artifact'] = $artifact;
+	$result = static_site_importer_ability_import_website_artifact( $input );
+}
+
+update_option( 'studio_create_from_import_result', $result, false );
+
+if ( ! is_array( $result ) || empty( $result['success'] ) ) {
+	throw new RuntimeException( 'Static Site Importer import failed: ' . wp_json_encode( $result ) );
+}
+
+$temporary_plugin = 'static-site-importer/static-site-importer.php';
+if ( is_plugin_active( $temporary_plugin ) ) {
+	deactivate_plugins( $temporary_plugin, true );
+}
+
+if ( file_exists( WP_PLUGIN_DIR . '/' . $temporary_plugin ) ) {
+	$delete_result = delete_plugins( array( $temporary_plugin ) );
+	if ( is_wp_error( $delete_result ) ) {
+		throw new RuntimeException( 'Static Site Importer cleanup failed: ' . $delete_result->get_error_message() );
+	}
+}
+?>`;
 }
 
 function artifactTitle( artifact: Record< string, unknown > ): string | undefined {
@@ -226,77 +371,6 @@ function artifactTitle( artifact: Record< string, unknown > ): string | undefine
 
 function phpString( value: string ): string {
 	return JSON.stringify( value );
-}
-
-function buildStaticSiteImporterPhp( source: StaticSiteImporterSource, siteName: string ): string {
-	const artifactBase64 =
-		source.type === 'website-artifact'
-			? Buffer.from( JSON.stringify( source.artifact ) ).toString( 'base64' )
-			: '';
-	return `<?php
-if ( ! defined( 'ABSPATH' ) ) {
-	require_once getcwd() . '/wp-load.php';
-}
-
-require_once ABSPATH . 'wp-admin/includes/plugin.php';
-require_once ABSPATH . 'wp-admin/includes/file.php';
-
-${
-	source.type === 'website-artifact'
-		? `$artifact = json_decode( base64_decode( ${ phpString( artifactBase64 ) } ), true );
-if ( ! is_array( $artifact ) ) {
-	throw new RuntimeException( 'Static site artifact payload could not be decoded.' );
-}
-
-if ( ! function_exists( 'static_site_importer_ability_import_website_artifact' ) ) {
-	throw new RuntimeException( 'Static Site Importer website artifact import ability is unavailable.' );
-}
-
-$result = static_site_importer_ability_import_website_artifact( array(
-	'artifact'        => $artifact,
-	'name'            => ${ phpString( siteName ) },
-	'site_title'      => ${ phpString( siteName ) },
-	'activate'        => true,
-	'overwrite'       => true,
-	'source_metadata' => array(
-		'source'      => 'studio-create-from',
-		'source_path' => ${ phpString( source.path ) },
-	),
-) );`
-		: `if ( ! function_exists( 'static_site_importer_ability_import_theme' ) ) {
-	throw new RuntimeException( 'Static Site Importer theme import ability is unavailable.' );
-}
-
-$result = static_site_importer_ability_import_theme( array(
-	'html_path'       => ${ phpString( source.path ) },
-	'name'            => ${ phpString( siteName ) },
-	'activate'        => true,
-	'overwrite'       => true,
-	'source_metadata' => array(
-		'source'      => 'studio-create-from',
-		'source_path' => ${ phpString( source.path ) },
-	),
-) );`
-}
-
-update_option( 'studio_create_from_import_result', $result, false );
-
-if ( ! is_array( $result ) || empty( $result['success'] ) ) {
-	throw new RuntimeException( 'Static Site Importer import failed: ' . wp_json_encode( $result ) );
-}
-
-$temporary_plugin = 'static-site-importer/static-site-importer.php';
-if ( is_plugin_active( $temporary_plugin ) ) {
-	deactivate_plugins( $temporary_plugin, true );
-}
-
-if ( file_exists( WP_PLUGIN_DIR . '/' . $temporary_plugin ) ) {
-	$delete_result = delete_plugins( array( $temporary_plugin ) );
-	if ( is_wp_error( $delete_result ) ) {
-		throw new RuntimeException( 'Static Site Importer cleanup failed: ' . $delete_result->get_error_message() );
-	}
-}
-?>`;
 }
 
 export function buildCreateFromSourceBlueprint(
@@ -818,6 +892,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					describe: __( 'Create the site from a static import source' ),
 					conflicts: 'blueprint',
 					coerce: ( value ) => {
+						if ( isUrl( value ) ) {
+							return value;
+						}
+
 						return path.resolve( untildify( value ) );
 					},
 				} )

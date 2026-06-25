@@ -770,13 +770,11 @@ describe( 'CLI: studio pull-reprint --path overwrite', () => {
 			await loadWithFakeHome();
 		const url = 'https://example.com';
 		const sitePath = path.join( fakeHome, 'Studio', 'cwd-site-2' );
-		const targetSite = { id: 'site-sec', name: 'cwd-site-2', path: sitePath, port: 8881 } as never;
+		const siteId = 'site-sec';
+		const targetSite = { id: siteId, name: 'cwd-site-2', path: sitePath, port: 8881 } as never;
 
 		// Seed a site-id-keyed session that carries a cached secret.
-		const key = getPrivateDirNameForImportSession(
-			normalizeSiteUrl( url ),
-			`site:${ targetSite.id }`
-		);
+		const key = getPrivateDirNameForImportSession( normalizeSiteUrl( url ), `site:${ siteId }` );
 		const techDir = path.join( fakeHome, '.studio', 'pulls', key );
 		fs.mkdirSync( techDir, { recursive: true } );
 		fs.writeFileSync(

@@ -412,19 +412,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// back the server-side temp path the path-based operations expect.
 			return uploadFile( file );
 		},
-		async readLocalMediaFile( filePath ): Promise< LocalMediaFile > {
-			const response = await fetch(
-				`${ base }/media/read?path=${ encodeURIComponent( filePath ) }`
-			);
-			if ( ! response.ok ) {
-				const text = await response.text().catch( () => '' );
-				throw new Error( `GET /media/read failed (${ response.status }): ${ text }` );
-			}
-			return {
-				name: decodeURIComponent( response.headers.get( 'X-Media-Name' ) ?? '' ),
-				mimeType: response.headers.get( 'Content-Type' ) ?? '',
-				data: await response.arrayBuffer(),
-			};
+		async readLocalMediaFile(): Promise< LocalMediaFile > {
+			// Not exposed over HTTP: reading an arbitrary local file by absolute
+			// path is an arbitrary-read risk and nothing consumes it yet. Reinstate
+			// with a server-side path-containment policy when a real consumer lands.
+			throw new UnsupportedError( 'readLocalMediaFile' );
 		},
 		// Upload-your-own Blueprint ZIP: the file is uploaded via getFilePath, then
 		// the server extracts it (shared extractor) and returns the parsed bundle.

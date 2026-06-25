@@ -100,8 +100,15 @@ function getSiteRestUrl( target: SiteRestTarget, request: SiteRestRequest ) {
 	const publicRestRoot = new URL( '/wp-json/', target.publicUrl );
 
 	if ( request.path ) {
-		const path = request.path.replace( /^\/+/, '' );
-		return new URL( path, restRoot );
+		// Resolve against the site's REST root, then reject anything that escapes
+		// it. Without this check an absolute URL in `path` (e.g. `http://evil/`)
+		// overrides the base, letting the request target an arbitrary host with
+		// the site's auth cookie + nonce attached (SSRF + credential leak).
+		const url = new URL( request.path.replace( /^\/+/, '' ), restRoot );
+		if ( ! isRestUrlForRoot( url, restRoot ) ) {
+			throw new Error( 'REST path must stay within the site REST API.' );
+		}
+		return url;
 	}
 
 	if ( request.url ) {

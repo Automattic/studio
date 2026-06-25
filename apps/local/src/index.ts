@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import { createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
-import { stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -36,7 +35,6 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
@@ -226,10 +224,31 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// real-path routes (`/sessions/:id` is both an app URL and an API resource).
 	const api = express.Router();
 
-	// Permissive CORS for local development: the SPA dev server (5400) and this
-	// server live on different ports.
+	// Restrict cross-origin access to the known `studio ui` origins. The server is
+	// loopback-only, but loopback is reachable from any page in the user's
+	// browser, so reflecting arbitrary origins would let any website call this
+	// unauthenticated API (read data, or trigger state changes). Requests with no
+	// Origin (same-origin navigations, the served SPA's same-origin fetches, curl,
+	// SSE) pass through; a present-but-disallowed Origin is rejected outright.
+	const allowedOrigins = new Set( [
+		`http://localhost:${ port }`,
+		`http://127.0.0.1:${ port }`,
+		// Vite dev server for `npm run dev:local --workspace=apps/ui`.
+		'http://localhost:5400',
+		'http://127.0.0.1:5400',
+		// The studio.local custom-domain setup.
+		'https://studio.local',
+	] );
 	app.use( ( req: Request, res: Response, next ) => {
-		res.setHeader( 'Access-Control-Allow-Origin', req.headers.origin ?? '*' );
+		const origin = req.headers.origin;
+		if ( origin ) {
+			if ( ! allowedOrigins.has( origin ) ) {
+				res.status( 403 ).json( { error: 'Origin not allowed' } );
+				return;
+			}
+			res.setHeader( 'Access-Control-Allow-Origin', origin );
+			res.setHeader( 'Vary', 'Origin' );
+		}
 		res.setHeader( 'Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS' );
 		res.setHeader( 'Access-Control-Allow-Headers', 'Content-Type' );
 		if ( req.method === 'OPTIONS' ) {
@@ -723,7 +742,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Missing zipFilePath' } );
 				return;
 			}
-			res.json( await extractBlueprintBundle( zipFilePath ) );
+			// The zip is always an upload under the OS temp dir (via /uploads);
+			// reject anything else so this can't be used to read arbitrary files.
+			const resolvedZip = path.resolve( zipFilePath );
+			if ( ! ( resolvedZip + path.sep ).startsWith( path.resolve( os.tmpdir() ) + path.sep ) ) {
+				res.status( 400 ).json( { error: 'zipFilePath must be an uploaded file' } );
+				return;
+			}
+			res.json( await extractBlueprintBundle( resolvedZip ) );
 		} )
 	);
 
@@ -764,9 +790,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			} finally {
-				// Drop the uploaded temp copy (only ours, under the OS temp dir).
-				if ( archivePath.startsWith( os.tmpdir() ) ) {
-					rm( path.dirname( archivePath ), { recursive: true, force: true }, () => undefined );
+				// Drop the uploaded temp copy — but only a temp dir we created: a
+				// direct child of the OS temp dir. Resolve first so `..` in the
+				// supplied path can't escape the temp root and delete elsewhere.
+				const uploadDir = path.dirname( path.resolve( archivePath ) );
+				if ( path.dirname( uploadDir ) === path.resolve( os.tmpdir() ) ) {
+					rm( uploadDir, { recursive: true, force: true }, () => undefined );
 				}
 			}
 			const imported = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
@@ -774,32 +803,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Read a local media file (by absolute path) and stream its bytes back — the
-	// desktop's `readLocalMediaFile`, used by the agent's media widget. The path
-	// is already on this machine, so this is a read, not an upload.
-	api.get(
-		'/media/read',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const filePath = typeof req.query.path === 'string' ? req.query.path : '';
-			if ( ! filePath ) {
-				res.status( 400 ).json( { error: 'Missing path' } );
-				return;
-			}
-			const mimeType = getLocalMediaMimeType( filePath );
-			if ( ! mimeType ) {
-				res.status( 415 ).json( { error: 'Local media file type is not supported.' } );
-				return;
-			}
-			const stats = await stat( filePath );
-			if ( ! stats.isFile() ) {
-				res.status( 400 ).json( { error: 'Local media path must be a file.' } );
-				return;
-			}
-			res.setHeader( 'Content-Type', mimeType );
-			res.setHeader( 'X-Media-Name', encodeURIComponent( path.basename( filePath ) ) );
-			res.sendFile( filePath );
-		} )
-	);
+	// NOTE: there is intentionally no `/media/read` endpoint. Streaming an
+	// arbitrary local file by absolute path over HTTP is an arbitrary-read risk
+	// (the API is reachable cross-origin from the browser), and nothing in the UI
+	// consumes it yet. The connector's `readLocalMediaFile` throws until a real
+	// consumer and a path-containment policy (e.g. restricted to the sites root)
+	// exist.
 
 	// Proxy a WordPress REST request to a running local site — the shared proxy
 	// the desktop uses, with the target resolved from the site list.

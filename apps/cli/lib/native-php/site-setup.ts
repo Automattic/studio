@@ -89,7 +89,7 @@ echo is_blog_installed() ? '1' : '0';
 			phpVersion,
 			siteFolder,
 			signal,
-			mode: 'capture-stdout',
+			mode: 'capture',
 		} );
 		stdout = result.stdout;
 	} catch ( error ) {

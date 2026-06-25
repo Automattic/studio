@@ -470,10 +470,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 							showOpenLogs: false,
 						} );
 					}
-				} else if (
-					error instanceof Error &&
-					error.message.includes( 'MAINTENANCE_FILE_STALE' )
-				) {
+				} else if ( error instanceof Error && error.message.includes( 'MAINTENANCE_FILE_STALE' ) ) {
 					const filePath = error.message.split( ':' ).slice( 1 ).join( ':' );
 					getIpcApi().showErrorMessageBox( {
 						title: sprintf( __( "Failed to start '%s'" ), siteName ),
@@ -485,10 +482,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 							filePath,
 						showOpenLogs: false,
 					} );
-				} else if (
-					error instanceof Error &&
-					error.message.includes( 'MAINTENANCE_FILE_FRESH' )
-				) {
+				} else if ( error instanceof Error && error.message.includes( 'MAINTENANCE_FILE_FRESH' ) ) {
 					getIpcApi().showErrorMessageBox( {
 						title: sprintf( __( "'%s' is in maintenance mode" ), siteName ),
 						message: __(

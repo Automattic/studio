@@ -42,7 +42,6 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
-import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { extractZip } from '@studio/common/lib/extract-zip';
@@ -59,6 +58,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
+import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import {
@@ -1036,16 +1036,12 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		const maintenanceCheck = checkMaintenanceFile( server.details.path );
 		if ( maintenanceCheck.exists ) {
 			if ( maintenanceCheck.isStale ) {
-				throw new Error(
-					`MAINTENANCE_FILE_STALE:${ maintenanceCheck.filePath }`
-				);
+				throw new Error( `MAINTENANCE_FILE_STALE:${ maintenanceCheck.filePath }` );
 			}
 			const minutesLeft = maintenanceCheck.expiresAt
 				? Math.ceil( ( maintenanceCheck.expiresAt.getTime() - Date.now() ) / 60000 )
 				: 10;
-			throw new Error(
-				`MAINTENANCE_FILE_FRESH:${ minutesLeft }`
-			);
+			throw new Error( `MAINTENANCE_FILE_FRESH:${ minutesLeft }` );
 		}
 
 		const contexts: Record< string, Record< string, unknown > > = {

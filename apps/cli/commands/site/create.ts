@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { confirm, input, password, select } from '@inquirer/prompts';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
@@ -92,6 +93,8 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
+const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
+	'https://github.com/Automattic/static-site-importer/releases/latest/download/static-site-importer.zip';
 
 export type CreateCommandOptions = {
 	name?: string;
@@ -125,6 +128,120 @@ const SITE_CREATE_FLOW_TYPES: readonly TracksSiteCreateFlowType[] = [
 
 function parseFlowType( value: string | undefined ): TracksSiteCreateFlowType | undefined {
 	return SITE_CREATE_FLOW_TYPES.find( ( flowType ) => flowType === value );
+}
+
+function readSiteArtifact( artifactPath: string ): Record< string, unknown > {
+	if ( ! fs.existsSync( artifactPath ) ) {
+		throw new LoggerError( sprintf( __( 'Artifact file not found: %s' ), artifactPath ) );
+	}
+
+	try {
+		const artifactContent = fs.readFileSync( artifactPath, 'utf-8' );
+		const artifact = JSON.parse( artifactContent );
+		if ( ! artifact || typeof artifact !== 'object' || Array.isArray( artifact ) ) {
+			throw new Error( __( 'Artifact JSON must be an object.' ) );
+		}
+		return artifact as Record< string, unknown >;
+	} catch ( error ) {
+		throw new LoggerError(
+			sprintf( __( 'Failed to parse artifact JSON file: %s' ), artifactPath ),
+			error
+		);
+	}
+}
+
+function artifactTitle( artifact: Record< string, unknown > ): string | undefined {
+	const directTitle = artifact.site_title || artifact.title || artifact.name;
+	if ( typeof directTitle === 'string' && directTitle.trim() ) {
+		return directTitle.trim();
+	}
+
+	const provenance = artifact.provenance;
+	if ( provenance && typeof provenance === 'object' && ! Array.isArray( provenance ) ) {
+		const provenanceTitle = ( provenance as Record< string, unknown > ).title;
+		if ( typeof provenanceTitle === 'string' && provenanceTitle.trim() ) {
+			return provenanceTitle.trim();
+		}
+	}
+
+	return undefined;
+}
+
+function phpString( value: string ): string {
+	return JSON.stringify( value );
+}
+
+function buildStaticSiteImporterPhp(
+	artifact: Record< string, unknown >,
+	siteName: string
+): string {
+	const artifactBase64 = Buffer.from( JSON.stringify( artifact ) ).toString( 'base64' );
+	return `<?php
+$artifact = json_decode( base64_decode( ${ phpString( artifactBase64 ) } ), true );
+if ( ! is_array( $artifact ) ) {
+	throw new RuntimeException( 'Static site artifact payload could not be decoded.' );
+}
+
+if ( ! function_exists( 'static_site_importer_ability_import_website_artifact' ) ) {
+	throw new RuntimeException( 'Static Site Importer website artifact import ability is unavailable.' );
+}
+
+$result = static_site_importer_ability_import_website_artifact( array(
+	'artifact'        => $artifact,
+	'name'            => ${ phpString( siteName ) },
+	'site_title'      => ${ phpString( siteName ) },
+	'activate'        => true,
+	'overwrite'       => true,
+	'source_metadata' => array(
+		'source' => 'studio-create-from-artifact',
+	),
+) );
+
+update_option( 'studio_create_from_artifact_import_result', $result, false );
+
+if ( ! is_array( $result ) || empty( $result['success'] ) ) {
+	throw new RuntimeException( 'Static Site Importer artifact import failed: ' . wp_json_encode( $result ) );
+}
+?>`;
+}
+
+export function buildCreateFromArtifactBlueprint(
+	artifactPath: string,
+	siteName: string,
+	staticSiteImporterPluginUrl = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL
+): { contents: BlueprintV1Declaration; uri: string } {
+	const artifact = readSiteArtifact( artifactPath );
+	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-from-artifact-' ) );
+	const blueprintPath = path.join( tempDir, 'blueprint.json' );
+	const blueprint: BlueprintV1Declaration = {
+		landingPage: '/',
+		features: {
+			networking: true,
+		},
+		steps: [
+			{
+				step: 'installPlugin',
+				pluginData: {
+					resource: 'url',
+					url: staticSiteImporterPluginUrl,
+				},
+				options: {
+					activate: true,
+					targetFolderName: 'static-site-importer',
+				},
+			},
+			{
+				step: 'runPHP',
+				code: buildStaticSiteImporterPhp( artifact, siteName ),
+			},
+		],
+	};
+
+	fs.writeFileSync( blueprintPath, `${ JSON.stringify( blueprint, null, 2 ) }\n` );
+	return {
+		contents: blueprint,
+		uri: blueprintPath,
+	};
 }
 
 export async function runCommand(
@@ -602,6 +719,19 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'Path or URL to Blueprint JSON file' ),
 				} )
+				.option( 'from-artifact', {
+					type: 'string',
+					describe: __( 'Create the site from a static site artifact JSON file' ),
+					conflicts: 'blueprint',
+					coerce: ( value ) => {
+						return path.resolve( untildify( value ) );
+					},
+				} )
+				.option( 'static-site-importer-url', {
+					type: 'string',
+					describe: __( 'Static Site Importer plugin zip URL for --from-artifact' ),
+					default: DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
+				} )
 				.option( 'original-blueprint-path', {
 					type: 'string',
 					hidden: true,
@@ -643,7 +773,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			let siteName = argv.name;
+			const artifact = argv.fromArtifact ? readSiteArtifact( argv.fromArtifact ) : undefined;
+			let siteName = argv.name ?? ( artifact ? artifactTitle( artifact ) : undefined );
 			let sitePath = argv.path;
 			let wpVersion = argv.wp;
 			let phpVersion = argv.php;
@@ -842,7 +973,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				flowType: parseFlowType( argv.flowType ),
 			};
 
-			if ( argv.blueprint ) {
+			if ( argv.fromArtifact ) {
+				config.blueprint = buildCreateFromArtifactBlueprint(
+					argv.fromArtifact,
+					siteName || __( 'Imported Site' ),
+					argv.staticSiteImporterUrl
+				);
+			} else if ( argv.blueprint ) {
 				if ( argv.blueprint.startsWith( 'http://' ) || argv.blueprint.startsWith( 'https://' ) ) {
 					config.blueprint = {
 						uri: argv.blueprint,

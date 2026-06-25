@@ -44,7 +44,7 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import { runCommand } from '../create';
+import { buildCreateFromArtifactBlueprint, runCommand } from '../create';
 
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@studio/common/lib/network-utils' );
@@ -297,6 +297,47 @@ describe( 'CLI: studio site create', () => {
 	} );
 
 	describe( 'Success Cases', () => {
+		it( 'should build a Blueprint that imports a static site artifact through Static Site Importer', () => {
+			const artifactDir = fs.mkdtempSync( path.join( '/tmp', 'studio-artifact-test-' ) );
+			const artifactPath = path.join( artifactDir, 'artifact.json' );
+			fs.writeFileSync(
+				artifactPath,
+				JSON.stringify( {
+					schema: 'blocks-engine/php-transformer/site-artifact/v1',
+					root: 'website',
+					entrypoint: 'website/index.html',
+					files: [
+						{
+							path: 'website/index.html',
+							content: '<main><h1>Hello</h1></main>',
+						},
+					],
+				} )
+			);
+
+			const blueprint = buildCreateFromArtifactBlueprint(
+				artifactPath,
+				'Imported Artifact',
+				'https://example.com/static-site-importer.zip'
+			);
+
+			expect( blueprint.uri ).toContain( 'blueprint.json' );
+			expect( blueprint.contents.steps ).toEqual(
+				expect.arrayContaining( [
+					expect.objectContaining( {
+						step: 'installPlugin',
+						pluginData: expect.objectContaining( {
+							url: 'https://example.com/static-site-importer.zip',
+						} ),
+					} ),
+					expect.objectContaining( {
+						step: 'runPHP',
+						code: expect.stringContaining( 'static_site_importer_ability_import_website_artifact' ),
+					} ),
+				] )
+			);
+		} );
+
 		it( 'should create a basic site successfully', async () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 

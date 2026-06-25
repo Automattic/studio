@@ -19,15 +19,44 @@ let server: http.Server | undefined;
 
 type FigmaImportRequest = {
 	artifact?: Record< string, unknown >;
+	source?: FigmaScenegraphSource | WebsiteArtifactSource;
 	siteName?: string;
 };
 
-type StaticSiteImporterSource = {
-	type: 'website-artifact';
-	path: string;
-	artifact: Record< string, unknown >;
-	payload: Record< string, unknown >;
+type FigmaScenegraphSource = {
+	type: 'figma_scenegraph';
+	scenegraph: Record< string, unknown >;
+	transform_options?: Record< string, unknown >;
+	source_metadata?: Record< string, unknown >;
+	[ key: string ]: unknown;
 };
+
+type WebsiteArtifactSource = {
+	type?: 'website-artifact';
+	artifact: Record< string, unknown >;
+	[ key: string ]: unknown;
+};
+
+type StaticSiteImporterSource =
+	| {
+			type: 'figma_scenegraph';
+			path: string;
+			payload: FigmaScenegraphSource;
+	  }
+	| {
+			type: 'website-artifact';
+			path: string;
+			artifact: Record< string, unknown >;
+			payload: WebsiteArtifactSource;
+	  };
+
+type NormalizedImportSource = StaticSiteImporterSource & {
+	path: string;
+};
+
+function isRecord( value: unknown ): value is Record< string, unknown > {
+	return !! value && typeof value === 'object' && ! Array.isArray( value );
+}
 
 function corsHeaders(): Record< string, string > {
 	return {
@@ -54,7 +83,10 @@ function phpString( value: string ): string {
 	return JSON.stringify( value );
 }
 
-function buildStaticSiteImporterPhp( source: StaticSiteImporterSource, siteName: string ): string {
+export function buildStaticSiteImporterPhp(
+	source: StaticSiteImporterSource,
+	siteName: string
+): string {
 	const sourceBase64 = Buffer.from( JSON.stringify( source.payload ) ).toString( 'base64' );
 
 	return `<?php
@@ -81,7 +113,31 @@ $input = array(
 	),
 );
 
-if ( isset( $source['artifact'] ) && is_array( $source['artifact'] ) ) {
+if ( isset( $source['type'] ) && 'figma_scenegraph' === $source['type'] ) {
+	if ( ! class_exists( 'Static_Site_Importer_Figma_Import' ) || ! method_exists( 'Static_Site_Importer_Figma_Import', 'import' ) ) {
+		throw new RuntimeException( 'Static Site Importer Figma import adapter is unavailable.' );
+	}
+
+	$figma_input = array_merge(
+		$source,
+		array(
+			'name'            => ${ phpString( siteName ) },
+			'site_title'      => ${ phpString( siteName ) },
+			'activate'        => true,
+			'overwrite'       => true,
+			'source'          => $source,
+			'source_metadata' => array_merge(
+				isset( $source['source_metadata'] ) && is_array( $source['source_metadata'] ) ? $source['source_metadata'] : array(),
+				array(
+					'source'      => 'figma-to-wordpress-studio',
+					'source_path' => ${ phpString( source.path ) },
+				)
+			),
+		)
+	);
+
+	$result = Static_Site_Importer_Figma_Import::import( $figma_input );
+} else if ( isset( $source['artifact'] ) && is_array( $source['artifact'] ) ) {
 	$artifact = $source['artifact'];
 } else {
 	if ( ! function_exists( 'static_site_importer_rest_source_artifact' ) ) {
@@ -94,12 +150,14 @@ if ( isset( $source['artifact'] ) && is_array( $source['artifact'] ) ) {
 	}
 }
 
-if ( ! function_exists( 'static_site_importer_ability_import_website_artifact' ) ) {
-	throw new RuntimeException( 'Static Site Importer website artifact import ability is unavailable.' );
-}
+if ( ! isset( $result ) ) {
+	if ( ! function_exists( 'static_site_importer_ability_import_website_artifact' ) ) {
+		throw new RuntimeException( 'Static Site Importer website artifact import ability is unavailable.' );
+	}
 
-$input['artifact'] = $artifact;
-$result = static_site_importer_ability_import_website_artifact( $input );
+	$input['artifact'] = $artifact;
+	$result = static_site_importer_ability_import_website_artifact( $input );
+}
 update_option( 'studio_create_from_import_result', $result, false );
 
 if ( ! is_array( $result ) || empty( $result['success'] ) ) {
@@ -129,6 +187,58 @@ function artifactTitle( artifact: Record< string, unknown > ): string | undefine
 	return undefined;
 }
 
+function sourceTitle( source: FigmaScenegraphSource | WebsiteArtifactSource ): string | undefined {
+	const directTitle = source.site_title || source.title || source.name;
+	if ( typeof directTitle === 'string' && directTitle.trim() ) {
+		return directTitle.trim();
+	}
+
+	const sourceMetadata = source.source_metadata;
+	if ( isRecord( sourceMetadata ) ) {
+		const metadataTitle = sourceMetadata.site_title || sourceMetadata.title || sourceMetadata.name;
+		if ( typeof metadataTitle === 'string' && metadataTitle.trim() ) {
+			return metadataTitle.trim();
+		}
+	}
+
+	if ( 'artifact' in source && isRecord( source.artifact ) ) {
+		return artifactTitle( source.artifact );
+	}
+
+	return undefined;
+}
+
+function normalizeImportSource(
+	body: FigmaImportRequest,
+	timestamp: number
+): NormalizedImportSource {
+	const sourcePath = `figma-import-${ timestamp }.studio-import.json`;
+
+	if ( body.source?.type === 'figma_scenegraph' ) {
+		if ( ! isRecord( body.source.scenegraph ) ) {
+			throw new Error( 'Missing Figma scenegraph object.' );
+		}
+
+		return {
+			type: 'figma_scenegraph',
+			path: sourcePath,
+			payload: body.source,
+		};
+	}
+
+	const artifact = body.artifact || body.source?.artifact;
+	if ( ! isRecord( artifact ) ) {
+		throw new Error( 'Missing Figma scenegraph source or artifact object.' );
+	}
+
+	return {
+		type: 'website-artifact',
+		path: sourcePath,
+		artifact,
+		payload: { type: 'website-artifact', artifact },
+	};
+}
+
 async function readJsonBody( request: http.IncomingMessage ): Promise< FigmaImportRequest > {
 	const chunks: Buffer[] = [];
 	let bytes = 0;
@@ -151,20 +261,9 @@ async function readJsonBody( request: http.IncomingMessage ): Promise< FigmaImpo
 }
 
 async function handleImportRequest( body: FigmaImportRequest ) {
-	const artifact = body.artifact;
-	if ( ! artifact || typeof artifact !== 'object' || Array.isArray( artifact ) ) {
-		throw new Error( 'Missing artifact object.' );
-	}
-
-	const siteName = body.siteName?.trim() || artifactTitle( artifact ) || 'Figma Import';
 	const timestamp = Date.now();
-	const sourcePath = `figma-import-${ timestamp }.studio-import.json`;
-	const source: StaticSiteImporterSource = {
-		type: 'website-artifact',
-		path: sourcePath,
-		artifact,
-		payload: { artifact },
-	};
+	const source = normalizeImportSource( body, timestamp );
+	const siteName = body.siteName?.trim() || sourceTitle( source.payload ) || 'Figma Import';
 	const blueprint: BlueprintV1Declaration = {
 		landingPage: '/',
 		features: {

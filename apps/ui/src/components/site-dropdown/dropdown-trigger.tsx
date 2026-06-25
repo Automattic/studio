@@ -99,9 +99,6 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 							<span
 								className={ clsx( styles.secondary, styles[ `secondary_${ secondaryTone }` ] ) }
 							>
-								{ secondaryTone !== 'neutral' ? (
-									<span className={ styles.secondaryMarker } aria-hidden="true" />
-								) : null }
 								<span className={ styles.secondaryLabel }>{ secondaryLabel }</span>
 							</span>
 						</span>

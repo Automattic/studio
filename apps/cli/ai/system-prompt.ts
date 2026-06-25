@@ -170,6 +170,15 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
 - All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).
 
+## Database
+
+Studio sites use **SQLite**, not MySQL. The database file is at \`<site-path>/wp-content/database/.ht.sqlite\`. Key implications:
+
+- \`wp db query\` and other \`wp db\` subcommands do **not** work — they expect a MySQL connection that does not exist.
+- Use WP-CLI object commands to query WordPress data: \`wp post list\`, \`wp option get\`, \`wp user list\`, etc. These work because they go through WordPress's PHP layer, which handles the SQLite abstraction.
+- **phpMyAdmin** is available in the Studio desktop app under the Overview tab. Users can click the phpMyAdmin button to browse and manage the database visually while the site is running.
+- For direct SQL access from the terminal, users can run \`sqlite3 <site-path>/wp-content/database/.ht.sqlite\` (\`sqlite3\` is pre-installed on macOS). Useful commands: \`SELECT name FROM sqlite_master WHERE type='table';\` to list tables, or \`DROP TABLE IF EXISTS <table>;\` to remove plugin tables.
+
 ## Pull & Push (sync with WordPress.com or Pressable)
 
 ### Eligibility

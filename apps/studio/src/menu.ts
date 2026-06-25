@@ -32,6 +32,7 @@ import {
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { getViewMenuItems } from 'src/lib/view-menu-items';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
@@ -306,51 +307,16 @@ async function getAppMenu(
 		{
 			label: __( 'View' ),
 			role: 'viewMenu',
-			submenu: [
-				{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
-				{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
-				...( getFeatureFlagFromEnv( 'enableAgenticUi' )
-					? [
-							{
-								label: __( 'Toggle Site Preview' ),
-								accelerator: 'CommandOrControl+Shift+B',
-								enabled: ! needsOnboarding,
-								click: () => {
-									void sendIpcEventToRenderer( 'toggle-site-preview' );
-								},
-							} as MenuItemConstructorOptions,
-					  ]
-					: [] ),
-				...( process.env.NODE_ENV === 'development' ? devTools : [] ),
-				{
-					label: __( 'Actual Size' ),
-					role: 'resetZoom',
+			submenu: getViewMenuItems( {
+				needsOnboarding,
+				isAgenticUiEnabled: getFeatureFlagFromEnv( 'enableAgenticUi' ),
+				isDevelopment: process.env.NODE_ENV === 'development',
+				isAlwaysOnTop: mainWindow?.isAlwaysOnTop(),
+				devTools,
+				onToggleSitePreview: () => {
+					void sendIpcEventToRenderer( 'toggle-site-preview' );
 				},
-				{
-					label: __( 'Zoom In' ),
-					role: 'zoomIn',
-				},
-				{
-					label: __( 'Zoom Out' ),
-					role: 'zoomOut',
-				},
-				{ type: 'separator' },
-				{
-					label: __( 'Toggle Fullscreen' ),
-					role: 'togglefullscreen',
-				},
-				{ type: 'separator' },
-				{
-					label: __( 'Float on Top of All Other Windows' ),
-					type: 'checkbox',
-					checked: mainWindow?.isAlwaysOnTop(),
-					click: ( _menuItem, browserWindow ) => {
-						if ( browserWindow ) {
-							browserWindow.setAlwaysOnTop( ! browserWindow.isAlwaysOnTop(), 'floating' );
-						}
-					},
-				},
-			],
+			} ),
 		},
 		...( process.platform === 'win32'
 			? []

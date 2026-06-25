@@ -143,10 +143,20 @@
 	color: var(--wpds-color-fg-content-neutral);
 	/* Discourage code from breaking awkwardly across lines. */
 	white-space: nowrap;
+	/* Code is meant to be copied — keep it selectable. */
+	-webkit-user-select: text;
+	user-select: text;
+}
+
+/* Wrapper anchors the overlaid copy button and carries the block spacing that
+   used to live on the <pre>. */
+.codeBlock {
+	position: relative;
+	margin: 0.75em 0 1.25em;
 }
 
 .pre {
-	margin: 0.75em 0 1.25em;
+	margin: 0;
 	padding: 0.875em 1em;
 	border-radius: var(--wpds-border-radius-md, 8px);
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
@@ -154,6 +164,10 @@
 	font-size: 0.85em;
 	line-height: 1.55;
 	overflow-x: auto;
+	/* Ensure code stays selectable even when an ancestor surface (e.g. the
+	   desks canvas) opts out of text selection. */
+	-webkit-user-select: text;
+	user-select: text;
 }
 
 .pre > code {
@@ -163,6 +177,33 @@
 	font-size: inherit;
 	color: inherit;
 	white-space: pre;
+}
+
+.copyButton {
+	position: absolute;
+	top: 0.5em;
+	inset-inline-end: 0.5em;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25em;
+	margin: 0;
+	padding: 0.25em 0.5em;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-family: inherit;
+	font-size: 0.75rem;
+	line-height: 1;
+	cursor: pointer;
+	/* Always fully visible; color/background emphasize on hover/focus. */
+	transition: color 0.12s ease, background-color 0.12s ease;
+}
+
+.copyButton:hover,
+.copyButton:focus-visible {
+	color: var(--wpds-color-fg-content-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
 }
 
 .tableWrap {

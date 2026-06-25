@@ -123,9 +123,7 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 			const release = await fetchLatestGithubRelease( 'WordPress/reprint' );
 			const asset = release.assets.find( ( a ) => a.name === 'reprint.phar' );
 			if ( ! asset ) {
-				throw new Error(
-					`No asset found in latest wp-cli-sqlite-command release ${ release.tag_name }`
-				);
+				throw new Error( `No asset found in latest reprint release ${ release.tag_name }` );
 			}
 			return asset.browser_download_url;
 		},

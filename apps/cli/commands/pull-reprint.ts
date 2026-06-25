@@ -878,7 +878,7 @@ export async function runFullPull(
 	const sqlitePath = contentDir
 		? `${ metadata.rawDirectory }${ contentDir }/database/.ht.sqlite`
 		: `${ metadata.sitePath }/wp-content/database/.ht.sqlite`;
-	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'php-builtin' : 'playground-cli';
+	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 	await runReprintCommandUntilComplete(

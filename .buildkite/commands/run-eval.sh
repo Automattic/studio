@@ -60,13 +60,18 @@ payload=$(jq --arg url "$RUN_URL" '
   }
 ' "$RESULTS_FILE")
 
-if curl -sf -o /dev/null -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $SLACK_TOKEN" \
-    -H 'Content-Type: application/json; charset=utf-8' \
-    --data-binary "$payload"; then
+# Don't use curl -f: chat.postMessage returns HTTP 200 with {"ok":false,"error":...}
+# for app-level problems (bad channel, bad token), which -f would treat as success.
+# Read the body and check .ok instead.
+response=$(curl -s -X POST https://slack.com/api/chat.postMessage \
+  -H "Authorization: Bearer $SLACK_TOKEN" \
+  -H 'Content-Type: application/json; charset=utf-8' \
+  --data-binary "$payload" || true)
+if jq -e '.ok == true' <<< "$response" >/dev/null 2>&1; then
   echo "Sent to $EVAL_SLACK_CHANNEL"
 else
-  echo "Warning: Slack notification failed"
+  reason=$(jq -r '.error // empty' <<< "$response" 2>/dev/null || true)
+  echo "Warning: Slack notification failed: ${reason:-no/invalid response}"
 fi
 
 # Preserve the eval outcome so a failing eval still fails the CI step.

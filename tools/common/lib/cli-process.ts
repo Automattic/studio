@@ -2,15 +2,7 @@ import { fork, spawnSync, type ChildProcess, type StdioOptions } from 'node:chil
 import { z } from 'zod';
 import { TypedEventEmitter } from '@studio/common/lib/typed-event-emitter';
 
-/**
- * Spawns the Studio CLI binary and relays its lifecycle as typed events.
- *
- * This is the single, transport-agnostic way to run CLI commands. The desktop
- * app and the `studio ui` local server both delegate to the CLI exactly the same
- * way — the only thing that differs between them is which binary to fork and how
- * the host resolves it, so that (and the optional error sink) is injected via
- * {@link createCliRunner}. Nothing here imports Electron.
- */
+/** Spawns the Studio CLI binary and relays its lifecycle as typed events. */
 
 export type CliCommandResult = {
 	stdout: string;

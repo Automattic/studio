@@ -319,19 +319,6 @@ export async function runCommand(
 		return;
 	}
 
-	const sourceSite = await resolveSourceSite(
-		userProvidedUrl,
-		userProvidedSecret,
-		userProvidedName,
-		verbose
-	);
-	if ( ! sourceSite ) {
-		return;
-	}
-
-	const { url: sourceSiteUrl } = sourceSite;
-	let secret = sourceSite.secret;
-
 	// The resolved path (explicit `--path`, or the current directory by
 	// default) decides the local site:
 	//   - if a Studio site is already registered there → overwrite it;
@@ -340,6 +327,21 @@ export async function runCommand(
 	const targetSite = sitePath ? await findSiteByFolder( sitePath ) : undefined;
 	const isOverwrite = !! targetSite;
 	const explicitSitePath = pathWasExplicit ? sitePath : undefined;
+
+	const sourceSite = await resolveSourceSite(
+		userProvidedUrl,
+		userProvidedSecret,
+		userProvidedName,
+		verbose,
+		targetSite,
+		explicitSitePath
+	);
+	if ( ! sourceSite ) {
+		return;
+	}
+
+	const { url: sourceSiteUrl } = sourceSite;
+	let secret = sourceSite.secret;
 
 	const { created, studioMetadata } = await getPullSessionMetadata(
 		sourceSiteUrl,
@@ -424,13 +426,6 @@ export async function runCommand(
 			console.log( __( 'Cancelled.' ) );
 			return;
 		}
-	}
-
-	// Overwrite mode: now that the user has confirmed (or bypassed via `--yes`
-	// or a non-interactive run), stop the targeted site's server and clear its
-	// files so reprint flattens into a clean directory (mirrors `studio pull`).
-	if ( isOverwrite && ! hasPullCompletedStage( studioMetadata, 'pulled' ) ) {
-		await prepareTargetSiteForOverwrite( studioMetadata );
 	}
 
 	// Create the `~/.studio/pulls/<pull-key>` directory structure for the
@@ -549,6 +544,13 @@ export async function runCommand(
 		// a delta re-pull, resets its own sub-command state via
 		// prepare_repull().
 		if ( ! hasPullCompletedStage( studioMetadata, 'pulled' ) ) {
+			// Overwrite mode: after preflight has proved the remote is reachable,
+			// stop the targeted site and clear its files so reprint flattens into
+			// a clean directory (mirrors `studio pull`).
+			if ( isOverwrite ) {
+				await prepareTargetSiteForOverwrite( studioMetadata );
+				fs.mkdirSync( studioMetadata.sitePath, { recursive: true } );
+			}
 			await runFullPull( SITE_RUNTIME_NATIVE_PHP, studioMetadata, apiUrl, secret, verbose );
 		}
 
@@ -842,19 +844,11 @@ export async function abortPull(
 	const targetSite = sitePath ? await findSiteByFolder( sitePath ) : undefined;
 	const explicitSitePath = pathWasExplicit ? sitePath : undefined;
 
-	// Look the session up by the key it was created with. When an explicit
-	// `--path` resolves to a registered site, also try the site-id key: a
-	// session started from inside a registered site directory (no explicit
-	// `--path`) is keyed `site:<id>`, but aborting it from elsewhere with
-	// `--path <that-site>` derives a `path:<path>` key and would otherwise
-	// never find it.
-	const seeds = [
-		getPullSessionKeySeed( { targetSite, explicitSitePath, explicitName: providedName } ),
-	];
-	if ( targetSite && explicitSitePath ) {
-		seeds.push( getPullSessionKeySeed( { targetSite } ) );
-	}
-
+	const seeds = getPullSessionKeySeeds( {
+		targetSite,
+		explicitSitePath,
+		explicitName: providedName,
+	} );
 	let metadata: PullSessionMetadata | null = null;
 	for ( const seed of seeds ) {
 		const dir = path.join( PULLS_ROOT, getPrivateDirNameForImportSession( normalizedUrl, seed ) );
@@ -1210,7 +1204,9 @@ export async function resolveSourceSite(
 	url?: string,
 	providedSecret?: string,
 	providedName?: string,
-	_verbose = false
+	_verbose = false,
+	targetSite?: SiteData,
+	explicitSitePath?: string
 ): Promise< PullSource | null > {
 	// When the caller provides an explicit secret, use it directly.
 	if ( url && providedSecret ) {
@@ -1223,16 +1219,20 @@ export async function resolveSourceSite(
 	// will 403 later and fall back to rotating a fresh one.
 	if ( url ) {
 		const normalizedForLookup = normalizeSiteUrl( url );
-		const cachedMetadata = readPullMetadata(
-			getMetadataPath(
-				path.join(
-					PULLS_ROOT,
-					getPrivateDirNameForImportSession( normalizedForLookup, providedName )
+		const seeds = getPullSessionKeySeeds( {
+			targetSite,
+			explicitSitePath,
+			explicitName: providedName,
+		} );
+		for ( const seed of seeds ) {
+			const cachedMetadata = readPullMetadata(
+				getMetadataPath(
+					path.join( PULLS_ROOT, getPrivateDirNameForImportSession( normalizedForLookup, seed ) )
 				)
-			)
-		);
-		if ( cachedMetadata?.secret ) {
-			return { url, secret: cachedMetadata.secret };
+			);
+			if ( cachedMetadata?.secret ) {
+				return { url, secret: cachedMetadata.secret };
+			}
 		}
 	}
 
@@ -1330,10 +1330,8 @@ export async function resolveSourceSite(
 }
 
 /**
- * Derives the stable disambiguator that keys a pull session's technical
- * directory (under `~/.studio/pulls/`).  Both {@link getPullSessionMetadata}
- * and {@link abortPull} go through here so a session is always found by the
- * same key it was created with.
+ * Derives the preferred disambiguator that keys a pull session's technical
+ * directory (under `~/.studio/pulls/`).
  *
  * An explicit `--path` wins over a discovered site so the key stays put across
  * the create→register transition: before the first pull there's no site record
@@ -1361,6 +1359,33 @@ function getPullSessionKeySeed( {
 	return explicitName;
 }
 
+function getPullSessionKeySeeds( {
+	targetSite,
+	explicitSitePath,
+	explicitName,
+}: {
+	targetSite?: SiteData;
+	explicitSitePath?: string;
+	explicitName?: string;
+} ): Array< string | undefined > {
+	const seeds: Array< string | undefined > = [
+		getPullSessionKeySeed( { targetSite, explicitSitePath, explicitName } ),
+	];
+
+	if ( targetSite && explicitSitePath ) {
+		seeds.push( getPullSessionKeySeed( { targetSite, explicitName } ) );
+	} else if ( targetSite ) {
+		seeds.push(
+			getPullSessionKeySeed( {
+				explicitSitePath: targetSite.path,
+				explicitName,
+			} )
+		);
+	}
+
+	return [ ...new Set( seeds ) ];
+}
+
 export async function getPullSessionMetadata(
 	url: string,
 	explicitName?: string,
@@ -1371,13 +1396,18 @@ export async function getPullSessionMetadata(
 	// Key the resume directory by the target location so re-runs resume the
 	// same session and distinct targets (overwriting a site, creating at a
 	// given path, or the default create) never collide for the same URL.
-	const pullKey = getPrivateDirNameForImportSession(
-		normalizedUrl,
-		getPullSessionKeySeed( { targetSite, explicitSitePath, explicitName } )
-	);
+	const seeds = getPullSessionKeySeeds( { targetSite, explicitSitePath, explicitName } );
+	const pullKey = getPrivateDirNameForImportSession( normalizedUrl, seeds[ 0 ] );
 	const technicalSiteDirectory = path.join( PULLS_ROOT, pullKey );
-	const metadataPath = getMetadataPath( technicalSiteDirectory );
-	const existing = readPullMetadata( metadataPath );
+	const existing = seeds
+		.map( ( seed ) =>
+			readPullMetadata(
+				getMetadataPath(
+					path.join( PULLS_ROOT, getPrivateDirNameForImportSession( normalizedUrl, seed ) )
+				)
+			)
+		)
+		.find( ( metadata ): metadata is PullSessionMetadata => !! metadata );
 
 	if ( existing ) {
 		return { created: false, studioMetadata: existing };

@@ -733,6 +733,74 @@ describe( 'CLI: studio pull-reprint --path overwrite', () => {
 			first.studioMetadata.technicalSiteDirectory
 		);
 	} );
+
+	it( 'resumes a site-id-keyed session when later looked up with an explicit --path', async () => {
+		const { getPullSessionMetadata } = await loadWithFakeHome();
+		const sitePath = path.join( fakeHome, 'Studio', 'cwd-site' );
+		fs.mkdirSync( sitePath, { recursive: true } );
+		const targetSite = { id: 'site-cwd', name: 'cwd-site', path: sitePath, port: 8881 } as never;
+
+		// Run 1: started from inside the registered site dir (no explicit --path)
+		// → keyed by site id.
+		const first = await getPullSessionMetadata(
+			'https://example.com',
+			undefined,
+			targetSite,
+			undefined
+		);
+		expect( first.created ).toBe( true );
+
+		// Run 2: the same site, but invoked with an explicit --path (which derives
+		// a `path:` primary key). It must fall back to the site-id key and resume
+		// the SAME session rather than forking a second one.
+		const second = await getPullSessionMetadata(
+			'https://example.com',
+			undefined,
+			targetSite,
+			sitePath
+		);
+		expect( second.created ).toBe( false );
+		expect( second.studioMetadata.technicalSiteDirectory ).toBe(
+			first.studioMetadata.technicalSiteDirectory
+		);
+	} );
+
+	it( 'reuses a cached secret found under the site-id key when looked up via explicit --path', async () => {
+		const { resolveSourceSite, getPrivateDirNameForImportSession, normalizeSiteUrl } =
+			await loadWithFakeHome();
+		const url = 'https://example.com';
+		const sitePath = path.join( fakeHome, 'Studio', 'cwd-site-2' );
+		const targetSite = { id: 'site-sec', name: 'cwd-site-2', path: sitePath, port: 8881 } as never;
+
+		// Seed a site-id-keyed session that carries a cached secret.
+		const key = getPrivateDirNameForImportSession(
+			normalizeSiteUrl( url ),
+			`site:${ targetSite.id }`
+		);
+		const techDir = path.join( fakeHome, '.studio', 'pulls', key );
+		fs.mkdirSync( techDir, { recursive: true } );
+		fs.writeFileSync(
+			path.join( techDir, 'pull.json' ),
+			JSON.stringify( {
+				version: 1,
+				normalizedUrl: normalizeSiteUrl( url ),
+				secret: 'cached-secret',
+			} )
+		);
+
+		// An explicit --path derives a `path:` key with no cached secret, so it
+		// must fall back to the site-id key and reuse the cached secret instead of
+		// rotating a fresh one.
+		const source = await resolveSourceSite(
+			url,
+			undefined,
+			undefined,
+			false,
+			targetSite,
+			sitePath
+		);
+		expect( source ).toEqual( { url, secret: 'cached-secret' } );
+	} );
 } );
 
 describe( 'CLI: studio pull-reprint confirmation before creating a site', () => {

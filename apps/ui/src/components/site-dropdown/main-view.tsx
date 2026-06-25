@@ -136,33 +136,29 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 		children,
 		...props
 	}: ButtonProps & { tooltip: string } ) => (
-		<Tooltip.Provider delay={ 0 }>
-			<Tooltip.Root>
-				<Tooltip.Trigger render={ <Button { ...props }>{ children }</Button> } />
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ tooltip }</Tooltip.Popup>
-			</Tooltip.Root>
-		</Tooltip.Provider>
+		<Tooltip.Root>
+			<Tooltip.Trigger render={ <Button { ...props }>{ children }</Button> } />
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ tooltip }</Tooltip.Popup>
+		</Tooltip.Root>
 	);
 
 	const renderUrlLink = ( { text, url, label }: { text: string; url: string; label: string } ) => (
-		<Tooltip.Provider delay={ 0 }>
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					render={
-						<button
-							type="button"
-							className={ styles.urlLink }
-							aria-label={ label }
-							onClick={ () => openExternal( url ) }
-						>
-							<span>{ text }</span>
-							<Icon icon={ external } size={ 12 } aria-hidden="true" />
-						</button>
-					}
-				/>
-				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
-			</Tooltip.Root>
-		</Tooltip.Provider>
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<button
+						type="button"
+						className={ styles.urlLink }
+						aria-label={ label }
+						onClick={ () => openExternal( url ) }
+					>
+						<span>{ text }</span>
+						<Icon icon={ external } size={ 12 } aria-hidden="true" />
+					</button>
+				}
+			/>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
+		</Tooltip.Root>
 	);
 
 	return (

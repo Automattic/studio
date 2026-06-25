@@ -44,7 +44,7 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import { buildCreateFromArtifactBlueprint, runCommand } from '../create';
+import { buildCreateFromSourceBlueprint, runCommand } from '../create';
 
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@studio/common/lib/network-utils' );
@@ -315,7 +315,7 @@ describe( 'CLI: studio site create', () => {
 				} )
 			);
 
-			const blueprint = buildCreateFromArtifactBlueprint(
+			const blueprint = buildCreateFromSourceBlueprint(
 				artifactPath,
 				'Imported Artifact',
 				'https://example.com/static-site-importer.zip'
@@ -342,6 +342,32 @@ describe( 'CLI: studio site create', () => {
 			expect( importStep ).toEqual(
 				expect.objectContaining( {
 					code: expect.stringContaining( 'delete_plugins( array( $temporary_plugin ) )' ),
+				} )
+			);
+		} );
+
+		it( 'should build a Blueprint that imports a static site directory through Static Site Importer', () => {
+			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
+			const indexPath = path.join( sourceDir, 'index.html' );
+			fs.writeFileSync( indexPath, '<main><h1>Hello</h1></main>' );
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				sourceDir,
+				'Imported Directory',
+				'https://example.com/static-site-importer.zip'
+			);
+
+			const importStep = blueprint.contents.steps?.find(
+				( step ) => !! step && typeof step === 'object' && 'step' in step && step.step === 'runPHP'
+			);
+			expect( importStep ).toEqual(
+				expect.objectContaining( {
+					code: expect.stringContaining( 'static_site_importer_ability_import_theme' ),
+				} )
+			);
+			expect( importStep ).toEqual(
+				expect.objectContaining( {
+					code: expect.stringContaining( indexPath ),
 				} )
 			);
 		} );

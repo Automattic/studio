@@ -87,7 +87,16 @@ export function runCli( args: string[], env: CliEnv ): Promise< CliResult > {
 		const child = spawn( process.execPath, [ CLI_MAIN, ...args ], {
 			// Non-TTY stdio so the CLI runs fully non-interactively.
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
-			env: { ...process.env, DEV_CONFIG_DIR: env.configDir },
+			env: {
+				...process.env,
+				DEV_CONFIG_DIR: env.configDir,
+				// Isolate the legacy Electron appdata dir too. `getAppdataDirectory()`
+				// ignores DEV_CONFIG_DIR and only honors E2E_APP_DATA_PATH, so without
+				// this the Studio-compatibility migration finds a real pre-split
+				// ~/Library/.../appdata-v1.json on a dev machine and exits 1.
+				E2E: '1',
+				E2E_APP_DATA_PATH: env.root,
+			},
 		} );
 
 		let stdout = '';

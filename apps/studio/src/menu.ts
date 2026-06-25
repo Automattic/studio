@@ -309,14 +309,18 @@ async function getAppMenu(
 			submenu: [
 				{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
 				{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
-				{
-					label: __( 'Toggle Site Preview' ),
-					accelerator: 'CommandOrControl+Shift+B',
-					enabled: ! needsOnboarding,
-					click: () => {
-						void sendIpcEventToRenderer( 'toggle-site-preview' );
-					},
-				},
+				...( getFeatureFlagFromEnv( 'enableAgenticUi' )
+					? [
+							{
+								label: __( 'Toggle Site Preview' ),
+								accelerator: 'CommandOrControl+Shift+B',
+								enabled: ! needsOnboarding,
+								click: () => {
+									void sendIpcEventToRenderer( 'toggle-site-preview' );
+								},
+							} as MenuItemConstructorOptions,
+					  ]
+					: [] ),
 				...( process.env.NODE_ENV === 'development' ? devTools : [] ),
 				{
 					label: __( 'Actual Size' ),

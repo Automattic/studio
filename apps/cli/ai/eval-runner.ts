@@ -134,9 +134,13 @@ async function runEval( input: EvalRunnerInput ) {
 	const phaseTimingsMs: Record< string, number > = {};
 	let phaseStartedAt = Date.now();
 
-	// In CI, ANTHROPIC_API_KEY is provided directly; locally we resolve via Studio's auth.
+	// In CI, ANTHROPIC_API_KEY is injected and used directly. Locally we always
+	// resolve via Studio's auth so `npm run eval` exercises the same provider path
+	// (incl. the WP.com proxy) the app uses — even if the developer happens to have
+	// ANTHROPIC_API_KEY set in their environment.
 	const env = { ...( process.env as Record< string, string > ) };
-	if ( ! env.ANTHROPIC_API_KEY ) {
+	const useInjectedApiKey = !! env.ANTHROPIC_API_KEY && ( !! env.CI || !! env.BUILDKITE );
+	if ( ! useInjectedApiKey ) {
 		let aiProvider: AiProviderId = await resolveInitialAiProvider();
 		phaseTimingsMs.resolve_initial_provider_ms = Date.now() - phaseStartedAt;
 

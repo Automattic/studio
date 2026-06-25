@@ -115,6 +115,24 @@ const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 const QUESTION_SCROLL_BOTTOM_CLEARANCE_PX = 96;
 
+function usePrefersReducedMotion(): boolean {
+	const [ prefersReducedMotion, setPrefersReducedMotion ] = useState( false );
+
+	useEffect( () => {
+		if ( typeof window.matchMedia !== 'function' ) {
+			return;
+		}
+		const mediaQuery = window.matchMedia( '(prefers-reduced-motion: reduce)' );
+		const updatePreference = () => setPrefersReducedMotion( mediaQuery.matches );
+
+		updatePreference();
+		mediaQuery.addEventListener( 'change', updatePreference );
+		return () => mediaQuery.removeEventListener( 'change', updatePreference );
+	}, [] );
+
+	return prefersReducedMotion;
+}
+
 function resolveBatchedAnswerForQuestion(
 	entries: SessionEntry[],
 	entryIndex: number,
@@ -737,7 +755,7 @@ function getNearestScrollContainer( element: HTMLElement ): HTMLElement | null {
 	return null;
 }
 
-function scrollElementIntoViewIfNeeded( element: HTMLElement ) {
+function scrollElementIntoViewIfNeeded( element: HTMLElement, prefersReducedMotion: boolean ) {
 	const container = getNearestScrollContainer( element );
 	const elementRect = element.getBoundingClientRect();
 	const containerRect = container
@@ -754,16 +772,17 @@ function scrollElementIntoViewIfNeeded( element: HTMLElement ) {
 	const scrollDelta = topOverflow < 0 ? topOverflow : Math.max( bottomOverflow, 0 );
 
 	if ( scrollDelta !== 0 ) {
+		const behavior: ScrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';
 		if ( container ) {
 			container.scrollBy( {
 				top: scrollDelta,
-				behavior: 'smooth',
+				behavior,
 			} );
 			return;
 		}
 		window.scrollBy( {
 			top: scrollDelta,
-			behavior: 'smooth',
+			behavior,
 		} );
 	}
 }
@@ -845,7 +864,9 @@ function AgentQuestionBatch( {
 } ) {
 	const [ expandedIndex, setExpandedIndex ] = useState< number | null >( null );
 	const [ settlingIndex, setSettlingIndex ] = useState< number | null >( null );
+	const prefersReducedMotion = usePrefersReducedMotion();
 	const activeQuestionRef = useRef< HTMLDivElement | null >( null );
+	const shouldFocusActiveQuestionRef = useRef( false );
 	const total = questions.length;
 	const firstUnansweredIndex = findFirstUnansweredQuestionIndex(
 		questions,
@@ -868,25 +889,36 @@ function AgentQuestionBatch( {
 		if ( settlingIndex === null ) {
 			return;
 		}
+		if ( prefersReducedMotion ) {
+			setSettlingIndex( null );
+			return;
+		}
 		const timeoutId = window.setTimeout(
 			() => setSettlingIndex( null ),
 			QUESTION_COLLAPSE_DELAY_MS
 		);
 		return () => window.clearTimeout( timeoutId );
-	}, [ settlingIndex ] );
+	}, [ prefersReducedMotion, settlingIndex ] );
 
 	useEffect( () => {
 		if ( activeIndex === -1 || settlingIndex !== null ) {
+			if ( activeIndex === -1 && settlingIndex === null ) {
+				shouldFocusActiveQuestionRef.current = false;
+			}
 			return;
 		}
 		const animationFrameId = window.requestAnimationFrame( () => {
 			const element = activeQuestionRef.current;
 			if ( element ) {
-				scrollElementIntoViewIfNeeded( element );
+				scrollElementIntoViewIfNeeded( element, prefersReducedMotion );
+				if ( shouldFocusActiveQuestionRef.current ) {
+					element.focus( { preventScroll: true } );
+					shouldFocusActiveQuestionRef.current = false;
+				}
 			}
 		} );
 		return () => window.cancelAnimationFrame( animationFrameId );
-	}, [ activeIndex, settlingIndex ] );
+	}, [ activeIndex, prefersReducedMotion, settlingIndex ] );
 
 	if ( total === 0 ) {
 		return null;
@@ -906,6 +938,7 @@ function AgentQuestionBatch( {
 	}
 
 	const handleAnswer = ( question: AgentQuestionRenderItem, index: number, label: string ) => {
+		shouldFocusActiveQuestionRef.current = true;
 		setExpandedIndex( null );
 		setSettlingIndex( index );
 		onAnswer( question.question, label );
@@ -937,6 +970,10 @@ function AgentQuestionBatch( {
 						className={ styles.questionBatchStep }
 						data-state={ settlingIndex === index ? 'answered' : 'asking' }
 						data-has-prior={ index > 0 ? 'true' : undefined }
+						tabIndex={ isActive ? -1 : undefined }
+						aria-label={
+							isActive ? sprintf( __( 'Current question: %s' ), question.question ) : undefined
+						}
 					>
 						{ total > 1 ? (
 							<span className={ styles.questionBatchProgress }>

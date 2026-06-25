@@ -306,6 +306,10 @@
 	animation: none;
 }
 
+.questionBatchStep:focus {
+	outline: none;
+}
+
 .questionBatchStep[data-state='answered'] .questionBatchProgress {
 	animation: questionAnsweredElementFade 180ms ease-out forwards;
 }

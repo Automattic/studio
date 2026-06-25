@@ -171,6 +171,8 @@ describe( 'Conversation Ask User questions', () => {
 
 	it( 'folds answered live questions into summaries before showing the next question', async () => {
 		vi.useFakeTimers();
+		const originalScrollBy = window.scrollBy;
+		window.scrollBy = vi.fn() as unknown as typeof window.scrollBy;
 		try {
 			const onAnswerQuestion = vi.fn();
 			const data = loadedSession( [
@@ -207,10 +209,12 @@ describe( 'Conversation Ask User questions', () => {
 			expect( screen.queryByText( 'Activate dark mode?' ) ).not.toBeInTheDocument();
 
 			await act( async () => vi.advanceTimersByTime( 700 ) );
+			await act( async () => vi.advanceTimersByTime( 20 ) );
 
 			const answeredSummary = screen.getByRole( 'button', {
 				name: 'Edit question 1 of 3: Install Jetpack?. Selected answer: Yes',
 			} );
+			const activeQuestion = screen.getByText( 'Activate dark mode?' ).closest( '[tabindex="-1"]' );
 			expect( answeredSummary ).toBeInTheDocument();
 			expect( answeredSummary ).toHaveTextContent( 'Install Jetpack?' );
 			expect( answeredSummary ).toHaveTextContent( 'Yes' );
@@ -218,6 +222,7 @@ describe( 'Conversation Ask User questions', () => {
 			expect( screen.queryByText( 'Skip Jetpack setup.' ) ).not.toBeInTheDocument();
 			expect( screen.getByText( 'Asking question 2 of 3' ) ).toBeInTheDocument();
 			expect( screen.getByText( 'Activate dark mode?' ) ).toBeInTheDocument();
+			expect( activeQuestion ).toHaveFocus();
 
 			fireEvent.click(
 				screen.getByRole( 'button', {
@@ -245,6 +250,7 @@ describe( 'Conversation Ask User questions', () => {
 			expect( screen.getByText( 'Asking question 2 of 3' ) ).toBeInTheDocument();
 			expect( screen.getByText( 'Activate dark mode?' ) ).toBeInTheDocument();
 		} finally {
+			window.scrollBy = originalScrollBy;
 			vi.useRealTimers();
 		}
 	} );
@@ -292,6 +298,54 @@ describe( 'Conversation Ask User questions', () => {
 		} finally {
 			window.scrollBy = originalScrollBy;
 			HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'skips delayed choreography and smooth scrolling for reduced motion', async () => {
+		vi.useFakeTimers();
+		const restoreMatchMedia = mockPrefersReducedMotion( true );
+		const scrollBy = vi.fn();
+		const originalScrollBy = window.scrollBy;
+		const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+		window.scrollBy = scrollBy as unknown as typeof window.scrollBy;
+		HTMLElement.prototype.getBoundingClientRect = vi.fn(
+			() =>
+				( {
+					x: 0,
+					y: window.innerHeight + 24,
+					width: 100,
+					height: 100,
+					top: window.innerHeight + 24,
+					right: 100,
+					bottom: window.innerHeight + 124,
+					left: 0,
+					toJSON: () => {},
+				} ) as DOMRect
+		);
+		try {
+			const data = loadedSession( [
+				agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+				agentQuestionEntry( 'Activate dark mode?', [ 'Yes', 'No' ], 'q2' ),
+			] );
+
+			renderInteractiveConversation( data, [ 'Install Jetpack?', 'Activate dark mode?' ], vi.fn() );
+
+			await act( async () => vi.advanceTimersByTime( 20 ) );
+			scrollBy.mockClear();
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Yes' } ) );
+			await act( async () => vi.advanceTimersByTime( 20 ) );
+
+			expect( screen.getByText( 'Asking question 2 of 2' ) ).toBeInTheDocument();
+			expect( scrollBy ).toHaveBeenCalledWith( {
+				top: 220,
+				behavior: 'auto',
+			} );
+		} finally {
+			window.scrollBy = originalScrollBy;
+			HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+			restoreMatchMedia();
 			vi.useRealTimers();
 		}
 	} );
@@ -505,4 +559,30 @@ function askUserAnswerEntry( id: string, text: string ): SessionEntry {
 			source: 'ask_user',
 		},
 	} as SessionEntry;
+}
+
+function mockPrefersReducedMotion( matches: boolean ) {
+	const originalMatchMedia = window.matchMedia;
+	const mutableWindow = window as unknown as { matchMedia?: typeof window.matchMedia };
+	mutableWindow.matchMedia = vi.fn(
+		( query: string ) =>
+			( {
+				matches: query === '(prefers-reduced-motion: reduce)' ? matches : false,
+				media: query,
+				onchange: null,
+				addEventListener: vi.fn(),
+				removeEventListener: vi.fn(),
+				addListener: vi.fn(),
+				removeListener: vi.fn(),
+				dispatchEvent: vi.fn(),
+			} ) as unknown as MediaQueryList
+	);
+
+	return () => {
+		if ( originalMatchMedia ) {
+			mutableWindow.matchMedia = originalMatchMedia;
+			return;
+		}
+		delete mutableWindow.matchMedia;
+	};
 }

@@ -107,6 +107,10 @@
 	padding-bottom: var(--wpds-dimension-padding-2xl);
 }
 
+.classicConversationWithQuestions {
+	padding-bottom: calc(var(--wpds-dimension-padding-2xl) + 96px);
+}
+
 .classicComposerOuter {
 	padding: 0 calc(var(--wpds-dimension-padding-2xl) * 2) var(--wpds-dimension-padding-xl);
 }

@@ -594,7 +594,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						continue;
 					}
 					const data = ( entry as StudioCustomEntry< 'studio.agent_question' > ).data;
-					if ( data?.question === question && ! data.selectedLabel ) {
+					if ( data?.question === question ) {
 						targetIndex = index;
 						break;
 					}

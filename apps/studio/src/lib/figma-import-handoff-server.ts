@@ -2,6 +2,7 @@ import { shell } from 'electron';
 import http from 'http';
 import os from 'os';
 import nodePath from 'path';
+import { encodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
@@ -9,6 +10,8 @@ import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 const HANDOFF_PORT = 48732;
 const MAX_BODY_BYTES = 60 * 1024 * 1024;
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'password';
 const DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL =
 	'https://github.com/Automattic/static-site-importer/releases/latest/download/static-site-importer.zip';
 
@@ -206,16 +209,22 @@ async function handleImportRequest( body: FigmaImportRequest ) {
 		{
 			path: sitePath,
 			name: siteName,
+			adminUsername: ADMIN_USERNAME,
+			adminPassword: ADMIN_PASSWORD,
 			blueprint,
 		},
 		{ blueprint }
 	);
+	details.adminUsername = ADMIN_USERNAME;
+	details.adminPassword = encodePassword( ADMIN_PASSWORD );
 
 	if ( ! details.running || ! ( 'url' in details ) || ! details.url ) {
 		throw new Error( 'Imported Studio site was created but did not start.' );
 	}
 
-	await shell.openExternal( details.url );
+	const autoLoginUrl = new URL( '/studio-auto-login', details.url );
+	autoLoginUrl.searchParams.set( 'redirect_to', details.url );
+	await shell.openExternal( autoLoginUrl.toString() );
 
 	return { siteId: details.id, siteName, sitePath, siteUrl: details.url };
 }

@@ -141,7 +141,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_start: Start a stopped site
 - site_stop: Stop a running site
 - site_delete: Delete a site from Studio and optionally move its files to trash
-- preview_create: Create a preview site (a temporary, expiring hosted preview) for a local site; "temporary site", "temporal site", and "share link" are synonyms for a preview site, so when a local site is selected and the user asks for one, preview that site instead of creating a new local site; requires WordPress.com authentication and can take a few minutes, so tell the user to wait
+- preview_create: Create a preview site (a temporary, expiring hosted preview) for a local site; when a local site is selected, preview that site instead of creating a new local site; requires WordPress.com authentication and can take a few minutes, so tell the user to wait
 - preview_list: List preview sites (temporary, expiring hosted previews) for a local site. These are NOT connected WordPress.com remote sites.
 - preview_update: Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait
 - preview_delete: Delete a preview site by hostname

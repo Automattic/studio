@@ -1,9 +1,10 @@
-import { app } from 'electron';
+import { shell } from 'electron';
 import http from 'http';
+import os from 'os';
 import nodePath from 'path';
-import fs from 'fs-extra';
-import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { getMainWindow } from 'src/main-window';
+import { SiteServer } from 'src/site-server';
 
 const HANDOFF_PORT = 48732;
 const MAX_BODY_BYTES = 60 * 1024 * 1024;
@@ -152,9 +153,6 @@ async function handleImportRequest( body: FigmaImportRequest ) {
 	}
 
 	const siteName = body.siteName?.trim() || artifactTitle( artifact ) || 'Figma Import';
-	const tmpDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-figma-imports' );
-	await fs.mkdir( tmpDir, { recursive: true } );
-
 	const timestamp = Date.now();
 	const sourcePath = `figma-import-${ timestamp }.studio-import.json`;
 	const source: StaticSiteImporterSource = {
@@ -163,7 +161,6 @@ async function handleImportRequest( body: FigmaImportRequest ) {
 		artifact,
 		payload: { artifact },
 	};
-	const blueprintPath = nodePath.join( tmpDir, `figma-import-blueprint-${ timestamp }.json` );
 	const blueprint = {
 		landingPage: '/',
 		features: {
@@ -192,8 +189,11 @@ async function handleImportRequest( body: FigmaImportRequest ) {
 			},
 		],
 	};
-
-	await fs.writeJson( blueprintPath, blueprint, { spaces: 2 } );
+	const sitePath = nodePath.join(
+		os.homedir(),
+		'Studio',
+		`${ sanitizeFolderName( siteName ) || 'figma-import' }-${ timestamp }`
+	);
 
 	const mainWindow = await getMainWindow();
 	if ( mainWindow.isMinimized() ) {
@@ -201,9 +201,22 @@ async function handleImportRequest( body: FigmaImportRequest ) {
 	}
 	mainWindow.focus();
 
-	await sendIpcEventToRenderer( 'add-site-with-blueprint', { blueprintPath } );
+	const { details } = await SiteServer.create(
+		{
+			path: sitePath,
+			name: siteName,
+			blueprint,
+		},
+		{ blueprint }
+	);
 
-	return { blueprintPath, siteName };
+	if ( ! details.running || ! ( 'url' in details ) || ! details.url ) {
+		throw new Error( 'Imported Studio site was created but did not start.' );
+	}
+
+	await shell.openExternal( details.url );
+
+	return { siteId: details.id, siteName, sitePath, siteUrl: details.url };
 }
 
 export function startFigmaImportHandoffServer(): void {

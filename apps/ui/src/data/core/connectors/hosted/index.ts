@@ -364,5 +364,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		onToggleSidebar() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
 	};
 }

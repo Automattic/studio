@@ -43,13 +43,19 @@ export default function App() {
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 	const { sites: localSites, loadingSites } = useSiteDetails();
 	const isEmpty = ! loadingSites && ! localSites.length;
+	const canToggleSidebar = ! needsOnboarding && ! isEmpty;
 	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
 	const { client } = useAuth();
 	const dispatch = useAppDispatch();
 	const isWapuuWorldOpen = useRootSelector( selectIsWapuuWorldOpen );
 	const activateWapuuWorld = useCallback( () => dispatch( openWapuuWorld() ), [ dispatch ] );
+	const handleToggleSidebarShortcut = useCallback( () => {
+		if ( canToggleSidebar ) {
+			toggleSidebar();
+		}
+	}, [ canToggleSidebar, toggleSidebar ] );
 	useKonamiCode( activateWapuuWorld );
-	useIpcListener( 'toggle-sidebar', toggleSidebar );
+	useIpcListener( 'toggle-sidebar', handleToggleSidebarShortcut );
 
 	// Initialize sync states from in-progress server operations
 	useEffect( () => {

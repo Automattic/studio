@@ -17,7 +17,12 @@ import { generateNumberedName } from '@studio/common/lib/generate-site-name';
 import { encodePassword } from '@studio/common/lib/passwords';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
-import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	SiteRuntime,
+	getSiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { PullReprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -55,13 +60,18 @@ import {
 import {
 	ensureImportedSiteSqliteReady,
 	loadImportedRuntimeStartOptions,
+	loadImportedRuntimeStartOptionsNative,
 } from 'cli/lib/pull/runtime-start-options';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getPrettyPath } from 'cli/lib/utils';
-import { getProcessName, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	startWordPressServer,
+	StartServerOptions,
+	getProcessName,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -390,7 +400,13 @@ export async function runCommand(
 
 		let preflight;
 		try {
-			preflight = await runPreflight( studioMetadata, apiUrl, secret, verbose );
+			preflight = await runPreflight(
+				SITE_RUNTIME_NATIVE_PHP,
+				studioMetadata,
+				apiUrl,
+				secret,
+				verbose
+			);
 		} catch ( preflightError ) {
 			// Preflight against ?reprint-api can fail for two reasons we can
 			// recover from on WP.com: the stored secret expired, or the
@@ -434,7 +450,13 @@ export async function runCommand(
 				sourceSite.wpComToken.accessToken,
 				verbose
 			);
-			preflight = await runPreflight( studioMetadata, apiUrl, secret, verbose );
+			preflight = await runPreflight(
+				SITE_RUNTIME_NATIVE_PHP,
+				studioMetadata,
+				apiUrl,
+				secret,
+				verbose
+			);
 		}
 		studioMetadata.remoteSiteUrl = preflight.siteurl || studioMetadata.normalizedUrl;
 		studioMetadata.tablePrefix = preflight.table_prefix || undefined;
@@ -452,7 +474,7 @@ export async function runCommand(
 		// a delta re-pull, resets its own sub-command state via
 		// prepare_repull().
 		if ( ! hasPullCompletedStage( studioMetadata, 'pulled' ) ) {
-			await runFullPull( studioMetadata, apiUrl, secret, verbose );
+			await runFullPull( SITE_RUNTIME_NATIVE_PHP, studioMetadata, apiUrl, secret, verbose );
 		}
 
 		let createdSiteRecord = false;
@@ -494,10 +516,18 @@ export async function runCommand(
 		}
 
 		if ( ! hasPullCompletedStage( studioMetadata, 'site-started' ) ) {
-			await ensureImportedSiteSqliteReady( studioMetadata.runtimeBlueprintPath );
-			const runtimeStartOptions = await loadImportedRuntimeStartOptions(
-				studioMetadata.runtimeBlueprintPath
-			);
+			let runtimeStartOptions: StartServerOptions;
+			if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
+				runtimeStartOptions = loadImportedRuntimeStartOptionsNative(
+					studioMetadata.technicalSiteDirectory,
+					studioMetadata.runtimeDirectory
+				);
+			} else {
+				await ensureImportedSiteSqliteReady( studioMetadata.runtimeBlueprintPath );
+				runtimeStartOptions = await loadImportedRuntimeStartOptions(
+					studioMetadata.runtimeBlueprintPath
+				);
+			}
 
 			// Persist the computed start options so `studio site start` and
 			// the daemon can re-read them without recomputing (which spins
@@ -566,7 +596,13 @@ export async function runCommand(
 
 		if ( ! hasPullCompletedStage( studioMetadata, 'completed' ) ) {
 			if ( hasSkippedFiles( studioMetadata.stateDirectory ) ) {
-				await downloadSkippedFiles( studioMetadata, apiUrl, secret, verbose );
+				await downloadSkippedFiles(
+					getSiteRuntime( site ),
+					studioMetadata,
+					apiUrl,
+					secret,
+					verbose
+				);
 			}
 
 			recordCompletedStage( studioMetadata, 'completed' );
@@ -606,6 +642,7 @@ export async function runCommand(
  * metadata before the download stages begin.
  */
 async function runPreflight(
+	runtime: SiteRuntime,
 	sessionMetadata: PullSessionMetadata,
 	sourceSiteApiUrl: string,
 	sourceSiteSecret: string,
@@ -640,6 +677,7 @@ async function runPreflight(
 			undefined,
 			{
 				verboseCommands: verbose,
+				runtime,
 			}
 		);
 	} catch ( preflightError ) {
@@ -810,7 +848,7 @@ function readPullMetadata( metadataPath: string ): PullSessionMetadata | null {
 /**
  * Run reprint's composite `pull` command: the whole site-clone
  * pipeline (preflight → files-pull → db-pull → db-apply →
- * flat-docroot → apply-runtime) in a single PHP-WASM fork, with
+ * flat-docroot → apply-runtime) in a single child process, with
  * reprint owning the stage ordering and, when the prior pull already
  * completed, resetting its own sub-command state for a delta re-pull
  * via prepare_repull().
@@ -830,6 +868,7 @@ function readPullMetadata( metadataPath: string ): PullSessionMetadata | null {
  * Advances the pull stage to 'pulled'.
  */
 export async function runFullPull(
+	runtime: SiteRuntime,
 	metadata: PullSessionMetadata,
 	apiUrl: string,
 	secret: string,
@@ -839,6 +878,7 @@ export async function runFullPull(
 	const sqlitePath = contentDir
 		? `${ metadata.rawDirectory }${ contentDir }/database/.ht.sqlite`
 		: `${ metadata.sitePath }/wp-content/database/.ht.sqlite`;
+	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 	await runReprintCommandUntilComplete(
@@ -853,7 +893,7 @@ export async function runFullPull(
 			`--target-sqlite-path=${ sqlitePath }`,
 			`--new-site-url=${ metadata.localUrl! }`,
 			`--flatten-to=${ metadata.sitePath }`,
-			'--runtime=playground-cli',
+			`--runtime=${ reprintRuntime }`,
 			'--start-runtime=none',
 			`--output-dir=${ metadata.runtimeDirectory }`,
 			'--no-adaptive',
@@ -868,6 +908,7 @@ export async function runFullPull(
 				{ hostPath: metadata.runtimeDirectory, vfsPath: metadata.runtimeDirectory },
 			],
 			verboseCommands: verbose,
+			runtime,
 		}
 	);
 	logger.reportSuccess( __( 'Site pulled' ) );
@@ -886,6 +927,7 @@ export async function runFullPull(
  * internal validation, so we leave the state alone in that case.
  */
 export async function downloadSkippedFiles(
+	runtime: SiteRuntime,
 	metadata: PullSessionMetadata,
 	apiUrl: string,
 	secret: string,
@@ -939,6 +981,7 @@ export async function downloadSkippedFiles(
 		{
 			progressLabel: __( 'Remaining files' ),
 			verboseCommands: verbose,
+			runtime,
 		}
 	);
 	logger.reportSuccess( __( 'Remaining files downloaded' ) );

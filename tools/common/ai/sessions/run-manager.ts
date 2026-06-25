@@ -20,19 +20,14 @@ import type { StudioAiSessionInputPayload, StudioChatImage } from '@studio/commo
 import type { JsonEvent } from '@studio/common/ai/json-events';
 
 /**
- * Runs the Studio Code agent as a CLI child process.
+ * Runs the Studio Code agent as a CLI child process: forks the CLI
+ * (`code sessions resume …`), relays the agent's JSON transport events, owns the
+ * run lifecycle (ids, ordering, interrupt policy), records usage stats, persists
+ * session placement, and reports errors to Sentry.
  *
- * This is the shared body of the desktop app's run-manager and the `studio ui`
- * server: it forks the CLI (`code sessions resume …`), relays the agent's JSON
- * transport events, owns the run lifecycle (ids, ordering, interrupt policy),
- * and — identically for both hosts — records usage stats, persists session
- * placement, and reports errors to Sentry.
- *
- * Only two things differ per host, both injected via {@link AgentRunManagerConfig}:
- * which CLI binary to fork, and how run output reaches the UI ({@link emit} —
- * `webContents.send` on desktop, SSE in the server). `surface` tags telemetry so
- * the two don't conflate; the weekly/monthly unique-user dedup store is shared
- * (app.json), so a user is counted once per period across surfaces.
+ * Two things are injected via {@link AgentRunManagerConfig}: which CLI binary to
+ * fork, and how run output reaches the UI ({@link emit}). `surface` tags
+ * telemetry so stat groups don't conflate.
  */
 
 interface AgentRun {
@@ -113,7 +108,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 	}
 
 	// When the agent reports it created a site, bind the session to it and tell
-	// the UI. Persisted to app.json; shared by both hosts.
+	// the UI. Persisted to app.json.
 	async function applyPlacementFromEvent( run: AgentRun, event: JsonEvent ): Promise< void > {
 		if ( event.type !== 'chat.artifact' ) {
 			return;

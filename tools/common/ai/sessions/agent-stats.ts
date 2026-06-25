@@ -2,13 +2,11 @@ import { appBumpStatsProvider } from '@studio/common/lib/app-bump-stats';
 import { __bumpAggregatedUniqueStat, __bumpStat } from '@studio/common/lib/bump-stat';
 
 /**
- * Studio Code agent usage stats, shared between the desktop app and the
- * `studio ui` server. Same bumping logic and the same store (the weekly/monthly
- * unique-user dedup state lives in app.json via {@link appBumpStatsProvider}, so
- * a user is counted once per period across surfaces). Only the surface differs:
- * it picks which stat group is bumped so the two never conflate in dashboards —
- * the desktop keeps its `studio-code-ui-*` groups; `studio ui` (the CLI-served
- * UI) uses `studio-code-cliui-*` (kept ≤27 chars, the backend's group limit).
+ * Studio Code agent usage stats. The `surface` selects which stat group is
+ * bumped so surfaces never conflate in dashboards — desktop uses
+ * `studio-code-ui-*`, the CLI-served UI uses `studio-code-cliui-*` (kept ≤27
+ * chars, the backend's group limit). Weekly/monthly unique-user dedup state
+ * lives in app.json via {@link appBumpStatsProvider}.
  */
 
 export type AgentSurface = 'desktop' | 'cliui';

@@ -1,15 +1,12 @@
 import { captureException as coreCaptureException } from '@sentry/core';
 
 /**
- * Report an exception to Sentry from shared code.
+ * Report an exception to Sentry.
  *
- * This deliberately uses `@sentry/core` — the SDK-agnostic substrate that both
- * `@sentry/electron` (desktop) and `@sentry/node` (CLI / `studio ui`) build on —
- * so the *reporting* code is identical for every host. It routes to whichever
- * client the host initialized; if none did, it's a safe no-op. Initialization
- * stays each host's own concern — there's intentionally no shared init here
- * (one client per process, environment-specific SDK): the desktop inits
- * `@sentry/electron`; the CLI would init `@sentry/node` itself.
+ * Uses `@sentry/core` — the SDK-agnostic substrate `@sentry/electron` and
+ * `@sentry/node` both build on — and routes to whichever client the host
+ * initialized; a safe no-op if none did. Init stays each host's concern (one
+ * client per process), so there's intentionally no shared init here.
  */
 export function captureException( error: unknown ): void {
 	coreCaptureException( error );

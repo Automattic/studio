@@ -1,10 +1,6 @@
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 
-/**
- * Where to send a site's REST request. Resolved by each host from its own site
- * representation (the desktop's `SiteServer`, the local server's site list) so
- * this proxy logic stays transport-agnostic and shared.
- */
+/** Where to send a site's REST request. */
 export interface SiteRestTarget {
 	siteId: string;
 	running: boolean;
@@ -23,11 +19,7 @@ interface SiteRestAuth {
 
 const siteRestAuthCache = new Map< string, SiteRestAuth >();
 
-/**
- * Proxy a WordPress REST request to a running local site. Shared verbatim
- * between the desktop app and the local web server — only resolving the
- * {@link SiteRestTarget} differs per host.
- */
+/** Proxy a WordPress REST request to a running local site. */
 export async function fetchSiteRest(
 	target: SiteRestTarget,
 	request: SiteRestRequest

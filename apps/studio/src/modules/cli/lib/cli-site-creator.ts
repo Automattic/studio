@@ -23,8 +23,6 @@ interface CreateSiteResult {
 	running: boolean;
 }
 
-// The create options shape is shared with the local web server so both build
-// the CLI args identically (see `buildSiteCreateArgs`).
 export type CreateSiteOptions = SiteCreateOptions;
 
 export async function createSiteViaCli( options: CreateSiteOptions ): Promise< CreateSiteResult > {

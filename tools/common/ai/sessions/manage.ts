@@ -12,9 +12,7 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 /**
  * Session listing + creation, hydrated with the metadata that lives outside the
  * session JSONL: star/archive flags (shared config) and site placement
- * (app.json). Shared by the desktop app and the `studio ui` server so both
- * surfaces create and list sessions identically — in particular, a "new chat"
- * started on a site is bound to that site the same way everywhere.
+ * (app.json).
  */
 
 // A local site a session can be bound to.

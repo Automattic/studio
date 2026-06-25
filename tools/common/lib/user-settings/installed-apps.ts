@@ -6,13 +6,7 @@ import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-set
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
-/**
- * Detect which editors and terminals are installed. Shared between the desktop
- * app and the local web server (both run on the user's machine) so detection
- * lives in one place; it's Electron-free (uses `os.homedir()` instead of
- * `app.getPath`). Launching apps is still per-runtime (Electron `shell` vs
- * `child_process`), but which apps to offer is decided here.
- */
+/** Detect which editors and terminals are installed on this machine. */
 
 export type AppKey = SupportedEditor | SupportedTerminal;
 export type InstalledApps = Record< AppKey, boolean >;

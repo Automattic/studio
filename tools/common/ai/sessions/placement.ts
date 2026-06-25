@@ -13,12 +13,10 @@ import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 /**
  * AI session "placement" — which local site a session created/owns.
  *
- * Shared between the desktop app and the `studio ui` server so both record and
- * read placement identically. It lives in `app.json` under `aiSessionPlacements`
- * and is written under the same lockfile the desktop's user-data writes use
- * (`getAppConfigLockFilePath`), so concurrent desktop + server writes coordinate
- * rather than clobber. Reads/writes touch only the `aiSessionPlacements` key and
- * preserve every other field verbatim.
+ * Stored in `app.json` under `aiSessionPlacements`, written under the shared
+ * app-config lockfile (`getAppConfigLockFilePath`) so concurrent writers
+ * coordinate rather than clobber. Reads/writes touch only the
+ * `aiSessionPlacements` key and preserve every other field verbatim.
  */
 
 export interface AiSessionSitePlacement {

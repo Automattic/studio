@@ -1192,3 +1192,84 @@ describe( 'CLI: studio pull-reprint admin credentials re-apply', () => {
 		);
 	} );
 } );
+
+describe( 'CLI: studio pull-reprint --abort key fallback', () => {
+	let fakeHome: string;
+
+	afterEach( () => {
+		vi.resetModules();
+		vi.doUnmock( 'os' );
+		vi.doUnmock( 'trash' );
+		vi.doUnmock( 'cli/lib/cli-config/sites' );
+		if ( fakeHome ) {
+			fs.rmSync( fakeHome, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'aborts a site-id-keyed overwrite session when given an explicit --path', async () => {
+		fakeHome = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-abort-' ) );
+		const trashMock = vi.fn();
+		const site = {
+			id: 'site-zzz',
+			name: 'My Site',
+			path: path.join( fakeHome, 'Studio', 'my-site' ),
+			port: 8881,
+		};
+
+		vi.resetModules();
+		vi.doMock( 'os', async () => {
+			const actual = await vi.importActual< typeof import('os') >( 'os' );
+			return {
+				...actual,
+				default: { ...actual, homedir: () => fakeHome },
+				homedir: () => fakeHome,
+			};
+		} );
+		vi.doMock( 'trash', () => ( { default: trashMock } ) );
+		vi.doMock( 'cli/lib/cli-config/sites', async () => {
+			const actual = await vi.importActual< typeof import('cli/lib/cli-config/sites') >(
+				'cli/lib/cli-config/sites'
+			);
+			return {
+				...actual,
+				findSiteByFolder: vi.fn( async ( p: string ) => ( p === site.path ? site : undefined ) ),
+			};
+		} );
+
+		const mod = await import( '../pull-reprint' );
+		const url = 'https://example.com';
+
+		// Seed a pull.json under the SITE-ID key — how a session started from
+		// inside a registered site directory (no explicit --path) is keyed.
+		const seed = `site:${ site.id }`;
+		const key = mod.getPrivateDirNameForImportSession( mod.normalizeSiteUrl( url ), seed );
+		const techDir = path.join( fakeHome, '.studio', 'pulls', key );
+		fs.mkdirSync( techDir, { recursive: true } );
+		fs.writeFileSync(
+			path.join( techDir, 'pull.json' ),
+			JSON.stringify( {
+				version: 1,
+				pullKey: key,
+				normalizedUrl: mod.normalizeSiteUrl( url ),
+				siteName: site.name,
+				sitePath: site.path,
+				technicalSiteDirectory: techDir,
+				rawDirectory: path.join( techDir, 'raw' ),
+				stateDirectory: path.join( techDir, 'state' ),
+				runtimeDirectory: path.join( techDir, 'runtime' ),
+				runtimeBlueprintPath: path.join( techDir, 'runtime', 'blueprint.json' ),
+				stage: 'site-registered',
+				siteId: site.id,
+				isOverwrite: true,
+			} )
+		);
+
+		// Abort with an EXPLICIT --path: that derives a `path:<path>` key which
+		// has no session, so it must fall back to the site-id key and find it.
+		await mod.abortPull( url, undefined, site.path, true, false );
+
+		// Overwrite session → only the technical dir is trashed, never the site.
+		expect( trashMock ).toHaveBeenCalledTimes( 1 );
+		expect( trashMock ).toHaveBeenCalledWith( [ techDir ] );
+	} );
+} );

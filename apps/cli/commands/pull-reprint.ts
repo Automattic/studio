@@ -831,7 +831,7 @@ async function runPreflight(
  * the site directory and config record belong to a pre-existing Studio
  * site, so we only remove the technical directory — never the site.
  */
-async function abortPull(
+export async function abortPull(
 	url: string,
 	providedName: string | undefined,
 	sitePath: string | undefined,
@@ -841,12 +841,28 @@ async function abortPull(
 	const normalizedUrl = normalizeSiteUrl( url );
 	const targetSite = sitePath ? await findSiteByFolder( sitePath ) : undefined;
 	const explicitSitePath = pathWasExplicit ? sitePath : undefined;
-	const pullKey = getPrivateDirNameForImportSession(
-		normalizedUrl,
-		getPullSessionKeySeed( { targetSite, explicitSitePath, explicitName: providedName } )
-	);
-	const technicalSiteDirectory = path.join( PULLS_ROOT, pullKey );
-	const metadata = readPullMetadata( getMetadataPath( technicalSiteDirectory ) );
+
+	// Look the session up by the key it was created with. When an explicit
+	// `--path` resolves to a registered site, also try the site-id key: a
+	// session started from inside a registered site directory (no explicit
+	// `--path`) is keyed `site:<id>`, but aborting it from elsewhere with
+	// `--path <that-site>` derives a `path:<path>` key and would otherwise
+	// never find it.
+	const seeds = [
+		getPullSessionKeySeed( { targetSite, explicitSitePath, explicitName: providedName } ),
+	];
+	if ( targetSite && explicitSitePath ) {
+		seeds.push( getPullSessionKeySeed( { targetSite } ) );
+	}
+
+	let metadata: PullSessionMetadata | null = null;
+	for ( const seed of seeds ) {
+		const dir = path.join( PULLS_ROOT, getPrivateDirNameForImportSession( normalizedUrl, seed ) );
+		metadata = readPullMetadata( getMetadataPath( dir ) );
+		if ( metadata ) {
+			break;
+		}
+	}
 
 	if ( ! metadata ) {
 		throw new LoggerError(

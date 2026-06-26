@@ -391,9 +391,7 @@ export async function pushArchive(
 		if ( status === 413 ) {
 			return {
 				success: false,
-				error: __(
-					'The site archive is too large to upload right now. Please try again later.'
-				),
+				error: __( 'The site archive is too large to upload right now. Please try again later.' ),
 			};
 		}
 		if ( status ) {

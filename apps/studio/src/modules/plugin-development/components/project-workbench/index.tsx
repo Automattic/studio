@@ -96,7 +96,7 @@ function clamp( value: number, min: number, max: number ): number {
 }
 
 function escapeMarkdownInlineCode( value: string ): string {
-	return value.replace( /`/g, '\\`' );
+	return value.replace( /[`\\]/g, '\\$&' );
 }
 
 function toMarkdownFileList( patches: AiPatchItem[] ): string {

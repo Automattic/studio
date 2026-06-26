@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { vi, type Mock } from 'vitest';
+import { afterEach, vi, type Mock } from 'vitest';
 import App from 'src/components/app';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { useSiteDetails } from 'src/hooks/use-site-details';
@@ -15,6 +15,11 @@ import { wpcomSitesApi } from 'src/stores/sync/wpcom-sites';
 import { wordpressVersionsApi } from 'src/stores/wordpress-versions-api';
 import { wpcomApi, wpcomPublicApi } from 'src/stores/wpcom-api';
 import type { DevelopmentProject, RemoteDevelopmentPlugin } from '@studio/common/types/publishing';
+
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+	globalThis,
+	'localStorage'
+);
 
 vi.mock( 'src/index.css', () => ( {} ) );
 vi.mock( 'src/components/dot-grid', () => ( {
@@ -150,6 +155,12 @@ describe( 'App', () => {
 		mockDevelopmentProjects.remotePluginsUsername = null;
 		mockDevelopmentProjects.cloningRemotePluginSlug = null;
 		mockDevelopmentProjects.startingPlaygroundProjectId = null;
+	} );
+
+	afterEach( () => {
+		if ( originalLocalStorageDescriptor ) {
+			Object.defineProperty( globalThis, 'localStorage', originalLocalStorageDescriptor );
+		}
 	} );
 
 	const renderWithProvider = ( component: React.ReactElement ) => {

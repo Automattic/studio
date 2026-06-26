@@ -1,7 +1,7 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearSessionDraft, Composer } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';
 
@@ -25,6 +25,11 @@ const defaultProps = {
 	onInterrupt: vi.fn< () => Promise< void > >(),
 	entries: [],
 };
+
+const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+	globalThis,
+	'localStorage'
+);
 
 function createMemoryStorage(): Storage {
 	const values = new Map< string, string >();
@@ -64,6 +69,12 @@ describe( 'Composer', () => {
 		defaultProps.onSend.mockResolvedValue( undefined );
 		defaultProps.onInterrupt.mockResolvedValue( undefined );
 		mockGetPathForFile.mockClear();
+	} );
+
+	afterEach( () => {
+		if ( originalLocalStorageDescriptor ) {
+			Object.defineProperty( globalThis, 'localStorage', originalLocalStorageDescriptor );
+		}
 	} );
 
 	it( 'restores unsent drafts for the same session', () => {

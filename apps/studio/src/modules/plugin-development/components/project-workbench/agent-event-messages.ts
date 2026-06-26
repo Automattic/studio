@@ -43,6 +43,10 @@ function stringifyToolArguments( value: unknown ): string | undefined {
 	}
 }
 
+function escapeMarkdownInlineCode( value: string ): string {
+	return value.replace( /[`\\]/g, '\\$&' );
+}
+
 function formatToolCall( block: unknown ): string | undefined {
 	const name = getStringProperty( block, 'name' );
 	if ( ! name ) {
@@ -54,7 +58,7 @@ function formatToolCall( block: unknown ): string | undefined {
 		return `Using \`${ name }\`.`;
 	}
 
-	return `Using \`${ name }\` with \`${ args.replace( /`/g, '\\`' ) }\`.`;
+	return `Using \`${ name }\` with \`${ escapeMarkdownInlineCode( args ) }\`.`;
 }
 
 function getContentText( content: unknown ): string[] {

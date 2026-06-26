@@ -108,9 +108,16 @@ function accountFromLoggedInText( text: string ): WordPressOrgAccount | undefine
 		: undefined;
 }
 
+function isWordPressOrgDomain( domain: string | undefined ): boolean {
+	const normalizedDomain = domain?.toLowerCase().replace( /^\./, '' );
+	return (
+		normalizedDomain === 'wordpress.org' || normalizedDomain?.endsWith( '.wordpress.org' ) || false
+	);
+}
+
 function accountFromCookies( cookies: Array< Pick< Cookie, 'domain' | 'name' | 'value' > > ) {
 	const loggedInCookie = cookies.find(
-		( cookie ) => cookie.domain?.endsWith( 'wordpress.org' ) && /logged_in/i.test( cookie.name )
+		( cookie ) => isWordPressOrgDomain( cookie.domain ) && /logged_in/i.test( cookie.name )
 	);
 	const username = loggedInCookie
 		? usernameFromLoggedInCookieValue( loggedInCookie.value )
@@ -152,11 +159,7 @@ function cookieToStorageStateCookie( cookie: Cookie ): StorageStateCookie | unde
 }
 
 function isWordPressOrgCookie( cookie: Cookie ): boolean {
-	return (
-		cookie.domain?.endsWith( 'wordpress.org' ) ||
-		cookie.domain?.endsWith( '.wordpress.org' ) ||
-		false
-	);
+	return isWordPressOrgDomain( cookie.domain );
 }
 
 function getWordPressOrgSession(): Session {

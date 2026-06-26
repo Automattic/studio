@@ -5,6 +5,15 @@ export default defineConfig( {
 	test: {
 		pool: 'threads',
 		globals: true,
+		// Registered test tags for selective runs, e.g. `npm test -- --tagsFilter='e2e'`
+		// or excluding the slow real-CLI tests with `--tagsFilter='!e2e'`.
+		tags: [
+			{
+				name: 'e2e',
+				description:
+					'Real end-to-end tests that spawn the built CLI and create real sites. Require `npm run cli:build` first; run in the slower (release/manual) suite, not per-PR.',
+			},
+		],
 		environment: 'jsdom',
 		environmentOptions: {
 			customExportConditions: [ 'node', 'node-addons' ],

@@ -66,11 +66,7 @@ import {
 	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import {
-	removeSiteFromConfig,
-	updateSiteAutoStart,
-	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config/sites';
+import { removeSiteFromConfig, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	getAiInstructionsPath,
@@ -115,7 +111,6 @@ export type CreateCommandOptions = {
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
 	mounts?: ServerConfig[ 'mounts' ];
-	autoStart?: boolean;
 };
 
 export async function runCommand(
@@ -381,7 +376,6 @@ export async function runCommand(
 				if ( processDesc.status === 'online' ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
 				}
-				await updateSiteAutoStart( siteDetails.id, options.autoStart ?? true );
 
 				siteDetails.running = true;
 				siteDetails.url = siteDetails.customDomain
@@ -844,7 +838,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,
 				mounts: parseMountsJson( argv.mountsJson ),
-				autoStart: argv.autoStart,
 			};
 
 			if ( argv.blueprint ) {

@@ -1,11 +1,7 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import {
-	getSiteByFolder,
-	updateSiteAutoStart,
-	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -21,8 +17,7 @@ export async function runCommand(
 	sitePath: string,
 	skipBrowser = false,
 	skipLogDetails = false,
-	mounts?: ServerConfig[ 'mounts' ],
-	autoStart = true
+	mounts?: ServerConfig[ 'mounts' ]
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -39,7 +34,6 @@ export async function runCommand(
 			if ( runningProcess.status === 'online' ) {
 				await updateSiteLatestCliPid( site.id, runningProcess.pid );
 			}
-			await updateSiteAutoStart( site.id, autoStart );
 			if ( ! skipBrowser ) {
 				await openSiteInBrowser( site );
 			}
@@ -75,7 +69,6 @@ export async function runCommand(
 			if ( processDesc.status === 'online' ) {
 				await updateSiteLatestCliPid( site.id, processDesc.pid );
 			}
-			await updateSiteAutoStart( site.id, autoStart );
 
 			if ( ! skipLogDetails ) {
 				logSiteDetails( site );
@@ -150,8 +143,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					argv.path,
 					argv.skipBrowser,
 					argv.skipLogDetails,
-					parseMountsJson( argv.mountsJson ),
-					argv.autoStart
+					parseMountsJson( argv.mountsJson )
 				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

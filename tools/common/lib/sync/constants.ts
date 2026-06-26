@@ -2,6 +2,10 @@ import { DEPLOY_IGNORE_DEFAULTS } from '../deploy-ignore-defaults';
 
 export const SYNC_POLL_INTERVAL_MS = 3000;
 export const SYNC_MAX_STALLED_ATTEMPTS = 200;
+// Client-side ceiling for the push archive. Matches the server's TUS
+// ARCHIVE_UPLOAD_MAX_SIZE (5 * GB); keep the two in sync so the pre-upload
+// check in apps/cli/commands/push.ts and the desktop push thunk warn before a
+// too-large upload triggers a 413 from studio-file-uploads.
 export const SYNC_PUSH_SIZE_LIMIT_GB = 5;
 export const SYNC_PUSH_SIZE_LIMIT_BYTES = SYNC_PUSH_SIZE_LIMIT_GB * 1024 * 1024 * 1024; // 5GB
 

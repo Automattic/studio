@@ -3,19 +3,12 @@ import nodePath from 'path';
 import { Upload } from 'tus-js-client';
 
 /**
- * Decide whether a failed TUS request should be retried, based on the HTTP
- * status of the original response.
- *
- * - 5xx and network errors (status 0): transient, keep retrying.
- * - 4xx: client errors that won't succeed on retry, so stop — most importantly
- *   413 (archive exceeds the server's ARCHIVE_UPLOAD_MAX_SIZE) and 403.
- *   Exceptions are statuses the resumable protocol uses transiently: 423
- *   (Locked) and 409 (Conflict during resume), which we keep retrying.
+ * Decide whether a failed TUS request should be retried based on its HTTP status.
+ * 5xx and network errors (status 0) are transient. 4xx are terminal, except 409
+ * (Conflict) and 423 (Locked), which the resumable protocol uses transiently.
  */
 export function shouldRetryTusStatus( status: number ): boolean {
 	if ( status >= 400 && status < 500 ) {
-		// 409 Conflict / 423 Locked can occur transiently during resumable
-		// uploads; everything else in 4xx (403, 413, …) is terminal.
 		return status === 409 || status === 423;
 	}
 	return true;

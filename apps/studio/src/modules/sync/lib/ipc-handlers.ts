@@ -321,8 +321,6 @@ export async function pushArchive(
 				}
 
 				const status = error.originalResponse ? error.originalResponse.getStatus() : 0;
-				// Stop retrying on non-retryable client errors (403, 413, …); keep
-				// retrying 5xx, network errors, and the transient resumable statuses.
 				return shouldRetryTusStatus( status );
 			},
 		} );
@@ -387,10 +385,8 @@ export async function pushArchive(
 			return { success: false, error: parseResult.data.error };
 		}
 
-		// A bare upload failure (e.g. a 413 from the TUS endpoint) rejects with a
-		// tus-js-client error that has no `{ error: string }` body. Pull the HTTP
-		// status off the original response so the UI can show something useful
-		// instead of "Unknown error".
+		// A bare upload failure (e.g. a 413) has no `{ error: string }` body, so
+		// fall back to the HTTP status for a meaningful message.
 		const status = getTusErrorStatus( error );
 		if ( status === 413 ) {
 			return {
@@ -412,11 +408,7 @@ export async function pushArchive(
 	}
 }
 
-/**
- * Extract the HTTP status code from a tus-js-client error. The error exposes the
- * failing request's response via `originalResponse.getStatus()`. Returns 0 when
- * no status is available (e.g. a network error).
- */
+// Extract the HTTP status from a tus-js-client error, or 0 when unavailable.
 function getTusErrorStatus( error: unknown ): number {
 	if (
 		typeof error === 'object' &&

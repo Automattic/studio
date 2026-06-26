@@ -657,6 +657,10 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
+		async copyText( text: string ): Promise< void > {
+			await ipcApi.copyText( text );
+		},
+
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},

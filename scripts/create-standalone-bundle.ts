@@ -10,14 +10,19 @@
  *   bin/studio[.cmd]    Launcher (the desktop app's studio-cli script, renamed)
  *   cli/                CLI bundle (main.mjs, node_modules, wp-files, …)
  *
+ * The curl installers that consume this layout (`cli/` + `bin/`) live in wpcom
+ * (served from public-api, branded as wordpress.studio/install.sh & install.ps1), not in
+ * this repo — update them
+ * in lockstep if this layout changes.
+ *
  * Output:
  *   standalone-bundles/studio-cli-{platform}-{arch}.tgz
  *   standalone-bundles/studio-cli-{platform}-{arch}.tgz.sha256
  *
  * Prerequisites: Node.js >= 22, npm dependencies installed
  *
- * NOTE: The `cli:package` step mutates `apps/cli/node_modules`. If you need a
- * clean tree afterwards, run `npm ci` from the repo root to reset it.
+ * NOTE: The `cli:package:standalone` step mutates `apps/cli/node_modules`. If you need
+ * a clean tree afterwards, run `npm ci` from the repo root to reset it.
  *
  * Native modules in cli/node_modules are built for the platform running this
  * script, so cross-platform bundles only get the right Node binary — CI must
@@ -129,10 +134,11 @@ function createTarball( archivePath: string, cwd: string, extraArgs: string[] ):
 async function main(): Promise< void > {
 	console.log( `==> Building standalone bundle: ${ bundleName }\n` );
 
-	// Step 1: Build CLI (dist/cli with bundled node_modules — the same output
-	// the desktop app packages into its resources directory)
+	// Step 1: Build CLI (dist/cli with bundled node_modules). Same as the desktop-embedded
+	// prod build, but `package:standalone` stamps `__IS_PACKAGED_FOR_STANDALONE__` so the
+	// curl-installed CLI identifies itself at runtime (update notifier + launch stats).
 	console.log( '==> Step 1/4: Building CLI package...' );
-	run( 'npm run cli:package' );
+	run( 'npm run cli:package:standalone' );
 
 	// Step 2: Assemble the bundle layout in a staging dir
 	console.log( '\n==> Step 2/4: Assembling bundle...' );

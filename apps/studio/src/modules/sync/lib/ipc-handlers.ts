@@ -17,6 +17,7 @@ import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { SyncSite } from '@studio/common/types/sync';
+import { __, sprintf } from '@wordpress/i18n';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
 import {
@@ -394,15 +395,20 @@ export async function pushArchive(
 		if ( status === 413 ) {
 			return {
 				success: false,
-				error:
-					'The site archive is too large to upload to WordPress.com right now. Please reduce the size of the site and try again.',
+				error: __(
+					'The site archive is too large to upload to WordPress.com right now. Please reduce the size of the site and try again.'
+				),
 			};
 		}
 		if ( status ) {
-			return { success: false, error: `Upload failed with HTTP status ${ status }.` };
+			return {
+				success: false,
+				// translators: %d is the HTTP status code of the failed upload, e.g. 500.
+				error: sprintf( __( 'Upload failed with HTTP status %d.' ), status ),
+			};
 		}
 
-		return { success: false, error: 'Unknown error' };
+		return { success: false, error: __( 'Unknown error' ) };
 	}
 }
 

@@ -20,6 +20,10 @@ describe( 'CLI: studio uninstall', () => {
 	let installDir: string;
 	let configDir: string;
 	const originalExecPath = process.execPath;
+	const originalPlatform = process.platform;
+
+	const setPlatform = ( value: NodeJS.Platform ) =>
+		Object.defineProperty( process, 'platform', { value, configurable: true } );
 
 	beforeEach( () => {
 		root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-uninstall-' ) );
@@ -39,6 +43,9 @@ describe( 'CLI: studio uninstall', () => {
 			configurable: true,
 		} );
 		process.env.DEV_CONFIG_DIR = configDir;
+		// Pin to a POSIX platform so the in-process removal path is exercised
+		// deterministically (on Windows the runner defers deletion to a helper).
+		setPlatform( 'linux' );
 		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		vi.mocked( getCliInstallKind ).mockReturnValue( 'standalone' );
 	} );
@@ -48,6 +55,7 @@ describe( 'CLI: studio uninstall', () => {
 			value: originalExecPath,
 			configurable: true,
 		} );
+		setPlatform( originalPlatform );
 		delete process.env.DEV_CONFIG_DIR;
 		fs.rmSync( root, { recursive: true, force: true } );
 		vi.restoreAllMocks();

@@ -131,6 +131,7 @@ export const baseConfig = defineConfig( {
 	define: {
 		__ENABLE_CLI_TELEMETRY__: false,
 		__IS_PACKAGED_FOR_NPM__: false,
+		__IS_PACKAGED_FOR_STANDALONE__: false,
 		__MINIMUM_NODE_VERSION__: JSON.stringify( minimumNodeVersion ),
 		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 	},

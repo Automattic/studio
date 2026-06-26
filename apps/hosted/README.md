@@ -4,14 +4,14 @@
 that drives Studio's agent from a browser. It exposes the same capabilities the
 desktop app reaches over IPC, but over HTTP, so the portable `apps/ui` renderer
 can talk to it through the **web connector**
-(`apps/ui/src/data/core/connectors/web`).
+(`apps/ui/src/data/core/connectors/hosted`).
 
 Unlike the desktop app and CLI, this targets a hosted deployment — WordPress.com
 / Telex APIs and a server-side agent sandbox — not a local WordPress install. It
 deliberately depends on nothing in `apps/cli`.
 
 ```
-npm run build:web --workspace=apps/ui   # once, or after UI changes
+npm run build:hosted --workspace=apps/ui   # once, or after UI changes
 npm run build --workspace=apps/hosted   # build the server bundle
 npm run start --workspace=apps/hosted    # listens on 127.0.0.1:8088 (STUDIO_WEB_SERVER_PORT)
 ```

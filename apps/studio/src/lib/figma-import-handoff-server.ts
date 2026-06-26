@@ -23,6 +23,17 @@ type FigmaImportRequest = {
 	siteName?: string;
 };
 
+type ImportSummary = {
+	sourceType: string;
+	selectionScope?: string;
+	pageId?: string;
+	pageName?: string;
+	selectedNodeCount?: number;
+	assetCount?: number;
+	diagnosticCount?: number;
+	handoffId?: string;
+};
+
 type FigmaScenegraphSource = {
 	type: 'figma_scenegraph';
 	scenegraph: Record< string, unknown >;
@@ -262,6 +273,48 @@ function pluginSourceMetadata( source: FigmaPluginSource ): Record< string, unkn
 	};
 }
 
+export function summarizeImportRequest( body: FigmaImportRequest ): ImportSummary {
+	if ( isFigmaPluginSource( body.source ) ) {
+		const intent = isRecord( body.source.intent ) ? body.source.intent : {};
+		const scenegraph = isRecord( body.source.scenegraph ) ? body.source.scenegraph : {};
+		const debug = isRecord( body.source.debug ) ? body.source.debug : {};
+		const debugSummary = isRecord( debug.summary ) ? debug.summary : {};
+		const metadata = isRecord( body.source.source?.metadata ) ? body.source.source.metadata : {};
+		const currentPage = isRecord( metadata.currentPage ) ? metadata.currentPage : {};
+		const selectedNodes = Array.isArray( scenegraph.selectedNodes ) ? scenegraph.selectedNodes : [];
+		const assets = body.source.assets;
+
+		return {
+			sourceType: 'figma-source',
+			selectionScope: typeof intent.scope === 'string' ? intent.scope : undefined,
+			pageId: typeof intent.pageId === 'string' ? intent.pageId : undefined,
+			pageName: typeof currentPage.name === 'string' ? currentPage.name : undefined,
+			selectedNodeCount: selectedNodes.length,
+			assetCount: Array.isArray( assets ) ? assets.length : undefined,
+			diagnosticCount:
+				typeof debugSummary.diagnosticCount === 'number' ? debugSummary.diagnosticCount : undefined,
+			handoffId: typeof debug.handoffId === 'string' ? debug.handoffId : undefined,
+		};
+	}
+
+	if ( isFigmaScenegraphSource( body.source ) ) {
+		return { sourceType: 'figma-scenegraph' };
+	}
+
+	return { sourceType: 'website-artifact' };
+}
+
+function requestIdFromBody( body: FigmaImportRequest, timestamp: number ): string {
+	if ( isFigmaPluginSource( body.source ) && isRecord( body.source.debug ) ) {
+		const handoffId = body.source.debug.handoffId;
+		if ( typeof handoffId === 'string' && handoffId.trim() ) {
+			return handoffId.trim();
+		}
+	}
+
+	return `figma-import-${ timestamp }`;
+}
+
 function pluginTransformOptions( source: FigmaPluginSource ): Record< string, unknown > {
 	const intent = isRecord( source.intent ) ? source.intent : {};
 	const selectedNodeIds = stringArray( intent.selectedNodeIds );
@@ -381,9 +434,10 @@ async function readJsonBody( request: http.IncomingMessage ): Promise< FigmaImpo
 	return parsed as FigmaImportRequest;
 }
 
-async function handleImportRequest( body: FigmaImportRequest ) {
+async function handleImportRequest( body: FigmaImportRequest, requestId: string ) {
 	const timestamp = Date.now();
 	const source = normalizeImportSource( body, timestamp );
+	const importSummary = summarizeImportRequest( body );
 	const siteName = body.siteName?.trim() || sourceTitle( source.payload ) || 'Figma Import';
 	const blueprint: BlueprintV1Declaration = {
 		landingPage: '/',
@@ -446,7 +500,7 @@ async function handleImportRequest( body: FigmaImportRequest ) {
 	autoLoginUrl.searchParams.set( 'redirect_to', details.url );
 	await shell.openExternal( autoLoginUrl.toString() );
 
-	return { siteId: details.id, siteName, sitePath, siteUrl: details.url };
+	return { requestId, siteId: details.id, siteName, sitePath, siteUrl: details.url, importSummary };
 }
 
 export function startFigmaImportHandoffServer(): void {
@@ -467,18 +521,22 @@ export function startFigmaImportHandoffServer(): void {
 				return;
 			}
 
+			let requestId = `figma-import-${ Date.now() }`;
+
 			try {
 				const body = await readJsonBody( request );
-				const result = await handleImportRequest( body );
+				requestId = requestIdFromBody( body, Date.now() );
+				const result = await handleImportRequest( body, requestId );
 				sendJson( response, 200, {
 					success: true,
 					schema: 'wordpress-studio/figma-import-handoff-response/v1',
 					...result,
 				} );
 			} catch ( error ) {
-				console.error( 'Figma import handoff failed:', error );
+				console.error( `Figma import handoff failed (${ requestId }):`, error );
 				sendJson( response, 400, {
 					success: false,
+					requestId,
 					error: error instanceof Error ? error.message : 'Import handoff failed.',
 				} );
 			}

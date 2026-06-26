@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
 	buildStaticSiteImporterPhp,
 	normalizeImportSource,
+	summarizeImportRequest,
 } from 'src/lib/figma-import-handoff-server';
 
 vi.mock( 'electron', () => ( {
@@ -53,6 +54,10 @@ describe( 'buildStaticSiteImporterPhp', () => {
 						route: 'static-site-importer/figma',
 						options: { preserveSourceScenegraph: true },
 					},
+					debug: {
+						handoffId: 'handoff-123',
+						summary: { diagnosticCount: 2 },
+					},
 				},
 			},
 			123
@@ -74,6 +79,48 @@ describe( 'buildStaticSiteImporterPhp', () => {
 			source: 'figma-to-wordpress-studio',
 			file_key: 'abc123',
 			file_name: 'Marketing Site',
+		} );
+	} );
+
+	it( 'summarizes Figma plugin handoff diagnostics for responses and logs', () => {
+		const summary = summarizeImportRequest( {
+			siteName: 'Plugin Import',
+			source: {
+				schema: 'wordpress-studio/figma-source/v1',
+				source: {
+					type: 'figma',
+					metadata: {
+						fileName: 'Marketing Site',
+						currentPage: { id: '0:1', name: 'Landing' },
+					},
+					exportedAt: '2026-01-01T00:00:00.000Z',
+				},
+				intent: {
+					scope: 'document',
+					pageId: '0:1',
+					selectedNodeIds: [ '1:2' ],
+				},
+				scenegraph: {
+					currentPage: { id: '0:1', type: 'PAGE', name: 'Landing', children: [] },
+					selectedNodes: [ { id: '1:2', type: 'FRAME', name: 'Home', children: [] } ],
+				},
+				assets: [ { id: 'asset-1' } ],
+				debug: {
+					handoffId: 'handoff-123',
+					summary: { diagnosticCount: 2 },
+				},
+			},
+		} );
+
+		expect( summary ).toEqual( {
+			sourceType: 'figma-source',
+			selectionScope: 'document',
+			pageId: '0:1',
+			pageName: 'Landing',
+			selectedNodeCount: 1,
+			assetCount: 1,
+			diagnosticCount: 2,
+			handoffId: 'handoff-123',
 		} );
 	} );
 

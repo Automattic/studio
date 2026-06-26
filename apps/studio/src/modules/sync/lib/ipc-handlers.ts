@@ -392,7 +392,7 @@ export async function pushArchive(
 			return {
 				success: false,
 				error: __(
-					'The site archive is too large to upload to WordPress.com right now. Please reduce the size of the site and try again.'
+					'The site archive is too large to upload to WordPress.com right now. Please try again later.'
 				),
 			};
 		}

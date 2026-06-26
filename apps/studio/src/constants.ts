@@ -67,6 +67,7 @@ export const IPC_VOID_HANDLERS = [
 	'popupAppMenu',
 	'setWindowButtonVisibility',
 	'showErrorMessageBox',
+	'showDevelopmentProjectContextMenu',
 	'showSiteContextMenu',
 	'showItemInFolder',
 	'showNotification',

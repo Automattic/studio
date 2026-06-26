@@ -1,3 +1,5 @@
+import type { JsonEvent } from '../ai/json-events';
+
 export type DevelopmentProjectType = 'plugin' | 'theme';
 
 export type DevelopmentProjectSource = 'manual' | 'clone';
@@ -7,6 +9,8 @@ export type WordPressOrgPluginRole = 'contributor' | 'committer';
 export type RemoteDevelopmentPluginLocalState = 'cloned' | 'tracked' | 'missing' | 'not-cloned';
 
 export type DevelopmentProjectVersionBump = 'patch' | 'minor' | 'major';
+export type DevelopmentProjectFileKind = 'text' | 'image';
+export type DevelopmentProjectFileMode = 'code' | 'preview';
 
 export type DevelopmentProjectVersionStateStatus =
 	| 'ready'
@@ -81,6 +85,176 @@ export interface DevelopmentProjectVersionState {
 	releaseBlocked: boolean;
 	messages: string[];
 	nextVersions?: Partial< Record< DevelopmentProjectVersionBump, string > >;
+}
+
+export interface DevelopmentProjectReleaseTag {
+	name: string;
+	path?: string;
+	isCurrent: boolean;
+	isUncommitted: boolean;
+	isTrunk?: boolean;
+}
+
+export interface DevelopmentProjectReleaseTagList {
+	slug: string;
+	svnRootDir?: string;
+	currentRef?: string;
+	trunk?: DevelopmentProjectReleaseTag;
+	tags: DevelopmentProjectReleaseTag[];
+	source: 'local' | 'remote' | 'unknown';
+}
+
+export interface DevelopmentProjectReleaseTagSwitchResult {
+	ref: string;
+	project: DevelopmentProject;
+	tags: DevelopmentProjectReleaseTagList;
+}
+
+export interface DevelopmentProjectFile {
+	path: string;
+	name: string;
+	directory: string;
+	size: number;
+	extension?: string;
+	fileKind: DevelopmentProjectFileKind;
+	mediaType?: string;
+	editable: boolean;
+	previewable: boolean;
+	ignored?: boolean;
+	ignoredBy?: string;
+}
+
+export interface DevelopmentProjectFileContent {
+	path: string;
+	content: string;
+	fileKind: DevelopmentProjectFileKind;
+	mediaType?: string;
+	dataUrl?: string;
+	editable: boolean;
+	previewable: boolean;
+	mode: DevelopmentProjectFileMode;
+	updatedAt?: string;
+}
+
+export interface DevelopmentProjectDirectory {
+	path: string;
+	name: string;
+	parent: string;
+	ignored?: boolean;
+	ignoredBy?: string;
+}
+
+export interface DevelopmentProjectFilesResult {
+	files: DevelopmentProjectFile[];
+	directories: DevelopmentProjectDirectory[];
+	truncated: boolean;
+}
+
+export type DevelopmentProjectValidationSeverity = 'error' | 'warning' | 'info';
+
+export type DevelopmentProjectValidationSource = 'readme' | 'plugin-check';
+
+export interface DevelopmentProjectValidationFinding {
+	source: DevelopmentProjectValidationSource;
+	severity: DevelopmentProjectValidationSeverity;
+	message: string;
+	code?: string;
+	file?: string;
+	line?: number;
+	column?: number;
+}
+
+export interface DevelopmentProjectValidationSummary {
+	error: number;
+	warning: number;
+	info: number;
+	total: number;
+	readme: number;
+	pluginCheck: number;
+}
+
+export interface DevelopmentProjectValidationResult {
+	checkedAt: string;
+	findings: DevelopmentProjectValidationFinding[];
+	summary: DevelopmentProjectValidationSummary;
+	pluginCheckAvailable: boolean;
+	rawPluginCheckOutput?: string;
+}
+
+export type DevelopmentProjectValidationState =
+	| {
+			status: 'idle';
+	  }
+	| {
+			status: 'running';
+			startedAt: string;
+			previousResult?: DevelopmentProjectValidationResult;
+	  }
+	| {
+			status: 'completed';
+			startedAt: string;
+			completedAt: string;
+			result: DevelopmentProjectValidationResult;
+	  }
+	| {
+			status: 'failed';
+			startedAt: string;
+			completedAt: string;
+			error: string;
+			previousResult?: DevelopmentProjectValidationResult;
+	  };
+
+export interface DevelopmentProjectAiPatch {
+	path: string;
+	status: 'created' | 'modified' | 'deleted';
+	beforeContent?: string;
+	afterContent?: string;
+}
+
+export interface DevelopmentProjectAiReviewOptions {
+	prompt: string;
+	selectedPath?: string;
+	includeAllPluginCheckFindings?: boolean;
+}
+
+export interface DevelopmentProjectAiReviewResult {
+	sessionId: string;
+	patches: DevelopmentProjectAiPatch[];
+}
+
+export type DevelopmentProjectAiReviewRunEvent =
+	| {
+			type: 'run.started';
+			timestamp: string;
+	  }
+	| {
+			type: 'run.exited';
+			timestamp: string;
+			status: 'success' | 'error';
+			code: number | null;
+	  };
+
+export interface DevelopmentProjectAiReviewEvent {
+	projectId: string;
+	sessionId: string;
+	event: JsonEvent | DevelopmentProjectAiReviewRunEvent;
+}
+
+export interface DevelopmentProjectChatMessage {
+	id: string;
+	role: 'user' | 'assistant';
+	content: string;
+}
+
+export interface DevelopmentProjectChatState {
+	projectId: string;
+	messages: DevelopmentProjectChatMessage[];
+	updatedAt?: string;
+}
+
+export interface DevelopmentProjectAiPatchResult {
+	files: DevelopmentProjectFile[];
+	directories: DevelopmentProjectDirectory[];
 }
 
 export interface DevelopmentProjectPlaygroundOptions {

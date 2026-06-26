@@ -141,6 +141,11 @@
 	list-style: none;
 }
 
+.autocompletePopup[data-side='bottom'] {
+	top: calc(100% + 4px);
+	bottom: auto;
+}
+
 .input {
 	min-height: 48px;
 	padding: var(--wpds-dimension-padding-xs) 0;

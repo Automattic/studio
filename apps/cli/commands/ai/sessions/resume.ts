@@ -34,6 +34,10 @@ export async function runCommand(
 		displayMessage?: string;
 		inputPayloadPath?: string;
 		json?: boolean;
+		activeSite?: {
+			name: string;
+			path: string;
+		};
 	} = {}
 ): Promise< void > {
 	let resolvedSessionIdOrPrefix = sessionIdOrPrefix?.trim();
@@ -70,7 +74,10 @@ export async function runCommand(
 	// even if the session was flipped to live. Hydrate it explicitly from the
 	// event log instead.
 	const resolvedSite =
-		adapter instanceof JsonAdapter ? resolveActiveSiteFromEntries( session.entries ) : undefined;
+		options.activeSite ??
+		( adapter instanceof JsonAdapter
+			? resolveActiveSiteFromEntries( session.entries )
+			: undefined );
 
 	await runAiCommand( {
 		adapter,
@@ -114,6 +121,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					hidden: true,
 					description: __( 'Path to a JSON input payload for the session turn' ),
 				} )
+				.option( 'path', {
+					type: 'string',
+					hidden: true,
+					description: __( 'Local path to use as the active workspace' ),
+				} )
+				.option( 'site-name', {
+					type: 'string',
+					hidden: true,
+					description: __( 'Display name for the active workspace' ),
+				} )
 				.check( ( argv ) => {
 					if ( argv.json && ! argv.message && ! argv.inputPayload ) {
 						throw new Error( __( '--json requires a message argument' ) );
@@ -129,12 +146,22 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					displayMessage?: string;
 					inputPayload?: string;
 					json?: boolean;
+					path?: string;
+					siteName?: string;
 				};
+				const activeSite =
+					typedArgv.path && typedArgv.siteName
+						? {
+								name: typedArgv.siteName,
+								path: typedArgv.path,
+						  }
+						: undefined;
 				await runCommand( typedArgv.id, {
 					message: typedArgv.message,
 					displayMessage: typedArgv.displayMessage,
 					inputPayloadPath: typedArgv.inputPayload,
 					json: typedArgv.json,
+					activeSite,
 				} );
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {

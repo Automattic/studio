@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import {
 	APP_CONFIG_LOCKFILE_NAME,
+	DEVELOPMENT_CHAT_STATE_DIRECTORY_NAME,
 	PUBLISHING_CONFIG_LOCKFILE_NAME,
 	REMOTE_SESSION_STATE_LOCKFILE_NAME,
 	WORDPRESS_ORG_STORAGE_STATE_LOCKFILE_NAME,
@@ -42,6 +43,25 @@ export function getPublishingConfigPath(): string {
 
 export function getPublishingConfigLockFilePath(): string {
 	return path.join( getConfigDirectory(), PUBLISHING_CONFIG_LOCKFILE_NAME );
+}
+
+export function getDevelopmentChatStateDirectory(): string {
+	return path.join( getConfigDirectory(), DEVELOPMENT_CHAT_STATE_DIRECTORY_NAME );
+}
+
+function getDevelopmentChatStateFileName( projectId: string ): string {
+	return `project-${ encodeURIComponent( projectId ) }.json`;
+}
+
+export function getDevelopmentChatStatePath( projectId: string ): string {
+	return path.join(
+		getDevelopmentChatStateDirectory(),
+		getDevelopmentChatStateFileName( projectId )
+	);
+}
+
+export function getDevelopmentChatStateLockFilePath( projectId: string ): string {
+	return `${ getDevelopmentChatStatePath( projectId ) }.lock`;
 }
 
 export function getDevelopmentProjectsDirectory(): string {

@@ -4,6 +4,7 @@ import motionStyles from '../floating-surface-motion/style.module.css';
 import menuStyles from '../menu/style.module.css';
 import { getSlashCommandMatches } from './slash-autocomplete';
 import styles from './style.module.css';
+import type { SkillSlashCommand } from '@studio/common/ai/slash-commands';
 import type { Dispatch, KeyboardEvent, ReactNode, RefObject, SetStateAction } from 'react';
 
 // Matches the trailing `/token` (at the start of input or right after
@@ -61,6 +62,10 @@ interface UseSlashCommandsParams {
 	textareaRef: RefObject< HTMLTextAreaElement | null >;
 	/** When a preview prompt is showing, the autocomplete stays closed. */
 	previewPrompt: string | null | undefined;
+	/** Side of the textarea where the autocomplete should open. */
+	placement?: 'top' | 'bottom';
+	/** Optional command list for a single composer instance. */
+	commands?: SkillSlashCommand[];
 }
 
 interface SlashCommands {
@@ -96,10 +101,12 @@ export function useSlashCommands( {
 	setValue,
 	textareaRef,
 	previewPrompt,
+	placement = 'top',
+	commands,
 }: UseSlashCommandsParams ): SlashCommands {
 	const { open: slashOpen, matches: slashMatches } = useMemo(
-		() => getSlashCommandMatches( value, previewPrompt ),
-		[ value, previewPrompt ]
+		() => getSlashCommandMatches( value, previewPrompt, commands ),
+		[ value, previewPrompt, commands ]
 	);
 	const [ highlightedIndex, setHighlightedIndex ] = useState( 0 );
 
@@ -207,7 +214,7 @@ export function useSlashCommands( {
 		<ul
 			id={ listboxId }
 			className={ `${ menuStyles.popup } ${ styles.autocompletePopup } ${ motionStyles.motion }` }
-			data-side="top"
+			data-side={ placement }
 			data-align="start"
 			data-starting-style={ presence.status === 'starting' ? '' : undefined }
 			data-ending-style={ presence.status === 'ending' ? '' : undefined }

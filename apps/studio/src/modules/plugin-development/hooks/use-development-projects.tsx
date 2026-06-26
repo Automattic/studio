@@ -11,8 +11,20 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useGetPluginDevelopmentEnabledQuery } from 'src/stores/installed-apps-api';
 import type {
 	DevelopmentProject,
+	DevelopmentProjectAiPatch,
+	DevelopmentProjectAiPatchResult,
+	DevelopmentProjectAiReviewOptions,
+	DevelopmentProjectAiReviewResult,
+	DevelopmentProjectChatMessage,
+	DevelopmentProjectChatState,
+	DevelopmentProjectFileContent,
+	DevelopmentProjectFilesResult,
 	DevelopmentProjectPlaygroundOptions,
 	DevelopmentProjectPlaygroundResult,
+	DevelopmentProjectReleaseTagList,
+	DevelopmentProjectReleaseTagSwitchResult,
+	DevelopmentProjectValidationResult,
+	DevelopmentProjectValidationState,
 	DevelopmentProjectVersionBump,
 	DevelopmentProjectVersionState,
 	RemoteDevelopmentPlugin,
@@ -42,10 +54,48 @@ interface DevelopmentProjectsContext {
 	refreshProject: ( projectId: string ) => Promise< DevelopmentProject >;
 	cloneRemotePlugin: ( slug: string ) => Promise< DevelopmentProject >;
 	getProjectVersionState: ( projectId: string ) => Promise< DevelopmentProjectVersionState >;
+	listProjectFiles: ( projectId: string ) => Promise< DevelopmentProjectFilesResult >;
+	addProjectIgnorePattern: (
+		projectId: string,
+		pattern: string
+	) => Promise< DevelopmentProjectFilesResult >;
+	removeProjectIgnorePattern: (
+		projectId: string,
+		pattern: string
+	) => Promise< DevelopmentProjectFilesResult >;
+	readProjectFile: (
+		projectId: string,
+		relativePath: string
+	) => Promise< DevelopmentProjectFileContent >;
+	writeProjectFile: (
+		projectId: string,
+		relativePath: string,
+		content: string
+	) => Promise< DevelopmentProjectFileContent >;
+	applyAiPatch: (
+		projectId: string,
+		patch: DevelopmentProjectAiPatch
+	) => Promise< DevelopmentProjectAiPatchResult >;
+	runAiReview: (
+		projectId: string,
+		options: DevelopmentProjectAiReviewOptions
+	) => Promise< DevelopmentProjectAiReviewResult >;
+	loadProjectChat: ( projectId: string ) => Promise< DevelopmentProjectChatState >;
+	saveProjectChat: (
+		projectId: string,
+		messages: DevelopmentProjectChatMessage[]
+	) => Promise< DevelopmentProjectChatState >;
+	runProjectValidation: ( projectId: string ) => Promise< DevelopmentProjectValidationResult >;
+	getProjectValidationState: ( projectId: string ) => Promise< DevelopmentProjectValidationState >;
 	bumpProjectVersion: (
 		projectId: string,
 		bump: DevelopmentProjectVersionBump
 	) => Promise< DevelopmentProjectVersionState >;
+	listProjectReleaseTags: ( projectId: string ) => Promise< DevelopmentProjectReleaseTagList >;
+	switchProjectReleaseTag: (
+		projectId: string,
+		tagName: string
+	) => Promise< DevelopmentProjectReleaseTagSwitchResult >;
 	startProjectPlayground: (
 		projectId: string,
 		options?: DevelopmentProjectPlaygroundOptions
@@ -84,7 +134,46 @@ const defaultContext: DevelopmentProjectsContext = {
 	getProjectVersionState: async () => {
 		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
 	},
+	listProjectFiles: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	addProjectIgnorePattern: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	removeProjectIgnorePattern: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	readProjectFile: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	writeProjectFile: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	applyAiPatch: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	runAiReview: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	loadProjectChat: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	saveProjectChat: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	runProjectValidation: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	getProjectValidationState: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
 	bumpProjectVersion: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	listProjectReleaseTags: async () => {
+		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
+	},
+	switchProjectReleaseTag: async () => {
 		throw new Error( 'DevelopmentProjectsProvider is not mounted.' );
 	},
 	startProjectPlayground: async () => {
@@ -285,6 +374,62 @@ export function DevelopmentProjectsProvider( { children }: { children?: ReactNod
 		return getIpcApi().getDevelopmentProjectVersionState( projectId );
 	}, [] );
 
+	const listProjectFiles = useCallback( async ( projectId: string ) => {
+		return getIpcApi().listDevelopmentProjectFiles( projectId );
+	}, [] );
+
+	const addProjectIgnorePattern = useCallback( async ( projectId: string, pattern: string ) => {
+		return getIpcApi().addDevelopmentProjectIgnorePattern( projectId, pattern );
+	}, [] );
+
+	const removeProjectIgnorePattern = useCallback( async ( projectId: string, pattern: string ) => {
+		return getIpcApi().removeDevelopmentProjectIgnorePattern( projectId, pattern );
+	}, [] );
+
+	const readProjectFile = useCallback( async ( projectId: string, relativePath: string ) => {
+		return getIpcApi().readDevelopmentProjectFile( projectId, relativePath );
+	}, [] );
+
+	const writeProjectFile = useCallback(
+		async ( projectId: string, relativePath: string, content: string ) => {
+			return getIpcApi().writeDevelopmentProjectFile( projectId, relativePath, content );
+		},
+		[]
+	);
+
+	const applyAiPatch = useCallback(
+		async ( projectId: string, patch: DevelopmentProjectAiPatch ) => {
+			return getIpcApi().applyDevelopmentProjectAiPatch( projectId, patch );
+		},
+		[]
+	);
+
+	const runAiReview = useCallback(
+		async ( projectId: string, options: DevelopmentProjectAiReviewOptions ) => {
+			return getIpcApi().runDevelopmentProjectAiReview( projectId, options );
+		},
+		[]
+	);
+
+	const loadProjectChat = useCallback( async ( projectId: string ) => {
+		return getIpcApi().loadDevelopmentProjectChat( projectId );
+	}, [] );
+
+	const saveProjectChat = useCallback(
+		async ( projectId: string, messages: DevelopmentProjectChatMessage[] ) => {
+			return getIpcApi().saveDevelopmentProjectChat( projectId, messages );
+		},
+		[]
+	);
+
+	const runProjectValidation = useCallback( async ( projectId: string ) => {
+		return getIpcApi().runDevelopmentProjectValidation( projectId );
+	}, [] );
+
+	const getProjectValidationState = useCallback( async ( projectId: string ) => {
+		return getIpcApi().getDevelopmentProjectValidationState( projectId );
+	}, [] );
+
 	const bumpProjectVersion = useCallback(
 		async ( projectId: string, bump: DevelopmentProjectVersionBump ) => {
 			const result = await getIpcApi().bumpDevelopmentProjectVersion( projectId, bump );
@@ -295,6 +440,24 @@ export function DevelopmentProjectsProvider( { children }: { children?: ReactNod
 			);
 			await reloadRemotePlugins();
 			return result.versionState;
+		},
+		[ reloadRemotePlugins ]
+	);
+
+	const listProjectReleaseTags = useCallback( async ( projectId: string ) => {
+		return getIpcApi().listDevelopmentProjectReleaseTags( projectId );
+	}, [] );
+
+	const switchProjectReleaseTag = useCallback(
+		async ( projectId: string, tagName: string ) => {
+			const result = await getIpcApi().switchDevelopmentProjectReleaseTag( projectId, tagName );
+			setProjects( ( currentProjects ) =>
+				currentProjects.map( ( project ) =>
+					project.id === result.project.id ? result.project : project
+				)
+			);
+			await reloadRemotePlugins();
+			return result;
 		},
 		[ reloadRemotePlugins ]
 	);
@@ -364,7 +527,20 @@ export function DevelopmentProjectsProvider( { children }: { children?: ReactNod
 			refreshProject,
 			cloneRemotePlugin,
 			getProjectVersionState,
+			listProjectFiles,
+			addProjectIgnorePattern,
+			removeProjectIgnorePattern,
+			readProjectFile,
+			writeProjectFile,
+			applyAiPatch,
+			runAiReview,
+			loadProjectChat,
+			saveProjectChat,
+			runProjectValidation,
+			getProjectValidationState,
 			bumpProjectVersion,
+			listProjectReleaseTags,
+			switchProjectReleaseTag,
 			startProjectPlayground,
 		} ),
 		[
@@ -391,7 +567,20 @@ export function DevelopmentProjectsProvider( { children }: { children?: ReactNod
 			refreshProject,
 			cloneRemotePlugin,
 			getProjectVersionState,
+			listProjectFiles,
+			addProjectIgnorePattern,
+			removeProjectIgnorePattern,
+			readProjectFile,
+			writeProjectFile,
+			applyAiPatch,
+			runAiReview,
+			loadProjectChat,
+			saveProjectChat,
+			runProjectValidation,
+			getProjectValidationState,
 			bumpProjectVersion,
+			listProjectReleaseTags,
+			switchProjectReleaseTag,
 			startProjectPlayground,
 		]
 	);

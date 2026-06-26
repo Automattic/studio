@@ -15,6 +15,12 @@
 	--color-frame-theme: #3858e9;
 	--color-frame-theme-hover: #2145e6;
 	--color-frame-code-text: #1d2327;
+	--color-frame-code-comment: #646970;
+	--color-frame-code-keyword: #3858e9;
+	--color-frame-code-string: #008a20;
+	--color-frame-code-variable: #b26200;
+	--color-frame-code-number: #9a6700;
+	--color-frame-code-tag: #7f54b3;
 	--color-frame-running: #008a20;
 	--color-frame-error: #d63638;
 	--color-frame-tab-active: #000;
@@ -36,6 +42,12 @@
 		--color-frame-theme: #6b8aff;
 		--color-frame-theme-hover: #8da6ff;
 		--color-frame-code-text: #e0e0e0;
+		--color-frame-code-comment: #a0a0a0;
+		--color-frame-code-keyword: #8da6ff;
+		--color-frame-code-string: #7ee787;
+		--color-frame-code-variable: #f6c177;
+		--color-frame-code-number: #ffd166;
+		--color-frame-code-tag: #c4b5fd;
 		--color-frame-running: #1ed15a;
 		--color-frame-error: #f87171;
 		--color-frame-tab-active: #fff;

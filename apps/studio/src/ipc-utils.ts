@@ -7,6 +7,7 @@ import { getMainWindow } from 'src/main-window';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
+import type { DevelopmentProjectAiReviewEvent } from '@studio/common/types/publishing';
 import type { AiSessionPlacementUpdatedEvent } from 'src/lib/ai-session-placement';
 
 type SnapshotEventData = {
@@ -44,6 +45,16 @@ export interface IpcEvents {
 	'snapshot-key-value': [ { operationId: crypto.UUID; data: SnapshotKeyValueEventData } ];
 	'snapshot-success': [ { operationId: crypto.UUID } ];
 	'show-whats-new': [ void ];
+	'development-project-context-menu-action': [
+		{
+			action: 'add-ignore' | 'remove-ignore';
+			projectId: string;
+			path: string;
+			kind: 'file' | 'directory';
+			ignoredBy?: string;
+		},
+	];
+	'development-project-ai-review-event': [ DevelopmentProjectAiReviewEvent ];
 	'sync-connect-site': [
 		{
 			remoteSiteId: number;

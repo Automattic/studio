@@ -19,7 +19,8 @@ export interface SlashCommandMatches {
  */
 export function getSlashCommandMatches(
 	value: string,
-	previewPrompt: string | null | undefined
+	previewPrompt: string | null | undefined,
+	commands: SkillSlashCommand[] = AI_SKILL_COMMANDS
 ): SlashCommandMatches {
 	if ( previewPrompt ) {
 		return { open: false, matches: [] };
@@ -29,9 +30,7 @@ export function getSlashCommandMatches(
 		return { open: false, matches: [] };
 	}
 	const query = match[ 1 ].toLowerCase();
-	const matches = AI_SKILL_COMMANDS.filter( ( command ) =>
-		command.name.toLowerCase().includes( query )
-	);
+	const matches = commands.filter( ( command ) => command.name.toLowerCase().includes( query ) );
 	if ( matches.length === 0 ) {
 		return { open: false, matches: [] };
 	}

@@ -162,7 +162,7 @@ export interface StartAgentRunOptions {
 // the write — bounded and one-time, and only meaningful at the max image batch
 // (~12 MB → ~16 MB of base64 JSON). Kept sync to avoid a guard window where two
 // concurrent sends for the same session could both pass the in-flight check.
-function writeInputPayloadFile( payload: StudioAiSessionInputPayload ): {
+export function writeInputPayloadFile( payload: StudioAiSessionInputPayload ): {
 	dir: string;
 	path: string;
 } {
@@ -170,6 +170,52 @@ function writeInputPayloadFile( payload: StudioAiSessionInputPayload ): {
 	const filePath = path.join( dir, 'input.json' );
 	fs.writeFileSync( filePath, JSON.stringify( payload ), { encoding: 'utf8' } );
 	return { dir, path: filePath };
+}
+
+export function buildAgentResumeArgs( {
+	sessionId,
+	prompt,
+	displayMessage,
+	inputPayloadPath,
+	workspacePath,
+	workspaceName,
+}: {
+	sessionId: string;
+	prompt: string;
+	displayMessage?: string;
+	inputPayloadPath?: string;
+	workspacePath?: string;
+	workspaceName?: string;
+} ): string[] {
+	const args = [ 'code', 'sessions', 'resume', sessionId ];
+	if ( inputPayloadPath ) {
+		args.push( '--input-payload', inputPayloadPath );
+	} else {
+		args.push( prompt );
+	}
+	args.push( '--json', '--avoid-telemetry' );
+	if ( displayMessage && ! inputPayloadPath ) {
+		args.push( '--display-message', displayMessage );
+	}
+	if ( workspacePath ) {
+		args.push( '--path', workspacePath );
+	}
+	if ( workspaceName ) {
+		args.push( '--site-name', workspaceName );
+	}
+	return args;
+}
+
+export function getAgentRunForkOptions(): Parameters< typeof fork >[ 2 ] {
+	return {
+		// Agent events arrive over the Node IPC channel (via `process.send`
+		// in the child). stdout/stderr are ignored — the child's
+		// `emitEvent` falls back to stdout only when IPC isn't available.
+		stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
+		execPath: getBundledNodeBinaryPath(),
+		execArgv: [ '--experimental-wasm-jspi' ],
+		env: { ...process.env },
+	};
 }
 
 export function startAgentRun( options: StartAgentRunOptions ): { runId: string } {
@@ -186,25 +232,13 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		images.length > 0 || files.length > 0
 			? writeInputPayloadFile( { prompt, displayMessage, images, files } )
 			: undefined;
-	const args = [ 'code', 'sessions', 'resume', sessionId ];
-	if ( inputPayload ) {
-		args.push( '--input-payload', inputPayload.path );
-	} else {
-		args.push( prompt );
-	}
-	args.push( '--json', '--avoid-telemetry' );
-	if ( displayMessage && ! inputPayload ) {
-		args.push( '--display-message', displayMessage );
-	}
-	const child = fork( cliPath, args, {
-		// Agent events arrive over the Node IPC channel (via `process.send`
-		// in the child). stdout/stderr are ignored — the child's
-		// `emitEvent` falls back to stdout only when IPC isn't available.
-		stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
-		execPath: getBundledNodeBinaryPath(),
-		execArgv: [ '--experimental-wasm-jspi' ],
-		env: { ...process.env },
+	const args = buildAgentResumeArgs( {
+		sessionId,
+		prompt,
+		displayMessage,
+		inputPayloadPath: inputPayload?.path,
 	} );
+	const child = fork( cliPath, args, getAgentRunForkOptions() );
 
 	const run: AgentRun = {
 		runId,

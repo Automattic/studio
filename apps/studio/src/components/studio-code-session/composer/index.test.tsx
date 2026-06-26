@@ -14,6 +14,24 @@ const defaultProps = {
 	entries: [],
 };
 
+function createMemoryStorage(): Storage {
+	const values = new Map< string, string >();
+	return {
+		get length() {
+			return values.size;
+		},
+		clear: vi.fn( () => values.clear() ),
+		getItem: vi.fn( ( key: string ) => values.get( key ) ?? null ),
+		key: vi.fn( ( index: number ) => Array.from( values.keys() )[ index ] ?? null ),
+		removeItem: vi.fn( ( key: string ) => {
+			values.delete( key );
+		} ),
+		setItem: vi.fn( ( key: string, value: string ) => {
+			values.set( key, value );
+		} ),
+	};
+}
+
 function renderComposer( props: Partial< Parameters< typeof Composer >[ 0 ] > = {} ) {
 	const queryClient = new QueryClient();
 	return render(
@@ -25,7 +43,10 @@ function renderComposer( props: Partial< Parameters< typeof Composer >[ 0 ] > = 
 
 describe( 'Composer', () => {
 	beforeEach( () => {
-		localStorage.clear();
+		Object.defineProperty( globalThis, 'localStorage', {
+			value: createMemoryStorage(),
+			configurable: true,
+		} );
 		defaultProps.onSend.mockReset();
 		defaultProps.onInterrupt.mockReset();
 		defaultProps.onSend.mockResolvedValue( undefined );
@@ -104,5 +125,31 @@ describe( 'Composer', () => {
 
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
 		expect( localStorage.getItem( 'studio_code_session_draft:session-1' ) ).toBeNull();
+	} );
+
+	it( 'can place slash-command suggestions below the textarea', () => {
+		renderComposer( { slashCommandPlacement: 'bottom' } );
+
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: '/' },
+		} );
+
+		expect( screen.getByRole( 'listbox', { name: 'Slash commands' } ) ).toHaveAttribute(
+			'data-side',
+			'bottom'
+		);
+	} );
+
+	it( 'can use instance-local slash commands', () => {
+		renderComposer( {
+			slashCommands: [ { name: 'fix-plugin', description: 'Fix Plugin Check errors' } ],
+		} );
+
+		fireEvent.change( screen.getByRole( 'combobox' ), {
+			target: { value: '/' },
+		} );
+
+		expect( screen.getByText( '/fix-plugin' ) ).toBeInTheDocument();
+		expect( screen.queryByText( '/annotate' ) ).not.toBeInTheDocument();
 	} );
 } );

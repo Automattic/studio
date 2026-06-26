@@ -22,6 +22,7 @@ import { useSlashCommands } from './use-slash-commands';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { SkillSlashCommand } from '@studio/common/ai/slash-commands';
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
@@ -67,6 +68,12 @@ interface ComposerProps {
 	// it to the draft, e.g. while hovering an example prompt. Clearing it
 	// restores whatever the user had typed.
 	previewPrompt?: string | null;
+	placeholder?: string;
+	hideModelPicker?: boolean;
+	showMetaUses?: boolean;
+	disabled?: boolean;
+	slashCommandPlacement?: 'top' | 'bottom';
+	slashCommands?: SkillSlashCommand[];
 }
 
 const isMacPlatform =
@@ -145,6 +152,12 @@ export function Composer( {
 	onSwitchSession,
 	draftPrompt,
 	previewPrompt,
+	placeholder,
+	hideModelPicker = false,
+	showMetaUses = true,
+	disabled = false,
+	slashCommandPlacement = 'top',
+	slashCommands,
 }: ComposerProps ) {
 	const draftStorageKey = getDraftStorageKey( sessionId );
 	const [ value, setValue ] = useState( () => loadDraft( draftStorageKey ) );
@@ -200,7 +213,14 @@ export function Composer( {
 
 	// Inline slash-command autocomplete (popup, keyboard nav, ARIA wiring, and
 	// the toolbar "/" toggle). Kept in its own hook so the Composer stays lean.
-	const slash = useSlashCommands( { value, setValue: setDraftValue, textareaRef, previewPrompt } );
+	const slash = useSlashCommands( {
+		value,
+		setValue: setDraftValue,
+		textareaRef,
+		previewPrompt,
+		placement: slashCommandPlacement,
+		commands: slashCommands,
+	} );
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -342,7 +362,9 @@ export function Composer( {
 	}, [ onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
 	const canSend = value.trim().length > 0 || attachments.length > 0;
-	const placeholder = busy
+	const inputPlaceholder = placeholder
+		? placeholder
+		: busy
 		? __( 'Queue a follow-up instruction…' )
 		: __( 'Set your next instruction…' );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
@@ -401,7 +423,7 @@ export function Composer( {
 						<textarea
 							ref={ textareaRef }
 							className={ styles.input }
-							placeholder={ placeholder }
+							placeholder={ inputPlaceholder }
 							value={ previewPrompt ?? value }
 							data-preview={ previewPrompt ? 'true' : 'false' }
 							{ ...slash.comboboxProps }
@@ -423,6 +445,7 @@ export function Composer( {
 								}
 							} }
 							rows={ 2 }
+							disabled={ disabled }
 						/>
 						{ slash.popup }
 					</div>
@@ -454,32 +477,34 @@ export function Composer( {
 							/>
 						</div>
 						<div className={ styles.rightActions }>
-							<Menu.Root modal={ false }>
-								<Menu.Trigger
-									render={
-										<button
-											type="button"
-											className={ styles.pill }
-											aria-label={ __( 'Select model' ) }
+							{ ! hideModelPicker && (
+								<Menu.Root modal={ false }>
+									<Menu.Trigger
+										render={
+											<button
+												type="button"
+												className={ styles.pill }
+												aria-label={ __( 'Select model' ) }
+											>
+												<span>{ getAiModelLabel( model ) }</span>
+												<Icon icon={ chevronDownSmall } size={ 16 } />
+											</button>
+										}
+									/>
+									<Menu.Popup side="top" align="end">
+										<Menu.RadioGroup
+											value={ model }
+											onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
 										>
-											<span>{ getAiModelLabel( model ) }</span>
-											<Icon icon={ chevronDownSmall } size={ 16 } />
-										</button>
-									}
-								/>
-								<Menu.Popup side="top" align="end">
-									<Menu.RadioGroup
-										value={ model }
-										onValueChange={ ( value ) => handleModelChange( value as AiModelId ) }
-									>
-										{ AI_MODELS.map( ( { id, label } ) => (
-											<Menu.RadioItem key={ id } value={ id }>
-												{ label }
-											</Menu.RadioItem>
-										) ) }
-									</Menu.RadioGroup>
-								</Menu.Popup>
-							</Menu.Root>
+											{ AI_MODELS.map( ( { id, label } ) => (
+												<Menu.RadioItem key={ id } value={ id }>
+													{ label }
+												</Menu.RadioItem>
+											) ) }
+										</Menu.RadioGroup>
+									</Menu.Popup>
+								</Menu.Root>
+							) }
 							{ busy ? (
 								<button
 									type="button"
@@ -498,7 +523,7 @@ export function Composer( {
 								type="button"
 								className={ styles.sendButton }
 								onClick={ () => void send() }
-								disabled={ ! canSend }
+								disabled={ disabled || ! canSend }
 								aria-label={ sendAriaLabel }
 							>
 								<Icon icon={ arrowUp } size={ 18 } />
@@ -520,7 +545,7 @@ export function Composer( {
 					{ error || attachmentError ? (
 						<span className={ styles.error }>{ error ?? attachmentError }</span>
 					) : null }
-					<span className={ styles.metaUses }>{ __( 'Uses 1 message' ) }</span>
+					{ showMetaUses && <span className={ styles.metaUses }>{ __( 'Uses 1 message' ) }</span> }
 				</div>
 			</div>
 			<FamilySwitchConfirmDialog

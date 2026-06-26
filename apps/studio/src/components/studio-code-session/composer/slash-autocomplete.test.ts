@@ -15,6 +15,15 @@ describe( 'getSlashCommandMatches', () => {
 		expect( result.matches ).toEqual( AI_SKILL_COMMANDS );
 	} );
 
+	it( 'can use an instance-local command list', () => {
+		const result = getSlashCommandMatches( '/fix', null, [
+			{ name: 'fix-plugin', description: 'Fix Plugin Check errors' },
+		] );
+
+		expect( result.open ).toBe( true );
+		expect( result.matches.map( ( command ) => command.name ) ).toEqual( [ 'fix-plugin' ] );
+	} );
+
 	it( 'filters by case-insensitive substring (including the start)', () => {
 		const result = getSlashCommandMatches( '/an', null );
 		expect( result.open ).toBe( true );

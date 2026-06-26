@@ -15,8 +15,8 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 
-export interface WebConnectorOptions {
-	// Base URL of the Studio Web backend (`apps/hosted`), e.g. http://localhost:8088.
+export interface HostedConnectorOptions {
+	// Base URL of the Studio hosted backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
 }
 
@@ -56,7 +56,7 @@ type ServerEvent =
  * return benign defaults (so mount-time queries don't throw) or throw
  * `WebUnsupportedError` for user-triggered actions.
  */
-export function createWebConnector( { apiBaseUrl }: WebConnectorOptions ): Connector {
+export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ): Connector {
 	// The backend namespaces its API under /api so the SPA's real-path routes
 	// (also /sessions/:id, /sites/:id) can share the same origin.
 	const base = `${ apiBaseUrl.replace( /\/$/, '' ) }/api`;

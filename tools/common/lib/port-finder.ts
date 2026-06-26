@@ -1,6 +1,5 @@
 import http from 'http';
 import net from 'net';
-import { kill as killPort } from 'cross-port-killer';
 
 const basePortOverride = Number( process.env.STUDIO_BASE_PORT );
 const DEFAULT_PORT =
@@ -8,7 +7,7 @@ const DEFAULT_PORT =
 
 let searchPort = DEFAULT_PORT;
 let openPort: number | null = null;
-let unavailablePorts: Array< number > = [];
+const unavailablePorts: Array< number > = [];
 
 function isPortFree( portToCheck: number ): Promise< boolean > {
 	return new Promise( ( resolve ) => {
@@ -67,38 +66,7 @@ async function getOpenPort( portToStart?: number ): Promise< number > {
 	return port;
 }
 
-function setPort( port: number ): void {
-	openPort = port;
-}
-
-function releasePort( port?: number ): void {
-	if ( port && unavailablePorts.includes( port ) ) {
-		killPort( port )
-			.then( () => {
-				console.log( `Killed processes using port ${ port }` );
-			} )
-			.catch( ( err ) => {
-				console.error( `Failed to kill processes using port ${ port }: ${ err.message }` );
-			} )
-			.finally( () => {
-				// Ensure port finder cycles through newly reclaimed ports by removing
-				// from unavailablePorts list and resetting openPort.
-				unavailablePorts = unavailablePorts.filter(
-					( unavailablePort ) => unavailablePort !== port
-				);
-				openPort = DEFAULT_PORT;
-			} );
-	}
-}
-
-function isPortAvailable( portToCheck: number ): Promise< boolean > {
-	return isPortFree( portToCheck );
-}
-
 export const portFinder = {
 	getOpenPort,
-	setPort,
 	addUnavailablePort,
-	releasePort,
-	isPortAvailable,
 };

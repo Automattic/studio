@@ -26,7 +26,7 @@ import type { AppDispatch, RootState } from 'src/stores';
 import type { SyncOption } from 'src/types';
 import type { WPCOM } from 'wpcom/types';
 
-async function updateSiteTimestamp({
+async function updateSiteTimestamp( {
 	siteId,
 	localSiteId,
 	type,
@@ -34,23 +34,23 @@ async function updateSiteTimestamp({
 	siteId: number;
 	localSiteId: string;
 	type: 'pull' | 'push';
-}) {
-	const connectedSites = await getIpcApi().getConnectedWpcomSites(localSiteId);
+} ) {
+	const connectedSites = await getIpcApi().getConnectedWpcomSites( localSiteId );
 	const connectedSite = connectedSites.find(
-		({ id, localSiteId: siteLocalId }) => siteId === id && localSiteId === siteLocalId
+		( { id, localSiteId: siteLocalId } ) => siteId === id && localSiteId === siteLocalId
 	);
 
-	if (!connectedSite) {
+	if ( ! connectedSite ) {
 		return;
 	}
 
 	const timestampKey = type === 'pull' ? 'lastPullTimestamp' : 'lastPushTimestamp';
-	await getIpcApi().updateConnectedWpcomSites([
+	await getIpcApi().updateConnectedWpcomSites( [
 		{
 			...connectedSite,
-			[timestampKey]: new Date().toISOString(),
+			[ timestampKey ]: new Date().toISOString(),
 		},
-	]);
+	] );
 }
 
 export type SyncBackupState = {
@@ -67,7 +67,7 @@ export type PullSiteOptions = {
 	include_path_list?: string[];
 };
 
-export type PullStates = Record<string, SyncBackupState>;
+export type PullStates = Record< string, SyncBackupState >;
 
 export type SyncPushState = {
 	remoteSiteId: number;
@@ -77,50 +77,50 @@ export type SyncPushState = {
 	uploadProgress?: number;
 };
 
-export type PushStates = Record<string, SyncPushState>;
+export type PushStates = Record< string, SyncPushState >;
 
 // Factory functions for progress info (canonical definitions, also used by useSyncStatesProgressInfo hook)
 export function getPushStatesProgressInfo(): Record<
-	PushStateProgressInfo['key'],
+	PushStateProgressInfo[ 'key' ],
 	PushStateProgressInfo
 > {
 	return {
-		creatingBackup: { key: 'creatingBackup', progress: 20, message: __('Creating backup…') },
-		uploading: { key: 'uploading', progress: 40, message: __('Uploading site…') },
-		uploadingPaused: { key: 'uploadingPaused', progress: 45, message: __('Uploading paused') },
+		creatingBackup: { key: 'creatingBackup', progress: 20, message: __( 'Creating backup…' ) },
+		uploading: { key: 'uploading', progress: 40, message: __( 'Uploading site…' ) },
+		uploadingPaused: { key: 'uploadingPaused', progress: 45, message: __( 'Uploading paused' ) },
 		uploadingManuallyPaused: {
 			key: 'uploadingManuallyPaused',
 			progress: 45,
-			message: __('Uploading paused'),
+			message: __( 'Uploading paused' ),
 		},
 		creatingRemoteBackup: {
 			key: 'creatingRemoteBackup',
 			progress: 50,
-			message: __('Backing up remote site…'),
+			message: __( 'Backing up remote site…' ),
 		},
-		applyingChanges: { key: 'applyingChanges', progress: 60, message: __('Applying changes…') },
-		finishing: { key: 'finishing', progress: 99, message: __('Almost there…') },
-		finished: { key: 'finished', progress: 100, message: __('Push complete') },
-		failed: { key: 'failed', progress: 100, message: __('Error pushing changes') },
-		cancelled: { key: 'cancelled', progress: 0, message: __('Cancelled') },
+		applyingChanges: { key: 'applyingChanges', progress: 60, message: __( 'Applying changes…' ) },
+		finishing: { key: 'finishing', progress: 99, message: __( 'Almost there…' ) },
+		finished: { key: 'finished', progress: 100, message: __( 'Push complete' ) },
+		failed: { key: 'failed', progress: 100, message: __( 'Error pushing changes' ) },
+		cancelled: { key: 'cancelled', progress: 0, message: __( 'Cancelled' ) },
 	};
 }
 
 export function getPullStatesProgressInfo(): Record<
-	PullStateProgressInfo['key'],
+	PullStateProgressInfo[ 'key' ],
 	PullStateProgressInfo
 > {
 	return {
 		'in-progress': {
 			key: 'in-progress',
 			progress: 30,
-			message: __('Initializing remote backup…'),
+			message: __( 'Initializing remote backup…' ),
 		},
-		downloading: { key: 'downloading', progress: 60, message: __('Downloading backup…') },
-		importing: { key: 'importing', progress: 80, message: __('Importing backup…') },
-		finished: { key: 'finished', progress: 100, message: __('Pull complete') },
-		failed: { key: 'failed', progress: 100, message: __('Error pulling changes') },
-		cancelled: { key: 'cancelled', progress: 0, message: __('Cancelled') },
+		downloading: { key: 'downloading', progress: 60, message: __( 'Downloading backup…' ) },
+		importing: { key: 'importing', progress: 80, message: __( 'Importing backup…' ) },
+		finished: { key: 'finished', progress: 100, message: __( 'Pull complete' ) },
+		failed: { key: 'failed', progress: 100, message: __( 'Error pulling changes' ) },
+		cancelled: { key: 'cancelled', progress: 0, message: __( 'Cancelled' ) },
 	};
 }
 
@@ -137,13 +137,13 @@ const initialState: SyncOperationsState = {
 type UpdatePullStatePayload = {
 	selectedSiteId: string;
 	remoteSiteId: number;
-	state: Partial<SyncBackupState>;
+	state: Partial< SyncBackupState >;
 };
 
 type UpdatePushStatePayload = {
 	selectedSiteId: string;
 	remoteSiteId: number;
-	state: Partial<SyncPushState>;
+	state: Partial< SyncPushState >;
 };
 
 type ClearStatePayload = {
@@ -151,77 +151,77 @@ type ClearStatePayload = {
 	remoteSiteId: number;
 };
 
-const syncOperationsSlice = createSlice({
+const syncOperationsSlice = createSlice( {
 	name: 'syncOperations',
 	initialState,
 	reducers: {
-		updatePullState: (state, action: PayloadAction<UpdatePullStatePayload>) => {
+		updatePullState: ( state, action: PayloadAction< UpdatePullStatePayload > ) => {
 			const { selectedSiteId, remoteSiteId, state: updateState } = action.payload;
-			const stateId = generateStateId(selectedSiteId, remoteSiteId);
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
 
-			state.pullStates[stateId] = {
-				...state.pullStates[stateId],
+			state.pullStates[ stateId ] = {
+				...state.pullStates[ stateId ],
 				...updateState,
 				remoteSiteId,
 			};
 		},
 
-		clearPullState: (state, action: PayloadAction<ClearStatePayload>) => {
+		clearPullState: ( state, action: PayloadAction< ClearStatePayload > ) => {
 			const { selectedSiteId, remoteSiteId } = action.payload;
-			const stateId = generateStateId(selectedSiteId, remoteSiteId);
-			delete state.pullStates[stateId];
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			delete state.pullStates[ stateId ];
 		},
 
-		updatePushState: (state, action: PayloadAction<UpdatePushStatePayload>) => {
+		updatePushState: ( state, action: PayloadAction< UpdatePushStatePayload > ) => {
 			const { selectedSiteId, remoteSiteId, state: updateState } = action.payload;
-			const stateId = generateStateId(selectedSiteId, remoteSiteId);
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
 
-			state.pushStates[stateId] = {
-				...state.pushStates[stateId],
+			state.pushStates[ stateId ] = {
+				...state.pushStates[ stateId ],
 				...updateState,
 				remoteSiteId,
 			};
 		},
 
-		clearPushState: (state, action: PayloadAction<ClearStatePayload>) => {
+		clearPushState: ( state, action: PayloadAction< ClearStatePayload > ) => {
 			const { selectedSiteId, remoteSiteId } = action.payload;
-			const stateId = generateStateId(selectedSiteId, remoteSiteId);
-			delete state.pushStates[stateId];
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			delete state.pushStates[ stateId ];
 		},
 	},
-	extraReducers: (builder) => {
+	extraReducers: ( builder ) => {
 		builder
-			.addCase(userLoggedOut, () => initialState)
-			.addCase(pushSiteThunk.rejected, (state, action) => {
+			.addCase( userLoggedOut, () => initialState )
+			.addCase( pushSiteThunk.rejected, ( state, action ) => {
 				const { connectedSite, selectedSite } = action.meta.arg;
-				const stateId = generateStateId(selectedSite.id, connectedSite.id);
-				if (!action.meta.aborted && state.pushStates[stateId]) {
-					state.pushStates[stateId].status = getPushStatesProgressInfo().failed;
+				const stateId = generateStateId( selectedSite.id, connectedSite.id );
+				if ( ! action.meta.aborted && state.pushStates[ stateId ] ) {
+					state.pushStates[ stateId ].status = getPushStatesProgressInfo().failed;
 				}
-			})
-			.addCase(pollPushProgressThunk.rejected, (state, action) => {
+			} )
+			.addCase( pollPushProgressThunk.rejected, ( state, action ) => {
 				const { remoteSiteId, selectedSiteId } = action.meta.arg;
-				const stateId = generateStateId(selectedSiteId, remoteSiteId);
-				if (!action.meta.aborted && state.pushStates[stateId]) {
-					state.pushStates[stateId].status = getPushStatesProgressInfo().failed;
+				const stateId = generateStateId( selectedSiteId, remoteSiteId );
+				if ( ! action.meta.aborted && state.pushStates[ stateId ] ) {
+					state.pushStates[ stateId ].status = getPushStatesProgressInfo().failed;
 				}
-			})
-			.addCase(pullSiteThunk.rejected, (state, action) => {
+			} )
+			.addCase( pullSiteThunk.rejected, ( state, action ) => {
 				const { connectedSite, selectedSite } = action.meta.arg;
-				const stateId = generateStateId(selectedSite.id, connectedSite.id);
-				if (!action.meta.aborted && state.pullStates[stateId]) {
-					state.pullStates[stateId].status = getPullStatesProgressInfo().failed;
+				const stateId = generateStateId( selectedSite.id, connectedSite.id );
+				if ( ! action.meta.aborted && state.pullStates[ stateId ] ) {
+					state.pullStates[ stateId ].status = getPullStatesProgressInfo().failed;
 				}
-			})
-			.addCase(pollPullBackupThunk.rejected, (state, action) => {
+			} )
+			.addCase( pollPullBackupThunk.rejected, ( state, action ) => {
 				const { remoteSiteId, selectedSiteId } = action.meta.arg;
-				const stateId = generateStateId(selectedSiteId, remoteSiteId);
-				if (!action.meta.aborted && state.pullStates[stateId]) {
-					state.pullStates[stateId].status = getPullStatesProgressInfo().failed;
+				const stateId = generateStateId( selectedSiteId, remoteSiteId );
+				if ( ! action.meta.aborted && state.pullStates[ stateId ] ) {
+					state.pullStates[ stateId ].status = getPullStatesProgressInfo().failed;
 				}
-			});
+			} );
 	},
-});
+} );
 
 export const syncOperationsActions = syncOperationsSlice.actions;
 export const syncOperationsReducer = syncOperationsSlice.reducer;
@@ -237,37 +237,37 @@ export const syncOperationsReducer = syncOperationsSlice.reducer;
 const UPLOADING_BASE_PROGRESS = 40;
 const CREATING_REMOTE_BACKUP_PROGRESS = 50;
 
-window.ipcListener.subscribe('sync-upload-network-paused', (_event, payload) => {
+window.ipcListener.subscribe( 'sync-upload-network-paused', ( _event, payload ) => {
 	store.dispatch(
-		syncOperationsActions.updatePushState({
+		syncOperationsActions.updatePushState( {
 			selectedSiteId: payload.selectedSiteId,
 			remoteSiteId: payload.remoteSiteId,
 			state: {
 				status: getPushStatesProgressInfo().uploadingPaused,
 			},
-		})
+		} )
 	);
-});
+} );
 
-window.ipcListener.subscribe('sync-upload-manually-paused', (_event, payload) => {
+window.ipcListener.subscribe( 'sync-upload-manually-paused', ( _event, payload ) => {
 	store.dispatch(
-		syncOperationsActions.updatePushState({
+		syncOperationsActions.updatePushState( {
 			selectedSiteId: payload.selectedSiteId,
 			remoteSiteId: payload.remoteSiteId,
 			state: {
 				status: getPushStatesProgressInfo().uploadingManuallyPaused,
 			},
-		})
+		} )
 	);
-});
+} );
 
-window.ipcListener.subscribe('sync-upload-progress', (_event, payload) => {
-	const uploadProgress = Math.max(0, Math.min(100, payload.progress));
+window.ipcListener.subscribe( 'sync-upload-progress', ( _event, payload ) => {
+	const uploadProgress = Math.max( 0, Math.min( 100, payload.progress ) );
 	const uploadRange = CREATING_REMOTE_BACKUP_PROGRESS - UPLOADING_BASE_PROGRESS; // 10
-	const overallProgress = UPLOADING_BASE_PROGRESS + (uploadProgress / 100) * uploadRange;
+	const overallProgress = UPLOADING_BASE_PROGRESS + ( uploadProgress / 100 ) * uploadRange;
 
 	store.dispatch(
-		syncOperationsActions.updatePushState({
+		syncOperationsActions.updatePushState( {
 			selectedSiteId: payload.selectedSiteId,
 			remoteSiteId: payload.remoteSiteId,
 			state: {
@@ -277,34 +277,34 @@ window.ipcListener.subscribe('sync-upload-progress', (_event, payload) => {
 					progress: overallProgress,
 				},
 			},
-		})
+		} )
 	);
-});
+} );
 
-window.ipcListener.subscribe('sync-upload-resumed', (_event, payload) => {
+window.ipcListener.subscribe( 'sync-upload-resumed', ( _event, payload ) => {
 	store.dispatch(
-		syncOperationsActions.updatePushState({
+		syncOperationsActions.updatePushState( {
 			selectedSiteId: payload.selectedSiteId,
 			remoteSiteId: payload.remoteSiteId,
 			state: {
 				status: getPushStatesProgressInfo().uploading,
 			},
-		})
+		} )
 	);
-});
+} );
 
 // Poller infrastructure — manages AbortControllers for push/pull polling loops
-const PUSH_POLLERS = new Map<string, AbortController>();
-const PULL_POLLERS = new Map<string, AbortController>();
+const PUSH_POLLERS = new Map< string, AbortController >();
+const PULL_POLLERS = new Map< string, AbortController >();
 
-export function stopPushPoller(stateId: string) {
-	PUSH_POLLERS.get(stateId)?.abort();
-	PUSH_POLLERS.delete(stateId);
+export function stopPushPoller( stateId: string ) {
+	PUSH_POLLERS.get( stateId )?.abort();
+	PUSH_POLLERS.delete( stateId );
 }
 
-export function stopPullPoller(stateId: string) {
-	PULL_POLLERS.get(stateId)?.abort();
-	PULL_POLLERS.delete(stateId);
+export function stopPullPoller( stateId: string ) {
+	PULL_POLLERS.get( stateId )?.abort();
+	PULL_POLLERS.delete( stateId );
 }
 
 // Aborts every in-flight push/pull (pollers, push upload abort callbacks, and
@@ -312,117 +312,117 @@ export function stopPullPoller(stateId: string) {
 // updates. Use from the userLoggedOut listener; rely on the slice's
 // addCase(userLoggedOut) for state cleanup.
 export function abortAllSyncOperations() {
-	const operationIds = new Set<string>([
+	const operationIds = new Set< string >( [
 		...PUSH_POLLERS.keys(),
 		...PULL_POLLERS.keys(),
 		...PUSH_SITE_ABORT_CALLBACKS.keys(),
-	]);
+	] );
 
-	for (const operationId of operationIds) {
-		stopPushPoller(operationId);
-		stopPullPoller(operationId);
-		PUSH_SITE_ABORT_CALLBACKS.get(operationId)?.();
-		getIpcApi().cancelSyncOperation(operationId);
+	for ( const operationId of operationIds ) {
+		stopPushPoller( operationId );
+		stopPullPoller( operationId );
+		PUSH_SITE_ABORT_CALLBACKS.get( operationId )?.();
+		getIpcApi().cancelSyncOperation( operationId );
 	}
 	PUSH_SITE_ABORT_CALLBACKS.clear();
 }
 
-const PUSH_POLLING_KEYS = ['creatingRemoteBackup', 'applyingChanges', 'finishing'];
+const PUSH_POLLING_KEYS = [ 'creatingRemoteBackup', 'applyingChanges', 'finishing' ];
 const SYNC_POLLING_INTERVAL = 3000;
 
-function isPushPollable(selectedSiteId: string, remoteSiteId: number) {
+function isPushPollable( selectedSiteId: string, remoteSiteId: number ) {
 	const pushState = syncOperationsSelectors.selectPushState(
 		selectedSiteId,
 		remoteSiteId
-	)(store.getState());
-	return pushState && PUSH_POLLING_KEYS.includes(pushState.status.key);
+	)( store.getState() );
+	return pushState && PUSH_POLLING_KEYS.includes( pushState.status.key );
 }
 
-function isPullPollable(selectedSiteId: string, remoteSiteId: number) {
+function isPullPollable( selectedSiteId: string, remoteSiteId: number ) {
 	const pullState = syncOperationsSelectors.selectPullState(
 		selectedSiteId,
 		remoteSiteId
-	)(store.getState());
-	return pullState?.status.key === 'in-progress' && !!pullState.backupId;
+	)( store.getState() );
+	return pullState?.status.key === 'in-progress' && !! pullState.backupId;
 }
 
-async function startPushPoller(selectedSiteId: string, remoteSiteId: number) {
-	const stateId = generateStateId(selectedSiteId, remoteSiteId);
-	if (PUSH_POLLERS.has(stateId)) {
+async function startPushPoller( selectedSiteId: string, remoteSiteId: number ) {
+	const stateId = generateStateId( selectedSiteId, remoteSiteId );
+	if ( PUSH_POLLERS.has( stateId ) ) {
 		return;
 	}
 
 	const controller = new AbortController();
-	PUSH_POLLERS.set(stateId, controller);
+	PUSH_POLLERS.set( stateId, controller );
 
 	try {
-		while (!controller.signal.aborted) {
+		while ( ! controller.signal.aborted ) {
 			const client = getWpcomClient();
-			if (!client) {
+			if ( ! client ) {
 				break;
 			}
 
 			await store.dispatch(
-				pollPushProgressThunk({
+				pollPushProgressThunk( {
 					client,
 					signal: controller.signal,
 					selectedSiteId,
 					remoteSiteId,
-				})
+				} )
 			);
 
-			if (controller.signal.aborted || !isPushPollable(selectedSiteId, remoteSiteId)) {
+			if ( controller.signal.aborted || ! isPushPollable( selectedSiteId, remoteSiteId ) ) {
 				break;
 			}
 
-			await new Promise((resolve) => setTimeout(resolve, SYNC_POLLING_INTERVAL));
+			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
 		}
 	} finally {
-		if (PUSH_POLLERS.get(stateId) === controller) {
-			PUSH_POLLERS.delete(stateId);
+		if ( PUSH_POLLERS.get( stateId ) === controller ) {
+			PUSH_POLLERS.delete( stateId );
 		}
 	}
 }
 
-async function startPullPoller(selectedSiteId: string, remoteSiteId: number) {
-	const stateId = generateStateId(selectedSiteId, remoteSiteId);
-	if (PULL_POLLERS.has(stateId)) {
+async function startPullPoller( selectedSiteId: string, remoteSiteId: number ) {
+	const stateId = generateStateId( selectedSiteId, remoteSiteId );
+	if ( PULL_POLLERS.has( stateId ) ) {
 		return;
 	}
 
 	const controller = new AbortController();
-	PULL_POLLERS.set(stateId, controller);
+	PULL_POLLERS.set( stateId, controller );
 
 	try {
-		while (!controller.signal.aborted) {
+		while ( ! controller.signal.aborted ) {
 			const client = getWpcomClient();
-			if (!client) {
+			if ( ! client ) {
 				break;
 			}
 
 			await store.dispatch(
-				pollPullBackupThunk({
+				pollPullBackupThunk( {
 					client,
 					signal: controller.signal,
 					selectedSiteId,
 					remoteSiteId,
-				})
+				} )
 			);
 
-			if (controller.signal.aborted || !isPullPollable(selectedSiteId, remoteSiteId)) {
+			if ( controller.signal.aborted || ! isPullPollable( selectedSiteId, remoteSiteId ) ) {
 				break;
 			}
 
-			await new Promise((resolve) => setTimeout(resolve, SYNC_POLLING_INTERVAL));
+			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLLING_INTERVAL ) );
 		}
 	} finally {
-		if (PULL_POLLERS.get(stateId) === controller) {
-			PULL_POLLERS.delete(stateId);
+		if ( PULL_POLLERS.get( stateId ) === controller ) {
+			PULL_POLLERS.delete( stateId );
 		}
 	}
 }
 
-const createTypedAsyncThunk = createAsyncThunk.withTypes<{
+const createTypedAsyncThunk = createAsyncThunk.withTypes< {
 	state: RootState;
 	dispatch: AppDispatch;
 	rejectValue: {
@@ -431,7 +431,7 @@ const createTypedAsyncThunk = createAsyncThunk.withTypes<{
 		showOpenLogs?: boolean;
 		error?: unknown;
 	};
-}>();
+} >();
 
 type CancelOperationPayload = {
 	selectedSiteId: string;
@@ -440,57 +440,57 @@ type CancelOperationPayload = {
 
 const cancelPushThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPush',
-	async ({ selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch }) => {
-		const operationId = generateStateId(selectedSiteId, remoteSiteId);
+	async ( { selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch } ) => {
+		const operationId = generateStateId( selectedSiteId, remoteSiteId );
 
-		stopPushPoller(operationId);
-		PUSH_SITE_ABORT_CALLBACKS.get(operationId)?.();
-		getIpcApi().cancelSyncOperation(operationId);
+		stopPushPoller( operationId );
+		PUSH_SITE_ABORT_CALLBACKS.get( operationId )?.();
+		getIpcApi().cancelSyncOperation( operationId );
 
 		dispatch(
-			syncOperationsActions.updatePushState({
+			syncOperationsActions.updatePushState( {
 				selectedSiteId,
 				remoteSiteId,
 				state: { status: getPushStatesProgressInfo().cancelled },
-			})
+			} )
 		);
 
-		getIpcApi().showNotification({
-			title: __('Push cancelled'),
-			body: __('The push operation has been cancelled.'),
-		});
+		getIpcApi().showNotification( {
+			title: __( 'Push cancelled' ),
+			body: __( 'The push operation has been cancelled.' ),
+		} );
 	}
 );
 
 const cancelPullThunk = createTypedAsyncThunk(
 	'syncOperations/cancelPull',
-	async ({ selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch }) => {
-		const operationId = generateStateId(selectedSiteId, remoteSiteId);
-		stopPullPoller(operationId);
-		getIpcApi().cancelSyncOperation(operationId);
+	async ( { selectedSiteId, remoteSiteId }: CancelOperationPayload, { dispatch } ) => {
+		const operationId = generateStateId( selectedSiteId, remoteSiteId );
+		stopPullPoller( operationId );
+		getIpcApi().cancelSyncOperation( operationId );
 
 		dispatch(
-			syncOperationsActions.updatePullState({
+			syncOperationsActions.updatePullState( {
 				selectedSiteId,
 				remoteSiteId,
 				state: { status: getPullStatesProgressInfo().cancelled },
-			})
+			} )
 		);
 
 		getIpcApi()
-			.removeSyncBackup(remoteSiteId)
-			.catch(() => {
+			.removeSyncBackup( remoteSiteId )
+			.catch( () => {
 				// Ignore errors if file doesn't exist
-			});
+			} );
 
-		getIpcApi().showNotification({
-			title: __('Pull cancelled'),
-			body: __('The pull operation has been cancelled.'),
-		});
+		getIpcApi().showNotification( {
+			title: __( 'Pull cancelled' ),
+			body: __( 'The pull operation has been cancelled.' ),
+		} );
 	}
 );
 
-const getErrorFromResponse = (error: unknown): string => {
+const getErrorFromResponse = ( error: unknown ): string => {
 	if (
 		typeof error === 'object' &&
 		error !== null &&
@@ -502,10 +502,10 @@ const getErrorFromResponse = (error: unknown): string => {
 		// connect error.
 		return error.error;
 	}
-	return __('Studio was unable to connect to WordPress.com. Please try again.');
+	return __( 'Studio was unable to connect to WordPress.com. Please try again.' );
 };
 
-const PUSH_SITE_ABORT_CALLBACKS: Map<string, (reason?: string | undefined) => void> = new Map();
+const PUSH_SITE_ABORT_CALLBACKS: Map< string, ( reason?: string | undefined ) => void > = new Map();
 
 type PushSitePayload = {
 	connectedSite: SyncSite;
@@ -516,7 +516,7 @@ type PushSitePayload = {
 	};
 };
 
-const pushSiteThunk = createTypedAsyncThunk<void, PushSitePayload>(
+const pushSiteThunk = createTypedAsyncThunk< void, PushSitePayload >(
 	'syncOperations/pushSite',
 	async (
 		{ connectedSite, selectedSite, options },
@@ -525,13 +525,13 @@ const pushSiteThunk = createTypedAsyncThunk<void, PushSitePayload>(
 		const pushStatesProgressInfo = getPushStatesProgressInfo();
 		const remoteSiteId = connectedSite.id;
 		const remoteSiteUrl = connectedSite.url;
-		const operationId = generateStateId(selectedSite.id, remoteSiteId);
+		const operationId = generateStateId( selectedSite.id, remoteSiteId );
 
 		try {
-			PUSH_SITE_ABORT_CALLBACKS.set(operationId, abort);
+			PUSH_SITE_ABORT_CALLBACKS.set( operationId, abort );
 
 			dispatch(
-				syncOperationsActions.updatePushState({
+				syncOperationsActions.updatePushState( {
 					selectedSiteId: selectedSite.id,
 					remoteSiteId,
 					state: {
@@ -539,7 +539,7 @@ const pushSiteThunk = createTypedAsyncThunk<void, PushSitePayload>(
 						selectedSite,
 						remoteSiteUrl,
 					},
-				})
+				} )
 			);
 
 			const { archivePath, archiveSizeInBytes } = await getIpcApi().exportSiteForPush(
@@ -552,21 +552,21 @@ const pushSiteThunk = createTypedAsyncThunk<void, PushSitePayload>(
 			);
 			signal.throwIfAborted();
 
-			if (archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES) {
-				return rejectWithValue({
-					title: sprintf(__('Error pushing to %s'), connectedSite.name),
+			if ( archiveSizeInBytes > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+				return rejectWithValue( {
+					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
 					message: __(
 						'The site is too large to push. Please reduce the size of the site and try again.'
 					),
-				});
+				} );
 			}
 
 			dispatch(
-				syncOperationsActions.updatePushState({
+				syncOperationsActions.updatePushState( {
 					selectedSiteId: selectedSite.id,
 					remoteSiteId,
 					state: { status: pushStatesProgressInfo.uploading },
-				})
+				} )
 			);
 
 			const response = await getIpcApi().pushArchive(
@@ -578,9 +578,9 @@ const pushSiteThunk = createTypedAsyncThunk<void, PushSitePayload>(
 			);
 			signal.throwIfAborted();
 
-			if (response.success) {
+			if ( response.success ) {
 				dispatch(
-					syncOperationsActions.updatePushState({
+					syncOperationsActions.updatePushState( {
 						selectedSiteId: selectedSite.id,
 						remoteSiteId,
 						state: {
@@ -588,26 +588,26 @@ const pushSiteThunk = createTypedAsyncThunk<void, PushSitePayload>(
 							selectedSite,
 							remoteSiteUrl,
 						},
-					})
+					} )
 				);
-				void startPushPoller(selectedSite.id, remoteSiteId);
+				void startPushPoller( selectedSite.id, remoteSiteId );
 			} else {
-				return rejectWithValue({
-					title: sprintf(__('Error pushing to %s'), connectedSite.name),
-					message: getErrorFromResponse(response),
-				});
+				return rejectWithValue( {
+					title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+					message: getErrorFromResponse( response ),
+				} );
 			}
-		} catch (error) {
-			if (signal.aborted) {
+		} catch ( error ) {
+			if ( signal.aborted ) {
 				return;
 			}
-			Sentry.captureException(error);
-			return rejectWithValue({
-				title: sprintf(__('Error pushing to %s'), connectedSite.name),
-				message: getErrorFromResponse(error),
-			});
+			Sentry.captureException( error );
+			return rejectWithValue( {
+				title: sprintf( __( 'Error pushing to %s' ), connectedSite.name ),
+				message: getErrorFromResponse( error ),
+			} );
 		} finally {
-			PUSH_SITE_ABORT_CALLBACKS.delete(operationId);
+			PUSH_SITE_ABORT_CALLBACKS.delete( operationId );
 		}
 	}
 );
@@ -628,7 +628,7 @@ type PullSiteResult = {
 	remoteSiteId: number;
 };
 
-export const pullSiteThunk = createTypedAsyncThunk<PullSiteResult, PullSitePayload>(
+export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayload >(
 	'syncOperations/pullSite',
 	async (
 		{ client, connectedSite, selectedSite, options },
@@ -639,17 +639,17 @@ export const pullSiteThunk = createTypedAsyncThunk<PullSiteResult, PullSitePaylo
 		const remoteSiteUrl = connectedSite.url;
 
 		dispatch(
-			syncOperationsActions.updatePullState({
+			syncOperationsActions.updatePullState( {
 				selectedSiteId: selectedSite.id,
 				remoteSiteId,
 				state: {
 					backupId: null,
-					status: pullStatesProgressInfo['in-progress'],
+					status: pullStatesProgressInfo[ 'in-progress' ],
 					downloadUrl: null,
 					remoteSiteUrl,
 					selectedSite,
 				},
-			})
+			} )
 		);
 
 		try {
@@ -662,14 +662,14 @@ export const pullSiteThunk = createTypedAsyncThunk<PullSiteResult, PullSitePaylo
 				include_path_list: options.include_path_list,
 			};
 
-			const rawResponse = await client.req.post({
-				path: `/sites/${remoteSiteId}/studio-app/sync/backup`,
+			const rawResponse = await client.req.post( {
+				path: `/sites/${ remoteSiteId }/studio-app/sync/backup`,
 				apiNamespace: 'wpcom/v2',
 				body: requestBody,
-			});
-			const response = pullSiteResponseSchema.parse(rawResponse);
+			} );
+			const response = pullSiteResponseSchema.parse( rawResponse );
 
-			if (response.success) {
+			if ( response.success ) {
 				// Creating the remote backup can take a while. If the user logged out (slice
 				// reset) or cancelled the pull while this request was in flight, don't resurrect
 				// the pull state or start a poller — that would leave an orphaned pull stuck at
@@ -677,20 +677,20 @@ export const pullSiteThunk = createTypedAsyncThunk<PullSiteResult, PullSitePaylo
 				const currentState = syncOperationsSelectors.selectPullState(
 					selectedSite.id,
 					remoteSiteId
-				)(getState());
-				const isStillActive = !!currentState && currentState.status.key !== 'cancelled';
+				)( getState() );
+				const isStillActive = !! currentState && currentState.status.key !== 'cancelled';
 
-				if (isStillActive) {
+				if ( isStillActive ) {
 					dispatch(
-						syncOperationsActions.updatePullState({
+						syncOperationsActions.updatePullState( {
 							selectedSiteId: selectedSite.id,
 							remoteSiteId,
 							state: {
 								backupId: response.backup_id,
 							},
-						})
+						} )
 					);
-					void startPullPoller(selectedSite.id, remoteSiteId);
+					void startPullPoller( selectedSite.id, remoteSiteId );
 				}
 
 				return {
@@ -698,14 +698,14 @@ export const pullSiteThunk = createTypedAsyncThunk<PullSiteResult, PullSitePaylo
 					remoteSiteId,
 				};
 			} else {
-				throw new Error('Pull request failed');
+				throw new Error( 'Pull request failed' );
 			}
-		} catch (error) {
-			Sentry.captureException(error);
-			return rejectWithValue({
-				title: sprintf(__('Error pulling from %s'), connectedSite.name),
-				message: __('Studio was unable to connect to WordPress.com. Please try again.'),
-			});
+		} catch ( error ) {
+			Sentry.captureException( error );
+			return rejectWithValue( {
+				title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
+				message: __( 'Studio was unable to connect to WordPress.com. Please try again.' ),
+			} );
 		}
 	}
 );
@@ -729,63 +729,63 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 		const currentPushState = syncOperationsSelectors.selectPushState(
 			selectedSiteId,
 			remoteSiteId
-		)(getState());
-		if (!currentPushState) {
+		)( getState() );
+		if ( ! currentPushState ) {
 			return;
 		}
 
 		try {
-			const rawResponse = await client.req.get(`/sites/${remoteSiteId}/studio-app/sync/import`, {
+			const rawResponse = await client.req.get( `/sites/${ remoteSiteId }/studio-app/sync/import`, {
 				apiNamespace: 'wpcom/v2',
-			});
-			const response = importResponseSchema.parse(rawResponse);
+			} );
+			const response = importResponseSchema.parse( rawResponse );
 
 			signal.throwIfAborted();
 
-			if (!response.success) {
-				return rejectWithValue({
-					title: sprintf(__('Error pushing to %s'), currentPushState.selectedSite.name),
+			if ( ! response.success ) {
+				return rejectWithValue( {
+					title: sprintf( __( 'Error pushing to %s' ), currentPushState.selectedSite.name ),
 					message: __(
 						'An error occurred while pushing the site. If this problem persists, please contact support.'
 					),
-				});
+				} );
 			}
 
 			let status: PushStateProgressInfo;
-			switch (response.status) {
+			switch ( response.status ) {
 				case 'finished':
 					status = pushStatesProgressInfo.finished;
-					await updateSiteTimestamp({
+					await updateSiteTimestamp( {
 						siteId: remoteSiteId,
 						localSiteId: selectedSiteId,
 						type: 'push',
-					});
-					void dispatch(connectedSitesApi.util.invalidateTags(['ConnectedSites']));
-					getIpcApi().showNotification({
+					} );
+					void dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
+					getIpcApi().showNotification( {
 						title: currentPushState.selectedSite.name,
 						body: sprintf(
 							// translators: %s is the site url without the protocol.
-							__('%s has been updated'),
-							getHostnameFromUrl(currentPushState.remoteSiteUrl)
+							__( '%s has been updated' ),
+							getHostnameFromUrl( currentPushState.remoteSiteUrl )
 						),
-					});
+					} );
 					break;
 				case 'failed': {
-					console.error('Push import failed:', {
+					console.error( 'Push import failed:', {
 						remoteSiteId: currentPushState.remoteSiteId,
 						error: response.error,
 						error_data: response.error_data,
-					});
+					} );
 					// If the import fails due to a SQL import error, show a more specific message
 					const restoreMessage = response.error_data?.vp_restore_message || '';
-					const isSqlImportFailure = /importing sql dump/i.test(restoreMessage);
+					const isSqlImportFailure = /importing sql dump/i.test( restoreMessage );
 					const isImportTimedOut = response.error === 'Import timed out';
 					let message: string;
-					if (isSqlImportFailure) {
+					if ( isSqlImportFailure ) {
 						message = __(
 							'Database import failed on the remote site. Please review your database and try again or contact support and provide details from the logs below.'
 						);
-					} else if (isImportTimedOut) {
+					} else if ( isImportTimedOut ) {
 						message = __(
 							"A timeout error occurred while pushing the site, likely due to its large size. Please try reducing the site's content or files and try again. If this problem persists, please contact support."
 						);
@@ -794,26 +794,26 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 							'An error occurred while pushing the site. If this problem persists, please contact support.'
 						);
 					}
-					return rejectWithValue({
-						title: sprintf(__('Error pushing to %s'), currentPushState.selectedSite.name),
+					return rejectWithValue( {
+						title: sprintf( __( 'Error pushing to %s' ), currentPushState.selectedSite.name ),
 						message,
 						showOpenLogs: true,
-					});
+					} );
 				}
 				case 'started':
 				case 'initial_backup_started':
 				case 'initial_backup_finished':
 					status = pushStatesProgressInfo.creatingRemoteBackup;
-					if (response.backup_progress) {
+					if ( response.backup_progress ) {
 						const progressRange = pushStatesProgressInfo.applyingChanges.progress - status.progress;
-						status.progress = status.progress + progressRange * (response.backup_progress / 100);
+						status.progress = status.progress + progressRange * ( response.backup_progress / 100 );
 					}
 					break;
 				case 'archive_import_started':
 					status = pushStatesProgressInfo.applyingChanges;
-					if (response.import_progress) {
+					if ( response.import_progress ) {
 						const progressRange = pushStatesProgressInfo.finishing.progress - status.progress;
-						status.progress = status.progress + progressRange * (response.import_progress / 100);
+						status.progress = status.progress + progressRange * ( response.import_progress / 100 );
 					}
 					break;
 				case 'archive_import_finished':
@@ -822,22 +822,22 @@ const pollPushProgressThunk = createTypedAsyncThunk(
 			}
 
 			dispatch(
-				syncOperationsActions.updatePushState({
+				syncOperationsActions.updatePushState( {
 					selectedSiteId,
 					remoteSiteId,
 					state: { status },
-				})
+				} )
 			);
-		} catch (error) {
-			if (signal.aborted) {
+		} catch ( error ) {
+			if ( signal.aborted ) {
 				return;
 			}
 
-			Sentry.captureException(error);
-			return rejectWithValue({
-				title: sprintf(__('Error pushing from %s'), currentPushState.selectedSite.name),
-				message: __('Failed to check backup file size. Please try again.'),
-			});
+			Sentry.captureException( error );
+			return rejectWithValue( {
+				title: sprintf( __( 'Error pushing from %s' ), currentPushState.selectedSite.name ),
+				message: __( 'Failed to check backup file size. Please try again.' ),
+			} );
 		}
 	}
 );
@@ -865,27 +865,27 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 		const currentPullState = syncOperationsSelectors.selectPullState(
 			selectedSiteId,
 			remoteSiteId
-		)(getState());
+		)( getState() );
 
-		if (!currentPullState) {
+		if ( ! currentPullState ) {
 			return;
 		}
 
 		const backupId = currentPullState.backupId;
-		if (!backupId) {
-			console.error('No backup ID found');
+		if ( ! backupId ) {
+			console.error( 'No backup ID found' );
 			return;
 		}
 
 		try {
-			const rawResponse = await client.req.get(`/sites/${remoteSiteId}/studio-app/sync/backup`, {
+			const rawResponse = await client.req.get( `/sites/${ remoteSiteId }/studio-app/sync/backup`, {
 				apiNamespace: 'wpcom/v2',
 				backup_id: backupId,
-			});
-			const parseResult = syncBackupResponseSchema.safeParse(rawResponse);
-			if (!parseResult.success) {
-				console.error('Unexpected backup status response:', rawResponse);
-				throw new Error(__('Unexpected response from server while checking backup status'));
+			} );
+			const parseResult = syncBackupResponseSchema.safeParse( rawResponse );
+			if ( ! parseResult.success ) {
+				console.error( 'Unexpected backup status response:', rawResponse );
+				throw new Error( __( 'Unexpected response from server while checking backup status' ) );
 			}
 			const response = parseResult.data;
 
@@ -894,55 +894,57 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 			const hasBackupCompleted = response.status === 'finished';
 			const downloadUrl = hasBackupCompleted ? response.download_url : null;
 
-			if (downloadUrl) {
+			if ( downloadUrl ) {
 				const { selectedSite, remoteSiteUrl } = currentPullState;
 
-				const fileSize = await getIpcApi().checkSyncBackupSize(downloadUrl);
+				const fileSize = await getIpcApi().checkSyncBackupSize( downloadUrl );
 
-				if (fileSize > SYNC_PUSH_SIZE_LIMIT_BYTES) {
+				if ( fileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
 					const CANCEL_ID = 1;
 
-					const { response: userChoice } = await getIpcApi().showMessageBox({
+					const { response: userChoice } = await getIpcApi().showMessageBox( {
 						type: 'warning',
-						message: __("Large site's backup"),
+						message: __( "Large site's backup" ),
 						detail: sprintf(
 							__(
 								"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back.\n\nDo you want to continue?"
 							),
 							SYNC_PUSH_SIZE_LIMIT_GB
 						),
-						buttons: [__('Continue'), __('Cancel')],
+						buttons: [ __( 'Continue' ), __( 'Cancel' ) ],
 						defaultId: 0,
 						cancelId: CANCEL_ID,
-					});
+					} );
 
-					if (userChoice === CANCEL_ID) {
+					if ( userChoice === CANCEL_ID ) {
 						dispatch(
-							syncOperationsActions.updatePullState({
+							syncOperationsActions.updatePullState( {
 								selectedSiteId,
 								remoteSiteId,
 								state: {
 									status: pullStatesProgressInfo.cancelled,
 								},
-							})
+							} )
 						);
-						void dispatch(syncOperationsActions.clearPullState({ selectedSiteId, remoteSiteId }));
+						void dispatch(
+							syncOperationsActions.clearPullState( { selectedSiteId, remoteSiteId } )
+						);
 						return;
 					}
 				}
 
 				dispatch(
-					syncOperationsActions.updatePullState({
+					syncOperationsActions.updatePullState( {
 						selectedSiteId,
 						remoteSiteId,
 						state: {
 							status: pullStatesProgressInfo.downloading,
 							downloadUrl,
 						},
-					})
+					} )
 				);
 
-				const operationId = generateStateId(selectedSiteId, remoteSiteId);
+				const operationId = generateStateId( selectedSiteId, remoteSiteId );
 				const filePath = await getIpcApi().downloadSyncBackup(
 					remoteSiteId,
 					downloadUrl,
@@ -951,98 +953,98 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 
 				// downloadSyncBackup resolves without a path when it was cancelled (e.g. the user
 				// logged out mid-download). Stop silently instead of importing a missing backup.
-				if (signal.aborted || !filePath) {
+				if ( signal.aborted || ! filePath ) {
 					return;
 				}
 
 				dispatch(
-					syncOperationsActions.updatePullState({
+					syncOperationsActions.updatePullState( {
 						selectedSiteId,
 						remoteSiteId,
 						state: {
 							status: pullStatesProgressInfo.importing,
 						},
-					})
+					} )
 				);
 
-				await getIpcApi().importSite(selectedSiteId, filePath, {
+				await getIpcApi().importSite( selectedSiteId, filePath, {
 					alwaysStartServer: true,
 					removeBackupOnComplete: true,
 					showErrorModal: false,
 					showNotification: false,
-				});
+				} );
 
 				// The import runs locally and is intentionally not aborted on logout, but if the
 				// user logged out / cancelled while it finished, don't surface post-logout
 				// "finished" UI (notification + re-populated sync state).
-				if (signal.aborted) {
+				if ( signal.aborted ) {
 					return;
 				}
 
-				await updateSiteTimestamp({
+				await updateSiteTimestamp( {
 					siteId: remoteSiteId,
 					localSiteId: selectedSiteId,
 					type: 'pull',
-				});
-				void dispatch(connectedSitesApi.util.invalidateTags(['ConnectedSites']));
+				} );
+				void dispatch( connectedSitesApi.util.invalidateTags( [ 'ConnectedSites' ] ) );
 
 				dispatch(
-					syncOperationsActions.updatePullState({
+					syncOperationsActions.updatePullState( {
 						selectedSiteId,
 						remoteSiteId,
 						state: {
 							status: pullStatesProgressInfo.finished,
 						},
-					})
+					} )
 				);
 
-				getIpcApi().showNotification({
+				getIpcApi().showNotification( {
 					title: selectedSite.name,
 					body: sprintf(
 						// translators: %s is the site url without the protocol.
-						__('Studio site has been updated from %s'),
-						getHostnameFromUrl(remoteSiteUrl)
+						__( 'Studio site has been updated from %s' ),
+						getHostnameFromUrl( remoteSiteUrl )
 					),
-				});
+				} );
 			} else {
 				// Calculate backup status with progress
 				const frontendStatus = hasBackupCompleted
 					? pullStatesProgressInfo.downloading.key
 					: response.status;
-				let statusWithProgress = pullStatesProgressInfo[frontendStatus];
-				if (response.status === 'in-progress') {
+				let statusWithProgress = pullStatesProgressInfo[ frontendStatus ];
+				if ( response.status === 'in-progress' ) {
 					statusWithProgress = {
-						...pullStatesProgressInfo[frontendStatus],
+						...pullStatesProgressInfo[ frontendStatus ],
 						progress:
 							IN_PROGRESS_INITIAL_VALUE +
-							IN_PROGRESS_TO_DOWNLOADING_STEP * (response.percent / 100),
+							IN_PROGRESS_TO_DOWNLOADING_STEP * ( response.percent / 100 ),
 					};
 				}
 
 				dispatch(
-					syncOperationsActions.updatePullState({
+					syncOperationsActions.updatePullState( {
 						selectedSiteId,
 						remoteSiteId,
 						state: {
 							status: statusWithProgress,
 						},
-					})
+					} )
 				);
 			}
-		} catch (error) {
+		} catch ( error ) {
 			// The poller signal is aborted on user cancel and on logout cleanup — both are
 			// intentional stops, so don't capture the error or show the "Error pulling" modal.
 			// (On logout the slice is reset, so we can't rely on the state still being
 			// 'cancelled' here — the aborted signal is the reliable signal.)
-			if (signal.aborted) {
+			if ( signal.aborted ) {
 				return;
 			}
 
-			Sentry.captureException(error);
-			return rejectWithValue({
-				title: sprintf(__('Error pulling from %s'), currentPullState.selectedSite.name),
-				message: error instanceof Error ? error.message : String(error),
-			});
+			Sentry.captureException( error );
+			return rejectWithValue( {
+				title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
+				message: error instanceof Error ? error.message : String( error ),
+			} );
 		}
 	}
 );
@@ -1051,9 +1053,9 @@ const pollPullBackupThunk = createTypedAsyncThunk(
  * Maps an ImportResponse status to a PushStateProgressInfo object.
  * Returns null if the operation is not in progress or unknown.
  */
-function mapImportResponseToPushState(response: ImportResponse): PushStateProgressInfo | null {
+function mapImportResponseToPushState( response: ImportResponse ): PushStateProgressInfo | null {
 	const pushStatesProgressInfo = getPushStatesProgressInfo();
-	switch (response.status) {
+	switch ( response.status ) {
 		case 'initial_backup_started':
 			return pushStatesProgressInfo.creatingRemoteBackup;
 		case 'archive_import_started':
@@ -1072,31 +1074,31 @@ type InitializeSyncStatesPayload = {
 
 export const initializeSyncStatesThunk = createTypedAsyncThunk(
 	'syncOperations/initializeSyncStates',
-	async ({ client }: InitializeSyncStatesPayload, { dispatch }) => {
+	async ( { client }: InitializeSyncStatesPayload, { dispatch } ) => {
 		const allSites = await getIpcApi().getSiteDetails();
 		const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
-		for (const connectedSite of allConnectedSites) {
+		for ( const connectedSite of allConnectedSites ) {
 			try {
-				const localSite = allSites.find((site) => site.id === connectedSite.localSiteId);
+				const localSite = allSites.find( ( site ) => site.id === connectedSite.localSiteId );
 				const hasConnectionErrors = connectedSite?.syncSupport !== 'already-connected';
 
-				if (!localSite || hasConnectionErrors) {
+				if ( ! localSite || hasConnectionErrors ) {
 					continue;
 				}
 
 				const rawResponse = await client.req.get(
-					`/sites/${connectedSite.id}/studio-app/sync/import`,
+					`/sites/${ connectedSite.id }/studio-app/sync/import`,
 					{ apiNamespace: 'wpcom/v2' }
 				);
-				const response = importResponseSchema.parse(rawResponse);
+				const response = importResponseSchema.parse( rawResponse );
 
-				const status = mapImportResponseToPushState(response);
+				const status = mapImportResponseToPushState( response );
 
 				// Only restore the pushStates if the operation is still in progress
-				if (status) {
+				if ( status ) {
 					dispatch(
-						syncOperationsActions.updatePushState({
+						syncOperationsActions.updatePushState( {
 							selectedSiteId: connectedSite.localSiteId,
 							remoteSiteId: connectedSite.id,
 							state: {
@@ -1104,13 +1106,13 @@ export const initializeSyncStatesThunk = createTypedAsyncThunk(
 								selectedSite: localSite,
 								remoteSiteUrl: connectedSite.url,
 							},
-						})
+						} )
 					);
-					void startPushPoller(connectedSite.localSiteId, connectedSite.id);
+					void startPushPoller( connectedSite.localSiteId, connectedSite.id );
 				}
-			} catch (error) {
+			} catch ( error ) {
 				// Continue checking other sites even if one fails
-				console.error(`Failed to check push progress for site ${connectedSite.id}:`, error);
+				console.error( `Failed to check push progress for site ${ connectedSite.id }:`, error );
 			}
 		}
 	}
@@ -1128,32 +1130,32 @@ export const syncOperationsThunks = {
 };
 
 // Helper functions for checking state keys (matching useSyncStatesProgressInfo logic)
-const isKeyPulling = (key?: PullStateProgressInfo['key']): boolean => {
-	if (!key) {
+const isKeyPulling = ( key?: PullStateProgressInfo[ 'key' ] ): boolean => {
+	if ( ! key ) {
 		return false;
 	}
-	const keys = ['in-progress', 'downloading', 'importing'];
-	return keys.includes(key);
+	const keys = [ 'in-progress', 'downloading', 'importing' ];
+	return keys.includes( key );
 };
 
-const isKeyPullingLocally = (key?: PullStateProgressInfo['key']): boolean => {
-	if (!key) {
+const isKeyPullingLocally = ( key?: PullStateProgressInfo[ 'key' ] ): boolean => {
+	if ( ! key ) {
 		return false;
 	}
-	const keys = ['downloading', 'importing'];
-	return keys.includes(key);
+	const keys = [ 'downloading', 'importing' ];
+	return keys.includes( key );
 };
 
-const isKeyUploading = (key: PushStateProgressInfo['key'] | undefined): boolean => {
-	if (!key) {
+const isKeyUploading = ( key: PushStateProgressInfo[ 'key' ] | undefined ): boolean => {
+	if ( ! key ) {
 		return false;
 	}
-	const keys = ['creatingBackup', 'uploading', 'uploadingManuallyPaused'];
-	return keys.includes(key);
+	const keys = [ 'creatingBackup', 'uploading', 'uploadingManuallyPaused' ];
+	return keys.includes( key );
 };
 
-const isKeyPushing = (key?: PushStateProgressInfo['key']): boolean => {
-	if (!key) {
+const isKeyPushing = ( key?: PushStateProgressInfo[ 'key' ] ): boolean => {
+	if ( ! key ) {
 		return false;
 	}
 	const keys = [
@@ -1163,105 +1165,113 @@ const isKeyPushing = (key?: PushStateProgressInfo['key']): boolean => {
 		'applyingChanges',
 		'finishing',
 	];
-	return keys.includes(key);
+	return keys.includes( key );
 };
 
 export const syncOperationsSelectors = {
-	selectPullStates: (state: { syncOperations: SyncOperationsState }) =>
+	selectPullStates: ( state: { syncOperations: SyncOperationsState } ) =>
 		state.syncOperations.pullStates,
-	selectPushStates: (state: { syncOperations: SyncOperationsState }) =>
+	selectPushStates: ( state: { syncOperations: SyncOperationsState } ) =>
 		state.syncOperations.pushStates,
 	selectPullState:
-		(selectedSiteId: string, remoteSiteId: number) =>
-		(state: { syncOperations: SyncOperationsState }): SyncBackupState | undefined => {
-			const stateId = generateStateId(selectedSiteId, remoteSiteId);
-			return state.syncOperations.pullStates[stateId] as SyncBackupState | undefined;
+		( selectedSiteId: string, remoteSiteId: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): SyncBackupState | undefined => {
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			return state.syncOperations.pullStates[ stateId ] as SyncBackupState | undefined;
 		},
 	selectPushState:
-		(selectedSiteId: string, remoteSiteId: number) =>
-		(state: { syncOperations: SyncOperationsState }): SyncPushState | undefined => {
-			const stateId = generateStateId(selectedSiteId, remoteSiteId);
-			return state.syncOperations.pushStates[stateId] as SyncPushState | undefined;
+		( selectedSiteId: string, remoteSiteId: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): SyncPushState | undefined => {
+			const stateId = generateStateId( selectedSiteId, remoteSiteId );
+			return state.syncOperations.pushStates[ stateId ] as SyncPushState | undefined;
 		},
-	selectIsAnySitePulling: (state: { syncOperations: SyncOperationsState }): boolean => {
-		return Object.values(state.syncOperations.pullStates).some((pullState) =>
-			isKeyPulling(pullState.status.key)
+	selectIsAnySitePulling: ( state: { syncOperations: SyncOperationsState } ): boolean => {
+		return Object.values( state.syncOperations.pullStates ).some( ( pullState ) =>
+			isKeyPulling( pullState.status.key )
 		);
 	},
 	selectIsSiteIdPulling:
-		(selectedSiteId: string, remoteSiteId?: number) =>
-		(state: { syncOperations: SyncOperationsState }): boolean => {
-			return Object.values(state.syncOperations.pullStates).some((pullState) => {
-				if (pullState.selectedSite.id !== selectedSiteId) {
+		( selectedSiteId: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			return Object.values( state.syncOperations.pullStates ).some( ( pullState ) => {
+				if ( pullState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if (remoteSiteId !== undefined && pullState.remoteSiteId !== remoteSiteId) {
+				if ( remoteSiteId !== undefined && pullState.remoteSiteId !== remoteSiteId ) {
 					return false;
 				}
-				return isKeyPulling(pullState.status.key);
-			});
+				return isKeyPulling( pullState.status.key );
+			} );
 		},
 	selectIsSiteIdPullingLocally:
-		(selectedSiteId?: string, remoteSiteId?: number) =>
-		(state: { syncOperations: SyncOperationsState }): boolean => {
-			return Object.values(state.syncOperations.pullStates).some((pullState) => {
-				if (pullState.selectedSite.id !== selectedSiteId) {
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			return Object.values( state.syncOperations.pullStates ).some( ( pullState ) => {
+				if ( pullState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if (remoteSiteId !== undefined && pullState.remoteSiteId !== remoteSiteId) {
+				if ( remoteSiteId !== undefined && pullState.remoteSiteId !== remoteSiteId ) {
 					return false;
 				}
-				return isKeyPullingLocally(pullState.status.key);
-			});
+				return isKeyPullingLocally( pullState.status.key );
+			} );
 		},
-	selectIsAnySitePushing: (state: { syncOperations: SyncOperationsState }): boolean => {
-		return Object.values(state.syncOperations.pushStates).some((pushState) =>
-			isKeyPushing(pushState.status.key)
+	selectIsAnySitePushing: ( state: { syncOperations: SyncOperationsState } ): boolean => {
+		return Object.values( state.syncOperations.pushStates ).some( ( pushState ) =>
+			isKeyPushing( pushState.status.key )
 		);
 	},
 	selectIsSiteIdPushing:
-		(selectedSiteId?: string, remoteSiteId?: number) =>
-		(state: { syncOperations: SyncOperationsState }): boolean => {
-			return Object.values(state.syncOperations.pushStates).some((pushState) => {
-				if (pushState.selectedSite.id !== selectedSiteId) {
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			return Object.values( state.syncOperations.pushStates ).some( ( pushState ) => {
+				if ( pushState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if (remoteSiteId !== undefined && pushState.remoteSiteId !== remoteSiteId) {
+				if ( remoteSiteId !== undefined && pushState.remoteSiteId !== remoteSiteId ) {
 					return false;
 				}
-				return isKeyPushing(pushState.status.key);
-			});
+				return isKeyPushing( pushState.status.key );
+			} );
 		},
 	selectIsSiteIdPushingLocally:
-		(selectedSiteId?: string, remoteSiteId?: number) =>
-		(state: { syncOperations: SyncOperationsState }): boolean => {
-			return Object.values(state.syncOperations.pushStates).some((pushState) => {
-				if (pushState.selectedSite.id !== selectedSiteId) {
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
+			return Object.values( state.syncOperations.pushStates ).some( ( pushState ) => {
+				if ( pushState.selectedSite.id !== selectedSiteId ) {
 					return false;
 				}
-				if (remoteSiteId !== undefined && pushState.remoteSiteId !== remoteSiteId) {
+				if ( remoteSiteId !== undefined && pushState.remoteSiteId !== remoteSiteId ) {
 					return false;
 				}
-				return isKeyUploading(pushState.status.key);
-			});
+				return isKeyUploading( pushState.status.key );
+			} );
 		},
 	// "Local sync work" = the phases the local machine is actively involved in (pull
 	// downloading/importing, push backup uploading). We can only block on these; the
 	// server-bound phases of a sync continue regardless.
 	selectIsSiteDoingLocalSyncWork:
-		(selectedSiteId?: string, remoteSiteId?: number) =>
-		(state: { syncOperations: SyncOperationsState }): boolean => {
+		( selectedSiteId?: string, remoteSiteId?: number ) =>
+		( state: { syncOperations: SyncOperationsState } ): boolean => {
 			return (
-				syncOperationsSelectors.selectIsSiteIdPullingLocally(selectedSiteId, remoteSiteId)(state) ||
-				syncOperationsSelectors.selectIsSiteIdPushingLocally(selectedSiteId, remoteSiteId)(state)
+				syncOperationsSelectors.selectIsSiteIdPullingLocally(
+					selectedSiteId,
+					remoteSiteId
+				)( state ) ||
+				syncOperationsSelectors.selectIsSiteIdPushingLocally(
+					selectedSiteId,
+					remoteSiteId
+				)( state )
 			);
 		},
-	selectIsAnySiteDoingLocalSyncWork: (state: { syncOperations: SyncOperationsState }): boolean => {
-		const anyPullLocal = Object.values(state.syncOperations.pullStates).some((pullState) =>
-			isKeyPullingLocally(pullState.status.key)
+	selectIsAnySiteDoingLocalSyncWork: ( state: {
+		syncOperations: SyncOperationsState;
+	} ): boolean => {
+		const anyPullLocal = Object.values( state.syncOperations.pullStates ).some( ( pullState ) =>
+			isKeyPullingLocally( pullState.status.key )
 		);
-		const anyPushLocal = Object.values(state.syncOperations.pushStates).some((pushState) =>
-			isKeyUploading(pushState.status.key)
+		const anyPushLocal = Object.values( state.syncOperations.pushStates ).some( ( pushState ) =>
+			isKeyUploading( pushState.status.key )
 		);
 		return anyPullLocal || anyPushLocal;
 	},

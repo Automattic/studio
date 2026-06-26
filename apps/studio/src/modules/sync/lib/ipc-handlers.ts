@@ -37,7 +37,7 @@ import { SyncOption } from 'src/types';
  * Registry to store AbortControllers for ongoing sync operations (push/pull).
  * Key format: `${selectedSiteId}-${remoteSiteId}`
  */
-const SYNC_ABORT_CONTROLLERS = new Map<string, AbortController>();
+const SYNC_ABORT_CONTROLLERS = new Map< string, AbortController >();
 
 /**
  * Registry to store TUS upload instances and their pause state for ongoing uploads.
@@ -50,7 +50,7 @@ type UploadState = {
 	abortController: AbortController;
 };
 
-const SYNC_TUS_UPLOADS = new Map<string, UploadState>();
+const SYNC_TUS_UPLOADS = new Map< string, UploadState >();
 
 /**
  * Pause an ongoing sync upload.
@@ -60,20 +60,20 @@ export function pauseSyncUpload(
 	selectedSiteId: string,
 	remoteSiteId: number
 ) {
-	const uploadKey = `${selectedSiteId}-${remoteSiteId}`;
-	const uploadState = SYNC_TUS_UPLOADS.get(uploadKey);
+	const uploadKey = `${ selectedSiteId }-${ remoteSiteId }`;
+	const uploadState = SYNC_TUS_UPLOADS.get( uploadKey );
 
-	if (uploadState) {
-		if (uploadState.isManuallyPaused) {
+	if ( uploadState ) {
+		if ( uploadState.isManuallyPaused ) {
 			return true;
 		}
 
 		uploadState.isManuallyPaused = true;
 		void uploadState.upload.abort();
-		void sendIpcEventToRenderer('sync-upload-manually-paused', {
+		void sendIpcEventToRenderer( 'sync-upload-manually-paused', {
 			selectedSiteId,
 			remoteSiteId,
-		});
+		} );
 		return true;
 	}
 
@@ -88,20 +88,20 @@ export function resumeSyncUpload(
 	selectedSiteId: string,
 	remoteSiteId: number
 ) {
-	const uploadKey = `${selectedSiteId}-${remoteSiteId}`;
-	const uploadState = SYNC_TUS_UPLOADS.get(uploadKey);
+	const uploadKey = `${ selectedSiteId }-${ remoteSiteId }`;
+	const uploadState = SYNC_TUS_UPLOADS.get( uploadKey );
 
-	if (uploadState) {
-		if (!uploadState.isManuallyPaused) {
+	if ( uploadState ) {
+		if ( ! uploadState.isManuallyPaused ) {
 			return true;
 		}
 
 		uploadState.isManuallyPaused = false;
 		uploadState.upload.start();
-		void sendIpcEventToRenderer('sync-upload-resumed', {
+		void sendIpcEventToRenderer( 'sync-upload-resumed', {
 			selectedSiteId,
 			remoteSiteId,
-		});
+		} );
 		return true;
 	}
 
@@ -111,25 +111,25 @@ export function resumeSyncUpload(
 /**
  * Clear the ID of a push/pull operation.
  */
-export function clearSyncOperation(event: IpcMainInvokeEvent, id: string) {
-	ACTIVE_SYNC_OPERATIONS.delete(id);
-	SYNC_ABORT_CONTROLLERS.delete(id);
+export function clearSyncOperation( event: IpcMainInvokeEvent, id: string ) {
+	ACTIVE_SYNC_OPERATIONS.delete( id );
+	SYNC_ABORT_CONTROLLERS.delete( id );
 }
 
-export function cancelSyncOperation(event: IpcMainInvokeEvent, id: string) {
-	const abortController = SYNC_ABORT_CONTROLLERS.get(id);
-	if (abortController) {
+export function cancelSyncOperation( event: IpcMainInvokeEvent, id: string ) {
+	const abortController = SYNC_ABORT_CONTROLLERS.get( id );
+	if ( abortController ) {
 		abortController.abort();
-		SYNC_ABORT_CONTROLLERS.delete(id);
+		SYNC_ABORT_CONTROLLERS.delete( id );
 	}
 
-	const uploadState = SYNC_TUS_UPLOADS.get(id);
-	if (uploadState) {
+	const uploadState = SYNC_TUS_UPLOADS.get( id );
+	if ( uploadState ) {
 		uploadState.abortController.abort();
-		SYNC_TUS_UPLOADS.delete(id);
+		SYNC_TUS_UPLOADS.delete( id );
 	}
 
-	ACTIVE_SYNC_OPERATIONS.delete(id);
+	ACTIVE_SYNC_OPERATIONS.delete( id );
 }
 
 /**
@@ -140,7 +140,7 @@ export function addSyncOperation(
 	id: string,
 	state?: PullStateProgressInfo | PushStateProgressInfo
 ) {
-	ACTIVE_SYNC_OPERATIONS.set(id, state);
+	ACTIVE_SYNC_OPERATIONS.set( id, state );
 }
 
 export async function exportSiteForPush(
@@ -152,65 +152,67 @@ export async function exportSiteForPush(
 		specificSelectionPaths?: string[];
 	}
 ) {
-	const site = SiteServer.get(id);
-	if (!site) {
-		throw new Error('Site not found.');
+	const site = SiteServer.get( id );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
 	}
 
-	const tempDir = path.join(app.getPath('temp'), 'com.wordpress.studio', randomUUID());
-	fs.mkdirSync(tempDir, { recursive: true });
-	const archivePath = path.join(tempDir, `site_${id}.tar.gz`);
+	const tempDir = path.join( app.getPath( 'temp' ), 'com.wordpress.studio', randomUUID() );
+	fs.mkdirSync( tempDir, { recursive: true } );
+	const archivePath = path.join( tempDir, `site_${ id }.tar.gz` );
 
 	const abortController = new AbortController();
-	SYNC_ABORT_CONTROLLERS.set(operationId, abortController);
+	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
 
 	try {
-		if (abortController.signal.aborted) {
-			throw new Error('Export aborted');
+		if ( abortController.signal.aborted ) {
+			throw new Error( 'Export aborted' );
 		}
 
 		const shouldIncludeSyncOption = (
 			optionsToSync: SyncOption[] | undefined,
 			option: SyncOption
 		): boolean => {
-			return optionsToSync?.includes(option) || optionsToSync?.includes('all') || !optionsToSync;
+			return (
+				optionsToSync?.includes( option ) || optionsToSync?.includes( 'all' ) || ! optionsToSync
+			);
 		};
 
 		const includes = {
-			database: shouldIncludeSyncOption(configuration?.optionsToSync, 'sqls'),
-			wpContent: (['uploads', 'plugins', 'themes', 'contents'] as const).some((option) =>
-				shouldIncludeSyncOption(configuration?.optionsToSync, option)
+			database: shouldIncludeSyncOption( configuration?.optionsToSync, 'sqls' ),
+			wpContent: ( [ 'uploads', 'plugins', 'themes', 'contents' ] as const ).some( ( option ) =>
+				shouldIncludeSyncOption( configuration?.optionsToSync, option )
 			),
 		};
 
 		let mode: 'full' | 'content' | 'db';
-		if (includes.database && includes.wpContent) {
+		if ( includes.database && includes.wpContent ) {
 			mode = 'full';
-		} else if (includes.wpContent) {
+		} else if ( includes.wpContent ) {
 			mode = 'content';
 		} else {
 			mode = 'db';
 		}
 
-		await exportSite(event, site.details.id, archivePath, {
+		await exportSite( event, site.details.id, archivePath, {
 			mode,
 			splitDatabaseDumpByTable: true,
 			specificSelectionPaths: configuration?.specificSelectionPaths,
 			applyDeployIgnore: true,
 			abortSignal: abortController.signal,
-		});
+		} );
 
-		if (abortController.signal.aborted) {
-			await fsPromises.unlink(archivePath).catch(() => {
+		if ( abortController.signal.aborted ) {
+			await fsPromises.unlink( archivePath ).catch( () => {
 				// Ignore cleanup errors
-			});
-			throw new Error('Export aborted');
+			} );
+			throw new Error( 'Export aborted' );
 		}
 
-		const stats = fs.statSync(archivePath);
+		const stats = fs.statSync( archivePath );
 		return { archivePath, archiveSizeInBytes: stats.size };
 	} finally {
-		SYNC_ABORT_CONTROLLERS.delete(operationId);
+		SYNC_ABORT_CONTROLLERS.delete( operationId );
 	}
 }
 
@@ -221,166 +223,166 @@ export async function pushArchive(
 	archivePath: string,
 	optionsToSync?: string[],
 	specificSelectionPaths?: string[]
-): Promise<{ success: boolean; error?: string }> {
+): Promise< { success: boolean; error?: string } > {
 	const token = await getAuthenticationToken();
 
-	if (!token?.accessToken) {
-		throw new Error('No token found');
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
 	}
 
 	let hasUploadStarted = false;
 	let isUploadingPaused = false;
-	const file = fs.createReadStream(archivePath);
-	const fileSize = fs.statSync(archivePath).size;
-	const filename = path.basename(archivePath);
+	const file = fs.createReadStream( archivePath );
+	const fileSize = fs.statSync( archivePath ).size;
+	const filename = path.basename( archivePath );
 
 	const abortController = new AbortController();
-	const uploadKey = `${selectedSiteId}-${remoteSiteId}`;
+	const uploadKey = `${ selectedSiteId }-${ remoteSiteId }`;
 
-	const attachmentPromise = new Promise<string>((resolve, reject) => {
-		const upload = new Upload(file, {
-			endpoint: `https://public-api.wordpress.com/rest/v1.1/studio-file-uploads/${remoteSiteId}`,
+	const attachmentPromise = new Promise< string >( ( resolve, reject ) => {
+		const upload = new Upload( file, {
+			endpoint: `https://public-api.wordpress.com/rest/v1.1/studio-file-uploads/${ remoteSiteId }`,
 			chunkSize: 500000,
-			retryDelays: [0, 1000, 3000, 5000, 10000, 25000],
+			retryDelays: [ 0, 1000, 3000, 5000, 10000, 25000 ],
 			overridePatchMethod: true,
 			removeFingerprintOnSuccess: true,
 			storeFingerprintForResuming: true,
 			headers: {
-				Authorization: `Bearer ${token.accessToken}`,
+				Authorization: `Bearer ${ token.accessToken }`,
 			},
 			metadata: {
 				filename,
 				filetype: 'application/gzip',
 			},
 			uploadSize: fileSize,
-			onBeforeRequest: (req) => {
-				if (req.getMethod() === 'HEAD') {
+			onBeforeRequest: ( req ) => {
+				if ( req.getMethod() === 'HEAD' ) {
 					// @ts-expect-error We need to override the method to get the response headers.
 					req._method = 'GET';
-					req.setHeader('X-HTTP-Method-Override', 'HEAD');
+					req.setHeader( 'X-HTTP-Method-Override', 'HEAD' );
 				}
 			},
-			onError: (error) => {
-				console.error('[TUS] Upload error', error);
-				reject(error);
+			onError: ( error ) => {
+				console.error( '[TUS] Upload error', error );
+				reject( error );
 			},
-			onProgress: (bytesSent: number, bytesTotal: number) => {
-				if (isUploadingPaused) {
+			onProgress: ( bytesSent: number, bytesTotal: number ) => {
+				if ( isUploadingPaused ) {
 					isUploadingPaused = false;
-					void sendIpcEventToRenderer('sync-upload-resumed', {
+					void sendIpcEventToRenderer( 'sync-upload-resumed', {
 						selectedSiteId: selectedSiteId,
 						remoteSiteId: remoteSiteId,
-					});
-					console.log('[TUS] Upload resumed');
+					} );
+					console.log( '[TUS] Upload resumed' );
 				}
 
-				if (!hasUploadStarted) {
+				if ( ! hasUploadStarted ) {
 					hasUploadStarted = true;
 				}
 
 				// Calculate upload progress percentage (0-100)
-				const uploadProgress = bytesTotal > 0 ? (bytesSent / bytesTotal) * 100 : 0;
-				void sendIpcEventToRenderer('sync-upload-progress', {
+				const uploadProgress = bytesTotal > 0 ? ( bytesSent / bytesTotal ) * 100 : 0;
+				void sendIpcEventToRenderer( 'sync-upload-progress', {
 					selectedSiteId: selectedSiteId,
 					remoteSiteId: remoteSiteId,
 					progress: uploadProgress,
-				});
+				} );
 			},
-			onSuccess: (payload) => {
-				if (!payload.lastResponse) {
-					reject(new Error('Upload completed but no response received'));
+			onSuccess: ( payload ) => {
+				if ( ! payload.lastResponse ) {
+					reject( new Error( 'Upload completed but no response received' ) );
 					return;
 				}
 
-				const attachmentId = payload.lastResponse.getHeader('x-studio-file-upload-media-id');
-				if (attachmentId) {
-					resolve(attachmentId);
+				const attachmentId = payload.lastResponse.getHeader( 'x-studio-file-upload-media-id' );
+				if ( attachmentId ) {
+					resolve( attachmentId );
 				} else {
-					reject(new Error('Upload completed but required header not found'));
+					reject( new Error( 'Upload completed but required header not found' ) );
 				}
 			},
-			onShouldRetry: (error) => {
+			onShouldRetry: ( error ) => {
 				// Don't retry or send events if this is a manual pause
-				const uploadState = SYNC_TUS_UPLOADS.get(uploadKey);
-				if (uploadState?.isManuallyPaused) {
+				const uploadState = SYNC_TUS_UPLOADS.get( uploadKey );
+				if ( uploadState?.isManuallyPaused ) {
 					return false;
 				}
 
 				// Update the UI only if the upload has started and is paused for network reasons.
-				if (hasUploadStarted) {
+				if ( hasUploadStarted ) {
 					isUploadingPaused = true;
-					void sendIpcEventToRenderer('sync-upload-network-paused', {
+					void sendIpcEventToRenderer( 'sync-upload-network-paused', {
 						selectedSiteId: selectedSiteId,
 						remoteSiteId: remoteSiteId,
 						error: error.message,
-					});
-					console.error('[TUS] Upload paused due to network error: ', error.message);
+					} );
+					console.error( '[TUS] Upload paused due to network error: ', error.message );
 				}
 
 				const status = error.originalResponse ? error.originalResponse.getStatus() : 0;
 				// Stop retrying on non-retryable client errors (403, 413, …); keep
 				// retrying 5xx, network errors, and the transient resumable statuses.
-				return shouldRetryTusStatus(status);
+				return shouldRetryTusStatus( status );
 			},
-		});
+		} );
 
-		abortController.signal.addEventListener('abort', () => {
+		abortController.signal.addEventListener( 'abort', () => {
 			void upload.abort();
-			reject(new Error('Export aborted'));
-		});
+			reject( new Error( 'Export aborted' ) );
+		} );
 
-		const existingUploadState = SYNC_TUS_UPLOADS.get(uploadKey);
-		if (existingUploadState) {
+		const existingUploadState = SYNC_TUS_UPLOADS.get( uploadKey );
+		if ( existingUploadState ) {
 			// Abort the existing upload if it exists before starting the new one.
 			void existingUploadState.upload.abort();
-			SYNC_TUS_UPLOADS.delete(uploadKey);
+			SYNC_TUS_UPLOADS.delete( uploadKey );
 		}
 
-		SYNC_TUS_UPLOADS.set(uploadKey, {
+		SYNC_TUS_UPLOADS.set( uploadKey, {
 			upload,
 			isManuallyPaused: false,
 			abortController,
-		});
+		} );
 
 		upload.start();
-	}).finally(() => {
-		SYNC_TUS_UPLOADS.delete(uploadKey);
+	} ).finally( () => {
+		SYNC_TUS_UPLOADS.delete( uploadKey );
 		file.destroy();
 		file.close();
-		fs.unlinkSync(archivePath);
-	});
+		fs.unlinkSync( archivePath );
+	} );
 
-	const wpcom = wpcomFactory(token.accessToken, wpcomXhrRequest);
-	const formData: [string, unknown, Record<string, string>?][] = [];
+	const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+	const formData: [ string, unknown, Record< string, string >? ][] = [];
 
-	if (specificSelectionPaths && specificSelectionPaths.length > 0) {
-		const joinedPaths = specificSelectionPaths.join(',');
-		formData.push(['list_sync_items', joinedPaths]);
+	if ( specificSelectionPaths && specificSelectionPaths.length > 0 ) {
+		const joinedPaths = specificSelectionPaths.join( ',' );
+		formData.push( [ 'list_sync_items', joinedPaths ] );
 	}
 
-	if (optionsToSync) {
-		formData.push(['options', optionsToSync.join(',')]);
+	if ( optionsToSync ) {
+		formData.push( [ 'options', optionsToSync.join( ',' ) ] );
 	}
 
 	try {
 		const attachmentId = await attachmentPromise;
-		formData.push(['import_attachment_id', attachmentId]);
+		formData.push( [ 'import_attachment_id', attachmentId ] );
 
-		await wpcom.req.post({
-			path: `/sites/${remoteSiteId}/studio-app/sync/import/initiate`,
+		await wpcom.req.post( {
+			path: `/sites/${ remoteSiteId }/studio-app/sync/import/initiate`,
 			apiNamespace: 'wpcom/v2',
 			formData,
-		});
+		} );
 
 		return { success: true };
-	} catch (error) {
-		if (abortController.signal.aborted) {
+	} catch ( error ) {
+		if ( abortController.signal.aborted ) {
 			throw error;
 		}
 
-		const parseResult = z.object({ error: z.string() }).safeParse(error);
+		const parseResult = z.object( { error: z.string() } ).safeParse( error );
 
-		if (parseResult.success) {
+		if ( parseResult.success ) {
 			return { success: false, error: parseResult.data.error };
 		}
 
@@ -388,16 +390,16 @@ export async function pushArchive(
 		// tus-js-client error that has no `{ error: string }` body. Pull the HTTP
 		// status off the original response so the UI can show something useful
 		// instead of "Unknown error".
-		const status = getTusErrorStatus(error);
-		if (status === 413) {
+		const status = getTusErrorStatus( error );
+		if ( status === 413 ) {
 			return {
 				success: false,
 				error:
 					'The site archive is too large to upload to WordPress.com right now. Please reduce the size of the site and try again.',
 			};
 		}
-		if (status) {
-			return { success: false, error: `Upload failed with HTTP status ${status}.` };
+		if ( status ) {
+			return { success: false, error: `Upload failed with HTTP status ${ status }.` };
 		}
 
 		return { success: false, error: 'Unknown error' };
@@ -409,15 +411,15 @@ export async function pushArchive(
  * failing request's response via `originalResponse.getStatus()`. Returns 0 when
  * no status is available (e.g. a network error).
  */
-function getTusErrorStatus(error: unknown): number {
+function getTusErrorStatus( error: unknown ): number {
 	if (
 		typeof error === 'object' &&
 		error !== null &&
 		'originalResponse' in error &&
 		error.originalResponse &&
-		typeof (error.originalResponse as { getStatus?: unknown }).getStatus === 'function'
+		typeof ( error.originalResponse as { getStatus?: unknown } ).getStatus === 'function'
 	) {
-		return (error.originalResponse as { getStatus: () => number }).getStatus();
+		return ( error.originalResponse as { getStatus: () => number } ).getStatus();
 	}
 	return 0;
 }
@@ -428,40 +430,40 @@ export async function downloadSyncBackup(
 	downloadUrl: string,
 	operationId: string
 ) {
-	const tmpDir = path.join(app.getPath('temp'), 'wp-studio-backups');
-	await fsPromises.mkdir(tmpDir, { recursive: true });
+	const tmpDir = path.join( app.getPath( 'temp' ), 'wp-studio-backups' );
+	await fsPromises.mkdir( tmpDir, { recursive: true } );
 
-	const filePath = getSyncBackupTempPath(remoteSiteId);
+	const filePath = getSyncBackupTempPath( remoteSiteId );
 
 	const abortController = new AbortController();
-	SYNC_ABORT_CONTROLLERS.set(operationId, abortController);
+	SYNC_ABORT_CONTROLLERS.set( operationId, abortController );
 
 	try {
-		await download(downloadUrl, filePath, false, '', abortController.signal);
+		await download( downloadUrl, filePath, false, '', abortController.signal );
 		return filePath;
-	} catch (error) {
+	} catch ( error ) {
 		// A cancelled operation (user cancel or logout cleanup) aborts this signal. That's an
 		// intentional stop, not a failure — return without logging or throwing so it doesn't
 		// surface as an error, and let the caller treat the missing path as "stopped".
-		if (abortController.signal.aborted) {
+		if ( abortController.signal.aborted ) {
 			return undefined;
 		}
-		console.error(`[Download] Download failed for operation: ${operationId}`, error);
+		console.error( `[Download] Download failed for operation: ${ operationId }`, error );
 		throw error;
 	} finally {
-		SYNC_ABORT_CONTROLLERS.delete(operationId);
+		SYNC_ABORT_CONTROLLERS.delete( operationId );
 	}
 }
 
-export async function removeSyncBackup(event: IpcMainInvokeEvent, remoteSiteId: number) {
-	const filePath = getSyncBackupTempPath(remoteSiteId);
+export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId: number ) {
+	const filePath = getSyncBackupTempPath( remoteSiteId );
 	try {
-		await fsPromises.unlink(filePath);
-	} catch (error) {
+		await fsPromises.unlink( filePath );
+	} catch ( error ) {
 		// The backup file may never have been created — e.g. cancelling a pull that was still
 		// initializing the remote backup, before anything was downloaded. A missing file is
 		// not an error here, so only rethrow unexpected failures.
-		if (!isErrnoException(error) || error.code !== 'ENOENT') {
+		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
 			throw error;
 		}
 	}
@@ -469,15 +471,15 @@ export async function removeSyncBackup(event: IpcMainInvokeEvent, remoteSiteId: 
 
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
 
-export async function connectWpcomSites(event: IpcMainInvokeEvent, list: WpcomSitesToConnect) {
+export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
 	const currentUserId = await getCurrentUserId();
-	if (!currentUserId) {
-		throw new Error('User not authenticated');
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
 	}
 
-	for (const { sites, localSiteId } of list) {
-		for (const siteToAdd of sites) {
-			await addConnectedWpcomSite(localSiteId, siteToAdd);
+	for ( const { sites, localSiteId } of list ) {
+		for ( const siteToAdd of sites ) {
+			await addConnectedWpcomSite( localSiteId, siteToAdd );
 		}
 	}
 }
@@ -489,13 +491,13 @@ export async function disconnectWpcomSites(
 	list: WpcomSitesToDisconnect
 ) {
 	const currentUserId = await getCurrentUserId();
-	if (!currentUserId) {
-		throw new Error('User not authenticated');
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
 	}
 
-	for (const { siteIds, localSiteId } of list) {
-		for (const id of siteIds) {
-			await removeConnectedWpcomSite(localSiteId, id);
+	for ( const { siteIds, localSiteId } of list ) {
+		for ( const id of siteIds ) {
+			await removeConnectedWpcomSite( localSiteId, id );
 		}
 	}
 }
@@ -505,20 +507,20 @@ export async function updateConnectedWpcomSites(
 	updatedSites: SyncSite[]
 ) {
 	const currentUserId = await getCurrentUserId();
-	if (!currentUserId) {
-		throw new Error('User not authenticated');
+	if ( ! currentUserId ) {
+		throw new Error( 'User not authenticated' );
 	}
 
 	// Group the updates by their local site since our storage is now per-site.
-	const byLocalSite = new Map<string, SyncSite[]>();
-	for (const site of updatedSites) {
-		const list = byLocalSite.get(site.localSiteId) ?? [];
-		list.push(site);
-		byLocalSite.set(site.localSiteId, list);
+	const byLocalSite = new Map< string, SyncSite[] >();
+	for ( const site of updatedSites ) {
+		const list = byLocalSite.get( site.localSiteId ) ?? [];
+		list.push( site );
+		byLocalSite.set( site.localSiteId, list );
 	}
 
-	for (const [localSiteId, sites] of byLocalSite) {
-		await updateConnectedWpcomSitesShared(localSiteId, sites);
+	for ( const [ localSiteId, sites ] of byLocalSite ) {
+		await updateConnectedWpcomSitesShared( localSiteId, sites );
 	}
 }
 
@@ -532,37 +534,37 @@ export async function pullSiteFromLive(
 	_event: IpcMainInvokeEvent,
 	siteFolder: string,
 	remoteSiteId: number
-): Promise<void> {
-	return new Promise<void>((resolve, reject) => {
-		const [emitter] = executeCliCommand(
-			['pull', '--path', siteFolder, '--remote-site', String(remoteSiteId), '--options', 'all'],
+): Promise< void > {
+	return new Promise< void >( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand(
+			[ 'pull', '--path', siteFolder, '--remote-site', String( remoteSiteId ), '--options', 'all' ],
 			{ output: 'capture' }
 		);
 
-		emitter.on('success', () => resolve());
-		emitter.on('failure', ({ error }) => reject(error));
-		emitter.on('error', ({ error }) => reject(error));
-	});
+		emitter.on( 'success', () => resolve() );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
 }
 
 // Fetches every WordPress.com site the authenticated user can sync to.
 // The desktop renderer builds this list itself via its own WPCOM client
 // (see wpcomSitesApi.getWpComSites); apps/ui doesn't own a wpcom client
 // yet, so we expose a thin IPC wrapper that reuses the stored auth token.
-export async function fetchSyncableWpcomSites(_event: IpcMainInvokeEvent): Promise<SyncSite[]> {
+export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Promise< SyncSite[] > {
 	const token = await getAuthenticationToken();
-	if (!token?.accessToken) {
-		throw new Error('Authentication required to fetch WordPress.com sites.');
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
 	}
-	return fetchSyncableSites(token.accessToken);
+	return fetchSyncableSites( token.accessToken );
 }
 
 export async function getConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	localSiteId?: string
-): Promise<SyncSite[]> {
-	if (localSiteId) {
-		return getConnectedWpcomSitesForLocalSite(localSiteId);
+): Promise< SyncSite[] > {
+	if ( localSiteId ) {
+		return getConnectedWpcomSitesForLocalSite( localSiteId );
 	}
 	return getAllConnectedWpcomSitesForCurrentUser();
 }

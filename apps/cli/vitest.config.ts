@@ -7,6 +7,7 @@ export default mergeConfig(
 	defineProject( {
 		define: {
 			__IS_PACKAGED_FOR_NPM__: true,
+			__IS_PACKAGED_FOR_STANDALONE__: false,
 		},
 		test: {
 			name: 'cli',

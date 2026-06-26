@@ -12,10 +12,6 @@ vi.mock( '@wordpress/ui', () => ( {
 	Icon: () => null,
 } ) );
 
-vi.mock( '../thinking-indicator', () => ( {
-	ThinkingIndicator: () => null,
-} ) );
-
 describe( 'Conversation tool rows', () => {
 	it( 'keeps tool inputs and results hidden until the label row is clicked', () => {
 		const data = loadedSession( [
@@ -137,8 +133,6 @@ function renderConversation( data: LoadedAiSession ) {
 	return render(
 		createElement( Conversation, {
 			data,
-			isRunning: false,
-			startedAt: null,
 			pendingQuestions: new Set< string >(),
 			pendingAnswers: {},
 			onAnswerQuestion: vi.fn(),

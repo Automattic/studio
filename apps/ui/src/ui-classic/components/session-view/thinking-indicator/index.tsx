@@ -1,15 +1,16 @@
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
+import { clsx } from 'clsx';
 import { useEffect, useState } from 'react';
 import styles from './style.module.css';
 
 export function ThinkingIndicator( {
 	active,
+	idleMessage,
 	startedAt,
-	progressMessage,
 }: {
 	active: boolean;
+	idleMessage: string;
 	startedAt: number | null;
-	progressMessage: string | null;
 } ) {
 	const [ message, setMessage ] = useState( () => randomThinkingMessage() );
 	const [ elapsedSeconds, setElapsedSeconds ] = useState( 0 );
@@ -34,20 +35,13 @@ export function ThinkingIndicator( {
 
 	return (
 		<div className={ styles.root } role="status" aria-live="polite">
-			{ active ? (
-				<>
-					<div className={ styles.head }>
-						<span className={ styles.dot } aria-hidden="true" />
-						<span className={ styles.label }>{ message }</span>
-						{ elapsedSeconds > 0 ? (
-							<span className={ styles.elapsed }>{ `${ elapsedSeconds }s` }</span>
-						) : null }
-					</div>
-					{ progressMessage ? (
-						<span className={ styles.progress }>{ progressMessage }</span>
-					) : null }
-				</>
-			) : null }
+			<div className={ styles.head }>
+				<span className={ clsx( styles.dot, ! active && styles.dotIdle ) } aria-hidden="true" />
+				<span className={ styles.label }>{ active ? message : idleMessage }</span>
+				{ active && elapsedSeconds > 0 ? (
+					<span className={ styles.elapsed }>{ `${ elapsedSeconds }s` }</span>
+				) : null }
+			</div>
 		</div>
 	);
 }

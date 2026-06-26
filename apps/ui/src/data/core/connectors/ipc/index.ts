@@ -1,5 +1,5 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import type {
 	ActiveAgentRun,
 	AiSessionSummary,
@@ -389,7 +389,26 @@ export function createIpcConnector(): Connector {
 		},
 
 		async startSite( id ) {
-			await ipcApi.startServer( id );
+			try {
+				await ipcApi.startServer( id );
+			} catch ( error ) {
+				const sites = ( await ipcApi.getSiteDetails().catch( () => [] ) ) as SiteDetails[];
+				const site = sites.find( ( candidate ) => candidate.id === id );
+				ipcApi.showErrorMessageBox( {
+					title: site
+						? sprintf( __( "Failed to start '%s'" ), site.name )
+						: __( 'Failed to start site' ),
+					message:
+						error instanceof Error
+							? error.message
+							: __(
+									'Please restart Studio and try again. If this problem persists, please contact support.'
+							  ),
+					error,
+					showOpenLogs: true,
+				} );
+				throw error;
+			}
 		},
 
 		async stopSite( id ) {

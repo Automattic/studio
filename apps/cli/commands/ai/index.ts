@@ -192,8 +192,6 @@ export async function runCommand( options: {
 
 	setProgressCallback( ( message, update ) => {
 		ui.setLoaderMessage( message, update );
-		if ( ! message.trim() ) return;
-		void append( ( sm ) => appendStudioEntry( sm, 'studio.tool_progress', { message } ) );
 	} );
 
 	setChatArtifactCallback( ( artifact ) =>

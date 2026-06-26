@@ -31,7 +31,7 @@ import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 type TabId = 'general' | 'debugging';
 
@@ -150,6 +150,27 @@ function SiteSettingsBody( {
 	site: SiteDetails;
 	activeTab: TabId;
 	onTabChange: ( tab: TabId ) => void;
+} ) {
+	return (
+		<div className={ styles.root }>
+			<SettingsHeader site={ site } />
+			<SiteSettingsForm site={ site } activeTab={ activeTab } onTabChange={ onTabChange } />
+		</div>
+	);
+}
+
+export function SiteSettingsForm( {
+	site,
+	activeTab,
+	onTabChange,
+	embedded = false,
+	showTabs = true,
+}: {
+	site: SiteDetails;
+	activeTab: TabId;
+	onTabChange: ( tab: TabId ) => void;
+	embedded?: boolean;
+	showTabs?: boolean;
 } ) {
 	const { data: allDomains } = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
@@ -292,73 +313,93 @@ function SiteSettingsBody( {
 		);
 	};
 
-	return (
-		<div className={ styles.root }>
-			<SettingsHeader site={ site } />
-			<Tabs.Root
-				selectedTabId={ activeTab }
-				onSelect={ ( tabId ) => {
-					if ( tabId && isSiteSettingsTab( tabId ) ) {
-						onTabChange( tabId );
-					}
-				} }
-			>
-				{ /* Title + tabs sit outside the scroll container so the tablist's
-					 border-bottom spans the full main-area width. Only the form
-					 content scrolls — tabs stay pinned. */ }
-				<div className={ styles.titleBlock }>
-					<h1>{ __( 'Site settings' ) }</h1>
-				</div>
-				<div className={ styles.tabsBar }>
-					<div className={ styles.tabsBarInner }>
-						<Tabs.List>
-							<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
-							<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
-						</Tabs.List>
-					</div>
-				</div>
+	const activeForm = activeTab === 'debugging' ? debuggingForm : generalForm;
+	const formContent = (
+		<div className={ embedded ? styles.embeddedContentBlock : styles.contentBlock }>
+			<form onSubmit={ handleSubmit } className={ styles.form }>
+				{ showTabs ? (
+					<>
+						<Tabs.Panel tabId="general">
+							<DataForm< FormData >
+								data={ data }
+								fields={ fields }
+								form={ generalForm }
+								onChange={ handleChange }
+								validity={ validity }
+							/>
+						</Tabs.Panel>
+						<Tabs.Panel tabId="debugging">
+							<DataForm< FormData >
+								data={ data }
+								fields={ fields }
+								form={ debuggingForm }
+								onChange={ handleChange }
+								validity={ validity }
+							/>
+						</Tabs.Panel>
+					</>
+				) : (
+					<DataForm< FormData >
+						data={ data }
+						fields={ fields }
+						form={ activeForm }
+						onChange={ handleChange }
+						validity={ validity }
+					/>
+				) }
 
-				<div className={ styles.scroll }>
-					<div className={ styles.contentBlock }>
-						<form onSubmit={ handleSubmit } className={ styles.form }>
-							<Tabs.Panel tabId="general">
-								<DataForm< FormData >
-									data={ data }
-									fields={ fields }
-									form={ generalForm }
-									onChange={ handleChange }
-									validity={ validity }
-								/>
-							</Tabs.Panel>
-							<Tabs.Panel tabId="debugging">
-								<DataForm< FormData >
-									data={ data }
-									fields={ fields }
-									form={ debuggingForm }
-									onChange={ handleChange }
-									validity={ validity }
-								/>
-							</Tabs.Panel>
+				{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 
-							{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
-
-							<div className={ styles.actions }>
-								<Button
-									type="submit"
-									variant="solid"
-									tone="brand"
-									disabled={ ! canSubmit }
-									loading={ updateSite.isPending }
-									loadingAnnouncement={ __( 'Saving settings' ) }
-								>
-									{ __( 'Save settings' ) }
-								</Button>
-							</div>
-						</form>
-					</div>
+				<div className={ styles.actions }>
+					<Button
+						type="submit"
+						variant="solid"
+						tone="brand"
+						disabled={ ! canSubmit }
+						loading={ updateSite.isPending }
+						loadingAnnouncement={ __( 'Saving settings' ) }
+					>
+						{ __( 'Save settings' ) }
+					</Button>
 				</div>
-			</Tabs.Root>
+			</form>
 		</div>
+	);
+	const maybeScrollContent: ReactNode = embedded ? (
+		formContent
+	) : (
+		<div className={ styles.scroll }>{ formContent }</div>
+	);
+
+	if ( ! showTabs ) {
+		return <>{ maybeScrollContent }</>;
+	}
+
+	return (
+		<Tabs.Root
+			selectedTabId={ activeTab }
+			onSelect={ ( tabId ) => {
+				if ( tabId && isSiteSettingsTab( tabId ) ) {
+					onTabChange( tabId );
+				}
+			} }
+		>
+			{ /* Title + tabs sit outside the scroll container so the tablist's
+				 border-bottom spans the full main-area width. Only the form
+				 content scrolls — tabs stay pinned. */ }
+			<div className={ embedded ? styles.embeddedTitleBlock : styles.titleBlock }>
+				<h1>{ __( 'Site settings' ) }</h1>
+			</div>
+			<div className={ embedded ? styles.embeddedTabsBar : styles.tabsBar }>
+				<div className={ embedded ? styles.embeddedTabsBarInner : styles.tabsBarInner }>
+					<Tabs.List>
+						<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
+						<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
+					</Tabs.List>
+				</div>
+			</div>
+			{ maybeScrollContent }
+		</Tabs.Root>
 	);
 }
 

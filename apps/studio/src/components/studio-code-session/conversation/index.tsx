@@ -182,25 +182,6 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	return items;
 }
 
-// Progress from earlier turns must not leak into the current indicator, so
-// the scan stops at the nearest turn boundary.
-function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
-	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
-		const entry = entries[ i ];
-		if (
-			isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ||
-			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
-		) {
-			return null;
-		}
-		if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-			const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
-			if ( data ) return data.message;
-		}
-	}
-	return null;
-}
-
 function UserTurn( {
 	text,
 	attachments,
@@ -354,10 +335,6 @@ export function Conversation( {
 } ) {
 	const entries = data.entries;
 	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
-	const progressMessage = useMemo(
-		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
-		[ entries, isRunning ]
-	);
 
 	return (
 		<div className={ styles.root }>
@@ -406,7 +383,6 @@ export function Conversation( {
 			<ThinkingIndicator
 				active={ isRunning && pendingQuestions.size === 0 }
 				startedAt={ startedAt }
-				progressMessage={ progressMessage }
 			/>
 		</div>
 	);

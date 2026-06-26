@@ -202,6 +202,20 @@ function shouldShellFocusTextarea( target: EventTarget ) {
 	);
 }
 
+function resizeComposerInput( textarea: HTMLTextAreaElement | null ) {
+	if ( ! textarea ) {
+		return;
+	}
+
+	textarea.style.height = 'auto';
+	const maxHeight = Number.parseFloat( window.getComputedStyle( textarea ).maxHeight );
+	const nextHeight = Number.isFinite( maxHeight )
+		? Math.min( textarea.scrollHeight, maxHeight )
+		: textarea.scrollHeight;
+	textarea.style.height = `${ nextHeight }px`;
+	textarea.style.overflowY = textarea.scrollHeight > nextHeight + 1 ? 'auto' : 'hidden';
+}
+
 export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
 	{
 		busy,
@@ -262,6 +276,29 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			setPlaceholderIndex( ( current ) => current + 1 );
 		}, 5000 );
 		return () => window.clearInterval( interval );
+	}, [ value ] );
+
+	useLayoutEffect( () => {
+		const textarea = textareaRef.current;
+		if ( ! textarea ) {
+			return;
+		}
+
+		const resize = () => resizeComposerInput( textarea );
+		resize();
+
+		if ( typeof ResizeObserver === 'undefined' ) {
+			window.addEventListener( 'resize', resize );
+			return () => window.removeEventListener( 'resize', resize );
+		}
+
+		const resizeObserver = new ResizeObserver( resize );
+		resizeObserver.observe( textarea.parentElement ?? textarea );
+		return () => resizeObserver.disconnect();
+	}, [] );
+
+	useLayoutEffect( () => {
+		resizeComposerInput( textareaRef.current );
 	}, [ value ] );
 
 	useImperativeHandle(

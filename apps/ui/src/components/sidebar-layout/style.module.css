@@ -70,24 +70,14 @@
 
 .floatingToggle {
 	position: absolute;
-	top: 0;
-	left: 94px;
-	/* Mirror sidebar-header vertical box so the toggle button lands at the
-	   same y-coordinate as when it lives inside the open sidebar. */
+	bottom: var(--wpds-dimension-padding-lg);
+	left: var(--wpds-dimension-padding-lg);
 	display: flex;
 	align-items: center;
-	padding: var(--wpds-dimension-padding-sm) 0;
-	min-height: 46px;
 	z-index: 30;
 	-webkit-app-region: no-drag;
 }
 
 .floatingToggle button {
 	-webkit-app-region: no-drag;
-}
-
-/* In macOS fullscreen the traffic lights are hidden, so the toggle can
-   sit near the main area's left edge. */
-.floatingToggleFullscreen {
-	left: var(--wpds-dimension-padding-xl);
 }

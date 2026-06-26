@@ -26,7 +26,6 @@ export type {
 	StudioCustomEntryType,
 	StudioSessionContextData,
 	StudioSiteSelectedData,
-	StudioToolProgressData,
 	StudioTurnClosedData,
 	StudioUserPromptData,
 	SupportedEditor,

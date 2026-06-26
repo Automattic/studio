@@ -285,6 +285,7 @@
 
 .input {
 	min-height: 48px;
+	max-height: 180px;
 	padding: var(--wpds-dimension-padding-xs) 0;
 	border: 0;
 	background: transparent;
@@ -296,6 +297,7 @@
 	font-family: inherit;
 	box-sizing: border-box;
 	outline: none;
+	overflow-y: hidden;
 }
 
 .input::placeholder {

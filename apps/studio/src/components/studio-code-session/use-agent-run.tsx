@@ -413,17 +413,6 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 				}
 				case 'progress':
-					updateCache( payload.sessionId, ( entries ) => [
-						...entries,
-						{
-							type: 'custom',
-							id: shortEntryId(),
-							parentId: null,
-							timestamp: event.timestamp,
-							customType: 'studio.tool_progress',
-							data: { message: event.message },
-						} as SessionEntry,
-					] );
 					return;
 				case 'chat.artifact':
 					updateCache( payload.sessionId, ( entries ) => [

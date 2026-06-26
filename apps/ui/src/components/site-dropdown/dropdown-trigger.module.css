@@ -92,20 +92,8 @@
 	white-space: nowrap;
 }
 
-.secondaryMarker {
-	width: 6px;
-	height: 6px;
-	border-radius: 999px;
-	flex: 0 0 auto;
-	background: currentColor;
-}
-
 .secondary_pending {
 	color: var(--wpds-color-fg-interactive-brand);
-}
-
-.secondary_pending .secondaryMarker {
-	animation: siteDotBlink 1s ease-in-out infinite;
 }
 
 .secondary_success {

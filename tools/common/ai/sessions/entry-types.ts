@@ -8,7 +8,6 @@ import type { CustomEntry, SessionEntry } from '@earendil-works/pi-coding-agent'
 
 export type StudioCustomEntryType =
 	| 'studio.site_selected'
-	| 'studio.tool_progress'
 	| 'studio.chat_artifact'
 	| 'studio.agent_question'
 	| 'studio.turn_closed'
@@ -21,10 +20,6 @@ export interface StudioSiteSelectedData {
 	remote?: boolean;
 	url?: string;
 	wpcomSiteId?: number;
-}
-
-export interface StudioToolProgressData {
-	message: string;
 }
 
 export interface StudioAgentQuestionData {
@@ -75,7 +70,6 @@ export interface StudioUserPromptData {
 
 export interface StudioCustomEntryDataMap {
 	'studio.site_selected': StudioSiteSelectedData;
-	'studio.tool_progress': StudioToolProgressData;
 	'studio.chat_artifact': StudioChatArtifactData;
 	'studio.agent_question': StudioAgentQuestionData;
 	'studio.turn_closed': StudioTurnClosedData;

@@ -21,20 +21,20 @@
 }
 
 .userName,
-.themeToggle,
+.sidebarToggle,
 .settingsButton {
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-.themeToggle {
+.sidebarToggle {
 	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
 }
 
 .row:hover .userName,
-.row:hover .themeToggle,
+.row:hover .sidebarToggle,
 .row:hover .settingsButton,
 .row:focus-within .userName,
-.row:focus-within .themeToggle,
+.row:focus-within .sidebarToggle,
 .row:focus-within .settingsButton {
 	color: var(--wpds-color-fg-content-neutral);
 }
@@ -61,6 +61,12 @@
 
 .popup {
 	min-width: 220px;
+}
+
+.menuSectionLabel {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm) 0;
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .email {

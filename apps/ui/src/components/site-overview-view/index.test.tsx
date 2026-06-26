@@ -1,0 +1,275 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useConnector } from '@/data/core';
+import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
+import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
+import {
+	useCopySite,
+	useExportDatabase,
+	useExportFullSite,
+	useIsSiteStarting,
+	useIsSiteStopping,
+	useSites,
+	useStartSite,
+	useStopSite,
+	useUpdateSite,
+	useXdebugEnabledSite,
+} from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { SiteOverviewView } from './index';
+import type { AiSessionSummary, SiteDetails } from '@/data/core';
+
+const navigateMock = vi.fn();
+
+class ResizeObserverMock {
+	observe = vi.fn();
+	unobserve = vi.fn();
+	disconnect = vi.fn();
+}
+
+vi.mock( '@tanstack/react-router', () => ( {
+	useNavigate: () => navigateMock,
+} ) );
+
+vi.mock( '@/components/delete-site-dialog', () => ( {
+	DeleteSiteDialog: ( { open }: { open: boolean } ) =>
+		open ? <div role="dialog">Delete dialog</div> : null,
+} ) );
+
+vi.mock( '@/components/site-dropdown', () => ( {
+	SiteDropdown: ( { site }: { site: SiteDetails } ) => <div>{ site.name }</div>,
+} ) );
+
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-sessions', () => ( {
+	useSessions: vi.fn(),
+	useUpdateSessionMetadata: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
+	useExistingCustomDomains: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-sites', () => ( {
+	useCopySite: vi.fn(),
+	useExportDatabase: vi.fn(),
+	useExportFullSite: vi.fn(),
+	useIsSiteStarting: vi.fn(),
+	useIsSiteStopping: vi.fn(),
+	useSites: vi.fn(),
+	useStartSite: vi.fn(),
+	useStopSite: vi.fn(),
+	useUpdateSite: vi.fn(),
+	useXdebugEnabledSite: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useUserPreferences: vi.fn(),
+} ) );
+
+vi.mock( '@/hooks/use-fullscreen', () => ( {
+	useFullscreen: () => false,
+} ) );
+
+vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
+	useSidebarCollapsed: () => false,
+} ) );
+
+const useConnectorMock = vi.mocked( useConnector, { partial: true } );
+const useSessionsMock = vi.mocked( useSessions, { partial: true } );
+const useUpdateSessionMetadataMock = vi.mocked( useUpdateSessionMetadata, { partial: true } );
+const useExistingCustomDomainsMock = vi.mocked( useExistingCustomDomains, { partial: true } );
+const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
+const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
+const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
+const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
+const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
+const useSitesMock = vi.mocked( useSites, { partial: true } );
+const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
+const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
+const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
+const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
+const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
+
+describe( 'SiteOverviewView', () => {
+	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
+	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
+	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
+	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
+	const startSite = vi.fn().mockResolvedValue( undefined );
+	const stopSite = vi.fn();
+	const copySite = vi.fn();
+	const exportFullSite = vi.fn();
+	const exportDatabase = vi.fn();
+	const updateSessionMetadata = vi.fn();
+	const updateSite = vi.fn();
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
+		Object.defineProperty( window, 'matchMedia', {
+			writable: true,
+			value: vi.fn().mockImplementation( ( query: string ) => ( {
+				matches: false,
+				media: query,
+				onchange: null,
+				addListener: vi.fn(),
+				removeListener: vi.fn(),
+				addEventListener: vi.fn(),
+				removeEventListener: vi.fn(),
+				dispatchEvent: vi.fn(),
+			} ) ),
+		} );
+
+		useConnectorMock.mockReturnValue( {
+			openSiteUrl,
+			openSiteFolder,
+			openSiteInEditor,
+			openSiteInTerminal,
+		} );
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true } ) ],
+			isLoading: false,
+		} );
+		useExistingCustomDomainsMock.mockReturnValue( { data: [] } );
+		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSite } );
+		useXdebugEnabledSiteMock.mockReturnValue( { data: null } );
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'active-session',
+					firstPrompt: 'Active site chat',
+				} ),
+				createSession( {
+					id: 'archived-session',
+					firstPrompt: 'Archived site chat',
+					archived: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+		useUpdateSessionMetadataMock.mockReturnValue( {
+			isPending: false,
+			mutate: updateSessionMetadata,
+		} );
+		useIsSiteStartingMock.mockReturnValue( false );
+		useIsSiteStoppingMock.mockReturnValue( false );
+		useStartSiteMock.mockReturnValue( {
+			isPending: false,
+			mutate: startSite,
+			mutateAsync: startSite,
+		} );
+		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } );
+		useCopySiteMock.mockReturnValue( { isPending: false, mutate: copySite } );
+		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: exportFullSite } );
+		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: exportDatabase } );
+		useUserPreferencesMock.mockReturnValue( {
+			data: {
+				editor: 'zed',
+				terminal: 'terminal',
+				colorScheme: 'system',
+				locale: undefined,
+			},
+		} );
+	} );
+
+	it( 'renders the shortcut sections', async () => {
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Chats' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'General' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Debugging' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'heading', { name: 'Theme' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Open in…' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
+		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
+		expect( screen.getByText( 'Zed' ) ).toBeVisible();
+		expect( screen.getByText( 'phpMyAdmin' ) ).toBeVisible();
+		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'tab', { name: 'General' } ) );
+
+		expect( screen.getByDisplayValue( 'Demo Site' ) ).toBeVisible();
+		expect( screen.queryByText( 'Site settings' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Chats' } ) );
+
+		expect( await screen.findByText( 'Active chats' ) ).toBeVisible();
+		expect( screen.getByText( 'Active site chat' ) ).toBeVisible();
+		expect( screen.getByText( 'Archived chats' ) ).toBeVisible();
+		expect( screen.getByText( 'Archived site chat' ) ).toBeVisible();
+	} );
+
+	it( 'routes open and settings shortcuts through existing APIs', async () => {
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		fireEvent.click(
+			screen.getByRole( 'button', {
+				name: /Finder|File Explorer|File manager/,
+			} )
+		);
+		fireEvent.click( screen.getByText( 'Zed' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Terminal' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
+
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Chats' } ) );
+		fireEvent.click( screen.getByText( 'Restore' ).closest( 'button' )! );
+
+		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
+		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
+		expect( openSiteInTerminal ).toHaveBeenCalledWith( 'site-1' );
+		await waitFor( () =>
+			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php', undefined )
+		);
+		expect( openSiteUrl ).toHaveBeenCalledWith(
+			'site-1',
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress',
+			undefined
+		);
+		expect( updateSessionMetadata ).toHaveBeenCalledWith( {
+			sessionId: 'archived-session',
+			patch: { starred: false, archived: false },
+		} );
+	} );
+} );
+
+function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
+	return {
+		id: 'site-1',
+		name: 'Demo Site',
+		path: '/Users/example/Studio/demo-site',
+		port: 8881,
+		running: false,
+		phpVersion: '8.4',
+		adminUsername: 'admin',
+		adminEmail: 'admin@example.com',
+		enableDebugLog: true,
+		themeDetails: {
+			name: 'Twenty Twenty-Six',
+			path: '/wp-content/themes/twentytwentysix',
+			slug: 'twentytwentysix',
+			isBlockTheme: true,
+		},
+		...overrides,
+	};
+}
+
+function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
+	return {
+		id: 'session-1',
+		filePath: '/Users/example/.studio/sessions/session-1.jsonl',
+		createdAt: '2026-06-01T12:00:00.000Z',
+		updatedAt: '2026-06-20T12:00:00.000Z',
+		firstPrompt: 'Archived site chat',
+		ownerSitePath: '/Users/example/Studio/demo-site',
+		activeEnvironment: 'local',
+		eventCount: 1,
+		...overrides,
+	};
+}

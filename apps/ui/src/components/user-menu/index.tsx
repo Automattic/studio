@@ -9,7 +9,7 @@ import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
-import { moonIcon, sunIcon } from '@/lib/icons';
+import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { ColorScheme } from '@/data/core';
 
@@ -17,7 +17,11 @@ const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
 const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
-export function UserMenu() {
+type Props = {
+	onToggleSidebar: () => void;
+};
+
+export function UserMenu( { onToggleSidebar }: Props ) {
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
@@ -56,6 +60,19 @@ export function UserMenu() {
 							<Menu.Item onClick={ () => void navigate( { to: '/settings' } ) }>
 								{ __( 'Settings' ) }
 							</Menu.Item>
+							<Menu.Separator />
+							<div className={ styles.menuSectionLabel }>{ __( 'Appearance' ) }</div>
+							<Menu.RadioGroup
+								value={ currentScheme }
+								onValueChange={ ( value ) =>
+									savePreferences.mutate( { colorScheme: value as ColorScheme } )
+								}
+							>
+								<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
+								<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>
+								<Menu.RadioItem value="dark">{ __( 'Dark' ) }</Menu.RadioItem>
+							</Menu.RadioGroup>
+							<Menu.Separator />
 							<Menu.Item onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
 								{ __( 'Edit WordPress.com profile' ) }
 							</Menu.Item>
@@ -87,32 +104,15 @@ export function UserMenu() {
 						onClick={ () => void navigate( { to: '/settings' } ) }
 					/>
 				) : null }
-				<Menu.Root modal={ false }>
-					<Menu.Trigger
-						render={
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								className={ styles.themeToggle }
-								icon={ themeIsDark ? sunIcon : moonIcon }
-								label={ __( 'Appearance' ) }
-							/>
-						}
-					/>
-					<Menu.Popup side="top" align="end">
-						<Menu.RadioGroup
-							value={ currentScheme }
-							onValueChange={ ( value ) =>
-								savePreferences.mutate( { colorScheme: value as ColorScheme } )
-							}
-						>
-							<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
-							<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>
-							<Menu.RadioItem value="dark">{ __( 'Dark' ) }</Menu.RadioItem>
-						</Menu.RadioGroup>
-					</Menu.Popup>
-				</Menu.Root>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					className={ styles.sidebarToggle }
+					icon={ drawerIcon }
+					label={ __( 'Hide sidebar' ) }
+					onClick={ onToggleSidebar }
+				/>
 			</div>
 		</div>
 	);

@@ -56,7 +56,6 @@ import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Markdown } from '@/components/markdown';
-import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -198,25 +197,6 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	} );
 
 	return items;
-}
-
-// Progress from earlier turns must not leak into the current indicator, so
-// the scan stops at the nearest turn boundary.
-function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
-	for ( let i = entries.length - 1; i >= 0; i -= 1 ) {
-		const entry = entries[ i ];
-		if (
-			isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ||
-			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
-		) {
-			return null;
-		}
-		if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-			const data = ( entry as StudioCustomEntry< 'studio.tool_progress' > ).data;
-			if ( data ) return data.message;
-		}
-	}
-	return null;
 }
 
 function UserTurn( {
@@ -591,25 +571,17 @@ function AgentQuestion( {
 
 export function Conversation( {
 	data,
-	isRunning,
-	startedAt,
 	pendingQuestions,
 	pendingAnswers,
 	onAnswerQuestion,
 }: {
 	data: LoadedAiSession;
-	isRunning: boolean;
-	startedAt: number | null;
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
 } ) {
 	const entries = data.entries;
 	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
-	const progressMessage = useMemo(
-		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
-		[ entries, isRunning ]
-	);
 
 	return (
 		<div className={ styles.root }>
@@ -651,11 +623,6 @@ export function Conversation( {
 						return null;
 				}
 			} ) }
-			<ThinkingIndicator
-				active={ isRunning && pendingQuestions.size === 0 }
-				startedAt={ startedAt }
-				progressMessage={ progressMessage }
-			/>
 		</div>
 	);
 }

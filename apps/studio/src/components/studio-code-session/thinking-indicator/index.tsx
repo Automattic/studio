@@ -6,11 +6,9 @@ import styles from './style.module.css';
 export function ThinkingIndicator( {
 	active,
 	startedAt,
-	progressMessage,
 }: {
 	active: boolean;
 	startedAt: number | null;
-	progressMessage: string | null;
 } ) {
 	const [ message, setMessage ] = useState( () => randomThinkingMessage() );
 	const [ elapsedSeconds, setElapsedSeconds ] = useState( 0 );
@@ -50,9 +48,6 @@ export function ThinkingIndicator( {
 							</span>
 						) : null }
 					</div>
-					{ progressMessage ? (
-						<span className={ styles.progress }>{ progressMessage }</span>
-					) : null }
 				</>
 			) : null }
 		</div>

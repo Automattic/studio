@@ -321,16 +321,6 @@ export function migrateLegacyEvents( events: LegacyEvent[], cwd: string ): PiFil
 				}
 				continue;
 			}
-			case 'tool.progress':
-				append( {
-					type: 'custom',
-					id: nextId(),
-					parentId,
-					timestamp: ts,
-					customType: 'studio.tool_progress',
-					data: { message: typeof event.message === 'string' ? event.message : '' },
-				} );
-				continue;
 			case 'agent.question':
 				append( {
 					type: 'custom',

@@ -1,6 +1,7 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { Button } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
 import { ProgressiveBlur } from '@/components/progressive-blur';
@@ -10,7 +11,6 @@ import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -20,6 +20,7 @@ import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
 import styles from './style.module.css';
+import { ThinkingIndicator } from './thinking-indicator';
 import type { AiSessionSummary } from '@/data/core';
 
 interface SessionHeaderProps {
@@ -29,7 +30,6 @@ interface SessionHeaderProps {
 function SessionHeader( { summary }: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
@@ -37,15 +37,8 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 		return null;
 	}
 
-	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
-		: null;
-
 	return (
-		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
+		<div className={ clsx( styles.header, sidebarCollapsed && styles.headerSidebarCollapsed ) }>
 			{ site ? (
 				<SiteDropdown
 					site={ site }
@@ -190,7 +183,23 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
 	useSessionCommands( sessionId );
+	const sidebarCollapsed = useSidebarCollapsed();
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
+	const composerStatusMessage = useMemo( () => {
+		if ( isInterrupting ) {
+			return __( 'Stopping' );
+		}
+		if ( pendingQuestions.length > 0 ) {
+			return __( 'Waiting for your answer' );
+		}
+		if ( hasActiveRun && ! isRunning ) {
+			return __( 'Wrapping up' );
+		}
+		if ( queuedPrompts.length > 0 ) {
+			return __( 'Next message queued' );
+		}
+		return __( 'Ready for next task' );
+	}, [ hasActiveRun, isInterrupting, isRunning, pendingQuestions.length, queuedPrompts.length ] );
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -215,6 +224,15 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ removeQueuedPrompt ]
 	);
+	const startNewChat = useCallback( () => {
+		if ( ! ownerSite ) {
+			return;
+		}
+		void navigate( {
+			to: '/sites/$siteId/new',
+			params: { siteId: ownerSite.id },
+		} );
+	}, [ navigate, ownerSite ] );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -239,6 +257,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				composer={
 					<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
 						<ComposerSkeleton />
+						<div
+							className={ clsx(
+								styles.classicComposerStatusRow,
+								sidebarCollapsed && styles.classicComposerStatusRowSidebarCollapsed
+							) }
+							aria-hidden="true"
+						/>
 					</div>
 				}
 			>
@@ -285,6 +310,29 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 							} )
 						}
 					/>
+					<div
+						className={ clsx(
+							styles.classicComposerStatusRow,
+							sidebarCollapsed && styles.classicComposerStatusRowSidebarCollapsed
+						) }
+					>
+						<ThinkingIndicator
+							active={ isRunning && pendingQuestions.length === 0 }
+							idleMessage={ composerStatusMessage }
+							startedAt={ startedAt }
+						/>
+						{ ownerSite ? (
+							<Button
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								className={ styles.classicComposerNewChatButton }
+								onClick={ startNewChat }
+							>
+								{ __( 'New chat' ) }
+							</Button>
+						) : null }
+					</div>
 				</div>
 			}
 		>
@@ -292,8 +340,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
 				<Conversation
 					data={ data }
-					isRunning={ isRunning }
-					startedAt={ startedAt }
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
 					onAnswerQuestion={ answerQuestion }

@@ -4,9 +4,8 @@
 	gap: 2px;
 	color: var(--color-frame-text-secondary);
 	font-size: var(--wpds-typography-font-size-sm);
-	/* Reserves space so mounting / unmounting the inner content doesn't
-	   shift the surrounding layout. Holds ~one head line + one progress line. */
-	min-height: calc(1.5em * 2 + 2px);
+	/* Reserves space so mounting / unmounting doesn't shift the surrounding layout. */
+	min-height: 1.5em;
 }
 
 .head {
@@ -32,15 +31,6 @@
 	color: var(--color-frame-text-secondary);
 	opacity: 0.7;
 	font-variant-numeric: tabular-nums;
-}
-
-.progress {
-	padding-left: calc(8px + var(--wpds-dimension-padding-md));
-	color: var(--color-frame-text-secondary);
-	opacity: 0.8;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 @keyframes pulse {

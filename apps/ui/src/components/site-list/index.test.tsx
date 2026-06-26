@@ -1,49 +1,29 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useConnector } from '@/data/core';
-import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
-import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
+import { useSessions } from '@/data/queries/use-sessions';
 import {
-	useCopySite,
-	useDeleteSite,
-	useExportDatabase,
-	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SiteList } from './index';
-import type { SiteDetails } from '@/data/core';
-import type { ReactNode } from 'react';
+import type { AiSessionSummary, SiteDetails } from '@/data/core';
+
+const navigateMock = vi.fn();
+let paramsMock: { sessionId?: string; siteId?: string } = {};
 
 vi.mock( '@tanstack/react-router', () => ( {
-	Link: ( props: { children?: ReactNode } ) => <a>{ props.children }</a>,
-	useNavigate: () => vi.fn(),
-	useParams: () => ( {} ),
-} ) );
-
-vi.mock( '@/data/core', () => ( {
-	useConnector: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-agent-run', () => ( {
-	useIsSessionRunning: vi.fn(),
-	useSessionHasPendingQuestion: vi.fn(),
+	useNavigate: () => navigateMock,
+	useParams: () => paramsMock,
 } ) );
 
 vi.mock( '@/data/queries/use-sessions', () => ( {
 	useSessions: vi.fn(),
-	useUpdateSessionMetadata: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
-	useCopySite: vi.fn(),
-	useDeleteSite: vi.fn(),
-	useExportDatabase: vi.fn(),
-	useExportFullSite: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
@@ -51,25 +31,12 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useStopSite: vi.fn(),
 } ) );
 
-vi.mock( '@/data/queries/use-user-preferences', () => ( {
-	useUserPreferences: vi.fn(),
-} ) );
-
-const useConnectorMock = vi.mocked( useConnector, { partial: true } );
-const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
-const useDeleteSiteMock = vi.mocked( useDeleteSite, { partial: true } );
-const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
-const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
-const useIsSessionRunningMock = vi.mocked( useIsSessionRunning );
-const useSessionHasPendingQuestionMock = vi.mocked( useSessionHasPendingQuestion );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSessionsMock = vi.mocked( useSessions, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
-const useUpdateSessionMetadataMock = vi.mocked( useUpdateSessionMetadata, { partial: true } );
-const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 
 describe( 'SiteList', () => {
 	const startSite = vi.fn();
@@ -77,40 +44,27 @@ describe( 'SiteList', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		paramsMock = {};
 
-		useConnectorMock.mockReturnValue( {
-			openExternalUrl: vi.fn(),
-			openSiteFolder: vi.fn(),
-			openSiteInEditor: vi.fn(),
-			openSiteInTerminal: vi.fn(),
-		} );
-		useCopySiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
-		useDeleteSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
-		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
-		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
-		useIsSessionRunningMock.mockReturnValue( false );
-		useSessionHasPendingQuestionMock.mockReturnValue( false );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
 		useStartSiteMock.mockReturnValue( { isPending: false, mutate: startSite } );
 		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } );
-		useUpdateSessionMetadataMock.mockReturnValue( {
-			isPending: false,
-			mutate: vi.fn(),
-		} );
-		useUserPreferencesMock.mockReturnValue( {
-			data: {
-				editor: 'zed',
-				terminal: 'terminal',
-				colorScheme: 'system',
-				locale: undefined,
-			},
-		} );
 		useSitesMock.mockReturnValue( {
 			data: [
-				createSite( { id: 'stopped-site', name: 'Stopped Site', running: false } ),
-				createSite( { id: 'running-site', name: 'Running Site', running: true } ),
+				createSite( {
+					id: 'stopped-site',
+					name: 'Stopped Site',
+					path: '/Users/example/Studio/stopped-site',
+					running: false,
+				} ),
+				createSite( {
+					id: 'running-site',
+					name: 'Running Site',
+					path: '/Users/example/Studio/running-site',
+					running: true,
+				} ),
 			],
 			isLoading: false,
 		} );
@@ -145,6 +99,75 @@ describe( 'SiteList', () => {
 		expect( actionGlyph?.querySelector( 'rect' ) ).toHaveAttribute( 'width', '8' );
 		expect( actionGlyph?.querySelector( 'path' ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'opens the site overview from the site action button', () => {
+		render( <SiteList /> );
+
+		expect( screen.queryByRole( 'button', { name: 'New chat' } ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
+
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sites/$siteId/overview',
+			params: { siteId: 'stopped-site' },
+		} );
+	} );
+
+	it( 'opens the latest active chat when a site is clicked', () => {
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'older-chat',
+					firstPrompt: 'Older visible chat',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+					updatedAt: '2026-06-01T12:00:00.000Z',
+				} ),
+				createSession( {
+					id: 'latest-chat',
+					firstPrompt: 'Latest visible chat',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+					updatedAt: '2026-06-20T12:00:00.000Z',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		expect( screen.queryByText( 'Latest visible chat' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped Site' } ) );
+
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sessions/$sessionId',
+			params: { sessionId: 'latest-chat' },
+		} );
+	} );
+
+	it( 'creates a chat when a site has no active chats', () => {
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'archived-chat',
+					firstPrompt: 'Archived chat',
+					ownerSitePath: '/Users/example/Studio/running-site',
+					archived: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		expect( screen.queryByText( 'Archived chat' ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Running Site' } ) );
+
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sites/$siteId/new',
+			params: { siteId: 'running-site' },
+		} );
+	} );
 } );
 
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
@@ -155,6 +178,20 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 		port: 8881,
 		running: false,
 		phpVersion: '8.4',
+		...overrides,
+	};
+}
+
+function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
+	return {
+		id: 'session-1',
+		filePath: '/Users/example/.studio/sessions/session-1.jsonl',
+		createdAt: '2026-06-01T12:00:00.000Z',
+		updatedAt: '2026-06-20T12:00:00.000Z',
+		firstPrompt: 'Site chat',
+		ownerSitePath: '/Users/example/Studio/demo-site',
+		activeEnvironment: 'local',
+		eventCount: 1,
 		...overrides,
 	};
 }

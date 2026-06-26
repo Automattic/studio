@@ -3,6 +3,7 @@
 .root {
 	--classic-column-inline-gutter: calc(var(--wpds-dimension-padding-2xl) + 8px);
 	--classic-composer-shell-inline-padding: var(--wpds-dimension-padding-lg);
+	--classic-sidebar-toggle-clearance: calc(32px + var(--wpds-dimension-padding-sm));
 	--classic-header-height: 46px;
 	--classic-composer-height: 0px;
 	--classic-header-blur-overhang: 16px;
@@ -25,7 +26,7 @@
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	padding-block: var(--wpds-dimension-padding-sm);
+	padding-block: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-sm);
 	padding-inline: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
@@ -33,22 +34,8 @@
 	-webkit-app-region: drag;
 }
 
-/* Reserve a no-drag area at the left so the floating sidebar-toggle button
-   (collapsed state) doesn't sit on top of the header's drag region. */
-.toggleSpacer {
-	display: block;
-	flex-shrink: 0;
-	width: 118px;
-	align-self: stretch;
-	-webkit-app-region: no-drag;
-}
-
-.toggleSpacerFullscreen {
-	display: block;
-	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-xl) + 24px);
-	align-self: stretch;
-	-webkit-app-region: no-drag;
+.headerSidebarCollapsed {
+	padding-top: calc(var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) + var(--wpds-dimension-padding-sm));
 }
 
 .headerSite {
@@ -153,5 +140,36 @@
 			0px,
 			calc(var(--classic-column-inline-gutter) - var(--classic-composer-shell-inline-padding))
 		)
-		var(--wpds-dimension-padding-xl);
+		var(--wpds-dimension-padding-sm);
+}
+
+.classicComposerStatusRow {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	min-height: var(--classic-sidebar-toggle-clearance);
+	padding-inline: var(--classic-composer-shell-inline-padding);
+}
+
+.classicComposerStatusRowSidebarCollapsed {
+	padding-left: calc(32px + var(--wpds-dimension-padding-sm));
+}
+
+.classicComposerStatusRow > :first-child {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.classicComposerNewChatButton {
+	flex: 0 0 auto;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 400;
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.classicComposerNewChatButton:hover,
+.classicComposerNewChatButton:focus-visible {
+	color: var(--wpds-color-fg-content-neutral);
 }

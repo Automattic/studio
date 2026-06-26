@@ -1,7 +1,7 @@
 // Rehydrate the terminal UI from a session's JSONL on resume. Walks
 // `SessionEntry[]` and dispatches each entry to the live `ui.handleEvent()`
 // path (for assistant messages) or directly to `ui.*` (for Studio's
-// `custom` markers — site selections, progress, agent questions — which
+// `custom` markers — site selections, agent questions — which
 // don't appear in pi's flat `buildSessionContext()` output).
 
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
@@ -52,11 +52,6 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 				ui.beginAgentTurn();
 				isTurnOpen = true;
 				ui.addUserMessage( data.text );
-				continue;
-			}
-
-			if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-				if ( entry.data ) ui.setLoaderMessage( entry.data.message );
 				continue;
 			}
 

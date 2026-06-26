@@ -22,7 +22,6 @@ export type {
 	StudioCustomEntryType,
 	StudioCustomEntryDataMap,
 	StudioSiteSelectedData,
-	StudioToolProgressData,
 	StudioAgentQuestionData,
 	StudioTurnClosedData,
 	StudioSessionContextData,
@@ -73,6 +72,8 @@ export interface SiteDetails {
 		path: string;
 		slug: string;
 		isBlockTheme: boolean;
+		supportsWidgets?: boolean;
+		supportsMenus?: boolean;
 	};
 	siteIcon?: string | null;
 }

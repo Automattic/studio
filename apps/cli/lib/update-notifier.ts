@@ -194,7 +194,16 @@ async function notifyStandalone( currentVersion: string ): Promise< void > {
 
 	let latestVersion: string | null = null;
 
-	if ( cached && now - cached.lastChecked < UPDATE_CHECK_INTERVAL_MS ) {
+	// Ignore a cached check from a different channel than the running CLI. The cache is
+	// keyed only by config dir (~/.studio), which is shared across installs — reinstalling
+	// a different channel (e.g. nightly → production) onto it would otherwise surface a
+	// stale, cross-channel banner (a `-dev` build offered to a production install) until the
+	// TTL elapses. On a mismatch we refetch and let the server decide.
+	if (
+		cached &&
+		now - cached.lastChecked < UPDATE_CHECK_INTERVAL_MS &&
+		channelForVersion( cached.latestVersion ) === channelForVersion( currentVersion )
+	) {
 		latestVersion = cached.latestVersion;
 	} else {
 		const result = await fetchStandaloneUpdate( currentVersion );

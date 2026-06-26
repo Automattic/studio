@@ -497,8 +497,6 @@ const getErrorFromResponse = ( error: unknown ): string => {
 		'error' in error &&
 		typeof error.error === 'string'
 	) {
-		// Pass through pushArchive's status-aware message (e.g. the 413 "archive
-		// too large" message) instead of the generic connect error below.
 		return error.error;
 	}
 	return __( 'Studio was unable to connect to WordPress.com. Please try again.' );

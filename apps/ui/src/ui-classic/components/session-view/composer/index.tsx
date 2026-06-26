@@ -14,7 +14,14 @@ import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-type
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowUp, chevronDownSmall, closeSmall, page, plus } from '@wordpress/icons';
+import {
+	arrowUp,
+	chevronDownSmall,
+	chevronRightSmall,
+	closeSmall,
+	page,
+	plus,
+} from '@wordpress/icons';
 import { Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
@@ -26,8 +33,11 @@ import {
 	useRef,
 	useState,
 	type ChangeEvent,
+	type KeyboardEvent,
 	type MouseEvent,
+	type PointerEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -46,6 +56,18 @@ import type {
 	StudioChatFileAttachment,
 	StudioChatImage,
 } from '@/data/core';
+
+const COMPOSER_TEXTAREA_MIN_HEIGHT = 48;
+const COMPOSER_TEXTAREA_MIN_MAX_HEIGHT = 180;
+const COMPOSER_TEXTAREA_MAX_HEIGHT = 320;
+const COMPOSER_TEXTAREA_MAX_VIEWPORT_RATIO = 0.4;
+const COMPOSER_TEXTAREA_MANUAL_MAX_HEIGHT = 560;
+const COMPOSER_TEXTAREA_MANUAL_MAX_VIEWPORT_RATIO = 0.7;
+const COMPOSER_TEXTAREA_RESIZE_STEP = 16;
+const PLACEHOLDER_SCRAMBLE_DURATION_MS = 420;
+const PLACEHOLDER_SCRAMBLE_STAGGER_MS = 12;
+const PLACEHOLDER_SCRAMBLE_TICK_MS = 32;
+const PLACEHOLDER_SCRAMBLE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789!?*+-=';
 
 function AttachmentHoverTextPreview( { text }: { text: string } ) {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
@@ -198,8 +220,126 @@ function shouldShellFocusTextarea( target: EventTarget ) {
 		return true;
 	}
 	return ! target.closest(
-		'button, input, textarea, select, a, [role="button"], [role="menuitem"]'
+		'button, input, textarea, select, a, [role="button"], [role="menuitem"], [role="separator"]'
 	);
+}
+
+function getComposerTextareaMaxHeight( isManual = false ) {
+	const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+	const maxHeight = isManual ? COMPOSER_TEXTAREA_MANUAL_MAX_HEIGHT : COMPOSER_TEXTAREA_MAX_HEIGHT;
+	const viewportRatio = isManual
+		? COMPOSER_TEXTAREA_MANUAL_MAX_VIEWPORT_RATIO
+		: COMPOSER_TEXTAREA_MAX_VIEWPORT_RATIO;
+
+	if ( ! Number.isFinite( viewportHeight ) || viewportHeight <= 0 ) {
+		return maxHeight;
+	}
+
+	return Math.min(
+		maxHeight,
+		Math.max( COMPOSER_TEXTAREA_MIN_MAX_HEIGHT, Math.floor( viewportHeight * viewportRatio ) )
+	);
+}
+
+function clampComposerTextareaHeight( height: number, isManual = true ) {
+	return Math.min(
+		Math.max( height, COMPOSER_TEXTAREA_MIN_HEIGHT ),
+		getComposerTextareaMaxHeight( isManual )
+	);
+}
+
+function resizeComposerTextarea(
+	node: HTMLTextAreaElement | null,
+	manualHeight: number | null = null
+) {
+	if ( ! node ) {
+		return null;
+	}
+	node.style.height = 'auto';
+	const nextHeight =
+		manualHeight === null
+			? clampComposerTextareaHeight( node.scrollHeight, false )
+			: clampComposerTextareaHeight( manualHeight, true );
+	node.style.height = `${ nextHeight }px`;
+	node.style.overflowY = node.scrollHeight > nextHeight ? 'auto' : 'hidden';
+	return nextHeight;
+}
+
+function getScrambleCharacter( index: number, elapsed: number ) {
+	const characterIndex =
+		( index * 7 + Math.floor( elapsed / PLACEHOLDER_SCRAMBLE_TICK_MS ) ) %
+		PLACEHOLDER_SCRAMBLE_CHARS.length;
+	return PLACEHOLDER_SCRAMBLE_CHARS.charAt( characterIndex );
+}
+
+function useScrambledPlaceholder( targetText: string, shouldAnimate: boolean ) {
+	const [ displayText, setDisplayText ] = useState( targetText );
+	const previousTargetRef = useRef( targetText );
+
+	useEffect( () => {
+		const previousText = previousTargetRef.current;
+		previousTargetRef.current = targetText;
+
+		if ( previousText === targetText || ! shouldAnimate ) {
+			setDisplayText( targetText );
+			return;
+		}
+
+		if ( window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ) {
+			setDisplayText( targetText );
+			return;
+		}
+
+		const maxLength = Math.max( previousText.length, targetText.length );
+		const startTime = performance.now();
+		let animationFrame = 0;
+
+		const renderFrame = ( now: number ) => {
+			const elapsed = now - startTime;
+			let isComplete = true;
+			let nextText = '';
+
+			for ( let index = 0; index < maxLength; index++ ) {
+				const previousCharacter = previousText.charAt( index );
+				const targetCharacter = targetText.charAt( index );
+				const characterElapsed = elapsed - index * PLACEHOLDER_SCRAMBLE_STAGGER_MS;
+
+				if ( characterElapsed <= 0 ) {
+					nextText += previousCharacter;
+					isComplete = false;
+					continue;
+				}
+
+				if ( characterElapsed >= PLACEHOLDER_SCRAMBLE_DURATION_MS ) {
+					nextText += targetCharacter;
+					continue;
+				}
+
+				isComplete = false;
+				nextText +=
+					previousCharacter === ' ' && targetCharacter === ' '
+						? ' '
+						: getScrambleCharacter( index, elapsed );
+			}
+
+			setDisplayText( nextText.trimEnd() );
+
+			if ( isComplete ) {
+				setDisplayText( targetText );
+				return;
+			}
+
+			animationFrame = window.requestAnimationFrame( renderFrame );
+		};
+
+		animationFrame = window.requestAnimationFrame( renderFrame );
+
+		return () => {
+			window.cancelAnimationFrame( animationFrame );
+		};
+	}, [ targetText, shouldAnimate ] );
+
+	return displayText;
 }
 
 export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
@@ -223,8 +363,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
 		null
 	);
+	const [ manualTextareaHeight, setManualTextareaHeight ] = useState< number | null >( null );
+	const [ textareaHeight, setTextareaHeight ] = useState( COMPOSER_TEXTAREA_MIN_HEIGHT );
+	const [ isResizingComposer, setIsResizingComposer ] = useState( false );
 	const textareaRef = useRef< HTMLTextAreaElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
+	const manualTextareaHeightRef = useRef< number | null >( null );
+	const resizeDragRef = useRef< { startY: number; startHeight: number } | null >( null );
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 
@@ -248,14 +393,44 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< AiModelId | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
 
+	const setComposerManualTextareaHeight = useCallback( ( height: number | null ) => {
+		const nextHeight = height === null ? null : clampComposerTextareaHeight( height, true );
+		manualTextareaHeightRef.current = nextHeight;
+		setManualTextareaHeight( nextHeight );
+		return nextHeight;
+	}, [] );
+
 	useEffect( () => {
 		if ( autoFocus ) {
 			textareaRef.current?.focus();
 		}
 	}, [ autoFocus, sessionId ] );
 
+	useLayoutEffect( () => {
+		const nextHeight = resizeComposerTextarea( textareaRef.current, manualTextareaHeight );
+		if ( nextHeight !== null ) {
+			setTextareaHeight( ( current ) => ( current === nextHeight ? current : nextHeight ) );
+		}
+	}, [ manualTextareaHeight, value ] );
+
 	useEffect( () => {
-		if ( value.trim().length > 0 ) {
+		const handleViewportResize = () => {
+			const nextManualHeight = setComposerManualTextareaHeight( manualTextareaHeightRef.current );
+			const nextHeight = resizeComposerTextarea( textareaRef.current, nextManualHeight );
+			if ( nextHeight !== null ) {
+				setTextareaHeight( ( current ) => ( current === nextHeight ? current : nextHeight ) );
+			}
+		};
+		window.addEventListener( 'resize', handleViewportResize );
+		window.visualViewport?.addEventListener( 'resize', handleViewportResize );
+		return () => {
+			window.removeEventListener( 'resize', handleViewportResize );
+			window.visualViewport?.removeEventListener( 'resize', handleViewportResize );
+		};
+	}, [ setComposerManualTextareaHeight ] );
+
+	useEffect( () => {
+		if ( value.length > 0 ) {
 			return;
 		}
 		const interval = window.setInterval( () => {
@@ -263,6 +438,10 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}, 5000 );
 		return () => window.clearInterval( interval );
 	}, [ value ] );
+
+	useEffect( () => {
+		setPlaceholderIndex( 0 );
+	}, [ busy ] );
 
 	useImperativeHandle(
 		ref,
@@ -331,6 +510,78 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		event.preventDefault();
 		textareaRef.current?.focus();
 	}, [] );
+
+	const startComposerResize = useCallback(
+		( event: PointerEvent< HTMLDivElement > ) => {
+			if ( event.pointerType === 'mouse' && event.button !== 0 ) {
+				return;
+			}
+			event.preventDefault();
+			const startHeight = textareaRef.current?.getBoundingClientRect().height ?? textareaHeight;
+			resizeDragRef.current = {
+				startY: event.clientY,
+				startHeight,
+			};
+			setIsResizingComposer( true );
+			setComposerManualTextareaHeight( startHeight );
+			if ( typeof event.currentTarget.setPointerCapture === 'function' ) {
+				event.currentTarget.setPointerCapture( event.pointerId );
+			}
+		},
+		[ setComposerManualTextareaHeight, textareaHeight ]
+	);
+
+	const updateComposerResize = useCallback(
+		( event: PointerEvent< HTMLDivElement > ) => {
+			const drag = resizeDragRef.current;
+			if ( ! drag ) {
+				return;
+			}
+			event.preventDefault();
+			setComposerManualTextareaHeight( drag.startHeight + drag.startY - event.clientY );
+		},
+		[ setComposerManualTextareaHeight ]
+	);
+
+	const finishComposerResize = useCallback( ( event: PointerEvent< HTMLDivElement > ) => {
+		if ( ! resizeDragRef.current ) {
+			return;
+		}
+		resizeDragRef.current = null;
+		setIsResizingComposer( false );
+		if (
+			typeof event.currentTarget.releasePointerCapture === 'function' &&
+			typeof event.currentTarget.hasPointerCapture === 'function' &&
+			event.currentTarget.hasPointerCapture( event.pointerId )
+		) {
+			event.currentTarget.releasePointerCapture( event.pointerId );
+		}
+	}, [] );
+
+	const handleComposerResizeKeyDown = useCallback(
+		( event: KeyboardEvent< HTMLDivElement > ) => {
+			const currentHeight = textareaRef.current?.getBoundingClientRect().height ?? textareaHeight;
+			let nextHeight: number | null = null;
+
+			if ( event.key === 'ArrowUp' ) {
+				nextHeight = currentHeight + COMPOSER_TEXTAREA_RESIZE_STEP;
+			} else if ( event.key === 'ArrowDown' ) {
+				nextHeight = currentHeight - COMPOSER_TEXTAREA_RESIZE_STEP;
+			} else if ( event.key === 'Home' ) {
+				nextHeight = COMPOSER_TEXTAREA_MIN_HEIGHT;
+			} else if ( event.key === 'End' ) {
+				nextHeight = getComposerTextareaMaxHeight( true );
+			}
+
+			if ( nextHeight === null ) {
+				return;
+			}
+
+			event.preventDefault();
+			setComposerManualTextareaHeight( nextHeight );
+		},
+		[ setComposerManualTextareaHeight, textareaHeight ]
+	);
 
 	const onFileInputChange = useCallback(
 		( event: ChangeEvent< HTMLInputElement > ) => {
@@ -440,9 +691,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const canSend = value.trim().length > 0 || attachments.length > 0;
 	const placeholderOptions = busy
 		? [
-				__( 'Add the next thought…' ),
-				__( 'Queue up the follow-up…' ),
-				__( 'Got one more thing?' ),
+				__( 'Queue the next message while I work…' ),
+				__( 'Type a follow-up and I’ll send it next…' ),
+				__( 'Add the next step to the queue…' ),
 		  ]
 		: [
 				__( 'What should we make better?' ),
@@ -452,9 +703,15 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				__( 'What are we tuning now?' ),
 		  ];
 	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
+	const showAnimatedPlaceholder = value.length === 0;
+	const animatedPlaceholder = useScrambledPlaceholder( placeholder, showAnimatedPlaceholder );
+	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
 	const composerError = attachmentError ?? error;
+	const stopTooltipLabel = isInterrupting
+		? __( 'Stopping… click again to force stop' )
+		: __( 'Stop' );
 	const hoveredAttachment = hoverPreview
 		? attachments.find( ( attachment ) => attachment.id === hoverPreview.id )
 		: undefined;
@@ -474,12 +731,32 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		<>
 			<div className={ styles.root }>
 				<div
-					className={ clsx( styles.shell, isDraggingOver && styles.shellDragging ) }
+					className={ clsx(
+						styles.shell,
+						isDraggingOver && styles.shellDragging,
+						isResizingComposer && styles.shellResizing
+					) }
 					onMouseDown={ focusTextareaFromShell }
 					onDragOver={ dragHandlers.onDragOver }
 					onDragLeave={ dragHandlers.onDragLeave }
 					onDrop={ dragHandlers.onDrop }
 				>
+					<div
+						className={ styles.resizeHandle }
+						role="separator"
+						aria-orientation="horizontal"
+						aria-label={ __( 'Resize composer' ) }
+						aria-valuemin={ COMPOSER_TEXTAREA_MIN_HEIGHT }
+						aria-valuemax={ composerResizeMaxHeight }
+						aria-valuenow={ Math.round( textareaHeight ) }
+						tabIndex={ 0 }
+						onPointerDown={ startComposerResize }
+						onPointerMove={ updateComposerResize }
+						onPointerUp={ finishComposerResize }
+						onPointerCancel={ finishComposerResize }
+						onLostPointerCapture={ finishComposerResize }
+						onKeyDown={ handleComposerResizeKeyDown }
+					/>
 					{ isDraggingOver ? (
 						<div className={ styles.dropOverlay } aria-hidden="true">
 							{ __( 'Drop files to attach' ) }
@@ -577,100 +854,144 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							} ) }
 						</ul>
 					) : null }
-					{ hoveredAttachment && hoverPreview ? (
-						<div
-							className={ styles.attachmentHoverPreview }
-							role="tooltip"
-							style={ {
-								left: hoverPreview.left,
-								bottom: hoverPreview.bottom,
-								width: hoverPreview.width,
-							} }
-						>
-							{ hoveredAttachmentHasVisualPreview ? (
-								<div className={ styles.attachmentHoverArtwork }>
-									{ renderAttachmentVisual(
-										hoveredAttachment,
-										'hover',
-										fallbackAttachmentTypeLabel
-									) }
-								</div>
-							) : null }
-							<div className={ styles.attachmentHoverDetails }>
-								<span className={ styles.attachmentHoverName }>{ hoveredAttachment.name }</span>
-								<span className={ styles.attachmentHoverMeta }>
-									<span className={ styles.attachmentHoverType }>
-										{ hoveredAttachmentTypeLabel }
-									</span>
-									{ hoveredAttachmentSizeLabel ? (
-										<>
-											<span aria-hidden="true">·</span>
-											<span>{ hoveredAttachmentSizeLabel }</span>
-										</>
+					{ hoveredAttachment && hoverPreview
+						? createPortal(
+								<div
+									className={ styles.attachmentHoverPreview }
+									role="tooltip"
+									style={ {
+										left: hoverPreview.left,
+										bottom: hoverPreview.bottom,
+										width: hoverPreview.width,
+									} }
+								>
+									{ hoveredAttachmentHasVisualPreview ? (
+										<div className={ styles.attachmentHoverArtwork }>
+											{ renderAttachmentVisual(
+												hoveredAttachment,
+												'hover',
+												fallbackAttachmentTypeLabel
+											) }
+										</div>
 									) : null }
-								</span>
+									<div className={ styles.attachmentHoverDetails }>
+										<span className={ styles.attachmentHoverName }>{ hoveredAttachment.name }</span>
+										<span className={ styles.attachmentHoverMeta }>
+											<span className={ styles.attachmentHoverType }>
+												{ hoveredAttachmentTypeLabel }
+											</span>
+											{ hoveredAttachmentSizeLabel ? (
+												<>
+													<span aria-hidden="true">·</span>
+													<span>{ hoveredAttachmentSizeLabel }</span>
+												</>
+											) : null }
+										</span>
+									</div>
+								</div>,
+								document.body
+						  )
+						: null }
+					<div
+						className={ clsx(
+							styles.inputArea,
+							attachments.length > 0 && styles.inputAreaWithAttachments
+						) }
+					>
+						{ showAnimatedPlaceholder ? (
+							<div className={ styles.placeholderText } aria-hidden="true">
+								{ animatedPlaceholder }
 							</div>
-						</div>
-					) : null }
-					<textarea
-						ref={ textareaRef }
-						className={ styles.input }
-						placeholder={ placeholder }
-						value={ value }
-						onChange={ ( event ) => setValue( event.target.value ) }
-						onPaste={ pasteHandlers.onPaste }
-						onKeyDown={ ( event ) => {
-							if ( event.key === 'Escape' && busy ) {
-								event.preventDefault();
-								void onInterrupt();
-								return;
-							}
-							if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
-								event.preventDefault();
-								const node = event.currentTarget;
-								const start = node.selectionStart;
-								const end = node.selectionEnd;
-								const nextValue = `${ node.value.slice( 0, start ) }\n${ node.value.slice( end ) }`;
-								setValue( nextValue );
-								queueMicrotask( () => {
-									textareaRef.current?.setSelectionRange( start + 1, start + 1 );
-								} );
-								return;
-							}
-							if ( event.key === 'Enter' && ! event.shiftKey ) {
-								event.preventDefault();
-								void send();
-							}
-						} }
-						rows={ 2 }
-					/>
+						) : null }
+						<textarea
+							ref={ textareaRef }
+							className={ styles.input }
+							placeholder={ placeholder }
+							value={ value }
+							onChange={ ( event ) => setValue( event.target.value ) }
+							onPaste={ pasteHandlers.onPaste }
+							onKeyDown={ ( event ) => {
+								if ( event.key === 'Escape' && busy ) {
+									event.preventDefault();
+									void onInterrupt();
+									return;
+								}
+								if ( event.key === 'Enter' && ( event.metaKey || event.ctrlKey ) ) {
+									event.preventDefault();
+									const node = event.currentTarget;
+									const start = node.selectionStart;
+									const end = node.selectionEnd;
+									const nextValue = `${ node.value.slice( 0, start ) }\n${ node.value.slice(
+										end
+									) }`;
+									setValue( nextValue );
+									queueMicrotask( () => {
+										textareaRef.current?.setSelectionRange( start + 1, start + 1 );
+									} );
+									return;
+								}
+								if ( event.key === 'Enter' && ! event.shiftKey ) {
+									event.preventDefault();
+									void send();
+								}
+							} }
+							rows={ 2 }
+						/>
+					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
 							<Menu.Root modal={ false }>
-								<Menu.Trigger
-									render={
-										<button
-											type="button"
-											className={ styles.iconButton }
-											aria-label={ __( 'Add skill or attachment' ) }
-										>
-											<Icon icon={ plus } size={ 16 } />
-										</button>
-									}
-								/>
+								<Tooltip.Provider delay={ 0 }>
+									<Tooltip.Root>
+										<Menu.Trigger
+											render={
+												<Tooltip.Trigger
+													render={
+														<button
+															type="button"
+															className={ styles.iconButton }
+															aria-label={ __( 'Add skill or attachment' ) }
+														/>
+													}
+												>
+													<Icon icon={ plus } size={ 16 } />
+												</Tooltip.Trigger>
+											}
+										/>
+										<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+											{ __( 'Add skill or attachment' ) }
+										</Tooltip.Popup>
+									</Tooltip.Root>
+								</Tooltip.Provider>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
 									<Menu.Item onClick={ openFilePicker }>{ __( 'Upload attachment' ) }</Menu.Item>
 									<Menu.SubmenuRoot>
-										<Menu.SubmenuTrigger>{ __( 'Skills' ) }</Menu.SubmenuTrigger>
+										<Menu.SubmenuTrigger className={ styles.skillsSubmenuTrigger }>
+											<span>{ __( 'Skills' ) }</span>
+											<Icon
+												icon={ chevronRightSmall }
+												size={ 16 }
+												className={ styles.submenuChevron }
+												aria-hidden="true"
+											/>
+										</Menu.SubmenuTrigger>
 										<Menu.Popup side="right" align="start" className={ styles.skillsMenuPopup }>
 											{ AI_SKILL_COMMANDS.map( ( command ) => (
 												<Menu.Item
 													key={ command.name }
+													className={ styles.skillMenuItem }
 													onClick={ () => {
 														void onSend( `/${ command.name }` );
 													} }
 												>
-													{ formatSkillLabel( command.name ) }
+													<span className={ styles.skillMenuItemBody }>
+														<span className={ styles.skillMenuItemLabel }>
+															{ formatSkillLabel( command.name ) }
+														</span>
+														<span className={ styles.skillMenuItemDescription }>
+															{ command.description }
+														</span>
+													</span>
 												</Menu.Item>
 											) ) }
 										</Menu.Popup>
@@ -687,18 +1008,29 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 						<div className={ styles.rightActions }>
 							<Menu.Root modal={ false }>
-								<Menu.Trigger
-									render={
-										<button
-											type="button"
-											className={ styles.pill }
-											aria-label={ __( 'Select model' ) }
-										>
-											<span>{ getAiModelLabel( model ) }</span>
-											<Icon icon={ chevronDownSmall } size={ 16 } />
-										</button>
-									}
-								/>
+								<Tooltip.Provider delay={ 0 }>
+									<Tooltip.Root>
+										<Menu.Trigger
+											render={
+												<Tooltip.Trigger
+													render={
+														<button
+															type="button"
+															className={ styles.pill }
+															aria-label={ __( 'Select model' ) }
+														/>
+													}
+												>
+													<span>{ getAiModelLabel( model ) }</span>
+													<Icon icon={ chevronDownSmall } size={ 16 } />
+												</Tooltip.Trigger>
+											}
+										/>
+										<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+											{ __( 'Select model' ) }
+										</Tooltip.Popup>
+									</Tooltip.Root>
+								</Tooltip.Provider>
 								<Menu.Popup side="top" align="end">
 									<Menu.RadioGroup
 										value={ model }
@@ -713,18 +1045,26 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 								</Menu.Popup>
 							</Menu.Root>
 							{ busy ? (
-								<button
-									type="button"
-									className={ styles.stopButton }
-									onClick={ () => void onInterrupt() }
-									aria-label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
-									aria-busy={ isInterrupting }
-									title={
-										isInterrupting ? __( 'Stopping… click again to force stop' ) : __( 'Stop' )
-									}
-								>
-									<span className={ styles.stopGlyph } aria-hidden="true" />
-								</button>
+								<Tooltip.Provider delay={ 0 }>
+									<Tooltip.Root>
+										<Tooltip.Trigger
+											render={
+												<button
+													type="button"
+													className={ styles.stopButton }
+													onClick={ () => void onInterrupt() }
+													aria-label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
+													aria-busy={ isInterrupting }
+												/>
+											}
+										>
+											<span className={ styles.stopGlyph } aria-hidden="true" />
+										</Tooltip.Trigger>
+										<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+											{ stopTooltipLabel }
+										</Tooltip.Popup>
+									</Tooltip.Root>
+								</Tooltip.Provider>
 							) : null }
 							<Tooltip.Provider delay={ 0 }>
 								<Tooltip.Root>

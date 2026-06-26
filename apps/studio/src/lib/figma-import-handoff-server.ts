@@ -19,7 +19,7 @@ let server: http.Server | undefined;
 
 type FigmaImportRequest = {
 	artifact?: Record< string, unknown >;
-	source?: FigmaScenegraphSource | WebsiteArtifactSource;
+	source?: FigmaScenegraphSource | FigmaPluginSource | WebsiteArtifactSource;
 	siteName?: string;
 };
 
@@ -34,6 +34,21 @@ type FigmaScenegraphSource = {
 type WebsiteArtifactSource = {
 	type?: 'website-artifact';
 	artifact: Record< string, unknown >;
+	[ key: string ]: unknown;
+};
+
+type FigmaPluginSource = {
+	schema: 'wordpress-studio/figma-source/v1';
+	source?: Record< string, unknown >;
+	intent?: Record< string, unknown >;
+	scenegraph?: {
+		currentPage?: Record< string, unknown >;
+		selectedNodes?: unknown[];
+		[ key: string ]: unknown;
+	};
+	assets?: unknown[] | Record< string, unknown >;
+	transform?: Record< string, unknown >;
+	debug?: Record< string, unknown >;
 	[ key: string ]: unknown;
 };
 
@@ -208,13 +223,111 @@ function sourceTitle( source: FigmaScenegraphSource | WebsiteArtifactSource ): s
 	return undefined;
 }
 
-function normalizeImportSource(
+function isFigmaPluginSource( source: unknown ): source is FigmaPluginSource {
+	return isRecord( source ) && source.schema === 'wordpress-studio/figma-source/v1';
+}
+
+function isFigmaScenegraphSource( source: unknown ): source is FigmaScenegraphSource {
+	return isRecord( source ) && source.type === 'figma_scenegraph';
+}
+
+function normalizedAssets( assets: unknown ): unknown[] | Record< string, unknown > {
+	if ( Array.isArray( assets ) || isRecord( assets ) ) {
+		return assets;
+	}
+
+	return [];
+}
+
+function stringArray( value: unknown ): string[] {
+	if ( ! Array.isArray( value ) ) {
+		return [];
+	}
+
+	return value.filter( ( item ): item is string => typeof item === 'string' && !! item.trim() );
+}
+
+function pluginSourceMetadata( source: FigmaPluginSource ): Record< string, unknown > {
+	const metadata = isRecord( source.source?.metadata ) ? source.source.metadata : {};
+	const currentPage = isRecord( metadata.currentPage ) ? metadata.currentPage : {};
+
+	return {
+		source: 'figma-to-wordpress-studio',
+		file_key: typeof metadata.fileKey === 'string' ? metadata.fileKey : undefined,
+		file_name: typeof metadata.fileName === 'string' ? metadata.fileName : undefined,
+		page_id: typeof currentPage.id === 'string' ? currentPage.id : undefined,
+		page_name: typeof currentPage.name === 'string' ? currentPage.name : undefined,
+		exported_at:
+			typeof source.source?.exportedAt === 'string' ? source.source.exportedAt : undefined,
+	};
+}
+
+function pluginTransformOptions( source: FigmaPluginSource ): Record< string, unknown > {
+	const intent = isRecord( source.intent ) ? source.intent : {};
+	const selectedNodeIds = stringArray( intent.selectedNodeIds );
+	const options = isRecord( source.transform?.options ) ? { ...source.transform.options } : {};
+
+	if ( selectedNodeIds.length ) {
+		options.frame_ids = selectedNodeIds;
+		options.entry_frame_id = selectedNodeIds[ 0 ];
+		options.frame_id = selectedNodeIds[ 0 ];
+		options.multi_page = selectedNodeIds.length > 1;
+	}
+
+	if ( typeof intent.pageId === 'string' ) {
+		options.page_id = intent.pageId;
+	}
+
+	if ( typeof intent.scope === 'string' ) {
+		options.selection_scope = intent.scope;
+	}
+
+	return options;
+}
+
+function normalizeFigmaPluginSource(
+	source: FigmaPluginSource,
+	sourcePath: string
+): FigmaScenegraphSource {
+	const scenegraph = isRecord( source.scenegraph ) ? source.scenegraph : {};
+	const metadata = isRecord( source.source?.metadata ) ? source.source.metadata : {};
+	const selectedNodes = Array.isArray( scenegraph.selectedNodes )
+		? scenegraph.selectedNodes.filter( isRecord )
+		: [];
+	const currentPage = isRecord( scenegraph.currentPage ) ? scenegraph.currentPage : undefined;
+	const nodes = selectedNodes.length ? selectedNodes : currentPage ? [ currentPage ] : [];
+
+	if ( ! nodes.length ) {
+		throw new Error( 'Missing Figma scenegraph object.' );
+	}
+
+	return {
+		type: 'figma_scenegraph',
+		name: typeof metadata.fileName === 'string' ? metadata.fileName : 'Figma Import',
+		schema: 'static-site-importer/import-figma/v1',
+		scenegraph: {
+			name: typeof metadata.fileName === 'string' ? metadata.fileName : 'Figma Import',
+			nodes,
+			assets: normalizedAssets( source.assets ),
+			source: source.source,
+			intent: source.intent,
+		},
+		assets: normalizedAssets( source.assets ),
+		transform_options: pluginTransformOptions( source ),
+		source_metadata: {
+			...pluginSourceMetadata( source ),
+			source_path: sourcePath,
+		},
+	};
+}
+
+export function normalizeImportSource(
 	body: FigmaImportRequest,
 	timestamp: number
 ): NormalizedImportSource {
 	const sourcePath = `figma-import-${ timestamp }.studio-import.json`;
 
-	if ( body.source?.type === 'figma_scenegraph' ) {
+	if ( isFigmaScenegraphSource( body.source ) ) {
 		if ( ! isRecord( body.source.scenegraph ) ) {
 			throw new Error( 'Missing Figma scenegraph object.' );
 		}
@@ -223,6 +336,14 @@ function normalizeImportSource(
 			type: 'figma_scenegraph',
 			path: sourcePath,
 			payload: body.source,
+		};
+	}
+
+	if ( isFigmaPluginSource( body.source ) ) {
+		return {
+			type: 'figma_scenegraph',
+			path: sourcePath,
+			payload: normalizeFigmaPluginSource( body.source, sourcePath ),
 		};
 	}
 

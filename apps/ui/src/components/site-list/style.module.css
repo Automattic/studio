@@ -2,15 +2,22 @@
 	--site-list-row-height: 34px;
 	--site-list-row-background-hover: rgb(0 0 0 / 4%);
 	--site-list-row-background-active: rgb(0 0 0 / 7%);
-	--site-list-row-leading-inset: var(--wpds-dimension-padding-xs);
+	--site-list-row-leading-inset: var(--wpds-dimension-padding-sm);
 	--site-list-row-outer-inset: calc(
 		var(--wpds-dimension-padding-lg) - var(--site-list-row-leading-inset)
 	);
-	--site-list-icon-size: 18px;
-	--site-list-icon-gap: calc(var(--wpds-dimension-gap-sm) + 2px);
+	--site-list-chat-status-size: 14px;
+	--site-list-chat-status-start-offset: 4px;
+	--site-list-chat-status-gap: 3px;
+	--site-list-label-inline-offset: 4px;
+	--site-list-pending-indicator-bg: color-mix(
+		in srgb,
+		var(--wpds-color-bg-interactive-error-strong) 34%,
+		var(--wpds-color-bg-surface-caution)
+	);
 
 	/* Pull the row shape slightly left, then add the inset back inside rows so
-	   icons and labels keep their column while selected rows have breathing room. */
+	   labels keep their column while selected rows have breathing room. */
 	padding: 0 var(--site-list-row-outer-inset) var(--wpds-dimension-padding-xl)
 		var(--site-list-row-outer-inset);
 	display: flex;
@@ -23,13 +30,46 @@
 	.root {
 		--site-list-row-background-hover: rgb(255 255 255 / 8%);
 		--site-list-row-background-active: rgb(255 255 255 / 12%);
+		--site-list-pending-indicator-bg: #facc15;
 	}
 }
 
 .sites {
 	display: flex;
 	flex-direction: column;
-	gap: 0;
+	gap: 1px;
+}
+
+.siteDragWrapper {
+	border-radius: 6px;
+	touch-action: none;
+}
+
+.sitesDragging .siteDragWrapper > .site {
+	will-change: transform;
+}
+
+.siteDropPlaceholder {
+	box-sizing: border-box;
+	block-size: var(--site-list-row-height);
+	border-radius: 6px;
+	background-color: var(--site-list-row-background-hover);
+	box-shadow: inset 0 0 0 1px
+		color-mix(in srgb, var(--wpds-color-stroke-interactive-brand) 45%, transparent);
+	transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.siteDragPreview {
+	position: fixed;
+	z-index: 1000;
+	pointer-events: none;
+	opacity: 0.95;
+	filter: drop-shadow(0 6px 14px rgb(0 0 0 / 14%));
+	will-change: inset-block-start;
+}
+
+.siteDragPreview .siteHeader {
+	background-color: var(--site-list-row-background-active);
 }
 
 .site {
@@ -45,10 +85,11 @@
 	box-sizing: border-box;
 	height: var(--site-list-row-height);
 	/* The row shape extends left of the content column; this padding keeps the
-	   icon/title column aligned while giving selected rows breathing room. */
+	   title column aligned while giving selected rows breathing room. */
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
 		var(--wpds-dimension-padding-xs) var(--site-list-row-leading-inset);
 	border-radius: 6px;
+	cursor: var(--wpds-cursor-control);
 	transition: background-color 80ms ease;
 }
 
@@ -63,22 +104,31 @@
 	background-color: var(--site-list-row-background-active);
 }
 
+.siteContextActive .siteHeader {
+	outline: 1px dashed color-mix(in srgb, var(--wpds-color-stroke-surface-neutral) 78%, transparent);
+	outline-offset: -2px;
+}
+
+.siteContextActive .siteHeader:hover,
+.siteContextActive .siteHeader:focus-within {
+	background-color: transparent;
+}
+
 .siteText {
 	flex: 1;
 	min-width: 0;
 	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
+	align-items: center;
 }
 
 .siteToggle {
+	flex: 1 1 auto;
+	min-width: 0;
 	max-width: 100%;
 	height: auto;
 	gap: 0;
-	/* Drop the Button primitive's inline-start padding so the icon/title start
-	   at the row's leading edge (see `.siteHeader`). Unlayered, so it beats the
-	   primitive's layered padding. */
-	padding-inline-start: 0;
+	/* Keep a little breathing room between the selected row shape and the label. */
+	padding-inline-start: var(--site-list-label-inline-offset);
 }
 
 .siteToggle:focus-visible {
@@ -86,23 +136,79 @@
 	outline-offset: -2px;
 }
 
-.siteIconSlot {
+.siteAgentActivitySlot {
 	display: inline-grid;
 	place-items: center;
-	flex-shrink: 0;
-	inline-size: var(--site-list-icon-size);
-	/* The footer gravatar is 20px wide while site icons are 18px, so the extra
-	   2px lives after the icon to keep titles aligned with the display name. */
-	margin-inline-end: var(--site-list-icon-gap);
-	overflow: hidden;
+	flex: 0 0 0;
+	inline-size: 0;
+	block-size: var(--site-list-chat-status-size);
+	margin-inline-start: 0;
+	margin-inline-end: 0;
+	opacity: 0;
+	overflow: visible;
+	pointer-events: none;
+	transform: scale(0.75);
+	transition: inline-size 160ms ease, flex-basis 160ms ease, margin-inline-start 160ms ease,
+		margin-inline-end 160ms ease, opacity 120ms ease, transform 160ms ease;
 }
 
-.siteIcon {
-	--site-icon-size: var(--site-list-icon-size);
+.siteAgentActivitySlotVisible {
+	flex-basis: var(--site-list-chat-status-size);
+	inline-size: var(--site-list-chat-status-size);
+	margin-inline-start: var(--site-list-chat-status-start-offset);
+	margin-inline-end: var(--site-list-chat-status-gap);
+	opacity: 1;
+	pointer-events: auto;
+	transform: scale(1);
 }
 
-.siteIconStopped {
-	opacity: 0.5;
+.siteAgentActivity {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	position: relative;
+	block-size: var(--site-list-chat-status-size);
+	inline-size: var(--site-list-chat-status-size);
+	box-sizing: border-box;
+}
+
+.siteAgentActivityTooltipTrigger {
+	display: inline-grid;
+	place-items: center;
+}
+
+.siteAgentActivitySpinner {
+	--spinner-size: 10px;
+	box-sizing: border-box;
+	border-width: 1.5px;
+}
+
+.siteAgentActivityQuestion {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	isolation: isolate;
+}
+
+.siteAgentActivityQuestion::before {
+	content: '';
+	position: absolute;
+	inset-block-start: calc((var(--site-list-chat-status-size) - 8.5px) / 2);
+	inset-inline-start: calc((var(--site-list-chat-status-size) - 10px) / 2);
+	inline-size: 10px;
+	block-size: 8.5px;
+	z-index: -1;
+	clip-path: path(
+		'M 5 8.4 C 5.45 8.4 5.85 8.15 6.05 7.75 L 9.45 1.35 C 9.75 0.75 9.35 0.35 8.7 0.35 L 1.3 0.35 C 0.65 0.35 0.25 0.75 0.55 1.35 L 3.95 7.75 C 4.15 8.15 4.55 8.4 5 8.4 Z'
+	);
+	background-color: var(--site-list-pending-indicator-bg);
+}
+
+.siteAgentActivityMessage {
+	display: block;
+	inline-size: 8px;
+	block-size: 6px;
+	border-radius: 3px 3px 3px 1px;
+	background-color: var(--wpds-color-fg-interactive-brand);
 }
 
 .siteName {
@@ -135,12 +241,21 @@
 	flex-shrink: 0;
 }
 
+.siteActionActive {
+	--wp-ui-button-background-color: var(--site-list-row-background-active);
+	--wp-ui-button-background-color-active: var(--site-list-row-background-active);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+}
+
 /* Collapsed, only the trailing status button shows; hover/focus/active
    slides the overview button in next to it. */
 .siteActive .siteActions,
+.siteContextActive .siteActions,
 .siteHeader:hover .siteActions,
 .siteHeader:focus-within .siteActions {
 	max-width: 56px;
+	overflow: visible;
 }
 
 .siteStatus {
@@ -166,6 +281,7 @@
 }
 
 .siteActive .siteStatus[data-state='stopped'],
+.siteContextActive .siteStatus[data-state='stopped'],
 .siteHeader:hover .siteStatus[data-state='stopped'],
 .siteHeader:focus-within .siteStatus[data-state='stopped'] {
 	opacity: 1;
@@ -202,6 +318,8 @@
 .siteStatus .siteStatusActionGlyph.siteStatusActionGlyph {
 	grid-row-start: 1;
 	grid-column-start: 1;
+	display: inline-grid;
+	place-items: center;
 	inline-size: 10px;
 	block-size: 10px;
 	width: 10px;
@@ -217,6 +335,37 @@
 
 .siteStatus:not([data-state='transitioning']):is(:hover, :focus-visible) .siteStatusActionGlyph {
 	opacity: 1;
+}
+
+.siteStatusPauseMark,
+.siteStatusPauseMark::before,
+.siteStatusPauseMark::after {
+	display: block;
+	height: 8px;
+	border-radius: 1px;
+	background: currentColor;
+}
+
+.siteStatusPauseMark {
+	position: relative;
+	width: 8px;
+	background: transparent;
+}
+
+.siteStatusPauseMark::before,
+.siteStatusPauseMark::after {
+	position: absolute;
+	top: 0;
+	width: 2px;
+	content: '';
+}
+
+.siteStatusPauseMark::before {
+	left: 1px;
+}
+
+.siteStatusPauseMark::after {
+	right: 1px;
 }
 
 .siteStatusShape {
@@ -263,6 +412,14 @@
 	.siteStatusGlyph,
 	.siteStatusActionGlyph {
 		transition: none;
+	}
+
+	.siteAgentActivitySlot {
+		transition: none;
+	}
+
+	.siteDragPreview {
+		filter: none;
 	}
 }
 

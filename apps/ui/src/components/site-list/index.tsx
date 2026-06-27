@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	box,
@@ -669,6 +669,7 @@ function findActiveSiteKey(
 export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
+	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
@@ -679,17 +680,18 @@ export function SiteList() {
 		[ groups, activeSessionId, activeSiteId ]
 	);
 
-	// Expansion is derived: by default the active site (or, if none, the
-	// MRU site — first in the list) is open. Manual toggles are stored as
-	// overrides so the user's explicit choice wins until they toggle again.
+	// Expansion is derived: by default the active site is open. On the root
+	// dashboard, open the MRU site when there is no route-selected site yet.
+	// Manual toggles are stored as overrides so the user's explicit choice wins.
 	const mruKey = groups[ 0 ]?.key;
+	const shouldOpenMruSite = pathname === '/' && ! activeSessionId && ! activeSiteId;
 	const [ overrides, setOverrides ] = useState< Record< string, boolean > >( {} );
 
 	const isOpen = ( key: string ): boolean => {
 		if ( key in overrides ) {
 			return overrides[ key ];
 		}
-		return key === activeSiteKey || ( ! activeSiteKey && key === mruKey );
+		return key === activeSiteKey || ( shouldOpenMruSite && ! activeSiteKey && key === mruKey );
 	};
 
 	const toggleSite = ( key: string ) => {

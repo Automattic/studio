@@ -1,12 +1,55 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
+import type { SnapshotUsage } from '@/data/core';
 
 export const SNAPSHOTS_QUERY_KEY = [ 'snapshots' ] as const;
+export const SNAPSHOT_USAGE_QUERY_KEY = [ 'snapshot-usage' ] as const;
 
-export function useSnapshots() {
+function getSnapshotsQueryKey( userId?: number ) {
+	return userId === undefined
+		? SNAPSHOTS_QUERY_KEY
+		: ( [ ...SNAPSHOTS_QUERY_KEY, userId ] as const );
+}
+
+function getSnapshotUsageQueryKey( userId?: number ) {
+	return userId === undefined
+		? SNAPSHOT_USAGE_QUERY_KEY
+		: ( [ ...SNAPSHOT_USAGE_QUERY_KEY, userId ] as const );
+}
+
+export function useSnapshots( userId?: number ) {
 	const connector = useConnector();
 	return useQuery( {
-		queryKey: SNAPSHOTS_QUERY_KEY,
+		queryKey: getSnapshotsQueryKey( userId ),
 		queryFn: () => connector.getSnapshots(),
+		select: ( snapshots ) =>
+			userId === undefined
+				? snapshots
+				: snapshots.filter( ( snapshot ) => snapshot.userId === userId ),
+	} );
+}
+
+export function useSnapshotUsage( userId?: number ) {
+	const connector = useConnector();
+	return useQuery( {
+		queryKey: getSnapshotUsageQueryKey( userId ),
+		queryFn: () => connector.getSnapshotUsage(),
+		meta: { persist: false },
+	} );
+}
+
+export function useDeleteAllSnapshots( userId?: number ) {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: () => connector.deleteAllSnapshots(),
+		onSuccess: () => {
+			void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
+			void queryClient.invalidateQueries( { queryKey: SNAPSHOT_USAGE_QUERY_KEY } );
+			queryClient.setQueryData< SnapshotUsage | null >(
+				getSnapshotUsageQueryKey( userId ),
+				( current ) => ( current ? { ...current, siteCount: 0 } : current )
+			);
+		},
 	} );
 }

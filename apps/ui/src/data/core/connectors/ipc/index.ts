@@ -15,13 +15,17 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
+	SnapshotUsage,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
+	UserSettingsEventTab,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 
 function generateBackupFilename( siteName: string ): string {
 	const now = new Date();
@@ -38,6 +42,25 @@ type ExportRequest = {
 	includes: { database: boolean; wpContent: boolean };
 	phpVersion: string;
 };
+
+function parseSnapshotUsage( response: unknown ): SnapshotUsage {
+	if ( ! response || typeof response !== 'object' ) {
+		throw new Error( 'Invalid snapshot usage response.' );
+	}
+	const record = response as Record< string, unknown >;
+	if (
+		typeof record.site_count !== 'number' ||
+		typeof record.site_limit !== 'number' ||
+		typeof record.site_creation_blocked !== 'boolean'
+	) {
+		throw new Error( 'Invalid snapshot usage response.' );
+	}
+	return {
+		siteCount: record.site_count,
+		siteLimit: record.site_limit,
+		siteCreationBlocked: record.site_creation_blocked,
+	};
+}
 
 // Runs an export IPC call and surfaces the outcome through the same
 // main-process notification channels the legacy renderer uses: a native
@@ -442,6 +465,29 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.fetchSnapshots() ) as Snapshot[];
 		},
 
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+			if ( ! token ) {
+				return null;
+			}
+			const response = await fetch(
+				'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage',
+				{
+					headers: {
+						Authorization: `Bearer ${ token.accessToken }`,
+					},
+				}
+			);
+			if ( ! response.ok ) {
+				throw new Error( `Failed to fetch snapshot usage: ${ response.status }` );
+			}
+			return parseSnapshotUsage( await response.json() );
+		},
+
+		async deleteAllSnapshots(): Promise< void > {
+			await ipcApi.deleteAllSnapshots();
+		},
+
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
 			const siteFolder = await resolveSiteFolder( siteId );
 			// Reuses the desktop app's `createSnapshot`/`updateSnapshot` IPC
@@ -594,18 +640,23 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale ] = ( await Promise.all( [
-				ipcApi.getUserEditor(),
-				ipcApi.getUserTerminal(),
-				ipcApi.getColorScheme(),
-				ipcApi.getUserLocale(),
-			] ) ) as [
-				SupportedEditor | null,
-				SupportedTerminal | null,
-				ColorScheme,
-				string | undefined,
-			];
-			return { editor, terminal, colorScheme, locale };
+			const [ editor, terminal, colorScheme, locale, defaultSiteDirectory, studioCliInstalled ] =
+				( await Promise.all( [
+					ipcApi.getUserEditor(),
+					ipcApi.getUserTerminal(),
+					ipcApi.getColorScheme(),
+					ipcApi.getUserLocale(),
+					ipcApi.getDefaultSiteDirectory(),
+					ipcApi.isStudioCliInstalled(),
+				] ) ) as [
+					SupportedEditor | null,
+					SupportedTerminal | null,
+					ColorScheme,
+					string | undefined,
+					string,
+					boolean,
+				];
+			return { editor, terminal, colorScheme, locale, defaultSiteDirectory, studioCliInstalled };
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -622,7 +673,39 @@ export function createIpcConnector(): Connector {
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
 			}
+			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
+				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
+			}
+			if ( 'studioCliInstalled' in partial && typeof partial.studioCliInstalled === 'boolean' ) {
+				writes.push(
+					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
+				);
+			}
 			await Promise.all( writes );
+		},
+
+		async previewColorScheme( colorScheme ): Promise< void > {
+			await ipcApi.previewColorScheme( colorScheme );
+		},
+
+		async selectDefaultSiteDirectory( defaultPath ): Promise< string | null > {
+			const response = ( await ipcApi.showOpenFolderDialog(
+				__( 'Select default site directory' ),
+				defaultPath
+			) ) as { path?: string } | null;
+			return response?.path ?? null;
+		},
+
+		async getAppGlobals() {
+			return ipcApi.getAppGlobals();
+		},
+
+		onUserSettings( listener ) {
+			return ipcListener.subscribe(
+				'user-settings',
+				( _event: unknown, payload: { tabName?: UserSettingsEventTab } ) =>
+					listener( payload?.tabName )
+			);
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
@@ -663,6 +746,33 @@ export function createIpcConnector(): Connector {
 
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
+		},
+
+		async confirmDeleteAllPreviewSites(): Promise< boolean > {
+			const CANCEL_BUTTON_INDEX = 0;
+			const DELETE_BUTTON_INDEX = 1;
+			const { response } = ( await ipcApi.showMessageBox( {
+				type: 'warning',
+				message: __( 'Delete all preview sites' ),
+				detail: __(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				),
+				buttons: [ __( 'Cancel' ), __( 'Delete all' ) ],
+				cancelId: CANCEL_BUTTON_INDEX,
+			} ) ) as { response: number };
+			return response === DELETE_BUTTON_INDEX;
+		},
+
+		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {
+			return ( await ipcApi.getWordPressSkillsStatusAllSites() ) as SkillStatus[];
+		},
+
+		async installWordPressSkillToAllSites( skillId ): Promise< void > {
+			await ipcApi.installWordPressSkillsToAllSites( { skillId } );
+		},
+
+		async removeWordPressSkillFromAllSites( skillId ): Promise< void > {
+			await ipcApi.removeWordPressSkillFromAllSites( skillId );
 		},
 
 		// Window state

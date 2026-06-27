@@ -1,7 +1,7 @@
 .root {
 	--site-list-row-height: 34px;
-	--site-list-row-background-hover: rgb(0 0 0 / 4%);
-	--site-list-row-background-active: rgb(0 0 0 / 7%);
+	--site-list-row-background-hover: var(--sidebar-row-background-hover);
+	--site-list-row-background-active: var(--sidebar-row-background-active);
 	--site-list-row-leading-inset: var(--wpds-dimension-padding-xs);
 	--site-list-row-outer-inset: calc(
 		var(--wpds-dimension-padding-lg) - var(--site-list-row-leading-inset)
@@ -30,8 +30,6 @@
 
 @media (prefers-color-scheme: dark) {
 	.root {
-		--site-list-row-background-hover: rgb(255 255 255 / 8%);
-		--site-list-row-background-active: rgb(255 255 255 / 12%);
 		--site-list-pending-indicator-bg: #facc15;
 		--site-list-pending-indicator-dot: #422006;
 	}

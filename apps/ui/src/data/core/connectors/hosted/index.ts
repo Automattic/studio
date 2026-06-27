@@ -9,7 +9,9 @@ import type {
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
+	SnapshotUsage,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
@@ -221,6 +223,16 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getSnapshots(): Promise< Snapshot[] > {
 			return [];
 		},
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			return {
+				siteCount: 0,
+				siteLimit: 10,
+				siteCreationBlocked: false,
+			};
+		},
+		async deleteAllSnapshots() {
+			// No-op: hosted mode does not create WordPress.com preview sites.
+		},
 		async publishPreviewSite(): Promise< { url: string } > {
 			throw new WebUnsupportedError( 'publishPreviewSite' );
 		},
@@ -316,10 +328,31 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				terminal: null,
 				colorScheme: 'system',
 				locale: undefined,
+				defaultSiteDirectory: '',
+				studioCliInstalled: false,
 			};
 		},
 		async setUserPreferences() {
 			// No-op: preferences aren't persisted in the browser yet.
+		},
+		async previewColorScheme() {
+			// No-op: the hosted UI follows the browser theme.
+		},
+		async selectDefaultSiteDirectory() {
+			return null;
+		},
+		async getAppGlobals() {
+			return {
+				platform: 'browser',
+				appName: 'WordPress Studio',
+				appVersion: '',
+				arm64Translation: false,
+				isWindowsStore: false,
+				enableAgenticUi: true,
+			};
+		},
+		onUserSettings() {
+			return () => {};
 		},
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;
@@ -351,6 +384,20 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
 			window.open( target, '_blank', 'noopener,noreferrer' );
+		},
+		async confirmDeleteAllPreviewSites() {
+			return window.confirm(
+				'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+			);
+		},
+		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {
+			return [];
+		},
+		async installWordPressSkillToAllSites() {
+			// No-op: hosted mode does not install local WordPress skills.
+		},
+		async removeWordPressSkillFromAllSites() {
+			// No-op: hosted mode does not install local WordPress skills.
 		},
 
 		// Window chrome — no traffic lights in a browser tab.

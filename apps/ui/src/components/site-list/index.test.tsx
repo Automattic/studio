@@ -19,10 +19,19 @@ import { SiteList } from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
+const routerState = vi.hoisted( () => ( {
+	pathname: '/',
+} ) );
+
 vi.mock( '@tanstack/react-router', () => ( {
 	Link: ( props: { children?: ReactNode } ) => <a>{ props.children }</a>,
 	useNavigate: () => vi.fn(),
 	useParams: () => ( {} ),
+	useRouterState: ( {
+		select,
+	}: {
+		select: ( state: { location: { pathname: string } } ) => unknown;
+	} ) => select( { location: { pathname: routerState.pathname } } ),
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -77,6 +86,7 @@ describe( 'SiteList', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		routerState.pathname = '/';
 
 		useConnectorMock.mockReturnValue( {
 			openExternalUrl: vi.fn(),
@@ -105,6 +115,8 @@ describe( 'SiteList', () => {
 				terminal: 'terminal',
 				colorScheme: 'system',
 				locale: undefined,
+				defaultSiteDirectory: '/Users/example/Studio',
+				studioCliInstalled: false,
 			},
 		} );
 		useSitesMock.mockReturnValue( {
@@ -144,6 +156,34 @@ describe( 'SiteList', () => {
 
 		expect( actionGlyph?.querySelector( 'rect' ) ).toHaveAttribute( 'width', '8' );
 		expect( actionGlyph?.querySelector( 'path' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'opens the most recent site by default on the dashboard root', () => {
+		render( <SiteList /> );
+
+		expect( screen.getByRole( 'button', { name: 'Stopped Site' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
+		expect( screen.getByRole( 'button', { name: 'Running Site' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+	} );
+
+	it( 'does not open the most recent site by default on settings routes', () => {
+		routerState.pathname = '/settings';
+
+		render( <SiteList /> );
+
+		expect( screen.getByRole( 'button', { name: 'Stopped Site' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+		expect( screen.getByRole( 'button', { name: 'Running Site' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
 	} );
 } );
 

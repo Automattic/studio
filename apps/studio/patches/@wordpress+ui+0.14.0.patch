@@ -1,5 +1,5 @@
 diff --git a/node_modules/@wordpress/ui/build-module/icon-button/icon-button.mjs b/node_modules/@wordpress/ui/build-module/icon-button/icon-button.mjs
-index 1623748..f2e8f9a 100644
+index 1623748..453b017 100644
 --- a/node_modules/@wordpress/ui/build-module/icon-button/icon-button.mjs
 +++ b/node_modules/@wordpress/ui/build-module/icon-button/icon-button.mjs
 @@ -110,7 +110,7 @@ var IconButton = forwardRef(
@@ -11,7 +11,7 @@ index 1623748..f2e8f9a 100644
        /* @__PURE__ */ jsx(
          Tooltip.Trigger,
          {
-@@ -143,7 +143,7 @@ var IconButton = forwardRef(
+@@ -145,7 +145,7 @@ var IconButton = forwardRef(
            /* @__PURE__ */ jsx("span", { "aria-hidden": "true", children: shortcut.displayShortcut })
          ] })
        ] })
@@ -20,8 +20,34 @@ index 1623748..f2e8f9a 100644
    }
  );
  export {
+diff --git a/node_modules/@wordpress/ui/build-module/tooltip/popup.mjs b/node_modules/@wordpress/ui/build-module/tooltip/popup.mjs
+index 8e6c432..c30308e 100644
+--- a/node_modules/@wordpress/ui/build-module/tooltip/popup.mjs
++++ b/node_modules/@wordpress/ui/build-module/tooltip/popup.mjs
+@@ -94,7 +94,7 @@ function registerStyle(hash, css) {
+ 
+ // packages/ui/src/tooltip/style.module.css
+ if (typeof process === "undefined" || process.env.NODE_ENV !== "test") {
+-  registerStyle("8293efbb49", '@layer wp-ui-utilities, wp-ui-components, wp-ui-compositions, wp-ui-overrides;@layer wp-ui-components{._480b748dd3510e64__positioner{z-index:var(--wp-ui-tooltip-z-index,initial)}._50096b232db7709d__popup{background-color:var(--wpds-color-bg-surface-neutral-strong,#fff);border-radius:var(--wpds-border-radius-sm,2px);box-shadow:var(--wpds-elevation-sm,0 1px 2px 0 #0000000d,0 2px 3px 0 #0000000a,0 6px 6px 0 #00000008,0 8px 8px 0 #00000005);color:var(--wpds-color-fg-content-neutral,#1e1e1e);font-family:var(--wpds-typography-font-family-body,-apple-system,system-ui,"Segoe UI","Roboto","Oxygen-Sans","Ubuntu","Cantarell","Helvetica Neue",sans-serif);font-size:var(--wpds-typography-font-size-sm,12px);line-height:1.4;padding:var(--wpds-dimension-padding-xs,4px) var(--wpds-dimension-padding-sm,8px);@media (forced-colors:active){border-bottom-color:CanvasText;border-bottom-style:solid;border-bottom-width:1px;border-left-color:CanvasText;border-left-style:solid;border-left-width:1px;border-right-color:CanvasText;border-right-style:solid;border-right-width:1px;border-top-color:CanvasText;border-top-style:solid;border-top-width:1px}}}');
++  registerStyle("8293efbb49", '@layer wp-ui-utilities, wp-ui-components, wp-ui-compositions, wp-ui-overrides;@layer wp-ui-components{._480b748dd3510e64__positioner{z-index:var(--wp-ui-tooltip-z-index,initial)}._50096b232db7709d__popup{background-color:var(--wp-ui-tooltip-background-color,var(--wpds-color-bg-surface-neutral-strong,#fff));border-radius:var(--wpds-border-radius-sm,2px);box-shadow:var(--wpds-elevation-sm,0 1px 2px 0 #0000000d,0 2px 3px 0 #0000000a,0 6px 6px 0 #00000008,0 8px 8px 0 #00000005);color:var(--wp-ui-tooltip-color,var(--wpds-color-fg-content-neutral,#1e1e1e));font-family:var(--wpds-typography-font-family-body,-apple-system,system-ui,"Segoe UI","Roboto","Oxygen-Sans","Ubuntu","Cantarell","Helvetica Neue",sans-serif);font-size:var(--wpds-typography-font-size-sm,12px);line-height:1.4;padding:var(--wpds-dimension-padding-xs,4px) var(--wpds-dimension-padding-sm,8px);@media (forced-colors:active){border-bottom-color:CanvasText;border-bottom-style:solid;border-bottom-width:1px;border-left-color:CanvasText;border-left-style:solid;border-left-width:1px;border-right-color:CanvasText;border-right-style:solid;border-right-width:1px;border-top-color:CanvasText;border-top-style:solid;border-top-width:1px}}}');
+ }
+ var style_default = { "positioner": "_480b748dd3510e64__positioner", "popup": "_50096b232db7709d__popup" };
+ 
+diff --git a/node_modules/@wordpress/ui/build-module/tooltip/positioner.mjs b/node_modules/@wordpress/ui/build-module/tooltip/positioner.mjs
+index 6d87c68..c4eddf9 100644
+--- a/node_modules/@wordpress/ui/build-module/tooltip/positioner.mjs
++++ b/node_modules/@wordpress/ui/build-module/tooltip/positioner.mjs
+@@ -93,7 +93,7 @@ var resets_default = { "box-sizing": "_336cd3e4e743482f__box-sizing" };
+ 
+ // packages/ui/src/tooltip/style.module.css
+ if (typeof process === "undefined" || process.env.NODE_ENV !== "test") {
+-  registerStyle("8293efbb49", '@layer wp-ui-utilities, wp-ui-components, wp-ui-compositions, wp-ui-overrides;@layer wp-ui-components{._480b748dd3510e64__positioner{z-index:var(--wp-ui-tooltip-z-index,initial)}._50096b232db7709d__popup{background-color:var(--wpds-color-bg-surface-neutral-strong,#fff);border-radius:var(--wpds-border-radius-sm,2px);box-shadow:var(--wpds-elevation-sm,0 1px 2px 0 #0000000d,0 2px 3px 0 #0000000a,0 6px 6px 0 #00000008,0 8px 8px 0 #00000005);color:var(--wpds-color-fg-content-neutral,#1e1e1e);font-family:var(--wpds-typography-font-family-body,-apple-system,system-ui,"Segoe UI","Roboto","Oxygen-Sans","Ubuntu","Cantarell","Helvetica Neue",sans-serif);font-size:var(--wpds-typography-font-size-sm,12px);line-height:1.4;padding:var(--wpds-dimension-padding-xs,4px) var(--wpds-dimension-padding-sm,8px);@media (forced-colors:active){border-bottom-color:CanvasText;border-bottom-style:solid;border-bottom-width:1px;border-left-color:CanvasText;border-left-style:solid;border-left-width:1px;border-right-color:CanvasText;border-right-style:solid;border-right-width:1px;border-top-color:CanvasText;border-top-style:solid;border-top-width:1px}}}');
++  registerStyle("8293efbb49", '@layer wp-ui-utilities, wp-ui-components, wp-ui-compositions, wp-ui-overrides;@layer wp-ui-components{._480b748dd3510e64__positioner{z-index:var(--wp-ui-tooltip-z-index,initial)}._50096b232db7709d__popup{background-color:var(--wp-ui-tooltip-background-color,var(--wpds-color-bg-surface-neutral-strong,#fff));border-radius:var(--wpds-border-radius-sm,2px);box-shadow:var(--wpds-elevation-sm,0 1px 2px 0 #0000000d,0 2px 3px 0 #0000000a,0 6px 6px 0 #00000008,0 8px 8px 0 #00000005);color:var(--wp-ui-tooltip-color,var(--wpds-color-fg-content-neutral,#1e1e1e));font-family:var(--wpds-typography-font-family-body,-apple-system,system-ui,"Segoe UI","Roboto","Oxygen-Sans","Ubuntu","Cantarell","Helvetica Neue",sans-serif);font-size:var(--wpds-typography-font-size-sm,12px);line-height:1.4;padding:var(--wpds-dimension-padding-xs,4px) var(--wpds-dimension-padding-sm,8px);@media (forced-colors:active){border-bottom-color:CanvasText;border-bottom-style:solid;border-bottom-width:1px;border-left-color:CanvasText;border-left-style:solid;border-left-width:1px;border-right-color:CanvasText;border-right-style:solid;border-right-width:1px;border-top-color:CanvasText;border-top-style:solid;border-top-width:1px}}}');
+ }
+ var style_default = { "positioner": "_480b748dd3510e64__positioner", "popup": "_50096b232db7709d__popup" };
+ 
 diff --git a/node_modules/@wordpress/ui/build/icon-button/icon-button.cjs b/node_modules/@wordpress/ui/build/icon-button/icon-button.cjs
-index 3f2a8a4..ab4df38 100644
+index 3f2a8a4..367733c 100644
 --- a/node_modules/@wordpress/ui/build/icon-button/icon-button.cjs
 +++ b/node_modules/@wordpress/ui/build/icon-button/icon-button.cjs
 @@ -144,7 +144,7 @@ var IconButton = (0, import_element.forwardRef)(
@@ -33,7 +59,7 @@ index 3f2a8a4..ab4df38 100644
        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
          Tooltip.Trigger,
          {
-@@ -177,7 +177,7 @@ var IconButton = (0, import_element.forwardRef)(
+@@ -179,7 +179,7 @@ var IconButton = (0, import_element.forwardRef)(
            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { "aria-hidden": "true", children: shortcut.displayShortcut })
          ] })
        ] })
@@ -42,3 +68,57 @@ index 3f2a8a4..ab4df38 100644
    }
  );
  // Annotate the CommonJS export names for ESM import in node:
+diff --git a/node_modules/@wordpress/ui/build/tooltip/popup.cjs b/node_modules/@wordpress/ui/build/tooltip/popup.cjs
+index 4f0758b..8349970 100644
+--- a/node_modules/@wordpress/ui/build/tooltip/popup.cjs
++++ b/node_modules/@wordpress/ui/build/tooltip/popup.cjs
+@@ -126,7 +126,7 @@ function registerStyle(hash, css) {
+ 
+ // packages/ui/src/tooltip/style.module.css
+ if (typeof process === "undefined" || process.env.NODE_ENV !== "test") {
+-  registerStyle("8293efbb49", '@layer wp-ui-utilities, wp-ui-components, wp-ui-compositions, wp-ui-overrides;@layer wp-ui-components{._480b748dd3510e64__positioner{z-index:var(--wp-ui-tooltip-z-index,initial)}._50096b232db7709d__popup{background-color:var(--wpds-color-bg-surface-neutral-strong,#fff);border-radius:var(--wpds-border-radius-sm,2px);box-shadow:var(--wpds-elevation-sm,0 1px 2px 0 #0000000d,0 2px 3px 0 #0000000a,0 6px 6px 0 #00000008,0 8px 8px 0 #00000005);color:var(--wpds-color-fg-content-neutral,#1e1e1e);font-family:var(--wpds-typography-font-family-body,-apple-system,system-ui,"Segoe UI","Roboto","Oxygen-Sans","Ubuntu","Cantarell","Helvetica Neue",sans-serif);font-size:var(--wpds-typography-font-size-sm,12px);line-height:1.4;padding:var(--wpds-dimension-padding-xs,4px) var(--wpds-dimension-padding-sm,8px);@media (forced-colors:active){border-bottom-color:CanvasText;border-bottom-style:solid;border-bottom-width:1px;border-left-color:CanvasText;border-left-style:solid;border-left-width:1px;border-right-color:CanvasText;border-right-style:solid;border-right-width:1px;border-top-color:CanvasText;border-top-style:solid;border-top-width:1px}}}');
++  registerStyle("8293efbb49", '@layer wp-ui-utilities, wp-ui-components, wp-ui-compositions, wp-ui-overrides;@layer wp-ui-components{._480b748dd3510e64__positioner{z-index:var(--wp-ui-tooltip-z-index,initial)}._50096b232db7709d__popup{background-color:var(--wp-ui-tooltip-background-color,var(--wpds-color-bg-surface-neutral-strong,#fff));border-radius:var(--wpds-border-radius-sm,2px);box-shadow:var(--wpds-elevation-sm,0 1px 2px 0 #0000000d,0 2px 3px 0 #0000000a,0 6px 6px 0 #00000008,0 8px 8px 0 #00000005);color:var(--wp-ui-tooltip-color,var(--wpds-color-fg-content-neutral,#1e1e1e));font-family:var(--wpds-typography-font-family-body,-apple-system,system-ui,"Segoe UI","Roboto","Oxygen-Sans","Ubuntu","Cantarell","Helvetica Neue",sans-serif);font-size:var(--wpds-typography-font-size-sm,12px);line-height:1.4;padding:var(--wpds-dimension-padding-xs,4px) var(--wpds-dimension-padding-sm,8px);@media (forced-colors:active){border-bottom-color:CanvasText;border-bottom-style:solid;border-bottom-width:1px;border-left-color:CanvasText;border-left-style:solid;border-left-width:1px;border-right-color:CanvasText;border-right-style:solid;border-right-width:1px;border-top-color:CanvasText;border-top-style:solid;border-top-width:1px}}}');
+ }
+ var style_default = { "positioner": "_480b748dd3510e64__positioner", "popup": "_50096b232db7709d__popup" };
+ 
+diff --git a/node_modules/@wordpress/ui/build/tooltip/positioner.cjs b/node_modules/@wordpress/ui/build/tooltip/positioner.cjs
+index 0e9965c..ffd416d 100644
+--- a/node_modules/@wordpress/ui/build/tooltip/positioner.cjs
++++ b/node_modules/@wordpress/ui/build/tooltip/positioner.cjs
+@@ -127,7 +127,7 @@ var resets_default = { "box-sizing": "_336cd3e4e743482f__box-sizing" };
+ 
+ // packages/ui/src/tooltip/style.module.css
+ if (typeof process === "undefined" || process.env.NODE_ENV !== "test") {
+-  registerStyle("8293efbb49", '@layer wp-ui-utilities, wp-ui-components, wp-ui-compositions, wp-ui-overrides;@layer wp-ui-components{._480b748dd3510e64__positioner{z-index:var(--wp-ui-tooltip-z-index,initial)}._50096b232db7709d__popup{background-color:var(--wpds-color-bg-surface-neutral-strong,#fff);border-radius:var(--wpds-border-radius-sm,2px);box-shadow:var(--wpds-elevation-sm,0 1px 2px 0 #0000000d,0 2px 3px 0 #0000000a,0 6px 6px 0 #00000008,0 8px 8px 0 #00000005);color:var(--wpds-color-fg-content-neutral,#1e1e1e);font-family:var(--wpds-typography-font-family-body,-apple-system,system-ui,"Segoe UI","Roboto","Oxygen-Sans","Ubuntu","Cantarell","Helvetica Neue",sans-serif);font-size:var(--wpds-typography-font-size-sm,12px);line-height:1.4;padding:var(--wpds-dimension-padding-xs,4px) var(--wpds-dimension-padding-sm,8px);@media (forced-colors:active){border-bottom-color:CanvasText;border-bottom-style:solid;border-bottom-width:1px;border-left-color:CanvasText;border-left-style:solid;border-left-width:1px;border-right-color:CanvasText;border-right-style:solid;border-right-width:1px;border-top-color:CanvasText;border-top-style:solid;border-top-width:1px}}}');
++  registerStyle("8293efbb49", '@layer wp-ui-utilities, wp-ui-components, wp-ui-compositions, wp-ui-overrides;@layer wp-ui-components{._480b748dd3510e64__positioner{z-index:var(--wp-ui-tooltip-z-index,initial)}._50096b232db7709d__popup{background-color:var(--wp-ui-tooltip-background-color,var(--wpds-color-bg-surface-neutral-strong,#fff));border-radius:var(--wpds-border-radius-sm,2px);box-shadow:var(--wpds-elevation-sm,0 1px 2px 0 #0000000d,0 2px 3px 0 #0000000a,0 6px 6px 0 #00000008,0 8px 8px 0 #00000005);color:var(--wp-ui-tooltip-color,var(--wpds-color-fg-content-neutral,#1e1e1e));font-family:var(--wpds-typography-font-family-body,-apple-system,system-ui,"Segoe UI","Roboto","Oxygen-Sans","Ubuntu","Cantarell","Helvetica Neue",sans-serif);font-size:var(--wpds-typography-font-size-sm,12px);line-height:1.4;padding:var(--wpds-dimension-padding-xs,4px) var(--wpds-dimension-padding-sm,8px);@media (forced-colors:active){border-bottom-color:CanvasText;border-bottom-style:solid;border-bottom-width:1px;border-left-color:CanvasText;border-left-style:solid;border-left-width:1px;border-right-color:CanvasText;border-right-style:solid;border-right-width:1px;border-top-color:CanvasText;border-top-style:solid;border-top-width:1px}}}');
+ }
+ var style_default = { "positioner": "_480b748dd3510e64__positioner", "popup": "_50096b232db7709d__popup" };
+ 
+diff --git a/node_modules/@wordpress/ui/src/tooltip/style.module.css b/node_modules/@wordpress/ui/src/tooltip/style.module.css
+index 8c3927e..d9918b2 100644
+--- a/node_modules/@wordpress/ui/src/tooltip/style.module.css
++++ b/node_modules/@wordpress/ui/src/tooltip/style.module.css
+@@ -6,7 +6,10 @@
+ 	}
+ 
+ 	.popup {
+-		background-color: var(--wpds-color-bg-surface-neutral-strong);
++		background-color: var(
++			--wp-ui-tooltip-background-color,
++			var(--wpds-color-bg-surface-neutral-strong)
++		);
+ 		padding:
+ 			var(--wpds-dimension-padding-xs)
+ 			var(--wpds-dimension-padding-sm);
+@@ -14,7 +17,10 @@
+ 		font-family: var(--wpds-typography-font-family-body);
+ 		font-size: var(--wpds-typography-font-size-sm);
+ 		line-height: 1.4; /* TODO: use DS token for line height */
+-		color: var(--wpds-color-fg-content-neutral);
++		color: var(
++			--wp-ui-tooltip-color,
++			var(--wpds-color-fg-content-neutral)
++		);
+ 		box-shadow: var(--wpds-elevation-sm);
+ 
+ 		/*

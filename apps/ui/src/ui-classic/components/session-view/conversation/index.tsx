@@ -56,6 +56,7 @@ import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Markdown } from '@/components/markdown';
+import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -571,11 +572,15 @@ function AgentQuestion( {
 
 export function Conversation( {
 	data,
+	isRunning,
+	startedAt,
 	pendingQuestions,
 	pendingAnswers,
 	onAnswerQuestion,
 }: {
 	data: LoadedAiSession;
+	isRunning: boolean;
+	startedAt: number | null;
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
@@ -623,6 +628,10 @@ export function Conversation( {
 						return null;
 				}
 			} ) }
+			<ThinkingIndicator
+				active={ isRunning && pendingQuestions.size === 0 }
+				startedAt={ startedAt }
+			/>
 		</div>
 	);
 }

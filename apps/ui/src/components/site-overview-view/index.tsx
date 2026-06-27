@@ -27,7 +27,6 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteSettingsForm, type SiteSettingsTabId } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
-import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
 	useExportDatabase,
@@ -38,11 +37,9 @@ import {
 	useStartSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './style.module.css';
-import type { AiSessionSummary, SiteDetails } from '@/data/core';
+import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
 interface SiteOverviewViewProps {
@@ -66,10 +63,10 @@ interface ButtonSectionProps {
 	className?: string;
 }
 
-type SiteOverviewTabId = 'overview' | 'chats' | SiteSettingsTabId;
+type SiteOverviewTabId = 'overview' | SiteSettingsTabId;
 
 function isSiteOverviewTab( value: string ): value is SiteOverviewTabId {
-	return value === 'overview' || value === 'chats' || value === 'general' || value === 'debugging';
+	return value === 'overview' || value === 'general' || value === 'debugging';
 }
 
 function isSettingsTab( value: SiteOverviewTabId ): value is SiteSettingsTabId {
@@ -78,21 +75,14 @@ function isSettingsTab( value: SiteOverviewTabId ): value is SiteSettingsTabId {
 
 function OverviewHeader( { site }: { site: SiteDetails } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
-	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
-		: null;
 
 	return (
-		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
-			<SiteDropdown
-				site={ site }
-				showSiteIcon={ sidebarCollapsed }
-				showStatus={ sidebarCollapsed }
-			/>
+		<div
+			className={
+				sidebarCollapsed ? `${ styles.header } ${ styles.headerSidebarCollapsed }` : styles.header
+			}
+		>
+			<SiteDropdown site={ site } showStatus={ sidebarCollapsed } />
 		</div>
 	);
 }
@@ -143,113 +133,6 @@ function getFileManagerLabel() {
 		return __( 'File manager' );
 	}
 	return __( 'Finder' );
-}
-
-function getSessionLabel( session: AiSessionSummary ) {
-	return session.firstPrompt?.trim() || __( 'Untitled chat' );
-}
-
-function ChatsPanel( { site }: { site: SiteDetails } ) {
-	const navigate = useNavigate();
-	const { data: sessions } = useSessions();
-	const updateSessionMetadata = useUpdateSessionMetadata();
-	const siteSessions = ( sessions ?? [] )
-		.filter( ( session ) => session.ownerSitePath === site.path )
-		.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) );
-	const activeSessions = siteSessions.filter( ( session ) => ! session.archived );
-	const archivedSessions = siteSessions.filter( ( session ) => session.archived );
-
-	const openSession = ( sessionId: string ) => {
-		void navigate( { to: '/sessions/$sessionId', params: { sessionId } } );
-	};
-
-	const setArchived = ( session: AiSessionSummary, archived: boolean ) => {
-		updateSessionMetadata.mutate( {
-			sessionId: session.id,
-			patch: {
-				starred: !! session.starred,
-				archived,
-			},
-		} );
-	};
-
-	return (
-		<div className={ styles.chatsPanel }>
-			<ChatListSection
-				title={ __( 'Active chats' ) }
-				emptyText={ __( 'No active chats for this site.' ) }
-				sessions={ activeSessions }
-				actionLabel={ __( 'Archive' ) }
-				onAction={ ( session ) => setArchived( session, true ) }
-				onOpen={ openSession }
-				actionDisabled={ updateSessionMetadata.isPending }
-			/>
-			<ChatListSection
-				title={ __( 'Archived chats' ) }
-				emptyText={ __( 'No archived chats for this site.' ) }
-				sessions={ archivedSessions }
-				actionLabel={ __( 'Restore' ) }
-				onAction={ ( session ) => setArchived( session, false ) }
-				onOpen={ openSession }
-				actionDisabled={ updateSessionMetadata.isPending }
-			/>
-		</div>
-	);
-}
-
-function ChatListSection( {
-	title,
-	emptyText,
-	sessions,
-	actionLabel,
-	actionDisabled,
-	onAction,
-	onOpen,
-}: {
-	title: string;
-	emptyText: string;
-	sessions: AiSessionSummary[];
-	actionLabel: string;
-	actionDisabled: boolean;
-	onAction: ( session: AiSessionSummary ) => void;
-	onOpen: ( sessionId: string ) => void;
-} ) {
-	return (
-		<section className={ styles.chatSection }>
-			<div className={ styles.sectionHeader }>
-				<h2>{ title }</h2>
-			</div>
-			{ sessions.length > 0 ? (
-				<div className={ styles.chatList }>
-					{ sessions.map( ( session ) => (
-						<div key={ session.id } className={ styles.chatRow }>
-							<button
-								type="button"
-								className={ styles.chatMain }
-								onClick={ () => onOpen( session.id ) }
-							>
-								<span className={ styles.chatTitle }>{ getSessionLabel( session ) }</span>
-								<span className={ styles.chatTime }>
-									{ formatRelativeTime( session.updatedAt ) }
-								</span>
-							</button>
-							<Button
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								disabled={ actionDisabled }
-								onClick={ () => onAction( session ) }
-							>
-								{ actionLabel }
-							</Button>
-						</div>
-					) ) }
-				</div>
-			) : (
-				<p className={ styles.emptyDetail }>{ emptyText }</p>
-			) }
-		</section>
-	);
 }
 
 export function SiteOverviewView( { siteId }: SiteOverviewViewProps ) {
@@ -355,7 +238,6 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 						<div className={ styles.tabsBarInner }>
 							<Tabs.List>
 								<Tabs.Tab tabId="overview">{ __( 'Overview' ) }</Tabs.Tab>
-								<Tabs.Tab tabId="chats">{ __( 'Chats' ) }</Tabs.Tab>
 								<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
 								<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
 							</Tabs.List>
@@ -508,9 +390,6 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 										/>
 									</ButtonSection>
 								</div>
-							</Tabs.Panel>
-							<Tabs.Panel tabId="chats" className={ styles.panel }>
-								<ChatsPanel site={ site } />
 							</Tabs.Panel>
 							{ isSettingsTab( activeTab ) ? (
 								<Tabs.Panel tabId={ activeTab } className={ styles.panel }>

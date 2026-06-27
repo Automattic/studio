@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
-import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
 	useExportDatabase,
@@ -17,7 +16,7 @@ import {
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SiteOverviewView } from './index';
-import type { AiSessionSummary, SiteDetails } from '@/data/core';
+import type { SiteDetails } from '@/data/core';
 
 const navigateMock = vi.fn();
 
@@ -42,11 +41,6 @@ vi.mock( '@/components/site-dropdown', () => ( {
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-sessions', () => ( {
-	useSessions: vi.fn(),
-	useUpdateSessionMetadata: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
@@ -79,8 +73,6 @@ vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
-const useSessionsMock = vi.mocked( useSessions, { partial: true } );
-const useUpdateSessionMetadataMock = vi.mocked( useUpdateSessionMetadata, { partial: true } );
 const useExistingCustomDomainsMock = vi.mocked( useExistingCustomDomains, { partial: true } );
 const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
@@ -104,7 +96,6 @@ describe( 'SiteOverviewView', () => {
 	const copySite = vi.fn();
 	const exportFullSite = vi.fn();
 	const exportDatabase = vi.fn();
-	const updateSessionMetadata = vi.fn();
 	const updateSite = vi.fn();
 
 	beforeEach( () => {
@@ -137,24 +128,6 @@ describe( 'SiteOverviewView', () => {
 		useExistingCustomDomainsMock.mockReturnValue( { data: [] } );
 		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSite } );
 		useXdebugEnabledSiteMock.mockReturnValue( { data: null } );
-		useSessionsMock.mockReturnValue( {
-			data: [
-				createSession( {
-					id: 'active-session',
-					firstPrompt: 'Active site chat',
-				} ),
-				createSession( {
-					id: 'archived-session',
-					firstPrompt: 'Archived site chat',
-					archived: true,
-				} ),
-			],
-			isLoading: false,
-		} );
-		useUpdateSessionMetadataMock.mockReturnValue( {
-			isPending: false,
-			mutate: updateSessionMetadata,
-		} );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useStartSiteMock.mockReturnValue( {
@@ -180,9 +153,11 @@ describe( 'SiteOverviewView', () => {
 		render( <SiteOverviewView siteId="site-1" /> );
 
 		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
-		expect( screen.getByRole( 'tab', { name: 'Chats' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Chats' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'tab', { name: 'General' } ) ).toBeVisible();
 		expect( screen.getByRole( 'tab', { name: 'Debugging' } ) ).toBeVisible();
+		expect( screen.queryByText( 'Active chats' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Archived chats' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'heading', { name: 'Theme' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Open in…' } ) ).toBeVisible();
@@ -196,13 +171,6 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByDisplayValue( 'Demo Site' ) ).toBeVisible();
 		expect( screen.queryByText( 'Site settings' ) ).not.toBeInTheDocument();
-
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Chats' } ) );
-
-		expect( await screen.findByText( 'Active chats' ) ).toBeVisible();
-		expect( screen.getByText( 'Active site chat' ) ).toBeVisible();
-		expect( screen.getByText( 'Archived chats' ) ).toBeVisible();
-		expect( screen.getByText( 'Archived site chat' ) ).toBeVisible();
 	} );
 
 	it( 'routes open and settings shortcuts through existing APIs', async () => {
@@ -218,9 +186,6 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
 		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
 
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Chats' } ) );
-		fireEvent.click( screen.getByText( 'Restore' ).closest( 'button' )! );
-
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
 		expect( openSiteInTerminal ).toHaveBeenCalledWith( 'site-1' );
@@ -232,10 +197,6 @@ describe( 'SiteOverviewView', () => {
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress',
 			undefined
 		);
-		expect( updateSessionMetadata ).toHaveBeenCalledWith( {
-			sessionId: 'archived-session',
-			patch: { starred: false, archived: false },
-		} );
 	} );
 } );
 
@@ -256,20 +217,6 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 			slug: 'twentytwentysix',
 			isBlockTheme: true,
 		},
-		...overrides,
-	};
-}
-
-function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
-	return {
-		id: 'session-1',
-		filePath: '/Users/example/.studio/sessions/session-1.jsonl',
-		createdAt: '2026-06-01T12:00:00.000Z',
-		updatedAt: '2026-06-20T12:00:00.000Z',
-		firstPrompt: 'Archived site chat',
-		ownerSitePath: '/Users/example/Studio/demo-site',
-		activeEnvironment: 'local',
-		eventCount: 1,
 		...overrides,
 	};
 }

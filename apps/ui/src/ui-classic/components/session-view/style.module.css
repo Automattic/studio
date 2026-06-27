@@ -3,9 +3,10 @@
 .root {
 	--classic-column-inline-gutter: calc(var(--wpds-dimension-padding-2xl) + 8px);
 	--classic-composer-shell-inline-padding: var(--wpds-dimension-padding-lg);
-	--classic-sidebar-toggle-clearance: calc(32px + var(--wpds-dimension-padding-sm));
 	--classic-header-height: 46px;
 	--classic-composer-height: 0px;
+	--classic-composer-footer-height: calc(32px + var(--wpds-dimension-padding-sm));
+	--classic-composer-bottom-padding: var(--wpds-dimension-padding-sm);
 	--classic-header-blur-overhang: 16px;
 	--classic-composer-blur-overhang: 40px;
 	--classic-scrollbar-blur-safe-area: 14px;
@@ -140,36 +141,85 @@
 			0px,
 			calc(var(--classic-column-inline-gutter) - var(--classic-composer-shell-inline-padding))
 		)
-		var(--wpds-dimension-padding-sm);
+		var(--classic-composer-bottom-padding);
 }
 
-.classicComposerStatusRow {
+.classicComposerFooter {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
-	min-height: var(--classic-sidebar-toggle-clearance);
+	gap: var(--wpds-dimension-gap-md);
+	min-height: var(--classic-composer-footer-height);
 	padding-inline: var(--classic-composer-shell-inline-padding);
 }
 
-.classicComposerStatusRowSidebarCollapsed {
+.classicComposerFooterSidebarCollapsed {
 	padding-left: calc(32px + var(--wpds-dimension-padding-sm));
 }
 
-.classicComposerStatusRow > :first-child {
-	flex: 1 1 auto;
+.classicComposerFooterSide {
+	display: flex;
+	align-items: center;
 	min-width: 0;
 }
 
-.classicComposerNewChatButton {
-	flex: 0 0 auto;
+.classicComposerTextButton {
+	display: inline-flex;
+	align-items: center;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: 400;
+	font-weight: var(--wpds-typography-font-weight-regular);
 	line-height: var(--wpds-typography-line-height-xs);
 }
 
-.classicComposerNewChatButton:hover,
-.classicComposerNewChatButton:focus-visible {
+.classicComposerTextButton:hover,
+.classicComposerTextButton:focus-visible {
 	color: var(--wpds-color-fg-content-neutral);
+}
+
+.classicComposerHistoryButton {
+	gap: var(--wpds-dimension-gap-xs);
+}
+
+.classicComposerHistoryMenu {
+	width: 280px;
+	max-width: calc(100vw - (var(--wpds-dimension-padding-lg) * 2));
+	max-height: min(360px, calc(100vh - 96px));
+	overflow-y: auto;
+}
+
+.classicComposerHistoryItem {
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0;
+	min-width: 0;
+}
+
+.classicComposerHistoryItem[data-current='true'] {
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+.classicComposerHistoryTitle,
+.classicComposerHistoryMeta {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.classicComposerHistoryTitle {
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.classicComposerHistoryMeta {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.classicComposerHistoryEmpty {
+	padding: var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 }

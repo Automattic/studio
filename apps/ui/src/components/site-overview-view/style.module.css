@@ -16,27 +16,19 @@
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
+	padding-block: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
 	-webkit-app-region: drag;
 }
 
-.toggleSpacer {
-	display: block;
-	flex-shrink: 0;
-	width: 118px;
-	align-self: stretch;
-	-webkit-app-region: no-drag;
-}
-
-.toggleSpacerFullscreen {
-	display: block;
-	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-xl) + 24px);
-	align-self: stretch;
-	-webkit-app-region: no-drag;
+.headerSidebarCollapsed {
+	padding-top: calc(
+		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
+			var(--wpds-dimension-padding-sm)
+	);
 }
 
 .tabsFrame {
@@ -153,95 +145,6 @@
 
 .manageSection {
 	padding-top: 0;
-}
-
-.chatsPanel {
-	display: flex;
-	flex-direction: column;
-	gap: calc(var(--wpds-dimension-padding-xl) * 1.25);
-	min-width: 0;
-}
-
-.sectionHeader {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-sm);
-	min-height: 32px;
-	margin-bottom: var(--wpds-dimension-padding-sm);
-}
-
-.sectionHeader h2 {
-	margin: 0;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	font-weight: var(--wpds-typography-font-weight-medium);
-	color: var(--wpds-color-fg-content-neutral);
-}
-
-.chatList {
-	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
-}
-
-.chatTime,
-.emptyDetail {
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.chatRow {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
-	padding: var(--wpds-dimension-padding-xs) 0;
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-}
-
-.chatMain {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
-	flex: 1;
-	min-width: 0;
-	min-height: 32px;
-	padding: 0;
-	border: 0;
-	background: transparent;
-	color: var(--wpds-color-fg-content-neutral);
-	font: inherit;
-	text-align: start;
-	cursor: var(--wpds-cursor-control);
-}
-
-.chatMain:hover .chatTitle,
-.chatMain:focus-visible .chatTitle {
-	color: var(--wpds-color-fg-interactive-brand);
-}
-
-.chatMain:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
-	outline-offset: 2px;
-}
-
-.chatTitle {
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-}
-
-.chatTime {
-	flex: 0 0 auto;
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
-}
-
-.emptyDetail {
-	margin: 0;
-	padding-top: var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
 }
 
 .destructiveButton .overviewButtonIcon,

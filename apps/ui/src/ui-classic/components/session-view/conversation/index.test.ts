@@ -133,6 +133,8 @@ function renderConversation( data: LoadedAiSession ) {
 	return render(
 		createElement( Conversation, {
 			data,
+			isRunning: false,
+			startedAt: null,
 			pendingQuestions: new Set< string >(),
 			pendingAnswers: {},
 			onAnswerQuestion: vi.fn(),

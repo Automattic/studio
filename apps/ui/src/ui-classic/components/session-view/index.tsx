@@ -1,30 +1,72 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
+import { chevronDownSmall } from '@wordpress/icons';
+import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
+import * as Menu from '@/components/menu';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
-import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
+import {
+	useSession,
+	useSessionEffectiveEnvironment,
+	useSessions,
+} from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
 import styles from './style.module.css';
-import { ThinkingIndicator } from './thinking-indicator';
 import type { AiSessionSummary } from '@/data/core';
 
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
+}
+
+function getSessionTimestamp( session: AiSessionSummary ): number {
+	return Date.parse( session.updatedAt ) || 0;
+}
+
+function getSessionLabel( session: AiSessionSummary ): string {
+	return session.firstPrompt?.trim() || __( 'Untitled chat' );
+}
+
+function getSiteChatHistory(
+	sessions: AiSessionSummary[] | undefined,
+	currentSummary: AiSessionSummary | undefined,
+	ownerSitePath: string | undefined
+): AiSessionSummary[] {
+	if ( ! ownerSitePath ) {
+		return [];
+	}
+
+	const sessionsById = new Map< string, AiSessionSummary >();
+	for ( const session of sessions ?? [] ) {
+		if ( session.ownerSitePath === ownerSitePath && ! session.archived ) {
+			sessionsById.set( session.id, session );
+		}
+	}
+	if (
+		currentSummary &&
+		currentSummary.ownerSitePath === ownerSitePath &&
+		! currentSummary.archived
+	) {
+		sessionsById.set( currentSummary.id, currentSummary );
+	}
+
+	return [ ...sessionsById.values() ].sort(
+		( a, b ) => getSessionTimestamp( b ) - getSessionTimestamp( a )
+	);
 }
 
 function SessionHeader( { summary }: SessionHeaderProps ) {
@@ -43,7 +85,6 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 				<SiteDropdown
 					site={ site }
 					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon={ sidebarCollapsed }
 					showStatus={ sidebarCollapsed }
 				/>
 			) : (
@@ -66,6 +107,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
+	composerFooter?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
@@ -73,10 +115,17 @@ interface SessionFrameProps {
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( { header, composer, scrollRef, children }: SessionFrameProps ) {
+function SessionFrame( {
+	header,
+	composer,
+	composerFooter,
+	scrollRef,
+	children,
+}: SessionFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
+	const sidebarCollapsed = useSidebarCollapsed();
 
 	useLayoutEffect( () => {
 		const root = rootRef.current;
@@ -128,6 +177,14 @@ function SessionFrame( { header, composer, scrollRef, children }: SessionFramePr
 				className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
 			>
 				{ composer }
+				<div
+					className={ clsx(
+						styles.classicComposerFooter,
+						sidebarCollapsed && styles.classicComposerFooterSidebarCollapsed
+					) }
+				>
+					{ composerFooter }
+				</div>
 			</div>
 		</div>
 	);
@@ -144,6 +201,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
+	const { data: sessions } = useSessions();
 	const { data: sites } = useSites();
 	const ownerSitePath = data?.summary.ownerSitePath;
 	const ownerSite = ownerSitePath
@@ -168,6 +226,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		() => resolveSessionModel( data?.entries ?? [] ),
 		[ data?.entries ]
 	);
+	const siteChatHistory = useMemo(
+		() => getSiteChatHistory( sessions, data?.summary, ownerSitePath ),
+		[ data?.summary, ownerSitePath, sessions ]
+	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
@@ -183,23 +245,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
 	useSessionCommands( sessionId );
-	const sidebarCollapsed = useSidebarCollapsed();
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const composerStatusMessage = useMemo( () => {
-		if ( isInterrupting ) {
-			return __( 'Stopping' );
-		}
-		if ( pendingQuestions.length > 0 ) {
-			return __( 'Waiting for your answer' );
-		}
-		if ( hasActiveRun && ! isRunning ) {
-			return __( 'Wrapping up' );
-		}
-		if ( queuedPrompts.length > 0 ) {
-			return __( 'Next message queued' );
-		}
-		return __( 'Ready for next task' );
-	}, [ hasActiveRun, isInterrupting, isRunning, pendingQuestions.length, queuedPrompts.length ] );
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -228,11 +274,21 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		if ( ! ownerSite ) {
 			return;
 		}
+
 		void navigate( {
 			to: '/sites/$siteId/new',
 			params: { siteId: ownerSite.id },
 		} );
 	}, [ navigate, ownerSite ] );
+	const openChat = useCallback(
+		( nextSessionId: string ) => {
+			void navigate( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: nextSessionId },
+			} );
+		},
+		[ navigate ]
+	);
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -257,13 +313,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				composer={
 					<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
 						<ComposerSkeleton />
-						<div
-							className={ clsx(
-								styles.classicComposerStatusRow,
-								sidebarCollapsed && styles.classicComposerStatusRowSidebarCollapsed
-							) }
-							aria-hidden="true"
-						/>
 					</div>
 				}
 			>
@@ -285,6 +334,72 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		<SessionFrame
 			scrollRef={ scrollRef }
 			header={ <SessionHeader summary={ data.summary } /> }
+			composerFooter={
+				<>
+					<div className={ styles.classicComposerFooterSide }>
+						{ ownerSite ? (
+							<Button
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								className={ styles.classicComposerTextButton }
+								onClick={ startNewChat }
+							>
+								{ __( 'New chat' ) }
+							</Button>
+						) : null }
+					</div>
+					<div className={ styles.classicComposerFooterSide }>
+						<Menu.Root modal={ false }>
+							<Menu.Trigger
+								render={
+									<Button
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										className={ clsx(
+											styles.classicComposerTextButton,
+											styles.classicComposerHistoryButton
+										) }
+									>
+										<span>{ __( 'Chat history' ) }</span>
+										<Icon icon={ chevronDownSmall } size={ 16 } />
+									</Button>
+								}
+							/>
+							<Menu.Popup side="top" align="end" className={ styles.classicComposerHistoryMenu }>
+								{ siteChatHistory.length > 0 ? (
+									siteChatHistory.map( ( session ) => {
+										const isCurrent = session.id === sessionId;
+										return (
+											<Menu.Item
+												key={ session.id }
+												className={ styles.classicComposerHistoryItem }
+												aria-current={ isCurrent ? 'page' : undefined }
+												data-current={ isCurrent ? 'true' : undefined }
+												onClick={ () => openChat( session.id ) }
+											>
+												<span className={ styles.classicComposerHistoryTitle }>
+													{ getSessionLabel( session ) }
+												</span>
+												<span className={ styles.classicComposerHistoryMeta }>
+													{ isCurrent
+														? __( 'Current chat' )
+														: formatRelativeTime( session.updatedAt ) }
+												</span>
+											</Menu.Item>
+										);
+									} )
+								) : (
+									<div className={ styles.classicComposerHistoryEmpty }>
+										{ __( 'No chats yet.' ) }
+									</div>
+								) }
+							</Menu.Popup>
+						</Menu.Root>
+					</div>
+				</>
+			}
 			composer={
 				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
 					<QueuedPrompts
@@ -303,36 +418,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						sessionId={ sessionId }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
-						onSwitchSession={ ( nextSessionId ) =>
-							void navigate( {
-								to: '/sessions/$sessionId',
-								params: { sessionId: nextSessionId },
-							} )
-						}
+						onSwitchSession={ openChat }
 					/>
-					<div
-						className={ clsx(
-							styles.classicComposerStatusRow,
-							sidebarCollapsed && styles.classicComposerStatusRowSidebarCollapsed
-						) }
-					>
-						<ThinkingIndicator
-							active={ isRunning && pendingQuestions.length === 0 }
-							idleMessage={ composerStatusMessage }
-							startedAt={ startedAt }
-						/>
-						{ ownerSite ? (
-							<Button
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								className={ styles.classicComposerNewChatButton }
-								onClick={ startNewChat }
-							>
-								{ __( 'New chat' ) }
-							</Button>
-						) : null }
-					</div>
 				</div>
 			}
 		>
@@ -340,6 +427,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
 				<Conversation
 					data={ data }
+					isRunning={ isRunning }
+					startedAt={ startedAt }
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
 					onAnswerQuestion={ answerQuestion }

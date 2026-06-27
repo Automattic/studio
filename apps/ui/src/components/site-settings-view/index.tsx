@@ -25,7 +25,6 @@ import {
 import * as Tabs from '@/components/tabs';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useSites, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
-import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -77,20 +76,13 @@ function initialFormData( site: SiteDetails ): FormData {
 
 function SettingsHeader( { site }: { site: SiteDetails } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
-	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
-		: null;
 	return (
-		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
-			<SiteDropdown
-				site={ site }
-				showSiteIcon={ sidebarCollapsed }
-				showStatus={ sidebarCollapsed }
-			/>
+		<div
+			className={
+				sidebarCollapsed ? `${ styles.header } ${ styles.headerSidebarCollapsed }` : styles.header
+			}
+		>
+			<SiteDropdown site={ site } showStatus={ sidebarCollapsed } />
 		</div>
 	);
 }

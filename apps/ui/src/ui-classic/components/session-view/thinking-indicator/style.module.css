@@ -1,55 +1,33 @@
 .root {
 	display: flex;
-	align-items: center;
-	min-width: 0;
+	flex-direction: column;
+	gap: 2px;
 	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
+	font-size: var(--wpds-typography-font-size-sm);
 	/* Reserves space so mounting / unmounting doesn't shift the surrounding layout. */
-	min-height: 24px;
+	min-height: 1.5em;
 }
 
 .head {
 	display: flex;
 	align-items: center;
-	min-width: 0;
-	gap: var(--wpds-dimension-padding-xs);
+	gap: var(--wpds-dimension-padding-md);
 }
 
 .dot {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 10px;
-	height: 18px;
-	flex-shrink: 0;
-}
-
-.dot::before {
-	content: "";
-	width: 6px;
-	height: 6px;
+	width: 8px;
+	height: 8px;
 	border-radius: 50%;
 	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	animation: pulse 1.2s ease-in-out infinite;
-}
-
-.dotIdle::before {
-	width: 4px;
-	height: 4px;
-	background-color: var(--wpds-color-fg-content-neutral-weak);
-	animation: none;
-	opacity: 0.45;
+	flex-shrink: 0;
 }
 
 .label {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	font-style: italic;
 }
 
 .elapsed {
-	flex-shrink: 0;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.7;
 	font-variant-numeric: tabular-nums;

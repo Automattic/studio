@@ -4,7 +4,7 @@
 	place-items: center;
 	width: var(--site-icon-size, 16px);
 	height: var(--site-icon-size, 16px);
-	border-radius: 4px;
+	border-radius: var(--site-icon-border-radius, 4px);
 	background: radial-gradient(
 			circle at var(--site-icon-position-a),
 			var(--site-icon-color-a) 0,

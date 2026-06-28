@@ -5,6 +5,7 @@ import { privateApis } from '@wordpress/theme';
 import { Tooltip } from '@wordpress/ui';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
+import { useLiveSyncActivityMonitor } from '@/data/queries/use-live-sync-monitor';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
 import { useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
@@ -23,6 +24,7 @@ function SiteEventsBridge() {
 	useSyncSitesWithEvents();
 	useSyncSessionsWithEvents();
 	useSyncConnectSiteListener();
+	useLiveSyncActivityMonitor();
 	return null;
 }
 

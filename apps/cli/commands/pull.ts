@@ -42,10 +42,50 @@ import type { SyncOption } from '@studio/common/types/sync';
 
 const logger = new Logger< LoggerAction >();
 
+function parseIncludePathList( value?: string ): string[] | undefined {
+	if ( ! value ) {
+		return undefined;
+	}
+
+	const trimmedValue = value.trim();
+	if ( ! trimmedValue ) {
+		return undefined;
+	}
+
+	if ( trimmedValue.startsWith( '[' ) ) {
+		let parsedValue: unknown;
+		try {
+			parsedValue = JSON.parse( trimmedValue );
+		} catch ( error ) {
+			throw new LoggerError(
+				__( 'Invalid include path list. Pass a JSON array of remote path IDs.' ),
+				error
+			);
+		}
+
+		if (
+			! Array.isArray( parsedValue ) ||
+			! parsedValue.every( ( item ): item is string => typeof item === 'string' && item.length > 0 )
+		) {
+			throw new LoggerError(
+				__( 'Invalid include path list. Pass a JSON array of remote path IDs.' )
+			);
+		}
+
+		return parsedValue;
+	}
+
+	return trimmedValue
+		.split( ',' )
+		.map( ( item ) => item.trim() )
+		.filter( Boolean );
+}
+
 export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
-	siteIdentifier?: string
+	siteIdentifier?: string,
+	includePathListArg?: string[]
 ): Promise< void > {
 	let site: SiteData | undefined;
 	let wasServerRunning = false;
@@ -83,7 +123,7 @@ export async function runCommand(
 		}
 
 		let optionsToSync: SyncOption[];
-		let includePathList: string[] | undefined;
+		let includePathList: string[] | undefined = includePathListArg;
 
 		if ( syncOptions ) {
 			optionsToSync = syncOptions;
@@ -253,7 +293,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'options', {
 					type: 'string',
 					description: __(
-						'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents'
+						'Comma-separated sync options: all, sqls, paths, uploads, plugins, themes, contents'
 					),
 					coerce: ( val: string | undefined ) =>
 						val !== undefined ? parseSyncOptions( val ) : undefined,
@@ -261,11 +301,21 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'remote-site', {
 					type: 'string',
 					description: __( 'Remote site URL or ID' ),
+				} )
+				.option( 'include-path-list', {
+					type: 'string',
+					description: __( 'JSON array of remote path IDs to pull when using the paths option' ),
+					coerce: parseIncludePathList,
 				} );
 		},
 		handler: async ( argv ) => {
 			try {
-				await runCommand( argv.path, argv.options as SyncOption[] | undefined, argv.remoteSite );
+				await runCommand(
+					argv.path,
+					argv.options as SyncOption[] | undefined,
+					argv.remoteSite,
+					argv.includePathList as string[] | undefined
+				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

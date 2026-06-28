@@ -1,8 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
+import {
+	getImportStatusPendingDetails,
+	monitorLiveSyncImport,
+} from '@/data/queries/use-live-sync-monitor';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { reportSyncError, reportSyncPending, reportSyncSuccess } from '@/data/sync-activity';
+import type { LiveSyncOptions } from '@/data/core';
 
 // Mutation keys are exported so downstream consumers (e.g. a cross-page
 // activity indicator or future bulk-sync UI) can filter the react-query
@@ -13,6 +19,7 @@ export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
 type PushToLiveVariables = {
 	siteId: string;
 	remoteSiteId: number;
+	options?: LiveSyncOptions;
 };
 
 export function usePushSiteToLive() {
@@ -20,15 +27,44 @@ export function usePushSiteToLive() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: PUSH_TO_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId }: PushToLiveVariables ) =>
-			connector.pushSiteToLive( siteId, remoteSiteId ),
-		onMutate: ( { siteId } ) => {
-			reportSyncPending( siteId, 'push' );
+		mutationFn: async ( { siteId, remoteSiteId, options }: PushToLiveVariables ) => {
+			const currentStatus = await connector
+				.getLiveSyncImportStatus( remoteSiteId )
+				.catch( () => null );
+			if ( currentStatus && getImportStatusPendingDetails( currentStatus ) ) {
+				await monitorLiveSyncImport( {
+					connector,
+					siteId,
+					remoteSiteId,
+				} );
+				await connector.markLiveSiteSynced( siteId, remoteSiteId, 'push' );
+				return;
+			}
+
+			await connector.pushSiteToLive( siteId, remoteSiteId, options );
+			await monitorLiveSyncImport( {
+				connector,
+				siteId,
+				remoteSiteId,
+				reportInitialFailure: true,
+			} );
+			await connector.markLiveSiteSynced( siteId, remoteSiteId, 'push' );
+		},
+		onMutate: ( { siteId, remoteSiteId } ) => {
+			reportSyncPending( siteId, 'push', {
+				phase: 'uploading',
+				progress: null,
+				remoteSiteId,
+				logMessage: __( 'Uploading selected changes to live site.' ),
+			} );
 		},
 		onSuccess: ( _result, { siteId } ) => {
 			reportSyncSuccess( siteId, 'push' );
 			void queryClient.invalidateQueries( {
 				queryKey: connectedWpcomSitesQueryKey( siteId ),
+			} );
+			void queryClient.invalidateQueries( {
+				queryKey: [ 'liveSyncLatestBackupTime' ],
 			} );
 		},
 		onError: ( error, { siteId } ) => {
@@ -60,6 +96,7 @@ export function useDisconnectWpcomSite() {
 type PullFromLiveVariables = {
 	siteId: string;
 	remoteSiteId: number;
+	options?: LiveSyncOptions;
 };
 
 export function usePullSiteFromLive() {
@@ -67,10 +104,12 @@ export function usePullSiteFromLive() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId }: PullFromLiveVariables ) =>
-			connector.pullSiteFromLive( siteId, remoteSiteId ),
+		mutationFn: ( { siteId, remoteSiteId, options }: PullFromLiveVariables ) =>
+			connector.pullSiteFromLive( siteId, remoteSiteId, options ),
 		onMutate: ( { siteId } ) => {
-			reportSyncPending( siteId, 'pull' );
+			reportSyncPending( siteId, 'pull', {
+				logMessage: __( 'Pulling selected live-site changes into Studio.' ),
+			} );
 		},
 		onSuccess: ( _result, { siteId } ) => {
 			reportSyncSuccess( siteId, 'pull' );

@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
 
 // Tracks in-flight and recently completed live-site sync operations so the
@@ -11,25 +12,58 @@ import { useSyncExternalStore } from 'react';
 // activity indicator can surface any live-sync-like operation consistently.
 export type SyncDirection = 'push' | 'pull' | 'preview';
 
+export type SyncPhase = 'preparing' | 'uploading' | 'creating-backup' | 'applying' | 'finishing';
+
+export type SyncPendingDetails = {
+	phase?: SyncPhase;
+	progress?: number | null;
+	remoteSiteId?: number;
+};
+
+export type SyncLogEntry = {
+	timestamp: string;
+	message: string;
+};
+
+type SyncActivityLog = {
+	log?: SyncLogEntry[];
+};
+
 export type SyncActivity =
-	| { kind: 'pending'; direction: SyncDirection }
-	| { kind: 'success'; direction: SyncDirection }
-	| { kind: 'error'; direction: SyncDirection; message: string };
+	| ( { kind: 'pending'; direction: SyncDirection } & SyncPendingDetails & SyncActivityLog )
+	| ( { kind: 'success'; direction: SyncDirection } & SyncActivityLog )
+	| ( { kind: 'error'; direction: SyncDirection; message: string } & SyncActivityLog );
+
+export type SyncLogSummary = {
+	kind: 'success' | 'error';
+	direction: SyncDirection;
+	completedAt: string;
+	message?: string;
+	log: SyncLogEntry[];
+};
+
+type SyncPendingUpdate = SyncPendingDetails & {
+	logMessage?: string;
+};
 
 // How long success/error stay visible before the indicator vanishes.
 // Matches the 30s requirement from the UX spec.
 const RESULT_TTL_MS = 30_000;
+const MAX_LOG_ENTRIES = 50;
 
 const entries = new Map< string, SyncActivity >();
+const lastLogs = new Map< string, SyncLogSummary >();
 const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
 
 let snapshot: ReadonlyMap< string, SyncActivity > = entries;
+let lastLogSnapshot: ReadonlyMap< string, SyncLogSummary > = lastLogs;
 
 function emit() {
 	// useSyncExternalStore compares snapshot references, so rebuild the map
 	// instead of mutating the existing reference.
 	snapshot = new Map( entries );
+	lastLogSnapshot = new Map( lastLogs );
 	for ( const listener of listeners ) {
 		listener();
 	}
@@ -53,20 +87,82 @@ function scheduleExpiry( siteId: string ) {
 	timers.set( siteId, timer );
 }
 
-export function reportSyncPending( siteId: string, direction: SyncDirection ): void {
+function appendLogEntry( log: SyncLogEntry[] | undefined, message: string ): SyncLogEntry[] {
+	const lastEntry = log?.[ log.length - 1 ];
+	if ( lastEntry?.message === message ) {
+		return log ?? [];
+	}
+
+	return [
+		...( log ?? [] ),
+		{
+			timestamp: new Date().toISOString(),
+			message,
+		},
+	].slice( -MAX_LOG_ENTRIES );
+}
+
+export function reportSyncPending(
+	siteId: string,
+	direction: SyncDirection,
+	details: SyncPendingUpdate = {}
+): void {
+	const current = entries.get( siteId );
+	const { logMessage, ...pendingDetails } = details;
+	const log = logMessage ? appendLogEntry( current?.log, logMessage ) : current?.log;
+
 	clearExpiryTimer( siteId );
-	entries.set( siteId, { kind: 'pending', direction } );
+	entries.set( siteId, { kind: 'pending', direction, ...pendingDetails, log } );
+	emit();
+}
+
+export function updateSyncPending( siteId: string, details: SyncPendingUpdate ): void {
+	const current = entries.get( siteId );
+	if ( ! current || current.kind !== 'pending' ) {
+		return;
+	}
+
+	const { logMessage, ...pendingDetails } = details;
+	const log = logMessage ? appendLogEntry( current.log, logMessage ) : current.log;
+
+	entries.set( siteId, { ...current, ...pendingDetails, log } );
 	emit();
 }
 
 export function reportSyncSuccess( siteId: string, direction: SyncDirection ): void {
-	entries.set( siteId, { kind: 'success', direction } );
+	const current = entries.get( siteId );
+	const log = appendLogEntry( current?.log, __( 'Sync completed.' ) );
+	entries.set( siteId, {
+		kind: 'success',
+		direction,
+		log,
+	} );
+	lastLogs.set( siteId, {
+		kind: 'success',
+		direction,
+		completedAt: new Date().toISOString(),
+		log,
+	} );
 	scheduleExpiry( siteId );
 	emit();
 }
 
 export function reportSyncError( siteId: string, direction: SyncDirection, message: string ): void {
-	entries.set( siteId, { kind: 'error', direction, message } );
+	const current = entries.get( siteId );
+	const log = appendLogEntry( current?.log, message );
+	entries.set( siteId, {
+		kind: 'error',
+		direction,
+		message,
+		log,
+	} );
+	lastLogs.set( siteId, {
+		kind: 'error',
+		direction,
+		completedAt: new Date().toISOString(),
+		message,
+		log,
+	} );
 	scheduleExpiry( siteId );
 	emit();
 }
@@ -82,6 +178,14 @@ export function useSiteSyncActivity( siteId: string | undefined ): SyncActivity 
 	return useSyncExternalStore(
 		subscribe,
 		() => ( siteId ? snapshot.get( siteId ) ?? null : null ),
+		() => null
+	);
+}
+
+export function useSiteLastSyncLog( siteId: string | undefined ): SyncLogSummary | null {
+	return useSyncExternalStore(
+		subscribe,
+		() => ( siteId ? lastLogSnapshot.get( siteId ) ?? null : null ),
 		() => null
 	);
 }

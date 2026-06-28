@@ -528,30 +528,54 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async pushSiteToLive( siteId, remoteSiteId ): Promise< void > {
+		async pushSiteToLive( siteId, remoteSiteId, options ): Promise< void > {
 			// Mirrors the desktop app's `pushSiteThunk` — export a backup, then
 			// TUS-upload it + initiate the remote import. We skip the
 			// post-upload polling that the desktop app uses for progress UI;
 			// `pushArchive` only resolves after `import/initiate` succeeds, so
 			// the remote import may still be running when this returns.
 			const operationId = window.crypto.randomUUID();
-			const { archivePath } = ( await ipcApi.exportSiteForPush( siteId, operationId, {} ) ) as {
-				archivePath: string;
-			};
-			const result = ( await ipcApi.pushArchive( siteId, remoteSiteId, archivePath ) ) as {
-				success: boolean;
-				error?: string;
-			};
+			const { archivePath } = ( await ipcApi.exportSiteForPush( siteId, operationId, {
+				optionsToSync: options?.optionsToSync,
+				specificSelectionPaths: options?.specificSelectionPaths,
+			} ) ) as { archivePath: string };
+			const result = ( await ipcApi.pushArchive(
+				siteId,
+				remoteSiteId,
+				archivePath,
+				options?.optionsToSync,
+				options?.specificSelectionPaths
+			) ) as { success: boolean; error?: string };
 			if ( ! result.success ) {
 				throw new Error( result.error ?? 'Push failed' );
 			}
-			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
+		async pullSiteFromLive( siteId, remoteSiteId, options ): Promise< void > {
 			const siteFolder = await resolveSiteFolder( siteId );
-			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+			await ipcApi.pullSiteFromLive(
+				siteFolder,
+				remoteSiteId,
+				options?.optionsToSync,
+				options?.includePathList
+			);
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
+		},
+
+		async getLiveSyncItems( siteId, remoteSiteId, direction ) {
+			return ipcApi.getLiveSyncItems( siteId, remoteSiteId, direction );
+		},
+
+		async getLiveSyncImportStatus( remoteSiteId ) {
+			return ipcApi.getLiveSyncImportStatus( remoteSiteId );
+		},
+
+		async getLiveSyncLatestBackupTime( remoteSiteId ) {
+			return ipcApi.getLiveSyncLatestBackupTime( remoteSiteId );
+		},
+
+		async markLiveSiteSynced( localSiteId, remoteSiteId, direction ) {
+			await markConnectedWpcomSiteSynced( localSiteId, remoteSiteId, direction );
 		},
 
 		getPublishCheckoutUrl( site ): string {

@@ -8,7 +8,7 @@ import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { ImportResponse, SyncOption, SyncSite } from '@studio/common/types/sync';
 import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -29,7 +29,7 @@ export type {
 } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
-export type { SyncSite } from '@studio/common/types/sync';
+export type { SyncOption, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -42,6 +42,28 @@ export interface AiSessionSitePlacement {
 	sitePath: string;
 	siteName: string;
 }
+
+export type LiveSyncOptions = {
+	optionsToSync: SyncOption[];
+	specificSelectionPaths?: string[];
+	includePathList?: string[];
+};
+
+export type LiveSyncDirection = 'push' | 'pull';
+
+export type LiveSyncItem = {
+	name: string;
+	path: string;
+	pathId?: string;
+};
+
+export type LiveSyncItems = {
+	source: 'local' | 'remote';
+	themes: LiveSyncItem[];
+	plugins: LiveSyncItem[];
+};
+
+export type LiveSyncImportStatus = ImportResponse;
 
 export interface AiSessionPlacementUpdatedEvent {
 	sessionId: string;
@@ -196,13 +218,38 @@ export interface Connector {
 	// unaffected — only the Studio-side mapping is dropped, so Pull/Push
 	// are no longer available until the user reconnects.
 	disconnectWpcomSite( localSiteId: string, remoteSiteId: number ): Promise< void >;
-	// Pushes the local site to a previously connected WordPress.com site.
-	// Replaces the remote contents with the local database and wp-content.
-	pushSiteToLive( siteId: string, remoteSiteId: number ): Promise< void >;
-	// Pulls the connected WordPress.com site's database + wp-content back
-	// into the local Studio site. Stops the local server while the backup
-	// imports and restarts it on completion.
-	pullSiteFromLive( siteId: string, remoteSiteId: number ): Promise< void >;
+	// Pushes selected local content to a previously connected WordPress.com site.
+	pushSiteToLive(
+		siteId: string,
+		remoteSiteId: number,
+		options?: LiveSyncOptions
+	): Promise< void >;
+	// Pulls selected content from the connected WordPress.com site back into
+	// the local Studio site. Stops the local server while the backup imports
+	// and restarts it on completion.
+	pullSiteFromLive(
+		siteId: string,
+		remoteSiteId: number,
+		options?: LiveSyncOptions
+	): Promise< void >;
+	// Lists syncable theme/plugin items from the direction's source side:
+	// local files for push, remote backup files for pull.
+	getLiveSyncItems(
+		siteId: string,
+		remoteSiteId: number,
+		direction: LiveSyncDirection
+	): Promise< LiveSyncItems >;
+	// Current status of a remote Studio import. Used by the Agentic UI to
+	// keep push progress visible after the archive upload has initiated.
+	getLiveSyncImportStatus( remoteSiteId: number ): Promise< LiveSyncImportStatus >;
+	// Timestamp of the latest live-site backup, when available.
+	getLiveSyncLatestBackupTime( remoteSiteId: number ): Promise< string | null >;
+	// Updates Studio's local connected-site metadata after a sync actually completes.
+	markLiveSiteSynced(
+		localSiteId: string,
+		remoteSiteId: number,
+		direction: LiveSyncDirection
+	): Promise< void >;
 	// URL to open in the browser when the user wants to publish a site that
 	// isn't connected to WordPress.com yet (checkout + deep-link back to the
 	// desktop app). Returns `undefined` when the connector can't provide one.

@@ -12,7 +12,12 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import {
+	fetchLatestRewindId,
+	fetchRemoteFileTree,
+	fetchSyncableSites,
+	pollImportStatus,
+} from '@studio/common/lib/sync/sync-api';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { SyncSite } from '@studio/common/types/sync';
@@ -31,6 +36,19 @@ import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 import { SiteServer } from 'src/site-server';
 import { SyncOption } from 'src/types';
+import type { ImportResponse } from '@studio/common/types/sync';
+
+type LiveSyncDirection = 'push' | 'pull';
+type LiveSyncItem = {
+	name: string;
+	path: string;
+	pathId?: string;
+};
+type LiveSyncItems = {
+	source: 'local' | 'remote';
+	themes: LiveSyncItem[];
+	plugins: LiveSyncItem[];
+};
 
 /**
  * Registry to store AbortControllers for ongoing sync operations (push/pull).
@@ -492,22 +510,145 @@ export async function updateConnectedWpcomSites(
 	}
 }
 
+async function listLocalSyncItems(
+	localSiteId: string,
+	directory: 'themes' | 'plugins'
+): Promise< LiveSyncItem[] > {
+	const site = SiteServer.get( localSiteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+
+	const directoryPath = path.join( site.details.path, 'wp-content', directory );
+
+	try {
+		const entries = await fsPromises.readdir( directoryPath, { withFileTypes: true } );
+		return entries
+			.filter( ( entry ) => entry.isDirectory() )
+			.map( ( entry ) => ( {
+				name: entry.name,
+				path: `${ directory }/${ entry.name }`,
+			} ) )
+			.sort( ( a, b ) => a.name.localeCompare( b.name ) );
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+			return [];
+		}
+		throw error;
+	}
+}
+
+async function listRemoteSyncItems(
+	token: string,
+	remoteSiteId: number,
+	rewindId: string,
+	directory: 'themes' | 'plugins'
+): Promise< LiveSyncItem[] > {
+	const entries = await fetchRemoteFileTree(
+		token,
+		remoteSiteId,
+		rewindId,
+		`/wp-content/${ directory }/`
+	);
+
+	return entries
+		.filter( ( entry ) => entry.isDirectory )
+		.map( ( entry ) => ( {
+			name: entry.name,
+			path: `${ directory }/${ entry.name }`,
+			pathId: entry.pathId,
+		} ) )
+		.sort( ( a, b ) => a.name.localeCompare( b.name ) );
+}
+
+export async function getLiveSyncItems(
+	_event: IpcMainInvokeEvent,
+	localSiteId: string,
+	remoteSiteId: number,
+	direction: LiveSyncDirection
+): Promise< LiveSyncItems > {
+	if ( direction === 'push' ) {
+		const [ themes, plugins ] = await Promise.all( [
+			listLocalSyncItems( localSiteId, 'themes' ),
+			listLocalSyncItems( localSiteId, 'plugins' ),
+		] );
+
+		return { source: 'local', themes, plugins };
+	}
+
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch remote sync items.' );
+	}
+
+	const rewindId = await fetchLatestRewindId( token.accessToken, remoteSiteId );
+	const [ themes, plugins ] = await Promise.all( [
+		listRemoteSyncItems( token.accessToken, remoteSiteId, rewindId, 'themes' ),
+		listRemoteSyncItems( token.accessToken, remoteSiteId, rewindId, 'plugins' ),
+	] );
+
+	return { source: 'remote', themes, plugins };
+}
+
+export async function getLiveSyncImportStatus(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number
+): Promise< ImportResponse > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch live sync status.' );
+	}
+
+	return pollImportStatus( token.accessToken, remoteSiteId );
+}
+
+export async function getLiveSyncLatestBackupTime(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number
+): Promise< string | null > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch latest live backup.' );
+	}
+
+	const rewindId = await fetchLatestRewindId( token.accessToken, remoteSiteId );
+	const timestampMs = Number.parseInt( rewindId, 10 ) * 1000;
+	if ( ! Number.isFinite( timestampMs ) ) {
+		return null;
+	}
+
+	return new Date( timestampMs ).toISOString();
+}
+
 // Wraps the CLI `pull` command for apps/ui. The desktop renderer handles
 // pull via `pullSiteThunk` + `pollPullBackupThunk` using its own WPCOM
 // client to initiate + poll + download — that polling lives in the
 // renderer sync slice with no end-to-end IPC equivalent to reuse. Calling
 // the CLI instead keeps apps/ui free of wpcom-client setup and mirrors the
-// simpler flow used by `push`. Exchanges everything (`--options all`).
+// simpler flow used by `push`.
 export async function pullSiteFromLive(
 	_event: IpcMainInvokeEvent,
 	siteFolder: string,
-	remoteSiteId: number
+	remoteSiteId: number,
+	optionsToSync: SyncOption[] = [ 'all' ],
+	includePathList?: string[]
 ): Promise< void > {
+	const command = [
+		'pull',
+		'--path',
+		siteFolder,
+		'--remote-site',
+		String( remoteSiteId ),
+		'--options',
+		optionsToSync.join( ',' ),
+	];
+
+	if ( includePathList?.length ) {
+		command.push( '--include-path-list', JSON.stringify( includePathList ) );
+	}
+
 	return new Promise< void >( ( resolve, reject ) => {
-		const [ emitter ] = executeCliCommand(
-			[ 'pull', '--path', siteFolder, '--remote-site', String( remoteSiteId ), '--options', 'all' ],
-			{ output: 'capture' }
-		);
+		const [ emitter ] = executeCliCommand( command, { output: 'capture' } );
 
 		emitter.on( 'success', () => resolve() );
 		emitter.on( 'failure', ( { error } ) => reject( error ) );

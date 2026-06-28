@@ -245,6 +245,18 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async pullSiteFromLive() {
 			throw new WebUnsupportedError( 'pullSiteFromLive' );
 		},
+		async getLiveSyncItems() {
+			throw new WebUnsupportedError( 'getLiveSyncItems' );
+		},
+		async getLiveSyncImportStatus() {
+			throw new WebUnsupportedError( 'getLiveSyncImportStatus' );
+		},
+		async getLiveSyncLatestBackupTime() {
+			throw new WebUnsupportedError( 'getLiveSyncLatestBackupTime' );
+		},
+		async markLiveSiteSynced() {
+			throw new WebUnsupportedError( 'markLiveSiteSynced' );
+		},
 		getPublishCheckoutUrl() {
 			return undefined;
 		},

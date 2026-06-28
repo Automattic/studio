@@ -25,6 +25,7 @@ export interface StudioSiteSelectedData {
 export interface StudioAgentQuestionData {
 	question: string;
 	options: Array< { label: string; description: string } >;
+	selectedLabel?: string;
 }
 
 export type StudioTurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';

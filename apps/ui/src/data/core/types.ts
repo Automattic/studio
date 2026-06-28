@@ -286,12 +286,15 @@ export interface Connector {
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+
+	// Clipboard — routed to the host so it works where the renderer's
+	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
+	copyText( text: string ): Promise< void >;
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,
 		options?: { autoLogin?: boolean }
 	): Promise< void >;
-	copyText( text: string ): Promise< void >;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).

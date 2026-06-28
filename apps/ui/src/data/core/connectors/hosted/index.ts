@@ -344,14 +344,13 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async copyText( text ) {
+			await navigator.clipboard.writeText( text );
+		},
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
 			window.open( target, '_blank', 'noopener,noreferrer' );
-		},
-
-		async copyText( text ) {
-			await navigator.clipboard.writeText( text );
 		},
 
 		// Window chrome — no traffic lights in a browser tab.

@@ -705,12 +705,12 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
-		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
-			await ipcApi.openSiteURL( siteId, relativeUrl, options );
+		async copyText( text: string ): Promise< void > {
+			await ipcApi.copyText( text );
 		},
 
-		async copyText( text ): Promise< void > {
-			await ipcApi.copyText( text );
+		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
+			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
 		// Window state

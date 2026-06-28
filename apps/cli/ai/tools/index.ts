@@ -89,7 +89,7 @@ export function resolveStudioToolDefinitions(
 	} );
 }
 
-function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
+export function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
 	tool: TTool,
 	emitChatArtifacts: boolean
 ): TTool {

@@ -56,10 +56,11 @@ import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Markdown } from '@/components/markdown';
+import { useConnector, type LoadedAiSession, type LocalMediaFile } from '@/data/core';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
-import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 
 interface AgentQuestionRenderItem {
 	key: string;
@@ -87,6 +88,11 @@ type RenderItem =
 			kind: 'agent-question-batch';
 			key: string;
 			questions: AgentQuestionRenderItem[];
+	  }
+	| {
+			kind: 'chat-artifact';
+			key: string;
+			widgets: StudioChatArtifactWidgetDraft[];
 	  }
 	| { kind: 'interrupted-marker'; key: string };
 
@@ -183,6 +189,68 @@ function resolveBatchedAnswerForQuestion(
 	}
 	const answer = answers[ batchPosition ];
 	return optionLabels.has( answer ) ? answer : undefined;
+}
+
+function isRecord( value: unknown ): value is Record< string, unknown > {
+	return Boolean( value ) && typeof value === 'object' && ! Array.isArray( value );
+}
+
+function getLocalMediaPath( widget: StudioChatArtifactWidgetDraft ): string | null {
+	const { source } = widget.widgetProps;
+	if ( ! isRecord( source ) || source.type !== 'local' || typeof source.path !== 'string' ) {
+		return null;
+	}
+	return source.path;
+}
+
+function getSafeMediaUrl( widget: StudioChatArtifactWidgetDraft ): string | null {
+	const { url } = widget.widgetProps;
+	if ( typeof url !== 'string' ) {
+		return null;
+	}
+	try {
+		const parsed = new URL( url );
+		return [ 'http:', 'https:', 'data:' ].includes( parsed.protocol ) ? url : null;
+	} catch {
+		return null;
+	}
+}
+
+function isRenderableMediaWidget(
+	widget: StudioChatArtifactWidgetDraft
+): widget is StudioChatArtifactWidgetDraft {
+	return (
+		widget.type === 'media' &&
+		widget.widgetProps.mediaKind === 'image' &&
+		( Boolean( getLocalMediaPath( widget ) ) || Boolean( getSafeMediaUrl( widget ) ) )
+	);
+}
+
+function getMediaAltText( widget: StudioChatArtifactWidgetDraft ): string {
+	return typeof widget.widgetProps.alt === 'string' && widget.widgetProps.alt.trim()
+		? widget.widgetProps.alt
+		: __( 'Image' );
+}
+
+function localMediaFileToDataUrl( file: LocalMediaFile ): string {
+	const bytes = new Uint8Array( file.data );
+	const chunkSize = 0x8000;
+	let binary = '';
+	for ( let index = 0; index < bytes.length; index += chunkSize ) {
+		binary += String.fromCharCode( ...bytes.subarray( index, index + chunkSize ) );
+	}
+	return `data:${ file.mimeType };base64,${ btoa( binary ) }`;
+}
+
+function stripScreenshotMediaPayloadLines( text: string ): string {
+	return text
+		.split( '\n' )
+		.filter(
+			( line ) =>
+				! line.startsWith( 'mediaWidgetPayload=' ) && ! line.startsWith( 'mediaWidgetPayloads=' )
+		)
+		.join( '\n' )
+		.trim();
 }
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
@@ -284,6 +352,19 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				key: `${ batchStartIndex }:question-batch`,
 				questions,
 			} );
+			continue;
+		}
+
+		if ( isStudioCustomEntryOfType( entry, 'studio.chat_artifact' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.chat_artifact' > ).data;
+			const widgets = data?.widgets.filter( isRenderableMediaWidget ) ?? [];
+			if ( widgets.length > 0 ) {
+				items.push( {
+					kind: 'chat-artifact',
+					key: `${ entryIndex }:chat-artifact`,
+					widgets,
+				} );
+			}
 			continue;
 		}
 
@@ -575,7 +656,9 @@ function ToolUseRow( {
 } ) {
 	const display = getClassicToolDisplay( name, input );
 	const detailsId = useId();
-	const resultText = result?.text?.trim() ?? '';
+	const rawResultText = result?.text?.trim() ?? '';
+	const resultText =
+		name === 'take_screenshot' ? stripScreenshotMediaPayloadLines( rawResultText ) : rawResultText;
 	const hasOutput = resultText.length > 0;
 	const hasInput = display.inputText.length > 0;
 	const hasExpandableDetails = hasInput || hasOutput;
@@ -648,6 +731,69 @@ function ToolUseRow( {
 				</div>
 			) : null }
 		</div>
+	);
+}
+
+function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] } ) {
+	return (
+		<div className={ styles.mediaArtifactGrid }>
+			{ widgets.map( ( widget, index ) => (
+				<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
+			) ) }
+		</div>
+	);
+}
+
+function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
+	const connector = useConnector();
+	const localPath = getLocalMediaPath( widget );
+	const safeUrl = getSafeMediaUrl( widget );
+	const [ src, setSrc ] = useState< string | null >( localPath ? null : safeUrl );
+	const [ failed, setFailed ] = useState( false );
+
+	useEffect( () => {
+		setFailed( false );
+		if ( ! localPath ) {
+			setSrc( safeUrl );
+			return;
+		}
+
+		let active = true;
+		setSrc( null );
+		connector
+			.readLocalMediaFile( localPath )
+			.then( ( file ) => {
+				if ( active ) {
+					setSrc( localMediaFileToDataUrl( file ) );
+				}
+			} )
+			.catch( () => {
+				if ( active ) {
+					setFailed( true );
+				}
+			} );
+
+		return () => {
+			active = false;
+		};
+	}, [ connector, localPath, safeUrl ] );
+
+	if ( failed ) {
+		return (
+			<div className={ styles.mediaArtifactUnavailable } role="status">
+				{ __( 'Image unavailable' ) }
+			</div>
+		);
+	}
+
+	if ( ! src ) {
+		return <div className={ styles.mediaArtifactLoading } aria-hidden="true" />;
+	}
+
+	return (
+		<figure className={ styles.mediaArtifactItem }>
+			<img className={ styles.mediaArtifactImage } src={ src } alt={ getMediaAltText( widget ) } />
+		</figure>
 	);
 }
 
@@ -1046,6 +1192,8 @@ export function Conversation( {
 								onAnswer={ onAnswerQuestion }
 							/>
 						);
+					case 'chat-artifact':
+						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
 					case 'interrupted-marker':
 						return (
 							<div key={ item.key } className={ styles.interruptedMarker } role="status">

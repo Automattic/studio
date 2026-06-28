@@ -62,6 +62,7 @@ async function waitForPageToSettle( page: Page ): Promise< void > {
 }
 
 export type ScreenshotFormat = 'png' | 'jpeg';
+export type ScreenshotColorScheme = 'light' | 'dark';
 
 export interface ScreenshotCapture {
 	buffer: Buffer;
@@ -91,6 +92,7 @@ export async function captureScreenshotBuffer(
 		deviceScaleFactor?: number;
 		format?: ScreenshotFormat;
 		offset?: number;
+		colorScheme?: ScreenshotColorScheme;
 	}
 ): Promise< ScreenshotCapture > {
 	const format = options.format ?? 'png';
@@ -101,7 +103,10 @@ export async function captureScreenshotBuffer(
 	} );
 
 	try {
-		await page.emulateMedia( { reducedMotion: 'reduce' } );
+		await page.emulateMedia( {
+			reducedMotion: 'reduce',
+			...( options.colorScheme ? { colorScheme: options.colorScheme } : {} ),
+		} );
 		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
 		await waitForPageToSettle( page );
 
@@ -228,7 +233,11 @@ export async function captureScreenshotBuffer(
 export async function captureScreenshotPng(
 	url: string,
 	viewport: { width: number; height: number },
-	options: { fullPage: boolean; deviceScaleFactor?: number }
+	options: {
+		fullPage: boolean;
+		deviceScaleFactor?: number;
+		colorScheme?: ScreenshotColorScheme;
+	}
 ): Promise< string > {
 	const capture = await captureScreenshotBuffer( url, viewport, { ...options, format: 'png' } );
 	return capture.buffer.toString( 'base64' );
@@ -236,7 +245,7 @@ export async function captureScreenshotPng(
 
 export async function saveScreenshotToTempFile(
 	buffer: Buffer,
-	options: { viewportType: string; format?: ScreenshotFormat }
+	options: { viewportType: string; format?: ScreenshotFormat; colorScheme?: ScreenshotColorScheme }
 ): Promise< {
 	path: string;
 	fileUrl: string;
@@ -247,7 +256,8 @@ export async function saveScreenshotToTempFile(
 	const extension = format === 'jpeg' ? 'jpg' : 'png';
 	const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
 	const directory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshot-' ) );
-	const name = `screenshot-${ options.viewportType }.${ extension }`;
+	const colorSchemeSuffix = options.colorScheme ? `-${ options.colorScheme }` : '';
+	const name = `screenshot-${ options.viewportType }${ colorSchemeSuffix }.${ extension }`;
 	const filePath = path.join( directory, name );
 
 	await writeFile( filePath, buffer );

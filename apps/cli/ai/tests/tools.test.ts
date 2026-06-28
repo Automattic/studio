@@ -359,6 +359,103 @@ describe( 'Studio AI MCP tools', () => {
 		const payload = JSON.parse( text!.split( 'mediaWidgetPayload=' )[ 1 ] ) as {
 			widgetProps: { source: { path: string } };
 		};
+		expect( result.studioArtifacts ).toEqual( [ payload ] );
+		await rm( path.dirname( payload.widgetProps.source.path ), { recursive: true, force: true } );
+	} );
+
+	it( 'can force dark mode for take_screenshot captures', async () => {
+		const screenshotBuffer = Buffer.from( 'dark-jpeg' );
+		const page = {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi.fn().mockResolvedValue( 1800 ),
+			addStyleTag: vi.fn(),
+			screenshot: vi.fn().mockResolvedValue( screenshotBuffer ),
+			close: vi.fn(),
+		};
+		const browser = {
+			newPage: vi.fn().mockResolvedValue( page ),
+		};
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+		const result = await getTool( 'take_screenshot' ).rawHandler( {
+			url: 'http://localhost:8903/story-time',
+			colorScheme: 'dark',
+		} as never );
+		const text = getTextContent( result );
+
+		expect( page.emulateMedia ).toHaveBeenCalledWith( {
+			reducedMotion: 'reduce',
+			colorScheme: 'dark',
+		} );
+		expect( text ).toContain( 'desktop dark: captured full page (1800px tall)' );
+
+		const payload = JSON.parse( text!.split( 'mediaWidgetPayload=' )[ 1 ] ) as {
+			widgetProps: { alt: string; source: { path: string; name: string } };
+		};
+		try {
+			expect( payload.widgetProps.alt ).toBe(
+				'Screenshot of http://localhost:8903/story-time (desktop dark)'
+			);
+			expect( payload.widgetProps.source.name ).toBe( 'screenshot-desktop-dark.jpg' );
+		} finally {
+			await rm( path.dirname( payload.widgetProps.source.path ), {
+				recursive: true,
+				force: true,
+			} );
+		}
+	} );
+
+	it( 'emits a media artifact when take_screenshot runs with chat artifacts enabled', async () => {
+		const screenshotBuffer = Buffer.from( 'artifact-jpeg' );
+		const page = {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi.fn().mockResolvedValue( 1200 ),
+			addStyleTag: vi.fn(),
+			screenshot: vi.fn().mockResolvedValue( screenshotBuffer ),
+			close: vi.fn(),
+		};
+		const browser = {
+			newPage: vi.fn().mockResolvedValue( page ),
+		};
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+		const tool = resolveStudioToolDefinitions( {
+			emitChatArtifacts: true,
+		} ).find( ( definition ) => definition.name === 'take_screenshot' );
+		expect( tool ).toBeDefined();
+
+		const result = await executeTool( tool!, {
+			url: 'http://localhost:8903/story-time',
+		} );
+
+		expect( emitEvent ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				type: 'chat.artifact',
+				artifact: expect.objectContaining( {
+					widgets: [
+						expect.objectContaining( {
+							type: 'media',
+							widgetProps: expect.objectContaining( {
+								mediaKind: 'image',
+								alt: 'Screenshot of http://localhost:8903/story-time (desktop)',
+								source: expect.objectContaining( {
+									type: 'local',
+									name: 'screenshot-desktop.jpg',
+									mimeType: 'image/jpeg',
+								} ),
+							} ),
+						} ),
+					],
+				} ),
+			} )
+		);
+
+		const payload = JSON.parse( getTextContent( result )!.split( 'mediaWidgetPayload=' )[ 1 ] ) as {
+			widgetProps: { source: { path: string } };
+		};
 		await rm( path.dirname( payload.widgetProps.source.path ), { recursive: true, force: true } );
 	} );
 
@@ -413,10 +510,81 @@ describe( 'Studio AI MCP tools', () => {
 				'screenshot-desktop.jpg',
 				'screenshot-mobile.jpg',
 			] );
+			expect(
+				result.studioArtifacts?.map( ( payload ) => payload.widgetProps.source )
+			).toMatchObject( [ { name: 'screenshot-desktop.jpg' }, { name: 'screenshot-mobile.jpg' } ] );
 		} finally {
 			await Promise.all(
 				payloads.map( ( payload ) =>
 					rm( path.dirname( payload.widgetProps.source.path ), { recursive: true, force: true } )
+				)
+			);
+		}
+	} );
+
+	it( 'can capture light and dark screenshots in one take_screenshot call', async () => {
+		const lightBuffer = Buffer.from( 'light-jpeg' );
+		const darkBuffer = Buffer.from( 'dark-jpeg' );
+		const createPage = ( buffer: Buffer ) => ( {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi.fn().mockResolvedValue( 1600 ),
+			addStyleTag: vi.fn(),
+			screenshot: vi.fn().mockResolvedValue( buffer ),
+			close: vi.fn(),
+		} );
+		const lightPage = createPage( lightBuffer );
+		const darkPage = createPage( darkBuffer );
+		const browser = {
+			newPage: vi.fn().mockResolvedValueOnce( lightPage ).mockResolvedValueOnce( darkPage ),
+		};
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+		const result = await getTool( 'take_screenshot' ).rawHandler( {
+			url: 'http://localhost:8903/story-time',
+			colorScheme: 'all',
+		} as never );
+		const text = getTextContent( result );
+
+		expect( text ).toContain( '- desktop light: captured full page (1600px tall)' );
+		expect( text ).toContain( '- desktop dark: captured full page (1600px tall)' );
+		expect( lightPage.emulateMedia ).toHaveBeenCalledWith( {
+			reducedMotion: 'reduce',
+			colorScheme: 'light',
+		} );
+		expect( darkPage.emulateMedia ).toHaveBeenCalledWith( {
+			reducedMotion: 'reduce',
+			colorScheme: 'dark',
+		} );
+		expect( result.content.slice( 1 ) ).toEqual( [
+			{
+				type: 'image',
+				data: lightBuffer.toString( 'base64' ),
+				mimeType: 'image/jpeg',
+			},
+			{
+				type: 'image',
+				data: darkBuffer.toString( 'base64' ),
+				mimeType: 'image/jpeg',
+			},
+		] );
+
+		const payloads = JSON.parse( text!.split( 'mediaWidgetPayloads=' )[ 1 ] ) as Array< {
+			widgetProps: { source: { path: string; name: string } };
+		} >;
+		try {
+			expect( payloads.map( ( payload ) => payload.widgetProps.source.name ) ).toEqual( [
+				'screenshot-desktop-light.jpg',
+				'screenshot-desktop-dark.jpg',
+			] );
+		} finally {
+			await Promise.all(
+				payloads.map( ( payload ) =>
+					rm( path.dirname( payload.widgetProps.source.path ), {
+						recursive: true,
+						force: true,
+					} )
 				)
 			);
 		}
@@ -465,6 +633,34 @@ describe( 'Studio AI MCP tools', () => {
 		expect( parsed.hover ).toBeUndefined();
 		expect( page.hover ).not.toHaveBeenCalled();
 		expect( page.close ).toHaveBeenCalled();
+	} );
+
+	it( 'inspect_design can force a dark color scheme', async () => {
+		const report = [ { selector: '.hero', matchCount: 1, matches: [] } ];
+		const page = {
+			emulateMedia: vi.fn(),
+			goto: vi.fn(),
+			waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+			evaluate: vi.fn().mockResolvedValueOnce( undefined ).mockResolvedValueOnce( report ),
+			hover: vi.fn(),
+			mouse: { move: vi.fn() },
+			close: vi.fn(),
+		};
+		const browser = { newPage: vi.fn().mockResolvedValue( page ) };
+		vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+		const result = await getTool( 'inspect_design' ).rawHandler( {
+			url: 'http://localhost:8903/',
+			selectors: [ '.hero' ],
+			colorScheme: 'dark',
+		} as never );
+
+		const parsed = JSON.parse( getTextContent( result )! );
+		expect( parsed.colorScheme ).toBe( 'dark' );
+		expect( page.emulateMedia ).toHaveBeenCalledWith( {
+			reducedMotion: 'reduce',
+			colorScheme: 'dark',
+		} );
 	} );
 
 	it( 'inspect_design captures hover styles when includeHover is set', async () => {
@@ -743,6 +939,39 @@ describe( 'Studio AI MCP tools', () => {
 				remoteSession: true,
 			} ).map( ( tool ) => tool.name );
 			expect( names ).toContain( 'share_screenshot' );
+		} );
+
+		it( 'can force dark mode when sharing a screenshot', async () => {
+			const screenshotBuffer = Buffer.from( 'shared-png' );
+			const page = {
+				emulateMedia: vi.fn(),
+				goto: vi.fn(),
+				waitForLoadState: vi.fn().mockResolvedValue( undefined ),
+				evaluate: vi.fn().mockResolvedValue( undefined ),
+				addStyleTag: vi.fn(),
+				screenshot: vi.fn().mockResolvedValue( screenshotBuffer ),
+				close: vi.fn(),
+			};
+			const browser = { newPage: vi.fn().mockResolvedValue( page ) };
+			vi.mocked( getSharedBrowser ).mockResolvedValue( browser as never );
+
+			const result = await getTool( 'share_screenshot' ).rawHandler( {
+				url: 'http://localhost:8903/',
+				colorScheme: 'dark',
+			} as never );
+
+			expect( page.emulateMedia ).toHaveBeenCalledWith( {
+				reducedMotion: 'reduce',
+				colorScheme: 'dark',
+			} );
+			expect( emitEvent ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					type: 'media.share',
+					mimeType: 'image/png',
+					dataBase64: screenshotBuffer.toString( 'base64' ),
+				} )
+			);
+			expect( getTextContent( result ) ).toContain( 'dark mode' );
 		} );
 	} );
 

@@ -9,6 +9,7 @@ import {
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import { SiteList } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -43,6 +44,10 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useStopSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/sync-activity', () => ( {
+	useSiteSyncActivity: vi.fn(),
+} ) );
+
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteAgentActivityMock = vi.mocked( useSiteAgentActivity );
@@ -50,6 +55,7 @@ const useSessionsMock = vi.mocked( useSessions, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
+const useSiteSyncActivityMock = vi.mocked( useSiteSyncActivity );
 const SITE_ORDER_STORAGE_KEY = 'studio-ui-site-list-order-v1';
 
 describe( 'SiteList', () => {
@@ -65,6 +71,7 @@ describe( 'SiteList', () => {
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useSiteAgentActivityMock.mockReturnValue( 'idle' );
+		useSiteSyncActivityMock.mockReturnValue( null );
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
 		useStartSiteMock.mockReturnValue( { isPending: false, mutate: startSite } );
 		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } );
@@ -116,6 +123,16 @@ describe( 'SiteList', () => {
 
 		expect( runningButton.querySelectorAll( 'svg' ) ).toHaveLength( 1 );
 		expect( actionGlyph?.querySelector( 'span' ) ).toBeInTheDocument();
+	} );
+
+	it( 'dims stopped site titles without dimming running sites', () => {
+		render( <SiteList /> );
+
+		const stoppedSiteClassName = screen.getByText( 'Stopped Site' ).getAttribute( 'class' ) ?? '';
+		const runningSiteClassName = screen.getByText( 'Running Site' ).getAttribute( 'class' ) ?? '';
+
+		expect( stoppedSiteClassName ).toContain( 'siteNameStopped' );
+		expect( runningSiteClassName ).not.toContain( 'siteNameStopped' );
 	} );
 
 	it( 'opens the site overview from the site action button', () => {
@@ -391,6 +408,29 @@ describe( 'SiteList', () => {
 		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
+	} );
+
+	it( 'shows live sync activity before the site name while a site is syncing', () => {
+		useSiteAgentActivityMock.mockReturnValue( 'working' );
+		useSiteSyncActivityMock.mockImplementation( ( siteId ) =>
+			siteId === 'running-site' ? { kind: 'pending', direction: 'push', phase: 'uploading' } : null
+		);
+
+		render( <SiteList /> );
+
+		const runningSiteRow = screen.getByText( 'Running Site' ).closest( 'section' )!;
+		const indicator = within( runningSiteRow ).getByRole( 'status', {
+			name: 'Syncing live site',
+		} );
+		const siteName = screen.getByText( 'Running Site' );
+
+		expect( indicator ).toBeInTheDocument();
+		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
+		);
+		expect(
+			within( runningSiteRow ).queryByRole( 'status', { name: 'Working…' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'shows a new message indicator when an inactive site chat updates', () => {

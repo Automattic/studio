@@ -27,6 +27,7 @@ import {
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -36,7 +37,7 @@ type SiteRow = {
 	sessionIds: string[];
 };
 
-type SiteRowActivity = SiteAgentActivity | 'new-message';
+type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync';
 
 type ActiveSiteDrag = {
 	siteId: string;
@@ -121,6 +122,7 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 	const pendingQuestionLabel = __( 'Needs an answer' );
 	const pendingQuestionAriaLabel = __( 'Studio needs an answer.' );
 	const newMessageLabel = __( 'New message' );
+	const syncLabel = __( 'Syncing live site' );
 
 	return (
 		<span
@@ -147,6 +149,15 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 					label={ newMessageLabel }
 					className={ styles.siteAgentActivityMessage }
 				/>
+			) : null }
+			{ renderedActivity === 'sync' ? (
+				<SiteAgentActivityTooltip label={ syncLabel } className={ styles.siteAgentActivitySync }>
+					<span className={ styles.siteAgentActivitySyncDots } aria-hidden="true">
+						<span className={ styles.siteAgentActivitySyncDot } />
+						<span className={ styles.siteAgentActivitySyncDot } />
+						<span className={ styles.siteAgentActivitySyncDot } />
+					</span>
+				</SiteAgentActivityTooltip>
 			) : null }
 		</span>
 	);
@@ -368,9 +379,19 @@ function SiteSection( {
 	const navigate = useNavigate();
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
+	const { status } = deriveSiteStatus( site, isStarting, isStopping );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
-	const displayActivity =
-		agentActivity !== 'idle' ? agentActivity : hasUnreadUpdate ? 'new-message' : 'idle';
+	const syncActivity = useSiteSyncActivity( site.id );
+	const isLiveSyncPending =
+		syncActivity?.kind === 'pending' &&
+		( syncActivity.direction === 'push' || syncActivity.direction === 'pull' );
+	const displayActivity = isLiveSyncPending
+		? 'sync'
+		: agentActivity !== 'idle'
+		? agentActivity
+		: hasUnreadUpdate
+		? 'new-message'
+		: 'idle';
 	const handleOpenSite = () => {
 		if ( latestSession ) {
 			void navigate( {
@@ -404,7 +425,15 @@ function SiteSection( {
 						} }
 						aria-current={ isChatActive ? 'page' : undefined }
 					>
-						<span className={ styles.siteName }>{ site.name }</span>
+						<span
+							className={ clsx(
+								styles.siteName,
+								status === 'stopped' && styles.siteNameStopped,
+								isStarting && styles.siteNameStarting
+							) }
+						>
+							{ site.name }
+						</span>
 					</SidebarButton>
 				</div>
 				<div className={ styles.siteActions } data-site-actions>

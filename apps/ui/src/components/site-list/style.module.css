@@ -15,6 +15,7 @@
 		var(--wpds-color-bg-interactive-error-strong) 34%,
 		var(--wpds-color-bg-surface-caution)
 	);
+	--site-list-sync-indicator-bg: #a855f7;
 
 	/* Pull the row shape slightly left, then add the inset back inside rows so
 	   labels keep their column while selected rows have breathing room. */
@@ -211,6 +212,43 @@
 	background-color: var(--wpds-color-fg-interactive-brand);
 }
 
+.siteAgentActivitySync {
+	display: inline-grid;
+	place-items: center;
+	color: var(--site-list-sync-indicator-bg);
+}
+
+.siteAgentActivitySyncDots {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1px;
+	inline-size: 8px;
+	block-size: 13px;
+	transform-origin: center;
+	animation: siteAgentSyncHalfTurn 5.2s ease-in-out infinite;
+}
+
+.siteAgentActivitySyncDot {
+	inline-size: 3px;
+	block-size: 3px;
+	border-radius: 999px;
+	background-color: currentColor;
+	animation-name: siteAgentSyncDotBounce;
+	animation-duration: 760ms;
+	animation-iteration-count: infinite;
+	animation-timing-function: ease-in-out;
+}
+
+.siteAgentActivitySyncDot:nth-child(2) {
+	animation-delay: 90ms;
+}
+
+.siteAgentActivitySyncDot:nth-child(3) {
+	animation-delay: 180ms;
+}
+
 .siteName {
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.2;
@@ -220,6 +258,14 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	max-width: 100%;
+}
+
+.siteNameStopped {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.siteNameStarting {
+	animation: siteNameStartingPulse 1s ease-in-out infinite;
 }
 
 .siteActive .siteName {
@@ -403,6 +449,46 @@
 	}
 }
 
+@keyframes siteNameStartingPulse {
+	0%,
+	100% {
+		color: var(--wpds-color-fg-content-neutral);
+	}
+	50% {
+		color: var(--wpds-color-fg-content-neutral-weak);
+	}
+}
+
+@keyframes siteAgentSyncHalfTurn {
+	0%,
+	38% {
+		transform: rotate(0deg);
+	}
+
+	48%,
+	88% {
+		transform: rotate(180deg);
+	}
+
+	98%,
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes siteAgentSyncDotBounce {
+	0%,
+	100% {
+		opacity: 0.42;
+		transform: translateY(1px) scale(0.72);
+	}
+
+	45% {
+		opacity: 1;
+		transform: translateY(-2px) scale(1);
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.siteStatusShape {
 		transition: none;
@@ -416,6 +502,18 @@
 
 	.siteAgentActivitySlot {
 		transition: none;
+	}
+
+	.siteNameStarting {
+		animation: none;
+	}
+
+	.siteAgentActivitySyncDot {
+		animation: none;
+	}
+
+	.siteAgentActivitySyncDots {
+		animation: none;
 	}
 
 	.siteDragPreview {

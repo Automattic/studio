@@ -40,7 +40,7 @@ import {
 import { createPortal } from 'react-dom';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
-import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { primeSessionQueryData, SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -671,6 +671,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		setFamilySwitchInFlight( true );
 		try {
 			const newSession = await connector.createSession( ownerSiteId );
+			primeSessionQueryData( queryClient, newSession );
 			// Persist the model on the fresh session before navigating so the
 			// composer there opens already on the picked family —
 			// `setSessionModel` writes a `session.model_selected` event the

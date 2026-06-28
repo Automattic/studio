@@ -28,6 +28,11 @@ function getRouteOverviewSiteId( pathname: string ): string | undefined {
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
+function getNewSessionSiteId( pathname: string ): string | undefined {
+	const match = /^\/sites\/([^/]+)\/new\/?$/.exec( pathname );
+	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
+}
+
 function DashboardLayout() {
 	return (
 		<SessionUIProvider>
@@ -44,9 +49,13 @@ function DashboardLayoutContent() {
 	const sessionId = useRouterState( {
 		select: ( state ) => getRouteSessionId( state.location.pathname ),
 	} );
-	const overviewSiteId = useRouterState( {
-		select: ( state ) => getRouteOverviewSiteId( state.location.pathname ),
+	const siteRouteContext = useRouterState( {
+		select: ( state ) => ( {
+			overviewSiteId: getRouteOverviewSiteId( state.location.pathname ),
+			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
+		} ),
 	} );
+	const { overviewSiteId, newSessionSiteId } = siteRouteContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	const preview = useSessionPreviewUI();
@@ -65,12 +74,19 @@ function DashboardLayoutContent() {
 		? sites?.find( ( site ) => site.id === overviewSiteId )
 		: undefined;
 	const overviewRouteSiteId = overviewSite?.id;
-	const routeSite = overviewSite ?? ( effectiveEnvironment === 'local' ? sessionSite : undefined );
-	// While the session is still loading (`sessionData` undefined) the route
-	// counts as preview-capable, so switching between sessions doesn't close
-	// and reopen the panel around the fetch.
+	const newSessionSite = newSessionSiteId
+		? sites?.find( ( site ) => site.id === newSessionSiteId )
+		: undefined;
+	const routeSite =
+		overviewSite ??
+		newSessionSite ??
+		( effectiveEnvironment === 'local' ? sessionSite : undefined );
+	// While session or site data is still loading, preview-capable routes stay
+	// preview-capable so navigation doesn't close and reopen the panel around
+	// the fetch.
 	const supportsPreview =
 		overviewSiteId !== undefined ||
+		newSessionSiteId !== undefined ||
 		( sessionId !== undefined && ( sessionData === undefined || !! routeSite ) );
 	// Remember the last previewed site by id (looked up fresh each render so
 	// `running` and friends don't go stale) to keep its webview warm across

@@ -11,6 +11,7 @@ import {
 	grid,
 	Icon,
 	layout,
+	media,
 	navigation,
 	page,
 	pencil,
@@ -327,6 +328,12 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 												) : null }
 											</>
 										) }
+										<OverviewButton
+											icon={ <Icon icon={ media } size={ 18 } /> }
+											label={ __( 'Media Library' ) }
+											disabled={ busy }
+											onClick={ () => void openSiteUrl( '/wp-admin/upload.php' ) }
+										/>
 									</ButtonSection>
 
 									<ButtonSection title={ __( 'Open in…' ) }>

@@ -163,6 +163,7 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByRole( 'heading', { name: 'Open in…' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
 		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
+		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.getByText( 'Zed' ) ).toBeVisible();
 		expect( screen.getByText( 'phpMyAdmin' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
@@ -184,6 +185,7 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( screen.getByText( 'Zed' ).closest( 'button' )! );
 		fireEvent.click( screen.getByText( 'Terminal' ).closest( 'button' )! );
 		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
+		fireEvent.click( screen.getByText( 'Media Library' ).closest( 'button' )! );
 		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
 
 		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
@@ -192,6 +194,7 @@ describe( 'SiteOverviewView', () => {
 		await waitFor( () =>
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php', undefined )
 		);
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php', undefined );
 		expect( openSiteUrl ).toHaveBeenCalledWith(
 			'site-1',
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress',

@@ -1,10 +1,9 @@
-import { useIsMutating } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
-import { arrowDown, arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
+import { useIsMutating, useQuery } from '@tanstack/react-query';
+import { __, sprintf } from '@wordpress/i18n';
+import { arrowUp, copy, external, Icon } from '@wordpress/icons';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo } from 'react';
-import * as Menu from '@/components/menu';
+import { useEffect, useMemo, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
@@ -21,6 +20,7 @@ import {
 	usePullSiteFromLive,
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
@@ -33,21 +33,35 @@ import {
 	pickLiveSite,
 	stripProtocol,
 } from './utils';
-import type { SiteDetails } from '@/data/core';
-import type { SyncActivity } from '@/data/sync-activity';
+import type { LiveSyncItem, LiveSyncItems, LiveSyncOptions, SiteDetails } from '@/data/core';
+import type { SyncActivity, SyncLogEntry, SyncLogSummary } from '@/data/sync-activity';
 import type { ComponentProps } from 'react';
 
 type ButtonProps = ComponentProps< typeof Button >;
+type SyncDirection = 'push' | 'pull';
+type SyncUseCase =
+	| 'everything'
+	| 'database'
+	| 'active-theme'
+	| 'all-themes'
+	| 'choose-themes'
+	| 'all-plugins'
+	| 'choose-plugins'
+	| 'uploads';
+
+const EMPTY_SYNC_ITEMS: LiveSyncItems = {
+	source: 'local',
+	themes: [],
+	plugins: [],
+};
 
 type Props = {
 	site: SiteDetails;
 	activity: SyncActivity | null;
+	lastSyncLog: SyncLogSummary | null;
 	// Switches the dropdown to the publish picker. Lives in the parent because
 	// the picker is a sibling view at the popup level.
 	onSetupClick: () => void;
-	// Opens the disconnect-site confirmation dialog; owned by the parent so the
-	// dialog persists after the dropdown closes.
-	onDisconnectClick: () => void;
 };
 
 // Counts in-flight push/pull mutations for this site across hook instances.
@@ -70,16 +84,321 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 	return { push, pull };
 }
 
-export function MainView( { site, activity, onSetupClick, onDisconnectClick }: Props ) {
+function getSelectedItems( items: LiveSyncItem[], selectedPaths: string[] ): LiveSyncItem[] {
+	const selectedPathSet = new Set( selectedPaths );
+	return items.filter( ( item ) => selectedPathSet.has( item.path ) );
+}
+
+function getSelectedPathIds( items: LiveSyncItem[] ): string[] {
+	return items.map( ( item ) => item.pathId ).filter( ( pathId ): pathId is string => !! pathId );
+}
+
+function getSyncOptions( {
+	direction,
+	useCase,
+	items,
+	activeThemePath,
+	selectedThemePaths,
+	selectedPluginPaths,
+}: {
+	direction: SyncDirection;
+	useCase: SyncUseCase;
+	items: LiveSyncItems;
+	activeThemePath?: string;
+	selectedThemePaths: string[];
+	selectedPluginPaths: string[];
+} ): LiveSyncOptions {
+	switch ( useCase ) {
+		case 'database':
+			return { optionsToSync: [ 'sqls' ] };
+		case 'uploads':
+			return { optionsToSync: [ 'uploads' ] };
+		case 'all-themes':
+			return { optionsToSync: [ 'themes' ] };
+		case 'all-plugins':
+			return { optionsToSync: [ 'plugins' ] };
+		case 'active-theme': {
+			const selectedItems = activeThemePath
+				? getSelectedItems( items.themes, [ activeThemePath ] )
+				: [];
+			if ( direction === 'pull' ) {
+				return {
+					optionsToSync: selectedItems.length ? [ 'paths' ] : [],
+					includePathList: getSelectedPathIds( selectedItems ),
+				};
+			}
+			return {
+				optionsToSync: selectedItems.length ? [ 'themes' ] : [],
+				specificSelectionPaths: selectedItems.map( ( item ) => item.path ),
+			};
+		}
+		case 'choose-themes': {
+			const selectedItems = getSelectedItems( items.themes, selectedThemePaths );
+			if ( direction === 'pull' ) {
+				return {
+					optionsToSync: selectedItems.length ? [ 'paths' ] : [],
+					includePathList: getSelectedPathIds( selectedItems ),
+				};
+			}
+			return {
+				optionsToSync: selectedItems.length ? [ 'themes' ] : [],
+				specificSelectionPaths: selectedItems.map( ( item ) => item.path ),
+			};
+		}
+		case 'choose-plugins': {
+			const selectedItems = getSelectedItems( items.plugins, selectedPluginPaths );
+			if ( direction === 'pull' ) {
+				return {
+					optionsToSync: selectedItems.length ? [ 'paths' ] : [],
+					includePathList: getSelectedPathIds( selectedItems ),
+				};
+			}
+			return {
+				optionsToSync: selectedItems.length ? [ 'plugins' ] : [],
+				specificSelectionPaths: selectedItems.map( ( item ) => item.path ),
+			};
+		}
+		case 'everything':
+		default:
+			return { optionsToSync: [ 'all' ] };
+	}
+}
+
+function getActiveThemeItem( site: SiteDetails, themes: LiveSyncItem[] ): LiveSyncItem | undefined {
+	const activeThemeNames = [
+		site.themeDetails?.slug,
+		site.themeDetails?.name,
+		site.themeDetails?.path,
+	].filter( ( activeThemeName ): activeThemeName is string => !! activeThemeName );
+
+	return themes.find( ( theme ) =>
+		activeThemeNames.some(
+			( activeThemeName ) =>
+				theme.name === activeThemeName ||
+				theme.path === activeThemeName ||
+				theme.path.endsWith( `/${ activeThemeName }` )
+		)
+	);
+}
+
+function pickInitialThemePath( site: SiteDetails, themes: LiveSyncItem[] ): string | undefined {
+	return ( getActiveThemeItem( site, themes ) ?? themes[ 0 ] )?.path;
+}
+
+function getItemCountLabel( count: number, source: string, itemType: string ): string {
+	return sprintf( __( '%1$d %2$s %3$s' ), count, source, itemType );
+}
+
+function isLiveSyncPending(
+	activity: SyncActivity | null
+): activity is Extract< SyncActivity, { kind: 'pending' } > {
+	return (
+		activity?.kind === 'pending' &&
+		( activity.direction === 'push' || activity.direction === 'pull' )
+	);
+}
+
+function getLatestBackupLabel( latestBackupTime: string | null | undefined ): string | null {
+	if ( latestBackupTime === undefined ) {
+		return null;
+	}
+
+	if ( latestBackupTime === null ) {
+		return __( 'Latest live backup unavailable' );
+	}
+
+	const relativeTime = formatRelativeTime( latestBackupTime );
+	if ( ! relativeTime ) {
+		return null;
+	}
+
+	if ( relativeTime === __( 'now' ) ) {
+		return __( 'Latest live backup: now' );
+	}
+
+	return sprintf(
+		// translators: %s: compact relative time, e.g. "4m" or "2h".
+		__( 'Latest live backup: %s ago' ),
+		relativeTime
+	);
+}
+
+function formatLogDuration(
+	startTimestamp: string,
+	endTimestamp: string | undefined,
+	now: number
+): string {
+	const start = Date.parse( startTimestamp );
+	if ( Number.isNaN( start ) ) {
+		return '';
+	}
+
+	const parsedEnd = endTimestamp ? Date.parse( endTimestamp ) : now;
+	const end = Number.isNaN( parsedEnd ) ? now : parsedEnd;
+	const elapsedMs = Math.max( 0, end - start );
+	const elapsedSeconds = Math.floor( elapsedMs / 1000 );
+
+	if ( elapsedSeconds < 60 ) {
+		return sprintf(
+			// translators: %d: number of seconds.
+			__( '%ds' ),
+			elapsedSeconds
+		);
+	}
+
+	const elapsedMinutes = Math.floor( elapsedSeconds / 60 );
+	if ( elapsedMinutes < 60 ) {
+		return sprintf(
+			// translators: %d: number of minutes.
+			__( '%dm' ),
+			elapsedMinutes
+		);
+	}
+
+	const elapsedHours = Math.floor( elapsedMinutes / 60 );
+	if ( elapsedHours < 24 ) {
+		return sprintf(
+			// translators: %d: number of hours.
+			__( '%dh' ),
+			elapsedHours
+		);
+	}
+
+	return sprintf(
+		// translators: %d: number of days.
+		__( '%dd' ),
+		Math.floor( elapsedHours / 24 )
+	);
+}
+
+function getSyncLogEntries( activity: SyncActivity | null ): SyncLogEntry[] {
+	if ( activity?.log?.length ) {
+		return activity.log;
+	}
+
+	if ( activity?.kind === 'pending' ) {
+		return [
+			{
+				timestamp: new Date().toISOString(),
+				message: getSyncActivityLabel( activity ),
+			},
+		];
+	}
+
+	return [];
+}
+
+function getLastSyncLogMeta( summary: SyncLogSummary ): string {
+	const relativeTime = formatRelativeTime( summary.completedAt );
+	if ( ! relativeTime ) {
+		return summary.kind === 'success' ? __( 'Completed' ) : __( 'Failed' );
+	}
+
+	const suffix =
+		relativeTime === __( 'now' )
+			? relativeTime
+			: sprintf(
+					// translators: %s: compact relative time, e.g. "4m" or "2h".
+					__( '%s ago' ),
+					relativeTime
+			  );
+
+	return summary.kind === 'success'
+		? sprintf(
+				// translators: %s: relative time phrase.
+				__( 'Completed %s' ),
+				suffix
+		  )
+		: sprintf(
+				// translators: %s: relative time phrase.
+				__( 'Failed %s' ),
+				suffix
+		  );
+}
+
+export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props ) {
 	const connector = useConnector();
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
+	const [ syncFlyoutOpen, setSyncFlyoutOpen ] = useState( false );
+	const [ syncDirection, setSyncDirection ] = useState< SyncDirection >( 'push' );
+	const [ syncUseCase, setSyncUseCase ] = useState< SyncUseCase >( 'everything' );
+	const [ selectedThemePaths, setSelectedThemePaths ] = useState< string[] >( [] );
+	const [ selectedPluginPaths, setSelectedPluginPaths ] = useState< string[] >( [] );
 
 	const previewSnapshot = useMemo(
 		() => pickLatestSnapshot( snapshots, site.id ),
 		[ snapshots, site.id ]
 	);
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
+	const syncItemsQuery = useQuery( {
+		queryKey: [ 'liveSyncItems', site.id, liveSite?.id, syncDirection ],
+		queryFn: () => connector.getLiveSyncItems( site.id, liveSite!.id, syncDirection ),
+		enabled: syncFlyoutOpen && !! liveSite,
+		staleTime: 30_000,
+	} );
+	const latestBackupQuery = useQuery( {
+		queryKey: [ 'liveSyncLatestBackupTime', liveSite?.id ],
+		queryFn: () => connector.getLiveSyncLatestBackupTime( liveSite!.id ),
+		enabled: syncFlyoutOpen && !! liveSite,
+		staleTime: 60_000,
+	} );
+	const syncItems = useMemo(
+		() =>
+			syncItemsQuery.data ?? {
+				...EMPTY_SYNC_ITEMS,
+				source: syncDirection === 'push' ? ( 'local' as const ) : ( 'remote' as const ),
+			},
+		[ syncDirection, syncItemsQuery.data ]
+	);
+	const activeThemeItem = useMemo(
+		() => getActiveThemeItem( site, syncItems.themes ),
+		[ site, syncItems.themes ]
+	);
+	const syncOptions = useMemo(
+		() =>
+			getSyncOptions( {
+				direction: syncDirection,
+				useCase: syncUseCase,
+				items: syncItems,
+				activeThemePath: activeThemeItem?.path,
+				selectedThemePaths,
+				selectedPluginPaths,
+			} ),
+		[
+			syncDirection,
+			syncUseCase,
+			syncItems,
+			activeThemeItem?.path,
+			selectedThemePaths,
+			selectedPluginPaths,
+		]
+	);
+	const useCaseNeedsItems =
+		syncUseCase === 'active-theme' ||
+		syncUseCase === 'choose-themes' ||
+		syncUseCase === 'choose-plugins';
+	const canSubmit =
+		syncOptions.optionsToSync.length > 0 && ! ( useCaseNeedsItems && syncItemsQuery.isLoading );
+
+	useEffect( () => {
+		if ( syncUseCase !== 'active-theme' ) {
+			return;
+		}
+
+		setSelectedThemePaths( activeThemeItem ? [ activeThemeItem.path ] : [] );
+	}, [ activeThemeItem, syncUseCase ] );
+
+	useEffect( () => {
+		if ( syncUseCase !== 'choose-themes' || selectedThemePaths.length > 0 ) {
+			return;
+		}
+
+		const initialThemePath = pickInitialThemePath( site, syncItems.themes );
+		if ( initialThemePath ) {
+			setSelectedThemePaths( [ initialThemePath ] );
+		}
+	}, [ selectedThemePaths.length, site, syncItems.themes, syncUseCase ] );
 
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
@@ -92,9 +411,11 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 	const isLocalTransitioning = isStarting || isStopping;
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
 	const isPreviewPending = publishPreviewSite.isPending;
+	const liveSyncActivity = isLiveSyncPending( activity ) ? activity : null;
+	const isLiveSyncActivityPending = !! liveSyncActivity;
 	// Preview / push / pull all mutate the same local site; running them
 	// concurrently would wedge the site runtime.
-	const isSyncing = isPreviewPending || isPushPending || isPullPending;
+	const isSyncing = isPreviewPending || isPushPending || isPullPending || isLiveSyncActivityPending;
 
 	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping );
 	const localSiteUrl = getSiteUrl( site );
@@ -129,17 +450,41 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		stopSite.mutate( site.id );
 	};
 
-	const handlePullClick = () => {
-		if ( ! liveSite || isSyncing ) return;
-		pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: liveSite.id } );
+	const handleSyncDirectionChange = ( direction: SyncDirection ) => {
+		setSyncDirection( direction );
+		setSelectedThemePaths( [] );
+		setSelectedPluginPaths( [] );
 	};
 
-	const handlePushClick = () => {
+	const handlePullClick = ( options: LiveSyncOptions ) => {
 		if ( ! liveSite || isSyncing ) return;
-		pushSiteToLive.mutate(
-			{ siteId: site.id, remoteSiteId: liveSite.id },
-			{ onSuccess: () => openExternal( ensureProtocol( liveSite.url ) ) }
-		);
+		pullSiteFromLive.mutate( {
+			siteId: site.id,
+			remoteSiteId: liveSite.id,
+			options,
+		} );
+	};
+
+	const handlePushClick = ( options: LiveSyncOptions ) => {
+		if ( ! liveSite || isSyncing ) return;
+		pushSiteToLive.mutate( {
+			siteId: site.id,
+			remoteSiteId: liveSite.id,
+			options,
+		} );
+	};
+
+	const handleSyncSubmit = () => {
+		if ( ! canSubmit || isSyncing ) {
+			return;
+		}
+
+		setSyncFlyoutOpen( false );
+		if ( syncDirection === 'push' ) {
+			handlePushClick( syncOptions );
+			return;
+		}
+		handlePullClick( syncOptions );
 	};
 
 	const renderTooltipButton = ( {
@@ -260,54 +605,70 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			) }
 
 			{ liveSite ? (
-				<PopoverRow
-					label={ __( 'Live' ) }
-					sublabel={ renderUrlLink( {
-						text: stripProtocol( liveSite.url ),
-						url: ensureProtocol( liveSite.url ),
-						label: __( 'Open live site in your browser' ),
-					} ) }
-					action={
-						<div className={ styles.rowActions }>
-							<IconButton
-								variant="minimal"
+				<div className={ styles.liveRow }>
+					<PopoverRow
+						label={ __( 'Live' ) }
+						sublabel={ renderUrlLink( {
+							text: stripProtocol( liveSite.url ),
+							url: ensureProtocol( liveSite.url ),
+							label: __( 'Open live site in your browser' ),
+						} ) }
+						action={
+							<Button
+								variant="outline"
 								tone="neutral"
-								size="small"
-								icon={ arrowDown }
-								label={ isPullPending ? __( 'Pulling from live' ) : __( 'Pull from live' ) }
-								className={ styles.rowActionButton }
-								disabled={ isSyncing }
-								focusableWhenDisabled
-								onClick={ handlePullClick }
-							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ arrowUp }
-								label={ isPushPending ? __( 'Pushing to live' ) : __( 'Push to live' ) }
-								className={ styles.rowActionButton }
-								disabled={ isSyncing }
-								focusableWhenDisabled
-								onClick={ handlePushClick }
-							/>
-							<Menu.SubmenuRoot>
-								<Menu.SubmenuTrigger
-									className={ styles.moreMenuTrigger }
-									disabled={ isSyncing }
-									aria-label={ __( 'More live site actions' ) }
-								>
-									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
-								</Menu.SubmenuTrigger>
-								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
-									<Menu.Item disabled={ isSyncing } onClick={ onDisconnectClick }>
-										{ __( 'Disconnect' ) }
-									</Menu.Item>
-								</Menu.Popup>
-							</Menu.SubmenuRoot>
+								size="compact"
+								className={ styles.syncMenuButton }
+								aria-haspopup="dialog"
+								aria-expanded={ syncFlyoutOpen }
+								disabled={ isPreviewPending }
+								onClick={ () => setSyncFlyoutOpen( ( open ) => ! open ) }
+							>
+								{ __( 'Sync' ) }
+							</Button>
+						}
+					/>
+					{ liveSyncActivity ? (
+						<div className={ styles.liveSyncStatus }>
+							<SyncProgressPanel activity={ liveSyncActivity } />
+							<SyncLog entries={ getSyncLogEntries( activity ) } active />
 						</div>
-					}
-				/>
+					) : lastSyncLog?.log.length ? (
+						<div className={ styles.liveSyncStatus }>
+							<LastSyncLogDisclosure summary={ lastSyncLog } />
+						</div>
+					) : null }
+					{ syncFlyoutOpen ? (
+						<SyncFlyout
+							direction={ syncDirection }
+							useCase={ syncUseCase }
+							items={ syncItems }
+							activeThemeName={
+								activeThemeItem?.name ?? site.themeDetails?.name ?? site.themeDetails?.slug
+							}
+							selectedThemePaths={ selectedThemePaths }
+							selectedPluginPaths={ selectedPluginPaths }
+							isLoadingItems={ syncItemsQuery.isLoading }
+							hasItemLoadingError={ syncItemsQuery.isError }
+							latestBackupLabel={
+								latestBackupQuery.isLoading
+									? __( 'Checking latest live backup...' )
+									: latestBackupQuery.isError
+									? __( 'Latest live backup unavailable' )
+									: getLatestBackupLabel( latestBackupQuery.data )
+							}
+							activity={ activity }
+							canSubmit={ canSubmit }
+							isPending={ syncDirection === 'push' ? isPushPending : isPullPending }
+							disabled={ isSyncing }
+							onDirectionChange={ handleSyncDirectionChange }
+							onUseCaseChange={ setSyncUseCase }
+							onSelectedThemePathsChange={ setSelectedThemePaths }
+							onSelectedPluginPathsChange={ setSelectedPluginPaths }
+							onSubmit={ handleSyncSubmit }
+						/>
+					) : null }
+				</div>
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Live' ) }
@@ -319,6 +680,426 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 					onClick={ onSetupClick }
 				/>
 			) }
+		</div>
+	);
+}
+
+function SyncFlyout( {
+	direction,
+	useCase,
+	items,
+	activeThemeName,
+	selectedThemePaths,
+	selectedPluginPaths,
+	isLoadingItems,
+	hasItemLoadingError,
+	latestBackupLabel,
+	activity,
+	canSubmit,
+	isPending,
+	disabled,
+	onDirectionChange,
+	onUseCaseChange,
+	onSelectedThemePathsChange,
+	onSelectedPluginPathsChange,
+	onSubmit,
+}: {
+	direction: SyncDirection;
+	useCase: SyncUseCase;
+	items: LiveSyncItems;
+	activeThemeName?: string;
+	selectedThemePaths: string[];
+	selectedPluginPaths: string[];
+	isLoadingItems: boolean;
+	hasItemLoadingError: boolean;
+	latestBackupLabel: string | null;
+	activity: SyncActivity | null;
+	canSubmit: boolean;
+	isPending: boolean;
+	disabled: boolean;
+	onDirectionChange: ( direction: SyncDirection ) => void;
+	onUseCaseChange: ( useCase: SyncUseCase ) => void;
+	onSelectedThemePathsChange: ( paths: string[] ) => void;
+	onSelectedPluginPathsChange: ( paths: string[] ) => void;
+	onSubmit: () => void;
+} ) {
+	const actionLabel = direction === 'push' ? __( 'Push' ) : __( 'Pull' );
+	const itemSourceLabel = direction === 'push' ? __( 'local' ) : __( 'live' );
+	const themeCountLabel = isLoadingItems
+		? __( 'Loading...' )
+		: getItemCountLabel( items.themes.length, itemSourceLabel, __( 'themes' ) );
+	const pluginCountLabel = isLoadingItems
+		? __( 'Loading...' )
+		: getItemCountLabel( items.plugins.length, itemSourceLabel, __( 'plugins' ) );
+	const directionHint =
+		direction === 'push'
+			? __( 'Move selected Studio changes to your live site.' )
+			: __( 'Bring selected live-site changes into Studio.' );
+	const activeSyncActivity = isLiveSyncPending( activity ) ? activity : null;
+
+	return (
+		<div className={ styles.syncFlyout } role="dialog" aria-label={ __( 'Sync live site' ) }>
+			<div
+				className={ styles.syncTabs }
+				role="tablist"
+				aria-label={ __( 'Sync direction' ) }
+				data-direction={ direction }
+			>
+				<span className={ styles.syncTabIndicator } aria-hidden="true" />
+				<button
+					type="button"
+					role="tab"
+					className={ styles.syncTab }
+					aria-selected={ direction === 'push' }
+					onClick={ () => onDirectionChange( 'push' ) }
+				>
+					{ __( 'Push' ) }
+				</button>
+				<button
+					type="button"
+					role="tab"
+					className={ styles.syncTab }
+					aria-selected={ direction === 'pull' }
+					onClick={ () => onDirectionChange( 'pull' ) }
+				>
+					{ __( 'Pull' ) }
+				</button>
+			</div>
+			<div className={ styles.syncDirectionHint }>{ directionHint }</div>
+			{ latestBackupLabel ? (
+				<div className={ styles.syncBackupMeta }>{ latestBackupLabel }</div>
+			) : null }
+			{ activeSyncActivity ? <SyncProgressPanel activity={ activeSyncActivity } /> : null }
+			{ activity?.log?.length ? (
+				<SyncLog entries={ activity.log } active={ !! activeSyncActivity } />
+			) : null }
+
+			<div className={ styles.syncChoiceList }>
+				<SyncChoice
+					title={ __( 'Whole site' ) }
+					description={ __( 'Content, themes, plugins, and uploads' ) }
+					selected={ useCase === 'everything' }
+					onSelect={ () => onUseCaseChange( 'everything' ) }
+				/>
+				<SyncChoice
+					title={ __( 'Content and settings' ) }
+					description={ __( 'Posts, pages, menus, and options' ) }
+					selected={ useCase === 'database' }
+					onSelect={ () => onUseCaseChange( 'database' ) }
+				/>
+
+				<div className={ styles.syncChoiceGroup }>
+					<div className={ styles.syncChoiceGroupLabel }>{ __( 'Themes' ) }</div>
+					<div className={ styles.syncChoiceGroupOptions }>
+						<SyncChoice
+							title={ __( 'Active theme' ) }
+							description={ activeThemeName ?? __( 'Current site theme' ) }
+							selected={ useCase === 'active-theme' }
+							onSelect={ () => onUseCaseChange( 'active-theme' ) }
+							compact
+						/>
+						<SyncChoice
+							title={ __( 'All themes' ) }
+							description={ __( 'Every theme folder' ) }
+							selected={ useCase === 'all-themes' }
+							onSelect={ () => onUseCaseChange( 'all-themes' ) }
+							compact
+						/>
+						<SyncChoice
+							title={ __( 'Select themes' ) }
+							description={ themeCountLabel }
+							selected={ useCase === 'choose-themes' }
+							onSelect={ () => onUseCaseChange( 'choose-themes' ) }
+							compact
+						/>
+					</div>
+					{ useCase === 'choose-themes' ? (
+						<SyncItemChecklist
+							emptyLabel={ __( 'No themes found.' ) }
+							items={ items.themes }
+							selectedPaths={ selectedThemePaths }
+							isLoading={ isLoadingItems }
+							hasError={ hasItemLoadingError }
+							onSelectedPathsChange={ onSelectedThemePathsChange }
+						/>
+					) : null }
+				</div>
+
+				<div className={ styles.syncChoiceGroup }>
+					<div className={ styles.syncChoiceGroupLabel }>{ __( 'Plugins' ) }</div>
+					<div className={ styles.syncChoiceGroupOptions }>
+						<SyncChoice
+							title={ __( 'All plugins' ) }
+							description={ __( 'Every plugin folder' ) }
+							selected={ useCase === 'all-plugins' }
+							onSelect={ () => onUseCaseChange( 'all-plugins' ) }
+							compact
+						/>
+						<SyncChoice
+							title={ __( 'Select plugins' ) }
+							description={ pluginCountLabel }
+							selected={ useCase === 'choose-plugins' }
+							onSelect={ () => onUseCaseChange( 'choose-plugins' ) }
+							compact
+						/>
+					</div>
+					{ useCase === 'choose-plugins' ? (
+						<SyncItemChecklist
+							emptyLabel={ __( 'No plugins found.' ) }
+							items={ items.plugins }
+							selectedPaths={ selectedPluginPaths }
+							isLoading={ isLoadingItems }
+							hasError={ hasItemLoadingError }
+							onSelectedPathsChange={ onSelectedPluginPathsChange }
+						/>
+					) : null }
+				</div>
+
+				<SyncChoice
+					title={ __( 'Uploads' ) }
+					description={ __( 'Media library files' ) }
+					selected={ useCase === 'uploads' }
+					onSelect={ () => onUseCaseChange( 'uploads' ) }
+				/>
+			</div>
+
+			<div className={ styles.syncFooter }>
+				{ ! canSubmit ? (
+					<div className={ styles.syncValidationMessage }>
+						{ useCase === 'choose-themes' || useCase === 'choose-plugins'
+							? __( 'Choose at least one item.' )
+							: __( 'Choose what to sync.' ) }
+					</div>
+				) : null }
+				<Button
+					variant="solid"
+					tone="brand"
+					size="compact"
+					className={ styles.syncSubmitButton }
+					loading={ isPending }
+					loadingAnnouncement={
+						direction === 'push' ? __( 'Pushing to live' ) : __( 'Pulling from live' )
+					}
+					disabled={ disabled || ! canSubmit }
+					onClick={ onSubmit }
+				>
+					{ actionLabel }
+				</Button>
+			</div>
+		</div>
+	);
+}
+
+function getSyncProgressDetail( activity: Extract< SyncActivity, { kind: 'pending' } > ): string {
+	if ( activity.direction === 'pull' ) {
+		return __( 'Bringing selected live-site changes into Studio.' );
+	}
+
+	switch ( activity.phase ) {
+		case 'uploading':
+			return __( 'Preparing and uploading the selected Studio changes.' );
+		case 'creating-backup':
+			return __( 'Creating a safety backup before the live site changes.' );
+		case 'applying':
+			return __( 'Updating the live site with the selected changes.' );
+		case 'finishing':
+			return __( 'Finishing the live-site update.' );
+		default:
+			return __( 'Preparing the live-site update.' );
+	}
+}
+
+function SyncProgressPanel( {
+	activity,
+}: {
+	activity: Extract< SyncActivity, { kind: 'pending' } >;
+} ) {
+	const progress =
+		typeof activity.progress === 'number'
+			? Math.max( 0, Math.min( 100, Math.round( activity.progress ) ) )
+			: null;
+	const progressLabel =
+		progress !== null
+			? sprintf(
+					// translators: %d: sync progress percentage.
+					__( '%d%%' ),
+					progress
+			  )
+			: __( 'Working' );
+
+	return (
+		<div className={ styles.syncProgressPanel } role="status" aria-live="polite">
+			<div className={ styles.syncProgressHeader }>
+				<div className={ styles.syncProgressTitle }>{ getSyncActivityLabel( activity ) }</div>
+				<div className={ styles.syncProgressPercent }>{ progressLabel }</div>
+			</div>
+			<div className={ styles.syncProgressDetail }>{ getSyncProgressDetail( activity ) }</div>
+			<div
+				className={ clsx(
+					styles.syncProgressTrack,
+					progress === null && styles.syncProgressTrack_indeterminate
+				) }
+				aria-hidden="true"
+			>
+				{ progress !== null ? (
+					<div className={ styles.syncProgressBar } style={ { width: `${ progress }%` } } />
+				) : null }
+			</div>
+		</div>
+	);
+}
+
+function SyncLog( { entries, active }: { entries: SyncLogEntry[]; active: boolean } ) {
+	const now = useSyncLogClock( active, entries );
+
+	return (
+		<div className={ styles.syncLog } aria-label={ __( 'Sync log' ) }>
+			<div className={ styles.syncLogTitle }>{ __( 'Sync log' ) }</div>
+			<div className={ styles.syncLogEntries }>
+				<SyncLogRows entries={ entries } active={ active } now={ now } />
+			</div>
+		</div>
+	);
+}
+
+function LastSyncLogDisclosure( { summary }: { summary: SyncLogSummary } ) {
+	const now = useSyncLogClock( false, summary.log );
+
+	return (
+		<details className={ styles.lastSyncLog }>
+			<summary className={ styles.lastSyncLogSummary }>
+				<span>{ __( 'Last sync log' ) }</span>
+				<span className={ styles.lastSyncLogMeta }>{ getLastSyncLogMeta( summary ) }</span>
+			</summary>
+			<div className={ styles.lastSyncLogBody }>
+				<SyncLogRows entries={ summary.log } active={ false } now={ now } />
+			</div>
+		</details>
+	);
+}
+
+function useSyncLogClock( active: boolean, entries: SyncLogEntry[] ): number {
+	const [ now, setNow ] = useState( () => Date.now() );
+
+	useEffect( () => {
+		setNow( Date.now() );
+
+		if ( ! active ) {
+			return;
+		}
+
+		const interval = window.setInterval( () => setNow( Date.now() ), 1000 );
+		return () => window.clearInterval( interval );
+	}, [ active, entries ] );
+
+	return now;
+}
+
+function SyncLogRows( {
+	entries,
+	active,
+	now,
+}: {
+	entries: SyncLogEntry[];
+	active: boolean;
+	now: number;
+} ) {
+	return (
+		<>
+			{ entries.map( ( entry, index ) => {
+				const nextEntry = entries[ index + 1 ];
+				const endTimestamp = nextEntry?.timestamp ?? ( active ? undefined : entry.timestamp );
+				return (
+					<div className={ styles.syncLogEntry } key={ `${ entry.timestamp }:${ entry.message }` }>
+						<time className={ styles.syncLogTime } dateTime={ entry.timestamp }>
+							{ formatLogDuration( entry.timestamp, endTimestamp, now ) }
+						</time>
+						<div className={ styles.syncLogMessage }>{ entry.message }</div>
+					</div>
+				);
+			} ) }
+		</>
+	);
+}
+
+function SyncChoice( {
+	title,
+	description,
+	selected,
+	compact = false,
+	onSelect,
+}: {
+	title: string;
+	description?: string;
+	selected: boolean;
+	compact?: boolean;
+	onSelect: () => void;
+} ) {
+	return (
+		<button
+			type="button"
+			className={ clsx( styles.syncChoice, compact && styles.syncChoice_compact ) }
+			aria-pressed={ selected }
+			onClick={ onSelect }
+		>
+			<span className={ styles.syncChoiceMark } aria-hidden="true" />
+			<span className={ styles.syncChoiceText }>
+				<span className={ styles.syncChoiceTitle }>{ title }</span>
+				{ description ? (
+					<span className={ styles.syncChoiceDescription }>{ description }</span>
+				) : null }
+			</span>
+		</button>
+	);
+}
+
+function SyncItemChecklist( {
+	emptyLabel,
+	items,
+	selectedPaths,
+	isLoading,
+	hasError,
+	onSelectedPathsChange,
+}: {
+	emptyLabel: string;
+	items: LiveSyncItem[];
+	selectedPaths: string[];
+	isLoading: boolean;
+	hasError: boolean;
+	onSelectedPathsChange: ( paths: string[] ) => void;
+} ) {
+	const toggleItem = ( path: string, selected: boolean ) => {
+		if ( selected ) {
+			onSelectedPathsChange( [ ...selectedPaths, path ] );
+			return;
+		}
+		onSelectedPathsChange( selectedPaths.filter( ( selectedPath ) => selectedPath !== path ) );
+	};
+
+	if ( isLoading ) {
+		return <div className={ styles.syncItemStatus }>{ __( 'Loading...' ) }</div>;
+	}
+
+	if ( hasError ) {
+		return <div className={ styles.syncItemStatus }>{ __( 'Unable to load items.' ) }</div>;
+	}
+
+	if ( ! items.length ) {
+		return <div className={ styles.syncItemStatus }>{ emptyLabel }</div>;
+	}
+
+	return (
+		<div className={ styles.syncItemList }>
+			{ items.map( ( item ) => (
+				<label className={ styles.syncItem } key={ item.path }>
+					<input
+						type="checkbox"
+						checked={ selectedPaths.includes( item.path ) }
+						onChange={ ( event ) => toggleItem( item.path, event.target.checked ) }
+					/>
+					<span>{ item.name }</span>
+				</label>
+			) ) }
 		</div>
 	);
 }

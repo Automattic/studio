@@ -29,7 +29,7 @@ import {
 } from '@studio/common/ai/models';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { resolveStudioToolDefinitions } from 'cli/ai/tools';
+import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
@@ -491,9 +491,13 @@ function buildAgentTools(
 	];
 
 	if ( isRemoteSite ) {
+		const screenshotTool = withChatArtifactEmission(
+			takeScreenshotTool,
+			chatArtifactsEnabled
+		) as unknown as AgentToolAny;
 		return [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
-			takeScreenshotTool,
+			screenshotTool,
 			createSiteTool,
 			pullSiteTool,
 			...remoteScratchTools,

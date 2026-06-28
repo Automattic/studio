@@ -1,16 +1,29 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { createElement, useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Conversation, entriesToRenderItems } from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
+import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
+
+const connectorMocks = vi.hoisted( () => ( {
+	readLocalMediaFile: vi.fn(),
+} ) );
 
 vi.mock( '@/components/markdown', () => ( {
 	Markdown: ( { children }: { children: string } ) => children,
 } ) );
 
+vi.mock( '@/data/core', () => ( {
+	useConnector: () => connectorMocks,
+} ) );
+
 vi.mock( '@wordpress/ui', () => ( {
 	Icon: () => null,
 } ) );
+
+beforeEach( () => {
+	connectorMocks.readLocalMediaFile.mockReset();
+} );
 
 describe( 'Conversation tool rows', () => {
 	it( 'keeps tool inputs and results hidden until the label row is clicked', () => {
@@ -126,6 +139,61 @@ describe( 'Conversation tool rows', () => {
 			screen.getByText( "What kind of vibe do you want for your blog's design?" )
 		).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Minimal & Clean' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'hides screenshot media payload markers from expanded tool details', () => {
+		const data = loadedSession( [
+			assistantToolCallEntry( 'take_screenshot', { url: 'http://localhost:8888/' } ),
+			toolResultEntry(
+				'Screenshot captured - desktop: captured full page (1248px tall).\n' +
+					'mediaWidgetPayload={"type":"media","widgetProps":{"url":"file:///tmp/screenshot.jpg"}}'
+			),
+		] );
+
+		renderConversation( data );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Take screenshot' } ) );
+
+		expect( screen.getByText( /Screenshot captured/ ) ).toBeInTheDocument();
+		expect( screen.queryByText( /mediaWidgetPayload/ ) ).not.toBeInTheDocument();
+	} );
+} );
+
+describe( 'Conversation chat artifacts', () => {
+	it( 'renders local screenshot media artifacts inline', async () => {
+		connectorMocks.readLocalMediaFile.mockResolvedValue( {
+			name: 'screenshot-desktop.jpg',
+			mimeType: 'image/jpeg',
+			data: new Uint8Array( [ 1, 2, 3 ] ).buffer,
+		} );
+		const data = loadedSession( [
+			chatArtifactEntry( [
+				{
+					type: 'media',
+					widgetProps: {
+						url: 'file:///tmp/studio-screenshot/screenshot-desktop.jpg',
+						mediaKind: 'image',
+						alt: 'Screenshot of http://localhost:8888/ (desktop)',
+						mediaId: null,
+						source: {
+							type: 'local',
+							path: '/tmp/studio-screenshot/screenshot-desktop.jpg',
+							name: 'screenshot-desktop.jpg',
+							mimeType: 'image/jpeg',
+						},
+					},
+				},
+			] ),
+		] );
+
+		renderConversation( data );
+
+		const screenshot = await screen.findByRole( 'img', {
+			name: 'Screenshot of http://localhost:8888/ (desktop)',
+		} );
+		expect( screenshot ).toHaveAttribute( 'src', 'data:image/jpeg;base64,AQID' );
+		expect( connectorMocks.readLocalMediaFile ).toHaveBeenCalledWith(
+			'/tmp/studio-screenshot/screenshot-desktop.jpg'
+		);
 	} );
 } );
 
@@ -553,6 +621,21 @@ function askUserAnswerEntry( id: string, text: string ): SessionEntry {
 		data: {
 			text,
 			source: 'ask_user',
+		},
+	} as SessionEntry;
+}
+
+function chatArtifactEntry( widgets: StudioChatArtifactWidgetDraft[] ): SessionEntry {
+	return {
+		type: 'custom',
+		id: 'chat-artifact',
+		parentId: null,
+		timestamp: '2026-06-05T12:00:02.000Z',
+		customType: 'studio.chat_artifact',
+		data: {
+			version: 1,
+			id: 'artifact-1',
+			widgets,
 		},
 	} as SessionEntry;
 }

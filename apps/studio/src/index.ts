@@ -23,6 +23,7 @@ import {
 	REDUX_DEVTOOLS,
 } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
+import { isStudioExtensionNavigationAllowed } from 'src/extensions/main-registry';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { markAppQuitting } from 'src/ipc-utils';
 import {
@@ -204,7 +205,13 @@ async function appBoot() {
 		const isSitePreviewWebview = contents.getType() === 'webview';
 
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
-			if ( isSitePreviewWebview ) {
+			if (
+				isSitePreviewWebview ||
+				isStudioExtensionNavigationAllowed(
+					{ webContents: contents, session: contents.session },
+					navigationUrl
+				)
+			) {
 				return;
 			}
 			const { origin } = new URL( navigationUrl );

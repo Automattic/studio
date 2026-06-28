@@ -5,6 +5,10 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { XDebugIcon } from 'src/components/icons/xdebug-icon';
 import { Tooltip } from 'src/components/tooltip';
+import {
+	STUDIO_MAIN_CONTENT_SELECTION_EVENT,
+	type StudioMainContentSelectionEventDetail,
+} from 'src/extensions/types';
 import { useContentTabs } from 'src/hooks/use-content-tabs';
 import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useImportExport } from 'src/hooks/use-import-export';
@@ -227,6 +231,12 @@ function SiteItem( {
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
 				onClick={ () => {
 					setSelectedSiteId( site.id );
+					window.dispatchEvent(
+						new CustomEvent< StudioMainContentSelectionEventDetail >(
+							STUDIO_MAIN_CONTENT_SELECTION_EVENT,
+							{ detail: { source: 'site', id: site.id } }
+						)
+					);
 				} }
 			>
 				{ site.name }

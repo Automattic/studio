@@ -79,6 +79,19 @@ const api: IpcApi = {
 	getDefaultSiteDirectory: () => ipcRendererInvoke( 'getDefaultSiteDirectory' ),
 	saveDefaultSiteDirectory: ( directory ) =>
 		ipcRendererInvoke( 'saveDefaultSiteDirectory', directory ),
+	listStudioExtensions: () => ipcRendererInvoke( 'listStudioExtensions' ),
+	installStudioExtension: ( extensionId ) =>
+		ipcRendererInvoke( 'installStudioExtension', extensionId ),
+	installStudioExtensionFromPath: ( sourcePath ) =>
+		ipcRendererInvoke( 'installStudioExtensionFromPath', sourcePath ),
+	installStudioExtensionFromUrl: ( sourceUrl ) =>
+		ipcRendererInvoke( 'installStudioExtensionFromUrl', sourceUrl ),
+	uninstallStudioExtension: ( extensionId ) =>
+		ipcRendererInvoke( 'uninstallStudioExtension', extensionId ),
+	setStudioExtensionEnabled: ( extensionId, enabled ) =>
+		ipcRendererInvoke( 'setStudioExtensionEnabled', extensionId, enabled ),
+	invokeStudioExtensionHandler: ( extensionId, handlerName, ...args ) =>
+		ipcRendererInvoke( 'invokeStudioExtensionHandler', extensionId, handlerName, ...args ),
 	showUserSettings: ( tabName ) => ipcRendererInvoke( 'showUserSettings', tabName ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),

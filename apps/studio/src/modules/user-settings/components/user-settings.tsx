@@ -2,6 +2,11 @@ import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import Modal from 'src/components/modal';
+import { ExtensionsSettingsTab } from 'src/extensions/components/extensions-settings-tab';
+import {
+	useStudioExtensionAccountSections,
+	useStudioExtensionSettingsTabs,
+} from 'src/extensions/hooks/use-studio-extension-settings';
 import { useAuth } from 'src/hooks/use-auth';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
@@ -25,6 +30,8 @@ export default function UserSettings() {
 	const snapshotQuota = useRootSelector( ( state ) => state.snapshot.snapshotQuota );
 	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useGetSnapshotUsage();
 	const definitiveSnapshotCount = snapshotUsage?.siteCount ?? snapshotsByUser?.length ?? 0;
+	const extensionSettingsTabs = useStudioExtensionSettingsTabs();
+	const extensionAccountSections = useStudioExtensionAccountSections();
 
 	const [ needsToOpenUserSettings, setNeedsToOpenUserSettings ] = useState( false );
 	const [ selectedTabName, setSelectedTabName ] = useState< string | undefined >();
@@ -81,7 +88,7 @@ export default function UserSettings() {
 
 		result.push( {
 			name: 'account',
-			title: __( 'Account' ),
+			title: extensionAccountSections.length ? __( 'Accounts' ) : __( 'Account' ),
 		} );
 
 		result.push( {
@@ -94,8 +101,15 @@ export default function UserSettings() {
 			title: __( 'MCP' ),
 		} );
 
+		result.push( {
+			name: 'extensions',
+			title: __( 'Extensions' ),
+		} );
+
+		result.push( ...extensionSettingsTabs );
+
 		return result;
-	}, [ __ ] );
+	}, [ __, extensionAccountSections.length, extensionSettingsTabs ] );
 
 	return (
 		<>
@@ -121,6 +135,7 @@ export default function UserSettings() {
 								{ name === 'general' && <PreferencesTab onClose={ resetLocalState } /> }
 								{ name === 'skills' && <SkillsTab /> }
 								{ name === 'mcp' && <McpSettings /> }
+								{ name === 'extensions' && <ExtensionsSettingsTab /> }
 								{ name === 'account' && (
 									<AccountTab
 										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }
@@ -129,8 +144,16 @@ export default function UserSettings() {
 										isOffline={ isOffline }
 										snapshotQuota={ snapshotQuota }
 										onRemoveSnapshots={ onRemoveSnapshots }
+										accountSections={ extensionAccountSections }
 									/>
 								) }
+								{ extensionSettingsTabs.map( ( tab ) => {
+									if ( tab.name !== name ) {
+										return null;
+									}
+									const Tab = tab.component;
+									return <Tab key={ tab.name } />;
+								} ) }
 							</div>
 						) }
 					</TabPanel>

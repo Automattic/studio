@@ -238,6 +238,16 @@ export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handle
 
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
+export {
+	installStudioExtension,
+	installStudioExtensionFromPath,
+	installStudioExtensionFromUrl,
+	invokeStudioExtensionHandler,
+	listStudioExtensions,
+	setStudioExtensionEnabled,
+	uninstallStudioExtension,
+} from 'src/extensions/ipc-handlers';
+
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
 	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >

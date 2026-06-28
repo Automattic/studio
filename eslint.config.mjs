@@ -41,6 +41,7 @@ export default defineConfig(
 				projectService: {
 					allowDefaultProject: [
 						'apps/studio/forge.config.ts',
+						'apps/studio/electron.vite.config.ts',
 						'apps/studio/windowsSign.ts',
 						'apps/studio/tailwind.config.js',
 						'apps/ui/vite.config.ts',

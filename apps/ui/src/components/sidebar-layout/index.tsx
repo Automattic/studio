@@ -1,12 +1,13 @@
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarCreateMenu } from '@/components/sidebar-create-menu';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
+import { useConnector } from '@/data/core';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
@@ -16,14 +17,20 @@ import type { CSSProperties, ReactNode } from 'react';
 
 export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const [ collapsed, setCollapsed ] = useState( false );
+	const connector = useConnector();
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
+	const toggleSidebar = useCallback( () => {
+		setCollapsed( ( value ) => ! value );
+	}, [] );
 	const sidebarStyle = collapsed
 		? undefined
 		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
+
+	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 
 	return (
 		<SidebarCollapsedContext.Provider value={ collapsed }>
@@ -40,7 +47,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					<SiteList />
 					<div className={ styles.sidebarFooter }>
 						<SidebarCreateMenu />
-						<UserMenu onToggleSidebar={ () => setCollapsed( true ) } />
+						<UserMenu onToggleSidebar={ toggleSidebar } />
 					</div>
 				</aside>
 				{ ! collapsed ? (
@@ -65,7 +72,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 								size="small"
 								icon={ drawerIcon }
 								label={ __( 'Show sidebar' ) }
-								onClick={ () => setCollapsed( false ) }
+								onClick={ toggleSidebar }
 							/>
 						</div>
 					) : null }

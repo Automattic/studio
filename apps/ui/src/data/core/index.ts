@@ -21,7 +21,9 @@ export type {
 	SelectedSiteFolder,
 	SessionEntry,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
+	SnapshotUsage,
 	StudioAgentQuestionData,
 	StudioChatFileAttachment,
 	StudioChatImage,
@@ -38,6 +40,7 @@ export type {
 	SupportedTerminal,
 	SyncOption,
 	SyncSite,
+	UserSettingsEventTab,
 	UserPreferences,
 	WritableUserPreferences,
 } from './types';

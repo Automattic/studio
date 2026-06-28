@@ -145,6 +145,8 @@ describe( 'SiteOverviewView', () => {
 				terminal: 'terminal',
 				colorScheme: 'system',
 				locale: undefined,
+				defaultSiteDirectory: '/Users/example/Studio',
+				studioCliInstalled: false,
 			},
 		} );
 	} );

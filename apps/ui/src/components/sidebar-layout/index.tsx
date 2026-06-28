@@ -56,6 +56,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					/>
 				) : null }
 				<main className={ styles.main }>
+					{ children }
 					{ collapsed ? (
 						<div className={ styles.floatingToggle }>
 							<IconButton
@@ -68,7 +69,6 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 							/>
 						</div>
 					) : null }
-					{ children }
 				</main>
 				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 			</div>

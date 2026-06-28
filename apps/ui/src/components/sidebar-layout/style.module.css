@@ -73,8 +73,8 @@
 
 .floatingToggle {
 	position: absolute;
-	bottom: var(--wpds-dimension-padding-sm);
-	left: var(--wpds-dimension-padding-xl);
+	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
+	left: calc(var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-xs));
 	display: flex;
 	align-items: center;
 	padding: var(--wpds-dimension-padding-sm) 0;

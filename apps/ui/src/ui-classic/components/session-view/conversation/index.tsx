@@ -232,14 +232,21 @@ function getMediaAltText( widget: StudioChatArtifactWidgetDraft ): string {
 		: __( 'Image' );
 }
 
-function localMediaFileToDataUrl( file: LocalMediaFile ): string {
-	const bytes = new Uint8Array( file.data );
-	const chunkSize = 0x8000;
-	let binary = '';
-	for ( let index = 0; index < bytes.length; index += chunkSize ) {
-		binary += String.fromCharCode( ...bytes.subarray( index, index + chunkSize ) );
-	}
-	return `data:${ file.mimeType };base64,${ btoa( binary ) }`;
+function localMediaFileToDataUrl( file: LocalMediaFile ): Promise< string > {
+	return new Promise( ( resolve, reject ) => {
+		const reader = new FileReader();
+		reader.addEventListener( 'load', () => {
+			if ( typeof reader.result === 'string' ) {
+				resolve( reader.result );
+				return;
+			}
+			reject( new Error( 'Unable to read local media file as a data URL.' ) );
+		} );
+		reader.addEventListener( 'error', () => {
+			reject( reader.error ?? new Error( 'Unable to read local media file as a data URL.' ) );
+		} );
+		reader.readAsDataURL( new Blob( [ file.data ], { type: file.mimeType } ) );
+	} );
 }
 
 function stripScreenshotMediaPayloadLines( text: string ): string {
@@ -762,9 +769,10 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 		setSrc( null );
 		connector
 			.readLocalMediaFile( localPath )
-			.then( ( file ) => {
+			.then( localMediaFileToDataUrl )
+			.then( ( dataUrl ) => {
 				if ( active ) {
-					setSrc( localMediaFileToDataUrl( file ) );
+					setSrc( dataUrl );
 				}
 			} )
 			.catch( () => {

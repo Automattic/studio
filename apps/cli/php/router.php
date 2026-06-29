@@ -11,10 +11,7 @@
  */
 
 // PHP <= 8.3's built-in server doesn't apply auto_prepend_file to the router
-// script (known limitation, PHP bug #64566; behaves differently on 8.4+), so
-// apply it ourselves. require_once keeps it to a single run where the engine
-// already applies it. This is how Studio's pre-boot prepend (local
-// WP_HOME/WP_SITEURL) and reprint's runtime.php for imported sites run.
+// script (PHP bug #64566; fixed in 8.4), so apply it ourselves.
 $studio_auto_prepend = ini_get( 'auto_prepend_file' );
 if ( $studio_auto_prepend && is_file( $studio_auto_prepend ) ) {
 	require_once $studio_auto_prepend;

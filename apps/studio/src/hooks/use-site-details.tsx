@@ -186,13 +186,32 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			newSites[ existingIndex ] = { ...newSites[ existingIndex ], ...siteDetails };
 			return newSites;
 		} );
+
+		// Clear loading state atomically with the running state update above so
+		// the UI never sees loading=true with a stale running value.
+		if ( eventType === SITE_EVENTS.UPDATED ) {
+			setLoadingServer( ( prev ) => {
+				if ( ! prev[ siteId ] ) {
+					return prev;
+				}
+				const { [ siteId ]: _, ...rest } = prev;
+				return rest;
+			} );
+		}
 	} );
 
-	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
-		setLoadingServer( ( currentLoading ) => ( {
-			...currentLoading,
-			[ siteId ]: ! currentLoading[ siteId ] || false,
-		} ) );
+	const startLoadingForSite = useCallback( ( siteId: string ) => {
+		setLoadingServer( ( prev ) => ( { ...prev, [ siteId ]: true } ) );
+	}, [] );
+
+	const clearLoadingForSite = useCallback( ( siteId: string ) => {
+		setLoadingServer( ( prev ) => {
+			if ( ! prev[ siteId ] ) {
+				return prev;
+			}
+			const { [ siteId ]: _, ...rest } = prev;
+			return rest;
+		} );
 	}, [] );
 
 	const onDeleteSite = useCallback(
@@ -414,7 +433,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			options?: { suppressCapacityModal?: boolean }
 		): Promise< { capacityLimitReached: boolean } > => {
 			const { id, name: siteName } = site;
-			toggleLoadingServerForSite( id );
+			startLoadingForSite( id );
 			let capacityLimitReached = false;
 
 			try {
@@ -484,10 +503,10 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 				await getIpcApi().stopServer( id );
 			}
 
-			toggleLoadingServerForSite( id );
+			clearLoadingForSite( id );
 			return { capacityLimitReached };
 		},
-		[ toggleLoadingServerForSite ]
+		[ startLoadingForSite, clearLoadingForSite ]
 	);
 
 	const startServers = useCallback(
@@ -626,11 +645,11 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const stopServer = useCallback(
 		async ( id: string ) => {
-			toggleLoadingServerForSite( id );
+			startLoadingForSite( id );
 			await getIpcApi().stopServer( id );
-			toggleLoadingServerForSite( id );
+			clearLoadingForSite( id );
 		},
-		[ toggleLoadingServerForSite ]
+		[ startLoadingForSite, clearLoadingForSite ]
 	);
 
 	const stopAllRunningSites = useCallback( async () => {

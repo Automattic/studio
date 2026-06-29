@@ -167,7 +167,7 @@
 /* Doubled class so the background survives the host app's global
    `[type='button'] { background-color: transparent }` reset. */
 .attachmentRemove.attachmentRemove {
-	background-color: var(--color-frame-surface);
+	background: var(--color-frame-surface);
 	color: var(--color-frame-text);
 }
 
@@ -270,8 +270,9 @@
 }
 
 .attachmentRemove.attachmentRemove:hover,
-.attachmentRemove.attachmentRemove:focus-visible {
-	background-color: var(--color-frame-bg);
+.attachmentRemove.attachmentRemove:focus-visible,
+.attachmentRemove.attachmentRemove:active {
+	background: var(--color-frame-bg);
 	color: var(--color-frame-text);
 }
 

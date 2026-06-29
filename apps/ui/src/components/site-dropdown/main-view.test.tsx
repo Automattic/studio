@@ -1,0 +1,102 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MainView } from './main-view';
+import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
+
+const { connector, snapshots, connectedSites } = vi.hoisted( () => ( {
+	connector: {
+		copyText: vi.fn(),
+		openExternalUrl: vi.fn(),
+	},
+	snapshots: [] as Snapshot[],
+	connectedSites: [] as SyncSite[],
+} ) );
+
+vi.mock( '@tanstack/react-query', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@tanstack/react-query') >();
+	return {
+		...actual,
+		useIsMutating: vi.fn( () => 0 ),
+	};
+} );
+
+vi.mock( '@/data/core', () => ( {
+	useConnector: () => connector,
+} ) );
+
+vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
+	useConnectedWpcomSites: () => ( { data: connectedSites } ),
+} ) );
+
+vi.mock( '@/data/queries/use-preview-site', () => ( {
+	usePublishPreviewSite: () => ( { isPending: false, mutate: vi.fn() } ),
+} ) );
+
+vi.mock( '@/data/queries/use-sites', () => ( {
+	useIsSiteStarting: () => false,
+	useIsSiteStopping: () => false,
+	useStartSite: () => ( { mutate: vi.fn() } ),
+	useStopSite: () => ( { mutate: vi.fn() } ),
+} ) );
+
+vi.mock( '@/data/queries/use-snapshots', () => ( {
+	useSnapshots: () => ( { data: snapshots } ),
+} ) );
+
+vi.mock( '@/data/queries/use-sync-site', () => ( {
+	PULL_FROM_LIVE_MUTATION_KEY: [ 'pull-site-from-live' ],
+	PUSH_TO_LIVE_MUTATION_KEY: [ 'push-site-to-live' ],
+	usePullSiteFromLive: () => ( { mutate: vi.fn() } ),
+	usePushSiteToLive: () => ( { mutate: vi.fn() } ),
+} ) );
+
+const site: SiteDetails = {
+	id: 'site-1',
+	name: 'Demo Site',
+	path: '/tmp/demo-site',
+	port: 8881,
+	running: true,
+	phpVersion: '8.3',
+};
+
+function renderMainView() {
+	return render(
+		<MainView
+			site={ site }
+			activity={ null }
+			onSetupClick={ vi.fn() }
+			onDisconnectClick={ vi.fn() }
+		/>
+	);
+}
+
+describe( 'MainView', () => {
+	beforeEach( () => {
+		connector.copyText.mockReset();
+		connector.openExternalUrl.mockReset();
+		snapshots.splice( 0, snapshots.length, {
+			url: 'preview.example.com',
+			atomicSiteId: 123,
+			localSiteId: site.id,
+			date: 1,
+		} );
+		connectedSites.splice( 0, connectedSites.length );
+	} );
+
+	it( 'handles preview URL copy failures', async () => {
+		const error = new Error( 'Clipboard denied' );
+		const consoleError = vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+		connector.copyText.mockRejectedValueOnce( error );
+
+		renderMainView();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Copy preview URL' } ) );
+
+		await waitFor( () => {
+			expect( connector.copyText ).toHaveBeenCalledWith( 'https://preview.example.com' );
+			expect( consoleError ).toHaveBeenCalledWith( 'Failed to copy preview URL:', error );
+		} );
+
+		consoleError.mockRestore();
+	} );
+} );

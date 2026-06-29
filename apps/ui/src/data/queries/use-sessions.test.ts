@@ -1,6 +1,10 @@
 import { QueryClient } from '@tanstack/react-query';
-import { describe, expect, it } from 'vitest';
-import { primeSessionQueryData, SESSIONS_QUERY_KEY } from './use-sessions';
+import { describe, expect, it, vi } from 'vitest';
+import {
+	primeSessionQueryData,
+	reconcilePrimedSessionQueryData,
+	SESSIONS_QUERY_KEY,
+} from './use-sessions';
 import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
 
 describe( 'primeSessionQueryData', () => {
@@ -44,6 +48,23 @@ describe( 'primeSessionQueryData', () => {
 		expect( queryClient.getQueryData< LoadedAiSession >( sessionKey ) ).toEqual( {
 			summary: updatedSummary,
 			entries,
+		} );
+	} );
+
+	it( 'reconciles only the sessions list and the primed session', async () => {
+		const queryClient = new QueryClient();
+		const invalidateQueries = vi.spyOn( queryClient, 'invalidateQueries' );
+
+		await reconcilePrimedSessionQueryData( queryClient, 'session-1' );
+
+		expect( invalidateQueries ).toHaveBeenCalledTimes( 2 );
+		expect( invalidateQueries ).toHaveBeenCalledWith( {
+			queryKey: SESSIONS_QUERY_KEY,
+			exact: true,
+		} );
+		expect( invalidateQueries ).toHaveBeenCalledWith( {
+			queryKey: [ ...SESSIONS_QUERY_KEY, 'session-1' ],
+			exact: true,
 		} );
 	} );
 } );

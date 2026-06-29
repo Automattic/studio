@@ -2,17 +2,21 @@ import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { Composer } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';
+import type { AiSessionSummary, LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComponentProps } from 'react';
 
+const connectorMocks = vi.hoisted( () => ( {
+	createSession: vi.fn(),
+	getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
+	setSessionModel: vi.fn(),
+} ) );
+
 vi.mock( '@/data/core', () => ( {
-	useConnector: () => ( {
-		createSession: vi.fn(),
-		getFilePath: vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` ),
-		setSessionModel: vi.fn(),
-	} ),
+	useConnector: () => connectorMocks,
 } ) );
 
 const defaultProps = {
@@ -24,12 +28,18 @@ const defaultProps = {
 	entries: [],
 };
 
-function renderComposer( props: Partial< ComponentProps< typeof Composer > > = {} ) {
-	return render(
-		<QueryClientProvider client={ new QueryClient() }>
-			<Composer { ...defaultProps } sessionId="session-1" { ...props } />
-		</QueryClientProvider>
-	);
+function renderComposer(
+	props: Partial< ComponentProps< typeof Composer > > = {},
+	queryClient = new QueryClient()
+) {
+	return {
+		...render(
+			<QueryClientProvider client={ queryClient }>
+				<Composer { ...defaultProps } sessionId="session-1" { ...props } />
+			</QueryClientProvider>
+		),
+		queryClient,
+	};
 }
 
 function firePointerEventWithClientY( element: Element, type: string, clientY: number ) {
@@ -44,6 +54,10 @@ function firePointerEventWithClientY( element: Element, type: string, clientY: n
 }
 
 describe( 'Composer menu', () => {
+	beforeEach( () => {
+		vi.clearAllMocks();
+	} );
+
 	it( 'shows tooltips for the plus button and model picker', async () => {
 		renderComposer();
 
@@ -251,4 +265,67 @@ describe( 'Composer menu', () => {
 
 		firePointerEventWithClientY( resizeHandle, 'pointerup', 620 );
 	} );
+
+	it( 'keeps the picked model in the fresh session cache after a family switch', async () => {
+		const queryClient = new QueryClient();
+		const onSwitchSession = vi.fn();
+		const freshSummary = createSummary( { id: 'fresh-session' } );
+		connectorMocks.createSession.mockResolvedValue( freshSummary );
+		connectorMocks.setSessionModel.mockResolvedValue( undefined );
+
+		renderComposer(
+			{
+				entries: [ createUserPromptEntry() ],
+				ownerSiteId: 'site-1',
+				onSwitchSession,
+			},
+			queryClient
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
+		fireEvent.click( await screen.findByText( 'GPT 5.5' ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Start new conversation' } ) );
+
+		await waitFor( () => {
+			expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' );
+		} );
+		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.5' );
+
+		const loadedSession = queryClient.getQueryData< LoadedAiSession >( [
+			...SESSIONS_QUERY_KEY,
+			'fresh-session',
+		] );
+		expect( loadedSession?.summary ).toEqual( freshSummary );
+		expect( loadedSession?.entries ).toEqual( [
+			expect.objectContaining( {
+				type: 'model_change',
+				modelId: 'gpt-5.5',
+			} ),
+		] );
+	} );
 } );
+
+function createSummary( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
+	return {
+		id: 'session-1',
+		filePath: '/tmp/session.jsonl',
+		createdAt: '2026-06-26T11:00:00.000Z',
+		updatedAt: '2026-06-26T11:00:00.000Z',
+		ownerSitePath: '/Users/example/Studio/example-site',
+		ownerSiteName: 'Example Site',
+		activeEnvironment: 'local',
+		eventCount: 0,
+		...overrides,
+	};
+}
+
+function createUserPromptEntry(): SessionEntry {
+	return {
+		type: 'custom',
+		id: 'user-prompt-1',
+		parentId: null,
+		timestamp: '2026-06-26T12:00:00.000Z',
+		customType: 'studio.user_prompt',
+		data: { text: 'Make the header calmer' },
+	} as SessionEntry;
+}

@@ -23,6 +23,11 @@ function getRouteSessionId( pathname: string ): string | undefined {
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
+function getNewSessionSiteId( pathname: string ): string | undefined {
+	const match = /^\/sites\/([^/]+)\/new\/?$/.exec( pathname );
+	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
+}
+
 function DashboardLayout() {
 	return (
 		<SessionUIProvider>
@@ -36,9 +41,13 @@ function DashboardLayout() {
 // previewed site follows the current session; routes without one keep the
 // last previewed site loaded behind a closed panel.
 function DashboardLayoutContent() {
-	const sessionId = useRouterState( {
-		select: ( state ) => getRouteSessionId( state.location.pathname ),
+	const routePreviewContext = useRouterState( {
+		select: ( state ) => ( {
+			sessionId: getRouteSessionId( state.location.pathname ),
+			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
+		} ),
 	} );
+	const { sessionId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	const preview = useSessionPreviewUI();
@@ -51,11 +60,17 @@ function DashboardLayoutContent() {
 		sessionData?.summary,
 		sessionSite?.id
 	);
-	const routeSite = effectiveEnvironment === 'local' ? sessionSite : undefined;
-	// While the session is still loading (`sessionData` undefined) the route
-	// counts as preview-capable, so switching between sessions doesn't close
-	// and reopen the panel around the fetch.
-	const supportsPreview = sessionId !== undefined && ( sessionData === undefined || !! routeSite );
+	const newSessionSite = newSessionSiteId
+		? sites?.find( ( site ) => site.id === newSessionSiteId )
+		: undefined;
+	const routeSite =
+		newSessionSite ?? ( effectiveEnvironment === 'local' ? sessionSite : undefined );
+	// While session or site data is still loading, preview-capable routes stay
+	// preview-capable so navigation doesn't close and reopen the panel around
+	// the fetch.
+	const supportsPreview =
+		newSessionSiteId !== undefined ||
+		( sessionId !== undefined && ( sessionData === undefined || !! routeSite ) );
 	// Remember the last previewed site by id (looked up fresh each render so
 	// `running` and friends don't go stale) to keep its webview warm across
 	// routes and to bridge the gap while the next route's site resolves.

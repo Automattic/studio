@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -79,7 +80,7 @@ export function buildSiteCreateArgs( options: SiteCreateOptions ): {
 
 	let blueprintTempPath: string | undefined;
 	if ( options.blueprint ) {
-		blueprintTempPath = path.join( os.tmpdir(), `studio-blueprint-${ Date.now() }.json` );
+		blueprintTempPath = path.join( os.tmpdir(), `studio-blueprint-${ crypto.randomUUID() }.json` );
 		fs.writeFileSync( blueprintTempPath, JSON.stringify( options.blueprint ) );
 		args.push( '--blueprint', blueprintTempPath );
 		if ( options.originalBlueprintPath ) {

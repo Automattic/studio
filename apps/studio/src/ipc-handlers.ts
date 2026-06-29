@@ -86,6 +86,7 @@ import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-util
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
 	extractBlueprintBundle as extractBlueprintBundleShared,
+	type ExtractedBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import {
@@ -2282,7 +2283,10 @@ export async function readBlueprintFile(
 	return JSON.parse( fileContents );
 }
 
-export async function extractBlueprintBundle( _event: IpcMainInvokeEvent, zipFilePath: string ) {
+export async function extractBlueprintBundle(
+	_event: IpcMainInvokeEvent,
+	zipFilePath: string
+): Promise< ExtractedBlueprintBundle > {
 	return extractBlueprintBundleShared( zipFilePath );
 }
 

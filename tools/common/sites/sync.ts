@@ -69,7 +69,7 @@ export async function pushSite(
 
 		await initiateImport( ctx.accessToken, params.remoteSiteId, attachmentId );
 	} finally {
-		fs.rm( dir, { recursive: true, force: true }, () => undefined );
+		await fs.promises.rm( dir, { recursive: true, force: true } ).catch( () => undefined );
 	}
 }
 

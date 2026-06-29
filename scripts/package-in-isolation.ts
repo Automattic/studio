@@ -111,7 +111,7 @@ function ensureBundledServerFiles( stagingRoot: string ) {
 	runOrFail( 'npx', [ 'tsx', './scripts/download-wp-server-files.ts' ], stagingRoot );
 	runOrFail( 'node', [ './scripts/download-available-site-translations.mjs' ], stagingRoot );
 	runOrFail( 'npx', [ 'tsx', './scripts/download-agent-skills.ts' ], stagingRoot );
-	// Builds the Data Liberation engine into apps/cli/data-liberation (self-gates
+	// Builds the Data Liberation engine into packages/data-liberation-agent (self-gates
 	// if already present); write-dist-extras then bundles it into dist/cli.
 	runOrFail( 'npx', [ 'tsx', './scripts/prepare-data-liberation.ts' ], stagingRoot );
 }

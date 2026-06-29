@@ -188,10 +188,10 @@ export async function runCommand(): Promise< void > {
 
 	const bus = await getDaemonBus();
 
-	// Subscribe to IPC events from site processes. A `result` message with no return value
-	// (undefined) signals that `start-server` completed — it's the only command that returns void.
-	// Other commands (`stop-server`, `run-blueprint`, `wp-cli-command`) return a value, so their
-	// `result` messages must not be treated as "server is running".
+	// Subscribe to IPC events from site processes. We treat a `result` message with no return value
+	// (undefined) as a signal that a void-returning IPC command completed (e.g. `start-server`).
+	// Commands that return a value (e.g. `stop-server`, `wp-cli-command`) must not be treated as
+	// "server is running" based on their `result` messages.
 	bus.on( 'process-message', ( message ) => {
 		if ( ! message.process.name.startsWith( SITE_PROCESS_PREFIX ) ) {
 			return;

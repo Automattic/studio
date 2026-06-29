@@ -58,7 +58,9 @@ export enum StatsMetric {
 	NO_BLUEPRINT = 'no-blueprint',
 }
 
-const lastBumpStatsProvider: LastBumpStatsProvider = {
+// Exported so the shared agent run-manager can record weekly/monthly unique
+// stats against the desktop's app.json store.
+export const lastBumpStatsProvider: LastBumpStatsProvider = {
 	load: async () => {
 		const { lastBumpStats } = await loadUserData();
 		return lastBumpStats ?? {};

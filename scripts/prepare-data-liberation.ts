@@ -52,6 +52,54 @@ async function mirrorRuntimeAssets( engineDir: string ): Promise< void > {
 	} );
 }
 
+// The engine ships as a raw `npm install` (it runs from its own node_modules as a
+// child process), so it carries ~34MB of files that never execute at runtime. Strip
+// them after the build to keep the packaged app lean:
+//  - non-runtime top-level dirs/files (sources, tests, build scripts, docs, lockfile);
+//    the engine runs from `dist/`, and `mirrorRuntimeAssets` already copied any data
+//    assets out of `src/` into `dist/`.
+//  - sourcemaps, type declarations, and markdown inside node_modules — pure dev cruft.
+// Conservative on purpose: keep `skills/` (the bridge tool reads it), `prompts/`, and
+// every package's actual code. Idempotent — `fs.remove` no-ops on missing paths.
+const NON_RUNTIME_ENTRIES = [
+	'src',
+	'test',
+	'tests',
+	'scripts',
+	'docs',
+	'DISCOVERIES.md',
+	'package-lock.json',
+	'tsconfig.json',
+	'tsconfig.build.json',
+];
+
+async function pruneEngine( engineDir: string ): Promise< void > {
+	await Promise.all(
+		NON_RUNTIME_ENTRIES.map( ( entry ) => fs.remove( path.join( engineDir, entry ) ) )
+	);
+
+	const nodeModules = path.join( engineDir, 'node_modules' );
+	if ( ! fs.existsSync( nodeModules ) ) {
+		return;
+	}
+	const isCruft = ( file: string ): boolean =>
+		/\.(map|d\.ts|d\.mts|d\.cts)$/.test( file ) || /\.md$/i.test( file );
+	const walk = async ( dir: string ): Promise< void > => {
+		const dirents = await fs.readdir( dir, { withFileTypes: true } );
+		await Promise.all(
+			dirents.map( async ( dirent ) => {
+				const full = path.join( dir, dirent.name );
+				if ( dirent.isDirectory() ) {
+					await walk( full );
+				} else if ( dirent.isFile() && isCruft( dirent.name ) ) {
+					await fs.remove( full );
+				}
+			} )
+		);
+	};
+	await walk( nodeModules );
+}
+
 async function prepareDataLiberation(): Promise< void > {
 	if ( fs.existsSync( path.join( ENGINE_DIR, 'dist', 'mcp-server.js' ) ) ) {
 		console.log( `[data-liberation] Already built at ${ ENGINE_DIR }. Delete it to rebuild.` );
@@ -92,6 +140,8 @@ async function prepareDataLiberation(): Promise< void > {
 	await mirrorRuntimeAssets( ENGINE_DIR );
 	console.log( '[data-liberation] pruning devDependencies…' );
 	run( 'npm', [ 'prune', '--omit=dev' ], ENGINE_DIR );
+	console.log( '[data-liberation] stripping non-runtime files…' );
+	await pruneEngine( ENGINE_DIR );
 
 	console.log( `[data-liberation] Done → ${ ENGINE_DIR }` );
 }

@@ -23,21 +23,19 @@ function hasCompiledServer( dir: string ): boolean {
 	return existsSync( path.join( dir, 'dist', 'mcp-server.js' ) );
 }
 
-// Locate the build-time prepared engine. `import.meta.dirname` is the bundled
-// chunk dir (`dist/cli`) in the packaged app and `apps/cli/ai/tools` in source,
-// so check both the bundled sibling and the source build artifact.
+// Locate the build-time prepared engine. The CLI always runs bundled — both in the
+// packaged app and locally via `npm run cli:build` — and the build copies the engine
+// in next to the chunks as `data-liberation-agent`, so it's always a sibling of this
+// module (`dist/cli`). We deliberately do NOT fall back to the source `packages/` dir:
+// that exists only in a dev checkout, so relying on it would mask a missing/stale
+// bundle locally while the packaged app still failed — keeping the single bundled
+// path makes local resolution faithful to production.
 function resolveEngineDir(): string {
-	const candidates = [
-		// bundled: dist/cli/data-liberation-agent
-		path.join( import.meta.dirname, 'data-liberation-agent' ),
-		// source: <repo>/packages/data-liberation-agent
-		path.join( import.meta.dirname, '..', '..', '..', '..', 'packages', 'data-liberation-agent' ),
-	];
-	const dir = candidates.find( hasCompiledServer );
-	if ( ! dir ) {
+	const dir = path.join( import.meta.dirname, 'data-liberation-agent' );
+	if ( ! hasCompiledServer( dir ) ) {
 		throw new Error(
-			'Data Liberation engine is not prepared. Run `npm run prepare-data-liberation` ' +
-				'(it also runs automatically on `npm install`).'
+			'Data Liberation engine is not prepared. Run `npm install` (prepares the engine ' +
+				'into `packages/`) then `npm run cli:build` (bundles it into `dist/cli`).'
 		);
 	}
 	return dir;

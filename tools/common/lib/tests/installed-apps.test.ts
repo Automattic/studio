@@ -1,10 +1,10 @@
 /**
  * @vitest-environment node
  */
-import { app } from 'electron';
-import fs from 'fs';
+import fs from 'node:fs';
 import { vi } from 'vitest';
-import type { PathLike } from 'fs';
+import type { AppKey } from '../user-settings/installed-apps';
+import type { PathLike } from 'node:fs';
 
 // The overload of readdirSync that returns string[] (without withFileTypes option)
 type ReaddirSyncStrings = (
@@ -20,7 +20,7 @@ type ReaddirSyncStrings = (
 ) => string[];
 type ReaddirSyncMock = ReturnType< typeof vi.fn< ReaddirSyncStrings > >;
 
-vi.mock( 'fs', () => {
+vi.mock( 'node:fs', () => {
 	const constants = { X_OK: 1 };
 	return {
 		default: {
@@ -38,16 +38,17 @@ vi.mock( 'fs', () => {
 	};
 } );
 
-vi.mock( 'electron', () => ( {
-	app: {
-		getPath: vi.fn(),
-	},
+// The shared detector is Electron-free: it reads the home dir from `os.homedir()`
+// rather than Electron's `app.getPath`.
+vi.mock( 'node:os', () => ( {
+	default: { homedir: () => '/mock/home/path' },
+	homedir: () => '/mock/home/path',
 } ) );
 
 const readdirSyncMock = fs.readdirSync as unknown as ReaddirSyncMock;
 
 describe( 'isInstalled', () => {
-	let isInstalled: ( key: keyof InstalledApps ) => boolean;
+	let isInstalled: ( key: AppKey ) => boolean;
 	let mockPaths: string[];
 
 	beforeEach( () => {
@@ -74,19 +75,6 @@ describe( 'isInstalled', () => {
 				throw Object.assign( new Error( 'EACCES' ), { code: 'EACCES' } );
 			}
 		} );
-
-		vi.mocked( app.getPath ).mockImplementation( ( name: string ) => {
-			switch ( name ) {
-				case 'home':
-					return '/mock/home/path';
-				case 'appData':
-					return process.platform === 'win32'
-						? 'C:\\Users\\TestUser\\AppData\\Roaming'
-						: '/mock/home/path/.config';
-				default:
-					return '';
-			}
-		} );
 	} );
 
 	describe( 'on macOS (darwin)', () => {
@@ -94,7 +82,7 @@ describe( 'isInstalled', () => {
 			Object.defineProperty( process, 'platform', { value: 'darwin' } );
 			// Re-import the module to ensure platform-specific paths are set up
 			vi.resetModules();
-			const module = await import( '../is-installed' );
+			const module = await import( '../user-settings/installed-apps' );
 			isInstalled = module.isInstalled;
 		} );
 
@@ -126,7 +114,7 @@ describe( 'isInstalled', () => {
 			process.env.LOCALAPPDATA = 'C:\\Users\\TestUser\\AppData\\Local';
 			// Re-import the module after setting the environment variable
 			vi.resetModules();
-			const module = await import( '../is-installed' );
+			const module = await import( '../user-settings/installed-apps' );
 			isInstalled = module.isInstalled;
 		} );
 
@@ -156,21 +144,21 @@ describe( 'isInstalled', () => {
 			delete process.env.ProgramFiles;
 			// Re-import the module after setting the environment variable
 			vi.resetModules();
-			const module = await import( '../is-installed' );
+			const module = await import( '../user-settings/installed-apps' );
 			isInstalled = module.isInstalled;
 
 			mockPaths = [ 'C:\\Program Files\\Microsoft VS Code' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 
-		it( 'falls back to electron appData path when LOCALAPPDATA is not set', async () => {
+		it( 'falls back to a home-based Local Programs path when LOCALAPPDATA is not set', async () => {
 			delete process.env.LOCALAPPDATA;
 			// Re-import the module after setting the environment variable
 			vi.resetModules();
-			const module = await import( '../is-installed' );
+			const module = await import( '../user-settings/installed-apps' );
 			isInstalled = module.isInstalled;
 
-			mockPaths = [ 'C:\\Users\\TestUser\\AppData\\Roaming\\Local\\Programs\\Microsoft VS Code' ];
+			mockPaths = [ '/mock/home/path\\AppData\\Local\\Programs\\Microsoft VS Code' ];
 			expect( isInstalled( 'vscode' ) ).toBe( true );
 		} );
 	} );
@@ -183,7 +171,7 @@ describe( 'isInstalled', () => {
 			Object.defineProperty( process, 'platform', { value: 'linux', configurable: true } );
 			process.env.PATH = '/usr/bin:/mock/home/path/.local/bin';
 			vi.resetModules();
-			const module = await import( '../is-installed' );
+			const module = await import( '../user-settings/installed-apps' );
 			isInstalled = module.isInstalled;
 		} );
 

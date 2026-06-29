@@ -9,6 +9,7 @@
 .userTurn {
 	display: flex;
 	flex-direction: column;
+	margin-right: calc(-1 * var(--classic-composer-shell-inline-padding));
 	padding: var(--wpds-dimension-padding-xl) 0;
 }
 
@@ -61,7 +62,7 @@
 
 .userText {
 	align-self: flex-end;
-	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
+	padding: var(--wpds-dimension-padding-md) calc(var(--wpds-dimension-padding-lg) + 8px);
 	background-color: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 10%, transparent);
 	/* Bottom-right tight so the bubble reads as originating from the user
 	   on the right; other corners round generously. */

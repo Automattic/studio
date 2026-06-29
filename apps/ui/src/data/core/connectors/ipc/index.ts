@@ -104,6 +104,33 @@ export function createIpcConnector(): Connector {
 		return site.path;
 	}
 
+	async function markConnectedWpcomSiteSynced(
+		localSiteId: string,
+		remoteSiteId: number,
+		direction: 'push' | 'pull'
+	): Promise< void > {
+		try {
+			const connectedSites = ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
+			const connectedSite = connectedSites.find(
+				( site ) => site.id === remoteSiteId && site.localSiteId === localSiteId
+			);
+
+			if ( ! connectedSite ) {
+				return;
+			}
+
+			const timestampKey = direction === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp';
+			await ipcApi.updateConnectedWpcomSites( [
+				{
+					...connectedSite,
+					[ timestampKey ]: new Date().toISOString(),
+				},
+			] );
+		} catch ( error ) {
+			console.warn( 'Failed to update connected site sync timestamp:', error );
+		}
+	}
+
 	// Bridges `createSnapshot`/`updateSnapshot`'s fire-and-forget IPC pattern
 	// into an awaitable promise. The main process emits `snapshot-key-value`
 	// with the final preview URL right before `snapshot-success`; fatal
@@ -499,11 +526,13 @@ export function createIpcConnector(): Connector {
 			if ( ! result.success ) {
 				throw new Error( result.error ?? 'Push failed' );
 			}
+			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
 		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
 			const siteFolder = await resolveSiteFolder( siteId );
 			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
 
 		getPublishCheckoutUrl( site ): string {

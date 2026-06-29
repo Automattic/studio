@@ -1,20 +1,62 @@
 .trigger {
-	gap: var(--wpds-dimension-padding-xs);
+	--site-menu-border: color-mix(
+		in srgb,
+		var(--wpds-color-stroke-surface-neutral) 45%,
+		transparent
+	);
+	--site-menu-border-active: color-mix(
+		in srgb,
+		var(--wpds-color-stroke-surface-neutral) 70%,
+		transparent
+	);
+	--site-menu-resting-fill: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral) 96%,
+		transparent
+	);
+	--wp-ui-button-background-color: var(--site-menu-resting-fill);
+	--wp-ui-button-background-color-active: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral) 100%,
+		transparent
+	);
+	--wp-ui-button-border-color: var(--site-menu-border);
+	--wp-ui-button-border-color-active: var(--site-menu-border-active);
+
+	gap: var(--wpds-dimension-padding-sm);
 	max-width: 100%;
+	min-height: 48px;
 	min-width: 0;
+	align-items: center;
+	backdrop-filter: blur(20px) saturate(115%);
+	-webkit-backdrop-filter: blur(20px) saturate(115%);
 	white-space: nowrap;
 }
 
+.siteIconWrap {
+	position: relative;
+	display: inline-flex;
+	flex: 0 0 auto;
+	width: 24px;
+	height: 24px;
+}
+
 .siteIcon {
-	width: 20px;
-	height: 20px;
+	width: 24px;
+	height: 24px;
 	border-radius: 6px;
+}
+
+.siteIcon_stopped {
+	opacity: 0.72;
 }
 
 .identity {
 	display: inline-flex;
-	align-items: baseline;
-	gap: var(--wpds-dimension-padding-sm);
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
+	gap: 2px;
 	min-width: 0;
 	max-width: min(420px, 56vw);
 	padding-inline: 2px var(--wpds-dimension-padding-xs);
@@ -31,27 +73,93 @@
 	white-space: nowrap;
 }
 
+.secondary {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	max-width: 100%;
+	min-width: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 400;
+	line-height: 1.1;
+}
+
+.secondaryLabel {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.secondaryMarker {
+	width: 6px;
+	height: 6px;
+	border-radius: 999px;
+	flex: 0 0 auto;
+	background: currentColor;
+}
+
+.secondary_pending {
+	color: var(--wpds-color-fg-interactive-brand);
+}
+
+.secondary_pending .secondaryMarker {
+	animation: siteDotBlink 1s ease-in-out infinite;
+}
+
+.secondary_success {
+	color: var(--wpds-color-fg-content-success, var(--wpds-color-fg-content-neutral));
+}
+
+.secondary_error {
+	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+}
+
 .statusBadge {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 18px;
-	height: 18px;
+	width: 8px;
+	height: 8px;
 	border-radius: 999px;
 	flex-shrink: 0;
 }
 
+.statusBadge_overlay {
+	position: absolute;
+	right: -1px;
+	bottom: -1px;
+	box-shadow: 0 0 0 1px var(--wpds-color-bg-surface-neutral-strong);
+}
+
 .statusBadge_live {
+	background: #2563eb;
+	color: var(--wpds-color-fg-content-inverted, #fff);
+}
+
+.statusBadge:not(.statusBadge_overlay).statusBadge_live {
 	width: auto;
+	height: 20px;
 	gap: 4px;
 	padding: 0 6px;
 	background: color-mix(in srgb, #2563eb 9%, transparent);
 	color: #2563eb;
 }
 
+.statusBadge_stopped {
+	border-radius: 2px;
+	background: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.statusBadge_transitioning {
+	background: #2563eb;
+	animation: siteDotBlink 1s ease-in-out infinite;
+}
+
 .dot {
-	width: 6px;
-	height: 6px;
+	width: 100%;
+	height: 100%;
 	border-radius: 50%;
 	flex-shrink: 0;
 }
@@ -68,11 +176,40 @@
 
 .dot_transitioning {
 	background-color: #2563eb;
-	animation: siteDotBlink 1s ease-in-out infinite;
 }
 
 .dot_live {
 	background-color: #2563eb;
+}
+
+.pauseMark,
+.pauseMark::before,
+.pauseMark::after {
+	display: block;
+	width: 1.5px;
+	height: 4px;
+	border-radius: 1px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.pauseMark {
+	position: relative;
+	background: transparent;
+}
+
+.pauseMark::before,
+.pauseMark::after {
+	position: absolute;
+	top: 0;
+	content: '';
+}
+
+.pauseMark::before {
+	left: -2px;
+}
+
+.pauseMark::after {
+	left: 1px;
 }
 
 .statusLabel {
@@ -89,18 +226,6 @@
 	50% {
 		opacity: 0.25;
 	}
-}
-
-.url {
-	flex: 0 1 auto;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	opacity: 0.6;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	min-width: 0;
 }
 
 .chevron {

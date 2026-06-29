@@ -86,7 +86,11 @@ function SettingsHeader( { site }: { site: SiteDetails } ) {
 	return (
 		<div className={ styles.header }>
 			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
-			<SiteDropdown site={ site } showSiteIcon={ sidebarCollapsed } />
+			<SiteDropdown
+				site={ site }
+				showSiteIcon={ sidebarCollapsed }
+				showStatus={ sidebarCollapsed }
+			/>
 		</div>
 	);
 }

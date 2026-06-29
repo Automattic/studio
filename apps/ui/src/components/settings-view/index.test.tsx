@@ -353,14 +353,27 @@ describe( 'SettingsView', () => {
 	it( 'saves default site directory and Studio CLI changes through the preferences patch', async () => {
 		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
-		fireEvent.click( screen.getByRole( 'textbox', { name: 'Default site directory' } ) );
+		fireEvent.click(
+			screen.getByRole( 'button', {
+				name: 'Default site directory: /Users/example/Studio. Choose a different folder.',
+			} )
+		);
 		fireEvent.click( screen.getByLabelText( 'Studio CLI for terminal' ) );
 
 		await waitFor( () =>
-			expect( screen.getByDisplayValue( '/Users/example/Sites' ) ).toBeInTheDocument()
+			expect(
+				screen.getByRole( 'button', {
+					name: 'Default site directory: /Users/example/Sites. Choose a different folder.',
+				} )
+			).toHaveTextContent( '/Users/example/Sites' )
 		);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+		const saveButton = screen.getByRole( 'button', { name: 'Save' } );
+		expect( saveButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+S$/ ) );
+		expect( saveButton ).toHaveTextContent( /^Save$/ );
+		expect( screen.getByText( /Save settings \([⌘⌃]S\)/ ) ).toBeInTheDocument();
+
+		fireEvent.click( saveButton );
 
 		expect( mutate ).toHaveBeenCalledWith(
 			{
@@ -369,6 +382,72 @@ describe( 'SettingsView', () => {
 			},
 			expect.any( Object )
 		);
+	} );
+
+	it( 'saves preferences with the primary modifier S shortcut', async () => {
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		fireEvent.click(
+			screen.getByRole( 'button', {
+				name: 'Default site directory: /Users/example/Studio. Choose a different folder.',
+			} )
+		);
+
+		await waitFor( () =>
+			expect(
+				screen.getByRole( 'button', {
+					name: 'Default site directory: /Users/example/Sites. Choose a different folder.',
+				} )
+			).toHaveTextContent( '/Users/example/Sites' )
+		);
+
+		fireEvent.keyDown( window, { key: 's', metaKey: true } );
+
+		expect( mutate ).toHaveBeenCalledWith(
+			{
+				defaultSiteDirectory: '/Users/example/Sites',
+			},
+			expect.any( Object )
+		);
+	} );
+
+	it( 'shows a loading save button without disabled styling while saving', async () => {
+		useSaveUserPreferencesMock.mockReturnValue( {
+			mutate,
+			isPending: true,
+		} as never );
+
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		fireEvent.click(
+			screen.getByRole( 'button', {
+				name: 'Default site directory: /Users/example/Studio. Choose a different folder.',
+			} )
+		);
+
+		await waitFor( () =>
+			expect(
+				screen.getByRole( 'button', {
+					name: 'Default site directory: /Users/example/Sites. Choose a different folder.',
+				} )
+			).toHaveTextContent( '/Users/example/Sites' )
+		);
+
+		const saveButton = screen.getByRole( 'button', { name: 'Saving settings' } );
+		expect( saveButton ).toBeEnabled();
+	} );
+
+	it( 'shows a save error when preferences fail to persist', async () => {
+		mutate.mockImplementationOnce( ( _patch, options ) => {
+			options.onError( new Error( 'Unable to install Studio CLI.' ) );
+		} );
+
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		fireEvent.click( screen.getByLabelText( 'Studio CLI for terminal' ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+
+		expect( screen.getByText( 'Unable to install Studio CLI.' ) ).toBeInTheDocument();
 	} );
 
 	it( 'confirms before navigating away with unsaved preferences', async () => {
@@ -433,13 +512,14 @@ describe( 'SettingsView', () => {
 		render( <SettingsView activeTab="usage" onTabChange={ vi.fn() } /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Usage' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Save' } ) ).toBeInTheDocument();
 		expect( screen.getByText( 'AI credits' ) ).toBeInTheDocument();
 		expect(
 			screen.getByText(
-				'AI credits are free and unlimited while Studio Code is in beta. Build, iterate, and experiment without watching a meter.'
+				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
 			)
 		).toBeInTheDocument();
-		expect( screen.getByText( 'Unlimited in beta' ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Unlimited in beta' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeInTheDocument();
 		expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
 		expect( useSnapshotUsageMock ).toHaveBeenCalledWith( 1 );
@@ -479,7 +559,9 @@ describe( 'SettingsView', () => {
 		expect( screen.queryByText( 'Preferred editor' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Preferred terminal' ) ).not.toBeInTheDocument();
 		expect(
-			screen.queryByRole( 'textbox', { name: 'Default site directory' } )
+			screen.queryByRole( 'button', {
+				name: 'Default site directory: /Users/example/Studio. Choose a different folder.',
+			} )
 		).not.toBeInTheDocument();
 		expect( screen.queryByLabelText( 'Studio CLI for terminal' ) ).not.toBeInTheDocument();
 	} );
@@ -524,6 +606,11 @@ describe( 'SettingsView', () => {
 		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
 
 		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		expect(
+			screen.getByText( 'Log in to use AI features and synchronize with live and preview sites.' )
+		).toBeInTheDocument();
+		expect( screen.queryByTestId( 'gravatar' ) ).not.toBeInTheDocument();
 
 		fireEvent.click( screen.getAllByRole( 'button', { name: 'Log in' } )[ 0 ] );
 

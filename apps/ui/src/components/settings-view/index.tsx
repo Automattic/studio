@@ -6,14 +6,7 @@ import { useBlocker } from '@tanstack/react-router';
 import { FormToggle } from '@wordpress/components';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { check, copy, file, Icon, moreHorizontal } from '@wordpress/icons';
-import {
-	Button,
-	IconButton,
-	InputControl,
-	InputLayout,
-	SelectControl,
-	Tooltip,
-} from '@wordpress/ui';
+import { Button, IconButton, SelectControl, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Gravatar } from '@/components/gravatar';
@@ -115,12 +108,10 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader( {
-	showSaveButton,
 	canSubmit,
 	isSaving,
 	onSave,
 }: {
-	showSaveButton: boolean;
 	canSubmit: boolean;
 	isSaving: boolean;
 	onSave: () => void;
@@ -132,9 +123,12 @@ function SettingsHeader( {
 			? styles.toggleSpacerFullscreen
 			: styles.toggleSpacer
 		: null;
+	const saveShortcutModifier = getPlatformModifierKeyLabel() === '⌘' ? '⌘' : '⌃';
+	const saveShortcutTooltip = sprintf( __( 'Save settings (%sS)' ), saveShortcutModifier );
+	const saveShortcutAria = saveShortcutModifier === '⌘' ? 'Meta+S' : 'Control+S';
 
 	return (
-		<div className={ clsx( styles.header, toggleSpacerClass && styles.headerWithSpacer ) }>
+		<div className={ styles.header }>
 			{ toggleSpacerClass ? (
 				<div className={ styles.headerStart }>
 					<span className={ toggleSpacerClass } aria-hidden="true" />
@@ -150,20 +144,30 @@ function SettingsHeader( {
 				</Tabs.List>
 			</div>
 			<div className={ styles.headerActions }>
-				{ showSaveButton ? (
-					<Button
-						type="button"
-						variant="solid"
-						tone="brand"
-						size="small"
-						disabled={ ! canSubmit }
-						loading={ isSaving }
-						loadingAnnouncement={ __( 'Saving settings' ) }
-						onClick={ onSave }
-					>
-						{ __( 'Save' ) }
-					</Button>
-				) : null }
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						render={
+							<span className={ styles.saveTooltipTrigger }>
+								<Button
+									type="button"
+									variant="solid"
+									tone="brand"
+									className={ styles.saveButton }
+									disabled={ ! canSubmit }
+									loading={ isSaving }
+									loadingAnnouncement={ __( 'Saving settings' ) }
+									aria-keyshortcuts={ saveShortcutAria }
+									onClick={ onSave }
+								>
+									{ __( 'Save' ) }
+								</Button>
+							</span>
+						}
+					/>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+						{ saveShortcutTooltip }
+					</Tooltip.Popup>
+				</Tooltip.Root>
 			</div>
 		</div>
 	);
@@ -261,9 +265,10 @@ function PreferenceSelect< TValue extends string >( {
 function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSelect: () => void } ) {
 	const chooseLabel = value
 		? sprintf( __( 'Default site directory: %s. Choose a different folder.' ), value )
-		: __( 'Choose a default site directory' );
+		: __( 'Default site directory: Choose a folder.' );
+	const placeholder = __( 'Choose a folder...' );
 
-	const handleKeyDown = ( event: KeyboardEvent< HTMLInputElement > ) => {
+	const handleKeyDown = ( event: KeyboardEvent< HTMLButtonElement > ) => {
 		if ( event.key === 'Enter' || event.key === ' ' ) {
 			event.preventDefault();
 			onSelect();
@@ -272,33 +277,18 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 
 	return (
 		<PreferenceRow title={ __( 'Default site directory' ) }>
-			<InputControl
-				hideLabelFromVision
-				className={ styles.pathInputControl }
-				label={ __( 'Default site directory' ) }
-				placeholder={ __( 'Choose a folder...' ) }
-				readOnly
-				value={ value }
+			<button
+				type="button"
+				className={ styles.pathPickerButton }
+				aria-label={ chooseLabel }
 				onClick={ onSelect }
 				onKeyDown={ handleKeyDown }
-				suffix={
-					<InputLayout.Slot padding="minimal">
-						<IconButton
-							type="button"
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ file }
-							label={ chooseLabel }
-							onClick={ ( event ) => {
-								event.preventDefault();
-								event.stopPropagation();
-								onSelect();
-							} }
-						/>
-					</InputLayout.Slot>
-				}
-			/>
+			>
+				<span className={ value ? styles.pathPickerValue : styles.pathPickerPlaceholder }>
+					{ value || placeholder }
+				</span>
+				<Icon icon={ file } className={ styles.pathPickerIcon } />
+			</button>
 		</PreferenceRow>
 	);
 }
@@ -357,15 +347,13 @@ function AccountInformationSection() {
 							isDark={ themeIsDark }
 							className={ styles.accountSummaryAvatar }
 						/>
-					) : (
-						<div className={ styles.accountSummaryAvatarPlaceholder } aria-hidden="true" />
-					) }
+					) : null }
 					<div className={ styles.accountSummaryDetails }>
 						<h2>{ user ? user.displayName : __( 'WordPress.com account' ) }</h2>
 						<p>
 							{ user
 								? user.email
-								: __( 'Log in to connect Studio with your WordPress.com account.' ) }
+								: __( 'Log in to use AI features and synchronize with live and preview sites.' ) }
 						</p>
 					</div>
 				</div>
@@ -385,7 +373,6 @@ function AccountInformationSection() {
 						type="button"
 						variant="outline"
 						tone="neutral"
-						size="small"
 						disabled={ isLoading }
 						loading={ login.isPending }
 						loadingAnnouncement={ __( 'Logging in' ) }
@@ -598,16 +585,15 @@ function UsageSettingsPanel() {
 			<section className={ styles.settingsPanelSection }>
 				<div className={ styles.settingsPanelHeader }>
 					<h2>{ __( 'Usage' ) }</h2>
-					<p>{ __( 'Track your preview site usage and Studio Code beta credits.' ) }</p>
+					<p>{ __( 'Track your preview site usage and Studio Code AI credits.' ) }</p>
 				</div>
 				<section className={ styles.usageSection }>
 					<div className={ styles.usageSectionHeader }>
 						<h2>{ __( 'AI credits' ) }</h2>
-						<span className={ styles.usageBadge }>{ __( 'Unlimited in beta' ) }</span>
 					</div>
 					<p>
 						{ __(
-							'AI credits are free and unlimited while Studio Code is in beta. Build, iterate, and experiment without watching a meter.'
+							'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
 						) }
 					</p>
 					<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
@@ -1009,11 +995,12 @@ export function SettingsView( {
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
 	const { data: appGlobals } = useAppGlobals();
-	const savePreferences = useSaveUserPreferences();
+	const { mutate: savePreferences, isPending: isSavingPreferences } = useSaveUserPreferences();
 	const savedColorSchemeRef = useRef< ColorScheme | null >( null );
 	const previewedColorSchemeRef = useRef( false );
 
 	const [ data, setData ] = useState< PreferencesFormData | null >( null );
+	const [ submitError, setSubmitError ] = useState< string | null >( null );
 	useEffect( () => {
 		if ( saved ) {
 			setData( toPreferencesFormData( saved ) );
@@ -1022,6 +1009,7 @@ export function SettingsView( {
 	}, [ saved ] );
 
 	const handleChange = useCallback( ( update: Partial< PreferencesFormData > ) => {
+		setSubmitError( null );
 		setData( ( prev ) => ( prev ? { ...prev, ...update } : prev ) );
 	}, [] );
 
@@ -1045,8 +1033,14 @@ export function SettingsView( {
 		};
 	}, [ connector ] );
 
-	const patch = data && saved ? diffPreferencesFromSaved( data, saved ) : {};
+	const patch = useMemo(
+		() => ( data && saved ? diffPreferencesFromSaved( data, saved ) : {} ),
+		[ data, saved ]
+	);
 	const isDirty = Object.keys( patch ).length > 0;
+	const canSubmit = isDirty;
+	const showNativePreferences = appGlobals?.platform !== 'browser';
+	const showStudioCliToggle = showNativePreferences && appGlobals?.isWindowsStore === false;
 
 	useBlocker( {
 		disabled: ! isDirty,
@@ -1062,31 +1056,17 @@ export function SettingsView( {
 		},
 	} );
 
-	if ( isLoading || ! data || ! saved ) {
-		return <div className={ styles.state }>{ __( 'Loading...' ) }</div>;
-	}
-
-	const canSubmit = isDirty && ! savePreferences.isPending;
-	const showSaveButton = activeTab === 'preferences';
-	const showNativePreferences = appGlobals?.platform !== 'browser';
-	const showStudioCliToggle = showNativePreferences && appGlobals?.isWindowsStore === false;
-
-	const handleSelectDefaultDirectory = async () => {
-		const directory = await connector.selectDefaultSiteDirectory( data.defaultSiteDirectory );
-		if ( directory ) {
-			handleChange( { defaultSiteDirectory: directory } );
-		}
-	};
-
-	const submitPreferences = () => {
-		if ( ! canSubmit || ! showSaveButton ) return;
+	const submitPreferences = useCallback( () => {
+		if ( ! canSubmit || isSavingPreferences ) return;
+		setSubmitError( null );
 		// Translations are loaded once at bootstrap; the rest of the app imports
 		// `__` from `@wordpress/i18n` directly and doesn't subscribe to locale
 		// changes. Reload the window so every string re-renders in the new
 		// language after a successful save.
 		const localeChanged = 'locale' in patch;
-		savePreferences.mutate( patch, {
+		savePreferences( patch, {
 			onSuccess: async () => {
+				setSubmitError( null );
 				if ( 'colorScheme' in patch && patch.colorScheme ) {
 					previewedColorSchemeRef.current = false;
 					savedColorSchemeRef.current = patch.colorScheme;
@@ -1100,7 +1080,40 @@ export function SettingsView( {
 					window.location.reload();
 				}
 			},
+			onError: ( error ) => {
+				setSubmitError( getErrorMessage( error ) ?? __( 'Unable to save settings.' ) );
+			},
 		} );
+	}, [ canSubmit, isSavingPreferences, patch, savePreferences ] );
+
+	useEffect( () => {
+		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
+			const isSaveShortcut =
+				event.key.toLowerCase() === 's' &&
+				( event.metaKey || event.ctrlKey ) &&
+				! event.altKey &&
+				! event.shiftKey;
+			if ( ! isSaveShortcut ) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			submitPreferences();
+		};
+
+		window.addEventListener( 'keydown', handleKeyDown );
+		return () => window.removeEventListener( 'keydown', handleKeyDown );
+	}, [ submitPreferences ] );
+
+	if ( isLoading || ! data || ! saved ) {
+		return <div className={ styles.state }>{ __( 'Loading...' ) }</div>;
+	}
+
+	const handleSelectDefaultDirectory = async () => {
+		const directory = await connector.selectDefaultSiteDirectory( data.defaultSiteDirectory );
+		if ( directory ) {
+			handleChange( { defaultSiteDirectory: directory } );
+		}
 	};
 
 	const handleSubmit = ( event: FormEvent ) => {
@@ -1119,9 +1132,8 @@ export function SettingsView( {
 				} }
 			>
 				<SettingsHeader
-					showSaveButton={ showSaveButton }
 					canSubmit={ canSubmit }
-					isSaving={ savePreferences.isPending }
+					isSaving={ isSavingPreferences }
 					onSave={ submitPreferences }
 				/>
 
@@ -1151,6 +1163,7 @@ export function SettingsView( {
 							<Tabs.Panel tabId="mcp">
 								<McpSettingsPanel />
 							</Tabs.Panel>
+							{ submitError ? <div className={ styles.errorMessage }>{ submitError }</div> : null }
 						</form>
 					</div>
 				</div>

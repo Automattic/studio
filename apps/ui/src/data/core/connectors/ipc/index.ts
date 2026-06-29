@@ -692,7 +692,10 @@ export function createIpcConnector(): Connector {
 			const response = ( await ipcApi.showOpenFolderDialog(
 				__( 'Select default site directory' ),
 				defaultPath
-			) ) as { path?: string } | null;
+			) ) as { path?: string } | string | null;
+			if ( typeof response === 'string' ) {
+				return response || null;
+			}
 			return response?.path ?? null;
 		},
 

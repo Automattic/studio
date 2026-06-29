@@ -1,7 +1,7 @@
 import { useIsMutating, useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { arrowUp, copy, external, Icon } from '@wordpress/icons';
-import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { Button, Field, IconButton, Select, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -44,16 +44,69 @@ type SyncUseCase =
 	| 'database'
 	| 'active-theme'
 	| 'all-themes'
-	| 'choose-themes'
 	| 'all-plugins'
-	| 'choose-plugins'
-	| 'uploads';
+	| 'customize';
+type SyncCustomThemeSelection = 'none' | 'active-theme' | 'all-themes' | 'choose-themes';
+type SyncCustomPluginSelection = 'none' | 'all-plugins' | 'choose-plugins';
+type SyncCustomOptions = {
+	database: boolean;
+	uploads: boolean;
+	themes: SyncCustomThemeSelection;
+	plugins: SyncCustomPluginSelection;
+};
+type SyncSelectItem< Value extends string > = {
+	value: Value;
+	label: string;
+};
+type SyncSelectSize = ComponentProps< typeof Select.Trigger >[ 'size' ];
 
 const EMPTY_SYNC_ITEMS: LiveSyncItems = {
 	source: 'local',
 	themes: [],
 	plugins: [],
 };
+
+const DEFAULT_CUSTOM_SYNC_OPTIONS: SyncCustomOptions = {
+	database: true,
+	uploads: false,
+	themes: 'none',
+	plugins: 'none',
+};
+
+function getSyncUseCaseItems(): SyncSelectItem< SyncUseCase >[] {
+	return [
+		{ value: 'everything', label: __( 'Whole site' ) },
+		{ value: 'database', label: __( 'Content and settings' ) },
+		{ value: 'active-theme', label: __( 'Active theme' ) },
+		{ value: 'all-themes', label: __( 'All themes' ) },
+		{ value: 'all-plugins', label: __( 'All plugins' ) },
+		{ value: 'customize', label: __( 'Customize...' ) },
+	];
+}
+
+function getThemeSelectionItems(): SyncSelectItem< SyncCustomThemeSelection >[] {
+	return [
+		{ value: 'none', label: __( 'Do not sync' ) },
+		{ value: 'active-theme', label: __( 'Active theme' ) },
+		{ value: 'all-themes', label: __( 'All themes' ) },
+		{ value: 'choose-themes', label: __( 'Choose themes' ) },
+	];
+}
+
+function getPluginSelectionItems(): SyncSelectItem< SyncCustomPluginSelection >[] {
+	return [
+		{ value: 'none', label: __( 'Do not sync' ) },
+		{ value: 'all-plugins', label: __( 'All plugins' ) },
+		{ value: 'choose-plugins', label: __( 'Choose plugins' ) },
+	];
+}
+
+function getSelectedSelectItem< Value extends string >(
+	items: SyncSelectItem< Value >[],
+	value: Value
+): SyncSelectItem< Value > {
+	return items.find( ( item ) => item.value === value ) ?? items[ 0 ];
+}
 
 type Props = {
 	site: SiteDetails;
@@ -93,6 +146,97 @@ function getSelectedPathIds( items: LiveSyncItem[] ): string[] {
 	return items.map( ( item ) => item.pathId ).filter( ( pathId ): pathId is string => !! pathId );
 }
 
+function getSpecificItemsSyncOptions( {
+	direction,
+	option,
+	items,
+}: {
+	direction: SyncDirection;
+	option: 'themes' | 'plugins';
+	items: LiveSyncItem[];
+} ): LiveSyncOptions {
+	if ( direction === 'pull' ) {
+		return {
+			optionsToSync: items.length ? [ 'paths' ] : [],
+			includePathList: getSelectedPathIds( items ),
+		};
+	}
+
+	return {
+		optionsToSync: items.length ? [ option ] : [],
+		specificSelectionPaths: items.map( ( item ) => item.path ),
+	};
+}
+
+function mergeSyncOptions( options: LiveSyncOptions[] ): LiveSyncOptions {
+	const optionsToSync = [ ...new Set( options.flatMap( ( option ) => option.optionsToSync ) ) ];
+	const specificSelectionPaths = [
+		...new Set( options.flatMap( ( option ) => option.specificSelectionPaths ?? [] ) ),
+	];
+	const includePathList = [
+		...new Set( options.flatMap( ( option ) => option.includePathList ?? [] ) ),
+	];
+
+	return {
+		optionsToSync,
+		specificSelectionPaths: specificSelectionPaths.length ? specificSelectionPaths : undefined,
+		includePathList: includePathList.length ? includePathList : undefined,
+	};
+}
+
+function getCustomSyncOptions( {
+	direction,
+	customOptions,
+	items,
+	activeThemePath,
+	selectedThemePaths,
+	selectedPluginPaths,
+}: {
+	direction: SyncDirection;
+	customOptions: SyncCustomOptions;
+	items: LiveSyncItems;
+	activeThemePath?: string;
+	selectedThemePaths: string[];
+	selectedPluginPaths: string[];
+} ): LiveSyncOptions {
+	const selectedOptions: LiveSyncOptions[] = [];
+
+	if ( customOptions.database ) {
+		selectedOptions.push( { optionsToSync: [ 'sqls' ] } );
+	}
+
+	if ( customOptions.uploads ) {
+		selectedOptions.push( { optionsToSync: [ 'uploads' ] } );
+	}
+
+	if ( customOptions.themes === 'all-themes' ) {
+		selectedOptions.push( { optionsToSync: [ 'themes' ] } );
+	} else if ( customOptions.themes === 'active-theme' ) {
+		const selectedItems = activeThemePath
+			? getSelectedItems( items.themes, [ activeThemePath ] )
+			: [];
+		selectedOptions.push(
+			getSpecificItemsSyncOptions( { direction, option: 'themes', items: selectedItems } )
+		);
+	} else if ( customOptions.themes === 'choose-themes' ) {
+		const selectedItems = getSelectedItems( items.themes, selectedThemePaths );
+		selectedOptions.push(
+			getSpecificItemsSyncOptions( { direction, option: 'themes', items: selectedItems } )
+		);
+	}
+
+	if ( customOptions.plugins === 'all-plugins' ) {
+		selectedOptions.push( { optionsToSync: [ 'plugins' ] } );
+	} else if ( customOptions.plugins === 'choose-plugins' ) {
+		const selectedItems = getSelectedItems( items.plugins, selectedPluginPaths );
+		selectedOptions.push(
+			getSpecificItemsSyncOptions( { direction, option: 'plugins', items: selectedItems } )
+		);
+	}
+
+	return mergeSyncOptions( selectedOptions );
+}
+
 function getSyncOptions( {
 	direction,
 	useCase,
@@ -100,6 +244,7 @@ function getSyncOptions( {
 	activeThemePath,
 	selectedThemePaths,
 	selectedPluginPaths,
+	customOptions,
 }: {
 	direction: SyncDirection;
 	useCase: SyncUseCase;
@@ -107,12 +252,11 @@ function getSyncOptions( {
 	activeThemePath?: string;
 	selectedThemePaths: string[];
 	selectedPluginPaths: string[];
+	customOptions: SyncCustomOptions;
 } ): LiveSyncOptions {
 	switch ( useCase ) {
 		case 'database':
 			return { optionsToSync: [ 'sqls' ] };
-		case 'uploads':
-			return { optionsToSync: [ 'uploads' ] };
 		case 'all-themes':
 			return { optionsToSync: [ 'themes' ] };
 		case 'all-plugins':
@@ -121,43 +265,21 @@ function getSyncOptions( {
 			const selectedItems = activeThemePath
 				? getSelectedItems( items.themes, [ activeThemePath ] )
 				: [];
-			if ( direction === 'pull' ) {
-				return {
-					optionsToSync: selectedItems.length ? [ 'paths' ] : [],
-					includePathList: getSelectedPathIds( selectedItems ),
-				};
-			}
-			return {
-				optionsToSync: selectedItems.length ? [ 'themes' ] : [],
-				specificSelectionPaths: selectedItems.map( ( item ) => item.path ),
-			};
+			return getSpecificItemsSyncOptions( {
+				direction,
+				option: 'themes',
+				items: selectedItems,
+			} );
 		}
-		case 'choose-themes': {
-			const selectedItems = getSelectedItems( items.themes, selectedThemePaths );
-			if ( direction === 'pull' ) {
-				return {
-					optionsToSync: selectedItems.length ? [ 'paths' ] : [],
-					includePathList: getSelectedPathIds( selectedItems ),
-				};
-			}
-			return {
-				optionsToSync: selectedItems.length ? [ 'themes' ] : [],
-				specificSelectionPaths: selectedItems.map( ( item ) => item.path ),
-			};
-		}
-		case 'choose-plugins': {
-			const selectedItems = getSelectedItems( items.plugins, selectedPluginPaths );
-			if ( direction === 'pull' ) {
-				return {
-					optionsToSync: selectedItems.length ? [ 'paths' ] : [],
-					includePathList: getSelectedPathIds( selectedItems ),
-				};
-			}
-			return {
-				optionsToSync: selectedItems.length ? [ 'plugins' ] : [],
-				specificSelectionPaths: selectedItems.map( ( item ) => item.path ),
-			};
-		}
+		case 'customize':
+			return getCustomSyncOptions( {
+				direction,
+				customOptions,
+				items,
+				activeThemePath,
+				selectedThemePaths,
+				selectedPluginPaths,
+			} );
 		case 'everything':
 		default:
 			return { optionsToSync: [ 'all' ] };
@@ -187,6 +309,85 @@ function pickInitialThemePath( site: SiteDetails, themes: LiveSyncItem[] ): stri
 
 function getItemCountLabel( count: number, source: string, itemType: string ): string {
 	return sprintf( __( '%1$d %2$s %3$s' ), count, source, itemType );
+}
+
+function getSelectedItemSummaryLabel( items: LiveSyncItem[], selectedPaths: string[] ): string {
+	const selectedItems = getSelectedItems( items, selectedPaths );
+	if ( selectedItems.length === 0 ) {
+		return __( 'selected items' );
+	}
+
+	if ( selectedItems.length === 1 ) {
+		return selectedItems[ 0 ].name;
+	}
+
+	return sprintf(
+		// translators: %d: number of selected themes or plugins.
+		__( '%d selected items' ),
+		selectedItems.length
+	);
+}
+
+function getCustomSyncSummary( {
+	customOptions,
+	items,
+	activeThemeName,
+	selectedThemePaths,
+	selectedPluginPaths,
+}: {
+	customOptions: SyncCustomOptions;
+	items: LiveSyncItems;
+	activeThemeName?: string;
+	selectedThemePaths: string[];
+	selectedPluginPaths: string[];
+} ): string {
+	const selections: string[] = [];
+
+	if ( customOptions.database ) {
+		selections.push( __( 'content and settings' ) );
+	}
+
+	if ( customOptions.themes === 'active-theme' ) {
+		selections.push(
+			activeThemeName ? sprintf( __( 'active theme (%s)' ), activeThemeName ) : __( 'active theme' )
+		);
+	} else if ( customOptions.themes === 'all-themes' ) {
+		selections.push( __( 'all themes' ) );
+	} else if ( customOptions.themes === 'choose-themes' ) {
+		selections.push(
+			sprintf(
+				// translators: %s: selected theme names or count.
+				__( 'themes: %s' ),
+				getSelectedItemSummaryLabel( items.themes, selectedThemePaths )
+			)
+		);
+	}
+
+	if ( customOptions.plugins === 'all-plugins' ) {
+		selections.push( __( 'all plugins' ) );
+	} else if ( customOptions.plugins === 'choose-plugins' ) {
+		selections.push(
+			sprintf(
+				// translators: %s: selected plugin names or count.
+				__( 'plugins: %s' ),
+				getSelectedItemSummaryLabel( items.plugins, selectedPluginPaths )
+			)
+		);
+	}
+
+	if ( customOptions.uploads ) {
+		selections.push( __( 'uploads' ) );
+	}
+
+	if ( selections.length === 0 ) {
+		return __( 'Nothing selected yet.' );
+	}
+
+	return sprintf(
+		// translators: %s: comma-separated list of selected sync areas.
+		__( 'Syncing %s.' ),
+		selections.join( ', ' )
+	);
 }
 
 function isLiveSyncPending(
@@ -323,6 +524,9 @@ export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props )
 	const [ syncFlyoutOpen, setSyncFlyoutOpen ] = useState( false );
 	const [ syncDirection, setSyncDirection ] = useState< SyncDirection >( 'push' );
 	const [ syncUseCase, setSyncUseCase ] = useState< SyncUseCase >( 'everything' );
+	const [ customSyncOptions, setCustomSyncOptions ] = useState< SyncCustomOptions >(
+		DEFAULT_CUSTOM_SYNC_OPTIONS
+	);
 	const [ selectedThemePaths, setSelectedThemePaths ] = useState< string[] >( [] );
 	const [ selectedPluginPaths, setSelectedPluginPaths ] = useState< string[] >( [] );
 
@@ -364,6 +568,7 @@ export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props )
 				activeThemePath: activeThemeItem?.path,
 				selectedThemePaths,
 				selectedPluginPaths,
+				customOptions: customSyncOptions,
 			} ),
 		[
 			syncDirection,
@@ -372,25 +577,31 @@ export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props )
 			activeThemeItem?.path,
 			selectedThemePaths,
 			selectedPluginPaths,
+			customSyncOptions,
 		]
 	);
-	const useCaseNeedsItems =
+	const syncUseCaseNeedsActiveTheme =
 		syncUseCase === 'active-theme' ||
-		syncUseCase === 'choose-themes' ||
-		syncUseCase === 'choose-plugins';
+		( syncUseCase === 'customize' && customSyncOptions.themes === 'active-theme' );
+	const syncUseCaseNeedsChosenThemes =
+		syncUseCase === 'customize' && customSyncOptions.themes === 'choose-themes';
+	const syncUseCaseNeedsChosenPlugins =
+		syncUseCase === 'customize' && customSyncOptions.plugins === 'choose-plugins';
+	const useCaseNeedsItems =
+		syncUseCaseNeedsActiveTheme || syncUseCaseNeedsChosenThemes || syncUseCaseNeedsChosenPlugins;
 	const canSubmit =
 		syncOptions.optionsToSync.length > 0 && ! ( useCaseNeedsItems && syncItemsQuery.isLoading );
 
 	useEffect( () => {
-		if ( syncUseCase !== 'active-theme' ) {
+		if ( ! syncUseCaseNeedsActiveTheme ) {
 			return;
 		}
 
 		setSelectedThemePaths( activeThemeItem ? [ activeThemeItem.path ] : [] );
-	}, [ activeThemeItem, syncUseCase ] );
+	}, [ activeThemeItem, syncUseCaseNeedsActiveTheme ] );
 
 	useEffect( () => {
-		if ( syncUseCase !== 'choose-themes' || selectedThemePaths.length > 0 ) {
+		if ( ! syncUseCaseNeedsChosenThemes || selectedThemePaths.length > 0 ) {
 			return;
 		}
 
@@ -398,7 +609,7 @@ export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props )
 		if ( initialThemePath ) {
 			setSelectedThemePaths( [ initialThemePath ] );
 		}
-	}, [ selectedThemePaths.length, site, syncItems.themes, syncUseCase ] );
+	}, [ selectedThemePaths.length, site, syncItems.themes, syncUseCaseNeedsChosenThemes ] );
 
 	const startSite = useStartSite();
 	const stopSite = useStopSite();
@@ -642,6 +853,7 @@ export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props )
 						<SyncFlyout
 							direction={ syncDirection }
 							useCase={ syncUseCase }
+							customOptions={ customSyncOptions }
 							items={ syncItems }
 							activeThemeName={
 								activeThemeItem?.name ?? site.themeDetails?.name ?? site.themeDetails?.slug
@@ -663,6 +875,7 @@ export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props )
 							disabled={ isSyncing }
 							onDirectionChange={ handleSyncDirectionChange }
 							onUseCaseChange={ setSyncUseCase }
+							onCustomOptionsChange={ setCustomSyncOptions }
 							onSelectedThemePathsChange={ setSelectedThemePaths }
 							onSelectedPluginPathsChange={ setSelectedPluginPaths }
 							onSubmit={ handleSyncSubmit }
@@ -687,6 +900,7 @@ export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props )
 function SyncFlyout( {
 	direction,
 	useCase,
+	customOptions,
 	items,
 	activeThemeName,
 	selectedThemePaths,
@@ -700,12 +914,14 @@ function SyncFlyout( {
 	disabled,
 	onDirectionChange,
 	onUseCaseChange,
+	onCustomOptionsChange,
 	onSelectedThemePathsChange,
 	onSelectedPluginPathsChange,
 	onSubmit,
 }: {
 	direction: SyncDirection;
 	useCase: SyncUseCase;
+	customOptions: SyncCustomOptions;
 	items: LiveSyncItems;
 	activeThemeName?: string;
 	selectedThemePaths: string[];
@@ -719,6 +935,7 @@ function SyncFlyout( {
 	disabled: boolean;
 	onDirectionChange: ( direction: SyncDirection ) => void;
 	onUseCaseChange: ( useCase: SyncUseCase ) => void;
+	onCustomOptionsChange: ( options: SyncCustomOptions ) => void;
 	onSelectedThemePathsChange: ( paths: string[] ) => void;
 	onSelectedPluginPathsChange: ( paths: string[] ) => void;
 	onSubmit: () => void;
@@ -735,6 +952,20 @@ function SyncFlyout( {
 		direction === 'push'
 			? __( 'Move selected Studio changes to your live site.' )
 			: __( 'Bring selected live-site changes into Studio.' );
+	const presetDescription = getSyncPresetDescription( {
+		useCase,
+		activeThemeName,
+		themeCountLabel,
+		pluginCountLabel,
+	} );
+	const useCaseItems = getSyncUseCaseItems();
+	const customSummary = getCustomSyncSummary( {
+		customOptions,
+		items,
+		activeThemeName,
+		selectedThemePaths,
+		selectedPluginPaths,
+	} );
 	const activeSyncActivity = isLiveSyncPending( activity ) ? activity : null;
 
 	return (
@@ -765,108 +996,54 @@ function SyncFlyout( {
 					{ __( 'Pull' ) }
 				</button>
 			</div>
-			<div className={ styles.syncDirectionHint }>{ directionHint }</div>
-			{ latestBackupLabel ? (
-				<div className={ styles.syncBackupMeta }>{ latestBackupLabel }</div>
-			) : null }
+			<div className={ styles.syncIntro }>
+				<div className={ styles.syncDirectionHint }>{ directionHint }</div>
+				{ latestBackupLabel ? (
+					<div className={ styles.syncBackupMeta }>{ latestBackupLabel }</div>
+				) : null }
+			</div>
 			{ activeSyncActivity ? <SyncProgressPanel activity={ activeSyncActivity } /> : null }
 			{ activity?.log?.length ? (
 				<SyncLog entries={ activity.log } active={ !! activeSyncActivity } />
 			) : null }
 
-			<div className={ styles.syncChoiceList }>
-				<SyncChoice
-					title={ __( 'Whole site' ) }
-					description={ __( 'Content, themes, plugins, and uploads' ) }
-					selected={ useCase === 'everything' }
-					onSelect={ () => onUseCaseChange( 'everything' ) }
+			<div className={ styles.syncPresetField }>
+				<SyncSelectControl
+					className={ styles.syncPresetControl }
+					label={ __( 'What to sync' ) }
+					items={ useCaseItems }
+					value={ useCase }
+					disabled={ disabled }
+					onChange={ onUseCaseChange }
 				/>
-				<SyncChoice
-					title={ __( 'Content and settings' ) }
-					description={ __( 'Posts, pages, menus, and options' ) }
-					selected={ useCase === 'database' }
-					onSelect={ () => onUseCaseChange( 'database' ) }
-				/>
-
-				<div className={ styles.syncChoiceGroup }>
-					<div className={ styles.syncChoiceGroupLabel }>{ __( 'Themes' ) }</div>
-					<div className={ styles.syncChoiceGroupOptions }>
-						<SyncChoice
-							title={ __( 'Active theme' ) }
-							description={ activeThemeName ?? __( 'Current site theme' ) }
-							selected={ useCase === 'active-theme' }
-							onSelect={ () => onUseCaseChange( 'active-theme' ) }
-							compact
-						/>
-						<SyncChoice
-							title={ __( 'All themes' ) }
-							description={ __( 'Every theme folder' ) }
-							selected={ useCase === 'all-themes' }
-							onSelect={ () => onUseCaseChange( 'all-themes' ) }
-							compact
-						/>
-						<SyncChoice
-							title={ __( 'Select themes' ) }
-							description={ themeCountLabel }
-							selected={ useCase === 'choose-themes' }
-							onSelect={ () => onUseCaseChange( 'choose-themes' ) }
-							compact
-						/>
-					</div>
-					{ useCase === 'choose-themes' ? (
-						<SyncItemChecklist
-							emptyLabel={ __( 'No themes found.' ) }
-							items={ items.themes }
-							selectedPaths={ selectedThemePaths }
-							isLoading={ isLoadingItems }
-							hasError={ hasItemLoadingError }
-							onSelectedPathsChange={ onSelectedThemePathsChange }
-						/>
-					) : null }
-				</div>
-
-				<div className={ styles.syncChoiceGroup }>
-					<div className={ styles.syncChoiceGroupLabel }>{ __( 'Plugins' ) }</div>
-					<div className={ styles.syncChoiceGroupOptions }>
-						<SyncChoice
-							title={ __( 'All plugins' ) }
-							description={ __( 'Every plugin folder' ) }
-							selected={ useCase === 'all-plugins' }
-							onSelect={ () => onUseCaseChange( 'all-plugins' ) }
-							compact
-						/>
-						<SyncChoice
-							title={ __( 'Select plugins' ) }
-							description={ pluginCountLabel }
-							selected={ useCase === 'choose-plugins' }
-							onSelect={ () => onUseCaseChange( 'choose-plugins' ) }
-							compact
-						/>
-					</div>
-					{ useCase === 'choose-plugins' ? (
-						<SyncItemChecklist
-							emptyLabel={ __( 'No plugins found.' ) }
-							items={ items.plugins }
-							selectedPaths={ selectedPluginPaths }
-							isLoading={ isLoadingItems }
-							hasError={ hasItemLoadingError }
-							onSelectedPathsChange={ onSelectedPluginPathsChange }
-						/>
-					) : null }
-				</div>
-
-				<SyncChoice
-					title={ __( 'Uploads' ) }
-					description={ __( 'Media library files' ) }
-					selected={ useCase === 'uploads' }
-					onSelect={ () => onUseCaseChange( 'uploads' ) }
-				/>
+				<div className={ styles.syncPresetDescription }>{ presetDescription }</div>
 			</div>
 
+			{ useCase === 'customize' ? (
+				<SyncCustomizeControls
+					customOptions={ customOptions }
+					activeThemeName={ activeThemeName }
+					themeCountLabel={ themeCountLabel }
+					pluginCountLabel={ pluginCountLabel }
+					items={ items }
+					selectedThemePaths={ selectedThemePaths }
+					selectedPluginPaths={ selectedPluginPaths }
+					isLoadingItems={ isLoadingItems }
+					hasItemLoadingError={ hasItemLoadingError }
+					disabled={ disabled }
+					onCustomOptionsChange={ onCustomOptionsChange }
+					onSelectedThemePathsChange={ onSelectedThemePathsChange }
+					onSelectedPluginPathsChange={ onSelectedPluginPathsChange }
+				/>
+			) : null }
+
 			<div className={ styles.syncFooter }>
+				{ useCase === 'customize' ? (
+					<div className={ styles.syncSummary }>{ customSummary }</div>
+				) : null }
 				{ ! canSubmit ? (
 					<div className={ styles.syncValidationMessage }>
-						{ useCase === 'choose-themes' || useCase === 'choose-plugins'
+						{ useCase === 'customize'
 							? __( 'Choose at least one item.' )
 							: __( 'Choose what to sync.' ) }
 					</div>
@@ -887,6 +1064,83 @@ function SyncFlyout( {
 				</Button>
 			</div>
 		</div>
+	);
+}
+
+function getSyncPresetDescription( {
+	useCase,
+	activeThemeName,
+	themeCountLabel,
+	pluginCountLabel,
+}: {
+	useCase: SyncUseCase;
+	activeThemeName?: string;
+	themeCountLabel: string;
+	pluginCountLabel: string;
+} ): string {
+	switch ( useCase ) {
+		case 'database':
+			return __( 'Posts, pages, menus, and options.' );
+		case 'active-theme':
+			return activeThemeName
+				? sprintf( __( 'Current theme: %s.' ), activeThemeName )
+				: __( 'Current site theme.' );
+		case 'all-themes':
+			return themeCountLabel;
+		case 'all-plugins':
+			return pluginCountLabel;
+		case 'customize':
+			return __( 'Choose a custom mix of content, files, themes, plugins, and uploads.' );
+		case 'everything':
+		default:
+			return __( 'Content, themes, plugins, and uploads.' );
+	}
+}
+
+function SyncSelectControl< Value extends string >( {
+	className,
+	label,
+	hideLabelFromVision = false,
+	size,
+	items,
+	value,
+	disabled,
+	onChange,
+}: {
+	className: string;
+	label: string;
+	hideLabelFromVision?: boolean;
+	size?: SyncSelectSize;
+	items: SyncSelectItem< Value >[];
+	value: Value;
+	disabled: boolean;
+	onChange: ( value: Value ) => void;
+} ) {
+	const selectedItem = getSelectedSelectItem( items, value );
+
+	return (
+		<Field.Root className={ className }>
+			<Field.Label hideFromVision={ hideLabelFromVision }>{ label }</Field.Label>
+			<Select.Root
+				items={ items }
+				value={ selectedItem }
+				disabled={ disabled }
+				onValueChange={ ( item ) => {
+					if ( item?.value ) {
+						onChange( item.value );
+					}
+				} }
+			>
+				<Select.Trigger size={ size }>{ ( item ) => item?.label }</Select.Trigger>
+				<Select.Popup className={ styles.syncSelectPopup }>
+					{ items.map( ( item ) => (
+						<Select.Item key={ item.value } value={ item } label={ item.label } size={ size }>
+							{ item.label }
+						</Select.Item>
+					) ) }
+				</Select.Popup>
+			</Select.Root>
+		</Field.Root>
 	);
 }
 
@@ -1022,34 +1276,150 @@ function SyncLogRows( {
 	);
 }
 
-function SyncChoice( {
+function SyncCustomizeControls( {
+	customOptions,
+	activeThemeName,
+	themeCountLabel,
+	pluginCountLabel,
+	items,
+	selectedThemePaths,
+	selectedPluginPaths,
+	isLoadingItems,
+	hasItemLoadingError,
+	disabled,
+	onCustomOptionsChange,
+	onSelectedThemePathsChange,
+	onSelectedPluginPathsChange,
+}: {
+	customOptions: SyncCustomOptions;
+	activeThemeName?: string;
+	themeCountLabel: string;
+	pluginCountLabel: string;
+	items: LiveSyncItems;
+	selectedThemePaths: string[];
+	selectedPluginPaths: string[];
+	isLoadingItems: boolean;
+	hasItemLoadingError: boolean;
+	disabled: boolean;
+	onCustomOptionsChange: ( options: SyncCustomOptions ) => void;
+	onSelectedThemePathsChange: ( paths: string[] ) => void;
+	onSelectedPluginPathsChange: ( paths: string[] ) => void;
+} ) {
+	const updateCustomOptions = ( patch: Partial< SyncCustomOptions > ) => {
+		onCustomOptionsChange( { ...customOptions, ...patch } );
+	};
+	const themeSelectionItems = getThemeSelectionItems();
+	const pluginSelectionItems = getPluginSelectionItems();
+
+	return (
+		<div className={ styles.syncCustomPanel }>
+			<SyncCustomToggle
+				title={ __( 'Content and settings' ) }
+				description={ __( 'Posts, pages, menus, and options' ) }
+				checked={ customOptions.database }
+				disabled={ disabled }
+				onChange={ ( checked ) => updateCustomOptions( { database: checked } ) }
+			/>
+
+			<div className={ styles.syncCustomSelectField }>
+				<span className={ styles.syncCustomSelectText }>
+					<span className={ styles.syncCustomTitle }>{ __( 'Themes' ) }</span>
+					<span className={ styles.syncCustomDescription }>
+						{ activeThemeName
+							? sprintf( __( 'Active theme: %s' ), activeThemeName )
+							: themeCountLabel }
+					</span>
+				</span>
+				<SyncSelectControl
+					className={ styles.syncCompactSelectControl }
+					label={ __( 'Theme sync option' ) }
+					hideLabelFromVision
+					size="compact"
+					items={ themeSelectionItems }
+					value={ customOptions.themes }
+					disabled={ disabled }
+					onChange={ ( themes ) => {
+						updateCustomOptions( { themes } );
+					} }
+				/>
+			</div>
+			{ customOptions.themes === 'choose-themes' ? (
+				<SyncItemChecklist
+					emptyLabel={ __( 'No themes found.' ) }
+					items={ items.themes }
+					selectedPaths={ selectedThemePaths }
+					isLoading={ isLoadingItems }
+					hasError={ hasItemLoadingError }
+					onSelectedPathsChange={ onSelectedThemePathsChange }
+				/>
+			) : null }
+
+			<div className={ styles.syncCustomSelectField }>
+				<span className={ styles.syncCustomSelectText }>
+					<span className={ styles.syncCustomTitle }>{ __( 'Plugins' ) }</span>
+					<span className={ styles.syncCustomDescription }>{ pluginCountLabel }</span>
+				</span>
+				<SyncSelectControl
+					className={ styles.syncCompactSelectControl }
+					label={ __( 'Plugin sync option' ) }
+					hideLabelFromVision
+					size="compact"
+					items={ pluginSelectionItems }
+					value={ customOptions.plugins }
+					disabled={ disabled }
+					onChange={ ( plugins ) => {
+						updateCustomOptions( { plugins } );
+					} }
+				/>
+			</div>
+			{ customOptions.plugins === 'choose-plugins' ? (
+				<SyncItemChecklist
+					emptyLabel={ __( 'No plugins found.' ) }
+					items={ items.plugins }
+					selectedPaths={ selectedPluginPaths }
+					isLoading={ isLoadingItems }
+					hasError={ hasItemLoadingError }
+					onSelectedPathsChange={ onSelectedPluginPathsChange }
+				/>
+			) : null }
+
+			<SyncCustomToggle
+				title={ __( 'Uploads' ) }
+				description={ __( 'Media library files' ) }
+				checked={ customOptions.uploads }
+				disabled={ disabled }
+				onChange={ ( checked ) => updateCustomOptions( { uploads: checked } ) }
+			/>
+		</div>
+	);
+}
+
+function SyncCustomToggle( {
 	title,
 	description,
-	selected,
-	compact = false,
-	onSelect,
+	checked,
+	disabled,
+	onChange,
 }: {
 	title: string;
-	description?: string;
-	selected: boolean;
-	compact?: boolean;
-	onSelect: () => void;
+	description: string;
+	checked: boolean;
+	disabled: boolean;
+	onChange: ( checked: boolean ) => void;
 } ) {
 	return (
-		<button
-			type="button"
-			className={ clsx( styles.syncChoice, compact && styles.syncChoice_compact ) }
-			aria-pressed={ selected }
-			onClick={ onSelect }
-		>
-			<span className={ styles.syncChoiceMark } aria-hidden="true" />
-			<span className={ styles.syncChoiceText }>
-				<span className={ styles.syncChoiceTitle }>{ title }</span>
-				{ description ? (
-					<span className={ styles.syncChoiceDescription }>{ description }</span>
-				) : null }
+		<label className={ styles.syncCustomToggle }>
+			<input
+				type="checkbox"
+				checked={ checked }
+				disabled={ disabled }
+				onChange={ ( event ) => onChange( event.target.checked ) }
+			/>
+			<span className={ styles.syncCustomToggleText }>
+				<span className={ styles.syncCustomTitle }>{ title }</span>
+				<span className={ styles.syncCustomDescription }>{ description }</span>
 			</span>
-		</button>
+		</label>
 	);
 }
 

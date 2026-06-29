@@ -6,7 +6,53 @@
 }
 
 .popup {
+	--site-dropdown-radius: var(--wpds-border-radius-lg);
+	--site-dropdown-menu-surface: var(--wpds-color-bg-interactive-neutral-strong-active);
+	--site-dropdown-menu-surface-active: var(--wpds-color-bg-interactive-neutral-strong);
+	--site-dropdown-menu-foreground: var(--wpds-color-fg-interactive-neutral-strong);
+	--site-dropdown-menu-foreground-weak: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 72%,
+		transparent
+	);
+	--site-dropdown-menu-divider: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 14%,
+		transparent
+	);
+	--site-dropdown-menu-hover: var(--site-dropdown-menu-surface-active);
+	--wpds-color-bg-surface-neutral: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 6%,
+		var(--site-dropdown-menu-surface)
+	);
+	--wpds-color-bg-surface-neutral-strong: var(--site-dropdown-menu-surface);
+	--wpds-color-bg-surface-neutral-weak: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 9%,
+		var(--site-dropdown-menu-surface)
+	);
+	--wpds-color-bg-interactive-neutral-weak-active: var(--site-dropdown-menu-hover);
+	--wpds-color-fg-content-neutral: var(--site-dropdown-menu-foreground);
+	--wpds-color-fg-content-neutral-weak: var(--site-dropdown-menu-foreground-weak);
+	--wpds-color-fg-interactive-neutral: var(--site-dropdown-menu-foreground);
+	--wpds-color-fg-interactive-neutral-active: var(--site-dropdown-menu-foreground);
+	--wpds-color-fg-interactive-neutral-weak: var(--site-dropdown-menu-foreground-weak);
+	--wpds-color-stroke-interactive-neutral: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground) 44%,
+		transparent
+	);
+	--wpds-color-stroke-surface-neutral: var(--site-dropdown-menu-divider);
+	--wpds-color-stroke-surface-neutral-weak: var(--site-dropdown-menu-divider);
+
 	width: min(336px, calc(100vw - 32px));
 	padding: 0;
+	border: 0;
+	border-radius: var(--site-dropdown-radius);
+	background: var(--site-dropdown-menu-surface);
+	color: var(--site-dropdown-menu-foreground);
 	gap: 0;
+	overflow: visible;
+	box-shadow: 0 18px 44px rgb(0 0 0 / 24%);
 }

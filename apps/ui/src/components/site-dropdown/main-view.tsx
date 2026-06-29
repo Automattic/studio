@@ -621,7 +621,8 @@ export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props )
 	const isStopping = useIsSiteStopping( site.id );
 	const isLocalTransitioning = isStarting || isStopping;
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
-	const isPreviewPending = publishPreviewSite.isPending;
+	const isPreviewActivityPending = activity?.kind === 'pending' && activity.direction === 'preview';
+	const isPreviewPending = publishPreviewSite.isPending || isPreviewActivityPending;
 	const liveSyncActivity = isLiveSyncPending( activity ) ? activity : null;
 	const isLiveSyncActivityPending = !! liveSyncActivity;
 	// Preview / push / pull all mutate the same local site; running them

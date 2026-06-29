@@ -79,6 +79,12 @@ const api: IpcApi = {
 	getDefaultSiteDirectory: () => ipcRendererInvoke( 'getDefaultSiteDirectory' ),
 	saveDefaultSiteDirectory: ( directory ) =>
 		ipcRendererInvoke( 'saveDefaultSiteDirectory', directory ),
+	getPluginDevelopmentEnabled: () => ipcRendererInvoke( 'getPluginDevelopmentEnabled' ),
+	savePluginDevelopmentEnabled: ( enabled ) =>
+		ipcRendererInvoke( 'savePluginDevelopmentEnabled', enabled ),
+	getWordPressOrgAccount: () => ipcRendererInvoke( 'getWordPressOrgAccount' ),
+	loginToWordPressOrg: () => ipcRendererInvoke( 'loginToWordPressOrg' ),
+	logoutFromWordPressOrg: () => ipcRendererInvoke( 'logoutFromWordPressOrg' ),
 	showUserSettings: ( tabName ) => ipcRendererInvoke( 'showUserSettings', tabName ),
 	startServer: ( id ) => ipcRendererInvoke( 'startServer', id ),
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
@@ -168,6 +174,8 @@ const api: IpcApi = {
 	extractBlueprintBundle: ( zipFilePath ) =>
 		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
 	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
+	showDevelopmentProjectContextMenu: ( context ) =>
+		ipcRendererSend( 'showDevelopmentProjectContextMenu', context ),
 	showSiteContextMenu: ( context ) => ipcRendererSend( 'showSiteContextMenu', context ),
 	setWindowControlVisibility: ( visible ) =>
 		ipcRendererInvoke( 'setWindowControlVisibility', visible ),
@@ -216,6 +224,48 @@ const api: IpcApi = {
 	setSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
 	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
+	listDevelopmentProjects: () => ipcRendererInvoke( 'listDevelopmentProjects' ),
+	listRemoteDevelopmentPlugins: () => ipcRendererInvoke( 'listRemoteDevelopmentPlugins' ),
+	addDevelopmentProject: ( projectPath ) =>
+		ipcRendererInvoke( 'addDevelopmentProject', projectPath ),
+	removeDevelopmentProject: ( projectId ) =>
+		ipcRendererInvoke( 'removeDevelopmentProject', projectId ),
+	refreshDevelopmentProject: ( projectId ) =>
+		ipcRendererInvoke( 'refreshDevelopmentProject', projectId ),
+	cloneRemoteDevelopmentPlugin: ( slug ) =>
+		ipcRendererInvoke( 'cloneRemoteDevelopmentPlugin', slug ),
+	getDevelopmentProjectVersionState: ( projectId ) =>
+		ipcRendererInvoke( 'getDevelopmentProjectVersionState', projectId ),
+	listDevelopmentProjectReleaseTags: ( projectId ) =>
+		ipcRendererInvoke( 'listDevelopmentProjectReleaseTags', projectId ),
+	switchDevelopmentProjectReleaseTag: ( projectId, tagName ) =>
+		ipcRendererInvoke( 'switchDevelopmentProjectReleaseTag', projectId, tagName ),
+	listDevelopmentProjectFiles: ( projectId ) =>
+		ipcRendererInvoke( 'listDevelopmentProjectFiles', projectId ),
+	addDevelopmentProjectIgnorePattern: ( projectId, pattern ) =>
+		ipcRendererInvoke( 'addDevelopmentProjectIgnorePattern', projectId, pattern ),
+	removeDevelopmentProjectIgnorePattern: ( projectId, pattern ) =>
+		ipcRendererInvoke( 'removeDevelopmentProjectIgnorePattern', projectId, pattern ),
+	readDevelopmentProjectFile: ( projectId, relativePath ) =>
+		ipcRendererInvoke( 'readDevelopmentProjectFile', projectId, relativePath ),
+	writeDevelopmentProjectFile: ( projectId, relativePath, content ) =>
+		ipcRendererInvoke( 'writeDevelopmentProjectFile', projectId, relativePath, content ),
+	applyDevelopmentProjectAiPatch: ( projectId, patch ) =>
+		ipcRendererInvoke( 'applyDevelopmentProjectAiPatch', projectId, patch ),
+	runDevelopmentProjectAiReview: ( projectId, options ) =>
+		ipcRendererInvoke( 'runDevelopmentProjectAiReview', projectId, options ),
+	loadDevelopmentProjectChat: ( projectId ) =>
+		ipcRendererInvoke( 'loadDevelopmentProjectChat', projectId ),
+	saveDevelopmentProjectChat: ( projectId, messages ) =>
+		ipcRendererInvoke( 'saveDevelopmentProjectChat', projectId, messages ),
+	runDevelopmentProjectValidation: ( projectId ) =>
+		ipcRendererInvoke( 'runDevelopmentProjectValidation', projectId ),
+	getDevelopmentProjectValidationState: ( projectId ) =>
+		ipcRendererInvoke( 'getDevelopmentProjectValidationState', projectId ),
+	bumpDevelopmentProjectVersion: ( projectId, bump ) =>
+		ipcRendererInvoke( 'bumpDevelopmentProjectVersion', projectId, bump ),
+	startDevelopmentProjectPlayground: ( projectId, options ) =>
+		ipcRendererInvoke( 'startDevelopmentProjectPlayground', projectId, options ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

@@ -20,6 +20,8 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
+import { DevelopmentProjectContent } from 'src/modules/plugin-development/components/development-project-content';
+import { useDevelopmentProjects } from 'src/modules/plugin-development/hooks/use-development-projects';
 import { UserSettings } from 'src/modules/user-settings';
 import { useKonamiCode } from 'src/modules/wapuu-world/use-konami-code';
 import { WapuuWorldGame } from 'src/modules/wapuu-world/wapuu-world-game';
@@ -41,7 +43,22 @@ export default function App() {
 	);
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 	const { sites: localSites, loadingSites } = useSiteDetails();
-	const isEmpty = ! loadingSites && ! localSites.length;
+	const {
+		selectedProjectId,
+		selectedRemotePluginSlug,
+		projects,
+		loadingProjects,
+		isPluginDevelopmentEnabled,
+	} = useDevelopmentProjects();
+	const isEmpty =
+		! loadingSites &&
+		! loadingProjects &&
+		! localSites.length &&
+		! projects.length &&
+		! isPluginDevelopmentEnabled;
+	const shouldShowProjectContent =
+		isPluginDevelopmentEnabled &&
+		( Boolean( selectedProjectId ) || Boolean( selectedRemotePluginSlug ) || ! localSites.length );
 	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
 	const { client } = useAuth();
 	const dispatch = useAppDispatch();
@@ -120,7 +137,7 @@ export default function App() {
 							data-testid="site-content"
 							className="bg-frame text-frame-text h-full flex-grow rounded-chrome overflow-hidden z-10"
 						>
-							<SiteContentTabs />
+							{ shouldShowProjectContent ? <DevelopmentProjectContent /> : <SiteContentTabs /> }
 						</main>
 					</HStack>
 				</VStack>

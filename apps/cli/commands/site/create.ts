@@ -87,6 +87,7 @@ import { ValidationError } from 'cli/lib/validation-error';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 const logger = new Logger< LoggerAction >();
 
@@ -109,6 +110,7 @@ export type CreateCommandOptions = {
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
+	mounts?: ServerConfig[ 'mounts' ];
 };
 
 export async function runCommand(
@@ -365,6 +367,7 @@ export async function runCommand(
 					blueprint,
 					blueprintUri,
 					siteLanguage,
+					mounts: options.mounts,
 				} );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
@@ -408,6 +411,7 @@ export async function runCommand(
 						blueprint,
 						blueprintUri,
 						siteLanguage,
+						mounts: options.mounts,
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 
@@ -461,6 +465,32 @@ function stripWpConfigDbConstants( sitePath: string ): void {
 	if ( hasDefaultDbBlock( content ) ) {
 		fs.writeFileSync( wpConfigPath, removeDbConstants( content ), 'utf-8' );
 	}
+}
+
+function parseMountsJson( mountsJson: string | undefined ): ServerConfig[ 'mounts' ] {
+	if ( ! mountsJson ) {
+		return undefined;
+	}
+
+	try {
+		const mounts = JSON.parse( mountsJson );
+		if (
+			Array.isArray( mounts ) &&
+			mounts.every(
+				( mount ) =>
+					mount &&
+					typeof mount === 'object' &&
+					typeof mount.hostPath === 'string' &&
+					typeof mount.vfsPath === 'string'
+			)
+		) {
+			return mounts;
+		}
+	} catch {
+		// Fall through to the user-facing CLI error below.
+	}
+
+	throw new LoggerError( __( 'Invalid Playground mount configuration.' ) );
 }
 
 function readBlueprint( blueprintPath: string ) {
@@ -599,6 +629,15 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					describe: __( 'Skip printing site URL and admin credentials after creating' ),
 					default: false,
+				} )
+				.option( 'mounts-json', {
+					type: 'string',
+					hidden: true,
+				} )
+				.option( 'auto-start', {
+					type: 'boolean',
+					default: true,
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -798,6 +837,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				noStart: ! argv.start,
 				skipBrowser: !! argv.skipBrowser,
 				skipLogDetails: !! argv.skipLogDetails,
+				mounts: parseMountsJson( argv.mountsJson ),
 			};
 
 			if ( argv.blueprint ) {

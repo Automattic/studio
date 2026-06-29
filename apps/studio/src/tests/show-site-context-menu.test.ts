@@ -3,7 +3,7 @@
  */
 import { IpcMainInvokeEvent, BrowserWindow, MenuItem } from 'electron';
 import { vi } from 'vitest';
-import { showSiteContextMenu } from 'src/ipc-handlers';
+import { showDevelopmentProjectContextMenu, showSiteContextMenu } from 'src/ipc-handlers';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 
 // Track menu items and menu instance
@@ -396,5 +396,82 @@ describe( 'showSiteContextMenu', () => {
 
 			expect( mockMenu.popup ).toHaveBeenCalledWith( { window: mockWindow } );
 		} );
+	} );
+} );
+
+describe( 'showDevelopmentProjectContextMenu', () => {
+	let mockWindow: Partial< BrowserWindow >;
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		menuItems = [];
+		mockWindow = {
+			isDestroyed: vi.fn().mockReturnValue( false ),
+		};
+
+		vi.mocked( BrowserWindow.fromWebContents, { partial: true } ).mockReturnValue(
+			mockWindow as BrowserWindow
+		);
+	} );
+
+	it( 'shows remove from ignore list for ignored files', () => {
+		showDevelopmentProjectContextMenu( mockIpcMainInvokeEvent, {
+			projectId: 'project-1',
+			path: 'assets/logo.svg',
+			kind: 'file',
+			ignored: true,
+			ignoredBy: 'assets/**',
+			x: 12.3,
+			y: 34.9,
+		} );
+
+		const removeItem = menuItems.find( ( item ) => item.label === 'Remove from ignore list' );
+		expect( removeItem ).toBeDefined();
+		expect( removeItem?.enabled ).toBe( true );
+
+		removeItem?.click?.();
+
+		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
+			mockWindow,
+			'development-project-context-menu-action',
+			{
+				action: 'remove-ignore',
+				projectId: 'project-1',
+				path: 'assets/logo.svg',
+				kind: 'file',
+				ignoredBy: 'assets/**',
+			}
+		);
+		expect( mockMenu.popup ).toHaveBeenCalledWith( {
+			window: mockWindow,
+			x: 12,
+			y: 35,
+		} );
+	} );
+
+	it( 'shows ignore folder for unignored directories', () => {
+		showDevelopmentProjectContextMenu( mockIpcMainInvokeEvent, {
+			projectId: 'project-1',
+			path: 'assets',
+			kind: 'directory',
+		} );
+
+		const ignoreItem = menuItems.find( ( item ) => item.label === 'Ignore folder' );
+		expect( ignoreItem ).toBeDefined();
+		expect( ignoreItem?.enabled ).toBe( true );
+
+		ignoreItem?.click?.();
+
+		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
+			mockWindow,
+			'development-project-context-menu-action',
+			{
+				action: 'add-ignore',
+				projectId: 'project-1',
+				path: 'assets',
+				kind: 'directory',
+				ignoredBy: undefined,
+			}
+		);
 	} );
 } );

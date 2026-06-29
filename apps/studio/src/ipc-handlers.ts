@@ -10,6 +10,7 @@ import {
 	shell,
 	type IpcMainInvokeEvent,
 	Notification,
+	type PopupOptions,
 	SaveDialogOptions,
 } from 'electron';
 import fs from 'fs';
@@ -220,12 +221,17 @@ export {
 export {
 	getColorScheme,
 	getInstalledAppsAndTerminals,
+	getPluginDevelopmentEnabled,
+	getWordPressOrgAccount,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
 	getWapuuScore,
+	loginToWordPressOrg,
+	logoutFromWordPressOrg,
 	previewColorScheme,
 	saveColorScheme,
+	savePluginDevelopmentEnabled,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -237,6 +243,31 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
+
+export {
+	addDevelopmentProject,
+	addDevelopmentProjectIgnorePattern,
+	applyDevelopmentProjectAiPatch,
+	bumpDevelopmentProjectVersion,
+	cloneRemoteDevelopmentPlugin,
+	getDevelopmentProjectValidationState,
+	getDevelopmentProjectVersionState,
+	listDevelopmentProjectFiles,
+	listDevelopmentProjects,
+	listDevelopmentProjectReleaseTags,
+	listRemoteDevelopmentPlugins,
+	loadDevelopmentProjectChat,
+	readDevelopmentProjectFile,
+	refreshDevelopmentProject,
+	removeDevelopmentProjectIgnorePattern,
+	removeDevelopmentProject,
+	runDevelopmentProjectAiReview,
+	runDevelopmentProjectValidation,
+	saveDevelopmentProjectChat,
+	startDevelopmentProjectPlayground,
+	switchDevelopmentProjectReleaseTag,
+	writeDevelopmentProjectFile,
+} from 'src/modules/plugin-development/lib/ipc-handlers';
 
 function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
@@ -802,6 +833,8 @@ export async function createSite(
 		adminPassword?: string;
 		adminEmail?: string;
 		noStart?: boolean;
+		mounts?: Parameters< typeof SiteServer.create >[ 0 ][ 'mounts' ];
+		autoStart?: Parameters< typeof SiteServer.create >[ 0 ][ 'autoStart' ];
 	} = {}
 ): Promise< SiteDetails > {
 	const {
@@ -818,6 +851,8 @@ export async function createSite(
 		adminPassword,
 		adminEmail,
 		noStart = false,
+		mounts,
+		autoStart,
 	} = config;
 
 	const siteId = providedSiteId || crypto.randomUUID();
@@ -853,6 +888,8 @@ export async function createSite(
 				adminPassword,
 				adminEmail,
 				noStart,
+				mounts,
+				autoStart,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
@@ -2144,6 +2181,57 @@ export function showSiteContextMenu(
 	if ( window ) {
 		menu.popup( { window } );
 	}
+}
+
+export function showDevelopmentProjectContextMenu(
+	event: IpcMainInvokeEvent,
+	context: {
+		projectId: string;
+		path: string;
+		kind: 'file' | 'directory';
+		ignored?: boolean;
+		ignoredBy?: string;
+		x?: number;
+		y?: number;
+	}
+) {
+	const window = BrowserWindow.fromWebContents( event.sender );
+	if ( ! window ) {
+		return;
+	}
+
+	const isIgnored = Boolean( context.ignored );
+	const menu = new Menu();
+
+	menu.append(
+		new MenuItem( {
+			label: isIgnored
+				? __( 'Remove from ignore list' )
+				: context.kind === 'directory'
+				? __( 'Ignore folder' )
+				: __( 'Ignore file' ),
+			enabled: ! isIgnored || Boolean( context.ignoredBy ),
+			click: () => {
+				sendIpcEventToRendererWithWindow( window, 'development-project-context-menu-action', {
+					action: isIgnored ? 'remove-ignore' : 'add-ignore',
+					projectId: context.projectId,
+					path: context.path,
+					kind: context.kind,
+					ignoredBy: context.ignoredBy,
+				} );
+			},
+		} )
+	);
+
+	const popupOptions: PopupOptions = { window };
+	if ( typeof context.x === 'number' ) {
+		popupOptions.x = Math.round( context.x );
+	}
+	if ( typeof context.y === 'number' ) {
+		popupOptions.y = Math.round( context.y );
+	}
+
+	menu.popup( popupOptions );
 }
 
 /**

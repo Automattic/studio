@@ -52,6 +52,7 @@ export interface UserData {
 	betaFeatures?: BetaFeatures;
 	quitSitesBehavior?: QuitSitesBehavior;
 	defaultSiteDirectory?: string;
+	pluginDevelopmentEnabled?: boolean;
 	/** @deprecated Used only for migration to cliUserUninstalled. Do not write; remove after one release cycle. */
 	cliAutoInstalled?: boolean;
 	cliUserUninstalled?: boolean;

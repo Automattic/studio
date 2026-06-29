@@ -1,6 +1,7 @@
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { z } from 'zod';
 import { executeCliCommand } from './execute-command';
+import type { PlaygroundMount } from './cli-site-creator';
 
 const cliEventSchema = z.object( {
 	action: z.enum( SiteCommandLoggerAction ),
@@ -24,12 +25,25 @@ export class CliServerProcess {
 		this.url = siteUrl;
 	}
 
-	async start(): Promise< void > {
+	async start(
+		options: { mounts?: PlaygroundMount[]; autoStart?: boolean } = {}
+	): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
-			const [ emitter ] = executeCliCommand(
-				[ 'site', 'start', '--path', this.sitePath, '--skip-browser', '--skip-log-details' ],
-				{ output: 'capture', logPrefix: this.siteId }
-			);
+			const args = [
+				'site',
+				'start',
+				'--path',
+				this.sitePath,
+				'--skip-browser',
+				'--skip-log-details',
+			];
+			if ( options.mounts && options.mounts.length > 0 ) {
+				args.push( '--mounts-json', JSON.stringify( options.mounts ) );
+			}
+			if ( options.autoStart === false ) {
+				args.push( '--no-auto-start' );
+			}
+			const [ emitter ] = executeCliCommand( args, { output: 'capture', logPrefix: this.siteId } );
 
 			emitter.on( 'data', ( { data } ) => {
 				const parsed = cliEventSchema.safeParse( data );

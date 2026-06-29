@@ -6,8 +6,41 @@ import MainSidebar from 'src/components/main-sidebar';
 import { useAuth } from 'src/hooks/use-auth';
 import { ContentTabsProvider } from 'src/hooks/use-content-tabs';
 import { store } from 'src/stores';
+import type { DevelopmentProject, RemoteDevelopmentPlugin } from '@studio/common/types/publishing';
 
 vi.mock( 'src/hooks/use-auth' );
+
+const mockDevelopmentProjects = vi.hoisted( () => ( {
+	projects: [] as DevelopmentProject[],
+	remotePlugins: [] as RemoteDevelopmentPlugin[],
+	loadingProjects: false,
+	loadingRemotePlugins: false,
+	isPluginDevelopmentEnabled: false,
+	loadingPluginDevelopmentEnabled: false,
+	selectedProject: null,
+	selectedProjectId: null,
+	selectedRemotePlugin: null,
+	selectedRemotePluginSlug: null,
+	remotePluginsError: null,
+	remotePluginsUsername: null,
+	cloningRemotePluginSlug: null,
+	startingPlaygroundProjectId: null,
+	selectProject: vi.fn(),
+	selectRemotePlugin: vi.fn(),
+	reloadProjects: vi.fn(),
+	reloadRemotePlugins: vi.fn(),
+	addProject: vi.fn(),
+	removeProject: vi.fn(),
+	refreshProject: vi.fn(),
+	cloneRemotePlugin: vi.fn(),
+	getProjectVersionState: vi.fn(),
+	bumpProjectVersion: vi.fn(),
+	startProjectPlayground: vi.fn(),
+} ) );
+
+vi.mock( 'src/modules/plugin-development/hooks/use-development-projects', () => ( {
+	useDevelopmentProjects: () => mockDevelopmentProjects,
+} ) );
 
 vi.mock( 'src/stores/wordpress-versions-api', () => ( {
 	wordpressVersionsApi: {
@@ -109,6 +142,20 @@ const renderWithProvider = ( children: React.ReactElement ) => {
 describe( 'MainSidebar Footer', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		mockDevelopmentProjects.projects = [];
+		mockDevelopmentProjects.remotePlugins = [];
+		mockDevelopmentProjects.loadingProjects = false;
+		mockDevelopmentProjects.loadingRemotePlugins = false;
+		mockDevelopmentProjects.isPluginDevelopmentEnabled = false;
+		mockDevelopmentProjects.loadingPluginDevelopmentEnabled = false;
+		mockDevelopmentProjects.selectedProject = null;
+		mockDevelopmentProjects.selectedProjectId = null;
+		mockDevelopmentProjects.selectedRemotePlugin = null;
+		mockDevelopmentProjects.selectedRemotePluginSlug = null;
+		mockDevelopmentProjects.remotePluginsError = null;
+		mockDevelopmentProjects.remotePluginsUsername = null;
+		mockDevelopmentProjects.cloningRemotePluginSlug = null;
+		mockDevelopmentProjects.startingPlaygroundProjectId = null;
 	} );
 	it( 'Has add site button', async () => {
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: false } );
@@ -133,6 +180,32 @@ describe( 'MainSidebar Footer', () => {
 		await act( async () => renderWithProvider( <MainSidebar /> ) );
 		expect( screen.getByRole( 'button', { name: 'Stop all' } ) ).toBeVisible();
 		site2.running = false;
+	} );
+
+	it( 'shows the plugin projects menu when development is enabled', async () => {
+		mockDevelopmentProjects.isPluginDevelopmentEnabled = true;
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		expect( screen.getByRole( 'navigation', { name: 'Plugin projects' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Add plugin project' } ) ).toBeVisible();
+	} );
+
+	it( 'shows remote WordPress.org plugins when they are not cloned locally', async () => {
+		const user = userEvent.setup();
+		mockDevelopmentProjects.isPluginDevelopmentEnabled = true;
+		mockDevelopmentProjects.remotePlugins = [
+			{
+				name: 'Remote Pressship',
+				slug: 'remote-pressship',
+				url: 'https://wordpress.org/plugins/remote-pressship/',
+				roles: [ 'committer' ],
+				localState: 'not-cloned',
+			},
+		];
+
+		await act( async () => renderWithProvider( <MainSidebar /> ) );
+		await user.click( screen.getByRole( 'button', { name: 'Remote Pressship' } ) );
+
+		expect( mockDevelopmentProjects.selectRemotePlugin ).toHaveBeenCalledWith( 'remote-pressship' );
 	} );
 } );
 

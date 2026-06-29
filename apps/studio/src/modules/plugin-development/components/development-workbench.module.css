@@ -1,0 +1,2004 @@
+.workbench {
+	display: grid;
+	grid-template-rows: auto minmax( 0, 1fr );
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+	color: var( --color-frame-text );
+	background: var( --color-frame-bg );
+}
+
+.titlebar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	min-height: 76px;
+	padding: 14px 20px;
+	border-bottom: 1px solid var( --color-frame-border );
+	background: var( --color-frame-bg );
+}
+
+.projectTitle {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.projectKicker,
+.projectMeta {
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	gap: 8px;
+	color: var( --color-frame-text-secondary );
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.projectKicker svg,
+.projectMeta svg {
+	fill: currentColor;
+}
+
+.projectTitle h1 {
+	margin: 0;
+	overflow: hidden;
+	color: var( --color-frame-text );
+	font-size: 20px;
+	font-weight: 500;
+	line-height: 1.25;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.projectMeta span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.projectMeta span:not( :last-child )::after {
+	padding-left: 8px;
+	color: var( --color-frame-border );
+	content: "/";
+}
+
+.titleActions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.main {
+	--development-explorer-width: 240px;
+	--development-sidebar-width: 372px;
+
+	display: grid;
+	grid-template-columns:
+		46px
+		minmax( 196px, var( --development-explorer-width ) )
+		minmax( 360px, 1fr )
+		minmax( 320px, var( --development-sidebar-width ) );
+	min-height: 0;
+}
+
+.activityBar {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 4px;
+	padding: 8px 5px;
+	border-right: 1px solid var( --color-frame-border );
+	background: var( --color-frame-surface );
+}
+
+.activityButton,
+.activityButtonActive {
+	display: flex;
+	width: 36px;
+	height: 36px;
+	align-items: center;
+	justify-content: center;
+	border: 0;
+	border-radius: 4px;
+	color: var( --color-frame-text-secondary );
+	background: transparent;
+	cursor: pointer;
+}
+
+.activityButton:hover,
+.activityButtonActive {
+	color: var( --color-frame-text );
+	background: var( --color-frame-bg );
+}
+
+.activityButton svg,
+.activityButtonActive svg {
+	fill: currentColor;
+}
+
+.activityButton span,
+.activityButtonActive span {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect( 0 0 0 0 );
+	white-space: nowrap;
+}
+
+.explorer,
+.sidebar {
+	position: relative;
+	min-width: 0;
+	min-height: 0;
+	border-right: 1px solid var( --color-frame-border );
+	background: var( --color-frame-surface );
+}
+
+.resizeHandle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	z-index: 20;
+	width: 9px;
+	border: 0;
+	padding: 0;
+	background: transparent;
+	cursor: col-resize;
+}
+
+.resizeHandle::after {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 50%;
+	width: 1px;
+	background: transparent;
+	content: "";
+	transform: translateX( -50% );
+	transition: background 120ms ease, width 120ms ease;
+}
+
+.resizeHandle:hover::after,
+.resizeHandle:focus-visible::after,
+.resizeHandleActive::after {
+	width: 2px;
+	background: var( --color-frame-theme );
+}
+
+.resizeHandle:focus-visible {
+	outline: 1px solid var( --color-frame-theme );
+	outline-offset: -2px;
+}
+
+.resizeHandleExplorer {
+	right: -5px;
+}
+
+.resizeHandleSidebar {
+	left: -5px;
+}
+
+.panelHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 38px;
+	padding: 0 12px;
+	border-bottom: 1px solid var( --color-frame-border );
+	color: var( --color-frame-text-secondary );
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1;
+	text-transform: uppercase;
+}
+
+.fileTree {
+	height: calc( 100% - 38px );
+	overflow: auto;
+	padding: 6px 0;
+}
+
+.directoryRow,
+.fileRow {
+	display: grid;
+	width: 100%;
+	min-height: 28px;
+	align-items: center;
+	gap: 6px;
+	border: 0;
+	color: var( --color-frame-text-secondary );
+	background: transparent;
+	font-size: 12px;
+	line-height: 1.35;
+	text-align: left;
+}
+
+.directoryRow {
+	grid-template-columns: 16px 16px minmax( 0, 1fr ) auto;
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.fileRow {
+	grid-template-columns: 16px 16px minmax( 0, 1fr ) auto;
+	cursor: pointer;
+}
+
+.explorerChevronSpacer {
+	width: 16px;
+	height: 16px;
+}
+
+.directoryRow:hover,
+.fileRow:hover,
+.fileRowActive {
+	color: var( --color-frame-text );
+	background: var( --color-frame-bg );
+}
+
+.directoryRow svg,
+.fileRow svg {
+	fill: currentColor;
+}
+
+.directoryRow span,
+.fileRow span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.directoryRow small,
+.fileRow small {
+	color: var( --color-frame-text-secondary );
+	font-size: 10px;
+}
+
+.explorerRowMeta {
+	display: inline-flex;
+	min-width: 0;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 6px;
+	padding-right: 8px;
+}
+
+.explorerValidationBadge {
+	display: inline-flex;
+	min-width: 16px;
+	height: 16px;
+	align-items: center;
+	justify-content: center;
+	border-radius: 8px;
+	padding: 0 4px;
+	background: var( --color-frame-surface );
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 1;
+}
+
+.explorerValidationBadgeError {
+	color: var( --color-frame-error );
+}
+
+.explorerValidationBadgeWarning {
+	color: var( --color-frame-code-number );
+}
+
+.explorerValidationBadgeInfo {
+	color: var( --color-frame-theme );
+}
+
+.explorerRowValidationError,
+.explorerRowValidationWarning,
+.explorerRowValidationInfo {
+	color: var( --color-frame-text );
+}
+
+.explorerRowValidationError {
+	background: color-mix( in srgb, var( --color-frame-error ) 10%, transparent );
+	box-shadow: inset 3px 0 0 var( --color-frame-error );
+}
+
+.explorerRowValidationWarning {
+	background: color-mix( in srgb, var( --color-frame-code-number ) 12%, transparent );
+	box-shadow: inset 3px 0 0 var( --color-frame-code-number );
+}
+
+.explorerRowValidationInfo {
+	background: color-mix( in srgb, var( --color-frame-theme ) 9%, transparent );
+	box-shadow: inset 3px 0 0 var( --color-frame-theme );
+}
+
+.editorPanel {
+	display: grid;
+	grid-template-rows: repeat( 4, auto ) minmax( 0, 1fr ) auto;
+	min-width: 0;
+	min-height: 0;
+	background: var( --color-frame-bg );
+}
+
+.editorBody {
+	grid-row: 5;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.editorTabs {
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	justify-content: space-between;
+	height: 38px;
+	overflow: hidden;
+	border-bottom: 1px solid var( --color-frame-border );
+	background: var( --color-frame-surface );
+}
+
+.editorTabsList {
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	align-self: stretch;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scrollbar-width: none;
+}
+
+.editorTabsList::-webkit-scrollbar {
+	display: none;
+}
+
+.editorTab,
+.editorTabActive {
+	display: flex;
+	flex: 0 0 180px;
+	min-width: 140px;
+	max-width: 220px;
+	align-self: stretch;
+	align-items: center;
+	gap: 7px;
+	padding: 0 12px;
+	border: 0;
+	border-right: 1px solid var( --color-frame-border );
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-surface );
+	font-size: 12px;
+	text-align: left;
+}
+
+.editorTab:hover,
+.editorTabActive,
+.editorTabActive:hover {
+	color: var( --color-frame-text );
+	background: var( --color-frame-bg );
+}
+
+.editorTabClose {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	margin-left: auto;
+	border-radius: 3px;
+	color: var( --color-frame-text-secondary );
+	background: transparent;
+	border: 0;
+	cursor: pointer;
+}
+
+.editorTabClose:hover {
+	color: var( --color-frame-text );
+	background: var( --color-frame-surface );
+}
+
+.editorTabButton {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	align-items: center;
+	gap: 7px;
+	border: 0;
+	padding: 0;
+	color: inherit;
+	background: transparent;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.editorTab svg,
+.editorTabActive svg {
+	flex: 0 0 auto;
+	fill: currentColor;
+}
+
+.editorTabButton span,
+.editorTab span,
+.editorTabActive span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.editorTab small,
+.editorTabActive small {
+	color: var( --color-frame-theme );
+	font-size: 18px;
+	line-height: 1;
+}
+
+.editorToolbar {
+	display: flex;
+	height: 100%;
+	flex: 0 0 auto;
+	flex-wrap: nowrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 6px;
+	padding: 0 8px;
+}
+
+.editorToolbar :global( .components-button ) {
+	height: 28px;
+	min-height: 28px;
+	padding: 0 10px;
+	font-size: 12px;
+	line-height: 1;
+}
+
+.editorPlaceholder {
+	display: flex;
+	height: 100%;
+	min-height: 0;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 14px;
+	padding: 24px;
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-bg );
+	text-align: center;
+}
+
+.editorPlaceholder svg {
+	fill: currentColor;
+}
+
+.editorPlaceholder h2 {
+	margin: 0;
+	color: var( --color-frame-text );
+	font-size: 15px;
+	font-weight: 500;
+	line-height: 1.35;
+}
+
+.editorPlaceholder p {
+	max-width: 300px;
+	margin: 4px 0 0;
+	font-size: 12px;
+	line-height: 1.45;
+}
+
+.imagePreviewShell {
+	display: flex;
+	height: 100%;
+	min-height: 0;
+	flex-direction: column;
+	background: var( --color-frame-bg );
+}
+
+.imagePreviewCanvas {
+	display: flex;
+	min-height: 0;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	overflow: auto;
+	padding: 24px;
+	background-color: var( --color-frame-bg );
+	background-image:
+		linear-gradient(
+			45deg,
+			color-mix( in srgb, var( --color-frame-border ) 42%, transparent ) 25%,
+			transparent 25%
+		),
+		linear-gradient(
+			-45deg,
+			color-mix( in srgb, var( --color-frame-border ) 42%, transparent ) 25%,
+			transparent 25%
+		),
+		linear-gradient(
+			45deg,
+			transparent 75%,
+			color-mix( in srgb, var( --color-frame-border ) 42%, transparent ) 75%
+		),
+		linear-gradient(
+			-45deg,
+			transparent 75%,
+			color-mix( in srgb, var( --color-frame-border ) 42%, transparent ) 75%
+		);
+	background-position:
+		0 0,
+		0 8px,
+		8px -8px,
+		-8px 0;
+	background-size: 16px 16px;
+}
+
+.imagePreviewCanvas img {
+	display: block;
+	width: auto;
+	height: auto;
+	max-width: 100%;
+	max-height: 100%;
+	box-shadow: 0 0 0 1px var( --color-frame-border );
+}
+
+.imagePreviewEmpty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	color: var( --color-frame-text-secondary );
+	text-align: center;
+}
+
+.imagePreviewEmpty strong {
+	color: var( --color-frame-text );
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.imagePreviewEmpty span {
+	font-size: 12px;
+}
+
+.imagePreviewMeta {
+	display: flex;
+	min-height: 42px;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	border-top: 1px solid var( --color-frame-border );
+	padding: 0 12px;
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-surface );
+	font-size: 12px;
+}
+
+.imagePreviewMeta strong {
+	min-width: 0;
+	overflow: hidden;
+	color: var( --color-frame-text );
+	font-weight: 500;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.imagePreviewMeta span {
+	flex: 0 0 auto;
+}
+
+.monacoEditorShell {
+	display: grid;
+	grid-template-columns: 52px minmax( 0, 1fr );
+	min-width: 0;
+	min-height: 0;
+	height: 100%;
+	overflow: hidden;
+	background: var( --color-frame-bg );
+}
+
+.codeEditorLineNumbers {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+	border-right: 1px solid var( --color-frame-border );
+	padding: 12px 10px 12px 6px;
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-surface );
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+	font-size: 12px;
+	line-height: 20px;
+	user-select: none;
+}
+
+.codeEditorLineNumbers span {
+	height: 20px;
+	flex: 0 0 20px;
+	font-variant-numeric: tabular-nums;
+}
+
+.codeEditorLineNumberWithFinding {
+	min-width: 28px;
+	border-radius: 3px;
+	padding: 0 4px;
+	color: var( --color-frame-text );
+}
+
+.codeEditorLineNumberError {
+	background: color-mix( in srgb, var( --color-frame-error ) 18%, transparent );
+}
+
+.codeEditorLineNumberWarning {
+	background: color-mix( in srgb, var( --color-frame-code-number ) 20%, transparent );
+}
+
+.codeEditorLineNumberInfo {
+	background: color-mix( in srgb, var( --color-frame-theme ) 16%, transparent );
+}
+
+.codeEditorLineNumberWithPatch {
+	min-width: 28px;
+	border-radius: 3px;
+	padding: 0 4px;
+	color: var( --color-frame-text );
+}
+
+.codeEditorLineNumberPatchAdd {
+	background: color-mix( in srgb, var( --color-frame-running ) 18%, transparent );
+}
+
+.codeEditorLineNumberPatchDelete {
+	background: color-mix( in srgb, var( --color-frame-error ) 17%, transparent );
+}
+
+.codeEditorContent {
+	position: relative;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	background: var( --color-frame-bg );
+}
+
+.codeEditorHighlight,
+.codeEditorTextarea {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	border: 0;
+	padding: 12px;
+	font-size: 12px;
+	line-height: 20px;
+	tab-size: 4;
+	white-space: pre;
+}
+
+.codeEditorHighlight {
+	overflow: hidden;
+	color: var( --color-frame-code-text );
+	background: var( --color-frame-bg );
+	pointer-events: none;
+}
+
+.codeSyntaxHighlight {
+	position: static;
+	inset: auto;
+	display: block;
+	width: auto;
+	height: auto;
+	min-width: 0;
+	margin: 0;
+	border: 0;
+	padding: 0;
+	overflow: visible;
+	color: inherit;
+	background: transparent;
+	font-size: inherit;
+	line-height: inherit;
+	pointer-events: auto;
+	white-space: inherit;
+}
+
+.codeEditorLine {
+	display: block;
+	box-sizing: border-box;
+	width: max-content;
+	min-width: 100%;
+	min-height: 20px;
+}
+
+.codeEditorLineWithFinding {
+	margin-left: -12px;
+	border-left: 3px solid transparent;
+	padding-right: 12px;
+	padding-left: 9px;
+}
+
+.codeEditorLineError {
+	border-left-color: var( --color-frame-error );
+	background: color-mix( in srgb, var( --color-frame-error ) 13%, transparent );
+}
+
+.codeEditorLineWarning {
+	border-left-color: var( --color-frame-code-number );
+	background: color-mix( in srgb, var( --color-frame-code-number ) 14%, transparent );
+}
+
+.codeEditorLineInfo {
+	border-left-color: var( --color-frame-theme );
+	background: color-mix( in srgb, var( --color-frame-theme ) 11%, transparent );
+}
+
+.codeEditorLineWithPatch {
+	margin-left: -12px;
+	border-left: 3px solid transparent;
+	padding-right: 12px;
+	padding-left: 9px;
+}
+
+.codeEditorLinePatchAdd {
+	border-left-color: var( --color-frame-running );
+	background: color-mix( in srgb, var( --color-frame-running ) 13%, transparent );
+}
+
+.codeEditorLinePatchDelete {
+	border-left-color: var( --color-frame-error );
+	background: color-mix( in srgb, var( --color-frame-error ) 13%, transparent );
+}
+
+.codeEditorTextarea {
+	z-index: 1;
+	overflow: auto;
+	resize: none;
+	color: transparent !important;
+	background: transparent;
+	caret-color: var( --color-frame-theme );
+	outline: 0;
+	-webkit-text-fill-color: transparent !important;
+}
+
+.codeEditorTextarea::selection {
+	background: color-mix( in srgb, var( --color-frame-theme ) 28%, transparent );
+}
+
+.codeEditorTextarea:disabled {
+	cursor: default;
+}
+
+.codeEditorHover {
+	position: absolute;
+	z-index: 3;
+	display: flex;
+	width: min( 360px, calc( 100% - 24px ) );
+	max-height: 160px;
+	flex-direction: column;
+	gap: 6px;
+	overflow: auto;
+	border: 1px solid var( --color-frame-border );
+	border-left-width: 3px;
+	border-radius: 4px;
+	padding: 9px 10px;
+	color: var( --color-frame-text );
+	background: var( --color-frame-surface );
+	box-shadow: 0 8px 24px rgba( 0, 0, 0, 0.24 );
+	font-size: 12px;
+	line-height: 1.45;
+	pointer-events: none;
+}
+
+.codeEditorHover strong {
+	color: var( --color-frame-text-secondary );
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.2;
+	text-transform: uppercase;
+}
+
+.codeEditorHover span {
+	white-space: pre-wrap;
+}
+
+.codeEditorHoverError {
+	border-left-color: var( --color-frame-error );
+}
+
+.codeEditorHoverWarning {
+	border-left-color: var( --color-frame-code-number );
+}
+
+.codeEditorHoverInfo {
+	border-left-color: var( --color-frame-theme );
+}
+
+.codeEditorHighlight .codeTokenComment {
+	color: var( --color-frame-code-comment ) !important;
+}
+
+.codeEditorHighlight .codeTokenKeyword {
+	color: var( --color-frame-code-keyword ) !important;
+}
+
+.codeEditorHighlight .codeTokenString {
+	color: var( --color-frame-code-string ) !important;
+}
+
+.codeEditorHighlight .codeTokenVariable {
+	color: var( --color-frame-code-variable ) !important;
+}
+
+.codeEditorHighlight .codeTokenNumber {
+	color: var( --color-frame-code-number ) !important;
+}
+
+.codeEditorHighlight .codeTokenTag {
+	color: var( --color-frame-code-tag ) !important;
+}
+
+.codeEditorHighlight .codeTokenPunctuation {
+	color: var( --color-frame-text-secondary ) !important;
+}
+
+.codeEditorHighlight .readmeTokenTitle {
+	color: var( --color-frame-code-keyword ) !important;
+	font-weight: 600;
+}
+
+.codeEditorHighlight .readmeTokenSection {
+	color: var( --color-frame-code-tag ) !important;
+	font-weight: 600;
+}
+
+.codeEditorHighlight .readmeTokenSubsection {
+	color: var( --color-frame-code-number ) !important;
+	font-weight: 600;
+}
+
+.codeEditorHighlight .readmeTokenField {
+	color: var( --color-frame-code-variable ) !important;
+	font-weight: 600;
+}
+
+.codeEditorHighlight .readmeTokenFieldValue {
+	color: var( --color-frame-code-text ) !important;
+}
+
+.codeEditorHighlight .readmeTokenDelimiter {
+	color: var( --color-frame-text-secondary ) !important;
+}
+
+.codeEditorHighlight .readmeTokenListMarker {
+	color: var( --color-frame-code-keyword ) !important;
+	font-weight: 600;
+}
+
+.codeEditorHighlight .readmeTokenInlineCode {
+	color: var( --color-frame-code-tag ) !important;
+}
+
+.codeEditorHighlight .readmeTokenCodeBlock {
+	color: var( --color-frame-code-string ) !important;
+}
+
+.codeEditorHighlight .readmeTokenLink {
+	color: var( --color-frame-theme ) !important;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.codeEditorHighlight .readmeTokenUrl {
+	color: var( --color-frame-code-tag ) !important;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.codeEditorHighlight .readmeTokenCommand {
+	color: var( --color-frame-code-number ) !important;
+}
+
+.codeEditorHighlight .readmeTokenShortcode {
+	color: var( --color-frame-code-variable ) !important;
+}
+
+.codeEditorHighlight .readmeTokenQuote {
+	color: var( --color-frame-code-comment ) !important;
+	font-style: italic;
+}
+
+.codeEditorHighlight .readmeTokenStrong {
+	color: var( --color-frame-code-text ) !important;
+	font-weight: 600;
+}
+
+.codeEditorHighlight .readmeTokenEmphasis {
+	color: var( --color-frame-code-text ) !important;
+	font-style: italic;
+}
+
+.monacoEditorOverlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-bg );
+	font-size: 12px;
+	pointer-events: none;
+}
+
+.editorError,
+.errorBanner {
+	color: var( --color-frame-error );
+	background: color-mix( in srgb, var( --color-frame-error ) 8%, var( --color-frame-bg ) );
+}
+
+.editorError {
+	padding: 8px 12px;
+	border-bottom: 1px solid var( --color-frame-border );
+	font-size: 12px;
+}
+
+.errorBanner {
+	display: flex;
+	gap: 10px;
+	padding: 10px 12px;
+	border-bottom: 1px solid var( --color-frame-border );
+	font-size: 12px;
+}
+
+.errorBanner svg {
+	flex: 0 0 auto;
+	fill: currentColor;
+}
+
+.errorBanner div {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.errorBanner span {
+	color: var( --color-frame-text );
+}
+
+.sidebar {
+	display: grid;
+	grid-template-rows: auto minmax( 0, 1fr );
+	border-right: 0;
+	border-left: 1px solid var( --color-frame-border );
+}
+
+.sidebarTabs {
+	display: grid;
+	grid-template-columns: repeat( auto-fit, minmax( 0, 1fr ) );
+	height: 38px;
+	border-bottom: 1px solid var( --color-frame-border );
+}
+
+.sidebarTab {
+	border: 0;
+	border-right: 1px solid var( --color-frame-border );
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-surface );
+	font-size: 12px;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.sidebarTab:last-child {
+	border-right: 0;
+}
+
+.sidebarTab:hover,
+.sidebarTabActive {
+	color: var( --color-frame-text );
+	background: var( --color-frame-bg );
+}
+
+.sidebarPane {
+	display: flex;
+	min-height: 0;
+	flex-direction: column;
+	gap: 18px;
+	overflow: auto;
+	padding: 14px;
+}
+
+.reviewSidebarPane {
+	display: grid;
+	grid-template-rows: auto minmax( 92px, auto ) minmax( 0, 1fr );
+	gap: 14px;
+	overflow: hidden;
+}
+
+.reviewFilesSection {
+	min-height: 0;
+	overflow: hidden;
+}
+
+.reviewFilesSection .patchList {
+	max-height: 168px;
+	overflow: auto;
+	padding-right: 2px;
+}
+
+.reviewDiffSection {
+	min-height: 0;
+	overflow: hidden;
+}
+
+.sidebarSection {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.sidebarSection h3 {
+	margin: 0;
+	color: var( --color-frame-text );
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.sectionHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.sectionHeader span {
+	color: var( --color-frame-text-secondary );
+	font-size: 12px;
+}
+
+.aiPrompt {
+	width: 100%;
+	min-height: 92px;
+	resize: vertical;
+	border: 1px solid var( --color-frame-border );
+	border-radius: 4px;
+	padding: 10px;
+	color: var( --color-frame-text );
+	background: var( --color-frame-bg );
+	font: inherit;
+	font-size: 13px;
+	line-height: 1.45;
+}
+
+.aiPrompt:focus {
+	border-color: var( --color-frame-theme );
+	outline: 0;
+	box-shadow: 0 0 0 1px var( --color-frame-theme );
+}
+
+.aiStatus {
+	border: 1px solid var( --color-frame-border );
+	border-radius: 4px;
+	padding: 8px 10px;
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-bg );
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.sidebarActions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.emptyPane {
+	border: 1px dashed var( --color-frame-border );
+	border-radius: 4px;
+	padding: 12px;
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-bg );
+	font-size: 12px;
+	text-align: center;
+}
+
+.patchList {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.patchItem {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	border: 1px solid var( --color-frame-border );
+	border-radius: 4px;
+	padding: 8px;
+	color: var( --color-frame-text );
+	background: var( --color-frame-bg );
+	font-size: 12px;
+	text-align: left;
+	cursor: pointer;
+}
+
+.patchItemButton {
+	display: flex;
+	min-width: 0;
+	flex: 1 1 auto;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	border: 0;
+	padding: 0;
+	color: inherit;
+	background: transparent;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.patchItemActions {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 6px;
+}
+
+.patchItemActions :global( .components-button ) {
+	height: 24px;
+	min-height: 24px;
+	padding: 0 7px;
+	font-size: 11px;
+	line-height: 1;
+}
+
+.patchItemActions span {
+	display: inline;
+	min-width: auto;
+	overflow: visible;
+	color: inherit;
+	font-size: inherit;
+	line-height: inherit;
+	text-transform: none;
+}
+
+.patchItem:hover,
+.patchItemActive {
+	border-color: var( --color-frame-theme );
+}
+
+.patchItem span {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 2px;
+	overflow: hidden;
+}
+
+.patchItem strong {
+	overflow: hidden;
+	color: var( --color-frame-text );
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.25;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.patchItem em {
+	color: var( --color-frame-text-secondary );
+	font-size: 10px;
+	font-style: normal;
+	line-height: 1.2;
+	text-transform: uppercase;
+}
+
+.patchItem small {
+	flex: 0 0 auto;
+	color: var( --color-frame-text-secondary );
+}
+
+.patchPrompt {
+	border-left: 2px solid var( --color-frame-theme );
+	padding: 6px 8px;
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-bg );
+	font-size: 12px;
+	line-height: 1.45;
+}
+
+.diffViewer {
+	max-height: 320px;
+	overflow: auto;
+	border: 1px solid var( --color-frame-border );
+	border-radius: 4px;
+	background: var( --color-frame-bg );
+}
+
+.editorDiffViewer {
+	height: 100%;
+	max-height: none;
+	border: 0;
+	border-radius: 0;
+}
+
+.diffLine {
+	display: grid;
+	grid-template-columns: 38px 38px minmax( 0, 1fr );
+	min-height: 23px;
+	color: var( --color-frame-text );
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+	font-size: 11px;
+	line-height: 1.6;
+}
+
+.diffLine span {
+	padding: 2px 6px;
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-surface );
+	text-align: right;
+	user-select: none;
+}
+
+.diffLine code {
+	overflow: hidden;
+	padding: 2px 8px;
+	color: inherit;
+	background: transparent;
+	text-overflow: ellipsis;
+	white-space: pre;
+}
+
+.diffAdd {
+	background: color-mix( in srgb, var( --color-frame-running ) 12%, var( --color-frame-bg ) );
+}
+
+.diffDelete {
+	background: color-mix( in srgb, var( --color-frame-error ) 12%, var( --color-frame-bg ) );
+}
+
+.aiReviewPane {
+	display: grid;
+	grid-template-rows: auto minmax( 0, 1fr );
+	min-height: 118px;
+	max-height: 34vh;
+	border-top: 1px solid var( --color-frame-border );
+	color: var( --color-frame-text );
+	background: var( --color-frame-bg );
+	font-size: 12px;
+}
+
+.aiReviewEditor {
+	height: 100%;
+	max-height: none;
+	border-top: 0;
+}
+
+.aiReviewSidebar {
+	height: 100%;
+	min-height: 0;
+	max-height: none;
+	overflow: hidden;
+	border: 1px solid var( --color-frame-border );
+	border-radius: 4px;
+}
+
+.aiReviewSidebar .aiReviewHeader {
+	align-items: flex-start;
+	flex-wrap: wrap;
+	padding: 8px;
+}
+
+.aiReviewSidebar .aiReviewActions,
+.aiReviewSidebar .aiReviewHunkActions {
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+.aiReviewSidebar .aiReviewLine {
+	grid-template-columns: 30px 30px 18px minmax( 0, 1fr );
+	min-width: 0;
+}
+
+.aiReviewSidebar .aiReviewLineNumber,
+.aiReviewSidebar .aiReviewLinePrefix {
+	padding-right: 4px;
+	padding-left: 4px;
+}
+
+.aiReviewSidebar .aiReviewLine code {
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
+.aiReviewHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	border-bottom: 1px solid var( --color-frame-border );
+	padding: 8px 10px;
+	background: var( --color-frame-surface );
+}
+
+.aiReviewFileMeta {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.aiReviewFileMeta strong {
+	overflow: hidden;
+	color: var( --color-frame-text );
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.3;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.aiReviewFileMeta span,
+.aiReviewFileMeta small {
+	overflow: hidden;
+	color: var( --color-frame-text-secondary );
+	font-size: 11px;
+	line-height: 1.35;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.aiReviewFileMeta span {
+	text-transform: uppercase;
+}
+
+.aiReviewActions,
+.aiReviewHunkActions {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 6px;
+}
+
+.aiReviewPane :global( .components-button ) {
+	height: 26px;
+	min-height: 26px;
+	padding: 0 8px;
+	font-size: 11px;
+	line-height: 1;
+}
+
+.aiReviewBody {
+	min-height: 0;
+	overflow: auto;
+	background: var( --color-frame-bg );
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+	font-size: 11px;
+	line-height: 1.55;
+}
+
+.aiReviewHunk + .aiReviewHunk {
+	border-top: 1px solid var( --color-frame-border );
+}
+
+.aiReviewHunkHeader {
+	display: flex;
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 5px 10px;
+	color: var( --color-frame-theme );
+	background: color-mix( in srgb, var( --color-frame-theme ) 13%, var( --color-frame-surface ) );
+}
+
+.aiReviewHunkHeader:hover .aiReviewHunkActions,
+.aiReviewHunkHeader:focus-within .aiReviewHunkActions {
+	opacity: 1;
+}
+
+.aiReviewHunkHeader code {
+	overflow: hidden;
+	color: inherit;
+	background: transparent;
+	font: inherit;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.aiReviewLine {
+	display: grid;
+	grid-template-columns: 38px 38px 24px minmax( 0, 1fr );
+	min-width: max-content;
+	min-height: 20px;
+	color: var( --color-frame-code-text );
+}
+
+.aiReviewEditor .aiReviewLine {
+	grid-template-columns: 52px 52px 26px minmax( 0, 1fr );
+	min-height: 21px;
+}
+
+.aiReviewLineNumber,
+.aiReviewLinePrefix {
+	padding: 1px 6px;
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-surface );
+	text-align: right;
+	user-select: none;
+}
+
+.aiReviewLinePrefix {
+	color: var( --color-frame-text-secondary );
+	text-align: center;
+}
+
+.aiReviewLine code {
+	padding: 1px 10px 1px 8px;
+	color: inherit;
+	background: transparent;
+	white-space: pre;
+}
+
+.aiReviewAdd {
+	background: color-mix( in srgb, var( --color-frame-running ) 13%, var( --color-frame-bg ) );
+}
+
+.aiReviewAdd .aiReviewLinePrefix {
+	color: var( --color-frame-running );
+}
+
+.aiReviewDelete {
+	background: color-mix( in srgb, var( --color-frame-error ) 13%, var( --color-frame-bg ) );
+}
+
+.aiReviewDelete .aiReviewLinePrefix {
+	color: var( --color-frame-error );
+}
+
+.aiReviewContext {
+	background: var( --color-frame-bg );
+}
+
+.aiReviewEmpty {
+	margin: 0;
+	padding: 9px 10px;
+	color: var( --color-frame-text-secondary );
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+.metadataGrid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 12px;
+	border: 1px solid var( --color-frame-border );
+	border-radius: 4px;
+	padding: 12px;
+	background: var( --color-frame-bg );
+}
+
+.readinessList {
+	margin: 0;
+	border: 1px solid var( --color-frame-border );
+	border-radius: 4px;
+	padding: 0 12px;
+	background: var( --color-frame-bg );
+	list-style: none;
+}
+
+.composerWrap {
+	margin: 0 -2px;
+}
+
+.chatSidebarPane {
+	display: flex;
+	min-height: 0;
+	flex-direction: column;
+	overflow: hidden;
+	background: var( --color-frame-bg );
+}
+
+.chatSidebarHeader {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	min-height: 36px;
+	border-bottom: 1px solid var( --color-frame-border );
+	padding: 5px 8px;
+	background: var( --color-frame-surface );
+}
+
+.chatSidebarTitle {
+	min-width: 0;
+	flex: 1 1 auto;
+	color: var( --color-frame-text );
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 1.3;
+}
+
+.chatSidebarTitle span {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chatTimeline {
+	display: flex;
+	min-height: 0;
+	flex: 1 1 auto;
+	flex-direction: column;
+	gap: 14px;
+	overflow: auto;
+	padding: 14px;
+	color: var( --color-frame-text );
+	user-select: text;
+	overflow-wrap: anywhere;
+}
+
+.chatEmptyState {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	min-height: 220px;
+	padding: 12px 0;
+}
+
+.chatEmptyPrompt {
+	color: var( --color-frame-text-secondary );
+	font-size: 12px;
+	line-height: 1.45;
+	text-align: center;
+}
+
+.chatExamples {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 8px;
+}
+
+.chatExampleButton.chatExampleButton {
+	border: 1px solid var( --color-frame-border );
+	border-radius: 6px;
+	padding: 6px 9px;
+	color: var( --color-frame-text );
+	background: var( --color-frame-surface );
+	font: inherit;
+	font-size: 12px;
+	line-height: 1.2;
+	cursor: pointer;
+	transition: background 140ms ease, border-color 140ms ease;
+}
+
+.chatExampleButton:hover:not( :disabled ),
+.chatExampleButton:focus-visible:not( :disabled ) {
+	border-color: var( --color-frame-theme );
+	background: color-mix( in srgb, var( --color-frame-theme ) 12%, transparent );
+}
+
+.chatExampleButton:disabled {
+	color: var( --color-frame-text-secondary );
+	cursor: default;
+	opacity: 0.65;
+}
+
+.chatMessage,
+.chatAssistantMessage {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+}
+
+.chatMessageUser {
+	align-items: flex-end;
+}
+
+.chatUserBubble {
+	max-width: 88%;
+	border-radius: 8px 8px 3px 8px;
+	padding: 8px 10px;
+	color: var( --color-frame-text );
+	background: color-mix( in srgb, var( --color-frame-theme ) 16%, var( --color-frame-bg ) );
+	font-size: 12px;
+	line-height: 1.45;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+}
+
+.chatMarkdown {
+	max-width: 100%;
+	overflow: hidden;
+	font-size: 12px;
+	line-height: 1.55;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+}
+
+.chatMarkdown :where( p, ul, ol, blockquote, pre, table, h1, h2, h3, h4 ) {
+	max-width: 100%;
+}
+
+.chatMarkdown :where( p, ul, ol, blockquote, h1, h2, h3, h4 ) {
+	margin: 0 0 0.75em;
+}
+
+.chatMarkdown :where( p:last-child, ul:last-child, ol:last-child, blockquote:last-child ) {
+	margin-bottom: 0;
+}
+
+.chatMarkdown :where( ul, ol ) {
+	padding-left: 1.4em;
+}
+
+.chatMarkdown :where( li ) {
+	margin: 0 0 0.35em;
+}
+
+.chatMarkdown :where( blockquote ) {
+	border-left: 2px solid var( --color-frame-border );
+	padding-left: 10px;
+	color: var( --color-frame-text-secondary );
+}
+
+.chatMarkdown :where( table ) {
+	display: block;
+	overflow-x: auto;
+	border-collapse: collapse;
+}
+
+.chatMarkdown :where( th, td ) {
+	border: 1px solid var( --color-frame-border );
+	padding: 4px 6px;
+}
+
+.chatMarkdownLink {
+	color: var( --color-frame-theme );
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.chatInlineCode {
+	border-radius: 4px;
+	padding: 1px 4px;
+	color: var( --color-frame-text );
+	background: var( --color-frame-surface );
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+	font-size: 0.92em;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+}
+
+.chatCodeBlock {
+	max-width: 100%;
+	overflow: hidden;
+	margin: 8px 0 12px;
+	border: 1px solid var( --color-frame-border );
+	border-radius: 6px;
+	background: var( --color-frame-surface );
+}
+
+.chatCodeBlockPre {
+	max-width: 100%;
+	overflow: hidden;
+	margin: 0;
+	padding: 9px 10px;
+	color: var( --color-frame-code-text );
+	background: transparent;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+	font-size: 11px;
+	line-height: 1.55;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+}
+
+.chatCodeBlockPre code {
+	display: block;
+	max-width: 100%;
+	white-space: inherit;
+	overflow-wrap: inherit;
+	word-break: inherit;
+}
+
+.chatCodeBlockFooter {
+	display: flex;
+	justify-content: flex-start;
+	border-top: 1px solid var( --color-frame-border );
+	padding: 6px 8px;
+	background: color-mix( in srgb, var( --color-frame-surface ) 72%, var( --color-frame-bg ) );
+}
+
+.chatCodeBlockButton {
+	border: 0;
+	padding: 0;
+	color: var( --color-frame-theme );
+	background: transparent;
+	font: inherit;
+	font-size: 11px;
+	line-height: 1.3;
+	cursor: pointer;
+}
+
+.chatCodeBlockButton:hover,
+.chatCodeBlockButton:focus-visible {
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.chatThinking {
+	align-self: flex-start;
+	border: 1px solid var( --color-frame-border );
+	border-radius: 6px;
+	padding: 7px 9px;
+	color: var( --color-frame-text-secondary );
+	background: var( --color-frame-surface );
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.chatArtifact {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	border: 1px solid var( --color-frame-border );
+	border-radius: 6px;
+	padding: 10px;
+	background: var( --color-frame-surface );
+}
+
+.chatSelectedPatch {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	border-top: 1px solid var( --color-frame-border );
+	padding-top: 10px;
+}
+
+.chatComposerDock {
+	display: flex;
+	flex: 0 0 auto;
+	flex-direction: column;
+	gap: 10px;
+	border-top: 1px solid var( --color-frame-border );
+	padding: 10px 14px 12px;
+	background: var( --color-frame-surface );
+}
+
+.chatComposerActions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.chatComposerActions span {
+	color: var( --color-frame-text-secondary );
+	font-size: 12px;
+}
+
+.fileRowIgnored {
+	opacity: 0.56;
+}
+
+.validationPanel {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	border: 1px solid var( --color-frame-border );
+	border-radius: 4px;
+	padding: 10px;
+	background: var( --color-frame-bg );
+}
+
+.validationHeader {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.validationHeader div {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.validationHeader .validationActions {
+	flex: 0 0 auto;
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+}
+
+.validationHeader strong {
+	color: var( --color-frame-text );
+	font-size: 12px;
+}
+
+.validationHeader span {
+	color: var( --color-frame-text-secondary );
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.editorProblemsPane {
+	grid-row: 6;
+	display: flex;
+	min-height: 116px;
+	max-height: 190px;
+	flex-direction: column;
+	border-top: 1px solid var( --color-frame-border );
+	background: var( --color-frame-surface );
+}
+
+.editorProblemsHeader {
+	display: flex;
+	align-items: center;
+	border-bottom: 1px solid var( --color-frame-border );
+	justify-content: space-between;
+	gap: 12px;
+	min-height: 38px;
+	padding: 0 10px;
+}
+
+.editorProblemsHeader div {
+	display: flex;
+	min-width: 0;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.editorProblemsHeader strong {
+	color: var( --color-frame-text );
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.editorProblemsHeader span,
+.editorProblemsEmpty {
+	color: var( --color-frame-text-secondary );
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.editorProblemsHeader :global( .components-button ) {
+	height: 28px;
+	min-height: 28px;
+	padding: 0 10px;
+	font-size: 12px;
+	line-height: 1;
+}
+
+.editorProblemsEmpty {
+	padding: 10px;
+}
+
+.editorProblemsList {
+	min-height: 0;
+	overflow: auto;
+	padding: 4px 0;
+}
+
+.editorProblemItem {
+	display: grid;
+	grid-template-columns: 72px minmax( 140px, 0.8fr ) minmax( 120px, 0.7fr ) minmax( 220px, 1fr );
+	width: 100%;
+	min-width: 0;
+	align-items: center;
+	gap: 8px;
+	border: 0;
+	border-left: 3px solid transparent;
+	padding: 4px 10px 4px 7px;
+	color: var( --color-frame-text-secondary );
+	background: transparent;
+	font-size: 11px;
+	line-height: 1.35;
+	text-align: left;
+	cursor: pointer;
+}
+
+.editorProblemItem:hover:not( :disabled ) {
+	background: var( --color-frame-bg );
+}
+
+.editorProblemItem:disabled {
+	cursor: default;
+}
+
+.editorProblemItemError {
+	border-left-color: var( --color-frame-error );
+}
+
+.editorProblemItemWarning {
+	border-left-color: var( --color-frame-code-number );
+}
+
+.editorProblemItemInfo {
+	border-left-color: var( --color-frame-theme );
+}
+
+.editorProblemSeverity {
+	text-transform: capitalize;
+}
+
+.editorProblemLocation,
+.editorProblemCode,
+.editorProblemMessage {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.editorProblemCode {
+	color: var( --color-frame-text-secondary );
+}
+
+.editorProblemMessage {
+	color: var( --color-frame-text );
+}
+
+@media ( max-width: 1180px ) {
+	.main {
+		grid-template-columns: 46px minmax( 184px, 220px ) minmax( 0, 1fr );
+	}
+
+	.resizeHandleSidebar {
+		display: none;
+	}
+
+	.sidebar {
+		grid-column: 1 / -1;
+		min-height: 360px;
+		border-top: 1px solid var( --color-frame-border );
+		border-left: 0;
+	}
+}
+
+@media ( max-width: 760px ) {
+	.titlebar {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.titleActions {
+		justify-content: flex-start;
+	}
+
+	.main {
+		grid-template-columns: 42px minmax( 0, 1fr );
+	}
+
+	.explorer {
+		border-right: 0;
+	}
+
+	.resizeHandle {
+		display: none;
+	}
+
+	.editorPanel {
+		grid-column: 1 / -1;
+		min-height: 520px;
+		border-top: 1px solid var( --color-frame-border );
+	}
+}

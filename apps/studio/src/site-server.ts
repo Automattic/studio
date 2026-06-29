@@ -201,6 +201,9 @@ export class SiteServer {
 			running: false,
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
+		if ( options.autoStart === false ) {
+			server.details.autoStart = false;
+		}
 
 		// Default to the native PHP runtime when the caller doesn't specify one.
 		const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
@@ -218,6 +221,9 @@ export class SiteServer {
 			};
 			server.details = startedDetails;
 			server.server.url = url;
+			if ( options.autoStart === false ) {
+				await server.persistAutoStart( false );
+			}
 		}
 
 		return { server, details: server.details };
@@ -248,13 +254,27 @@ export class SiteServer {
 		}
 	}
 
-	async start() {
+	async start(
+		options: {
+			mounts?: CreateSiteOptions[ 'mounts' ];
+			autoStart?: CreateSiteOptions[ 'autoStart' ];
+		} = {}
+	) {
+		if ( options.autoStart === false ) {
+			this.details.autoStart = false;
+		}
 		if ( this.details.running ) {
+			if ( options.autoStart === false ) {
+				await this.persistAutoStart( false );
+			}
 			return;
 		}
 
 		console.log( `Starting server for '${ this.details.name }'` );
-		await this.server.start();
+		await this.server.start( options );
+		if ( options.autoStart === false ) {
+			await this.persistAutoStart( false );
+		}
 	}
 
 	updateSiteDetails( site: SiteDetails ) {

@@ -108,4 +108,65 @@ describe( 'createSiteViaCli', () => {
 
 		await expect( pending ).rejects.toThrow( /no site ID received/i );
 	} );
+
+	it( 'passes Playground mounts to the bundled CLI as hidden JSON', () => {
+		const emitter = buildEmitter();
+
+		const pending = createSiteViaCli( {
+			path: '/tmp/site-with-plugin',
+			mounts: [
+				{
+					hostPath: '/tmp/plugin',
+					vfsPath: '/wordpress/wp-content/plugins/example-plugin',
+				},
+			],
+		} );
+
+		expect( vi.mocked( executeCliCommand ).mock.calls[ 0 ][ 0 ] ).toEqual(
+			expect.arrayContaining( [
+				'--mounts-json',
+				JSON.stringify( [
+					{
+						hostPath: '/tmp/plugin',
+						vfsPath: '/wordpress/wp-content/plugins/example-plugin',
+					},
+				] ),
+			] )
+		);
+		emitter.emit( 'data', {
+			data: { action: 'keyValuePair', key: 'id', value: 'site-with-plugin' },
+		} as never );
+		emitter.emit( 'data', {
+			data: { action: 'keyValuePair', key: 'port', value: '8765' },
+		} as never );
+		emitter.emit( 'data', {
+			data: { action: 'keyValuePair', key: 'running', value: 'true' },
+		} as never );
+		emitter.emit( 'success', { result: undefined } as never );
+		return expect( pending ).resolves.toMatchObject( { id: 'site-with-plugin' } );
+	} );
+
+	it( 'can opt out of marking internal Playground sites as auto-start sites', () => {
+		const emitter = buildEmitter();
+
+		const pending = createSiteViaCli( {
+			path: '/tmp/internal-playground',
+			autoStart: false,
+		} );
+
+		expect( vi.mocked( executeCliCommand ).mock.calls[ 0 ][ 0 ] ).toEqual(
+			expect.arrayContaining( [ '--no-auto-start' ] )
+		);
+		emitter.emit( 'data', {
+			data: { action: 'keyValuePair', key: 'id', value: 'internal-playground' },
+		} as never );
+		emitter.emit( 'data', {
+			data: { action: 'keyValuePair', key: 'port', value: '8765' },
+		} as never );
+		emitter.emit( 'data', {
+			data: { action: 'keyValuePair', key: 'running', value: 'true' },
+		} as never );
+		emitter.emit( 'success', { result: undefined } as never );
+		return expect( pending ).resolves.toMatchObject( { id: 'internal-playground' } );
+	} );
 } );

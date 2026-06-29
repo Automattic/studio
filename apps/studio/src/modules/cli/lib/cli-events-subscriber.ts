@@ -84,7 +84,10 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		if ( running ) {
 			void captureSiteThumbnail( siteId );
 			// A freshly created site that's running should auto-start on the next Studio launch.
-			await SiteServer.get( siteId )?.persistAutoStart( true );
+			const registeredServer = SiteServer.get( siteId );
+			if ( registeredServer?.details.autoStart !== false ) {
+				await registeredServer?.persistAutoStart( true );
+			}
 		}
 		return;
 	}
@@ -110,7 +113,9 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		await server.getThemeDetails();
 		await server.getSiteIcon();
 		// Mirror "is running" into the Studio-owned autoStart flag so the site resumes next launch.
-		await server.persistAutoStart( true );
+		if ( server.details.autoStart !== false ) {
+			await server.persistAutoStart( true );
+		}
 	} else if ( ! wasNotRunning && ! running ) {
 		await server.persistAutoStart( false );
 	}

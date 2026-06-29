@@ -25,6 +25,8 @@ export const BUG_REPORT_URL =
 export const FEATURE_REQUEST_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A';
 export const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
+export const WORDPRESS_ORG_LOGIN_URL = 'https://login.wordpress.org/';
+export const WORDPRESS_ORG_AUTH_SESSION_PARTITION = 'persist:studio-wordpress-org';
 export const DEFAULT_TERMINAL = 'terminal';
 
 export const SYNC_OPTIONS = {
@@ -65,6 +67,7 @@ export const IPC_VOID_HANDLERS = [
 	'popupAppMenu',
 	'setWindowButtonVisibility',
 	'showErrorMessageBox',
+	'showDevelopmentProjectContextMenu',
 	'showSiteContextMenu',
 	'showItemInFolder',
 	'showNotification',

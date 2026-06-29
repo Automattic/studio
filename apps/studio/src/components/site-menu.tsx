@@ -13,6 +13,7 @@ import { isMac } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getFileManagerLabel } from 'src/lib/file-manager';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useDevelopmentProjects } from 'src/modules/plugin-development/hooks/use-development-projects';
 import { supportedEditorConfig } from 'src/modules/user-settings/lib/editor';
 import { getTerminalName } from 'src/modules/user-settings/lib/terminal';
 import { useRootSelector } from 'src/stores';
@@ -159,6 +160,7 @@ function SiteItem( {
 } ) {
 	const { sites, selectedSite, setSelectedSiteId, loadingServer, isSiteDeleting } =
 		useSiteDetails();
+	const { selectProject } = useDevelopmentProjects();
 	const isSelected = site === selectedSite;
 	const { isSiteImporting, isSiteExporting } = useImportExport();
 	const { data: editor } = useGetUserEditorQuery();
@@ -226,6 +228,7 @@ function SiteItem( {
 				type="button"
 				className="p-2 text-xs rounded-tl rounded-bl whitespace-nowrap overflow-hidden text-ellipsis w-full text-left rtl:text-right focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-frame-theme"
 				onClick={ () => {
+					selectProject( null );
 					setSelectedSiteId( site.id );
 				} }
 			>

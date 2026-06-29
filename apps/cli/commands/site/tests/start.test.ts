@@ -136,7 +136,9 @@ describe( 'CLI: studio site start', () => {
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
-			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
+			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ), {
+				mounts: undefined,
+			} );
 			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
 				testSite.id,
 				testProcessDescription.pid
@@ -170,7 +172,8 @@ describe( 'CLI: studio site start', () => {
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSiteWithDomain, expect.any( Logger ) );
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				testSiteWithDomain,
-				expect.any( Logger )
+				expect.any( Logger ),
+				{ mounts: undefined }
 			);
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
@@ -184,7 +187,9 @@ describe( 'CLI: studio site start', () => {
 		it( 'should skip browser when skipBrowser is true', async () => {
 			await runCommand( '/test/site', true );
 
-			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
+			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ), {
+				mounts: undefined,
+			} );
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();

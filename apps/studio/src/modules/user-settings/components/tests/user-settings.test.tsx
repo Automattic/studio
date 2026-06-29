@@ -8,6 +8,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { UserSettings } from 'src/modules/user-settings';
 import { store } from 'src/stores';
+import { installedAppsApi } from 'src/stores/installed-apps-api';
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	getAppGlobals: vi.fn( () => ( {
@@ -22,19 +23,25 @@ vi.mock( 'src/hooks/use-auth' );
 vi.mock( 'src/hooks/use-ipc-listener' );
 vi.mock( 'src/hooks/use-offline' );
 
+const mockIpcApi = vi.hoisted( () => ( {
+	getUserTerminal: vi.fn(),
+	getUserEditor: vi.fn(),
+	getInstalledAppsAndTerminals: vi.fn(),
+	isStudioCliInstalled: vi.fn(),
+	copyText: vi.fn(),
+	getDefaultSiteDirectory: vi.fn(),
+	getWapuuScore: vi.fn(),
+	getColorScheme: vi.fn(),
+	getPluginDevelopmentEnabled: vi.fn(),
+	savePluginDevelopmentEnabled: vi.fn(),
+	getWordPressOrgAccount: vi.fn(),
+	loginToWordPressOrg: vi.fn(),
+	logoutFromWordPressOrg: vi.fn(),
+	openURL: vi.fn(),
+} ) );
+
 vi.mock( 'src/lib/get-ipc-api', () => ( {
-	getIpcApi: () => ( {
-		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
-		getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
-		getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {
-			terminals: [ 'terminal' ],
-			editors: [ 'vscode' ],
-		} ),
-		isStudioCliInstalled: vi.fn().mockResolvedValue( true ),
-		copyText: vi.fn().mockResolvedValue( undefined ),
-		getDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/default/site/path' ),
-		getWapuuScore: vi.fn().mockResolvedValue( undefined ),
-	} ),
+	getIpcApi: () => mockIpcApi,
 } ) );
 
 function renderWithProvider( component: React.ReactElement ) {
@@ -50,7 +57,33 @@ const mockIpcEvent = {
 
 describe( 'UserSettings', () => {
 	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.mocked( useAuth ).mockReset();
+		vi.mocked( useIpcListener ).mockReset();
+		vi.mocked( useOffline ).mockReset();
+		store.dispatch( installedAppsApi.util.resetApiState() );
+		mockIpcApi.getUserTerminal.mockResolvedValue( 'terminal' );
+		mockIpcApi.getUserEditor.mockResolvedValue( 'vscode' );
+		mockIpcApi.getInstalledAppsAndTerminals.mockResolvedValue( {
+			terminals: [ 'terminal' ],
+			editors: [ 'vscode' ],
+		} );
+		mockIpcApi.isStudioCliInstalled.mockResolvedValue( true );
+		mockIpcApi.copyText.mockResolvedValue( undefined );
+		mockIpcApi.getDefaultSiteDirectory.mockResolvedValue( '/mock/default/site/path' );
+		mockIpcApi.getWapuuScore.mockResolvedValue( undefined );
+		mockIpcApi.getColorScheme.mockResolvedValue( 'light' );
+		mockIpcApi.getPluginDevelopmentEnabled.mockResolvedValue( false );
+		mockIpcApi.savePluginDevelopmentEnabled.mockResolvedValue( undefined );
+		mockIpcApi.getWordPressOrgAccount.mockResolvedValue( undefined );
+		mockIpcApi.loginToWordPressOrg.mockResolvedValue( {
+			username: 'pressship-user',
+			profileUrl: 'https://profiles.wordpress.org/pressship-user/',
+		} );
+		mockIpcApi.logoutFromWordPressOrg.mockResolvedValue( undefined );
+		mockIpcApi.openURL.mockResolvedValue( undefined );
 		vi.mocked( useOffline ).mockReturnValue( false );
+
 		// Triggers IPC listener to show modal
 		vi.mocked( useIpcListener ).mockImplementationOnce( ( listener, callback ) => {
 			if ( listener === 'user-settings' ) {
@@ -130,10 +163,28 @@ describe( 'UserSettings', () => {
 
 			// General tab (renamed from Preferences) should be selected first
 			await waitFor( () => {
+				expect( screen.getAllByRole( 'tab' ).map( ( tab ) => tab.textContent ) ).toEqual( [
+					'General',
+					'Account',
+					'Skills',
+					'MCP',
+					'Development',
+				] );
 				expect( screen.getByText( 'General' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Language' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Terminal application' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Studio CLI for terminal' ) ).toBeInTheDocument();
+			} );
+
+			await user.click( screen.getByRole( 'tab', { name: 'Development' } ) );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'Development' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect(
+					screen.getByRole( 'checkbox', {
+						name: 'Enable Plugin Development and Publishing',
+					} )
+				).toBeInTheDocument();
 			} );
 
 			await user.click( screen.getByText( 'Account' ) );
@@ -141,12 +192,63 @@ describe( 'UserSettings', () => {
 			await waitFor( () => {
 				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Log out' ) ).toBeInTheDocument();
+				expect( screen.queryByText( 'WordPress.org' ) ).not.toBeInTheDocument();
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Studio Code' ) ).toBeInTheDocument();
 				expect(
 					screen.getByText( 'Studio Code limits are temporarily unavailable.' )
 				).toBeInTheDocument();
 				expect( screen.queryByText( /monthly prompts used/ ) ).not.toBeInTheDocument();
+			} );
+		} );
+
+		it( 'shows Accounts with WordPress.org when plugin development is enabled', async () => {
+			const user = userEvent.setup();
+			mockIpcApi.getPluginDevelopmentEnabled.mockResolvedValue( true );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: true,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
+
+			renderWithProvider( <UserSettings /> );
+
+			await waitFor( () => {
+				expect( screen.getAllByRole( 'tab' ).map( ( tab ) => tab.textContent ) ).toEqual( [
+					'General',
+					'Accounts',
+					'Skills',
+					'MCP',
+					'Development',
+				] );
+			} );
+
+			await user.click( screen.getByRole( 'tab', { name: 'Accounts' } ) );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'Accounts' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect( screen.getByText( 'WordPress.com' ) ).toBeInTheDocument();
+				expect( screen.getByText( 'WordPress.org' ) ).toBeInTheDocument();
+				expect( screen.getByText( 'Not connected' ) ).toBeInTheDocument();
+				expect(
+					screen.getByText(
+						'WordPress.org uses a separate account for plugin and theme submissions, review state, and SVN releases.'
+					)
+				).toBeInTheDocument();
+			} );
+
+			const loginButton = await screen.findByRole( 'button', { name: 'Log in' } );
+			await waitFor( () => {
+				expect( loginButton ).toBeEnabled();
+			} );
+			await user.click( loginButton );
+
+			expect( mockIpcApi.loginToWordPressOrg ).toHaveBeenCalled();
+
+			await waitFor( () => {
+				expect( screen.getByText( 'pressship-user' ) ).toBeInTheDocument();
+				expect( screen.getAllByRole( 'button', { name: 'Log out' } ) ).toHaveLength( 2 );
 			} );
 		} );
 	} );
@@ -191,6 +293,55 @@ describe( 'UserSettings', () => {
 			await waitFor( () => {
 				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
+			} );
+		} );
+
+		it( 'should open with Development tab when tabName is development', async () => {
+			vi.mocked( useIpcListener ).mockImplementation( ( listener, callback ) => {
+				if ( listener === 'user-settings' ) {
+					setTimeout( () => callback( mockIpcEvent, { tabName: 'development' } ), 0 );
+				}
+			} );
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: true,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
+
+			renderWithProvider( <UserSettings /> );
+
+			await waitFor( () => {
+				expect( screen.getByText( 'Development' ) ).toHaveAttribute( 'aria-selected', 'true' );
+				expect(
+					screen.getByText(
+						'Show plugin development tools in the Studio sidebar so you can add local plugin projects, inspect release metadata, and prepare publishing workflows from Studio.'
+					)
+				).toBeInTheDocument();
+			} );
+		} );
+
+		it( 'saves the plugin development preference when the checkbox changes', async () => {
+			const user = userEvent.setup();
+			vi.mocked( useAuth ).mockReturnValue( {
+				isAuthenticated: true,
+				authenticate: vi.fn(),
+				logout: vi.fn(),
+				client: undefined,
+			} );
+
+			renderWithProvider( <UserSettings /> );
+
+			await user.click( screen.getByRole( 'tab', { name: 'Development' } ) );
+			const checkbox = await screen.findByRole( 'checkbox', {
+				name: 'Enable Plugin Development and Publishing',
+			} );
+
+			expect( checkbox ).not.toBeChecked();
+			await user.click( checkbox );
+
+			await waitFor( () => {
+				expect( mockIpcApi.savePluginDevelopmentEnabled ).toHaveBeenCalledWith( true );
 			} );
 		} );
 

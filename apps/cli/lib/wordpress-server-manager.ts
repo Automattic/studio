@@ -641,6 +641,7 @@ export interface RunBlueprintOptions {
 	blueprint: unknown;
 	blueprintUri: string;
 	siteLanguage?: string;
+	mounts?: ServerConfig[ 'mounts' ];
 }
 
 /**

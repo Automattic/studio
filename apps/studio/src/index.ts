@@ -22,7 +22,7 @@ import {
 	REACT_DEVELOPER_TOOLS,
 	REDUX_DEVTOOLS,
 } from 'electron-devtools-installer';
-import { IPC_VOID_HANDLERS } from 'src/constants';
+import { IPC_VOID_HANDLERS, WORDPRESS_ORG_AUTH_SESSION_PARTITION } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
 import { markAppQuitting } from 'src/ipc-utils';
 import {
@@ -196,15 +196,29 @@ async function appBoot() {
 	// be able to perform privileged operations.
 	app.enableSandbox();
 
+	function isWordPressOrgAuthNavigation( navigationUrl: string ) {
+		try {
+			const { hostname } = new URL( navigationUrl );
+			return hostname === 'wordpress.org' || hostname.endsWith( '.wordpress.org' );
+		} catch {
+			return false;
+		}
+	}
+
 	// Prevent navigation to anywhere other than known locations.
 	// The site-preview `<webview>` is a separate webContents that intentionally
 	// loads local WordPress pages — it's identified by `getType() === 'webview'`
 	// and exempted from the renderer-origin restriction below.
 	app.on( 'web-contents-created', ( _event, contents ) => {
 		const isSitePreviewWebview = contents.getType() === 'webview';
+		const isWordPressOrgAuthWindow =
+			contents.session === session.fromPartition( WORDPRESS_ORG_AUTH_SESSION_PARTITION );
 
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
-			if ( isSitePreviewWebview ) {
+			if (
+				isSitePreviewWebview ||
+				( isWordPressOrgAuthWindow && isWordPressOrgAuthNavigation( navigationUrl ) )
+			) {
 				return;
 			}
 			const { origin } = new URL( navigationUrl );

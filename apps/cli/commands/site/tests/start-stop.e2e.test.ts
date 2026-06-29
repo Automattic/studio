@@ -1,14 +1,12 @@
 /**
  * @vitest-environment node
  *
- * Real end-to-end test for the `studio site start` / `studio site stop` lifecycle.
- * Unlike start.test.ts / stop.test.ts (which mock the daemon and server manager),
- * this spawns the built CLI, boots a real WordPress server through the
- * process-manager daemon, and verifies the live running state via `studio site list`.
+ * Real end-to-end test for the `studio site start` / `stop` lifecycle: unlike
+ * start.test.ts / stop.test.ts (which mock the daemon), this spawns the built CLI,
+ * boots a real WordPress server, and checks the live state via `studio site list`.
  *
- * Requires the CLI to be built first (`npm run cli:build`); the suite skips itself
- * otherwise. Tagged `e2e` so it runs in the slower (release/manual) suite rather
- * than on every PR — run with `npm test -- --tagsFilter='e2e'`.
+ * Needs the CLI built first (skips otherwise). Tagged `e2e` (slower manual suite):
+ * `npm test -- --tagsFilter='e2e'`.
  */
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -21,9 +19,8 @@ import {
 } from './helpers/cli-e2e';
 
 /**
- * Whether the CLI reports the site at `sitePath` as running, read from the live
- * daemon via `studio site list --format json`. stdout is clean JSON: the spinner
- * and all progress logging go to stderr (picospinner-stderr-patch).
+ * Whether the CLI reports the site at `sitePath` as running, via
+ * `studio site list --format json` (stdout is clean JSON; progress goes to stderr).
  */
 async function isSiteRunning( env: CliEnv, sitePath: string ): Promise< boolean > {
 	const result = await runCli( [ 'site', 'list', '--format', 'json' ], env );
@@ -39,17 +36,12 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site start/stop'
 	let env: CliEnv | undefined;
 	let sitePath = '';
 
-	// Create the site once without starting it, so the cases below exercise a real,
-	// persisted site. They run in order on the same site: a site must be started
-	// before stopping it is meaningful, and creating once avoids a second (slow)
-	// WordPress copy.
+	// Create the site once (no --start); the ordered cases below share it — start
+	// must precede stop, and one create avoids a second slow WordPress copy.
 	//
-	// `--runtime sandbox` (Playground/WASM, bundled in the CLI) keeps this fully
-	// hermetic. The native PHP runtime works the same way but downloads its ~25 MB
-	// PHP binary into the isolated config dir on first run — the real binary at
-	// ~/.studio/php-bin can't be symlinked read-only like server-files because the
-	// native runtime writes php.ini beside it. Covering the native runtime
-	// hermetically needs the CI to provision that binary, so it's a follow-up.
+	// `--runtime sandbox` (bundled Playground/WASM) keeps this hermetic. Native PHP
+	// would download its ~25 MB binary into the config dir on first run, so covering
+	// it hermetically needs CI to provision that binary — a follow-up.
 	beforeAll( async () => {
 		env = setupCliEnv();
 		sitePath = path.join( env.sitesDir, 'lifecycle-e2e-site' );

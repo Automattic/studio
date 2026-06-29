@@ -51,17 +51,11 @@ export function setupCliEnv(): CliEnv {
 	const root = path.join( os.tmpdir(), `studio-cli-e2e-${ randomUUID() }` );
 	const configDir = path.join( root, 'config' );
 	const sitesDir = path.join( root, 'sites' );
-	// Isolated process-manager home. PROCESS_MANAGER_HOME is keyed off
-	// STUDIO_PROCESS_MANAGER_HOME (not DEV_CONFIG_DIR), defaulting to the global
-	// ~/.studio/daemon. Pointing it here gives each run its own daemon + socket so
-	// `site start`/`stop` never touch the developer's real daemon or running sites,
-	// and parallel suites don't collide.
-	//
-	// Kept SHORT and directly under the temp dir (not nested under `root`): the
-	// daemon's control/events sockets live here, and a Unix domain socket path has
-	// a ~104-char limit (macOS) — nesting under the long `studio-cli-e2e-<uuid>`
-	// root overflows it and the daemon connection fails with EINVAL. (On Windows
-	// the daemon uses a fixed named pipe, so this isolation is macOS/Linux only.)
+	// Each run gets its own process-manager daemon (via STUDIO_PROCESS_MANAGER_HOME
+	// in runCli) so `site start`/`stop` never touch the developer's real daemon or
+	// sites. Keep it SHORT and directly under tmpdir: the daemon's control socket is
+	// a Unix domain socket (~104-char limit on macOS), so nesting under the long
+	// `root` overflows it and the connection fails with EINVAL.
 	const daemonHome = path.join( os.tmpdir(), `scd-${ randomUUID().slice( 0, 8 ) }` );
 	fs.mkdirSync( configDir, { recursive: true } );
 	fs.mkdirSync( sitesDir, { recursive: true } );
@@ -85,11 +79,9 @@ export function setupCliEnv(): CliEnv {
 		} )
 	);
 
-	// Seed a minimal app.json so the initial-compatibility migration
-	// (00-check-studio-compatibility) returns early. Without it, that migration
-	// falls through to the developer's real legacy appdata-v1.json and, if Studio
-	// is installed, aborts the CLI — so the suite would pass on CI (no legacy
-	// config) yet fail on a developer machine.
+	// Seed app.json so the 00-check-studio-compatibility migration returns early.
+	// Otherwise it falls through to the developer's real legacy appdata-v1.json and
+	// aborts the CLI — green on CI, broken on a dev machine with Studio installed.
 	fs.writeFileSync(
 		path.join( configDir, 'app.json' ),
 		JSON.stringify( { version: 1, siteMetadata: {} } )

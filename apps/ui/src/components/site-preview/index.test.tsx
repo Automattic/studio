@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -36,6 +36,63 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 		running: false,
 		phpVersion: '8.3',
 		...overrides,
+	};
+}
+
+function mockPrefersDarkColorScheme( matches: boolean ) {
+	const originalMatchMedia = window.matchMedia;
+	Object.defineProperty( window, 'matchMedia', {
+		configurable: true,
+		value: vi.fn().mockImplementation( ( query: string ) => ( {
+			matches: query === '(prefers-color-scheme: dark)' ? matches : false,
+			media: query,
+			onchange: null,
+			addListener: vi.fn(),
+			removeListener: vi.fn(),
+			addEventListener: vi.fn(),
+			removeEventListener: vi.fn(),
+			dispatchEvent: vi.fn(),
+		} ) ),
+	} );
+	return () => {
+		Object.defineProperty( window, 'matchMedia', {
+			configurable: true,
+			value: originalMatchMedia,
+		} );
+	};
+}
+
+function mockElectronUserAgent() {
+	const originalUserAgent = window.navigator.userAgent;
+	Object.defineProperty( window.navigator, 'userAgent', {
+		configurable: true,
+		value: `${ originalUserAgent } Electron/35.0.0`,
+	} );
+	return () => {
+		Object.defineProperty( window.navigator, 'userAgent', {
+			configurable: true,
+			value: originalUserAgent,
+		} );
+	};
+}
+
+function mockWebviewContentsId( webContentsId = 42 ) {
+	type HTMLElementWithWebviewId = HTMLElement & { getWebContentsId?: () => number };
+	const prototype = HTMLElement.prototype as HTMLElementWithWebviewId;
+	const original = prototype.getWebContentsId;
+	Object.defineProperty( HTMLElement.prototype, 'getWebContentsId', {
+		configurable: true,
+		value: vi.fn( () => webContentsId ),
+	} );
+	return () => {
+		if ( original ) {
+			Object.defineProperty( HTMLElement.prototype, 'getWebContentsId', {
+				configurable: true,
+				value: original,
+			} );
+			return;
+		}
+		delete prototype.getWebContentsId;
 	};
 }
 
@@ -121,6 +178,154 @@ describe( 'SitePreview', () => {
 		fireEvent.click( refreshButton );
 
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
+	} );
+
+	it( 'captures a full-page screenshot and forwards it to the composer callback', async () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		const restoreWebviewContentsId = mockWebviewContentsId();
+		const captureSiteScreenshot = vi.fn().mockResolvedValue( {
+			name: 'screenshot-desktop.jpg',
+			mimeType: 'image/jpeg',
+			data: new Uint8Array( [ 1, 2, 3 ] ).buffer,
+		} );
+		const onScreenshotDone = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			captureSiteScreenshot,
+		} as never );
+
+		try {
+			renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/about/"
+					reloadNonce={ 0 }
+					onScreenshotDone={ onScreenshotDone }
+				/>
+			);
+
+			const screenshotButton = screen.getByRole( 'button', {
+				name: 'Add full-page screenshot to composer',
+			} );
+			const annotateButton = screen.getByRole( 'button', { name: 'Annotate' } );
+			expect(
+				screenshotButton.compareDocumentPosition( annotateButton ) &
+					Node.DOCUMENT_POSITION_FOLLOWING
+			).toBeTruthy();
+
+			fireEvent.click( screenshotButton );
+
+			await waitFor( () => {
+				expect( captureSiteScreenshot ).toHaveBeenCalledWith( 42, {
+					colorScheme: 'light',
+				} );
+			} );
+			await waitFor( () => expect( onScreenshotDone ).toHaveBeenCalledTimes( 1 ) );
+
+			const [ file ] = onScreenshotDone.mock.calls[ 0 ];
+			expect( file ).toBeInstanceOf( File );
+			expect( file.name ).toBe( 'screenshot-desktop.jpg' );
+			expect( file.type ).toBe( 'image/jpeg' );
+			expect( file.size ).toBe( 3 );
+		} finally {
+			restoreWebviewContentsId();
+			restoreUserAgent();
+		}
+	} );
+
+	it( 'shows an error when the screenshot cannot be added', async () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		const restoreWebviewContentsId = mockWebviewContentsId();
+		const consoleError = vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			captureSiteScreenshot: vi.fn().mockRejectedValue( new Error( 'No IPC handler' ) ),
+		} as never );
+
+		try {
+			renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/about/"
+					reloadNonce={ 0 }
+					onScreenshotDone={ vi.fn().mockResolvedValue( undefined ) }
+				/>
+			);
+
+			fireEvent.click(
+				screen.getByRole( 'button', { name: 'Add full-page screenshot to composer' } )
+			);
+
+			expect( await screen.findByRole( 'status' ) ).toHaveTextContent(
+				'Screenshot could not be added.'
+			);
+		} finally {
+			restoreWebviewContentsId();
+			restoreUserAgent();
+			consoleError.mockRestore();
+		}
+	} );
+
+	it( 'uses a switch to toggle the preview color scheme', () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+		} as never );
+
+		try {
+			renderPreview(
+				<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+			);
+
+			const switchControl = screen.getByRole( 'switch', { name: 'Preview in dark mode' } );
+			expect( switchControl ).not.toBeChecked();
+
+			fireEvent.click( switchControl );
+
+			expect( screen.getByRole( 'switch', { name: 'Preview in light mode' } ) ).toBeChecked();
+		} finally {
+			restoreUserAgent();
+		}
+	} );
+
+	it( 'uses the preferred dark color scheme when capturing screenshots', async () => {
+		const restoreMatchMedia = mockPrefersDarkColorScheme( true );
+		const restoreUserAgent = mockElectronUserAgent();
+		const restoreWebviewContentsId = mockWebviewContentsId();
+		const captureSiteScreenshot = vi.fn().mockResolvedValue( {
+			name: 'screenshot-desktop-dark.jpg',
+			mimeType: 'image/jpeg',
+			data: new Uint8Array( [ 1 ] ).buffer,
+		} );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			captureSiteScreenshot,
+		} as never );
+
+		try {
+			renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/"
+					reloadNonce={ 0 }
+					onScreenshotDone={ vi.fn().mockResolvedValue( undefined ) }
+				/>
+			);
+
+			fireEvent.click(
+				screen.getByRole( 'button', { name: 'Add full-page screenshot to composer' } )
+			);
+
+			await waitFor( () => {
+				expect( captureSiteScreenshot ).toHaveBeenCalledWith( 42, {
+					colorScheme: 'dark',
+				} );
+			} );
+		} finally {
+			restoreMatchMedia();
+			restoreWebviewContentsId();
+			restoreUserAgent();
+		}
 	} );
 
 	it( 'reloads the preview on the primary-modifier+R shortcut', () => {

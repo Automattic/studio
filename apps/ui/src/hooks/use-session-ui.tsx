@@ -79,6 +79,9 @@ const SessionUIDispatchContext = createContext< Dispatch< SessionUIAction > | nu
 const SessionUIPreviewAnnotationsContext = createContext< MutableRefObject<
 	( ( annotations: Annotation[] ) => void ) | undefined
 > | null >( null );
+const SessionUIPreviewScreenshotContext = createContext< MutableRefObject<
+	( ( file: File ) => void | Promise< void > ) | undefined
+> | null >( null );
 
 export function SessionUIProvider( { children }: { children: ReactNode } ) {
 	// Views mount their own provider so they stay usable standalone (e.g. in
@@ -97,6 +100,9 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const previewAnnotationsRef = useRef< ( ( annotations: Annotation[] ) => void ) | undefined >(
 		undefined
 	);
+	const previewScreenshotRef = useRef< ( ( file: File ) => void | Promise< void > ) | undefined >(
+		undefined
+	);
 	const connector = useConnector();
 	useEffect( () => {
 		return connector.onToggleSitePreview( () => {
@@ -105,11 +111,13 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	}, [ connector ] );
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>
-			<SessionUIPreviewAnnotationsContext.Provider value={ previewAnnotationsRef }>
-				<SessionUIStateContext.Provider value={ state }>
-					{ children }
-				</SessionUIStateContext.Provider>
-			</SessionUIPreviewAnnotationsContext.Provider>
+			<SessionUIPreviewScreenshotContext.Provider value={ previewScreenshotRef }>
+				<SessionUIPreviewAnnotationsContext.Provider value={ previewAnnotationsRef }>
+					<SessionUIStateContext.Provider value={ state }>
+						{ children }
+					</SessionUIStateContext.Provider>
+				</SessionUIPreviewAnnotationsContext.Provider>
+			</SessionUIPreviewScreenshotContext.Provider>
 		</SessionUIDispatchContext.Provider>
 	);
 }
@@ -203,4 +211,38 @@ export function useSessionPreviewAnnotationsHandler(): ( annotations: Annotation
 		);
 	}
 	return useCallback( ( annotations: Annotation[] ) => ref.current?.( annotations ), [ ref ] );
+}
+
+export function useSessionPreviewScreenshot(
+	onScreenshotDone: ( file: File ) => void | Promise< void >,
+	enabled: boolean
+): void {
+	const ref = useContext( SessionUIPreviewScreenshotContext );
+	if ( ! ref ) {
+		throw new Error( 'useSessionPreviewScreenshot must be used within a SessionUIProvider' );
+	}
+	useEffect( () => {
+		if ( ! enabled ) {
+			return;
+		}
+		ref.current = onScreenshotDone;
+		return () => {
+			if ( ref.current === onScreenshotDone ) {
+				ref.current = undefined;
+			}
+		};
+	}, [ enabled, onScreenshotDone, ref ] );
+}
+
+export function useSessionPreviewScreenshotHandler(): ( file: File ) => Promise< void > {
+	const ref = useContext( SessionUIPreviewScreenshotContext );
+	if ( ! ref ) {
+		throw new Error( 'useSessionPreviewScreenshotHandler must be used within a SessionUIProvider' );
+	}
+	return useCallback(
+		async ( file: File ) => {
+			await ref.current?.( file );
+		},
+		[ ref ]
+	);
 }

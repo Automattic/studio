@@ -1,12 +1,12 @@
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
+import { capturePhoto, chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { playIcon, refreshIcon } from '@/lib/icons';
+import { moonIcon, playIcon, refreshIcon, sunIcon } from '@/lib/icons';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
@@ -14,7 +14,7 @@ import {
 } from './inspector-script';
 import styles from './style.module.css';
 import type { Annotation } from './types';
-import type { SiteDetails } from '@/data/core';
+import type { LocalMediaFile, SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 
 export type { Annotation } from './types';
@@ -30,6 +30,9 @@ interface SitePreviewProps {
 	// Called when the user clicks "Submit" in the annotation controls. Receives
 	// the full annotation payload assembled inside the webview's guest page.
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
+	// Called when the user captures the preview as an image to attach to the
+	// composer for the active session.
+	onScreenshotDone?: ( file: File ) => void | Promise< void >;
 	// Called when the user navigates within the preview (link clicks,
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
@@ -73,6 +76,17 @@ interface BrowserCommand {
 	type: BrowserShortcutCommandType;
 }
 
+type PreviewColorScheme = 'light' | 'dark';
+
+interface PreviewWindow extends Window {
+	ipcApi?: {
+		setWebviewColorScheme?: (
+			webContentsId: number,
+			colorScheme: PreviewColorScheme
+		) => Promise< void >;
+	};
+}
+
 // Electron's `<webview>` is a custom element with non-standard methods. Type
 // just the surface we use so this file compiles without an `electron` dep.
 interface WebviewTag extends HTMLElement {
@@ -80,6 +94,7 @@ interface WebviewTag extends HTMLElement {
 	executeJavaScript( code: string, userGesture?: boolean ): Promise< unknown >;
 	canGoBack?(): boolean;
 	canGoForward?(): boolean;
+	getWebContentsId?(): number;
 	goBack?(): void;
 	goForward?(): void;
 	reload?(): void;
@@ -102,6 +117,37 @@ const isElectron = (): boolean => {
 	if ( typeof navigator === 'undefined' ) return false;
 	return /\bElectron\//.test( navigator.userAgent );
 };
+
+function getInitialPreviewColorScheme(): PreviewColorScheme {
+	if (
+		typeof window !== 'undefined' &&
+		typeof window.matchMedia === 'function' &&
+		window.matchMedia( '(prefers-color-scheme: dark)' ).matches
+	) {
+		return 'dark';
+	}
+	return 'light';
+}
+
+function localMediaFileToFile( file: LocalMediaFile ): File {
+	return new File( [ file.data ], file.name, { type: file.mimeType } );
+}
+
+function getWebviewContentsId( webview: WebviewTag ): number {
+	const webContentsId = webview.getWebContentsId?.();
+	if ( ! webContentsId ) {
+		throw new Error( 'Preview webview is not ready.' );
+	}
+	return webContentsId;
+}
+
+async function applyWebviewColorScheme(
+	webview: WebviewTag,
+	colorScheme: PreviewColorScheme
+): Promise< void > {
+	const { ipcApi } = window as PreviewWindow;
+	await ipcApi?.setWebviewColorScheme?.( getWebviewContentsId( webview ), colorScheme );
+}
 
 const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	canGoBack: false,
@@ -189,6 +235,56 @@ function ToolbarTooltip( {
 	);
 }
 
+function PreviewColorSchemeSwitch( {
+	colorScheme,
+	disabled,
+	onChange,
+}: {
+	colorScheme: PreviewColorScheme;
+	disabled: boolean;
+	onChange: () => void;
+} ) {
+	const label =
+		colorScheme === 'dark' ? __( 'Preview in light mode' ) : __( 'Preview in dark mode' );
+	const checked = colorScheme === 'dark';
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				disabled={ disabled }
+				render={
+					<button
+						type="button"
+						role="switch"
+						aria-checked={ checked }
+						aria-label={ label }
+						className={ styles.schemeSwitch }
+						disabled={ disabled }
+						onClick={ onChange }
+					>
+						<span className={ styles.schemeSwitchIcon } aria-hidden="true">
+							{ sunIcon }
+						</span>
+						<span className={ styles.schemeSwitchIcon } aria-hidden="true">
+							{ moonIcon }
+						</span>
+						<span className={ styles.schemeSwitchThumb } aria-hidden="true" />
+					</button>
+				}
+			/>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>{ label }</Tooltip.Popup>
+		</Tooltip.Root>
+	);
+}
+
+function getPreviewWebviewContentsId( root: HTMLElement | null ): number {
+	const webview = root?.querySelector( 'webview' ) as WebviewTag | null;
+	if ( ! webview ) {
+		throw new Error( 'Preview webview is not ready.' );
+	}
+	return getWebviewContentsId( webview );
+}
+
 function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationState ) {
 	return (
 		a.canGoBack === b.canGoBack &&
@@ -204,6 +300,7 @@ export function SitePreview( {
 	path,
 	reloadNonce,
 	onAnnotationsDone,
+	onScreenshotDone,
 	onPathChange,
 	collapsed = false,
 }: SitePreviewProps ) {
@@ -211,6 +308,7 @@ export function SitePreview( {
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
+	const canUseWebview = isElectron();
 	const canPreview = site.running;
 	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
 	const [ browserState, setBrowserState ] =
@@ -218,14 +316,20 @@ export function SitePreview( {
 	const [ browserCommand, setBrowserCommand ] = useState< BrowserCommand | null >( null );
 	const [ inspectorState, setInspectorState ] = useState< InspectorState >( EMPTY_INSPECTOR_STATE );
 	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommand | null >( null );
+	const [ previewColorScheme, setPreviewColorScheme ] = useState< PreviewColorScheme >(
+		getInitialPreviewColorScheme
+	);
+	const [ isCapturingScreenshot, setIsCapturingScreenshot ] = useState( false );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const canAnnotate = canPreview && inspectorState.ready;
+	const canCaptureScreenshot = canPreview && canUseWebview && !! onScreenshotDone;
 	const pageTitle = getToolbarPageTitle( browserState.title, site.name );
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
 	const showLoadingProgress = canPreview && progress > 0;
+	const [ screenshotError, setScreenshotError ] = useState< string | null >( null );
 
 	const handlePreviewNavigation = useCallback(
 		( url: string ) => {
@@ -251,6 +355,36 @@ export function SitePreview( {
 		commandIdRef.current += 1;
 		setInspectorCommand( { id: commandIdRef.current, type } );
 	}, [] );
+	const capturePreviewScreenshot = useCallback( async () => {
+		if ( ! canCaptureScreenshot || isCapturingScreenshot ) {
+			return;
+		}
+		setIsCapturingScreenshot( true );
+		setScreenshotError( null );
+		try {
+			const screenshot = await connector.captureSiteScreenshot(
+				getPreviewWebviewContentsId( rootRef.current ),
+				{
+					colorScheme: previewColorScheme,
+				}
+			);
+			await onScreenshotDone?.( localMediaFileToFile( screenshot ) );
+		} catch ( error ) {
+			console.error( 'Failed to add preview screenshot:', error );
+			setScreenshotError( __( 'Screenshot could not be added.' ) );
+		} finally {
+			setIsCapturingScreenshot( false );
+		}
+	}, [
+		canCaptureScreenshot,
+		connector,
+		isCapturingScreenshot,
+		onScreenshotDone,
+		previewColorScheme,
+	] );
+	const togglePreviewColorScheme = useCallback( () => {
+		setPreviewColorScheme( ( current ) => ( current === 'dark' ? 'light' : 'dark' ) );
+	}, [] );
 
 	const browserShortcuts = useMemo(
 		() => ( {
@@ -260,6 +394,7 @@ export function SitePreview( {
 		} ),
 		[]
 	);
+	const refreshTooltipLabel = `${ __( 'Refresh' ) } ${ browserShortcuts.reload.displayShortcut }`;
 
 	useEffect( () => {
 		setBrowserState( EMPTY_BROWSER_STATE );
@@ -321,22 +456,51 @@ export function SitePreview( {
 								disabled={ ! browserState.canGoForward }
 								onClick={ () => sendBrowserCommand( 'forward' ) }
 							/>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ refreshIcon }
-								label={ __( 'Refresh' ) }
-								shortcut={ browserShortcuts.reload }
-								onClick={ () => sendBrowserCommand( 'reload' ) }
-							/>
-						</div>
-						<div className={ styles.browserLocation }>
-							<ToolbarTooltip label={ previewUrl }>
-								<span className={ styles.browserTitle }>{ pageTitle }</span>
+							<ToolbarTooltip label={ refreshTooltipLabel.trim() }>
+								<Button
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									className={ styles.refreshButton }
+									aria-label={ __( 'Refresh' ) }
+									aria-keyshortcuts={ browserShortcuts.reload.ariaKeyShortcut }
+									onClick={ () => sendBrowserCommand( 'reload' ) }
+								>
+									<span className={ styles.refreshIcon } aria-hidden="true">
+										{ refreshIcon }
+									</span>
+								</Button>
 							</ToolbarTooltip>
 						</div>
+						<div className={ styles.browserLocation }>
+							{ screenshotError ? (
+								<span className={ styles.toolbarError } role="status">
+									{ screenshotError }
+								</span>
+							) : (
+								<ToolbarTooltip label={ previewUrl }>
+									<span className={ styles.browserTitle }>{ pageTitle }</span>
+								</ToolbarTooltip>
+							) }
+						</div>
 						<div className={ styles.annotationControls }>
+							{ onScreenshotDone ? (
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ capturePhoto }
+									label={
+										isCapturingScreenshot
+											? __( 'Adding screenshot...' )
+											: __( 'Add full-page screenshot to composer' )
+									}
+									loading={ isCapturingScreenshot }
+									loadingAnnouncement={ __( 'Adding screenshot' ) }
+									disabled={ ! canCaptureScreenshot || isCapturingScreenshot }
+									onClick={ () => void capturePreviewScreenshot() }
+								/>
+							) : null }
 							<IconButton
 								variant="minimal"
 								tone="neutral"
@@ -374,6 +538,13 @@ export function SitePreview( {
 					disabled={ ! canPreview }
 					onClick={ () => void connector.openExternalUrl( previewUrl ) }
 				/>
+				{ canPreview ? (
+					<PreviewColorSchemeSwitch
+						colorScheme={ previewColorScheme }
+						disabled={ ! canUseWebview }
+						onChange={ togglePreviewColorScheme }
+					/>
+				) : null }
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">
 						<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />
@@ -382,7 +553,7 @@ export function SitePreview( {
 			</div>
 			<div className={ styles.body }>
 				{ canPreview ? (
-					isElectron() ? (
+					canUseWebview ? (
 						<WebviewSurface
 							key={ site.id }
 							url={ previewUrl }
@@ -394,6 +565,7 @@ export function SitePreview( {
 							onBrowserStateChange={ handleBrowserStateChange }
 							onBrowserCommand={ sendBrowserCommand }
 							onNavigate={ handlePreviewNavigation }
+							colorScheme={ previewColorScheme }
 						/>
 					) : (
 						// Non-Electron fallback: plain iframe, no inspector. Reloads
@@ -480,6 +652,7 @@ interface WebviewSurfaceProps {
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
+	colorScheme: PreviewColorScheme;
 }
 
 /**
@@ -500,6 +673,7 @@ function WebviewSurface( {
 	onBrowserStateChange,
 	onBrowserCommand,
 	onNavigate,
+	colorScheme,
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
@@ -529,6 +703,13 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+
+	useEffect( () => {
+		if ( ! ready ) return;
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview ) return;
+		void applyWebviewColorScheme( webview, colorScheme ).catch( () => undefined );
+	}, [ colorScheme, ready ] );
 
 	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
 		const webview = ref.current as WebviewTag | null;

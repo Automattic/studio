@@ -1,7 +1,7 @@
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
 	archive,
 	code,
@@ -34,13 +34,14 @@ import {
 	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
+	useSiteOverviewDetails,
 	useSites,
 	useStartSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
-import type { SiteDetails } from '@/data/core';
+import type { SiteDetails, SiteOverviewDetails, SiteOverviewExtension } from '@/data/core';
 import type { ReactNode } from 'react';
 
 interface SiteOverviewViewProps {
@@ -62,6 +63,11 @@ interface ButtonSectionProps {
 	title: string;
 	children: ReactNode;
 	className?: string;
+}
+
+interface DetailSectionProps {
+	title: string;
+	children: ReactNode;
 }
 
 type SiteOverviewTabId = 'overview' | SiteSettingsTabId;
@@ -125,6 +131,15 @@ function ButtonSection( { title, children, className }: ButtonSectionProps ) {
 	);
 }
 
+function DetailSection( { title, children }: DetailSectionProps ) {
+	return (
+		<section className={ styles.detailSection }>
+			<h2>{ title }</h2>
+			{ children }
+		</section>
+	);
+}
+
 function getFileManagerLabel() {
 	const platform = navigator.platform.toLowerCase();
 	if ( platform.includes( 'win' ) ) {
@@ -134,6 +149,118 @@ function getFileManagerLabel() {
 		return __( 'File manager' );
 	}
 	return __( 'Finder' );
+}
+
+function getDetailsStatus( { isLoading, isError }: { isLoading: boolean; isError: boolean } ) {
+	if ( isLoading ) {
+		return __( 'Loading site details...' );
+	}
+	if ( isError ) {
+		return __( 'Site details unavailable.' );
+	}
+	return null;
+}
+
+function OverviewDetailsSections( {
+	details,
+	isLoading,
+	isError,
+}: {
+	details?: SiteOverviewDetails;
+	isLoading: boolean;
+	isError: boolean;
+} ) {
+	const status = getDetailsStatus( { isLoading, isError } );
+
+	return (
+		<div className={ styles.detailsColumn }>
+			<DetailSection title={ __( 'Content' ) }>
+				{ status ? (
+					<p className={ styles.detailStatus }>{ status }</p>
+				) : (
+					<dl className={ styles.contentCounts }>
+						<div className={ styles.contentCount }>
+							<dt>{ __( 'Pages' ) }</dt>
+							<dd>{ details?.content.pages ?? 0 }</dd>
+						</div>
+						<div className={ styles.contentCount }>
+							<dt>{ __( 'Posts' ) }</dt>
+							<dd>{ details?.content.posts ?? 0 }</dd>
+						</div>
+					</dl>
+				) }
+			</DetailSection>
+			<ExtensionListSection
+				title={ __( 'Plugins' ) }
+				items={ details?.plugins }
+				status={ status }
+				emptyLabel={ __( 'No plugins installed.' ) }
+			/>
+			<ExtensionListSection
+				title={ __( 'Themes' ) }
+				items={ details?.themes }
+				status={ status }
+				emptyLabel={ __( 'No themes installed.' ) }
+			/>
+		</div>
+	);
+}
+
+function ExtensionListSection( {
+	title,
+	items,
+	status,
+	emptyLabel,
+}: {
+	title: string;
+	items?: SiteOverviewExtension[];
+	status: string | null;
+	emptyLabel: string;
+} ) {
+	return (
+		<DetailSection title={ title }>
+			{ status ? (
+				<p className={ styles.detailStatus }>{ status }</p>
+			) : items?.length ? (
+				<ul className={ styles.extensionList }>
+					{ items.map( ( item ) => (
+						<li key={ item.slug } className={ styles.extensionItem }>
+							<span className={ styles.extensionName }>{ item.name }</span>
+							{ getExtensionMeta( item ) ? (
+								<span className={ styles.extensionMeta }>{ getExtensionMeta( item ) }</span>
+							) : null }
+						</li>
+					) ) }
+				</ul>
+			) : (
+				<p className={ styles.detailStatus }>{ emptyLabel }</p>
+			) }
+		</DetailSection>
+	);
+}
+
+function getExtensionMeta( item: SiteOverviewExtension ) {
+	const parts: string[] = [];
+	const statusLabel = getExtensionStatusLabel( item.status );
+
+	if ( item.version ) {
+		parts.push( sprintf( __( 'Version %s' ), item.version ) );
+	}
+	if ( statusLabel ) {
+		parts.push( statusLabel );
+	}
+
+	return parts.join( ' | ' );
+}
+
+function getExtensionStatusLabel( status: SiteOverviewExtension[ 'status' ] ) {
+	if ( status === 'active' ) {
+		return __( 'Active' );
+	}
+	if ( status === 'inactive' ) {
+		return __( 'Inactive' );
+	}
+	return status ? status.replace( /-/g, ' ' ) : null;
 }
 
 export function SiteOverviewView( { siteId }: SiteOverviewViewProps ) {
@@ -166,6 +293,7 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 	const exportDatabase = useExportDatabase();
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
+	const overviewDetails = useSiteOverviewDetails( site.id );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	const [ activeTab, setActiveTab ] = useState< SiteOverviewTabId >( 'overview' );
 
@@ -397,6 +525,11 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 										/>
 									</ButtonSection>
 								</div>
+								<OverviewDetailsSections
+									details={ overviewDetails.data }
+									isLoading={ overviewDetails.isLoading }
+									isError={ overviewDetails.isError }
+								/>
 							</Tabs.Panel>
 							{ isSettingsTab( activeTab ) ? (
 								<Tabs.Panel tabId={ activeTab } className={ styles.panel }>

@@ -1,9 +1,18 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+	act,
+	createEvent,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from '@testing-library/react';
+import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { Composer } from '.';
+import { Composer, type ComposerHandle } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';
 import type { ComponentProps } from 'react';
 
@@ -131,6 +140,23 @@ describe( 'Composer menu', () => {
 		const preview = await screen.findByRole( 'tooltip' );
 		expect( preview ).toHaveTextContent( 'notes.txt' );
 		expect( preview.parentElement ).toBe( document.body );
+	} );
+
+	it( 'adds image files through the imperative handle and focuses the textbox', async () => {
+		const ref = createRef< ComposerHandle >();
+		renderComposer( { ref } );
+		const screenshot = new File( [ new Uint8Array( [ 1, 2, 3 ] ) ], 'screenshot.jpg', {
+			type: 'image/jpeg',
+		} );
+
+		await act( async () => {
+			await expect( ref.current?.addFiles( [ screenshot ] ) ).resolves.toBe( true );
+		} );
+
+		expect(
+			await screen.findByRole( 'button', { name: 'Remove attachment: screenshot.jpg' } )
+		).toBeInTheDocument();
+		await waitFor( () => expect( screen.getByRole( 'textbox' ) ).toHaveFocus() );
 	} );
 
 	it( 'grows, clamps, and shrinks the textarea with draft content', async () => {

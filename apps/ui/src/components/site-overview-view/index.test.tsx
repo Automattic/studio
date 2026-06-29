@@ -8,6 +8,7 @@ import {
 	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
+	useSiteOverviewDetails,
 	useSites,
 	useStartSite,
 	useStopSite,
@@ -53,6 +54,7 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useExportFullSite: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
+	useSiteOverviewDetails: vi.fn(),
 	useSites: vi.fn(),
 	useStartSite: vi.fn(),
 	useStopSite: vi.fn(),
@@ -79,6 +81,7 @@ const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
 const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
+const useSiteOverviewDetailsMock = vi.mocked( useSiteOverviewDetails, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
@@ -139,6 +142,44 @@ describe( 'SiteOverviewView', () => {
 		useCopySiteMock.mockReturnValue( { isPending: false, mutate: copySite } );
 		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: exportFullSite } );
 		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: exportDatabase } );
+		useSiteOverviewDetailsMock.mockReturnValue( {
+			data: {
+				content: {
+					pages: 3,
+					posts: 7,
+				},
+				plugins: [
+					{
+						slug: 'akismet/akismet.php',
+						name: 'Akismet Anti-spam',
+						status: 'active',
+						version: '5.3',
+					},
+					{
+						slug: 'hello.php',
+						name: 'Hello Dolly',
+						status: 'inactive',
+						version: '1.7.2',
+					},
+				],
+				themes: [
+					{
+						slug: 'twentytwentysix',
+						name: 'Twenty Twenty-Six',
+						status: 'active',
+						version: '1.0',
+					},
+					{
+						slug: 'twentytwentyfive',
+						name: 'Twenty Twenty-Five',
+						status: 'inactive',
+						version: '1.2',
+					},
+				],
+			},
+			isLoading: false,
+			isError: false,
+		} );
 		useUserPreferencesMock.mockReturnValue( {
 			data: {
 				editor: 'zed',
@@ -164,10 +205,21 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Open in…' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Content' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Plugins' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Themes' } ) ).toBeVisible();
 		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
 		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
 		expect( screen.getByText( 'Zed' ) ).toBeVisible();
 		expect( screen.getByText( 'phpMyAdmin' ) ).toBeVisible();
+		const contentSection = screen.getByRole( 'heading', { name: 'Content' } ).closest( 'section' )!;
+		expect( contentSection ).toHaveTextContent( 'Pages3' );
+		expect( contentSection ).toHaveTextContent( 'Posts7' );
+		expect( screen.getByText( 'Akismet Anti-spam' ) ).toBeVisible();
+		expect( screen.getByText( 'Version 5.3 | Active' ) ).toBeVisible();
+		expect( screen.getByText( 'Hello Dolly' ) ).toBeVisible();
+		expect( screen.getByText( 'Twenty Twenty-Six' ) ).toBeVisible();
+		expect( screen.getByText( 'Twenty Twenty-Five' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
 
 		fireEvent.click( screen.getByRole( 'tab', { name: 'General' } ) );

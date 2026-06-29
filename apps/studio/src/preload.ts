@@ -160,6 +160,10 @@ const api: IpcApi = {
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
+	setWebviewColorScheme: ( webContentsId, colorScheme ) =>
+		ipcRendererInvoke( 'setWebviewColorScheme', webContentsId, colorScheme ),
+	captureSiteScreenshot: ( webContentsId, options ) =>
+		ipcRendererInvoke( 'captureSiteScreenshot', webContentsId, options ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>

@@ -40,6 +40,24 @@
 	flex-shrink: 0;
 }
 
+.refreshButton {
+	min-width: 28px;
+}
+
+.refreshIcon {
+	display: inline-flex;
+	width: 14px;
+	height: 14px;
+	align-items: center;
+	justify-content: center;
+}
+
+.refreshIcon svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
 .browserLocation {
 	display: flex;
 	flex: 1 1 auto;
@@ -63,11 +81,96 @@
 	line-height: 16px;
 }
 
+.toolbarError {
+	margin-left: var(--wpds-dimension-padding-sm);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--wpds-color-fg-content-error);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 500;
+	line-height: 16px;
+}
+
 .annotationControls {
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-xs);
 	flex-shrink: 0;
+}
+
+.schemeSwitch {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 44px;
+	height: 24px;
+	padding: 2px 5px;
+	flex-shrink: 0;
+	border: 1px solid var(--wpds-color-stroke-interactive-neutral);
+	border-radius: 999px;
+	background-color: var(--wpds-color-bg-interactive-neutral-weak);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	cursor: pointer;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease,
+		color 120ms ease;
+	-webkit-app-region: no-drag;
+}
+
+.schemeSwitch[aria-checked='true'] {
+	background-color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 14%,
+		var(--wpds-color-bg-interactive-neutral-weak)
+	);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.schemeSwitch:disabled {
+	cursor: default;
+	opacity: 0.45;
+}
+
+.schemeSwitch:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+}
+
+.schemeSwitchIcon {
+	position: relative;
+	z-index: 1;
+	display: inline-flex;
+	width: 12px;
+	height: 12px;
+	align-items: center;
+	justify-content: center;
+}
+
+.schemeSwitchIcon svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.schemeSwitchThumb {
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 18px;
+	height: 18px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 999px;
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	box-shadow: 0 1px 2px
+		color-mix(in srgb, var(--wpds-color-fg-content-neutral) 18%, transparent);
+	transition: transform 120ms ease;
+}
+
+.schemeSwitch[aria-checked='true'] .schemeSwitchThumb {
+	transform: translateX(20px);
 }
 
 /* 2px bar overlapping the header's bottom border, like a browser's page-load

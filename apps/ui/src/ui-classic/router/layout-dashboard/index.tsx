@@ -11,6 +11,7 @@ import { useSites } from '@/data/queries/use-sites';
 import {
 	SessionUIProvider,
 	useSessionPreviewAnnotationsHandler,
+	useSessionPreviewScreenshotHandler,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
 import { rootRoute } from '../layout-root';
@@ -62,6 +63,7 @@ function DashboardLayoutContent() {
 	const setPreviewOpen = preview.setOpen;
 	const updatePreviewPath = preview.updatePath;
 	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
+	const onScreenshotDone = useSessionPreviewScreenshotHandler();
 	const sessionOwnerSitePath = sessionData?.summary.ownerSitePath;
 	const sessionSite = sessionOwnerSitePath
 		? sites?.find( ( site ) => site.path === sessionOwnerSitePath )
@@ -81,6 +83,8 @@ function DashboardLayoutContent() {
 		overviewSite ??
 		newSessionSite ??
 		( effectiveEnvironment === 'local' ? sessionSite : undefined );
+	const canAttachPreviewScreenshot =
+		sessionId !== undefined && effectiveEnvironment === 'local' && !! sessionSite;
 	// While session or site data is still loading, preview-capable routes stay
 	// preview-capable so navigation doesn't close and reopen the panel around
 	// the fetch.
@@ -116,11 +120,20 @@ function DashboardLayoutContent() {
 					path={ preview.path }
 					reloadNonce={ preview.reloadNonce }
 					onAnnotationsDone={ onAnnotationsDone }
+					onScreenshotDone={ canAttachPreviewScreenshot ? onScreenshotDone : undefined }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
 				/>
 			) : null,
-		[ onAnnotationsDone, preview.path, preview.reloadNonce, preview.updatePath, previewSite ]
+		[
+			onAnnotationsDone,
+			onScreenshotDone,
+			canAttachPreviewScreenshot,
+			preview.path,
+			preview.reloadNonce,
+			preview.updatePath,
+			previewSite,
+		]
 	);
 
 	return (

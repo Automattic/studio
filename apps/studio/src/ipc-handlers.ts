@@ -8,9 +8,11 @@ import {
 	dialog,
 	nativeTheme,
 	shell,
+	webContents,
 	type IpcMainInvokeEvent,
 	Notification,
 	SaveDialogOptions,
+	type WebContents,
 } from 'electron';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
@@ -1463,6 +1465,112 @@ export async function readLocalMediaFile(
 			buffer.byteOffset + buffer.byteLength
 		) as ArrayBuffer,
 	};
+}
+
+export async function captureSiteScreenshot(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	options: { colorScheme?: 'light' | 'dark' } = {}
+): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
+	if ( options.colorScheme && options.colorScheme !== 'light' && options.colorScheme !== 'dark' ) {
+		throw new Error( 'Unsupported screenshot color scheme.' );
+	}
+
+	const target = getOwnedWebviewContents( event, webContentsId );
+	attachDebuggerIfNeeded( target );
+	if ( options.colorScheme ) {
+		await sendDebuggerCommand( target, 'Emulation.setEmulatedMedia', {
+			features: [ { name: 'prefers-color-scheme', value: options.colorScheme } ],
+		} );
+	}
+
+	const metrics = await sendDebuggerCommand< {
+		contentSize: { width: number; height: number };
+		cssLayoutViewport?: { clientWidth: number };
+		cssVisualViewport?: { clientWidth: number };
+		cssContentSize?: { width: number; height: number };
+	} >( target, 'Page.getLayoutMetrics' );
+	const width = Math.ceil(
+		metrics.cssLayoutViewport?.clientWidth ??
+			metrics.cssVisualViewport?.clientWidth ??
+			metrics.cssContentSize?.width ??
+			metrics.contentSize.width
+	);
+	const height = Math.ceil( metrics.cssContentSize?.height ?? metrics.contentSize.height );
+	if ( width <= 0 || height <= 0 ) {
+		throw new Error( 'Preview page has no visible content to capture.' );
+	}
+
+	const screenshot = await sendDebuggerCommand< { data: string } >(
+		target,
+		'Page.captureScreenshot',
+		{
+			format: 'jpeg',
+			quality: 80,
+			captureBeyondViewport: true,
+			clip: { x: 0, y: 0, width, height, scale: 1 },
+		}
+	);
+
+	const buffer = Buffer.from( screenshot.data, 'base64' );
+	return {
+		name: `screenshot-preview${ options.colorScheme ? `-${ options.colorScheme }` : '' }.jpg`,
+		mimeType: 'image/jpeg',
+		data: buffer.buffer.slice(
+			buffer.byteOffset,
+			buffer.byteOffset + buffer.byteLength
+		) as ArrayBuffer,
+	};
+}
+
+function getOwnedWebviewContents( event: IpcMainInvokeEvent, webContentsId: number ): WebContents {
+	if ( ! Number.isInteger( webContentsId ) || webContentsId <= 0 ) {
+		throw new Error( 'Invalid webview identifier.' );
+	}
+
+	const target = webContents.fromId( webContentsId );
+	if ( ! target || target.isDestroyed() ) {
+		throw new Error( 'Webview is no longer available.' );
+	}
+
+	if ( target.hostWebContents?.id !== event.sender.id ) {
+		throw new Error( 'Webview does not belong to the current window.' );
+	}
+
+	return target;
+}
+
+function attachDebuggerIfNeeded( target: WebContents ): boolean {
+	if ( target.debugger.isAttached() ) {
+		return false;
+	}
+
+	target.debugger.attach( '1.3' );
+	return true;
+}
+
+async function sendDebuggerCommand< T >(
+	target: WebContents,
+	method: string,
+	params?: Record< string, unknown >
+): Promise< T > {
+	return ( await target.debugger.sendCommand( method, params ) ) as T;
+}
+
+export async function setWebviewColorScheme(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	colorScheme: 'light' | 'dark'
+): Promise< void > {
+	if ( colorScheme !== 'light' && colorScheme !== 'dark' ) {
+		throw new Error( 'Unsupported webview color scheme.' );
+	}
+
+	const target = getOwnedWebviewContents( event, webContentsId );
+	attachDebuggerIfNeeded( target );
+	await sendDebuggerCommand( target, 'Emulation.setEmulatedMedia', {
+		features: [ { name: 'prefers-color-scheme', value: colorScheme } ],
+	} );
 }
 
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer

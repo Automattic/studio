@@ -49,10 +49,10 @@ export function useComposerAttachments() {
 	);
 
 	const addFiles = useCallback(
-		async ( incoming: FileList | File[] ) => {
+		async ( incoming: FileList | File[] ): Promise< boolean > => {
 			const list = Array.from( incoming );
 			if ( list.length === 0 ) {
-				return;
+				return false;
 			}
 			setError( null );
 			const messages = {
@@ -81,7 +81,7 @@ export function useComposerAttachments() {
 				setError( prepared.error );
 			}
 			if ( prepared.attachments.length === 0 ) {
-				return;
+				return false;
 			}
 
 			setAttachments( ( current ) => {
@@ -92,6 +92,7 @@ export function useComposerAttachments() {
 				attachmentsRef.current = merged.attachments;
 				return merged.attachments;
 			} );
+			return true;
 		},
 		[ connector ]
 	);

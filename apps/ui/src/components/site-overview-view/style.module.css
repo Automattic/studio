@@ -147,6 +147,103 @@
 	padding-top: 0;
 }
 
+.detailsColumn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xl);
+	width: 100%;
+	min-width: 0;
+}
+
+.detailSection {
+	padding-bottom: var(--wpds-dimension-padding-xl);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.detailSection:last-child {
+	border-bottom: 0;
+}
+
+.detailSection h2 {
+	margin: 0 0 var(--wpds-dimension-padding-md);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.detailStatus {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.contentCounts {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--wpds-dimension-padding-sm);
+	margin: 0;
+}
+
+.contentCount {
+	min-width: 0;
+	padding: var(--wpds-dimension-padding-md);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral-weak);
+	border-radius: 6px;
+	background: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.contentCount dt {
+	margin: 0 0 var(--wpds-dimension-padding-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.contentCount dd {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-xl);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	line-height: var(--wpds-typography-line-height-xl);
+}
+
+.extensionList {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.extensionItem {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: var(--wpds-dimension-padding-md);
+	align-items: baseline;
+	min-width: 0;
+	padding: var(--wpds-dimension-padding-xs) 0;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.extensionName {
+	min-width: 0;
+	overflow: hidden;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.extensionMeta {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	white-space: nowrap;
+}
+
 .destructiveButton .overviewButtonIcon,
 .destructiveButton .overviewButtonLabel {
 	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
@@ -163,5 +260,14 @@
 
 	.actionsColumn {
 		grid-template-columns: 1fr;
+	}
+
+	.contentCounts,
+	.extensionItem {
+		grid-template-columns: 1fr;
+	}
+
+	.extensionItem {
+		gap: 2px;
 	}
 }

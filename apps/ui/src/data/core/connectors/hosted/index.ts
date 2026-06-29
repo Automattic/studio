@@ -164,6 +164,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
+		async getSiteOverviewDetails() {
+			throw new WebUnsupportedError( 'getSiteOverviewDetails' );
+		},
 		async getXdebugEnabledSite(): Promise< SiteDetails | null > {
 			return null;
 		},
@@ -208,6 +211,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async readLocalMediaFile() {
 			throw new WebUnsupportedError( 'readLocalMediaFile' );
+		},
+		async captureSiteScreenshot() {
+			throw new WebUnsupportedError( 'captureSiteScreenshot' );
 		},
 		async extractBlueprintBundle() {
 			throw new WebUnsupportedError( 'extractBlueprintBundle' );

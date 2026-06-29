@@ -21,6 +21,8 @@ export type {
 	SelectedSiteFolder,
 	SessionEntry,
 	SiteDetails,
+	SiteOverviewDetails,
+	SiteOverviewExtension,
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,

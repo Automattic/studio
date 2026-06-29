@@ -100,6 +100,22 @@ export interface SiteDetails {
 	siteIcon?: string | null;
 }
 
+export interface SiteOverviewExtension {
+	slug: string;
+	name: string;
+	status?: string;
+	version?: string;
+}
+
+export interface SiteOverviewDetails {
+	content: {
+		pages: number;
+		posts: number;
+	};
+	plugins: SiteOverviewExtension[];
+	themes: SiteOverviewExtension[];
+}
+
 export interface LocalMediaFile {
 	name: string;
 	mimeType: string;
@@ -147,6 +163,10 @@ export interface Connector {
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;
+	// Counts and installed extensions for the site overview page. Implemented
+	// with the selected connector's native site-inspection mechanism so it can
+	// work even when the local web server is stopped.
+	getSiteOverviewDetails( siteId: string ): Promise< SiteOverviewDetails >;
 	// Xdebug is exclusive across sites; returns the one site currently using
 	// it (or null) so the settings form can block a conflicting toggle.
 	getXdebugEnabledSite(): Promise< SiteDetails | null >;
@@ -178,6 +198,10 @@ export interface Connector {
 	// a real path (synthetic blobs, non-Electron environments).
 	getFilePath( file: File ): Promise< string >;
 	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
+	captureSiteScreenshot(
+		webContentsId: number,
+		options?: { colorScheme?: 'light' | 'dark' }
+	): Promise< LocalMediaFile >;
 
 	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
 	// parsed `blueprint.json`. The caller is responsible for calling

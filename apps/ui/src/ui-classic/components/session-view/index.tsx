@@ -18,7 +18,11 @@ import {
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
+import {
+	SessionUIProvider,
+	useSessionPreviewAnnotations,
+	useSessionPreviewScreenshot,
+} from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
@@ -256,9 +260,20 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ sendMessage ]
 	);
+	const handleScreenshotDone = useCallback( async ( file: File ) => {
+		const composer = composerRef.current;
+		if ( ! composer ) {
+			throw new Error( 'Composer is not ready.' );
+		}
+		const didAdd = await composer.addFiles( [ file ] );
+		if ( ! didAdd ) {
+			throw new Error( __( 'Screenshot could not be added.' ) );
+		}
+	}, [] );
 	// The preview panel itself is hosted by the dashboard layout; route its
-	// annotation submissions to this session while it is on screen.
+	// actions to this session while it is on screen.
 	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview );
+	useSessionPreviewScreenshot( handleScreenshotDone, canTogglePreview );
 
 	const reopenQueuedPrompt = useCallback(
 		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {

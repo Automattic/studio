@@ -5,6 +5,7 @@ import path from 'node:path';
 import { confirm } from '@inquirer/prompts';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
+import trash from 'trash';
 import { Mode, runCommand as stopSites } from 'cli/commands/site/stop';
 import { getCliInstallKind } from 'cli/lib/update-notifier';
 import { StudioArgv } from 'cli/types';
@@ -73,6 +74,7 @@ export async function runCommand( purge: boolean ): Promise< void > {
 		console.log(
 			__( 'This Studio CLI was installed via npm. Remove it with: npm rm -g wp-studio' )
 		);
+		process.exitCode = 1;
 		return;
 	}
 	if ( installKind !== 'standalone' ) {
@@ -81,6 +83,7 @@ export async function runCommand( purge: boolean ): Promise< void > {
 				'This Studio CLI is bundled with the Studio desktop app. Uninstall the app to remove it.'
 			)
 		);
+		process.exitCode = 1;
 		return;
 	}
 
@@ -100,7 +103,7 @@ export async function runCommand( purge: boolean ): Promise< void > {
 		removeConfig = await confirm( {
 			message: sprintf(
 				/* translators: %s is the config directory path */
-				__( 'Permanently delete your Studio config and site list in %s?' ),
+				__( 'Delete your Studio config in %s?' ),
 				configDir
 			),
 			default: false,
@@ -125,7 +128,9 @@ export async function runCommand( purge: boolean ): Promise< void > {
 	}
 
 	if ( removeConfig ) {
-		fs.rmSync( configDir, { recursive: true, force: true } );
+		// Trash rather than hard-delete — the user's sites/config are recoverable if they
+		// change their mind.
+		await trash( configDir );
 		removed.push( configDir );
 	}
 
@@ -137,7 +142,7 @@ export async function runCommand( purge: boolean ): Promise< void > {
 		console.log(
 			sprintf(
 				/* translators: %s is the config directory path */
-				__( '\nYour sites and config were kept in %s. Re-run with --purge to remove them.' ),
+				__( '\nYour Studio config and sites are still in %s.' ),
 				configDir
 			)
 		);
@@ -159,7 +164,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			return yargs.option( 'purge', {
 				type: 'boolean',
 				alias: 'all',
-				describe: __( 'Also delete your Studio config and site list (~/.studio)' ),
+				describe: __( 'Also delete your Studio config (~/.studio)' ),
 				default: false,
 			} );
 		},

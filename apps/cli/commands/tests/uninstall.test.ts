@@ -1,9 +1,12 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import trash from 'trash';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCliInstallKind } from 'cli/lib/update-notifier';
 import { runCommand } from '../uninstall';
+
+vi.mock( 'trash' );
 
 vi.mock( 'cli/lib/update-notifier', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/update-notifier') >() ),
@@ -57,6 +60,7 @@ describe( 'CLI: studio uninstall', () => {
 		} );
 		setPlatform( originalPlatform );
 		delete process.env.DEV_CONFIG_DIR;
+		process.exitCode = 0;
 		fs.rmSync( root, { recursive: true, force: true } );
 		vi.restoreAllMocks();
 	} );
@@ -69,13 +73,13 @@ describe( 'CLI: studio uninstall', () => {
 		expect( fs.existsSync( configDir ) ).toBe( true );
 	} );
 
-	it( 'removes user config too when --purge is passed non-interactively', async () => {
+	it( 'trashes user config when --purge is passed non-interactively', async () => {
 		Object.defineProperty( process.stdin, 'isTTY', { value: false, configurable: true } );
 
 		await runCommand( true );
 
 		expect( fs.existsSync( path.join( installDir, 'cli' ) ) ).toBe( false );
-		expect( fs.existsSync( configDir ) ).toBe( false );
+		expect( trash ).toHaveBeenCalledWith( configDir );
 	} );
 
 	it( 'does nothing destructive for non-standalone installs', async () => {
@@ -84,6 +88,7 @@ describe( 'CLI: studio uninstall', () => {
 		await runCommand( true );
 
 		expect( fs.existsSync( path.join( installDir, 'bin' ) ) ).toBe( true );
-		expect( fs.existsSync( configDir ) ).toBe( true );
+		expect( trash ).not.toHaveBeenCalled();
+		expect( process.exitCode ).toBe( 1 );
 	} );
 } );

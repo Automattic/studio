@@ -56,6 +56,7 @@
 	min-width: 0;
 	overflow: auto;
 	position: relative;
+	isolation: isolate;
 }
 
 /* The negative margin cancels the handle's width so it adds no space to the
@@ -80,8 +81,12 @@
 	align-items: center;
 	padding: var(--wpds-dimension-padding-sm) 0;
 	min-height: 46px;
-	z-index: 100;
+	z-index: 30;
 	pointer-events: auto;
+	-webkit-app-region: no-drag;
+}
+
+.floatingToggle button {
 	-webkit-app-region: no-drag;
 }
 

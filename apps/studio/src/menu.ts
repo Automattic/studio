@@ -310,6 +310,14 @@ async function getAppMenu(
 				{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
 				{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
 				{
+					label: __( 'Toggle Sidebar' ),
+					accelerator: 'CommandOrControl+B',
+					enabled: ! needsOnboarding,
+					click: () => {
+						void sendIpcEventToRenderer( 'toggle-sidebar' );
+					},
+				},
+				{
 					label: __( 'Toggle Site Preview' ),
 					accelerator: 'CommandOrControl+Shift+B',
 					enabled: ! needsOnboarding,

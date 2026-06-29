@@ -28,22 +28,18 @@ import {
 	loadWindowBounds,
 	saveWindowBounds,
 } from 'src/storage/user-data';
-import type { StudioUiMode } from '@studio/common/types/desk';
 import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
 let currentRendererUrl: string | undefined;
+type StudioUiMode = 'default' | 'agentic';
 
 interface RendererLocation {
 	url: string;
 	filePath?: string;
-	query?: Record< string, string >;
 }
 
 export function getPreferredStudioUiMode(): StudioUiMode {
-	if ( getFeatureFlagFromEnv( 'enableDesksUi' ) ) {
-		return 'desks';
-	}
 	if ( getFeatureFlagFromEnv( 'enableAgenticUi' ) ) {
 		return 'agentic';
 	}
@@ -53,36 +49,18 @@ export function getPreferredStudioUiMode(): StudioUiMode {
 function getRendererFilePath( mode: StudioUiMode ) {
 	return path.join(
 		__dirname,
-		mode === 'default' ? '../renderer/index.html' : '../renderer-desks/index.html'
+		mode === 'default' ? '../renderer/index.html' : '../renderer-ui/index.html'
 	);
 }
 
-function getRendererQuery( mode: StudioUiMode ): Record< string, string > | undefined {
-	return mode === 'default' ? undefined : { 'studio-ui-mode': mode };
-}
-
-function appendRendererQuery( url: string, query: Record< string, string > | undefined ) {
-	if ( ! query ) {
-		return url;
-	}
-
-	const rendererUrl = new URL( url );
-	for ( const [ key, value ] of Object.entries( query ) ) {
-		rendererUrl.searchParams.set( key, value );
-	}
-	return rendererUrl.toString();
-}
-
 function getRendererLocation( preferredMode: StudioUiMode ): RendererLocation {
-	const preferredQuery = getRendererQuery( preferredMode );
-
 	if (
 		! app.isPackaged &&
-		preferredMode !== 'default' &&
-		process.env[ 'ELECTRON_DESKS_RENDERER_URL' ]
+		preferredMode === 'agentic' &&
+		process.env[ 'ELECTRON_UI_RENDERER_URL' ]
 	) {
 		return {
-			url: appendRendererQuery( process.env[ 'ELECTRON_DESKS_RENDERER_URL' ], preferredQuery ),
+			url: process.env[ 'ELECTRON_UI_RENDERER_URL' ],
 		};
 	}
 
@@ -98,12 +76,10 @@ function getRendererLocation( preferredMode: StudioUiMode ): RendererLocation {
 		mode = 'default';
 		filePath = getRendererFilePath( mode );
 	}
-	const query = getRendererQuery( mode );
 
 	return {
 		filePath,
-		query,
-		url: appendRendererQuery( pathToFileURL( filePath ).href, query ),
+		url: pathToFileURL( filePath ).href,
 	};
 }
 
@@ -114,10 +90,7 @@ function rememberRendererLocation( location: RendererLocation ) {
 async function loadRendererLocation( window: BrowserWindow, location: RendererLocation ) {
 	rememberRendererLocation( location );
 	if ( location.filePath ) {
-		await window.loadFile(
-			location.filePath,
-			location.query ? { query: location.query } : undefined
-		);
+		await window.loadFile( location.filePath );
 		return;
 	}
 	await window.loadURL( location.url );
@@ -139,6 +112,28 @@ function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean
 	if ( devToolsOpen || ( process.env.NODE_ENV === 'development' && devToolsOpen === undefined ) ) {
 		mainWindow?.webContents.openDevTools();
 	}
+}
+
+export function isToggleSidebarShortcut(
+	input: Electron.Input,
+	platform: NodeJS.Platform = process.platform
+): boolean {
+	if (
+		input.type !== 'keyDown' ||
+		input.isAutoRepeat ||
+		input.isComposing ||
+		input.shift ||
+		input.alt ||
+		input.key.toLowerCase() !== 'b'
+	) {
+		return false;
+	}
+
+	if ( platform === 'darwin' ) {
+		return input.meta && ! input.control;
+	}
+
+	return input.control && ! input.meta;
 }
 
 function initializePortFinder( sites: SiteDetails[] ) {
@@ -202,6 +197,13 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	}
 
 	mainWindow = new BrowserWindow( windowOptions );
+
+	mainWindow.webContents.on( 'before-input-event', ( event, input ) => {
+		if ( isToggleSidebarShortcut( input ) ) {
+			event.preventDefault();
+			sendIpcEventToRendererWithWindow( mainWindow, 'toggle-sidebar' );
+		}
+	} );
 
 	// Restore fullscreen state if it was saved
 	if ( savedBounds?.isFullScreen ) {

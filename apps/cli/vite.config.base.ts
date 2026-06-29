@@ -64,7 +64,6 @@ export const baseConfig = defineConfig( {
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'index.ts' ),
-				'web-server': resolve( __dirname, 'web-server/index.ts' ),
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'playground-server-child': resolve( __dirname, 'playground-server-child.ts' ),
@@ -132,6 +131,7 @@ export const baseConfig = defineConfig( {
 	define: {
 		__ENABLE_CLI_TELEMETRY__: false,
 		__IS_PACKAGED_FOR_NPM__: false,
+		__IS_PACKAGED_FOR_STANDALONE__: false,
 		__MINIMUM_NODE_VERSION__: JSON.stringify( minimumNodeVersion ),
 		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 	},

@@ -16,7 +16,6 @@ export function SidebarHeader( { onToggleSidebar }: Props ) {
 	const navigate = useNavigate();
 	return (
 		<div className={ `${ styles.root } ${ isFullscreen ? styles.fullscreen : '' }` }>
-			<span className={ styles.title }>{ __( 'Studio' ) }</span>
 			<div className={ styles.actions }>
 				<Menu.Root modal={ false }>
 					<Menu.Trigger

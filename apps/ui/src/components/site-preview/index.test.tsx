@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { getPathFromPreviewUrl, getToolbarPageTitle, SitePreview } from './index';
@@ -19,7 +20,11 @@ function renderPreview( children: ReactNode ) {
 			mutations: { retry: false },
 		},
 	} );
-	return render( <QueryClientProvider client={ queryClient }>{ children }</QueryClientProvider> );
+	return render(
+		<QueryClientProvider client={ queryClient }>
+			<Tooltip.Provider>{ children }</Tooltip.Provider>
+		</QueryClientProvider>
+	);
 }
 
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
@@ -48,8 +53,40 @@ describe( 'SitePreview', () => {
 		expect( pageTitle ).toBeVisible();
 
 		fireEvent.mouseEnter( pageTitle );
+		fireEvent.mouseMove( pageTitle, { movementX: 1, movementY: 1 } );
 
-		expect( await screen.findByText( 'http://localhost:8881/wp-admin/' ) ).toBeVisible();
+		expect( screen.queryByText( 'http://localhost:8881/wp-admin/' ) ).not.toBeInTheDocument();
+		// Tooltips use Base UI's default open delay, so wait long enough for the popup to appear.
+		expect(
+			await screen.findByText( 'http://localhost:8881/wp-admin/', {}, { timeout: 2000 } )
+		).toBeVisible();
+	} );
+
+	it( 'shows adjacent toolbar tooltips immediately while the delay group is active', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/wp-admin/" reloadNonce={ 0 } />
+		);
+
+		const pageTitle = screen.getByText( 'Example Site' );
+		fireEvent.mouseEnter( pageTitle );
+		fireEvent.mouseMove( pageTitle, { movementX: 1, movementY: 1 } );
+
+		await screen.findByText( 'http://localhost:8881/wp-admin/', {}, { timeout: 2000 } );
+
+		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
+		expect( screen.queryByText( /^Refresh/ ) ).not.toBeInTheDocument();
+
+		fireEvent.mouseLeave( pageTitle, { relatedTarget: refreshButton } );
+		fireEvent.mouseEnter( refreshButton, { relatedTarget: pageTitle } );
+		fireEvent.mouseMove( refreshButton, { movementX: 1, movementY: 1 } );
+
+		const refreshTooltip = screen.getByText( /^Refresh/ );
+		expect( refreshTooltip ).toBeInTheDocument();
+		expect( refreshTooltip ).toHaveAttribute( 'data-instant', 'delay' );
 	} );
 
 	it( 'hides the browser controls when the site is not running', () => {

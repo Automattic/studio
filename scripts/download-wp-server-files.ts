@@ -77,9 +77,6 @@ type FileToDownload = {
 	destinationPath?: string;
 };
 
-const REPRINT_VERSION = 'v0.8.1';
-const REPRINT_PHAR_URL = `https://github.com/WordPress/reprint/releases/download/${ REPRINT_VERSION }/reprint.phar`;
-
 const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'wordpress',
@@ -121,8 +118,15 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	},
 	{
 		name: 'reprint',
-		description: `reprint.phar (${ REPRINT_VERSION })`,
-		getUrl: () => REPRINT_PHAR_URL,
+		description: `reprint.phar`,
+		getUrl: async () => {
+			const release = await fetchLatestGithubRelease( 'WordPress/reprint' );
+			const asset = release.assets.find( ( a ) => a.name === 'reprint.phar' );
+			if ( ! asset ) {
+				throw new Error( `No asset found in latest reprint release ${ release.tag_name }` );
+			}
+			return asset.browser_download_url;
+		},
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	},
 ];

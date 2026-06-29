@@ -6,7 +6,6 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
-import type { DeskConfig, DeskSettings } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -32,7 +31,6 @@ export type {
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
-export type { DeskConfig, DeskSettings, DeskWidgetBase } from '@studio/common/types/desk';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -228,7 +226,7 @@ export interface Connector {
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
-	// is omitted, the session is a user-desk chat with no owner site.
+	// is omitted, the session is a user chat with no owner site.
 	createSession( siteId?: string ): Promise< AiSessionSummary >;
 
 	// Continue an existing session by sending a new prompt. Returns a `runId`
@@ -273,16 +271,6 @@ export interface Connector {
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
 
-	// Desks
-	getDeskSettings(): Promise< DeskSettings >;
-	saveDeskSettings( settings: DeskSettings ): Promise< void >;
-	exportDeskConfig( config: DeskConfig, suggestedFilename: string ): Promise< string | null >;
-	importDeskConfig(): Promise< DeskConfig | null >;
-	getUserDeskConfig(): Promise< DeskConfig | undefined >;
-	saveUserDeskConfig( config: DeskConfig ): Promise< void >;
-	getSiteDeskConfig( siteId: string ): Promise< DeskConfig | undefined >;
-	saveSiteDeskConfig( siteId: string, config: DeskConfig ): Promise< void >;
-
 	// Site WordPress REST API. The renderer uses this as the transport for
 	// @wordpress/api-fetch / @wordpress/core-data so WordPress entity semantics
 	// stay in the WordPress packages while Studio owns site resolution and auth.
@@ -297,6 +285,10 @@ export interface Connector {
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+
+	// Clipboard — routed to the host so it works where the renderer's
+	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
+	copyText( text: string ): Promise< void >;
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,
@@ -315,6 +307,9 @@ export interface Connector {
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.
 	onToggleSitePreview( listener: () => void ): () => void;
+
+	// Fires when the user activates the sidebar toggle shortcut or menu command.
+	onToggleSidebar( listener: () => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

@@ -10,19 +10,21 @@ import type { WebContents } from 'electron';
  * (`@studio/common/ai/sessions/run-manager`). The fork, lifecycle, stats,
  * placement, and error reporting all live in the shared core; this module only
  * supplies the desktop's two host specifics — the bundled CLI/Node binaries and
- * the IPC transport — plus per-window routing. The `studio ui` server wires the
+ * the IPC transport — plus per-run routing. The `studio ui` server wires the
  * same core to SSE instead.
  */
 
-// The renderer that started each run, so events route back to the right window.
-const sessionWebContents = new Map< string, WebContents >();
+// The renderer that started each run, keyed by the unique runId so overlapping
+// runs on the same session (interrupt-then-restart, or a rejected double-send)
+// never clobber each other's routing.
+const runWebContents = new Map< string, WebContents >();
 
 const runManager = createAgentRunManager( {
 	cliBinary: getCliPath(),
 	nodeBinary: getBundledNodeBinaryPath(),
 	surface: 'desktop',
 	emit: ( output ) => {
-		const webContents = sessionWebContents.get( output.event.sessionId );
+		const webContents = runWebContents.get( output.runId );
 		if ( webContents && ! webContents.isDestroyed() ) {
 			if ( output.kind === 'agent' ) {
 				webContents.send( 'ai-agent-event', output.event );
@@ -30,10 +32,10 @@ const runManager = createAgentRunManager( {
 				webContents.send( 'ai-session-placement-updated', output.event );
 			}
 		}
-		// The run is over once it exits; drop the mapping so a destroyed window
+		// The run is over once it exits; drop its mapping so a destroyed window
 		// doesn't linger.
 		if ( output.kind === 'agent' && output.event.event.type === 'run.exited' ) {
-			sessionWebContents.delete( output.event.sessionId );
+			runWebContents.delete( output.runId );
 		}
 	},
 } );
@@ -49,19 +51,16 @@ export interface StartAgentRunOptions {
 
 export function startAgentRun( options: StartAgentRunOptions ): { runId: string } {
 	const { sessionId, prompt, displayMessage, images, files, webContents } = options;
-	// Route this session's events to the originating window before the run can
-	// emit anything (the child's first event is async, on the next tick).
-	sessionWebContents.set( sessionId, webContents );
-	try {
-		const result = runManager.startAgentRun( { sessionId, prompt, displayMessage, images, files } );
-		// Abort the run if the window that started it goes away.
-		webContents.once( 'destroyed', () => runManager.interruptAgentRun( result.runId ) );
-		return result;
-	} catch ( error ) {
-		// Concurrent-run rejection (or any synchronous failure): undo the routing.
-		sessionWebContents.delete( sessionId );
-		throw error;
-	}
+	// `startAgentRun` forks the child and returns its id synchronously; the
+	// child's first event arrives async (next tick), so registering the route
+	// after a successful start — keyed by the unique runId — is in time, and a
+	// rejected start (e.g. a concurrent run on the same session) never touches
+	// another run's routing.
+	const result = runManager.startAgentRun( { sessionId, prompt, displayMessage, images, files } );
+	runWebContents.set( result.runId, webContents );
+	// Abort the run if the window that started it goes away.
+	webContents.once( 'destroyed', () => runManager.interruptAgentRun( result.runId ) );
+	return result;
 }
 
 export function listActiveAgentRuns(): ActiveAgentRun[] {

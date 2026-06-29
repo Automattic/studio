@@ -44,8 +44,8 @@ interface AgentRun {
 // (desktop → the `ai-agent-event` / `ai-session-placement-updated` IPC channels;
 // server → the SSE `agent` / `placement` channels).
 export type RunManagerOutput =
-	| { kind: 'agent'; event: AgentRunEvent }
-	| { kind: 'placement'; event: AiSessionPlacementUpdatedEvent };
+	| { kind: 'agent'; runId: string; event: AgentRunEvent }
+	| { kind: 'placement'; runId: string; event: AiSessionPlacementUpdatedEvent };
 
 export interface AgentRunManagerConfig {
 	// Absolute path to the CLI entry to fork (e.g. `.../cli/main.mjs`).
@@ -104,7 +104,11 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 	const runsById = new Map< string, AgentRun >();
 
 	function sendEvent( run: AgentRun, event: AgentRunEvent[ 'event' ] ): void {
-		config.emit( { kind: 'agent', event: { runId: run.runId, sessionId: run.sessionId, event } } );
+		config.emit( {
+			kind: 'agent',
+			runId: run.runId,
+			event: { runId: run.runId, sessionId: run.sessionId, event },
+		} );
 	}
 
 	// When the agent reports it created a site, bind the session to it and tell
@@ -118,7 +122,11 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			return;
 		}
 		const placement = await setAiSessionSitePlacement( run.sessionId, createdSite );
-		config.emit( { kind: 'placement', event: { sessionId: run.sessionId, placement } } );
+		config.emit( {
+			kind: 'placement',
+			runId: run.runId,
+			event: { sessionId: run.sessionId, placement },
+		} );
 	}
 
 	async function sendQueuedJsonEvent( run: AgentRun, event: JsonEvent ): Promise< void > {

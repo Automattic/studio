@@ -7,10 +7,8 @@ import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
 /**
- * WordPress.com sync operations. Pull and push are delegated to the Studio CLI
- * (`pull`) and to the shared upload/import primitives (`push`), so the desktop
- * app and the `studio ui` server share the same logic; only the transport for
- * progress differs (IPC vs SSE).
+ * WordPress.com sync operations. Pull is delegated to the Studio CLI; push uses
+ * the shared upload/import primitives.
  */
 
 // Progress a push reports for the UI (the desktop also exposes manual

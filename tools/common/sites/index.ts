@@ -3,13 +3,8 @@ import { siteListItemSchema, type SiteListItem } from '@studio/common/lib/cli-ev
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
 /**
- * Site operations, delegated to the Studio CLI.
- *
- * This is the shared body of logic the desktop app and the `studio ui` server
- * both use: each passes its {@link ExecuteCliCommand} (which knows the CLI
- * binary to fork), and the operations here are identical regardless of transport
- * (IPC vs REST). Taking the function rather than the whole runner keeps the
- * desktop's existing command mocks working.
+ * Site operations, delegated to the Studio CLI. Each caller passes its
+ * {@link ExecuteCliCommand}, which knows the CLI binary to fork.
  */
 
 // The CLI's `site list --format json` reports the array over its IPC channel as

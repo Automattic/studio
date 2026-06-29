@@ -13,10 +13,8 @@ export interface ExtractedBlueprintBundle {
 
 /**
  * Extract a Blueprint ZIP bundle to a temp directory and return the parsed
- * `blueprint.json`. Shared between the desktop app and the local web server so
- * both handle uploaded Blueprint bundles identically. The caller is responsible
- * for cleaning up `tempDir` (via {@link cleanupBlueprintTempDir}) if it doesn't
- * go on to consume the extracted bundle.
+ * `blueprint.json`. The caller is responsible for cleaning up `tempDir` (via
+ * {@link cleanupBlueprintTempDir}) if it doesn't go on to consume the bundle.
  */
 export async function extractBlueprintBundle(
 	zipFilePath: string

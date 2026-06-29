@@ -116,7 +116,9 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 	};
 
 	const handleCopyPreviewClick = ( url: string ) => {
-		void connector.copyText( url );
+		void connector.copyText( url ).catch( ( error ) => {
+			console.error( 'Failed to copy preview URL:', error );
+		} );
 	};
 
 	const handleStartLocalClick = () => {

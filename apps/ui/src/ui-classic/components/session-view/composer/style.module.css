@@ -65,7 +65,9 @@
 }
 
 .resizeHandle:focus-visible {
-	outline: none;
+	border-radius: 999px;
+	outline: 2px solid var(--composer-focus-ring);
+	outline-offset: 2px;
 }
 
 .dropOverlay {

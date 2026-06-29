@@ -386,6 +386,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		dragHandlers,
 		pasteHandlers,
 	} = useComposerAttachments();
+	const hasAttachments = attachments.length > 0;
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -411,7 +412,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		if ( nextHeight !== null ) {
 			setTextareaHeight( ( current ) => ( current === nextHeight ? current : nextHeight ) );
 		}
-	}, [ manualTextareaHeight, value ] );
+	}, [ manualTextareaHeight, value, hasAttachments ] );
 
 	useEffect( () => {
 		const handleViewportResize = () => {
@@ -762,7 +763,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							{ __( 'Drop files to attach' ) }
 						</div>
 					) : null }
-					{ attachments.length > 0 ? (
+					{ hasAttachments ? (
 						<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
 							{ attachments.map( ( attachment ) => {
 								const attachmentDetailsId = getAttachmentDetailsId( attachment.id );
@@ -895,7 +896,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					<div
 						className={ clsx(
 							styles.inputArea,
-							attachments.length > 0 && styles.inputAreaWithAttachments
+							hasAttachments && styles.inputAreaWithAttachments
 						) }
 					>
 						{ showAnimatedPlaceholder ? (

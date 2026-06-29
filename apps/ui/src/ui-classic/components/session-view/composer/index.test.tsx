@@ -178,6 +178,38 @@ describe( 'Composer menu', () => {
 		} );
 	} );
 
+	it( 'resizes the textarea when attachments change its padding', async () => {
+		const { container } = renderComposer();
+		const textarea = screen.getByRole( 'textbox' ) as HTMLTextAreaElement;
+		const textFile = new File( [ 'Attachment preview text' ], 'notes.txt', {
+			type: 'text/plain',
+		} );
+		const input = container.querySelector( 'input[type="file"]' ) as HTMLInputElement;
+		let scrollHeight = 92;
+		Object.defineProperty( textarea, 'scrollHeight', {
+			configurable: true,
+			get: () => scrollHeight,
+		} );
+
+		fireEvent.change( input, {
+			target: { files: [ textFile ] },
+		} );
+
+		const removeButton = await screen.findByRole( 'button', {
+			name: 'Remove attachment: notes.txt',
+		} );
+		await waitFor( () => {
+			expect( textarea ).toHaveStyle( { height: '92px' } );
+		} );
+
+		scrollHeight = 36;
+		fireEvent.click( removeButton );
+
+		await waitFor( () => {
+			expect( textarea ).toHaveStyle( { height: '48px' } );
+		} );
+	} );
+
 	it( 'resizes the textarea by dragging the composer top edge', async () => {
 		Object.defineProperty( window, 'innerHeight', {
 			configurable: true,

@@ -22,7 +22,7 @@ export function QueuedPrompts( { prompts, onRemove, onEdit }: QueuedPromptsProps
 					role="button"
 					onDoubleClick={ () => onEdit( item ) }
 					onKeyDown={ ( event ) => {
-						if ( event.key !== 'Enter' ) {
+						if ( event.key !== 'Enter' && event.key !== ' ' ) {
 							return;
 						}
 						event.preventDefault();

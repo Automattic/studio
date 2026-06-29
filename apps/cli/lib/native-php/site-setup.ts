@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -78,11 +77,8 @@ export function getSiteUrlPrependContent(
 		: '';
 
 	// Define WP_HOME/WP_SITEURL before WordPress boots so the site serves from
-	// the local URL regardless of the siteurl/home in the DB (e.g. after pulling
-	// a remote site — STU-1925). Pre-boot so derived URLs (WP_CONTENT_URL, etc.)
-	// resolve locally too. The URL is the site's configured local URL (custom
-	// domain or http://localhost:PORT), matching the Playground runtime's
-	// --site-url, rather than the request Host header.
+	// the local URL even when the DB still holds a remote one. Running pre-boot
+	// means derived URLs (WP_CONTENT_URL, etc.) resolve locally too.
 	return `<?php
 if ( ! defined( 'WP_HOME' ) ) {
 	define( 'WP_HOME', '${ escapedSiteUrl }' );
@@ -100,12 +96,11 @@ ${ chained }
  * chains to reprint's own runtime.php so that prepend still runs.
  */
 export function writeSiteUrlPrependFile(
-	sitePath: string,
 	siteUrl: string,
 	originalAutoPrependFile?: string
 ): string {
-	const hash = crypto.createHash( 'sha1' ).update( sitePath ).digest( 'hex' ).slice( 0, 16 );
-	const prependPath = path.join( os.tmpdir(), `studio-siteurl-prepend-${ hash }.php` );
+	const dir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-siteurl-prepend-' ) );
+	const prependPath = path.join( dir, 'prepend.php' );
 	fs.writeFileSync( prependPath, getSiteUrlPrependContent( siteUrl, originalAutoPrependFile ) );
 	return prependPath;
 }

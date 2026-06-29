@@ -561,11 +561,7 @@ async function doStartServer(
 	try {
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
-		const autoPrependFile = writeSiteUrlPrependFile(
-			config.sitePath,
-			siteUrl,
-			config.autoPrependFile
-		);
+		const autoPrependFile = writeSiteUrlPrependFile( siteUrl, config.autoPrependFile );
 		const workerPorts: number[] = [];
 		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
 			workerPorts.push( await getAvailablePort() );

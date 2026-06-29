@@ -21,7 +21,11 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import {
+	installSqliteIntegration,
+	isSqliteIntegrationInstalled,
+	keepSqliteIntegrationUpdated,
+} from 'cli/lib/sqlite-integration';
 import {
 	fetchSyncableSites,
 	initiateImport,
@@ -57,6 +61,14 @@ export async function runCommand(
 		__( 'Setting up SQLite integration, if needed…' )
 	);
 	await keepSqliteIntegrationUpdated( siteFolder );
+	// Reprint-pulled (imported) sites wire SQLite through runtime.php and ship no db.php
+	// drop-in, so the step above skips them. The database export below uses `wp sqlite
+	// export`, which requires the SQLite integration to be discoverable in wp-content.
+	// Install it for imported sites; the exporter excludes db.php and the integration from
+	// the upload, so it never reaches the remote.
+	if ( site.runtimeBlueprintPath && ! ( await isSqliteIntegrationInstalled( siteFolder ) ) ) {
+		await installSqliteIntegration( siteFolder );
+	}
 	logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 	logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );

@@ -39,6 +39,7 @@ import {
 	killPhpProcessTree,
 	reapPhpTreeOnInterrupt,
 } from './native-php/php-process';
+import { getImportedSiteAutoPrependFile } from './pull/runtime-start-options';
 import { isServerRunning, sendWpCliCommand } from './wordpress-server-manager';
 import { stripLeadingShebang } from './wp-cli-shebang';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -188,10 +189,24 @@ async function runNativeWpCliCommand(
 
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
 	const defaultArgs = getDefaultPhpArgs( phpVersion );
+	// Reprint-pulled sites wire SQLite only through runtime.php, which the web server
+	// loads as auto_prepend_file. Load it here too so native WP-CLI connects to the same
+	// SQLite database instead of falling back to MySQL ("Error establishing a database
+	// connection"). No-op for normal sites (helper returns undefined).
+	//
+	// Exception: the sqlite-command (`wp sqlite export`/`tables`, requireSqliteCliCommand)
+	// loads its own copy of the SQLite integration and reads the database file directly.
+	// Prepending runtime.php there loads a second integration copy and fatals, so it runs
+	// without the prepend and relies on the integration installed in wp-content (see the
+	// imported-site setup in push.ts).
+	const autoPrependFile = options.requireSqliteCliCommand
+		? undefined
+		: getImportedSiteAutoPrependFile( site );
+	const prependArgs = autoPrependFile ? [ '-d', `auto_prepend_file=${ autoPrependFile }` ] : [];
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
-		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
+		[ ...defaultArgs, ...prependArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
 		{
 			cwd: site.path,
 			stdio: options.stdio === 'inherit' ? 'inherit' : [ 'ignore', 'pipe', 'pipe' ],

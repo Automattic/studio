@@ -191,6 +191,29 @@ export function loadImportedRuntimeStartOptionsNative(
 	};
 }
 
+/**
+ * Locates the reprint `runtime.php` to load as a native WP-CLI `auto_prepend_file`.
+ *
+ * Reprint-pulled sites wire SQLite only through `runtime.php`, which the web server
+ * applies as a PHP `auto_prepend_file`. A standalone native WP-CLI process never loads
+ * it, so WordPress falls back to MySQL and fails with "Error establishing a database
+ * connection". Loading the same file the server uses gives WP-CLI matching SQLite wiring.
+ *
+ * Only reprint/imported sites have `runtimeBlueprintPath`; `runtime.php` is its sibling
+ * (the same directory the native server-start path resolves it from above). Returns
+ * undefined — never throws — for normal `studio create` sites or when the file is absent,
+ * so those are unaffected.
+ */
+export function getImportedSiteAutoPrependFile( site: {
+	runtimeBlueprintPath?: string;
+} ): string | undefined {
+	if ( ! site.runtimeBlueprintPath ) {
+		return undefined;
+	}
+	const runtimePhpPath = path.join( path.dirname( site.runtimeBlueprintPath ), 'runtime.php' );
+	return fs.existsSync( runtimePhpPath ) ? runtimePhpPath : undefined;
+}
+
 export function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint {
 	if ( ! fs.existsSync( runtimeBlueprintPath ) ) {
 		throw new LoggerError( `Runtime Blueprint not found: ${ runtimeBlueprintPath }` );

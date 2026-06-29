@@ -10,6 +10,15 @@
  * WP::parse_request() can resolve it against the rewrite rules.
  */
 
+// PHP's built-in server ignores the auto_prepend_file ini directive when a
+// router script is in use, so apply it ourselves before dispatching. This is
+// how Studio's pre-boot prepend (local WP_HOME/WP_SITEURL) and reprint's
+// runtime.php for imported sites get a chance to run.
+$studio_auto_prepend = ini_get( 'auto_prepend_file' );
+if ( $studio_auto_prepend && is_file( $studio_auto_prepend ) ) {
+	require_once $studio_auto_prepend;
+}
+
 $root = realpath( $_SERVER['DOCUMENT_ROOT'] ?? '' ) ?: getcwd();
 $path = urldecode( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) );
 $file = $root . $path;

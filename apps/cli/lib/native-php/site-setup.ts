@@ -1,4 +1,6 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { decodePassword } from '@studio/common/lib/passwords';
@@ -63,6 +65,51 @@ $transformer->to_file( $wp_config_path );
 			}`
 		);
 	}
+}
+
+function escapePhpSingleQuotedString( value: string ): string {
+	return value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
+}
+
+export function getSiteUrlPrependContent( originalAutoPrependFile?: string ): string {
+	const chained = originalAutoPrependFile
+		? `require '${ escapePhpSingleQuotedString( originalAutoPrependFile ) }';`
+		: '';
+
+	// Define WP_HOME/WP_SITEURL before WordPress boots so the site serves from
+	// the local URL regardless of the siteurl/home in the DB (e.g. after pulling
+	// a remote site — STU-1925). Pre-boot so derived URLs (WP_CONTENT_URL, etc.)
+	// resolve locally too. Taken from the request to survive dynamic ports/custom
+	// domains; wp-cli is left untouched.
+	return `<?php
+if ( PHP_SAPI !== 'cli' && ! empty( $_SERVER['HTTP_HOST'] ) ) {
+	$studio_is_https = ( ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] !== 'off' )
+		|| ( ! empty( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && stripos( $_SERVER['HTTP_X_FORWARDED_PROTO'], 'https' ) !== false );
+	$studio_local_url = ( $studio_is_https ? 'https' : 'http' ) . '://' . $_SERVER['HTTP_HOST'];
+	if ( ! defined( 'WP_HOME' ) ) {
+		define( 'WP_HOME', $studio_local_url );
+	}
+	if ( ! defined( 'WP_SITEURL' ) ) {
+		define( 'WP_SITEURL', $studio_local_url );
+	}
+}
+${ chained }
+`;
+}
+
+/**
+ * Writes the auto_prepend_file that forces WordPress to serve from the local
+ * URL. Returns the path to use as auto_prepend_file. For imported sites it
+ * chains to reprint's own runtime.php so that prepend still runs.
+ */
+export function writeSiteUrlPrependFile(
+	sitePath: string,
+	originalAutoPrependFile?: string
+): string {
+	const hash = crypto.createHash( 'sha1' ).update( sitePath ).digest( 'hex' ).slice( 0, 16 );
+	const prependPath = path.join( os.tmpdir(), `studio-siteurl-prepend-${ hash }.php` );
+	fs.writeFileSync( prependPath, getSiteUrlPrependContent( originalAutoPrependFile ) );
+	return prependPath;
 }
 
 export async function isWordPressInstalled(

@@ -10,8 +10,12 @@ export interface RouterContext {
 	connector: Connector;
 }
 
-function getSettingsTabFromEvent( tabName: UserSettingsEventTab | undefined ) {
-	return normalizeSettingsTab( tabName );
+function getSettingsSearchFromEvent( tabName: UserSettingsEventTab | undefined ) {
+	if ( ! tabName ) {
+		return {};
+	}
+	const tab = normalizeSettingsTab( tabName );
+	return tab === 'preferences' ? {} : { tab };
 }
 
 function RootLayout() {
@@ -22,7 +26,7 @@ function RootLayout() {
 		return connector.onUserSettings( ( tabName ) => {
 			void navigate( {
 				to: '/settings',
-				search: { tab: getSettingsTabFromEvent( tabName ) },
+				search: getSettingsSearchFromEvent( tabName ),
 			} );
 		} );
 	}, [ connector, navigate ] );

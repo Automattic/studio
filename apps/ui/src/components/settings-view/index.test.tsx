@@ -13,6 +13,7 @@ import {
 } from '@/data/queries/use-snapshots';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import {
+	useInstallAllWordPressSkills,
 	useInstallWordPressSkill,
 	useRemoveWordPressSkill,
 	useWordPressSkills,
@@ -210,6 +211,7 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-wordpress-skills', () => ( {
+	useInstallAllWordPressSkills: vi.fn(),
 	useInstallWordPressSkill: vi.fn(),
 	useRemoveWordPressSkill: vi.fn(),
 	useWordPressSkills: vi.fn(),
@@ -242,6 +244,7 @@ const useSnapshotUsageMock = vi.mocked( useSnapshotUsage );
 const useSnapshotsMock = vi.mocked( useSnapshots );
 const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
 const useUserPreferencesMock = vi.mocked( useUserPreferences );
+const useInstallAllWordPressSkillsMock = vi.mocked( useInstallAllWordPressSkills );
 const useInstallWordPressSkillMock = vi.mocked( useInstallWordPressSkill );
 const useRemoveWordPressSkillMock = vi.mocked( useRemoveWordPressSkill );
 const useWordPressSkillsMock = vi.mocked( useWordPressSkills );
@@ -255,6 +258,7 @@ describe( 'SettingsView', () => {
 	const deleteSnapshotsMutate = vi.fn();
 	const installSkillMutate = vi.fn();
 	const installSkillMutateAsync = vi.fn();
+	const installAllSkillsMutate = vi.fn();
 	const removeSkillMutate = vi.fn();
 	const selectDefaultSiteDirectory = vi.fn();
 	const confirmDeleteAllPreviewSites = vi.fn();
@@ -342,6 +346,12 @@ describe( 'SettingsView', () => {
 			error: null,
 			variables: undefined,
 		} as never );
+		useInstallAllWordPressSkillsMock.mockReturnValue( {
+			mutate: installAllSkillsMutate,
+			isPending: false,
+			error: null,
+			variables: undefined,
+		} as never );
 		useRemoveWordPressSkillMock.mockReturnValue( {
 			mutate: removeSkillMutate,
 			isPending: false,
@@ -371,7 +381,7 @@ describe( 'SettingsView', () => {
 		const saveButton = screen.getByRole( 'button', { name: 'Save' } );
 		expect( saveButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+S$/ ) );
 		expect( saveButton ).toHaveTextContent( /^Save$/ );
-		expect( screen.getByText( /Save settings \([⌘⌃]S\)/ ) ).toBeInTheDocument();
+		expect( screen.getByText( /Save settings \((⌘|Ctrl)\+S\)/ ) ).toBeInTheDocument();
 
 		fireEvent.click( saveButton );
 
@@ -566,6 +576,19 @@ describe( 'SettingsView', () => {
 		expect( screen.queryByLabelText( 'Studio CLI for terminal' ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'waits for app globals before showing native-only preferences', () => {
+		useAppGlobalsMock.mockReturnValue( {
+			data: undefined,
+			isLoading: true,
+		} as never );
+
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		expect( screen.getByText( 'Loading...' ) ).toBeInTheDocument();
+		expect( screen.queryByText( 'Preferred editor' ) ).not.toBeInTheDocument();
+		expect( screen.queryByLabelText( 'Studio CLI for terminal' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'renders keyboard shortcuts', () => {
 		render( <SettingsView activeTab="keyboard" onTabChange={ vi.fn() } /> );
 
@@ -633,7 +656,7 @@ describe( 'SettingsView', () => {
 
 		expect( installSkillMutate ).toHaveBeenCalledWith( 'wp-rest-api' );
 		expect( removeSkillMutate ).toHaveBeenCalledWith( 'studio-cli' );
-		await waitFor( () => expect( installSkillMutateAsync ).toHaveBeenCalledWith( 'wp-rest-api' ) );
+		expect( installAllSkillsMutate ).toHaveBeenCalledWith( [ 'wp-rest-api' ] );
 	} );
 
 	it( 'copies the MCP configuration through the connector', async () => {
@@ -647,5 +670,24 @@ describe( 'SettingsView', () => {
 		await waitFor( () => expect( copyText ).toHaveBeenCalledTimes( 1 ) );
 		expect( copyText.mock.calls[ 0 ][ 0 ] ).toContain( 'wordpress-studio' );
 		await waitFor( () => expect( screen.getAllByText( 'Copied' ).length ).toBeGreaterThan( 0 ) );
+	} );
+
+	it( 'does not show copied feedback when MCP configuration copy fails', async () => {
+		const error = new Error( 'Clipboard unavailable' );
+		const consoleError = vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+		copyText.mockRejectedValueOnce( error );
+
+		try {
+			render( <SettingsView activeTab="mcp" onTabChange={ vi.fn() } /> );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Copy MCP configuration' } ) );
+
+			await waitFor( () =>
+				expect( consoleError ).toHaveBeenCalledWith( 'Failed to copy MCP configuration:', error )
+			);
+			expect( screen.queryByText( 'Copied' ) ).not.toBeInTheDocument();
+		} finally {
+			consoleError.mockRestore();
+		}
 	} );
 } );

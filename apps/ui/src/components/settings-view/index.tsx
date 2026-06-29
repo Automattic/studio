@@ -25,6 +25,7 @@ import {
 } from '@/data/queries/use-snapshots';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import {
+	useInstallAllWordPressSkills,
 	useInstallWordPressSkill,
 	useRemoveWordPressSkill,
 	useWordPressSkills,
@@ -123,8 +124,8 @@ function SettingsHeader( {
 			? styles.toggleSpacerFullscreen
 			: styles.toggleSpacer
 		: null;
-	const saveShortcutModifier = getPlatformModifierKeyLabel() === '⌘' ? '⌘' : '⌃';
-	const saveShortcutTooltip = sprintf( __( 'Save settings (%sS)' ), saveShortcutModifier );
+	const saveShortcutModifier = getPlatformModifierKeyLabel() === '⌘' ? '⌘' : 'Ctrl';
+	const saveShortcutTooltip = sprintf( __( 'Save settings (%s+S)' ), saveShortcutModifier );
 	const saveShortcutAria = saveShortcutModifier === '⌘' ? 'Meta+S' : 'Control+S';
 
 	return (
@@ -812,8 +813,8 @@ function SkillSection( {
 function SkillsSettingsPanel() {
 	const { data: skills, isLoading, error } = useWordPressSkills();
 	const installSkill = useInstallWordPressSkill();
+	const installAllSkills = useInstallAllWordPressSkills();
 	const removeSkill = useRemoveWordPressSkill();
-	const [ installingAll, setInstallingAll ] = useState( false );
 	const installedSkills = useMemo(
 		() => ( skills ?? [] ).filter( ( skill ) => skill.installed ),
 		[ skills ]
@@ -822,24 +823,18 @@ function SkillsSettingsPanel() {
 		() => ( skills ?? [] ).filter( ( skill ) => ! skill.installed ),
 		[ skills ]
 	);
-	const isBusy = installSkill.isPending || removeSkill.isPending || installingAll;
+	const isBusy = installSkill.isPending || installAllSkills.isPending || removeSkill.isPending;
 	const visibleError =
 		getErrorMessage( error ) ??
 		getErrorMessage( installSkill.error ) ??
+		getErrorMessage( installAllSkills.error ) ??
 		getErrorMessage( removeSkill.error );
 
-	const handleInstallAll = async () => {
+	const handleInstallAll = () => {
 		if ( availableSkills.length === 0 ) {
 			return;
 		}
-		setInstallingAll( true );
-		try {
-			for ( const skill of availableSkills ) {
-				await installSkill.mutateAsync( skill.id );
-			}
-		} finally {
-			setInstallingAll( false );
-		}
+		installAllSkills.mutate( availableSkills.map( ( skill ) => skill.id ) );
 	};
 
 	return (
@@ -883,9 +878,9 @@ function SkillsSettingsPanel() {
 								tone="neutral"
 								size="small"
 								disabled={ isBusy }
-								loading={ installingAll }
+								loading={ installAllSkills.isPending }
 								loadingAnnouncement={ __( 'Installing all skills' ) }
-								onClick={ () => void handleInstallAll() }
+								onClick={ handleInstallAll }
 							>
 								{ __( 'Install all' ) }
 							</Button>
@@ -925,8 +920,12 @@ function McpCopyButton( { text }: { text: string } ) {
 	const tooltipLabel = copied ? copiedLabel : copyLabel;
 
 	const handleCopy = useCallback( () => {
-		void connector.copyText( text );
-		setCopied( true );
+		void connector
+			.copyText( text )
+			.then( () => setCopied( true ) )
+			.catch( ( error ) => {
+				console.error( 'Failed to copy MCP configuration:', error );
+			} );
 	}, [ connector, text ] );
 
 	return (
@@ -994,7 +993,7 @@ export function SettingsView( {
 	const connector = useConnector();
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
-	const { data: appGlobals } = useAppGlobals();
+	const { data: appGlobals, isLoading: isLoadingAppGlobals } = useAppGlobals();
 	const { mutate: savePreferences, isPending: isSavingPreferences } = useSaveUserPreferences();
 	const savedColorSchemeRef = useRef< ColorScheme | null >( null );
 	const previewedColorSchemeRef = useRef( false );
@@ -1039,7 +1038,7 @@ export function SettingsView( {
 	);
 	const isDirty = Object.keys( patch ).length > 0;
 	const canSubmit = isDirty;
-	const showNativePreferences = appGlobals?.platform !== 'browser';
+	const showNativePreferences = appGlobals ? appGlobals.platform !== 'browser' : false;
 	const showStudioCliToggle = showNativePreferences && appGlobals?.isWindowsStore === false;
 
 	useBlocker( {
@@ -1105,7 +1104,7 @@ export function SettingsView( {
 		return () => window.removeEventListener( 'keydown', handleKeyDown );
 	}, [ submitPreferences ] );
 
-	if ( isLoading || ! data || ! saved ) {
+	if ( isLoading || isLoadingAppGlobals || ! data || ! saved || ! appGlobals ) {
 		return <div className={ styles.state }>{ __( 'Loading...' ) }</div>;
 	}
 

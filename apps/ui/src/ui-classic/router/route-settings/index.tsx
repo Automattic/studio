@@ -20,7 +20,7 @@ function SettingsPage() {
 			onTabChange={ ( next ) =>
 				void navigate( {
 					to: '/settings',
-					search: { tab: next },
+					search: next === 'preferences' ? {} : { tab: next },
 					replace: true,
 				} )
 			}

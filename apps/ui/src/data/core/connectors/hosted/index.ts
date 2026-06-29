@@ -1,4 +1,5 @@
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { __ } from '@wordpress/i18n';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
@@ -387,7 +388,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async confirmDeleteAllPreviewSites() {
 			return window.confirm(
-				'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				__(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				)
 			);
 		},
 		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {

@@ -22,6 +22,21 @@ export function useInstallWordPressSkill() {
 	} );
 }
 
+export function useInstallAllWordPressSkills() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: async ( skillIds: string[] ) => {
+			for ( const skillId of skillIds ) {
+				await connector.installWordPressSkillToAllSites( skillId );
+			}
+		},
+		onSettled: () => {
+			void queryClient.invalidateQueries( { queryKey: WORDPRESS_SKILLS_QUERY_KEY } );
+		},
+	} );
+}
+
 export function useRemoveWordPressSkill() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();

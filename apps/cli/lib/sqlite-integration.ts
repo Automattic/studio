@@ -20,10 +20,6 @@ export async function isSqliteIntegrationAvailable() {
 	return provider.isSqliteIntegrationAvailable();
 }
 
-export async function needsSqliteSetup( sitePath: string ) {
-	return provider.needsSqliteSetup( sitePath );
-}
-
 export async function installSqliteIntegration( sitePath: string ) {
 	return provider.installSqliteIntegration( sitePath );
 }

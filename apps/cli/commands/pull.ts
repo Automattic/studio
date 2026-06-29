@@ -188,6 +188,16 @@ export async function runCommand(
 			handleImportEvents( importer );
 			await importer.import( site );
 
+			// A WordPress.com backup never bundles the SQLite drop-in (Jetpack excludes
+			// wp-content/database/), so (re)install it after every import — even when the
+			// site server was stopped — so the freshly pulled site can connect to its database.
+			logger.reportStart(
+				LoggerAction.INSTALL_SQLITE,
+				__( 'Setting up SQLite integration, if needed…' )
+			);
+			await keepSqliteIntegrationUpdated( siteFolder );
+			logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+
 			// Something in Playground makes it so the front-end of the site sometimes returns an error page
 			// on the first request. Send that first request from here to hide the error from the user.
 			const siteUrl = getSiteUrl( site );
@@ -213,13 +223,6 @@ export async function runCommand(
 	} finally {
 		try {
 			if ( site && wasServerRunning ) {
-				logger.reportStart(
-					LoggerAction.INSTALL_SQLITE,
-					__( 'Setting up SQLite integration, if needed…' )
-				);
-				await keepSqliteIntegrationUpdated( siteFolder );
-				logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
-
 				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 				await startWordPressServer( site, logger );
 				logger.reportSuccess( __( 'WordPress server started' ) );

@@ -69,7 +69,7 @@ describe( 'CLI: studio export', () => {
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
+		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
 		vi.mocked( getExporter ).mockResolvedValue( createExporter() as never );
 	} );
 

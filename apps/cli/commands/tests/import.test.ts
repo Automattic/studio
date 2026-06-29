@@ -86,7 +86,7 @@ describe( 'CLI: studio import', () => {
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
+		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
 		vi.mocked( isWordPressDirectory ).mockReturnValue( true );
 		vi.mocked( getServerFilesPath ).mockReturnValue( '/server-files' );
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );

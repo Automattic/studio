@@ -1,6 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 
+// Identifies a db.php that Studio generated from db.copy (see the auto-generated
+// header in that template). Stock drop-ins are refreshed on every run; custom,
+// SQLite-compatible drop-ins are preserved.
+const STOCK_DB_DROPIN_MARKER = 'This file is auto-generated and copied from the sqlite plugin.';
+
 // Abstract base class for SQLite integration across different contexts
 export abstract class SqliteIntegrationProvider {
 	abstract getSqliteDirname(): string;
@@ -12,25 +17,35 @@ export abstract class SqliteIntegrationProvider {
 		return fs.existsSync( sqliteSourcePath ) && fs.existsSync( dbCopyPath );
 	}
 
-	// Returns true if site has db.php or no wp-config.php
-	async needsSqliteSetup( sitePath: string ): Promise< boolean > {
-		const hasDbPhp = fs.existsSync( path.join( sitePath, 'wp-content', 'db.php' ) );
-		const hasWpConfig = fs.existsSync( path.join( sitePath, 'wp-config.php' ) );
-		return hasDbPhp || ! hasWpConfig;
-	}
-
+	/**
+	 * Whether to keep the existing wp-content/db.php instead of overwriting it with
+	 * Studio's stock SQLite drop-in.
+	 *
+	 * A Studio site can only boot through a drop-in the local SQLite runtime understands,
+	 * so we only keep a file we recognize as such:
+	 *  - missing/unreadable → don't keep (recreate it so the site can connect)
+	 *  - marked `@studio-keep` → keep (explicit opt-out)
+	 *  - Studio's own stock drop-in → don't keep (refresh its path and version)
+	 *  - a custom drop-in defining SQLITE_DB_DROPIN_VERSION → keep (e.g. markdown-database-integration)
+	 *  - anything else, e.g. a plugin-owned db.php restored from a WordPress.com backup → don't keep (replace)
+	 */
 	async shouldKeepExistingDbDropin( sitePath: string ): Promise< boolean > {
 		const dbPhpPath = path.join( sitePath, 'wp-content', 'db.php' );
-		if ( ! fs.existsSync( dbPhpPath ) ) {
-			return false;
-		}
 
+		let content: string;
 		try {
-			const content = await fs.promises.readFile( dbPhpPath, 'utf8' );
-			return content.includes( '@studio-keep' );
+			content = await fs.promises.readFile( dbPhpPath, 'utf8' );
 		} catch {
 			return false;
 		}
+
+		if ( content.includes( '@studio-keep' ) ) {
+			return true;
+		}
+		if ( content.includes( STOCK_DB_DROPIN_MARKER ) ) {
+			return false;
+		}
+		return content.includes( 'SQLITE_DB_DROPIN_VERSION' );
 	}
 
 	async getSqliteVersionFromInstallation( sqliteMuPluginPath: string ): Promise< string > {
@@ -78,12 +93,12 @@ export abstract class SqliteIntegrationProvider {
 		} );
 	}
 
-	async keepSqliteIntegrationUpdated( sitePath: string ): Promise< boolean > {
-		if ( await this.needsSqliteSetup( sitePath ) ) {
-			await this.installSqliteIntegration( sitePath );
-			return true;
-		}
-		return false;
+	async keepSqliteIntegrationUpdated( sitePath: string ): Promise< void > {
+		// SQLite setup is idempotent and every Studio site needs it, so always run it.
+		// This restores a missing db.php drop-in (otherwise the site reports "Error
+		// establishing a database connection") and keeps the bundled mu-plugin current,
+		// while installSqliteIntegration() preserves custom SQLite-compatible drop-ins.
+		await this.installSqliteIntegration( sitePath );
 	}
 
 	async isSqliteInstalled( sitePath: string ): Promise< boolean > {

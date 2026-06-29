@@ -32,7 +32,8 @@ The most important rule: **do not fix issues one at a time as you find them.** F
 3. Go **section by section**. For each, call `inspect_design` on the relevant selectors and compare the rendered DOM and computed styles against your intent and the theme's `style.css` (read it). The screenshot is the symptom; `inspect_design` is the cause — never diagnose from the screenshot alone, because subtle issues like doubled button padding barely show in pixels. Inspect even sections that look roughly right, and always inspect:
    - every section wrapper — for width and centering,
    - every button — BOTH `.wp-block-button` and `.wp-block-button__link`, with `includeHover: true`.
-4. List the **complete** set of issues before fixing anything — a concise checklist, one short line per issue: the section, the root cause from the DOM, and the exact fix (file, selector, change). A list, not prose.
+4. For each issue, decide the correct ownership layer before fixing: block attributes, `theme.json`, pattern/template structure, CSS, or JavaScript. If the issue is normal color, type, spacing, or width styling implemented only through a custom class, move it up into block attributes or `theme.json` instead of adding more CSS.
+5. List the **complete** set of issues before fixing anything — a concise checklist, one short line per issue: the section, the root cause from the DOM, the ownership layer, and the exact fix (file, selector/block attribute/theme.json path/change). A list, not prose.
 
 Do not make a single edit until you have diagnosed every section and listed every issue. **A complete diagnosis is the gate into Phase 2.**
 
@@ -40,9 +41,13 @@ Do not make a single edit until you have diagnosed every section and listed ever
 
 Work through the plan with targeted `Edit` calls (one `Write`/`Edit` per turn, per the system prompt cadence — never batch files into one turn). Do **not** screenshot between edits. If an edit changes block markup (not just CSS), re-run `validate_blocks` on that file and re-check its diff, since the serializer can change classes again.
 
+If `validate_blocks` reports style ownership warnings, treat them as polish findings. Move editor-native color, typography, spacing, or layout from custom class CSS into block attributes or `theme.json` when possible. Keep CSS warnings only when the selector is truly an unsupported effect, responsive workaround, state selector, plugin cleanup, or progressive enhancement.
+
 ### Phase 3 — Verify and loop
 
 After the whole batch, take one `viewport: "all"` screenshot. Check each plan item off and look for regressions the fixes introduced.
+
+Also do an editor-parity review: key design choices that a user should see or adjust in the editor should not exist only in `style.css`. If the front end looks correct but the editor would show plain defaults, the fix belongs in block markup or `theme.json`.
 
 This looping phase applies to the **home page only** (see "Scope" above). For every other page — including WooCommerce pages — stop after this single verification screenshot; do not loop. For the home page, each pass is expensive, so cap the cycle at **5 passes**. If issues remain and you are within that budget, return to Phase 1 for what's left — re-diagnose the remaining issues with `inspect_design`, don't fix blind.
 
@@ -77,6 +82,12 @@ Symptom: gaps between paragraphs, headings, or sections are larger or smaller th
 
 Vertical rhythm is owned by WordPress layout CSS, not your margins: `:where(.is-layout-flow) > * + *` applies `margin-block-start: var(--wp--style--block-gap)`. Inspect the container and the adjacent blocks — read `customProperties["--wp--style--block-gap"]` and the `margin-top`/`margin-bottom` computed values. If block-gap is fighting your margins, set spacing through `theme.json` `spacing.blockGap` or the block's own spacing, or override knowing that exact selector.
 
+### Front end looks designed but the editor would look plain
+
+Symptom: a section depends on custom classes for color, typography, spacing, or width even though the equivalent controls exist in Gutenberg. The front end may look correct, but the editor will not show the intended design as editable block settings.
+
+Inspect the block markup and `style.css`. If selectors such as `.section-heading`, `.feature-row`, or `.lede` own normal block styling, move that styling to block attributes (`textColor`, `backgroundColor`, `fontSize`, `style.spacing`, `layout`) or `theme.json` presets/styles. Keep the custom class only for CSS that the editor cannot represent.
+
 ### Backgrounds inside grids/columns are wrong
 
 Symptom: a column or grid cell background doesn't appear, doesn't fill the cell, or sits on the wrong element.
@@ -85,5 +96,5 @@ Inspect `.wp-block-column` (or the grid cell) and any inner `core/group` you put
 
 ## Notes
 
-- Fix in markup or `style.css` per the `block-content` skill rules — no inline styles, no custom stylesheets, no custom classes on inner DOM elements.
+- Fix in block markup, `theme.json`, or `style.css` per the `block-content` and `theme-layering` skill rules — no raw HTML inline styles, no custom stylesheets, no custom classes on inner DOM elements.
 - The site must be running for `take_screenshot` and `inspect_design`.

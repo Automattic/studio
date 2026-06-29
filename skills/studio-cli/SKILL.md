@@ -157,3 +157,4 @@ studio wp --path ~/Studio/my-site user list
 - Run `studio <command> --help` to see all options for any command.
 - Custom domains require hosts file changes (may need elevated permissions on macOS/Linux).
 - HTTPS uses self-signed certificates stored in platform-specific locations.
+- When building block themes, use block attributes and `theme.json` for normal color, typography, spacing, and layout. Use CSS and JavaScript only for unsupported styling, effects, integrations, and progressive enhancement.

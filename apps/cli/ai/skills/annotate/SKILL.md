@@ -47,15 +47,17 @@ If the user wants to re-annotate, point them back to the open browser and call `
 ### 4. Make changes
 
 For each annotation:
-1. **Identify what to change:**
-   - Use the CSS selector to find the element in theme templates or stylesheets
-   - Use `wp_cli` with `post list --post_type=wp_template --format=json` to check if it's in a template override
-   - Use `wp_cli` with `eval "echo wp_get_custom_css();"` to check existing custom CSS
-2. **Apply the change using the right approach:**
-   - For style changes (colors, sizes, spacing): use Global Styles custom CSS with the selector from the annotation
-   - For content changes (text, headings, block structure): edit the template or post content via WP-CLI
-   - For block-level changes: identify the WordPress block type from the HTML structure (look for `wp-block-*` classes) and modify accordingly
-3. Take a screenshot to verify the change looks correct
+	1. **Identify what to change:**
+	   - Use the CSS selector to find the element in theme templates or stylesheets
+	   - Use `wp_cli` with `post list --post_type=wp_template --format=json` to check if it's in a template override
+	   - Use `wp_cli` with `eval "echo wp_get_custom_css();"` to check existing custom CSS
+	2. **Apply the change using the right approach:**
+	   - For normal block styling (colors, sizes, spacing, width, alignment): prefer block attributes, `theme.json`, or Global Styles settings that remain visible/editable in the editor
+	   - Use Global Styles custom CSS only for unsupported selectors, pseudo-elements, responsive glue, plugin cleanup, effects, or quick reversible tweaks that cannot be represented as block settings
+	   - For content changes (text, headings, block structure): edit the template or post content via WP-CLI
+	   - For block-level changes: identify the WordPress block type from the HTML structure (look for `wp-block-*` classes) and modify accordingly
+	   - For behavior changes: load `interactive-frontend` and choose a core/plugin block, custom block, Interactivity API, or progressive-enhancement script
+	3. Take a screenshot to verify the change looks correct
 
 ### 5. Verify
 
@@ -67,9 +69,9 @@ The browser window auto-closes about 10 seconds after the user clicks **Done**, 
 
 Always prefer WordPress APIs over direct file edits or custom plugins.
 
-### CSS / design changes
+### Design changes
 
-Use **Global Styles custom CSS** — never create throwaway plugins:
+Use editor-native styling first. For colors, type, spacing, and layout, update block attributes, `theme.json`, or Global Styles where possible. Use **Global Styles custom CSS** only when the editor has no matching control, and never create throwaway plugins:
 ```
 wp eval 'echo wp_get_custom_css();'   → read current custom CSS
 wp eval 'wp_update_custom_css_post("CSS HERE");'   → update custom CSS
@@ -85,5 +87,6 @@ wp post create --post_type=wp_template --post_name="theme-slug//template-name" -
 ### When to use what
 
 - **Tweaking an existing site**: Prefer Global Styles custom CSS and template overrides in the database — these are non-destructive and easy to revert
+- **Tweaking editor-native styling**: Prefer block attributes or Global Styles controls so the change is visible in the editor; use custom CSS only as the escape hatch
 - **Building a theme or new site**: Edit theme files directly — that's the job. Follow Studio's existing guidelines for block themes (theme.json, templates/, style.css)
 - **Never**: Modify WordPress core files

@@ -5,6 +5,10 @@ import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { escapePhpSingleQuotedString } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import {
+	getMysqlConfigFromServerConfig,
+	getMysqlWpConfigConstants,
+} from 'cli/lib/mysql/mysql-site';
 import { runPhpCommand } from './php-process';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
@@ -18,7 +22,10 @@ export async function ensureWpConfig(
 	phpVersion: NativePhpSupportedVersion,
 	signal: AbortSignal,
 	wpConfigTransformerPath: string,
-	config?: Pick< ServerConfig, 'enableDebugLog' | 'enableDebugDisplay' >
+	config?: Pick<
+		ServerConfig,
+		'enableDebugLog' | 'enableDebugDisplay' | 'databaseEngine' | 'mysql'
+	>
 ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
@@ -40,8 +47,9 @@ $transformer->to_file( $wp_config_path );
 
 	const enableDebugLog = config?.enableDebugLog ?? false;
 	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
+	const mysqlConfig = config ? getMysqlConfigFromServerConfig( config as ServerConfig ) : undefined;
 	const constants = {
-		...DEFAULT_WP_CONFIG_CONSTANTS,
+		...( mysqlConfig ? getMysqlWpConfigConstants( mysqlConfig ) : DEFAULT_WP_CONFIG_CONSTANTS ),
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,

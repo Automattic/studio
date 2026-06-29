@@ -7,6 +7,17 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 
 type SiteRuntime = 'playground' | 'native-php';
 type SiteFileAccess = 'site-directory' | 'all-files';
+type DatabaseEngine = 'sqlite' | 'mysql';
+
+interface MysqlSiteConfig {
+	host: string;
+	port: number;
+	databaseName: string;
+	username: string;
+	password: string;
+	serverVersion: string;
+	dataDir: string;
+}
 
 interface StoppedSiteDetails {
 	running: false;
@@ -49,6 +60,8 @@ interface StoppedSiteDetails {
 	landingPage?: string;
 	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
+	databaseEngine?: DatabaseEngine;
+	mysql?: MysqlSiteConfig;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

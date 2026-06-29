@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/electron/renderer';
+import { isMysqlSite } from '@studio/common/lib/database-engine';
 import { __ } from '@wordpress/i18n';
 import {
 	archive,
@@ -176,21 +177,23 @@ function ShortcutsSection( { selectedSite }: Pick< ContentTabOverviewProps, 'sel
 		},
 	} );
 
-	buttonsArray.push( {
-		label: __( 'phpMyAdmin' ),
-		className: 'text-nowrap',
-		icon: grid,
-		disabled: isServerLoading,
-		onClick: async () => {
-			if ( ! selectedSite.running ) {
-				await startServer( selectedSite );
-			}
-			getIpcApi().openSiteURL(
-				selectedSite.id,
-				'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-			);
-		},
-	} );
+	if ( ! isMysqlSite( selectedSite ) ) {
+		buttonsArray.push( {
+			label: __( 'phpMyAdmin' ),
+			className: 'text-nowrap',
+			icon: grid,
+			disabled: isServerLoading,
+			onClick: async () => {
+				if ( ! selectedSite.running ) {
+					await startServer( selectedSite );
+				}
+				getIpcApi().openSiteURL(
+					selectedSite.id,
+					'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+				);
+			},
+		} );
+	}
 
 	return <ButtonsSection buttonsArray={ buttonsArray } title={ __( 'Open in…' ) } />;
 }

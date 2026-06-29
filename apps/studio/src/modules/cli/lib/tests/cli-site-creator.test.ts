@@ -58,6 +58,33 @@ describe( 'createSiteViaCli', () => {
 		} );
 	} );
 
+	it( 'passes the selected database engine to the CLI', async () => {
+		const emitter = buildEmitter();
+
+		const pending = createSiteViaCli( {
+			path: '/tmp/site-mysql',
+			databaseEngine: 'mysql',
+		} );
+
+		expect( vi.mocked( executeCliCommand ).mock.calls[ 0 ][ 0 ] ).toEqual(
+			expect.arrayContaining( [ '--database-engine', 'mysql' ] )
+		);
+
+		emitter.emit( 'data', {
+			data: { action: 'keyValuePair', key: 'id', value: 'site-mysql' },
+		} as never );
+		emitter.emit( 'data', {
+			data: { action: 'keyValuePair', key: 'port', value: '8765' },
+		} as never );
+		emitter.emit( 'success', { result: undefined } as never );
+
+		await expect( pending ).resolves.toEqual( {
+			id: 'site-mysql',
+			port: 8765,
+			running: false,
+		} );
+	} );
+
 	it( 'rejects when the CLI succeeds without reporting a port', async () => {
 		const emitter = buildEmitter();
 

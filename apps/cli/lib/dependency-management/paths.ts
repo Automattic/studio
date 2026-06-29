@@ -7,6 +7,9 @@ import {
 import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
 const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
+const MYSQLD_BINARY_FILENAME = process.platform === 'win32' ? 'mysqld.exe' : 'mysqld';
+const MYSQLADMIN_BINARY_FILENAME = process.platform === 'win32' ? 'mysqladmin.exe' : 'mysqladmin';
+const MYSQL_CLIENT_BINARY_FILENAME = process.platform === 'win32' ? 'mysql.exe' : 'mysql';
 
 function getPhpBinaryRoot(): string {
 	return path.join( getConfigDirectory(), 'php-bin' );
@@ -29,6 +32,30 @@ export function getPhpBinaryPath( version: NativePhpSupportedVersion | string ):
 
 	const configuredVersion = getConfiguredPhpBinaryVersion( version );
 	return getExactPhpBinaryPath( configuredVersion ?? version );
+}
+
+export function getMysqlBinaryRoot(): string {
+	return path.join( getConfigDirectory(), 'mysql-bin' );
+}
+
+export function getMysqlInstallRoot( version: string ): string {
+	return path.join( getMysqlBinaryRoot(), version );
+}
+
+export function getMysqlServerBinaryPath( version: string ): string {
+	return path.join( getMysqlInstallRoot( version ), 'bin', MYSQLD_BINARY_FILENAME );
+}
+
+export function getMysqlAdminBinaryPath( version: string ): string {
+	return path.join( getMysqlInstallRoot( version ), 'bin', MYSQLADMIN_BINARY_FILENAME );
+}
+
+export function getMysqlClientBinaryPath( version: string ): string {
+	return path.join( getMysqlInstallRoot( version ), 'bin', MYSQL_CLIENT_BINARY_FILENAME );
+}
+
+export function getMysqlDataRoot(): string {
+	return path.join( getConfigDirectory(), 'mysql-data' );
 }
 
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';

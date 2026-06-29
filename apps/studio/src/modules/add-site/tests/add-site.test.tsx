@@ -217,7 +217,8 @@ describe( 'AddSite', () => {
 			expect.any( String ),
 			'admin@localhost.com',
 			'native-php',
-			'site-directory'
+			'site-directory',
+			'sqlite'
 		);
 	} );
 
@@ -437,7 +438,8 @@ describe( 'AddSite', () => {
 			expect.any( String ),
 			'admin@localhost.com',
 			'native-php',
-			'site-directory'
+			'site-directory',
+			'sqlite'
 		);
 	} );
 
@@ -458,13 +460,18 @@ describe( 'AddSite', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Continue' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Advanced settings' } ) );
 
-		// Native is the default, so File access is selectable; switching to the
-		// sandbox disables it (the sandbox only sees the site directory).
+		// Native is the default, so File access and MySQL are selectable; switching to the
+		// sandbox disables both because it only supports the site directory and SQLite.
 		expect( screen.getByLabelText( 'File access' ) ).toBeEnabled();
+		expect( screen.getByLabelText( 'Database engine' ) ).toBeEnabled();
+		await user.selectOptions( screen.getByLabelText( 'Database engine' ), 'mysql' );
 		await user.selectOptions( screen.getByLabelText( 'PHP runtime' ), 'playground' );
 		expect( screen.getByLabelText( 'File access' ) ).toBeDisabled();
+		expect( screen.getByLabelText( 'Database engine' ) ).toBeDisabled();
+		expect( screen.getByLabelText( 'Database engine' ) ).toHaveValue( 'sqlite' );
 		await user.selectOptions( screen.getByLabelText( 'PHP runtime' ), 'native-php' );
 		await user.selectOptions( screen.getByLabelText( 'File access' ), 'all-files' );
+		await user.selectOptions( screen.getByLabelText( 'Database engine' ), 'mysql' );
 
 		mockShowOpenFolderDialog.mockResolvedValue( {
 			path: 'test',
@@ -491,7 +498,8 @@ describe( 'AddSite', () => {
 				expect.any( String ),
 				'admin@localhost.com',
 				'native-php',
-				'all-files'
+				'all-files',
+				'mysql'
 			);
 		} );
 	} );

@@ -26,6 +26,8 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
+import { ensureMysqlServerRunning, type ManagedMysqlServer } from './lib/mysql/mysql-process';
+import { getMysqlConfigFromServerConfig, prepareMysqlSite } from './lib/mysql/mysql-site';
 import { runBlueprint } from './lib/native-php/blueprints';
 import {
 	killAllLivePhpProcesses,
@@ -97,6 +99,7 @@ let phpWorkerProcesses: ChildProcess[] = [];
 let phpProxyServer: http.Server | null = null;
 let phpWorkerPorts: number[] = [];
 let phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+let mysqlServer: ManagedMysqlServer | null = null;
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
@@ -120,11 +123,15 @@ function isFileAccessRestricted( config: ServerConfig ): boolean {
 }
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
-	console.log( `[PHP Server]`, ...args );
+	const message = `[PHP Server] ${ args.map( String ).join( ' ' ) }`;
+	console.log( message );
+	process.send?.( { topic: 'console-message', message } );
 }
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
-	console.error( `[PHP Server]`, ...args );
+	const message = `[PHP Server] ${ args.map( String ).join( ' ' ) }`;
+	console.error( message );
+	process.send?.( { topic: 'console-message', message } );
 }
 
 function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
@@ -450,6 +457,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	}
 
 	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
+	const mysqlConfig = getMysqlConfigFromServerConfig( config );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
@@ -463,6 +471,13 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 	try {
 		stopSignal.throwIfAborted();
+
+		if ( mysqlConfig ) {
+			mysqlServer = await ensureMysqlServerRunning( mysqlConfig, logToConsole, stopSignal );
+			stopSignal.throwIfAborted();
+			await prepareMysqlSite( mysqlConfig, config.sitePath );
+			stopSignal.throwIfAborted();
+		}
 
 		if ( ! isImportedSite ) {
 			await ensureWpConfig(
@@ -529,6 +544,10 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	} catch ( error ) {
 		killPhpProcess();
 		phpProcess = null;
+		if ( mysqlServer ) {
+			await mysqlServer.stop().catch( () => undefined );
+			mysqlServer = null;
+		}
 		await stopSymlinkWatcher();
 		runningConfig = null;
 		currentOpenBasedirAllowlist.clear();
@@ -676,7 +695,7 @@ async function stopServer(): Promise< StopServerResult > {
 	currentOpenBasedirAllowlist.clear();
 
 	const children = getCurrentPhpProcesses();
-	if ( children.length === 0 && ! phpProxyServer ) {
+	if ( children.length === 0 && ! phpProxyServer && ! mysqlServer ) {
 		logToConsole( 'No server running, nothing to stop' );
 		return StopServerResult.OK;
 	}
@@ -684,13 +703,18 @@ async function stopServer(): Promise< StopServerResult > {
 	if (
 		children.length > 0 &&
 		children.every( ( child ) => child.exitCode !== null || child.signalCode !== null ) &&
-		! phpProxyServer
+		! phpProxyServer &&
+		! mysqlServer
 	) {
 		logToConsole( 'Server already stopped' );
 		return StopServerResult.OK;
 	}
 
 	await stopCurrentPhpServer();
+	if ( mysqlServer ) {
+		await mysqlServer.stop();
+		mysqlServer = null;
+	}
 
 	logToConsole( 'Server stopped gracefully' );
 	return StopServerResult.OK;
@@ -758,37 +782,58 @@ async function ipcMessageHandler( packet: unknown ) {
 			case 'run-blueprint': {
 				const blueprintConfig = validMessage.data.config;
 				const blueprintPhpVersion = resolveNativePhpVersion( blueprintConfig.phpVersion ?? '' );
-				await ensureWpConfig(
-					blueprintConfig.sitePath,
-					blueprintPhpVersion,
-					abortController.signal,
-					WP_CONFIG_TRANSFORMER_PATH,
-					blueprintConfig
-				);
-				await writeStudioMuPluginsForNativePhpRuntime(
-					blueprintConfig.sitePath,
-					blueprintConfig.isWpAutoUpdating
-				);
-				await installWordPress(
-					blueprintConfig,
-					blueprintPhpVersion,
-					abortController.signal,
-					SET_DEFAULT_PERMALINKS_PATH,
-					logToConsole
-				);
-				if ( ! blueprintConfig.blueprint ) {
-					throw new Error( 'Blueprint is required' );
-				}
-				const blueprint = blueprintConfig.blueprint;
-				// Sequential queue: each message waits for the previous to settle before
-				// running its own blueprint. Distinct configs are not coalesced.
-				const next = blueprintQueue
-					.catch( () => {} )
-					.then( () =>
-						runBlueprint( blueprintConfig, blueprint, blueprintPhpVersion, abortController.signal )
+				const blueprintMysqlConfig = getMysqlConfigFromServerConfig( blueprintConfig );
+				if ( blueprintMysqlConfig ) {
+					mysqlServer = await ensureMysqlServerRunning(
+						blueprintMysqlConfig,
+						logToConsole,
+						abortController.signal
 					);
-				blueprintQueue = next;
-				result = await next;
+					await prepareMysqlSite( blueprintMysqlConfig, blueprintConfig.sitePath );
+				}
+				try {
+					await ensureWpConfig(
+						blueprintConfig.sitePath,
+						blueprintPhpVersion,
+						abortController.signal,
+						WP_CONFIG_TRANSFORMER_PATH,
+						blueprintConfig
+					);
+					await writeStudioMuPluginsForNativePhpRuntime(
+						blueprintConfig.sitePath,
+						blueprintConfig.isWpAutoUpdating
+					);
+					await installWordPress(
+						blueprintConfig,
+						blueprintPhpVersion,
+						abortController.signal,
+						SET_DEFAULT_PERMALINKS_PATH,
+						logToConsole
+					);
+					if ( ! blueprintConfig.blueprint ) {
+						throw new Error( 'Blueprint is required' );
+					}
+					const blueprint = blueprintConfig.blueprint;
+					// Sequential queue: each message waits for the previous to settle before
+					// running its own blueprint. Distinct configs are not coalesced.
+					const next = blueprintQueue
+						.catch( () => {} )
+						.then( () =>
+							runBlueprint(
+								blueprintConfig,
+								blueprint,
+								blueprintPhpVersion,
+								abortController.signal
+							)
+						);
+					blueprintQueue = next;
+					result = await next;
+				} finally {
+					if ( blueprintMysqlConfig && mysqlServer ) {
+						await mysqlServer.stop().catch( () => undefined );
+						mysqlServer = null;
+					}
+				}
 				break;
 			}
 			case 'wp-cli-command':
@@ -815,6 +860,7 @@ async function ipcMessageHandler( packet: unknown ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
 		await sendErrorMessage( validMessage.messageId, error );
 		errorToConsole( 'Killing process because of', error );
+		await stopMysqlServerBestEffort();
 		process.exit( 1 );
 	} finally {
 		delete abortControllers[ validMessage.messageId ];
@@ -840,12 +886,21 @@ function killPhpProcess(): void {
 	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 }
 
+async function stopMysqlServerBestEffort(): Promise< void > {
+	if ( ! mysqlServer ) {
+		return;
+	}
+	const server = mysqlServer;
+	mysqlServer = null;
+	await server.stop().catch( () => undefined );
+}
+
 function shutdownOnSignal( signal: NodeJS.Signals ): void {
 	logToConsole( `Received ${ signal }, shutting down` );
 	killPhpProcess();
 	// Follow the Unix convention of `128 + signum` so the exit code reflects the signal.
 	const signum = os.constants.signals[ signal ] ?? 0;
-	process.exit( 128 + signum );
+	void stopMysqlServerBestEffort().finally( () => process.exit( 128 + signum ) );
 }
 
 // If this node process is going down (normal exit or IPC disconnect), make sure PHP goes with it.
@@ -855,7 +910,7 @@ process.on( 'disconnect', () => {
 	killPhpProcess();
 	// Without an explicit exit, the wrapper would linger until the event loop drains,
 	// which delays the daemon's stop sequence and risks the force-kill timer firing.
-	process.exit( 0 );
+	void stopMysqlServerBestEffort().finally( () => process.exit( 0 ) );
 } );
 
 // Without explicit signal handlers, the process is terminated abruptly and the 'exit' event

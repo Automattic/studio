@@ -12,6 +12,7 @@ import {
 } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { isMysqlSite } from '@studio/common/lib/database-engine';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import {
 	cleanupLegacyMuPlugins,
@@ -33,6 +34,7 @@ import {
 } from 'cli/lib/dependency-management/paths';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { ensurePhpBinaryAvailable } from './dependency-management/php-binary';
+import { ensureMysqlServerRunning, type ManagedMysqlServer } from './mysql/mysql-process';
 import { getDefaultPhpArgs } from './native-php/config';
 import {
 	DETACH_FOR_GROUP_KILL,
@@ -185,6 +187,13 @@ async function runNativeWpCliCommand(
 	const phpVersion = resolveNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	let mysqlServer: ManagedMysqlServer | null = null;
+	if ( isMysqlSite( site ) ) {
+		if ( ! site.mysql ) {
+			throw new Error( 'MySQL site is missing database configuration.' );
+		}
+		mysqlServer = await ensureMysqlServerRunning( site.mysql );
+	}
 
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
 	const defaultArgs = getDefaultPhpArgs( phpVersion );
@@ -199,7 +208,12 @@ async function runNativeWpCliCommand(
 		}
 	);
 
-	await ensureChildSpawned( child );
+	try {
+		await ensureChildSpawned( child );
+	} catch ( error ) {
+		await mysqlServer?.stop().catch( () => undefined );
+		throw error;
+	}
 	const removeReaper = reapPhpTreeOnInterrupt( child );
 
 	const exitCode = new Promise< number >( ( resolve, reject ) => {
@@ -213,6 +227,7 @@ async function runNativeWpCliCommand(
 		if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
 			killPhpProcessTree( child, 'SIGKILL' );
 		}
+		void mysqlServer?.stop();
 	};
 
 	if ( options.stdio === 'inherit' ) {

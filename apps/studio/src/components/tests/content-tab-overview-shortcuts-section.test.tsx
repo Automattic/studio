@@ -195,4 +195,30 @@ describe( 'ShortcutsSection', () => {
 		expect( queryByLabelText( 'Visual Studio Code' ) ).not.toBeInTheDocument();
 		expect( queryByLabelText( 'PhpStorm' ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'hides phpMyAdmin for MySQL sites', async () => {
+		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+			getUserEditor: vi.fn().mockResolvedValue( null ),
+			getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+			getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( {
+				vscode: false,
+				phpstorm: false,
+				webstorm: false,
+				windsurf: false,
+				cursor: false,
+				terminal: true,
+				iterm: false,
+				ghostty: false,
+				warp: false,
+			} ),
+		} );
+
+		const { findByLabelText, queryByLabelText } = renderWithProvider(
+			<ContentTabOverview selectedSite={ { ...selectedSite, databaseEngine: 'mysql' } } />
+		);
+
+		await findByLabelText( 'Terminal' );
+
+		expect( queryByLabelText( 'phpMyAdmin' ) ).not.toBeInTheDocument();
+	} );
 } );

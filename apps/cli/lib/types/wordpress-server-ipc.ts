@@ -1,3 +1,4 @@
+import { databaseEngineSchema, mysqlSiteConfigSchema } from '@studio/common/lib/database-engine';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { z } from 'zod';
 import type { WordPressInstallMode } from '@wp-playground/wordpress';
@@ -29,6 +30,8 @@ export const serverConfigSchema = z.object( {
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
 	fileAccess: siteFileAccessSchema.optional(),
+	databaseEngine: databaseEngineSchema.optional(),
+	mysql: mysqlSiteConfigSchema.optional(),
 	enableXdebug: z.boolean().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),

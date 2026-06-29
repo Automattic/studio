@@ -1,0 +1,15 @@
+{
+	"versions": {
+		"8.4": {
+			"version": "8.4.10",
+			"artifacts": {
+				"darwin-arm64": {
+					"url": "https://cdn.mysql.com//Downloads/MySQL-8.4/mysql-8.4.10-macos15-arm64.tar.gz",
+					"sha": "282618afd5cb662b94ac837f210b0ccb87ef156dd4c03eb88e094702a5c9ea1f",
+					"archiveType": "tar.gz",
+					"rootDir": "mysql-8.4.10-macos15-arm64"
+				}
+			}
+		}
+	}
+}

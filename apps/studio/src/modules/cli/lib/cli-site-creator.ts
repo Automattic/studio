@@ -8,6 +8,7 @@ import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from './execute-command';
+import type { DatabaseEngine } from '@studio/common/lib/database-engine';
 import type { Blueprint } from '@wp-playground/blueprints';
 
 const cliEventSchema = z.discriminatedUnion( 'action', [
@@ -45,6 +46,7 @@ export interface CreateSiteOptions {
 	adminPassword?: string;
 	adminEmail?: string;
 	noStart?: boolean;
+	databaseEngine?: DatabaseEngine;
 }
 
 export async function createSiteViaCli( options: CreateSiteOptions ): Promise< CreateSiteResult > {
@@ -172,6 +174,10 @@ function buildCliArgs( options: CreateSiteOptions ): string[] {
 
 	if ( options.noStart ) {
 		args.push( '--no-start' );
+	}
+
+	if ( options.databaseEngine ) {
+		args.push( '--database-engine', options.databaseEngine );
 	}
 
 	return args;

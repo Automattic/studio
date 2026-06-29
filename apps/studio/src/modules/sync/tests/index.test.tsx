@@ -262,6 +262,17 @@ describe( 'ContentTabSync', () => {
 		expect( getIpcApi().authenticate ).toHaveBeenCalled();
 	} );
 
+	it( 'shows an unsupported notice for MySQL sites', () => {
+		renderWithProvider(
+			<ContentTabSync selectedSite={ { ...selectedSite, databaseEngine: 'mysql' } } />
+		);
+
+		expect( screen.getByText( 'Sync is not available for this site' ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( 'Sync currently supports sites using the default SQLite integration.' )
+		).toBeInTheDocument();
+	} );
+
 	it( 'displays the list of connected sites', async () => {
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( createAuthMock( true ) );
 		setupConnectedSitesMocks( [ fakeSyncSite ], [ fakeSyncSite ] );

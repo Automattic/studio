@@ -1,11 +1,14 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 
-function getInputString( input: Record< string, unknown > | undefined, key: string ): string {
+export function getInputString(
+	input: Record< string, unknown > | undefined,
+	key: string
+): string {
 	const value = input?.[ key ];
 	return typeof value === 'string' ? value.trim() : '';
 }
 
-function splitCommandArgs( command: string ): string[] {
+export function splitCommandArgs( command: string ): string[] {
 	return (
 		command
 			.match( /(?:[^\s"']+|"[^"]*"|'[^']*')+/g )

@@ -114,6 +114,28 @@ function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean
 	}
 }
 
+export function isToggleSidebarShortcut(
+	input: Electron.Input,
+	platform: NodeJS.Platform = process.platform
+): boolean {
+	if (
+		input.type !== 'keyDown' ||
+		input.isAutoRepeat ||
+		input.isComposing ||
+		input.shift ||
+		input.alt ||
+		input.key.toLowerCase() !== 'b'
+	) {
+		return false;
+	}
+
+	if ( platform === 'darwin' ) {
+		return input.meta && ! input.control;
+	}
+
+	return input.control && ! input.meta;
+}
+
 function initializePortFinder( sites: SiteDetails[] ) {
 	sites.forEach( ( site ) => {
 		if ( site.port ) {
@@ -175,6 +197,13 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	}
 
 	mainWindow = new BrowserWindow( windowOptions );
+
+	mainWindow.webContents.on( 'before-input-event', ( event, input ) => {
+		if ( isToggleSidebarShortcut( input ) ) {
+			event.preventDefault();
+			sendIpcEventToRendererWithWindow( mainWindow, 'toggle-sidebar' );
+		}
+	} );
 
 	// Restore fullscreen state if it was saved
 	if ( savedBounds?.isFullScreen ) {

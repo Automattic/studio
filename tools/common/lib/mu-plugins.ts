@@ -36,7 +36,7 @@ const NATIVE_PHP_EXCLUDED_MU_PLUGINS = new Set( [
 	'0-http-request-timeout.php',
 ] );
 
-function escapePhpSingleQuotedString( value: string ): string {
+export function escapePhpSingleQuotedString( value: string ): string {
 	return value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 
@@ -497,10 +497,14 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				return;
 			}
 
-			// get_attached_file() returns paths rooted at /wordpress
-			// (Studio's PHP-runtime mount point). Strip the leading
-			// /wordpress so the host can resolve against the site dir.
-			$relative = preg_replace( '#^/wordpress/?#', '', $path );
+			// get_attached_file() returns an absolute path. Strip ABSPATH
+			// to get a relative path rooted at the site folder.
+			$normalized_path = wp_normalize_path( $path );
+			$normalized_abspath = wp_normalize_path( ABSPATH );
+			$relative = str_starts_with( $normalized_path, $normalized_abspath )
+				? substr( $normalized_path, strlen( $normalized_abspath ) )
+				: $path;
+
 			echo json_encode( [
 				'relativePath' => ltrim( $relative, '/' ),
 			] );

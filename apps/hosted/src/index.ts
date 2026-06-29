@@ -328,14 +328,14 @@ app.use( '/api', api );
 
 // --- Web UI ------------------------------------------------------------------
 
-// Serve the built browser UI (apps/ui `npm run build:web`) so the server is the
+// Serve the built browser UI (apps/ui `npm run build:hosted`) so the server is the
 // only process needed: API and SPA share one origin. When the build output
 // isn't there (API-only usage, or UI served by the Vite dev server on :5300),
 // the server still works and the startup message says how to get the UI.
 const uiDist =
 	process.env.STUDIO_WEB_UI_DIST ??
-	path.resolve( path.dirname( fileURLToPath( import.meta.url ) ), '../../ui/dist-web' );
-const uiIndex = path.join( uiDist, 'index.web.html' );
+	path.resolve( path.dirname( fileURLToPath( import.meta.url ) ), '../../ui/dist-hosted' );
+const uiIndex = path.join( uiDist, 'index.hosted.html' );
 const hasUi = existsSync( uiIndex );
 if ( hasUi ) {
 	app.use( express.static( uiDist ) );
@@ -374,7 +374,7 @@ const server = app.listen( port, '127.0.0.1', () => {
 	if ( ! hasUi ) {
 		console.log( `No web UI build found at ${ uiDist }.` );
 		console.log(
-			`Build it with \`npm run build:web --workspace=apps/ui\`, or run the dev server with \`npm run dev:web --workspace=apps/ui\` and open http://localhost:5300.`
+			`Build it with \`npm run build:hosted --workspace=apps/ui\`, or run the dev server with \`npm run dev:hosted --workspace=apps/ui\` and open http://localhost:5300.`
 		);
 		console.log( '' );
 	}

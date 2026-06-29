@@ -3,7 +3,6 @@ import nodePath from 'path';
 import { Upload } from 'tus-js-client';
 
 /**
- * Decide whether a failed TUS request should be retried based on its HTTP status.
  * 5xx and network errors (status 0) are transient. 4xx are terminal, except 409
  * (Conflict) and 423 (Locked), which the resumable protocol uses transiently.
  */

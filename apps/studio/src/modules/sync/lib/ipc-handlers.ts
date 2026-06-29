@@ -406,7 +406,6 @@ export async function pushArchive(
 	}
 }
 
-// Extract the HTTP status from a tus-js-client error, or 0 when unavailable.
 function getTusErrorStatus( error: unknown ): number {
 	if (
 		typeof error === 'object' &&

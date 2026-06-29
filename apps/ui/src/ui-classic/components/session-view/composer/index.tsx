@@ -168,6 +168,17 @@ function toComposerDraftAttachments( {
 	];
 }
 
+function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
+	return {
+		type: 'model_change',
+		id: Math.random().toString( 36 ).slice( 2, 10 ),
+		parentId: null,
+		timestamp: new Date().toISOString(),
+		provider: '',
+		modelId,
+	} as unknown as SessionEntry;
+}
+
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM (shell +
  * textarea + toolbar) so the loading state can reserve the exact same vertical
@@ -605,24 +616,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			if ( ! sessionId ) {
 				return;
 			}
-			const timestamp = new Date().toISOString();
 			queryClient.setQueryData< LoadedAiSession >(
 				[ ...SESSIONS_QUERY_KEY, sessionId ],
 				( prev ) =>
 					prev
 						? {
 								...prev,
-								entries: [
-									...( prev.entries ?? [] ),
-									{
-										type: 'model_change',
-										id: Math.random().toString( 36 ).slice( 2, 10 ),
-										parentId: null,
-										timestamp,
-										provider: '',
-										modelId: picked,
-									} as unknown as SessionEntry,
-								],
+								entries: [ ...( prev.entries ?? [] ), createModelChangeEntry( picked ) ],
 						  }
 						: prev
 			);
@@ -673,6 +673,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		if ( ! pendingFamilyChange || ! onSwitchSession ) {
 			return;
 		}
+		const pickedModel = pendingFamilyChange;
 		setFamilySwitchInFlight( true );
 		try {
 			const newSession = await connector.createSession( ownerSiteId );
@@ -683,9 +684,25 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			// new view picks up via `resolveSessionModel`. If this fails we
 			// still navigate; the user can re-pick from the new view's
 			// dropdown.
-			await connector
-				.setSessionModel( newSession.id, pendingFamilyChange )
-				.catch( () => undefined );
+			const modelPersisted = await connector
+				.setSessionModel( newSession.id, pickedModel )
+				.then( () => true )
+				.catch( () => false );
+			if ( modelPersisted ) {
+				queryClient.setQueryData< LoadedAiSession >(
+					[ ...SESSIONS_QUERY_KEY, newSession.id ],
+					( current ) =>
+						current
+							? {
+									...current,
+									entries: [ ...( current.entries ?? [] ), createModelChangeEntry( pickedModel ) ],
+							  }
+							: {
+									summary: newSession,
+									entries: [ createModelChangeEntry( pickedModel ) ],
+							  }
+				);
+			}
 			await reconcilePrimedSessionQueryData( queryClient, newSession.id );
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );

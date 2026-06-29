@@ -25,13 +25,13 @@ export function primeSessionQueryData( queryClient: QueryClient, summary: AiSess
 				};
 			}
 
-			if ( summary.firstPrompt ) {
+			if ( summary.firstPrompt || summary.eventCount > 0 ) {
 				return current;
 			}
 
-			// Newly-created/reused draft sessions have no transcript yet. This
-			// shell gives routes owner metadata immediately while the full JSONL
-			// load reconciles in the background after invalidation.
+			// Newly-created draft sessions have no transcript yet. This shell
+			// gives routes owner metadata immediately while the full JSONL load
+			// reconciles in the background after invalidation.
 			return {
 				summary,
 				entries: [],

@@ -26,7 +26,7 @@ describe( 'primeSessionQueryData', () => {
 
 	it( 'seeds an empty loaded session without discarding existing entries', () => {
 		const queryClient = new QueryClient();
-		const summary = createSummary();
+		const summary = createSummary( { eventCount: 0 } );
 		const sessionKey = [ ...SESSIONS_QUERY_KEY, summary.id ];
 
 		primeSessionQueryData( queryClient, summary );
@@ -49,6 +49,16 @@ describe( 'primeSessionQueryData', () => {
 			summary: updatedSummary,
 			entries,
 		} );
+	} );
+
+	it( 'does not seed a loaded session shell when the summary already has entries', () => {
+		const queryClient = new QueryClient();
+		const summary = createSummary( { eventCount: 1 } );
+		const sessionKey = [ ...SESSIONS_QUERY_KEY, summary.id ];
+
+		primeSessionQueryData( queryClient, summary );
+
+		expect( queryClient.getQueryData< LoadedAiSession >( sessionKey ) ).toBeUndefined();
 	} );
 
 	it( 'reconciles only the sessions list and the primed session', async () => {

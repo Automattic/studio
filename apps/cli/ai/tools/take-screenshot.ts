@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
-import { captureScreenshotBuffer, saveScreenshotToTempFile, VIEWPORTS } from './screenshot-helpers';
+import { captureScreenshotBuffer, VIEWPORTS } from './screenshot-helpers';
 
 const screenshotViewportSchema = Type.Enum( [ 'desktop', 'mobile', 'all' ], {
 	description:
@@ -24,7 +24,6 @@ function getViewportLabel( viewportTypes: ScreenshotViewportType[] ): string {
 export const takeScreenshotTool = defineTool(
 	'take_screenshot',
 	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
-		'Also saves the screenshot as a temporary local image and returns a ready-to-use media widget payload. ' +
 		'Supports desktop and mobile viewports; pass `viewport: "all"` when you need both for design verification. ' +
 		'Long pages are clipped at 8000 vertical pixels (a vision-model limit); the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
 		'Use this to verify the site looks correct after building it. ' +
@@ -52,10 +51,6 @@ export const takeScreenshotTool = defineTool(
 						format: 'jpeg',
 						offset: args.offset,
 					} );
-					const screenshotFile = await saveScreenshotToTempFile( capture.buffer, {
-						viewportType,
-						format: 'jpeg',
-					} );
 					return {
 						viewportType,
 						buffer: capture.buffer,
@@ -63,22 +58,7 @@ export const takeScreenshotTool = defineTool(
 						capturedHeight: capture.capturedHeight,
 						offset: capture.offset,
 						clipped: capture.clipped,
-						mimeType: screenshotFile.mimeType,
-						mediaWidgetPayload: {
-							type: 'media',
-							widgetProps: {
-								url: screenshotFile.fileUrl,
-								mediaKind: 'image',
-								alt: `Screenshot of ${ args.url } (${ viewportType })`,
-								mediaId: null,
-								source: {
-									type: 'local',
-									path: screenshotFile.path,
-									name: screenshotFile.name,
-									mimeType: screenshotFile.mimeType,
-								},
-							},
-						},
+						mimeType: 'image/jpeg',
 					};
 				} )
 			);
@@ -95,17 +75,8 @@ export const takeScreenshotTool = defineTool(
 			const captureLines = captures.map( describeCapture );
 			const textLines =
 				captures.length === 1
-					? [
-							`Screenshot captured — ${ captureLines[ 0 ] }`,
-							`mediaWidgetPayload=${ JSON.stringify( captures[ 0 ].mediaWidgetPayload ) }`,
-					  ]
-					: [
-							'Screenshots captured:',
-							...captureLines.map( ( line ) => `- ${ line }` ),
-							`mediaWidgetPayloads=${ JSON.stringify(
-								captures.map( ( capture ) => capture.mediaWidgetPayload )
-							) }`,
-					  ];
+					? [ `Screenshot captured — ${ captureLines[ 0 ] }` ]
+					: [ 'Screenshots captured:', ...captureLines.map( ( line ) => `- ${ line }` ) ];
 			emitProgress( `Screenshot captured (${ viewportLabel })` );
 			return {
 				content: [

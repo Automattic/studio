@@ -80,7 +80,7 @@ tests:
 
   # Regression: trunk handles desktop/mobile visual verification as separate
   # screenshot calls. The optimized tool exposes `viewport: "all"` so the agent
-  # can satisfy the same user request with one timed call and two PNG payloads.
+  # can satisfy the same user request with one timed call and two image results.
   - description: screenshot verification captures desktop and mobile in one fast call
     vars:
       caseId: screenshot-all-timing
@@ -98,7 +98,7 @@ tests:
     assert:
       - type: javascript
         value: |
-          return import('node:fs').then(({ readFileSync, existsSync }) => {
+          return import('node:fs').then(({ readFileSync }) => {
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
@@ -123,27 +123,13 @@ tests:
             if (!result || result.isError) {
               return { pass: false, score: 0, reason: `take_screenshot failed: ${JSON.stringify(result)}` };
             }
-            const rawPayloads = (result.text || '').split('mediaWidgetPayloads=')[1];
-            if (!rawPayloads) {
-              return { pass: false, score: 0, reason: `screenshot result did not include mediaWidgetPayloads: ${(result.text || '').slice(0, 500)}` };
+            const images = result.images || [];
+            if (!Array.isArray(images) || images.length !== 2) {
+              return { pass: false, score: 0, reason: `expected two screenshot image results, got ${JSON.stringify(images).slice(0, 500)}` };
             }
 
-            let payloads;
-            try {
-              payloads = JSON.parse(rawPayloads);
-            } catch (error) {
-              return { pass: false, score: 0, reason: `could not parse mediaWidgetPayloads JSON: ${error instanceof Error ? error.message : String(error)}` };
-            }
-            if (!Array.isArray(payloads) || payloads.length !== 2) {
-              return { pass: false, score: 0, reason: `expected two screenshot media payloads, got ${JSON.stringify(payloads).slice(0, 500)}` };
-            }
-
-            // take_screenshot emits JPEG; key the expected width by viewport so
-            // the check survives a future format change rather than the extension.
-            const expectedWidths = new Map([
-              ['desktop', 1040],
-              ['mobile', 390],
-            ]);
+            // take_screenshot returns desktop then mobile when viewport="all".
+            const expectedWidths = [1040, 390];
             // Read pixel dimensions from a PNG or JPEG buffer; null if neither.
             const readImageSize = (buf) => {
               if (buf.length > 24 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
@@ -169,25 +155,21 @@ tests:
               return null;
             };
             const seen = [];
-            for (const payload of payloads) {
-              const source = payload.widgetProps?.source;
-              const viewport = (source?.name || '').replace(/^screenshot-/, '').replace(/\.(png|jpe?g)$/i, '');
-              const expectedWidth = expectedWidths.get(viewport);
-              if (!expectedWidth) {
-                return { pass: false, score: 0, reason: `unexpected screenshot payload source: ${JSON.stringify(source)}` };
+            for (let index = 0; index < images.length; index++) {
+              const image = images[index];
+              const expectedWidth = expectedWidths[index];
+              if (typeof image.data !== 'string' || typeof image.mimeType !== 'string') {
+                return { pass: false, score: 0, reason: `invalid screenshot image result: ${JSON.stringify(image).slice(0, 500)}` };
               }
-              if (typeof source.path !== 'string' || !existsSync(source.path)) {
-                return { pass: false, score: 0, reason: `screenshot file is missing: ${JSON.stringify(source)}` };
-              }
-              const size = readImageSize(readFileSync(source.path));
+              const size = readImageSize(Buffer.from(image.data, 'base64'));
               if (!size || size.width !== expectedWidth || size.height < 600) {
                 return {
                   pass: false,
                   score: 0,
-                  reason: `${source.name} did not look like the expected screenshot: ${JSON.stringify(size)}`,
+                  reason: `screenshot image ${index} did not look like the expected screenshot: ${JSON.stringify(size)}`,
                 };
               }
-              seen.push(source.name);
+              seen.push(`${image.mimeType} ${size.width}x${size.height}`);
             }
             return { pass: true, score: 1, reason: `captured valid screenshots: ${seen.join(', ')}` };
           });

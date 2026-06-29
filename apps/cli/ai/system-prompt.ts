@@ -1,13 +1,11 @@
-import {
-	getStudioPresentationRulesPrompt,
-	getStudioWidgetPromptManifest,
-} from '@studio/common/ai/studio-widgets';
-
 interface RemoteSiteContext {
 	name: string;
 	url: string;
 	id: number;
 }
+
+const SITE_PREVIEW_GUIDANCE =
+	'Use show_site_preview only for meaningful visible local site milestones, useful preview paths, or page states worth keeping in view. Do not use it for routine inspection, low-level file reads, internal edits, noisy intermediate steps, summaries, or screenshots.';
 
 const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances.`;
 
@@ -77,19 +75,13 @@ function buildLocalIntro( options: { chatArtifactsEnabled: boolean } ): string {
 
 ## Visual artifacts
 
-Studio tools may show visual artifacts automatically when they create something the UI can render, such as a new site, page, or post. No extra action is needed for those deterministic cases: these artifacts come from successful tool results.
+Studio tools may show visual artifacts automatically when they create something the UI can render, such as a new site preview. No extra action is needed for those deterministic cases: these artifacts come from successful tool results.
 
-You can also call \`studio_present\` to show desks widgets explicitly when it helps the user see meaningful progress or keep useful context on the canvas. Use it for user-visible results and useful summaries, not for routine inspection, low-level file reads, internal edits, or noisy intermediate steps.
-
-Presentation rules:
-${ getStudioPresentationRulesPrompt() }
-
-Available desks widget types:
-${ getStudioWidgetPromptManifest() }`
+You can also call \`show_site_preview\` to show the current local site in Studio's live preview when it helps the user see meaningful progress or keep a useful page state in view. ${ SITE_PREVIEW_GUIDANCE }`
 		: '';
-	const studioPresentToolBullet = options.chatArtifactsEnabled
+	const showSitePreviewToolBullet = options.chatArtifactsEnabled
 		? `
-- studio_present: Show one or more Studio desks widgets as inline visual artifacts.`
+- show_site_preview: Open Studio's live preview for the current local site at a specific path.`
 		: '';
 
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
@@ -157,7 +149,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
 - site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress) into a local site.
 - site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.
-${ studioPresentToolBullet }${ automaticArtifactSection }
+${ showSitePreviewToolBullet }${ automaticArtifactSection }
 
 ## General rules
 

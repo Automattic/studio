@@ -1,7 +1,3 @@
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
@@ -232,30 +228,4 @@ export async function captureScreenshotPng(
 ): Promise< string > {
 	const capture = await captureScreenshotBuffer( url, viewport, { ...options, format: 'png' } );
 	return capture.buffer.toString( 'base64' );
-}
-
-export async function saveScreenshotToTempFile(
-	buffer: Buffer,
-	options: { viewportType: string; format?: ScreenshotFormat }
-): Promise< {
-	path: string;
-	fileUrl: string;
-	name: string;
-	mimeType: 'image/png' | 'image/jpeg';
-} > {
-	const format = options.format ?? 'png';
-	const extension = format === 'jpeg' ? 'jpg' : 'png';
-	const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-	const directory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshot-' ) );
-	const name = `screenshot-${ options.viewportType }.${ extension }`;
-	const filePath = path.join( directory, name );
-
-	await writeFile( filePath, buffer );
-
-	return {
-		path: filePath,
-		fileUrl: pathToFileURL( filePath ).href,
-		name,
-		mimeType,
-	};
 }

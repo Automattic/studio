@@ -63,18 +63,13 @@ export const createSiteTool = defineTool(
 						2
 					)
 				),
-				studioArtifacts: [
-					{
-						type: 'site-preview',
-						widgetProps: {
-							path: '/',
-							siteId: site.id,
-							siteName: site.name,
-							sitePath: site.path,
-							url,
-						},
-					},
-				],
+				sitePreview: {
+					path: '/',
+					siteId: site.id,
+					siteName: site.name,
+					sitePath: site.path,
+					url,
+				},
 			};
 		} catch ( error ) {
 			throw new Error(

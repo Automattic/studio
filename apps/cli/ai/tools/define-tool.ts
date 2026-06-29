@@ -1,6 +1,6 @@
 import { Type, type Static, type TObject, type TProperties } from 'typebox';
 import type { AgentTool, AgentToolUpdateCallback } from '@earendil-works/pi-agent-core';
-import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
+import type { StudioChatSitePreviewArtifact } from '@studio/common/ai/chat-artifacts';
 
 /**
  * Tool authors throw on failure; pi's loop catches and produces a tool-result
@@ -23,11 +23,11 @@ export type ToolContent = ToolTextContent | ToolImageContent;
 
 export interface ToolResult {
 	content: ToolContent[];
-	studioArtifacts?: StudioChatArtifactWidgetDraft[];
+	sitePreview?: StudioChatSitePreviewArtifact;
 }
 
 export interface StudioToolResultDetails {
-	studioArtifacts?: StudioChatArtifactWidgetDraft[];
+	sitePreview?: StudioChatSitePreviewArtifact;
 }
 
 export type ToolHandler< TProps extends TProperties > = (
@@ -74,8 +74,8 @@ export function defineTool< TProps extends TProperties >(
 		rawHandler: handler,
 		execute: async ( _toolCallId, params ) => {
 			const result = await handler( params as never );
-			const details: StudioToolResultDetails | undefined = result.studioArtifacts?.length
-				? { studioArtifacts: result.studioArtifacts }
+			const details: StudioToolResultDetails | undefined = result.sitePreview
+				? { sitePreview: result.sitePreview }
 				: undefined;
 			return { content: result.content, details };
 		},

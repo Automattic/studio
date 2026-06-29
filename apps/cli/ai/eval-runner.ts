@@ -177,19 +177,38 @@ function extractToolResult( event: AgentSessionEvent ): {
 	toolUseId: string;
 	isError: boolean;
 	text?: string;
+	images?: Array< { data: string; mimeType: string } >;
 } | null {
 	if ( event.type !== 'tool_execution_end' ) {
 		return null;
 	}
-	const result = event.result as { content?: Array< { type: string; text?: string } > } | undefined;
+	const result = event.result as
+		| { content?: Array< { type: string; text?: string; data?: string; mimeType?: string } > }
+		| undefined;
 	let text: string | undefined;
+	let images: Array< { data: string; mimeType: string } > | undefined;
 	if ( result?.content && Array.isArray( result.content ) ) {
 		const textBlock = result.content.find(
 			( b ): b is { type: 'text'; text: string } => b.type === 'text' && typeof b.text === 'string'
 		);
 		if ( textBlock ) text = textBlock.text;
+		const imageBlocks = result.content.filter(
+			( b ): b is { type: 'image'; data: string; mimeType: string } =>
+				b.type === 'image' && typeof b.data === 'string' && typeof b.mimeType === 'string'
+		);
+		if ( imageBlocks.length > 0 ) {
+			images = imageBlocks.map( ( image ) => ( {
+				data: image.data,
+				mimeType: image.mimeType,
+			} ) );
+		}
 	}
-	return { toolUseId: event.toolCallId, isError: event.isError, text };
+	return {
+		toolUseId: event.toolCallId,
+		isError: event.isError,
+		text,
+		...( images ? { images } : {} ),
+	};
 }
 
 function readInput(): EvalRunnerInput {
@@ -257,6 +276,7 @@ async function runEval( input: EvalRunnerInput ) {
 		toolName: string | null;
 		isError: boolean;
 		text?: string;
+		images?: Array< { data: string; mimeType: string } >;
 	}[] = [];
 	const toolEvents: ToolEvent[] = [];
 	const textSegments: string[] = [];
@@ -338,6 +358,7 @@ async function runEval( input: EvalRunnerInput ) {
 					toolName: toolNameById.get( id ) ?? null,
 					isError: tr.isError,
 					...( tr.text ? { text: tr.text } : {} ),
+					...( tr.images ? { images: tr.images } : {} ),
 				} );
 			}
 		}

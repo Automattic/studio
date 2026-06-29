@@ -16,21 +16,8 @@ export function useSessionCommands( sessionId: string ): void {
 			if ( payload.sessionId !== sessionId ) return;
 			const event = payload.event;
 			if ( event.type === 'chat.artifact' && isStudioChatArtifactData( event.artifact ) ) {
-				const previewPath = getSitePreviewArtifactPath( event.artifact );
-				if ( previewPath ) {
-					dispatch( { type: 'preview/navigate', path: previewPath } );
-				}
+				dispatch( { type: 'preview/navigate', path: event.artifact.sitePreview.path } );
 			}
 		} );
 	}, [ connector, sessionId, dispatch ] );
-}
-
-function getSitePreviewArtifactPath( artifact: {
-	widgets: Array< { type: string; widgetProps: Record< string, unknown > } >;
-} ): string | null {
-	const widget = artifact.widgets.find(
-		( candidate ) =>
-			candidate.type === 'site-preview' && typeof candidate.widgetProps.path === 'string'
-	);
-	return typeof widget?.widgetProps.path === 'string' ? widget.widgetProps.path : null;
 }

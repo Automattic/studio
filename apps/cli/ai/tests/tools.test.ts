@@ -112,7 +112,6 @@ vi.mock( '@studio/common/lib/connected-sites', () => ( {
 } ) );
 
 describe( 'Studio AI MCP tools', () => {
-	const previousScratchpadWidgetType = 'sd-' + 'artefact';
 	const mockSite = {
 		id: 'site-123',
 		name: 'My Site',
@@ -266,54 +265,41 @@ describe( 'Studio AI MCP tools', () => {
 		}
 	} );
 
-	it( 'exposes the explicit presentation tool when chat artifacts are enabled', () => {
+	it( 'exposes the explicit site preview tool when chat artifacts are enabled', () => {
 		const names = resolveStudioToolDefinitions().map( ( tool ) => tool.name );
 		expect( names ).not.toContain( 'show_artifact' );
-		expect( names ).not.toContain( 'studio_present' );
+		expect( names ).not.toContain( 'show_site_preview' );
 		const namesWithArtifacts = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
 		} ).map( ( tool ) => tool.name );
-		const studioPresent = resolveStudioToolDefinitions( {
+		const showSitePreview = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
-		} ).find( ( tool ) => tool.name === 'studio_present' );
+		} ).find( ( tool ) => tool.name === 'show_site_preview' );
 		expect( namesWithArtifacts ).not.toContain( 'show_artifact' );
-		expect( namesWithArtifacts ).toContain( 'studio_present' );
+		expect( namesWithArtifacts ).toContain( 'show_site_preview' );
 		expect( namesWithArtifacts ).toContain( 'site_create' );
 		expect( namesWithArtifacts ).toContain( 'wp_cli' );
-		expect( studioPresent?.description ).toContain( '- site-code-scratchpad:' );
-		expect( studioPresent?.description ).toContain( 'after any successful Write or Edit' );
-		expect( studioPresent?.description ).toContain(
-			'call studio_present with exactly one note widget'
-		);
-		expect( studioPresent?.description ).toContain( '- scratchpad:' );
-		expect( studioPresent?.description ).not.toContain( previousScratchpadWidgetType );
-		expect( studioPresent?.description ).toContain( '- saved-local-media:' );
-		expect( studioPresent?.description ).toContain(
-			'For generated SVGs, write a complete .svg file'
-		);
-		expect( studioPresent?.description ).not.toContain( '- drawing:' );
+		expect( showSitePreview?.description ).toContain( 'live site preview' );
+		expect( showSitePreview?.description ).toContain( 'specific path' );
+		expect( showSitePreview?.description ).not.toContain( 'widget' );
+		expect( showSitePreview?.description ).not.toContain( 'artifact types' );
 	} );
 
-	it( 'keeps screenshot presentation guidance out of the screenshot tool description', () => {
+	it( 'keeps screenshot tool output separate from Studio presentation artifacts', () => {
 		const takeScreenshot = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
 		} ).find( ( tool ) => tool.name === 'take_screenshot' );
-		const studioPresent = resolveStudioToolDefinitions( {
+		const showSitePreview = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
-		} ).find( ( tool ) => tool.name === 'studio_present' );
-		expect( takeScreenshot?.description ).toContain( 'ready-to-use media widget payload' );
+		} ).find( ( tool ) => tool.name === 'show_site_preview' );
+		expect( takeScreenshot?.description ).not.toContain( 'media widget payload' );
 		expect( takeScreenshot?.description ).not.toContain(
 			'This does not automatically show the screenshot to the user'
 		);
-		expect( takeScreenshot?.description ).not.toContain(
-			'Do not use a site-preview widget as a substitute for the screenshot'
-		);
-		expect( studioPresent?.description ).toContain(
-			'Do not substitute a site-preview widget for a screenshot'
-		);
+		expect( showSitePreview?.description ).toContain( 'screenshots' );
 	} );
 
-	it( 'keeps take_screenshot output compact while returning a media payload', async () => {
+	it( 'keeps take_screenshot output compact while returning an image', async () => {
 		const screenshotBuffer = Buffer.from( 'fake-jpeg' );
 		const page = {
 			emulateMedia: vi.fn(),
@@ -335,7 +321,7 @@ describe( 'Studio AI MCP tools', () => {
 		const text = getTextContent( result );
 		expect( text ).toContain( 'Screenshot captured' );
 		expect( text ).toContain( 'desktop: captured full page (2400px tall)' );
-		expect( text ).toContain( 'mediaWidgetPayload=' );
+		expect( text ).not.toContain( 'mediaWidgetPayload=' );
 		expect( text ).not.toContain( 'When this screenshot is useful to show the user' );
 		expect( text ).not.toContain( 'Path:' );
 		expect( text ).not.toContain( 'File URL:' );
@@ -344,11 +330,6 @@ describe( 'Studio AI MCP tools', () => {
 			data: screenshotBuffer.toString( 'base64' ),
 			mimeType: 'image/jpeg',
 		} );
-
-		const payload = JSON.parse( text!.split( 'mediaWidgetPayload=' )[ 1 ] ) as {
-			widgetProps: { source: { path: string } };
-		};
-		await rm( path.dirname( payload.widgetProps.source.path ), { recursive: true, force: true } );
 	} );
 
 	it( 'can capture desktop and mobile screenshots in one take_screenshot call', async () => {
@@ -379,7 +360,7 @@ describe( 'Studio AI MCP tools', () => {
 		expect( text ).toContain( 'Screenshots captured:' );
 		expect( text ).toContain( '- desktop: captured full page (2400px tall)' );
 		expect( text ).toContain( '- mobile: captured full page (2400px tall)' );
-		expect( text ).toContain( 'mediaWidgetPayloads=' );
+		expect( text ).not.toContain( 'mediaWidgetPayloads=' );
 		expect( browser.newPage ).toHaveBeenCalledTimes( 2 );
 		expect( result.content.slice( 1 ) ).toEqual( [
 			{
@@ -393,22 +374,6 @@ describe( 'Studio AI MCP tools', () => {
 				mimeType: 'image/jpeg',
 			},
 		] );
-
-		const payloads = JSON.parse( text!.split( 'mediaWidgetPayloads=' )[ 1 ] ) as Array< {
-			widgetProps: { source: { path: string; name: string } };
-		} >;
-		try {
-			expect( payloads.map( ( payload ) => payload.widgetProps.source.name ) ).toEqual( [
-				'screenshot-desktop.jpg',
-				'screenshot-mobile.jpg',
-			] );
-		} finally {
-			await Promise.all(
-				payloads.map( ( payload ) =>
-					rm( path.dirname( payload.widgetProps.source.path ), { recursive: true, force: true } )
-				)
-			);
-		}
 	} );
 
 	it( 'inspect_design returns rendered DOM facts for the requested selectors', async () => {
@@ -488,228 +453,53 @@ describe( 'Studio AI MCP tools', () => {
 		expect( parsed.hover[ 0 ].computedStyle[ 'background-color' ] ).toBe( 'rgb(255, 0, 0)' );
 	} );
 
-	it( 'emits explicit Studio widget artifacts from studio_present', async () => {
+	it( 'emits an explicit site preview artifact from show_site_preview', async () => {
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
+		} ).find( ( definition ) => definition.name === 'show_site_preview' );
 		expect( tool ).toBeDefined();
 
 		const result = await executeTool( tool!, {
-			message: 'Showing the draft plan.',
-			widgets: [
-				{
-					type: 'note',
-					widgetProps: { text: 'Draft the homepage hero next.', tone: 'yellow' },
-				},
-			],
+			message: 'Showing the preview.',
+			path: '/about',
 		} );
 
 		expect( emitEvent ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				type: 'chat.artifact',
 				artifact: expect.objectContaining( {
-					widgets: [
-						{
-							type: 'note',
-							widgetProps: { text: 'Draft the homepage hero next.', tone: 'yellow' },
-						},
-					],
+					sitePreview: { path: '/about' },
 				} ),
 			} )
 		);
-		expect( getTextContent( result ) ).toBe( 'Showing the draft plan.' );
+		expect( getTextContent( result ) ).toBe( 'Showing the preview.' );
 	} );
 
-	it( 'accepts local SVG media widget artifacts from studio_present', async () => {
+	it( 'rejects an empty site preview path', async () => {
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
-		expect( tool ).toBeDefined();
-
-		const localMediaWidget = {
-			type: 'media',
-			widgetProps: {
-				url: 'file:///tmp/rb-logo.svg',
-				mediaKind: 'image',
-				alt: 'RB logo SVG',
-				mediaId: null,
-				source: {
-					type: 'local',
-					path: '/tmp/rb-logo.svg',
-					name: 'rb-logo.svg',
-					mimeType: 'image/svg+xml',
-				},
-			},
-		};
-
-		await executeTool( tool!, {
-			widgets: [ localMediaWidget ],
-		} );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: [ localMediaWidget ],
-				} ),
-			} )
-		);
-	} );
-
-	it( 'accepts PDF widget artifacts from studio_present', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
-		expect( tool ).toBeDefined();
-
-		const pdfWidget = {
-			type: 'pdf',
-			widgetProps: {
-				url: 'https://example.com/brief.pdf',
-				title: 'Brief',
-				mediaId: null,
-			},
-		};
-
-		await executeTool( tool!, {
-			widgets: [ pdfWidget ],
-		} );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: [ pdfWidget ],
-				} ),
-			} )
-		);
-	} );
-
-	it( 'accepts theme widget artifacts from studio_present', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
-		expect( tool ).toBeDefined();
-
-		const themeWidgets = [
-			{
-				type: 'theme',
-				widgetProps: { viewMode: 'stack' },
-			},
-			{
-				type: 'theme-template',
-				widgetProps: {
-					templateId: 'twentytwentyfive//index',
-					slug: 'index',
-					title: 'Index',
-					description: '',
-					source: 'theme',
-				},
-			},
-			{
-				type: 'theme-styles',
-				widgetProps: {
-					palette: [
-						{ slug: 'background', name: 'Background', color: '#ffffff' },
-						{ slug: 'foreground', name: 'Foreground', color: '#111111' },
-					],
-					fontFamily: 'system-ui, sans-serif',
-					textColor: '#111111',
-					backgroundColor: '#ffffff',
-				},
-			},
-			{
-				type: 'theme-pattern',
-				widgetProps: {
-					patternId: 'twentytwentyfive/hero',
-					title: 'Hero',
-					content: '<!-- wp:cover /-->',
-					source: 'theme',
-				},
-			},
-			{
-				type: 'color',
-				widgetProps: { color: '#3858e9', title: 'Primary', format: 'hex' },
-			},
-		];
-
-		await executeTool( tool!, {
-			widgets: themeWidgets,
-		} );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: themeWidgets,
-				} ),
-			} )
-		);
-	} );
-
-	it( 'rejects drawing widget artifacts from studio_present', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
+		} ).find( ( definition ) => definition.name === 'show_site_preview' );
 		expect( tool ).toBeDefined();
 
 		await expect(
 			executeTool( tool!, {
-				widgets: [
-					{
-						type: 'drawing',
-						widgetProps: { svg: '<svg viewBox="0 0 100 100"></svg>' },
-					},
-				],
+				path: '   ',
 			} )
-		).rejects.toThrow( 'Unsupported widget type "drawing"' );
+		).rejects.toThrow( 'path must be a non-empty string' );
 		expect( emitEvent ).not.toHaveBeenCalled();
 	} );
 
-	it( 'rejects invalid explicit Studio widget artifacts', async () => {
+	it( 'rejects a site preview URL instead of a local path', async () => {
 		const tool = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
+		} ).find( ( definition ) => definition.name === 'show_site_preview' );
 		expect( tool ).toBeDefined();
 
 		await expect(
 			executeTool( tool!, {
-				widgets: [
-					{
-						type: 'page',
-						widgetProps: { pageId: '123', tone: 'neutral' },
-					},
-				],
+				path: 'https://example.com/about',
 			} )
-		).rejects.toThrow( 'Invalid widget at index 0' );
-		expect( emitEvent ).not.toHaveBeenCalled();
-	} );
-
-	it( 'rejects Studio widget artifacts with tiny shape props', async () => {
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'studio_present' );
-		expect( tool ).toBeDefined();
-
-		await expect(
-			executeTool( tool!, {
-				widgets: [
-					{
-						type: 'post-collection',
-						widgetProps: {
-							query: {
-								postType: 'post',
-								perPage: 5,
-								status: 'publish',
-								orderby: 'date',
-								order: 'desc',
-							},
-						},
-						shapeProps: { w: 1, h: 1 },
-					},
-				],
-			} )
-		).rejects.toThrow( 'shapeProps may only include numeric w and h between 80 and 3000' );
+		).rejects.toThrow( 'path must be a local site path starting with "/"' );
 		expect( emitEvent ).not.toHaveBeenCalled();
 	} );
 
@@ -764,17 +554,12 @@ describe( 'Studio AI MCP tools', () => {
 			expect.objectContaining( {
 				type: 'chat.artifact',
 				artifact: expect.objectContaining( {
-					widgets: [
-						{
-							type: 'site-preview',
-							widgetProps: expect.objectContaining( {
-								path: '/',
-								siteId: 'site-123',
-								siteName: 'My Site',
-								sitePath: '/sites/my-site',
-							} ),
-						},
-					],
+					sitePreview: expect.objectContaining( {
+						path: '/',
+						siteId: 'site-123',
+						siteName: 'My Site',
+						sitePath: '/sites/my-site',
+					} ),
 				} ),
 			} )
 		);
@@ -1079,7 +864,7 @@ describe( 'Studio AI MCP tools', () => {
 		] );
 	} );
 
-	it( 'emits a page artifact when wp_cli creates a page with chat artifacts enabled', async () => {
+	it( 'does not emit page or post artifacts when wp_cli creates content', async () => {
 		vi.mocked( isServerRunning ).mockResolvedValue( {
 			name: 'site-123',
 			pmId: 1,
@@ -1100,45 +885,12 @@ describe( 'Studio AI MCP tools', () => {
 			command: 'post create --post_type=page --post_title="About" --porcelain',
 		} );
 
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: [ { type: 'page', widgetProps: { pageId: 123, tone: 'neutral' } } ],
-				} ),
-			} )
-		);
-	} );
-
-	it( 'emits automatic tool artifacts without filtering by widget type', async () => {
-		vi.mocked( isServerRunning ).mockResolvedValue( {
-			name: 'site-123',
-			pmId: 1,
-			status: 'online',
-			pid: 1234,
-			runtime: SITE_RUNTIME_PLAYGROUND,
-		} );
-		vi.mocked( runWpCliCommandWithMessaging ).mockResolvedValue(
-			mockWpCliResponse( { stdout: '123' } ) as never
-		);
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'wp_cli' );
-		expect( tool ).toBeDefined();
-
 		await executeTool( tool!, {
 			nameOrPath: 'My Site',
 			command: 'post create --post_title="Hello" --porcelain',
 		} );
 
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: [ { type: 'post', widgetProps: { postId: 123 } } ],
-				} ),
-			} )
-		);
+		expect( emitEvent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'rejects typographic dash options before dispatching to WP-CLI', async () => {

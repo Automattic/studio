@@ -195,14 +195,20 @@
 	padding: 0;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 999px;
-	background-color: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
 	box-shadow: var(--wpds-elevation-small, 0 1px 2px rgb(0 0 0 / 16%));
 	cursor: pointer;
 	opacity: 0;
 	pointer-events: none;
 	transform: scale(0.94);
 	transition: opacity 120ms ease, transform 120ms ease;
+}
+
+/* Doubled class keeps the native button background above generic button resets. */
+.attachmentRemove.attachmentRemove,
+.attachmentRemove.attachmentRemove:focus:not(:focus-visible) {
+	background: var(--wpds-color-bg-surface-neutral);
+	border-color: var(--wpds-color-stroke-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
 }
 
 .attachmentItem:hover .attachmentRemove,
@@ -303,9 +309,13 @@
 	}
 }
 
-.attachmentRemove:hover,
-.attachmentRemove:focus-visible {
-	background-color: var(--wpds-color-bg-surface-neutral-weak, #f4f4f4);
+.attachmentItem:hover .attachmentRemove.attachmentRemove,
+.attachmentItem:focus-within .attachmentRemove.attachmentRemove,
+.attachmentRemove.attachmentRemove:hover,
+.attachmentRemove.attachmentRemove:focus-visible,
+.attachmentRemove.attachmentRemove:active {
+	background: var(--wpds-color-bg-surface-neutral-weak, #f4f4f4);
+	border-color: var(--wpds-color-stroke-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
 }
 

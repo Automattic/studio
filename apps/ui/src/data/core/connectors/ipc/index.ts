@@ -686,6 +686,10 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
+		async copyText( text: string ): Promise< void > {
+			await ipcApi.copyText( text );
+		},
+
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
@@ -718,6 +722,12 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'toggle-site-preview', () => listener() );
+		},
+
+		onToggleSidebar( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'toggle-sidebar', () => listener() );
 		},
 	};
 }

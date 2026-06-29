@@ -285,6 +285,10 @@ export interface Connector {
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+
+	// Clipboard — routed to the host so it works where the renderer's
+	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
+	copyText( text: string ): Promise< void >;
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,
@@ -304,6 +308,9 @@ export interface Connector {
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.
 	onToggleSitePreview( listener: () => void ): () => void;
+
+	// Fires when the user activates the sidebar toggle shortcut or menu command.
+	onToggleSidebar( listener: () => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

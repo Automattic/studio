@@ -22,6 +22,32 @@
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.55;
 	color: var(--wpds-color-fg-content-neutral-weak);
+	cursor: pointer;
+	outline: none;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease,
+		color 120ms ease;
+}
+
+.item:hover,
+.item:focus-visible {
+	background-color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-interactive-brand, #2563eb) 7%,
+		transparent
+	);
+	border-color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-interactive-brand, #2563eb) 42%,
+		transparent
+	);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.item:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline-offset: 2px;
 }
 
 .text {

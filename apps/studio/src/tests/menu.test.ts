@@ -14,6 +14,7 @@ function buildTestViewMenuItems(
 		isDevelopment: false,
 		isAlwaysOnTop: false,
 		devTools: [],
+		onToggleSidebar: vi.fn(),
 		onToggleSitePreview: vi.fn(),
 		...overrides,
 	} );
@@ -85,6 +86,7 @@ describe( 'buildViewMenuItems', () => {
 		).toEqual( [
 			'Show Tab Bar',
 			'Show All Tabs',
+			'Toggle Sidebar',
 			'Toggle Site Preview',
 			'Reload',
 			'Actual Size',

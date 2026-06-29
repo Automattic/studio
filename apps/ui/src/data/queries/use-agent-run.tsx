@@ -366,7 +366,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					dispatchSession( payload.sessionId, { type: 'interrupt_requested' } );
 					return;
 				case 'run.exited':
-				case 'run.interrupted':
+				case 'run.interrupted': {
+					const hasQueuedFollowUp =
+						( stateStore.getState()[ payload.sessionId ] ?? initialState ).queuedPrompts.length > 0;
 					if ( event.type === 'run.interrupted' ) {
 						// Synthetic studio.turn_closed for immediate "Interrupted
 						// by you" rendering; the CLI also writes a real one.
@@ -384,11 +386,14 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					}
 					dispatchSession( payload.sessionId, { type: 'run_ended' } );
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
-					// Refetch to replace optimistic entries with disk-backed ones.
-					void queryClient.invalidateQueries( {
-						queryKey: SESSIONS_QUERY_KEY,
-					} );
+					if ( ! hasQueuedFollowUp ) {
+						// Refetch to replace optimistic entries with disk-backed ones.
+						void queryClient.invalidateQueries( {
+							queryKey: SESSIONS_QUERY_KEY,
+						} );
+					}
 					return;
+				}
 				case 'message': {
 					// Only message-bearing pi event variants need optimistic entries.
 					const inner = event.message;
@@ -475,7 +480,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 			}
 		} );
-	}, [ connector, dispatchSession, queryClient, updateCache ] );
+	}, [ connector, dispatchSession, queryClient, stateStore, updateCache ] );
 
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
@@ -483,6 +488,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const images = options.images ?? [];
 			const files = options.files ?? [];
 			dispatchSession( sessionId, { type: 'error_set', message: null } );
+			await queryClient.cancelQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 
 			const optimisticEntry: SessionEntry = {
 				type: 'custom',
@@ -534,7 +540,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				throw err;
 			}
 		},
-		[ connector, dispatchSession, updateCache ]
+		[ connector, dispatchSession, queryClient, updateCache ]
 	);
 
 	const interrupt = useCallback(
@@ -659,6 +665,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		}
 		const next = queuedPrompts[ 0 ];
 		dispatchingQueuedRef.current = true;
+		dispatchSession( sessionId, { type: 'queue_shift' } );
 		void ( async () => {
 			try {
 				await startRun( sessionId, next.prompt, {
@@ -666,7 +673,6 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					images: next.images,
 					files: next.files,
 				} );
-				dispatchSession( sessionId, { type: 'queue_shift' } );
 			} catch {
 				dispatchSession( sessionId, { type: 'queue_clear' } );
 			} finally {

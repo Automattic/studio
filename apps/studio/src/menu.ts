@@ -111,17 +111,25 @@ export function buildViewMenuItems( {
 	isDevelopment,
 	isAlwaysOnTop,
 	devTools,
+	onToggleSidebar,
 	onToggleSitePreview,
 }: {
 	needsOnboarding: boolean;
 	isDevelopment: boolean;
 	isAlwaysOnTop?: boolean;
 	devTools: MenuItemConstructorOptions[];
+	onToggleSidebar: () => void;
 	onToggleSitePreview: () => void;
 } ): MenuItemConstructorOptions[] {
 	return [
 		{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
 		{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
+		{
+			label: __( 'Toggle Sidebar' ),
+			accelerator: 'CommandOrControl+B',
+			enabled: ! needsOnboarding,
+			click: onToggleSidebar,
+		},
 		...( getFeatureFlagFromEnv( 'enableAgenticUi' )
 			? [
 					{
@@ -369,6 +377,9 @@ async function getAppMenu(
 				isDevelopment: process.env.NODE_ENV === 'development',
 				isAlwaysOnTop: mainWindow?.isAlwaysOnTop(),
 				devTools,
+				onToggleSidebar: () => {
+					void sendIpcEventToRenderer( 'toggle-sidebar' );
+				},
 				onToggleSitePreview: () => {
 					void sendIpcEventToRenderer( 'toggle-site-preview' );
 				},

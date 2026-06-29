@@ -1,6 +1,6 @@
 /* The positioner portal mounts into `document.body`, so it competes with
    any app-chrome element that creates a stacking context (the sticky
-   sidebar header is `z-index: 1`, the floating toggle is `z-index: 10`).
+   sidebar header is `z-index: 1`, the floating toggle is `z-index: 30`).
    Without a z-index here, `initial` loses to those and the popup gets
    clipped by the sidebar / session-view header. Pin it to a high value so
    menus always float above app chrome, while still staying below tooltips
@@ -45,6 +45,10 @@
 .item[data-disabled] {
 	color: var(--wpds-color-fg-interactive-neutral-disabled);
 	cursor: not-allowed;
+}
+
+.submenuTrigger {
+	justify-content: space-between;
 }
 
 .radioItem {

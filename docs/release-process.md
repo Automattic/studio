@@ -125,7 +125,7 @@ https://appscdn.wordpress.com/downloads/wordpress-com-studio-cli/<slug>/latest/f
 - `STUDIO_CLI_VERSION` — install a specific version instead of `latest` (e.g. `v1.11.0`).
 - `STUDIO_CLI_URL` — bypass the CDN entirely and fetch `studio-cli-<platform>-<arch>.tgz` from a base URL or local dir. Used for local testing and mirrors. Both paths rely on HTTPS for transport plus a staged-extraction guard — a corrupt or truncated download fails at `tar -xzf` before an existing install is touched. (The bundle's SHA-256 is still recorded as Apps CDN build metadata.)
 
-Only the `install.sh` / `install.ps1` scripts themselves still need public hosting — the `curl … | bash` / `irm … | iex` entry points (e.g. `wp.build/install.sh`); the bundles come directly from the CDN.
+The `install.sh` / `install.ps1` scripts live in wpcom (`wp-content/rest-api-plugins/endpoints/studio-app/installers/`) and are served from public-api at `wpcom/v2/studio-app/install.sh` / `install.ps1`, with `wordpress.studio/install.sh` / `install.ps1` as the branded short-URL redirect (STU-1928). They are no longer kept in this repo; the bundles come directly from the CDN.
 
 To (re)publish CLI bundles without a full app release — e.g. backfilling — build them and run the standalone lane:
 

@@ -65,6 +65,17 @@ interface PiToolResultLike {
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
 
+function stripScreenshotMediaPayloadLines( text: string ): string {
+	return text
+		.split( '\n' )
+		.filter(
+			( line ) =>
+				! line.startsWith( 'mediaWidgetPayload=' ) && ! line.startsWith( 'mediaWidgetPayloads=' )
+		)
+		.join( '\n' )
+		.trim();
+}
+
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
@@ -141,12 +152,19 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 					typeof block.name === 'string' &&
 					! HIDDEN_TOOL_ROWS.has( block.name )
 				) {
+					const result = resultsByToolCallId.get( block.id );
 					items.push( {
 						kind: 'tool-use',
 						key: `${ entryIndex }:${ blockIndex }:tool`,
 						name: block.name,
 						input: ( block.arguments as Record< string, unknown > ) ?? {},
-						result: resultsByToolCallId.get( block.id ),
+						result:
+							block.name === 'take_screenshot' && result
+								? {
+										...result,
+										text: stripScreenshotMediaPayloadLines( result.text ),
+								  }
+								: result,
 					} );
 				}
 			} );

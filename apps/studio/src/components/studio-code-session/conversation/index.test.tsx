@@ -27,6 +27,40 @@ function answer( text: string ): SessionEntry {
 	return customEntry( 'studio.user_prompt', { text, source: 'ask_user' } );
 }
 
+function assistantToolCallEntry( name: string ): SessionEntry {
+	return {
+		type: 'message',
+		id: `assistant-${ name }`,
+		parentId: null,
+		timestamp: '2026-06-19T00:00:00.000Z',
+		message: {
+			role: 'assistant',
+			content: [
+				{
+					type: 'toolCall',
+					id: 'tool-call-1',
+					name,
+					arguments: {},
+				},
+			],
+		},
+	} as unknown as SessionEntry;
+}
+
+function toolResultEntry( text: string ): SessionEntry {
+	return {
+		type: 'message',
+		id: 'tool-result',
+		parentId: null,
+		timestamp: '2026-06-19T00:00:01.000Z',
+		message: {
+			role: 'toolResult',
+			toolCallId: 'tool-call-1',
+			content: [ { type: 'text', text } ],
+		},
+	} as unknown as SessionEntry;
+}
+
 describe( 'entriesToRenderItems – persisted picked answers', () => {
 	it( 'pairs a question with its persisted ask_user answer', () => {
 		const items = entriesToRenderItems( [ question( 'Pick one', [ 'A', 'B' ] ), answer( 'B' ) ] );
@@ -58,5 +92,28 @@ describe( 'entriesToRenderItems – persisted picked answers', () => {
 	it( 'does not render ask_user prompts as user text', () => {
 		const items = entriesToRenderItems( [ question( 'Q1', [ 'A' ] ), answer( 'A' ) ] );
 		expect( items.some( ( i ) => i.kind === 'user-text' ) ).toBe( false );
+	} );
+} );
+
+describe( 'entriesToRenderItems – screenshot payload markers', () => {
+	it( 'strips screenshot media payload markers from tool output', () => {
+		const items = entriesToRenderItems( [
+			assistantToolCallEntry( 'take_screenshot' ),
+			toolResultEntry(
+				'Screenshot captured — desktop: captured full page (1248px tall).\n' +
+					'mediaWidgetPayload={"type":"media","widgetProps":{"url":"file:///tmp/screenshot.jpg"}}'
+			),
+		] );
+		const tool = items.find( ( item ) => item.kind === 'tool-use' );
+
+		expect( tool ).toMatchObject( {
+			kind: 'tool-use',
+			result: {
+				text: 'Screenshot captured — desktop: captured full page (1248px tall).',
+			},
+		} );
+		expect( tool ).not.toMatchObject( {
+			result: { text: expect.stringContaining( 'mediaWidgetPayload' ) },
+		} );
 	} );
 } );

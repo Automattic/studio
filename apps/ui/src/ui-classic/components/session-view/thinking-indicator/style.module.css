@@ -12,16 +12,25 @@
 .head {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-md);
+	gap: var(--wpds-dimension-padding-xs);
 }
 
 .dot {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	flex-shrink: 0;
+}
+
+.dot::before {
+	content: "";
 	width: 8px;
 	height: 8px;
 	border-radius: 50%;
 	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	animation: pulse 1.2s ease-in-out infinite;
-	flex-shrink: 0;
 }
 
 .label {
@@ -35,7 +44,7 @@
 }
 
 .progress {
-	padding-left: calc(8px + var(--wpds-dimension-padding-md));
+	padding-left: calc(18px + var(--wpds-dimension-padding-xs));
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.8;
 	overflow: hidden;

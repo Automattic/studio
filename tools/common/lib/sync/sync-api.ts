@@ -53,7 +53,7 @@ async function fetchRawSitesPage(
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	const queryParams: Record< string, string | number | boolean > = {
 		fields: SITE_FIELDS,
-		filter: 'atomic,wpcom',
+		filters: 'atomic,wpcom',
 		options: 'created_at,wpcom_staging_blog_ids,software_version',
 		site_activity: 'active',
 		include_a8c_owned: false,

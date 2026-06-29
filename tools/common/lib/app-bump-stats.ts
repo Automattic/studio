@@ -8,17 +8,9 @@ import { getAppConfigLockFilePath, getAppConfigPath } from '@studio/common/lib/w
 import type { LastBumpStats, LastBumpStatsProvider } from '@studio/common/lib/bump-stat';
 
 /**
- * Shared `LastBumpStatsProvider` backed by `~/.studio/app.json`, used by both the
- * desktop app and the `studio ui` server. Keeping the agent's weekly/monthly
- * unique-user dedup state in one store means a user is counted once per period
- * regardless of which surface they use. Only the `lastBumpStats` field is
- * read/written — all other app.json state is preserved — and writes go through
- * the same lockfile the desktop's app.json writes use, so concurrent writers
- * (e.g. the desktop app and `studio ui` running at once) are serialized.
- *
- * This is the extracted, shared version of what `apps/studio` previously did via
- * its own `user-data` layer; the surface (not the store) is what separates the
- * `studio-code-ui-*` and `studio-code-cliui-*` stat groups.
+ * `LastBumpStatsProvider` backed by `~/.studio/app.json`. Only the `lastBumpStats`
+ * field is read/written — all other app.json state is preserved — and writes go
+ * through the app.json lockfile, so concurrent writers are serialized.
  */
 
 async function readAppConfig(): Promise< Record< string, unknown > > {

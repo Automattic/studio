@@ -29,6 +29,10 @@ import {
 	loadHydratedAiSession,
 } from '@studio/common/ai/sessions/manage';
 import {
+	deleteAiSessionPlacement,
+	readAiSessionPlacement,
+} from '@studio/common/ai/sessions/placement';
+import {
 	appendModelChangeEntry,
 	appendStudioEntry,
 	deleteAiSession as deleteAiSessionFromStore,
@@ -94,7 +98,6 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { deleteAiSessionPlacement, readAiSessionPlacement } from 'src/lib/ai-session-placement';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {

@@ -47,7 +47,7 @@ export function getPlatformMetric(): string {
 }
 
 // One agent message was sent: a usage count plus weekly/monthly unique-user
-// approximations (the latter only when a dedup-state provider is supplied).
+// approximations.
 export function recordAgentSend( surface: AgentSurface ): void {
 	const groups = STAT_GROUPS[ surface ];
 	const platform = getPlatformMetric();

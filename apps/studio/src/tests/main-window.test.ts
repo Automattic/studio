@@ -6,7 +6,12 @@ import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { createMainWindow, getMainWindow, __resetMainWindow } from 'src/main-window';
+import {
+	createMainWindow,
+	getMainWindow,
+	isToggleSidebarShortcut,
+	__resetMainWindow,
+} from 'src/main-window';
 
 vi.mock( 'fs' );
 vi.mock( 'src/ipc-utils' );
@@ -17,6 +22,7 @@ vi.mock( 'src/lib/app-globals', () => ( {
 
 // Create a simpler mock that tracks event handlers
 const mockEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
+const mockWebContentsEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
 
 vi.mock( 'electron', () => {
 	class MockBrowserWindow {
@@ -42,6 +48,11 @@ vi.mock( 'electron', () => {
 			isDestroyed: vi.fn().mockReturnValue( false ),
 			send: vi.fn(),
 			on: vi.fn().mockImplementation( ( event: string, handler: ( ...args: any[] ) => void ) => {
+				if ( ! mockWebContentsEventHandlers.has( event ) ) {
+					mockWebContentsEventHandlers.set( event, [] );
+				}
+				mockWebContentsEventHandlers.get( event )!.push( handler );
+
 				if ( event === 'did-finish-load' ) {
 					// Call handler immediately to resolve window creation
 					setImmediate( handler );
@@ -90,6 +101,7 @@ beforeEach( () => {
 	delete process.env.ENABLE_AGENTIC_UI;
 	delete process.env.ELECTRON_UI_RENDERER_URL;
 	delete process.env.ELECTRON_RENDERER_URL;
+	mockWebContentsEventHandlers.clear();
 } );
 
 describe( 'getMainWindow', () => {
@@ -163,6 +175,67 @@ describe( 'renderer selection', () => {
 
 		expect( createdWindow.loadURL ).toHaveBeenCalledWith( 'http://localhost:5200' );
 		expect( createdWindow.loadFile ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'sidebar shortcut', () => {
+	afterEach( () => {
+		__resetMainWindow();
+	} );
+
+	it( 'matches command+b on macOS and control+b on other platforms', () => {
+		const input = {
+			type: 'keyDown',
+			key: 'b',
+			code: 'KeyB',
+			isAutoRepeat: false,
+			isComposing: false,
+			shift: false,
+			control: false,
+			alt: false,
+			meta: false,
+			location: 0,
+			modifiers: [],
+		} as Electron.Input;
+
+		expect( isToggleSidebarShortcut( { ...input, meta: true }, 'darwin' ) ).toBe( true );
+		expect( isToggleSidebarShortcut( { ...input, control: true }, 'win32' ) ).toBe( true );
+		expect( isToggleSidebarShortcut( { ...input, control: true }, 'linux' ) ).toBe( true );
+		expect( isToggleSidebarShortcut( { ...input, control: true }, 'darwin' ) ).toBe( false );
+		expect( isToggleSidebarShortcut( { ...input, meta: true }, 'win32' ) ).toBe( false );
+		expect( isToggleSidebarShortcut( { ...input, meta: true, shift: true }, 'darwin' ) ).toBe(
+			false
+		);
+		expect(
+			isToggleSidebarShortcut( { ...input, meta: true, isAutoRepeat: true }, 'darwin' )
+		).toBe( false );
+	} );
+
+	it( 'sends a renderer toggle event from the main window shortcut handler', async () => {
+		const createdWindow = await createMainWindow();
+		const handlers = mockWebContentsEventHandlers.get( 'before-input-event' );
+		const event = { preventDefault: vi.fn() };
+
+		expect( handlers ).toBeDefined();
+		handlers![ 0 ]( event, {
+			type: 'keyDown',
+			key: 'b',
+			code: 'KeyB',
+			isAutoRepeat: false,
+			isComposing: false,
+			shift: false,
+			control: process.platform !== 'darwin',
+			alt: false,
+			meta: process.platform === 'darwin',
+			location: 0,
+			modifiers: [],
+		} as Electron.Input );
+
+		expect( event.preventDefault ).toHaveBeenCalled();
+		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
+			createdWindow,
+			'toggle-sidebar'
+		);
 	} );
 } );
 

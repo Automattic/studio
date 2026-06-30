@@ -29,21 +29,12 @@ export const reprintOriginSchema = z.object( {
 } );
 
 /**
- * Health of a site's local install.
- *
- *   - `ready`        a normal, fully-written site (the default; `site
- *                    create` produces one and a successful pull restores
- *                    one).
- *   - `pulling`      a reprint pull is in flight (or was interrupted
- *                    mid-flight) — the site directory may be partially
- *                    written and must not be trusted as a healthy site.
- *   - `pull-failed`  the last reprint pull errored or was killed; the
- *                    site is half-written. Recovered by re-running
- *                    `pull-reprint --path <site>` (idempotent) or `site
- *                    delete`.
- *
- * Absent on records created before this field existed; readers treat a
- * missing value as `ready`.
+ * Mutated when pulling a site with Reprint.
+ * - `ready`        The default state. A normal, fully-written site.
+ * - `pulling`      A reprint pull is in flight (or was interrupted mid-flight).
+                    The site directory may be partially.
+ * - `pull-failed`  The last reprint pull was unsuccessful. The site directory
+ *                  may be partially written. Rerun the pull to fix.
  */
 export const siteStatusSchema = z.enum( [ 'ready', 'pulling', 'pull-failed' ] );
 export type SiteStatus = z.infer< typeof siteStatusSchema >;

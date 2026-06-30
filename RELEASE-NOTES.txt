@@ -9,7 +9,7 @@ Unreleased
 * Made the standalone Studio CLI easier to install and use: one-command install and updates from the web, a clean uninstall option, shorter commands for everyday site tasks, and new terminal commands to view and change site settings #3064, #3835, #3974, #3884
 * Improved pull-reprint: choose a site from a searchable list when you have several connected sites, and re-running the command now syncs remote changes to your local copy #3729, #3768
 * Added a Kurdish (Sorani) locale and improved locale handling #3873, #3214, #3776
-* Renamed "Copy site" to "Duplicate site" and removed the placeholder Dashboard and Skills menus #3759, #3760
+* Renamed "Copy site" to "Duplicate site" #3759
 * Improved performance and packaging: faster packaging builds, smaller installers, a higher PHP memory limit, and a cap on simultaneously running sites #3785, #3943, #3936, #3887
 * Fixed dark mode across Studio Code dialogs, the site preview panel, and theming, and allowed conversation text to be selected and copied #3844, #3779, #3871, #3836
 * Fixed a startup crash on Node.js 22, surfaced PHP errors when a site fails to start, resolved slow .local DNS on macOS, preserved in-progress messages in Studio Code, and restored the recorded model when resuming a session by id #3885, #3813, #3912, #3824, #3819

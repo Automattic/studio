@@ -44,7 +44,6 @@ import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
-import { extractZip } from '@studio/common/lib/extract-zip';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -58,6 +57,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
+import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import {
@@ -83,6 +83,11 @@ import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import {
+	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
+	extractBlueprintBundle as extractBlueprintBundleShared,
+	type ExtractedBlueprintBundle,
+} from '@studio/common/sites/blueprint-extract';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import {
 	MACOS_TRAFFIC_LIGHT_POSITION,
@@ -202,6 +207,7 @@ export {
 	pauseSyncUpload,
 	pullSiteFromLive,
 	pushArchive,
+	pushSiteToLive,
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,
@@ -1461,36 +1467,6 @@ export async function readLocalMediaFile(
 	};
 }
 
-function getLocalMediaMimeType( path: string ) {
-	const extension = nodePath.extname( path ).toLowerCase().slice( 1 );
-	const mimeTypes: Record< string, string > = {
-		avif: 'image/avif',
-		avi: 'video/x-msvideo',
-		bmp: 'image/bmp',
-		gif: 'image/gif',
-		heic: 'image/heic',
-		heif: 'image/heif',
-		ico: 'image/x-icon',
-		jpeg: 'image/jpeg',
-		jpg: 'image/jpeg',
-		m4v: 'video/x-m4v',
-		mkv: 'video/x-matroska',
-		mov: 'video/quicktime',
-		mp4: 'video/mp4',
-		mpeg: 'video/mpeg',
-		mpg: 'video/mpeg',
-		ogv: 'video/ogg',
-		png: 'image/png',
-		svg: 'image/svg+xml',
-		tif: 'image/tiff',
-		tiff: 'image/tiff',
-		webm: 'video/webm',
-		webp: 'image/webp',
-	};
-
-	return mimeTypes[ extension ] ?? '';
-}
-
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
 // process.
 export async function loadThemeDetails(
@@ -2310,45 +2286,15 @@ export async function readBlueprintFile(
 export async function extractBlueprintBundle(
 	_event: IpcMainInvokeEvent,
 	zipFilePath: string
-): Promise< {
-	blueprintJson: Blueprint[ 'blueprint' ];
-	blueprintJsonPath: string;
-	tempDir: string;
-} > {
-	const resolvedZipPath = nodePath.resolve( zipFilePath );
-	const tempDir = await fsPromises.mkdtemp(
-		nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' )
-	);
-
-	try {
-		await extractZip( resolvedZipPath, tempDir );
-
-		const blueprintJsonPath = nodePath.join( tempDir, 'blueprint.json' );
-		try {
-			await fsPromises.access( blueprintJsonPath );
-		} catch {
-			throw new Error(
-				__(
-					'No blueprint.json found in the ZIP file. Please ensure the ZIP contains a blueprint.json at its root.'
-				)
-			);
-		}
-
-		const fileContents = await fsPromises.readFile( blueprintJsonPath, 'utf-8' );
-		const blueprintJson = JSON.parse( fileContents );
-
-		return { blueprintJson, blueprintJsonPath, tempDir };
-	} catch ( error ) {
-		await fsPromises.rm( tempDir, { recursive: true, force: true } );
-		throw error;
-	}
+): Promise< ExtractedBlueprintBundle > {
+	return extractBlueprintBundleShared( zipFilePath );
 }
 
 export async function cleanupBlueprintTempDir(
 	_event: IpcMainInvokeEvent,
 	tempDir: string
 ): Promise< void > {
-	await removeBlueprintTempDir( tempDir );
+	await cleanupBlueprintTempDirShared( tempDir );
 }
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {

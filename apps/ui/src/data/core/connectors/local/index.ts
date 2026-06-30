@@ -54,7 +54,8 @@ type SnapshotSseOutput =
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
-	| { channel: 'snapshot'; payload: SnapshotSseOutput };
+	| { channel: 'snapshot'; payload: SnapshotSseOutput }
+	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
 
 /**
  * The `studio ui` data source: the browser analog of the Electron IPC
@@ -76,6 +77,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
+	const syncConnectListeners = new Set<
+		( event: { remoteSiteId: number; studioSiteId: string } ) => void
+	>();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip.
@@ -195,6 +199,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'snapshot' ) {
 					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'sync-connect' ) {
+					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				}
 			};
 		},
@@ -473,8 +479,18 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				{ method: 'DELETE' }
 			);
 		},
-		onSyncConnectSite() {
-			return () => {};
+		onSyncConnectSite( listener ) {
+			syncConnectListeners.add( listener );
+			return () => syncConnectListeners.delete( listener );
+		},
+		// Browser analog of the desktop's wp-studio:// deep link: after the user
+		// opens the "Create new" checkout, ask the server to watch the account's
+		// WordPress.com sites and report the new one back on the `sync-connect`
+		// channel, which onSyncConnectSite above hands to the auto-connect hook.
+		async watchForPublishedSite( siteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/watch-published-site`, {
+				method: 'POST',
+			} );
 		},
 		async pushSiteToLive( siteId, remoteSiteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/push`, {

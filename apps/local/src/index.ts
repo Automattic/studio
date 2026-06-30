@@ -197,6 +197,71 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		}
 	}
 
+	// Background watch for the WordPress.com site the user is about to create via
+	// the "Create new" checkout. A browser tab can't receive the wp-studio://
+	// deep link the desktop uses, so we poll the account's syncable sites and,
+	// when a new one appears, report it on the `sync-connect` channel for the
+	// connector's onSyncConnectSite to auto-connect. Keyed by studio site id so a
+	// re-trigger supersedes the prior watch; all are cancelled on close().
+	const publishWatches = new Map< string, { cancelled: boolean } >();
+	function startPublishWatch(
+		studioSiteId: string,
+		expectedName: string,
+		accessToken: string,
+		knownIds: Set< number >
+	): void {
+		const previous = publishWatches.get( studioSiteId );
+		if ( previous ) {
+			previous.cancelled = true;
+		}
+		const watch = { cancelled: false };
+		publishWatches.set( studioSiteId, watch );
+
+		const POLL_INTERVAL_MS = 5_000;
+		const slug = expectedName.toLowerCase();
+		let attemptsLeft = 60; // ~5 minutes at a 5s interval.
+
+		const poll = async (): Promise< void > => {
+			// A superseded/torn-down watch bails before any map mutation so it can't
+			// clobber the entry a newer watch now owns.
+			if ( watch.cancelled ) {
+				return;
+			}
+			let matchId: number | undefined;
+			try {
+				const sites = await fetchSyncableSites( accessToken );
+				const fresh = sites.filter( ( candidate ) => ! knownIds.has( candidate.id ) );
+				const match =
+					fresh.find(
+						( candidate ) =>
+							!! slug &&
+							( ( candidate.name ?? '' ).toLowerCase().includes( slug ) ||
+								( candidate.url ?? '' ).toLowerCase().includes( slug ) )
+					) ?? ( fresh.length === 1 ? fresh[ 0 ] : undefined );
+				matchId = match?.id;
+			} catch {
+				// Transient (token refresh, network); keep polling until the deadline.
+			}
+			if ( watch.cancelled ) {
+				return;
+			}
+			if ( matchId !== undefined ) {
+				publishWatches.delete( studioSiteId );
+				sseSend( {
+					channel: 'sync-connect',
+					payload: { remoteSiteId: matchId, studioSiteId },
+				} );
+				return;
+			}
+			if ( --attemptsLeft <= 0 ) {
+				publishWatches.delete( studioSiteId );
+				return;
+			}
+			setTimeout( () => void poll(), POLL_INTERVAL_MS );
+		};
+		void poll();
+	}
+
 	const runManager = createAgentRunManager( {
 		cliBinary,
 		nodeBinary,
@@ -1012,6 +1077,29 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// Start watching for the WordPress.com site the user is about to create in the
+	// "Create new" checkout tab (the local analog of the desktop's deep link). The
+	// new site, once it appears in the account, is reported on the `sync-connect`
+	// SSE channel; this responds immediately while the watch runs in the background.
+	api.post(
+		'/sites/:id/watch-published-site',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			const studioSiteId = req.params.id;
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === studioSiteId );
+			const expectedName = site?.customDomain ?? site?.name ?? '';
+			const knownIds = new Set(
+				( await fetchSyncableSites( token.accessToken ) ).map( ( s ) => s.id )
+			);
+			startPublishWatch( studioSiteId, expectedName, token.accessToken, knownIds );
+			res.sendStatus( 202 );
+		} )
+	);
+
 	// --- AI sessions ----------------------------------------------------------
 	api.get(
 		'/sessions',
@@ -1152,6 +1240,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		port,
 		async close() {
 			cliRunner.killAll();
+			for ( const watch of publishWatches.values() ) {
+				watch.cancelled = true;
+			}
+			publishWatches.clear();
 			for ( const client of sseClients ) {
 				client.end();
 			}

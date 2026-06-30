@@ -241,6 +241,11 @@ export interface Connector {
 			autoOpenPush?: boolean;
 		} ) => void
 	): () => void;
+	// Optional: ask the backend to watch for a freshly-created WordPress.com site
+	// (the "Create new" checkout) and report it via `onSyncConnectSite`. Used by
+	// surfaces that can't receive the desktop's wp-studio:// deep link — the local
+	// web server polls the account's sites instead.
+	watchForPublishedSite?( siteId: string ): Promise< void >;
 
 	// AI sessions (shared with the CLI — stored as JSONL on disk)
 	getSessions(): Promise< AiSessionSummary[] >;

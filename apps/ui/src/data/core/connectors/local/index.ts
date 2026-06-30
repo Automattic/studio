@@ -438,7 +438,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
-		// Preview snapshots / sync — out of scope for this increment.
+		// Preview snapshots + WordPress.com sync — backed by the server's snapshot
+		// manager and sync routes (the same shared code the desktop uses).
 		async getSnapshots(): Promise< Snapshot[] > {
 			return api< Snapshot[] >( '/snapshots' );
 		},
@@ -487,8 +488,19 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
-		getPublishCheckoutUrl() {
-			return undefined;
+		getPublishCheckoutUrl( site ): string {
+			// The same WordPress.com hosted-site checkout the desktop opens — a pure
+			// URL builder, so it ports verbatim. (The post-checkout auto-connect still
+			// relies on the deep-link listener, which a browser tab can't receive, so
+			// the user finishes by connecting the new site from the picker.)
+			const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
+			url.searchParams.set( 'ref', 'studio' );
+			url.searchParams.set( 'section', 'publish-site' );
+			url.searchParams.set( 'showDomainStep', 'true' );
+			url.searchParams.set( 'studioSiteId', site.id );
+			url.searchParams.set( 'new', site.customDomain ?? site.name );
+			url.searchParams.set( 'autoOpenPush', 'true' );
+			return url.toString();
 		},
 
 		// AI sessions — the headline. HTTP routes on the local server, backed by

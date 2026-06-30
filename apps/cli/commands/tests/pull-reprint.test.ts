@@ -259,7 +259,8 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			metadata,
 			'https://example.com/?reprint-api',
 			'hmac-secret',
-			false
+			false,
+			true
 		);
 
 		expect( reprint ).toHaveBeenCalledTimes( 1 );
@@ -334,11 +335,14 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			remoteSiteUrl: 'https://example.com',
 		} as never;
 
+		// force=false models a delta re-pull, which must not force-overwrite
+		// the live site.
 		await runFullPull(
 			SITE_RUNTIME_PLAYGROUND,
 			metadata,
 			'https://example.com/?reprint-api',
 			'hmac-secret',
+			false,
 			false
 		);
 
@@ -348,6 +352,8 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		expect( passedArgs ).toContain(
 			`--target-sqlite-path=${ sitePath }/wp-content/database/.ht.sqlite`
 		);
+		// A delta re-pull (force=false) omits --force.
+		expect( passedArgs ).not.toContain( '--force' );
 		// The site + runtime dirs are always mounted for the single fork.
 		expect( passedOptions?.mounts ).toEqual( [
 			{ hostPath: sitePath, vfsPath: sitePath },
@@ -398,7 +404,8 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 				metadata as never,
 				'https://example.com/?reprint-api',
 				'hmac-secret',
-				false
+				false,
+				true
 			)
 		).rejects.toThrow( 'reprint exited with code 1' );
 

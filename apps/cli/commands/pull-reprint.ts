@@ -57,6 +57,8 @@ import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getPrettyPath } from 'cli/lib/utils';
 import {
 	startWordPressServer,
+	stopWordPressServer,
+	isServerRunning,
 	StartServerOptions,
 	getProcessName,
 } from 'cli/lib/wordpress-server-manager';
@@ -286,6 +288,15 @@ export async function runCommand(
 	console.log( `Site directory: ${ studioMetadata.sitePath }` );
 	console.log( '' );
 
+	// Capture the server's running state up front; a first pull restarts a
+	// running site once it finishes (see the server-start step below).
+	let wasRunning = false;
+	try {
+		wasRunning = Boolean( await isServerRunning( site.id ) );
+	} finally {
+		await disconnectFromDaemon();
+	}
+
 	// Mark the site as mid-pull up front, and record the scratch location
 	// (`technicalSiteDirectory`) at the same time. The status means that
 	// until this run finishes the site is not a healthy install, so other
@@ -402,7 +413,14 @@ export async function runCommand(
 		// prepare_repull(). Always re-invoked: the pull is idempotent and
 		// reprint resumes its own pipeline from `.import-state.json`, so
 		// there is no Studio-side guard to skip it.
-		await runFullPull( SITE_RUNTIME_NATIVE_PHP, studioMetadata, apiUrl, secret, verbose );
+		await runFullPull(
+			SITE_RUNTIME_NATIVE_PHP,
+			studioMetadata,
+			apiUrl,
+			secret,
+			verbose,
+			! isRepull
+		);
 
 		// The site record already exists (created via `studio create`) and its
 		// `technicalSiteDirectory` was recorded at pull start; the pull now
@@ -453,35 +471,51 @@ export async function runCommand(
 		try {
 			await connectToDaemon();
 
-			// On a re-pull, the site's server is often already running.
-			// The synced files and database are picked up live (PHP
-			// opens them per request), so there's nothing to restart —
-			// but db-apply rebuilt the database from the remote dump,
-			// wiping the local admin user and the studio_admin_username
-			// option that /studio-auto-login depends on.  A server start
-			// re-applies the credentials; when we skip the restart we
-			// must re-apply them over the running site's admin API.
-			// A connection failure means the daemon's view is stale and
-			// the server is actually down, so fall through to a start
-			// (which re-applies the credentials itself).
 			const runningProcess = await isProcessRunning( getProcessName( site.id ) );
-			const credentialsResult = runningProcess
-				? await reapplyAdminCredentials( site )
-				: 'unreachable';
-			if ( runningProcess && credentialsResult !== 'unreachable' ) {
-				logger.reportSuccess( __( 'WordPress server already running' ) );
-				// Mirror the start branch (and `studio site start`'s
-				// already-running path): refresh latestCliPid so
-				// running-status checks match the live process.
-				if ( runningProcess.status === 'online' ) {
-					await updateSiteLatestCliPid( site.id, runningProcess.pid );
+
+			if ( ! isRepull && wasRunning ) {
+				// The live process is still serving the blank install whose
+				// runtime the pull just replaced on disk, so restart it to load
+				// the imported runtime.
+				if ( runningProcess ) {
+					await stopWordPressServer( site.id );
 				}
-			} else {
 				const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
-				logger.reportSuccess( __( 'WordPress server started' ) );
+				logger.reportSuccess( __( 'WordPress server restarted' ) );
 
 				if ( processDesc.status === 'online' ) {
 					await updateSiteLatestCliPid( site.id, processDesc.pid );
+				}
+			} else {
+				// On a re-pull, the site's server is often already running.
+				// The synced files and database are picked up live (PHP
+				// opens them per request), so there's nothing to restart —
+				// but db-apply rebuilt the database from the remote dump,
+				// wiping the local admin user and the studio_admin_username
+				// option that /studio-auto-login depends on.  A server start
+				// re-applies the credentials; when we skip the restart we
+				// must re-apply them over the running site's admin API.
+				// A connection failure means the daemon's view is stale and
+				// the server is actually down, so fall through to a start
+				// (which re-applies the credentials itself).
+				const credentialsResult = runningProcess
+					? await reapplyAdminCredentials( site )
+					: 'unreachable';
+				if ( runningProcess && credentialsResult !== 'unreachable' ) {
+					logger.reportSuccess( __( 'WordPress server already running' ) );
+					// Mirror the start branch (and `studio site start`'s
+					// already-running path): refresh latestCliPid so
+					// running-status checks match the live process.
+					if ( runningProcess.status === 'online' ) {
+						await updateSiteLatestCliPid( site.id, runningProcess.pid );
+					}
+				} else {
+					const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
+					logger.reportSuccess( __( 'WordPress server started' ) );
+
+					if ( processDesc.status === 'online' ) {
+						await updateSiteLatestCliPid( site.id, processDesc.pid );
+					}
 				}
 			}
 		} catch ( serverError ) {
@@ -491,13 +525,6 @@ export async function runCommand(
 			);
 		} finally {
 			await disconnectFromDaemon();
-		}
-
-		if ( studioMetadata.localUrl ) {
-			console.log( '' );
-			console.log( `Site "${ site.name }" is ready.` );
-			console.log( '' );
-			printSiteUrls( studioMetadata.localUrl );
 		}
 
 		// Fetch the wp-content entries the essential-files pass skipped, if
@@ -674,41 +701,50 @@ function getPullTechnicalDirectory( siteId: string ): string {
  * Idempotent: reprint resumes its own pipeline from `.import-state.json`
  * and resets for a delta re-pull internally, so the orchestrator always
  * re-invokes this with no Studio-side completion guard.
+ *
+ * `--force` is passed only on the first pull, where it overwrites the
+ * blank WordPress install `studio create` produced. A delta re-pull
+ * mutates the live site incrementally and must not force-overwrite it.
  */
 export async function runFullPull(
 	runtime: SiteRuntime,
 	metadata: PullSession,
 	apiUrl: string,
 	secret: string,
-	verbose: boolean
+	verbose: boolean,
+	force: boolean
 ): Promise< void > {
 	const contentDir = getContentDirFromState( metadata.stateDirectory );
 	const sqlitePath = contentDir
 		? `${ metadata.rawDirectory }${ contentDir }/database/.ht.sqlite`
 		: `${ metadata.sitePath }/wp-content/database/.ht.sqlite`;
 	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
+	const args = [
+		'pull',
+		apiUrl,
+		`--secret=${ secret }`,
+		'--filter=essential-files',
+		'--target-engine=sqlite',
+		`--target-sqlite-path=${ sqlitePath }`,
+		`--new-site-url=${ metadata.localUrl! }`,
+		`--flatten-to=${ metadata.sitePath }`,
+		`--runtime=${ reprintRuntime }`,
+		'--start-runtime=none',
+		`--output-dir=${ metadata.runtimeDirectory }`,
+		'--no-adaptive',
+		`--state-dir=${ metadata.stateDirectory }`,
+		`--fs-root=${ metadata.rawDirectory }`,
+	];
+
+	if ( force ) {
+		args.push( '--force' );
+	}
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 	await runReprintCommandUntilComplete(
 		metadata.stateDirectory,
 		metadata.rawDirectory,
-		[
-			'pull',
-			apiUrl,
-			`--secret=${ secret }`,
-			'--filter=essential-files',
-			'--target-engine=sqlite',
-			`--target-sqlite-path=${ sqlitePath }`,
-			`--new-site-url=${ metadata.localUrl! }`,
-			`--flatten-to=${ metadata.sitePath }`,
-			`--runtime=${ reprintRuntime }`,
-			'--start-runtime=none',
-			`--output-dir=${ metadata.runtimeDirectory }`,
-			'--no-adaptive',
-			`--state-dir=${ metadata.stateDirectory }`,
-			`--fs-root=${ metadata.rawDirectory }`,
-			'--force',
-		],
+		args,
 		( progress ) => logger.reportProgress( progress ),
 		{
 			progressLabel: __( 'Pulling site' ),

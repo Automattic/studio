@@ -30,7 +30,7 @@ function OnboardingBlueprintPage() {
 	const activeStep: Step = step === 'configure' ? 'configure' : 'select';
 
 	const featured = useFeaturedBlueprints();
-	const { data: existingDomainNames } = useExistingCustomDomains();
+	const existingDomainNames = useExistingCustomDomains();
 	const createSite = useCreateSite();
 
 	// Picked blueprint lives in component state — survives navigation between
@@ -162,7 +162,7 @@ function OnboardingBlueprintPage() {
 			{ picked.excerpt && <p className={ styles.subtitle }>{ picked.excerpt }</p> }
 			<CreateSiteForm
 				initialValues={ initialValues }
-				existingDomainNames={ existingDomainNames ?? [] }
+				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ createSite.isPending }

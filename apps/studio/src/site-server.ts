@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
-import { listSites } from '@studio/common/sites';
+import { listSites } from '@studio/common/sites/list';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';

@@ -25,10 +25,6 @@ export interface AppdataSiteData {
 	runtimeStat?: string;
 }
 
-// Re-exported from the shared module (the canonical owner) so existing
-// `src/storage/storage-types` importers keep working.
-export type { AiSessionSitePlacement };
-
 export interface NightlyPromptResult {
 	response: 'yes' | 'no';
 	dontAskAgain: boolean;

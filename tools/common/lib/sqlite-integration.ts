@@ -46,9 +46,9 @@ export abstract class SqliteIntegrationProvider {
 	 * Studio's stock SQLite drop-in.
 	 *
 	 * A Studio site can only boot through a drop-in the local SQLite runtime understands,
-	 * so we only keep a file we recognize as such:
+	 * so a db.php is preserved exactly when it is a custom SQLite-compatible drop-in,
+	 * identified by defining SQLITE_DB_DROPIN_VERSION (how the SQLite plugin recognizes it):
 	 *  - missing/unreadable → don't keep (recreate it so the site can connect)
-	 *  - marked `@studio-keep` → keep (explicit opt-out)
 	 *  - Studio's own stock drop-in → don't keep (refresh its path and version)
 	 *  - a custom drop-in defining SQLITE_DB_DROPIN_VERSION → keep (e.g. markdown-database-integration)
 	 *  - anything else, e.g. a plugin-owned db.php restored from a WordPress.com backup → don't keep (replace)
@@ -63,9 +63,6 @@ export abstract class SqliteIntegrationProvider {
 			return false;
 		}
 
-		if ( content.includes( '@studio-keep' ) ) {
-			return true;
-		}
 		if ( content.includes( STOCK_DB_DROPIN_MARKER ) ) {
 			return false;
 		}

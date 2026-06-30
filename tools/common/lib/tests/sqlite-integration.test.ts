@@ -71,14 +71,16 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			expect( result ).toBe( true );
 		} );
 
-		it( 'should keep a db.php with the Studio keep marker', async () => {
+		it( 'should not keep a non-SQLite db.php even if it carries the legacy @studio-keep marker', async () => {
+			// The preservation contract is SQLITE_DB_DROPIN_VERSION; the legacy @studio-keep
+			// marker no longer forces a non-SQLite drop-in to be kept.
 			volFromJSON( {
 				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
-					"<?php\n// @studio-keep\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
+					"<?php\n// @studio-keep\nrequire_once 'custom-db.php';",
 			} );
 
 			const result = await provider.shouldKeepExistingDbDropin( MOCK_SITE_PATH );
-			expect( result ).toBe( true );
+			expect( result ).toBe( false );
 		} );
 
 		it( 'should not keep the stock Studio drop-in so it stays current', async () => {
@@ -129,28 +131,12 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			);
 		} );
 
-		it( 'should not overwrite db.php drop-in with the Studio keep marker', async () => {
+		it( 'should still copy the mu-plugin when keeping a custom drop-in', async () => {
 			volFromJSON( {
 				[ normalize( `wp-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
 					"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
 				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
-					"<?php\n// @studio-keep\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
-			} );
-
-			await provider.installSqliteIntegration( MOCK_SITE_PATH );
-
-			expect( vi.mocked( fs.promises.writeFile ) ).not.toHaveBeenCalledWith(
-				normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ),
-				expect.any( String )
-			);
-		} );
-
-		it( 'should still copy mu-plugin when db.php has the Studio keep marker', async () => {
-			volFromJSON( {
-				[ normalize( `wp-files/${ SQLITE_DIRNAME }/db.copy` ) ]:
-					"SQLIntegration path: '{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
-				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]:
-					"<?php\n// @studio-keep\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
+					"<?php\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
 			} );
 
 			await provider.installSqliteIntegration( MOCK_SITE_PATH );

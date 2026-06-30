@@ -56,7 +56,12 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 			}
 
 			if ( isStudioCustomEntryOfType( entry, 'studio.tool_progress' ) ) {
-				if ( entry.data ) ui.setLoaderMessage( entry.data.message );
+				// Tool progress is ephemeral UI state (loader text) with no value
+				// when rehydrating history: `finishReplay()` clears the loader at
+				// the end anyway. Replaying it one entry at a time is the bottleneck
+				// behind the "Resuming session…" hang on sessions that persisted
+				// tens of thousands of progress ticks, so skip it during replay.
+				// See https://github.com/Automattic/studio/issues/3865
 				continue;
 			}
 

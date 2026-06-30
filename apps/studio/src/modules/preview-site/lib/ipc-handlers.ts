@@ -1,41 +1,58 @@
 import { BrowserWindow, IpcMainInvokeEvent } from 'electron';
-import { snapshotSchema } from '@studio/common/types/snapshot';
-import { z } from 'zod';
+import {
+	createSnapshotManager,
+	fetchSnapshots as fetchSnapshotsFromCli,
+	type SnapshotManager,
+	type SnapshotOutput,
+} from '@studio/common/sites/snapshots';
+import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
-import { executePreviewCliCommand } from 'src/modules/cli/lib/execute-preview-command';
 import type { Snapshot } from '@studio/common/types/snapshot';
 
-const snapshotListKeyValueSchema = z.object( {
-	action: z.literal( 'keyValuePair' ),
-	key: z.literal( 'snapshots' ),
-	value: z
-		.string()
-		.transform( ( val ) => JSON.parse( val ) )
-		.pipe( z.array( snapshotSchema ) ),
-} );
+// Desktop binding for the shared snapshot manager: forwards the CLI's progress
+// to the originating renderer over the existing `snapshot-*` IPC channels. The
+// `studio ui` server wires the same manager to SSE instead.
+function snapshotManagerForWindow( window: BrowserWindow | null ): SnapshotManager {
+	return createSnapshotManager( {
+		executeCliCommand,
+		emit: ( output: SnapshotOutput ) => {
+			switch ( output.kind ) {
+				case 'output':
+					sendIpcEventToRendererWithWindow( window, 'snapshot-output', {
+						operationId: output.operationId,
+						data: output.data,
+					} );
+					break;
+				case 'key-value':
+					sendIpcEventToRendererWithWindow( window, 'snapshot-key-value', {
+						operationId: output.operationId,
+						data: output.data,
+					} );
+					break;
+				case 'error':
+					sendIpcEventToRendererWithWindow( window, 'snapshot-error', {
+						operationId: output.operationId,
+						data: output.data,
+					} );
+					break;
+				case 'fatal-error':
+					sendIpcEventToRendererWithWindow( window, 'snapshot-fatal-error', {
+						operationId: output.operationId,
+						data: output.data,
+					} );
+					break;
+				case 'success':
+					sendIpcEventToRendererWithWindow( window, 'snapshot-success', {
+						operationId: output.operationId,
+					} );
+					break;
+			}
+		},
+	} );
+}
 
 export async function fetchSnapshots(): Promise< Snapshot[] > {
-	try {
-		return await new Promise< Snapshot[] >( ( resolve, reject ) => {
-			const [ emitter ] = executeCliCommand( [ 'preview', 'list', '--format', 'json' ], {
-				output: 'capture',
-			} );
-
-			emitter.on( 'data', ( { data } ) => {
-				const parsed = snapshotListKeyValueSchema.safeParse( data );
-				if ( parsed.success ) {
-					resolve( parsed.data.value );
-				}
-			} );
-
-			emitter.on( 'success', () => resolve( [] ) );
-			emitter.on( 'failure', ( { error } ) => reject( error ) );
-			emitter.on( 'error', ( { error } ) => reject( error ) );
-		} );
-	} catch ( error ) {
-		console.error( 'Failed to fetch snapshots from CLI:', error );
-		return [];
-	}
+	return fetchSnapshotsFromCli( executeCliCommand );
 }
 
 export async function createSnapshot(
@@ -43,12 +60,8 @@ export async function createSnapshot(
 	siteFolder: string,
 	name?: string
 ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	const args = [ 'preview', 'create', '--path', siteFolder ];
-	if ( name ) {
-		args.push( '--name', name );
-	}
-	return executePreviewCliCommand( args, parentWindow );
+	const window = BrowserWindow.fromWebContents( event.sender );
+	return snapshotManagerForWindow( window ).createSnapshot( siteFolder, name );
 }
 
 export async function updateSnapshot(
@@ -56,16 +69,22 @@ export async function updateSnapshot(
 	siteFolder: string,
 	hostname: string
 ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	return executePreviewCliCommand(
-		[ 'preview', 'update', '--path', siteFolder, hostname ],
-		parentWindow
-	);
+	const window = BrowserWindow.fromWebContents( event.sender );
+	return snapshotManagerForWindow( window ).updateSnapshot( siteFolder, hostname );
 }
 
 export async function deleteSnapshot( event: IpcMainInvokeEvent, hostname: string ) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	return executePreviewCliCommand( [ 'preview', 'delete', hostname ], parentWindow );
+	const window = BrowserWindow.fromWebContents( event.sender );
+	return snapshotManagerForWindow( window ).deleteSnapshot( hostname );
+}
+
+export async function setSnapshot(
+	event: IpcMainInvokeEvent,
+	hostname: string,
+	options: { name?: string }
+) {
+	const window = BrowserWindow.fromWebContents( event.sender );
+	return snapshotManagerForWindow( window ).setSnapshot( hostname, options );
 }
 
 export async function deleteAllSnapshots() {
@@ -75,17 +94,4 @@ export async function deleteAllSnapshots() {
 		cliEventEmitter.on( 'failure', ( error ) => reject( error ) );
 		cliEventEmitter.on( 'success', () => resolve() );
 	} );
-}
-
-export async function setSnapshot(
-	event: IpcMainInvokeEvent,
-	hostname: string,
-	options: { name?: string }
-) {
-	const parentWindow = BrowserWindow.fromWebContents( event.sender );
-	const args = [ 'preview', 'set', hostname ];
-	if ( options.name !== undefined ) {
-		args.push( '--name', options.name );
-	}
-	return executePreviewCliCommand( args, parentWindow );
 }

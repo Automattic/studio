@@ -783,6 +783,7 @@ export async function runFullPull(
 			'--no-adaptive',
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
+			'--force',
 		],
 		( progress ) => logger.reportProgress( progress ),
 		{

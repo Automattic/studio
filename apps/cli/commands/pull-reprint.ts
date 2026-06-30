@@ -41,9 +41,9 @@ import {
 } from 'cli/lib/pull/migration-client';
 import {
 	getContentDirFromState,
-	getReprintStatePath,
 	hasSkippedFiles,
 	readReprintState,
+	writeReprintState,
 } from 'cli/lib/pull/reprint-state';
 import {
 	ensureImportedSiteSqliteReady,
@@ -667,20 +667,12 @@ function hasPullCompletedStage( metadata: PullSessionMetadata, stage: PullStage 
 function normalizeReprintStateForEssentialFilesPull( stateDirectory: string ): void {
 	const reprintState = readReprintState( stateDirectory );
 	if ( reprintState?.filter && reprintState.filter !== 'essential-files' ) {
-		const statePath = getReprintStatePath( stateDirectory );
-		fs.writeFileSync(
-			statePath,
-			JSON.stringify(
-				{
-					...reprintState,
-					status: 'complete',
-					stage: null,
-					filter: 'essential-files',
-				},
-				null,
-				2
-			) + '\n'
-		);
+		writeReprintState( stateDirectory, {
+			...reprintState,
+			status: 'complete',
+			stage: null,
+			filter: 'essential-files',
+		} );
 	}
 }
 
@@ -836,31 +828,13 @@ export async function downloadSkippedFiles(
 	// encodes the resume cursor; overwriting would break validation) or
 	// when no skipped entries exist.
 	if ( ! isResumingSkipped && hasSkippedFiles( metadata.stateDirectory ) ) {
-		const statePath = getReprintStatePath( metadata.stateDirectory );
-		if ( fs.existsSync( statePath ) ) {
-			try {
-				const currentState = JSON.parse( fs.readFileSync( statePath, 'utf-8' ) ) as Record<
-					string,
-					unknown
-				>;
-				fs.writeFileSync(
-					statePath,
-					JSON.stringify(
-						{
-							...currentState,
-							command: 'files-sync',
-							status: 'complete',
-							stage: null,
-							filter: 'essential-files',
-						},
-						null,
-						2
-					) + '\n'
-				);
-			} catch {
-				// Leave reprint state untouched if it cannot be parsed.
-			}
-		}
+		writeReprintState( metadata.stateDirectory, {
+			...reprintState,
+			command: 'files-sync',
+			status: 'complete',
+			stage: null,
+			filter: 'essential-files',
+		} );
 	}
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );

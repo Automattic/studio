@@ -395,9 +395,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async exportDatabase( siteId ): Promise< string | null > {
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=database` );
 		},
-		async getAllCustomDomains(): Promise< string[] > {
-			return [];
-		},
 
 		// Featured blueprints — public endpoint, same source as the desktop app.
 		async getFeaturedBlueprints( locale ): Promise< FeaturedBlueprint[] > {

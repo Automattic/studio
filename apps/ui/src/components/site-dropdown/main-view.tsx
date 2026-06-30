@@ -1,10 +1,9 @@
 import { useIsMutating, useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
+import { arrowUp, copy, external, Icon } from '@wordpress/icons';
 import { Button, Field, IconButton, Select, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
-import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
@@ -849,20 +848,6 @@ export function MainView( {
 								>
 									{ __( 'Sync' ) }
 								</Button>
-								<Menu.SubmenuRoot>
-									<Menu.SubmenuTrigger
-										className={ styles.moreMenuTrigger }
-										disabled={ isSyncing }
-										aria-label={ __( 'More live site actions' ) }
-									>
-										<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
-									</Menu.SubmenuTrigger>
-									<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
-										<Menu.Item disabled={ isSyncing } onClick={ onDisconnectClick }>
-											{ __( 'Disconnect' ) }
-										</Menu.Item>
-									</Menu.Popup>
-								</Menu.SubmenuRoot>
 							</div>
 						}
 					/>
@@ -906,6 +891,7 @@ export function MainView( {
 							onSelectedThemePathsChange={ setSelectedThemePaths }
 							onSelectedPluginPathsChange={ setSelectedPluginPaths }
 							onSubmit={ handleSyncSubmit }
+							onDisconnect={ onDisconnectClick }
 						/>
 					) : null }
 				</div>
@@ -945,6 +931,7 @@ function SyncFlyout( {
 	onSelectedThemePathsChange,
 	onSelectedPluginPathsChange,
 	onSubmit,
+	onDisconnect,
 }: {
 	direction: SyncDirection;
 	useCase: SyncUseCase;
@@ -966,6 +953,7 @@ function SyncFlyout( {
 	onSelectedThemePathsChange: ( paths: string[] ) => void;
 	onSelectedPluginPathsChange: ( paths: string[] ) => void;
 	onSubmit: () => void;
+	onDisconnect: () => void;
 } ) {
 	const actionLabel = direction === 'push' ? __( 'Push' ) : __( 'Pull' );
 	const itemSourceLabel = direction === 'push' ? __( 'local' ) : __( 'live' );
@@ -1088,6 +1076,18 @@ function SyncFlyout( {
 					onClick={ onSubmit }
 				>
 					{ actionLabel }
+				</Button>
+			</div>
+			<div className={ styles.syncDisconnectFooter }>
+				<Button
+					variant="minimal"
+					tone="neutral"
+					size="compact"
+					className={ styles.syncDisconnectButton }
+					disabled={ disabled }
+					onClick={ onDisconnect }
+				>
+					{ __( 'Disconnect' ) }
 				</Button>
 			</div>
 		</div>
@@ -1553,7 +1553,7 @@ function LocalServerControl( {
 				<span
 					className={ clsx(
 						styles.localServerGlyph,
-						targetRunning ? styles.playIcon : styles.pauseIcon
+						targetRunning ? styles.pauseIcon : styles.playIcon
 					) }
 				/>
 			</span>

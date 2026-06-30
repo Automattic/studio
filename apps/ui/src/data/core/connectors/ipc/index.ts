@@ -501,6 +501,10 @@ export function createIpcConnector(): Connector {
 			return ( ipcApi.getPathForFile( file ) as string ) ?? '';
 		},
 
+		async createTemporaryTextFile( name, contents ): Promise< string > {
+			return ( await ipcApi.createTemporaryTextFile( name, contents ) ) as string;
+		},
+
 		async readLocalMediaFile( path ): Promise< LocalMediaFile > {
 			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
 		},
@@ -563,6 +567,10 @@ export function createIpcConnector(): Connector {
 			return parseSiteOverviewDetails(
 				await executeWpCli( siteId, SITE_OVERVIEW_DETAILS_COMMAND )
 			);
+		},
+
+		async getSiteThumbnail( siteId ): Promise< string | null > {
+			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
 
 		async getXdebugEnabledSite() {

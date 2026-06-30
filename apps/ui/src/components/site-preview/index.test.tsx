@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
 import { getPathFromPreviewUrl, getToolbarPageTitle, SitePreview } from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -96,6 +97,28 @@ function mockWebviewContentsId( webContentsId = 42 ) {
 	};
 }
 
+function dispatchWebviewConsoleMessage(
+	webview: Element,
+	{
+		level = 1,
+		message,
+		sourceId,
+		line,
+	}: { level?: number; message: string; sourceId?: string; line?: number }
+) {
+	const event = new Event( 'console-message' ) as Event & {
+		level: number;
+		message: string;
+		sourceId?: string;
+		line?: number;
+	};
+	event.level = level;
+	event.message = message;
+	event.sourceId = sourceId;
+	event.line = line;
+	webview.dispatchEvent( event );
+}
+
 describe( 'SitePreview', () => {
 	it( 'shows the current page title and exposes the URL in a tooltip', async () => {
 		useConnectorMock.mockReturnValue( {
@@ -146,17 +169,27 @@ describe( 'SitePreview', () => {
 		expect( refreshTooltip ).toHaveAttribute( 'data-instant', 'delay' );
 	} );
 
-	it( 'hides the browser controls when the site is not running', () => {
+	it( 'hides browser controls and shows the stopped preview treatment when the site is not running', async () => {
+		const getSiteThumbnail = vi.fn().mockResolvedValue( 'data:image/png;base64,thumbnail' );
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			getSiteThumbnail,
 		} as never );
 
-		renderPreview( <SitePreview site={ createSite() } path="/wp-admin/" reloadNonce={ 0 } /> );
+		const { container } = renderPreview(
+			<SitePreview site={ createSite() } path="/wp-admin/" reloadNonce={ 0 } />
+		);
 
 		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'http://localhost:8881/wp-admin/' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
+		expect( container.querySelector( 'canvas' ) ).toBeInTheDocument();
+		await waitFor( () => expect( getSiteThumbnail ).toHaveBeenCalledWith( 'site-1' ) );
+
+		expect(
+			await screen.findByRole( 'img', { name: 'Screenshot of Example Site' } )
+		).toHaveAttribute( 'src', 'data:image/png;base64,thumbnail' );
 	} );
 
 	it( 'shows a refresh button that reloads the active preview surface', () => {
@@ -324,6 +357,177 @@ describe( 'SitePreview', () => {
 		} finally {
 			restoreMatchMedia();
 			restoreWebviewContentsId();
+			restoreUserAgent();
+		}
+	} );
+
+	it( 'shows webview console messages in the preview console drawer', async () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		const onConsoleEntriesChange = vi.fn();
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			copyText: vi.fn().mockResolvedValue( undefined ),
+		} as never );
+
+		try {
+			const { container } = renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/"
+					reloadNonce={ 0 }
+					onConsoleEntriesChange={ onConsoleEntriesChange }
+				/>
+			);
+			const webview = container.querySelector( 'webview' );
+			expect( webview ).toBeInTheDocument();
+
+			dispatchWebviewConsoleMessage( webview!, {
+				level: 3,
+				message: 'Uncaught TypeError: Cannot read properties of undefined',
+				sourceId: 'http://localhost:8881/wp-content/themes/example/app.js',
+				line: 27,
+			} );
+
+			await waitFor( () => {
+				expect( onConsoleEntriesChange ).toHaveBeenLastCalledWith( [
+					expect.objectContaining( {
+						level: 'error',
+						message: 'Uncaught TypeError: Cannot read properties of undefined',
+						sourceId: 'http://localhost:8881/wp-content/themes/example/app.js',
+						lineNumber: 27,
+					} ),
+				] );
+			} );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Show console' } ) );
+
+			expect(
+				screen.getByText( 'Uncaught TypeError: Cannot read properties of undefined' )
+			).toBeVisible();
+			expect( screen.getByText( 'app.js:27' ) ).toBeVisible();
+		} finally {
+			restoreUserAgent();
+		}
+	} );
+
+	it( 'attaches visible console messages as a text file', async () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		const onConsoleFileDone = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			copyText: vi.fn().mockResolvedValue( undefined ),
+		} as never );
+
+		try {
+			const { container } = renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/"
+					reloadNonce={ 0 }
+					onConsoleFileDone={ onConsoleFileDone }
+				/>
+			);
+			const webview = container.querySelector( 'webview' );
+			expect( webview ).toBeInTheDocument();
+
+			dispatchWebviewConsoleMessage( webview!, {
+				level: 3,
+				message: 'Uncaught TypeError: Cannot read properties of undefined',
+				sourceId: 'http://localhost:8881/wp-content/themes/example/app.js',
+				line: 27,
+			} );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Show console' } ) );
+			await act( async () => {
+				fireEvent.click(
+					screen.getByRole( 'button', { name: 'Attach visible console messages to composer' } )
+				);
+			} );
+
+			await waitFor( () => expect( onConsoleFileDone ).toHaveBeenCalledTimes( 1 ) );
+			const [ file ] = onConsoleFileDone.mock.calls[ 0 ];
+			expect( file.name ).toMatch( /^browser-console-.*\.txt$/ );
+			expect( file.mimeType ).toBe( 'text/plain' );
+			expect( file.contents ).toContain(
+				'Uncaught TypeError: Cannot read properties of undefined'
+			);
+			expect( file.size ).toBeGreaterThan( 0 );
+		} finally {
+			restoreUserAgent();
+		}
+	} );
+
+	it( 'resizes the console drawer from the shared resize handle', async () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			copyText: vi.fn().mockResolvedValue( undefined ),
+		} as never );
+
+		try {
+			const { container } = renderPreview(
+				<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+			);
+			const webview = container.querySelector( 'webview' );
+			expect( webview ).toBeInTheDocument();
+
+			dispatchWebviewConsoleMessage( webview!, {
+				message: 'Console output',
+			} );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Show console' } ) );
+
+			const resizeHandle = screen.getByRole( 'separator', { name: 'Resize console' } );
+			expect( resizeHandle ).toHaveAttribute( 'aria-valuenow', '280' );
+			expect( resizeHandle ).toHaveAttribute( 'aria-orientation', 'horizontal' );
+
+			fireEvent.keyDown( resizeHandle, { key: 'ArrowUp' } );
+
+			await waitFor( () => expect( resizeHandle ).toHaveAttribute( 'aria-valuenow', '304' ) );
+
+			fireEvent.mouseDown( resizeHandle, { button: 0, clientY: 500 } );
+			expect( document.body ).toHaveStyle( { cursor: 'row-resize' } );
+			fireEvent.mouseUp( document, { clientY: 420 } );
+
+			await waitFor( () => expect( resizeHandle ).toHaveAttribute( 'aria-valuenow', '384' ) );
+			expect( document.body ).not.toHaveStyle( { cursor: 'row-resize' } );
+		} finally {
+			restoreUserAgent();
+		}
+	} );
+
+	it( 'does not show internal inspector bridge messages in the preview console', async () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		const onConsoleEntriesChange = vi.fn();
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			copyText: vi.fn().mockResolvedValue( undefined ),
+		} as never );
+
+		try {
+			const { container } = renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/"
+					reloadNonce={ 0 }
+					onConsoleEntriesChange={ onConsoleEntriesChange }
+				/>
+			);
+			const webview = container.querySelector( 'webview' );
+			expect( webview ).toBeInTheDocument();
+
+			dispatchWebviewConsoleMessage( webview!, {
+				message: `${ INSPECTOR_BRIDGE_PREFIX }${ JSON.stringify( {
+					type: 'state',
+					isPicking: false,
+					annotationCount: 0,
+				} ) }`,
+			} );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Show console' } ) );
+
+			expect( screen.getByText( 'No console messages yet.' ) ).toBeVisible();
+			expect( onConsoleEntriesChange ).toHaveBeenLastCalledWith( [] );
+		} finally {
 			restoreUserAgent();
 		}
 	} );

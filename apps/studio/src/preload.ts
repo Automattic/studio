@@ -159,6 +159,8 @@ const api: IpcApi = {
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
+	createTemporaryTextFile: ( name, contents ) =>
+		ipcRendererInvoke( 'createTemporaryTextFile', name, contents ),
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
 	setWebviewColorScheme: ( webContentsId, colorScheme ) =>
 		ipcRendererInvoke( 'setWebviewColorScheme', webContentsId, colorScheme ),

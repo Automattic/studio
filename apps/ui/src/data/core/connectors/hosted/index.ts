@@ -167,6 +167,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getSiteOverviewDetails() {
 			throw new WebUnsupportedError( 'getSiteOverviewDetails' );
 		},
+		async getSiteThumbnail(): Promise< string | null > {
+			return null;
+		},
 		async getXdebugEnabledSite(): Promise< SiteDetails | null > {
 			return null;
 		},
@@ -208,6 +211,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getFilePath() {
 			// Browsers can't resolve a real filesystem path for a File.
 			return '';
+		},
+		async createTemporaryTextFile() {
+			throw new WebUnsupportedError( 'createTemporaryTextFile' );
 		},
 		async readLocalMediaFile() {
 			throw new WebUnsupportedError( 'readLocalMediaFile' );

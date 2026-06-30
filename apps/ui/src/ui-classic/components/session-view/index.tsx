@@ -9,7 +9,12 @@ import * as Menu from '@/components/menu';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
-import { type Annotation } from '@/components/site-preview/types';
+import {
+	appendPreviewConsoleEntriesToPrompt,
+	stripPreviewConsolePromptBlock,
+} from '@/components/site-preview/console-utils';
+import { type Annotation, type PreviewConsoleTextFile } from '@/components/site-preview/types';
+import { useConnector } from '@/data/core';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import {
 	useSession,
@@ -21,6 +26,8 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import {
 	SessionUIProvider,
 	useSessionPreviewAnnotations,
+	useSessionPreviewConsoleFile,
+	useSessionPreviewConsoleEntries,
 	useSessionPreviewScreenshot,
 } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -89,7 +96,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 				<SiteDropdown
 					site={ site }
 					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon={ sidebarCollapsed }
+					showSiteIcon
 					showStatus={ sidebarCollapsed }
 				/>
 			) : (
@@ -205,6 +212,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sessions } = useSessions();
 	const { data: sites } = useSites();
@@ -251,15 +259,29 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const composerRef = useRef< ComposerHandle >( null );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
+	const previewConsoleEntries = useSessionPreviewConsoleEntries();
+	const sendMessageWithConsole = useCallback(
+		async ( prompt: string, options?: Parameters< typeof sendMessage >[ 1 ] ) => {
+			const nextPrompt =
+				canTogglePreview && previewConsoleEntries.length > 0
+					? appendPreviewConsoleEntriesToPrompt( prompt, previewConsoleEntries )
+					: prompt;
+			await sendMessage( nextPrompt, {
+				...options,
+				displayMessage: options?.displayMessage ?? ( nextPrompt === prompt ? undefined : prompt ),
+			} );
+		},
+		[ canTogglePreview, previewConsoleEntries, sendMessage ]
+	);
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
 			if ( annotations.length === 0 ) return;
-			void sendMessage( formatAnnotationsAsPrompt( annotations ), {
+			void sendMessageWithConsole( formatAnnotationsAsPrompt( annotations ), {
 				displayMessage: formatAnnotationsSubmittedMessage( annotations.length ),
 			} );
 		},
-		[ sendMessage ]
+		[ sendMessageWithConsole ]
 	);
 	const handleScreenshotDone = useCallback( async ( file: File ) => {
 		const composer = composerRef.current;
@@ -271,15 +293,40 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			throw new Error( __( 'Screenshot could not be added.' ) );
 		}
 	}, [] );
+	const handleConsoleFileDone = useCallback(
+		async ( file: PreviewConsoleTextFile ) => {
+			const composer = composerRef.current;
+			if ( ! composer ) {
+				throw new Error( 'Composer is not ready.' );
+			}
+			const path = await connector.createTemporaryTextFile( file.name, file.contents );
+			const didAdd = composer.addFileAttachments( [
+				{
+					id: `console-${ Date.now().toString( 36 ) }-${ Math.random()
+						.toString( 36 )
+						.slice( 2, 10 ) }`,
+					name: file.name,
+					path,
+					mimeType: file.mimeType,
+					size: file.size,
+				},
+			] );
+			if ( ! didAdd ) {
+				throw new Error( __( 'Console messages could not be attached.' ) );
+			}
+		},
+		[ connector ]
+	);
 	// The preview panel itself is hosted by the dashboard layout; route its
 	// actions to this session while it is on screen.
 	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview );
 	useSessionPreviewScreenshot( handleScreenshotDone, canTogglePreview );
+	useSessionPreviewConsoleFile( handleConsoleFileDone, canTogglePreview );
 
 	const reopenQueuedPrompt = useCallback(
 		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {
 			removeQueuedPrompt( queuedPrompt.id );
-			composerRef.current?.replaceDraft( queuedPrompt.prompt, {
+			composerRef.current?.replaceDraft( stripPreviewConsolePromptBlock( queuedPrompt.prompt ), {
 				images: queuedPrompt.images,
 				files: queuedPrompt.files,
 			} );
@@ -429,7 +476,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						isInterrupting={ isInterrupting }
 						error={ runError }
 						model={ currentModel }
-						onSend={ sendMessage }
+						onSend={ sendMessageWithConsole }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
 						entries={ data.entries }

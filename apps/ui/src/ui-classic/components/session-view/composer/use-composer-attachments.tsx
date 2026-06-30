@@ -1,4 +1,4 @@
-import { STUDIO_CHAT_MAX_FILES } from '@studio/common/ai/chat-files';
+import { STUDIO_CHAT_MAX_FILES, type StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import { STUDIO_CHAT_MAX_IMAGES } from '@studio/common/ai/chat-images';
 import {
 	getComposerClipboardFiles,
@@ -6,6 +6,7 @@ import {
 	prepareComposerAttachments,
 	toComposerSendAttachments,
 	type ComposerAttachment,
+	type ComposerFilePreview,
 	type ComposerSendAttachments,
 } from '@studio/common/ai/composer-attachments';
 import { __, sprintf } from '@wordpress/i18n';
@@ -14,6 +15,29 @@ import { useConnector } from '@/data/core';
 
 export { toComposerSendAttachments };
 export type { ComposerAttachment, ComposerSendAttachments };
+
+type ComposerFileAttachmentInput = StudioChatFileAttachment & {
+	preview?: ComposerFilePreview;
+};
+
+function getComposerAttachmentMessages() {
+	return {
+		imageTooLarge: __( 'Images must be 5 MB or smaller.' ),
+		imageReadFailed: __( 'Failed to read the attached image.' ),
+		fileAttachFailed: __( 'This file could not be attached.' ),
+		maxImages: sprintf(
+			/* translators: %d: maximum number of images. */
+			__( 'You can attach up to %d images.' ),
+			STUDIO_CHAT_MAX_IMAGES
+		),
+		totalImagesTooLarge: __( 'Attached images are too large to send together.' ),
+		maxFiles: sprintf(
+			/* translators: %d: maximum number of files. */
+			__( 'You can attach up to %d files.' ),
+			STUDIO_CHAT_MAX_FILES
+		),
+	};
+}
 
 export function useComposerAttachments() {
 	const connector = useConnector();
@@ -55,22 +79,7 @@ export function useComposerAttachments() {
 				return false;
 			}
 			setError( null );
-			const messages = {
-				imageTooLarge: __( 'Images must be 5 MB or smaller.' ),
-				imageReadFailed: __( 'Failed to read the attached image.' ),
-				fileAttachFailed: __( 'This file could not be attached.' ),
-				maxImages: sprintf(
-					/* translators: %d: maximum number of images. */
-					__( 'You can attach up to %d images.' ),
-					STUDIO_CHAT_MAX_IMAGES
-				),
-				totalImagesTooLarge: __( 'Attached images are too large to send together.' ),
-				maxFiles: sprintf(
-					/* translators: %d: maximum number of files. */
-					__( 'You can attach up to %d files.' ),
-					STUDIO_CHAT_MAX_FILES
-				),
-			};
+			const messages = getComposerAttachmentMessages();
 
 			const prepared = await prepareComposerAttachments( list, {
 				resolveFilePath: ( file ) => connector.getFilePath( file ),
@@ -96,6 +105,35 @@ export function useComposerAttachments() {
 		},
 		[ connector ]
 	);
+
+	const addFileAttachments = useCallback( ( incoming: ComposerFileAttachmentInput[] ): boolean => {
+		if ( incoming.length === 0 ) {
+			return false;
+		}
+		setError( null );
+		const messages = getComposerAttachmentMessages();
+		const prepared: ComposerAttachment[] = incoming.map( ( file ) => ( {
+			id: file.id,
+			kind: 'file',
+			name: file.name,
+			path: file.path,
+			mimeType: file.mimeType,
+			size: file.size ?? 0,
+			preview: file.preview,
+		} ) );
+
+		let didAdd = false;
+		setAttachments( ( current ) => {
+			const merged = mergeComposerAttachments( current, prepared, messages );
+			if ( merged.error ) {
+				setError( merged.error );
+			}
+			didAdd = merged.attachments.length > current.length;
+			attachmentsRef.current = merged.attachments;
+			return merged.attachments;
+		} );
+		return didAdd;
+	}, [] );
 
 	const onDragOver = useCallback( ( event: React.DragEvent ) => {
 		if ( ! Array.from( event.dataTransfer.types ).includes( 'Files' ) ) {
@@ -141,6 +179,7 @@ export function useComposerAttachments() {
 		error,
 		isDraggingOver,
 		addFiles,
+		addFileAttachments,
 		removeAttachment,
 		clear,
 		restore,

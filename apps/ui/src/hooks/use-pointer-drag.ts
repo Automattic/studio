@@ -7,12 +7,14 @@ export interface PointerDragHandlers {
 	// or null to abort the drag (e.g. the container is not measurable yet).
 	onStart: ( event: MouseEvent< HTMLElement > ) => number | null;
 	// rAF-throttled. Receives the start scalar and the raw pixel delta
-	// (clientX - startX); returns the new committed-to-state scalar. Direction
+	// (clientX - startX or clientY - startY); returns the new committed-to-state scalar. Direction
 	// and clamping are the caller's concern.
-	onMove: ( start: number, deltaX: number ) => number;
+	onMove: ( start: number, delta: number ) => number;
 	// Called once on mouseup, with the latest scalar from the last onMove.
 	// Persist here.
 	onCommit: ( latest: number ) => void;
+	axis?: 'x' | 'y';
+	cursor?: string;
 }
 
 export interface PointerDragControls {
@@ -31,6 +33,8 @@ export function usePointerDrag( {
 	onStart,
 	onMove,
 	onCommit,
+	axis = 'x',
+	cursor = 'col-resize',
 }: PointerDragHandlers ): PointerDragControls {
 	const [ isDragging, setIsDragging ] = useState( false );
 	// Holds the active drag's teardown so it can be cancelled externally or on
@@ -50,10 +54,10 @@ export function usePointerDrag( {
 			event.preventDefault();
 			cancelRef.current?.(); // tear down any prior drag
 
-			const startX = event.clientX;
+			const startPosition = axis === 'x' ? event.clientX : event.clientY;
 			const originalCursor = document.body.style.cursor;
 			const originalUserSelect = document.body.style.userSelect;
-			document.body.style.cursor = 'col-resize';
+			document.body.style.cursor = cursor;
 			document.body.style.userSelect = 'none';
 			setIsDragging( true );
 
@@ -61,15 +65,17 @@ export function usePointerDrag( {
 			let latest = start;
 			let committed = false;
 
-			const run = ( clientX: number ) => {
-				latest = onMove( start, clientX - startX );
+			const run = ( clientPosition: number ) => {
+				latest = onMove( start, clientPosition - startPosition );
 			};
 
 			const handleMouseMove = ( moveEvent: globalThis.MouseEvent ) => {
 				if ( frame !== undefined ) {
 					window.cancelAnimationFrame( frame );
 				}
-				frame = window.requestAnimationFrame( () => run( moveEvent.clientX ) );
+				frame = window.requestAnimationFrame( () =>
+					run( axis === 'x' ? moveEvent.clientX : moveEvent.clientY )
+				);
 			};
 
 			const cancel = ( { commit = false }: { commit?: boolean } = {} ) => {
@@ -91,7 +97,7 @@ export function usePointerDrag( {
 			};
 
 			function handleMouseUp( upEvent: globalThis.MouseEvent ) {
-				run( upEvent.clientX );
+				run( axis === 'x' ? upEvent.clientX : upEvent.clientY );
 				cancel( { commit: true } );
 			}
 
@@ -99,7 +105,7 @@ export function usePointerDrag( {
 			document.addEventListener( 'mousemove', handleMouseMove );
 			document.addEventListener( 'mouseup', handleMouseUp );
 		},
-		[ onStart, onMove, onCommit ]
+		[ axis, cursor, onStart, onMove, onCommit ]
 	);
 
 	const cancel = useCallback( ( options?: { commit?: boolean } ) => {

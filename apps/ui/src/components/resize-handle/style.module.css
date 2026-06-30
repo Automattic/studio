@@ -10,6 +10,14 @@
 	-webkit-app-region: no-drag;
 }
 
+.horizontal {
+	width: auto;
+	height: 8px;
+	align-items: center;
+	justify-content: stretch;
+	cursor: row-resize;
+}
+
 /* Thin full-height line that lights up the panel border on hover/drag. */
 .resizeHandleIndicator {
 	width: 2px;
@@ -17,6 +25,13 @@
 	background-color: var(--wpds-color-stroke-interactive-brand, #2563eb);
 	opacity: 0;
 	transition: opacity 120ms ease;
+}
+
+.horizontal .resizeHandleIndicator {
+	width: auto;
+	height: 2px;
+	flex: 1;
+	align-self: auto;
 }
 
 .resizeHandle:hover .resizeHandleIndicator,
@@ -32,4 +47,8 @@
 	cursor: col-resize;
 	user-select: none;
 	-webkit-app-region: no-drag;
+}
+
+.horizontalOverlay {
+	cursor: row-resize;
 }

@@ -1442,6 +1442,34 @@ export function showItemInFolder( _event: IpcMainInvokeEvent, path: string ) {
 	shell.showItemInFolder( path );
 }
 
+function sanitizeTemporaryTextFileName( name: string ): string {
+	const fallbackName = 'browser-console.txt';
+	const normalized = nodePath
+		.basename( typeof name === 'string' && name ? name : fallbackName )
+		.replace( /[^a-zA-Z0-9._-]/g, '-' );
+	const withExtension = normalized.toLowerCase().endsWith( '.txt' )
+		? normalized
+		: `${ normalized }.txt`;
+	return withExtension || fallbackName;
+}
+
+export async function createTemporaryTextFile(
+	_event: IpcMainInvokeEvent,
+	name: string,
+	contents: string
+): Promise< string > {
+	if ( typeof contents !== 'string' ) {
+		throw new Error( 'Temporary text file contents must be a string.' );
+	}
+
+	const directory = nodePath.join( app.getPath( 'temp' ), 'com.wordpress.studio', 'attachments' );
+	await fsPromises.mkdir( directory, { recursive: true } );
+	const fileName = `${ crypto.randomUUID() }-${ sanitizeTemporaryTextFileName( name ) }`;
+	const filePath = nodePath.join( directory, fileName );
+	await fsPromises.writeFile( filePath, contents, 'utf8' );
+	return filePath;
+}
+
 export async function readLocalMediaFile(
 	_event: IpcMainInvokeEvent,
 	path: string

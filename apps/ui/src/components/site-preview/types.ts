@@ -11,3 +11,21 @@ export interface Annotation {
 	timestamp?: number;
 	[ key: string ]: unknown;
 }
+
+export type PreviewConsoleLevel = 'debug' | 'log' | 'info' | 'warning' | 'error';
+
+export interface PreviewConsoleEntry {
+	id: string;
+	level: PreviewConsoleLevel;
+	message: string;
+	timestamp: number;
+	sourceId?: string;
+	lineNumber?: number;
+}
+
+export interface PreviewConsoleTextFile {
+	name: string;
+	contents: string;
+	mimeType: 'text/plain';
+	size: number;
+}

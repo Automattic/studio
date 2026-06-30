@@ -20,6 +20,7 @@ import { SiteOverviewView } from './index';
 import type { SiteDetails } from '@/data/core';
 
 const navigateMock = vi.fn();
+const siteDropdownMock = vi.hoisted( () => vi.fn() );
 
 class ResizeObserverMock {
 	observe = vi.fn();
@@ -37,7 +38,10 @@ vi.mock( '@/components/delete-site-dialog', () => ( {
 } ) );
 
 vi.mock( '@/components/site-dropdown', () => ( {
-	SiteDropdown: ( { site }: { site: SiteDetails } ) => <div>{ site.name }</div>,
+	SiteDropdown: ( props: { site: SiteDetails; showSiteIcon?: boolean; showStatus?: boolean } ) => {
+		siteDropdownMock( props );
+		return <div>{ props.site.name }</div>;
+	},
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -103,6 +107,7 @@ describe( 'SiteOverviewView', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		siteDropdownMock.mockClear();
 		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
 		Object.defineProperty( window, 'matchMedia', {
 			writable: true,
@@ -195,6 +200,12 @@ describe( 'SiteOverviewView', () => {
 	it( 'renders the shortcut sections', async () => {
 		render( <SiteOverviewView siteId="site-1" /> );
 
+		expect( siteDropdownMock ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				showSiteIcon: true,
+				showStatus: false,
+			} )
+		);
 		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Chats' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'tab', { name: 'General' } ) ).toBeVisible();

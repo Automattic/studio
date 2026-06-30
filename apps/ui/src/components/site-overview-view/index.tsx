@@ -89,11 +89,7 @@ function OverviewHeader( { site }: { site: SiteDetails } ) {
 				sidebarCollapsed ? `${ styles.header } ${ styles.headerSidebarCollapsed }` : styles.header
 			}
 		>
-			<SiteDropdown
-				site={ site }
-				showSiteIcon={ sidebarCollapsed }
-				showStatus={ sidebarCollapsed }
-			/>
+			<SiteDropdown site={ site } showSiteIcon showStatus={ sidebarCollapsed } />
 		</div>
 	);
 }

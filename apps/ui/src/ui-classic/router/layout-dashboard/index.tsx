@@ -11,6 +11,8 @@ import { useSites } from '@/data/queries/use-sites';
 import {
 	SessionUIProvider,
 	useSessionPreviewAnnotationsHandler,
+	useSessionPreviewConsoleFileHandler,
+	useSessionPreviewConsoleUI,
 	useSessionPreviewScreenshotHandler,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
@@ -58,10 +60,12 @@ function DashboardLayoutContent() {
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	const preview = useSessionPreviewUI();
+	const previewConsole = useSessionPreviewConsoleUI();
 	const setPreviewOpen = preview.setOpen;
 	const updatePreviewPath = preview.updatePath;
 	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
 	const onScreenshotDone = useSessionPreviewScreenshotHandler();
+	const onConsoleFileDone = useSessionPreviewConsoleFileHandler();
 	const sessionOwnerSitePath = sessionData?.summary.ownerSitePath;
 	const sessionSite = sessionOwnerSitePath
 		? sites?.find( ( site ) => site.path === sessionOwnerSitePath )
@@ -119,17 +123,21 @@ function DashboardLayoutContent() {
 					reloadNonce={ preview.reloadNonce }
 					onAnnotationsDone={ onAnnotationsDone }
 					onScreenshotDone={ canAttachPreviewScreenshot ? onScreenshotDone : undefined }
+					onConsoleFileDone={ canAttachPreviewScreenshot ? onConsoleFileDone : undefined }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
+					onConsoleEntriesChange={ previewConsole.setEntries }
 				/>
 			) : null,
 		[
 			onAnnotationsDone,
+			onConsoleFileDone,
 			onScreenshotDone,
 			canAttachPreviewScreenshot,
 			preview.path,
 			preview.reloadNonce,
 			preview.updatePath,
+			previewConsole.setEntries,
 			previewSite,
 		]
 	);

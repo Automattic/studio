@@ -8,6 +8,8 @@ const { connector, snapshots, connectedSites } = vi.hoisted( () => ( {
 	connector: {
 		copyText: vi.fn(),
 		openExternalUrl: vi.fn(),
+		getLiveSyncItems: vi.fn(),
+		getLiveSyncLatestBackupTime: vi.fn(),
 	},
 	snapshots: [] as Snapshot[],
 	connectedSites: [] as SyncSite[],
@@ -60,7 +62,7 @@ const site: SiteDetails = {
 	phpVersion: '8.3',
 };
 
-function renderMainView() {
+function renderMainView( props: { onDisconnectClick?: () => void } = {} ) {
 	const queryClient = new QueryClient();
 	return render(
 		<QueryClientProvider client={ queryClient }>
@@ -69,7 +71,7 @@ function renderMainView() {
 				activity={ null }
 				lastSyncLog={ null }
 				onSetupClick={ vi.fn() }
-				onDisconnectClick={ vi.fn() }
+				onDisconnectClick={ props.onDisconnectClick ?? vi.fn() }
 			/>
 		</QueryClientProvider>
 	);
@@ -79,6 +81,10 @@ describe( 'MainView', () => {
 	beforeEach( () => {
 		connector.copyText.mockReset();
 		connector.openExternalUrl.mockReset();
+		connector.getLiveSyncItems.mockReset();
+		connector.getLiveSyncItems.mockResolvedValue( { source: 'local', themes: [], plugins: [] } );
+		connector.getLiveSyncLatestBackupTime.mockReset();
+		connector.getLiveSyncLatestBackupTime.mockResolvedValue( null );
 		snapshots.splice( 0, snapshots.length, {
 			url: 'preview.example.com',
 			atomicSiteId: 123,
@@ -103,5 +109,31 @@ describe( 'MainView', () => {
 		} );
 
 		consoleError.mockRestore();
+	} );
+
+	it( 'shows disconnect at the bottom of the sync flyout', () => {
+		const onDisconnectClick = vi.fn();
+		connectedSites.splice( 0, connectedSites.length, {
+			id: 123,
+			name: 'Live Site',
+			url: 'https://example.com',
+			localSiteId: site.id,
+			isStaging: false,
+			isPressable: false,
+			syncSupport: 'already-connected',
+			lastPullTimestamp: null,
+			lastPushTimestamp: null,
+		} );
+
+		renderMainView( { onDisconnectClick } );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Sync' } ) );
+
+		expect(
+			screen.queryByRole( 'button', { name: 'More live site actions' } )
+		).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Disconnect' } ) );
+
+		expect( onDisconnectClick ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

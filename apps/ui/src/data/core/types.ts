@@ -167,6 +167,9 @@ export interface Connector {
 	// with the selected connector's native site-inspection mechanism so it can
 	// work even when the local web server is stopped.
 	getSiteOverviewDetails( siteId: string ): Promise< SiteOverviewDetails >;
+	// Cached screenshot thumbnail captured by the desktop app while the site
+	// was running. Returns null when the site has not produced a thumbnail yet.
+	getSiteThumbnail( siteId: string ): Promise< string | null >;
 	// Xdebug is exclusive across sites; returns the one site currently using
 	// it (or null) so the settings form can block a conflicting toggle.
 	getXdebugEnabledSite(): Promise< SiteDetails | null >;
@@ -197,6 +200,7 @@ export interface Connector {
 	// in the renderer. Returns an empty string when the underlying file lacks
 	// a real path (synthetic blobs, non-Electron environments).
 	getFilePath( file: File ): Promise< string >;
+	createTemporaryTextFile( name: string, contents: string ): Promise< string >;
 	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
 	captureSiteScreenshot(
 		webContentsId: number,

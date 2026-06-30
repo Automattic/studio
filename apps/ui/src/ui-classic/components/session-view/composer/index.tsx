@@ -229,6 +229,7 @@ export interface ComposerHandle {
 		attachments?: { images?: StudioChatImage[]; files?: StudioChatFileAttachment[] }
 	): void;
 	addFiles( files: FileList | File[] ): Promise< boolean >;
+	addFileAttachments( files: StudioChatFileAttachment[] ): boolean;
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -396,6 +397,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		error: attachmentError,
 		isDraggingOver,
 		addFiles,
+		addFileAttachments,
 		removeAttachment,
 		clear: clearAttachments,
 		restore: restoreAttachments,
@@ -498,8 +500,17 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				}
 				return didAdd;
 			},
+			addFileAttachments( files ) {
+				const didAdd = addFileAttachments( files );
+				if ( didAdd ) {
+					requestAnimationFrame( () => {
+						textareaRef.current?.focus();
+					} );
+				}
+				return didAdd;
+			},
 		} ),
-		[ addFiles, restoreAttachments ]
+		[ addFileAttachments, addFiles, restoreAttachments ]
 	);
 
 	const send = useCallback( async () => {

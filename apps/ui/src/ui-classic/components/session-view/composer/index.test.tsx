@@ -159,6 +159,30 @@ describe( 'Composer menu', () => {
 		await waitFor( () => expect( screen.getByRole( 'textbox' ) ).toHaveFocus() );
 	} );
 
+	it( 'adds path-based file attachments through the imperative handle', async () => {
+		const ref = createRef< ComposerHandle >();
+		renderComposer( { ref } );
+
+		act( () => {
+			expect(
+				ref.current?.addFileAttachments( [
+					{
+						id: 'console-log',
+						name: 'browser-console.txt',
+						path: '/tmp/studio-attachments/browser-console.txt',
+						mimeType: 'text/plain',
+						size: 123,
+					},
+				] )
+			).toBe( true );
+		} );
+
+		expect(
+			await screen.findByRole( 'button', { name: 'Remove attachment: browser-console.txt' } )
+		).toBeInTheDocument();
+		await waitFor( () => expect( screen.getByRole( 'textbox' ) ).toHaveFocus() );
+	} );
+
 	it( 'grows, clamps, and shrinks the textarea with draft content', async () => {
 		Object.defineProperty( window, 'innerHeight', {
 			configurable: true,

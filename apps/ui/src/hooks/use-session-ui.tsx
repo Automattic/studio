@@ -11,7 +11,11 @@ import {
 	type ReactNode,
 } from 'react';
 import { useConnector } from '@/data/core';
-import type { Annotation } from '@/components/site-preview/types';
+import type {
+	Annotation,
+	PreviewConsoleEntry,
+	PreviewConsoleTextFile,
+} from '@/components/site-preview/types';
 
 // Dashboard-scoped UI store (mounted once in the dashboard layout, shared by
 // every route under it). Holds the slices of UI state that the chat agent
@@ -31,18 +35,25 @@ interface PreviewUIState {
 	reloadNonce: number;
 }
 
+interface PreviewConsoleUIState {
+	entries: PreviewConsoleEntry[];
+}
+
 export interface SessionUIState {
 	preview: PreviewUIState;
+	previewConsole: PreviewConsoleUIState;
 }
 
 export type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
 	| { type: 'preview/navigate'; path: string }
-	| { type: 'preview/update-path'; path: string };
+	| { type: 'preview/update-path'; path: string }
+	| { type: 'preview-console/set-entries'; entries: PreviewConsoleEntry[] };
 
 const INITIAL_STATE: SessionUIState = {
 	preview: { open: true, path: '/', reloadNonce: 0 },
+	previewConsole: { entries: [] },
 };
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
@@ -67,6 +78,10 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 			return state.preview.path === action.path
 				? state
 				: { ...state, preview: { ...state.preview, path: action.path } };
+		case 'preview-console/set-entries':
+			return state.previewConsole.entries === action.entries
+				? state
+				: { ...state, previewConsole: { entries: action.entries } };
 	}
 }
 
@@ -81,6 +96,9 @@ const SessionUIPreviewAnnotationsContext = createContext< MutableRefObject<
 > | null >( null );
 const SessionUIPreviewScreenshotContext = createContext< MutableRefObject<
 	( ( file: File ) => void | Promise< void > ) | undefined
+> | null >( null );
+const SessionUIPreviewConsoleFileContext = createContext< MutableRefObject<
+	( ( file: PreviewConsoleTextFile ) => void | Promise< void > ) | undefined
 > | null >( null );
 
 export function SessionUIProvider( { children }: { children: ReactNode } ) {
@@ -103,6 +121,9 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const previewScreenshotRef = useRef< ( ( file: File ) => void | Promise< void > ) | undefined >(
 		undefined
 	);
+	const previewConsoleFileRef = useRef<
+		( ( file: PreviewConsoleTextFile ) => void | Promise< void > ) | undefined
+	>( undefined );
 	const connector = useConnector();
 	useEffect( () => {
 		return connector.onToggleSitePreview( () => {
@@ -111,13 +132,15 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	}, [ connector ] );
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>
-			<SessionUIPreviewScreenshotContext.Provider value={ previewScreenshotRef }>
-				<SessionUIPreviewAnnotationsContext.Provider value={ previewAnnotationsRef }>
-					<SessionUIStateContext.Provider value={ state }>
-						{ children }
-					</SessionUIStateContext.Provider>
-				</SessionUIPreviewAnnotationsContext.Provider>
-			</SessionUIPreviewScreenshotContext.Provider>
+			<SessionUIPreviewConsoleFileContext.Provider value={ previewConsoleFileRef }>
+				<SessionUIPreviewScreenshotContext.Provider value={ previewScreenshotRef }>
+					<SessionUIPreviewAnnotationsContext.Provider value={ previewAnnotationsRef }>
+						<SessionUIStateContext.Provider value={ state }>
+							{ children }
+						</SessionUIStateContext.Provider>
+					</SessionUIPreviewAnnotationsContext.Provider>
+				</SessionUIPreviewScreenshotContext.Provider>
+			</SessionUIPreviewConsoleFileContext.Provider>
 		</SessionUIDispatchContext.Provider>
 	);
 }
@@ -177,6 +200,32 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 			updatePath,
 		]
 	);
+}
+
+export interface SessionPreviewConsoleUI {
+	readonly entries: PreviewConsoleEntry[];
+	setEntries: ( entries: PreviewConsoleEntry[] ) => void;
+}
+
+export function useSessionPreviewConsoleUI(): SessionPreviewConsoleUI {
+	const state = useSessionUIState();
+	const dispatch = useSessionUIDispatch();
+	const setEntries = useCallback(
+		( entries: PreviewConsoleEntry[] ) =>
+			dispatch( { type: 'preview-console/set-entries', entries } ),
+		[ dispatch ]
+	);
+	return useMemo(
+		() => ( {
+			entries: state.previewConsole.entries,
+			setEntries,
+		} ),
+		[ state.previewConsole.entries, setEntries ]
+	);
+}
+
+export function useSessionPreviewConsoleEntries(): PreviewConsoleEntry[] {
+	return useSessionUIState().previewConsole.entries;
 }
 
 // Registers the on-screen session's annotations handler (its "send to chat")
@@ -241,6 +290,44 @@ export function useSessionPreviewScreenshotHandler(): ( file: File ) => Promise<
 	}
 	return useCallback(
 		async ( file: File ) => {
+			await ref.current?.( file );
+		},
+		[ ref ]
+	);
+}
+
+export function useSessionPreviewConsoleFile(
+	onConsoleFileDone: ( file: PreviewConsoleTextFile ) => void | Promise< void >,
+	enabled: boolean
+): void {
+	const ref = useContext( SessionUIPreviewConsoleFileContext );
+	if ( ! ref ) {
+		throw new Error( 'useSessionPreviewConsoleFile must be used within a SessionUIProvider' );
+	}
+	useEffect( () => {
+		if ( ! enabled ) {
+			return;
+		}
+		ref.current = onConsoleFileDone;
+		return () => {
+			if ( ref.current === onConsoleFileDone ) {
+				ref.current = undefined;
+			}
+		};
+	}, [ enabled, onConsoleFileDone, ref ] );
+}
+
+export function useSessionPreviewConsoleFileHandler(): (
+	file: PreviewConsoleTextFile
+) => Promise< void > {
+	const ref = useContext( SessionUIPreviewConsoleFileContext );
+	if ( ! ref ) {
+		throw new Error(
+			'useSessionPreviewConsoleFileHandler must be used within a SessionUIProvider'
+		);
+	}
+	return useCallback(
+		async ( file: PreviewConsoleTextFile ) => {
 			await ref.current?.( file );
 		},
 		[ ref ]

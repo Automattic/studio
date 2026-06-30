@@ -1,23 +1,54 @@
-import { __ } from '@wordpress/i18n';
-import { capturePhoto, chevronLeft, chevronRight, external, pencil } from '@wordpress/icons';
+import { useQuery } from '@tanstack/react-query';
+import { __, sprintf } from '@wordpress/i18n';
+import {
+	capturePhoto,
+	chevronLeft,
+	chevronRight,
+	closeSmall,
+	code,
+	copy,
+	external,
+	file as fileIcon,
+	pencil,
+	trash,
+} from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
-import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DotGrid } from '@/components/dot-grid';
+import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { moonIcon, playIcon, refreshIcon, sunIcon } from '@/lib/icons';
+import { bottomDrawerIcon, moonIcon, playIcon, refreshIcon, sunIcon } from '@/lib/icons';
+import {
+	formatPreviewConsoleEntriesForText,
+	getPreviewConsoleLevelFromWebviewLevel,
+	getPreviewConsoleSourceLabel,
+	MAX_PREVIEW_CONSOLE_ENTRIES,
+} from './console-utils';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
 } from './inspector-script';
 import styles from './style.module.css';
-import type { Annotation } from './types';
+import type {
+	Annotation,
+	PreviewConsoleEntry,
+	PreviewConsoleLevel,
+	PreviewConsoleTextFile,
+} from './types';
 import type { LocalMediaFile, SiteDetails } from '@/data/core';
-import type { ReactElement } from 'react';
+import type {
+	CSSProperties,
+	ComponentProps,
+	KeyboardEvent as ReactKeyboardEvent,
+	ReactElement,
+} from 'react';
 
-export type { Annotation } from './types';
+export type { Annotation, PreviewConsoleEntry, PreviewConsoleTextFile } from './types';
 
 interface SitePreviewProps {
 	site: SiteDetails;
@@ -33,6 +64,9 @@ interface SitePreviewProps {
 	// Called when the user captures the preview as an image to attach to the
 	// composer for the active session.
 	onScreenshotDone?: ( file: File ) => void | Promise< void >;
+	// Called when the user exports console messages as a text file to attach to
+	// the composer for the active session.
+	onConsoleFileDone?: ( file: PreviewConsoleTextFile ) => void | Promise< void >;
 	// Called when the user navigates within the preview (link clicks,
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
@@ -40,6 +74,9 @@ interface SitePreviewProps {
 	// True while the panel is toggled off but kept mounted (so the webview
 	// stays warm). Disables the global browser shortcuts in that state.
 	collapsed?: boolean;
+	// Mirrors the preview's bounded console buffer to dashboard/session state so
+	// agent turns can include recent browser console output.
+	onConsoleEntriesChange?: ( entries: PreviewConsoleEntry[] ) => void;
 }
 
 interface InspectorEvent {
@@ -77,6 +114,7 @@ interface BrowserCommand {
 }
 
 type PreviewColorScheme = 'light' | 'dark';
+type ConsoleFilter = 'all' | PreviewConsoleLevel;
 
 interface PreviewWindow extends Window {
 	ipcApi?: {
@@ -104,6 +142,8 @@ interface WebviewTag extends HTMLElement {
 interface WebviewConsoleEvent extends Event {
 	level: number;
 	message: string;
+	sourceId?: string;
+	line?: number;
 }
 
 interface WebviewPageTitleUpdatedEvent extends Event {
@@ -162,6 +202,12 @@ const EMPTY_INSPECTOR_STATE: InspectorState = {
 	isPicking: false,
 	annotationCount: 0,
 };
+
+const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
+const DEFAULT_CONSOLE_HEIGHT = 280;
+const MIN_CONSOLE_HEIGHT = 168;
+const MAX_CONSOLE_HEIGHT = 560;
+const MIN_BROWSER_HEIGHT_WHILE_RESIZING = 120;
 
 function safeWebviewBoolean( webview: WebviewTag | null, method: 'canGoBack' | 'canGoForward' ) {
 	try {
@@ -295,14 +341,218 @@ function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationS
 	);
 }
 
+function getConsoleFilterLabel( filter: ConsoleFilter ) {
+	switch ( filter ) {
+		case 'all':
+			return __( 'All' );
+		case 'debug':
+			return __( 'Debug' );
+		case 'log':
+			return __( 'Logs' );
+		case 'info':
+			return __( 'Info' );
+		case 'warning':
+			return __( 'Warnings' );
+		case 'error':
+			return __( 'Errors' );
+	}
+}
+
+function getConsoleEntryLevelLabel( level: PreviewConsoleLevel ) {
+	switch ( level ) {
+		case 'debug':
+			return __( 'Debug' );
+		case 'log':
+			return __( 'Log' );
+		case 'info':
+			return __( 'Info' );
+		case 'warning':
+			return __( 'Warning' );
+		case 'error':
+			return __( 'Error' );
+	}
+}
+
+function isConsoleEntryVisible( entry: PreviewConsoleEntry, filter: ConsoleFilter ) {
+	if ( filter === 'all' ) {
+		return true;
+	}
+	if ( filter === 'log' ) {
+		return entry.level === 'log' || entry.level === 'info' || entry.level === 'debug';
+	}
+	return entry.level === filter;
+}
+
+function formatConsoleEntryTime( timestamp: number ) {
+	return new Date( timestamp ).toLocaleTimeString( [], {
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit',
+	} );
+}
+
+function createConsoleTextFile( entries: PreviewConsoleEntry[] ): PreviewConsoleTextFile {
+	const timestamp = new Date().toISOString().replace( /[:.]/g, '-' );
+	const contents = formatPreviewConsoleEntriesForText( entries );
+	return {
+		name: `browser-console-${ timestamp }.txt`,
+		contents,
+		mimeType: 'text/plain',
+		size: new Blob( [ contents ], { type: 'text/plain' } ).size,
+	};
+}
+
+const CONSOLE_FILTERS: ConsoleFilter[] = [ 'all', 'error', 'warning', 'log' ];
+
+function PreviewConsoleDrawer( {
+	entries,
+	filter,
+	hasEntries,
+	height,
+	isAttaching,
+	resizeHandleProps,
+	onFilterChange,
+	onClear,
+	onCopy,
+	onAttach,
+	onClose,
+}: {
+	entries: PreviewConsoleEntry[];
+	filter: ConsoleFilter;
+	hasEntries: boolean;
+	height: number;
+	isAttaching: boolean;
+	resizeHandleProps: Omit<
+		ComponentProps< typeof ResizeHandle >,
+		'className' | 'label' | 'orientation'
+	>;
+	onFilterChange: ( filter: ConsoleFilter ) => void;
+	onClear: () => void;
+	onCopy: () => void;
+	onAttach?: () => void;
+	onClose: () => void;
+} ) {
+	return (
+		<section
+			className={ styles.consoleDrawer }
+			aria-label={ __( 'Console' ) }
+			style={ { '--preview-console-height': `${ height }px` } as CSSProperties }
+		>
+			<ResizeHandle
+				className={ styles.consoleResizeHandle }
+				label={ __( 'Resize console' ) }
+				orientation="horizontal"
+				{ ...resizeHandleProps }
+			/>
+			<header className={ styles.consoleHeader }>
+				<div className={ styles.consoleTitle }>
+					<span className={ styles.consoleTitleIcon } aria-hidden="true">
+						<Icon icon={ code } size={ 14 } />
+					</span>
+					<span>{ __( 'Console' ) }</span>
+				</div>
+				<div
+					className={ styles.consoleFilters }
+					role="group"
+					aria-label={ __( 'Console filters' ) }
+				>
+					{ CONSOLE_FILTERS.map( ( option ) => (
+						<button
+							key={ option }
+							type="button"
+							className={ styles.consoleFilter }
+							aria-pressed={ filter === option }
+							onClick={ () => onFilterChange( option ) }
+						>
+							{ getConsoleFilterLabel( option ) }
+						</button>
+					) ) }
+				</div>
+				<div className={ styles.consoleActions }>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ copy }
+						label={ __( 'Copy visible console messages' ) }
+						disabled={ entries.length === 0 }
+						onClick={ onCopy }
+					/>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ fileIcon }
+						label={ __( 'Attach visible console messages to composer' ) }
+						loading={ isAttaching }
+						loadingAnnouncement={ __( 'Attaching console messages' ) }
+						disabled={ ! onAttach || entries.length === 0 || isAttaching }
+						onClick={ onAttach }
+					/>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ trash }
+						label={ __( 'Clear console' ) }
+						disabled={ ! hasEntries }
+						onClick={ onClear }
+					/>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ closeSmall }
+						label={ __( 'Close console' ) }
+						onClick={ onClose }
+					/>
+				</div>
+			</header>
+			<div className={ styles.consoleBody }>
+				{ entries.length > 0 ? (
+					<ol className={ styles.consoleEntries }>
+						{ entries.map( ( entry ) => {
+							const source = getPreviewConsoleSourceLabel( entry );
+							return (
+								<li key={ entry.id } className={ styles.consoleEntry } data-level={ entry.level }>
+									<span className={ styles.consoleEntryMeta }>
+										<span className={ styles.consoleEntryTime }>
+											{ formatConsoleEntryTime( entry.timestamp ) }
+										</span>
+										<span className={ styles.consoleEntryLevel }>
+											{ getConsoleEntryLevelLabel( entry.level ) }
+										</span>
+									</span>
+									<span className={ styles.consoleEntryMessage }>{ entry.message }</span>
+									{ source ? (
+										<span className={ styles.consoleEntrySource }>{ source }</span>
+									) : null }
+								</li>
+							);
+						} ) }
+					</ol>
+				) : (
+					<div className={ styles.consoleEmpty }>
+						{ hasEntries
+							? __( 'No messages match this filter.' )
+							: __( 'No console messages yet.' ) }
+					</div>
+				) }
+			</div>
+		</section>
+	);
+}
+
 export function SitePreview( {
 	site,
 	path,
 	reloadNonce,
 	onAnnotationsDone,
 	onScreenshotDone,
+	onConsoleFileDone,
 	onPathChange,
 	collapsed = false,
+	onConsoleEntriesChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const startSite = useStartSite();
@@ -319,9 +569,22 @@ export function SitePreview( {
 	const [ previewColorScheme, setPreviewColorScheme ] = useState< PreviewColorScheme >(
 		getInitialPreviewColorScheme
 	);
+	const [ consoleEntries, setConsoleEntries ] = useState< PreviewConsoleEntry[] >( [] );
+	const [ consoleOpen, setConsoleOpen ] = useState( false );
+	const [ consoleFilter, setConsoleFilter ] = useState< ConsoleFilter >( 'all' );
+	const [ consoleHeight, setConsoleHeight ] = useState( DEFAULT_CONSOLE_HEIGHT );
+	const [ isAttachingConsoleFile, setIsAttachingConsoleFile ] = useState( false );
 	const [ isCapturingScreenshot, setIsCapturingScreenshot ] = useState( false );
+	const [ consoleActionError, setConsoleActionError ] = useState< string | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
+	const bodyRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
+	const siteThumbnail = useQuery( {
+		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
+		queryFn: () => connector.getSiteThumbnail( site.id ),
+		enabled: ! canPreview,
+		meta: { persist: false },
+	} );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const canCaptureScreenshot = canPreview && canUseWebview && !! onScreenshotDone;
 	const pageTitle = getToolbarPageTitle( browserState.title, site.name );
@@ -330,6 +593,12 @@ export function SitePreview( {
 		: browserState.progress;
 	const showLoadingProgress = canPreview && progress > 0;
 	const [ screenshotError, setScreenshotError ] = useState< string | null >( null );
+	const visibleConsoleEntries = useMemo(
+		() => consoleEntries.filter( ( entry ) => isConsoleEntryVisible( entry, consoleFilter ) ),
+		[ consoleEntries, consoleFilter ]
+	);
+	const consoleButtonLabel = consoleOpen ? __( 'Hide console' ) : __( 'Show console' );
+	const toolbarError = screenshotError ?? consoleActionError;
 
 	const handlePreviewNavigation = useCallback(
 		( url: string ) => {
@@ -347,6 +616,96 @@ export function SitePreview( {
 	const handleInspectorState = useCallback( ( state: InspectorState ) => {
 		setInspectorState( state );
 	}, [] );
+	const handleConsoleEntry = useCallback( ( entry: PreviewConsoleEntry ) => {
+		setConsoleEntries( ( current ) => [ ...current, entry ].slice( -MAX_PREVIEW_CONSOLE_ENTRIES ) );
+	}, [] );
+	const clearConsoleEntries = useCallback( () => {
+		setConsoleEntries( [] );
+	}, [] );
+	const copyVisibleConsoleEntries = useCallback( () => {
+		void connector
+			.copyText( formatPreviewConsoleEntriesForText( visibleConsoleEntries ) )
+			.catch( () => {
+				// Clipboard failures are non-fatal; the console remains visible.
+			} );
+	}, [ connector, visibleConsoleEntries ] );
+	const attachVisibleConsoleEntries = useCallback( async () => {
+		if ( ! onConsoleFileDone || visibleConsoleEntries.length === 0 || isAttachingConsoleFile ) {
+			return;
+		}
+		setIsAttachingConsoleFile( true );
+		setConsoleActionError( null );
+		try {
+			await onConsoleFileDone( createConsoleTextFile( visibleConsoleEntries ) );
+		} catch ( error ) {
+			console.error( 'Failed to attach console messages:', error );
+			setConsoleActionError( __( 'Console messages could not be attached.' ) );
+		} finally {
+			setIsAttachingConsoleFile( false );
+		}
+	}, [ isAttachingConsoleFile, onConsoleFileDone, visibleConsoleEntries ] );
+	const getMaxConsoleHeight = useCallback( () => {
+		const bodyHeight = bodyRef.current?.getBoundingClientRect().height;
+		if ( ! bodyHeight ) {
+			return MAX_CONSOLE_HEIGHT;
+		}
+		return Math.max(
+			MIN_CONSOLE_HEIGHT,
+			Math.min( MAX_CONSOLE_HEIGHT, bodyHeight - MIN_BROWSER_HEIGHT_WHILE_RESIZING )
+		);
+	}, [] );
+	const clampConsoleHeight = useCallback(
+		( next: number ) => Math.min( getMaxConsoleHeight(), Math.max( MIN_CONSOLE_HEIGHT, next ) ),
+		[ getMaxConsoleHeight ]
+	);
+	const saveConsoleHeight = useCallback(
+		( next: number ) => {
+			const clampedHeight = clampConsoleHeight( next );
+			setConsoleHeight( clampedHeight );
+			return clampedHeight;
+		},
+		[ clampConsoleHeight ]
+	);
+	const {
+		isDragging: isResizingConsole,
+		onMouseDown: handleConsoleResizeStart,
+		cancel: cancelConsoleResize,
+	} = usePointerDrag( {
+		axis: 'y',
+		cursor: 'row-resize',
+		onStart: () => consoleHeight,
+		onMove: ( start, deltaY ) => {
+			const nextHeight = clampConsoleHeight( start - deltaY );
+			setConsoleHeight( nextHeight );
+			return nextHeight;
+		},
+		onCommit: ( latest ) => {
+			saveConsoleHeight( latest );
+		},
+	} );
+	const handleConsoleResizeKeyDown = useCallback(
+		( event: ReactKeyboardEvent< HTMLDivElement > ) => {
+			if (
+				event.key !== 'ArrowUp' &&
+				event.key !== 'ArrowDown' &&
+				event.key !== 'Home' &&
+				event.key !== 'End'
+			) {
+				return;
+			}
+			event.preventDefault();
+			if ( event.key === 'Home' ) {
+				saveConsoleHeight( MIN_CONSOLE_HEIGHT );
+				return;
+			}
+			if ( event.key === 'End' ) {
+				saveConsoleHeight( getMaxConsoleHeight() );
+				return;
+			}
+			saveConsoleHeight( consoleHeight + ( event.key === 'ArrowUp' ? 24 : -24 ) );
+		},
+		[ consoleHeight, getMaxConsoleHeight, saveConsoleHeight ]
+	);
 	const sendBrowserCommand = useCallback( ( type: BrowserCommand[ 'type' ] ) => {
 		commandIdRef.current += 1;
 		setBrowserCommand( { id: commandIdRef.current, type } );
@@ -399,7 +758,21 @@ export function SitePreview( {
 	useEffect( () => {
 		setBrowserState( EMPTY_BROWSER_STATE );
 		setInspectorState( EMPTY_INSPECTOR_STATE );
+		setConsoleEntries( [] );
+		setConsoleOpen( false );
+		setConsoleHeight( DEFAULT_CONSOLE_HEIGHT );
+		setConsoleActionError( null );
 	}, [ site.id ] );
+
+	useEffect( () => {
+		onConsoleEntriesChange?.( consoleEntries );
+	}, [ consoleEntries, onConsoleEntriesChange ] );
+
+	useEffect( () => {
+		if ( ! consoleOpen ) {
+			cancelConsoleResize();
+		}
+	}, [ cancelConsoleResize, consoleOpen ] );
 
 	// Browser shortcuts (⌘R / ⌘[ / ⌘]) pressed while focus is in the host
 	// document. Shortcuts pressed inside the guest page are forwarded by the
@@ -473,9 +846,9 @@ export function SitePreview( {
 							</ToolbarTooltip>
 						</div>
 						<div className={ styles.browserLocation }>
-							{ screenshotError ? (
+							{ toolbarError ? (
 								<span className={ styles.toolbarError } role="status">
-									{ screenshotError }
+									{ toolbarError }
 								</span>
 							) : (
 								<ToolbarTooltip label={ previewUrl }>
@@ -533,6 +906,17 @@ export function SitePreview( {
 					variant="minimal"
 					tone="neutral"
 					size="small"
+					icon={ bottomDrawerIcon }
+					label={ consoleButtonLabel }
+					className={ styles.consoleToggle }
+					disabled={ ! canUseWebview }
+					aria-pressed={ consoleOpen }
+					onClick={ () => setConsoleOpen( ( current ) => ! current ) }
+				/>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
 					icon={ external }
 					label={ __( 'Open site in browser' ) }
 					disabled={ ! canPreview }
@@ -551,63 +935,105 @@ export function SitePreview( {
 					</div>
 				) : null }
 			</div>
-			<div className={ styles.body }>
-				{ canPreview ? (
-					canUseWebview ? (
-						<WebviewSurface
-							key={ site.id }
-							url={ previewUrl }
-							reloadNonce={ reloadNonce }
-							onAnnotationsDone={ onAnnotationsDone }
-							onInspectorState={ handleInspectorState }
-							inspectorCommand={ inspectorCommand }
-							browserCommand={ browserCommand }
-							onBrowserStateChange={ handleBrowserStateChange }
-							onBrowserCommand={ sendBrowserCommand }
-							onNavigate={ handlePreviewNavigation }
-							colorScheme={ previewColorScheme }
-						/>
+			<div ref={ bodyRef } className={ styles.body }>
+				<div className={ styles.previewViewport }>
+					{ canPreview ? (
+						canUseWebview ? (
+							<WebviewSurface
+								key={ site.id }
+								url={ previewUrl }
+								reloadNonce={ reloadNonce }
+								onAnnotationsDone={ onAnnotationsDone }
+								onInspectorState={ handleInspectorState }
+								inspectorCommand={ inspectorCommand }
+								browserCommand={ browserCommand }
+								onBrowserStateChange={ handleBrowserStateChange }
+								onBrowserCommand={ sendBrowserCommand }
+								onNavigate={ handlePreviewNavigation }
+								colorScheme={ previewColorScheme }
+								onConsoleEntry={ handleConsoleEntry }
+							/>
+						) : (
+							// Non-Electron fallback: plain iframe, no inspector. Reloads
+							// by remounting; back/forward aren't reachable from the host.
+							<iframe
+								key={ `${ previewUrl }#${ reloadNonce }#${
+									browserCommand?.type === 'reload' ? browserCommand.id : 0
+								}` }
+								className={ styles.iframe }
+								src={ previewUrl }
+								title={ site.name }
+								onLoad={ ( event ) => {
+									handlePreviewNavigation( event.currentTarget.src );
+									setBrowserState( ( current ) => {
+										const next = {
+											...current,
+											loading: false,
+											progress: 0,
+											title: getIframeTitle( event.currentTarget ),
+										};
+										return areBrowserStatesEqual( current, next ) ? current : next;
+									} );
+								} }
+							/>
+						)
 					) : (
-						// Non-Electron fallback: plain iframe, no inspector. Reloads
-						// by remounting; back/forward aren't reachable from the host.
-						<iframe
-							key={ `${ previewUrl }#${ reloadNonce }#${
-								browserCommand?.type === 'reload' ? browserCommand.id : 0
-							}` }
-							className={ styles.iframe }
-							src={ previewUrl }
-							title={ site.name }
-							onLoad={ ( event ) => {
-								handlePreviewNavigation( event.currentTarget.src );
-								setBrowserState( ( current ) => {
-									const next = {
-										...current,
-										loading: false,
-										progress: 0,
-										title: getIframeTitle( event.currentTarget ),
-									};
-									return areBrowserStatesEqual( current, next ) ? current : next;
-								} );
-							} }
-						/>
-					)
-				) : (
-					<div className={ styles.empty }>
-						<p className={ styles.emptyText }>{ __( 'Start the site to see a live preview.' ) }</p>
-						<Button
-							variant="solid"
-							tone="brand"
-							loading={ isStarting }
-							loadingAnnouncement={ __( 'Starting site' ) }
-							onClick={ () => startSite.mutate( site.id ) }
-						>
-							<span className={ styles.startIcon } aria-hidden="true">
-								{ playIcon }
-							</span>
-							{ __( 'Start site' ) }
-						</Button>
-					</div>
-				) }
+						<div className={ styles.empty }>
+							<div className={ styles.emptyGrid } aria-hidden="true">
+								<DotGrid spacing={ 32 } crossSize={ 5 } crossThickness={ 0.75 } opacity={ 0.16 } />
+							</div>
+							<div className={ styles.emptyContent }>
+								{ siteThumbnail.data ? (
+									<div className={ styles.emptyThumbnail }>
+										<img
+											src={ siteThumbnail.data }
+											alt={ sprintf( __( 'Screenshot of %s' ), site.name ) }
+										/>
+									</div>
+								) : null }
+								<p className={ styles.emptyText }>
+									{ __( 'Start the site to see a live preview.' ) }
+								</p>
+								<Button
+									variant="solid"
+									tone="brand"
+									className={ styles.startButton }
+									loading={ isStarting }
+									loadingAnnouncement={ __( 'Starting site' ) }
+									onClick={ () => startSite.mutate( site.id ) }
+								>
+									<span className={ styles.startIcon } aria-hidden="true">
+										{ playIcon }
+									</span>
+									{ __( 'Start site' ) }
+								</Button>
+							</div>
+						</div>
+					) }
+				</div>
+				{ canPreview && consoleOpen ? (
+					<PreviewConsoleDrawer
+						entries={ visibleConsoleEntries }
+						filter={ consoleFilter }
+						hasEntries={ consoleEntries.length > 0 }
+						height={ consoleHeight }
+						isAttaching={ isAttachingConsoleFile }
+						resizeHandleProps={ {
+							minWidth: MIN_CONSOLE_HEIGHT,
+							maxWidth: MAX_CONSOLE_HEIGHT,
+							width: Math.min( MAX_CONSOLE_HEIGHT, consoleHeight ),
+							isResizing: isResizingConsole,
+							onResizeStart: handleConsoleResizeStart,
+							onKeyDown: handleConsoleResizeKeyDown,
+						} }
+						onFilterChange={ setConsoleFilter }
+						onClear={ clearConsoleEntries }
+						onCopy={ copyVisibleConsoleEntries }
+						onAttach={ onConsoleFileDone ? () => void attachVisibleConsoleEntries() : undefined }
+						onClose={ () => setConsoleOpen( false ) }
+					/>
+				) : null }
+				{ isResizingConsole ? <ResizeOverlay orientation="horizontal" /> : null }
 			</div>
 		</aside>
 	);
@@ -647,6 +1073,7 @@ interface WebviewSurfaceProps {
 	reloadNonce: number;
 	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
 	onInspectorState?: ( state: InspectorState ) => void;
+	onConsoleEntry?: ( entry: PreviewConsoleEntry ) => void;
 	inspectorCommand?: InspectorCommand | null;
 	browserCommand?: BrowserCommand | null;
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
@@ -668,6 +1095,7 @@ function WebviewSurface( {
 	reloadNonce,
 	onAnnotationsDone,
 	onInspectorState,
+	onConsoleEntry,
 	inspectorCommand,
 	browserCommand,
 	onBrowserStateChange,
@@ -679,6 +1107,7 @@ function WebviewSurface( {
 	const [ ready, setReady ] = useState( false );
 	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
 	const onInspectorStateRef = useRef( onInspectorState );
+	const onConsoleEntryRef = useRef( onConsoleEntry );
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onBrowserCommandRef = useRef( onBrowserCommand );
 	const onNavigateRef = useRef( onNavigate );
@@ -686,6 +1115,7 @@ function WebviewSurface( {
 	const domReadyRef = useRef( false );
 	const currentUrlRef = useRef( url );
 	const lastReloadNonceRef = useRef( reloadNonce );
+	const consoleEntryIdRef = useRef( 0 );
 	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
 	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	useEffect( () => {
@@ -694,6 +1124,9 @@ function WebviewSurface( {
 	useEffect( () => {
 		onInspectorStateRef.current = onInspectorState;
 	}, [ onInspectorState ] );
+	useEffect( () => {
+		onConsoleEntryRef.current = onConsoleEntry;
+	}, [ onConsoleEntry ] );
 	useEffect( () => {
 		onBrowserStateChangeRef.current = onBrowserStateChange;
 	}, [ onBrowserStateChange ] );
@@ -822,7 +1255,24 @@ function WebviewSurface( {
 		const handleConsoleMessage = ( event: Event ) => {
 			const consoleEvent = event as WebviewConsoleEvent;
 			if ( typeof consoleEvent.message !== 'string' ) return;
-			if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) return;
+			if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) {
+				consoleEntryIdRef.current += 1;
+				onConsoleEntryRef.current?.( {
+					id: `${ Date.now().toString( 36 ) }-${ consoleEntryIdRef.current }`,
+					level: getPreviewConsoleLevelFromWebviewLevel( consoleEvent.level ),
+					message: consoleEvent.message,
+					timestamp: Date.now(),
+					sourceId:
+						typeof consoleEvent.sourceId === 'string' && consoleEvent.sourceId.trim()
+							? consoleEvent.sourceId
+							: undefined,
+					lineNumber:
+						typeof consoleEvent.line === 'number' && Number.isFinite( consoleEvent.line )
+							? consoleEvent.line
+							: undefined,
+				} );
+				return;
+			}
 			let parsed: InspectorEvent | null = null;
 			try {
 				parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );

@@ -10,7 +10,7 @@ import {
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
 	blockDefault,
 	brush,
@@ -54,12 +54,19 @@ import {
 } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Markdown } from '@/components/markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+
+interface AgentQuestionRenderItem {
+	key: string;
+	question: string;
+	options: Array< { label: string; description: string } >;
+	pickedLabel?: string;
+}
 
 type RenderItem =
 	| {
@@ -77,10 +84,9 @@ type RenderItem =
 			result?: NormalizedToolResult;
 	  }
 	| {
-			kind: 'agent-question';
+			kind: 'agent-question-batch';
 			key: string;
-			question: string;
-			options: Array< { label: string; description: string } >;
+			questions: AgentQuestionRenderItem[];
 	  }
 	| { kind: 'interrupted-marker'; key: string };
 
@@ -105,6 +111,79 @@ interface PiToolResultLike {
 }
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
+const QUESTION_COLLAPSE_DELAY_MS = 650;
+const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
+const QUESTION_SCROLL_BOTTOM_CLEARANCE_PX = 96;
+
+function usePrefersReducedMotion(): boolean {
+	const [ prefersReducedMotion, setPrefersReducedMotion ] = useState( false );
+
+	useEffect( () => {
+		if ( typeof window.matchMedia !== 'function' ) {
+			return;
+		}
+		const mediaQuery = window.matchMedia( '(prefers-reduced-motion: reduce)' );
+		const updatePreference = () => setPrefersReducedMotion( mediaQuery.matches );
+
+		updatePreference();
+		mediaQuery.addEventListener( 'change', updatePreference );
+		return () => mediaQuery.removeEventListener( 'change', updatePreference );
+	}, [] );
+
+	return prefersReducedMotion;
+}
+
+function resolveBatchedAnswerForQuestion(
+	entries: SessionEntry[],
+	entryIndex: number,
+	options: Array< { label: string } >
+): string | undefined {
+	const optionLabels = new Set( options.map( ( option ) => option.label ) );
+	// Older transcripts store batched question answers as following
+	// `ask_user` prompts, in the same order as the question entries.
+	let batchPosition = 0;
+	for ( let index = entryIndex - 1; index >= 0; index -= 1 ) {
+		if ( ! isStudioCustomEntryOfType( entries[ index ], 'studio.agent_question' ) ) {
+			break;
+		}
+		batchPosition += 1;
+	}
+
+	let batchSize = batchPosition + 1;
+	let index = entryIndex + 1;
+	while (
+		index < entries.length &&
+		isStudioCustomEntryOfType( entries[ index ], 'studio.agent_question' )
+	) {
+		batchSize += 1;
+		index += 1;
+	}
+
+	const answers: string[] = [];
+	for ( ; index < entries.length && answers.length < batchSize; index += 1 ) {
+		const entry = entries[ index ];
+		if (
+			isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ||
+			isStudioCustomEntryOfType( entry, 'studio.turn_closed' )
+		) {
+			break;
+		}
+		if ( ! isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			continue;
+		}
+		const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
+		if ( data?.source !== 'ask_user' ) {
+			break;
+		}
+		answers.push( data.text );
+	}
+
+	if ( answers.length !== batchSize ) {
+		return undefined;
+	}
+	const answer = answers[ batchPosition ];
+	return optionLabels.has( answer ) ? answer : undefined;
+}
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
@@ -125,17 +204,18 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	}
 
 	const items: RenderItem[] = [];
-	entries.forEach( ( entry, entryIndex ) => {
+	for ( let entryIndex = 0; entryIndex < entries.length; entryIndex += 1 ) {
+		const entry = entries[ entryIndex ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
-			if ( ! data || data.source !== 'prompt' ) return;
+			if ( ! data || data.source !== 'prompt' ) continue;
 			items.push( {
 				kind: 'user-text',
 				key: `${ entryIndex }:user`,
 				text: data.text,
 				attachments: data.attachments,
 			} );
-			return;
+			continue;
 		}
 
 		if ( entry.type === 'message' ) {
@@ -143,7 +223,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				| PiAssistantMessageLike
 				| undefined;
 			if ( ! message || message.role !== 'assistant' || ! Array.isArray( message.content ) ) {
-				return;
+				continue;
 			}
 			message.content.forEach( ( block, blockIndex ) => {
 				if ( block.type === 'text' && typeof block.text === 'string' ) {
@@ -170,19 +250,41 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 					} );
 				}
 			} );
-			return;
+			continue;
 		}
 
 		if ( isStudioCustomEntryOfType( entry, 'studio.agent_question' ) ) {
-			const data = ( entry as StudioCustomEntry< 'studio.agent_question' > ).data;
-			if ( ! data ) return;
+			const batchStartIndex = entryIndex;
+			const questions: AgentQuestionRenderItem[] = [];
+			for (
+				;
+				entryIndex < entries.length &&
+				isStudioCustomEntryOfType( entries[ entryIndex ], 'studio.agent_question' );
+				entryIndex += 1
+			) {
+				const data = ( entries[ entryIndex ] as StudioCustomEntry< 'studio.agent_question' > ).data;
+				if ( ! data ) {
+					continue;
+				}
+				questions.push( {
+					key: `${ entryIndex }:question`,
+					question: data.question,
+					options: data.options,
+					pickedLabel:
+						data.selectedLabel ??
+						resolveBatchedAnswerForQuestion( entries, entryIndex, data.options ),
+				} );
+			}
+			entryIndex -= 1;
+			if ( questions.length === 0 ) {
+				continue;
+			}
 			items.push( {
-				kind: 'agent-question',
-				key: `${ entryIndex }:question`,
-				question: data.question,
-				options: data.options,
+				kind: 'agent-question-batch',
+				key: `${ batchStartIndex }:question-batch`,
+				questions,
 			} );
-			return;
+			continue;
 		}
 
 		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
@@ -193,9 +295,9 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 					key: `${ entryIndex }:interrupted`,
 				} );
 			}
-			return;
+			continue;
 		}
-	} );
+	}
 
 	return items;
 }
@@ -554,37 +656,341 @@ function AgentQuestion( {
 	options,
 	isInteractive,
 	pickedLabel,
+	isCollapsing = false,
 	onAnswer,
 }: {
 	question: string;
 	options: Array< { label: string; description: string } >;
 	isInteractive: boolean;
 	pickedLabel: string | undefined;
+	isCollapsing?: boolean;
 	onAnswer: ( label: string ) => void;
 } ) {
+	const optionsId = useId();
+	const isFolding = isCollapsing && Boolean( pickedLabel );
+
 	return (
-		<div className={ styles.question }>
+		<div className={ styles.question } data-state={ isFolding ? 'folding' : undefined }>
 			<p className={ styles.questionText }>{ question }</p>
 			{ options.length > 0 ? (
-				<ul className={ styles.questionOptions }>
+				<ol className={ styles.questionOptions }>
 					{ options.map( ( option, index ) => {
 						const picked = option.label === pickedLabel;
+						const descriptionId =
+							option.description && ! isFolding
+								? `${ optionsId }-option-${ index }-description`
+								: undefined;
 						return (
-							<li key={ index }>
+							<li
+								key={ index }
+								className={ styles.questionOptionItem }
+								data-picked={ picked ? 'true' : undefined }
+							>
 								<button
 									type="button"
 									className={ clsx( styles.questionOption, picked && styles.questionOptionPicked ) }
 									disabled={ ! isInteractive }
 									onClick={ () => onAnswer( option.label ) }
-									title={ option.description }
+									aria-label={ option.label }
+									aria-describedby={ descriptionId }
+									aria-pressed={ picked }
 								>
-									{ option.label }
+									<span className={ styles.questionOptionNumber } aria-hidden="true">
+										{ picked ? <QuestionOptionCheckIcon /> : index + 1 }
+									</span>
+									<span className={ styles.questionOptionCopy }>
+										<span className={ styles.questionOptionLabel }>{ option.label }</span>
+										{ option.description ? (
+											<span id={ descriptionId } className={ styles.questionOptionDescription }>
+												{ option.description }
+											</span>
+										) : null }
+									</span>
 								</button>
 							</li>
 						);
 					} ) }
-				</ul>
+				</ol>
 			) : null }
+		</div>
+	);
+}
+
+function QuestionOptionCheckIcon() {
+	return <Icon icon={ check } size={ 14 } style={ { fill: 'currentColor' } } aria-hidden="true" />;
+}
+
+function getQuestionPickedLabel(
+	question: AgentQuestionRenderItem,
+	pendingAnswers: Record< string, string >
+): string | undefined {
+	return pendingAnswers[ question.question ] ?? question.pickedLabel;
+}
+
+function findFirstUnansweredQuestionIndex(
+	questions: AgentQuestionRenderItem[],
+	pendingQuestions: Set< string >,
+	pendingAnswers: Record< string, string >
+): number {
+	for ( let index = 0; index < questions.length; index += 1 ) {
+		const question = questions[ index ];
+		const pickedLabel = getQuestionPickedLabel( question, pendingAnswers );
+		if ( pendingQuestions.has( question.question ) && ! pickedLabel ) {
+			return index;
+		}
+	}
+	return -1;
+}
+
+function getNearestScrollContainer( element: HTMLElement ): HTMLElement | null {
+	let parent = element.parentElement;
+	while ( parent ) {
+		const style = window.getComputedStyle( parent );
+		const overflow = `${ style.overflow } ${ style.overflowY }`;
+		if ( /(auto|scroll|overlay)/.test( overflow ) && parent.scrollHeight > parent.clientHeight ) {
+			return parent;
+		}
+		parent = parent.parentElement;
+	}
+	return null;
+}
+
+function scrollElementIntoViewIfNeeded( element: HTMLElement, prefersReducedMotion: boolean ) {
+	const container = getNearestScrollContainer( element );
+	const elementRect = element.getBoundingClientRect();
+	const containerRect = container
+		? container.getBoundingClientRect()
+		: {
+				top: 0,
+				right: window.innerWidth || document.documentElement.clientWidth,
+				bottom: window.innerHeight || document.documentElement.clientHeight,
+				left: 0,
+		  };
+	const topOverflow = elementRect.top - ( containerRect.top + QUESTION_SCROLL_TOP_MARGIN_PX );
+	const bottomOverflow =
+		elementRect.bottom - ( containerRect.bottom - QUESTION_SCROLL_BOTTOM_CLEARANCE_PX );
+	const scrollDelta = topOverflow < 0 ? topOverflow : Math.max( bottomOverflow, 0 );
+
+	if ( scrollDelta !== 0 ) {
+		const behavior: ScrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';
+		if ( container ) {
+			container.scrollBy( {
+				top: scrollDelta,
+				behavior,
+			} );
+			return;
+		}
+		window.scrollBy( {
+			top: scrollDelta,
+			behavior,
+		} );
+	}
+}
+
+function QuestionSummary( {
+	index,
+	total,
+	question,
+	pickedLabel,
+	canEdit,
+	onClick,
+}: {
+	index: number;
+	total: number;
+	question: string;
+	pickedLabel: string;
+	canEdit: boolean;
+	onClick: () => void;
+} ) {
+	const label = sprintf(
+		__( 'Edit question %1$d of %2$d: %3$s. Selected answer: %4$s' ),
+		index + 1,
+		total,
+		question,
+		pickedLabel
+	);
+	const content = (
+		<span className={ styles.questionSummaryBody }>
+			<span className={ styles.questionSummaryText }>{ question }</span>
+			<span
+				className={ clsx(
+					styles.questionOption,
+					styles.questionOptionPicked,
+					styles.questionSummaryOption
+				) }
+				aria-hidden={ canEdit ? 'true' : undefined }
+			>
+				<span className={ styles.questionOptionNumber }>
+					<QuestionOptionCheckIcon />
+				</span>
+				<span className={ styles.questionOptionCopy }>
+					<span className={ styles.questionOptionLabel }>{ pickedLabel }</span>
+				</span>
+			</span>
+		</span>
+	);
+
+	if ( ! canEdit ) {
+		return (
+			<div className={ styles.questionSummary } data-interactive="false">
+				{ content }
+			</div>
+		);
+	}
+
+	return (
+		<button
+			type="button"
+			className={ styles.questionSummary }
+			data-interactive="true"
+			onClick={ onClick }
+			aria-label={ label }
+		>
+			{ content }
+		</button>
+	);
+}
+
+function AgentQuestionBatch( {
+	questions,
+	pendingQuestions,
+	pendingAnswers,
+	onAnswer,
+}: {
+	questions: AgentQuestionRenderItem[];
+	pendingQuestions: Set< string >;
+	pendingAnswers: Record< string, string >;
+	onAnswer: ( question: string, label: string ) => void;
+} ) {
+	const [ expandedIndex, setExpandedIndex ] = useState< number | null >( null );
+	const [ settlingIndex, setSettlingIndex ] = useState< number | null >( null );
+	const prefersReducedMotion = usePrefersReducedMotion();
+	const activeQuestionRef = useRef< HTMLDivElement | null >( null );
+	const shouldFocusActiveQuestionRef = useRef( false );
+	const total = questions.length;
+	const firstUnansweredIndex = findFirstUnansweredQuestionIndex(
+		questions,
+		pendingQuestions,
+		pendingAnswers
+	);
+	const activeIndex = settlingIndex ?? expandedIndex ?? firstUnansweredIndex;
+	const visibleQuestionCount = activeIndex === -1 ? total : Math.min( activeIndex + 1, total );
+
+	useEffect( () => {
+		setExpandedIndex( ( index ) =>
+			index === null || index < total ? index : Math.max( total - 1, 0 )
+		);
+		setSettlingIndex( ( index ) =>
+			index === null || index < total ? index : Math.max( total - 1, 0 )
+		);
+	}, [ total ] );
+
+	useEffect( () => {
+		if ( settlingIndex === null ) {
+			return;
+		}
+		if ( prefersReducedMotion ) {
+			setSettlingIndex( null );
+			return;
+		}
+		const timeoutId = window.setTimeout(
+			() => setSettlingIndex( null ),
+			QUESTION_COLLAPSE_DELAY_MS
+		);
+		return () => window.clearTimeout( timeoutId );
+	}, [ prefersReducedMotion, settlingIndex ] );
+
+	useEffect( () => {
+		if ( activeIndex === -1 || settlingIndex !== null ) {
+			if ( activeIndex === -1 && settlingIndex === null ) {
+				shouldFocusActiveQuestionRef.current = false;
+			}
+			return;
+		}
+		const animationFrameId = window.requestAnimationFrame( () => {
+			const element = activeQuestionRef.current;
+			if ( element ) {
+				scrollElementIntoViewIfNeeded( element, prefersReducedMotion );
+				if ( shouldFocusActiveQuestionRef.current ) {
+					element.focus( { preventScroll: true } );
+					shouldFocusActiveQuestionRef.current = false;
+				}
+			}
+		} );
+		return () => window.cancelAnimationFrame( animationFrameId );
+	}, [ activeIndex, prefersReducedMotion, settlingIndex ] );
+
+	if ( total === 0 ) {
+		return null;
+	}
+
+	if ( total === 1 ) {
+		const question = questions[ 0 ];
+		return (
+			<AgentQuestion
+				question={ question.question }
+				options={ question.options }
+				isInteractive={ pendingQuestions.has( question.question ) }
+				pickedLabel={ getQuestionPickedLabel( question, pendingAnswers ) }
+				onAnswer={ ( label ) => onAnswer( question.question, label ) }
+			/>
+		);
+	}
+
+	const handleAnswer = ( question: AgentQuestionRenderItem, index: number, label: string ) => {
+		shouldFocusActiveQuestionRef.current = true;
+		setExpandedIndex( null );
+		setSettlingIndex( index );
+		onAnswer( question.question, label );
+	};
+
+	return (
+		<div className={ styles.questionBatch }>
+			{ questions.slice( 0, visibleQuestionCount ).map( ( question, index ) => {
+				const pickedLabel = getQuestionPickedLabel( question, pendingAnswers );
+				const isActive = index === activeIndex;
+				if ( ! isActive && pickedLabel ) {
+					const canEdit = pendingQuestions.has( question.question );
+					return (
+						<QuestionSummary
+							key={ question.key }
+							index={ index }
+							total={ total }
+							question={ question.question }
+							pickedLabel={ pickedLabel }
+							canEdit={ canEdit }
+							onClick={ () => setExpandedIndex( index ) }
+						/>
+					);
+				}
+				return (
+					<div
+						key={ question.key }
+						ref={ isActive ? activeQuestionRef : undefined }
+						className={ styles.questionBatchStep }
+						data-state={ settlingIndex === index ? 'answered' : 'asking' }
+						data-has-prior={ index > 0 ? 'true' : undefined }
+						tabIndex={ isActive ? -1 : undefined }
+						aria-label={
+							isActive ? sprintf( __( 'Current question: %s' ), question.question ) : undefined
+						}
+					>
+						{ total > 1 ? (
+							<span className={ styles.questionBatchProgress }>
+								{ sprintf( __( 'Asking question %1$d of %2$d' ), index + 1, total ) }
+							</span>
+						) : null }
+						<AgentQuestion
+							question={ question.question }
+							options={ question.options }
+							isInteractive={ pendingQuestions.has( question.question ) && settlingIndex !== index }
+							pickedLabel={ pickedLabel }
+							isCollapsing={ settlingIndex === index }
+							onAnswer={ ( label ) => handleAnswer( question, index, label ) }
+						/>
+					</div>
+				);
+			} ) }
 		</div>
 	);
 }
@@ -630,15 +1036,14 @@ export function Conversation( {
 								result={ item.result }
 							/>
 						);
-					case 'agent-question':
+					case 'agent-question-batch':
 						return (
-							<AgentQuestion
+							<AgentQuestionBatch
 								key={ item.key }
-								question={ item.question }
-								options={ item.options }
-								isInteractive={ pendingQuestions.has( item.question ) }
-								pickedLabel={ pendingAnswers[ item.question ] }
-								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
+								questions={ item.questions }
+								pendingQuestions={ pendingQuestions }
+								pendingAnswers={ pendingAnswers }
+								onAnswer={ onAnswerQuestion }
 							/>
 						);
 					case 'interrupted-marker':

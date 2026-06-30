@@ -34,7 +34,7 @@ import {
 	type SiteStatus,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { findSiteByFolder, getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, isProcessRunning } from 'cli/lib/daemon-client';
 import {
 	type ReprintProcessResult,
@@ -212,19 +212,9 @@ export async function runCommand(
 	remoteSecret?: string,
 	verbose = false
 ): Promise< void > {
-	// The local site must already exist (created via `studio create`).
-	// pull-reprint refreshes an existing site from a remote source; it
-	// owns neither the creation nor the naming of the local site.
-	const site = await findSiteByFolder( localPath );
-	if ( ! site ) {
-		throw new LoggerError(
-			sprintf(
-				// translators: %s: the local site path.
-				__( 'No Studio site found at %s. Run `studio create` first.' ),
-				getPrettyPath( localPath )
-			)
-		);
-	}
+	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
+	const site = await getSiteByFolder( localPath );
+	logger.reportSuccess( __( 'Site loaded' ) );
 
 	const sourceSite = await resolveSourceSite( site, remoteUrl, remoteSecret, verbose );
 	if ( ! sourceSite ) {

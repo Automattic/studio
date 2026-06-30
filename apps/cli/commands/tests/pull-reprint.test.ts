@@ -687,7 +687,7 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 
 		await expect(
 			runCommand( sitePath, 'https://example.com', 'hmac-secret', false )
-		).rejects.toThrow( /No Studio site found/ );
+		).rejects.toThrow( 'The specified directory is not added to Studio.' );
 
 		// The site lookup fails up front, so the remote is never contacted and
 		// no pull scratch directory is created.

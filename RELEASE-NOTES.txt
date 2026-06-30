@@ -5,7 +5,7 @@ Unreleased
 =====
 * Introduced PHP runtime and File Access options, and improved the native PHP runtime: fixed WP-CLI tool calls, asset loading for sites with a remote site URL, and blueprint creation from read-only directories, and made pull-reprint work with native PHP #3786, #3926, #3915, #3847, #3988, #3889, #3881
 * Improved Studio Code: content is checked before it is applied to your site, ecommerce sites are set up more reliably, and push/pull prompts are clearer. Tool calls are easier to follow with descriptions and a detail panel, remote sign-in shows a copyable login link, and multiple-choice questions appear as clickable buttons #3753, #3874, #3875, #3903, #3904, #3900, #3868, #3833
-* Added assistant usage limits in Settings, moved account options to an Account tab, restored the sidebar user menu, and made it clearer which settings apply to a site vs the whole app #3843, #3777, #3820, #3886, #3837
+* Added assistant usage limits in Settings and made it clearer which settings apply to a site vs the whole app #3843, #3886
 * Expanded the standalone Studio CLI: a curl installer, CDN-hosted bundles, an uninstall command, top-level site subcommands, config get/set, and a runtime-agnostic get-site-icon #3064, #3835, #3974, #3884, #3945
 * Improved pull-reprint with interactive site selection #3729, #3768
 * Streamlined annotations by removing the extra confirmation step, moving controls into the preview toolbar, and auto-installing the annotation browser #3870, #3762, #3841
@@ -15,7 +15,7 @@ Unreleased
 * Fixed dark mode across Studio Code dialogs, the site preview panel, and theming, and allowed conversation text to be selected and copied #3844, #3779, #3871, #3836
 * Fixed a startup crash on Node.js 22, surfaced PHP errors when a site fails to start, resolved slow .local DNS on macOS, preserved in-progress messages in Studio Code, and restored the recorded model when resuming a session by id #3885, #3813, #3912, #3824, #3819
 * Fixed Microsoft Store package validation and a tooltip delay in the Studio UI #3849, #3942
-* Clarified Sync, quit-sites, and What's New copy, and refreshed Studio Code model availability and token messaging #3929, #3924, #3946, #3831, #3827, #3828
+* Clarified Sync, quit-sites, and What's New copy, and refreshed Studio Code model availability and token messaging #3929, #3924, #3946, #3831, #3827, #3828, #3837
 * Updated multiple dependencies, including WP Playground, PHP-WASM, bundled PHP binaries, the SQLite database integration, and Reprint
 
 1.11.0

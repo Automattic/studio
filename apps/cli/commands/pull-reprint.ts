@@ -830,12 +830,24 @@ export async function downloadSkippedFiles(
 	}
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
+
+	const args = [ 'files-sync', apiUrl, `--secret=${ secret }` ];
+
+	if ( isResumingSkipped ) {
+		args.push( '--filter=skipped-earlier' );
+	}
+
+	args.push(
+		'--max-exec=30',
+		'--no-adaptive',
+		`--state-dir=${ metadata.stateDirectory }`,
+		`--fs-root=${ metadata.rawDirectory }`
+	);
+
 	await runReprintCommandUntilComplete(
 		metadata.stateDirectory,
 		metadata.rawDirectory,
-		buildFilesSyncArgs( metadata, apiUrl, secret, [
-			...( isResumingSkipped ? [] : [ '--filter=skipped-earlier' ] ),
-		] ),
+		args,
 		( progress ) => logger.reportProgress( progress ),
 		{
 			progressLabel: __( 'Remaining files' ),

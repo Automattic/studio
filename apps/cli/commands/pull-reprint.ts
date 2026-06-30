@@ -564,11 +564,7 @@ export async function runCommand(
 		// (or `site delete` removes it).
 		await setSiteStatus( site, 'pull-failed' );
 
-		const resumeCommand = [
-			'studio pull-reprint',
-			`--path "${ localPath }"`,
-			`--url ${ normalizedRemoteUrl }`,
-		];
+		const resumeCommand = [ 'studio pull-reprint', `--path "${ localPath }"` ];
 		if ( remoteSecret ) {
 			resumeCommand.push( '--secret <secret>' );
 		}

@@ -289,6 +289,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			'--no-adaptive',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
+			'--force',
 		] );
 		// The flattened site and runtime output dirs are mounted up front so
 		// the single fork can write them to the host filesystem.

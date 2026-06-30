@@ -10,12 +10,28 @@ import {
 	getMysqlWpConfigConstants,
 } from 'cli/lib/mysql/mysql-site';
 import { runPhpCommand } from './php-process';
+import type { MysqlSiteConfig } from '@studio/common/lib/database-engine';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 function isWriteAccessError( error: unknown ): boolean {
 	const code = ( error as NodeJS.ErrnoException )?.code;
 	return code === 'EACCES' || code === 'EPERM' || code === 'EROFS';
+}
+
+function getBlueprintDatabaseArgs( mysqlConfig: MysqlSiteConfig | undefined ): string[] {
+	if ( ! mysqlConfig ) {
+		return [ '--db-engine=sqlite' ];
+	}
+
+	const constants = getMysqlWpConfigConstants( mysqlConfig );
+	return [
+		'--db-engine=mysql',
+		`--db-host=${ constants.DB_HOST }`,
+		`--db-user=${ constants.DB_USER }`,
+		`--db-pass=${ constants.DB_PASSWORD }`,
+		`--db-name=${ constants.DB_NAME }`,
+	];
 }
 
 export async function runBlueprint(
@@ -109,7 +125,7 @@ export async function runBlueprint(
 				'--mode=apply-to-existing-site',
 				`--site-path=${ config.sitePath }`,
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
-				`--db-engine=${ mysqlConfig ? 'mysql' : 'sqlite' }`,
+				...getBlueprintDatabaseArgs( mysqlConfig ),
 			],
 			{
 				phpVersion,

@@ -27,7 +27,7 @@
 .headerSidebarCollapsed {
 	padding-top: calc(
 		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
-			var(--wpds-dimension-padding-md)
+			var(--wpds-dimension-padding-2xl)
 	);
 }
 

@@ -21,7 +21,7 @@ point the user to https://wordpress.com/pricing; do not guess.
 
 ## Step 1: Fetch plan names and features
 
-Fetch `wpcom/v2/plans/pricing`. It returns, per plan, the current `name`, the
+Fetch `wpcom/v2/plans/features`. It returns, per plan, the current `name`, the
 `product_slug` (used to look up the price in Step 2), and the full list of `features`
 that tier unlocks — grouped (Essential features, Performance boosters, High
 Availability, Developer tools, Security, etc.).
@@ -29,13 +29,13 @@ Availability, Developer tools, Security, etc.).
 **Local sites (Bash tool available):**
 
 ```text
-curl -s "https://public-api.wordpress.com/wpcom/v2/plans/pricing?locale=en"
+curl -s "https://public-api.wordpress.com/wpcom/v2/plans/features?locale=en"
 ```
 
 **Connected WordPress.com sites (wpcom_request tool available, no Bash):**
 
 ```text
-wpcom_request  method=GET  path="!/plans/pricing"  apiNamespace="wpcom/v2"
+wpcom_request  method=GET  path="!/plans/features"  apiNamespace="wpcom/v2"
 ```
 
 ## Step 2: Fetch current prices

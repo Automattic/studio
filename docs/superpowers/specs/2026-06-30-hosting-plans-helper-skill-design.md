@@ -57,20 +57,20 @@ Two coordinated pieces, in two repositories.
 [Landpack PHP]  get_plans() + get_feature_labels()
        │  (server-side, same source the /pricing page renders)
        ▼
-[wpcom]  GET wpcom/v2/plans/pricing   ← Piece 1 (new, public, normalized DTO)
+[wpcom]  GET wpcom/v2/plans/features   ← Piece 1 (new, public, normalized DTO)
        │
        ▼  (agent fetches: curl in local mode, wpcom_request in remote mode)
 [Studio]  hosting-plans-helper skill  ← Piece 2 (SKILL.md + system-prompt guardrail)
        │
-       ├─ /plans/pricing → names + per-tier features
-       └─ /plans         → live, geo-correct prices (merged by slug)
+       ├─ /plans/features → names + per-tier features + product_slug
+       └─ /products       → localized prices (merged by product_slug)
        ▼
    Agent answers from current data, never from memory
 ```
 
-## Piece 1 — wpcom endpoint: `GET wpcom/v2/plans/pricing`
+## Piece 1 — wpcom endpoint: `GET wpcom/v2/plans/features`
 
-> **Authoritative spec:** `2026-06-30-plans-pricing-endpoint-design.md` (standalone,
+> **Authoritative spec:** `2026-06-30-plans-features-endpoint-design.md` (standalone,
 > built in the `Automattic/wpcom` repo). The summary below is for context; defer to
 > that spec for the endpoint contract.
 
@@ -83,8 +83,8 @@ Two coordinated pieces, in two repositories.
 - Resolves feature keys → `{ key, title, tooltip, group }` server-side and returns
   a **normalized DTO**, dropping presentation-only fields (badges, CTA buttons,
   icons, `features_v4/v5` card selections).
-- **No prices** in this endpoint — kept single-purpose; the skill fetches `/plans`
-  for prices.
+- **No prices** in this endpoint. It emits each plan's `product_slug`; the skill
+  joins prices from `wpcom/v2/products` (already localized) by that slug.
 - **Scope:** the 5 consumer plans only — Free, Personal, Premium, Business,
   Commerce. (Landpack `get_plans()` also returns VIP; excluded from v1.)
 
@@ -98,6 +98,7 @@ Two coordinated pieces, in two repositories.
     {
       "slug": "business",
       "name": "Business",
+      "product_slug": "business-bundle",
       "storage": "50 GB",
       "ai_assistant_limit": "Enhanced",
       "features": [
@@ -137,7 +138,7 @@ finalized in the plan against what `plan_defaults()` actually exposes.)
   fetch with the tools it already has.
 - The SKILL.md instructs the agent, **before answering any plan/pricing/feature/
   upgrade/"what does tier X unlock" question**, to:
-  1. Fetch names + features + `product_slug` per plan from `wpcom/v2/plans/pricing`.
+  1. Fetch names + features + `product_slug` per plan from `wpcom/v2/plans/features`.
   2. Fetch prices from `wpcom/v2/products` (keyed by product slug; `cost_display` is
      already localized) and join by `product_slug`.
   3. Answer only from the fetched data — never state names, prices, or feature-tier
@@ -145,9 +146,9 @@ finalized in the plan against what `plan_defaults()` actually exposes.)
 - **Both endpoints are `wpcom/v2` and public**, so the same two calls work in both
   tool environments:
   - **Local mode** (local sites): has `Bash`, no `wpcom_request`. Fetch via
-    `curl ".../wpcom/v2/plans/pricing?locale=en"` and `curl ".../wpcom/v2/products"`.
+    `curl ".../wpcom/v2/plans/features?locale=en"` and `curl ".../wpcom/v2/products"`.
   - **Remote mode** (connected WP.com site): has `wpcom_request`, no `Bash`. Fetch
-    via `wpcom_request` `path="!/plans/pricing"` and `path="!/products"`, each with
+    via `wpcom_request` `path="!/plans/features"` and `path="!/products"`, each with
     `apiNamespace="wpcom/v2"`.
 - **Why `wpcom/v2/products` for prices** (not `/plans` v1.5): `wpcom_request` (the
   only remote-mode fetch tool) supports `wp/v2` / `wpcom/v2` / v1.1 — not v1.5;
@@ -167,7 +168,7 @@ state plan names, prices, or feature-tier gating from memory, and to load the
 ## Sequencing & dependency
 
 Because v1 is **live-endpoint-only** (no bundled fallback), the Studio skill is
-**non-functional until `wpcom/v2/plans/pricing` is deployed**. Implementation order:
+**non-functional until `wpcom/v2/plans/features` is deployed**. Implementation order:
 
 1. Build + test + deploy the wpcom endpoint (Piece 1).
 2. Build the Studio skill + guardrail (Piece 2) against the live endpoint.

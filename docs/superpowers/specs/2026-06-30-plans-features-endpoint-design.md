@@ -1,4 +1,4 @@
-# Design: `GET wpcom/v2/plans/pricing` endpoint
+# Design: `GET wpcom/v2/plans/features` endpoint
 
 - **Repo:** `Automattic/wpcom` (NOT the Studio repo — this is the backend piece)
 - **Consumer:** Studio Code `hosting-plans-helper` skill
@@ -79,13 +79,13 @@ All in the Landpack plugin under:
 - **File:** `wp-content/rest-api-plugins/endpoints/plans.php` — add to the existing
   `WPCOM_REST_API_V2_Endpoint_Plans` controller (same file/class as
   `/plans/mobile`).
-- **Route:** register `wpcom/v2/plans/pricing` in `register_routes()`.
+- **Route:** register `wpcom/v2/plans/features` in `register_routes()`.
 - **Method:** `GET` (`WP_REST_Server::READABLE`).
 - **Auth:** **public** (no auth) — Studio Code reaches it unauthenticated in both
   local (curl) and remote (`wpcom_request`) modes. Matches `/plans/mobile`.
 - **Args:** `locale` (default `en`), handled with `wpcom_switch_to_locale(...)` like
   `get_plans_mobile()`.
-- **Callback:** `get_plans_pricing( $request )`.
+- **Callback:** `get_plans_features( $request )`.
 
 ## Algorithm
 

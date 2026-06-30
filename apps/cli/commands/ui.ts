@@ -1,6 +1,5 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LOCAL_UI_CLIENT_ID } from '@studio/common/constants';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
 import { StudioArgv } from 'cli/types';
@@ -51,9 +50,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				sitesRoot: STUDIO_SITES_ROOT,
 				port: argv.port as number | undefined,
 				uiDist,
-				// WordPress.com OAuth client id for browser login (redirect flow).
-				// Defaults to the shipped public client; override for dev/testing.
-				uiClientId: process.env.STUDIO_LOCAL_UI_CLIENT_ID ?? LOCAL_UI_CLIENT_ID,
 			} );
 
 			console.log( '' );

@@ -17,7 +17,7 @@ import type {
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 
 export interface HostedConnectorOptions {
-	// Base URL of the Studio Web backend (`apps/hosted`), e.g. http://localhost:8088.
+	// Base URL of the Studio hosted backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
 }
 
@@ -341,6 +341,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async copyText( text ) {
+			await navigator.clipboard.writeText( text );
+		},
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
@@ -359,6 +362,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return () => {};
 		},
 		onToggleSitePreview() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onToggleSidebar() {
 			// No application menu in a browser tab.
 			return () => {};
 		},

@@ -104,6 +104,33 @@ export function createIpcConnector(): Connector {
 		return site.path;
 	}
 
+	async function markConnectedWpcomSiteSynced(
+		localSiteId: string,
+		remoteSiteId: number,
+		direction: 'push' | 'pull'
+	): Promise< void > {
+		try {
+			const connectedSites = ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
+			const connectedSite = connectedSites.find(
+				( site ) => site.id === remoteSiteId && site.localSiteId === localSiteId
+			);
+
+			if ( ! connectedSite ) {
+				return;
+			}
+
+			const timestampKey = direction === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp';
+			await ipcApi.updateConnectedWpcomSites( [
+				{
+					...connectedSite,
+					[ timestampKey ]: new Date().toISOString(),
+				},
+			] );
+		} catch ( error ) {
+			console.warn( 'Failed to update connected site sync timestamp:', error );
+		}
+	}
+
 	// Bridges `createSnapshot`/`updateSnapshot`'s fire-and-forget IPC pattern
 	// into an awaitable promise. The main process emits `snapshot-key-value`
 	// with the final preview URL right before `snapshot-success`; fatal
@@ -496,11 +523,13 @@ export function createIpcConnector(): Connector {
 			// it behind this single IPC handler. Resolves once the import is
 			// initiated (the remote import may still be running).
 			await ipcApi.pushSiteToLive( siteId, remoteSiteId );
+			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
 		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
 			const siteFolder = await resolveSiteFolder( siteId );
 			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
 
 		getPublishCheckoutUrl( site ): string {
@@ -654,6 +683,10 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
+		async copyText( text: string ): Promise< void > {
+			await ipcApi.copyText( text );
+		},
+
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
@@ -687,6 +720,12 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'toggle-site-preview', () => listener() );
+		},
+
+		onToggleSidebar( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'toggle-sidebar', () => listener() );
 		},
 	};
 }

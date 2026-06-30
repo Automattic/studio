@@ -1,11 +1,7 @@
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteMode } from '@studio/common/lib/site-runtime';
 
-/**
- * Options accepted by the CLI `site set` command. Shared so the desktop app
- * (via `editSiteViaCli`) and the local web server build identical args — only
- * the spawn transport differs.
- */
+/** Options accepted by the CLI `site set` command. */
 export interface EditSiteOptions {
 	path: string;
 	siteId: string;

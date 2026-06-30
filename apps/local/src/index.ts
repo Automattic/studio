@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { isAiModelId } from '@studio/common/ai/models';
+import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
 	createOrReuseAiSession,
 	hydrateAiSessionSummary,
@@ -14,7 +15,6 @@ import {
 	deleteAiSessionPlacement,
 	readAiSessionPlacement,
 } from '@studio/common/ai/sessions/placement';
-import { createAgentRunManager } from '@studio/common/ai/sessions/run-manager';
 import {
 	appendModelChangeEntry,
 	deleteAiSession,
@@ -48,13 +48,14 @@ import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { createJsonResponse, fetchSiteRest } from '@studio/common/lib/wordpress-rest';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
-import { listSites, startSite, stopSite } from '@studio/common/sites';
 import {
 	cleanupBlueprintTempDir,
 	extractBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs } from '@studio/common/sites/edit';
+import { startSite, stopSite } from '@studio/common/sites/lifecycle';
+import { listSites } from '@studio/common/sites/list';
 import { createSnapshotManager, fetchSnapshots } from '@studio/common/sites/snapshots';
 import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
@@ -98,9 +99,6 @@ export interface LocalServerOptions {
 	// Path to the built browser UI (apps/ui `dist-local`). Served when present
 	// so the server is the only process needed; omitted in dev (Vite serves it).
 	uiDist?: string;
-	// WordPress.com OAuth client id for the browser (redirect-based) login flow.
-	// When unset, login falls back to pasting the token (`studio auth login`-style).
-	uiClientId?: string;
 }
 
 export interface LocalServer {
@@ -178,7 +176,7 @@ function asyncHandler( fn: ( req: Request, res: Response ) => Promise< void > ) 
 }
 
 export async function startLocalServer( options: LocalServerOptions ): Promise< LocalServer > {
-	const { cliBinary, nodeBinary, sessionsRoot, sitesRoot, uiDist, uiClientId } = options;
+	const { cliBinary, nodeBinary, sessionsRoot, sitesRoot, uiDist } = options;
 	const port = options.port ?? Number( process.env.STUDIO_LOCAL_SERVER_PORT ?? DEFAULT_PORT );
 	const host = options.host ?? '127.0.0.1';
 
@@ -292,15 +290,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Build the WordPress.com authorize URL for the browser (redirect) login flow,
 	// targeting the caller-provided redirect (its own origin + /auth/callback).
-	// Returns { url: null } when no OAuth client is configured, so the connector
-	// falls back to the paste flow.
+	// Returns { url: null } when the caller didn't supply a redirect URI, so the
+	// connector falls back to the paste flow.
 	api.get( '/auth/login-url', ( req: Request, res: Response ) => {
 		const redirectUri = typeof req.query.redirect_uri === 'string' ? req.query.redirect_uri : '';
-		if ( ! uiClientId || ! redirectUri ) {
+		if ( ! redirectUri ) {
 			res.json( { url: null } );
 			return;
 		}
-		res.json( { url: getAuthenticationUrl( 'en', redirectUri, uiClientId ) } );
+		res.json( { url: getAuthenticationUrl( 'en', redirectUri ) } );
 	} );
 
 	// Log in by storing a token from the redirect callback (or pasted from

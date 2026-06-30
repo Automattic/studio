@@ -649,5 +649,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		async copyText( text ) {
+			await navigator.clipboard.writeText( text );
+		},
+		onToggleSidebar() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
 	};
 }

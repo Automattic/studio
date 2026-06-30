@@ -1,7 +1,10 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { __ } from '@wordpress/i18n';
+import {
+	createBlueprintTempDir,
+	removeBlueprintTempDir,
+} from '@studio/common/lib/blueprint-bundle';
 import { extractZip } from '@studio/common/lib/extract-zip';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -13,16 +16,14 @@ export interface ExtractedBlueprintBundle {
 
 /**
  * Extract a Blueprint ZIP bundle to a temp directory and return the parsed
- * `blueprint.json`. Shared between the desktop app and the local web server so
- * both handle uploaded Blueprint bundles identically. The caller is responsible
- * for cleaning up `tempDir` (via {@link cleanupBlueprintTempDir}) if it doesn't
- * go on to consume the extracted bundle.
+ * `blueprint.json`. The caller is responsible for cleaning up `tempDir` (via
+ * {@link cleanupBlueprintTempDir}) if it doesn't go on to consume the bundle.
  */
 export async function extractBlueprintBundle(
 	zipFilePath: string
 ): Promise< ExtractedBlueprintBundle > {
 	const resolvedZipPath = path.resolve( zipFilePath );
-	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-blueprint-bundle-' ) );
+	const tempDir = await createBlueprintTempDir();
 
 	try {
 		await extractZip( resolvedZipPath, tempDir );
@@ -43,11 +44,11 @@ export async function extractBlueprintBundle(
 
 		return { blueprintJson, blueprintJsonPath, tempDir };
 	} catch ( error ) {
-		await fs.promises.rm( tempDir, { recursive: true, force: true } );
+		await removeBlueprintTempDir( tempDir );
 		throw error;
 	}
 }
 
 export async function cleanupBlueprintTempDir( tempDir: string ): Promise< void > {
-	await fs.promises.rm( tempDir, { recursive: true, force: true } );
+	await removeBlueprintTempDir( tempDir );
 }

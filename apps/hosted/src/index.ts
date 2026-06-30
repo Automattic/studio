@@ -328,8 +328,8 @@ app.use( '/api', api );
 
 // --- Web UI ------------------------------------------------------------------
 
-// Serve the built browser UI (apps/ui `npm run build:hosted`) so the server is
-// the only process needed: API and SPA share one origin. When the build output
+// Serve the built browser UI (apps/ui `npm run build:hosted`) so the server is the
+// only process needed: API and SPA share one origin. When the build output
 // isn't there (API-only usage, or UI served by the Vite dev server on :5300),
 // the server still works and the startup message says how to get the UI.
 const uiDist =

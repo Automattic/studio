@@ -1,5 +1,6 @@
 import { appBumpStatsProvider } from '@studio/common/lib/app-bump-stats';
 import { __bumpAggregatedUniqueStat, __bumpStat } from '@studio/common/lib/bump-stat';
+import { captureException } from '@studio/common/lib/error-reporting';
 
 /**
  * Studio Code agent usage stats. The `surface` selects which stat group is
@@ -33,7 +34,7 @@ const STAT_GROUPS: Record< AgentSurface, AgentStatGroups > = {
 	},
 };
 
-export function getPlatformMetric(): string {
+function getPlatformMetric(): string {
 	switch ( process.platform ) {
 		case 'darwin':
 			return 'darwin';
@@ -47,7 +48,7 @@ export function getPlatformMetric(): string {
 }
 
 // One agent message was sent: a usage count plus weekly/monthly unique-user
-// approximations (the latter only when a dedup-state provider is supplied).
+// approximations.
 export function recordAgentSend( surface: AgentSurface ): void {
 	const groups = STAT_GROUPS[ surface ];
 	const platform = getPlatformMetric();
@@ -57,13 +58,13 @@ export function recordAgentSend( surface: AgentSurface ): void {
 		platform,
 		'weekly',
 		appBumpStatsProvider
-	).catch( () => undefined );
+	).catch( ( error ) => captureException( error ) );
 	void __bumpAggregatedUniqueStat(
 		groups.monthlyUnique,
 		platform,
 		'monthly',
 		appBumpStatsProvider
-	).catch( () => undefined );
+	).catch( ( error ) => captureException( error ) );
 }
 
 // A run finished: record its outcome.

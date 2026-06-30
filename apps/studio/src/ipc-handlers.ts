@@ -29,6 +29,10 @@ import {
 	loadHydratedAiSession,
 } from '@studio/common/ai/sessions/manage';
 import {
+	deleteAiSessionPlacement,
+	readAiSessionPlacement,
+} from '@studio/common/ai/sessions/placement';
+import {
 	appendModelChangeEntry,
 	appendStudioEntry,
 	deleteAiSession as deleteAiSessionFromStore,
@@ -88,6 +92,7 @@ import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-util
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
 	extractBlueprintBundle as extractBlueprintBundleShared,
+	type ExtractedBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import {
@@ -97,7 +102,6 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { deleteAiSessionPlacement, readAiSessionPlacement } from 'src/lib/ai-session-placement';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
@@ -2198,7 +2202,10 @@ export async function readBlueprintFile(
 	return JSON.parse( fileContents );
 }
 
-export async function extractBlueprintBundle( _event: IpcMainInvokeEvent, zipFilePath: string ) {
+export async function extractBlueprintBundle(
+	_event: IpcMainInvokeEvent,
+	zipFilePath: string
+): Promise< ExtractedBlueprintBundle > {
 	return extractBlueprintBundleShared( zipFilePath );
 }
 

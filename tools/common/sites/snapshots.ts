@@ -5,13 +5,9 @@ import { snapshotSchema, type Snapshot } from '@studio/common/types/snapshot';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
 /**
- * Preview-site (snapshot) operations, delegated to the Studio CLI.
- *
- * Shared by the desktop app and the `studio ui` server: each `preview` command
- * is forked via the CLI and its progress relayed through a single injected
- * `emit` (the only per-host difference) — the desktop forwards it over IPC as
- * `snapshot-*` events; the server broadcasts it over SSE. Mirrors the agent
- * run-manager's shape.
+ * Preview-site (snapshot) operations, delegated to the Studio CLI. Each
+ * `preview` command is forked via the CLI and its progress relayed through the
+ * injected `emit` callback.
  */
 
 type OperationId = ReturnType< typeof crypto.randomUUID >;

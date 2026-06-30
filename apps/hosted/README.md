@@ -3,7 +3,7 @@
 `apps/hosted` is the experimental **Studio Web** backend: an HTTP + SSE server
 that drives Studio's agent from a browser. It exposes the same capabilities the
 desktop app reaches over IPC, but over HTTP, so the portable `apps/ui` renderer
-can talk to it through the **hosted connector**
+can talk to it through the **web connector**
 (`apps/ui/src/data/core/connectors/hosted`).
 
 Unlike the desktop app and CLI, this targets a hosted deployment — WordPress.com
@@ -26,7 +26,7 @@ For UI development with hot reload, run the Vite dev server instead (it targets
 the backend's default port cross-origin):
 
 ```
-cd apps/ui && npm run dev:hosted   # serves the browser entry on :5300
+cd apps/ui && npm run dev:web   # serves the browser entry on :5300
 ```
 
 ## Status: agent runtime is stubbed

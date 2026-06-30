@@ -218,7 +218,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
-		if ( ! node ) {
+		if ( ! node || pendingQuestions.length > 0 ) {
 			return;
 		}
 		node.scrollTop = node.scrollHeight;
@@ -226,7 +226,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			node.scrollTop = node.scrollHeight;
 		} );
 		return () => cancelAnimationFrame( id );
-	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
+	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
 
 	if ( isLoading ) {
 		// Use the same SessionFrame with an empty header and a structural
@@ -289,7 +289,13 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
+			<div
+				className={ clsx(
+					styles.classicColumn,
+					styles.classicConversationSpacing,
+					pendingQuestions.length > 0 && styles.classicConversationWithQuestions
+				) }
+			>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

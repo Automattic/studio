@@ -213,6 +213,51 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		} );
 	} );
 
+	describe( 'needsSqliteSetup', () => {
+		it( 'should return true for a fresh site without wp-config.php', async () => {
+			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
+			expect( result ).toBe( true );
+		} );
+
+		it( 'should return true when db.php exists', async () => {
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-config.php` ) ]: 'config',
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]: '',
+			} );
+
+			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
+			expect( result ).toBe( true );
+		} );
+
+		it( 'should return true when the SQLite database remains but db.php is missing', async () => {
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-config.php` ) ]: 'config',
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/database/.ht.sqlite` ) ]: '',
+			} );
+
+			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
+			expect( result ).toBe( true );
+		} );
+
+		it( 'should return true when the SQLite mu-plugin remains but db.php is missing', async () => {
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-config.php` ) ]: 'config',
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }/load.php` ) ]:
+					'',
+			} );
+
+			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
+			expect( result ).toBe( true );
+		} );
+
+		it( 'should return false for a MySQL site (wp-config.php, no SQLite artifacts)', async () => {
+			volFromJSON( { [ normalize( `${ MOCK_SITE_PATH }/wp-config.php` ) ]: 'config' } );
+
+			const result = await provider.needsSqliteSetup( MOCK_SITE_PATH );
+			expect( result ).toBe( false );
+		} );
+	} );
+
 	describe( 'keepSqliteIntegrationUpdated', () => {
 		beforeEach( () => {
 			volFromJSON( {
@@ -243,10 +288,13 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 			);
 		} );
 
-		it( 'should recreate the drop-in when wp-config.php exists but db.php is missing', async () => {
-			// Regression: STU-1821 (Problem 1) — a configured site whose db.php went
-			// missing must have the SQLite integration restored, not skipped.
-			volFromJSON( { [ normalize( `${ MOCK_SITE_PATH }/wp-config.php` ) ]: 'config' } );
+		it( 'should recreate the drop-in when db.php is missing but the SQLite database remains', async () => {
+			// Regression: STU-1821 (Problem 1) — a SQLite site whose db.php went missing
+			// (its .ht.sqlite database is still there) must have the drop-in restored.
+			volFromJSON( {
+				[ normalize( `${ MOCK_SITE_PATH }/wp-config.php` ) ]: 'config',
+				[ normalize( `${ MOCK_SITE_PATH }/wp-content/database/.ht.sqlite` ) ]: '',
+			} );
 
 			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
 
@@ -259,6 +307,18 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 				normalize( `${ MOCK_SITE_PATH }/wp-content/mu-plugins/${ SQLITE_DIRNAME }` ),
 				expect.any( Object )
 			);
+		} );
+
+		it( 'should not install for a MySQL site (wp-config.php, no SQLite artifacts)', async () => {
+			// A user can run Studio against their own MySQL server by removing db.php,
+			// the database directory, and the SQLite mu-plugin, then pointing wp-config.php
+			// at MySQL. Studio must not reinstall the SQLite integration over that.
+			volFromJSON( { [ normalize( `${ MOCK_SITE_PATH }/wp-config.php` ) ]: 'config' } );
+
+			await provider.keepSqliteIntegrationUpdated( MOCK_SITE_PATH );
+
+			expect( vi.mocked( fs.promises.writeFile ) ).not.toHaveBeenCalled();
+			expect( vi.mocked( fs.promises.cp ) ).not.toHaveBeenCalled();
 		} );
 	} );
 

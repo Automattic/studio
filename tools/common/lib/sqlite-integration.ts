@@ -18,6 +18,30 @@ export abstract class SqliteIntegrationProvider {
 	}
 
 	/**
+	 * Whether Studio should (re)install the SQLite integration for this site.
+	 *
+	 * A user can run Studio against their own database server (e.g. MySQL) by removing
+	 * the SQLite drop-in, database, and mu-plugin, then pointing wp-config.php at it
+	 * (https://developer.wordpress.com/docs/developer-tools/studio/frequently-asked-questions/#use-studio-with-mysql-server).
+	 * We must not reinstall SQLite over that. But a SQLite site whose db.php drop-in went
+	 * missing still has its database/mu-plugin, and needs the drop-in restored.
+	 *
+	 * So: set up SQLite for a fresh site (no wp-config.php), or whenever any SQLite artifact
+	 * is still present; skip only when wp-config.php exists and every SQLite artifact is gone.
+	 */
+	async needsSqliteSetup( sitePath: string ): Promise< boolean > {
+		const wpContentPath = path.join( sitePath, 'wp-content' );
+		if ( ! fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ) {
+			return true;
+		}
+		return (
+			fs.existsSync( path.join( wpContentPath, 'db.php' ) ) ||
+			fs.existsSync( path.join( wpContentPath, 'database', '.ht.sqlite' ) ) ||
+			fs.existsSync( path.join( wpContentPath, 'mu-plugins', this.getSqliteDirname() ) )
+		);
+	}
+
+	/**
 	 * Whether to keep the existing wp-content/db.php instead of overwriting it with
 	 * Studio's stock SQLite drop-in.
 	 *
@@ -94,11 +118,13 @@ export abstract class SqliteIntegrationProvider {
 	}
 
 	async keepSqliteIntegrationUpdated( sitePath: string ): Promise< void > {
-		// SQLite setup is idempotent and every Studio site needs it, so always run it.
-		// This restores a missing db.php drop-in (otherwise the site reports "Error
-		// establishing a database connection") and keeps the bundled mu-plugin current,
-		// while installSqliteIntegration() preserves custom SQLite-compatible drop-ins.
-		await this.installSqliteIntegration( sitePath );
+		// Skip SQLite for sites using their own database server (see needsSqliteSetup).
+		// Otherwise (re)install: this restores a missing db.php drop-in (otherwise the
+		// site reports "Error establishing a database connection") and keeps the bundled
+		// mu-plugin current, while installSqliteIntegration() preserves custom drop-ins.
+		if ( await this.needsSqliteSetup( sitePath ) ) {
+			await this.installSqliteIntegration( sitePath );
+		}
 	}
 
 	async isSqliteInstalled( sitePath: string ): Promise< boolean > {

@@ -44,7 +44,6 @@ import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
-import { extractZip } from '@studio/common/lib/extract-zip';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -84,6 +83,11 @@ import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import {
+	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
+	extractBlueprintBundle as extractBlueprintBundleShared,
+	type ExtractedBlueprintBundle,
+} from '@studio/common/sites/blueprint-extract';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import {
 	MACOS_TRAFFIC_LIGHT_POSITION,
@@ -203,6 +207,7 @@ export {
 	pauseSyncUpload,
 	pullSiteFromLive,
 	pushArchive,
+	pushSiteToLive,
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,
@@ -2281,45 +2286,15 @@ export async function readBlueprintFile(
 export async function extractBlueprintBundle(
 	_event: IpcMainInvokeEvent,
 	zipFilePath: string
-): Promise< {
-	blueprintJson: Blueprint[ 'blueprint' ];
-	blueprintJsonPath: string;
-	tempDir: string;
-} > {
-	const resolvedZipPath = nodePath.resolve( zipFilePath );
-	const tempDir = await fsPromises.mkdtemp(
-		nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' )
-	);
-
-	try {
-		await extractZip( resolvedZipPath, tempDir );
-
-		const blueprintJsonPath = nodePath.join( tempDir, 'blueprint.json' );
-		try {
-			await fsPromises.access( blueprintJsonPath );
-		} catch {
-			throw new Error(
-				__(
-					'No blueprint.json found in the ZIP file. Please ensure the ZIP contains a blueprint.json at its root.'
-				)
-			);
-		}
-
-		const fileContents = await fsPromises.readFile( blueprintJsonPath, 'utf-8' );
-		const blueprintJson = JSON.parse( fileContents );
-
-		return { blueprintJson, blueprintJsonPath, tempDir };
-	} catch ( error ) {
-		await fsPromises.rm( tempDir, { recursive: true, force: true } );
-		throw error;
-	}
+): Promise< ExtractedBlueprintBundle > {
+	return extractBlueprintBundleShared( zipFilePath );
 }
 
 export async function cleanupBlueprintTempDir(
 	_event: IpcMainInvokeEvent,
 	tempDir: string
 ): Promise< void > {
-	await removeBlueprintTempDir( tempDir );
+	await cleanupBlueprintTempDirShared( tempDir );
 }
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {

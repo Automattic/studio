@@ -1,11 +1,57 @@
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
 
 export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
+
+export function primeSessionQueryData( queryClient: QueryClient, summary: AiSessionSummary ): void {
+	queryClient.setQueryData< AiSessionSummary[] >( SESSIONS_QUERY_KEY, ( current ) => {
+		const withoutSummary = ( current ?? [] ).filter( ( session ) => session.id !== summary.id );
+		return [ summary, ...withoutSummary ].sort(
+			( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt )
+		);
+	} );
+
+	queryClient.setQueryData< LoadedAiSession >(
+		[ ...SESSIONS_QUERY_KEY, summary.id ],
+		( current ) => {
+			if ( current ) {
+				return {
+					...current,
+					summary,
+				};
+			}
+
+			if ( summary.firstPrompt || summary.eventCount > 0 ) {
+				return current;
+			}
+
+			// Newly-created draft sessions have no transcript yet. This shell
+			// gives routes owner metadata immediately while the full JSONL load
+			// reconciles in the background after invalidation.
+			return {
+				summary,
+				entries: [],
+			};
+		}
+	);
+}
+
+export function reconcilePrimedSessionQueryData(
+	queryClient: QueryClient,
+	sessionId: string
+): Promise< void > {
+	return Promise.all( [
+		queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } ),
+		queryClient.invalidateQueries( {
+			queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
+			exact: true,
+		} ),
+	] ).then( () => undefined );
+}
 
 export function useSessions() {
 	const connector = useConnector();
@@ -44,7 +90,10 @@ export function useCreateSession() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( siteId?: string ) => connector.createSession( siteId ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } ),
+		onSuccess: ( summary ) => {
+			primeSessionQueryData( queryClient, summary );
+			void reconcilePrimedSessionQueryData( queryClient, summary.id );
+		},
 	} );
 }
 

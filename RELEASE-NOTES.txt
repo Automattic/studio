@@ -4,8 +4,8 @@ Unreleased
 1.12.0
 =====
 * Introduced PHP runtime and File Access options, and improved the native PHP runtime: fixed WP-CLI tool calls, asset loading for sites with a remote site URL, and blueprint creation from read-only directories, and made pull-reprint work with native PHP #3786, #3926, #3915, #3847, #3988, #3889, #3881
-* Improved Studio Code: content is checked before it is applied to your site, ecommerce sites are set up more reliably, and push/pull prompts are clearer. Tool calls are easier to follow with descriptions and a detail panel, remote sign-in shows a copyable login link, multiple-choice questions appear as clickable buttons, and visual annotations install their browser automatically on first use #3753, #3874, #3875, #3903, #3904, #3900, #3868, #3833, #3841
-* Added assistant usage limits in Settings and made it clearer which settings apply to a site vs the whole app #3843, #3886
+* Improved Studio Code: content is checked before it is applied to your site, ecommerce sites are set up more reliably, and push/pull prompts are clearer. Tool calls are easier to follow with descriptions and a detail panel, remote sign-in shows a copyable login link, multiple-choice questions appear as clickable buttons, visual annotations install their browser automatically on first use, and available models were updated #3753, #3874, #3875, #3903, #3904, #3900, #3868, #3833, #3841, #3827, #3828
+* Added assistant usage limits in Settings with clearer limit messaging, and made it clearer which settings apply to a site vs the whole app #3843, #3831, #3886
 * Made the standalone Studio CLI easier to install and use: one-command install and updates from the web, a clean uninstall option, shorter commands for everyday site tasks, and new terminal commands to view and change site settings #3064, #3835, #3974, #3884
 * Improved pull-reprint: choose a site from a searchable list when you have several connected sites, and re-running the command now syncs remote changes to your local copy #3729, #3768
 * Added a Kurdish (Sorani) locale and improved locale handling #3873, #3214, #3776
@@ -15,7 +15,6 @@ Unreleased
 * Fixed a startup crash on Node.js 22, surfaced PHP errors when a site fails to start, resolved slow .local DNS on macOS, preserved in-progress messages in Studio Code, and restored the recorded model when resuming a session by id #3885, #3813, #3912, #3824, #3819
 * Fixed tooltip delay so tooltips do not pop up instantly when moving the cursor #3942
 * Clarified Sync and quit-sites messaging, and fixed What's New modal copy #3929, #3837, #3924, #3946
-* Updated Studio Code model availability and token limit messaging #3827, #3828, #3831
 * Misc maintenance #3849
 * Updated multiple dependencies, including WP Playground, PHP-WASM, bundled PHP binaries, the SQLite database integration, and Reprint
 

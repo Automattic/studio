@@ -58,6 +58,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
+import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import {
@@ -1459,36 +1460,6 @@ export async function readLocalMediaFile(
 			buffer.byteOffset + buffer.byteLength
 		) as ArrayBuffer,
 	};
-}
-
-function getLocalMediaMimeType( path: string ) {
-	const extension = nodePath.extname( path ).toLowerCase().slice( 1 );
-	const mimeTypes: Record< string, string > = {
-		avif: 'image/avif',
-		avi: 'video/x-msvideo',
-		bmp: 'image/bmp',
-		gif: 'image/gif',
-		heic: 'image/heic',
-		heif: 'image/heif',
-		ico: 'image/x-icon',
-		jpeg: 'image/jpeg',
-		jpg: 'image/jpeg',
-		m4v: 'video/x-m4v',
-		mkv: 'video/x-matroska',
-		mov: 'video/quicktime',
-		mp4: 'video/mp4',
-		mpeg: 'video/mpeg',
-		mpg: 'video/mpeg',
-		ogv: 'video/ogg',
-		png: 'image/png',
-		svg: 'image/svg+xml',
-		tif: 'image/tiff',
-		tiff: 'image/tiff',
-		webm: 'video/webm',
-		webp: 'image/webp',
-	};
-
-	return mimeTypes[ extension ] ?? '';
 }
 
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer

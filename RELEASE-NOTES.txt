@@ -4,8 +4,8 @@ Unreleased
 1.12.0
 =====
 * Introduced PHP runtime and File Access options, and improved the native PHP runtime: fixed WP-CLI tool calls, asset loading for sites with a remote site URL, and blueprint creation from read-only directories, and made pull-reprint work with native PHP #3786, #3926, #3915, #3847, #3988, #3889, #3881
-* Improved Studio Code: a mandatory block-validation gate before applying content, clearer tool-call descriptions with a detail panel, deterministic ecommerce handling, a login URL for headless and remote use, tuned push/pull prompting, and multiple-choice agent options rendered as clearly clickable buttons that mark your selection #3753, #3874, #3875, #3903, #3904, #3900, #3868, #3833
-* Added assistant cost usage limits and reorganized Settings, consolidating account controls into an Account tab, restoring the sidebar user menu, and clarifying site-level vs app-level settings #3843, #3777, #3820, #3886, #3837
+* Improved Studio Code: content is checked before it is applied to your site, ecommerce sites are set up more reliably, and push/pull prompts are clearer. Tool calls are easier to follow with descriptions and a detail panel, remote sign-in shows a copyable login link, and multiple-choice questions appear as clickable buttons #3753, #3874, #3875, #3903, #3904, #3900, #3868, #3833
+* Added assistant usage limits in Settings, moved account options to an Account tab, restored the sidebar user menu, and made it clearer which settings apply to a site vs the whole app #3843, #3777, #3820, #3886, #3837
 * Expanded the standalone Studio CLI: a curl installer, CDN-hosted bundles, an uninstall command, top-level site subcommands, config get/set, and a runtime-agnostic get-site-icon #3064, #3835, #3974, #3884, #3945
 * Improved pull-reprint with interactive site selection #3729, #3768
 * Streamlined annotations by removing the extra confirmation step, moving controls into the preview toolbar, and auto-installing the annotation browser #3870, #3762, #3841

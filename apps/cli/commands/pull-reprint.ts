@@ -413,6 +413,7 @@ export async function runCommand(
 		// prepare_repull(). Always re-invoked: the pull is idempotent and
 		// reprint resumes its own pipeline from `.import-state.json`, so
 		// there is no Studio-side guard to skip it.
+		normalizeReprintStateForEssentialFilesPull( studioMetadata.stateDirectory );
 		await runFullPull(
 			SITE_RUNTIME_NATIVE_PHP,
 			studioMetadata,
@@ -671,6 +672,33 @@ async function runPreflight(
 }
 
 /**
+ * Reprint refuses to resume a files sync with a different --filter than
+ * the one stored in its state. A completed Studio pull may leave that
+ * state on the post-pull skipped-earlier pass; mark that pass complete
+ * and restore the filter expected by the next essential-files pull
+ * without deleting the cursor/index files reprint needs for deltas.
+ */
+function normalizeReprintStateForEssentialFilesPull( stateDirectory: string ): void {
+	const reprintState = readReprintState( stateDirectory );
+	if ( reprintState?.filter && reprintState.filter !== 'essential-files' ) {
+		const statePath = getReprintStatePath( stateDirectory );
+		fs.writeFileSync(
+			statePath,
+			JSON.stringify(
+				{
+					...reprintState,
+					status: 'complete',
+					stage: null,
+					filter: 'essential-files',
+				},
+				null,
+				2
+			) + '\n'
+		);
+	}
+}
+
+/**
  * The `~/.studio/pulls/<siteId>` scratch root for a site's pull. Keyed
  * by `siteId` (not a URL hash) so it follows the site, not the remote.
  */
@@ -884,14 +912,20 @@ export function findMatchingWpComSite< T extends { url: string } >(
  *
  *   1. `--url` + `--secret` — trusted pair, used as-is (self-hosted
  *      sites and arbitrary URLs).
- *   2. `--url` alone — reuse the secret stored on the site's
- *      `reprintOrigin` from an earlier pull of the same URL; fall back
- *      to rotating a fresh WP.com secret.
- *   3. No `--url` — among pullable (`syncable`) sites only: if the user
- *      has exactly one, pick it; with several, show an interactive
- *      picker in a TTY (returning `null` if the user cancels) or error
- *      out when run non-interactively. Non-pullable sites (Simple, or
- *      missing hosting features) are surfaced as disabled in the picker.
+ *   2. A site with a saved `reprintOrigin` (set by a previous pull),
+ *      with either no `--url` or a `--url` that matches that origin —
+ *      reuse the saved remote URL and HMAC secret so a re-pull needs no
+ *      remote re-selection or secret re-rotation. An explicit `--secret`
+ *      still overrides the stored one. If the stored secret is stale,
+ *      preflight 403s and the WP.com retry path rotates a fresh one.
+ *   3. `--url` with no matching stored secret — resolve it against the
+ *      connected WordPress.com sites and rotate a fresh secret.
+ *   4. No `--url` and no saved origin — among pullable (`syncable`)
+ *      sites only: if the user has exactly one, pick it; with several,
+ *      show an interactive picker in a TTY (returning `null` if the user
+ *      cancels) or error out when run non-interactively. Non-pullable
+ *      sites (Simple, or missing hosting features) are surfaced as
+ *      disabled in the picker.
  */
 export async function resolveSourceSite(
 	site: SiteData,
@@ -904,12 +938,19 @@ export async function resolveSourceSite(
 		return { url, secret: providedSecret };
 	}
 
-	// When the caller provides a URL, reuse the HMAC secret Studio stored
-	// on the site's origin from the last successful pull of this same URL,
-	// so a resumed run can skip the wp.com rotation round-trip.  If it's
-	// stale, preflight will 403 later and fall back to rotating a fresh one.
-	if ( url && site.reprintOrigin?.remoteUrl === normalizeSiteUrl( url ) ) {
-		return { url, secret: site.reprintOrigin.secret };
+	// Reuse the site's saved origin from its last successful pull when no
+	// `--url` is given (default to the same remote) or when `--url` points
+	// at that same remote — so a re-pull doesn't force the user to
+	// re-select the remote or re-rotate the secret on every run. An
+	// explicit `--secret` still overrides the stored one.
+	if (
+		site.reprintOrigin &&
+		( ! url || normalizeSiteUrl( url ) === site.reprintOrigin.remoteUrl )
+	) {
+		return {
+			url: url ?? site.reprintOrigin.remoteUrl,
+			secret: providedSecret ?? site.reprintOrigin.secret,
+		};
 	}
 
 	// Need the full site list: either no URL was given (interactive pick) or

@@ -6,6 +6,7 @@ import type { AiModelId } from '@studio/common/ai/models';
 
 const mocks = vi.hoisted( () => ( {
 	createAgentSession: vi.fn(),
+	resolveCustomMcpTools: vi.fn(),
 	createdSessions: [] as FakeSession[],
 	nextEvents: null as AgentSessionEvent[] | null,
 	studioRoot: '/tmp/studio-ai-pi-runtime',
@@ -48,6 +49,10 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 vi.mock( 'cli/lib/site-paths', () => ( {
 	STUDIO_SITES_ROOT: mocks.studioRoot,
 	getDefaultSitePath: ( siteName: string ) => `${ mocks.studioRoot }/${ siteName }`,
+} ) );
+
+vi.mock( 'cli/ai/mcp-client-tools', () => ( {
+	resolveCustomMcpTools: mocks.resolveCustomMcpTools,
 } ) );
 
 vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
@@ -213,6 +218,8 @@ describe( 'pi runtime', () => {
 		mocks.createdSessions.length = 0;
 		mocks.nextEvents = null;
 		mocks.createAgentSession.mockReset();
+		mocks.resolveCustomMcpTools.mockReset();
+		mocks.resolveCustomMcpTools.mockResolvedValue( [] );
 		mocks.createAgentSession.mockImplementation( async ( options: CreateAgentSessionOptions ) => {
 			const session = new FakeSession( options );
 			mocks.createdSessions.push( session );
@@ -270,6 +277,36 @@ describe( 'pi runtime', () => {
 		} );
 
 		expect( mocks.createdSessions[ 0 ].options.model?.input ).toEqual( [ 'text', 'image' ] );
+	} );
+
+	it( 'includes configured custom MCP tools in the pi tool registry', async () => {
+		mocks.resolveCustomMcpTools.mockResolvedValue( [
+			{
+				name: 'mcp__figma__get_design_context',
+				label: 'mcp__figma__get_design_context',
+				description: 'Fetch Figma design context',
+				parameters: { type: 'object', properties: {} },
+				execute: async () => ( { content: [ { type: 'text', text: 'figma result' } ] } ),
+			},
+		] );
+
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.5',
+			session: newSession(),
+		} );
+
+		const options = mocks.createdSessions[ 0 ].options;
+		expect( options.tools ).toContain( 'mcp__figma__get_design_context' );
+		expect(
+			( options.customTools ?? [] ).some(
+				( tool ) => tool.name === 'mcp__figma__get_design_context'
+			)
+		).toBe( true );
 	} );
 
 	it( 'rejects oversized direct Write, Edit, and Bash payloads', async () => {

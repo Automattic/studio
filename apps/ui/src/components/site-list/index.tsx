@@ -1,7 +1,6 @@
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { settings } from '@wordpress/icons';
-import { IconButton, Tooltip } from '@wordpress/ui';
+import { Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	Fragment,
@@ -248,35 +247,6 @@ function createSiteRows(
 	return rows;
 }
 
-function SiteOverviewButton( {
-	site,
-	isActive = false,
-}: {
-	site: SiteDetails;
-	isActive?: boolean;
-} ) {
-	const navigate = useNavigate();
-
-	return (
-		<IconButton
-			variant="minimal"
-			tone="neutral"
-			size="small"
-			icon={ settings }
-			label={ __( 'Site overview' ) }
-			className={ clsx( styles.siteAction, isActive && styles.siteActionActive ) }
-			aria-current={ isActive ? 'page' : undefined }
-			onClick={ ( event ) => {
-				event.stopPropagation();
-				void navigate( {
-					to: '/sites/$siteId/overview',
-					params: { siteId: site.id },
-				} );
-			} }
-		/>
-	);
-}
-
 function SiteStatusButton( {
 	site,
 	isStarting,
@@ -437,7 +407,6 @@ function SiteSection( {
 					</SidebarButton>
 				</div>
 				<div className={ styles.siteActions } data-site-actions>
-					<SiteOverviewButton site={ site } isActive={ isContextActive } />
 					<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 				</div>
 			</header>
@@ -520,10 +489,7 @@ function isSiteContextPath( pathname: string, siteId: string | undefined ) {
 	}
 
 	try {
-		return (
-			decodeURIComponent( routeSiteId ) === siteId &&
-			( section === 'overview' || section === 'settings' )
-		);
+		return decodeURIComponent( routeSiteId ) === siteId && section === 'settings';
 	} catch {
 		return false;
 	}

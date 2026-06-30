@@ -8,7 +8,12 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
-import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
+import {
+	useCreateSession,
+	useSession,
+	useSessionEffectiveEnvironment,
+	useSessions,
+} from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSessionCommands } from '@/hooks/use-session-commands';
@@ -19,6 +24,11 @@ import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
+import {
+	getSiteSessionHistory,
+	SessionChatActions,
+	SessionChatActionsSkeleton,
+} from './session-chat-actions';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
@@ -44,7 +54,12 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 		: null;
 
 	return (
-		<div className={ styles.header }>
+		<div
+			className={ clsx(
+				styles.header,
+				sidebarCollapsed && ! isFullscreen && styles.headerSidebarCollapsed
+			) }
+		>
 			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
 			{ site ? (
 				<SiteDropdown
@@ -73,6 +88,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
+	footer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
@@ -80,7 +96,7 @@ interface SessionFrameProps {
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( { header, composer, scrollRef, children }: SessionFrameProps ) {
+function SessionFrame( { header, composer, footer, scrollRef, children }: SessionFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
@@ -121,7 +137,11 @@ function SessionFrame( { header, composer, scrollRef, children }: SessionFramePr
 	}, [] );
 
 	return (
-		<div ref={ rootRef } className={ styles.root }>
+		<div
+			ref={ rootRef }
+			className={ clsx( styles.root, footer && styles.rootWithFooter ) }
+			data-classic-session-view
+		>
 			<div ref={ headerRef } className={ styles.headerLayer }>
 				{ header }
 			</div>
@@ -136,6 +156,7 @@ function SessionFrame( { header, composer, scrollRef, children }: SessionFramePr
 			>
 				{ composer }
 			</div>
+			{ footer ? <div className={ styles.panelFooterControls }>{ footer }</div> : null }
 		</div>
 	);
 }
@@ -152,6 +173,8 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
+	const { data: sessions } = useSessions();
+	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSitePath = data?.summary.ownerSitePath;
 	const ownerSite = ownerSitePath
 		? sites?.find( ( candidate ) => candidate.path === ownerSitePath )
@@ -191,6 +214,17 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const composerRef = useRef< ComposerHandle >( null );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
+	const siteSessionHistory = useMemo(
+		() =>
+			data
+				? getSiteSessionHistory( {
+						currentSession: data.summary,
+						ownerSitePath: ownerSite?.path,
+						sessions,
+				  } )
+				: [],
+		[ data, ownerSite?.path, sessions ]
+	);
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -215,6 +249,26 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ removeQueuedPrompt ]
 	);
+	const switchSession = useCallback(
+		( nextSessionId: string ) =>
+			void navigate( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: nextSessionId },
+			} ),
+		[ navigate ]
+	);
+	const startNewChat = useCallback( async () => {
+		if ( ! ownerSite ) {
+			return;
+		}
+		try {
+			const summary = await createSession( ownerSite.id );
+			switchSession( summary.id );
+		} catch {
+			// The mutation owns the error state; avoid an unhandled rejection
+			// from this command button if session creation fails.
+		}
+	}, [ createSession, ownerSite, switchSession ] );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -241,6 +295,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						<ComposerSkeleton />
 					</div>
 				}
+				footer={ <SessionChatActionsSkeleton /> }
 			>
 				<EmptyBackground />
 			</SessionFrame>
@@ -278,14 +333,20 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						sessionId={ sessionId }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
-						onSwitchSession={ ( nextSessionId ) =>
-							void navigate( {
-								to: '/sessions/$sessionId',
-								params: { sessionId: nextSessionId },
-							} )
-						}
+						onSwitchSession={ switchSession }
 					/>
 				</div>
+			}
+			footer={
+				ownerSite ? (
+					<SessionChatActions
+						currentSessionId={ sessionId }
+						isCreatingSession={ isCreatingSession }
+						onNewChat={ () => void startNewChat() }
+						onSwitchSession={ switchSession }
+						sessions={ siteSessionHistory }
+					/>
+				) : null
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }

@@ -79,22 +79,6 @@ export interface SiteDetails {
 	siteIcon?: string | null;
 }
 
-export interface SiteOverviewExtension {
-	slug: string;
-	name: string;
-	status?: string;
-	version?: string;
-}
-
-export interface SiteOverviewDetails {
-	content: {
-		pages: number;
-		posts: number;
-	};
-	plugins: SiteOverviewExtension[];
-	themes: SiteOverviewExtension[];
-}
-
 export interface LocalMediaFile {
 	name: string;
 	mimeType: string;
@@ -142,8 +126,6 @@ export interface Connector {
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;
-	// Counts and installed extensions for the site overview page.
-	getSiteOverviewDetails( siteId: string ): Promise< SiteOverviewDetails >;
 	// Xdebug is exclusive across sites; returns the one site currently using
 	// it (or null) so the settings form can block a conflicting toggle.
 	getXdebugEnabledSite(): Promise< SiteDetails | null >;

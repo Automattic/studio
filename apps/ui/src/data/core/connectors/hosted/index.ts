@@ -9,7 +9,6 @@ import type {
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
-	SiteOverviewDetails,
 	Snapshot,
 	SyncSite,
 	UserPreferences,
@@ -162,9 +161,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
-		},
-		async getSiteOverviewDetails(): Promise< SiteOverviewDetails > {
-			throw new WebUnsupportedError( 'getSiteOverviewDetails' );
 		},
 		async getXdebugEnabledSite(): Promise< SiteDetails | null > {
 			return null;

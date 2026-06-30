@@ -52,6 +52,8 @@
 }
 
 .main {
+	--sidebar-floating-toggle-left: var(--wpds-dimension-padding-xl);
+
 	flex: 1;
 	min-width: 0;
 	overflow: auto;
@@ -74,7 +76,7 @@
 .floatingToggle {
 	position: absolute;
 	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
-	left: calc(var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-xs));
+	left: var(--sidebar-floating-toggle-left);
 	display: flex;
 	align-items: center;
 	padding: var(--wpds-dimension-padding-sm) 0;

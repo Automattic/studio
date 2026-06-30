@@ -15,8 +15,6 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
-	SiteOverviewDetails,
-	SiteOverviewExtension,
 	Snapshot,
 	SupportedEditor,
 	SupportedTerminal,
@@ -39,12 +37,6 @@ type ExportRequest = {
 	backupFile: string;
 	includes: { database: boolean; wpContent: boolean };
 	phpVersion: string;
-};
-
-type WpCliResult = {
-	stdout: string;
-	stderr: string;
-	exitCode: number;
 };
 
 // Runs an export IPC call and surfaces the outcome through the same
@@ -85,95 +77,6 @@ async function runExport(
 	return request.backupFile;
 }
 
-const SITE_OVERVIEW_DETAILS_SCRIPT = [
-	'require_once ABSPATH . "wp-admin/includes/plugin.php";',
-	'function studio_overview_count_posts($post_type) { $counts = wp_count_posts($post_type); $total = 0; foreach ((array) $counts as $status => $count) { if ("trash" === $status || "auto-draft" === $status) { continue; } $total += (int) $count; } return $total; }',
-	'$plugins = array();',
-	'foreach (get_plugins() as $plugin_file => $plugin_data) { $plugins[] = array("slug" => $plugin_file, "name" => empty($plugin_data["Name"]) ? $plugin_file : $plugin_data["Name"], "status" => is_plugin_active($plugin_file) ? "active" : "inactive", "version" => empty($plugin_data["Version"]) ? "" : $plugin_data["Version"]); }',
-	'$themes = array();',
-	'$active_theme = get_stylesheet();',
-	'foreach (wp_get_themes() as $stylesheet => $theme) { $themes[] = array("slug" => $stylesheet, "name" => $theme->get("Name") ?: $stylesheet, "status" => $stylesheet === $active_theme ? "active" : "inactive", "version" => $theme->get("Version") ?: ""); }',
-	'echo wp_json_encode(array("content" => array("pages" => studio_overview_count_posts("page"), "posts" => studio_overview_count_posts("post")), "plugins" => $plugins, "themes" => $themes));',
-].join( ' ' );
-
-const SITE_OVERVIEW_DETAILS_COMMAND = `eval '${ SITE_OVERVIEW_DETAILS_SCRIPT }'`;
-
-function parseSiteOverviewDetails( result: WpCliResult ): SiteOverviewDetails {
-	if ( result.exitCode !== 0 ) {
-		throw new Error( result.stderr || 'Failed to load site overview details.' );
-	}
-
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse( result.stdout );
-	} catch {
-		throw new Error( 'Site overview details returned invalid JSON.' );
-	}
-
-	const record =
-		parsed && typeof parsed === 'object' ? ( parsed as Record< string, unknown > ) : {};
-	const content =
-		record.content && typeof record.content === 'object'
-			? ( record.content as Record< string, unknown > )
-			: {};
-
-	return {
-		content: {
-			pages: getNumber( content.pages ),
-			posts: getNumber( content.posts ),
-		},
-		plugins: normalizeOverviewExtensions( record.plugins ),
-		themes: normalizeOverviewExtensions( record.themes ),
-	};
-}
-
-function normalizeOverviewExtensions( value: unknown ): SiteOverviewExtension[] {
-	if ( ! Array.isArray( value ) ) {
-		return [];
-	}
-
-	return value
-		.flatMap( ( extension ) => {
-			const record =
-				extension && typeof extension === 'object'
-					? ( extension as Record< string, unknown > )
-					: {};
-			const slug = getText( record.slug );
-			const name = getText( record.name ) ?? slug;
-
-			if ( ! slug || ! name ) {
-				return [];
-			}
-
-			return [
-				{
-					slug,
-					name,
-					status: getText( record.status ),
-					version: getText( record.version ),
-				},
-			];
-		} )
-		.sort( ( first, second ) => {
-			const statusOrder =
-				getExtensionStatusSortValue( first.status ) - getExtensionStatusSortValue( second.status );
-			return statusOrder || first.name.localeCompare( second.name );
-		} );
-}
-
-function getNumber( value: unknown ): number {
-	const number = typeof value === 'number' ? value : Number( value );
-	return Number.isFinite( number ) ? number : 0;
-}
-
-function getText( value: unknown ): string | undefined {
-	return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-}
-
-function getExtensionStatusSortValue( status: string | undefined ) {
-	return status === 'active' ? 0 : 1;
-}
-
 /**
  * Creates a connector that delegates to the Electron IPC bridge.
  * Expects `window.ipcApi` to be exposed by the preload script.
@@ -199,18 +102,6 @@ export function createIpcConnector(): Connector {
 			throw new Error( `Site ${ siteId } not found` );
 		}
 		return site.path;
-	}
-
-	async function executeWpCli(
-		siteId: string,
-		args: string,
-		options: { skipPluginsAndThemes?: boolean } = {}
-	): Promise< WpCliResult > {
-		return ( await ipcApi.executeWPCLiInline( {
-			siteId,
-			args,
-			skipPluginsAndThemes: options.skipPluginsAndThemes ?? true,
-		} ) ) as WpCliResult;
 	}
 
 	async function markConnectedWpcomSiteSynced(
@@ -511,12 +402,6 @@ export function createIpcConnector(): Connector {
 
 		async refreshSiteIcon( siteId ) {
 			await ipcApi.loadSiteIcon( siteId );
-		},
-
-		async getSiteOverviewDetails( siteId ): Promise< SiteOverviewDetails > {
-			return parseSiteOverviewDetails(
-				await executeWpCli( siteId, SITE_OVERVIEW_DETAILS_COMMAND )
-			);
 		},
 
 		async getXdebugEnabledSite() {

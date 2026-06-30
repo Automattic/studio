@@ -16,8 +16,6 @@ export type {
 	SelectedSiteFolder,
 	SessionEntry,
 	SiteDetails,
-	SiteOverviewDetails,
-	SiteOverviewExtension,
 	Snapshot,
 	StudioAgentQuestionData,
 	StudioChatFileAttachment,

@@ -4,7 +4,6 @@ import { useConnector } from '@/data/core';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
-export const SITE_OVERVIEW_DETAILS_QUERY_KEY = [ 'site-overview-details' ] as const;
 
 const START_SITE_MUTATION_KEY = [ 'startSite' ] as const;
 const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
@@ -14,15 +13,6 @@ export function useSites() {
 	return useQuery( {
 		queryKey: SITES_QUERY_KEY,
 		queryFn: () => connector.getSites(),
-	} );
-}
-
-export function useSiteOverviewDetails( siteId: string ) {
-	const connector = useConnector();
-	return useQuery( {
-		queryKey: [ ...SITE_OVERVIEW_DETAILS_QUERY_KEY, siteId ],
-		queryFn: () => connector.getSiteOverviewDetails( siteId ),
-		meta: { persist: false },
 	} );
 }
 

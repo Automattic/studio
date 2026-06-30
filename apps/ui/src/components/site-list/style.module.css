@@ -276,30 +276,6 @@
 	justify-content: flex-end;
 	flex-shrink: 0;
 	gap: 0;
-	max-width: 24px;
-	overflow: hidden;
-	transition: max-width 100ms ease;
-}
-
-.siteAction {
-	flex-shrink: 0;
-}
-
-.siteActionActive {
-	--wp-ui-button-background-color: var(--site-list-row-background-active);
-	--wp-ui-button-background-color-active: var(--site-list-row-background-active);
-	--wp-ui-button-border-color: transparent;
-	--wp-ui-button-border-color-active: transparent;
-}
-
-/* Collapsed, only the trailing status button shows; hover/focus/active
-   slides the overview button in next to it. */
-.siteActive .siteActions,
-.siteContextActive .siteActions,
-.siteHeader:hover .siteActions,
-.siteHeader:focus-within .siteActions {
-	max-width: 56px;
-	overflow: visible;
 }
 
 .siteStatus {

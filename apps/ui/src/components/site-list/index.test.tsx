@@ -135,20 +135,6 @@ describe( 'SiteList', () => {
 		expect( runningSiteClassName ).not.toContain( 'siteNameStopped' );
 	} );
 
-	it( 'opens the site overview from the site action button', () => {
-		render( <SiteList /> );
-
-		expect( screen.queryByRole( 'button', { name: 'New chat' } ) ).not.toBeInTheDocument();
-
-		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site overview' } )[ 0 ] );
-
-		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
-		expect( navigateMock ).toHaveBeenCalledWith( {
-			to: '/sites/$siteId/overview',
-			params: { siteId: 'stopped-site' },
-		} );
-	} );
-
 	it( 'marks the site row as current for the active chat', () => {
 		paramsMock = { sessionId: 'stopped-chat' };
 		pathnameMock = '/sessions/stopped-chat';
@@ -166,13 +152,11 @@ describe( 'SiteList', () => {
 
 		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
 		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
-		const overviewButton = within( stoppedRow ).getByRole( 'button', { name: 'Site overview' } );
 
 		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
-		expect( overviewButton ).not.toHaveAttribute( 'aria-current' );
 	} );
 
-	it( 'marks the site overview action instead of the site row on site context routes', () => {
+	it( 'marks the site row as contextual on site settings routes', () => {
 		paramsMock = { siteId: 'stopped-site' };
 		pathnameMock = '/sites/stopped-site/settings';
 
@@ -180,10 +164,9 @@ describe( 'SiteList', () => {
 
 		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
 		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
-		const overviewButton = within( stoppedRow ).getByRole( 'button', { name: 'Site overview' } );
 
 		expect( siteButton ).not.toHaveAttribute( 'aria-current' );
-		expect( overviewButton ).toHaveAttribute( 'aria-current', 'page' );
+		expect( stoppedRow.getAttribute( 'class' ) ?? '' ).toContain( 'siteContextActive' );
 	} );
 
 	it( 'opens the latest active chat when a site is clicked', () => {

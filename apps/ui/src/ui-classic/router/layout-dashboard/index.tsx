@@ -15,9 +15,8 @@ import {
 } from '@/hooks/use-session-ui';
 import { rootRoute } from '../layout-root';
 
-// Only session detail routes host the preview; on every other route
-// (settings, site settings…) the last previewed site stays mounted but
-// hidden.
+// Session detail and new-chat routes host the preview. Other routes keep the
+// last previewed site mounted but hidden.
 function getRouteSessionId( pathname: string ): string | undefined {
 	const match = /^\/sessions\/([^/]+)\/?$/.exec( pathname );
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;

@@ -73,6 +73,16 @@ environment.
 - When recommending an upgrade, name the specific tier and the concrete features it
   unlocks for the user's stated goal.
 
+### Phrasing
+
+Answer directly and authoritatively, as plain product knowledge. Do not mention that
+you fetched anything, or reference "the live data", "the data I fetched", "according
+to the API", or any source or tool. The fetched data is simply the truth — state it.
+
+- Yes: "Plugins are supported on the Personal plan and above."
+- No: "Based on the live data I just fetched, plugins are supported on Personal and
+  above."
+
 ## Scope
 
 Currently covers the WordPress.com consumer plans (Free, Personal, Premium,

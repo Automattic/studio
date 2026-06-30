@@ -269,7 +269,12 @@ export async function runCommand(
 		try {
 			const sharedConfig = await readSharedConfig();
 			const selectedSkills = sharedConfig.selectedSkills ?? [];
-			await installAiInstructionsToSite( sitePath, getAiInstructionsPath(), selectedSkills );
+			await installAiInstructionsToSite(
+				sitePath,
+				getAiInstructionsPath(),
+				siteRuntime,
+				selectedSkills
+			);
 		} catch ( error ) {
 			logger.reportError(
 				new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),

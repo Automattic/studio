@@ -75,6 +75,24 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 
+	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (local)', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
+		expect( prompt ).toContain(
+			'Never state plan names, prices, or feature-tier gating from memory'
+		);
+	} );
+
+	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (remote)', () => {
+		const prompt = buildSystemPrompt( { remoteSite } );
+
+		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
+		expect( prompt ).toContain(
+			'Never state plan names, prices, or feature-tier gating from memory'
+		);
+	} );
+
 	it( 'references only bundled skills', () => {
 		const prompts = [
 			buildSystemPrompt( { chatArtifactsEnabled: true } ),

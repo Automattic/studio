@@ -68,7 +68,8 @@ IMPORTANT: Before doing ANY work, you MUST first check the site's plan by callin
 - Always confirm destructive operations (deleting posts, deactivating plugins, etc.) with the user before proceeding.
 - When creating content, follow WordPress best practices for block-based content and the remote block content guidelines below.
 - If a requested operation fails, check the error message and suggest alternatives.
-- Explore the API — if you're unsure about an endpoint, load the \`wpcom-remote-management\` skill and try a lightweight GET request first to discover available data.`;
+- Explore the API — if you're unsure about an endpoint, load the \`wpcom-remote-management\` skill and try a lightweight GET request first to discover available data.
+- ${ PLAN_DATA_GUARDRAIL }`;
 }
 
 function buildLocalIntro( options: { chatArtifactsEnabled: boolean } ): string {
@@ -233,6 +234,8 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 - Custom CSS, global styles, plugin management, and advanced customization become available.
 - Check the specific plan to determine exact capabilities.`;
 
+const PLAN_DATA_GUARDRAIL = `For any question about WordPress.com (or Pressable) plans, pricing, upgrades, or what a plan tier unlocks (plugins, themes, custom code, SSH, hosting, etc.), load the \`hosting-plans-helper\` skill before answering. Never state plan names, prices, or feature-tier gating from memory — they change and your training knowledge is stale.`;
+
 const LOCAL_SKILL_ROUTING = `## Skill routing
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
@@ -241,4 +244,6 @@ For any page/post content, template or template-part content, block markup, bloc
 
 For verifying and polishing a built or redesigned site — checking the rendered result against intent and diagnosing layout/width, spacing, button, background, or hover issues — load the \`visual-polish\` skill and use \`inspect_design\` to root-cause from the rendered DOM before fixing.
 
-For forms, shops/stores/ecommerce, events, LMS, galleries/slideshows, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill before installing plugins or writing plugin-provided block markup.`;
+For forms, shops/stores/ecommerce, events, LMS, galleries/slideshows, embeds, SEO/performance plugin choices, or any feature that core WordPress blocks do not cleanly provide, load the \`plugin-recommendations\` skill before installing plugins or writing plugin-provided block markup.
+
+${ PLAN_DATA_GUARDRAIL }`;

@@ -137,18 +137,22 @@ finalized in the plan against what `plan_defaults()` actually exposes.)
   fetch with the tools it already has.
 - The SKILL.md instructs the agent, **before answering any plan/pricing/feature/
   upgrade/"what does tier X unlock" question**, to:
-  1. Fetch per-tier features from `wpcom/v2/plans/pricing`.
-  2. Fetch live prices from `/plans` and merge by `slug`.
-  3. Answer only from the fetched data — never state names, prices, or feature-tier
+  1. Fetch current plan data (names, prices, per-tier features) from
+     `wpcom/v2/plans/pricing` — a **single** call (the endpoint includes prices; see
+     the price-source note below).
+  2. Answer only from the fetched data — never state names, prices, or feature-tier
      gating from memory.
 - **Fetch recipes for both tool environments** (the skill must work in both):
   - **Local mode** (local sites): has `Bash`, no `wpcom_request`. Fetch via
-    `curl "https://public-api.wordpress.com/wpcom/v2/plans/pricing?locale=en"` and
-    `curl ".../rest/v1.5/plans?locale=en"`.
+    `curl "https://public-api.wordpress.com/wpcom/v2/plans/pricing?locale=en"`.
   - **Remote mode** (connected WP.com site): has `wpcom_request`, no `Bash`. Fetch
-    via `wpcom_request` with absolute paths: `!/plans/pricing`
-    (`apiNamespace: "wpcom/v2"`) and `!/plans` (`apiNamespace: ""`, v1.1) — or the
-    equivalent the runtime supports.
+    via `wpcom_request` `path="!/plans/pricing"`, `apiNamespace="wpcom/v2"`.
+- **Why prices live in the endpoint, not a separate `/plans` call:** `wpcom_request`
+  (the only remote-mode fetch tool) supports `wp/v2` / `wpcom/v2` / v1.1 — not the
+  v1.5 `/plans` that carries prices; reachable alternatives don't have WP.com bundle
+  prices (`rest/v1.1/plans` 404s, `wpcom/v2/plans` is the Jetpack family). Folding
+  `price` into `/plans/pricing` lets one `wpcom/v2` call work in both modes. See the
+  backend spec.
 
 ### System-prompt guardrail
 

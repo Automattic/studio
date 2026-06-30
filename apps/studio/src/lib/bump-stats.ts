@@ -58,6 +58,7 @@ export enum StatsMetric {
 	NO_BLUEPRINT = 'no-blueprint',
 }
 
+// Backs the desktop's aggregated weekly/monthly unique stats with app.json.
 const lastBumpStatsProvider: LastBumpStatsProvider = {
 	load: async () => {
 		const { lastBumpStats } = await loadUserData();

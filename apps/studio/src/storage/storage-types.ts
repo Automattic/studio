@@ -1,5 +1,6 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import type { AiSessionSitePlacement } from '@studio/common/ai/sessions/placement';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -24,12 +25,9 @@ export interface AppdataSiteData {
 	runtimeStat?: string;
 }
 
-export interface AiSessionSitePlacement {
-	kind: 'site';
-	siteId: string;
-	sitePath: string;
-	siteName: string;
-}
+// Re-exported from the shared module (the canonical owner) so existing
+// `src/storage/storage-types` importers keep working.
+export type { AiSessionSitePlacement };
 
 export interface NightlyPromptResult {
 	response: 'yes' | 'no';

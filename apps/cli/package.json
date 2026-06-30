@@ -75,7 +75,7 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"devDependencies": {
-		"@studio/common": "file:../../tools/common",
+		"@studio/common": "file:../../packages/common",
 		"@types/archiver": "^8.0.0",
 		"@types/express": "^4.17.23",
 		"@types/http-proxy": "^1.17.17",

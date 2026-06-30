@@ -2,7 +2,7 @@
 /**
  * Download a Studio PHP CLI package for local development and packaging.
  *
- * Source metadata: tools/common/lib/php-binary-cdn-metadata.json
+ * Source metadata: packages/common/lib/php-binary-cdn-metadata.json
  *
  * Usage:
  *   npx tsx scripts/download-php-binary.ts [version] [platform] [arch] [--install-root <path>]
@@ -18,18 +18,18 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { z } from 'zod';
-import { downloadFile } from '../tools/common/lib/download-file';
-import { extractZip } from '../tools/common/lib/extract-zip';
-import { isErrnoException } from '../tools/common/lib/is-errno-exception';
+import { downloadFile } from '../packages/common/lib/download-file';
+import { extractZip } from '../packages/common/lib/extract-zip';
+import { isErrnoException } from '../packages/common/lib/is-errno-exception';
 import {
 	getEffectivePhpBinaryArch,
 	getPhpBinaryDownloadInfo,
 	NativePhpSupportedVersions,
 	NativePhpSupportedVersion,
 	PhpBinaryDownloadInfo,
-} from '../tools/common/lib/php-binary-metadata';
-import { getConfigDirectory } from '../tools/common/lib/well-known-paths';
-import { RecommendedPHPVersion } from '../tools/common/types/php-versions';
+} from '../packages/common/lib/php-binary-metadata';
+import { getConfigDirectory } from '../packages/common/lib/well-known-paths';
+import { RecommendedPHPVersion } from '../packages/common/types/php-versions';
 
 const versionSchema = z.enum( NativePhpSupportedVersions );
 const platformSchema = z.enum( [ 'darwin', 'win32', 'linux' ] );

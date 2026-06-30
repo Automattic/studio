@@ -634,7 +634,7 @@ export async function installWordPressSkills(
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 	const overwrite = options?.overwrite ?? false;
-	await installAllSkills( server.details.path, overwrite );
+	await installAllSkills( server.details.path, getSiteRuntime( server.details ), overwrite );
 }
 
 export async function installWordPressSkillById(
@@ -648,7 +648,12 @@ export async function installWordPressSkillById(
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 	const overwrite = options?.overwrite ?? false;
-	await installSkillById( server.details.path, skillId, overwrite );
+	await installSkillById(
+		server.details.path,
+		skillId,
+		getSiteRuntime( server.details ),
+		overwrite
+	);
 }
 
 export async function removeWordPressSkillById(
@@ -682,7 +687,13 @@ export async function installWordPressSkillsToAllSites(
 	const overwrite = options.overwrite ?? false;
 	const bundledPath = getAiInstructionsPath();
 	const tasks = sites.map( ( site ) =>
-		installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite )
+		installSkillToSite(
+			site.details.path,
+			bundledPath,
+			options.skillId,
+			getSiteRuntime( site.details ),
+			overwrite
+		)
 	);
 	const results = await Promise.allSettled( tasks );
 	results.forEach( ( result ) => {

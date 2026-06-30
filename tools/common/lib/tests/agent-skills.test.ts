@@ -273,6 +273,11 @@ describe( 'installSkillToSite', () => {
 		vi.mocked( fs.promises.mkdir ).mockResolvedValue( undefined );
 		vi.mocked( fs.promises.rm ).mockResolvedValue( undefined );
 		vi.mocked( fs.promises.symlink ).mockResolvedValue( undefined );
+		// After recursiveCopyDirectory, the code reads the destination to render
+		// .md files. Default to an empty directory so existing tests don't break.
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [] as never );
+		vi.mocked( fs.promises.readFile ).mockImplementation( async ( p ) => p as string );
+		vi.mocked( fs.promises.writeFile ).mockResolvedValue( undefined );
 	} );
 
 	it( 'installs a skill directory with symlink', async () => {
@@ -283,7 +288,13 @@ describe( 'installSkillToSite', () => {
 			return false;
 		} );
 
-		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'studio-cli', false );
+		await installSkillToSite(
+			SITE_PATH,
+			BUNDLED_PATH,
+			'studio-cli',
+			SITE_RUNTIME_PLAYGROUND,
+			false
+		);
 
 		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
 			path.join( BUNDLED_PATH, 'studio-cli' ),
@@ -310,13 +321,50 @@ describe( 'installSkillToSite', () => {
 			return false;
 		} );
 
-		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'wp-rest-api', true );
+		await installSkillToSite(
+			SITE_PATH,
+			BUNDLED_PATH,
+			'wp-rest-api',
+			SITE_RUNTIME_PLAYGROUND,
+			true
+		);
 
 		expect( fs.promises.rm ).toHaveBeenCalledWith(
 			path.join( SITE_PATH, '.agents', 'skills', 'wp-rest-api' ),
 			{ recursive: true, force: true }
 		);
 		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'renders runtime-conditional markers in skill .md files', async () => {
+		const skillContent = [
+			'Shared skill line.',
+			'<!-- IF playground -->',
+			'PLAYGROUND SKILL NOTE',
+			'<!-- ENDIF playground -->',
+			'<!-- IF native-php -->',
+			'NATIVE SKILL NOTE',
+			'<!-- ENDIF native-php -->',
+			'',
+		].join( '\n' );
+
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if ( p === path.join( BUNDLED_PATH, 'my-skill' ) ) {
+				return true;
+			}
+			return false;
+		} );
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
+			{ name: 'SKILL.md', isFile: () => true, isDirectory: () => false },
+		] as never );
+		vi.mocked( fs.promises.readFile ).mockResolvedValue( skillContent );
+
+		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'my-skill', SITE_RUNTIME_NATIVE_PHP, false );
+
+		const written = vi.mocked( fs.promises.writeFile ).mock.calls[ 0 ][ 1 ] as string;
+		expect( written ).toContain( 'NATIVE SKILL NOTE' );
+		expect( written ).not.toContain( 'PLAYGROUND SKILL NOTE' );
+		expect( written ).not.toContain( '<!-- IF' );
 	} );
 
 	it( 'falls back to junction on Windows EPERM', async () => {
@@ -335,7 +383,13 @@ describe( 'installSkillToSite', () => {
 			.mockRejectedValueOnce( epermError )
 			.mockResolvedValue( undefined );
 
-		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'wp-plugin-development', false );
+		await installSkillToSite(
+			SITE_PATH,
+			BUNDLED_PATH,
+			'wp-plugin-development',
+			SITE_RUNTIME_PLAYGROUND,
+			false
+		);
 
 		expect( fs.promises.symlink ).toHaveBeenCalledWith(
 			path.resolve( path.join( SITE_PATH, '.agents', 'skills', 'wp-plugin-development' ) ),

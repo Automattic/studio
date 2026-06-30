@@ -75,7 +75,7 @@ export async function installAiInstructionsToSite(
 		if ( entry.isFile() && entry.name.endsWith( '.md' ) ) {
 			tasks.push( installInstructionFile( sitePath, bundledPath, entry.name, runtime, overwrite ) );
 		} else if ( entry.isDirectory() && userSelectedGlobalSkills.includes( entry.name ) ) {
-			tasks.push( installSkillToSite( sitePath, bundledPath, entry.name, overwrite ) );
+			tasks.push( installSkillToSite( sitePath, bundledPath, entry.name, runtime, overwrite ) );
 		}
 	}
 
@@ -133,6 +133,7 @@ export async function installSkillToSite(
 	sitePath: string,
 	bundledPath: string,
 	skillId: string,
+	runtime: SiteRuntime,
 	overwrite: boolean
 ): Promise< void > {
 	const src = path.join( bundledPath, skillId );
@@ -150,9 +151,24 @@ export async function installSkillToSite(
 			await fs.promises.rm( agentsSkillPath, { recursive: true, force: true } );
 		}
 		await recursiveCopyDirectory( src, agentsSkillPath );
+		await renderSkillMarkdownFiles( agentsSkillPath, runtime );
 	}
 
 	await ensureSkillSymlink( sitePath, agentsSkillPath, claudeSkillPath, overwrite );
+}
+
+async function renderSkillMarkdownFiles(
+	skillPath: string,
+	runtime: SiteRuntime
+): Promise< void > {
+	const entries = await fs.promises.readdir( skillPath, { withFileTypes: true } );
+	for ( const entry of entries ) {
+		if ( entry.isFile() && entry.name.endsWith( '.md' ) ) {
+			const filePath = path.join( skillPath, entry.name );
+			const content = await fs.promises.readFile( filePath, 'utf8' );
+			await fs.promises.writeFile( filePath, renderRuntimeInstructions( content, runtime ) );
+		}
+	}
 }
 
 async function ensureSkillSymlink(

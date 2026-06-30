@@ -9,6 +9,7 @@
 .userTurn {
 	display: flex;
 	flex-direction: column;
+	margin-right: calc(-1 * var(--classic-composer-shell-inline-padding));
 	padding: var(--wpds-dimension-padding-xl) 0;
 }
 
@@ -61,7 +62,7 @@
 
 .userText {
 	align-self: flex-end;
-	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
+	padding: var(--wpds-dimension-padding-md) calc(var(--wpds-dimension-padding-lg) + 8px);
 	background-color: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 10%, transparent);
 	/* Bottom-right tight so the bubble reads as originating from the user
 	   on the right; other corners round generously. */
@@ -268,7 +269,156 @@
 .question {
 	display: flex;
 	flex-direction: column;
+	gap: var(--wpds-dimension-padding-lg);
+}
+
+.questionBatch {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	overflow-anchor: none;
+}
+
+.questionBatchStep {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	overflow: hidden;
+	transform-origin: top left;
+	animation: questionBatchStepEnter 120ms ease-out;
+}
+
+.questionBatchStep[data-state='asking'][data-has-prior='true'] {
+	position: relative;
+	padding-top: var(--wpds-dimension-padding-lg);
+}
+
+.questionBatchStep[data-state='asking'][data-has-prior='true']::before {
+	content: '';
+	display: block;
+	width: 100%;
+	height: 1px;
+	margin-bottom: var(--wpds-dimension-padding-xs);
+	background-color: var(--wpds-color-stroke-surface-neutral);
+	opacity: 0.7;
+}
+
+.questionBatchStep[data-state='answered'] {
+	animation: none;
+}
+
+.questionBatchStep:focus {
+	outline: none;
+}
+
+.questionBatchStep[data-state='answered'] .questionBatchProgress {
+	animation: questionAnsweredElementFade 180ms ease-out forwards;
+}
+
+.questionBatchProgress {
+	display: inline-flex;
+	align-items: center;
+	align-self: flex-start;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 500;
+	line-height: 1.4;
+}
+
+.questionSummary {
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
+
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--wpds-dimension-padding-xs);
+	width: 100%;
+	padding: var(--wpds-dimension-padding-xs) 0;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+	text-align: left;
+}
+
+.questionSummary[data-interactive='true'] {
+	cursor: pointer;
+}
+
+.questionSummary[data-interactive='true']:is(:hover, :focus-visible) {
+	background-color: transparent;
+}
+
+.questionSummary[data-interactive='true']:is(:hover, :focus-visible) .questionSummaryText {
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.questionSummary[data-interactive='true']:is(:hover, :focus-visible) .questionSummaryOption {
+	opacity: 0.82;
+}
+
+.questionSummary:focus:not(:focus-visible) {
+	outline: none;
+	background-color: transparent;
+}
+
+.questionSummary:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline-offset: 2px;
+}
+
+.questionSummaryBody {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
 	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+}
+
+.questionSummaryText {
+	min-width: 0;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.questionSummaryOption {
+	gap: var(--wpds-dimension-padding-sm);
+	pointer-events: none;
+}
+
+@keyframes questionBatchStepEnter {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes questionAnsweredElementFade {
+	from {
+		opacity: 1;
+	}
+
+	to {
+		opacity: 0.38;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.questionBatchStep,
+	.questionBatchStep[data-state='answered'],
+	.questionBatchStep[data-state='answered'] .questionBatchProgress,
+	.question[data-state='folding'] .questionOptionItem:not([data-picked='true']),
+	.question[data-state='folding'] .questionOptionDescription {
+		animation: none;
+	}
 }
 
 .questionText {
@@ -281,26 +431,104 @@
 	margin: 0;
 	padding: 0;
 	display: flex;
-	flex-wrap: wrap;
-	gap: var(--wpds-dimension-padding-md);
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-lg);
+}
+
+.questionOptionItem {
+	margin: 0;
+	padding: 0;
+}
+
+.question[data-state='folding'] .questionOptionItem:not([data-picked='true']) {
+	animation: questionAnsweredElementFade 180ms ease-out forwards;
+}
+
+.question[data-state='folding'] .questionOptionDescription {
+	display: block;
+	animation: questionAnsweredElementFade 180ms ease-out forwards;
 }
 
 .questionOption {
-	background: none;
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
+
+	display: flex;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-md);
+	width: 100%;
+	background: transparent;
 	border: none;
 	padding: 0;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	color: var(--wpds-color-fg-content-neutral);
 	font: inherit;
+	text-align: left;
 	cursor: pointer;
 }
 
-.questionOption:hover:not(:disabled),
+/* Prevent the global button focus reset from adding an active background after
+   mouse clicks; keyboard focus still gets the local focus-visible ring. */
+.questionOption:focus:not(:focus-visible) {
+	outline: none;
+	background-color: transparent;
+}
+
 .questionOption:focus-visible:not(:disabled) {
-	text-decoration: underline;
+	outline: none;
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-interactive-focus, #2563eb);
+}
+
+.questionOption:hover:not(:disabled) .questionOptionLabel,
+.questionOption:focus-visible:not(:disabled) .questionOptionLabel {
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.questionOption:hover:not(:disabled) .questionOptionNumber,
+.questionOption:focus-visible:not(:disabled) .questionOptionNumber {
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.questionOptionNumber {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	min-width: 1.5em;
+	height: 1.5em;
+	margin-top: 3px;
+	padding: 0 0.35em;
+	border: 1px dashed var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1;
+	transition:
+		border-color 120ms ease,
+		background-color 220ms ease,
+		color 120ms ease;
+}
+
+.questionOptionCopy {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.questionOptionLabel {
+	color: var(--wpds-color-fg-content-neutral);
+	transition: color 120ms ease;
+}
+
+.questionOptionDescription {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
 }
 
 .questionOption:disabled {
-	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.6;
 	cursor: default;
 }
@@ -309,9 +537,40 @@
    can still see their choice once the batch is finalized. */
 .questionOptionPicked,
 .questionOptionPicked:disabled {
-	font-weight: 600;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	opacity: 1;
+}
+
+.questionOption.questionOptionPicked .questionOptionNumber,
+.questionOption.questionOptionPicked:disabled .questionOptionNumber,
+.questionOption.questionOptionPicked:is(:hover, :focus-visible):not(:disabled) .questionOptionNumber {
+	border-color: var(--wpds-color-bg-interactive-brand-strong);
+	background-color: var(--wpds-color-bg-interactive-brand-strong);
+	color: var(--wpds-color-fg-interactive-brand-strong);
+}
+
+.questionOption.questionOptionPicked .questionOptionLabel,
+.questionOption.questionOptionPicked:disabled .questionOptionLabel,
+.questionOption.questionOptionPicked:is(:hover, :focus-visible):not(:disabled) .questionOptionLabel {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 500;
+}
+
+.questionOption.questionSummaryOption .questionOptionNumber {
+	border-style: solid;
+	border-color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-interactive-brand, #2563eb) 45%,
+		var(--wpds-color-stroke-surface-neutral)
+	);
+	background-color: transparent;
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.question[data-state='folding'] .questionOption.questionOptionPicked .questionOptionNumber {
+	border-style: solid;
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: transparent;
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
 }
 
 .interruptedMarker {

@@ -25,7 +25,7 @@ export function primeSessionQueryData( queryClient: QueryClient, summary: AiSess
 				};
 			}
 
-			if ( summary.firstPrompt ) {
+			if ( summary.firstPrompt || summary.eventCount > 0 ) {
 				return current;
 			}
 
@@ -38,6 +38,19 @@ export function primeSessionQueryData( queryClient: QueryClient, summary: AiSess
 			};
 		}
 	);
+}
+
+export function reconcilePrimedSessionQueryData(
+	queryClient: QueryClient,
+	sessionId: string
+): Promise< void > {
+	return Promise.all( [
+		queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } ),
+		queryClient.invalidateQueries( {
+			queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
+			exact: true,
+		} ),
+	] ).then( () => undefined );
 }
 
 export function useSessions() {
@@ -79,7 +92,7 @@ export function useCreateSession() {
 		mutationFn: ( siteId?: string ) => connector.createSession( siteId ),
 		onSuccess: ( summary ) => {
 			primeSessionQueryData( queryClient, summary );
-			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+			void reconcilePrimedSessionQueryData( queryClient, summary.id );
 		},
 	} );
 }

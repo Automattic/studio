@@ -1,9 +1,10 @@
 import { useIsMutating, useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { arrowUp, copy, external, Icon } from '@wordpress/icons';
+import { arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
 import { Button, Field, IconButton, Select, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
+import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
@@ -115,6 +116,7 @@ type Props = {
 	// Switches the dropdown to the publish picker. Lives in the parent because
 	// the picker is a sibling view at the popup level.
 	onSetupClick: () => void;
+	onDisconnectClick: () => void;
 };
 
 // Counts in-flight push/pull mutations for this site across hook instances.
@@ -517,7 +519,13 @@ function getLastSyncLogMeta( summary: SyncLogSummary ): string {
 		  );
 }
 
-export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props ) {
+export function MainView( {
+	site,
+	activity,
+	lastSyncLog,
+	onSetupClick,
+	onDisconnectClick,
+}: Props ) {
 	const connector = useConnector();
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
@@ -649,7 +657,9 @@ export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props )
 	};
 
 	const handleCopyPreviewClick = ( url: string ) => {
-		void connector.copyText( url );
+		void connector.copyText( url ).catch( ( error ) => {
+			console.error( 'Failed to copy preview URL:', error );
+		} );
 	};
 
 	const handleStartLocalClick = () => {
@@ -826,18 +836,34 @@ export function MainView( { site, activity, lastSyncLog, onSetupClick }: Props )
 							label: __( 'Open live site in your browser' ),
 						} ) }
 						action={
-							<Button
-								variant="outline"
-								tone="neutral"
-								size="compact"
-								className={ styles.syncMenuButton }
-								aria-haspopup="dialog"
-								aria-expanded={ syncFlyoutOpen }
-								disabled={ isPreviewPending }
-								onClick={ () => setSyncFlyoutOpen( ( open ) => ! open ) }
-							>
-								{ __( 'Sync' ) }
-							</Button>
+							<div className={ styles.rowActions }>
+								<Button
+									variant="outline"
+									tone="neutral"
+									size="compact"
+									className={ styles.syncMenuButton }
+									aria-haspopup="dialog"
+									aria-expanded={ syncFlyoutOpen }
+									disabled={ isPreviewPending }
+									onClick={ () => setSyncFlyoutOpen( ( open ) => ! open ) }
+								>
+									{ __( 'Sync' ) }
+								</Button>
+								<Menu.SubmenuRoot>
+									<Menu.SubmenuTrigger
+										className={ styles.moreMenuTrigger }
+										disabled={ isSyncing }
+										aria-label={ __( 'More live site actions' ) }
+									>
+										<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
+									</Menu.SubmenuTrigger>
+									<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
+										<Menu.Item disabled={ isSyncing } onClick={ onDisconnectClick }>
+											{ __( 'Disconnect' ) }
+										</Menu.Item>
+									</Menu.Popup>
+								</Menu.SubmenuRoot>
+							</div>
 						}
 					/>
 					{ liveSyncActivity ? (

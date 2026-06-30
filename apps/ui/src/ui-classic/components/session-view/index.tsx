@@ -89,6 +89,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 				<SiteDropdown
 					site={ site }
 					activeEnvironment={ effectiveEnvironment }
+					showSiteIcon={ sidebarCollapsed }
 					showStatus={ sidebarCollapsed }
 				/>
 			) : (

@@ -2,6 +2,17 @@ import fs from 'fs';
 import nodePath from 'path';
 import { Upload } from 'tus-js-client';
 
+/**
+ * 5xx and network errors (status 0) are transient. 4xx are terminal, except 409
+ * (Conflict) and 423 (Locked), which the resumable protocol uses transiently.
+ */
+export function shouldRetryTusStatus( status: number ): boolean {
+	if ( status >= 400 && status < 500 ) {
+		return status === 409 || status === 423;
+	}
+	return true;
+}
+
 export type TusUploadOptions = {
 	token: string;
 	remoteSiteId: number;
@@ -110,7 +121,7 @@ export function createTusUpload( options: TusUploadOptions ): {
 					}
 
 					const status = error.originalResponse ? error.originalResponse.getStatus() : 0;
-					return status !== 403;
+					return shouldRetryTusStatus( status );
 				},
 			} );
 

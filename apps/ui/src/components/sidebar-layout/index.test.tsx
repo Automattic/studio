@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { SidebarLayout } from './index';
+import type { ReactNode } from 'react';
 
 vi.mock( '@/components/sidebar-create-menu', () => ( {
 	SidebarCreateMenu: () => null,
@@ -24,6 +25,21 @@ vi.mock( '@/components/user-menu', () => ( {
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
+
+vi.mock( '@wordpress/ui', async () => {
+	const actual = await vi.importActual< typeof import('@wordpress/ui') >( '@wordpress/ui' );
+	return {
+		...actual,
+		IconButton: ( {
+			label,
+			onClick,
+		}: {
+			label: string;
+			onClick: () => void;
+			children?: ReactNode;
+		} ) => <button onClick={ onClick }>{ label }</button>,
+	};
+} );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 

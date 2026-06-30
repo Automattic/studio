@@ -215,6 +215,12 @@
 	line-height: 1;
 }
 
+.chevron {
+	flex: 0 0 auto;
+	color: color-mix(in srgb, var(--site-menu-foreground) 72%, transparent);
+	fill: currentColor;
+}
+
 @keyframes siteDotBlink {
 	0%,
 	100% {

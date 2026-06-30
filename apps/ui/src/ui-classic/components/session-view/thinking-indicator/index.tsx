@@ -5,9 +5,11 @@ import styles from './style.module.css';
 export function ThinkingIndicator( {
 	active,
 	startedAt,
+	progressMessage,
 }: {
 	active: boolean;
 	startedAt: number | null;
+	progressMessage: string | null;
 } ) {
 	const [ message, setMessage ] = useState( () => randomThinkingMessage() );
 	const [ elapsedSeconds, setElapsedSeconds ] = useState( 0 );
@@ -33,13 +35,18 @@ export function ThinkingIndicator( {
 	return (
 		<div className={ styles.root } role="status" aria-live="polite">
 			{ active ? (
-				<div className={ styles.head }>
-					<span className={ styles.dot } aria-hidden="true" />
-					<span className={ styles.label }>{ message }</span>
-					{ elapsedSeconds > 0 ? (
-						<span className={ styles.elapsed }>{ `${ elapsedSeconds }s` }</span>
+				<>
+					<div className={ styles.head }>
+						<span className={ styles.dot } aria-hidden="true" />
+						<span className={ styles.label }>{ message }</span>
+						{ elapsedSeconds > 0 ? (
+							<span className={ styles.elapsed }>{ `${ elapsedSeconds }s` }</span>
+						) : null }
+					</div>
+					{ progressMessage ? (
+						<span className={ styles.progress }>{ progressMessage }</span>
 					) : null }
-				</div>
+				</>
 			) : null }
 		</div>
 	);

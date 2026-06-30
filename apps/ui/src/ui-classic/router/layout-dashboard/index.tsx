@@ -47,16 +47,14 @@ function DashboardLayout() {
 // previewed site follows the current session; routes without one keep the
 // last previewed site loaded behind a closed panel.
 function DashboardLayoutContent() {
-	const sessionId = useRouterState( {
-		select: ( state ) => getRouteSessionId( state.location.pathname ),
-	} );
-	const siteRouteContext = useRouterState( {
+	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
+			sessionId: getRouteSessionId( state.location.pathname ),
 			overviewSiteId: getRouteOverviewSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
 		} ),
 	} );
-	const { overviewSiteId, newSessionSiteId } = siteRouteContext;
+	const { sessionId, overviewSiteId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	const preview = useSessionPreviewUI();

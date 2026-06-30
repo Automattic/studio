@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { Button, Tooltip } from '@wordpress/ui';
+import { chevronDownSmall } from '@wordpress/icons';
+import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import { SiteIcon } from '@/components/site-icon';
@@ -102,6 +103,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 							</span>
 						</span>
 						{ showSiteIcon ? null : statusBadge }
+						<Icon className={ styles.chevron } icon={ chevronDownSmall } />
 					</Tooltip.Trigger>
 					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
 						{ __( 'Publish, preview, and more' ) }

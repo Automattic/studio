@@ -336,6 +336,22 @@
 	border-radius: var(--wpds-border-radius-md);
 }
 
+.moreMenuTrigger {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	justify-content: center;
+	color: var(--wpds-color-fg-interactive-neutral);
+}
+
+.moreMenuTrigger svg {
+	fill: currentColor;
+}
+
+.moreMenuPopup {
+	min-width: 148px;
+}
+
 .syncFlyout {
 	position: absolute;
 	top: 0;

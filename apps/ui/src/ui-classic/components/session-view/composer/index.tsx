@@ -40,7 +40,11 @@ import {
 import { createPortal } from 'react-dom';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
-import { primeSessionQueryData, SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import {
+	primeSessionQueryData,
+	reconcilePrimedSessionQueryData,
+	SESSIONS_QUERY_KEY,
+} from '@/data/queries/use-sessions';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -162,6 +166,17 @@ function toComposerDraftAttachments( {
 			} )
 		),
 	];
+}
+
+function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
+	return {
+		type: 'model_change',
+		id: Math.random().toString( 36 ).slice( 2, 10 ),
+		parentId: null,
+		timestamp: new Date().toISOString(),
+		provider: '',
+		modelId,
+	} as unknown as SessionEntry;
 }
 
 /**
@@ -387,6 +402,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		dragHandlers,
 		pasteHandlers,
 	} = useComposerAttachments();
+	const hasAttachments = attachments.length > 0;
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -412,7 +428,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		if ( nextHeight !== null ) {
 			setTextareaHeight( ( current ) => ( current === nextHeight ? current : nextHeight ) );
 		}
-	}, [ manualTextareaHeight, value ] );
+	}, [ manualTextareaHeight, value, hasAttachments ] );
 
 	useEffect( () => {
 		const handleViewportResize = () => {
@@ -490,7 +506,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		const trimmed = value.trim();
 		// Allow sending attachments on their own; fall back to a minimal prompt so
 		// the backend (which requires a non-empty message) still has one.
-		if ( ! trimmed && attachments.length === 0 ) {
+		if ( ! trimmed && ! hasAttachments ) {
 			return;
 		}
 		const prompt = trimmed || __( 'Please review the attached files.' );
@@ -507,7 +523,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			setValue( trimmed );
 			restoreAttachments( sentAttachments );
 		}
-	}, [ value, attachments, clearAttachments, restoreAttachments, onSend ] );
+	}, [ value, attachments, hasAttachments, clearAttachments, restoreAttachments, onSend ] );
 
 	const openFilePicker = useCallback( () => {
 		fileInputRef.current?.click();
@@ -610,24 +626,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			if ( ! sessionId ) {
 				return;
 			}
-			const timestamp = new Date().toISOString();
 			queryClient.setQueryData< LoadedAiSession >(
 				[ ...SESSIONS_QUERY_KEY, sessionId ],
 				( prev ) =>
 					prev
 						? {
 								...prev,
-								entries: [
-									...( prev.entries ?? [] ),
-									{
-										type: 'model_change',
-										id: Math.random().toString( 36 ).slice( 2, 10 ),
-										parentId: null,
-										timestamp,
-										provider: '',
-										modelId: picked,
-									} as unknown as SessionEntry,
-								],
+								entries: [ ...( prev.entries ?? [] ), createModelChangeEntry( picked ) ],
 						  }
 						: prev
 			);
@@ -678,6 +683,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		if ( ! pendingFamilyChange || ! onSwitchSession ) {
 			return;
 		}
+		const pickedModel = pendingFamilyChange;
 		setFamilySwitchInFlight( true );
 		try {
 			const newSession = await connector.createSession( ownerSiteId );
@@ -688,10 +694,21 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			// new view picks up via `resolveSessionModel`. If this fails we
 			// still navigate; the user can re-pick from the new view's
 			// dropdown.
-			await connector
-				.setSessionModel( newSession.id, pendingFamilyChange )
-				.catch( () => undefined );
-			await queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+			await connector.setSessionModel( newSession.id, pickedModel ).catch( () => undefined );
+			queryClient.setQueryData< LoadedAiSession >(
+				[ ...SESSIONS_QUERY_KEY, newSession.id ],
+				( current ) =>
+					current
+						? {
+								...current,
+								entries: [ ...( current.entries ?? [] ), createModelChangeEntry( pickedModel ) ],
+						  }
+						: {
+								summary: newSession,
+								entries: [ createModelChangeEntry( pickedModel ) ],
+						  }
+			);
+			await reconcilePrimedSessionQueryData( queryClient, newSession.id );
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );
 		} finally {
@@ -699,7 +716,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ connector, onSwitchSession, ownerSiteId, pendingFamilyChange, queryClient ] );
 
-	const canSend = value.trim().length > 0 || attachments.length > 0;
+	const canSend = value.trim().length > 0 || hasAttachments;
 	const placeholderOptions = busy
 		? [
 				__( 'Queue the next message while I work…' ),
@@ -773,7 +790,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 							{ __( 'Drop files to attach' ) }
 						</div>
 					) : null }
-					{ attachments.length > 0 ? (
+					{ hasAttachments ? (
 						<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
 							{ attachments.map( ( attachment ) => {
 								const attachmentDetailsId = getAttachmentDetailsId( attachment.id );
@@ -906,7 +923,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					<div
 						className={ clsx(
 							styles.inputArea,
-							attachments.length > 0 && styles.inputAreaWithAttachments
+							hasAttachments && styles.inputAreaWithAttachments
 						) }
 					>
 						{ showAnimatedPlaceholder ? (

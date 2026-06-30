@@ -5,6 +5,7 @@ import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { useSiteLastSyncLog, useSiteSyncActivity } from '@/data/sync-activity';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
+import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { DropdownTrigger } from './dropdown-trigger';
 import { MainView } from './main-view';
 import { PublishPickerView } from './publish-picker-view';
@@ -19,12 +20,19 @@ type Props = {
 	// session's active environment (local vs. live) rather than always reading
 	// "Local". Outside a session context this defaults to local.
 	activeEnvironment?: 'local' | 'live';
+	showSiteIcon?: boolean;
 	showStatus?: boolean;
 };
 
-export function SiteDropdown( { site, activeEnvironment = 'local', showStatus = true }: Props ) {
+export function SiteDropdown( {
+	site,
+	activeEnvironment = 'local',
+	showSiteIcon = false,
+	showStatus = true,
+}: Props ) {
 	const [ view, setView ] = useState< 'main' | 'picker' >( 'main' );
 	const [ menuOpen, setMenuOpen ] = useState( false );
+	const [ disconnectOpen, setDisconnectOpen ] = useState( false );
 
 	// The trigger needs the site status for its running/stopped/transitioning
 	// dot — everything else about status lives inside MainView.
@@ -52,6 +60,13 @@ export function SiteDropdown( { site, activeEnvironment = 'local', showStatus = 
 		[ activity, activeEnvironment, liveSite, previewSnapshot ]
 	);
 
+	const handleDisconnectClick = () => {
+		// Close the dropdown before showing the confirmation dialog so the two
+		// overlays don't stack.
+		setMenuOpen( false );
+		setDisconnectOpen( true );
+	};
+
 	return (
 		<div className={ styles.root }>
 			<Menu.Root
@@ -76,7 +91,7 @@ export function SiteDropdown( { site, activeEnvironment = 'local', showStatus = 
 							environment={ activeEnvironment }
 							secondaryLabel={ secondary.label }
 							secondaryTone={ secondary.tone }
-							showSiteIcon
+							showSiteIcon={ showSiteIcon }
 							showStatus={ showStatus }
 							siteIconSeed={ `${ site.id }:${ site.name }:${ site.path }` }
 							siteIconImage={ site.siteIcon }
@@ -90,12 +105,21 @@ export function SiteDropdown( { site, activeEnvironment = 'local', showStatus = 
 							activity={ activity }
 							lastSyncLog={ lastSyncLog }
 							onSetupClick={ () => setView( 'picker' ) }
+							onDisconnectClick={ handleDisconnectClick }
 						/>
 					) : (
 						<PublishPickerView site={ site } onClose={ () => setView( 'main' ) } />
 					) }
 				</Menu.Popup>
 			</Menu.Root>
+			{ liveSite ? (
+				<DisconnectSiteDialog
+					localSiteId={ site.id }
+					liveSite={ liveSite }
+					open={ disconnectOpen }
+					onOpenChange={ setDisconnectOpen }
+				/>
+			) : null }
 		</div>
 	);
 }

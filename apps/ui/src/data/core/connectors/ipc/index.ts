@@ -714,6 +714,7 @@ export function createIpcConnector(): Connector {
 			if ( ! result.success ) {
 				throw new Error( result.error ?? 'Push failed' );
 			}
+			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
 		async pullSiteFromLive( siteId, remoteSiteId, options ): Promise< void > {

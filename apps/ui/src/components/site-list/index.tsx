@@ -1,475 +1,279 @@
-import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	box,
-	chevronDown,
-	chevronRight,
-	moreHorizontal,
-	plus,
-	starEmpty,
-	starFilled,
-} from '@wordpress/icons';
-import { Button, Dialog, Icon, IconButton, Tooltip } from '@wordpress/ui';
+import { settings } from '@wordpress/icons';
+import { IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
-import * as Menu from '@/components/menu';
+import {
+	Fragment,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type CSSProperties,
+	type MouseEvent,
+	type PointerEvent as ReactPointerEvent,
+	type ReactNode,
+} from 'react';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
-import { SiteIcon } from '@/components/site-icon';
 import { Spinner } from '@/components/spinner';
-import { useConnector } from '@/data/core';
-import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
-import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
+import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
+import { useSessions } from '@/data/queries/use-sessions';
 import {
-	useCopySite,
-	useDeleteSite,
-	useExportDatabase,
-	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { formatRelativeTime } from '@/lib/format-relative-time';
-import { getSiteUrl } from '@/lib/get-site-url';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
-const UNASSIGNED_KEY = '__unassigned__';
-
-type SiteGroup = {
-	key: string;
-	site?: SiteDetails;
-	label: string;
-	sessions: AiSessionSummary[];
+type SiteRow = {
+	site: SiteDetails;
+	latestSession?: AiSessionSummary;
+	sessionIds: string[];
 };
 
-function groupSessionsByOwner(
-	sites: SiteDetails[] | undefined,
-	sessions: AiSessionSummary[] | undefined
-): SiteGroup[] {
-	const knownSitePaths = new Set( ( sites ?? [] ).map( ( site ) => site.path ) );
-	const sessionsByPath = new Map< string, AiSessionSummary[] >();
-	const unassigned: AiSessionSummary[] = [];
+type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync';
 
-	for ( const session of sessions ?? [] ) {
-		// Archived chats stay out of the sidebar; they remain reachable from
-		// the session data and will get a dedicated list with the site
-		// overview screens.
-		if ( session.archived ) {
-			continue;
-		}
-		if ( ! session.ownerSitePath || ! knownSitePaths.has( session.ownerSitePath ) ) {
-			unassigned.push( session );
-			continue;
-		}
+type ActiveSiteDrag = {
+	siteId: string;
+	currentY: number;
+	dropIndex: number;
+	pointerOffsetY: number;
+	previewLeft: number;
+	previewWidth: number;
+};
 
-		const existing = sessionsByPath.get( session.ownerSitePath );
-		if ( existing ) {
-			existing.push( session );
-		} else {
-			sessionsByPath.set( session.ownerSitePath, [ session ] );
-		}
-	}
+type SiteDragCandidate = {
+	siteId: string;
+	pointerId: number | undefined;
+	startX: number;
+	startY: number;
+	pointerOffsetY: number;
+	previewLeft: number;
+	previewWidth: number;
+};
 
-	const groups: SiteGroup[] = ( sites ?? [] ).map( ( site ) => ( {
-		key: site.id,
-		site,
-		label: site.name,
-		sessions: sessionsByPath.get( site.path ) ?? [],
-	} ) );
+const ACTIVITY_EXIT_DURATION_MS = 180;
+const SITE_DRAG_START_THRESHOLD = 4;
+const SITE_DRAG_REORDER_DURATION_MS = 160;
+const SITE_DRAG_REORDER_EASING = 'cubic-bezier(0.2, 0, 0, 1)';
+const SITE_DRAG_REORDER_DISTANCE_EPSILON = 0.5;
+const SITE_ORDER_STORAGE_KEY = 'studio-ui-site-list-order-v1';
 
-	// Sort site-groups by the newest session's updatedAt so the most recently
-	// used site lands at the top. Sites with no sessions drop to the bottom.
-	groups.sort( ( a, b ) => {
-		const aTimestamp = a.sessions[ 0 ]?.updatedAt;
-		const bTimestamp = b.sessions[ 0 ]?.updatedAt;
-		if ( ! aTimestamp && ! bTimestamp ) {
-			return 0;
-		}
-		if ( ! aTimestamp ) {
-			return 1;
-		}
-		if ( ! bTimestamp ) {
-			return -1;
-		}
-		return Date.parse( bTimestamp ) - Date.parse( aTimestamp );
-	} );
-
-	if ( unassigned.length > 0 ) {
-		groups.push( {
-			key: UNASSIGNED_KEY,
-			label: __( 'Unassigned' ),
-			sessions: unassigned,
-		} );
-	}
-
-	return groups;
-}
-
-function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
-	const updateSessionMetadata = useUpdateSessionMetadata();
-	const isPending = updateSessionMetadata.isPending;
-	const starred = !! session.starred;
-	const archived = !! session.archived;
-
-	// Same persistence path as the assistant tab: optimistic
-	// starred/archived patches through `connector.updateSessionMetadata`.
-	const updateMetadata = ( patch: { starred: boolean; archived: boolean } ) => {
-		updateSessionMetadata.mutate( {
-			sessionId: session.id,
-			patch,
-		} );
-	};
-
+function SiteAgentActivityTooltip( {
+	label,
+	ariaLabel = label,
+	className,
+	childProvidesLabel = false,
+	children,
+}: {
+	label: string;
+	ariaLabel?: string;
+	className?: string;
+	childProvidesLabel?: boolean;
+	children?: ReactNode;
+} ) {
 	return (
-		<Menu.Root modal={ false }>
-			<Menu.Trigger
+		<Tooltip.Root>
+			<Tooltip.Trigger
 				render={
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ moreHorizontal }
-						label={ __( 'Chat actions' ) }
-						className={ styles.sessionAction }
-						disabled={ isPending }
-					/>
-				}
-			/>
-			<Menu.Popup side="bottom" align="end">
-				<Menu.Item
-					disabled={ isPending }
-					onClick={ () => updateMetadata( { starred: ! starred, archived } ) }
-				>
-					<Icon icon={ starred ? starFilled : starEmpty } size={ 16 } />
-					{ starred ? __( 'Unstar conversation' ) : __( 'Star conversation' ) }
-				</Menu.Item>
-				<Menu.Item
-					disabled={ isPending }
-					onClick={ () => updateMetadata( { starred, archived: ! archived } ) }
-				>
-					<Icon icon={ box } size={ 16 } />
-					{ archived ? __( 'Unarchive conversation' ) : __( 'Archive conversation' ) }
-				</Menu.Item>
-			</Menu.Popup>
-		</Menu.Root>
-	);
-}
-
-function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVisible: boolean } ) {
-	const label = session.firstPrompt?.trim();
-	const isRunning = useIsSessionRunning( session.id );
-	const hasPendingQuestion = useSessionHasPendingQuestion( session.id );
-
-	return (
-		<li className={ styles.sessionItem }>
-			<SidebarButton
-				className={ styles.sessionLink }
-				render={
-					<Link
-						to="/sessions/$sessionId"
-						params={ { sessionId: session.id } }
-						tabIndex={ isVisible ? undefined : -1 }
-						activeProps={ {
-							className: clsx( styles.sessionLink, styles.sessionLinkActive ),
-						} }
+					<span
+						className={ clsx(
+							styles.siteAgentActivity,
+							styles.siteAgentActivityTooltipTrigger,
+							className
+						) }
+						role={ childProvidesLabel ? undefined : 'status' }
+						aria-label={ childProvidesLabel ? undefined : ariaLabel }
 					/>
 				}
 			>
-				{ hasPendingQuestion ? (
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={
-								<span
-									className={ styles.sessionQuestionIndicator }
-									role="status"
-									aria-label={ __( 'Studio needs an answer.' ) }
-								/>
-							}
-						/>
-						<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-							{ __( 'Studio needs an answer.' ) }
-						</Tooltip.Popup>
-					</Tooltip.Root>
-				) : isRunning ? (
-					<Spinner className={ styles.sessionInlineSpinner } label={ __( 'Working…' ) } />
-				) : null }
-				<span className={ clsx( styles.sessionLabel, ! label && styles.sessionLabelUntitled ) }>
-					{ label || __( 'Untitled chat' ) }
-				</span>
-				<span className={ styles.sessionTime }>{ formatRelativeTime( session.updatedAt ) }</span>
-			</SidebarButton>
-			{ isVisible && ! isRunning ? (
-				<div className={ styles.sessionActions }>
-					<SessionActionsMenu session={ session } />
-				</div>
-			) : null }
-		</li>
+				{ children }
+			</Tooltip.Trigger>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
+		</Tooltip.Root>
 	);
 }
 
-function useNewSessionAction( site: SiteDetails ) {
-	const navigate = useNavigate();
-	const [ isPending, setIsPending ] = useState( false );
-	const handleClick = async () => {
-		setIsPending( true );
-		try {
-			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
-		} finally {
-			setIsPending( false );
-		}
-	};
+function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity } ) {
+	const [ exitingActivity, setExitingActivity ] = useState< SiteRowActivity >( 'idle' );
 
-	return { isPending, handleClick };
+	useEffect( () => {
+		if ( activity !== 'idle' ) {
+			setExitingActivity( activity );
+			return;
+		}
+
+		const timeout = window.setTimeout(
+			() => setExitingActivity( 'idle' ),
+			ACTIVITY_EXIT_DURATION_MS
+		);
+		return () => window.clearTimeout( timeout );
+	}, [ activity ] );
+
+	const renderedActivity = activity === 'idle' ? exitingActivity : activity;
+	const isVisible = activity !== 'idle';
+	const workingLabel = __( 'Working…' );
+	const pendingQuestionLabel = __( 'Needs an answer' );
+	const pendingQuestionAriaLabel = __( 'Studio needs an answer.' );
+	const newMessageLabel = __( 'New message' );
+	const syncLabel = __( 'Syncing live site' );
+
+	return (
+		<span
+			className={ clsx(
+				styles.siteAgentActivitySlot,
+				isVisible && styles.siteAgentActivitySlotVisible
+			) }
+			aria-hidden={ isVisible ? undefined : 'true' }
+		>
+			{ renderedActivity === 'working' ? (
+				<SiteAgentActivityTooltip label={ workingLabel } childProvidesLabel>
+					<Spinner className={ styles.siteAgentActivitySpinner } label={ workingLabel } />
+				</SiteAgentActivityTooltip>
+			) : null }
+			{ renderedActivity === 'pending-question' ? (
+				<SiteAgentActivityTooltip
+					label={ pendingQuestionLabel }
+					ariaLabel={ pendingQuestionAriaLabel }
+					className={ styles.siteAgentActivityQuestion }
+				/>
+			) : null }
+			{ renderedActivity === 'new-message' ? (
+				<SiteAgentActivityTooltip
+					label={ newMessageLabel }
+					className={ styles.siteAgentActivityMessage }
+				/>
+			) : null }
+			{ renderedActivity === 'sync' ? (
+				<SiteAgentActivityTooltip label={ syncLabel } className={ styles.siteAgentActivitySync }>
+					<span className={ styles.siteAgentActivitySyncDots } aria-hidden="true">
+						<span className={ styles.siteAgentActivitySyncDot } />
+						<span className={ styles.siteAgentActivitySyncDot } />
+						<span className={ styles.siteAgentActivitySyncDot } />
+					</span>
+				</SiteAgentActivityTooltip>
+			) : null }
+		</span>
+	);
 }
 
-function NewSessionButton( { site }: { site: SiteDetails } ) {
-	const { isPending, handleClick } = useNewSessionAction( site );
+function getTimestamp( session: AiSessionSummary | undefined ): number {
+	return session ? Date.parse( session.updatedAt ) || 0 : 0;
+}
+
+function readStoredSiteOrder(): string[] {
+	try {
+		const stored = window.localStorage.getItem( SITE_ORDER_STORAGE_KEY );
+		const parsed = stored ? JSON.parse( stored ) : [];
+		return Array.isArray( parsed )
+			? parsed.filter( ( id ): id is string => typeof id === 'string' )
+			: [];
+	} catch {
+		return [];
+	}
+}
+
+function writeStoredSiteOrder( siteIds: string[] ): void {
+	try {
+		window.localStorage.setItem( SITE_ORDER_STORAGE_KEY, JSON.stringify( siteIds ) );
+	} catch {
+		// Ignore storage failures; drag order still updates for this render.
+	}
+}
+
+function sortSitesByManualOrder(
+	sites: SiteDetails[] | undefined,
+	manualOrder: string[]
+): SiteDetails[] {
+	const sourceSites = sites ?? [];
+	if ( manualOrder.length === 0 ) {
+		return sourceSites;
+	}
+
+	const sitesById = new Map( sourceSites.map( ( site ) => [ site.id, site ] ) );
+	const orderedIds = new Set< string >();
+	const orderedSites: SiteDetails[] = [];
+
+	for ( const siteId of manualOrder ) {
+		const site = sitesById.get( siteId );
+		if ( site ) {
+			orderedIds.add( siteId );
+			orderedSites.push( site );
+		}
+	}
+
+	for ( const site of sourceSites ) {
+		if ( ! orderedIds.has( site.id ) ) {
+			orderedSites.push( site );
+		}
+	}
+
+	return orderedSites;
+}
+
+function createSiteRows(
+	sites: SiteDetails[] | undefined,
+	sessions: AiSessionSummary[] | undefined
+): SiteRow[] {
+	const rows: SiteRow[] = ( sites ?? [] ).map( ( site ) => ( {
+		site,
+		sessionIds: [],
+		latestSession: undefined,
+	} ) );
+	const rowsByPath = new Map( rows.map( ( row ) => [ row.site.path, row ] ) );
+
+	for ( const session of sessions ?? [] ) {
+		if ( ! session.ownerSitePath ) {
+			continue;
+		}
+		const row = rowsByPath.get( session.ownerSitePath );
+		if ( ! row ) {
+			continue;
+		}
+		row.sessionIds.push( session.id );
+		if (
+			! session.archived &&
+			( ! row.latestSession || getTimestamp( session ) > getTimestamp( row.latestSession ) )
+		) {
+			row.latestSession = session;
+		}
+	}
+
+	return rows;
+}
+
+function SiteOverviewButton( {
+	site,
+	isActive = false,
+}: {
+	site: SiteDetails;
+	isActive?: boolean;
+} ) {
+	const navigate = useNavigate();
 
 	return (
 		<IconButton
 			variant="minimal"
 			tone="neutral"
 			size="small"
-			icon={ plus }
-			label={ __( 'New chat' ) }
-			className={ styles.siteAction }
-			loading={ isPending }
-			loadingAnnouncement={ __( 'Creating chat' ) }
-			onClick={ handleClick }
-		/>
-	);
-}
-
-function NewSessionTextButton( { site }: { site: SiteDetails } ) {
-	const { isPending, handleClick } = useNewSessionAction( site );
-
-	return (
-		<Button
-			variant="unstyled"
-			tone="neutral"
-			size="small"
-			className={ styles.emptyChatButton }
-			loading={ isPending }
-			loadingAnnouncement={ __( 'Creating chat' ) }
-			onClick={ handleClick }
-		>
-			{ __( 'New chat' ) }
-		</Button>
-	);
-}
-
-function DeleteSiteDialog( {
-	site,
-	open,
-	onOpenChange,
-}: {
-	site: SiteDetails;
-	open: boolean;
-	onOpenChange: ( open: boolean ) => void;
-} ) {
-	const navigate = useNavigate();
-	const params = useParams( { strict: false } ) as { siteId?: string };
-	const deleteSite = useDeleteSite();
-	const [ deleteFiles, setDeleteFiles ] = useState( true );
-	const [ error, setError ] = useState< string | null >( null );
-
-	const handleConfirm = () => {
-		setError( null );
-		deleteSite.mutate(
-			{ id: site.id, deleteFiles },
-			{
-				onSuccess: () => {
-					onOpenChange( false );
-					// If the user is currently viewing this site (settings or a
-					// session that belongs to it), bounce them back to the root
-					// so they don't land on a 404 once the cache refreshes.
-					if ( params.siteId === site.id ) {
-						void navigate( { to: '/' } );
-					}
-				},
-				onError: ( err: Error ) => {
-					setError( err.message ?? __( 'Unable to delete the site. Please try again.' ) );
-				},
-			}
-		);
-	};
-
-	return (
-		<Dialog.Root
-			open={ open }
-			onOpenChange={ ( next ) => {
-				if ( ! deleteSite.isPending ) {
-					onOpenChange( next );
-					if ( ! next ) {
-						setError( null );
-					}
-				}
+			icon={ settings }
+			label={ __( 'Site overview' ) }
+			className={ clsx( styles.siteAction, isActive && styles.siteActionActive ) }
+			aria-current={ isActive ? 'page' : undefined }
+			onClick={ ( event ) => {
+				event.stopPropagation();
+				void navigate( {
+					to: '/sites/$siteId/overview',
+					params: { siteId: site.id },
+				} );
 			} }
-		>
-			<Dialog.Popup size="small">
-				<Dialog.Header>
-					<Dialog.Title>{ sprintf( __( 'Delete %s' ), site.name ) }</Dialog.Title>
-				</Dialog.Header>
-				<p className={ styles.dialogText }>
-					{ __(
-						"The site's database will be lost, including all posts, pages, comments, and media."
-					) }
-				</p>
-				<label className={ styles.dialogCheckbox }>
-					<input
-						type="checkbox"
-						checked={ deleteFiles }
-						onChange={ ( event ) => setDeleteFiles( event.target.checked ) }
-					/>
-					<span>{ __( 'Delete site files from my computer' ) }</span>
-				</label>
-				{ error ? <div className={ styles.dialogError }>{ error }</div> : null }
-				<Dialog.Footer>
-					<Dialog.Action variant="minimal" tone="neutral" disabled={ deleteSite.isPending }>
-						{ __( 'Cancel' ) }
-					</Dialog.Action>
-					<Button
-						variant="solid"
-						tone="brand"
-						loading={ deleteSite.isPending }
-						loadingAnnouncement={ __( 'Deleting site' ) }
-						onClick={ handleConfirm }
-					>
-						{ __( 'Delete site' ) }
-					</Button>
-				</Dialog.Footer>
-			</Dialog.Popup>
-		</Dialog.Root>
-	);
-}
-
-function SiteActionsMenu( {
-	site,
-	isStarting,
-	isStopping,
-}: {
-	site: SiteDetails;
-	isStarting: boolean;
-	isStopping: boolean;
-} ) {
-	const navigate = useNavigate();
-	const connector = useConnector();
-	const { data: userPreferences } = useUserPreferences();
-	const startSite = useStartSite();
-	const stopSite = useStopSite();
-	const copySite = useCopySite();
-	const exportFullSite = useExportFullSite();
-	const exportDatabase = useExportDatabase();
-	const busy = isStarting || isStopping;
-	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
-	const [ deleteOpen, setDeleteOpen ] = useState( false );
-
-	const handleOpenFolder = () => {
-		void connector.openSiteFolder( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site folder:', error );
-		} );
-	};
-
-	const handleOpenInEditor = () => {
-		// No editor preference yet — send the user to Settings so they can
-		// pick one before the action becomes useful.
-		if ( ! userPreferences?.editor ) {
-			void navigate( { to: '/settings' } );
-			return;
-		}
-		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site in editor:', error );
-		} );
-	};
-
-	const handleOpenInTerminal = () => {
-		void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site in terminal:', error );
-		} );
-	};
-
-	const handleOpenPhpMyAdmin = () => {
-		void connector.openExternalUrl(
-			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
-		);
-	};
-
-	const handleOpenWpAdmin = () => {
-		const siteUrl = getSiteUrl( site );
-		const redirectTo = new URL( '/wp-admin/', siteUrl ).toString();
-		const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
-		autoLoginUrl.searchParams.set( 'redirect_to', redirectTo );
-		void connector.openExternalUrl( autoLoginUrl.toString() );
-	};
-
-	return (
-		<>
-			<Menu.Root modal={ false }>
-				<Menu.Trigger
-					render={
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ moreHorizontal }
-							label={ __( 'Site actions' ) }
-							className={ styles.siteAction }
-						/>
-					}
-				/>
-				<Menu.Popup side="bottom" align="end">
-					{ site.running ? (
-						<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
-							{ __( 'Stop site' ) }
-						</Menu.Item>
-					) : (
-						<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
-							{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
-						</Menu.Item>
-					) }
-					<Menu.Separator />
-					<Menu.Item
-						onClick={ () =>
-							void navigate( {
-								to: '/sites/$siteId/settings',
-								params: { siteId: site.id },
-							} )
-						}
-					>
-						{ __( 'Site settings' ) }
-					</Menu.Item>
-					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
-						{ copySite.isPending ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
-					</Menu.Item>
-					<Menu.Separator />
-					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
-					<Menu.Item onClick={ handleOpenInEditor }>{ __( 'Open in editor' ) }</Menu.Item>
-					<Menu.Item onClick={ handleOpenInTerminal }>{ __( 'Open in terminal' ) }</Menu.Item>
-					<Menu.Item disabled={ ! site.running } onClick={ handleOpenPhpMyAdmin }>
-						{ __( 'Open phpMyAdmin' ) }
-					</Menu.Item>
-					<Menu.Item disabled={ ! site.running } onClick={ handleOpenWpAdmin }>
-						{ __( 'Open WP admin' ) }
-					</Menu.Item>
-					<Menu.Separator />
-					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>
-						{ exportFullSite.isPending ? __( 'Exporting…' ) : __( 'Export entire site' ) }
-					</Menu.Item>
-					<Menu.Item disabled={ isExporting } onClick={ () => exportDatabase.mutate( site.id ) }>
-						{ exportDatabase.isPending ? __( 'Exporting…' ) : __( 'Export database' ) }
-					</Menu.Item>
-					<Menu.Separator />
-					<Menu.Item onClick={ () => setDeleteOpen( true ) }>{ __( 'Delete site' ) }</Menu.Item>
-				</Menu.Popup>
-			</Menu.Root>
-			{ deleteOpen ? (
-				<DeleteSiteDialog site={ site } open={ deleteOpen } onOpenChange={ setDeleteOpen } />
-			) : null }
-		</>
+		/>
 	);
 }
 
@@ -497,7 +301,8 @@ function SiteStatusButton( {
 	const tooltipLabel = sprintf( __( 'Site status: %s' ), statusName );
 	const actionLabel = site.running ? __( 'Stop site' ) : __( 'Start site' );
 	const label = busy ? tooltipLabel : sprintf( __( '%1$s. %2$s' ), tooltipLabel, actionLabel );
-	const handleClick = () => {
+	const handleClick = ( event: MouseEvent< HTMLButtonElement > ) => {
+		event.stopPropagation();
 		if ( busy ) {
 			return;
 		}
@@ -519,7 +324,7 @@ function SiteStatusButton( {
 						aria-busy={ busy || undefined }
 						aria-disabled={ busy || undefined }
 						data-state={ status }
-						onClick={ busy ? undefined : handleClick }
+						onClick={ handleClick }
 					>
 						<svg
 							className={ styles.siteStatusGlyph }
@@ -534,18 +339,20 @@ function SiteStatusButton( {
 							) }
 						</svg>
 						{ ! busy ? (
-							<svg
-								className={ styles.siteStatusActionGlyph }
-								viewBox="0 0 10 10"
-								aria-hidden="true"
-								focusable="false"
-							>
-								{ site.running ? (
-									<rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor" />
-								) : (
+							site.running ? (
+								<span className={ styles.siteStatusActionGlyph } aria-hidden="true">
+									<span className={ styles.siteStatusPauseMark } />
+								</span>
+							) : (
+								<svg
+									className={ styles.siteStatusActionGlyph }
+									viewBox="0 0 10 10"
+									aria-hidden="true"
+									focusable="false"
+								>
 									<path d="M2.5 1 L9 5 L2.5 9 Z" fill="currentColor" />
-								) }
-							</svg>
+								</svg>
+							)
 						) : null }
 					</button>
 				}
@@ -558,164 +365,506 @@ function SiteStatusButton( {
 }
 
 function SiteSection( {
-	group,
-	isUnassigned,
-	isActive,
-	isOpen,
-	onToggle,
+	row,
+	isChatActive,
+	isContextActive,
+	hasUnreadUpdate = false,
 }: {
-	group: SiteGroup;
-	isUnassigned: boolean;
-	isActive: boolean;
-	isOpen: boolean;
-	onToggle: () => void;
+	row: SiteRow;
+	isChatActive: boolean;
+	isContextActive: boolean;
+	hasUnreadUpdate?: boolean;
 } ) {
-	const isStarting = useIsSiteStarting( group.site?.id );
-	const isStopping = useIsSiteStopping( group.site?.id );
-	const isStopped = !! group.site && ! group.site.running && ! isStarting;
+	const { site, latestSession } = row;
+	const navigate = useNavigate();
+	const isStarting = useIsSiteStarting( site.id );
+	const isStopping = useIsSiteStopping( site.id );
+	const { status } = deriveSiteStatus( site, isStarting, isStopping );
+	const agentActivity = useSiteAgentActivity( row.sessionIds );
+	const syncActivity = useSiteSyncActivity( site.id );
+	const isLiveSyncPending =
+		syncActivity?.kind === 'pending' &&
+		( syncActivity.direction === 'push' || syncActivity.direction === 'pull' );
+	const displayActivity = isLiveSyncPending
+		? 'sync'
+		: agentActivity !== 'idle'
+		? agentActivity
+		: hasUnreadUpdate
+		? 'new-message'
+		: 'idle';
+	const handleOpenSite = () => {
+		if ( latestSession ) {
+			void navigate( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: latestSession.id },
+			} );
+			return;
+		}
+		void navigate( {
+			to: '/sites/$siteId/new',
+			params: { siteId: site.id },
+		} );
+	};
 
 	return (
 		<section
 			className={ clsx(
 				styles.site,
-				isUnassigned && styles.unassigned,
-				isActive && styles.siteActive
+				isChatActive && styles.siteActive,
+				isContextActive && styles.siteContextActive
 			) }
 		>
-			<header className={ styles.siteHeader }>
+			<header className={ styles.siteHeader } onClick={ handleOpenSite }>
 				<div className={ styles.siteText }>
+					<SiteAgentActivityIndicator activity={ displayActivity } />
 					<SidebarButton
 						className={ styles.siteToggle }
-						onClick={ onToggle }
-						aria-expanded={ isOpen }
+						onClick={ ( event ) => {
+							event.stopPropagation();
+							handleOpenSite();
+						} }
+						aria-current={ isChatActive ? 'page' : undefined }
 					>
-						{ group.site ? (
-							<span className={ styles.siteIconSlot } aria-hidden="true">
-								<SiteIcon
-									className={ clsx( styles.siteIcon, isStopped && styles.siteIconStopped ) }
-									seed={ `${ group.site.id }:${ group.site.name }:${ group.site.path }` }
-									imageSrc={ group.site.siteIcon }
-								/>
-							</span>
-						) : null }
-						<span className={ styles.siteName }>{ group.label }</span>
-						<span className={ styles.siteChevron } aria-hidden="true">
-							<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />
+						<span
+							className={ clsx(
+								styles.siteName,
+								status === 'stopped' && styles.siteNameStopped,
+								isStarting && styles.siteNameStarting
+							) }
+						>
+							{ site.name }
 						</span>
 					</SidebarButton>
 				</div>
-				{ group.site ? (
-					<div className={ styles.siteActions }>
-						<SiteActionsMenu
-							site={ group.site }
-							isStarting={ isStarting }
-							isStopping={ isStopping }
-						/>
-						<NewSessionButton site={ group.site } />
-						<SiteStatusButton
-							site={ group.site }
-							isStarting={ isStarting }
-							isStopping={ isStopping }
-						/>
-					</div>
-				) : null }
-			</header>
-			{ group.sessions.length > 0 || group.site ? (
-				<div
-					className={ clsx( styles.sessionListFrame, isOpen && styles.sessionListFrameOpen ) }
-					aria-hidden={ ! isOpen }
-				>
-					{ group.sessions.length > 0 ? (
-						<ul className={ styles.sessionList }>
-							{ group.sessions.map( ( session ) => (
-								<SessionItem key={ session.id } session={ session } isVisible={ isOpen } />
-							) ) }
-						</ul>
-					) : group.site ? (
-						<div className={ styles.emptyChatState }>
-							<span className={ styles.emptyChatText }>{ __( 'No active chats' ) }</span>
-							<span className={ styles.emptyChatSeparator } aria-hidden="true">
-								•
-							</span>
-							<NewSessionTextButton site={ group.site } />
-						</div>
-					) : null }
+				<div className={ styles.siteActions } data-site-actions>
+					<SiteOverviewButton site={ site } isActive={ isContextActive } />
+					<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 				</div>
-			) : null }
+			</header>
 		</section>
 	);
 }
 
+function insertSiteIdAtIndex( siteIds: string[], movedSiteId: string, targetIndex: number ) {
+	const fromIndex = siteIds.indexOf( movedSiteId );
+	if ( fromIndex === -1 ) {
+		return siteIds;
+	}
+
+	const nextSiteIds = [ ...siteIds ];
+	const [ movedSite ] = nextSiteIds.splice( fromIndex, 1 );
+	nextSiteIds.splice( Math.max( 0, Math.min( targetIndex, nextSiteIds.length ) ), 0, movedSite );
+	return nextSiteIds;
+}
+
+function measureSiteRowRects( rowElements: Map< string, HTMLDivElement > ) {
+	const rects = new Map< string, DOMRectReadOnly >();
+	for ( const [ siteId, element ] of rowElements ) {
+		rects.set( siteId, element.getBoundingClientRect() );
+	}
+	return rects;
+}
+
+function getSiteRowAnimationTarget( rowElement: HTMLDivElement ) {
+	const target = rowElement.firstElementChild;
+	return target instanceof HTMLElement ? target : rowElement;
+}
+
+function prefersReducedMotion() {
+	return window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ?? false;
+}
+
 function findActiveSiteKey(
-	groups: SiteGroup[],
+	rows: SiteRow[],
 	activeSessionId: string | undefined,
 	activeSiteId: string | undefined
 ): string | undefined {
 	if ( activeSiteId ) {
-		const match = groups.find( ( group ) => group.site?.id === activeSiteId );
-		if ( match ) return match.key;
+		const match = rows.find( ( row ) => row.site.id === activeSiteId );
+		if ( match ) return match.site.id;
 	}
 	if ( ! activeSessionId ) {
 		return undefined;
 	}
-	for ( const group of groups ) {
-		if ( group.sessions.some( ( session ) => session.id === activeSessionId ) ) {
-			return group.key;
+	for ( const row of rows ) {
+		if ( row.sessionIds.includes( activeSessionId ) ) {
+			return row.site.id;
 		}
 	}
 	return undefined;
+}
+
+function findSessionSiteKey(
+	rows: SiteRow[],
+	activeSessionId: string | undefined
+): string | undefined {
+	if ( ! activeSessionId ) {
+		return undefined;
+	}
+	for ( const row of rows ) {
+		if ( row.sessionIds.includes( activeSessionId ) ) {
+			return row.site.id;
+		}
+	}
+	return undefined;
+}
+
+function isSiteContextPath( pathname: string, siteId: string | undefined ) {
+	if ( ! siteId ) {
+		return false;
+	}
+
+	const [ root, routeSiteId, section, ...rest ] = pathname.split( '/' ).filter( Boolean );
+	if ( rest.length > 0 || root !== 'sites' || ! routeSiteId ) {
+		return false;
+	}
+
+	try {
+		return (
+			decodeURIComponent( routeSiteId ) === siteId &&
+			( section === 'overview' || section === 'settings' )
+		);
+	} catch {
+		return false;
+	}
 }
 
 export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
+	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
+	const [ manualSiteOrder, setManualSiteOrder ] = useState( readStoredSiteOrder );
+	const [ activeDrag, setActiveDrag ] = useState< ActiveSiteDrag | null >( null );
+	const activeDragRef = useRef< ActiveSiteDrag | null >( null );
+	const dragCandidateRef = useRef< SiteDragCandidate | null >( null );
+	const dragStartSiteOrderRef = useRef< string[] >( [] );
+	const rowElementsRef = useRef< Map< string, HTMLDivElement > >( new Map() );
+	const previousRowRectsRef = useRef< Map< string, DOMRectReadOnly > >( new Map() );
+	const rowMoveAnimationsRef = useRef< Map< string, Animation > >( new Map() );
+	const suppressNextClickRef = useRef( false );
+	const [ seenSiteSessionTimestampsInitialized, setSeenSiteSessionTimestampsInitialized ] =
+		useState( false );
+	const [ seenSiteSessionTimestamps, setSeenSiteSessionTimestamps ] = useState<
+		Record< string, number >
+	>( {} );
 
-	const groups = useMemo( () => groupSessionsByOwner( sites, sessions ), [ sites, sessions ] );
-	const activeSiteKey = useMemo(
-		() => findActiveSiteKey( groups, activeSessionId, activeSiteId ),
-		[ groups, activeSessionId, activeSiteId ]
+	const orderedSites = useMemo(
+		() => sortSitesByManualOrder( sites, manualSiteOrder ),
+		[ sites, manualSiteOrder ]
 	);
-
-	// Expansion is derived: by default the active site (or, if none, the
-	// MRU site — first in the list) is open. Manual toggles are stored as
-	// overrides so the user's explicit choice wins until they toggle again.
-	const mruKey = groups[ 0 ]?.key;
-	const [ overrides, setOverrides ] = useState< Record< string, boolean > >( {} );
-
-	const isOpen = ( key: string ): boolean => {
-		if ( key in overrides ) {
-			return overrides[ key ];
+	const rows = useMemo(
+		() => createSiteRows( orderedSites, sessions ),
+		[ orderedSites, sessions ]
+	);
+	const activeSiteKey = useMemo(
+		() => findActiveSiteKey( rows, activeSessionId, activeSiteId ),
+		[ rows, activeSessionId, activeSiteId ]
+	);
+	const activeChatSiteKey = useMemo(
+		() => findSessionSiteKey( rows, activeSessionId ),
+		[ rows, activeSessionId ]
+	);
+	const activeContextSiteKey = isSiteContextPath( pathname, activeSiteId )
+		? activeSiteKey
+		: undefined;
+	useEffect( () => {
+		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
+			return;
 		}
-		return key === activeSiteKey || ( ! activeSiteKey && key === mruKey );
+		const shouldSeedSeenTimestamps = ! seenSiteSessionTimestampsInitialized;
+		setSeenSiteSessionTimestamps( ( current ) => {
+			let next = current;
+			let changed = false;
+
+			const updateSeenTimestamp = ( siteId: string, timestamp: number ) => {
+				if ( timestamp <= ( next[ siteId ] ?? 0 ) ) {
+					return;
+				}
+				if ( next === current ) {
+					next = { ...current };
+				}
+				next[ siteId ] = timestamp;
+				changed = true;
+			};
+
+			for ( const row of rows ) {
+				const latestTimestamp = getTimestamp( row.latestSession );
+				if ( ! latestTimestamp ) {
+					continue;
+				}
+				if ( shouldSeedSeenTimestamps || row.site.id === activeSiteKey ) {
+					updateSeenTimestamp( row.site.id, latestTimestamp );
+				}
+			}
+
+			return changed ? next : current;
+		} );
+		if ( ! seenSiteSessionTimestampsInitialized ) {
+			setSeenSiteSessionTimestampsInitialized( true );
+		}
+	}, [ activeSiteKey, rows, seenSiteSessionTimestampsInitialized, sessionsLoading, sitesLoading ] );
+	const unreadSiteIds = useMemo( () => {
+		if ( ! seenSiteSessionTimestampsInitialized ) {
+			return new Set< string >();
+		}
+		const unread = new Set< string >();
+		for ( const row of rows ) {
+			if ( row.site.id === activeSiteKey ) {
+				continue;
+			}
+			const latestTimestamp = getTimestamp( row.latestSession );
+			if ( latestTimestamp > ( seenSiteSessionTimestamps[ row.site.id ] ?? 0 ) ) {
+				unread.add( row.site.id );
+			}
+		}
+		return unread;
+	}, [ activeSiteKey, rows, seenSiteSessionTimestamps, seenSiteSessionTimestampsInitialized ] );
+	const rowSiteIds = useMemo( () => rows.map( ( row ) => row.site.id ), [ rows ] );
+	const activeDragSiteId = activeDrag?.siteId;
+	const activeDropIndex = activeDrag?.dropIndex;
+	const isDraggingSites = activeDrag !== null;
+	const displayRows = useMemo(
+		() => rows.filter( ( row ) => row.site.id !== activeDragSiteId ),
+		[ rows, activeDragSiteId ]
+	);
+	const draggedRow = activeDragSiteId
+		? rows.find( ( row ) => row.site.id === activeDragSiteId )
+		: undefined;
+
+	useLayoutEffect( () => {
+		const nextRowRects = measureSiteRowRects( rowElementsRef.current );
+		const previousRowRects = previousRowRectsRef.current;
+		const shouldAnimateRows = isDraggingSites && ! prefersReducedMotion();
+
+		if ( shouldAnimateRows ) {
+			for ( const [ siteId, nextRect ] of nextRowRects ) {
+				const previousRect = previousRowRects.get( siteId );
+				const rowElement = rowElementsRef.current.get( siteId );
+				if ( ! previousRect || ! rowElement ) {
+					continue;
+				}
+
+				const deltaX = previousRect.left - nextRect.left;
+				const deltaY = previousRect.top - nextRect.top;
+				if (
+					Math.abs( deltaX ) < SITE_DRAG_REORDER_DISTANCE_EPSILON &&
+					Math.abs( deltaY ) < SITE_DRAG_REORDER_DISTANCE_EPSILON
+				) {
+					continue;
+				}
+
+				const animationTarget = getSiteRowAnimationTarget( rowElement );
+				if ( typeof animationTarget.animate !== 'function' ) {
+					continue;
+				}
+
+				rowMoveAnimationsRef.current.get( siteId )?.cancel();
+				const animation = animationTarget.animate(
+					[
+						{ transform: `translate(${ deltaX }px, ${ deltaY }px)` },
+						{ transform: 'translate(0, 0)' },
+					],
+					{
+						duration: SITE_DRAG_REORDER_DURATION_MS,
+						easing: SITE_DRAG_REORDER_EASING,
+					}
+				);
+
+				rowMoveAnimationsRef.current.set( siteId, animation );
+				const clearAnimation = () => {
+					if ( rowMoveAnimationsRef.current.get( siteId ) === animation ) {
+						rowMoveAnimationsRef.current.delete( siteId );
+					}
+				};
+				animation.onfinish = clearAnimation;
+				animation.oncancel = clearAnimation;
+			}
+		}
+
+		previousRowRectsRef.current = nextRowRects;
+	}, [ activeDragSiteId, activeDropIndex, displayRows, isDraggingSites ] );
+
+	const updateActiveDrag = ( nextDrag: ActiveSiteDrag | null ) => {
+		activeDragRef.current = nextDrag;
+		setActiveDrag( nextDrag );
 	};
 
-	const toggleSite = ( key: string ) => {
-		setOverrides( ( prev ) => ( { ...prev, [ key ]: ! isOpen( key ) } ) );
+	const resetDragState = () => {
+		dragCandidateRef.current = null;
+		dragStartSiteOrderRef.current = [];
+		updateActiveDrag( null );
+	};
+
+	const getDropIndex = ( clientY: number, draggedSiteId: string ) => {
+		const sourceOrder =
+			dragStartSiteOrderRef.current.length > 0 ? dragStartSiteOrderRef.current : rowSiteIds;
+		const sourceOrderWithoutDragged = sourceOrder.filter( ( siteId ) => siteId !== draggedSiteId );
+
+		for ( const [ index, siteId ] of sourceOrderWithoutDragged.entries() ) {
+			const rowElement = rowElementsRef.current.get( siteId );
+			if ( ! rowElement ) {
+				continue;
+			}
+			const rowRect = rowElement.getBoundingClientRect();
+			if ( clientY < rowRect.top + rowRect.height / 2 ) {
+				return index;
+			}
+		}
+		return sourceOrderWithoutDragged.length;
+	};
+
+	const handleWindowPointerMove = ( event: PointerEvent ) => {
+		const candidate = dragCandidateRef.current;
+		if (
+			! candidate ||
+			( candidate.pointerId !== undefined &&
+				event.pointerId !== undefined &&
+				event.pointerId !== candidate.pointerId )
+		) {
+			return;
+		}
+		const active = activeDragRef.current;
+		const deltaX = event.clientX - candidate.startX;
+		const deltaY = event.clientY - candidate.startY;
+		if ( ! active && Math.hypot( deltaX, deltaY ) < SITE_DRAG_START_THRESHOLD ) {
+			return;
+		}
+
+		event.preventDefault();
+		updateActiveDrag( {
+			siteId: candidate.siteId,
+			currentY: event.clientY,
+			dropIndex: getDropIndex( event.clientY, candidate.siteId ),
+			pointerOffsetY: candidate.pointerOffsetY,
+			previewLeft: candidate.previewLeft,
+			previewWidth: candidate.previewWidth,
+		} );
+	};
+
+	const handleWindowPointerUp = ( event: PointerEvent ) => {
+		const candidate = dragCandidateRef.current;
+		if (
+			! candidate ||
+			( candidate.pointerId !== undefined &&
+				event.pointerId !== undefined &&
+				event.pointerId !== candidate.pointerId )
+		) {
+			return;
+		}
+		const active = activeDragRef.current;
+		if ( active ) {
+			const sourceOrder =
+				dragStartSiteOrderRef.current.length > 0 ? dragStartSiteOrderRef.current : rowSiteIds;
+			const nextSiteIds = insertSiteIdAtIndex( sourceOrder, active.siteId, active.dropIndex );
+			setManualSiteOrder( nextSiteIds );
+			writeStoredSiteOrder( nextSiteIds );
+			suppressNextClickRef.current = true;
+		}
+		resetDragState();
+		window.removeEventListener( 'pointermove', handleWindowPointerMove );
+		window.removeEventListener( 'pointerup', handleWindowPointerUp );
+	};
+
+	const handlePointerDown = ( event: ReactPointerEvent< HTMLElement >, row: SiteRow ) => {
+		if ( event.button !== 0 || ( event.target as HTMLElement ).closest( '[data-site-actions]' ) ) {
+			return;
+		}
+		const rowRect = event.currentTarget.getBoundingClientRect();
+		dragStartSiteOrderRef.current = rowSiteIds;
+		previousRowRectsRef.current = measureSiteRowRects( rowElementsRef.current );
+		dragCandidateRef.current = {
+			siteId: row.site.id,
+			pointerId: event.pointerId,
+			startX: event.clientX,
+			startY: event.clientY,
+			pointerOffsetY: event.clientY - rowRect.top,
+			previewLeft: rowRect.left,
+			previewWidth: rowRect.width,
+		};
+		window.addEventListener( 'pointermove', handleWindowPointerMove, { passive: false } );
+		window.addEventListener( 'pointerup', handleWindowPointerUp );
+	};
+
+	const handleClickCapture = ( event: MouseEvent< HTMLElement > ) => {
+		if ( ! suppressNextClickRef.current ) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		suppressNextClickRef.current = false;
 	};
 
 	return (
 		<div className={ styles.root }>
 			{ sitesLoading || sessionsLoading ? (
 				<p className={ styles.empty }>{ __( 'Loading…' ) }</p>
-			) : groups.length === 0 ? (
+			) : rows.length === 0 ? (
 				<p className={ styles.empty }>{ __( 'No sites yet' ) }</p>
 			) : (
-				<div className={ styles.sites }>
-					{ groups.map( ( group ) => (
-						<SiteSection
-							key={ group.key }
-							group={ group }
-							isUnassigned={ group.key === UNASSIGNED_KEY }
-							isActive={ group.key === activeSiteKey }
-							isOpen={ isOpen( group.key ) }
-							onToggle={ () => toggleSite( group.key ) }
-						/>
+				<div className={ clsx( styles.sites, activeDrag && styles.sitesDragging ) }>
+					{ displayRows.map( ( row, index ) => (
+						<Fragment key={ row.site.id }>
+							{ activeDrag && activeDrag.dropIndex === index ? (
+								<div
+									className={ styles.siteDropPlaceholder }
+									data-testid="site-drop-placeholder"
+									aria-hidden="true"
+								/>
+							) : null }
+							<div
+								ref={ ( node ) => {
+									if ( node ) {
+										rowElementsRef.current.set( row.site.id, node );
+									} else {
+										rowElementsRef.current.delete( row.site.id );
+									}
+								} }
+								className={ styles.siteDragWrapper }
+								data-site-id={ row.site.id }
+								onPointerDown={ ( event ) => handlePointerDown( event, row ) }
+								onClickCapture={ handleClickCapture }
+							>
+								<SiteSection
+									row={ row }
+									isChatActive={ row.site.id === activeChatSiteKey }
+									isContextActive={ row.site.id === activeContextSiteKey }
+									hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
+								/>
+							</div>
+						</Fragment>
 					) ) }
+					{ activeDrag && activeDrag.dropIndex === displayRows.length ? (
+						<div
+							className={ styles.siteDropPlaceholder }
+							data-testid="site-drop-placeholder"
+							aria-hidden="true"
+						/>
+					) : null }
 				</div>
 			) }
+			{ activeDrag && draggedRow ? (
+				<div
+					className={ styles.siteDragPreview }
+					style={
+						{
+							inlineSize: activeDrag.previewWidth,
+							insetBlockStart: activeDrag.currentY - activeDrag.pointerOffsetY,
+							insetInlineStart: activeDrag.previewLeft,
+						} as CSSProperties
+					}
+					aria-hidden="true"
+				>
+					<SiteSection
+						row={ draggedRow }
+						isChatActive={ draggedRow.site.id === activeChatSiteKey }
+						isContextActive={ draggedRow.site.id === activeContextSiteKey }
+						hasUnreadUpdate={ unreadSiteIds.has( draggedRow.site.id ) }
+					/>
+				</div>
+			) : null }
 		</div>
 	);
 }

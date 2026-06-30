@@ -21,8 +21,10 @@ export const indexRoute = createRoute( {
 			queryFn: () => context.connector.getSessions(),
 		} );
 		// Sessions arrive sorted newest-first, so the first session owned by
-		// the site is its most recently updated one.
-		const topSession = sessions.find( ( session ) => session.ownerSitePath === firstSite.path );
+		// the site is its most recently updated active one.
+		const topSession = sessions.find(
+			( session ) => ! session.archived && session.ownerSitePath === firstSite.path
+		);
 		if ( topSession ) {
 			throw redirect( { to: '/sessions/$sessionId', params: { sessionId: topSession.id } } );
 		}

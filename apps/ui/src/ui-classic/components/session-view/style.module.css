@@ -5,6 +5,8 @@
 	--classic-composer-shell-inline-padding: var(--wpds-dimension-padding-lg);
 	--classic-header-height: 46px;
 	--classic-composer-height: 0px;
+	--classic-composer-footer-height: calc(32px + var(--wpds-dimension-padding-sm));
+	--classic-composer-bottom-padding: var(--wpds-dimension-padding-sm);
 	--classic-header-blur-overhang: 16px;
 	--classic-composer-blur-overhang: 40px;
 	--classic-scrollbar-blur-safe-area: 14px;
@@ -33,22 +35,11 @@
 	-webkit-app-region: drag;
 }
 
-/* Reserve a no-drag area at the left so the floating sidebar-toggle button
-   (collapsed state) doesn't sit on top of the header's drag region. */
-.toggleSpacer {
-	display: block;
-	flex-shrink: 0;
-	width: 118px;
-	align-self: stretch;
-	-webkit-app-region: no-drag;
-}
-
-.toggleSpacerFullscreen {
-	display: block;
-	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-xl) + 24px);
-	align-self: stretch;
-	-webkit-app-region: no-drag;
+.headerSidebarCollapsed {
+	padding-top: calc(
+		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
+			var(--wpds-dimension-padding-2xl)
+	);
 }
 
 .headerSite {
@@ -157,5 +148,85 @@
 			0px,
 			calc(var(--classic-column-inline-gutter) - var(--classic-composer-shell-inline-padding))
 		)
-		var(--wpds-dimension-padding-xl);
+		var(--classic-composer-bottom-padding);
+}
+
+.classicComposerFooter {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-md);
+	min-height: var(--classic-composer-footer-height);
+	padding-inline: var(--classic-composer-shell-inline-padding);
+}
+
+.classicComposerFooterSidebarCollapsed {
+	padding-left: calc(32px + var(--wpds-dimension-padding-sm));
+}
+
+.classicComposerFooterSide {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.classicComposerTextButton {
+	display: inline-flex;
+	align-items: center;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: var(--wpds-typography-font-weight-regular);
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.classicComposerTextButton:hover,
+.classicComposerTextButton:focus-visible {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.classicComposerHistoryButton {
+	gap: var(--wpds-dimension-gap-xs);
+}
+
+.classicComposerHistoryMenu {
+	width: 280px;
+	max-width: calc(100vw - (var(--wpds-dimension-padding-lg) * 2));
+	max-height: min(360px, calc(100vh - 96px));
+	overflow-y: auto;
+}
+
+.classicComposerHistoryItem {
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0;
+	min-width: 0;
+}
+
+.classicComposerHistoryItem[data-current='true'] {
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+.classicComposerHistoryTitle,
+.classicComposerHistoryMeta {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.classicComposerHistoryTitle {
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.classicComposerHistoryMeta {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.classicComposerHistoryEmpty {
+	padding: var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
 }

@@ -3,11 +3,11 @@ import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
+import { SidebarCreateMenu } from '@/components/sidebar-create-menu';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
-import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
@@ -18,7 +18,6 @@ import type { CSSProperties, ReactNode } from 'react';
 export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const [ collapsed, setCollapsed ] = useState( false );
 	const connector = useConnector();
-	const isFullscreen = useFullscreen();
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
@@ -44,10 +43,11 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					) }
 					style={ sidebarStyle }
 				>
-					<SidebarHeader onToggleSidebar={ toggleSidebar } />
+					<SidebarHeader />
 					<SiteList />
 					<div className={ styles.sidebarFooter }>
-						<UserMenu />
+						<SidebarCreateMenu />
+						<UserMenu onToggleSidebar={ toggleSidebar } />
 					</div>
 				</aside>
 				{ ! collapsed ? (
@@ -63,13 +63,9 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					/>
 				) : null }
 				<main className={ styles.main }>
+					{ children }
 					{ collapsed ? (
-						<div
-							className={ clsx(
-								styles.floatingToggle,
-								isFullscreen && styles.floatingToggleFullscreen
-							) }
-						>
+						<div className={ styles.floatingToggle }>
 							<IconButton
 								variant="minimal"
 								tone="neutral"
@@ -80,7 +76,6 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 							/>
 						</div>
 					) : null }
-					{ children }
 				</main>
 				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 			</div>

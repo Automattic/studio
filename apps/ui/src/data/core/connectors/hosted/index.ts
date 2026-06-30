@@ -162,9 +162,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
-		async getXdebugEnabledSite(): Promise< SiteDetails | null > {
-			return null;
-		},
 		async exportFullSite(): Promise< string | null > {
 			throw new WebUnsupportedError( 'exportFullSite' );
 		},

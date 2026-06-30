@@ -2,8 +2,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSiteCreationSwitch } from '../use-site-creation-switch';
+import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
 import type { IpcRendererEvent } from 'electron';
-import type { AiSessionPlacementUpdatedEvent } from 'src/lib/ai-session-placement';
 
 const STORAGE_KEY = 'studio_code_session_ids';
 

@@ -23,11 +23,19 @@ import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
+	createOrReuseAiSession,
+	hydrateAiSessionSummary,
+	listHydratedAiSessions,
+	loadHydratedAiSession,
+} from '@studio/common/ai/sessions/manage';
+import {
+	deleteAiSessionPlacement,
+	readAiSessionPlacement,
+} from '@studio/common/ai/sessions/placement';
+import {
 	appendModelChangeEntry,
 	appendStudioEntry,
-	createAiSession as createAiSessionInStore,
 	deleteAiSession as deleteAiSessionFromStore,
-	listAiSessions as listAiSessionsFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
 import { AI_SKILL_COMMANDS, buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
@@ -72,8 +80,6 @@ import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
 	readSharedConfig,
-	readSharedSession,
-	readSharedSessions,
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
@@ -96,13 +102,6 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import {
-	deleteAiSessionPlacement,
-	hydrateAiSessionSummaryWithPlacement,
-	readAiSessionPlacement,
-	readAiSessionPlacements,
-	setAiSessionSitePlacement,
-} from 'src/lib/ai-session-placement';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
@@ -243,49 +242,6 @@ export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handle
 
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
-function hydrateAiSessionSummary(
-	summary: AiSessionSummary,
-	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
-): AiSessionSummary {
-	return {
-		...summary,
-		starred: metadata?.starred,
-		archived: metadata?.archived,
-	};
-}
-
-async function listHydratedAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
-	const [ sessions, sessionMetadata, placements ] = await Promise.all( [
-		listAiSessionsFromStore( rootDirectory ),
-		readSharedSessions(),
-		readAiSessionPlacements(),
-	] );
-	return sessions.map( ( session ) =>
-		hydrateAiSessionSummary(
-			hydrateAiSessionSummaryWithPlacement( session, placements[ session.id ] ),
-			sessionMetadata[ session.id ]
-		)
-	);
-}
-
-async function loadHydratedAiSession(
-	rootDirectory: string,
-	sessionIdOrPrefix: string
-): Promise< LoadedAiSession > {
-	const session = await loadAiSessionFromStore( rootDirectory, sessionIdOrPrefix );
-	const [ metadata, placement ] = await Promise.all( [
-		readSharedSession( session.summary.id ),
-		readAiSessionPlacement( session.summary.id ),
-	] );
-	return {
-		...session,
-		summary: hydrateAiSessionSummary(
-			hydrateAiSessionSummaryWithPlacement( session.summary, placement ),
-			metadata
-		),
-	};
-}
-
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
 	return listHydratedAiSessions( getAiSessionsRootDirectory() );
 }
@@ -313,57 +269,23 @@ export async function createAiSession(
 ): Promise< AiSessionSummary > {
 	const sitesRoot = getAiSessionsRootDirectory();
 	if ( ! siteId ) {
-		const existing = await listHydratedAiSessions( sitesRoot );
-		const emptyUserSession = existing
-			.filter(
-				( session ) => ! session.ownerSitePath && ! session.firstPrompt && ! session.archived
-			)
-			.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
-
-		if ( emptyUserSession ) {
-			return emptyUserSession;
-		}
-
-		return hydrateAiSessionSummary( await createAiSessionInStore( sitesRoot ) );
+		return createOrReuseAiSession( sitesRoot );
 	}
 
 	const server = SiteServer.get( siteId );
 	if ( ! server ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
-	const sitePath = server.details.path;
 
-	// Reuse the newest existing empty session for this site (one that has
-	// never received a user prompt) instead of creating another one. This
-	// lets `/sites/$siteId/new` act as a stable "draft slot" per site — the
-	// UI can redirect to it eagerly without piling up orphan sessions.
-	const existing = await listHydratedAiSessions( sitesRoot );
-	const emptyForSite = existing
-		.filter(
-			( session ) =>
-				session.ownerSitePath === sitePath && ! session.firstPrompt && ! session.archived
-		)
-		.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
-	if ( emptyForSite ) {
-		return emptyForSite;
-	}
-
-	const created = await createAiSessionInStore( sitesRoot, {
+	// Binds the session to the site and reuses an existing empty draft for it
+	// instead of piling up orphans — the shared logic the `studio ui` server
+	// uses too.
+	return createOrReuseAiSession( sitesRoot, {
 		site: {
+			id: server.details.id,
 			name: server.details.name,
-			path: sitePath,
+			path: server.details.path,
 		},
-	} );
-	await setAiSessionSitePlacement( created.id, {
-		siteId: server.details.id,
-		siteName: server.details.name,
-		sitePath,
-	} );
-	return hydrateAiSessionSummaryWithPlacement( created, {
-		kind: 'site',
-		siteId: server.details.id,
-		siteName: server.details.name,
-		sitePath,
 	} );
 }
 
@@ -380,10 +302,7 @@ export async function updateAiSessionMetadata(
 		updateSharedSession( summary.id, patch ),
 		readAiSessionPlacement( summary.id ),
 	] );
-	return hydrateAiSessionSummary(
-		hydrateAiSessionSummaryWithPlacement( summary, placement ),
-		metadata
-	);
+	return hydrateAiSessionSummary( summary, metadata, placement );
 }
 
 /**

@@ -528,6 +528,13 @@ export async function runCommand(
 			await disconnectFromDaemon();
 		}
 
+		if ( studioMetadata.localUrl ) {
+			console.log( '' );
+			console.log( `Site "${ site.name }" is ready.` );
+			console.log( '' );
+			printSiteUrls( studioMetadata.localUrl );
+		}
+
 		// Fetch the wp-content entries the essential-files pass skipped, if
 		// any remain. Keyed off observable state (`hasSkippedFiles`), not a
 		// stage cursor, so it runs exactly when there's a tail outstanding.
@@ -542,7 +549,13 @@ export async function runCommand(
 		await markImportComplete( site );
 		await setSiteStatus( site, 'ready' );
 
-		printCompletionMessage( site, studioMetadata.localUrl );
+		console.log( '' );
+		console.log( `Site "${ site.name }" pulled successfully.` );
+		console.log( '' );
+		if ( studioMetadata.localUrl ) {
+			printSiteUrls( studioMetadata.localUrl );
+		}
+
 		process.exit( 0 );
 	} catch ( error ) {
 		// The pull errored or was killed mid-flight: the site directory may
@@ -1218,13 +1231,4 @@ function printSiteUrls( localUrl: string ): void {
 		)
 	);
 	console.log( '' );
-}
-
-function printCompletionMessage( site: SiteData, localUrl: string ): void {
-	console.log( '' );
-	console.log( `Site "${ site.name }" pulled successfully.` );
-	console.log( '' );
-	if ( localUrl ) {
-		printSiteUrls( localUrl );
-	}
 }

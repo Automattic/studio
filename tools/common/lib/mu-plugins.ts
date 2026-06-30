@@ -36,7 +36,7 @@ const NATIVE_PHP_EXCLUDED_MU_PLUGINS = new Set( [
 	'0-http-request-timeout.php',
 ] );
 
-function escapePhpSingleQuotedString( value: string ): string {
+export function escapePhpSingleQuotedString( value: string ): string {
 	return value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 

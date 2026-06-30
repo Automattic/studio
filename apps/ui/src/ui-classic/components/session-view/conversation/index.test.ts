@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { createElement } from 'react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { createElement, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { Conversation } from './index';
+import { Conversation, entriesToRenderItems } from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 
 vi.mock( '@/components/markdown', () => ( {
@@ -133,17 +133,345 @@ describe( 'Conversation tool rows', () => {
 	} );
 } );
 
-function renderConversation( data: LoadedAiSession ) {
+describe( 'Conversation Ask User questions', () => {
+	it( 'shows option descriptions and a selected historical answer', () => {
+		const question = "What kind of vibe do you want for your blog's design?";
+		const data = loadedSession( [
+			agentQuestionEntry(
+				question,
+				[
+					{
+						label: 'Minimal & Clean',
+						description: 'Quiet typography, generous spacing, and simple structure.',
+					},
+					{
+						label: 'Bold & Editorial',
+						description: 'Large headlines, sharp contrast, and magazine-style pacing.',
+					},
+				],
+				'question',
+				'Bold & Editorial'
+			),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.getAllByRole( 'listitem' ) ).toHaveLength( 2 );
+		expect(
+			screen.getByText( 'Quiet typography, generous spacing, and simple structure.' )
+		).toBeInTheDocument();
+		expect(
+			screen.getByText( 'Large headlines, sharp contrast, and magazine-style pacing.' )
+		).toBeInTheDocument();
+
+		const pickedOption = screen.getByRole( 'button', { name: 'Bold & Editorial' } );
+		expect( pickedOption ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( pickedOption ).toBeDisabled();
+	} );
+
+	it( 'folds answered live questions into summaries before showing the next question', async () => {
+		vi.useFakeTimers();
+		const originalScrollBy = window.scrollBy;
+		window.scrollBy = vi.fn() as unknown as typeof window.scrollBy;
+		try {
+			const onAnswerQuestion = vi.fn();
+			const data = loadedSession( [
+				agentQuestionEntry(
+					'Install Jetpack?',
+					[
+						{ label: 'Yes', description: 'Install Jetpack recommended tools.' },
+						{ label: 'No', description: 'Skip Jetpack setup.' },
+					],
+					'q1'
+				),
+				agentQuestionEntry( 'Activate dark mode?', [ 'Yes', 'No' ], 'q2' ),
+				agentQuestionEntry( 'Pick a layout?', [ 'Grid', 'List' ], 'q3' ),
+			] );
+
+			renderInteractiveConversation(
+				data,
+				[ 'Install Jetpack?', 'Activate dark mode?', 'Pick a layout?' ],
+				onAnswerQuestion
+			);
+
+			expect( screen.getByText( 'Asking question 1 of 3' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Install Jetpack?' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Install Jetpack recommended tools.' ) ).toBeInTheDocument();
+			expect( screen.queryByText( 'Activate dark mode?' ) ).not.toBeInTheDocument();
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Yes' } ) );
+
+			expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Install Jetpack?', 'Yes' );
+			expect( screen.getByRole( 'button', { name: 'Yes' } ) ).toHaveAttribute(
+				'aria-pressed',
+				'true'
+			);
+			expect( screen.queryByText( 'Activate dark mode?' ) ).not.toBeInTheDocument();
+
+			await act( async () => vi.advanceTimersByTime( 700 ) );
+			await act( async () => vi.advanceTimersByTime( 20 ) );
+
+			const answeredSummary = screen.getByRole( 'button', {
+				name: 'Edit question 1 of 3: Install Jetpack?. Selected answer: Yes',
+			} );
+			const activeQuestion = screen.getByText( 'Activate dark mode?' ).closest( '[tabindex="-1"]' );
+			expect( answeredSummary ).toBeInTheDocument();
+			expect( answeredSummary ).toHaveTextContent( 'Install Jetpack?' );
+			expect( answeredSummary ).toHaveTextContent( 'Yes' );
+			expect( answeredSummary ).not.toHaveTextContent( 'Install Jetpack recommended tools.' );
+			expect( screen.queryByText( 'Skip Jetpack setup.' ) ).not.toBeInTheDocument();
+			expect( screen.getByText( 'Asking question 2 of 3' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Activate dark mode?' ) ).toBeInTheDocument();
+			expect( activeQuestion ).toHaveFocus();
+
+			fireEvent.click(
+				screen.getByRole( 'button', {
+					name: 'Edit question 1 of 3: Install Jetpack?. Selected answer: Yes',
+				} )
+			);
+
+			expect( screen.getByText( 'Asking question 1 of 3' ) ).toBeInTheDocument();
+			expect( screen.getByRole( 'button', { name: 'Yes' } ) ).toHaveAttribute(
+				'aria-pressed',
+				'true'
+			);
+			expect( screen.queryByText( 'Activate dark mode?' ) ).not.toBeInTheDocument();
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'No' } ) );
+			expect( onAnswerQuestion ).toHaveBeenCalledWith( 'Install Jetpack?', 'No' );
+
+			await act( async () => vi.advanceTimersByTime( 700 ) );
+
+			expect(
+				screen.getByRole( 'button', {
+					name: 'Edit question 1 of 3: Install Jetpack?. Selected answer: No',
+				} )
+			).toBeInTheDocument();
+			expect( screen.getByText( 'Asking question 2 of 3' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Activate dark mode?' ) ).toBeInTheDocument();
+		} finally {
+			window.scrollBy = originalScrollBy;
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'scrolls the newly active batched question into view', async () => {
+		vi.useFakeTimers();
+		const scrollBy = vi.fn();
+		const originalScrollBy = window.scrollBy;
+		const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+		window.scrollBy = scrollBy as unknown as typeof window.scrollBy;
+		HTMLElement.prototype.getBoundingClientRect = vi.fn(
+			() =>
+				( {
+					x: 0,
+					y: window.innerHeight + 24,
+					width: 100,
+					height: 100,
+					top: window.innerHeight + 24,
+					right: 100,
+					bottom: window.innerHeight + 124,
+					left: 0,
+					toJSON: () => {},
+				} ) as DOMRect
+		);
+		try {
+			const data = loadedSession( [
+				agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+				agentQuestionEntry( 'Activate dark mode?', [ 'Yes', 'No' ], 'q2' ),
+			] );
+
+			renderInteractiveConversation( data, [ 'Install Jetpack?', 'Activate dark mode?' ], vi.fn() );
+
+			await act( async () => vi.advanceTimersByTime( 20 ) );
+			scrollBy.mockClear();
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Yes' } ) );
+			await act( async () => vi.advanceTimersByTime( 700 ) );
+			await act( async () => vi.advanceTimersByTime( 20 ) );
+
+			expect( screen.getByText( 'Asking question 2 of 2' ) ).toBeInTheDocument();
+			expect( scrollBy ).toHaveBeenCalledWith( {
+				top: 220,
+				behavior: 'smooth',
+			} );
+		} finally {
+			window.scrollBy = originalScrollBy;
+			HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'skips delayed choreography and smooth scrolling for reduced motion', async () => {
+		vi.useFakeTimers();
+		const restoreMatchMedia = mockPrefersReducedMotion( true );
+		const scrollBy = vi.fn();
+		const originalScrollBy = window.scrollBy;
+		const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+		window.scrollBy = scrollBy as unknown as typeof window.scrollBy;
+		HTMLElement.prototype.getBoundingClientRect = vi.fn(
+			() =>
+				( {
+					x: 0,
+					y: window.innerHeight + 24,
+					width: 100,
+					height: 100,
+					top: window.innerHeight + 24,
+					right: 100,
+					bottom: window.innerHeight + 124,
+					left: 0,
+					toJSON: () => {},
+				} ) as DOMRect
+		);
+		try {
+			const data = loadedSession( [
+				agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+				agentQuestionEntry( 'Activate dark mode?', [ 'Yes', 'No' ], 'q2' ),
+			] );
+
+			renderInteractiveConversation( data, [ 'Install Jetpack?', 'Activate dark mode?' ], vi.fn() );
+
+			await act( async () => vi.advanceTimersByTime( 20 ) );
+			scrollBy.mockClear();
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Yes' } ) );
+			await act( async () => vi.advanceTimersByTime( 20 ) );
+
+			expect( screen.getByText( 'Asking question 2 of 2' ) ).toBeInTheDocument();
+			expect( scrollBy ).toHaveBeenCalledWith( {
+				top: 220,
+				behavior: 'auto',
+			} );
+		} finally {
+			window.scrollBy = originalScrollBy;
+			HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+			restoreMatchMedia();
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'renders submitted question batch summaries without reopening disabled answers', () => {
+		const data = loadedSession( [
+			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+			agentQuestionEntry( 'Activate dark mode?', [ 'Yes', 'No' ], 'q2' ),
+			askUserAnswerEntry( 'a1', 'No' ),
+			askUserAnswerEntry( 'a2', 'Yes' ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.getByText( 'Install Jetpack?' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Activate dark mode?' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'No' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Yes' ) ).toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', {
+				name: 'Edit question 1 of 2: Install Jetpack?. Selected answer: No',
+			} )
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', {
+				name: 'Edit question 2 of 2: Activate dark mode?. Selected answer: Yes',
+			} )
+		).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Asking question 2 of 2' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'resolves picked answers positionally for a multi-question batch', () => {
+		const items = entriesToRenderItems( [
+			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+			agentQuestionEntry( 'Activate dark mode?', [ 'Yes', 'No' ], 'q2' ),
+			askUserAnswerEntry( 'a1', 'No' ),
+			askUserAnswerEntry( 'a2', 'Yes' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{
+				kind: 'agent-question-batch',
+				questions: [
+					{ question: 'Install Jetpack?', pickedLabel: 'No' },
+					{ question: 'Activate dark mode?', pickedLabel: 'Yes' },
+				],
+			},
+		] );
+	} );
+
+	it( 'highlights no answer when a question batch has fewer answers than questions', () => {
+		const items = entriesToRenderItems( [
+			agentQuestionEntry( 'Install Jetpack?', [ 'Yes', 'No' ], 'q1' ),
+			agentQuestionEntry( 'Activate dark mode?', [ 'Yes', 'No' ], 'q2' ),
+			askUserAnswerEntry( 'a1', 'Yes' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{
+				kind: 'agent-question-batch',
+				questions: [
+					{ question: 'Install Jetpack?', pickedLabel: undefined },
+					{ question: 'Activate dark mode?', pickedLabel: undefined },
+				],
+			},
+		] );
+	} );
+} );
+
+interface RenderConversationOptions {
+	isRunning?: boolean;
+	startedAt?: number | null;
+	pendingQuestions?: Set< string >;
+	pendingAnswers?: Record< string, string >;
+	onAnswerQuestion?: ( question: string, label: string ) => void;
+}
+
+function renderConversation( data: LoadedAiSession, options: RenderConversationOptions = {} ) {
 	return render(
 		createElement( Conversation, {
 			data,
-			isRunning: false,
-			startedAt: null,
-			pendingQuestions: new Set< string >(),
-			pendingAnswers: {},
-			onAnswerQuestion: vi.fn(),
+			isRunning: options.isRunning ?? false,
+			startedAt: options.startedAt ?? null,
+			pendingQuestions: options.pendingQuestions ?? new Set< string >(),
+			pendingAnswers: options.pendingAnswers ?? {},
+			onAnswerQuestion: options.onAnswerQuestion ?? vi.fn(),
 		} )
 	);
+}
+
+function renderInteractiveConversation(
+	data: LoadedAiSession,
+	pendingQuestionTexts: string[],
+	onAnswerQuestion: ( question: string, label: string ) => void
+) {
+	return render(
+		createElement( InteractiveConversation, {
+			data,
+			pendingQuestionTexts,
+			onAnswerQuestion,
+		} )
+	);
+}
+
+function InteractiveConversation( {
+	data,
+	pendingQuestionTexts,
+	onAnswerQuestion,
+}: {
+	data: LoadedAiSession;
+	pendingQuestionTexts: string[];
+	onAnswerQuestion: ( question: string, label: string ) => void;
+} ) {
+	const [ pendingAnswers, setPendingAnswers ] = useState< Record< string, string > >( {} );
+
+	return createElement( Conversation, {
+		data,
+		isRunning: false,
+		startedAt: null,
+		pendingQuestions: new Set( pendingQuestionTexts ),
+		pendingAnswers,
+		onAnswerQuestion: ( question, label ) => {
+			onAnswerQuestion( question, label );
+			setPendingAnswers( ( answers ) => ( { ...answers, [ question ]: label } ) );
+		},
+	} );
 }
 
 function loadedSession( entries: SessionEntry[] ): LoadedAiSession {
@@ -197,16 +525,64 @@ function toolResultEntry( text: string ): SessionEntry {
 	} as unknown as SessionEntry;
 }
 
-function agentQuestionEntry( question: string, labels: string[] ): SessionEntry {
+function agentQuestionEntry(
+	question: string,
+	options: Array< string | { label: string; description: string } >,
+	id = 'question',
+	selectedLabel?: string
+): SessionEntry {
 	return {
 		type: 'custom',
-		id: 'question',
+		id,
 		parentId: null,
 		timestamp: '2026-06-05T12:00:01.000Z',
 		customType: 'studio.agent_question',
 		data: {
 			question,
-			options: labels.map( ( label ) => ( { label, description: '' } ) ),
+			options: options.map( ( option ) =>
+				typeof option === 'string' ? { label: option, description: '' } : option
+			),
+			...( selectedLabel ? { selectedLabel } : {} ),
 		},
 	} as SessionEntry;
+}
+
+function askUserAnswerEntry( id: string, text: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:02.000Z',
+		customType: 'studio.user_prompt',
+		data: {
+			text,
+			source: 'ask_user',
+		},
+	} as SessionEntry;
+}
+
+function mockPrefersReducedMotion( matches: boolean ) {
+	const originalMatchMedia = window.matchMedia;
+	const mutableWindow = window as unknown as { matchMedia?: typeof window.matchMedia };
+	mutableWindow.matchMedia = vi.fn(
+		( query: string ) =>
+			( {
+				matches: query === '(prefers-reduced-motion: reduce)' ? matches : false,
+				media: query,
+				onchange: null,
+				addEventListener: vi.fn(),
+				removeEventListener: vi.fn(),
+				addListener: vi.fn(),
+				removeListener: vi.fn(),
+				dispatchEvent: vi.fn(),
+			} ) as unknown as MediaQueryList
+	);
+
+	return () => {
+		if ( originalMatchMedia ) {
+			mutableWindow.matchMedia = originalMatchMedia;
+			return;
+		}
+		delete mutableWindow.matchMedia;
+	};
 }

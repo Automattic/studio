@@ -92,7 +92,8 @@ The project follows a modular architecture with both global and feature-specific
 | `apps/studio/src/modules/`    | Feature-specific code                                                         |
 | `apps/studio/src/stores/`     | Global state management (Redux stores)                                        |
 | `apps/studio/src/api/`        | API interfaces and implementations                                            |
-| `packages/common/`               | Shared code between CLI and Studio (constants, types, utility functions, etc) |
+| `packages/common/`            | Shared code between CLI and Studio (constants, types, utility functions, etc) |
+| `tools/`                      | Development-only tooling (not shipped): benchmarks, perf metrics, etc         |
 | `tools/compare-perf/`         | Compare-perf tooling workspace                                                |
 | `tools/eslint-plugin-studio/` | Custom ESLint rules                                                           |
 

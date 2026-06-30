@@ -2,7 +2,7 @@
 
 A living log of findings from real migrations. Newest entries at the top.
 
-AI agents: when you contribute an improvement, add an entry here. See [AGENTS.md](./AGENTS.md) for project conventions and how to add a new platform.
+AI agents: when you contribute an improvement, add an entry here. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the required format.
 
 ---
 

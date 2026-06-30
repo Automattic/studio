@@ -470,7 +470,7 @@ async function main() {
     warn(`No extraction scripts for ${activePlatform} yet.`);
     log(`\n  Currently supported: Wix`);
     log(`  Shopify, Squarespace, Webflow coming soon.`);
-    log(`\n  Want to help? See AGENTS.md for how to add a new platform.\n`);
+    log(`\n  Want to help? See CONTRIBUTING.md for how to add a new platform.\n`);
     rl.close();
     return;
   }

@@ -68,7 +68,7 @@ The flow is:
 
 All durable state lives on the `SiteData` record in `cli.json`; there is **no `pull.json`**. The pull-relevant fields are:
 
-- `status: 'ready' | 'pulling' | 'pull-failed'` — health of the local install. `site create` produces `ready`; a pull sets `pulling` up front, `ready` on success, and `pull-failed` if it errors or is killed. A missing value (legacy records) is treated as `ready`. Commands that care about site health (`site start`, `status`, `list`) surface a non-`ready` status rather than treating a half-written site as normal — `site start` refuses to start one.
+- `status: 'ready' | 'pulling' | 'pull-failed'` — health of the local install. `site create` produces `ready`; a pull sets `pulling` up front, `ready` on success, and `pull-failed` if it errors or is killed. A missing value (legacy records) is treated as `ready`. `site start` refuses to start a non-`ready` site rather than serving a half-written install.
 - `reprintOrigin` — durable origin of a pulled site (`remoteUrl`, `remoteSiteUrl`, `tablePrefix`, `secret`), so a re-pull can reuse the remote source and credentials.
 - `importComplete: boolean` — true once a full pull has completed at least once; selects first-full-pull vs. delta on the next run.
 

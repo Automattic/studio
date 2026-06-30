@@ -99,30 +99,6 @@ describe( 'CLI: studio site status', () => {
 			consoleSpy.mockRestore();
 		} );
 
-		it( 'omits the pull status for a healthy (ready) site', async () => {
-			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
-			await runCommand( '/path/to/site', 'json' );
-
-			const output = consoleSpy.mock.calls.flat().join( '\n' );
-			expect( output ).not.toContain( 'pullStatus' );
-
-			consoleSpy.mockRestore();
-		} );
-
-		it( 'reports the raw machine pull status in JSON for a non-ready site', async () => {
-			vi.mocked( getSiteByFolder ).mockResolvedValue( { ...testSite, status: 'pull-failed' } );
-			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
-			await runCommand( '/path/to/site', 'json' );
-
-			expect( consoleSpy ).toHaveBeenCalledWith(
-				expect.stringContaining( '"pullStatus": "pull-failed"' )
-			);
-
-			consoleSpy.mockRestore();
-		} );
-
 		it( 'should show online status when server is running', async () => {
 			vi.mocked( isServerRunning ).mockResolvedValue( {
 				name: 'test-site',

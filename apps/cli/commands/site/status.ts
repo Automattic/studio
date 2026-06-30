@@ -5,7 +5,7 @@ import { getSiteRuntime, SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
-import { getSiteByFolder, getSiteStatus, getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
@@ -26,13 +26,6 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 
 		const isOnline = Boolean( await isServerRunning( site.id ) );
 		const status = isOnline ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
-
-		// Surface a non-`ready` pull state honestly: a `pulling`/`pull-failed`
-		// site is half-written and shouldn't read as a normal install. Hidden
-		// for healthy (`ready`) sites to avoid cluttering the common case.
-		const pullStatus = getSiteStatus( site );
-		const pullStatusLabel =
-			pullStatus === 'pulling' ? `⏳ ${ __( 'Pull in progress' ) }` : `⚠️ ${ __( 'Pull failed' ) }`;
 		const siteUrl = getSiteUrl( site );
 		const sitePath = getPrettyPath( site.path );
 		const wpVersion = getWordPressVersion( site.path );
@@ -73,12 +66,6 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			},
 			{ key: __( 'Site Path' ), jsonKey: 'sitePath', value: sitePath },
 			{ key: __( 'Status' ), jsonKey: 'status', value: status },
-			{
-				key: __( 'Pull status' ),
-				jsonKey: 'pullStatus',
-				value: pullStatusLabel,
-				hidden: pullStatus === 'ready',
-			},
 			{ key: __( 'PHP version' ), jsonKey: 'phpVersion', value: site.phpVersion },
 			{ key: __( 'PHP runtime' ), jsonKey: 'runtime', value: runtimeLabel },
 			{ key: __( 'File access' ), jsonKey: 'fileAccess', value: fileAccessLabel },
@@ -114,21 +101,14 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 			console.table( table.toString() );
 		} else {
 			const logData = Object.fromEntries(
-				siteData.flatMap( ( { jsonKey, value } ) => {
-					if ( jsonKey === 'status' ) {
-						return [
-							[ jsonKey, value ],
-							[ 'isOnline', isOnline ],
-						];
-					}
-					// Emit the raw machine status (`pulling`/`pull-failed`) rather
-					// than the decorated table label, so JSON consumers can branch
-					// on it.
-					if ( jsonKey === 'pullStatus' ) {
-						return [ [ jsonKey, pullStatus ] ];
-					}
-					return [ [ jsonKey, value ] ];
-				} )
+				siteData.flatMap( ( { jsonKey, value } ) =>
+					jsonKey === 'status'
+						? [
+								[ jsonKey, value ],
+								[ 'isOnline', isOnline ],
+						  ]
+						: [ [ jsonKey, value ] ]
+				)
 			);
 
 			console.log( JSON.stringify( logData, null, 2 ) );

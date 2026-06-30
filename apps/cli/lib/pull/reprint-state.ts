@@ -23,6 +23,7 @@ export interface ReprintStateSnapshot {
 	status?: string | null;
 	cursor?: unknown;
 	stage?: string | null;
+	filter?: string | null;
 	preflight?: {
 		data?: {
 			runtime?: {

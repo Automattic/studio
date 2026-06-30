@@ -92,30 +92,6 @@ describe( 'CLI: studio site list', () => {
 			consoleSpy.mockRestore();
 		} );
 
-		it( 'should surface a non-ready pull status in the table instead of online/offline', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1 as const,
-				sites: [
-					{ ...testCliConfig.sites[ 0 ], status: 'pulling' as const },
-					{ ...testCliConfig.sites[ 1 ], status: 'pull-failed' as const },
-				],
-				snapshots: [],
-			} );
-			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
-			await runCommand( 'table' );
-
-			// The narrow status column word-wraps the label text, so assert on
-			// the (un-wrapped) status emojis: a pulling/failed marker, and never
-			// the healthy online marker.
-			const output = consoleSpy.mock.calls.flat().join( '\n' );
-			expect( output ).toContain( '⏳' );
-			expect( output ).toContain( '⚠️' );
-			expect( output ).not.toContain( '🟢' );
-
-			consoleSpy.mockRestore();
-		} );
-
 		it( 'should list sites with json format', async () => {
 			await runCommand( 'json' );
 

@@ -50,6 +50,8 @@ import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getPrettyPath } from 'cli/lib/utils';
 import {
 	startWordPressServer,
+	stopWordPressServer,
+	isServerRunning,
 	StartServerOptions,
 	getProcessName,
 } from 'cli/lib/wordpress-server-manager';
@@ -198,6 +200,15 @@ export async function runCommand(
 	console.log( `Site directory: ${ studioMetadata.sitePath }` );
 	console.log( '' );
 
+	// Capture the server's running state up front; a first pull restarts a
+	// running site once it finishes (see the server-start step below).
+	let wasRunning = false;
+	try {
+		wasRunning = Boolean( await isServerRunning( site.id ) );
+	} finally {
+		await disconnectFromDaemon();
+	}
+
 	// Persist the scratch path before any later failure so `studio delete` can clean it up.
 	site.status = 'pulling';
 	site.technicalSiteDirectory = studioMetadata.technicalSiteDirectory;
@@ -276,7 +287,15 @@ export async function runCommand(
 			record.reprintOrigin = origin;
 		} );
 
-		await runFullPull( SITE_RUNTIME_NATIVE_PHP, studioMetadata, apiUrl, secret, verbose );
+		normalizeReprintStateForEssentialFilesPull( studioMetadata.stateDirectory );
+		await runFullPull(
+			SITE_RUNTIME_NATIVE_PHP,
+			studioMetadata,
+			apiUrl,
+			secret,
+			verbose,
+			! isRepull
+		);
 
 		logger.reportStart( LoggerAction.CREATE_SITE, `Linking pulled files to "${ site.name }"…` );
 		site.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
@@ -319,20 +338,47 @@ export async function runCommand(
 
 			// A running server sees file/DB changes live, but not restored admin credentials.
 			const runningProcess = await isProcessRunning( getProcessName( site.id ) );
-			const credentialsResult = runningProcess
-				? await reapplyAdminCredentials( site )
-				: 'unreachable';
-			if ( runningProcess && credentialsResult !== 'unreachable' ) {
-				logger.reportSuccess( __( 'WordPress server already running' ) );
-				if ( runningProcess.status === 'online' ) {
-					await updateSiteLatestCliPid( site.id, runningProcess.pid );
+
+			if ( ! isRepull && wasRunning ) {
+				if ( runningProcess ) {
+					await stopWordPressServer( site.id );
 				}
-			} else {
 				const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
-				logger.reportSuccess( __( 'WordPress server started' ) );
+				logger.reportSuccess( __( 'WordPress server restarted' ) );
 
 				if ( processDesc.status === 'online' ) {
 					await updateSiteLatestCliPid( site.id, processDesc.pid );
+				}
+			} else {
+				// On a re-pull, the site's server is often already running.
+				// The synced files and database are picked up live (PHP
+				// opens them per request), so there's nothing to restart —
+				// but db-apply rebuilt the database from the remote dump,
+				// wiping the local admin user and the studio_admin_username
+				// option that /studio-auto-login depends on.  A server start
+				// re-applies the credentials; when we skip the restart we
+				// must re-apply them over the running site's admin API.
+				// A connection failure means the daemon's view is stale and
+				// the server is actually down, so fall through to a start
+				// (which re-applies the credentials itself).
+				const credentialsResult = runningProcess
+					? await reapplyAdminCredentials( site )
+					: 'unreachable';
+				if ( runningProcess && credentialsResult !== 'unreachable' ) {
+					logger.reportSuccess( __( 'WordPress server already running' ) );
+					// Mirror the start branch (and `studio site start`'s
+					// already-running path): refresh latestCliPid so
+					// running-status checks match the live process.
+					if ( runningProcess.status === 'online' ) {
+						await updateSiteLatestCliPid( site.id, runningProcess.pid );
+					}
+				} else {
+					const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
+					logger.reportSuccess( __( 'WordPress server started' ) );
+
+					if ( processDesc.status === 'online' ) {
+						await updateSiteLatestCliPid( site.id, processDesc.pid );
+					}
 				}
 			}
 		} catch ( serverError ) {
@@ -344,13 +390,9 @@ export async function runCommand(
 			await disconnectFromDaemon();
 		}
 
-		if ( studioMetadata.localUrl ) {
-			console.log( '' );
-			console.log( `Site "${ site.name }" is ready.` );
-			console.log( '' );
-			printSiteUrls( studioMetadata.localUrl );
-		}
-
+		// Fetch the wp-content entries the essential-files pass skipped, if
+		// any remain. Keyed off observable state (`hasSkippedFiles`), not a
+		// stage cursor, so it runs exactly when there's a tail outstanding.
 		if ( hasSkippedFiles( studioMetadata.stateDirectory ) ) {
 			await downloadSkippedFiles( getSiteRuntime( site ), studioMetadata, apiUrl, secret, verbose );
 		}
@@ -475,6 +517,37 @@ async function runPreflight(
 	return preflight;
 }
 
+/**
+ * Reprint refuses to resume a files sync with a different --filter than
+ * the one stored in its state. A completed Studio pull may leave that
+ * state on the post-pull skipped-earlier pass; mark that pass complete
+ * and restore the filter expected by the next essential-files pull
+ * without deleting the cursor/index files reprint needs for deltas.
+ */
+function normalizeReprintStateForEssentialFilesPull( stateDirectory: string ): void {
+	const reprintState = readReprintState( stateDirectory );
+	if ( reprintState?.filter && reprintState.filter !== 'essential-files' ) {
+		const statePath = getReprintStatePath( stateDirectory );
+		fs.writeFileSync(
+			statePath,
+			JSON.stringify(
+				{
+					...reprintState,
+					status: 'complete',
+					stage: null,
+					filter: 'essential-files',
+				},
+				null,
+				2
+			) + '\n'
+		);
+	}
+}
+
+/**
+ * The `~/.studio/pulls/<siteId>` scratch root for a site's pull. Keyed
+ * by `siteId` (not a URL hash) so it follows the site, not the remote.
+ */
 function getPullTechnicalDirectory( siteId: string ): string {
 	return path.join( PULLS_ROOT, siteId );
 }
@@ -487,34 +560,40 @@ export async function runFullPull(
 	metadata: PullSession,
 	apiUrl: string,
 	secret: string,
-	verbose: boolean
+	verbose: boolean,
+	force: boolean
 ): Promise< void > {
 	const contentDir = getContentDirFromState( metadata.stateDirectory );
 	const sqlitePath = contentDir
 		? `${ metadata.rawDirectory }${ contentDir }/database/.ht.sqlite`
 		: `${ metadata.sitePath }/wp-content/database/.ht.sqlite`;
 	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
+	const args = [
+		'pull',
+		apiUrl,
+		`--secret=${ secret }`,
+		'--filter=essential-files',
+		'--target-engine=sqlite',
+		`--target-sqlite-path=${ sqlitePath }`,
+		`--new-site-url=${ metadata.localUrl! }`,
+		`--flatten-to=${ metadata.sitePath }`,
+		`--runtime=${ reprintRuntime }`,
+		'--start-runtime=none',
+		`--output-dir=${ metadata.runtimeDirectory }`,
+		'--no-adaptive',
+		`--state-dir=${ metadata.stateDirectory }`,
+		`--fs-root=${ metadata.rawDirectory }`,
+	];
+
+	if ( force ) {
+		args.push( '--force' );
+	}
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 	await runReprintCommandUntilComplete(
 		metadata.stateDirectory,
 		metadata.rawDirectory,
-		[
-			'pull',
-			apiUrl,
-			`--secret=${ secret }`,
-			'--filter=essential-files',
-			'--target-engine=sqlite',
-			`--target-sqlite-path=${ sqlitePath }`,
-			`--new-site-url=${ metadata.localUrl! }`,
-			`--flatten-to=${ metadata.sitePath }`,
-			`--runtime=${ reprintRuntime }`,
-			'--start-runtime=none',
-			`--output-dir=${ metadata.runtimeDirectory }`,
-			'--no-adaptive',
-			`--state-dir=${ metadata.stateDirectory }`,
-			`--fs-root=${ metadata.rawDirectory }`,
-		],
+		args,
 		( progress ) => logger.reportProgress( progress ),
 		{
 			progressLabel: __( 'Pulling site' ),
@@ -631,9 +710,14 @@ export async function resolveSourceSite(
 		return { url, secret: providedSecret };
 	}
 
-	// Stale cached secrets are handled by preflight's rotate-and-retry path.
-	if ( url && site.reprintOrigin?.remoteUrl === normalizeSiteUrl( url ) ) {
-		return { url, secret: site.reprintOrigin.secret };
+	if (
+		site.reprintOrigin &&
+		( ! url || normalizeSiteUrl( url ) === site.reprintOrigin.remoteUrl )
+	) {
+		return {
+			url: url ?? site.reprintOrigin.remoteUrl,
+			secret: providedSecret ?? site.reprintOrigin.secret,
+		};
 	}
 
 	const token = await readAuthToken();

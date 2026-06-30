@@ -24,11 +24,6 @@ export function getSiteStatus( site: SiteData ): SiteStatus {
 	return site.status ?? 'ready';
 }
 
-/** Whether the site is a healthy, fully-written install (not mid-/post-pull). */
-export function isSiteReady( site: SiteData ): boolean {
-	return getSiteStatus( site ) === 'ready';
-}
-
 export async function getSiteByFolder( siteFolder: string ): Promise< SiteData > {
 	const config = await readCliConfig();
 	const site = config.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );

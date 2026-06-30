@@ -137,22 +137,23 @@ finalized in the plan against what `plan_defaults()` actually exposes.)
   fetch with the tools it already has.
 - The SKILL.md instructs the agent, **before answering any plan/pricing/feature/
   upgrade/"what does tier X unlock" question**, to:
-  1. Fetch current plan data (names, prices, per-tier features) from
-     `wpcom/v2/plans/pricing` — a **single** call (the endpoint includes prices; see
-     the price-source note below).
-  2. Answer only from the fetched data — never state names, prices, or feature-tier
+  1. Fetch names + features + `product_slug` per plan from `wpcom/v2/plans/pricing`.
+  2. Fetch prices from `wpcom/v2/products` (keyed by product slug; `cost_display` is
+     already localized) and join by `product_slug`.
+  3. Answer only from the fetched data — never state names, prices, or feature-tier
      gating from memory.
-- **Fetch recipes for both tool environments** (the skill must work in both):
+- **Both endpoints are `wpcom/v2` and public**, so the same two calls work in both
+  tool environments:
   - **Local mode** (local sites): has `Bash`, no `wpcom_request`. Fetch via
-    `curl "https://public-api.wordpress.com/wpcom/v2/plans/pricing?locale=en"`.
+    `curl ".../wpcom/v2/plans/pricing?locale=en"` and `curl ".../wpcom/v2/products"`.
   - **Remote mode** (connected WP.com site): has `wpcom_request`, no `Bash`. Fetch
-    via `wpcom_request` `path="!/plans/pricing"`, `apiNamespace="wpcom/v2"`.
-- **Why prices live in the endpoint, not a separate `/plans` call:** `wpcom_request`
-  (the only remote-mode fetch tool) supports `wp/v2` / `wpcom/v2` / v1.1 — not the
-  v1.5 `/plans` that carries prices; reachable alternatives don't have WP.com bundle
-  prices (`rest/v1.1/plans` 404s, `wpcom/v2/plans` is the Jetpack family). Folding
-  `price` into `/plans/pricing` lets one `wpcom/v2` call work in both modes. See the
-  backend spec.
+    via `wpcom_request` `path="!/plans/pricing"` and `path="!/products"`, each with
+    `apiNamespace="wpcom/v2"`.
+- **Why `wpcom/v2/products` for prices** (not `/plans` v1.5): `wpcom_request` (the
+  only remote-mode fetch tool) supports `wp/v2` / `wpcom/v2` / v1.1 — not v1.5;
+  reachable alternatives lack WP.com bundle prices (`rest/v1.1/plans` 404s,
+  `wpcom/v2/plans` is the Jetpack family). `wpcom/v2/products` is reachable in both
+  modes and already localized.
 
 ### System-prompt guardrail
 

@@ -15,14 +15,16 @@ API — as a small, public, normalized REST endpoint, so AI assistants (Studio C
 first; Odie/Wapuu reusable later) can fetch authoritative "what each plan unlocks"
 data instead of relying on stale model knowledge.
 
-This endpoint **includes a `price` per plan**. Although `/plans` (v1.5) is the usual
-price source, it is unreachable from Studio Code's remote mode: the only fetch tool
-there (`wpcom_request`) supports the `wp/v2`, `wpcom/v2`, and v1.1 namespaces — not
-v1.5 — and the reachable alternatives don't carry WordPress.com bundle prices
-(`rest/v1.1/plans` 404s; `wpcom/v2/plans` returns the Jetpack plan family, not the
-hosting bundles). Since `plan_defaults()` already loads the store product (which
-holds the price), exposing it here lets a single `wpcom/v2` call serve names,
-features, **and** prices in both local and remote modes.
+This endpoint carries **no prices**. It emits each plan's **`product_slug`**, and the
+consumer fetches the existing public **`wpcom/v2/products`** endpoint (keyed by
+product slug, with a `cost_display` that is already localized) and joins by slug.
+
+Why not the `/plans` v1.5 API for prices: it is unreachable from Studio Code's remote
+mode — the only fetch tool there (`wpcom_request`) supports the `wp/v2`, `wpcom/v2`,
+and v1.1 namespaces, not v1.5, and the reachable alternatives don't carry WP.com
+bundle prices (`rest/v1.1/plans` 404s; `wpcom/v2/plans` is the Jetpack plan family).
+`wpcom/v2/products` is reachable in both modes (curl locally, `wpcom_request`
+`!/products` remotely) and is already localized, so prices need no work here.
 
 ## Why this source
 
@@ -82,8 +84,7 @@ All in the Landpack plugin under:
 - **Auth:** **public** (no auth) — Studio Code reaches it unauthenticated in both
   local (curl) and remote (`wpcom_request`) modes. Matches `/plans/mobile`.
 - **Args:** `locale` (default `en`), handled with `wpcom_switch_to_locale(...)` like
-  `get_plans_mobile()`; `currency` (optional) for the price field, defaulting to the
-  request's geo/store default as `/plans` does.
+  `get_plans_mobile()`.
 - **Callback:** `get_plans_pricing( $request )`.
 
 ## Algorithm
@@ -107,10 +108,12 @@ All in the Landpack plugin under:
      `process_features_v4`). De-duplicate keys (a few plans list a key twice).
    - Emit `{ key, title, tooltip, group }` per resolved feature, preserving the
      catalog's group order.
-   - Carry scalar fields: `name` (= `title`), `slug`, `tagline` (= `subtitle`),
-     `price` (formatted, currency-aware, from the store product — the same source
-     `/plans` uses; `null`/omitted for Free), `currency`, `storage`,
-     `ai_assistant_limit`, `standard_commission`, `woo_commission`.
+   - Carry scalar fields: `name` (= `title`), `slug`, `product_slug` (the WP.com
+     bundle slug from the store product, used by the consumer to join prices from
+     `wpcom/v2/products` — e.g. `personal-bundle`, `value_bundle` for Premium,
+     `business-bundle`, `ecommerce-bundle` for Commerce, `free_plan` for Free),
+     `tagline` (= `subtitle`), `storage`, `ai_assistant_limit`,
+     `standard_commission`, `woo_commission`.
 5. Return the DTO below.
 
 ## Response shape (normalized DTO)
@@ -123,9 +126,8 @@ All in the Landpack plugin under:
     {
       "slug": "business",
       "name": "Business",
+      "product_slug": "business-bundle",
       "tagline": "Grow your business with powerful tools and priority support.",
-      "price": "$300",
-      "currency": "USD",
       "storage": "50 GB",
       "ai_assistant_limit": "Enhanced",
       "standard_commission": "2%",
@@ -140,7 +142,8 @@ All in the Landpack plugin under:
 ```
 
 - Plans ordered: Free, Personal, Premium, Business, Commerce.
-- No presentation fields (badges, CTA buttons, icons, `features_v4/v5`).
+- No presentation fields (badges, CTA buttons, icons, `features_v4/v5`). No prices —
+  the consumer joins `wpcom/v2/products` on `product_slug`.
 
 ## Loadability (verify during implementation)
 
@@ -170,11 +173,13 @@ Contract test asserting:
 - A spot-check that a known Business-only developer feature (e.g. `dev-tools-ssh` /
   staging) is present on `business`/`ecommerce` and absent on `free`/`personal`.
 - `locale` param is honored (a non-`en` locale changes localized titles).
-- Each paid plan has a non-empty `price` and `currency`; `currency` param is honored.
+- Each plan has a `product_slug` that resolves to a product in `wpcom/v2/products`
+  (so the consumer's price join succeeds).
 
 ## Scope / out of scope
 
 - **In:** the 5 consumer WordPress.com plans; grouped per-tier features; the scalar
-  fields listed above including `price`; `locale` and `currency`.
-- **Out:** VIP/Blogger/DIFM; Pressable; Woo Hosted; any write/POST; auth/site-context
+  fields listed above including `product_slug`; `locale`.
+- **Out:** prices (the consumer joins `wpcom/v2/products` by `product_slug`);
+  VIP/Blogger/DIFM; Pressable; Woo Hosted; any write/POST; auth/site-context
   personalization.

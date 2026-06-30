@@ -72,6 +72,23 @@ describe( 'CLI: studio site start', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
+		it( 'should refuse to start a site whose pull is still in progress', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( { ...testSite, status: 'pulling' } );
+
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow( /not ready to start/ );
+			// It bails before touching the server.
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should refuse to start a site whose last pull failed', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( { ...testSite, status: 'pull-failed' } );
+
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow( /not ready to start/ );
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
 		it( 'should throw when process manager connection fails', async () => {
 			vi.mocked( connectToDaemon ).mockRejectedValue(
 				new Error( 'process manager connection failed' )

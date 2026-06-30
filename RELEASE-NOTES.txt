@@ -18,7 +18,6 @@ Unreleased
 * Updated Studio Code model availability and token limit messaging #3827, #3828, #3831
 * Misc maintenance #3849
 * Updated multiple dependencies, including WP Playground, PHP-WASM, bundled PHP binaries, the SQLite database integration, and Reprint
-* Misc maintenance #3849
 
 1.11.0
 =====

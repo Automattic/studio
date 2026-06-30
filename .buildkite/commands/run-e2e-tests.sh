@@ -4,9 +4,9 @@ set -euo pipefail
 PLATFORM=${1:?Expected platform to be provided as first parameter}
 ARCH=${2:?Expected architecture to be provided as second parameter}
 
-if .buildkite/commands/should-skip-job.sh --job-type validation; then
-  exit 0
-fi
+# TEMP(nvm-plugin-validation): skip check removed so E2E actually runs on this
+# CI-only PR (changes are all under .buildkite/**, which the validation skip
+# treats as non-code). Revert before merge.
 
 echo '--- :package: Install deps'
 if [ "$PLATFORM" = "linux" ]; then

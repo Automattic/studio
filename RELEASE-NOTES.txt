@@ -4,11 +4,10 @@ Unreleased
 1.12.0
 =====
 * Introduced PHP runtime and File Access options, and improved the native PHP runtime: fixed WP-CLI tool calls, asset loading for sites with a remote site URL, and blueprint creation from read-only directories, and made pull-reprint work with native PHP #3786, #3926, #3915, #3847, #3988, #3889, #3881
-* Improved Studio Code: content is checked before it is applied to your site, ecommerce sites are set up more reliably, and push/pull prompts are clearer. Tool calls are easier to follow with descriptions and a detail panel, remote sign-in shows a copyable login link, and multiple-choice questions appear as clickable buttons #3753, #3874, #3875, #3903, #3904, #3900, #3868, #3833
+* Improved Studio Code: content is checked before it is applied to your site, ecommerce sites are set up more reliably, and push/pull prompts are clearer. Tool calls are easier to follow with descriptions and a detail panel, remote sign-in shows a copyable login link, multiple-choice questions appear as clickable buttons, and visual annotations install their browser automatically on first use #3753, #3874, #3875, #3903, #3904, #3900, #3868, #3833, #3841
 * Added assistant usage limits in Settings and made it clearer which settings apply to a site vs the whole app #3843, #3886
 * Made the standalone Studio CLI easier to install and use: one-command install and updates from the web, a clean uninstall option, shorter commands for everyday site tasks, and new terminal commands to view and change site settings #3064, #3835, #3974, #3884
 * Improved pull-reprint: choose a site from a searchable list when you have several connected sites, and re-running the command now syncs remote changes to your local copy #3729, #3768
-* Streamlined annotations by removing the extra confirmation step, moving controls into the preview toolbar, and auto-installing the annotation browser #3870, #3762, #3841
 * Added a Kurdish (Sorani) locale and improved locale handling #3873, #3214, #3776
 * Renamed "Copy site" to "Duplicate site" and removed the placeholder Dashboard and Skills menus #3759, #3760
 * Improved performance and packaging: faster packaging builds, smaller installers, a higher PHP memory limit, and a cap on simultaneously running sites #3785, #3943, #3936, #3887

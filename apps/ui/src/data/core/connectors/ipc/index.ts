@@ -408,10 +408,6 @@ export function createIpcConnector(): Connector {
 			await ipcApi.loadSiteIcon( siteId );
 		},
 
-		async getXdebugEnabledSite() {
-			return ( await ipcApi.getXdebugEnabledSite() ) as SiteDetails | null;
-		},
-
 		async exportFullSite( siteId ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 			const site = sites.find( ( candidate ) => candidate.id === siteId );

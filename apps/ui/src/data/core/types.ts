@@ -150,9 +150,6 @@ export interface Connector {
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;
-	// Xdebug is exclusive across sites; returns the one site currently using
-	// it (or null) so the settings form can block a conflicting toggle.
-	getXdebugEnabledSite(): Promise< SiteDetails | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen

@@ -156,7 +156,7 @@ function SiteSettingsBody( {
 		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),
 		[ allDomains, site.customDomain ]
 	);
-	const { data: xdebugEnabledSite } = useXdebugEnabledSite();
+	const xdebugEnabledSite = useXdebugEnabledSite();
 	const xdebugConflictSiteName =
 		xdebugEnabledSite && xdebugEnabledSite.id !== site.id ? xdebugEnabledSite.name : undefined;
 

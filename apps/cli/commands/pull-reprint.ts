@@ -393,6 +393,7 @@ export async function runCommand(
 		// a delta re-pull, resets its own sub-command state via
 		// prepare_repull().
 		if ( ! hasPullCompletedStage( studioMetadata, 'pulled' ) ) {
+			normalizeReprintStateForEssentialFilesPull( studioMetadata.stateDirectory );
 			await runFullPull( SITE_RUNTIME_NATIVE_PHP, studioMetadata, apiUrl, secret, verbose );
 		}
 
@@ -654,6 +655,33 @@ async function runPreflight(
  */
 function hasPullCompletedStage( metadata: PullSessionMetadata, stage: PullStage ): boolean {
 	return pullStageOrder.indexOf( metadata.stage ) >= pullStageOrder.indexOf( stage );
+}
+
+/**
+ * Reprint refuses to resume a files sync with a different --filter than
+ * the one stored in its state. A completed Studio pull may leave that
+ * state on the post-pull skipped-earlier pass; mark that pass complete
+ * and restore the filter expected by the next essential-files pull
+ * without deleting the cursor/index files reprint needs for deltas.
+ */
+function normalizeReprintStateForEssentialFilesPull( stateDirectory: string ): void {
+	const reprintState = readReprintState( stateDirectory );
+	if ( reprintState?.filter && reprintState.filter !== 'essential-files' ) {
+		const statePath = getReprintStatePath( stateDirectory );
+		fs.writeFileSync(
+			statePath,
+			JSON.stringify(
+				{
+					...reprintState,
+					status: 'complete',
+					stage: null,
+					filter: 'essential-files',
+				},
+				null,
+				2
+			) + '\n'
+		);
+	}
 }
 
 /**

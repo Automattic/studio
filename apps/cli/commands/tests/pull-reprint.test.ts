@@ -834,6 +834,110 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		// The user sees update messaging, not a no-op success.
 		expect( logSpy.mock.calls.flat().join( '\n' ) ).toContain( 'Updating "My Completed Site"' );
 	} );
+
+	it( 'normalizes stale skipped-earlier reprint state before starting an essential-files re-pull', async () => {
+		const { runCommand } = await loadRunCommandWithFakeHome();
+
+		const pullsRoot = path.join( fakeHome, '.studio', 'pulls' );
+		const technicalSiteDirectory = path.join( pullsRoot, 'stale-filter-id' );
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const sitePath = path.join( fakeHome, 'Studio', 'Stale-Filter-Site' );
+
+		seedCliConfigSite( fakeHome, [
+			makeSiteRecord( { id: 'stale-filter-id', name: 'Stale Filter Site', path: sitePath } ),
+		] );
+
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( sitePath, { recursive: true } );
+		fs.writeFileSync(
+			path.join( technicalSiteDirectory, 'pull.json' ),
+			JSON.stringify( { version: 1, stage: 'completed' } )
+		);
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( {
+				command: 'files-pull',
+				status: 'in_progress',
+				filter: 'skipped-earlier',
+				preflight: {
+					data: {
+						database: {
+							wp: {
+								paths_urls: { content_dir: '/srv/htdocs/wp-content' },
+							},
+						},
+					},
+				},
+			} )
+		);
+		fs.writeFileSync( path.join( stateDirectory, '.import-index.jsonl' ), '{"path":"old"}\n' );
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-download-list-skipped.jsonl' ),
+			'{"path":"tail"}\n'
+		);
+
+		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
+		const reprintSpy = vi
+			.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' )
+			.mockImplementation( async ( _stateDir, _rawDir, args ) => {
+				if ( args[ 0 ] === 'preflight' ) {
+					return {
+						stdout: JSON.stringify( {
+							data: {
+								ok: true,
+								database: {
+									wp: {
+										siteurl: 'https://example.com',
+										table_prefix: 'wp_',
+									},
+								},
+								php: { version: '8.3' },
+							},
+						} ),
+						stderr: '',
+						exitCode: 0,
+					};
+				}
+
+				if ( args[ 0 ] === 'pull' ) {
+					const state = JSON.parse(
+						fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' )
+					);
+					expect( state ).toMatchObject( {
+						command: 'files-pull',
+						status: 'complete',
+						stage: null,
+						filter: 'essential-files',
+						preflight: {
+							data: {
+								database: {
+									wp: {
+										paths_urls: { content_dir: '/srv/htdocs/wp-content' },
+									},
+								},
+							},
+						},
+					} );
+					expect( fs.existsSync( path.join( stateDirectory, '.import-index.jsonl' ) ) ).toBe(
+						true
+					);
+					throw new Error( 'stop after essential-files state normalization' );
+				}
+
+				throw new Error( `Unexpected reprint command: ${ args[ 0 ] }` );
+			} );
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+		await expect(
+			runCommand( sitePath, 'https://example.com', 'hmac-secret', false )
+		).rejects.toThrow( /stop after essential-files state normalization/ );
+
+		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [
+			'preflight',
+			'pull',
+		] );
+	} );
 } );
 
 describe( 'CLI: studio pull-reprint preflight retry re-enables the exporter', () => {

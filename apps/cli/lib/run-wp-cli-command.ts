@@ -1,5 +1,4 @@
 import { ChildProcess, spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { PassThrough, Readable } from 'node:stream';
 import { buffer, text } from 'node:stream/consumers';
@@ -168,31 +167,6 @@ type DisposableExitCode = Disposable & {
 	exitCode: Promise< number >;
 };
 
-// A Studio site's wp-config.php often omits DB_NAME: Playground provides the DB
-// connection at runtime, and sites that were pulled/imported (or only ever run
-// under Playground) can arrive without it. The v3+ SQLite integration drop-in
-// requires a non-empty DB_NAME, so a one-off native WP-CLI command that boots
-// WordPress (e.g. `plugin list` while building a full export's meta.json) would
-// otherwise fail with "Error establishing a database connection". The Playground
-// path injects this exact fallback via `php.defineConstant`; here we hand it to
-// WP-CLI's `--exec`, which runs before WordPress loads. We inject it only when
-// wp-config.php doesn't already define DB_NAME, so a real value is never
-// redefined and sites that do define it are untouched.
-export function getNativeDbNameFallbackArgs( sitePath: string ): string[] {
-	let wpConfig: string;
-	try {
-		wpConfig = readFileSync( path.join( sitePath, 'wp-config.php' ), 'utf8' );
-	} catch {
-		return [];
-	}
-
-	if ( /define\s*\(\s*['"]DB_NAME['"]/.test( wpConfig ) ) {
-		return [];
-	}
-
-	return [ "--exec=defined('DB_NAME') || define('DB_NAME', 'wordpress');" ];
-}
-
 async function runNativeWpCliCommand(
 	site: SiteData,
 	args: string[],
@@ -215,16 +189,9 @@ async function runNativeWpCliCommand(
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
 	const defaultArgs = getDefaultPhpArgs( phpVersion );
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
-	const dbNameFallbackArgs = getNativeDbNameFallbackArgs( site.path );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
-		[
-			...defaultArgs,
-			getWpCliPharPath(),
-			`--path=${ site.path }`,
-			...dbNameFallbackArgs,
-			...nativeArgs,
-		],
+		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
 		{
 			cwd: site.path,
 			stdio: options.stdio === 'inherit' ? 'inherit' : [ 'ignore', 'pipe', 'pipe' ],

@@ -113,8 +113,8 @@ const DEFAULT_PORT = 8081;
 // public origin, distinct from the loopback address the server binds to. A
 // `*.localhost` name keeps a secure context (so clipboard/crypto keep working,
 // unlike a bare `.local` host over HTTP) and resolves to loopback automatically
-// in Chromium/Firefox. Overridable for rollback (e.g. STUDIO_LOCAL_URL_HOST=localhost).
-const PUBLIC_HOSTNAME = process.env.STUDIO_LOCAL_URL_HOST ?? 'studio.localhost';
+// on macOS and in Chromium/Firefox.
+const PUBLIC_HOSTNAME = 'studio.localhost';
 
 // Served at <origin>/auth/callback — the OAuth redirect target for the browser
 // login flow. WordPress.com lands here with the token in the URL fragment

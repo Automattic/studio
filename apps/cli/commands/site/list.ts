@@ -3,7 +3,7 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __, _n, sprintf } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
-import { getSiteStatus, getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
@@ -32,17 +32,7 @@ async function getSiteListData( sites: SiteData[] ): Promise< {
 	for await ( const site of sites ) {
 		const running = await isSiteRunning( site );
 		const url = getSiteUrl( site );
-		// A non-`ready` site is half-written: show its pull state instead of
-		// the usual online/offline so it never reads as a clean install.
-		const pullStatus = getSiteStatus( site );
-		let status: string;
-		if ( pullStatus === 'pulling' ) {
-			status = `⏳ ${ __( 'Pulling' ) }`;
-		} else if ( pullStatus === 'pull-failed' ) {
-			status = `⚠️ ${ __( 'Pull failed' ) }`;
-		} else {
-			status = running ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
-		}
+		const status = running ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
 
 		tableEntries.push( {
 			id: site.id,

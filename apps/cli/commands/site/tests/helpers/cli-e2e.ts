@@ -117,3 +117,29 @@ export function readCliConfig( env: CliEnv ): {
 } {
 	return JSON.parse( fs.readFileSync( env.cliConfigPath, 'utf-8' ) );
 }
+
+/**
+ * Polls a URL until the server accepts a connection, then resolves with the
+ * response. A freshly started site can take a moment to begin listening, so
+ * this retries the connection until the deadline; once it responds, the caller
+ * asserts on the status and content type. Redirects are not followed so a
+ * canonical 302 is observed as-is rather than chased to its target.
+ */
+export async function waitForSiteResponse(
+	url: string,
+	{ timeoutMs = 30_000, intervalMs = 500 }: { timeoutMs?: number; intervalMs?: number } = {}
+): Promise< Response > {
+	const deadline = Date.now() + timeoutMs;
+	let lastError: unknown;
+
+	while ( Date.now() < deadline ) {
+		try {
+			return await fetch( url, { redirect: 'manual' } );
+		} catch ( error ) {
+			lastError = error;
+			await new Promise( ( resolve ) => setTimeout( resolve, intervalMs ) );
+		}
+	}
+
+	throw new Error( `Timed out waiting for a response from ${ url }: ${ String( lastError ) }` );
+}

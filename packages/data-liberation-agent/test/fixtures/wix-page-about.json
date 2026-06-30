@@ -1,0 +1,13 @@
+{
+  "title": "About Us",
+  "content": "<h2>About Our Company</h2><p>We are a small team passionate about our work.</p><p>Founded in 2024, we help people migrate their websites.</p>",
+  "excerpt": "Learn about our team",
+  "date": "",
+  "categories": [],
+  "tags": [],
+  "seoTitle": "About Us - Test Site",
+  "seoDescription": "Learn about our team and what we do",
+  "mediaUrls": ["https://static.wixstatic.com/media/team-photo.jpg"],
+  "apiCallCount": 1,
+  "globalsFound": 2
+}

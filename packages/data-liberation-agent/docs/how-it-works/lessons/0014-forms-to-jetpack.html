@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>14 · Forms → Jetpack</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part V — Advanced</span>
+  <span>Lesson 14 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 14 · Advanced capability</div>
+<h1>Forms → Jetpack</h1>
+<p class="subtitle">A captured contact form is useless as a screenshot — it has to actually submit. The forms capability turns source forms into editable Jetpack forms, and it's a masterclass in why "emit the obvious block" is often wrong.</p>
+
+<h2>Capture, then emit</h2>
+<p>Forms are captured during the <code>extractFull</code> browser walk:
+<code>SectionSpec.forms?: SectionSpecForm[]</code>. Forms with zero recognizable fields are
+omitted entirely; <code>file</code>/<code>hidden</code> fields are skipped and flagged in
+provenance. On the <strong>blocks path</strong>, each form emits a
+<code>jetpack/contact-form</code> with a <code>jetpack/field-*</code> per field kind.</p>
+
+<h2>The submit-button trap (the whole lesson)</h2>
+<p>The obvious choice for the submit control would be <code>jetpack/button</code>. <strong>It's
+wrong, and silently so.</strong> The submit is emitted as a <code>core/button</code> with
+<code>tagName:"button"</code>, <code>type:"submit"</code>, and className
+<code>form-button-submit is-submit</code> — the current Jetpack form-editor grammar.</p>
+
+<div class="callout gotcha">
+  <span class="label">Why never <code>jetpack/button</code></span>
+  <code>jetpack/button</code> lives in the connection-gated extensions loader. On an
+  <em>unconnected</em> install it is <strong>unregistered</strong> and renders to nothing —
+  so the contact form falls back to a server-built button labeled "Submit," <em>losing the
+  captured label</em>. The captured label has to ride in the saved inner HTML of a
+  <code>core/button</code> instead. This is the kind of failure that looks fine in the editor
+  and breaks only on a real unconnected site.
+</div>
+
+<h2>The install dance</h2>
+<p>Emitting the markup isn't enough — the runtime has to support it. When any page's specs
+carry forms, the pipeline calls <code>ensurePlugin(sitePath,'jetpack')</code> <em>and</em>
+<code>wp jetpack module activate contact-form</code>. That second step is essential:</p>
+
+<div class="callout gotcha">
+  <span class="label">Unconnected installs start with all modules inactive</span>
+  An offline/unconnected Jetpack starts with <em>every</em> module off. Without explicitly
+  activating <code>contact-form</code>, you get an empty form wrapper — the markup is correct
+  but nothing renders. Both the plugin-ensure and the module-activate are idempotent and
+  non-fatal (markup still emits if they fail), tallied as <code>jetpackEnsured</code> /
+  <code>jetpackWarning</code> in handler output.
+</div>
+
+<h2>The hoist guard (a cross-feature interaction)</h2>
+<p><code>jetpack/*</code> blocks are <em>excluded</em> from variation hoisting (Lesson 16).
+Here's why it matters: Jetpack's <code>get_form_style()</code> regexes <code>is-style-(\S+)</code>
+off the contact-form className, and an unknown style makes <code>render_label()</code> return
+an empty string — <strong>labels vanish</strong>. So the hoister must never rewrite a
+<code>jetpack/*</code> className. This is a great example of how two independent capabilities
+can collide, and why the codebase encodes the guard explicitly.</p>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why is the form's submit emitted as <code>core/button</code> and never <code>jetpack/button</code>?</div>
+  <ul class="opts">
+    <li><button class="opt"><code>jetpack/button</code> is unregistered on unconnected installs and renders to nothing, losing the label</button></li>
+    <li><button class="opt"><code>core/button</code> is the only block that supports a submit type at all</button></li>
+    <li><button class="opt"><code>jetpack/button</code> cannot be placed inside a contact-form block</button></li>
+    <li><button class="opt"><code>core/button</code> is required for the variation hoister to skip it</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — jetpack/button is connection-gated and unregistered on unconnected installs; it renders to nothing and the captured label is lost. core/button carries the label in saved inner HTML."
+    data-wrong="The reason is the connection gate: jetpack/button is unregistered on unconnected installs and renders to nothing, losing the label. core/button preserves it.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Name the two install commands forms trigger and why each is necessary. Then state why
+  <code>jetpack/*</code> blocks must be excluded from variation hoisting.
+  <details><summary>Check yourself</summary>
+  <code>ensurePlugin(site,'jetpack')</code> (the plugin must exist) + <code>wp jetpack module
+  activate contact-form</code> (unconnected installs start all modules off → empty wrapper
+  otherwise). Hoisting a <code>jetpack/*</code> className breaks <code>get_form_style()</code>'s
+  <code>is-style-*</code> regex → labels render empty.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Find the form emit on the blocks path (search <code>jetpack/contact-form</code> in
+  <span class="path">src/lib/replicate/</span>), the <code>ensurePlugin</code> helper in
+  <span class="path">src/lib/preview/ensure-plugin.ts</span>, and the form capture in the
+  <code>extractFull</code> browser walk.
+</div>
+
+<p class="ask">Want the full <code>jetpack/field-*</code> kind mapping (text, email, select,
+textarea…) as a reference card? Ask.</p>
+
+<div class="lesson-nav">
+  <a href="0013-local-owned-source-path.html">← Lesson 13</a>
+  <a href="0015-design-foundations.html">Lesson 15: Design foundations →</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13 · The Local / Owned-Source Path</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part V — Advanced</span>
+  <span>Lesson 13 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 13 · Advanced capability</div>
+<h1>The Local / Owned-Source Path</h1>
+<p class="subtitle">The third reconstruct path is a different animal: no URL, no detection, no live extraction. You hand it a directory of HTML/CSS/JS you already own, and it produces a block theme. Understanding why it bypasses half the pipeline clarifies what the rest of the pipeline is <em>for</em>.</p>
+
+<p>Front door: the <code>data-liberation:liberate</code> skill routes on <em>input type</em>. A
+<strong>local directory</strong> takes the owned-source path — dispatched inline, no platform
+detection, no network extraction, no path checkpoint. A <strong>URL</strong> takes the remote
+path you've studied so far.</p>
+
+<h2>Two tools, one flow</h2>
+<div class="flow">
+  <div class="flow-stage"><span class="flow-badge">①</span><div class="flow-body"><strong><code>liberate_ingest_local_site</code></strong> — read the owned directory; inventory its HTML pages, CSS, JS, assets.</div></div>
+  <div class="flow-stage"><span class="flow-badge">②</span><div class="flow-body"><strong><code>liberate_convert_local_site</code></strong> — convert that inventory into a live Studio block theme: native nav, page templates, carried CSS/JS, optional data-model.</div></div>
+</div>
+
+<h2>Why it skips detection and extraction</h2>
+<p>The remote pipeline's expensive, fragile stages exist to deal with a site you <em>don't</em>
+control — fingerprint an unknown platform, fight bot defenses, discover URLs, download remote
+media. None of that applies to a folder on disk. So the owned path drops straight to
+reconstruction. This is the cleanest illustration of the two-phase split (Lesson 1): when phase
+one's risk disappears, you keep only phase two.</p>
+
+<div class="callout key">
+  <span class="label">Preserve-DOM, don't re-emit</span>
+  The local path's defining strategy: it <em>preserves the owned source DOM</em> rather than
+  re-emitting markup from captured specs. You wrote that HTML; it's already correct. So the
+  conversion keeps the structure and styling/animation JS, and turns it into a theme around
+  that — the opposite instinct from the blocks path, which re-derives everything from specs.
+  This is exactly why the local emit-blocks strategy stays distinct from the shared engine
+  core (Lesson 10).
+</div>
+
+<h2>From static cards to real WordPress data</h2>
+<p>The sophisticated part: an owned static site often <em>renders its content from JS data</em>
+(a catalog grid, a listings array) or from repeated static-HTML cards. The
+<code>data-liberation:model-local-data</code> skill analyzes that and emits a
+<code>data-model.json</code> — which <code>liberate_convert_local_site</code> consumes to turn
+that data into real WordPress posts + taxonomy + native query loops, <em>while keeping</em> the
+original styling/animation/modal JS.</p>
+
+<div class="callout decision">
+  <span class="label">The architectural payoff</span>
+  This is the difference between "a pretty static replica" and "a real CMS." A JS data grid
+  becomes queryable WordPress posts the owner can edit and extend — without losing the look.
+  When you weigh whether to build modeling for a given source shape, the question is: is the
+  content <em>data</em> wearing a presentation, or is it bespoke layout? Data → model it; bespoke
+  → carry the DOM.
+</div>
+
+<p>Forms convert here too: owned HTML forms become editable Jetpack forms (Lesson 14) on this
+path as well, with conditional plugin install.</p>
+
+<div class="quiz" data-answer="3">
+  <div class="q">Why does the owned-source path skip detection and live extraction entirely?</div>
+  <ul class="opts">
+    <li><button class="opt">Because local directories never contain any JavaScript to run</button></li>
+    <li><button class="opt">Because the block theme is scaffolded before any content loads</button></li>
+    <li><button class="opt">Because detection only works on the nine supported platforms</button></li>
+    <li><button class="opt">Because those stages exist to handle a site you don't control; a folder you own needs neither</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — fingerprinting, bot-defense, URL discovery, and remote media download are all about an uncontrolled remote site. An owned folder drops straight to reconstruction."
+    data-wrong="It's about ownership: detection/extraction exist to handle an uncontrolled remote site. A folder you own needs neither, so it goes straight to phase two.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Name the two local-path tools, the skill that turns JS data into a data model, and the
+  defining strategy that separates this path from the blocks path.
+  <details><summary>Check yourself</summary>
+  <code>liberate_ingest_local_site</code> + <code>liberate_convert_local_site</code>; the
+  <code>model-local-data</code> skill emits <code>data-model.json</code>. Defining strategy:
+  preserve the owned source DOM rather than re-emit from specs.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read <span class="path">src/mcp-server/handlers/convert-local-site.ts</span> and the
+  <span class="path">src/lib/replicate/local-site/</span> + <span class="path">local-theme/</span>
+  modules. The <code>data-liberation:model-local-data</code> skill documents the data-model shape.
+</div>
+
+<p class="ask">Want to see what a <code>data-model.json</code> looks like for a JS catalog grid?
+Ask and we'll sketch one.</p>
+
+<div class="lesson-nav">
+  <a href="0012-quality-gates.html">← Lesson 12</a>
+  <a href="0014-forms-to-jetpack.html">Lesson 14: Forms → Jetpack →</a>
+</div>
+</div>
+</body>
+</html>

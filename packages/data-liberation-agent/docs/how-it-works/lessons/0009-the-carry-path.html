@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>9 · The Carry Path</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part III — Reconstruction</span>
+  <span>Lesson 9 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 09 · Reconstruction drill</div>
+<h1>The Carry Path</h1>
+<p class="subtitle">When fidelity is the whole game, you stop interpreting the source and start carrying it. The carry path's craft is in making "ship the original HTML" actually behave inside WordPress — self-hosted, scoped, and de-CDN'd.</p>
+
+<p>Tool: <code>liberate_reconstruct_pages_carry</code> →
+<span class="path">src/mcp-server/handlers/reconstruct-pages-carry.ts</span> →
+<span class="path">src/lib/replicate/{page-reconstruct-carry,html-carry}.ts</span>. It writes a
+<code>&lt;slug&gt;-carry</code> FSE block theme whose page bodies are the sanitized source
+HTML in <code>core/html</code> islands, with the source CSS scoped to avoid bleed.</p>
+
+<h2>The three problems carry has to solve</h2>
+<table>
+  <thead><tr><th>Problem</th><th>Solution</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>CSS bleed</strong> — source CSS would clobber the WP theme and admin.</td>
+      <td>Scope every rule (e.g. <code>:where(body.lib-carry-site) …</code>) — <code>:where()</code> keeps specificity at zero so it layers cleanly.</td>
+    </tr>
+    <tr>
+      <td><strong>CDN dependence</strong> — the replica must not phone home to Wix/Shopify CDNs.</td>
+      <td>Full self-hosting: repoint image variants, pre-pass download extraction-missed images, strip-unused + localize fonts, drop dead preload/builder <code>&lt;link&gt;</code>s.</td>
+    </tr>
+    <tr>
+      <td><strong>Dead interactivity</strong> — source JS reveal/animation leaves content hidden.</td>
+      <td>Un-freeze JS reveals (e.g. <code>:has()</code> nav-reveal), denylist <code>display</code>/<code>visibility</code> in carried CSS so <code>display:none</code> doesn't survive.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout key">
+  <span class="label">The mental model</span>
+  Carry is "the source HTML wearing a WordPress costume." The hard work isn't producing the
+  markup — it's <em>severing every tie to the origin platform</em> (CDN, fonts, builder
+  chrome) and <em>neutralizing the source's own hiding mechanisms</em> so the carried content
+  is actually visible and self-contained.
+</div>
+
+<h2>Chrome fidelity is its own subsystem</h2>
+<p>Headers, footers, and nav are the hardest part of carry, because builder platforms ride
+chrome inline or behind custom elements. Chrome fidelity is a layered strategy:
+<strong>prevent</strong> (rem-base on <code>:root</code>, un-freeze JS reveal),
+<strong>fingerprint</strong> (capture chrome signature), <strong>self-heal</strong>
+(source-vs-build audit). A representative failure mode: a store header collapses when a
+carried <code>:where(body.lib-carry-site) header{display:none}</code> matches the
+WP-injected wrapper <code>&lt;header&gt;</code>; the fix out-specifies it with
+<code>header.wp-block-template-part{display:block!important}</code>.</p>
+
+<div class="callout gotcha">
+  <span class="label">Verify on the LIVE site, not the captured PNG</span>
+  A recurring trap: carry replica screenshots can race the source CSS (false-white) or
+  capture before lazy images load (short screenshots → understated parity scores), and the
+  WP admin bar adds a ~32px offset. These capture artifacts masquerade as regressions. Always
+  verify carry fidelity on the live rendered site with a computed-style probe, not a grep of
+  the DOM or a stale PNG.
+</div>
+
+<h2>Where carry and blocks meet</h2>
+<p>Remember Lesson 3: carry islands convert to <code>dla/editable-html</code> too. And native
+blocks can be <em>spliced</em> into a carried island with the source's own classes at
+<strong>zero pixel delta</strong> — a hybrid that gets carry's fidelity with some of blocks'
+editability. The two paths are not a permanent fork; they're the ends of one spectrum, and the
+editable-island bridge already spans part of it.</p>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why scope carried CSS with <code>:where(body.lib-carry-site)</code> rather than a plain descendant selector?</div>
+  <ul class="opts">
+    <li><button class="opt">It is shorter to generate and reads more clearly in the output</button></li>
+    <li><button class="opt"><code>:where()</code> contributes zero specificity, so rules layer without fighting</button></li>
+    <li><button class="opt">It is required for the editable-html island conversion to run</button></li>
+    <li><button class="opt">It prevents the source JavaScript from re-hiding the content</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — :where() holds specificity at zero so carried rules scope cleanly without clobbering or being clobbered unpredictably."
+    data-wrong="It's about specificity: :where() is zero-specificity, so scoped carried rules layer predictably instead of winning specificity fights.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Name the three problems carry must solve and the fix for each. Then state the verification
+  rule that prevents the capture-artifact rabbit hole.
+  <details><summary>Check yourself</summary>
+  CSS bleed → <code>:where()</code> scoping; CDN dependence → full self-hosting (image
+  repoint, missing-media pre-pass, font localize, dead-link strip); dead interactivity →
+  un-freeze JS reveal + denylist display/visibility. Verify on the live site with a
+  computed-style probe, not a stale PNG or DOM grep.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read <span class="path">src/lib/replicate/html-carry.ts</span> (sanitize + scope + island)
+  and the carry font/media helpers (<span class="path">carry-fonts.ts</span>,
+  <span class="path">carry-missing-media.ts</span>) to see self-hosting in action.
+</div>
+
+<p class="ask">The chrome-collapse failure mode is a goldmine of how CSS cascade fights play
+out here — ask me to walk the full header-rescue trace if you want it.</p>
+
+<div class="lesson-nav">
+  <a href="0008-blocks-reconstruction.html">← Lesson 8</a>
+  <a href="0010-blocks-engine-adoption.html">Lesson 10: The shared blocks engine →</a>
+</div>
+</div>
+</body>
+</html>

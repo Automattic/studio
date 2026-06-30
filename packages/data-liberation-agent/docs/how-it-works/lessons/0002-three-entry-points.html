@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2 · Three Entry Points, One Core</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part I — Scaffold</span>
+  <span>Lesson 2 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 02 · The scaffold</div>
+<h1>Three Entry Points, One Core</h1>
+<p class="subtitle">Same machine, three front doors. Knowing which door a request came through tells you which thin shell you're in — and that all of them bottom out in the same shared core.</p>
+
+<p>There is exactly <strong>one binary</strong>, <code>data-liberation</code>, defined by
+<span class="path">src/cli.ts</span>. It is a dispatcher that branches on the first
+argument. Everything else is a shell over <code>src/lib/</code> and <code>src/adapters/</code>.</p>
+
+<div class="flow">
+  <div class="flow-stage">
+    <span class="flow-badge">1</span>
+    <div class="flow-body"><strong>Streaming CLI</strong> — <code>data-liberation &lt;url&gt;</code><br>
+    The default. Boots the live "watch loop" (<code>ui/watch.tsx</code> → <code>watch-runner.ts</code>).
+    <span class="artifact">cli.ts:271 · --no-watch falls back to the legacy batch path</span></div>
+  </div>
+  <div class="flow-stage">
+    <span class="flow-badge">2</span>
+    <div class="flow-body"><strong>CLI subcommands</strong> — <code>inspect / import / qa / verify / setup / preview / screenshot / compare …</code><br>
+    Each lazy-imports a <code>ui/&lt;cmd&gt;.js</code> runner.
+    <span class="artifact">cli.ts:105 · the manual, à-la-carte surface</span></div>
+  </div>
+  <div class="flow-stage">
+    <span class="flow-badge">3</span>
+    <div class="flow-body"><strong>MCP stdio server</strong> — <code>data-liberation mcp</code><br>
+    Exposes ~38 <code>liberate_*</code> tools to agents/skills.
+    <span class="artifact">cli.ts:16 → src/mcp-server.ts · the Claude Code plugin wraps this</span></div>
+  </div>
+</div>
+
+<h2>The shape that matters</h2>
+<p>Picture an hourglass. Three entry points at the top, one shared core at the waist, the
+platform adapters at the bottom:</p>
+
+<pre><code>  CLI watch     CLI subcommands     MCP tools          ← entry (thin shells)
+       \              |              /
+        \             |             /
+         ▼            ▼            ▼
+      src/lib/*   +   src/adapters/*                    ← the core
+        (wxr, resume-state, replicate, screenshot…)</code></pre>
+
+<p>The CLI UI runners (<code>src/ui/*</code>) and the MCP handlers
+(<code>src/mcp-server/handlers/*</code>) are <em>both</em> thin. Neither contains real logic.
+This is why you can drive the same behavior from a skill (MCP) or from a terminal
+(CLI) — they call the same functions.</p>
+
+<div class="callout decision">
+  <span class="label">Why this matters for architecture calls</span>
+  When you decide <em>where</em> a new capability lives, the answer is almost always
+  "in <code>src/lib/</code>, exposed through a thin handler." Putting logic in the handler
+  or the UI runner is the anti-pattern — it can only be reached from one door. By design,
+  <strong>agents are the primary runtime</strong>, so the MCP door is first-class, not an
+  afterthought.
+</div>
+
+<h2>The agent door is the strategic one</h2>
+<p>Entry point 3 is not just "the API." The project's direction is agent-driven: the
+<code>data-liberation:*</code> Skills <em>are</em> the product surface for a Claude Code
+user. They orchestrate the <code>liberate_*</code> tools. So when you reason about UX, the
+relevant "user" is often an agent following a skill, and the relevant "interface" is the
+tool schemas in <code>mcp-server.ts</code>.</p>
+
+<div class="callout gotcha">
+  <span class="label">Live-process gotcha</span>
+  The MCP server runs <code>tsx src/mcp-server.ts</code> as <strong>one long-lived
+  process</strong>. Editing <code>src/</code> does <em>not</em> hot-reload it — ESM modules
+  are cached per process. After editing handler/lib source you must restart the server (or
+  drive the handler from a fresh <code>tsx</code> process) for callers to see the change.
+  Unit tests always use on-disk source, so they reflect edits immediately.
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A new extraction capability is being added. Where should the real logic live?</div>
+  <ul class="opts">
+    <li><button class="opt">Inside the relevant CLI runner under the ui directory</button></li>
+    <li><button class="opt">Inside the MCP handler so agents can reach the new code</button></li>
+    <li><button class="opt">In a shared lib module, exposed by a thin handler shell</button></li>
+    <li><button class="opt">In the cli dispatcher so every front door can branch to it</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — logic in src/lib, reachable through a thin handler, so all three doors share it."
+    data-wrong="Logic in a handler or UI runner is the anti-pattern: only one door can reach it. It belongs in src/lib behind a thin shell.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Name the three entry points and the single file that dispatches between them. Then say
+  which one the Claude Code plugin and the <code>data-liberation:*</code> skills use.
+  <details><summary>Check yourself</summary>
+  Streaming watch CLI, CLI subcommands, MCP stdio server — all dispatched by
+  <code>src/cli.ts</code>. The plugin and skills use door 3 (MCP).
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Skim the branch logic in <span class="path">src/cli.ts</span> (the <code>args[0]</code>
+  switch), then the tool registry + <code>handlers</code> dispatch map in
+  <span class="path">src/mcp-server.ts</span> (~line 741). Seeing the handler map drives
+  home how thin the shells are.
+</div>
+
+<p class="ask">Want me to trace one tool from schema → handler → lib function end to end?
+Just ask.</p>
+
+<div class="lesson-nav">
+  <a href="0001-the-two-phase-spine.html">← Lesson 1</a>
+  <a href="0003-fork-in-the-road.html">Lesson 3: The fork in the road →</a>
+</div>
+</div>
+</body>
+</html>

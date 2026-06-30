@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>12 · Quality Gates &amp; Diagnostics</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part IV — Output &amp; Quality</span>
+  <span>Lesson 12 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 12 · Output &amp; quality</div>
+<h1>Quality Gates &amp; Diagnostics</h1>
+<p class="subtitle">A migration tool is only as trustworthy as its ability to know when it failed. This last lesson is the system's self-awareness layer — the gates that decide "good enough" and the diagnostics that explain "not yet."</p>
+
+<p>You've met pieces of this across the course. Here it is as one map, because reasoning about
+<em>quality</em> is reasoning about <em>which signal answers which question</em>.</p>
+
+<h2>The two kinds of signal</h2>
+<table>
+  <thead><tr><th></th><th>Verdict gates</th><th>Warning diagnostics</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Job</strong></td><td>Pass/fail the run.</td><td>Explain gaps; never flip the verdict.</td></tr>
+    <tr><td><strong>Examples</strong></td><td><code>validate_artifacts</code>, <code>PARITY_GATE_SCORE</code>, the WP block-parser oracle.</td><td><code>fallback-diagnostics.json</code>, <code>region-audit.json</code>, <code>asset-triage.json</code>.</td></tr>
+    <tr><td><strong>How to read</strong></td><td>Hard stop — fix before shipping.</td><td>Triage queue — what an agent repairs next.</td></tr>
+  </tbody>
+</table>
+
+<h2>Visual parity: <code>comparison.json</code> (v2)</h2>
+<p><code>liberate_compare</code> scores each viewport. The v2 schema adds a <em>height</em>
+signal: each <code>ViewportScore</code> gains <code>originHeight</code>,
+<code>replicaHeight</code>, and <code>heightMismatchRatio</code>. When the ratio exceeds
+<code>HEIGHT_MISMATCH_THRESHOLD</code> (0.02), a magenta-padded full-canvas diff is written —
+<strong>magenta means content-gap, not style drift</strong>. The parity gate proper is
+<code>PARITY_GATE_SCORE = 0.995</code>. v1 files still parse (missing fields = gate disabled).</p>
+
+<div class="callout gotcha">
+  <span class="label">Scores lie when the capture is wrong</span>
+  The single biggest source of <em>false</em> low parity scores is capture artifacts:
+  screenshots taken before lazy images load (short replica → understated score), the WP admin
+  bar's ~32px offset, or a replica PNG racing the source CSS. Before trusting a low score,
+  confirm <code>scrollHeight</code> matched and no admin bar was in frame. This has burned
+  hours — treat a surprising score as "verify the capture" before "fix the code."
+</div>
+
+<h2>Content loss: the QA differ</h2>
+<p><code>liberate_qa</code> → <code>diffContent</code> (<span class="path">src/lib/qa/content-differ.ts</span>)
+measures extraction <em>loss</em> — origin items not present in the WXR (<code>missingImages</code>
+etc.). Crucially it measures loss, <strong>not hallucination</strong>: it tells you what
+failed to make it in, not what was invented. Knowing the direction of the measurement keeps
+you from misreading a clean QA report as "perfect."</p>
+
+<h2>Refine reports: closing the loop</h2>
+<p><code>liberate_refine_report</code> validates <code>refine/&lt;slug&gt;/*.json</code> coverage:
+every finding id must appear in exactly one of <code>applied</code>/<code>skipped</code>;
+orphans fail. This is the bookkeeping that makes an agentic repair loop <em>accountable</em> —
+you can't quietly drop a finding.</p>
+
+<div class="callout key">
+  <span class="label">The philosophy across all of it</span>
+  Degrade <em>loudly</em>, keep the evidence, make loss <em>legible</em>, and separate "did it
+  pass" from "here's what's imperfect." This is the same instinct as the preserved
+  <code>session.json.corrupt.&lt;ts&gt;</code> file (Lesson 6). A tool people trust with their
+  site's content cannot have silent failure modes — and this codebase is built to not have
+  them.
+</div>
+
+<h2>Faithful-recreation enforcement</h2>
+<p>There's a hard visual-parity gate (<code>section-parity.ts</code> + a run-report verdict)
+specifically to stop the shipping skills from flattening "known gaps" into an accepted result.
+The honest-assessment value is encoded in the gate itself: the system is designed to refuse to
+quietly call a degraded recreation "done."</p>
+
+<div class="quiz" data-answer="3">
+  <div class="q">A magenta band appears in a padded comparison diff. What does it indicate?</div>
+  <ul class="opts">
+    <li><button class="opt">A color-palette mismatch between the source and the replica</button></li>
+    <li><button class="opt">A font that failed to self-host and fell back to a system face</button></li>
+    <li><button class="opt">A JavaScript reveal animation that never un-froze on load</button></li>
+    <li><button class="opt">A content-gap: the replica is shorter than the source by &gt; the threshold</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — magenta padding marks a height/content gap (heightMismatchRatio > 0.02), distinct from style drift."
+    data-wrong="Magenta specifically marks a content-gap (height mismatch beyond the threshold), not a style/color/font issue.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Distinguish verdict gates from warning diagnostics with one example of each. Then state what
+  the QA differ measures (and what it does <em>not</em>), and the capture-artifact rule for
+  parity scores.
+  <details><summary>Check yourself</summary>
+  Gate (hard stop): <code>validate_artifacts</code> / <code>PARITY_GATE_SCORE=0.995</code>.
+  Diagnostic (triage, never flips verdict): <code>fallback-diagnostics.json</code>. The QA
+  differ measures extraction <em>loss</em>, not hallucination. Verify the capture
+  (scrollHeight, no admin bar, lazy images loaded) before trusting a low parity score.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read <span class="path">src/lib/replicate/compare.ts</span> (the v2 height signal +
+  thresholds), <span class="path">src/lib/qa/content-differ.ts</span> (loss measurement), and
+  <span class="path">src/lib/replicate/refine-report.ts</span> (coverage validator).
+</div>
+
+<p class="ask">That's the core spine. Part V drills into five advanced capabilities that
+build on it.</p>
+
+<div class="lesson-nav">
+  <a href="0011-output-artifacts.html">← Lesson 11</a>
+  <a href="0013-local-owned-source-path.html">Lesson 13: The local / owned-source path →</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,56 @@
+{
+  "name": "data-liberation",
+  "version": "0.1.0",
+  "description": "Extract content from closed web platforms into WordPress-compatible WXR files",
+  "type": "module",
+  "bin": {
+    "data-liberation": "./dist/cli.js"
+  },
+  "scripts": {
+    "import": "tsx src/cli.ts import",
+    "build": "tsc && node scripts/copy-runtime-assets.mjs",
+    "copy-runtime-assets": "node scripts/copy-runtime-assets.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "mcp": "tsx src/mcp-server.ts",
+    "inspect": "tsx src/cli.ts inspect",
+    "qa": "tsx src/cli.ts qa",
+    "verify": "tsx src/cli.ts verify",
+    "setup": "tsx src/cli.ts setup",
+    "liberate": "tsx src/cli.ts",
+    "postinstall": "playwright install chromium"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@automattic/blocks-engine": "^0.2.2",
+    "@modelcontextprotocol/sdk": "^1.27.0",
+    "@wordpress/block-serialization-default-parser": "^5.47.0",
+    "acorn": "^8.17.0",
+    "cheerio": "^1.2.0",
+    "domhandler": "^5.0.3",
+    "fast-xml-parser": "^5.5.10",
+    "ink": "^6.8.0",
+    "ink-spinner": "^5.0.0",
+    "papaparse": "^5.5.3",
+    "pixelmatch": "^5.3.0",
+    "playwright": "^1.44.0",
+    "pngjs": "^7.0.0",
+    "postcss": "^8.5.15",
+    "postcss-selector-parser": "^7.1.1",
+    "react": "^19.2.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/papaparse": "^5.5.2",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
+    "@types/react": "^19.2.14",
+    "jsdom": "^26.1.0",
+    "single-file-cli": "^2.0.83",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

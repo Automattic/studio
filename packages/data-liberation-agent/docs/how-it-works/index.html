@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Liberation · A Course</title>
+<link rel="stylesheet" href="assets/course.css">
+<style>
+  .curr { margin: 1.4rem 0; }
+  .part-label { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin: 2rem 0 0.6rem; }
+  .lrow { display: flex; gap: 1rem; align-items: baseline; padding: 0.5rem 0; border-bottom: 1px dotted var(--rule); }
+  .lrow .ln { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); flex: 0 0 1.6rem; }
+  .lrow .lt { flex: 1; }
+  .lrow .lt a { font-size: 1.02rem; }
+  .lrow .ld { display: block; font-size: 0.85rem; color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<div class="masthead">
+  <span>Data Liberation · A Course</span>
+  <span>for architecture leadership</span>
+</div>
+
+<div class="wide">
+<h1>Data Liberation</h1>
+<p class="subtitle">The intricacies and flows of <code>data-liberation-agent</code>, taught as a scaffold you can hold in your head — then drilled into the real machinery, file by file.</p>
+
+<p><strong>Mission:</strong> build a complete, confident mental model of the end-to-end flows
+and the key architectural seams, so you can make and defend architecture decisions — blocks
+vs carry vs theme, the shared blocks engine, and where a change's blast radius really lands.</p>
+
+<div class="callout key">
+  <span class="label">How to take this course</span>
+  Seventeen short lessons, each one tangible win. Do Parts I–IV in order — Part I is the
+  scaffold every later lesson hangs off; Part V's advanced capabilities can be taken in any
+  order once you have the scaffold. Each lesson ends with a retrieval-practice prompt; <em>do them from
+  memory</em> (that's what builds lasting recall, not re-reading). I'm your teacher — ask
+  follow-ups any time.
+</div>
+
+<div class="part-label">Part I · The Scaffold (conceptual)</div>
+<div class="curr">
+  <div class="lrow"><span class="ln">01</span><span class="lt"><a href="lessons/0001-the-two-phase-spine.html">The Two-Phase Spine</a><span class="ld">Extract → reconstruct. The skeleton everything hangs off.</span></span></div>
+  <div class="lrow"><span class="ln">02</span><span class="lt"><a href="lessons/0002-three-entry-points.html">Three Entry Points, One Core</a><span class="ld">CLI watch · subcommands · MCP — all thin over one core.</span></span></div>
+  <div class="lrow"><span class="ln">03</span><span class="lt"><a href="lessons/0003-fork-in-the-road.html">The Fork in the Road</a><span class="ld">Blocks vs carry vs theme — the decision you'll reach for most.</span></span></div>
+</div>
+
+<div class="part-label">Part II · Extraction (drill)</div>
+<div class="curr">
+  <div class="lrow"><span class="ln">04</span><span class="lt"><a href="lessons/0004-the-adapter-pattern.html">The Adapter Pattern</a><span class="ld">detect/discover/extract, resolveAdapter fallback, two seams.</span></span></div>
+  <div class="lrow"><span class="ln">05</span><span class="lt"><a href="lessons/0005-capture-and-sectionspec.html">Capture &amp; the SectionSpec</a><span class="ld">Where design becomes data; the landmark census.</span></span></div>
+  <div class="lrow"><span class="ln">06</span><span class="lt"><a href="lessons/0006-resume-state-contract.html">The Resume-State Contract</a><span class="ld">Five stores; what each owns; idempotent crash recovery.</span></span></div>
+</div>
+
+<div class="part-label">Part III · Reconstruction (drill)</div>
+<div class="curr">
+  <div class="lrow"><span class="ln">07</span><span class="lt"><a href="lessons/0007-the-tick-loop.html">The Tick Loop &amp; Judgment Seam</a><span class="ld">The agent-in-the-loop — the architecture's defining move.</span></span></div>
+  <div class="lrow"><span class="ln">08</span><span class="lt"><a href="lessons/0008-blocks-reconstruction.html">Blocks Reconstruction</a><span class="ld">Native blocks, the fallback ladder, legible diagnostics.</span></span></div>
+  <div class="lrow"><span class="ln">09</span><span class="lt"><a href="lessons/0009-the-carry-path.html">The Carry Path</a><span class="ld">Verbatim source, scoped &amp; self-hosted; chrome fidelity.</span></span></div>
+  <div class="lrow"><span class="ln">10</span><span class="lt"><a href="lessons/0010-blocks-engine-adoption.html">The Shared Blocks Engine</a><span class="ld">The DLA↔engine seam, and the frozen-output guardrail.</span></span></div>
+</div>
+
+<div class="part-label">Part IV · Output &amp; Quality</div>
+<div class="curr">
+  <div class="lrow"><span class="ln">11</span><span class="lt"><a href="lessons/0011-output-artifacts.html">Output Artifacts</a><span class="ld">WXR · Woo CSV · self-hosted media; pure-artifact + manifest.</span></span></div>
+  <div class="lrow"><span class="ln">12</span><span class="lt"><a href="lessons/0012-quality-gates.html">Quality Gates &amp; Diagnostics</a><span class="ld">Gates vs diagnostics; the system's self-awareness.</span></span></div>
+</div>
+
+<div class="part-label">Part V · Advanced Capabilities</div>
+<div class="curr">
+  <div class="lrow"><span class="ln">13</span><span class="lt"><a href="lessons/0013-local-owned-source-path.html">The Local / Owned-Source Path</a><span class="ld">Owned directory → block theme; preserve-DOM, model JS data.</span></span></div>
+  <div class="lrow"><span class="ln">14</span><span class="lt"><a href="lessons/0014-forms-to-jetpack.html">Forms → Jetpack</a><span class="ld">Editable contact forms; the submit-button &amp; module-activate traps.</span></span></div>
+  <div class="lrow"><span class="ln">15</span><span class="lt"><a href="lessons/0015-design-foundations.html">Design Foundations</a><span class="ld">Raw aggregates → semantic roles; observations vs decisions.</span></span></div>
+  <div class="lrow"><span class="ln">16</span><span class="lt"><a href="lessons/0016-variation-hoisting.html">Variation Hoisting &amp; the Block-Fixer</a><span class="ld">Survive the save cycle; DRY styles into reusable variations.</span></span></div>
+  <div class="lrow"><span class="ln">17</span><span class="lt"><a href="lessons/0017-shopify-graphql.html">The Shopify GraphQL Path</a><span class="ld">A privileged, resumable, idempotent adapter — every pattern at once.</span></span></div>
+</div>
+
+<div class="part-label">Reference Shelf</div>
+<div class="curr">
+  <div class="lrow"><span class="ln">▸</span><span class="lt"><a href="reference/glossary.html">Glossary</a><span class="ld">The canonical language every lesson uses.</span></span></div>
+  <div class="lrow"><span class="ln">▸</span><span class="lt"><a href="reference/pipeline-map.html">Pipeline Map</a><span class="ld">The whole flow on one printable page, badged D/J/M.</span></span></div>
+  <div class="lrow"><span class="ln">▸</span><span class="lt"><a href="reference/determinism-map.html">Determinism Map</a><span class="ld">Which steps are deterministic vs judgment, and why.</span></span></div>
+  <div class="lrow"><span class="ln">▸</span><span class="lt"><a href="reference/file-map.html">File Map</a><span class="ld">Where each concern lives in <code>src/</code>.</span></span></div>
+</div>
+
+<hr>
+<p class="small">Lives at <code>docs/how-it-works/</code> in the <code>data-liberation-agent</code>
+repo. Lessons cite real files by repo-relative path — open them alongside. Open this in a
+browser (locally or via GitHub Pages) for the full experience; GitHub's file view shows these
+as source rather than rendering them.</p>
+
+<p class="ask">Start with <a href="lessons/0001-the-two-phase-spine.html">Lesson 1</a> — it's the
+scaffold every later lesson hangs off.</p>
+</div>
+</body>
+</html>

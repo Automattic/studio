@@ -1,0 +1,31 @@
+{
+  "name": "data-liberation",
+  "description": "Extract content from closed web platforms (GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix) into WordPress-compatible WXR files. Inspect, extract, QA, and import to WordPress.",
+  "version": "0.2.2",
+  "author": {
+    "name": "Automattic"
+  },
+  "homepage": "https://github.com/Automattic/data-liberation-agent",
+  "license": "GPL-2.0-or-later",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Data Liberation",
+    "shortDescription": "Extract closed-platform sites into WordPress-compatible exports",
+    "longDescription": "Inspect, extract, QA, and import content from closed website platforms into WordPress-compatible WXR files.",
+    "developerName": "Automattic",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/Automattic/data-liberation-agent",
+    "defaultPrompt": [
+      "Inspect a site for liberation",
+      "Extract this site into WordPress-compatible WXR",
+      "QA a liberated WordPress import"
+    ],
+    "screenshots": []
+  }
+}

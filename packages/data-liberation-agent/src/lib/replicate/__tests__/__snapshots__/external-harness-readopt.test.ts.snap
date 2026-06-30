@@ -1,0 +1,253 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`external reconstruct harness re-adoption > preserves the frozen output surface for adapter recipe on fallback 1`] = `
+{
+  "body": "<!-- wp:image -->
+<figure class="wp-block-image"><img src="/wp-content/uploads/2026/06/team.jpg" alt="recipe"/></figure>
+<!-- /wp:image -->
+",
+  "fallbackDiagnostics": [],
+  "heroIsCover": false,
+  "php": "<?php
+/**
+ * Title: Adapter Recipe
+ * Slug: demo-replica/page-adapter-recipe
+ * Categories: featured
+ * Inserter: false
+ */
+?>
+<!-- wp:image -->
+<figure class="wp-block-image"><img src="/wp-content/uploads/2026/06/team.jpg" alt="recipe"/></figure>
+<!-- /wp:image -->
+",
+  "provenanceFlags": [
+    "adapter-recipe#0: platform recipe upgraded section to blocks",
+  ],
+}
+`;
+
+exports[`external reconstruct harness re-adoption > preserves the frozen output surface for converted section 1`] = `
+{
+  "body": "<!-- wp:heading --><h2>Converted Heading</h2><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Converted body copy.</p><!-- /wp:paragraph -->
+",
+  "fallbackDiagnostics": [],
+  "heroIsCover": false,
+  "php": "<?php
+/**
+ * Title: Converted Section
+ * Slug: demo-replica/page-converted-section
+ * Categories: featured
+ * Inserter: false
+ */
+?>
+<!-- wp:heading --><h2>Converted Heading</h2><!-- /wp:heading -->
+<!-- wp:paragraph --><p>Converted body copy.</p><!-- /wp:paragraph -->
+",
+  "provenanceFlags": [
+    "html-to-blocks#0: converted native blocks (0 wp:html, text 100%)",
+  ],
+}
+`;
+
+exports[`external reconstruct harness re-adoption > preserves the frozen output surface for cover hero 1`] = `
+{
+  "body": "<!-- wp:cover {"url":"/wp-content/uploads/2026/06/hero.jpg","dimRatio":40,"overlayColor":"surface-inverse","isUserOverlayColor":true,"minHeight":33.3,"minHeightUnit":"vw","align":"full","style":{"spacing":{"margin":{"top":"0px"}}},"layout":{"type":"constrained"}} -->
+<div class="wp-block-cover alignfull" style="margin-top:0px;min-height:33.3vw"><img class="wp-block-cover__image-background" src="/wp-content/uploads/2026/06/hero.jpg" alt="" data-object-fit="cover"/><span aria-hidden="true" class="wp-block-cover__background has-surface-inverse-background-color has-background-dim-40 has-background-dim"></span>
+<div class="wp-block-cover__inner-container">
+<!-- wp:heading {"textAlign":"center","level":1,"fontFamily":"display","textColor":"text-inverse"} -->
+<h1 class="wp-block-heading has-text-align-center has-text-inverse-color has-text-color has-display-font-family">Sleep, simplified</h1>
+<!-- /wp:heading -->
+<!-- wp:paragraph {"align":"center","textColor":"text-inverse"} -->
+<p class="has-text-align-center has-text-inverse-color has-text-color">A calmer night starts here.</p>
+<!-- /wp:paragraph -->
+</div>
+</div>
+<!-- /wp:cover -->
+",
+  "fallbackDiagnostics": [],
+  "heroIsCover": true,
+  "php": "<?php
+/**
+ * Title: Cover Hero
+ * Slug: demo-replica/page-cover-hero
+ * Categories: featured
+ * Inserter: false
+ */
+?>
+<!-- wp:cover {"url":"/wp-content/uploads/2026/06/hero.jpg","dimRatio":40,"overlayColor":"surface-inverse","isUserOverlayColor":true,"minHeight":33.3,"minHeightUnit":"vw","align":"full","style":{"spacing":{"margin":{"top":"0px"}}},"layout":{"type":"constrained"}} -->
+<div class="wp-block-cover alignfull" style="margin-top:0px;min-height:33.3vw"><img class="wp-block-cover__image-background" src="/wp-content/uploads/2026/06/hero.jpg" alt="" data-object-fit="cover"/><span aria-hidden="true" class="wp-block-cover__background has-surface-inverse-background-color has-background-dim-40 has-background-dim"></span>
+<div class="wp-block-cover__inner-container">
+<!-- wp:heading {"textAlign":"center","level":1,"fontFamily":"display","textColor":"text-inverse"} -->
+<h1 class="wp-block-heading has-text-align-center has-text-inverse-color has-text-color has-display-font-family">Sleep, simplified</h1>
+<!-- /wp:heading -->
+<!-- wp:paragraph {"align":"center","textColor":"text-inverse"} -->
+<p class="has-text-align-center has-text-inverse-color has-text-color">A calmer night starts here.</p>
+<!-- /wp:paragraph -->
+</div>
+</div>
+<!-- /wp:cover -->
+",
+  "provenanceFlags": [],
+}
+`;
+
+exports[`external reconstruct harness re-adoption > preserves the frozen output surface for form section 1`] = `
+{
+  "body": "<!-- wp:group {"tagName":"section","align":"full","style":{"spacing":{"margin":{"top":"0","bottom":"0"},"padding":{"top":"var:preset|spacing|60","bottom":"var:preset|spacing|60","left":"var:preset|spacing|40","right":"var:preset|spacing|40"},"blockGap":"var:preset|spacing|40"}},"layout":{"type":"constrained","contentSize":"760px"}} -->
+<section class="wp-block-group alignfull" style="margin-top:0;margin-bottom:0;padding-top:var(--wp--preset--spacing--60);padding-right:var(--wp--preset--spacing--40);padding-bottom:var(--wp--preset--spacing--60);padding-left:var(--wp--preset--spacing--40)">
+<!-- wp:heading {"textAlign":"center","level":1,"fontFamily":"display","textColor":"text-default"} -->
+<h1 class="wp-block-heading has-text-align-center has-text-default-color has-text-color has-display-font-family">Get in Touch</h1>
+<!-- /wp:heading -->
+<!-- wp:paragraph {"align":"center","textColor":"text-muted"} -->
+<p class="has-text-align-center has-text-muted-color has-text-color">Drop us a line and our fictional team will reply.</p>
+<!-- /wp:paragraph -->
+<!-- wp:jetpack/contact-form {"style":{"spacing":{"padding":{"top":"16px","right":"16px","bottom":"16px","left":"16px"}}}} -->
+<div class="wp-block-jetpack-contact-form">
+<!-- wp:jetpack/field-name {"label":"Full name","required":true,"width":50} /-->
+<!-- wp:jetpack/field-email {"label":"Email address","required":true,"width":50} /-->
+<!-- wp:jetpack/field-select {"label":"Topic","options":["Billing","Support"]} /-->
+<!-- wp:jetpack/field-textarea {"label":"Message"} /-->
+<!-- wp:button {"tagName":"button","type":"submit","lock":{"remove":true},"className":"form-button-submit is-submit","metadata":{"name":"Submit button"}} -->
+<div class="wp-block-button form-button-submit is-submit"><button type="submit" class="wp-block-button__link wp-element-button">Send Message</button></div>
+<!-- /wp:button -->
+</div>
+<!-- /wp:jetpack/contact-form -->
+</section>
+<!-- /wp:group -->
+",
+  "fallbackDiagnostics": [],
+  "heroIsCover": false,
+  "php": "<?php
+/**
+ * Title: Form Section
+ * Slug: demo-replica/page-form-section
+ * Categories: featured
+ * Inserter: false
+ */
+?>
+<!-- wp:group {"tagName":"section","align":"full","style":{"spacing":{"margin":{"top":"0","bottom":"0"},"padding":{"top":"var:preset|spacing|60","bottom":"var:preset|spacing|60","left":"var:preset|spacing|40","right":"var:preset|spacing|40"},"blockGap":"var:preset|spacing|40"}},"layout":{"type":"constrained","contentSize":"760px"}} -->
+<section class="wp-block-group alignfull" style="margin-top:0;margin-bottom:0;padding-top:var(--wp--preset--spacing--60);padding-right:var(--wp--preset--spacing--40);padding-bottom:var(--wp--preset--spacing--60);padding-left:var(--wp--preset--spacing--40)">
+<!-- wp:heading {"textAlign":"center","level":1,"fontFamily":"display","textColor":"text-default"} -->
+<h1 class="wp-block-heading has-text-align-center has-text-default-color has-text-color has-display-font-family">Get in Touch</h1>
+<!-- /wp:heading -->
+<!-- wp:paragraph {"align":"center","textColor":"text-muted"} -->
+<p class="has-text-align-center has-text-muted-color has-text-color">Drop us a line and our fictional team will reply.</p>
+<!-- /wp:paragraph -->
+<!-- wp:jetpack/contact-form {"style":{"spacing":{"padding":{"top":"16px","right":"16px","bottom":"16px","left":"16px"}}}} -->
+<div class="wp-block-jetpack-contact-form">
+<!-- wp:jetpack/field-name {"label":"Full name","required":true,"width":50} /-->
+<!-- wp:jetpack/field-email {"label":"Email address","required":true,"width":50} /-->
+<!-- wp:jetpack/field-select {"label":"Topic","options":["Billing","Support"]} /-->
+<!-- wp:jetpack/field-textarea {"label":"Message"} /-->
+<!-- wp:button {"tagName":"button","type":"submit","lock":{"remove":true},"className":"form-button-submit is-submit","metadata":{"name":"Submit button"}} -->
+<div class="wp-block-button form-button-submit is-submit"><button type="submit" class="wp-block-button__link wp-element-button">Send Message</button></div>
+<!-- /wp:button -->
+</div>
+<!-- /wp:jetpack/contact-form -->
+</section>
+<!-- /wp:group -->
+",
+  "provenanceFlags": [
+    "form-field-skipped#0: hidden field "Campaign id" has no Jetpack form equivalent",
+  ],
+}
+`;
+
+exports[`external reconstruct harness re-adoption > preserves the frozen output surface for lossy fallback island 1`] = `
+{
+  "body": "<!-- wp:html {"metadata":{"name":"lib-coverage-island"}} -->
+<section><h2>Our Story</h2><img src="/wp-content/uploads/2026/06/team.jpg" alt=""/></section>
+<!-- /wp:html -->
+",
+  "fallbackDiagnostics": [
+    {
+      "droppedImages": [
+        "/wp-content/uploads/2026/06/team.jpg",
+      ],
+      "emittedBlockPreview": "<!-- wp:html {"metadata":{"name":"lib-coverage-island"}} -->
+<section><h2>Our Story</h2><img src="/wp-content/uploads/2026/06/team.jpg" alt=""/></section>
+<!-- /wp:html -->",
+      "id": "lossy-fallback-s0-dropped_images",
+      "interactionModel": "static",
+      "islandKind": "verbatim",
+      "page": "demo-replica/page-lossy-fallback",
+      "reasonCode": "dropped_images",
+      "sectionIndex": 0,
+      "selector": "",
+      "severity": "warning",
+      "sourceHtmlPreview": "<section><h2>Our Story</h2><img src="https://cdn.test/team.jpg" alt=""/></section>",
+      "suggestedRepairClass": "recover_dropped_media",
+      "textCoverage": 1,
+    },
+  ],
+  "heroIsCover": false,
+  "php": "<?php
+/**
+ * Title: Lossy Fallback
+ * Slug: demo-replica/page-lossy-fallback
+ * Categories: featured
+ * Inserter: false
+ */
+?>
+<!-- wp:html {"metadata":{"name":"lib-coverage-island"}} -->
+<section><h2>Our Story</h2><img src="/wp-content/uploads/2026/06/team.jpg" alt=""/></section>
+<!-- /wp:html -->
+",
+  "provenanceFlags": [
+    "html-fallback#0: structured render dropped content (1 images missing, text 100%) — emitted verbatim core/html",
+  ],
+}
+`;
+
+exports[`external reconstruct harness re-adoption > preserves the frozen output surface for native text 1`] = `
+{
+  "body": "<!-- wp:group {"tagName":"section","align":"full","style":{"spacing":{"margin":{"top":"0","bottom":"0"},"padding":{"top":"var:preset|spacing|60","bottom":"var:preset|spacing|60","left":"var:preset|spacing|40","right":"var:preset|spacing|40"},"blockGap":"var:preset|spacing|40"}},"layout":{"type":"constrained","contentSize":"760px"}} -->
+<section class="wp-block-group alignfull" style="margin-top:0;margin-bottom:0;padding-top:var(--wp--preset--spacing--60);padding-right:var(--wp--preset--spacing--40);padding-bottom:var(--wp--preset--spacing--60);padding-left:var(--wp--preset--spacing--40)">
+<!-- wp:heading {"textAlign":"center","level":1,"fontFamily":"display","textColor":"text-default"} -->
+<h1 class="wp-block-heading has-text-align-center has-text-default-color has-text-color has-display-font-family">About the Studio</h1>
+<!-- /wp:heading -->
+<!-- wp:paragraph {"align":"center","textColor":"text-muted"} -->
+<p class="has-text-align-center has-text-muted-color has-text-color">We design quiet products for noisy rooms.</p>
+<!-- /wp:paragraph -->
+<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
+<div class="wp-block-buttons is-content-justification-center">
+<!-- wp:button {"backgroundColor":"accent-primary","textColor":"text-inverse"} -->
+<div class="wp-block-button"><a class="wp-block-button__link has-text-inverse-color has-accent-primary-background-color has-text-color has-background wp-element-button">Shop now</a></div>
+<!-- /wp:button -->
+</div>
+<!-- /wp:buttons -->
+</section>
+<!-- /wp:group -->
+",
+  "fallbackDiagnostics": [],
+  "heroIsCover": false,
+  "php": "<?php
+/**
+ * Title: Native Text
+ * Slug: demo-replica/page-native-text
+ * Categories: featured
+ * Inserter: false
+ */
+?>
+<!-- wp:group {"tagName":"section","align":"full","style":{"spacing":{"margin":{"top":"0","bottom":"0"},"padding":{"top":"var:preset|spacing|60","bottom":"var:preset|spacing|60","left":"var:preset|spacing|40","right":"var:preset|spacing|40"},"blockGap":"var:preset|spacing|40"}},"layout":{"type":"constrained","contentSize":"760px"}} -->
+<section class="wp-block-group alignfull" style="margin-top:0;margin-bottom:0;padding-top:var(--wp--preset--spacing--60);padding-right:var(--wp--preset--spacing--40);padding-bottom:var(--wp--preset--spacing--60);padding-left:var(--wp--preset--spacing--40)">
+<!-- wp:heading {"textAlign":"center","level":1,"fontFamily":"display","textColor":"text-default"} -->
+<h1 class="wp-block-heading has-text-align-center has-text-default-color has-text-color has-display-font-family">About the Studio</h1>
+<!-- /wp:heading -->
+<!-- wp:paragraph {"align":"center","textColor":"text-muted"} -->
+<p class="has-text-align-center has-text-muted-color has-text-color">We design quiet products for noisy rooms.</p>
+<!-- /wp:paragraph -->
+<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
+<div class="wp-block-buttons is-content-justification-center">
+<!-- wp:button {"backgroundColor":"accent-primary","textColor":"text-inverse"} -->
+<div class="wp-block-button"><a class="wp-block-button__link has-text-inverse-color has-accent-primary-background-color has-text-color has-background wp-element-button">Shop now</a></div>
+<!-- /wp:button -->
+</div>
+<!-- /wp:buttons -->
+</section>
+<!-- /wp:group -->
+",
+  "provenanceFlags": [],
+}
+`;

@@ -1,0 +1,87 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`new tool contracts > locks the agent-facing tool surface (update the snapshot deliberately) 1`] = `
+{
+  "liberate_cluster_pages": {
+    "description": "Cluster page signatures by exact layout signature; pick a representative per cluster.",
+    "inputSchema": {
+      "properties": {
+        "signatures": {
+          "description": "PageSignature[]",
+          "type": "array",
+        },
+      },
+      "required": [
+        "signatures",
+      ],
+      "type": "object",
+    },
+  },
+  "liberate_compose_instantiate": {
+    "description": "Deterministically fill a cluster layout skeleton with a page's content; flag misfits.",
+    "inputSchema": {
+      "properties": {
+        "pageContent": {
+          "type": "object",
+        },
+        "skeleton": {
+          "type": "object",
+        },
+      },
+      "required": [
+        "skeleton",
+        "pageContent",
+      ],
+      "type": "object",
+    },
+  },
+  "liberate_section_extract": {
+    "description": "Extract a page signature (off saved HTML) or full computed-style section specs (representatives).",
+    "inputSchema": {
+      "properties": {
+        "cdpPort": {
+          "description": "detail=full only: connect to an existing Chromium over CDP instead of launching",
+          "type": "number",
+        },
+        "detail": {
+          "enum": [
+            "signature",
+            "full",
+          ],
+          "type": "string",
+        },
+        "html": {
+          "type": "string",
+        },
+        "mediaMap": {
+          "description": "detail=full only: {sourceCdnUrl: uploadedWpUrl} rewrite map",
+          "type": "object",
+        },
+        "url": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "url",
+        "detail",
+      ],
+      "type": "object",
+    },
+  },
+  "liberate_validate_artifacts": {
+    "description": "Pre-install gate: drift + escaping/injection + provenance over generated patterns.",
+    "inputSchema": {
+      "properties": {
+        "patterns": {
+          "description": "ArtifactPattern[]",
+          "type": "array",
+        },
+      },
+      "required": [
+        "patterns",
+      ],
+      "type": "object",
+    },
+  },
+}
+`;

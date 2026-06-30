@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15 · Design Foundations</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part V — Advanced</span>
+  <span>Lesson 15 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 15 · Advanced capability</div>
+<h1>Design Foundations</h1>
+<p class="subtitle">Per-page screenshots capture how the site looks. The design foundation captures how the site's design <em>thinks</em> — the small set of semantic color, type, and spacing roles a coherent theme is built from. This is the bridge from raw measurement to a real <code>theme.json</code>.</p>
+
+<h2>From aggregates to roles</h2>
+<p>The capture stage already produces site-wide raw aggregates (Lesson 5):
+<code>palette.json</code> (dominant colors ranked by usage), <code>typography.json</code> (font
+metrics per selector), <code>breakpoints.json</code> (the union of media-query widths). Those
+are <em>observations</em>, not decisions. The design foundation turns them into
+<strong>semantic roles</strong>: which color is "primary," which is "surface," which type ramp
+is the heading scale, what the spacing rhythm is.</p>
+
+<div class="flow">
+  <div class="flow-stage"><span class="flow-badge">①</span><div class="flow-body"><strong><code>liberate_design_foundation_scaffold</code></strong> — build a partial foundation from the aggregates (the raw, un-interpreted starting point).</div></div>
+  <div class="flow-stage"><span class="flow-badge">②</span><div class="flow-body"><strong><code>data-liberation:design-foundations</code> skill</strong> — interpret the scaffold + aggregate HTML/CSS + representative rendered HTML into a complete, semantic foundation with evidence trails.</div></div>
+  <div class="flow-stage"><span class="flow-badge">③</span><div class="flow-body"><strong><code>liberate_design_foundation_validate</code> / <code>_save</code></strong> — check it against the schema, then persist.</div></div>
+</div>
+
+<h2>Why this is a judgment step, by design</h2>
+<p>Naming roles is exactly the kind of work that sits on the far side of the judgment seam
+(Lesson 7). "Which of these twelve observed colors is the brand primary?" is not a
+deterministic function of the palette — it needs a model looking at the rendered site. So the
+deterministic tools <em>scaffold</em> and <em>validate</em>; the <em>skill</em> does the
+interpretation. That division is the tool-vs-skill litmus test in action.</p>
+
+<div class="callout key">
+  <span class="label">Evidence trails</span>
+  The foundation doesn't just assert "primary = #7a1f1f"; it carries the <em>evidence</em> for
+  each role — where in the captured data that decision came from. This is the same
+  degrade-loudly / make-it-legible value you saw in the diagnostics (Lesson 12): a design
+  decision you can audit beats a magic number.
+</div>
+
+<h2>What consumes it</h2>
+<p>The foundation feeds theme generation — it's the input that lets the reconstructed site share
+one coherent <code>theme.json</code>-level design language instead of a thousand inline styles.
+Call it after liberation, before theme generation.</p>
+
+<div class="callout decision">
+  <span class="label">The architectural value</span>
+  This is what separates "a faithful copy of each page" from "a real, editable theme." Without
+  a foundation, every page carries its own ad-hoc styling. With one, the site has semantic
+  tokens an owner can retune globally — change "primary" once, the whole site follows. When you
+  prioritize fidelity work, remember: foundations are what make the result <em>maintainable</em>,
+  not just accurate.
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Why is building the design foundation split into deterministic tools plus a skill?</div>
+  <ul class="opts">
+    <li><button class="opt">Because the aggregates are too large to process in a single tool call</button></li>
+    <li><button class="opt">Because skills run faster than deterministic MCP tools on this data</button></li>
+    <li><button class="opt">Because naming semantic roles needs judgment, while scaffold/validate are deterministic</button></li>
+    <li><button class="opt">Because the schema can only be validated from inside a skill context</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — interpreting 'which color is primary' needs a model looking at the rendered site (judgment); scaffolding and schema-validation are deterministic. Classic tool-vs-skill split."
+    data-wrong="It's the judgment seam: role-naming needs a model (skill); scaffold + validate are deterministic (tools). Not about size, speed, or schema mechanics.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Name the three raw aggregates the foundation interprets, and state which steps are
+  deterministic tools vs the skill. Then say what the foundation makes possible that per-page
+  fidelity alone doesn't.
+  <details><summary>Check yourself</summary>
+  Aggregates: <code>palette.json</code>, <code>typography.json</code>, <code>breakpoints.json</code>.
+  Tools: scaffold + validate + save (deterministic); skill: the semantic interpretation.
+  Payoff: globally retunable semantic tokens → a maintainable theme, not just an accurate copy.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read <span class="path">src/lib/design-foundation/</span> (schema + renderer) and the
+  <code>data-liberation:design-foundations</code> skill, which documents the full
+  scaffold → interpret → validate flow and the schema.
+</div>
+
+<p class="ask">Want to walk a real palette/typography aggregate and turn it into roles together?
+That's the fastest way to feel the judgment step. Ask.</p>
+
+<div class="lesson-nav">
+  <a href="0014-forms-to-jetpack.html">← Lesson 14</a>
+  <a href="0016-variation-hoisting.html">Lesson 16: Variation hoisting &amp; the block-fixer →</a>
+</div>
+</div>
+</body>
+</html>

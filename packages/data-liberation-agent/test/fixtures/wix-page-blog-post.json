@@ -1,0 +1,13 @@
+{
+  "title": "Hello World",
+  "content": "<p>This is my first blog post on Wix.</p><p>It has multiple paragraphs and covers several topics.</p><h2>Section One</h2><p>Some detailed content here.</p>",
+  "excerpt": "My first blog post",
+  "date": "2026-01-15T10:00:00Z",
+  "categories": [],
+  "tags": [],
+  "seoTitle": "Hello World - Test Site",
+  "seoDescription": "My first blog post on this test site",
+  "mediaUrls": ["https://static.wixstatic.com/media/blog-hero.jpg", "https://static.wixstatic.com/media/inline-photo.png"],
+  "apiCallCount": 5,
+  "globalsFound": 2
+}

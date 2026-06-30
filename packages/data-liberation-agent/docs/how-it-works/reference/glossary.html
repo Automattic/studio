@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glossary · Data Liberation</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Glossary</span>
+  <span>Reference</span>
+</div>
+
+<div class="wide">
+<h1>Glossary</h1>
+<p class="subtitle">The canonical language for this course. Every lesson uses these terms — and so should you when you reason about the system out loud.</p>
+
+<h2>The shape of the system</h2>
+
+<p><strong>Data liberation</strong> — Extracting content and design out of a closed web
+platform (Wix, Shopify, Squarespace…) and producing something a self-hosted WordPress site
+can ingest. In this repo, the noun for the whole pipeline.
+<span class="small"><em>Avoid</em>: migration, scraping.</span></p>
+
+<p><strong>Extraction phase</strong> — The first half: turn a live URL into on-disk
+artifacts (<code>output.wxr</code>, <code>products.jsonl</code>, screenshots, design
+sidecars). Owned by <code>ImportSession</code> stages.
+<span class="small"><em>Avoid</em>: crawling, harvesting.</span></p>
+
+<p><strong>Reconstruction phase</strong> — The second half: turn those artifacts into a
+real, styled WordPress site (a block theme + imported content). Three paths exist.
+<span class="small"><em>Avoid</em>: rebuild, generation.</span></p>
+
+<p><strong>Adapter</strong> — A per-platform module under <code>src/adapters/&lt;platform&gt;/</code>
+exposing <code>detect</code> / <code>discover</code> / <code>extract</code>. The seam that
+lets one pipeline serve nine platforms.
+<span class="small"><em>Avoid</em>: plugin, driver, connector.</span></p>
+
+<p><strong>Resolve (an adapter)</strong> — Picking the adapter for a detected platform via
+<code>resolveAdapter</code>; <code>unknown</code> or unregistered platforms fall back to the
+<code>default</code> adapter. Detection and resolution are separate steps.</p>
+
+<h2>The three reconstruct paths</h2>
+
+<p><strong>Blocks path</strong> — Reconstruct each page into <em>native Gutenberg block
+markup</em> from its captured section specs. Most "WordPress-native," editable; tool =
+<code>liberate_reconstruct_pages</code>.
+<span class="small"><em>Avoid</em>: native path, block reconstruction (loosely).</span></p>
+
+<p><strong>Carry path</strong> — Carry sanitized source HTML + scoped CSS <em>verbatim</em>
+into <code>core/html</code> islands; highest pixel fidelity, least native; tool =
+<code>liberate_reconstruct_pages_carry</code>.
+<span class="small"><em>Avoid</em>: passthrough, clone.</span></p>
+
+<p><strong>Theme / local path</strong> — Convert an <em>owned local static-site directory</em>
+(no network extraction) into a live block theme; tool = <code>liberate_convert_local_site</code>.
+<span class="small"><em>Avoid</em>: just "local" without qualifier.</span></p>
+
+<h2>Capture & specs</h2>
+
+<p><strong>SectionSpec</strong> — A captured, computed-style description of one visual
+section of a page (with a CSS <code>selector</code> that re-locates it in the source DOM).
+The unit blocks-path reconstruction consumes. Cached in <code>sections/&lt;slug&gt;.json</code>.</p>
+
+<p><strong>Landmark census</strong> — The per-page tally of <code>main</code>/<code>nav</code>/<code>header</code>/<code>footer</code>
+captured in the same browser walk as the section specs; consumed by the region audit to
+catch dropped chrome.</p>
+
+<p><strong>Carried HTML / island</strong> — Source HTML wrapped in a <code>core/html</code>
+block. A <strong>coverage island</strong> is one the pipeline emitted as a fallback (marked
+<code>lib-coverage-island</code>). Islands convert to <strong>editable-html</strong>
+(<code>dla/editable-html</code>) by default — visible, styled, editable, byte-identical save.</p>
+
+<h2>Resume-state stores</h2>
+
+<p><strong>Resume-state file</strong> — A crash-safe, capture-once on-disk store that makes a
+stage idempotent. Five of them: <code>extraction-log.jsonl</code>, <code>session.json</code>,
+<code>media-stubs.json</code>, <code>products.jsonl</code>, <code>sections/&lt;slug&gt;.json</code>.</p>
+
+<p><strong>Faultpoint</strong> — An injectable crash marker used to test that resume-state
+recovers correctly mid-pipeline.</p>
+
+<h2>The agent-in-the-loop</h2>
+
+<p><strong>Watch loop</strong> — The default streaming run (<code>data-liberation &lt;url&gt;</code>):
+extract per-URL while a Studio preview boots, driven by <code>watch-runner.ts</code> through
+<code>WatchPhase</code> states.</p>
+
+<p><strong>Tick / judgment seam</strong> — The boundary where the deterministic
+<code>tick-scheduler</code> emits <code>judgmentNeeded[]</code> and hands reasoning to the
+agent/skill. The line between "code decides" and "model decides."</p>
+
+<h2>Output & quality</h2>
+
+<p><strong>WXR</strong> — WordPress eXtended RSS, the XML export format DLA produces (targets
+WXR 1.2). Built/appended by <code>WxrBuilder</code> into <code>output.wxr</code>.</p>
+
+<p><strong>Block-fixer</strong> — The canonicalization pass that runs reconstructed markup
+through <code>@wordpress/blocks</code> so it survives a save cycle. Reconstructed sizing must
+be expressed in terms it preserves.</p>
+
+<p><strong>Parity gate</strong> — A visual-comparison threshold (<code>PARITY_GATE_SCORE = 0.995</code>)
+that decides whether a rebuilt page matches the source closely enough.</p>
+
+<p><strong>Design foundation</strong> — A semantic JSON of color/typography/spacing roles
+distilled from the captured design sidecars (<code>palette.json</code>, <code>typography.json</code>,
+<code>breakpoints.json</code>), consumed by theme generation. Roles are <em>decisions</em>; the
+sidecars are <em>observations</em>.</p>
+
+<h2>Advanced capabilities</h2>
+
+<p><strong>Variation hoisting</strong> — Lifting recurring instance-style constellations (≥ 3
+exact site-wide matches) into reusable block-style variations at
+<code>styles/blocks/lib-*.json</code>, stripping the inline styling from instances. Fail-open;
+excludes <code>jetpack/*</code>.</p>
+
+<p><strong>ensurePlugin / module-activate</strong> — The conditional install dance: a capability
+(SVG, forms) triggers a one-time idempotent plugin ensure, and for Jetpack forms also
+<code>wp jetpack module activate contact-form</code> (unconnected installs start with all
+modules off).</p>
+
+<p><strong>Owned-source path</strong> — The local reconstruct path: an owned directory of
+HTML/CSS/JS converted to a block theme with no detection or network extraction, preserving the
+source DOM. See <em>Theme / local path</em> above. <code>data-model.json</code> turns JS-rendered
+data into real WordPress posts + query loops.</p>
+
+<p><strong>GraphQL product path</strong> — Shopify's privileged extraction (with an
+<code>adminToken</code>): Admin GraphQL API, resumable <code>endCursor</code>, idempotent
+<code>emittedHandles</code>, JSON-API fallback on any failure.</p>
+
+<div class="lesson-nav">
+  <a href="../index.html">← Course home</a>
+  <a href="determinism-map.html">Determinism map →</a>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5 · Capture &amp; the SectionSpec</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part II — Extraction</span>
+  <span>Lesson 5 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 05 · Extraction drill</div>
+<h1>Capture &amp; the SectionSpec</h1>
+<p class="subtitle">Screenshots are the obvious output of the capture stage. The <em>quiet</em> output — the <code>SectionSpec</code> — is the one that makes deterministic block reconstruction possible. This is where design becomes data.</p>
+
+<p>The <code>screenshotting</code> stage does more than take pictures. On the settled desktop
+page (1440×900) it runs <code>extractFull</code>, which returns
+<code>{ specs, landmarks }</code> and persists them.</p>
+
+<h2>What gets produced</h2>
+<table>
+  <thead><tr><th>Artifact</th><th>What it is</th></tr></thead>
+  <tbody>
+    <tr><td><code>screenshots/{desktop,mobile}/&lt;slug&gt;.png</code></td><td>Full-page + post-scroll captures.</td></tr>
+    <tr><td><code>html/&lt;slug&gt;.html</code></td><td>The rendered HTML cache.</td></tr>
+    <tr><td><code>screenshots/manifest.json</code></td><td>URL → files join (the only link back to content; nothing is injected into the WXR).</td></tr>
+    <tr><td><code>sections/&lt;slug&gt;.json</code></td><td>The <code>SectionSpec[]</code> + landmark census. <strong>The star of this lesson.</strong></td></tr>
+    <tr><td><code>palette / typography / breakpoints.json</code></td><td>Site-wide design tokens aggregated at run end.</td></tr>
+  </tbody>
+</table>
+
+<h2>The SectionSpec, precisely</h2>
+<p>A <strong>SectionSpec</strong> is a computed-style description of one visual section of a
+page, each carrying a compact CSS <code>selector</code> that re-locates it in the source DOM.
+Reconstruction reads these instead of re-running Playwright. The store is
+<span class="path">src/lib/replicate/section-specs-store.ts</span> (schema v9).</p>
+
+<div class="callout key">
+  <span class="label">Why a cache, and why it's special</span>
+  <code>sections/&lt;slug&gt;.json</code> is a <em>capture-once cache</em>, not shared run
+  state — so unlike the other resume files it needs no lockfile. Each file is independent,
+  written atomically (unique tmp + rename), keyed by <code>slugify(url)</code>, and
+  self-describing (records its <code>sourceUrl</code> + schema version). Reconstruction
+  falls back to a live extract only on a cache miss: absent, corrupt, schema drift, or a
+  slug collision (recorded <code>sourceUrl</code> ≠ requested).
+</div>
+
+<h2>The landmark census</h2>
+<p>The same browser walk that emits section selectors also emits a top-level
+<strong>landmark census</strong>: the tally of <code>main</code> / <code>nav</code> /
+<code>header</code> / <code>footer</code>. Because the selectors and the census come from
+<em>one</em> walk, the later region audit's "did this landmark survive?" join holds <em>by
+construction</em> — they can't disagree about what was on the page.</p>
+
+<div class="callout gotcha">
+  <span class="label">Schema-version discipline</span>
+  Bump <code>SECTION_SPECS_SCHEMA</code> whenever <code>SectionSpec</code>'s shape <em>or</em>
+  the persisted envelope (e.g. the census) changes — stale caches must invalidate instead of
+  silently degrading fidelity. A known failure mode: a schema bump paired with a weak live
+  re-capture can corrupt every spec on a run. The cache-miss path must walk the saved HTML
+  robustly, not half-re-extract.
+</div>
+
+<h2>One spec field worth knowing now: <code>fullBleed</code></h2>
+<p>Page layout <em>defers to the source</em>. A section carrying an image (foreground or
+background, height ≥ 100px) that spans ≥ 92% of the viewport is <code>fullBleed</code>. Any
+non-chrome full-bleed section pushes the page's <code>main</code> layout to full-width;
+otherwise it's constrained. This is independent of <code>heroIsCover</code> (which only
+controls the transparent overlay header). It's a clean example of the design philosophy:
+<em>measure the source, don't guess the layout</em>.</p>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does the section cache <em>not</em> need the extraction-log lockfile that the other state files use?</div>
+  <ul class="opts">
+    <li><button class="opt">Because it is written only once at the very end of the run</button></li>
+    <li><button class="opt">Because each per-URL file is independent and atomically written</button></li>
+    <li><button class="opt">Because reconstruction never reads it during an extraction run</button></li>
+    <li><button class="opt">Because it is stored outside the resolved output directory tree</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — it's a per-URL capture-once cache; each file is independent and written tmp+rename, so there's no shared-writer contention to guard."
+    data-wrong="It's not about timing or location. It needs no lockfile because each file is independent per-URL and written atomically — no shared single-writer state to protect.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  What two things does <code>extractFull</code> return, and why does pairing them in one
+  browser walk matter downstream?
+  <details><summary>Check yourself</summary>
+  <code>{ specs, landmarks }</code> — the <code>SectionSpec[]</code> and the landmark census.
+  One walk means the region audit's census↔section join is correct by construction; they
+  can't disagree about the page.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read <span class="path">src/lib/replicate/section-specs-store.ts</span> (the store +
+  schema), and find <code>extractFull</code> / <code>buildSelector</code> in
+  <span class="path">src/lib/replicate/</span> to see how browser-emitted
+  <code>SelectorParts</code> become a stable Node-side selector.
+</div>
+
+<p class="ask">The <code>selector</code>-building split (browser emits parts, Node builds the
+string) is subtle and load-bearing — ask me to unpack the <code>__name</code> gotcha behind it.</p>
+
+<div class="lesson-nav">
+  <a href="0004-the-adapter-pattern.html">← Lesson 4</a>
+  <a href="0006-resume-state-contract.html">Lesson 6: The resume-state contract →</a>
+</div>
+</div>
+</body>
+</html>

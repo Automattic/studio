@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8 · Blocks Reconstruction</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part III — Reconstruction</span>
+  <span>Lesson 8 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 08 · Reconstruction drill</div>
+<h1>Blocks Reconstruction</h1>
+<p class="subtitle">The blocks path turns captured section specs into native Gutenberg markup. Its real sophistication is in how it handles the sections it <em>can't</em> cleanly model — and how it tells you, in writing, every time it falls back.</p>
+
+<p>Tool: <code>liberate_reconstruct_pages</code> →
+<span class="path">src/mcp-server/handlers/reconstruct-pages.ts</span> →
+<span class="path">src/lib/replicate/{reconstruct-pages,page-reconstruct}.ts</span>. It reads
+the <code>SectionSpec[]</code> from the cache (Lesson 5) and emits a block document per page.</p>
+
+<h2>The fallback ladder</h2>
+<p>For each visual section the pipeline tries to produce clean native blocks. When it can't,
+it falls back to a <code>core/html</code> island — but the fallback is <em>gated</em> and
+<em>recorded</em>, never silent.</p>
+
+<div class="flow">
+  <div class="flow-stage"><span class="flow-badge">①</span><div class="flow-body"><strong>Adapter blocks recipe</strong> (if declared) — platform-specific content→blocks, per section and in bulk.</div></div>
+  <div class="flow-stage"><span class="flow-badge">②</span><div class="flow-body"><strong>Native block emit</strong> — structured render into core blocks (columns, headings, images, lists…).</div></div>
+  <div class="flow-stage"><span class="flow-badge">③</span><div class="flow-body"><strong>core/html coverage island</strong> — the fallback, when native coverage drops below floor. Marked <code>lib-coverage-island</code>.</div></div>
+  <div class="flow-stage"><span class="flow-badge">④</span><div class="flow-body"><strong>editable-html conversion</strong> — islands become <code>dla/editable-html</code> by default: visible, styled, editable, byte-identical save.</div></div>
+</div>
+
+<h2>It writes down why it fell back</h2>
+<p>This is the part to internalize. The blocks reconstruction emits three
+<strong>warning-level diagnostic artifacts</strong>, all keyed off the section
+<code>selector</code>, all atomic, all surfaced as tallies in the tool's result (they do
+<em>not</em> flip the run verdict):</p>
+
+<table>
+  <thead><tr><th>Artifact</th><th>Answers</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>fallback-diagnostics.json</code></td>
+      <td>"Why did this section become a <code>core/html</code> island?" One record per
+      coverage-gated island: <code>reasonCode</code> (<code>dropped_images</code> |
+      <code>text_coverage_below_floor</code>, media-first precedence),
+      <code>suggestedRepairClass</code>, dropped URLs, coverage, source/emitted previews.</td>
+    </tr>
+    <tr>
+      <td><code>region-audit.json</code></td>
+      <td>"Did every source landmark survive?" Reconciles the landmark census vs what was
+      placed. An actionable landmark mapping to nothing is <code>unassigned</code> — the
+      dropped-nav/footer signal.</td>
+    </tr>
+    <tr>
+      <td><code>asset-triage.json</code></td>
+      <td>Vision-classified decorative-asset verdicts (<code>keep</code>/<code>decoration</code>);
+      decorations are skipped as images pre-build.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout key">
+  <span class="label">The design principle here</span>
+  Fidelity loss is made <strong>legible</strong>. Instead of a black-box "best effort," every
+  fallback leaves a structured, selector-keyed record an agent can triage — what fell back,
+  why, and what repair class would fix it. This is what makes the blocks path safe to iterate
+  on: you can <em>see</em> the gaps.
+</div>
+
+<h2>The coverage island marker (a subtle gate)</h2>
+<p>Coverage islands carry a deterministic marker on the opening delimiter —
+<code>&lt;!-- wp:html {"metadata":{"name":"lib-coverage-island"}} --&gt;</code>. This lets the
+install-time <code>wp:html</code> ban accept <em>pipeline</em> islands on theme reinstall
+while still rejecting hand-authored Custom HTML. It's a <em>quality gate, not a security
+boundary</em> — the marker is recognizable, not unforgeable. Knowing that distinction keeps
+you from over-trusting it.</p>
+
+<div class="callout gotcha">
+  <span class="label">The coverage gate's blind spot</span>
+  The coverage gate measures text/image coverage — it is <em>blind to layout breakage</em>.
+  A section can pass coverage while its structure is mangled — coverage looks fine, layout is
+  wrong. This is why coverage alone can't gate aggressive native conversion on complex builder
+  sites. When you reason about quality here, remember coverage ≠ correctness.
+</div>
+
+<div class="quiz" data-answer="3">
+  <div class="q">A section becomes a <code>core/html</code> island. Where do you look to learn <em>why</em>?</div>
+  <ul class="opts">
+    <li><button class="opt"><code>region-audit.json</code> — it lists every dropped landmark</button></li>
+    <li><button class="opt"><code>comparison.json</code> — it scores each viewport's parity</button></li>
+    <li><button class="opt"><code>session.json</code> — it records the stage and any error</button></li>
+    <li><button class="opt"><code>fallback-diagnostics.json</code> — one record per gated island</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — fallback-diagnostics.json carries the reasonCode, dropped images, coverage, and a suggested repair class per island."
+    data-wrong="region-audit is about dropped landmarks; the per-island 'why did this fall back' record is fallback-diagnostics.json.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Name the three diagnostic artifacts and the one question each answers. Then state why the
+  coverage gate isn't enough on its own.
+  <details><summary>Check yourself</summary>
+  fallback-diagnostics (why this island), region-audit (did landmarks survive), asset-triage
+  (keep/decoration). Coverage measures text/image presence, not layout — it's blind to
+  structural breakage.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read <span class="path">src/lib/replicate/page-reconstruct.ts</span> for the per-section
+  emit + fallback, and <span class="path">…/fallback-diagnostic.ts</span> +
+  <span class="path">…/region-audit.ts</span> for the pure builders behind the artifacts.
+</div>
+
+<p class="ask">Want to walk a sample <code>fallback-diagnostics.json</code> and triage it
+together? Ask — it's the fastest way to make this concrete.</p>
+
+<div class="lesson-nav">
+  <a href="0007-the-tick-loop.html">← Lesson 7</a>
+  <a href="0009-the-carry-path.html">Lesson 9: The carry path →</a>
+</div>
+</div>
+</body>
+</html>

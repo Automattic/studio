@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4 · The Adapter Pattern</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part II — Extraction</span>
+  <span>Lesson 4 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 04 · Extraction drill</div>
+<h1>The Adapter Pattern</h1>
+<p class="subtitle">One pipeline serves nine platforms because every platform-specific quirk is quarantined behind a uniform three-method interface. This is the seam that keeps the core from rotting into a pile of <code>if (platform === …)</code>.</p>
+
+<p>An <strong>adapter</strong> is a directory under <code>src/adapters/&lt;platform&gt;/</code>
+whose <code>index.ts</code> assembles and exports a <code>PlatformAdapter</code>. The nine:</p>
+
+<pre><code>default  godaddy-wm  hostinger  hubspot  shopify
+squarespace  webflow  weebly  wix</code></pre>
+
+<p><code>webflow/</code> is the smallest reference; <code>shopify/</code> is the fullest
+split (<code>discover.ts</code>, <code>extract.ts</code>, <code>content.ts</code>,
+<code>media.ts</code>, <code>products.ts</code>…). <code>index.ts</code> stays a thin
+assembler.</p>
+
+<h2>The three methods every adapter exposes</h2>
+<div class="flow">
+  <div class="flow-stage">
+    <span class="flow-badge">①</span>
+    <div class="flow-body"><strong>detect</strong> — "is this site mine?" Domain patterns + HTTP
+    fingerprinting (headers + HTML markers). No path-based detection.</div>
+  </div>
+  <div class="flow-stage">
+    <span class="flow-badge">②</span>
+    <div class="flow-body"><strong>discover</strong> — find the URLs: sitemap, nav, URL inventory,
+    archetype counts.</div>
+  </div>
+  <div class="flow-stage">
+    <span class="flow-badge">③</span>
+    <div class="flow-body"><strong>extract</strong> — turn each URL into structured content +
+    products, feeding <code>WxrBuilder</code>, <code>MediaStubStore</code>, products stream.</div>
+  </div>
+</div>
+
+<h2>Detection and resolution are two different steps</h2>
+<p>This trips people up. <strong>Detection</strong> reports a platform id (possibly
+<code>unknown</code>). <strong>Resolution</strong> — <code>resolveAdapter</code> in
+<span class="path">src/adapters/resolve-adapter.ts</span> — maps that id to an actual
+adapter object:</p>
+
+<pre><code>exact id match  →  that adapter
+unknown / unregistered  →  the `default` adapter
+(null only if `default` itself is missing — unreachable in practice)</code></pre>
+
+<div class="callout key">
+  <span class="label">Why the fallback matters</span>
+  Because resolution always lands on <em>some</em> adapter, a "No adapter available"
+  error is unreachable. The <code>default</code> adapter is platform-agnostic:
+  Playwright-rendered HTML → cheerio main-content + media + JSON-LD products. Its own
+  <code>detect()</code> returns <code>false</code> — nothing <em>selects</em> it; it is only
+  ever reached by fallback. Three call sites share this seam (MCP server, the discover UI,
+  the inspect UI), so behavior can't drift between front doors.
+</div>
+
+<h2>The two opt-in seams an adapter can declare</h2>
+<p>Beyond the three methods, an adapter may declare two <em>optional</em> capabilities. Both
+are consumed by <em>later</em> pipeline stages, which stay adapter-agnostic — the handler
+that already resolved the adapter does the wiring. Types live in
+<span class="path">src/adapters/page-actions.ts</span>.</p>
+
+<table>
+  <thead><tr><th>Seam</th><th>Field</th><th>Fires where</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Capture</strong></td>
+      <td><code>capture?: AdapterCapture</code></td>
+      <td>In <code>screenshotter.ts</code>, <em>before</em> screenshots/HTML/specs are
+      captured. <code>removeSelectors[]</code> strips platform chrome (e.g. Shopify's
+      <code>#upCart</code>) so one removal cleans every artifact. Best-effort.</td>
+    </tr>
+    <tr>
+      <td><strong>Blocks</strong></td>
+      <td><code>blocks?: AdapterBlocks</code></td>
+      <td>Only on the blocks reconstruct path. A content→Gutenberg recipe applied per
+      section and in bulk over post bodies. The theme/carry path never invokes it.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout decision">
+  <span class="label">The architectural lesson</span>
+  Platform knowledge is <em>pushed to the edge</em> (the adapter) and the core stages stay
+  generic. When you're tempted to special-case a platform deep in a shared stage, the right
+  move is almost always a new adapter capability + a generic consumer — exactly how
+  <code>capture</code> and <code>blocks</code> are built. That keeps the blast radius of
+  platform quirks to one directory.
+</div>
+
+<div class="quiz" data-answer="3">
+  <div class="q">A site detects as <code>unknown</code>. What happens, and what does its content come from?</div>
+  <ul class="opts">
+    <li><button class="opt">Extraction aborts with a 'No adapter available' error message</button></li>
+    <li><button class="opt">The Wix adapter is tried as the nearest generic match</button></li>
+    <li><button class="opt">Detection retries with looser path-based heuristics enabled</button></li>
+    <li><button class="opt">resolveAdapter falls back to default: Playwright HTML to cheerio</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — resolveAdapter routes unknown to the default adapter, which renders with Playwright then extracts via cheerio + JSON-LD."
+    data-wrong="Resolution always lands on an adapter: unknown → default. The 'no adapter' error is unreachable, and there's no path-based detection.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Name the three adapter methods, the two optional seams, and the difference between
+  detection and resolution.
+  <details><summary>Check yourself</summary>
+  Methods: detect / discover / extract. Seams: <code>capture</code> (pre-screenshot chrome
+  removal) and <code>blocks</code> (blocks-path recipe). Detection = reports a platform id;
+  resolution = <code>resolveAdapter</code> maps id → adapter, with <code>default</code> as
+  fallback.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read <span class="path">src/adapters/webflow/index.ts</span> (smallest adapter) to see the
+  assembler shape, then <span class="path">src/adapters/resolve-adapter.ts</span> for the
+  fallback, then <span class="path">src/adapters/page-actions.ts</span> for the two seam types.
+</div>
+
+<p class="ask">Want to walk the Shopify adapter's GraphQL product path, or see exactly what a
+<code>capture</code> recipe strips? Ask.</p>
+
+<div class="lesson-nav">
+  <a href="0003-fork-in-the-road.html">← Lesson 3</a>
+  <a href="0005-capture-and-sectionspec.html">Lesson 5: Capture &amp; SectionSpec →</a>
+</div>
+</div>
+</body>
+</html>

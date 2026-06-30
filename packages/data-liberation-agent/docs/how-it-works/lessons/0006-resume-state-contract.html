@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>6 · The Resume-State Contract</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part II — Extraction</span>
+  <span>Lesson 6 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 06 · Extraction drill</div>
+<h1>The Resume-State Contract</h1>
+<p class="subtitle">Extraction is expensive and crashes happen. The system survives because five on-disk stores make every stage idempotent. Knowing exactly what each one <em>owns</em> is how you reason about "what happens if this dies halfway."</p>
+
+<p>Four files cooperate to make a run resumable, plus a fifth per-URL cache. The rule:
+<strong>never write to the shared four outside the extraction-log lockfile</strong>
+(<code>mcp-server.ts</code> and <code>ui/discover.tsx</code> bracket the whole pipeline).</p>
+
+<table>
+  <thead><tr><th>File</th><th>Owner</th><th>Owns</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>extraction-log.jsonl</code></td>
+      <td><code>ExtractionLog</code></td>
+      <td>Append-only per-URL dedupe. <strong>Source of truth for "did we process this URL."</strong></td>
+    </tr>
+    <tr>
+      <td><code>session.json</code></td>
+      <td><code>ImportSession</code></td>
+      <td>Stage, original opts, per-entity counts, adapter pagination cursors. Single-writer, atomic rename.</td>
+    </tr>
+    <tr>
+      <td><code>media-stubs.json</code></td>
+      <td><code>MediaStubStore</code></td>
+      <td>Per-asset status (<code>success</code>/<code>error</code>/<code>ignored</code>) + retry cap (default 3) + installed <code>wpPostId</code>.</td>
+    </tr>
+    <tr>
+      <td><code>products.jsonl</code></td>
+      <td>Woo CSV writer</td>
+      <td>Streaming Woo product output, one product per line. <code>openStream({resume:true})</code> appends.</td>
+    </tr>
+    <tr>
+      <td><code>sections/&lt;slug&gt;.json</code></td>
+      <td><code>SectionSpecsStore</code></td>
+      <td>Per-URL capture-once spec cache (Lesson 5). Independent files; <em>no</em> lockfile.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>The pattern behind all of them</h2>
+<p>Each store implements the same idea in its own way: <strong>write so that a crash leaves
+recoverable state, and a re-run skips what's already done.</strong></p>
+<ul>
+  <li><strong>Append-only</strong> (<code>extraction-log.jsonl</code>, <code>products.jsonl</code>)
+  — a partial line is the worst case; resume appends.</li>
+  <li><strong>Atomic rename</strong> (<code>session.json</code>, section files) — a write is
+  all-or-nothing; you never read a half-written file.</li>
+  <li><strong>Status + retry cap</strong> (<code>media-stubs.json</code>) — failures persist
+  immediately and are retried up to a cap, so a flaky CDN doesn't wedge the run.</li>
+</ul>
+
+<div class="callout key">
+  <span class="label">Corruption is never silent</span>
+  A corrupt <code>session.json</code> becomes <code>session.json.corrupt.&lt;ts&gt;</code> —
+  it is preserved, never deleted. This is a recurring value in the codebase: degrade loudly,
+  keep the evidence. The same instinct shows up in the diagnostics artifacts (Lesson 12).
+</div>
+
+<h2>How a stage uses it</h2>
+<p>Adapters call <code>ImportSession.loadOrCreate(outputDir, id, opts, { resume })</code> and
+pass the session into <code>runExtractionLoop</code> via <code>ExtractionLoopOpts.session</code>.
+The shared loop updates stage + per-entity counts automatically. So an adapter author mostly
+gets resumability for free — they emit content; the loop and the stores handle the
+bookkeeping.</p>
+
+<div class="callout decision">
+  <span class="label">Why this is an architecture-grade concern</span>
+  When you evaluate a change to extraction, the question "what does this do to resume?" is
+  load-bearing. A change that writes shared state outside the lockfile, or that makes a store
+  non-idempotent, can corrupt long runs in ways tests rarely catch. The <code>faultpoint</code>
+  crash-harness exists precisely to inject crashes and prove recovery — reach for it when a
+  change touches these stores.
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">Which file is the authoritative answer to "have we already processed this URL?"</div>
+  <ul class="opts">
+    <li><button class="opt"><code>session.json</code> — it holds the per-entity counts</button></li>
+    <li><button class="opt"><code>media-stubs.json</code> — it tracks every fetched asset</button></li>
+    <li><button class="opt"><code>extraction-log.jsonl</code> — append-only per-URL dedupe</button></li>
+    <li><button class="opt"><code>sections/&lt;slug&gt;.json</code> — keyed by the URL slug</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — ExtractionLog's append-only log is the source of truth for URL-level dedupe and resume."
+    data-wrong="session.json tracks stage/counts; the per-URL 'did we do this' source of truth is extraction-log.jsonl.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  List the five stores and one word for what each owns. Then name the three crash-safety
+  techniques and which store uses each.
+  <details><summary>Check yourself</summary>
+  extraction-log (URL-dedupe), session (stage/opts/cursors), media-stubs (asset-status),
+  products (product-stream), sections (spec-cache). Techniques: append-only (log, products);
+  atomic rename (session, sections); status+retry cap (media-stubs).
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read the headers of <span class="path">src/lib/resume-state/extraction-log.ts</span>,
+  <span class="path">…/import-session.ts</span>, and <span class="path">…/media-stubs.ts</span>.
+  Then look at <span class="path">…/faultpoint.ts</span> to see how crashes are injected for
+  testing.
+</div>
+
+<p class="ask">Want me to walk a concrete "crash during downloading-media, then resume"
+trace through all five files? Ask.</p>
+
+<div class="lesson-nav">
+  <a href="0005-capture-and-sectionspec.html">← Lesson 5</a>
+  <a href="0007-the-tick-loop.html">Lesson 7: The tick loop &amp; judgment seam →</a>
+</div>
+</div>
+</body>
+</html>

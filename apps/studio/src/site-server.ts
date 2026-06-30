@@ -2,9 +2,9 @@ import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
-import { siteListSchema, type SiteListItem } from '@studio/common/lib/cli-events';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
+import { listSites } from '@studio/common/sites/list';
 import fsExtra from 'fs-extra';
 import { parse } from 'shell-quote';
 import { z } from 'zod';
@@ -137,33 +137,11 @@ export class SiteServer {
 		return deletedServers.includes( id );
 	}
 
-	private static siteListKeyValueSchema = z.object( {
-		action: z.literal( 'keyValuePair' ),
-		key: z.literal( 'sites' ),
-		value: z
-			.string()
-			.transform( ( val ) => JSON.parse( val ) )
-			.pipe( siteListSchema ),
-	} );
-
 	static async fetchAll(): Promise< void > {
 		try {
-			const sites = await new Promise< SiteListItem[] >( ( resolve, reject ) => {
-				const [ emitter ] = executeCliCommand( [ 'site', 'list', '--format', 'json' ], {
-					output: 'capture',
-				} );
-
-				emitter.on( 'data', ( { data } ) => {
-					const parsed = SiteServer.siteListKeyValueSchema.safeParse( data );
-					if ( parsed.success ) {
-						resolve( parsed.data.value );
-					}
-				} );
-
-				emitter.on( 'success', () => resolve( [] ) );
-				emitter.on( 'failure', ( { error } ) => reject( error ) );
-				emitter.on( 'error', ( { error } ) => reject( error ) );
-			} );
+			// Same shared site-listing the `studio ui` server uses; it forks the CLI
+			// through the desktop's `executeCliCommand` so existing mocks still apply.
+			const sites = await listSites( executeCliCommand );
 
 			for ( const site of sites ) {
 				if ( ! SiteServer.get( site.id ) ) {

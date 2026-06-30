@@ -13,9 +13,11 @@ Unreleased
 * Improved performance and packaging: faster packaging builds, smaller installers, a higher PHP memory limit, and a cap on simultaneously running sites #3785, #3943, #3936, #3887
 * Fixed dark mode across Studio Code dialogs, the site preview panel, and theming, and allowed conversation text to be selected and copied #3844, #3779, #3871, #3836
 * Fixed a startup crash on Node.js 22, surfaced PHP errors when a site fails to start, resolved slow .local DNS on macOS, preserved in-progress messages in Studio Code, and restored the recorded model when resuming a session by id #3885, #3813, #3912, #3824, #3819
-* Fixed Microsoft Store package validation and a tooltip delay in the Studio UI #3849, #3942
-* Clarified Sync, quit-sites, and What's New copy, and refreshed Studio Code model availability and token messaging #3929, #3924, #3946, #3831, #3827, #3828, #3837
+* Fixed tooltip delay so tooltips do not pop up instantly when moving the cursor #3942
+* Clarified Sync and quit-sites messaging, and fixed What's New modal copy #3929, #3837, #3924, #3946
+* Updated Studio Code model availability and token limit messaging #3827, #3828, #3831
 * Updated multiple dependencies, including WP Playground, PHP-WASM, bundled PHP binaries, the SQLite database integration, and Reprint
+* Misc maintenance #3849
 
 1.11.0
 =====

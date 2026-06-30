@@ -183,9 +183,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async comparePaths() {
 			throw new WebUnsupportedError( 'comparePaths' );
 		},
-		async getAllCustomDomains(): Promise< string[] > {
-			return [];
-		},
 
 		// Featured blueprints — public endpoint, same source as the desktop app.
 		async getFeaturedBlueprints( locale ): Promise< FeaturedBlueprint[] > {

@@ -82,7 +82,9 @@ function ensureBuildToolchain( stagingRoot: string ) {
 
 function hasBundledServerFiles( repoRoot: string ): boolean {
 	// Marker paths for artifacts produced by download-wp-server-files.ts,
-	// download-available-site-translations.mjs, and download-agent-skills.ts.
+	// download-available-site-translations.mjs, download-agent-skills.ts, and
+	// prepare-data-liberation.ts. The packaging install uses `--ignore-scripts`,
+	// so these don't run via the root postinstall and must be triggered here.
 	const requiredPaths = [
 		'wp-files/latest/wordpress/wp-includes/version.php',
 		'wp-files/latest/available-site-translations.json',
@@ -92,6 +94,7 @@ function hasBundledServerFiles( repoRoot: string ): boolean {
 		'wp-files/phpmyadmin/index.php',
 		'wp-files/reprint/reprint.phar',
 		'wp-files/skills/wp-plugin-development/SKILL.md',
+		'packages/data-liberation-agent/dist/mcp-server.js',
 	];
 
 	return requiredPaths.every( ( requiredPath ) =>
@@ -108,6 +111,9 @@ function ensureBundledServerFiles( stagingRoot: string ) {
 	runOrFail( 'npx', [ 'tsx', './scripts/download-wp-server-files.ts' ], stagingRoot );
 	runOrFail( 'node', [ './scripts/download-available-site-translations.mjs' ], stagingRoot );
 	runOrFail( 'npx', [ 'tsx', './scripts/download-agent-skills.ts' ], stagingRoot );
+	// Builds the Data Liberation engine into packages/data-liberation-agent (self-gates
+	// if already present); write-dist-extras then bundles it into dist/cli.
+	runOrFail( 'npx', [ 'tsx', './scripts/prepare-data-liberation.ts' ], stagingRoot );
 }
 
 function shouldCopyToStaging( sourcePath: string ): boolean {

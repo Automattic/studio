@@ -5,9 +5,7 @@
 	--user-menu-leading-offset: calc(
 		var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)
 	);
-	--user-menu-trailing-offset: calc(
-		var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-xs)
-	);
+	--user-menu-trailing-offset: var(--wpds-dimension-padding-lg);
 	--user-menu-row-background-hover: var(--sidebar-row-background-hover);
 	--user-menu-row-background-active: var(--sidebar-row-background-active);
 
@@ -26,19 +24,6 @@
 .userName,
 .sidebarToggle,
 .settingsButton {
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.sidebarToggle {
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
-}
-
-.row:hover .userName,
-.row:hover .sidebarToggle,
-.row:hover .settingsButton,
-.row:focus-within .userName,
-.row:focus-within .sidebarToggle,
-.row:focus-within .settingsButton {
 	color: var(--wpds-color-fg-content-neutral);
 }
 
@@ -54,10 +39,6 @@
 	padding-block: var(--wpds-dimension-padding-xs);
 	padding-inline-start: calc(var(--wpds-dimension-padding-sm) - var(--user-menu-avatar-offset));
 	border-radius: 6px;
-}
-
-.userTrigger:is(:hover, :focus-visible) {
-	background-color: var(--user-menu-row-background-hover) !important;
 }
 
 .userTriggerActive {

@@ -1,11 +1,8 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { chevronDownSmall } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
-import * as Menu from '@/components/menu';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
@@ -17,6 +14,7 @@ import { type Annotation, type PreviewConsoleTextFile } from '@/components/site-
 import { useConnector } from '@/data/core';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import {
+	useCreateSession,
 	useSession,
 	useSessionEffectiveEnvironment,
 	useSessions,
@@ -31,53 +29,21 @@ import {
 	useSessionPreviewScreenshot,
 } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { formatRelativeTime } from '@/lib/format-relative-time';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
+import {
+	getSiteSessionHistory,
+	SessionChatActions,
+	SessionChatActionsSkeleton,
+} from './session-chat-actions';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
-}
-
-function getSessionTimestamp( session: AiSessionSummary ): number {
-	return Date.parse( session.updatedAt ) || 0;
-}
-
-function getSessionLabel( session: AiSessionSummary ): string {
-	return session.firstPrompt?.trim() || __( 'Untitled chat' );
-}
-
-function getSiteChatHistory(
-	sessions: AiSessionSummary[] | undefined,
-	currentSummary: AiSessionSummary | undefined,
-	ownerSitePath: string | undefined
-): AiSessionSummary[] {
-	if ( ! ownerSitePath ) {
-		return [];
-	}
-
-	const sessionsById = new Map< string, AiSessionSummary >();
-	for ( const session of sessions ?? [] ) {
-		if ( session.ownerSitePath === ownerSitePath && ! session.archived ) {
-			sessionsById.set( session.id, session );
-		}
-	}
-	if (
-		currentSummary &&
-		currentSummary.ownerSitePath === ownerSitePath &&
-		! currentSummary.archived
-	) {
-		sessionsById.set( currentSummary.id, currentSummary );
-	}
-
-	return [ ...sessionsById.values() ].sort(
-		( a, b ) => getSessionTimestamp( b ) - getSessionTimestamp( a )
-	);
 }
 
 function SessionHeader( { summary }: SessionHeaderProps ) {
@@ -119,7 +85,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
-	composerFooter?: ReactNode;
+	footer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
@@ -127,17 +93,10 @@ interface SessionFrameProps {
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( {
-	header,
-	composer,
-	composerFooter,
-	scrollRef,
-	children,
-}: SessionFrameProps ) {
+function SessionFrame( { header, composer, footer, scrollRef, children }: SessionFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
-	const sidebarCollapsed = useSidebarCollapsed();
 
 	useLayoutEffect( () => {
 		const root = rootRef.current;
@@ -175,7 +134,11 @@ function SessionFrame( {
 	}, [] );
 
 	return (
-		<div ref={ rootRef } className={ styles.root }>
+		<div
+			ref={ rootRef }
+			className={ clsx( styles.root, footer && styles.rootWithFooter ) }
+			data-classic-session-view
+		>
 			<div ref={ headerRef } className={ styles.headerLayer }>
 				{ header }
 			</div>
@@ -189,15 +152,8 @@ function SessionFrame( {
 				className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
 			>
 				{ composer }
-				<div
-					className={ clsx(
-						styles.classicComposerFooter,
-						sidebarCollapsed && styles.classicComposerFooterSidebarCollapsed
-					) }
-				>
-					{ composerFooter }
-				</div>
 			</div>
+			{ footer ? <div className={ styles.panelFooterControls }>{ footer }</div> : null }
 		</div>
 	);
 }
@@ -214,8 +170,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const { data, isLoading, error } = useSession( sessionId );
-	const { data: sessions } = useSessions();
 	const { data: sites } = useSites();
+	const { data: sessions } = useSessions();
+	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
 	const ownerSitePath = data?.summary.ownerSitePath;
 	const ownerSite = ownerSitePath
 		? sites?.find( ( candidate ) => candidate.path === ownerSitePath )
@@ -238,10 +195,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const currentModel = useMemo(
 		() => resolveSessionModel( data?.entries ?? [] ),
 		[ data?.entries ]
-	);
-	const siteChatHistory = useMemo(
-		() => getSiteChatHistory( sessions, data?.summary, ownerSitePath ),
-		[ data?.summary, ownerSitePath, sessions ]
 	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
@@ -272,6 +225,17 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			} );
 		},
 		[ canTogglePreview, previewConsoleEntries, sendMessage ]
+	);
+	const siteSessionHistory = useMemo(
+		() =>
+			data
+				? getSiteSessionHistory( {
+						currentSession: data.summary,
+						ownerSitePath: ownerSite?.path,
+						sessions,
+				  } )
+				: [],
+		[ data, ownerSite?.path, sessions ]
 	);
 
 	const handleAnnotationsDone = useCallback(
@@ -323,6 +287,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	useSessionPreviewScreenshot( handleScreenshotDone, canTogglePreview );
 	useSessionPreviewConsoleFile( handleConsoleFileDone, canTogglePreview );
 
+	const switchSession = useCallback(
+		( nextSessionId: string ) =>
+			void navigate( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: nextSessionId },
+			} ),
+		[ navigate ]
+	);
 	const reopenQueuedPrompt = useCallback(
 		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {
 			removeQueuedPrompt( queuedPrompt.id );
@@ -333,25 +305,18 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ removeQueuedPrompt ]
 	);
-	const startNewChat = useCallback( () => {
+	const startNewChat = useCallback( async () => {
 		if ( ! ownerSite ) {
 			return;
 		}
-
-		void navigate( {
-			to: '/sites/$siteId/new',
-			params: { siteId: ownerSite.id },
-		} );
-	}, [ navigate, ownerSite ] );
-	const openChat = useCallback(
-		( nextSessionId: string ) => {
-			void navigate( {
-				to: '/sessions/$sessionId',
-				params: { sessionId: nextSessionId },
-			} );
-		},
-		[ navigate ]
-	);
+		try {
+			const summary = await createSession( ownerSite.id );
+			switchSession( summary.id );
+		} catch {
+			// The mutation owns the error state; avoid an unhandled rejection
+			// from this command button if session creation fails.
+		}
+	}, [ createSession, ownerSite, switchSession ] );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -378,6 +343,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						<ComposerSkeleton />
 					</div>
 				}
+				footer={ <SessionChatActionsSkeleton /> }
 			>
 				<EmptyBackground />
 			</SessionFrame>
@@ -397,72 +363,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		<SessionFrame
 			scrollRef={ scrollRef }
 			header={ <SessionHeader summary={ data.summary } /> }
-			composerFooter={
-				<>
-					<div className={ styles.classicComposerFooterSide }>
-						{ ownerSite ? (
-							<Button
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								className={ styles.classicComposerTextButton }
-								onClick={ startNewChat }
-							>
-								{ __( 'New chat' ) }
-							</Button>
-						) : null }
-					</div>
-					<div className={ styles.classicComposerFooterSide }>
-						<Menu.Root modal={ false }>
-							<Menu.Trigger
-								render={
-									<Button
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										className={ clsx(
-											styles.classicComposerTextButton,
-											styles.classicComposerHistoryButton
-										) }
-									>
-										<span>{ __( 'Chat history' ) }</span>
-										<Icon icon={ chevronDownSmall } size={ 16 } />
-									</Button>
-								}
-							/>
-							<Menu.Popup side="top" align="end" className={ styles.classicComposerHistoryMenu }>
-								{ siteChatHistory.length > 0 ? (
-									siteChatHistory.map( ( session ) => {
-										const isCurrent = session.id === sessionId;
-										return (
-											<Menu.Item
-												key={ session.id }
-												className={ styles.classicComposerHistoryItem }
-												aria-current={ isCurrent ? 'page' : undefined }
-												data-current={ isCurrent ? 'true' : undefined }
-												onClick={ () => openChat( session.id ) }
-											>
-												<span className={ styles.classicComposerHistoryTitle }>
-													{ getSessionLabel( session ) }
-												</span>
-												<span className={ styles.classicComposerHistoryMeta }>
-													{ isCurrent
-														? __( 'Current chat' )
-														: formatRelativeTime( session.updatedAt ) }
-												</span>
-											</Menu.Item>
-										);
-									} )
-								) : (
-									<div className={ styles.classicComposerHistoryEmpty }>
-										{ __( 'No chats yet.' ) }
-									</div>
-								) }
-							</Menu.Popup>
-						</Menu.Root>
-					</div>
-				</>
-			}
 			composer={
 				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
 					<QueuedPrompts
@@ -481,9 +381,20 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						sessionId={ sessionId }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
-						onSwitchSession={ openChat }
+						onSwitchSession={ switchSession }
 					/>
 				</div>
+			}
+			footer={
+				ownerSite ? (
+					<SessionChatActions
+						currentSessionId={ sessionId }
+						isCreatingSession={ isCreatingSession }
+						onNewChat={ () => void startNewChat() }
+						onSwitchSession={ switchSession }
+						sessions={ siteSessionHistory }
+					/>
+				) : null
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }

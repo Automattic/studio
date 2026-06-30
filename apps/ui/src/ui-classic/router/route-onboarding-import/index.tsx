@@ -56,7 +56,7 @@ function OnboardingImportPage() {
 	const connector = useConnector();
 	const activeStep: Step = step === 'configure' ? 'configure' : 'select';
 
-	const { data: existingDomainNames } = useExistingCustomDomains();
+	const existingDomainNames = useExistingCustomDomains();
 	const createSite = useCreateSite();
 	const importSite = useImportSite();
 
@@ -200,7 +200,7 @@ function OnboardingImportPage() {
 			</p>
 			<CreateSiteForm
 				initialValues={ initialValues }
-				existingDomainNames={ existingDomainNames ?? [] }
+				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ isSubmitting }

@@ -36,19 +36,6 @@
 	width: 100%;
 }
 
-.embeddedTitleBlock {
-	width: 100%;
-	padding: 0;
-}
-
-.embeddedTitleBlock h1 {
-	margin: 0;
-	font-size: var(--wpds-typography-font-size-lg);
-	line-height: var(--wpds-typography-line-height-lg);
-	font-weight: var(--wpds-typography-font-weight-medium);
-	color: var(--wpds-color-fg-content-neutral);
-}
-
 /* Full-width bar so the border-bottom spans the entire main area. The inner
    wrapper centers the tablist over the same 760px column the form uses.
    The shared `Tabs` component expects this 1px neutral baseline and lines its
@@ -61,20 +48,10 @@
 	margin-top: var(--wpds-dimension-padding-xl);
 }
 
-.embeddedTabsBar {
-	width: 100%;
-	margin-top: var(--wpds-dimension-padding-lg);
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-}
-
 .tabsBarInner {
 	max-width: 760px;
 	margin: 0 auto;
 	padding: 0 var(--wpds-dimension-padding-xl);
-}
-
-.embeddedTabsBarInner {
-	padding: 0;
 }
 
 /* Only the form content scrolls. The tabs and title sit above this container
@@ -91,10 +68,6 @@
 	margin: 0 auto;
 	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--wpds-dimension-padding-xl)
 		var(--wpds-dimension-padding-2xl);
-}
-
-.embeddedContentBlock {
-	padding-top: var(--wpds-dimension-padding-xl);
 }
 
 .form {

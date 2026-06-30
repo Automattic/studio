@@ -23,7 +23,9 @@ e2e_config: &e2e_config
     setup: { platform: [], arch: [] }
     adjustments:
       - with: { platform: mac, arch: arm64 }
-      - with: { platform: windows, arch: x64 }
+      # Windows E2E temporarily disabled while AINFRA-2588 investigates Windows E2E hangs in Buildkite.
+      # See https://linear.app/a8c/issue/AINFRA-2588/investigate-studio-windows-e2e-hangs-in-buildkite
+      # - with: { platform: windows, arch: x64 }
   notify:
     - github_commit_status:
         context: E2E Tests
@@ -83,44 +85,42 @@ steps:
           - github_commit_status:
               context: Unit Tests
 
-  # Temporarily disabled while AINFRA-2588 investigates Windows E2E hangs in Buildkite.
-  # See https://linear.app/a8c/issue/AINFRA-2588/investigate-studio-windows-e2e-hangs-in-buildkite
-  # - group: E2E Tests
-  #   key: e2e-tests
-  #   steps:
-  #     # E2E tests run on supported platform/architecture combinations.
-  #     # - mac-arm64: Native on Apple Silicon agents
-  #     # - windows-x64: Native on x64 agents
-  #     - <<: *e2e_config
-  #       label: E2E Tests on {{matrix.platform}}-{{matrix.arch}}
-  #       key: e2e_tests
-  #       # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
-  #
-  #     # Linux E2E tests run on the shared `default` queue inside a Debian Node
-  #     # container — the same pattern the Linux build/unit-test steps use. Kept as
-  #     # a separate step (rather than another matrix entry on *e2e_config) because
-  #     # Mac and Windows share queue/plugin defaults that Linux doesn't.
-  #     - label: E2E Tests on linux-x64
-  #       key: e2e_tests_linux
-  #       command: bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
-  #       agents:
-  #         queue: default
-  #       plugins:
-  #         - $DOCKER_PLUGIN:
-  #             image: "$NODE_DOCKER_IMAGE"
-  #             propagate-environment: true
-  #             mount-buildkite-agent: true
-  #       artifact_paths:
-  #         - test-results/**/*.zip
-  #         - test-results/**/*.png
-  #         - test-results/**/*error-context.md
-  #         - test-results/daemon-logs/**/*.log
-  #       env:
-  #         DEBUG: "pw:browser"
-  #       # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
-  #       notify:
-  #         - github_commit_status:
-  #             context: E2E Tests
+  - group: E2E Tests
+    key: e2e-tests
+    steps:
+      # E2E tests run on supported platform/architecture combinations.
+      # - mac-arm64: Native on Apple Silicon agents
+      # - windows-x64: Native on x64 agents
+      - <<: *e2e_config
+        label: E2E Tests on {{matrix.platform}}-{{matrix.arch}}
+        key: e2e_tests
+        # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
+
+      # Linux E2E tests run on the shared `default` queue inside a Debian Node
+      # container — the same pattern the Linux build/unit-test steps use. Kept as
+      # a separate step (rather than another matrix entry on *e2e_config) because
+      # Mac and Windows share queue/plugin defaults that Linux doesn't.
+      - label: E2E Tests on linux-x64
+        key: e2e_tests_linux
+        command: bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
+        agents:
+          queue: default
+        plugins:
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
+        artifact_paths:
+          - test-results/**/*.zip
+          - test-results/**/*.png
+          - test-results/**/*error-context.md
+          - test-results/daemon-logs/**/*.log
+        env:
+          DEBUG: "pw:browser"
+        # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
+        notify:
+          - github_commit_status:
+              context: E2E Tests
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics

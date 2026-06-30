@@ -109,13 +109,6 @@ export interface LocalServer {
 
 const DEFAULT_PORT = 8081;
 
-// Hostname used in the browser-facing URL the `studio ui` command opens — the
-// public origin, distinct from the loopback address the server binds to. A
-// `*.localhost` name keeps a secure context (so clipboard/crypto keep working,
-// unlike a bare `.local` host over HTTP) and resolves to loopback automatically
-// on macOS and in Chromium/Firefox.
-const PUBLIC_HOSTNAME = 'studio.localhost';
-
 // Served at <origin>/auth/callback — the OAuth redirect target for the browser
 // login flow. WordPress.com lands here with the token in the URL fragment
 // (implicit grant), which never reaches the server, so this page reads it
@@ -296,17 +289,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// Origin (same-origin navigations, the served SPA's same-origin fetches, curl,
 	// SSE) pass through; a present-but-disallowed Origin is rejected outright.
 	const allowedOrigins = new Set( [
-		// The friendly *.localhost host the `studio ui` command opens by default.
-		`http://${ PUBLIC_HOSTNAME }:${ port }`,
-		// localhost/127.0.0.1 still work as a fallback (e.g. Safari, which may not
-		// resolve *.localhost without a hosts entry).
 		`http://localhost:${ port }`,
 		`http://127.0.0.1:${ port }`,
 		// Vite dev server for `npm run dev:local --workspace=apps/ui`.
-		`http://${ PUBLIC_HOSTNAME }:5400`,
 		'http://localhost:5400',
 		'http://127.0.0.1:5400',
-		// The studio.local custom-domain (HTTPS) setup.
+		// The studio.local custom-domain setup.
 		'https://studio.local',
 	] );
 	app.use( ( req: Request, res: Response, next ) => {
@@ -1245,7 +1233,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		const listening = app.listen( port, host, () => resolve( listening ) );
 	} );
 
-	const url = `http://${ PUBLIC_HOSTNAME }:${ port }`;
+	const url = `http://localhost:${ port }`;
 
 	return {
 		url,

@@ -70,6 +70,10 @@ Two coordinated pieces, in two repositories.
 
 ## Piece 1 — wpcom endpoint: `GET wpcom/v2/plans/pricing`
 
+> **Authoritative spec:** `2026-06-30-plans-pricing-endpoint-design.md` (standalone,
+> built in the `Automattic/wpcom` repo). The summary below is for context; defer to
+> that spec for the endpoint contract.
+
 - Added to the existing `WPCOM_REST_API_V2_Endpoint_Plans` controller
   (`wp-content/rest-api-plugins/endpoints/plans.php`), alongside `/plans/mobile`.
 - **Public**, no authentication (so both Studio modes can reach it). Accepts

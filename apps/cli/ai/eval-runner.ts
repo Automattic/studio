@@ -13,19 +13,112 @@ import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import {
+	addConnectedWpcomSite,
+	removeConnectedWpcomSite,
+} from '@studio/common/lib/connected-sites';
+import { snapshotSchema } from '@studio/common/types/snapshot';
+import { syncSiteSchema, type SyncSite } from '@studio/common/types/sync';
+import { z } from 'zod';
+import {
 	resolveAiEnvironment,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
+import {
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	unlockCliConfig,
+} from 'cli/lib/cli-config/core';
+import { deleteSnapshotFromConfig } from 'cli/lib/cli-config/snapshots';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
+
+// Optional fixtures a test can pre-seed before the agent turn, so flows that
+// depend on connected remote sites and/or preview sites can be exercised
+// deterministically and offline (no real WordPress.com connection/preview).
+const evalSeedSchema = z.object( {
+	localSite: z
+		.object( {
+			id: z.string(),
+			name: z.string(),
+			path: z.string(),
+			port: z.number().default( 8881 ),
+			url: z.string().optional(),
+			phpVersion: z.string().default( '8.2' ),
+		} )
+		.optional(),
+	connectedWpcomSites: z.array( syncSiteSchema ).optional(),
+	snapshots: z.array( snapshotSchema ).optional(),
+} );
+type EvalSeed = z.infer< typeof evalSeedSchema >;
 
 interface EvalRunnerInput {
 	prompt: string;
 	timeoutMs?: number;
 	model?: AiModelId;
+	seed?: EvalSeed;
+}
+
+/**
+ * Writes the requested fixtures into cli.json (local site + snapshots) and
+ * shared.json (connected WordPress.com sites). Returns a cleanup function that
+ * removes exactly what was added, so reruns start from a clean slate.
+ */
+async function seedFixtures( seed: EvalSeed ): Promise< () => Promise< void > > {
+	const { localSite, connectedWpcomSites = [], snapshots = [] } = seed;
+
+	if ( localSite || snapshots.length > 0 ) {
+		try {
+			await lockCliConfig();
+			const config = await readCliConfig();
+			if ( localSite && ! config.sites.some( ( s ) => s.id === localSite.id ) ) {
+				config.sites.push( {
+					id: localSite.id,
+					name: localSite.name,
+					path: localSite.path,
+					port: localSite.port,
+					url: localSite.url ?? `http://localhost:${ localSite.port }`,
+					phpVersion: localSite.phpVersion,
+				} );
+			}
+			for ( const snapshot of snapshots ) {
+				config.snapshots.push( snapshot );
+			}
+			await saveCliConfig( config );
+		} finally {
+			await unlockCliConfig();
+		}
+	}
+
+	const seededConnections: SyncSite[] = [];
+	for ( const site of connectedWpcomSites ) {
+		await addConnectedWpcomSite( site.localSiteId, site );
+		seededConnections.push( site );
+	}
+
+	return async () => {
+		for ( const site of seededConnections ) {
+			await removeConnectedWpcomSite( site.localSiteId, site.id ).catch( () => undefined );
+		}
+		for ( const snapshot of snapshots ) {
+			await deleteSnapshotFromConfig( snapshot.url ).catch( () => undefined );
+		}
+		if ( localSite ) {
+			try {
+				await lockCliConfig();
+				const config = await readCliConfig();
+				config.sites = config.sites.filter( ( s ) => s.id !== localSite.id );
+				await saveCliConfig( config );
+			} catch {
+				// best-effort cleanup
+			} finally {
+				await unlockCliConfig();
+			}
+		}
+	};
 }
 
 function extractToolCalls( event: AgentSessionEvent ) {
@@ -119,10 +212,16 @@ function readInput(): EvalRunnerInput {
 	const rawModel = varModel || envModel;
 	const model = rawModel && isAiModelId( rawModel ) ? rawModel : undefined;
 
+	let seed: EvalSeed | undefined;
+	if ( vars.seed ) {
+		seed = evalSeedSchema.parse( vars.seed );
+	}
+
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
 		model,
+		seed,
 	};
 }
 
@@ -172,6 +271,11 @@ async function runEval( input: EvalRunnerInput ) {
 	let success = false;
 	let error: string | null = null;
 	let timedOut = false;
+
+	let cleanupSeed: ( () => Promise< void > ) | null = null;
+	if ( input.seed ) {
+		cleanupSeed = await seedFixtures( input.seed );
+	}
 
 	phaseStartedAt = Date.now();
 	const sessionDirEnv = process.env.STUDIO_EVAL_SESSION_DIR?.trim();
@@ -271,6 +375,9 @@ async function runEval( input: EvalRunnerInput ) {
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
+		if ( cleanupSeed ) {
+			await cleanupSeed().catch( () => undefined );
+		}
 	}
 	phaseTimingsMs.total_eval_ms = elapsed();
 

@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { validateBlocks } from 'cli/ai/block-validator';
@@ -25,6 +26,7 @@ import {
 	resolveStudioToolDefinitions,
 	studioToolDefinitions,
 } from '../tools';
+import { enrichPreviewListOutput } from '../tools/list-previews';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -103,6 +105,10 @@ vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
 
 vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
 	isServerRunning: vi.fn(),
+} ) );
+
+vi.mock( '@studio/common/lib/connected-sites', () => ( {
+	getConnectedWpcomSitesForLocalSite: vi.fn(),
 } ) );
 
 describe( 'Studio AI MCP tools', () => {
@@ -790,14 +796,80 @@ describe( 'Studio AI MCP tools', () => {
 	} );
 
 	it( 'lists previews as JSON for a resolved local site', async () => {
-		vi.mocked( runListPreviewCommand ).mockImplementation( async () => {
-			console.log( '[{"url":"https://demo.wordpress.com"}]' );
-		} );
+		vi.mocked( runListPreviewCommand ).mockResolvedValue( undefined );
 
 		const result = await getTool( 'preview_list' ).rawHandler( { nameOrPath: 'My Site' } as never );
 
 		expect( runListPreviewCommand ).toHaveBeenCalledWith( '/sites/my-site', 'json' );
-		expect( getTextContent( result ) ).toBe( '[{"url":"https://demo.wordpress.com"}]' );
+		// No snapshots emitted by the command -> the tool reports an empty list.
+		expect( JSON.parse( getTextContent( result ) ?? 'null' ) ).toEqual( [] );
+	} );
+
+	it( 'enrichPreviewListOutput tags each preview with type "preview" and an expiry flag', () => {
+		const dayMs = 24 * 60 * 60 * 1000;
+		const futureDate = Date.now() + 3 * dayMs;
+		const enriched = JSON.parse(
+			enrichPreviewListOutput(
+				JSON.stringify( [
+					{
+						url: 'demo-studio.wp.build',
+						atomicSiteId: 12345,
+						localSiteId: 'site-123',
+						date: futureDate,
+						name: 'My Site',
+					},
+				] )
+			)
+		);
+		expect( enriched ).toEqual( [
+			{
+				type: 'preview',
+				name: 'My Site',
+				url: 'https://demo-studio.wp.build',
+				atomicSiteId: 12345,
+				localSiteId: 'site-123',
+				date: futureDate,
+				isExpired: false,
+			},
+		] );
+	} );
+
+	it( 'tags connected remote sites with type "wpcom-remote"', async () => {
+		vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [
+			{
+				id: 111,
+				localSiteId: 'site-123',
+				name: 'My Production Site',
+				url: 'https://myprod.wordpress.com',
+				isStaging: false,
+				isPressable: false,
+				environmentType: 'production',
+				syncSupport: 'already-connected',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
+			},
+		] );
+
+		const result = await getTool( 'site_connected_remote_sites' ).rawHandler( {
+			nameOrPath: 'My Site',
+		} as never );
+
+		expect( getConnectedWpcomSitesForLocalSite ).toHaveBeenCalledWith( 'site-123' );
+		const parsed = JSON.parse( getTextContent( result ) ?? '[]' );
+		expect( parsed ).toEqual( [
+			{
+				type: 'wpcom-remote',
+				id: 111,
+				name: 'My Production Site',
+				url: 'https://myprod.wordpress.com',
+				isStaging: false,
+				isPressable: false,
+				environmentType: 'production',
+				syncSupport: 'already-connected',
+				lastPushTimestamp: null,
+				lastPullTimestamp: null,
+			},
+		] );
 	} );
 
 	it( 'updates previews with a normalized hostname', async () => {

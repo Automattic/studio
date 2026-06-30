@@ -141,10 +141,10 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_start: Start a stopped site
 - site_stop: Stop a running site
 - site_delete: Delete a site from Studio and optionally move its files to trash
-- preview_create: Create a hosted WordPress.com preview for a local site; this can take a few minutes, so tell the user to wait
-- preview_list: List hosted WordPress.com previews for a local site
-- preview_update: Update an existing hosted WordPress.com preview from a local site; this can take a few minutes, so tell the user to wait
-- preview_delete: Delete a hosted WordPress.com preview by hostname
+- preview_create: Create a preview site (a temporary, expiring hosted preview) for a local site; when a local site is selected, preview that site instead of creating a new local site; requires WordPress.com authentication and can take a few minutes, so tell the user to wait
+- preview_list: List preview sites (temporary, expiring hosted previews) for a local site. These are NOT connected WordPress.com remote sites.
+- preview_update: Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait
+- preview_delete: Delete a preview site by hostname
 - wp_cli: Run WP-CLI commands on a running site
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Block themes only.
 - validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.
@@ -152,7 +152,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.
 - need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 - rank_me_up: Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.
-- site_connected_remote_sites: List the WordPress.com sites already attached to a local site. Call this before site_push to decide how to ask the user which remote site to target.
+- site_connected_remote_sites: List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.
 - site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
 - site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress) into a local site.
@@ -169,6 +169,15 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
 - All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).
+
+## Database
+
+Studio sites use **SQLite**, not MySQL. The database file is at \`<site-path>/wp-content/database/.ht.sqlite\`. Key implications:
+
+- \`wp db query\` and other \`wp db\` subcommands do **not** work — they expect a MySQL connection that does not exist.
+- Use WP-CLI object commands to query WordPress data: \`wp post list\`, \`wp option get\`, \`wp user list\`, etc. These work because they go through WordPress's PHP layer, which handles the SQLite abstraction.
+- **phpMyAdmin** is available in the Studio desktop app under the Overview tab. Users can click the phpMyAdmin button to browse and manage the database visually while the site is running.
+- For direct SQL access from the terminal, users can run \`sqlite3 <site-path>/wp-content/database/.ht.sqlite\` (\`sqlite3\` is pre-installed on macOS). Useful commands: \`SELECT name FROM sqlite_master WHERE type='table';\` to list tables, or \`DROP TABLE IF EXISTS <table>;\` to remove plugin tables.
 
 ## Pull & Push (sync with WordPress.com or Pressable)
 

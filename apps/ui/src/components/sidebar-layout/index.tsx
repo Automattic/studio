@@ -1,11 +1,12 @@
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
+import { useConnector } from '@/data/core';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
@@ -16,15 +17,21 @@ import type { CSSProperties, ReactNode } from 'react';
 
 export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const [ collapsed, setCollapsed ] = useState( false );
+	const connector = useConnector();
 	const isFullscreen = useFullscreen();
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
+	const toggleSidebar = useCallback( () => {
+		setCollapsed( ( value ) => ! value );
+	}, [] );
 	const sidebarStyle = collapsed
 		? undefined
 		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
+
+	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 
 	return (
 		<SidebarCollapsedContext.Provider value={ collapsed }>
@@ -37,7 +44,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					) }
 					style={ sidebarStyle }
 				>
-					<SidebarHeader onToggleSidebar={ () => setCollapsed( true ) } />
+					<SidebarHeader onToggleSidebar={ toggleSidebar } />
 					<SiteList />
 					<div className={ styles.sidebarFooter }>
 						<UserMenu />
@@ -69,7 +76,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 								size="small"
 								icon={ drawerIcon }
 								label={ __( 'Show sidebar' ) }
-								onClick={ () => setCollapsed( false ) }
+								onClick={ toggleSidebar }
 							/>
 						</div>
 					) : null }

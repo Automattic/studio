@@ -26,6 +26,6 @@ jobs:
           fetch-depth: 0
 
       - name: Run Claude
-        uses: anthropics/claude-code-action@51705da45eecce209d4700538bf8377d5b5fc695 # v1.0.152
+        uses: anthropics/claude-code-action@521136812280ae7ef256e06045655b9da02793f0 # v1.0.158
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -336,7 +336,7 @@ export async function runCommand(
 		try {
 			await connectToDaemon();
 
-			// A running server sees file/DB changes live, but not restored admin credentials.
+			// First pulls restart an already-running server; re-pulls can update one in place.
 			const runningProcess = await isProcessRunning( getProcessName( site.id ) );
 
 			if ( ! isRepull && wasRunning ) {
@@ -350,25 +350,11 @@ export async function runCommand(
 					await updateSiteLatestCliPid( site.id, processDesc.pid );
 				}
 			} else {
-				// On a re-pull, the site's server is often already running.
-				// The synced files and database are picked up live (PHP
-				// opens them per request), so there's nothing to restart —
-				// but db-apply rebuilt the database from the remote dump,
-				// wiping the local admin user and the studio_admin_username
-				// option that /studio-auto-login depends on.  A server start
-				// re-applies the credentials; when we skip the restart we
-				// must re-apply them over the running site's admin API.
-				// A connection failure means the daemon's view is stale and
-				// the server is actually down, so fall through to a start
-				// (which re-applies the credentials itself).
 				const credentialsResult = runningProcess
 					? await reapplyAdminCredentials( site )
 					: 'unreachable';
 				if ( runningProcess && credentialsResult !== 'unreachable' ) {
 					logger.reportSuccess( __( 'WordPress server already running' ) );
-					// Mirror the start branch (and `studio site start`'s
-					// already-running path): refresh latestCliPid so
-					// running-status checks match the live process.
 					if ( runningProcess.status === 'online' ) {
 						await updateSiteLatestCliPid( site.id, runningProcess.pid );
 					}
@@ -390,9 +376,6 @@ export async function runCommand(
 			await disconnectFromDaemon();
 		}
 
-		// Fetch the wp-content entries the essential-files pass skipped, if
-		// any remain. Keyed off observable state (`hasSkippedFiles`), not a
-		// stage cursor, so it runs exactly when there's a tail outstanding.
 		if ( hasSkippedFiles( studioMetadata.stateDirectory ) ) {
 			await downloadSkippedFiles( getSiteRuntime( site ), studioMetadata, apiUrl, secret, verbose );
 		}
@@ -519,10 +502,8 @@ async function runPreflight(
 
 /**
  * Reprint refuses to resume a files sync with a different --filter than
- * the one stored in its state. A completed Studio pull may leave that
- * state on the post-pull skipped-earlier pass; mark that pass complete
- * and restore the filter expected by the next essential-files pull
- * without deleting the cursor/index files reprint needs for deltas.
+ * the one stored in its state, so reset only the filter metadata and
+ * preserve the cursor/index files reprint needs for deltas.
  */
 function normalizeReprintStateForEssentialFilesPull( stateDirectory: string ): void {
 	const reprintState = readReprintState( stateDirectory );
@@ -544,10 +525,6 @@ function normalizeReprintStateForEssentialFilesPull( stateDirectory: string ): v
 	}
 }
 
-/**
- * The `~/.studio/pulls/<siteId>` scratch root for a site's pull. Keyed
- * by `siteId` (not a URL hash) so it follows the site, not the remote.
- */
 function getPullTechnicalDirectory( siteId: string ): string {
 	return path.join( PULLS_ROOT, siteId );
 }
@@ -697,9 +674,6 @@ export function findMatchingWpComSite< T extends { url: string } >(
 	} );
 }
 
-/**
- * Resolves the remote source; the local target site is resolved separately by `--path`.
- */
 export async function resolveSourceSite(
 	site: SiteData,
 	url?: string,
@@ -841,9 +815,6 @@ function buildFilesSyncArgs(
 	];
 }
 
-/**
- * Read-modify-write a single site record in `cli.json` under the config lock.
- */
 async function updateSiteRecord(
 	siteId: string,
 	apply: ( record: SiteData ) => void

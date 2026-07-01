@@ -3,7 +3,6 @@ name: Check for new PHP CLI versions
 on:
   schedule:
     - cron: '0 9 * * 1'
-  workflow_dispatch:
 
 permissions:
   actions: write
@@ -18,8 +17,9 @@ jobs:
     name: Check supported PHP versions
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      php_versions: ${{ steps.check-versions.outputs.php_versions }}
     env:
-      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout Studio
@@ -31,4 +31,28 @@ jobs:
           node-version-file: '.nvmrc'
 
       - name: Check for new PHP patch versions
+        id: check-versions
         run: node scripts/check-php-cli-versions.mjs
+
+  dispatch:
+    name: Dispatch PHP ${{ matrix.php_version }} build
+    needs: check
+    if: needs.check.outputs.php_versions != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        php_version: ${{ fromJSON(needs.check.outputs.php_versions) }}
+    env:
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      GH_TOKEN: ${{ github.token }}
+      PHP_VERSION: ${{ matrix.php_version }}
+    steps:
+      - name: Dispatch PHP build
+        run: >-
+          gh workflow run build-php-cli-binaries.yml
+          --repo "$GITHUB_REPOSITORY"
+          --ref "$DEFAULT_BRANCH"
+          --field "php_version=$PHP_VERSION"
+          --field "apps_cdn_visibility=external"

@@ -5,8 +5,6 @@ import { pathToFileURL } from 'node:url';
 import phpBinaryCdnMetadata from '../tools/common/lib/php-binary-cdn-metadata.mjs';
 
 const PHP_UPSTREAM_REPOSITORY = 'php/php-src';
-const BUILD_WORKFLOW = 'build-php-cli-binaries.yml';
-const APPS_CDN_VISIBILITY = 'external';
 
 function parsePatchVersion( version ) {
 	const match = version.match( /^(\d+)\.(\d+)\.(\d+)$/ );
@@ -84,27 +82,9 @@ async function findLatestPatchVersion( phpMinor ) {
 	return latestVersion;
 }
 
-async function dispatchBuild( phpVersion ) {
-	const repository = process.env.GITHUB_REPOSITORY;
-	const defaultBranch = process.env.DEFAULT_BRANCH;
-	if ( ! repository || ! defaultBranch ) {
-		throw new Error( 'GITHUB_REPOSITORY and DEFAULT_BRANCH are required.' );
-	}
-
-	await githubRequest( `/repos/${ repository }/actions/workflows/${ BUILD_WORKFLOW }/dispatches`, {
-		method: 'POST',
-		body: {
-			ref: defaultBranch,
-			inputs: {
-				php_version: phpVersion,
-				apps_cdn_visibility: APPS_CDN_VISIBILITY,
-			},
-		},
-	} );
-}
-
 async function main() {
 	const results = [];
+	const phpVersionsToBuild = [];
 
 	for ( const [ phpMinor, { version: currentVersion } ] of Object.entries(
 		phpBinaryCdnMetadata.versions
@@ -113,12 +93,18 @@ async function main() {
 		let result = 'Up to date';
 
 		if ( comparePatchVersions( latestVersion, currentVersion ) > 0 ) {
-			console.log( `Dispatching a build for PHP ${ latestVersion }.` );
-			await dispatchBuild( latestVersion );
-			result = 'Build dispatched';
+			phpVersionsToBuild.push( latestVersion );
+			result = 'Build required';
 		}
 
 		results.push( { phpMinor, currentVersion, latestVersion, result } );
+	}
+
+	const phpVersionsOutput = JSON.stringify( phpVersionsToBuild );
+	if ( process.env.GITHUB_OUTPUT ) {
+		await fs.appendFile( process.env.GITHUB_OUTPUT, `php_versions=${ phpVersionsOutput }\n` );
+	} else {
+		console.log( `PHP versions requiring builds: ${ phpVersionsOutput }` );
 	}
 
 	const summary = [

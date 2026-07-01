@@ -1012,7 +1012,7 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		void loadSiteIcon( event, id );
 	}
 
-	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
+	// Keep managed instruction files (STUDIO.md) up-to-date
 	void updateManagedInstructionFiles(
 		server.details.path,
 		getAiInstructionsPath(),

@@ -11,7 +11,8 @@
     "declaration": true,
     "jsx": "react-jsx",
     "noEmitOnError": true,
-    "incremental": true
+    "incremental": true,
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules", "dist", "test", "scripts"]

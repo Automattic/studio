@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import semver from 'semver';
@@ -41,6 +42,9 @@ const dataLiberationSourcePath = resolve(
 	'packages',
 	'data-liberation-agent'
 );
+const repoRoot = resolve( __dirname, '..', '..' );
+// Marker for the compiled engine — self-gates the workspace build below.
+const dataLiberationDistMarker = resolve( dataLiberationSourcePath, 'dist', 'mcp-server.js' );
 
 export const baseConfig = defineConfig( {
 	oxc: {
@@ -50,6 +54,15 @@ export const baseConfig = defineConfig( {
 		{
 			name: 'write-dist-extras',
 			apply: 'build',
+			buildStart() {
+				// The engine (packages/data-liberation-agent) is a committed workspace; compile
+				// its dist/ before writeBundle copies it into the CLI chunks. Self-gates on the
+				// compiled marker so repeat builds and watch rebuilds stay fast — delete the
+				// engine's dist/ to force a rebuild.
+				if ( existsSync( dataLiberationSourcePath ) && ! existsSync( dataLiberationDistMarker ) ) {
+					execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
+				}
+			},
 			writeBundle( options ) {
 				const outDir = options.dir ?? resolve( __dirname, 'dist/cli' );
 				mkdirSync( outDir, { recursive: true } );

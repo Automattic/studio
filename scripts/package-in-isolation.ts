@@ -82,8 +82,8 @@ function ensureBuildToolchain( stagingRoot: string ) {
 
 function hasBundledServerFiles( repoRoot: string ): boolean {
 	// Marker paths for artifacts produced by download-wp-server-files.ts,
-	// download-available-site-translations.mjs, download-agent-skills.ts, and
-	// prepare-data-liberation.ts. The packaging install uses `--ignore-scripts`,
+	// download-available-site-translations.mjs, download-agent-skills.ts, and the
+	// data-liberation workspace build. The packaging install uses `--ignore-scripts`,
 	// so these don't run via the root postinstall and must be triggered here.
 	const requiredPaths = [
 		'wp-files/latest/wordpress/wp-includes/version.php',
@@ -111,9 +111,10 @@ function ensureBundledServerFiles( stagingRoot: string ) {
 	runOrFail( 'npx', [ 'tsx', './scripts/download-wp-server-files.ts' ], stagingRoot );
 	runOrFail( 'node', [ './scripts/download-available-site-translations.mjs' ], stagingRoot );
 	runOrFail( 'npx', [ 'tsx', './scripts/download-agent-skills.ts' ], stagingRoot );
-	// Builds the Data Liberation engine into packages/data-liberation-agent (self-gates
-	// if already present); write-dist-extras then bundles it into dist/cli.
-	runOrFail( 'npx', [ 'tsx', './scripts/prepare-data-liberation.ts' ], stagingRoot );
+	// Compile the committed Data Liberation engine workspace; the CLI build's
+	// write-dist-extras plugin then bundles its dist/ into dist/cli. Runs after
+	// ensureBuildToolchain's `npm ci`, so the engine's deps are already installed.
+	runOrFail( 'npm', [ '-w', 'data-liberation', 'run', 'build' ], stagingRoot );
 }
 
 function shouldCopyToStaging( sourcePath: string ): boolean {

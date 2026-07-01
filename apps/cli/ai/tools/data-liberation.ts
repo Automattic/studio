@@ -69,42 +69,6 @@ interface DataLiberationResultContent {
 	[ key: string ]: unknown;
 }
 
-// The model sometimes fills `args` with a JSON-encoded STRING instead of a real
-// object. Forwarding that as MCP `arguments` fails the SDK's request schema
-// (`arguments` must be a record) with "expected record, invalid_type". Coerce
-// to a plain object here so either form works.
-function coerceArgs( raw: unknown ): Record< string, unknown > {
-	if ( raw === undefined || raw === null ) {
-		return {};
-	}
-	if ( typeof raw === 'string' ) {
-		const trimmed = raw.trim();
-		if ( ! trimmed ) {
-			return {};
-		}
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse( trimmed );
-		} catch {
-			throw new Error(
-				`data_liberation: \`args\` was a string that is not valid JSON. Pass \`args\` as an object, e.g. { "url": "https://example.com" }. Received: ${ trimmed.slice(
-					0,
-					200
-				) }`
-			);
-		}
-		raw = parsed;
-	}
-	if ( typeof raw !== 'object' || Array.isArray( raw ) ) {
-		throw new Error(
-			`data_liberation: \`args\` must be a JSON object, received ${
-				Array.isArray( raw ) ? 'an array' : typeof raw
-			}.`
-		);
-	}
-	return raw as Record< string, unknown >;
-}
-
 export const dataLiberationTool = defineTool(
 	'data_liberation',
 	'Bridge to the Data Liberation engine, which extracts content from closed web platforms ' +
@@ -151,7 +115,7 @@ export const dataLiberationTool = defineTool(
 
 		const result = await client.callTool( {
 			name: args.tool,
-			arguments: coerceArgs( args.args ),
+			arguments: args.args as Record< string, unknown >,
 		} );
 
 		const rawContent = Array.isArray( result.content )

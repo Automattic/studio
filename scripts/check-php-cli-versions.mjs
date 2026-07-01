@@ -5,6 +5,8 @@ import { pathToFileURL } from 'node:url';
 import phpBinaryCdnMetadata from '../packages/common/lib/php-binary-cdn-metadata.mjs';
 
 const PHP_UPSTREAM_REPOSITORY = 'php/php-src';
+const PHP_CDN_BASE_URL = 'https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli';
+const PHP_CDN_PLATFORMS = [ 'mac-silicon', 'mac-intel', 'windows-x64', 'linux-x64', 'linux-arm64' ];
 
 function parsePatchVersion( version ) {
 	const match = version.match( /^(\d+)\.(\d+)\.(\d+)$/ );
@@ -82,6 +84,36 @@ async function findLatestPatchVersion( phpMinor ) {
 	return latestVersion;
 }
 
+// The PHP binary version may exist on the CDN, but not in the metadata, if a
+// previous GitHub Actions run built the same version, but the resulting PR
+// hasn't yet been merged.
+export async function phpVersionExistsOnCdn( phpVersion, fetchImplementation = fetch ) {
+	const checks = await Promise.all(
+		PHP_CDN_PLATFORMS.map( async ( platform ) => {
+			const url = `${ PHP_CDN_BASE_URL }/${ platform }/${ phpVersion }/full-install`;
+			const response = await fetchImplementation( url, {
+				method: 'HEAD',
+				redirect: 'manual',
+			} );
+
+			if ( response.status === 404 ) {
+				return false;
+			}
+
+			if ( response.status < 200 || response.status >= 400 ) {
+				throw new Error(
+					`Apps CDN check failed for ${ platform } PHP ${ phpVersion }: ` +
+						`${ response.status } ${ response.statusText }`
+				);
+			}
+
+			return true;
+		} )
+	);
+
+	return checks.every( Boolean );
+}
+
 async function main() {
 	const results = [];
 	const phpVersionsToBuild = [];
@@ -93,8 +125,12 @@ async function main() {
 		let result = 'Up to date';
 
 		if ( comparePatchVersions( latestVersion, currentVersion ) > 0 ) {
-			phpVersionsToBuild.push( latestVersion );
-			result = 'Build required';
+			if ( await phpVersionExistsOnCdn( latestVersion ) ) {
+				result = 'Already available on CDN';
+			} else {
+				phpVersionsToBuild.push( latestVersion );
+				result = 'Build required';
+			}
 		}
 
 		results.push( { phpMinor, currentVersion, latestVersion, result } );

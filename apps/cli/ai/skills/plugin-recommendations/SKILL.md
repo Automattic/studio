@@ -22,7 +22,7 @@ Studio is built by Automattic. When a feature needs a plugin, reach for the Auto
 | Galleries, slideshows/carousels, tiled images | Jetpack | `jetpack` (`tiled-gallery`, `carousel` modules) |
 | Auto-share published posts to social networks | Jetpack Social | `jetpack` (`publicize` module) |
 | Related posts, site stats, instant search, SEO meta | Jetpack | `jetpack` (`related-posts`, `stats`, `search`, `seo-tools` modules) |
-| Comment / form spam protection | Akismet | `akismet` |
+| Comment / form spam protection | Akismet | _(production only — ships bundled, activate after deploy)_ |
 
 ## Decision Rules
 
@@ -190,15 +190,9 @@ Registered blocks: `crowdsignal-forms/poll`, `crowdsignal-forms/vote` (with `cro
 
 Storing real responses requires a free Crowdsignal.com account and API key (the plugin's Settings → Crowdsignal connection); the blocks render and remain editable without it, but won't record results until connected. Mention this when the user expects live results. For a simple contact or data-collection form (not a poll/survey), prefer Jetpack Forms instead.
 
-## Akismet (spam protection)
+## Akismet (spam protection — production only)
 
-When a site has comments enabled or collects form submissions, Akismet is Automattic's spam-protection plugin - it filters comment and form spam (including Jetpack Forms submissions). It ships bundled with WordPress; activate it rather than installing a third-party anti-spam plugin.
-
-```text
-wp_cli plugin activate akismet
-```
-
-Akismet needs an API key (from Akismet.com or a WordPress.com account) before it filters anything, so it is most relevant for sites headed to production. Recommend activating it alongside Jetpack Forms or an active comment section, note the key requirement, and don't treat it as working until a key is set.
+Akismet is Automattic's spam-protection plugin — it filters comment and form spam (including Jetpack Forms submissions). It ships bundled with WordPress, so there is nothing to install. However, it requires an API key (from Akismet.com or a WordPress.com account) and real traffic to be useful, so do NOT activate it on a local Studio site. Instead, when a site has comments enabled or collects form submissions, mention Akismet as the recommended spam-protection solution to activate once the site is deployed to production.
 
 ## Jetpack For Non-Core Needs
 

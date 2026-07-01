@@ -320,10 +320,7 @@ test.describe( 'Sites', () => {
 		await expect( adoptedSite.siteNameHeading ).toHaveText( 'MySQL WP Site', { timeout: 120_000 } );
 		await expect( adoptedSite.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		// The custom connection constants are preserved. Note Studio deliberately
-		// normalizes DB_NAME to 'wordpress' because its SQLite driver requires a
-		// non-empty DB_NAME at runtime (see apps/cli/lib/run-wp-cli-command.ts), so
-		// we assert on the connection identity rather than DB_NAME.
+		// The custom connection constants are preserved after adoption.
 		const finalConfig = await fs.readFile( wpConfigPath, 'utf-8' );
 		expect( finalConfig ).toContain( "define( 'DB_USER', 'wp_user' );" );
 		expect( finalConfig ).toContain( "define( 'DB_PASSWORD', 'super-secret-pw' );" );

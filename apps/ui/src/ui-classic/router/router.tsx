@@ -39,7 +39,14 @@ export function createAppRouter( context: RouterContext ) {
 		routeTree,
 		context,
 		defaultPreload: 'intent',
-		defaultViewTransition: true,
+		// Only animate navigations within the site-creation onboarding flow.
+		// Returning false skips document.startViewTransition entirely for every
+		// other navigation (e.g. switching sites/sessions), so the rest of the
+		// app navigates instantly instead of running the root fade/slide.
+		defaultViewTransition: {
+			types: ( { toLocation } ) =>
+				toLocation.pathname.startsWith( '/onboarding' ) ? [ 'onboarding' ] : false,
+		},
 		history: createPackagedRouterHistory(),
 	} );
 }

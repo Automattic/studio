@@ -115,6 +115,26 @@ function ensureBundledServerFiles( stagingRoot: string ) {
 	// write-dist-extras plugin then bundles its dist/ into dist/cli. Runs after
 	// ensureBuildToolchain's `npm ci`, so the engine's deps are already installed.
 	runOrFail( 'npm', [ '-w', 'data-liberation', 'run', 'build' ], stagingRoot );
+	// The engine is spawned standalone from `dist/cli/data-liberation-agent`, so it needs a
+	// self-contained production `node_modules` (workspace hoisting otherwise keeps its runtime
+	// deps at the repo root, which the packaged app won't have). Mirror apps/cli's install:bundle
+	// inside the engine dir. `--ignore-scripts` skips Playwright's browser download — the shipped
+	// engine carries no browser binary (downloaded on first use at runtime).
+	runOrFail(
+		'npm',
+		[
+			'install',
+			'--omit=dev',
+			'--no-audit',
+			'--no-fund',
+			'--no-package-lock',
+			'--no-progress',
+			'--install-links',
+			'--no-workspaces',
+			'--ignore-scripts',
+		],
+		path.join( stagingRoot, 'packages', 'data-liberation-agent' )
+	);
 }
 
 function shouldCopyToStaging( sourcePath: string ): boolean {

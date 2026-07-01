@@ -34,8 +34,8 @@ function resolveEngineDir(): string {
 	const dir = path.join( import.meta.dirname, 'data-liberation-agent' );
 	if ( ! hasCompiledServer( dir ) ) {
 		throw new Error(
-			'Data Liberation engine is not prepared. Run `npm install` (prepares the engine ' +
-				'into `packages/`) then `npm run cli:build` (bundles it into `dist/cli`).'
+			'Data Liberation engine is not compiled. Run `npm run cli:build` — it builds the ' +
+				'`data-liberation` workspace and bundles it into `dist/cli`.'
 		);
 	}
 	return dir;
@@ -44,7 +44,7 @@ function resolveEngineDir(): string {
 const execFileAsync = promisify( execFile );
 
 // The engine drives Playwright (extract / screenshot / reconstruct) but ships
-// no browser binary — `prepare-data-liberation` skips the download, and the
+// no browser binary — the packaging install skips Playwright's download, and the
 // engine's playwright (1.58.x) pins a different chromium revision than Studio's
 // own (1.60.x), so they can't share one. Install the engine's matching chromium
 // once, into the shared OS cache, using the engine's OWN playwright installer

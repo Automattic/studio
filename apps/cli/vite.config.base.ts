@@ -1,6 +1,6 @@
 import { execSync } from 'child_process';
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
-import { resolve } from 'path';
+import { relative, resolve, sep } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
 import packageJson from './package.json';
@@ -33,8 +33,8 @@ const phpSourceCodePath = resolve( __dirname, 'php' );
 // `ai/skills.ts`), so they must sit directly next to the built chunks.
 const skillsSourcePath = resolve( __dirname, 'ai/skills' );
 // The data_liberation bridge spawns the compiled engine from `<chunk dir>/data-liberation-agent`
-// (see `ai/tools/data-liberation.ts`); prepared by `scripts/prepare-data-liberation.ts` into
-// the repo-root `packages/` dir (where it will migrate to as a real workspace package).
+// (see `ai/tools/data-liberation.ts`). The engine is the committed `packages/data-liberation-agent`
+// workspace; buildStart below compiles its dist/ and writeBundle copies it into the CLI chunks.
 const dataLiberationSourcePath = resolve(
 	__dirname,
 	'..',
@@ -82,6 +82,12 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( dataLiberationSourcePath ) ) {
 					cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
 						recursive: true,
+						// Ship the compiled engine (dist/) + its runtime node_modules; skip the
+						// dev-only source and test trees (compiled output lives in dist/).
+						filter: ( src ) => {
+							const top = relative( dataLiberationSourcePath, src ).split( sep )[ 0 ];
+							return top !== 'src' && top !== 'test';
+						},
 					} );
 				}
 			},

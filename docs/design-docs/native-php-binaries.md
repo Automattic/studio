@@ -92,7 +92,7 @@ After a successful Apps CDN upload, the workflow updates
 URLs and SHA-256 hashes. The metadata keeps one patch version per PHP minor
 version; uploading a newer patch replaces the tracked patch for that minor.
 
-At runtime, Studio uses `tools/common/lib/php-binary-cdn-metadata.mjs` as the
+At runtime, Studio uses `packages/common/lib/php-binary-cdn-metadata.mjs` as the
 source of truth for the requested PHP minor version. Packaged Studio builds
 ship the recommended PHP version under the app resources `php-bin/<patch>/`;
 a CLI migration copies that directory into the writable install location if the

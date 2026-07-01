@@ -2,6 +2,7 @@
 	"name": "studio",
 	"author": "Automattic Inc.",
 	"private": true,
+	"type": "module",
 	"productName": "Studio",
 	"description": "Local WordPress development environment using Playgrounds",
 	"license": "GPL-2.0-or-later",

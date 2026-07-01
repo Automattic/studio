@@ -3,15 +3,11 @@
 import { spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import phpVersionsMetadata from '../tools/common/lib/php-binary-cdn-metadata.mjs';
+import phpVersionsMetadata from '../packages/common/lib/php-binary-cdn-metadata.mjs';
 
 const DEFAULT_METADATA_PATH = path.join(
 	process.cwd(),
-<<<<<<< HEAD
-	'tools/common/lib/php-binary-cdn-metadata.mjs'
-=======
-	'packages/common/lib/php-binary-cdn-metadata.json'
->>>>>>> trunk
+	'packages/common/lib/php-binary-cdn-metadata.mjs'
 );
 
 const ARTIFACT_PLATFORM_MAP = {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import phpVersionsMetadata from '../tools/common/lib/php-binary-cdn-metadata.mjs';
@@ -135,6 +136,21 @@ function validateUploadResult( fileName, result ) {
 	return { url, sha };
 }
 
+function formatMetadataFile() {
+	const result = spawnSync(
+		'npm',
+		[ 'run', 'format', '--', path.relative( process.cwd(), DEFAULT_METADATA_PATH ) ],
+		{
+			cwd: process.cwd(),
+			stdio: 'inherit',
+			shell: process.platform === 'win32',
+		}
+	);
+	if ( result.status !== 0 ) {
+		throw new Error( `Failed to format ${ DEFAULT_METADATA_PATH }.` );
+	}
+}
+
 function main() {
 	const options = parseArgs();
 	const version = options.version;
@@ -186,6 +202,7 @@ function main() {
 			'\t'
 		) };\n\nexport default phpVersionsMetadata;\n`
 	);
+	formatMetadataFile();
 	console.log( `Updated PHP ${ minorVersion } CDN metadata to ${ version }.` );
 }
 

@@ -10,6 +10,13 @@
  * WP::parse_request() can resolve it against the rewrite rules.
  */
 
+// PHP <= 8.3's built-in server doesn't apply auto_prepend_file to the router
+// script (PHP bug #64566; fixed in 8.4), so apply it ourselves.
+$studio_auto_prepend = ini_get( 'auto_prepend_file' );
+if ( $studio_auto_prepend && is_file( $studio_auto_prepend ) ) {
+	require_once $studio_auto_prepend;
+}
+
 $root = realpath( $_SERVER['DOCUMENT_ROOT'] ?? '' ) ?: getcwd();
 $path = urldecode( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) );
 $file = $root . $path;

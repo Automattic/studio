@@ -64,7 +64,7 @@ COMMON_NON_CODE_PATTERNS=(
 
 # Localization files - changes here don't affect runtime behavior or performance
 LOCALIZATION_PATTERNS=(
-  "tools/common/translations/**"
+  "packages/common/translations/**"
 )
 
 # Test files - changes here don't affect app performance (for metrics)
@@ -74,7 +74,7 @@ TEST_PATTERNS=(
   "apps/studio/src/**/*.test.ts"
   "apps/studio/src/**/*.test.tsx"
   "apps/cli/**/*.test.ts"
-  "tools/common/**/*.test.ts"
+  "packages/common/**/*.test.ts"
   "metrics/**"
 )
 

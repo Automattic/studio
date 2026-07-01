@@ -310,10 +310,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.comparePaths( path1, path2 ) ) as boolean;
 		},
 
-		async getAllCustomDomains(): Promise< string[] > {
-			return ( await ipcApi.getAllCustomDomains() ) as string[];
-		},
-
 		async getFeaturedBlueprints( locale ) {
 			const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/blueprints' );
 			if ( locale ) {
@@ -402,10 +398,6 @@ export function createIpcConnector(): Connector {
 
 		async refreshSiteIcon( siteId ) {
 			await ipcApi.loadSiteIcon( siteId );
-		},
-
-		async getXdebugEnabledSite() {
-			return ( await ipcApi.getXdebugEnabledSite() ) as SiteDetails | null;
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {

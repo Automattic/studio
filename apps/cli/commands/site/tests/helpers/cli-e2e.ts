@@ -100,12 +100,6 @@ export function runCli( args: string[], env: CliEnv ): Promise< CliResult > {
 				...process.env,
 				DEV_CONFIG_DIR: env.configDir,
 				STUDIO_PROCESS_MANAGER_HOME: env.daemonHome,
-				// Isolate the legacy Electron appdata dir too. `getAppdataDirectory()`
-				// ignores DEV_CONFIG_DIR and only honors E2E_APP_DATA_PATH, so without
-				// this the Studio-compatibility migration finds a real pre-split
-				// ~/Library/.../appdata-v1.json on a dev machine and exits 1.
-				E2E: '1',
-				E2E_APP_DATA_PATH: env.root,
 			},
 		} );
 

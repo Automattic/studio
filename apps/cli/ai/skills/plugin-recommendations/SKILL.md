@@ -173,7 +173,7 @@ wp_cli plugin install sensei-lms --activate
 
 Sensei works fully on a local site. Course delivery, lessons, quizzes, and student progress are free; *selling* courses needs WooCommerce (and, for some commerce features, the paid Sensei Pro) - set up WooCommerce alongside Sensei only when the user wants paid courses.
 
-- Courses, lessons, and quizzes are custom post types (`course`, `lesson`, `quiz`, `question`). Create them with `wp_cli post create --post_type=course …` / `--post_type=lesson …`, or in the editor.
+- Courses and lessons are custom post types (`course`, `lesson`). Create them with `wp_cli post create --post_type=course …` / `--post_type=lesson …`, or in the editor. Quizzes and questions (`quiz`, `question` post types) are managed through the Sensei quiz block inside a lesson — do not create them directly via `wp_cli post create`.
 - Build course and lesson pages from Sensei's registered blocks rather than plain markup. Discover them with the block-registry command from the Discovery Workflow (filter on `sensei-lms/`). Common ones: `sensei-lms/course-outline`, `sensei-lms/course-progress`, `sensei-lms/button-take-course`, `sensei-lms/lesson-actions`, `sensei-lms/quiz`, and `sensei-lms/learner-courses`.
 - Activating Sensei creates the Courses page and core Sensei pages automatically; wire a "Courses" link into the primary navigation.
 - Validate any block markup you generate with `validate_blocks`.

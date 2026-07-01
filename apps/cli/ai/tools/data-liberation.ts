@@ -69,15 +69,15 @@ export const dataLiberationTool = defineTool(
 	'Bridge to the Data Liberation engine, which extracts content from closed web platforms ' +
 		'(GoDaddy, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix) ' +
 		'and reconstructs it into a WordPress site. This tool forwards a single call to the engine; ' +
-		"the `/liberate` skill orchestrates the full sequence. Omit `tool` (or pass 'setup') to " +
-		'locate the engine and learn where its skill files live (the engine ships prebuilt with Studio).',
+		"the `/liberate` skill orchestrates the full sequence. Pass `tool: 'setup'` to get the paths " +
+		'to its skill files (the engine ships prebuilt with Studio).',
 	{
 		tool: Type.Optional(
 			Type.String( {
 				description:
 					"Engine MCP tool name, e.g. 'liberate_detect', 'liberate_discover', 'liberate_extract', " +
-					"'liberate_reconstruct_pages', 'liberate_install_theme'. Omit or pass 'setup' to just " +
-					"install/locate the engine. Pass 'list' to fetch the full catalog of engine tools with " +
+					"'liberate_reconstruct_pages', 'liberate_install_theme'. Pass 'setup' to get the engine's " +
+					"skill-file paths, or 'list' to fetch the full catalog of engine tools with " +
 					'their argument schemas — consult it whenever you are unsure of a tool name or its arguments.',
 			} )
 		),
@@ -91,7 +91,14 @@ export const dataLiberationTool = defineTool(
 		),
 	},
 	async ( args ) => {
-		if ( ! args.tool || args.tool === 'setup' ) {
+		if ( ! args.tool ) {
+			throw new Error(
+				'data_liberation: a `tool` is required. Pass "setup" to get the engine skill-file paths, ' +
+					'"list" for the tool catalog, or an engine tool name (e.g. "liberate_detect").'
+			);
+		}
+
+		if ( args.tool === 'setup' ) {
 			return textResult(
 				JSON.stringify( {
 					engineDir,

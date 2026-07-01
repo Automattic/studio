@@ -79,18 +79,16 @@ describe( 'buildSystemPrompt', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
 		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
-		expect( prompt ).toContain(
-			'Never state plan names, prices, or feature-tier gating from memory'
-		);
+		expect( prompt ).toContain( 'Do NOT answer from memory' );
+		expect( prompt ).toContain( 'Personal or Premium cannot install plugins' );
 	} );
 
 	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (remote)', () => {
 		const prompt = buildSystemPrompt( { remoteSite } );
 
 		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
-		expect( prompt ).toContain(
-			'Never state plan names, prices, or feature-tier gating from memory'
-		);
+		expect( prompt ).toContain( 'Do NOT answer from memory' );
+		expect( prompt ).toContain( 'Personal or Premium cannot install plugins' );
 	} );
 
 	it( 'references only bundled skills', () => {

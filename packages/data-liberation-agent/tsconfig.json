@@ -10,7 +10,8 @@
     "skipLibCheck": true,
     "declaration": true,
     "jsx": "react-jsx",
-    "noEmitOnError": true
+    "noEmitOnError": true,
+    "incremental": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules", "dist", "test", "scripts"]

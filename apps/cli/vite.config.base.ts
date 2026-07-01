@@ -43,8 +43,6 @@ const dataLiberationSourcePath = resolve(
 	'data-liberation-agent'
 );
 const repoRoot = resolve( __dirname, '..', '..' );
-// Marker for the compiled engine — self-gates the workspace build below.
-const dataLiberationDistMarker = resolve( dataLiberationSourcePath, 'dist', 'mcp-server.js' );
 
 export const baseConfig = defineConfig( {
 	oxc: {
@@ -55,11 +53,7 @@ export const baseConfig = defineConfig( {
 			name: 'write-dist-extras',
 			apply: 'build',
 			buildStart() {
-				// The engine (packages/data-liberation-agent) is a committed workspace; compile
-				// its dist/ before writeBundle copies it into the CLI chunks. Self-gates on the
-				// compiled marker so repeat builds and watch rebuilds stay fast — delete the
-				// engine's dist/ to force a rebuild.
-				if ( existsSync( dataLiberationSourcePath ) && ! existsSync( dataLiberationDistMarker ) ) {
+				if ( existsSync( dataLiberationSourcePath ) ) {
 					execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
 				}
 			},
@@ -82,10 +76,6 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( dataLiberationSourcePath ) ) {
 					cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
 						recursive: true,
-						// Ship the compiled engine (dist/) only. Skip dev-only src/test AND
-						// node_modules: the engine is a CLI `dependency`, so its runtime deps live
-						// in the shared `apps/cli/node_modules`, which the spawned engine resolves by
-						// walking up — no duplicated per-engine node_modules ships.
 						filter: ( src ) => {
 							const top = relative( dataLiberationSourcePath, src ).split( sep )[ 0 ];
 							return top !== 'src' && top !== 'test' && top !== 'node_modules';

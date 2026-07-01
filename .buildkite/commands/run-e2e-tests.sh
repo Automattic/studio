@@ -174,11 +174,32 @@ else
   echo 'Installing Playwright browsers...'
   npx playwright install
 
+  # TEMP(AINFRA-2588 probe): Windows E2E hangs *after* the Playwright suite finishes
+  # (~26 min) — the runner process never exits and the job runs to the 180-min timeout.
+  # Snapshot the surviving process tree while it is hung to find the leaked child/handle.
+  # Runs in the background so it fires even though `npx playwright test` never returns.
+  probe_pid=''
+  if [ "$PLATFORM" = "windows" ]; then
+    (
+      snapshot() {
+        echo "--- :mag: [hang-probe] surviving node/Studio/php processes at ${1}"
+        powershell -NoProfile -NonInteractive -Command "Get-CimInstance Win32_Process | Where-Object { \$_.Name -match 'node|Studio|php|electron|Squirrel' } | Select-Object ProcessId,ParentProcessId,Name,CommandLine | Format-Table -AutoSize -Wrap | Out-String -Width 1000" || true
+      }
+      sleep 2400; snapshot '40m'
+      sleep 1800; snapshot '70m'
+    ) &
+    probe_pid=$!
+  fi
+
   echo 'Running Playwright tests...'
   # Capture the exit code so a failure doesn't trip `set -e` before we collect
   # the daemon logs (~/.studio/daemon/logs) for artifact upload.
   test_exit=0
   npx playwright test || test_exit=$?
+
+  if [ -n "$probe_pid" ]; then
+    kill "$probe_pid" 2>/dev/null || true
+  fi
 
   if [ "$test_exit" -ne 0 ] && [ -d "$HOME/.studio/daemon/logs" ]; then
     mkdir -p test-results/daemon-logs

@@ -44,7 +44,7 @@ async function writeRenderedInstructionFile(
  * Install all bundled AI instructions and skills from a source directory into a site.
  *
  * Source directory layout (flat):
- *   AGENTS.md, CLAUDE.md, STUDIO.md — loose .md files copied to site root
+ *   AGENTS.md, CLAUDE.md, STUDIO.md — loose .md files rendered and written to site root
  *   studio-cli/SKILL.md             — directories are skills, installed to .agents/skills/
  *   wp-plugin-development/SKILL.md
  *

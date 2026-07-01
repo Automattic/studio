@@ -19,6 +19,11 @@ import {
 } from '../pull-reprint';
 import type { SyncSite } from '@studio/common/types/sync';
 
+// This file contains integration-style tests that reload the CLI module graph
+// and perform multiple atomic config writes. Those can exceed the default
+// timeout on CI.
+vi.setConfig( { testTimeout: 15_000 } );
+
 vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),

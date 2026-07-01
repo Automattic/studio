@@ -10,6 +10,7 @@ import {
 	waitFor,
 	within,
 } from '@testing-library/react';
+import { Tooltip } from '@wordpress/ui';
 import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer, type ComposerHandle } from '.';
@@ -36,7 +37,9 @@ const defaultProps = {
 function renderComposer( props: Partial< ComponentProps< typeof Composer > > = {} ) {
 	return render(
 		<QueryClientProvider client={ new QueryClient() }>
-			<Composer { ...defaultProps } sessionId="session-1" { ...props } />
+			<Tooltip.Provider delay={ 0 }>
+				<Composer { ...defaultProps } sessionId="session-1" { ...props } />
+			</Tooltip.Provider>
 		</QueryClientProvider>
 	);
 }

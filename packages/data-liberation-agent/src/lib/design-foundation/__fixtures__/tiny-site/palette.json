@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "sampledUrls": 3,
+  "colors": [
+    { "hex": "#ffffff", "count": 30, "urls": 3 },
+    { "hex": "#1d212e", "count": 20, "urls": 3 },
+    { "hex": "#00a4bd", "count": 10, "urls": 2 }
+  ]
+}

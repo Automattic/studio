@@ -6,7 +6,7 @@
 		"erasableSyntaxOnly": true,
 		"noEmit": true,
 		"paths": {
-			"@studio/common/*": [ "../tools/common/*" ]
+			"@studio/common/*": [ "../packages/common/*" ]
 		}
 	},
 	"include": [ "**/*" ],

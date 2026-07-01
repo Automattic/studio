@@ -7,7 +7,11 @@ import phpVersionsMetadata from '../tools/common/lib/php-binary-cdn-metadata.mjs
 
 const DEFAULT_METADATA_PATH = path.join(
 	process.cwd(),
+<<<<<<< HEAD
 	'tools/common/lib/php-binary-cdn-metadata.mjs'
+=======
+	'packages/common/lib/php-binary-cdn-metadata.json'
+>>>>>>> trunk
 );
 
 const ARTIFACT_PLATFORM_MAP = {

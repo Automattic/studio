@@ -88,7 +88,7 @@ exists on Apps CDN, the lane lets the CDN replace the existing build artifact
 instead of failing on the duplicate version.
 
 After a successful Apps CDN upload, the workflow updates
-`tools/common/lib/php-binary-cdn-metadata.mjs` and opens a PR with the new CDN
+`packages/common/lib/php-binary-cdn-metadata.mjs` and opens a PR with the new CDN
 URLs and SHA-256 hashes. The metadata keeps one patch version per PHP minor
 version; uploading a newer patch replaces the tracked patch for that minor.
 

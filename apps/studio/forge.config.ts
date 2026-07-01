@@ -8,7 +8,7 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { exec as pkgExec } from '@yao-pkg/pkg';
 import { globSync } from 'glob';
-import { RecommendedPHPVersion } from '../../tools/common/types/php-versions';
+import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
 import { windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 

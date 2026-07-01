@@ -15,7 +15,7 @@ import os from 'os';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { extract } from 'tar';
-import { extractZip } from '../tools/common/lib/extract-zip.ts';
+import { extractZip } from '../packages/common/lib/extract-zip.ts';
 import { fetch } from './lib/with-retry.ts';
 
 const LTS_FALLBACK = 'v24.13.1';

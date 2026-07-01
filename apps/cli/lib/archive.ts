@@ -61,9 +61,7 @@ export async function archiveSiteContent(
 			try {
 				resolvedPath = fs.realpathSync( path.join( wpContentPath, relativePath ) );
 			} catch ( error ) {
-				// Dangling symlink — e.g. a reprint-pulled site keeps the WP Cloud
-				// `advanced-cache.php` drop-in as a symlink whose target isn't pulled.
-				// Skip it rather than aborting the whole archive.
+				// Dangling symlink. Skip it rather than aborting the whole archive.
 				console.warn( `Skipping ${ archiveEntryPath }: ${ error }` );
 				continue;
 			}

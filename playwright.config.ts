@@ -4,6 +4,10 @@ export default defineConfig( {
 	testDir: './apps/studio/e2e',
 	snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
 
+	// Reap Studio's orphaned CLI process-manager daemon after the suite so the runner can
+	// exit instead of hanging to the CI timeout on Windows (AINFRA-2588).
+	globalTeardown: './apps/studio/e2e/global-teardown.ts',
+
 	// The app only allows a single instance to be running at a time, so we can
 	// only run one test at a time.
 	workers: 1,

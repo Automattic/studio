@@ -2,7 +2,7 @@
 
 import fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import phpBinaryCdnMetadata from '../tools/common/lib/php-binary-cdn-metadata.mjs';
+import phpBinaryCdnMetadata from '../packages/common/lib/php-binary-cdn-metadata.mjs';
 
 const PHP_UPSTREAM_REPOSITORY = 'php/php-src';
 

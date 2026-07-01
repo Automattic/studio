@@ -4,7 +4,7 @@
 		"module": "es2022",
 		"moduleResolution": "bundler",
 		"paths": {
-			"@studio/common/*": [ "../../tools/common/*" ]
+			"@studio/common/*": [ "../../packages/common/*" ]
 		}
 	},
 	"include": [ "**/*" ],

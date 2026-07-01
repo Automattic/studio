@@ -1,7 +1,7 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
-import { extractZip } from '../tools/common/lib/extract-zip.ts';
+import { extractZip } from '../packages/common/lib/extract-zip.ts';
 import { fetch } from './lib/with-retry.ts';
 
 const WP_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );

@@ -1060,7 +1060,7 @@ msgstr ""
 
 #: apps/cli/commands/blueprint/use.ts:212
 #: apps/cli/commands/site/create.ts:688
-#: tools/common/lib/generate-site-name.ts:7
+#: packages/common/lib/generate-site-name.ts:7
 msgid "My WordPress Website"
 msgstr ""
 
@@ -1498,7 +1498,7 @@ msgid "Claude Desktop"
 msgstr ""
 
 #: apps/cli/commands/mcp.ts:53
-#: tools/common/lib/user-settings/editor.ts:82
+#: packages/common/lib/user-settings/editor.ts:82
 #. "Cursor" is the brand name for an IDE and does not need to be translated
 msgid "Cursor"
 msgstr ""
@@ -2337,7 +2337,7 @@ msgstr ""
 #: apps/cli/commands/site/delete.ts:145
 #: apps/studio/src/components/content-tab-settings.tsx:135
 #: apps/studio/src/hooks/use-delete-site.ts:28
-#: tools/common/ai/tools.ts:302
+#: packages/common/ai/tools.ts:302
 msgid "Delete site"
 msgstr ""
 
@@ -2411,7 +2411,7 @@ msgid "Path"
 msgstr ""
 
 #: apps/cli/commands/site/list.ts:125
-#: tools/common/ai/tools.ts:298
+#: packages/common/ai/tools.ts:298
 msgid "List sites"
 msgstr ""
 
@@ -2446,7 +2446,7 @@ msgstr[1] ""
 
 #: apps/cli/commands/site/start.ts:89
 #: apps/studio/src/components/site-menu.tsx:86
-#: tools/common/ai/tools.ts:300
+#: packages/common/ai/tools.ts:300
 msgid "Start site"
 msgstr ""
 
@@ -3760,7 +3760,7 @@ msgid "Starting"
 msgstr ""
 
 #: apps/studio/src/components/site-menu.tsx:85
-#: tools/common/ai/tools.ts:301
+#: packages/common/ai/tools.ts:301
 msgid "Stop site"
 msgstr ""
 
@@ -4315,7 +4315,7 @@ msgid "Studio Code"
 msgstr ""
 
 #: apps/studio/src/hooks/use-delete-site.ts:24
-#: tools/common/ai/tools.ts:191
+#: packages/common/ai/tools.ts:191
 #. %s: post type, such as post or page.
 msgid "Delete %s"
 msgstr ""
@@ -4876,7 +4876,7 @@ msgid "Close Window"
 msgstr ""
 
 #: apps/studio/src/menu.ts:275
-#: tools/common/ai/tools.ts:326
+#: packages/common/ai/tools.ts:326
 msgid "Edit"
 msgstr ""
 
@@ -5667,7 +5667,7 @@ msgid "Update"
 msgstr ""
 
 #: apps/studio/src/modules/preview-site/components/preview-action-buttons-menu.tsx:57
-#: tools/common/ai/tools.ts:310
+#: packages/common/ai/tools.ts:310
 msgid "Delete preview"
 msgstr ""
 
@@ -6732,7 +6732,7 @@ msgid "Failed to check backup file size. Please try again."
 msgstr ""
 
 #: apps/studio/src/stores/sync/sync-operations-slice.ts:885
-#: tools/common/lib/sync/sync-api.ts:100
+#: packages/common/lib/sync/sync-api.ts:100
 msgid "Unexpected response from server while checking backup status"
 msgstr ""
 
@@ -6845,378 +6845,378 @@ msgstr ""
 msgid "Error updating Studio"
 msgstr ""
 
-#: tools/common/ai/slash-commands.ts:9
+#: packages/common/ai/slash-commands.ts:9
 msgid "Annotate site elements visually in a browser"
 msgstr ""
 
-#: tools/common/ai/slash-commands.ts:10
+#: packages/common/ai/slash-commands.ts:10
 msgid "Optimize category taxonomy with AI"
 msgstr ""
 
-#: tools/common/ai/slash-commands.ts:11
+#: packages/common/ai/slash-commands.ts:11
 msgid "Run a performance audit on a site"
 msgstr ""
 
-#: tools/common/ai/slash-commands.ts:12
+#: packages/common/ai/slash-commands.ts:12
 msgid "Run an on-page SEO audit on a site"
 msgstr ""
 
-#: tools/common/ai/tools.ts:53
+#: packages/common/ai/tools.ts:53
 msgid "pages"
 msgstr ""
 
-#: tools/common/ai/tools.ts:53
+#: packages/common/ai/tools.ts:53
 msgid "page"
 msgstr ""
 
-#: tools/common/ai/tools.ts:55
+#: packages/common/ai/tools.ts:55
 msgid "media items"
 msgstr ""
 
-#: tools/common/ai/tools.ts:55
+#: packages/common/ai/tools.ts:55
 msgid "media item"
 msgstr ""
 
-#: tools/common/ai/tools.ts:57
+#: packages/common/ai/tools.ts:57
 msgid "products"
 msgstr ""
 
-#: tools/common/ai/tools.ts:57
+#: packages/common/ai/tools.ts:57
 msgid "product"
 msgstr ""
 
-#: tools/common/ai/tools.ts:61
+#: packages/common/ai/tools.ts:61
 msgid "posts"
 msgstr ""
 
-#: tools/common/ai/tools.ts:61
+#: packages/common/ai/tools.ts:61
 msgid "post"
 msgstr ""
 
-#: tools/common/ai/tools.ts:114
-#: tools/common/ai/tools.ts:559
-#: tools/common/ai/tools.ts:581
+#: packages/common/ai/tools.ts:114
+#: packages/common/ai/tools.ts:559
+#: packages/common/ai/tools.ts:581
 #. 1: WP-CLI action label, 2: plugin or theme name.
 msgid "%1$s: %2$s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:161
+#: packages/common/ai/tools.ts:161
 #. %s: plural post type, such as posts or pages.
 msgid "List published %s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:167
+#: packages/common/ai/tools.ts:167
 #. %s: plural post type, such as posts or pages.
 msgid "List %s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:173
+#: packages/common/ai/tools.ts:173
 #. %s: post type, such as post or page.
 msgid "Read %s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:179
+#: packages/common/ai/tools.ts:179
 #. %s: post type, such as post or page.
 msgid "Create %s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:185
+#: packages/common/ai/tools.ts:185
 #. %s: post type, such as post or page.
 msgid "Update %s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:195
+#: packages/common/ai/tools.ts:195
 msgid "Manage content"
 msgstr ""
 
-#: tools/common/ai/tools.ts:208
+#: packages/common/ai/tools.ts:208
 msgid "List themes"
 msgstr ""
 
-#: tools/common/ai/tools.ts:210
+#: packages/common/ai/tools.ts:210
 msgid "Activate theme"
 msgstr ""
 
-#: tools/common/ai/tools.ts:212
+#: packages/common/ai/tools.ts:212
 msgid "Install theme"
 msgstr ""
 
-#: tools/common/ai/tools.ts:214
+#: packages/common/ai/tools.ts:214
 msgid "Delete theme"
 msgstr ""
 
-#: tools/common/ai/tools.ts:216
+#: packages/common/ai/tools.ts:216
 msgid "Manage themes"
 msgstr ""
 
-#: tools/common/ai/tools.ts:221
+#: packages/common/ai/tools.ts:221
 msgid "List plugins"
 msgstr ""
 
-#: tools/common/ai/tools.ts:224
+#: packages/common/ai/tools.ts:224
 msgid "Activate all plugins"
 msgstr ""
 
-#: tools/common/ai/tools.ts:226
+#: packages/common/ai/tools.ts:226
 msgid "Activate plugin"
 msgstr ""
 
-#: tools/common/ai/tools.ts:229
+#: packages/common/ai/tools.ts:229
 msgid "Deactivate all plugins"
 msgstr ""
 
-#: tools/common/ai/tools.ts:231
+#: packages/common/ai/tools.ts:231
 msgid "Deactivate plugin"
 msgstr ""
 
-#: tools/common/ai/tools.ts:233
+#: packages/common/ai/tools.ts:233
 msgid "Install plugin"
 msgstr ""
 
-#: tools/common/ai/tools.ts:235
+#: packages/common/ai/tools.ts:235
 msgid "Delete plugin"
 msgstr ""
 
-#: tools/common/ai/tools.ts:238
+#: packages/common/ai/tools.ts:238
 msgid "Update all plugins"
 msgstr ""
 
-#: tools/common/ai/tools.ts:240
+#: packages/common/ai/tools.ts:240
 msgid "Update plugin"
 msgstr ""
 
-#: tools/common/ai/tools.ts:242
+#: packages/common/ai/tools.ts:242
 msgid "Manage plugins"
 msgstr ""
 
-#: tools/common/ai/tools.ts:248
+#: packages/common/ai/tools.ts:248
 msgid "Read site title"
 msgstr ""
 
-#: tools/common/ai/tools.ts:248
+#: packages/common/ai/tools.ts:248
 msgid "Read site option"
 msgstr ""
 
-#: tools/common/ai/tools.ts:251
+#: packages/common/ai/tools.ts:251
 msgid "Update site title"
 msgstr ""
 
-#: tools/common/ai/tools.ts:251
+#: packages/common/ai/tools.ts:251
 msgid "Update site option"
 msgstr ""
 
-#: tools/common/ai/tools.ts:253
+#: packages/common/ai/tools.ts:253
 msgid "Manage site options"
 msgstr ""
 
-#: tools/common/ai/tools.ts:257
+#: packages/common/ai/tools.ts:257
 msgid "List users"
 msgstr ""
 
-#: tools/common/ai/tools.ts:259
+#: packages/common/ai/tools.ts:259
 msgid "Create user"
 msgstr ""
 
-#: tools/common/ai/tools.ts:261
+#: packages/common/ai/tools.ts:261
 msgid "Update user"
 msgstr ""
 
-#: tools/common/ai/tools.ts:263
+#: packages/common/ai/tools.ts:263
 msgid "Delete user"
 msgstr ""
 
-#: tools/common/ai/tools.ts:265
+#: packages/common/ai/tools.ts:265
 msgid "Manage users"
 msgstr ""
 
-#: tools/common/ai/tools.ts:268
+#: packages/common/ai/tools.ts:268
 msgid "Import media"
 msgstr ""
 
-#: tools/common/ai/tools.ts:268
+#: packages/common/ai/tools.ts:268
 msgid "Manage media"
 msgstr ""
 
-#: tools/common/ai/tools.ts:270
+#: packages/common/ai/tools.ts:270
 msgid "List menus"
 msgstr ""
 
-#: tools/common/ai/tools.ts:270
+#: packages/common/ai/tools.ts:270
 msgid "Manage menus"
 msgstr ""
 
-#: tools/common/ai/tools.ts:272
+#: packages/common/ai/tools.ts:272
 msgid "List terms"
 msgstr ""
 
-#: tools/common/ai/tools.ts:272
+#: packages/common/ai/tools.ts:272
 msgid "Manage terms"
 msgstr ""
 
-#: tools/common/ai/tools.ts:274
+#: packages/common/ai/tools.ts:274
 msgid "Flush cache"
 msgstr ""
 
-#: tools/common/ai/tools.ts:274
+#: packages/common/ai/tools.ts:274
 msgid "Manage cache"
 msgstr ""
 
-#: tools/common/ai/tools.ts:276
+#: packages/common/ai/tools.ts:276
 msgid "Flush permalinks"
 msgstr ""
 
-#: tools/common/ai/tools.ts:276
+#: packages/common/ai/tools.ts:276
 msgid "Manage permalinks"
 msgstr ""
 
-#: tools/common/ai/tools.ts:279
+#: packages/common/ai/tools.ts:279
 msgid "Run WordPress code"
 msgstr ""
 
-#: tools/common/ai/tools.ts:281
-#: tools/common/ai/tools.ts:293
+#: packages/common/ai/tools.ts:281
+#: packages/common/ai/tools.ts:293
 msgid "Run WordPress command"
 msgstr ""
 
-#: tools/common/ai/tools.ts:297
+#: packages/common/ai/tools.ts:297
 msgid "Create site"
 msgstr ""
 
-#: tools/common/ai/tools.ts:299
+#: packages/common/ai/tools.ts:299
 msgid "Get site info"
 msgstr ""
 
-#: tools/common/ai/tools.ts:303
+#: packages/common/ai/tools.ts:303
 msgid "Push site"
 msgstr ""
 
-#: tools/common/ai/tools.ts:304
+#: packages/common/ai/tools.ts:304
 msgid "Pull site"
 msgstr ""
 
-#: tools/common/ai/tools.ts:305
+#: packages/common/ai/tools.ts:305
 msgid "Import site"
 msgstr ""
 
-#: tools/common/ai/tools.ts:306
+#: packages/common/ai/tools.ts:306
 msgid "Export site"
 msgstr ""
 
-#: tools/common/ai/tools.ts:307
+#: packages/common/ai/tools.ts:307
 msgid "Create preview"
 msgstr ""
 
-#: tools/common/ai/tools.ts:308
+#: packages/common/ai/tools.ts:308
 msgid "List previews"
 msgstr ""
 
-#: tools/common/ai/tools.ts:309
+#: packages/common/ai/tools.ts:309
 msgid "Update preview"
 msgstr ""
 
-#: tools/common/ai/tools.ts:311
+#: packages/common/ai/tools.ts:311
 msgid "List connected remote sites"
 msgstr ""
 
-#: tools/common/ai/tools.ts:312
+#: packages/common/ai/tools.ts:312
 msgid "Scaffold theme"
 msgstr ""
 
-#: tools/common/ai/tools.ts:313
+#: packages/common/ai/tools.ts:313
 msgid "Inspect design"
 msgstr ""
 
-#: tools/common/ai/tools.ts:314
+#: packages/common/ai/tools.ts:314
 msgid "Validate blocks"
 msgstr ""
 
-#: tools/common/ai/tools.ts:315
+#: packages/common/ai/tools.ts:315
 msgid "Take screenshot"
 msgstr ""
 
-#: tools/common/ai/tools.ts:316
+#: packages/common/ai/tools.ts:316
 msgid "Share screenshot"
 msgstr ""
 
-#: tools/common/ai/tools.ts:317
+#: packages/common/ai/tools.ts:317
 msgid "Open annotation browser"
 msgstr ""
 
-#: tools/common/ai/tools.ts:318
+#: packages/common/ai/tools.ts:318
 msgid "Wait for annotations"
 msgstr ""
 
-#: tools/common/ai/tools.ts:319
+#: packages/common/ai/tools.ts:319
 msgid "Audit performance"
 msgstr ""
 
-#: tools/common/ai/tools.ts:320
+#: packages/common/ai/tools.ts:320
 msgid "Audit SEO"
 msgstr ""
 
-#: tools/common/ai/tools.ts:321
+#: packages/common/ai/tools.ts:321
 msgid "Install taxonomy scripts"
 msgstr ""
 
-#: tools/common/ai/tools.ts:322
+#: packages/common/ai/tools.ts:322
 msgid "WordPress.com API"
 msgstr ""
 
-#: tools/common/ai/tools.ts:323
+#: packages/common/ai/tools.ts:323
 msgid "Ask user"
 msgstr ""
 
-#: tools/common/ai/tools.ts:324
+#: packages/common/ai/tools.ts:324
 msgid "Read"
 msgstr ""
 
-#: tools/common/ai/tools.ts:325
+#: packages/common/ai/tools.ts:325
 msgid "Write"
 msgstr ""
 
-#: tools/common/ai/tools.ts:327
+#: packages/common/ai/tools.ts:327
 msgid "Run"
 msgstr ""
 
-#: tools/common/ai/tools.ts:328
-#: tools/common/ai/tools.ts:329
+#: packages/common/ai/tools.ts:328
+#: packages/common/ai/tools.ts:329
 msgid "Search"
 msgstr ""
 
-#: tools/common/ai/tools.ts:330
+#: packages/common/ai/tools.ts:330
 msgid "List"
 msgstr ""
 
-#: tools/common/ai/tools.ts:331
+#: packages/common/ai/tools.ts:331
 msgid "Load skill"
 msgstr ""
 
-#: tools/common/ai/tools.ts:332
+#: packages/common/ai/tools.ts:332
 msgid "Run task"
 msgstr ""
 
-#: tools/common/ai/tools.ts:333
+#: packages/common/ai/tools.ts:333
 msgid "Update todo list"
 msgstr ""
 
-#: tools/common/ai/tools.ts:401
+#: packages/common/ai/tools.ts:401
 msgid "inline content"
 msgstr ""
 
-#: tools/common/ai/tools.ts:485
+#: packages/common/ai/tools.ts:485
 msgid "Loaded %s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:489
+#: packages/common/ai/tools.ts:489
 msgid "Sections: %s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:496
+#: packages/common/ai/tools.ts:496
 msgid "Full skill body hidden · ctrl+o to expand"
 msgstr ""
 
-#: tools/common/ai/tools.ts:532
-#: tools/common/ai/tools.ts:576
+#: packages/common/ai/tools.ts:532
+#: packages/common/ai/tools.ts:576
 #. 1: number of items, 2: item type
 #. 1: number of resources, 2: resource key
 msgid "Returned %1$d %2$s"
@@ -7224,392 +7224,392 @@ msgid_plural "Returned %1$d %2$s"
 msgstr[0] ""
 msgstr[1] ""
 
-#: tools/common/ai/tools.ts:545
+#: packages/common/ai/tools.ts:545
 msgid "Request failed"
 msgstr ""
 
-#: tools/common/ai/tools.ts:547
+#: packages/common/ai/tools.ts:547
 msgid "Full API error hidden · ctrl+o to expand"
 msgstr ""
 
-#: tools/common/ai/tools.ts:557
+#: packages/common/ai/tools.ts:557
 msgid "items"
 msgstr ""
 
-#: tools/common/ai/tools.ts:561
-#: tools/common/ai/tools.ts:583
-#: tools/common/ai/tools.ts:595
-#: tools/common/ai/tools.ts:606
-#: tools/common/ai/tools.ts:613
+#: packages/common/ai/tools.ts:561
+#: packages/common/ai/tools.ts:583
+#: packages/common/ai/tools.ts:595
+#: packages/common/ai/tools.ts:606
+#: packages/common/ai/tools.ts:613
 msgid "Full API response hidden · ctrl+o to expand"
 msgstr ""
 
-#: tools/common/ai/tools.ts:591
+#: packages/common/ai/tools.ts:591
 msgid "%1$s: returned %2$s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:592
+#: packages/common/ai/tools.ts:592
 msgid "Returned %s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:602
+#: packages/common/ai/tools.ts:602
 msgid "%1$s: returned response"
 msgstr ""
 
-#: tools/common/ai/tools.ts:602
+#: packages/common/ai/tools.ts:602
 msgid "Returned response"
 msgstr ""
 
-#: tools/common/ai/tools.ts:603
+#: packages/common/ai/tools.ts:603
 msgid "Fields: %s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:611
+#: packages/common/ai/tools.ts:611
 msgid "Request completed"
 msgstr ""
 
-#: tools/common/ai/tools.ts:620
+#: packages/common/ai/tools.ts:620
 msgid "File operation failed"
 msgstr ""
 
-#: tools/common/ai/tools.ts:622
+#: packages/common/ai/tools.ts:622
 msgid "Full file error hidden · ctrl+o to expand"
 msgstr ""
 
-#: tools/common/ai/tools.ts:629
+#: packages/common/ai/tools.ts:629
 msgid "Read %d line"
 msgid_plural "Read %d lines"
 msgstr[0] ""
 msgstr[1] ""
 
-#: tools/common/ai/tools.ts:631
+#: packages/common/ai/tools.ts:631
 msgid "File contents hidden · ctrl+o to expand"
 msgstr ""
 
-#: tools/common/ai/tools.ts:636
+#: packages/common/ai/tools.ts:636
 msgid "File written"
 msgstr ""
 
-#: tools/common/ai/tools.ts:636
+#: packages/common/ai/tools.ts:636
 msgid "File edited"
 msgstr ""
 
-#: tools/common/ai/tools.ts:638
+#: packages/common/ai/tools.ts:638
 msgid "Full tool output hidden · ctrl+o to expand"
 msgstr ""
 
-#: tools/common/ai/tools.ts:647
+#: packages/common/ai/tools.ts:647
 msgid "Command failed"
 msgstr ""
 
-#: tools/common/ai/tools.ts:649
+#: packages/common/ai/tools.ts:649
 msgid "Command completed: %s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:650
+#: packages/common/ai/tools.ts:650
 msgid "Command completed"
 msgstr ""
 
-#: tools/common/ai/tools.ts:654
+#: packages/common/ai/tools.ts:654
 msgid "Full command output hidden · ctrl+o to expand"
 msgstr ""
 
-#: tools/common/ai/tools.ts:655
+#: packages/common/ai/tools.ts:655
 msgid "Command output hidden · ctrl+o to expand"
 msgstr ""
 
-#: tools/common/ai/tools.ts:662
+#: packages/common/ai/tools.ts:662
 msgid "Site creation failed"
 msgstr ""
 
-#: tools/common/ai/tools.ts:664
+#: packages/common/ai/tools.ts:664
 msgid "Full site error hidden · ctrl+o to expand"
 msgstr ""
 
-#: tools/common/ai/tools.ts:677
+#: packages/common/ai/tools.ts:677
 msgid "Created site %s"
 msgstr ""
 
-#: tools/common/ai/tools.ts:677
+#: packages/common/ai/tools.ts:677
 msgid "Created site"
 msgstr ""
 
-#: tools/common/ai/tools.ts:684
+#: packages/common/ai/tools.ts:684
 msgid "Full site details hidden · ctrl+o to expand"
 msgstr ""
 
-#: tools/common/lib/blueprint-settings.ts:150
+#: packages/common/lib/blueprint-settings.ts:150
 #. Used to join two items, e.g. "3 plugins and 2 themes". %1$s is the first item, %2$s is the second item.
 msgid "%1$s and %2$s"
 msgstr ""
 
-#: tools/common/lib/blueprint-settings.ts:158
+#: packages/common/lib/blueprint-settings.ts:158
 #. Used to join a comma-separated list with "and" before the last item. %1$s is the comma-separated items, %2$s is the last item.
 msgid "%1$s, and %2$s"
 msgstr ""
 
-#: tools/common/lib/blueprint-settings.ts:230
+#: packages/common/lib/blueprint-settings.ts:230
 #. %d is the number of plugins to install.
 msgid "%d plugin"
 msgid_plural "%d plugins"
 msgstr[0] ""
 msgstr[1] ""
 
-#: tools/common/lib/blueprint-settings.ts:239
+#: packages/common/lib/blueprint-settings.ts:239
 #. %d is the number of themes to install.
 msgid "%d theme"
 msgid_plural "%d themes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: tools/common/lib/blueprint-settings.ts:248
+#: packages/common/lib/blueprint-settings.ts:248
 #. %s is a list of items to install, e.g. "3 plugins and 2 themes".
 msgid "Installs %s."
 msgstr ""
 
-#: tools/common/lib/blueprint-settings.ts:256
+#: packages/common/lib/blueprint-settings.ts:256
 msgid "Imports content."
 msgstr ""
 
-#: tools/common/lib/blueprint-settings.ts:265
+#: packages/common/lib/blueprint-settings.ts:265
 #. %d is the number of PHP code blocks to run.
 msgid "%d block of PHP code"
 msgid_plural "%d blocks of PHP code"
 msgstr[0] ""
 msgstr[1] ""
 
-#: tools/common/lib/blueprint-settings.ts:274
+#: packages/common/lib/blueprint-settings.ts:274
 #. %d is the number of SQL queries to run.
 msgid "%d SQL query"
 msgid_plural "%d SQL queries"
 msgstr[0] ""
 msgstr[1] ""
 
-#: tools/common/lib/blueprint-settings.ts:283
+#: packages/common/lib/blueprint-settings.ts:283
 #. %d is the number of WP-CLI commands to run.
 msgid "%d WP-CLI command"
 msgid_plural "%d WP-CLI commands"
 msgstr[0] ""
 msgstr[1] ""
 
-#: tools/common/lib/blueprint-settings.ts:292
+#: packages/common/lib/blueprint-settings.ts:292
 #. %s is a list of items to run, e.g. "2 blocks of PHP code and 1 SQL query".
 msgid "Runs %s."
 msgstr ""
 
-#: tools/common/lib/blueprint-settings.ts:300
+#: packages/common/lib/blueprint-settings.ts:300
 msgid "Applies site configuration."
 msgstr ""
 
-#: tools/common/lib/blueprint-validation.ts:40
+#: packages/common/lib/blueprint-validation.ts:40
 msgid "\"%s\" is not a valid Blueprint property"
 msgstr ""
 
-#: tools/common/lib/blueprint-validation.ts:41
+#: packages/common/lib/blueprint-validation.ts:41
 msgid "Invalid blueprint"
 msgstr ""
 
-#: tools/common/lib/domains.ts:27
+#: packages/common/lib/domains.ts:27
 msgid "The domain name is required"
 msgstr ""
 
-#: tools/common/lib/domains.ts:31
+#: packages/common/lib/domains.ts:31
 msgid "The domain name is already in use"
 msgstr ""
 
-#: tools/common/lib/domains.ts:35
+#: packages/common/lib/domains.ts:35
 msgid "Please enter a valid domain name"
 msgstr ""
 
-#: tools/common/lib/domains.ts:39
+#: packages/common/lib/domains.ts:39
 msgid "The domain name is too long"
 msgstr ""
 
-#: tools/common/lib/domains.ts:43
+#: packages/common/lib/domains.ts:43
 msgid "The domain name must end with .local"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:12
+#: packages/common/lib/generate-site-name.ts:12
 msgid "My Bold Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:13
+#: packages/common/lib/generate-site-name.ts:13
 msgid "My Bright Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:14
+#: packages/common/lib/generate-site-name.ts:14
 msgid "My Blissful Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:15
+#: packages/common/lib/generate-site-name.ts:15
 msgid "My Calm Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:16
+#: packages/common/lib/generate-site-name.ts:16
 msgid "My Cool Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:17
+#: packages/common/lib/generate-site-name.ts:17
 msgid "My Dreamy Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:18
+#: packages/common/lib/generate-site-name.ts:18
 msgid "My Elite Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:19
+#: packages/common/lib/generate-site-name.ts:19
 msgid "My Fresh Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:20
+#: packages/common/lib/generate-site-name.ts:20
 msgid "My Glowing Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:21
+#: packages/common/lib/generate-site-name.ts:21
 msgid "My Happy Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:22
+#: packages/common/lib/generate-site-name.ts:22
 msgid "My Joyful Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:23
+#: packages/common/lib/generate-site-name.ts:23
 msgid "My Noble Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:24
+#: packages/common/lib/generate-site-name.ts:24
 msgid "My Pure Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:25
+#: packages/common/lib/generate-site-name.ts:25
 msgid "My Peak Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:26
+#: packages/common/lib/generate-site-name.ts:26
 msgid "My Prime Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:27
+#: packages/common/lib/generate-site-name.ts:27
 msgid "My Serene Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:28
+#: packages/common/lib/generate-site-name.ts:28
 msgid "My Shiny Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:29
+#: packages/common/lib/generate-site-name.ts:29
 msgid "My Sparkly Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:30
+#: packages/common/lib/generate-site-name.ts:30
 msgid "My Swift Website"
 msgstr ""
 
-#: tools/common/lib/generate-site-name.ts:31
+#: packages/common/lib/generate-site-name.ts:31
 msgid "My True Website"
 msgstr ""
 
-#: tools/common/lib/passwords.ts:46
+#: packages/common/lib/passwords.ts:46
 msgid "Admin email cannot be empty."
 msgstr ""
 
-#: tools/common/lib/passwords.ts:49
+#: packages/common/lib/passwords.ts:49
 msgid "Please enter a valid email address."
 msgstr ""
 
-#: tools/common/lib/passwords.ts:59
+#: packages/common/lib/passwords.ts:59
 msgid "Admin username cannot be empty."
 msgstr ""
 
-#: tools/common/lib/passwords.ts:62
+#: packages/common/lib/passwords.ts:62
 msgid "Username can only contain letters, numbers, and _.@- characters."
 msgstr ""
 
-#: tools/common/lib/passwords.ts:67
+#: packages/common/lib/passwords.ts:67
 #. %d is the maximum number of characters allowed in a username
 msgid "Username must be %d characters or fewer."
 msgstr ""
 
-#: tools/common/lib/playground-cli-messages.ts:11
+#: packages/common/lib/playground-cli-messages.ts:11
 msgid "WordPress is running"
 msgstr ""
 
-#: tools/common/lib/playground-cli-messages.ts:14
-#: tools/common/lib/playground-cli-messages.ts:17
+#: packages/common/lib/playground-cli-messages.ts:14
+#: packages/common/lib/playground-cli-messages.ts:17
 msgid "Downloading WordPress…"
 msgstr ""
 
-#: tools/common/lib/playground-cli-messages.ts:20
+#: packages/common/lib/playground-cli-messages.ts:20
 msgid "Starting up workers…"
 msgstr ""
 
-#: tools/common/lib/playground-cli-messages.ts:23
+#: packages/common/lib/playground-cli-messages.ts:23
 msgid "Booting WordPress…"
 msgstr ""
 
-#: tools/common/lib/playground-cli-messages.ts:26
+#: packages/common/lib/playground-cli-messages.ts:26
 msgid "Running the Blueprint…"
 msgstr ""
 
-#: tools/common/lib/playground-cli-messages.ts:33
+#: packages/common/lib/playground-cli-messages.ts:33
 msgid "Preparing workers…"
 msgstr ""
 
-#: tools/common/lib/user-settings/editor.ts:26
+#: packages/common/lib/user-settings/editor.ts:26
 #. "Antigravity" is the brand name for an IDE and does not need to be translated
 msgid "Antigravity"
 msgstr ""
 
-#: tools/common/lib/user-settings/editor.ts:37
+#: packages/common/lib/user-settings/editor.ts:37
 #. "Visual Studio Code" is the brand name for an IDE and does not need to be translated
 msgid "Visual Studio Code"
 msgstr ""
 
-#: tools/common/lib/user-settings/editor.ts:49
+#: packages/common/lib/user-settings/editor.ts:49
 #. "PhpStorm" is the brand name for an IDE and does not need to be translated
 msgid "PhpStorm"
 msgstr ""
 
-#: tools/common/lib/user-settings/editor.ts:60
+#: packages/common/lib/user-settings/editor.ts:60
 #. "WebStorm" is the brand name for an IDE and does not need to be translated
 msgid "WebStorm"
 msgstr ""
 
-#: tools/common/lib/user-settings/editor.ts:71
+#: packages/common/lib/user-settings/editor.ts:71
 #. "Windsurf" is the brand name for an IDE and does not need to be translated
 msgid "Windsurf"
 msgstr ""
 
-#: tools/common/lib/user-settings/editor.ts:93
+#: packages/common/lib/user-settings/editor.ts:93
 #. "Sublime Text" is the brand name for an IDE and does not need to be translated
 msgid "Sublime Text"
 msgstr ""
 
-#: tools/common/lib/user-settings/editor.ts:105
+#: packages/common/lib/user-settings/editor.ts:105
 #. "Zed" is the brand name for an IDE and does not need to be translated
 msgid "Zed"
 msgstr ""
 
-#: tools/common/lib/user-settings/terminal.ts:16
+#: packages/common/lib/user-settings/terminal.ts:16
 msgid "Terminal"
 msgstr ""
 
-#: tools/common/lib/user-settings/terminal.ts:22
+#: packages/common/lib/user-settings/terminal.ts:22
 #. "iTerm" is the brand name for a terminal app and does not need to be translated
 msgid "iTerm"
 msgstr ""
 
-#: tools/common/lib/user-settings/terminal.ts:28
+#: packages/common/lib/user-settings/terminal.ts:28
 #. "Warp" is the brand name for a terminal app and does not need to be translated
 msgid "Warp"
 msgstr ""
 
-#: tools/common/lib/user-settings/terminal.ts:34
+#: packages/common/lib/user-settings/terminal.ts:34
 #. "Ghostty" is the brand name for a terminal app and does not need to be translated
 msgid "Ghostty"
 msgstr ""
 
-#: tools/common/lib/user-settings/terminal.ts:55
+#: packages/common/lib/user-settings/terminal.ts:55
 msgid "Command Prompt"
 msgstr ""
 

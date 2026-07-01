@@ -24,7 +24,7 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@automattic/blocks-engine": "^0.2.1",
+    "@automattic/blocks-engine": "file:vendor/automattic-blocks-engine-0.2.2.tgz",
     "@modelcontextprotocol/sdk": "^1.27.0",
     "@wordpress/block-serialization-default-parser": "^5.47.0",
     "acorn": "^8.17.0",

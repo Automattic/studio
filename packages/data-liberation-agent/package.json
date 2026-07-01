@@ -18,13 +18,13 @@
     "verify": "tsx src/cli.ts verify",
     "setup": "tsx src/cli.ts setup",
     "liberate": "tsx src/cli.ts",
-    "postinstall": "playwright install chromium"
+    "setup:browser": "playwright install chromium"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.0.0"
   },
   "dependencies": {
-    "@automattic/blocks-engine": "^0.2.2",
+    "@automattic/blocks-engine": "file:vendor/automattic-blocks-engine-0.2.2.tgz",
     "@modelcontextprotocol/sdk": "^1.27.0",
     "@wordpress/block-serialization-default-parser": "^5.47.0",
     "acorn": "^8.17.0",
@@ -50,7 +50,7 @@
     "jsdom": "^26.1.0",
     "single-file-cli": "^2.0.83",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0",
+    "typescript": "~6.0.3",
     "vitest": "^3.0.0"
   }
 }

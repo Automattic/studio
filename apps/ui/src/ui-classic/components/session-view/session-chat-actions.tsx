@@ -141,31 +141,29 @@ export function SessionChatActions( {
 		>
 			<div className={ styles.classicComposerFooterSide }>
 				<Menu.Root modal={ false } onOpenChange={ setHistoryMenuOpen }>
-					<Tooltip.Provider delay={ 0 }>
-						<Tooltip.Root disabled={ historyMenuOpen }>
-							<Menu.Trigger
-								render={
-									<Tooltip.Trigger
-										render={
-											<Button
-												type="button"
-												variant="minimal"
-												tone="neutral"
-												size="small"
-												className={ `${ styles.classicComposerTextButton } ${ styles.classicComposerIconButton }` }
-												aria-label={ __( 'Chat history' ) }
-											/>
-										}
-									>
-										<Icon icon={ backup } size={ 26 } className={ styles.classicComposerIcon } />
-									</Tooltip.Trigger>
-								}
-							/>
-							<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-								{ __( 'Chat history' ) }
-							</Tooltip.Popup>
-						</Tooltip.Root>
-					</Tooltip.Provider>
+					<Tooltip.Root disabled={ historyMenuOpen }>
+						<Menu.Trigger
+							render={
+								<Tooltip.Trigger
+									render={
+										<Button
+											type="button"
+											variant="minimal"
+											tone="neutral"
+											size="small"
+											className={ `${ styles.classicComposerTextButton } ${ styles.classicComposerIconButton }` }
+											aria-label={ __( 'Chat history' ) }
+										/>
+									}
+								>
+									<Icon icon={ backup } size={ 26 } className={ styles.classicComposerIcon } />
+								</Tooltip.Trigger>
+							}
+						/>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+							{ __( 'Chat history' ) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
 					<Menu.Popup side="top" align="end" className={ styles.classicComposerHistoryMenu }>
 						{ sessions.length > 0 ? (
 							sessions.map( ( session ) => {
@@ -268,34 +266,32 @@ export function SessionChatActions( {
 						</Dialog.Footer>
 					</Dialog.Popup>
 				</Dialog.Root>
-				<Tooltip.Provider delay={ 0 }>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={
-								<Button
-									type="button"
-									className={ styles.classicComposerTextButton }
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									onClick={ onNewChat }
-									disabled={ isCreatingSession }
-									aria-busy={ isCreatingSession || undefined }
-									aria-keyshortcuts={ NEW_CHAT_SHORTCUT.ariaKeyShortcut }
-								/>
-							}
-						>
-							<span>{ isCreatingSession ? __( 'Starting new chat' ) : __( 'New chat' ) }</span>
-						</Tooltip.Trigger>
-						<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-							{ sprintf(
-								// translators: %s: keyboard shortcut for starting a new chat.
-								__( 'New chat %s' ),
-								NEW_CHAT_SHORTCUT.displayShortcut
-							) }
-						</Tooltip.Popup>
-					</Tooltip.Root>
-				</Tooltip.Provider>
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						render={
+							<Button
+								type="button"
+								className={ styles.classicComposerTextButton }
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								onClick={ onNewChat }
+								disabled={ isCreatingSession }
+								aria-busy={ isCreatingSession || undefined }
+								aria-keyshortcuts={ NEW_CHAT_SHORTCUT.ariaKeyShortcut }
+							/>
+						}
+					>
+						<span>{ isCreatingSession ? __( 'Starting new chat' ) : __( 'New chat' ) }</span>
+					</Tooltip.Trigger>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+						{ sprintf(
+							// translators: %s: keyboard shortcut for starting a new chat.
+							__( 'New chat %s' ),
+							NEW_CHAT_SHORTCUT.displayShortcut
+						) }
+					</Tooltip.Popup>
+				</Tooltip.Root>
 			</div>
 		</div>
 	);

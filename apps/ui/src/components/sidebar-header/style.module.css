@@ -1,10 +1,15 @@
 .root {
+	--sidebar-header-inline-end: calc(
+		var(--wpds-dimension-padding-2xl) - var(--wpds-dimension-padding-xs)
+	);
+
 	display: flex;
 	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
 	/* Leave room for macOS traffic lights at {20, 20} plus a visible gap.
 	   min-height is tuned so the flex-centered content lines up with the
 	   vertical center of the traffic lights. */
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl)
+	padding: var(--wpds-dimension-padding-sm) var(--sidebar-header-inline-end)
 		var(--wpds-dimension-padding-sm) 94px;
 	min-height: 46px;
 	-webkit-app-region: drag;
@@ -20,4 +25,19 @@
    padding that was reserved for them. */
 .fullscreen {
 	padding-left: var(--wpds-dimension-padding-lg);
+}
+
+.actions {
+	display: flex;
+	align-items: center;
+	margin-inline-start: auto;
+	/* The site rows have their action rail tucked into the row padding. Pull
+	   the header button over by the row's inner padding so it shares the same
+	   trailing column. */
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+	-webkit-app-region: no-drag;
+}
+
+.popup {
+	min-width: 200px;
 }

@@ -1,14 +1,20 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useConnector } from '@/data/core';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
+	useCopySite,
+	useDeleteSite,
+	useExportDatabase,
+	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { SiteList } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
@@ -28,6 +34,10 @@ vi.mock( '@tanstack/react-router', () => ( {
 	},
 } ) );
 
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-sessions', () => ( {
 	useSessions: vi.fn(),
 } ) );
@@ -37,6 +47,10 @@ vi.mock( '@/data/queries/use-agent-run', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
+	useCopySite: vi.fn(),
+	useDeleteSite: vi.fn(),
+	useExportDatabase: vi.fn(),
+	useExportFullSite: vi.fn(),
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
 	useSites: vi.fn(),
@@ -44,10 +58,19 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useStopSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useUserPreferences: vi.fn(),
+} ) );
+
 vi.mock( '@/data/sync-activity', () => ( {
 	useSiteSyncActivity: vi.fn(),
 } ) );
 
+const useConnectorMock = vi.mocked( useConnector );
+const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
+const useDeleteSiteMock = vi.mocked( useDeleteSite, { partial: true } );
+const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
+const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteAgentActivityMock = vi.mocked( useSiteAgentActivity );
@@ -56,6 +79,7 @@ const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
 const useSiteSyncActivityMock = vi.mocked( useSiteSyncActivity );
+const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
 const SITE_ORDER_STORAGE_KEY = 'studio-ui-site-list-order-v1';
 
 describe( 'SiteList', () => {
@@ -73,8 +97,26 @@ describe( 'SiteList', () => {
 		useSiteAgentActivityMock.mockReturnValue( 'idle' );
 		useSiteSyncActivityMock.mockReturnValue( null );
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
+		useConnectorMock.mockReturnValue( {
+			openExternalUrl: vi.fn(),
+			openSiteFolder: vi.fn(),
+			openSiteInEditor: vi.fn(),
+			openSiteInTerminal: vi.fn(),
+		} as unknown as ReturnType< typeof useConnector > );
+		useCopySiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
+		useDeleteSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
+		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
+		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useStartSiteMock.mockReturnValue( { isPending: false, mutate: startSite } );
 		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } );
+		useUserPreferencesMock.mockReturnValue( {
+			data: {
+				editor: 'vscode',
+				terminal: null,
+				colorScheme: 'system',
+				locale: 'en',
+			},
+		} );
 		useSitesMock.mockReturnValue( {
 			data: [
 				createSite( {
@@ -123,6 +165,32 @@ describe( 'SiteList', () => {
 
 		expect( runningButton.querySelectorAll( 'svg' ) ).toHaveLength( 1 );
 		expect( actionGlyph?.querySelector( 'span' ) ).toBeInTheDocument();
+	} );
+
+	it( 'opens site actions from the row without opening the latest chat', async () => {
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site actions' } )[ 0 ] );
+
+		expect( navigateMock ).not.toHaveBeenCalled();
+		expect( await screen.findByText( 'Site settings' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Duplicate site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Open folder' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Export entire site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Delete site' ) ).toBeInTheDocument();
+	} );
+
+	it( 'opens site settings from the site actions menu', async () => {
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site actions' } )[ 0 ] );
+		fireEvent.click( await screen.findByText( 'Site settings' ) );
+
+		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sites/$siteId/settings',
+			params: { siteId: 'stopped-site' },
+		} );
 	} );
 
 	it( 'dims stopped site titles without dimming running sites', () => {

@@ -1,51 +1,91 @@
-import { useNavigate, useRouterState } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { cog } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
-import { clsx } from 'clsx';
 import { Gravatar } from '@/components/gravatar';
+import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
-import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useConnector } from '@/data/core';
+import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
+import type { ColorScheme } from '@/data/core';
+
+const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
+const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
+const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
 type Props = {
 	onToggleSidebar?: () => void;
 };
 
 export function UserMenu( { onToggleSidebar }: Props ) {
+	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
+	const savePreferences = useSaveUserPreferences();
 	const login = useLogin();
+	const logout = useLogout();
 	const navigate = useNavigate();
-	const settingsActive = useRouterState( {
-		select: ( state ) => state.location.pathname === '/settings',
-	} );
 	const effectiveScheme = usePrefersColorScheme();
 
 	const savedScheme = preferences?.colorScheme;
+	const currentScheme: ColorScheme = savedScheme ?? 'system';
 	const themeIsDark =
 		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
 
-	const openAccountSettings = () => {
-		void navigate( { to: '/settings' } );
+	const openLink = ( url: string ) => {
+		void connector.openExternalUrl( url );
 	};
 
 	return (
 		<div className={ styles.root }>
 			<div className={ styles.row }>
 				{ user ? (
-					<SidebarButton
-						className={ clsx( styles.userTrigger, settingsActive && styles.userTriggerActive ) }
-						aria-label={ __( 'Open account settings' ) }
-						aria-current={ settingsActive ? 'page' : undefined }
-						onClick={ openAccountSettings }
-					>
-						<Gravatar email={ user.email } isDark={ themeIsDark } />
-						<span className={ styles.userName }>{ user.displayName }</span>
-					</SidebarButton>
+					<Menu.Root modal={ false }>
+						<Menu.Trigger
+							render={
+								<SidebarButton className={ styles.userTrigger }>
+									<Gravatar email={ user.email } isDark={ themeIsDark } />
+									<span className={ styles.userName }>{ user.displayName }</span>
+								</SidebarButton>
+							}
+						/>
+						<Menu.Popup side="top" align="start" className={ styles.popup }>
+							<div className={ styles.email } title={ user.email }>
+								{ user.email }
+							</div>
+							<Menu.Item onClick={ () => void navigate( { to: '/settings' } ) }>
+								{ __( 'Settings' ) }
+							</Menu.Item>
+							<Menu.Separator />
+							<div className={ styles.menuLabel }>{ __( 'Appearance' ) }</div>
+							<Menu.RadioGroup
+								value={ currentScheme }
+								onValueChange={ ( value ) =>
+									savePreferences.mutate( { colorScheme: value as ColorScheme } )
+								}
+							>
+								<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
+								<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>
+								<Menu.RadioItem value="dark">{ __( 'Dark' ) }</Menu.RadioItem>
+							</Menu.RadioGroup>
+							<Menu.Separator />
+							<Menu.Item onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
+								{ __( 'Edit WordPress.com profile' ) }
+							</Menu.Item>
+							<Menu.Item onClick={ () => openLink( DOCS_URL ) }>
+								{ __( 'Documentation' ) }
+							</Menu.Item>
+							<Menu.Item onClick={ () => openLink( REPORT_ISSUE_URL ) }>
+								{ __( 'Report an issue' ) }
+							</Menu.Item>
+							<Menu.Separator />
+							<Menu.Item onClick={ () => logout.mutate() }>{ __( 'Log out' ) }</Menu.Item>
+						</Menu.Popup>
+					</Menu.Root>
 				) : (
 					<SidebarButton className={ styles.loginButton } onClick={ () => login.mutate() }>
 						{ __( 'Log in with WordPress.com' ) }
@@ -60,12 +100,8 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 						size="small"
 						icon={ cog }
 						label={ __( 'Settings' ) }
-						className={ clsx(
-							styles.settingsButton,
-							settingsActive && styles.settingsButtonActive
-						) }
-						aria-current={ settingsActive ? 'page' : undefined }
-						onClick={ openAccountSettings }
+						className={ styles.settingsButton }
+						onClick={ () => void navigate( { to: '/settings' } ) }
 					/>
 				) : null }
 				{ onToggleSidebar ? (

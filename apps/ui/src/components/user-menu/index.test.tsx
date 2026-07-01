@@ -1,22 +1,20 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useConnector } from '@/data/core';
+import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { UserMenu } from './index';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 const navigate = vi.fn();
 const loginMutate = vi.fn();
-let pathname = '/';
+const logoutMutate = vi.fn();
+const savePreferencesMutate = vi.fn();
+const openExternalUrl = vi.fn();
 
 vi.mock( '@tanstack/react-router', () => ( {
 	useNavigate: () => navigate,
-	useRouterState: ( {
-		select,
-	}: {
-		select: ( state: { location: { pathname: string } } ) => unknown;
-	} ) => select( { location: { pathname } } ),
 } ) );
 
 vi.mock( '@wordpress/ui', () => ( {
@@ -70,12 +68,50 @@ vi.mock( '@/components/gravatar', () => ( {
 	Gravatar: () => <span data-testid="gravatar" />,
 } ) );
 
+vi.mock( '@/components/menu', () => {
+	let onRadioValueChange: ( ( value: string ) => void ) | undefined;
+
+	return {
+		Root: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
+		Trigger: ( { render }: { render: ReactNode } ) => <>{ render }</>,
+		Popup: ( { children }: { children: ReactNode } ) => <div role="menu">{ children }</div>,
+		Item: ( { children, onClick }: { children: ReactNode; onClick?: () => void } ) => (
+			<button type="button" onClick={ onClick }>
+				{ children }
+			</button>
+		),
+		Separator: () => <hr />,
+		RadioGroup: ( {
+			children,
+			onValueChange,
+		}: {
+			children: ReactNode;
+			value: string;
+			onValueChange: ( value: string ) => void;
+		} ) => {
+			onRadioValueChange = onValueChange;
+			return <div>{ children }</div>;
+		},
+		RadioItem: ( { children, value }: { children: ReactNode; value: string } ) => (
+			<button type="button" onClick={ () => onRadioValueChange?.( value ) }>
+				{ children }
+			</button>
+		),
+	};
+} );
+
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: vi.fn(),
 	useLogin: vi.fn(),
+	useLogout: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	useSaveUserPreferences: vi.fn(),
 	useUserPreferences: vi.fn(),
 } ) );
 
@@ -83,24 +119,49 @@ vi.mock( '@/hooks/use-prefers-color-scheme', () => ( {
 	usePrefersColorScheme: () => 'dark',
 } ) );
 
+const useConnectorMock = vi.mocked( useConnector, { partial: true } );
 const useAuthUserMock = vi.mocked( useAuthUser );
 const useLoginMock = vi.mocked( useLogin );
+const useLogoutMock = vi.mocked( useLogout );
+const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
 const useUserPreferencesMock = vi.mocked( useUserPreferences );
 
 describe( 'UserMenu', () => {
 	beforeEach( () => {
-		pathname = '/';
-		navigate.mockClear();
-		loginMutate.mockClear();
+		vi.clearAllMocks();
+		useConnectorMock.mockReturnValue( {
+			openExternalUrl,
+		} );
 		useLoginMock.mockReturnValue( {
 			mutate: loginMutate,
 		} as unknown as ReturnType< typeof useLogin > );
+		useLogoutMock.mockReturnValue( {
+			mutate: logoutMutate,
+		} as unknown as ReturnType< typeof useLogout > );
+		useSaveUserPreferencesMock.mockReturnValue( {
+			mutate: savePreferencesMutate,
+		} as unknown as ReturnType< typeof useSaveUserPreferences > );
 		useUserPreferencesMock.mockReturnValue( {
 			data: { colorScheme: 'system' },
 		} as ReturnType< typeof useUserPreferences > );
 	} );
 
-	it( 'opens account settings directly for signed-in users', () => {
+	it( 'shows account actions and logs out signed-in users', () => {
+		useAuthUserMock.mockReturnValue( {
+			data: { displayName: 'Ada Lovelace', email: 'ada@example.com' },
+		} as ReturnType< typeof useAuthUser > );
+
+		render( <UserMenu /> );
+
+		expect( screen.getByText( 'ada@example.com' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Settings' } ) ).toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log out' } ) );
+
+		expect( logoutMutate ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'keeps appearance controls inside the signed-in account menu', () => {
 		useAuthUserMock.mockReturnValue( {
 			data: { displayName: 'Ada Lovelace', email: 'ada@example.com' },
 		} as ReturnType< typeof useAuthUser > );
@@ -109,25 +170,9 @@ describe( 'UserMenu', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'Appearance' } ) ).not.toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Open account settings' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Dark' } ) );
 
-		expect( navigate ).toHaveBeenCalledWith( {
-			to: '/settings',
-		} );
-	} );
-
-	it( 'highlights the signed-in account row while settings is active', () => {
-		pathname = '/settings';
-		useAuthUserMock.mockReturnValue( {
-			data: { displayName: 'Ada Lovelace', email: 'ada@example.com' },
-		} as ReturnType< typeof useAuthUser > );
-
-		render( <UserMenu /> );
-
-		expect( screen.getByRole( 'button', { name: 'Open account settings' } ) ).toHaveAttribute(
-			'aria-current',
-			'page'
-		);
+		expect( savePreferencesMutate ).toHaveBeenCalledWith( { colorScheme: 'dark' } );
 	} );
 
 	it( 'keeps settings reachable when signed out', () => {
@@ -140,6 +185,18 @@ describe( 'UserMenu', () => {
 		expect( navigate ).toHaveBeenCalledWith( {
 			to: '/settings',
 		} );
-		expect( screen.queryByRole( 'button', { name: 'Appearance' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps the sidebar toggle action in the footer row', () => {
+		const onToggleSidebar = vi.fn();
+		useAuthUserMock.mockReturnValue( {
+			data: { displayName: 'Ada Lovelace', email: 'ada@example.com' },
+		} as ReturnType< typeof useAuthUser > );
+
+		render( <UserMenu onToggleSidebar={ onToggleSidebar } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Hide sidebar' } ) );
+
+		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

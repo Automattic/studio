@@ -1,6 +1,7 @@
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { Tooltip } from '@wordpress/ui';
+import { moreHorizontal } from '@wordpress/icons';
+import { IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	Fragment,
@@ -14,19 +15,27 @@ import {
 	type PointerEvent as ReactPointerEvent,
 	type ReactNode,
 } from 'react';
+import { DeleteSiteDialog } from '@/components/delete-site-dialog';
+import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { Spinner } from '@/components/spinner';
+import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
+	useCopySite,
+	useExportDatabase,
+	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
 	useStartSite,
 	useStopSite,
 } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -334,6 +343,162 @@ function SiteStatusButton( {
 	);
 }
 
+function SiteActionsMenu( {
+	site,
+	sessionIds,
+	isStarting,
+	isStopping,
+}: {
+	site: SiteDetails;
+	sessionIds: string[];
+	isStarting: boolean;
+	isStopping: boolean;
+} ) {
+	const navigate = useNavigate();
+	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
+	const connector = useConnector();
+	const { data: userPreferences } = useUserPreferences();
+	const startSite = useStartSite();
+	const stopSite = useStopSite();
+	const copySite = useCopySite();
+	const exportFullSite = useExportFullSite();
+	const exportDatabase = useExportDatabase();
+	const busy = isStarting || isStopping;
+	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
+	const [ deleteOpen, setDeleteOpen ] = useState( false );
+
+	const stopMenuEventPropagation = (
+		event: MouseEvent< HTMLElement > | ReactPointerEvent< HTMLElement >
+	) => {
+		event.stopPropagation();
+	};
+
+	const handleOpenFolder = () => {
+		void connector.openSiteFolder( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site folder:', error );
+		} );
+	};
+
+	const handleOpenInEditor = () => {
+		if ( ! userPreferences?.editor ) {
+			void navigate( { to: '/settings' } );
+			return;
+		}
+		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site in editor:', error );
+		} );
+	};
+
+	const handleOpenInTerminal = () => {
+		void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
+			console.error( 'Failed to open site in terminal:', error );
+		} );
+	};
+
+	const handleOpenPhpMyAdmin = () => {
+		void connector.openExternalUrl(
+			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
+		);
+	};
+
+	const handleOpenWpAdmin = () => {
+		const siteUrl = getSiteUrl( site );
+		const redirectTo = new URL( '/wp-admin/', siteUrl ).toString();
+		const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
+		autoLoginUrl.searchParams.set( 'redirect_to', redirectTo );
+		void connector.openExternalUrl( autoLoginUrl.toString() );
+	};
+
+	const handleDeleted = () => {
+		const viewingDeletedSite =
+			params.siteId === site.id ||
+			( params.sessionId ? sessionIds.includes( params.sessionId ) : false );
+		if ( viewingDeletedSite ) {
+			void navigate( { to: '/' } );
+		}
+	};
+
+	return (
+		<>
+			<Menu.Root modal={ false }>
+				<Menu.Trigger
+					render={
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							icon={ moreHorizontal }
+							label={ __( 'Site actions' ) }
+							className={ styles.siteAction }
+							onClick={ ( event ) => event.stopPropagation() }
+						/>
+					}
+				/>
+				<Menu.Popup
+					side="bottom"
+					align="end"
+					onClick={ stopMenuEventPropagation }
+					onPointerDown={ stopMenuEventPropagation }
+				>
+					{ site.running ? (
+						<Menu.Item disabled={ busy } onClick={ () => stopSite.mutate( site.id ) }>
+							{ __( 'Stop site' ) }
+						</Menu.Item>
+					) : (
+						<Menu.Item disabled={ busy } onClick={ () => startSite.mutate( site.id ) }>
+							{ isStarting ? __( 'Starting…' ) : __( 'Start site' ) }
+						</Menu.Item>
+					) }
+					<Menu.Separator />
+					<Menu.Item
+						onClick={ () =>
+							void navigate( {
+								to: '/sites/$siteId/settings',
+								params: { siteId: site.id },
+							} )
+						}
+					>
+						{ __( 'Site settings' ) }
+					</Menu.Item>
+					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
+						{ copySite.isPending ? __( 'Duplicating…' ) : __( 'Duplicate site' ) }
+					</Menu.Item>
+					<Menu.Separator />
+					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
+					<Menu.Item onClick={ handleOpenInEditor }>{ __( 'Open in editor' ) }</Menu.Item>
+					<Menu.Item onClick={ handleOpenInTerminal }>{ __( 'Open in terminal' ) }</Menu.Item>
+					<Menu.Item disabled={ ! site.running } onClick={ handleOpenPhpMyAdmin }>
+						{ __( 'Open phpMyAdmin' ) }
+					</Menu.Item>
+					<Menu.Item disabled={ ! site.running } onClick={ handleOpenWpAdmin }>
+						{ __( 'Open WP admin' ) }
+					</Menu.Item>
+					<Menu.Separator />
+					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>
+						{ exportFullSite.isPending ? __( 'Exporting…' ) : __( 'Export entire site' ) }
+					</Menu.Item>
+					<Menu.Item disabled={ isExporting } onClick={ () => exportDatabase.mutate( site.id ) }>
+						{ exportDatabase.isPending ? __( 'Exporting…' ) : __( 'Export database' ) }
+					</Menu.Item>
+					<Menu.Separator />
+					<Menu.Item
+						onClick={ () => setDeleteOpen( true ) }
+						disabled={ busy || copySite.isPending || isExporting }
+					>
+						{ __( 'Delete site' ) }
+					</Menu.Item>
+				</Menu.Popup>
+			</Menu.Root>
+			<DeleteSiteDialog
+				site={ site }
+				open={ deleteOpen }
+				onOpenChange={ setDeleteOpen }
+				onDeleted={ handleDeleted }
+			/>
+		</>
+	);
+}
+
 function SiteSection( {
 	row,
 	isChatActive,
@@ -407,6 +572,12 @@ function SiteSection( {
 					</SidebarButton>
 				</div>
 				<div className={ styles.siteActions } data-site-actions>
+					<SiteActionsMenu
+						site={ site }
+						sessionIds={ row.sessionIds }
+						isStarting={ isStarting }
+						isStopping={ isStopping }
+					/>
 					<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 				</div>
 			</header>

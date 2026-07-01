@@ -22,14 +22,19 @@
 	);
 	--wp-ui-button-border-color: var(--site-menu-border);
 	--wp-ui-button-border-color-active: var(--site-menu-border-active);
+	--wp-ui-button-height: 44px;
+	--wp-ui-button-padding-block: 0;
+	--wp-ui-button-padding-inline: 0;
 
-	gap: var(--wpds-dimension-padding-sm);
+	gap: 12px;
 	max-width: 100%;
-	min-height: 48px;
+	min-height: 44px;
 	min-width: 0;
 	align-items: center;
 	backdrop-filter: blur(20px) saturate(115%);
 	-webkit-backdrop-filter: blur(20px) saturate(115%);
+	overflow: hidden;
+	padding-inline: 0 12px;
 	white-space: nowrap;
 }
 
@@ -37,14 +42,14 @@
 	position: relative;
 	display: inline-flex;
 	flex: 0 0 auto;
-	width: 24px;
-	height: 24px;
+	width: 44px;
+	height: 44px;
 }
 
 .siteIcon {
-	width: 24px;
-	height: 24px;
-	border-radius: 6px;
+	width: 100%;
+	height: 100%;
+	border-radius: 0;
 }
 
 .siteIcon_stopped {
@@ -56,10 +61,10 @@
 	flex-direction: column;
 	align-items: flex-start;
 	justify-content: center;
-	gap: 2px;
+	gap: 0;
 	min-width: 0;
 	max-width: min(420px, 56vw);
-	padding-inline: 2px var(--wpds-dimension-padding-xs);
+	padding-inline: 0 var(--wpds-dimension-padding-xs);
 	text-align: left;
 }
 
@@ -128,9 +133,10 @@
 
 .statusBadge_overlay {
 	position: absolute;
-	right: -1px;
-	bottom: -1px;
-	box-shadow: 0 0 0 1px var(--wpds-color-bg-surface-neutral-strong);
+	right: -4px;
+	bottom: 8px;
+	z-index: 1;
+	box-shadow: 0 0 0 2px var(--wpds-color-bg-surface-neutral-strong);
 }
 
 .statusBadge_live {

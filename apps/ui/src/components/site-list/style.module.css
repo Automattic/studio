@@ -276,6 +276,23 @@
 	justify-content: flex-end;
 	flex-shrink: 0;
 	gap: 0;
+	max-width: 24px;
+	overflow: hidden;
+	transition: max-width 100ms ease;
+}
+
+.siteAction {
+	flex-shrink: 0;
+}
+
+/* Collapsed, only the trailing status button shows; hover/focus/active
+   reveals the site menu button next to it. */
+.siteActive .siteActions,
+.siteContextActive .siteActions,
+.siteHeader:hover .siteActions,
+.siteHeader:focus-within .siteActions,
+.siteHeader:has(.siteAction[data-popup-open]) .siteActions {
+	max-width: 48px;
 }
 
 .siteStatus {
@@ -303,7 +320,8 @@
 .siteActive .siteStatus[data-state='stopped'],
 .siteContextActive .siteStatus[data-state='stopped'],
 .siteHeader:hover .siteStatus[data-state='stopped'],
-.siteHeader:focus-within .siteStatus[data-state='stopped'] {
+.siteHeader:focus-within .siteStatus[data-state='stopped'],
+.siteHeader:has(.siteAction[data-popup-open]) .siteStatus[data-state='stopped'] {
 	opacity: 1;
 }
 

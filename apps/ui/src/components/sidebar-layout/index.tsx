@@ -3,7 +3,6 @@ import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
-import { SidebarCreateMenu } from '@/components/sidebar-create-menu';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
@@ -46,7 +45,6 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					<SidebarHeader />
 					<SiteList />
 					<div className={ styles.sidebarFooter }>
-						<SidebarCreateMenu />
 						<UserMenu onToggleSidebar={ toggleSidebar } />
 					</div>
 				</aside>

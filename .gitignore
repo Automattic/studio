@@ -103,8 +103,6 @@ wp-files/*
 
 # Release Tooling
 vendor/*
-# TEMP: vendored blocks-engine 0.2.2 until it ages past min-release-age (remove in follow-up PR)
-!packages/data-liberation-agent/vendor/automattic-blocks-engine-0.2.2.tgz
 /fastlane/report.xml
 /fastlane/README.md
 /fastlane/github_release_notes.txt

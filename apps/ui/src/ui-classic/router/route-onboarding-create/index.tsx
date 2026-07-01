@@ -14,7 +14,7 @@ import type { CreateSiteFormValues } from '@/components/create-site-form';
 function CreateSitePage() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
-	const { data: existingDomainNames } = useExistingCustomDomains();
+	const existingDomainNames = useExistingCustomDomains();
 	const { data: proposedName } = useProposedSiteName( sites );
 	const createSite = useCreateSite();
 	const [ submitError, setSubmitError ] = useState( '' );
@@ -49,7 +49,7 @@ function CreateSitePage() {
 			</p>
 			<CreateSiteForm
 				initialValues={ proposedName ? { name: proposedName } : undefined }
-				existingDomainNames={ existingDomainNames ?? [] }
+				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ createSite.isPending }

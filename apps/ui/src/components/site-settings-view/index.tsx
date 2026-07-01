@@ -151,12 +151,12 @@ function SiteSettingsBody( {
 	activeTab: TabId;
 	onTabChange: ( tab: TabId ) => void;
 } ) {
-	const { data: allDomains } = useExistingCustomDomains();
+	const allDomains = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
-		() => ( allDomains ?? [] ).filter( ( domain ) => domain !== site.customDomain ),
+		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),
 		[ allDomains, site.customDomain ]
 	);
-	const { data: xdebugEnabledSite } = useXdebugEnabledSite();
+	const xdebugEnabledSite = useXdebugEnabledSite();
 	const xdebugConflictSiteName =
 		xdebugEnabledSite && xdebugEnabledSite.id !== site.id ? xdebugEnabledSite.name : undefined;
 

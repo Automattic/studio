@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { setStoredSessionId } from './use-single-session';
+import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
 import type { IpcRendererEvent } from 'electron';
-import type { AiSessionPlacementUpdatedEvent } from 'src/lib/ai-session-placement';
 
 export interface PendingSiteCreation {
 	siteId: string;

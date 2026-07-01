@@ -1,7 +1,7 @@
 /**
  * Copies `connectedWpcomSites` from the Desktop-owned `app.json` into the
  * shared `shared.json` so the CLI can read and write it through the helpers
- * in `tools/common/lib/connected-sites.ts`.
+ * in `packages/common/lib/connected-sites.ts`.
  *
  * Runs only when app.json carries the legacy field AND shared.json does not
  * already have it — the CLI must never modify app.json. The Studio app runs

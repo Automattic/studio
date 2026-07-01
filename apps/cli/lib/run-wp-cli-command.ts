@@ -187,8 +187,6 @@ async function runNativeWpCliCommand(
 	await ensurePhpBinaryAvailable( phpVersion );
 	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
 
-	// Don't apply open_basedir or disable_functions to the WP-CLI process
-	const defaultArgs = getDefaultPhpArgs( phpVersion );
 	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
 	// so load it here too. No-op for normal sites (helper returns undefined).
 	//
@@ -200,11 +198,12 @@ async function runNativeWpCliCommand(
 	const autoPrependFile = options.requireSqliteCliCommand
 		? undefined
 		: getImportedSiteAutoPrependFile( site );
-	const prependArgs = autoPrependFile ? [ '-d', `auto_prepend_file=${ autoPrependFile }` ] : [];
+	// Don't apply open_basedir or disable_functions to the WP-CLI process
+	const defaultArgs = getDefaultPhpArgs( phpVersion, { autoPrependFile } );
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
-		[ ...defaultArgs, ...prependArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
+		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
 		{
 			cwd: site.path,
 			stdio: options.stdio === 'inherit' ? 'inherit' : [ 'ignore', 'pipe', 'pipe' ],

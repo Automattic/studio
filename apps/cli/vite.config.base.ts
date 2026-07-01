@@ -82,11 +82,13 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( dataLiberationSourcePath ) ) {
 					cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
 						recursive: true,
-						// Ship the compiled engine (dist/) + its runtime node_modules; skip the
-						// dev-only source and test trees (compiled output lives in dist/).
+						// Ship the compiled engine (dist/) only. Skip dev-only src/test AND
+						// node_modules: the engine is a CLI `dependency`, so its runtime deps live
+						// in the shared `apps/cli/node_modules`, which the spawned engine resolves by
+						// walking up — no duplicated per-engine node_modules ships.
 						filter: ( src ) => {
 							const top = relative( dataLiberationSourcePath, src ).split( sep )[ 0 ];
-							return top !== 'src' && top !== 'test';
+							return top !== 'src' && top !== 'test' && top !== 'node_modules';
 						},
 					} );
 				}

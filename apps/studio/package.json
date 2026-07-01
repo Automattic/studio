@@ -31,7 +31,7 @@
 	"dependencies": {
 		"@formatjs/intl-localematcher": "^0.5.4",
 		"@sentry/electron": "^7.13.0",
-		"@studio/common": "file:../../tools/common",
+		"@studio/common": "file:../../packages/common",
 		"@vscode/sudo-prompt": "^9.3.1",
 		"@wordpress/i18n": "^6.20.0",
 		"atomically": "^2.1.0",

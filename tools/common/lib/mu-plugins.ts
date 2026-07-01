@@ -331,7 +331,8 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	muPlugins.push( {
 		filename: '0-deactivate-jetpack-modules.php',
 		content: `<?php
-			// Disable Jetpack modules that conflict with local development.
+			// Disable Jetpack Protect so local auto-login is not blocked by 2FA.
+			// Disable Jetpack Stats so local previews and thumbnails do not bump remote site stats.
 			add_filter( 'jetpack_active_modules', 'studio_deactivate_jetpack_modules' );
 			function studio_deactivate_jetpack_modules( $active ) {
 				$disabled_modules = array( 'protect', 'stats' );

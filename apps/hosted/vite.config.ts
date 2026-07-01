@@ -69,7 +69,7 @@ export default defineConfig( {
 	},
 	resolve: {
 		alias: {
-			'@studio/common': resolve( __dirname, '../../tools/common' ),
+			'@studio/common': resolve( __dirname, '../../packages/common' ),
 		},
 		conditions: [ 'node' ],
 		mainFields: [ 'main' ],

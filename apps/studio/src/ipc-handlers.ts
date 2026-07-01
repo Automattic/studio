@@ -2320,7 +2320,7 @@ export async function startRemoteSessionDaemon(
 	//
 	// `STUDIO_ENABLE_REMOTE_SESSION=true` is required: the CLI gates the entire
 	// `code remote-session` subcommand tree behind that env var (see
-	// `tools/common/lib/remote-session.ts`). Without it, the spawned child fails with
+	// `packages/common/lib/remote-session.ts`). Without it, the spawned child fails with
 	// "Unknown arguments: remote-session, start". The `remoteSession` beta
 	// feature is the user-facing opt-in, so we lift the CLI gate in the spawned
 	// child rather than asking users to set the env var manually.

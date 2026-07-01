@@ -1,10 +1,9 @@
-import { execFile } from 'child_process';
 import { existsSync } from 'fs';
 import path from 'path';
-import { promisify } from 'util';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { Type } from 'typebox';
+import { ensurePlaywrightChromiumInstalled } from '../browser-utils';
 import { defineTool } from './define-tool';
 import { textResult } from './utils';
 
@@ -41,38 +40,27 @@ function resolveEngineDir(): string {
 	return dir;
 }
 
-const execFileAsync = promisify( execFile );
-
-// The engine drives Playwright (extract / screenshot / reconstruct) but ships
-// no browser binary — the packaging install skips Playwright's download, and the
-// engine's playwright (1.58.x) pins a different chromium revision than Studio's
-// own (1.60.x), so they can't share one. Install the engine's matching chromium
-// once, into the shared OS cache, using the engine's OWN playwright installer
-// (mirrors apps/cli/ai/browser-utils.ts). Best-effort + memoized: `playwright
-// install` is a fast no-op when already present, and a failure here must NOT
-// block the non-browser tools (detect/discover/paths) — those still work.
+// The engine drives Playwright (extract / screenshot / reconstruct) but ships no
+// browser binary. Playwright is deduped to a single version shared with Studio, so
+// the engine launches the same managed Chromium — provision it with Studio's shared
+// helper before connecting. Best-effort + memoized: a failure must NOT block the
+// non-browser tools (detect/discover/paths) — those still work.
 let chromiumPromise: Promise< void > | null = null;
 
-function ensureEngineChromium( engineDir: string ): Promise< void > {
+function ensureEngineChromium(): Promise< void > {
 	if ( ! chromiumPromise ) {
-		chromiumPromise = installEngineChromium( engineDir ).catch( ( error ) => {
-			chromiumPromise = null; // allow a retry on the next connect
-			console.error(
-				`[data_liberation] Could not install the engine's Playwright Chromium: ${
-					error instanceof Error ? error.message : String( error )
-				}. Browser-dependent steps (extract/screenshot/reconstruct) may fail until it is installed.`
-			);
-		} );
+		chromiumPromise = ( async () => {
+			const { chromium } = await import( 'playwright' );
+			const problem = await ensurePlaywrightChromiumInstalled( chromium );
+			if ( problem ) {
+				chromiumPromise = null; // allow a retry on the next connect
+				console.error(
+					`[data_liberation] ${ problem } Browser-dependent steps (extract/screenshot/reconstruct) may fail.`
+				);
+			}
+		} )();
 	}
 	return chromiumPromise;
-}
-
-async function installEngineChromium( engineDir: string ): Promise< void > {
-	const cli = path.join( engineDir, 'node_modules', 'playwright', 'cli.js' );
-	await execFileAsync( process.execPath, [ cli, 'install', 'chromium' ], {
-		env: { ...process.env, CI: process.env.CI ?? '1' },
-		maxBuffer: 10 * 1024 * 1024,
-	} );
 }
 
 let clientPromise: Promise< Client > | null = null;
@@ -90,7 +78,7 @@ function getClient( engineDir: string ): Promise< Client > {
 async function connectClient( engineDir: string ): Promise< Client > {
 	// Ensure the engine's Chromium is present before any tool runs (best-effort;
 	// a one-time ~150MB download on the first connect per machine, then cached).
-	await ensureEngineChromium( engineDir );
+	await ensureEngineChromium();
 
 	// Run the compiled MCP server with the current Node binary
 	const transport = new StdioClientTransport( {

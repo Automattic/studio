@@ -7,24 +7,8 @@ import { ensurePlaywrightChromiumInstalled } from '../browser-utils';
 import { defineTool } from './define-tool';
 import { textResult } from './utils';
 
-// Engine operations (extract, screenshot, reconstruct) drive Playwright and
-// routinely run for minutes — far past the MCP SDK's 60s default request
-// timeout, which otherwise surfaces as `MCP error -32001: Request timed out`.
-// Use a generous per-call timeout. NOTE: this is effectively a FLAT cap — the
-// engine emits no MCP progress notifications, so the `resetTimeoutOnProgress`
-// flag we pass is currently inert (kept as a no-op in case the engine adds
-// notifications later). A single op that exceeds the cap still returns -32001
-// while the engine keeps running in the background; the `/liberate` skill
-// handles that by polling `liberate_status` rather than re-invoking.
-const ENGINE_CALL_TIMEOUT_MS = 600_000;
-
 const engineDir = path.join( import.meta.dirname, 'data-liberation-agent' );
 
-// The engine drives Playwright (extract / screenshot / reconstruct) but ships no
-// browser binary. Playwright is deduped to a single version shared with Studio, so
-// the engine launches the same managed Chromium — provision it with Studio's shared
-// helper before connecting. Best-effort + memoized: a failure must NOT block the
-// non-browser tools (detect/discover/paths) — those still work.
 let chromiumPromise: Promise< void > | null = null;
 
 function ensureEngineChromium(): Promise< void > {
@@ -165,14 +149,10 @@ export const dataLiberationTool = defineTool(
 			return textResult( JSON.stringify( listed.tools, null, 2 ) );
 		}
 
-		const result = await client.callTool(
-			{
-				name: args.tool,
-				arguments: coerceArgs( args.args ),
-			},
-			undefined,
-			{ timeout: ENGINE_CALL_TIMEOUT_MS, resetTimeoutOnProgress: true }
-		);
+		const result = await client.callTool( {
+			name: args.tool,
+			arguments: coerceArgs( args.args ),
+		} );
 
 		const rawContent = Array.isArray( result.content )
 			? ( result.content as DataLiberationResultContent[] )

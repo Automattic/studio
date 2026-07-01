@@ -1,0 +1,59 @@
+{
+  "website": {
+    "siteTitle": "Mountain Coffee Roasters",
+    "siteTagLine": "Artisan coffee from the highlands",
+    "siteDescription": "We source and roast specialty coffee beans from mountain farms around the world.",
+    "language": "en-US"
+  },
+  "collection": {
+    "title": "Blog",
+    "urlId": "blog",
+    "type": 1,
+    "typeName": "blog",
+    "description": "Stories from the roastery",
+    "enabled": true
+  },
+  "item": {
+    "title": "The Art of Pour Over Coffee",
+    "urlId": "the-art-of-pour-over-coffee",
+    "body": "<h2>Why Pour Over?</h2><p>Pour over coffee is one of the best ways to experience single-origin beans. The method gives you complete control over extraction time and water temperature.</p><p>At Mountain Coffee Roasters, we recommend starting with a 1:16 ratio of coffee to water.</p><img src=\"https://images.squarespace-cdn.com/content/v1/abc123/pour-over-setup.jpg\" alt=\"Pour over coffee setup\" /><h2>Step-by-Step Guide</h2><p>First, heat your water to 205°F. Then, place your filter in the dripper and rinse it with hot water.</p><p>Add your ground coffee — we suggest a medium-fine grind, similar to table salt.</p><img src=\"https://images.squarespace-cdn.com/content/v1/abc123/grinding-beans.jpg\" alt=\"Grinding coffee beans\" />",
+    "excerpt": "A complete guide to making the perfect pour over coffee at home.",
+    "publishOn": 1706014800000,
+    "addedOn": 1706000400000,
+    "tags": ["brewing", "tutorial", "pour-over"],
+    "categories": ["Brewing Guides"],
+    "assetUrl": "https://images.squarespace-cdn.com/content/v1/abc123/pour-over-hero.jpg",
+    "systemDataId": "65b1234567890abcdef12345",
+    "author": {
+      "displayName": "Alex Rivera"
+    },
+    "seoData": {
+      "seoTitle": "The Art of Pour Over Coffee | Mountain Coffee Roasters",
+      "seoDescription": "Learn how to brew the perfect pour over coffee with our step-by-step guide."
+    }
+  },
+  "items": [
+    {
+      "title": "The Art of Pour Over Coffee",
+      "urlId": "the-art-of-pour-over-coffee",
+      "fullUrl": "/blog/the-art-of-pour-over-coffee",
+      "body": "<p>Pour over coffee is one of the best ways to experience single-origin beans.</p>",
+      "excerpt": "A complete guide to making the perfect pour over coffee at home.",
+      "publishOn": 1706014800000,
+      "tags": ["brewing", "tutorial"],
+      "categories": ["Brewing Guides"],
+      "assetUrl": "https://images.squarespace-cdn.com/content/v1/abc123/pour-over-hero.jpg"
+    },
+    {
+      "title": "Ethiopian Yirgacheffe: A Tasting Journey",
+      "urlId": "ethiopian-yirgacheffe-tasting",
+      "fullUrl": "/blog/ethiopian-yirgacheffe-tasting",
+      "body": "<p>Our latest single-origin from the Yirgacheffe region is a stunning example of what Ethiopian coffee can be.</p>",
+      "excerpt": "Exploring the bright, fruity flavors of Ethiopian Yirgacheffe.",
+      "publishOn": 1705410000000,
+      "tags": ["origins", "tasting-notes"],
+      "categories": ["Coffee Origins"],
+      "assetUrl": "https://images.squarespace-cdn.com/content/v1/abc123/yirgacheffe-beans.jpg"
+    }
+  ]
+}

@@ -54,7 +54,6 @@ import {
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
-import { getPrettyPath } from 'cli/lib/utils';
 import {
 	startWordPressServer,
 	stopWordPressServer,
@@ -1061,28 +1060,6 @@ export function getReprintApiUrlForSite( siteUrl: string ): string {
 	const apiUrl = new URL( siteUrl );
 	apiUrl.search = '?reprint-api';
 	return apiUrl.toString();
-}
-
-function buildFilesSyncArgs(
-	metadata: Pick< PullSession, 'stateDirectory' | 'rawDirectory' >,
-	apiUrl: string,
-	secret: string,
-	extraArgs: string[] = []
-): string[] {
-	return [
-		'files-sync',
-		apiUrl,
-		`--secret=${ secret }`,
-		...extraArgs,
-		// Per-batch ceiling — one sub-process yields after 30 s and the
-		// client reconnects to continue.  Not a total-time budget; a slow
-		// or high-latency sync just makes more round-trips.  Kept well
-		// under common proxy/LB idle timeouts (~60 s).
-		'--max-exec=30',
-		'--no-adaptive',
-		`--state-dir=${ metadata.stateDirectory }`,
-		`--fs-root=${ metadata.rawDirectory }`,
-	];
 }
 
 /**

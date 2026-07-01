@@ -110,7 +110,7 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
   sh('mkdir', '-p', File.dirname(POT_FILE_PATH))
   sh(
     'npx', 'wp-babel-makepot',
-    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,tools/common}/**/*.{js,jsx,ts,tsx}",
+    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,packages/common}/**/*.{js,jsx,ts,tsx}",
     '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
     '--base', PROJECT_ROOT_FOLDER,
     '--dir', pot_dir,
@@ -553,7 +553,7 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
   UI.success("Hotfix branch #{branch_name} created from #{base_ref}")
 end
 
-# Download Studio UI translations from GlotPress (Jed 1.x JSON) into tools/common/translations/.
+# Download Studio UI translations from GlotPress (Jed 1.x JSON) into packages/common/translations/.
 # Discovers locales from existing files in TRANSLATIONS_DIR (e.g. studio-es.jed.json → "es").
 #
 lane :fetch_glotpress_translations do

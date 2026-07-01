@@ -34,6 +34,21 @@ jobs:
         id: check-versions
         run: node scripts/check-php-cli-versions.mjs
 
+      - name: Send Slack alert
+        if: failure()
+        env:
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+        run: |
+          jq --null-input \
+            --arg channel "$SLACK_CHANNEL_ID" \
+            --arg text "The scheduled PHP CLI version check failed unexpectedly. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow run>." \
+            '{ channel: $channel, text: $text, username: "PHP Version Bot", icon_emoji: ":warning:" }' |
+          curl --fail-with-body https://slack.com/api/chat.postMessage \
+            --header "Authorization: Bearer $SLACK_TOKEN" \
+            --header 'Content-Type: application/json; charset=utf-8' \
+            --data-binary @-
+
   dispatch:
     name: Dispatch PHP ${{ matrix.php_version }} build
     needs: check

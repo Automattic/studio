@@ -7,9 +7,9 @@ import {
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
 import { z } from 'zod';
-import { extractZip } from '@studio/common/lib/extract-zip';
-import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
-import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry';
+import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants.ts';
+import { extractZip } from '../tools/common/lib/extract-zip.ts';
+import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
 async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
 	return withRetry( name, async () => {

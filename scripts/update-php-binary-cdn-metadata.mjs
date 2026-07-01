@@ -2,10 +2,11 @@
 
 import fs from 'fs';
 import path from 'path';
+import phpVersionsMetadata from '../tools/common/lib/php-binary-cdn-metadata.mjs';
 
 const DEFAULT_METADATA_PATH = path.join(
 	process.cwd(),
-	'tools/common/lib/php-binary-cdn-metadata.json'
+	'tools/common/lib/php-binary-cdn-metadata.mjs'
 );
 
 const ARTIFACT_PLATFORM_MAP = {
@@ -138,8 +139,7 @@ function main() {
 	const options = parseArgs();
 	const version = options.version;
 	const minorVersion = minorVersionFor( version );
-	const metadataPath = path.resolve( options.metadata || DEFAULT_METADATA_PATH );
-	const metadata = normalizeMetadata( JSON.parse( fs.readFileSync( metadataPath, 'utf8' ) ) );
+	const metadata = normalizeMetadata( phpVersionsMetadata );
 	const uploadResults = JSON.parse( fs.readFileSync( options[ 'upload-results' ], 'utf8' ) );
 	const uploadEntries = Object.entries( uploadResults );
 	const currentVersion = metadata.versions[ minorVersion ]?.version;
@@ -178,7 +178,14 @@ function main() {
 		Object.keys( metadata.versions ).sort( ( a, b ) => comparePatchVersions( b, a ) )
 	);
 
-	fs.writeFileSync( metadataPath, `${ JSON.stringify( metadata, null, '\t' ) }\n` );
+	fs.writeFileSync(
+		DEFAULT_METADATA_PATH,
+		`const phpVersionsMetadata = ${ JSON.stringify(
+			metadata,
+			null,
+			'\t'
+		) };\n\nexport default phpVersionsMetadata;\n`
+	);
 	console.log( `Updated PHP ${ minorVersion } CDN metadata to ${ version }.` );
 }
 

@@ -1,16 +1,16 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env -S node --experimental-strip-types
 /**
  * Download a Studio PHP CLI package for local development and packaging.
  *
- * Source metadata: tools/common/lib/php-binary-cdn-metadata.json
+ * Source metadata: tools/common/lib/php-binary-cdn-metadata.mjs
  *
  * Usage:
- *   npx tsx scripts/download-php-binary.ts [version] [platform] [arch] [--install-root <path>]
+ *   node --experimental-strip-types scripts/download-php-binary.ts [version] [platform] [arch] [--install-root <path>]
  *
  * Examples:
- *   npx tsx scripts/download-php-binary.ts            # defaults to RecommendedPHPVersion
- *   npx tsx scripts/download-php-binary.ts 8.4
- *   npx tsx scripts/download-php-binary.ts 8.4 darwin arm64
+ *   node --experimental-strip-types scripts/download-php-binary.ts # defaults to RecommendedPHPVersion
+ *   node --experimental-strip-types scripts/download-php-binary.ts 8.4
+ *   node --experimental-strip-types scripts/download-php-binary.ts 8.4 darwin arm64
  */
 
 import crypto from 'crypto';
@@ -18,18 +18,20 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { z } from 'zod';
-import { downloadFile } from '../tools/common/lib/download-file';
-import { extractZip } from '../tools/common/lib/extract-zip';
-import { isErrnoException } from '../tools/common/lib/is-errno-exception';
+import { downloadFile } from '../tools/common/lib/download-file.ts';
+import { extractZip } from '../tools/common/lib/extract-zip.ts';
+import { isErrnoException } from '../tools/common/lib/is-errno-exception.ts';
 import {
 	getEffectivePhpBinaryArch,
 	getPhpBinaryDownloadInfo,
+	type PhpBinaryDownloadInfo,
+} from '../tools/common/lib/php-binary-metadata.ts';
+import { getConfigDirectory } from '../tools/common/lib/well-known-paths.ts';
+import {
 	NativePhpSupportedVersions,
-	NativePhpSupportedVersion,
-	PhpBinaryDownloadInfo,
-} from '../tools/common/lib/php-binary-metadata';
-import { getConfigDirectory } from '../tools/common/lib/well-known-paths';
-import { RecommendedPHPVersion } from '../tools/common/types/php-versions';
+	type NativePhpSupportedVersion,
+	RecommendedPHPVersion,
+} from '../tools/common/types/php-versions.ts';
 
 const versionSchema = z.enum( NativePhpSupportedVersions );
 const platformSchema = z.enum( [ 'darwin', 'win32', 'linux' ] );

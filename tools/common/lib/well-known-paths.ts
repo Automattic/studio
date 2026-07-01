@@ -1,6 +1,6 @@
 import os from 'os';
 import path from 'path';
-import { APP_CONFIG_LOCKFILE_NAME, REMOTE_SESSION_STATE_LOCKFILE_NAME } from '../constants';
+import { APP_CONFIG_LOCKFILE_NAME, REMOTE_SESSION_STATE_LOCKFILE_NAME } from '../constants.ts';
 
 export function getConfigDirectory(): string {
 	if ( process.env.DEV_CONFIG_DIR ) {

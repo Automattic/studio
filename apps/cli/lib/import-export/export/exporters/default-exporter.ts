@@ -271,7 +271,17 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			) {
 				continue;
 			}
-			this.archiveBuilder.file( fs.realpathSync( fullEntryPathOnDisk ), {
+			let resolvedPath: string;
+			try {
+				resolvedPath = fs.realpathSync( fullEntryPathOnDisk );
+			} catch ( error ) {
+				// Dangling symlink — e.g. a reprint-pulled site keeps the WP Cloud
+				// `advanced-cache.php` drop-in as a symlink whose target isn't pulled.
+				// Skip it rather than aborting the whole archive.
+				console.warn( `Skipping ${ entryPathRelativeToArchiveRoot }: ${ error }` );
+				continue;
+			}
+			this.archiveBuilder.file( resolvedPath, {
 				name: entryPathRelativeToArchiveRoot,
 			} );
 		}

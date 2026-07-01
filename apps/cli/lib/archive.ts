@@ -57,7 +57,17 @@ export async function archiveSiteContent(
 			// realpath first, we ensure the source file data is always appended. This
 			// is preferable to passing readable streams to `Archiver.append()`, which
 			// can lead to EMFILE errors.
-			archiveBuilder.file( fs.realpathSync( path.join( wpContentPath, relativePath ) ), {
+			let resolvedPath: string;
+			try {
+				resolvedPath = fs.realpathSync( path.join( wpContentPath, relativePath ) );
+			} catch ( error ) {
+				// Dangling symlink — e.g. a reprint-pulled site keeps the WP Cloud
+				// `advanced-cache.php` drop-in as a symlink whose target isn't pulled.
+				// Skip it rather than aborting the whole archive.
+				console.warn( `Skipping ${ archiveEntryPath }: ${ error }` );
+				continue;
+			}
+			archiveBuilder.file( resolvedPath, {
 				name: archiveEntryPath,
 			} );
 		}

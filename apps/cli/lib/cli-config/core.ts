@@ -16,10 +16,26 @@ import { z } from 'zod';
 import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
 
+/**
+ * Durable origin of a site that was populated by `studio pull-reprint`:
+ * where it syncs from and the credential needed to talk to that remote.
+ * Present only on reprint-pulled sites.
+ */
+export const reprintOriginSchema = z.object( {
+	remoteUrl: z.string(),
+	remoteSiteUrl: z.string().optional(),
+	tablePrefix: z.string().optional(),
+	secret: z.string(),
+} );
+
 const siteSchema = siteDetailsSchema
 	.extend( {
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
+		reprintOrigin: reprintOriginSchema.optional(),
+		// True once a full reprint pull has completed at least once; selects
+		// first-full-pull vs. delta and survives loss of the transient pull.json.
+		importComplete: z.boolean().optional(),
 	} )
 	.loose();
 

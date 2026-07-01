@@ -7,13 +7,13 @@ into the app is fully automated as part of the release process.
 ## Supported Languages
 
 The set of supported languages is defined by `supportedLocaleNames` in
-`tools/common/lib/locale.ts`. To add a new language:
+`packages/common/lib/locale.ts`. To add a new language:
 
-1. Add a `studio-<locale>.jed.json` file in `tools/common/translations/`.
+1. Add a `studio-<locale>.jed.json` file in `packages/common/translations/`.
 2. Import it and register it in `localeDataDictionary` in
-   `tools/common/translations/index.ts`.
+   `packages/common/translations/index.ts`.
 3. Add a `supportedLocaleNames` entry (its display name) in
-   `tools/common/lib/locale.ts`.
+   `packages/common/lib/locale.ts`.
 
 The `supportedLocales` array is derived automatically from `supportedLocaleNames`,
 so it does not need to be edited by hand.
@@ -42,7 +42,7 @@ them directly to the release branch before bumping the version. It's ok if some 
 are missing — they will be left as English in the app.
 
 The lane discovers locales by globbing the existing `studio-*.jed.json` files in
-`tools/common/translations/` (e.g. `studio-ckb.jed.json` → `ckb`) and downloads each
+`packages/common/translations/` (e.g. `studio-ckb.jed.json` → `ckb`) and downloads each
 one from GlotPress. There is no separate allowlist — adding a translation file is what
 opts a locale into the automated download.
 

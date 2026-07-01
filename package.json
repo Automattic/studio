@@ -23,7 +23,8 @@
 	},
 	"workspaces": [
 		"apps/*",
-		"tools/*"
+		"tools/*",
+		"packages/*"
 	],
 	"scripts": {
 		"start": "npm -w studio-app run start",

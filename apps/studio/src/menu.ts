@@ -106,6 +106,70 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 	);
 }
 
+export function buildViewMenuItems( {
+	needsOnboarding,
+	isDevelopment,
+	isAlwaysOnTop,
+	devTools,
+	onToggleSidebar,
+	onToggleSitePreview,
+}: {
+	needsOnboarding: boolean;
+	isDevelopment: boolean;
+	isAlwaysOnTop?: boolean;
+	devTools: MenuItemConstructorOptions[];
+	onToggleSidebar: () => void;
+	onToggleSitePreview: () => void;
+} ): MenuItemConstructorOptions[] {
+	return [
+		{
+			label: __( 'Toggle Sidebar' ),
+			accelerator: 'CommandOrControl+B',
+			enabled: ! needsOnboarding,
+			click: onToggleSidebar,
+		},
+		...( getFeatureFlagFromEnv( 'enableAgenticUi' )
+			? [
+					{
+						label: __( 'Toggle Site Preview' ),
+						accelerator: 'CommandOrControl+Shift+B',
+						enabled: ! needsOnboarding,
+						click: onToggleSitePreview,
+					} as MenuItemConstructorOptions,
+			  ]
+			: [] ),
+		...( isDevelopment ? devTools : [] ),
+		{
+			label: __( 'Actual Size' ),
+			role: 'resetZoom',
+		},
+		{
+			label: __( 'Zoom In' ),
+			role: 'zoomIn',
+		},
+		{
+			label: __( 'Zoom Out' ),
+			role: 'zoomOut',
+		},
+		{ type: 'separator' },
+		{
+			label: __( 'Toggle Fullscreen' ),
+			role: 'togglefullscreen',
+		},
+		{ type: 'separator' },
+		{
+			label: __( 'Float on Top of All Other Windows' ),
+			type: 'checkbox',
+			checked: isAlwaysOnTop,
+			click: ( _menuItem, browserWindow ) => {
+				if ( browserWindow ) {
+					browserWindow.setAlwaysOnTop( ! browserWindow.isAlwaysOnTop(), 'floating' );
+				}
+			},
+		},
+	];
+}
+
 async function getAppMenu(
 	mainWindow: BrowserWindow | null,
 	{
@@ -306,47 +370,18 @@ async function getAppMenu(
 		{
 			label: __( 'View' ),
 			role: 'viewMenu',
-			submenu: [
-				{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
-				{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
-				{
-					label: __( 'Toggle Site Preview' ),
-					accelerator: 'CommandOrControl+Shift+B',
-					enabled: ! needsOnboarding,
-					click: () => {
-						void sendIpcEventToRenderer( 'toggle-site-preview' );
-					},
+			submenu: buildViewMenuItems( {
+				needsOnboarding,
+				isDevelopment: process.env.NODE_ENV === 'development',
+				isAlwaysOnTop: mainWindow?.isAlwaysOnTop(),
+				devTools,
+				onToggleSidebar: () => {
+					void sendIpcEventToRenderer( 'toggle-sidebar' );
 				},
-				...( process.env.NODE_ENV === 'development' ? devTools : [] ),
-				{
-					label: __( 'Actual Size' ),
-					role: 'resetZoom',
+				onToggleSitePreview: () => {
+					void sendIpcEventToRenderer( 'toggle-site-preview' );
 				},
-				{
-					label: __( 'Zoom In' ),
-					role: 'zoomIn',
-				},
-				{
-					label: __( 'Zoom Out' ),
-					role: 'zoomOut',
-				},
-				{ type: 'separator' },
-				{
-					label: __( 'Toggle Fullscreen' ),
-					role: 'togglefullscreen',
-				},
-				{ type: 'separator' },
-				{
-					label: __( 'Float on Top of All Other Windows' ),
-					type: 'checkbox',
-					checked: mainWindow?.isAlwaysOnTop(),
-					click: ( _menuItem, browserWindow ) => {
-						if ( browserWindow ) {
-							browserWindow.setAlwaysOnTop( ! browserWindow.isAlwaysOnTop(), 'floating' );
-						}
-					},
-				},
-			],
+			} ),
 		},
 		...( process.platform === 'win32'
 			? []
@@ -360,11 +395,6 @@ async function getAppMenu(
 						submenu: [
 							{ label: __( 'Minimize' ), role: 'minimize' },
 							{ label: __( 'Zoom' ), role: 'zoom' },
-							{ type: 'separator' },
-							{ label: __( 'Show Previous Tab' ), role: 'selectPreviousTab' },
-							{ label: __( 'Show Next Tab' ), role: 'selectNextTab' },
-							{ label: __( 'Move Tab to New Window' ), role: 'moveTabToNewWindow' },
-							{ label: __( 'Merge All Windows' ), role: 'mergeAllWindows' },
 						],
 					} as MenuItemConstructorOptions,
 			  ] ),

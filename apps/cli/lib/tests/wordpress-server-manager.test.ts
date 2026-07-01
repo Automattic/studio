@@ -97,6 +97,24 @@ describe( 'WordPress Server Manager', () => {
 		} );
 	}
 
+	// `startWordPressServer` subscribes to the daemon bus only after awaiting some filesystem
+	// setup (clearing and statting the PHP error log). A one-shot `exit` on a fixed timer can
+	// fire before that subscription completes on slower agents (notably Windows CI); the event
+	// is then dropped and the call hangs on the 2-minute inactivity timeout until the test times
+	// out. Emitting once the server has attached its `process-event` listener guarantees delivery
+	// — and, for the PHP-error tests, that the log is written after the baseline size is captured.
+	function emitExitWhenSubscribed( emit: () => void ): void {
+		const onNewListener = ( eventName: string | symbol ) => {
+			if ( eventName !== 'process-event' ) {
+				return;
+			}
+			mockBus.off( 'newListener', onNewListener );
+			// Defer so the listener is fully registered before we emit.
+			setTimeout( emit, 0 );
+		};
+		mockBus.on( 'newListener', onNewListener );
+	}
+
 	describe( 'isServerRunning', () => {
 		it( 'should check if process is running with correct process name', async () => {
 			const mockProcess = {
@@ -264,7 +282,7 @@ describe( 'WordPress Server Manager', () => {
 
 		it( 'should surface an error when the child process exits before becoming ready', async () => {
 			// Do not emit `ready`; instead emit an `exit` event to simulate a crash during startup.
-			setTimeout( () => {
+			emitExitWhenSubscribed( () => {
 				mockBus.emit( 'process-event', {
 					process: {
 						name: mockProcessDescription.name,
@@ -272,7 +290,7 @@ describe( 'WordPress Server Manager', () => {
 					},
 					event: 'exit',
 				} );
-			}, 10 );
+			} );
 
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
 				/exited before becoming ready/
@@ -282,7 +300,7 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should include the child stderr tail in the error when the daemon provides it', async () => {
 			const stderrTail = 'SyntaxError: The requested module did not provide an export named X';
 
-			setTimeout( () => {
+			emitExitWhenSubscribed( () => {
 				mockBus.emit( 'process-event', {
 					process: {
 						name: mockProcessDescription.name,
@@ -291,7 +309,7 @@ describe( 'WordPress Server Manager', () => {
 					event: 'exit',
 					stderrTail,
 				} );
-			}, 10 );
+			} );
 
 			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
 				new RegExp( stderrTail.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) )
@@ -327,7 +345,7 @@ describe( 'WordPress Server Manager', () => {
 			await fs.promises.mkdir( path.join( sitePath, 'wp-content' ), { recursive: true } );
 			const logPath = path.join( sitePath, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
 
-			setTimeout( () => {
+			emitExitWhenSubscribed( () => {
 				fs.writeFileSync( logPath, 'PHP Fatal error: Uncaught Error: Failed opening required' );
 				mockBus.emit( 'process-event', {
 					process: {
@@ -336,7 +354,7 @@ describe( 'WordPress Server Manager', () => {
 					},
 					event: 'exit',
 				} );
-			}, 10 );
+			} );
 
 			await expect(
 				startWordPressServer( { ...mockSiteData, path: sitePath }, mockLogger )
@@ -350,7 +368,7 @@ describe( 'WordPress Server Manager', () => {
 			const logPath = path.join( sitePath, 'wp-content', 'debug.log' );
 			fs.writeFileSync( logPath, 'PHP Fatal error: from a previous run' );
 
-			setTimeout( () => {
+			emitExitWhenSubscribed( () => {
 				mockBus.emit( 'process-event', {
 					process: {
 						name: mockProcessDescription.name,
@@ -358,7 +376,7 @@ describe( 'WordPress Server Manager', () => {
 					},
 					event: 'exit',
 				} );
-			}, 10 );
+			} );
 
 			const error: Error = await startWordPressServer(
 				{ ...mockSiteData, path: sitePath, enableDebugLog: true },
@@ -378,7 +396,7 @@ describe( 'WordPress Server Manager', () => {
 			await fs.promises.mkdir( path.join( sitePath, 'wp-content' ), { recursive: true } );
 			const logPath = path.join( sitePath, 'wp-content', 'debug.log' );
 
-			setTimeout( () => {
+			emitExitWhenSubscribed( () => {
 				fs.writeFileSync( logPath, 'PHP Fatal error: Uncaught Error: Failed opening required' );
 				mockBus.emit( 'process-event', {
 					process: {
@@ -387,7 +405,7 @@ describe( 'WordPress Server Manager', () => {
 					},
 					event: 'exit',
 				} );
-			}, 10 );
+			} );
 
 			await expect(
 				startWordPressServer(

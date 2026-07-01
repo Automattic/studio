@@ -1,23 +1,17 @@
 import { app, dialog } from 'electron';
 import { mkdir, rm, writeFile } from 'fs/promises';
+import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { GetStringRegKey } from '@vscode/windows-registry';
 import { __ } from '@wordpress/i18n';
-import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.com/fresc81/node-winreg/issues/65
 import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 // `STABLE_BIN_DIR_PATH` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
 export const STABLE_BIN_DIR_PATH = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
-
-const PATH_KEY = 'Path';
-
-const currentUserRegistry = new Registry( {
-	hive: Registry.HKCU,
-	key: '\\Environment',
-} );
 
 export class WindowsCliInstallationManager implements StudioCliInstallationManager {
 	constructor() {
@@ -118,27 +112,27 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 	}
 
-	private getPathFromRegistry(): Promise< string > {
-		return new Promise( ( resolve, reject ) => {
-			currentUserRegistry.get( PATH_KEY, ( error, item ) => {
-				if ( error ) {
-					return reject( error );
-				}
-
-				resolve( item?.value || '' );
-			} );
-		} );
+	private async getPathFromRegistry(): Promise< string > {
+		// @vscode/windows-registry is read-only; reads the user PATH synchronously.
+		return GetStringRegKey( 'HKEY_CURRENT_USER', 'Environment', 'Path' ) ?? '';
 	}
 
 	private setPathInRegistry( updatedPath: string ): Promise< void > {
 		return new Promise( ( resolve, reject ) => {
-			currentUserRegistry.set( PATH_KEY, Registry.REG_EXPAND_SZ, updatedPath, ( error ) => {
-				if ( error ) {
-					return reject( error );
-				}
-
-				resolve();
-			} );
+			// @vscode/windows-registry is read-only, so write PATH via PowerShell.
+			// SetEnvironmentVariable(..., 'User') also broadcasts WM_SETTINGCHANGE
+			// so open shells pick up the new PATH without a re-login.
+			const escaped = updatedPath.replace( /'/g, "''" );
+			const script = `[Environment]::SetEnvironmentVariable('PATH', '${ escaped }', 'User')`;
+			const child = spawn(
+				'powershell.exe',
+				[ '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', script ],
+				{ windowsHide: true }
+			);
+			child.on( 'error', reject );
+			child.on( 'exit', ( code ) =>
+				code === 0 ? resolve() : reject( new Error( `PowerShell exited with code ${ code }` ) )
+			);
 		} );
 	}
 

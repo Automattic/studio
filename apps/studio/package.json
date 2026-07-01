@@ -33,6 +33,7 @@
 		"@sentry/electron": "^7.13.0",
 		"@studio/common": "file:../../packages/common",
 		"@vscode/sudo-prompt": "^9.3.1",
+		"@vscode/windows-registry": "1.2.0",
 		"@wordpress/i18n": "^6.20.0",
 		"atomically": "^2.1.0",
 		"compressible": "2.0.18",
@@ -52,7 +53,6 @@
 		"strip-ansi": "^7.1.2",
 		"tar": "^7.5.16",
 		"tus-js-client": "^4.3.1",
-		"winreg": "1.2.4",
 		"yauzl": "^3.2.1",
 		"zod": "^4.0.0"
 	},
@@ -81,7 +81,6 @@
 		"@types/react-dom": "^19.2.3",
 		"@types/semver": "^7.7.1",
 		"@types/shell-quote": "^1.7.5",
-		"@types/winreg": "^1.2.36",
 		"@types/yauzl": "^2.10.3",
 		"@vitejs/plugin-react": "^6.0.2",
 		"@wordpress/components": "34.0.0",

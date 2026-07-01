@@ -5,7 +5,7 @@ description: Import and rebuild a website from a closed platform (Wix, Squarespa
 
 # Liberate a website into Studio
 
-This skill is only a **redirect**. The real, always-up-to-date pipeline lives in the Data Liberation engine's own skill, which Studio downloads on first use. Do NOT re-plan or summarize the steps here — defer to the engine skill so its updates take effect automatically. Your job is just to (1) stand the engine up and (2) follow its skill, translating its tool calls into Studio's bridge.
+This skill is only a **redirect**. The real, always-up-to-date pipeline lives in the Data Liberation engine's own skill. Do NOT re-plan or summarize the steps here — defer to the engine skill so its updates take effect automatically. Your job is just to (1) stand the engine up and (2) follow its skill, translating its tool calls into Studio's bridge.
 
 ## Step 1 — Locate the engine
 

@@ -69,8 +69,17 @@ export const baseConfig = defineConfig( {
 				cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
 					recursive: true,
 					filter: ( src ) => {
-						const top = relative( dataLiberationSourcePath, src ).split( sep )[ 0 ];
-						return top !== 'src' && top !== 'test' && top !== 'node_modules';
+						const rel = relative( dataLiberationSourcePath, src );
+						if ( rel === '' ) {
+							return true;
+						}
+						// Ship only the compiled engine + its package.json.
+						const top = rel.split( sep )[ 0 ];
+						if ( top !== 'dist' && top !== 'package.json' ) {
+							return false;
+						}
+						// Within dist/, drop build-only artifacts (types, tests, cache, maps).
+						return ! /\.(d\.ts|test\.js|js\.map|tsbuildinfo)$/.test( rel );
 					},
 				} );
 			},

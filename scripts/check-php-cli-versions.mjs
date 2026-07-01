@@ -6,6 +6,7 @@ import phpBinaryCdnMetadata from '../tools/common/lib/php-binary-cdn-metadata.mj
 
 const PHP_UPSTREAM_REPOSITORY = 'php/php-src';
 const BUILD_WORKFLOW = 'build-php-cli-binaries.yml';
+const APPS_CDN_VISIBILITY = 'external';
 
 function parsePatchVersion( version ) {
 	const match = version.match( /^(\d+)\.(\d+)\.(\d+)$/ );
@@ -96,6 +97,7 @@ async function dispatchBuild( phpVersion ) {
 			ref: defaultBranch,
 			inputs: {
 				php_version: phpVersion,
+				apps_cdn_visibility: APPS_CDN_VISIBILITY,
 			},
 		},
 	} );

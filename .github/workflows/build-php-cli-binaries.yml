@@ -572,6 +572,7 @@ jobs:
             version:"${PHP_VERSION}" \
             artifacts_dir:"${PWD}/out/php-binaries" \
             visibility:"${PHP_CLI_VISIBILITY}" \
+            error_on_duplicate:true \
             output_file:"${upload_results_file}"
 
           echo "### Apps CDN PHP CLI upload" >> "$GITHUB_STEP_SUMMARY"

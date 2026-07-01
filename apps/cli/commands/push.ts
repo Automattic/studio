@@ -60,14 +60,15 @@ export async function runCommand(
 		LoggerAction.INSTALL_SQLITE,
 		__( 'Setting up SQLite integration, if needed…' )
 	);
-	await keepSqliteIntegrationUpdated( siteFolder );
 	// Reprint-pulled (imported) sites wire SQLite through runtime.php and ship no db.php
-	// drop-in, so the step above skips them. The database export below uses `wp sqlite
-	// export`, which requires the SQLite integration to be discoverable in wp-content.
-	// Install it for imported sites; the exporter excludes db.php and the integration from
-	// the upload, so it never reaches the remote.
+	// drop-in, so keepSqliteIntegrationUpdated skips them. The database export below uses
+	// `wp sqlite export`, which requires the SQLite integration to be discoverable in
+	// wp-content. Install it for imported sites; the exporter excludes db.php and the
+	// integration from the upload, so it never reaches the remote.
 	if ( site.runtimeBlueprintPath && ! ( await isSqliteIntegrationInstalled( siteFolder ) ) ) {
 		await installSqliteIntegration( siteFolder );
+	} else {
+		await keepSqliteIntegrationUpdated( siteFolder );
 	}
 	logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 

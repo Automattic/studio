@@ -9,7 +9,7 @@ This skill is only a **redirect**. The real, always-up-to-date pipeline lives in
 
 ## Step 1 — Locate the engine
 
-Call the `data_liberation` tool with **no arguments** (setup mode). It returns `{ ready, engineDir, liberateSkill, skillsDir }`. The engine ships prebuilt with Studio, so this is instant — just proceed.
+Call the `data_liberation` tool with **no arguments** (setup mode). It returns `{ engineDir, liberateSkill, skillsDir }`. The engine ships prebuilt with Studio, so this is instant — just proceed.
 
 ## Step 2 — Load the engine's tool catalog
 

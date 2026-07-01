@@ -18,27 +18,7 @@ import { textResult } from './utils';
 // handles that by polling `liberate_status` rather than re-invoking.
 const ENGINE_CALL_TIMEOUT_MS = 600_000;
 
-function hasCompiledServer( dir: string ): boolean {
-	return existsSync( path.join( dir, 'dist', 'mcp-server.js' ) );
-}
-
-// Locate the build-time prepared engine. The CLI always runs bundled — both in the
-// packaged app and locally via `npm run cli:build` — and the build copies the engine
-// in next to the chunks as `data-liberation-agent`, so it's always a sibling of this
-// module (`dist/cli`). We deliberately do NOT fall back to the source `packages/` dir:
-// that exists only in a dev checkout, so relying on it would mask a missing/stale
-// bundle locally while the packaged app still failed — keeping the single bundled
-// path makes local resolution faithful to production.
-function resolveEngineDir(): string {
-	const dir = path.join( import.meta.dirname, 'data-liberation-agent' );
-	if ( ! hasCompiledServer( dir ) ) {
-		throw new Error(
-			'Data Liberation engine is not compiled. Run `npm run cli:build` — it builds the ' +
-				'`data-liberation` workspace and bundles it into `dist/cli`.'
-		);
-	}
-	return dir;
-}
+const engineDir = path.join( import.meta.dirname, 'data-liberation-agent' );
 
 // The engine drives Playwright (extract / screenshot / reconstruct) but ships no
 // browser binary. Playwright is deduped to a single version shared with Studio, so
@@ -65,9 +45,9 @@ function ensureEngineChromium(): Promise< void > {
 
 let clientPromise: Promise< Client > | null = null;
 
-function getClient( engineDir: string ): Promise< Client > {
+function getClient(): Promise< Client > {
 	if ( ! clientPromise ) {
-		clientPromise = connectClient( engineDir ).catch( ( error ) => {
+		clientPromise = connectClient().catch( ( error ) => {
 			clientPromise = null;
 			throw error;
 		} );
@@ -75,7 +55,14 @@ function getClient( engineDir: string ): Promise< Client > {
 	return clientPromise;
 }
 
-async function connectClient( engineDir: string ): Promise< Client > {
+async function connectClient(): Promise< Client > {
+	if ( ! existsSync( path.join( engineDir, 'dist', 'mcp-server.js' ) ) ) {
+		throw new Error(
+			'Data Liberation engine is not compiled. Run `npm run cli:build` — it builds the ' +
+				'`data-liberation` workspace and bundles it into `dist/cli`.'
+		);
+	}
+
 	// Ensure the engine's Chromium is present before any tool runs (best-effort;
 	// a one-time ~150MB download on the first connect per machine, then cached).
 	await ensureEngineChromium();
@@ -161,12 +148,9 @@ export const dataLiberationTool = defineTool(
 		),
 	},
 	async ( args ) => {
-		const engineDir = resolveEngineDir();
-
 		if ( ! args.tool || args.tool === 'setup' ) {
 			return textResult(
 				JSON.stringify( {
-					ready: true,
 					engineDir,
 					skillsDir: path.join( engineDir, 'skills' ),
 					liberateSkill: path.join( engineDir, 'skills', 'liberate', 'SKILL.md' ),
@@ -174,7 +158,7 @@ export const dataLiberationTool = defineTool(
 			);
 		}
 
-		const client = await getClient( engineDir );
+		const client = await getClient();
 
 		if ( args.tool === 'list' ) {
 			const listed = await client.listTools();

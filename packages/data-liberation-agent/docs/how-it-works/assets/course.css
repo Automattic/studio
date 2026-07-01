@@ -1,0 +1,194 @@
+/* Data Liberation course — shared stylesheet.
+   Tufte-inspired: generous measure, serif body, restrained palette, prints clean. */
+
+:root {
+  --ink: #1a1a1a;
+  --paper: #fffff8;
+  --muted: #6b6b66;
+  --rule: #d9d9cf;
+  --accent: #7a1f1f;       /* deep red, sparingly */
+  --accent-soft: #f3e7e7;
+  --link: #2a5a8a;
+  --code-bg: #f4f3ea;
+  --good: #2e6e3f;
+  --warn: #9a6a00;
+  --bad: #9a2222;
+  --measure: 38rem;
+  --font-body: et-book, Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 17px; }
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.5;
+  margin: 0;
+  padding: 4rem 2rem 6rem;
+}
+
+.wrap { max-width: var(--measure); margin: 0 auto; }
+.wide { max-width: 52rem; margin: 0 auto; }
+
+/* --- Course masthead / breadcrumb --- */
+.masthead {
+  max-width: 52rem; margin: 0 auto 2.5rem;
+  border-bottom: 1px solid var(--rule); padding-bottom: 0.75rem;
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--muted);
+}
+.masthead a { color: var(--muted); text-decoration: none; }
+.masthead a:hover { color: var(--accent); }
+
+/* --- Typography --- */
+h1 {
+  font-weight: 400; font-size: 2.1rem; line-height: 1.1;
+  margin: 0 0 0.3rem; letter-spacing: -0.01em;
+}
+.lesson-num {
+  font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 0.6rem;
+}
+.subtitle { font-style: italic; color: var(--muted); font-size: 1.15rem; margin: 0 0 2rem; }
+h2 {
+  font-weight: 400; font-size: 1.45rem; margin: 2.6rem 0 0.6rem;
+  padding-bottom: 0.2rem;
+}
+h3 { font-weight: 600; font-size: 1.05rem; margin: 1.8rem 0 0.4rem; }
+p { margin: 0 0 1rem; }
+a { color: var(--link); text-decoration: none; border-bottom: 1px solid #cdd8e3; }
+a:hover { border-bottom-color: var(--link); }
+
+small, .small { font-size: 0.82rem; color: var(--muted); }
+
+/* --- Sidenotes / margin notes --- */
+.note {
+  font-size: 0.85rem; color: var(--muted); line-height: 1.4;
+  border-left: 2px solid var(--rule); padding-left: 0.9rem; margin: 1.2rem 0;
+}
+
+/* --- Callouts --- */
+.callout {
+  border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+  background: #fcfcf5; padding: 0.9rem 1.1rem; margin: 1.4rem 0; border-radius: 2px;
+}
+.callout .label {
+  font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 0.35rem;
+}
+.callout.key { border-left-color: var(--accent); }
+.callout.gotcha { border-left-color: var(--warn); background: #fdfaf0; }
+.callout.gotcha .label { color: var(--warn); }
+.callout.decision { border-left-color: var(--link); background: #f5f8fb; }
+.callout.decision .label { color: var(--link); }
+
+/* --- Code --- */
+code {
+  font-family: var(--font-mono); font-size: 0.82em;
+  background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 3px;
+}
+pre {
+  font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.5;
+  background: var(--code-bg); border: 1px solid var(--rule); border-radius: 4px;
+  padding: 0.9rem 1.1rem; overflow-x: auto; margin: 1.2rem 0;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+.path { font-family: var(--font-mono); font-size: 0.8em; color: var(--accent); }
+
+/* --- Pipeline / flow diagram --- */
+.flow { margin: 1.6rem 0; }
+.flow-stage {
+  display: flex; align-items: flex-start; gap: 0.9rem; padding: 0.55rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.flow-stage:last-child { border-bottom: none; }
+.flow-badge {
+  flex: 0 0 auto; font-family: var(--font-mono); font-size: 0.7rem;
+  background: var(--accent-soft); color: var(--accent); border-radius: 3px;
+  padding: 0.15rem 0.5rem; margin-top: 0.15rem; min-width: 2.2rem; text-align: center;
+}
+.flow-body { flex: 1; }
+.flow-body strong { font-weight: 600; }
+.flow-body .artifact {
+  font-family: var(--font-mono); font-size: 0.74rem; color: var(--muted);
+}
+
+/* --- Tables --- */
+table { border-collapse: collapse; width: 100%; margin: 1.4rem 0; font-size: 0.9rem; }
+th, td { text-align: left; padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+td code { font-size: 0.78em; }
+
+/* --- Quiz widget hook (styles; behavior in quiz.js) --- */
+.quiz { border: 1px solid var(--rule); border-radius: 4px; padding: 1.1rem 1.2rem; margin: 1.6rem 0; background: #fcfcf5; }
+.quiz .q { font-weight: 600; margin-bottom: 0.7rem; }
+.quiz .opts { list-style: none; padding: 0; margin: 0; }
+.quiz .opts li { margin: 0.4rem 0; }
+.quiz button.opt {
+  font-family: var(--font-body); font-size: 0.92rem; text-align: left; width: 100%;
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 3px;
+  padding: 0.5rem 0.75rem; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+}
+.quiz button.opt:hover { border-color: var(--accent); }
+.quiz button.opt.correct { background: #e9f3ec; border-color: var(--good); }
+.quiz button.opt.wrong { background: #f6e9e9; border-color: var(--bad); }
+.quiz .feedback { margin-top: 0.7rem; font-size: 0.88rem; min-height: 1.2rem; }
+.quiz .feedback.correct { color: var(--good); }
+.quiz .feedback.wrong { color: var(--bad); }
+
+/* --- Recall prompt (free retrieval, no auto-grade) --- */
+.recall { border: 1px dashed var(--rule); border-radius: 4px; padding: 1rem 1.2rem; margin: 1.5rem 0; }
+.recall .label { font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 0.45rem; }
+.recall details { margin-top: 0.6rem; }
+.recall summary { cursor: pointer; color: var(--link); font-size: 0.88rem; }
+.recall details[open] summary { margin-bottom: 0.5rem; }
+
+/* --- Nav footer --- */
+.lesson-nav {
+  max-width: 52rem; margin: 3.5rem auto 0; padding-top: 1rem;
+  border-top: 1px solid var(--rule); display: flex; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 0.78rem;
+}
+.lesson-nav a { border: none; }
+.ask {
+  max-width: 52rem; margin: 2.5rem auto 0; font-style: italic; color: var(--muted);
+  font-size: 0.9rem; text-align: center;
+}
+.source-cite {
+  max-width: 52rem; margin: 2rem auto 0; font-size: 0.85rem;
+  background: var(--accent-soft); border-radius: 4px; padding: 0.8rem 1rem;
+}
+.source-cite .label { font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+
+/* --- Determinism badges (shared: pipeline map + determinism map) --- */
+.dbadge {
+  font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 0.05rem 0.4rem; border-radius: 3px;
+  border: 1px solid; vertical-align: middle; white-space: nowrap; font-weight: 600;
+}
+.dbadge.det { color: #2e6e3f; border-color: #bcd9c5; background: #eef5f0; }
+.dbadge.jud { color: #6a3aa0; border-color: #d8c9ec; background: #f3eef9; }
+.dbadge.mix { color: #8a5a00; border-color: #e6d3a3; background: #fbf5e6; }
+.det-legend {
+  display: flex; gap: 1.2rem; flex-wrap: wrap; align-items: center;
+  font-size: 0.82rem; color: var(--muted); margin: 1.2rem 0;
+  border: 1px solid var(--rule); border-radius: 4px; padding: 0.7rem 1rem; background: #fcfcf5;
+}
+.det-legend span { display: inline-flex; gap: 0.45rem; align-items: center; }
+td .dbadge, .flow-body .dbadge { margin-right: 0.35rem; }
+
+ul, ol { padding-left: 1.3rem; }
+li { margin: 0.3rem 0; }
+hr { border: none; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+
+@media print {
+  body { padding: 0; font-size: 11pt; background: #fff; }
+  .masthead, .lesson-nav, .ask { display: none; }
+  .callout, .quiz, pre { break-inside: avoid; }
+  a { color: var(--ink); border: none; }
+}

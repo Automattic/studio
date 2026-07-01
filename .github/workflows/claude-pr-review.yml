@@ -49,7 +49,7 @@ jobs:
             2. **Simplicity** (most common review feedback)
                - Push back on unnecessary abstractions, helpers, or wrappers for one-time operations
                - Flag over-engineering: extra configurability, barrel files, generic solutions when specific ones suffice
-               - Check if `tools/common/lib/` already has what's being written (e.g., `sequential.ts`, `fs-utils.ts`, shared Zod schemas)
+               - Check if `packages/common/lib/` already has what's being written (e.g., `sequential.ts`, `fs-utils.ts`, shared Zod schemas)
                - Flag over-defensive code: excessive try/catch blocks where error handling is disproportionate to risk
                - Ask: "Can this be simpler while still solving the problem?"
 
@@ -68,7 +68,7 @@ jobs:
             5. **Type Safety & Schemas**
                - Prefer union types over optionals when data has clear states (e.g., a running process always has a PID)
                - Zod schemas should use `z.literal()` for version fields so parsing fails clearly on mismatches
-               - Don't duplicate schemas — check `tools/common/lib/` for existing definitions
+               - Don't duplicate schemas — check `packages/common/lib/` for existing definitions
                - Avoid `unknown` with type assertions — use proper typing or Zod's `safeParse()`
 
             6. **Error Handling & Logging**
@@ -80,7 +80,7 @@ jobs:
                - Electron: Node integration disabled, context isolation enabled, IPC sender validation in place
                - CSP: no `unsafe-eval` or `unsafe-inline` additions without justification
                - Input validation at system boundaries using Zod schemas (IPC messages, config files, API responses)
-               - No hardcoded secrets or tokens; auth through `tools/common/lib/oauth.ts`
+               - No hardcoded secrets or tokens; auth through `packages/common/lib/oauth.ts`
                - Credentials must not appear in logs or error messages
                - URLs via `shell.openExternal()` must be validated
                - Flag new dependencies that expand attack surface
@@ -94,7 +94,7 @@ jobs:
                - Code should live where it belongs: storage schemas in storage files, security logic in security files
                - IPC handlers must be async, return Promises, and have names in `constants.ts`
                - Renderer cannot access Node.js APIs directly — must use `window.ipcApi.*`
-               - Shared code between CLI and Studio belongs in `tools/common/`, not duplicated
+               - Shared code between CLI and Studio belongs in `packages/common/`, not duplicated
                - Follow module structure: `apps/studio/src/modules/<feature>/` with `components/`, `hooks/`, `lib/`
 
             10. **Cross-Platform Compatibility (macOS & Windows)**

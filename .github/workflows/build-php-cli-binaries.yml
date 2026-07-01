@@ -601,7 +601,7 @@ jobs:
             --version "${PHP_VERSION}" \
             --upload-results "${PWD}/out/php-binaries/apps-cdn-upload-results.json"
 
-          if git diff --quiet -- tools/common/lib/php-binary-cdn-metadata.json; then
+          if git diff --quiet -- packages/common/lib/php-binary-cdn-metadata.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -619,7 +619,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add tools/common/lib/php-binary-cdn-metadata.json
+          git add packages/common/lib/php-binary-cdn-metadata.json
           git commit -m "Update PHP ${PHP_VERSION} binary metadata"
           git push --set-upstream origin "$branch"
           gh pr create \

@@ -1,7 +1,7 @@
 /**
  * Moves `connectedWpcomSites` from `app.json` into `shared.json` so both the
  * Studio app and the Studio CLI can read and write it through the helpers in
- * `tools/common/lib/connected-sites.ts`.
+ * `packages/common/lib/connected-sites.ts`.
  *
  * Runs whenever app.json still carries the legacy `connectedWpcomSites`
  * field. The copy into shared.json is skipped if shared.json already has the

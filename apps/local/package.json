@@ -24,7 +24,7 @@
 		"express-rate-limit": "^8.5.2"
 	},
 	"devDependencies": {
-		"@studio/common": "file:../../tools/common",
+		"@studio/common": "file:../../packages/common",
 		"@types/express": "^4.17.23"
 	}
 }

@@ -1,0 +1,34 @@
+name: Check for new PHP CLI versions
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: check-php-cli-versions
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check supported PHP versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout Studio
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Check for new PHP patch versions
+        run: node scripts/check-php-cli-versions.mjs

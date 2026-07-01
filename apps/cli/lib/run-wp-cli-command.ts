@@ -189,10 +189,8 @@ async function runNativeWpCliCommand(
 
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
 	const defaultArgs = getDefaultPhpArgs( phpVersion );
-	// Reprint-pulled sites wire SQLite only through runtime.php, which the web server
-	// loads as auto_prepend_file. Load it here too so native WP-CLI connects to the same
-	// SQLite database instead of falling back to MySQL ("Error establishing a database
-	// connection"). No-op for normal sites (helper returns undefined).
+	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
+	// so load it here too. No-op for normal sites (helper returns undefined).
 	//
 	// Exception: the sqlite-command (`wp sqlite export`/`tables`, requireSqliteCliCommand)
 	// loads its own copy of the SQLite integration and reads the database file directly.

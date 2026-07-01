@@ -9,6 +9,7 @@ import {
 	loadImportedRuntimeStartOptions,
 	loadRuntimeBlueprint,
 } from './runtime-start-options';
+import type { SiteData } from '../cli-config/core';
 
 describe( 'imported runtime start options', () => {
 	afterEach( () => {
@@ -231,6 +232,15 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 	} );
 
 	describe( 'getImportedSiteAutoPrependFile', () => {
+		const makeSite = ( overrides: Partial< SiteData > = {} ): SiteData => ( {
+			id: 'test-id',
+			name: 'Test Site',
+			path: '/tmp/test-site',
+			port: 8881,
+			phpVersion: '8.4',
+			...overrides,
+		} );
+
 		it( 'returns the runtime.php sibling for an imported site that has it', () => {
 			const importRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-prepend-' ) );
 			const runtimeDir = path.join( importRoot, 'runtime' );
@@ -242,14 +252,16 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 				fs.writeFileSync( runtimeBlueprintPath, '{}' );
 				fs.writeFileSync( runtimePhpPath, '<?php' );
 
-				expect( getImportedSiteAutoPrependFile( { runtimeBlueprintPath } ) ).toBe( runtimePhpPath );
+				expect( getImportedSiteAutoPrependFile( makeSite( { runtimeBlueprintPath } ) ) ).toBe(
+					runtimePhpPath
+				);
 			} finally {
 				fs.rmSync( importRoot, { recursive: true, force: true } );
 			}
 		} );
 
 		it( 'returns undefined for a normal site without runtimeBlueprintPath', () => {
-			expect( getImportedSiteAutoPrependFile( {} ) ).toBeUndefined();
+			expect( getImportedSiteAutoPrependFile( makeSite() ) ).toBeUndefined();
 		} );
 
 		it( 'returns undefined (does not throw) when runtime.php is missing', () => {
@@ -260,7 +272,9 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 				fs.mkdirSync( path.dirname( runtimeBlueprintPath ), { recursive: true } );
 				fs.writeFileSync( runtimeBlueprintPath, '{}' );
 				// Intentionally no runtime.php written.
-				expect( getImportedSiteAutoPrependFile( { runtimeBlueprintPath } ) ).toBeUndefined();
+				expect(
+					getImportedSiteAutoPrependFile( makeSite( { runtimeBlueprintPath } ) )
+				).toBeUndefined();
 			} finally {
 				fs.rmSync( importRoot, { recursive: true, force: true } );
 			}

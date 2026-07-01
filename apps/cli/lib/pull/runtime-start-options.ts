@@ -200,7 +200,7 @@ export function loadImportedRuntimeStartOptionsNative(
  * WP-CLI matching SQLite wiring.
  *
  * Returns undefined — never throws — for normal `studio create` sites or when the file
- * is absent, so those sits are unaffected.
+ * is absent, so existing non-reprint sites are unaffected.
  */
 export function getImportedSiteAutoPrependFile( site: SiteData ): string | undefined {
 	if ( ! site.runtimeBlueprintPath ) {

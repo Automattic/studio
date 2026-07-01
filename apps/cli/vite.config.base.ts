@@ -71,9 +71,8 @@ export const baseConfig = defineConfig( {
 					filter: ( src ) => {
 						const top = relative( dataLiberationSourcePath, src ).split( sep )[ 0 ];
 						return top !== 'src' && top !== 'test' && top !== 'node_modules';
-						},
-					} );
-				}
+					},
+				} );
 			},
 		},
 	],

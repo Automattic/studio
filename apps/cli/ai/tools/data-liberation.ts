@@ -17,7 +17,7 @@ function ensureEngineChromium(): Promise< void > {
 			const { chromium } = await import( 'playwright' );
 			const problem = await ensurePlaywrightChromiumInstalled( chromium );
 			if ( problem ) {
-				chromiumPromise = null; // allow a retry on the next connect
+				chromiumPromise = null; // allow a retry on the next tool call
 				console.error(
 					`[data_liberation] ${ problem } Browser-dependent steps (extract/screenshot/reconstruct) may fail.`
 				);
@@ -47,11 +47,6 @@ async function connectClient(): Promise< Client > {
 		);
 	}
 
-	// Ensure the engine's Chromium is present before any tool runs (best-effort;
-	// a one-time ~150MB download on the first connect per machine, then cached).
-	await ensureEngineChromium();
-
-	// Run the compiled MCP server with the current Node binary
 	const transport = new StdioClientTransport( {
 		command: process.execPath,
 		args: [ path.join( engineDir, 'dist', 'mcp-server.js' ) ],
@@ -112,6 +107,8 @@ export const dataLiberationTool = defineTool(
 			const listed = await client.listTools();
 			return textResult( JSON.stringify( listed.tools, null, 2 ) );
 		}
+
+		await ensureEngineChromium();
 
 		const result = await client.callTool( {
 			name: args.tool,

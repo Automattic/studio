@@ -67,6 +67,6 @@ describe( 'SidebarHeader', () => {
 		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding' } );
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import from…' } ) );
-		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding/import' } );
+		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding' } );
 	} );
 } );

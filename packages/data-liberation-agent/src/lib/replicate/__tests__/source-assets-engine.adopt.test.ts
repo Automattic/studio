@@ -61,6 +61,17 @@ nav.wp-block-navigation ul, nav.wp-block-navigation li { display: contents; }
   color: inherit;
   text-decoration: none;
 }
+/* wp-compat: reveal gates need JS that is not carried yet, so render them visible */
+.reveal,
+.reveal-up,
+.reveal-left,
+.reveal-right,
+.reveal-scale,
+.reveal-stagger > *,
+[data-reveal] {
+  opacity: 1 !important;
+  transform: none !important;
+}
 `;
 
 function makeSite(): { dir: string; pages: Array<{ relPath: string; html: string }> } {

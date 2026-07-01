@@ -49,9 +49,6 @@ export const baseConfig = defineConfig( {
 		{
 			name: 'write-dist-extras',
 			apply: 'build',
-			buildStart() {
-				execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
-			},
 			writeBundle( options ) {
 				const outDir = options.dir ?? resolve( __dirname, 'dist/cli' );
 				mkdirSync( outDir, { recursive: true } );
@@ -68,12 +65,12 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( skillsSourcePath ) ) {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
-				if ( existsSync( resolve( dataLiberationSourcePath, 'dist', 'mcp-server.js' ) ) ) {
-					cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
-						recursive: true,
-						filter: ( src ) => {
-							const top = relative( dataLiberationSourcePath, src ).split( sep )[ 0 ];
-							return top !== 'src' && top !== 'test' && top !== 'node_modules';
+				execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
+				cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
+					recursive: true,
+					filter: ( src ) => {
+						const top = relative( dataLiberationSourcePath, src ).split( sep )[ 0 ];
+						return top !== 'src' && top !== 'test' && top !== 'node_modules';
 						},
 					} );
 				}

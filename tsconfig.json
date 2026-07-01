@@ -8,14 +8,14 @@
 			"cli/*": [ "./apps/cli/*" ],
 			"src/*": [ "./apps/studio/src/*" ],
 			"vendor/*": [ "./vendor/*" ],
-			"@studio/common/*": [ "./tools/common/*" ]
+			"@studio/common/*": [ "./packages/common/*" ]
 		}
 	},
 	"include": [
 		"./apps/studio/src/**/*",
 		"./apps/studio/e2e/**/*",
 		"./apps/cli/**/*",
-		"./tools/common/**/*",
+		"./packages/common/**/*",
 		"./vitest.global-setup.ts",
 		"./scripts/**/*"
 	],

@@ -1,22 +1,27 @@
 import { useQuery } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useConnector } from '@/data/core';
+import { useSites } from '@/data/queries/use-sites';
 import type { ProposedSitePath, SelectedSiteFolder, SiteDetails } from '@/data/core';
 
-const CUSTOM_DOMAINS_QUERY_KEY = [ 'customDomains' ] as const;
 const PROPOSED_SITE_NAME_QUERY_KEY = [ 'proposedSiteName' ] as const;
 
 /**
- * Fetches all custom domains already assigned to local sites so the create
- * form can flag conflicts before the user submits.
+ * Custom domains already assigned to local sites, derived from the loaded site
+ * list so the create/edit forms can flag conflicts before submit. The site list
+ * already carries every site's `customDomain`, so no separate backend call is
+ * needed.
  */
-export function useExistingCustomDomains() {
-	const connector = useConnector();
-	return useQuery( {
-		queryKey: CUSTOM_DOMAINS_QUERY_KEY,
-		queryFn: () => connector.getAllCustomDomains(),
-	} );
+export function useExistingCustomDomains(): string[] {
+	const { data: sites } = useSites();
+	return useMemo(
+		() =>
+			( sites ?? [] )
+				.map( ( site ) => site.customDomain )
+				.filter( ( domain ): domain is string => !! domain ),
+		[ sites ]
+	);
 }
 
 /**

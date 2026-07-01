@@ -5,7 +5,7 @@ import path from 'path';
 
 const DEFAULT_METADATA_PATH = path.join(
 	process.cwd(),
-	'tools/common/lib/php-binary-cdn-metadata.json'
+	'packages/common/lib/php-binary-cdn-metadata.json'
 );
 
 const ARTIFACT_PLATFORM_MAP = {

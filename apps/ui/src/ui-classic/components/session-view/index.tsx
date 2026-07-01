@@ -35,6 +35,7 @@ import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
 import {
+	getSiteArchivedSessionHistory,
 	getSiteSessionHistory,
 	SessionChatActions,
 	SessionChatActionsSkeleton,
@@ -67,9 +68,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 				/>
 			) : (
 				<>
-					{ sidebarCollapsed ? (
-						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
-					) : null }
+					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
 					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
 					<span className={ styles.headerEnv }>
@@ -237,6 +236,17 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				: [],
 		[ data, ownerSite?.path, sessions ]
 	);
+	const archivedSiteSessionHistory = useMemo(
+		() =>
+			data
+				? getSiteArchivedSessionHistory( {
+						currentSession: data.summary,
+						ownerSitePath: ownerSite?.path,
+						sessions,
+				  } )
+				: [],
+		[ data, ownerSite?.path, sessions ]
+	);
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -388,6 +398,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			footer={
 				ownerSite ? (
 					<SessionChatActions
+						archivedSessions={ archivedSiteSessionHistory }
 						currentSessionId={ sessionId }
 						isCreatingSession={ isCreatingSession }
 						onNewChat={ () => void startNewChat() }

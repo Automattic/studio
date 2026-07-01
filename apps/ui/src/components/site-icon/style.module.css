@@ -21,10 +21,10 @@
 			transparent 50%
 		),
 		linear-gradient(135deg, var(--site-icon-color-d), var(--site-icon-color-a));
-	border: 1px solid color-mix(in srgb, var(--site-icon-color-c) 36%, #0000);
+	border: 0;
 	flex-shrink: 0;
 	line-height: 0;
-	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 18%);
+	box-shadow: none;
 	overflow: hidden;
 }
 
@@ -37,6 +37,6 @@
 
 .rootWithImage {
 	background: var(--wpds-color-bg-content-neutral, transparent);
-	border-color: color-mix(in srgb, var(--wpds-color-fg-content-neutral, currentColor) 12%, #0000);
+	border: 0;
 	box-shadow: none;
 }

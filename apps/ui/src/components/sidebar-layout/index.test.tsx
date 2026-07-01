@@ -4,10 +4,6 @@ import { useConnector } from '@/data/core';
 import { SidebarLayout } from './index';
 import type { ReactNode } from 'react';
 
-vi.mock( '@/components/sidebar-create-menu', () => ( {
-	SidebarCreateMenu: () => null,
-} ) );
-
 vi.mock( '@/components/sidebar-header', () => ( {
 	SidebarHeader: () => null,
 } ) );

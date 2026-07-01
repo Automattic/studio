@@ -212,8 +212,17 @@
 
 .classicComposerIconButton {
 	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--wp-ui-button-border-color-active: var(--wpds-color-bg-interactive-neutral-weak-active);
 	--wp-ui-button-min-width: unset;
 	--wp-ui-button-padding-inline: 0;
+}
+
+.classicComposerIconButton:hover,
+.classicComposerIconButton:focus,
+.classicComposerIconButton:focus-visible,
+.classicComposerIconButton[data-highlighted] {
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 .classicComposerIcon {
@@ -250,8 +259,19 @@
 
 .classicComposerHistoryTitle {
 	flex: 1;
-	font-weight: var(--wpds-typography-font-weight-medium);
+	font-weight: var(--wpds-typography-font-weight-regular);
 	min-width: 0;
+}
+
+.classicComposerHistoryTrailing {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-end;
+	min-width: 24px;
+	min-height: 24px;
+	flex-shrink: 0;
+	overflow: visible;
 }
 
 .classicComposerHistoryMeta {
@@ -261,9 +281,84 @@
 	line-height: var(--wpds-typography-line-height-xs);
 }
 
+.classicComposerHistoryArchiveButton {
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--wp-ui-button-border-color-active: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--wp-ui-button-foreground-color: var(--wpds-color-fg-content-neutral-weak);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-min-width: unset;
+	--wp-ui-button-padding-inline: 0;
+
+	position: absolute;
+	right: 0;
+	opacity: 0;
+	pointer-events: none;
+	transform: translateX(4px);
+}
+
+.classicComposerHistoryArchiveButton:hover,
+.classicComposerHistoryArchiveButton:focus,
+.classicComposerHistoryArchiveButton:focus-visible {
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.classicComposerHistoryArchiveButton svg {
+	width: 18px;
+	height: 18px;
+}
+
+.classicComposerHistoryTrailing:hover .classicComposerHistoryMeta,
+.classicComposerHistoryTrailing:focus-within .classicComposerHistoryMeta {
+	opacity: 0;
+}
+
+.classicComposerHistoryTrailing:hover .classicComposerHistoryArchiveButton,
+.classicComposerHistoryTrailing:focus-within .classicComposerHistoryArchiveButton {
+	opacity: 1;
+	pointer-events: auto;
+}
+
 .classicComposerHistoryEmpty {
 	padding: var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.classicComposerHistorySeparator {
+	margin: var(--wpds-dimension-padding-sm) 0;
+	background: var(--wpds-color-stroke-surface-neutral);
+}
+
+.classicComposerArchiveList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-xs);
+	max-height: min(420px, calc(100vh - 220px));
+	overflow-y: auto;
+}
+
+.classicComposerArchiveItem {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-gap-md);
+	width: 100%;
+	min-width: 0;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	cursor: var(--wpds-cursor-control);
+	font: inherit;
+	padding: var(--wpds-dimension-padding-sm);
+	text-align: left;
+}
+
+.classicComposerArchiveItem:hover,
+.classicComposerArchiveItem:focus,
+.classicComposerArchiveItem:focus-visible {
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+	outline: none;
 }

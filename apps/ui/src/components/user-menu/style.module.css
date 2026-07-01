@@ -41,15 +41,6 @@
 	border-radius: 6px;
 }
 
-.userTriggerActive {
-	background-color: var(--user-menu-row-background-active) !important;
-}
-
-.userTriggerActive .userName {
-	color: var(--wpds-color-fg-content-neutral);
-	font-weight: var(--wpds-typography-font-weight-medium);
-}
-
 .userName {
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -74,7 +65,22 @@
 	border-radius: 6px;
 }
 
-.settingsButtonActive {
-	background-color: var(--user-menu-row-background-active) !important;
-	color: var(--wpds-color-fg-content-neutral);
+.popup {
+	min-width: 220px;
+}
+
+.email {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	font-size: var(--wpds-typography-font-size-xs);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.menuLabel {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: var(--wpds-typography-font-weight-medium);
 }

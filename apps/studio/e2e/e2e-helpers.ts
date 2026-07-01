@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'os';
 import path from 'path';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
@@ -80,7 +81,16 @@ export class E2ESession {
 			await new Promise< void >( ( resolve ) => setTimeout( resolve, 2000 ) );
 			console.log( 'App closed successfully' );
 		} catch ( error ) {
-			console.log( 'Process exit timeout' );
+			// The graceful quit stalled — a leaky IPC handler or a `site stop --all` child that
+			// won't exit keeps Electron alive (notably on Windows). Force-kill the process tree so
+			// the Playwright runner can exit, instead of leaving an orphaned process that blocks the
+			// run until the CI job timeout.
+			console.log( 'Process exit timeout; force-killing the app process tree' );
+			forceKillProcessTree( childProcess );
+			await Promise.race( [
+				exitPromise,
+				new Promise< void >( ( resolve ) => setTimeout( resolve, 5_000 ) ),
+			] );
 		} finally {
 			this.stopCapturingMainProcessLogs();
 		}
@@ -222,4 +232,24 @@ export class E2ESession {
 	private getMainProcessLogs() {
 		return this.mainProcessLogs.join( '' ).trim();
 	}
+}
+
+function forceKillProcessTree( childProcess: ChildProcess ): void {
+	const { pid } = childProcess;
+	if ( ! pid ) {
+		return;
+	}
+
+	// `child.kill()` only signals the Electron main process; on Windows its renderer and php.exe
+	// descendants orphan and keep DLLs locked, so walk the whole tree with `taskkill /T`. Mirrors
+	// `killChild` in tools/common/lib/cli-process.ts.
+	if ( process.platform === 'win32' ) {
+		spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
+			windowsHide: true,
+			stdio: 'ignore',
+		} );
+		return;
+	}
+
+	childProcess.kill( 'SIGKILL' );
 }

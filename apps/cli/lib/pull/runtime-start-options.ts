@@ -11,6 +11,7 @@ import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { getContentDirFromState } from 'cli/lib/pull/reprint-state';
 import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { LoggerError } from 'cli/logger';
+import type { SiteData } from '../cli-config/core';
 import type { Blueprint } from '@wp-playground/blueprints';
 import type { StartServerOptions } from 'cli/lib/wordpress-server-manager';
 
@@ -195,18 +196,13 @@ export function loadImportedRuntimeStartOptionsNative(
  * Locates the reprint `runtime.php` to load as a native WP-CLI `auto_prepend_file`.
  *
  * Reprint-pulled sites wire SQLite only through `runtime.php`, which the web server
- * applies as a PHP `auto_prepend_file`. A standalone native WP-CLI process never loads
- * it, so WordPress falls back to MySQL and fails with "Error establishing a database
- * connection". Loading the same file the server uses gives WP-CLI matching SQLite wiring.
+ * applies as a PHP `auto_prepend_file`. Loading the same file the server uses gives
+ * WP-CLI matching SQLite wiring.
  *
- * Only reprint/imported sites have `runtimeBlueprintPath`; `runtime.php` is its sibling
- * (the same directory the native server-start path resolves it from above). Returns
- * undefined — never throws — for normal `studio create` sites or when the file is absent,
- * so those are unaffected.
+ * Returns undefined — never throws — for normal `studio create` sites or when the file
+ * is absent, so those sits are unaffected.
  */
-export function getImportedSiteAutoPrependFile( site: {
-	runtimeBlueprintPath?: string;
-} ): string | undefined {
+export function getImportedSiteAutoPrependFile( site: SiteData ): string | undefined {
 	if ( ! site.runtimeBlueprintPath ) {
 		return undefined;
 	}

@@ -32,9 +32,6 @@ const phpSourceCodePath = resolve( __dirname, 'php' );
 // The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
 // `ai/skills.ts`), so they must sit directly next to the built chunks.
 const skillsSourcePath = resolve( __dirname, 'ai/skills' );
-// The data_liberation bridge spawns the compiled engine from `<chunk dir>/data-liberation-agent`
-// (see `ai/tools/data-liberation.ts`). The engine is the committed `packages/data-liberation-agent`
-// workspace; buildStart below compiles its dist/ and writeBundle copies it into the CLI chunks.
 const dataLiberationSourcePath = resolve(
 	__dirname,
 	'..',
@@ -53,9 +50,7 @@ export const baseConfig = defineConfig( {
 			name: 'write-dist-extras',
 			apply: 'build',
 			buildStart() {
-				if ( existsSync( dataLiberationSourcePath ) ) {
-					execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
-				}
+				execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
 			},
 			writeBundle( options ) {
 				const outDir = options.dir ?? resolve( __dirname, 'dist/cli' );
@@ -73,7 +68,7 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( skillsSourcePath ) ) {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
-				if ( existsSync( dataLiberationSourcePath ) ) {
+				if ( existsSync( resolve( dataLiberationSourcePath, 'dist', 'mcp-server.js' ) ) ) {
 					cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
 						recursive: true,
 						filter: ( src ) => {

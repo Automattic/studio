@@ -73,9 +73,10 @@ export const baseConfig = defineConfig( {
 						if ( rel === '' ) {
 							return true;
 						}
-						// Ship only the compiled engine + its package.json.
+						// Ship the compiled engine, its package.json, and the skills/ the
+						// data_liberation bridge reads at runtime (engineDir/skills/*/SKILL.md).
 						const top = rel.split( sep )[ 0 ];
-						if ( top !== 'dist' && top !== 'package.json' ) {
+						if ( top !== 'dist' && top !== 'package.json' && top !== 'skills' ) {
 							return false;
 						}
 						// Within dist/, drop build-only artifacts (types, tests, cache, maps).

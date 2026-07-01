@@ -775,7 +775,7 @@ function WebviewSurface( {
 				ref={ ref }
 				src={ initialNav.url }
 				className={ styles.iframe }
-				allowpopups={ 'true' as unknown as boolean }
+				allowpopups={ true }
 				partition="persist:site-preview"
 			/>
 			{ ! ready ? (

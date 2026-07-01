@@ -48,12 +48,6 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 		return null;
 	}
 
-	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
-		: null;
-
 	return (
 		<div
 			className={ clsx(
@@ -61,7 +55,6 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 				sidebarCollapsed && ! isFullscreen && styles.headerSidebarCollapsed
 			) }
 		>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
 			{ site ? (
 				<SiteDropdown
 					site={ site }
@@ -353,7 +346,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						archivedSessions={ archivedSiteSessionHistory }
 						currentSessionId={ sessionId }
 						isCreatingSession={ isCreatingSession }
-						onNewChat={ () => void startNewChat() }
+						onNewChat={ startNewChat }
 						onSwitchSession={ switchSession }
 						sessions={ siteSessionHistory }
 					/>

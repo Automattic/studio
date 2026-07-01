@@ -52,8 +52,6 @@
 }
 
 .main {
-	--sidebar-floating-toggle-left: var(--wpds-dimension-padding-xl);
-
 	flex: 1;
 	min-width: 0;
 	overflow: auto;
@@ -73,10 +71,15 @@
 	justify-content: flex-start;
 }
 
+/* Pinned to the bottom-left of the main area, mirroring the sidebar footer.
+   The button carries its own `padding-sm` top/bottom for its hit area; the
+   matching negative `bottom` cancels that lower padding so the glyph sits flush
+   with the main area's bottom edge instead of floating a padding's-worth above
+   it. */
 .floatingToggle {
 	position: absolute;
 	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
-	left: var(--sidebar-floating-toggle-left);
+	left: var(--wpds-dimension-padding-xl);
 	display: flex;
 	align-items: center;
 	padding: var(--wpds-dimension-padding-sm) 0;

@@ -483,15 +483,7 @@ function findActiveSiteKey(
 		const match = rows.find( ( row ) => row.site.id === activeSiteId );
 		if ( match ) return match.site.id;
 	}
-	if ( ! activeSessionId ) {
-		return undefined;
-	}
-	for ( const row of rows ) {
-		if ( row.sessionIds.includes( activeSessionId ) ) {
-			return row.site.id;
-		}
-	}
-	return undefined;
+	return findSessionSiteKey( rows, activeSessionId );
 }
 
 function findSessionSiteKey(
@@ -543,6 +535,7 @@ export function SiteList() {
 	const dragStartSiteOrderRef = useRef< string[] >( [] );
 	const rowElementsRef = useRef< Map< string, HTMLDivElement > >( new Map() );
 	const previousRowRectsRef = useRef< Map< string, DOMRectReadOnly > >( new Map() );
+	const dragStartRowRectsRef = useRef< Map< string, DOMRectReadOnly > >( new Map() );
 	const rowMoveAnimationsRef = useRef< Map< string, Animation > >( new Map() );
 	const suppressNextClickRef = useRef( false );
 	const [ seenSiteSessionTimestampsInitialized, setSeenSiteSessionTimestampsInitialized ] =
@@ -698,22 +691,30 @@ export function SiteList() {
 		updateActiveDrag( null );
 	};
 
+	// Hit-test against the rows' settled positions captured at drag start, not
+	// their live rects. The placeholder shifting rows around mid-drag would make
+	// live measurement circular, and reading `getBoundingClientRect` per row on
+	// every pointermove forces a layout reflow each frame.
 	const getDropIndex = ( clientY: number, draggedSiteId: string ) => {
 		const sourceOrder =
 			dragStartSiteOrderRef.current.length > 0 ? dragStartSiteOrderRef.current : rowSiteIds;
-		const sourceOrderWithoutDragged = sourceOrder.filter( ( siteId ) => siteId !== draggedSiteId );
+		const rowRects = dragStartRowRectsRef.current;
 
-		for ( const [ index, siteId ] of sourceOrderWithoutDragged.entries() ) {
-			const rowElement = rowElementsRef.current.get( siteId );
-			if ( ! rowElement ) {
+		let index = 0;
+		for ( const siteId of sourceOrder ) {
+			if ( siteId === draggedSiteId ) {
 				continue;
 			}
-			const rowRect = rowElement.getBoundingClientRect();
+			const rowRect = rowRects.get( siteId );
+			if ( ! rowRect ) {
+				continue;
+			}
 			if ( clientY < rowRect.top + rowRect.height / 2 ) {
 				return index;
 			}
+			index += 1;
 		}
-		return sourceOrderWithoutDragged.length;
+		return index;
 	};
 
 	const handleWindowPointerMove = ( event: PointerEvent ) => {
@@ -774,7 +775,9 @@ export function SiteList() {
 		}
 		const rowRect = event.currentTarget.getBoundingClientRect();
 		dragStartSiteOrderRef.current = rowSiteIds;
-		previousRowRectsRef.current = measureSiteRowRects( rowElementsRef.current );
+		const dragStartRowRects = measureSiteRowRects( rowElementsRef.current );
+		previousRowRectsRef.current = dragStartRowRects;
+		dragStartRowRectsRef.current = dragStartRowRects;
 		dragCandidateRef.current = {
 			siteId: row.site.id,
 			pointerId: event.pointerId,

@@ -772,40 +772,6 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 }
 
 /**
- * Read-only counterpart to `useAgentRun` that returns just whether the given
- * session's assistant is actively generating (`isRunning` semantics: the
- * `starting`/`running` phases). Unlike `useAgentRun`, it registers no effects
- * and exposes no actions, so it is safe to call many times — e.g. once per
- * sidebar row — without re-triggering the queue auto-dispatch effect.
- */
-export function useIsSessionRunning( sessionId: string | undefined ): boolean {
-	const store = useContext( AgentRunContext );
-	if ( ! store ) {
-		throw new Error( 'useIsSessionRunning must be used within AgentRunProvider' );
-	}
-	// Boolean snapshot: rows only re-render when their own flag flips.
-	return useSyncExternalStore( store.stateStore.subscribe, () => {
-		const phase = sessionId ? store.stateStore.getState()[ sessionId ]?.phase : undefined;
-		return phase === 'starting' || phase === 'running';
-	} );
-}
-
-export function useSessionHasPendingQuestion( sessionId: string | undefined ): boolean {
-	const store = useContext( AgentRunContext );
-	if ( ! store ) {
-		throw new Error( 'useSessionHasPendingQuestion must be used within AgentRunProvider' );
-	}
-	return useSyncExternalStore( store.stateStore.subscribe, () => {
-		const state = sessionId ? store.stateStore.getState()[ sessionId ] : undefined;
-		return (
-			state?.pendingQuestions.some(
-				( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
-			) ?? false
-		);
-	} );
-}
-
-/**
  * Aggregate read-only activity for a site row. Pending questions outrank
  * active work because they need the user's attention; otherwise any
  * starting/running session makes the site read as working.

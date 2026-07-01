@@ -401,7 +401,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						archivedSessions={ archivedSiteSessionHistory }
 						currentSessionId={ sessionId }
 						isCreatingSession={ isCreatingSession }
-						onNewChat={ () => void startNewChat() }
+						onNewChat={ startNewChat }
 						onSwitchSession={ switchSession }
 						sessions={ siteSessionHistory }
 					/>

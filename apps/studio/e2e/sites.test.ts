@@ -251,8 +251,6 @@ test.describe( 'Sites', () => {
 	// install into an unassociated folder, so the test stays cross-platform (no
 	// reliance on the native delete dialog, which is mocked only on macOS).
 	test( 'adds a site from an existing WordPress directory', async () => {
-		test.setTimeout( 300_000 );
-
 		const existingFolderName = 'existing-wp-dir';
 		const existingDir = path.join( session.homePath, 'Studio', existingFolderName );
 		await session.launch( { E2E_OPEN_FOLDER_DIALOG: existingDir } );
@@ -284,8 +282,6 @@ test.describe( 'Sites', () => {
 	} );
 
 	test( 'preserves an existing MySQL wp-config.php when adding a WordPress directory', async () => {
-		test.setTimeout( 300_000 );
-
 		const existingFolderName = 'mysql-wp-dir';
 		const existingDir = path.join( session.homePath, 'Studio', existingFolderName );
 		await session.launch( { E2E_OPEN_FOLDER_DIALOG: existingDir } );

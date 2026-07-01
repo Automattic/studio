@@ -294,6 +294,17 @@ describe( 'Studio AI MCP tools', () => {
 		expect( studioPresent?.description ).not.toContain( '- drawing:' );
 	} );
 
+	it( 'refresh_browser emits a preview.reload event and is registered', async () => {
+		expect( studioToolDefinitions.map( ( tool ) => tool.name ) ).toContain( 'refresh_browser' );
+		const emitEventMock = vi.mocked( emitEvent );
+		emitEventMock.mockClear();
+		const result = await getTool( 'refresh_browser' ).rawHandler( {} as never );
+		expect( getTextContent( result ) ).toBe( 'Reloaded the site preview.' );
+		expect( emitEventMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { type: 'preview.reload' } )
+		);
+	} );
+
 	it( 'keeps screenshot presentation guidance out of the screenshot tool description', () => {
 		const takeScreenshot = resolveStudioToolDefinitions( {
 			emitChatArtifacts: true,

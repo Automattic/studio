@@ -350,7 +350,7 @@ export function BlueprintSelector( {
 				<header className={ styles.exploreHeader }>
 					<h2 className={ styles.sectionTitle }>{ __( 'More blueprints' ) }</h2>
 					<p className={ styles.exploreSubtitle }>
-						{ __( 'Get started quickly with a one of our blueprints, or' ) }{ ' ' }
+						{ __( 'Get started quickly with one of our blueprints, or' ) }{ ' ' }
 						<Button
 							type="button"
 							variant="minimal"

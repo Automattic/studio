@@ -20,6 +20,8 @@ export function OnboardingShell() {
 	const isFull = matches.some( ( match ) => match.pathname === '/onboarding/connect' );
 	const isWide = matches.some( ( match ) => {
 		if ( match.pathname === '/onboarding' ) return true;
+		if ( match.pathname === '/onboarding/plugin' ) return true;
+		if ( match.pathname === '/onboarding/plugin/connect' ) return true;
 		if ( match.pathname !== '/onboarding/blueprint' ) return false;
 		const step = ( match.search as { step?: string } ).step;
 		return step !== 'configure';

@@ -58,15 +58,19 @@ describe( 'SidebarHeader', () => {
 		vi.clearAllMocks();
 	} );
 
-	it( 'opens site creation routes from the top-right create menu', () => {
+	it( 'opens site creation from the top-right create menu', () => {
 		render( <SidebarHeader /> );
 
 		expect( screen.getByRole( 'button', { name: 'Create new' } ) ).toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'New site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add a site' } ) );
 		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding' } );
+	} );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Import from…' } ) );
-		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding' } );
+	it( 'opens the plugin picker from the create menu', () => {
+		render( <SidebarHeader /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add a plugin' } ) );
+		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding/plugin' } );
 	} );
 } );

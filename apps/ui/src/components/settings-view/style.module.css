@@ -414,10 +414,6 @@
 	overflow-wrap: anywhere;
 }
 
-.accountSummaryDetails p.accountError {
-	color: var(--wpds-color-fg-content-error);
-}
-
 .usagePanel {
 	display: flex;
 	flex-direction: column;

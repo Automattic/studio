@@ -76,8 +76,3 @@ export const IPC_VOID_HANDLERS = [
 // current app version get the modal once. Keep at `false` otherwise — the modal
 // will only auto-show for first-time users of Studio.
 export const FORCE_SHOW_WHATS_NEW = true;
-
-// WordPress.org authentication (plugin development). Login runs in the user's
-// real Chrome via Playwright (see wordpress-org-auth.ts) — reCAPTCHA rejects
-// Electron's Chromium.
-export const WORDPRESS_ORG_LOGIN_URL = 'https://login.wordpress.org/';

@@ -133,31 +133,26 @@ existing-folder flow copies nothing, no SVN checkout happens, and the .org
   In existing-folder mode the title changes and the folder path shows
   read-only. Submit creates the site, tags it, and opens the site's new
   session view (chat + preview).
-- **WordPress.org auth is real** (v1): WordPress.org has no OAuth, so login
-  opens an isolated in-app `BrowserWindow` on `login.wordpress.org` using a
-  dedicated persistent session partition (`persist:studio-wordpress-org` —
-  its own cookie jar, none of the user's browser state; the same isolation
-  pressship gets from a separate Chromium, without bundling one). Success is
-  detected by polling for the `*logged_in*` cookie and verified against a
-  login-required page; a cookie snapshot is mirrored to
-  `~/.studio/wordpress-org-storage.json` (0600, lockfile-guarded).
-  Implementation:
-  `apps/studio/src/modules/user-settings/lib/wordpress-org-auth.ts` +
-  `getWordPressOrgAccount`/`loginToWordPressOrg`/`logoutFromWordPressOrg`
-  IPC → connector → `apps/ui/src/data/queries/use-wporg-account.ts`. Login
-  UI lives on the connect screen (signed-out block) and in Settings
-  ("WordPress.org account" section). Not yet used for authenticated
-  scraping (committer-only plugin lists), submissions, or SVN credentials.
-- **Connect screen** (`route-onboarding-plugin-connect/`): shows the
-  connected account's real plugins (public author-archive query by the
-  authenticated username) and lists **real** directory data via
+- **WordPress.org auth is simulated.** WordPress.org has no OAuth, and its
+  login form is reCAPTCHA-guarded. We explored real auth (an isolated
+  Electron login window, then driving the user's real Chrome via Playwright)
+  and pulled it back out — reCAPTCHA + mandatory 2FA make an automated
+  capture flow impractical for now. What remains is fake: the plugin connect
+  screen always reads "Connected as automattic", and Settings has a
+  "WordPress.org account" row with a local connect/disconnect toggle
+  (`SIMULATED_WPORG_USERNAME` in `settings-view/index.tsx`). Removed with the
+  auth: the `wordpress-org-auth` main-process module, its IPC/preload/
+  connector methods, `use-wporg-account.ts`, and the `playwright-core` dep.
+  A future real path would need the user's own browser session (e.g. paste a
+  session cookie, or an app-password flow) rather than automating the login.
+- **Connect screen** (`route-onboarding-plugin-connect/`): shows a
+  simulated "Connected as automattic" and lists **real** directory data via
   `apps/ui/src/data/queries/use-wporg-plugins.ts`, which queries
   `api.wordpress.org/plugins/info/1.2/` (`action=query_plugins`,
   `request[author]=…`, icons + active_installs fields). List is sorted by
   active installs and capped at 9 (`SIMULATED_PLUGIN_COUNT`) so it reads
   like a real account (6–12 plugins), not a directory dump. Selecting one
-  and "Add plugin" creates + tags a site named after the plugin (keeps the
-  directory icon for the sidebar row).
+  and "Add plugin" creates + tags a site named after the plugin.
 - **Sidebar** (`components/site-list/`): settled on the **grouped**
   presentation (the "mixed list" variant and the floating tweak panel were
   explored and removed). Plugin-tagged sites are split out of the

@@ -197,12 +197,6 @@ export interface Connector {
 		siteId: string,
 		meta: PluginScaffoldMeta
 	): Promise< { pluginDir: string; activated: boolean } >;
-	// WordPress.org account (plugin development). Login opens an isolated
-	// in-app window on login.wordpress.org and captures the session; null
-	// means not connected.
-	getWordPressOrgAccount(): Promise< WordPressOrgAccount | null >;
-	loginToWordPressOrg(): Promise< WordPressOrgAccount >;
-	logoutFromWordPressOrg(): Promise< void >;
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
@@ -546,13 +540,6 @@ export interface ProposedSitePath {
 export interface AvailableSitePath {
 	name: string;
 	path: string;
-}
-
-// Mirrors WordPressOrgAccount in
-// apps/studio/src/modules/user-settings/lib/wordpress-org-auth.ts.
-export interface WordPressOrgAccount {
-	username: string;
-	profileUrl: string;
 }
 
 // Mirrors PluginScaffoldMeta in apps/studio/src/lib/scaffold-plugin.ts,

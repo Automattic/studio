@@ -47,7 +47,6 @@
 		"http-proxy": "^1.18.1",
 		"ignore": "^7.0.5",
 		"lockfile": "^1.0.4",
-		"playwright-core": "^1.60.0",
 		"semver": "^7.7.3",
 		"shell-quote": "^1.8.4",
 		"strip-ansi": "^7.1.2",

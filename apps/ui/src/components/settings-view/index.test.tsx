@@ -210,17 +210,6 @@ vi.mock( '@/data/queries/use-wordpress-skills', () => ( {
 	useWordPressSkills: vi.fn(),
 } ) );
 
-vi.mock( '@/data/queries/use-wporg-account', () => ( {
-	useWordPressOrgAccount: () => ( { data: null, isLoading: false } ),
-	useWordPressOrgLogin: () => ( {
-		mutate: vi.fn(),
-		isPending: false,
-		isError: false,
-		error: null,
-	} ),
-	useWordPressOrgLogout: () => ( { mutate: vi.fn(), isPending: false } ),
-} ) );
-
 vi.mock( '@/hooks/use-fullscreen', () => ( {
 	useFullscreen: () => false,
 } ) );

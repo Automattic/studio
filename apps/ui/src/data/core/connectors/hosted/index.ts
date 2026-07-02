@@ -175,15 +175,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async scaffoldPlugin() {
 			throw new WebUnsupportedError( 'scaffoldPlugin' );
 		},
-		async getWordPressOrgAccount() {
-			return null;
-		},
-		async loginToWordPressOrg() {
-			throw new WebUnsupportedError( 'loginToWordPressOrg' );
-		},
-		async logoutFromWordPressOrg() {
-			throw new WebUnsupportedError( 'logoutFromWordPressOrg' );
-		},
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
 		},

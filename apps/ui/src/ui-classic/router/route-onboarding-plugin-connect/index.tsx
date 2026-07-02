@@ -2,71 +2,26 @@ import { createRoute, useNavigate } from '@tanstack/react-router';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { check, chevronLeft, wordpress } from '@wordpress/icons';
+import { chevronLeft } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useState } from 'react';
 import { BusyOverlay } from '@/components/busy-overlay';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import { useFindAvailableSiteName } from '@/data/queries/use-create-site-helpers';
 import { useCreateSite } from '@/data/queries/use-sites';
-import { useWordPressOrgAccount, useWordPressOrgLogin } from '@/data/queries/use-wporg-account';
 import { useWporgAuthorPlugins } from '@/data/queries/use-wporg-plugins';
 import { useGridArrowNavigation } from '@/hooks/use-grid-arrow-navigation';
-import { useOffline } from '@/hooks/use-offline';
 import { tagSiteAsPlugin } from '@/lib/plugin-prototype';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import styles from './style.module.css';
 import type { WporgPlugin } from '@/data/queries/use-wporg-plugins';
 
-// WordPress.org has no OAuth: logging in opens an isolated in-app window on
-// login.wordpress.org and Studio captures the session (see
-// apps/studio/src/modules/user-settings/lib/wordpress-org-auth.ts).
-function SignedOutView() {
-	const login = useWordPressOrgLogin();
-	const isOffline = useOffline();
-
-	const benefits = [
-		__( 'See the plugins you contribute to.' ),
-		__( 'Work on them locally with a test site.' ),
-		__( 'Uses your WordPress.org account — separate from WordPress.com.' ),
-	];
-
-	return (
-		<div className={ styles.signedOut }>
-			<ul className={ styles.benefits }>
-				{ benefits.map( ( benefit ) => (
-					<li key={ benefit } className={ styles.benefit }>
-						<Icon icon={ check } className={ styles.benefitIcon } />
-						<span>{ benefit }</span>
-					</li>
-				) ) }
-			</ul>
-			<div className={ styles.authActions }>
-				<Button
-					type="button"
-					variant="solid"
-					tone="brand"
-					disabled={ isOffline || login.isPending }
-					loading={ login.isPending }
-					loadingAnnouncement={ __( 'Waiting for WordPress.org login' ) }
-					onClick={ () => login.mutate() }
-				>
-					<Icon icon={ wordpress } />
-					<span>{ __( 'Log in with WordPress.org' ) }</span>
-				</Button>
-				{ login.isError && (
-					<p role="alert" className={ styles.authError }>
-						{ login.error instanceof Error
-							? login.error.message
-							: __( 'Login failed. Please try again.' ) }
-					</p>
-				) }
-				{ isOffline && <p className={ styles.listHint }>{ __( "You're currently offline." ) }</p> }
-			</div>
-		</div>
-	);
-}
+// Simulated: the real flow would log into WordPress.org and list plugins
+// the account can commit to (see the plugin-development reference PR). Until
+// that plumbing exists here, we pretend this account is already connected
+// and show real directory data for a stand-in username.
+const SIMULATED_USERNAME = 'automattic';
 
 function formatActiveInstalls( count: number ): string {
 	if ( count <= 0 ) {
@@ -118,9 +73,7 @@ function PluginCard( {
 function PluginConnectPage() {
 	const navigate = useNavigate();
 	const handleGridKeyDown = useGridArrowNavigation();
-	const { data: account, isLoading: isAccountLoading } = useWordPressOrgAccount();
-	const isSignedIn = !! account;
-	const { data: plugins = [], isLoading, isError } = useWporgAuthorPlugins( account?.username );
+	const { data: plugins = [], isLoading, isError } = useWporgAuthorPlugins( SIMULATED_USERNAME );
 	const [ selectedSlug, setSelectedSlug ] = useState< string | null >( null );
 	const [ submitError, setSubmitError ] = useState( '' );
 	const createSite = useCreateSite();
@@ -167,61 +120,53 @@ function PluginConnectPage() {
 			<BusyOverlay active={ createSite.isPending } />
 			<h1 className={ sharedStyles.title }>{ __( 'Connect to WordPress.org' ) }</h1>
 			<p className={ sharedStyles.subtitle }>
-				{ isSignedIn
-					? __(
-							'Select a plugin you contribute to and Studio will set it up for local development.'
-					  )
-					: __( 'Connect your WordPress.org account to see your plugins.' ) }
+				{ __(
+					'Select a plugin you contribute to and Studio will set it up for local development.'
+				) }
 			</p>
 
-			{ ! isSignedIn && ! isAccountLoading && <SignedOutView /> }
+			<p className={ styles.connectedHint }>
+				{ sprintf(
+					// translators: %s is a WordPress.org username.
+					__( 'Connected as %s' ),
+					SIMULATED_USERNAME
+				) }
+			</p>
 
-			{ isSignedIn && (
-				<>
-					<p className={ styles.connectedHint }>
-						{ sprintf(
-							// translators: %s is a WordPress.org username.
-							__( 'Connected as %s' ),
-							account.username
-						) }
-					</p>
+			{ isLoading && (
+				<div className={ styles.loadingState }>
+					<Spinner />
+					<p className={ styles.listHint }>{ __( 'Loading your plugins…' ) }</p>
+				</div>
+			) }
+			{ isError && (
+				<p role="alert" className={ styles.listHint }>
+					{ __( 'Could not load plugins from WordPress.org. Please try again.' ) }
+				</p>
+			) }
+			{ ! isLoading && ! isError && plugins.length === 0 && (
+				<p className={ styles.listHint }>
+					{ __( 'No plugins found for this WordPress.org account.' ) }
+				</p>
+			) }
 
-					{ isLoading && (
-						<div className={ styles.loadingState }>
-							<Spinner />
-							<p className={ styles.listHint }>{ __( 'Loading your plugins…' ) }</p>
-						</div>
-					) }
-					{ isError && (
-						<p role="alert" className={ styles.listHint }>
-							{ __( 'Could not load plugins from WordPress.org. Please try again.' ) }
-						</p>
-					) }
-					{ ! isLoading && ! isError && plugins.length === 0 && (
-						<p className={ styles.listHint }>
-							{ __( 'No plugins found for this WordPress.org account.' ) }
-						</p>
-					) }
+			{ plugins.length > 0 && (
+				<ul className={ styles.pluginGrid } onKeyDown={ handleGridKeyDown }>
+					{ plugins.map( ( plugin ) => (
+						<PluginCard
+							key={ plugin.slug }
+							plugin={ plugin }
+							isSelected={ selectedSlug === plugin.slug }
+							onSelect={ setSelectedSlug }
+						/>
+					) ) }
+				</ul>
+			) }
 
-					{ plugins.length > 0 && (
-						<ul className={ styles.pluginGrid } onKeyDown={ handleGridKeyDown }>
-							{ plugins.map( ( plugin ) => (
-								<PluginCard
-									key={ plugin.slug }
-									plugin={ plugin }
-									isSelected={ selectedSlug === plugin.slug }
-									onSelect={ setSelectedSlug }
-								/>
-							) ) }
-						</ul>
-					) }
-
-					{ submitError && (
-						<div role="alert" className={ styles.submitError }>
-							{ submitError }
-						</div>
-					) }
-				</>
+			{ submitError && (
+				<div role="alert" className={ styles.submitError }>
+					{ submitError }
+				</div>
 			) }
 
 			<OnboardingFooter>
@@ -235,20 +180,18 @@ function PluginConnectPage() {
 					<Icon icon={ chevronLeft } size={ 16 } />
 					<span>{ __( 'Back' ) }</span>
 				</Button>
-				{ isSignedIn && (
-					<Button
-						type="button"
-						variant="solid"
-						tone="brand"
-						disabled={ ! selectedPlugin || createSite.isPending }
-						loading={ createSite.isPending }
-						loadingAnnouncement={ __( 'Adding plugin' ) }
-						onClick={ () => void handleAdd() }
-						data-testid="connect-plugin-submit"
-					>
-						{ __( 'Add plugin' ) }
-					</Button>
-				) }
+				<Button
+					type="button"
+					variant="solid"
+					tone="brand"
+					disabled={ ! selectedPlugin || createSite.isPending }
+					loading={ createSite.isPending }
+					loadingAnnouncement={ __( 'Adding plugin' ) }
+					onClick={ () => void handleAdd() }
+					data-testid="connect-plugin-submit"
+				>
+					{ __( 'Add plugin' ) }
+				</Button>
 			</OnboardingFooter>
 		</div>
 	);

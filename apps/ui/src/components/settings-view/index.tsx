@@ -35,11 +35,6 @@ import {
 	useRemoveWordPressSkill,
 	useWordPressSkills,
 } from '@/data/queries/use-wordpress-skills';
-import {
-	useWordPressOrgAccount,
-	useWordPressOrgLogin,
-	useWordPressOrgLogout,
-} from '@/data/queries/use-wporg-account';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useOffline } from '@/hooks/use-offline';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
@@ -419,11 +414,13 @@ function AccountInformationSection() {
 
 // WordPress.org uses its own account, separate from WordPress.com — it's
 // what plugin submissions, review state, and SVN releases run through.
-// Login opens an isolated in-app window on login.wordpress.org.
+// Simulated: WordPress.org has no OAuth and its login is reCAPTCHA-guarded,
+// so this is a fake connect toggle (matching the simulated plugin connect
+// screen) until a real auth path exists.
+const SIMULATED_WPORG_USERNAME = 'automattic';
+
 function WordPressOrgAccountSection() {
-	const { data: account, isLoading } = useWordPressOrgAccount();
-	const login = useWordPressOrgLogin();
-	const logout = useWordPressOrgLogout();
+	const [ connected, setConnected ] = useState( false );
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
@@ -432,11 +429,11 @@ function WordPressOrgAccountSection() {
 				<div className={ styles.accountSummaryIdentity }>
 					<div className={ styles.accountSummaryDetails }>
 						<h2>
-							{ account
+							{ connected
 								? sprintf(
 										// translators: %s is a WordPress.org username.
 										__( 'Connected as %s' ),
-										account.username
+										SIMULATED_WPORG_USERNAME
 								  )
 								: __( 'Not connected' ) }
 						</h2>
@@ -445,40 +442,17 @@ function WordPressOrgAccountSection() {
 								'WordPress.org is a separate account, used for plugin development and submissions.'
 							) }
 						</p>
-						{ login.isError && (
-							<p role="alert" className={ styles.accountError }>
-								{ login.error instanceof Error
-									? login.error.message
-									: __( 'Login failed. Please try again.' ) }
-							</p>
-						) }
 					</div>
 				</div>
-				{ account ? (
-					<Button
-						type="button"
-						variant="outline"
-						tone="neutral"
-						loading={ logout.isPending }
-						loadingAnnouncement={ __( 'Logging out' ) }
-						onClick={ () => logout.mutate() }
-					>
-						{ __( 'Log out' ) }
-					</Button>
-				) : (
-					<Button
-						type="button"
-						variant="outline"
-						tone="neutral"
-						size="small"
-						disabled={ isLoading }
-						loading={ login.isPending }
-						loadingAnnouncement={ __( 'Waiting for WordPress.org login' ) }
-						onClick={ () => login.mutate() }
-					>
-						{ __( 'Log in' ) }
-					</Button>
-				) }
+				<Button
+					type="button"
+					variant="outline"
+					tone="neutral"
+					size={ connected ? undefined : 'small' }
+					onClick={ () => setConnected( ( value ) => ! value ) }
+				>
+					{ connected ? __( 'Log out' ) : __( 'Log in' ) }
+				</Button>
 			</div>
 		</section>
 	);

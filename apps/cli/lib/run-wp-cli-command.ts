@@ -189,12 +189,6 @@ async function runNativeWpCliCommand(
 
 	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
 	// so load it here too. No-op for normal sites (helper returns undefined).
-	//
-	// Exception: the sqlite-command (`wp sqlite export`/`tables`, requireSqliteCliCommand)
-	// loads its own copy of the SQLite integration and reads the database file directly.
-	// Prepending runtime.php there loads a second integration copy and fatals, so it runs
-	// without the prepend and relies on the integration installed in wp-content (see the
-	// imported-site setup in push.ts).
 	const autoPrependFile = options.requireSqliteCliCommand
 		? undefined
 		: getImportedSiteAutoPrependFile( site );

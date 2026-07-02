@@ -224,6 +224,7 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	getAgenticFeaturesEnabled,
 	getColorScheme,
 	getInstalledAppsAndTerminals,
 	getUserEditor,
@@ -231,6 +232,7 @@ export {
 	getUserTerminal,
 	getWapuuScore,
 	previewColorScheme,
+	saveAgenticFeaturesEnabled,
 	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,

@@ -153,6 +153,11 @@ export interface Connector {
 
 	// Auth
 	requiresAuth: boolean;
+	// True when the connector can gate chat/account features behind auth and
+	// the agentic-features preference. Hosted/web mode is always-on — its
+	// getAuthUser() returns null by design, so it must be exempt from the
+	// signed-out gate.
+	supportsAgenticOptOut: boolean;
 	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
 	// Starts the WordPress.com OAuth flow in the browser. Pass `signup` to
@@ -458,6 +463,7 @@ export interface UserPreferences {
 	locale: string | undefined;
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;
+	agenticFeaturesEnabled: boolean;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

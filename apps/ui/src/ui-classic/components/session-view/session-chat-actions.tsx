@@ -4,11 +4,10 @@ import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/ke
 import { Button, Dialog, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { useEffect, useState } from 'react';
 import * as Menu from '@/components/menu';
+import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { useUpdateSessionMetadata } from '@/data/queries/use-sessions';
-import { useSessionPreviewUI } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { formatRelativeTime } from '@/lib/format-relative-time';
-import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
@@ -102,7 +101,6 @@ export function SessionChatActions( {
 	sessions,
 }: SessionChatActionsProps ) {
 	const sidebarCollapsed = useSidebarCollapsed();
-	const preview = useSessionPreviewUI();
 	const updateSessionMetadata = useUpdateSessionMetadata();
 	const [ archiveDialogOpen, setArchiveDialogOpen ] = useState( false );
 	const [ historyMenuOpen, setHistoryMenuOpen ] = useState( false );
@@ -302,30 +300,7 @@ export function SessionChatActions( {
 				<div
 					className={ `${ styles.classicComposerFooterSide } ${ styles.classicComposerFooterEnd }` }
 				>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={
-								<Button
-									type="button"
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									className={ `${ styles.classicComposerTextButton } ${ styles.classicComposerIconButton }` }
-									aria-label={ preview.open ? __( 'Hide preview' ) : __( 'Show preview' ) }
-									onClick={ preview.toggle }
-								/>
-							}
-						>
-							<Icon
-								icon={ drawerIcon }
-								size={ 26 }
-								className={ `${ styles.classicComposerIcon } ${ styles.classicComposerPreviewIcon }` }
-							/>
-						</Tooltip.Trigger>
-						<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-							{ preview.open ? __( 'Hide preview' ) : __( 'Show preview' ) }
-						</Tooltip.Popup>
-					</Tooltip.Root>
+					<PreviewToggleButton />
 				</div>
 			) : null }
 		</div>

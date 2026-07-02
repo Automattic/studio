@@ -124,6 +124,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
 		// in the browser is a follow-up (explored in the PR linked above).
 		requiresAuth: false,
+		// Hosted mode has no real auth, so agentic features can't be gated on
+		// sign-in state — they stay always-on.
+		supportsAgenticOptOut: false,
 		async isAuthenticated() {
 			return true;
 		},
@@ -381,6 +384,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				locale: undefined,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
+				agenticFeaturesEnabled: true,
 			};
 		},
 		async setUserPreferences() {

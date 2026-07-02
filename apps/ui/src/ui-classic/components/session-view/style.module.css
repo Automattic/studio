@@ -222,12 +222,6 @@
 	margin-inline-start: auto;
 }
 
-/* The sidebar drawer icon, mirrored so the drawer edge points at the
-   preview panel on the right. */
-.classicComposerPreviewIcon {
-	transform: rotate(180deg);
-}
-
 .classicComposerTextButton {
 	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
 	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);

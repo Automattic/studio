@@ -18,7 +18,10 @@ import {
 } from '@wordpress/icons';
 import { Button } from '@wordpress/ui';
 import { useState } from 'react';
+import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
+import { PreviewToggleButton } from '@/components/preview-toggle-button';
+import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteHeaderActions } from '@/components/site-header-actions';
 import { SiteSettingsForm, type SiteSettingsTabId } from '@/components/site-settings-view';
@@ -83,7 +86,7 @@ function OverviewHeader( { site }: { site: SiteDetails } ) {
 				sidebarCollapsed ? `${ styles.header } ${ styles.headerSidebarCollapsed }` : styles.header
 			}
 		>
-			<SiteDropdown site={ site } showSiteIcon showStatus={ sidebarCollapsed } />
+			<SiteDropdown site={ site } showSiteIcon showStatus={ sidebarCollapsed } floating={ false } />
 			<SiteHeaderActions site={ site } />
 		</div>
 	);
@@ -311,6 +314,7 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 					<div className={ styles.scroll }>
 						<main className={ styles.content }>
 							<Tabs.Panel tabId="overview" className={ styles.panel }>
+								<AgenticSigninBanner />
 								<div className={ styles.actionsColumn }>
 									<ButtonSection title={ __( 'Customize' ) }>
 										{ isBlockTheme ? (
@@ -453,6 +457,10 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 						</main>
 					</div>
 				</Tabs.Root>
+			</div>
+			<ProgressiveBlur direction="up" className={ styles.footerBlur } />
+			<div className={ styles.footerBar }>
+				<PreviewToggleButton />
 			</div>
 			<DeleteSiteDialog
 				site={ site }

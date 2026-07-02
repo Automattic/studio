@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useLogin } from '@/data/queries/use-auth-user';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import {
 	useCopySite,
@@ -56,6 +58,14 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-auth-user', () => ( {
+	useLogin: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 	useExistingCustomDomains: vi.fn(),
 } ) );
@@ -87,6 +97,8 @@ vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
+const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
+const useLoginMock = vi.mocked( useLogin, { partial: true } );
 const useExistingCustomDomainsMock = vi.mocked( useExistingCustomDomains, { partial: true } );
 const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
@@ -137,6 +149,8 @@ describe( 'SiteOverviewView', () => {
 			openSiteInEditor,
 			openSiteInTerminal,
 		} );
+		useAgenticFeaturesMock.mockReturnValue( { enabled: true, reason: null, isReady: true } );
+		useLoginMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useSitesMock.mockReturnValue( {
 			data: [ createSite( { running: true } ) ],
 			isLoading: false,
@@ -201,6 +215,7 @@ describe( 'SiteOverviewView', () => {
 				locale: undefined,
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 	} );
@@ -246,6 +261,48 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByDisplayValue( 'Demo Site' ) ).toBeVisible();
 		expect( screen.queryByText( 'Site settings' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'hides the sign-in banner while agentic features are available', () => {
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		expect(
+			screen.queryByRole( 'heading', { name: 'Sign in to do more with Studio' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'shows a sign-in banner with a login action when signed out', () => {
+		const loginMutate = vi.fn();
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: false,
+			reason: 'signed-out',
+			isReady: true,
+		} );
+		useLoginMock.mockReturnValue( { isPending: false, mutate: loginMutate } );
+
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		expect(
+			screen.getByRole( 'heading', { name: 'Sign in to do more with Studio' } )
+		).toBeVisible();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
+
+		expect( loginMutate ).toHaveBeenCalled();
+	} );
+
+	it( 'hides the sign-in banner when agentic features are disabled by preference', () => {
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: false,
+			reason: 'preference',
+			isReady: true,
+		} );
+
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		expect(
+			screen.queryByRole( 'heading', { name: 'Sign in to do more with Studio' } )
+		).not.toBeInTheDocument();
 	} );
 
 	// Rendered without a SessionUIProvider, so the open-site-url hook takes

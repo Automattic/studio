@@ -101,6 +101,18 @@ export async function saveColorScheme(
 	await updateAppdata( { colorScheme } );
 }
 
+export async function getAgenticFeaturesEnabled(): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.agenticFeaturesEnabled ?? true;
+}
+
+export async function saveAgenticFeaturesEnabled(
+	event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await updateAppdata( { agenticFeaturesEnabled: enabled } );
+}
+
 export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const userData = await loadUserData();
 	const colorScheme = userData.colorScheme ?? 'light';

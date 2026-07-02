@@ -29,6 +29,12 @@
 	white-space: nowrap;
 }
 
+/* Non-floating placements (regular header rows) drop the floating-card
+   shadow. */
+.trigger.triggerFlat {
+	box-shadow: none;
+}
+
 .siteIconWrap {
 	position: relative;
 	display: inline-flex;

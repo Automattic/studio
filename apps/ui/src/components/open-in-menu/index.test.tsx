@@ -144,6 +144,7 @@ describe( 'OpenInMenu', () => {
 				locale: undefined,
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 	} );

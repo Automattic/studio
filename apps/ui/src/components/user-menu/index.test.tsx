@@ -161,18 +161,15 @@ describe( 'UserMenu', () => {
 		expect( logoutMutate ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'keeps appearance controls inside the signed-in account menu', () => {
+	it( 'leaves appearance controls to the settings screen', () => {
 		useAuthUserMock.mockReturnValue( {
 			data: { displayName: 'Ada Lovelace', email: 'ada@example.com' },
 		} as ReturnType< typeof useAuthUser > );
 
 		render( <UserMenu /> );
 
-		expect( screen.queryByRole( 'button', { name: 'Appearance' } ) ).not.toBeInTheDocument();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Dark' } ) );
-
-		expect( savePreferencesMutate ).toHaveBeenCalledWith( { colorScheme: 'dark' } );
+		expect( screen.queryByText( 'Appearance' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Dark' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps settings reachable when signed out', () => {

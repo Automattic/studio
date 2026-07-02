@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useIsSiteStarting,
@@ -36,6 +37,10 @@ vi.mock( '@/data/queries/use-agent-run', () => ( {
 	useSiteAgentActivity: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useIsSiteStarting: vi.fn(),
 	useIsSiteStopping: vi.fn(),
@@ -48,6 +53,7 @@ vi.mock( '@/data/sync-activity', () => ( {
 	useSiteSyncActivity: vi.fn(),
 } ) );
 
+const useAgenticFeaturesMock = vi.mocked( useAgenticFeatures );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSiteAgentActivityMock = vi.mocked( useSiteAgentActivity );
@@ -68,6 +74,7 @@ describe( 'SiteList', () => {
 		paramsMock = {};
 		pathnameMock = '/';
 
+		useAgenticFeaturesMock.mockReturnValue( { enabled: true, reason: null, isReady: true } );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useSiteAgentActivityMock.mockReturnValue( 'idle' );
@@ -466,6 +473,66 @@ describe( 'SiteList', () => {
 		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
 			Node.DOCUMENT_POSITION_FOLLOWING
 		);
+	} );
+
+	it( 'opens the site overview from the site row when agentic features are gated', () => {
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: false,
+			reason: 'signed-out',
+			isReady: true,
+		} );
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'stopped-chat',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stopped Site' } ) );
+
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sites/$siteId/overview',
+			params: { siteId: 'stopped-site' },
+		} );
+	} );
+
+	it( 'uses the primary selected state for the overview row when agentic features are gated', () => {
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: false,
+			reason: 'signed-out',
+			isReady: true,
+		} );
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/overview';
+
+		render( <SiteList /> );
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const rowClassName = stoppedRow.getAttribute( 'class' ) ?? '';
+
+		expect( rowClassName ).toContain( 'siteActive' );
+		expect( rowClassName ).not.toContain( 'siteContextActive' );
+		expect( within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } ) ).toHaveAttribute(
+			'aria-current',
+			'page'
+		);
+	} );
+
+	it( 'hides the site overview action button when agentic features are gated', () => {
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: false,
+			reason: 'preference',
+			isReady: true,
+		} );
+
+		render( <SiteList /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Site overview' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'does not show a new message indicator for the active site', () => {

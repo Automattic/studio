@@ -19,6 +19,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { Spinner } from '@/components/spinner';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useIsSiteStarting,
@@ -373,6 +374,7 @@ function SiteSection( {
 	isContextActive,
 	hasUnreadUpdate = false,
 	isPlugin = false,
+	agenticGated = false,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
@@ -381,6 +383,9 @@ function SiteSection( {
 	// Prototype: true when this site is tagged as a plugin — only changes
 	// the overview action's label; plugin rows otherwise look like sites.
 	isPlugin?: boolean;
+	// When agentic features are unavailable the row opens the overview
+	// directly, making the dedicated overview button redundant.
+	agenticGated?: boolean;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
@@ -400,6 +405,13 @@ function SiteSection( {
 		? 'new-message'
 		: 'idle';
 	const handleOpenSite = () => {
+		if ( agenticGated ) {
+			void navigate( {
+				to: '/sites/$siteId/overview',
+				params: { siteId: site.id },
+			} );
+			return;
+		}
 		if ( latestSession ) {
 			void navigate( {
 				to: '/sessions/$sessionId',
@@ -413,12 +425,17 @@ function SiteSection( {
 		} );
 	};
 
+	// When gated, the overview is the row's primary destination, so a
+	// context-active row gets the normal selected treatment instead of the
+	// dashed secondary one.
+	const isPrimaryActive = isChatActive || ( agenticGated && isContextActive );
+
 	return (
 		<section
 			className={ clsx(
 				styles.site,
-				isChatActive && styles.siteActive,
-				isContextActive && styles.siteContextActive
+				isPrimaryActive && styles.siteActive,
+				! agenticGated && isContextActive && styles.siteContextActive
 			) }
 		>
 			<header className={ styles.siteHeader } onClick={ handleOpenSite }>
@@ -430,7 +447,7 @@ function SiteSection( {
 							event.stopPropagation();
 							handleOpenSite();
 						} }
-						aria-current={ isChatActive ? 'page' : undefined }
+						aria-current={ isPrimaryActive ? 'page' : undefined }
 					>
 						<span
 							className={ clsx(
@@ -444,7 +461,9 @@ function SiteSection( {
 					</SidebarButton>
 				</div>
 				<div className={ styles.siteActions } data-site-actions>
-					<SiteOverviewButton site={ site } isActive={ isContextActive } isPlugin={ isPlugin } />
+					{ ! agenticGated && (
+						<SiteOverviewButton site={ site } isActive={ isContextActive } isPlugin={ isPlugin } />
+					) }
 					<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 				</div>
 			</header>
@@ -559,6 +578,9 @@ export function SiteList() {
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
 	const [ manualSiteOrder, setManualSiteOrder ] = useState( readStoredSiteOrder );
+	// One subscription for the whole list; rows receive the resolved flag.
+	const agenticFeatures = useAgenticFeatures();
+	const agenticGated = agenticFeatures.isReady && ! agenticFeatures.enabled;
 	// Prototype: plugin-tagged sites (see plugin-prototype.ts). Plugins are
 	// just sites; tags only change where and how their rows render.
 	const pluginTags = usePluginSiteTags();
@@ -859,6 +881,7 @@ export function SiteList() {
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
+			agenticGated={ agenticGated }
 		/>
 	) );
 
@@ -891,6 +914,7 @@ export function SiteList() {
 							isChatActive={ row.site.id === activeChatSiteKey }
 							isContextActive={ row.site.id === activeContextSiteKey }
 							hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
+							agenticGated={ agenticGated }
 						/>
 					</div>
 				</Fragment>
@@ -964,6 +988,7 @@ export function SiteList() {
 						isChatActive={ draggedRow.site.id === activeChatSiteKey }
 						isContextActive={ draggedRow.site.id === activeContextSiteKey }
 						hasUnreadUpdate={ unreadSiteIds.has( draggedRow.site.id ) }
+						agenticGated={ agenticGated }
 					/>
 				</div>
 			) : null }

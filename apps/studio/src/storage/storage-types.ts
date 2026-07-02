@@ -56,6 +56,8 @@ export interface UserData {
 	cliAutoInstalled?: boolean;
 	cliUserUninstalled?: boolean;
 	wapuuScore?: number;
+	/** Agentic UI chat gating preference. Absent means enabled. */
+	agenticFeaturesEnabled?: boolean;
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;

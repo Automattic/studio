@@ -17,7 +17,7 @@ vi.mock( '@/data/queries/use-sessions', () => ( {
 } ) );
 
 vi.mock( '@/hooks/use-session-ui', () => ( {
-	useSessionPreviewUI: () => ( {
+	useOptionalSessionPreviewUI: () => ( {
 		open: true,
 		path: '/',
 		reloadNonce: 0,

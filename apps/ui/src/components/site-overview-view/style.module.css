@@ -1,4 +1,6 @@
 .root {
+	/* Anchor for the footer toolbar + its progressive blur. */
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -55,12 +57,46 @@
 	overflow-y: auto;
 }
 
+/* Fixed bottom toolbar mirroring the chat panel's footer (see session-view's
+   panelFooterControls): same 46px control strip with the preview toggle
+   hugging the panel's right edge. Overlaid on the scroll area so content
+   shows through the progressive blur beneath it. */
+.footerBar {
+	position: absolute;
+	inset-inline: 0;
+	bottom: 0;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	min-height: 46px;
+	box-sizing: border-box;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-xl);
+	pointer-events: none;
+}
+
+.footerBar > * {
+	pointer-events: auto;
+}
+
+/* Shorter sibling of the chat panel's composer blur: just the toolbar strip
+   plus a small overhang. Leaves the scrollbar gutter unblurred, like chat. */
+.footerBlur {
+	inset-inline-start: 0;
+	inset-inline-end: 14px;
+	bottom: 0;
+	z-index: 1;
+	height: calc(46px + var(--wpds-dimension-padding-lg));
+}
+
 .content {
 	box-sizing: border-box;
 	width: 100%;
 	max-width: 760px;
+	/* Extra bottom padding keeps the last content clear of the overlaid
+	   footer toolbar. */
 	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-2xl);
+		calc(var(--wpds-dimension-padding-2xl) + 46px);
 }
 
 .panel {
@@ -256,7 +292,8 @@
 	}
 
 	.content {
-		padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-md);
+		padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-md)
+			calc(var(--wpds-dimension-padding-2xl) + 46px);
 	}
 
 	.actionsColumn {

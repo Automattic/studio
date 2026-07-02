@@ -335,6 +335,7 @@ export function createIpcConnector(): Connector {
 
 		// Auth — optional in Electron, delegated to main process
 		requiresAuth: false,
+		supportsAgenticOptOut: true,
 
 		async isAuthenticated(): Promise< boolean > {
 			return ipcApi.isAuthenticated();
@@ -881,23 +882,40 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale, defaultSiteDirectory, studioCliInstalled ] =
-				( await Promise.all( [
-					ipcApi.getUserEditor(),
-					ipcApi.getUserTerminal(),
-					ipcApi.getColorScheme(),
-					ipcApi.getUserLocale(),
-					ipcApi.getDefaultSiteDirectory(),
-					ipcApi.isStudioCliInstalled(),
-				] ) ) as [
-					SupportedEditor | null,
-					SupportedTerminal | null,
-					ColorScheme,
-					string | undefined,
-					string,
-					boolean,
-				];
-			return { editor, terminal, colorScheme, locale, defaultSiteDirectory, studioCliInstalled };
+			const [
+				editor,
+				terminal,
+				colorScheme,
+				locale,
+				defaultSiteDirectory,
+				studioCliInstalled,
+				agenticFeaturesEnabled,
+			] = ( await Promise.all( [
+				ipcApi.getUserEditor(),
+				ipcApi.getUserTerminal(),
+				ipcApi.getColorScheme(),
+				ipcApi.getUserLocale(),
+				ipcApi.getDefaultSiteDirectory(),
+				ipcApi.isStudioCliInstalled(),
+				ipcApi.getAgenticFeaturesEnabled(),
+			] ) ) as [
+				SupportedEditor | null,
+				SupportedTerminal | null,
+				ColorScheme,
+				string | undefined,
+				string,
+				boolean,
+				boolean,
+			];
+			return {
+				editor,
+				terminal,
+				colorScheme,
+				locale,
+				defaultSiteDirectory,
+				studioCliInstalled,
+				agenticFeaturesEnabled,
+			};
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -921,6 +939,12 @@ export function createIpcConnector(): Connector {
 				writes.push(
 					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
 				);
+			}
+			if (
+				'agenticFeaturesEnabled' in partial &&
+				typeof partial.agenticFeaturesEnabled === 'boolean'
+			) {
+				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
 			}
 			await Promise.all( writes );
 		},

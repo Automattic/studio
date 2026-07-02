@@ -108,8 +108,59 @@ export function getWordPressOrgLoginUserAgent(): string {
 	return `Mozilla/5.0 (${ platform }) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${ process.versions.chrome } Safari/537.36`;
 }
 
+// The pieces of a self-consistent Chrome identity. The UA string alone isn't
+// enough: reCAPTCHA cross-checks it against the client-hint headers and
+// navigator.userAgentData, and an inconsistent fingerprint makes token
+// issuance fail silently — the login button then appears to do nothing.
+function getChromeMajorVersion(): string {
+	return process.versions.chrome.split( '.' )[ 0 ];
+}
+
+function getChromeBrands(): { brand: string; version: string }[] {
+	const version = getChromeMajorVersion();
+	return [
+		{ brand: 'Chromium', version },
+		{ brand: 'Google Chrome', version },
+		{ brand: 'Not?A_Brand', version: '99' },
+	];
+}
+
+function getSecChUaHeader(): string {
+	return getChromeBrands()
+		.map( ( { brand, version } ) => `"${ brand }";v="${ version }"` )
+		.join( ', ' );
+}
+
+function getUaDataPlatform(): string {
+	return process.platform === 'darwin'
+		? 'macOS'
+		: process.platform === 'win32'
+		? 'Windows'
+		: 'Linux';
+}
+
+let sessionHeadersConfigured = false;
+
 export function getWordPressOrgSession(): Session {
-	return session.fromPartition( WORDPRESS_ORG_AUTH_SESSION_PARTITION );
+	const authSession = session.fromPartition( WORDPRESS_ORG_AUTH_SESSION_PARTITION );
+	if ( ! sessionHeadersConfigured ) {
+		sessionHeadersConfigured = true;
+		authSession.setUserAgent( getWordPressOrgLoginUserAgent() );
+		// Replace Chromium's own client-hint brand headers with ones that
+		// match the spoofed Chrome UA.
+		const secChUa = getSecChUaHeader();
+		authSession.webRequest.onBeforeSendHeaders( ( details, callback ) => {
+			const requestHeaders = { ...details.requestHeaders };
+			for ( const header of Object.keys( requestHeaders ) ) {
+				if ( header.toLowerCase() === 'sec-ch-ua' ) {
+					delete requestHeaders[ header ];
+				}
+			}
+			requestHeaders[ 'sec-ch-ua' ] = secChUa;
+			callback( { requestHeaders } );
+		} );
+	}
+	return authSession;
 }
 
 async function collectSessionCookies( authSession: Session ): Promise< Cookie[] > {
@@ -223,11 +274,8 @@ async function runLogin(): Promise< WordPressOrgAccount > {
 		},
 	} );
 	activeLoginWindow = loginWindow;
-	// Session-wide, not just the top frame: the login form's reCAPTCHA runs
-	// in third-party frames whose requests must carry the same plain-Chrome
-	// UA, or the anti-bot check quietly fails and the submit button appears
-	// to do nothing.
-	authSession.setUserAgent( getWordPressOrgLoginUserAgent() );
+	// Session-level UA + client-hint headers are configured in
+	// getWordPressOrgSession(); the top frame repeats the UA for good measure.
 	loginWindow.webContents.setUserAgent( getWordPressOrgLoginUserAgent() );
 	// Keep WordPress.org navigation inside the login window; anything else
 	// (support docs, password reset hosts, …) goes to the real browser.
@@ -258,6 +306,62 @@ async function runLogin(): Promise< WordPressOrgAccount > {
 	);
 	loginWindow.webContents.on( 'did-navigate', ( _event, url ) => {
 		console.log( '[wporg-login] navigated:', url );
+	} );
+	// Runs in the page on every navigation: spoofs navigator.userAgentData to
+	// match the Chrome UA (reCAPTCHA reads it via JS, where headers can't
+	// help), and instruments clicks/submits/errors so a dead login button
+	// reports exactly where it dies instead of failing silently.
+	loginWindow.webContents.on( 'dom-ready', () => {
+		const brands = JSON.stringify( getChromeBrands() );
+		const platform = JSON.stringify( getUaDataPlatform() );
+		void loginWindow.webContents
+			.executeJavaScript(
+				`(() => {
+					try {
+						const data = { brands: ${ brands }, mobile: false, platform: ${ platform } };
+						const uaData = {
+							...data,
+							getHighEntropyValues: () => Promise.resolve( { ...data } ),
+							toJSON: () => ( { ...data } ),
+						};
+						Object.defineProperty( navigator, 'userAgentData', { get: () => uaData } );
+					} catch ( error ) {
+						console.error( '[studio] userAgentData spoof failed:', String( error ) );
+					}
+					window.addEventListener( 'error', ( event ) =>
+						console.error( '[studio] page error:', event.message )
+					);
+					window.addEventListener( 'unhandledrejection', ( event ) =>
+						console.error( '[studio] unhandled rejection:', String( event.reason ) )
+					);
+					document.addEventListener(
+						'submit',
+						() => console.log( '[studio] form submit event fired' ),
+						true
+					);
+					document.addEventListener(
+						'click',
+						( event ) => {
+							const button =
+								event.target && event.target.closest
+									? event.target.closest( 'button, input[type=submit]' )
+									: null;
+							if ( button ) {
+								console.log(
+									'[studio] submit-ish click:',
+									button.id || button.name || button.type || 'unknown'
+								);
+							}
+						},
+						true
+					);
+					console.log(
+						'[studio] instrumentation ready; grecaptcha:',
+						typeof window.grecaptcha
+					);
+				})();`
+			)
+			.catch( () => undefined );
 	} );
 	if ( process.env.NODE_ENV === 'development' ) {
 		loginWindow.webContents.openDevTools( { mode: 'detach' } );

@@ -1,3 +1,4 @@
+import path from 'path';
 import { describe, it, expect } from 'vitest';
 import { XmlValidator } from '../xml-validator';
 
@@ -29,11 +30,12 @@ describe( 'XmlValidator', () => {
 
 	describe( 'parseBackupContents', () => {
 		it( 'records the .xml file under wxrFiles with an absolute path', () => {
-			const result = validator.parseBackupContents( [ 'export.xml' ], '/tmp/extract' );
-			expect( result.wxrFiles ).toEqual( [ '/tmp/extract/export.xml' ] );
+			const extractionDirectory = path.join( 'tmp', 'extract' );
+			const result = validator.parseBackupContents( [ 'export.xml' ], extractionDirectory );
+			expect( result.wxrFiles ).toEqual( [ path.join( extractionDirectory, 'export.xml' ) ] );
 			expect( result.sqlFiles ).toEqual( [] );
 			expect( result.wpContentFiles ).toEqual( [] );
-			expect( result.extractionDirectory ).toBe( '/tmp/extract' );
+			expect( result.extractionDirectory ).toBe( extractionDirectory );
 		} );
 	} );
 } );

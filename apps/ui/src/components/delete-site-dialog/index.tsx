@@ -55,24 +55,26 @@ export function DeleteSiteDialog( { site, open, onOpenChange, onDeleted }: Delet
 				<Dialog.Header>
 					<Dialog.Title>{ sprintf( __( 'Delete %s' ), site.name ) }</Dialog.Title>
 				</Dialog.Header>
-				<p className={ styles.dialogText }>
-					{ pluginTag
-						? __(
-								"This deletes the plugin along with its test site — the site's database, posts, pages, comments, and media will be lost."
-						  )
-						: __(
-								"The site's database will be lost, including all posts, pages, comments, and media."
-						  ) }
-				</p>
-				<label className={ styles.dialogCheckbox }>
-					<input
-						type="checkbox"
-						checked={ deleteFiles }
-						onChange={ ( event ) => setDeleteFiles( event.target.checked ) }
-					/>
-					<span>{ __( 'Delete site files from my computer' ) }</span>
-				</label>
-				{ error ? <div className={ styles.dialogError }>{ error }</div> : null }
+				<Dialog.Content>
+					<p className={ styles.dialogText }>
+						{ pluginTag
+							? __(
+									"This deletes the plugin along with its test site — the site's database, posts, pages, comments, and media will be lost."
+							  )
+							: __(
+									"The site's database will be lost, including all posts, pages, comments, and media."
+							  ) }
+					</p>
+					<label className={ styles.dialogCheckbox }>
+						<input
+							type="checkbox"
+							checked={ deleteFiles }
+							onChange={ ( event ) => setDeleteFiles( event.target.checked ) }
+						/>
+						<span>{ __( 'Delete site files from my computer' ) }</span>
+					</label>
+					{ error ? <div className={ styles.dialogError }>{ error }</div> : null }
+				</Dialog.Content>
 				<Dialog.Footer>
 					<Dialog.Action variant="minimal" tone="neutral" disabled={ deleteSite.isPending }>
 						{ __( 'Cancel' ) }

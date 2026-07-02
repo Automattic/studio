@@ -107,6 +107,12 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		void checkDebugLogExists();
 	}, [ checkDebugLogExists ] );
 
+	/* translators: As in an application that runs natively on a computer */
+	const nativeLabel = __( 'Native' );
+	/* translators: As in a secure, sandboxed environment */
+	const sandboxLabel = __( 'Sandbox' );
+	const runtimeLabel = isNativePhpRuntime ? nativeLabel : sandboxLabel;
+
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
 			<div className="flex justify-between items-center mb-4">
@@ -205,8 +211,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 					</SettingsRow>
 					<SettingsRow label={ __( 'PHP runtime' ) }>
 						<div className="inline-flex items-center gap-2">
-							{ /* translators: value for the PHP runtime setting on the site settings screen */ }
-							<span>{ isNativePhpRuntime ? __( 'Native' ) : __( 'Sandbox' ) }</span>
+							<span>{ runtimeLabel }</span>
 							<Tooltip
 								text={ <RuntimeDescription runtime={ getSiteRuntime( selectedSite ) } /> }
 								placement="top-start"

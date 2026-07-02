@@ -48,6 +48,23 @@ $transformer->to_file( $wp_config_path );
 	const enableDebugLog = config?.enableDebugLog ?? false;
 	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
 	const mysqlConfig = config ? getMysqlConfigFromServerConfig( config as ServerConfig ) : undefined;
+
+	// Guard against silently clobbering a real database config. If we're about to
+	// write the SQLite default (DB_NAME='wordpress') over a wp-config.php that
+	// already points at a different database, the engine flag was dropped
+	// somewhere upstream and writing the default would sever a live MySQL site
+	// from its data. Fail loud instead of corrupting the config.
+	if ( ! mysqlConfig && fs.existsSync( wpConfigPath ) ) {
+		const existingDbName = readDefinedDbName( wpConfigPath );
+		if ( existingDbName && existingDbName !== DEFAULT_WP_CONFIG_CONSTANTS.DB_NAME ) {
+			throw new Error(
+				`Refusing to reset wp-config.php DB_NAME to '${ DEFAULT_WP_CONFIG_CONSTANTS.DB_NAME }' ` +
+					`over an existing '${ existingDbName }'. The site's database engine config was not ` +
+					`provided, which would sever the site from its database.`
+			);
+		}
+	}
+
 	const constants = {
 		...( mysqlConfig ? getMysqlWpConfigConstants( mysqlConfig ) : DEFAULT_WP_CONFIG_CONSTANTS ),
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
@@ -73,6 +90,20 @@ $transformer->to_file( $wp_config_path );
 			}`
 		);
 	}
+}
+
+// Reads the DB_NAME currently defined in a wp-config.php, or undefined if the
+// file has no DB_NAME define yet. Used only to detect the clobber case above;
+// a null result is treated as "safe to write the default".
+function readDefinedDbName( wpConfigPath: string ): string | undefined {
+	let contents: string;
+	try {
+		contents = fs.readFileSync( wpConfigPath, 'utf8' );
+	} catch {
+		return undefined;
+	}
+	const match = contents.match( /define\(\s*(['"])DB_NAME\1\s*,\s*(['"])([^'"]*)\2\s*\)/ );
+	return match ? match[ 3 ] : undefined;
 }
 
 export function getSiteUrlPrependContent(

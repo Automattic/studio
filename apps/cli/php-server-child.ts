@@ -378,6 +378,33 @@ async function stopCurrentPhpServer(): Promise< void > {
 	);
 }
 
+/**
+ * The site's own host + local port for the loopback DNS fast-path mu-plugin.
+ *
+ * Only returns a host when the site is served from a custom domain (a `.local`
+ * name carried in `absoluteUrl`). A plain `localhost` site has no domain to
+ * resolve and no mDNS penalty, so it needs no pin. The port is the site's public
+ * HTTP port — the one the loopback ultimately reaches.
+ */
+function getLoopbackResolveTarget( config: ServerConfig ): {
+	siteHost?: string;
+	sitePort?: number;
+} {
+	if ( ! config.absoluteUrl ) {
+		return {};
+	}
+	let host: string;
+	try {
+		host = new URL( config.absoluteUrl ).hostname;
+	} catch {
+		return {};
+	}
+	if ( ! host || host === 'localhost' || host === '127.0.0.1' || host === '::1' ) {
+		return {};
+	}
+	return { siteHost: host, sitePort: config.port };
+}
+
 function proxyRequestToPhpWorker(
 	config: ServerConfig,
 	req: http.IncomingMessage,
@@ -406,7 +433,14 @@ function proxyRequestToPhpWorker(
 		released = true;
 		phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) - 1 );
 	};
-	res.once( 'close', release );
+	// Release the worker's busy count when the UPSTREAM request to the PHP worker
+	// finishes — not when the client connection closes. A fire-and-forget loopback
+	// (WordPress dispatches Action Scheduler's async queue runner with
+	// blocking=false and a ~0.01s timeout, so the client disconnects almost
+	// immediately by design) must still count the worker as busy for the full
+	// duration of the work it kicked off, or the pool would treat a worker that is
+	// mid-generation as idle. `proxyReq`'s `close` fires once the upstream exchange
+	// is fully done, which is the real end of the worker's work.
 
 	const headers = { ...req.headers };
 	headers.host = req.headers.host ?? `localhost:${ config.port }`;
@@ -422,20 +456,54 @@ function proxyRequestToPhpWorker(
 			headers,
 		},
 		( proxyRes ) => {
-			res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
-			proxyRes.pipe( res );
+			// The client may already be gone (fire-and-forget). Only write back if
+			// it is still connected; the upstream still runs to completion either way.
+			if ( ! res.writableEnded && ! res.destroyed ) {
+				res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
+				proxyRes.pipe( res );
+			} else {
+				// Client is gone: drain the worker's response so the upstream request
+				// completes cleanly instead of stalling on backpressure.
+				proxyRes.resume();
+			}
 		}
 	);
 
+	proxyReq.once( 'close', release );
+
 	proxyReq.on( 'error', ( error ) => {
 		release();
-		if ( ! res.headersSent ) {
+		if ( ! res.headersSent && ! res.writableEnded && ! res.destroyed ) {
 			res.writeHead( 502 );
+			res.end( `PHP worker proxy error: ${ error.message }` );
 		}
-		res.end( `PHP worker proxy error: ${ error.message }` );
 	} );
 
-	req.pipe( proxyReq );
+	// Decouple the upstream worker request from the client connection. WordPress's
+	// async fanout depends on fire-and-forget loopback requests: the client
+	// disconnects the instant the request is sent and the PHP worker is meant to
+	// keep running (claim + execute an Action Scheduler branch). A plain
+	// `req.pipe( proxyReq )` would propagate the client's early close/abort to the
+	// upstream and destroy that worker request mid-flight, so the branch never runs.
+	// Forward the body manually so a client abort does NOT tear down the upstream:
+	// the worker request runs to completion on its own.
+	req.on( 'data', ( chunk ) => {
+		if ( ! proxyReq.writableEnded ) {
+			proxyReq.write( chunk );
+		}
+	} );
+	req.on( 'end', () => {
+		if ( ! proxyReq.writableEnded ) {
+			proxyReq.end();
+		}
+	} );
+	req.on( 'error', () => {
+		// Client aborted (expected for fire-and-forget). Finish sending the request
+		// to the worker so the upstream can run to completion; do NOT destroy it.
+		if ( ! proxyReq.writableEnded ) {
+			proxyReq.end();
+		}
+	} );
 }
 
 async function startPhpProxyServer(
@@ -502,7 +570,8 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		const muPluginsPath = await writeStudioMuPluginsForNativePhpRuntime(
 			config.sitePath,
-			config.isWpAutoUpdating
+			config.isWpAutoUpdating,
+			getLoopbackResolveTarget( config )
 		);
 		stopSignal.throwIfAborted();
 
@@ -811,7 +880,8 @@ async function ipcMessageHandler( packet: unknown ) {
 					);
 					await writeStudioMuPluginsForNativePhpRuntime(
 						blueprintConfig.sitePath,
-						blueprintConfig.isWpAutoUpdating
+						blueprintConfig.isWpAutoUpdating,
+						getLoopbackResolveTarget( blueprintConfig )
 					);
 					await installWordPress(
 						blueprintConfig,

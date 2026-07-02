@@ -186,7 +186,10 @@ async function runNativeWpCliCommand(
 ): Promise< DisposableWpCliResponse | DisposableExitCode > {
 	const phpVersion = resolveNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
-	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating, {
+		siteHost: site.customDomain,
+		sitePort: site.port,
+	} );
 	let mysqlServer: ManagedMysqlServer | null = null;
 	if ( isMysqlSite( site ) ) {
 		if ( ! site.mysql ) {

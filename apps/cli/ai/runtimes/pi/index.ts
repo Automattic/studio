@@ -41,7 +41,7 @@ import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
-import { readCliConfig } from 'cli/lib/cli-config/core';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
@@ -273,9 +273,8 @@ async function resolveActiveSiteRuntime(
 		return SITE_RUNTIME_NATIVE_PHP;
 	}
 	try {
-		const config = await readCliConfig();
-		const site = config.sites?.find( ( candidate ) => candidate.path === activeSite.path );
-		return getSiteRuntime( site ?? {} );
+		const site = await getSiteByFolder( activeSite.path );
+		return getSiteRuntime( site );
 	} catch {
 		return SITE_RUNTIME_NATIVE_PHP;
 	}

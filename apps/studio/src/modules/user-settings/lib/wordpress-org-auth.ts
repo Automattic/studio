@@ -223,6 +223,11 @@ async function runLogin(): Promise< WordPressOrgAccount > {
 		},
 	} );
 	activeLoginWindow = loginWindow;
+	// Session-wide, not just the top frame: the login form's reCAPTCHA runs
+	// in third-party frames whose requests must carry the same plain-Chrome
+	// UA, or the anti-bot check quietly fails and the submit button appears
+	// to do nothing.
+	authSession.setUserAgent( getWordPressOrgLoginUserAgent() );
 	loginWindow.webContents.setUserAgent( getWordPressOrgLoginUserAgent() );
 	// Keep WordPress.org navigation inside the login window; anything else
 	// (support docs, password reset hosts, …) goes to the real browser.
@@ -238,6 +243,25 @@ async function runLogin(): Promise< WordPressOrgAccount > {
 		}
 		return { action: 'deny' };
 	} );
+
+	// The page gives no feedback when its login JS fails (anti-bot checks
+	// abort the submit silently), so surface the window's own console and
+	// load failures in the main-process log for diagnosis.
+	loginWindow.webContents.on( 'console-message', ( _event, level, message ) => {
+		console.log( `[wporg-login console:${ level }]`, message );
+	} );
+	loginWindow.webContents.on(
+		'did-fail-load',
+		( _event, errorCode, errorDescription, validatedURL ) => {
+			console.error( '[wporg-login] load failed:', errorCode, errorDescription, validatedURL );
+		}
+	);
+	loginWindow.webContents.on( 'did-navigate', ( _event, url ) => {
+		console.log( '[wporg-login] navigated:', url );
+	} );
+	if ( process.env.NODE_ENV === 'development' ) {
+		loginWindow.webContents.openDevTools( { mode: 'detach' } );
+	}
 
 	let closedByUser = false;
 	loginWindow.on( 'closed', () => {

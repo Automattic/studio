@@ -351,6 +351,13 @@
 	min-width: 0;
 }
 
+/* The action button must never get squeezed into wrapping ("Log\nin") by a
+   long description in the flexible column beside it. */
+.accountSummaryHeader > button {
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
 .accountSectionHeader {
 	display: flex;
 	align-items: center;

@@ -246,8 +246,7 @@ class PullError extends LoggerError {
  *   getPullSessionMetadata →
  *   runPreflight (with secret-rotate retry on WP.com) →
  *   saveReprintOrigin (durable origin onto SiteData) →
- *   runFullPull (one `reprint pull`: files-pull → db-pull → db-apply →
- *     flat-docroot → apply-runtime) →
+ *   runFullPull (pull-files → pull-db → flat-docroot → apply-runtime) →
  *   linkPulledRuntimeToSite (wire the generated runtime onto the
  *     existing site record) →
  *   startWordPressServer →
@@ -263,10 +262,9 @@ class PullError extends LoggerError {
  * foreground pull, and re-running it resumes idempotently).
  *
  * Re-running after a pull reached 'completed' performs a delta
- * re-pull: Studio's stage machine resets to 'initialized' and reprint
- * resets its own sub-command state via prepare_repull().  Each phase is
- * incremental — files re-sync as a delta (re-index + diff), the
- * database is fully re-downloaded and re-applied (the dump is
+ * re-pull: Studio's stage machine resets to 'initialized' and each
+ * phase is incremental — files re-sync as a delta (re-index + diff),
+ * the database is fully re-downloaded and re-applied (the dump is
  * idempotent, so edits, inserts, and deletes all propagate).
  */
 export async function runCommand(
@@ -439,10 +437,9 @@ export async function runCommand(
 			record.reprintOrigin = origin;
 		} );
 
-		// db-apply (run inside the composite `pull`) rewrites the remote
-		// site URL to the local one the Studio server already serves —
-		// `studioMetadata.localUrl` comes from the existing site's port, so
-		// no port allocation is needed here.
+		// pull-db rewrites the remote site URL to the local one the Studio
+		// server already serves — `studioMetadata.localUrl` comes from the
+		// existing site's port, so no port allocation is needed here.
 
 		// Resolve what to sync (flags or interactive prompt); resumes reuse
 		// the choice persisted in pull.json.
@@ -461,9 +458,6 @@ export async function runCommand(
 			return;
 		}
 
-		// The pull pipeline runs as separate reprint commands (pull-files →
-		// pull-db → flat-docroot → apply-runtime) so the selection can skip
-		// the database step entirely; see runFullPull.
 		if ( ! hasPullCompletedStage( studioMetadata, 'pulled' ) ) {
 			normalizeReprintStateForEssentialFilesPull( studioMetadata.stateDirectory );
 			await runFullPull( SITE_RUNTIME_NATIVE_PHP, studioMetadata, apiUrl, secret, verbose );
@@ -574,8 +568,6 @@ export async function runCommand(
 		}
 
 		if ( ! hasPullCompletedStage( studioMetadata, 'completed' ) ) {
-			// Fetch the deferred media/uploads unless the user excluded the
-			// media library in the selective-sync choice.
 			if ( ! studioMetadata.skipUploads && hasSkippedFiles( studioMetadata.stateDirectory ) ) {
 				await downloadSkippedFiles(
 					getSiteRuntime( site ),
@@ -920,13 +912,10 @@ function readPullProgress( technicalSiteDirectory: string ): PullProgress | null
  * Run the site-clone pipeline as separate reprint commands so the
  * selective-sync choice maps directly onto them:
  *
- *   1. `pull-files`    — preflight + file download. `--only` restricts the
- *      pull to the wp-content folders the user selected.
- *   2. `pull-db`       — SQL download + import into SQLite. **Skipped
- *      entirely** when the user excluded the database, leaving the local
- *      database untouched.
- *   3. `flat-docroot`  — reassemble the raw download into the site
- *      directory (`--force` overwrites the pre-existing blank install).
+ *   1. `pull-files`    — file download, restricted by `--only`.
+ *   2. `pull-db`       — SQL download + import; skipped entirely when the
+ *      database was excluded, leaving the local database untouched.
+ *   3. `flat-docroot`  — reassemble the raw download into the site directory.
  *   4. `apply-runtime` — server config, run last so it embeds the DB
  *      credentials `pull-db` wrote to state (or keeps the previous ones
  *      when the database was skipped).
@@ -939,10 +928,9 @@ function readPullProgress( technicalSiteDirectory: string ): PullProgress | null
  *   - Otherwise it falls back to `sitePath/wp-content`.
  *
  * The flattened site and runtime output directories are mounted up
- * front so the forks can write them onto the host filesystem. Each
- * command is individually resumable (exit code 2 → retry loop in
- * {@link runReprintCommandUntilComplete}); a crash between commands
- * safely re-runs the sequence, since every step is idempotent.
+ * front so the forks can write them onto the host filesystem. Every
+ * step is idempotent and individually resumable, so a crash anywhere
+ * safely re-runs the sequence.
  *
  * Advances the pull stage to 'pulled'.
  */
@@ -958,7 +946,6 @@ export async function runFullPull(
 		? `${ metadata.rawDirectory }${ contentDir }/database/.ht.sqlite`
 		: `${ metadata.sitePath }/wp-content/database/.ht.sqlite`;
 	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
-	const onlyArgs = ( metadata.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` );
 
 	const runStep = ( progressLabel: string, args: string[] ) =>
 		runReprintCommandUntilComplete(
@@ -980,13 +967,11 @@ export async function runFullPull(
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 
 	// A non-empty raw fs-root without a local files index is a damaged or
-	// partially-written scratch: reprint refuses an initial sync into it
-	// ("Target directory is not empty and no cursor found"), and its
-	// preserve-local escape hatch silently skips every file behind a stale
-	// blocker entry. The raw directory is Studio-owned scratch, so clear it
-	// and start a clean initial sync instead (preflight state is preserved;
-	// the selection gate guarantees this run pulls everything, database
-	// included, so no other reprint state needs to survive).
+	// partially-written scratch that reprint refuses an initial sync into
+	// (and its preserve-local escape hatch would silently skip files behind
+	// stale blocker entries). The scratch is Studio-owned, so wipe it for a
+	// clean initial sync; the selection gate guarantees this run pulls
+	// everything, so only preflight state needs to survive.
 	const rawEntries = fs.existsSync( metadata.rawDirectory )
 		? fs.readdirSync( metadata.rawDirectory )
 		: [];
@@ -996,22 +981,17 @@ export async function runFullPull(
 		resetEssentialFilesState( metadata.stateDirectory );
 	}
 
-	// 1. Files. `--only` restricts the download to the selected wp-content
-	// folders; essential-files defers the media library to the post-start
-	// skipped-earlier pass.
 	await runStep( __( 'Pulling files' ), [
 		'pull-files',
 		apiUrl,
 		`--secret=${ secret }`,
 		'--filter=essential-files',
-		...onlyArgs,
+		...( metadata.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` ),
 		'--no-adaptive',
 		`--state-dir=${ metadata.stateDirectory }`,
 		`--fs-root=${ metadata.rawDirectory }`,
 	] );
 
-	// 2. Database — only when selected. Skipping it leaves the local
-	// database (and the runtime's DB credentials in state) untouched.
 	if ( ! metadata.skipDatabase ) {
 		await runStep( __( 'Pulling database' ), [
 			'pull-db',
@@ -1026,9 +1006,8 @@ export async function runFullPull(
 		] );
 	}
 
-	// 3. Flatten the raw download into the site directory. `-` is the URL
-	// placeholder for local commands; `--force` overwrites the blank
-	// install `studio create` left in the pre-existing site directory.
+	// `-` is the URL placeholder for local commands; `--force` overwrites the
+	// blank install `studio create` left in the site directory.
 	await runStep( __( 'Flattening layout' ), [
 		'flat-docroot',
 		'-',
@@ -1038,9 +1017,8 @@ export async function runFullPull(
 		`--fs-root=${ metadata.rawDirectory }`,
 	] );
 
-	// 4. Runtime config — last, so it reads the DB credentials pull-db wrote
-	// to state. apply-runtime takes no URL positional, and
-	// --flat-document-root replaces --fs-root (they are mutually exclusive).
+	// apply-runtime takes no URL; --flat-document-root replaces --fs-root
+	// (they are mutually exclusive).
 	await runStep( __( 'Preparing runtime' ), [
 		'apply-runtime',
 		`--runtime=${ reprintRuntime }`,
@@ -1076,14 +1054,12 @@ export async function downloadSkippedFiles(
 	const isResumingSkipped =
 		activeCommand.currentStage === 'fetch-skipped' && activeCommand.completionState !== 'complete';
 
-	// Rewrite the reprint state so the next files-sync understands it
-	// should download the entries the essential-files pass skipped: the
-	// skipped-earlier filter is only accepted when the checkpoint says a
-	// files-pull completed with filter=essential-files (after the split
-	// pipeline, the checkpoint points at the last command that ran, e.g.
-	// db-apply or apply-runtime). No-op when reprint is already mid-way
-	// through that run (its state file encodes the resume cursor;
-	// overwriting would break validation) or when no skipped entries exist.
+	// Rewrite the reprint state so the next files-sync downloads the entries
+	// the essential-files pass skipped: the skipped-earlier filter is only
+	// accepted when the checkpoint says a files-pull completed with
+	// filter=essential-files, but by now the checkpoint points at the last
+	// command that ran (e.g. apply-runtime). No-op mid-run (the state file
+	// encodes the resume cursor) or when nothing was skipped.
 	if ( ! isResumingSkipped && hasSkippedFiles( metadata.stateDirectory ) ) {
 		writeReprintState(
 			metadata.stateDirectory,
@@ -1359,9 +1335,8 @@ function buildFilesSyncArgs(
 		apiUrl,
 		`--secret=${ secret }`,
 		...extraArgs,
-		// Carry the same `--only` set as pull-files: files-pull refuses to
-		// resume against the shared state dir with a different `--only` (its
-		// index is a union keyed by a fingerprint of the prefixes).
+		// files-pull refuses to resume against the same state dir with a
+		// different `--only` set, so carry the pull's selection here too.
 		...( metadata.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` ),
 		// Per-batch ceiling — one sub-process yields after 30 s and the
 		// client reconnects to continue.  Not a total-time budget; a slow

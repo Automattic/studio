@@ -55,9 +55,9 @@ export const reprintStateSnapshotSchema = z.looseObject( {
 export type ReprintStateSnapshot = z.infer< typeof reprintStateSnapshotSchema >;
 
 /**
- * The active resumable-command checkpoint, normalized across reprint state
- * schema versions: reads the nested `active_resumable_command` object (typed
- * state, reprint trunk) first and falls back to the flat legacy fields.
+ * The active resumable-command checkpoint: the nested
+ * `active_resumable_command` object (reprint trunk), falling back to the
+ * flat legacy fields.
  */
 export function getActiveCommand( state: ReprintStateSnapshot | null ): {
 	commandName: string | null;
@@ -73,9 +73,9 @@ export function getActiveCommand( state: ReprintStateSnapshot | null ): {
 }
 
 /**
- * Return a state snapshot with the active resumable-command checkpoint set,
- * writing BOTH the nested typed-state object and the flat legacy fields so
- * the result is understood by old and new reprint versions alike.
+ * Set the active resumable-command checkpoint, writing both the nested
+ * typed-state object and the flat legacy fields so old and new reprint
+ * versions alike accept the result.
  */
 export function withActiveCommand(
 	state: ReprintStateSnapshot | null,

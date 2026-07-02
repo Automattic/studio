@@ -1,6 +1,68 @@
 Unreleased
 ==========
 
+1.13.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Differentiate preview sites from connected WordPress.com remote sites #3677
+* Improve attachment handling in the Studio Code composer #3925
+* build(deps): bump anthropics/claude-code-action from 1.0.152 to 1.0.158 #3968
+* Add CLI integration test for site create (custom name, domain, HTTPS) #3947
+* Add update-available notifier for the standalone (curl-installed) Studio CLI #3899
+* Add copy button and selectable text to agent code blocks #3963
+* Simplify port-finder: collapse singleton class into module functions #3971
+* Extract site REST proxy, media MIME, and installed-app detection to @studio/common #3955
+* build(deps): bump ruby/setup-ruby from 1.313.0 to 1.314.0 #3967
+* build(deps): bump fastlane-plugin-wpmreleasetoolkit from 14.7.0 to 14.8.0 in the ruby-minor-and-patch group #3969
+* build(deps): bump faraday from 1.10.5 to 1.10.6 #3980
+* Studio: Tweak system prompt to mention database #3957
+* Pin @wordpress/react-i18n to 4.47.0 to fix trunk bundling install (ERESOLVE) #3985
+* Document SQLite-to-MySQL migration path in STUDIO.md and publishing to supported hostings #3984
+* Add studio uninstall command for the standalone CLI #3974
+* Extract the CLI spawn helper to @studio/common #3954
+* Studio sync: handle 413 push failures gracefully #3973
+* Add CLI integration test for creating a site from a custom Blueprint #3961
+* Add sidebar toggle keyboard shortcut #3960
+* Fix transparent active state on attachment delete button in composer #3962
+* Fix native PHP sites loading assets from remote siteurl/home (STU-1925) #3988
+* Skip persisted tool_progress entries during session replay #3909
+* Agentic UI: Improve Conversation UX #3930
+* Agentic UI: Fix new chat preview flicker #3983
+* STU-1874: Improve Ask User option rendering #3905
+* Hide site preview menu command when agentic UI is disabled #3965
+* Extract site operations to @studio/common #3986
+* Extract agent session management, run-manager, and usage stats to @studio/common #3987
+* Refactor `pull-reprint` to require an existing local site #4001
+* Shrink the connector API: derive custom-domains + xdebug-site from the site list #4012
+* Add CLI integration test for site start/stop lifecycle #3977
+* Disable Studio Windows E2E CI #4008
+* Studio: Ensure the stop and start buttons do not flash #3990
+* build(deps): bump fastlane-plugin-wpmreleasetoolkit from 14.8.0 to 14.9.0 in the ruby-minor-and-patch group #4019
+* Move tools/common to packages/common #4013
+* Add data-liberation-agent into Studio #4002
+* Add hosting-plans-helper skill for plan and pricing answers #4010
+* Add CLI e2e tests for site management (rename, PHP version, delete) #3989
+* Clean up data-liberation-agent #4004
+* Fix Studio Code annotate closing message that always referenced the CLI #4020
+* Adjust data-liberation-agent as an npm workspace #4009
+* Store most `pull-reprint` state in `cli.json` #4003
+* Studio: Remove noop menu items from topbar #4031
+* Invert dark mode tooltip colors #3981
+* Fix flaky WordPress server exit tests on Windows #4025
+* Revert CLI blueprint e2e test (#3961) and Windows E2E CI disable (#4008) #4029
+* Disable Studio Windows E2E CI #4039
+* build(deps): bump rubocop from 1.88.0 to 1.88.1 in the ruby-minor-and-patch group #4040
+* Add e2e coverage for Site Management gaps (adopt existing dir, MySQL wp-config, duplicate from settings) #4034
+* Add e2e test for full-site export and re-import round trip #4047
+* Include Visual C++ DLLs with Windows PHP builds and add `packageVersion` field to identify PHP packages #4042
+* Better translator context for PHP runtime labels #4054
+* Update PHP 8.5.7 package studio-1 metadata #4045
+* Update PHP 8.4.22 package studio-1 metadata #4050
+* Update PHP 8.3.31 package studio-1 metadata #4055
+* Update PHP 8.2.31 package studio-1 metadata #4049
+* @silvaitamar made their first contribution in https://github.com/Automattic/studio/pull/3909
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.12.0...v1.13.0
+
 1.12.0
 =====
 * Introduced PHP runtime and File Access options, and improved the native PHP runtime: fixed WP-CLI tool calls, asset loading for sites with a remote site URL, and blueprint creation from read-only directories, and made pull-reprint work with native PHP #3786, #3926, #3915, #3847, #3988, #3889, #3881

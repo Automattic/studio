@@ -19,6 +19,11 @@ import {
 } from '../pull-reprint';
 import type { SyncSite } from '@studio/common/types/sync';
 
+// This file contains integration-style tests that reload the CLI module graph
+// and perform multiple atomic config writes. Those can exceed the default
+// timeout on CI.
+vi.setConfig( { testTimeout: 15_000 } );
+
 vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
@@ -259,7 +264,8 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			metadata,
 			'https://example.com/?reprint-api',
 			'hmac-secret',
-			false
+			false,
+			true
 		);
 
 		expect( reprint ).toHaveBeenCalledTimes( 1 );
@@ -290,11 +296,10 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			{ hostPath: runtimeDirectory, vfsPath: runtimeDirectory },
 		] );
 
-		// Stage is bumped + persisted so a resumed run skips the pull.
-		const persisted = JSON.parse(
-			fs.readFileSync( path.join( technicalSiteDirectory, 'pull.json' ), 'utf-8' )
-		);
-		expect( persisted.stage ).toBe( 'pulled' );
+		// No Studio-owned progress file is written: resume is by derivation
+		// (reprint's own `.import-state.json` + the site's `status`), so the
+		// pull is always re-invoked rather than skipped via a stage cursor.
+		expect( fs.existsSync( path.join( technicalSiteDirectory, 'pull.json' ) ) ).toBe( false );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
@@ -335,11 +340,14 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			remoteSiteUrl: 'https://example.com',
 		} as never;
 
+		// force=false models a delta re-pull, which must not force-overwrite
+		// the live site.
 		await runFullPull(
 			SITE_RUNTIME_PLAYGROUND,
 			metadata,
 			'https://example.com/?reprint-api',
 			'hmac-secret',
+			false,
 			false
 		);
 
@@ -349,6 +357,8 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		expect( passedArgs ).toContain(
 			`--target-sqlite-path=${ sitePath }/wp-content/database/.ht.sqlite`
 		);
+		// A delta re-pull (force=false) omits --force.
+		expect( passedArgs ).not.toContain( '--force' );
 		// The site + runtime dirs are always mounted for the single fork.
 		expect( passedOptions?.mounts ).toEqual( [
 			{ hostPath: sitePath, vfsPath: sitePath },
@@ -358,7 +368,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 
-	it( 'propagates the reprint error and leaves the stage before "pulled" for a safe resume', async () => {
+	it( 'propagates the reprint error and writes no progress file (resume is by derivation)', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-pull-fail-' )
 		);
@@ -399,13 +409,13 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 				metadata as never,
 				'https://example.com/?reprint-api',
 				'hmac-secret',
-				false
+				false,
+				true
 			)
 		).rejects.toThrow( 'reprint exited with code 1' );
 
-		// Stage must NOT advance to 'pulled' — otherwise a resume would skip
-		// the pull even though the site never finished importing.
-		expect( metadata.stage ).toBe( 'initialized' );
+		// No progress file is written on failure either — a re-run resumes by
+		// re-invoking the idempotent pull, not by reading a stage cursor.
 		expect( fs.existsSync( path.join( technicalSiteDirectory, 'pull.json' ) ) ).toBe( false );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
@@ -682,7 +692,7 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 
 		await expect(
 			runCommand( sitePath, 'https://example.com', 'hmac-secret', false )
-		).rejects.toThrow( /No Studio site found/ );
+		).rejects.toThrow( 'The specified directory is not added to Studio.' );
 
 		// The site lookup fails up front, so the remote is never contacted and
 		// no pull scratch directory is created.
@@ -720,17 +730,25 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 		expect( logged ).toContain( 'Pulling "Existing Site"' );
 		expect( logged ).toContain( sitePath );
 
-		// The scratch directory is keyed by siteId, and pull.json holds only
-		// transient progress — identity/layout are derived from the record.
-		const progress = JSON.parse(
-			fs.readFileSync( path.join( pullsRoot(), 'existing-id', 'pull.json' ), 'utf-8' )
-		);
-		expect( progress ).toEqual( { version: 1, stage: 'initialized' } );
+		// The scratch directory is keyed by siteId; no Studio-owned progress
+		// file is written — resume is by derivation.
+		expect( fs.existsSync( path.join( pullsRoot(), 'existing-id' ) ) ).toBe( true );
+		expect( fs.existsSync( path.join( pullsRoot(), 'existing-id', 'pull.json' ) ) ).toBe( false );
 
-		// No second site was created; the single record is untouched.
+		// No second site was created. The single record keeps its scratch
+		// location (`technicalSiteDirectory`, recorded at pull start so `studio
+		// delete` can clean it up even though this pull never reached the
+		// linking step). Its status is untouched: the site is only marked
+		// `pulling`/`pull-failed` once preflight succeeds and the pull starts
+		// writing into the site directory, so a preflight-stage failure leaves
+		// the record as it was (`ready`).
 		const config = readSeededCliConfig( fakeHome );
 		expect( config.sites ).toHaveLength( 1 );
 		expect( config.sites[ 0 ].id ).toBe( 'existing-id' );
+		expect( config.sites[ 0 ].status ).toBe( 'ready' );
+		expect( config.sites[ 0 ].technicalSiteDirectory ).toBe(
+			path.join( pullsRoot(), 'existing-id' )
+		);
 	} );
 } );
 
@@ -767,7 +785,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		return mod;
 	}
 
-	it( 'resets a completed pull for a delta re-run instead of exiting early', async () => {
+	it( 'runs a delta re-pull for a site that already completed a full import', async () => {
 		const { runCommand } = await loadRunCommandWithFakeHome();
 
 		const pullsRoot = path.join( fakeHome, '.studio', 'pulls' );
@@ -777,13 +795,20 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		const sitePath = path.join( fakeHome, 'Studio', 'My-Completed-Site' );
 
 		// The local site is resolved by --path against the CLI config record.
+		// `importComplete: true` is the durable marker that a full pull already
+		// happened — it (not a pull.json stage) is what makes this a delta.
 		seedCliConfigSite( fakeHome, [
-			makeSiteRecord( { id: 'completed-id', name: 'My Completed Site', path: sitePath } ),
+			makeSiteRecord( {
+				id: 'completed-id',
+				name: 'My Completed Site',
+				path: sitePath,
+				importComplete: true,
+				status: 'ready',
+			} ),
 		] );
 
-		// Seed a completed pull whose site directory is non-empty (it holds
-		// the previous pull's output) and whose preflight response is cached.
-		// pull.json now carries only transient progress.
+		// Seed the prior pull's non-empty site directory and a cached preflight
+		// response. There is no pull.json any more.
 		fs.mkdirSync( stateDirectory, { recursive: true } );
 		fs.mkdirSync( sitePath, { recursive: true } );
 		fs.writeFileSync( path.join( sitePath, 'wp-config.php' ), '<?php // flattened output' );
@@ -791,14 +816,10 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 			path.join( stateDirectory, 'preflight.json' ),
 			JSON.stringify( { siteurl: 'https://example.com' } )
 		);
-		fs.writeFileSync(
-			path.join( technicalSiteDirectory, 'pull.json' ),
-			JSON.stringify( { version: 1, stage: 'completed' } )
-		);
 
 		// Fail the first reprint invocation so the re-pull stops right after
-		// the stage reset — we assert on the persisted state, not on a
-		// full pipeline run.
+		// the preflight cache is dropped — we assert on the persisted state,
+		// not on a full pipeline run.
 		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
 		const reprintSpy = vi
 			.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' )
@@ -810,20 +831,18 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 			runCommand( sitePath, 'https://example.com', 'hmac-secret', false )
 		).rejects.toThrow();
 
-		// The old behavior exited early without ever invoking reprint; the
-		// re-pull must re-enter the pipeline (preflight is its first call).
+		// A delta re-pull re-enters the pipeline (preflight is its first call)
+		// rather than short-circuiting on the existing import.
 		expect( reprintSpy ).toHaveBeenCalled();
 		expect( reprintSpy.mock.calls[ 0 ][ 2 ][ 0 ] ).toBe( 'preflight' );
 
-		// The stage machine was reset in the (reduced) progress file.
-		const progress = JSON.parse(
-			fs.readFileSync( path.join( technicalSiteDirectory, 'pull.json' ), 'utf-8' )
-		);
-		expect( progress ).toEqual( { version: 1, stage: 'initialized' } );
-
-		// The durable importComplete marker was backfilled onto the site record.
 		const config = readSeededCliConfig( fakeHome );
+		// The durable importComplete marker is preserved across the re-pull…
 		expect( config.sites[ 0 ].importComplete ).toBe( true );
+		// …and a preflight-stage failure leaves the site's status untouched: it
+		// is only marked `pulling`/`pull-failed` once preflight succeeds and the
+		// re-pull begins writing into the site directory.
+		expect( config.sites[ 0 ].status ).toBe( 'ready' );
 
 		// The cached preflight was dropped so connectivity is re-verified.
 		expect( fs.existsSync( path.join( stateDirectory, 'preflight.json' ) ) ).toBe( false );
@@ -831,7 +850,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		// The non-empty site directory was not clobbered.
 		expect( fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ).toBe( true );
 
-		// The user sees update messaging, not a no-op success.
+		// The user sees delta-update messaging, not a no-op success.
 		expect( logSpy.mock.calls.flat().join( '\n' ) ).toContain( 'Updating "My Completed Site"' );
 	} );
 
@@ -1018,10 +1037,6 @@ describe( 'CLI: studio pull-reprint preflight retry re-enables the exporter', ()
 		fs.mkdirSync( stateDirectory, { recursive: true } );
 		fs.mkdirSync( sitePath, { recursive: true } );
 		fs.writeFileSync( path.join( sitePath, 'wp-config.php' ), '<?php // flattened output' );
-		fs.writeFileSync(
-			path.join( technicalSiteDirectory, 'pull.json' ),
-			JSON.stringify( { version: 1, stage: 'initialized' } )
-		);
 
 		vi.mocked( readAuthToken ).mockResolvedValue( token );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( sites );

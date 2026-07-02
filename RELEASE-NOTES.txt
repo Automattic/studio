@@ -3,7 +3,7 @@ Unreleased
 
 1.13.0
 =====
-* Updated native PHP packages to include necessary Windows DLLs #4042, #4045, #4050, #4055, #4049
+* Fixed PHP error (code: 3221225781) by updating native PHP packages to include necessary Windows DLLs #4042, #4045, #4050, #4055, #4049
 * Added sidebar toggle keyboard shortcut (Cmd+B on macOS and Ctrl+B on Windows/Linux) #3960
 * Differentiated preview sites from connected WordPress.com remote sites #3677
 * Improved attachment handling in the Studio Code composer #3925

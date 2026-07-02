@@ -1,5 +1,6 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { speak } from '@wordpress/a11y';
+import { TextareaControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronDown, chevronLeft, chevronRight } from '@wordpress/icons';
@@ -10,11 +11,12 @@ import { OnboardingFooter } from '@/components/onboarding-footer';
 import { useConnector } from '@/data/core';
 import { useFindAvailableSiteName } from '@/data/queries/use-create-site-helpers';
 import { useCreateSite } from '@/data/queries/use-sites';
+import { setPendingSessionPrompt } from '@/lib/pending-session-prompt';
 import { tagSiteAsPlugin } from '@/lib/plugin-prototype';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import styles from './style.module.css';
-import type { Field, Form } from '@wordpress/dataviews';
+import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
 /**
@@ -49,6 +51,45 @@ function toSlug( value: string ): string {
 		.replace( /^-+|-+$/g, '' );
 }
 
+// The description doubles as the agent's build brief, so it can run long —
+// but the plugin header's Description line should stay a short sentence.
+function toHeaderDescription( value: string ): string {
+	const firstLine = value.split( /\r?\n/ )[ 0 ].trim();
+	return firstLine.length > 140 ? `${ firstLine.slice( 0, 137 ).trimEnd() }…` : firstLine;
+}
+
+function buildInitialBuildPrompt( pluginName: string, slug: string, description: string ): string {
+	return [
+		`I just created a new WordPress plugin called "${ pluginName }" (slug \`${ slug }\`). A scaffold already exists at wp-content/plugins/${ slug }/ and the plugin is activated on this site.`,
+		'Here is what the plugin should do:',
+		description,
+		'Build the initial version of the plugin based on that description, keeping the code inside the existing plugin folder. When you are done, briefly explain what you built and how I can try it.',
+	].join( '\n\n' );
+}
+
+// Multiline control for the description — it doubles as the brief the AI
+// uses to build the first version, so give it room.
+function DescriptionControl( {
+	data: item,
+	field,
+	hideLabelFromVision,
+	onChange,
+}: DataFormControlProps< PluginFormData > ) {
+	return (
+		<TextareaControl
+			__nextHasNoMarginBottom
+			label={ field.label }
+			hideLabelFromVision={ hideLabelFromVision }
+			rows={ 5 }
+			value={ item.description }
+			onChange={ ( value ) => onChange( { description: value } ) }
+			help={ __(
+				'Describe what your plugin should do — after scaffolding, the AI builds the first version from this.'
+			) }
+		/>
+	);
+}
+
 const BASIC_FORM: Form = {
 	layout: { type: 'regular', labelPosition: 'top' },
 	fields: [ 'name', 'description', 'author' ],
@@ -77,9 +118,7 @@ const FIELDS: Field< PluginFormData >[] = [
 		id: 'description',
 		type: 'text',
 		label: __( 'Description' ),
-		description: __(
-			'A short sentence shown in the Plugins screen. Keep it under 140 characters.'
-		),
+		Edit: DescriptionControl,
 	},
 	{
 		id: 'author',
@@ -167,7 +206,7 @@ function PluginCreatePage() {
 				await connector.scaffoldPlugin( site.id, {
 					slug,
 					name: pluginName,
-					description: data.description.trim(),
+					description: toHeaderDescription( data.description ),
 					author: data.author.trim(),
 					version: data.version.trim(),
 					pluginUri: data.pluginUri.trim(),
@@ -194,6 +233,16 @@ function PluginCreatePage() {
 			source: isExisting ? 'folder' : 'new',
 			path,
 		} );
+		// Hand the full description to the agent: the session view we're about
+		// to land on picks this up and auto-sends it, so the AI builds the
+		// first version of the plugin from the user's brief.
+		const description = data.description.trim();
+		if ( ! isExisting && description ) {
+			setPendingSessionPrompt( {
+				siteId: site.id,
+				prompt: buildInitialBuildPrompt( pluginName, slug, description ),
+			} );
+		}
 		speak(
 			sprintf(
 				// translators: %s is the plugin name.

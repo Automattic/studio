@@ -2,7 +2,16 @@ import { resolveSessionModel } from '@studio/common/ai/models';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useSyncExternalStore,
+	type ReactNode,
+	type Ref,
+} from 'react';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteHeaderActions } from '@/components/site-header-actions';
@@ -30,6 +39,7 @@ import {
 	useSessionPreviewScreenshot,
 } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { pendingSessionPromptSlot, type PendingSessionPrompt } from '@/lib/pending-session-prompt';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
@@ -227,6 +237,25 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ canTogglePreview, previewConsoleEntries, sendMessage ]
 	);
+	// A flow can queue a prompt to auto-send in this site's next session
+	// (e.g. plugin creation handing the description to the agent). The sent
+	// ref guards StrictMode's double-invoked effects from sending twice.
+	const pendingPrompt = useSyncExternalStore(
+		pendingSessionPromptSlot.subscribe,
+		pendingSessionPromptSlot.peek
+	);
+	const sentPendingPromptRef = useRef< PendingSessionPrompt | null >( null );
+	useEffect( () => {
+		if ( ! pendingPrompt || ! ownerSite || pendingPrompt.siteId !== ownerSite.id ) {
+			return;
+		}
+		if ( sentPendingPromptRef.current === pendingPrompt ) {
+			return;
+		}
+		sentPendingPromptRef.current = pendingPrompt;
+		pendingSessionPromptSlot.clear();
+		void sendMessageWithConsole( pendingPrompt.prompt );
+	}, [ pendingPrompt, ownerSite, sendMessageWithConsole ] );
 	const siteSessionHistory = useMemo(
 		() =>
 			data

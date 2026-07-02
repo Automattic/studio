@@ -199,7 +199,7 @@
 	border-radius: 999px;
 	background-color: var(--wpds-color-bg-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
-	box-shadow: var(--wpds-elevation-small, 0 1px 2px rgb(0 0 0 / 16%));
+	box-shadow: var(--wpds-elevation-sm);
 	cursor: pointer;
 	opacity: 0;
 	pointer-events: none;

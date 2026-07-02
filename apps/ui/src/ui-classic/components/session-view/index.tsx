@@ -401,6 +401,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				ownerSite ? (
 					<SessionChatActions
 						archivedSessions={ archivedSiteSessionHistory }
+						canTogglePreview={ canTogglePreview }
 						currentSessionId={ sessionId }
 						isCreatingSession={ isCreatingSession }
 						onNewChat={ startNewChat }

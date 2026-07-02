@@ -20,6 +20,16 @@
 			calc((100% - var(--classic-composer-column-max-width)) / 2)
 		)
 	);
+	/* Mirror of --classic-panel-footer-left: end-aligned footer controls
+	   (the preview toggle) hug the panel's right edge on wide panels and
+	   fall in line with the composer column's edge on narrow ones. */
+	--classic-panel-footer-right: min(
+		var(--classic-panel-control-left),
+		max(
+			var(--classic-composer-outer-inline-padding),
+			calc((100% - var(--classic-composer-column-max-width)) / 2)
+		)
+	);
 	--classic-header-height: 46px;
 	--classic-composer-height: 0px;
 	--classic-panel-footer-height: 0px;
@@ -175,6 +185,9 @@
 .panelFooterControls {
 	position: absolute;
 	left: var(--classic-panel-footer-left);
+	/* Span to the composer card's right edge so end-aligned controls (the
+	   preview toggle) line up with it. */
+	right: var(--classic-panel-footer-right);
 	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
 	z-index: 3;
 	display: flex;
@@ -191,6 +204,7 @@
 	align-items: center;
 	gap: var(--wpds-dimension-gap-md);
 	box-sizing: border-box;
+	width: 100%;
 }
 
 .classicComposerFooterSidebarCollapsed {
@@ -202,6 +216,16 @@
 	align-items: center;
 	gap: var(--classic-panel-control-gap);
 	min-width: 0;
+}
+
+.classicComposerFooterEnd {
+	margin-inline-start: auto;
+}
+
+/* The sidebar drawer icon, mirrored so the drawer edge points at the
+   preview panel on the right. */
+.classicComposerPreviewIcon {
+	transform: rotate(180deg);
 }
 
 .classicComposerTextButton {

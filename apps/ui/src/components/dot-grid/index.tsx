@@ -44,6 +44,12 @@ const INTRO_FADE_WIDTH = 80;
 
 const TARGET_MS = 1000 / 60;
 
+// A parked pointer keeps repelling nearby dots, which keeps the rAF loop
+// alive forever on a full-viewport grid. After this idle window the cursor
+// field releases so the springs settle and the loop can sleep; any pointer
+// activity wakes it again.
+const CURSOR_IDLE_MS = 4000;
+
 interface Ripple {
 	x: number;
 	y: number;
@@ -75,6 +81,7 @@ export function DotGrid( {
 		let color = '';
 		let mouseX = -9999;
 		let mouseY = -9999;
+		let lastPointerMove = 0;
 		let rafId: number | null = null;
 		let lastTimestamp = 0;
 
@@ -135,7 +142,8 @@ export function DotGrid( {
 			}
 
 			const dampFactor = Math.pow( DAMPING, dt );
-			const cursorActive = isActive && mouseX > -9998;
+			const cursorActive =
+				isActive && mouseX > -9998 && timestamp - lastPointerMove < CURSOR_IDLE_MS;
 			let anyActive = false;
 
 			for ( let r = 0; r < rows; r++ ) {
@@ -384,6 +392,15 @@ export function DotGrid( {
 			const inside = x >= 0 && x <= rect.width && y >= 0 && y <= rect.height;
 			mouseX = inside ? x : -9999;
 			mouseY = inside ? y : -9999;
+			lastPointerMove = performance.now();
+			ensureLoop();
+		}
+
+		function onPointerGone() {
+			// Pointer left the window (or the window lost focus): forget the
+			// cursor so held dots spring back and the loop can sleep.
+			mouseX = -9999;
+			mouseY = -9999;
 			ensureLoop();
 		}
 
@@ -394,6 +411,7 @@ export function DotGrid( {
 			const y = e.clientY - rect.top;
 			if ( x >= 0 && x <= rect.width && y >= 0 && y <= rect.height ) {
 				targetRadius = RADIUS_EXPANDED;
+				lastPointerMove = performance.now();
 				ensureLoop();
 			}
 		}
@@ -401,6 +419,7 @@ export function DotGrid( {
 		function onMouseUp( e: MouseEvent ) {
 			if ( ! canvas || ! isActive ) return;
 			targetRadius = RADIUS_BASE;
+			lastPointerMove = performance.now();
 			if ( mouseX > -9998 ) {
 				const rect = canvas.getBoundingClientRect();
 				const x = e.clientX - rect.left;
@@ -434,6 +453,8 @@ export function DotGrid( {
 		document.addEventListener( 'mousemove', onMouseMove );
 		document.addEventListener( 'mousedown', onMouseDown );
 		document.addEventListener( 'mouseup', onMouseUp );
+		document.documentElement.addEventListener( 'mouseleave', onPointerGone );
+		window.addEventListener( 'blur', onPointerGone );
 
 		const resizeObserver = new ResizeObserver( resize );
 		resizeObserver.observe( canvas );
@@ -454,6 +475,8 @@ export function DotGrid( {
 			document.removeEventListener( 'mousemove', onMouseMove );
 			document.removeEventListener( 'mousedown', onMouseDown );
 			document.removeEventListener( 'mouseup', onMouseUp );
+			document.documentElement.removeEventListener( 'mouseleave', onPointerGone );
+			window.removeEventListener( 'blur', onPointerGone );
 			resizeObserver.disconnect();
 			mediaQuery.removeEventListener( 'change', onColorChange );
 		};

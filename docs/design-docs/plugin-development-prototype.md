@@ -100,8 +100,18 @@ any plugin flow creates a **real local site** (same `useCreateSite`
 mutation as Add a site — so status, chat, and preview all work), then tags
 the site as a plugin in `apps/ui/src/lib/plugin-prototype.ts`
 (localStorage-backed). The tag only changes how the sidebar renders the
-row. What's still simulated: no plugin files are scaffolded into the site,
-no SVN checkout happens, and the .org "connected account" is a stand-in.
+row.
+
+**The Create a new plugin flow is real**: after creating the site, the
+form calls `connector.scaffoldPlugin( siteId, meta )` → `scaffoldPlugin`
+IPC handler (`apps/studio/src/ipc-handlers.ts`) → the scaffold library at
+`apps/studio/src/lib/scaffold-plugin.ts`, which writes a structured plugin
+(`<slug>.php` with the full header, `readme.txt`, `uninstall.php`,
+`includes/`) into `wp-content/plugins/<slug>/` and activates it via
+`wp plugin activate` (works running or stopped). Scaffold failure leaves
+the site untagged and surfaces an error in the form. Still simulated: the
+existing-folder flow copies nothing, no SVN checkout happens, and the .org
+"connected account" is a stand-in.
 
 - **Entry**: sidebar + menu → "Add a plugin" → `/onboarding/plugin`
   (`apps/ui/src/ui-classic/router/route-onboarding-plugin/`). Three cards

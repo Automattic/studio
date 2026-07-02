@@ -7,6 +7,7 @@ import { Button, Icon } from '@wordpress/ui';
 import { useState } from 'react';
 import { BusyOverlay } from '@/components/busy-overlay';
 import { OnboardingFooter } from '@/components/onboarding-footer';
+import { useConnector } from '@/data/core';
 import { useFindAvailableSiteName } from '@/data/queries/use-create-site-helpers';
 import { useCreateSite } from '@/data/queries/use-sites';
 import { tagSiteAsPlugin } from '@/lib/plugin-prototype';
@@ -127,6 +128,9 @@ function PluginCreatePage() {
 	const { validity, isValid } = useFormValidity( data, FIELDS, FULL_FORM );
 	const [ isAdvancedOpen, setIsAdvancedOpen ] = useState( false );
 	const [ submitError, setSubmitError ] = useState( '' );
+	// Covers the whole create + scaffold sequence, not just the site mutation.
+	const [ isSubmitting, setIsSubmitting ] = useState( false );
+	const connector = useConnector();
 	const createSite = useCreateSite();
 	const findAvailableSiteName = useFindAvailableSiteName();
 	const slug = toSlug( data.name );
@@ -136,38 +140,68 @@ function PluginCreatePage() {
 	};
 
 	// Plugins are just sites with extra presentation: create a real local
-	// site (so status, chat, and preview all work), then tag it as a plugin
-	// for the sidebar prototype. The plugin metadata itself (headers,
-	// scaffold) isn't written anywhere yet.
+	// site (so status, chat, and preview all work), scaffold the plugin into
+	// it (files + wp-cli activation), then tag it for the sidebar. The
+	// existing-folder mode is still simulated — no files are copied yet.
 	const handleSubmit = async ( event: FormEvent ) => {
 		event.preventDefault();
-		if ( ! isValid || createSite.isPending ) {
+		if ( ! isValid || isSubmitting ) {
 			return;
 		}
 		setSubmitError( '' );
+		setIsSubmitting( true );
+		const pluginName = data.name.trim();
+		let site;
 		try {
-			const pluginName = data.name.trim();
 			const { name: availableName, path: sitePath } = await findAvailableSiteName( pluginName );
-			const site = await createSite.mutateAsync( { name: availableName, path: sitePath } );
-			tagSiteAsPlugin( {
-				siteId: site.id,
-				slug,
-				source: isExisting ? 'folder' : 'new',
-				path,
-			} );
-			speak(
-				sprintf(
-					// translators: %s is the plugin name.
-					__( '%s plugin added.' ),
-					pluginName
-				)
-			);
-			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			site = await createSite.mutateAsync( { name: availableName, path: sitePath } );
 		} catch ( error ) {
+			setIsSubmitting( false );
 			setSubmitError(
 				error instanceof Error ? error.message : __( 'Failed to create plugin. Please try again.' )
 			);
+			return;
 		}
+		if ( ! isExisting ) {
+			try {
+				await connector.scaffoldPlugin( site.id, {
+					slug,
+					name: pluginName,
+					description: data.description.trim(),
+					author: data.author.trim(),
+					version: data.version.trim(),
+					pluginUri: data.pluginUri.trim(),
+					authorUri: data.authorUri.trim(),
+					license: data.license.trim(),
+				} );
+			} catch ( error ) {
+				// The site exists but the plugin doesn't — leave it untagged (a
+				// plain site the user can delete) and surface the failure.
+				setIsSubmitting( false );
+				setSubmitError(
+					sprintf(
+						// translators: %s is an error message.
+						__( 'The site was created, but the plugin could not be scaffolded: %s' ),
+						error instanceof Error ? error.message : String( error )
+					)
+				);
+				return;
+			}
+		}
+		tagSiteAsPlugin( {
+			siteId: site.id,
+			slug,
+			source: isExisting ? 'folder' : 'new',
+			path,
+		} );
+		speak(
+			sprintf(
+				// translators: %s is the plugin name.
+				__( '%s plugin added.' ),
+				pluginName
+			)
+		);
+		await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 	};
 
 	return (
@@ -181,10 +215,10 @@ function PluginCreatePage() {
 					: __( 'Tell us a little about your plugin and we’ll scaffold it for you.' ) }
 			</p>
 			<form onSubmit={ ( event ) => void handleSubmit( event ) }>
-				{ /* Creating the underlying site takes a moment; shield the window
-				     so stray clicks can't interrupt mid-flight. */ }
-				<BusyOverlay active={ createSite.isPending } />
-				<div className={ styles.panel } inert={ createSite.isPending || undefined }>
+				{ /* Creating the site and scaffolding take a moment; shield the
+				     window so stray clicks can't interrupt mid-flight. */ }
+				<BusyOverlay active={ isSubmitting } />
+				<div className={ styles.panel } inert={ isSubmitting || undefined }>
 					{ isExisting && (
 						<div className={ styles.folderRow }>
 							<span className={ styles.folderLabel }>{ __( 'Plugin folder' ) }</span>
@@ -251,7 +285,7 @@ function PluginCreatePage() {
 						variant="minimal"
 						tone="neutral"
 						onClick={ () => void navigate( { to: '/onboarding/plugin' } ) }
-						disabled={ createSite.isPending }
+						disabled={ isSubmitting }
 					>
 						<Icon icon={ chevronLeft } size={ 16 } />
 						<span>{ __( 'Back' ) }</span>
@@ -260,8 +294,8 @@ function PluginCreatePage() {
 						type="submit"
 						variant="solid"
 						tone="brand"
-						disabled={ ! isValid || createSite.isPending }
-						loading={ createSite.isPending }
+						disabled={ ! isValid || isSubmitting }
+						loading={ isSubmitting }
 						loadingAnnouncement={ __( 'Creating plugin' ) }
 						data-testid="create-plugin-submit"
 					>

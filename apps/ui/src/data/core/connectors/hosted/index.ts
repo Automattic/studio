@@ -172,6 +172,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getSiteOverviewDetails() {
 			throw new WebUnsupportedError( 'getSiteOverviewDetails' );
 		},
+		async scaffoldPlugin() {
+			throw new WebUnsupportedError( 'scaffoldPlugin' );
+		},
 		async getSiteThumbnail(): Promise< string | null > {
 			return null;
 		},

@@ -190,6 +190,13 @@ export interface Connector {
 	// with the selected connector's native site-inspection mechanism so it can
 	// work even when the local web server is stopped.
 	getSiteOverviewDetails( siteId: string ): Promise< SiteOverviewDetails >;
+	// Scaffolds a structured plugin into the site's wp-content/plugins folder
+	// and activates it. `activated: false` means the files were written but
+	// wp-cli activation failed.
+	scaffoldPlugin(
+		siteId: string,
+		meta: PluginScaffoldMeta
+	): Promise< { pluginDir: string; activated: boolean } >;
 	// Cached screenshot thumbnail captured by the desktop app while the site
 	// was running. Returns null when the site has not produced a thumbnail yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
@@ -533,6 +540,19 @@ export interface ProposedSitePath {
 export interface AvailableSitePath {
 	name: string;
 	path: string;
+}
+
+// Mirrors PluginScaffoldMeta in apps/studio/src/lib/scaffold-plugin.ts,
+// which renders these into the plugin header and readme.txt.
+export interface PluginScaffoldMeta {
+	slug: string;
+	name: string;
+	description?: string;
+	author?: string;
+	version?: string;
+	pluginUri?: string;
+	authorUri?: string;
+	license?: string;
 }
 
 export interface SelectedSiteFolder {

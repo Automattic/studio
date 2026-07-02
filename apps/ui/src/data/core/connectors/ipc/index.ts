@@ -603,6 +603,13 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
+		async scaffoldPlugin( siteId, meta ) {
+			return ( await ipcApi.scaffoldPlugin( { siteId, meta } ) ) as {
+				pluginDir: string;
+				activated: boolean;
+			};
+		},
+
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},

@@ -404,6 +404,32 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
+	// In the Sandbox (PHP WASM) runtime, PHP runs as a persistent process whose
+	// internal stat/realpath caches persist across HTTP requests. A plugin that
+	// was deleted in a previous request may still appear to exist according to
+	// those caches. When WordPress then tries to install the same plugin again
+	// it calls is_dir() on the destination folder – the stale cache says "yes" –
+	// and then tries (and fails) to delete it, producing the error:
+	//   "The destination directory already exists and could not be removed."
+	//
+	// Calling clearstatcache( true ) immediately before any upgrade/install
+	// forces PHP to re-examine the real filesystem, so is_dir() returns an
+	// accurate result and the upgrade can proceed.
+	//
+	// This is harmless in the native PHP runtime where each request forks a
+	// fresh PHP process (no cached state to clear).
+	//
+	// @see https://linear.app/a8c/issue/STU-1931
+	muPlugins.push( {
+		filename: '0-clear-stat-cache-before-upgrade.php',
+		content: `<?php
+		add_filter( 'upgrader_pre_install', function( \$result ) {
+			clearstatcache( true );
+			return \$result;
+		} );
+		`,
+	} );
+
 	// Studio-specific: Fix plugin spinner display
 	muPlugins.push( {
 		filename: '0-tmp-fix-hide-plugins-spinner.php',
@@ -757,6 +783,7 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-allowed-redirect-hosts.php',
 	'0-auto-login.php',
 	'0-check-theme-availability.php',
+	'0-clear-stat-cache-before-upgrade.php',
 	'0-deactivate-jetpack-modules.php',
 	'0-disable-auto-updates.php',
 	'0-enable-auto-updates.php',

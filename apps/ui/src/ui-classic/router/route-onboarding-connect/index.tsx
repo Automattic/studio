@@ -35,11 +35,13 @@ const CREATE_WPCOM_SITE_URL =
 	'https://wordpress.com/setup/new-hosted-site?ref=studio&section=studio-sync&showDomainStep=true';
 
 // Labels for sites the user can see but not pick; the needs-upgrade and
-// needs-transfer groups get overlay CTAs instead.
+// needs-transfer groups get overlay CTAs instead. Note: this page's data
+// source (fetchSyncableWpcomSitesPage) deliberately omits connectedSiteIds so
+// syncSupport is never 'already-connected' here — a remote site connected to
+// another local site stays pickable, and its connections render as a card
+// overlay from useAllConnectedWpcomSites instead.
 function getSyncStatusLabel( site: SyncSite ): string | null {
 	switch ( site.syncSupport ) {
-		case 'already-connected':
-			return __( 'Already connected' );
 		case 'missing-permissions':
 			return __( 'Missing permissions' );
 		case 'deleted':
@@ -62,7 +64,6 @@ interface SiteSection {
 // lead (no heading), followed by explained groups for everything else.
 function groupSites( sites: SyncSite[] ): SiteSection[] {
 	const syncable = sites.filter( ( s ) => s.syncSupport === 'syncable' );
-	const alreadyConnected = sites.filter( ( s ) => s.syncSupport === 'already-connected' );
 	const needsTransfer = sites.filter( ( s ) => s.syncSupport === 'needs-transfer' );
 	const needsUpgrade = sites.filter( ( s ) => s.syncSupport === 'needs-upgrade' );
 	const other = sites.filter(
@@ -75,14 +76,6 @@ function groupSites( sites: SyncSite[] ): SiteSection[] {
 	const sections: SiteSection[] = [];
 	if ( syncable.length > 0 ) {
 		sections.push( { key: 'syncable', sites: syncable } );
-	}
-	if ( alreadyConnected.length > 0 ) {
-		sections.push( {
-			key: 'already-connected',
-			title: __( 'Already connected' ),
-			description: __( 'These sites are already linked to a local site.' ),
-			sites: alreadyConnected,
-		} );
 	}
 	if ( needsTransfer.length > 0 ) {
 		sections.push( {
@@ -340,7 +333,10 @@ export function OnboardingConnectPage() {
 	const [ submitError, setSubmitError ] = useState( '' );
 	const [ searchQuery, setSearchQuery ] = useState( '' );
 	const [ debouncedSearchQuery, setDebouncedSearchQuery ] = useState( '' );
-	const isSearching = searchQuery.trim().length > 0;
+	// Consider both the live and debounced values so the flag never disagrees
+	// with the data, which stays keyed to the previous search for up to the
+	// debounce delay (e.g. right after clearing the input).
+	const isSearching = searchQuery.trim().length > 0 || debouncedSearchQuery.trim().length > 0;
 	const syncable = useSyncableWpcomSitesPage( {
 		enabled: !! user,
 		perPage: 100,
@@ -367,7 +363,10 @@ export function OnboardingConnectPage() {
 		return namesByRemoteId;
 	}, [ connectedWpcomSites, localSites ] );
 	const totalSites = syncable.data?.total ?? sites.length;
-	const isSingleSite = ! isSearching && totalSites === 1 && sites.length === 1;
+	// Exclude placeholder data: while the unsearched page refetches, the query
+	// still serves the previous (possibly single-result search) page.
+	const isSingleSite =
+		! isSearching && ! syncable.isPlaceholderData && totalSites === 1 && sites.length === 1;
 	const isLoadingSites = syncable.isLoading || ( syncable.isFetching && sites.length === 0 );
 
 	useEffect( () => {
@@ -380,10 +379,10 @@ export function OnboardingConnectPage() {
 	// With exactly one site on the account, pre-select it so the user can
 	// proceed straight to Add site — mirrors the desktop renderer.
 	useEffect( () => {
-		if ( isSingleSite && sites[ 0 ].syncSupport === 'syncable' ) {
+		if ( isSingleSite && ! selectedId && sites[ 0 ].syncSupport === 'syncable' ) {
 			setSelectedId( sites[ 0 ].id );
 		}
-	}, [ isSingleSite, sites ] );
+	}, [ isSingleSite, selectedId, sites ] );
 
 	useEffect( () => {
 		if ( selectedId && ! sites.some( ( site ) => site.id === selectedId ) ) {

@@ -13,7 +13,7 @@
 	padding: 0 5px;
 	flex-shrink: 0;
 	appearance: none;
-	border: 1px solid var(--wpds-color-stroke-interactive-neutral);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: 999px;
 	background-color: var(--wpds-color-bg-interactive-neutral-weak);
 	cursor: pointer;
@@ -24,7 +24,7 @@
 }
 
 .root:hover:not(:disabled) {
-	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+	border-color: var(--wpds-color-stroke-interactive-neutral);
 }
 
 .root:disabled {

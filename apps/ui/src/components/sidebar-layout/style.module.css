@@ -90,6 +90,16 @@
 	justify-content: flex-start;
 }
 
+/* Sidebar-specific indicator treatment: match the content card's vertical
+   extent instead of running through the frame gaps above/below it (keep the
+   12px in sync with --panel-frame-gap in preview-split-frame), and use the
+   chrome's translucent-white edge language — the shared brand-blue indicator
+   is nearly invisible on the dark chrome. */
+.resizeHandle span {
+	margin-block: 12px;
+	background-color: rgb(255 255 255 / 55%);
+}
+
 /* Pinned to the bottom-left of the main area, mirroring the sidebar footer.
    The button carries its own `padding-sm` top/bottom for its hit area; the
    matching negative `bottom` cancels that lower padding so the glyph sits flush

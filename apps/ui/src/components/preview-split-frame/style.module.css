@@ -6,6 +6,10 @@
 	--panel-frame-gap: 12px;
 	--panel-frame-radius: 10px;
 
+	/* Border-box so the 1px frame border stays inside the calculated height —
+	   content-box makes the frame 2px taller than the layout column, which
+	   turns the dashboard's main area into a scroll container. */
+	box-sizing: border-box;
 	height: calc(100% - 2 * var(--panel-frame-gap));
 	margin: var(--panel-frame-gap) var(--panel-frame-gap) var(--panel-frame-gap) 0;
 	min-height: 0;

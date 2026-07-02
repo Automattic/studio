@@ -20,8 +20,10 @@
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	padding-block: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-sm);
-	padding-inline: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
+	/* Hug the panel's top-left corner with the same breathing room the
+	   preview toolbar gives its controls. */
+	padding-block: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);

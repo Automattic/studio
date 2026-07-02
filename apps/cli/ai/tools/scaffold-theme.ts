@@ -78,6 +78,15 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: ${ slug }
 Tags: full-site-editing, block-patterns, block-styles, wide-blocks, accessibility-ready, style-variations
 */
+
+/* WordPress inserts margin-block-start: var(--wp--style--block-gap) between the
+   template's top-level sections (header part, main, footer part) — a gap that
+   exists even when no markup asks for it. Zero it so sections butt edge-to-edge
+   and own their vertical rhythm via padding; this does not affect block gaps
+   inside nested layouts. */
+.wp-site-blocks > * + * {
+	margin-block-start: 0;
+}
 `;
 }
 
@@ -276,7 +285,7 @@ const PART_FOOTER = `<!-- wp:group {"layout":{"type":"constrained"},"style":{"sp
 export const scaffoldThemeTool = defineTool(
 	'scaffold_theme',
 	'Scaffolds a minimal block theme into the given site at wp-content/themes/<slug>/ and activates it by default. ' +
-		'Drops in style.css (theme header only), theme.json (appearanceTools only), ' +
+		'Drops in style.css (theme header plus a reset zeroing the default block gap between top-level template sections), theme.json (appearanceTools only), ' +
 		'functions.php (frontend + editor style enqueue), default templates (index, single, page, archive, 404), ' +
 		'header/footer parts, and empty assets/fonts and patterns directories. ' +
 		'Use when the user wants to start a new custom theme — the agent fills in design-specific content afterwards. ' +

@@ -66,12 +66,12 @@ async function main(): Promise< void > {
 
 	try {
 		const downloadInfo = resolvePhpBinaryDownloadInfo();
-		const binDir = path.join( phpPackageRoot, downloadInfo.patchVersion );
+		const binDir = path.join( phpPackageRoot, downloadInfo.packageId );
 		const destPath = path.join( binDir, binaryName );
 
 		if ( fs.existsSync( destPath ) ) {
 			console.log(
-				`PHP ${ version } (${ downloadInfo.patchVersion }) package already exists at ${ binDir }. Delete it to re-download.`
+				`PHP ${ version } package ${ downloadInfo.packageId } already exists at ${ binDir }. Delete it to re-download.`
 			);
 			return;
 		}
@@ -92,7 +92,7 @@ async function main(): Promise< void > {
 
 		try {
 			console.log(
-				`Downloading PHP ${ version } (${ downloadInfo.patchVersion }) for ${ platformKey }…`
+				`Downloading PHP ${ downloadInfo.patchVersion } package ${ downloadInfo.packageId } for ${ platformKey }…`
 			);
 			console.log( `  URL: ${ downloadInfo.url }` );
 			await downloadFile( downloadInfo.url, downloadPath, ( downloaded, total ) => {
@@ -114,9 +114,7 @@ async function main(): Promise< void > {
 
 			console.log( 'Extracting PHP package…' );
 			const tmpDir = os.tmpdir();
-			const extractDir = fs.mkdtempSync(
-				path.join( tmpDir, `php-${ downloadInfo.patchVersion }-` )
-			);
+			const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ downloadInfo.packageId }-` ) );
 			try {
 				await extractZip( downloadPath, extractDir );
 				const extractedBinaryName = getRuntimeBinaryName( extractDir ) ?? binaryName;
@@ -132,7 +130,9 @@ async function main(): Promise< void > {
 				fs.rmSync( extractDir, { recursive: true, force: true } );
 			}
 
-			console.log( `\nPHP ${ version } package installed: ${ binDir }` );
+			console.log(
+				`\nPHP ${ version } package ${ downloadInfo.packageId } installed: ${ binDir }`
+			);
 		} catch ( err ) {
 			fs.rmSync( binDir, { recursive: true, force: true } );
 			throw err;

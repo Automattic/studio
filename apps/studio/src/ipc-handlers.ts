@@ -50,7 +50,10 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import {
+	getConnectedWpcomSitesForLocalSite,
+	removeConnectedWpcomSite,
+} from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import {
 	calculateDirectorySizeForArchive,
@@ -1117,6 +1120,18 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 		throw new Error( 'Site not found.' );
 	}
 	await server.delete( deleteFiles );
+	// Remove the deleted site's WordPress.com connections so the remote sites
+	// don't stay marked as connected to a local site that no longer exists.
+	// Owning this here covers every caller (default UI, apps/ui, rollbacks).
+	try {
+		const connectedSites = await getConnectedWpcomSitesForLocalSite( id );
+		for ( const site of connectedSites ) {
+			await removeConnectedWpcomSite( id, site.id );
+		}
+	} catch ( error ) {
+		// Cleanup must not fail the deletion itself.
+		Sentry.captureException( error );
+	}
 }
 
 export async function copySite(

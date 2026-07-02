@@ -83,9 +83,9 @@ them as:
 - install type: `Full Install`
 - platform: `Mac - Silicon`, `Mac - Intel`, or `Windows - x64`
 
-The GitHub Actions workflow rejects duplicate Apps CDN builds. If a PHP CLI
-build with matching metadata already exists, the upload fails instead of
-replacing the existing artifact.
+The upload is update-friendly by default. If a matching PHP CLI build already
+exists on Apps CDN, the lane lets the CDN replace the existing build artifact
+instead of failing on the duplicate version.
 
 After a successful Apps CDN upload, the workflow updates
 `packages/common/lib/php-binary-cdn-metadata.mjs` and opens a PR with the new CDN

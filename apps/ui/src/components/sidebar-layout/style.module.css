@@ -1,13 +1,21 @@
 .root {
+	/* Dark window chrome behind the sidebar and the content frame — mimics
+	   the legacy renderer's `bg-chrome`. Keep in sync with CHROME_BG_* in
+	   index.tsx (which feeds the sidebar's nested dark ThemeProvider). */
+	--app-chrome-bg: #1e1e1e;
+
 	display: flex;
 	height: 100vh;
 	overflow: hidden;
 }
 
-.sidebar {
-	--sidebar-row-background-hover: var(--wpds-color-bg-interactive-neutral-weak-active);
-	--sidebar-row-background-active: var(--wpds-color-bg-interactive-neutral-weak-active);
+@media (prefers-color-scheme: dark) {
+	.root {
+		--app-chrome-bg: #161616;
+	}
+}
 
+.sidebar {
 	width: var(--sidebar-width, 320px);
 	/* The 240px floor is owned by useResizablePanel, which clamps
 	   --sidebar-width on every path. A CSS min-width here would be redundant
@@ -16,8 +24,7 @@
 	min-width: 0;
 	max-width: 25vw;
 	flex-shrink: 0;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
-	border-right: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background-color: var(--app-chrome-bg);
 	display: flex;
 	flex-direction: column;
 	/* The sidebar itself scrolls so the scrollbar gutter affects the
@@ -26,6 +33,15 @@
 	   inner wrapper. */
 	overflow-y: auto;
 	transition: width 150ms ease;
+}
+
+/* Inside the sidebar's dark ThemeProvider; generates no box, but declares
+   the row hover/active colors here so they resolve against the dark ramp
+   (declared on .sidebar they'd resolve against the outer light theme). */
+.sidebarThemeScope {
+	display: contents;
+	--sidebar-row-background-hover: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--sidebar-row-background-active: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 /* While dragging the handle the width updates every frame; the collapse
@@ -44,7 +60,7 @@
 	position: sticky;
 	bottom: 0;
 	z-index: 1;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var(--app-chrome-bg);
 }
 
 .sidebarCollapsed {
@@ -57,6 +73,9 @@
 	overflow: auto;
 	position: relative;
 	isolation: isolate;
+	/* Continues the chrome canvas into the inset-frame gaps around the
+	   content/preview container. */
+	background-color: var(--app-chrome-bg);
 }
 
 /* The negative margin cancels the handle's width so it adds no space to the

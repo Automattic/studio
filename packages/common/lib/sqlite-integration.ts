@@ -116,10 +116,6 @@ export abstract class SqliteIntegrationProvider {
 	}
 
 	async keepSqliteIntegrationUpdated( sitePath: string ): Promise< void > {
-		// Skip SQLite for sites using their own database server (see needsSqliteSetup).
-		// Otherwise (re)install: this restores a missing db.php drop-in (otherwise the
-		// site reports "Error establishing a database connection") and keeps the bundled
-		// mu-plugin current, while installSqliteIntegration() preserves custom drop-ins.
 		if ( await this.needsSqliteSetup( sitePath ) ) {
 			await this.installSqliteIntegration( sitePath );
 		}

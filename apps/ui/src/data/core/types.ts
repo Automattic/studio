@@ -206,8 +206,7 @@ export interface Connector {
 	exportDatabase( siteId: string ): Promise< string | null >;
 
 	// Site-creation helpers — surface the same main-process capabilities the
-	// desktop app's add-site flow relies on (folder pickers, path validation,
-	// and domain lookups).
+	// desktop app's add-site flow relies on (folder pickers and path validation).
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	// Resolves a base name to one that doesn't collide with an existing site
@@ -217,7 +216,6 @@ export interface Connector {
 	findAvailableSitePath( baseName: string ): Promise< AvailableSitePath >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
-	getAllCustomDomains(): Promise< string[] >;
 
 	// Featured blueprints gallery for the "Start from blueprint" onboarding
 	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —

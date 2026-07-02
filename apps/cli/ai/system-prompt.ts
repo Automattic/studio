@@ -47,6 +47,7 @@ function buildRemoteIntro( site: RemoteSiteContext ): string {
 IMPORTANT: The active site is a remote WordPress.com site: "${ site.name }" (ID: ${ site.id }) at ${ site.url }.
 IMPORTANT: You MUST use the wpcom_request tool to manage this site. Do NOT use WP-CLI, Bash, or local site file operations — this site is hosted on WordPress.com and cannot be modified through the local filesystem. You may use local Read/Write/Edit/Ls for temporary working files within Studio app data; those files do not affect the remote site until passed to wpcom_request.
 IMPORTANT: Before doing ANY work, you MUST first check the site's plan by calling \`GET /\` (apiNamespace: \`""\`). The \`plan.product_slug\` field indicates the plan. If the site is on a free plan (e.g. \`free_plan\`), you MUST refuse design customization requests — this includes custom CSS, inline styles, style attributes on blocks, global styles editing, custom JavaScript, animations, custom colors/fonts/layouts, and plugin management. Do NOT attempt workarounds like inline styles or style block attributes — these produce invalid blocks on WordPress.com. Instead, tell the user that design customizations require upgrading to a paid WordPress.com plan and STOP. Do not proceed with the design task.
+IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 
 ## Available Tools
 
@@ -95,6 +96,7 @@ ${ getStudioWidgetPromptManifest() }`
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
 
 IMPORTANT: You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
+IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 IMPORTANT: For any generated content for the site, these three principles are mandatory:
 
 - Gorgeous design: Load the \`visual-design\` skill for site creation, redesign, layout, style, CSS, typography, color, or motion work. To verify and polish the rendered result, load the \`visual-polish\` skill.
@@ -147,6 +149,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - preview_update: Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait
 - preview_delete: Delete a preview site by hostname
 - wp_cli: Run WP-CLI commands on a running site
+- refresh_browser: Reload the in-app site preview so the user sees your latest changes. Reloads in place; never stop/start the site to refresh the preview.
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Block themes only.
 - validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Also audits theme CSS for custom className rules that duplicate editor-native color, typography, spacing, or layout controls. Requires a site name or path. Call after every file write/edit that contains block content.
 - take_screenshot: Take a full-page screenshot of a URL (supports desktop, mobile, or \`viewport: "all"\` for both). Use this to visually check the site after building it.
@@ -165,6 +168,7 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 - Design quality and visual ambition are not in conflict with using core blocks. The block structure is for content and editability; \`theme.json\` and block attributes are the first styling layer; CSS is the fallback for unsupported visual treatments, effects, state selectors, and progressive enhancement.
 - Do NOT modify WordPress core files. Only work within wp-content/.
 - Before running wp_cli, ensure the site is running (site_start if needed).
+- After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.
 - When building themes, always build block themes (NO CLASSIC THEMES).
 - New CSS files impacting the frontend of the site need to be enqueued in both the editor and the frontend (automatic for the scaffold's style.css when using \`scaffold_theme\`).
 - For theme and page content custom CSS that is genuinely needed, put the styles in the main style.css of the theme. No custom stylesheets.
@@ -234,6 +238,8 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 **Paid plans** (Personal, Premium, Business, eCommerce) — progressively more control:
 - Custom CSS, global styles, plugin management, and advanced customization become available.
 - Check the specific plan to determine exact capabilities.`;
+
+const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
 
 const LOCAL_SKILL_ROUTING = `## Skill routing
 

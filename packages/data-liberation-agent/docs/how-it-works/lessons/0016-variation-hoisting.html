@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>16 · Variation Hoisting &amp; the Block-Fixer</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part V — Advanced</span>
+  <span>Lesson 16 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 16 · Advanced capability</div>
+<h1>Variation Hoisting &amp; the Block-Fixer</h1>
+<p class="subtitle">Two passes that turn raw reconstructed markup into <em>theme-grade</em> markup: one canonicalizes every block so it survives WordPress, the other lifts repeated styling out of instances into reusable block-style variations. Together they're why the output looks hand-authored, not machine-spat.</p>
+
+<h2>The block-fixer: survive the save cycle</h2>
+<p>Reconstructed markup must round-trip through <code>@wordpress/blocks</code> — open it in the
+editor, save it, and the output must be unchanged. The <strong>block-fixer</strong> is the
+canonicalization pass that guarantees this. The practical constraint it imposes:</p>
+
+<div class="callout key">
+  <span class="label">Express sizing in terms the fixer preserves</span>
+  Reconstructed sizing has to be encoded in <em>core attributes and classNames</em>, not inline
+  <code>figure</code> styles — because the fixer (and the theme's <code>height:auto!important</code>
+  resets) will rewrite anything else. If you fight the canonicalizer with inline styles, your
+  dimensions vanish on the first save. Work <em>with</em> the grammar, not around it.
+</div>
+
+<p>The fixer is also defensive about unknown blocks: an unknown <code>jetpack/*</code> block
+passes through grammar-preserved via <code>core/missing</code> with its
+<code>originalContent</code> intact — so a block the fixer doesn't understand is never
+destroyed, just carried.</p>
+
+<h2>Variation hoisting: DRY out the styles</h2>
+<p>Reconstruction often emits the same styling constellation on many instances across the site.
+<strong>Variation hoisting</strong> finds recurring instance-style constellations — the
+threshold is <strong>≥ 3 site-wide, exact match</strong> — and lifts them into
+<code>&lt;theme&gt;/styles/blocks/lib-*.json</code> block-style variations, then strips the
+inline styling from the instances.</p>
+
+<table>
+  <thead><tr><th>Property</th><th>Behavior</th></tr></thead>
+  <tbody>
+    <tr><td>Slug derivation</td><td>Deterministic: block short-name + style groups present, numeric suffix on collision.</td></tr>
+    <tr><td>Failure mode</td><td>Fail-open — if the block-fixer sidecar is unavailable, hoisting is skipped with a warning (markup still ships).</td></tr>
+    <tr><td>Disable</td><td>The <code>variationHoist:false</code> tool option (MCP-only; no CLI flag).</td></tr>
+    <tr><td>Exclusion</td><td><code>jetpack/*</code> blocks are excluded (Lesson 14's label-vanishing trap).</td></tr>
+  </tbody>
+</table>
+
+<div class="callout decision">
+  <span class="label">Why hoisting is worth the complexity</span>
+  Hoisting is the difference between a theme with one editable "card" style used 30 times and a
+  theme with 30 copies of the same inline blob. The former is what a human designer would
+  build — retune the variation once, every instance updates. It's a maintainability multiplier,
+  the same value proposition as design foundations (Lesson 15), applied at the block level.
+</div>
+
+<div class="callout gotcha">
+  <span class="label">Exact-match, ≥ 3 — and why those bounds</span>
+  Hoisting only fires on <em>exact</em> style matches occurring <em>at least three times</em>.
+  That conservatism is deliberate: a near-match hoist would silently change appearance, and a
+  2-instance hoist rarely earns its abstraction. When you reason about extending it (fuzzy
+  matching, lower thresholds), the risk is always the same — hoisting that alters pixels.
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why must reconstructed sizing be expressed in core attributes/classNames rather than inline figure styles?</div>
+  <ul class="opts">
+    <li><button class="opt">Inline styles are slower for the browser to parse at render time</button></li>
+    <li><button class="opt">The block-fixer canonicalization (and theme resets) rewrite anything else, dropping the dimensions</button></li>
+    <li><button class="opt">WordPress forbids inline styles inside block markup entirely</button></li>
+    <li><button class="opt">Variation hoisting can only match styles written as inline blobs</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — the fixer canonicalizes through @wordpress/blocks and theme height:auto resets fight inline figure styles; sizing survives only as core attrs/classNames."
+    data-wrong="It's about the canonicalizer: the block-fixer rewrites non-canonical markup on save, so inline figure-style sizing is lost. Encode it in core attrs/classNames.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  State what the block-fixer guarantees and the constraint it imposes. Then give the variation
+  hoisting threshold and what gets excluded (and why).
+  <details><summary>Check yourself</summary>
+  Fixer: markup survives a save cycle (round-trips through <code>@wordpress/blocks</code>);
+  constraint: sizing in core attrs/classNames, not inline figure styles. Hoist: ≥ 3 exact
+  site-wide matches → <code>styles/blocks/lib-*.json</code>; excludes <code>jetpack/*</code>
+  (className rewrite would empty form labels).
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Find the hoisting logic and the <code>variationHoist</code> option in
+  <span class="path">src/lib/replicate/</span> (search <code>lib-</code> /
+  <code>styles/blocks</code>), and the block-fixer smoke tests
+  (<span class="path">blockFixer.smoke.test.js</span>) for the canonicalization guarantees.
+</div>
+
+<p class="ask">Want to see a before/after of a hoisted constellation — instance markup vs the
+generated <code>lib-*.json</code> variation? Ask.</p>
+
+<div class="lesson-nav">
+  <a href="0015-design-foundations.html">← Lesson 15</a>
+  <a href="0017-shopify-graphql.html">Lesson 17: The Shopify GraphQL path →</a>
+</div>
+</div>
+</body>
+</html>

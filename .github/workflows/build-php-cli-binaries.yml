@@ -1,5 +1,5 @@
 name: Build PHP CLI Binaries
-run-name: Build PHP ${{ inputs.php_version }} with Xdebug ${{ inputs.xdebug_version }}
+run-name: Build PHP ${{ inputs.php_version }}-${{ inputs.package_version }} with Xdebug ${{ inputs.xdebug_version }}
 
 on:
   workflow_dispatch:
@@ -8,6 +8,10 @@ on:
         description: PHP patch version to build
         required: true
         default: 8.4.20
+      package_version:
+        description: Package version (choose a new value when rebuilding a PHP version)
+        required: true
+        default: studio-1
       xdebug_version:
         description: Xdebug version to package
         required: true
@@ -75,12 +79,16 @@ jobs:
             artifact_arch: aarch64
             extensions: *unix_extensions
           - target: windows-x86_64
-            runner: windows-latest
+            # PHP 8.4+ Windows builds use the VS17 toolchain. Pin the runner so
+            # the matching VC143 app-local runtime remains available even as
+            # windows-latest moves to newer Visual Studio releases.
+            runner: windows-2022
             artifact_platform: windows
             artifact_arch: x86_64
             extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,yaml,zip,zlib
     env:
       PHP_VERSION: ${{ inputs.php_version }}
+      PHP_PACKAGE_VERSION: ${{ inputs.package_version }}
       XDEBUG_VERSION: ${{ inputs.xdebug_version }}
       SPC_REF: ${{ inputs.spc_ref }}
       PHP_CLI_EXTENSIONS: ${{ matrix.extensions }}
@@ -110,8 +118,14 @@ jobs:
             exit 1
           fi
 
+          if [[ ! "$PHP_PACKAGE_VERSION" =~ ^[a-z0-9][a-z0-9._-]{0,63}$ ]]; then
+            echo "Unsupported package version: $PHP_PACKAGE_VERSION (use 1-64 lowercase letters, numbers, dots, underscores, or dashes)" >&2
+            exit 1
+          fi
+
           php_minor="${PHP_VERSION%.*}"
           echo "PHP_MINOR=$php_minor" >> "$GITHUB_ENV"
+          echo "PHP_PACKAGE_ID=$PHP_VERSION-$PHP_PACKAGE_VERSION" >> "$GITHUB_ENV"
 
       - name: Setup PHP for static-php-cli
         # Linux runs SPC inside the spc-gnu-docker container, which ships
@@ -252,6 +266,8 @@ jobs:
           cat > "$staging_dir/runtime.json" <<JSON
           {
             "phpVersion": "$PHP_VERSION",
+            "packageVersion": "$PHP_PACKAGE_VERSION",
+            "packageId": "$PHP_PACKAGE_ID",
             "phpMinor": "$PHP_MINOR",
             "threadSafety": "nts",
             "platform": "$PHP_CLI_ARTIFACT_PLATFORM",
@@ -317,6 +333,8 @@ jobs:
           cat > "$staging_dir/runtime.json" <<JSON
           {
             "phpVersion": "$PHP_VERSION",
+            "packageVersion": "$PHP_PACKAGE_VERSION",
+            "packageId": "$PHP_PACKAGE_ID",
             "phpMinor": "$PHP_MINOR",
             "threadSafety": "nts",
             "platform": "$PHP_CLI_ARTIFACT_PLATFORM",
@@ -459,8 +477,42 @@ jobs:
           Add-PECLExtension -Name ssh2
           Add-PECLExtension -Name yaml
 
+          # PHP's stock Windows builds require the Visual C++ runtime. Deploy it
+          # app-locally so php.exe also works on systems without the machine-wide
+          # redistributable installed.
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsInstallPath = & $vswhere -latest -version '[17.0,18.0)' -products * -property installationPath
+          if ( -not $vsInstallPath ) {
+            throw 'Could not locate Visual Studio to package the Visual C++ runtime'
+          }
+
+          $vcRedistRoot = Join-Path $vsInstallPath 'VC\Redist\MSVC'
+          $vcRuntimeDir = Get-ChildItem -Path $vcRedistRoot -Directory |
+            ForEach-Object { Join-Path $_.FullName 'x64\Microsoft.VC143.CRT' } |
+            Where-Object { Test-Path (Join-Path $_ 'vcruntime140.dll') } |
+            Sort-Object {
+              [version]( (Get-Item (Join-Path $_ 'vcruntime140.dll')).VersionInfo.FileVersion )
+            } -Descending |
+            Select-Object -First 1
+          if ( -not $vcRuntimeDir ) {
+            throw "Could not locate the x64 app-local Visual C++ runtime under $vcRedistRoot"
+          }
+
+          $requiredVcRuntimeDlls = @('vcruntime140.dll', 'vcruntime140_1.dll')
+          foreach ( $dll in $requiredVcRuntimeDlls ) {
+            if ( -not (Test-Path (Join-Path $vcRuntimeDir $dll)) ) {
+              throw "Required Visual C++ runtime DLL not found: $dll"
+            }
+          }
+
+          Copy-Item -Path (Join-Path $vcRuntimeDir '*.dll') -Destination $stagingDir
+          $vcRuntimeVersion = (Get-Item (Join-Path $vcRuntimeDir 'vcruntime140.dll')).VersionInfo.FileVersion
+          Set-Content -Path (Join-Path $stagingDir 'vc-runtime.version') -Value $vcRuntimeVersion -NoNewline
+
           $runtimeJson = @{
             phpVersion = $env:PHP_VERSION
+            packageVersion = $env:PHP_PACKAGE_VERSION
+            packageId = $env:PHP_PACKAGE_ID
             phpMinor = $env:PHP_MINOR
             threadSafety = 'nts'
             platform = $env:PHP_CLI_ARTIFACT_PLATFORM
@@ -468,6 +520,7 @@ jobs:
             binary = 'php.exe'
             extensionDir = 'ext'
             xdebug = 'ext/php_xdebug.dll'
+            vcRuntimeVersion = $vcRuntimeVersion
           } | ConvertTo-Json -Depth 4
           Set-Content -Path (Join-Path $stagingDir 'runtime.json') -Value $runtimeJson
 
@@ -539,6 +592,7 @@ jobs:
       pull-requests: write
     env:
       PHP_VERSION: ${{ inputs.php_version }}
+      PHP_PACKAGE_VERSION: ${{ inputs.package_version }}
       PHP_CLI_VISIBILITY: ${{ inputs.apps_cdn_visibility }}
       WPCOM_API_TOKEN: ${{ secrets.WPCOM_API_TOKEN }}
     steps:
@@ -570,13 +624,14 @@ jobs:
 
           bundle exec fastlane publish_php_cli_binaries \
             version:"${PHP_VERSION}" \
+            package_version:"${PHP_PACKAGE_VERSION}" \
             artifacts_dir:"${PWD}/out/php-binaries" \
             visibility:"${PHP_CLI_VISIBILITY}" \
             output_file:"${upload_results_file}"
 
           echo "### Apps CDN PHP CLI upload" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Uploaded or updated PHP ${PHP_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
+          echo "Uploaded PHP ${PHP_VERSION} package ${PHP_PACKAGE_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           PHP_CLI_UPLOAD_RESULTS_FILE="$upload_results_file" ruby -rjson -e '
@@ -599,9 +654,10 @@ jobs:
 
           node scripts/update-php-binary-cdn-metadata.mjs \
             --version "${PHP_VERSION}" \
+            --package-version "${PHP_PACKAGE_VERSION}" \
             --upload-results "${PWD}/out/php-binaries/apps-cdn-upload-results.json"
 
-          if git diff --quiet -- tools/common/lib/php-binary-cdn-metadata.json; then
+          if git diff --quiet -- packages/common/lib/php-binary-cdn-metadata.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -614,16 +670,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          branch="update-php-cli-metadata-${PHP_VERSION}-${GITHUB_RUN_ID}"
+          branch="update-php-cli-metadata-${PHP_VERSION}-${PHP_PACKAGE_VERSION}-${GITHUB_RUN_ID}"
           # Standard GitHub Actions bot noreply identity for workflow-created commits.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add tools/common/lib/php-binary-cdn-metadata.json
-          git commit -m "Update PHP ${PHP_VERSION} binary metadata"
+          git add packages/common/lib/php-binary-cdn-metadata.json
+          git commit -m "Update PHP ${PHP_VERSION}-${PHP_PACKAGE_VERSION} metadata"
           git push --set-upstream origin "$branch"
           gh pr create \
             --base "${GITHUB_REF_NAME}" \
             --head "$branch" \
-            --title "Update PHP ${PHP_VERSION} binary metadata" \
-            --body "Updates PHP CLI binary CDN metadata after a successful Apps CDN upload."
+            --title "Update PHP ${PHP_VERSION}-${PHP_PACKAGE_VERSION} metadata" \
+            --body "Updates PHP CLI binary CDN metadata after a successful immutable Apps CDN upload."

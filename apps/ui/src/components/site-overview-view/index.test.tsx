@@ -155,9 +155,9 @@ describe( 'SiteOverviewView', () => {
 			data: [ createSite( { running: true } ) ],
 			isLoading: false,
 		} );
-		useExistingCustomDomainsMock.mockReturnValue( { data: [] } );
+		useExistingCustomDomainsMock.mockReturnValue( [] );
 		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSite } );
-		useXdebugEnabledSiteMock.mockReturnValue( { data: null } );
+		useXdebugEnabledSiteMock.mockReturnValue( null );
 		useIsSiteStartingMock.mockReturnValue( false );
 		useIsSiteStoppingMock.mockReturnValue( false );
 		useStartSiteMock.mockReturnValue( {

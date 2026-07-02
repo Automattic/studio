@@ -28,6 +28,12 @@ export default class SettingsTab {
 		return this.page.getByRole( 'menuitem', { name: 'Delete site' } );
 	}
 
+	get duplicateButton() {
+		// Rendered at the document root like the delete menu item, so search from
+		// the page rather than the settings tabpanel.
+		return this.page.getByRole( 'menuitem', { name: 'Duplicate site' } );
+	}
+
 	get optionsMenu() {
 		return this.locator.getByRole( 'button', { name: 'More options' } );
 	}
@@ -45,6 +51,11 @@ export default class SettingsTab {
 	async openDeleteSiteModal() {
 		await this.optionsMenu.click();
 		await this.deleteButton.click();
+	}
+
+	async openDuplicateSite() {
+		await this.optionsMenu.click();
+		await this.duplicateButton.click();
 	}
 
 	get editSiteButton() {

@@ -48,6 +48,7 @@ export type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
 	| { type: 'preview/navigate'; path: string }
+	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
 	| { type: 'preview-console/set-entries'; entries: PreviewConsoleEntry[] };
 
@@ -70,6 +71,17 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				preview: {
 					...state.preview,
 					path: action.path,
+					reloadNonce: state.preview.reloadNonce + 1,
+					open: true,
+				},
+			};
+		case 'preview/reload':
+			// Reload the current path in place (bump the nonce). Reveal the
+			// panel so the agent-triggered refresh is actually visible.
+			return {
+				...state,
+				preview: {
+					...state.preview,
 					reloadNonce: state.preview.reloadNonce + 1,
 					open: true,
 				},

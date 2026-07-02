@@ -25,6 +25,13 @@ body {
 	scrollbar-color: gray transparent;
 }
 
+@media ( prefers-color-scheme: dark ) {
+	:root {
+		--wp-ui-tooltip-background-color: #fff;
+		--wp-ui-tooltip-color: #000;
+	}
+}
+
 /* Universal heading styles derived from the design system's font-size /
    line-height ramp. Each level steps down one token (h1 = 2xl, h6 = xs),
    keeping the rest of the type contract — family, weight, color, zero

@@ -256,7 +256,7 @@ function ToolUseRow( {
 	input?: Record< string, unknown >;
 	result?: NormalizedToolResult;
 } ) {
-	const label = getToolDisplayName( name );
+	const label = getToolDisplayName( name, input );
 	const detail = getToolDetail( name, input );
 	const [ expanded, setExpanded ] = useState( false );
 	const resultText = result?.text?.trim() ?? '';

@@ -479,7 +479,7 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 														__nextHasNoMarginBottom
 													/>
 													<span className="text-frame-text-secondary text-xs">
-														<RuntimeDescription runtime={ selectedRuntime } />
+														<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
 													</span>
 												</label>
 

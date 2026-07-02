@@ -15,6 +15,7 @@ import { registerCommand as registerSiteListCommand } from 'cli/commands/site/li
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
+import { registerCommand as registerUninstallCommand } from 'cli/commands/uninstall';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -215,6 +216,8 @@ async function main() {
 	registerImportCommand( studioArgv );
 	registerExportCommand( studioArgv );
 
+	registerUninstallCommand( studioArgv );
+
 	studioArgv.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
 		const [
 			{ registerCommand: registerPreviewCreateCommand },
@@ -286,22 +289,6 @@ async function main() {
 	} );
 
 	registerMcpCommand( studioArgv );
-
-	studioArgv.command( {
-		command: 'web-server',
-		describe: __( 'Start the Studio Web backend (HTTP/SSE) for the browser UI' ),
-		builder: ( webYargs: StudioArgv ) => {
-			return webYargs.option( 'port', {
-				type: 'number',
-				description: __( 'Port to listen on' ),
-				default: 8088,
-			} );
-		},
-		handler: async ( argv ) => {
-			process.env.STUDIO_WEB_SERVER_PORT = String( ( argv as { port?: number } ).port ?? 8088 );
-			await import( 'cli/web-server/index.js' );
-		},
-	} );
 
 	studioArgv
 		// Deprecated `site` group, kept hidden for backward compatibility. Every

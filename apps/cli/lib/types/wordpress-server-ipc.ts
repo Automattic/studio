@@ -1,5 +1,6 @@
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { z } from 'zod';
+import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 // Zod schemas for validating IPC messages from wordpress-server-manager
 const mountSchema = z.object( {
@@ -7,14 +8,14 @@ const mountSchema = z.object( {
 	vfsPath: z.string(),
 } );
 
-const wordpressInstallModeSchema = z.enum( [
+const wordpressInstallModeSchema: z.ZodType< WordPressInstallMode > = z.enum( [
 	'download-and-install',
 	'install-from-existing-files',
 	'install-from-existing-files-if-needed',
 	'do-not-attempt-installing',
 ] );
 
-const serverConfig = z.object( {
+export const serverConfigSchema = z.object( {
 	siteId: z.string(),
 	sitePath: z.string(),
 	port: z.number(),
@@ -42,9 +43,11 @@ const serverConfig = z.object( {
 	wordpressInstallMode: wordpressInstallModeSchema.optional(),
 	skipSqliteSetup: z.boolean().optional(),
 	useExactMountLayout: z.boolean().optional(),
+	autoPrependFile: z.string().optional(),
+	openBasedirAllowList: z.array( z.string() ).optional(),
 } );
 
-export type ServerConfig = z.infer< typeof serverConfig >;
+export type ServerConfig = z.infer< typeof serverConfigSchema >;
 
 const managerMessageAbort = z.object( {
 	topic: z.literal( 'abort' ),
@@ -54,14 +57,14 @@ const managerMessageAbort = z.object( {
 const managerMessageStartServer = z.object( {
 	topic: z.literal( 'start-server' ),
 	data: z.object( {
-		config: serverConfig,
+		config: serverConfigSchema,
 	} ),
 } );
 
 const managerMessageRunBlueprint = z.object( {
 	topic: z.literal( 'run-blueprint' ),
 	data: z.object( {
-		config: serverConfig,
+		config: serverConfigSchema,
 	} ),
 } );
 

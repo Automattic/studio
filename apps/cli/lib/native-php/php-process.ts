@@ -14,16 +14,22 @@ export const DETACH_FOR_GROUP_KILL = process.platform !== 'win32';
 // in-flight children (mid-startup workers, install/blueprint subprocesses) callers don't track.
 const livePhpProcesses = new Set< ChildProcess >();
 
-export type SpawnPhpProcessOptions = {
+export type BasePhpOptions = {
+	autoPrependFile?: string;
 	detached?: boolean;
 	disallowRiskyFunctions?: boolean;
 	env?: NodeJS.ProcessEnv;
-	mode?: 'pipe' | 'capture-stdout';
 	enableXdebug?: boolean;
 	onlyPathsThatPhpCanAccess?: string[];
 	phpVersion: NativePhpSupportedVersion;
 	siteFolder?: string;
 	signal?: AbortSignal;
+};
+type SpawnPhpProcessOptions = BasePhpOptions & {
+	mode?: 'pipe' | 'no-pipe';
+};
+type RunPhpCommandOptions = BasePhpOptions & {
+	mode?: 'pipe' | 'no-pipe' | 'capture';
 };
 
 export function spawnPhpProcess(
@@ -38,6 +44,7 @@ export function spawnPhpProcess(
 		enableXdebug = false,
 		onlyPathsThatPhpCanAccess = [],
 		disallowRiskyFunctions = false,
+		autoPrependFile,
 	}: SpawnPhpProcessOptions
 ): ChildProcess {
 	const defaultArgs = getDefaultPhpArgs(
@@ -46,7 +53,11 @@ export function spawnPhpProcess(
 		disallowRiskyFunctions,
 		enableXdebug
 	);
-	const phpArgs = [ ...defaultArgs, ...args ];
+	// Run a PHP file before the main script on every request — used to inject
+	// reprint's generated runtime.php (constants, SQLite loader, upload proxy)
+	// into imported sites without modifying their wp-config.php.
+	const prependArgs = autoPrependFile ? [ '-d', `auto_prepend_file=${ autoPrependFile }` ] : [];
+	const phpArgs = [ ...defaultArgs, ...prependArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd: siteFolder,
 		env: env ? { ...process.env, ...env } : process.env,
@@ -62,9 +73,6 @@ export function spawnPhpProcess(
 
 	if ( mode === 'pipe' ) {
 		phpScriptProcess.stdout?.pipe( process.stdout, { end: false } );
-	}
-
-	if ( mode === 'pipe' || mode === 'capture-stdout' ) {
 		phpScriptProcess.stderr?.pipe( process.stderr, { end: false } );
 	}
 
@@ -150,31 +158,39 @@ export function reapPhpTreeOnInterrupt( child: ChildProcess ): () => void {
 	};
 }
 
-type RunPhpCommandOptions = SpawnPhpProcessOptions;
-
 export async function runPhpCommand(
 	args: string[],
 	options: RunPhpCommandOptions
-): Promise< { stdout: string } > {
-	return await new Promise< { stdout: string } >( ( resolve, reject ) => {
-		const phpScriptProcess = spawnPhpProcess( args, options );
+): Promise< { stdout: string; stderr: string } > {
+	return await new Promise< { stdout: string; stderr: string } >( ( resolve, reject ) => {
+		const phpScriptProcess = spawnPhpProcess( args, {
+			...options,
+			mode: options.mode === 'capture' ? 'no-pipe' : options.mode,
+		} );
+		const reportActivity = () => process.send?.( { topic: 'activity' } );
 
 		let stdout = '';
-		const reportActivity = () => process.send?.( { topic: 'activity' } );
 		phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
 			reportActivity();
-			if ( options.mode === 'capture-stdout' ) {
+			if ( options.mode === 'capture' ) {
 				stdout += chunk.toString();
 			}
 		} );
-		phpScriptProcess.stderr?.on( 'data', reportActivity );
+
+		let stderr = '';
+		phpScriptProcess.stderr?.on( 'data', ( chunk ) => {
+			reportActivity();
+			if ( options.mode === 'capture' ) {
+				stderr += chunk.toString();
+			}
+		} );
 
 		phpScriptProcess.once( 'error', ( error: Error ) => {
 			reject( error );
 		} );
 		phpScriptProcess.once( 'close', ( code ) => {
 			if ( code === 0 ) {
-				resolve( { stdout } );
+				resolve( { stdout, stderr } );
 				return;
 			}
 

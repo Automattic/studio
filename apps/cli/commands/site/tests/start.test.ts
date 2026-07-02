@@ -1,11 +1,7 @@
 import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
-import {
-	getSiteByFolder,
-	updateSiteAutoStart,
-	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -18,7 +14,6 @@ vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 	...( await vi.importActual( 'cli/lib/cli-config/sites' ) ),
 	getSiteByFolder: vi.fn(),
 	updateSiteLatestCliPid: vi.fn(),
-	updateSiteAutoStart: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/site-utils' );
@@ -146,7 +141,6 @@ describe( 'CLI: studio site start', () => {
 				testSite.id,
 				testProcessDescription.pid
 			);
-			expect( updateSiteAutoStart ).toHaveBeenCalledWith( testSite.id, true );
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( openSiteInBrowser ).toHaveBeenCalledWith( testSite );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();

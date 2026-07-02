@@ -23,7 +23,8 @@
 	},
 	"workspaces": [
 		"apps/*",
-		"tools/*"
+		"tools/*",
+		"packages/*"
 	],
 	"scripts": {
 		"start": "npm -w studio-app run start",
@@ -45,6 +46,7 @@
 		"cli:build:prod": "npm -w wp-studio run build:prod",
 		"cli:build:npm": "npm -w wp-studio run build:npm",
 		"cli:package": "npm -w wp-studio run package",
+		"cli:package:standalone": "npm -w wp-studio run package:standalone",
 		"cli:bundle": "tsx scripts/create-standalone-bundle.ts",
 		"cli:watch": "npm -w wp-studio run watch",
 		"app:install:bundle": "npm -w studio-app run install:bundle",

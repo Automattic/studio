@@ -35,9 +35,12 @@ import {
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import { ServerConfig, ManagerMessagePayload } from 'cli/lib/types/wordpress-server-ipc';
+import {
+	ServerConfig,
+	ManagerMessagePayload,
+	serverConfigSchema,
+} from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
-import type { WordPressInstallMode } from '@wp-playground/wordpress';
 
 export const SITE_PROCESS_PREFIX = 'studio-site-';
 
@@ -78,24 +81,24 @@ function canReuseProcessForWpCli( processDescription: ProcessDescription ): bool
 	return processDescription.runtime === SITE_RUNTIME_PLAYGROUND;
 }
 
-/**
- * Start a WordPress server for a site via process manager daemon
- * 1. Start the process (via the process manager daemon)
- * 2. Wait for 'ready' message
- * 3. Send 'start-server' message with config
- * 4. Wait for response before resolving
- */
-export interface StartServerOptions {
-	wpVersion?: string;
-	blueprint?: unknown;
-	blueprintUri?: string;
-	siteLanguage?: string;
-	mounts?: ServerConfig[ 'mounts' ];
-	mountsBeforeInstall?: ServerConfig[ 'mountsBeforeInstall' ];
-	wordpressInstallMode?: WordPressInstallMode;
-	skipSqliteSetup?: boolean;
-	useExactMountLayout?: boolean;
-}
+const startServerOptionsSchema = serverConfigSchema
+	.pick( {
+		wpVersion: true,
+		siteLanguage: true,
+		mounts: true,
+		mountsBeforeInstall: true,
+		wordpressInstallMode: true,
+		skipSqliteSetup: true,
+		useExactMountLayout: true,
+		autoPrependFile: true,
+		openBasedirAllowList: true,
+	} )
+	.extend( {
+		blueprint: z.unknown().optional(),
+		blueprintUri: z.string().optional(),
+	} );
+
+export type StartServerOptions = z.infer< typeof startServerOptionsSchema >;
 
 function buildServerConfig(
 	site: SiteData,
@@ -169,6 +172,14 @@ function buildServerConfig(
 		serverConfig.useExactMountLayout = true;
 	}
 
+	if ( options?.autoPrependFile ) {
+		serverConfig.autoPrependFile = options.autoPrependFile;
+	}
+
+	if ( options?.openBasedirAllowList ) {
+		serverConfig.openBasedirAllowList = options.openBasedirAllowList;
+	}
+
 	if ( site.fileAccess ) {
 		serverConfig.fileAccess = site.fileAccess;
 	}
@@ -233,6 +244,13 @@ function dropStaleReprintStateMounts( options: StartServerOptions ): StartServer
 	};
 }
 
+/**
+ * Start a WordPress server for a site via process manager daemon
+ * 1. Start the process (via the process manager daemon)
+ * 2. Wait for 'ready' message
+ * 3. Send 'start-server' message with config
+ * 4. Wait for response before resolving
+ */
 export async function startWordPressServer(
 	site: SiteData,
 	logger: Logger< string >,
@@ -248,7 +266,9 @@ export async function startWordPressServer(
 			'start-options.json'
 		);
 		if ( fs.existsSync( optionsPath ) ) {
-			options = JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) ) as StartServerOptions;
+			options = startServerOptionsSchema.parse(
+				JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) )
+			);
 			options = dropStaleReprintStateMounts( options );
 		}
 	}

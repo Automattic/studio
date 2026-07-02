@@ -124,9 +124,6 @@ export interface Connector {
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;
-	// Xdebug is exclusive across sites; returns the one site currently using
-	// it (or null) so the settings form can block a conflicting toggle.
-	getXdebugEnabledSite(): Promise< SiteDetails | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -137,13 +134,11 @@ export interface Connector {
 	exportDatabase( siteId: string ): Promise< string | null >;
 
 	// Site-creation helpers — surface the same main-process capabilities the
-	// desktop app's add-site flow relies on (folder pickers, path validation,
-	// and domain lookups).
+	// desktop app's add-site flow relies on (folder pickers and path validation).
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
-	getAllCustomDomains(): Promise< string[] >;
 
 	// Featured blueprints gallery for the "Start from blueprint" onboarding
 	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
@@ -285,6 +280,10 @@ export interface Connector {
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+
+	// Clipboard — routed to the host so it works where the renderer's
+	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
+	copyText( text: string ): Promise< void >;
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,
@@ -303,6 +302,9 @@ export interface Connector {
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.
 	onToggleSitePreview( listener: () => void ): () => void;
+
+	// Fires when the user activates the sidebar toggle shortcut or menu command.
+	onToggleSidebar( listener: () => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

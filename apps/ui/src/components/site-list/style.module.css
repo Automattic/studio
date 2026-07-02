@@ -1,15 +1,27 @@
 .root {
-	--site-list-row-height: 32px;
+	--site-list-row-height: 34px;
 	--site-list-row-background-hover: rgb(0 0 0 / 4%);
 	--site-list-row-background-active: rgb(0 0 0 / 7%);
+	--site-list-row-leading-inset: var(--wpds-dimension-padding-xs);
+	--site-list-row-outer-inset: calc(
+		var(--wpds-dimension-padding-lg) - var(--site-list-row-leading-inset)
+	);
+	--site-list-icon-size: 18px;
+	--site-list-icon-gap: calc(var(--wpds-dimension-gap-sm) + 2px);
+	--site-list-chat-status-size: 14px;
+	--site-list-chat-status-offset-adjust: 2px;
+	--site-list-chat-status-offset: var(--site-list-row-leading-inset);
+	--site-list-pending-indicator-bg: color-mix(
+		in srgb,
+		var(--wpds-color-bg-interactive-error-strong) 34%,
+		var(--wpds-color-bg-surface-caution)
+	);
+	--site-list-pending-indicator-dot: var(--wpds-color-fg-content-error);
 
-	/* Left padding matches the sidebar footer (user-menu) so
-	   the row highlight boxes share the same left edge as the rest of the
-	   sidebar chrome. The right side is smaller: rows carry `sm` of their
-	   own right padding, and `xl + sm` keeps the row icons (site status,
-	   actions) visually aligned with the header's drawer icon. */
-	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-2xl);
+	/* Pull the row shape slightly left, then add the inset back inside rows so
+	   icons and labels keep their column while selected rows have breathing room. */
+	padding: 0 var(--site-list-row-outer-inset) var(--wpds-dimension-padding-xl)
+		var(--site-list-row-outer-inset);
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-sm);
@@ -20,13 +32,15 @@
 	.root {
 		--site-list-row-background-hover: rgb(255 255 255 / 8%);
 		--site-list-row-background-active: rgb(255 255 255 / 12%);
+		--site-list-pending-indicator-bg: #facc15;
+		--site-list-pending-indicator-dot: #422006;
 	}
 }
 
 .sites {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 0;
 }
 
 .site {
@@ -41,12 +55,10 @@
 	min-width: 0;
 	box-sizing: border-box;
 	height: var(--site-list-row-height);
-	/* No inline-start padding: the row's leading content (site icon / title)
-	   sits flush with the sidebar content edge (`.root`'s 2xl inline padding),
-	   lining the title up with the macOS window traffic lights. The button
-	   inside (`.siteToggle`) also drops its inline-start padding to match. */
+	/* The row shape extends left of the content column; this padding keeps the
+	   icon/title column aligned while giving selected rows breathing room. */
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
-		var(--wpds-dimension-padding-xs) 0;
+		var(--wpds-dimension-padding-xs) var(--site-list-row-leading-inset);
 	border-radius: 6px;
 }
 
@@ -72,30 +84,19 @@
 	display: inline-grid;
 	place-items: center;
 	flex-shrink: 0;
-	inline-size: 0;
-	margin-inline-end: 0;
-	opacity: 0;
-	transform: translateX(-4px) scale(0.75);
-	transform-origin: left center;
+	inline-size: var(--site-list-icon-size);
+	/* The footer gravatar is 20px wide while site icons are 18px, so the extra
+	   2px lives after the icon to keep titles aligned with the display name. */
+	margin-inline-end: var(--site-list-icon-gap);
 	overflow: hidden;
-	transition: inline-size 120ms ease, margin-inline-end 120ms ease, opacity 120ms ease,
-		transform 120ms ease;
 }
 
-.siteActive .siteIconSlot {
-	inline-size: 16px;
-	/* Gap between the site icon and its title. Kept in sync with the chat-row
-	   indent below (`.sessionLink` padding-inline-start), which carries the same
-	   +4px so chat labels stay aligned under the site title. */
-	margin-inline-end: calc(var(--wpds-dimension-padding-xs) + 4px);
-	opacity: 1;
-	transform: translateX(0) scale(1);
+.siteIcon {
+	--site-icon-size: var(--site-list-icon-size);
 }
 
-@media (prefers-reduced-motion: reduce) {
-	.siteIconSlot {
-		transition: none;
-	}
+.siteIconStopped {
+	opacity: 0.5;
 }
 
 .siteName {
@@ -371,7 +372,7 @@
 	margin: 0;
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 0;
 }
 
 .sessionItem {
@@ -388,15 +389,18 @@
 	--wp-ui-button-border-color-active: transparent;
 	--wp-ui-button-height: var(--site-list-row-height);
 
+	position: relative;
 	width: 100%;
 	box-sizing: border-box;
 	height: var(--site-list-row-height);
-	/* Chat labels align under the active site's title text. The site row now
-	   starts flush with the sidebar edge, and its title begins one icon width
-	   (16px) plus the icon→title gap past that edge — so this indent mirrors
-	   `.siteActive .siteIconSlot`'s inline-size + margin-inline-end. */
+	/* Chat labels align under the parent site's title text and the footer
+	   display name while the row shape extends left for the status indicator. */
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
-		var(--wpds-dimension-padding-xs) calc(16px + var(--wpds-dimension-padding-xs) + 4px);
+		var(--wpds-dimension-padding-xs)
+		calc(
+			var(--site-list-row-leading-inset) + var(--site-list-icon-size) +
+				var(--site-list-icon-gap)
+		);
 	border-radius: 6px;
 	background-color: var(--session-link-background);
 	color: var(--wpds-color-fg-content-neutral-weak);
@@ -408,13 +412,10 @@
 	transition: color 80ms ease, background-color 80ms ease;
 }
 
-.sessionLinkRunning {
-	position: relative;
-}
-
 .sessionLabel {
 	flex: 1;
 	min-width: 0;
+	font-weight: var(--wpds-typography-font-weight-regular);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -434,31 +435,57 @@
 	transition: opacity 100ms ease;
 }
 
-/* The running spinner and question indicator sit in the indent gutter to
-   the left of the chat label. */
+/* The running spinner and question indicator sit inside the active row shape,
+   inset from its edge while the chat label keeps its shared title column. */
 .sessionInlineSpinner {
+	--spinner-size: var(--site-list-chat-status-size);
+
+	box-sizing: border-box;
 	position: absolute;
 	inset-block-start: 50%;
-	inset-inline-start: calc(var(--wpds-dimension-padding-sm) + 6px);
-	margin-block-start: -6px;
+	inset-inline-start: calc(
+		var(--site-list-chat-status-offset) + var(--site-list-chat-status-offset-adjust)
+	);
+	inline-size: var(--site-list-chat-status-size);
+	block-size: var(--site-list-chat-status-size);
+	margin-block-start: calc(var(--site-list-chat-status-size) / -2);
 }
 
 .sessionQuestionIndicator {
 	position: absolute;
 	inset-block-start: 50%;
-	inset-inline-start: calc(var(--wpds-dimension-padding-sm) + 4px);
+	inset-inline-start: calc(
+		var(--site-list-chat-status-offset) + var(--site-list-chat-status-offset-adjust)
+	);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	inline-size: 16px;
-	block-size: 16px;
-	border-radius: 50%;
-	background-color: #facc15;
-	color: #422006;
-	font-size: 11px;
-	font-weight: 700;
-	line-height: 1;
+	inline-size: var(--site-list-chat-status-size);
+	block-size: var(--site-list-chat-status-size);
 	transform: translateY(-50%);
+	isolation: isolate;
+}
+
+.sessionQuestionIndicator::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	clip-path: path(
+		'M 7 1.7 C 7.55 1.7 8.05 2 8.3 2.5 L 12.8 11.8 C 13.2 12.65 12.6 13.2 11.75 13.2 L 2.25 13.2 C 1.4 13.2 0.8 12.65 1.2 11.8 L 5.7 2.5 C 5.95 2 6.45 1.7 7 1.7 Z'
+	);
+	background-color: var(--site-list-pending-indicator-bg);
+}
+
+.sessionQuestionIndicator::after {
+	content: '';
+	position: absolute;
+	inset-block-start: calc(58% - 1.5px);
+	inset-inline-start: calc(50% - 1.5px);
+	inline-size: 3px;
+	block-size: 3px;
+	border-radius: 50%;
+	background-color: var(--site-list-pending-indicator-dot);
 }
 
 .sessionLink:hover,

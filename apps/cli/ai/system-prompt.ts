@@ -47,6 +47,7 @@ function buildRemoteIntro( site: RemoteSiteContext ): string {
 IMPORTANT: The active site is a remote WordPress.com site: "${ site.name }" (ID: ${ site.id }) at ${ site.url }.
 IMPORTANT: You MUST use the wpcom_request tool to manage this site. Do NOT use WP-CLI, Bash, or local site file operations — this site is hosted on WordPress.com and cannot be modified through the local filesystem. You may use local Read/Write/Edit/Ls for temporary working files within Studio app data; those files do not affect the remote site until passed to wpcom_request.
 IMPORTANT: Before doing ANY work, you MUST first check the site's plan by calling \`GET /\` (apiNamespace: \`""\`). The \`plan.product_slug\` field indicates the plan. If the site is on a free plan (e.g. \`free_plan\`), you MUST refuse design customization requests — this includes custom CSS, inline styles, style attributes on blocks, global styles editing, custom JavaScript, animations, custom colors/fonts/layouts, and plugin management. Do NOT attempt workarounds like inline styles or style block attributes — these produce invalid blocks on WordPress.com. Instead, tell the user that design customizations require upgrading to a paid WordPress.com plan and STOP. Do not proceed with the design task.
+IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 
 ## Available Tools
 
@@ -95,6 +96,7 @@ ${ getStudioWidgetPromptManifest() }`
 	return `${ AGENT_IDENTITY } You manage and modify local WordPress sites using your Studio tools and generate content for these sites.
 
 IMPORTANT: You MUST use your Studio tools to manage WordPress sites. Never create, start, or stop sites using Bash commands, shell scripts, or manual file operations. Never run \`wp\` commands via Bash — always use the wp_cli tool instead. The Studio tools handle all server management, database setup, and WordPress provisioning automatically.
+IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 IMPORTANT: For any generated content for the site, these three principles are mandatory:
 
 - Gorgeous design: Load the \`visual-design\` skill for site creation, redesign, layout, style, CSS, typography, color, or motion work. To verify and polish the rendered result, load the \`visual-polish\` skill.
@@ -141,10 +143,10 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_start: Start a stopped site
 - site_stop: Stop a running site
 - site_delete: Delete a site from Studio and optionally move its files to trash
-- preview_create: Create a hosted WordPress.com preview for a local site; this can take a few minutes, so tell the user to wait
-- preview_list: List hosted WordPress.com previews for a local site
-- preview_update: Update an existing hosted WordPress.com preview from a local site; this can take a few minutes, so tell the user to wait
-- preview_delete: Delete a hosted WordPress.com preview by hostname
+- preview_create: Create a preview site (a temporary, expiring hosted preview) for a local site; when a local site is selected, preview that site instead of creating a new local site; requires WordPress.com authentication and can take a few minutes, so tell the user to wait
+- preview_list: List preview sites (temporary, expiring hosted previews) for a local site. These are NOT connected WordPress.com remote sites.
+- preview_update: Update an existing preview site from a local site; this can take a few minutes, so tell the user to wait
+- preview_delete: Delete a preview site by hostname
 - wp_cli: Run WP-CLI commands on a running site
 - scaffold_theme: Scaffold a minimal block theme (style.css, theme.json, functions.php with frontend + editor enqueue, default templates and parts, empty assets/fonts and patterns dirs) into a site and activate it. Use as the first step when starting a new custom theme; the agent fills design-specific content afterwards. Block themes only.
 - validate_blocks: Validate block content in two stages and return a combined report. First a static core/html policy check; if it finds invalid core/html blocks it returns only those (rewrite them as editable core or plugin blocks and call again) and skips the editor. Once it passes, validates in the running site's real block editor: with filePath, applies safe editor fixes directly to the file and returns a CSS-review diff; with inline content, returns exact fixed block content plus the diff. Requires a site name or path. Call after every file write/edit that contains block content.
@@ -152,7 +154,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - inspect_design: Inspect the rendered DOM and computed styles of a page by CSS selector to root-cause visual issues. Pair with take_screenshot when verifying or polishing a design.
 - need_for_speed: Measure frontend performance metrics (TTFB, FCP, LCP, CLS, page weight, DOM size, JS/CSS/image/font asset breakdown) for a running site. Use this to identify performance bottlenecks and guide optimization.
 - rank_me_up: Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.
-- site_connected_remote_sites: List the WordPress.com sites already attached to a local site. Call this before site_push to decide how to ask the user which remote site to target.
+- site_connected_remote_sites: List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.
 - site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
 - site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress) into a local site.
@@ -169,6 +171,15 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 - For theme and page content custom CSS, put the styles in the main style.css of the theme. No custom stylesheets.
 - Scroll animations must use progressive enhancement: CSS defines elements in their **final visible state** by default (full opacity, final position). JavaScript on the frontend adds the initial hidden state (e.g. \`opacity: 0\`, \`transform\`) and scroll-triggered transitions. This ensures elements are fully visible in the block editor (which loads theme CSS but not custom JS).
 - All animations and transitions must respect \`prefers-reduced-motion\`. Add a \`@media (prefers-reduced-motion: reduce)\` block that disables or simplifies animations (e.g. \`animation: none; transition: none; scroll-behavior: auto;\`).
+
+## Database
+
+Studio sites use **SQLite**, not MySQL. The database file is at \`<site-path>/wp-content/database/.ht.sqlite\`. Key implications:
+
+- \`wp db query\` and other \`wp db\` subcommands do **not** work — they expect a MySQL connection that does not exist.
+- Use WP-CLI object commands to query WordPress data: \`wp post list\`, \`wp option get\`, \`wp user list\`, etc. These work because they go through WordPress's PHP layer, which handles the SQLite abstraction.
+- **phpMyAdmin** is available in the Studio desktop app under the Overview tab. Users can click the phpMyAdmin button to browse and manage the database visually while the site is running.
+- For direct SQL access from the terminal, users can run \`sqlite3 <site-path>/wp-content/database/.ht.sqlite\` (\`sqlite3\` is pre-installed on macOS). Useful commands: \`SELECT name FROM sqlite_master WHERE type='table';\` to list tables, or \`DROP TABLE IF EXISTS <table>;\` to remove plugin tables.
 
 ## Pull & Push (sync with WordPress.com or Pressable)
 
@@ -223,6 +234,8 @@ const REMOTE_DESIGN_GUIDELINES = `## Design capabilities by plan
 **Paid plans** (Personal, Premium, Business, eCommerce) — progressively more control:
 - Custom CSS, global styles, plugin management, and advanced customization become available.
 - Check the specific plan to determine exact capabilities.`;
+
+const PLAN_DATA_GUARDRAIL = `For ANY question about WordPress.com or Pressable plans, pricing, upgrades, or what a plan tier includes (plugins, themes, custom code, SSH, hosting, storage, etc.), you MUST load the \`hosting-plans-helper\` skill and answer only from the data it fetches. Do NOT answer from memory: your training knowledge of plan names, prices, and feature-tier gating is stale and frequently wrong. In particular, do not claim a tier lacks a feature (e.g. that Personal or Premium cannot install plugins) based on memory — check the fetched per-tier feature list, which is the only source of truth. If you cannot fetch the data, say you cannot verify current plan details and point the user to https://wordpress.com/pricing; never guess.`;
 
 const LOCAL_SKILL_ROUTING = `## Skill routing
 

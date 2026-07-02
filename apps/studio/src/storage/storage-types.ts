@@ -1,5 +1,6 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import type { AiSessionSitePlacement } from '@studio/common/ai/sessions/placement';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -10,22 +11,18 @@ export interface WindowBounds {
 	isFullScreen?: boolean;
 }
 
+export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
+
 export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
 	siteIconPath?: SiteDetails[ 'siteIconPath' ];
 	sortOrder?: number;
+	autoStart?: boolean;
 	// The last runtime stat counted for this site, and when (Unix ms). Dedupes
 	// the daily per-site runtime bump so restarts don't inflate it, while still
 	// re-counting when the day rolls over or the runtime/file-access choice changes.
 	runtimeStatBumpedAt?: number;
 	runtimeStat?: string;
-}
-
-export interface AiSessionSitePlacement {
-	kind: 'site';
-	siteId: string;
-	sitePath: string;
-	siteName: string;
 }
 
 export interface NightlyPromptResult {
@@ -47,7 +44,7 @@ export interface UserData {
 	preferredEditor?: SupportedEditor;
 	colorScheme?: 'system' | 'light' | 'dark';
 	betaFeatures?: BetaFeatures;
-	stopSitesOnQuit?: boolean;
+	quitSitesBehavior?: QuitSitesBehavior;
 	defaultSiteDirectory?: string;
 	/** @deprecated Used only for migration to cliUserUninstalled. Do not write; remove after one release cycle. */
 	cliAutoInstalled?: boolean;

@@ -38,7 +38,11 @@ import {
 	getPhpMyAdminSessionPath,
 	writeNativePhpMyAdminWpEnv,
 } from './lib/native-php/phpmyadmin';
-import { ensureWpConfig, installWordPress } from './lib/native-php/site-setup';
+import {
+	ensureWpConfig,
+	installWordPress,
+	writeSiteUrlPrependFile,
+} from './lib/native-php/site-setup';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
@@ -449,33 +453,48 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
+	// Sites imported by `studio pull-reprint` arrive with WordPress already
+	// installed and a database already in place; reprint's auto_prepend_file
+	// owns their constants and SQLite wiring. So we skip wp-config rewriting,
+	// the WordPress installer, and Blueprint execution — running any of them
+	// against the imported database would be wrong — and just write Studio's
+	// mu-plugins before starting the workers.
+	const isImportedSite = Boolean( config.autoPrependFile );
+
 	try {
 		stopSignal.throwIfAborted();
-		await ensureWpConfig(
-			config.sitePath,
-			phpVersion,
-			stopSignal,
-			WP_CONFIG_TRANSFORMER_PATH,
-			config
-		);
-		stopSignal.throwIfAborted();
+
+		if ( ! isImportedSite ) {
+			await ensureWpConfig(
+				config.sitePath,
+				phpVersion,
+				stopSignal,
+				WP_CONFIG_TRANSFORMER_PATH,
+				config
+			);
+			stopSignal.throwIfAborted();
+		}
+
 		const muPluginsPath = await writeStudioMuPluginsForNativePhpRuntime(
 			config.sitePath,
 			config.isWpAutoUpdating
 		);
 		stopSignal.throwIfAborted();
-		await installWordPress(
-			config,
-			phpVersion,
-			stopSignal,
-			SET_DEFAULT_PERMALINKS_PATH,
-			logToConsole
-		);
-		stopSignal.throwIfAborted();
 
-		if ( config.blueprint ) {
-			await runBlueprint( config, config.blueprint, phpVersion, stopSignal );
+		if ( ! isImportedSite ) {
+			await installWordPress(
+				config,
+				phpVersion,
+				stopSignal,
+				SET_DEFAULT_PERMALINKS_PATH,
+				logToConsole
+			);
 			stopSignal.throwIfAborted();
+
+			if ( config.blueprint ) {
+				await runBlueprint( config, config.blueprint, phpVersion, stopSignal );
+				stopSignal.throwIfAborted();
+			}
 		}
 
 		// With "all files" access the allowlist stays empty, which disables
@@ -494,7 +513,11 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			currentOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
 			currentOpenBasedirAllowlist.add( muPluginsPath );
 			currentOpenBasedirAllowlist.add( os.tmpdir() );
+			if ( config.autoPrependFile ) {
+				currentOpenBasedirAllowlist.add( path.dirname( config.autoPrependFile ) );
+			}
 			symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
+			config.openBasedirAllowList?.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
 		}
 
 		runningConfig = config;
@@ -537,6 +560,8 @@ async function doStartServer(
 
 	try {
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
+		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
+		const autoPrependFile = writeSiteUrlPrependFile( siteUrl, config.autoPrependFile );
 		const workerPorts: number[] = [];
 		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
 			workerPorts.push( await getAvailablePort() );
@@ -563,6 +588,7 @@ async function doStartServer(
 				onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
 				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
+				autoPrependFile,
 			} );
 			spawnedChildren.push( serverChild );
 

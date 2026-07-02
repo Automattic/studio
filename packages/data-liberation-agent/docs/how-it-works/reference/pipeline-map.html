@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline Map · Data Liberation</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Pipeline Map</span>
+  <span>Reference · prints on one page</span>
+</div>
+
+<div class="wide">
+<h1>Pipeline Map</h1>
+<p class="subtitle">The whole flow on one page. Pin it up.</p>
+
+<div class="det-legend">
+  <span><span class="dbadge det">D</span> deterministic</span>
+  <span><span class="dbadge jud">J</span> judgment (agent/skill)</span>
+  <span><span class="dbadge mix">M</span> mixed</span>
+  <span>— full rationale on the <a href="determinism-map.html">Determinism Map →</a></span>
+</div>
+
+<h2>Phase 1 — Extraction (persisted as <code>ImportStage</code>)</h2>
+<p class="small">Extraction is measurement — almost entirely <span class="dbadge det">D</span>.</p>
+<pre><code>initial → discovering → extracting → downloading-media → screenshotting → finalizing → complete
+                                                                              (error from any stage)</code></pre>
+<div class="flow">
+  <div class="flow-stage"><span class="flow-badge">detect</span><div class="flow-body"><span class="dbadge det">D</span> platform fingerprint → id <span class="artifact">(adapter recorded in session.json)</span></div></div>
+  <div class="flow-stage"><span class="flow-badge">disc.</span><div class="flow-body"><span class="dbadge det">D</span> adapter.discover → URL inventory, nav, archetypes</div></div>
+  <div class="flow-stage"><span class="flow-badge">extract</span><div class="flow-body"><span class="dbadge det">D</span> adapter.extract per-URL → <span class="artifact">output.wxr · extraction-log.jsonl · products.jsonl · media-stubs.json</span></div></div>
+  <div class="flow-stage"><span class="flow-badge">media</span><div class="flow-body"><span class="dbadge det">D</span> media-fetch download+dedupe (SVG→safe-svg/raster) → <span class="artifact">media files</span></div></div>
+  <div class="flow-stage"><span class="flow-badge">shots</span><div class="flow-body"><span class="dbadge det">D</span> extractFull on settled page → <span class="artifact">screenshots/ · html/ · sections/&lt;slug&gt;.json · palette/typography/breakpoints.json · manifest.json</span></div></div>
+</div>
+<p class="note"><span class="dbadge jud">J</span> The path-choice gate (blocks vs carry vs theme) is decided by the operator/agent right after discovery — a decision that <em>configures</em> the pipeline, not a stage in it.</p>
+
+<h2>Streaming orchestration · the seam (live, <code>WatchPhase</code> — not persisted)</h2>
+<pre><code>resolving-agent → resetting → detecting → discovering → extracting
+   → starting-preview → tick-drain → invoking-judgments → done   (+ error)
+                              │
+                              └─ tick-scheduler emits judgmentNeeded[]  ← the agent/skill seam</code></pre>
+<p class="small"><span class="dbadge jud">J</span> <code>judgmentNeeded[]</code> is the line where deterministic code hands reasoning to the agent (cluster reps, parity, compose).</p>
+
+<h2>Phase 2 — Reconstruction (three paths)</h2>
+<p class="small">The <em>emit</em> is <span class="dbadge det">D</span>; <em>what to emit &amp; whether it's good</em> is <span class="dbadge jud">J</span>.</p>
+<table>
+  <thead><tr><th>Path</th><th>Tool</th><th>Output</th></tr></thead>
+  <tbody>
+    <tr><td><span class="dbadge det">D</span> Blocks</td><td><code>liberate_reconstruct_pages</code></td><td>native Gutenberg blocks from section specs</td></tr>
+    <tr><td><span class="dbadge det">D</span> Carry</td><td><code>liberate_reconstruct_pages_carry</code></td><td>verbatim HTML + scoped CSS in core/html islands, <code>&lt;slug&gt;-carry</code> theme</td></tr>
+    <tr><td><span class="dbadge det">D</span> Theme/local</td><td><code>liberate_convert_local_site</code></td><td>owned local dir → live block theme (no network)</td></tr>
+  </tbody>
+</table>
+<p>Theme shell under all paths (<span class="dbadge det">D</span>): <code>liberate_theme_scaffold</code> → <code>liberate_install_theme</code>.
+Native core delegates to engine <code>reconstructNativeAggregate</code> (single-sourced in <code>@automattic/blocks-engine</code>).</p>
+<table>
+  <thead><tr><th></th><th>Reconstruction judgment steps</th></tr></thead>
+  <tbody>
+    <tr><td><span class="dbadge jud">J</span></td><td>cluster representative selection · parity / refine · asset triage (vision) · data-model analysis (local)</td></tr>
+    <tr><td><span class="dbadge mix">M</span></td><td>design foundation (scaffold/validate = D, role-naming = J)</td></tr>
+  </tbody>
+</table>
+
+<h2>Resume-state stores (capture-once)</h2>
+<table>
+  <thead><tr><th>File</th><th>Owns</th><th>Crash-safety</th></tr></thead>
+  <tbody>
+    <tr><td><code>extraction-log.jsonl</code></td><td>URL dedupe (source of truth)</td><td>append-only</td></tr>
+    <tr><td><code>session.json</code></td><td>stage, opts, counts, cursors</td><td>atomic rename (+ <code>.corrupt.&lt;ts&gt;</code>)</td></tr>
+    <tr><td><code>media-stubs.json</code></td><td>asset status + wpPostId</td><td>status + retry cap (3)</td></tr>
+    <tr><td><code>products.jsonl</code></td><td>Woo products (one/line)</td><td>append (resume:true)</td></tr>
+    <tr><td><code>sections/&lt;slug&gt;.json</code></td><td>SectionSpec cache + census</td><td>atomic, independent (no lockfile)</td></tr>
+  </tbody>
+</table>
+
+<h2>Quality signals</h2>
+<table>
+  <thead><tr><th>Kind</th><th>Artifact / constant</th><th>Question</th></tr></thead>
+  <tbody>
+    <tr><td>Gate</td><td><code>PARITY_GATE_SCORE = 0.995</code></td><td>does it match the source?</td></tr>
+    <tr><td>Gate</td><td><code>validate_artifacts</code> / block-parser oracle</td><td>does the markup parse?</td></tr>
+    <tr><td>Diag</td><td><code>comparison.json</code> v2 (height, magenta=content-gap, ratio>0.02)</td><td>where's the visual gap?</td></tr>
+    <tr><td>Diag</td><td><code>fallback-diagnostics.json</code></td><td>why did this section fall back?</td></tr>
+    <tr><td>Diag</td><td><code>region-audit.json</code></td><td>did every landmark survive?</td></tr>
+    <tr><td>Diag</td><td><code>asset-triage.json</code></td><td>keep or decoration?</td></tr>
+    <tr><td>Loss</td><td><code>liberate_qa</code> / content-differ</td><td>what didn't make it in? (loss, not hallucination)</td></tr>
+  </tbody>
+</table>
+
+<p>Output base: <code>~/Studio/_liberations/&lt;host&gt;</code> (resolve via <code>liberate_paths</code>).</p>
+
+<div class="lesson-nav">
+  <a href="determinism-map.html">← Determinism map</a>
+  <a href="file-map.html">File map →</a>
+</div>
+</div>
+</body>
+</html>

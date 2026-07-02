@@ -1,14 +1,24 @@
 /**
- * Runs reprint.phar in a PHP WASM child process.
+ * Runs reprint.phar with the PHP runtime selected by `STUDIO_RUNTIME`.
  *
- * Re-runs the command while they exit with code 2 (partial) until
- * they exit with either code 0 (success) or code 1 (error).
- *
+ * reprint.phar is plain PHP, so any PHP runtime can execute it. The
+ * `playground` runtime runs it inside a PHP WASM child process; the
+ * `native-php` runtime spawns the bundled native `php` binary directly.
+ * Either way the command is re-run while it exits with code 2 (partial)
+ * until it exits with code 0 (success) or code 1 (error).
  */
 import { ChildProcess, fork } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import {
+	resolveNativePhpVersion,
+	type NativePhpSupportedVersion,
+} from '@studio/common/lib/php-binary-metadata';
+import { SITE_RUNTIME_NATIVE_PHP, SiteRuntime } from '@studio/common/lib/site-runtime';
 import { getReprintPharPath } from 'cli/lib/dependency-management/paths';
+import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
+import { reapPhpTreeOnInterrupt, spawnPhpProcess } from 'cli/lib/native-php/php-process';
 
 export interface ReprintProcessResult {
 	stdout: string;
@@ -26,13 +36,14 @@ function getBundledReprintPhar(): string {
 }
 
 /**
- * Runs a reprint.phar command in a PHP WASM child process, automatically
- * retrying on partial completion.
+ * Runs a reprint.phar command with the runtime selected by `STUDIO_RUNTIME`,
+ * automatically retrying on partial completion.
  *
- * Reprint commands exit with code 2 when they've made progress but need
- * another pass (e.g., large file downloads that stream in chunks). This
- * function loops until the command exits with 0 (success) or throws on
- * exit code 1 (error).
+ * The `playground` runtime runs reprint inside a PHP WASM child process; the
+ * `native-php` runtime spawns the bundled native `php` binary. Reprint
+ * commands exit with code 2 when they've made progress but need another pass
+ * (e.g., large file downloads that stream in chunks). This function loops
+ * until the command exits with 0 (success) or throws on exit code 1 (error).
  */
 export async function runReprintCommandUntilComplete(
 	stateDir: string,
@@ -43,11 +54,22 @@ export async function runReprintCommandUntilComplete(
 		mounts?: Array< { hostPath: string; vfsPath: string } >;
 		progressLabel?: string;
 		verboseCommands?: boolean;
+		runtime?: SiteRuntime;
 	} = {}
 ): Promise< ReprintProcessResult > {
 	const pharPath = getBundledReprintPhar();
 	const tmpDir = path.join( path.dirname( stateDir ), 'tmp' );
 	fs.mkdirSync( tmpDir, { recursive: true } );
+
+	// The native runtime spawns the bundled `php` binary, so make sure it's
+	// downloaded before the first invocation. reprint.phar is PHP-version
+	// agnostic, so any supported native version works.
+	const runtime = options.runtime ?? SITE_RUNTIME_NATIVE_PHP;
+	let nativePhpVersion: NativePhpSupportedVersion | undefined;
+	if ( runtime === SITE_RUNTIME_NATIVE_PHP ) {
+		nativePhpVersion = resolveNativePhpVersion( DEFAULT_PHP_VERSION );
+		await ensurePhpBinaryAvailable( nativePhpVersion );
+	}
 
 	const label = options.progressLabel ?? args[ 0 ] ?? 'Working';
 	const startTime = Date.now();
@@ -58,15 +80,18 @@ export async function runReprintCommandUntilComplete(
 
 	try {
 		do {
-			lastResult = await runReprintCommand(
-				pharPath,
-				stateDir,
-				fsRoot,
-				tmpDir,
-				args,
-				options,
-				progress
-			);
+			lastResult =
+				runtime === SITE_RUNTIME_NATIVE_PHP
+					? await runReprintCommandNative( pharPath, nativePhpVersion!, args, options, progress )
+					: await runReprintCommandWasm(
+							pharPath,
+							stateDir,
+							fsRoot,
+							tmpDir,
+							args,
+							options,
+							progress
+					  );
 
 			if ( lastResult.exitCode === 1 ) {
 				const details = [ lastResult.stderr, lastResult.stdout ].filter( Boolean ).join( '\n' );
@@ -94,7 +119,7 @@ export async function runReprintCommandUntilComplete(
  * or `error` message. SIGINT is forwarded to the child so Ctrl-C
  * terminates cleanly.
  */
-async function runReprintCommand(
+async function runReprintCommandWasm(
 	pharPath: string,
 	stateDir: string,
 	fsRoot: string,
@@ -206,6 +231,96 @@ async function runReprintCommand(
 			args,
 			mounts: options.mounts ?? [],
 		} );
+	} );
+}
+
+/**
+ * Executes a single reprint.phar invocation with the bundled native `php`
+ * binary.
+ *
+ * Unlike the WASM path, native PHP has direct access to the host filesystem,
+ * so the `--state-dir`, `--fs-root`, and mount paths reprint receives are real
+ * paths it can read and write without any VFS mounting — the `mounts` option
+ * is therefore unused here. The CA bundle, memory_limit, and proxy settings
+ * come from the native `php.ini`/`process.env`, matching how Studio runs the
+ * native site server.
+ *
+ * reprint emits thousands of JSON-L progress lines on stdout and can emit
+ * megabytes of PHP warnings on stderr, so the child is spawned in `capture`
+ * mode (neither stream is forwarded to this process's stdout/stderr). We feed
+ * stdout into the shared progress reporter and keep only the last stdout line
+ * (the result envelope) plus the stderr tail for diagnostics.
+ */
+async function runReprintCommandNative(
+	pharPath: string,
+	phpVersion: NativePhpSupportedVersion,
+	args: string[],
+	options: { verboseCommands?: boolean },
+	progress: ProgressReporter
+): Promise< ReprintProcessResult > {
+	if ( options.verboseCommands ) {
+		console.error(
+			`[reprint] php reprint.phar ${ args.join( ' ' ) } (native-php ${ phpVersion })`
+		);
+	}
+
+	return await new Promise< ReprintProcessResult >( ( resolve, reject ) => {
+		const child = spawnPhpProcess( [ pharPath, ...args ], {
+			phpVersion,
+			mode: 'no-pipe',
+		} );
+
+		let settled = false;
+		let lastStdoutLine = '';
+		let stdoutRemainder = '';
+		const STDERR_TAIL_BYTES = 256 * 1024;
+		let stderrTail = '';
+
+		const removeInterruptHandlers = reapPhpTreeOnInterrupt( child );
+
+		const finish = ( fn: () => void ) => {
+			if ( settled ) {
+				return;
+			}
+			settled = true;
+			removeInterruptHandlers();
+			progress.flush();
+			fn();
+		};
+
+		child.stdout?.on( 'data', ( chunk: Buffer ) => {
+			const text = chunk.toString();
+			progress.pushStdoutChunk( text );
+
+			const combined = stdoutRemainder + text;
+			const lines = combined.split( '\n' );
+			stdoutRemainder = lines.pop() ?? '';
+			for ( let i = lines.length - 1; i >= 0; i-- ) {
+				if ( lines[ i ].trim() ) {
+					lastStdoutLine = lines[ i ];
+					break;
+				}
+			}
+		} );
+
+		child.stderr?.on( 'data', ( chunk: Buffer ) => {
+			stderrTail += chunk.toString();
+			if ( stderrTail.length > STDERR_TAIL_BYTES ) {
+				stderrTail = stderrTail.slice( stderrTail.length - STDERR_TAIL_BYTES );
+			}
+		} );
+
+		child.once( 'error', ( err ) => finish( () => reject( err ) ) );
+
+		child.once( 'close', ( code ) =>
+			finish( () =>
+				resolve( {
+					stdout: stdoutRemainder.trim() || lastStdoutLine,
+					stderr: stderrTail,
+					exitCode: code ?? 1,
+				} )
+			)
+		);
 	} );
 }
 

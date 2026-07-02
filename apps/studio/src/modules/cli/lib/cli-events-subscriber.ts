@@ -15,13 +15,14 @@ import { SiteServer } from 'src/site-server';
 
 // Fields owned by Studio that the CLI never emits and that must survive a
 // site-event merge (TLS material, renderer-computed theme info, sort order,
-// transient runtime flags).
+// auto-start preference, transient runtime flags).
 const STUDIO_ONLY_DETAIL_KEYS = [
 	'tlsKey',
 	'tlsCert',
 	'themeDetails',
 	'siteIconPath',
 	'sortOrder',
+	'autoStart',
 	'isAddingSite',
 	'latestCliPid',
 ] as const satisfies readonly ( keyof SiteServer[ 'details' ] )[];
@@ -82,6 +83,8 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		void sendIpcEventToRenderer( 'site-event', event );
 		if ( running ) {
 			void captureSiteThumbnail( siteId );
+			// A freshly created site that's running should auto-start on the next Studio launch.
+			await SiteServer.get( siteId )?.persistAutoStart( true );
 		}
 		return;
 	}
@@ -106,6 +109,10 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		void captureSiteThumbnail( siteId );
 		await server.getThemeDetails();
 		await server.getSiteIcon();
+		// Mirror "is running" into the Studio-owned autoStart flag so the site resumes next launch.
+		await server.persistAutoStart( true );
+	} else if ( ! wasNotRunning && ! running ) {
+		await server.persistAutoStart( false );
 	}
 } );
 

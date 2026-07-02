@@ -28,6 +28,12 @@ export default class SettingsTab {
 		return this.page.getByRole( 'menuitem', { name: 'Delete site' } );
 	}
 
+	get duplicateButton() {
+		// Rendered at the document root like the delete menu item, so search from
+		// the page rather than the settings tabpanel.
+		return this.page.getByRole( 'menuitem', { name: 'Duplicate site' } );
+	}
+
 	get optionsMenu() {
 		return this.locator.getByRole( 'button', { name: 'More options' } );
 	}
@@ -45,6 +51,11 @@ export default class SettingsTab {
 	async openDeleteSiteModal() {
 		await this.optionsMenu.click();
 		await this.deleteButton.click();
+	}
+
+	async openDuplicateSite() {
+		await this.optionsMenu.click();
+		await this.duplicateButton.click();
 	}
 
 	get editSiteButton() {
@@ -73,6 +84,12 @@ export default class SettingsTab {
 	 */
 	get phpVersionDisplay() {
 		return this.locator.getByRole( 'row', { name: /PHP version/i } );
+	}
+
+	// Read-only "PHP runtime" row on the Settings tab body. Reports "Native" or
+	// "Sandbox" for the site's configured runtime.
+	get phpRuntimeDisplay() {
+		return this.locator.getByRole( 'row', { name: /PHP runtime/i } );
 	}
 
 	get saveButton() {

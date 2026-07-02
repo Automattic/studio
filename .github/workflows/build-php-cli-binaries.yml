@@ -175,6 +175,8 @@ jobs:
           )
           build_args=(
             "$static_extensions"
+            # Give gd JPEG/WebP image support and FreeType (TrueType text).
+            --with-libs=freetype,libjpeg,libwebp
             --build-shared=xdebug
             --build-cli
           )
@@ -544,7 +546,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@89f90524b88a01fe6e0b732220432cc6142926af # v1.313.0
+        uses: ruby/setup-ruby@9eb537ca036ebaed86729dcb9309076e4c5c3b74 # v1.314.0
         with:
           bundler-cache: true
 
@@ -599,7 +601,7 @@ jobs:
             --version "${PHP_VERSION}" \
             --upload-results "${PWD}/out/php-binaries/apps-cdn-upload-results.json"
 
-          if git diff --quiet -- tools/common/lib/php-binary-cdn-metadata.json; then
+          if git diff --quiet -- packages/common/lib/php-binary-cdn-metadata.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -617,7 +619,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add tools/common/lib/php-binary-cdn-metadata.json
+          git add packages/common/lib/php-binary-cdn-metadata.json
           git commit -m "Update PHP ${PHP_VERSION} binary metadata"
           git push --set-upstream origin "$branch"
           gh pr create \

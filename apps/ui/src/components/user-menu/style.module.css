@@ -1,8 +1,17 @@
 /* Pinning to the sidebar bottom is handled by the layout's
    `sidebarFooter` wrapper. */
 .root {
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl)
-		var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-2xl);
+	--user-menu-leading-offset: calc(
+		var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)
+	);
+	--user-menu-trailing-offset: calc(
+		var(--wpds-dimension-padding-2xl) - var(--wpds-dimension-padding-xs)
+	);
+
+	/* SidebarButton adds `sm` inline padding; this offset puts the gravatar's
+	   left edge on the same column as the site icons. */
+	padding: var(--wpds-dimension-padding-sm) var(--user-menu-trailing-offset)
+		var(--wpds-dimension-padding-xl) var(--user-menu-leading-offset);
 }
 
 .row {
@@ -17,6 +26,10 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
+.themeToggle {
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+}
+
 .row:hover .userName,
 .row:hover .themeToggle,
 .row:hover .settingsButton,
@@ -27,8 +40,12 @@
 }
 
 .userTrigger {
+	--user-menu-avatar-offset: 2px;
+
 	flex: 1;
 	font-weight: var(--wpds-typography-font-weight-regular);
+	gap: calc(var(--wpds-dimension-gap-sm) + var(--user-menu-avatar-offset));
+	padding-inline-start: calc(var(--wpds-dimension-padding-sm) - var(--user-menu-avatar-offset));
 }
 
 .userName {

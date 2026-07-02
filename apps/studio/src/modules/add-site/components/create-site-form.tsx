@@ -37,7 +37,7 @@ import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
-import { FileAccessDescription } from 'src/lib/site-runtime-copy';
+import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
@@ -543,9 +543,7 @@ export const CreateSiteForm = ( {
 											__nextHasNoMarginBottom
 										/>
 										<span className="text-frame-text-secondary text-xs">
-											{ selectedRuntime === SITE_RUNTIME_NATIVE_PHP
-												? __( 'Runs the site with native PHP for the best performance.' )
-												: __( 'Runs the site in an isolated WordPress Playground sandbox.' ) }
+											<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
 										</span>
 									</div>
 

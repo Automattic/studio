@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { type SiteRuntime } from '@studio/common/lib/site-runtime';
 
 export default class SiteForm {
 	private page: Page;
@@ -18,12 +19,31 @@ export default class SiteForm {
 		return this.page.getByTestId( 'local-path-input' );
 	}
 
+	get phpRuntimeSelect() {
+		return this.page.locator( '#php-runtime-select' );
+	}
+
 	private get localPathButton() {
 		return this.page.getByTestId( 'select-path-button' );
 	}
 
 	private get advancedSettingsToggle() {
 		return this.page.getByTestId( 'advanced-settings-button' );
+	}
+
+	// The runtime/file-access controls live inside the collapsed "Advanced
+	// settings" section. Expanding is idempotent: only toggle when the runtime
+	// dropdown isn't already revealed.
+	async openAdvancedSettings() {
+		if ( ! ( await this.phpRuntimeSelect.isVisible().catch( () => false ) ) ) {
+			await this.advancedSettingsToggle.click();
+			await expect( this.phpRuntimeSelect ).toBeVisible();
+		}
+	}
+
+	async selectRuntime( runtime: SiteRuntime ) {
+		await this.openAdvancedSettings();
+		await this.phpRuntimeSelect.selectOption( runtime );
 	}
 
 	// This usually opens an OS folder dialog, except we can't interact with it in Playwright.

@@ -17,18 +17,28 @@ if ( ! commitCount && commitCount !== 0 ) {
 	throw new Error( 'Missing commit count' );
 }
 
-// Use version from latestTag (strip leading 'v' if present)
-const tagVersion = latestTag.startsWith( 'v' ) ? latestTag.slice( 1 ) : latestTag;
-const parsedVersion = semver.parse( tagVersion );
-if ( ! parsedVersion ) {
-	throw new Error( `Invalid version in latestTag: ${ latestTag }` );
+// Build a dev version targeting the next minor release (major.(minor+1).0-devN) from a base
+// version, so trunk builds sort above any stable or beta of that base. Strips a leading 'v'.
+function toDevVersion( baseVersion, source ) {
+	const parsed = semver.parse(
+		baseVersion.startsWith( 'v' ) ? baseVersion.slice( 1 ) : baseVersion
+	);
+	if ( ! parsed ) {
+		throw new Error( `Invalid version in ${ source }: ${ baseVersion }` );
+	}
+	return `${ parsed.major }.${ parsed.minor + 1 }.0-dev${ commitCount }`;
 }
 
-// Create dev version targeting the next minor release (major.minor+1.0-devN),
-// so trunk builds sort above any stable or beta of the last release.
-const devVersion = `${ parsedVersion.major }.${ parsedVersion.minor + 1 }.0-dev${ commitCount }`;
-
-packageJson.version = devVersion;
-
+// Desktop app: based on the latest release tag.
+packageJson.version = toDevVersion( latestTag, 'latestTag' );
 const packageJsonPath = path.resolve( 'apps', 'studio', 'package.json' );
 await fs.writeFile( packageJsonPath, JSON.stringify( packageJson, null, '\t' ) + '\n' );
+
+// Standalone CLI: based on its OWN current version — the CLI and app aren't guaranteed to share a
+// version line. Its baked `__STUDIO_CLI_VERSION__` drives the update channel (a `-devN` version →
+// nightly); without this a nightly bundle reports the static base version, looks like production
+// to the update endpoint, and never sees nightly updates.
+const cliPackageJsonPath = path.resolve( 'apps', 'cli', 'package.json' );
+const cliPackageJson = JSON.parse( await fs.readFile( cliPackageJsonPath, 'utf8' ) );
+cliPackageJson.version = toDevVersion( cliPackageJson.version, 'apps/cli/package.json' );
+await fs.writeFile( cliPackageJsonPath, JSON.stringify( cliPackageJson, null, '\t' ) + '\n' );

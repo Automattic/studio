@@ -51,13 +51,16 @@ test.describe( 'Import', () => {
 		const modal = await sidebar.openAddSiteModal();
 
 		await expect( modal.importButton ).toBeVisible();
-		await modal.importButton.click();
 
+		// The import option is a drop-zone card with a hidden <input type="file">.
+		// Setting the file directly fires its change handler and auto-advances to the
+		// backup-create step; clicking the card would open the native OS file dialog,
+		// which Playwright can't interact with.
 		await modal.selectBackupFile( backupPath );
 
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
-
+		// Selecting the backup auto-advances to the create-site form (reused for
+		// imports), pre-filled with a default name. Set our name and submit — that
+		// submit starts the import; there is no separate "continue" step anymore.
 		await modal.siteNameInput.fill( siteName );
 		await modal.addSiteButton.click();
 

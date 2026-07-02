@@ -10,6 +10,13 @@
  * WP::parse_request() can resolve it against the rewrite rules.
  */
 
+// PHP <= 8.3's built-in server doesn't apply auto_prepend_file to the router
+// script (PHP bug #64566; fixed in 8.4), so apply it ourselves.
+$studio_auto_prepend = ini_get( 'auto_prepend_file' );
+if ( $studio_auto_prepend && is_file( $studio_auto_prepend ) ) {
+	require_once $studio_auto_prepend;
+}
+
 $root = realpath( $_SERVER['DOCUMENT_ROOT'] ?? '' ) ?: getcwd();
 $path = urldecode( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) );
 $file = $root . $path;
@@ -100,9 +107,20 @@ if (
 	return true;
 }
 
-// Existing file (static asset or PHP script): let the built-in server handle it.
+// Existing file: require PHP scripts ourselves, serve static assets via the
+// server. Returning false for PHP would run it as a second script, firing
+// auto_prepend_file (runtime.php) twice and redeclaring its classes.
 if ( '/' !== $path && is_file( $file ) ) {
-	return false;
+	if ( 'php' !== strtolower( pathinfo( $file, PATHINFO_EXTENSION ) ) ) {
+		return false;
+	}
+
+	$_SERVER['SCRIPT_NAME']     = $path;
+	$_SERVER['PHP_SELF']        = $path;
+	$_SERVER['SCRIPT_FILENAME'] = $file;
+	chdir( dirname( $file ) );
+	require $file;
+	return true;
 }
 
 // Existing directory with an index.php: dispatch to that script.

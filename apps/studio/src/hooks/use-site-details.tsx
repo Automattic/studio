@@ -40,7 +40,11 @@ interface SiteDetailsContext {
 		fileAccess?: SiteFileAccess
 	) => Promise< SiteDetails | void >;
 	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
-	startServer: ( site: SiteDetails ) => Promise< void >;
+	startServer: (
+		site: SiteDetails,
+		options?: { suppressCapacityModal?: boolean }
+	) => Promise< { capacityLimitReached: boolean } >;
+	startServers: ( sites: SiteDetails[] ) => Promise< void >;
 	stopServer: ( id: string ) => Promise< void >;
 	stopAllRunningSites: () => Promise< void >;
 	startAllStoppedSites: () => Promise< void >;
@@ -67,7 +71,8 @@ const defaultContext: SiteDetailsContext = {
 	setSelectedSiteId: () => undefined,
 	createSite: async () => undefined,
 	copySite: async () => undefined,
-	startServer: async () => undefined,
+	startServer: async () => ( { capacityLimitReached: false } ),
+	startServers: async () => undefined,
 	stopServer: async () => undefined,
 	stopAllRunningSites: async () => undefined,
 	startAllStoppedSites: async () => undefined,
@@ -181,13 +186,32 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			newSites[ existingIndex ] = { ...newSites[ existingIndex ], ...siteDetails };
 			return newSites;
 		} );
+
+		// Clear loading state atomically with the running state update above so
+		// the UI never sees loading=true with a stale running value.
+		if ( eventType === SITE_EVENTS.UPDATED ) {
+			setLoadingServer( ( prev ) => {
+				if ( ! prev[ siteId ] ) {
+					return prev;
+				}
+				const { [ siteId ]: _, ...rest } = prev;
+				return rest;
+			} );
+		}
 	} );
 
-	const toggleLoadingServerForSite = useCallback( ( siteId: string ) => {
-		setLoadingServer( ( currentLoading ) => ( {
-			...currentLoading,
-			[ siteId ]: ! currentLoading[ siteId ] || false,
-		} ) );
+	const startLoadingForSite = useCallback( ( siteId: string ) => {
+		setLoadingServer( ( prev ) => ( { ...prev, [ siteId ]: true } ) );
+	}, [] );
+
+	const clearLoadingForSite = useCallback( ( siteId: string ) => {
+		setLoadingServer( ( prev ) => {
+			if ( ! prev[ siteId ] ) {
+				return prev;
+			}
+			const { [ siteId ]: _, ...rest } = prev;
+			return rest;
+		} );
 	}, [] );
 
 	const onDeleteSite = useCallback(
@@ -404,69 +428,114 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 	}, [] );
 
 	const startServer = useCallback(
-		async ( site: SiteDetails ) => {
+		async (
+			site: SiteDetails,
+			options?: { suppressCapacityModal?: boolean }
+		): Promise< { capacityLimitReached: boolean } > => {
 			const { id, name: siteName } = site;
-			toggleLoadingServerForSite( id );
+			startLoadingForSite( id );
+			let capacityLimitReached = false;
 
 			try {
-				await getIpcApi().startServer( id );
-			} catch ( error ) {
-				if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
-						message: __(
-							'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of these ports are already in use by another app. Close any local development apps and restart Studio.'
-						),
-						showOpenLogs: false,
-					} );
-				} else if (
-					error instanceof Error &&
-					error.message.includes( 'PROXY_ERROR_START_FAILED' )
-				) {
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
-						message: __(
-							'Please restart Studio and try again. If this problem persists, please contact support.'
-						),
-						showOpenLogs: true,
-					} );
-				} else if (
-					error instanceof Error &&
-					error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
-				) {
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Not enough memory to start '%s'" ), siteName ),
-						message: __(
-							'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
-						),
-						showOpenLogs: true,
-					} );
-				} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
-					const port = error.message.match( /\d+/ );
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Failed to start '%s'" ), siteName ),
-						message: __(
-							`The site server failed to start because the port is already in use. Please close any local development apps that may be using port ${ port } and try again.`
-						),
-						showOpenLogs: false,
-					} );
-				} else {
-					const errorToShow = simplifyErrorForDisplay( error );
-					getIpcApi().showErrorMessageBox( {
-						title: sprintf( __( "Failed to start '%s'" ), siteName ),
-						message: __(
-							"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
-						),
-						error: errorToShow,
-						showOpenLogs: true,
-					} );
+				try {
+					await getIpcApi().startServer( id );
+				} catch ( error ) {
+					if ( error instanceof Error && error.message.includes( 'PROXY_ERROR_PORT_IN_USE' ) ) {
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
+							message: __(
+								'Studio needs to use port 80 and 443 to enable custom domains and SSL, but one of these ports are already in use by another app. Close any local development apps and restart Studio.'
+							),
+							showOpenLogs: false,
+						} );
+					} else if (
+						error instanceof Error &&
+						error.message.includes( 'PROXY_ERROR_START_FAILED' )
+					) {
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "Failed to initialize custom domains for '%s'" ), siteName ),
+							message: __(
+								'Please restart Studio and try again. If this problem persists, please contact support.'
+							),
+							showOpenLogs: true,
+						} );
+					} else if (
+						error instanceof Error &&
+						error.message.includes( 'WASM_ERROR_NOT_ENOUGH_MEMORY' )
+					) {
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "Not enough memory to start '%s'" ), siteName ),
+							message: __(
+								'Please stop some of your running sites first. If this problem persists, try closing other apps that might be using memory and try again.'
+							),
+							showOpenLogs: true,
+						} );
+					} else if ( error instanceof Error && error.message.includes( 'ERROR_PORT_IN_USE' ) ) {
+						const port = error.message.match( /\d+/ );
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "Failed to start '%s'" ), siteName ),
+							message: __(
+								`The site server failed to start because the port is already in use. Please close any local development apps that may be using port ${ port } and try again.`
+							),
+							showOpenLogs: false,
+						} );
+					} else if (
+						error instanceof Error &&
+						error.message.includes( 'CAPACITY_LIMIT_REACHED' )
+					) {
+						capacityLimitReached = true;
+						if ( ! options?.suppressCapacityModal ) {
+							getIpcApi().showErrorMessageBox( {
+								title: sprintf( __( "Failed to start '%s'" ), siteName ),
+								message: __(
+									'The maximum number of running sites has been reached. Please stop some running sites before starting new ones.'
+								),
+								showOpenLogs: false,
+							} );
+						}
+					} else {
+						const errorToShow = simplifyErrorForDisplay( error );
+						getIpcApi().showErrorMessageBox( {
+							title: sprintf( __( "Failed to start '%s'" ), siteName ),
+							message: __(
+								"Please verify your site's local path directory contains the standard WordPress installation files and try again. If this problem persists, please contact support."
+							),
+							error: errorToShow,
+							showOpenLogs: true,
+						} );
+					}
+					await getIpcApi().stopServer( id );
 				}
-				await getIpcApi().stopServer( id );
+			} finally {
+				clearLoadingForSite( id );
 			}
-
-			toggleLoadingServerForSite( id );
+			return { capacityLimitReached };
 		},
-		[ toggleLoadingServerForSite ]
+		[ startLoadingForSite, clearLoadingForSite ]
+	);
+
+	const startServers = useCallback(
+		async ( sitesToStart: SiteDetails[] ) => {
+			let capacityModalShown = false;
+			await Promise.all(
+				sitesToStart.map( async ( site ) => {
+					const { capacityLimitReached } = await startServer( site, {
+						suppressCapacityModal: true,
+					} );
+					if ( capacityLimitReached && ! capacityModalShown ) {
+						capacityModalShown = true;
+						getIpcApi().showErrorMessageBox( {
+							title: __( 'Some sites could not be started' ),
+							message: __(
+								'The maximum number of running sites has been reached. Please stop some running sites before starting new ones.'
+							),
+							showOpenLogs: false,
+						} );
+					}
+				} )
+			);
+		},
+		[ startServer ]
 	);
 
 	const copySite = useCallback(
@@ -565,7 +634,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					setSites( sortSites( data ) );
 					setLoadingSites( false );
 					const autoStartSites = data.filter( ( site ) => site.autoStart );
-					void Promise.all( autoStartSites.map( ( site ) => startServer( site ) ) );
+					void startServers( autoStartSites );
 				}
 			} )
 			.catch( ( error ) => {
@@ -581,11 +650,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const stopServer = useCallback(
 		async ( id: string ) => {
-			toggleLoadingServerForSite( id );
-			await getIpcApi().stopServer( id );
-			toggleLoadingServerForSite( id );
+			startLoadingForSite( id );
+			try {
+				await getIpcApi().stopServer( id );
+			} finally {
+				clearLoadingForSite( id );
+			}
 		},
-		[ toggleLoadingServerForSite ]
+		[ startLoadingForSite, clearLoadingForSite ]
 	);
 
 	const stopAllRunningSites = useCallback( async () => {
@@ -594,8 +666,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 
 	const startAllStoppedSites = useCallback( async () => {
 		const stoppedSites = sites.filter( ( site ) => ! site.running && ! site.isAddingSite );
-		await Promise.allSettled( stoppedSites.map( ( site ) => startServer( site ) ) );
-	}, [ sites, startServer ] );
+		await startServers( stoppedSites );
+	}, [ sites, startServers ] );
 
 	const [ isEditModalOpen, setIsEditModalOpen ] = useState( false );
 	const [ editModalInitialTab, setEditModalInitialTab ] = useState( 'general' );
@@ -616,6 +688,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			updateSite,
 			updateSitesSortOrder,
 			startServer,
+			startServers,
 			stopServer,
 			stopAllRunningSites,
 			startAllStoppedSites,
@@ -641,6 +714,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			updateSite,
 			updateSitesSortOrder,
 			startServer,
+			startServers,
 			stopServer,
 			stopAllRunningSites,
 			startAllStoppedSites,

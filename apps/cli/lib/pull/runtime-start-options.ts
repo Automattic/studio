@@ -174,6 +174,23 @@ export async function ensureImportedSiteSqliteReady(
 	return sqlitePath;
 }
 
+export function loadImportedRuntimeStartOptionsNative(
+	technicalSiteDirectory: string,
+	runtimeDirectory: string
+): StartServerOptions {
+	const runtimePhpPath = path.join( runtimeDirectory, 'runtime.php' );
+	if ( ! fs.existsSync( runtimePhpPath ) ) {
+		throw new LoggerError(
+			`Missing runtime.php at ${ runtimePhpPath }. Re-run \`studio pull-reprint\` to regenerate the runtime configuration.`
+		);
+	}
+
+	return {
+		autoPrependFile: runtimePhpPath,
+		openBasedirAllowList: [ technicalSiteDirectory ],
+	};
+}
+
 export function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint {
 	if ( ! fs.existsSync( runtimeBlueprintPath ) ) {
 		throw new LoggerError( `Runtime Blueprint not found: ${ runtimeBlueprintPath }` );

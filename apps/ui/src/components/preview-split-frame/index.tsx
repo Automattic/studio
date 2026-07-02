@@ -2,93 +2,98 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
-import { useResizablePanel } from '@/hooks/use-resizable-panel';
-import { PREVIEW_PANEL_CONFIG, PREVIEW_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
+import { usePreviewSplit } from '@/hooks/use-preview-split';
 import styles from './style.module.css';
 
-// Keep in sync with the flex-basis transition duration in style.module.css.
+// Keep in sync with the content-column transition duration in style.module.css.
 const PREVIEW_TOGGLE_DURATION = 150;
 
+export interface PreviewSplitFramePreviewProps {
+	collapsed: boolean;
+}
+
 interface PreviewSplitFrameProps {
-	// The preview panel content. Kept mounted (hidden behind the content
-	// column) while `previewOpen` is false so the webview stays warm and the
-	// panel can slide in and out.
-	preview?: ReactNode;
+	// The preview panel content. Kept mounted while closed so the webview stays
+	// warm. The split geometry is owned by usePreviewSplit; this component only
+	// handles the open/close slide animation.
+	preview?: ( props: PreviewSplitFramePreviewProps ) => ReactNode;
 	previewOpen?: boolean;
 	children?: ReactNode;
 }
 
-// Splits the frame between the main content column and the site preview. The
-// preview slot is pinned to the right edge at its resizable width; the
-// content column sits on top of it and shrinks to reveal it, so toggling
-// animates by transitioning only the content column's flex-basis while the
-// preview keeps a constant width (no mid-animation webview reflow).
 export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
 	children,
 }: PreviewSplitFrameProps ) {
-	const previewMounted = preview != null;
-	const showPreview = previewMounted && previewOpen;
-	const previewResize = useResizablePanel( {
-		config: PREVIEW_PANEL_CONFIG,
-		edge: 'left',
-		storageKey: PREVIEW_PANEL_STORAGE_KEY,
-	} );
-	// Animate only open/close toggles of an already-mounted preview — never
-	// the initial layout, so a route loading with the preview visible doesn't
-	// replay the slide-in. The render-phase update makes the transition class
-	// land in the same commit as the flex-basis change; an effect-based
-	// update would race it.
-	const [ animating, setAnimating ] = useState( false );
+	const showPreview = previewOpen && preview != null;
+	const { rootRef, contentWidthVar, isResizing, handleProps } = usePreviewSplit( { showPreview } );
+
+	// Animate only open/close toggles of an already-mounted preview — never the
+	// initial layout, so a route loading with the preview visible doesn't replay
+	// the slide-in. The render-phase update lands the transition class in the
+	// same commit as the width change; an effect-based update would race it.
+	const [ animatingPreviewToggle, setAnimatingPreviewToggle ] = useState( false );
 	const [ previousPreview, setPreviousPreview ] = useState( {
-		mounted: previewMounted,
+		mounted: preview != null,
 		open: showPreview,
 	} );
-	if ( previousPreview.mounted !== previewMounted || previousPreview.open !== showPreview ) {
-		setPreviousPreview( { mounted: previewMounted, open: showPreview } );
-		if ( previousPreview.mounted && previewMounted ) {
-			setAnimating( true );
+	if ( previousPreview.mounted !== ( preview != null ) || previousPreview.open !== showPreview ) {
+		setPreviousPreview( { mounted: preview != null, open: showPreview } );
+		if ( previousPreview.mounted && preview != null ) {
+			setAnimatingPreviewToggle( true );
 		}
 	}
+
 	useEffect( () => {
-		if ( ! animating ) {
+		if ( ! animatingPreviewToggle ) {
 			return;
 		}
-		const timeoutId = window.setTimeout( () => setAnimating( false ), PREVIEW_TOGGLE_DURATION );
+		const timeoutId = window.setTimeout(
+			() => setAnimatingPreviewToggle( false ),
+			PREVIEW_TOGGLE_DURATION
+		);
 		return () => window.clearTimeout( timeoutId );
-	}, [ animating, showPreview ] );
+	}, [ animatingPreviewToggle, showPreview ] );
 
-	const rootStyle = { '--site-preview-width': `${ previewResize.width }px` } as CSSProperties;
+	const previewVisible = showPreview || animatingPreviewToggle;
+	const renderedPreview = preview?.( { collapsed: ! previewVisible } );
+	const rootStyle = {
+		'--preview-frame-content-width': contentWidthVar,
+	} as CSSProperties;
 
 	return (
 		<div
+			ref={ rootRef }
 			className={ clsx(
 				styles.root,
 				showPreview && styles.rootPreviewOpen,
-				animating && styles.rootPreviewAnimating
+				isResizing && styles.rootPreviewResizing,
+				animatingPreviewToggle && styles.rootPreviewAnimating
 			) }
 			style={ rootStyle }
 		>
 			<div className={ styles.contentColumn }>{ children }</div>
-			{ previewMounted ? (
-				<div className={ clsx( styles.previewSlot, showPreview && styles.previewSlotOpen ) }>
-					{ preview }
+			{ preview ? (
+				<div
+					className={ clsx(
+						styles.previewSlot,
+						previewVisible && styles.previewSlotVisible,
+						showPreview && styles.previewSlotInteractive
+					) }
+					aria-hidden={ ! showPreview }
+				>
+					{ renderedPreview }
 				</div>
 			) : null }
-			{ showPreview && ! animating ? (
+			{ showPreview && ! animatingPreviewToggle ? (
 				<ResizeHandle
 					className={ styles.previewResizeHandle }
 					label={ __( 'Resize site preview' ) }
-					minWidth={ previewResize.minWidth }
-					maxWidth={ previewResize.maxWidth }
-					width={ previewResize.width }
-					isResizing={ previewResize.isResizing }
-					onResizeStart={ previewResize.handleResizeStart }
-					onKeyDown={ previewResize.handleKeyDown }
+					{ ...handleProps }
 				/>
 			) : null }
-			{ previewResize.isResizing ? <ResizeOverlay /> : null }
+			{ isResizing ? <ResizeOverlay /> : null }
 		</div>
 	);
 }

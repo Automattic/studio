@@ -75,7 +75,10 @@ jobs:
             artifact_arch: aarch64
             extensions: *unix_extensions
           - target: windows-x86_64
-            runner: windows-latest
+            # PHP 8.4+ Windows builds use the VS17 toolchain. Pin the runner so
+            # the matching VC143 app-local runtime remains available even as
+            # windows-latest moves to newer Visual Studio releases.
+            runner: windows-2022
             artifact_platform: windows
             artifact_arch: x86_64
             extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,yaml,zip,zlib
@@ -459,6 +462,36 @@ jobs:
           Add-PECLExtension -Name ssh2
           Add-PECLExtension -Name yaml
 
+          # PHP's stock Windows builds require the Visual C++ runtime. Deploy it
+          # app-locally so php.exe also works on systems without the machine-wide
+          # redistributable installed.
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsInstallPath = & $vswhere -latest -version '[17.0,18.0)' -products * -property installationPath
+          if ( -not $vsInstallPath ) {
+            throw 'Could not locate Visual Studio to package the Visual C++ runtime'
+          }
+
+          $vcRedistRoot = Join-Path $vsInstallPath 'VC\Redist\MSVC'
+          $vcRuntimeDir = Get-ChildItem -Path $vcRedistRoot -Directory |
+            Sort-Object { [version]$_.Name } -Descending |
+            ForEach-Object { Join-Path $_.FullName 'x64\Microsoft.VC143.CRT' } |
+            Where-Object { Test-Path $_ } |
+            Select-Object -First 1
+          if ( -not $vcRuntimeDir ) {
+            throw "Could not locate the x64 app-local Visual C++ runtime under $vcRedistRoot"
+          }
+
+          $requiredVcRuntimeDlls = @('vcruntime140.dll', 'vcruntime140_1.dll')
+          foreach ( $dll in $requiredVcRuntimeDlls ) {
+            if ( -not (Test-Path (Join-Path $vcRuntimeDir $dll)) ) {
+              throw "Required Visual C++ runtime DLL not found: $dll"
+            }
+          }
+
+          Copy-Item -Path (Join-Path $vcRuntimeDir '*.dll') -Destination $stagingDir
+          $vcRuntimeVersion = (Get-Item (Join-Path $vcRuntimeDir 'vcruntime140.dll')).VersionInfo.FileVersion
+          Set-Content -Path (Join-Path $stagingDir 'vc-runtime.version') -Value $vcRuntimeVersion -NoNewline
+
           $runtimeJson = @{
             phpVersion = $env:PHP_VERSION
             phpMinor = $env:PHP_MINOR
@@ -468,6 +501,7 @@ jobs:
             binary = 'php.exe'
             extensionDir = 'ext'
             xdebug = 'ext/php_xdebug.dll'
+            vcRuntimeVersion = $vcRuntimeVersion
           } | ConvertTo-Json -Depth 4
           Set-Content -Path (Join-Path $stagingDir 'runtime.json') -Value $runtimeJson
 

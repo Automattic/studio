@@ -13,7 +13,9 @@ static-php-cli only supports shared extensions on Unix-like targets:
   the Xdebug DLL from `xdebug.org`, and fetches each missing PECL extension
   (apcu, igbinary, redis, ssh2, yaml) from `downloads.php.net/~windows/pecl`
   with the newest published version that has a build for the requested
-  `PHP_MINOR` + VS toolchain.
+  `PHP_MINOR` + VS toolchain. It also copies the matching x64 VC143 runtime
+  from the Visual Studio 2022 runner beside `php.exe`, so the package does not
+  depend on a machine-wide Visual C++ Redistributable installation.
 
 The artifact shapes diverge as a result: the macOS `ext/` directory contains
 only `xdebug.so`, while the Windows `ext/` directory contains a

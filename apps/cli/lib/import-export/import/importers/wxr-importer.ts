@@ -11,7 +11,6 @@ import {
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents } from '../types';
-import { updateSiteUrl } from '../update-site-url';
 import { ensureDir, Importer, ImporterResult } from './importer';
 
 // Files staged into the site for the import are placed under this directory (at the
@@ -88,7 +87,11 @@ export class WxrImporter extends ImportExportEventEmitter implements Importer {
 
 			this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
 
-			await updateSiteUrl( site );
+			// Note: no site-URL rewrite here. Unlike the SQL/backup importers (which
+			// replace the whole database with the source site's URL), a WXR merge leaves
+			// the target site's URL unchanged, and the importer has no knowledge of the
+			// source site's URL. Internal links inside imported posts therefore keep
+			// pointing at the source — matching the WordPress dashboard importer.
 
 			this.emit( ImportEvents.IMPORT_COMPLETE, 'xml' );
 			return {

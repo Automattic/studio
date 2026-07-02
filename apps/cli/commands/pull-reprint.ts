@@ -46,10 +46,13 @@ import {
 	selectPullItems,
 } from 'cli/lib/pull/reprint-selector';
 import {
+	getActiveCommand,
 	getContentDirFromState,
 	hasLocalFilesIndex,
 	hasSkippedFiles,
 	readReprintState,
+	resetEssentialFilesState,
+	withActiveCommand,
 	writeReprintState,
 } from 'cli/lib/pull/reprint-state';
 import {
@@ -858,12 +861,18 @@ function hasPullCompletedStage( metadata: PullSessionMetadata, stage: PullStage 
 function normalizeReprintStateForEssentialFilesPull( stateDirectory: string ): void {
 	const reprintState = readReprintState( stateDirectory );
 	if ( reprintState?.filter && reprintState.filter !== 'essential-files' ) {
-		writeReprintState( stateDirectory, {
-			...reprintState,
-			status: 'complete',
-			stage: null,
-			filter: 'essential-files',
-		} );
+		const { commandName } = getActiveCommand( reprintState );
+		writeReprintState(
+			stateDirectory,
+			withActiveCommand(
+				{ ...reprintState, filter: 'essential-files' },
+				{
+					commandName: commandName ?? 'files-pull',
+					completionState: 'complete',
+					currentStage: null,
+				}
+			)
+		);
 	}
 }
 
@@ -990,6 +999,23 @@ export async function runFullPull(
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 
+	// A non-empty raw fs-root without a local files index is a damaged or
+	// partially-written scratch: reprint refuses an initial sync into it
+	// ("Target directory is not empty and no cursor found"), and its
+	// preserve-local escape hatch silently skips every file behind a stale
+	// blocker entry. The raw directory is Studio-owned scratch, so clear it
+	// and start a clean initial sync instead (preflight state is preserved;
+	// the selection gate guarantees this run pulls everything, database
+	// included, so no other reprint state needs to survive).
+	const rawEntries = fs.existsSync( metadata.rawDirectory )
+		? fs.readdirSync( metadata.rawDirectory )
+		: [];
+	if ( rawEntries.length > 0 && ! hasLocalFilesIndex( metadata.stateDirectory ) ) {
+		fs.rmSync( metadata.rawDirectory, { recursive: true, force: true } );
+		fs.mkdirSync( metadata.rawDirectory, { recursive: true } );
+		resetEssentialFilesState( metadata.stateDirectory );
+	}
+
 	// 1. Files. `--only` restricts the download to the selected wp-content
 	// folders; essential-files defers the media library to the post-start
 	// skipped-earlier pass.
@@ -1066,22 +1092,26 @@ export async function downloadSkippedFiles(
 	verbose: boolean
 ): Promise< void > {
 	const reprintState = readReprintState( metadata.stateDirectory );
+	const activeCommand = getActiveCommand( reprintState );
 	const isResumingSkipped =
-		reprintState?.stage === 'fetch-skipped' && reprintState?.status !== 'complete';
+		activeCommand.currentStage === 'fetch-skipped' && activeCommand.completionState !== 'complete';
 
 	// Rewrite the reprint state so the next files-sync understands it
-	// should download the entries the essential-files pass skipped.  No-op
-	// when reprint is already mid-way through that run (its state file
-	// encodes the resume cursor; overwriting would break validation) or
-	// when no skipped entries exist.
+	// should download the entries the essential-files pass skipped: the
+	// skipped-earlier filter is only accepted when the checkpoint says a
+	// files-pull completed with filter=essential-files (after the split
+	// pipeline, the checkpoint points at the last command that ran, e.g.
+	// db-apply or apply-runtime). No-op when reprint is already mid-way
+	// through that run (its state file encodes the resume cursor;
+	// overwriting would break validation) or when no skipped entries exist.
 	if ( ! isResumingSkipped && hasSkippedFiles( metadata.stateDirectory ) ) {
-		writeReprintState( metadata.stateDirectory, {
-			...reprintState,
-			command: 'files-sync',
-			status: 'complete',
-			stage: null,
-			filter: 'essential-files',
-		} );
+		writeReprintState(
+			metadata.stateDirectory,
+			withActiveCommand(
+				{ ...reprintState, filter: 'essential-files' },
+				{ commandName: 'files-pull', completionState: 'complete', currentStage: null }
+			)
+		);
 	}
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );

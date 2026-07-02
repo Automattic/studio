@@ -27,6 +27,16 @@ export const reprintStateSnapshotSchema = z.looseObject( {
 	cursor: z.unknown().optional(),
 	stage: z.string().nullish(),
 	filter: z.string().nullish(),
+	// Typed-state schema (reprint ≥ v0.9 trunk): the resumable-command
+	// checkpoint lives in a nested object instead of the flat legacy fields.
+	active_resumable_command: z
+		.looseObject( {
+			command_name: z.string().nullish(),
+			completion_state: z.string().nullish(),
+			current_stage: z.string().nullish(),
+			remote_cursor: z.string().nullish(),
+		} )
+		.optional(),
 	preflight: z
 		.looseObject( {
 			data: z
@@ -43,6 +53,47 @@ export const reprintStateSnapshotSchema = z.looseObject( {
 } );
 
 export type ReprintStateSnapshot = z.infer< typeof reprintStateSnapshotSchema >;
+
+/**
+ * The active resumable-command checkpoint, normalized across reprint state
+ * schema versions: reads the nested `active_resumable_command` object (typed
+ * state, reprint trunk) first and falls back to the flat legacy fields.
+ */
+export function getActiveCommand( state: ReprintStateSnapshot | null ): {
+	commandName: string | null;
+	completionState: string | null;
+	currentStage: string | null;
+} {
+	const nested = state?.active_resumable_command;
+	return {
+		commandName: nested?.command_name ?? state?.command ?? null,
+		completionState: nested?.completion_state ?? state?.status ?? null,
+		currentStage: nested?.current_stage ?? state?.stage ?? null,
+	};
+}
+
+/**
+ * Return a state snapshot with the active resumable-command checkpoint set,
+ * writing BOTH the nested typed-state object and the flat legacy fields so
+ * the result is understood by old and new reprint versions alike.
+ */
+export function withActiveCommand(
+	state: ReprintStateSnapshot | null,
+	next: { commandName: string; completionState: string; currentStage: string | null }
+): ReprintStateSnapshot {
+	return {
+		...( state ?? {} ),
+		command: next.commandName,
+		status: next.completionState,
+		stage: next.currentStage,
+		active_resumable_command: {
+			...( state?.active_resumable_command ?? {} ),
+			command_name: next.commandName,
+			completion_state: next.completionState,
+			current_stage: next.currentStage,
+		},
+	};
+}
 
 export function getReprintStatePath( stateDirectory: string ): string {
 	return path.join( stateDirectory, STATE_FILE );
@@ -115,14 +166,16 @@ export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
 	// reprint canonicalizes the legacy 'files-sync' command name to
 	// 'files-pull' when it saves state; accept both so this check keeps
 	// working across reprint versions.
+	const { commandName, completionState, currentStage } = getActiveCommand( state );
 	if (
-		( state.command !== 'files-sync' && state.command !== 'files-pull' ) ||
-		state.status === 'complete'
+		( commandName !== 'files-sync' && commandName !== 'files-pull' ) ||
+		completionState === 'complete'
 	) {
 		return false;
 	}
 
-	if ( state.stage !== 'index' || state.cursor !== null ) {
+	const cursor = state.active_resumable_command?.remote_cursor ?? state.cursor ?? null;
+	if ( currentStage !== 'index' || cursor !== null ) {
 		return false;
 	}
 

@@ -183,14 +183,21 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		);
 
 		// Reprint state was rewritten to the shape reprint's next
-		// files-sync call expects when resuming into skipped-earlier.
+		// files-sync call expects when resuming into skipped-earlier —
+		// both the flat legacy fields and the nested typed-state
+		// checkpoint (reprint trunk), so either phar version accepts it.
 		const nextState = JSON.parse(
 			fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' )
 		);
-		expect( nextState.command ).toBe( 'files-sync' );
+		expect( nextState.command ).toBe( 'files-pull' );
 		expect( nextState.status ).toBe( 'complete' );
 		expect( nextState.stage ).toBeNull();
 		expect( nextState.filter ).toBe( 'essential-files' );
+		expect( nextState.active_resumable_command ).toMatchObject( {
+			command_name: 'files-pull',
+			completion_state: 'complete',
+			current_stage: null,
+		} );
 		expect( nextState.preflight ).toEqual( { data: { ok: true } } );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
@@ -322,6 +329,108 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			fs.readFileSync( path.join( technicalSiteDirectory, 'pull.json' ), 'utf-8' )
 		);
 		expect( persisted.stage ).toBe( 'pulled' );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	it( 'clears a damaged raw scratch (non-empty, no local index) before pulling', async () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-pull-damaged-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawDirectory, { recursive: true } );
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( { command: 'files-pull', status: 'complete', preflight: { data: {} } } )
+		);
+		// Damage: raw holds leftovers but the local index is gone.
+		fs.writeFileSync( path.join( rawDirectory, 'stale-blocker' ), 'junk' );
+		fs.writeFileSync( path.join( stateDirectory, '.import-remote-index.jsonl' ), '{"p":1}\n' );
+
+		const reprint = vi
+			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
+			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			{
+				version: 1,
+				sitePath: path.join( technicalSiteDirectory, 'site' ),
+				technicalSiteDirectory,
+				rawDirectory,
+				stateDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				stage: 'initialized',
+				localUrl: 'http://localhost:8881',
+			} as never,
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false
+		);
+
+		// The scratch was wiped for a clean initial sync: raw is empty, the
+		// stale derived indexes are gone, and only preflight survives in state.
+		expect( fs.readdirSync( rawDirectory ) ).toEqual( [] );
+		expect( fs.existsSync( path.join( stateDirectory, '.import-remote-index.jsonl' ) ) ).toBe(
+			false
+		);
+		expect(
+			JSON.parse( fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' ) )
+		).toEqual( { preflight: { data: {} } } );
+		// The pull still ran, in default mode (no preserve-local escape hatch).
+		const filesArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		expect( filesArgs[ 0 ] ).toBe( 'pull-files' );
+		expect( filesArgs.some( ( a ) => a.includes( 'preserve-local' ) ) ).toBe( false );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	it( 'keeps an intact raw scratch (local index present) for a delta pull', async () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-pull-delta-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawDirectory, { recursive: true } );
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( { preflight: { data: {} } } )
+		);
+		fs.writeFileSync( path.join( stateDirectory, '.import-index.jsonl' ), '{"path":"a"}\n' );
+		fs.writeFileSync( path.join( rawDirectory, 'existing-file' ), 'keep me' );
+
+		vi.spyOn( migrationClient, 'runReprintCommandUntilComplete' ).mockResolvedValue( {
+			stdout: '{"ok":true}',
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			{
+				version: 1,
+				sitePath: path.join( technicalSiteDirectory, 'site' ),
+				technicalSiteDirectory,
+				rawDirectory,
+				stateDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				stage: 'initialized',
+				localUrl: 'http://localhost:8881',
+			} as never,
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false
+		);
+
+		expect( fs.readFileSync( path.join( rawDirectory, 'existing-file' ), 'utf-8' ) ).toBe(
+			'keep me'
+		);
+		expect( fs.existsSync( path.join( stateDirectory, '.import-index.jsonl' ) ) ).toBe( true );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );

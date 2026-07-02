@@ -1,5 +1,5 @@
 name: Build PHP CLI Binaries
-run-name: Build PHP ${{ inputs.php_version }} package ${{ inputs.package_version }} with Xdebug ${{ inputs.xdebug_version }}
+run-name: Build PHP ${{ inputs.php_version }}-${{ inputs.package_version }} with Xdebug ${{ inputs.xdebug_version }}
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ on:
         required: true
         default: 8.4.20
       package_version:
-        description: Required immutable package identifier; choose a new value when rebuilding a PHP version
+        description: Package version (choose a new value when rebuilding a PHP version)
         required: true
         default: studio-1
       xdebug_version:

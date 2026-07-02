@@ -10,8 +10,10 @@ import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { runCommand as runPushCommand } from 'cli/commands/push';
 import { openBrowser } from 'cli/lib/browser';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
 import { loadRemoteSessionConfig } from 'cli/remote-session/config';
 import { DaemonAlreadyRunningError, startDaemon, stopDaemon } from 'cli/remote-session/daemon';
@@ -488,6 +490,98 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					ctx.ui.showError( error.message );
 				} else {
 					ctx.ui.showError( __( 'Failed to create preview site.' ) );
+				}
+			}
+			return 'continue';
+		},
+	},
+	{
+		name: 'publish',
+		description: __( 'Publish the active site to WordPress.com' ),
+		handler: async ( _prompt, ctx ) => {
+			const site = ctx.ui.activeSite;
+			if ( ! site ) {
+				ctx.ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
+				return 'continue';
+			}
+
+			const token = await readAuthToken();
+			if ( ! token ) {
+				ctx.ui.showInfo( __( 'WordPress.com login required. Use /login to authenticate.' ) );
+				return 'continue';
+			}
+
+			try {
+				ctx.ui.showProgress( __( 'Fetching your WordPress.com sites…' ) );
+				ctx.ui.setBusy( true );
+
+				const remoteSites = await fetchSyncableSites( token.accessToken );
+				const syncable = remoteSites.filter( ( s ) => s.syncSupport === 'syncable' );
+
+				if ( syncable.length === 0 ) {
+					ctx.ui.setBusy( false );
+					const checkoutUrl = new URL( 'https://wordpress.com/setup/new-hosted-site' );
+					checkoutUrl.searchParams.set( 'ref', 'studio' );
+					checkoutUrl.searchParams.set( 'section', 'studio-sync' );
+					checkoutUrl.searchParams.set( 'showDomainStep', 'true' );
+					checkoutUrl.searchParams.set( 'new', site.name );
+
+					await openBrowser( checkoutUrl.toString() );
+					ctx.ui.showInfo(
+						__(
+							'No WordPress.com sites found. Opening WordPress.com to create one — once your site is ready, run /publish again.'
+						)
+					);
+					return 'continue';
+				}
+
+				// Let the user pick which site to publish to.
+				const siteOptions = syncable.map( ( s ) => ( {
+					label: s.name,
+					description: s.url,
+				} ) );
+				ctx.ui.setBusy( false );
+				const answer = await ctx.ui.askUser( [
+					{
+						question: __( 'Select a WordPress.com site to publish to' ),
+						options: siteOptions,
+					},
+				] );
+				const selectedName = Object.values( answer )[ 0 ] as string;
+				const remoteSite = syncable.find( ( s ) => s.name === selectedName );
+				if ( ! remoteSite ) {
+					ctx.ui.showInfo( __( 'No site selected.' ) );
+					return 'continue';
+				}
+
+				ctx.ui.showProgress(
+					sprintf( __( 'Publishing to %s… this may take several minutes.' ), remoteSite.name )
+				);
+				ctx.ui.setBusy( true );
+
+				const result = await captureCommandOutput( () =>
+					runPushCommand( site.path, [ 'all' ], String( remoteSite.id ) )
+				);
+
+				ctx.ui.setBusy( false );
+
+				if ( result.exitCode ) {
+					ctx.ui.showError( result.consoleOutput || __( 'Failed to publish site.' ) );
+				} else {
+					ctx.ui.showSuccess(
+						sprintf( __( 'Published to %s' ), remoteSite.url ) + '\n\n   ' + remoteSite.url
+					);
+				}
+			} catch ( error ) {
+				ctx.ui.setBusy( false );
+				if ( isPromptAbortError( error ) ) {
+					ctx.ui.showInfo( __( 'Publish canceled.' ) );
+					return 'continue';
+				}
+				if ( error instanceof LoggerError ) {
+					ctx.ui.showError( error.message );
+				} else {
+					ctx.ui.showError( __( 'Failed to publish site.' ) );
 				}
 			}
 			return 'continue';

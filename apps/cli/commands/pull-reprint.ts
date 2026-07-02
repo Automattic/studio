@@ -422,10 +422,13 @@ export async function runCommand(
 
 		let runtimeStartOptions: StartServerOptions;
 		if ( getSiteRuntime( site ) === SITE_RUNTIME_NATIVE_PHP ) {
-			runtimeStartOptions = loadImportedRuntimeStartOptionsNative(
-				studioMetadata.technicalSiteDirectory,
-				studioMetadata.runtimeDirectory
-			);
+			const nativeStartOptions = loadImportedRuntimeStartOptionsNative( studioMetadata );
+			if ( ! nativeStartOptions ) {
+				throw new LoggerError(
+					`Missing runtime.php in ${ studioMetadata.runtimeDirectory }. Re-run \`studio pull-reprint\` to regenerate the runtime configuration.`
+				);
+			}
+			runtimeStartOptions = nativeStartOptions;
 		} else {
 			await ensureImportedSiteSqliteReady( studioMetadata.runtimeBlueprintPath );
 			runtimeStartOptions = await loadImportedRuntimeStartOptions(

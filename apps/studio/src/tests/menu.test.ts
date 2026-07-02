@@ -84,8 +84,6 @@ describe( 'buildViewMenuItems', () => {
 				} )
 			)
 		).toEqual( [
-			'Show Tab Bar',
-			'Show All Tabs',
 			'Toggle Sidebar',
 			'Toggle Site Preview',
 			'Reload',

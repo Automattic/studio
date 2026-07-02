@@ -1,5 +1,4 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
-import { getSiteRuntime } from '@studio/common/lib/site-runtime';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
@@ -52,11 +51,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 		try {
-			await updateManagedInstructionFiles(
-				sitePath,
-				getAiInstructionsPath(),
-				getSiteRuntime( site )
-			);
+			await updateManagedInstructionFiles( site, getAiInstructionsPath() );
 		} catch ( error ) {
 			logger.reportError(
 				new LoggerError( __( 'Failed to update AI instructions. Proceeding anyway…' ), error ),

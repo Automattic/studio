@@ -18,13 +18,12 @@ export async function getSkillsStatus( sitePath: string ): Promise< SkillStatus[
 }
 
 export async function installAllSkills(
-	sitePath: string,
-	runtime: SiteRuntime,
+	site: { path: string; runtime?: SiteRuntime },
 	overwrite: boolean = false
 ): Promise< void > {
 	const bundledPath = getAiInstructionsPath();
 	const tasks = BUNDLED_SKILLS.map( ( skill ) =>
-		installSkillToSite( sitePath, bundledPath, skill.id, runtime, overwrite )
+		installSkillToSite( site, bundledPath, skill.id, overwrite )
 	);
 	const results = await Promise.allSettled( tasks );
 	for ( const result of results ) {
@@ -35,12 +34,11 @@ export async function installAllSkills(
 }
 
 export async function installSkillById(
-	sitePath: string,
+	site: { path: string; runtime?: SiteRuntime },
 	skillId: string,
-	runtime: SiteRuntime,
 	overwrite: boolean = false
 ): Promise< void > {
-	await installSkillToSite( sitePath, getAiInstructionsPath(), skillId, runtime, overwrite );
+	await installSkillToSite( site, getAiInstructionsPath(), skillId, overwrite );
 }
 
 export async function removeSkillById( sitePath: string, skillId: string ): Promise< void > {

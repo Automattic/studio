@@ -46,7 +46,10 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'STUDIO.md', isFile: () => true, isDirectory: () => false },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
 			path.join( SITE_PATH, 'AGENTS.md' ),
@@ -74,9 +77,8 @@ describe( 'installAiInstructionsToSite', () => {
 		] as never );
 
 		await installAiInstructionsToSite(
-			SITE_PATH,
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
 			BUNDLED_PATH,
-			SITE_RUNTIME_PLAYGROUND,
 			[],
 			false
 		);
@@ -99,7 +101,10 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'studio-cli', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		expect( fs.promises.symlink ).not.toHaveBeenCalled();
@@ -116,7 +121,12 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'wp-rest-api', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND, [], true );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH,
+			[],
+			true
+		);
 
 		expect( fs.promises.rm ).not.toHaveBeenCalled();
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
@@ -125,7 +135,10 @@ describe( 'installAiInstructionsToSite', () => {
 	it( 'skips when bundled path does not exist', async () => {
 		vi.mocked( pathExists ).mockResolvedValue( false );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		expect( fs.promises.symlink ).not.toHaveBeenCalled();
@@ -144,7 +157,10 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'studio-cli', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( fs.promises.writeFile ).toHaveBeenCalledTimes( 1 );
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
@@ -164,7 +180,10 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'raw-imports.d.ts', isFile: () => true, isDirectory: () => false },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( fs.promises.writeFile ).toHaveBeenCalledTimes( 1 );
 		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
@@ -188,7 +207,10 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'wp-block-development', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		// 2 .md files written to site root
 		expect( fs.promises.writeFile ).toHaveBeenCalledTimes( 2 );
@@ -210,7 +232,10 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'good-skill', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		expect( fs.promises.symlink ).not.toHaveBeenCalled();
@@ -228,9 +253,8 @@ describe( 'installAiInstructionsToSite', () => {
 		] as never );
 
 		await installAiInstructionsToSite(
-			SITE_PATH,
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
 			BUNDLED_PATH,
-			SITE_RUNTIME_PLAYGROUND,
 			[],
 			false
 		);
@@ -256,7 +280,10 @@ describe( 'installAiInstructionsToSite', () => {
 		] as never );
 		vi.mocked( fs.promises.readFile ).mockResolvedValue( studioContent );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_NATIVE_PHP );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_NATIVE_PHP },
+			BUNDLED_PATH
+		);
 
 		const written = vi.mocked( fs.promises.writeFile ).mock.calls[ 0 ][ 1 ] as string;
 		expect( written ).toContain( 'NATIVE NOTE' );
@@ -289,10 +316,9 @@ describe( 'installSkillToSite', () => {
 		} );
 
 		await installSkillToSite(
-			SITE_PATH,
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
 			BUNDLED_PATH,
 			'studio-cli',
-			SITE_RUNTIME_PLAYGROUND,
 			false
 		);
 
@@ -322,10 +348,9 @@ describe( 'installSkillToSite', () => {
 		} );
 
 		await installSkillToSite(
-			SITE_PATH,
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
 			BUNDLED_PATH,
 			'wp-rest-api',
-			SITE_RUNTIME_PLAYGROUND,
 			true
 		);
 
@@ -359,7 +384,12 @@ describe( 'installSkillToSite', () => {
 		] as never );
 		vi.mocked( fs.promises.readFile ).mockResolvedValue( skillContent );
 
-		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'my-skill', SITE_RUNTIME_NATIVE_PHP, false );
+		await installSkillToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_NATIVE_PHP },
+			BUNDLED_PATH,
+			'my-skill',
+			false
+		);
 
 		const written = vi.mocked( fs.promises.writeFile ).mock.calls[ 0 ][ 1 ] as string;
 		expect( written ).toContain( 'NATIVE SKILL NOTE' );
@@ -384,10 +414,9 @@ describe( 'installSkillToSite', () => {
 			.mockResolvedValue( undefined );
 
 		await installSkillToSite(
-			SITE_PATH,
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
 			BUNDLED_PATH,
 			'wp-plugin-development',
-			SITE_RUNTIME_PLAYGROUND,
 			false
 		);
 
@@ -412,7 +441,10 @@ describe( 'updateManagedInstructionFiles', () => {
 	it( 'updates STUDIO.md when it exists in the site', async () => {
 		vi.mocked( pathExists ).mockResolvedValue( true );
 
-		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND );
+		await updateManagedInstructionFiles(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
 			path.join( SITE_PATH, 'STUDIO.md' ),
@@ -433,7 +465,10 @@ describe( 'updateManagedInstructionFiles', () => {
 			return false;
 		} );
 
-		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND );
+		await updateManagedInstructionFiles(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( fs.promises.writeFile ).toHaveBeenCalledTimes( 1 );
 		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
@@ -454,7 +489,10 @@ describe( 'updateManagedInstructionFiles', () => {
 			return false;
 		} );
 
-		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND );
+		await updateManagedInstructionFiles(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( fs.promises.writeFile ).not.toHaveBeenCalled();
 	} );
@@ -462,7 +500,10 @@ describe( 'updateManagedInstructionFiles', () => {
 	it( 'does nothing when no managed files exist in the site', async () => {
 		vi.mocked( pathExists ).mockResolvedValue( false );
 
-		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH, SITE_RUNTIME_PLAYGROUND );
+		await updateManagedInstructionFiles(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( fs.promises.writeFile ).not.toHaveBeenCalled();
 	} );

@@ -270,9 +270,8 @@ export async function runCommand(
 			const sharedConfig = await readSharedConfig();
 			const selectedSkills = sharedConfig.selectedSkills ?? [];
 			await installAiInstructionsToSite(
-				sitePath,
+				{ path: sitePath, runtime: siteRuntime },
 				getAiInstructionsPath(),
-				siteRuntime,
 				selectedSkills
 			);
 		} catch ( error ) {

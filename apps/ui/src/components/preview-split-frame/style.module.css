@@ -23,17 +23,17 @@
 	border-radius: var(--panel-frame-radius);
 	/* Ease in/out of the frameless state alongside the sidebar's 150ms
 	   width transition. */
-	transition: height 150ms ease, margin 150ms ease, border-radius 150ms ease,
-		border-color 150ms ease;
+	transition: height 150ms ease, margin 150ms ease, border-radius 150ms ease;
 }
 
 /* Full-bleed when the sidebar is hidden — the frame reads as chrome that
-   belongs with the sidebar. The border keeps its 1px width (transparent)
-   so the content doesn't shift. */
+   belongs with the sidebar. The border must drop to zero WIDTH (not just
+   transparent): the chrome background shows through a transparent border
+   ring via background-clip, leaving stray dark lines at the edges. */
 .rootFrameless {
 	height: 100%;
 	margin: 0;
-	border-color: transparent;
+	border-width: 0;
 	border-radius: 0;
 }
 

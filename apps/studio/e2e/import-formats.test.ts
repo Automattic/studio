@@ -5,6 +5,7 @@ import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
+import { getUrlWithAutoLogin } from './utils';
 
 /**
  * Imports for the Local, Playground and .wpress backup formats, plus importing
@@ -13,8 +14,8 @@ import SiteContent from './page-objects/site-content';
  * The fixture archives under fixtures/backups/ were generated from a demo
  * Studio site (blog name "MyPet") with a custom theme, so each test can prove
  * the imported site serves the backup's content — custom theme and database —
- * rather than a fresh install. See fixtures/backups/readme.md for how to
- * regenerate them.
+ * rather than a fresh install. See fixtures/backups/readme.md for their
+ * provenance and structure.
  */
 const FIXTURES_DIR = path.join( __dirname, 'fixtures', 'backups' );
 const FIXTURE_SITE_TITLE = 'MyPet';
@@ -50,9 +51,11 @@ test.describe( 'Import backup formats', () => {
 		return siteContent;
 	};
 
-	const assertFrontendTitle = async ( page: Page, siteContent: SiteContent, title: string ) => {
+	const assertImportedSiteContent = async ( page: Page, siteContent: SiteContent ) => {
 		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
+		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
+
 		// The import UI can report completion while the server is still being
 		// (re)started, so wait until the site actually responds.
 		await expect
@@ -67,8 +70,25 @@ test.describe( 'Import backup formats', () => {
 				{ timeout: 60_000 }
 			)
 			.toBe( 200 );
+
+		// The frontend serves the fixture's database (its blog name).
 		await page.goto( frontendUrl );
-		expect( await page.title() ).toContain( title );
+		expect( await page.title() ).toContain( FIXTURE_SITE_TITLE );
+
+		// The fixture's posts were imported.
+		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/edit.php` ) );
+		await expect( page.locator( 'a.row-title:has-text("Hello world!")' ) ).toBeVisible();
+
+		// The fixture's pages were imported.
+		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/edit.php?post_type=page` ) );
+		await expect( page.locator( 'a.row-title:has-text("Services")' ) ).toBeVisible();
+		await expect( page.locator( 'a.row-title:has-text("Contact")' ) ).toBeVisible();
+
+		// The fixture's custom theme is installed and active. Assert attachment
+		// rather than visibility: the theme ships no screenshot, so wp-admin
+		// renders its card with a zero-size preview box.
+		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/themes.php` ) );
+		await expect( page.locator( '.theme.active[data-slug="mypet-theme"]' ) ).toBeAttached();
 	};
 
 	test.beforeAll( async () => {
@@ -97,7 +117,7 @@ test.describe( 'Import backup formats', () => {
 			path.join( FIXTURES_DIR, 'local-backup.zip' ),
 			'Local-Import-Site'
 		);
-		await assertFrontendTitle( page, siteContent, FIXTURE_SITE_TITLE );
+		await assertImportedSiteContent( page, siteContent );
 	} );
 
 	test( 'imports a new site from a Playground backup file', async ( { page } ) => {
@@ -105,7 +125,7 @@ test.describe( 'Import backup formats', () => {
 			path.join( FIXTURES_DIR, 'playground-backup.zip' ),
 			'Playground-Import-Site'
 		);
-		await assertFrontendTitle( page, siteContent, FIXTURE_SITE_TITLE );
+		await assertImportedSiteContent( page, siteContent );
 	} );
 
 	test( 'imports a new site from a .wpress backup file', async ( { page } ) => {
@@ -113,7 +133,7 @@ test.describe( 'Import backup formats', () => {
 			path.join( FIXTURES_DIR, 'aio-backup.wpress' ),
 			'Wpress-Import-Site'
 		);
-		await assertFrontendTitle( page, siteContent, FIXTURE_SITE_TITLE );
+		await assertImportedSiteContent( page, siteContent );
 	} );
 
 	test( 'imports a backup file into an existing site', async ( { page } ) => {
@@ -141,6 +161,6 @@ test.describe( 'Import backup formats', () => {
 			timeout: 120_000,
 		} );
 
-		await assertFrontendTitle( page, siteContent, FIXTURE_SITE_TITLE );
+		await assertImportedSiteContent( page, siteContent );
 	} );
 } );

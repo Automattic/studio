@@ -36,8 +36,16 @@ export async function stopAllServers( timeoutAfterMs?: number ) {
 	return new Promise< void >( ( resolve ) => {
 		const args = [ 'site', 'stop', '--all' ];
 		const [ emitter, childProcess ] = executeCliCommand( args, { output: 'ignore' } );
+		// Log the CLI's IPC progress events: when the command hangs or times out, this shows how
+		// far it got (e.g. before/after connecting to the daemon).
+		emitter.on( 'data', ( { data } ) =>
+			console.log( '[site stop --all]', JSON.stringify( data ) )
+		);
 		emitter.on( 'success', () => resolve() );
-		emitter.on( 'failure', () => resolve() );
+		emitter.on( 'failure', ( { error } ) => {
+			console.warn( '[site stop --all] failed:', error.message );
+			resolve();
+		} );
 		emitter.on( 'error', () => resolve() );
 
 		if ( timeoutAfterMs ) {

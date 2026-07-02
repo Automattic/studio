@@ -1,6 +1,6 @@
 # Backup fixtures
 
-Backup archives used by `import-formats.test.ts` to cover the Local,
+Backup archives used by `import-formats.test.ts` to cover the Jetpack, Local,
 Playground and All-in-One WP Migration (`.wpress`) import formats.
 
 All three were generated from the same demo Studio site — blog name **MyPet**
@@ -10,6 +10,7 @@ carry no personal data: the only user is `admin <admin@localhost.com>`.
 
 | File | Format | Structure |
 | --- | --- | --- |
+| `jetpack-backup.tar.gz` | Jetpack Backup | per-table `sql/wp_*.sql` files + `wp-content/*` + `meta.json` |
 | `local-backup.zip` | Local (by Flywheel) | `app/sql/local.sql` + `app/public/wp-content/*` |
 | `playground-backup.zip` | WordPress Playground | `wp-content/*` incl. `wp-content/database/.ht.sqlite` |
 | `aio-backup.wpress` | All-in-One WP Migration | `database.sql` + `package.json` + wp-content children at the root |

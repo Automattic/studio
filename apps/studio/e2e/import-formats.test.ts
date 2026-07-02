@@ -8,8 +8,12 @@ import SiteContent from './page-objects/site-content';
 import { getUrlWithAutoLogin } from './utils';
 
 /**
- * Imports for the Local, Playground and .wpress backup formats, plus importing
- * a backup into an existing site.
+ * Imports for the Jetpack, Local, Playground and .wpress backup formats, plus
+ * importing a backup into an existing site.
+ *
+ * The Jetpack fixture mimics the real per-table layout (sql/wp_*.sql +
+ * meta.json), exercising the multi-file SQL import path; the release-time test
+ * against a genuine WordPress.com backup remains in import.test.ts.
  *
  * The fixture archives under fixtures/backups/ were generated from a demo
  * Studio site (blog name "MyPet") with a custom theme, so each test can prove
@@ -110,6 +114,14 @@ test.describe( 'Import backup formats', () => {
 
 	test.afterAll( async () => {
 		await session.cleanup();
+	} );
+
+	test( 'imports a new site from a Jetpack backup file', async ( { page } ) => {
+		const siteContent = await importNewSiteFromBackup(
+			path.join( FIXTURES_DIR, 'jetpack-backup.tar.gz' ),
+			'Jetpack-Import-Site'
+		);
+		await assertImportedSiteContent( page, siteContent );
 	} );
 
 	test( 'imports a new site from a Local backup file', async ( { page } ) => {

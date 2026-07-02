@@ -92,14 +92,15 @@
 
 /* Sidebar-specific indicator treatment: match the content card's vertical
    extent instead of running through the frame gaps above/below it (keep the
-   12px in sync with --panel-frame-gap in preview-split-frame). The handle
-   sits on the dark chrome where the shared light-theme brand blue is nearly
-   invisible, so use the primary ramp's on-dark brand blue instead. Nudged
-   left off the content card's edge onto the chrome boundary. */
+   12px in sync with --panel-frame-gap in preview-split-frame). The handle is
+   wrapped in the sidebar's dark ThemeProvider, so the brand token resolves
+   to the on-dark blue here. Nudged left off the content card's edge onto
+   the chrome, with rounded caps to match the frame's soft corners. */
 .resizeHandle span {
 	margin-block: 12px;
-	margin-inline-start: -2px;
-	background-color: #5a82ff;
+	margin-inline-start: -3px;
+	border-radius: 999px;
+	background-color: var(--wpds-color-fg-interactive-brand);
 }
 
 /* Pinned to the bottom-left of the main area, mirroring the sidebar footer.

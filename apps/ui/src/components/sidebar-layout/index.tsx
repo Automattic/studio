@@ -71,16 +71,20 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					</ThemeProvider>
 				</aside>
 				{ ! collapsed ? (
-					<ResizeHandle
-						className={ styles.resizeHandle }
-						label={ __( 'Resize sidebar' ) }
-						minWidth={ sidebarResize.minWidth }
-						maxWidth={ sidebarResize.maxWidth }
-						width={ sidebarResize.width }
-						isResizing={ sidebarResize.isResizing }
-						onResizeStart={ sidebarResize.handleResizeStart }
-						onKeyDown={ sidebarResize.handleKeyDown }
-					/>
+					// Same dark theme scope as the sidebar so the indicator's
+					// brand token resolves against the dark ramp.
+					<ThemeProvider color={ { bg: chromeBg } }>
+						<ResizeHandle
+							className={ styles.resizeHandle }
+							label={ __( 'Resize sidebar' ) }
+							minWidth={ sidebarResize.minWidth }
+							maxWidth={ sidebarResize.maxWidth }
+							width={ sidebarResize.width }
+							isResizing={ sidebarResize.isResizing }
+							onResizeStart={ sidebarResize.handleResizeStart }
+							onKeyDown={ sidebarResize.handleKeyDown }
+						/>
+					</ThemeProvider>
 				) : null }
 				<main className={ styles.main }>
 					{ children }

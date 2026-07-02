@@ -180,7 +180,7 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
-	const { data, isLoading, error } = useSession( sessionId );
+	const { data, isLoading, isFetching, error } = useSession( sessionId );
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
 	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
@@ -240,6 +240,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	// A flow can queue a prompt to auto-send in this site's next session
 	// (e.g. plugin creation handing the description to the agent). The sent
 	// ref guards StrictMode's double-invoked effects from sending twice.
+	// Waits for the session query to settle: the new-session route primes the
+	// cache and fires a reconciling refetch, and sending while that fetch is
+	// in flight lets it resolve afterwards with the still-empty on-disk
+	// session — clobbering the optimistic user-prompt entry.
 	const pendingPrompt = useSyncExternalStore(
 		pendingSessionPromptSlot.subscribe,
 		pendingSessionPromptSlot.peek
@@ -249,13 +253,16 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		if ( ! pendingPrompt || ! ownerSite || pendingPrompt.siteId !== ownerSite.id ) {
 			return;
 		}
+		if ( isFetching || ! data ) {
+			return;
+		}
 		if ( sentPendingPromptRef.current === pendingPrompt ) {
 			return;
 		}
 		sentPendingPromptRef.current = pendingPrompt;
 		pendingSessionPromptSlot.clear();
 		void sendMessageWithConsole( pendingPrompt.prompt );
-	}, [ pendingPrompt, ownerSite, sendMessageWithConsole ] );
+	}, [ pendingPrompt, ownerSite, isFetching, data, sendMessageWithConsole ] );
 	const siteSessionHistory = useMemo(
 		() =>
 			data

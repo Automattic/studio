@@ -21,7 +21,7 @@ import { glob } from 'glob';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { installSqliteIntegration, isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
+import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integration';
 import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
 import {
@@ -283,17 +283,10 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			return;
 		}
 
-		// Reprint-pulled (imported) sites wire SQLite through runtime.php and ship no
-		// db.php drop-in, so keepSqliteIntegrationUpdated skips them. The `wp sqlite export`
-		// below requires the SQLite integration to be discoverable in wp-content, so install
-		// it for imported sites. It's excluded from the archive (see isExactPathExcluded),
-		// so it never reaches the backup or the remote.
-		if (
-			this.options.site.runtimeBlueprintPath &&
-			! ( await isSqliteIntegrationInstalled( this.options.site.path ) )
-		) {
-			await installSqliteIntegration( this.options.site.path );
-		}
+		// The `wp sqlite export` below requires the SQLite integration to be discoverable
+		// in wp-content, which imported sites don't ship. It's excluded from the archive
+		// (see isExactPathExcluded), so it never reaches the backup or the remote.
+		await ensureSqliteIntegrationForImportedSite( this.options.site );
 
 		this.emit( ExportEvents.DATABASE_EXPORT_START );
 		const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );

@@ -325,6 +325,7 @@ export async function runCommand(
 			runtime: siteRuntime,
 			fileAccess: options.fileAccess,
 			running: false,
+			status: 'ready',
 			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,

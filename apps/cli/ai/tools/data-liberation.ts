@@ -64,6 +64,36 @@ interface DataLiberationResultContent {
 	[ key: string ]: unknown;
 }
 
+// The model sometimes sends `args` as a JSON-encoded STRING instead of an object;
+// forwarding that as MCP `arguments` fails the SDK schema ("expected record").
+// Coerce nullish → {}, a JSON string → its parsed object, and reject anything else.
+function normalizeArgs( raw: unknown ): Record< string, unknown > {
+	let value = raw;
+	if ( typeof value === 'string' ) {
+		const trimmed = value.trim();
+		if ( ! trimmed ) {
+			return {};
+		}
+		try {
+			value = JSON.parse( trimmed );
+		} catch {
+			throw new Error(
+				`data_liberation: \`args\` must be a JSON object, not a stringified JSON. Received: ${ trimmed.slice(
+					0,
+					200
+				) }`
+			);
+		}
+	}
+	if ( value === undefined || value === null ) {
+		return {};
+	}
+	if ( typeof value !== 'object' || Array.isArray( value ) ) {
+		throw new Error( 'data_liberation: `args` must be a JSON object.' );
+	}
+	return value as Record< string, unknown >;
+}
+
 export const dataLiberationTool = defineTool(
 	'data_liberation',
 	'Bridge to the Data Liberation engine, which extracts content from closed web platforms ' +
@@ -119,7 +149,7 @@ export const dataLiberationTool = defineTool(
 
 		const result = await client.callTool( {
 			name: args.tool,
-			arguments: args.args as Record< string, unknown >,
+			arguments: normalizeArgs( args.args ),
 		} );
 
 		const rawContent = Array.isArray( result.content )

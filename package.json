@@ -30,7 +30,7 @@
 		"start": "npm -w studio-app run start",
 		"start:test": "DEV_CONFIG_DIR=/tmp/studio-test npm -w studio-app run start",
 		"start-wayland": "npm -w studio-app run start-wayland",
-		"postinstall": "patch-package --patch-dir apps/studio/patches && node ./scripts/remove-fs-ext-other-platform-binaries.mjs && tsx ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && tsx ./scripts/download-agent-skills.ts && tsx ./scripts/download-php-binary.ts",
+		"postinstall": "patch-package --patch-dir apps/studio/patches && node ./scripts/remove-fs-ext-other-platform-binaries.mjs && tsx ./scripts/download-wp-server-files.ts && node ./scripts/download-available-site-translations.mjs && tsx ./scripts/download-agent-skills.ts && tsx ./scripts/download-wordpress-importer.ts && tsx ./scripts/download-php-binary.ts",
 		"package": "tsx ./scripts/package-in-isolation.ts package",
 		"make": "tsx ./scripts/package-in-isolation.ts make",
 		"make:windows-x64": "tsx ./scripts/package-in-isolation.ts make:windows-x64",
@@ -60,6 +60,7 @@
 		"test:metrics": "npx playwright test --config=./tools/metrics/playwright.metrics.config.ts",
 		"download-language-packs": "tsx ./scripts/download-language-packs.ts",
 		"download-agent-skills": "tsx ./scripts/download-agent-skills.ts",
+		"download-wordpress-importer": "tsx ./scripts/download-wordpress-importer.ts",
 		"download:php-binary": "tsx ./scripts/download-php-binary.ts",
 		"eval": "npm run cli:build --silent && npx promptfoo@0.121.4 eval -c scripts/eval/promptfoo.config.yaml",
 		"eval:view": "npx promptfoo@0.121.4 view"

@@ -735,14 +735,17 @@ describe( 'CLI: studio pull-reprint requires an existing site', () => {
 		expect( fs.existsSync( path.join( pullsRoot(), 'existing-id' ) ) ).toBe( true );
 		expect( fs.existsSync( path.join( pullsRoot(), 'existing-id', 'pull.json' ) ) ).toBe( false );
 
-		// No second site was created. The single record carries the durable
-		// status (`pull-failed` after the aborted pull) and its scratch location
-		// (`technicalSiteDirectory`, recorded at pull start so `studio delete`
-		// can clean it up even though this pull never reached the linking step).
+		// No second site was created. The single record keeps its scratch
+		// location (`technicalSiteDirectory`, recorded at pull start so `studio
+		// delete` can clean it up even though this pull never reached the
+		// linking step). Its status is untouched: the site is only marked
+		// `pulling`/`pull-failed` once preflight succeeds and the pull starts
+		// writing into the site directory, so a preflight-stage failure leaves
+		// the record as it was (`ready`).
 		const config = readSeededCliConfig( fakeHome );
 		expect( config.sites ).toHaveLength( 1 );
 		expect( config.sites[ 0 ].id ).toBe( 'existing-id' );
-		expect( config.sites[ 0 ].status ).toBe( 'pull-failed' );
+		expect( config.sites[ 0 ].status ).toBe( 'ready' );
 		expect( config.sites[ 0 ].technicalSiteDirectory ).toBe(
 			path.join( pullsRoot(), 'existing-id' )
 		);
@@ -836,8 +839,10 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		const config = readSeededCliConfig( fakeHome );
 		// The durable importComplete marker is preserved across the re-pull…
 		expect( config.sites[ 0 ].importComplete ).toBe( true );
-		// …and the failed re-pull leaves the site marked pull-failed.
-		expect( config.sites[ 0 ].status ).toBe( 'pull-failed' );
+		// …and a preflight-stage failure leaves the site's status untouched: it
+		// is only marked `pulling`/`pull-failed` once preflight succeeds and the
+		// re-pull begins writing into the site directory.
+		expect( config.sites[ 0 ].status ).toBe( 'ready' );
 
 		// The cached preflight was dropped so connectivity is re-verified.
 		expect( fs.existsSync( path.join( stateDirectory, 'preflight.json' ) ) ).toBe( false );

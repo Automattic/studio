@@ -30,6 +30,7 @@ describe( 'CLI: studio site start', () => {
 		phpVersion: '8.0',
 		adminUsername: 'admin',
 		adminPassword: 'password123',
+		status: 'ready',
 	};
 
 	const testSiteWithDomain: SiteData = {

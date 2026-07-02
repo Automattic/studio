@@ -38,8 +38,11 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 
 		const runtime = getSiteRuntime( site );
 		const fileAccess = getSiteFileAccess( site );
-		/* translators: value for the PHP runtime in the site status output */
-		const runtimeLabel = runtime === SITE_RUNTIME_NATIVE_PHP ? __( 'Native' ) : __( 'Sandbox' );
+		/* translators: As in an application that runs natively on a computer */
+		const nativeLabel = __( 'Native' );
+		/* translators: As in a secure, sandboxed environment */
+		const sandboxLabel = __( 'Sandbox' );
+		const runtimeLabel = runtime === SITE_RUNTIME_NATIVE_PHP ? nativeLabel : sandboxLabel;
 		const fileAccessLabel =
 			/* translators: value for the File access setting in the site status output */
 			fileAccess === SITE_FILE_ACCESS_ALL_FILES ? __( 'All files' ) : __( 'Site directory' );

@@ -40,7 +40,7 @@ export async function fetchSyncableSites( token: string ): Promise< SyncSite[] >
 		},
 		{
 			fields: SITE_FIELDS,
-			filter: 'atomic,wpcom',
+			filters: 'jetpack,atomic,wpcom',
 			options: 'created_at,wpcom_staging_blog_ids',
 			site_activity: 'active',
 		}

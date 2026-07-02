@@ -155,8 +155,8 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	// Derived inline from Redux + connectedSites (storage) rather than stored in local state.
 	// Local state would reset on remount — SiteContentTabs causes a second TabPanel remount
 	// on programmatic tab changes, which would lose the value before the dialog could open.
-	// connectedSites is used instead of syncSites because the /me/sites?filter=atomic,wpcom
-	// endpoint excludes some site types (e.g. Pressable) that can still be connected.
+	// connectedSites is used instead of syncSites because syncSites is paginated
+	// and a deep-linked connected site may not be on the fetched page.
 	const deepLinkRemoteSite =
 		selectedRemoteSiteId && selectedLocalSiteId === selectedSite.id
 			? connectedSites.find( ( site ) => site.id === selectedRemoteSiteId ) ?? null

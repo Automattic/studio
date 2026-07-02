@@ -12,7 +12,6 @@ import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/crea
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { openBrowser } from 'cli/lib/browser';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
@@ -567,14 +566,10 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				ctx.ui.setBusy( false );
 
 				if ( result.exitCode ) {
-					ctx.ui.showError(
-						result.consoleOutput || __( 'Failed to publish site.' )
-					);
+					ctx.ui.showError( result.consoleOutput || __( 'Failed to publish site.' ) );
 				} else {
 					ctx.ui.showSuccess(
-						sprintf( __( 'Published to %s' ), remoteSite.url ) +
-							'\n\n   ' +
-							remoteSite.url
+						sprintf( __( 'Published to %s' ), remoteSite.url ) + '\n\n   ' + remoteSite.url
 					);
 				}
 			} catch ( error ) {

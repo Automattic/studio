@@ -106,6 +106,9 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
 	executeWPCLiInline: ( options ) => ipcRendererInvoke( 'executeWPCLiInline', options ),
 	scaffoldPlugin: ( options ) => ipcRendererInvoke( 'scaffoldPlugin', options ),
+	getWordPressOrgAccount: () => ipcRendererInvoke( 'getWordPressOrgAccount' ),
+	loginToWordPressOrg: () => ipcRendererInvoke( 'loginToWordPressOrg' ),
+	logoutFromWordPressOrg: () => ipcRendererInvoke( 'logoutFromWordPressOrg' ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted ) =>
 		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),

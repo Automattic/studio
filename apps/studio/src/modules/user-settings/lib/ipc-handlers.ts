@@ -6,6 +6,8 @@ import { isInstalled } from 'src/lib/is-installed';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { SUPPORTED_EDITORS, SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+import * as wordpressOrgAuth from 'src/modules/user-settings/lib/wordpress-org-auth';
+import { type WordPressOrgAccount } from 'src/modules/user-settings/lib/wordpress-org-auth';
 import { UserSettingsTabName } from 'src/modules/user-settings/user-settings-types';
 import { defaultSitePath, ensureWritableDirectory } from 'src/storage/paths';
 import {
@@ -144,4 +146,20 @@ export async function getWapuuScore(): Promise< number | undefined > {
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );
+}
+
+export async function getWordPressOrgAccount(
+	_event: IpcMainInvokeEvent
+): Promise< WordPressOrgAccount | null > {
+	return ( await wordpressOrgAuth.getWordPressOrgAccount() ) ?? null;
+}
+
+export async function loginToWordPressOrg(
+	_event: IpcMainInvokeEvent
+): Promise< WordPressOrgAccount > {
+	return wordpressOrgAuth.loginToWordPressOrg();
+}
+
+export async function logoutFromWordPressOrg( _event: IpcMainInvokeEvent ): Promise< void > {
+	await wordpressOrgAuth.logoutFromWordPressOrg();
 }

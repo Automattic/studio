@@ -76,3 +76,9 @@ export const IPC_VOID_HANDLERS = [
 // current app version get the modal once. Keep at `false` otherwise — the modal
 // will only auto-show for first-time users of Studio.
 export const FORCE_SHOW_WHATS_NEW = true;
+
+// WordPress.org authentication (plugin development). The partition is a
+// dedicated persistent cookie jar, isolated from the app's default session
+// and the user's browsers.
+export const WORDPRESS_ORG_LOGIN_URL = 'https://login.wordpress.org/';
+export const WORDPRESS_ORG_AUTH_SESSION_PARTITION = 'persist:studio-wordpress-org';

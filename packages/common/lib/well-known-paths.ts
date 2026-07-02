@@ -62,3 +62,15 @@ export function getRemoteSessionLogPath(): string {
 export function getRemoteSessionPidPath(): string {
 	return path.join( getConfigDirectory(), 'remote-session.pid' );
 }
+
+// WordPress.org has no OAuth; the desktop app captures the login session's
+// cookies (see apps/studio/src/modules/user-settings/lib/wordpress-org-auth.ts)
+// and snapshots them here so account status survives partition resets and can
+// later be shared with the CLI.
+export function getWordPressOrgStorageStatePath(): string {
+	return path.join( getConfigDirectory(), 'wordpress-org-storage.json' );
+}
+
+export function getWordPressOrgStorageStateLockFilePath(): string {
+	return path.join( getConfigDirectory(), '.wordpress-org-storage.lock' );
+}

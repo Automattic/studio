@@ -244,6 +244,9 @@ export {
 	saveUserTerminal,
 	saveWapuuScore,
 	showUserSettings,
+	getWordPressOrgAccount,
+	loginToWordPressOrg,
+	logoutFromWordPressOrg,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 

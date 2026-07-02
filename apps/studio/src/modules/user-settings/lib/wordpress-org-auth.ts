@@ -1,5 +1,6 @@
-import { BrowserWindow, session, type Cookie, type Session } from 'electron';
 import fs from 'fs/promises';
+import os from 'os';
+import nodePath from 'path';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import {
@@ -7,21 +8,21 @@ import {
 	getWordPressOrgStorageStatePath,
 } from '@studio/common/lib/well-known-paths';
 import { writeFile } from 'atomically';
-import { WORDPRESS_ORG_AUTH_SESSION_PARTITION, WORDPRESS_ORG_LOGIN_URL } from 'src/constants';
-import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { getMainWindow } from 'src/main-window';
+import { chromium, type BrowserContext } from 'playwright-core';
+import { WORDPRESS_ORG_LOGIN_URL } from 'src/constants';
 
 /**
  * WordPress.org authentication for plugin development.
  *
- * WordPress.org has no OAuth or API tokens, so we do what every tool does:
- * open a login window and capture the session cookies. The window runs on a
- * dedicated persistent session partition — its own cookie jar, isolated from
- * both the user's browsers and the app's default session (the same clean-
- * profile property pressship gets from a separate Chromium, without bundling
- * one). A cookie snapshot is mirrored to ~/.studio/wordpress-org-storage.json
- * so account status survives partition resets and can be shared with the CLI
- * later.
+ * WordPress.org has no OAuth or API tokens, and its login form is guarded by
+ * reCAPTCHA that reliably detects Electron's Chromium. So — like pressship —
+ * we drive a *real* browser: the user's installed Google Chrome, launched via
+ * Playwright with `channel: 'chrome'` (their actual Chrome app, not a bundled
+ * "Chrome for Testing"). It opens in a throwaway profile (a temp user-data
+ * dir), isolated from their normal Chrome session, so none of their cookies
+ * or passwords are involved. After login we capture the WordPress.org cookies
+ * and persist them to ~/.studio/wordpress-org-storage.json; that file is the
+ * source of truth for account status.
  */
 
 export interface WordPressOrgAccount {
@@ -46,11 +47,6 @@ interface WordPressOrgStorageState {
 
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 const LOGIN_POLL_MS = 1000;
-const WORDPRESS_ORG_SESSION_URLS = [
-	'https://wordpress.org',
-	'https://login.wordpress.org',
-	'https://profiles.wordpress.org',
-];
 // A page that requires login; used to confirm the captured session works.
 const LOGIN_VERIFICATION_URL = 'https://wordpress.org/plugins/developers/add/';
 const LOGIN_REQUIRED_PATTERN = /please log in|log in to submit|before you can upload/i;
@@ -76,7 +72,7 @@ export function usernameFromLoggedInCookieValue( value: string ): string | undef
  * `*logged_in*` cookie whose value starts with the username.
  */
 export function accountFromCookies(
-	cookies: Pick< Cookie, 'name' | 'value' | 'domain' >[]
+	cookies: { name: string; value: string; domain: string }[]
 ): WordPressOrgAccount | undefined {
 	for ( const cookie of cookies ) {
 		if ( ! cookie.name.includes( 'logged_in' ) ) {
@@ -96,114 +92,6 @@ export function accountFromCookies(
 	return undefined;
 }
 
-// login.wordpress.org rejects unusual user agents (like Electron's default),
-// so present a plain Chrome UA for the bundled Chromium version.
-export function getWordPressOrgLoginUserAgent(): string {
-	const platform =
-		process.platform === 'darwin'
-			? 'Macintosh; Intel Mac OS X 10_15_7'
-			: process.platform === 'win32'
-			? 'Windows NT 10.0; Win64; x64'
-			: 'X11; Linux x86_64';
-	return `Mozilla/5.0 (${ platform }) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${ process.versions.chrome } Safari/537.36`;
-}
-
-// The pieces of a self-consistent Chrome identity. The UA string alone isn't
-// enough: reCAPTCHA cross-checks it against the client-hint headers and
-// navigator.userAgentData, and an inconsistent fingerprint makes token
-// issuance fail silently — the login button then appears to do nothing.
-function getChromeMajorVersion(): string {
-	return process.versions.chrome.split( '.' )[ 0 ];
-}
-
-function getChromeBrands(): { brand: string; version: string }[] {
-	const version = getChromeMajorVersion();
-	return [
-		{ brand: 'Chromium', version },
-		{ brand: 'Google Chrome', version },
-		{ brand: 'Not?A_Brand', version: '99' },
-	];
-}
-
-function getSecChUaHeader(): string {
-	return getChromeBrands()
-		.map( ( { brand, version } ) => `"${ brand }";v="${ version }"` )
-		.join( ', ' );
-}
-
-function getUaDataPlatform(): string {
-	return process.platform === 'darwin'
-		? 'macOS'
-		: process.platform === 'win32'
-		? 'Windows'
-		: 'Linux';
-}
-
-let sessionHeadersConfigured = false;
-
-export function getWordPressOrgSession(): Session {
-	const authSession = session.fromPartition( WORDPRESS_ORG_AUTH_SESSION_PARTITION );
-	if ( ! sessionHeadersConfigured ) {
-		sessionHeadersConfigured = true;
-		authSession.setUserAgent( getWordPressOrgLoginUserAgent() );
-		// Replace Chromium's own client-hint brand headers with ones that
-		// match the spoofed Chrome UA.
-		const secChUa = getSecChUaHeader();
-		authSession.webRequest.onBeforeSendHeaders( ( details, callback ) => {
-			const requestHeaders = { ...details.requestHeaders };
-			for ( const header of Object.keys( requestHeaders ) ) {
-				if ( header.toLowerCase() === 'sec-ch-ua' ) {
-					delete requestHeaders[ header ];
-				}
-			}
-			requestHeaders[ 'sec-ch-ua' ] = secChUa;
-			// Diagnostic: surface the login POST and reCAPTCHA calls so a
-			// silently-failing sign-in shows what actually left the app.
-			if (
-				details.method === 'POST' ||
-				/wp-login\.php|recaptcha|\/generate|\/anchor|\/bframe/.test( details.url )
-			) {
-				console.log( `[wporg-login req] ${ details.method } ${ details.url }` );
-			}
-			callback( { requestHeaders } );
-		} );
-		authSession.webRequest.onCompleted( ( details ) => {
-			if ( details.method === 'POST' || /wp-login\.php|recaptcha/.test( details.url ) ) {
-				console.log(
-					`[wporg-login res] ${ details.statusCode } ${ details.method } ${ details.url }`
-				);
-			}
-		} );
-		authSession.webRequest.onErrorOccurred( ( details ) => {
-			console.error( `[wporg-login err] ${ details.error } ${ details.method } ${ details.url }` );
-		} );
-	}
-	return authSession;
-}
-
-async function collectSessionCookies( authSession: Session ): Promise< Cookie[] > {
-	const collected: Cookie[] = [];
-	for ( const url of WORDPRESS_ORG_SESSION_URLS ) {
-		collected.push( ...( await authSession.cookies.get( { url } ) ) );
-	}
-	return collected;
-}
-
-async function sessionWorksOnWordPressOrg( authSession: Session ): Promise< boolean > {
-	try {
-		const response = await authSession.fetch( LOGIN_VERIFICATION_URL, {
-			headers: { 'User-Agent': getWordPressOrgLoginUserAgent() },
-		} );
-		if ( ! response.ok ) {
-			return false;
-		}
-		const text = await response.text();
-		return ! LOGIN_REQUIRED_PATTERN.test( text );
-	} catch {
-		return false;
-	}
-}
-
 async function readStorageState(): Promise< WordPressOrgStorageState | null > {
 	try {
 		const raw = await fs.readFile( getWordPressOrgStorageStatePath(), 'utf8' );
@@ -214,8 +102,8 @@ async function readStorageState(): Promise< WordPressOrgStorageState | null > {
 	}
 }
 
-async function saveStorageState( authSession: Session ): Promise< void > {
-	const cookies = ( await collectSessionCookies( authSession ) ).filter( ( cookie ) =>
+async function saveStorageState( context: BrowserContext ): Promise< void > {
+	const cookies = ( await context.cookies() ).filter( ( cookie ) =>
 		isWordPressOrgDomain( cookie.domain ?? '' )
 	);
 	const state: WordPressOrgStorageState = {
@@ -224,7 +112,7 @@ async function saveStorageState( authSession: Session ): Promise< void > {
 			value: cookie.value,
 			domain: cookie.domain ?? '',
 			path: cookie.path ?? '/',
-			expires: cookie.expirationDate ?? -1,
+			expires: cookie.expires ?? -1,
 			httpOnly: Boolean( cookie.httpOnly ),
 			secure: Boolean( cookie.secure ),
 		} ) ),
@@ -243,14 +131,10 @@ async function saveStorageState( authSession: Session ): Promise< void > {
 }
 
 /**
- * The connected account, if any: live partition cookies first, then the
- * on-disk snapshot. Cheap — no windows, no network.
+ * The connected account, if any — read from the saved cookie snapshot.
+ * Cheap: no browser, no network.
  */
 export async function getWordPressOrgAccount(): Promise< WordPressOrgAccount | undefined > {
-	const fromSession = accountFromCookies( await collectSessionCookies( getWordPressOrgSession() ) );
-	if ( fromSession ) {
-		return fromSession;
-	}
 	const state = await readStorageState();
 	return state ? accountFromCookies( state.cookies ) : undefined;
 }
@@ -259,162 +143,82 @@ function delay( ms: number ): Promise< void > {
 	return new Promise( ( resolve ) => setTimeout( resolve, ms ) );
 }
 
-// One login window at a time; concurrent callers share the same attempt.
+// One login browser at a time; concurrent callers share the same attempt.
 let activeLogin: Promise< WordPressOrgAccount > | null = null;
-let activeLoginWindow: BrowserWindow | null = null;
 
 export function loginToWordPressOrg(): Promise< WordPressOrgAccount > {
 	if ( activeLogin ) {
-		activeLoginWindow?.focus();
 		return activeLogin;
 	}
 	activeLogin = runLogin().finally( () => {
 		activeLogin = null;
-		activeLoginWindow = null;
 	} );
 	return activeLogin;
 }
 
-async function runLogin(): Promise< WordPressOrgAccount > {
-	const authSession = getWordPressOrgSession();
-	const parent = await getMainWindow();
-	const loginWindow = new BrowserWindow( {
-		width: 720,
-		height: 760,
-		parent,
-		title: 'Log in to WordPress.org',
-		autoHideMenuBar: true,
-		webPreferences: {
-			contextIsolation: true,
-			nodeIntegration: false,
-			sandbox: true,
-			session: authSession,
-		},
-	} );
-	activeLoginWindow = loginWindow;
-	// Session-level UA + client-hint headers are configured in
-	// getWordPressOrgSession(); the top frame repeats the UA for good measure.
-	loginWindow.webContents.setUserAgent( getWordPressOrgLoginUserAgent() );
-	// Keep WordPress.org navigation inside the login window; anything else
-	// (support docs, password reset hosts, …) goes to the real browser.
-	loginWindow.webContents.setWindowOpenHandler( ( { url } ) => {
-		try {
-			if ( isWordPressOrgDomain( new URL( url ).hostname ) ) {
-				void loginWindow.webContents.loadURL( url );
-			} else {
-				void shellOpenExternalWrapper( url );
-			}
-		} catch {
-			// Ignore unparseable URLs.
-		}
-		return { action: 'deny' };
-	} );
-
-	// The page gives no feedback when its login JS fails (anti-bot checks
-	// abort the submit silently), so surface the window's own console and
-	// load failures in the main-process log for diagnosis.
-	loginWindow.webContents.on( 'console-message', ( _event, level, message ) => {
-		console.log( `[wporg-login console:${ level }]`, message );
-	} );
-	loginWindow.webContents.on(
-		'did-fail-load',
-		( _event, errorCode, errorDescription, validatedURL ) => {
-			console.error( '[wporg-login] load failed:', errorCode, errorDescription, validatedURL );
-		}
-	);
-	loginWindow.webContents.on( 'did-navigate', ( _event, url ) => {
-		console.log( '[wporg-login] navigated:', url );
-	} );
-	// Runs in the page on every navigation: spoofs navigator.userAgentData to
-	// match the Chrome UA (reCAPTCHA reads it via JS, where headers can't
-	// help), and instruments clicks/submits/errors so a dead login button
-	// reports exactly where it dies instead of failing silently.
-	loginWindow.webContents.on( 'dom-ready', () => {
-		const brands = JSON.stringify( getChromeBrands() );
-		const platform = JSON.stringify( getUaDataPlatform() );
-		void loginWindow.webContents
-			.executeJavaScript(
-				`(() => {
-					try {
-						const data = { brands: ${ brands }, mobile: false, platform: ${ platform } };
-						const uaData = {
-							...data,
-							getHighEntropyValues: () => Promise.resolve( { ...data } ),
-							toJSON: () => ( { ...data } ),
-						};
-						Object.defineProperty( navigator, 'userAgentData', { get: () => uaData } );
-					} catch ( error ) {
-						console.error( '[studio] userAgentData spoof failed:', String( error ) );
-					}
-					window.addEventListener( 'error', ( event ) =>
-						console.error( '[studio] page error:', event.message )
-					);
-					window.addEventListener( 'unhandledrejection', ( event ) =>
-						console.error( '[studio] unhandled rejection:', String( event.reason ) )
-					);
-					document.addEventListener(
-						'submit',
-						() => console.log( '[studio] form submit event fired' ),
-						true
-					);
-					document.addEventListener(
-						'click',
-						( event ) => {
-							const button =
-								event.target && event.target.closest
-									? event.target.closest( 'button, input[type=submit]' )
-									: null;
-							if ( button ) {
-								console.log(
-									'[studio] submit-ish click:',
-									button.id || button.name || button.type || 'unknown'
-								);
-							}
-						},
-						true
-					);
-					console.log(
-						'[studio] instrumentation ready; grecaptcha:',
-						typeof window.grecaptcha
-					);
-				})();`
-			)
-			.catch( () => undefined );
-	} );
-	if ( process.env.NODE_ENV === 'development' ) {
-		loginWindow.webContents.openDevTools( { mode: 'detach' } );
+async function launchChromeContext( userDataDir: string ): Promise< BrowserContext > {
+	try {
+		// `channel: 'chrome'` uses the system-installed Google Chrome (the real
+		// browser app), not Playwright's bundled Chromium.
+		return await chromium.launchPersistentContext( userDataDir, {
+			channel: 'chrome',
+			headless: false,
+			viewport: null,
+		} );
+	} catch ( error ) {
+		throw new Error(
+			'Could not open Google Chrome for WordPress.org login. Make sure Google Chrome is installed. ' +
+				( error instanceof Error ? error.message : String( error ) )
+		);
 	}
+}
+
+async function runLogin(): Promise< WordPressOrgAccount > {
+	const userDataDir = await fs.mkdtemp( nodePath.join( os.tmpdir(), 'studio-wporg-login-' ) );
+	const context = await launchChromeContext( userDataDir );
 
 	let closedByUser = false;
-	loginWindow.on( 'closed', () => {
+	context.on( 'close', () => {
 		closedByUser = true;
 	} );
 
 	try {
-		await loginWindow.loadURL( WORDPRESS_ORG_LOGIN_URL );
+		const page = context.pages()[ 0 ] ?? ( await context.newPage() );
+		await page.goto( WORDPRESS_ORG_LOGIN_URL, { waitUntil: 'domcontentloaded' } );
 
 		const deadline = Date.now() + LOGIN_TIMEOUT_MS;
 		while ( Date.now() < deadline ) {
 			if ( closedByUser ) {
 				throw new Error( 'The login window was closed before sign-in completed.' );
 			}
-			const account = accountFromCookies( await collectSessionCookies( authSession ) );
-			if ( account && ( await sessionWorksOnWordPressOrg( authSession ) ) ) {
-				await saveStorageState( authSession );
+			const account = accountFromCookies( await context.cookies() );
+			if ( account && ( await sessionIsValid( context ) ) ) {
+				await saveStorageState( context );
 				return account;
 			}
 			await delay( LOGIN_POLL_MS );
 		}
 		throw new Error( 'Timed out waiting for the WordPress.org login to complete.' );
 	} finally {
-		if ( ! loginWindow.isDestroyed() ) {
-			loginWindow.close();
-		}
+		await context.close().catch( () => undefined );
+		await fs.rm( userDataDir, { recursive: true, force: true } ).catch( () => undefined );
+	}
+}
+
+async function sessionIsValid( context: BrowserContext ): Promise< boolean > {
+	const page = await context.newPage();
+	try {
+		await page.goto( LOGIN_VERIFICATION_URL, { waitUntil: 'domcontentloaded' } );
+		const body = await page.locator( 'body' ).innerText( { timeout: 10_000 } );
+		return ! LOGIN_REQUIRED_PATTERN.test( body );
+	} catch {
+		return false;
+	} finally {
+		await page.close().catch( () => undefined );
 	}
 }
 
 export async function logoutFromWordPressOrg(): Promise< void > {
-	await getWordPressOrgSession().clearStorageData( { storages: [ 'cookies' ] } );
 	const lockPath = getWordPressOrgStorageStateLockFilePath();
 	await lockFileAsync( lockPath, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
 	try {

@@ -1,17 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	accountFromCookies,
-	getWordPressOrgLoginUserAgent,
 	isWordPressOrgDomain,
 	usernameFromLoggedInCookieValue,
 } from '../wordpress-org-auth';
 
-vi.mock( 'electron', () => ( {
-	BrowserWindow: class {},
-	session: { fromPartition: vi.fn() },
-} ) );
-vi.mock( 'src/main-window', () => ( {
-	getMainWindow: () => null,
+// Login drives real Chrome via Playwright; the pure helpers under test don't
+// touch it, but importing the module pulls playwright-core in — stub it so
+// the unit tests stay fast and headless.
+vi.mock( 'playwright-core', () => ( {
+	chromium: { launchPersistentContext: vi.fn() },
 } ) );
 
 describe( 'isWordPressOrgDomain', () => {
@@ -72,14 +70,5 @@ describe( 'accountFromCookies', () => {
 
 	it( 'returns undefined with no matching cookie', () => {
 		expect( accountFromCookies( [] ) ).toBeUndefined();
-	} );
-} );
-
-describe( 'getWordPressOrgLoginUserAgent', () => {
-	it( 'looks like a plain Chrome user agent', () => {
-		const userAgent = getWordPressOrgLoginUserAgent();
-		expect( userAgent ).toMatch( /^Mozilla\/5\.0 \(/ );
-		expect( userAgent ).toContain( 'Chrome/' );
-		expect( userAgent ).not.toContain( 'Electron' );
 	} );
 } );

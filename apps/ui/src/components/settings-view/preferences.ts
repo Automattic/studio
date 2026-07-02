@@ -17,6 +17,7 @@ export interface PreferencesFormData {
 	locale: SupportedLocale;
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;
+	agenticFeaturesEnabled: boolean;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -34,26 +35,35 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		locale: resolveFormLocale( prefs.locale ),
 		defaultSiteDirectory: prefs.defaultSiteDirectory,
 		studioCliInstalled: prefs.studioCliInstalled,
+		agenticFeaturesEnabled: prefs.agenticFeaturesEnabled,
 	};
 }
 
-export function diffPreferencesFromSaved(
-	next: PreferencesFormData,
-	saved: UserPreferences
+// Maps a form-level change to the writable preferences shape (settings save
+// on change, so each control's update becomes its own save patch). The only
+// translation needed is the editor/terminal UNSET sentinel, which persists
+// as null.
+export function toPreferencesPatch(
+	update: Partial< PreferencesFormData >
 ): Partial< WritableUserPreferences > {
 	const patch: Partial< WritableUserPreferences > = {};
-	const nextEditor: SupportedEditor | null = next.editor === UNSET ? null : next.editor;
-	const nextTerminal: SupportedTerminal | null = next.terminal === UNSET ? null : next.terminal;
 
-	if ( nextEditor !== saved.editor ) patch.editor = nextEditor;
-	if ( nextTerminal !== saved.terminal ) patch.terminal = nextTerminal;
-	if ( next.colorScheme !== saved.colorScheme ) patch.colorScheme = next.colorScheme;
-	if ( next.locale !== resolveFormLocale( saved.locale ) ) patch.locale = next.locale;
-	if ( next.defaultSiteDirectory !== saved.defaultSiteDirectory ) {
-		patch.defaultSiteDirectory = next.defaultSiteDirectory;
+	if ( update.editor !== undefined ) {
+		patch.editor = update.editor === UNSET ? null : update.editor;
 	}
-	if ( next.studioCliInstalled !== saved.studioCliInstalled ) {
-		patch.studioCliInstalled = next.studioCliInstalled;
+	if ( update.terminal !== undefined ) {
+		patch.terminal = update.terminal === UNSET ? null : update.terminal;
+	}
+	if ( update.colorScheme !== undefined ) patch.colorScheme = update.colorScheme;
+	if ( update.locale !== undefined ) patch.locale = update.locale;
+	if ( update.defaultSiteDirectory !== undefined ) {
+		patch.defaultSiteDirectory = update.defaultSiteDirectory;
+	}
+	if ( update.studioCliInstalled !== undefined ) {
+		patch.studioCliInstalled = update.studioCliInstalled;
+	}
+	if ( update.agenticFeaturesEnabled !== undefined ) {
+		patch.agenticFeaturesEnabled = update.agenticFeaturesEnabled;
 	}
 
 	return patch;

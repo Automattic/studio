@@ -1,5 +1,4 @@
 import '@testing-library/jest-dom/vitest';
-import { useBlocker } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -20,10 +19,6 @@ import {
 import { useOffline } from '@/hooks/use-offline';
 import { SettingsView, normalizeSettingsTab } from './index';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
-
-vi.mock( '@tanstack/react-router', () => ( {
-	useBlocker: vi.fn(),
-} ) );
 
 vi.mock( '@wordpress/components', () => ( {
 	FormToggle: ( props: {
@@ -246,7 +241,6 @@ const useInstallWordPressSkillMock = vi.mocked( useInstallWordPressSkill );
 const useRemoveWordPressSkillMock = vi.mocked( useRemoveWordPressSkill );
 const useWordPressSkillsMock = vi.mocked( useWordPressSkills );
 const useOfflineMock = vi.mocked( useOffline );
-const useBlockerMock = vi.mocked( useBlocker );
 
 describe( 'SettingsView', () => {
 	const mutate = vi.fn();
@@ -268,7 +262,6 @@ describe( 'SettingsView', () => {
 		confirmDeleteAllPreviewSites.mockResolvedValue( true );
 		copyText.mockResolvedValue( undefined );
 		installSkillMutateAsync.mockResolvedValue( undefined );
-		useBlockerMock.mockReturnValue( undefined as never );
 
 		useConnectorMock.mockReturnValue( {
 			previewColorScheme: vi.fn(),
@@ -276,6 +269,7 @@ describe( 'SettingsView', () => {
 			confirmDeleteAllPreviewSites,
 			copyText,
 			openExternalUrl,
+			supportsAgenticOptOut: true,
 		} as never );
 		useAppGlobalsMock.mockReturnValue( {
 			data: { isWindowsStore: false, platform: 'darwin' },
@@ -304,6 +298,7 @@ describe( 'SettingsView', () => {
 				locale: 'en',
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
+				agenticFeaturesEnabled: true,
 			},
 			isLoading: false,
 		} as never );
@@ -350,81 +345,42 @@ describe( 'SettingsView', () => {
 		} as never );
 	} );
 
-	it( 'saves default site directory and Studio CLI changes through the preferences patch', async () => {
+	it( 'saves each preference change instantly, without a Save button', async () => {
 		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
-		fireEvent.click( screen.getByRole( 'textbox', { name: 'Default site directory' } ) );
+		expect( screen.queryByRole( 'button', { name: 'Save' } ) ).not.toBeInTheDocument();
+
 		fireEvent.click( screen.getByLabelText( 'Studio CLI for terminal' ) );
 
-		await waitFor( () =>
-			expect( screen.getByDisplayValue( '/Users/example/Sites' ) ).toBeInTheDocument()
-		);
+		expect( mutate ).toHaveBeenCalledWith( { studioCliInstalled: true }, expect.any( Object ) );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Default site directory' } ) );
+
+		await waitFor( () =>
+			expect( mutate ).toHaveBeenCalledWith(
+				{ defaultSiteDirectory: '/Users/example/Sites' },
+				expect.any( Object )
+			)
+		);
+	} );
+
+	it( 'saves the agentic features toggle on change', () => {
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		fireEvent.click( screen.getByLabelText( 'Agentic features' ) );
 
 		expect( mutate ).toHaveBeenCalledWith(
-			{
-				defaultSiteDirectory: '/Users/example/Sites',
-				studioCliInstalled: true,
-			},
+			{ agenticFeaturesEnabled: false },
 			expect.any( Object )
 		);
 	} );
 
-	it( 'confirms before navigating away with unsaved preferences', async () => {
+	it( 'hides the agentic features toggle for signed-out users', () => {
+		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
+
 		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
-		fireEvent.click( screen.getByLabelText( 'Studio CLI for terminal' ) );
-
-		await waitFor( () =>
-			expect(
-				( useBlockerMock.mock.calls.at( -1 )?.[ 0 ] as { disabled?: boolean } ).disabled
-			).toBe( false )
-		);
-
-		const blocker = useBlockerMock.mock.calls.at( -1 )?.[ 0 ] as unknown as {
-			shouldBlockFn: ( args: unknown ) => boolean | Promise< boolean >;
-		};
-		const confirmSpy = vi.spyOn( window, 'confirm' );
-
-		confirmSpy.mockReturnValueOnce( false );
-		await expect(
-			Promise.resolve(
-				blocker.shouldBlockFn( {
-					current: { pathname: '/settings' },
-					next: { pathname: '/sessions/session-1' },
-					action: 'PUSH',
-				} )
-			)
-		).resolves.toBe( true );
-		expect( confirmSpy ).toHaveBeenCalledWith(
-			'You have unsaved settings. If you leave this screen, your changes will be lost.'
-		);
-
-		confirmSpy.mockReturnValueOnce( true );
-		await expect(
-			Promise.resolve(
-				blocker.shouldBlockFn( {
-					current: { pathname: '/settings' },
-					next: { pathname: '/sessions/session-1' },
-					action: 'PUSH',
-				} )
-			)
-		).resolves.toBe( false );
-
-		confirmSpy.mockClear();
-		await expect(
-			Promise.resolve(
-				blocker.shouldBlockFn( {
-					current: { pathname: '/settings' },
-					next: { pathname: '/settings' },
-					action: 'PUSH',
-				} )
-			)
-		).resolves.toBe( false );
-		expect( confirmSpy ).not.toHaveBeenCalled();
-
-		confirmSpy.mockRestore();
+		expect( screen.queryByLabelText( 'Agentic features' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'renders usage and confirms preview-site deletion through the connector', async () => {

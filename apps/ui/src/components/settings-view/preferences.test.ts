@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { UNSET, diffPreferencesFromSaved, toPreferencesFormData } from './preferences';
+import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import type { UserPreferences } from '@/data/core';
 
 const SAVED_PREFERENCES: UserPreferences = {
@@ -9,6 +9,7 @@ const SAVED_PREFERENCES: UserPreferences = {
 	locale: 'en',
 	defaultSiteDirectory: '/Users/example/Studio',
 	studioCliInstalled: false,
+	agenticFeaturesEnabled: true,
 };
 
 describe( 'settings preference helpers', () => {
@@ -27,28 +28,25 @@ describe( 'settings preference helpers', () => {
 			locale: 'en',
 			defaultSiteDirectory: '/Users/example/Studio',
 			studioCliInstalled: false,
+			agenticFeaturesEnabled: true,
 		} );
 	} );
 
-	it( 'returns an empty save diff when form values match saved defaults', () => {
-		expect(
-			diffPreferencesFromSaved( toPreferencesFormData( SAVED_PREFERENCES ), SAVED_PREFERENCES )
-		).toEqual( {} );
+	it( 'returns an empty patch for an empty change', () => {
+		expect( toPreferencesPatch( {} ) ).toEqual( {} );
 	} );
 
-	it( 'diffs default site directory and Studio CLI state with other preference fields', () => {
+	it( 'maps form changes to writable preferences, persisting UNSET as null', () => {
 		expect(
-			diffPreferencesFromSaved(
-				{
-					editor: UNSET,
-					terminal: 'iterm',
-					colorScheme: 'dark',
-					locale: 'es',
-					defaultSiteDirectory: '/Users/example/Sites',
-					studioCliInstalled: true,
-				},
-				SAVED_PREFERENCES
-			)
+			toPreferencesPatch( {
+				editor: UNSET,
+				terminal: 'iterm',
+				colorScheme: 'dark',
+				locale: 'es',
+				defaultSiteDirectory: '/Users/example/Sites',
+				studioCliInstalled: true,
+				agenticFeaturesEnabled: false,
+			} )
 		).toEqual( {
 			editor: null,
 			terminal: 'iterm',
@@ -56,6 +54,14 @@ describe( 'settings preference helpers', () => {
 			locale: 'es',
 			defaultSiteDirectory: '/Users/example/Sites',
 			studioCliInstalled: true,
+			agenticFeaturesEnabled: false,
+		} );
+	} );
+
+	it( 'includes only the fields present in the change', () => {
+		expect( toPreferencesPatch( { locale: 'fr' } ) ).toEqual( { locale: 'fr' } );
+		expect( toPreferencesPatch( { studioCliInstalled: false } ) ).toEqual( {
+			studioCliInstalled: false,
 		} );
 	} );
 } );

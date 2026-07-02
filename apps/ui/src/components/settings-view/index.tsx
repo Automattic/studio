@@ -2,7 +2,6 @@ import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { getMcpServerConfigJson } from '@studio/common/lib/mcp-config';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { useBlocker } from '@tanstack/react-router';
 import { FormToggle } from '@wordpress/components';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { check, copy, file, Icon, moreHorizontal } from '@wordpress/icons';
@@ -15,7 +14,7 @@ import {
 	Tooltip,
 } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Gravatar } from '@/components/gravatar';
 import { LearnMoreLink } from '@/components/learn-more';
 import * as Menu from '@/components/menu';
@@ -42,8 +41,8 @@ import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import {
 	UNSET,
-	diffPreferencesFromSaved,
 	toPreferencesFormData,
+	toPreferencesPatch,
 	type PreferencesFormData,
 } from './preferences';
 import styles from './style.module.css';
@@ -55,7 +54,7 @@ import type {
 	SupportedLocale,
 	SupportedTerminal,
 } from '@/data/core';
-import type { FormEvent, KeyboardEvent, ReactNode } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 
 const SETTINGS_TABS = [ 'preferences', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
 
@@ -114,17 +113,7 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
-function SettingsHeader( {
-	showSaveButton,
-	canSubmit,
-	isSaving,
-	onSave,
-}: {
-	showSaveButton: boolean;
-	canSubmit: boolean;
-	isSaving: boolean;
-	onSave: () => void;
-} ) {
+function SettingsHeader() {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const isFullscreen = useFullscreen();
 	const toggleSpacerClass = sidebarCollapsed
@@ -149,22 +138,7 @@ function SettingsHeader( {
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
-			<div className={ styles.headerActions }>
-				{ showSaveButton ? (
-					<Button
-						type="button"
-						variant="solid"
-						tone="brand"
-						size="small"
-						disabled={ ! canSubmit }
-						loading={ isSaving }
-						loadingAnnouncement={ __( 'Saving settings' ) }
-						onClick={ onSave }
-					>
-						{ __( 'Save' ) }
-					</Button>
-				) : null }
-			</div>
+			<div className={ styles.headerActions } />
 		</div>
 	);
 }
@@ -331,6 +305,45 @@ function StudioCliSection( {
 	);
 }
 
+function AgenticFeaturesSection( {
+	checked,
+	onChange,
+}: {
+	checked: boolean;
+	onChange: ( checked: boolean ) => void;
+} ) {
+	const connector = useConnector();
+	const { data: user } = useAuthUser();
+
+	// Signed-out users are gated by the sign-in state itself, and hosted mode
+	// can't gate at all — the toggle only makes sense for signed-in desktop
+	// users.
+	if ( ! connector.supportsAgenticOptOut || ! user ) {
+		return null;
+	}
+
+	return (
+		<section className={ styles.preferenceSectionGroup }>
+			<div className={ styles.cliHeader }>
+				<h2 className={ clsx( styles.preferenceSectionHeading, styles.cliHeading ) }>
+					{ __( 'Agentic features' ) }
+				</h2>
+				<FormToggle
+					id="agentic-features-toggle"
+					aria-label={ __( 'Agentic features' ) }
+					checked={ checked }
+					onChange={ ( event ) => onChange( event.target.checked ) }
+				/>
+			</div>
+			<p className={ styles.cliDescription }>
+				{ __(
+					'Chat with an agent that builds and edits your sites. Turning this off hides chat — your existing conversations are kept.'
+				) }
+			</p>
+		</section>
+	);
+}
+
 function AccountInformationSection() {
 	const { data: user, isLoading } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
@@ -488,6 +501,10 @@ function PreferencesPanel( {
 				) : null }
 			</section>
 			<AccountInformationSection />
+			<AgenticFeaturesSection
+				checked={ data.agenticFeaturesEnabled }
+				onChange={ ( agenticFeaturesEnabled ) => onChange( { agenticFeaturesEnabled } ) }
+			/>
 			{ showStudioCliToggle ? (
 				<StudioCliSection
 					checked={ data.studioCliInstalled }
@@ -1010,64 +1027,57 @@ export function SettingsView( {
 	const { data: installedApps } = useInstalledApps();
 	const { data: appGlobals } = useAppGlobals();
 	const savePreferences = useSaveUserPreferences();
-	const savedColorSchemeRef = useRef< ColorScheme | null >( null );
-	const previewedColorSchemeRef = useRef( false );
 
 	const [ data, setData ] = useState< PreferencesFormData | null >( null );
 	useEffect( () => {
 		if ( saved ) {
 			setData( toPreferencesFormData( saved ) );
-			savedColorSchemeRef.current = saved.colorScheme;
 		}
 	}, [ saved ] );
 
-	const handleChange = useCallback( ( update: Partial< PreferencesFormData > ) => {
-		setData( ( prev ) => ( prev ? { ...prev, ...update } : prev ) );
-	}, [] );
+	// Settings save on change: reflect the update in the form state for
+	// instant feedback, then persist it right away.
+	const handleChange = useCallback(
+		( update: Partial< PreferencesFormData > ) => {
+			setData( ( prev ) => ( prev ? { ...prev, ...update } : prev ) );
+
+			const patch = toPreferencesPatch( update );
+			if ( Object.keys( patch ).length === 0 ) {
+				return;
+			}
+			savePreferences.mutate( patch, {
+				onSuccess: async () => {
+					if ( 'locale' in patch ) {
+						// Translations are loaded once at bootstrap; the rest of the
+						// app imports `__` from `@wordpress/i18n` directly and doesn't
+						// subscribe to locale changes. Reload the window so every
+						// string re-renders in the new language. The persister is
+						// throttled (~1s), so drop the persisted cache first — the
+						// next mount then refetches preferences from the main
+						// process, which has the newly saved locale.
+						await persister.removeClient();
+						window.location.reload();
+					}
+				},
+			} );
+		},
+		[ savePreferences ]
+	);
 
 	const handleColorSchemeChange = useCallback(
 		( colorScheme: ColorScheme ) => {
 			if ( ! isColorScheme( colorScheme ) ) {
 				return;
 			}
-			previewedColorSchemeRef.current = true;
-			void connector.previewColorScheme( colorScheme );
 			handleChange( { colorScheme } );
 		},
-		[ connector, handleChange ]
+		[ handleChange ]
 	);
-
-	useEffect( () => {
-		return () => {
-			if ( previewedColorSchemeRef.current && savedColorSchemeRef.current ) {
-				void connector.previewColorScheme( savedColorSchemeRef.current );
-			}
-		};
-	}, [ connector ] );
-
-	const patch = data && saved ? diffPreferencesFromSaved( data, saved ) : {};
-	const isDirty = Object.keys( patch ).length > 0;
-
-	useBlocker( {
-		disabled: ! isDirty,
-		enableBeforeUnload: isDirty,
-		shouldBlockFn: ( { current, next } ) => {
-			if ( current.pathname === next.pathname ) {
-				return false;
-			}
-
-			return ! window.confirm(
-				__( 'You have unsaved settings. If you leave this screen, your changes will be lost.' )
-			);
-		},
-	} );
 
 	if ( isLoading || ! data || ! saved ) {
 		return <div className={ styles.state }>{ __( 'Loading...' ) }</div>;
 	}
 
-	const canSubmit = isDirty && ! savePreferences.isPending;
-	const showSaveButton = activeTab === 'preferences';
 	const showNativePreferences = appGlobals?.platform !== 'browser';
 	const showStudioCliToggle = showNativePreferences && appGlobals?.isWindowsStore === false;
 
@@ -1076,36 +1086,6 @@ export function SettingsView( {
 		if ( directory ) {
 			handleChange( { defaultSiteDirectory: directory } );
 		}
-	};
-
-	const submitPreferences = () => {
-		if ( ! canSubmit || ! showSaveButton ) return;
-		// Translations are loaded once at bootstrap; the rest of the app imports
-		// `__` from `@wordpress/i18n` directly and doesn't subscribe to locale
-		// changes. Reload the window so every string re-renders in the new
-		// language after a successful save.
-		const localeChanged = 'locale' in patch;
-		savePreferences.mutate( patch, {
-			onSuccess: async () => {
-				if ( 'colorScheme' in patch && patch.colorScheme ) {
-					previewedColorSchemeRef.current = false;
-					savedColorSchemeRef.current = patch.colorScheme;
-				}
-				if ( localeChanged ) {
-					// The persister is throttled (~1s), so a fresh `setQueryData`
-					// might not hit localStorage before we navigate. Drop the
-					// persisted cache so the next mount refetches preferences
-					// from the main process, which has the newly saved locale.
-					await persister.removeClient();
-					window.location.reload();
-				}
-			},
-		} );
-	};
-
-	const handleSubmit = ( event: FormEvent ) => {
-		event.preventDefault();
-		submitPreferences();
 	};
 
 	return (
@@ -1118,16 +1098,11 @@ export function SettingsView( {
 					}
 				} }
 			>
-				<SettingsHeader
-					showSaveButton={ showSaveButton }
-					canSubmit={ canSubmit }
-					isSaving={ savePreferences.isPending }
-					onSave={ submitPreferences }
-				/>
+				<SettingsHeader />
 
 				<div className={ styles.scroll }>
 					<div className={ styles.contentBlock }>
-						<form onSubmit={ handleSubmit } className={ styles.form }>
+						<div className={ styles.form }>
 							<Tabs.Panel tabId="preferences">
 								<PreferencesPanel
 									data={ data }
@@ -1151,7 +1126,7 @@ export function SettingsView( {
 							<Tabs.Panel tabId="mcp">
 								<McpSettingsPanel />
 							</Tabs.Panel>
-						</form>
+						</div>
 					</div>
 				</div>
 			</Tabs.Root>

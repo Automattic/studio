@@ -97,9 +97,10 @@ export function getBundledWxrImportScriptPath(): string {
 	return path.join( getBundledPhpPath(), 'import-wxr.php' );
 }
 
-// The official wordpress-importer plugin, downloaded into `wp-files/` at install time by
-// `scripts/download-wordpress-importer.ts` and shipped in the CLI bundle. Installed into the
-// site's `wp-content/plugins` before running a WXR import so the import works offline.
+// The official wordpress-importer plugin, downloaded into `wp-files/` at install time via the
+// `FILES_TO_DOWNLOAD` registry in `scripts/download-wp-server-files.ts` and shipped in the CLI
+// bundle. Installed into the site's `wp-content/plugins` before running a WXR import so the
+// import works offline.
 export function getBundledWordPressImporterPath(): string {
 	return path.join( getWpFilesPath(), 'wordpress-importer' );
 }

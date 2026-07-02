@@ -1,5 +1,5 @@
 import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
 	PreviewSplitFrame,
 	type PreviewSplitFramePreviewProps,
@@ -16,6 +16,9 @@ import {
 	useSessionPreviewScreenshotHandler,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
+import { getSiteUrl } from '@/lib/get-site-url';
+import { writeLastVisited } from '@/lib/last-visited';
+import { usePluginSiteTag } from '@/lib/plugin-prototype';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and the site overview host the preview; on every
@@ -103,12 +106,72 @@ function DashboardLayoutContent() {
 			setLastPreviewSiteId( routeSite.id );
 		}
 	}, [ routeSite ] );
+	// Remember where the user is so the `/` index route can return here
+	// instead of defaulting to the first site.
+	const sessionSiteId = sessionSite?.id;
+	useEffect( () => {
+		if ( sessionId ) {
+			writeLastVisited( { sessionId, siteId: sessionSiteId } );
+			return;
+		}
+		const visitedSiteId = overviewSiteId ?? newSessionSiteId;
+		if ( visitedSiteId ) {
+			writeLastVisited( { siteId: visitedSiteId } );
+		}
+	}, [ sessionId, sessionSiteId, overviewSiteId, newSessionSiteId ] );
 	useEffect( () => {
 		if ( overviewRouteSiteId ) {
 			setPreviewOpen( true );
 			updatePreviewPath( '/' );
 		}
 	}, [ overviewRouteSiteId, setPreviewOpen, updatePreviewPath ] );
+	// The preview path is shared dashboard state; without a reset, switching
+	// to another site would ask it for the previous site's path (a 404).
+	// Runs before the plugin-landing effect below so that still wins for
+	// plugin sites.
+	const routeSiteId = routeSite?.id;
+	const lastRouteSiteIdRef = useRef< string | undefined >( undefined );
+	useEffect( () => {
+		if ( ! routeSiteId ) {
+			// Non-preview routes keep the last site (and its path) warm.
+			return;
+		}
+		if ( lastRouteSiteIdRef.current === routeSiteId ) {
+			return;
+		}
+		const isFirstSite = lastRouteSiteIdRef.current === undefined;
+		lastRouteSiteIdRef.current = routeSiteId;
+		if ( ! isFirstSite ) {
+			updatePreviewPath( '/' );
+		}
+	}, [ routeSiteId, updatePreviewPath ] );
+	// Prototype: a plugin site's new-session route lands the preview on the
+	// Plugins screen (via auto-login) instead of the site's front end.
+	const newSessionPluginTag = usePluginSiteTag( newSessionSite?.id );
+	const newSessionPluginSiteId = newSessionPluginTag ? newSessionSite?.id : undefined;
+	let newSessionPluginPreviewPath: string | undefined;
+	if ( newSessionPluginSiteId && newSessionSite ) {
+		try {
+			const redirectTo = new URL(
+				'/wp-admin/plugins.php',
+				getSiteUrl( newSessionSite )
+			).toString();
+			newSessionPluginPreviewPath = `/studio-auto-login?redirect_to=${ encodeURIComponent(
+				redirectTo
+			) }`;
+		} catch {
+			newSessionPluginPreviewPath = '/wp-admin/plugins.php';
+		}
+	}
+	useEffect( () => {
+		if ( ! newSessionPluginSiteId || ! newSessionPluginPreviewPath ) {
+			return;
+		}
+		setPreviewOpen( true );
+		updatePreviewPath( newSessionPluginPreviewPath );
+		// Keyed on the site id — the path only changes with the site's URL, and
+		// re-running then (fresh port) is the desired refresh.
+	}, [ newSessionPluginSiteId, newSessionPluginPreviewPath, setPreviewOpen, updatePreviewPath ] );
 	const lastPreviewSite = lastPreviewSiteId
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;

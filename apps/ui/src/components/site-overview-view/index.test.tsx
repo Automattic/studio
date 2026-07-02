@@ -248,6 +248,8 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.queryByText( 'Site settings' ) ).not.toBeInTheDocument();
 	} );
 
+	// Rendered without a SessionUIProvider, so the open-site-url hook takes
+	// its browser fallback path; inside the app these open the preview panel.
 	it( 'routes open and settings shortcuts through existing APIs', async () => {
 		render( <SiteOverviewView siteId="site-1" /> );
 
@@ -255,9 +257,9 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.click( screen.getByText( 'Media Library' ).closest( 'button' )! );
 
 		await waitFor( () =>
-			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php', undefined )
+			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php' )
 		);
-		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php', undefined );
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php' );
 	} );
 } );
 

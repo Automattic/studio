@@ -23,7 +23,6 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteHeaderActions } from '@/components/site-header-actions';
 import { SiteSettingsForm, type SiteSettingsTabId } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
-import { useConnector } from '@/data/core';
 import {
 	useCopySite,
 	useExportDatabase,
@@ -32,8 +31,8 @@ import {
 	useIsSiteStopping,
 	useSiteOverviewDetails,
 	useSites,
-	useStartSite,
 } from '@/data/queries/use-sites';
+import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
 import type { SiteDetails, SiteOverviewDetails, SiteOverviewExtension } from '@/data/core';
@@ -269,9 +268,7 @@ export function SiteOverviewView( { siteId }: SiteOverviewViewProps ) {
 }
 
 function SiteOverviewBody( { site }: { site: SiteDetails } ) {
-	const connector = useConnector();
 	const navigate = useNavigate();
-	const startSite = useStartSite();
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
@@ -286,26 +283,9 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
 
-	const ensureRunning = async () => {
-		if ( site.running ) {
-			return true;
-		}
-		try {
-			await startSite.mutateAsync( site.id );
-			return true;
-		} catch {
-			return false;
-		}
-	};
-
-	const openSiteUrl = async ( relativeUrl = '', options?: { autoLogin?: boolean } ) => {
-		if ( ! ( await ensureRunning() ) ) {
-			return;
-		}
-		void connector.openSiteUrl( site.id, relativeUrl, options ).catch( ( error ) => {
-			console.error( 'Failed to open site URL:', error );
-		} );
-	};
+	// Opens WordPress screens in the in-app preview panel (starting the site
+	// first when needed) rather than the external browser.
+	const openSiteUrl = useOpenSiteUrl( site );
 
 	return (
 		<div className={ styles.root }>

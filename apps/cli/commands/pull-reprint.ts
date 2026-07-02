@@ -451,9 +451,7 @@ export async function runCommand(
 		// (a partial `--only` there would drop WordPress core), the full
 		// wp-content folder tree + database toggle afterwards. Skipped once
 		// chosen or after the download has happened (resumes reuse the
-		// persisted choice). NOTE: the selection is captured into pull.json
-		// but NOT applied yet — the pull below still fetches everything;
-		// execution lands in the follow-up PR.
+		// persisted choice).
 		const proceed = await applySelection( {
 			metadata: studioMetadata,
 			// "First pull" = no completed pull whose local index still exists.
@@ -470,11 +468,9 @@ export async function runCommand(
 			return;
 		}
 
-		// A single `reprint pull` runs the whole pipeline in one PHP-WASM
-		// fork: files-pull → db-pull → db-apply → flat-docroot →
-		// apply-runtime. reprint owns the stage ordering internally and, on
-		// a delta re-pull, resets its own sub-command state via
-		// prepare_repull().
+		// The pull pipeline runs as separate reprint commands (pull-files →
+		// pull-db → flat-docroot → apply-runtime) so the selection can skip
+		// the database step entirely; see runFullPull.
 		if ( ! hasPullCompletedStage( studioMetadata, 'pulled' ) ) {
 			normalizeReprintStateForEssentialFilesPull( studioMetadata.stateDirectory );
 			await runFullPull( SITE_RUNTIME_NATIVE_PHP, studioMetadata, apiUrl, secret, verbose );
@@ -585,7 +581,9 @@ export async function runCommand(
 		}
 
 		if ( ! hasPullCompletedStage( studioMetadata, 'completed' ) ) {
-			if ( hasSkippedFiles( studioMetadata.stateDirectory ) ) {
+			// Fetch the deferred media/uploads unless the user excluded the
+			// media library in the selective-sync choice.
+			if ( ! studioMetadata.skipUploads && hasSkippedFiles( studioMetadata.stateDirectory ) ) {
 				await downloadSkippedFiles(
 					getSiteRuntime( site ),
 					studioMetadata,
@@ -930,12 +928,19 @@ function readPullProgress( technicalSiteDirectory: string ): PullProgress | null
 }
 
 /**
- * Run reprint's composite `pull` command: the whole site-clone
- * pipeline (preflight → files-pull → db-pull → db-apply →
- * flat-docroot → apply-runtime) in a single child process, with
- * reprint owning the stage ordering and, when the prior pull already
- * completed, resetting its own sub-command state for a delta re-pull
- * via prepare_repull().
+ * Run the site-clone pipeline as separate reprint commands so the
+ * selective-sync choice maps directly onto them:
+ *
+ *   1. `pull-files`    — preflight + file download. `--only` restricts the
+ *      pull to the wp-content folders the user selected.
+ *   2. `pull-db`       — SQL download + import into SQLite. **Skipped
+ *      entirely** when the user excluded the database, leaving the local
+ *      database untouched.
+ *   3. `flat-docroot`  — reassemble the raw download into the site
+ *      directory (`--force` overwrites the pre-existing blank install).
+ *   4. `apply-runtime` — server config, run last so it embeds the DB
+ *      credentials `pull-db` wrote to state (or keeps the previous ones
+ *      when the database was skipped).
  *
  * The SQLite target geometry:
  *   - If preflight exposed the remote `wp-content` (contentDir set),
@@ -944,10 +949,11 @@ function readPullProgress( technicalSiteDirectory: string ): PullProgress | null
  *     the flattened site.
  *   - Otherwise it falls back to `sitePath/wp-content`.
  *
- * The flattened site (`--flatten-to`) and runtime output
- * (`--output-dir`) directories are mounted up front so the single
- * fork can write them onto the host filesystem.  `ensurePort` must
- * run first so `--new-site-url` points at the local server.
+ * The flattened site and runtime output directories are mounted up
+ * front so the forks can write them onto the host filesystem. Each
+ * command is individually resumable (exit code 2 → retry loop in
+ * {@link runReprintCommandUntilComplete}); a crash between commands
+ * safely re-runs the sequence, since every step is idempotent.
  *
  * Advances the pull stage to 'pulled'.
  */
@@ -963,39 +969,80 @@ export async function runFullPull(
 		? `${ metadata.rawDirectory }${ contentDir }/database/.ht.sqlite`
 		: `${ metadata.sitePath }/wp-content/database/.ht.sqlite`;
 	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
+	const onlyArgs = ( metadata.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` );
+
+	const runStep = ( progressLabel: string, args: string[] ) =>
+		runReprintCommandUntilComplete(
+			metadata.stateDirectory,
+			metadata.rawDirectory,
+			args,
+			( progress ) => logger.reportProgress( progress ),
+			{
+				progressLabel,
+				mounts: [
+					{ hostPath: metadata.sitePath, vfsPath: metadata.sitePath },
+					{ hostPath: metadata.runtimeDirectory, vfsPath: metadata.runtimeDirectory },
+				],
+				verboseCommands: verbose,
+				runtime,
+			}
+		);
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
-	await runReprintCommandUntilComplete(
-		metadata.stateDirectory,
-		metadata.rawDirectory,
-		[
-			'pull',
+
+	// 1. Files. `--only` restricts the download to the selected wp-content
+	// folders; essential-files defers the media library to the post-start
+	// skipped-earlier pass.
+	await runStep( __( 'Pulling files' ), [
+		'pull-files',
+		apiUrl,
+		`--secret=${ secret }`,
+		'--filter=essential-files',
+		...onlyArgs,
+		'--no-adaptive',
+		`--state-dir=${ metadata.stateDirectory }`,
+		`--fs-root=${ metadata.rawDirectory }`,
+	] );
+
+	// 2. Database — only when selected. Skipping it leaves the local
+	// database (and the runtime's DB credentials in state) untouched.
+	if ( ! metadata.skipDatabase ) {
+		await runStep( __( 'Pulling database' ), [
+			'pull-db',
 			apiUrl,
 			`--secret=${ secret }`,
-			'--filter=essential-files',
 			'--target-engine=sqlite',
 			`--target-sqlite-path=${ sqlitePath }`,
 			`--new-site-url=${ metadata.localUrl! }`,
-			`--flatten-to=${ metadata.sitePath }`,
-			`--runtime=${ reprintRuntime }`,
-			'--start-runtime=none',
-			`--output-dir=${ metadata.runtimeDirectory }`,
 			'--no-adaptive',
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
-			'--force',
-		],
-		( progress ) => logger.reportProgress( progress ),
-		{
-			progressLabel: __( 'Pulling site' ),
-			mounts: [
-				{ hostPath: metadata.sitePath, vfsPath: metadata.sitePath },
-				{ hostPath: metadata.runtimeDirectory, vfsPath: metadata.runtimeDirectory },
-			],
-			verboseCommands: verbose,
-			runtime,
-		}
-	);
+		] );
+	}
+
+	// 3. Flatten the raw download into the site directory. `-` is the URL
+	// placeholder for local commands; `--force` overwrites the blank
+	// install `studio create` left in the pre-existing site directory.
+	await runStep( __( 'Flattening layout' ), [
+		'flat-docroot',
+		'-',
+		`--flatten-to=${ metadata.sitePath }`,
+		'--force',
+		`--state-dir=${ metadata.stateDirectory }`,
+		`--fs-root=${ metadata.rawDirectory }`,
+	] );
+
+	// 4. Runtime config — last, so it reads the DB credentials pull-db wrote
+	// to state. apply-runtime takes no URL positional, and
+	// --flat-document-root replaces --fs-root (they are mutually exclusive).
+	await runStep( __( 'Preparing runtime' ), [
+		'apply-runtime',
+		`--runtime=${ reprintRuntime }`,
+		`--output-dir=${ metadata.runtimeDirectory }`,
+		`--flat-document-root=${ metadata.sitePath }`,
+		`--state-dir=${ metadata.stateDirectory }`,
+	] );
+
 	logger.reportSuccess( __( 'Site pulled' ) );
 	recordCompletedStage( metadata, 'pulled' );
 }
@@ -1292,7 +1339,7 @@ export function getReprintApiUrlForSite( siteUrl: string ): string {
 }
 
 function buildFilesSyncArgs(
-	metadata: Pick< PullSessionMetadata, 'stateDirectory' | 'rawDirectory' >,
+	metadata: Pick< PullSessionMetadata, 'stateDirectory' | 'rawDirectory' | 'fileOnlyPaths' >,
 	apiUrl: string,
 	secret: string,
 	extraArgs: string[] = []
@@ -1302,6 +1349,10 @@ function buildFilesSyncArgs(
 		apiUrl,
 		`--secret=${ secret }`,
 		...extraArgs,
+		// Carry the same `--only` set as pull-files: files-pull refuses to
+		// resume against the shared state dir with a different `--only` (its
+		// index is a union keyed by a fingerprint of the prefixes).
+		...( metadata.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` ),
 		// Per-batch ceiling — one sub-process yields after 30 s and the
 		// client reconnects to continue.  Not a total-time budget; a slow
 		// or high-latency sync just makes more round-trips.  Kept well

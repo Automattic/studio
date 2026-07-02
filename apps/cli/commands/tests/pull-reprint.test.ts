@@ -262,33 +262,60 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			false
 		);
 
-		expect( reprint ).toHaveBeenCalledTimes( 1 );
-		const [ passedState, passedRaw, passedArgs, , passedOptions ] = reprint.mock.calls[ 0 ];
-		expect( passedState ).toBe( stateDirectory );
-		expect( passedRaw ).toBe( rawDirectory );
-		expect( passedArgs ).toEqual( [
-			'pull',
+		// The pipeline runs as separate commands so the selection can skip steps.
+		expect( reprint ).toHaveBeenCalledTimes( 4 );
+		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		expect( commands ).toEqual( [ 'pull-files', 'pull-db', 'flat-docroot', 'apply-runtime' ] );
+
+		const [ filesArgs, dbArgs, flattenArgs, runtimeArgs ] = reprint.mock.calls.map(
+			( call ) => call[ 2 ] as string[]
+		);
+		expect( filesArgs ).toEqual( [
+			'pull-files',
 			'https://example.com/?reprint-api',
 			'--secret=hmac-secret',
 			'--filter=essential-files',
-			'--target-engine=sqlite',
-			`--target-sqlite-path=${ rawDirectory }/srv/htdocs/wp-content/database/.ht.sqlite`,
-			'--new-site-url=http://localhost:8881',
-			`--flatten-to=${ sitePath }`,
-			'--runtime=playground-cli',
-			'--start-runtime=none',
-			`--output-dir=${ runtimeDirectory }`,
 			'--no-adaptive',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
+		] );
+		expect( dbArgs ).toEqual( [
+			'pull-db',
+			'https://example.com/?reprint-api',
+			'--secret=hmac-secret',
+			'--target-engine=sqlite',
+			`--target-sqlite-path=${ rawDirectory }/srv/htdocs/wp-content/database/.ht.sqlite`,
+			'--new-site-url=http://localhost:8881',
+			'--no-adaptive',
+			`--state-dir=${ stateDirectory }`,
+			`--fs-root=${ rawDirectory }`,
+		] );
+		// Local flatten: `-` URL placeholder, --force to overwrite the blank install.
+		expect( flattenArgs ).toEqual( [
+			'flat-docroot',
+			'-',
+			`--flatten-to=${ sitePath }`,
 			'--force',
+			`--state-dir=${ stateDirectory }`,
+			`--fs-root=${ rawDirectory }`,
 		] );
-		// The flattened site and runtime output dirs are mounted up front so
-		// the single fork can write them to the host filesystem.
-		expect( passedOptions?.mounts ).toEqual( [
-			{ hostPath: sitePath, vfsPath: sitePath },
-			{ hostPath: runtimeDirectory, vfsPath: runtimeDirectory },
+		// apply-runtime takes no URL positional; --flat-document-root replaces --fs-root.
+		expect( runtimeArgs ).toEqual( [
+			'apply-runtime',
+			'--runtime=playground-cli',
+			`--output-dir=${ runtimeDirectory }`,
+			`--flat-document-root=${ sitePath }`,
+			`--state-dir=${ stateDirectory }`,
 		] );
+
+		// Every step mounts the flattened site and runtime output dirs so the
+		// forks can write them to the host filesystem.
+		for ( const call of reprint.mock.calls ) {
+			expect( ( call[ 4 ] as { mounts?: unknown } )?.mounts ).toEqual( [
+				{ hostPath: sitePath, vfsPath: sitePath },
+				{ hostPath: runtimeDirectory, vfsPath: runtimeDirectory },
+			] );
+		}
 
 		// Stage is bumped + persisted so a resumed run skips the pull.
 		const persisted = JSON.parse(
@@ -299,9 +326,9 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 
-	it( 'does not apply the selective-sync choice yet — no --no-db/--only even when set (inert menu)', async () => {
+	it( 'skips pull-db entirely when the database is excluded from the selection', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
-			path.join( os.tmpdir(), 'studio-import-pull-inert-' )
+			path.join( os.tmpdir(), 'studio-import-pull-nodb-' )
 		);
 		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
 		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
@@ -328,10 +355,50 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
 				stage: 'initialized',
 				localUrl: 'http://localhost:8881',
-				// Selection captured in pull.json, but the pull must ignore it for now.
 				selectionMade: true,
 				skipDatabase: true,
-				skipUploads: true,
+			} as never,
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false
+		);
+
+		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		expect( commands ).toEqual( [ 'pull-files', 'flat-docroot', 'apply-runtime' ] );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	it( 'threads --only into pull-files for a folder-restricted pull', async () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-pull-only-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawDirectory, { recursive: true } );
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( { preflight: { data: {} } } )
+		);
+
+		const reprint = vi
+			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
+			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			{
+				version: 1,
+				sitePath: path.join( technicalSiteDirectory, 'site' ),
+				technicalSiteDirectory,
+				rawDirectory,
+				stateDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				stage: 'initialized',
+				localUrl: 'http://localhost:8881',
+				selectionMade: true,
 				fileOnlyPaths: [ ':wp-plugins:', '/srv/htdocs/wp-content/plugins/akismet' ],
 			} as never,
 			'https://example.com/?reprint-api',
@@ -339,9 +406,13 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			false
 		);
 
-		const passedArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
-		expect( passedArgs ).not.toContain( '--no-db' );
-		expect( passedArgs.some( ( a ) => a.startsWith( '--only' ) ) ).toBe( false );
+		const filesArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		expect( filesArgs[ 0 ] ).toBe( 'pull-files' );
+		expect( filesArgs ).toContain( '--only=:wp-plugins:' );
+		expect( filesArgs ).toContain( '--only=/srv/htdocs/wp-content/plugins/akismet' );
+		// The database step still runs (only files were restricted).
+		const commands = reprint.mock.calls.map( ( call ) => ( call[ 2 ] as string[] )[ 0 ] );
+		expect( commands ).toContain( 'pull-db' );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
@@ -390,14 +461,16 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			false
 		);
 
-		const [ , , passedArgs, , passedOptions ] = reprint.mock.calls[ 0 ];
-		// With no content dir from preflight, the sqlite target falls back to
-		// the flattened site's wp-content.
-		expect( passedArgs ).toContain(
+		// With no content dir from preflight, the sqlite target (on the
+		// pull-db step) falls back to the flattened site's wp-content.
+		const dbArgs = reprint.mock.calls[ 1 ][ 2 ] as string[];
+		expect( dbArgs[ 0 ] ).toBe( 'pull-db' );
+		expect( dbArgs ).toContain(
 			`--target-sqlite-path=${ sitePath }/wp-content/database/.ht.sqlite`
 		);
-		// The site + runtime dirs are always mounted for the single fork.
-		expect( passedOptions?.mounts ).toEqual( [
+		// The site + runtime dirs are always mounted for every fork.
+		const dbOptions = reprint.mock.calls[ 1 ][ 4 ] as { mounts?: unknown };
+		expect( dbOptions?.mounts ).toEqual( [
 			{ hostPath: sitePath, vfsPath: sitePath },
 			{ hostPath: runtimeDirectory, vfsPath: runtimeDirectory },
 		] );
@@ -946,7 +1019,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 					};
 				}
 
-				if ( args[ 0 ] === 'pull' ) {
+				if ( args[ 0 ] === 'pull-files' ) {
 					const state = JSON.parse(
 						fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' )
 					);
@@ -982,7 +1055,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 
 		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [
 			'preflight',
-			'pull',
+			'pull-files',
 		] );
 	} );
 } );

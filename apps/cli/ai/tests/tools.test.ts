@@ -1214,6 +1214,8 @@ describe( 'Studio AI MCP tools', () => {
 			const styleCss = await readFile( path.join( themeDir, 'style.css' ), 'utf8' );
 			expect( styleCss ).toContain( 'Theme Name: Acme Studio' );
 			expect( styleCss ).toContain( 'Text Domain: acme-studio' );
+			expect( styleCss ).toContain( '.wp-site-blocks > * + * {' );
+			expect( styleCss ).toContain( 'margin-block-start: 0;' );
 
 			const themeJson = JSON.parse(
 				await readFile( path.join( themeDir, 'theme.json' ), 'utf8' )

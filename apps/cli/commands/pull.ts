@@ -19,7 +19,6 @@ import { SiteData } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
 	checkBackupSize,
 	fetchSyncableSites,
@@ -187,16 +186,6 @@ export async function runCommand(
 			);
 			handleImportEvents( importer );
 			await importer.import( site );
-
-			// A WordPress.com backup never bundles the SQLite drop-in (Jetpack excludes
-			// wp-content/database/), so (re)install it after every import — even when the
-			// site server was stopped — so the freshly pulled site can connect to its database.
-			logger.reportStart(
-				LoggerAction.INSTALL_SQLITE,
-				__( 'Setting up SQLite integration, if needed…' )
-			);
-			await keepSqliteIntegrationUpdated( siteFolder );
-			logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 			// Something in Playground makes it so the front-end of the site sometimes returns an error page
 			// on the first request. Send that first request from here to hide the error from the user.

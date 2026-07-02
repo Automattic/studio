@@ -13,6 +13,7 @@ import {
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { SiteList } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
+import type { ReactElement } from 'react';
 
 const navigateMock = vi.fn();
 let paramsMock: { sessionId?: string; siteId?: string } = {};
@@ -27,6 +28,12 @@ vi.mock( '@tanstack/react-router', () => ( {
 		const state = { location: { pathname: pathnameMock } };
 		return options?.select ? options.select( state ) : state;
 	},
+} ) );
+
+// The context menu pulls in the connector and user-preference stacks; it has
+// its own tests, so the rows here render their trigger element bare.
+vi.mock( '@/components/site-context-menu', () => ( {
+	SiteContextMenu: ( { trigger }: { trigger: ReactElement } ) => trigger,
 } ) );
 
 vi.mock( '@/data/queries/use-sessions', () => ( {

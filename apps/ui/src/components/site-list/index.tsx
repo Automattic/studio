@@ -16,6 +16,7 @@ import {
 	type ReactNode,
 } from 'react';
 import { SidebarButton } from '@/components/sidebar-button';
+import { SiteContextMenu } from '@/components/site-context-menu';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { Spinner } from '@/components/spinner';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
@@ -430,44 +431,55 @@ function SiteSection( {
 	// dashed secondary one.
 	const isPrimaryActive = isChatActive || ( agenticGated && isContextActive );
 
+	// The row section doubles as the context-menu trigger (via render prop)
+	// so no wrapper DOM disturbs the drag-reorder CSS and animation code.
 	return (
-		<section
-			className={ clsx(
-				styles.site,
-				isPrimaryActive && styles.siteActive,
-				! agenticGated && isContextActive && styles.siteContextActive
-			) }
-		>
-			<header className={ styles.siteHeader } onClick={ handleOpenSite }>
-				<div className={ styles.siteText }>
-					<SiteAgentActivityIndicator activity={ displayActivity } />
-					<SidebarButton
-						className={ styles.siteToggle }
-						onClick={ ( event ) => {
-							event.stopPropagation();
-							handleOpenSite();
-						} }
-						aria-current={ isPrimaryActive ? 'page' : undefined }
-					>
-						<span
-							className={ clsx(
-								styles.siteName,
-								status === 'stopped' && styles.siteNameStopped,
-								isStarting && styles.siteNameStarting
-							) }
-						>
-							{ site.name }
-						</span>
-					</SidebarButton>
-				</div>
-				<div className={ styles.siteActions } data-site-actions>
-					{ ! agenticGated && (
-						<SiteOverviewButton site={ site } isActive={ isContextActive } isPlugin={ isPlugin } />
+		<SiteContextMenu
+			site={ site }
+			trigger={
+				<section
+					className={ clsx(
+						styles.site,
+						isPrimaryActive && styles.siteActive,
+						! agenticGated && isContextActive && styles.siteContextActive
 					) }
-					<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
-				</div>
-			</header>
-		</section>
+				>
+					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
+						<div className={ styles.siteText }>
+							<SiteAgentActivityIndicator activity={ displayActivity } />
+							<SidebarButton
+								className={ styles.siteToggle }
+								onClick={ ( event ) => {
+									event.stopPropagation();
+									handleOpenSite();
+								} }
+								aria-current={ isPrimaryActive ? 'page' : undefined }
+							>
+								<span
+									className={ clsx(
+										styles.siteName,
+										status === 'stopped' && styles.siteNameStopped,
+										isStarting && styles.siteNameStarting
+									) }
+								>
+									{ site.name }
+								</span>
+							</SidebarButton>
+						</div>
+						<div className={ styles.siteActions } data-site-actions>
+							{ ! agenticGated && (
+								<SiteOverviewButton
+									site={ site }
+									isActive={ isContextActive }
+									isPlugin={ isPlugin }
+								/>
+							) }
+							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
+						</div>
+					</header>
+				</section>
+			}
+		/>
 	);
 }
 

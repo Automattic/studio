@@ -82,9 +82,7 @@ function ensureBuildToolchain( stagingRoot: string ) {
 
 function hasBundledServerFiles( repoRoot: string ): boolean {
 	// Marker paths for artifacts produced by download-wp-server-files.ts,
-	// download-available-site-translations.mjs, download-agent-skills.ts, and the
-	// data-liberation workspace build. The packaging install uses `--ignore-scripts`,
-	// so these don't run via the root postinstall and must be triggered here.
+	// download-available-site-translations.mjs, and download-agent-skills.ts.
 	const requiredPaths = [
 		'wp-files/latest/wordpress/wp-includes/version.php',
 		'wp-files/latest/available-site-translations.json',
@@ -94,7 +92,6 @@ function hasBundledServerFiles( repoRoot: string ): boolean {
 		'wp-files/phpmyadmin/index.php',
 		'wp-files/reprint/reprint.phar',
 		'wp-files/skills/wp-plugin-development/SKILL.md',
-		'packages/data-liberation-agent/dist/mcp-server.js',
 	];
 
 	return requiredPaths.every( ( requiredPath ) =>
@@ -111,11 +108,6 @@ function ensureBundledServerFiles( stagingRoot: string ) {
 	runOrFail( 'npx', [ 'tsx', './scripts/download-wp-server-files.ts' ], stagingRoot );
 	runOrFail( 'node', [ './scripts/download-available-site-translations.mjs' ], stagingRoot );
 	runOrFail( 'npx', [ 'tsx', './scripts/download-agent-skills.ts' ], stagingRoot );
-	// Compile the committed Data Liberation engine workspace; the CLI build's
-	// write-dist-extras plugin then bundles its dist/ into dist/cli. The engine's
-	// runtime deps ship via apps/cli's own install:bundle (the engine is a CLI
-	// `dependency`), so no separate per-engine node_modules is produced here.
-	runOrFail( 'npm', [ '-w', 'data-liberation', 'run', 'build' ], stagingRoot );
 }
 
 function shouldCopyToStaging( sourcePath: string ): boolean {

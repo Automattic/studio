@@ -92,12 +92,14 @@
 
 /* Sidebar-specific indicator treatment: match the content card's vertical
    extent instead of running through the frame gaps above/below it (keep the
-   12px in sync with --panel-frame-gap in preview-split-frame), and use the
-   chrome's translucent-white edge language — the shared brand-blue indicator
-   is nearly invisible on the dark chrome. */
+   12px in sync with --panel-frame-gap in preview-split-frame). The handle
+   sits on the dark chrome where the shared light-theme brand blue is nearly
+   invisible, so use the primary ramp's on-dark brand blue instead. Nudged
+   left off the content card's edge onto the chrome boundary. */
 .resizeHandle span {
 	margin-block: 12px;
-	background-color: rgb(255 255 255 / 55%);
+	margin-inline-start: -2px;
+	background-color: #5a82ff;
 }
 
 /* Pinned to the bottom-left of the main area, mirroring the sidebar footer.

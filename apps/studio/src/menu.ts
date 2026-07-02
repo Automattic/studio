@@ -122,8 +122,6 @@ export function buildViewMenuItems( {
 	onToggleSitePreview: () => void;
 } ): MenuItemConstructorOptions[] {
 	return [
-		{ label: __( 'Show Tab Bar' ), role: 'toggleTabBar' },
-		{ label: __( 'Show All Tabs' ), role: 'showAllTabs' },
 		{
 			label: __( 'Toggle Sidebar' ),
 			accelerator: 'CommandOrControl+B',
@@ -397,11 +395,6 @@ async function getAppMenu(
 						submenu: [
 							{ label: __( 'Minimize' ), role: 'minimize' },
 							{ label: __( 'Zoom' ), role: 'zoom' },
-							{ type: 'separator' },
-							{ label: __( 'Show Previous Tab' ), role: 'selectPreviousTab' },
-							{ label: __( 'Show Next Tab' ), role: 'selectNextTab' },
-							{ label: __( 'Move Tab to New Window' ), role: 'moveTabToNewWindow' },
-							{ label: __( 'Merge All Windows' ), role: 'mergeAllWindows' },
 						],
 					} as MenuItemConstructorOptions,
 			  ] ),

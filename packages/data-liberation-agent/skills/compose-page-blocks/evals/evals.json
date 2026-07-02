@@ -1,0 +1,79 @@
+{
+  "skill": "compose-page-blocks",
+  "version": "v1.0",
+  "notes": "Initial eval pass — prompts only, no assertions. Add per-case assertions after the first iteration of grading. Inputs reference fixture sites that already have HTML + screenshots produced by prior liberate runs.",
+  "cases": [
+    {
+      "id": "biostrata-rich-blog-post",
+      "intent": "A rich blog post with a hero image, multiple body sections, an inline pull-quote, and a CTA at the end. Verifies the skill can map a long-form article to a mix of wp:cover, wp:heading, wp:paragraph, wp:quote, and wp:buttons without leaning on wp:html.",
+      "archetype": "post",
+      "url": "https://www.biostratamarketing.com/blog/example-rich-post",
+      "inputs": {
+        "htmlPath": "output/biostratamarketing.com/html/blog-example-rich-post.html",
+        "screenshotPath": "output/biostratamarketing.com/screenshots/desktop/blog-example-rich-post.png",
+        "designFoundationPath": "output/biostratamarketing.com/design-foundation.json",
+        "outputPath": "output/biostratamarketing.com/.compose-out/blog-example-rich-post.blocks.html"
+      }
+    },
+    {
+      "id": "getsnooz-about-page",
+      "intent": "An about/marketing page with a hero, a 3-column feature grid, a testimonials row, and a footer CTA. Verifies the skill picks wp:cover for the hero, wp:columns (3) for the features, wp:quote for testimonials, and wp:buttons centered for the footer CTA.",
+      "archetype": "page",
+      "url": "https://www.getsnooz.com/about",
+      "inputs": {
+        "htmlPath": "output/getsnooz.com/html/about.html",
+        "screenshotPath": "output/getsnooz.com/screenshots/desktop/about.png",
+        "designFoundationPath": "output/getsnooz.com/design-foundation.json",
+        "outputPath": "output/getsnooz.com/.compose-out/about.blocks.html"
+      }
+    },
+    {
+      "id": "dopplepress-product-page",
+      "intent": "A product page with a primary product image, a 4-column gallery of detail shots, structured product copy, and a sticky-on-mobile add-to-cart row. Verifies wp:image for the hero, wp:gallery (4 columns) for the detail strip, and wp:buttons for the CTA. Add-to-cart specifics live in the theme's single-product template, not in post_content — the skill should not try to reproduce price/variant UI.",
+      "archetype": "product",
+      "url": "https://dopplepress.com/products/example",
+      "inputs": {
+        "htmlPath": "output/dopplepress.com/html/product-example.html",
+        "screenshotPath": "output/dopplepress.com/screenshots/desktop/product-example.png",
+        "designFoundationPath": "output/dopplepress.com/design-foundation.json",
+        "outputPath": "output/dopplepress.com/.compose-out/product-example.blocks.html"
+      }
+    },
+    {
+      "id": "biostrata-faq-page",
+      "intent": "A page consisting of an intro paragraph followed by a FAQ accordion (8-12 question/answer pairs). Verifies wp:details usage and that the skill does not flatten the accordion into raw paragraphs.",
+      "archetype": "page",
+      "url": "https://www.biostratamarketing.com/faq",
+      "inputs": {
+        "htmlPath": "output/biostratamarketing.com/html/faq.html",
+        "screenshotPath": "output/biostratamarketing.com/screenshots/desktop/faq.png",
+        "designFoundationPath": "output/biostratamarketing.com/design-foundation.json",
+        "outputPath": "output/biostratamarketing.com/.compose-out/faq.blocks.html"
+      }
+    },
+    {
+      "id": "getsnooz-multi-section-landing",
+      "intent": "Landing page with 5+ distinct full-bleed sections of alternating surface treatments (raised card, accent banner, inverse footer-band). Verifies the skill correctly maps surface alternation to backgroundColor slugs and uses align:full consistently.",
+      "archetype": "page",
+      "url": "https://www.getsnooz.com/",
+      "inputs": {
+        "htmlPath": "output/getsnooz.com/html/homepage.html",
+        "screenshotPath": "output/getsnooz.com/screenshots/desktop/homepage.png",
+        "designFoundationPath": "output/getsnooz.com/design-foundation.json",
+        "outputPath": "output/getsnooz.com/.compose-out/homepage.blocks.html"
+      }
+    },
+    {
+      "id": "dopplepress-collection-listing",
+      "intent": "A category/collection page rendered as a 12-product grid with a small intro paragraph above the grid. Verifies the skill recognizes that the product grid itself belongs in the theme template (a query loop block), NOT in post_content — the skill should emit only the intro paragraph + a heading, leaving the listing to the theme.",
+      "archetype": "page",
+      "url": "https://dopplepress.com/collections/all",
+      "inputs": {
+        "htmlPath": "output/dopplepress.com/html/collections-all.html",
+        "screenshotPath": "output/dopplepress.com/screenshots/desktop/collections-all.png",
+        "designFoundationPath": "output/dopplepress.com/design-foundation.json",
+        "outputPath": "output/dopplepress.com/.compose-out/collections-all.blocks.html"
+      }
+    }
+  ]
+}

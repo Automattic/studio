@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Determinism Map · Data Liberation</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Determinism Map</span>
+  <span>Reference</span>
+</div>
+
+<div class="wide">
+<h1>Determinism Map</h1>
+<p class="subtitle">Which steps a <em>function</em> decides, which steps a <em>model</em> decides — and the seam between them. This is the architecture's defining line (see <a href="../lessons/0007-the-tick-loop.html">Lesson 7</a>); read the pipeline as two materials joined at the <code>judgmentNeeded[]</code> boundary.</p>
+
+<div class="det-legend">
+  <span><span class="dbadge det">D</span> Deterministic — same inputs → same output; a pure function or a fixed algorithm.</span>
+  <span><span class="dbadge jud">J</span> Judgment — a model/agent looks and decides; lives in a skill, crosses the seam.</span>
+  <span><span class="dbadge mix">M</span> Mixed — deterministic mechanics wrapping (or gated by) a judgment call.</span>
+</div>
+
+<div class="callout key">
+  <span class="label">The rule that draws the line</span>
+  Everything a function <em>can</em> decide, a function decides. Everything that needs taste or
+  perception — "is this good enough?", "which color is the brand primary?", "which page
+  represents this cluster?" — is pushed across the <code>judgmentNeeded[]</code> seam into a
+  skill. The deterministic tools are the <strong>vocabulary</strong>; the skills are the
+  <strong>sentences</strong>. That is why there are ~38 small tools instead of a few big ones.
+</div>
+
+<h2>Phase 1 — Extraction</h2>
+<p>Extraction is <strong>almost entirely deterministic</strong>. It's measurement and capture:
+given a live page, produce the same artifacts. There is no taste involved in reading a sitemap
+or computing a section's bounding box.</p>
+<table>
+  <thead><tr><th></th><th>Stage / step</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>detect</strong> — platform fingerprint</td><td>Fixed rules over headers/markers → a platform id.</td></tr>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>discover</strong> — URL inventory</td><td>Sitemap parse + nav walk; reproducible URL set.</td></tr>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>extract</strong> — content + products</td><td>Adapter parses HTML/JSON-LD/GraphQL into structured content.</td></tr>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>download-media</strong></td><td>Fetch + dedupe; SVG-risk scan + raster are rule-based.</td></tr>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>capture</strong> — SectionSpecs, selectors, landmark census, design aggregates</td><td><code>extractFull</code> measures the rendered DOM; the same page yields the same specs.</td></tr>
+  </tbody>
+</table>
+<p class="note">The one judgment that <em>precedes</em> extraction is the path-choice gate
+(blocks vs carry vs theme), made by the operator/agent right after discovery. It's not a
+pipeline stage — it's a decision that configures the pipeline. <span class="dbadge jud">J</span></p>
+
+<h2>The seam</h2>
+<p>Between capture and a finished site sits the streaming <code>tick-scheduler</code>, which
+emits <code>judgmentNeeded[]</code>. Everything <em>before</em> the seam is measurement;
+everything the seam hands out is taste. Reconstruction then alternates between the two.</p>
+
+<h2>Phase 2 — Reconstruction</h2>
+<p>Reconstruction is where the two materials interleave. The <em>emit</em> is deterministic;
+the <em>decisions about what to emit and whether it's good</em> are judgment.</p>
+<table>
+  <thead><tr><th></th><th>Stage / step</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><span class="dbadge jud">J</span></td><td><strong>cluster representative selection</strong></td><td>"Which page stands for this group?" — a model picks.</td></tr>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>blocks emit</strong> — <code>reconstructNativeAggregate</code></td><td>Section spec → native blocks; single-sourced engine core (Lesson 10).</td></tr>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>carry build</strong> — sanitize + scope + island</td><td>HTML in → scoped <code>core/html</code> out; deterministic transform.</td></tr>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>block-fixer</strong> canonicalization</td><td>Runs markup through <code>@wordpress/blocks</code> — fixed grammar.</td></tr>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>variation hoisting</strong></td><td>Exact-match, ≥3 site-wide → <code>lib-*.json</code>. Pure algorithm.</td></tr>
+    <tr><td><span class="dbadge jud">J</span></td><td><strong>asset triage</strong> — keep / decoration</td><td>Vision model classifies decorative assets.</td></tr>
+    <tr><td><span class="dbadge mix">M</span></td><td><strong>design foundation</strong></td><td>Scaffold + validate are <span class="dbadge det">D</span>; naming semantic roles is <span class="dbadge jud">J</span> (the skill).</td></tr>
+    <tr><td><span class="dbadge jud">J</span></td><td><strong>parity judgment / refine</strong></td><td>"Is this section good enough? what to fix?" — the repair loop.</td></tr>
+    <tr><td><span class="dbadge jud">J</span></td><td><strong>data-model analysis</strong> (local path)</td><td>"Is this content data or bespoke layout?" — <code>model-local-data</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2>Phase 2 — Output &amp; quality</h2>
+<table>
+  <thead><tr><th></th><th>Step</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>WXR build · products CSV · media install · theme scaffold/install</strong></td><td>Assembly to fixed formats.</td></tr>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>comparison scoring</strong> (<code>comparison.json</code>)</td><td>Pixel/height math → a number; same images → same score.</td></tr>
+    <tr><td><span class="dbadge det">D</span></td><td><strong>region audit · fallback diagnostics · refine-report validation</strong></td><td>Reconcile/validate against captured truth — pure builders.</td></tr>
+    <tr><td><span class="dbadge mix">M</span></td><td><strong>accept / iterate decision</strong></td><td>The <em>gate</em> (≥ 0.995) is deterministic; deciding whether to keep iterating on a near-miss is judgment.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout decision">
+  <span class="label">Why this map is the one to keep open</span>
+  Every "should this be a tool or a skill?" call is answered here. If a proposed step is
+  reproducible from its inputs, it's a deterministic tool in <code>src/lib</code>. If it needs a
+  model to look and decide, it's a skill step across the seam. The danger zone is an LLM call
+  buried inside a "deterministic" tool — it makes the pipeline unreproducible and untestable.
+  When you review, the <span class="dbadge mix">M</span> rows are where to look hardest: confirm
+  the deterministic and judgment halves are cleanly separated, not entangled.
+</div>
+
+<div class="lesson-nav">
+  <a href="pipeline-map.html">← Pipeline map</a>
+  <a href="../lessons/0007-the-tick-loop.html">Lesson 7: the judgment seam →</a>
+</div>
+</div>
+</body>
+</html>

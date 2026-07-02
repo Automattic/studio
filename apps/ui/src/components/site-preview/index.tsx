@@ -9,19 +9,23 @@ import {
 	copy,
 	external,
 	file as fileIcon,
+	globe,
 	pencil,
 	trash,
+	wordpress,
 } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
+import { IconSwitch } from '@/components/icon-switch';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { bottomDrawerIcon, moonIcon, playIcon, refreshIcon, sunIcon } from '@/lib/icons';
+import { usePluginSiteTag } from '@/lib/plugin-prototype';
 import {
 	formatPreviewConsoleEntriesForText,
 	getPreviewConsoleLevelFromWebviewLevel,
@@ -292,34 +296,39 @@ function PreviewColorSchemeSwitch( {
 } ) {
 	const label =
 		colorScheme === 'dark' ? __( 'Preview in light mode' ) : __( 'Preview in dark mode' );
-	const checked = colorScheme === 'dark';
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				disabled={ disabled }
-				render={
-					<button
-						type="button"
-						role="switch"
-						aria-checked={ checked }
-						aria-label={ label }
-						className={ styles.schemeSwitch }
-						disabled={ disabled }
-						onClick={ onChange }
-					>
-						<span className={ styles.schemeSwitchIcon } aria-hidden="true">
-							{ sunIcon }
-						</span>
-						<span className={ styles.schemeSwitchIcon } aria-hidden="true">
-							{ moonIcon }
-						</span>
-						<span className={ styles.schemeSwitchThumb } aria-hidden="true" />
-					</button>
-				}
-			/>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>{ label }</Tooltip.Popup>
-		</Tooltip.Root>
+		<IconSwitch
+			checked={ colorScheme === 'dark' }
+			onChange={ onChange }
+			label={ label }
+			disabled={ disabled }
+			startIcon={ sunIcon }
+			endIcon={ moonIcon }
+		/>
+	);
+}
+
+// Front end / WP Admin switch: globe on the left, WordPress mark on the
+// right, thumb under the active side.
+function PreviewViewSwitch( {
+	isBackend,
+	disabled,
+	onChange,
+}: {
+	isBackend: boolean;
+	disabled?: boolean;
+	onChange: () => void;
+} ) {
+	return (
+		<IconSwitch
+			checked={ isBackend }
+			onChange={ onChange }
+			label={ isBackend ? __( 'View site front end' ) : __( 'View WP Admin' ) }
+			disabled={ disabled }
+			startIcon={ <Icon icon={ globe } size={ 14 } /> }
+			endIcon={ <Icon icon={ wordpress } size={ 14 } /> }
+		/>
 	);
 }
 
@@ -557,6 +566,8 @@ export function SitePreview( {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
+	// Prototype: plugin sites get plugin-flavored copy in the stopped state.
+	const pluginTag = usePluginSiteTag( site.id );
 	const siteUrl = getSiteUrl( site );
 	const canUseWebview = isElectron();
 	const canPreview = site.running;
@@ -610,6 +621,43 @@ export function SitePreview( {
 		},
 		[ onPathChange, path, siteUrl ]
 	);
+	// Front end / backend toggle. Each side remembers where you last were:
+	// toggling to WP Admin and back returns to the exact front-end page, and
+	// vice versa. The backend side goes through the site's /studio-auto-login
+	// endpoint so it never lands on the login form.
+	const isBackendView = isBackendPreviewPath( getSafePath( path ) );
+	const lastFrontendPathRef = useRef( '/' );
+	const lastBackendPathRef = useRef( '/wp-admin/' );
+	useEffect( () => {
+		// Reset the per-side memory when the preview moves to another site.
+		lastFrontendPathRef.current = '/';
+		lastBackendPathRef.current = '/wp-admin/';
+	}, [ site.id ] );
+	useEffect( () => {
+		const safePath = getSafePath( path );
+		// Auto-login is a transient hop, not a place to return to.
+		if ( safePath.startsWith( '/studio-auto-login' ) ) {
+			return;
+		}
+		if ( isBackendPreviewPath( safePath ) ) {
+			lastBackendPathRef.current = safePath;
+		} else {
+			lastFrontendPathRef.current = safePath;
+		}
+	}, [ path ] );
+	const showFrontend = useCallback(
+		() => onPathChange?.( lastFrontendPathRef.current ),
+		[ onPathChange ]
+	);
+	const showBackend = useCallback( () => {
+		const target = lastBackendPathRef.current;
+		try {
+			const redirectTo = new URL( target, siteUrl ).toString();
+			onPathChange?.( `/studio-auto-login?redirect_to=${ encodeURIComponent( redirectTo ) }` );
+		} catch {
+			onPathChange?.( target );
+		}
+	}, [ onPathChange, siteUrl ] );
 	const handleBrowserStateChange = useCallback( ( state: BrowserNavigationState ) => {
 		setBrowserState( ( current ) => ( areBrowserStatesEqual( current, state ) ? current : state ) );
 	}, [] );
@@ -845,6 +893,12 @@ export function SitePreview( {
 								</Button>
 							</ToolbarTooltip>
 						</div>
+						<div className={ styles.viewToggle }>
+							<PreviewViewSwitch
+								isBackend={ isBackendView }
+								onChange={ isBackendView ? showFrontend : showBackend }
+							/>
+						</div>
 						<div className={ styles.browserLocation }>
 							{ toolbarError ? (
 								<span className={ styles.toolbarError } role="status">
@@ -992,20 +1046,24 @@ export function SitePreview( {
 									</div>
 								) : null }
 								<p className={ styles.emptyText }>
-									{ __( 'Start the site to see a live preview.' ) }
+									{ pluginTag
+										? __( 'Start the plugin to see a live preview.' )
+										: __( 'Start the site to see a live preview.' ) }
 								</p>
 								<Button
 									variant="solid"
 									tone="brand"
 									className={ styles.startButton }
 									loading={ isStarting }
-									loadingAnnouncement={ __( 'Starting site' ) }
+									loadingAnnouncement={
+										pluginTag ? __( 'Starting plugin' ) : __( 'Starting site' )
+									}
 									onClick={ () => startSite.mutate( site.id ) }
 								>
 									<span className={ styles.startIcon } aria-hidden="true">
 										{ playIcon }
 									</span>
-									{ __( 'Start site' ) }
+									{ pluginTag ? __( 'Start plugin' ) : __( 'Start site' ) }
 								</Button>
 							</div>
 						</div>
@@ -1041,6 +1099,22 @@ export function SitePreview( {
 
 function getSafePath( path: unknown ) {
 	return typeof path === 'string' && path.trim() ? path : '/';
+}
+
+/**
+ * Whether a preview path shows the WordPress backend — either a wp-admin
+ * screen directly, or the auto-login endpoint on its way to one.
+ */
+export function isBackendPreviewPath( path: string ): boolean {
+	if ( path.startsWith( '/wp-admin' ) ) {
+		return true;
+	}
+	if ( path.startsWith( '/studio-auto-login' ) ) {
+		const query = path.split( '?' )[ 1 ] ?? '';
+		const redirectTo = new URLSearchParams( query ).get( 'redirect_to' ) ?? '';
+		return redirectTo.includes( '/wp-admin' );
+	}
+	return false;
 }
 
 export function getToolbarPageTitle( title: string | null, siteName: string ) {
@@ -1202,12 +1276,10 @@ function WebviewSurface( {
 		}, 180 );
 	}, [ clearProgressTimers, publishBrowserState ] );
 
-	// The initial url+nonce are loaded by the `src` attribute on the
-	// `<webview>` itself; calling `loadURL` before `dom-ready` throws
-	// "WebView must be attached to the DOM and the dom-ready event emitted".
-	// We capture the mount-time values once and skip the navigation effect
-	// while it still matches them.
-	const [ initialNav ] = useState( () => ( { url, reloadNonce } ) );
+	// The mount-time url is loaded via the `src` attribute (calling `loadURL`
+	// before `dom-ready` throws); it must stay stable so later navigation
+	// goes through `loadURL` instead of remounting the webview.
+	const [ initialSrc ] = useState( () => url );
 
 	// Wire DOM events on the underlying custom element. We use refs + native
 	// event listeners because React doesn't recognise `<webview>`'s
@@ -1353,20 +1425,22 @@ function WebviewSurface( {
 	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );
 
 	// Navigation effect — gated on `ready` so the first call happens after
-	// `dom-ready`. If url/nonce changed while loading, the latest values are
-	// flushed when `ready` flips to true. In-preview navigation reported via
-	// `onNavigate` round-trips through the parent's `path` state, so skip the
-	// reload when the webview is already showing the requested url.
+	// `dom-ready` (the initial url is loaded by the `src` attribute on the
+	// `<webview>`, tracked by `currentUrlRef`'s initial value; calling
+	// `loadURL` before `dom-ready` throws). In-preview navigation reported
+	// via `onNavigate` round-trips through the parent's `path` state, so skip
+	// the reload when the webview is already showing the requested url —
+	// this also covers the initial render, and unlike a mount-time snapshot
+	// it doesn't block navigating *back* to the starting url later.
 	useEffect( () => {
 		if ( ! ready ) return;
-		if ( url === initialNav.url && reloadNonce === initialNav.reloadNonce ) return;
 		if ( url === currentUrlRef.current && reloadNonce === lastReloadNonceRef.current ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
 		currentUrlRef.current = url;
 		lastReloadNonceRef.current = reloadNonce;
 		webview.loadURL( url ).catch( () => undefined );
-	}, [ url, reloadNonce, ready, initialNav.url, initialNav.reloadNonce ] );
+	}, [ url, reloadNonce, ready ] );
 
 	useEffect( () => {
 		if ( ! ready || ! inspectorCommand ) return;
@@ -1404,7 +1478,7 @@ function WebviewSurface( {
 		<>
 			<webview
 				ref={ ref }
-				src={ initialNav.url }
+				src={ initialSrc }
 				className={ styles.iframe }
 				allowpopups={ true }
 				partition="persist:site-preview"

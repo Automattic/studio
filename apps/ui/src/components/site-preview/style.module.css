@@ -40,6 +40,15 @@
 	flex-shrink: 0;
 }
 
+/* Front end / WP Admin switch beside the nav cluster; the control itself is
+   the shared IconSwitch — this wrapper only spaces it. */
+.viewToggle {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	margin-inline-start: var(--wpds-dimension-padding-xs);
+}
+
 .refreshButton {
 	min-width: 28px;
 }
@@ -110,80 +119,6 @@
 	--wp-ui-button-border-color-active: var(--wp-ui-button-background-color-active);
 	--wp-ui-button-foreground-color: var(--wpds-color-fg-interactive-brand);
 	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-interactive-brand);
-}
-
-.schemeSwitch {
-	position: relative;
-	display: inline-flex;
-	align-items: center;
-	justify-content: space-between;
-	width: 44px;
-	height: 24px;
-	padding: 2px 5px;
-	flex-shrink: 0;
-	border: 1px solid var(--wpds-color-stroke-interactive-neutral);
-	border-radius: 999px;
-	background-color: var(--wpds-color-bg-interactive-neutral-weak);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	cursor: pointer;
-	transition:
-		background-color 120ms ease,
-		border-color 120ms ease,
-		color 120ms ease;
-	-webkit-app-region: no-drag;
-}
-
-.schemeSwitch[aria-checked='true'] {
-	background-color: color-mix(
-		in srgb,
-		var(--wpds-color-fg-content-neutral) 14%,
-		var(--wpds-color-bg-interactive-neutral-weak)
-	);
-	color: var(--wpds-color-fg-content-neutral);
-}
-
-.schemeSwitch:disabled {
-	cursor: default;
-	opacity: 0.45;
-}
-
-.schemeSwitch:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-focus-brand);
-	outline-offset: 2px;
-}
-
-.schemeSwitchIcon {
-	position: relative;
-	z-index: 1;
-	display: inline-flex;
-	width: 12px;
-	height: 12px;
-	align-items: center;
-	justify-content: center;
-}
-
-.schemeSwitchIcon svg {
-	display: block;
-	width: 100%;
-	height: 100%;
-}
-
-.schemeSwitchThumb {
-	position: absolute;
-	top: 2px;
-	left: 2px;
-	width: 18px;
-	height: 18px;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: 999px;
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
-	box-shadow: 0 1px 2px
-		color-mix(in srgb, var(--wpds-color-fg-content-neutral) 18%, transparent);
-	transition: transform 120ms ease;
-}
-
-.schemeSwitch[aria-checked='true'] .schemeSwitchThumb {
-	transform: translateX(20px);
 }
 
 /* 2px bar overlapping the header's bottom border, like a browser's page-load

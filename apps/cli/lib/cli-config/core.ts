@@ -56,9 +56,7 @@ const siteSchema = siteDetailsSchema
 		// True once a full reprint pull has completed at least once; selects
 		// first-full-pull vs. delta. Durable on the site record.
 		importComplete: z.boolean().optional(),
-		// Health of the local install (see {@link siteStatusSchema}). Optional
-		// for backward compatibility; a missing value means `ready`.
-		status: siteStatusSchema.optional(),
+		status: siteStatusSchema.optional().default( 'ready' ),
 	} )
 	.loose();
 

@@ -10,20 +10,6 @@ import {
 	unlockCliConfig,
 } from './core';
 
-/**
- * The site's health status, defaulting a missing value to `ready`.
- *
- * Records created before the `status` field existed (and every normal
- * `site create`) have no explicit value; only a reprint pull writes
- * `pulling`/`pull-failed`. Every reader that cares whether a site is a
- * healthy, fully-written install should go through this rather than
- * reading `site.status` directly, so the legacy/absent case is handled
- * uniformly.
- */
-export function getSiteStatus( site: SiteData ): SiteStatus {
-	return site.status ?? 'ready';
-}
-
 export async function getSiteByFolder( siteFolder: string ): Promise< SiteData > {
 	const config = await readCliConfig();
 	const site = config.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );

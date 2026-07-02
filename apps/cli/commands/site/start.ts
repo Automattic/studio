@@ -1,7 +1,7 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { getSiteByFolder, getSiteStatus, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -30,10 +30,9 @@ export async function runCommand(
 		// (`pull-failed`) is not a healthy install — its directory may be
 		// partially written. Refuse to start it rather than serve a broken
 		// site; recovery is to re-run the (idempotent) pull or delete it.
-		const status = getSiteStatus( site );
-		if ( status !== 'ready' ) {
+		if ( site.status !== 'ready' ) {
 			const detail =
-				status === 'pulling'
+				site.status === 'pulling'
 					? __( 'A pull is in progress or was interrupted before it finished.' )
 					: __( 'Its last pull failed and the site is incomplete.' );
 			throw new LoggerError(

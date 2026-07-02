@@ -11,6 +11,7 @@ import {
 	useStopSite,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { removePluginSiteTag, tagSiteAsPlugin } from '@/lib/plugin-prototype';
 import { SiteList } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
@@ -313,6 +314,94 @@ describe( 'SiteList', () => {
 		expect( window.localStorage.getItem( SITE_ORDER_STORAGE_KEY ) ).toBe(
 			JSON.stringify( [ 'running-site', 'stopped-site' ] )
 		);
+	} );
+
+	it( 'reorders plugins within their group and keeps the site order intact', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'stopped-site',
+					name: 'Stopped Site',
+					path: '/Users/example/Studio/stopped-site',
+					running: false,
+				} ),
+				createSite( {
+					id: 'running-site',
+					name: 'Running Site',
+					path: '/Users/example/Studio/running-site',
+					running: true,
+				} ),
+				createSite( {
+					id: 'plugin-a',
+					name: 'Plugin A',
+					path: '/Users/example/Studio/plugin-a',
+					running: false,
+				} ),
+				createSite( {
+					id: 'plugin-b',
+					name: 'Plugin B',
+					path: '/Users/example/Studio/plugin-b',
+					running: false,
+				} ),
+			],
+			isLoading: false,
+		} );
+		tagSiteAsPlugin( { siteId: 'plugin-a', slug: 'plugin-a', source: 'new' } );
+		tagSiteAsPlugin( { siteId: 'plugin-b', slug: 'plugin-b', source: 'new' } );
+
+		try {
+			render( <SiteList /> );
+
+			const pluginARow = document.querySelector( '[data-site-id="plugin-a"]' );
+			const pluginBRow = document.querySelector( '[data-site-id="plugin-b"]' );
+
+			expect( pluginARow ).toBeInTheDocument();
+			expect( pluginBRow ).toBeInTheDocument();
+			vi.spyOn( pluginARow!, 'getBoundingClientRect' ).mockReturnValue(
+				createRect( {
+					top: 0,
+					left: 8,
+					width: 272,
+					height: 34,
+				} )
+			);
+			vi.spyOn( pluginBRow!, 'getBoundingClientRect' ).mockReturnValue(
+				createRect( {
+					top: 35,
+					left: 8,
+					width: 272,
+					height: 34,
+				} )
+			);
+
+			fireEvent(
+				pluginARow!,
+				createPointerEvent( 'pointerdown', {
+					button: 0,
+					clientX: 16,
+					clientY: 10,
+				} )
+			);
+			fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
+
+			expect( screen.getByTestId( 'plugin-drop-placeholder' ) ).toBeInTheDocument();
+			expect( screen.queryByTestId( 'site-drop-placeholder' ) ).not.toBeInTheDocument();
+
+			fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
+
+			const pluginA = screen.getByText( 'Plugin A' );
+			const pluginB = screen.getByText( 'Plugin B' );
+
+			expect( pluginB.compareDocumentPosition( pluginA ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
+				Node.DOCUMENT_POSITION_FOLLOWING
+			);
+			expect( window.localStorage.getItem( SITE_ORDER_STORAGE_KEY ) ).toBe(
+				JSON.stringify( [ 'stopped-site', 'running-site', 'plugin-b', 'plugin-a' ] )
+			);
+		} finally {
+			removePluginSiteTag( 'plugin-a' );
+			removePluginSiteTag( 'plugin-b' );
+		}
 	} );
 
 	it( 'animates other sites into the drop placeholder while dragging', () => {

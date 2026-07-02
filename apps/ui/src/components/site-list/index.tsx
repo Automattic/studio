@@ -3,18 +3,8 @@ import { __, sprintf } from '@wordpress/i18n';
 import { chevronDown, chevronRight, settings } from '@wordpress/icons';
 import { Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import {
-	Fragment,
-	useEffect,
-	useLayoutEffect,
-	useMemo,
-	useRef,
-	useState,
-	type CSSProperties,
-	type MouseEvent,
-	type PointerEvent as ReactPointerEvent,
-	type ReactNode,
-} from 'react';
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteContextMenu } from '@/components/site-context-menu';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
@@ -42,30 +32,7 @@ type SiteRow = {
 
 type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync';
 
-type ActiveSiteDrag = {
-	siteId: string;
-	currentY: number;
-	dropIndex: number;
-	pointerOffsetY: number;
-	previewLeft: number;
-	previewWidth: number;
-};
-
-type SiteDragCandidate = {
-	siteId: string;
-	pointerId: number | undefined;
-	startX: number;
-	startY: number;
-	pointerOffsetY: number;
-	previewLeft: number;
-	previewWidth: number;
-};
-
 const ACTIVITY_EXIT_DURATION_MS = 180;
-const SITE_DRAG_START_THRESHOLD = 4;
-const SITE_DRAG_REORDER_DURATION_MS = 160;
-const SITE_DRAG_REORDER_EASING = 'cubic-bezier(0.2, 0, 0, 1)';
-const SITE_DRAG_REORDER_DISTANCE_EPSILON = 0.5;
 const SITE_ORDER_STORAGE_KEY = 'studio-ui-site-list-order-v1';
 
 function SiteAgentActivityTooltip( {
@@ -506,33 +473,8 @@ function GroupHeading( {
 	);
 }
 
-function insertSiteIdAtIndex( siteIds: string[], movedSiteId: string, targetIndex: number ) {
-	const fromIndex = siteIds.indexOf( movedSiteId );
-	if ( fromIndex === -1 ) {
-		return siteIds;
-	}
-
-	const nextSiteIds = [ ...siteIds ];
-	const [ movedSite ] = nextSiteIds.splice( fromIndex, 1 );
-	nextSiteIds.splice( Math.max( 0, Math.min( targetIndex, nextSiteIds.length ) ), 0, movedSite );
-	return nextSiteIds;
-}
-
-function measureSiteRowRects( rowElements: Map< string, HTMLDivElement > ) {
-	const rects = new Map< string, DOMRectReadOnly >();
-	for ( const [ siteId, element ] of rowElements ) {
-		rects.set( siteId, element.getBoundingClientRect() );
-	}
-	return rects;
-}
-
-function getSiteRowAnimationTarget( rowElement: HTMLDivElement ) {
-	const target = rowElement.firstElementChild;
-	return target instanceof HTMLElement ? target : rowElement;
-}
-
-function prefersReducedMotion() {
-	return window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ?? false;
+function getRowSiteId( row: SiteRow ) {
+	return row.site.id;
 }
 
 function findActiveSiteKey(
@@ -598,15 +540,6 @@ export function SiteList() {
 	const pluginTags = usePluginSiteTags();
 	const [ isSitesGroupOpen, setIsSitesGroupOpen ] = useState( true );
 	const [ isPluginsGroupOpen, setIsPluginsGroupOpen ] = useState( true );
-	const [ activeDrag, setActiveDrag ] = useState< ActiveSiteDrag | null >( null );
-	const activeDragRef = useRef< ActiveSiteDrag | null >( null );
-	const dragCandidateRef = useRef< SiteDragCandidate | null >( null );
-	const dragStartSiteOrderRef = useRef< string[] >( [] );
-	const rowElementsRef = useRef< Map< string, HTMLDivElement > >( new Map() );
-	const previousRowRectsRef = useRef< Map< string, DOMRectReadOnly > >( new Map() );
-	const dragStartRowRectsRef = useRef< Map< string, DOMRectReadOnly > >( new Map() );
-	const rowMoveAnimationsRef = useRef< Map< string, Animation > >( new Map() );
-	const suppressNextClickRef = useRef( false );
 	const [ seenSiteSessionTimestampsInitialized, setSeenSiteSessionTimestampsInitialized ] =
 		useState( false );
 	const [ seenSiteSessionTimestamps, setSeenSiteSessionTimestamps ] = useState<
@@ -698,247 +631,60 @@ export function SiteList() {
 		}
 		return unread;
 	}, [ activeSiteKey, rows, seenSiteSessionTimestamps, seenSiteSessionTimestampsInitialized ] );
-	const rowSiteIds = useMemo( () => siteRows.map( ( row ) => row.site.id ), [ siteRows ] );
-	const activeDragSiteId = activeDrag?.siteId;
-	const activeDropIndex = activeDrag?.dropIndex;
-	const isDraggingSites = activeDrag !== null;
-	const displayRows = useMemo(
-		() => siteRows.filter( ( row ) => row.site.id !== activeDragSiteId ),
-		[ siteRows, activeDragSiteId ]
-	);
-	const draggedRow = activeDragSiteId
-		? siteRows.find( ( row ) => row.site.id === activeDragSiteId )
-		: undefined;
+	const rowSiteIds = useMemo( () => siteRows.map( getRowSiteId ), [ siteRows ] );
+	const pluginRowIds = useMemo( () => pluginSiteRows.map( getRowSiteId ), [ pluginSiteRows ] );
 
-	useLayoutEffect( () => {
-		const nextRowRects = measureSiteRowRects( rowElementsRef.current );
-		const previousRowRects = previousRowRectsRef.current;
-		const shouldAnimateRows = isDraggingSites && ! prefersReducedMotion();
-
-		if ( shouldAnimateRows ) {
-			for ( const [ siteId, nextRect ] of nextRowRects ) {
-				const previousRect = previousRowRects.get( siteId );
-				const rowElement = rowElementsRef.current.get( siteId );
-				if ( ! previousRect || ! rowElement ) {
-					continue;
-				}
-
-				const deltaX = previousRect.left - nextRect.left;
-				const deltaY = previousRect.top - nextRect.top;
-				if (
-					Math.abs( deltaX ) < SITE_DRAG_REORDER_DISTANCE_EPSILON &&
-					Math.abs( deltaY ) < SITE_DRAG_REORDER_DISTANCE_EPSILON
-				) {
-					continue;
-				}
-
-				const animationTarget = getSiteRowAnimationTarget( rowElement );
-				if ( typeof animationTarget.animate !== 'function' ) {
-					continue;
-				}
-
-				rowMoveAnimationsRef.current.get( siteId )?.cancel();
-				const animation = animationTarget.animate(
-					[
-						{ transform: `translate(${ deltaX }px, ${ deltaY }px)` },
-						{ transform: 'translate(0, 0)' },
-					],
-					{
-						duration: SITE_DRAG_REORDER_DURATION_MS,
-						easing: SITE_DRAG_REORDER_EASING,
-					}
-				);
-
-				rowMoveAnimationsRef.current.set( siteId, animation );
-				const clearAnimation = () => {
-					if ( rowMoveAnimationsRef.current.get( siteId ) === animation ) {
-						rowMoveAnimationsRef.current.delete( siteId );
-					}
-				};
-				animation.onfinish = clearAnimation;
-				animation.oncancel = clearAnimation;
-			}
-		}
-
-		previousRowRectsRef.current = nextRowRects;
-	}, [ activeDragSiteId, activeDropIndex, displayRows, isDraggingSites ] );
-
-	const updateActiveDrag = ( nextDrag: ActiveSiteDrag | null ) => {
-		activeDragRef.current = nextDrag;
-		setActiveDrag( nextDrag );
+	// Both groups persist into the single stored order (ordering is applied to
+	// the full site list before the rows split into groups), so a drop in one
+	// group merges its new order with the other group's current order.
+	const persistOrder = ( nextSiteIds: string[] ) => {
+		setManualSiteOrder( nextSiteIds );
+		writeStoredSiteOrder( nextSiteIds );
 	};
 
-	const resetDragState = () => {
-		dragCandidateRef.current = null;
-		dragStartSiteOrderRef.current = [];
-		updateActiveDrag( null );
-	};
-
-	// Hit-test against the rows' settled positions captured at drag start, not
-	// their live rects. The placeholder shifting rows around mid-drag would make
-	// live measurement circular, and reading `getBoundingClientRect` per row on
-	// every pointermove forces a layout reflow each frame.
-	const getDropIndex = ( clientY: number, draggedSiteId: string ) => {
-		const sourceOrder =
-			dragStartSiteOrderRef.current.length > 0 ? dragStartSiteOrderRef.current : rowSiteIds;
-		const rowRects = dragStartRowRectsRef.current;
-
-		let index = 0;
-		for ( const siteId of sourceOrder ) {
-			if ( siteId === draggedSiteId ) {
-				continue;
-			}
-			const rowRect = rowRects.get( siteId );
-			if ( ! rowRect ) {
-				continue;
-			}
-			if ( clientY < rowRect.top + rowRect.height / 2 ) {
-				return index;
-			}
-			index += 1;
-		}
-		return index;
-	};
-
-	const handleWindowPointerMove = ( event: PointerEvent ) => {
-		const candidate = dragCandidateRef.current;
-		if (
-			! candidate ||
-			( candidate.pointerId !== undefined &&
-				event.pointerId !== undefined &&
-				event.pointerId !== candidate.pointerId )
-		) {
-			return;
-		}
-		const active = activeDragRef.current;
-		const deltaX = event.clientX - candidate.startX;
-		const deltaY = event.clientY - candidate.startY;
-		if ( ! active && Math.hypot( deltaX, deltaY ) < SITE_DRAG_START_THRESHOLD ) {
-			return;
-		}
-
-		event.preventDefault();
-		updateActiveDrag( {
-			siteId: candidate.siteId,
-			currentY: event.clientY,
-			dropIndex: getDropIndex( event.clientY, candidate.siteId ),
-			pointerOffsetY: candidate.pointerOffsetY,
-			previewLeft: candidate.previewLeft,
-			previewWidth: candidate.previewWidth,
-		} );
-	};
-
-	const handleWindowPointerUp = ( event: PointerEvent ) => {
-		const candidate = dragCandidateRef.current;
-		if (
-			! candidate ||
-			( candidate.pointerId !== undefined &&
-				event.pointerId !== undefined &&
-				event.pointerId !== candidate.pointerId )
-		) {
-			return;
-		}
-		const active = activeDragRef.current;
-		if ( active ) {
-			const sourceOrder =
-				dragStartSiteOrderRef.current.length > 0 ? dragStartSiteOrderRef.current : rowSiteIds;
-			const nextSiteIds = insertSiteIdAtIndex( sourceOrder, active.siteId, active.dropIndex );
-			setManualSiteOrder( nextSiteIds );
-			writeStoredSiteOrder( nextSiteIds );
-			suppressNextClickRef.current = true;
-		}
-		resetDragState();
-		window.removeEventListener( 'pointermove', handleWindowPointerMove );
-		window.removeEventListener( 'pointerup', handleWindowPointerUp );
-	};
-
-	const handlePointerDown = ( event: ReactPointerEvent< HTMLElement >, row: SiteRow ) => {
-		if ( event.button !== 0 || ( event.target as HTMLElement ).closest( '[data-site-actions]' ) ) {
-			return;
-		}
-		const rowRect = event.currentTarget.getBoundingClientRect();
-		dragStartSiteOrderRef.current = rowSiteIds;
-		const dragStartRowRects = measureSiteRowRects( rowElementsRef.current );
-		previousRowRectsRef.current = dragStartRowRects;
-		dragStartRowRectsRef.current = dragStartRowRects;
-		dragCandidateRef.current = {
-			siteId: row.site.id,
-			pointerId: event.pointerId,
-			startX: event.clientX,
-			startY: event.clientY,
-			pointerOffsetY: event.clientY - rowRect.top,
-			previewLeft: rowRect.left,
-			previewWidth: rowRect.width,
-		};
-		window.addEventListener( 'pointermove', handleWindowPointerMove, { passive: false } );
-		window.addEventListener( 'pointerup', handleWindowPointerUp );
-	};
-
-	const handleClickCapture = ( event: MouseEvent< HTMLElement > ) => {
-		if ( ! suppressNextClickRef.current ) {
-			return;
-		}
-		event.preventDefault();
-		event.stopPropagation();
-		suppressNextClickRef.current = false;
-	};
-
-	// Prototype: plugin-tagged sites render as ordinary site rows (status,
-	// chat, overview all intact). Not draggable.
-	const pluginRows = pluginSiteRows.map( ( row ) => (
+	const renderSiteRow = ( row: SiteRow, isPlugin = false ) => (
 		<SiteSection
-			key={ row.site.id }
 			row={ row }
-			isPlugin
+			isPlugin={ isPlugin }
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			agenticGated={ agenticGated }
 		/>
-	) );
+	);
 
 	const siteRowsBlock = (
-		<div className={ clsx( styles.sites, activeDrag && styles.sitesDragging ) }>
-			{ displayRows.map( ( row, index ) => (
-				<Fragment key={ row.site.id }>
-					{ activeDrag && activeDrag.dropIndex === index ? (
-						<div
-							className={ styles.siteDropPlaceholder }
-							data-testid="site-drop-placeholder"
-							aria-hidden="true"
-						/>
-					) : null }
-					<div
-						ref={ ( node ) => {
-							if ( node ) {
-								rowElementsRef.current.set( row.site.id, node );
-							} else {
-								rowElementsRef.current.delete( row.site.id );
-							}
-						} }
-						className={ styles.siteDragWrapper }
-						data-site-id={ row.site.id }
-						onPointerDown={ ( event ) => handlePointerDown( event, row ) }
-						onClickCapture={ handleClickCapture }
-					>
-						<SiteSection
-							row={ row }
-							isChatActive={ row.site.id === activeChatSiteKey }
-							isContextActive={ row.site.id === activeContextSiteKey }
-							hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
-							agenticGated={ agenticGated }
-						/>
-					</div>
-				</Fragment>
-			) ) }
-			{ activeDrag && activeDrag.dropIndex === displayRows.length ? (
-				<div
-					className={ styles.siteDropPlaceholder }
-					data-testid="site-drop-placeholder"
-					aria-hidden="true"
-				/>
-			) : null }
-		</div>
+		<ReorderableList
+			items={ siteRows }
+			getItemId={ getRowSiteId }
+			renderItem={ renderSiteRow }
+			onReorder={ ( nextIds ) => persistOrder( [ ...nextIds, ...pluginRowIds ] ) }
+			className={ styles.sites }
+			itemClassName={ styles.siteDragWrapper }
+			placeholderClassName={ styles.siteDropPlaceholder }
+			previewClassName={ styles.siteDragPreview }
+			placeholderTestId="site-drop-placeholder"
+			itemIdAttribute="data-site-id"
+			excludeSelector="[data-site-actions]"
+		/>
+	);
+
+	// Prototype: plugin-tagged sites render as ordinary site rows (status,
+	// chat, overview all intact), draggable within their own group.
+	const pluginRowsBlock = (
+		<ReorderableList
+			items={ pluginSiteRows }
+			getItemId={ getRowSiteId }
+			renderItem={ ( row ) => renderSiteRow( row, true ) }
+			onReorder={ ( nextIds ) => persistOrder( [ ...rowSiteIds, ...nextIds ] ) }
+			className={ clsx( styles.groupBody, styles.groupList ) }
+			itemClassName={ styles.siteDragWrapper }
+			placeholderClassName={ styles.siteDropPlaceholder }
+			previewClassName={ styles.siteDragPreview }
+			placeholderTestId="plugin-drop-placeholder"
+			itemIdAttribute="data-site-id"
+			excludeSelector="[data-site-actions]"
+		/>
 	);
 
 	// Plugin-tagged sites get their own accordion group under the sites. The
@@ -947,7 +693,7 @@ export function SiteList() {
 	let listContent: ReactNode;
 	if ( sitesLoading || sessionsLoading ) {
 		listContent = <p className={ styles.empty }>{ __( 'Loading…' ) }</p>;
-	} else if ( pluginRows.length > 0 ) {
+	} else if ( pluginSiteRows.length > 0 ) {
 		listContent = (
 			<>
 				<GroupHeading
@@ -969,9 +715,7 @@ export function SiteList() {
 					isOpen={ isPluginsGroupOpen }
 					onToggle={ () => setIsPluginsGroupOpen( ( value ) => ! value ) }
 				/>
-				{ isPluginsGroupOpen && (
-					<div className={ clsx( styles.groupBody, styles.groupList ) }>{ pluginRows }</div>
-				) }
+				{ isPluginsGroupOpen && pluginRowsBlock }
 			</>
 		);
 	} else if ( rows.length === 0 ) {
@@ -980,30 +724,5 @@ export function SiteList() {
 		listContent = siteRowsBlock;
 	}
 
-	return (
-		<div className={ styles.root }>
-			{ listContent }
-			{ activeDrag && draggedRow ? (
-				<div
-					className={ styles.siteDragPreview }
-					style={
-						{
-							inlineSize: activeDrag.previewWidth,
-							insetBlockStart: activeDrag.currentY - activeDrag.pointerOffsetY,
-							insetInlineStart: activeDrag.previewLeft,
-						} as CSSProperties
-					}
-					aria-hidden="true"
-				>
-					<SiteSection
-						row={ draggedRow }
-						isChatActive={ draggedRow.site.id === activeChatSiteKey }
-						isContextActive={ draggedRow.site.id === activeContextSiteKey }
-						hasUnreadUpdate={ unreadSiteIds.has( draggedRow.site.id ) }
-						agenticGated={ agenticGated }
-					/>
-				</div>
-			) : null }
-		</div>
-	);
+	return <div className={ styles.root }>{ listContent }</div>;
 }

@@ -299,6 +299,53 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 
+	it( 'does not apply the selective-sync choice yet — no --no-db/--only even when set (inert menu)', async () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-import-pull-inert-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawDirectory, { recursive: true } );
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( { preflight: { data: {} } } )
+		);
+
+		const reprint = vi
+			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
+			.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+
+		await runFullPull(
+			SITE_RUNTIME_PLAYGROUND,
+			{
+				version: 1,
+				sitePath: path.join( technicalSiteDirectory, 'site' ),
+				technicalSiteDirectory,
+				rawDirectory,
+				stateDirectory,
+				runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+				runtimeBlueprintPath: path.join( technicalSiteDirectory, 'runtime', 'blueprint.json' ),
+				stage: 'initialized',
+				localUrl: 'http://localhost:8881',
+				// Selection captured in pull.json, but the pull must ignore it for now.
+				selectionMade: true,
+				skipDatabase: true,
+				skipUploads: true,
+				fileOnlyPaths: [ ':wp-plugins:', '/srv/htdocs/wp-content/plugins/akismet' ],
+			} as never,
+			'https://example.com/?reprint-api',
+			'hmac-secret',
+			false
+		);
+
+		const passedArgs = reprint.mock.calls[ 0 ][ 2 ] as string[];
+		expect( passedArgs ).not.toContain( '--no-db' );
+		expect( passedArgs.some( ( a ) => a.startsWith( '--only' ) ) ).toBe( false );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
 	it( 'falls back to the flattened wp-content sqlite path when preflight exposes no content dir', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-pull-fallback-' )

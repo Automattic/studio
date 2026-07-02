@@ -18,6 +18,7 @@ import { z } from 'zod';
 
 const STATE_FILE = '.import-state.json';
 const REMOTE_INDEX_FILE = '.import-remote-index.jsonl';
+const LOCAL_INDEX_FILE = '.import-index.jsonl';
 export const SKIPPED_DOWNLOAD_LIST = '.import-download-list-skipped.jsonl';
 
 export const reprintStateSnapshotSchema = z.looseObject( {
@@ -132,6 +133,19 @@ export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
 export function hasSkippedFiles( stateDirectory: string ): boolean {
 	const skippedListPath = path.join( stateDirectory, SKIPPED_DOWNLOAD_LIST );
 	return fs.existsSync( skippedListPath ) && fs.statSync( skippedListPath ).size > 0;
+}
+
+/**
+ * True when reprint's local file index exists and is non-empty — the marker
+ * that a prior file sync completed against this state directory, so the raw
+ * fs-root holds the site (WordPress core included) and a `--only`-restricted
+ * delta pull is safe. This is reprint's own delta-mode condition; it is the
+ * ground truth for "not a first pull", robust against a cleared or damaged
+ * scratch directory (unlike the durable `site.importComplete` flag alone).
+ */
+export function hasLocalFilesIndex( stateDirectory: string ): boolean {
+	const localIndexPath = path.join( stateDirectory, LOCAL_INDEX_FILE );
+	return fs.existsSync( localIndexPath ) && fs.statSync( localIndexPath ).size > 0;
 }
 
 /**

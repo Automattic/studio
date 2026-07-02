@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import {
 	getReprintStatePath,
+	hasLocalFilesIndex,
 	readReprintState,
 	writeReprintState,
 } from 'cli/lib/pull/reprint-state';
@@ -86,6 +87,23 @@ describe( 'reprint state accessors', () => {
 				filter: 'essential-files',
 				preflight: { data: { database: { ok: true } } },
 			} );
+		} finally {
+			fs.rmSync( stateDirectory, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'reports a local files index only when present and non-empty', () => {
+		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-reprint-state-' ) );
+
+		try {
+			const localIndexPath = path.join( stateDirectory, '.import-index.jsonl' );
+			expect( hasLocalFilesIndex( stateDirectory ) ).toBe( false );
+
+			fs.writeFileSync( localIndexPath, '' );
+			expect( hasLocalFilesIndex( stateDirectory ) ).toBe( false );
+
+			fs.writeFileSync( localIndexPath, '{"path":"abc"}\n' );
+			expect( hasLocalFilesIndex( stateDirectory ) ).toBe( true );
 		} finally {
 			fs.rmSync( stateDirectory, { recursive: true, force: true } );
 		}

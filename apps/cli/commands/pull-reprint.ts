@@ -40,7 +40,14 @@ import {
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/migration-client';
 import {
+	fetchReprintPullTree,
+	mapCliOnlyToReprint,
+	selectFreshPullOptions,
+	selectPullItems,
+} from 'cli/lib/pull/reprint-selector';
+import {
 	getContentDirFromState,
+	hasLocalFilesIndex,
 	hasSkippedFiles,
 	readReprintState,
 	writeReprintState,
@@ -81,6 +88,23 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						'Shared HMAC secret configured in the migration plugin on the remote source'
 					),
 				} )
+				.option( 'only', {
+					type: 'string',
+					array: true,
+					describe: __(
+						'Restrict the pull to specific wp-content folders (e.g. plugins/akismet, themes, uploads); repeatable.'
+					),
+				} )
+				.option( 'skip-database', {
+					type: 'boolean',
+					describe: __( 'Do not pull the database (keeps the local one)' ),
+					default: false,
+				} )
+				.option( 'skip-uploads', {
+					type: 'boolean',
+					describe: __( 'Do not pull the media library (uploads)' ),
+					default: false,
+				} )
 				.option( 'verbose', {
 					type: 'boolean',
 					describe: __( 'Show detailed error information and executed commands' ),
@@ -95,7 +119,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					argv.path as string,
 					argv.url as string | undefined,
 					argv.secret as string | undefined,
-					verbose
+					verbose,
+					{
+						only: argv.only as string[] | undefined,
+						skipDatabase: argv[ 'skip-database' ] as boolean,
+						skipUploads: argv[ 'skip-uploads' ] as boolean,
+					}
 				);
 			} catch ( error ) {
 				if ( error instanceof PullError ) {
@@ -144,12 +173,29 @@ type PullStage = ( typeof pullStageOrder )[ number ];
  */
 const PULL_METADATA_VERSION = 1;
 
-interface PullProgress {
+/**
+ * Selective-sync choice for one pull attempt (from the interactive selector
+ * or the `--only`/`--skip-*` flags). Lives in the transient `pull.json` so a
+ * resume reuses the same choice without re-prompting, and a delta re-pull —
+ * which resets the progress file — asks again.
+ */
+interface PullSelectionState {
+	/** True once the selection step has run (so resumes don't re-prompt). */
+	selectionMade?: boolean;
+	/** True when the database should be skipped. */
+	skipDatabase?: boolean;
+	/** True when the media library should be skipped. */
+	skipUploads?: boolean;
+	/** reprint `--only` source values restricting the file pull. */
+	fileOnlyPaths?: string[];
+}
+
+interface PullProgress extends PullSelectionState {
 	version: number;
 	stage: PullStage;
 }
 
-interface PullSessionMetadata {
+interface PullSessionMetadata extends PullSelectionState {
 	version: number;
 	stage: PullStage;
 	sitePath: string;
@@ -159,6 +205,13 @@ interface PullSessionMetadata {
 	stateDirectory: string;
 	runtimeDirectory: string;
 	runtimeBlueprintPath: string;
+}
+
+/** Raw selective-sync CLI flags (`--only`, `--skip-database`, `--skip-uploads`). */
+interface CliSelectionOptions {
+	only?: string[];
+	skipDatabase?: boolean;
+	skipUploads?: boolean;
 }
 
 /**
@@ -219,7 +272,8 @@ export async function runCommand(
 	localPath: string,
 	remoteUrl?: string,
 	remoteSecret?: string,
-	verbose = false
+	verbose = false,
+	cliSelection: CliSelectionOptions = {}
 ): Promise< void > {
 	// The local site must already exist (created via `studio create`).
 	// pull-reprint refreshes an existing site from a remote source; it
@@ -255,6 +309,11 @@ export async function runCommand(
 	const isRepull = studioMetadata.stage === 'completed';
 	if ( isRepull ) {
 		studioMetadata.stage = 'initialized';
+		// Clear the prior selective-sync choice so a delta re-pull prompts again.
+		studioMetadata.selectionMade = undefined;
+		studioMetadata.skipDatabase = undefined;
+		studioMetadata.skipUploads = undefined;
+		studioMetadata.fileOnlyPaths = undefined;
 		savePullProgress( studioMetadata );
 		// A completed pull.json implies a full pull happened; backfill the
 		// durable marker in case it predates the importComplete flag.
@@ -386,6 +445,30 @@ export async function runCommand(
 		// site URL to the local one the Studio server already serves —
 		// `studioMetadata.localUrl` comes from the existing site's port, so
 		// no port allocation is needed here.
+
+		// Selective sync: apply `--only`/`--skip-*` flags, or prompt
+		// interactively — a media-library toggle on the site's first pull
+		// (a partial `--only` there would drop WordPress core), the full
+		// wp-content folder tree + database toggle afterwards. Skipped once
+		// chosen or after the download has happened (resumes reuse the
+		// persisted choice). NOTE: the selection is captured into pull.json
+		// but NOT applied yet — the pull below still fetches everything;
+		// execution lands in the follow-up PR.
+		const proceed = await applySelection( {
+			metadata: studioMetadata,
+			// "First pull" = no completed pull whose local index still exists.
+			// The index check covers a cleared/damaged scratch directory: the
+			// durable importComplete flag alone would allow a folder-restricted
+			// pull against an empty raw fs-root, which cannot include core.
+			isFirstPull: ! site.importComplete || ! hasLocalFilesIndex( studioMetadata.stateDirectory ),
+			cli: cliSelection,
+			apiUrl,
+			secret,
+			verbose,
+		} );
+		if ( ! proceed ) {
+			return;
+		}
 
 		// A single `reprint pull` runs the whole pipeline in one PHP-WASM
 		// fork: files-pull → db-pull → db-apply → flat-docroot →
@@ -540,6 +623,116 @@ export async function runCommand(
 		}
 		throw new LoggerError( __( 'Failed to pull site' ), error );
 	}
+}
+
+/**
+ * Resolve the selective-sync choice and record it on the metadata +
+ * `pull.json`. Returns `true` to continue the pull or `false` to abort
+ * (interactive cancel).
+ *
+ * Order of precedence:
+ *   1. Already chosen / past the download → reuse the persisted choice.
+ *   2. `--only`/`--skip-*` flags → apply non-interactively.
+ *   3. Non-interactive with no flags → pull everything.
+ *   4. Interactive → media-library toggle on a first pull; the full
+ *      wp-content folder tree + database toggle afterwards.
+ *
+ * On a **first pull** (no completed pull for this site yet) the raw
+ * fs-root is empty and reprint's `--only` is an include-list that
+ * replaces the default export roots — a partial folder selection would
+ * omit WordPress core and flat-docroot could not assemble the site. So
+ * folder-level selection (and skipping the database) is only offered
+ * once a completed pull has put core in the raw fs-root; excluding the
+ * media library rides on `--filter=essential-files` and is safe anytime.
+ */
+async function applySelection( params: {
+	metadata: PullSessionMetadata;
+	isFirstPull: boolean;
+	cli: CliSelectionOptions;
+	apiUrl: string;
+	secret: string;
+	verbose: boolean;
+} ): Promise< boolean > {
+	const { metadata, isFirstPull, cli, apiUrl, secret, verbose } = params;
+
+	// Heal a stale folder selection captured before any pull completed
+	// (e.g. persisted by an older build): it cannot produce a working
+	// site on a first pull, so drop it and choose again.
+	if ( isFirstPull && ( metadata.fileOnlyPaths !== undefined || metadata.skipDatabase ) ) {
+		metadata.selectionMade = undefined;
+		metadata.skipDatabase = undefined;
+		metadata.skipUploads = undefined;
+		metadata.fileOnlyPaths = undefined;
+		savePullProgress( metadata );
+	}
+
+	if ( hasPullCompletedStage( metadata, 'pulled' ) || metadata.selectionMade ) {
+		return true;
+	}
+
+	const cliOnly = cli.only?.filter( ( value ) => value.trim().length > 0 ) ?? [];
+	const cliDriven = cliOnly.length > 0 || cli.skipDatabase || cli.skipUploads;
+
+	if ( cliDriven ) {
+		if ( isFirstPull && ( cliOnly.length > 0 || cli.skipDatabase ) ) {
+			throw new LoggerError(
+				__(
+					"The first pull of a site must download WordPress core and the database, so `--only` and `--skip-database` aren't available yet (`--skip-uploads` is). Run a full pull first; folder-level selection works on subsequent pulls."
+				)
+			);
+		}
+		if ( cliOnly.length > 0 ) {
+			const contentDir = getContentDirFromState( metadata.stateDirectory ) ?? '';
+			metadata.fileOnlyPaths = mapCliOnlyToReprint( cliOnly, contentDir );
+		}
+		metadata.skipDatabase = !! cli.skipDatabase;
+		metadata.skipUploads = !! cli.skipUploads;
+		metadata.selectionMade = true;
+		savePullProgress( metadata );
+		return true;
+	}
+
+	if ( ! process.stdin.isTTY ) {
+		return true; // non-interactive, no flags → full pull
+	}
+
+	if ( isFirstPull ) {
+		// First pull: the media library is the only optional part.
+		const fresh = await selectFreshPullOptions();
+		metadata.skipUploads = fresh.skipUploads;
+		metadata.selectionMade = true;
+		savePullProgress( metadata );
+		return true;
+	}
+
+	// Subsequent pulls: the full wp-content folder tree + database toggle.
+	const { tree, contentDir } = await fetchReprintPullTree( {
+		stateDirectory: metadata.stateDirectory,
+		rawDirectory: metadata.rawDirectory,
+		apiUrl,
+		secret,
+		runtime: SITE_RUNTIME_NATIVE_PHP,
+		verbose,
+	} );
+	if ( tree.length === 0 || ! contentDir ) {
+		metadata.selectionMade = true;
+		savePullProgress( metadata );
+		return true;
+	}
+	const selection = await selectPullItems( tree, contentDir );
+	if ( ! selection ) {
+		console.log( __( 'Cancelled.' ) );
+		return false;
+	}
+	metadata.fileOnlyPaths = selection.fileOnlyPaths;
+	metadata.skipDatabase = selection.skipDatabase;
+	metadata.selectionMade = true;
+	savePullProgress( metadata );
+	// Do NOT reset reprint's state here: `files-index` updated the remote
+	// index in place, and the follow-up file pull relies on the intact
+	// local index (`.import-index.jsonl`) to run as a delta — wiping it
+	// would make reprint refuse to sync into the non-empty raw fs-root.
+	return true;
 }
 
 /**
@@ -705,7 +898,14 @@ function getMetadataPath( technicalSiteDirectory: string ): string {
 function savePullProgress( metadata: PullSessionMetadata ): void {
 	fs.mkdirSync( metadata.technicalSiteDirectory, { recursive: true } );
 	const metadataPath = getMetadataPath( metadata.technicalSiteDirectory );
-	const progress: PullProgress = { version: metadata.version, stage: metadata.stage };
+	const progress: PullProgress = {
+		version: metadata.version,
+		stage: metadata.stage,
+		selectionMade: metadata.selectionMade,
+		skipDatabase: metadata.skipDatabase,
+		skipUploads: metadata.skipUploads,
+		fileOnlyPaths: metadata.fileOnlyPaths,
+	};
 	const tempPath = `${ metadataPath }.tmp`;
 	fs.writeFileSync( tempPath, JSON.stringify( progress, null, 2 ) + '\n' );
 	fs.renameSync( tempPath, metadataPath );
@@ -1060,6 +1260,10 @@ export async function getPullSessionMetadata( site: SiteData ) {
 	const metadata = {
 		version: progress.version,
 		stage: progress.stage,
+		selectionMade: progress.selectionMade,
+		skipDatabase: progress.skipDatabase,
+		skipUploads: progress.skipUploads,
+		fileOnlyPaths: progress.fileOnlyPaths,
 		sitePath: site.path,
 		localUrl: getSiteUrl( site ),
 		technicalSiteDirectory,

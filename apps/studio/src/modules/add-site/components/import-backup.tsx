@@ -97,7 +97,7 @@ export default function ImportBackup( {
 			} else {
 				setFileError(
 					__(
-						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, or .wpress file.'
+						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, .wpress, or .xml file.'
 					)
 				);
 			}
@@ -193,7 +193,7 @@ export default function ImportBackup( {
 								<>
 									{ createInterpolateElement(
 										__(
-											'Import a Jetpack backup or a full-site backup in another format. <learn_more_link />'
+											'Import a Jetpack backup, a full-site backup in another format, or a WordPress export (.xml) file. <learn_more_link />'
 										),
 										{
 											learn_more_link: <LearnMoreLink docsLinksKey="docsImportExport" />,

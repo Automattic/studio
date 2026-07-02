@@ -19,6 +19,7 @@ import {
 	SQLImporter,
 	WpressImporter,
 } from './importers/importer';
+import { WxrImporter } from './importers/wxr-importer';
 import { BackupArchiveInfo, NewImporter } from './types';
 import { JetpackValidator } from './validators/jetpack-validator';
 import { LocalValidator } from './validators/local-validator';
@@ -26,6 +27,7 @@ import { PlaygroundValidator } from './validators/playground-validator';
 import { SqlValidator } from './validators/sql-validator';
 import { Validator } from './validators/validator';
 import { WpressValidator } from './validators/wpress-validator';
+import { XmlValidator } from './validators/xml-validator';
 
 interface ImporterOption {
 	validator: Validator;
@@ -100,5 +102,6 @@ export const DEFAULT_IMPORTER_OPTIONS: ImporterOption[] = [
 	{ validator: new JetpackValidator(), importer: JetpackImporter },
 	{ validator: new LocalValidator(), importer: LocalImporter },
 	{ validator: new SqlValidator(), importer: SQLImporter },
+	{ validator: new XmlValidator(), importer: WxrImporter },
 	{ validator: new WpressValidator(), importer: WpressImporter },
 ];

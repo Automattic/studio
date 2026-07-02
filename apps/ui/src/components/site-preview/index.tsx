@@ -10,6 +10,7 @@ import {
 	external,
 	file as fileIcon,
 	globe,
+	moreVertical,
 	pencil,
 	trash,
 	wordpress,
@@ -19,7 +20,9 @@ import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import { IconSwitch } from '@/components/icon-switch';
+import * as Menu from '@/components/menu';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
+import { QuickMenuItem } from '@/components/site-quick-menu';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { usePointerDrag } from '@/hooks/use-pointer-drag';
@@ -37,6 +40,7 @@ import {
 	INSPECTOR_COMMAND_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
 } from './inspector-script';
+import { getPathFromPreviewUrl, LocationOmnibox } from './location-omnibox';
 import styles from './style.module.css';
 import type {
 	Annotation,
@@ -53,6 +57,7 @@ import type {
 } from 'react';
 
 export type { Annotation, PreviewConsoleEntry, PreviewConsoleTextFile } from './types';
+export { getPathFromPreviewUrl } from './location-omnibox';
 
 interface SitePreviewProps {
 	site: SiteDetails;
@@ -332,6 +337,67 @@ function PreviewViewSwitch( {
 	);
 }
 
+// Trailing "•••" menu holding the occasional actions that don't earn a
+// permanent toolbar button: console, screenshot, open in browser.
+function PreviewOverflowMenu( {
+	canPreview,
+	canUseWebview,
+	consoleLabel,
+	onToggleConsole,
+	screenshot,
+	onOpenInBrowser,
+}: {
+	canPreview: boolean;
+	canUseWebview: boolean;
+	consoleLabel: string;
+	onToggleConsole: () => void;
+	screenshot: {
+		label: string;
+		disabled: boolean;
+		onCapture: () => void;
+	} | null;
+	onOpenInBrowser: () => void;
+} ) {
+	return (
+		<Menu.Root modal={ false }>
+			<Menu.Trigger
+				render={
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ moreVertical }
+						label={ __( 'More options' ) }
+					/>
+				}
+			/>
+			<Menu.Popup side="bottom" align="end">
+				<QuickMenuItem
+					icon={ bottomDrawerIcon }
+					label={ consoleLabel }
+					disabled={ ! canUseWebview }
+					onClick={ onToggleConsole }
+				/>
+				{ screenshot ? (
+					<QuickMenuItem
+						icon={ capturePhoto }
+						label={ screenshot.label }
+						disabled={ screenshot.disabled }
+						onClick={ screenshot.onCapture }
+					/>
+				) : null }
+				<Menu.Separator />
+				<QuickMenuItem
+					icon={ external }
+					label={ __( 'Open site in browser' ) }
+					disabled={ ! canPreview }
+					onClick={ onOpenInBrowser }
+				/>
+			</Menu.Popup>
+		</Menu.Root>
+	);
+}
+
 function getPreviewWebviewContentsId( root: HTMLElement | null ): number {
 	const webview = root?.querySelector( 'webview' ) as WebviewTag | null;
 	if ( ! webview ) {
@@ -589,6 +655,7 @@ export function SitePreview( {
 	const [ consoleActionError, setConsoleActionError ] = useState< string | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const bodyRef = useRef< HTMLDivElement | null >( null );
+	const locationRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const siteThumbnail = useQuery( {
 		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
@@ -899,35 +966,25 @@ export function SitePreview( {
 								onChange={ isBackendView ? showFrontend : showBackend }
 							/>
 						</div>
-						<div className={ styles.browserLocation }>
+						<div ref={ locationRef } className={ styles.browserLocation }>
 							{ toolbarError ? (
 								<span className={ styles.toolbarError } role="status">
 									{ toolbarError }
 								</span>
 							) : (
-								<ToolbarTooltip label={ previewUrl }>
-									<span className={ styles.browserTitle }>{ pageTitle }</span>
-								</ToolbarTooltip>
+								<LocationOmnibox
+									siteId={ site.id }
+									siteUrl={ siteUrl }
+									path={ getSafePath( path ) }
+									previewUrl={ previewUrl }
+									pageTitle={ pageTitle }
+									searchEnabled={ canUseWebview }
+									anchorRef={ locationRef }
+									onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
+								/>
 							) }
 						</div>
 						<div className={ styles.annotationControls }>
-							{ onScreenshotDone ? (
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ capturePhoto }
-									label={
-										isCapturingScreenshot
-											? __( 'Adding screenshot...' )
-											: __( 'Add full-page screenshot to composer' )
-									}
-									loading={ isCapturingScreenshot }
-									loadingAnnouncement={ __( 'Adding screenshot' ) }
-									disabled={ ! canCaptureScreenshot || isCapturingScreenshot }
-									onClick={ () => void capturePreviewScreenshot() }
-								/>
-							) : null }
 							<IconButton
 								variant="minimal"
 								tone="neutral"
@@ -956,26 +1013,6 @@ export function SitePreview( {
 					<span className={ styles.headerSpacer } aria-hidden="true" />
 				) }
 				<span className={ styles.separator } aria-hidden="true" />
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					icon={ bottomDrawerIcon }
-					label={ consoleButtonLabel }
-					className={ styles.consoleToggle }
-					disabled={ ! canUseWebview }
-					aria-pressed={ consoleOpen }
-					onClick={ () => setConsoleOpen( ( current ) => ! current ) }
-				/>
-				<IconButton
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					icon={ external }
-					label={ __( 'Open site in browser' ) }
-					disabled={ ! canPreview }
-					onClick={ () => void connector.openExternalUrl( previewUrl ) }
-				/>
 				{ canPreview ? (
 					<PreviewColorSchemeSwitch
 						colorScheme={ previewColorScheme }
@@ -983,6 +1020,24 @@ export function SitePreview( {
 						onChange={ togglePreviewColorScheme }
 					/>
 				) : null }
+				<PreviewOverflowMenu
+					canPreview={ canPreview }
+					canUseWebview={ canUseWebview }
+					consoleLabel={ consoleButtonLabel }
+					onToggleConsole={ () => setConsoleOpen( ( current ) => ! current ) }
+					screenshot={
+						onScreenshotDone
+							? {
+									label: isCapturingScreenshot
+										? __( 'Adding screenshot...' )
+										: __( 'Add full-page screenshot to composer' ),
+									disabled: ! canCaptureScreenshot || isCapturingScreenshot,
+									onCapture: () => void capturePreviewScreenshot(),
+							  }
+							: null
+					}
+					onOpenInBrowser={ () => void connector.openExternalUrl( previewUrl ) }
+				/>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">
 						<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />
@@ -1127,19 +1182,6 @@ export function getToolbarPageTitle( title: string | null, siteName: string ) {
 		return withoutWordPressSuffix || trimmedTitle;
 	}
 	return siteName || __( 'Site preview' );
-}
-
-export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
-	try {
-		const parsedUrl = new URL( url );
-		const parsedBaseUrl = new URL( baseUrl );
-		if ( parsedUrl.origin !== parsedBaseUrl.origin ) {
-			return null;
-		}
-		return `${ parsedUrl.pathname }${ parsedUrl.search }${ parsedUrl.hash }`;
-	} catch {
-		return null;
-	}
 }
 
 interface WebviewSurfaceProps {

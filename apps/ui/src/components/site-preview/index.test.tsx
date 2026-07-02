@@ -97,6 +97,12 @@ function mockWebviewContentsId( webContentsId = 42 ) {
 	};
 }
 
+// Console, screenshot, and open-in-browser live in the trailing "•••" menu.
+async function clickOverflowMenuItem( name: string ) {
+	fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name } ) );
+}
+
 function dispatchWebviewConsoleMessage(
 	webview: Element,
 	{
@@ -237,16 +243,7 @@ describe( 'SitePreview', () => {
 				/>
 			);
 
-			const screenshotButton = screen.getByRole( 'button', {
-				name: 'Add full-page screenshot to composer',
-			} );
-			const annotateButton = screen.getByRole( 'button', { name: 'Annotate' } );
-			expect(
-				screenshotButton.compareDocumentPosition( annotateButton ) &
-					Node.DOCUMENT_POSITION_FOLLOWING
-			).toBeTruthy();
-
-			fireEvent.click( screenshotButton );
+			await clickOverflowMenuItem( 'Add full-page screenshot to composer' );
 
 			await waitFor( () => {
 				expect( captureSiteScreenshot ).toHaveBeenCalledWith( 42, {
@@ -285,9 +282,7 @@ describe( 'SitePreview', () => {
 				/>
 			);
 
-			fireEvent.click(
-				screen.getByRole( 'button', { name: 'Add full-page screenshot to composer' } )
-			);
+			await clickOverflowMenuItem( 'Add full-page screenshot to composer' );
 
 			expect( await screen.findByRole( 'status' ) ).toHaveTextContent(
 				'Screenshot could not be added.'
@@ -345,9 +340,7 @@ describe( 'SitePreview', () => {
 				/>
 			);
 
-			fireEvent.click(
-				screen.getByRole( 'button', { name: 'Add full-page screenshot to composer' } )
-			);
+			await clickOverflowMenuItem( 'Add full-page screenshot to composer' );
 
 			await waitFor( () => {
 				expect( captureSiteScreenshot ).toHaveBeenCalledWith( 42, {
@@ -399,7 +392,7 @@ describe( 'SitePreview', () => {
 				] );
 			} );
 
-			fireEvent.click( screen.getByRole( 'button', { name: 'Show console' } ) );
+			await clickOverflowMenuItem( 'Show console' );
 
 			expect(
 				screen.getByText( 'Uncaught TypeError: Cannot read properties of undefined' )
@@ -437,7 +430,7 @@ describe( 'SitePreview', () => {
 				line: 27,
 			} );
 
-			fireEvent.click( screen.getByRole( 'button', { name: 'Show console' } ) );
+			await clickOverflowMenuItem( 'Show console' );
 			await act( async () => {
 				fireEvent.click(
 					screen.getByRole( 'button', { name: 'Attach visible console messages to composer' } )
@@ -474,7 +467,7 @@ describe( 'SitePreview', () => {
 			dispatchWebviewConsoleMessage( webview!, {
 				message: 'Console output',
 			} );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Show console' } ) );
+			await clickOverflowMenuItem( 'Show console' );
 
 			const resizeHandle = screen.getByRole( 'separator', { name: 'Resize console' } );
 			expect( resizeHandle ).toHaveAttribute( 'aria-valuenow', '280' );
@@ -523,7 +516,7 @@ describe( 'SitePreview', () => {
 				} ) }`,
 			} );
 
-			fireEvent.click( screen.getByRole( 'button', { name: 'Show console' } ) );
+			await clickOverflowMenuItem( 'Show console' );
 
 			expect( screen.getByText( 'No console messages yet.' ) ).toBeVisible();
 			expect( onConsoleEntriesChange ).toHaveBeenLastCalledWith( [] );

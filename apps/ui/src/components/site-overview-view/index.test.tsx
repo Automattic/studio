@@ -21,6 +21,7 @@ import type { SiteDetails } from '@/data/core';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
+const headerActionsMock = vi.hoisted( () => vi.fn() );
 
 class ResizeObserverMock {
 	observe = vi.fn();
@@ -35,6 +36,13 @@ vi.mock( '@tanstack/react-router', () => ( {
 vi.mock( '@/components/delete-site-dialog', () => ( {
 	DeleteSiteDialog: ( { open }: { open: boolean } ) =>
 		open ? <div role="dialog">Delete dialog</div> : null,
+} ) );
+
+vi.mock( '@/components/site-header-actions', () => ( {
+	SiteHeaderActions: ( props: { site: SiteDetails } ) => {
+		headerActionsMock( props );
+		return <button type="button">Open in…</button>;
+	},
 } ) );
 
 vi.mock( '@/components/site-dropdown', () => ( {
@@ -214,15 +222,16 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.queryByText( 'Archived chats' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'heading', { name: 'Theme' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'heading', { name: 'Customize' } ) ).toBeVisible();
-		expect( screen.getByRole( 'heading', { name: 'Open in…' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'heading', { name: 'Open in…' } ) ).not.toBeInTheDocument();
+		expect( headerActionsMock ).toHaveBeenCalledWith(
+			expect.objectContaining( { site: expect.objectContaining( { id: 'site-1' } ) } )
+		);
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Content' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Plugins' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Themes' } ) ).toBeVisible();
 		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
 		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
-		expect( screen.getByText( 'Zed' ) ).toBeVisible();
-		expect( screen.getByText( 'phpMyAdmin' ) ).toBeVisible();
 		const contentSection = screen.getByRole( 'heading', { name: 'Content' } ).closest( 'section' )!;
 		expect( contentSection ).toHaveTextContent( 'Pages3' );
 		expect( contentSection ).toHaveTextContent( 'Posts7' );
@@ -242,29 +251,13 @@ describe( 'SiteOverviewView', () => {
 	it( 'routes open and settings shortcuts through existing APIs', async () => {
 		render( <SiteOverviewView siteId="site-1" /> );
 
-		fireEvent.click(
-			screen.getByRole( 'button', {
-				name: /Finder|File Explorer|File manager/,
-			} )
-		);
-		fireEvent.click( screen.getByText( 'Zed' ).closest( 'button' )! );
-		fireEvent.click( screen.getByText( 'Terminal' ).closest( 'button' )! );
 		fireEvent.click( screen.getByText( 'Site Editor' ).closest( 'button' )! );
 		fireEvent.click( screen.getByText( 'Media Library' ).closest( 'button' )! );
-		fireEvent.click( screen.getByText( 'phpMyAdmin' ).closest( 'button' )! );
 
-		expect( openSiteFolder ).toHaveBeenCalledWith( 'site-1' );
-		expect( openSiteInEditor ).toHaveBeenCalledWith( 'site-1' );
-		expect( openSiteInTerminal ).toHaveBeenCalledWith( 'site-1' );
 		await waitFor( () =>
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php', undefined )
 		);
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php', undefined );
-		expect( openSiteUrl ).toHaveBeenCalledWith(
-			'site-1',
-			'/phpmyadmin/index.php?route=/database/structure&db=wordpress',
-			undefined
-		);
 	} );
 } );
 

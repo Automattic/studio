@@ -13,6 +13,8 @@
 }
 
 .header {
+	/* Anchor for the absolutely-pinned open-in trigger. */
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
@@ -30,7 +32,6 @@
 			var(--wpds-dimension-padding-2xl)
 	);
 }
-
 .tabsFrame {
 	flex: 1;
 	min-height: 0;

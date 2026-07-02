@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
+import { SiteHeaderActions } from '@/components/site-header-actions';
 import { SiteIcon } from '@/components/site-icon';
 import {
 	appendPreviewConsoleEntriesToPrompt,
@@ -77,6 +78,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 				</>
 			) }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
+			{ site ? <SiteHeaderActions site={ site } /> : null }
 		</div>
 	);
 }

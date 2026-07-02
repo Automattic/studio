@@ -1,10 +1,6 @@
-import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
-import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
-	archive,
-	code,
 	copy,
 	desktop,
 	download,
@@ -15,7 +11,6 @@ import {
 	navigation,
 	page,
 	pencil,
-	preformatted,
 	styles as stylesIcon,
 	symbolFilled,
 	trash,
@@ -25,6 +20,7 @@ import { Button } from '@wordpress/ui';
 import { useState } from 'react';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import { SiteDropdown } from '@/components/site-dropdown';
+import { SiteHeaderActions } from '@/components/site-header-actions';
 import { SiteSettingsForm, type SiteSettingsTabId } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
@@ -38,7 +34,6 @@ import {
 	useSites,
 	useStartSite,
 } from '@/data/queries/use-sites';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
 import type { SiteDetails, SiteOverviewDetails, SiteOverviewExtension } from '@/data/core';
@@ -90,6 +85,7 @@ function OverviewHeader( { site }: { site: SiteDetails } ) {
 			}
 		>
 			<SiteDropdown site={ site } showSiteIcon showStatus={ sidebarCollapsed } />
+			<SiteHeaderActions site={ site } />
 		</div>
 	);
 }
@@ -138,17 +134,6 @@ function DetailSection( { title, children }: DetailSectionProps ) {
 			{ children }
 		</section>
 	);
-}
-
-function getFileManagerLabel() {
-	const platform = navigator.platform.toLowerCase();
-	if ( platform.includes( 'win' ) ) {
-		return __( 'File Explorer' );
-	}
-	if ( platform.includes( 'linux' ) ) {
-		return __( 'File manager' );
-	}
-	return __( 'Finder' );
 }
 
 function getDetailsStatus( { isLoading, isError }: { isLoading: boolean; isError: boolean } ) {
@@ -286,7 +271,6 @@ export function SiteOverviewView( { siteId }: SiteOverviewViewProps ) {
 function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 	const connector = useConnector();
 	const navigate = useNavigate();
-	const { data: userPreferences } = useUserPreferences();
 	const startSite = useStartSite();
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
@@ -299,12 +283,6 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 
 	const busy = isStarting || isStopping;
 	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
-	const editorLabel = userPreferences?.editor
-		? supportedEditorConfig[ userPreferences.editor ].label
-		: __( 'Editor' );
-	const terminalLabel = userPreferences?.terminal
-		? terminalConfig[ userPreferences.terminal ].name
-		: __( 'Terminal' );
 	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
 
@@ -326,28 +304,6 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 		}
 		void connector.openSiteUrl( site.id, relativeUrl, options ).catch( ( error ) => {
 			console.error( 'Failed to open site URL:', error );
-		} );
-	};
-
-	const openFolder = () => {
-		void connector.openSiteFolder( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site folder:', error );
-		} );
-	};
-
-	const openEditor = () => {
-		if ( ! userPreferences?.editor ) {
-			void navigate( { to: '/settings' } );
-			return;
-		}
-		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site in editor:', error );
-		} );
-	};
-
-	const openTerminal = () => {
-		void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site in terminal:', error );
 		} );
 	};
 
@@ -461,34 +417,6 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 											label={ __( 'Media Library' ) }
 											disabled={ busy }
 											onClick={ () => void openSiteUrl( '/wp-admin/upload.php' ) }
-										/>
-									</ButtonSection>
-
-									<ButtonSection title={ __( 'Open in…' ) }>
-										<OverviewButton
-											icon={ <Icon icon={ archive } size={ 18 } /> }
-											label={ getFileManagerLabel() }
-											onClick={ openFolder }
-										/>
-										<OverviewButton
-											icon={ <Icon icon={ code } size={ 18 } /> }
-											label={ editorLabel }
-											onClick={ openEditor }
-										/>
-										<OverviewButton
-											icon={ <Icon icon={ preformatted } size={ 18 } /> }
-											label={ terminalLabel }
-											onClick={ openTerminal }
-										/>
-										<OverviewButton
-											icon={ <Icon icon={ grid } size={ 18 } /> }
-											label={ __( 'phpMyAdmin' ) }
-											disabled={ busy }
-											onClick={ () =>
-												void openSiteUrl(
-													'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
-												)
-											}
 										/>
 									</ButtonSection>
 

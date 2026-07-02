@@ -95,8 +95,13 @@ From the Plugin Handbook (developer.wordpress.org/plugins):
 
 ## Current prototype state (`apps/ui`, agentic UI)
 
-All plugin flows are **simulated** — no backend, nothing written to disk.
-Simulated endpoints are marked with `// Simulated:` comments in code.
+**Core model: plugins are just sites with extra presentation.** Completing
+any plugin flow creates a **real local site** (same `useCreateSite`
+mutation as Add a site — so status, chat, and preview all work), then tags
+the site as a plugin in `apps/ui/src/lib/plugin-prototype.ts`
+(localStorage-backed). The tag only changes how the sidebar renders the
+row. What's still simulated: no plugin files are scaffolded into the site,
+no SVN checkout happens, and the .org "connected account" is a stand-in.
 
 - **Entry**: sidebar + menu → "Add a plugin" → `/onboarding/plugin`
   (`apps/ui/src/ui-classic/router/route-onboarding-plugin/`). Three cards
@@ -116,7 +121,8 @@ Simulated endpoints are marked with `// Simulated:` comments in code.
   details": Version (default `0.1.0`), Plugin URI, Author URI, License
   (default "GPLv2 or later"). Live "Plugin slug and text domain" preview.
   In existing-folder mode the title changes and the folder path shows
-  read-only. Submit fakes success (speak + navigate home).
+  read-only. Submit creates the site, tags it, and opens the site's new
+  session view (chat + preview).
 - **Connect screen** (`route-onboarding-plugin-connect/`): pretends the
   account is already connected (`SIMULATED_USERNAME = 'automattic'`) and
   lists **real** directory data via
@@ -125,17 +131,30 @@ Simulated endpoints are marked with `// Simulated:` comments in code.
   `request[author]=…`, icons + active_installs fields). List is sorted by
   active installs and capped at 9 (`SIMULATED_PLUGIN_COUNT`) so it reads
   like a real account (6–12 plugins), not a directory dump. Selecting one
-  and "Add plugin" fakes the checkout.
+  and "Add plugin" creates + tags a site named after the plugin (keeps the
+  directory icon for the sidebar row).
+- **Sidebar** (`components/site-list/`): plugin-tagged sites are split out
+  of the draggable site list and render as ordinary `SiteSection` rows
+  with a plugin glyph (or the wporg directory icon). Two variations,
+  switched live via a floating "Sidebar prototype" panel
+  (`components/prototype-tweaks/`, mounted in `sidebar-layout`, persisted
+  in localStorage):
+  1. **Mixed list** — plugin rows ride at the bottom of the site list.
+  2. **Grouped** — "Sites" / "Plugins" accordion headings (open by
+     default), each collapsible.
+  The panel also offers "Untag N plugins" (keeps the underlying sites).
+  Selection is the normal route-driven site selection — a new plugin lands
+  on `/sites/$siteId/new`, so its row is selected on arrival.
 - Routes registered in `apps/ui/src/ui-classic/router/router.tsx`; wide
   layout widths for `/onboarding/plugin` and `/onboarding/plugin/connect`
   in `layout-onboarding/index.tsx`.
 
 ### Known gaps / next steps
 
-- No plugin sidebar section yet (deliberately deferred; #3970 adds one in
-  the legacy renderer).
-- Fake submits: create/existing/connect all end at the dashboard without
-  creating anything.
+- Decide the sidebar direction (mixed vs grouped), then how chat + preview
+  should differ for plugin sites.
+- No plugin files are scaffolded into the created site yet, and the
+  existing-folder flow doesn't copy/link the picked folder.
 - Plugin-specific card illustrations needed.
 - Folder-picker dialog title, and real plugin-header scanning for the
   existing-folder flow (port `plugin-projects.ts` from the PR branch).

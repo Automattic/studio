@@ -676,10 +676,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
           git add packages/common/lib/php-binary-cdn-metadata.json
-          git commit -m "Update PHP ${PHP_VERSION} package ${PHP_PACKAGE_VERSION} metadata"
+          git commit -m "Update PHP ${PHP_VERSION}-${PHP_PACKAGE_VERSION} metadata"
           git push --set-upstream origin "$branch"
           gh pr create \
             --base "${GITHUB_REF_NAME}" \
             --head "$branch" \
-            --title "Update PHP ${PHP_VERSION} package ${PHP_PACKAGE_VERSION} metadata" \
+            --title "Update PHP ${PHP_VERSION}-${PHP_PACKAGE_VERSION} metadata" \
             --body "Updates PHP CLI binary CDN metadata after a successful immutable Apps CDN upload."

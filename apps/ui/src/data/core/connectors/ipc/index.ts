@@ -104,6 +104,33 @@ export function createIpcConnector(): Connector {
 		return site.path;
 	}
 
+	async function markConnectedWpcomSiteSynced(
+		localSiteId: string,
+		remoteSiteId: number,
+		direction: 'push' | 'pull'
+	): Promise< void > {
+		try {
+			const connectedSites = ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
+			const connectedSite = connectedSites.find(
+				( site ) => site.id === remoteSiteId && site.localSiteId === localSiteId
+			);
+
+			if ( ! connectedSite ) {
+				return;
+			}
+
+			const timestampKey = direction === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp';
+			await ipcApi.updateConnectedWpcomSites( [
+				{
+					...connectedSite,
+					[ timestampKey ]: new Date().toISOString(),
+				},
+			] );
+		} catch ( error ) {
+			console.warn( 'Failed to update connected site sync timestamp:', error );
+		}
+	}
+
 	// Bridges `createSnapshot`/`updateSnapshot`'s fire-and-forget IPC pattern
 	// into an awaitable promise. The main process emits `snapshot-key-value`
 	// with the final preview URL right before `snapshot-success`; fatal
@@ -283,10 +310,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.comparePaths( path1, path2 ) ) as boolean;
 		},
 
-		async getAllCustomDomains(): Promise< string[] > {
-			return ( await ipcApi.getAllCustomDomains() ) as string[];
-		},
-
 		async getFeaturedBlueprints( locale ) {
 			const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/blueprints' );
 			if ( locale ) {
@@ -375,10 +398,6 @@ export function createIpcConnector(): Connector {
 
 		async refreshSiteIcon( siteId ) {
 			await ipcApi.loadSiteIcon( siteId );
-		},
-
-		async getXdebugEnabledSite() {
-			return ( await ipcApi.getXdebugEnabledSite() ) as SiteDetails | null;
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -499,11 +518,13 @@ export function createIpcConnector(): Connector {
 			if ( ! result.success ) {
 				throw new Error( result.error ?? 'Push failed' );
 			}
+			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
 		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
 			const siteFolder = await resolveSiteFolder( siteId );
 			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
 
 		getPublishCheckoutUrl( site ): string {
@@ -657,6 +678,10 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
+		async copyText( text: string ): Promise< void > {
+			await ipcApi.copyText( text );
+		},
+
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
@@ -685,6 +710,12 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'toggle-site-preview', () => listener() );
+		},
+
+		onToggleSidebar( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'toggle-sidebar', () => listener() );
 		},
 	};
 }

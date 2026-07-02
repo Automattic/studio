@@ -26,6 +26,7 @@ export interface CliEnv {
 	configDir: string;
 	sitesDir: string;
 	cliConfigPath: string;
+	daemonHome: string;
 }
 
 export interface CliResult {
@@ -50,8 +51,15 @@ export function setupCliEnv(): CliEnv {
 	const root = path.join( os.tmpdir(), `studio-cli-e2e-${ randomUUID() }` );
 	const configDir = path.join( root, 'config' );
 	const sitesDir = path.join( root, 'sites' );
+	// Each run gets its own process-manager daemon (via STUDIO_PROCESS_MANAGER_HOME
+	// in runCli) so `site start`/`stop` never touch the developer's real daemon or
+	// sites. Keep it SHORT and directly under tmpdir: the daemon's control socket is
+	// a Unix domain socket (~104-char limit on macOS), so nesting under the long
+	// `root` overflows it and the connection fails with EINVAL.
+	const daemonHome = path.join( os.tmpdir(), `scd-${ randomUUID().slice( 0, 8 ) }` );
 	fs.mkdirSync( configDir, { recursive: true } );
 	fs.mkdirSync( sitesDir, { recursive: true } );
+	fs.mkdirSync( daemonHome, { recursive: true } );
 
 	// Reuse the real bundled WordPress without copying hundreds of MB. The copy
 	// the CLI performs only reads from here, so the symlink is never written to.
@@ -71,11 +79,12 @@ export function setupCliEnv(): CliEnv {
 		} )
 	);
 
-	return { root, configDir, sitesDir, cliConfigPath };
+	return { root, configDir, sitesDir, cliConfigPath, daemonHome };
 }
 
 export function cleanupCliEnv( env: CliEnv ): void {
 	fs.rmSync( env.root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 } );
+	fs.rmSync( env.daemonHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 } );
 }
 
 /**
@@ -87,7 +96,11 @@ export function runCli( args: string[], env: CliEnv ): Promise< CliResult > {
 		const child = spawn( process.execPath, [ CLI_MAIN, ...args ], {
 			// Non-TTY stdio so the CLI runs fully non-interactively.
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
-			env: { ...process.env, DEV_CONFIG_DIR: env.configDir },
+			env: {
+				...process.env,
+				DEV_CONFIG_DIR: env.configDir,
+				STUDIO_PROCESS_MANAGER_HOME: env.daemonHome,
+			},
 		} );
 
 		let stdout = '';

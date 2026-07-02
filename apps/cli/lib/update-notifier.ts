@@ -194,7 +194,13 @@ async function notifyStandalone( currentVersion: string ): Promise< void > {
 
 	let latestVersion: string | null = null;
 
-	if ( cached && now - cached.lastChecked < UPDATE_CHECK_INTERVAL_MS ) {
+	// ~/.studio is shared across installs, so a cache left by a different channel (e.g. a
+	// prior nightly) must not be trusted for this one — refetch on a channel mismatch.
+	if (
+		cached &&
+		now - cached.lastChecked < UPDATE_CHECK_INTERVAL_MS &&
+		channelForVersion( cached.latestVersion ) === channelForVersion( currentVersion )
+	) {
 		latestVersion = cached.latestVersion;
 	} else {
 		const result = await fetchStandaloneUpdate( currentVersion );

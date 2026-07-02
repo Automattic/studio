@@ -1,5 +1,6 @@
 /* eslint-disable no-control-regex */
 import { type MockInstance, vi } from 'vitest';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import {
 	formatUpdateBanner,
 	setupUpdateNotifier,
@@ -213,6 +214,41 @@ describe( 'setupUpdateNotifier', () => {
 
 			await expect( setupUpdateNotifier( '1.0.0', 'standalone' ) ).resolves.toBeUndefined();
 			expect( stderrWriteSpy ).not.toHaveBeenCalled();
+		} );
+
+		it( 'refetches instead of trusting a fresh cache from a different channel', async () => {
+			// Nightly cache left in the shared ~/.studio by a prior install; the running CLI is
+			// production. The stale 1.12.0-dev131 must not be offered — we refetch (server: 204).
+			vi.mocked( readCliConfig ).mockResolvedValueOnce( {
+				standaloneUpdateCheck: { lastChecked: Date.now(), latestVersion: '1.12.0-dev131' },
+			} as never );
+			const fetchMock = vi.fn().mockResolvedValue( {
+				ok: true,
+				status: 204,
+				json: async () => ( {} ),
+			} );
+			vi.stubGlobal( 'fetch', fetchMock );
+
+			await setupUpdateNotifier( '1.11.0', 'standalone' );
+
+			expect( fetchMock ).toHaveBeenCalled();
+			expect( stderrWriteSpy ).not.toHaveBeenCalled();
+		} );
+
+		it( 'trusts a fresh same-channel cache without re-fetching', async () => {
+			vi.mocked( readCliConfig ).mockResolvedValueOnce( {
+				standaloneUpdateCheck: { lastChecked: Date.now(), latestVersion: '1.13.0' },
+			} as never );
+			const fetchMock = vi.fn();
+			vi.stubGlobal( 'fetch', fetchMock );
+
+			await setupUpdateNotifier( '1.11.0', 'standalone' );
+
+			expect( fetchMock ).not.toHaveBeenCalled();
+			const output = stripAnsi(
+				stderrWriteSpy.mock.calls.map( ( call ) => String( call[ 0 ] ) ).join( '' )
+			);
+			expect( output ).toContain( '1.13.0' );
 		} );
 	} );
 } );

@@ -143,10 +143,20 @@
 	color: var(--color-frame-text);
 	/* Discourage code from breaking awkwardly across lines. */
 	white-space: nowrap;
+	/* Code is meant to be copied — keep it selectable. */
+	-webkit-user-select: text;
+	user-select: text;
+}
+
+/* Wrapper anchors the overlaid copy button and carries the block spacing that
+   used to live on the <pre>. */
+.codeBlock {
+	position: relative;
+	margin: 0.75em 0 1.25em;
 }
 
 .pre {
-	margin: 0.75em 0 1.25em;
+	margin: 0;
 	padding: 0.875em 1em;
 	border-radius: var(--wpds-border-radius-md, 8px);
 	background-color: var(--color-frame-surface);
@@ -154,6 +164,10 @@
 	font-size: 0.85em;
 	line-height: 1.55;
 	overflow-x: auto;
+	/* Ensure code stays selectable even when an ancestor opts out of selection
+	   (the app shell sets `select-none` on its drag region). */
+	-webkit-user-select: text;
+	user-select: text;
 }
 
 .pre > code {
@@ -163,6 +177,51 @@
 	font-size: inherit;
 	color: inherit;
 	white-space: pre;
+}
+
+.copyButtonContainer {
+	position: absolute;
+	top: 0.5em;
+	inset-inline-end: 0.5em;
+	z-index: 1;
+}
+
+.copyButton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.75rem;
+	height: 1.75rem;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--color-frame-bg);
+	background-color: color-mix(in srgb, var(--color-frame-bg) 82%, transparent);
+	-webkit-backdrop-filter: blur(4px);
+	backdrop-filter: blur(4px);
+	color: var(--color-frame-text-secondary);
+	line-height: 1;
+	cursor: pointer;
+	transition: color 0.12s ease, background-color 0.12s ease;
+}
+
+.copyButton:hover,
+.copyButton:focus-visible {
+	color: var(--color-frame-text);
+	background-color: var(--color-frame-surface-alt);
+}
+
+.visuallyHidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
 }
 
 .tableWrap {

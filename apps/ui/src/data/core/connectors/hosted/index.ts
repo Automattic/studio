@@ -162,9 +162,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
-		async getXdebugEnabledSite(): Promise< SiteDetails | null > {
-			return null;
-		},
 		async exportFullSite(): Promise< string | null > {
 			throw new WebUnsupportedError( 'exportFullSite' );
 		},
@@ -182,9 +179,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async comparePaths() {
 			throw new WebUnsupportedError( 'comparePaths' );
-		},
-		async getAllCustomDomains(): Promise< string[] > {
-			return [];
 		},
 
 		// Featured blueprints — public endpoint, same source as the desktop app.
@@ -344,6 +338,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async copyText( text ) {
+			await navigator.clipboard.writeText( text );
+		},
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
@@ -361,6 +358,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return () => {};
 		},
 		onToggleSitePreview() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onToggleSidebar() {
 			// No application menu in a browser tab.
 			return () => {};
 		},

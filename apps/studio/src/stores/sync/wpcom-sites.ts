@@ -58,7 +58,9 @@ export const wpcomSitesApi = createApi( {
 					const allConnectedSites = await getIpcApi().getConnectedWpcomSites();
 
 					// Determine if staging by checking environment_type (can't access parent site's staging IDs without fetching /me/sites)
-					const isStaging = parsedSite.environment_type === 'staging';
+					const isStaging =
+						parsedSite.environment_type === 'staging' ||
+						parsedSite.environment_type === 'development';
 
 					const syncSupport = getSyncSupport(
 						parsedSite,
@@ -105,7 +107,7 @@ export const wpcomSitesApi = createApi( {
 
 					const queryParams: Record< string, string | number | boolean > = {
 						fields: SITE_FIELDS,
-						filters: 'atomic,wpcom',
+						filter: 'atomic,wpcom',
 						options: 'created_at,wpcom_staging_blog_ids,software_version',
 						site_activity: 'active',
 						include_a8c_owned: false,
@@ -164,7 +166,9 @@ export const wpcomSitesApi = createApi( {
 									);
 									const parsed = sitesEndpointSiteSchema.parse( singleResponse );
 									const syncSupport = getSyncSupport( parsed, connectedIds );
-									const isStaging = parsed.environment_type === 'staging';
+									const isStaging =
+										parsed.environment_type === 'staging' ||
+										parsed.environment_type === 'development';
 									supplementalSites.push(
 										transformSingleSiteResponse( parsed, syncSupport, isStaging )
 									);

@@ -63,8 +63,7 @@ export function transformSitesResponse(
 				( connectedSiteIds.length > 0 && connectedSiteIds.some( ( id ) => id === site.ID ) )
 		)
 		.map( ( site ) => {
-			const isStaging =
-				site.environment_type === 'staging' || allStagingSiteIds.includes( site.ID );
+			const isStaging = allStagingSiteIds.includes( site.ID );
 			const syncSupport = getSyncSupport( site, connectedSiteIds );
 
 			return transformSingleSiteResponse( site, syncSupport, isStaging );

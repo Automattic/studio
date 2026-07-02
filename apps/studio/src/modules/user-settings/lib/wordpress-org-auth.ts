@@ -157,7 +157,25 @@ export function getWordPressOrgSession(): Session {
 				}
 			}
 			requestHeaders[ 'sec-ch-ua' ] = secChUa;
+			// Diagnostic: surface the login POST and reCAPTCHA calls so a
+			// silently-failing sign-in shows what actually left the app.
+			if (
+				details.method === 'POST' ||
+				/wp-login\.php|recaptcha|\/generate|\/anchor|\/bframe/.test( details.url )
+			) {
+				console.log( `[wporg-login req] ${ details.method } ${ details.url }` );
+			}
 			callback( { requestHeaders } );
+		} );
+		authSession.webRequest.onCompleted( ( details ) => {
+			if ( details.method === 'POST' || /wp-login\.php|recaptcha/.test( details.url ) ) {
+				console.log(
+					`[wporg-login res] ${ details.statusCode } ${ details.method } ${ details.url }`
+				);
+			}
+		} );
+		authSession.webRequest.onErrorOccurred( ( details ) => {
+			console.error( `[wporg-login err] ${ details.error } ${ details.method } ${ details.url }` );
 		} );
 	}
 	return authSession;

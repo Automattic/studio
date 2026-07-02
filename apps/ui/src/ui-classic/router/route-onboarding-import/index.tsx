@@ -22,7 +22,7 @@ interface PickedBackup {
 
 export function OnboardingImportPage() {
 	const navigate = useNavigate();
-	const { data: existingDomainNames } = useExistingCustomDomains();
+	const existingDomainNames = useExistingCustomDomains();
 	const createSite = useCreateSite();
 	const importSite = useImportSite();
 
@@ -104,7 +104,7 @@ export function OnboardingImportPage() {
 			</p>
 			<CreateSiteForm
 				initialValues={ initialValues }
-				existingDomainNames={ existingDomainNames ?? [] }
+				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
 				onCancel={ handleBack }
 				isSubmitting={ isSubmitting }

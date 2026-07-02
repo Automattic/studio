@@ -20,6 +20,7 @@ import {
 import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { pullSite, pushSite } from '@studio/common/sites/sync';
 import { SyncSite } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { Upload } from 'tus-js-client';
@@ -534,16 +535,54 @@ export async function pullSiteFromLive(
 	siteFolder: string,
 	remoteSiteId: number
 ): Promise< void > {
-	return new Promise< void >( ( resolve, reject ) => {
-		const [ emitter ] = executeCliCommand(
-			[ 'pull', '--path', siteFolder, '--remote-site', String( remoteSiteId ), '--options', 'all' ],
-			{ output: 'capture' }
-		);
+	return pullSite( executeCliCommand, siteFolder, remoteSiteId );
+}
 
-		emitter.on( 'success', () => resolve() );
-		emitter.on( 'failure', ( { error } ) => reject( error ) );
-		emitter.on( 'error', ( { error } ) => reject( error ) );
-	} );
+// Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`
+// server uses, so the agentic UI pushes identically in the desktop and the
+// browser (export → TUS upload → import). Progress is forwarded over the
+// existing `sync-upload-*` channels. The legacy renderer keeps its own
+// `exportSiteForPush` + `pushArchive` (with manual pause/resume) untouched.
+export async function pushSiteToLive(
+	_event: IpcMainInvokeEvent,
+	selectedSiteId: string,
+	remoteSiteId: number
+): Promise< void > {
+	const site = SiteServer.get( selectedSiteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
+	}
+	await pushSite(
+		{
+			executeCliCommand,
+			accessToken: token.accessToken,
+			emit: ( output ) => {
+				if ( output.kind === 'upload-progress' ) {
+					void sendIpcEventToRenderer( 'sync-upload-progress', {
+						selectedSiteId,
+						remoteSiteId,
+						progress: output.progress,
+					} );
+				} else if ( output.kind === 'network-paused' ) {
+					void sendIpcEventToRenderer( 'sync-upload-network-paused', {
+						selectedSiteId,
+						remoteSiteId,
+						error: output.error,
+					} );
+				} else if ( output.kind === 'resumed' ) {
+					void sendIpcEventToRenderer( 'sync-upload-resumed', {
+						selectedSiteId,
+						remoteSiteId,
+					} );
+				}
+			},
+		},
+		{ sitePath: site.details.path, remoteSiteId }
+	);
 }
 
 // Fetches every WordPress.com site the authenticated user can sync to.

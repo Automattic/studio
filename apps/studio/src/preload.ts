@@ -38,6 +38,8 @@ const api: IpcApi = {
 			optionsToSync,
 			specificSelectionPaths
 		),
+	pushSiteToLive: ( selectedSiteId, remoteSiteId ) =>
+		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	copySite: ( sourceSiteId, newSiteId, siteName ) =>
 		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),

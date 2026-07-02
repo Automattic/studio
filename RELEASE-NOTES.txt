@@ -1,132 +1,38 @@
 Unreleased
 ==========
 
+1.13.0
+=====
+* Fixed PHP error (code: 3221225781) by updating native PHP packages to include necessary Windows DLLs #4042, #4045, #4050, #4055, #4049
+* Added sidebar toggle keyboard shortcut (Cmd+B on macOS and Ctrl+B on Windows/Linux) #3960
+* Differentiated preview sites from connected WordPress.com remote sites #3677
+* Improved attachment handling in the Studio Code composer #3925
+* Added copy button and selectable text to agent code blocks #3963
+* Tweaked system prompt to mention database #3957
+* Documented SQLite-to-MySQL migration path in STUDIO.md and publishing to supported hostings #3984
+* Handle 413 push failures gracefully in Studio sync #3973
+* Fixed transparent active state on attachment delete button in composer #3962
+* Skip persisted tool_progress entries during session replay #3909
+* Added hosting-plans-helper skill for plan and pricing answers #4010
+* Fixed Studio Code annotate closing message that always referenced the CLI #4020
+* Removed noop menu items from topbar context menu #4031
+
 1.12.0
 =====
-<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
-* Remove placeholder Dashboard and Skills menus and screen #3760
-* Remove spec for remote session as not required #3774
-* Move annotation controls from the previewed page into the preview toolbar #3762
-* Move eval/ to scripts/eval/ #3775
-* Bump @wp-playground/* and @php-wasm/* packages to 3.1.38 #3751
-* Remove enableBlueprints feature flag #3758
-* Improve session empty state background animation #3778
-* Fix dark mode support in the agentic UI site preview panel #3779
-* Rename Copy site to Duplicate site #3759
-* Add eval env overrides: STUDIO_BASE_PORT and STUDIO_EVAL_SESSION_DIR #3771
-* Data migration to delete `appdata-v1.deprecated.json` and related cruft #3685
-* Use `Intl.Locale` over `@formatjs/intl-locale` #3776
-* Merge block HTML and editor validation into a single validate_blocks tool #3753
-* Add bundler block to Dependabot config and route Ruby reviews #3773
-* build(deps): bump shivammathur/setup-php from 2.37.1 to 2.37.2 #3798
-* build(deps): bump anthropics/claude-code-action from 1.0.140 to 1.0.144 #3801
-* build(deps): bump the ruby-minor-and-patch group with 3 updates #3802
-* build(deps): bump the typescript group with 2 updates #3805
-* build(deps-dev): bump vite-plugin-static-copy from 4.1.0 to 4.1.1 in the vite group #3807
-* build(deps): bump anthropics/claude-code-action from 1.0.144 to 1.0.146 #3808
-* build(deps-dev): bump @sentry/react from 10.56.0 to 10.57.0 in the sentry group #3809
-* Port composer attachments (images + files) from the legacy session UI to the agentic UI #3782
-* Consolidate user menu into a Settings Account tab #3777
-* Port sidebar site-list improvements from the agentic UI redesign #3811
-* Port the site details dropdown redesign from the agentic UI #3812
-* Scope dark-mode color token rules per app in AGENTS.md #3814
-* Port the split-panel site preview from the agentic UI redesign #3817
-* Hide the stopped status square in the sidebar until the site row is hovered #3818
-* Restore the sidebar user menu and move the Settings link into it #3820
-* Read bundled language packs directly from wp-files #3214
-* Improve Studio packaging build performance #3785
-* fix(cli): restore the session's recorded model when resuming by id #3819
-* [Tooling] Upload CDN builds as Internal first, publish as External later #2724
-* Revert Fable 5 model from Studio Code agent #3827
-* build(deps): bump ruby/setup-ruby from 1.310.0 to 1.313.0 #3800
-* Remove Opus 4.7 model from Studio Code agent #3828
-* Update beta token copy to 'Generous token limits' #3831
-* Bring the interactive site selector to pull-reprint #3729
-* Host the site preview at the dashboard layout so it persists across routes #3822
-* Make the site preview toolbar a window drag region #3825
-* Add curl installer scripts for standalone CLI distribution #3064
-* build(deps): bump tar from 7.5.15 to 7.5.16 #3839
-* Refine agentic-UI sidebar: site-row clarity, alignment, and snappier motion #3832
-* build(deps): bump rubocop from 1.87.0 to 1.88.0 in the ruby-minor-and-patch group #3840
-* Remove `postinstall` script in `apps/cli` by using new archiver strategy #3784
-* Surface PHP errors when a site fails to start #3813
-* Fix dark mode in Studio Code conversation dialogs #3844
-* fix: allow selecting and copying Studio Code conversation text #3836
-* Studio Web: run the portable UI in a browser via a web connector and a CLI web-server command #3816
-* Agentic UI: Fix sidebar resize lag and the jump when expanding #3848
-* Preserve temporary message in Studio Code UI #3824
-* Auto-install Playwright Chromium when opening the annotation browser #3841
-* Studio Code: prefer the theme color palette over hardcoded colors #3871
-* Stop writing cliAutoInstalled, deprecate in favour of cliUserUninstalled #3781
-* Studio Code: make validate_blocks a mandatory gate before applying block content #3874
-* Studio Code: treat shop/store/sell requests as ecommerce deterministically #3875
-* Annotate: remove the confirmation step before addressing annotations #3870
-* Remove the dead TodoWrite rendering subsystem from the CLI #3872
-* Add Kurdish (Sorani) locale (ckb) #3873
-* Studio Code: split provisioning from content apply around the validation gate #3882
-* Add assistant cost usage limits to Settings #3843
-* Studio: Tweak system prompt for push and pull operations #3868
-* Site PHP runtime & File Access options #3786
-* Studio Web: run the agent behind an AgentRuntime seam #3877
-* Fix Studio Code syntax error in Node.js 22 #3885
-* Fix Microsoft Store appx validation: add base SmallTile/LargeTile tiles #3849
-* Update PHP 8.5.7 binary metadata #3891
-* Fix WP-CLI tool calls from Studio Code when using the native PHP runtime  #3847
-* Fix blueprint creation from read-only directories and remove redundant native-php e2e jobs #3889
-* Publish standalone CLI bundles to Apps CDN and install from the CDN latest alias #3835
-* Remove Windows PFX fallback, rename signing gate #3638
-* build(deps): bump anthropics/claude-code-action from 1.0.146 to 1.0.152 #3895
-* build(deps): bump toshimaru/auto-author-assign from 3.0.2 to 3.0.3 #3897
-* build(deps): bump actions/checkout from 6 to 7 #3896
-* Document Agent Sandbox autonomous-run guidance in AGENTS.md #3815
-* Fix flaky daemon log test on Windows #3898
-* build(deps-dev): bump @earendil-works/pi-coding-agent from 0.78.0 to 0.79.0 in /tools/common #3883
-* UX: clarify naming between site-level and app-level Settings #3886
-* Agentic UI: Fix sidebar stopped site status icon #3876
-* Drive pull-reprint with a single reprint pull #3768
-* Render Studio Code interview options as small buttons #3833
-* CLI: promote site subcommands to top level and add config get/set #3884
-* Remove ui-desks interface #3852
-* build(deps): bump nokogiri from 1.19.3 to 1.19.4 #3907
-* build(deps): bump softprops/turnstyle from 3.2.4 to 3.3.1 #3799
-* Update STUDIO.md guidance when Studio CLI is unavailable #3902
-* Add IPv6 loopback hosts entry for custom domains to fix slow .local DNS on macOS #3912
-* Add e2e coverage for the Sandbox (Playground) runtime #3893
-* Studio Code: Display login URL to improve experience in remote and headless environments #3900
-* Move experimental Studio Web server out of the CLI into apps/hosted #3914
-* Fix typecheck break in Sandbox e2e test (navigateToTab casing) #3921
-* Upgrade Reprint to 0.8.2 #3919
-* Agentic UI: Preview Panel Grows to Fill Space When Resizing App Window #3850
-* STU-1873: Improve tool call descriptions #3903
-* Update SQLite database integration to v3.0.0-rc.4 #3911
-* Document Studio MCP server in STUDIO.md #3916
-* Clarify quit-sites dialog options and move auto-start to app.json #3837
-* Add native PHP runtime page to What's New modal #3915
-* Fix import e2e test broken by add-site modal redesign #3920
-* Build gd with additional libraries #3927
-* Update PHP 8.5.7 binary metadata #3933
-* Learn more links under "PHP runtime" controls #3926
-* Update PHP 8.3.31 binary metadata #3932
-* Update PHP 8.2.31 binary metadata #3934
-* Update PHP 8.4.22 binary metadata #3935
-* Add .codex folder to .gitignore #3938
-* Dev-stamp the standalone CLI version in nightly builds #3928
-* Add Studio Code slide to What's New modal #3924
-* Make the `wp studio get-site-icon` command runtime-agnostic #3945
-* Remove unused native PHP 8.1 version metadata #3931
-* Update how to run a single named eval test by description #3939
-* Attempt to fix bloated installer size #3943
-* Limit the number of sites the process manager keeps running #3887
-* Agentic Sidebar: Polish Site Rows, Chat Indicators, and Action Alignment #3894
-* STU-1873: Add tool call detail panel #3904
-* Fix truncated native PHP copy in What's New modal #3946
-* Increase Playground runtime PHP `memory_limit` to 512M #3936
-* Fix tooltip delay in Studio UI #3942
-* Clarify Sync tab intro copy to describe connecting existing sites #3929
-* Make the `pull-reprint` command work with native PHP #3881
-* E2E tests: Add tests to cover IPC bridge #3923
-* Rename the web connector and build target to hosted #3956
-**Full Changelog**: https://github.com/Automattic/studio/compare/v1.11.0...v1.12.0
+* Introduced PHP runtime and File Access options, and improved the native PHP runtime: fixed WP-CLI tool calls, asset loading for sites with a remote site URL, and blueprint creation from read-only directories, and made pull-reprint work with native PHP #3786, #3926, #3915, #3847, #3988, #3889, #3881
+* Improved Studio Code: content is checked before it is applied to your site, ecommerce sites are set up more reliably, and push/pull prompts are clearer. Tool calls are easier to follow with descriptions and a detail panel, remote sign-in shows a copyable login link, multiple-choice questions appear as clickable buttons, visual annotations install their browser automatically on first use, and available models were updated #3753, #3874, #3875, #3903, #3904, #3900, #3868, #3833, #3841, #3827, #3828
+* Added assistant usage limits in Settings with clearer limit messaging, and made it clearer which settings apply to a site vs the whole app #3843, #3831, #3886
+* Made the standalone Studio CLI easier to install and use: one-command install and updates from the web, a clean uninstall option, shorter commands for everyday site tasks, and new terminal commands to view and change site settings #3064, #3835, #3974, #3884
+* Improved pull-reprint: choose a site from a searchable list when you have several connected sites, and re-running the command now syncs remote changes to your local copy #3729, #3768
+* Added a Kurdish (Sorani) locale and improved locale handling #3873, #3214, #3776
+* Renamed "Copy site" to "Duplicate site" #3759
+* Improved performance and packaging: faster packaging builds, smaller installers, a higher PHP memory limit, and a cap on simultaneously running sites #3785, #3943, #3936, #3887
+* Fixed dark mode across Studio Code dialogs, the site preview panel, and theming, and allowed conversation text to be selected and copied #3844, #3779, #3871, #3836
+* Fixed a startup crash on Node.js 22, surfaced PHP errors when a site fails to start, resolved slow .local DNS on macOS, preserved in-progress messages in Studio Code, and restored the recorded model when resuming a session by id #3885, #3813, #3912, #3824, #3819
+* Fixed tooltip delay so tooltips do not pop up instantly when moving the cursor #3942
+* Clarified Sync and quit-sites messaging, and fixed What's New modal copy #3929, #3837, #3924, #3946
+* Misc maintenance #3849
+* Updated multiple dependencies, including WP Playground, PHP-WASM, bundled PHP binaries, the SQLite database integration, and Reprint
 
 1.11.0
 =====

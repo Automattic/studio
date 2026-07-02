@@ -164,9 +164,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
-		async getXdebugEnabledSite(): Promise< SiteDetails | null > {
-			return null;
-		},
 		async exportFullSite(): Promise< string | null > {
 			throw new WebUnsupportedError( 'exportFullSite' );
 		},
@@ -187,9 +184,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async comparePaths() {
 			throw new WebUnsupportedError( 'comparePaths' );
-		},
-		async getAllCustomDomains(): Promise< string[] > {
-			return [];
 		},
 
 		// Featured blueprints — public endpoint, same source as the desktop app.

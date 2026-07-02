@@ -1,24 +1,16 @@
 /**
- * Selective-sync prompts and mapping for `pull-reprint`.
+ * Selective-sync prompts for `pull-reprint`.
  *
- * Two modes, keyed on whether the site has completed a pull before
- * (`site.importComplete`):
+ * A first pull (keyed on `site.importComplete`) only offers a media-library
+ * toggle: reprint's `--only` is an *include* list that replaces the default
+ * export roots, so a partial folder selection would drop WordPress core,
+ * while excluding uploads rides on `--filter=essential-files` and is safe
+ * anytime. Subsequent pulls — core already in the raw fs-root — offer the
+ * full wp-content folder tree plus a database toggle.
  *
- *   - **First pull**: only the media library is optional. Reprint's `--only`
- *     is an *include* list that replaces the default export roots, so any
- *     partial folder selection would drop WordPress core and flat-docroot
- *     could not assemble a site. Uploads-exclusion is the one thing that IS
- *     first-pull-safe, because it rides on `--filter=essential-files` (a
- *     client-side filter that defers uploads while still pulling every
- *     default root) — skipping the deferred pass excludes the media library.
- *
- *   - **Subsequent pulls**: the full wp-content folder tree plus a "Database"
- *     toggle. The raw fs-root already holds core from the completed pull, so
- *     a partial `--only` selection just refreshes the chosen directories.
- *
- * `--only` accepts directories only — a file or symlink-to-file crashes the
- * remote exporter — so the tree is built from directories (and symlinks that
- * resolve to directories, e.g. wp.com's per-plugin symlinks).
+ * `--only` accepts directories only (a file or symlink-to-file crashes the
+ * remote exporter), so the tree is built from directories and symlinks that
+ * resolve to directories, e.g. wp.com's per-plugin symlinks.
  */
 import fs from 'fs';
 import { checkbox } from '@inquirer/prompts';
@@ -26,6 +18,7 @@ import { SiteRuntime } from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { runReprintCommandUntilComplete } from 'cli/lib/pull/migration-client';
 import { getContentDirFromState, getRemoteIndexPath } from 'cli/lib/pull/reprint-state';
+import { buildRootTree } from 'cli/lib/sync-selector';
 import treeCheckbox from 'cli/lib/tree-checkbox';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
 
@@ -36,22 +29,14 @@ const CONTENT_DIR_TOKENS: Record< string, string > = {
 	uploads: ':wp-uploads:',
 };
 
-// ─── First pull: coarse media toggle ────────────────────────────────────────
-
 export interface FreshPullSelection {
-	/** True when the user unchecked "Media library" → skip the deferred-uploads pass. */
 	skipUploads: boolean;
 }
 
-/** Map the checked option values from the fresh-pull prompt to flags. Pure. */
 export function freshSelectionFromValues( values: string[] ): FreshPullSelection {
 	return { skipUploads: ! values.includes( 'uploads' ) };
 }
 
-/**
- * First-pull prompt: only the media library is optional. WordPress core,
- * plugins, themes, and the database are always pulled so the new site works.
- */
 export async function selectFreshPullOptions(): Promise< FreshPullSelection > {
 	const selected = await checkbox( {
 		message: __(
@@ -62,45 +47,37 @@ export async function selectFreshPullOptions(): Promise< FreshPullSelection > {
 	return freshSelectionFromValues( selected );
 }
 
-// ─── Subsequent pulls: fine-grained folder selection ─────────────────────────
-
 export interface PullSelection {
 	/** reprint `--only` source values; empty means "everything" (no `--only`). */
 	fileOnlyPaths: string[];
-	/** True when "Database" was unchecked → pass `--no-db`. */
+	/** True when "Database" was unchecked. */
 	skipDatabase: boolean;
-	/** True when every file area was selected (no `--only` needed). */
-	fullFileSelection: boolean;
-	/** True when at least one wp-content area was selected. */
+	/** False when only the database was selected. */
 	hasAnyFile: boolean;
 }
 
-function sortNodes( nodes: TreeNode[] ): TreeNode[] {
-	return [ ...nodes ].sort( ( a, b ) => a.name.localeCompare( b.name ) );
-}
-
+/** Append the directory-marker slash and sort each level alphabetically. */
 function finalizeNodes( nodes: TreeNode[] ): TreeNode[] {
 	for ( const node of nodes ) {
-		if ( node.isDirectory && ! node.name.endsWith( '/' ) ) {
+		if ( ! node.name.endsWith( '/' ) ) {
 			node.name += '/';
 		}
 		if ( node.children?.length ) {
 			node.children = finalizeNodes( node.children );
 		}
 	}
-	return sortNodes( nodes );
+	return [ ...nodes ].sort( ( a, b ) => a.name.localeCompare( b.name ) );
 }
 
 /**
- * Parse reprint's remote index into the nested wp-content child tree.
- *
- * Builds a **directories-only** tree (files and file-symlinks are pruned, since
- * `--only` only accepts directories). Directory classification: a path is a
- * directory if it has indexed descendants, is `type:dir`, or is a `link` whose
- * target has indexed descendants (covers wp.com's per-plugin symlinks).
+ * Parse reprint's remote index into the nested wp-content child tree,
+ * keeping only directories. A path counts as a directory when it has
+ * indexed descendants, is `type:dir`, or is a `link` whose target has
+ * indexed descendants (covers wp.com's per-plugin symlinks).
  */
 function parseIndexChildren( remoteIndexPath: string, contentDir: string ): TreeNode[] {
-	const prefix = contentDir.replace( /\/+$/, '' ) + '/';
+	const contentRoot = contentDir.replace( /\/+$/, '' );
+	const prefix = contentRoot + '/';
 
 	let raw: string;
 	try {
@@ -148,16 +125,12 @@ function parseIndexChildren( remoteIndexPath: string, contentDir: string ): Tree
 			return true;
 		}
 		const entry = entryByPath.get( absolutePath );
-		if ( ! entry ) {
-			return false;
-		}
-		if ( entry.type === 'dir' ) {
+		if ( entry?.type === 'dir' ) {
 			return true;
 		}
-		return entry.type === 'link' && !! entry.target && dirPrefixes.has( entry.target );
+		return entry?.type === 'link' && !! entry.target && dirPrefixes.has( entry.target );
 	};
 
-	const contentRoot = prefix.replace( /\/$/, '' );
 	const rootChildren: TreeNode[] = [];
 	const byPath = new Map< string, TreeNode >();
 
@@ -175,68 +148,34 @@ function parseIndexChildren( remoteIndexPath: string, contentDir: string ): Tree
 			const segment = segments[ i ];
 			currentRel = currentRel ? `${ currentRel }/${ segment }` : segment;
 			currentAbs = `${ currentAbs }/${ segment }`;
+			if ( ! isDirectory( currentAbs ) ) {
+				break;
+			}
 
 			let node = byPath.get( currentRel );
 			if ( ! node ) {
 				node = {
 					name: segment,
 					value: currentRel,
-					isDirectory: isDirectory( currentAbs ),
+					isDirectory: true,
 					checked: true,
 					expanded: false,
 					depth: i + 1,
+					children: [],
 				};
 				byPath.set( currentRel, node );
 				parentChildren.push( node );
 			}
-
-			if ( ! node.isDirectory ) {
-				break;
-			}
-			if ( ! node.children ) {
-				node.children = [];
-			}
-			parentChildren = node.children;
+			parentChildren = node.children!;
 		}
 	}
 
-	const pruneFiles = ( nodes: TreeNode[] ): TreeNode[] =>
-		nodes
-			.filter( ( node ) => node.isDirectory )
-			.map( ( node ) => ( {
-				...node,
-				children: node.children ? pruneFiles( node.children ) : undefined,
-			} ) );
-
-	return finalizeNodes( pruneFiles( rootChildren ) );
-}
-
-function buildRootTree( wpContentChildren: TreeNode[] ): TreeNode[] {
-	return [
-		{
-			name: __( 'Database' ),
-			value: 'database',
-			isDirectory: false,
-			checked: true,
-			expanded: false,
-			depth: 0,
-		},
-		{
-			name: 'wp-content/',
-			value: 'wp-content',
-			isDirectory: true,
-			checked: true,
-			expanded: true,
-			depth: 0,
-			children: wpContentChildren,
-		},
-	];
+	return finalizeNodes( rootChildren );
 }
 
 /**
- * Build the complete selector tree (Database + wp-content) from reprint's
- * remote index. Empty when there's no content dir or no wp-content entries.
- * Pure; unit-testable without network.
+ * Build the selector tree (Database + wp-content) from reprint's remote
+ * index. Empty when there's no content dir or no wp-content entries.
  */
 export function buildReprintTreeFromIndex(
 	remoteIndexPath: string,
@@ -253,7 +192,7 @@ export function buildReprintTreeFromIndex(
 }
 
 /** Map a wp-content-relative node value to a reprint `--only` source value. */
-export function valueToOnly( value: string, contentDir: string ): string {
+function valueToOnly( value: string, contentDir: string ): string {
 	return CONTENT_DIR_TOKENS[ value ] ?? `${ contentDir.replace( /\/+$/, '' ) }/${ value }`;
 }
 
@@ -275,10 +214,9 @@ export function mapCliOnlyToReprint( values: string[], contentDir: string ): str
 }
 
 /**
- * Reduce the flat list of checked nodes to the reprint flags. "Maximal subtree"
- * reduction keeps a fully-selected directory and drops its descendants; when
- * `wp-content` itself is checked, everything is selected and no `--only` is
- * needed. Pure; exported for unit testing.
+ * Reduce the flat list of checked nodes to the reprint flags, keeping each
+ * fully-selected directory and dropping its descendants. A checked
+ * `wp-content` root means everything is selected and no `--only` is needed.
  */
 export function mapCheckedNodesToSelection(
 	selected: TreeNode[],
@@ -288,7 +226,7 @@ export function mapCheckedNodesToSelection(
 	const skipDatabase = ! checkedValues.has( 'database' );
 
 	if ( checkedValues.has( 'wp-content' ) ) {
-		return { fileOnlyPaths: [], skipDatabase, fullFileSelection: true, hasAnyFile: true };
+		return { fileOnlyPaths: [], skipDatabase, hasAnyFile: true };
 	}
 
 	const fileNodes = selected.filter(
@@ -306,7 +244,6 @@ export function mapCheckedNodesToSelection(
 	return {
 		fileOnlyPaths: maximal.map( ( node ) => valueToOnly( node.value, contentDir ) ),
 		skipDatabase,
-		fullFileSelection: false,
 		hasAnyFile: fileNodes.length > 0,
 	};
 }
@@ -321,9 +258,8 @@ interface FetchReprintPullTreeParams {
 }
 
 /**
- * Run `reprint files-index` and build the selector tree from the resulting
- * `.import-remote-index.jsonl`. Requires a prior preflight. Returns an empty
- * tree when there's no content dir or the index came back empty.
+ * Run `reprint files-index` (requires a prior preflight) and build the
+ * selector tree from the resulting `.import-remote-index.jsonl`.
  */
 export async function fetchReprintPullTree(
 	params: FetchReprintPullTreeParams
@@ -359,19 +295,14 @@ export async function fetchReprintPullTree(
 }
 
 /**
- * Pull selector: the full wp-content folder tree plus the database toggle.
- * Returns `undefined` when the user cancels (Escape / nothing selected) or
- * selects only the database (a database-only refresh isn't expressible against
- * the composite `pull` yet — we print guidance and the caller aborts).
+ * Prompt for what to refresh. Returns `undefined` when the user cancels, or
+ * selects only the database — a database-only refresh isn't supported yet,
+ * so guidance is printed and the caller aborts.
  */
 export async function selectPullItems(
 	tree: TreeNode[],
 	contentDir: string
 ): Promise< PullSelection | undefined > {
-	if ( tree.length === 0 ) {
-		return { fileOnlyPaths: [], skipDatabase: false, fullFileSelection: true, hasAnyFile: true };
-	}
-
 	const selected = await treeCheckbox( {
 		message: __( 'Select what to refresh from the remote site' ),
 		tree,

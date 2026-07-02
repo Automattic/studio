@@ -174,17 +174,15 @@ type PullStage = ( typeof pullStageOrder )[ number ];
 const PULL_METADATA_VERSION = 1;
 
 /**
- * Selective-sync choice for one pull attempt (from the interactive selector
- * or the `--only`/`--skip-*` flags). Lives in the transient `pull.json` so a
- * resume reuses the same choice without re-prompting, and a delta re-pull —
- * which resets the progress file — asks again.
+ * Selective-sync choice for one pull attempt (interactive selector or
+ * `--only`/`--skip-*` flags). Lives in the transient `pull.json`: a resume
+ * reuses the choice without re-prompting, while a delta re-pull resets it
+ * and asks again.
  */
 interface PullSelectionState {
-	/** True once the selection step has run (so resumes don't re-prompt). */
+	/** True once the selection step has run, even if nothing was excluded. */
 	selectionMade?: boolean;
-	/** True when the database should be skipped. */
 	skipDatabase?: boolean;
-	/** True when the media library should be skipped. */
 	skipUploads?: boolean;
 	/** reprint `--only` source values restricting the file pull. */
 	fileOnlyPaths?: string[];
@@ -309,11 +307,8 @@ export async function runCommand(
 	const isRepull = studioMetadata.stage === 'completed';
 	if ( isRepull ) {
 		studioMetadata.stage = 'initialized';
-		// Clear the prior selective-sync choice so a delta re-pull prompts again.
-		studioMetadata.selectionMade = undefined;
-		studioMetadata.skipDatabase = undefined;
-		studioMetadata.skipUploads = undefined;
-		studioMetadata.fileOnlyPaths = undefined;
+		// A delta re-pull must prompt for a fresh selective-sync choice.
+		clearSelection( studioMetadata );
 		savePullProgress( studioMetadata );
 		// A completed pull.json implies a full pull happened; backfill the
 		// durable marker in case it predates the importComplete flag.
@@ -446,20 +441,15 @@ export async function runCommand(
 		// `studioMetadata.localUrl` comes from the existing site's port, so
 		// no port allocation is needed here.
 
-		// Selective sync: apply `--only`/`--skip-*` flags, or prompt
-		// interactively — a media-library toggle on the site's first pull
-		// (a partial `--only` there would drop WordPress core), the full
-		// wp-content folder tree + database toggle afterwards. Skipped once
-		// chosen or after the download has happened (resumes reuse the
-		// persisted choice). NOTE: the selection is captured into pull.json
-		// but NOT applied yet — the pull below still fetches everything;
+		// Resolve what to sync (flags or interactive prompt); resumes reuse
+		// the choice persisted in pull.json. NOTE: the selection is captured
+		// but not applied yet — the pull below still fetches everything;
 		// execution lands in the follow-up PR.
 		const proceed = await applySelection( {
 			metadata: studioMetadata,
-			// "First pull" = no completed pull whose local index still exists.
-			// The index check covers a cleared/damaged scratch directory: the
-			// durable importComplete flag alone would allow a folder-restricted
-			// pull against an empty raw fs-root, which cannot include core.
+			// Without the local index (cleared/damaged scratch) a
+			// folder-restricted pull could not include core, so treat it as a
+			// first pull even when importComplete is set.
 			isFirstPull: ! site.importComplete || ! hasLocalFilesIndex( studioMetadata.stateDirectory ),
 			cli: cliSelection,
 			apiUrl,
@@ -625,25 +615,21 @@ export async function runCommand(
 	}
 }
 
+function clearSelection( metadata: PullSessionMetadata ): void {
+	metadata.selectionMade = undefined;
+	metadata.skipDatabase = undefined;
+	metadata.skipUploads = undefined;
+	metadata.fileOnlyPaths = undefined;
+}
+
 /**
- * Resolve the selective-sync choice and record it on the metadata +
- * `pull.json`. Returns `true` to continue the pull or `false` to abort
- * (interactive cancel).
+ * Resolve the selective-sync choice (persisted choice, CLI flags, or
+ * interactive prompt, in that order) and record it on the metadata +
+ * `pull.json`. Returns `false` when the user cancels the prompt.
  *
- * Order of precedence:
- *   1. Already chosen / past the download → reuse the persisted choice.
- *   2. `--only`/`--skip-*` flags → apply non-interactively.
- *   3. Non-interactive with no flags → pull everything.
- *   4. Interactive → media-library toggle on a first pull; the full
- *      wp-content folder tree + database toggle afterwards.
- *
- * On a **first pull** (no completed pull for this site yet) the raw
- * fs-root is empty and reprint's `--only` is an include-list that
- * replaces the default export roots — a partial folder selection would
- * omit WordPress core and flat-docroot could not assemble the site. So
- * folder-level selection (and skipping the database) is only offered
- * once a completed pull has put core in the raw fs-root; excluding the
- * media library rides on `--filter=essential-files` and is safe anytime.
+ * On a first pull only the media library is optional — see the module
+ * comment in `reprint-selector.ts` for why `--only`/`--skip-database`
+ * cannot work before core has been pulled.
  */
 async function applySelection( params: {
 	metadata: PullSessionMetadata;
@@ -654,15 +640,16 @@ async function applySelection( params: {
 	verbose: boolean;
 } ): Promise< boolean > {
 	const { metadata, isFirstPull, cli, apiUrl, secret, verbose } = params;
+	const commitSelection = () => {
+		metadata.selectionMade = true;
+		savePullProgress( metadata );
+	};
 
-	// Heal a stale folder selection captured before any pull completed
-	// (e.g. persisted by an older build): it cannot produce a working
-	// site on a first pull, so drop it and choose again.
+	// A folder selection persisted for what is now a first pull (the scratch
+	// was cleared since it was captured) cannot produce a working site; drop
+	// it and choose again.
 	if ( isFirstPull && ( metadata.fileOnlyPaths !== undefined || metadata.skipDatabase ) ) {
-		metadata.selectionMade = undefined;
-		metadata.skipDatabase = undefined;
-		metadata.skipUploads = undefined;
-		metadata.fileOnlyPaths = undefined;
+		clearSelection( metadata );
 		savePullProgress( metadata );
 	}
 
@@ -687,8 +674,7 @@ async function applySelection( params: {
 		}
 		metadata.skipDatabase = !! cli.skipDatabase;
 		metadata.skipUploads = !! cli.skipUploads;
-		metadata.selectionMade = true;
-		savePullProgress( metadata );
+		commitSelection();
 		return true;
 	}
 
@@ -697,15 +683,12 @@ async function applySelection( params: {
 	}
 
 	if ( isFirstPull ) {
-		// First pull: the media library is the only optional part.
 		const fresh = await selectFreshPullOptions();
 		metadata.skipUploads = fresh.skipUploads;
-		metadata.selectionMade = true;
-		savePullProgress( metadata );
+		commitSelection();
 		return true;
 	}
 
-	// Subsequent pulls: the full wp-content folder tree + database toggle.
 	const { tree, contentDir } = await fetchReprintPullTree( {
 		stateDirectory: metadata.stateDirectory,
 		rawDirectory: metadata.rawDirectory,
@@ -715,8 +698,7 @@ async function applySelection( params: {
 		verbose,
 	} );
 	if ( tree.length === 0 || ! contentDir ) {
-		metadata.selectionMade = true;
-		savePullProgress( metadata );
+		commitSelection();
 		return true;
 	}
 	const selection = await selectPullItems( tree, contentDir );
@@ -726,12 +708,10 @@ async function applySelection( params: {
 	}
 	metadata.fileOnlyPaths = selection.fileOnlyPaths;
 	metadata.skipDatabase = selection.skipDatabase;
-	metadata.selectionMade = true;
-	savePullProgress( metadata );
-	// Do NOT reset reprint's state here: `files-index` updated the remote
-	// index in place, and the follow-up file pull relies on the intact
-	// local index (`.import-index.jsonl`) to run as a delta — wiping it
-	// would make reprint refuse to sync into the non-empty raw fs-root.
+	commitSelection();
+	// Keep reprint's state intact here: the follow-up file pull needs the
+	// local index (`.import-index.jsonl`) to run as a delta into the
+	// non-empty raw fs-root.
 	return true;
 }
 

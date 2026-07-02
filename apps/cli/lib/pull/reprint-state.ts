@@ -136,12 +136,10 @@ export function hasSkippedFiles( stateDirectory: string ): boolean {
 }
 
 /**
- * True when reprint's local file index exists and is non-empty — the marker
- * that a prior file sync completed against this state directory, so the raw
- * fs-root holds the site (WordPress core included) and a `--only`-restricted
- * delta pull is safe. This is reprint's own delta-mode condition; it is the
- * ground truth for "not a first pull", robust against a cleared or damaged
- * scratch directory (unlike the durable `site.importComplete` flag alone).
+ * True when reprint's local file index says a file sync completed, so the
+ * raw fs-root holds the site (WordPress core included) and a
+ * `--only`-restricted delta pull is safe. Unlike the durable
+ * `site.importComplete` flag, this reflects the actual scratch contents.
  */
 export function hasLocalFilesIndex( stateDirectory: string ): boolean {
 	const localIndexPath = path.join( stateDirectory, LOCAL_INDEX_FILE );

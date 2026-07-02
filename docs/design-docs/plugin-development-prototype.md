@@ -133,18 +133,16 @@ no SVN checkout happens, and the .org "connected account" is a stand-in.
   like a real account (6–12 plugins), not a directory dump. Selecting one
   and "Add plugin" creates + tags a site named after the plugin (keeps the
   directory icon for the sidebar row).
-- **Sidebar** (`components/site-list/`): plugin-tagged sites are split out
-  of the draggable site list and render as ordinary `SiteSection` rows
-  with a plugin glyph (or the wporg directory icon). Two variations,
-  switched live via a floating "Sidebar prototype" panel
-  (`components/prototype-tweaks/`, mounted in `sidebar-layout`, persisted
-  in localStorage):
-  1. **Mixed list** — plugin rows ride at the bottom of the site list.
-  2. **Grouped** — "Sites" / "Plugins" accordion headings (open by
-     default), each collapsible.
-  The panel also offers "Untag N plugins" (keeps the underlying sites).
-  Selection is the normal route-driven site selection — a new plugin lands
-  on `/sites/$siteId/new`, so its row is selected on arrival.
+- **Sidebar** (`components/site-list/`): settled on the **grouped**
+  presentation (the "mixed list" variant and the floating tweak panel were
+  explored and removed). Plugin-tagged sites are split out of the
+  draggable site list and render as ordinary `SiteSection` rows with a
+  plugin glyph (or the wporg directory icon) under a "Plugins" accordion
+  heading; sites get a matching "Sites" heading. The headings only appear
+  once at least one plugin exists — plugin-less sidebars keep the plain
+  flat site list. Selection is the normal route-driven site selection — a
+  new plugin lands on `/sites/$siteId/new`, so its row is selected on
+  arrival.
 - Routes registered in `apps/ui/src/ui-classic/router/router.tsx`; wide
   layout widths for `/onboarding/plugin` and `/onboarding/plugin/connect`
   in `layout-onboarding/index.tsx`.

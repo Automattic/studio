@@ -116,7 +116,6 @@ describe( 'mapCheckedNodesToSelection', () => {
 		expect( mapCheckedNodesToSelection( selected, CONTENT_DIR ) ).toEqual( {
 			fileOnlyPaths: [],
 			skipDatabase: false,
-			fullFileSelection: true,
 			hasAnyFile: true,
 		} );
 	} );

@@ -114,7 +114,17 @@ let runningConfig: ServerConfig | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
-const NATIVE_PHP_WORKER_POOL_SIZE = 4;
+// Number of native-PHP worker processes fronted by the request-balancing proxy.
+// This is the concurrency ceiling for a native-PHP site — more workers serve
+// more simultaneous requests. Defaults to 4; override with
+// STUDIO_PHP_WORKER_POOL_SIZE (e.g. to exercise concurrency on a larger machine
+// or dial it down to save memory). "PHP" not "NATIVE_PHP" in the name: this is
+// Studio's native-PHP runtime, unrelated to any product named Studio Native.
+const NATIVE_PHP_WORKER_POOL_SIZE = ( () => {
+	const raw = process.env.STUDIO_PHP_WORKER_POOL_SIZE;
+	const parsed = raw ? parseInt( raw, 10 ) : NaN;
+	return Number.isFinite( parsed ) && parsed > 0 ? parsed : 4;
+} )();
 
 // "Site directory" file access applies the open_basedir jail and
 // disable_functions list; "all files" runs PHP unrestricted.

@@ -36,7 +36,7 @@ POT_FILE_PATH = File.join(PROJECT_ROOT_FOLDER, 'i18n', 'bundle-strings.pot')
 
 # GlotPress project URL and output directory for Studio UI translations (Jed 1.x JSON)
 GLOTPRESS_PROJECT_URL = 'https://translate.wordpress.com/projects/studio'
-TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'tools', 'common', 'translations')
+TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'packages', 'common', 'translations')
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
@@ -110,7 +110,7 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
   sh('mkdir', '-p', File.dirname(POT_FILE_PATH))
   sh(
     'npx', 'wp-babel-makepot',
-    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,tools/common}/**/*.{js,jsx,ts,tsx}",
+    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,packages/common}/**/*.{js,jsx,ts,tsx}",
     '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
     '--base', PROJECT_ROOT_FOLDER,
     '--dir', pot_dir,
@@ -292,13 +292,14 @@ lane :publish_npm_package do |version: nil, skip_confirm: false|
   trigger_npm_publish(ref: release_tag, npm_tag: npm_tag)
 end
 
-desc 'Upload or update Studio PHP CLI binaries on Apps CDN'
-lane :publish_php_cli_binaries do |version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER, visibility: 'internal', error_on_duplicate: false, output_file: nil|
+desc 'Upload immutable Studio PHP CLI packages to Apps CDN'
+lane :publish_php_cli_binaries do |version:, package_version:, artifacts_dir: PHP_CLI_BUILDS_FOLDER,
+                                   visibility: 'internal', output_file: nil|
   upload_php_cli_binaries_to_apps_cdn(
     version:,
+    package_version:,
     artifacts_dir:,
     visibility:,
-    error_on_duplicate: error_on_duplicate.to_s != 'false',
     output_file:
   )
 end
@@ -553,7 +554,7 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
   UI.success("Hotfix branch #{branch_name} created from #{base_ref}")
 end
 
-# Download Studio UI translations from GlotPress (Jed 1.x JSON) into tools/common/translations/.
+# Download Studio UI translations from GlotPress (Jed 1.x JSON) into packages/common/translations/.
 # Discovers locales from existing files in TRANSLATIONS_DIR (e.g. studio-es.jed.json → "es").
 #
 lane :fetch_glotpress_translations do
@@ -919,11 +920,16 @@ def read_sha256_sidecar(file_path:)
   sha
 end
 
-def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, error_on_duplicate:, output_file: nil, dry_run: DRY_RUN)
+def upload_php_cli_binaries_to_apps_cdn(version:, package_version:, artifacts_dir:, visibility:,
+                                        output_file: nil, dry_run: DRY_RUN)
   normalized_visibility = visibility.to_s.downcase
   unless %w[internal external].include?(normalized_visibility)
     UI.user_error!("visibility must be 'internal' or 'external'")
   end
+  unless package_version.match?(/\A[a-z0-9][a-z0-9._-]{0,63}\z/)
+    UI.user_error!('package_version must be a 1-64 character lowercase package identifier')
+  end
+  package_id = "#{version}-#{package_version}"
 
   builds = {}
   php_cli_cdn_builds(version:).each do |build|
@@ -931,8 +937,8 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
     UI.user_error!("File #{file_path} does not exist") unless File.exist?(file_path)
 
     sha = read_sha256_sidecar(file_path:)
-    release_notes = "PHP #{version} CLI binary for #{build[:name]}"
-    UI.message("Uploading or updating PHP CLI binary: #{build[:file_name]}")
+    release_notes = "PHP #{version} CLI package #{package_id} for #{build[:name]}"
+    UI.message("Uploading immutable PHP CLI package: #{build[:file_name]} as #{package_id}")
     media_url = nil
 
     if dry_run
@@ -944,10 +950,12 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
       UI.message('           build type: Production')
       UI.message('           install type: Full Install')
       UI.message("           visibility: #{normalized_visibility.capitalize}")
-      UI.message("           version: #{version}")
+      UI.message("           PHP version: #{version}")
+      UI.message("           package version: #{package_version}")
+      UI.message("           package/CDN ID: #{package_id}")
       UI.message("           release notes: #{release_notes}")
       UI.message("           sha: #{sha}")
-      UI.message("           error on duplicate: #{error_on_duplicate}")
+      UI.message('           error on duplicate: true')
     else
       result = upload_build_to_apps_cdn(
         site_id: WPCOM_STUDIO_SITE_ID,
@@ -956,18 +964,18 @@ def upload_php_cli_binaries_to_apps_cdn(version:, artifacts_dir:, visibility:, e
         build_type: 'Production',
         install_type: 'Full Install',
         visibility: normalized_visibility.capitalize,
-        version:,
+        version: package_id,
         build_number: nil,
         release_notes:,
         sha:,
         file_path:,
-        error_on_duplicate:
+        error_on_duplicate: true
       )
       media_url = result[:media_url] || result['media_url']
       UI.user_error!('Apps CDN upload response did not include media_url') if media_url.to_s.empty?
 
       UI.message('--------------------------------')
-      UI.message("✅ Uploaded or updated PHP CLI binary: #{file_path} to #{media_url}")
+      UI.message("✅ Uploaded PHP CLI package: #{file_path} to #{media_url}")
     end
 
     builds[build[:file_name]] = {

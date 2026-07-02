@@ -5,9 +5,9 @@ import { ExportIpcEvent, ImportEventTuple } from '@studio/common/lib/import-expo
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { getMainWindow } from 'src/main-window';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
 import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
-import type { AiSessionPlacementUpdatedEvent } from 'src/lib/ai-session-placement';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;

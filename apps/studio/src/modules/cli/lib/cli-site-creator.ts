@@ -1,15 +1,8 @@
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
-import { siteModeFromRuntime, type SiteRuntime } from '@studio/common/lib/site-runtime';
-import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
+import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { executeCliCommand } from './execute-command';
-import type { DatabaseEngine } from '@studio/common/lib/database-engine';
-import type { Blueprint } from '@wp-playground/blueprints';
 
 const cliEventSchema = z.discriminatedUnion( 'action', [
 	z.object( {
@@ -30,38 +23,11 @@ interface CreateSiteResult {
 	running: boolean;
 }
 
-export interface CreateSiteOptions {
-	path: string;
-	name?: string;
-	wpVersion?: string;
-	phpVersion?: string;
-	runtime?: SiteRuntime;
-	fileAccess?: SiteFileAccess;
-	customDomain?: string;
-	enableHttps?: boolean;
-	siteId?: string;
-	blueprint?: Blueprint;
-	originalBlueprintPath?: string;
-	adminUsername?: string;
-	adminPassword?: string;
-	adminEmail?: string;
-	noStart?: boolean;
-	databaseEngine?: DatabaseEngine;
-}
+export type CreateSiteOptions = SiteCreateOptions;
 
 export async function createSiteViaCli( options: CreateSiteOptions ): Promise< CreateSiteResult > {
-	const args = buildCliArgs( options );
+	const { args, cleanup } = buildSiteCreateArgs( options );
 	const siteId = options.siteId;
-
-	let blueprintTempPath: string | undefined;
-	if ( options.blueprint ) {
-		blueprintTempPath = path.join( os.tmpdir(), `studio-blueprint-${ Date.now() }.json` );
-		fs.writeFileSync( blueprintTempPath, JSON.stringify( options.blueprint ) );
-		args.push( '--blueprint', blueprintTempPath );
-		if ( options.originalBlueprintPath ) {
-			args.push( '--original-blueprint-path', options.originalBlueprintPath );
-		}
-	}
 
 	return new Promise( ( resolve, reject ) => {
 		const result: Partial< CreateSiteResult > = {};
@@ -99,7 +65,7 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 		} );
 
 		emitter.on( 'success', () => {
-			cleanupTempFile( blueprintTempPath );
+			cleanup();
 			if ( ! result.id ) {
 				reject( new Error( 'CLI create site succeeded but no site ID received' ) );
 				return;
@@ -112,83 +78,14 @@ export async function createSiteViaCli( options: CreateSiteOptions ): Promise< C
 		} );
 
 		emitter.on( 'failure', ( { error } ) => {
-			cleanupTempFile( blueprintTempPath );
+			cleanup();
 			error.baseMessage = 'Failed to create site';
 			reject( error );
 		} );
 
 		emitter.on( 'error', ( { error } ) => {
-			cleanupTempFile( blueprintTempPath );
+			cleanup();
 			reject( error );
 		} );
 	} );
-}
-
-function buildCliArgs( options: CreateSiteOptions ): string[] {
-	const args = [ 'site', 'create', '--path', options.path, '--skip-browser', '--skip-log-details' ];
-
-	if ( options.siteId ) {
-		args.push( '--id', options.siteId );
-	}
-
-	if ( options.name ) {
-		args.push( '--name', options.name );
-	}
-
-	if ( options.wpVersion ) {
-		const wp = isWordPressDevVersion( options.wpVersion ) ? 'nightly' : options.wpVersion;
-		args.push( '--wp', wp );
-	}
-
-	if ( options.phpVersion ) {
-		args.push( '--php', options.phpVersion );
-	}
-
-	if ( options.runtime ) {
-		args.push( '--runtime', siteModeFromRuntime( options.runtime ) );
-	}
-
-	if ( options.fileAccess ) {
-		args.push( '--file-access', options.fileAccess );
-	}
-
-	if ( options.customDomain ) {
-		args.push( '--domain', options.customDomain );
-	}
-
-	if ( options.enableHttps ) {
-		args.push( '--https' );
-	}
-
-	if ( options.adminUsername ) {
-		args.push( '--admin-username', options.adminUsername );
-	}
-
-	if ( options.adminPassword ) {
-		args.push( '--admin-password', options.adminPassword );
-	}
-
-	if ( options.adminEmail ) {
-		args.push( '--admin-email', options.adminEmail );
-	}
-
-	if ( options.noStart ) {
-		args.push( '--no-start' );
-	}
-
-	if ( options.databaseEngine ) {
-		args.push( '--database-engine', options.databaseEngine );
-	}
-
-	return args;
-}
-
-function cleanupTempFile( filePath: string | undefined ): void {
-	if ( filePath && fs.existsSync( filePath ) ) {
-		try {
-			fs.unlinkSync( filePath );
-		} catch ( error ) {
-			console.error( 'Failed to clean up temp Blueprint file:', error );
-		}
-	}
 }

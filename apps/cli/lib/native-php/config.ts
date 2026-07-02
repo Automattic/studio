@@ -233,11 +233,21 @@ function getOpcacheRootDir(): string {
 	return opcacheRootDir;
 }
 
+type DefaultPhpArgsOptions = {
+	openBasedir?: string[];
+	disallowRiskyFunctions?: boolean;
+	enableXdebug?: boolean;
+	autoPrependFile?: string;
+};
+
 export function getDefaultPhpArgs(
 	phpVersion: NativePhpSupportedVersion,
-	openBasedir: string[] = [],
-	disallowRiskyFunctions: boolean = false,
-	enableXdebug: boolean = false
+	{
+		openBasedir = [],
+		disallowRiskyFunctions = false,
+		enableXdebug = false,
+		autoPrependFile,
+	}: DefaultPhpArgsOptions = {}
 ): string[] {
 	// Partition the file_cache directory by PHP version to match the cache_id
 	// already pinned in php.ini — opcache's on-disk script blob format isn't
@@ -276,6 +286,13 @@ export function getDefaultPhpArgs(
 
 	if ( disallowRiskyFunctions ) {
 		args.push( '-d', `disable_functions=${ PHP_DEFAULT_DISABLED_FUNCTIONS.join( ',' ) }` );
+	}
+
+	// Run a PHP file before the main script — used to inject reprint's generated
+	// runtime.php (constants, SQLite loader, upload proxy) into imported sites
+	// without modifying their wp-config.php.
+	if ( autoPrependFile ) {
+		args.push( '-d', `auto_prepend_file=${ autoPrependFile }` );
 	}
 
 	return args;

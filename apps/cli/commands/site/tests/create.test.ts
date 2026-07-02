@@ -172,7 +172,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( saveCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( true );
+		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( updateServerFiles ).mockResolvedValue( true );
@@ -305,15 +305,6 @@ describe( 'CLI: studio site create', () => {
 			expect( logSiteDetails ).toHaveBeenCalled();
 			expect( openSiteInBrowser ).toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should skip SQLite integration when it is already configured', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
-			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration skipped' );
 		} );
 
 		it( 'should persist the runtime and file access on the created site', async () => {

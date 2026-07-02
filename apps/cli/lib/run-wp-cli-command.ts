@@ -41,6 +41,7 @@ import {
 	killPhpProcessTree,
 	reapPhpTreeOnInterrupt,
 } from './native-php/php-process';
+import { loadImportedRuntimeStartOptionsNative } from './pull/runtime-start-options';
 import { isServerRunning, sendWpCliCommand } from './wordpress-server-manager';
 import { stripLeadingShebang } from './wp-cli-shebang';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -198,8 +199,13 @@ async function runNativeWpCliCommand(
 		mysqlServer = await ensureMysqlServerRunning( site.mysql );
 	}
 
+	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
+	// so load it here too. No-op for normal sites (helper returns undefined).
+	const autoPrependFile = options.requireSqliteCliCommand
+		? undefined
+		: loadImportedRuntimeStartOptionsNative( site )?.autoPrependFile;
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
-	const defaultArgs = getDefaultPhpArgs( phpVersion );
+	const defaultArgs = getDefaultPhpArgs( phpVersion, { autoPrependFile } );
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),

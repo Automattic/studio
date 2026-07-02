@@ -18,9 +18,10 @@ import { ensureDir, Importer, ImporterResult } from './importer';
 // site root) so they don't collide with real site content and are easy to clean up.
 const IMPORT_STAGING_SUBDIR = '.studio-wxr-import';
 
-// The wordpress-importer plugin is vendored with the CLI and installed here so the
-// WXR import works offline (no wordpress.org fetch). It is loaded directly by the
-// PHP driver, so no `wp plugin activate` step is required.
+// The wordpress-importer plugin ships in the CLI bundle (downloaded at build time, see
+// `getBundledWordPressImporterPath`) and is installed here so the WXR import works offline
+// (no wordpress.org fetch). It is loaded directly by the PHP driver, so no `wp plugin
+// activate` step is required.
 const WORDPRESS_IMPORTER_PLUGIN_SLUG = 'wordpress-importer';
 
 // WordPress export (WXR) importer. Unlike the full-site backup importers it does not

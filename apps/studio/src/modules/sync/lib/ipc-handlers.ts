@@ -3,6 +3,7 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import * as Sentry from '@sentry/electron/main';
 import {
 	addConnectedWpcomSite,
 	getAllConnectedWpcomSitesForCurrentUser,
@@ -598,7 +599,10 @@ export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Pro
 	// sites 'already-connected' instead of offering them as syncable again.
 	const connectedSites = await getAllConnectedWpcomSitesForCurrentUser();
 	const connectedSiteIds = connectedSites.map( ( site ) => site.id );
-	return fetchSyncableSites( token.accessToken, { connectedSiteIds } );
+	return fetchSyncableSites( token.accessToken, {
+		connectedSiteIds,
+		onParseError: Sentry.captureException,
+	} );
 }
 
 export async function fetchSyncableWpcomSitesPage(
@@ -611,7 +615,10 @@ export async function fetchSyncableWpcomSitesPage(
 	}
 	// Mirrors the default Add Site picker: a remote site connected to another
 	// local site is still selectable when creating a new local site.
-	return fetchSyncableSitesPage( token.accessToken, options );
+	return fetchSyncableSitesPage( token.accessToken, {
+		...options,
+		onParseError: Sentry.captureException,
+	} );
 }
 
 export async function getConnectedWpcomSites(

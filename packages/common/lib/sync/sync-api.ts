@@ -35,6 +35,9 @@ interface FetchSyncableSitesOptions {
 	search?: string;
 	page?: number;
 	perPage?: number;
+	// Called for each site dropped because it failed schema validation —
+	// without it drops are silent and the returned list quietly shrinks.
+	onParseError?: ( error: unknown ) => void;
 }
 
 export interface SyncableSitesPage {
@@ -79,7 +82,7 @@ async function fetchRawSitesPage(
 
 export async function fetchSyncableSites(
 	token: string,
-	options?: Pick< FetchSyncableSitesOptions, 'connectedSiteIds' | 'search' >
+	options?: Pick< FetchSyncableSitesOptions, 'connectedSiteIds' | 'search' | 'onParseError' >
 ): Promise< SyncSite[] > {
 	// Mirrors the desktop renderer's site-picker query (wpcomSitesApi), but
 	// drains every page so callers get the full account in one call — the
@@ -104,6 +107,7 @@ export async function fetchSyncableSites(
 
 	return transformSitesResponse( allSites, {
 		connectedSiteIds: options?.connectedSiteIds,
+		onParseError: options?.onParseError,
 	} );
 }
 
@@ -122,6 +126,7 @@ export async function fetchSyncableSitesPage(
 	const responsePerPage = parsed.per_page ?? perPage;
 	const sites = transformSitesResponse( parsed.sites, {
 		connectedSiteIds: options.connectedSiteIds,
+		onParseError: options.onParseError,
 	} );
 	const total = parsed.total ?? ( responsePage - 1 ) * responsePerPage + sites.length;
 	const hasMore =

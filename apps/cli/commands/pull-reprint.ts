@@ -514,12 +514,12 @@ export async function runCommand(
 			await downloadSkippedFiles( getSiteRuntime( site ), studioMetadata, apiUrl, secret, verbose );
 		}
 
-		// The pull (and server start) succeeded: the site is a healthy
-		// install again. Record the durable first-full-pull marker (drives
-		// the delta decision on the next run) and clear the `pulling`
-		// status back to `ready`.
-		await markImportComplete( site );
-		await setSiteStatus( site, 'ready' );
+		site.importComplete = true;
+		site.status = 'ready';
+		await updateSiteRecord( site.id, ( record ) => {
+			record.importComplete = true;
+			record.status = 'ready';
+		} );
 
 		console.log( '' );
 		console.log( `Site "${ site.name }" pulled successfully.` );
@@ -530,11 +530,14 @@ export async function runCommand(
 
 		process.exit( 0 );
 	} catch ( error ) {
-		// The pull errored or was killed mid-flight: the site directory may
-		// be half-written, so mark it `pull-failed`. It is never trusted as
-		// healthy again until an idempotent re-run restores it to `ready`
-		// (or `site delete` removes it).
-		await setSiteStatus( site, 'pull-failed' );
+		// Mark the site `pull-failed` if the error was thrown after it was
+		// marked `pulling`.
+		if ( site.status === 'pulling' ) {
+			site.status = 'pull-failed';
+			await updateSiteRecord( site.id, ( record ) => {
+				record.status = 'pull-failed';
+			} );
+		}
 
 		const resumeCommand = [ 'studio pull-reprint', `--path "${ localPath }"` ];
 		if ( remoteSecret ) {
@@ -1067,36 +1070,6 @@ async function updateSiteRecord(
 	} finally {
 		await unlockCliConfig();
 	}
-}
-
-/**
- * Mark the site as having completed a full pull at least once (durable
- * on the site record). Idempotent.
- */
-async function markImportComplete( site: SiteData ): Promise< void > {
-	if ( site.importComplete ) {
-		return;
-	}
-	site.importComplete = true;
-	await updateSiteRecord( site.id, ( record ) => {
-		record.importComplete = true;
-	} );
-}
-
-/**
- * Persist the site's health {@link SiteStatus}. This is the durable
- * resume signal that replaces the old `pull.json` stage cursor:
- * `pulling` while a pull is in flight, `pull-failed` after it errors or
- * is killed, `ready` once it completes. No-op if the value is unchanged.
- */
-async function setSiteStatus( site: SiteData, status: SiteStatus ): Promise< void > {
-	if ( site.status === status ) {
-		return;
-	}
-	site.status = status;
-	await updateSiteRecord( site.id, ( record ) => {
-		record.status = status;
-	} );
 }
 
 /**

@@ -78,8 +78,8 @@ PHP CLI artifacts use a separate lane so they do not look like Studio app
 builds:
 
 ```sh
-DRY_RUN=true bundle exec fastlane publish_php_cli_binaries version:8.4.20 package_version:1.0.0 artifacts_dir:out/php-binaries
-bundle exec fastlane publish_php_cli_binaries version:8.4.20 package_version:1.0.0 artifacts_dir:out/php-binaries visibility:external
+DRY_RUN=true bundle exec fastlane publish_php_cli_binaries version:8.4.20 package_version:studio-1 artifacts_dir:out/php-binaries
+bundle exec fastlane publish_php_cli_binaries version:8.4.20 package_version:studio-1 artifacts_dir:out/php-binaries visibility:external
 ```
 
 The lane publishes the existing archive filenames without renaming them, reads

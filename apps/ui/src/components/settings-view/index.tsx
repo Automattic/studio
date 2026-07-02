@@ -35,6 +35,11 @@ import {
 	useRemoveWordPressSkill,
 	useWordPressSkills,
 } from '@/data/queries/use-wordpress-skills';
+import {
+	useWordPressOrgAccount,
+	useWordPressOrgLogin,
+	useWordPressOrgLogout,
+} from '@/data/queries/use-wporg-account';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useOffline } from '@/hooks/use-offline';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
@@ -412,6 +417,73 @@ function AccountInformationSection() {
 	);
 }
 
+// WordPress.org uses its own account, separate from WordPress.com — it's
+// what plugin submissions, review state, and SVN releases run through.
+// Login opens an isolated in-app window on login.wordpress.org.
+function WordPressOrgAccountSection() {
+	const { data: account, isLoading } = useWordPressOrgAccount();
+	const login = useWordPressOrgLogin();
+	const logout = useWordPressOrgLogout();
+
+	return (
+		<section className={ styles.preferenceSectionGroup }>
+			<h2 className={ styles.preferenceSectionHeading }>{ __( 'WordPress.org account' ) }</h2>
+			<div className={ styles.accountSummaryHeader }>
+				<div className={ styles.accountSummaryIdentity }>
+					<div className={ styles.accountSummaryDetails }>
+						<h2>
+							{ account
+								? sprintf(
+										// translators: %s is a WordPress.org username.
+										__( 'Connected as %s' ),
+										account.username
+								  )
+								: __( 'Not connected' ) }
+						</h2>
+						<p>
+							{ __(
+								'WordPress.org is a separate account, used for plugin development and submissions.'
+							) }
+						</p>
+						{ login.isError && (
+							<p role="alert" className={ styles.accountError }>
+								{ login.error instanceof Error
+									? login.error.message
+									: __( 'Login failed. Please try again.' ) }
+							</p>
+						) }
+					</div>
+				</div>
+				{ account ? (
+					<Button
+						type="button"
+						variant="outline"
+						tone="neutral"
+						loading={ logout.isPending }
+						loadingAnnouncement={ __( 'Logging out' ) }
+						onClick={ () => logout.mutate() }
+					>
+						{ __( 'Log out' ) }
+					</Button>
+				) : (
+					<Button
+						type="button"
+						variant="outline"
+						tone="neutral"
+						size="small"
+						disabled={ isLoading }
+						loading={ login.isPending }
+						loadingAnnouncement={ __( 'Waiting for WordPress.org login' ) }
+						onClick={ () => login.mutate() }
+					>
+						{ __( 'Log in' ) }
+					</Button>
+				) }
+			</div>
+		</section>
+	);
+}
+
 function AccountHelpActions() {
 	const connector = useConnector();
 
@@ -501,6 +573,7 @@ function PreferencesPanel( {
 				) : null }
 			</section>
 			<AccountInformationSection />
+			<WordPressOrgAccountSection />
 			<AgenticFeaturesSection
 				checked={ data.agenticFeaturesEnabled }
 				onChange={ ( agenticFeaturesEnabled ) => onChange( { agenticFeaturesEnabled } ) }

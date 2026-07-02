@@ -111,3 +111,48 @@
 	color: var(--wpds-color-fg-content-error, #7a1a1a);
 	font-size: 13px;
 }
+
+/* Signed-out state — mirrors the site connect screen's WordPress.com login
+   block so the two flows read as siblings. */
+.signedOut {
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+	max-width: 420px;
+	margin-inline: auto;
+	text-align: left;
+}
+
+.benefits {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.benefit {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+}
+
+.benefitIcon {
+	flex-shrink: 0;
+	fill: var(--wpds-color-fg-interactive-brand, #3858e9);
+}
+
+.authActions {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.authError {
+	margin: 0;
+	font-size: 13px;
+	color: var(--wpds-color-fg-content-error, #b32d2e);
+}

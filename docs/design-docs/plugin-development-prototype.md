@@ -133,9 +133,24 @@ existing-folder flow copies nothing, no SVN checkout happens, and the .org
   In existing-folder mode the title changes and the folder path shows
   read-only. Submit creates the site, tags it, and opens the site's new
   session view (chat + preview).
-- **Connect screen** (`route-onboarding-plugin-connect/`): pretends the
-  account is already connected (`SIMULATED_USERNAME = 'automattic'`) and
-  lists **real** directory data via
+- **WordPress.org auth is real** (v1): WordPress.org has no OAuth, so login
+  opens an isolated in-app `BrowserWindow` on `login.wordpress.org` using a
+  dedicated persistent session partition (`persist:studio-wordpress-org` —
+  its own cookie jar, none of the user's browser state; the same isolation
+  pressship gets from a separate Chromium, without bundling one). Success is
+  detected by polling for the `*logged_in*` cookie and verified against a
+  login-required page; a cookie snapshot is mirrored to
+  `~/.studio/wordpress-org-storage.json` (0600, lockfile-guarded).
+  Implementation:
+  `apps/studio/src/modules/user-settings/lib/wordpress-org-auth.ts` +
+  `getWordPressOrgAccount`/`loginToWordPressOrg`/`logoutFromWordPressOrg`
+  IPC → connector → `apps/ui/src/data/queries/use-wporg-account.ts`. Login
+  UI lives on the connect screen (signed-out block) and in Settings
+  ("WordPress.org account" section). Not yet used for authenticated
+  scraping (committer-only plugin lists), submissions, or SVN credentials.
+- **Connect screen** (`route-onboarding-plugin-connect/`): shows the
+  connected account's real plugins (public author-archive query by the
+  authenticated username) and lists **real** directory data via
   `apps/ui/src/data/queries/use-wporg-plugins.ts`, which queries
   `api.wordpress.org/plugins/info/1.2/` (`action=query_plugins`,
   `request[author]=…`, icons + active_installs fields). List is sorted by

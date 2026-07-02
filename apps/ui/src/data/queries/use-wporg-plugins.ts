@@ -2,10 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 
 const WPORG_PLUGINS_API_URL = 'https://api.wordpress.org/plugins/info/1.2/';
 
-// A typical plugin author has a handful of plugins, not pages of them — cap
-// the simulated list so the connect screen reads like a real account.
-const SIMULATED_PLUGIN_COUNT = 9;
-
 export interface WporgPlugin {
 	slug: string;
 	name: string;
@@ -69,23 +65,22 @@ async function fetchWporgPluginsByAuthor( author: string ): Promise< WporgPlugin
 			tested: plugin.tested ?? '',
 			icon: pickIcon( plugin.icons ),
 		} ) );
-	// Surface the most-installed plugins so the sample reads as recognizable
-	// rather than an alphabetical slice of obscure ones.
-	return plugins
-		.sort( ( a, b ) => b.activeInstalls - a.activeInstalls )
-		.slice( 0, SIMULATED_PLUGIN_COUNT );
+	// Most-installed first — the plugins someone actually works on tend to
+	// be their most-used ones.
+	return plugins.sort( ( a, b ) => b.activeInstalls - a.activeInstalls );
 }
 
 /**
  * Plugins attributed to a WordPress.org username, from the public plugin
- * directory API. Used by the (currently simulated) "Connect to
- * WordPress.org" flow to stand in for the list of plugins the connected
- * account can commit to.
+ * directory API. Backs the "Connect to WordPress.org" flow's plugin list
+ * once an account is connected. (Committer-only plugins that aren't
+ * publicly attributed require logged-in scraping — a later iteration.)
  */
-export function useWporgAuthorPlugins( author: string ) {
+export function useWporgAuthorPlugins( author: string | undefined ) {
 	return useQuery( {
+		enabled: !! author,
 		queryKey: [ 'wporg-author-plugins', author ],
-		queryFn: () => fetchWporgPluginsByAuthor( author ),
+		queryFn: () => fetchWporgPluginsByAuthor( author! ),
 		staleTime: 60 * 60 * 1000,
 	} );
 }

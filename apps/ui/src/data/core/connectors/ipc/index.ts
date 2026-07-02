@@ -28,6 +28,7 @@ import type {
 	SyncSite,
 	UserSettingsEventTab,
 	UserPreferences,
+	WordPressOrgAccount,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
@@ -608,6 +609,18 @@ export function createIpcConnector(): Connector {
 				pluginDir: string;
 				activated: boolean;
 			};
+		},
+
+		async getWordPressOrgAccount() {
+			return ( await ipcApi.getWordPressOrgAccount() ) as WordPressOrgAccount | null;
+		},
+
+		async loginToWordPressOrg() {
+			return ( await ipcApi.loginToWordPressOrg() ) as WordPressOrgAccount;
+		},
+
+		async logoutFromWordPressOrg() {
+			await ipcApi.logoutFromWordPressOrg();
 		},
 
 		async getSiteThumbnail( siteId ): Promise< string | null > {

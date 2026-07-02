@@ -42,31 +42,32 @@ export abstract class SqliteIntegrationProvider {
 	}
 
 	/**
-	 * Whether to keep the existing wp-content/db.php instead of overwriting it with
-	 * Studio's stock SQLite drop-in.
+	 * Whether to overwrite the existing wp-content/db.php with Studio's stock SQLite
+	 * drop-in instead of preserving it.
 	 *
 	 * A Studio site can only boot through a drop-in the local SQLite runtime understands,
-	 * so a db.php is preserved exactly when it is a custom SQLite-compatible drop-in,
-	 * identified by defining SQLITE_DB_DROPIN_VERSION (how the SQLite plugin recognizes it):
-	 *  - missing/unreadable → don't keep (recreate it so the site can connect)
-	 *  - Studio's own stock drop-in → don't keep (refresh its path and version)
+	 * so a db.php is preserved only when it is a custom SQLite-compatible drop-in, identified
+	 * by defining SQLITE_DB_DROPIN_VERSION (how the SQLite plugin recognizes it). Replace it
+	 * in every other case:
+	 *  - missing/unreadable → replace (recreate it so the site can connect)
+	 *  - Studio's own stock drop-in → replace (refresh its path and version)
+	 *  - a plugin-owned db.php restored from a WordPress.com backup, etc. → replace
 	 *  - a custom drop-in defining SQLITE_DB_DROPIN_VERSION → keep (e.g. markdown-database-integration)
-	 *  - anything else, e.g. a plugin-owned db.php restored from a WordPress.com backup → don't keep (replace)
 	 */
-	async shouldKeepExistingDbDropin( sitePath: string ): Promise< boolean > {
+	async shouldReplaceDbDropin( sitePath: string ): Promise< boolean > {
 		const dbPhpPath = path.join( sitePath, 'wp-content', 'db.php' );
 
 		let content: string;
 		try {
 			content = await fs.promises.readFile( dbPhpPath, 'utf8' );
 		} catch {
-			return false;
+			return true;
 		}
 
 		if ( content.includes( STOCK_DB_DROPIN_MARKER ) ) {
-			return false;
+			return true;
 		}
-		return content.includes( 'SQLITE_DB_DROPIN_VERSION' );
+		return ! content.includes( 'SQLITE_DB_DROPIN_VERSION' );
 	}
 
 	async getSqliteVersionFromInstallation( sqliteMuPluginPath: string ): Promise< string > {
@@ -94,7 +95,7 @@ export abstract class SqliteIntegrationProvider {
 
 		await fs.promises.mkdir( databasePath, { recursive: true } );
 
-		if ( ! ( await this.shouldKeepExistingDbDropin( sitePath ) ) ) {
+		if ( await this.shouldReplaceDbDropin( sitePath ) ) {
 			const dbCopyContent = await fs.promises.readFile(
 				path.join( sqliteSourcePath, 'db.copy' ),
 				'utf8'

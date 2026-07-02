@@ -48,18 +48,18 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 		vol.reset();
 	} );
 
-	describe( 'shouldKeepExistingDbDropin', () => {
+	describe( 'shouldReplaceDbDropin', () => {
 		// The stock drop-in carries this auto-generated header (see db.copy). Custom
 		// drop-ins define SQLITE_DB_DROPIN_VERSION but lack this comment.
 		const STOCK_DB_PHP =
 			"<?php\n/**\n * Plugin Name: SQLite integration (Drop-in)\n *\n * This file is auto-generated and copied from the sqlite plugin.\n */\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );";
 
-		it( 'should not keep a missing db.php so it gets recreated', async () => {
-			const result = await provider.shouldKeepExistingDbDropin( MOCK_SITE_PATH );
-			expect( result ).toBe( false );
+		it( 'should replace a missing db.php so it gets recreated', async () => {
+			const result = await provider.shouldReplaceDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( true );
 		} );
 
-		it( 'should keep a custom SQLite drop-in even without the keep marker', async () => {
+		it( 'should not replace a custom SQLite drop-in even without the keep marker', async () => {
 			// Regression: STU-1571 — markdown-database-integration ships its own SQLite
 			// drop-in that defines SQLITE_DB_DROPIN_VERSION; Studio must not clobber it.
 			volFromJSON( {
@@ -67,11 +67,11 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 					"<?php\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\ndefine( 'MARKDOWN_DB_DROPIN', true );",
 			} );
 
-			const result = await provider.shouldKeepExistingDbDropin( MOCK_SITE_PATH );
-			expect( result ).toBe( true );
+			const result = await provider.shouldReplaceDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( false );
 		} );
 
-		it( 'should not keep a non-SQLite db.php even if it carries the legacy @studio-keep marker', async () => {
+		it( 'should replace a non-SQLite db.php even if it carries the legacy @studio-keep marker', async () => {
 			// The preservation contract is SQLITE_DB_DROPIN_VERSION; the legacy @studio-keep
 			// marker no longer forces a non-SQLite drop-in to be kept.
 			volFromJSON( {
@@ -79,20 +79,20 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 					"<?php\n// @studio-keep\nrequire_once 'custom-db.php';",
 			} );
 
-			const result = await provider.shouldKeepExistingDbDropin( MOCK_SITE_PATH );
-			expect( result ).toBe( false );
+			const result = await provider.shouldReplaceDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( true );
 		} );
 
-		it( 'should not keep the stock Studio drop-in so it stays current', async () => {
+		it( 'should replace the stock Studio drop-in so it stays current', async () => {
 			volFromJSON( {
 				[ normalize( `${ MOCK_SITE_PATH }/wp-content/db.php` ) ]: STOCK_DB_PHP,
 			} );
 
-			const result = await provider.shouldKeepExistingDbDropin( MOCK_SITE_PATH );
-			expect( result ).toBe( false );
+			const result = await provider.shouldReplaceDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( true );
 		} );
 
-		it( 'should not keep a foreign db.php that is not a SQLite drop-in', async () => {
+		it( 'should replace a foreign db.php that is not a SQLite drop-in', async () => {
 			// Regression: STU-1744 — a WordPress.com backup can restore a plugin-owned
 			// db.php (e.g. Query Monitor) that the local SQLite runtime cannot use.
 			volFromJSON( {
@@ -100,8 +100,8 @@ platformTestSuite( 'SqliteIntegrationProvider', ( { normalize } ) => {
 					"<?php\n// Query Monitor database collector drop-in.\nrequire_once 'qm-db.php';",
 			} );
 
-			const result = await provider.shouldKeepExistingDbDropin( MOCK_SITE_PATH );
-			expect( result ).toBe( false );
+			const result = await provider.shouldReplaceDbDropin( MOCK_SITE_PATH );
+			expect( result ).toBe( true );
 		} );
 	} );
 

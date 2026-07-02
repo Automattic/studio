@@ -127,6 +127,7 @@ import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
+import { scaffoldPluginInSite, type PluginScaffoldMeta } from 'src/lib/scaffold-plugin';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { updateSiteUrl } from 'src/lib/update-site-url';
@@ -1626,6 +1627,33 @@ export async function executeWPCLiInline(
 	return server.executeWpCliCommand( args, {
 		skipPluginsAndThemes,
 	} );
+}
+
+/**
+ * Scaffolds a structured plugin into the site's wp-content/plugins folder
+ * and activates it. Activation works whether the site is running or stopped
+ * (wp-cli writes to the on-disk database); a failed activation is reported
+ * rather than thrown so the caller still has the scaffolded files.
+ */
+export async function scaffoldPlugin(
+	_event: IpcMainInvokeEvent,
+	{ siteId, meta }: { siteId: string; meta: PluginScaffoldMeta }
+): Promise< { pluginDir: string; activated: boolean } > {
+	const server = SiteServer.get( siteId );
+	if ( ! server ) {
+		throw new Error( 'Site not found.' );
+	}
+	const pluginDir = await scaffoldPluginInSite( server.details.path, meta );
+	let activated = false;
+	try {
+		const result = await server.executeWpCliCommand( `plugin activate ${ meta.slug }`, {
+			skipPluginsAndThemes: true,
+		} );
+		activated = result.exitCode === 0;
+	} catch ( error ) {
+		console.error( 'Failed to activate scaffolded plugin:', error );
+	}
+	return { pluginDir, activated };
 }
 
 export function getThumbnailData( _event: IpcMainInvokeEvent, id: string ) {

@@ -105,6 +105,7 @@ const api: IpcApi = {
 	importSite: ( siteId, importArchivePath, options ) =>
 		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
 	executeWPCLiInline: ( options ) => ipcRendererInvoke( 'executeWPCLiInline', options ),
+	scaffoldPlugin: ( options ) => ipcRendererInvoke( 'scaffoldPlugin', options ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
 	saveOnboarding: ( onboardingCompleted ) =>
 		ipcRendererInvoke( 'saveOnboarding', onboardingCompleted ),

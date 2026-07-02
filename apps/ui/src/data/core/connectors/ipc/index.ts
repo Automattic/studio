@@ -414,11 +414,14 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
-			return ( await ipcApi.importSite( {
-				id: siteId,
-				backupFile: backup,
-			} ) ) as SiteDetails;
+		async importSiteFromBackup( siteId, backup ): Promise< void > {
+			// The onboarding form surfaces import errors inline, so suppress the
+			// main process error modal and completion notification.
+			await ipcApi.importSite( siteId, backup.path, {
+				alwaysStartServer: true,
+				showErrorModal: false,
+				showNotification: false,
+			} );
 		},
 
 		async startSite( id ) {

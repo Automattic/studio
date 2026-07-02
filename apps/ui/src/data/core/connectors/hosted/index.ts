@@ -224,7 +224,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onAddSiteWithBlueprint() {
 			return () => {};
 		},
-		async importSiteFromBackup(): Promise< SiteDetails > {
+		async importSiteFromBackup(): Promise< void > {
 			throw new WebUnsupportedError( 'importSiteFromBackup' );
 		},
 

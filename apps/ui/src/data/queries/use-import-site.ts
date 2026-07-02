@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 import { SITES_QUERY_KEY } from './use-sites';
-import type { SiteDetails } from '@/data/core';
 
 export interface ImportSiteInput {
 	siteId: string;
@@ -18,7 +17,7 @@ export interface ImportSiteInput {
 export function useImportSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	return useMutation< SiteDetails, Error, ImportSiteInput >( {
+	return useMutation< void, Error, ImportSiteInput >( {
 		mutationFn: ( { siteId, backup } ) => connector.importSiteFromBackup( siteId, backup ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
 	} );

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
-import { useCreateSite } from '@/data/queries/use-sites';
+import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
 import { useSeededSiteName } from '@/hooks/use-seeded-site-name';
 import { nameFromFilename } from '@/lib/backup-files';
 import { pendingBackupSlot } from '@/lib/pending-backup';
@@ -25,6 +25,7 @@ export function OnboardingImportPage() {
 	const existingDomainNames = useExistingCustomDomains();
 	const createSite = useCreateSite();
 	const importSite = useImportSite();
+	const deleteSite = useDeleteSite();
 
 	const [ picked, setPicked ] = useState< PickedBackup | null >( null );
 	const [ submitError, setSubmitError ] = useState( '' );
@@ -58,6 +59,7 @@ export function OnboardingImportPage() {
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
 		if ( ! picked ) return;
 		setSubmitError( '' );
+		let createdSiteId: string | null = null;
 		try {
 			const site = await createSite.mutateAsync( {
 				name: values.name,
@@ -70,6 +72,7 @@ export function OnboardingImportPage() {
 				adminPassword: values.adminPassword || undefined,
 				adminEmail: values.adminEmail || undefined,
 			} );
+			createdSiteId = site.id;
 			await importSite.mutateAsync( {
 				siteId: site.id,
 				backup: { path: picked.path, type: picked.file.type },
@@ -83,6 +86,15 @@ export function OnboardingImportPage() {
 			);
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
+			// Roll back the half-imported site so a retry doesn't collide with
+			// its name/path or leave an orphan behind the error form.
+			if ( createdSiteId ) {
+				try {
+					await deleteSite.mutateAsync( { id: createdSiteId } );
+				} catch {
+					// Keep the original import error as the user-facing message.
+				}
+			}
 			setSubmitError(
 				error instanceof Error ? error.message : __( 'Failed to import site. Please try again.' )
 			);

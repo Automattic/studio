@@ -15,8 +15,8 @@ export function nameFromFilename( filename: string ): string {
 	const lower = basename.toLowerCase();
 	const ext = ACCEPTED_IMPORT_FILE_TYPES.find( ( candidate ) => lower.endsWith( candidate ) );
 	return ( ext ? basename.slice( 0, -ext.length ) : basename )
-		.replace( /[-_](backup|export|wordpress|jetpack)(s)?$/i, '' )
 		.replace( /[-_]\d{4}[-_]\d{2}[-_]\d{2}.*$/, '' )
+		.replace( /[-_](backup|export|wordpress|jetpack)(s)?$/i, '' )
 		.replace( /[-_]+/g, ' ' )
 		.trim();
 }

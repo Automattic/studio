@@ -192,12 +192,9 @@ export interface Connector {
 
 	// Imports a backup archive into an already-created site. Extracts the
 	// archive, installs the SQLite integration if missing, then imports the
-	// archive's database + wp-content on top of the site's folder.
-	// `backup.path` comes from `getFilePath`.
-	importSiteFromBackup(
-		siteId: string,
-		backup: { path: string; type: string }
-	): Promise< SiteDetails >;
+	// archive's database + wp-content on top of the site's folder. Resolves
+	// once the import completes. `backup.path` comes from `getFilePath`.
+	importSiteFromBackup( siteId: string, backup: { path: string; type: string } ): Promise< void >;
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;

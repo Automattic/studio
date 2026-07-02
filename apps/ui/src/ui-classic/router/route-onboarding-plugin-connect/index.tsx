@@ -5,9 +5,13 @@ import { __, sprintf } from '@wordpress/i18n';
 import { chevronLeft } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useState } from 'react';
+import { BusyOverlay } from '@/components/busy-overlay';
 import { OnboardingFooter } from '@/components/onboarding-footer';
+import { useFindAvailableSiteName } from '@/data/queries/use-create-site-helpers';
+import { useCreateSite } from '@/data/queries/use-sites';
 import { useWporgAuthorPlugins } from '@/data/queries/use-wporg-plugins';
 import { useGridArrowNavigation } from '@/hooks/use-grid-arrow-navigation';
+import { tagSiteAsPlugin } from '@/lib/plugin-prototype';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import styles from './style.module.css';
@@ -71,27 +75,49 @@ function PluginConnectPage() {
 	const handleGridKeyDown = useGridArrowNavigation();
 	const { data: plugins = [], isLoading, isError } = useWporgAuthorPlugins( SIMULATED_USERNAME );
 	const [ selectedSlug, setSelectedSlug ] = useState< string | null >( null );
+	const [ submitError, setSubmitError ] = useState( '' );
+	const createSite = useCreateSite();
+	const findAvailableSiteName = useFindAvailableSiteName();
 
 	const selectedPlugin = plugins.find( ( plugin ) => plugin.slug === selectedSlug );
 
-	// Simulated: selecting a plugin would create a local checkout in the real
-	// flow; for now it announces success and returns to the dashboard.
-	const handleAdd = () => {
-		if ( ! selectedPlugin ) {
+	// Plugins are just sites with extra presentation: create a real local
+	// site named after the plugin (so status, chat, and preview all work),
+	// then tag it for the sidebar prototype. The real flow would also check
+	// out the plugin's SVN repo into it.
+	const handleAdd = async () => {
+		if ( ! selectedPlugin || createSite.isPending ) {
 			return;
 		}
-		speak(
-			sprintf(
-				// translators: %s is the plugin name.
-				__( '%s plugin added.' ),
+		setSubmitError( '' );
+		try {
+			const { name: availableName, path: sitePath } = await findAvailableSiteName(
 				selectedPlugin.name
-			)
-		);
-		void navigate( { to: '/' } );
+			);
+			const site = await createSite.mutateAsync( { name: availableName, path: sitePath } );
+			tagSiteAsPlugin( {
+				siteId: site.id,
+				slug: selectedPlugin.slug,
+				source: 'wporg',
+			} );
+			speak(
+				sprintf(
+					// translators: %s is the plugin name.
+					__( '%s plugin added.' ),
+					selectedPlugin.name
+				)
+			);
+			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		} catch ( error ) {
+			setSubmitError(
+				error instanceof Error ? error.message : __( 'Failed to add plugin. Please try again.' )
+			);
+		}
 	};
 
 	return (
 		<div className={ `${ sharedStyles.page } ${ sharedStyles.pageSpacious }` }>
+			<BusyOverlay active={ createSite.isPending } />
 			<h1 className={ sharedStyles.title }>{ __( 'Connect to WordPress.org' ) }</h1>
 			<p className={ sharedStyles.subtitle }>
 				{ __(
@@ -137,12 +163,19 @@ function PluginConnectPage() {
 				</ul>
 			) }
 
+			{ submitError && (
+				<div role="alert" className={ styles.submitError }>
+					{ submitError }
+				</div>
+			) }
+
 			<OnboardingFooter>
 				<Button
 					type="button"
 					variant="minimal"
 					tone="neutral"
 					onClick={ () => void navigate( { to: '/onboarding/plugin' } ) }
+					disabled={ createSite.isPending }
 				>
 					<Icon icon={ chevronLeft } size={ 16 } />
 					<span>{ __( 'Back' ) }</span>
@@ -151,8 +184,10 @@ function PluginConnectPage() {
 					type="button"
 					variant="solid"
 					tone="brand"
-					disabled={ ! selectedPlugin }
-					onClick={ handleAdd }
+					disabled={ ! selectedPlugin || createSite.isPending }
+					loading={ createSite.isPending }
+					loadingAnnouncement={ __( 'Adding plugin' ) }
+					onClick={ () => void handleAdd() }
 					data-testid="connect-plugin-submit"
 				>
 					{ __( 'Add plugin' ) }

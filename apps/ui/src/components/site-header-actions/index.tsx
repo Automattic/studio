@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
+import { Button, Tooltip } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import { CustomizeMenu } from '@/components/customize-menu';
 import * as Menu from '@/components/menu';
@@ -7,6 +7,7 @@ import { OpenInMenu } from '@/components/open-in-menu';
 import { PublishPickerView } from '@/components/site-dropdown/publish-picker-view';
 import { pickLiveSite } from '@/components/site-dropdown/utils';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import { usePluginSiteTag } from '@/lib/plugin-prototype';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -16,22 +17,40 @@ function PublishButton( { site }: { site: SiteDetails } ) {
 	const [ pickerOpen, setPickerOpen ] = useState( false );
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
+	// Prototype: publishing to WordPress.com doesn't apply to plugins — their
+	// publish story is WordPress.org (submit/release), which doesn't exist
+	// here yet.
+	const pluginTag = usePluginSiteTag( site.id );
 
 	// While connections are still loading, render nothing rather than
 	// flashing a publish prompt at already-published sites.
-	if ( ! connectedSites || liveSite ) {
+	if ( pluginTag || ! connectedSites || liveSite ) {
 		return null;
 	}
 
 	return (
 		<Menu.Root modal={ false } open={ pickerOpen } onOpenChange={ setPickerOpen }>
-			<Menu.Trigger
-				render={
-					<Button variant="solid" tone="brand" size="small" className={ styles.publishButton }>
-						{ __( 'Publish' ) }
-					</Button>
-				}
-			/>
+			<Tooltip.Root disabled={ pickerOpen }>
+				<Menu.Trigger
+					render={
+						<Tooltip.Trigger
+							render={
+								<Button
+									variant="solid"
+									tone="brand"
+									size="small"
+									className={ styles.publishButton }
+								/>
+							}
+						>
+							{ __( 'Publish' ) }
+						</Tooltip.Trigger>
+					}
+				/>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+					{ __( 'Publish this site to WordPress.com' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
 			<Menu.Popup side="bottom" align="end" className={ styles.publishPopup }>
 				<PublishPickerView site={ site } onClose={ () => setPickerOpen( false ) } />
 			</Menu.Popup>

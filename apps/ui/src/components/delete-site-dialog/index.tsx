@@ -2,6 +2,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import { useState } from 'react';
 import { useDeleteSite } from '@/data/queries/use-sites';
+import { removePluginSiteTag, usePluginSiteTag } from '@/lib/plugin-prototype';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -14,6 +15,9 @@ interface DeleteSiteDialogProps {
 
 export function DeleteSiteDialog( { site, open, onOpenChange, onDeleted }: DeleteSiteDialogProps ) {
 	const deleteSite = useDeleteSite();
+	// Prototype: plugin sites get honest copy — deleting removes the plugin's
+	// underlying site too.
+	const pluginTag = usePluginSiteTag( site.id );
 	const [ deleteFiles, setDeleteFiles ] = useState( true );
 	const [ error, setError ] = useState< string | null >( null );
 
@@ -23,6 +27,7 @@ export function DeleteSiteDialog( { site, open, onOpenChange, onDeleted }: Delet
 			{ id: site.id, deleteFiles },
 			{
 				onSuccess: () => {
+					removePluginSiteTag( site.id );
 					onOpenChange( false );
 					onDeleted?.();
 				},
@@ -51,9 +56,13 @@ export function DeleteSiteDialog( { site, open, onOpenChange, onDeleted }: Delet
 					<Dialog.Title>{ sprintf( __( 'Delete %s' ), site.name ) }</Dialog.Title>
 				</Dialog.Header>
 				<p className={ styles.dialogText }>
-					{ __(
-						"The site's database will be lost, including all posts, pages, comments, and media."
-					) }
+					{ pluginTag
+						? __(
+								"This deletes the plugin along with its test site — the site's database, posts, pages, comments, and media will be lost."
+						  )
+						: __(
+								"The site's database will be lost, including all posts, pages, comments, and media."
+						  ) }
 				</p>
 				<label className={ styles.dialogCheckbox }>
 					<input
@@ -72,10 +81,10 @@ export function DeleteSiteDialog( { site, open, onOpenChange, onDeleted }: Delet
 						variant="solid"
 						tone="brand"
 						loading={ deleteSite.isPending }
-						loadingAnnouncement={ __( 'Deleting site' ) }
+						loadingAnnouncement={ pluginTag ? __( 'Deleting plugin' ) : __( 'Deleting site' ) }
 						onClick={ handleConfirm }
 					>
-						{ __( 'Delete site' ) }
+						{ pluginTag ? __( 'Delete plugin' ) : __( 'Delete site' ) }
 					</Button>
 				</Dialog.Footer>
 			</Dialog.Popup>

@@ -101,3 +101,13 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+
+.submitError {
+	margin: 16px auto 0;
+	max-width: 920px;
+	padding: 10px 12px;
+	border-radius: 4px;
+	background: color-mix(in srgb, var(--wpds-color-fg-content-error, #d63638) 12%, transparent);
+	color: var(--wpds-color-fg-content-error, #7a1a1a);
+	font-size: 13px;
+}

@@ -1,7 +1,7 @@
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { settings } from '@wordpress/icons';
-import { IconButton, Tooltip } from '@wordpress/ui';
+import { chevronDown, chevronRight, settings } from '@wordpress/icons';
+import { Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	Fragment,
@@ -28,6 +28,7 @@ import {
 	useStopSite,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { usePluginSiteTags } from '@/lib/plugin-prototype';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -251,9 +252,11 @@ function createSiteRows(
 function SiteOverviewButton( {
 	site,
 	isActive = false,
+	isPlugin = false,
 }: {
 	site: SiteDetails;
 	isActive?: boolean;
+	isPlugin?: boolean;
 } ) {
 	const navigate = useNavigate();
 
@@ -263,7 +266,7 @@ function SiteOverviewButton( {
 			tone="neutral"
 			size="small"
 			icon={ settings }
-			label={ __( 'Site overview' ) }
+			label={ isPlugin ? __( 'Plugin overview' ) : __( 'Site overview' ) }
 			className={ clsx( styles.siteAction, isActive && styles.siteActionActive ) }
 			aria-current={ isActive ? 'page' : undefined }
 			onClick={ ( event ) => {
@@ -369,11 +372,15 @@ function SiteSection( {
 	isChatActive,
 	isContextActive,
 	hasUnreadUpdate = false,
+	isPlugin = false,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
 	hasUnreadUpdate?: boolean;
+	// Prototype: true when this site is tagged as a plugin — only changes
+	// the overview action's label; plugin rows otherwise look like sites.
+	isPlugin?: boolean;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
@@ -437,11 +444,34 @@ function SiteSection( {
 					</SidebarButton>
 				</div>
 				<div className={ styles.siteActions } data-site-actions>
-					<SiteOverviewButton site={ site } isActive={ isContextActive } />
+					<SiteOverviewButton site={ site } isActive={ isContextActive } isPlugin={ isPlugin } />
 					<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
 				</div>
 			</header>
 		</section>
+	);
+}
+
+// Prototype: accordion heading for the grouped sidebar variant.
+function GroupHeading( {
+	label,
+	isOpen,
+	onToggle,
+}: {
+	label: string;
+	isOpen: boolean;
+	onToggle: () => void;
+} ) {
+	return (
+		<button
+			type="button"
+			className={ styles.groupHeading }
+			aria-expanded={ isOpen }
+			onClick={ onToggle }
+		>
+			<span>{ label }</span>
+			<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />
+		</button>
 	);
 }
 
@@ -529,6 +559,11 @@ export function SiteList() {
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
 	const [ manualSiteOrder, setManualSiteOrder ] = useState( readStoredSiteOrder );
+	// Prototype: plugin-tagged sites (see plugin-prototype.ts). Plugins are
+	// just sites; tags only change where and how their rows render.
+	const pluginTags = usePluginSiteTags();
+	const [ isSitesGroupOpen, setIsSitesGroupOpen ] = useState( true );
+	const [ isPluginsGroupOpen, setIsPluginsGroupOpen ] = useState( true );
 	const [ activeDrag, setActiveDrag ] = useState< ActiveSiteDrag | null >( null );
 	const activeDragRef = useRef< ActiveSiteDrag | null >( null );
 	const dragCandidateRef = useRef< SiteDragCandidate | null >( null );
@@ -551,6 +586,20 @@ export function SiteList() {
 	const rows = useMemo(
 		() => createSiteRows( orderedSites, sessions ),
 		[ orderedSites, sessions ]
+	);
+	// Prototype: split plugin-tagged sites out of the (draggable) site list;
+	// they render as ordinary site rows in their own spot.
+	const pluginSiteIds = useMemo(
+		() => new Set( pluginTags.map( ( tag ) => tag.siteId ) ),
+		[ pluginTags ]
+	);
+	const siteRows = useMemo(
+		() => rows.filter( ( row ) => ! pluginSiteIds.has( row.site.id ) ),
+		[ rows, pluginSiteIds ]
+	);
+	const pluginSiteRows = useMemo(
+		() => rows.filter( ( row ) => pluginSiteIds.has( row.site.id ) ),
+		[ rows, pluginSiteIds ]
 	);
 	const activeSiteKey = useMemo(
 		() => findActiveSiteKey( rows, activeSessionId, activeSiteId ),
@@ -615,16 +664,16 @@ export function SiteList() {
 		}
 		return unread;
 	}, [ activeSiteKey, rows, seenSiteSessionTimestamps, seenSiteSessionTimestampsInitialized ] );
-	const rowSiteIds = useMemo( () => rows.map( ( row ) => row.site.id ), [ rows ] );
+	const rowSiteIds = useMemo( () => siteRows.map( ( row ) => row.site.id ), [ siteRows ] );
 	const activeDragSiteId = activeDrag?.siteId;
 	const activeDropIndex = activeDrag?.dropIndex;
 	const isDraggingSites = activeDrag !== null;
 	const displayRows = useMemo(
-		() => rows.filter( ( row ) => row.site.id !== activeDragSiteId ),
-		[ rows, activeDragSiteId ]
+		() => siteRows.filter( ( row ) => row.site.id !== activeDragSiteId ),
+		[ siteRows, activeDragSiteId ]
 	);
 	const draggedRow = activeDragSiteId
-		? rows.find( ( row ) => row.site.id === activeDragSiteId )
+		? siteRows.find( ( row ) => row.site.id === activeDragSiteId )
 		: undefined;
 
 	useLayoutEffect( () => {
@@ -800,54 +849,104 @@ export function SiteList() {
 		suppressNextClickRef.current = false;
 	};
 
-	return (
-		<div className={ styles.root }>
-			{ sitesLoading || sessionsLoading ? (
-				<p className={ styles.empty }>{ __( 'Loading…' ) }</p>
-			) : rows.length === 0 ? (
-				<p className={ styles.empty }>{ __( 'No sites yet' ) }</p>
-			) : (
-				<div className={ clsx( styles.sites, activeDrag && styles.sitesDragging ) }>
-					{ displayRows.map( ( row, index ) => (
-						<Fragment key={ row.site.id }>
-							{ activeDrag && activeDrag.dropIndex === index ? (
-								<div
-									className={ styles.siteDropPlaceholder }
-									data-testid="site-drop-placeholder"
-									aria-hidden="true"
-								/>
-							) : null }
-							<div
-								ref={ ( node ) => {
-									if ( node ) {
-										rowElementsRef.current.set( row.site.id, node );
-									} else {
-										rowElementsRef.current.delete( row.site.id );
-									}
-								} }
-								className={ styles.siteDragWrapper }
-								data-site-id={ row.site.id }
-								onPointerDown={ ( event ) => handlePointerDown( event, row ) }
-								onClickCapture={ handleClickCapture }
-							>
-								<SiteSection
-									row={ row }
-									isChatActive={ row.site.id === activeChatSiteKey }
-									isContextActive={ row.site.id === activeContextSiteKey }
-									hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
-								/>
-							</div>
-						</Fragment>
-					) ) }
-					{ activeDrag && activeDrag.dropIndex === displayRows.length ? (
+	// Prototype: plugin-tagged sites render as ordinary site rows (status,
+	// chat, overview all intact). Not draggable.
+	const pluginRows = pluginSiteRows.map( ( row ) => (
+		<SiteSection
+			key={ row.site.id }
+			row={ row }
+			isPlugin
+			isChatActive={ row.site.id === activeChatSiteKey }
+			isContextActive={ row.site.id === activeContextSiteKey }
+			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
+		/>
+	) );
+
+	const siteRowsBlock = (
+		<div className={ clsx( styles.sites, activeDrag && styles.sitesDragging ) }>
+			{ displayRows.map( ( row, index ) => (
+				<Fragment key={ row.site.id }>
+					{ activeDrag && activeDrag.dropIndex === index ? (
 						<div
 							className={ styles.siteDropPlaceholder }
 							data-testid="site-drop-placeholder"
 							aria-hidden="true"
 						/>
 					) : null }
-				</div>
-			) }
+					<div
+						ref={ ( node ) => {
+							if ( node ) {
+								rowElementsRef.current.set( row.site.id, node );
+							} else {
+								rowElementsRef.current.delete( row.site.id );
+							}
+						} }
+						className={ styles.siteDragWrapper }
+						data-site-id={ row.site.id }
+						onPointerDown={ ( event ) => handlePointerDown( event, row ) }
+						onClickCapture={ handleClickCapture }
+					>
+						<SiteSection
+							row={ row }
+							isChatActive={ row.site.id === activeChatSiteKey }
+							isContextActive={ row.site.id === activeContextSiteKey }
+							hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
+						/>
+					</div>
+				</Fragment>
+			) ) }
+			{ activeDrag && activeDrag.dropIndex === displayRows.length ? (
+				<div
+					className={ styles.siteDropPlaceholder }
+					data-testid="site-drop-placeholder"
+					aria-hidden="true"
+				/>
+			) : null }
+		</div>
+	);
+
+	// Plugin-tagged sites get their own accordion group under the sites. The
+	// headings only appear once a plugin exists — plugin-less sidebars keep
+	// the plain flat site list.
+	let listContent: ReactNode;
+	if ( sitesLoading || sessionsLoading ) {
+		listContent = <p className={ styles.empty }>{ __( 'Loading…' ) }</p>;
+	} else if ( pluginRows.length > 0 ) {
+		listContent = (
+			<>
+				<GroupHeading
+					label={ __( 'Sites' ) }
+					isOpen={ isSitesGroupOpen }
+					onToggle={ () => setIsSitesGroupOpen( ( value ) => ! value ) }
+				/>
+				{ isSitesGroupOpen && (
+					<div className={ styles.groupBody }>
+						{ siteRows.length === 0 ? (
+							<p className={ styles.groupEmpty }>{ __( 'No sites yet' ) }</p>
+						) : (
+							siteRowsBlock
+						) }
+					</div>
+				) }
+				<GroupHeading
+					label={ __( 'Plugins' ) }
+					isOpen={ isPluginsGroupOpen }
+					onToggle={ () => setIsPluginsGroupOpen( ( value ) => ! value ) }
+				/>
+				{ isPluginsGroupOpen && (
+					<div className={ clsx( styles.groupBody, styles.groupList ) }>{ pluginRows }</div>
+				) }
+			</>
+		);
+	} else if ( rows.length === 0 ) {
+		listContent = <p className={ styles.empty }>{ __( 'No sites yet' ) }</p>;
+	} else {
+		listContent = siteRowsBlock;
+	}
+
+	return (
+		<div className={ styles.root }>
+			{ listContent }
 			{ activeDrag && draggedRow ? (
 				<div
 					className={ styles.siteDragPreview }

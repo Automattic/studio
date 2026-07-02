@@ -14,11 +14,12 @@
 	min-height: 46px;
 	-webkit-app-region: drag;
 	/* Stay pinned while the sidebar scrolls. Opaque background so
-	   scrolling content doesn't bleed through. */
+	   scrolling content doesn't bleed through. Uses the exact chrome color
+	   (not the derived weak token) so it's seamless with the sidebar. */
 	position: sticky;
 	top: 0;
 	z-index: 1;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var(--app-chrome-bg, var(--wpds-color-bg-surface-neutral-weak));
 }
 
 /* In macOS fullscreen the traffic lights are hidden, so reclaim the
@@ -38,6 +39,13 @@
 	-webkit-app-region: no-drag;
 }
 
-.popup {
-	min-width: 200px;
+/* The minimal button's hover fill is nearly the same grey as the sidebar
+   background, so it reads as having no hover state. Use a foreground-based
+   tint that stays visible on the sidebar in both color schemes. */
+.createButton {
+	--wp-ui-button-background-color-active: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 8%,
+		transparent
+	);
 }

@@ -17,6 +17,7 @@
    so `solid`/`brand` renders white in dark mode. Use the app's blue accent
    instead, matching the composer's send button. */
 .publishButton {
+	--wp-ui-button-padding-inline: var(--wpds-dimension-padding-md);
 	--wp-ui-button-background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	--wp-ui-button-background-color-active: color-mix(
 		in srgb,

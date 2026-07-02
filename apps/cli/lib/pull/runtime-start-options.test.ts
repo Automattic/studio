@@ -5,8 +5,8 @@ import { vi } from 'vitest';
 import {
 	ensureImportedSiteSqliteReady,
 	getExtraDirectoryMountsFromImporterState,
-	getImportedSiteAutoPrependFile,
 	loadImportedRuntimeStartOptions,
+	loadImportedRuntimeStartOptionsNative,
 	loadRuntimeBlueprint,
 } from './runtime-start-options';
 import type { SiteData } from '../cli-config/core';
@@ -231,7 +231,7 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 		}
 	} );
 
-	describe( 'getImportedSiteAutoPrependFile', () => {
+	describe( 'loadImportedRuntimeStartOptionsNative', () => {
 		const makeSite = ( overrides: Partial< SiteData > = {} ): SiteData => ( {
 			id: 'test-id',
 			name: 'Test Site',
@@ -241,7 +241,7 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 			...overrides,
 		} );
 
-		it( 'returns the runtime.php sibling for an imported site that has it', () => {
+		it( 'returns runtime.php as the prepend file for an imported site that has it', () => {
 			const importRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-prepend-' ) );
 			const runtimeDir = path.join( importRoot, 'runtime' );
 			const runtimeBlueprintPath = path.join( runtimeDir, 'blueprint.json' );
@@ -252,16 +252,21 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 				fs.writeFileSync( runtimeBlueprintPath, '{}' );
 				fs.writeFileSync( runtimePhpPath, '<?php' );
 
-				expect( getImportedSiteAutoPrependFile( makeSite( { runtimeBlueprintPath } ) ) ).toBe(
-					runtimePhpPath
-				);
+				expect(
+					loadImportedRuntimeStartOptionsNative(
+						makeSite( { runtimeBlueprintPath, technicalSiteDirectory: importRoot } )
+					)
+				).toEqual( {
+					autoPrependFile: runtimePhpPath,
+					openBasedirAllowList: [ importRoot ],
+				} );
 			} finally {
 				fs.rmSync( importRoot, { recursive: true, force: true } );
 			}
 		} );
 
 		it( 'returns undefined for a normal site without runtimeBlueprintPath', () => {
-			expect( getImportedSiteAutoPrependFile( makeSite() ) ).toBeUndefined();
+			expect( loadImportedRuntimeStartOptionsNative( makeSite() ) ).toBeUndefined();
 		} );
 
 		it( 'returns undefined (does not throw) when runtime.php is missing', () => {
@@ -273,7 +278,7 @@ if (!defined('STREAMING_SITE_MIGRATION_REMOTE_UPLOAD_PROXY_STATE_FILE')) {
 				fs.writeFileSync( runtimeBlueprintPath, '{}' );
 				// Intentionally no runtime.php written.
 				expect(
-					getImportedSiteAutoPrependFile( makeSite( { runtimeBlueprintPath } ) )
+					loadImportedRuntimeStartOptionsNative( makeSite( { runtimeBlueprintPath } ) )
 				).toBeUndefined();
 			} finally {
 				fs.rmSync( importRoot, { recursive: true, force: true } );

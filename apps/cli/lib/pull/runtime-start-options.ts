@@ -11,7 +11,6 @@ import { LatestSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { getContentDirFromState } from 'cli/lib/pull/reprint-state';
 import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
 import { LoggerError } from 'cli/logger';
-import type { SiteData } from '../cli-config/core';
 import type { Blueprint } from '@wp-playground/blueprints';
 import type { StartServerOptions } from 'cli/lib/wordpress-server-manager';
 
@@ -175,39 +174,33 @@ export async function ensureImportedSiteSqliteReady(
 	return sqlitePath;
 }
 
-export function loadImportedRuntimeStartOptionsNative(
-	technicalSiteDirectory: string,
-	runtimeDirectory: string
-): StartServerOptions {
-	const runtimePhpPath = path.join( runtimeDirectory, 'runtime.php' );
-	if ( ! fs.existsSync( runtimePhpPath ) ) {
-		throw new LoggerError(
-			`Missing runtime.php at ${ runtimePhpPath }. Re-run \`studio pull-reprint\` to regenerate the runtime configuration.`
-		);
-	}
-
-	return {
-		autoPrependFile: runtimePhpPath,
-		openBasedirAllowList: [ technicalSiteDirectory ],
-	};
-}
-
 /**
- * Locates the reprint `runtime.php` to load as a native WP-CLI `auto_prepend_file`.
+ * Builds the native-runtime options for an imported site: reprint's generated
+ * `runtime.php` loaded as a PHP `auto_prepend_file` (which wires SQLite the same
+ * way the imported site's web server does), plus open_basedir access to the
+ * technical site directory.
  *
- * Reprint-pulled sites wire SQLite only through `runtime.php`, which the web server
- * applies as a PHP `auto_prepend_file`. Loading the same file the server uses gives
- * WP-CLI matching SQLite wiring.
- *
- * Returns undefined — never throws — for normal `studio create` sites or when the file
- * is absent, so existing non-reprint sites are unaffected.
+ * Accepts anything carrying the imported-site fields — both `SiteData` and the
+ * pull session metadata qualify. Returns undefined — never throws — for normal
+ * `studio create` sites (no `runtimeBlueprintPath`) or when `runtime.php` is
+ * absent, so callers decide whether that's fatal.
  */
-export function getImportedSiteAutoPrependFile( site: SiteData ): string | undefined {
+export function loadImportedRuntimeStartOptionsNative( site: {
+	technicalSiteDirectory?: string;
+	runtimeBlueprintPath?: string;
+} ): StartServerOptions | undefined {
 	if ( ! site.runtimeBlueprintPath ) {
 		return undefined;
 	}
 	const runtimePhpPath = path.join( path.dirname( site.runtimeBlueprintPath ), 'runtime.php' );
-	return fs.existsSync( runtimePhpPath ) ? runtimePhpPath : undefined;
+	if ( ! fs.existsSync( runtimePhpPath ) ) {
+		return undefined;
+	}
+
+	return {
+		autoPrependFile: runtimePhpPath,
+		openBasedirAllowList: site.technicalSiteDirectory ? [ site.technicalSiteDirectory ] : [],
+	};
 }
 
 export function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint {

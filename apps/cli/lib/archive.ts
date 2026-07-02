@@ -57,17 +57,13 @@ export async function archiveSiteContent(
 			// realpath first, we ensure the source file data is always appended. This
 			// is preferable to passing readable streams to `Archiver.append()`, which
 			// can lead to EMFILE errors.
-			let resolvedPath: string;
 			try {
-				resolvedPath = fs.realpathSync( path.join( wpContentPath, relativePath ) );
+				const resolvedPath = fs.realpathSync( path.join( wpContentPath, relativePath ) );
+				archiveBuilder.file( resolvedPath, { name: archiveEntryPath } );
 			} catch ( error ) {
 				// Dangling symlink. Skip it rather than aborting the whole archive.
 				console.warn( `Skipping ${ archiveEntryPath }: ${ error }` );
-				continue;
 			}
-			archiveBuilder.file( resolvedPath, {
-				name: archiveEntryPath,
-			} );
 		}
 
 		const wpConfigPath = path.join( siteFolder, 'wp-config.php' );

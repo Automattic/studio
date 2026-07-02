@@ -159,6 +159,25 @@
 	z-index: 2;
 }
 
+/* Anchors floating controls (the scroll-to-bottom button) just above the
+   composer, horizontally aligned with its send button: the composer column's
+   right edge (centered on wide panels, gutter-bound on narrow ones) plus the
+   toolbar's inline inset. */
+.composerOverlay {
+	position: absolute;
+	right: calc(
+		max(
+				var(--classic-composer-outer-inline-padding),
+				(100% - var(--classic-composer-column-max-width)) / 2
+			) + var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-xs)
+	);
+	bottom: calc(
+		var(--classic-panel-footer-height) + var(--classic-composer-height) +
+			var(--wpds-dimension-padding-md)
+	);
+	z-index: 2;
+}
+
 .classicScroll {
 	padding-inline: var(--classic-column-inline-gutter);
 }

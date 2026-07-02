@@ -45,6 +45,7 @@ import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
+import { ScrollToBottomButton } from './scroll-to-bottom-button';
 import {
 	getSiteArchivedSessionHistory,
 	getSiteSessionHistory,
@@ -52,6 +53,7 @@ import {
 	SessionChatActionsSkeleton,
 } from './session-chat-actions';
 import styles from './style.module.css';
+import { useStickToBottom } from './use-stick-to-bottom';
 import type { AiSessionSummary } from '@/data/core';
 
 interface SessionHeaderProps {
@@ -96,6 +98,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
+	composerOverlay?: ReactNode;
 	footer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
@@ -104,7 +107,14 @@ interface SessionFrameProps {
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( { header, composer, footer, scrollRef, children }: SessionFrameProps ) {
+function SessionFrame( {
+	header,
+	composer,
+	composerOverlay,
+	footer,
+	scrollRef,
+	children,
+}: SessionFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
@@ -158,6 +168,9 @@ function SessionFrame( { header, composer, footer, scrollRef, children }: Sessio
 			</div>
 			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
 			<ProgressiveBlur direction="up" className={ styles.composerBlur } />
+			{ composerOverlay ? (
+				<div className={ styles.composerOverlay }>{ composerOverlay }</div>
+			) : null }
 			<div
 				ref={ composerRef }
 				className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
@@ -221,6 +234,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	const { isAtBottom, isAtBottomRef, scrollToBottom } = useStickToBottom( scrollRef, sessionId );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const previewConsoleEntries = useSessionPreviewConsoleEntries();
@@ -366,9 +380,17 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		}
 	}, [ createSession, ownerSite, switchSession ] );
 
+	const autoScrolledSessionRef = useRef< string | undefined >( undefined );
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
 		if ( ! node || pendingQuestions.length > 0 ) {
+			return;
+		}
+		// Stick-to-bottom: once the user scrolls up, stop following new
+		// content — but always land at the bottom when switching sessions.
+		const sessionChanged = autoScrolledSessionRef.current !== sessionId;
+		autoScrolledSessionRef.current = sessionId;
+		if ( ! sessionChanged && ! isAtBottomRef.current ) {
 			return;
 		}
 		node.scrollTop = node.scrollHeight;
@@ -376,7 +398,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			node.scrollTop = node.scrollHeight;
 		} );
 		return () => cancelAnimationFrame( id );
-	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
+	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length, isAtBottomRef ] );
 
 	if ( isLoading ) {
 		// Use the same SessionFrame with an empty header and a structural
@@ -432,6 +454,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onSwitchSession={ switchSession }
 					/>
 				</div>
+			}
+			composerOverlay={
+				<ScrollToBottomButton visible={ ! isAtBottom } onClick={ scrollToBottom } />
 			}
 			footer={
 				ownerSite ? (

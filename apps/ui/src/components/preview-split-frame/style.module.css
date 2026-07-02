@@ -16,6 +16,9 @@
 	position: relative;
 	overflow: hidden;
 	background-color: var(--wpds-color-bg-surface-neutral);
+	/* The chrome behind (sidebar-layout's .main) is a window drag region;
+	   the content frame itself must stay interactive. */
+	-webkit-app-region: no-drag;
 	/* Without this, the container's own (light) background paints under the
 	   border and shows through any transparent border color, so the edge
 	   always reads as a solid light line no matter the border alpha. */

@@ -74,8 +74,10 @@
 	position: relative;
 	isolation: isolate;
 	/* Continues the chrome canvas into the inset-frame gaps around the
-	   content/preview container. */
+	   content/preview container. The exposed chrome doubles as a window drag
+	   handle — the content frame inside opts back out. */
 	background-color: var(--app-chrome-bg);
+	-webkit-app-region: drag;
 }
 
 /* The negative margin cancels the handle's width so it adds no space to the

@@ -74,6 +74,9 @@
 		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
 			var(--wpds-dimension-padding-lg)
 	);
+	/* With the sidebar hidden the panel goes full-bleed, putting this header
+	   at the window's left edge — give the site menu more breathing room. */
+	padding-inline-start: var(--wpds-dimension-padding-xl);
 }
 
 .headerSite {

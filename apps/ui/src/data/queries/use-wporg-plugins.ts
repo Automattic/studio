@@ -114,7 +114,9 @@ async function fetchWporgPluginsByAuthor( author: string ): Promise< WporgPlugin
 export function useWporgAuthorPlugins( author: string | undefined ) {
 	return useQuery( {
 		enabled: !! author,
-		queryKey: [ 'wporg-author-plugins', author ],
+		// `v2` = the full paginated list; bumping the key sidesteps any
+		// persisted single-page result cached under the old key.
+		queryKey: [ 'wporg-author-plugins', 'v2', author ],
 		queryFn: () => fetchWporgPluginsByAuthor( author! ),
 		staleTime: 60 * 60 * 1000,
 	} );

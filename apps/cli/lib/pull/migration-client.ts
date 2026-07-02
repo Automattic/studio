@@ -61,16 +61,6 @@ export async function runReprintCommandUntilComplete(
 	const tmpDir = path.join( path.dirname( stateDir ), 'tmp' );
 	fs.mkdirSync( tmpDir, { recursive: true } );
 
-	// Log the exact reprint command so it can be copied and re-run for debugging.
-	try {
-		fs.appendFileSync(
-			path.join( path.dirname( stateDir ), 'reprint-commands.log' ),
-			`php reprint.phar ${ args.join( ' ' ) }\n`
-		);
-	} catch {
-		// never block a pull on logging
-	}
-
 	// The native runtime spawns the bundled `php` binary, so make sure it's
 	// downloaded before the first invocation. reprint.phar is PHP-version
 	// agnostic, so any supported native version works.

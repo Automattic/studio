@@ -1,15 +1,21 @@
 /**
  * @vitest-environment node
  */
+import { EventEmitter } from 'events';
 import { vi } from 'vitest';
 import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
-import { SiteServer } from 'src/site-server';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import { SiteServer, stopAllServers } from 'src/site-server';
 
 // Electron's Node.js environment provides `btoa`/`atob`, but Vitest's does not
 vi.mock( '@studio/common/lib/passwords' );
 
 vi.mock( 'src/modules/cli/lib/cli-site-creator', () => ( {
 	createSiteViaCli: vi.fn(),
+} ) );
+
+vi.mock( 'src/modules/cli/lib/execute-command', () => ( {
+	executeCliCommand: vi.fn(),
 } ) );
 
 // Mock the WordPress setup
@@ -166,5 +172,46 @@ describe( 'SiteServer', () => {
 				"Site server started with Playground's 'theme' mode. Studio only supports 'wordpress' mode."
 			);
 		} );
+	} );
+} );
+
+describe( 'stopAllServers', () => {
+	beforeEach( () => {
+		vi.mocked( executeCliCommand ).mockReset();
+	} );
+
+	function mockCliProcess() {
+		const emitter = new EventEmitter();
+		const kill = vi.fn();
+		vi.mocked( executeCliCommand ).mockReturnValue( [ emitter, { kill } ] as unknown as ReturnType<
+			typeof executeCliCommand
+		> );
+		return { emitter, kill };
+	}
+
+	it( 'resolves and reaps the CLI process as soon as it reports success, without waiting for the timeout', async () => {
+		const { emitter, kill } = mockCliProcess();
+
+		const promise = stopAllServers( 20_000 );
+		// The CLI reports the stop is complete a few hundred ms in, well before its process exits.
+		emitter.emit( 'data', {
+			data: { action: 'stopAllSites', status: 'success', message: 'Successfully stopped 1 site' },
+		} );
+
+		await expect( promise ).resolves.toBeUndefined();
+		expect( kill ).toHaveBeenCalledWith( 'SIGKILL' );
+	} );
+
+	it( 'does not reap on non-terminal progress events', async () => {
+		const { emitter, kill } = mockCliProcess();
+
+		const promise = stopAllServers( 20_000 );
+		emitter.emit( 'data', { data: { action: 'stopAllSites', status: 'inprogress' } } );
+		expect( kill ).not.toHaveBeenCalled();
+
+		// Emit success so the promise settles and the test doesn't rely on the timeout.
+		emitter.emit( 'data', { data: { action: 'stopAllSites', status: 'success' } } );
+		await promise;
+		expect( kill ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

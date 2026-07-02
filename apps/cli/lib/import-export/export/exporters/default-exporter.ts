@@ -21,10 +21,7 @@ import { glob } from 'glob';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import {
-	installSqliteIntegration,
-	isSqliteIntegrationInstalled,
-} from 'cli/lib/sqlite-integration';
+import { installSqliteIntegration, isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
 import {

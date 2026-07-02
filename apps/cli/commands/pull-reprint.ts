@@ -250,13 +250,6 @@ export async function runCommand(
 		fs.rmSync( path.join( studioMetadata.stateDirectory, 'preflight.json' ), { force: true } );
 	}
 
-	// The target site pre-exists (created via `studio create`), so its
-	// directory legitimately holds the blank WordPress install. The pull's
-	// flatten stage overwrites it with the remote site's files; an
-	// interrupted pull can therefore leave the site partially written.
-	// Crash atomicity is a deferred follow-up (see the refactor overview);
-	// the `pull-failed` status + idempotent re-run is the safety net.
-
 	// Create the `~/.studio/pulls/<siteId>` directory structure for the
 	// pull session scratch space.
 	fs.mkdirSync( studioMetadata.rawDirectory, { recursive: true } );
@@ -277,8 +270,6 @@ export async function runCommand(
 	console.log( `Site directory: ${ studioMetadata.sitePath }` );
 	console.log( '' );
 
-	// Capture the server's running state up front; a first pull restarts a
-	// running site once it finishes (see the server-start step below).
 	let wasRunning = false;
 	try {
 		wasRunning = Boolean( await isServerRunning( site.id ) );
@@ -286,18 +277,8 @@ export async function runCommand(
 		await disconnectFromDaemon();
 	}
 
-	// Mark the site as mid-pull up front, and record the scratch location
-	// (`technicalSiteDirectory`) at the same time. The status means that
-	// until this run finishes the site is not a healthy install, so other
-	// commands (`site start`, `status`, `list`) surface it rather than treat
-	// it as normal; persisting `technicalSiteDirectory` now (rather than only
-	// at the later linking step) means `studio delete` can always trash the
-	// scratch, even if the pull dies before linking. A crash here simply
-	// leaves the site `pulling`; a re-run resumes.
-	site.status = 'pulling';
 	site.technicalSiteDirectory = studioMetadata.technicalSiteDirectory;
 	await updateSiteRecord( site.id, ( record ) => {
-		record.status = 'pulling';
 		record.technicalSiteDirectory = studioMetadata.technicalSiteDirectory;
 	} );
 
@@ -385,8 +366,10 @@ export async function runCommand(
 			tablePrefix: preflight.table_prefix || undefined,
 			secret,
 		};
+		site.status = 'pulling';
 		site.reprintOrigin = origin;
 		await updateSiteRecord( site.id, ( record ) => {
+			record.status = 'pulling';
 			record.reprintOrigin = origin;
 		} );
 

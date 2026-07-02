@@ -6,7 +6,6 @@ import {
 	readCliConfig,
 	saveCliConfig,
 	type SiteData,
-	type SiteStatus,
 	unlockCliConfig,
 } from './core';
 

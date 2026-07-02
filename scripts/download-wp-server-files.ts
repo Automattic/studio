@@ -24,6 +24,9 @@ async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
 }
 
 const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
+
+// Pinned so builds are reproducible. Bump deliberately.
+const WORDPRESS_IMPORTER_VERSION = '0.9.5';
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
 const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
@@ -115,6 +118,13 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		description: 'phpMyAdmin',
 		getUrl: () => PHPMYADMIN_DOWNLOAD_URL,
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'phpmyadmin' ),
+	},
+	{
+		name: 'wordpress-importer',
+		description: `wordpress-importer ${ WORDPRESS_IMPORTER_VERSION }`,
+		getUrl: () =>
+			`https://downloads.wordpress.org/plugin/wordpress-importer.${ WORDPRESS_IMPORTER_VERSION }.zip`,
+		destinationPath: WP_SERVER_FILES_PATH,
 	},
 	{
 		name: 'reprint',

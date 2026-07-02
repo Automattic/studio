@@ -19,6 +19,7 @@ import { Gravatar } from '@/components/gravatar';
 import { LearnMoreLink } from '@/components/learn-more';
 import * as Menu from '@/components/menu';
 import * as Tabs from '@/components/tabs';
+import { WporgLoginDialog } from '@/components/wporg-login-dialog';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useAppGlobals } from '@/data/queries/use-app-globals';
@@ -39,6 +40,11 @@ import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useOffline } from '@/hooks/use-offline';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import {
+	SIMULATED_WPORG_USERNAME,
+	setWporgConnected,
+	useWporgConnected,
+} from '@/lib/wporg-connection';
 import {
 	UNSET,
 	toPreferencesFormData,
@@ -414,13 +420,12 @@ function AccountInformationSection() {
 
 // WordPress.org uses its own account, separate from WordPress.com — it's
 // what plugin submissions, review state, and SVN releases run through.
-// Simulated: WordPress.org has no OAuth and its login is reCAPTCHA-guarded,
-// so this is a fake connect toggle (matching the simulated plugin connect
-// screen) until a real auth path exists.
-const SIMULATED_WPORG_USERNAME = 'automattic';
-
+// Simulated: WordPress.org has no OAuth and its login is reCAPTCHA + 2FA
+// guarded, so "Log in" pops a dialog explaining the simulation (shared with
+// the plugin connect screen) rather than a real login.
 function WordPressOrgAccountSection() {
-	const [ connected, setConnected ] = useState( false );
+	const connected = useWporgConnected();
+	const [ loginDialogOpen, setLoginDialogOpen ] = useState( false );
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
@@ -449,11 +454,12 @@ function WordPressOrgAccountSection() {
 					variant="outline"
 					tone="neutral"
 					size={ connected ? undefined : 'small' }
-					onClick={ () => setConnected( ( value ) => ! value ) }
+					onClick={ () => ( connected ? setWporgConnected( false ) : setLoginDialogOpen( true ) ) }
 				>
 					{ connected ? __( 'Log out' ) : __( 'Log in' ) }
 				</Button>
 			</div>
+			<WporgLoginDialog open={ loginDialogOpen } onOpenChange={ setLoginDialogOpen } />
 		</section>
 	);
 }

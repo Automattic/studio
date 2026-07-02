@@ -133,20 +133,25 @@ existing-folder flow copies nothing, no SVN checkout happens, and the .org
   In existing-folder mode the title changes and the folder path shows
   read-only. Submit creates the site, tags it, and opens the site's new
   session view (chat + preview).
-- **WordPress.org auth is simulated.** WordPress.org has no OAuth, and its
-  login form is reCAPTCHA-guarded. We explored real auth (an isolated
-  Electron login window, then driving the user's real Chrome via Playwright)
-  and pulled it back out — reCAPTCHA + mandatory 2FA make an automated
-  capture flow impractical for now. What remains is fake: the plugin connect
-  screen always reads "Connected as automattic", and Settings has a
-  "WordPress.org account" row with a local connect/disconnect toggle
-  (`SIMULATED_WPORG_USERNAME` in `settings-view/index.tsx`). Removed with the
-  auth: the `wordpress-org-auth` main-process module, its IPC/preload/
-  connector methods, `use-wporg-account.ts`, and the `playwright-core` dep.
-  A future real path would need the user's own browser session (e.g. paste a
-  session cookie, or an app-password flow) rather than automating the login.
-- **Connect screen** (`route-onboarding-plugin-connect/`): shows a
-  simulated "Connected as automattic" and lists **real** directory data via
+- **WordPress.org auth is simulated — and honest about it.** WordPress.org
+  has no OAuth, and its login form is reCAPTCHA + 2FA guarded. We explored
+  real auth (an isolated Electron login window, then driving the user's real
+  Chrome via Playwright) and pulled it back out — an automated session
+  capture isn't practical. The simulation: a shared connection flag
+  (`apps/ui/src/lib/wporg-connection.ts`, localStorage-backed,
+  `useWporgConnected` / `setWporgConnected`, `SIMULATED_WPORG_USERNAME =
+  'automattic'`) drives both surfaces. "Log in" — on the connect screen's
+  signed-out block and the Settings "WordPress.org account" row — opens
+  `components/wporg-login-dialog`, a modal that explains the simulation;
+  confirming flips the flag to connected. Removed with the real auth: the
+  `wordpress-org-auth` main-process module, its IPC/preload/connector
+  methods, `use-wporg-account.ts`, and the `playwright-core` dep. A future
+  real path would need the user's own browser session (paste a session
+  cookie, or an app-password flow) rather than automating the login.
+- **Connect screen** (`route-onboarding-plugin-connect/`): signed out until
+  the simulated login runs (benefits + "Log in with WordPress.org" → the
+  dialog); once connected, shows "Connected as automattic" and lists **real**
+  directory data via
   `apps/ui/src/data/queries/use-wporg-plugins.ts`, which queries
   `api.wordpress.org/plugins/info/1.2/` (`action=query_plugins`,
   `request[author]=…`, icons + active_installs fields). List is sorted by

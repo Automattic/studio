@@ -139,6 +139,10 @@ vi.mock( '@wordpress/ui', () => ( {
 	},
 } ) );
 
+vi.mock( '@/components/wporg-login-dialog', () => ( {
+	WporgLoginDialog: () => null,
+} ) );
+
 vi.mock( '@/components/gravatar', () => ( {
 	Gravatar: ( { className }: { className?: string } ) => (
 		<span className={ className } data-testid="gravatar" />

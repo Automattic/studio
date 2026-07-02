@@ -150,9 +150,3 @@
 	align-items: flex-start;
 	gap: 12px;
 }
-
-.authError {
-	margin: 0;
-	font-size: 13px;
-	color: var(--wpds-color-fg-content-error, #b32d2e);
-}

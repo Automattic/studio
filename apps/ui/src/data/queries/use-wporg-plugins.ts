@@ -82,10 +82,11 @@ async function fetchWporgPluginsByAuthor( author: string ): Promise< WporgPlugin
  * WordPress.org" flow to stand in for the list of plugins the connected
  * account can commit to.
  */
-export function useWporgAuthorPlugins( author: string ) {
+export function useWporgAuthorPlugins( author: string | undefined ) {
 	return useQuery( {
+		enabled: !! author,
 		queryKey: [ 'wporg-author-plugins', author ],
-		queryFn: () => fetchWporgPluginsByAuthor( author ),
+		queryFn: () => fetchWporgPluginsByAuthor( author! ),
 		staleTime: 60 * 60 * 1000,
 	} );
 }

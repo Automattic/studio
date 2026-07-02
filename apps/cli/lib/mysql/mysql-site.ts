@@ -64,7 +64,18 @@ export async function prepareMysqlSite(
 	await provisionMysqlDatabase( config );
 }
 
-export async function provisionMysqlDatabase( config: MysqlSiteConfig ): Promise< void > {
+// Default collation for freshly created databases. The `studio create` path
+// uses this. The SQLite→MySQL convert path overrides it to match the collation
+// the export driver emits per-table (utf8mb4_0900_ai_ci), so the database
+// default and the imported tables agree instead of silently diverging.
+const DEFAULT_DATABASE_COLLATION = 'utf8mb4_unicode_ci';
+
+export async function provisionMysqlDatabase(
+	config: MysqlSiteConfig,
+	options: { collation?: string } = {}
+): Promise< void > {
+	const collation = options.collation ?? DEFAULT_DATABASE_COLLATION;
+	assertSafeCollation( collation );
 	const markerPath = getProvisionMarkerPath( config );
 	const hasMarker = fs.existsSync( markerPath );
 	const databaseExists = await mysqlDatabaseExists( config );
@@ -82,7 +93,7 @@ export async function provisionMysqlDatabase( config: MysqlSiteConfig ): Promise
 			[
 				`CREATE DATABASE ${ sqlIdentifier(
 					config.databaseName
-				) } CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+				) } CHARACTER SET utf8mb4 COLLATE ${ collation }`,
 				...createUserStatements( config, false ),
 				...grantStatements( config ),
 				'FLUSH PRIVILEGES',
@@ -97,7 +108,7 @@ export async function provisionMysqlDatabase( config: MysqlSiteConfig ): Promise
 			config,
 			`CREATE DATABASE ${ sqlIdentifier(
 				config.databaseName
-			) } CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
+			) } CHARACTER SET utf8mb4 COLLATE ${ collation };`
 		);
 	}
 
@@ -199,6 +210,12 @@ function getSiteToken( siteId: string ): string {
 
 function trimIdentifier( value: string, maxLength: number ): string {
 	return value.slice( 0, maxLength );
+}
+
+function assertSafeCollation( value: string ): void {
+	if ( ! /^[a-zA-Z0-9_]+$/.test( value ) ) {
+		throw new Error( `Invalid MySQL collation: ${ value }` );
+	}
 }
 
 function sqlIdentifier( value: string ): string {

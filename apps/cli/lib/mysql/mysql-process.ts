@@ -13,6 +13,8 @@ import type { MysqlSiteConfig } from '@studio/common/lib/database-engine';
 const MYSQL_START_TIMEOUT_MS = 60_000;
 const MYSQL_STOP_TIMEOUT_MS = 10_000;
 const MYSQL_COMMAND_TIMEOUT_MS = 30_000;
+// Importing a full-site dump can take much longer than a normal command.
+const MYSQL_IMPORT_TIMEOUT_MS = 20 * 60_000;
 const MYSQL_POLL_INTERVAL_MS = 250;
 const MYSQL_DOWNLOAD_PROGRESS_INTERVAL_BYTES = 5 * 1024 * 1024;
 
@@ -144,6 +146,46 @@ export async function runMysqlQuery(
 	return result.stdout;
 }
 
+// WordPress data legitimately carries `datetime DEFAULT '0000-00-00 00:00:00'`
+// columns, which MySQL 8's default strict SQL mode (NO_ZERO_DATE / NO_ZERO_IN_DATE
+// / STRICT_TRANS_TABLES) rejects at CREATE TABLE time. WordPress core itself runs
+// against MySQL with a permissive sql_mode for exactly this reason, so the import
+// session must relax those modes to load a genuine WordPress dump. This is the
+// same accommodation `wp db import` / mysqldump round-trips rely on — not a
+// workaround for a bad dump, but how WordPress data lives in MySQL.
+const MYSQL_IMPORT_SQL_MODE = 'NO_ENGINE_SUBSTITUTION';
+
+/**
+ * Loads a `.sql` file into a MySQL database by streaming the file on the client's
+ * stdin. The dump is typically hundreds of MB, so it must be piped rather than
+ * passed via `--execute`. Runs against the provisioned per-site database.
+ */
+export async function importSqlFileIntoMysql(
+	config: MysqlSiteConfig,
+	sqlFilePath: string,
+	options: { user?: string; password?: string; database?: string; timeoutMs?: number } = {}
+): Promise< void > {
+	if ( ! fs.existsSync( sqlFilePath ) ) {
+		throw new Error( `SQL file not found for MySQL import: ${ sqlFilePath }` );
+	}
+
+	const database = options.database ?? config.databaseName;
+	const args = [
+		'--protocol=tcp',
+		`--host=${ config.host }`,
+		`--port=${ config.port }`,
+		`--user=${ options.user ?? 'root' }`,
+		...( options.password !== undefined ? [ `--password=${ options.password }` ] : [] ),
+		`--init-command=SET SESSION sql_mode='${ MYSQL_IMPORT_SQL_MODE }'`,
+		database,
+	];
+
+	await runMysqlCommand( getMysqlClientBinaryPath( config.serverVersion ), args, {
+		stdinFile: sqlFilePath,
+		timeoutMs: options.timeoutMs ?? MYSQL_IMPORT_TIMEOUT_MS,
+	} );
+}
+
 export async function canConnectToMysql( config: MysqlSiteConfig ): Promise< boolean > {
 	const result = await runMysqlCommand(
 		getMysqlAdminBinaryPath( config.serverVersion ),
@@ -242,14 +284,20 @@ async function runMysqlCommand(
 		rejectOnExitCode?: boolean;
 		signal?: AbortSignal;
 		timeoutMs?: number;
+		stdinFile?: string;
 	} = {}
 ): Promise< { stdout: string; stderr: string; code: number } > {
-	const { rejectOnExitCode = true, signal, timeoutMs = MYSQL_COMMAND_TIMEOUT_MS } = options;
+	const {
+		rejectOnExitCode = true,
+		signal,
+		timeoutMs = MYSQL_COMMAND_TIMEOUT_MS,
+		stdinFile,
+	} = options;
 
 	return await new Promise< { stdout: string; stderr: string; code: number } >(
 		( resolve, reject ) => {
 			const child = spawn( command, args, {
-				stdio: [ 'ignore', 'pipe', 'pipe' ],
+				stdio: [ stdinFile ? 'pipe' : 'ignore', 'pipe', 'pipe' ],
 				signal,
 			} );
 			let stdout = '';
@@ -263,6 +311,22 @@ async function runMysqlCommand(
 				child.kill( 'SIGKILL' );
 				reject( new Error( `MySQL command timed out: ${ command }` ) );
 			}, timeoutMs );
+
+			if ( stdinFile && child.stdin ) {
+				const readStream = fs.createReadStream( stdinFile );
+				readStream.on( 'error', ( error ) => {
+					if ( settled ) {
+						return;
+					}
+					settled = true;
+					clearTimeout( timeout );
+					if ( ! child.killed ) {
+						child.kill( 'SIGKILL' );
+					}
+					reject( error );
+				} );
+				readStream.pipe( child.stdin );
+			}
 
 			child.stdout?.on( 'data', ( chunk ) => {
 				stdout += chunk.toString();

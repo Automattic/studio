@@ -71,6 +71,13 @@ export function getWordPressVersionPath( version: string ): string {
 	return path.join( getServerFilesPath(), 'wordpress-versions', version );
 }
 
+// The `php/` helper scripts ship alongside the bundled CLI code (`dist/cli/php`).
+// Vite emits all chunks to the same output dir, so `import.meta.dirname` resolves
+// to that directory from any module.
+export function getWpConfigTransformerPath(): string {
+	return path.join( import.meta.dirname, 'php', 'wp-config-transformer.php' );
+}
+
 // reprint.phar ships read-only with the CLI bundle (downloaded into `wp-files` at build time) and is
 // mounted into the PHP-wasm VFS at `/tmp/reprint.phar` by the reprint child process.
 export function getReprintPharPath(): string {

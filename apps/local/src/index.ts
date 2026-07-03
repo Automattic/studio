@@ -24,6 +24,7 @@ import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
+	getAllConnectedWpcomSitesForCurrentUser,
 	getConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
@@ -35,7 +36,7 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -44,7 +45,7 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import { fetchSyncableSites, fetchSyncableSitesPage } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { createJsonResponse, fetchSiteRest } from '@studio/common/lib/wordpress-rest';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -363,7 +364,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			res.json( { url: null } );
 			return;
 		}
-		res.json( { url: getAuthenticationUrl( 'en', redirectUri ) } );
+		// `signup=1` routes through WordPress.com account creation first, then
+		// back into the same authorize redirect.
+		const url =
+			req.query.signup === '1'
+				? getSignUpUrl( 'en', redirectUri )
+				: getAuthenticationUrl( 'en', redirectUri );
+		res.json( { url } );
 	} );
 
 	// Log in by storing a token from the redirect callback (or pasted from
@@ -501,6 +508,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// Numbered-name collision search ("My Site", "My Site 2", ...) against both
+	// existing site names and non-empty site folders — mirrors the desktop's
+	// findAvailableSitePath.
+	api.get(
+		'/site-defaults/available-path',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const name = await generateNumberedName(
+				String( req.query.name ?? '' ),
+				sites.map( ( s ) => s.name ),
+				sitesRoot
+			);
+			res.json( { name, path: path.join( sitesRoot, sanitizeFolderName( name ) ) } );
+		} )
+	);
+
 	api.post( '/paths/compare', ( req: Request, res: Response ) => {
 		const { path1, path2 } = req.body as { path1?: string; path2?: string };
 		res.json( { equal: !! path1 && !! path2 && arePathsEqual( path1, path2 ) } );
@@ -519,6 +542,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminUsername?: string;
 				adminPassword?: string;
 				adminEmail?: string;
+				skipStart?: boolean;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
 				// CLI resolve relative assets.
@@ -546,6 +570,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminUsername: body.adminUsername,
 				adminPassword: body.adminPassword,
 				adminEmail: body.adminEmail,
+				noStart: body.skipStart,
 				blueprint: body.blueprint?.blueprint,
 				originalBlueprintPath: body.blueprint?.filePath,
 			} );
@@ -963,6 +988,37 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json( await fetchSyncableSites( token.accessToken ) );
+		} )
+	);
+
+	// Paged variant backing the connect picker: same shared helper the desktop
+	// wraps, so page/search semantics match across surfaces.
+	api.get(
+		'/wpcom/syncable-sites/page',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.json( { sites: [], total: 0, page: 1, perPage: 100, hasMore: false, nextPage: null } );
+				return;
+			}
+			res.json(
+				await fetchSyncableSitesPage( token.accessToken, {
+					page: req.query.page ? Number( req.query.page ) : undefined,
+					perPage: req.query.perPage ? Number( req.query.perPage ) : undefined,
+					search: typeof req.query.search === 'string' ? req.query.search : undefined,
+					onParseError: ( error ) =>
+						console.error( 'Syncable sites: dropped a /me/sites entry:', error ),
+				} )
+			);
+		} )
+	);
+
+	// All connections for the current user, across local sites — the browser
+	// analog of the desktop's empty-id getConnectedWpcomSites contract.
+	api.get(
+		'/wpcom/connected-sites',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await getAllConnectedWpcomSitesForCurrentUser() );
 		} )
 	);
 

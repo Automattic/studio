@@ -1,4 +1,4 @@
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
@@ -8,6 +8,7 @@ import type {
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
 	AuthUser,
+	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
@@ -21,6 +22,7 @@ import type {
 	Snapshot,
 	SupportedEditor,
 	SupportedTerminal,
+	SyncableWpcomSitesPage,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
@@ -230,7 +232,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// configured: a popup goes through WordPress.com to /auth/callback, which
 		// stores the token and posts back here. Falls back to the paste flow
 		// (`studio auth login`-style) when no client is configured.
-		async authenticate() {
+		async authenticate( signup = false ) {
 			// Open the popup synchronously (inside the click gesture) so it isn't
 			// blocked, then navigate it once the authorize URL is resolved.
 			const popup = window.open( 'about:blank', 'studio-auth', 'width=600,height=720' );
@@ -240,7 +242,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				( { url: loginUrl } = await api< { url: string | null } >(
 					`/auth/login-url?redirect_uri=${ encodeURIComponent(
 						`${ window.location.origin }/auth/callback`
-					) }`
+					) }${ signup ? '&signup=1' : '' }`
 				) );
 			} catch {
 				loginUrl = null;
@@ -249,8 +251,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			if ( ! loginUrl ) {
 				// No OAuth client configured → paste-the-token fallback.
 				popup?.close();
+				const copyTokenRedirect = 'https://developer.wordpress.com/copy-oauth-token';
 				window.open(
-					getAuthenticationUrl( 'en', 'https://developer.wordpress.com/copy-oauth-token' ),
+					signup
+						? getSignUpUrl( 'en', copyTokenRedirect )
+						: getAuthenticationUrl( 'en', copyTokenRedirect ),
 					'_blank',
 					'noopener,noreferrer'
 				);
@@ -336,6 +341,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminUsername: params.adminUsername,
 					adminPassword: params.adminPassword,
 					adminEmail: params.adminEmail,
+					skipStart: params.skipStart,
 					// The server writes this to a temp file and passes --blueprint to
 					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
 					blueprint: params.blueprint,
@@ -352,11 +358,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
-		async findAvailableSitePath() {
-			// The server has no numbered-name search route yet (the desktop
-			// resolves this in the main process); unsupported until a later
-			// increment adds one.
-			throw new UnsupportedError( 'findAvailableSitePath' );
+		async findAvailableSitePath( baseName ): Promise< AvailableSitePath > {
+			return api< AvailableSitePath >(
+				`/site-defaults/available-path?name=${ encodeURIComponent( baseName ) }`
+			);
 		},
 		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
 			// No native folder picker in a browser; the create form falls back to
@@ -476,31 +481,31 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return awaitSnapshotOperation( operationId );
 		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
+			// An empty id means "every connection on record", matching the
+			// desktop's getConnectedWpcomSites contract.
+			if ( ! localSiteId ) {
+				return api< SyncSite[] >( '/wpcom/connected-sites' );
+			}
 			return api< SyncSite[] >( `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites` );
 		},
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return api< SyncSite[] >( '/wpcom/syncable-sites' );
 		},
-		async fetchSyncableWpcomSitesPage( { search } = {} ) {
-			// The server only exposes the unpaged list, so serve it as a single
-			// page and apply the search filter here.
-			const all = await api< SyncSite[] >( '/wpcom/syncable-sites' );
-			const needle = search?.trim().toLowerCase();
-			const sites = needle
-				? all.filter(
-						( site ) =>
-							site.name.toLowerCase().includes( needle ) ||
-							site.url.toLowerCase().includes( needle )
-				  )
-				: all;
-			return {
-				sites,
-				total: sites.length,
-				page: 1,
-				perPage: sites.length,
-				hasMore: false,
-				nextPage: null,
-			};
+		async fetchSyncableWpcomSitesPage( { page, perPage, search } = {} ) {
+			const params = new URLSearchParams();
+			if ( page ) {
+				params.set( 'page', String( page ) );
+			}
+			if ( perPage ) {
+				params.set( 'perPage', String( perPage ) );
+			}
+			if ( search?.trim() ) {
+				params.set( 'search', search.trim() );
+			}
+			const query = params.toString();
+			return api< SyncableWpcomSitesPage >(
+				`/wpcom/syncable-sites/page${ query ? `?${ query }` : '' }`
+			);
 		},
 		async connectWpcomSite( localSiteId, site ) {
 			await api( `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`, {

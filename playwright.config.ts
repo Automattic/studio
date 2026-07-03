@@ -11,8 +11,14 @@ export default defineConfig( {
 	// Retry flaky tests once to improve CI reliability
 	retries: 1,
 
+	// 'list' prints every test start/finish with duration as it happens; the CI
+	// default 'dot' prints one character per test and holds all detail until the
+	// end of the run, which is useless when a job hangs or gets canceled mid-run.
+	reporter: 'list',
+
 	use: {
 		trace: 'retain-on-failure',
+		screenshot: 'only-on-failure',
 		// Action timeout for clicks, fills, etc. (prevents hanging on blocked elements)
 		actionTimeout: 30_000,
 	},

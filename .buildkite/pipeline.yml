@@ -23,8 +23,10 @@ e2e_config: &e2e_config
   agents:
     queue: "{{matrix.platform}}"
   env:
-    # See https://playwright.dev/docs/ci#debugging-browser-launches
-    DEBUG: "pw:browser"
+    # pw:browser logs browser launches (https://playwright.dev/docs/ci#debugging-browser-launches);
+    # pw:api logs every Playwright action (goto, click, waits) with timings, so a
+    # hung or failing test shows exactly which call it died on, in-stream.
+    DEBUG: "pw:api,pw:browser"
   matrix:
     setup: { platform: [], arch: [] }
     adjustments:
@@ -126,7 +128,7 @@ steps:
           - test-results/**/*error-context.md
           - test-results/daemon-logs/**/*.log
         env:
-          DEBUG: "pw:browser"
+          DEBUG: "pw:api,pw:browser"
         # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
 
   - label: ":chart_with_upwards_trend: Performance Metrics"

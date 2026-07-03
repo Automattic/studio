@@ -1,7 +1,10 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import { createRoute, Link, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { chevronLeft, Icon } from '@wordpress/icons';
+import { Button } from '@wordpress/ui';
 import { useCallback, useRef, useState } from 'react';
+import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
 	BuildNewSiteIllustration,
 	ConnectSiteIllustration,
@@ -9,6 +12,7 @@ import {
 	illustrationHostClass,
 } from '@/components/onboarding-illustrations';
 import { useConnector } from '@/data/core';
+import { useSites } from '@/data/queries/use-sites';
 import { useGridArrowNavigation } from '@/hooks/use-grid-arrow-navigation';
 import { useOffline } from '@/hooks/use-offline';
 import { isValidBackupFile } from '@/lib/backup-files';
@@ -131,6 +135,12 @@ function ImportDropCard() {
 
 export function OnboardingHomePage() {
 	const handleGridKeyDown = useGridArrowNavigation();
+	const navigate = useNavigate();
+	const { data: sites } = useSites();
+	// First-run users (no sites yet) arrived here from the welcome screen —
+	// let them step back to it. With sites, the layout's close button is the
+	// way out instead.
+	const hasSites = ( sites?.length ?? 0 ) > 0;
 	return (
 		<div className={ styles.page }>
 			<h1 className={ sharedStyles.title }>{ __( 'Add a site' ) }</h1>
@@ -152,6 +162,19 @@ export function OnboardingHomePage() {
 				<ConnectSiteCard />
 				<ImportDropCard />
 			</div>
+			{ ! hasSites && (
+				<OnboardingFooter>
+					<Button
+						type="button"
+						variant="minimal"
+						tone="neutral"
+						onClick={ () => void navigate( { to: '/welcome' } ) }
+					>
+						<Icon icon={ chevronLeft } size={ 16 } />
+						<span>{ __( 'Back' ) }</span>
+					</Button>
+				</OnboardingFooter>
+			) }
 		</div>
 	);
 }

@@ -365,6 +365,15 @@ export function createIpcConnector(): Connector {
 			return ipcListener.subscribe( 'auth-updated', () => listener() );
 		},
 
+		// Onboarding
+		async getOnboardingCompleted(): Promise< boolean > {
+			return ipcApi.getOnboardingData();
+		},
+
+		async setOnboardingCompleted( completed: boolean ): Promise< void > {
+			await ipcApi.saveOnboarding( completed );
+		},
+
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
 			return ( await ipcApi.getSiteDetails() ) as SiteDetails[];

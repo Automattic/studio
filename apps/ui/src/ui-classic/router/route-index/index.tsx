@@ -14,7 +14,10 @@ export const indexRoute = createRoute( {
 			queryFn: () => context.connector.getSites(),
 		} );
 		if ( sites.length === 0 ) {
-			throw redirect( { to: '/onboarding' } );
+			// Brand-new users see the first-run welcome (log in or skip) before
+			// the add-a-site flow.
+			const onboardingCompleted = await context.connector.getOnboardingCompleted();
+			throw redirect( { to: onboardingCompleted ? '/onboarding' : '/welcome' } );
 		}
 
 		// Return the user to where they were (recorded by the dashboard

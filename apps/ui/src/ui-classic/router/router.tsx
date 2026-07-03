@@ -17,10 +17,12 @@ import { sessionDetailRoute } from './route-session-detail';
 import { settingsRoute } from './route-settings';
 import { siteOverviewRoute } from './route-site-overview';
 import { siteSettingsRoute } from './route-site-settings';
+import { welcomeRoute } from './route-welcome';
 import type { RouterContext } from './layout-root';
 
 const routeTree = rootRoute.addChildren( [
 	indexRoute,
+	welcomeRoute,
 	dashboardLayoutRoute.addChildren( [
 		newSessionRoute,
 		sessionDetailRoute,

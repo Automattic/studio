@@ -29,6 +29,12 @@ const DOCS_LINKS = {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/#sitios-compatibles',
 	},
+	a8cTos: {
+		en: 'https://wordpress.com/tos/',
+	},
+	a8cPrivacyPolicy: {
+		en: 'https://automattic.com/privacy/',
+	},
 } as const satisfies Record< string, TranslatedLink >;
 
 export type DocsLinkKey = keyof typeof DOCS_LINKS;

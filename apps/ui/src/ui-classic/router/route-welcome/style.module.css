@@ -1,0 +1,236 @@
+/* Full-window welcome canvas: content centered, corner-pinned controls, and
+   a footer row (legal left, actions right). Everything must fit the viewport
+   without scrolling — the bottom padding reserves the footer row so the
+   centered content can never collide with it. */
+.page {
+	/* No global border-box reset in this app — without it the padding adds
+	   to the 100vh and the document scrolls, pushing the footer offscreen. */
+	box-sizing: border-box;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	height: 100vh;
+	padding: 40px 50px 96px;
+	overflow: hidden;
+	background: var( --wpds-color-bg-surface-neutral );
+}
+
+/* Window drag strips along the chromeless edges — same pattern as
+   onboarding-layout. Interactive elements overlapping them stay clickable
+   via the global no-drag rule. */
+.dragEdge {
+	position: fixed;
+	pointer-events: none;
+	-webkit-app-region: drag;
+}
+
+.dragEdgeTop {
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 36px;
+}
+
+.dragEdgeLeft {
+	top: 36px;
+	left: 0;
+	bottom: 0;
+	width: 16px;
+}
+
+.dragEdgeBottom {
+	left: 16px;
+	right: 0;
+	bottom: 0;
+	height: 16px;
+}
+
+.skipButton {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+}
+
+.content {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	max-width: 640px;
+	text-wrap: pretty;
+}
+
+/* Layout stage for the toy: sized for the 380px logo itself; the canvas is
+   wider/taller (logo + particle padding) and spills past this box without
+   clipping (contained={false}), so displaced pixels roam freely. */
+.logoToy {
+	position: relative;
+	width: 780px;
+	height: 420px;
+}
+
+/* The toy reacts to hover/click but isn't a control — don't advertise it
+   with a pointer cursor (the shared canvas style sets one). */
+.logoToy canvas {
+	cursor: default;
+}
+
+/* Text block pulled up over the lower part of the toy. Decorative copy:
+   not selectable, and transparent to the pointer so hovering "through" it
+   still drives the toy's particles underneath. */
+.contentBody {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	margin-top: -140px;
+	padding-top: 40px;
+	pointer-events: none;
+	user-select: none;
+}
+
+/* The absolutely-positioned scrim would otherwise paint above its static
+   siblings; positioning them keeps the text on top (later DOM order). */
+.contentBody > :not( .contentScrim ) {
+	position: relative;
+}
+
+/* Progressive blur behind the overlapping text — same pattern as the
+   onboarding footer scrim: the backdrop blur fades in from the top so the
+   toy's particles soften under the text without a hard edge. */
+.contentScrim {
+	position: absolute;
+	inset: 0 -32px -16px;
+	pointer-events: none;
+	backdrop-filter: blur( 12px );
+	background: linear-gradient(
+		to bottom,
+		transparent,
+		color-mix( in srgb, var( --wpds-color-bg-surface-neutral ) 55%, transparent ) 96px
+	);
+	-webkit-mask-image: linear-gradient( to bottom, transparent, black 96px );
+	mask-image: linear-gradient( to bottom, transparent, black 96px );
+}
+
+.title {
+	margin: 0;
+	text-wrap: balance;
+}
+
+.subtitle {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	max-width: 440px;
+	margin: 0;
+}
+
+/* Three left-aligned checkmark feature columns sharing one quiet bordered
+   container. Wider than the content column to make use of the horizontal
+   space. */
+.features {
+	list-style: none;
+	margin: 16px 0 0;
+	padding: 16px 20px 20px;
+	border: 1px solid var( --wpds-color-stroke-surface-neutral );
+	border-radius: 8px;
+	display: flex;
+	gap: 24px;
+	width: min( 880px, calc( 100vw - 100px ) );
+	text-align: start;
+}
+
+.features li {
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+.featureTitle {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+	font-weight: 500;
+	margin: 0 0 2px;
+	text-wrap: balance;
+}
+
+.featureCheck {
+	fill: var( --wpds-color-fg-interactive-brand );
+	flex-shrink: 0;
+}
+
+.featureBody {
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: 12px;
+	line-height: 1.4;
+	margin: 0;
+	/* Align with the title text, past the checkmark. */
+	margin-inline-start: 22px;
+	text-wrap: pretty;
+}
+
+/* Pinned bottom-left, opposite the action buttons — reads as one footer
+   row with them. */
+.legal {
+	position: absolute;
+	bottom: 20px;
+	left: 20px;
+	max-width: 340px;
+	margin: 0;
+	color: var( --wpds-color-fg-content-neutral-weak );
+	font-size: var( --wpds-typography-font-size-small, 12px );
+	line-height: 20px;
+	text-wrap: pretty;
+}
+
+.noWrap {
+	white-space: nowrap;
+}
+
+/* Same treatment as the shared learn-more link (a button that opens an
+   external URL through the connector). */
+.linkButton {
+	background: none;
+	border: none;
+	padding: 0;
+	font: inherit;
+	color: var( --wpds-color-fg-interactive-brand );
+	text-decoration: underline;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.linkButton:hover,
+.linkButton:focus-visible {
+	text-decoration: none;
+}
+
+.linkButton:disabled {
+	color: var( --wpds-color-fg-interactive-neutral-disabled );
+	cursor: default;
+}
+
+.footerActions {
+	position: absolute;
+	bottom: 20px;
+	right: 20px;
+	display: flex;
+	align-items: center;
+	gap: 16px;
+}
+
+.footerActions > * {
+	flex-shrink: 0;
+	white-space: nowrap;
+}
+
+.arrow {
+	margin-inline-start: 4px;
+	display: inline-block;
+}
+
+[dir='rtl'] .arrow {
+	transform: scaleX( -1 );
+}

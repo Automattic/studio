@@ -166,6 +166,11 @@ export interface Connector {
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
 
+	// Onboarding — whether the user has been through (or skipped) the
+	// first-run welcome screen.
+	getOnboardingCompleted(): Promise< boolean >;
+	setOnboardingCompleted( completed: boolean ): Promise< void >;
+
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
 	createSite( params: CreateSiteParams ): Promise< SiteDetails >;

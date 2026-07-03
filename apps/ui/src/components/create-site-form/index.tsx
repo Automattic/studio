@@ -116,7 +116,14 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 
 	const pendingNameRef = useRef< string | null >( null );
 	useEffect( () => {
-		if ( data.hasCustomPath ) return;
+		if ( data.hasCustomPath ) {
+			// A generate cancelled by switching to a manual path never writes
+			// isPathPending back, so clear it here or submit stays disabled.
+			if ( data.isPathPending ) {
+				onChangeRef.current( { isPathPending: false } );
+			}
+			return;
+		}
 		const trimmed = data.name.trim();
 		if ( ! trimmed ) {
 			if ( data.path || data.pathError || data.isPathPending ) {
@@ -130,13 +137,21 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 		}
 		let cancelled = false;
 		void ( async () => {
-			const result = await generateProposedPath( trimmed );
-			if ( cancelled || pendingNameRef.current !== trimmed ) return;
-			onChangeRef.current( {
-				path: result.path,
-				pathError: result.error ?? '',
-				isPathPending: false,
-			} );
+			try {
+				const result = await generateProposedPath( trimmed );
+				if ( cancelled || pendingNameRef.current !== trimmed ) return;
+				onChangeRef.current( {
+					path: result.path,
+					pathError: result.error ?? '',
+					isPathPending: false,
+				} );
+			} catch {
+				if ( cancelled || pendingNameRef.current !== trimmed ) return;
+				onChangeRef.current( {
+					pathError: __( 'Unable to suggest a folder for this site name.' ),
+					isPathPending: false,
+				} );
+			}
 		} )();
 		return () => {
 			cancelled = true;

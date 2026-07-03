@@ -121,6 +121,17 @@
 	opacity: 0.5;
 }
 
+/* When toasts hug their content (floating shelf), the symmetric insets read
+   as centered against the ragged toast edges — anchor the slivers to the
+   shared left edge and recede to the right instead. */
+.shelfHug .queuePeek {
+	margin-inline: 0 16px;
+}
+
+.shelfHug .queuePeekDeeper {
+	margin-inline: 0 32px;
+}
+
 @keyframes toast-enter {
 	from {
 		opacity: 0;

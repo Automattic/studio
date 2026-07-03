@@ -49,15 +49,12 @@ function getCaptureLabel( target: {
 function getCaptureListLabel(
 	targets: Array< { viewportType: ScreenshotViewportType; colorScheme?: ScreenshotColorScheme } >
 ): string {
-	return targets.length === 1
-		? getCaptureLabel( targets[ 0 ] )
-		: targets.map( getCaptureLabel ).join( ', ' );
+	return targets.map( getCaptureLabel ).join( ', ' );
 }
 
 export const takeScreenshotTool = defineTool(
 	'take_screenshot',
 	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
-		'Also saves the screenshot as a temporary local image and returns a ready-to-use media widget payload. ' +
 		'Supports desktop and mobile viewports; pass `viewport: "all"` when you need both for design verification. ' +
 		'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` to verify pages that respond to prefers-color-scheme. ' +
 		'Long pages are clipped at 8000 vertical pixels (a vision-model limit); the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
@@ -141,17 +138,8 @@ export const takeScreenshotTool = defineTool(
 			const captureLines = captures.map( describeCapture );
 			const textLines =
 				captures.length === 1
-					? [
-							`Screenshot captured — ${ captureLines[ 0 ] }`,
-							`mediaWidgetPayload=${ JSON.stringify( captures[ 0 ].mediaWidgetPayload ) }`,
-					  ]
-					: [
-							'Screenshots captured:',
-							...captureLines.map( ( line ) => `- ${ line }` ),
-							`mediaWidgetPayloads=${ JSON.stringify(
-								captures.map( ( capture ) => capture.mediaWidgetPayload )
-							) }`,
-					  ];
+					? [ `Screenshot captured — ${ captureLines[ 0 ] }` ]
+					: [ 'Screenshots captured:', ...captureLines.map( ( line ) => `- ${ line }` ) ];
 			emitProgress( `Screenshot captured (${ captureLabel })` );
 			return {
 				content: [

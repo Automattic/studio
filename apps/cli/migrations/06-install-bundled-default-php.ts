@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import {
-	getConfiguredPhpBinaryVersion,
+	getConfiguredPhpBinaryPackageId,
 	resolveNativePhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
@@ -16,13 +16,13 @@ function getBundledPhpBinaryRoot(): string {
 	);
 }
 
-function getDefaultPhpPatchVersion(): string {
+function getDefaultPhpPackageId(): string {
 	const nativeVersion = resolveNativePhpVersion( DEFAULT_PHP_VERSION );
-	return getConfiguredPhpBinaryVersion( nativeVersion ) ?? nativeVersion;
+	return getConfiguredPhpBinaryPackageId( nativeVersion ) ?? nativeVersion;
 }
 
 function getBundledDefaultPhpDir(): string {
-	return path.join( getBundledPhpBinaryRoot(), getDefaultPhpPatchVersion() );
+	return path.join( getBundledPhpBinaryRoot(), getDefaultPhpPackageId() );
 }
 
 function getBundledDefaultPhpPath(): string {

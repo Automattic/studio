@@ -291,8 +291,13 @@ export function getDefaultPhpArgs(
 	// Run a PHP file before the main script — used to inject reprint's generated
 	// runtime.php (constants, SQLite loader, upload proxy) into imported sites
 	// without modifying their wp-config.php.
+	//
+	// The value MUST be quoted: `-d` values go through PHP's INI parser, and an
+	// unquoted Windows 8.3 short path (e.g. C:\Users\BUILDK~1\...) fails it with
+	// "syntax error, unexpected '~'". PHP then drops the directive, the SQLite
+	// loader never runs, and every request renders a database error page.
 	if ( autoPrependFile ) {
-		args.push( '-d', `auto_prepend_file=${ autoPrependFile }` );
+		args.push( '-d', `auto_prepend_file="${ toPhpIniPath( autoPrependFile ) }"` );
 	}
 
 	return args;

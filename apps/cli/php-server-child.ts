@@ -194,7 +194,7 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 async function setAdminCredentials( config: ServerConfig, signal: AbortSignal ): Promise< void > {
 	try {
 		await requestSetAdminCredentials( config, async ( request ) => {
-			const response = await fetch( `http://localhost:${ config.port }${ request.url }`, {
+			const response = await fetch( `http://127.0.0.1:${ config.port }${ request.url }`, {
 				method: request.method,
 				body: toUrlSearchParams( request.body ),
 				signal,
@@ -435,7 +435,11 @@ async function startPhpProxyServer(
 			proxyServer.close();
 			reject( new DOMException( 'Aborted', 'AbortError' ) );
 		} );
-		proxyServer.listen( config.port, 'localhost', () => {
+		// Bind the IPv4 loopback explicitly rather than 'localhost'. On Windows Node resolves
+		// 'localhost' to ::1 and binds IPv6-only, so any client reaching 127.0.0.1 — and CI agents
+		// whose ::1 loopback is disabled — get ECONNREFUSED. 127.0.0.1 is always available and
+		// clients loading http://localhost fall back to it. The PHP workers already use 127.0.0.1.
+		proxyServer.listen( config.port, '127.0.0.1', () => {
 			resolve();
 		} );
 	} );
@@ -627,7 +631,7 @@ async function doStartServer(
 		phpWorkerProcesses = spawnedChildren;
 
 		stopSignal?.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
+		await waitForServerReady( `http://127.0.0.1:${ config.port }/`, stopSignal );
 
 		// Watch for symlinks created after startup. open_basedir cannot be extended
 		// at runtime, so the watcher triggers a debounced restart with an updated

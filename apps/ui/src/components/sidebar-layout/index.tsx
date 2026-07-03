@@ -3,6 +3,8 @@ import { privateApis } from '@wordpress/theme';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
+import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
+import { AppToasts } from '@/components/app-toasts';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
@@ -65,6 +67,13 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 							<SidebarHeader />
 							<SiteList />
 							<div className={ styles.sidebarFooter }>
+								{ /* Persistent cards stack above the ephemeral toasts; while
+								     collapsed the floating toggle's dot stands in for them. */ }
+								{ ! collapsed ? <AppMessageCards className={ styles.sidebarCards } /> : null }
+								{ /* Single AppToasts instance app-wide: here when expanded,
+								     floating over the main panel when collapsed. The store
+								     survives the swap. */ }
+								{ ! collapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
 								<UserMenu onToggleSidebar={ toggleSidebar } />
 							</div>
 						</div>
@@ -86,18 +95,27 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 						/>
 					</ThemeProvider>
 				) : null }
-				<main className={ styles.main }>
+				{ /* data-app-main lets descendants publish layout facts to this
+				     scope — SessionFrame sets --app-main-composer-height here so
+				     the floating toast shelf can clear the chat composer. */ }
+				<main className={ styles.main } data-app-main>
 					{ children }
+					{ collapsed ? <AppToasts className={ styles.floatingToasts } fit="content" /> : null }
 					{ collapsed ? (
 						<div className={ styles.floatingToggle }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ drawerIcon }
-								label={ __( 'Show sidebar' ) }
-								onClick={ toggleSidebar }
-							/>
+							{ /* The wrapper pins the pending-cards dot to the button's
+							     corner; the outer container is taller than the button. */ }
+							<span className={ styles.floatingToggleButton }>
+								<IconButton
+									variant="minimal"
+									tone="neutral"
+									size="small"
+									icon={ drawerIcon }
+									label={ __( 'Show sidebar' ) }
+									onClick={ toggleSidebar }
+								/>
+								<AppMessageCardsDot />
+							</span>
 						</div>
 					) : null }
 				</main>

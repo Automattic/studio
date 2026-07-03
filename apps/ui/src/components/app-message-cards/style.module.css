@@ -1,0 +1,25 @@
+.stack {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-sm);
+}
+
+/* Layered on top of the toasts' `notice` class (applied together in the
+   component); a touch more block padding since cards carry a title +
+   description + action. */
+.card {
+	padding-block: var(--wpds-dimension-padding-sm);
+}
+
+/* Sits inside the floating sidebar toggle's button wrapper, pinned to the
+   icon button's top-right corner. */
+.dot {
+	position: absolute;
+	top: -1px;
+	right: -1px;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background-color: var(--wpds-color-fg-interactive-brand);
+	pointer-events: none;
+}

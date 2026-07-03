@@ -21,6 +21,7 @@ import {
 	stripPreviewConsolePromptBlock,
 } from '@/components/site-preview/console-utils';
 import { type Annotation, type PreviewConsoleTextFile } from '@/components/site-preview/types';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import {
@@ -125,22 +126,32 @@ function SessionFrame( {
 			return;
 		}
 
+		// The dashboard's floating toast shelf reads the composer height off
+		// the main panel to position itself above the composer while a chat
+		// session is on screen.
+		const mainPanel = root.closest< HTMLElement >( '[data-app-main]' );
+
 		const updateChromeSize = () => {
+			const composerHeight = composerRef.current?.offsetHeight ?? 0;
 			root.style.setProperty(
 				'--classic-header-height',
 				`${ headerRef.current?.offsetHeight ?? 0 }px`
 			);
-			root.style.setProperty(
-				'--classic-composer-height',
-				`${ composerRef.current?.offsetHeight ?? 0 }px`
-			);
+			root.style.setProperty( '--classic-composer-height', `${ composerHeight }px` );
+			mainPanel?.style.setProperty( '--app-main-composer-height', `${ composerHeight }px` );
 		};
 
 		updateChromeSize();
 
+		const clearMainPanelProperty = () =>
+			mainPanel?.style.removeProperty( '--app-main-composer-height' );
+
 		if ( typeof ResizeObserver === 'undefined' ) {
 			window.addEventListener( 'resize', updateChromeSize );
-			return () => window.removeEventListener( 'resize', updateChromeSize );
+			return () => {
+				window.removeEventListener( 'resize', updateChromeSize );
+				clearMainPanelProperty();
+			};
 		}
 
 		const resizeObserver = new ResizeObserver( updateChromeSize );
@@ -151,7 +162,10 @@ function SessionFrame( {
 			resizeObserver.observe( composerRef.current );
 		}
 
-		return () => resizeObserver.disconnect();
+		return () => {
+			resizeObserver.disconnect();
+			clearMainPanelProperty();
+		};
 	}, [] );
 
 	return (
@@ -225,6 +239,16 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+
+	// Run failures (send rejected, agent unavailable, run crashed) surface as
+	// app toasts rather than a dedicated row under the composer. The effect
+	// fires once per distinct error; a new run clears the state so the next
+	// failure announces again.
+	useEffect( () => {
+		if ( runError ) {
+			toast.error( runError );
+		}
+	}, [ runError ] );
 	const isEmpty = useMemo(
 		() =>
 			! ( data?.entries ?? [] ).some(
@@ -444,7 +468,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						ref={ composerRef }
 						busy={ composerBusy }
 						isInterrupting={ isInterrupting }
-						error={ runError }
 						model={ currentModel }
 						onSend={ sendMessageWithConsole }
 						onInterrupt={ interrupt }

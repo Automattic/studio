@@ -1,0 +1,140 @@
+.stack {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-sm);
+}
+
+/* Content-hugging variant (floating shelf): each toast shrinks to its text,
+   capped by the shelf width; the peek slivers span the widest toast. */
+.shelfHug .stack {
+	width: fit-content;
+	max-width: 100%;
+}
+
+.shelfHug .notice {
+	width: fit-content;
+	max-width: 100%;
+	/* Notice declares `container-type: inline-size` for its own responsive
+	   rules, and size containment zeroes its intrinsic width — every
+	   fit-content up the chain collapses to the padding box. Hugging needs
+	   real intrinsics, so drop containment here; the container query it
+	   powers (sub-320px stacking) doesn't apply to toast-sized content. */
+	container-type: normal;
+}
+
+.toast {
+	animation: toast-enter 160ms ease-out;
+}
+
+/* The notice's width is owned by the mount point (sidebar footer or the
+   floating collapsed shelf), not by its content. `pretty` keeps titles and
+   descriptions from stranding a single word when the sidebar is narrow. */
+.notice {
+	width: 100%;
+	box-sizing: border-box;
+	text-wrap: pretty;
+
+	/* Toast treatment: neutral fill, neutral text, no border — the intent is
+	   carried by the (still intent-colored) icon alone. These custom
+	   properties are Notice's own theming hooks, so the per-intent icon color
+	   set by its is-success/is-error classes is untouched. */
+	/* Same floating-surface treatment as Menu popups (see components/menu):
+	   strong fill plus a foreground-based hairline ring and elevation, so the
+	   toast separates from the dark sidebar chrome and from light content
+	   alike. The ring is a shadow, not a border — no layout impact. */
+	--wp-ui-notice-background-color: var(--wpds-color-bg-surface-neutral-strong);
+	--wp-ui-notice-border-color: transparent;
+	--wp-ui-notice-text-color: var(--wpds-color-fg-content-neutral);
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent),
+		var(--wpds-elevation-md);
+
+	/* Mimic the sidebar site/plugin rows: a single-line toast matches their
+	   34px height (2px border + 12px block padding + the 20px title row
+	   below) and 6px radius. */
+	padding-block: 6px;
+	padding-inline: var(--wpds-dimension-padding-sm);
+	border-radius: 6px;
+}
+
+/* Tighter title leading — the default 20px line-height reads airy once
+   titles wrap inside these narrow surfaces. Keep the toast row math above in
+   sync: 16px + the title's 4px text padding = a 20px single-line row. */
+.notice [class*='heading'] {
+	line-height: 16px;
+}
+
+/* Secondary text recedes: smaller and lighter than the title. */
+.notice [class*='__description'] {
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 16px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+/* Applied to the action Button element directly: its solid-variant rules set
+   these custom properties on the element itself, so values inherited from a
+   parent scope never win. This gives the subtle theme-native fill (same ramp
+   as sidebar row hovers) instead of solid-neutral's high-contrast inverse. */
+.actionButton {
+	/* Foreground-mix fill (like the menu popup's hairline ring): a step of
+	   visible contrast over the card surface in both schemes — the token
+	   ramp only offers near-invisible weak or full-inverse strong here. */
+	--wp-ui-button-background-color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 10%,
+		transparent
+	);
+	--wp-ui-button-background-color-active: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 16%,
+		transparent
+	);
+	--wp-ui-button-foreground-color: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+}
+
+/* The decorative intent icon is the only direct svg child (the close icon is
+   nested in its button). Notice top-aligns it in the grid; the nudge matches
+   the title's 2px vertical text padding so the 16px glyph centers on the
+   16px first line (see the heading line-height rule below). */
+.notice > svg {
+	margin-top: 2px;
+}
+
+/* Queue hint: card edges peeking out beneath the bottom toast. Negative
+   margin tucks each sliver against the stack so only a few pixels show. */
+.queuePeek {
+	height: 8px;
+	margin-top: calc(-1 * var(--wpds-dimension-gap-sm) + 3px);
+	margin-inline: 8px;
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	border-radius: 0 0 6px 6px;
+	/* The element-level opacity fades the ring along with the fill. */
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--wpds-color-fg-content-neutral) 14%, transparent);
+	opacity: 0.8;
+}
+
+.queuePeekDeeper {
+	margin-inline: 16px;
+	opacity: 0.5;
+}
+
+@keyframes toast-enter {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.toast {
+		animation: none;
+	}
+}

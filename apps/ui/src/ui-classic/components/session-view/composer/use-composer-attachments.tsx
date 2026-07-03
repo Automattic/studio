@@ -11,6 +11,7 @@ import {
 } from '@studio/common/ai/composer-attachments';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useRef, useState } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 
 export { toComposerSendAttachments };
@@ -43,7 +44,6 @@ export function useComposerAttachments() {
 	const connector = useConnector();
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( [] );
 	const attachmentsRef = useRef< ComposerAttachment[] >( [] );
-	const [ error, setError ] = useState< string | null >( null );
 	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
 
 	const setTrackedAttachments = useCallback( ( next: ComposerAttachment[] ) => {
@@ -61,7 +61,6 @@ export function useComposerAttachments() {
 
 	const clear = useCallback( () => {
 		setTrackedAttachments( [] );
-		setError( null );
 	}, [ setTrackedAttachments ] );
 
 	// Put a batch back after a failed send so the user doesn't lose them.
@@ -78,7 +77,6 @@ export function useComposerAttachments() {
 			if ( list.length === 0 ) {
 				return false;
 			}
-			setError( null );
 			const messages = getComposerAttachmentMessages();
 
 			const prepared = await prepareComposerAttachments( list, {
@@ -87,53 +85,55 @@ export function useComposerAttachments() {
 				existingAttachments: attachmentsRef.current,
 			} );
 			if ( prepared.error ) {
-				setError( prepared.error );
+				toast.error( prepared.error );
 			}
 			if ( prepared.attachments.length === 0 ) {
 				return false;
 			}
 
-			setAttachments( ( current ) => {
-				const merged = mergeComposerAttachments( current, prepared.attachments, messages );
-				if ( merged.error ) {
-					setError( merged.error );
-				}
-				attachmentsRef.current = merged.attachments;
-				return merged.attachments;
-			} );
+			// Merge against the ref (kept in lockstep with state) rather than
+			// inside the state updater, so the failure toast fires from this
+			// event handler and not from a render-phase updater.
+			const merged = mergeComposerAttachments(
+				attachmentsRef.current,
+				prepared.attachments,
+				messages
+			);
+			if ( merged.error ) {
+				toast.error( merged.error );
+			}
+			setTrackedAttachments( merged.attachments );
 			return true;
 		},
-		[ connector ]
+		[ connector, setTrackedAttachments ]
 	);
 
-	const addFileAttachments = useCallback( ( incoming: ComposerFileAttachmentInput[] ): boolean => {
-		if ( incoming.length === 0 ) {
-			return false;
-		}
-		setError( null );
-		const messages = getComposerAttachmentMessages();
-		const prepared: ComposerAttachment[] = incoming.map( ( file ) => ( {
-			id: file.id,
-			kind: 'file',
-			name: file.name,
-			path: file.path,
-			mimeType: file.mimeType,
-			size: file.size ?? 0,
-			preview: file.preview,
-		} ) );
-
-		let didAdd = false;
-		setAttachments( ( current ) => {
-			const merged = mergeComposerAttachments( current, prepared, messages );
-			if ( merged.error ) {
-				setError( merged.error );
+	const addFileAttachments = useCallback(
+		( incoming: ComposerFileAttachmentInput[] ): boolean => {
+			if ( incoming.length === 0 ) {
+				return false;
 			}
-			didAdd = merged.attachments.length > current.length;
-			attachmentsRef.current = merged.attachments;
-			return merged.attachments;
-		} );
-		return didAdd;
-	}, [] );
+			const messages = getComposerAttachmentMessages();
+			const prepared: ComposerAttachment[] = incoming.map( ( file ) => ( {
+				id: file.id,
+				kind: 'file',
+				name: file.name,
+				path: file.path,
+				mimeType: file.mimeType,
+				size: file.size ?? 0,
+				preview: file.preview,
+			} ) );
+
+			const merged = mergeComposerAttachments( attachmentsRef.current, prepared, messages );
+			if ( merged.error ) {
+				toast.error( merged.error );
+			}
+			const didAdd = merged.attachments.length > attachmentsRef.current.length;
+			setTrackedAttachments( merged.attachments );
+			return didAdd;
+		},
+		[ setTrackedAttachments ]
+	);
 
 	const onDragOver = useCallback( ( event: React.DragEvent ) => {
 		if ( ! Array.from( event.dataTransfer.types ).includes( 'Files' ) ) {
@@ -176,7 +176,6 @@ export function useComposerAttachments() {
 
 	return {
 		attachments,
-		error,
 		isDraggingOver,
 		addFiles,
 		addFileAttachments,

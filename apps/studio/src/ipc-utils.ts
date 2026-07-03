@@ -22,6 +22,7 @@ type SnapshotKeyValueEventData = {
 
 export interface IpcEvents {
 	'add-site': [ void ];
+	'app-update-status': [ { readyToInstall: boolean; version: string | null } ];
 	'add-site-with-blueprint': [
 		{
 			blueprintPath: string;

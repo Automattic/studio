@@ -76,17 +76,6 @@
 	text-align: center;
 }
 
-.toolbarError {
-	margin-left: var(--wpds-dimension-padding-sm);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	color: var(--wpds-color-fg-content-error);
-	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: 500;
-	line-height: 16px;
-}
-
 .annotationControls {
 	display: flex;
 	align-items: center;

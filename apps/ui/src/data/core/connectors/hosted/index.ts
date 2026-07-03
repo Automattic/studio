@@ -37,6 +37,20 @@ export class WebUnsupportedError extends Error {
 	}
 }
 
+const DISMISSED_MESSAGES_STORAGE_KEY = 'studio-dismissed-messages';
+
+function readDismissedMessages(): string[] {
+	try {
+		const raw = window.localStorage.getItem( DISMISSED_MESSAGES_STORAGE_KEY );
+		const parsed: unknown = raw ? JSON.parse( raw ) : [];
+		return Array.isArray( parsed )
+			? parsed.filter( ( id ): id is string => typeof id === 'string' )
+			: [];
+	} catch {
+		return [];
+	}
+}
+
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry both agent-run events and session-placement updates.
 type ServerEvent =
@@ -482,5 +496,32 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No application menu in a browser tab.
 			return () => {};
 		},
+
+		// Persistent-message dismissals live in localStorage on the web.
+		async getDismissedMessages() {
+			return readDismissedMessages();
+		},
+
+		async dismissMessage( id ) {
+			const dismissed = readDismissedMessages();
+			if ( ! dismissed.includes( id ) ) {
+				window.localStorage.setItem(
+					DISMISSED_MESSAGES_STORAGE_KEY,
+					JSON.stringify( [ ...dismissed, id ] )
+				);
+			}
+		},
+
+		// Browser tabs have no auto-updater; report an inert status (rather
+		// than throwing) because the messaging layer polls unconditionally.
+		async getAppUpdateStatus() {
+			return { readyToInstall: false, version: null };
+		},
+
+		onAppUpdateStatusChanged() {
+			return () => {};
+		},
+
+		async installAppUpdate() {},
 	};
 }

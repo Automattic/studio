@@ -63,6 +63,20 @@
 	background-color: var(--app-chrome-bg);
 }
 
+/* Toast shelf above the UserMenu in the expanded footer. The inset matches
+   the site list's row outer inset, so toast edges line up with row hover
+   shapes and the toast icon column lands on the site-icon column. */
+.sidebarToasts {
+	padding: var(--wpds-dimension-padding-sm)
+		calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
+/* Persistent cards above the toasts, same row inset. */
+.sidebarCards {
+	padding: var(--wpds-dimension-padding-sm)
+		calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
 .sidebarCollapsed {
 	width: 0;
 }
@@ -124,5 +138,31 @@
 }
 
 .floatingToggle button {
+	-webkit-app-region: no-drag;
+}
+
+/* Anchor for the pending-cards dot: hugs the icon button itself rather than
+   the padded toggle container. */
+.floatingToggleButton {
+	position: relative;
+	display: inline-flex;
+}
+
+/* Collapsed-sidebar toast shelf, floating bottom-left of the main area just
+   above the floating toggle. When a chat session is on screen, its frame
+   publishes `--app-main-composer-height` onto the main panel (see
+   SessionFrame) so the shelf clears the composer instead of covering it.
+   `.main` is a window drag region, so the shelf must opt back out for its
+   buttons to be clickable (same as .floatingToggle). */
+.floatingToasts {
+	position: absolute;
+	bottom: calc(52px + var(--app-main-composer-height, 0px));
+	left: var(--wpds-dimension-padding-xl);
+	z-index: 110;
+	/* Definite width on purpose: the shelf is an invisible container (the
+	   inner stack hugs the toasts via the `content` fit), and an abspos
+	   auto width would collapse the whole chain to min-content. */
+	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
+	pointer-events: auto;
 	-webkit-app-region: no-drag;
 }

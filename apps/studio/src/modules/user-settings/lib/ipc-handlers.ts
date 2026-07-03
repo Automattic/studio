@@ -142,6 +142,29 @@ export async function getWapuuScore(): Promise< number | undefined > {
 	return userData.wapuuScore;
 }
 
+// Persistent-message dismissals (agentic UI update cards, announcements).
+// Ids are opaque to the desktop; the renderer owns their meaning.
+export async function getDismissedMessages(): Promise< string[] > {
+	const userData = await loadUserData();
+	return userData.dismissedMessages ?? [];
+}
+
+export async function dismissMessage( _event: IpcMainInvokeEvent, id: string ): Promise< void > {
+	if ( typeof id !== 'string' || ! id ) {
+		return;
+	}
+	await lockAppdata();
+	try {
+		const userData = await loadUserData();
+		const dismissed = userData.dismissedMessages ?? [];
+		if ( ! dismissed.includes( id ) ) {
+			await saveUserData( { ...userData, dismissedMessages: [ ...dismissed, id ] } );
+		}
+	} finally {
+		await unlockAppdata();
+	}
+}
+
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	sendIpcEventToRendererWithWindow( parentWindow, 'user-settings', { tabName } );

@@ -2,6 +2,8 @@ import { app, autoUpdater, clipboard, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
+import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { isDevRelease } from 'src/lib/version-utils';
 import { getMainWindow } from 'src/main-window';
@@ -16,6 +18,8 @@ type UpdpaterState =
 	| 'waiting-for-restart'; // download is complete, app will update after restart
 
 let updaterState: UpdpaterState = 'init';
+
+let downloadedVersion: string | null = null;
 
 let timeout: NodeJS.Timeout | null = null;
 
@@ -132,10 +136,17 @@ export function setupUpdates() {
 		console.log( 'Update available' );
 	} );
 
-	autoUpdater.on( 'update-downloaded', async () => {
+	autoUpdater.on( 'update-downloaded', async ( _event, _releaseNotes, releaseName ) => {
 		updaterState = 'waiting-for-restart';
+		// Squirrel's releaseName is unreliable on Windows; null is normal.
+		downloadedVersion = typeof releaseName === 'string' && releaseName ? releaseName : null;
 		console.log( 'Update has been downloaded' );
-		await showUpdateReadyToInstallNotice();
+		void sendIpcEventToRenderer( 'app-update-status', buildAppUpdateStatus() );
+		// The agentic UI surfaces this as a persistent card instead of the
+		// legacy blocking dialog.
+		if ( ! getFeatureFlagFromEnv( 'enableAgenticUi' ) ) {
+			await showUpdateReadyToInstallNotice();
+		}
 	} );
 
 	if ( ! shouldPoll ) {
@@ -221,6 +232,28 @@ export async function manualCheckForUpdates() {
 
 export function isUpdateReadyToInstall() {
 	return updaterState === 'waiting-for-restart';
+}
+
+// IPC handlers for the agentic UI's update card. The renderer queries on
+// mount and subscribes to `app-update-status`, covering the case where the
+// download finished before the window existed.
+export async function getAppUpdateStatus(): Promise< {
+	readyToInstall: boolean;
+	version: string | null;
+} > {
+	return buildAppUpdateStatus();
+}
+
+export async function installAppUpdate(): Promise< void > {
+	// Linux never reaches `waiting-for-restart` (updates are manual there),
+	// so the guard makes this a safe no-op.
+	if ( isUpdateReadyToInstall() ) {
+		autoUpdater.quitAndInstall();
+	}
+}
+
+function buildAppUpdateStatus() {
+	return { readyToInstall: isUpdateReadyToInstall(), version: downloadedVersion };
 }
 
 function queueUpdateCheck() {

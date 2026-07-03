@@ -229,8 +229,10 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	dismissMessage,
 	getAgenticFeaturesEnabled,
 	getColorScheme,
+	getDismissedMessages,
 	getInstalledAppsAndTerminals,
 	getUserEditor,
 	getUserLocale,
@@ -248,6 +250,8 @@ export {
 export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
+
+export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
 
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 

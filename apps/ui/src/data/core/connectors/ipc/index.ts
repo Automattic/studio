@@ -5,6 +5,7 @@ import type {
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
+	AppUpdateStatus,
 	AuthUser,
 	AvailableSitePath,
 	ColorScheme,
@@ -1082,6 +1083,30 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'toggle-sidebar', () => listener() );
+		},
+
+		async getDismissedMessages() {
+			return ipcApi.getDismissedMessages();
+		},
+
+		async dismissMessage( id ) {
+			await ipcApi.dismissMessage( id );
+		},
+
+		async getAppUpdateStatus() {
+			return ipcApi.getAppUpdateStatus();
+		},
+
+		onAppUpdateStatusChanged( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
+				listener( status as AppUpdateStatus )
+			);
+		},
+
+		async installAppUpdate() {
+			await ipcApi.installAppUpdate();
 		},
 	};
 }

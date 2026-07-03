@@ -52,6 +52,8 @@ export interface UserData {
 	wapuuScore?: number;
 	/** Agentic UI chat gating preference. Absent means enabled. */
 	agenticFeaturesEnabled?: boolean;
+	/** Persistent-message ids (update cards, announcements) the user dismissed. */
+	dismissedMessages?: string[];
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;

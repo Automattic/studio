@@ -201,7 +201,6 @@ export function ComposerSkeleton() {
 interface ComposerProps {
 	busy: boolean;
 	isInterrupting?: boolean;
-	error: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
@@ -363,7 +362,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	{
 		busy,
 		isInterrupting = false,
-		error,
 		model,
 		onSend,
 		onInterrupt,
@@ -394,7 +392,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	// base64 content blocks; other files are referenced by disk path.
 	const {
 		attachments,
-		error: attachmentError,
 		isDraggingOver,
 		addFiles,
 		addFileAttachments,
@@ -747,7 +744,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
-	const composerError = attachmentError ?? error;
 	const stopTooltipLabel = isInterrupting
 		? __( 'Stopping… click again to force stop' )
 		: __( 'Stop' );
@@ -1120,11 +1116,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 					</div>
 				</div>
-				{ composerError ? (
-					<div className={ styles.meta }>
-						<span className={ styles.error }>{ composerError }</span>
-					</div>
-				) : null }
 			</div>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }

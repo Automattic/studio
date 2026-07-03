@@ -1,5 +1,7 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
@@ -8,6 +10,10 @@ export const SITE_OVERVIEW_DETAILS_QUERY_KEY = [ 'site-overview-details' ] as co
 
 const START_SITE_MUTATION_KEY = [ 'startSite' ] as const;
 const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
+
+function errorDescription( error: unknown ): string {
+	return error instanceof Error ? error.message : String( error );
+}
 
 export function useSites() {
 	const connector = useConnector();
@@ -58,6 +64,10 @@ export function useCopySite() {
 	return useMutation( {
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+		// Callers fire-and-forget (context menu, overview); without this a
+		// failed copy would be silent. Success shows up as the new site row.
+		onError: ( error ) =>
+			toast.error( __( 'Failed to copy site' ), { description: errorDescription( error ) } ),
 	} );
 }
 
@@ -86,6 +96,9 @@ export function useStartSite() {
 			await connector.startSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
+		onSuccess: () => toast.success( __( 'Site started' ) ),
+		onError: ( error ) =>
+			toast.error( __( 'Failed to start site' ), { description: errorDescription( error ) } ),
 	} );
 }
 
@@ -98,6 +111,9 @@ export function useStopSite() {
 			await connector.stopSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
+		onSuccess: () => toast.success( __( 'Site stopped' ) ),
+		onError: ( error ) =>
+			toast.error( __( 'Failed to stop site' ), { description: errorDescription( error ) } ),
 	} );
 }
 
@@ -123,6 +139,9 @@ export function useUpdateSite() {
 			// site-event lands, giving us a single refetch against fresh
 			// in-memory details.
 		},
+		// Errors stay inline in the settings form (its submitError), which has
+		// the field context a toast lacks.
+		onSuccess: () => toast.success( __( 'Settings saved' ) ),
 	} );
 }
 

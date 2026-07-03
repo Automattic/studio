@@ -23,6 +23,7 @@ import { IconSwitch } from '@/components/icon-switch';
 import * as Menu from '@/components/menu';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { QuickMenuItem } from '@/components/site-quick-menu';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { usePointerDrag } from '@/hooks/use-pointer-drag';
@@ -652,7 +653,6 @@ export function SitePreview( {
 	const [ consoleHeight, setConsoleHeight ] = useState( DEFAULT_CONSOLE_HEIGHT );
 	const [ isAttachingConsoleFile, setIsAttachingConsoleFile ] = useState( false );
 	const [ isCapturingScreenshot, setIsCapturingScreenshot ] = useState( false );
-	const [ consoleActionError, setConsoleActionError ] = useState< string | null >( null );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const bodyRef = useRef< HTMLDivElement | null >( null );
 	const locationRef = useRef< HTMLDivElement | null >( null );
@@ -670,13 +670,11 @@ export function SitePreview( {
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
 	const showLoadingProgress = canPreview && progress > 0;
-	const [ screenshotError, setScreenshotError ] = useState< string | null >( null );
 	const visibleConsoleEntries = useMemo(
 		() => consoleEntries.filter( ( entry ) => isConsoleEntryVisible( entry, consoleFilter ) ),
 		[ consoleEntries, consoleFilter ]
 	);
 	const consoleButtonLabel = consoleOpen ? __( 'Hide console' ) : __( 'Show console' );
-	const toolbarError = screenshotError ?? consoleActionError;
 
 	const handlePreviewNavigation = useCallback(
 		( url: string ) => {
@@ -740,6 +738,8 @@ export function SitePreview( {
 	const copyVisibleConsoleEntries = useCallback( () => {
 		void connector
 			.copyText( formatPreviewConsoleEntriesForText( visibleConsoleEntries ) )
+			// The stable id collapses rapid re-copies into one toast.
+			.then( () => toast.success( __( 'Copied' ), { id: 'copy-feedback' } ) )
 			.catch( () => {
 				// Clipboard failures are non-fatal; the console remains visible.
 			} );
@@ -749,12 +749,11 @@ export function SitePreview( {
 			return;
 		}
 		setIsAttachingConsoleFile( true );
-		setConsoleActionError( null );
 		try {
 			await onConsoleFileDone( createConsoleTextFile( visibleConsoleEntries ) );
 		} catch ( error ) {
 			console.error( 'Failed to attach console messages:', error );
-			setConsoleActionError( __( 'Console messages could not be attached.' ) );
+			toast.error( __( 'Console messages could not be attached.' ) );
 		} finally {
 			setIsAttachingConsoleFile( false );
 		}
@@ -834,7 +833,6 @@ export function SitePreview( {
 			return;
 		}
 		setIsCapturingScreenshot( true );
-		setScreenshotError( null );
 		try {
 			const screenshot = await connector.captureSiteScreenshot(
 				getPreviewWebviewContentsId( rootRef.current ),
@@ -845,7 +843,7 @@ export function SitePreview( {
 			await onScreenshotDone?.( localMediaFileToFile( screenshot ) );
 		} catch ( error ) {
 			console.error( 'Failed to add preview screenshot:', error );
-			setScreenshotError( __( 'Screenshot could not be added.' ) );
+			toast.error( __( 'Screenshot could not be added.' ) );
 		} finally {
 			setIsCapturingScreenshot( false );
 		}
@@ -876,7 +874,6 @@ export function SitePreview( {
 		setConsoleEntries( [] );
 		setConsoleOpen( false );
 		setConsoleHeight( DEFAULT_CONSOLE_HEIGHT );
-		setConsoleActionError( null );
 	}, [ site.id ] );
 
 	useEffect( () => {
@@ -967,22 +964,16 @@ export function SitePreview( {
 							/>
 						</div>
 						<div ref={ locationRef } className={ styles.browserLocation }>
-							{ toolbarError ? (
-								<span className={ styles.toolbarError } role="status">
-									{ toolbarError }
-								</span>
-							) : (
-								<LocationOmnibox
-									siteId={ site.id }
-									siteUrl={ siteUrl }
-									path={ getSafePath( path ) }
-									previewUrl={ previewUrl }
-									pageTitle={ pageTitle }
-									searchEnabled={ canUseWebview }
-									anchorRef={ locationRef }
-									onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
-								/>
-							) }
+							<LocationOmnibox
+								siteId={ site.id }
+								siteUrl={ siteUrl }
+								path={ getSafePath( path ) }
+								previewUrl={ previewUrl }
+								pageTitle={ pageTitle }
+								searchEnabled={ canUseWebview }
+								anchorRef={ locationRef }
+								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
+							/>
 						</div>
 						<div className={ styles.annotationControls }>
 							<IconButton

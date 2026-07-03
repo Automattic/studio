@@ -449,6 +449,22 @@ export interface Connector {
 
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;
+
+	// Persistent-message dismissals (update cards, announcements). Ids are
+	// opaque; dismissing is idempotent and survives relaunches.
+	getDismissedMessages(): Promise< string[] >;
+	dismissMessage( id: string ): Promise< void >;
+
+	// App updates (desktop only). Hosted returns an inert status and no-op
+	// subscribe/install so the messaging layer can call these unconditionally.
+	getAppUpdateStatus(): Promise< AppUpdateStatus >;
+	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
+	installAppUpdate(): Promise< void >;
+}
+
+export interface AppUpdateStatus {
+	readyToInstall: boolean;
+	version: string | null;
 }
 
 export interface SkillStatus {

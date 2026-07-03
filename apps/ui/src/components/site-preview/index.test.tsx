@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
 import { getPathFromPreviewUrl, getToolbarPageTitle, SitePreview } from './index';
@@ -263,7 +264,8 @@ describe( 'SitePreview', () => {
 		}
 	} );
 
-	it( 'shows an error when the screenshot cannot be added', async () => {
+	it( 'shows an error toast when the screenshot cannot be added', async () => {
+		resetAppMessagesForTests();
 		const restoreUserAgent = mockElectronUserAgent();
 		const restoreWebviewContentsId = mockWebviewContentsId();
 		const consoleError = vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
@@ -284,8 +286,10 @@ describe( 'SitePreview', () => {
 
 			await clickOverflowMenuItem( 'Add full-page screenshot to composer' );
 
-			expect( await screen.findByRole( 'status' ) ).toHaveTextContent(
-				'Screenshot could not be added.'
+			await waitFor( () =>
+				expect( getVisibleToasts().map( ( item ) => item.title ) ).toContain(
+					'Screenshot could not be added.'
+				)
 			);
 		} finally {
 			restoreWebviewContentsId();

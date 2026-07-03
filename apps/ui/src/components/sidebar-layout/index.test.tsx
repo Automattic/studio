@@ -18,6 +18,12 @@ vi.mock( '@/components/user-menu', () => ( {
 	),
 } ) );
 
+// Hits react-query; the layout test has no QueryClientProvider.
+vi.mock( '@/components/app-message-cards', () => ( {
+	AppMessageCards: () => null,
+	AppMessageCardsDot: () => null,
+} ) );
+
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );

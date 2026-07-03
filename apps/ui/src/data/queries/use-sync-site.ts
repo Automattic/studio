@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import {
@@ -60,6 +61,7 @@ export function usePushSiteToLive() {
 		},
 		onSuccess: ( _result, { siteId } ) => {
 			reportSyncSuccess( siteId, 'push' );
+			toast.success( __( 'Push complete' ) );
 			void queryClient.invalidateQueries( {
 				queryKey: connectedWpcomSitesQueryKey( siteId ),
 			} );
@@ -70,6 +72,9 @@ export function usePushSiteToLive() {
 		onError: ( error, { siteId } ) => {
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'push', message );
+			// The sync-activity report above only surfaces in the site
+			// dropdown; the toast reaches the user wherever they are.
+			toast.error( __( 'Push didn’t complete' ), { description: message } );
 		},
 	} );
 }
@@ -113,6 +118,7 @@ export function usePullSiteFromLive() {
 		},
 		onSuccess: ( _result, { siteId } ) => {
 			reportSyncSuccess( siteId, 'pull' );
+			toast.success( __( 'Pull complete' ) );
 			// The CLI may have stopped/started the server during the import,
 			// and the site's database + themes just changed — refresh the
 			// site list so any downstream consumers see the new state.
@@ -121,6 +127,7 @@ export function usePullSiteFromLive() {
 		onError: ( error, { siteId } ) => {
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'pull', message );
+			toast.error( __( 'Pull didn’t complete' ), { description: message } );
 		},
 	} );
 }

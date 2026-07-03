@@ -41,3 +41,14 @@
 .popup {
 	min-width: 200px;
 }
+
+/* The minimal button's hover fill is nearly the same grey as the sidebar
+   background, so it reads as having no hover state. Use a foreground-based
+   tint that stays visible on the sidebar in both color schemes. */
+.createButton {
+	--wp-ui-button-background-color-active: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 8%,
+		transparent
+	);
+}

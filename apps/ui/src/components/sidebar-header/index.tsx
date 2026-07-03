@@ -22,6 +22,7 @@ export function SidebarHeader() {
 								size="small"
 								icon={ plus }
 								label={ __( 'Create new' ) }
+								className={ styles.createButton }
 							/>
 						}
 					/>

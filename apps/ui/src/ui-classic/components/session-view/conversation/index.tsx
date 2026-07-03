@@ -1,4 +1,12 @@
 import {
+	getLocalMediaPath,
+	getSafeMediaUrl,
+	isRenderableMediaWidget,
+	isStudioChatArtifactData,
+	stripMediaWidgetPayloadLines,
+	type StudioChatArtifactWidgetDraft,
+} from '@studio/common/ai/chat-artifacts';
+import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
@@ -56,11 +64,11 @@ import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Markdown } from '@/components/markdown';
-import { useConnector, type LoadedAiSession, type LocalMediaFile } from '@/data/core';
+import { useConnector, type LoadedAiSession } from '@/data/core';
+import { useLocalMediaFile } from '@/data/queries/use-local-media';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 
 interface AgentQuestionRenderItem {
 	key: string;
@@ -191,76 +199,16 @@ function resolveBatchedAnswerForQuestion(
 	return optionLabels.has( answer ) ? answer : undefined;
 }
 
-function isRecord( value: unknown ): value is Record< string, unknown > {
-	return Boolean( value ) && typeof value === 'object' && ! Array.isArray( value );
-}
-
-function getLocalMediaPath( widget: StudioChatArtifactWidgetDraft ): string | null {
-	const { source } = widget.widgetProps;
-	if ( ! isRecord( source ) || source.type !== 'local' || typeof source.path !== 'string' ) {
-		return null;
-	}
-	return source.path;
-}
-
-function getSafeMediaUrl( widget: StudioChatArtifactWidgetDraft ): string | null {
-	const { url } = widget.widgetProps;
-	if ( typeof url !== 'string' ) {
-		return null;
-	}
-	try {
-		const parsed = new URL( url );
-		return [ 'http:', 'https:', 'data:' ].includes( parsed.protocol ) ? url : null;
-	} catch {
-		return null;
-	}
-}
-
-function isRenderableMediaWidget(
-	widget: StudioChatArtifactWidgetDraft
-): widget is StudioChatArtifactWidgetDraft {
-	return (
-		widget.type === 'media' &&
-		widget.widgetProps.mediaKind === 'image' &&
-		( Boolean( getLocalMediaPath( widget ) ) || Boolean( getSafeMediaUrl( widget ) ) )
-	);
-}
-
 function getMediaAltText( widget: StudioChatArtifactWidgetDraft ): string {
 	return typeof widget.widgetProps.alt === 'string' && widget.widgetProps.alt.trim()
 		? widget.widgetProps.alt
 		: __( 'Image' );
 }
 
-function localMediaFileToDataUrl( file: LocalMediaFile ): Promise< string > {
-	return new Promise( ( resolve, reject ) => {
-		const reader = new FileReader();
-		reader.addEventListener( 'load', () => {
-			if ( typeof reader.result === 'string' ) {
-				resolve( reader.result );
-				return;
-			}
-			reject( new Error( 'Unable to read local media file as a data URL.' ) );
-		} );
-		reader.addEventListener( 'error', () => {
-			reject( reader.error ?? new Error( 'Unable to read local media file as a data URL.' ) );
-		} );
-		reader.readAsDataURL( new Blob( [ file.data ], { type: file.mimeType } ) );
-	} );
-}
-
-function stripScreenshotMediaPayloadLines( text: string ): string {
-	return text
-		.split( '\n' )
-		.filter(
-			( line ) =>
-				! line.startsWith( 'mediaWidgetPayload=' ) && ! line.startsWith( 'mediaWidgetPayloads=' )
-		)
-		.join( '\n' )
-		.trim();
-}
-
-export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
+export function entriesToRenderItems(
+	entries: SessionEntry[],
+	options: { canReadLocalMedia?: boolean } = {}
+): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -273,7 +221,9 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			.map( ( b ) => b.text as string )
 			.join( '\n' );
 		resultsByToolCallId.set( message.toolCallId, {
-			text,
+			// Old transcripts embed media widget payload markers in screenshot
+			// results; strip them from every tool's display text.
+			text: stripMediaWidgetPayloadLines( text ),
 			isError: message.isError === true,
 		} );
 	}
@@ -364,7 +314,18 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 
 		if ( isStudioCustomEntryOfType( entry, 'studio.chat_artifact' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.chat_artifact' > ).data;
-			const widgets = data?.widgets.filter( isRenderableMediaWidget ) ?? [];
+			// Guard against malformed persisted entries so one bad line can't
+			// take down the whole transcript.
+			if ( ! isStudioChatArtifactData( data ) ) {
+				continue;
+			}
+			const widgets = data.widgets.filter(
+				( widget ) =>
+					isRenderableMediaWidget( widget ) &&
+					// Without local media access (browser builds), only widgets
+					// with a renderable remote URL are worth showing.
+					( options.canReadLocalMedia !== false || Boolean( getSafeMediaUrl( widget ) ) )
+			);
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',
@@ -663,9 +624,7 @@ function ToolUseRow( {
 } ) {
 	const display = getClassicToolDisplay( name, input );
 	const detailsId = useId();
-	const rawResultText = result?.text?.trim() ?? '';
-	const resultText =
-		name === 'take_screenshot' ? stripScreenshotMediaPayloadLines( rawResultText ) : rawResultText;
+	const resultText = result?.text?.trim() ?? '';
 	const hasOutput = resultText.length > 0;
 	const hasInput = display.inputText.length > 0;
 	const hasExpandableDetails = hasInput || hasOutput;
@@ -753,40 +712,25 @@ function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] }
 
 function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
 	const connector = useConnector();
-	const localPath = getLocalMediaPath( widget );
+	const localPath = connector.capabilities.readLocalMedia ? getLocalMediaPath( widget ) : null;
 	const safeUrl = getSafeMediaUrl( widget );
-	const [ src, setSrc ] = useState< string | null >( localPath ? null : safeUrl );
-	const [ failed, setFailed ] = useState( false );
+	const localFileQuery = useLocalMediaFile( localPath );
 
+	const objectUrl = useMemo( () => {
+		const file = localFileQuery.data;
+		return file ? URL.createObjectURL( new Blob( [ file.data ], { type: file.mimeType } ) ) : null;
+	}, [ localFileQuery.data ] );
 	useEffect( () => {
-		setFailed( false );
-		if ( ! localPath ) {
-			setSrc( safeUrl );
-			return;
-		}
-
-		let active = true;
-		setSrc( null );
-		connector
-			.readLocalMediaFile( localPath )
-			.then( localMediaFileToDataUrl )
-			.then( ( dataUrl ) => {
-				if ( active ) {
-					setSrc( dataUrl );
-				}
-			} )
-			.catch( () => {
-				if ( active ) {
-					setFailed( true );
-				}
-			} );
-
 		return () => {
-			active = false;
+			if ( objectUrl ) {
+				URL.revokeObjectURL( objectUrl );
+			}
 		};
-	}, [ connector, localPath, safeUrl ] );
+	}, [ objectUrl ] );
 
-	if ( failed ) {
+	const src = localPath ? objectUrl : safeUrl;
+
+	if ( localFileQuery.isError || ( ! localPath && ! safeUrl ) ) {
 		return (
 			<div className={ styles.mediaArtifactUnavailable } role="status">
 				{ __( 'Image unavailable' ) }
@@ -1165,7 +1109,11 @@ export function Conversation( {
 	onAnswerQuestion: ( question: string, label: string ) => void;
 } ) {
 	const entries = data.entries;
-	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
+	const canReadLocalMedia = useConnector().capabilities.readLocalMedia;
+	const items = useMemo(
+		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
+		[ entries, canReadLocalMedia ]
+	);
 	const progressMessage = useMemo(
 		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
 		[ entries, isRunning ]

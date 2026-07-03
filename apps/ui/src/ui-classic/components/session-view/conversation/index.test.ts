@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { createElement, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +8,7 @@ import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artif
 
 const connectorMocks = vi.hoisted( () => ( {
 	readLocalMediaFile: vi.fn(),
+	capabilities: { readLocalMedia: true },
 } ) );
 
 vi.mock( '@/components/markdown', () => ( {
@@ -27,6 +29,10 @@ vi.mock( '../thinking-indicator', () => ( {
 
 beforeEach( () => {
 	connectorMocks.readLocalMediaFile.mockReset();
+	connectorMocks.capabilities.readLocalMedia = true;
+	// jsdom does not implement object URLs.
+	URL.createObjectURL = vi.fn( () => 'blob:mock-object-url' );
+	URL.revokeObjectURL = vi.fn();
 } );
 
 describe( 'Conversation tool rows', () => {
@@ -145,7 +151,7 @@ describe( 'Conversation tool rows', () => {
 		expect( screen.getByRole( 'button', { name: 'Minimal & Clean' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'hides screenshot media payload markers from expanded tool details', () => {
+	it( 'hides legacy media payload markers from expanded tool details for any tool', () => {
 		const data = loadedSession( [
 			assistantToolCallEntry( 'take_screenshot', { url: 'http://localhost:8888/' } ),
 			toolResultEntry(
@@ -194,12 +200,78 @@ describe( 'Conversation chat artifacts', () => {
 		const screenshot = await screen.findByRole( 'img', {
 			name: 'Screenshot of http://localhost:8888/ (desktop)',
 		} );
-		expect( screenshot ).toHaveAttribute( 'src', 'data:image/jpeg;base64,AQID' );
+		expect( screenshot ).toHaveAttribute( 'src', 'blob:mock-object-url' );
 		expect( connectorMocks.readLocalMediaFile ).toHaveBeenCalledWith(
 			'/tmp/studio-screenshot/screenshot-desktop.jpg'
 		);
 	} );
+
+	it( 'shows a fallback when reading the local file fails', async () => {
+		connectorMocks.readLocalMediaFile.mockRejectedValue( new Error( 'gone' ) );
+		const data = loadedSession( [ chatArtifactEntry( [ localScreenshotWidget() ] ) ] );
+
+		renderConversation( data );
+
+		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Image unavailable' );
+	} );
+
+	it( 'skips malformed chat artifact entries without crashing', () => {
+		const malformed = [
+			{ version: 1, id: 'artifact-1' }, // missing widgets
+			{ version: 1, id: 'artifact-2', widgets: 'nope' }, // wrong widgets type
+			{ id: 'artifact-3', widgets: [] }, // missing version
+		];
+		for ( const data of malformed ) {
+			const entry = {
+				type: 'custom',
+				id: 'chat-artifact',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:02.000Z',
+				customType: 'studio.chat_artifact',
+				data,
+			} as unknown as SessionEntry;
+
+			expect( entriesToRenderItems( [ entry ] ) ).toEqual( [] );
+		}
+	} );
+
+	it( 'drops local-only media widgets when the connector cannot read local files', () => {
+		const localOnly = chatArtifactEntry( [ localScreenshotWidget() ] );
+		const remote = chatArtifactEntry( [
+			{
+				type: 'media',
+				widgetProps: {
+					url: 'https://example.com/capture.jpg',
+					mediaKind: 'image',
+					alt: 'Remote capture',
+					mediaId: null,
+				},
+			},
+		] );
+
+		expect( entriesToRenderItems( [ localOnly ], { canReadLocalMedia: false } ) ).toEqual( [] );
+		expect( entriesToRenderItems( [ remote ], { canReadLocalMedia: false } ) ).toHaveLength( 1 );
+		expect( entriesToRenderItems( [ localOnly ], { canReadLocalMedia: true } ) ).toHaveLength( 1 );
+	} );
 } );
+
+function localScreenshotWidget(): StudioChatArtifactWidgetDraft {
+	return {
+		type: 'media',
+		widgetProps: {
+			url: 'file:///tmp/studio-screenshot/screenshot-desktop.jpg',
+			mediaKind: 'image',
+			alt: 'Screenshot of http://localhost:8888/ (desktop)',
+			mediaId: null,
+			source: {
+				type: 'local',
+				path: '/tmp/studio-screenshot/screenshot-desktop.jpg',
+				name: 'screenshot-desktop.jpg',
+				mimeType: 'image/jpeg',
+			},
+		},
+	};
+}
 
 describe( 'Conversation Ask User questions', () => {
 	it( 'shows option descriptions and a selected historical answer', () => {
@@ -492,15 +564,22 @@ interface RenderConversationOptions {
 }
 
 function renderConversation( data: LoadedAiSession, options: RenderConversationOptions = {} ) {
+	const queryClient = new QueryClient( {
+		defaultOptions: { queries: { retry: false } },
+	} );
 	return render(
-		createElement( Conversation, {
-			data,
-			isRunning: options.isRunning ?? false,
-			startedAt: options.startedAt ?? null,
-			pendingQuestions: options.pendingQuestions ?? new Set< string >(),
-			pendingAnswers: options.pendingAnswers ?? {},
-			onAnswerQuestion: options.onAnswerQuestion ?? vi.fn(),
-		} )
+		createElement(
+			QueryClientProvider,
+			{ client: queryClient },
+			createElement( Conversation, {
+				data,
+				isRunning: options.isRunning ?? false,
+				startedAt: options.startedAt ?? null,
+				pendingQuestions: options.pendingQuestions ?? new Set< string >(),
+				pendingAnswers: options.pendingAnswers ?? {},
+				onAnswerQuestion: options.onAnswerQuestion ?? vi.fn(),
+			} )
+		)
 	);
 }
 

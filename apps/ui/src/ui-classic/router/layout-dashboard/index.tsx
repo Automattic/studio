@@ -13,6 +13,7 @@ import {
 	useSessionPreviewAnnotationsHandler,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
+import { writeLastVisited } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
 
 // Session detail and new-chat routes host the preview. Other routes keep the
@@ -79,6 +80,18 @@ function DashboardLayoutContent() {
 			setLastPreviewSiteId( routeSite.id );
 		}
 	}, [ routeSite ] );
+	// Remember where the user is so the `/` index route can return here
+	// instead of defaulting to the first site.
+	const sessionSiteId = sessionSite?.id;
+	useEffect( () => {
+		if ( sessionId ) {
+			writeLastVisited( { sessionId, siteId: sessionSiteId } );
+			return;
+		}
+		if ( newSessionSiteId ) {
+			writeLastVisited( { siteId: newSessionSiteId } );
+		}
+	}, [ sessionId, sessionSiteId, newSessionSiteId ] );
 	const lastPreviewSite = lastPreviewSiteId
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;

@@ -8,8 +8,10 @@ env:
 
 e2e_config: &e2e_config
   # TEMP(AINFRA-2588): fail hung diagnostic E2E jobs fast instead of waiting for the
-  # Buildkite agent's default 3h timeout. Healthy Windows runs should be under 45m.
-  timeout_in_minutes: 45
+  # Buildkite agent's default 3h timeout. While ~20 Windows tests still fail (each
+  # burning a retry), a full run needs ~1h20 — 45m truncated build 18744 mid-suite.
+  # Beware: a timed-out job whose command exits 0 still turns the build green.
+  timeout_in_minutes: 100
   command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
   artifact_paths:
     - test-results/**/*.zip

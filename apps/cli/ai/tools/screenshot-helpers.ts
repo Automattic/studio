@@ -65,6 +65,25 @@ async function waitForPageToSettle( page: Page ): Promise< void > {
 export type ScreenshotFormat = 'png' | 'jpeg';
 export type ScreenshotColorScheme = 'light' | 'dark';
 
+export const SCREENSHOT_COLOR_SCHEME_VALUES = [ 'light', 'dark' ] as const;
+export const SCREENSHOT_COLOR_SCHEME_DESCRIPTION =
+	'Color scheme to emulate: "light" or "dark". Defaults to the browser/system preference.';
+
+/**
+ * Apply the media emulation shared by every browser-driving tool. Keeping
+ * this in one place guarantees `inspect_design` reports styles under the same
+ * prefers-color-scheme mode `take_screenshot` renders.
+ */
+export async function applyScreenshotMediaEmulation(
+	page: Page,
+	colorScheme?: ScreenshotColorScheme
+): Promise< void > {
+	await page.emulateMedia( {
+		reducedMotion: 'reduce',
+		...( colorScheme ? { colorScheme } : {} ),
+	} );
+}
+
 export interface ScreenshotCapture {
 	buffer: Buffer;
 	documentHeight: number;
@@ -104,10 +123,7 @@ export async function captureScreenshotBuffer(
 	} );
 
 	try {
-		await page.emulateMedia( {
-			reducedMotion: 'reduce',
-			...( options.colorScheme ? { colorScheme: options.colorScheme } : {} ),
-		} );
+		await applyScreenshotMediaEmulation( page, options.colorScheme );
 		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
 		await waitForPageToSettle( page );
 

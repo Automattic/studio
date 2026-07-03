@@ -4,6 +4,8 @@ import { defineTool } from './define-tool';
 import {
 	captureScreenshotBuffer,
 	saveScreenshotFile,
+	SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
+	SCREENSHOT_COLOR_SCHEME_VALUES,
 	VIEWPORTS,
 	type ScreenshotColorScheme,
 } from './screenshot-helpers';
@@ -15,9 +17,11 @@ const screenshotViewportSchema = Type.Enum( [ 'desktop', 'mobile', 'all' ], {
 type ScreenshotViewportArgument = 'desktop' | 'mobile' | 'all';
 type ScreenshotViewportType = keyof typeof VIEWPORTS;
 
-const screenshotColorSchemeSchema = Type.Enum( [ 'light', 'dark', 'all' ], {
-	description:
-		'Color scheme to emulate: "light", "dark", or "all" to capture both. Defaults to the browser/system preference.',
+const screenshotColorSchemeSchema = Type.Enum( [ ...SCREENSHOT_COLOR_SCHEME_VALUES, 'all' ], {
+	description: SCREENSHOT_COLOR_SCHEME_DESCRIPTION.replace(
+		'"light" or "dark"',
+		'"light", "dark", or "all" to capture both'
+	),
 } );
 type ScreenshotColorSchemeArgument = ScreenshotColorScheme | 'all';
 

@@ -1,11 +1,11 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { escapePhpSingleQuotedString } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { runPhpCommand } from './php-process';
+import { getPhpSafeTmpDir } from './tmp-dir';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
@@ -99,7 +99,9 @@ export function writeSiteUrlPrependFile(
 	siteUrl: string,
 	originalAutoPrependFile?: string
 ): string {
-	const dir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-siteurl-prepend-' ) );
+	// getPhpSafeTmpDir() avoids the Windows 8.3 `~` short name; this path is handed to PHP as
+	// auto_prepend_file, and a `~` in it breaks the parser with `syntax error, unexpected '~'`.
+	const dir = fs.mkdtempSync( path.join( getPhpSafeTmpDir(), 'studio-siteurl-prepend-' ) );
 	const prependPath = path.join( dir, 'prepend.php' );
 	fs.writeFileSync( prependPath, getSiteUrlPrependContent( siteUrl, originalAutoPrependFile ) );
 	return prependPath;

@@ -17,6 +17,7 @@ export class E2ESession {
 	homePath: string;
 	cliConfigPath: string;
 	sharedConfigPath: string;
+	daemonHome: string;
 	private mainProcessLogs: string[] = [];
 	private readonly maxMainProcessLogChunks = 500;
 	private stdoutListener?: ( chunk: Buffer | string ) => void;
@@ -29,6 +30,17 @@ export class E2ESession {
 		this.homePath = path.join( this.sessionPath, 'home' );
 		this.cliConfigPath = path.join( this.sessionPath, 'cliConfig' );
 		this.sharedConfigPath = path.join( this.sessionPath, 'sharedConfig' );
+		// DIAGNOSTIC (temporary): put the process-manager daemon — and its per-process stdout/stderr
+		// logs — under test-results/daemon-logs so they upload as CI artifacts. This surfaces why
+		// native PHP fails to serve on Windows CI (the php.exe error currently goes to ~/.studio and
+		// is never uploaded). Relies on the Windows pipe-isolation fix so each session gets its own
+		// daemon. Revert once diagnosed.
+		this.daemonHome = path.join(
+			process.cwd(),
+			'test-results',
+			'daemon-logs',
+			path.basename( this.sessionPath )
+		);
 	}
 
 	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
@@ -153,6 +165,8 @@ export class E2ESession {
 				E2E_HOME_PATH: this.homePath,
 				E2E_CLI_CONFIG_PATH: this.cliConfigPath,
 				E2E_SHARED_CONFIG_PATH: this.sharedConfigPath,
+				// DIAGNOSTIC (temporary): route the daemon + its logs into the uploaded artifacts dir.
+				STUDIO_PROCESS_MANAGER_HOME: this.daemonHome,
 			},
 			timeout: 60_000,
 		} );

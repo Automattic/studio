@@ -67,6 +67,16 @@ export function spawnPhpProcess(
 	livePhpProcesses.add( phpScriptProcess );
 	phpScriptProcess.once( 'exit', () => livePhpProcesses.delete( phpScriptProcess ) );
 
+	// DIAGNOSTIC (temporary): surface unexpected php.exe exits. A Windows loader/DLL failure exits
+	// with 3221225781 (0xC0000135) and writes nothing to stderr, so the exit code is the only signal.
+	// Intentional shutdowns remove all 'exit' listeners before killing, so this only fires on genuine
+	// crashes. Revert once the native-PHP-on-CI issue is diagnosed.
+	phpScriptProcess.once( 'exit', ( code, signal ) => {
+		if ( code !== 0 && code !== null ) {
+			console.error( `[PHP-DIAG] php process exited unexpectedly: code=${ code } signal=${ signal }` );
+		}
+	} );
+
 	if ( mode === 'pipe' ) {
 		phpScriptProcess.stdout?.pipe( process.stdout, { end: false } );
 		phpScriptProcess.stderr?.pipe( process.stderr, { end: false } );

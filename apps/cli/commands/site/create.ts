@@ -7,6 +7,11 @@ import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import { extractFormValuesFromBlueprint } from '@studio/common/lib/blueprint-settings';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import {
+	DATABASE_ENGINE_MYSQL,
+	DATABASE_ENGINE_SQLITE,
+	type DatabaseEngine,
+} from '@studio/common/lib/database-engine';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import {
 	arePathsEqual,
@@ -75,6 +80,7 @@ import {
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
+import { createMysqlSiteConfig } from 'cli/lib/mysql/mysql-site';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
@@ -97,6 +103,7 @@ export type CreateCommandOptions = {
 	phpVersion: SupportedPHPVersion;
 	runtime: SiteRuntime;
 	fileAccess: SiteFileAccess;
+	databaseEngine?: DatabaseEngine;
 	customDomain?: string;
 	enableHttps: boolean;
 	blueprint?: {
@@ -116,12 +123,16 @@ export async function runCommand(
 	options: CreateCommandOptions
 ): Promise< void > {
 	const siteRuntime = options.runtime;
+	const databaseEngine = options.databaseEngine ?? DATABASE_ENGINE_SQLITE;
 	if ( ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
 		throw new LoggerError(
 			__(
 				'File access "all-files" requires the native PHP runtime. The sandbox only has access to the site directory.'
 			)
 		);
+	}
+	if ( databaseEngine === DATABASE_ENGINE_MYSQL && siteRuntime !== SITE_RUNTIME_NATIVE_PHP ) {
+		throw new LoggerError( __( 'MySQL requires the native PHP runtime.' ) );
 	}
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
 	const isOnlineStatus = await isOnline();
@@ -260,9 +271,11 @@ export async function runCommand(
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		}
 
-		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
-		await keepSqliteIntegrationUpdated( sitePath );
-		logger.reportSuccess( __( 'SQLite integration configured' ) );
+		if ( databaseEngine === DATABASE_ENGINE_SQLITE ) {
+			logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
+			await keepSqliteIntegrationUpdated( sitePath );
+			logger.reportSuccess( __( 'SQLite integration configured' ) );
+		}
 
 		try {
 			const sharedConfig = await readSharedConfig();
@@ -282,6 +295,10 @@ export async function runCommand(
 
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = options.siteId || crypto.randomUUID();
+		const mysqlConfig =
+			databaseEngine === DATABASE_ENGINE_MYSQL
+				? createMysqlSiteConfig( siteId, await portFinder.getOpenPort() )
+				: undefined;
 
 		// Determine admin credentials: CLI args > Blueprint > defaults
 		// External passwords need to be encoded; createPassword() already returns encoded
@@ -324,6 +341,8 @@ export async function runCommand(
 			phpVersion,
 			runtime: siteRuntime,
 			fileAccess: options.fileAccess,
+			databaseEngine: mysqlConfig ? DATABASE_ENGINE_MYSQL : undefined,
+			mysql: mysqlConfig,
 			running: false,
 			status: 'ready',
 			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
@@ -367,7 +386,9 @@ export async function runCommand(
 				} );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
-				stripWpConfigDbConstants( sitePath );
+				if ( databaseEngine === DATABASE_ENGINE_SQLITE ) {
+					stripWpConfigDbConstants( sitePath );
+				}
 
 				if ( processDesc.status === 'online' ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
@@ -386,6 +407,9 @@ export async function runCommand(
 				}
 			} catch ( error ) {
 				await removeSiteFromConfig( siteDetails.id );
+				if ( mysqlConfig ) {
+					await fs.promises.rm( mysqlConfig.dataDir, { recursive: true, force: true } );
+				}
 				if ( ! isWordPressDirResult ) {
 					await fs.promises.rm( sitePath, { recursive: true, force: true } );
 				}
@@ -410,9 +434,14 @@ export async function runCommand(
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 
-					stripWpConfigDbConstants( sitePath );
+					if ( databaseEngine === DATABASE_ENGINE_SQLITE ) {
+						stripWpConfigDbConstants( sitePath );
+					}
 				} catch ( error ) {
 					await removeSiteFromConfig( siteDetails.id );
+					if ( mysqlConfig ) {
+						await fs.promises.rm( mysqlConfig.dataDir, { recursive: true, force: true } );
+					}
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
 					}
@@ -553,6 +582,12 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					choices: [ SITE_FILE_ACCESS_SITE_DIRECTORY, SITE_FILE_ACCESS_ALL_FILES ] as const,
 					default: SITE_FILE_ACCESS_SITE_DIRECTORY,
 				} )
+				.option( 'database-engine', {
+					type: 'string',
+					describe: __( 'Database engine for the site' ),
+					choices: [ DATABASE_ENGINE_SQLITE, DATABASE_ENGINE_MYSQL ] as const,
+					default: DATABASE_ENGINE_SQLITE,
+				} )
 				.option( 'domain', {
 					type: 'string',
 					describe: __( 'Custom domain (e.g., "mysite.local")' ),
@@ -612,6 +647,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminEmail = argv.adminEmail;
 			const runtime = siteRuntimeFromMode( argv.runtime );
 			const fileAccess = argv.fileAccess;
+			const databaseEngine = argv.databaseEngine as DatabaseEngine;
 			if ( ! isFileAccessAllowedForRuntime( runtime, fileAccess ) ) {
 				logger.reportError(
 					new LoggerError(
@@ -789,6 +825,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				phpVersion: phpVersion ?? RecommendedPHPVersion,
 				runtime,
 				fileAccess,
+				databaseEngine,
 				customDomain,
 				enableHttps,
 				adminUsername,

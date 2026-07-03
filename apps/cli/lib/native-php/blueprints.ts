@@ -5,13 +5,33 @@ import {
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { getBlueprintsPharPath, getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
+import {
+	getMysqlConfigFromServerConfig,
+	getMysqlWpConfigConstants,
+} from 'cli/lib/mysql/mysql-site';
 import { runPhpCommand } from './php-process';
+import type { MysqlSiteConfig } from '@studio/common/lib/database-engine';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 function isWriteAccessError( error: unknown ): boolean {
 	const code = ( error as NodeJS.ErrnoException )?.code;
 	return code === 'EACCES' || code === 'EPERM' || code === 'EROFS';
+}
+
+function getBlueprintDatabaseArgs( mysqlConfig: MysqlSiteConfig | undefined ): string[] {
+	if ( ! mysqlConfig ) {
+		return [ '--db-engine=sqlite' ];
+	}
+
+	const constants = getMysqlWpConfigConstants( mysqlConfig );
+	return [
+		'--db-engine=mysql',
+		`--db-host=${ constants.DB_HOST }`,
+		`--db-user=${ constants.DB_USER }`,
+		`--db-pass=${ constants.DB_PASSWORD }`,
+		`--db-name=${ constants.DB_NAME }`,
+	];
 }
 
 export async function runBlueprint(
@@ -29,9 +49,14 @@ export async function runBlueprint(
 
 	const enableDebugLog = config.enableDebugLog ?? false;
 	const enableDebugDisplay = config.enableDebugDisplay ?? false;
+	const mysqlConfig = getMysqlConfigFromServerConfig( config );
 	const defaultConstants: Record< string, boolean | string > = {
-		// The SQLite driver requires a non-empty DB_NAME at runtime.
-		DB_NAME: 'wordpress',
+		...( mysqlConfig
+			? getMysqlWpConfigConstants( mysqlConfig )
+			: {
+					// The SQLite driver requires a non-empty DB_NAME at runtime.
+					DB_NAME: 'wordpress',
+			  } ),
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
@@ -82,7 +107,8 @@ export async function runBlueprint(
 		'plugins',
 		'sqlite-database-integration'
 	);
-	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
+	const needsSymlink =
+		! mysqlConfig && fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
 	let symlinkIno: number | undefined;
 	if ( needsSymlink ) {
 		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
@@ -99,7 +125,7 @@ export async function runBlueprint(
 				'--mode=apply-to-existing-site',
 				`--site-path=${ config.sitePath }`,
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
-				'--db-engine=sqlite',
+				...getBlueprintDatabaseArgs( mysqlConfig ),
 			],
 			{
 				phpVersion,

@@ -26,6 +26,8 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials, toUrlSearchParams } from './lib/admin-credentials';
 import { getPhpMyAdminPath } from './lib/dependency-management/paths';
+import { ensureMysqlServerRunning, type ManagedMysqlServer } from './lib/mysql/mysql-process';
+import { getMysqlConfigFromServerConfig, prepareMysqlSite } from './lib/mysql/mysql-site';
 import { runBlueprint } from './lib/native-php/blueprints';
 import {
 	killAllLivePhpProcesses,
@@ -97,9 +99,11 @@ let phpWorkerProcesses: ChildProcess[] = [];
 let phpProxyServer: http.Server | null = null;
 let phpWorkerPorts: number[] = [];
 let phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+let mysqlServer: ManagedMysqlServer | null = null;
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
+let wpCronHeartbeatTimer: NodeJS.Timeout | null = null;
 
 // Symlink-aware open_basedir state. PHP's open_basedir cannot be extended at
 // runtime, so when a new symlink appears under the site directory we have to
@@ -111,7 +115,30 @@ let runningConfig: ServerConfig | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
-const NATIVE_PHP_WORKER_POOL_SIZE = 4;
+
+// Interval for the WP-Cron heartbeat loopback. A production WordPress host has a
+// system cron (or real web traffic) firing wp-cron.php on a schedule, which is
+// how Action Scheduler drains its queue. This runtime is a bare `php -S` worker
+// pool with no cron ticker, so without an external heartbeat the AS queue only
+// advances when a user request happens to arrive — asynchronous workloads (agent
+// fanout branches, scheduled jobs) can otherwise strand PENDING indefinitely.
+// 60s matches Action Scheduler's own `every_minute` WP-Cron schedule.
+const WP_CRON_HEARTBEAT_INTERVAL_MS = 60_000;
+// The heartbeat request is fire-and-forget; give up quickly if the worker is
+// busy so the heartbeat never piles up or blocks. A slow tick is a no-op — the
+// next one fires 60s later regardless.
+const WP_CRON_HEARTBEAT_TIMEOUT_MS = 5_000;
+// Number of native-PHP worker processes fronted by the request-balancing proxy.
+// This is the concurrency ceiling for a native-PHP site — more workers serve
+// more simultaneous requests. Defaults to 4; override with
+// STUDIO_PHP_WORKER_POOL_SIZE (e.g. to exercise concurrency on a larger machine
+// or dial it down to save memory). "PHP" not "NATIVE_PHP" in the name: this is
+// Studio's native-PHP runtime, unrelated to any product named Studio Native.
+const NATIVE_PHP_WORKER_POOL_SIZE = ( () => {
+	const raw = process.env.STUDIO_PHP_WORKER_POOL_SIZE;
+	const parsed = raw ? parseInt( raw, 10 ) : NaN;
+	return Number.isFinite( parsed ) && parsed > 0 ? parsed : 4;
+} )();
 
 // "Site directory" file access applies the open_basedir jail and
 // disable_functions list; "all files" runs PHP unrestricted.
@@ -120,11 +147,15 @@ function isFileAccessRestricted( config: ServerConfig ): boolean {
 }
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
-	console.log( `[PHP Server]`, ...args );
+	const message = `[PHP Server] ${ args.map( String ).join( ' ' ) }`;
+	console.log( message );
+	process.send?.( { topic: 'console-message', message } );
 }
 
 function errorToConsole( ...args: Parameters< typeof console.error > ) {
-	console.error( `[PHP Server]`, ...args );
+	const message = `[PHP Server] ${ args.map( String ).join( ' ' ) }`;
+	console.error( message );
+	process.send?.( { topic: 'console-message', message } );
 }
 
 function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
@@ -219,6 +250,77 @@ async function getAdminCredentialsErrorMessage( response: Response ): Promise< s
 		return result.error ?? text;
 	} catch {
 		return text || response.statusText;
+	}
+}
+
+// The site's canonical host, used as the `Host` header for the self-loopback so
+// WordPress doesn't issue a canonical redirect (which would bounce an internal
+// HTTP hit to the public HTTPS URL). Mirrors how `absoluteUrl` is derived
+// elsewhere; falls back to the plain localhost host for non-custom-domain sites.
+function getCanonicalHostHeader( config: ServerConfig ): string {
+	if ( config.absoluteUrl ) {
+		try {
+			return new URL( config.absoluteUrl ).host;
+		} catch {
+			// Fall through to the localhost default.
+		}
+	}
+	return `localhost:${ config.port }`;
+}
+
+// Fires wp-cron.php as a self-loopback so Action Scheduler's queue drains on a
+// fixed schedule regardless of incoming traffic. `?doing_wp_cron` is the same
+// query WordPress uses for its own spawned cron. The request goes straight to
+// the internal worker-pool proxy over plain HTTP (like setAdminCredentials) —
+// never the public HTTPS front door — so it avoids the site's self-signed
+// `.local` cert entirely, while the canonical `Host` header keeps WordPress from
+// redirecting it. Best-effort and fire-and-forget: a failed or slow tick is a
+// no-op and the next tick still fires. Uses the raw `http` module rather than
+// `fetch` so the connection can be abandoned without an unhandled rejection.
+function triggerWpCronHeartbeat( config: ServerConfig ): void {
+	const request = http.request(
+		{
+			hostname: 'localhost',
+			port: config.port,
+			path: '/wp-cron.php?doing_wp_cron',
+			method: 'GET',
+			headers: { host: getCanonicalHostHeader( config ) },
+			timeout: WP_CRON_HEARTBEAT_TIMEOUT_MS,
+		},
+		( res ) => {
+			// Drain and discard: we only need WordPress to have started the cron run.
+			res.resume();
+		}
+	);
+	request.on( 'timeout', () => request.destroy() );
+	request.on( 'error', () => {
+		// Expected for a busy worker or a mid-restart window; the next tick recovers.
+	} );
+	request.end();
+}
+
+// Starts the periodic WP-Cron heartbeat. Idempotent: a running timer is left in
+// place. The interval is unref'd so it never keeps the process alive on its own.
+function startWpCronHeartbeat( config: ServerConfig ): void {
+	if ( wpCronHeartbeatTimer ) {
+		return;
+	}
+	logToConsole(
+		`Starting WP-Cron heartbeat every ${
+			WP_CRON_HEARTBEAT_INTERVAL_MS / 1000
+		}s to drain the Action Scheduler queue`
+	);
+	wpCronHeartbeatTimer = setInterval(
+		() => triggerWpCronHeartbeat( config ),
+		WP_CRON_HEARTBEAT_INTERVAL_MS
+	);
+	wpCronHeartbeatTimer.unref?.();
+}
+
+function stopWpCronHeartbeat(): void {
+	if ( wpCronHeartbeatTimer ) {
+		clearInterval( wpCronHeartbeatTimer );
+		wpCronHeartbeatTimer = null;
 	}
 }
 
@@ -361,6 +463,33 @@ async function stopCurrentPhpServer(): Promise< void > {
 	);
 }
 
+/**
+ * The site's own host + local port for the loopback DNS fast-path mu-plugin.
+ *
+ * Only returns a host when the site is served from a custom domain (a `.local`
+ * name carried in `absoluteUrl`). A plain `localhost` site has no domain to
+ * resolve and no mDNS penalty, so it needs no pin. The port is the site's public
+ * HTTP port — the one the loopback ultimately reaches.
+ */
+function getLoopbackResolveTarget( config: ServerConfig ): {
+	siteHost?: string;
+	sitePort?: number;
+} {
+	if ( ! config.absoluteUrl ) {
+		return {};
+	}
+	let host: string;
+	try {
+		host = new URL( config.absoluteUrl ).hostname;
+	} catch {
+		return {};
+	}
+	if ( ! host || host === 'localhost' || host === '127.0.0.1' || host === '::1' ) {
+		return {};
+	}
+	return { siteHost: host, sitePort: config.port };
+}
+
 function proxyRequestToPhpWorker(
 	config: ServerConfig,
 	req: http.IncomingMessage,
@@ -389,7 +518,14 @@ function proxyRequestToPhpWorker(
 		released = true;
 		phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) - 1 );
 	};
-	res.once( 'close', release );
+	// Release the worker's busy count when the UPSTREAM request to the PHP worker
+	// finishes — not when the client connection closes. A fire-and-forget loopback
+	// (WordPress dispatches Action Scheduler's async queue runner with
+	// blocking=false and a ~0.01s timeout, so the client disconnects almost
+	// immediately by design) must still count the worker as busy for the full
+	// duration of the work it kicked off, or the pool would treat a worker that is
+	// mid-generation as idle. `proxyReq`'s `close` fires once the upstream exchange
+	// is fully done, which is the real end of the worker's work.
 
 	const headers = { ...req.headers };
 	headers.host = req.headers.host ?? `localhost:${ config.port }`;
@@ -405,20 +541,54 @@ function proxyRequestToPhpWorker(
 			headers,
 		},
 		( proxyRes ) => {
-			res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
-			proxyRes.pipe( res );
+			// The client may already be gone (fire-and-forget). Only write back if
+			// it is still connected; the upstream still runs to completion either way.
+			if ( ! res.writableEnded && ! res.destroyed ) {
+				res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
+				proxyRes.pipe( res );
+			} else {
+				// Client is gone: drain the worker's response so the upstream request
+				// completes cleanly instead of stalling on backpressure.
+				proxyRes.resume();
+			}
 		}
 	);
 
+	proxyReq.once( 'close', release );
+
 	proxyReq.on( 'error', ( error ) => {
 		release();
-		if ( ! res.headersSent ) {
+		if ( ! res.headersSent && ! res.writableEnded && ! res.destroyed ) {
 			res.writeHead( 502 );
+			res.end( `PHP worker proxy error: ${ error.message }` );
 		}
-		res.end( `PHP worker proxy error: ${ error.message }` );
 	} );
 
-	req.pipe( proxyReq );
+	// Decouple the upstream worker request from the client connection. WordPress's
+	// async fanout depends on fire-and-forget loopback requests: the client
+	// disconnects the instant the request is sent and the PHP worker is meant to
+	// keep running (claim + execute an Action Scheduler branch). A plain
+	// `req.pipe( proxyReq )` would propagate the client's early close/abort to the
+	// upstream and destroy that worker request mid-flight, so the branch never runs.
+	// Forward the body manually so a client abort does NOT tear down the upstream:
+	// the worker request runs to completion on its own.
+	req.on( 'data', ( chunk ) => {
+		if ( ! proxyReq.writableEnded ) {
+			proxyReq.write( chunk );
+		}
+	} );
+	req.on( 'end', () => {
+		if ( ! proxyReq.writableEnded ) {
+			proxyReq.end();
+		}
+	} );
+	req.on( 'error', () => {
+		// Client aborted (expected for fire-and-forget). Finish sending the request
+		// to the worker so the upstream can run to completion; do NOT destroy it.
+		if ( ! proxyReq.writableEnded ) {
+			proxyReq.end();
+		}
+	} );
 }
 
 async function startPhpProxyServer(
@@ -450,6 +620,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	}
 
 	const phpVersion = resolveNativePhpVersion( config.phpVersion ?? '' );
+	const mysqlConfig = getMysqlConfigFromServerConfig( config );
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
@@ -464,6 +635,13 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	try {
 		stopSignal.throwIfAborted();
 
+		if ( mysqlConfig ) {
+			mysqlServer = await ensureMysqlServerRunning( mysqlConfig, logToConsole, stopSignal );
+			stopSignal.throwIfAborted();
+			await prepareMysqlSite( mysqlConfig, config.sitePath );
+			stopSignal.throwIfAborted();
+		}
+
 		if ( ! isImportedSite ) {
 			await ensureWpConfig(
 				config.sitePath,
@@ -477,7 +655,8 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		const muPluginsPath = await writeStudioMuPluginsForNativePhpRuntime(
 			config.sitePath,
-			config.isWpAutoUpdating
+			config.isWpAutoUpdating,
+			getLoopbackResolveTarget( config )
 		);
 		stopSignal.throwIfAborted();
 
@@ -526,9 +705,18 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 		await setAdminCredentials( config, stopSignal );
 		stopSignal.throwIfAborted();
+
+		// Drive Action Scheduler's queue on a schedule. This runtime has no system
+		// cron, so async workloads would otherwise only advance on incoming traffic.
+		startWpCronHeartbeat( config );
 	} catch ( error ) {
+		stopWpCronHeartbeat();
 		killPhpProcess();
 		phpProcess = null;
+		if ( mysqlServer ) {
+			await mysqlServer.stop().catch( () => undefined );
+			mysqlServer = null;
+		}
 		await stopSymlinkWatcher();
 		runningConfig = null;
 		currentOpenBasedirAllowlist.clear();
@@ -671,12 +859,13 @@ async function stopServer(): Promise< StopServerResult > {
 		return StopServerResult.ABORTED_STARTUP;
 	}
 
+	stopWpCronHeartbeat();
 	await stopSymlinkWatcher();
 	runningConfig = null;
 	currentOpenBasedirAllowlist.clear();
 
 	const children = getCurrentPhpProcesses();
-	if ( children.length === 0 && ! phpProxyServer ) {
+	if ( children.length === 0 && ! phpProxyServer && ! mysqlServer ) {
 		logToConsole( 'No server running, nothing to stop' );
 		return StopServerResult.OK;
 	}
@@ -684,13 +873,18 @@ async function stopServer(): Promise< StopServerResult > {
 	if (
 		children.length > 0 &&
 		children.every( ( child ) => child.exitCode !== null || child.signalCode !== null ) &&
-		! phpProxyServer
+		! phpProxyServer &&
+		! mysqlServer
 	) {
 		logToConsole( 'Server already stopped' );
 		return StopServerResult.OK;
 	}
 
 	await stopCurrentPhpServer();
+	if ( mysqlServer ) {
+		await mysqlServer.stop();
+		mysqlServer = null;
+	}
 
 	logToConsole( 'Server stopped gracefully' );
 	return StopServerResult.OK;
@@ -758,37 +952,59 @@ async function ipcMessageHandler( packet: unknown ) {
 			case 'run-blueprint': {
 				const blueprintConfig = validMessage.data.config;
 				const blueprintPhpVersion = resolveNativePhpVersion( blueprintConfig.phpVersion ?? '' );
-				await ensureWpConfig(
-					blueprintConfig.sitePath,
-					blueprintPhpVersion,
-					abortController.signal,
-					WP_CONFIG_TRANSFORMER_PATH,
-					blueprintConfig
-				);
-				await writeStudioMuPluginsForNativePhpRuntime(
-					blueprintConfig.sitePath,
-					blueprintConfig.isWpAutoUpdating
-				);
-				await installWordPress(
-					blueprintConfig,
-					blueprintPhpVersion,
-					abortController.signal,
-					SET_DEFAULT_PERMALINKS_PATH,
-					logToConsole
-				);
-				if ( ! blueprintConfig.blueprint ) {
-					throw new Error( 'Blueprint is required' );
-				}
-				const blueprint = blueprintConfig.blueprint;
-				// Sequential queue: each message waits for the previous to settle before
-				// running its own blueprint. Distinct configs are not coalesced.
-				const next = blueprintQueue
-					.catch( () => {} )
-					.then( () =>
-						runBlueprint( blueprintConfig, blueprint, blueprintPhpVersion, abortController.signal )
+				const blueprintMysqlConfig = getMysqlConfigFromServerConfig( blueprintConfig );
+				if ( blueprintMysqlConfig ) {
+					mysqlServer = await ensureMysqlServerRunning(
+						blueprintMysqlConfig,
+						logToConsole,
+						abortController.signal
 					);
-				blueprintQueue = next;
-				result = await next;
+					await prepareMysqlSite( blueprintMysqlConfig, blueprintConfig.sitePath );
+				}
+				try {
+					await ensureWpConfig(
+						blueprintConfig.sitePath,
+						blueprintPhpVersion,
+						abortController.signal,
+						WP_CONFIG_TRANSFORMER_PATH,
+						blueprintConfig
+					);
+					await writeStudioMuPluginsForNativePhpRuntime(
+						blueprintConfig.sitePath,
+						blueprintConfig.isWpAutoUpdating,
+						getLoopbackResolveTarget( blueprintConfig )
+					);
+					await installWordPress(
+						blueprintConfig,
+						blueprintPhpVersion,
+						abortController.signal,
+						SET_DEFAULT_PERMALINKS_PATH,
+						logToConsole
+					);
+					if ( ! blueprintConfig.blueprint ) {
+						throw new Error( 'Blueprint is required' );
+					}
+					const blueprint = blueprintConfig.blueprint;
+					// Sequential queue: each message waits for the previous to settle before
+					// running its own blueprint. Distinct configs are not coalesced.
+					const next = blueprintQueue
+						.catch( () => {} )
+						.then( () =>
+							runBlueprint(
+								blueprintConfig,
+								blueprint,
+								blueprintPhpVersion,
+								abortController.signal
+							)
+						);
+					blueprintQueue = next;
+					result = await next;
+				} finally {
+					if ( blueprintMysqlConfig && mysqlServer ) {
+						await mysqlServer.stop().catch( () => undefined );
+						mysqlServer = null;
+					}
+				}
 				break;
 			}
 			case 'wp-cli-command':
@@ -815,6 +1031,7 @@ async function ipcMessageHandler( packet: unknown ) {
 		errorToConsole( `Error handling message ${ validMessage.topic }:`, error );
 		await sendErrorMessage( validMessage.messageId, error );
 		errorToConsole( 'Killing process because of', error );
+		await stopMysqlServerBestEffort();
 		process.exit( 1 );
 	} finally {
 		delete abortControllers[ validMessage.messageId ];
@@ -822,6 +1039,7 @@ async function ipcMessageHandler( packet: unknown ) {
 }
 
 function killPhpProcess(): void {
+	stopWpCronHeartbeat();
 	try {
 		phpProxyServer?.close();
 	} catch {
@@ -840,12 +1058,21 @@ function killPhpProcess(): void {
 	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
 }
 
+async function stopMysqlServerBestEffort(): Promise< void > {
+	if ( ! mysqlServer ) {
+		return;
+	}
+	const server = mysqlServer;
+	mysqlServer = null;
+	await server.stop().catch( () => undefined );
+}
+
 function shutdownOnSignal( signal: NodeJS.Signals ): void {
 	logToConsole( `Received ${ signal }, shutting down` );
 	killPhpProcess();
 	// Follow the Unix convention of `128 + signum` so the exit code reflects the signal.
 	const signum = os.constants.signals[ signal ] ?? 0;
-	process.exit( 128 + signum );
+	void stopMysqlServerBestEffort().finally( () => process.exit( 128 + signum ) );
 }
 
 // If this node process is going down (normal exit or IPC disconnect), make sure PHP goes with it.
@@ -855,7 +1082,7 @@ process.on( 'disconnect', () => {
 	killPhpProcess();
 	// Without an explicit exit, the wrapper would linger until the event loop drains,
 	// which delays the daemon's stop sequence and risks the force-kill timer firing.
-	process.exit( 0 );
+	void stopMysqlServerBestEffort().finally( () => process.exit( 0 ) );
 } );
 
 // Without explicit signal handlers, the process is terminated abruptly and the 'exit' event

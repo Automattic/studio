@@ -51,6 +51,7 @@ import {
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { type DatabaseEngine } from '@studio/common/lib/database-engine';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import {
 	calculateDirectorySizeForArchive,
@@ -726,6 +727,7 @@ export async function createSite(
 		adminPassword?: string;
 		adminEmail?: string;
 		noStart?: boolean;
+		databaseEngine?: DatabaseEngine;
 	} = {}
 ): Promise< SiteDetails > {
 	const {
@@ -742,6 +744,7 @@ export async function createSite(
 		adminPassword,
 		adminEmail,
 		noStart = false,
+		databaseEngine,
 	} = config;
 
 	const siteId = providedSiteId || crypto.randomUUID();
@@ -777,6 +780,7 @@ export async function createSite(
 				adminPassword,
 				adminEmail,
 				noStart,
+				databaseEngine,
 			},
 			{ wpVersion, blueprint: blueprint?.blueprint }
 		);
@@ -801,6 +805,7 @@ export async function createSite(
 				phpVersion,
 				hasCustomDomain: !! customDomain,
 				httpsEnabled: !! enableHttps,
+				databaseEngine,
 			},
 		};
 

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { type DatabaseEngine } from '@studio/common/lib/database-engine';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
 import { siteModeFromRuntime, type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -26,6 +27,7 @@ export interface SiteCreateOptions {
 	adminPassword?: string;
 	adminEmail?: string;
 	noStart?: boolean;
+	databaseEngine?: DatabaseEngine;
 }
 
 /**
@@ -76,6 +78,9 @@ export function buildSiteCreateArgs( options: SiteCreateOptions ): {
 	}
 	if ( options.noStart ) {
 		args.push( '--no-start' );
+	}
+	if ( options.databaseEngine ) {
+		args.push( '--database-engine', options.databaseEngine );
 	}
 
 	let blueprintTempPath: string | undefined;

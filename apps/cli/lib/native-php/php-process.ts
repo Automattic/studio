@@ -168,17 +168,13 @@ export async function runPhpCommand(
 		let stdout = '';
 		phpScriptProcess.stdout?.on( 'data', ( chunk ) => {
 			reportActivity();
-			if ( options.mode === 'capture' ) {
-				stdout += chunk.toString();
-			}
+			stdout += chunk.toString();
 		} );
 
 		let stderr = '';
 		phpScriptProcess.stderr?.on( 'data', ( chunk ) => {
 			reportActivity();
-			if ( options.mode === 'capture' ) {
-				stderr += chunk.toString();
-			}
+			stderr += chunk.toString();
 		} );
 
 		phpScriptProcess.once( 'error', ( error: Error ) => {
@@ -190,7 +186,10 @@ export async function runPhpCommand(
 				return;
 			}
 
-			reject( new Error( `PHP command failed (code: ${ code })` ) );
+			const output = [ stderr.trim(), stdout.trim() ].filter( Boolean ).join( '\n' );
+			reject(
+				new Error( `PHP command failed (code: ${ code })${ output ? `:\n${ output }` : '' }` )
+			);
 		} );
 	} );
 }

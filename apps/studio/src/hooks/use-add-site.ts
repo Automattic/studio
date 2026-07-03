@@ -27,7 +27,9 @@ export interface CreateSiteFormValues {
 	siteName: string;
 	sitePath: string;
 	phpVersion: SupportedPHPVersion;
-	wpVersion: string;
+	// Omitted for wp-env projects: the project file defines the WordPress
+	// version and the CLI refuses a conflicting --wp.
+	wpVersion?: string;
 	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
 	useCustomDomain: boolean;
@@ -46,6 +48,8 @@ export interface PathValidationResult {
 	name?: string;
 	isEmpty: boolean;
 	isWordPress: boolean;
+	/** Present when the folder holds a .wp-env.json project. */
+	wpEnv?: { wpVersion: string; phpVersion?: string };
 	error?: string;
 }
 
@@ -147,7 +151,7 @@ export function useAddSite() {
 				return null;
 			}
 
-			const { path, name, isEmpty, isWordPress } = response;
+			const { path, name, isEmpty, isWordPress, wpEnv } = response;
 
 			if ( await checkPathExists( path ) ) {
 				return {
@@ -155,13 +159,14 @@ export function useAddSite() {
 					name: name ?? undefined,
 					isEmpty,
 					isWordPress,
+					wpEnv,
 					error: __(
 						'The directory is already associated with another Studio site. Please choose a different custom local path.'
 					),
 				};
 			}
 
-			if ( ! isEmpty && ! isWordPress ) {
+			if ( ! isEmpty && ! isWordPress && ! wpEnv ) {
 				return {
 					path,
 					name: name ?? undefined,
@@ -178,6 +183,7 @@ export function useAddSite() {
 				name: name ?? undefined,
 				isEmpty,
 				isWordPress,
+				wpEnv,
 			};
 		},
 		[ __, checkPathExists ]
@@ -188,7 +194,7 @@ export function useAddSite() {
 	 */
 	const generateProposedPath = useCallback(
 		async ( siteName: string ): Promise< PathValidationResult > => {
-			const { path, isEmpty, isWordPress, isNameTooLong } =
+			const { path, isEmpty, isWordPress, isNameTooLong, wpEnv } =
 				await getIpcApi().generateProposedSitePath( siteName );
 
 			if ( isNameTooLong ) {
@@ -205,13 +211,14 @@ export function useAddSite() {
 					path,
 					isEmpty,
 					isWordPress,
+					wpEnv,
 					error: __(
 						'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
 					),
 				};
 			}
 
-			if ( ! isEmpty && ! isWordPress ) {
+			if ( ! isEmpty && ! isWordPress && ! wpEnv ) {
 				return {
 					path,
 					isEmpty,
@@ -222,7 +229,7 @@ export function useAddSite() {
 				};
 			}
 
-			return { path, isEmpty, isWordPress };
+			return { path, isEmpty, isWordPress, wpEnv };
 		},
 		[ __, checkPathExists ]
 	);

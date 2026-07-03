@@ -52,6 +52,12 @@ export async function runCommand(
 	const site = await getSiteByFolder( siteFolder );
 	logger.reportSuccess( __( 'Site loaded' ) );
 
+	// The site path is the project folder, not a WordPress install, and the
+	// install may contain symlinks into the project.
+	if ( site.projectType === 'wp-env' ) {
+		throw new LoggerError( __( 'Push is not supported yet for wp-env project sites.' ) );
+	}
+
 	logger.reportStart(
 		LoggerAction.INSTALL_SQLITE,
 		__( 'Setting up SQLite integration, if needed…' )

@@ -292,17 +292,13 @@ export function createIpcConnector(): Connector {
 		},
 
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
-			const response = ( await ipcApi.generateProposedSitePath( siteName ) ) as {
-				path: string;
-				isEmpty: boolean;
-				isWordPress: boolean;
-				isNameTooLong?: boolean;
-			};
+			const response = ( await ipcApi.generateProposedSitePath( siteName ) ) as ProposedSitePath;
 			return {
 				path: response.path,
 				isEmpty: response.isEmpty,
 				isWordPress: response.isWordPress,
 				isNameTooLong: response.isNameTooLong,
+				wpEnv: response.wpEnv,
 			};
 		},
 

@@ -34,9 +34,29 @@ export const siteDetailsSchema = z.object( {
 	technicalSiteDirectory: z.string().optional(),
 	runtimeBlueprintPath: z.string().optional(),
 	landingPage: z.string().optional(),
+	// Present when the site is backed by a project folder rather than a full
+	// WordPress install. For 'wp-env' sites, `path` is the user's project
+	// folder (holding .wp-env.json) and `technicalSiteDirectory` is the
+	// Studio-managed WordPress root the server actually runs from.
+	projectType: z.enum( [ 'wp-env' ] ).optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;
+
+/**
+ * The WordPress root a site's server runs from. For project-backed sites
+ * (e.g. wp-env) that's the Studio-managed technical directory; for regular
+ * sites it's the site path itself.
+ */
+export function getSiteWpRoot(
+	site: Pick< SiteDetails, 'path' > &
+		Partial< Pick< SiteDetails, 'technicalSiteDirectory' | 'projectType' > >
+): string {
+	if ( site.projectType === 'wp-env' && site.technicalSiteDirectory ) {
+		return site.technicalSiteDirectory;
+	}
+	return site.path;
+}
 
 export const siteListItemSchema = siteDetailsSchema.extend( {
 	running: z.boolean(),

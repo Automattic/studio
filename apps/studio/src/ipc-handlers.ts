@@ -89,6 +89,7 @@ import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { detectWpEnvFolder, type WpEnvFolderInfo } from '@studio/common/lib/wp-env/config';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
 	extractBlueprintBundle as extractBlueprintBundleShared,
@@ -1001,12 +1002,15 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		void loadSiteIcon( event, id );
 	}
 
-	// Keep managed instruction files (STUDIO.md) up-to-date
-	void updateManagedInstructionFiles( server.details, getAiInstructionsPath() ).catch(
-		( error ) => {
-			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
-		}
-	);
+	// Keep managed instruction files (STUDIO.md) up-to-date.
+	// Skipped for wp-env sites: the site path is the user's project folder.
+	if ( server.details.projectType !== 'wp-env' ) {
+		void updateManagedInstructionFiles( server.details, getAiInstructionsPath() ).catch(
+			( error ) => {
+				console.error( '[ai-instructions] Failed to update managed instruction files:', error );
+			}
+		);
+	}
 
 	console.log( `Server started for '${ server.details.name }'` );
 }
@@ -1033,6 +1037,9 @@ export interface FolderDialogResponse {
 	isEmpty: boolean;
 	isWordPress: boolean;
 	isNameTooLong?: boolean;
+	// Present when the folder holds a .wp-env.json project; the create forms
+	// use it to lock the WordPress version and default the PHP version.
+	wpEnv?: WpEnvFolderInfo;
 }
 
 export async function showSaveAsDialog( event: IpcMainInvokeEvent, options: SaveDialogOptions ) {
@@ -1079,6 +1086,7 @@ export async function showOpenFolderDialog(
 			name: nodePath.basename( process.env.E2E_OPEN_FOLDER_DIALOG ),
 			isEmpty: await isEmptyDir( process.env.E2E_OPEN_FOLDER_DIALOG ),
 			isWordPress: isWordPressDirectory( process.env.E2E_OPEN_FOLDER_DIALOG ),
+			wpEnv: detectWpEnvFolder( process.env.E2E_OPEN_FOLDER_DIALOG ),
 		};
 	}
 
@@ -1101,6 +1109,7 @@ export async function showOpenFolderDialog(
 		name: nodePath.basename( filePaths[ 0 ] ),
 		isEmpty: await isEmptyDir( filePaths[ 0 ] ),
 		isWordPress: isWordPressDirectory( filePaths[ 0 ] ),
+		wpEnv: detectWpEnvFolder( filePaths[ 0 ] ),
 	};
 }
 
@@ -1129,6 +1138,10 @@ export async function copySite(
 		throw new Error( 'Source site not found.' );
 	}
 	const sourceSite = sourceServer.details;
+	// Copying would duplicate the project folder, not the WordPress install.
+	if ( sourceSite.projectType === 'wp-env' ) {
+		throw new Error( 'Copying wp-env project sites is not supported yet.' );
+	}
 
 	const defaultSiteDirectory = await getDefaultSiteDirectory();
 	const finalSitePath = nodePath.join( defaultSiteDirectory, sanitizeFolderName( siteName ) );
@@ -1306,6 +1319,7 @@ export async function generateProposedSitePath(
 			name: siteName,
 			isEmpty: await isEmptyDir( path ),
 			isWordPress: isWordPressDirectory( path ),
+			wpEnv: detectWpEnvFolder( path ),
 		};
 	} catch ( err ) {
 		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {

@@ -48,6 +48,7 @@ import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { createJsonResponse, fetchSiteRest } from '@studio/common/lib/wordpress-rest';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { detectWpEnvFolder } from '@studio/common/lib/wp-env/config';
 import {
 	cleanupBlueprintTempDir,
 	extractBlueprintBundle,
@@ -497,6 +498,28 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				} else {
 					throw err;
 				}
+			}
+		} )
+	);
+
+	// Folder details for a typed path (the browser has no native folder
+	// picker), so the create form can adapt to wp-env projects.
+	api.post(
+		'/paths/inspect',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { path: folderPath } = req.body as { path?: string };
+			if ( ! folderPath ) {
+				res.json( { isEmpty: true, isWordPress: false } );
+				return;
+			}
+			try {
+				res.json( {
+					isEmpty: await isEmptyDir( folderPath ),
+					isWordPress: isWordPressDirectory( folderPath ),
+					wpEnv: detectWpEnvFolder( folderPath ),
+				} );
+			} catch {
+				res.json( { isEmpty: true, isWordPress: false } );
 			}
 		} )
 	);

@@ -12,6 +12,7 @@ import {
 } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { getSiteWpRoot } from '@studio/common/lib/cli-events';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import {
 	cleanupLegacyMuPlugins,
@@ -183,9 +184,10 @@ async function runNativeWpCliCommand(
 	args: string[],
 	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse | DisposableExitCode > {
+	const wpRoot = getSiteWpRoot( site );
 	const phpVersion = resolveNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
-	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	await writeStudioMuPluginsForNativePhpRuntime( wpRoot, site.isWpAutoUpdating );
 
 	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
 	// so load it here too. No-op for normal sites (helper returns undefined).
@@ -197,9 +199,9 @@ async function runNativeWpCliCommand(
 	const nativeArgs = applyWpCliCommandOptions( 'native', args, options );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),
-		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
+		[ ...defaultArgs, getWpCliPharPath(), `--path=${ wpRoot }`, ...nativeArgs ],
 		{
-			cwd: site.path,
+			cwd: wpRoot,
 			stdio: options.stdio === 'inherit' ? 'inherit' : [ 'ignore', 'pipe', 'pipe' ],
 			detached: DETACH_FOR_GROUP_KILL,
 		}
@@ -309,7 +311,7 @@ export async function runWpCliCommand(
 		php.defineConstant( 'DB_NAME', 'wordpress' );
 
 		php.mkdir( '/wordpress' );
-		await php.mount( '/wordpress', createNodeFsMountHandler( site.path ) );
+		await php.mount( '/wordpress', createNodeFsMountHandler( getSiteWpRoot( site ) ) );
 		php.chdir( '/wordpress' );
 
 		// Setup SSL certificates
@@ -322,7 +324,7 @@ export async function runWpCliCommand(
 
 		await php.setSpawnHandler( createNoopSpawnHandler() );
 
-		await cleanupLegacyMuPlugins( site.path );
+		await cleanupLegacyMuPlugins( getSiteWpRoot( site ) );
 
 		// Mount mu-plugins
 		const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {

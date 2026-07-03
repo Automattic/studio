@@ -206,9 +206,7 @@ export class E2ESession {
 				// DIAGNOSTIC (temporary, Windows only): route the daemon + its logs into the uploaded
 				// artifacts dir. Windows-only because the pipe-isolation fix hashes the home into a short
 				// pipe name; a Unix socket under this long path would exceed sun_path's ~108-char limit.
-				...( process.platform === 'win32'
-					? { STUDIO_PROCESS_MANAGER_HOME: this.daemonHome }
-					: {} ),
+				...( process.platform === 'win32' ? { STUDIO_PROCESS_MANAGER_HOME: this.daemonHome } : {} ),
 			},
 			timeout: 60_000,
 		} );
@@ -234,6 +232,46 @@ export class E2ESession {
 			body: Buffer.from( report, 'utf8' ),
 			contentType: 'text/plain',
 		} );
+
+		// DIAGNOSTIC (temporary, Windows only): dump the detached daemon's per-site error logs into the
+		// live Playwright job log. The daemon writes php.exe's [PHP-DIAG] exit code + stderr to files
+		// under daemonHome/logs; streaming them here lets us read the real native-PHP failure from the
+		// CI log even when the post-suite runner hang prevents the daemon-logs artifact from uploading.
+		if ( process.platform === 'win32' ) {
+			this.reportDaemonLogsOnFailure();
+		}
+	}
+
+	private reportDaemonLogsOnFailure() {
+		const logsDir = path.join( this.daemonHome, 'logs' );
+		let files: string[];
+		try {
+			files = fs.readdirSync( logsDir );
+		} catch {
+			console.error( `[DAEMON-DIAG] no daemon logs directory at ${ logsDir }` );
+			return;
+		}
+
+		const errorLogs = files.filter( ( file ) => /-error(?:-\d{8})?\.log$/.test( file ) );
+		if ( errorLogs.length === 0 ) {
+			console.error(
+				`[DAEMON-DIAG] no daemon error logs in ${ logsDir } (found: ${
+					files.join( ', ' ) || 'none'
+				})`
+			);
+			return;
+		}
+
+		for ( const file of errorLogs ) {
+			try {
+				const contents = fs.readFileSync( path.join( logsDir, file ), 'utf8' ).trim();
+				console.error(
+					`[DAEMON-DIAG] ${ file }:\n${ contents || '(empty)' }\n[DAEMON-DIAG] end ${ file }`
+				);
+			} catch ( err ) {
+				console.error( `[DAEMON-DIAG] could not read ${ file }: ${ ( err as Error ).message }` );
+			}
+		}
 	}
 
 	private startCapturingMainProcessLogs() {

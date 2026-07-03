@@ -54,6 +54,14 @@ export function getMysqlClientBinaryPath( version: string ): string {
 	return path.join( getMysqlInstallRoot( version ), 'bin', MYSQL_CLIENT_BINARY_FILENAME );
 }
 
+// Directory holding the bundled MySQL client binaries (mysql, mysqldump, …).
+// WP-CLI's `wp db` subcommands shell out to a bare `mysql`/`mysqldump` looked up
+// on PATH, so this dir must be prepended to PATH when running WP-CLI against a
+// MySQL-engine site — Studio bundles the client but never installs it globally.
+export function getMysqlClientBinaryDir( version: string ): string {
+	return path.join( getMysqlInstallRoot( version ), 'bin' );
+}
+
 export function getMysqlDataRoot(): string {
 	return path.join( getConfigDirectory(), 'mysql-data' );
 }

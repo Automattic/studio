@@ -84,6 +84,15 @@ export async function ensureMysqlServerRunning(
 			`--socket=${ path.join( runtimeDir, 'mysql.sock' ) }`,
 			`--pid-file=${ path.join( runtimeDir, 'mysql.pid' ) }`,
 			'--mysqlx=0',
+			// Pin the server clock to UTC. WordPress and Action Scheduler store all
+			// `*_date_gmt` / `*_gmt` columns as PHP-computed UTC (gmdate), so the
+			// database's own clock must be UTC too. Left at the default `SYSTEM`
+			// zone, `NOW()`/`CURRENT_TIMESTAMP` return the host's local time (e.g.
+			// EDT, UTC-4) while the stored values are UTC — a multi-hour disagreement
+			// that makes UTC timestamps look future-dated to any query comparing them
+			// against the DB clock and corrupts any WP/plugin logic mixing MySQL
+			// `NOW()` with a `_gmt` column.
+			'--default-time-zone=+00:00',
 		],
 		{
 			stdio: [ 'ignore', 'pipe', 'pipe' ],

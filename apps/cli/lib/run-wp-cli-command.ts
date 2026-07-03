@@ -28,6 +28,7 @@ import {
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
 import {
+	getMysqlClientBinaryDir,
 	getPhpBinaryPath,
 	getSqliteCommandPath,
 	getWpCliPharPath,
@@ -162,6 +163,25 @@ async function ensureChildSpawned( child: ChildProcess ): Promise< void > {
 	} );
 }
 
+// Builds the environment for a native WP-CLI child. For MySQL-engine sites the
+// bundled MySQL client's `bin/` dir is prepended to PATH: `wp db *` subcommands
+// (query/export/import/…) shell out to a bare `mysql`/`mysqldump` resolved via
+// PATH, and Studio ships that client without installing it globally, so without
+// this WP-CLI fails with `env: mysql: No such file or directory`. SQLite sites
+// need no MySQL client, so their env is left untouched.
+function buildWpCliChildEnv( site: SiteData ): NodeJS.ProcessEnv {
+	if ( ! isMysqlSite( site ) || ! site.mysql ) {
+		return process.env;
+	}
+
+	const mysqlClientDir = getMysqlClientBinaryDir( site.mysql.serverVersion );
+	const currentPath = process.env.PATH ?? '';
+	return {
+		...process.env,
+		PATH: currentPath ? `${ mysqlClientDir }${ path.delimiter }${ currentPath }` : mysqlClientDir,
+	};
+}
+
 type DisposableWpCliResponse = Disposable & {
 	response: WpCliResponse;
 };
@@ -212,6 +232,7 @@ async function runNativeWpCliCommand(
 		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
 		{
 			cwd: site.path,
+			env: buildWpCliChildEnv( site ),
 			stdio: options.stdio === 'inherit' ? 'inherit' : [ 'ignore', 'pipe', 'pipe' ],
 			detached: DETACH_FOR_GROUP_KILL,
 		}

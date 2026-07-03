@@ -103,6 +103,7 @@ let mysqlServer: ManagedMysqlServer | null = null;
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 let blueprintQueue: Promise< unknown > = Promise.resolve();
+let wpCronHeartbeatTimer: NodeJS.Timeout | null = null;
 
 // Symlink-aware open_basedir state. PHP's open_basedir cannot be extended at
 // runtime, so when a new symlink appears under the site directory we have to
@@ -114,6 +115,19 @@ let runningConfig: ServerConfig | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
+
+// Interval for the WP-Cron heartbeat loopback. A production WordPress host has a
+// system cron (or real web traffic) firing wp-cron.php on a schedule, which is
+// how Action Scheduler drains its queue. This runtime is a bare `php -S` worker
+// pool with no cron ticker, so without an external heartbeat the AS queue only
+// advances when a user request happens to arrive — asynchronous workloads (agent
+// fanout branches, scheduled jobs) can otherwise strand PENDING indefinitely.
+// 60s matches Action Scheduler's own `every_minute` WP-Cron schedule.
+const WP_CRON_HEARTBEAT_INTERVAL_MS = 60_000;
+// The heartbeat request is fire-and-forget; give up quickly if the worker is
+// busy so the heartbeat never piles up or blocks. A slow tick is a no-op — the
+// next one fires 60s later regardless.
+const WP_CRON_HEARTBEAT_TIMEOUT_MS = 5_000;
 // Number of native-PHP worker processes fronted by the request-balancing proxy.
 // This is the concurrency ceiling for a native-PHP site — more workers serve
 // more simultaneous requests. Defaults to 4; override with
@@ -236,6 +250,77 @@ async function getAdminCredentialsErrorMessage( response: Response ): Promise< s
 		return result.error ?? text;
 	} catch {
 		return text || response.statusText;
+	}
+}
+
+// The site's canonical host, used as the `Host` header for the self-loopback so
+// WordPress doesn't issue a canonical redirect (which would bounce an internal
+// HTTP hit to the public HTTPS URL). Mirrors how `absoluteUrl` is derived
+// elsewhere; falls back to the plain localhost host for non-custom-domain sites.
+function getCanonicalHostHeader( config: ServerConfig ): string {
+	if ( config.absoluteUrl ) {
+		try {
+			return new URL( config.absoluteUrl ).host;
+		} catch {
+			// Fall through to the localhost default.
+		}
+	}
+	return `localhost:${ config.port }`;
+}
+
+// Fires wp-cron.php as a self-loopback so Action Scheduler's queue drains on a
+// fixed schedule regardless of incoming traffic. `?doing_wp_cron` is the same
+// query WordPress uses for its own spawned cron. The request goes straight to
+// the internal worker-pool proxy over plain HTTP (like setAdminCredentials) —
+// never the public HTTPS front door — so it avoids the site's self-signed
+// `.local` cert entirely, while the canonical `Host` header keeps WordPress from
+// redirecting it. Best-effort and fire-and-forget: a failed or slow tick is a
+// no-op and the next tick still fires. Uses the raw `http` module rather than
+// `fetch` so the connection can be abandoned without an unhandled rejection.
+function triggerWpCronHeartbeat( config: ServerConfig ): void {
+	const request = http.request(
+		{
+			hostname: 'localhost',
+			port: config.port,
+			path: '/wp-cron.php?doing_wp_cron',
+			method: 'GET',
+			headers: { host: getCanonicalHostHeader( config ) },
+			timeout: WP_CRON_HEARTBEAT_TIMEOUT_MS,
+		},
+		( res ) => {
+			// Drain and discard: we only need WordPress to have started the cron run.
+			res.resume();
+		}
+	);
+	request.on( 'timeout', () => request.destroy() );
+	request.on( 'error', () => {
+		// Expected for a busy worker or a mid-restart window; the next tick recovers.
+	} );
+	request.end();
+}
+
+// Starts the periodic WP-Cron heartbeat. Idempotent: a running timer is left in
+// place. The interval is unref'd so it never keeps the process alive on its own.
+function startWpCronHeartbeat( config: ServerConfig ): void {
+	if ( wpCronHeartbeatTimer ) {
+		return;
+	}
+	logToConsole(
+		`Starting WP-Cron heartbeat every ${
+			WP_CRON_HEARTBEAT_INTERVAL_MS / 1000
+		}s to drain the Action Scheduler queue`
+	);
+	wpCronHeartbeatTimer = setInterval(
+		() => triggerWpCronHeartbeat( config ),
+		WP_CRON_HEARTBEAT_INTERVAL_MS
+	);
+	wpCronHeartbeatTimer.unref?.();
+}
+
+function stopWpCronHeartbeat(): void {
+	if ( wpCronHeartbeatTimer ) {
+		clearInterval( wpCronHeartbeatTimer );
+		wpCronHeartbeatTimer = null;
 	}
 }
 
@@ -620,7 +705,12 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		stopSignal.throwIfAborted();
 		await setAdminCredentials( config, stopSignal );
 		stopSignal.throwIfAborted();
+
+		// Drive Action Scheduler's queue on a schedule. This runtime has no system
+		// cron, so async workloads would otherwise only advance on incoming traffic.
+		startWpCronHeartbeat( config );
 	} catch ( error ) {
+		stopWpCronHeartbeat();
 		killPhpProcess();
 		phpProcess = null;
 		if ( mysqlServer ) {
@@ -769,6 +859,7 @@ async function stopServer(): Promise< StopServerResult > {
 		return StopServerResult.ABORTED_STARTUP;
 	}
 
+	stopWpCronHeartbeat();
 	await stopSymlinkWatcher();
 	runningConfig = null;
 	currentOpenBasedirAllowlist.clear();
@@ -948,6 +1039,7 @@ async function ipcMessageHandler( packet: unknown ) {
 }
 
 function killPhpProcess(): void {
+	stopWpCronHeartbeat();
 	try {
 		phpProxyServer?.close();
 	} catch {

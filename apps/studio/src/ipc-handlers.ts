@@ -65,7 +65,6 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
-import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
@@ -954,15 +953,6 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		// Capacity limit is expected behavior, not a bug — skip Sentry
 		if ( errorMessageContains( error, 'CAPACITY_LIMIT_REACHED' ) ) {
 			throw new Error( 'CAPACITY_LIMIT_REACHED' );
-		}
-
-		// Check if a .maintenance file is blocking the site from starting.
-		// WordPress creates this file during core/plugin/theme updates and
-		// blocks all requests for 10 minutes. After that WordPress ignores
-		// the file and the site starts normally, so only fresh locks matter.
-		const maintenanceCheck = checkMaintenanceFile( server.details.path );
-		if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
-			throw new Error( 'MAINTENANCE_FILE_FRESH' );
 		}
 
 		const contexts: Record< string, Record< string, unknown > > = {

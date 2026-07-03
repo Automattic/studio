@@ -504,7 +504,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 							showOpenLogs: true,
 						} );
 					}
-				} else if ( error instanceof Error && error.message.includes( 'MAINTENANCE_FILE_FRESH' ) ) {
+				} else if ( error instanceof Error && error.message.includes( 'maintenance mode' ) ) {
 					getIpcApi().showErrorMessageBox( {
 						title: sprintf( __( "'%s' is in maintenance mode" ), siteName ),
 						message: __(

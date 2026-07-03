@@ -25,8 +25,11 @@ import {
 	captureCommandOutput,
 	resolveStudioToolDefinitions,
 	studioToolDefinitions,
+	withChatArtifactEmission,
 } from '../tools';
+import { createSiteTool } from '../tools/create-site';
 import { enrichPreviewListOutput } from '../tools/list-previews';
+import type { AnyStudioAgentTool } from '../tools/define-tool';
 
 vi.mock( 'cli/ai/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -1020,6 +1023,63 @@ describe( 'Studio AI MCP tools', () => {
 		);
 		expect( getTextContent( result ) ).toContain( '"id": "site-123"' );
 		expect( getTextContent( result ) ).toContain( '"name": "My Site"' );
+	} );
+
+	describe( 'withChatArtifactEmission', () => {
+		const widget = { type: 'media', widgetProps: { mediaKind: 'image' } };
+		const makeFakeTool = () => {
+			const execute = vi.fn().mockResolvedValue( {
+				content: [ { type: 'text', text: 'ok' } ],
+				details: { studioArtifacts: [ widget ] },
+			} );
+			return {
+				tool: { name: 'fake_tool', execute } as unknown as AnyStudioAgentTool,
+				execute,
+			};
+		};
+
+		it( 'forwards execute arguments and preserves details when emitting', async () => {
+			const { tool, execute } = makeFakeTool();
+			const signal = new AbortController().signal;
+			const onUpdate = () => {};
+
+			const wrapped = withChatArtifactEmission( tool, true );
+			const result = await wrapped.execute( 'tool-call-9', { a: 1 } as never, signal, onUpdate );
+
+			expect( execute ).toHaveBeenCalledWith( 'tool-call-9', { a: 1 }, signal, onUpdate );
+			expect( result.details ).toEqual( { studioArtifacts: [ widget ] } );
+			expect( emitEvent ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					type: 'chat.artifact',
+					artifact: expect.objectContaining( { widgets: [ widget ] } ),
+				} )
+			);
+		} );
+
+		it( 'returns the tool unchanged when chat artifacts are disabled', () => {
+			const { tool } = makeFakeTool();
+			expect( withChatArtifactEmission( tool, false ) ).toBe( tool );
+		} );
+
+		it( 'emits site_create artifacts when wrapped directly (remote tool list)', async () => {
+			const wrapped = withChatArtifactEmission( createSiteTool, true );
+
+			await executeTool( wrapped, { name: 'My Site' } );
+
+			expect( emitEvent ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					type: 'chat.artifact',
+					artifact: expect.objectContaining( {
+						widgets: [
+							expect.objectContaining( {
+								type: 'site-preview',
+								widgetProps: expect.objectContaining( { siteId: 'site-123' } ),
+							} ),
+						],
+					} ),
+				} )
+			);
+		} );
 	} );
 
 	it( 'notifies JSON-mode callers when site_create selects the created site', async () => {

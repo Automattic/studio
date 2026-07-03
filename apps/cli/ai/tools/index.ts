@@ -27,7 +27,7 @@ import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
 import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
-import type { AnyStudioAgentTool } from './define-tool';
+import type { AnyStudioAgentTool, StudioToolResultDetails } from './define-tool';
 
 export { captureCommandOutput } from './utils';
 
@@ -93,14 +93,16 @@ export function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
 	tool: TTool,
 	emitChatArtifacts: boolean
 ): TTool {
+	if ( ! emitChatArtifacts ) {
+		return tool;
+	}
 	return {
 		...tool,
-		execute: async ( _toolCallId, params ) => {
-			const result = await tool.rawHandler( params );
-			if ( emitChatArtifacts ) {
-				await emitChatArtifactWidgets( result.studioArtifacts );
-			}
-			return { content: result.content, details: undefined };
+		execute: async ( toolCallId, params, signal, onUpdate ) => {
+			const result = await tool.execute( toolCallId, params, signal, onUpdate );
+			const details = result.details as StudioToolResultDetails | undefined;
+			await emitChatArtifactWidgets( details?.studioArtifacts );
+			return result;
 		},
 	};
 }

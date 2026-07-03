@@ -527,15 +527,12 @@ function buildAgentTools(
 	];
 
 	if ( isRemoteSite ) {
-		const screenshotTool = withChatArtifactEmission(
-			takeScreenshotTool,
-			chatArtifactsEnabled
-		) as unknown as AgentToolAny;
+		const remoteStudioTools = [ takeScreenshotTool, createSiteTool, pullSiteTool ].map( ( tool ) =>
+			withChatArtifactEmission( tool, chatArtifactsEnabled )
+		);
 		return [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
-			screenshotTool,
-			createSiteTool,
-			pullSiteTool,
+			...remoteStudioTools,
 			...remoteScratchTools,
 			...askUserTool,
 			...skillTool,

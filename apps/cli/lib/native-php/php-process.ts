@@ -73,7 +73,9 @@ export function spawnPhpProcess(
 	// crashes. Revert once the native-PHP-on-CI issue is diagnosed.
 	phpScriptProcess.once( 'exit', ( code, signal ) => {
 		if ( code !== 0 && code !== null ) {
-			console.error( `[PHP-DIAG] php process exited unexpectedly: code=${ code } signal=${ signal }` );
+			console.error(
+				`[PHP-DIAG] php process exited unexpectedly: code=${ code } signal=${ signal }`
+			);
 		}
 	} );
 

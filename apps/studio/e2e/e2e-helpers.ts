@@ -71,7 +71,7 @@ export class E2ESession {
 			process.cwd(),
 			'test-results',
 			'daemon-logs',
-			path.basename( this.sessionPath )
+			randomUUID().slice( 0, 8 )
 		);
 	}
 
@@ -203,8 +203,12 @@ export class E2ESession {
 				E2E_HOME_PATH: this.homePath,
 				E2E_CLI_CONFIG_PATH: this.cliConfigPath,
 				E2E_SHARED_CONFIG_PATH: this.sharedConfigPath,
-				// DIAGNOSTIC (temporary): route the daemon + its logs into the uploaded artifacts dir.
-				STUDIO_PROCESS_MANAGER_HOME: this.daemonHome,
+				// DIAGNOSTIC (temporary, Windows only): route the daemon + its logs into the uploaded
+				// artifacts dir. Windows-only because the pipe-isolation fix hashes the home into a short
+				// pipe name; a Unix socket under this long path would exceed sun_path's ~108-char limit.
+				...( process.platform === 'win32'
+					? { STUDIO_PROCESS_MANAGER_HOME: this.daemonHome }
+					: {} ),
 			},
 			timeout: 60_000,
 		} );

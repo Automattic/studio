@@ -2,6 +2,7 @@ import {
 	getStudioPresentationRulesPrompt,
 	getStudioWidgetPromptManifest,
 } from '@studio/common/ai/studio-widgets';
+import { SITE_RUNTIME_PLAYGROUND, type SiteRuntime } from '@studio/common/lib/site-runtime';
 
 interface RemoteSiteContext {
 	name: string;
@@ -19,6 +20,9 @@ export interface BuildSystemPromptOptions {
 	// Adds guidance about delivering screenshots via `share_screenshot` and
 	// offering a preview-site follow-up.
 	remoteSession?: boolean;
+	// Runtime of the active local site. Playground (PHP WASM) needs extra WP-CLI
+	// constraints that the native PHP runtime does not. Defaults to native-php.
+	runtime?: SiteRuntime;
 }
 
 export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string {
@@ -35,6 +39,7 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 
 	return `${ buildLocalIntro( {
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
+		runtime: options?.runtime,
 	} ) }
 
 ${ LOCAL_SKILL_ROUTING }${ remoteSessionAddendum }
@@ -72,7 +77,29 @@ IMPORTANT: ${ PLAN_DATA_GUARDRAIL }
 - Explore the API — if you're unsure about an endpoint, load the \`wpcom-remote-management\` skill and try a lightweight GET request first to discover available data.`;
 }
 
-function buildLocalIntro( options: { chatArtifactsEnabled: boolean } ): string {
+// Guidance for delivering `--post_content` to `wp_cli`. The shared part applies
+// to both runtimes (the tool never runs a shell). The runtime-specific part
+// differs: Playground runs in a WASM sandbox that cannot see the host
+// filesystem, so content must be passed inline and Studio rewrites large
+// content to a virtual temp file. The native PHP runtime reads the real
+// filesystem, so a scratch file is allowed and is the better choice for large
+// content (inline args can hit the OS command-length limit).
+function getPostContentGuidance( runtime?: SiteRuntime ): string {
+	const shared =
+		'The `wp_cli` tool takes literal arguments, not shell commands — never use shell substitution or shell syntax such as `$(cat file)`, backticks, pipes, redirection, or environment variables to provide post content.';
+
+	if ( runtime === SITE_RUNTIME_PLAYGROUND ) {
+		return `${ shared } Do not use host temp-file paths for post content — this site runs in a sandbox that cannot read your machine's filesystem. Pass the content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.`;
+	}
+
+	return `${ shared } For large post content, write the validated markup to a scratch file inside the site directory and pass its path to \`wp post create <file>\` (or \`wp post update <id> <file>\`) — this avoids the OS command-length limit. For smaller content you may instead pass it inline with \`--post_content=...\` as the final argument.`;
+}
+
+function buildLocalIntro( options: {
+	chatArtifactsEnabled: boolean;
+	runtime?: SiteRuntime;
+} ): string {
+	const postContentGuidance = getPostContentGuidance( options.runtime );
 	const automaticArtifactSection = options.chatArtifactsEnabled
 		? `
 
@@ -122,7 +149,7 @@ Then continue with:
 3. **Write theme/plugin files**: For a brand new theme, call \`scaffold_theme\` first — it drops an unopinionated block-theme baseline (style.css with only the theme header, theme.json with appearanceTools only, functions.php with frontend + editor style enqueue, default templates and parts, empty assets/fonts and patterns dirs) and activates it by default. Then use Write and Edit to fill the scaffold (one part/template/file per turn). For plugins or for editing an existing theme, use Write and Edit directly under the site's wp-content/themes/ or wp-content/plugins/ directory.
 4. **Provision the site**: Use wp_cli to activate the theme, install and activate any plugins the design needs, and set options. Do this before validating — the live editor only recognizes the active theme and registered plugin blocks. The site must be running.
 5. **Validate block content**: Any block content you generate MUST pass validate_blocks before it reaches the site — before \`wp post create/update\` and before \`wp_cli eval\` that imports a scratch file such as \`<site>/tmp/page-<slug>.html\`. Call validate_blocks with \`filePath\` for file content, or pass inline content. It runs a static core/html policy check first: if that reports invalid core/html blocks, editor validation is skipped — rewrite those as editable core or plugin blocks and call again. Once the policy passes it validates in the live editor. If an auto-fix was applied, the file already holds the fixed content; do not replace markup or re-validate unless you change the markup. Use the diff only to update CSS selectors for class/nesting changes. For inline content, use the returned fixed content exactly. Never apply unvalidated block content — a build that skips validate_blocks is incomplete.
-6. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. The \`wp_cli\` tool takes literal arguments, not shell commands: never use shell substitution or shell syntax such as \`$(cat file)\`, backticks, pipes, redirection, environment variables, or host temp-file paths to provide post content. Pass the literal content directly in \`--post_content=...\`, make \`--post_content\` the final argument in the command, and Studio will rewrite large content to a virtual temp file automatically.
+6. **Apply content**: Once it passes validation, create/update/import the posts and pages with the validated content. ${ postContentGuidance }
 7. **Check and polish the result**: Load the \`visual-polish\` skill and run it to polish the design. The design must match your original expectations.
 
 ## Working cadence

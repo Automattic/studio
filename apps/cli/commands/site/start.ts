@@ -71,7 +71,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 		try {
-			await updateManagedInstructionFiles( sitePath, getAiInstructionsPath() );
+			await updateManagedInstructionFiles( site, getAiInstructionsPath() );
 		} catch ( error ) {
 			logger.reportError(
 				new LoggerError( __( 'Failed to update AI instructions. Proceeding anyway…' ), error ),

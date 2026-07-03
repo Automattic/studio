@@ -18,18 +18,28 @@ const directDeps = Object.entries( pkg.dependencies ?? {} )
 	.filter( ( [ , version ] ) => ! version.startsWith( 'file:' ) )
 	.map( ( [ name ] ) => name );
 
-// Hosted target (`STUDIO_TARGET=hosted`) builds a standalone browser app wired to
-// the HTTP/SSE hosted connector. It uses a separate entry/output/port so the default
-// Electron-renderer build (`dist/`, port 5200) stays byte-for-byte unchanged.
-const isHosted = process.env.STUDIO_TARGET === 'hosted';
+// Browser targets build a standalone browser app wired to an HTTP/SSE connector
+// instead of the Electron IPC bridge. Each uses a separate entry/output/port so
+// the default Electron-renderer build (`dist/`, port 5200) stays byte-for-byte
+// unchanged:
+//   STUDIO_TARGET=hosted → index.hosted.html → dist-hosted, port 5300 (cloud)
+//   STUDIO_TARGET=local  → index.local.html  → dist-local,  port 5400 (`studio ui`)
+type BrowserTarget = 'hosted' | 'local';
+const target = process.env.STUDIO_TARGET as BrowserTarget | undefined;
+const isBrowser = target === 'hosted' || target === 'local';
+const browserConfig: Record< BrowserTarget, { entry: string; outDir: string; port: number } > = {
+	hosted: { entry: 'index.hosted.html', outDir: 'dist-hosted', port: 5300 },
+	local: { entry: 'index.local.html', outDir: 'dist-local', port: 5400 },
+};
+const active = isBrowser ? browserConfig[ target as BrowserTarget ] : undefined;
 
 // In dev, Vite serves the root `index.html` (which loads the Electron entry,
 // `main.tsx`) for every SPA navigation, regardless of `build` input options.
-// Serve `index.hosted.html` instead for any document navigation (`/`, `/sites`,
-// `/sessions/:id`, …) so the hosted entry + hosted connector load and client-side
+// Serve the target's entry instead for any document navigation (`/`, `/sites`,
+// `/sessions/:id`, …) so the browser entry + connector load and client-side
 // routing/refresh works. Module and asset requests pass through untouched.
-const hostedDevEntryPlugin: Plugin = {
-	name: 'studio-hosted-dev-entry',
+const browserDevEntryPlugin: Plugin = {
+	name: 'studio-browser-dev-entry',
 	apply: 'serve',
 	configureServer( server ) {
 		server.middlewares.use( ( req, _res, next ) => {
@@ -40,8 +50,8 @@ const hostedDevEntryPlugin: Plugin = {
 				pathname.startsWith( '/src/' ) ||
 				pathname.startsWith( '/node_modules/' ) ||
 				pathname.includes( '.' );
-			if ( accept.includes( 'text/html' ) && ! isInternal ) {
-				req.url = '/index.hosted.html';
+			if ( active && accept.includes( 'text/html' ) && ! isInternal ) {
+				req.url = `/${ active.entry }`;
 			}
 			next();
 		} );
@@ -49,7 +59,7 @@ const hostedDevEntryPlugin: Plugin = {
 };
 
 export default defineConfig( {
-	plugins: [ react(), dsTokenFallbacks(), ...( isHosted ? [ hostedDevEntryPlugin ] : [] ) ],
+	plugins: [ react(), dsTokenFallbacks(), ...( isBrowser ? [ browserDevEntryPlugin ] : [] ) ],
 	css: {
 		postcss: {
 			plugins: [ dsTokenFallbacksPostcss ],
@@ -74,12 +84,12 @@ export default defineConfig( {
 		include: directDeps,
 	},
 	server: {
-		port: isHosted ? 5300 : 5200,
+		port: active?.port ?? 5200,
 	},
 	build: {
-		outDir: isHosted ? 'dist-hosted' : 'dist',
+		outDir: active?.outDir ?? 'dist',
 		rolldownOptions: {
-			input: resolve( __dirname, isHosted ? 'index.hosted.html' : 'index.html' ),
+			input: resolve( __dirname, active?.entry ?? 'index.html' ),
 		},
 	},
 } );

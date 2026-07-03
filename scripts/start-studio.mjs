@@ -1,8 +1,23 @@
 import { spawn } from 'child_process';
+import fs from 'fs';
+import os from 'os';
 import { resolve } from 'path';
 
 const root = resolve( import.meta.dirname, '..' );
 const uiDevPort = 5200;
+
+// Keep in sync with RELAUNCH_FILE in apps/studio/src/lib/simulation-mode.ts.
+const simulationRelaunchFile = resolve( os.homedir(), '.studio-simulation', 'relaunch.json' );
+
+function consumeRelaunchHandoff() {
+	try {
+		const handoff = JSON.parse( fs.readFileSync( simulationRelaunchFile, 'utf8' ) );
+		fs.rmSync( simulationRelaunchFile, { force: true } );
+		return handoff;
+	} catch {
+		return null;
+	}
+}
 
 function spawnCommand( command, args, options = {} ) {
 	return spawn( command, args, {
@@ -38,23 +53,49 @@ async function main() {
 
 	await new Promise( ( resolvePromise ) => setTimeout( resolvePromise, 3000 ) );
 
-	console.log( '=> Starting Electron...' );
-	electronVite = spawnCommand(
-		'npx',
-		[ 'electron-vite', 'dev', '--config', './electron.vite.config.ts', '--outDir=dist', '--watch' ],
-		{
-			cwd: resolve( root, 'apps/studio' ),
-			env: {
-				...process.env,
-				ELECTRON_UI_RENDERER_URL: `http://localhost:${ uiDevPort }`,
-			},
-		}
-	);
+	function startElectronVite( extraEnv = {} ) {
+		electronVite = spawnCommand(
+			'npx',
+			[
+				'electron-vite',
+				'dev',
+				'--config',
+				'./electron.vite.config.ts',
+				'--outDir=dist',
+				'--watch',
+			],
+			{
+				cwd: resolve( root, 'apps/studio' ),
+				env: {
+					...process.env,
+					ELECTRON_UI_RENDERER_URL: `http://localhost:${ uiDevPort }`,
+					STUDIO_DEV_RELAUNCHER: '1',
+					...extraEnv,
+				},
+			}
+		);
 
-	electronVite.on( 'close', ( code ) => {
-		stopProcess( uiServer );
-		process.exit( code ?? 0 );
-	} );
+		electronVite.on( 'close', ( code ) => {
+			// The app writes this handoff file before quitting when the new-user
+			// simulation is toggled; respawn Electron with the requested env.
+			const handoff = consumeRelaunchHandoff();
+			if ( handoff ) {
+				console.log(
+					`=> Relaunching Studio ${ handoff.simulate ? 'into' : 'out of' } new-user simulation...`
+				);
+				startElectronVite( {
+					...handoff.env,
+					...( handoff.simulate ? { STUDIO_SIMULATE_NEW_USER: '1' } : {} ),
+				} );
+				return;
+			}
+			stopProcess( uiServer );
+			process.exit( code ?? 0 );
+		} );
+	}
+
+	console.log( '=> Starting Electron...' );
+	startElectronVite();
 
 	process.on( 'SIGINT', () => {
 		stopProcess( electronVite );

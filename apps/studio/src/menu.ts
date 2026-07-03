@@ -4,6 +4,7 @@ import {
 	app,
 	BrowserWindow,
 	autoUpdater,
+	dialog,
 	MenuItem,
 	shell,
 } from 'electron';
@@ -16,6 +17,7 @@ import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { hasActiveSyncOperations } from 'src/lib/active-sync-operations';
 import {
 	BetaFeatureDefinition,
 	getBetaFeatures,
@@ -32,9 +34,11 @@ import {
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import { isSimulatingNewUser, toggleNewUserSimulation } from 'src/lib/simulation-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
+import { getRunningSiteCount } from 'src/site-server';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 // Feature flags that select which Studio UI is shown; toggling them requires
@@ -302,6 +306,39 @@ async function getAppMenu(
 							{
 								label: __( 'Feature Flags' ),
 								submenu: featureFlagsMenu,
+							},
+							{
+								label: isSimulatingNewUser()
+									? __( 'Exit New User Simulation (dev only)' )
+									: __( 'Simulate New User (dev only)' ),
+								type: 'checkbox' as const,
+								checked: isSimulatingNewUser(),
+								click: async ( menuItem: MenuItem ) => {
+									// The checkbox reflects boot state; it only changes via relaunch.
+									menuItem.checked = isSimulatingNewUser();
+
+									// Refuse while sites or syncs are active instead of racing the
+									// interactive quit dialogs with an armed relaunch handoff.
+									if ( getRunningSiteCount() > 0 || hasActiveSyncOperations() ) {
+										await dialog.showMessageBox( {
+											type: 'info',
+											message: __( 'Stop all running sites and syncs first' ),
+											detail: __( 'Toggling the new-user simulation relaunches Studio.' ),
+										} );
+										return;
+									}
+
+									// Carry env-based feature flags (e.g. ENABLE_AGENTIC_UI) across
+									// the relaunch so the same UI mode loads on the other side.
+									const carriedEnv: Record< string, string > = {};
+									for ( const definition of Object.values( FEATURE_FLAGS ) ) {
+										const value = process.env[ definition.env ];
+										if ( value !== undefined ) {
+											carriedEnv[ definition.env ] = value;
+										}
+									}
+									await toggleNewUserSimulation( carriedEnv );
+								},
 							},
 					  ]
 					: [] ),

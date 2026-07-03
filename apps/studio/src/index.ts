@@ -1,3 +1,7 @@
+// MUST be the first import: redirects config paths into the new-user
+// simulation sandbox before any other module reads them.
+
+import 'src/lib/simulation-mode';
 import {
 	app,
 	BrowserWindow,
@@ -299,9 +303,16 @@ async function appBoot() {
 	app.on( 'ready', async () => {
 		const locale = await getUserLocaleWithFallback();
 		if ( process.env.NODE_ENV === 'development' ) {
-			await installExtension( REACT_DEVELOPER_TOOLS );
-			await installExtension( REDUX_DEVTOOLS );
-			await launchExtensionBackgroundWorkers();
+			try {
+				await installExtension( REACT_DEVELOPER_TOOLS );
+				await installExtension( REDUX_DEVTOOLS );
+				await launchExtensionBackgroundWorkers();
+			} catch ( error ) {
+				// Devtools extensions are a dev nicety — never block boot on them.
+				// Their install/worker start is flaky on a fresh userData directory
+				// (e.g. the new-user simulation sandbox).
+				console.error( 'Failed to set up devtools extensions:', error );
+			}
 		}
 
 		console.log( `App version: ${ app.getVersion() }` );

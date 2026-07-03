@@ -26,8 +26,9 @@ e2e_config: &e2e_config
     setup: { platform: [], arch: [] }
     adjustments:
       - with: { platform: mac, arch: arm64 }
-      # TEMP: re-enable Windows E2E on this diagnostic PR to verify whether restoring
-      # per-command CLI shutdown handling fixes AINFRA-2588.
+      # Re-enabled to verify the AINFRA-2588 daemon-leak fix.
+      # This diagnostic PR also checks whether per-command CLI shutdown handling affects teardown.
+      # See https://linear.app/a8c/issue/AINFRA-2588/investigate-studio-windows-e2e-hangs-in-buildkite
       - with: { platform: windows, arch: x64 }
   notify:
     - github_commit_status:

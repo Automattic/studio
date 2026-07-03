@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import path from 'path';
@@ -7,6 +8,37 @@ import { _electron as electron, Page, ElectronApplication } from 'playwright';
 import { rimraf } from 'rimraf';
 import type { TestInfo } from '@playwright/test';
 import type { ChildProcess } from 'node:child_process';
+
+/**
+ * The CLI process-manager daemon is machine-global (fixed named pipe on Windows, ~/.studio/daemon
+ * socket elsewhere) and spawned detached, so it outlives the app. When `site stop --all` fails on
+ * quit, the daemon keeps that session's WordPress servers running; they accumulate across test
+ * sessions until the daemon's site capacity is exhausted (36/36) and every subsequent createSite
+ * fails. Leaked php.exe processes also hold DLL locks that break session dir cleanup on Windows.
+ * Reap the daemon tree after each session so the next one starts from a clean slate.
+ *
+ * Note: this also kills the daemon of any locally running Studio app — acceptable for e2e runs,
+ * which already share the global daemon with it.
+ */
+function killLeakedDaemonProcesses() {
+	try {
+		if ( process.platform === 'win32' ) {
+			// `-ne $PID` excludes this PowerShell process itself, whose own command line
+			// also contains the match string.
+			execSync(
+				'powershell -NoProfile -Command "Get-CimInstance Win32_Process | ' +
+					"Where-Object { $_.CommandLine -match 'process-manager-daemon' -and $_.ProcessId -ne $PID } | " +
+					'ForEach-Object { taskkill /F /T /PID $_.ProcessId }"',
+				{ stdio: 'ignore' }
+			);
+		} else {
+			// SIGTERM lets the daemon run its graceful shutdown, which stops its site children.
+			execSync( 'pkill -f process-manager-daemon', { stdio: 'ignore' } );
+		}
+	} catch {
+		// No daemon running (pkill exits 1 when nothing matches) — nothing to reap.
+	}
+}
 
 export class E2ESession {
 	electronApp!: ElectronApplication;
@@ -61,6 +93,11 @@ export class E2ESession {
 
 	async closeApp() {
 		console.log( 'Closing app...' );
+		if ( ! this.electronApp ) {
+			// Launch failed or never happened; nothing to close, and touching
+			// `electronApp.process()` would throw and abort the rest of cleanup.
+			return;
+		}
 		const childProcess = this.electronApp.process();
 
 		// Playwright's electronApp.close() can hang, especially on Windows. This is likely due to how
@@ -93,6 +130,7 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.closeApp();
+		killLeakedDaemonProcesses();
 		await rimraf( this.sessionPath, {
 			backoff: 2,
 			maxBackoff: 2500,

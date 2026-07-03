@@ -296,6 +296,9 @@ async function createStudioAgentSession(
 		noThemes: true,
 		noContextFiles: true,
 		systemPrompt,
+		// Suppress APPEND_SYSTEM.md discovery; the agentDir fallback path is
+		// read from ~/Studio even for untrusted projects.
+		appendSystemPrompt: [],
 	} );
 	await resourceLoader.reload();
 
@@ -433,10 +436,15 @@ function createWpcomAnthropicProviderConfig(
 }
 
 function createSettingsManager( _env: Record< string, string > ): SettingsManager {
-	return SettingsManager.inMemory( {
-		defaultThinkingLevel: 'high',
-		compaction: STUDIO_COMPACTION_SETTINGS,
-	} );
+	return SettingsManager.inMemory(
+		{
+			defaultThinkingLevel: 'high',
+			compaction: STUDIO_COMPACTION_SETTINGS,
+		},
+		// The session cwd is the user-writable sites folder; never treat it as a
+		// trusted pi project, so nothing under ~/Studio/.pi can alter the agent.
+		{ projectTrusted: false }
+	);
 }
 
 function toToolDefinition(

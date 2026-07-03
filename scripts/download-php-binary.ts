@@ -85,8 +85,8 @@ async function main(): Promise< void > {
 			// on a reused CI agent (apps/studio/php-bin is gitignored and not cleaned) would be
 			// packaged forever. Remove it so the current package is fetched.
 			console.log(
-				`PHP ${ version } package ${ downloadInfo.packageId } at ${ binDir } is stale ` +
-					`(installed sha ${ installedSha || 'unknown' } != expected ${ downloadInfo.sha }); re-downloading.`
+				`Stale PHP ${ version } package ${ downloadInfo.packageId } at ${ binDir } ` +
+					`(sha ${ installedSha || 'unknown' } != ${ downloadInfo.sha }); re-downloading.`
 			);
 			fs.rmSync( binDir, { recursive: true, force: true } );
 		}

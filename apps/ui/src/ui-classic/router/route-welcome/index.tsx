@@ -16,7 +16,7 @@ import styles from './style.module.css';
 const FEATURES = [
 	{
 		title: __( 'Build with AI' ),
-		body: __( 'Spin up sites and build anything you can imagine, quickly.' ),
+		body: __( 'Describe what you want and let AI build it with you, right on your machine.' ),
 	},
 	{
 		title: __( 'Seamless sync' ),
@@ -24,7 +24,7 @@ const FEATURES = [
 	},
 	{
 		title: __( 'Plugins, themes, and more' ),
-		body: __( "The sky's the limit. Use WordPress to build anything you can dream of." ),
+		body: __( 'Develop and test safely before shipping anywhere.' ),
 	},
 ];
 

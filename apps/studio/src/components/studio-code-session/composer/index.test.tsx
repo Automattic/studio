@@ -5,6 +5,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearSessionDraft, Composer } from '.';
 import type { ComposerSendAttachments } from './use-composer-attachments';
 
+const mockGetPathForFile = vi.hoisted( () =>
+	vi.fn( ( file: File ) => `/tmp/studio-attachments/${ file.name }` )
+);
+
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ( {
+		getPathForFile: mockGetPathForFile,
+		setAiSessionModel: vi.fn(),
+		createAiSession: vi.fn(),
+	} ),
+} ) );
+
 const defaultProps = {
 	busy: false,
 	error: null,
@@ -30,6 +42,7 @@ describe( 'Composer', () => {
 		defaultProps.onInterrupt.mockReset();
 		defaultProps.onSend.mockResolvedValue( undefined );
 		defaultProps.onInterrupt.mockResolvedValue( undefined );
+		mockGetPathForFile.mockClear();
 	} );
 
 	it( 'restores unsent drafts for the same session', () => {
@@ -104,5 +117,87 @@ describe( 'Composer', () => {
 
 		expect( screen.getByRole( 'combobox' ) ).toHaveValue( '' );
 		expect( localStorage.getItem( 'studio_code_session_draft:session-1' ) ).toBeNull();
+	} );
+
+	it( 'attaches pasted images and sends them with the prompt', async () => {
+		renderComposer();
+
+		const image = new File( [ 'image-bytes' ], '', { type: 'image/png' } );
+		const pasteEvent = new Event( 'paste', { bubbles: true, cancelable: true } );
+		Object.defineProperty( pasteEvent, 'clipboardData', {
+			value: {
+				files: [ image ],
+				items: [],
+				getData: ( type: string ) => ( type === 'text/plain' ? 'caption' : '' ),
+			},
+		} );
+		fireEvent( screen.getByRole( 'combobox' ), pasteEvent );
+
+		expect( pasteEvent.defaultPrevented ).toBe( true );
+		expect(
+			await screen.findByRole( 'button', { name: 'Remove attachment: pasted-image.png' } )
+		).toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+
+		await waitFor( () => expect( defaultProps.onSend ).toHaveBeenCalled() );
+		const [ prompt, attachments ] = defaultProps.onSend.mock.calls[ 0 ];
+		expect( prompt ).toBe( 'Please review the attached files.' );
+		expect( attachments.files ).toEqual( [] );
+		expect( attachments.images ).toHaveLength( 1 );
+		expect( attachments.images[ 0 ] ).toMatchObject( {
+			name: 'pasted-image.png',
+			mimeType: 'image/png',
+			dataBase64: 'aW1hZ2UtYnl0ZXM=',
+		} );
+	} );
+
+	it( 'previews attached files as compact square tiles', async () => {
+		const { container } = renderComposer();
+
+		const json = new File( [ '{\n  "headline": "Drop the needle"\n}' ], 'data-sample.json', {
+			type: 'application/json',
+		} );
+		const pdf = new File( [ '%PDF-1.7' ], 'sample-document.pdf', {
+			type: 'application/pdf',
+		} );
+		const input = container.querySelector( 'input[type="file"]' ) as HTMLInputElement;
+
+		fireEvent.change( input, {
+			target: { files: [ json, pdf ] },
+		} );
+
+		expect( await screen.findAllByText( /"headline"/ ) ).not.toHaveLength( 0 );
+		expect( screen.getAllByText( 'PDF' ) ).not.toHaveLength( 0 );
+
+		expect(
+			screen.getByText( /Attachment: data-sample\.json, application\/json,/ )
+		).toBeInTheDocument();
+		const removePdfButton = screen.getByRole( 'button', {
+			name: 'Remove attachment: sample-document.pdf',
+		} );
+		expect( removePdfButton ).toBeInTheDocument();
+
+		fireEvent.focus( removePdfButton );
+		expect( await screen.findByRole( 'tooltip' ) ).toHaveTextContent( 'sample-document.pdf' );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send' } ) );
+
+		await waitFor( () => expect( defaultProps.onSend ).toHaveBeenCalled() );
+		const [ prompt, attachments ] = defaultProps.onSend.mock.calls[ 0 ];
+		expect( prompt ).toBe( 'Please review the attached files.' );
+		expect( attachments.images ).toEqual( [] );
+		expect( attachments.files ).toEqual( [
+			expect.objectContaining( {
+				name: 'data-sample.json',
+				path: '/tmp/studio-attachments/data-sample.json',
+				mimeType: 'application/json',
+			} ),
+			expect.objectContaining( {
+				name: 'sample-document.pdf',
+				path: '/tmp/studio-attachments/sample-document.pdf',
+				mimeType: 'application/pdf',
+			} ),
+		] );
 	} );
 } );

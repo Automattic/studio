@@ -16,10 +16,47 @@ import { z } from 'zod';
 import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
 
+/**
+ * Durable origin of a site that was populated by `studio pull-reprint`:
+ * where it syncs from and the credential needed to talk to that remote.
+ * Present only on reprint-pulled sites.
+ */
+export const reprintOriginSchema = z.object( {
+	remoteUrl: z.string(),
+	remoteSiteUrl: z.string().optional(),
+	tablePrefix: z.string().optional(),
+	secret: z.string(),
+} );
+
+/**
+ * Health of a site's local install.
+ *
+ *   - `ready`        a normal, fully-written site (the default; `site
+ *                    create` produces one and a successful pull restores
+ *                    one).
+ *   - `pulling`      a reprint pull is in flight (or was interrupted
+ *                    mid-flight) — the site directory may be partially
+ *                    written and must not be trusted as a healthy site.
+ *   - `pull-failed`  the last reprint pull errored or was killed; the
+ *                    site is half-written. Recovered by re-running
+ *                    `pull-reprint --path <site>` (idempotent) or `site
+ *                    delete`.
+ *
+ * Absent on records created before this field existed; readers treat a
+ * missing value as `ready`.
+ */
+export const siteStatusSchema = z.enum( [ 'ready', 'pulling', 'pull-failed' ] );
+export type SiteStatus = z.infer< typeof siteStatusSchema >;
+
 const siteSchema = siteDetailsSchema
 	.extend( {
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
+		reprintOrigin: reprintOriginSchema.optional(),
+		// True once a full reprint pull has completed at least once; selects
+		// first-full-pull vs. delta. Durable on the site record.
+		importComplete: z.boolean().optional(),
+		status: siteStatusSchema.default( 'ready' ).optional(),
 	} )
 	.loose();
 
@@ -51,6 +88,8 @@ const cliConfigSchema = z.looseObject( {
 		.optional(),
 	lastDependencyCheckTime: z.number().optional(),
 	updateCheck: updateCheckSchema.optional(),
+	// Same shape as `updateCheck`, but for standalone (curl) installs that check the CDN endpoint.
+	standaloneUpdateCheck: updateCheckSchema.optional(),
 	// Unix ms timestamp of when the one-time ToS/Privacy notice was displayed.
 	tosNoticeShownAt: z.number().optional(),
 } );

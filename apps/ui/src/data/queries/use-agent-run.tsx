@@ -20,6 +20,7 @@ import type {
 	SessionEntry,
 	StudioChatFileAttachment,
 	StudioChatImage,
+	StudioCustomEntry,
 } from '@/data/core';
 
 function nowIso(): string {
@@ -366,7 +367,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					dispatchSession( payload.sessionId, { type: 'interrupt_requested' } );
 					return;
 				case 'run.exited':
-				case 'run.interrupted':
+				case 'run.interrupted': {
+					const hasQueuedFollowUp =
+						( stateStore.getState()[ payload.sessionId ] ?? initialState ).queuedPrompts.length > 0;
 					if ( event.type === 'run.interrupted' ) {
 						// Synthetic studio.turn_closed for immediate "Interrupted
 						// by you" rendering; the CLI also writes a real one.
@@ -384,11 +387,14 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					}
 					dispatchSession( payload.sessionId, { type: 'run_ended' } );
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
-					// Refetch to replace optimistic entries with disk-backed ones.
-					void queryClient.invalidateQueries( {
-						queryKey: SESSIONS_QUERY_KEY,
-					} );
+					if ( ! hasQueuedFollowUp ) {
+						// Refetch to replace optimistic entries with disk-backed ones.
+						void queryClient.invalidateQueries( {
+							queryKey: SESSIONS_QUERY_KEY,
+						} );
+					}
 					return;
+				}
 				case 'message': {
 					// Only message-bearing pi event variants need optimistic entries.
 					const inner = event.message;
@@ -475,7 +481,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 			}
 		} );
-	}, [ connector, dispatchSession, queryClient, updateCache ] );
+	}, [ connector, dispatchSession, queryClient, stateStore, updateCache ] );
 
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
@@ -483,6 +489,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const images = options.images ?? [];
 			const files = options.files ?? [];
 			dispatchSession( sessionId, { type: 'error_set', message: null } );
+			await queryClient.cancelQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 
 			const optimisticEntry: SessionEntry = {
 				type: 'custom',
@@ -534,7 +541,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				throw err;
 			}
 		},
-		[ connector, dispatchSession, updateCache ]
+		[ connector, dispatchSession, queryClient, updateCache ]
 	);
 
 	const interrupt = useCallback(
@@ -585,6 +592,36 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( ! state.runId ) {
 				return;
 			}
+			updateCache( sessionId, ( entries ) => {
+				let targetIndex = -1;
+				for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
+					const entry = entries[ index ];
+					if ( entry.type !== 'custom' || entry.customType !== 'studio.agent_question' ) {
+						continue;
+					}
+					const data = ( entry as StudioCustomEntry< 'studio.agent_question' > ).data;
+					if ( data?.question === question ) {
+						targetIndex = index;
+						break;
+					}
+				}
+				if ( targetIndex === -1 ) {
+					return entries;
+				}
+				return entries.map( ( entry, index ) => {
+					if ( index !== targetIndex ) {
+						return entry;
+					}
+					const questionEntry = entry as StudioCustomEntry< 'studio.agent_question' >;
+					return {
+						...questionEntry,
+						data: {
+							...questionEntry.data,
+							selectedLabel: answer,
+						},
+					} as SessionEntry;
+				} );
+			} );
 			const nextAnswers = { ...state.pendingAnswers, [ question ]: answer };
 			const complete = state.pendingQuestions.every(
 				( q ) => typeof nextAnswers[ q.question ] === 'string'
@@ -596,7 +633,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				dispatchSession( sessionId, { type: 'question_answered', question, answer } );
 			}
 		},
-		[ connector, dispatchSession, stateStore ]
+		[ connector, dispatchSession, stateStore, updateCache ]
 	);
 
 	const value = useMemo< AgentRunStore >(
@@ -659,6 +696,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		}
 		const next = queuedPrompts[ 0 ];
 		dispatchingQueuedRef.current = true;
+		dispatchSession( sessionId, { type: 'queue_shift' } );
 		void ( async () => {
 			try {
 				await startRun( sessionId, next.prompt, {
@@ -666,7 +704,6 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					images: next.images,
 					files: next.files,
 				} );
-				dispatchSession( sessionId, { type: 'queue_shift' } );
 			} catch {
 				dispatchSession( sessionId, { type: 'queue_clear' } );
 			} finally {

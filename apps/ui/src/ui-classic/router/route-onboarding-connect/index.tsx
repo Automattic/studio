@@ -12,7 +12,7 @@ import { OnboardingFooter } from '@/components/onboarding-footer';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useFindAvailableSiteName } from '@/data/queries/use-create-site-helpers';
-import { useCreateSite, useDeleteSite, useSites } from '@/data/queries/use-sites';
+import { useCreateSite, useDeleteSite, useSites, useStartSite } from '@/data/queries/use-sites';
 import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useAllConnectedWpcomSites, useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
@@ -319,6 +319,7 @@ export function OnboardingConnectPage() {
 	const { data: connectedWpcomSites = [] } = useAllConnectedWpcomSites( { enabled: !! user } );
 	const createSite = useCreateSite();
 	const deleteSite = useDeleteSite();
+	const startSite = useStartSite();
 	const pullSiteFromLive = usePullSiteFromLive();
 	const findAvailableSiteName = useFindAvailableSiteName();
 
@@ -445,8 +446,15 @@ export function OnboardingConnectPage() {
 				syncSupport: 'already-connected',
 			} );
 			// Fire-and-forget: the pull reports progress through the shared
-			// sync-activity channel, which the site view surfaces.
-			pullSiteFromLive.mutate( { siteId: site.id, remoteSiteId: selectedSite.id } );
+			// sync-activity channel, which the site view surfaces. Start the
+			// shell once the pull lands — the CLI only restarts servers that
+			// were already running, and this one was created with skipStart.
+			void pullSiteFromLive
+				.mutateAsync( { siteId: site.id, remoteSiteId: selectedSite.id } )
+				.then( () => startSite.mutateAsync( site.id ) )
+				.catch( () => {
+					// Pull failures already surface through the sync-activity channel.
+				} );
 			speak(
 				sprintf(
 					// translators: %s is the site name.
@@ -560,7 +568,23 @@ export function OnboardingConnectPage() {
 							<p className={ styles.listHint }>{ __( 'Loading your sites…' ) }</p>
 						</div>
 					) }
-					{ ! isLoadingSites && ! isSearching && sites.length === 0 && (
+					{ ! isLoadingSites && syncable.isError && (
+						<div className={ styles.emptyState }>
+							<p className={ styles.listHint }>
+								{ __( 'Failed to load your WordPress.com sites.' ) }
+							</p>
+							<Button
+								type="button"
+								variant="minimal"
+								tone="brand"
+								onClick={ () => void syncable.refetch() }
+								disabled={ syncable.isFetching }
+							>
+								{ syncable.isFetching ? __( 'Retrying…' ) : __( 'Retry' ) }
+							</Button>
+						</div>
+					) }
+					{ ! isLoadingSites && ! syncable.isError && ! isSearching && sites.length === 0 && (
 						<div className={ styles.emptyState }>
 							<p className={ styles.listHint }>
 								{ __( 'No WordPress.com sites found on this account.' ) }
@@ -577,7 +601,7 @@ export function OnboardingConnectPage() {
 							</Button>
 						</div>
 					) }
-					{ ! isLoadingSites && isSearching && sites.length === 0 && (
+					{ ! isLoadingSites && ! syncable.isError && isSearching && sites.length === 0 && (
 						<p className={ styles.listHint }>
 							{ sprintf(
 								// translators: %s is the search query.

@@ -1576,24 +1576,6 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private showFilePreview(
-		toolName: string,
-		input: Record< string, unknown >,
-		target: Container = this.messages
-	): void {
-		let preview: { collapsed: string; expanded: string } | null = null;
-
-		if ( toolName === 'Write' && typeof input.content === 'string' ) {
-			preview = this.generateWritePreview( input.content );
-		}
-
-		if ( ! preview ) {
-			return;
-		}
-
-		this.addExpandablePreview( preview, target );
-	}
-
 	private addExpandablePreview(
 		preview: { collapsed: string; expanded: string },
 		target: Container = this.messages
@@ -1666,7 +1648,8 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	private generateDiffPreview( diff: string ): { collapsed: string; expanded: string } {
-		const lines = diff.split( '\n' ).map( ( line ) => {
+		const rawLines = diff.replace( /\n$/, '' ).split( '\n' );
+		const coloredLines = rawLines.map( ( line ) => {
 			if ( line.startsWith( '+' ) ) {
 				return chalk.green( line );
 			}
@@ -1675,8 +1658,34 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 			return chalk.dim( line );
 		} );
+		const expanded = formatToolOutputLines( coloredLines );
 
-		return this.generateExpandablePreview( lines );
+		if ( rawLines.length <= DEFAULT_COLLAPSE_THRESHOLD_LINES ) {
+			return { collapsed: expanded, expanded };
+		}
+
+		// Window the collapsed view around the first change so the +/- lines
+		// are visible instead of the diff's leading context lines.
+		const firstChanged = rawLines.findIndex(
+			( line ) => line.startsWith( '+' ) || line.startsWith( '-' )
+		);
+		const start = Math.max(
+			0,
+			Math.min( firstChanged - 1, rawLines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES )
+		);
+		const windowLines = coloredLines.slice( start, start + DEFAULT_COLLAPSE_THRESHOLD_LINES );
+		const collapsed =
+			formatToolOutputLines( windowLines ) +
+			'\n     ' +
+			chalk.dim(
+				sprintf(
+					/* translators: %d: number of hidden lines */
+					__( '... %d more lines · ctrl+o to expand' ),
+					rawLines.length - windowLines.length
+				)
+			);
+
+		return { collapsed, expanded };
 	}
 
 	private toggleExpandablePreview(): void {
@@ -1877,12 +1886,22 @@ export class AiChatUI implements AiOutputAdapter {
 		if ( ! toolCall ) {
 			this.renderToolUseLine( isError, label, null, target );
 		}
-		if ( toolCall && toolCall.name === 'Write' ) {
-			this.showFilePreview( toolCall.name, toolCall.input, target );
-		} else if ( toolCall && toolCall.name === 'Edit' && ! isError ) {
-			const details = result.details as { diff?: string } | undefined;
-			if ( typeof details?.diff === 'string' && details.diff.length > 0 ) {
-				this.addExpandablePreview( this.generateDiffPreview( details.diff ), target );
+		if ( toolCall && ! isError ) {
+			let preview: { collapsed: string; expanded: string } | null = null;
+			if ( toolCall.name === 'Write' && typeof toolCall.input.content === 'string' ) {
+				preview = this.generateWritePreview( toolCall.input.content );
+			} else if ( toolCall.name === 'Edit' ) {
+				const details = result.details as { diff?: string } | undefined;
+				if ( typeof details?.diff === 'string' && details.diff.length > 0 ) {
+					preview = this.generateDiffPreview( details.diff );
+				}
+			}
+			if ( preview ) {
+				const summary = toolCall.name === 'Write' ? __( 'File written' ) : __( 'File edited' );
+				target.addChild( new Text( formatToolOutputLines( [ chalk.dim( summary ) ] ), 0, 0 ) );
+				this.addExpandablePreview( preview, target );
+				this.tui.requestRender();
+				return;
 			}
 		}
 

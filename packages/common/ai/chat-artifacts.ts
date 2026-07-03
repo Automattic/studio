@@ -35,6 +35,53 @@ export function isStudioChatArtifactWidgetDraft(
 	);
 }
 
-function isRecord( value: unknown ): value is Record< string, unknown > {
+export function isRecord( value: unknown ): value is Record< string, unknown > {
 	return Boolean( value ) && typeof value === 'object' && ! Array.isArray( value );
+}
+
+// Legacy transcript markers. take_screenshot used to append its media widget
+// payload to the tool result text behind these prefixes; artifacts are now
+// emitted structurally, so the markers survive only in old persisted sessions.
+export const MEDIA_WIDGET_PAYLOAD_MARKERS = [
+	'mediaWidgetPayload=',
+	'mediaWidgetPayloads=',
+] as const;
+
+export function stripMediaWidgetPayloadLines( text: string ): string {
+	return text
+		.split( '\n' )
+		.filter(
+			( line ) => ! MEDIA_WIDGET_PAYLOAD_MARKERS.some( ( marker ) => line.startsWith( marker ) )
+		)
+		.join( '\n' )
+		.trim();
+}
+
+export function getLocalMediaPath( widget: StudioChatArtifactWidgetDraft ): string | null {
+	const { source } = widget.widgetProps;
+	if ( ! isRecord( source ) || source.type !== 'local' || typeof source.path !== 'string' ) {
+		return null;
+	}
+	return source.path;
+}
+
+export function getSafeMediaUrl( widget: StudioChatArtifactWidgetDraft ): string | null {
+	const { url } = widget.widgetProps;
+	if ( typeof url !== 'string' ) {
+		return null;
+	}
+	try {
+		const parsed = new URL( url );
+		return [ 'http:', 'https:', 'data:' ].includes( parsed.protocol ) ? url : null;
+	} catch {
+		return null;
+	}
+}
+
+export function isRenderableMediaWidget( widget: StudioChatArtifactWidgetDraft ): boolean {
+	return (
+		widget.type === 'media' &&
+		widget.widgetProps.mediaKind === 'image' &&
+		( Boolean( getLocalMediaPath( widget ) ) || Boolean( getSafeMediaUrl( widget ) ) )
+	);
 }

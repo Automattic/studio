@@ -1,3 +1,4 @@
+import { isRecord } from './chat-artifacts';
 import type { StudioChatArtifactWidgetDraft } from './chat-artifacts';
 
 interface StudioWidgetSpec {
@@ -370,10 +371,6 @@ function isPostCollectionWidgetProps( props: Record< string, unknown > ): boolea
 		isOneOf( props.query.order, POST_COLLECTION_ORDERS ) &&
 		( props.viewMode === undefined || isOneOf( props.viewMode, STACK_VIEW_MODES ) )
 	);
-}
-
-function isRecord( value: unknown ): value is Record< string, unknown > {
-	return Boolean( value ) && typeof value === 'object' && ! Array.isArray( value );
 }
 
 function isNonNegativeInteger( value: unknown ): value is number {

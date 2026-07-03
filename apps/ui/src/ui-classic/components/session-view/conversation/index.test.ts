@@ -30,9 +30,6 @@ vi.mock( '../thinking-indicator', () => ( {
 beforeEach( () => {
 	connectorMocks.readLocalMediaFile.mockReset();
 	connectorMocks.capabilities.readLocalMedia = true;
-	// jsdom does not implement object URLs.
-	URL.createObjectURL = vi.fn( () => 'blob:mock-object-url' );
-	URL.revokeObjectURL = vi.fn();
 } );
 
 describe( 'Conversation tool rows', () => {
@@ -200,7 +197,7 @@ describe( 'Conversation chat artifacts', () => {
 		const screenshot = await screen.findByRole( 'img', {
 			name: 'Screenshot of http://localhost:8888/ (desktop)',
 		} );
-		expect( screenshot ).toHaveAttribute( 'src', 'blob:mock-object-url' );
+		expect( screenshot ).toHaveAttribute( 'src', 'data:image/jpeg;base64,AQID' );
 		expect( connectorMocks.readLocalMediaFile ).toHaveBeenCalledWith(
 			'/tmp/studio-screenshot/screenshot-desktop.jpg'
 		);

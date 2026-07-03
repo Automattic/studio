@@ -6,6 +6,7 @@ import {
 	stripMediaWidgetPayloadLines,
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
+import { readBlobAsDataUrl } from '@studio/common/ai/composer-attachments';
 import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
@@ -335,20 +336,19 @@ function getMediaAltText( widget: StudioChatArtifactWidgetDraft ): string {
 		: __( 'Image' );
 }
 
-// Object URLs for already-read screenshot files, keyed by path. Screenshot
+// Data URLs for already-read screenshot files, keyed by path. Screenshot
 // files are immutable, so one IPC read per path per app lifetime is enough.
-const localMediaObjectUrls = new Map< string, Promise< string > >();
+// Data URLs (allowed by the renderer CSP, unlike blob:) need no revocation.
+const localMediaDataUrls = new Map< string, Promise< string > >();
 
-function readLocalMediaObjectUrl( path: string ): Promise< string > {
-	let promise = localMediaObjectUrls.get( path );
+function readLocalMediaDataUrl( path: string ): Promise< string > {
+	let promise = localMediaDataUrls.get( path );
 	if ( ! promise ) {
 		promise = getIpcApi()
 			.readLocalMediaFile( path )
-			.then( ( file ) =>
-				URL.createObjectURL( new Blob( [ file.data ], { type: file.mimeType } ) )
-			);
-		promise.catch( () => localMediaObjectUrls.delete( path ) );
-		localMediaObjectUrls.set( path, promise );
+			.then( ( file ) => readBlobAsDataUrl( new Blob( [ file.data ], { type: file.mimeType } ) ) );
+		promise.catch( () => localMediaDataUrls.delete( path ) );
+		localMediaDataUrls.set( path, promise );
 	}
 	return promise;
 }
@@ -376,10 +376,10 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 		let active = true;
 		setLocalSrc( null );
 		setFailed( false );
-		readLocalMediaObjectUrl( localPath )
-			.then( ( objectUrl ) => {
+		readLocalMediaDataUrl( localPath )
+			.then( ( dataUrl ) => {
 				if ( active ) {
-					setLocalSrc( objectUrl );
+					setLocalSrc( dataUrl );
 				}
 			} )
 			.catch( () => {

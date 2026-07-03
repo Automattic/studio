@@ -65,7 +65,7 @@ import { clsx } from 'clsx';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
-import { useLocalMediaFile } from '@/data/queries/use-local-media';
+import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -714,21 +714,9 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 	const connector = useConnector();
 	const localPath = connector.capabilities.readLocalMedia ? getLocalMediaPath( widget ) : null;
 	const safeUrl = getSafeMediaUrl( widget );
-	const localFileQuery = useLocalMediaFile( localPath );
+	const localFileQuery = useLocalMediaDataUrl( localPath );
 
-	const objectUrl = useMemo( () => {
-		const file = localFileQuery.data;
-		return file ? URL.createObjectURL( new Blob( [ file.data ], { type: file.mimeType } ) ) : null;
-	}, [ localFileQuery.data ] );
-	useEffect( () => {
-		return () => {
-			if ( objectUrl ) {
-				URL.revokeObjectURL( objectUrl );
-			}
-		};
-	}, [ objectUrl ] );
-
-	const src = localPath ? objectUrl : safeUrl;
+	const src = localPath ? localFileQuery.data ?? null : safeUrl;
 
 	if ( localFileQuery.isError || ( ! localPath && ! safeUrl ) ) {
 		return (

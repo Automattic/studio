@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
-import { useSyncableWpcomSites, useSyncableWpcomSitesPage } from './use-wpcom-sites';
-import type { Connector, SyncableWpcomSitesPage, SyncSite } from '@/data/core';
+import { useSyncableWpcomSites } from './use-wpcom-sites';
+import type { Connector, SyncSite } from '@/data/core';
 import type { ReactNode } from 'react';
 
 function makeSite( id: number ): SyncSite {
@@ -51,32 +51,5 @@ describe( 'useSyncableWpcomSites', () => {
 		await waitFor( () => expect( result.current.data ).toEqual( sites ) );
 
 		expect( fetchSyncableWpcomSites ).toHaveBeenCalledTimes( 1 );
-	} );
-
-	it( 'loads one syncable WordPress.com sites page from the connector', async () => {
-		const page: SyncableWpcomSitesPage = {
-			sites: [ makeSite( 1 ) ],
-			total: 1,
-			page: 1,
-			perPage: 100,
-			hasMore: false,
-			nextPage: null,
-		};
-		const fetchSyncableWpcomSitesPage = vi.fn().mockResolvedValue( page );
-
-		const { result } = renderHook(
-			() => useSyncableWpcomSitesPage( { perPage: 100, search: 'demo' } ),
-			{
-				wrapper: createWrapper( { fetchSyncableWpcomSitesPage } ),
-			}
-		);
-
-		await waitFor( () => expect( result.current.data ).toEqual( page ) );
-
-		expect( fetchSyncableWpcomSitesPage ).toHaveBeenCalledWith( {
-			page: 1,
-			perPage: 100,
-			search: 'demo',
-		} );
 	} );
 } );

@@ -38,21 +38,6 @@ export type { SupportedLocale } from '@studio/common/lib/locale';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
-export interface SyncableWpcomSitesPageOptions {
-	page?: number;
-	perPage?: number;
-	search?: string;
-}
-
-export interface SyncableWpcomSitesPage {
-	sites: SyncSite[];
-	total: number;
-	page: number;
-	perPage: number;
-	hasMore: boolean;
-	nextPage: number | null;
-}
-
 export interface AiSessionSitePlacement {
 	kind: 'site';
 	siteId: string;
@@ -235,11 +220,6 @@ export interface Connector {
 	// of which (if any) local site they're already connected to. The publish
 	// picker filters this list to sites that aren't connected anywhere yet.
 	fetchSyncableWpcomSites(): Promise< SyncSite[] >;
-	// One page of the same list. Used by the onboarding picker to mirror the
-	// default Studio UI's first-page + server-side search behavior.
-	fetchSyncableWpcomSitesPage(
-		options?: SyncableWpcomSitesPageOptions
-	): Promise< SyncableWpcomSitesPage >;
 	// Persists a new local↔live connection so the dropdown picks it up via
 	// `getConnectedWpcomSites`. Safe to call with the minimal `SyncSite` we
 	// receive from a sync-connect-site deep link — later fetches backfill the

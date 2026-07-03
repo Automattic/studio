@@ -15,10 +15,7 @@ import { useFindAvailableSiteName } from '@/data/queries/use-create-site-helpers
 import { useCreateSite, useDeleteSite, useSites } from '@/data/queries/use-sites';
 import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import {
-	useAllConnectedWpcomSites,
-	useSyncableWpcomSitesPage,
-} from '@/data/queries/use-wpcom-sites';
+import { useAllConnectedWpcomSites, useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { useGridArrowNavigation } from '@/hooks/use-grid-arrow-navigation';
 import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink } from '@/lib/docs-links';
@@ -36,10 +33,9 @@ const CREATE_WPCOM_SITE_URL =
 
 // Labels for sites the user can see but not pick; the needs-upgrade and
 // needs-transfer groups get overlay CTAs instead. Note: this page's data
-// source (fetchSyncableWpcomSitesPage) deliberately omits connectedSiteIds so
-// syncSupport is never 'already-connected' here — a remote site connected to
-// another local site stays pickable, and its connections render as a card
-// overlay from useAllConnectedWpcomSites instead.
+// source (fetchSyncableWpcomSites) doesn't mark sites 'already-connected' —
+// a remote site connected to another local site stays pickable, and its
+// connections render as a card overlay from useAllConnectedWpcomSites instead.
 function getSyncStatusLabel( site: SyncSite ): string | null {
 	switch ( site.syncSupport ) {
 		case 'missing-permissions':
@@ -333,17 +329,24 @@ export function OnboardingConnectPage() {
 	const [ submitError, setSubmitError ] = useState( '' );
 	const [ searchQuery, setSearchQuery ] = useState( '' );
 	const [ debouncedSearchQuery, setDebouncedSearchQuery ] = useState( '' );
-	// Consider both the live and debounced values so the flag never disagrees
-	// with the data, which stays keyed to the previous search for up to the
-	// debounce delay (e.g. right after clearing the input).
+	// Consider both the live and debounced values so the "searching" UI state
+	// doesn't flicker during the debounce window.
 	const isSearching = searchQuery.trim().length > 0 || debouncedSearchQuery.trim().length > 0;
-	const syncable = useSyncableWpcomSitesPage( {
-		enabled: !! user,
-		perPage: 100,
-		search: debouncedSearchQuery,
-	} );
+	const syncable = useSyncableWpcomSites( { enabled: !! user } );
 
-	const sites = useMemo( () => syncable.data?.sites ?? [], [ syncable.data ] );
+	const allSites = useMemo( () => syncable.data ?? [], [ syncable.data ] );
+	// Search filters client-side over the cached account list — same behavior
+	// as the desktop renderer's sync modal.
+	const sites = useMemo( () => {
+		const needle = debouncedSearchQuery.trim().toLowerCase();
+		if ( ! needle ) {
+			return allSites;
+		}
+		return allSites.filter(
+			( site ) =>
+				site.name.toLowerCase().includes( needle ) || site.url.toLowerCase().includes( needle )
+		);
+	}, [ allSites, debouncedSearchQuery ] );
 	const connectedLocalSiteNamesByRemoteId = useMemo( () => {
 		const localSiteNamesById = new Map( localSites.map( ( site ) => [ site.id, site.name ] ) );
 		const namesByRemoteId = new Map< number, string[] >();
@@ -362,12 +365,9 @@ export function OnboardingConnectPage() {
 
 		return namesByRemoteId;
 	}, [ connectedWpcomSites, localSites ] );
-	const totalSites = syncable.data?.total ?? sites.length;
-	// Exclude placeholder data: while the unsearched page refetches, the query
-	// still serves the previous (possibly single-result search) page.
-	const isSingleSite =
-		! isSearching && ! syncable.isPlaceholderData && totalSites === 1 && sites.length === 1;
-	const isLoadingSites = syncable.isLoading || ( syncable.isFetching && sites.length === 0 );
+	const totalSites = allSites.length;
+	const isSingleSite = ! isSearching && totalSites === 1;
+	const isLoadingSites = syncable.isLoading || ( syncable.isFetching && allSites.length === 0 );
 
 	useEffect( () => {
 		const timer = window.setTimeout( () => {

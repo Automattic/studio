@@ -20,7 +20,6 @@ import type {
 	Snapshot,
 	SupportedEditor,
 	SupportedTerminal,
-	SyncableWpcomSitesPage,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
@@ -529,10 +528,6 @@ export function createIpcConnector(): Connector {
 
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return ( await ipcApi.fetchSyncableWpcomSites() ) as SyncSite[];
-		},
-
-		async fetchSyncableWpcomSitesPage( options ): Promise< SyncableWpcomSitesPage > {
-			return ( await ipcApi.fetchSyncableWpcomSitesPage( options ) ) as SyncableWpcomSitesPage;
 		},
 
 		async connectWpcomSite( localSiteId, site ): Promise< void > {

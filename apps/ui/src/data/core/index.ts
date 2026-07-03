@@ -33,8 +33,6 @@ export type {
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,
-	SyncableWpcomSitesPage,
-	SyncableWpcomSitesPageOptions,
 	SyncSite,
 	UserPreferences,
 	WritableUserPreferences,

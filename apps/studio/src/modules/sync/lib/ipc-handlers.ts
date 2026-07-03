@@ -3,7 +3,6 @@ import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import * as Sentry from '@sentry/electron/main';
 import {
 	addConnectedWpcomSite,
 	getAllConnectedWpcomSitesForCurrentUser,
@@ -13,11 +12,7 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
-import {
-	fetchSyncableSites,
-	fetchSyncableSitesPage,
-	type SyncableSitesPage,
-} from '@studio/common/lib/sync/sync-api';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -595,30 +590,7 @@ export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Pro
 	if ( ! token?.accessToken ) {
 		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
 	}
-	// Pass the already-connected remote IDs so the transform can mark those
-	// sites 'already-connected' instead of offering them as syncable again.
-	const connectedSites = await getAllConnectedWpcomSitesForCurrentUser();
-	const connectedSiteIds = connectedSites.map( ( site ) => site.id );
-	return fetchSyncableSites( token.accessToken, {
-		connectedSiteIds,
-		onParseError: Sentry.captureException,
-	} );
-}
-
-export async function fetchSyncableWpcomSitesPage(
-	_event: IpcMainInvokeEvent,
-	options: { page?: number; perPage?: number; search?: string } = {}
-): Promise< SyncableSitesPage > {
-	const token = await getAuthenticationToken();
-	if ( ! token?.accessToken ) {
-		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
-	}
-	// Mirrors the default Add Site picker: a remote site connected to another
-	// local site is still selectable when creating a new local site.
-	return fetchSyncableSitesPage( token.accessToken, {
-		...options,
-		onParseError: Sentry.captureException,
-	} );
+	return fetchSyncableSites( token.accessToken );
 }
 
 export async function getConnectedWpcomSites(

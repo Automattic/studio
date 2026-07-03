@@ -22,7 +22,6 @@ import type {
 	Snapshot,
 	SupportedEditor,
 	SupportedTerminal,
-	SyncableWpcomSitesPage,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
@@ -490,22 +489,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return api< SyncSite[] >( '/wpcom/syncable-sites' );
-		},
-		async fetchSyncableWpcomSitesPage( { page, perPage, search } = {} ) {
-			const params = new URLSearchParams();
-			if ( page ) {
-				params.set( 'page', String( page ) );
-			}
-			if ( perPage ) {
-				params.set( 'perPage', String( perPage ) );
-			}
-			if ( search?.trim() ) {
-				params.set( 'search', search.trim() );
-			}
-			const query = params.toString();
-			return api< SyncableWpcomSitesPage >(
-				`/wpcom/syncable-sites/page${ query ? `?${ query }` : '' }`
-			);
 		},
 		async connectWpcomSite( localSiteId, site ) {
 			await api( `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`, {

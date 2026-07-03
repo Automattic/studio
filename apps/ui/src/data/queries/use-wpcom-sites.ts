@@ -19,27 +19,6 @@ export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
 	} );
 }
 
-export function useSyncableWpcomSitesPage(
-	options: { enabled?: boolean; page?: number; perPage?: number; search?: string } = {}
-) {
-	const connector = useConnector();
-	const search = options.search?.trim() ?? '';
-	const page = options.page ?? 1;
-	const perPage = options.perPage ?? 100;
-	return useQuery( {
-		queryKey: [ ...SYNCABLE_WPCOM_SITES_QUERY_KEY, 'page', page, perPage, search ],
-		queryFn: () =>
-			connector.fetchSyncableWpcomSitesPage( {
-				page,
-				perPage,
-				search: search || undefined,
-			} ),
-		enabled: options.enabled ?? true,
-		placeholderData: ( previousData ) => previousData,
-		staleTime: 5 * 60 * 1000,
-	} );
-}
-
 // Mirrors `useConnectedWpcomSites` but returns connections for every local
 // site — used to filter out WordPress.com sites that are already attached to
 // another Studio site when picking a publish target.

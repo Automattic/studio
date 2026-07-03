@@ -261,10 +261,8 @@ export async function runCommand(
 		}
 
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
-		const isSqliteUpdated = await keepSqliteIntegrationUpdated( sitePath );
-		logger.reportSuccess(
-			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
-		);
+		await keepSqliteIntegrationUpdated( sitePath );
+		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
 		try {
 			const sharedConfig = await readSharedConfig();
@@ -331,6 +329,7 @@ export async function runCommand(
 			runtime: siteRuntime,
 			fileAccess: options.fileAccess,
 			running: false,
+			status: 'ready',
 			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,

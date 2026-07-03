@@ -36,7 +36,7 @@ POT_FILE_PATH = File.join(PROJECT_ROOT_FOLDER, 'i18n', 'bundle-strings.pot')
 
 # GlotPress project URL and output directory for Studio UI translations (Jed 1.x JSON)
 GLOTPRESS_PROJECT_URL = 'https://translate.wordpress.com/projects/studio'
-TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'tools', 'common', 'translations')
+TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'packages', 'common', 'translations')
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'

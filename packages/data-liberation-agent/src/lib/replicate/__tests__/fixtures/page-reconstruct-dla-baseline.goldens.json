@@ -699,32 +699,16 @@
         "convertedSections": []
       },
       "output": {
-        "body": "<!-- wp:html {\"metadata\":{\"name\":\"lib-coverage-island\"}} -->\n<section style=\"display:grid;gap:12px\"><h2>Styled Island</h2><img src=\"https://cdn.example.test/assets/styled-loss.jpg\"></section>\n<!-- /wp:html -->\n",
-        "expectedText": [],
+        "body": "<!-- wp:group {\"tagName\":\"section\",\"align\":\"full\",\"className\":\"source-only\",\"style\":{\"spacing\":{\"margin\":{\"top\":\"0\",\"bottom\":\"0\"},\"padding\":{\"top\":\"var:preset|spacing|60\",\"bottom\":\"var:preset|spacing|60\",\"left\":\"var:preset|spacing|40\",\"right\":\"var:preset|spacing|40\"},\"blockGap\":\"var:preset|spacing|40\"}},\"layout\":{\"type\":\"constrained\",\"contentSize\":\"760px\"}} -->\n<section class=\"wp-block-group alignfull source-only\" style=\"margin-top:0;margin-bottom:0;padding-top:var(--wp--preset--spacing--60);padding-right:var(--wp--preset--spacing--40);padding-bottom:var(--wp--preset--spacing--60);padding-left:var(--wp--preset--spacing--40)\">\n<!-- wp:heading {\"textAlign\":\"center\",\"level\":1,\"fontFamily\":\"display\",\"textColor\":\"text-default\"} -->\n<h1 class=\"wp-block-heading has-text-align-center has-text-default-color has-text-color has-display-font-family\">Styled Island</h1>\n<!-- /wp:heading -->\n<!-- wp:paragraph {\"align\":\"center\",\"textColor\":\"text-subtle\",\"fontSize\":\"small\"} -->\n<p class=\"has-text-align-center has-text-subtle-color has-text-color has-small-font-size\">[image unavailable — not captured]</p>\n<!-- /wp:paragraph -->\n</section>\n<!-- /wp:group -->\n",
+        "expectedText": [
+          "Styled Island"
+        ],
         "bodyText": [],
         "expectedAssets": [],
         "provenanceFlags": [
-          "html-fallback-styled#0: structured render dropped content (1 images missing, text 100%) — emitted styled core/html"
+          "static#0: image not in WP library (https://cdn.example.test/assets/styled-loss.jpg) — placeholder emitted"
         ],
-        "fallbackDiagnostics": [
-          {
-            "id": "styled-island-tier-s0-dropped_images",
-            "page": "https://example.test/styled-island-tier",
-            "sectionIndex": 0,
-            "interactionModel": "static",
-            "selector": "",
-            "severity": "warning",
-            "reasonCode": "dropped_images",
-            "islandKind": "styled",
-            "droppedImages": [
-              "https://cdn.example.test/assets/styled-loss.jpg"
-            ],
-            "textCoverage": 1,
-            "suggestedRepairClass": "recover_dropped_media",
-            "sourceHtmlPreview": "<section style=\"display:grid;gap:12px\"><h2>Styled Island</h2><img src=\"https://cdn.example.test/assets/styled-loss.jpg\"></section>",
-            "emittedBlockPreview": "<!-- wp:html {\"metadata\":{\"name\":\"lib-coverage-island\"}} -->\n<section style=\"display:grid;gap:12px\"><h2>Styled Island</h2><img src=\"https://cdn.example.test/assets/styled-loss.jpg\"></section>\n<!-- /wp"
-          }
-        ],
+        "fallbackDiagnostics": [],
         "iconAssets": [],
         "heroIsCover": false
       }
@@ -735,32 +719,16 @@
         "convertedSections": []
       },
       "output": {
-        "body": "<!-- wp:html {\"metadata\":{\"name\":\"lib-coverage-island\"}} -->\n<section class=\"wp-block-group is-layout-constrained\"><h2>Responsive Island</h2><img src=\"https://cdn.example.test/assets/responsive-loss.jpg\"></section>\n<!-- /wp:html -->\n",
-        "expectedText": [],
+        "body": "<!-- wp:group {\"tagName\":\"section\",\"align\":\"full\",\"style\":{\"spacing\":{\"margin\":{\"top\":\"0\",\"bottom\":\"0\"},\"padding\":{\"top\":\"var:preset|spacing|60\",\"bottom\":\"var:preset|spacing|60\",\"left\":\"var:preset|spacing|40\",\"right\":\"var:preset|spacing|40\"},\"blockGap\":\"var:preset|spacing|40\"}},\"layout\":{\"type\":\"constrained\",\"contentSize\":\"760px\"}} -->\n<section class=\"wp-block-group alignfull\" style=\"margin-top:0;margin-bottom:0;padding-top:var(--wp--preset--spacing--60);padding-right:var(--wp--preset--spacing--40);padding-bottom:var(--wp--preset--spacing--60);padding-left:var(--wp--preset--spacing--40)\">\n<!-- wp:heading {\"textAlign\":\"center\",\"level\":1,\"fontFamily\":\"display\",\"textColor\":\"text-default\"} -->\n<h1 class=\"wp-block-heading has-text-align-center has-text-default-color has-text-color has-display-font-family\">Responsive Island</h1>\n<!-- /wp:heading -->\n<!-- wp:paragraph {\"align\":\"center\",\"textColor\":\"text-subtle\",\"fontSize\":\"small\"} -->\n<p class=\"has-text-align-center has-text-subtle-color has-text-color has-small-font-size\">[image unavailable — not captured]</p>\n<!-- /wp:paragraph -->\n</section>\n<!-- /wp:group -->\n",
+        "expectedText": [
+          "Responsive Island"
+        ],
         "bodyText": [],
         "expectedAssets": [],
         "provenanceFlags": [
-          "html-fallback-responsive#0: structured render dropped content (1 images missing, text 100%) — emitted responsive core/html"
+          "static#0: image not in WP library (https://cdn.example.test/assets/responsive-loss.jpg) — placeholder emitted"
         ],
-        "fallbackDiagnostics": [
-          {
-            "id": "responsive-island-tier-s0-dropped_images",
-            "page": "https://example.test/responsive-island-tier",
-            "sectionIndex": 0,
-            "interactionModel": "static",
-            "selector": "",
-            "severity": "warning",
-            "reasonCode": "dropped_images",
-            "islandKind": "responsive",
-            "droppedImages": [
-              "https://cdn.example.test/assets/responsive-loss.jpg"
-            ],
-            "textCoverage": 1,
-            "suggestedRepairClass": "recover_dropped_media",
-            "sourceHtmlPreview": "<section style=\"width:1200px\"><h2>Responsive Island</h2><img src=\"https://cdn.example.test/assets/responsive-loss.jpg\"></section>",
-            "emittedBlockPreview": "<!-- wp:html {\"metadata\":{\"name\":\"lib-coverage-island\"}} -->\n<section class=\"wp-block-group is-layout-constrained\"><h2>Responsive Island</h2><img src=\"https://cdn.example.test/assets/responsive-loss.j"
-          }
-        ],
+        "fallbackDiagnostics": [],
         "iconAssets": [],
         "heroIsCover": false
       }
@@ -800,32 +768,24 @@
         "convertedSections": []
       },
       "output": {
-        "body": "<!-- wp:html {\"metadata\":{\"name\":\"lib-coverage-island\"}} -->\n<section><h2>Contact Island</h2><form><input type=\"email\"></form><img src=\"https://cdn.example.test/assets/form-fallback.jpg\"></section>\n<!-- /wp:html -->\n",
-        "expectedText": [],
+        "body": "<!-- wp:group {\"tagName\":\"section\",\"align\":\"full\",\"style\":{\"spacing\":{\"margin\":{\"top\":\"0\",\"bottom\":\"0\"},\"padding\":{\"top\":\"var:preset|spacing|60\",\"bottom\":\"var:preset|spacing|60\",\"left\":\"var:preset|spacing|40\",\"right\":\"var:preset|spacing|40\"},\"blockGap\":\"var:preset|spacing|40\"}},\"layout\":{\"type\":\"constrained\",\"contentSize\":\"760px\"}} -->\n<section class=\"wp-block-group alignfull\" style=\"margin-top:0;margin-bottom:0;padding-top:var(--wp--preset--spacing--60);padding-right:var(--wp--preset--spacing--40);padding-bottom:var(--wp--preset--spacing--60);padding-left:var(--wp--preset--spacing--40)\">\n<!-- wp:heading {\"textAlign\":\"center\",\"level\":1,\"fontFamily\":\"display\",\"textColor\":\"text-default\"} -->\n<h1 class=\"wp-block-heading has-text-align-center has-text-default-color has-text-color has-display-font-family\">Contact Island</h1>\n<!-- /wp:heading -->\n<!-- wp:paragraph {\"align\":\"center\",\"textColor\":\"text-subtle\",\"fontSize\":\"small\"} -->\n<p class=\"has-text-align-center has-text-subtle-color has-text-color has-small-font-size\">[image unavailable — not captured]</p>\n<!-- /wp:paragraph -->\n<!-- wp:jetpack/contact-form {\"style\":{\"spacing\":{\"padding\":{\"top\":\"16px\",\"right\":\"16px\",\"bottom\":\"16px\",\"left\":\"16px\"}}}} -->\n<div class=\"wp-block-jetpack-contact-form\">\n<!-- wp:jetpack/field-name {\"label\":\"Full name\",\"required\":true,\"width\":50} /-->\n<!-- wp:jetpack/field-email {\"label\":\"Email address\",\"required\":true,\"width\":50} /-->\n<!-- wp:jetpack/field-select {\"label\":\"Topic\",\"options\":[\"Billing\",\"Support\"]} /-->\n<!-- wp:jetpack/field-textarea {\"label\":\"Message\"} /-->\n<!-- wp:button {\"tagName\":\"button\",\"type\":\"submit\",\"lock\":{\"remove\":true},\"className\":\"form-button-submit is-submit\",\"metadata\":{\"name\":\"Submit button\"}} -->\n<div class=\"wp-block-button form-button-submit is-submit\"><button type=\"submit\" class=\"wp-block-button__link wp-element-button\">Send Message</button></div>\n<!-- /wp:button -->\n</div>\n<!-- /wp:jetpack/contact-form -->\n</section>\n<!-- /wp:group -->\n",
+        "expectedText": [
+          "Contact Island",
+          "Full name",
+          "Email address",
+          "Topic",
+          "Billing",
+          "Support",
+          "Message",
+          "Send Message"
+        ],
         "bodyText": [],
         "expectedAssets": [],
         "provenanceFlags": [
-          "html-fallback#0: structured render dropped content (1 images missing, text 100%) — emitted verbatim core/html"
+          "static#0: image not in WP library (https://cdn.example.test/assets/form-fallback.jpg) — placeholder emitted",
+          "form-field-skipped#0: hidden field \"Campaign id\" has no Jetpack form equivalent"
         ],
-        "fallbackDiagnostics": [
-          {
-            "id": "form-island-no-jetpack-s0-dropped_images",
-            "page": "https://example.test/form-island-no-jetpack",
-            "sectionIndex": 0,
-            "interactionModel": "static",
-            "selector": "",
-            "severity": "warning",
-            "reasonCode": "dropped_images",
-            "islandKind": "verbatim",
-            "droppedImages": [
-              "https://cdn.example.test/assets/form-fallback.jpg"
-            ],
-            "textCoverage": 1,
-            "suggestedRepairClass": "recover_dropped_media",
-            "sourceHtmlPreview": "<section><h2>Contact Island</h2><form><input type=\"email\"></form><img src=\"https://cdn.example.test/assets/form-fallback.jpg\"></section>",
-            "emittedBlockPreview": "<!-- wp:html {\"metadata\":{\"name\":\"lib-coverage-island\"}} -->\n<section><h2>Contact Island</h2><form><input type=\"email\"></form><img src=\"https://cdn.example.test/assets/form-fallback.jpg\"></section>\n<!"
-          }
-        ],
+        "fallbackDiagnostics": [],
         "iconAssets": [],
         "heroIsCover": false
       }

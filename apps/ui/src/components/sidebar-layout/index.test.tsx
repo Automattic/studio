@@ -5,7 +5,9 @@ import { SidebarLayout } from './index';
 import type { ReactNode } from 'react';
 
 vi.mock( '@/components/sidebar-header', () => ( {
-	SidebarHeader: () => null,
+	SidebarHeader: ( { onToggleSidebar }: { onToggleSidebar: () => void } ) => (
+		<button onClick={ onToggleSidebar }>Hide sidebar</button>
+	),
 } ) );
 
 vi.mock( '@/components/site-list', () => ( {
@@ -13,9 +15,7 @@ vi.mock( '@/components/site-list', () => ( {
 } ) );
 
 vi.mock( '@/components/user-menu', () => ( {
-	UserMenu: ( { onToggleSidebar }: { onToggleSidebar: () => void } ) => (
-		<button onClick={ onToggleSidebar }>Hide sidebar</button>
-	),
+	UserMenu: () => null,
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -50,6 +50,9 @@ describe( 'SidebarLayout', () => {
 				toggleSidebarListener = listener;
 				return vi.fn();
 			} ),
+			reservesTrafficLightSpace: false,
+			isFullscreen: vi.fn().mockResolvedValue( false ),
+			onFullscreenChange: vi.fn().mockReturnValue( vi.fn() ),
 		} );
 	} );
 

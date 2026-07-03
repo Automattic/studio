@@ -49,8 +49,8 @@ vi.mock( '@/components/menu', () => ( {
 	),
 } ) );
 
-vi.mock( '@/hooks/use-fullscreen', () => ( {
-	useFullscreen: () => false,
+vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+	useTrafficLightSpace: () => true,
 } ) );
 
 describe( 'SidebarHeader', () => {
@@ -59,7 +59,7 @@ describe( 'SidebarHeader', () => {
 	} );
 
 	it( 'opens site creation routes from the top-right create menu', () => {
-		render( <SidebarHeader /> );
+		render( <SidebarHeader onToggleSidebar={ vi.fn() } /> );
 
 		expect( screen.getByRole( 'button', { name: 'Create new' } ) ).toBeInTheDocument();
 
@@ -68,5 +68,14 @@ describe( 'SidebarHeader', () => {
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Import from…' } ) );
 		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding/import' } );
+	} );
+
+	it( 'hides the sidebar from the header toggle', () => {
+		const onToggleSidebar = vi.fn();
+		render( <SidebarHeader onToggleSidebar={ onToggleSidebar } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Hide sidebar' } ) );
+
+		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

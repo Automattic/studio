@@ -7,6 +7,12 @@ env:
   IMAGE_ID: $IMAGE_ID
 
 e2e_config: &e2e_config
+  # TEMP(AINFRA-2588): fail hung diagnostic E2E jobs fast instead of waiting for the
+  # Buildkite agent's default 3h timeout. While ~20 Windows tests still fail (each
+  # burning a retry), a full run needs ~1h20 — 45m truncated build 18744 mid-suite.
+  # run-e2e-tests.sh traps the cancellation signal and exits non-zero so a
+  # timed-out job can't record exit status 0 and turn the build green.
+  timeout_in_minutes: 100
   command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
   artifact_paths:
     - test-results/**/*.zip
@@ -17,18 +23,18 @@ e2e_config: &e2e_config
   agents:
     queue: "{{matrix.platform}}"
   env:
-    # See https://playwright.dev/docs/ci#debugging-browser-launches
-    DEBUG: "pw:browser"
+    # pw:browser logs browser launches (https://playwright.dev/docs/ci#debugging-browser-launches);
+    # pw:api logs every Playwright action (goto, click, waits) with timings, so a
+    # hung or failing test shows exactly which call it died on, in-stream.
+    DEBUG: "pw:api,pw:browser"
   matrix:
     setup: { platform: [], arch: [] }
     adjustments:
       - with: { platform: mac, arch: arm64 }
-      # Windows E2E temporarily disabled while AINFRA-2588 investigates Windows E2E hangs in Buildkite.
+      # Re-enabled to verify the AINFRA-2588 daemon-leak fix.
+      # This diagnostic PR also checks whether per-command CLI shutdown handling affects teardown.
       # See https://linear.app/a8c/issue/AINFRA-2588/investigate-studio-windows-e2e-hangs-in-buildkite
-      # - with: { platform: windows, arch: x64 }
-  notify:
-    - github_commit_status:
-        context: E2E Tests
+      - with: { platform: windows, arch: x64 }
 
 steps:
   - label: Lint
@@ -87,6 +93,12 @@ steps:
 
   - group: E2E Tests
     key: e2e-tests
+    # One combined GitHub status for all E2E jobs. Step-level notifies on the
+    # same context race (last writer wins), so a fast green mac job used to
+    # mask a still-running or failed Windows job.
+    notify:
+      - github_commit_status:
+          context: E2E Tests
     steps:
       # E2E tests run on supported platform/architecture combinations.
       # - mac-arm64: Native on Apple Silicon agents
@@ -116,11 +128,8 @@ steps:
           - test-results/**/*error-context.md
           - test-results/daemon-logs/**/*.log
         env:
-          DEBUG: "pw:browser"
+          DEBUG: "pw:api,pw:browser"
         # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
-        notify:
-          - github_commit_status:
-              context: E2E Tests
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics

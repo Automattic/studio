@@ -503,15 +503,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// Folder details for a typed path (the browser has no native folder
-	// picker), so the create form can adapt to wp-env projects.
+	// picker), so the create form can adapt to wp-env projects. Only
+	// normalized absolute paths are probed — the form always sends absolute
+	// paths, and this keeps relative-path tricks out of filesystem probes.
 	api.post(
 		'/paths/inspect',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { path: folderPath } = req.body as { path?: string };
-			if ( ! folderPath ) {
+			const { path: rawPath } = req.body as { path?: string };
+			if ( ! rawPath || ! path.isAbsolute( rawPath ) ) {
 				res.json( { isEmpty: true, isWordPress: false } );
 				return;
 			}
+			const folderPath = path.resolve( rawPath );
 			try {
 				res.json( {
 					isEmpty: await isEmptyDir( folderPath ),

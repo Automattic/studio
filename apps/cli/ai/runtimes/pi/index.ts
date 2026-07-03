@@ -2,7 +2,10 @@ import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
-import { streamAnthropic, type AnthropicOptions } from '@earendil-works/pi-ai/anthropic';
+import {
+	stream as streamAnthropic,
+	type AnthropicOptions,
+} from '@earendil-works/pi-ai/api/anthropic-messages';
 import {
 	AuthStorage,
 	createAgentSession,

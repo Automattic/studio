@@ -1,4 +1,12 @@
 import {
+	getLocalMediaPath,
+	getSafeMediaUrl,
+	isRenderableMediaWidget,
+	isStudioChatArtifactData,
+	stripMediaWidgetPayloadLines,
+	type StudioChatArtifactWidgetDraft,
+} from '@studio/common/ai/chat-artifacts';
+import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
@@ -11,8 +19,9 @@ import {
 import { __ } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Markdown } from '../markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -41,6 +50,11 @@ type RenderItem =
 			options: Array< { label: string; description: string } >;
 			answer?: string;
 	  }
+	| {
+			kind: 'chat-artifact';
+			key: string;
+			widgets: StudioChatArtifactWidgetDraft[];
+	  }
 	| { kind: 'interrupted-marker'; key: string };
 
 interface PiAssistantContentBlock {
@@ -65,17 +79,6 @@ interface PiToolResultLike {
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
 
-function stripScreenshotMediaPayloadLines( text: string ): string {
-	return text
-		.split( '\n' )
-		.filter(
-			( line ) =>
-				! line.startsWith( 'mediaWidgetPayload=' ) && ! line.startsWith( 'mediaWidgetPayloads=' )
-		)
-		.join( '\n' )
-		.trim();
-}
-
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
@@ -89,7 +92,9 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			.map( ( b ) => b.text as string )
 			.join( '\n' );
 		resultsByToolCallId.set( message.toolCallId, {
-			text,
+			// Old transcripts embed media widget payload markers in screenshot
+			// results; strip them from every tool's display text.
+			text: stripMediaWidgetPayloadLines( text ),
 			isError: message.isError === true,
 		} );
 	}
@@ -152,19 +157,12 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 					typeof block.name === 'string' &&
 					! HIDDEN_TOOL_ROWS.has( block.name )
 				) {
-					const result = resultsByToolCallId.get( block.id );
 					items.push( {
 						kind: 'tool-use',
 						key: `${ entryIndex }:${ blockIndex }:tool`,
 						name: block.name,
 						input: ( block.arguments as Record< string, unknown > ) ?? {},
-						result:
-							block.name === 'take_screenshot' && result
-								? {
-										...result,
-										text: stripScreenshotMediaPayloadLines( result.text ),
-								  }
-								: result,
+						result: resultsByToolCallId.get( block.id ),
 					} );
 				}
 			} );
@@ -182,6 +180,24 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				answer: askUserAnswers[ questionOrdinal ],
 			} );
 			questionOrdinal += 1;
+			return;
+		}
+
+		if ( isStudioCustomEntryOfType( entry, 'studio.chat_artifact' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.chat_artifact' > ).data;
+			// Guard against malformed persisted entries so one bad line can't
+			// take down the whole transcript.
+			if ( ! isStudioChatArtifactData( data ) ) {
+				return;
+			}
+			const widgets = data.widgets.filter( isRenderableMediaWidget );
+			if ( widgets.length > 0 ) {
+				items.push( {
+					kind: 'chat-artifact',
+					key: `${ entryIndex }:chat-artifact`,
+					widgets,
+				} );
+			}
 			return;
 		}
 
@@ -313,6 +329,90 @@ function ToolUseRow( {
 	);
 }
 
+function getMediaAltText( widget: StudioChatArtifactWidgetDraft ): string {
+	return typeof widget.widgetProps.alt === 'string' && widget.widgetProps.alt.trim()
+		? widget.widgetProps.alt
+		: __( 'Image' );
+}
+
+// Object URLs for already-read screenshot files, keyed by path. Screenshot
+// files are immutable, so one IPC read per path per app lifetime is enough.
+const localMediaObjectUrls = new Map< string, Promise< string > >();
+
+function readLocalMediaObjectUrl( path: string ): Promise< string > {
+	let promise = localMediaObjectUrls.get( path );
+	if ( ! promise ) {
+		promise = getIpcApi()
+			.readLocalMediaFile( path )
+			.then( ( file ) =>
+				URL.createObjectURL( new Blob( [ file.data ], { type: file.mimeType } ) )
+			);
+		promise.catch( () => localMediaObjectUrls.delete( path ) );
+		localMediaObjectUrls.set( path, promise );
+	}
+	return promise;
+}
+
+function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] } ) {
+	return (
+		<div className={ styles.mediaArtifactGrid }>
+			{ widgets.map( ( widget, index ) => (
+				<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
+			) ) }
+		</div>
+	);
+}
+
+function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
+	const localPath = getLocalMediaPath( widget );
+	const safeUrl = getSafeMediaUrl( widget );
+	const [ localSrc, setLocalSrc ] = useState< string | null >( null );
+	const [ failed, setFailed ] = useState( false );
+
+	useEffect( () => {
+		if ( ! localPath ) {
+			return;
+		}
+		let active = true;
+		setLocalSrc( null );
+		setFailed( false );
+		readLocalMediaObjectUrl( localPath )
+			.then( ( objectUrl ) => {
+				if ( active ) {
+					setLocalSrc( objectUrl );
+				}
+			} )
+			.catch( () => {
+				if ( active ) {
+					setFailed( true );
+				}
+			} );
+		return () => {
+			active = false;
+		};
+	}, [ localPath ] );
+
+	const src = localPath ? localSrc : safeUrl;
+
+	if ( failed || ( ! localPath && ! safeUrl ) ) {
+		return (
+			<div className={ styles.mediaArtifactUnavailable } role="status">
+				{ __( 'Image unavailable' ) }
+			</div>
+		);
+	}
+
+	if ( ! src ) {
+		return <div className={ styles.mediaArtifactLoading } aria-hidden="true" />;
+	}
+
+	return (
+		<figure className={ styles.mediaArtifactItem }>
+			<img className={ styles.mediaArtifactImage } src={ src } alt={ getMediaAltText( widget ) } />
+		</figure>
+	);
+}
+
 function AgentQuestion( {
 	question,
 	options,
@@ -411,6 +511,8 @@ export function Conversation( {
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 							/>
 						);
+					case 'chat-artifact':
+						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
 					case 'interrupted-marker':
 						return (
 							<div key={ item.key } className={ styles.interruptedMarker } role="status">

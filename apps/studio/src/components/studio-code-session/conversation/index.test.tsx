@@ -95,8 +95,8 @@ describe( 'entriesToRenderItems – persisted picked answers', () => {
 	} );
 } );
 
-describe( 'entriesToRenderItems – screenshot payload markers', () => {
-	it( 'strips screenshot media payload markers from tool output', () => {
+describe( 'entriesToRenderItems – legacy payload markers', () => {
+	it( 'strips media payload marker lines from any tool output', () => {
 		const items = entriesToRenderItems( [
 			assistantToolCallEntry( 'take_screenshot' ),
 			toolResultEntry(
@@ -115,5 +115,61 @@ describe( 'entriesToRenderItems – screenshot payload markers', () => {
 		expect( tool ).not.toMatchObject( {
 			result: { text: expect.stringContaining( 'mediaWidgetPayload' ) },
 		} );
+	} );
+} );
+
+describe( 'entriesToRenderItems – chat artifacts', () => {
+	const screenshotWidget = {
+		type: 'media',
+		widgetProps: {
+			url: 'file:///tmp/studio-screenshot/screenshot-desktop.jpg',
+			mediaKind: 'image',
+			alt: 'Screenshot of http://localhost:8888/ (desktop)',
+			mediaId: null,
+			source: {
+				type: 'local',
+				path: '/tmp/studio-screenshot/screenshot-desktop.jpg',
+				name: 'screenshot-desktop.jpg',
+				mimeType: 'image/jpeg',
+			},
+		},
+	};
+
+	it( 'renders media widgets from chat artifact entries', () => {
+		const items = entriesToRenderItems( [
+			customEntry( 'studio.chat_artifact', {
+				version: 1,
+				id: 'artifact-1',
+				widgets: [ screenshotWidget, { type: 'site-preview', widgetProps: { path: '/' } } ],
+			} ),
+		] );
+
+		expect( items ).toMatchObject( [ { kind: 'chat-artifact', widgets: [ screenshotWidget ] } ] );
+	} );
+
+	it( 'ignores artifacts without renderable media widgets', () => {
+		const items = entriesToRenderItems( [
+			customEntry( 'studio.chat_artifact', {
+				version: 1,
+				id: 'artifact-1',
+				widgets: [ { type: 'site-preview', widgetProps: { path: '/' } } ],
+			} ),
+		] );
+
+		expect( items ).toEqual( [] );
+	} );
+
+	it( 'skips malformed chat artifact entries without crashing', () => {
+		const malformed = [
+			{ version: 1, id: 'artifact-1' }, // missing widgets
+			{ version: 1, id: 'artifact-2', widgets: 'nope' }, // wrong widgets type
+			{ id: 'artifact-3', widgets: [] }, // missing version
+			null,
+		];
+		for ( const data of malformed ) {
+			expect( entriesToRenderItems( [ customEntry( 'studio.chat_artifact', data ) ] ) ).toEqual(
+				[]
+			);
+		}
 	} );
 } );

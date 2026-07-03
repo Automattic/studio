@@ -1,5 +1,7 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
+import { isUsageCapError } from '@studio/common/ai/json-events';
 import { useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import {
 	createContext,
 	useCallback,
@@ -342,9 +344,15 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						interrupting: false,
 					} );
 					return;
-				case 'error':
-					dispatchSession( payload.sessionId, { type: 'error_set', message: event.message } );
+				case 'error': {
+					const message = isUsageCapError( event.message )
+						? __(
+								'You\u2019ve reached your AI usage limit. Try again later or use your own Anthropic API key via the CLI (/provider).'
+						  )
+						: event.message;
+					dispatchSession( payload.sessionId, { type: 'error_set', message } );
 					return;
+				}
 				case 'turn.completed':
 					dispatchSession( payload.sessionId, { type: 'turn_completed' } );
 					return;

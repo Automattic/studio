@@ -22,6 +22,7 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@earendil-works/pi-tui';
+import { isUsageCapError } from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
@@ -2019,7 +2020,7 @@ export class AiChatUI implements AiOutputAdapter {
 				if (
 					message.stopReason === 'error' &&
 					this.currentProvider === 'wpcom' &&
-					/API Error:\s*429|status code 429|"status":\s*429/i.test( message.errorMessage ?? '' )
+					isUsageCapError( message.errorMessage )
 				) {
 					this.hideLoader();
 					this.usageCapReached = true;

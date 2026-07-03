@@ -158,12 +158,28 @@ function errorToConsole( ...args: Parameters< typeof console.error > ) {
 	process.send?.( { topic: 'console-message', message } );
 }
 
+// Worker affinity is pinned by request PATH, never by HTTP method. Only routes
+// that carry cross-request state on a single worker's local filesystem need to
+// land on the same worker every time; everything else — GET or POST — must
+// load-balance so the pool can serve requests concurrently.
+//
+// The one pinned route today is phpMyAdmin. It keeps its session in a
+// file-based store scoped to one worker (STUDIO_PHPMYADMIN_SESSION_PATH), so a
+// follow-up POST that landed on a different worker would find no session and
+// log the user out. Pinning `/phpmyadmin` (all methods) keeps that flow on
+// worker 0. WordPress itself is stateless across the pool: it keeps sessions in
+// the shared MySQL database, not on any single worker's disk.
+//
+// This used to also pin EVERY non-GET/HEAD/OPTIONS request to worker 0. That
+// method-based rule was an over-broad stand-in for "stateful admin request",
+// but it swept in all of WordPress's own POST loopbacks — most importantly
+// Action Scheduler's async queue runner (a POST to admin-ajax.php) and wp-cron.
+// Async fanout fires N concurrent loopback POSTs to wake N workers for N
+// branches; with the method pin all N serialized on worker 0, capping fanout
+// concurrency at 1 regardless of pool size. Removing it lets those loopbacks
+// fan out across the pool while phpMyAdmin's genuine affinity is preserved by
+// path.
 function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
-	const method = req.method?.toUpperCase() ?? 'GET';
-	if ( ! [ 'GET', 'HEAD', 'OPTIONS' ].includes( method ) ) {
-		return true;
-	}
-
 	const requestUrl = req.url ?? '/';
 	if ( requestUrl.startsWith( '/phpmyadmin' ) ) {
 		return true;

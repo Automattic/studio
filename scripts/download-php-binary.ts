@@ -68,27 +68,12 @@ async function main(): Promise< void > {
 		const downloadInfo = resolvePhpBinaryDownloadInfo();
 		const binDir = path.join( phpPackageRoot, downloadInfo.packageId );
 		const destPath = path.join( binDir, binaryName );
-		const shaMarkerPath = path.join( binDir, '.package-sha256' );
 
 		if ( fs.existsSync( destPath ) ) {
-			const installedSha = fs.existsSync( shaMarkerPath )
-				? fs.readFileSync( shaMarkerPath, 'utf8' ).trim()
-				: '';
-			if ( installedSha === downloadInfo.sha ) {
-				console.log(
-					`PHP ${ version } package ${ downloadInfo.packageId } already up to date at ${ binDir }.`
-				);
-				return;
-			}
-			// Same packageId but the archive SHA has changed — the package was republished in
-			// place (e.g. adding the Windows VC++ runtime DLLs). Without this, a stale bundle cached
-			// on a reused CI agent (apps/studio/php-bin is gitignored and not cleaned) would be
-			// packaged forever. Remove it so the current package is fetched.
 			console.log(
-				`Stale PHP ${ version } package ${ downloadInfo.packageId } at ${ binDir } ` +
-					`(sha ${ installedSha || 'unknown' } != ${ downloadInfo.sha }); re-downloading.`
+				`PHP ${ version } package ${ downloadInfo.packageId } already exists at ${ binDir }. Delete it to re-download.`
 			);
-			fs.rmSync( binDir, { recursive: true, force: true } );
+			return;
 		}
 
 		// Ensure the php-bin root exists, then atomically claim this version's slot.
@@ -138,9 +123,6 @@ async function main(): Promise< void > {
 					throw new Error( `${ extractedBinaryName } not found after extraction.` );
 				}
 				copyDirectoryContents( extractDir, binDir );
-				// Record the archive SHA so a later republish-in-place under the same packageId
-				// is detected as stale and re-downloaded (see the skip check above).
-				fs.writeFileSync( shaMarkerPath, downloadInfo.sha );
 				if ( ! isWindows ) {
 					fs.chmodSync( destPath, 0o755 );
 				}

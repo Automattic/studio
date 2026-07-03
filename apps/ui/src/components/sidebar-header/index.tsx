@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { comment, download, globe, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
-import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
@@ -12,10 +12,11 @@ type Props = {
 };
 
 export function SidebarHeader( { onToggleSidebar }: Props ) {
-	const isFullscreen = useFullscreen();
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const navigate = useNavigate();
 	return (
-		<div className={ `${ styles.root } ${ isFullscreen ? styles.fullscreen : '' }` }>
+		<div className={ `${ styles.root } ${ reserveTrafficLightSpace ? '' : styles.flush }` }>
+			<span className={ styles.title }>{ __( 'Studio' ) }</span>
 			<div className={ styles.actions }>
 				<Menu.Root modal={ false }>
 					<Menu.Trigger

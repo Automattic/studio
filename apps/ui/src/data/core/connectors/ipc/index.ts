@@ -201,6 +201,14 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setupAppMenu( { needsOnboarding: false } );
 		},
 
+		// Native desktop app: every affordance is available.
+		capabilities: {
+			nativeFolderPicker: true,
+			nativeSaveDialog: true,
+			openInOS: true,
+			annotatePreview: true,
+		},
+
 		// Auth — optional in Electron, delegated to main process
 		requiresAuth: false,
 
@@ -546,22 +554,11 @@ export function createIpcConnector(): Connector {
 		},
 
 		async pushSiteToLive( siteId, remoteSiteId ): Promise< void > {
-			// Mirrors the desktop app's `pushSiteThunk` — export a backup, then
-			// TUS-upload it + initiate the remote import. We skip the
-			// post-upload polling that the desktop app uses for progress UI;
-			// `pushArchive` only resolves after `import/initiate` succeeds, so
-			// the remote import may still be running when this returns.
-			const operationId = window.crypto.randomUUID();
-			const { archivePath } = ( await ipcApi.exportSiteForPush( siteId, operationId, {} ) ) as {
-				archivePath: string;
-			};
-			const result = ( await ipcApi.pushArchive( siteId, remoteSiteId, archivePath ) ) as {
-				success: boolean;
-				error?: string;
-			};
-			if ( ! result.success ) {
-				throw new Error( result.error ?? 'Push failed' );
-			}
+			// The agentic UI pushes via the shared `pushSite` (export → TUS
+			// upload → import) in both desktop and `studio ui`; the desktop runs
+			// it behind this single IPC handler. Resolves once the import is
+			// initiated (the remote import may still be running).
+			await ipcApi.pushSiteToLive( siteId, remoteSiteId );
 			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
@@ -731,6 +728,11 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Window state
+		// The IPC connector only runs in Electron, so `navigator` reflects the
+		// desktop OS. macOS overlays the traffic lights on the content (so we
+		// reserve space for them); Windows and Linux don't.
+		reservesTrafficLightSpace: /mac/i.test( navigator.platform || navigator.userAgent ),
+
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();
 		},

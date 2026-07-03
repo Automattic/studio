@@ -1585,12 +1585,6 @@ export class AiChatUI implements AiOutputAdapter {
 
 		if ( toolName === 'Write' && typeof input.content === 'string' ) {
 			preview = this.generateWritePreview( input.content );
-		} else if (
-			toolName === 'Edit' &&
-			typeof input.old_string === 'string' &&
-			typeof input.new_string === 'string'
-		) {
-			preview = this.generateEditPreview( input.old_string, input.new_string );
 		}
 
 		if ( ! preview ) {
@@ -1671,22 +1665,18 @@ export class AiChatUI implements AiOutputAdapter {
 		);
 	}
 
-	private generateEditPreview(
-		oldStr: string,
-		newStr: string
-	): { collapsed: string; expanded: string } {
-		const oldLines = oldStr.split( '\n' );
-		const newLines = newStr.split( '\n' );
+	private generateDiffPreview( diff: string ): { collapsed: string; expanded: string } {
+		const lines = diff.split( '\n' ).map( ( line ) => {
+			if ( line.startsWith( '+' ) ) {
+				return chalk.green( line );
+			}
+			if ( line.startsWith( '-' ) ) {
+				return chalk.red( line );
+			}
+			return chalk.dim( line );
+		} );
 
-		const diffLines: string[] = [];
-		for ( const line of oldLines ) {
-			diffLines.push( chalk.red( '- ' + line ) );
-		}
-		for ( const line of newLines ) {
-			diffLines.push( chalk.green( '+ ' + line ) );
-		}
-
-		return this.generateExpandablePreview( diffLines );
+		return this.generateExpandablePreview( lines );
 	}
 
 	private toggleExpandablePreview(): void {
@@ -1887,8 +1877,13 @@ export class AiChatUI implements AiOutputAdapter {
 		if ( ! toolCall ) {
 			this.renderToolUseLine( isError, label, null, target );
 		}
-		if ( toolCall && ( toolCall.name === 'Write' || toolCall.name === 'Edit' ) ) {
+		if ( toolCall && toolCall.name === 'Write' ) {
 			this.showFilePreview( toolCall.name, toolCall.input, target );
+		} else if ( toolCall && toolCall.name === 'Edit' && ! isError ) {
+			const details = result.details as { diff?: string } | undefined;
+			if ( typeof details?.diff === 'string' && details.diff.length > 0 ) {
+				this.addExpandablePreview( this.generateDiffPreview( details.diff ), target );
+			}
 		}
 
 		const content = typedResult.content;

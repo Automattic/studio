@@ -1,8 +1,9 @@
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import os from 'node:os';
+import { randomUUID } from 'node:crypto';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
@@ -243,7 +244,7 @@ export async function captureScreenshotPng(
 	return capture.buffer.toString( 'base64' );
 }
 
-export async function saveScreenshotToTempFile(
+export async function saveScreenshotFile(
 	buffer: Buffer,
 	options: { viewportType: string; format?: ScreenshotFormat; colorScheme?: ScreenshotColorScheme }
 ): Promise< {
@@ -255,9 +256,14 @@ export async function saveScreenshotToTempFile(
 	const format = options.format ?? 'png';
 	const extension = format === 'jpeg' ? 'jpg' : 'png';
 	const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-	const directory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshot-' ) );
+	const directory = await resolveScreenshotDirectory();
 	const colorSchemeSuffix = options.colorScheme ? `-${ options.colorScheme }` : '';
-	const name = `screenshot-${ options.viewportType }${ colorSchemeSuffix }.${ extension }`;
+	// The directory can be shared by every capture in a session, so the file
+	// name carries a random suffix to keep earlier captures addressable.
+	const name = `screenshot-${ options.viewportType }${ colorSchemeSuffix }-${ randomUUID().slice(
+		0,
+		8
+	) }.${ extension }`;
 	const filePath = path.join( directory, name );
 
 	await writeFile( filePath, buffer );

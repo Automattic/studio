@@ -3,7 +3,7 @@ import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
 import {
 	captureScreenshotBuffer,
-	saveScreenshotToTempFile,
+	saveScreenshotFile,
 	VIEWPORTS,
 	type ScreenshotColorScheme,
 } from './screenshot-helpers';
@@ -89,7 +89,7 @@ export const takeScreenshotTool = defineTool(
 						offset: args.offset,
 						colorScheme,
 					} );
-					const screenshotFile = await saveScreenshotToTempFile( capture.buffer, {
+					const screenshotFile = await saveScreenshotFile( capture.buffer, {
 						viewportType,
 						format: 'jpeg',
 						colorScheme,

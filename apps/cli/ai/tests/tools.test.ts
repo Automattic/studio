@@ -384,7 +384,9 @@ describe( 'Studio AI MCP tools', () => {
 		} );
 
 		const artifacts = getScreenshotArtifacts( result );
-		expect( artifacts[ 0 ].widgetProps.source.name ).toBe( 'screenshot-desktop.jpg' );
+		expect( artifacts[ 0 ].widgetProps.source.name ).toMatch(
+			/^screenshot-desktop-[0-9a-f]{8}\.jpg$/
+		);
 		await cleanUpScreenshotArtifacts( artifacts );
 	} );
 
@@ -409,7 +411,9 @@ describe( 'Studio AI MCP tools', () => {
 			expect( artifacts[ 0 ].widgetProps.alt ).toBe(
 				'Screenshot of http://localhost:8903/story-time (desktop dark)'
 			);
-			expect( artifacts[ 0 ].widgetProps.source.name ).toBe( 'screenshot-desktop-dark.jpg' );
+			expect( artifacts[ 0 ].widgetProps.source.name ).toMatch(
+				/^screenshot-desktop-dark-[0-9a-f]{8}\.jpg$/
+			);
 		} finally {
 			await cleanUpScreenshotArtifacts( artifacts );
 		}
@@ -440,7 +444,7 @@ describe( 'Studio AI MCP tools', () => {
 								alt: 'Screenshot of http://localhost:8903/story-time (desktop)',
 								source: expect.objectContaining( {
 									type: 'local',
-									name: 'screenshot-desktop.jpg',
+									name: expect.stringMatching( /^screenshot-desktop-[0-9a-f]{8}\.jpg$/ ),
 									mimeType: 'image/jpeg',
 								} ),
 							} ),
@@ -490,8 +494,8 @@ describe( 'Studio AI MCP tools', () => {
 		const artifacts = getScreenshotArtifacts( result );
 		try {
 			expect( artifacts.map( ( artifact ) => artifact.widgetProps.source.name ) ).toEqual( [
-				'screenshot-desktop.jpg',
-				'screenshot-mobile.jpg',
+				expect.stringMatching( /^screenshot-desktop-[0-9a-f]{8}\.jpg$/ ),
+				expect.stringMatching( /^screenshot-mobile-[0-9a-f]{8}\.jpg$/ ),
 			] );
 		} finally {
 			await cleanUpScreenshotArtifacts( artifacts );
@@ -537,8 +541,8 @@ describe( 'Studio AI MCP tools', () => {
 		const artifacts = getScreenshotArtifacts( result );
 		try {
 			expect( artifacts.map( ( artifact ) => artifact.widgetProps.source.name ) ).toEqual( [
-				'screenshot-desktop-light.jpg',
-				'screenshot-desktop-dark.jpg',
+				expect.stringMatching( /^screenshot-desktop-light-[0-9a-f]{8}\.jpg$/ ),
+				expect.stringMatching( /^screenshot-desktop-dark-[0-9a-f]{8}\.jpg$/ ),
 			] );
 		} finally {
 			await cleanUpScreenshotArtifacts( artifacts );

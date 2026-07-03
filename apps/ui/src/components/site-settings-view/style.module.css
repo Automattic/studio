@@ -22,11 +22,22 @@
 	-webkit-app-region: drag;
 }
 
-.headerSidebarCollapsed {
-	padding-top: calc(
-		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
-			var(--wpds-dimension-padding-2xl)
-	);
+.toggleSpacer {
+	display: block;
+	flex-shrink: 0;
+	width: 118px;
+	align-self: stretch;
+	-webkit-app-region: no-drag;
+}
+
+/* No traffic lights to clear (non-macOS, the browser, or macOS fullscreen): a
+   minimal spacer so the toggle still clears the header's drag region. */
+.toggleSpacerFlush {
+	display: block;
+	flex-shrink: 0;
+	width: calc(var(--wpds-dimension-padding-xl) + 24px);
+	align-self: stretch;
+	-webkit-app-region: no-drag;
 }
 
 .titleBlock {

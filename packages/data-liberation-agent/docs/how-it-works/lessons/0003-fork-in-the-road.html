@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3 · The Fork in the Road</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part I — Scaffold</span>
+  <span>Lesson 3 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 03 · The scaffold</div>
+<h1>The Fork in the Road</h1>
+<p class="subtitle">Reconstruction is not one path — it is three, and choosing between them is the single most consequential decision an operator (or you) makes. This is the lesson you'll reach for most in architecture conversations.</p>
+
+<p>Once extraction has produced artifacts, there are three different ways to turn them into a
+WordPress site. They trade <strong>native-ness</strong> against <strong>pixel fidelity</strong>.</p>
+
+<table>
+  <thead><tr><th>Path</th><th>Tool</th><th>What it does</th><th>Tradeoff</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Blocks</strong></td>
+      <td><code>liberate_reconstruct_pages</code></td>
+      <td>Rebuilds each page into <em>native Gutenberg block markup</em> from its captured section specs.</td>
+      <td>Most editable & WordPress-native; fidelity depends on how well sections map to blocks.</td>
+    </tr>
+    <tr>
+      <td><strong>Carry</strong></td>
+      <td><code>liberate_reconstruct_pages_carry</code></td>
+      <td>Carries sanitized source HTML + scoped CSS <em>verbatim</em> into <code>core/html</code> islands; self-hosts media.</td>
+      <td>Highest pixel fidelity; least native (it's the source HTML wearing a WordPress hat).</td>
+    </tr>
+    <tr>
+      <td><strong>Theme / local</strong></td>
+      <td><code>liberate_convert_local_site</code></td>
+      <td>Converts an <em>owned local static-site directory</em> (no network extraction) into a live block theme.</td>
+      <td>For source you already own; different front door entirely (no detect/discover).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>The axis you're actually choosing on</h2>
+<p>Think of one slider: <strong>how much of the source's literal HTML/CSS survives into the
+output</strong>.</p>
+
+<pre><code>  native blocks  ◄───────────────────────────►  verbatim source
+   (Blocks path)                                  (Carry path)
+   editable, clean markup            pixel-perfect, opaque core/html
+   risk: layout drift                 risk: not really "WordPress content"</code></pre>
+
+<p>The carry path wins on fidelity because it doesn't <em>interpret</em> the source — it
+ships it. The blocks path wins on editability because it <em>does</em> interpret the source
+into first-class blocks a user can edit in Gutenberg. Neither is "better"; they answer
+different missions.</p>
+
+<div class="callout key">
+  <span class="label">The bridge: editable islands</span>
+  The two paths share a bridge. By default, <code>core/html</code> islands convert to
+  <code>dla/editable-html</code> blocks — visible, styled, and <em>editable</em> in the
+  block editor, with identical front-end output. So even on the carry path the islands aren't
+  purely "opaque HTML" — they're editable in-canvas. This editable island is a real
+  architectural achievement, not a detail.
+</div>
+
+<h2>Why this is a hard, early gate</h2>
+<p>This path choice is a <strong>decision gate that fires early</strong> — right after
+discovery, while the operator is present — and is never auto-selected. The
+<code>data-liberation:liberate</code> skill is built so a URL run <em>stops and asks</em>
+which reconstruct path to take before spending money on extraction. That gate exists because
+the choice changes what you capture and how you spend the expensive phase.</p>
+
+<div class="callout decision">
+  <span class="label">How to reason about the choice</span>
+  Ask: <em>does the user need to edit this content as WordPress, or do they need it to look
+  exactly like the original?</em> Editing → blocks. Fidelity-first (and the source is a
+  complex builder site like Wix) → carry. Owned static source on disk → local/theme path,
+  which skips detection entirely.
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">A client's Wix site must look pixel-identical and they won't edit it much. Which path?</div>
+  <ul class="opts">
+    <li><button class="opt">Carry — verbatim HTML and scoped CSS maximize fidelity</button></li>
+    <li><button class="opt">Blocks — native markup is always the safest default</button></li>
+    <li><button class="opt">Local — convert the owned directory without any network</button></li>
+    <li><button class="opt">Theme — scaffold a block theme shell and stop there</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — fidelity-first on a complex builder site is the carry path's sweet spot."
+    data-wrong="Fidelity-first on a complex builder site favors carry. Blocks trades some fidelity for editability; local is for owned on-disk source.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Name the three reconstruct tools and the one axis they trade on. Then state <em>when</em>
+  in the run the path question is asked, and why it's asked then.
+  <details><summary>Check yourself</summary>
+  <code>liberate_reconstruct_pages</code> (blocks), <code>liberate_reconstruct_pages_carry</code>
+  (carry), <code>liberate_convert_local_site</code> (local/theme). Axis = native blocks ↔
+  verbatim source. Asked right after discovery, before extraction, because it changes what
+  the expensive capture phase needs to collect.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read the path-gate description in the <span class="path">data-liberation:liberate</span>
+  skill, then compare the two handlers
+  <span class="path">src/mcp-server/handlers/reconstruct-pages.ts</span> and
+  <span class="path">…/reconstruct-pages-carry.ts</span> side by side to feel the difference.
+</div>
+
+<p class="ask">Lessons 8–10 drill into each path. Want a decision-tree cheat sheet for the
+choice? Ask and I'll add one to the reference shelf.</p>
+
+<div class="lesson-nav">
+  <a href="0002-three-entry-points.html">← Lesson 2</a>
+  <a href="0004-the-adapter-pattern.html">Lesson 4: The adapter pattern →</a>
+</div>
+</div>
+</body>
+</html>

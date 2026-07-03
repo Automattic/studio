@@ -92,3 +92,10 @@
 .floatingToggle button {
 	-webkit-app-region: no-drag;
 }
+
+/* With no traffic lights to clear — non-macOS, the browser, or macOS
+   fullscreen (which hides them) — the toggle sits near the main area's left
+   edge instead of leaving an empty gap. */
+.floatingToggleFlush {
+	left: var(--wpds-dimension-padding-xl);
+}

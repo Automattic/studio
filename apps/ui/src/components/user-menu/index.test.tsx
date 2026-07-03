@@ -161,14 +161,14 @@ describe( 'UserMenu', () => {
 		expect( logoutMutate ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'keeps appearance controls inside the signed-in account menu', () => {
+	it( 'exposes appearance controls via a dedicated toggle', () => {
 		useAuthUserMock.mockReturnValue( {
 			data: { displayName: 'Ada Lovelace', email: 'ada@example.com' },
 		} as ReturnType< typeof useAuthUser > );
 
 		render( <UserMenu /> );
 
-		expect( screen.queryByRole( 'button', { name: 'Appearance' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Appearance' } ) ).toBeInTheDocument();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Dark' } ) );
 
@@ -185,18 +185,5 @@ describe( 'UserMenu', () => {
 		expect( navigate ).toHaveBeenCalledWith( {
 			to: '/settings',
 		} );
-	} );
-
-	it( 'keeps the sidebar toggle action in the footer row', () => {
-		const onToggleSidebar = vi.fn();
-		useAuthUserMock.mockReturnValue( {
-			data: { displayName: 'Ada Lovelace', email: 'ada@example.com' },
-		} as ReturnType< typeof useAuthUser > );
-
-		render( <UserMenu onToggleSidebar={ onToggleSidebar } /> );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Hide sidebar' } ) );
-
-		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

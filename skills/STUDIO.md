@@ -6,7 +6,13 @@ When following any WordPress skill or documentation that references `wp` command
 - Skill says: `wp db export` → Run: `studio wp db export`
 - Skill says: `wp search-replace` → Run: `studio wp search-replace`
 
-This applies to ALL `wp` commands. Studio runs WordPress through PHP WASM, and a standalone `wp` binary will NOT work. `wp shell` is NOT supported — use `studio wp eval` instead.
+This applies to ALL `wp` commands — always run them through `studio wp` so they target this site's PHP runtime and database.
+<!-- IF playground -->
+Studio runs these sites on WordPress Playground (PHP WASM), so a standalone `wp` binary will NOT work, and `wp shell` is NOT supported — use `studio wp eval` instead.
+<!-- ENDIF playground -->
+<!-- IF native-php -->
+A standalone `wp` binary is not the entry point; `wp shell` works here too (e.g. `studio wp shell`).
+<!-- ENDIF native-php -->
 
 ## Prerequisites
 
@@ -125,7 +131,9 @@ Run `studio mcp --help` for per-assistant install commands and config paths. Doc
 |-------|-----------|
 | Edit `wp-includes/` or `wp-admin/` | Use actions/filters in a plugin or child theme |
 | Use bare `wp` CLI | Use `studio wp` |
+<!-- IF playground -->
 | Use `wp shell` | Use `studio wp eval` |
+<!-- ENDIF playground -->
 | Reference `DB_HOST`, `DB_NAME`, etc. | Use `$wpdb` directly (SQLite handles it) |
 | Delete `wp-content/db.php` | It's the SQLite drop-in — leave it |
 | Delete `wp-content/mu-plugins/sqlite-*` | Required for database to work |
@@ -187,7 +195,13 @@ studio auth logout  # Clear stored credentials
 
 **Themes and plugins:** Add custom themes to `wp-content/themes/` and plugins to `wp-content/plugins/`. To customise an existing theme, create a child theme rather than modifying the parent directly.
 
-**Use hooks, not direct edits:** Extend WordPress via actions and filters. NEVER edit core files — Studio runs on WordPress Playground and core changes will NOT persist across server restarts.
+**Use hooks, not direct edits:** Extend WordPress via actions and filters. NEVER edit core files in `wp-includes/` or `wp-admin/`.
+<!-- IF playground -->
+Studio runs these sites on WordPress Playground (PHP WASM), so core changes will NOT persist across server restarts.
+<!-- ENDIF playground -->
+<!-- IF native-php -->
+Core edits are overwritten on every WordPress update, so extend through hooks instead.
+<!-- ENDIF native-php -->
 
 ```php
 // Correct: extend via hooks
@@ -261,7 +275,10 @@ exported MySQL dump above)
 
 ## Studio-Specific Notes
 
-**WordPress core:** Do NOT modify files inside `wp-includes/` or `wp-admin/`. Studio sites run on WordPress Playground (PHP WASM), and core changes will NOT persist as expected.
+**WordPress core:** Do NOT modify files inside `wp-includes/` or `wp-admin/`.
+<!-- IF playground -->
+Studio sites run on WordPress Playground (PHP WASM), and core changes will NOT persist as expected.
+<!-- ENDIF playground -->
 
 **Must-use plugins:** The `wp-content/mu-plugins/` directory contains the SQLite integration. Do NOT remove files from this directory.
 
@@ -269,7 +286,12 @@ exported MySQL dump above)
 
 **Multisite:** WordPress Multisite is supported in Studio sites when the site was created from a blueprint that includes the `enableMultisite` step. Multisite requires a custom domain: Studio will prompt for one during site creation when the blueprint includes that step.
 
+<!-- IF playground -->
 **Persistence:** The site runs in-process using PHP WASM. File writes to `wp-content/` persist to disk normally. Server-side cron is emulated; long-running background processes are not supported.
+<!-- ENDIF playground -->
+<!-- IF native-php -->
+**Persistence:** The site runs on a native PHP server, so all file writes persist to disk normally and standard WP-Cron behavior applies.
+<!-- ENDIF native-php -->
 
 ## Available Skills
 

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File Map · Data Liberation</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · File Map</span>
+  <span>Reference · "where does this live?"</span>
+</div>
+
+<div class="wide">
+<h1>File Map</h1>
+<p class="subtitle">Where each concern lives in <code>src/</code>. The fastest way to answer "what does a change to X touch?" — the core question for any architecture call.</p>
+
+<h2>Entry &amp; dispatch</h2>
+<table>
+  <thead><tr><th>Path</th><th>Concern</th></tr></thead>
+  <tbody>
+    <tr><td><code>src/cli.ts</code></td><td>The single binary; dispatches watch / subcommands / <code>mcp</code>.</td></tr>
+    <tr><td><code>src/mcp-server.ts</code></td><td>~38 <code>liberate_*</code> tool registry + handler dispatch map + static adapter imports.</td></tr>
+    <tr><td><code>src/mcp-server/handlers/*</code></td><td>Thin MCP shells over <code>src/lib</code>.</td></tr>
+    <tr><td><code>src/ui/*</code></td><td>Thin CLI runners (Ink). <code>watch-runner.ts</code> = the streaming loop + <code>WatchPhase</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2>Platform edge</h2>
+<table>
+  <tbody>
+    <tr><td><code>src/adapters/&lt;platform&gt;/</code></td><td>9 adapters: default, godaddy-wm, hostinger, hubspot, shopify, squarespace, webflow, weebly, wix.</td></tr>
+    <tr><td><code>src/adapters/resolve-adapter.ts</code></td><td>id → adapter, fallback to <code>default</code>.</td></tr>
+    <tr><td><code>src/adapters/page-actions.ts</code></td><td>The two opt-in seam types: <code>capture</code>, <code>blocks</code>.</td></tr>
+    <tr><td><code>src/adapters/shared.ts</code></td><td>Shared adapter machinery (the big one).</td></tr>
+  </tbody>
+</table>
+
+<h2>Shared core — <code>src/lib/</code></h2>
+<table>
+  <thead><tr><th>Subdir</th><th>Concern</th><th>Lesson</th></tr></thead>
+  <tbody>
+    <tr><td><code>detect-platform/</code></td><td>fingerprint → platform id</td><td>4</td></tr>
+    <tr><td><code>extraction/</code></td><td>sitemap parse, URL classify, request tuning</td><td>4</td></tr>
+    <tr><td><code>html-extract/</code></td><td>HTML → structured content</td><td>4</td></tr>
+    <tr><td><code>browser-kit/</code></td><td>browser/CDP launch + control</td><td>5</td></tr>
+    <tr><td><code>screenshot/</code></td><td>capture + design tokens (palette/typography/breakpoints)</td><td>5</td></tr>
+    <tr><td><code>resume-state/</code></td><td>ExtractionLog, ImportSession, MediaStubStore, faultpoint</td><td>6</td></tr>
+    <tr><td><code>streaming/</code></td><td>tick-scheduler, judgmentNeeded, compose/transform logs, media install</td><td>7</td></tr>
+    <tr><td><code>replicate/</code></td><td><strong>the replica engine</strong>: clustering, section specs, blocks/carry/theme reconstruct, parity, fonts, CSS scoping, variation hoisting</td><td>5,8–10,12,16</td></tr>
+    <tr><td><code>replicate/local-site/</code> · <code>local-theme/</code></td><td>owned-source ingest + convert → block theme</td><td>13</td></tr>
+    <tr><td><code>preview/</code></td><td>Studio site boot + theme/file install</td><td>7</td></tr>
+    <tr><td><code>design-foundation/</code></td><td>semantic design-foundation JSON + renderer</td><td>15</td></tr>
+    <tr><td><code>wxr/</code></td><td>WxrBuilder → output.wxr (WXR 1.2)</td><td>11</td></tr>
+    <tr><td><code>woo-csv/</code></td><td>WooProduct modeling → products.jsonl + CSV</td><td>11</td></tr>
+    <tr><td><code>media-fetch/</code></td><td>download/dedupe; svg-raster (SVG survival)</td><td>11</td></tr>
+    <tr><td><code>import/</code></td><td>WP REST/HTTP import client</td><td>1,11</td></tr>
+    <tr><td><code>wordpress/</code></td><td>WP helpers (block-policy, island markers)</td><td>8</td></tr>
+    <tr><td><code>qa/</code></td><td>content-differ (extraction loss)</td><td>12</td></tr>
+    <tr><td><code>verification/</code></td><td>post-extraction verify (stale CDN, failed pages, missing media)</td><td>12</td></tr>
+    <tr><td><code>probe/</code></td><td>CDP page probing for debugging</td><td>—</td></tr>
+    <tr><td><code>setup/</code></td><td>WP connection validation</td><td>—</td></tr>
+    <tr><td><code>features/</code></td><td>feature detection across a site</td><td>—</td></tr>
+    <tr><td><code>url/</code> · <code>paths.ts</code> · <code>concurrency.ts</code></td><td>URL utils · output base resolution · concurrency caps</td><td>—</td></tr>
+  </tbody>
+</table>
+
+<div class="callout key">
+  <span class="label">The one to internalize</span>
+  <code>src/lib/replicate/</code> is the largest, most consequential subsystem — almost all of
+  Phase 2 lives here. When an architecture question is about reconstruction fidelity, this is
+  the directory. The deterministic reconstruct core (<code>reconstructNativeAggregate</code>)
+  lives in <code>@automattic/blocks-engine</code>; DLA's <code>reconstructPagePattern</code>
+  delegates into it (Lesson 10).
+</div>
+
+<div class="lesson-nav">
+  <a href="pipeline-map.html">← Pipeline map</a>
+  <a href="../index.html">Course home →</a>
+</div>
+</div>
+</body>
+</html>

@@ -8,8 +8,8 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
-import { drawerIcon } from '@/lib/icons';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { moonIcon, sunIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { ColorScheme } from '@/data/core';
 
@@ -17,11 +17,7 @@ const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
 const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
-type Props = {
-	onToggleSidebar?: () => void;
-};
-
-export function UserMenu( { onToggleSidebar }: Props ) {
+export function UserMenu() {
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
@@ -29,12 +25,9 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 	const login = useLogin();
 	const logout = useLogout();
 	const navigate = useNavigate();
-	const effectiveScheme = usePrefersColorScheme();
 
-	const savedScheme = preferences?.colorScheme;
-	const currentScheme: ColorScheme = savedScheme ?? 'system';
-	const themeIsDark =
-		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
+	const currentScheme: ColorScheme = preferences?.colorScheme ?? 'system';
+	const themeIsDark = useColorScheme() === 'dark';
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );
@@ -60,19 +53,6 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 							<Menu.Item onClick={ () => void navigate( { to: '/settings' } ) }>
 								{ __( 'Settings' ) }
 							</Menu.Item>
-							<Menu.Separator />
-							<div className={ styles.menuLabel }>{ __( 'Appearance' ) }</div>
-							<Menu.RadioGroup
-								value={ currentScheme }
-								onValueChange={ ( value ) =>
-									savePreferences.mutate( { colorScheme: value as ColorScheme } )
-								}
-							>
-								<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
-								<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>
-								<Menu.RadioItem value="dark">{ __( 'Dark' ) }</Menu.RadioItem>
-							</Menu.RadioGroup>
-							<Menu.Separator />
 							<Menu.Item onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
 								{ __( 'Edit WordPress.com profile' ) }
 							</Menu.Item>
@@ -98,23 +78,38 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 						variant="minimal"
 						tone="neutral"
 						size="small"
+						className={ styles.settingsButton }
 						icon={ cog }
 						label={ __( 'Settings' ) }
-						className={ styles.settingsButton }
 						onClick={ () => void navigate( { to: '/settings' } ) }
 					/>
 				) : null }
-				{ onToggleSidebar ? (
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						className={ styles.sidebarToggle }
-						icon={ drawerIcon }
-						label={ __( 'Hide sidebar' ) }
-						onClick={ onToggleSidebar }
+				<Menu.Root modal={ false }>
+					<Menu.Trigger
+						render={
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								className={ styles.themeToggle }
+								icon={ themeIsDark ? sunIcon : moonIcon }
+								label={ __( 'Appearance' ) }
+							/>
+						}
 					/>
-				) : null }
+					<Menu.Popup side="top" align="end">
+						<Menu.RadioGroup
+							value={ currentScheme }
+							onValueChange={ ( value ) =>
+								savePreferences.mutate( { colorScheme: value as ColorScheme } )
+							}
+						>
+							<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
+							<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>
+							<Menu.RadioItem value="dark">{ __( 'Dark' ) }</Menu.RadioItem>
+						</Menu.RadioGroup>
+					</Menu.Popup>
+				</Menu.Root>
 			</div>
 		</div>
 	);

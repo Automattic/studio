@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7 · The Tick Loop &amp; the Judgment Seam</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part III — Reconstruction</span>
+  <span>Lesson 7 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 07 · Reconstruction drill</div>
+<h1>The Tick Loop &amp; the Judgment Seam</h1>
+<p class="subtitle">This is the most distinctive thing about the architecture — and the easiest to miss from the file tree. The default run is not a batch script; it's a streaming loop that deliberately hands reasoning back to an agent at marked boundaries.</p>
+
+<p>The design center of the system: <strong>AI agents are the primary runtime.</strong> The
+default <code>data-liberation &lt;url&gt;</code> command doesn't just run code — it runs a
+<em>watch loop</em> that interleaves deterministic work with agent judgment.</p>
+
+<h2>Two state machines, not one</h2>
+<p>Lesson 1 gave you the persisted <code>ImportStage</code> union. The streaming path has a
+<em>second</em>, finer-grained phase enum that drives live orchestration —
+<code>WatchPhase</code> in <span class="path">src/ui/watch-runner.ts</span>:</p>
+
+<pre><code>resolving-agent → resetting → detecting → discovering
+  → extracting → starting-preview → tick-drain
+  → invoking-judgments → done            (+ error)</code></pre>
+
+<table>
+  <thead><tr><th>Enum</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><code>ImportStage</code></td><td>The <em>persisted resume checkpoint</em> (what's written to <code>session.json</code>).</td></tr>
+    <tr><td><code>WatchPhase</code></td><td>The <em>live orchestration state</em> of the streaming run — finer-grained, not persisted.</td></tr>
+  </tbody>
+</table>
+
+<p>Notice <code>starting-preview</code> runs <em>in parallel</em> with discovery: a Studio
+WordPress site boots while URLs are still being found. The reconstruction has somewhere to
+land before extraction even finishes.</p>
+
+<h2>The judgment seam</h2>
+<p>The heart of it: <code>tick-scheduler</code> (<span class="path">src/lib/streaming/</span>)
+emits a <code>judgmentNeeded[]</code> list. That is the exact line where <strong>deterministic
+code stops and the agent/skill is asked to reason</strong> — to run the replicate / compose /
+design-foundation skills, pick clusters, judge parity.</p>
+
+<div class="callout key">
+  <span class="label">The seam, stated plainly</span>
+  Everything a <em>function</em> can decide, a function decides (detection, selectors,
+  layout type, block canonicalization). Everything that needs <em>judgment</em> —
+  "is this section good enough?", "which representative page stands for this cluster?",
+  "does this match the source?" — is pushed across the <code>judgmentNeeded</code> boundary
+  to the model. The whole system is organized around drawing that line well.
+</div>
+
+<h2>Why this is the architecture decision behind all the others</h2>
+<p>The governing rule: <em>ship AI stages as skills, not SDK calls in <code>src/</code>.</em>
+That's why there are ~38 small deterministic MCP tools instead of a few big "do it all"
+functions. The tools are the <em>vocabulary</em>; the skills are the <em>sentences</em> an
+agent composes. When you design a new capability, the question is: which part is
+deterministic (→ a tool in <code>src/lib</code>) and which part is judgment (→ a step in a
+skill)?</p>
+
+<div class="callout decision">
+  <span class="label">A litmus test you can apply</span>
+  If a proposed feature reads "have the model look at X and decide Y," it belongs in a
+  <em>skill</em> orchestrating tools — not as an LLM call buried in <code>src/</code>. If it
+  reads "given inputs, always produce the same output," it belongs in a deterministic tool.
+  Mixing the two is the smell to catch in review.
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">What is the <code>judgmentNeeded[]</code> list emitted by the tick scheduler?</div>
+  <ul class="opts">
+    <li><button class="opt">The boundary where deterministic code hands reasoning to the agent</button></li>
+    <li><button class="opt">The list of URLs that failed extraction and need a manual retry</button></li>
+    <li><button class="opt">The persisted resume checkpoint written into the session file</button></li>
+    <li><button class="opt">The set of media assets still awaiting download from a CDN</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — it's the seam where code stops and the agent/skill is asked to judge (clusters, parity, compose)."
+    data-wrong="It's not failures or media or the persisted checkpoint. It's the deterministic-vs-judgment boundary handing reasoning to the agent.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Name the two state machines and which one persists. Then state the litmus test for
+  "deterministic tool vs skill step."
+  <details><summary>Check yourself</summary>
+  <code>ImportStage</code> (persisted resume checkpoint) and <code>WatchPhase</code> (live,
+  not persisted). Litmus: "model looks and decides" → skill orchestrating tools; "same
+  inputs → same output" → deterministic tool in <code>src/lib</code>.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read the <code>WatchPhase</code> enum and loop in
+  <span class="path">src/ui/watch-runner.ts</span>, then the
+  <span class="path">src/lib/streaming/tick-scheduler.ts</span> to see where
+  <code>judgmentNeeded</code> is built and drained.
+</div>
+
+<p class="ask">This seam is the crux of your "what should be a skill vs a tool" calls — want
+to pressure-test a specific feature idea against it together? Ask.</p>
+
+<div class="lesson-nav">
+  <a href="0006-resume-state-contract.html">← Lesson 6</a>
+  <a href="0008-blocks-reconstruction.html">Lesson 8: Blocks reconstruction →</a>
+</div>
+</div>
+</body>
+</html>

@@ -15,10 +15,10 @@ import {
 	useSessions,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
@@ -40,7 +40,7 @@ interface SessionHeaderProps {
 function SessionHeader( { summary }: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
@@ -48,23 +48,27 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 		return null;
 	}
 
+	const toggleSpacerClass = sidebarCollapsed
+		? reserveTrafficLightSpace
+			? styles.toggleSpacer
+			: styles.toggleSpacerFlush
+		: null;
+
 	return (
-		<div
-			className={ clsx(
-				styles.header,
-				sidebarCollapsed && ! isFullscreen && styles.headerSidebarCollapsed
-			) }
-		>
+		<div className={ styles.header }>
+			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
 			{ site ? (
 				<SiteDropdown
 					site={ site }
 					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon
+					showSiteIcon={ sidebarCollapsed }
 					showStatus={ sidebarCollapsed }
 				/>
 			) : (
 				<>
-					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+					{ sidebarCollapsed ? (
+						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
+					) : null }
 					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
 					<span className={ styles.headerEnv }>

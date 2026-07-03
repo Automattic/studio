@@ -313,7 +313,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 		doneBtn.title =
 			annotations.length === 0
 				? 'Add at least one annotation first'
-				: 'Send annotations to the CLI and return';
+				: 'Send annotations and return';
 		doneBtn.addEventListener( 'click', () => {
 			if ( annotations.length === 0 ) return;
 			const sent = annotations.slice();
@@ -366,7 +366,7 @@ export const INSPECTOR_PAGE_SCRIPT =
 				sentCount +
 				' annotation(s) — closing in ' +
 				secondsLeft +
-				's, return to the CLI';
+				's';
 		};
 		paint();
 		const interval = setInterval( () => {

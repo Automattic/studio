@@ -1,18 +1,17 @@
 /* Pinning to the sidebar bottom is handled by the layout's
    `sidebarFooter` wrapper. */
 .root {
-	--user-menu-row-height: 34px;
 	--user-menu-leading-offset: calc(
 		var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)
 	);
-	--user-menu-trailing-offset: var(--wpds-dimension-padding-lg);
-	--user-menu-row-background-hover: var(--sidebar-row-background-hover);
-	--user-menu-row-background-active: var(--sidebar-row-background-active);
+	--user-menu-trailing-offset: calc(
+		var(--wpds-dimension-padding-2xl) - var(--wpds-dimension-padding-xs)
+	);
 
 	/* SidebarButton adds `sm` inline padding; this offset puts the gravatar's
 	   left edge on the same column as the site icons. */
 	padding: var(--wpds-dimension-padding-sm) var(--user-menu-trailing-offset)
-		var(--wpds-dimension-padding-md) var(--user-menu-leading-offset);
+		var(--wpds-dimension-padding-xl) var(--user-menu-leading-offset);
 }
 
 .row {
@@ -22,23 +21,31 @@
 }
 
 .userName,
-.sidebarToggle,
+.themeToggle,
 .settingsButton {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.themeToggle {
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+}
+
+.row:hover .userName,
+.row:hover .themeToggle,
+.row:hover .settingsButton,
+.row:focus-within .userName,
+.row:focus-within .themeToggle,
+.row:focus-within .settingsButton {
 	color: var(--wpds-color-fg-content-neutral);
 }
 
 .userTrigger {
-	--wp-ui-button-height: var(--user-menu-row-height);
 	--user-menu-avatar-offset: 2px;
 
-	box-sizing: border-box;
 	flex: 1;
-	height: var(--user-menu-row-height);
 	font-weight: var(--wpds-typography-font-weight-regular);
 	gap: calc(var(--wpds-dimension-gap-sm) + var(--user-menu-avatar-offset));
-	padding-block: var(--wpds-dimension-padding-xs);
 	padding-inline-start: calc(var(--wpds-dimension-padding-sm) - var(--user-menu-avatar-offset));
-	border-radius: 6px;
 }
 
 .userName {
@@ -49,20 +56,7 @@
 }
 
 .loginButton {
-	--wp-ui-button-height: var(--user-menu-row-height);
-
-	box-sizing: border-box;
 	flex: 1;
-	height: var(--user-menu-row-height);
-	border-radius: 6px;
-}
-
-.settingsButton {
-	--wp-ui-button-height: var(--user-menu-row-height);
-
-	box-sizing: border-box;
-	height: var(--user-menu-row-height);
-	border-radius: 6px;
 }
 
 .popup {
@@ -76,11 +70,4 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.menuLabel {
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: var(--wpds-typography-font-weight-medium);
 }

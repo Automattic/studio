@@ -30,17 +30,15 @@ export class E2ESession {
 		this.homePath = path.join( this.sessionPath, 'home' );
 		this.cliConfigPath = path.join( this.sessionPath, 'cliConfig' );
 		this.sharedConfigPath = path.join( this.sessionPath, 'sharedConfig' );
-		// DIAGNOSTIC (temporary): put the process-manager daemon — and its per-process stdout/stderr
-		// logs — under test-results/daemon-logs so they upload as CI artifacts. This surfaces why
-		// native PHP fails to serve on Windows CI (the php.exe error currently goes to ~/.studio and
-		// is never uploaded). Relies on the Windows pipe-isolation fix so each session gets its own
-		// daemon. Revert once diagnosed.
-		this.daemonHome = path.join(
-			process.cwd(),
-			'test-results',
-			'daemon-logs',
-			path.basename( this.sessionPath )
-		);
+		// DIAGNOSTIC (temporary): give each session its own process-manager daemon so its
+		// per-process stdout/stderr logs can be collected as CI artifacts (see cleanup()).
+		// This surfaces why native PHP fails to serve on Windows CI (the php.exe error
+		// currently goes to ~/.studio and is never uploaded). Revert once diagnosed.
+		//
+		// The home must stay SHORT: the daemon's Unix control socket lives inside it, and
+		// macOS rejects socket paths over ~104 chars (Linux ~108) with connect EINVAL —
+		// pointing this at test-results/<session-uuid> broke every site creation on mac/linux.
+		this.daemonHome = path.join( tmpdir(), `studio-d-${ randomUUID().slice( 0, 8 ) }` );
 	}
 
 	async launch( testEnv: NodeJS.ProcessEnv = {} ) {
@@ -105,11 +103,37 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.closeApp();
+		await this.collectDaemonLogs();
 		await rimraf( this.sessionPath, {
 			backoff: 2,
 			maxBackoff: 2500,
 			maxRetries: 50,
 		} );
+		await rimraf( this.daemonHome, {
+			backoff: 2,
+			maxBackoff: 2500,
+			maxRetries: 50,
+		} );
+	}
+
+	// DIAGNOSTIC (temporary): copy this session's daemon logs into test-results/daemon-logs
+	// so the CI artifact glob uploads them. The daemon home itself must live in a short tmp
+	// path (see constructor), so the logs are copied out rather than written here directly.
+	private async collectDaemonLogs() {
+		const logsDir = path.join( this.daemonHome, 'logs' );
+		try {
+			if ( await fs.pathExists( logsDir ) ) {
+				const dest = path.join(
+					process.cwd(),
+					'test-results',
+					'daemon-logs',
+					path.basename( this.sessionPath )
+				);
+				await fs.copy( logsDir, dest );
+			}
+		} catch ( error ) {
+			console.warn( 'Failed to collect daemon logs:', error );
+		}
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {

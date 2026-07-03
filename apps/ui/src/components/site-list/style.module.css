@@ -39,17 +39,15 @@
 	gap: 1px;
 }
 
+/* Structural drag styles (touch-action, fixed preview positioning,
+   will-change) live in the shared reorderable-list module; these classes
+   carry only the site rows' visual treatment. */
+
 .siteDragWrapper {
 	border-radius: 6px;
-	touch-action: none;
-}
-
-.sitesDragging .siteDragWrapper > .site {
-	will-change: transform;
 }
 
 .siteDropPlaceholder {
-	box-sizing: border-box;
 	block-size: var(--site-list-row-height);
 	border-radius: 6px;
 	background-color: var(--site-list-row-background-hover);
@@ -59,12 +57,8 @@
 }
 
 .siteDragPreview {
-	position: fixed;
-	z-index: 1000;
-	pointer-events: none;
 	opacity: 0.95;
 	filter: drop-shadow(0 6px 14px rgb(0 0 0 / 14%));
-	will-change: inset-block-start;
 }
 
 .siteDragPreview .siteHeader {

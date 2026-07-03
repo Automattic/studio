@@ -535,7 +535,9 @@ export const CreateSiteForm = ( {
 											id="php-runtime-select"
 											value={ selectedRuntime }
 											options={ [
+												/* translators: As in an application that runs natively on a computer */
 												{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
+												/* translators: As in a secure, sandboxed environment */
 												{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
 											] }
 											onChange={ ( value ) => setSelectedRuntime( value ) }

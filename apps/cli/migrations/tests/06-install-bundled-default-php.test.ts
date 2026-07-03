@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import {
-	getConfiguredPhpBinaryVersion,
+	getConfiguredPhpBinaryPackageId,
 	resolveNativePhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,16 +16,16 @@ function getBinaryName(): string {
 	return process.platform === 'win32' ? 'php.exe' : 'php';
 }
 
-function getDefaultPhpPatchVersion(): string {
-	return getConfiguredPhpBinaryVersion( resolveNativePhpVersion( DEFAULT_PHP_VERSION ) )!;
+function getDefaultPhpPackageId(): string {
+	return getConfiguredPhpBinaryPackageId( resolveNativePhpVersion( DEFAULT_PHP_VERSION ) )!;
 }
 
 function getBundledDefaultPhpDir(): string {
-	return path.join( bundledPhpDir, getDefaultPhpPatchVersion() );
+	return path.join( bundledPhpDir, getDefaultPhpPackageId() );
 }
 
 function getDefaultPhpDestinationDir(): string {
-	return path.join( configDir, 'php-bin', getDefaultPhpPatchVersion() );
+	return path.join( configDir, 'php-bin', getDefaultPhpPackageId() );
 }
 
 function writeBundledDefaultPhp(): void {

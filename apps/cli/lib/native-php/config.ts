@@ -6,6 +6,7 @@ import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadat
 import { writeFile } from 'atomically';
 import semver from 'semver';
 import { getPhpBinaryPath } from '../dependency-management/paths';
+import { getPhpSafeTmpDir } from './tmp-dir';
 
 // Disabled to shrink the attack surface available to PHP code running inside a
 // Studio site. Each entry falls into one of:
@@ -215,13 +216,9 @@ function getOpcacheRootDir(): string {
 		return opcacheRootDir;
 	}
 
-	// Resolve to the long-form path on Windows. `os.tmpdir()` can return an 8.3
-	// short name (e.g. C:\Users\BUILDK~1\AppData\…) when the user has a long
-	// username, and PHP's INI scanner treats `~` as a special token, breaking
-	// `-d opcache.file_cache=<path>` parsing.
-	const tmpRoot =
-		process.platform === 'win32' ? fs.realpathSync.native( os.tmpdir() ) : os.tmpdir();
-	opcacheRootDir = fs.mkdtempSync( path.join( tmpRoot, 'studio-opcache-' ) );
+	// `getPhpSafeTmpDir()` resolves the Windows 8.3 short name so PHP's INI scanner
+	// doesn't choke on the `~` in `-d opcache.file_cache=<path>`.
+	opcacheRootDir = fs.mkdtempSync( path.join( getPhpSafeTmpDir(), 'studio-opcache-' ) );
 	const dirToClean = opcacheRootDir;
 	process.once( 'exit', () => {
 		try {

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { getPhpSafeTmpDir } from './tmp-dir';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 function phpStringLiteral( value: string ): string {
@@ -9,12 +9,13 @@ function phpStringLiteral( value: string ): string {
 
 export function getNativePhpMyAdminWpEnvPath( config: Pick< ServerConfig, 'siteId' > ): string {
 	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
-	return path.join( os.tmpdir(), 'studio-phpmyadmin-wp-env', safeSiteId, 'wp-env.php' );
+	// getPhpSafeTmpDir() avoids the Windows 8.3 `~` short name; this path reaches PHP.
+	return path.join( getPhpSafeTmpDir(), 'studio-phpmyadmin-wp-env', safeSiteId, 'wp-env.php' );
 }
 
 export function getPhpMyAdminSessionPath( config: Pick< ServerConfig, 'siteId' > ): string {
 	const safeSiteId = config.siteId.replace( /[^a-zA-Z0-9._-]/g, '-' );
-	return path.join( os.tmpdir(), 'studio-phpmyadmin-sessions', safeSiteId );
+	return path.join( getPhpSafeTmpDir(), 'studio-phpmyadmin-sessions', safeSiteId );
 }
 
 export async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promise< string > {

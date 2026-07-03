@@ -584,6 +584,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				} );
 			} finally {
 				cleanup();
+				// The client intentionally skips success-path cleanup of an uploaded
+				// ZIP bundle's extract dir (see blueprint-selector) — the desktop
+				// removes it once create settles, so mirror that here.
+				if ( body.blueprint?.filePath ) {
+					await cleanupBlueprintTempDir(
+						path.dirname( path.resolve( body.blueprint.filePath ) )
+					).catch( () => undefined );
+				}
 			}
 
 			const created = ( await listSites( execute ) ).find( ( s ) => s.id === siteId );

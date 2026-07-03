@@ -2,7 +2,10 @@ import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
-import { streamAnthropic, type AnthropicOptions } from '@earendil-works/pi-ai/anthropic';
+import {
+	stream as streamAnthropic,
+	type AnthropicOptions,
+} from '@earendil-works/pi-ai/api/anthropic-messages';
 import {
 	AuthStorage,
 	createAgentSession,
@@ -322,6 +325,7 @@ async function createStudioAgentSession(
 		noThemes: true,
 		noContextFiles: true,
 		systemPrompt,
+		appendSystemPrompt: [],
 	} );
 	await resourceLoader.reload();
 
@@ -459,10 +463,13 @@ function createWpcomAnthropicProviderConfig(
 }
 
 function createSettingsManager( _env: Record< string, string > ): SettingsManager {
-	return SettingsManager.inMemory( {
-		defaultThinkingLevel: 'high',
-		compaction: STUDIO_COMPACTION_SETTINGS,
-	} );
+	return SettingsManager.inMemory(
+		{
+			defaultThinkingLevel: 'high',
+			compaction: STUDIO_COMPACTION_SETTINGS,
+		},
+		{ projectTrusted: false }
+	);
 }
 
 function toToolDefinition(

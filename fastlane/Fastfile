@@ -166,7 +166,13 @@ lane :distribute_release_build do |version: read_package_json_version|
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: {
-      ':studio-app-icon-mac: Release available for': builds.each_value.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
+      # Link only the installers users download: "Full Install" builds plus the Linux .debs
+      # (tagged "Update" but the sole Linux installer). Skip the Mac/Windows "Update" payloads,
+      # and the unsigned Appx builds (grabbed from Buildkite for the Microsoft Store publish).
+      ':studio-app-icon-mac: Release available for': builds.each_value
+        .reject { |b| b[:install_type] == 'Update' && !b[:platform].to_s.start_with?('Linux') }
+        .reject { |b| b[:platform].to_s.start_with?('Microsoft Store') }
+        .map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
     },
     default_payloads: []
   )

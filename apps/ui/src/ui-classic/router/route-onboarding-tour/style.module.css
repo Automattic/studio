@@ -1,0 +1,8 @@
+/* The shared feature columns are centered by a flex parent on the welcome
+   screen; inside the onboarding page they need to center themselves. The
+   glass surface matches the flow-picker cards. */
+.tourFeatures {
+	composes: glassSurface from '../layout-onboarding/style.module.css';
+	margin-inline: auto;
+	margin-top: 32px;
+}

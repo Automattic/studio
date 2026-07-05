@@ -1,13 +1,16 @@
 import { createRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { check, Icon } from '@wordpress/icons';
+import { check, chevronRight, Icon } from '@wordpress/icons';
 import { Button } from '@wordpress/ui';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { DotGrid } from '@/components/dot-grid';
+import { Gravatar } from '@/components/gravatar';
 import { useConnector } from '@/data/core';
-import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useOffline } from '@/hooks/use-offline';
+import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { getLocalizedLink } from '@/lib/docs-links';
 import { EmptyBackground } from '../../components/session-view/empty-background';
 import { rootRoute } from '../layout-root';
@@ -30,35 +33,47 @@ const FEATURES = [
 
 /**
  * First-run welcome screen: connect a WordPress.com account or skip, then
- * continue to site creation. Logging in completes the welcome automatically
- * once the OAuth round-trip lands; the flow picker offers a way back while
- * no sites exist.
+ * continue to the concept tour (which marks onboarding complete before site
+ * creation). Logging in advances automatically once the OAuth round-trip
+ * lands; the flow picker offers a way back while no sites exist.
  */
 export function WelcomePage() {
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const login = useLogin();
+	const logout = useLogout();
 	const { data: authUser } = useAuthUser();
 	const isOffline = useOffline();
 	const locale = useUserLocale();
+	const isDark = usePrefersColorScheme() === 'dark';
 	const offlineMessage = __( "You're currently offline." );
 
-	const completeWelcome = useCallback( async () => {
-		await connector.setOnboardingCompleted( true );
-		void navigate( { to: '/onboarding' } );
-	}, [ connector, navigate ] );
+	const continueToTour = useCallback( () => {
+		void navigate( { to: '/onboarding/tour' } );
+	}, [ navigate ] );
 
+	// Auto-advance only on a fresh login (signed-out → signed-in while this
+	// screen is up). An already-authenticated user can revisit the welcome
+	// without being bounced straight back to the tour.
+	const previousAuthRef = useRef< typeof authUser >( undefined );
 	useEffect( () => {
-		if ( authUser ) {
-			void completeWelcome();
+		const previous = previousAuthRef.current;
+		previousAuthRef.current = authUser;
+		if ( authUser && previous === null ) {
+			continueToTour();
 		}
-	}, [ authUser, completeWelcome ] );
+	}, [ authUser, continueToTour ] );
 
 	const openLegalLink = ( key: 'a8cTos' | 'a8cPrivacyPolicy' ) =>
 		void connector.openExternalUrl( getLocalizedLink( locale, key ) );
 
 	return (
 		<div className={ styles.page }>
+			{ /* Same decorative backdrop as the onboarding shell, so the
+			     welcome reads as the start of that flow. */ }
+			<div aria-hidden="true" className={ styles.pageDotGrid }>
+				<DotGrid spacing={ 32 } crossSize={ 5 } opacity={ 0.2 } intro={ false } />
+			</div>
 			<div aria-hidden="true">
 				<div className={ `${ styles.dragEdge } ${ styles.dragEdgeTop }` } />
 				<div className={ `${ styles.dragEdge } ${ styles.dragEdgeLeft }` } />
@@ -70,12 +85,10 @@ export function WelcomePage() {
 				variant="minimal"
 				tone="neutral"
 				className={ styles.skipButton }
-				onClick={ () => void completeWelcome() }
+				onClick={ continueToTour }
 			>
-				{ __( 'Skip' ) }
-				<span aria-hidden className={ styles.arrow }>
-					{ '→' }
-				</span>
+				<span>{ authUser ? __( 'Continue' ) : __( 'Skip' ) }</span>
+				<Icon icon={ chevronRight } size={ 16 } />
 			</Button>
 
 			<div className={ styles.content }>
@@ -128,33 +141,57 @@ export function WelcomePage() {
 			</p>
 
 			<div className={ styles.footerActions }>
-				<Button
-					type="button"
-					variant="minimal"
-					tone="neutral"
-					disabled={ isOffline }
-					title={ isOffline ? offlineMessage : undefined }
-					onClick={ () => void connector.authenticate( true ) }
-				>
-					{ __( 'Sign up' ) }
-					<span aria-hidden className={ styles.arrow }>
-						{ '↗' }
-					</span>
-				</Button>
-				<Button
-					type="button"
-					variant="solid"
-					tone="brand"
-					disabled={ isOffline }
-					title={ isOffline ? offlineMessage : undefined }
-					loading={ login.isPending }
-					onClick={ () => login.mutate() }
-				>
-					{ __( 'Log in to WordPress.com' ) }
-					<span aria-hidden className={ styles.arrow }>
-						{ '↗' }
-					</span>
-				</Button>
+				{ authUser ? (
+					<>
+						<span className={ styles.identity }>
+							<Gravatar
+								email={ authUser.email }
+								isDark={ isDark }
+								className={ styles.identityAvatar }
+							/>
+							{ authUser.displayName }
+						</span>
+						<Button
+							type="button"
+							variant="outline"
+							tone="neutral"
+							loading={ logout.isPending }
+							onClick={ () => logout.mutate() }
+						>
+							{ __( 'Log out' ) }
+						</Button>
+					</>
+				) : (
+					<>
+						<Button
+							type="button"
+							variant="minimal"
+							tone="neutral"
+							disabled={ isOffline }
+							title={ isOffline ? offlineMessage : undefined }
+							onClick={ () => void connector.authenticate( true ) }
+						>
+							{ __( 'Sign up' ) }
+							<span aria-hidden className={ styles.arrow }>
+								{ '↗' }
+							</span>
+						</Button>
+						<Button
+							type="button"
+							variant="solid"
+							tone="brand"
+							disabled={ isOffline }
+							title={ isOffline ? offlineMessage : undefined }
+							loading={ login.isPending }
+							onClick={ () => login.mutate() }
+						>
+							{ __( 'Log in to WordPress.com' ) }
+							<span aria-hidden className={ styles.arrow }>
+								{ '↗' }
+							</span>
+						</Button>
+					</>
+				) }
 			</div>
 		</div>
 	);

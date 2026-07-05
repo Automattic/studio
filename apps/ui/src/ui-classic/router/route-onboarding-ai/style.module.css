@@ -1,0 +1,12 @@
+/* Hosts the shared chat composer at a comfortable brief-writing width. */
+.composerHost {
+	max-width: 640px;
+	margin-inline: auto;
+	text-align: start;
+}
+
+.error {
+	margin: 8px 0 0;
+	color: var( --wpds-color-fg-content-error );
+	font-size: 12px;
+}

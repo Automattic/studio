@@ -43,3 +43,9 @@
 .actions > :first-child {
 	margin-right: auto;
 }
+
+/* @wordpress/icons SVGs carry no fill and default to black; inherit the
+   button text color so footer icons respect dark mode. */
+.actions svg {
+	fill: currentColor;
+}

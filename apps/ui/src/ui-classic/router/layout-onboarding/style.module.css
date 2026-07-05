@@ -47,3 +47,11 @@
 	   isolated stacking context. */
 	z-index: -1;
 }
+
+/* Shared "glass" surface for cards and containers across the onboarding
+   flows: a subtle translucent fill + blur so the dot grid glows through.
+   Compose into a rule with `composes: glassSurface from '…'`. */
+.glassSurface {
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-strong, #fff) 50%, transparent);
+	backdrop-filter: blur(12px);
+}

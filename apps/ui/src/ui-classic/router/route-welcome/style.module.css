@@ -15,6 +15,18 @@
 	padding: 40px 50px 96px;
 	overflow: hidden;
 	background: var( --wpds-color-bg-surface-neutral );
+	/* New stacking context so the dot grid's negative z-index stays behind
+	   this page's content without escaping below ancestors. */
+	isolation: isolate;
+}
+
+/* Decorative dot-grid backdrop, same treatment as the onboarding shell. */
+.pageDotGrid {
+	position: fixed;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+	z-index: -1;
 }
 
 /* Window drag strips along the chromeless edges — same pattern as
@@ -51,6 +63,10 @@
 	position: absolute;
 	top: 16px;
 	right: 16px;
+}
+
+.skipButton svg {
+	fill: currentColor;
 }
 
 .content {
@@ -101,9 +117,16 @@
 /* Progressive blur behind the overlapping text — same pattern as the
    onboarding footer scrim: the backdrop blur fades in from the top so the
    toy's particles soften under the text without a hard edge. */
+/* Oversized on purpose: it reaches past the viewport on the sides and
+   bottom and lets .page's overflow clipping trim it, so the blur covers
+   everything below the title (text, footer, buttons) while the dot grid
+   behind it stays soft. */
 .contentScrim {
 	position: absolute;
-	inset: 0 -32px -16px;
+	top: -56px;
+	left: -100vw;
+	right: -100vw;
+	bottom: -100vh;
 	pointer-events: none;
 	backdrop-filter: blur( 12px );
 	background: linear-gradient(
@@ -117,6 +140,7 @@
 
 .title {
 	margin: 0;
+	font-weight: 600;
 	text-wrap: balance;
 }
 
@@ -224,6 +248,20 @@
 .footerActions > * {
 	flex-shrink: 0;
 	white-space: nowrap;
+}
+
+/* Signed-in identity shown in place of the auth buttons. */
+.identity {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.identityAvatar {
+	width: 24px;
+	height: 24px;
 }
 
 .arrow {

@@ -116,6 +116,7 @@ const api: IpcApi = {
 	showMessageBox: ( options ) => ipcRendererInvoke( 'showMessageBox', options ),
 	showErrorMessageBox: ( options ) => ipcRendererSend( 'showErrorMessageBox', options ),
 	showNotification: ( options ) => ipcRendererSend( 'showNotification', options ),
+	showChatNotification: ( request ) => ipcRendererSend( 'showChatNotification', request ),
 	logRendererMessage: ( level, ...args ) => ipcRendererSend( 'logRendererMessage', level, ...args ),
 	setupAppMenu: ( config ) => ipcRendererInvoke( 'setupAppMenu', config ),
 	popupAppMenu: ( position ) => ipcRendererSend( 'popupAppMenu', position ),
@@ -182,6 +183,9 @@ const api: IpcApi = {
 	saveAgenticFeaturesEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'saveAgenticFeaturesEnabled', enabled ),
 	getAgenticFeaturesEnabled: () => ipcRendererInvoke( 'getAgenticFeaturesEnabled' ),
+	saveChatNotificationsEnabled: ( enabled ) =>
+		ipcRendererInvoke( 'saveChatNotificationsEnabled', enabled ),
+	getChatNotificationsEnabled: () => ipcRendererInvoke( 'getChatNotificationsEnabled' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getDismissedMessages: () => ipcRendererInvoke( 'getDismissedMessages' ),

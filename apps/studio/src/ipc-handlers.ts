@@ -119,6 +119,10 @@ import {
 	trustRootCA,
 } from 'src/lib/certificate-manager';
 import {
+	showChatNotification as showChatNotificationForWindow,
+	type ChatNotificationRequest,
+} from 'src/lib/chat-notifications';
+import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
 } from 'src/lib/error-formatting';
@@ -231,6 +235,7 @@ export {
 export {
 	dismissMessage,
 	getAgenticFeaturesEnabled,
+	getChatNotificationsEnabled,
 	getColorScheme,
 	getDismissedMessages,
 	getInstalledAppsAndTerminals,
@@ -240,6 +245,7 @@ export {
 	getWapuuScore,
 	previewColorScheme,
 	saveAgenticFeaturesEnabled,
+	saveChatNotificationsEnabled,
 	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,
@@ -1863,6 +1869,13 @@ export function showNotification(
 	options: Electron.NotificationConstructorOptions
 ) {
 	new Notification( options ).show();
+}
+
+export function showChatNotification(
+	event: IpcMainInvokeEvent,
+	request: ChatNotificationRequest
+) {
+	showChatNotificationForWindow( BrowserWindow.fromWebContents( event.sender ), request );
 }
 
 export async function setupAppMenu(

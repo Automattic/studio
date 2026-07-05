@@ -67,6 +67,7 @@ export interface IpcEvents {
 	'beta-features-updated': [ void ];
 	'ai-agent-event': [ AgentRunEvent ];
 	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];
+	'chat-notification-clicked': [ { sessionId: string } ];
 	'remote-session-status': [ RemoteSessionStatus ];
 }
 

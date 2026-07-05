@@ -84,6 +84,7 @@ type UserDataSafeKeys =
 	| 'cliUserUninstalled'
 	| 'wapuuScore'
 	| 'agenticFeaturesEnabled'
+	| 'chatNotificationsEnabled'
 	| 'lastNightlyUpdateCheck'
 	| 'nightlyPromptResult';
 

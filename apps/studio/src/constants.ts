@@ -68,6 +68,7 @@ export const IPC_VOID_HANDLERS = [
 	'showSiteContextMenu',
 	'showItemInFolder',
 	'showNotification',
+	'showChatNotification',
 	'authenticate',
 ] as const;
 

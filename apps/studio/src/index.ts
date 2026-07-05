@@ -178,6 +178,13 @@ function launchExtensionBackgroundWorkers( appSession = session.defaultSession )
 async function appBoot() {
 	app.setName( packageJson.productName );
 
+	if ( process.platform === 'win32' ) {
+		// Windows toast notifications require an AppUserModelID that matches the
+		// Start-menu shortcut. Squirrel stamps `com.squirrel.<nuget-id>.<exe>` on
+		// installed builds; setting it here also makes toasts work in dev builds.
+		app.setAppUserModelId( 'com.squirrel.studio_app.Studio' );
+	}
+
 	Menu.setApplicationMenu( null );
 
 	setupCustomProtocolHandler();

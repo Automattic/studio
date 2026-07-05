@@ -6,6 +6,7 @@ import { Tooltip } from '@wordpress/ui';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
+import { useChatNotifications } from '@/data/queries/use-chat-notifications';
 import { useLiveSyncActivityMonitor } from '@/data/queries/use-live-sync-monitor';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
 import { useSyncSitesWithEvents } from '@/data/queries/use-sites';
@@ -27,6 +28,7 @@ function SiteEventsBridge() {
 	useSyncConnectSiteListener();
 	useLiveSyncActivityMonitor();
 	useSyncAppUpdateStatus();
+	useChatNotifications();
 	return null;
 }
 

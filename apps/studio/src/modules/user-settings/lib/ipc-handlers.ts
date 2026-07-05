@@ -113,6 +113,18 @@ export async function saveAgenticFeaturesEnabled(
 	await updateAppdata( { agenticFeaturesEnabled: enabled } );
 }
 
+export async function getChatNotificationsEnabled(): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.chatNotificationsEnabled ?? true;
+}
+
+export async function saveChatNotificationsEnabled(
+	event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await updateAppdata( { chatNotificationsEnabled: enabled } );
+}
+
 export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const userData = await loadUserData();
 	// Follow the OS appearance until the user explicitly picks a scheme.

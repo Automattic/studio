@@ -81,6 +81,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
+	const notificationClickListeners = new Set< ( event: { sessionId: string } ) => void >();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip to the WordPress.com API.
@@ -398,6 +399,30 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return () => placementListeners.delete( listener );
 		},
 
+		// Web Notifications stand in for the desktop's OS notifications. The
+		// caller has already decided the user isn't looking at this session.
+		async showChatNotification( { sessionId, title, body } ) {
+			if ( ! ( 'Notification' in window ) ) {
+				return;
+			}
+			if ( Notification.permission === 'default' ) {
+				await Notification.requestPermission();
+			}
+			if ( Notification.permission !== 'granted' ) {
+				return;
+			}
+			// `tag` collapses successive notifications for the same session.
+			const notification = new Notification( title, { body, tag: sessionId } );
+			notification.onclick = () => {
+				window.focus();
+				notificationClickListeners.forEach( ( listener ) => listener( { sessionId } ) );
+			};
+		},
+		onChatNotificationClicked( listener ) {
+			notificationClickListeners.add( listener );
+			return () => notificationClickListeners.delete( listener );
+		},
+
 		// User preferences — sensible browser defaults.
 		async getUserPreferences(): Promise< UserPreferences > {
 			return {
@@ -408,6 +433,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				agenticFeaturesEnabled: true,
+				chatNotificationsEnabled: true,
 			};
 		},
 		async setUserPreferences() {

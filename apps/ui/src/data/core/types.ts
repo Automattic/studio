@@ -382,6 +382,13 @@ export interface Connector {
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
 	): () => void;
 
+	// OS notification for chat activity. The caller decides whether the user
+	// needs it (they aren't already viewing the session); clicking it focuses
+	// the window and fires `onChatNotificationClicked`. No-ops where
+	// notifications are unsupported.
+	showChatNotification( notification: ChatNotification ): Promise< void >;
+	onChatNotificationClicked( listener: ( event: { sessionId: string } ) => void ): () => void;
+
 	// Flip the session between acting on its owner site's local runtime vs.
 	// its linked WordPress.com live site. The owner site itself never changes.
 	setSessionEnvironment(
@@ -490,6 +497,16 @@ export interface UserPreferences {
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;
 	agenticFeaturesEnabled: boolean;
+	chatNotificationsEnabled: boolean;
+}
+
+export type ChatNotificationKind = 'response-complete' | 'pending-question';
+
+export interface ChatNotification {
+	sessionId: string;
+	kind: ChatNotificationKind;
+	title: string;
+	body: string;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

@@ -350,6 +350,35 @@ function AgenticFeaturesSection( {
 	);
 }
 
+function ChatNotificationsSection( {
+	checked,
+	onChange,
+}: {
+	checked: boolean;
+	onChange: ( checked: boolean ) => void;
+} ) {
+	return (
+		<section className={ styles.preferenceSectionGroup }>
+			<div className={ styles.cliHeader }>
+				<h2 className={ clsx( styles.preferenceSectionHeading, styles.cliHeading ) }>
+					{ __( 'Chat notifications' ) }
+				</h2>
+				<FormToggle
+					id="chat-notifications-toggle"
+					aria-label={ __( 'Chat notifications' ) }
+					checked={ checked }
+					onChange={ ( event ) => onChange( event.target.checked ) }
+				/>
+			</div>
+			<p className={ styles.cliDescription }>
+				{ __(
+					'Get notified when the agent finishes or needs your input in a conversation you are not looking at.'
+				) }
+			</p>
+		</section>
+	);
+}
+
 function AccountInformationSection() {
 	const { data: user, isLoading } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
@@ -558,6 +587,12 @@ function PreferencesPanel( {
 				checked={ data.agenticFeaturesEnabled }
 				onChange={ ( agenticFeaturesEnabled ) => onChange( { agenticFeaturesEnabled } ) }
 			/>
+			{ showNativePreferences ? (
+				<ChatNotificationsSection
+					checked={ data.chatNotificationsEnabled }
+					onChange={ ( chatNotificationsEnabled ) => onChange( { chatNotificationsEnabled } ) }
+				/>
+			) : null }
 			{ showStudioCliToggle ? (
 				<StudioCliSection
 					checked={ data.studioCliInstalled }

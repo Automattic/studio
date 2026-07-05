@@ -100,6 +100,10 @@ interface State {
 	queuedPrompts: QueuedPrompt[];
 }
 
+// Read-only view of a session's live-run slice for non-rendering observers
+// (e.g. the chat-notifications watcher).
+export type AgentRunSessionState = Readonly< State >;
+
 const initialState: State = {
 	phase: 'idle',
 	runId: null,
@@ -233,7 +237,7 @@ function getTimestampMs( timestamp: string ): number {
 // subscribe with `useSyncExternalStore` and re-render only when their own
 // session's slice changes — a streaming tick for one session must not
 // re-render every sidebar row.
-interface SessionStateStore {
+export interface SessionStateStore {
 	getState: () => StatesBySession;
 	dispatch: ( action: StoreAction ) => void;
 	subscribe: ( listener: () => void ) => () => void;
@@ -261,7 +265,7 @@ function createSessionStateStore(): SessionStateStore {
 	};
 }
 
-interface AgentRunStore {
+export interface AgentRunStore {
 	stateStore: SessionStateStore;
 	dispatchSession: ( sessionId: string, action: Action ) => void;
 	startRun: ( sessionId: string, prompt: string, options?: SendMessageOptions ) => Promise< void >;
@@ -638,6 +642,16 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	);
 
 	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
+}
+
+// Direct access to the per-session state store for imperative observers that
+// must not re-render on every dispatch (e.g. the chat-notifications watcher).
+export function useAgentRunStore(): AgentRunStore {
+	const store = useContext( AgentRunContext );
+	if ( ! store ) {
+		throw new Error( 'useAgentRunStore must be used within AgentRunProvider' );
+	}
+	return store;
 }
 
 export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {

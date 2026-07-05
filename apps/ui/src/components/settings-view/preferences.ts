@@ -18,6 +18,7 @@ export interface PreferencesFormData {
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;
 	agenticFeaturesEnabled: boolean;
+	chatNotificationsEnabled: boolean;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -36,6 +37,9 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		defaultSiteDirectory: prefs.defaultSiteDirectory,
 		studioCliInstalled: prefs.studioCliInstalled,
 		agenticFeaturesEnabled: prefs.agenticFeaturesEnabled,
+		// Persisted query caches from before this field existed rehydrate it as
+		// undefined; enabled is the real default, so render the toggle on.
+		chatNotificationsEnabled: prefs.chatNotificationsEnabled ?? true,
 	};
 }
 
@@ -64,6 +68,9 @@ export function toPreferencesPatch(
 	}
 	if ( update.agenticFeaturesEnabled !== undefined ) {
 		patch.agenticFeaturesEnabled = update.agenticFeaturesEnabled;
+	}
+	if ( update.chatNotificationsEnabled !== undefined ) {
+		patch.chatNotificationsEnabled = update.chatNotificationsEnabled;
 	}
 
 	return patch;

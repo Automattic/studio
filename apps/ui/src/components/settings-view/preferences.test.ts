@@ -10,6 +10,7 @@ const SAVED_PREFERENCES: UserPreferences = {
 	defaultSiteDirectory: '/Users/example/Studio',
 	studioCliInstalled: false,
 	agenticFeaturesEnabled: true,
+	chatNotificationsEnabled: true,
 };
 
 describe( 'settings preference helpers', () => {
@@ -29,6 +30,7 @@ describe( 'settings preference helpers', () => {
 			defaultSiteDirectory: '/Users/example/Studio',
 			studioCliInstalled: false,
 			agenticFeaturesEnabled: true,
+			chatNotificationsEnabled: true,
 		} );
 	} );
 
@@ -46,6 +48,7 @@ describe( 'settings preference helpers', () => {
 				defaultSiteDirectory: '/Users/example/Sites',
 				studioCliInstalled: true,
 				agenticFeaturesEnabled: false,
+				chatNotificationsEnabled: false,
 			} )
 		).toEqual( {
 			editor: null,
@@ -55,6 +58,7 @@ describe( 'settings preference helpers', () => {
 			defaultSiteDirectory: '/Users/example/Sites',
 			studioCliInstalled: true,
 			agenticFeaturesEnabled: false,
+			chatNotificationsEnabled: false,
 		} );
 	} );
 

@@ -891,6 +891,20 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
+		async showChatNotification( notification ) {
+			const { sessionId, title, body } = notification;
+			ipcApi.showChatNotification( { sessionId, title, body } );
+		},
+
+		onChatNotificationClicked( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe(
+				'chat-notification-clicked',
+				( _event: unknown, payload: { sessionId: string } ) => listener( payload )
+			);
+		},
+
 		// User preferences — the underlying main-process handlers are split
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
@@ -903,6 +917,7 @@ export function createIpcConnector(): Connector {
 				defaultSiteDirectory,
 				studioCliInstalled,
 				agenticFeaturesEnabled,
+				chatNotificationsEnabled,
 			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
@@ -911,12 +926,14 @@ export function createIpcConnector(): Connector {
 				ipcApi.getDefaultSiteDirectory(),
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.getAgenticFeaturesEnabled(),
+				ipcApi.getChatNotificationsEnabled(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
 				string | undefined,
 				string,
+				boolean,
 				boolean,
 				boolean,
 			];
@@ -928,6 +945,7 @@ export function createIpcConnector(): Connector {
 				defaultSiteDirectory,
 				studioCliInstalled,
 				agenticFeaturesEnabled,
+				chatNotificationsEnabled,
 			};
 		},
 
@@ -958,6 +976,12 @@ export function createIpcConnector(): Connector {
 				typeof partial.agenticFeaturesEnabled === 'boolean'
 			) {
 				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
+			}
+			if (
+				'chatNotificationsEnabled' in partial &&
+				typeof partial.chatNotificationsEnabled === 'boolean'
+			) {
+				writes.push( ipcApi.saveChatNotificationsEnabled( partial.chatNotificationsEnabled ) );
 			}
 			await Promise.all( writes );
 		},

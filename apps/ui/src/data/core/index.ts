@@ -6,6 +6,8 @@ export type {
 	AppUpdateStatus,
 	AuthUser,
 	AvailableSitePath,
+	ChatNotification,
+	ChatNotificationKind,
 	ColorScheme,
 	Connector,
 	CreateSiteParams,

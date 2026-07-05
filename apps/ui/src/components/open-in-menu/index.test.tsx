@@ -145,6 +145,7 @@ describe( 'OpenInMenu', () => {
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
 				agenticFeaturesEnabled: true,
+				chatNotificationsEnabled: true,
 			},
 		} );
 	} );

@@ -216,6 +216,7 @@ describe( 'SiteOverviewView', () => {
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
 				agenticFeaturesEnabled: true,
+				chatNotificationsEnabled: true,
 			},
 		} );
 	} );

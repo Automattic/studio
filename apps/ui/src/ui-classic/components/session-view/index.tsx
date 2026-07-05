@@ -299,7 +299,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		}
 		sentPendingPromptRef.current = pendingPrompt;
 		pendingSessionPromptSlot.clear();
-		void sendMessageWithConsole( pendingPrompt.prompt );
+		void sendMessageWithConsole( pendingPrompt.prompt, {
+			images: pendingPrompt.images,
+			files: pendingPrompt.files,
+		} );
 	}, [ pendingPrompt, ownerSite, isFetching, data, sendMessageWithConsole ] );
 	const siteSessionHistory = useMemo(
 		() =>

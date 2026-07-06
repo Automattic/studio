@@ -24,6 +24,19 @@
 	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	-webkit-app-region: drag;
+	/* Ease in/out of the sidebar-collapsed padding alongside the split
+	   frame's 150ms full-bleed transition. */
+	transition: padding 150ms ease;
+}
+
+/* With the sidebar hidden the split frame goes full-bleed (`.rootFrameless`
+   in preview-split-frame), putting this toolbar flush against the window's
+   top edge where it read as cropped. Equal extra padding keeps the controls
+   centered in a slightly taller bar, in line with the macOS traffic lights
+   (12px glyphs at y 20–32, center 26) and the pinned SiteHeaderActions
+   cluster, which drops to match. */
+.headerSidebarCollapsed {
+	padding-block: calc(var(--wpds-dimension-padding-xs) + 4px);
 }
 
 /* The toolbar doubles as a window drag region; the controls (including the
@@ -137,6 +150,15 @@
 	flex: 1 1 auto;
 	min-height: 120px;
 	overflow: hidden;
+}
+
+/* While simulating a viewport, the surface can be narrower than the pane
+   (letterboxed 1:1) or lay out wider than it (scaled down to fit). `safe`
+   keeps the overflowing case pinned to the start so the scaled page stays
+   fully visible. */
+.previewViewportSimulated {
+	justify-content: safe center;
+	background-color: var(--wpds-color-bg-surface-neutral);
 }
 
 .spinnerOverlay {

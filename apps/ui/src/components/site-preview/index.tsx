@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
+	aspectRatio,
 	capturePhoto,
 	chevronLeft,
 	chevronRight,
@@ -12,11 +13,13 @@ import {
 	globe,
 	moreVertical,
 	pencil,
+	search,
 	trash,
 	wordpress,
 } from '@wordpress/icons';
-import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
+import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
 import { IconSwitch } from '@/components/icon-switch';
@@ -27,6 +30,7 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { usePointerDrag } from '@/hooks/use-pointer-drag';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { bottomDrawerIcon, moonIcon, playIcon, refreshIcon, sunIcon } from '@/lib/icons';
 import { usePluginSiteTag } from '@/lib/plugin-prototype';
@@ -90,22 +94,35 @@ interface SitePreviewProps {
 }
 
 interface InspectorEvent {
-	type: 'browser-command' | 'done' | 'state';
+	type: 'browser-command' | 'done' | 'state' | 'loupe-capture' | 'loupe-snap';
 	annotations?: Annotation[];
 	isPicking?: boolean;
 	annotationCount?: number;
 	command?: BrowserShortcutCommandType;
+	isLoupeActive?: boolean;
+	loupeZoom?: number;
+	// loupe-snap rect (viewport-relative CSS px) / loupe-capture viewport size.
+	x?: number;
+	y?: number;
+	width?: number;
+	height?: number;
+	// loupe-capture document anchor (scroll position at request time), echoed
+	// back to the guest with the capture so it can map cursor -> pixels.
+	docX?: number;
+	docY?: number;
 }
 
 interface InspectorState {
 	ready: boolean;
 	isPicking: boolean;
 	annotationCount: number;
+	// Reflects the guest's loupe (hold-key or menu-toggled) for menu state.
+	isLoupeActive: boolean;
 }
 
 interface InspectorCommand {
 	id: number;
-	type: 'toggle-picking' | 'submit';
+	type: 'toggle-picking' | 'submit' | 'loupe-hold-start' | 'loupe-hold-end' | 'loupe-toggle';
 }
 
 interface BrowserNavigationState {
@@ -126,11 +143,32 @@ interface BrowserCommand {
 type PreviewColorScheme = 'light' | 'dark';
 type ConsoleFilter = 'all' | PreviewConsoleLevel;
 
+// A simulated guest viewport: the page lays out at `width`×`height` CSS px
+// and its rendering is scaled by `scale` to fit the preview pane.
+export interface PreviewViewport {
+	width: number;
+	height: number;
+	scale: number;
+}
+
+// Simulated-width presets, pending a designed control: the WordPress editor's
+// desktop/tablet/mobile trio, sized to an iPhone-class width, the classic
+// tablet breakpoint, and a common laptop width.
+const VIEWPORT_PRESETS = [
+	{ id: 'mobile', width: 390 },
+	{ id: 'tablet', width: 768 },
+	{ id: 'desktop', width: 1440 },
+] as const;
+
 interface PreviewWindow extends Window {
 	ipcApi?: {
 		setWebviewColorScheme?: (
 			webContentsId: number,
 			colorScheme: PreviewColorScheme
+		) => Promise< void >;
+		setWebviewViewport?: (
+			webContentsId: number,
+			viewport: PreviewViewport | null
 		) => Promise< void >;
 	};
 }
@@ -183,6 +221,108 @@ function localMediaFileToFile( file: LocalMediaFile ): File {
 	return new File( [ file.data ], file.name, { type: file.mimeType } );
 }
 
+// Loupe backdrops travel into the guest page via `executeJavaScript`, which
+// only carries strings — so the capture becomes a data URL. Chunked to keep
+// the argument list under the call-stack limit.
+function localMediaFileToDataUrl( file: LocalMediaFile ): string {
+	const bytes = new Uint8Array( file.data );
+	const chunkSize = 0x8000;
+	let binary = '';
+	for ( let i = 0; i < bytes.length; i += chunkSize ) {
+		binary += String.fromCharCode( ...bytes.subarray( i, i + chunkSize ) );
+	}
+	return `data:${ file.mimeType };base64,${ btoa( binary ) }`;
+}
+
+// Document-coordinate anchor of a loupe backdrop capture (the guest's
+// scroll position and viewport size when it asked for the capture).
+interface LoupeCaptureAnchor {
+	docX: number;
+	docY: number;
+	width: number;
+	height: number;
+}
+
+// Viewport-relative rect (CSS px) of the lens content for a snap.
+interface LoupeSnapRect {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+const isFiniteNumber = ( value: unknown ): value is number =>
+	typeof value === 'number' && Number.isFinite( value );
+
+// Region messages come from the (untrusted) guest page over the console
+// bridge; only clean numeric rects are acted on.
+function getLoupeCaptureAnchor( parsed: InspectorEvent ): LoupeCaptureAnchor | null {
+	const { docX, docY, width, height } = parsed;
+	if ( ! [ docX, docY, width, height ].every( isFiniteNumber ) ) {
+		return null;
+	}
+	if ( ( width as number ) <= 0 || ( height as number ) <= 0 ) {
+		return null;
+	}
+	return {
+		docX: docX as number,
+		docY: docY as number,
+		width: width as number,
+		height: height as number,
+	};
+}
+
+function getLoupeSnapRect( parsed: InspectorEvent ): LoupeSnapRect | null {
+	const { x, y, width, height } = parsed;
+	if ( ! [ x, y, width, height ].every( isFiniteNumber ) ) {
+		return null;
+	}
+	if (
+		( x as number ) < 0 ||
+		( y as number ) < 0 ||
+		( width as number ) <= 0 ||
+		( height as number ) <= 0
+	) {
+		return null;
+	}
+	return { x: x as number, y: y as number, width: width as number, height: height as number };
+}
+
+// Crops the lens region (viewport-relative CSS px) out of a native-resolution
+// viewport capture. The capture's device-pixel ratio is derived from its
+// width vs the webview's CSS width, so the crop stays aligned on any display.
+async function cropViewportCapture(
+	capture: LocalMediaFile,
+	rect: LoupeSnapRect,
+	viewportCssWidth: number
+): Promise< File | null > {
+	const bitmap = await createImageBitmap(
+		new Blob( [ capture.data ], { type: capture.mimeType } )
+	);
+	try {
+		if ( viewportCssWidth <= 0 ) return null;
+		const ratio = bitmap.width / viewportCssWidth;
+		const sx = Math.max( 0, Math.min( bitmap.width, rect.x * ratio ) );
+		const sy = Math.max( 0, Math.min( bitmap.height, rect.y * ratio ) );
+		const sw = Math.min( bitmap.width - sx, rect.width * ratio );
+		const sh = Math.min( bitmap.height - sy, rect.height * ratio );
+		if ( sw < 1 || sh < 1 ) return null;
+		const canvas = document.createElement( 'canvas' );
+		canvas.width = Math.round( sw );
+		canvas.height = Math.round( sh );
+		const context = canvas.getContext( '2d' );
+		if ( ! context ) return null;
+		context.drawImage( bitmap, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height );
+		const blob = await new Promise< Blob | null >( ( resolve ) =>
+			canvas.toBlob( resolve, 'image/jpeg', 0.9 )
+		);
+		if ( ! blob ) return null;
+		return new File( [ blob ], 'screenshot-loupe.jpg', { type: 'image/jpeg' } );
+	} finally {
+		bitmap.close();
+	}
+}
+
 function getWebviewContentsId( webview: WebviewTag ): number {
 	const webContentsId = webview.getWebContentsId?.();
 	if ( ! webContentsId ) {
@@ -199,6 +339,35 @@ async function applyWebviewColorScheme(
 	await ipcApi?.setWebviewColorScheme?.( getWebviewContentsId( webview ), colorScheme );
 }
 
+async function applyWebviewViewport(
+	webview: WebviewTag,
+	viewport: PreviewViewport | null
+): Promise< void > {
+	const { ipcApi } = window as PreviewWindow;
+	await ipcApi?.setWebviewViewport?.( getWebviewContentsId( webview ), viewport );
+}
+
+/**
+ * The viewport to simulate for a requested page width inside a pane of the
+ * given size. Wider than the pane → the guest is scaled down to fit its
+ * width, with the emulated height extended so the scaled page still fills
+ * the pane vertically. Narrower → 1:1, letterboxed by the pane.
+ */
+export function getSimulatedViewport(
+	requestedWidth: number | null,
+	pane: { width: number; height: number } | null
+): PreviewViewport | null {
+	if ( requestedWidth === null || ! pane || pane.width <= 0 || pane.height <= 0 ) {
+		return null;
+	}
+	const scale = Math.min( 1, pane.width / requestedWidth );
+	return {
+		width: requestedWidth,
+		height: Math.max( 1, Math.round( pane.height / scale ) ),
+		scale,
+	};
+}
+
 const EMPTY_BROWSER_STATE: BrowserNavigationState = {
 	canGoBack: false,
 	canGoForward: false,
@@ -211,6 +380,7 @@ const EMPTY_INSPECTOR_STATE: InspectorState = {
 	ready: false,
 	isPicking: false,
 	annotationCount: 0,
+	isLoupeActive: false,
 };
 
 const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
@@ -315,6 +485,59 @@ function PreviewColorSchemeSwitch( {
 	);
 }
 
+// Temporary control for the viewport simulation while its real UI is being
+// designed: a plain radio menu of simulated-width presets.
+function PreviewViewportMenu( {
+	value,
+	disabled,
+	onChange,
+}: {
+	value: number | null;
+	disabled?: boolean;
+	onChange: ( width: number | null ) => void;
+} ) {
+	const labels: Record< ( typeof VIEWPORT_PRESETS )[ number ][ 'id' ], string > = {
+		mobile: __( 'Mobile' ),
+		tablet: __( 'Tablet' ),
+		desktop: __( 'Desktop' ),
+	};
+	return (
+		<Menu.Root modal={ false }>
+			<Menu.Trigger
+				render={
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ aspectRatio }
+						label={ __( 'Simulate viewport size' ) }
+						aria-pressed={ value !== null }
+						disabled={ disabled }
+					/>
+				}
+			/>
+			<Menu.Popup side="bottom" align="end">
+				<Menu.RadioGroup
+					value={ value === null ? 'fit' : String( value ) }
+					onValueChange={ ( next ) => onChange( next === 'fit' ? null : Number( next ) ) }
+				>
+					<Menu.RadioItem value="fit">{ __( 'Fit pane' ) }</Menu.RadioItem>
+					{ VIEWPORT_PRESETS.map( ( preset ) => (
+						<Menu.RadioItem key={ preset.id } value={ String( preset.width ) }>
+							{ sprintf(
+								/* translators: 1: device name (e.g. Mobile), 2: viewport width in pixels */
+								__( '%1$s · %2$dpx' ),
+								labels[ preset.id ],
+								preset.width
+							) }
+						</Menu.RadioItem>
+					) ) }
+				</Menu.RadioGroup>
+			</Menu.Popup>
+		</Menu.Root>
+	);
+}
+
 // Front end / WP Admin switch: globe on the left, WordPress mark on the
 // right, thumb under the active side.
 function PreviewViewSwitch( {
@@ -339,12 +562,13 @@ function PreviewViewSwitch( {
 }
 
 // Trailing "•••" menu holding the occasional actions that don't earn a
-// permanent toolbar button: console, screenshot, open in browser.
+// permanent toolbar button: console, loupe, screenshot, open in browser.
 function PreviewOverflowMenu( {
 	canPreview,
 	canUseWebview,
 	consoleLabel,
 	onToggleConsole,
+	loupe,
 	screenshot,
 	onOpenInBrowser,
 }: {
@@ -352,6 +576,14 @@ function PreviewOverflowMenu( {
 	canUseWebview: boolean;
 	consoleLabel: string;
 	onToggleConsole: () => void;
+	// Mostly a discovery affordance for the hold-key loupe: the item shows
+	// the shortcut and also toggles a sticky loupe on click.
+	loupe: {
+		label: string;
+		shortcut: string;
+		disabled: boolean;
+		onToggle: () => void;
+	} | null;
 	screenshot: {
 		label: string;
 		disabled: boolean;
@@ -379,6 +611,15 @@ function PreviewOverflowMenu( {
 					disabled={ ! canUseWebview }
 					onClick={ onToggleConsole }
 				/>
+				{ loupe ? (
+					<QuickMenuItem
+						icon={ search }
+						label={ loupe.label }
+						shortcut={ loupe.shortcut }
+						disabled={ loupe.disabled }
+						onClick={ loupe.onToggle }
+					/>
+				) : null }
 				{ screenshot ? (
 					<QuickMenuItem
 						icon={ capturePhoto }
@@ -633,6 +874,9 @@ export function SitePreview( {
 	const connector = useConnector();
 	const startSite = useStartSite();
 	const isStarting = useIsSiteStarting( site.id );
+	// With the sidebar hidden the split frame goes full-bleed, so the toolbar
+	// compensates for the lost frame gap (see .headerSidebarCollapsed).
+	const sidebarCollapsed = useSidebarCollapsed();
 	// Prototype: plugin sites get plugin-flavored copy in the stopped state.
 	const pluginTag = usePluginSiteTag( site.id );
 	const siteUrl = getSiteUrl( site );
@@ -647,6 +891,9 @@ export function SitePreview( {
 	const [ previewColorScheme, setPreviewColorScheme ] = useState< PreviewColorScheme >(
 		getInitialPreviewColorScheme
 	);
+	// Simulated page width in CSS px; null renders at the pane's natural size.
+	const [ viewportWidth, setViewportWidth ] = useState< number | null >( null );
+	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	const [ consoleEntries, setConsoleEntries ] = useState< PreviewConsoleEntry[] >( [] );
 	const [ consoleOpen, setConsoleOpen ] = useState( false );
 	const [ consoleFilter, setConsoleFilter ] = useState< ConsoleFilter >( 'all' );
@@ -656,6 +903,7 @@ export function SitePreview( {
 	const rootRef = useRef< HTMLElement | null >( null );
 	const bodyRef = useRef< HTMLDivElement | null >( null );
 	const locationRef = useRef< HTMLDivElement | null >( null );
+	const paneRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
 	const siteThumbnail = useQuery( {
 		queryKey: [ ...SITE_THUMBNAIL_QUERY_KEY, site.id ],
@@ -874,7 +1122,54 @@ export function SitePreview( {
 		setConsoleEntries( [] );
 		setConsoleOpen( false );
 		setConsoleHeight( DEFAULT_CONSOLE_HEIGHT );
+		setViewportWidth( null );
 	}, [ site.id ] );
+
+	// The simulated viewport is derived from the pane's size, so it has to
+	// follow pane resizes live. Rounded to whole px so subpixel resize
+	// reports don't churn re-renders and emulation calls.
+	useEffect( () => {
+		const pane = paneRef.current;
+		if ( ! pane || typeof ResizeObserver === 'undefined' ) {
+			return;
+		}
+		const observer = new ResizeObserver( ( entries ) => {
+			const rect = entries[ entries.length - 1 ]?.contentRect;
+			if ( ! rect ) {
+				return;
+			}
+			const width = Math.round( rect.width );
+			const height = Math.round( rect.height );
+			setPaneSize( ( current ) =>
+				current?.width === width && current?.height === height ? current : { width, height }
+			);
+		} );
+		observer.observe( pane );
+		return () => observer.disconnect();
+	}, [] );
+
+	const previewViewport = useMemo(
+		() => getSimulatedViewport( viewportWidth, paneSize ),
+		[ paneSize, viewportWidth ]
+	);
+	// A viewport narrower than the pane renders 1:1 as a letterboxed column;
+	// wider ones keep the surface at pane size and let the emulation scale.
+	const surfaceStyle: CSSProperties | undefined =
+		previewViewport && previewViewport.scale === 1
+			? { flex: '0 0 auto', width: previewViewport.width }
+			: undefined;
+	// The iframe fallback has no device emulation, so the wide case is a CSS
+	// transform instead: lay out at full size, scale the box down to fit.
+	const iframeStyle: CSSProperties | undefined =
+		previewViewport && previewViewport.scale !== 1
+			? {
+					flex: '0 0 auto',
+					width: previewViewport.width,
+					height: previewViewport.height,
+					transform: `scale(${ previewViewport.scale })`,
+					transformOrigin: 'top left',
+			  }
+			: surfaceStyle;
 
 	useEffect( () => {
 		onConsoleEntriesChange?.( consoleEntries );
@@ -915,9 +1210,57 @@ export function SitePreview( {
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
 	}, [ canPreview, collapsed, sendBrowserCommand ] );
 
+	// Hold-to-loupe. The guest handles the modifier itself when focused;
+	// these listeners cover presses that land in the host document instead
+	// (both paths are idempotent in the guest). Chords (modifier + another
+	// key) are shortcuts, not loupe use, so they end the hold.
+	useEffect( () => {
+		if ( ! canPreview || collapsed || ! canUseWebview ) {
+			return;
+		}
+		const holdKey = isAppleOS() ? 'Meta' : 'Control';
+		const isEligibleFocus = () => {
+			const activeElement = document.activeElement;
+			return ! (
+				activeElement &&
+				activeElement !== document.body &&
+				! rootRef.current?.contains( activeElement )
+			);
+		};
+		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
+			if ( ! isEligibleFocus() ) {
+				return;
+			}
+			if ( event.key === holdKey ) {
+				if ( ! event.repeat ) {
+					sendInspectorCommand( 'loupe-hold-start' );
+				}
+				return;
+			}
+			if ( isAppleOS() ? event.metaKey : event.ctrlKey ) {
+				sendInspectorCommand( 'loupe-hold-end' );
+			}
+		};
+		const handleKeyUp = ( event: globalThis.KeyboardEvent ) => {
+			if ( event.key === holdKey ) {
+				sendInspectorCommand( 'loupe-hold-end' );
+			}
+		};
+		const handleWindowBlur = () => sendInspectorCommand( 'loupe-hold-end' );
+
+		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
+		document.addEventListener( 'keyup', handleKeyUp, { capture: true } );
+		window.addEventListener( 'blur', handleWindowBlur );
+		return () => {
+			document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
+			document.removeEventListener( 'keyup', handleKeyUp, { capture: true } );
+			window.removeEventListener( 'blur', handleWindowBlur );
+		};
+	}, [ canPreview, canUseWebview, collapsed, sendInspectorCommand ] );
+
 	return (
 		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
-			<div className={ styles.header }>
+			<div className={ clsx( styles.header, sidebarCollapsed && styles.headerSidebarCollapsed ) }>
 				{ canPreview ? (
 					<>
 						<div className={ styles.browserControls } aria-label={ __( 'Browser navigation' ) }>
@@ -1005,17 +1348,36 @@ export function SitePreview( {
 				) }
 				<span className={ styles.separator } aria-hidden="true" />
 				{ canPreview ? (
-					<PreviewColorSchemeSwitch
-						colorScheme={ previewColorScheme }
-						disabled={ ! canUseWebview }
-						onChange={ togglePreviewColorScheme }
-					/>
+					<>
+						<PreviewViewportMenu value={ viewportWidth } onChange={ setViewportWidth } />
+						<PreviewColorSchemeSwitch
+							colorScheme={ previewColorScheme }
+							disabled={ ! canUseWebview }
+							onChange={ togglePreviewColorScheme }
+						/>
+					</>
 				) : null }
 				<PreviewOverflowMenu
 					canPreview={ canPreview }
 					canUseWebview={ canUseWebview }
 					consoleLabel={ consoleButtonLabel }
 					onToggleConsole={ () => setConsoleOpen( ( current ) => ! current ) }
+					loupe={
+						canUseWebview
+							? {
+									label: inspectorState.isLoupeActive
+										? __( 'Turn off digital loupe' )
+										: __( 'Digital loupe' ),
+									shortcut: isAppleOS()
+										? /* translators: keyboard hint: hold the Command key */
+										  __( 'Hold ⌘' )
+										: /* translators: keyboard hint: hold the Control key */
+										  __( 'Hold Ctrl' ),
+									disabled: ! canAnnotate,
+									onToggle: () => sendInspectorCommand( 'loupe-toggle' ),
+							  }
+							: null
+					}
 					screenshot={
 						onScreenshotDone
 							? {
@@ -1036,7 +1398,13 @@ export function SitePreview( {
 				) : null }
 			</div>
 			<div ref={ bodyRef } className={ styles.body }>
-				<div className={ styles.previewViewport }>
+				<div
+					ref={ paneRef }
+					className={ clsx(
+						styles.previewViewport,
+						previewViewport && styles.previewViewportSimulated
+					) }
+				>
 					{ canPreview ? (
 						canUseWebview ? (
 							<WebviewSurface
@@ -1051,7 +1419,10 @@ export function SitePreview( {
 								onBrowserCommand={ sendBrowserCommand }
 								onNavigate={ handlePreviewNavigation }
 								colorScheme={ previewColorScheme }
+								viewport={ previewViewport }
+								surfaceStyle={ surfaceStyle }
 								onConsoleEntry={ handleConsoleEntry }
+								onScreenshotDone={ onScreenshotDone }
 							/>
 						) : (
 							// Non-Electron fallback: plain iframe, no inspector. Reloads
@@ -1061,6 +1432,7 @@ export function SitePreview( {
 									browserCommand?.type === 'reload' ? browserCommand.id : 0
 								}` }
 								className={ styles.iframe }
+								style={ iframeStyle }
 								src={ previewUrl }
 								title={ site.name }
 								onLoad={ ( event ) => {
@@ -1187,6 +1559,13 @@ interface WebviewSurfaceProps {
 	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
 	colorScheme: PreviewColorScheme;
+	// Simulated guest viewport, or null for the webview's natural size.
+	viewport?: PreviewViewport | null;
+	// Letterbox sizing for a simulated viewport narrower than the pane.
+	surfaceStyle?: CSSProperties;
+	// Receives loupe snapshots for the composer, same contract as the
+	// SitePreview-level screenshot flow.
+	onScreenshotDone?: ( file: File ) => void | Promise< void >;
 }
 
 /**
@@ -1209,7 +1588,11 @@ function WebviewSurface( {
 	onBrowserCommand,
 	onNavigate,
 	colorScheme,
+	viewport = null,
+	surfaceStyle,
+	onScreenshotDone,
 }: WebviewSurfaceProps ) {
+	const connector = useConnector();
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
 	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
@@ -1243,13 +1626,148 @@ function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	const onScreenshotDoneRef = useRef( onScreenshotDone );
+	useEffect( () => {
+		onScreenshotDoneRef.current = onScreenshotDone;
+	}, [ onScreenshotDone ] );
+	const colorSchemeRef = useRef( colorScheme );
+	useEffect( () => {
+		colorSchemeRef.current = colorScheme;
+	}, [ colorScheme ] );
+	const viewportRef = useRef( viewport );
+	useEffect( () => {
+		viewportRef.current = viewport;
+	}, [ viewport ] );
+
+	// The CDP metrics override persists across navigations, so it only needs
+	// applying when the simulated viewport changes (or on the first dom-ready
+	// after one was requested). The `applied` ref skips the initial clear so
+	// plain previews don't pay for an emulation round-trip.
+	const appliedViewportRef = useRef( false );
+	useEffect( () => {
+		if ( ! ready ) return;
+		if ( ! viewport && ! appliedViewportRef.current ) return;
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview ) return;
+		appliedViewportRef.current = Boolean( viewport );
+		void applyWebviewViewport( webview, viewport ).catch( () => undefined );
+	}, [ viewport, ready ] );
 
 	useEffect( () => {
 		if ( ! ready ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
-		void applyWebviewColorScheme( webview, colorScheme ).catch( () => undefined );
+		void applyWebviewColorScheme( webview, colorScheme )
+			// An active loupe holds a capture of the old scheme; nudge it to
+			// request a fresh one (no-op while the loupe is inactive).
+			.then( () =>
+				webview.executeJavaScript(
+					`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
+						INSPECTOR_COMMAND_EVENT
+					) }, { detail: { type: 'loupe-refresh' } }));`,
+					false
+				)
+			)
+			.catch( () => undefined );
 	}, [ colorScheme, ready ] );
+
+	// Loupe backdrop captures: serialized so rapid zoom/scroll requests
+	// never overlap; only the newest request queued while busy survives.
+	// The visible viewport is captured whole (DevTools clips silently fail
+	// for webview guests) and pushed into the guest as a data URL anchored
+	// at the guest's request-time scroll position.
+	const loupeCaptureBusyRef = useRef( false );
+	const loupeCapturePendingRef = useRef< LoupeCaptureAnchor | null >( null );
+	// Last zoom the guest reported; reseeded into fresh documents on dom-ready.
+	const lastLoupeZoomRef = useRef< number | null >( null );
+	const pushLoupeBackdrop = useCallback(
+		async ( webview: WebviewTag, firstAnchor: LoupeCaptureAnchor ) => {
+			if ( loupeCaptureBusyRef.current ) {
+				loupeCapturePendingRef.current = firstAnchor;
+				return;
+			}
+			loupeCaptureBusyRef.current = true;
+			let anchor: LoupeCaptureAnchor | null = firstAnchor;
+			try {
+				while ( anchor ) {
+					loupeCapturePendingRef.current = null;
+					// The lens must not photograph itself into its own backdrop:
+					// the guest hides it and resolves once the hidden frame paints.
+					await webview.executeJavaScript(
+						'window.__studioLoupePrepareCapture && window.__studioLoupePrepareCapture();',
+						false
+					);
+					const capture = await connector.captureSiteScreenshot( getWebviewContentsId( webview ), {
+						colorScheme: colorSchemeRef.current,
+						area: 'viewport',
+					} );
+					const payload = JSON.stringify( {
+						url: localMediaFileToDataUrl( capture ),
+						x: anchor.docX,
+						y: anchor.docY,
+						width: anchor.width,
+						height: anchor.height,
+					} );
+					// Pushing the backdrop also un-hides the lens in the guest.
+					await webview.executeJavaScript(
+						`window.__studioLoupeBackdrop && window.__studioLoupeBackdrop(${ payload });`,
+						false
+					);
+					anchor = loupeCapturePendingRef.current;
+				}
+			} catch {
+				// Backdrop captures are cosmetic: a failure leaves the previous
+				// image in place and the next scroll/zoom retries. Un-hide the
+				// lens, since no backdrop push will do it.
+				webview
+					.executeJavaScript(
+						'window.__studioLoupeFinishCapture && window.__studioLoupeFinishCapture();',
+						false
+					)
+					.catch( () => undefined );
+			} finally {
+				loupeCaptureBusyRef.current = false;
+			}
+		},
+		[ connector ]
+	);
+	const snapLoupeRegion = useCallback(
+		async ( webview: WebviewTag, rect: LoupeSnapRect ) => {
+			try {
+				// Hide the lens so it can't end up inside its own snapshot.
+				await webview.executeJavaScript(
+					'window.__studioLoupePrepareCapture && window.__studioLoupePrepareCapture();',
+					false
+				);
+				const capture = await connector.captureSiteScreenshot( getWebviewContentsId( webview ), {
+					colorScheme: colorSchemeRef.current,
+					area: 'viewport',
+				} );
+				// Under viewport simulation the guest's CSS width is the emulated
+				// width, not the webview element's.
+				const file = await cropViewportCapture(
+					capture,
+					rect,
+					viewportRef.current?.width ?? webview.offsetWidth
+				);
+				if ( ! file ) {
+					throw new Error( 'Loupe crop produced no image.' );
+				}
+				await onScreenshotDoneRef.current?.( file );
+			} catch ( error ) {
+				console.error( 'Failed to add loupe snapshot:', error );
+				toast.error( __( 'Screenshot could not be added.' ) );
+			} finally {
+				webview
+					.executeJavaScript(
+						'window.__studioLoupeFinishCapture && window.__studioLoupeFinishCapture();',
+						false
+					)
+					.catch( () => undefined );
+			}
+		},
+		[ connector ]
+	);
 
 	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
 		const webview = ref.current as WebviewTag | null;
@@ -1349,7 +1867,22 @@ function WebviewSurface( {
 						ready: true,
 						isPicking: false,
 						annotationCount: 0,
+						isLoupeActive: false,
 					} );
+					// A fresh document resets the injected script's loupe zoom;
+					// reseed the level the user last dialed in.
+					if ( lastLoupeZoomRef.current !== null ) {
+						webview
+							.executeJavaScript(
+								`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
+									INSPECTOR_COMMAND_EVENT
+								) }, { detail: { type: 'loupe-set-zoom', zoom: ${
+									lastLoupeZoomRef.current
+								} } }));`,
+								false
+							)
+							.catch( () => undefined );
+					}
 				} )
 				.catch( () => {
 					// Transient injection failures (e.g. frame swapped mid-eval)
@@ -1391,11 +1924,31 @@ function WebviewSurface( {
 				}
 				return;
 			}
+			if ( parsed.type === 'loupe-capture' ) {
+				const anchor = getLoupeCaptureAnchor( parsed );
+				if ( anchor ) {
+					void pushLoupeBackdrop( webview, anchor );
+				}
+				return;
+			}
+			if ( parsed.type === 'loupe-snap' ) {
+				const rect = getLoupeSnapRect( parsed );
+				if ( rect ) {
+					void snapLoupeRegion( webview, rect );
+				}
+				return;
+			}
 			if ( parsed.type === 'state' ) {
+				// Remember the last loupe zoom so it survives navigations (the
+				// injected script starts fresh on every document).
+				if ( isFiniteNumber( parsed.loupeZoom ) ) {
+					lastLoupeZoomRef.current = parsed.loupeZoom;
+				}
 				onInspectorStateRef.current?.( {
 					ready: true,
 					isPicking: Boolean( parsed.isPicking ),
 					annotationCount: typeof parsed.annotationCount === 'number' ? parsed.annotationCount : 0,
+					isLoupeActive: Boolean( parsed.isLoupeActive ),
 				} );
 				return;
 			}
@@ -1455,7 +2008,14 @@ function WebviewSurface( {
 			webview.removeEventListener( 'did-fail-load', handleStopLoading );
 			webview.removeEventListener( 'did-finish-load', handleStopLoading );
 		};
-	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );
+	}, [
+		clearProgressTimers,
+		finishProgress,
+		publishBrowserState,
+		pushLoupeBackdrop,
+		snapLoupeRegion,
+		startProgress,
+	] );
 
 	// Navigation effect — gated on `ready` so the first call happens after
 	// `dom-ready` (the initial url is loaded by the `src` attribute on the
@@ -1513,6 +2073,7 @@ function WebviewSurface( {
 				ref={ ref }
 				src={ initialSrc }
 				className={ styles.iframe }
+				style={ surfaceStyle }
 				allowpopups={ true }
 				partition="persist:site-preview"
 			/>

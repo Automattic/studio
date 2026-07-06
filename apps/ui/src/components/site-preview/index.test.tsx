@@ -5,7 +5,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
-import { getPathFromPreviewUrl, getToolbarPageTitle, SitePreview } from './index';
+import {
+	getPathFromPreviewUrl,
+	getSimulatedViewport,
+	getToolbarPageTitle,
+	SitePreview,
+} from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -570,6 +575,38 @@ describe( 'getToolbarPageTitle', () => {
 		expect( getToolbarPageTitle( null, 'Example Site' ) ).toBe( 'Example Site' );
 		expect( getToolbarPageTitle( '   ', 'Example Site' ) ).toBe( 'Example Site' );
 		expect( getToolbarPageTitle( null, '' ) ).toBe( 'Site preview' );
+	} );
+} );
+
+describe( 'getSimulatedViewport', () => {
+	it( 'returns null without a requested width or a measured pane', () => {
+		expect( getSimulatedViewport( null, { width: 520, height: 700 } ) ).toBe( null );
+		expect( getSimulatedViewport( 390, null ) ).toBe( null );
+		expect( getSimulatedViewport( 390, { width: 0, height: 700 } ) ).toBe( null );
+	} );
+
+	it( 'renders widths narrower than the pane 1:1', () => {
+		expect( getSimulatedViewport( 390, { width: 520, height: 700 } ) ).toEqual( {
+			width: 390,
+			height: 700,
+			scale: 1,
+		} );
+	} );
+
+	it( 'scales widths wider than the pane down to fit, extending the emulated height', () => {
+		const viewport = getSimulatedViewport( 1440, { width: 480, height: 600 } );
+		expect( viewport?.width ).toBe( 1440 );
+		expect( viewport?.scale ).toBeCloseTo( 480 / 1440 );
+		// The scaled page still fills the pane vertically: height × scale ≈ pane height.
+		expect( ( viewport?.height ?? 0 ) * ( viewport?.scale ?? 0 ) ).toBeCloseTo( 600, 0 );
+	} );
+
+	it( 'matches the pane exactly at equal widths', () => {
+		expect( getSimulatedViewport( 520, { width: 520, height: 700 } ) ).toEqual( {
+			width: 520,
+			height: 700,
+			scale: 1,
+		} );
 	} );
 } );
 

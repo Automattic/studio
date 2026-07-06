@@ -3,6 +3,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Bundled font for Central Kurdish (ckb). macOS's system font (San Francisco)
+   lacks glyphs for several Kurdish letters (e.g. ێ ۆ ڵ), which breaks words and
+   sentences. Vazirmatn (SIL Open Font License, see ./fonts/OFL.txt) covers the
+   full Central Kurdish alphabet. Only applied to the ckb locale below. */
+@font-face {
+	font-family: 'Vazirmatn';
+	src: url( './fonts/Vazirmatn-Variable.woff2' ) format( 'woff2' );
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
 :root {
 	--color-frame-bg: #fff;
 	--color-frame-text: #1e1e1e;
@@ -18,6 +30,10 @@
 	--color-frame-running: #008a20;
 	--color-frame-error: #d63638;
 	--color-frame-tab-active: #000;
+	--color-frame-diff-add-text: #008a20;
+	--color-frame-diff-add-bg: #edfaef;
+	--color-frame-diff-remove-text: #d63638;
+	--color-frame-diff-remove-bg: #fcf0f1;
 	--wp-admin-theme-color: var( --color-frame-theme );
 	--wp-admin-theme-color-darker-20: var( --color-frame-theme-hover );
 }
@@ -39,6 +55,10 @@
 		--color-frame-running: #1ed15a;
 		--color-frame-error: #f87171;
 		--color-frame-tab-active: #fff;
+		--color-frame-diff-add-text: #1ed15a;
+		--color-frame-diff-add-bg: rgba( 30, 209, 90, 0.12 );
+		--color-frame-diff-remove-text: #f87171;
+		--color-frame-diff-remove-bg: rgba( 248, 113, 113, 0.12 );
 	}
 }
 
@@ -48,8 +68,13 @@
 	}
 
 	.skeleton-bg {
-		animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-		background-image: linear-gradient(to right, var(--color-frame-surface), var(--color-frame-surface-alt), var(--color-frame-surface));
+		animation: pulse 2s cubic-bezier( 0.4, 0, 0.6, 1 ) infinite;
+		background-image: linear-gradient(
+			to right,
+			var( --color-frame-surface ),
+			var( --color-frame-surface-alt ),
+			var( --color-frame-surface )
+		);
 	}
 }
 
@@ -71,6 +96,40 @@ body {
 		/* emoji */ 'Noto Sans',
 		'Arial Unicode MS',
 		/* broad Unicode coverage */ sans-serif;
+}
+
+/* Central Kurdish: prepend the bundled Vazirmatn so Kurdish letters render
+   correctly on platforms whose system font lacks them (notably macOS). The
+   language is set via `document.documentElement.lang = 'ckb'` (see
+   use-localization-support.ts) and inherited by body.
+
+   Most UI text inherits the font from body, but several @wordpress/components
+   controls (inputs, tooltips, dropdowns, tokens, etc.) hardcode their own
+   font-family with class-level specificity. The `:lang(ckb) &` selectors below
+   out-specify those rules so Kurdish glyphs render everywhere, not just in
+   inherited text. */
+body:lang( ckb ),
+body:lang( ckb ) input,
+body:lang( ckb ) textarea,
+body:lang( ckb ) select,
+body:lang( ckb ) button,
+body:lang( ckb ) [class*='components-'] {
+	font-family:
+		'Vazirmatn',
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		Roboto,
+		Ubuntu,
+		Cantarell,
+		'Liberation Sans',
+		'DejaVu Sans',
+		'Apple Color Emoji',
+		'Segoe UI Emoji',
+		'Noto Color Emoji',
+		'Noto Sans',
+		'Arial Unicode MS',
+		sans-serif;
 }
 
 .app-drag-region {
@@ -417,7 +476,14 @@ div:has( > progress ) > div:first-child {
 		color: var( --color-frame-text );
 	}
 	:is( [data-testid='site-content'], .components-modal__frame, [data-fullscreen-modal] )
-		span:not( .components-button span, button span, .text-a8c-red-50, .text-a8c-green-50, .text-frame-error, .text-frame-running ) {
+		span:not(
+			.components-button span,
+			button span,
+			.text-a8c-red-50,
+			.text-a8c-green-50,
+			.text-frame-error,
+			.text-frame-running
+		) {
 		color: var( --color-frame-text );
 	}
 

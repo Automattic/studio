@@ -71,8 +71,16 @@
       "id": "mysql-poc-lifecycle-fuzz",
       "safety_class": "isolated_mutation",
       "seed_ids": ["studio-mysql-seed"],
-      "case_budget": 30,
-      "duration_budget_seconds": 600
+      "case_budget": 45,
+      "duration_budget_seconds": 1800,
+      "metadata": {
+        "execution_scope": "lab-only-destructive",
+        "runner": "artifacts/fuzz/mysql-fuzz-runner.mjs",
+        "case_log": "case-log.jsonl",
+        "replay_artifact": "replay.json",
+        "requires_interactive_input": false,
+        "requires_secrets": false
+      }
     }
   ],
   "seeds": [
@@ -80,7 +88,7 @@
       "schema": "homeboy/fuzz-seed/v1",
       "id": "studio-mysql-seed",
       "kind": "scenario-corpus",
-      "value": "native-mysql-create,sqlite-to-mysql-convert,start-stop-restart,wp-cli-db,async-loopback,binary-platform"
+      "value": "native-mysql-create,playground-rejection,sqlite-default,sqlite-to-mysql-empty-convert,sqlite-to-mysql-large-convert,conversion-rollback-guard,start-stop-restart,orphan-recovery,port-collision,concurrent-install-lock,wp-cli-db-query,wp-cli-db-import-export,wpcli-starts-mysql,wp-cron-loopback,async-loopback-fanout,client-abort-survival,binary-hash-mismatch,offline-unsupported-platform"
     }
   ],
   "provenance": {
@@ -91,6 +99,9 @@
     "tracker": "github_pr:Automattic/studio#3997",
     "aligned_merge_head": "7dcc6a1f0",
     "base": "origin/trunk",
-    "pr_branch": "origin/implement-mysql-poc"
+    "pr_branch": "origin/implement-mysql-poc",
+    "branch_role": "evidence-fuzz-workload-not-product-implementation",
+    "lab_only": true,
+    "local_execution_policy": "static-validation-only; do not run destructive runner locally"
   }
 }

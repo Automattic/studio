@@ -498,6 +498,7 @@ async function appBoot() {
 				}
 
 				if ( process.env.E2E ) {
+					applyQuitSitesBehavior( 'stop' );
 					isQuittingConfirmed = true;
 					app.quit();
 					return;

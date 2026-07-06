@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DATABASE_ENGINE_SQLITE } from '@studio/common/lib/database-engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureWpConfig } from '../site-setup';
 
@@ -79,6 +80,18 @@ describe( 'ensureWpConfig DB_NAME clobber guard', () => {
 
 		await expect(
 			ensureWpConfig( tmpDir, PHP_VERSION, new AbortController().signal, TRANSFORMER )
+		).resolves.toBeUndefined();
+
+		expect( runPhpCommand ).toHaveBeenCalledOnce();
+	} );
+
+	it( 'allows an explicit SQLite engine conversion to replace a MySQL DB_NAME', async () => {
+		writeWpConfig( tmpDir, 'studio_abc123' );
+
+		await expect(
+			ensureWpConfig( tmpDir, PHP_VERSION, new AbortController().signal, TRANSFORMER, {
+				databaseEngine: DATABASE_ENGINE_SQLITE,
+			} )
 		).resolves.toBeUndefined();
 
 		expect( runPhpCommand ).toHaveBeenCalledOnce();

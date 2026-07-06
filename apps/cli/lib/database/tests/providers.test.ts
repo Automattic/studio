@@ -14,8 +14,25 @@ describe( 'database providers', () => {
 		expect( provider.engine ).toBe( DATABASE_ENGINE_SQLITE );
 		expect( provider.requiresNativePhpRuntime ).toBe( false );
 		expect( provider.usesSqliteIntegration ).toBe( true );
+		expect( provider.requiresSqliteCliCommand ).toBe( true );
 		expect( provider.getWpConfigConstants() ).toEqual( { DB_NAME: 'wordpress' } );
 		expect( provider.getBlueprintDatabaseArgs( {} as never ) ).toEqual( [ '--db-engine=sqlite' ] );
+		expect( provider.getExportDatabaseArgs( 'dump.sql' ) ).toEqual( [
+			'sqlite',
+			'export',
+			'dump.sql',
+			'--enable-ast-driver',
+			'--skip-plugins',
+			'--skip-themes',
+		] );
+		expect( provider.getImportDatabaseArgs( 'dump.sql' ) ).toEqual( [
+			'sqlite',
+			'import',
+			'dump.sql',
+			'--enable-ast-driver',
+			'--skip-plugins',
+			'--skip-themes',
+		] );
 	} );
 
 	it( 'exposes MySQL wp-config constants and Blueprint args from site config', () => {
@@ -38,6 +55,7 @@ describe( 'database providers', () => {
 
 		expect( provider.requiresNativePhpRuntime ).toBe( true );
 		expect( provider.usesSqliteIntegration ).toBe( false );
+		expect( provider.requiresSqliteCliCommand ).toBe( false );
 		expect( provider.getWpConfigConstants( config ) ).toEqual( {
 			DB_NAME: 'studio_site',
 			DB_USER: 'stu_site',
@@ -50,6 +68,20 @@ describe( 'database providers', () => {
 			'--db-user=stu_site',
 			'--db-pass=mysql-password',
 			'--db-name=studio_site',
+		] );
+		expect( provider.getExportDatabaseArgs( 'dump.sql' ) ).toEqual( [
+			'db',
+			'export',
+			'dump.sql',
+			'--skip-plugins',
+			'--skip-themes',
+		] );
+		expect( provider.getImportDatabaseArgs( 'dump.sql' ) ).toEqual( [
+			'db',
+			'import',
+			'dump.sql',
+			'--skip-plugins',
+			'--skip-themes',
 		] );
 	} );
 

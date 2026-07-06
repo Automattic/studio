@@ -15,24 +15,45 @@ export type DatabaseProvider = {
 	engine: DatabaseEngine;
 	requiresNativePhpRuntime: boolean;
 	usesSqliteIntegration: boolean;
+	requiresSqliteCliCommand: boolean;
 	preflight(): void;
 	getWpConfigConstants( config?: ServerConfig ): Record< string, string >;
 	getBlueprintDatabaseArgs( config: ServerConfig ): string[];
+	getExportDatabaseArgs( fileName: string ): string[];
+	getImportDatabaseArgs( fileName: string ): string[];
 };
 
 const sqliteProvider: DatabaseProvider = {
 	engine: DATABASE_ENGINE_SQLITE,
 	requiresNativePhpRuntime: false,
 	usesSqliteIntegration: true,
+	requiresSqliteCliCommand: true,
 	preflight: () => undefined,
 	getWpConfigConstants: () => ( { DB_NAME: 'wordpress' } ),
 	getBlueprintDatabaseArgs: () => [ '--db-engine=sqlite' ],
+	getExportDatabaseArgs: ( fileName ) => [
+		'sqlite',
+		'export',
+		fileName,
+		'--enable-ast-driver',
+		'--skip-plugins',
+		'--skip-themes',
+	],
+	getImportDatabaseArgs: ( fileName ) => [
+		'sqlite',
+		'import',
+		fileName,
+		'--enable-ast-driver',
+		'--skip-plugins',
+		'--skip-themes',
+	],
 };
 
 const mysqlProvider: DatabaseProvider = {
 	engine: DATABASE_ENGINE_MYSQL,
 	requiresNativePhpRuntime: true,
 	usesSqliteIntegration: false,
+	requiresSqliteCliCommand: false,
 	preflight: () => assertMysqlBinarySupportedForCurrentPlatform(),
 	getWpConfigConstants: ( config ) => {
 		if ( ! config ) {
@@ -54,6 +75,20 @@ const mysqlProvider: DatabaseProvider = {
 			`--db-name=${ constants.DB_NAME }`,
 		];
 	},
+	getExportDatabaseArgs: ( fileName ) => [
+		'db',
+		'export',
+		fileName,
+		'--skip-plugins',
+		'--skip-themes',
+	],
+	getImportDatabaseArgs: ( fileName ) => [
+		'db',
+		'import',
+		fileName,
+		'--skip-plugins',
+		'--skip-themes',
+	],
 };
 
 const databaseProviders: Record< DatabaseEngine, DatabaseProvider > = {

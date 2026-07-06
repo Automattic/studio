@@ -57,6 +57,7 @@ $transformer->to_file( $wp_config_path );
 	if ( databaseProvider.usesSqliteIntegration && fs.existsSync( wpConfigPath ) ) {
 		const existingDbName = readDefinedDbName( wpConfigPath );
 		if (
+			! config?.databaseEngine &&
 			existingDbName &&
 			existingDbName !== DEFAULT_WP_CONFIG_CONSTANTS.DB_NAME &&
 			existingDbName !== WP_CONFIG_SAMPLE_DB_NAME

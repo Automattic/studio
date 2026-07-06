@@ -1,9 +1,11 @@
+import fs from 'fs';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
+import { getDatabaseProviderForSite } from 'cli/lib/database/providers';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -13,13 +15,14 @@ export async function exportDatabaseToFile(
 ): Promise< void > {
 	// Generate a temporary file name in the project directory
 	const tempFileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
+	const databaseProvider = getDatabaseProviderForSite( site );
 
 	// Execute the command to export directly to a temp file in the site directory (cwd).
 	await using command = await runWpCliCommand(
 		site,
-		[ 'sqlite', 'export', tempFileName, '--enable-ast-driver', '--skip-plugins', '--skip-themes' ],
+		databaseProvider.getExportDatabaseArgs( tempFileName ),
 		{
-			requireSqliteCliCommand: true,
+			requireSqliteCliCommand: databaseProvider.requiresSqliteCliCommand,
 			phpVersion: DEFAULT_PHP_VERSION,
 		}
 	);
@@ -32,6 +35,32 @@ export async function exportDatabaseToFile(
 	// Move the file to its final destination
 	const tempFilePath = path.join( site.path, tempFileName );
 	await move( tempFilePath, finalDestination );
+}
+
+export async function importDatabaseFromFile( site: SiteData, source: string ): Promise< void > {
+	const tempFileName = `${ generateBackupFilename( 'db-import' ) }.sql`;
+	const tempFilePath = path.join( site.path, tempFileName );
+	const databaseProvider = getDatabaseProviderForSite( site );
+
+	try {
+		await fs.promises.copyFile( source, tempFilePath );
+		await using command = await runWpCliCommand(
+			site,
+			databaseProvider.getImportDatabaseArgs( tempFileName ),
+			{
+				requireSqliteCliCommand: databaseProvider.requiresSqliteCliCommand,
+				phpVersion: DEFAULT_PHP_VERSION,
+			}
+		);
+
+		const exitCode = await command.response.exitCode;
+		const stderr = await command.response.stderrText;
+		if ( exitCode !== 0 ) {
+			throw new Error( sprintf( __( 'Database import failed: %s' ), stderr ) );
+		}
+	} finally {
+		await fs.promises.rm( tempFilePath, { force: true } ).catch( () => undefined );
+	}
 }
 
 export async function exportDatabaseToMultipleFiles(

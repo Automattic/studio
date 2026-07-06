@@ -12,7 +12,7 @@ const SAVED_PREFERENCES: UserPreferences = {
 	agenticFeaturesEnabled: true,
 	chatNotificationsEnabled: true,
 	agentResponseLength: 'normal',
-	defaultAiModel: 'claude-sonnet-4-6',
+	defaultAiModel: 'claude-sonnet-5',
 	toolPermissions: {},
 };
 
@@ -35,7 +35,7 @@ describe( 'settings preference helpers', () => {
 			agenticFeaturesEnabled: true,
 			chatNotificationsEnabled: true,
 			agentResponseLength: 'normal',
-			defaultAiModel: 'claude-sonnet-4-6',
+			defaultAiModel: 'claude-sonnet-5',
 			toolPermissions: {},
 		} );
 	} );

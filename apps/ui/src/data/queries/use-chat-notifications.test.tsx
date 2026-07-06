@@ -31,7 +31,7 @@ const PREFERENCES: UserPreferences = {
 	chatNotificationsEnabled: true,
 	agentResponseLength: 'normal',
 	toolPermissions: {},
-	defaultAiModel: 'claude-sonnet-4-6',
+	defaultAiModel: 'claude-sonnet-5',
 };
 
 function createQueryClient() {

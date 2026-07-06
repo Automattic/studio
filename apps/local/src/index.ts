@@ -61,6 +61,7 @@ import { pullSite, pushSite } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
+import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -1196,6 +1197,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post( '/runs/:runId/answer', ( req: Request, res: Response ) => {
 		const { answers } = req.body as { answers?: Record< string, string > };
 		runManager.answerAgentRun( req.params.runId, answers ?? {} );
+		res.sendStatus( 204 );
+	} );
+
+	api.post( '/runs/:runId/permission', ( req: Request, res: Response ) => {
+		const { requestId, decision } = req.body as {
+			requestId?: string;
+			decision?: PermissionDecision;
+		};
+		if ( ! requestId || ! decision ) {
+			res.status( 400 ).json( { error: 'requestId and decision are required' } );
+			return;
+		}
+		runManager.answerAgentPermission( req.params.runId, requestId, decision );
 		res.sendStatus( 204 );
 	} );
 

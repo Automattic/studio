@@ -1,5 +1,7 @@
+import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { UnsupportedError } from '../unsupported-error';
 import type {
@@ -7,6 +9,7 @@ import type {
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
 	AuthUser,
+	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
@@ -17,7 +20,9 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
+	SnapshotUsage,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
@@ -33,6 +38,20 @@ const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
 // store); the server reads them back from each open request.
 const EDITOR_STORAGE_KEY = 'studio-local-editor';
 const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
+// Persistent-message dismissals live in the browser too (per origin).
+const DISMISSED_MESSAGES_STORAGE_KEY = 'studio-dismissed-messages';
+
+function readDismissedMessages(): string[] {
+	try {
+		const raw = window.localStorage.getItem( DISMISSED_MESSAGES_STORAGE_KEY );
+		const parsed: unknown = raw ? JSON.parse( raw ) : [];
+		return Array.isArray( parsed )
+			? parsed.filter( ( id ): id is string => typeof id === 'string' )
+			: [];
+	} catch {
+		return [];
+	}
+}
 
 export interface LocalConnectorOptions {
 	// Base URL of the local Studio server started by `studio ui`, e.g.
@@ -80,6 +99,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
+	const notificationClickListeners = new Set< ( event: { sessionId: string } ) => void >();
 	let eventSource: EventSource | undefined;
 	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
 	// don't trigger an extra round-trip.
@@ -586,6 +606,17 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					null,
 				colorScheme,
 				locale: undefined,
+				// The rest are desktop-managed preferences with sensible defaults
+				// here; the settings screens hide their controls in the browser
+				// (`showNativePreferences`).
+				defaultSiteDirectory: '',
+				// `studio ui` is served by the CLI itself.
+				studioCliInstalled: true,
+				agenticFeaturesEnabled: true,
+				chatNotificationsEnabled: true,
+				agentResponseLength: 'normal',
+				defaultAiModel: DEFAULT_MODEL,
+				toolPermissions: {},
 			};
 		},
 		async setUserPreferences( partial ) {
@@ -674,9 +705,191 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
 		},
+		async copyImage( pngDataUrl ) {
+			const blob = await ( await fetch( pngDataUrl ) ).blob();
+			await navigator.clipboard.write( [ new ClipboardItem( { 'image/png': blob } ) ] );
+		},
 		onToggleSidebar() {
 			// No application menu in a browser tab.
 			return () => {};
 		},
+
+		// Agentic gating — like hosted mode, the browser surface has no per-user
+		// opt-out; agentic features stay always-on.
+		supportsAgenticOptOut: false,
+
+		// Onboarding — no first-run tour in the browser; report it completed so
+		// routing never lands there.
+		async getOnboardingCompleted() {
+			return true;
+		},
+		async setOnboardingCompleted() {
+			// No-op.
+		},
+
+		// Gated-tool permissions ride the same run routes as answers; the shared
+		// run manager forwards the decision to the CLI child.
+		async answerAgentPermission( runId, requestId, decision ) {
+			await api( `/runs/${ encodeURIComponent( runId ) }/permission`, {
+				method: 'POST',
+				body: JSON.stringify( { requestId, decision } ),
+			} );
+		},
+
+		// Web Notifications stand in for the desktop's OS notifications. The
+		// caller has already decided the user isn't looking at this session.
+		async showChatNotification( { sessionId, title, body } ) {
+			if ( ! ( 'Notification' in window ) ) {
+				return;
+			}
+			if ( Notification.permission === 'default' ) {
+				await Notification.requestPermission();
+			}
+			if ( Notification.permission !== 'granted' ) {
+				return;
+			}
+			// `tag` collapses successive notifications for the same session.
+			const notification = new Notification( title, { body, tag: sessionId } );
+			notification.onclick = () => {
+				window.focus();
+				notificationClickListeners.forEach( ( listener ) => listener( { sessionId } ) );
+			};
+		},
+		onChatNotificationClicked( listener ) {
+			notificationClickListeners.add( listener );
+			return () => notificationClickListeners.delete( listener );
+		},
+
+		// Persistent-message dismissals live in localStorage on the web.
+		async getDismissedMessages() {
+			return readDismissedMessages();
+		},
+		async dismissMessage( id ) {
+			const dismissed = readDismissedMessages();
+			if ( ! dismissed.includes( id ) ) {
+				window.localStorage.setItem(
+					DISMISSED_MESSAGES_STORAGE_KEY,
+					JSON.stringify( [ ...dismissed, id ] )
+				);
+			}
+		},
+
+		// Sites — desktop-only affordances not yet exposed by the local server.
+		async getSiteOverviewDetails() {
+			throw new UnsupportedError( 'getSiteOverviewDetails' );
+		},
+		async scaffoldPlugin() {
+			throw new UnsupportedError( 'scaffoldPlugin' );
+		},
+		async getSiteThumbnail(): Promise< string | null > {
+			return null;
+		},
+		async getXdebugEnabledSite(): Promise< SiteDetails | null > {
+			return null;
+		},
+		async findAvailableSitePath(): Promise< AvailableSitePath > {
+			throw new UnsupportedError( 'findAvailableSitePath' );
+		},
+		async createTemporaryTextFile() {
+			throw new UnsupportedError( 'createTemporaryTextFile' );
+		},
+		async captureSiteScreenshot() {
+			throw new UnsupportedError( 'captureSiteScreenshot' );
+		},
+		async readBlueprintFile(): Promise< Record< string, unknown > > {
+			throw new UnsupportedError( 'readBlueprintFile' );
+		},
+		onAddSiteRequested() {
+			return () => {};
+		},
+		onAddSiteWithBlueprint() {
+			return () => {};
+		},
+		async getWordPressVersions() {
+			return fetchWordPressVersions();
+		},
+
+		// Preview snapshots — listed for real above; account-level usage and bulk
+		// deletion aren't exposed by the local server yet.
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			return null;
+		},
+		async deleteAllSnapshots() {
+			throw new UnsupportedError( 'deleteAllSnapshots' );
+		},
+		async confirmDeleteAllPreviewSites() {
+			return window.confirm(
+				__(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				)
+			);
+		},
+
+		// WordPress.com sync — push/pull are real above; the itemized live-sync
+		// UI endpoints aren't exposed by the local server yet.
+		async fetchSyncableWpcomSitesPage() {
+			return {
+				sites: [],
+				total: 0,
+				page: 1,
+				perPage: 100,
+				hasMore: false,
+				nextPage: null,
+			};
+		},
+		async getLiveSyncItems() {
+			throw new UnsupportedError( 'getLiveSyncItems' );
+		},
+		async getLiveSyncImportStatus() {
+			throw new UnsupportedError( 'getLiveSyncImportStatus' );
+		},
+		async getLiveSyncLatestBackupTime() {
+			return null;
+		},
+		async markLiveSiteSynced() {
+			// No-op: called after a successful push/pull; the local server tracks
+			// connected-site state on its own side.
+		},
+
+		// WordPress skills — managed from the desktop app for now.
+		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {
+			return [];
+		},
+		async installWordPressSkillToAllSites() {
+			// No-op: local web mode does not manage WordPress skills yet.
+		},
+		async removeWordPressSkillFromAllSites() {
+			// No-op: local web mode does not manage WordPress skills yet.
+		},
+
+		// App shell — browser tabs have no auto-updater or native settings events.
+		async getAppGlobals() {
+			return {
+				platform: 'browser',
+				appName: 'WordPress Studio',
+				appVersion: '',
+				arm64Translation: false,
+				isWindowsStore: false,
+				enableAgenticUi: true,
+			};
+		},
+		onUserSettings() {
+			return () => {};
+		},
+		async previewColorScheme() {
+			// No-op: the local UI applies the scheme itself via user preferences.
+		},
+		async selectDefaultSiteDirectory() {
+			return null;
+		},
+		// Report an inert update status (rather than throwing) because the
+		// messaging layer polls unconditionally.
+		async getAppUpdateStatus() {
+			return { readyToInstall: false, version: null };
+		},
+		onAppUpdateStatusChanged() {
+			return () => {};
+		},
+		async installAppUpdate() {},
 	};
 }

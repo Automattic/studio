@@ -248,6 +248,7 @@ describe( 'SitePreview', () => {
 		} );
 		const onScreenshotDone = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
+			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			captureSiteScreenshot,
 		} as never );
@@ -288,6 +289,7 @@ describe( 'SitePreview', () => {
 		const restoreWebviewContentsId = mockWebviewContentsId();
 		const consoleError = vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
 		useConnectorMock.mockReturnValue( {
+			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			captureSiteScreenshot: vi.fn().mockRejectedValue( new Error( 'No IPC handler' ) ),
 		} as never );
@@ -319,6 +321,7 @@ describe( 'SitePreview', () => {
 	it( 'uses a switch to toggle the preview color scheme', () => {
 		const restoreUserAgent = mockElectronUserAgent();
 		useConnectorMock.mockReturnValue( {
+			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 		} as never );
 
@@ -348,6 +351,7 @@ describe( 'SitePreview', () => {
 			data: new Uint8Array( [ 1 ] ).buffer,
 		} );
 		useConnectorMock.mockReturnValue( {
+			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			captureSiteScreenshot,
 		} as never );
@@ -380,6 +384,7 @@ describe( 'SitePreview', () => {
 		const restoreUserAgent = mockElectronUserAgent();
 		const onConsoleEntriesChange = vi.fn();
 		useConnectorMock.mockReturnValue( {
+			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			copyText: vi.fn().mockResolvedValue( undefined ),
 		} as never );
@@ -429,6 +434,7 @@ describe( 'SitePreview', () => {
 		const restoreUserAgent = mockElectronUserAgent();
 		const onConsoleFileDone = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
+			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			copyText: vi.fn().mockResolvedValue( undefined ),
 		} as never );
@@ -475,6 +481,7 @@ describe( 'SitePreview', () => {
 	it( 'resizes the console drawer from the shared resize handle', async () => {
 		const restoreUserAgent = mockElectronUserAgent();
 		useConnectorMock.mockReturnValue( {
+			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			copyText: vi.fn().mockResolvedValue( undefined ),
 		} as never );
@@ -514,6 +521,7 @@ describe( 'SitePreview', () => {
 		const restoreUserAgent = mockElectronUserAgent();
 		const onConsoleEntriesChange = vi.fn();
 		useConnectorMock.mockReturnValue( {
+			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			copyText: vi.fn().mockResolvedValue( undefined ),
 		} as never );
@@ -587,6 +595,7 @@ describe( 'SitePreview', () => {
 
 	it( 'shows the Annotate control when the host supports preview annotation', () => {
 		useConnectorMock.mockReturnValue( {
+			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: { ...CAPABILITIES, annotatePreview: true },
 		} as never );

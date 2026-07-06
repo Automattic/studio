@@ -40,7 +40,6 @@ function readDismissedMessages(): string[] {
 	}
 }
 
-
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry both agent-run events and session-placement updates.
 type ServerEvent =

@@ -148,7 +148,7 @@ describe( 'OpenInMenu', () => {
 				chatNotificationsEnabled: true,
 				agentResponseLength: 'normal',
 				toolPermissions: {},
-				defaultAiModel: 'claude-sonnet-4-6',
+				defaultAiModel: 'claude-sonnet-5',
 			},
 		} );
 	} );

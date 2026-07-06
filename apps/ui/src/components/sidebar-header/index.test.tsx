@@ -49,8 +49,9 @@ vi.mock( '@/components/menu', () => ( {
 	),
 } ) );
 
-vi.mock( '@/hooks/use-fullscreen', () => ( {
-	useFullscreen: () => false,
+// Reaches useConnector + react-query; the header test has no providers.
+vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+	useTrafficLightSpace: () => true,
 } ) );
 
 describe( 'SidebarHeader', () => {

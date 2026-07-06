@@ -24,6 +24,11 @@ vi.mock( '@/components/app-message-cards', () => ( {
 	AppMessageCardsDot: () => null,
 } ) );
 
+// Same: resolves the saved color scheme via useUserPreferences (react-query).
+vi.mock( '@/hooks/use-color-scheme', () => ( {
+	useColorScheme: () => 'light',
+} ) );
+
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );

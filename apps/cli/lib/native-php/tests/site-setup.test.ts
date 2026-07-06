@@ -71,4 +71,16 @@ describe( 'ensureWpConfig DB_NAME clobber guard', () => {
 
 		expect( runPhpCommand ).toHaveBeenCalledOnce();
 	} );
+
+	it( 'writes normally when wp-config.php was copied from the WordPress sample', async () => {
+		// First-run sites copy wp-config-sample.php before writing constants. The
+		// sample placeholder is not a real database and is safe to replace.
+		writeWpConfig( tmpDir, 'database_name_here' );
+
+		await expect(
+			ensureWpConfig( tmpDir, PHP_VERSION, new AbortController().signal, TRANSFORMER )
+		).resolves.toBeUndefined();
+
+		expect( runPhpCommand ).toHaveBeenCalledOnce();
+	} );
 } );

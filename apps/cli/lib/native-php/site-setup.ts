@@ -14,6 +14,7 @@ import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-me
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
+const WP_CONFIG_SAMPLE_DB_NAME = 'database_name_here';
 
 type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 
@@ -56,7 +57,11 @@ $transformer->to_file( $wp_config_path );
 	// from its data. Fail loud instead of corrupting the config.
 	if ( ! mysqlConfig && fs.existsSync( wpConfigPath ) ) {
 		const existingDbName = readDefinedDbName( wpConfigPath );
-		if ( existingDbName && existingDbName !== DEFAULT_WP_CONFIG_CONSTANTS.DB_NAME ) {
+		if (
+			existingDbName &&
+			existingDbName !== DEFAULT_WP_CONFIG_CONSTANTS.DB_NAME &&
+			existingDbName !== WP_CONFIG_SAMPLE_DB_NAME
+		) {
 			throw new Error(
 				`Refusing to reset wp-config.php DB_NAME to '${ DEFAULT_WP_CONFIG_CONSTANTS.DB_NAME }' ` +
 					`over an existing '${ existingDbName }'. The site's database engine config was not ` +

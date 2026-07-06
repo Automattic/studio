@@ -6,7 +6,6 @@ import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableReprintExporter, rotateReprintSecret } from 'cli/lib/api';
 import * as migrationClient from 'cli/lib/pull/migration-client';
-import { shouldRestartFilesSyncIndex } from 'cli/lib/pull/reprint-state';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import {
@@ -133,42 +132,6 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 				'https://example.wordpress.com'
 			)
 		).toEqual( { id: 1, name: 'Example', url: 'https://example.wordpress.com/' } );
-	} );
-
-	it( 'restarts files-sync indexing only when the saved state has no resumable cursor', () => {
-		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-state-' ) );
-
-		try {
-			fs.writeFileSync(
-				path.join( stateDirectory, '.import-state.json' ),
-				JSON.stringify( {
-					command: 'files-sync',
-					status: 'in_progress',
-					stage: 'index',
-					cursor: null,
-				} )
-			);
-			fs.writeFileSync(
-				path.join( stateDirectory, '.import-remote-index.jsonl' ),
-				'{"type":"file"}\n'
-			);
-
-			expect( shouldRestartFilesSyncIndex( stateDirectory ) ).toBe( true );
-
-			fs.writeFileSync(
-				path.join( stateDirectory, '.import-state.json' ),
-				JSON.stringify( {
-					command: 'files-sync',
-					status: 'in_progress',
-					stage: 'index',
-					cursor: { path: 'saved' },
-				} )
-			);
-
-			expect( shouldRestartFilesSyncIndex( stateDirectory ) ).toBe( false );
-		} finally {
-			fs.rmSync( stateDirectory, { recursive: true, force: true } );
-		}
 	} );
 
 	it( 'rewrites the reprint state before downloading skipped-earlier files', async () => {

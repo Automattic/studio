@@ -39,12 +39,7 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/migration-client';
-import {
-	getContentDirFromState,
-	hasSkippedFiles,
-	readReprintState,
-	writeReprintState,
-} from 'cli/lib/pull/reprint-state';
+import { getContentDirFromState, hasSkippedFiles } from 'cli/lib/pull/reprint-state';
 import {
 	ensureImportedSiteSqliteReady,
 	loadImportedRuntimeStartOptions,
@@ -314,7 +309,6 @@ export async function runCommand(
 		// prepare_repull(). Always re-invoked: the pull is idempotent and
 		// reprint resumes its own pipeline from `.import-state.json`, so
 		// there is no Studio-side guard to skip it.
-		normalizeReprintStateForEssentialFilesPull( studioMetadata.stateDirectory );
 		await runFullPull(
 			SITE_RUNTIME_NATIVE_PHP,
 			studioMetadata,
@@ -583,25 +577,6 @@ async function runPreflight(
 }
 
 /**
- * Reprint refuses to resume a files sync with a different --filter than
- * the one stored in its state. A completed Studio pull may leave that
- * state on the post-pull skipped-earlier pass; mark that pass complete
- * and restore the filter expected by the next essential-files pull
- * without deleting the cursor/index files reprint needs for deltas.
- */
-function normalizeReprintStateForEssentialFilesPull( stateDirectory: string ): void {
-	const reprintState = readReprintState( stateDirectory );
-	if ( reprintState?.filter && reprintState.filter !== 'essential-files' ) {
-		writeReprintState( stateDirectory, {
-			...reprintState,
-			status: 'complete',
-			stage: null,
-			filter: 'essential-files',
-		} );
-	}
-}
-
-/**
  * The `~/.studio/pulls/<siteId>` scratch root for a site's pull. Keyed
  * by `siteId` (not a URL hash) so it follows the site, not the remote.
  */
@@ -708,39 +683,18 @@ export async function downloadSkippedFiles(
 	secret: string,
 	verbose: boolean
 ): Promise< void > {
-	const reprintState = readReprintState( metadata.stateDirectory );
-	const isResumingSkipped =
-		reprintState?.stage === 'fetch-skipped' && reprintState?.status !== 'complete';
-
-	// Rewrite the reprint state so the next files-sync understands it
-	// should download the entries the essential-files pass skipped.  No-op
-	// when reprint is already mid-way through that run (its state file
-	// encodes the resume cursor; overwriting would break validation) or
-	// when no skipped entries exist.
-	if ( ! isResumingSkipped && hasSkippedFiles( metadata.stateDirectory ) ) {
-		writeReprintState( metadata.stateDirectory, {
-			...reprintState,
-			command: 'files-sync',
-			status: 'complete',
-			stage: null,
-			filter: 'essential-files',
-		} );
-	}
-
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
 
-	const args = [ 'files-sync', apiUrl, `--secret=${ secret }` ];
-
-	if ( isResumingSkipped ) {
-		args.push( '--filter=skipped-earlier' );
-	}
-
-	args.push(
+	const args = [
+		'files-sync',
+		apiUrl,
+		`--secret=${ secret }`,
+		'--filter=skipped-earlier',
 		'--max-exec=30',
 		'--no-adaptive',
 		`--state-dir=${ metadata.stateDirectory }`,
-		`--fs-root=${ metadata.rawDirectory }`
-	);
+		`--fs-root=${ metadata.rawDirectory }`,
+	];
 
 	await runReprintCommandUntilComplete(
 		metadata.stateDirectory,

@@ -15,6 +15,10 @@ export function useSessionCommands( sessionId: string ): void {
 		return connector.onAgentEvent( ( payload ) => {
 			if ( payload.sessionId !== sessionId ) return;
 			const event = payload.event;
+			if ( event.type === 'preview.reload' ) {
+				dispatch( { type: 'preview/reload' } );
+				return;
+			}
 			if ( event.type === 'chat.artifact' && isStudioChatArtifactData( event.artifact ) ) {
 				const previewPath = getSitePreviewArtifactPath( event.artifact );
 				if ( previewPath ) {

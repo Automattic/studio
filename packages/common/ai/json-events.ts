@@ -27,6 +27,7 @@ export type JsonEvent =
 	| { type: 'info'; timestamp: string; message: string }
 	| { type: 'error'; timestamp: string; message: string }
 	| { type: 'chat.artifact'; timestamp: string; artifact: StudioChatArtifactData }
+	| { type: 'preview.reload'; timestamp: string }
 	| {
 			type: 'question.asked';
 			timestamp: string;

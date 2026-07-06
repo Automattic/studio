@@ -1,6 +1,6 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
-import { pathExists } from '@studio/common/lib/fs-utils';
+import { arePathsEqual, pathExists } from '@studio/common/lib/fs-utils';
 import {
 	RecommendedPHPVersion as DEFAULT_PHP_VERSION,
 	SupportedPHPVersions as ALLOWED_PHP_VERSIONS,
@@ -8,6 +8,7 @@ import {
 import fs from 'fs-extra';
 import { DEFAULT_SITE_NAME } from './constants';
 import { E2ESession } from './e2e-helpers';
+import AddSiteModal from './page-objects/add-site-modal';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
@@ -41,6 +42,60 @@ async function completeOnboardingWithParams( customSiteName?: string, customFold
 		siteName,
 		localPath,
 	};
+}
+
+type PersistedSite = { id: string; path: string };
+
+async function getPersistedSite( siteName: string ): Promise< PersistedSite | undefined > {
+	const cliConfig = await fs
+		.readJson( path.join( session.cliConfigPath, 'cli.json' ) )
+		.catch( () => ( { sites: [] } ) );
+	return cliConfig.sites.find( ( s: { name: string } ) => s.name === siteName );
+}
+
+/**
+ * The sidebar can show a copied site (optimistic placeholder, then the IPC
+ * result) slightly before the CLI's cli.json write is observable, so poll the
+ * on-disk config instead of sampling it once.
+ */
+async function waitForPersistedSite( siteName: string ): Promise< PersistedSite > {
+	await expect
+		.poll( async () => Boolean( await getPersistedSite( siteName ) ), {
+			message: `site "${ siteName }" was never persisted to cli.json`,
+			timeout: 30_000,
+		} )
+		.toBe( true );
+	return ( await getPersistedSite( siteName ) ) as PersistedSite;
+}
+
+/**
+ * Drive the "Add site" modal through the create-site flow while selecting a
+ * pre-existing local folder (returned by the mocked folder dialog via the
+ * E2E_OPEN_FOLDER_DIALOG env var). When that folder already contains a
+ * WordPress install, Studio adopts it instead of scaffolding a new one.
+ *
+ * Mirrors the onboarding order (name first, then path) so selecting the path
+ * doesn't get clobbered by the site-name-driven path regeneration.
+ */
+async function addSiteFromSelectedPath(
+	modal: AddSiteModal,
+	siteName: string,
+	folderName: string
+) {
+	await modal.createSiteButton.click();
+
+	const emptySiteButton = session.mainWindow.getByRole( 'button', { name: /Empty site/ } );
+	if ( await emptySiteButton.isVisible( { timeout: 2000 } ).catch( () => false ) ) {
+		await emptySiteButton.click();
+		await modal.continueButton.click();
+	}
+
+	await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
+	await modal.siteNameInput.fill( siteName );
+	await modal.selectLocalPathForTesting( folderName );
+
+	await expect( modal.addSiteButton ).toBeEnabled();
+	await modal.addSiteButton.click();
 }
 
 test.describe( 'Sites', () => {
@@ -212,6 +267,111 @@ test.describe( 'Sites', () => {
 
 		expect( await pathExists( localPath ) ).toBe( false );
 	} );
+
+	// Adopting an existing WordPress folder ("Add a site using an existing
+	// WordPress directory" / "a previously created site directory") both resolve
+	// to the same flow: pointing the create-site form at a directory that already
+	// contains a WordPress install. We simulate one by copying a freshly created
+	// install into an unassociated folder, so the test stays cross-platform (no
+	// reliance on the native delete dialog, which is mocked only on macOS).
+	test( 'adds a site from an existing WordPress directory', async () => {
+		const existingFolderName = 'existing-wp-dir';
+		const existingDir = path.join( session.homePath, 'Studio', existingFolderName );
+		await session.launch( { E2E_OPEN_FOLDER_DIALOG: existingDir } );
+
+		const onboarding = new Onboarding( session.mainWindow );
+		const { localPath: originalPath } = await onboarding.completeOnboarding();
+		await onboarding.closeWhatsNew();
+
+		const originalSite = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
+		await expect( originalSite.runningButton ).toBeAttached( { timeout: 120_000 } );
+
+		// Copy the full install into a folder not yet associated with any site.
+		await fs.copy( originalPath, existingDir );
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+		await addSiteFromSelectedPath( modal, 'Adopted Site', existingFolderName );
+
+		const adoptedSite = new SiteContent( session.mainWindow, 'Adopted Site' );
+		await expect( adoptedSite.siteNameHeading ).toHaveText( 'Adopted Site', { timeout: 120_000 } );
+		await expect( adoptedSite.runningButton ).toBeAttached( { timeout: 120_000 } );
+
+		// It adopted the existing directory rather than scaffolding a new one.
+		const cliConfig = await fs.readJson( path.join( session.cliConfigPath, 'cli.json' ) );
+		const adopted = cliConfig.sites.find( ( s: { name: string } ) => s.name === 'Adopted Site' );
+		expect( adopted ).toBeDefined();
+		expect( arePathsEqual( adopted.path, existingDir ) ).toBe( true );
+		expect( await pathExists( path.join( existingDir, 'wp-config.php' ) ) ).toBe( true );
+	} );
+
+	test( 'preserves an existing MySQL wp-config.php when adding a WordPress directory', async () => {
+		const existingFolderName = 'mysql-wp-dir';
+		const existingDir = path.join( session.homePath, 'Studio', existingFolderName );
+		await session.launch( { E2E_OPEN_FOLDER_DIALOG: existingDir } );
+
+		const onboarding = new Onboarding( session.mainWindow );
+		const { localPath: originalPath } = await onboarding.completeOnboarding();
+		await onboarding.closeWhatsNew();
+
+		const originalSite = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
+		await expect( originalSite.runningButton ).toBeAttached( { timeout: 120_000 } );
+
+		await fs.copy( originalPath, existingDir );
+
+		// Configure the existing wp-config.php for a real MySQL database. The custom
+		// connection identity (host/user/password) must survive adoption — Studio
+		// must not wipe a user's existing MySQL configuration.
+		const wpConfigPath = path.join( existingDir, 'wp-config.php' );
+		const originalConfig = await fs.readFile( wpConfigPath, 'utf-8' );
+		const mysqlDefines = [
+			"define( 'DB_NAME', 'my_production_db' );",
+			"define( 'DB_USER', 'wp_user' );",
+			"define( 'DB_PASSWORD', 'super-secret-pw' );",
+			"define( 'DB_HOST', 'mysql.example.com' );",
+		].join( '\n' );
+		await fs.writeFile(
+			wpConfigPath,
+			originalConfig.replace( '<?php', `<?php\n${ mysqlDefines }\n` ),
+			'utf-8'
+		);
+
+		const sidebar = new MainSidebar( session.mainWindow );
+		const modal = await sidebar.openAddSiteModal();
+		await addSiteFromSelectedPath( modal, 'MySQL WP Site', existingFolderName );
+
+		const adoptedSite = new SiteContent( session.mainWindow, 'MySQL WP Site' );
+		await expect( adoptedSite.siteNameHeading ).toHaveText( 'MySQL WP Site', { timeout: 120_000 } );
+		await expect( adoptedSite.runningButton ).toBeAttached( { timeout: 120_000 } );
+
+		// The custom connection constants are preserved after adoption.
+		const finalConfig = await fs.readFile( wpConfigPath, 'utf-8' );
+		expect( finalConfig ).toContain( "define( 'DB_USER', 'wp_user' );" );
+		expect( finalConfig ).toContain( "define( 'DB_PASSWORD', 'super-secret-pw' );" );
+		expect( finalConfig ).toContain( "define( 'DB_HOST', 'mysql.example.com' );" );
+	} );
+
+	test( 'duplicates a site from site settings', async () => {
+		const { siteName } = await completeOnboardingWithParams();
+
+		const siteContent = new SiteContent( session.mainWindow, siteName );
+		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
+		await settingsTab.openDuplicateSite();
+
+		const expectedCopyName = `${ siteName } Copy`;
+		const sidebar = new MainSidebar( session.mainWindow );
+		await expect( sidebar.getSiteNavButton( expectedCopyName ) ).toBeVisible( {
+			timeout: 120_000,
+		} );
+
+		const copiedSiteContent = new SiteContent( session.mainWindow, expectedCopyName );
+		await expect( copiedSiteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+
+		const copiedSite = await waitForPersistedSite( expectedCopyName );
+		expect( await pathExists( path.join( copiedSite.path, 'wp-config.php' ) ) ).toBe( true );
+	} );
 } );
 
 test.describe( 'Sites without cleanup in-between', () => {
@@ -265,12 +425,7 @@ test.describe( 'Sites without cleanup in-between', () => {
 		const copiedSiteContent = new SiteContent( session.mainWindow, expectedCopyName );
 		await expect( copiedSiteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		const updatedCliConfig = await fs.readJson( cliConfigFile );
-		const copiedSite = updatedCliConfig.sites.find(
-			( s: { name: string } ) => s.name === expectedCopyName
-		);
-		expect( copiedSite ).toBeDefined();
-
+		const copiedSite = await waitForPersistedSite( expectedCopyName );
 		expect( await pathExists( path.join( copiedSite.path, 'wp-config.php' ) ) ).toBe( true );
 
 		const copiedThumbnailPath = path.join( thumbnailsDir, `${ copiedSite.id }.png` );

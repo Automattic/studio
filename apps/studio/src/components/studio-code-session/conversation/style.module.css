@@ -126,6 +126,34 @@
 	color: var(--color-frame-error);
 }
 
+.toolDiff {
+	margin: 0;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	border-left: 2px solid var(--color-frame-border);
+	display: flex;
+	flex-direction: column;
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	overflow: hidden;
+}
+
+.diffLine {
+	color: var(--color-frame-text-secondary);
+}
+
+.diffLineAdded {
+	color: var(--color-frame-diff-add-text);
+	background-color: var(--color-frame-diff-add-bg);
+}
+
+.diffLineRemoved {
+	color: var(--color-frame-diff-remove-text);
+	background-color: var(--color-frame-diff-remove-bg);
+}
+
 .toolOutputToggle {
 	align-self: flex-start;
 	background: none;

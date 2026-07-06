@@ -1,5 +1,7 @@
 import { createSelector } from '@reduxjs/toolkit';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { type AiModelId } from '@studio/common/ai/models';
+import { type AiResponseLength } from '@studio/common/ai/response-length';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import {
 	SupportedEditorConfig,
@@ -11,6 +13,11 @@ import {
 	terminalConfig,
 	getTerminalsSupportedOnPlatform,
 } from 'src/modules/user-settings/lib/terminal';
+import type {
+	GatedToolName,
+	ToolPermissionLevel,
+	ToolPermissionOverrides,
+} from '@studio/common/ai/tool-permissions';
 
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
@@ -22,6 +29,9 @@ export const installedAppsApi = createApi( {
 		'UserTerminal',
 		'ColorScheme',
 		'DefaultSiteDirectory',
+		'AgentResponseLength',
+		'DefaultAiModel',
+		'ToolPermissions',
 	],
 	endpoints: ( builder ) => ( {
 		getStudioCliIsInstalled: builder.query< boolean, void >( {
@@ -91,6 +101,51 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'ColorScheme' ],
 		} ),
+		getAgentResponseLength: builder.query< AiResponseLength, void >( {
+			queryFn: async () => {
+				const responseLength = await getIpcApi().getAgentResponseLength();
+				return { data: responseLength };
+			},
+			providesTags: [ 'AgentResponseLength' ],
+		} ),
+		saveAgentResponseLength: builder.mutation< AiResponseLength, AiResponseLength >( {
+			queryFn: async ( responseLength ) => {
+				await getIpcApi().saveAgentResponseLength( responseLength );
+				return { data: responseLength };
+			},
+			invalidatesTags: [ 'AgentResponseLength' ],
+		} ),
+		getToolPermissions: builder.query< ToolPermissionOverrides, void >( {
+			queryFn: async () => {
+				const permissions = await getIpcApi().getToolPermissions();
+				return { data: permissions };
+			},
+			providesTags: [ 'ToolPermissions' ],
+		} ),
+		saveToolPermission: builder.mutation<
+			void,
+			{ toolName: GatedToolName; level: ToolPermissionLevel }
+		>( {
+			queryFn: async ( { toolName, level } ) => {
+				await getIpcApi().saveToolPermission( toolName, level );
+				return { data: undefined };
+			},
+			invalidatesTags: [ 'ToolPermissions' ],
+		} ),
+		getDefaultAiModel: builder.query< AiModelId, void >( {
+			queryFn: async () => {
+				const model = await getIpcApi().getDefaultAiModel();
+				return { data: model };
+			},
+			providesTags: [ 'DefaultAiModel' ],
+		} ),
+		saveDefaultAiModel: builder.mutation< AiModelId, AiModelId >( {
+			queryFn: async ( model ) => {
+				await getIpcApi().saveDefaultAiModel( model );
+				return { data: model };
+			},
+			invalidatesTags: [ 'DefaultAiModel' ],
+		} ),
 		getDefaultSiteDirectory: builder.query< string, void >( {
 			queryFn: async () => {
 				const directory = await getIpcApi().getDefaultSiteDirectory();
@@ -118,6 +173,12 @@ export const {
 	useSaveStudioCliIsInstalledMutation,
 	useGetColorSchemeQuery,
 	useSaveColorSchemeMutation,
+	useGetAgentResponseLengthQuery,
+	useSaveAgentResponseLengthMutation,
+	useGetToolPermissionsQuery,
+	useSaveToolPermissionMutation,
+	useGetDefaultAiModelQuery,
+	useSaveDefaultAiModelMutation,
 	useGetDefaultSiteDirectoryQuery,
 	useSaveDefaultSiteDirectoryMutation,
 } = installedAppsApi;

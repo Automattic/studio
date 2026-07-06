@@ -1,5 +1,22 @@
 import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
-import { updateSharedConfig } from '@studio/common/lib/shared-config';
+import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
+import {
+	DEFAULT_RESPONSE_LENGTH,
+	isAiResponseLength,
+	type AiResponseLength,
+} from '@studio/common/ai/response-length';
+import {
+	supportsAlwaysAllow,
+	type ToolPermissionLevel,
+	type ToolPermissionOverrides,
+} from '@studio/common/ai/tool-permissions';
+import {
+	lockSharedConfig,
+	readSharedConfig,
+	saveSharedConfig,
+	unlockSharedConfig,
+	updateSharedConfig,
+} from '@studio/common/lib/shared-config';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
@@ -111,6 +128,84 @@ export async function saveAgenticFeaturesEnabled(
 	enabled: boolean
 ): Promise< void > {
 	await updateAppdata( { agenticFeaturesEnabled: enabled } );
+}
+
+// Lives in shared.json (not app.json) because the CLI reads it on every
+// agent turn — see `resolveResponseLength` in `apps/cli/commands/ai/index.ts`.
+export async function getAgentResponseLength(): Promise< AiResponseLength > {
+	try {
+		const config = await readSharedConfig();
+		return config.agentResponseLength ?? DEFAULT_RESPONSE_LENGTH;
+	} catch {
+		return DEFAULT_RESPONSE_LENGTH;
+	}
+}
+
+export async function saveAgentResponseLength(
+	event: IpcMainInvokeEvent,
+	responseLength: AiResponseLength
+): Promise< void > {
+	if ( ! isAiResponseLength( responseLength ) ) {
+		throw new Error( `Unknown agent response length: ${ responseLength }` );
+	}
+	await updateSharedConfig( { agentResponseLength: responseLength } );
+}
+
+// Lives in shared.json (not app.json) because the CLI's permission extension
+// reads it on every gated tool call — see apps/cli/ai/permissions/policy.ts.
+export async function getToolPermissions(): Promise< ToolPermissionOverrides > {
+	try {
+		const config = await readSharedConfig();
+		return ( config.toolPermissions ?? {} ) as ToolPermissionOverrides;
+	} catch {
+		return {};
+	}
+}
+
+export async function saveToolPermission(
+	event: IpcMainInvokeEvent,
+	toolName: string,
+	level: ToolPermissionLevel
+): Promise< void > {
+	if ( ! supportsAlwaysAllow( toolName ) ) {
+		throw new Error( `Tool permission for ${ toolName } is not configurable` );
+	}
+	if ( level !== 'allow' && level !== 'ask' ) {
+		throw new Error( `Unknown tool permission level: ${ level }` );
+	}
+	// Read + merge + write under the shared-config lock: the nested map merge
+	// must not race a concurrent "Always allow" write from the CLI.
+	await lockSharedConfig();
+	try {
+		const config = await readSharedConfig();
+		await saveSharedConfig( {
+			...config,
+			toolPermissions: { ...config.toolPermissions, [ toolName ]: level },
+		} );
+	} finally {
+		await unlockSharedConfig();
+	}
+}
+
+// Lives in shared.json (not app.json) because the CLI reads it when a new
+// session starts — see `resolveDefaultModel` in `apps/cli/commands/ai/index.ts`.
+export async function getDefaultAiModel(): Promise< AiModelId > {
+	try {
+		const config = await readSharedConfig();
+		return config.defaultAiModel ?? DEFAULT_MODEL;
+	} catch {
+		return DEFAULT_MODEL;
+	}
+}
+
+export async function saveDefaultAiModel(
+	event: IpcMainInvokeEvent,
+	model: AiModelId
+): Promise< void > {
+	if ( ! isAiModelId( model ) ) {
+		throw new Error( `Unknown AI model: ${ model }` );
+	}
+	await updateSharedConfig( { defaultAiModel: model } );
 }
 
 export async function getChatNotificationsEnabled(): Promise< boolean > {

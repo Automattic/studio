@@ -4,6 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { useCallback, useRef, useState } from 'react';
 import { useFindAvailableSiteName } from '@/data/queries/use-create-site-helpers';
 import { useCreateSite } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { setPendingSessionPrompt } from '@/lib/pending-session-prompt';
 import { Composer } from '../../components/session-view/composer';
 import { WizardPage } from '../../components/wizard-page';
@@ -24,6 +25,7 @@ export function OnboardingAiPage() {
 	const findAvailableSiteName = useFindAvailableSiteName();
 	const [ error, setError ] = useState< string | null >( null );
 	const submittingRef = useRef( false );
+	const { data: preferences } = useUserPreferences();
 
 	const handleSend = useCallback(
 		async ( prompt: string, attachments?: ComposerSendAttachments ) => {
@@ -64,7 +66,7 @@ export function OnboardingAiPage() {
 			<div className={ styles.composerHost }>
 				<Composer
 					busy={ createSite.isPending }
-					model={ DEFAULT_MODEL }
+					model={ preferences?.defaultAiModel ?? DEFAULT_MODEL }
 					onSend={ handleSend }
 					onInterrupt={ async () => undefined }
 					autoFocus

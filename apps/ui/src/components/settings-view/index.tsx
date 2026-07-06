@@ -1,3 +1,12 @@
+import { AI_MODELS, type AiModelId } from '@studio/common/ai/models';
+import { type AiResponseLength } from '@studio/common/ai/response-length';
+import {
+	GATED_TOOL_NAMES,
+	supportsAlwaysAllow,
+	type GatedToolName,
+	type ToolPermissionLevel,
+	type ToolPermissionOverrides,
+} from '@studio/common/ai/tool-permissions';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { getMcpServerConfigJson } from '@studio/common/lib/mcp-config';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
@@ -62,7 +71,7 @@ import type {
 } from '@/data/core';
 import type { KeyboardEvent, ReactNode } from 'react';
 
-const SETTINGS_TABS = [ 'preferences', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
+const SETTINGS_TABS = [ 'preferences', 'ai', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
 
 type TabId = ( typeof SETTINGS_TABS )[ number ];
 
@@ -138,6 +147,7 @@ function SettingsHeader() {
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
@@ -346,6 +356,118 @@ function AgenticFeaturesSection( {
 					'Chat with an agent that builds and edits your sites. Turning this off hides chat — your existing conversations are kept.'
 				) }
 			</p>
+		</section>
+	);
+}
+
+// site_delete is intentionally absent: it always asks and cannot be relaxed.
+const CONFIGURABLE_PERMISSION_TOOLS = GATED_TOOL_NAMES.filter( supportsAlwaysAllow );
+
+function AgentSection( {
+	value,
+	onChange,
+	model,
+	onModelChange,
+	toolPermissions,
+	onToolPermissionChange,
+}: {
+	value: AiResponseLength;
+	onChange: ( value: AiResponseLength ) => void;
+	model: AiModelId;
+	onModelChange: ( value: AiModelId ) => void;
+	toolPermissions: ToolPermissionOverrides;
+	onToolPermissionChange: ( toolName: GatedToolName, level: ToolPermissionLevel ) => void;
+} ) {
+	const options: Array< { value: AiResponseLength; label: string } > = [
+		{ value: 'compact', label: __( 'Compact' ) },
+		{ value: 'normal', label: __( 'Normal' ) },
+		{ value: 'verbose', label: __( 'Verbose' ) },
+	];
+	const activeIndex = Math.max(
+		0,
+		options.findIndex( ( option ) => option.value === value )
+	);
+	const modelOptions: Array< { value: AiModelId; label: string } > = AI_MODELS.map(
+		( { id, label } ) => ( { value: id, label } )
+	);
+	const permissionToolLabels: Record< string, string > = {
+		preview_delete: __( 'Delete preview sites' ),
+		site_push: __( 'Push sites to WordPress.com' ),
+		site_pull: __( 'Pull sites from WordPress.com' ),
+		site_import: __( 'Import backups into sites' ),
+		wp_cli: __( 'Destructive WP-CLI commands' ),
+	};
+	const permissionLevelOptions: Array< { value: ToolPermissionLevel; label: string } > = [
+		{ value: 'ask', label: __( 'Ask' ) },
+		{ value: 'allow', label: __( 'Always allow' ) },
+	];
+
+	return (
+		<section className={ styles.preferenceSectionGroup }>
+			<h2 className={ styles.preferenceSectionHeading }>{ __( 'Agent' ) }</h2>
+			<PreferenceRow
+				title={ __( 'Default model' ) }
+				description={ __(
+					'The model new conversations start with. You can still switch models per conversation from the chat.'
+				) }
+			>
+				<PreferenceSelect< AiModelId >
+					label={ __( 'Default model' ) }
+					value={ model }
+					options={ modelOptions }
+					onChange={ onModelChange }
+				/>
+			</PreferenceRow>
+			<PreferenceRow
+				title={ __( 'Response length' ) }
+				description={ __(
+					'How long the agent’s replies should be. Compact leads with the answer; Verbose explains the reasoning. Applies to all conversations from your next message.'
+				) }
+			>
+				<div
+					className={ styles.appearancePicker }
+					role="group"
+					aria-label={ __( 'Response length' ) }
+					data-active-index={ activeIndex }
+				>
+					{ options.map( ( option ) => (
+						<button
+							key={ option.value }
+							type="button"
+							className={ clsx(
+								styles.appearanceButton,
+								option.value === value && styles.appearanceButtonActive
+							) }
+							aria-pressed={ option.value === value }
+							onClick={ () => onChange( option.value ) }
+						>
+							{ option.label }
+						</button>
+					) ) }
+				</div>
+			</PreferenceRow>
+			<PreferenceRow
+				title={ __( 'Permissions' ) }
+				description={ __(
+					'Risky agent actions ask for your approval before running. Deleting a site always asks and cannot be changed here.'
+				) }
+			>
+				<div className={ styles.permissionRows }>
+					{ CONFIGURABLE_PERMISSION_TOOLS.map( ( toolName ) => (
+						<div key={ toolName } className={ styles.permissionRow }>
+							<span className={ styles.permissionRowLabel }>
+								{ permissionToolLabels[ toolName ] ?? toolName }
+							</span>
+							<PreferenceSelect< ToolPermissionLevel >
+								label={ permissionToolLabels[ toolName ] ?? toolName }
+								value={ toolPermissions[ toolName ] === 'allow' ? 'allow' : 'ask' }
+								options={ permissionLevelOptions }
+								onChange={ ( level ) => onToolPermissionChange( toolName, level ) }
+							/>
+						</div>
+					) ) }
+				</div>
+			</PreferenceRow>
 		</section>
 	);
 }
@@ -583,20 +705,47 @@ function PreferencesPanel( {
 			</section>
 			<AccountInformationSection />
 			<WordPressOrgAccountSection />
+			{ showStudioCliToggle ? (
+				<StudioCliSection
+					checked={ data.studioCliInstalled }
+					onChange={ ( studioCliInstalled ) => onChange( { studioCliInstalled } ) }
+				/>
+			) : null }
+		</div>
+	);
+}
+
+function AiSettingsPanel( {
+	data,
+	showNativePreferences,
+	onChange,
+}: {
+	data: PreferencesFormData;
+	showNativePreferences: boolean;
+	onChange: ( update: Partial< PreferencesFormData > ) => void;
+} ) {
+	return (
+		<div className={ styles.preferencesPanel }>
 			<AgenticFeaturesSection
 				checked={ data.agenticFeaturesEnabled }
 				onChange={ ( agenticFeaturesEnabled ) => onChange( { agenticFeaturesEnabled } ) }
 			/>
 			{ showNativePreferences ? (
+				<AgentSection
+					value={ data.agentResponseLength }
+					onChange={ ( agentResponseLength ) => onChange( { agentResponseLength } ) }
+					model={ data.defaultAiModel }
+					onModelChange={ ( defaultAiModel ) => onChange( { defaultAiModel } ) }
+					toolPermissions={ data.toolPermissions }
+					onToolPermissionChange={ ( toolName, level ) =>
+						onChange( { toolPermissions: { ...data.toolPermissions, [ toolName ]: level } } )
+					}
+				/>
+			) : null }
+			{ showNativePreferences ? (
 				<ChatNotificationsSection
 					checked={ data.chatNotificationsEnabled }
 					onChange={ ( chatNotificationsEnabled ) => onChange( { chatNotificationsEnabled } ) }
-				/>
-			) : null }
-			{ showStudioCliToggle ? (
-				<StudioCliSection
-					checked={ data.studioCliInstalled }
-					onChange={ ( studioCliInstalled ) => onChange( { studioCliInstalled } ) }
 				/>
 			) : null }
 		</div>
@@ -794,12 +943,16 @@ function getKeyboardShortcutSections( modifierKey: string ): KeyboardShortcutSec
 	return [
 		{
 			title: __( 'General' ),
-			shortcuts: [ { label: __( 'Open settings' ), keys: [ modifierKey, ',' ] } ],
+			shortcuts: [
+				{ label: __( 'Open settings' ), keys: [ modifierKey, ',' ] },
+				{ label: __( 'Add site' ), keys: [ modifierKey, 'N' ] },
+				{ label: __( 'Toggle sidebar' ), keys: [ modifierKey, 'B' ] },
+			],
 		},
 		{
 			title: __( 'Composer' ),
 			shortcuts: [
-				{ label: __( 'Send message' ), keys: [ modifierKey, '↩' ] },
+				{ label: __( 'Send message' ), keys: [ '↩' ] },
 				{ label: __( 'Insert newline' ), keys: [ 'Shift', '↩' ] },
 				{ label: __( 'Stop response' ), keys: [ 'Esc' ] },
 			],
@@ -1199,6 +1352,13 @@ export function SettingsView( {
 									showNativePreferences={ showNativePreferences }
 									onColorSchemeChange={ handleColorSchemeChange }
 									onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
+									onChange={ handleChange }
+								/>
+							</Tabs.Panel>
+							<Tabs.Panel tabId="ai">
+								<AiSettingsPanel
+									data={ data }
+									showNativePreferences={ showNativePreferences }
 									onChange={ handleChange }
 								/>
 							</Tabs.Panel>

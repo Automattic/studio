@@ -1,12 +1,17 @@
+import { DEFAULT_MODEL } from '@studio/common/ai/models';
+import { DEFAULT_RESPONSE_LENGTH } from '@studio/common/ai/response-length';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import type {
 	ColorScheme,
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,
+	ToolPermissionOverrides,
 	UserPreferences,
 	WritableUserPreferences,
 } from '@/data/core';
+import type { AiModelId } from '@studio/common/ai/models';
+import type { AiResponseLength } from '@studio/common/ai/response-length';
 
 export const UNSET = '' as const;
 
@@ -19,6 +24,9 @@ export interface PreferencesFormData {
 	studioCliInstalled: boolean;
 	agenticFeaturesEnabled: boolean;
 	chatNotificationsEnabled: boolean;
+	agentResponseLength: AiResponseLength;
+	defaultAiModel: AiModelId;
+	toolPermissions: ToolPermissionOverrides;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -40,6 +48,9 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		// Persisted query caches from before this field existed rehydrate it as
 		// undefined; enabled is the real default, so render the toggle on.
 		chatNotificationsEnabled: prefs.chatNotificationsEnabled ?? true,
+		agentResponseLength: prefs.agentResponseLength ?? DEFAULT_RESPONSE_LENGTH,
+		defaultAiModel: prefs.defaultAiModel ?? DEFAULT_MODEL,
+		toolPermissions: prefs.toolPermissions ?? {},
 	};
 }
 
@@ -71,6 +82,15 @@ export function toPreferencesPatch(
 	}
 	if ( update.chatNotificationsEnabled !== undefined ) {
 		patch.chatNotificationsEnabled = update.chatNotificationsEnabled;
+	}
+	if ( update.agentResponseLength !== undefined ) {
+		patch.agentResponseLength = update.agentResponseLength;
+	}
+	if ( update.defaultAiModel !== undefined ) {
+		patch.defaultAiModel = update.defaultAiModel;
+	}
+	if ( update.toolPermissions !== undefined ) {
+		patch.toolPermissions = update.toolPermissions;
 	}
 
 	return patch;

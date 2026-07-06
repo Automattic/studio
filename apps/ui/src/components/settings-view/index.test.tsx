@@ -452,11 +452,26 @@ describe( 'SettingsView', () => {
 		expect(
 			screen.getByText( 'Use these keyboard shortcuts to move faster around Studio.' )
 		).toBeInTheDocument();
-		expect( screen.queryByText( 'Add site' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Add site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Toggle sidebar' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Send message' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Insert newline' ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Toggle site preview' ) ).toBeInTheDocument();
+		// Sending is plain Return — the composer reserves modifier+Return for
+		// inserting a newline.
+		expect( screen.getByLabelText( 'Return' ) ).toBeInTheDocument();
 		expect( normalizeSettingsTab( 'keyboard' ) ).toBe( 'keyboard' );
+	} );
+
+	it( 'renders the AI settings on the AI tab', () => {
+		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
+		expect( screen.getByLabelText( 'Agentic features' ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Default model' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Response length' } ) ).toBeInTheDocument();
+		expect( screen.getByLabelText( 'Chat notifications' ) ).toBeInTheDocument();
+		expect( normalizeSettingsTab( 'ai' ) ).toBe( 'ai' );
 	} );
 
 	it( 'opens account help actions through buttons from preferences', () => {

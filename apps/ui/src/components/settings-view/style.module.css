@@ -850,3 +850,24 @@
 		justify-content: flex-start;
 	}
 }
+
+/* Agent tool-permission rows: one gated tool per line with an Ask /
+   Always-allow select on the right. */
+.permissionRows {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+}
+
+.permissionRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.permissionRowLabel {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	white-space: nowrap;
+}

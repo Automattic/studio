@@ -11,6 +11,9 @@ const SAVED_PREFERENCES: UserPreferences = {
 	studioCliInstalled: false,
 	agenticFeaturesEnabled: true,
 	chatNotificationsEnabled: true,
+	agentResponseLength: 'normal',
+	defaultAiModel: 'claude-sonnet-4-6',
+	toolPermissions: {},
 };
 
 describe( 'settings preference helpers', () => {
@@ -31,6 +34,9 @@ describe( 'settings preference helpers', () => {
 			studioCliInstalled: false,
 			agenticFeaturesEnabled: true,
 			chatNotificationsEnabled: true,
+			agentResponseLength: 'normal',
+			defaultAiModel: 'claude-sonnet-4-6',
+			toolPermissions: {},
 		} );
 	} );
 
@@ -49,6 +55,8 @@ describe( 'settings preference helpers', () => {
 				studioCliInstalled: true,
 				agenticFeaturesEnabled: false,
 				chatNotificationsEnabled: false,
+				agentResponseLength: 'compact',
+				defaultAiModel: 'claude-opus-4-8',
 			} )
 		).toEqual( {
 			editor: null,
@@ -59,6 +67,8 @@ describe( 'settings preference helpers', () => {
 			studioCliInstalled: true,
 			agenticFeaturesEnabled: false,
 			chatNotificationsEnabled: false,
+			agentResponseLength: 'compact',
+			defaultAiModel: 'claude-opus-4-8',
 		} );
 	} );
 

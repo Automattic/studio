@@ -26,6 +26,9 @@ export const AI_MODELS = [
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
 
+/** Model ids as a tuple, for zod enums and other literal-union consumers. */
+export const AI_MODEL_IDS = AI_MODELS.map( ( model ) => model.id ) as [ AiModelId, ...AiModelId[] ];
+
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
 
 // Module-scoped lookup so `getAiModelFamily` / `getAiModelLabel` are O(1)
@@ -82,15 +85,19 @@ function readEntryModelId( entry: SessionEntry ): string | undefined {
  *
  * The most recently recorded model wins. If it names a model we no longer
  * offer (e.g. one that was removed from `AI_MODELS`), the session
- * auto-switches to `DEFAULT_MODEL` rather than pinning a dead id. Sessions
- * that recorded no model — e.g. a brand-new session before the first turn
- * runs — also fall back to `DEFAULT_MODEL`.
+ * auto-switches to `fallback` rather than pinning a dead id. Sessions that
+ * recorded no model — e.g. a brand-new session before the first turn runs —
+ * also fall back. Callers pass the user's preferred default model as
+ * `fallback` so fresh sessions start on it.
  */
-export function resolveSessionModel( entries: SessionEntry[] ): AiModelId {
+export function resolveSessionModel(
+	entries: SessionEntry[],
+	fallback: AiModelId = DEFAULT_MODEL
+): AiModelId {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const recordedModel = readEntryModelId( entries[ index ] );
 		if ( recordedModel === undefined ) continue;
-		return isAiModelId( recordedModel ) ? recordedModel : DEFAULT_MODEL;
+		return isAiModelId( recordedModel ) ? recordedModel : fallback;
 	}
-	return DEFAULT_MODEL;
+	return fallback;
 }

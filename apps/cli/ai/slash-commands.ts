@@ -1,9 +1,27 @@
 import { getAiModelFamily } from '@studio/common/ai/models';
 import { getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
+import {
+	AI_RESPONSE_LENGTHS,
+	DEFAULT_RESPONSE_LENGTH,
+	isAiResponseLength,
+	type AiResponseLength,
+} from '@studio/common/ai/response-length';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import {
+	GATED_TOOL_NAMES,
+	supportsAlwaysAllow,
+	type GatedToolName,
+	type ToolPermissionLevel,
+} from '@studio/common/ai/tool-permissions';
+import {
+	readAuthToken,
+	readSharedConfig,
+	updateSharedConfig,
+} from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
+import { clearSessionGrant } from 'cli/ai/permissions/policy';
+import { TOOL_PERMISSION_SPECS } from 'cli/ai/permissions/specs';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { captureCommandOutput } from 'cli/ai/tools';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -54,6 +72,28 @@ export interface SlashCommandDef {
 
 export function getActiveSlashCommands(): SlashCommandDef[] {
 	return AI_CHAT_SLASH_COMMANDS;
+}
+
+function getResponseLengthLabel( level: AiResponseLength ): string {
+	switch ( level ) {
+		case 'verbose':
+			return __( 'Verbose' );
+		case 'compact':
+			return __( 'Compact' );
+		default:
+			return __( 'Normal' );
+	}
+}
+
+function getResponseLengthDescription( level: AiResponseLength ): string {
+	switch ( level ) {
+		case 'verbose':
+			return __( 'Thorough replies with reasoning and context' );
+		case 'compact':
+			return __( 'Short replies that lead with the answer' );
+		default:
+			return __( 'The default balance' );
+	}
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -382,6 +422,181 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					)
 				);
 				await ctx.persistSessionContext();
+			}
+			return 'continue';
+		},
+	},
+	{
+		name: 'response-length',
+		description: __( 'Set how long the agent’s replies should be' ),
+		getArgumentCompletions: ( argumentPrefix ) =>
+			AI_RESPONSE_LENGTHS.filter( ( level ) => level.startsWith( argumentPrefix ) ).map(
+				( level ) => ( {
+					value: level,
+					label: level,
+				} )
+			),
+		handler: async ( prompt, ctx ) => {
+			const current = await ( async () => {
+				try {
+					const config = await readSharedConfig();
+					return config.agentResponseLength ?? DEFAULT_RESPONSE_LENGTH;
+				} catch {
+					return DEFAULT_RESPONSE_LENGTH;
+				}
+			} )();
+
+			// `/response-length compact` sets directly; bare `/response-length` asks.
+			const arg = prompt.trim().split( /\s+/ )[ 1 ]?.toLowerCase();
+			let selected: AiResponseLength | undefined = isAiResponseLength( arg ) ? arg : undefined;
+
+			if ( ! selected ) {
+				const labelToLevel = new Map< string, AiResponseLength >();
+				const options = AI_RESPONSE_LENGTHS.map( ( level ) => {
+					const label =
+						level === current
+							? sprintf(
+									/* translators: %s: response length option, e.g. "Compact" */
+									__( '%s (current)' ),
+									getResponseLengthLabel( level )
+							  )
+							: getResponseLengthLabel( level );
+					labelToLevel.set( label, level );
+					return { label, description: getResponseLengthDescription( level ) };
+				} );
+				const answer = await ctx.ui.askUser( [
+					{ question: __( 'Select a response length' ), options },
+				] );
+				const selectedLabel = Object.values( answer )[ 0 ] as string;
+				selected = labelToLevel.get( selectedLabel );
+			}
+
+			if ( selected && selected !== current ) {
+				await updateSharedConfig( { agentResponseLength: selected } );
+				ctx.ui.showInfo(
+					sprintf(
+						/* translators: %s: response length option, e.g. "Compact" */
+						__( 'Response length set to %s. Applies from your next message.' ),
+						getResponseLengthLabel( selected )
+					)
+				);
+			}
+			return 'continue';
+		},
+	},
+	{
+		name: 'permissions',
+		description: __( 'Choose which agent tools ask for approval before running' ),
+		getArgumentCompletions: ( argumentPrefix ) =>
+			GATED_TOOL_NAMES.filter(
+				( tool ) => supportsAlwaysAllow( tool ) && tool.startsWith( argumentPrefix )
+			).map( ( tool ) => ( { value: tool, label: tool } ) ),
+		handler: async ( prompt, ctx ) => {
+			const overrides = await ( async () => {
+				try {
+					const config = await readSharedConfig();
+					return config.toolPermissions ?? {};
+				} catch {
+					return {};
+				}
+			} )();
+			const configurable = GATED_TOOL_NAMES.filter( supportsAlwaysAllow );
+
+			const describeCurrent = ( tool: GatedToolName ) =>
+				overrides[ tool ] === 'allow' ? __( 'always allowed' ) : __( 'asks first' );
+
+			// `/permissions site_push` jumps straight to the level picker;
+			// bare `/permissions` asks which tool to change.
+			const arg = prompt.trim().split( /\s+/ )[ 1 ]?.toLowerCase();
+			let tool = configurable.find( ( candidate ) => candidate === arg );
+
+			if ( ! tool ) {
+				const labelToTool = new Map< string, GatedToolName >();
+				const options = configurable.map( ( candidate ) => {
+					const label = sprintf(
+						/* translators: 1: tool name (e.g. site_push), 2: current setting ("asks first" or "always allowed") */
+						__( '%1$s — %2$s' ),
+						candidate,
+						describeCurrent( candidate )
+					);
+					labelToTool.set( label, candidate );
+					return {
+						label,
+						description: TOOL_PERMISSION_SPECS[ candidate ].actionLabel(),
+					};
+				} );
+				const answer = await ctx.ui.askUser( [
+					{
+						question: __(
+							'Which tool do you want to change? (site_delete always asks and cannot be changed.)'
+						),
+						options,
+					},
+				] );
+				const selectedLabel = Object.values( answer )[ 0 ] as string;
+				tool = labelToTool.get( selectedLabel );
+			}
+
+			if ( ! tool ) {
+				return 'continue';
+			}
+
+			const current: ToolPermissionLevel = overrides[ tool ] === 'allow' ? 'allow' : 'ask';
+			const levelLabels: Record< ToolPermissionLevel, string > = {
+				ask: __( 'Ask before running' ),
+				allow: __( 'Always allow' ),
+			};
+			const labelToLevel = new Map< string, ToolPermissionLevel >();
+			const levelOptions = ( [ 'ask', 'allow' ] as ToolPermissionLevel[] ).map( ( level ) => {
+				const label =
+					level === current
+						? sprintf(
+								/* translators: %s: permission level label, e.g. "Ask before running" */
+								__( '%s (current)' ),
+								levelLabels[ level ]
+						  )
+						: levelLabels[ level ];
+				labelToLevel.set( label, level );
+				return {
+					label,
+					description:
+						level === 'ask'
+							? __( 'The agent needs your approval every time.' )
+							: __( 'The agent runs this without asking.' ),
+				};
+			} );
+			const answer = await ctx.ui.askUser( [
+				{
+					question: sprintf(
+						/* translators: %s: tool name, e.g. site_push */
+						__( 'When the agent calls %s:' ),
+						tool
+					),
+					options: levelOptions,
+				},
+			] );
+			const selected = labelToLevel.get( Object.values( answer )[ 0 ] as string );
+
+			if ( selected && selected !== current ) {
+				if ( selected === 'ask' ) {
+					clearSessionGrant( tool );
+				}
+				await updateSharedConfig( {
+					toolPermissions: { ...overrides, [ tool ]: selected },
+				} );
+				ctx.ui.showInfo(
+					selected === 'allow'
+						? sprintf(
+								/* translators: %s: tool name, e.g. site_push */
+								__( '%s now runs without asking. Change it back anytime with /permissions.' ),
+								tool
+						  )
+						: sprintf(
+								/* translators: %s: tool name, e.g. site_push */
+								__( '%s will ask for your approval before running.' ),
+								tool
+						  )
+				);
 			}
 			return 'continue';
 		},

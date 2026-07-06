@@ -4,6 +4,7 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { assertMysqlBinarySupportedForCurrentPlatform } from 'cli/lib/dependency-management/mysql-binary';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -60,6 +61,10 @@ export async function runCommand(
 				logSiteDetails( site );
 			}
 			return;
+		}
+
+		if ( isMysqlSite( site ) ) {
+			assertMysqlBinarySupportedForCurrentPlatform();
 		}
 
 		await setupCustomDomain( site, logger );

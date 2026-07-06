@@ -24,6 +24,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { assertMysqlBinarySupportedForCurrentPlatform } from 'cli/lib/dependency-management/mysql-binary';
 import { getWpConfigTransformerPath } from 'cli/lib/dependency-management/paths';
 import { exportDatabaseToFile } from 'cli/lib/import-export/export/export-database';
 import {
@@ -82,6 +83,7 @@ export async function runCommand( sitePath: string, to: DatabaseEngine ): Promis
 				__( 'MySQL requires the native PHP runtime. Use "studio set --runtime native" first.' )
 			);
 		}
+		assertMysqlBinarySupportedForCurrentPlatform();
 		const dbPhpPath = path.join( site.path, 'wp-content', 'db.php' );
 		if ( fs.existsSync( dbPhpPath ) ) {
 			const dropinContent = await fs.promises.readFile( dbPhpPath, 'utf8' );

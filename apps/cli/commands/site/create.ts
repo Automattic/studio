@@ -73,6 +73,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { assertMysqlBinarySupportedForCurrentPlatform } from 'cli/lib/dependency-management/mysql-binary';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -133,6 +134,9 @@ export async function runCommand(
 	}
 	if ( databaseEngine === DATABASE_ENGINE_MYSQL && siteRuntime !== SITE_RUNTIME_NATIVE_PHP ) {
 		throw new LoggerError( __( 'MySQL requires the native PHP runtime.' ) );
+	}
+	if ( databaseEngine === DATABASE_ENGINE_MYSQL ) {
+		assertMysqlBinarySupportedForCurrentPlatform();
 	}
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
 	const isOnlineStatus = await isOnline();

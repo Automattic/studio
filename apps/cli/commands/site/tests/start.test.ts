@@ -3,6 +3,7 @@ import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { assertMysqlBinarySupportedForCurrentPlatform } from 'cli/lib/dependency-management/mysql-binary';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
@@ -16,6 +17,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 	updateSiteLatestCliPid: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
+vi.mock( 'cli/lib/dependency-management/mysql-binary' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 vi.mock( 'cli/lib/sqlite-integration' );
@@ -59,6 +61,7 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( updateSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
+		vi.mocked( assertMysqlBinarySupportedForCurrentPlatform ).mockReturnValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -126,6 +129,34 @@ describe( 'CLI: studio site start', () => {
 			);
 
 			await expect( runCommand( '/test/site' ) ).rejects.toThrow( 'SQLite setup failed' );
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should reject MySQL sites on unsupported platforms before start side effects', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( {
+				...testSite,
+				databaseEngine: 'mysql',
+				mysql: {
+					host: '127.0.0.1',
+					port: 3307,
+					databaseName: 'studio_site_1',
+					username: 'stu_site_1',
+					password: 'password123',
+					serverVersion: '8.4.10',
+					dataDir: '/test/mysql/site-1',
+				},
+			} );
+			vi.mocked( assertMysqlBinarySupportedForCurrentPlatform ).mockImplementation( () => {
+				throw new Error( 'MySQL 8.4 is not available for this platform yet (linux-arm64).' );
+			} );
+
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow(
+				'MySQL 8.4 is not available for this platform yet (linux-arm64).'
+			);
+
+			expect( setupCustomDomain ).not.toHaveBeenCalled();
+			expect( keepSqliteIntegrationUpdated ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 

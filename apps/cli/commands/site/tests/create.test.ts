@@ -34,6 +34,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { assertMysqlBinarySupportedForCurrentPlatform } from 'cli/lib/dependency-management/mysql-binary';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
@@ -79,6 +80,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 } );
 vi.mock( 'cli/lib/language-packs' );
 vi.mock( 'cli/lib/daemon-client' );
+vi.mock( 'cli/lib/dependency-management/mysql-binary' );
 vi.mock( 'cli/lib/dependency-management/setup' );
 vi.mock( 'cli/lib/dependency-management/wordpress' );
 vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal ) => {
@@ -186,6 +188,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
 		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
+		vi.mocked( assertMysqlBinarySupportedForCurrentPlatform ).mockReturnValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -379,6 +382,26 @@ describe( 'CLI: studio site create', () => {
 			).rejects.toThrow( 'MySQL requires the native PHP runtime.' );
 
 			expect( saveCliConfig ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should reject MySQL on unsupported platforms before creating a site', async () => {
+			vi.mocked( assertMysqlBinarySupportedForCurrentPlatform ).mockImplementation( () => {
+				throw new Error( 'MySQL 8.4 is not available for this platform yet (linux-arm64).' );
+			} );
+
+			await expect(
+				runCommand( mockSitePath, {
+					...defaultTestOptions,
+					runtime: SITE_RUNTIME_NATIVE_PHP,
+					phpVersion: '8.4',
+					databaseEngine: DATABASE_ENGINE_MYSQL,
+				} )
+			).rejects.toThrow( 'MySQL 8.4 is not available for this platform yet (linux-arm64).' );
+
+			expect( fsMkdirSyncSpy ).not.toHaveBeenCalledWith( mockSitePath, { recursive: true } );
+			expect( keepSqliteIntegrationUpdated ).not.toHaveBeenCalled();
+			expect( saveCliConfig ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should create site with custom name', async () => {

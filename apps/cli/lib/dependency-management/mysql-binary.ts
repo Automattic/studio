@@ -8,6 +8,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import {
 	DefaultMysqlSupportedVersion,
 	getMysqlBinaryDownloadInfo,
+	getEffectiveMysqlBinaryArch,
 	type MysqlBinaryDownloadInfo,
 	type MysqlSupportedVersion,
 } from '@studio/common/lib/mysql-binary-metadata';
@@ -21,6 +22,7 @@ export async function ensureMysqlBinaryAvailable(
 	version: MysqlSupportedVersion = DefaultMysqlSupportedVersion,
 	onProgress?: ( downloaded: number, total: number ) => void
 ): Promise< string > {
+	assertMysqlBinarySupportedForCurrentPlatform( version );
 	const downloadInfo = await resolveMysqlBinaryDownloadInfo(
 		version,
 		process.platform,
@@ -35,6 +37,22 @@ export async function ensureMysqlBinaryAvailable(
 	return downloadInfo.patchVersion;
 }
 
+export function assertMysqlBinarySupportedForCurrentPlatform(
+	version: MysqlSupportedVersion = DefaultMysqlSupportedVersion
+): void {
+	if ( getMysqlBinaryDownloadInfo( version, process.platform, process.arch ) ) {
+		return;
+	}
+
+	const platformKey = `${ process.platform }-${ getEffectiveMysqlBinaryArch(
+		process.platform,
+		process.arch
+	) }`;
+	throw new Error(
+		`MySQL ${ version } is not available for this platform yet (${ platformKey }).`
+	);
+}
+
 export async function resolveMysqlBinaryDownloadInfo(
 	version: MysqlSupportedVersion,
 	platform: NodeJS.Platform,
@@ -45,7 +63,10 @@ export async function resolveMysqlBinaryDownloadInfo(
 		return downloadInfo;
 	}
 
-	throw new Error( `MySQL ${ version } is not available for this platform yet.` );
+	const platformKey = `${ platform }-${ getEffectiveMysqlBinaryArch( platform, arch ) }`;
+	throw new Error(
+		`MySQL ${ version } is not available for this platform yet (${ platformKey }).`
+	);
 }
 
 async function waitForBinary( binaryPath: string ): Promise< void > {

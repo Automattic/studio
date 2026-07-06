@@ -31,6 +31,11 @@ const phpSourceCodePath = resolve( __dirname, 'php' );
 // The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
 // `ai/skills.ts`), so they must sit directly next to the built chunks.
 const skillsSourcePath = resolve( __dirname, 'ai/skills' );
+// The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
+// from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
+// separately (`npm run build:local --workspace=apps/ui`); absent in API-only
+// or dev-server setups, which is fine.
+const localUiDistPath = resolve( __dirname, '../ui/dist-local' );
 
 export const baseConfig = defineConfig( {
 	oxc: {
@@ -55,6 +60,9 @@ export const baseConfig = defineConfig( {
 				}
 				if ( existsSync( skillsSourcePath ) ) {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
+				}
+				if ( existsSync( localUiDistPath ) ) {
+					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );
 				}
 			},
 		},
@@ -120,6 +128,9 @@ export const baseConfig = defineConfig( {
 		alias: {
 			cli: resolve( __dirname, '.' ),
 			'@studio/common': resolve( __dirname, '../../packages/common' ),
+			// The `studio ui` local server (apps/local) is bundled into the CLI
+			// from source, the same way `@studio/common` is.
+			'@studio/local': resolve( __dirname, '../local/src' ),
 			'@wp-playground/blueprints/blueprint-schema-validator': resolve(
 				__dirname,
 				'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'

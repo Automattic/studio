@@ -558,7 +558,7 @@ export async function installWordPressSkills(
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 	const overwrite = options?.overwrite ?? false;
-	await installAllSkills( server.details.path, overwrite );
+	await installAllSkills( server.details, overwrite );
 }
 
 export async function installWordPressSkillById(
@@ -572,7 +572,7 @@ export async function installWordPressSkillById(
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 	const overwrite = options?.overwrite ?? false;
-	await installSkillById( server.details.path, skillId, overwrite );
+	await installSkillById( server.details, skillId, overwrite );
 }
 
 export async function removeWordPressSkillById(
@@ -606,7 +606,7 @@ export async function installWordPressSkillsToAllSites(
 	const overwrite = options.overwrite ?? false;
 	const bundledPath = getAiInstructionsPath();
 	const tasks = sites.map( ( site ) =>
-		installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite )
+		installSkillToSite( site.details, bundledPath, options.skillId, overwrite )
 	);
 	const results = await Promise.allSettled( tasks );
 	results.forEach( ( result ) => {
@@ -1001,8 +1001,8 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		void loadSiteIcon( event, id );
 	}
 
-	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
-	void updateManagedInstructionFiles( server.details.path, getAiInstructionsPath() ).catch(
+	// Keep managed instruction files (STUDIO.md) up-to-date
+	void updateManagedInstructionFiles( server.details, getAiInstructionsPath() ).catch(
 		( error ) => {
 			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
 		}

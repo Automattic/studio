@@ -2,6 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import { pathExists, recursiveCopyDirectory } from './fs-utils';
 import { isErrnoException } from './is-errno-exception';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from './site-runtime';
 
 /**
  * Managed instruction files that are always kept up-to-date on server start.
@@ -9,11 +15,41 @@ import { isErrnoException } from './is-errno-exception';
  */
 const MANAGED_INSTRUCTION_FILES = [ 'STUDIO.md' ];
 
+const RUNTIME_MARKERS: SiteRuntime[] = [ SITE_RUNTIME_PLAYGROUND, SITE_RUNTIME_NATIVE_PHP ];
+
+/**
+ * Render runtime-conditional blocks in a managed instruction file. Content
+ * wrapped in `<!-- IF <runtime> -->` / `<!-- ENDIF <runtime> -->` line markers
+ * is kept only for the matching runtime and stripped for the others, so e.g.
+ * Playground-specific WP-CLI notes don't reach native-php sites. Files with no
+ * markers pass through unchanged.
+ */
+export function renderRuntimeInstructions( content: string, runtime: SiteRuntime ): string {
+	let rendered = content;
+	for ( const marker of RUNTIME_MARKERS ) {
+		const block = new RegExp(
+			`^[ \\t]*<!-- IF ${ marker } -->[ \\t]*\\r?\\n([\\s\\S]*?)^[ \\t]*<!-- ENDIF ${ marker } -->[ \\t]*\\r?\\n`,
+			'gm'
+		);
+		rendered = rendered.replace( block, ( _match, inner ) => ( marker === runtime ? inner : '' ) );
+	}
+	return rendered;
+}
+
+async function writeRenderedInstructionFile(
+	src: string,
+	dest: string,
+	runtime: SiteRuntime
+): Promise< void > {
+	const content = await fs.promises.readFile( src, 'utf8' );
+	await fs.promises.writeFile( dest, renderRuntimeInstructions( content, runtime ) );
+}
+
 /**
  * Install all bundled AI instructions and skills from a source directory into a site.
  *
  * Source directory layout (flat):
- *   AGENTS.md, CLAUDE.md, STUDIO.md — loose .md files copied to site root
+ *   AGENTS.md, CLAUDE.md, STUDIO.md — loose .md files rendered and written to site root
  *   studio-cli/SKILL.md             — directories are skills, installed to .agents/skills/
  *   wp-plugin-development/SKILL.md
  *
@@ -21,9 +57,13 @@ const MANAGED_INSTRUCTION_FILES = [ 'STUDIO.md' ];
  *   AGENTS.md, CLAUDE.md, STUDIO.md
  *   .agents/skills/<id>/SKILL.md
  *   .claude/skills/<id> -> ../../.agents/skills/<id>
+ *
+ * Loose `.md` files are rendered for the site's runtime (see
+ * `renderRuntimeInstructions`) so runtime-specific guidance is dropped when it
+ * doesn't apply.
  */
 export async function installAiInstructionsToSite(
-	sitePath: string,
+	site: { path: string; runtime?: SiteRuntime },
 	bundledPath: string,
 	userSelectedGlobalSkills: string[] = [],
 	overwrite: boolean = false
@@ -32,14 +72,17 @@ export async function installAiInstructionsToSite(
 		return;
 	}
 
+	const runtime = getSiteRuntime( site );
 	const entries = await fs.promises.readdir( bundledPath, { withFileTypes: true } );
 
 	const tasks: Promise< void >[] = [];
 	for ( const entry of entries ) {
 		if ( entry.isFile() && entry.name.endsWith( '.md' ) ) {
-			tasks.push( installInstructionFile( sitePath, bundledPath, entry.name, overwrite ) );
+			tasks.push(
+				installInstructionFile( site.path, bundledPath, entry.name, runtime, overwrite )
+			);
 		} else if ( entry.isDirectory() && userSelectedGlobalSkills.includes( entry.name ) ) {
-			tasks.push( installSkillToSite( sitePath, bundledPath, entry.name, overwrite ) );
+			tasks.push( installSkillToSite( site, bundledPath, entry.name, overwrite ) );
 		}
 	}
 
@@ -56,18 +99,19 @@ export async function installAiInstructionsToSite(
  * with the bundled version. Called on server start to keep Studio-managed instructions current.
  */
 export async function updateManagedInstructionFiles(
-	sitePath: string,
+	site: { path: string; runtime?: SiteRuntime },
 	bundledPath: string
 ): Promise< void > {
+	const runtime = getSiteRuntime( site );
 	for ( const fileName of MANAGED_INSTRUCTION_FILES ) {
-		const dest = path.join( sitePath, fileName );
+		const dest = path.join( site.path, fileName );
 		const src = path.join( bundledPath, fileName );
 
 		if ( ! ( await pathExists( dest ) ) || ! ( await pathExists( src ) ) ) {
 			continue;
 		}
 
-		await fs.promises.copyFile( src, dest );
+		await writeRenderedInstructionFile( src, dest, runtime );
 	}
 }
 
@@ -75,13 +119,14 @@ async function installInstructionFile(
 	sitePath: string,
 	bundledPath: string,
 	fileName: string,
+	runtime: SiteRuntime,
 	overwrite: boolean
 ): Promise< void > {
 	const dest = path.join( sitePath, fileName );
 	if ( ( await pathExists( dest ) ) && ! overwrite ) {
 		return;
 	}
-	await fs.promises.copyFile( path.join( bundledPath, fileName ), dest );
+	await writeRenderedInstructionFile( path.join( bundledPath, fileName ), dest, runtime );
 }
 
 export async function removeSkillFromSite( sitePath: string, skillId: string ): Promise< void > {
@@ -92,7 +137,7 @@ export async function removeSkillFromSite( sitePath: string, skillId: string ): 
 }
 
 export async function installSkillToSite(
-	sitePath: string,
+	site: { path: string; runtime?: SiteRuntime },
 	bundledPath: string,
 	skillId: string,
 	overwrite: boolean
@@ -102,8 +147,9 @@ export async function installSkillToSite(
 		return;
 	}
 
-	const agentsSkillPath = path.join( sitePath, '.agents', 'skills', skillId );
-	const claudeSkillPath = path.join( sitePath, '.claude', 'skills', skillId );
+	const runtime = getSiteRuntime( site );
+	const agentsSkillPath = path.join( site.path, '.agents', 'skills', skillId );
+	const claudeSkillPath = path.join( site.path, '.claude', 'skills', skillId );
 
 	const isInstalled = await pathExists( path.join( agentsSkillPath, 'SKILL.md' ) );
 
@@ -112,9 +158,24 @@ export async function installSkillToSite(
 			await fs.promises.rm( agentsSkillPath, { recursive: true, force: true } );
 		}
 		await recursiveCopyDirectory( src, agentsSkillPath );
+		await renderSkillMarkdownFiles( agentsSkillPath, runtime );
 	}
 
-	await ensureSkillSymlink( sitePath, agentsSkillPath, claudeSkillPath, overwrite );
+	await ensureSkillSymlink( site.path, agentsSkillPath, claudeSkillPath, overwrite );
+}
+
+async function renderSkillMarkdownFiles(
+	skillPath: string,
+	runtime: SiteRuntime
+): Promise< void > {
+	const entries = await fs.promises.readdir( skillPath, { withFileTypes: true } );
+	for ( const entry of entries ) {
+		if ( entry.isFile() && entry.name.endsWith( '.md' ) ) {
+			const filePath = path.join( skillPath, entry.name );
+			const content = await fs.promises.readFile( filePath, 'utf8' );
+			await fs.promises.writeFile( filePath, renderRuntimeInstructions( content, runtime ) );
+		}
+	}
 }
 
 async function ensureSkillSymlink(

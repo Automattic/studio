@@ -6,7 +6,7 @@ import { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadat
 import { writeFile } from 'atomically';
 import semver from 'semver';
 import { getPhpBinaryPath } from '../dependency-management/paths';
-import { getPhpSafeTmpDir } from './tmp-dir';
+import { getFullyResolvedTmpDirPath } from './tmp-dir';
 
 // Disabled to shrink the attack surface available to PHP code running inside a
 // Studio site. Each entry falls into one of:
@@ -216,9 +216,7 @@ function getOpcacheRootDir(): string {
 		return opcacheRootDir;
 	}
 
-	// `getPhpSafeTmpDir()` resolves the Windows 8.3 short name so PHP's INI scanner
-	// doesn't choke on the `~` in `-d opcache.file_cache=<path>`.
-	opcacheRootDir = fs.mkdtempSync( path.join( getPhpSafeTmpDir(), 'studio-opcache-' ) );
+	opcacheRootDir = fs.mkdtempSync( path.join( getFullyResolvedTmpDirPath(), 'studio-opcache-' ) );
 	const dirToClean = opcacheRootDir;
 	process.once( 'exit', () => {
 		try {
@@ -288,11 +286,6 @@ export function getDefaultPhpArgs(
 	// Run a PHP file before the main script — used to inject reprint's generated
 	// runtime.php (constants, SQLite loader, upload proxy) into imported sites
 	// without modifying their wp-config.php.
-	//
-	// The value MUST be quoted: `-d` values go through PHP's INI parser, and an
-	// unquoted Windows 8.3 short path (e.g. C:\Users\BUILDK~1\...) fails it with
-	// "syntax error, unexpected '~'". PHP then drops the directive, the SQLite
-	// loader never runs, and every request renders a database error page.
 	if ( autoPrependFile ) {
 		args.push( '-d', `auto_prepend_file="${ toPhpIniPath( autoPrependFile ) }"` );
 	}

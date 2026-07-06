@@ -9,6 +9,6 @@ import os from 'node:os';
 // special token, so any temp path we hand to PHP — auto_prepend_file, opcache.file_cache,
 // the phpMyAdmin config, … — breaks with `syntax error, unexpected '~'`. Resolving to the
 // long form removes the tilde. No-op on macOS/Linux, which don't have 8.3 short names.
-export function getPhpSafeTmpDir(): string {
+export function getFullyResolvedTmpDirPath(): string {
 	return process.platform === 'win32' ? fs.realpathSync.native( os.tmpdir() ) : os.tmpdir();
 }

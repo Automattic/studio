@@ -7,9 +7,8 @@ env:
   IMAGE_ID: $IMAGE_ID
 
 e2e_config: &e2e_config
-  # TEMP(AINFRA-2588): cap the job while Windows E2E is enabled on this branch for
-  # verification — trunk still has the daemon-leak hang (#3954, fixed separately in
-  # #4070/#4075), so a wedged run must cost 100 minutes, not the agent's 3h default.
+  # A healthy run finishes well under an hour; a wedged one must not hold a
+  # scarce agent for the 3h default.
   timeout_in_minutes: 100
   command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
   artifact_paths:
@@ -27,12 +26,6 @@ e2e_config: &e2e_config
     setup: { platform: [], arch: [] }
     adjustments:
       - with: { platform: mac, arch: arm64 }
-      # TEMP(AINFRA-2588): Windows re-enabled on this branch to verify the
-      # auto_prepend_file fix on a real Windows agent. The daemon-leak hang
-      # (#3954) is fixed separately in #4070/#4075, so this run may still be
-      # slow — the INI failures are what this verifies. Decide before merge
-      # whether trunk keeps Windows enabled.
-      # See https://linear.app/a8c/issue/AINFRA-2588/investigate-studio-windows-e2e-hangs-in-buildkite
       - with: { platform: windows, arch: x64 }
 
 steps:
@@ -92,9 +85,8 @@ steps:
 
   - group: E2E Tests
     key: e2e-tests
-    # One combined GitHub status for all E2E jobs. Step-level notifies on the
-    # same context race (last writer wins), so a fast green mac job used to
-    # mask a still-running or failed Windows job.
+    # One combined GitHub status for all E2E jobs — step-level notifies on the
+    # same context are last-writer-wins, letting a fast green job mask a failed one.
     notify:
       - github_commit_status:
           context: E2E Tests

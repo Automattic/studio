@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MODEL, resolveSessionModel } from '../models';
+import { DEFAULT_MODEL, getAiModelThinking, resolveSessionModel } from '../models';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 function modelChangeEntry( modelId: string ): SessionEntry {
@@ -25,5 +25,18 @@ describe( 'resolveSessionModel', () => {
 		expect(
 			resolveSessionModel( [ modelChangeEntry( 'claude-retired-1' ) ], 'claude-opus-4-8' )
 		).toBe( 'claude-opus-4-8' );
+	} );
+} );
+
+describe( 'getAiModelThinking', () => {
+	// Sonnet 5 and Opus 4.8 only accept `thinking: {type: "adaptive"}` —
+	// budget-based thinking requests are rejected with a 400.
+	it( 'marks current Anthropic models as adaptive-thinking', () => {
+		expect( getAiModelThinking( 'claude-sonnet-5' ) ).toBe( 'adaptive' );
+		expect( getAiModelThinking( 'claude-opus-4-8' ) ).toBe( 'adaptive' );
+	} );
+
+	it( 'marks GPT models as non-thinking', () => {
+		expect( getAiModelThinking( 'gpt-5.5' ) ).toBe( 'none' );
 	} );
 } );

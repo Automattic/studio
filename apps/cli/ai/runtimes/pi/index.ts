@@ -4,6 +4,7 @@ import { type AgentTool } from '@earendil-works/pi-agent-core';
 import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
 import {
 	stream as streamAnthropic,
+	type AnthropicEffort,
 	type AnthropicOptions,
 } from '@earendil-works/pi-ai/api/anthropic-messages';
 import {
@@ -27,6 +28,7 @@ import {
 import {
 	DEFAULT_MODEL,
 	getAiModelFamily,
+	getAiModelThinking,
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
@@ -388,15 +390,22 @@ function buildModel(
 			maxTokens: 16_384,
 		};
 	}
+	const thinking = getAiModelThinking( modelId );
 	return {
 		...common,
 		api: 'anthropic-messages',
 		provider: creds.useBearerAuth ? STUDIO_WPCOM_ANTHROPIC_PROVIDER : 'anthropic',
-		reasoning: true,
+		reasoning: thinking !== 'none',
+		// Adaptive-thinking models (Sonnet 5, Opus 4.8) reject budget-based
+		// thinking requests with a 400 — they only accept
+		// `thinking: {type: "adaptive"}`. This compat flag makes pi-ai (and our
+		// mirror in `resolveThinkingOptions`) emit the adaptive shape.
+		...( thinking === 'adaptive' ? { compat: { forceAdaptiveThinking: true } } : {} ),
 		contextWindow: 200_000,
-		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
-		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
-		// output so single tool calls can emit a full-page HTML payload.
+		// On budget-thinking models, thinkingLevel 'high' reserves ~16384 of this
+		// budget for extended thinking (see adjustMaxTokensForThinking in pi-ai);
+		// keep enough headroom for visible output so single tool calls can emit a
+		// full-page HTML payload. Adaptive thinking reserves no fixed budget.
 		maxTokens: 32_000,
 	};
 }
@@ -433,12 +442,12 @@ function escapePiConfigValue( value: string ): string {
 	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
 }
 
-// pi's `streamSimpleAnthropic` wrapper maps the simple `reasoning` level to
-// the low-level `thinkingEnabled`/`thinkingBudgetTokens` options — but it
-// builds its own SDK client, which would drop the wpcom bearer-auth client we
-// inject below. We call the low-level `streamAnthropic` instead, so we must
-// mirror that mapping here or extended thinking is silently never requested
-// (the low-level API ignores `reasoning`). Budgets match pi-ai's
+// pi's `streamSimple` wrapper (api/anthropic-messages) maps the simple
+// `reasoning` level to the low-level thinking options — but it builds its own
+// SDK client, which would drop the wpcom bearer-auth client we inject below.
+// We call the low-level `streamAnthropic` instead, so we must mirror that
+// mapping here or extended thinking is silently never requested (the
+// low-level API ignores `reasoning`). Budgets match pi-ai's
 // `adjustMaxTokensForThinking` defaults (not exported).
 const THINKING_BUDGETS: Record< string, number > = {
 	minimal: 1024,
@@ -448,13 +457,47 @@ const THINKING_BUDGETS: Record< string, number > = {
 };
 const MIN_VISIBLE_OUTPUT_TOKENS = 1024;
 
+// Mirrors pi-ai's `mapThinkingLevelToEffort` (not exported): an explicit
+// `thinkingLevelMap` entry wins, otherwise map the level to the closest
+// effort tier.
+function mapThinkingLevelToEffort(
+	model: Model< 'anthropic-messages' >,
+	level: NonNullable< SimpleStreamOptions[ 'reasoning' ] >
+): AnthropicEffort {
+	const mapped = model.thinkingLevelMap?.[ level ];
+	if ( typeof mapped === 'string' ) {
+		// ThinkingLevelMap values are plain strings; pi-ai forwards them as-is.
+		return mapped as AnthropicEffort;
+	}
+	switch ( level ) {
+		case 'minimal':
+		case 'low':
+			return 'low';
+		case 'medium':
+			return 'medium';
+		default:
+			return 'high';
+	}
+}
+
 function resolveThinkingOptions(
 	model: Model< 'anthropic-messages' >,
 	options?: SimpleStreamOptions
-): { thinkingEnabled: boolean; thinkingBudgetTokens?: number; maxTokens?: number } {
+): {
+	thinkingEnabled: boolean;
+	thinkingBudgetTokens?: number;
+	maxTokens?: number;
+	effort?: AnthropicEffort;
+} {
 	const reasoning = options?.reasoning;
-	if ( ! reasoning ) {
+	if ( ! reasoning || ! model.reasoning ) {
 		return { thinkingEnabled: false };
+	}
+	// Adaptive-thinking models take an effort level instead of a token budget;
+	// sending `budget_tokens` to them is a 400. No max-tokens adjustment needed
+	// since adaptive thinking reserves no fixed budget.
+	if ( model.compat?.forceAdaptiveThinking === true ) {
+		return { thinkingEnabled: true, effort: mapThinkingLevelToEffort( model, reasoning ) };
 	}
 	const level = reasoning === 'xhigh' ? 'high' : reasoning;
 	let thinkingBudget = THINKING_BUDGETS[ level ] ?? THINKING_BUDGETS.high;

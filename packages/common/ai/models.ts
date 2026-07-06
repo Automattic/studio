@@ -3,6 +3,17 @@ import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export type AiModelFamily = 'anthropic' | 'openai';
 
+/**
+ * How a model accepts extended-thinking requests.
+ *
+ * - `adaptive`: only `thinking: {type: "adaptive"}` — budget-based requests
+ *   (`type: "enabled"` + `budget_tokens`) are rejected with a 400. Applies to
+ *   Sonnet 5 / Opus 4.8 and later Anthropic models.
+ * - `budget`: budget-based thinking (older Anthropic models).
+ * - `none`: never request thinking.
+ */
+export type AiModelThinking = 'adaptive' | 'budget' | 'none';
+
 export interface AiModel {
 	/** Stable model id sent to the upstream provider. */
 	id: string;
@@ -10,6 +21,8 @@ export interface AiModel {
 	label: string;
 	/** Which runtime serves this model. Drives `pickRuntime` in agent.ts. */
 	family: AiModelFamily;
+	/** Which extended-thinking request shape the model accepts. */
+	thinking: AiModelThinking;
 }
 
 // Pro / o-series OpenAI variants (`gpt-*-pro`, `o[1-9]*`) are intentionally
@@ -19,9 +32,9 @@ export interface AiModel {
 // `/v1/responses` server-side or extend the proxy/SDK timeout window for
 // reasoning turns.
 export const AI_MODELS = [
-	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
-	{ id: 'claude-opus-4-8', label: 'Opus 4.8', family: 'anthropic' },
-	{ id: 'gpt-5.5', label: 'GPT 5.5', family: 'openai' },
+	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic', thinking: 'adaptive' },
+	{ id: 'claude-opus-4-8', label: 'Opus 4.8', family: 'anthropic', thinking: 'adaptive' },
+	{ id: 'gpt-5.5', label: 'GPT 5.5', family: 'openai', thinking: 'none' },
 ] as const satisfies readonly AiModel[];
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
@@ -58,6 +71,10 @@ export function getAiModelFamily( id: AiModelId ): AiModelFamily {
 
 export function getAiModelLabel( id: AiModelId ): string {
 	return getAiModel( id ).label;
+}
+
+export function getAiModelThinking( id: AiModelId ): AiModelThinking {
+	return getAiModel( id ).thinking;
 }
 
 /**

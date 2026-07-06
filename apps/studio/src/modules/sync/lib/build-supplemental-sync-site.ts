@@ -18,16 +18,18 @@ export function buildSupplementalSyncSite(
 	storedSite: SyncSite | undefined,
 	connectedSiteIds: number[]
 ): SyncSite {
-	if ( site.hosting_provider_guess === undefined && storedSite?.isPressable ) {
-		site = { ...site, hosting_provider_guess: 'pressable' };
-	}
+	const effectiveSite =
+		site.hosting_provider_guess === undefined && storedSite?.isPressable
+			? { ...site, hosting_provider_guess: 'pressable' }
+			: site;
 
-	const syncSupport = getSyncSupport( site, connectedSiteIds );
-	const isStaging = site.environment_type
-		? site.environment_type === 'staging' || site.environment_type === 'development'
+	const syncSupport = getSyncSupport( effectiveSite, connectedSiteIds );
+	const isStaging = effectiveSite.environment_type
+		? effectiveSite.environment_type === 'staging' ||
+		  effectiveSite.environment_type === 'development'
 		: storedSite?.isStaging ?? false;
 
-	const syncSite = transformSingleSiteResponse( site, syncSupport, isStaging );
+	const syncSite = transformSingleSiteResponse( effectiveSite, syncSupport, isStaging );
 	return {
 		...syncSite,
 		environmentType: syncSite.environmentType ?? storedSite?.environmentType,

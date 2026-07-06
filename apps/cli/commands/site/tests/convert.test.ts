@@ -5,9 +5,10 @@ import { DATABASE_ENGINE_MYSQL, DATABASE_ENGINE_SQLITE } from '@studio/common/li
 import { encodePassword } from '@studio/common/lib/passwords';
 import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __testing } from '../convert';
+import { __testing, runCommand } from '../convert';
 import type { MysqlSiteConfig } from '@studio/common/lib/database-engine';
 import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 
 const mocks = vi.hoisted( () => ( {
 	cliConfig: { version: 1, sites: [] as SiteData[], snapshots: [] },
@@ -15,6 +16,11 @@ const mocks = vi.hoisted( () => ( {
 	readCliConfig: vi.fn(),
 	saveCliConfig: vi.fn(),
 	unlockCliConfig: vi.fn( async () => undefined ),
+	getSiteByFolder: vi.fn(),
+	updateSiteLatestCliPid: vi.fn( async () => undefined ),
+	connectToDaemon: vi.fn( async () => undefined ),
+	disconnectFromDaemon: vi.fn( async () => undefined ),
+	getDatabaseProvider: vi.fn(),
 	exportDatabaseToFile: vi.fn(),
 	importDatabaseFromFile: vi.fn( async () => undefined ),
 	ensureMysqlServerRunning: vi.fn(),
@@ -26,9 +32,16 @@ const mocks = vi.hoisted( () => ( {
 	ensureWpConfig: vi.fn(),
 	isWordPressInstalled: vi.fn( async () => true ),
 	installSqliteIntegration: vi.fn(),
+	isServerRunning: vi.fn(),
+	startWordPressServer: vi.fn(),
+	stopWordPressServer: vi.fn( async () => undefined ),
 	getOpenPort: vi.fn( async () => 33306 ),
 	addUnavailablePort: vi.fn(),
 	stopMysqlServer: vi.fn( async () => undefined ),
+} ) );
+
+vi.mock( '@studio/common/lib/php-binary-metadata', () => ( {
+	resolveNativePhpVersion: vi.fn( () => '8.4' ),
 } ) );
 
 vi.mock( 'cli/lib/cli-config/core', () => ( {
@@ -36,6 +49,20 @@ vi.mock( 'cli/lib/cli-config/core', () => ( {
 	readCliConfig: mocks.readCliConfig,
 	saveCliConfig: mocks.saveCliConfig,
 	unlockCliConfig: mocks.unlockCliConfig,
+} ) );
+
+vi.mock( 'cli/lib/cli-config/sites', () => ( {
+	getSiteByFolder: mocks.getSiteByFolder,
+	updateSiteLatestCliPid: mocks.updateSiteLatestCliPid,
+} ) );
+
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	connectToDaemon: mocks.connectToDaemon,
+	disconnectFromDaemon: mocks.disconnectFromDaemon,
+} ) );
+
+vi.mock( 'cli/lib/database/providers', () => ( {
+	getDatabaseProvider: mocks.getDatabaseProvider,
 } ) );
 
 vi.mock( 'cli/lib/import-export/export/export-database', () => ( {
@@ -62,6 +89,12 @@ vi.mock( 'cli/lib/native-php/site-setup', () => ( {
 
 vi.mock( 'cli/lib/sqlite-integration', () => ( {
 	installSqliteIntegration: mocks.installSqliteIntegration,
+} ) );
+
+vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
+	isServerRunning: mocks.isServerRunning,
+	startWordPressServer: mocks.startWordPressServer,
+	stopWordPressServer: mocks.stopWordPressServer,
 } ) );
 
 vi.mock( '@studio/common/lib/port-finder', () => ( {
@@ -123,6 +156,14 @@ function writeSqliteIntegration( sitePath: string ): void {
 }
 
 describe( 'site convert internals', () => {
+	const processDescription: ProcessDescription = {
+		name: 'studio-site-site-id',
+		pmId: 1,
+		pid: 12345,
+		status: 'online',
+		runtime: SITE_RUNTIME_NATIVE_PHP,
+	};
+
 	let tmpDir: string;
 	let sitePath: string;
 
@@ -136,6 +177,8 @@ describe( 'site convert internals', () => {
 		mocks.saveCliConfig.mockImplementation( async ( nextConfig ) => {
 			mocks.cliConfig = structuredClone( nextConfig );
 		} );
+		mocks.getSiteByFolder.mockImplementation( async () => structuredClone( mocks.cliConfig.sites[ 0 ] ) );
+		mocks.getDatabaseProvider.mockReturnValue( { preflight: vi.fn() } );
 		mocks.exportDatabaseToFile.mockImplementation( async ( _site, dumpPath: string ) => {
 			fs.writeFileSync( dumpPath, 'SQL DUMP', 'utf8' );
 		} );
@@ -146,6 +189,11 @@ describe( 'site convert internals', () => {
 		mocks.createMysqlSiteConfig.mockReturnValue( mysqlConfig() );
 		mocks.provisionMysqlDatabase.mockResolvedValue( undefined );
 		mocks.isWordPressInstalled.mockResolvedValue( true );
+		mocks.isServerRunning.mockResolvedValue( undefined );
+		mocks.startWordPressServer.mockResolvedValue( processDescription );
+		mocks.stopWordPressServer.mockResolvedValue( undefined );
+		mocks.updateSiteLatestCliPid.mockResolvedValue( undefined );
+		mocks.disconnectFromDaemon.mockResolvedValue( undefined );
 		mocks.removeSqliteIntegrationForMysql.mockImplementation( async ( targetSitePath: string ) => {
 			await fs.promises.rm( path.join( targetSitePath, 'wp-content', 'db.php' ), { force: true } );
 			await fs.promises.rm(
@@ -340,8 +388,10 @@ describe( 'site convert internals', () => {
 			mysql: sourceMysql,
 		} );
 		expect( mysqlDumpPath ).toContain( 'convert-db-test.sql' );
-		const [ importedSite, sqliteDumpPath ] = mocks.importDatabaseFromFile.mock
-			.calls[ 0 ] as unknown as [ SiteData, string ];
+		const [ importedSite, sqliteDumpPath ] = mocks.importDatabaseFromFile.mock.calls[ 0 ] as unknown as [
+			SiteData,
+			string,
+		];
 		expect( importedSite ).toMatchObject( {
 			id: site.id,
 			databaseEngine: DATABASE_ENGINE_SQLITE,
@@ -351,5 +401,72 @@ describe( 'site convert internals', () => {
 		expect( mocks.importSqlFileIntoMysql ).not.toHaveBeenCalled();
 		expect( mocks.cliConfig.sites[ 0 ].databaseEngine ).toBeUndefined();
 		expect( mocks.cliConfig.sites[ 0 ].mysql ).toBeUndefined();
+	} );
+
+	it( 'restarts a site after successful conversion if it was running', async () => {
+		const targetMysql = mysqlConfig( { databaseName: 'target_database' } );
+		mocks.createMysqlSiteConfig.mockReturnValue( targetMysql );
+		mocks.cliConfig.sites = [ siteData( sitePath ) ];
+		mocks.isServerRunning.mockResolvedValue( processDescription );
+
+		await runCommand( sitePath, DATABASE_ENGINE_MYSQL );
+
+		expect( mocks.stopWordPressServer ).toHaveBeenCalledWith( 'site-id' );
+		expect( mocks.startWordPressServer ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				id: 'site-id',
+				databaseEngine: DATABASE_ENGINE_MYSQL,
+				mysql: targetMysql,
+			} ),
+			expect.any( Object )
+		);
+		expect( mocks.updateSiteLatestCliPid ).toHaveBeenCalledWith( 'site-id', processDescription.pid );
+		expect( mocks.disconnectFromDaemon ).toHaveBeenCalled();
+	} );
+
+	it( 'restarts the rolled-back site and uses truthful rollback messaging', async () => {
+		mocks.cliConfig.sites = [ siteData( sitePath ) ];
+		mocks.isServerRunning.mockResolvedValue( processDescription );
+		mocks.isWordPressInstalled.mockResolvedValue( false );
+
+		let error: unknown;
+		try {
+			await runCommand( sitePath, DATABASE_ENGINE_MYSQL );
+		} catch ( thrown ) {
+			error = thrown;
+		}
+
+		expect( error ).toBeInstanceOf( Error );
+		expect( ( error as Error ).message ).toContain(
+			'Conversion failed and the site was rolled back to SQLite.'
+		);
+		expect( ( error as Error ).message ).not.toContain( 'The site is unchanged.' );
+		expect( mocks.startWordPressServer ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				id: 'site-id',
+			} ),
+			expect.any( Object )
+		);
+	} );
+
+	it( 'surfaces restart failure after successful conversion without rolling back conversion state', async () => {
+		const targetMysql = mysqlConfig( { databaseName: 'target_database' } );
+		mocks.createMysqlSiteConfig.mockReturnValue( targetMysql );
+		mocks.cliConfig.sites = [ siteData( sitePath ) ];
+		mocks.isServerRunning.mockResolvedValue( processDescription );
+		mocks.startWordPressServer.mockRejectedValue( new Error( 'start failed' ) );
+
+		await expect( runCommand( sitePath, DATABASE_ENGINE_MYSQL ) ).rejects.toThrow(
+			'The site was stopped for conversion but WordPress server could not be restarted: start failed'
+		);
+
+		expect( mocks.cliConfig.sites[ 0 ] ).toEqual(
+			expect.objectContaining( {
+				databaseEngine: DATABASE_ENGINE_MYSQL,
+				mysql: targetMysql,
+			} )
+		);
+		expect( mocks.ensureMysqlServerRunning ).toHaveBeenCalled();
+		expect( mocks.exportDatabaseToFile ).toHaveBeenCalled();
 	} );
 } );

@@ -21,7 +21,7 @@ import {
 	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getDatabaseProvider } from 'cli/lib/database/providers';
 import { getWpConfigTransformerPath } from 'cli/lib/dependency-management/paths';
@@ -42,7 +42,11 @@ import {
 } from 'cli/lib/mysql/mysql-site';
 import { ensureWpConfig, isWordPressInstalled } from 'cli/lib/native-php/site-setup';
 import { installSqliteIntegration } from 'cli/lib/sqlite-integration';
-import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	isServerRunning,
+	startWordPressServer,
+	stopWordPressServer,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -69,13 +73,19 @@ export async function runCommand( sitePath: string, to: DatabaseEngine ): Promis
 		);
 	}
 
+	let site: SiteData | undefined;
+	let backup: ConvertBackup | undefined;
+	let stoppedRunningSite = false;
+	let conversionError: unknown;
+	let restartError: unknown;
+
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();
 		logger.reportSuccess( __( 'Process daemon started' ) );
 
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
-		const site = await getSiteByFolder( sitePath );
+		site = await getSiteByFolder( sitePath );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
 		preflightConversion( site, to );
@@ -86,10 +96,10 @@ export async function runCommand( sitePath: string, to: DatabaseEngine ): Promis
 		// The convert flow provisions and boots MySQL directly (outside the site
 		// server process), so the site must not be running under SQLite while we
 		// swap its drop-in and config out from under it.
-		const wasRunning = Boolean( await isServerRunning( site.id ) );
-		if ( wasRunning ) {
+		if ( await isServerRunning( site.id ) ) {
 			logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
 			await stopWordPressServer( site.id );
+			stoppedRunningSite = true;
 			logger.reportSuccess( __( 'WordPress server stopped' ) );
 		}
 
@@ -98,7 +108,7 @@ export async function runCommand( sitePath: string, to: DatabaseEngine ): Promis
 			LoggerAction.CREATE_BACKUP,
 			sprintf( __( 'Backing up %s site…' ), getSiteDatabaseEngine( site ) )
 		);
-		const backup = await createBackup( site );
+		backup = await createBackup( site );
 		logger.reportSuccess( sprintf( __( 'Backup created at %s' ), backup.dir ) );
 
 		if ( to === DATABASE_ENGINE_MYSQL ) {
@@ -106,20 +116,58 @@ export async function runCommand( sitePath: string, to: DatabaseEngine ): Promis
 		} else {
 			await convertMysqlToSqlite( site, backup, phpVersion );
 		}
+	} catch ( error ) {
+		conversionError = error;
+	} finally {
+		try {
+			if ( site && stoppedRunningSite ) {
+				await restoreRunningSite( site.path );
+			}
+		} catch ( error ) {
+			restartError = new LoggerError(
+				__( 'The site was stopped for conversion but WordPress server could not be restarted' ),
+				error
+			);
+		} finally {
+			await disconnectFromDaemon();
+		}
+	}
 
+	if ( conversionError instanceof LoggerError && restartError instanceof Error ) {
+		conversionError.previousError = restartError;
+	}
+
+	if ( conversionError instanceof Error ) {
+		throw conversionError;
+	}
+
+	if ( restartError instanceof Error ) {
+		throw restartError;
+	}
+
+	if ( site && backup ) {
 		console.log( '' );
 		console.log(
-			sprintf(
-				__( 'Site "%s" was converted to %s. Run "studio start" to serve it on the %s stack.' ),
-				site.name,
-				to,
-				to
-			)
+			stoppedRunningSite
+				? sprintf( __( 'Site "%s" was converted to %s and restarted.' ), site.name, to )
+				: sprintf(
+						__( 'Site "%s" was converted to %s. Run "studio start" to serve it on the %s stack.' ),
+						site.name,
+						to,
+						to
+				  )
 		);
 		console.log( sprintf( __( 'Conversion backup retained at: %s' ), backup.dir ) );
-	} finally {
-		await disconnectFromDaemon();
 	}
+}
+
+async function restoreRunningSite( sitePath: string ): Promise< void > {
+	const restoredSite = await getSiteByFolder( sitePath );
+	const processDesc = await startWordPressServer( restoredSite, logger );
+	if ( processDesc.status === 'online' ) {
+		await updateSiteLatestCliPid( restoredSite.id, processDesc.pid );
+	}
+	logger.reportSuccess( __( 'WordPress server started' ) );
 }
 
 async function createBackup( site: SiteData ): Promise< ConvertBackup > {
@@ -293,7 +341,7 @@ async function convertSqliteToMysql(
 		);
 		await rollbackToPriorSite( backup, mysqlConfig, swappedConfig, mysqlServer );
 		throw new LoggerError(
-			__( 'Conversion failed and the site was rolled back to SQLite. The site is unchanged.' ),
+			__( 'Conversion failed and the site was rolled back to SQLite.' ),
 			error
 		);
 	} finally {
@@ -370,7 +418,7 @@ async function convertMysqlToSqlite(
 		);
 		await rollbackToPriorSite( backup, undefined, swappedConfig, mysqlServer );
 		throw new LoggerError(
-			__( 'Conversion failed and the site was rolled back to MySQL. The site is unchanged.' ),
+			__( 'Conversion failed and the site was rolled back to MySQL.' ),
 			error
 		);
 	} finally {

@@ -1,10 +1,19 @@
 /* The chat column. The site preview panel lives in the dashboard layout's
    PreviewSplitFrame, which hosts this view in its content column. */
 .root {
-	display: flex;
-	flex-direction: column;
+	--classic-column-inline-gutter: calc(var(--wpds-dimension-padding-2xl) + 8px);
+	--classic-composer-shell-inline-padding: var(--wpds-dimension-padding-lg);
+	--classic-header-height: 46px;
+	--classic-composer-height: 0px;
+	--classic-header-blur-overhang: 16px;
+	--classic-composer-blur-overhang: 40px;
+	--classic-scrollbar-blur-safe-area: 14px;
+
+	position: relative;
 	height: 100%;
 	min-height: 0;
+	overflow: hidden;
+	isolation: isolate;
 }
 
 .state {
@@ -16,7 +25,8 @@
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
+	padding-block: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
@@ -28,16 +38,18 @@
 .toggleSpacer {
 	display: block;
 	flex-shrink: 0;
-	width: calc(118px - var(--wpds-dimension-padding-xs));
-	height: 100%;
+	width: 118px;
+	align-self: stretch;
 	-webkit-app-region: no-drag;
 }
 
-.toggleSpacerFullscreen {
+/* No traffic lights to clear (non-macOS, the browser, or macOS fullscreen): a
+   minimal spacer so the toggle still clears the header's drag region. */
+.toggleSpacerFlush {
 	display: block;
 	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-md) + 24px - var(--wpds-dimension-padding-xs));
-	height: 100%;
+	width: calc(var(--wpds-dimension-padding-xl) + 24px);
+	align-self: stretch;
 	-webkit-app-region: no-drag;
 }
 
@@ -69,30 +81,56 @@
 	flex: 1;
 }
 
-.headerActions {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
-	-webkit-app-region: no-drag;
-}
-
 .scroll {
-	flex: 1;
+	position: absolute;
+	inset: 0;
+	height: 100%;
 	min-height: 0;
+	box-sizing: border-box;
 	overflow-y: auto;
-	position: relative;
+	padding-block: var(--classic-header-height) var(--classic-composer-height);
+	z-index: 0;
 	/* Reserve scrollbar space symmetrically so the centered 760px column
 	   doesn't shift left when the scrollbar appears — keeping it aligned
 	   with the (non-scrolling) composer. */
 	scrollbar-gutter: stable both-edges;
 }
 
+.headerBlur,
+.composerBlur {
+	inset-inline-start: 0;
+	inset-inline-end: var(--classic-scrollbar-blur-safe-area);
+	z-index: 1;
+}
+
+.headerBlur {
+	top: 0;
+	height: calc(var(--classic-header-height) + var(--classic-header-blur-overhang));
+}
+
+.composerBlur {
+	bottom: 0;
+	height: calc(var(--classic-composer-height) + var(--classic-composer-blur-overhang));
+}
+
+.headerLayer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 2;
+}
+
 .composerOuter {
-	flex: 0 0 auto;
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 2;
 }
 
 .classicScroll {
-	padding: 0 var(--wpds-dimension-padding-xl);
+	padding-inline: var(--classic-column-inline-gutter);
 }
 
 /* Classic session screen: keep the conversation + composer aligned to the
@@ -102,11 +140,24 @@
 	margin: 0 auto;
 }
 
+.classicComposerColumn {
+	max-width: calc(760px + (var(--classic-composer-shell-inline-padding) * 2));
+}
+
 .classicConversationSpacing {
 	padding-top: var(--wpds-dimension-padding-xl);
 	padding-bottom: var(--wpds-dimension-padding-2xl);
 }
 
+.classicConversationWithQuestions {
+	padding-bottom: calc(var(--wpds-dimension-padding-2xl) + 96px);
+}
+
 .classicComposerOuter {
-	padding: 0 calc(var(--wpds-dimension-padding-2xl) * 2) var(--wpds-dimension-padding-xl);
+	padding: 0
+		max(
+			0px,
+			calc(var(--classic-column-inline-gutter) - var(--classic-composer-shell-inline-padding))
+		)
+		var(--wpds-dimension-padding-xl);
 }

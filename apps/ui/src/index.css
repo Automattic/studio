@@ -4,7 +4,7 @@
 
 	/* Overlay stacking — portals mount into `document.body` and must beat
 	   app-chrome stacking contexts (sidebar header z-index: 1, floating
-	   toggle z-index: 10). Menus stay below modal surfaces; tooltips live
+	   toggle z-index: 30). Menus stay below modal surfaces; tooltips live
 	   above dialogs so help text on controls inside a modal still surfaces
 	   above the containing overlay. */
 	--wp-ui-dialog-z-index: 700;
@@ -22,6 +22,13 @@ body {
 	color-scheme: light dark;
 	scrollbar-width: thin;
 	scrollbar-color: gray transparent;
+}
+
+@media ( prefers-color-scheme: dark ) {
+	:root {
+		--wp-ui-tooltip-background-color: #fff;
+		--wp-ui-tooltip-color: #000;
+	}
 }
 
 /* Universal heading styles derived from the design system's font-size /

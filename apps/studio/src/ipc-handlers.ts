@@ -23,11 +23,19 @@ import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
+	createOrReuseAiSession,
+	hydrateAiSessionSummary,
+	listHydratedAiSessions,
+	loadHydratedAiSession,
+} from '@studio/common/ai/sessions/manage';
+import {
+	deleteAiSessionPlacement,
+	readAiSessionPlacement,
+} from '@studio/common/ai/sessions/placement';
+import {
 	appendModelChangeEntry,
 	appendStudioEntry,
-	createAiSession as createAiSessionInStore,
 	deleteAiSession as deleteAiSessionFromStore,
-	listAiSessions as listAiSessionsFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
 import { AI_SKILL_COMMANDS, buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
@@ -44,7 +52,6 @@ import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
-import { extractZip } from '@studio/common/lib/extract-zip';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -58,6 +65,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
+import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import {
@@ -72,8 +80,6 @@ import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
 	readSharedConfig,
-	readSharedSession,
-	readSharedSessions,
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
@@ -83,6 +89,11 @@ import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import {
+	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
+	extractBlueprintBundle as extractBlueprintBundleShared,
+	type ExtractedBlueprintBundle,
+} from '@studio/common/sites/blueprint-extract';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import {
 	MACOS_TRAFFIC_LIGHT_POSITION,
@@ -91,13 +102,6 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import {
-	deleteAiSessionPlacement,
-	hydrateAiSessionSummaryWithPlacement,
-	readAiSessionPlacement,
-	readAiSessionPlacements,
-	setAiSessionSitePlacement,
-} from 'src/lib/ai-session-placement';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
@@ -202,6 +206,7 @@ export {
 	pauseSyncUpload,
 	pullSiteFromLive,
 	pushArchive,
+	pushSiteToLive,
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,
@@ -237,49 +242,6 @@ export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handle
 
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
-function hydrateAiSessionSummary(
-	summary: AiSessionSummary,
-	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
-): AiSessionSummary {
-	return {
-		...summary,
-		starred: metadata?.starred,
-		archived: metadata?.archived,
-	};
-}
-
-async function listHydratedAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
-	const [ sessions, sessionMetadata, placements ] = await Promise.all( [
-		listAiSessionsFromStore( rootDirectory ),
-		readSharedSessions(),
-		readAiSessionPlacements(),
-	] );
-	return sessions.map( ( session ) =>
-		hydrateAiSessionSummary(
-			hydrateAiSessionSummaryWithPlacement( session, placements[ session.id ] ),
-			sessionMetadata[ session.id ]
-		)
-	);
-}
-
-async function loadHydratedAiSession(
-	rootDirectory: string,
-	sessionIdOrPrefix: string
-): Promise< LoadedAiSession > {
-	const session = await loadAiSessionFromStore( rootDirectory, sessionIdOrPrefix );
-	const [ metadata, placement ] = await Promise.all( [
-		readSharedSession( session.summary.id ),
-		readAiSessionPlacement( session.summary.id ),
-	] );
-	return {
-		...session,
-		summary: hydrateAiSessionSummary(
-			hydrateAiSessionSummaryWithPlacement( session.summary, placement ),
-			metadata
-		),
-	};
-}
-
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
 	return listHydratedAiSessions( getAiSessionsRootDirectory() );
 }
@@ -307,57 +269,23 @@ export async function createAiSession(
 ): Promise< AiSessionSummary > {
 	const sitesRoot = getAiSessionsRootDirectory();
 	if ( ! siteId ) {
-		const existing = await listHydratedAiSessions( sitesRoot );
-		const emptyUserSession = existing
-			.filter(
-				( session ) => ! session.ownerSitePath && ! session.firstPrompt && ! session.archived
-			)
-			.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
-
-		if ( emptyUserSession ) {
-			return emptyUserSession;
-		}
-
-		return hydrateAiSessionSummary( await createAiSessionInStore( sitesRoot ) );
+		return createOrReuseAiSession( sitesRoot );
 	}
 
 	const server = SiteServer.get( siteId );
 	if ( ! server ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
-	const sitePath = server.details.path;
 
-	// Reuse the newest existing empty session for this site (one that has
-	// never received a user prompt) instead of creating another one. This
-	// lets `/sites/$siteId/new` act as a stable "draft slot" per site — the
-	// UI can redirect to it eagerly without piling up orphan sessions.
-	const existing = await listHydratedAiSessions( sitesRoot );
-	const emptyForSite = existing
-		.filter(
-			( session ) =>
-				session.ownerSitePath === sitePath && ! session.firstPrompt && ! session.archived
-		)
-		.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
-	if ( emptyForSite ) {
-		return emptyForSite;
-	}
-
-	const created = await createAiSessionInStore( sitesRoot, {
+	// Binds the session to the site and reuses an existing empty draft for it
+	// instead of piling up orphans — the shared logic the `studio ui` server
+	// uses too.
+	return createOrReuseAiSession( sitesRoot, {
 		site: {
+			id: server.details.id,
 			name: server.details.name,
-			path: sitePath,
+			path: server.details.path,
 		},
-	} );
-	await setAiSessionSitePlacement( created.id, {
-		siteId: server.details.id,
-		siteName: server.details.name,
-		sitePath,
-	} );
-	return hydrateAiSessionSummaryWithPlacement( created, {
-		kind: 'site',
-		siteId: server.details.id,
-		siteName: server.details.name,
-		sitePath,
 	} );
 }
 
@@ -374,10 +302,7 @@ export async function updateAiSessionMetadata(
 		updateSharedSession( summary.id, patch ),
 		readAiSessionPlacement( summary.id ),
 	] );
-	return hydrateAiSessionSummary(
-		hydrateAiSessionSummaryWithPlacement( summary, placement ),
-		metadata
-	);
+	return hydrateAiSessionSummary( summary, metadata, placement );
 }
 
 /**
@@ -633,7 +558,7 @@ export async function installWordPressSkills(
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 	const overwrite = options?.overwrite ?? false;
-	await installAllSkills( server.details.path, overwrite );
+	await installAllSkills( server.details, overwrite );
 }
 
 export async function installWordPressSkillById(
@@ -647,7 +572,7 @@ export async function installWordPressSkillById(
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 	const overwrite = options?.overwrite ?? false;
-	await installSkillById( server.details.path, skillId, overwrite );
+	await installSkillById( server.details, skillId, overwrite );
 }
 
 export async function removeWordPressSkillById(
@@ -681,7 +606,7 @@ export async function installWordPressSkillsToAllSites(
 	const overwrite = options.overwrite ?? false;
 	const bundledPath = getAiInstructionsPath();
 	const tasks = sites.map( ( site ) =>
-		installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite )
+		installSkillToSite( site.details, bundledPath, options.skillId, overwrite )
 	);
 	const results = await Promise.allSettled( tasks );
 	results.forEach( ( result ) => {
@@ -1076,8 +1001,8 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		void loadSiteIcon( event, id );
 	}
 
-	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
-	void updateManagedInstructionFiles( server.details.path, getAiInstructionsPath() ).catch(
+	// Keep managed instruction files (STUDIO.md) up-to-date
+	void updateManagedInstructionFiles( server.details, getAiInstructionsPath() ).catch(
 		( error ) => {
 			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
 		}
@@ -1459,36 +1384,6 @@ export async function readLocalMediaFile(
 			buffer.byteOffset + buffer.byteLength
 		) as ArrayBuffer,
 	};
-}
-
-function getLocalMediaMimeType( path: string ) {
-	const extension = nodePath.extname( path ).toLowerCase().slice( 1 );
-	const mimeTypes: Record< string, string > = {
-		avif: 'image/avif',
-		avi: 'video/x-msvideo',
-		bmp: 'image/bmp',
-		gif: 'image/gif',
-		heic: 'image/heic',
-		heif: 'image/heif',
-		ico: 'image/x-icon',
-		jpeg: 'image/jpeg',
-		jpg: 'image/jpeg',
-		m4v: 'video/x-m4v',
-		mkv: 'video/x-matroska',
-		mov: 'video/quicktime',
-		mp4: 'video/mp4',
-		mpeg: 'video/mpeg',
-		mpg: 'video/mpeg',
-		ogv: 'video/ogg',
-		png: 'image/png',
-		svg: 'image/svg+xml',
-		tif: 'image/tiff',
-		tiff: 'image/tiff',
-		webm: 'video/webm',
-		webp: 'image/webp',
-	};
-
-	return mimeTypes[ extension ] ?? '';
 }
 
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
@@ -2310,45 +2205,15 @@ export async function readBlueprintFile(
 export async function extractBlueprintBundle(
 	_event: IpcMainInvokeEvent,
 	zipFilePath: string
-): Promise< {
-	blueprintJson: Blueprint[ 'blueprint' ];
-	blueprintJsonPath: string;
-	tempDir: string;
-} > {
-	const resolvedZipPath = nodePath.resolve( zipFilePath );
-	const tempDir = await fsPromises.mkdtemp(
-		nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' )
-	);
-
-	try {
-		await extractZip( resolvedZipPath, tempDir );
-
-		const blueprintJsonPath = nodePath.join( tempDir, 'blueprint.json' );
-		try {
-			await fsPromises.access( blueprintJsonPath );
-		} catch {
-			throw new Error(
-				__(
-					'No blueprint.json found in the ZIP file. Please ensure the ZIP contains a blueprint.json at its root.'
-				)
-			);
-		}
-
-		const fileContents = await fsPromises.readFile( blueprintJsonPath, 'utf-8' );
-		const blueprintJson = JSON.parse( fileContents );
-
-		return { blueprintJson, blueprintJsonPath, tempDir };
-	} catch ( error ) {
-		await fsPromises.rm( tempDir, { recursive: true, force: true } );
-		throw error;
-	}
+): Promise< ExtractedBlueprintBundle > {
+	return extractBlueprintBundleShared( zipFilePath );
 }
 
 export async function cleanupBlueprintTempDir(
 	_event: IpcMainInvokeEvent,
 	tempDir: string
 ): Promise< void > {
-	await removeBlueprintTempDir( tempDir );
+	await cleanupBlueprintTempDirShared( tempDir );
 }
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
@@ -2455,7 +2320,7 @@ export async function startRemoteSessionDaemon(
 	//
 	// `STUDIO_ENABLE_REMOTE_SESSION=true` is required: the CLI gates the entire
 	// `code remote-session` subcommand tree behind that env var (see
-	// `tools/common/lib/remote-session.ts`). Without it, the spawned child fails with
+	// `packages/common/lib/remote-session.ts`). Without it, the spawned child fails with
 	// "Unknown arguments: remote-session, start". The `remoteSession` beta
 	// feature is the user-facing opt-in, so we lift the CLI gate in the spawned
 	// child rather than asking users to set the env var manually.

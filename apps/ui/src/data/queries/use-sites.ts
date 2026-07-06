@@ -1,5 +1,5 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
@@ -116,14 +116,14 @@ export function useUpdateSite() {
 	} );
 }
 
-const XDEBUG_ENABLED_SITE_QUERY_KEY = [ 'xdebugEnabledSite' ] as const;
-
-export function useXdebugEnabledSite() {
-	const connector = useConnector();
-	return useQuery( {
-		queryKey: XDEBUG_ENABLED_SITE_QUERY_KEY,
-		queryFn: () => connector.getXdebugEnabledSite(),
-	} );
+/**
+ * The site that currently has Xdebug enabled — exclusive across sites — derived
+ * from the loaded site list so the settings form can warn before enabling it
+ * elsewhere. `enableXdebug` is already on every SiteDetails, so no separate call.
+ */
+export function useXdebugEnabledSite(): SiteDetails | null {
+	const { data: sites } = useSites();
+	return useMemo( () => sites?.find( ( site ) => site.enableXdebug ) ?? null, [ sites ] );
 }
 
 function useIsSiteMutating( siteId: string | undefined, mutationKey: readonly string[] ): boolean {

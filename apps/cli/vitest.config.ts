@@ -7,6 +7,7 @@ export default mergeConfig(
 	defineProject( {
 		define: {
 			__IS_PACKAGED_FOR_NPM__: true,
+			__IS_PACKAGED_FOR_STANDALONE__: false,
 		},
 		test: {
 			name: 'cli',
@@ -17,7 +18,7 @@ export default mergeConfig(
 		resolve: {
 			alias: {
 				cli: path.resolve( __dirname, '.' ),
-				'@studio/common': path.resolve( __dirname, '../../tools/common' ),
+				'@studio/common': path.resolve( __dirname, '../../packages/common' ),
 				'@wp-playground/blueprints/blueprint-schema-validator': path.resolve(
 					__dirname,
 					'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'

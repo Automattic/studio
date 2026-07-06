@@ -11,6 +11,7 @@ const { ThemeProvider } = unlock( privateApis );
 export const Root = BaseMenu.Root;
 export const Trigger = BaseMenu.Trigger;
 export const RadioGroup = BaseMenu.RadioGroup;
+export const SubmenuRoot = BaseMenu.SubmenuRoot;
 
 type PopupProps = {
 	children: ReactNode;
@@ -71,6 +72,23 @@ export const Item = forwardRef< ElementRef< typeof BaseMenu.Item >, ItemProps >(
 		<BaseMenu.Item ref={ ref } className={ `${ styles.item } ${ className ?? '' }` } { ...props }>
 			{ children }
 		</BaseMenu.Item>
+	);
+} );
+
+type SubmenuTriggerProps = ComponentPropsWithoutRef< typeof BaseMenu.SubmenuTrigger >;
+
+export const SubmenuTrigger = forwardRef<
+	ElementRef< typeof BaseMenu.SubmenuTrigger >,
+	SubmenuTriggerProps
+>( function SubmenuTrigger( { className, children, ...props }, ref ) {
+	return (
+		<BaseMenu.SubmenuTrigger
+			ref={ ref }
+			className={ `${ styles.item } ${ styles.submenuTrigger } ${ className ?? '' }` }
+			{ ...props }
+		>
+			{ children }
+		</BaseMenu.SubmenuTrigger>
 	);
 } );
 

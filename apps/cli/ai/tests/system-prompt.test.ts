@@ -1,3 +1,8 @@
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
@@ -75,6 +80,22 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 
+	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (local)', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
+		expect( prompt ).toContain( 'Do NOT answer from memory' );
+		expect( prompt ).toContain( 'Personal or Premium cannot install plugins' );
+	} );
+
+	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (remote)', () => {
+		const prompt = buildSystemPrompt( { remoteSite } );
+
+		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
+		expect( prompt ).toContain( 'Do NOT answer from memory' );
+		expect( prompt ).toContain( 'Personal or Premium cannot install plugins' );
+	} );
+
 	it( 'references only bundled skills', () => {
 		const prompts = [
 			buildSystemPrompt( { chatArtifactsEnabled: true } ),
@@ -86,6 +107,38 @@ describe( 'buildSystemPrompt', () => {
 			.filter( ( skillName ) => ! availableSkillNames.has( skillName ) );
 
 		expect( missingSkillNames ).toEqual( [] );
+	} );
+
+	it( 'gives Playground sites the inline post_content guidance', () => {
+		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_PLAYGROUND } );
+
+		expect( prompt ).toContain( 'rewrite large content to a virtual temp file' );
+		expect( prompt ).toContain( 'cannot read your machine' );
+		expect( prompt ).not.toContain( 'write the validated markup to a scratch file' );
+	} );
+
+	it( 'lets native PHP sites use a scratch file for post_content', () => {
+		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_NATIVE_PHP } );
+
+		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
+		expect( prompt ).toContain( 'wp post create <file>' );
+		expect( prompt ).not.toContain( 'virtual temp file' );
+		expect( prompt ).not.toContain( 'cannot read your machine' );
+	} );
+
+	it( 'defaults to native PHP post_content guidance when no runtime is given', () => {
+		const prompt = buildSystemPrompt( {} );
+
+		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
+		expect( prompt ).not.toContain( 'virtual temp file' );
+	} );
+
+	it( 'keeps the shared no-shell post_content rule for both runtimes', () => {
+		const runtimes: SiteRuntime[] = [ SITE_RUNTIME_PLAYGROUND, SITE_RUNTIME_NATIVE_PHP ];
+		for ( const runtime of runtimes ) {
+			const prompt = buildSystemPrompt( { runtime } );
+			expect( prompt ).toContain( 'takes literal arguments, not shell commands' );
+		}
 	} );
 
 	it( 'omits Studio presentation rules when chat artifacts are disabled', () => {

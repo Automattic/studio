@@ -6,10 +6,6 @@ import { DaemonResponse } from 'cli/lib/types/process-manager-ipc';
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 500;
 const DEFAULT_RECONNECT_DELAY_MS = 500;
-// How long a request-response client waits for the peer to answer once connected. Without
-// this bound, a wedged daemon that accepts connections but never replies hangs the caller
-// forever (observed as `site stop --all` never exiting on Windows CI).
-const DEFAULT_RESPONSE_TIMEOUT_MS = 10_000;
 // How long to wait for a socket's pending writes to flush during graceful close before
 // giving up and forcefully destroying it.
 const GRACEFUL_SOCKET_END_TIMEOUT_MS = 500;
@@ -199,17 +195,11 @@ export class SocketStreamClient extends SocketClientEventEmitter {
 export class SocketRequestClient {
 	private readonly endpoint: string;
 	private readonly connectTimeoutMs: number;
-	private readonly responseTimeoutMs: number;
 	private queue = Promise.resolve();
 
-	constructor(
-		endpoint: string,
-		connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS,
-		responseTimeoutMs = DEFAULT_RESPONSE_TIMEOUT_MS
-	) {
+	constructor( endpoint: string, connectTimeoutMs = DEFAULT_CONNECT_TIMEOUT_MS ) {
 		this.endpoint = endpoint;
 		this.connectTimeoutMs = connectTimeoutMs;
-		this.responseTimeoutMs = responseTimeoutMs;
 	}
 
 	send( message: unknown ): Promise< void > {
@@ -255,13 +245,8 @@ export class SocketRequestClient {
 
 	private async sendAndReadFromSocket( socket: net.Socket, payload: Buffer ): Promise< unknown > {
 		const decoder = new SocketMessageDecoder();
-		let timeoutId: NodeJS.Timeout;
 
 		return new Promise< unknown >( ( resolve, reject ) => {
-			timeoutId = setTimeout( () => {
-				reject( new Error( `Socket response timeout: ${ this.endpoint }` ) );
-				socket.destroy();
-			}, this.responseTimeoutMs );
 			socket.once( 'error', ( error ) => {
 				reject( error );
 			} );
@@ -284,7 +269,6 @@ export class SocketRequestClient {
 			}
 			socket.write( payload );
 		} ).finally( () => {
-			clearTimeout( timeoutId );
 			socket.removeAllListeners();
 			socket.end();
 		} );

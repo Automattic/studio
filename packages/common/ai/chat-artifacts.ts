@@ -45,6 +45,11 @@ export function isRecord( value: unknown ): value is Record< string, unknown > {
 const MEDIA_WIDGET_PAYLOAD_MARKERS = [ 'mediaWidgetPayload=', 'mediaWidgetPayloads=' ] as const;
 
 export function stripMediaWidgetPayloadLines( text: string ): string {
+	// Fast path: new sessions never contain the markers, and this runs over
+	// every tool result on each conversation render.
+	if ( ! text.includes( 'mediaWidgetPayload' ) ) {
+		return text;
+	}
 	return text
 		.split( '\n' )
 		.filter(

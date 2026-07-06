@@ -3,6 +3,17 @@
 	flex-direction: column;
 }
 
+.usageCapBanner {
+	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
+	margin-bottom: var(--wpds-dimension-padding-sm);
+	border-radius: 8px;
+	background-color: var(--color-frame-surface);
+	border: 1px solid var(--color-frame-error);
+	color: var(--color-frame-error);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
+}
+
 .shell {
 	display: flex;
 	flex-direction: column;

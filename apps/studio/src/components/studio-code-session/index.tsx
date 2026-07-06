@@ -251,6 +251,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		isInterrupting,
 		startedAt,
 		error: runError,
+		usageCapReached,
 		pendingQuestions,
 		pendingAnswers,
 		answeredQuestions,
@@ -391,7 +392,8 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 						<Composer
 							busy={ composerBusy }
 							isInterrupting={ isInterrupting }
-							error={ runError }
+							error={ usageCapReached ? null : runError }
+							usageCapMessage={ usageCapReached ? runError : null }
 							model={ currentModel }
 							onSend={ sendMessage }
 							onInterrupt={ interrupt }

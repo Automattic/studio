@@ -66,6 +66,7 @@ export interface LiveAgentEvents {
 	isInterrupting: boolean;
 	startedAt: number | null;
 	error: string | null;
+	usageCapReached: boolean;
 	pendingQuestions: PendingQuestion[];
 	// Accumulated answers for the current batch, keyed by question text.
 	// The user can re-click an option to change their pick until every
@@ -97,6 +98,7 @@ interface State {
 	runId: string | null;
 	startedAt: number | null;
 	error: string | null;
+	usageCapReached: boolean;
 	isInterrupting: boolean;
 	pendingQuestions: PendingQuestion[];
 	pendingAnswers: Record< string, string >;
@@ -109,6 +111,7 @@ const initialState: State = {
 	runId: null,
 	startedAt: null,
 	error: null,
+	usageCapReached: false,
 	isInterrupting: false,
 	pendingQuestions: [],
 	pendingAnswers: {},
@@ -120,7 +123,7 @@ type Action =
 	| { type: 'hydrate_active_run'; runId: string; startedAt: number; interrupting: boolean }
 	| { type: 'send_pending'; startedAt: number }
 	| { type: 'send_start'; runId: string; startedAt: number }
-	| { type: 'error_set'; message: string | null }
+	| { type: 'error_set'; message: string | null; usageCapReached?: boolean }
 	| { type: 'turn_completed' }
 	| { type: 'run_ended' }
 	| { type: 'interrupt_requested' }
@@ -162,7 +165,7 @@ function reducer( state: State, action: Action ): State {
 				isInterrupting: false,
 			};
 		case 'error_set':
-			return { ...state, error: action.message };
+			return { ...state, error: action.message, usageCapReached: action.usageCapReached ?? false };
 		case 'turn_completed':
 			return {
 				...state,
@@ -345,12 +348,17 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					} );
 					return;
 				case 'error': {
-					const message = isUsageCapError( event.message )
+					const isUsageCap = isUsageCapError( event.message );
+					const message = isUsageCap
 						? __(
 								'You\u2019ve reached your AI usage limit. Try again later or use your own Anthropic API key via the CLI (/provider).'
 						  )
 						: event.message;
-					dispatchSession( payload.sessionId, { type: 'error_set', message } );
+					dispatchSession( payload.sessionId, {
+						type: 'error_set',
+						message,
+						usageCapReached: isUsageCap,
+					} );
 					return;
 				}
 				case 'turn.completed':
@@ -526,8 +534,14 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					if ( idx === -1 ) return entries;
 					return [ ...entries.slice( 0, idx ), ...entries.slice( idx + 1 ) ];
 				} );
-				const message = err instanceof Error ? err.message : String( err );
-				dispatchSession( sessionId, { type: 'error_set', message } );
+				const rawMessage = err instanceof Error ? err.message : String( err );
+				const isUsageCap = isUsageCapError( rawMessage );
+				const message = isUsageCap
+					? __(
+							'You\u2019ve reached your AI usage limit. Try again later or use your own Anthropic API key via the CLI (/provider).'
+					  )
+					: rawMessage;
+				dispatchSession( sessionId, { type: 'error_set', message, usageCapReached: isUsageCap } );
 				throw err;
 			}
 		},
@@ -630,6 +644,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		phase,
 		startedAt,
 		error,
+		usageCapReached,
 		isInterrupting,
 		pendingQuestions,
 		pendingAnswers,
@@ -730,6 +745,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		isInterrupting,
 		startedAt,
 		error,
+		usageCapReached,
 		pendingQuestions,
 		pendingAnswers,
 		answeredQuestions,

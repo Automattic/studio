@@ -62,7 +62,7 @@ before_all do |_lane|
 end
 
 desc 'Download the development signing certificates to this machine'
-lane :set_up_signing do |_options|
+lane :set_up_signing do
   sync_code_signing(
     platform: 'macos',
     app_identifier: APPLE_BUNDLE_IDENTIFIER,
@@ -125,7 +125,7 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
 end
 
 desc 'Ship the binary to internal testers'
-lane :distribute_dev_build do |_options|
+lane :distribute_dev_build do
   distribute_builds
 end
 

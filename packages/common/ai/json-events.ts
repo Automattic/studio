@@ -1,4 +1,5 @@
 import type { StudioChatArtifactData } from './chat-artifacts';
+import type { PermissionRequestData } from './tool-permissions';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 export type TurnCompletedStatus = 'success' | 'error' | 'paused' | 'max_turns';
@@ -35,6 +36,14 @@ export type JsonEvent =
 				question: string;
 				options: Array< { label: string; description: string } >;
 			} >;
+	  }
+	| {
+			// A gated tool call is blocked awaiting user confirmation. Deliberately
+			// distinct from `question.asked`: renderers style it as a warning, offer
+			// fixed decisions instead of options, and treat dismissal as deny.
+			type: 'permission.requested';
+			timestamp: string;
+			request: PermissionRequestData;
 	  }
 	| { type: 'turn.started'; timestamp: string }
 	| {

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { stubRuntime } from './stub-runtime';
 import type { AgentProcess, AgentRuntime } from './runtime';
 import type { ActiveAgentRun, AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 
 /**
  * Headless analog of the desktop `run-manager` (apps/studio/src/modules/
@@ -153,4 +154,16 @@ export function answerAgentRun( runId: string, answers: Record< string, string >
 		return;
 	}
 	run.process.answer( answers );
+}
+
+export function answerAgentPermission(
+	runId: string,
+	requestId: string,
+	decision: PermissionDecision
+): void {
+	const run = runsById.get( runId );
+	if ( ! run ) {
+		return;
+	}
+	run.process.answerPermission( requestId, decision );
 }

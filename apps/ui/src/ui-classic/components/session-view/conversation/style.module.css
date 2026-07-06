@@ -52,12 +52,26 @@
 	display: inline-flex;
 }
 
-.userAttachmentThumb {
-	max-width: 160px;
-	max-height: 160px;
+/* Shared thumbnail treatment for every conversation image — user uploads
+   and agent screenshots render identically and open a lightbox on click. */
+.chatImageButton {
+	display: inline-flex;
+	padding: 0;
+	border-radius: var(--wpds-border-radius-md, 8px);
+	cursor: zoom-in;
+}
+
+.chatImageThumb {
+	display: block;
+	width: 200px;
+	height: 130px;
 	border-radius: var(--wpds-border-radius-md, 8px);
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
 	object-fit: cover;
+	/* Screenshots are usually taller than the thumb; anchor the crop to the
+	   top so it shows the top of the page rather than dead center. */
+	object-position: top;
 }
 
 .userText {
@@ -243,31 +257,18 @@
 }
 
 .mediaArtifactGrid {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+	display: flex;
+	flex-wrap: wrap;
 	gap: var(--wpds-dimension-padding-sm);
-	width: min(100%, 680px);
 }
 
-.mediaArtifactItem {
-	margin: 0;
-	min-width: 0;
-}
-
-.mediaArtifactImage {
-	display: block;
-	width: 100%;
-	max-height: min(520px, 58vh);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: var(--wpds-border-radius-md, 8px);
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
-	object-fit: contain;
-}
-
+/* Placeholders sized like the shared image thumb so loading → loaded
+   doesn't shift the layout. */
 .mediaArtifactLoading,
 .mediaArtifactUnavailable {
 	box-sizing: border-box;
-	min-height: 180px;
+	width: 200px;
+	height: 130px;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral);
 	border-radius: var(--wpds-border-radius-md, 8px);
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
@@ -288,9 +289,10 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: var(--wpds-dimension-padding-md);
+	padding: var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
+	text-align: center;
 }
 
 @keyframes toolDetailsExpand {
@@ -644,4 +646,53 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
+}
+
+/* Gated-tool confirmation card: a borderless surface; the red confirm
+   button carries the destructive signal. Once resolved it collapses to a
+   tool-call-style row (see PermissionRequest). */
+.permission {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	padding: var(--wpds-dimension-padding-lg);
+	border-radius: var(--wpds-border-radius-md, 6px);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.permissionTitle {
+	margin: 0;
+	font-weight: 600;
+	color: var(--wpds-color-fg-content-neutral);
+	text-wrap: balance;
+}
+
+.permissionConsequence {
+	margin: 0;
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	text-wrap: pretty;
+}
+
+.permissionActions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-padding-md);
+	margin-top: var(--wpds-dimension-padding-lg);
+}
+
+.permissionActions > * {
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+/* Destructive confirm: remap the Button's custom properties to the theme's
+   error tokens, the same way the wpds AlertDialog styles its irreversible
+   confirm action. */
+.permissionConfirmButton {
+	--wp-ui-button-background-color: var(--wpds-color-bg-interactive-error-strong);
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-interactive-error-strong-active);
+	--wp-ui-button-foreground-color: var(--wpds-color-fg-interactive-error-strong);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-interactive-error-strong-active);
 }

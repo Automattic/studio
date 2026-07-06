@@ -27,10 +27,13 @@ import type {
 	SupportedTerminal,
 	SyncableWpcomSitesPage,
 	SyncSite,
+	ToolPermissionOverrides,
 	UserSettingsEventTab,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { AiModelId } from '@studio/common/ai/models';
+import type { AiResponseLength } from '@studio/common/ai/response-length';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 
 function generateBackupFilename( siteName: string ): string {
@@ -861,6 +864,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.answerAiAgentQuestion( runId, answers );
 		},
 
+		async answerAgentPermission( runId, requestId, decision ) {
+			await ipcApi.answerAiAgentPermission( runId, requestId, decision );
+		},
+
 		async setSessionEnvironment( sessionId, environment ) {
 			const result = ( await ipcApi.setSessionEnvironment( sessionId, environment ) ) as {
 				environment: 'local' | 'live';
@@ -918,6 +925,9 @@ export function createIpcConnector(): Connector {
 				studioCliInstalled,
 				agenticFeaturesEnabled,
 				chatNotificationsEnabled,
+				agentResponseLength,
+				defaultAiModel,
+				toolPermissions,
 			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
@@ -927,6 +937,9 @@ export function createIpcConnector(): Connector {
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.getAgenticFeaturesEnabled(),
 				ipcApi.getChatNotificationsEnabled(),
+				ipcApi.getAgentResponseLength(),
+				ipcApi.getDefaultAiModel(),
+				ipcApi.getToolPermissions(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
@@ -936,6 +949,9 @@ export function createIpcConnector(): Connector {
 				boolean,
 				boolean,
 				boolean,
+				AiResponseLength,
+				AiModelId,
+				ToolPermissionOverrides,
 			];
 			return {
 				editor,
@@ -946,6 +962,9 @@ export function createIpcConnector(): Connector {
 				studioCliInstalled,
 				agenticFeaturesEnabled,
 				chatNotificationsEnabled,
+				agentResponseLength,
+				defaultAiModel,
+				toolPermissions,
 			};
 		},
 
@@ -982,6 +1001,19 @@ export function createIpcConnector(): Connector {
 				typeof partial.chatNotificationsEnabled === 'boolean'
 			) {
 				writes.push( ipcApi.saveChatNotificationsEnabled( partial.chatNotificationsEnabled ) );
+			}
+			if ( 'agentResponseLength' in partial && partial.agentResponseLength ) {
+				writes.push( ipcApi.saveAgentResponseLength( partial.agentResponseLength ) );
+			}
+			if ( 'defaultAiModel' in partial && partial.defaultAiModel ) {
+				writes.push( ipcApi.saveDefaultAiModel( partial.defaultAiModel ) );
+			}
+			if ( 'toolPermissions' in partial && partial.toolPermissions ) {
+				for ( const [ toolName, level ] of Object.entries( partial.toolPermissions ) ) {
+					if ( level ) {
+						writes.push( ipcApi.saveToolPermission( toolName, level ) );
+					}
+				}
 			}
 			await Promise.all( writes );
 		},
@@ -1044,6 +1076,10 @@ export function createIpcConnector(): Connector {
 
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
+		},
+
+		async copyImage( pngDataUrl: string ): Promise< void > {
+			await ipcApi.copyImage( pngDataUrl );
 		},
 
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {

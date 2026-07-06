@@ -9,9 +9,13 @@ import type { AiSessionSummary, ChatNotification } from '@/data/core';
 import type { AgentRunSessionState } from '@/data/queries/use-agent-run';
 
 function countUnanswered( state: AgentRunSessionState ): number {
-	return state.pendingQuestions.filter(
-		( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
-	).length;
+	// Pending gated-tool permissions block the turn exactly like unanswered
+	// questions, so they count as "waiting for your input" too.
+	return (
+		state.pendingQuestions.filter(
+			( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
+		).length + state.pendingPermissions.length
+	);
 }
 
 function notificationTitle( sessions: AiSessionSummary[] | undefined, sessionId: string ): string {

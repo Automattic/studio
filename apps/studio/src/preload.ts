@@ -86,6 +86,7 @@ const api: IpcApi = {
 	stopServer: ( id ) => ipcRendererInvoke( 'stopServer', id ),
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
+	copyImage: ( pngDataUrl ) => ipcRendererInvoke( 'copyImage', pngDataUrl ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
@@ -170,6 +171,8 @@ const api: IpcApi = {
 	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
 	setWebviewColorScheme: ( webContentsId, colorScheme ) =>
 		ipcRendererInvoke( 'setWebviewColorScheme', webContentsId, colorScheme ),
+	setWebviewViewport: ( webContentsId, viewport ) =>
+		ipcRendererInvoke( 'setWebviewViewport', webContentsId, viewport ),
 	captureSiteScreenshot: ( webContentsId, options ) =>
 		ipcRendererInvoke( 'captureSiteScreenshot', webContentsId, options ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
@@ -183,6 +186,14 @@ const api: IpcApi = {
 	saveAgenticFeaturesEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'saveAgenticFeaturesEnabled', enabled ),
 	getAgenticFeaturesEnabled: () => ipcRendererInvoke( 'getAgenticFeaturesEnabled' ),
+	saveAgentResponseLength: ( responseLength ) =>
+		ipcRendererInvoke( 'saveAgentResponseLength', responseLength ),
+	getAgentResponseLength: () => ipcRendererInvoke( 'getAgentResponseLength' ),
+	getToolPermissions: () => ipcRendererInvoke( 'getToolPermissions' ),
+	saveToolPermission: ( toolName, level ) =>
+		ipcRendererInvoke( 'saveToolPermission', toolName, level ),
+	saveDefaultAiModel: ( model ) => ipcRendererInvoke( 'saveDefaultAiModel', model ),
+	getDefaultAiModel: () => ipcRendererInvoke( 'getDefaultAiModel' ),
 	saveChatNotificationsEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'saveChatNotificationsEnabled', enabled ),
 	getChatNotificationsEnabled: () => ipcRendererInvoke( 'getChatNotificationsEnabled' ),
@@ -247,6 +258,8 @@ const api: IpcApi = {
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
+	answerAiAgentPermission: ( runId, requestId, decision ) =>
+		ipcRendererInvoke( 'answerAiAgentPermission', runId, requestId, decision ),
 	setSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
 	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),

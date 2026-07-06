@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { createElement, useState } from 'react';
+import { createElement, useState, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Conversation, entriesToRenderItems } from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
@@ -17,8 +17,30 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: () => connectorMocks,
 } ) );
 
+// Minimal stand-ins for the wpds primitives: plain buttons that keep the
+// DOM props (className, aria-*, onClick) and drop the wpds-only ones.
+type MockButtonProps = {
+	children?: ReactNode;
+	label?: string;
+	icon?: unknown;
+	variant?: string;
+	nativeButton?: boolean;
+	render?: unknown;
+} & Record< string, unknown >;
+
 vi.mock( '@wordpress/ui', () => ( {
 	Icon: () => null,
+	Button: ( { children, variant: _v, nativeButton: _n, render: _r, ...props }: MockButtonProps ) =>
+		createElement( 'button', { type: 'button', ...props }, children ),
+	IconButton: ( {
+		label,
+		icon: _i,
+		variant: _v,
+		nativeButton: _n,
+		render: _r,
+		...props
+	}: MockButtonProps ) =>
+		createElement( 'button', { type: 'button', 'aria-label': label, ...props } ),
 } ) );
 
 beforeEach( () => {
@@ -495,7 +517,10 @@ function renderConversation( data: LoadedAiSession, options: RenderConversationO
 			startedAt: options.startedAt ?? null,
 			pendingQuestions: options.pendingQuestions ?? new Set< string >(),
 			pendingAnswers: options.pendingAnswers ?? {},
+			pendingPermissions: new Set< string >(),
+			answeredPermissions: {},
 			onAnswerQuestion: options.onAnswerQuestion ?? vi.fn(),
+			onAnswerPermission: vi.fn(),
 		} )
 	);
 }
@@ -531,10 +556,13 @@ function InteractiveConversation( {
 		startedAt: null,
 		pendingQuestions: new Set( pendingQuestionTexts ),
 		pendingAnswers,
+		pendingPermissions: new Set< string >(),
+		answeredPermissions: {},
 		onAnswerQuestion: ( question, label ) => {
 			onAnswerQuestion( question, label );
 			setPendingAnswers( ( answers ) => ( { ...answers, [ question ]: label } ) );
 		},
+		onAnswerPermission: () => {},
 	} );
 }
 
@@ -665,3 +693,65 @@ function mockPrefersReducedMotion( matches: boolean ) {
 		delete mutableWindow.matchMedia;
 	};
 }
+
+function assistantThinkingEntry( thinking: string ): SessionEntry {
+	return {
+		type: 'message',
+		id: 'assistant-thinking',
+		parentId: null,
+		timestamp: '2026-06-05T12:00:00.000Z',
+		message: {
+			role: 'assistant',
+			content: [
+				{ type: 'thinking', thinking },
+				{ type: 'text', text: 'The final answer.' },
+			],
+		},
+	} as unknown as SessionEntry;
+}
+
+describe( 'Conversation thinking rows', () => {
+	it( 'maps thinking blocks to render items before the answer text', () => {
+		const items = entriesToRenderItems( [ assistantThinkingEntry( 'Weighing two options.' ) ] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'thinking', 'assistant-text' ] );
+	} );
+
+	it( 'drops whitespace-only thinking blocks', () => {
+		const items = entriesToRenderItems( [ assistantThinkingEntry( '   \n  ' ) ] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'assistant-text' ] );
+	} );
+
+	it( 'labels the row with the duration derived from entry timestamps', () => {
+		const prior = {
+			type: 'custom',
+			id: 'prompt-entry',
+			parentId: null,
+			timestamp: '2026-06-05T11:59:57.000Z',
+			customType: 'studio.user_prompt',
+			data: { text: 'Question', source: 'prompt' },
+		} as unknown as SessionEntry;
+		const data = loadedSession( [ prior, assistantThinkingEntry( 'Reasoning.' ) ] );
+
+		renderConversation( data );
+
+		expect( screen.getByRole( 'button', { name: 'Thought for 3s' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'keeps the reasoning hidden until the row is clicked, like a tool row', () => {
+		const data = loadedSession( [
+			assistantThinkingEntry( 'First reasoning line.\nSecond reasoning line.' ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.queryByText( /Second reasoning line/ ) ).not.toBeInTheDocument();
+
+		const row = screen.getByRole( 'button', { name: 'Thinking…' } );
+		expect( row ).toHaveAttribute( 'aria-expanded', 'false' );
+
+		fireEvent.click( row );
+
+		expect( row ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( screen.getByText( /Second reasoning line/ ) ).toBeInTheDocument();
+	} );
+} );

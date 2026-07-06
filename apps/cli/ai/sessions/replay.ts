@@ -8,6 +8,8 @@ import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-type
 import { AiChatUI } from 'cli/ai/ui';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { StudioPermissionRequestData } from '@studio/common/ai/sessions/entry-types';
+import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 
 export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): void {
 	ui.prepareForReplay();
@@ -18,6 +20,15 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 		if ( pendingResults.length === 0 ) return;
 		ui.renderToolResults( pendingResults );
 		pendingResults = [];
+	};
+
+	// Permission requests pair with their response by id; a request whose
+	// response never landed (process died while waiting) renders as expired.
+	let pendingPermission: StudioPermissionRequestData | null = null;
+	const flushPendingPermission = ( decision?: PermissionDecision ) => {
+		if ( ! pendingPermission ) return;
+		ui.showPermissionRequest( pendingPermission, decision );
+		pendingPermission = null;
 	};
 
 	try {
@@ -70,6 +81,21 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 				continue;
 			}
 
+			if ( isStudioCustomEntryOfType( entry, 'studio.permission_request' ) ) {
+				flushPendingPermission();
+				pendingPermission = entry.data ?? null;
+				continue;
+			}
+
+			if ( isStudioCustomEntryOfType( entry, 'studio.permission_response' ) ) {
+				if ( pendingPermission && entry.data && entry.data.id === pendingPermission.id ) {
+					flushPendingPermission( entry.data.decision );
+				} else {
+					flushPendingPermission();
+				}
+				continue;
+			}
+
 			if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
 				flushPendingResults();
 				if ( isTurnOpen ) {
@@ -90,6 +116,7 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 			}
 		}
 		flushPendingResults();
+		flushPendingPermission();
 	} finally {
 		if ( isTurnOpen ) {
 			ui.endAgentTurn();

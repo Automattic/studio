@@ -27,7 +27,13 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import { type AiResponseLength } from '@studio/common/ai/response-length';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { createResponseLengthExtension } from 'cli/ai/extensions/response-length';
+import {
+	createToolPermissionsExtension,
+	type PermissionRequestHandler,
+} from 'cli/ai/extensions/tool-permissions';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
 import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
@@ -69,9 +75,13 @@ export interface StudioAgentTurnConfig {
 	session: SessionManager;
 	env?: Record< string, string >;
 	model?: AiModelId;
+	responseLength?: AiResponseLength;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: AskUserHandler;
+	// Blocking confirmation for gated tools (see the tool-permissions
+	// extension). When absent, gated tools fail closed instead of running.
+	onRequestPermission?: PermissionRequestHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }
 
@@ -287,6 +297,12 @@ async function createStudioAgentSession(
 		cwd: STUDIO_SITES_ROOT,
 		agentDir: STUDIO_AGENT_DIR,
 		settingsManager,
+		// Inline factories load even with `noExtensions` — that flag only
+		// disables filesystem extension discovery.
+		extensionFactories: [
+			createResponseLengthExtension( config.responseLength ),
+			createToolPermissionsExtension( { onRequestPermission: config.onRequestPermission } ),
+		],
 		noExtensions: true,
 		noSkills: true,
 		noPromptTemplates: true,
@@ -384,6 +400,42 @@ function escapePiConfigValue( value: string ): string {
 	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
 }
 
+// pi's `streamSimpleAnthropic` wrapper maps the simple `reasoning` level to
+// the low-level `thinkingEnabled`/`thinkingBudgetTokens` options — but it
+// builds its own SDK client, which would drop the wpcom bearer-auth client we
+// inject below. We call the low-level `streamAnthropic` instead, so we must
+// mirror that mapping here or extended thinking is silently never requested
+// (the low-level API ignores `reasoning`). Budgets match pi-ai's
+// `adjustMaxTokensForThinking` defaults (not exported).
+const THINKING_BUDGETS: Record< string, number > = {
+	minimal: 1024,
+	low: 2048,
+	medium: 8192,
+	high: 16384,
+};
+const MIN_VISIBLE_OUTPUT_TOKENS = 1024;
+
+function resolveThinkingOptions(
+	model: Model< 'anthropic-messages' >,
+	options?: SimpleStreamOptions
+): { thinkingEnabled: boolean; thinkingBudgetTokens?: number; maxTokens?: number } {
+	const reasoning = options?.reasoning;
+	if ( ! reasoning ) {
+		return { thinkingEnabled: false };
+	}
+	const level = reasoning === 'xhigh' ? 'high' : reasoning;
+	let thinkingBudget = THINKING_BUDGETS[ level ] ?? THINKING_BUDGETS.high;
+	const baseMaxTokens = options?.maxTokens;
+	const maxTokens =
+		baseMaxTokens === undefined
+			? model.maxTokens
+			: Math.min( baseMaxTokens + thinkingBudget, model.maxTokens );
+	if ( maxTokens <= thinkingBudget ) {
+		thinkingBudget = Math.max( 0, maxTokens - MIN_VISIBLE_OUTPUT_TOKENS );
+	}
+	return { thinkingEnabled: true, thinkingBudgetTokens: thinkingBudget, maxTokens };
+}
+
 function createWpcomAnthropicProviderConfig(
 	model: Model< 'anthropic-messages' >,
 	creds: ResolvedCredentials
@@ -407,6 +459,7 @@ function createWpcomAnthropicProviderConfig(
 				stripStaleImagesFromContext( ctx ),
 				{
 					...( options as AnthropicOptions | undefined ),
+					...resolveThinkingOptions( m as Model< 'anthropic-messages' >, options ),
 					client: clientForPi,
 				}
 			);

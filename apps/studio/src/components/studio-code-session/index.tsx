@@ -3,7 +3,7 @@ import {
 	isStudioCustomEntryOfType,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { check, chevronDown, Icon as WpIcon } from '@wordpress/icons';
@@ -252,24 +252,37 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		startedAt,
 		error: runError,
 		pendingQuestions,
+		pendingPermissions,
+		answeredPermissions,
 		pendingAnswers,
 		answeredQuestions,
 		queuedPrompts,
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		answerPermission,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 
+	// Sessions with no recorded model (fresh chats) start on the user's
+	// preferred default model rather than the built-in default.
+	const { data: preferredDefaultModel } = useQuery( {
+		queryKey: [ 'default-ai-model' ],
+		queryFn: () => getIpcApi().getDefaultAiModel(),
+	} );
 	const currentModel = useMemo(
-		() => resolveSessionModel( data?.entries ?? [] ),
-		[ data?.entries ]
+		() => resolveSessionModel( data?.entries ?? [], preferredDefaultModel ),
+		[ data?.entries, preferredDefaultModel ]
 	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
 	);
-	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const pendingPermissionIds = useMemo(
+		() => new Set( pendingPermissions.map( ( request ) => request.id ) ),
+		[ pendingPermissions ]
+	);
+	const composerBusy = hasActiveRun || pendingQuestions.length > 0 || pendingPermissions.length > 0;
 	const scrollRef = useRef< HTMLDivElement >( null );
 	// Whether new content should keep the view pinned to the bottom. Disabled
 	// when the user scrolls up to read history, re-enabled when they return.
@@ -420,7 +433,10 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							pendingQuestions={ pendingQuestionTexts }
 							pendingAnswers={ pendingAnswers }
 							answeredQuestions={ answeredQuestions }
+							pendingPermissions={ pendingPermissionIds }
+							answeredPermissions={ answeredPermissions }
 							onAnswerQuestion={ answerQuestion }
+							onAnswerPermission={ answerPermission }
 						/>
 					) }
 				</div>

@@ -232,3 +232,76 @@
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
 }
+
+/* Gated-tool confirmation card: a borderless surface; the red confirm
+   button carries the destructive signal. Once resolved it collapses to a
+   tool-call-style row (see PermissionRequest). */
+.permission {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	padding: var(--wpds-dimension-padding-md);
+	border-radius: 6px;
+	background-color: var(--color-frame-surface);
+}
+
+.permissionTitle {
+	margin: 0;
+	font-weight: 600;
+	color: var(--color-frame-text);
+	text-wrap: balance;
+}
+
+.permissionConsequence {
+	margin: 0;
+	line-height: var(--wpds-typography-line-height-sm);
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-sm);
+	text-wrap: pretty;
+}
+
+.permissionActions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-padding-md);
+	margin-top: var(--wpds-dimension-padding-md);
+}
+
+.permissionAction {
+	display: inline-flex;
+	align-items: center;
+	white-space: nowrap;
+	flex-shrink: 0;
+	background-color: var(--color-frame-bg);
+	border: 1px solid var(--color-frame-border);
+	border-radius: 6px;
+	padding: 4px 10px;
+	color: var(--color-frame-text);
+	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
+	cursor: pointer;
+	transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.permissionAction:hover,
+.permissionAction:focus-visible {
+	background-color: var(--color-frame-surface-alt);
+	border-color: var(--color-frame-text-secondary);
+}
+
+/* Destructive confirm: the error color carries the "this deletes things"
+   signal now that the card itself is plain. */
+.permissionActionConfirm {
+	font-weight: 600;
+	background-color: var(--color-frame-error);
+	border-color: var(--color-frame-error);
+	color: #fff;
+}
+
+.permissionActionConfirm:hover,
+.permissionActionConfirm:focus-visible {
+	background-color: var(--color-frame-error);
+	border-color: var(--color-frame-error);
+	opacity: 0.85;
+}

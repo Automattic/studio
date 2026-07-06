@@ -1,3 +1,4 @@
+import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import type {
@@ -386,6 +387,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				body: JSON.stringify( { answers } ),
 			} );
 		},
+		async answerAgentPermission( runId, requestId, decision ) {
+			await api( `/runs/${ encodeURIComponent( runId ) }/permission`, {
+				method: 'POST',
+				body: JSON.stringify( { requestId, decision } ),
+			} );
+		},
 		async setSessionEnvironment( _sessionId, environment ) {
 			// The agent always acts on the backend's local runtime.
 			return { environment };
@@ -434,6 +441,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				studioCliInstalled: false,
 				agenticFeaturesEnabled: true,
 				chatNotificationsEnabled: true,
+				agentResponseLength: 'normal',
+				defaultAiModel: DEFAULT_MODEL,
+				toolPermissions: {},
 			};
 		},
 		async setUserPreferences() {
@@ -483,6 +493,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
+		},
+		async copyImage( pngDataUrl ) {
+			const blob = await ( await fetch( pngDataUrl ) ).blob();
+			await navigator.clipboard.write( [ new ClipboardItem( { 'image/png': blob } ) ] );
 		},
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );

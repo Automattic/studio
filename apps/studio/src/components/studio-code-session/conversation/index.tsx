@@ -8,7 +8,7 @@ import {
 	getToolDisplayName,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
@@ -18,6 +18,7 @@ import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { PermissionDecision, PermissionRequestData } from '@studio/common/ai/tool-permissions';
 
 type RenderItem =
 	| {
@@ -27,6 +28,7 @@ type RenderItem =
 			attachments?: StudioChatAttachmentSummary[];
 	  }
 	| { kind: 'assistant-text'; key: string; text: string }
+	| { kind: 'thinking'; key: string; text: string; durationMs?: number }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -41,11 +43,20 @@ type RenderItem =
 			options: Array< { label: string; description: string } >;
 			answer?: string;
 	  }
+	| {
+			kind: 'permission-request';
+			key: string;
+			request: PermissionRequestData;
+			// Disk-backed decision paired by request id; undefined while pending
+			// (or forever, if the session died before the user answered).
+			decision?: PermissionDecision;
+	  }
 	| { kind: 'interrupted-marker'; key: string };
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
 	text?: string;
+	thinking?: string;
 	id?: string;
 	name?: string;
 	arguments?: Record< string, unknown >;
@@ -64,6 +75,35 @@ interface PiToolResultLike {
 }
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present' ] );
+
+function getEntryTimestampMs( entry: SessionEntry | undefined ): number | null {
+	const raw = ( entry as { timestamp?: unknown } | undefined )?.timestamp;
+	if ( typeof raw !== 'string' ) {
+		return null;
+	}
+	const parsed = Date.parse( raw );
+	return Number.isFinite( parsed ) ? parsed : null;
+}
+
+// "Thought for 3s" from the gap between the previous entry and the assistant
+// message carrying the thinking block — the closest the transcript gets to
+// the model's thinking time (pi doesn't persist per-block durations).
+function getThinkingLabel( durationMs?: number ): string {
+	if ( ! durationMs || durationMs > 60 * 60 * 1000 ) {
+		return __( 'Thinking…' );
+	}
+	const totalSeconds = Math.max( 1, Math.round( durationMs / 1000 ) );
+	if ( totalSeconds < 60 ) {
+		/* translators: %d: number of seconds the agent spent thinking */
+		return sprintf( __( 'Thought for %ds' ), totalSeconds );
+	}
+	return sprintf(
+		/* translators: 1: minutes, 2: seconds the agent spent thinking */
+		__( 'Thought for %1$dm %2$ds' ),
+		Math.floor( totalSeconds / 60 ),
+		totalSeconds % 60
+	);
+}
 
 export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
@@ -104,6 +144,17 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	// only if that case ever shows wrong highlights.
 	let questionOrdinal = 0;
 
+	// Permission decisions pair with their request by id (no ordinal fragility).
+	const permissionDecisionsById = new Map< string, PermissionDecision >();
+	for ( const entry of entries ) {
+		if ( isStudioCustomEntryOfType( entry, 'studio.permission_response' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.permission_response' > ).data;
+			if ( data ) {
+				permissionDecisionsById.set( data.id, data.decision );
+			}
+		}
+	}
+
 	const items: RenderItem[] = [];
 	entries.forEach( ( entry, entryIndex ) => {
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
@@ -125,6 +176,12 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			if ( ! message || message.role !== 'assistant' || ! Array.isArray( message.content ) ) {
 				return;
 			}
+			const startedMs = getEntryTimestampMs( entries[ entryIndex - 1 ] );
+			const endedMs = getEntryTimestampMs( entry );
+			const thinkingDurationMs =
+				startedMs !== null && endedMs !== null && endedMs > startedMs
+					? endedMs - startedMs
+					: undefined;
 			message.content.forEach( ( block, blockIndex ) => {
 				if ( block.type === 'text' && typeof block.text === 'string' ) {
 					const text = block.text.trim();
@@ -133,6 +190,16 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+						} );
+					}
+				} else if ( block.type === 'thinking' && typeof block.thinking === 'string' ) {
+					const text = block.thinking.trim();
+					if ( text ) {
+						items.push( {
+							kind: 'thinking',
+							key: `${ entryIndex }:${ blockIndex }:thinking`,
+							text,
+							durationMs: thinkingDurationMs,
 						} );
 					}
 				} else if (
@@ -164,6 +231,18 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				answer: askUserAnswers[ questionOrdinal ],
 			} );
 			questionOrdinal += 1;
+			return;
+		}
+
+		if ( isStudioCustomEntryOfType( entry, 'studio.permission_request' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.permission_request' > ).data;
+			if ( ! data ) return;
+			items.push( {
+				kind: 'permission-request',
+				key: `${ entryIndex }:permission`,
+				request: data,
+				decision: permissionDecisionsById.get( data.id ),
+			} );
 			return;
 		}
 
@@ -276,6 +355,37 @@ function ToolUseRow( {
 	);
 }
 
+// The model's extended-thinking block, presented like a tool call: a label
+// row with the reasoning as collapsible output.
+function ThinkingRow( { text, durationMs }: { text: string; durationMs?: number } ) {
+	const [ expanded, setExpanded ] = useState( false );
+	const isLong = text.split( '\n' ).length > TOOL_RESULT_PREVIEW_MAX_LINES;
+
+	return (
+		<div className={ styles.toolBlock }>
+			<div className={ styles.toolRow }>
+				<span className={ styles.toolLabel }>{ getThinkingLabel( durationMs ) }</span>
+			</div>
+			<div className={ styles.toolOutputWrap }>
+				<pre
+					className={ cx( styles.toolOutput, ! expanded && isLong && styles.toolOutputCollapsed ) }
+				>
+					{ text }
+				</pre>
+				{ isLong ? (
+					<button
+						type="button"
+						className={ styles.toolOutputToggle }
+						onClick={ () => setExpanded( ( prev ) => ! prev ) }
+					>
+						{ expanded ? __( 'Show less' ) : __( 'Show more' ) }
+					</button>
+				) : null }
+			</div>
+		</div>
+	);
+}
+
 function AgentQuestion( {
 	question,
 	options,
@@ -316,6 +426,79 @@ function AgentQuestion( {
 	);
 }
 
+function PermissionRequest( {
+	request,
+	isInteractive,
+	decision,
+	onDecide,
+}: {
+	request: PermissionRequestData;
+	// Live pending request from the active run; everything else renders as a
+	// resolved (or expired) record.
+	isInteractive: boolean;
+	decision: PermissionDecision | undefined;
+	onDecide: ( decision: PermissionDecision ) => void;
+} ) {
+	// Resolved (or expired) requests collapse to a tool-call-style row — the
+	// full card is only for the decision that's actually being made.
+	if ( ! isInteractive ) {
+		let label: string = __( 'Permission request expired' );
+		if ( decision === 'deny' ) {
+			label = request.deniedLabel ?? __( 'Permission denied' );
+		} else if ( decision !== undefined ) {
+			label = request.allowedLabel ?? __( 'Permission granted' );
+		}
+		return (
+			<div className={ styles.toolBlock }>
+				<div className={ styles.toolRow }>
+					<span className={ styles.toolLabel }>{ label }</span>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div className={ styles.permission } role="alertdialog">
+			<p className={ styles.permissionTitle }>{ request.title }</p>
+			{ request.consequences.map( ( line, index ) => (
+				<p key={ index } className={ styles.permissionConsequence }>
+					{ line }
+				</p>
+			) ) }
+			<div className={ styles.permissionActions }>
+				<button
+					type="button"
+					className={ cx( styles.permissionAction, styles.permissionActionConfirm ) }
+					onClick={ () => onDecide( 'allow_once' ) }
+				>
+					{ __( 'Yes, go ahead' ) }
+				</button>
+				{ request.allowAlways ? (
+					<button
+						type="button"
+						className={ styles.permissionAction }
+						onClick={ () => onDecide( 'always_allow' ) }
+						title={ sprintf(
+							/* translators: %s: what will be allowed without asking again (e.g. "pushing sites to WordPress.com") */
+							__( 'Stop asking before %s. You can change this in Settings.' ),
+							request.actionLabel
+						) }
+					>
+						{ __( 'Always allow' ) }
+					</button>
+				) : null }
+				<button
+					type="button"
+					className={ cx( styles.permissionAction, styles.permissionActionDeny ) }
+					onClick={ () => onDecide( 'deny' ) }
+				>
+					{ __( 'No, stop' ) }
+				</button>
+			</div>
+		</div>
+	);
+}
+
 export function Conversation( {
 	data,
 	isRunning,
@@ -323,7 +506,10 @@ export function Conversation( {
 	pendingQuestions,
 	pendingAnswers,
 	answeredQuestions,
+	pendingPermissions,
+	answeredPermissions,
 	onAnswerQuestion,
+	onAnswerPermission,
 }: {
 	data: LoadedAiSession;
 	isRunning: boolean;
@@ -331,7 +517,12 @@ export function Conversation( {
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
 	answeredQuestions: Record< string, string >;
+	// Ids of gated tool calls awaiting a decision on the active run.
+	pendingPermissions: Set< string >;
+	// Decisions sent this session, keyed by request id (bridges the disk lag).
+	answeredPermissions: Record< string, PermissionDecision >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
+	onAnswerPermission: ( requestId: string, decision: PermissionDecision ) => void;
 } ) {
 	const entries = data.entries;
 	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
@@ -346,6 +537,10 @@ export function Conversation( {
 						);
 					case 'assistant-text':
 						return <AssistantText key={ item.key } text={ item.text } />;
+					case 'thinking':
+						return (
+							<ThinkingRow key={ item.key } text={ item.text } durationMs={ item.durationMs } />
+						);
 					case 'tool-use':
 						return (
 							<ToolUseRow
@@ -370,6 +565,16 @@ export function Conversation( {
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 							/>
 						);
+					case 'permission-request':
+						return (
+							<PermissionRequest
+								key={ item.key }
+								request={ item.request }
+								isInteractive={ pendingPermissions.has( item.request.id ) }
+								decision={ answeredPermissions[ item.request.id ] ?? item.decision }
+								onDecide={ ( decision ) => onAnswerPermission( item.request.id, decision ) }
+							/>
+						);
 					case 'interrupted-marker':
 						return (
 							<div key={ item.key } className={ styles.interruptedMarker } role="status">
@@ -381,7 +586,7 @@ export function Conversation( {
 				}
 			} ) }
 			<ThinkingIndicator
-				active={ isRunning && pendingQuestions.size === 0 }
+				active={ isRunning && pendingQuestions.size === 0 && pendingPermissions.size === 0 }
 				startedAt={ startedAt }
 			/>
 		</div>

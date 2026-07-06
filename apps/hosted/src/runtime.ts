@@ -1,4 +1,5 @@
 import type { JsonEvent } from '@studio/common/ai/json-events';
+import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 
 /**
  * Where the agent actually runs, behind a seam.
@@ -38,6 +39,8 @@ export interface AgentProcess {
 	kill(): void;
 	// Deliver answers to a question the agent asked.
 	answer( answers: Record< string, string > ): void;
+	// Resolve a pending gated-tool permission request.
+	answerPermission( requestId: string, decision: PermissionDecision ): void;
 }
 
 export interface AgentRuntime {

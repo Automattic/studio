@@ -4,6 +4,7 @@
 
 import type { StudioChatArtifactData } from '../chat-artifacts';
 import type { StudioChatImageAttachment } from '../chat-images';
+import type { PermissionDecision, PermissionRequestData } from '../tool-permissions';
 import type { CustomEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export type StudioCustomEntryType =
@@ -13,7 +14,9 @@ export type StudioCustomEntryType =
 	| 'studio.agent_question'
 	| 'studio.turn_closed'
 	| 'studio.session_context'
-	| 'studio.user_prompt';
+	| 'studio.user_prompt'
+	| 'studio.permission_request'
+	| 'studio.permission_response';
 
 export interface StudioSiteSelectedData {
 	siteName: string;
@@ -74,6 +77,17 @@ export interface StudioUserPromptData {
 	attachments?: StudioChatAttachmentSummary[];
 }
 
+// A gated tool call awaiting user confirmation. Appended before the user is
+// asked; paired with a `studio.permission_response` by `id`. A request with no
+// paired response renders as expired (the process that was waiting is gone and
+// the tool did not run) — never as re-answerable.
+export type StudioPermissionRequestData = PermissionRequestData;
+
+export interface StudioPermissionResponseData {
+	id: string;
+	decision: PermissionDecision;
+}
+
 export interface StudioCustomEntryDataMap {
 	'studio.site_selected': StudioSiteSelectedData;
 	'studio.tool_progress': StudioToolProgressData;
@@ -82,6 +96,8 @@ export interface StudioCustomEntryDataMap {
 	'studio.turn_closed': StudioTurnClosedData;
 	'studio.session_context': StudioSessionContextData;
 	'studio.user_prompt': StudioUserPromptData;
+	'studio.permission_request': StudioPermissionRequestData;
+	'studio.permission_response': StudioPermissionResponseData;
 }
 
 export type StudioCustomEntry< T extends StudioCustomEntryType = StudioCustomEntryType > = Omit<

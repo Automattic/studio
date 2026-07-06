@@ -6,6 +6,7 @@ import {
 	app,
 	clipboard,
 	dialog,
+	nativeImage,
 	nativeTheme,
 	shell,
 	webContents,
@@ -155,6 +156,7 @@ import {
 	type SkillStatus,
 } from 'src/modules/agent-instructions/lib/skills';
 import {
+	answerAgentPermission,
 	answerAgentRun,
 	interruptAgentRun,
 	listActiveAgentRuns,
@@ -190,6 +192,7 @@ import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { Ignore } from 'ignore';
 import type { WpCliResult } from 'src/site-server';
@@ -235,18 +238,24 @@ export {
 export {
 	dismissMessage,
 	getAgenticFeaturesEnabled,
+	getAgentResponseLength,
 	getChatNotificationsEnabled,
 	getColorScheme,
+	getDefaultAiModel,
 	getDismissedMessages,
 	getInstalledAppsAndTerminals,
+	getToolPermissions,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
 	getWapuuScore,
 	previewColorScheme,
 	saveAgenticFeaturesEnabled,
+	saveAgentResponseLength,
 	saveChatNotificationsEnabled,
 	saveColorScheme,
+	saveDefaultAiModel,
+	saveToolPermission,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -517,6 +526,15 @@ export async function answerAiAgentQuestion(
 	answers: Record< string, string >
 ): Promise< void > {
 	answerAgentRun( runId, answers );
+}
+
+export async function answerAiAgentPermission(
+	_event: IpcMainInvokeEvent,
+	runId: string,
+	requestId: string,
+	decision: PermissionDecision
+): Promise< void > {
+	answerAgentPermission( runId, requestId, decision );
 }
 
 export async function getAgentInstructionsStatus(
@@ -1284,6 +1302,14 @@ export function copyText( event: IpcMainInvokeEvent, text: string ) {
 	return clipboard.writeText( text );
 }
 
+export async function copyImage( event: IpcMainInvokeEvent, pngDataUrl: string ) {
+	const image = nativeImage.createFromDataURL( pngDataUrl );
+	if ( image.isEmpty() ) {
+		throw new Error( 'Could not decode image data URL' );
+	}
+	clipboard.writeImage( image );
+}
+
 export function getAppGlobals(): AppGlobals {
 	return {
 		platform: process.platform,
@@ -1433,13 +1459,22 @@ export async function readLocalMediaFile(
 	};
 }
 
+// `area: 'viewport'` captures just the visible viewport at the surface's
+// native resolution (CSS size × device scale factor). The default captures
+// the full page height at 1x. Note the DevTools `clip` parameter is NOT
+// used for viewport captures: it silently produces blank images for
+// webview guests, so callers needing a region must crop the viewport
+// capture themselves.
 export async function captureSiteScreenshot(
 	event: IpcMainInvokeEvent,
 	webContentsId: number,
-	options: { colorScheme?: 'light' | 'dark' } = {}
+	options: { colorScheme?: 'light' | 'dark'; area?: 'viewport' | 'fullPage' } = {}
 ): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
 	if ( options.colorScheme && options.colorScheme !== 'light' && options.colorScheme !== 'dark' ) {
 		throw new Error( 'Unsupported screenshot color scheme.' );
+	}
+	if ( options.area && options.area !== 'viewport' && options.area !== 'fullPage' ) {
+		throw new Error( 'Unsupported screenshot area.' );
 	}
 
 	const target = getOwnedWebviewContents( event, webContentsId );
@@ -1450,37 +1485,46 @@ export async function captureSiteScreenshot(
 		} );
 	}
 
-	const metrics = await sendDebuggerCommand< {
-		contentSize: { width: number; height: number };
-		cssLayoutViewport?: { clientWidth: number };
-		cssVisualViewport?: { clientWidth: number };
-		cssContentSize?: { width: number; height: number };
-	} >( target, 'Page.getLayoutMetrics' );
-	const width = Math.ceil(
-		metrics.cssLayoutViewport?.clientWidth ??
-			metrics.cssVisualViewport?.clientWidth ??
-			metrics.cssContentSize?.width ??
-			metrics.contentSize.width
-	);
-	const height = Math.ceil( metrics.cssContentSize?.height ?? metrics.contentSize.height );
-	if ( width <= 0 || height <= 0 ) {
-		throw new Error( 'Preview page has no visible content to capture.' );
+	const isViewport = options.area === 'viewport';
+	let captureParams: Record< string, unknown > = {
+		format: 'jpeg',
+		quality: 80,
+		captureBeyondViewport: false,
+	};
+	if ( ! isViewport ) {
+		const metrics = await sendDebuggerCommand< {
+			contentSize: { width: number; height: number };
+			cssLayoutViewport?: { clientWidth: number };
+			cssVisualViewport?: { clientWidth: number };
+			cssContentSize?: { width: number; height: number };
+		} >( target, 'Page.getLayoutMetrics' );
+		const width = Math.ceil(
+			metrics.cssLayoutViewport?.clientWidth ??
+				metrics.cssVisualViewport?.clientWidth ??
+				metrics.cssContentSize?.width ??
+				metrics.contentSize.width
+		);
+		const height = Math.ceil( metrics.cssContentSize?.height ?? metrics.contentSize.height );
+		if ( width <= 0 || height <= 0 ) {
+			throw new Error( 'Preview page has no visible content to capture.' );
+		}
+		captureParams = {
+			...captureParams,
+			captureBeyondViewport: true,
+			clip: { x: 0, y: 0, width, height, scale: 1 },
+		};
 	}
 
 	const screenshot = await sendDebuggerCommand< { data: string } >(
 		target,
 		'Page.captureScreenshot',
-		{
-			format: 'jpeg',
-			quality: 80,
-			captureBeyondViewport: true,
-			clip: { x: 0, y: 0, width, height, scale: 1 },
-		}
+		captureParams
 	);
 
 	const buffer = Buffer.from( screenshot.data, 'base64' );
+	const baseName = isViewport ? 'screenshot-viewport' : 'screenshot-preview';
 	return {
-		name: `screenshot-preview${ options.colorScheme ? `-${ options.colorScheme }` : '' }.jpg`,
+		name: `${ baseName }${ options.colorScheme ? `-${ options.colorScheme }` : '' }.jpg`,
 		mimeType: 'image/jpeg',
 		data: buffer.buffer.slice(
 			buffer.byteOffset,
@@ -1536,6 +1580,40 @@ export async function setWebviewColorScheme(
 	attachDebuggerIfNeeded( target );
 	await sendDebuggerCommand( target, 'Emulation.setEmulatedMedia', {
 		features: [ { name: 'prefers-color-scheme', value: colorScheme } ],
+	} );
+}
+
+// Simulates a viewport for the preview webview via the CDP device-metrics
+// override that DevTools device mode is built on: the guest lays out at
+// `width`×`height` CSS px and Chromium scales the rendered result by `scale`
+// to fit the webview, remapping input coordinates to match. `null` returns
+// the guest to the webview's natural size.
+export async function setWebviewViewport(
+	event: IpcMainInvokeEvent,
+	webContentsId: number,
+	viewport: { width: number; height: number; scale: number } | null
+): Promise< void > {
+	const target = getOwnedWebviewContents( event, webContentsId );
+	attachDebuggerIfNeeded( target );
+	if ( ! viewport ) {
+		await sendDebuggerCommand( target, 'Emulation.clearDeviceMetricsOverride' );
+		return;
+	}
+	const { width, height, scale } = viewport;
+	const isValidDimension = ( value: number ) =>
+		Number.isInteger( value ) && value > 0 && value <= 10000;
+	const isValidScale =
+		typeof scale === 'number' && Number.isFinite( scale ) && scale > 0 && scale <= 1;
+	if ( ! isValidDimension( width ) || ! isValidDimension( height ) || ! isValidScale ) {
+		throw new Error( 'Unsupported webview viewport.' );
+	}
+	await sendDebuggerCommand( target, 'Emulation.setDeviceMetricsOverride', {
+		width,
+		height,
+		// 0 keeps the display's real device pixel ratio.
+		deviceScaleFactor: 0,
+		mobile: false,
+		scale,
 	} );
 }
 

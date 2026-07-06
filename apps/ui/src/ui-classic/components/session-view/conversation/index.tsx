@@ -18,6 +18,7 @@ import {
 	category,
 	chartBar,
 	check,
+	close,
 	cloud,
 	cloudDownload,
 	cloudUpload,
@@ -46,17 +47,27 @@ import {
 	share,
 	styles as stylesIcon,
 	tag,
+	tip,
 	tool,
 	trash,
 	trendingUp,
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Icon } from '@wordpress/ui';
+import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ImageContextMenu } from '@/components/image-context-menu';
+import { ImageLightbox, type LightboxImage } from '@/components/image-lightbox';
 import { Markdown } from '@/components/markdown';
-import { useConnector, type LoadedAiSession, type LocalMediaFile } from '@/data/core';
+import * as Menu from '@/components/menu';
+import {
+	useConnector,
+	type LoadedAiSession,
+	type LocalMediaFile,
+	type PermissionDecision,
+	type PermissionRequestData,
+} from '@/data/core';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -77,6 +88,7 @@ type RenderItem =
 			attachments?: StudioChatAttachmentSummary[];
 	  }
 	| { kind: 'assistant-text'; key: string; text: string }
+	| { kind: 'thinking'; key: string; text: string; durationMs?: number }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -94,11 +106,20 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
+	| {
+			kind: 'permission-request';
+			key: string;
+			request: PermissionRequestData;
+			// Disk-backed decision paired by request id; undefined while pending
+			// (or forever, if the session died before the user answered).
+			decision?: PermissionDecision;
+	  }
 	| { kind: 'interrupted-marker'; key: string };
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
 	text?: string;
+	thinking?: string;
 	id?: string;
 	name?: string;
 	arguments?: Record< string, unknown >;
@@ -117,6 +138,35 @@ interface PiToolResultLike {
 }
 
 const HIDDEN_TOOL_ROWS = new Set( [ 'studio_present', 'AskUserQuestion' ] );
+
+function getEntryTimestampMs( entry: SessionEntry | undefined ): number | null {
+	const raw = ( entry as { timestamp?: unknown } | undefined )?.timestamp;
+	if ( typeof raw !== 'string' ) {
+		return null;
+	}
+	const parsed = Date.parse( raw );
+	return Number.isFinite( parsed ) ? parsed : null;
+}
+
+// "Thought for 3s" from the gap between the previous entry and the assistant
+// message carrying the thinking block — the closest the transcript gets to
+// the model's thinking time (pi doesn't persist per-block durations).
+function getThinkingLabel( durationMs?: number ): string {
+	if ( ! durationMs || durationMs > 60 * 60 * 1000 ) {
+		return __( 'Thinking…' );
+	}
+	const totalSeconds = Math.max( 1, Math.round( durationMs / 1000 ) );
+	if ( totalSeconds < 60 ) {
+		/* translators: %d: number of seconds the agent spent thinking */
+		return sprintf( __( 'Thought for %ds' ), totalSeconds );
+	}
+	return sprintf(
+		/* translators: 1: minutes, 2: seconds the agent spent thinking */
+		__( 'Thought for %1$dm %2$ds' ),
+		Math.floor( totalSeconds / 60 ),
+		totalSeconds % 60
+	);
+}
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 const QUESTION_SCROLL_BOTTOM_CLEARANCE_PX = 96;
@@ -271,6 +321,17 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 		} );
 	}
 
+	// Permission decisions pair with their request by id.
+	const permissionDecisionsById = new Map< string, PermissionDecision >();
+	for ( const entry of entries ) {
+		if ( isStudioCustomEntryOfType( entry, 'studio.permission_response' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.permission_response' > ).data;
+			if ( data ) {
+				permissionDecisionsById.set( data.id, data.decision );
+			}
+		}
+	}
+
 	const items: RenderItem[] = [];
 	for ( let entryIndex = 0; entryIndex < entries.length; entryIndex += 1 ) {
 		const entry = entries[ entryIndex ];
@@ -293,6 +354,12 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			if ( ! message || message.role !== 'assistant' || ! Array.isArray( message.content ) ) {
 				continue;
 			}
+			const startedMs = getEntryTimestampMs( entries[ entryIndex - 1 ] );
+			const endedMs = getEntryTimestampMs( entry );
+			const thinkingDurationMs =
+				startedMs !== null && endedMs !== null && endedMs > startedMs
+					? endedMs - startedMs
+					: undefined;
 			message.content.forEach( ( block, blockIndex ) => {
 				if ( block.type === 'text' && typeof block.text === 'string' ) {
 					const text = block.text.trim();
@@ -301,6 +368,16 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+						} );
+					}
+				} else if ( block.type === 'thinking' && typeof block.thinking === 'string' ) {
+					const text = block.thinking.trim();
+					if ( text ) {
+						items.push( {
+							kind: 'thinking',
+							key: `${ entryIndex }:${ blockIndex }:thinking`,
+							text,
+							durationMs: thinkingDurationMs,
 						} );
 					}
 				} else if (
@@ -355,6 +432,18 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			continue;
 		}
 
+		if ( isStudioCustomEntryOfType( entry, 'studio.permission_request' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.permission_request' > ).data;
+			if ( ! data ) continue;
+			items.push( {
+				kind: 'permission-request',
+				key: `${ entryIndex }:permission`,
+				request: data,
+				decision: permissionDecisionsById.get( data.id ),
+			} );
+			continue;
+		}
+
 		if ( isStudioCustomEntryOfType( entry, 'studio.chat_artifact' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.chat_artifact' > ).data;
 			const widgets = data?.widgets.filter( isRenderableMediaWidget ) ?? [];
@@ -402,6 +491,57 @@ function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 	return null;
 }
 
+// Registry of every image rendered in the conversation, in mount order, so
+// the lightbox can page through all of them (uploads and screenshots alike)
+// with prev/next. Registration happens on mount; the map lives on the
+// Conversation root.
+const ConversationGalleryContext = createContext< {
+	register: ( id: string, image: LightboxImage ) => () => void;
+	open: ( id: string ) => void;
+} | null >( null );
+
+/**
+ * Every image in the conversation — user uploads and agent screenshots —
+ * renders through this one component so they look and behave identically:
+ * a bounded thumbnail that opens the full-size image in the shared
+ * conversation lightbox (with a standalone fallback outside a gallery).
+ */
+function ConversationImage( { src, alt }: { src: string; alt: string } ) {
+	const gallery = useContext( ConversationGalleryContext );
+	const galleryId = useId();
+	const [ isLightboxOpen, setIsLightboxOpen ] = useState( false );
+
+	useEffect( () => {
+		return gallery?.register( galleryId, { src, alt } );
+	}, [ gallery, galleryId, src, alt ] );
+
+	const openImage = () => ( gallery ? gallery.open( galleryId ) : setIsLightboxOpen( true ) );
+
+	return (
+		<>
+			<ImageContextMenu
+				image={ { src, alt } }
+				trigger={
+					<Button
+						variant="unstyled"
+						className={ styles.chatImageButton }
+						aria-haspopup="dialog"
+						title={ alt }
+						onClick={ openImage }
+					>
+						<img className={ styles.chatImageThumb } src={ src } alt={ alt } />
+					</Button>
+				}
+			>
+				<Menu.Item onClick={ openImage }>{ __( 'Open image' ) }</Menu.Item>
+			</ImageContextMenu>
+			{ ! gallery && isLightboxOpen ? (
+				<ImageLightbox images={ [ { src, alt } ] } onClose={ () => setIsLightboxOpen( false ) } />
+			) : null }
+		</>
+	);
+}
+
 function UserTurn( {
 	text,
 	attachments,
@@ -420,12 +560,7 @@ function UserTurn( {
 								key={ `${ attachment.name }:${ index }` }
 								className={ styles.userAttachmentThumbItem }
 							>
-								<img
-									className={ styles.userAttachmentThumb }
-									src={ attachment.previewDataUrl }
-									alt={ attachment.name }
-									title={ attachment.name }
-								/>
+								<ConversationImage src={ attachment.previewDataUrl } alt={ attachment.name } />
 							</li>
 						) : (
 							<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachmentChip }>
@@ -734,6 +869,65 @@ function ToolUseRow( {
 	);
 }
 
+// The model's extended-thinking block, shown collapsed like a tool call —
+// the label row expands to reveal the full reasoning text.
+function ThinkingRow( { text, durationMs }: { text: string; durationMs?: number } ) {
+	const label = getThinkingLabel( durationMs );
+	const detailsId = useId();
+	const [ expanded, setExpanded ] = useState( false );
+	const [ detailsMounted, setDetailsMounted ] = useState( false );
+	useEffect( () => {
+		if ( expanded || ! detailsMounted ) {
+			return;
+		}
+		const timeoutId = window.setTimeout( () => setDetailsMounted( false ), 220 );
+		return () => window.clearTimeout( timeoutId );
+	}, [ detailsMounted, expanded ] );
+	return (
+		<div className={ styles.toolBlock }>
+			<button
+				type="button"
+				className={ clsx( styles.toolRow, styles.toolRowButton ) }
+				aria-label={ label }
+				aria-expanded={ expanded }
+				aria-controls={ detailsId }
+				data-expanded={ expanded }
+				onClick={ () => {
+					if ( expanded ) {
+						setExpanded( false );
+						return;
+					}
+					setDetailsMounted( true );
+					setExpanded( true );
+				} }
+				title={ expanded ? __( 'Hide thinking' ) : __( 'Show thinking' ) }
+			>
+				<Icon icon={ tip } size={ 18 } className={ styles.toolIcon } aria-hidden="true" />
+				<span className={ styles.toolLabel }>{ label }</span>
+			</button>
+			{ detailsMounted ? (
+				<div
+					id={ detailsId }
+					className={ styles.toolDetailsShell }
+					data-expanded={ expanded }
+					aria-hidden={ ! expanded }
+					onTransitionEnd={ ( event ) => {
+						if ( event.currentTarget === event.target && ! expanded ) {
+							setDetailsMounted( false );
+						}
+					} }
+				>
+					<div className={ styles.toolDetailsClip }>
+						<div className={ styles.toolOutputWrap }>
+							<pre className={ styles.toolOutput }>{ text }</pre>
+						</div>
+					</div>
+				</div>
+			) : null }
+		</div>
+	);
+}
+
 function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] } ) {
 	return (
 		<div className={ styles.mediaArtifactGrid }>
@@ -790,11 +984,7 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 		return <div className={ styles.mediaArtifactLoading } aria-hidden="true" />;
 	}
 
-	return (
-		<figure className={ styles.mediaArtifactItem }>
-			<img className={ styles.mediaArtifactImage } src={ src } alt={ getMediaAltText( widget ) } />
-		</figure>
-	);
+	return <ConversationImage src={ src } alt={ getMediaAltText( widget ) } />;
 }
 
 function AgentQuestion( {
@@ -1141,71 +1331,212 @@ function AgentQuestionBatch( {
 	);
 }
 
+function PermissionRequest( {
+	request,
+	isInteractive,
+	decision,
+	onDecide,
+}: {
+	request: PermissionRequestData;
+	isInteractive: boolean;
+	decision: PermissionDecision | undefined;
+	onDecide: ( decision: PermissionDecision ) => void;
+} ) {
+	// Resolved (or expired) requests collapse to a tool-call-style row — the
+	// full card is only for the decision that's actually being made.
+	if ( ! isInteractive ) {
+		let icon = info;
+		let label: string = __( 'Permission request expired' );
+		if ( decision === 'deny' ) {
+			icon = close;
+			label = request.deniedLabel ?? __( 'Permission denied' );
+		} else if ( decision !== undefined ) {
+			icon = check;
+			label = request.allowedLabel ?? __( 'Permission granted' );
+		}
+		return (
+			<div className={ styles.toolBlock }>
+				<div className={ styles.toolRow }>
+					<Icon icon={ icon } size={ 18 } className={ styles.toolIcon } aria-hidden="true" />
+					<span className={ styles.toolLabel }>{ label }</span>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div className={ styles.permission } role="alertdialog">
+			<p className={ styles.permissionTitle }>{ request.title }</p>
+			{ request.consequences.map( ( line, index ) => (
+				<p key={ index } className={ styles.permissionConsequence }>
+					{ line }
+				</p>
+			) ) }
+			<div className={ styles.permissionActions }>
+				{ /* Same error-token remap the wpds AlertDialog uses for its
+				     irreversible confirm button — a solid Button rendered with
+				     the theme's error colors instead of brand. */ }
+				<Button
+					variant="solid"
+					size="compact"
+					className={ styles.permissionConfirmButton }
+					onClick={ () => onDecide( 'allow_once' ) }
+				>
+					{ __( 'Yes, go ahead' ) }
+				</Button>
+				{ request.allowAlways ? (
+					<Button
+						variant="outline"
+						tone="neutral"
+						size="compact"
+						onClick={ () => onDecide( 'always_allow' ) }
+						title={ sprintf(
+							/* translators: %s: what will be allowed without asking again (e.g. "pushing sites to WordPress.com") */
+							__( 'Stop asking before %s. You can change this in Settings.' ),
+							request.actionLabel
+						) }
+					>
+						{ __( 'Always allow' ) }
+					</Button>
+				) : null }
+				<Button
+					variant="minimal"
+					tone="neutral"
+					size="compact"
+					onClick={ () => onDecide( 'deny' ) }
+				>
+					{ __( 'No, stop' ) }
+				</Button>
+			</div>
+		</div>
+	);
+}
+
 export function Conversation( {
 	data,
 	isRunning,
 	startedAt,
 	pendingQuestions,
 	pendingAnswers,
+	pendingPermissions,
+	answeredPermissions,
 	onAnswerQuestion,
+	onAnswerPermission,
 }: {
 	data: LoadedAiSession;
 	isRunning: boolean;
 	startedAt: number | null;
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
+	// Ids of gated tool calls awaiting a decision on the active run.
+	pendingPermissions: Set< string >;
+	// Decisions sent this session, keyed by request id (bridges the disk lag).
+	answeredPermissions: Record< string, PermissionDecision >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
+	onAnswerPermission: ( requestId: string, decision: PermissionDecision ) => void;
 } ) {
 	const entries = data.entries;
 	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
 	const progressMessage = useMemo( () => findLatestProgressMessage( entries ), [ entries ] );
 
+	// Gallery registry: insertion order matches render (≈ chronological)
+	// order, so the lightbox pages through images as they appear in the
+	// transcript. A ref (not state) — registration must not re-render the
+	// whole conversation. `open` snapshots the registry into state, so the
+	// render below never reads the ref.
+	const galleryImagesRef = useRef( new Map< string, LightboxImage >() );
+	const [ activeGallery, setActiveGallery ] = useState< {
+		images: LightboxImage[];
+		index: number;
+	} | null >( null );
+	const gallery = useMemo(
+		() => ( {
+			register: ( id: string, image: LightboxImage ) => {
+				galleryImagesRef.current.set( id, image );
+				return () => {
+					galleryImagesRef.current.delete( id );
+				};
+			},
+			open: ( id: string ) => {
+				const ids = [ ...galleryImagesRef.current.keys() ];
+				setActiveGallery( {
+					images: [ ...galleryImagesRef.current.values() ],
+					index: Math.max( 0, ids.indexOf( id ) ),
+				} );
+			},
+		} ),
+		[]
+	);
+
 	return (
-		<div className={ styles.root }>
-			{ items.map( ( item ) => {
-				switch ( item.kind ) {
-					case 'user-text':
-						return (
-							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
-						);
-					case 'assistant-text':
-						return <AssistantText key={ item.key } text={ item.text } />;
-					case 'tool-use':
-						return (
-							<ToolUseRow
-								key={ item.key }
-								name={ item.name }
-								input={ item.input }
-								result={ item.result }
-							/>
-						);
-					case 'agent-question-batch':
-						return (
-							<AgentQuestionBatch
-								key={ item.key }
-								questions={ item.questions }
-								pendingQuestions={ pendingQuestions }
-								pendingAnswers={ pendingAnswers }
-								onAnswer={ onAnswerQuestion }
-							/>
-						);
-					case 'chat-artifact':
-						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
-					case 'interrupted-marker':
-						return (
-							<div key={ item.key } className={ styles.interruptedMarker } role="status">
-								{ __( 'Interrupted by you' ) }
-							</div>
-						);
-					default:
-						return null;
-				}
-			} ) }
-			<ThinkingIndicator
-				active={ isRunning && pendingQuestions.size === 0 }
-				startedAt={ startedAt }
-				progressMessage={ progressMessage }
-			/>
-		</div>
+		<ConversationGalleryContext.Provider value={ gallery }>
+			{ activeGallery ? (
+				<ImageLightbox
+					images={ activeGallery.images }
+					initialIndex={ activeGallery.index }
+					onClose={ () => setActiveGallery( null ) }
+				/>
+			) : null }
+			<div className={ styles.root }>
+				{ items.map( ( item ) => {
+					switch ( item.kind ) {
+						case 'user-text':
+							return (
+								<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
+							);
+						case 'assistant-text':
+							return <AssistantText key={ item.key } text={ item.text } />;
+						case 'thinking':
+							return (
+								<ThinkingRow key={ item.key } text={ item.text } durationMs={ item.durationMs } />
+							);
+						case 'tool-use':
+							return (
+								<ToolUseRow
+									key={ item.key }
+									name={ item.name }
+									input={ item.input }
+									result={ item.result }
+								/>
+							);
+						case 'agent-question-batch':
+							return (
+								<AgentQuestionBatch
+									key={ item.key }
+									questions={ item.questions }
+									pendingQuestions={ pendingQuestions }
+									pendingAnswers={ pendingAnswers }
+									onAnswer={ onAnswerQuestion }
+								/>
+							);
+						case 'chat-artifact':
+							return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
+						case 'permission-request':
+							return (
+								<PermissionRequest
+									key={ item.key }
+									request={ item.request }
+									isInteractive={ pendingPermissions.has( item.request.id ) }
+									decision={ answeredPermissions[ item.request.id ] ?? item.decision }
+									onDecide={ ( decision ) => onAnswerPermission( item.request.id, decision ) }
+								/>
+							);
+						case 'interrupted-marker':
+							return (
+								<div key={ item.key } className={ styles.interruptedMarker } role="status">
+									{ __( 'Interrupted by you' ) }
+								</div>
+							);
+						default:
+							return null;
+					}
+				} ) }
+				<ThinkingIndicator
+					active={ isRunning && pendingQuestions.size === 0 && pendingPermissions.size === 0 }
+					startedAt={ startedAt }
+					progressMessage={ progressMessage }
+				/>
+			</div>
+		</ConversationGalleryContext.Provider>
 	);
 }

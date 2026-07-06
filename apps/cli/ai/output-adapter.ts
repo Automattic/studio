@@ -2,6 +2,7 @@ import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
+import type { PermissionDecision, PermissionRequestData } from '@studio/common/ai/tool-permissions';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
@@ -35,6 +36,9 @@ export interface AiOutputAdapter {
 
 	waitForInput(): Promise< string >;
 	askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > >;
+	// Blocking confirmation for a gated tool call. Dismissal must resolve as
+	// `deny` — the tool only runs on an explicit allow.
+	requestPermission( request: PermissionRequestData ): Promise< PermissionDecision >;
 	openActiveSiteInBrowser(): Promise< boolean >;
 }
 
@@ -46,6 +50,8 @@ export class JsonAdapter implements AiOutputAdapter {
 	onInterrupt: ( () => void ) | null = null;
 	onBeforeExit: ( () => Promise< void > ) | null = null;
 	permissionResponse: Record< string, string > | null = null;
+	// Pre-supplied gated-tool decisions for resumed turns, keyed by tool name.
+	permissionDecisions: Partial< Record< string, PermissionDecision > > | null = null;
 
 	private ipcMessageListener: ( ( message: unknown ) => void ) | null = null;
 	private activeSessionId = '';
@@ -207,6 +213,52 @@ export class JsonAdapter implements AiOutputAdapter {
 		await this.onBeforeExit?.();
 		process.exitCode = 0;
 		return new Promise< Record< string, string > >( () => {} );
+	}
+
+	async requestPermission( request: PermissionRequestData ): Promise< PermissionDecision > {
+		// Pre-supplied decision for a resumed remote-session turn (keyed by tool
+		// name — the request id is minted fresh on every attempt). Consumed once
+		// so a second gated call of the same tool still prompts.
+		const preSupplied = this.permissionDecisions?.[ request.toolName ];
+		if ( preSupplied ) {
+			delete this.permissionDecisions![ request.toolName ];
+			return preSupplied;
+		}
+
+		emitEvent( {
+			type: 'permission.requested',
+			timestamp: new Date().toISOString(),
+			request,
+		} );
+
+		// Forked from the Studio main process: block until the decision comes
+		// back over Node IPC. The desktop treats a dead/interrupted child as
+		// deny — the tool never ran.
+		if ( typeof process.send === 'function' ) {
+			return new Promise< PermissionDecision >( ( resolve ) => {
+				const onMessage = ( message: unknown ) => {
+					const typed = message as {
+						type?: string;
+						id?: string;
+						decision?: PermissionDecision;
+					} | null;
+					if ( typed?.type !== 'permission_response' || typed.id !== request.id ) {
+						return;
+					}
+					process.off( 'message', onMessage );
+					resolve( typed.decision ?? 'deny' );
+				};
+				process.on( 'message', onMessage );
+			} );
+		}
+
+		// Standalone `--json` (piped through a shell): same paused-turn fallback
+		// as askUser. The gated tool never runs; a caller can resume the session
+		// with a pre-supplied decision.
+		this.emitTurnCompleted( 'paused', this.activeSessionId );
+		await this.onBeforeExit?.();
+		process.exitCode = 0;
+		return new Promise< PermissionDecision >( () => {} );
 	}
 
 	openActiveSiteInBrowser(): Promise< boolean > {

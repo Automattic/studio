@@ -31,6 +31,7 @@ import {
 	useSessions,
 } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import {
 	SessionUIProvider,
@@ -223,22 +224,32 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		startedAt,
 		error: runError,
 		pendingQuestions,
+		pendingPermissions,
+		answeredPermissions,
 		pendingAnswers,
 		queuedPrompts,
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		answerPermission,
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
+	// Sessions with no recorded model (fresh chats) start on the user's
+	// preferred default model rather than the built-in default.
+	const { data: preferences } = useUserPreferences();
 	const currentModel = useMemo(
-		() => resolveSessionModel( data?.entries ?? [] ),
-		[ data?.entries ]
+		() => resolveSessionModel( data?.entries ?? [], preferences?.defaultAiModel ),
+		[ data?.entries, preferences?.defaultAiModel ]
 	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]
 	);
-	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const pendingPermissionIds = useMemo(
+		() => new Set( pendingPermissions.map( ( request ) => request.id ) ),
+		[ pendingPermissions ]
+	);
+	const composerBusy = hasActiveRun || pendingQuestions.length > 0 || pendingPermissions.length > 0;
 
 	// Run failures (send rejected, agent unavailable, run crashed) surface as
 	// app toasts rather than a dedicated row under the composer. The effect
@@ -512,7 +523,10 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					startedAt={ startedAt }
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
+					pendingPermissions={ pendingPermissionIds }
+					answeredPermissions={ answeredPermissions }
 					onAnswerQuestion={ answerQuestion }
+					onAnswerPermission={ answerPermission }
 				/>
 			</div>
 		</SessionFrame>

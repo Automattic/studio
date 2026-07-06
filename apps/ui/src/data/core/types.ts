@@ -2,7 +2,12 @@ import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-even
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
+import type { AiResponseLength } from '@studio/common/ai/response-length';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type {
+	PermissionDecision,
+	ToolPermissionOverrides,
+} from '@studio/common/ai/tool-permissions';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -27,7 +32,14 @@ export type {
 	StudioTurnClosedData,
 	StudioSessionContextData,
 	StudioUserPromptData,
+	StudioPermissionRequestData,
+	StudioPermissionResponseData,
 } from '@studio/common/ai/sessions/entry-types';
+export type {
+	PermissionDecision,
+	PermissionRequestData,
+	ToolPermissionOverrides,
+} from '@studio/common/ai/tool-permissions';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncOption, SyncSite } from '@studio/common/types/sync';
@@ -245,9 +257,11 @@ export interface Connector {
 	getFilePath( file: File ): Promise< string >;
 	createTemporaryTextFile( name: string, contents: string ): Promise< string >;
 	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
+	// `area: 'viewport'` captures the visible viewport at native (device
+	// pixel) resolution; the default captures the full page height at 1x.
 	captureSiteScreenshot(
 		webContentsId: number,
-		options?: { colorScheme?: 'light' | 'dark' }
+		options?: { colorScheme?: 'light' | 'dark'; area?: 'viewport' | 'fullPage' }
 	): Promise< LocalMediaFile >;
 
 	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
@@ -377,6 +391,13 @@ export interface Connector {
 	setSessionModel( sessionId: string, model: AiModelId ): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
 	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
+	// Resolve a gated-tool permission request on an active run. The agent
+	// blocks on the decision; a run that dies first means the tool never ran.
+	answerAgentPermission(
+		runId: string,
+		requestId: string,
+		decision: PermissionDecision
+	): Promise< void >;
 	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
 	onSessionPlacementUpdated(
 		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
@@ -429,6 +450,10 @@ export interface Connector {
 	// Clipboard — routed to the host so it works where the renderer's
 	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
 	copyText( text: string ): Promise< void >;
+	// PNG-encoded data URLs only — both clipboard backends (Electron
+	// `nativeImage`, web `ClipboardItem`) reliably accept PNG, so callers
+	// re-encode other formats before calling.
+	copyImage( pngDataUrl: string ): Promise< void >;
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,
@@ -498,6 +523,10 @@ export interface UserPreferences {
 	studioCliInstalled: boolean;
 	agenticFeaturesEnabled: boolean;
 	chatNotificationsEnabled: boolean;
+	agentResponseLength: AiResponseLength;
+	defaultAiModel: AiModelId;
+	// Per-tool "Always allow" overrides for the agent's gated tools.
+	toolPermissions: ToolPermissionOverrides;
 }
 
 export type ChatNotificationKind = 'response-complete' | 'pending-question';

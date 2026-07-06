@@ -146,6 +146,9 @@ describe( 'OpenInMenu', () => {
 				studioCliInstalled: false,
 				agenticFeaturesEnabled: true,
 				chatNotificationsEnabled: true,
+				agentResponseLength: 'normal',
+				toolPermissions: {},
+				defaultAiModel: 'claude-sonnet-4-6',
 			},
 		} );
 	} );

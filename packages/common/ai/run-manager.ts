@@ -14,6 +14,7 @@ import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-even
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioAiSessionInputPayload, StudioChatImage } from '@studio/common/ai/chat-images';
 import type { JsonEvent } from '@studio/common/ai/json-events';
+import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 
 /**
  * Runs the Studio Code agent as a CLI child process: forks the CLI
@@ -70,6 +71,7 @@ export interface AgentRunManager {
 	listActiveAgentRuns(): ActiveAgentRun[];
 	interruptAgentRun( runId: string ): void;
 	answerAgentRun( runId: string, answers: Record< string, string > ): void;
+	answerAgentPermission( runId: string, requestId: string, decision: PermissionDecision ): void;
 }
 
 const INTERRUPT_FORCE_KILL_TIMEOUT_MS = 2000;
@@ -306,5 +308,25 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		run.child.send( { type: 'answer', answers } );
 	}
 
-	return { startAgentRun, listActiveAgentRuns, interruptAgentRun, answerAgentRun };
+	// Resolve a pending gated-tool permission request in the child. A run that
+	// is gone or disconnected means the tool never ran — no fallback needed.
+	function answerAgentPermission(
+		runId: string,
+		requestId: string,
+		decision: PermissionDecision
+	): void {
+		const run = runsById.get( runId );
+		if ( ! run || ! run.child.connected ) {
+			return;
+		}
+		run.child.send( { type: 'permission_response', id: requestId, decision } );
+	}
+
+	return {
+		startAgentRun,
+		listActiveAgentRuns,
+		interruptAgentRun,
+		answerAgentRun,
+		answerAgentPermission,
+	};
 }

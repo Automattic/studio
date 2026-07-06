@@ -3,6 +3,7 @@ import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
 import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
 import type { WebContents } from 'electron';
 
 /**
@@ -73,4 +74,12 @@ export function interruptAgentRun( runId: string ): void {
 
 export function answerAgentRun( runId: string, answers: Record< string, string > ): void {
 	runManager.answerAgentRun( runId, answers );
+}
+
+export function answerAgentPermission(
+	runId: string,
+	requestId: string,
+	decision: PermissionDecision
+): void {
+	runManager.answerAgentPermission( runId, requestId, decision );
 }

@@ -17,6 +17,8 @@ import type {
 	AgentEvent,
 	AgentRunEvent,
 	LoadedAiSession,
+	PermissionDecision,
+	PermissionRequestData,
 	SessionEntry,
 	StudioChatFileAttachment,
 	StudioChatImage,
@@ -69,6 +71,12 @@ export interface LiveAgentEvents {
 	startedAt: number | null;
 	error: string | null;
 	pendingQuestions: PendingQuestion[];
+	// Gated tool calls awaiting the user's decision, in arrival order. Each
+	// blocks the agent turn until answered.
+	pendingPermissions: PermissionRequestData[];
+	// Decisions already sent this session, keyed by request id, so the card
+	// stays resolved while the disk-backed entry catches up.
+	answeredPermissions: Record< string, PermissionDecision >;
 	// Accumulated answers for the current batch, keyed by question text.
 	// The user can re-click an option to change their pick until every
 	// question is answered, at which point the batch is dispatched.
@@ -79,6 +87,7 @@ export interface LiveAgentEvents {
 	sendMessage: ( prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: () => Promise< void >;
 	answerQuestion: ( question: string, answer: string ) => void;
+	answerPermission: ( requestId: string, decision: PermissionDecision ) => void;
 	removeQueuedPrompt: ( id: string ) => void;
 }
 
@@ -96,6 +105,8 @@ interface State {
 	error: string | null;
 	isInterrupting: boolean;
 	pendingQuestions: PendingQuestion[];
+	pendingPermissions: PermissionRequestData[];
+	answeredPermissions: Record< string, PermissionDecision >;
 	pendingAnswers: Record< string, string >;
 	queuedPrompts: QueuedPrompt[];
 }
@@ -111,6 +122,8 @@ const initialState: State = {
 	error: null,
 	isInterrupting: false,
 	pendingQuestions: [],
+	pendingPermissions: [],
+	answeredPermissions: {},
 	pendingAnswers: {},
 	queuedPrompts: [],
 };
@@ -126,6 +139,8 @@ type Action =
 	| { type: 'questions_added'; questions: PendingQuestion[] }
 	| { type: 'question_answered'; question: string; answer: string }
 	| { type: 'batch_dispatched' }
+	| { type: 'permission_requested'; request: PermissionRequestData }
+	| { type: 'permission_answered'; requestId: string; decision: PermissionDecision }
 	| { type: 'queue_append'; prompt: QueuedPrompt }
 	| { type: 'queue_remove'; id: string }
 	| { type: 'queue_shift' }
@@ -167,12 +182,18 @@ function reducer( state: State, action: Action ): State {
 				...state,
 				phase: state.phase === 'idle' ? 'idle' : 'winding_down',
 				pendingQuestions: [],
+				pendingPermissions: [],
 				pendingAnswers: {},
 			};
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
-			// survive the transition. Everything else resets.
-			return { ...initialState, queuedPrompts: state.queuedPrompts };
+			// survive the transition, and the answered-permissions map so
+			// resolved cards stay labeled. Everything else resets.
+			return {
+				...initialState,
+				queuedPrompts: state.queuedPrompts,
+				answeredPermissions: state.answeredPermissions,
+			};
 		case 'interrupt_requested':
 			return {
 				...state,
@@ -181,6 +202,7 @@ function reducer( state: State, action: Action ): State {
 				startedAt: null,
 				isInterrupting: false,
 				pendingQuestions: [],
+				pendingPermissions: [],
 				pendingAnswers: {},
 			};
 		case 'questions_added':
@@ -195,6 +217,22 @@ function reducer( state: State, action: Action ): State {
 			};
 		case 'batch_dispatched':
 			return { ...state, pendingQuestions: [], pendingAnswers: {} };
+		case 'permission_requested':
+			return {
+				...state,
+				pendingPermissions: [ ...state.pendingPermissions, action.request ],
+			};
+		case 'permission_answered':
+			return {
+				...state,
+				pendingPermissions: state.pendingPermissions.filter(
+					( request ) => request.id !== action.requestId
+				),
+				answeredPermissions: {
+					...state.answeredPermissions,
+					[ action.requestId ]: action.decision,
+				},
+			};
 		case 'queue_append':
 			return { ...state, queuedPrompts: [ ...state.queuedPrompts, action.prompt ] };
 		case 'queue_remove':
@@ -271,6 +309,7 @@ export interface AgentRunStore {
 	startRun: ( sessionId: string, prompt: string, options?: SendMessageOptions ) => Promise< void >;
 	interrupt: ( sessionId: string ) => Promise< void >;
 	answerQuestion: ( sessionId: string, question: string, answer: string ) => void;
+	answerPermission: ( sessionId: string, requestId: string, decision: PermissionDecision ) => void;
 }
 
 const AgentRunContext = createContext< AgentRunStore | null >( null );
@@ -473,6 +512,23 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						questions: event.questions,
 					} );
 					return;
+				case 'permission.requested':
+					updateCache( payload.sessionId, ( entries ) => [
+						...entries,
+						{
+							type: 'custom',
+							id: shortEntryId(),
+							parentId: null,
+							timestamp: event.timestamp,
+							customType: 'studio.permission_request',
+							data: event.request,
+						} as SessionEntry,
+					] );
+					dispatchSession( payload.sessionId, {
+						type: 'permission_requested',
+						request: event.request,
+					} );
+					return;
 			}
 		} );
 	}, [ connector, dispatchSession, queryClient, stateStore, updateCache ] );
@@ -630,6 +686,31 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		[ connector, dispatchSession, stateStore, updateCache ]
 	);
 
+	const answerPermission = useCallback(
+		( sessionId: string, requestId: string, decision: PermissionDecision ) => {
+			const state = stateStore.getState()[ sessionId ] ?? initialState;
+			if ( ! state.runId ) {
+				return;
+			}
+			dispatchSession( sessionId, { type: 'permission_answered', requestId, decision } );
+			// Optimistic response entry so the transcript pairs the request with
+			// its outcome before the disk refetch lands.
+			updateCache( sessionId, ( entries ) => [
+				...entries,
+				{
+					type: 'custom',
+					id: shortEntryId(),
+					parentId: null,
+					timestamp: nowIso(),
+					customType: 'studio.permission_response',
+					data: { id: requestId, decision },
+				} as SessionEntry,
+			] );
+			void connector.answerAgentPermission( state.runId, requestId, decision );
+		},
+		[ connector, dispatchSession, stateStore, updateCache ]
+	);
+
 	const value = useMemo< AgentRunStore >(
 		() => ( {
 			stateStore,
@@ -637,8 +718,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			startRun,
 			interrupt,
 			answerQuestion,
+			answerPermission,
 		} ),
-		[ answerQuestion, dispatchSession, interrupt, startRun, stateStore ]
+		[ answerPermission, answerQuestion, dispatchSession, interrupt, startRun, stateStore ]
 	);
 
 	return <AgentRunContext.Provider value={ value }>{ children }</AgentRunContext.Provider>;
@@ -666,6 +748,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		startRun,
 		interrupt: interruptRun,
 		answerQuestion: answerRunQuestion,
+		answerPermission: answerRunPermission,
 	} = store;
 	// Per-session slices keep their identity while other sessions update, so
 	// this only re-renders when this session's state actually changes.
@@ -678,6 +761,8 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		error,
 		isInterrupting,
 		pendingQuestions,
+		pendingPermissions,
+		answeredPermissions,
 		pendingAnswers,
 		queuedPrompts,
 	} = state;
@@ -722,9 +807,14 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 				throw new Error( 'No session selected' );
 			}
 			// Queue if anything is in flight, if we're waiting on question
-			// answers, or if earlier queued prompts haven't been dispatched yet
-			// (preserves FIFO order).
-			if ( phase !== 'idle' || pendingQuestions.length > 0 || queuedPrompts.length > 0 ) {
+			// answers or a permission decision, or if earlier queued prompts
+			// haven't been dispatched yet (preserves FIFO order).
+			if (
+				phase !== 'idle' ||
+				pendingQuestions.length > 0 ||
+				pendingPermissions.length > 0 ||
+				queuedPrompts.length > 0
+			) {
 				dispatchSession( sessionId, {
 					type: 'queue_append',
 					prompt: {
@@ -739,7 +829,15 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 			}
 			await startRun( sessionId, prompt, options );
 		},
-		[ dispatchSession, phase, pendingQuestions.length, queuedPrompts.length, sessionId, startRun ]
+		[
+			dispatchSession,
+			phase,
+			pendingQuestions.length,
+			pendingPermissions.length,
+			queuedPrompts.length,
+			sessionId,
+			startRun,
+		]
 	);
 
 	const interrupt = useCallback( async () => {
@@ -759,6 +857,16 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		[ answerRunQuestion, sessionId ]
 	);
 
+	const answerPermission = useCallback(
+		( requestId: string, decision: PermissionDecision ) => {
+			if ( ! sessionId ) {
+				return;
+			}
+			answerRunPermission( sessionId, requestId, decision );
+		},
+		[ answerRunPermission, sessionId ]
+	);
+
 	const removeQueuedPrompt = useCallback(
 		( id: string ) => {
 			if ( ! sessionId ) {
@@ -776,11 +884,14 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		startedAt,
 		error,
 		pendingQuestions,
+		pendingPermissions,
+		answeredPermissions,
 		pendingAnswers,
 		queuedPrompts,
 		sendMessage,
 		interrupt,
 		answerQuestion,
+		answerPermission,
 		removeQueuedPrompt,
 	};
 }
@@ -805,7 +916,8 @@ export function useSiteAgentActivity( sessionIds: string[] ): SiteAgentActivity 
 			const hasPendingQuestion = state.pendingQuestions.some(
 				( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
 			);
-			if ( hasPendingQuestion ) {
+			// A pending permission needs the user's attention just like a question.
+			if ( hasPendingQuestion || state.pendingPermissions.length > 0 ) {
 				return 'pending-question';
 			}
 			if ( state.phase === 'starting' || state.phase === 'running' ) {

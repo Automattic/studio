@@ -12,7 +12,7 @@
   "mcpServers": {
     "data-liberation": {
       "command": "node",
-      "args": ["${extensionPath}${/}dist${/}mcp-server.bundle.mjs"],
+      "args": ["${extensionPath}${/}scripts${/}mcp-launcher.mjs"],
       "cwd": "${extensionPath}"
     }
   }

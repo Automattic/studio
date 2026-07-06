@@ -248,54 +248,6 @@ describe( 'ProcessManagerDaemon', () => {
 		} );
 	} );
 
-	it( 'settles a stop even when the child never reports exit', async () => {
-		const child = new MockChildProcess();
-		// Simulate an unkillable child: neither kill() nor the SIGKILL escalation produce 'exit'.
-		child.kill = vi.fn( () => true );
-		spawnMock.mockReturnValue( child );
-		const { ProcessManagerDaemon } = await import( '../process-manager-daemon' );
-
-		const daemon = new ProcessManagerDaemon();
-		const daemonInternal = daemon as unknown as {
-			handleRequest: ( request: unknown ) => Promise< {
-				type: string;
-				payload: { process?: { pmId: number; name: string; status: string; pid?: number } };
-			} >;
-			managedProcesses: Map< number, unknown >;
-			broadcastEvent: ( event: unknown ) => Promise< void >;
-		};
-		vi.spyOn( daemonInternal, 'broadcastEvent' ).mockResolvedValue( undefined );
-		const killSpy = vi.spyOn( process, 'kill' ).mockImplementation( () => true );
-		vi.useFakeTimers();
-
-		try {
-			await daemonInternal.handleRequest( {
-				type: 'start-process',
-				requestId: '1',
-				processName: testProcessName,
-				scriptPath: '/tmp/test-child.js',
-				env: {},
-				args: [],
-			} );
-
-			const stopPromise = daemonInternal.handleRequest( {
-				type: 'stop-process',
-				requestId: '2',
-				processName: testProcessName,
-			} );
-
-			// First STOP_TIMEOUT_MS escalates to SIGKILL, second force-settles the process.
-			await vi.advanceTimersByTimeAsync( 2500 );
-			await vi.advanceTimersByTimeAsync( 2500 );
-
-			await expect( stopPromise ).resolves.toEqual( { type: 'result', payload: {} } );
-			expect( daemonInternal.managedProcesses.size ).toBe( 0 );
-		} finally {
-			vi.useRealTimers();
-			killSpy.mockRestore();
-		}
-	} );
-
 	it.skipIf( process.platform === 'win32' )(
 		'signals the wrapper group and each reported subprocess group when killing the wrapper',
 		async () => {

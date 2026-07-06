@@ -347,21 +347,12 @@ export class ProcessManagerDaemon {
 		}
 
 		await new Promise< void >( ( resolve ) => {
-			// If the child never emits 'exit' — e.g. taskkill fails on Windows — settle it anyway
-			// so the daemon frees its capacity slot and pending kill-daemon requests can respond,
-			// instead of wedging every subsequent `site stop` forever.
-			let forceSettleTimeoutId: NodeJS.Timeout | undefined;
 			const timeoutId = setTimeout( () => {
 				void this.signalProcessGroup( managedProcess, 'SIGKILL' );
-				forceSettleTimeoutId = setTimeout( () => {
-					void this.handleProcessExit( managedProcess );
-					resolve();
-				}, STOP_TIMEOUT_MS );
 			}, STOP_TIMEOUT_MS );
 
 			managedProcess.child.once( 'exit', () => {
 				clearTimeout( timeoutId );
-				clearTimeout( forceSettleTimeoutId );
 				void this.broadcastEvent( {
 					type: 'process-event',
 					payload: {

@@ -7,6 +7,7 @@ import {
 	getInputString,
 	getToolDetail,
 	getToolDisplayName,
+	getToolResultDiff,
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
@@ -107,6 +108,7 @@ interface PiToolResultLike {
 	role: 'toolResult';
 	toolCallId: string;
 	content?: Array< { type: string; text?: string } >;
+	details?: unknown;
 	isError?: boolean;
 }
 
@@ -200,6 +202,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 		resultsByToolCallId.set( message.toolCallId, {
 			text,
 			isError: message.isError === true,
+			diff: message.isError === true ? undefined : getToolResultDiff( message.details ),
 		} );
 	}
 
@@ -553,6 +556,26 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 	}
 }
 
+function DiffBlock( { diff }: { diff: string } ) {
+	const lines = diff.replace( /\n$/, '' ).split( '\n' );
+	return (
+		<pre className={ styles.toolDiff }>
+			{ lines.map( ( line, index ) => (
+				<span
+					key={ index }
+					className={ clsx(
+						styles.diffLine,
+						line.startsWith( '+' ) && styles.diffLineAdded,
+						line.startsWith( '-' ) && styles.diffLineRemoved
+					) }
+				>
+					{ line.length > 0 ? line : ' ' }
+				</span>
+			) ) }
+		</pre>
+	);
+}
+
 function ToolIcon( { name, input }: { name: string; input?: Record< string, unknown > } ) {
 	return (
 		<Icon
@@ -578,7 +601,8 @@ function ToolUseRow( {
 	const resultText = result?.text?.trim() ?? '';
 	const hasOutput = resultText.length > 0;
 	const hasInput = display.inputText.length > 0;
-	const hasExpandableDetails = hasInput || hasOutput;
+	const hasDiff = Boolean( result?.diff );
+	const hasExpandableDetails = hasInput || hasOutput || hasDiff;
 	const [ expanded, setExpanded ] = useState( false );
 	const [ detailsMounted, setDetailsMounted ] = useState( false );
 	useEffect( () => {
@@ -643,6 +667,7 @@ function ToolUseRow( {
 									{ resultText }
 								</pre>
 							) : null }
+							{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
 						</div>
 					</div>
 				</div>

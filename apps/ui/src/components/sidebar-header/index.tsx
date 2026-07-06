@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { comment, download, globe, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
+import { useConnector } from '@/data/core';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
@@ -12,11 +13,16 @@ type Props = {
 };
 
 export function SidebarHeader( { onToggleSidebar }: Props ) {
+	const connector = useConnector();
 	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const navigate = useNavigate();
 	return (
 		<div className={ `${ styles.root } ${ reserveTrafficLightSpace ? '' : styles.flush }` }>
-			<span className={ styles.title }>{ __( 'Studio' ) }</span>
+			{ /* In a browser tab nothing else names the app, so the header carries a
+			     small wordmark. In the desktop app the window chrome already does. */ }
+			{ ! connector.capabilities.appWindow ? (
+				<span className={ styles.title }>{ __( 'Studio' ) }</span>
+			) : null }
 			<div className={ styles.actions }>
 				<Menu.Root modal={ false }>
 					<Menu.Trigger

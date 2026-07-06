@@ -110,6 +110,10 @@ export interface ConnectorCapabilities {
 	// browser the preview is a cross-origin <iframe> that can't be injected, so
 	// the Annotate control is hidden.
 	annotatePreview: boolean;
+	// The UI runs in a dedicated app window whose chrome (dock icon, title bar)
+	// already identifies the app. When false — a browser tab (`studio ui` /
+	// hosted) — the sidebar header shows a small "Studio" wordmark instead.
+	appWindow: boolean;
 }
 
 export interface Connector {

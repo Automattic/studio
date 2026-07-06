@@ -73,7 +73,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
-import { assertMysqlBinarySupportedForCurrentPlatform } from 'cli/lib/dependency-management/mysql-binary';
+import { getDatabaseProvider } from 'cli/lib/database/providers';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -125,6 +125,7 @@ export async function runCommand(
 ): Promise< void > {
 	const siteRuntime = options.runtime;
 	const databaseEngine = options.databaseEngine ?? DATABASE_ENGINE_SQLITE;
+	const databaseProvider = getDatabaseProvider( databaseEngine );
 	if ( ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
 		throw new LoggerError(
 			__(
@@ -132,12 +133,10 @@ export async function runCommand(
 			)
 		);
 	}
-	if ( databaseEngine === DATABASE_ENGINE_MYSQL && siteRuntime !== SITE_RUNTIME_NATIVE_PHP ) {
+	if ( databaseProvider.requiresNativePhpRuntime && siteRuntime !== SITE_RUNTIME_NATIVE_PHP ) {
 		throw new LoggerError( __( 'MySQL requires the native PHP runtime.' ) );
 	}
-	if ( databaseEngine === DATABASE_ENGINE_MYSQL ) {
-		assertMysqlBinarySupportedForCurrentPlatform();
-	}
+	databaseProvider.preflight();
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
 	const isOnlineStatus = await isOnline();
 
@@ -275,7 +274,7 @@ export async function runCommand(
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		}
 
-		if ( databaseEngine === DATABASE_ENGINE_SQLITE ) {
+		if ( databaseProvider.usesSqliteIntegration ) {
 			logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
 			await keepSqliteIntegrationUpdated( sitePath );
 			logger.reportSuccess( __( 'SQLite integration configured' ) );
@@ -390,7 +389,7 @@ export async function runCommand(
 				} );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
-				if ( databaseEngine === DATABASE_ENGINE_SQLITE ) {
+				if ( databaseProvider.usesSqliteIntegration ) {
 					stripWpConfigDbConstants( sitePath );
 				}
 
@@ -438,7 +437,7 @@ export async function runCommand(
 					} );
 					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
 
-					if ( databaseEngine === DATABASE_ENGINE_SQLITE ) {
+					if ( databaseProvider.usesSqliteIntegration ) {
 						stripWpConfigDbConstants( sitePath );
 					}
 				} catch ( error ) {

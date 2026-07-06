@@ -1,10 +1,9 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
-import { isMysqlSite } from '@studio/common/lib/database-engine';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { assertMysqlBinarySupportedForCurrentPlatform } from 'cli/lib/dependency-management/mysql-binary';
+import { getDatabaseProviderForSite } from 'cli/lib/database/providers';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -63,13 +62,12 @@ export async function runCommand(
 			return;
 		}
 
-		if ( isMysqlSite( site ) ) {
-			assertMysqlBinarySupportedForCurrentPlatform();
-		}
+		const databaseProvider = getDatabaseProviderForSite( site );
+		databaseProvider.preflight();
 
 		await setupCustomDomain( site, logger );
 
-		if ( ! isMysqlSite( site ) ) {
+		if ( databaseProvider.usesSqliteIntegration ) {
 			logger.reportStart(
 				LoggerAction.INSTALL_SQLITE,
 				__( 'Setting up SQLite integration, if needed…' )

@@ -4,11 +4,8 @@ import path from 'node:path';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { escapePhpSingleQuotedString } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
+import { getDatabaseProviderForSite } from 'cli/lib/database/providers';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
-import {
-	getMysqlConfigFromServerConfig,
-	getMysqlWpConfigConstants,
-} from 'cli/lib/mysql/mysql-site';
 import { runPhpCommand } from './php-process';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
@@ -48,14 +45,16 @@ $transformer->to_file( $wp_config_path );
 
 	const enableDebugLog = config?.enableDebugLog ?? false;
 	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
-	const mysqlConfig = config ? getMysqlConfigFromServerConfig( config as ServerConfig ) : undefined;
+	const databaseProvider = config
+		? getDatabaseProviderForSite( config as ServerConfig )
+		: getDatabaseProviderForSite( {} );
 
 	// Guard against silently clobbering a real database config. If we're about to
 	// write the SQLite default (DB_NAME='wordpress') over a wp-config.php that
 	// already points at a different database, the engine flag was dropped
 	// somewhere upstream and writing the default would sever a live MySQL site
 	// from its data. Fail loud instead of corrupting the config.
-	if ( ! mysqlConfig && fs.existsSync( wpConfigPath ) ) {
+	if ( databaseProvider.usesSqliteIntegration && fs.existsSync( wpConfigPath ) ) {
 		const existingDbName = readDefinedDbName( wpConfigPath );
 		if (
 			existingDbName &&
@@ -71,7 +70,7 @@ $transformer->to_file( $wp_config_path );
 	}
 
 	const constants = {
-		...( mysqlConfig ? getMysqlWpConfigConstants( mysqlConfig ) : DEFAULT_WP_CONFIG_CONSTANTS ),
+		...databaseProvider.getWpConfigConstants( config as ServerConfig | undefined ),
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,

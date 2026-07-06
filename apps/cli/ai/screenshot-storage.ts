@@ -28,8 +28,11 @@ export async function resolveScreenshotDirectory(): Promise< string > {
 			await mkdir( directory, { recursive: true } );
 			return directory;
 		}
-	} catch {
-		// Fall through to the temp directory.
+	} catch ( error ) {
+		// Fall through to the temp directory so the capture still succeeds, but
+		// say so: files there are purged by the OS, so persisted artifacts will
+		// eventually show as unavailable and this line is the only clue why.
+		console.warn( '[screenshots] falling back to a temporary directory:', error );
 	}
 	return mkdtemp( path.join( os.tmpdir(), 'studio-screenshot-' ) );
 }

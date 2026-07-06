@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setScreenshotDirectoryProvider } from '../screenshot-storage';
 import { saveScreenshotFile } from '../tools/screenshot-helpers';
 
@@ -53,7 +53,8 @@ describe( 'screenshot helpers', () => {
 		}
 	} );
 
-	it( 'falls back to a temporary directory when the provider throws', async () => {
+	it( 'falls back to a temporary directory when the provider throws, and says so', async () => {
+		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
 		setScreenshotDirectoryProvider( () => {
 			throw new Error( 'no session' );
 		} );
@@ -64,7 +65,12 @@ describe( 'screenshot helpers', () => {
 
 		try {
 			expect( result.path.startsWith( os.tmpdir() ) ).toBe( true );
+			expect( warnSpy ).toHaveBeenCalledWith(
+				expect.stringContaining( '[screenshots] falling back to a temporary directory' ),
+				expect.any( Error )
+			);
 		} finally {
+			warnSpy.mockRestore();
 			await rm( path.dirname( result.path ), { recursive: true, force: true } );
 		}
 	} );

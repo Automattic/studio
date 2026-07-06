@@ -19,6 +19,8 @@ qa-screenshots/
 .worktrees/
 .tmp-test/
 TODOS.md
+# Local discovery log — see CONTRIBUTING.md; intentionally not committed
+DISCOVERIES.md
 
 # Streaming compose-then-install scratch dir
 .tmp-compose/

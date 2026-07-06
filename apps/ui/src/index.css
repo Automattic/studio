@@ -1,3 +1,15 @@
+/* Bundled font for Central Kurdish (ckb). macOS's system font (San Francisco)
+   lacks glyphs for several Kurdish letters (e.g. ێ ۆ ڵ), which breaks words and
+   sentences. Vazirmatn (SIL Open Font License, see ./fonts/OFL.txt) covers the
+   full Central Kurdish alphabet. Only applied to the ckb locale below. */
+@font-face {
+	font-family: 'Vazirmatn';
+	src: url( './fonts/Vazirmatn-Variable.woff2' ) format( 'woff2' );
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
 :root {
 	/* Default is 2px; 4px reads a bit softer. */
 	--wpds-border-radius-sm: 4px;
@@ -22,6 +34,29 @@ body {
 	color-scheme: light dark;
 	scrollbar-width: thin;
 	scrollbar-color: gray transparent;
+}
+
+/* Central Kurdish: prepend the bundled Vazirmatn so Kurdish letters render
+   correctly on platforms whose system font lacks them (notably macOS). The
+   `lang` attribute is set from the resolved locale on bootstrap (see
+   lib/apply-locale.ts). Overriding the design-system font-family tokens flows
+   the font through everything themed by the design system (body, headings,
+   @wordpress/ui components). The `@wordpress/components` selectors then cover
+   the handful of controls (inputs, tooltips, dropdowns, etc.) that hardcode
+   their own font-family with class-level specificity. */
+:root:lang( ckb ) {
+	--wpds-typography-font-family-body: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
+		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+	--wpds-typography-font-family-heading: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
+		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+}
+
+body:lang( ckb ) input,
+body:lang( ckb ) textarea,
+body:lang( ckb ) select,
+body:lang( ckb ) button,
+body:lang( ckb ) [class*='components-'] {
+	font-family: var( --wpds-typography-font-family-body );
 }
 
 @media ( prefers-color-scheme: dark ) {

@@ -26,9 +26,6 @@ e2e_config: &e2e_config
       # Windows E2E temporarily disabled while AINFRA-2588 investigates Windows E2E hangs in Buildkite.
       # See https://linear.app/a8c/issue/AINFRA-2588/investigate-studio-windows-e2e-hangs-in-buildkite
       # - with: { platform: windows, arch: x64 }
-  notify:
-    - github_commit_status:
-        context: E2E Tests
 
 steps:
   - label: Lint
@@ -87,6 +84,12 @@ steps:
 
   - group: E2E Tests
     key: e2e-tests
+    # One combined GitHub status for all E2E jobs. Step-level notifies on the
+    # same context race (last writer wins), so a fast green mac job used to
+    # mask a still-running or failed Windows job.
+    notify:
+      - github_commit_status:
+          context: E2E Tests
     steps:
       # E2E tests run on supported platform/architecture combinations.
       # - mac-arm64: Native on Apple Silicon agents
@@ -118,9 +121,6 @@ steps:
         env:
           DEBUG: "pw:browser"
         # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
-        notify:
-          - github_commit_status:
-              context: E2E Tests
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics

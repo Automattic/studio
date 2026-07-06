@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# A Buildkite cancellation or timeout delivers SIGTERM. Exit non-zero explicitly:
+# a killed process tree can otherwise record exit status 0, and a timed-out job
+# with exit status 0 turns the whole build green (observed in build 18744).
+trap 'echo "Termination signal received — failing the job."; exit 1' TERM INT
+
 PLATFORM=${1:?Expected platform to be provided as first parameter}
 ARCH=${2:?Expected architecture to be provided as second parameter}
 

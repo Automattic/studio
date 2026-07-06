@@ -7,6 +7,10 @@ env:
   IMAGE_ID: $IMAGE_ID
 
 e2e_config: &e2e_config
+  # TEMP(AINFRA-2588): cap the job while Windows E2E is enabled on this branch for
+  # verification — trunk still has the daemon-leak hang (#3954, fixed separately in
+  # #4070/#4075), so a wedged run must cost 100 minutes, not the agent's 3h default.
+  timeout_in_minutes: 100
   command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
   artifact_paths:
     - test-results/**/*.zip
@@ -23,9 +27,13 @@ e2e_config: &e2e_config
     setup: { platform: [], arch: [] }
     adjustments:
       - with: { platform: mac, arch: arm64 }
-      # Windows E2E temporarily disabled while AINFRA-2588 investigates Windows E2E hangs in Buildkite.
+      # TEMP(AINFRA-2588): Windows re-enabled on this branch to verify the
+      # auto_prepend_file fix on a real Windows agent. The daemon-leak hang
+      # (#3954) is fixed separately in #4070/#4075, so this run may still be
+      # slow — the INI failures are what this verifies. Decide before merge
+      # whether trunk keeps Windows enabled.
       # See https://linear.app/a8c/issue/AINFRA-2588/investigate-studio-windows-e2e-hangs-in-buildkite
-      # - with: { platform: windows, arch: x64 }
+      - with: { platform: windows, arch: x64 }
 
 steps:
   - label: Lint

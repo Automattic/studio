@@ -1,61 +1,20 @@
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import type { AskUserQuestion } from 'cli/ai/agent';
+import type { JsonEvent } from '@studio/common/ai/json-events';
 
-export type JsonEventType =
-	| 'message'
-	| 'progress'
-	| 'info'
-	| 'error'
-	| 'question.asked'
-	| 'turn.started'
-	| 'turn.completed';
-
-export type TurnCompletedStatus = 'success' | 'error' | 'paused' | 'max_turns';
-
-export type JsonEvent =
-	| {
-			type: 'message';
-			timestamp: string;
-			message: SDKMessage;
-	  }
-	| {
-			type: 'progress';
-			timestamp: string;
-			message: string;
-	  }
-	| {
-			type: 'info';
-			timestamp: string;
-			message: string;
-	  }
-	| {
-			type: 'error';
-			timestamp: string;
-			message: string;
-	  }
-	| {
-			type: 'question.asked';
-			timestamp: string;
-			questions: Array< {
-				question: string;
-				options: AskUserQuestion[ 'options' ];
-			} >;
-	  }
-	| {
-			type: 'turn.started';
-			timestamp: string;
-	  }
-	| {
-			type: 'turn.completed';
-			timestamp: string;
-			sessionId: string;
-			status: TurnCompletedStatus;
-			usage?: {
-				numTurns: number;
-				costUsd?: number;
-			};
-	  };
+export {
+	type AgentMessageJsonEvent,
+	type JsonEvent,
+	type TurnCompletedStatus,
+} from '@studio/common/ai/json-events';
 
 export function emitEvent( event: JsonEvent ): void {
+	// When forked from the Studio main process the Node IPC channel is
+	// available; prefer it so events arrive as structured objects without a
+	// stringify/parse round-trip. For standalone CLI use (e.g. piping `studio
+	// code sessions resume … --json` in a shell) `process.send` is undefined
+	// and we fall back to NDJSON on stdout — the public contract is unchanged.
+	if ( typeof process.send === 'function' ) {
+		process.send( event );
+		return;
+	}
 	process.stdout.write( JSON.stringify( event ) + '\n' );
 }

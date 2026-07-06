@@ -185,6 +185,15 @@ export interface WpComSiteInfo {
 	url: string;
 }
 
+const rotateReprintSecretResponseSchema = z.object( {
+	code: z.number(),
+	body: z.object( {
+		data: z.object( {
+			secret: z.string().min( 1, __( 'Secret cannot be empty' ) ),
+		} ),
+	} ),
+} );
+
 const wpComSitesResponseSchema = z.object( {
 	sites: z.array(
 		z.object( {
@@ -224,6 +233,156 @@ export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] >
 			throw new LoggerError( __( 'Invalid API response format' ), error );
 		}
 		throw new LoggerError( __( 'Failed to fetch WordPress.com sites' ), error );
+	}
+}
+
+const settingsResponseSchema = z.object( {
+	updated: z.record( z.string(), z.unknown() ).optional(),
+} );
+
+/**
+ * Enables the reprint exporter on a WordPress.com site by setting the
+ * `reprint_exporter_enabled` site option to the current unix timestamp.
+ *
+ * wpcomsh gates the `?reprint-api` endpoint on this option being a
+ * timestamp within the last 60 minutes (a sliding window that each
+ * accepted export request bumps). Studio must call this before the
+ * first direct request to the site or preflight will be refused.
+ *
+ * Uses WPCOM's generic `/sites/{site}/settings` endpoint because
+ * wpcomsh does not expose a dedicated enable endpoint (the Jetpack
+ * REST proxy path used for `rotate-export-secret` isn't an option).
+ *
+ * The settings endpoint whitelists keys and silently drops unknown
+ * ones with a 200 OK, so we verify that `reprint_exporter_enabled`
+ * appears in the `updated` response — catching a stale wpcomsh
+ * whitelist here, long before the user hits an opaque preflight 403.
+ */
+export async function enableReprintExporter(
+	siteId: number,
+	token: string,
+	verbose = false
+): Promise< void > {
+	const timestamp = Math.floor( Date.now() / 1000 );
+	if ( verbose ) {
+		console.error(
+			`[enableReprintExporter] Setting reprint_exporter_enabled=${ timestamp } on site ${ siteId }…`
+		);
+	}
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	let rawResponse: unknown;
+	try {
+		rawResponse = await wpcom.req.post( {
+			path: `/sites/${ siteId }/settings`,
+			apiNamespace: 'rest/v1.1',
+			body: { reprint_exporter_enabled: timestamp },
+		} );
+	} catch ( error ) {
+		if ( verbose ) {
+			const message = error instanceof Error ? error.message : String( error );
+			console.error(
+				`[enableReprintExporter] Failed to set reprint_exporter_enabled=${ timestamp } on site ${ siteId }: ${ message }`
+			);
+		}
+		throw new LoggerError( __( 'Failed to enable the reprint exporter' ), error );
+	}
+
+	const parsed = settingsResponseSchema.safeParse( rawResponse );
+	const updated = parsed.success ? parsed.data.updated : undefined;
+	if ( ! updated || ! ( 'reprint_exporter_enabled' in updated ) ) {
+		if ( verbose ) {
+			console.error(
+				`[enableReprintExporter] Site ${ siteId } settings endpoint did not report reprint_exporter_enabled as updated. Response: ${ JSON.stringify(
+					rawResponse
+				) }`
+			);
+		}
+		throw new LoggerError(
+			__(
+				'The site did not acknowledge the reprint exporter activation. The feature may not be available yet on this WordPress.com site.'
+			)
+		);
+	}
+
+	if ( verbose ) {
+		console.error(
+			`[enableReprintExporter] Set reprint_exporter_enabled=${ JSON.stringify(
+				updated.reprint_exporter_enabled
+			) } on site ${ siteId }`
+		);
+	}
+}
+
+/**
+ * Rotates a WordPress.com site's reprint export secret.
+ *
+ * Calls the Jetpack bridge endpoint to request a fresh export token.
+ * The response is validated against `rotateReprintSecretResponseSchema`
+ * and the wrapper `code` must be `200`; otherwise a `LoggerError` is
+ * thrown.
+ */
+export async function rotateReprintSecret( siteId: number, token: string ): Promise< string > {
+	const response = await fetch(
+		`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ siteId }/rest-api?http_envelope=1&`,
+		{
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${ token }`,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify( {
+				path: '/wpcomsh/v1/reprint/rotate-export-secret',
+			} ),
+		}
+	);
+
+	if ( ! response.ok ) {
+		throw new LoggerError(
+			__( 'Failed to rotate the WordPress.com site secret' ),
+			new Error( `HTTP ${ response.status }` )
+		);
+	}
+
+	let rawResponse: unknown;
+	try {
+		rawResponse = await response.json();
+	} catch ( error ) {
+		throw new LoggerError(
+			__( 'Invalid API response format' ),
+			error instanceof Error ? error : new Error( String( error ) )
+		);
+	}
+
+	try {
+		const result = rotateReprintSecretResponseSchema.parse( rawResponse );
+
+		if ( result.code !== 200 ) {
+			throw new LoggerError(
+				__( 'Failed to rotate the WordPress.com site secret' ),
+				new Error(
+					`Unexpected response code ${ result.code }. Raw response: ${ JSON.stringify(
+						rawResponse
+					) }`
+				)
+			);
+		}
+
+		return result.body.data.secret;
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			throw error;
+		}
+		if ( error instanceof z.ZodError ) {
+			throw new LoggerError(
+				__( 'Invalid API response format' ),
+				new Error(
+					`Zod validation failed: ${ error.message }. Raw response: ${ JSON.stringify(
+						rawResponse
+					) }`
+				)
+			);
+		}
+		throw new LoggerError( __( 'Failed to rotate the WordPress.com site secret' ), error );
 	}
 }
 

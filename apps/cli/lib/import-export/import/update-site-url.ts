@@ -7,13 +7,11 @@ import type { SiteData } from 'cli/lib/cli-config/core';
 export const updateSiteUrl = async ( site: SiteData ) => {
 	const newUrl = getSiteUrl( site );
 
-	await using command = await runWpCliCommand( site.path, DEFAULT_PHP_VERSION, [
-		'option',
-		'get',
-		'siteurl',
-		'--skip-plugins',
-		'--skip-themes',
-	] );
+	await using command = await runWpCliCommand(
+		site,
+		[ 'option', 'get', 'siteurl', '--skip-plugins', '--skip-themes' ],
+		{ phpVersion: DEFAULT_PHP_VERSION }
+	);
 
 	const currentSiteUrl = await command.response.stdoutText;
 
@@ -39,14 +37,18 @@ export const updateSiteUrl = async ( site: SiteData ) => {
 	];
 
 	for ( const urlToReplace of oldUrlVariants ) {
-		await using command = await runWpCliCommand( site.path, DEFAULT_PHP_VERSION, [
-			'search-replace',
-			urlToReplace,
-			newUrl,
-			'--skip-columns=guid',
-			'--skip-plugins',
-			'--skip-themes',
-		] );
+		await using command = await runWpCliCommand(
+			site,
+			[
+				'search-replace',
+				urlToReplace,
+				newUrl,
+				'--skip-columns=guid',
+				'--skip-plugins',
+				'--skip-themes',
+			],
+			{ phpVersion: DEFAULT_PHP_VERSION }
+		);
 
 		const stderr = await command.response.stderrText;
 		const exitCode = await command.response.exitCode;

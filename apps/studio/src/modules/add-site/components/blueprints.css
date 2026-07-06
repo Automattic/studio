@@ -24,7 +24,7 @@
 }
 
 .blueprints-container .dataviews-view-grid__row {
-	@apply !grid !grid-cols-3 !gap-5 !items-start;
+	@apply !grid !grid-cols-3 !gap-5 !items-start !mb-5;
 }
 
 .blueprints-container .components-badge {

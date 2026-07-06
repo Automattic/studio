@@ -1,0 +1,225 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { Tooltip } from '@wordpress/ui';
+import { describe, expect, it, vi } from 'vitest';
+import { useConnector } from '@/data/core';
+import { getPathFromPreviewUrl, getToolbarPageTitle, SitePreview } from './index';
+import type { SiteDetails } from '@/data/core';
+import type { ReactNode } from 'react';
+
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
+} ) );
+
+const useConnectorMock = vi.mocked( useConnector );
+
+// Browser-style capabilities (no native dialogs, no preview annotation) — the
+// component reads `connector.capabilities` to decide which toolbar controls show.
+const CAPABILITIES = {
+	nativeFolderPicker: false,
+	nativeSaveDialog: false,
+	openInOS: false,
+	annotatePreview: false,
+};
+
+function renderPreview( children: ReactNode ) {
+	const queryClient = new QueryClient( {
+		defaultOptions: {
+			queries: { retry: false },
+			mutations: { retry: false },
+		},
+	} );
+	return render(
+		<QueryClientProvider client={ queryClient }>
+			<Tooltip.Provider>{ children }</Tooltip.Provider>
+		</QueryClientProvider>
+	);
+}
+
+function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
+	return {
+		id: 'site-1',
+		name: 'Example Site',
+		path: '/Users/example/Studio/example-site',
+		port: 8881,
+		running: false,
+		phpVersion: '8.3',
+		...overrides,
+	};
+}
+
+describe( 'SitePreview', () => {
+	it( 'shows the current page title and exposes the URL in a tooltip', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/wp-admin/" reloadNonce={ 0 } />
+		);
+
+		const pageTitle = screen.getByText( 'Example Site' );
+		expect( pageTitle ).toBeVisible();
+
+		fireEvent.mouseEnter( pageTitle );
+		fireEvent.mouseMove( pageTitle, { movementX: 1, movementY: 1 } );
+
+		expect( screen.queryByText( 'http://localhost:8881/wp-admin/' ) ).not.toBeInTheDocument();
+		// Tooltips use Base UI's default open delay, so wait long enough for the popup to appear.
+		expect(
+			await screen.findByText( 'http://localhost:8881/wp-admin/', {}, { timeout: 2000 } )
+		).toBeVisible();
+	} );
+
+	it( 'shows adjacent toolbar tooltips immediately while the delay group is active', async () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/wp-admin/" reloadNonce={ 0 } />
+		);
+
+		const pageTitle = screen.getByText( 'Example Site' );
+		fireEvent.mouseEnter( pageTitle );
+		fireEvent.mouseMove( pageTitle, { movementX: 1, movementY: 1 } );
+
+		await screen.findByText( 'http://localhost:8881/wp-admin/', {}, { timeout: 2000 } );
+
+		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
+		expect( screen.queryByText( /^Refresh/ ) ).not.toBeInTheDocument();
+
+		fireEvent.mouseLeave( pageTitle, { relatedTarget: refreshButton } );
+		fireEvent.mouseEnter( refreshButton, { relatedTarget: pageTitle } );
+		fireEvent.mouseMove( refreshButton, { movementX: 1, movementY: 1 } );
+
+		const refreshTooltip = screen.getByText( /^Refresh/ );
+		expect( refreshTooltip ).toBeInTheDocument();
+		expect( refreshTooltip ).toHaveAttribute( 'data-instant', 'delay' );
+	} );
+
+	it( 'hides the browser controls when the site is not running', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview( <SitePreview site={ createSite() } path="/wp-admin/" reloadNonce={ 0 } /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'http://localhost:8881/wp-admin/' ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
+	} );
+
+	it( 'shows a refresh button that reloads the active preview surface', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
+		expect( refreshButton ).toBeEnabled();
+		expect( refreshButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+R$/ ) );
+
+		const initialIframe = container.querySelector( 'iframe' );
+		expect( initialIframe ).toBeInTheDocument();
+
+		fireEvent.click( refreshButton );
+
+		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
+	} );
+
+	it( 'reloads the preview on the primary-modifier+R shortcut', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const { container } = renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		const initialIframe = container.querySelector( 'iframe' );
+		expect( initialIframe ).toBeInTheDocument();
+
+		// jsdom reports a non-Apple platform, so the primary modifier is Ctrl.
+		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true } );
+		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
+
+		// Extra modifiers must not trigger the shortcut.
+		const reloadedIframe = container.querySelector( 'iframe' );
+		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, shiftKey: true } );
+		expect( container.querySelector( 'iframe' ) ).toBe( reloadedIframe );
+	} );
+
+	it( 'hides the Annotate control when the host cannot annotate the preview', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		// The toolbar is present (Refresh shows) but Annotate is omitted entirely.
+		expect( screen.getByRole( 'button', { name: 'Refresh' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows the Annotate control when the host supports preview annotation', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
+	} );
+} );
+
+describe( 'getToolbarPageTitle', () => {
+	it( 'strips the WordPress admin suffix from document titles', () => {
+		expect( getToolbarPageTitle( 'Dashboard ‹ Example Site — WordPress', 'Example Site' ) ).toBe(
+			'Dashboard'
+		);
+		expect( getToolbarPageTitle( 'Posts ‹ My Blog — WordPress', 'My Blog' ) ).toBe( 'Posts' );
+	} );
+
+	it( 'returns front-end titles unchanged', () => {
+		expect( getToolbarPageTitle( 'Example Site – Just another WordPress site', 'Example' ) ).toBe(
+			'Example Site – Just another WordPress site'
+		);
+	} );
+
+	it( 'falls back to the site name, then a generic label', () => {
+		expect( getToolbarPageTitle( null, 'Example Site' ) ).toBe( 'Example Site' );
+		expect( getToolbarPageTitle( '   ', 'Example Site' ) ).toBe( 'Example Site' );
+		expect( getToolbarPageTitle( null, '' ) ).toBe( 'Site preview' );
+	} );
+} );
+
+describe( 'getPathFromPreviewUrl', () => {
+	it( 'extracts the path, search, and hash for same-origin urls', () => {
+		expect(
+			getPathFromPreviewUrl( 'http://localhost:8881/wp-admin/?page=1#top', 'http://localhost:8881' )
+		).toBe( '/wp-admin/?page=1#top' );
+	} );
+
+	it( 'returns null for cross-origin or invalid urls', () => {
+		expect( getPathFromPreviewUrl( 'https://example.com/about', 'http://localhost:8881' ) ).toBe(
+			null
+		);
+		expect( getPathFromPreviewUrl( 'not-a-url', 'http://localhost:8881' ) ).toBe( null );
+	} );
+} );

@@ -1,8 +1,9 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { updateBlueprintWithFormValues } from '@studio/common/lib/blueprint-settings';
-import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
+import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
+import { type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
@@ -27,6 +28,8 @@ export interface CreateSiteFormValues {
 	sitePath: string;
 	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 	useCustomDomain: boolean;
 	customDomain: string | null;
 	enableHttps: boolean;
@@ -60,9 +63,6 @@ export function useAddSite() {
 	const [ blueprintPreferredVersions, setBlueprintPreferredVersions ] = useState<
 		BlueprintPreferredVersions | undefined
 	>();
-	const [ blueprintWarnings, setBlueprintWarnings ] = useState<
-		BlueprintValidationWarning[] | undefined
-	>();
 	const [ blueprintSuggestedDomain, setBlueprintSuggestedDomain ] = useState<
 		string | undefined
 	>();
@@ -82,7 +82,6 @@ export function useAddSite() {
 		setIsDeeplinkFlow( false );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
-		setBlueprintWarnings( undefined );
 		setBlueprintSuggestedDomain( undefined );
 		setBlueprintSuggestedHttps( undefined );
 		setBlueprintSuggestedSiteName( undefined );
@@ -99,7 +98,6 @@ export function useAddSite() {
 		setFileForImport( null );
 		setSelectedBlueprint( undefined );
 		setBlueprintPreferredVersions( undefined );
-		setBlueprintWarnings( undefined );
 		setBlueprintSuggestedDomain( undefined );
 		setBlueprintSuggestedHttps( undefined );
 		setBlueprintSuggestedSiteName( undefined );
@@ -300,7 +298,9 @@ export function useAddSite() {
 					shouldSkipStart,
 					formValues.adminUsername,
 					formValues.adminPassword,
-					formValues.adminEmail
+					formValues.adminEmail,
+					formValues.runtime,
+					formValues.fileAccess
 				);
 			} catch ( e ) {
 				Sentry.captureException( e );
@@ -336,8 +336,6 @@ export function useAddSite() {
 			setSelectedBlueprint,
 			blueprintPreferredVersions,
 			setBlueprintPreferredVersions,
-			blueprintWarnings,
-			setBlueprintWarnings,
 			blueprintSuggestedDomain,
 			setBlueprintSuggestedDomain,
 			blueprintSuggestedHttps,
@@ -367,7 +365,6 @@ export function useAddSite() {
 			fileForImport,
 			selectedBlueprint,
 			blueprintPreferredVersions,
-			blueprintWarnings,
 			blueprintSuggestedDomain,
 			blueprintSuggestedHttps,
 			blueprintSuggestedSiteName,

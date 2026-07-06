@@ -32,7 +32,6 @@ export async function runCommand( siteFolder: string, name?: string ): Promise< 
 				__( 'Authentication required. Please log in with `studio auth login`.' )
 			);
 		}
-		logger.reportSuccess( __( 'Validation successful' ), true );
 
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive…' ) );
 		await archiveSiteContent( siteFolder, archivePath );

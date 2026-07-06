@@ -6,12 +6,6 @@ export default mergeConfig(
 	defineConfig( {
 		build: {
 			sourcemap: false,
-			rollupOptions: {
-				output: {
-					// Add shebang to main.mjs so it can be executed directly as a CLI.
-					banner: ( chunk ) => ( chunk.fileName === 'main.mjs' ? '#!/usr/bin/env node' : '' ),
-				},
-			},
 		},
 		define: {
 			__ENABLE_CLI_TELEMETRY__: true,

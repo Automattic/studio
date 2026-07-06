@@ -1,18 +1,22 @@
+import { execFileSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import convertToWindowsStore from 'electron2appx';
 import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
 console.log( '--- :electron: Packaging AppX' );
 
-console.log( '~~~ Verifying WINDOWS_CODE_SIGNING_CERT_PASSWORD env var...' );
-if ( ! process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD ) {
-	console.error( 'Required env var WINDOWS_CODE_SIGNING_CERT_PASSWORD is not set!' );
+const { assertAzureSigningEnv, getAzureSignArgs, getAzureSigningConfig } = (
+	await import( './azure-signing.cjs' )
+).default;
+
+console.log( '~~~ Verifying Azure Trusted Signing env vars...' );
+try {
+	assertAzureSigningEnv();
+} catch ( error ) {
+	console.error( error instanceof Error ? error.message : error );
 	process.exit( 1 );
 }
-
-const __dirname = path.dirname( fileURLToPath( import.meta.url ) );
 
 // Get architecture from environment variable, default to x64 for backward compatibility
 const architecture = process.env.FILE_ARCHITECTURE || 'x64';
@@ -21,7 +25,11 @@ if ( architecture !== 'x64' && architecture !== 'arm64' ) {
 	process.exit( 1 );
 }
 
-const windows10SDKVersionPath = path.resolve( __dirname, '..', '.windows-10-sdk-version' );
+const windows10SDKVersionPath = path.resolve(
+	import.meta.dirname,
+	'..',
+	'.windows-10-sdk-version'
+);
 try {
 	await fs.access( windows10SDKVersionPath );
 } catch {
@@ -45,8 +53,8 @@ try {
 	process.exit( 1 );
 }
 
-const outPath = path.join( __dirname, '..', 'apps', 'studio', 'out' );
-const assetsPath = path.join( __dirname, '..', 'apps', 'studio', 'assets', 'appx' );
+const outPath = path.join( import.meta.dirname, '..', 'apps', 'studio', 'out' );
+const assetsPath = path.join( import.meta.dirname, '..', 'apps', 'studio', 'assets', 'appx' );
 
 console.log( `~~~ Packaging AppX for architecture: ${ architecture }` );
 
@@ -167,14 +175,44 @@ await convertToWindowsStore( {
 	outputDirectory: appxOutputPathUnsigned,
 } );
 
-// Create signed AppX
+// Create signed AppX (used for local testing via sideloading)
 const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-${ architecture }-signed` );
 console.log( `~~~ Creating signed .appx for local testing at ${ appxOutputPathSigned }...` );
 
+const sideloadPublisher =
+	'CN=Automattic Inc., O=Automattic Inc., L=San Francisco, S=California, C=US';
+
+// Build unsigned, then sign with Azure Trusted Signing via signtool.
 await convertToWindowsStore( {
 	...sharedOptions,
-	publisher: 'CN=&quot;Automattic, Inc.&quot;, O=&quot;Automattic, Inc.&quot;, S=California, C=US',
-	devCert: 'certificate.pfx',
-	certPass: process.env.WINDOWS_CODE_SIGNING_CERT_PASSWORD,
+	publisher: sideloadPublisher,
+	devCert: 'nil',
 	outputDirectory: appxOutputPathSigned,
 } );
+
+console.log( '~~~ Signing sideload .appx with Azure Trusted Signing...' );
+const appxFiles = ( await fs.readdir( appxOutputPathSigned ) ).filter( ( f ) =>
+	f.endsWith( '.appx' )
+);
+if ( appxFiles.length === 0 ) {
+	console.error( 'No .appx file found to sign!' );
+	process.exit( 1 );
+}
+
+for ( const appxFile of appxFiles ) {
+	const appxPath = path.join( appxOutputPathSigned, appxFile );
+	console.log( `Signing ${ appxPath }...` );
+	const { signtoolPath } = getAzureSigningConfig();
+	execFileSync( signtoolPath, getAzureSignArgs( appxPath ), {
+		stdio: 'inherit',
+	} );
+	console.log( `Signed ${ appxFile } successfully.` );
+
+	// Rename to remove misleading "unsigned" from the filename
+	const renamedFile = appxFile.replace( ' unsigned', '' );
+	if ( renamedFile !== appxFile ) {
+		const renamedPath = path.join( appxOutputPathSigned, renamedFile );
+		await fs.rename( appxPath, renamedPath );
+		console.log( `Renamed to ${ renamedFile }` );
+	}
+}

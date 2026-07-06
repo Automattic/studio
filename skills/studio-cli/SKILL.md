@@ -5,7 +5,7 @@ description: Use the Studio CLI to manage local WordPress sites, authentication,
 
 # Studio CLI
 
-The `studio` command manages local WordPress sites powered by WordPress Playground (PHP WASM).
+The `studio` command manages local WordPress sites.
 
 ## Global Options
 
@@ -16,22 +16,24 @@ The `studio` command manages local WordPress sites powered by WordPress Playgrou
 ## Site Management
 
 ```bash
-studio site create    # Create a new site
-studio site list      # List all sites (--format table|json)
-studio site status    # Show site details (--format table|json)
-studio site start     # Start a site
-studio site stop      # Stop a site (--all to stop all)
-studio site delete    # Delete a site (--files to trash site files)
-studio site set       # Update site settings
+studio create    # Create a new site
+studio list      # List all sites (--format table|json)
+studio status    # Show site details (--format table|json)
+studio start     # Start a site
+studio stop      # Stop a site (--all to stop all)
+studio delete    # Delete a site (--files to trash site files)
+studio config    # Get/set site settings (config get | config set)
 ```
+
+> **Backward compatibility:** These commands previously lived under a `site` group (e.g. `studio site start`). The `site` group still works as a hidden alias, but the top-level commands above are preferred. `studio site set` is now `studio config set`.
 
 ### Creating a site
 
 ```bash
-studio site create --name "My Site" --path ~/Studio/my-site
+studio create --name "My Site" --path ~/Studio/my-site
 ```
 
-**Options:** `--name`, `--wp` (default: "latest", min: 6.2.1), `--php` (default: 8.3, choices: 8.5/8.4/8.3/8.2/8.1/8.0/7.4), `--domain`, `--https`, `--blueprint` (local JSON file path), `--admin-username` (default: "admin"), `--admin-password` (auto-generated if omitted), `--admin-email` (default: "admin@localhost.com"), `--start` (default: true, use `--no-start` to skip), `--skip-browser`, `--skip-log-details`.
+**Options:** `--name`, `--wp` (default: "latest", min: 6.2.1), `--php` (default: 8.4, choices: 8.5/8.4/8.3/8.2/8.1/8.0/7.4), `--domain`, `--https`, `--blueprint` (local JSON file path), `--admin-username` (default: "admin"), `--admin-password` (auto-generated if omitted), `--admin-email` (default: "admin@localhost.com"), `--start` (default: true, use `--no-start` to skip), `--skip-browser`, `--skip-log-details`.
 
 Without flags in a TTY, the CLI prompts interactively for name, path, WP/PHP versions, and domain.
 
@@ -41,19 +43,31 @@ Without flags in a TTY, the CLI prompts interactively for name, path, WP/PHP ver
 
 ### Checking site details
 
-`studio site status` shows site URL, auto-login URL, admin credentials, PHP/WP versions, Xdebug status, and online/offline status. Prefer this over individual `wp-cli` calls when you need general site info.
+`studio status` shows site URL, auto-login URL, admin credentials, PHP/WP versions, Xdebug status, and online/offline status. Prefer this over individual `wp-cli` calls when you need general site info.
 
 ```bash
-studio site status --path ~/Studio/my-site              # Table output
-studio site status --path ~/Studio/my-site --format json # JSON output (fields: siteUrl, autoLoginUrl, sitePath, status, phpVersion, wpVersion, xdebug, adminUsername, adminPassword, adminEmail)
+studio status --path ~/Studio/my-site              # Table output
+studio status --path ~/Studio/my-site --format json # JSON output (fields: siteUrl, autoLoginUrl, sitePath, status, phpVersion, wpVersion, xdebug, adminUsername, adminPassword, adminEmail)
 ```
 
-### Configuring a site
+### Reading and changing configuration
+
+Read the settable site settings with `studio config get`:
 
 ```bash
-studio site set --path ~/Studio/my-site --php 8.4
-studio site set --path ~/Studio/my-site --domain mysite.local --https
-studio site set --path ~/Studio/my-site --xdebug
+studio config get --path ~/Studio/my-site                # All settings (table)
+studio config get --path ~/Studio/my-site --format json  # All settings (JSON)
+studio config get php --path ~/Studio/my-site            # A single setting, printed raw (e.g. "8.4")
+```
+
+Keys: `name`, `domain`, `https`, `php`, `wp`, `runtime` (`native`/`sandbox`), `file-access` (`site-directory`/`all-files`), `xdebug`, `admin-username`, `admin-password`, `admin-email`, `debug-log`, `debug-display`.
+
+Change settings with `studio config set`:
+
+```bash
+studio config set --path ~/Studio/my-site --php 8.4
+studio config set --path ~/Studio/my-site --domain mysite.local --https
+studio config set --path ~/Studio/my-site --xdebug
 ```
 
 **Options:** `--name`, `--domain` (must be unique, typically `.local`), `--https` (requires domain), `--php`, `--wp`, `--xdebug`, `--admin-username`, `--admin-password`, `--admin-email`, `--debug-log`, `--debug-display`. At least one option is required.
@@ -65,18 +79,18 @@ studio site set --path ~/Studio/my-site --xdebug
 ### Starting and stopping sites
 
 ```bash
-studio site start --path ~/Studio/my-site                    # Start and open browser
-studio site start --path ~/Studio/my-site --skip-browser     # Start without opening browser
-studio site start --path ~/Studio/my-site --skip-log-details # Start without printing credentials
-studio site stop --path ~/Studio/my-site                     # Stop current site
-studio site stop --all                                       # Stop all sites
+studio start --path ~/Studio/my-site                    # Start and open browser
+studio start --path ~/Studio/my-site --skip-browser     # Start without opening browser
+studio start --path ~/Studio/my-site --skip-log-details # Start without printing credentials
+studio stop --path ~/Studio/my-site                     # Stop current site
+studio stop --all                                       # Stop all sites
 ```
 
 ### Deleting a site
 
 ```bash
-studio site delete --path ~/Studio/my-site          # Remove site record only
-studio site delete --path ~/Studio/my-site --files   # Also trash site files
+studio delete --path ~/Studio/my-site          # Remove site record only
+studio delete --path ~/Studio/my-site --files   # Also trash site files
 ```
 
 Deleting a site also removes its associated preview sites if authenticated.
@@ -112,7 +126,7 @@ studio preview delete <host>       # Delete a preview site
 
 ## WP-CLI
 
-Run WP-CLI commands inside the site's PHP WASM environment:
+Run WP-CLI commands against the site's PHP runtime:
 
 ```bash
 studio wp --path ~/Studio/my-site core version
@@ -131,7 +145,7 @@ studio wp --path ~/Studio/my-site user list
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `site not found` | Not in a site directory | Use `--path` to specify the site directory, or `cd` into it |
-| `site is not running` | Site server stopped | Run `studio site start --skip-browser` first |
+| `site is not running` | Site server stopped | Run `studio start --skip-browser` first |
 | `wp shell` errors | `wp shell` not supported | Use `studio wp eval '...'` instead |
 | `EADDRINUSE` / port conflict | Port already in use | Stop the conflicting process or restart Studio |
 | `command not found: studio` | CLI not in PATH | Ensure Studio desktop app is installed and CLI is linked |
@@ -139,7 +153,7 @@ studio wp --path ~/Studio/my-site user list
 ## Tips
 
 - Use `--path` to target a specific site directory, or `cd` into the site folder first.
-- Use `--format json` on `site list`, `site status`, and `preview list` for machine-readable output.
+- Use `--format json` on `list`, `status`, `config get`, and `preview list` for machine-readable output. For a single config value, `studio config get <key>` prints it raw (no parsing needed).
 - Run `studio <command> --help` to see all options for any command.
 - Custom domains require hosts file changes (may need elevated permissions on macOS/Linux).
 - HTTPS uses self-signed certificates stored in platform-specific locations.

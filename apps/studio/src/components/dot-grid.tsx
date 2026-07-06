@@ -36,11 +36,11 @@ interface Ripple {
 }
 
 export function DotGrid( {
-	opacity = 1,
-	repulsion = 6,
-	rippleStrength = 6,
-	spacing = 32,
-	crossSize = 5,
+	opacity = 0.25,
+	repulsion = 0.25,
+	rippleStrength = 1,
+	spacing = 24,
+	crossSize = 4,
 	crossThickness = 0.75,
 	className,
 }: DotGridProps ) {

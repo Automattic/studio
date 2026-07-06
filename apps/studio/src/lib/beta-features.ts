@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import { lockAppdata, unlockAppdata, loadUserData, saveUserData } from 'src/storage/user-data';
 
 export interface BetaFeatureDefinition {
@@ -10,14 +11,23 @@ export interface BetaFeatureDefinition {
 /**
  * Default values for beta features.
  */
-const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {};
+const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
+	remoteSession: false,
+};
 
 /**
  * Returns beta feature definitions with translated labels and descriptions.
  * Must be called at runtime (not at module load) to ensure translations are loaded.
  */
 export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFeatureDefinition > {
-	return {};
+	return {
+		remoteSession: {
+			label: __( 'Remote Session' ),
+			key: 'remoteSession',
+			default: BETA_FEATURE_DEFAULTS.remoteSession,
+			description: __( 'Control Studio from Telegram via the remote-session daemon.' ),
+		},
+	};
 }
 
 function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
@@ -26,7 +36,7 @@ function buildBetaFeatures( userData: BetaFeatures | undefined ): BetaFeatures {
 	keys.forEach( ( key ) => {
 		features[ key ] = userData?.[ key ] ?? BETA_FEATURE_DEFAULTS[ key ];
 	} );
-	return features;
+	return features as BetaFeatures;
 }
 
 export async function getBetaFeatures(): Promise< BetaFeatures > {
@@ -42,8 +52,8 @@ export async function updateBetaFeature(
 		await lockAppdata();
 		const userData = await loadUserData();
 		const betaFeatures = await getBetaFeatures();
-		// @ts-expect-error If `BetaFeatures` is empty, `key` will be `never`, and we cannot use it to
-		// assign to`betaFeatures`.That's fine. Just rely on type checking when this function is called.
+		// If `BetaFeatures` is ever empty again, `key` resolves to `never` and this
+		// line stops type-checking. That's fine — rely on type checking at the call site.
 		betaFeatures[ key ] = value;
 		userData.betaFeatures = betaFeatures;
 		await saveUserData( userData );

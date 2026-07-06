@@ -1,0 +1,148 @@
+:root {
+	/* Default is 2px; 4px reads a bit softer. */
+	--wpds-border-radius-sm: 4px;
+
+	/* Overlay stacking — portals mount into `document.body` and must beat
+	   app-chrome stacking contexts (sidebar header z-index: 1, floating
+	   toggle z-index: 30). Menus stay below modal surfaces; tooltips live
+	   above dialogs so help text on controls inside a modal still surfaces
+	   above the containing overlay. */
+	--wp-ui-dialog-z-index: 700;
+	--wp-ui-tooltip-z-index: 800;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	font-family: var( --wpds-typography-font-family-body );
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: var( --wpds-typography-line-height-md );
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+	color-scheme: light dark;
+	scrollbar-width: thin;
+	scrollbar-color: gray transparent;
+}
+
+@media ( prefers-color-scheme: dark ) {
+	:root {
+		--wp-ui-tooltip-background-color: #fff;
+		--wp-ui-tooltip-color: #000;
+	}
+}
+
+/* Universal heading styles derived from the design system's font-size /
+   line-height ramp. Each level steps down one token (h1 = 2xl, h6 = xs),
+   keeping the rest of the type contract — family, weight, color, zero
+   margin — identical. Components can still override via their own class
+   where a specific context demands it, but bare `<h1>`…`<h6>` elements
+   pick up a consistent look for free. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-family: var( --wpds-typography-font-family-heading );
+	font-weight: var( --wpds-typography-font-weight-regular );
+	color: var( --wpds-color-fg-content-neutral );
+	margin: 0;
+}
+
+h1 {
+	font-size: var( --wpds-typography-font-size-2xl );
+	line-height: var( --wpds-typography-line-height-2xl );
+}
+
+h2 {
+	font-size: var( --wpds-typography-font-size-xl );
+	line-height: var( --wpds-typography-line-height-xl );
+}
+
+h3 {
+	font-size: var( --wpds-typography-font-size-lg );
+	line-height: var( --wpds-typography-line-height-lg );
+}
+
+h4 {
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: var( --wpds-typography-line-height-md );
+}
+
+h5 {
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
+}
+
+h6 {
+	font-size: var( --wpds-typography-font-size-xs );
+	line-height: var( --wpds-typography-line-height-xs );
+}
+
+/* Interactive elements inside drag-region ancestors (title bars, section
+   headers) need to opt out so clicks and focus still land. Harmless where no
+   drag region is active. `[data-base-ui-portal] *` covers the @base-ui Menu
+   portal subtree — items render as divs, so we can't rely on the
+   button/link selectors. */
+button,
+a,
+input,
+textarea,
+[role='button'],
+[data-base-ui-portal],
+[data-base-ui-portal] * {
+	-webkit-app-region: no-drag;
+}
+
+/* Show the focus ring only on keyboard focus, overriding @wordpress/ui's
+   :focus-based outline. Unlayered CSS wins over WP UI's cascade layers.
+   `a` covers Button primitives rendered as links via its `render` prop.
+   Also revert the background/border shift @wordpress/ui's Button applies on
+   `:focus` — when a Dialog auto-focuses a button on open, the "active" look
+   would otherwise show without any user intent. Leave `color` alone:
+   loading buttons rely on `color: transparent` to hide their label while
+   the spinner runs, and overriding that here would make the label visible
+   again. */
+button:focus:not( :focus-visible ),
+a:focus:not( :focus-visible ),
+[role='button']:focus:not( :focus-visible ) {
+	outline: none;
+	background-color: var( --wp-ui-button-background-color );
+	border-color: var( --wp-ui-button-border-color );
+}
+
+/* Compact density: shrink icons to match the tighter spacing tokens.
+   @wordpress/icons draws SVGs at 24x24 by default; the theme's compact
+   density only shrinks padding/gap tokens, not icon sizes. Override the
+   svg width/height attributes with CSS until the design system exposes
+   a density-aware icon token. Ideally this lives in ThemeProvider. */
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg {
+	width: 16px;
+	height: 16px;
+}
+
+/* @wordpress/components' ComboboxControl (used by DataForm's adaptive
+   picker once a field has 10+ elements) leaves its wrapper without a
+   background, so the body surface bleeds through around the inner input
+   and suggestion rows. Force both to the same background the input
+   itself uses so the control reads as one solid field. */
+.components-combobox-control__suggestions-container,
+.components-form-token-field__suggestions-list {
+	background-color: var( --wp-components-color-background, #fff );
+}
+
+/* Honor the user's reduced-motion preference across the entire app. Class-
+   scoped transitions out-specify a `*`-targeted rule, so `!important` is
+   needed to clamp them. Components that genuinely need to keep motion can
+   re-enable it with a more specific `!important` rule inside the same
+   media query. */
+@media ( prefers-reduced-motion: reduce ) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}

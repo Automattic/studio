@@ -1,12 +1,9 @@
-import { DEFAULT_MODEL, type AiModelId, type AskUserQuestion } from 'cli/ai/agent';
+import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
-import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { formatTosNoticeLines } from 'cli/lib/tos-notice';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
-import type { SiteInfo } from 'cli/ai/ui';
-
-export type HandleMessageResult =
-	| { type: 'result'; sessionId: string; success: boolean }
-	| { type: 'max_turns'; sessionId: string; numTurns: number; costUsd?: number };
+import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 export interface AiOutputAdapter {
 	currentProvider: AiProviderId;
@@ -18,6 +15,7 @@ export interface AiOutputAdapter {
 	start(): void;
 	stop(): void;
 	showWelcome(): void;
+	showTosNotice(): void;
 	showOnboarding(): void;
 	showCapabilities(): void;
 	showSuccess( message: string ): void;
@@ -27,12 +25,13 @@ export interface AiOutputAdapter {
 	showInfo( message: string ): void;
 	showError( message: string ): void;
 	setStatusMessage( message: string | null ): void;
+	setDaemonStatus( state: { running: boolean; pid?: number } ): void;
 	setLoaderMessage( message: string, update?: boolean ): void;
 
-	beginAgentTurn(): void;
+	beginAgentTurn( sessionId?: string ): void;
 	endAgentTurn(): void;
 	addUserMessage( text: string ): void;
-	handleMessage( message: SDKMessage ): HandleMessageResult | undefined;
+	handleEvent( event: AgentSessionEvent ): void;
 
 	waitForInput(): Promise< string >;
 	askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > >;
@@ -46,19 +45,45 @@ export class JsonAdapter implements AiOutputAdapter {
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;
 	onBeforeExit: ( () => Promise< void > ) | null = null;
+	permissionResponse: Record< string, string > | null = null;
 
-	private sessionId: string | undefined;
+	private ipcMessageListener: ( ( message: unknown ) => void ) | null = null;
+	private activeSessionId = '';
 
 	start(): void {
-		// No-op in JSON mode
+		// When forked from Studio, route the parent's IPC `interrupt` message
+		// to onInterrupt. SIGTERM from the parent is swallowed by module-level
+		// handlers (e.g. wordpress-server-manager), so we can't rely on signals.
+		if ( typeof process.send !== 'function' ) {
+			return;
+		}
+		this.ipcMessageListener = ( message ) => {
+			if (
+				message &&
+				typeof message === 'object' &&
+				( message as { type?: string } ).type === 'interrupt'
+			) {
+				this.onInterrupt?.();
+			}
+		};
+		process.on( 'message', this.ipcMessageListener );
 	}
 
 	stop(): void {
-		// No-op in JSON mode
+		if ( this.ipcMessageListener ) {
+			process.off( 'message', this.ipcMessageListener );
+			this.ipcMessageListener = null;
+		}
 	}
 
 	showWelcome(): void {
 		// No-op in JSON mode
+	}
+
+	showTosNotice(): void {
+		// Plain stderr keeps the NDJSON stdout stream clean; the caller already
+		// gates on IPC mode, where the desktop app shows its own disclaimer.
+		process.stderr.write( '\n' + formatTosNoticeLines().join( '\n' ) + '\n\n' );
 	}
 
 	showOnboarding(): void {
@@ -93,11 +118,16 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode
 	}
 
-	setLoaderMessage( message: string, _update?: boolean ): void {
-		emitEvent( { type: 'progress', timestamp: new Date().toISOString(), message } );
+	setDaemonStatus(): void {
+		// No-op in JSON mode
 	}
 
-	beginAgentTurn(): void {
+	setLoaderMessage( message: string, _update?: boolean ): void {
+		this.showProgress( message );
+	}
+
+	beginAgentTurn( sessionId?: string ): void {
+		this.activeSessionId = sessionId ?? '';
 		emitEvent( { type: 'turn.started', timestamp: new Date().toISOString() } );
 	}
 
@@ -109,37 +139,22 @@ export class JsonAdapter implements AiOutputAdapter {
 		// No-op in JSON mode — the service already knows the message it sent
 	}
 
-	handleMessage( message: SDKMessage ): HandleMessageResult | undefined {
-		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message } );
-
-		if ( message.type === 'result' ) {
-			this.sessionId = message.session_id;
-			if ( message.subtype === 'error_max_turns' ) {
-				return {
-					type: 'max_turns',
-					sessionId: message.session_id,
-					numTurns: message.num_turns,
-					costUsd: message.total_cost_usd,
-				};
-			}
-			return {
-				type: 'result',
-				sessionId: message.session_id,
-				success: message.subtype === 'success',
-			};
-		}
-
-		return undefined;
+	handleEvent( event: AgentSessionEvent ): void {
+		// Forward the event verbatim so the desktop main process can re-derive
+		// state without loading the JSONL itself. The wire keeps the existing
+		// `'message'` envelope, with a native AgentSessionEvent as the payload.
+		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message: event } );
 	}
 
 	emitTurnCompleted(
 		status: TurnCompletedStatus,
+		sessionId: string,
 		usage?: { numTurns: number; costUsd?: number }
 	): void {
 		emitEvent( {
 			type: 'turn.completed',
 			timestamp: new Date().toISOString(),
-			sessionId: this.sessionId ?? '',
+			sessionId,
 			status,
 			usage,
 		} );
@@ -150,6 +165,14 @@ export class JsonAdapter implements AiOutputAdapter {
 	}
 
 	async askUser( questions: AskUserQuestion[] ): Promise< Record< string, string > > {
+		// If a permission response was pre-supplied (e.g. from desktop app),
+		// return it immediately instead of pausing.
+		if ( this.permissionResponse ) {
+			const response = this.permissionResponse;
+			this.permissionResponse = null;
+			return response;
+		}
+
 		emitEvent( {
 			type: 'question.asked',
 			timestamp: new Date().toISOString(),
@@ -158,12 +181,31 @@ export class JsonAdapter implements AiOutputAdapter {
 				options: q.options,
 			} ) ),
 		} );
-		this.emitTurnCompleted( 'paused' );
+
+		// When forked from the Studio main process, wait for answers to come
+		// back over the Node IPC channel. For standalone CLI `--json` use
+		// (piped through a shell) there's no parent, so fall back to the
+		// original "emit paused turn and halt" behavior.
+		if ( typeof process.send === 'function' ) {
+			return new Promise< Record< string, string > >( ( resolve ) => {
+				const onMessage = ( message: unknown ) => {
+					if (
+						message &&
+						typeof message === 'object' &&
+						( message as { type?: string } ).type === 'answer'
+					) {
+						const answers = ( message as { answers?: Record< string, string > } ).answers;
+						process.off( 'message', onMessage );
+						resolve( answers ?? {} );
+					}
+				};
+				process.on( 'message', onMessage );
+			} );
+		}
+
+		this.emitTurnCompleted( 'paused', this.activeSessionId );
 		await this.onBeforeExit?.();
 		process.exitCode = 0;
-
-		// Return a never-resolving promise to halt execution while letting
-		// the event loop drain naturally (flushes stdout, completes async I/O).
 		return new Promise< Record< string, string > >( () => {} );
 	}
 

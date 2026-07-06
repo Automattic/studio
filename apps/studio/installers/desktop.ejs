@@ -1,0 +1,14 @@
+[Desktop Entry]
+<% if (productName) { %>Name=<%= productName %>
+<% } %><% if (description) { %>Comment=<%= description %>
+<% } %><% if (genericName) { %>GenericName=<%= genericName %>
+<% } %><% if (name) { %>Exec=/usr/bin/<%= name %> %U
+Icon=<%= name %>
+<% } %>Type=Application
+StartupNotify=true
+# Must match Electron's runtime WMClass (derived from app.getName(), i.e. package.json.name).
+# Don't template from productName — the launcher icon won't group with the running window.
+StartupWMClass=Studio
+<% if (categories && categories.length) { %>Categories=<%= categories.join(';') %>;
+<% } %><% if (mimeType && mimeType.length) { %>MimeType=<%= mimeType.join(';') %>;
+<% } %>

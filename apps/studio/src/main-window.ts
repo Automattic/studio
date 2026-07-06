@@ -5,9 +5,12 @@ import {
 	app,
 	nativeTheme,
 } from 'electron';
+import fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { portFinder } from '@studio/common/lib/port-finder';
 import {
+	DEFAULT_HEIGHT,
 	DEFAULT_WIDTH,
 	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_HEIGHT,
@@ -15,6 +18,7 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
 import { SiteServer } from 'src/site-server';
@@ -27,11 +31,109 @@ import {
 import type { WindowBounds } from 'src/storage/storage-types';
 
 let mainWindow: BrowserWindow | null;
+let currentRendererUrl: string | undefined;
+type StudioUiMode = 'default' | 'agentic';
+
+interface RendererLocation {
+	url: string;
+	filePath?: string;
+}
+
+export function getPreferredStudioUiMode(): StudioUiMode {
+	if ( getFeatureFlagFromEnv( 'enableAgenticUi' ) ) {
+		return 'agentic';
+	}
+	return 'default';
+}
+
+function getRendererFilePath( mode: StudioUiMode ) {
+	return path.join(
+		__dirname,
+		mode === 'default' ? '../renderer/index.html' : '../renderer-ui/index.html'
+	);
+}
+
+function getRendererLocation( preferredMode: StudioUiMode ): RendererLocation {
+	if (
+		! app.isPackaged &&
+		preferredMode === 'agentic' &&
+		process.env[ 'ELECTRON_UI_RENDERER_URL' ]
+	) {
+		return {
+			url: process.env[ 'ELECTRON_UI_RENDERER_URL' ],
+		};
+	}
+
+	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
+		return {
+			url: process.env[ 'ELECTRON_RENDERER_URL' ],
+		};
+	}
+
+	let mode = preferredMode;
+	let filePath = getRendererFilePath( mode );
+	if ( mode !== 'default' && ! fs.existsSync( filePath ) ) {
+		mode = 'default';
+		filePath = getRendererFilePath( mode );
+	}
+
+	return {
+		filePath,
+		url: pathToFileURL( filePath ).href,
+	};
+}
+
+function rememberRendererLocation( location: RendererLocation ) {
+	currentRendererUrl = location.url;
+}
+
+async function loadRendererLocation( window: BrowserWindow, location: RendererLocation ) {
+	rememberRendererLocation( location );
+	if ( location.filePath ) {
+		await window.loadFile( location.filePath );
+		return;
+	}
+	await window.loadURL( location.url );
+}
+
+export async function loadMainWindowRenderer( window: BrowserWindow ): Promise< void > {
+	await loadRendererLocation( window, getRendererLocation( getPreferredStudioUiMode() ) );
+}
+
+export function getCurrentRendererUrl(): string {
+	if ( currentRendererUrl ) {
+		return currentRendererUrl;
+	}
+
+	return getRendererLocation( 'default' ).url;
+}
 
 function setupDevTools( mainWindow: BrowserWindow | null, devToolsOpen?: boolean ) {
 	if ( devToolsOpen || ( process.env.NODE_ENV === 'development' && devToolsOpen === undefined ) ) {
 		mainWindow?.webContents.openDevTools();
 	}
+}
+
+export function isToggleSidebarShortcut(
+	input: Electron.Input,
+	platform: NodeJS.Platform = process.platform
+): boolean {
+	if (
+		input.type !== 'keyDown' ||
+		input.isAutoRepeat ||
+		input.isComposing ||
+		input.shift ||
+		input.alt ||
+		input.key.toLowerCase() !== 'b'
+	) {
+		return false;
+	}
+
+	if ( platform === 'darwin' ) {
+		return input.meta && ! input.control;
+	}
+
+	return input.control && ! input.meta;
 }
 
 function initializePortFinder( sites: SiteDetails[] ) {
@@ -69,7 +171,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	const savedBounds = await loadWindowBounds();
 	let windowOptions: BrowserWindowConstructorOptions = {
-		height: MAIN_MIN_HEIGHT,
+		height: DEFAULT_HEIGHT,
 		width: DEFAULT_WIDTH,
 		backgroundColor: 'rgba(30, 30, 30, 1)',
 		minHeight: MAIN_MIN_HEIGHT,
@@ -77,6 +179,9 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		webPreferences: {
 			preload: path.join( __dirname, '../preload/preload.js' ),
 			webSecurity: process.env.NODE_ENV !== 'development',
+			// Enables the `<webview>` tag used by the site-preview surface to
+			// host running WordPress sites.
+			webviewTag: true,
 		},
 		...getOSWindowOptions(),
 	};
@@ -93,16 +198,19 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 
 	mainWindow = new BrowserWindow( windowOptions );
 
+	mainWindow.webContents.on( 'before-input-event', ( event, input ) => {
+		if ( isToggleSidebarShortcut( input ) ) {
+			event.preventDefault();
+			sendIpcEventToRendererWithWindow( mainWindow, 'toggle-sidebar' );
+		}
+	} );
+
 	// Restore fullscreen state if it was saved
 	if ( savedBounds?.isFullScreen ) {
 		mainWindow.setFullScreen( true );
 	}
 
-	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
-		void mainWindow.loadURL( process.env[ 'ELECTRON_RENDERER_URL' ] );
-	} else {
-		void mainWindow.loadFile( path.join( __dirname, '../renderer/index.html' ) );
-	}
+	void loadRendererLocation( mainWindow, getRendererLocation( getPreferredStudioUiMode() ) );
 
 	// Open the DevTools if the user had it open last time they used the app.
 	// During development the dev tools default to open.
@@ -175,6 +283,7 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 			};
 
 		case 'win32':
+		case 'linux':
 			return {
 				titleBarStyle: 'hidden',
 				titleBarOverlay: {

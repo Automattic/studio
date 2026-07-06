@@ -6,6 +6,30 @@
 env:
   IMAGE_ID: $IMAGE_ID
 
+e2e_config: &e2e_config
+  command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
+  artifact_paths:
+    - test-results/**/*.zip
+    - test-results/**/*.png
+    - test-results/**/*error-context.md
+    - test-results/daemon-logs/**/*.log
+  plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+  agents:
+    queue: "{{matrix.platform}}"
+  env:
+    # See https://playwright.dev/docs/ci#debugging-browser-launches
+    DEBUG: "pw:browser"
+  matrix:
+    setup: { platform: [], arch: [] }
+    adjustments:
+      - with: { platform: mac, arch: arm64 }
+      # Windows E2E temporarily disabled while AINFRA-2588 investigates Windows E2E hangs in Buildkite.
+      # See https://linear.app/a8c/issue/AINFRA-2588/investigate-studio-windows-e2e-hangs-in-buildkite
+      # - with: { platform: windows, arch: x64 }
+  notify:
+    - github_commit_status:
+        context: E2E Tests
+
 steps:
   - label: Lint
     agents:
@@ -17,46 +41,86 @@ steps:
       - github_commit_status:
           context: Lint
 
-  - label: Unit Tests on {{matrix}}
-    key: unit_tests
-    command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+  - label: ":fastlane: fastlane Helper Tests"
     agents:
-      queue: "{{matrix}}"
-    matrix:
-      - mac
-      - windows
+      queue: mac
+    key: fastlane_tests
+    command: bash .buildkite/commands/run-fastlane-tests.sh
+    plugins: [$CI_TOOLKIT_PLUGIN]
     notify:
       - github_commit_status:
-          context: Unit Tests
+          context: fastlane Helper Tests
 
-  # E2E tests run on supported platform/architecture combinations.
-  # - mac-arm64: Native on Apple Silicon agents
-  # - windows-x64: Native on x64 agents
-  - label: E2E Tests on {{matrix.platform}}-{{matrix.arch}}
-    key: e2e_tests
-    command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
-    artifact_paths:
-      - test-results/**/*.zip
-      - test-results/**/*.png
-      - test-results/**/*error-context.md
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-    agents:
-      queue: "{{matrix.platform}}"
-    env:
-      # See https://playwright.dev/docs/ci#debugging-browser-launches
-      DEBUG: "pw:browser"
-    matrix:
-      setup: { platform: [], arch: [] }
-      adjustments:
-        - with: { platform: mac, arch: arm64 }
-        - with: { platform: windows, arch: x64 }
-    # Skip E2E tests on draft PRs to save CI resources
-    # Tests will run automatically when PR is marked ready for review
-    if: build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft
-    notify:
-      - github_commit_status:
-          context: E2E Tests
+  - group: Unit Tests
+    key: unit-tests
+    steps:
+      - label: Unit Tests on {{matrix}}
+        key: unit_tests
+        command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        agents:
+          queue: "{{matrix}}"
+        matrix:
+          - mac
+          - windows
+        notify:
+          - github_commit_status:
+              context: Unit Tests
+
+      # Linux unit tests run on the shared `default` queue inside a Debian Node
+      # container — the same pattern the Linux build group uses. Kept as a
+      # separate step (rather than another matrix entry above) because Mac and
+      # Windows share queue/plugin defaults that Linux doesn't.
+      - label: Unit Tests on linux
+        key: unit_tests_linux
+        command: bash .buildkite/commands/run-unit-tests.sh "linux"
+        agents:
+          queue: default
+        plugins:
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
+        notify:
+          - github_commit_status:
+              context: Unit Tests
+
+  - group: E2E Tests
+    key: e2e-tests
+    steps:
+      # E2E tests run on supported platform/architecture combinations.
+      # - mac-arm64: Native on Apple Silicon agents
+      # - windows-x64: Native on x64 agents
+      - <<: *e2e_config
+        label: E2E Tests on {{matrix.platform}}-{{matrix.arch}}
+        key: e2e_tests
+        # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
+
+      # Linux E2E tests run on the shared `default` queue inside a Debian Node
+      # container — the same pattern the Linux build/unit-test steps use. Kept as
+      # a separate step (rather than another matrix entry on *e2e_config) because
+      # Mac and Windows share queue/plugin defaults that Linux doesn't.
+      - label: E2E Tests on linux-x64
+        key: e2e_tests_linux
+        command: bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
+        agents:
+          queue: default
+        plugins:
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
+        artifact_paths:
+          - test-results/**/*.zip
+          - test-results/**/*.png
+          - test-results/**/*error-context.md
+          - test-results/daemon-logs/**/*.log
+        env:
+          DEBUG: "pw:browser"
+        # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
+        notify:
+          - github_commit_status:
+              context: E2E Tests
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics
@@ -117,10 +181,15 @@ steps:
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
+
+          echo "--- :package: Building standalone CLI bundle"
+          npm run cli:bundle -- darwin {{matrix}}
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
           - apps/studio/out/**/*.app.zip
           - apps/studio/out/*.dmg
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
         matrix:
           - x64
           - arm64
@@ -138,13 +207,73 @@ steps:
       - label: 🔨 Windows Dev Build - {{matrix}}
         agents:
           queue: windows
+        env:
+          SIGN_WINDOWS_BUILD: 1
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
         artifact_paths:
           - apps\studio\out\**\studio-setup.exe
           - apps\studio\out\**\studio-update.nupkg
           - apps\studio\out\**\RELEASES
           - apps\studio\out\**\*.appx
+          - standalone-bundles\studio-cli-*.tgz
+          - standalone-bundles\studio-cli-*.tgz.sha256
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        matrix:
+          - x64
+          - arm64
+
+  - input: "🚦 Build for Linux?"
+    prompt: "Do you want to build Linux dev binaries for this PR?"
+    key: input-dev-linux
+    if: build.tag !~ /^v[0-9]+/ && build.branch != 'trunk'
+
+  - group: 📦 Build for Linux
+    key: dev-linux
+    depends_on: input-dev-linux
+    if: build.tag !~ /^v[0-9]+/
+    steps:
+      - label: 🔨 Linux Dev Build - {{matrix}}
+        agents:
+          queue: default
+        command: |
+          set -eu
+
+          # The container has no SSH keys / known_hosts, use anonymous HTTPS
+          git remote set-url origin https://github.com/Automattic/studio.git
+
+          apt-get -o Acquire::Retries=3 update
+          apt-get install -y --no-install-recommends fakeroot
+
+          # `--maxsockets 1` works around npm/cli#4652 (ECONNRESETs on Linux);
+          # see install-node-dependencies.sh for the original rationale.
+          # TODO: restore the Buildkite npm cache used on Mac/Windows. The
+          # toolkit's cache helpers live on the host, so wiring them around a
+          # Docker step needs extra plumbing or a persistent agent volume.
+          npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
+
+          node ./scripts/prepare-dev-build-version.mjs
+
+          export IS_DEV_BUILD=true
+
+          echo "--- :node: Building DEB"
+          npm run make:linux-{{matrix}}
+
+          echo "--- :package: Building standalone CLI bundle"
+          npm run cli:bundle -- linux {{matrix}}
+        artifact_paths:
+          - apps/studio/out/make/deb/**/*.deb
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
+        plugins:
+          # Amazon Linux on the `default` queue lacks `dpkg`/`fakeroot`
+          # required by electron-forge's MakerDeb, so we build inside a
+          # Debian container that has them. Image tag is derived from
+          # `.nvmrc` (see shared-pipeline-vars) so Linux drifts in lockstep
+          # with the Mac/Windows agents (which install Node via NVM).
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
         matrix:
           - x64
           - arm64
@@ -158,6 +287,9 @@ steps:
       buildkite-agent artifact download "*.appx" .
       buildkite-agent artifact download "*.nupkg" .
       buildkite-agent artifact download "*\\RELEASES" .
+      buildkite-agent artifact download "*.deb" .
+      buildkite-agent artifact download "*.tgz" .
+      buildkite-agent artifact download "*.tgz.sha256" .
 
       .buildkite/commands/install-node-dependencies.sh
 
@@ -174,6 +306,7 @@ steps:
     depends_on:
       - step: dev-mac
       - step: dev-windows
+      - step: dev-linux
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     if: build.branch == 'trunk' && build.tag !~ /^v[0-9]+/
     notify:

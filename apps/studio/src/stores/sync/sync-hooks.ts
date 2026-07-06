@@ -6,6 +6,7 @@ import { convertRawToTreeNodes } from 'src/modules/sync/lib/tree-utils';
 import { useAppDispatch, useRootSelector } from 'src/stores';
 import { fetchRemoteFileTree, useGetLatestRewindIdQuery } from './sync-api';
 import { syncSelectors } from './sync-slice';
+import { useGetPhpVersionQuery } from './wpcom-sites';
 
 export function useLatestRewindId(
 	remoteSiteId: number | undefined,
@@ -25,6 +26,33 @@ export function useLatestRewindId(
 
 	return {
 		rewindId: rewindId || null,
+		isLoading,
+		isError: Boolean( error ),
+	};
+}
+
+export function useHostingPhpVersion(
+	remoteSiteId: number | undefined,
+	options?: {
+		skip: boolean;
+	}
+) {
+	const { skip = false } = options || {};
+	const { user } = useAuth();
+
+	const {
+		data: phpVersion,
+		isLoading,
+		error,
+	} = useGetPhpVersionQuery(
+		{ siteId: remoteSiteId || 0, userId: user?.id },
+		{
+			skip: ! remoteSiteId || skip,
+		}
+	);
+
+	return {
+		phpVersion,
 		isLoading,
 		isError: Boolean( error ),
 	};

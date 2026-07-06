@@ -1,127 +1,74 @@
-# Linux Guide
+# Linux
 
-Studio for Linux is currently in an experimental phase. While official packages are not yet available, you can easily build and run Studio from source on most Linux distributions.
-
-## Current Limitations
-
-Linux support comes with certain limitations:
-- For systems using Wayland, you may need to set the `--enable-features=UseOzonePlatform --ozone-platform=wayland` flag when running the application.
-- Some features may not work as expected on Linux due to platform-specific implementations.
-- The auto-update feature is not currently supported on Linux builds.
-- These instructions should work for most Linux distributions, but you may need to adjust them based on your specific setup or distribution.
+Linux-specific build steps and troubleshooting for contributors. See also [code-contributions.md](./code-contributions.md) for general setup.
 
 ## Building from Source
 
-### Prerequisites
-
-Ensure you have the following dependencies installed:
-
-- [Node.js](https://nodejs.org/) - required JavaScript runtime environment
-- [Python](https://www.python.org/) - required for building native dependencies
-- [setuptools](https://pypi.org/project/setuptools/) - required for building native dependencies
-
-Many contributors use [`nvm`](https://github.com/nvm-sh/nvm) to manage Node.js installations.
-
-### Build Steps
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Automattic/studio.git
-   cd studio
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   nvm use
-   npm install
-   ```
-
-3. **Build the application:**
-   ```bash
-   npm run package
-   ```
-   
-   This will create an `out/` folder inside `apps/studio/`.
-
-4. **Locate the executable:**
-   
-   Navigate to the `apps/studio/out/Studio-linux-x64/` folder. Inside, you'll find a `studio` executable.
-
-5. **Run Studio:**
-   ```bash
-   cd apps/studio/out/Studio-linux-x64
-   ./studio
-   ```
-
-## Creating a Desktop Shortcut (Optional)
-
-For easier access, you can create a desktop entry file that will add Studio to your application launcher.
-
-### Steps
-
-1. **Create a desktop file:**
-   ```bash
-   nano ~/.local/share/applications/studio.desktop
-   ```
-
-2. **Add the following content:**
-   ```ini
-   [Desktop Entry]
-   Name=Studio by WordPress.com
-   Icon=<absolute-path-to-repo>/assets/studio-app-icon.png
-   Comment=Local WordPress development environment
-   Exec=<absolute-path-to-repo>/apps/studio/out/Studio-linux-x64/studio %U
-   Type=Application
-   Terminal=false
-   MimeType=x-scheme-handler/wp-studio;
-   Categories=Development;
-   ```
-
-3. **Replace placeholders:**
-   - Replace `<absolute-path-to-repo>` with the actual absolute path to your cloned repository
-   - For example: `/home/username/projects/studio`
-
-4. **Make the desktop file executable (if needed):**
-   ```bash
-   chmod +x ~/.local/share/applications/studio.desktop
-   ```
-
-5. **Refresh your application menu:**
-   
-   Depending on your desktop environment, you may need to log out and back in, or run:
-   ```bash
-   update-desktop-database ~/.local/share/applications
-   ```
-
-Studio should now appear in your application launcher and can handle `wp-studio://` protocol URLs.
-
-## Running with Wayland
-
-If you're using Wayland instead of X11, run Studio with additional flags:
+To build a runnable app bundle from a clone:
 
 ```bash
-./studio --enable-features=UseOzonePlatform --ozone-platform=wayland
+npm install
+npm run package
 ```
 
-You can add these flags to the `Exec` line in your desktop file if you created one:
+The executable will be at `apps/studio/out/Studio-linux-<arch>/studio`. To produce a `.deb` package instead, run `npm run make` (auto-detects the host arch); output lands in `apps/studio/out/make/deb/<arch>/`. To make arch specific build, use `npm run make:linux-x64` or `npm run make:linux-arm64
+
+## Creating a Desktop Shortcut
+
+`.deb` installs register a desktop entry automatically. For source builds you can create one manually:
+
+```bash
+nano ~/.local/share/applications/studio.desktop
+```
+
+Add the following, replacing `<absolute-path-to-repo>` with the actual path to your clone and `<arch>` with `x64` or `arm64` to match your build:
 
 ```ini
-Exec=<absolute-path-to-repo>/apps/studio/out/Studio-linux-x64/studio --enable-features=UseOzonePlatform --ozone-platform=wayland %U
+[Desktop Entry]
+Name=Studio by WordPress.com
+Icon=<absolute-path-to-repo>/apps/studio/assets/studio-app-icon.png
+Comment=Local WordPress development environment
+Exec=<absolute-path-to-repo>/apps/studio/out/Studio-linux-<arch>/studio %U
+Type=Application
+Terminal=false
+MimeType=x-scheme-handler/wp-studio;
+Categories=Development;
 ```
+
+After creating the file, refresh the application menu so the entry appears:
+
+```bash
+update-desktop-database ~/.local/share/applications
+```
+
+## Registering the `wp-studio://` URL handler
+
+When working on OAuth/login flows from a source build, register the binary as the `wp-studio://` handler so browser callbacks reach your dev build:
+
+```bash
+xdg-mime default studio.desktop x-scheme-handler/wp-studio
+```
+
+This depends on the `.desktop` file from the previous section. Without it, browsers will show "Open With… / No Apps Available" when WordPress.com OAuth redirects back, or hand the callback off to an installed `.deb` build (masking the bug you're trying to debug).
 
 ## Troubleshooting
 
-### Permission Issues
-
-If you encounter permission issues when running the executable, make sure it has execute permissions:
+If `./studio` fails with a permission error, ensure it has execute permissions:
 
 ```bash
-chmod +x apps/studio/out/Studio-linux-x64/studio
+chmod +x apps/studio/out/Studio-linux-<arch>/studio
 ```
 
-### Missing Dependencies
+On Ubuntu 24.04+ and other distributions that restrict unprivileged user namespaces via AppArmor, `npm start` may abort with `FATAL: ... The SUID sandbox helper binary was found, but is not configured correctly`. Electron falls back to its SUID sandbox because AppArmor blocks the user-namespace sandbox by default. Allow it persistently:
 
-If you encounter errors about missing libraries, you may need to install additional system dependencies. Common packages include:
+```bash
+echo 'kernel.apparmor_restrict_unprivileged_userns=0' | sudo tee /etc/sysctl.d/60-apparmor-namespace.conf
+sudo sysctl --system
+```
+
+The setting survives reboots and `npm install` runs, so you only need to do this once per machine. This only affects `npm start` during development; installed `.deb` packages ship a properly-configured SUID sandbox binary and are unaffected.
+
+If you encounter errors about missing libraries on a source build (`.deb` installs declare their dependencies automatically), install the common system packages:
 
 ```bash
 # Debian/Ubuntu
@@ -133,26 +80,3 @@ sudo dnf install gtk3 libnotify nss libXScrnSaver libXtst xdg-utils at-spi2-core
 # Arch
 sudo pacman -S gtk3 libnotify nss libxss libxtst xdg-utils at-spi2-core util-linux libsecret
 ```
-
-## Updating Studio
-
-Since auto-updates are not supported on Linux builds, you'll need to manually update:
-
-1. Pull the latest changes from the repository:
-   ```bash
-   cd <path-to-repo>
-   git pull
-   ```
-
-2. Reinstall dependencies and rebuild:
-   ```bash
-   npm install
-   npm run package
-   ```
-
-The executable in `apps/studio/out/Studio-linux-x64/` will be updated with the new version.
-
-## Contributing
-
-If you encounter Linux-specific issues or have suggestions for improving Linux support, please [open an issue](https://github.com/Automattic/studio/issues) or submit a pull request. Your feedback helps improve Studio for all Linux users!
-

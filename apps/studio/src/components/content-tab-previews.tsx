@@ -1,3 +1,4 @@
+import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { check, Icon } from '@wordpress/icons';
@@ -44,7 +45,11 @@ function EmptyGeneric( {
 				<div className="mt-6">
 					{ [
 						sprintf( __( 'Create up to %d preview sites for free.' ), LIMIT_OF_ZIP_SITES_PER_USER ),
-						__( 'Preview sites expire 7 days after the last update.' ),
+						/* translators: %d is the number of days before a preview site expires */
+						sprintf(
+							__( 'Preview sites expire %d days after the last update.' ),
+							DEMO_SITE_EXPIRATION_DAYS
+						),
 						createInterpolateElement( __( 'Powered by <a> WordPress.com</a>.' ), {
 							a: (
 								<Button

@@ -30,7 +30,7 @@ interface CreateSiteProps {
 	};
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	onValidityChange?: ( isValid: boolean ) => void;
-	formRef?: RefObject< HTMLFormElement >;
+	formRef?: RefObject< HTMLFormElement | null >;
 }
 
 export default function CreateSite( {
@@ -51,7 +51,7 @@ export default function CreateSite( {
 
 	return (
 		<VStack className="w-full max-w-[402px] mx-auto text-frame-text" spacing={ 6 }>
-			<Heading className="text-[32px] text-frame-text text-center" weight={ 500 }>
+			<Heading className="text-center text-[32px] text-frame-text" weight={ 500 }>
 				{ __( 'Add a site' ) }
 			</Heading>
 

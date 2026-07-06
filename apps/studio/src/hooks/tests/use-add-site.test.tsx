@@ -173,7 +173,9 @@ describe( 'useAddSite', () => {
 			false,
 			undefined, // adminUsername
 			undefined, // adminPassword
-			undefined // adminEmail
+			undefined, // adminEmail
+			undefined, // runtime
+			undefined // fileAccess
 		);
 	} );
 
@@ -218,7 +220,7 @@ describe( 'useAddSite', () => {
 			name: 'New Site',
 			path: '/test/path',
 			wpVersion: 'latest',
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 		};
 
 		mockCreateSite.mockImplementation(
@@ -237,7 +239,7 @@ describe( 'useAddSite', () => {
 		const formValues: CreateSiteFormValues = {
 			siteName: createdSite.name,
 			sitePath: createdSite.path,
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 			wpVersion: 'latest',
 			useCustomDomain: false,
 			customDomain: null,

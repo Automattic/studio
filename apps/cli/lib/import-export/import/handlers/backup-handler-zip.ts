@@ -1,16 +1,16 @@
-import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
+import { ImportEvents } from '@studio/common/lib/import-export-events';
 import fse from 'fs-extra';
 import yauzl from 'yauzl';
-import { ImportEvents } from '../events';
-import { BackupArchiveInfo, BackupExtractProgressEventData } from '../types';
+import { ImportExportEventEmitter } from '../../events';
+import { BackupArchiveInfo } from '../types';
 import { BackupHandler, isFileAllowed } from './backup-handler-factory';
 
 const openZip = promisify< string, yauzl.Options, yauzl.ZipFile >( yauzl.open );
 
-export class BackupHandlerZip extends EventEmitter implements BackupHandler {
+export class BackupHandlerZip extends ImportExportEventEmitter implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
 		const zipFile = await openZip( backup.path, { lazyEntries: true } );
 		const fileNames: string[] = [];
@@ -69,7 +69,7 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 					currentFile: entry.fileName,
 					processedFiles,
 					totalFiles,
-				} as BackupExtractProgressEventData );
+				} );
 
 				try {
 					const readStream = await openReadStream( entry );
@@ -97,7 +97,7 @@ export class BackupHandlerZip extends EventEmitter implements BackupHandler {
 							currentFile: entry.fileName,
 							extractedBytes: processedSize,
 							totalBytes: totalSize,
-						} as BackupExtractProgressEventData );
+						} );
 					} );
 
 					writeStream.once( 'finish', () => {

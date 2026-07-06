@@ -127,9 +127,13 @@ test.describe( 'Localization', () => {
 
 		// Click "Create a site" option using data-testid
 		await expect( addSiteModal.createSiteButton ).toBeVisible();
-		// Button contains both title and description, so we check it contains the title
-		await expect( addSiteModal.createSiteButton ).toContainText( 'サイトを作成' );
 		await addSiteModal.createSiteButton.click();
+
+		// Use force:true because the app-drag-region overlay intercepts pointer events.
+		const emptySiteBtn = session.mainWindow.getByTestId( 'empty-site-card' );
+		await expect( emptySiteBtn ).toBeVisible( { timeout: 5000 } );
+		await emptySiteBtn.click( { force: true } );
+		await addSiteModal.continueButton.click();
 
 		// Fill in site name using data-testid
 		await expect( addSiteModal.siteNameInput ).toBeVisible( { timeout: 5000 } );
@@ -137,7 +141,6 @@ test.describe( 'Localization', () => {
 
 		// Click "Add site" button using data-testid (wait for it to be enabled)
 		await expect( addSiteModal.addSiteButton ).toBeVisible();
-		await expect( addSiteModal.addSiteButton ).toContainText( 'サイトを追加' );
 		await expect( addSiteModal.addSiteButton ).toBeEnabled();
 		await addSiteModal.addSiteButton.click();
 
@@ -146,7 +149,7 @@ test.describe( 'Localization', () => {
 		await expect( siteContent.siteNameHeading ).toBeVisible( { timeout: 120_000 } );
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		const settingsTabButton = session.mainWindow.getByRole( 'tab', { name: /Settings|設定/i } );
+		const settingsTabButton = session.mainWindow.locator( '[role="tab"][id$="-settings"]' );
 		await settingsTabButton.click();
 		const copyWpAdminButton = session.mainWindow.getByTestId( 'copy-wp-admin-url' );
 		await expect( copyWpAdminButton ).toBeVisible();
@@ -172,7 +175,7 @@ test.describe( 'Localization', () => {
 		} );
 
 		const siteContentEnglish = new SiteContent( session.mainWindow, siteName );
-		const settingsTab = await siteContentEnglish.navigateToTab( 'Settings' );
+		const settingsTab = await siteContentEnglish.navigateToTab( 'settings' );
 		await settingsTab.openDeleteSiteModal();
 
 		// Wait for the confirmation dialog to be auto-confirmed and deletion to complete

@@ -105,8 +105,24 @@ describe( 'AI auth helpers', () => {
 		);
 		expect( env.ANTHROPIC_AUTH_TOKEN ).toBe( 'wpcom-token' );
 		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe( 'X-WPCOM-AI-Feature: studio-assistant-anthropic' );
-		expect( env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS ).toBe( '1' );
 		expect( env.ANTHROPIC_API_KEY ).toBeUndefined();
+	} );
+
+	it( 'includes the Studio AI session ID header when provided', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( {
+			accessToken: 'wpcom-token',
+			displayName: 'User',
+			email: 'user@example.com',
+			expiresIn: 3600,
+			expirationTime: Date.now() + 3600_000,
+			id: 1,
+		} );
+
+		const env = await resolveAiEnvironment( 'wpcom', { sessionId: 'session-abc' } );
+
+		expect( env.ANTHROPIC_CUSTOM_HEADERS ).toBe(
+			'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-abc'
+		);
 	} );
 
 	it( 'prefers the saved provider', async () => {

@@ -55,13 +55,6 @@ const ExportSite = ( {
 		);
 	}
 
-	const handleExport = async ( exportFunction: typeof exportFullSite | typeof exportDatabase ) => {
-		const exportPath = await exportFunction( selectedSite );
-		if ( exportPath ) {
-			getIpcApi().showItemInFolder( exportPath );
-		}
-	};
-
 	const handleClearExport = () => {
 		clearExportState( selectedSite.id );
 	};
@@ -99,14 +92,14 @@ const ExportSite = ( {
 				<Tooltip text={ tooltipText } disabled={ ! isExportDisabled } placement="top-start">
 					<div className="flex flex-row gap-4">
 						<Button
-							onClick={ () => handleExport( exportFullSite ) }
+							onClick={ () => exportFullSite( selectedSite ) }
 							variant="primary"
 							disabled={ isExportDisabled }
 						>
 							{ __( 'Export entire site' ) }
 						</Button>
 						<Button
-							onClick={ () => handleExport( exportDatabase ) }
+							onClick={ () => exportDatabase( selectedSite ) }
 							type="submit"
 							variant="secondary"
 							className={ cx( isExportDisabled ? '' : '!text-frame-theme !shadow-frame-theme' ) }
@@ -351,17 +344,19 @@ export function ContentTabImportExport( { selectedSite }: ContentTabImportExport
 		localSiteId: selectedSite.id,
 		userId: user?.id,
 	} );
-	const isPulling = useRootSelector( ( state ) =>
+	const isPullingLocally = useRootSelector( ( state ) =>
 		connectedSites.some( ( site ) =>
-			syncOperationsSelectors.selectIsSiteIdPulling( selectedSite.id, site.id )( state )
+			syncOperationsSelectors.selectIsSiteIdPullingLocally( selectedSite.id, site.id )( state )
 		)
 	);
-	const isPushing = useRootSelector( ( state ) =>
+	// Only block import/export while the local machine is actively involved in sync.
+	// After the backup upload completes, the push continues remotely and should not block import/export.
+	const isUploadingPushBackup = useRootSelector( ( state ) =>
 		connectedSites.some( ( site ) =>
-			syncOperationsSelectors.selectIsSiteIdPushing( selectedSite.id, site.id )( state )
+			syncOperationsSelectors.selectIsSiteIdPushingLocally( selectedSite.id, site.id )( state )
 		)
 	);
-	const isThisSiteSyncing = isPulling || isPushing;
+	const isThisSiteSyncing = isPullingLocally || isUploadingPushBackup;
 
 	useEffect( () => {
 		getIpcApi()

@@ -4,7 +4,7 @@ import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { emitCliEvent } from 'cli/lib/daemon-client';
@@ -30,26 +30,27 @@ export async function runCommand(): Promise< void > {
 		return;
 	}
 
-	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
-
 	const appLocale = await getAppLocale();
 	const authUrl = getAuthenticationUrl( appLocale, CLI_REDIRECT_URI );
 
+	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
 	try {
 		await openBrowser( authUrl );
 		logger.reportSuccess( __( 'Browser opened successfully' ) );
 	} catch ( error ) {
-		// If the browser fails to open, allow users to manually open the URL
-		const loggerError = new LoggerError(
-			sprintf( __( 'Failed to open browser. Please open the URL manually: %s' ), authUrl ),
-			error
+		logger.reportWarning(
+			__( "Couldn't open a browser automatically. Use the URL below instead." ) +
+				( error instanceof Error ? `: ${ error.message }` : '' )
 		);
-		logger.reportError( loggerError );
 	}
 
-	console.log(
-		__( 'Please complete authentication in your browser and paste the generated token here.' )
-	);
+	// Always surface the URL explicitly so users on remote/headless machines
+	// have a usable link to open on another device.
+	console.log( '' );
+	console.log( __( 'To authenticate, open this URL in a browser on any device:' ) );
+	console.log( authUrl );
+	console.log( '' );
+	console.log( __( 'After approving access, copy the generated token and paste it here.' ) );
 	console.log( '' );
 
 	let accessToken: Awaited< ReturnType< typeof input > >;

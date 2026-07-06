@@ -1,9 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { Locale } from '@formatjs/intl-locale';
 import { match } from '@formatjs/intl-localematcher';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
-import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
+import { getWpFilesPath } from 'cli/lib/dependency-management/paths';
 import { getAppLocale } from 'cli/lib/i18n';
 
 interface TranslationsData {
@@ -28,8 +27,7 @@ const SKIP_LOCALE_TAGS = [ 'formal', 'informal' ];
 
 function getLatestVersionTranslations(): TranslationsData | undefined {
 	const latestVersionTranslationsPath = path.join(
-		getServerFilesPath(),
-		'wordpress-versions',
+		getWpFilesPath(),
 		'latest',
 		'available-site-translations.json'
 	);
@@ -83,7 +81,7 @@ export async function getPreferredSiteLanguage( wpVersion = 'latest' ): Promise<
 		// Filter out invalid locales
 		.filter( ( item ) => {
 			try {
-				new Locale( item );
+				new Intl.Locale( item );
 				return true;
 			} catch ( exception ) {
 				return false;

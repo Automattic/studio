@@ -18,7 +18,8 @@ export default class MainSidebar {
 	}
 
 	getStopAllButton() {
-		return this.locator.getByRole( 'button', { name: 'Stop all', exact: true } );
+		// The button is labeled "Stop" with one running site and "Stop all" with multiple.
+		return this.locator.getByRole( 'button', { name: /^Stop( all)?$/ } );
 	}
 
 	async openAddSiteModal() {

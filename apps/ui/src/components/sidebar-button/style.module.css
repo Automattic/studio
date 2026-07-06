@@ -1,0 +1,16 @@
+/* Neutralize the @wordpress/ui Button primitive's centering, min-width,
+   solid border, and hover/active/focus background. Declaring these at the
+   base level (outside @layer wp-ui-components) beats Button's layered
+   state rules for any :hover / :active / :focus, so no state-specific
+   overrides are needed here. */
+.root {
+	justify-content: flex-start;
+	min-width: 0;
+	background-color: transparent;
+	border-color: transparent;
+
+	/* The primitive clips the background to the padding box, which insets any
+	   row highlight by the 1px (transparent) border and shrinks its corner
+	   radius, making button rows render differently from plain-div rows. */
+	background-clip: border-box;
+}

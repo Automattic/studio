@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import Button from 'src/components/button';
 import { Gravatar } from 'src/components/gravatar';
 import offlineIcon from 'src/components/offline-icon';
+import { RemoteSessionIndicator } from 'src/components/remote-session-indicator';
 import { Tooltip } from 'src/components/tooltip';
 import { WordPressLogo } from 'src/components/wordpress-logo';
 import { useAuth } from 'src/hooks/use-auth';
@@ -10,6 +11,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
+
 interface TopBarProps {
 	onToggleSidebar: () => void;
 }
@@ -105,10 +107,11 @@ function Authentication() {
 
 function SettingsButton() {
 	const { __ } = useI18n();
+
 	return (
 		<Tooltip text={ __( 'Settings' ) } placement="bottom-end">
 			<Button
-				onClick={ () => getIpcApi().showUserSettings( 'general' ) }
+				onClick={ () => void getIpcApi().showUserSettings( 'general' ) }
 				aria-label={ __( 'Open settings' ) }
 				variant="icon"
 				className="!p-1.5 !rounded-lg"
@@ -148,6 +151,7 @@ export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 						<Icon className="text-white" size={ 24 } icon={ help } />
 					</Button>
 				</Tooltip>
+				<RemoteSessionIndicator />
 			</div>
 		</div>
 	);

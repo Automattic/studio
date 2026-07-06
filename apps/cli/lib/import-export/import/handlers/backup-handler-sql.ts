@@ -1,14 +1,11 @@
-import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
-import { ImportEvents } from '../events';
+import { ImportEvents } from '@studio/common/lib/import-export-events';
+import { ImportExportEventEmitter } from '../../events';
 import { BackupHandler } from '../handlers/backup-handler-factory';
 import { BackupArchiveInfo } from '../types';
 
-export class BackupHandlerSql extends EventEmitter implements BackupHandler {
-	constructor() {
-		super();
-	}
+export class BackupHandlerSql extends ImportExportEventEmitter implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
 		return [ path.basename( backup.path ) ];
 	}
@@ -17,11 +14,7 @@ export class BackupHandlerSql extends EventEmitter implements BackupHandler {
 		const fileName = path.basename( file.path );
 		const destPath = path.join( extractionDirectory, fileName );
 
-		this.emit( ImportEvents.BACKUP_EXTRACT_START, {
-			progress: 0,
-			totalFiles: 1,
-			processedFiles: 0,
-		} );
+		this.emit( ImportEvents.BACKUP_EXTRACT_START );
 
 		this.emit( ImportEvents.BACKUP_EXTRACT_FILE_START, {
 			progress: 0,

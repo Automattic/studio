@@ -1,0 +1,343 @@
+.rows {
+	display: flex;
+	flex-direction: column;
+}
+
+.rows > * + * {
+	border-top: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.activityError {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral)) 8%,
+		transparent
+	);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.activityErrorTitle {
+	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+	font-weight: 600;
+}
+
+.activityErrorMessage {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.rowActions {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.localServerControl {
+	--local-server-track-bg: var(--wpds-color-bg-track-neutral-weak);
+	--local-server-track-bg-hover: var(--wpds-color-bg-track-neutral);
+	--local-server-track-border: color-mix(
+		in srgb,
+		var(--wpds-color-stroke-surface-neutral) 72%,
+		transparent
+	);
+	--local-server-track-border-hover: var(--wpds-color-stroke-surface-neutral);
+	--local-server-track-shadow: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 6%,
+		transparent
+	);
+	--local-server-thumb-bg: var(--wpds-color-bg-surface-neutral-strong);
+	--local-server-thumb-color: var(--wpds-color-fg-content-neutral-weak);
+	--local-server-thumb-ring: color-mix(
+		in srgb,
+		var(--wpds-color-stroke-surface-neutral) 52%,
+		transparent
+	);
+	--local-server-thumb-shadow: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 14%,
+		transparent
+	);
+
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	box-sizing: border-box;
+	width: 44px;
+	height: 24px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	appearance: none;
+	background-color: var(--local-server-track-bg);
+	color: var(--wpds-color-fg-content-neutral);
+	cursor: var(--wpds-cursor-control);
+	box-shadow:
+		inset 0 0 0 var(--wpds-border-width-xs) var(--local-server-track-border),
+		inset 0 1px 1px var(--local-server-track-shadow);
+	transition:
+		background-color 120ms ease,
+		box-shadow 120ms ease;
+}
+
+.localServerControl_running {
+	--local-server-track-bg: #16a34a;
+	--local-server-track-bg-hover: #15803d;
+	--local-server-track-border: #148a42;
+	--local-server-track-border-hover: #137a3d;
+	--local-server-track-shadow: color-mix(in srgb, #0d5f2c 26%, transparent);
+	--local-server-thumb-bg: #fff;
+	--local-server-thumb-color: #168a42;
+	--local-server-thumb-ring: transparent;
+	--local-server-thumb-shadow: color-mix(in srgb, #0d5f2c 22%, transparent);
+}
+
+.localServerControl:not(:disabled):hover {
+	background-color: var(--local-server-track-bg-hover);
+	box-shadow:
+		inset 0 0 0 var(--wpds-border-width-xs) var(--local-server-track-border-hover),
+		inset 0 1px 1px var(--local-server-track-shadow);
+}
+
+.localServerControl:focus:not(:focus-visible):not(:hover) {
+	background-color: var(--local-server-track-bg);
+}
+
+.localServerControl:focus-visible {
+	background-color: var(--local-server-track-bg);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+}
+
+.localServerControl:disabled {
+	cursor: not-allowed;
+	opacity: 0.72;
+}
+
+.localServerThumb {
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 20px;
+	height: 20px;
+	border-radius: 999px;
+	background-color: var(--local-server-thumb-bg);
+	color: var(--local-server-thumb-color);
+	line-height: 0;
+	box-shadow:
+		0 1px 2px var(--local-server-thumb-shadow),
+		0 0 0 var(--wpds-border-width-xs) var(--local-server-thumb-ring);
+	transition:
+		transform 140ms ease,
+		background-color 120ms ease,
+		color 120ms ease,
+		box-shadow 120ms ease;
+}
+
+.localServerControl_running .localServerThumb {
+	transform: translateX(20px);
+}
+
+.localServerGlyph {
+	display: block;
+	transform-origin: center;
+}
+
+.localServerControl_pending .localServerGlyph {
+	animation: localServerGlyphPulse 720ms ease-in-out infinite;
+}
+
+.pauseIcon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	width: 11px;
+	height: 11px;
+}
+
+.pauseIcon::before,
+.pauseIcon::after {
+	content: '';
+	width: 2px;
+	height: 9px;
+	border-radius: 1px;
+	background: currentColor;
+}
+
+.playIcon {
+	width: 9px;
+	height: 10px;
+	transform: translateX(1px);
+	background: currentColor;
+	clip-path: polygon(28% 18%, 28% 82%, 82% 50%);
+}
+
+@media (prefers-color-scheme: dark) {
+	.localServerControl:not(.localServerControl_running) {
+		--local-server-track-bg: var(--wpds-color-bg-track-neutral-weak);
+		--local-server-track-bg-hover: var(--wpds-color-bg-track-neutral);
+		--local-server-track-border: color-mix(
+			in srgb,
+			var(--wpds-color-fg-content-neutral) 10%,
+			transparent
+		);
+		--local-server-track-border-hover: color-mix(
+			in srgb,
+			var(--wpds-color-fg-content-neutral) 14%,
+			transparent
+		);
+		--local-server-track-shadow: color-mix(in srgb, black 26%, transparent);
+		--local-server-thumb-bg: color-mix(
+			in srgb,
+			var(--wpds-color-bg-track-neutral) 88%,
+			var(--wpds-color-fg-content-neutral) 12%
+		);
+		--local-server-thumb-color: color-mix(
+			in srgb,
+			var(--wpds-color-fg-content-neutral) 76%,
+			transparent
+		);
+		--local-server-thumb-ring: color-mix(
+			in srgb,
+			var(--wpds-color-fg-content-neutral) 10%,
+			transparent
+		);
+		--local-server-thumb-shadow: color-mix(in srgb, black 38%, transparent);
+	}
+}
+
+.urlLink {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	line-height: inherit;
+	text-align: left;
+	cursor: var(--wpds-cursor-control);
+}
+
+.urlLink:hover {
+	color: var(--wpds-color-fg-content-neutral);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.urlLink span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.urlLink svg {
+	flex: 0 0 auto;
+	fill: currentColor;
+}
+
+.environmentActionRow {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-md);
+	min-height: 40px;
+	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
+}
+
+.environmentActionText {
+	flex: 1 1 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+}
+
+.environmentActionTitle {
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.25;
+	font-weight: 500;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.environmentActionCopy {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.4;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.environmentActionButton {
+	flex: 0 0 auto;
+	align-self: center;
+}
+
+.rowActionButton,
+.environmentActionButton_outline {
+	border-radius: var(--wpds-border-radius-md);
+}
+
+.rowActionButton {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	color: var(--wpds-color-fg-interactive-neutral);
+}
+
+.rowActionButton svg {
+	width: 14px;
+	height: 14px;
+	fill: currentColor;
+}
+
+.environmentActionButton_outline {
+	--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral-strong);
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-surface-neutral);
+	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
+	--wp-ui-button-border-color-active: var(--wpds-color-stroke-surface-neutral);
+}
+
+.moreMenuTrigger {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	justify-content: center;
+	color: var(--wpds-color-fg-interactive-neutral);
+}
+
+.moreMenuTrigger svg {
+	fill: currentColor;
+}
+
+.moreMenuPopup {
+	min-width: 148px;
+}
+
+@keyframes localServerGlyphPulse {
+	0%,
+	100% {
+		opacity: 0.92;
+		transform: scale(1);
+	}
+
+	50% {
+		opacity: 0.45;
+		transform: scale(0.78);
+	}
+}

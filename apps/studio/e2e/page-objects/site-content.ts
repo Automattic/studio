@@ -36,30 +36,30 @@ export default class SiteContent {
 		return this.locator.getByLabel( 'Copy site url', { exact: false } );
 	}
 
-	getTabButton( tabName: 'Preview' | 'Settings' | 'Import / Export' ) {
-		return this.locator.getByRole( 'tab', { name: tabName } );
+	getTabButton( tab: 'preview' | 'settings' | 'import-export' ) {
+		return this.locator.locator( `[role="tab"][id$="-${ tab }"]` );
 	}
 
-	async navigateToTab( tabName: 'Settings' ): Promise< SettingsTab >;
-	async navigateToTab( tabName: 'Import / Export' ): Promise< ImportExportTab >;
+	async navigateToTab( tab: 'settings' ): Promise< SettingsTab >;
+	async navigateToTab( tab: 'import-export' ): Promise< ImportExportTab >;
 	async navigateToTab(
-		tabName: 'Preview' | 'Settings' | 'Import / Export'
+		tab: 'preview' | 'settings' | 'import-export'
 	): Promise< SettingsTab | ImportExportTab > {
-		const tabButton = this.getTabButton( tabName );
+		const tabButton = this.getTabButton( tab );
 		await tabButton.click();
 
-		switch ( tabName ) {
-			case 'Preview':
+		switch ( tab ) {
+			case 'preview':
 				throw new Error( 'Not implemented' );
-			case 'Settings': {
-				const tab = new SettingsTab( this.page, this.siteName );
-				await expect( tab.locator ).toBeVisible();
-				return tab;
+			case 'settings': {
+				const settingsTab = new SettingsTab( this.page, this.siteName );
+				await expect( settingsTab.locator ).toBeVisible();
+				return settingsTab;
 			}
-			case 'Import / Export': {
-				const tab = new ImportExportTab( this.page );
-				await expect( tab.locator ).toBeVisible();
-				return tab;
+			case 'import-export': {
+				const importExportTab = new ImportExportTab( this.page );
+				await expect( importExportTab.locator ).toBeVisible();
+				return importExportTab;
 			}
 		}
 	}

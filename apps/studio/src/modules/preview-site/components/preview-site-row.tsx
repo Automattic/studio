@@ -97,6 +97,7 @@ export function PreviewSiteRow( {
 			return (
 				<div className="flex items-center">
 					<Icon icon={ cautionFilled } className="!mt-0 mr-1 fill-a8c-red-50" />
+					{ /* translators: status label shown in the preview sites list when the last update operation failed */ }
 					<span className="text-a8c-red-50">{ __( 'Failed' ) }</span>
 				</div>
 			);

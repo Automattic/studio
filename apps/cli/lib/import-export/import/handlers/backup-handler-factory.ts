@@ -1,11 +1,11 @@
-import { EventEmitter } from 'events';
 import { BackupArchiveInfo } from '../types';
 import { BackupHandlerSql } from './backup-handler-sql';
 import { BackupHandlerTarGz } from './backup-handler-tar-gz';
 import { BackupHandlerWpress } from './backup-handler-wpress';
 import { BackupHandlerZip } from './backup-handler-zip';
+import type { ImportExportEventEmitter } from '../../events';
 
-export interface BackupHandler extends Partial< EventEmitter > {
+export interface BackupHandler extends ImportExportEventEmitter {
 	listFiles( file: BackupArchiveInfo ): Promise< string[] >;
 	extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void >;
 }

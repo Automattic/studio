@@ -70,8 +70,6 @@ export async function runCommand(
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
 		}
 
-		logger.reportSuccess( __( 'Validation successful' ), true );
-
 		logger.reportStart( LoggerAction.ARCHIVE, __( 'Creating archive…' ) );
 		await archiveSiteContent( siteFolder, archivePath );
 		logger.reportSuccess( __( 'Archive created' ) );

@@ -8,6 +8,7 @@ export {
 	saveSnapshotToConfig,
 	updateSnapshotInConfig,
 	deleteSnapshotFromConfig,
+	pruneExpiredOrphanedSnapshots,
 } from 'cli/lib/cli-config/snapshots';
 
 export function isSnapshotExpired( snapshot: Snapshot ) {

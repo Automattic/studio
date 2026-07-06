@@ -57,41 +57,103 @@ describe( 'Auth Status Command', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'should report success when authenticated', async () => {
-		await runCommand();
+	describe( 'text format (default)', () => {
+		it( 'should report success when authenticated', async () => {
+			await runCommand();
 
-		expect( mockReportStart ).toHaveBeenCalled();
-		expect( readAuthToken ).toHaveBeenCalled();
-		expect( getUserInfo ).toHaveBeenCalledWith( mockToken.accessToken );
-		expect( mockReportSuccess ).toHaveBeenCalledWith(
-			expect.stringContaining( 'Authenticated with WordPress.com as `testuser`' )
-		);
+			expect( mockReportStart ).toHaveBeenCalled();
+			expect( readAuthToken ).toHaveBeenCalled();
+			expect( getUserInfo ).toHaveBeenCalledWith( mockToken.accessToken );
+			expect( mockReportSuccess ).toHaveBeenCalledWith(
+				expect.stringContaining( 'Authenticated with WordPress.com as `testuser`' )
+			);
+		} );
+
+		it( 'should report error when token is invalid', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( null );
+
+			await runCommand();
+
+			expect( mockReportError ).toHaveBeenCalled();
+			expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+			expect( getUserInfo ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should forward LoggerError from getUserInfo', async () => {
+			const apiError = new LoggerError( 'API error' );
+			vi.mocked( getUserInfo ).mockRejectedValue( apiError );
+
+			await runCommand();
+
+			expect( mockReportError ).toHaveBeenCalledWith( apiError );
+		} );
+
+		it( 'should wrap unknown error when getUserInfo fails', async () => {
+			vi.mocked( getUserInfo ).mockRejectedValue( new Error( 'Unknown error' ) );
+
+			await runCommand();
+
+			expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		} );
 	} );
 
-	it( 'should report error when token is invalid', async () => {
-		vi.mocked( readAuthToken ).mockResolvedValue( null );
+	describe( 'json format', () => {
+		let consoleLogSpy: ReturnType< typeof vi.spyOn >;
 
-		await runCommand();
+		beforeEach( () => {
+			consoleLogSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+		} );
 
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( getUserInfo ).not.toHaveBeenCalled();
-	} );
+		afterEach( () => {
+			consoleLogSpy.mockRestore();
+		} );
 
-	it( 'should forward LoggerError from getUserInfo', async () => {
-		const apiError = new LoggerError( 'API error' );
-		vi.mocked( getUserInfo ).mockRejectedValue( apiError );
+		it( 'should output authenticated JSON when token and user info are valid', async () => {
+			await runCommand( 'json' );
 
-		await runCommand();
+			expect( getUserInfo ).toHaveBeenCalledWith( mockToken.accessToken );
+			expect( consoleLogSpy ).toHaveBeenCalledWith(
+				JSON.stringify(
+					{
+						authenticated: true,
+						id: mockUserData.ID,
+						username: mockUserData.username,
+						email: mockUserData.email,
+						displayName: mockUserData.display_name,
+					},
+					null,
+					2
+				)
+			);
+			expect( mockReportSuccess ).not.toHaveBeenCalled();
+		} );
 
-		expect( mockReportError ).toHaveBeenCalledWith( apiError );
-	} );
+		it( 'should output unauthenticated JSON and set exit code when token is missing', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( null );
 
-	it( 'should wrap unknown error when getUserInfo fails', async () => {
-		vi.mocked( getUserInfo ).mockRejectedValue( new Error( 'Unknown error' ) );
+			await runCommand( 'json' );
 
-		await runCommand();
+			expect( getUserInfo ).not.toHaveBeenCalled();
+			expect( consoleLogSpy ).toHaveBeenCalledWith(
+				JSON.stringify( { authenticated: false }, null, 2 )
+			);
+		} );
 
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		it( 'should forward LoggerError from getUserInfo', async () => {
+			const apiError = new LoggerError( 'API error' );
+			vi.mocked( getUserInfo ).mockRejectedValue( apiError );
+
+			await runCommand( 'json' );
+
+			expect( mockReportError ).toHaveBeenCalledWith( apiError );
+		} );
+
+		it( 'should wrap unknown error when getUserInfo fails', async () => {
+			vi.mocked( getUserInfo ).mockRejectedValue( new Error( 'Unknown error' ) );
+
+			await runCommand( 'json' );
+
+			expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		} );
 	} );
 } );

@@ -1,7 +1,7 @@
 import { Modal as WPModal } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, type ComponentProps } from 'react';
-import { isWindows } from 'src/lib/app-globals';
+import { isLinux, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -9,7 +9,7 @@ export default function Modal( { className, ...rest }: ComponentProps< typeof WP
 	const { __ } = useI18n();
 
 	useEffect( () => {
-		if ( ! isWindows() ) {
+		if ( ! isWindows() && ! isLinux() ) {
 			return;
 		}
 		void getIpcApi().setTitleBarBackdropEffect( true );

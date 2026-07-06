@@ -1,13 +1,13 @@
+import path from 'node:path';
+import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import pluginImport from 'eslint-plugin-import-x';
-import pluginStudio from 'eslint-plugin-studio';
+import pluginJestDom from 'eslint-plugin-jest-dom';
 import pluginPrettier from 'eslint-plugin-prettier/recommended';
+import pluginReactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tsEslint from 'typescript-eslint';
-import js from '@eslint/js';
-import pluginReactHooks from 'eslint-plugin-react-hooks';
-import pluginJestDom from 'eslint-plugin-jest-dom';
-import path from 'node:path';
+import pluginStudio from 'eslint-plugin-studio';
 
 export default defineConfig(
 	globalIgnores( [
@@ -39,7 +39,18 @@ export default defineConfig(
 			sourceType: 'commonjs',
 			parserOptions: {
 				projectService: {
-					allowDefaultProject: [ 'apps/studio/tailwind.config.js' ],
+					allowDefaultProject: [
+						'apps/studio/forge.config.ts',
+						'apps/studio/windowsSign.ts',
+						'apps/studio/tailwind.config.js',
+						'apps/ui/vite.config.ts',
+						'eslint.config.mjs',
+						'vitest.config.ts',
+						'tools/eslint-plugin-studio/vitest.config.ts',
+						'tools/eslint-plugin-studio/src/index.js',
+						'tools/eslint-plugin-studio/src/rules/*.js',
+						'tools/eslint-plugin-studio/tests/*.ts',
+					],
 				},
 			},
 		},
@@ -51,7 +62,8 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/cli/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
-						path.join( import.meta.dirname, 'tools/common/tsconfig.json' ),
+						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
+						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
 					],
@@ -73,10 +85,17 @@ export default defineConfig(
 				},
 			],
 			'import-x/no-named-as-default-member': 'off',
-			// @wp-playground/blueprints ships blueprint-schema-validator outside its package.json exports map
+			// @wp-playground/blueprints ships blueprint-schema-validator outside its package.json exports map.
+			// @modelcontextprotocol/sdk 1.29+ only exposes server/stdio.js via a wildcard export which the
+			// eslint-import-x typescript resolver can't follow (runtime resolution is fine).
 			'import-x/no-unresolved': [
 				'error',
-				{ ignore: [ '@wp-playground/blueprints/blueprint-schema-validator' ] },
+				{
+					ignore: [
+						'@wp-playground/blueprints/blueprint-schema-validator',
+						'@modelcontextprotocol/sdk/server/stdio\\.js$',
+					],
+				},
 			],
 			'import-x/order': [
 				'error',
@@ -87,6 +106,7 @@ export default defineConfig(
 				},
 			],
 			'react-hooks/set-state-in-effect': 'off',
+			'studio/no-redundant-cx': 'error',
 			'studio/require-lock-before-save': [
 				'error',
 				{
@@ -118,8 +138,30 @@ export default defineConfig(
 		},
 	},
 	{
+		files: [ 'scripts/**/*.js', 'scripts/**/*.cjs' ],
+		rules: {
+			'@typescript-eslint/no-require-imports': 'off',
+		},
+	},
+	{
 		files: [ 'apps/cli/**/*.{ts,tsx}' ],
 		ignores: [ 'apps/cli/vite.config*.ts', 'apps/cli/vitest.config.ts' ],
+		rules: {
+			'no-restricted-globals': [
+				'error',
+				{
+					name: '__dirname',
+					message: 'Use import.meta.dirname in ESM modules.',
+				},
+				{
+					name: '__filename',
+					message: 'Use import.meta.filename in ESM modules.',
+				},
+			],
+		},
+	},
+	{
+		files: [ 'scripts/**/*.mjs' ],
 		rules: {
 			'no-restricted-globals': [
 				'error',

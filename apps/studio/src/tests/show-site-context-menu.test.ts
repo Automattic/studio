@@ -176,7 +176,7 @@ describe( 'showSiteContextMenu', () => {
 			const editorItem = menuItems.find( ( item ) => item.label === 'Open in Visual Studio Code' );
 			const terminalItem = menuItems.find( ( item ) => item.label === 'Open in Terminal' );
 			const editItem = menuItems.find( ( item ) => item.label === 'Edit site…' );
-			const copyItem = menuItems.find( ( item ) => item.label === 'Copy site…' );
+			const copyItem = menuItems.find( ( item ) => item.label === 'Duplicate site…' );
 			const deleteItem = menuItems.find( ( item ) => item.label === 'Delete site…' );
 
 			expect( stopItem?.enabled ).toBe( true );

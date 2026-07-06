@@ -12,7 +12,7 @@ import { useIsMultisite } from 'src/hooks/use-is-multisite';
 import { useOffline } from 'src/hooks/use-offline';
 import { useSiteSize } from 'src/hooks/use-site-size';
 import { getLatestStableWpVersion } from 'src/lib/version-utils';
-import { hasVersionMismatch } from 'src/modules/preview-site/lib/version-comparison';
+import { hasUnsupportedWpOrPhpVersion } from 'src/modules/preview-site/lib/version-comparison';
 import { useRootSelector } from 'src/stores';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
 import { useGetWordPressVersions } from 'src/stores/wordpress-versions-api';
@@ -54,7 +54,7 @@ export function CreatePreviewButton( { onClick, selectedSite, user }: CreatePrev
 	const isOtherSiteArchiving = isAnySiteArchiving && ! isCurrentSiteArchiving;
 
 	const latestWpVersion = getLatestStableWpVersion( wpVersions );
-	const shouldShowVersionMismatch = hasVersionMismatch( {
+	const shouldShowVersionMismatch = hasUnsupportedWpOrPhpVersion( {
 		wpVersion,
 		latestWpVersion,
 		phpVersion: selectedSite.phpVersion,

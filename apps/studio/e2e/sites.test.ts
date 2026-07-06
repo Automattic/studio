@@ -44,6 +44,30 @@ async function completeOnboardingWithParams( customSiteName?: string, customFold
 	};
 }
 
+type PersistedSite = { id: string; path: string };
+
+async function getPersistedSite( siteName: string ): Promise< PersistedSite | undefined > {
+	const cliConfig = await fs
+		.readJson( path.join( session.cliConfigPath, 'cli.json' ) )
+		.catch( () => ( { sites: [] } ) );
+	return cliConfig.sites.find( ( s: { name: string } ) => s.name === siteName );
+}
+
+/**
+ * The sidebar can show a copied site (optimistic placeholder, then the IPC
+ * result) slightly before the CLI's cli.json write is observable, so poll the
+ * on-disk config instead of sampling it once.
+ */
+async function waitForPersistedSite( siteName: string ): Promise< PersistedSite > {
+	await expect
+		.poll( async () => Boolean( await getPersistedSite( siteName ) ), {
+			message: `site "${ siteName }" was never persisted to cli.json`,
+			timeout: 30_000,
+		} )
+		.toBe( true );
+	return ( await getPersistedSite( siteName ) ) as PersistedSite;
+}
+
 /**
  * Drive the "Add site" modal through the create-site flow while selecting a
  * pre-existing local folder (returned by the mocked folder dialog via the
@@ -345,11 +369,7 @@ test.describe( 'Sites', () => {
 		const copiedSiteContent = new SiteContent( session.mainWindow, expectedCopyName );
 		await expect( copiedSiteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		const cliConfig = await fs.readJson( path.join( session.cliConfigPath, 'cli.json' ) );
-		const copiedSite = cliConfig.sites.find(
-			( s: { name: string } ) => s.name === expectedCopyName
-		);
-		expect( copiedSite ).toBeDefined();
+		const copiedSite = await waitForPersistedSite( expectedCopyName );
 		expect( await pathExists( path.join( copiedSite.path, 'wp-config.php' ) ) ).toBe( true );
 	} );
 } );
@@ -405,12 +425,7 @@ test.describe( 'Sites without cleanup in-between', () => {
 		const copiedSiteContent = new SiteContent( session.mainWindow, expectedCopyName );
 		await expect( copiedSiteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		const updatedCliConfig = await fs.readJson( cliConfigFile );
-		const copiedSite = updatedCliConfig.sites.find(
-			( s: { name: string } ) => s.name === expectedCopyName
-		);
-		expect( copiedSite ).toBeDefined();
-
+		const copiedSite = await waitForPersistedSite( expectedCopyName );
 		expect( await pathExists( path.join( copiedSite.path, 'wp-config.php' ) ) ).toBe( true );
 
 		const copiedThumbnailPath = path.join( thumbnailsDir, `${ copiedSite.id }.png` );

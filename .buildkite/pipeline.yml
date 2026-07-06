@@ -7,8 +7,6 @@ env:
   IMAGE_ID: $IMAGE_ID
 
 e2e_config: &e2e_config
-  # A healthy run finishes well under an hour; a wedged one must not hold a
-  # scarce agent for the 3h default.
   timeout_in_minutes: 100
   command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
   artifact_paths:
@@ -85,8 +83,6 @@ steps:
 
   - group: E2E Tests
     key: e2e-tests
-    # One combined GitHub status for all E2E jobs — step-level notifies on the
-    # same context are last-writer-wins, letting a fast green job mask a failed one.
     notify:
       - github_commit_status:
           context: E2E Tests

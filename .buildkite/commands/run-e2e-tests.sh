@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# A canceled/timed-out job that records exit status 0 turns the build green;
-# exit non-zero explicitly on Buildkite's termination signal.
 trap 'echo "Termination signal received — failing the job."; exit 1' TERM INT
 
 PLATFORM=${1:?Expected platform to be provided as first parameter}

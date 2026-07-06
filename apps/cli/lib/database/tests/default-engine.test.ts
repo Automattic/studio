@@ -1,31 +1,21 @@
-import { readDefaultDatabaseEnginePreference } from '@studio/common/lib/default-database-engine';
+import { resolveDefaultDatabaseEngine as resolveSharedDefaultDatabaseEngine } from '@studio/common/lib/default-database-engine';
 import { vi } from 'vitest';
 import { resolveDefaultDatabaseEngine } from '../default-engine';
 
 vi.mock( '@studio/common/lib/default-database-engine', () => ( {
-	readDefaultDatabaseEnginePreference: vi.fn(),
+	resolveDefaultDatabaseEngine: vi.fn(),
 } ) );
 
 describe( 'resolveDefaultDatabaseEngine', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( readDefaultDatabaseEnginePreference ).mockResolvedValue( undefined );
+		vi.mocked( resolveSharedDefaultDatabaseEngine ).mockResolvedValue( 'sqlite' );
 	} );
 
-	it( 'uses the explicit create option before the global preference', async () => {
-		vi.mocked( readDefaultDatabaseEnginePreference ).mockResolvedValue( 'mysql' );
+	it( 'returns the provider engine for the resolved shared default', async () => {
+		vi.mocked( resolveSharedDefaultDatabaseEngine ).mockResolvedValue( 'mysql' );
 
-		await expect( resolveDefaultDatabaseEngine( 'sqlite' ) ).resolves.toBe( 'sqlite' );
-		expect( readDefaultDatabaseEnginePreference ).not.toHaveBeenCalled();
-	} );
-
-	it( 'uses the global preference when no explicit option is provided', async () => {
-		vi.mocked( readDefaultDatabaseEnginePreference ).mockResolvedValue( 'mysql' );
-
-		await expect( resolveDefaultDatabaseEngine() ).resolves.toBe( 'mysql' );
-	} );
-
-	it( 'falls back to SQLite when the preference is missing', async () => {
-		await expect( resolveDefaultDatabaseEngine() ).resolves.toBe( 'sqlite' );
+		await expect( resolveDefaultDatabaseEngine( 'sqlite' ) ).resolves.toBe( 'mysql' );
+		expect( resolveSharedDefaultDatabaseEngine ).toHaveBeenCalledWith( 'sqlite' );
 	} );
 } );

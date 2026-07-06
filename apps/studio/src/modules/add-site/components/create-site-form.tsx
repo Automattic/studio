@@ -42,6 +42,7 @@ import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
@@ -110,7 +111,7 @@ export const CreateSiteForm = ( {
 		useState< SiteRuntime >( SITE_RUNTIME_NATIVE_PHP );
 	const [ selectedDatabaseEngine, setSelectedDatabaseEngine ] =
 		useState< DatabaseEngine >( DATABASE_ENGINE_SQLITE );
-	const [ hasUserSelectedDatabaseEngine, setHasUserSelectedDatabaseEngine ] = useState( false );
+	const hasUserSelectedDatabaseEngineRef = useRef( false );
 	const [ selectedFileAccess, setSelectedFileAccess ] = useState< SiteFileAccess >(
 		SITE_FILE_ACCESS_SITE_DIRECTORY
 	);
@@ -211,6 +212,23 @@ export const CreateSiteForm = ( {
 		setUseCustomDomain( true );
 		setAdvancedSettingsVisible( true );
 	}, [ blueprintRequiresCustomDomain ] );
+
+	useEffect( () => {
+		let isMounted = true;
+
+		getIpcApi()
+			.getDefaultDatabaseEngine()
+			.then( ( databaseEngine ) => {
+				if ( isMounted && ! hasUserSelectedDatabaseEngineRef.current ) {
+					setSelectedDatabaseEngine( databaseEngine );
+				}
+			} )
+			.catch( () => undefined );
+
+		return () => {
+			isMounted = false;
+		};
+	}, [] );
 
 	useEffect( () => {
 		if ( useCustomDomain && isCertificateTrusted ) {
@@ -354,10 +372,7 @@ export const CreateSiteForm = ( {
 			wpVersion,
 			runtime: selectedRuntime,
 			fileAccess: usedFileAccess,
-			databaseEngine:
-				selectedRuntime === SITE_RUNTIME_PLAYGROUND || hasUserSelectedDatabaseEngine
-					? usedDatabaseEngine
-					: undefined,
+			databaseEngine: usedDatabaseEngine,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -373,7 +388,6 @@ export const CreateSiteForm = ( {
 			selectedRuntime,
 			usedFileAccess,
 			usedDatabaseEngine,
-			hasUserSelectedDatabaseEngine,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -578,7 +592,7 @@ export const CreateSiteForm = ( {
 												{ label: __( 'MySQL' ), value: DATABASE_ENGINE_MYSQL },
 											] }
 											onChange={ ( value ) => {
-												setHasUserSelectedDatabaseEngine( true );
+												hasUserSelectedDatabaseEngineRef.current = true;
 												setSelectedDatabaseEngine( value );
 											} }
 											__next40pxDefaultSize

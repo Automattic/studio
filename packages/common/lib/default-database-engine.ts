@@ -1,4 +1,8 @@
-import { databaseEngineSchema, type DatabaseEngine } from './database-engine';
+import {
+	DATABASE_ENGINE_SQLITE,
+	databaseEngineSchema,
+	type DatabaseEngine,
+} from './database-engine';
 import { readSharedConfig } from './shared-config';
 
 export async function readDefaultDatabaseEnginePreference(): Promise< DatabaseEngine | undefined > {
@@ -9,4 +13,12 @@ export async function readDefaultDatabaseEnginePreference(): Promise< DatabaseEn
 	} catch {
 		return undefined;
 	}
+}
+
+export async function resolveDefaultDatabaseEngine(
+	explicitEngine?: DatabaseEngine
+): Promise< DatabaseEngine > {
+	return (
+		explicitEngine ?? ( await readDefaultDatabaseEnginePreference() ) ?? DATABASE_ENGINE_SQLITE
+	);
 }

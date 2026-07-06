@@ -79,6 +79,7 @@ const api: IpcApi = {
 	getSentryUserId: () => ipcRendererInvoke( 'getSentryUserId' ),
 	getUserLocale: () => ipcRendererInvoke( 'getUserLocale' ),
 	getDefaultSiteDirectory: () => ipcRendererInvoke( 'getDefaultSiteDirectory' ),
+	getDefaultDatabaseEngine: () => ipcRendererInvoke( 'getDefaultDatabaseEngine' ),
 	saveDefaultSiteDirectory: ( directory ) =>
 		ipcRendererInvoke( 'saveDefaultSiteDirectory', directory ),
 	showUserSettings: ( tabName ) => ipcRendererInvoke( 'showUserSettings', tabName ),

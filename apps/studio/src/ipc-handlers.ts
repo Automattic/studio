@@ -52,7 +52,7 @@ import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { type DatabaseEngine } from '@studio/common/lib/database-engine';
-import { readDefaultDatabaseEnginePreference } from '@studio/common/lib/default-database-engine';
+import { resolveDefaultDatabaseEngine } from '@studio/common/lib/default-database-engine';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import {
 	calculateDirectorySizeForArchive,
@@ -711,6 +711,12 @@ export async function getXdebugEnabledSite(
 	return xdebugSite || null;
 }
 
+export async function getDefaultDatabaseEngine(
+	_event: IpcMainInvokeEvent
+): Promise< DatabaseEngine > {
+	return resolveDefaultDatabaseEngine();
+}
+
 export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
@@ -747,8 +753,7 @@ export async function createSite(
 		noStart = false,
 		databaseEngine: configuredDatabaseEngine,
 	} = config;
-	const databaseEngine =
-		configuredDatabaseEngine ?? ( await readDefaultDatabaseEnginePreference() );
+	const databaseEngine = await resolveDefaultDatabaseEngine( configuredDatabaseEngine );
 
 	const siteId = providedSiteId || crypto.randomUUID();
 

@@ -99,7 +99,9 @@ export function writeSiteUrlPrependFile(
 	siteUrl: string,
 	originalAutoPrependFile?: string
 ): string {
-	const dir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-siteurl-prepend-' ) );
+	const tmpRoot =
+		process.platform === 'win32' ? fs.realpathSync.native( os.tmpdir() ) : os.tmpdir();
+	const dir = fs.mkdtempSync( path.join( tmpRoot, 'studio-siteurl-prepend-' ) );
 	const prependPath = path.join( dir, 'prepend.php' );
 	fs.writeFileSync( prependPath, getSiteUrlPrependContent( siteUrl, originalAutoPrependFile ) );
 	return prependPath;

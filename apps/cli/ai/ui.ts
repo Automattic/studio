@@ -21,7 +21,11 @@ import {
 	visibleWidth,
 	truncateToWidth,
 	CURSOR_MARKER,
+	getCapabilities,
+	Image,
+	Spacer,
 } from '@earendil-works/pi-tui';
+import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
@@ -263,9 +267,8 @@ function formatToolName( name: string, input?: Record< string, unknown > ): stri
 }
 
 interface ToolUseResultContent {
-	// Pi `ToolResultMessage` content is always an array of text/image blocks;
-	// we render text and ignore image blocks for the terminal preview.
-	content?: Array< { type: string; text?: string } >;
+	// Text blocks of a pi `ToolResultMessage`; image blocks render separately.
+	content: Array< { type: string; text?: string } >;
 	isError?: boolean;
 }
 
@@ -1707,11 +1710,14 @@ export class AiChatUI implements AiOutputAdapter {
 		const blocks: Array< { type: string; text?: string } > = [];
 		for ( const block of result.content ) {
 			if ( block.type === 'text' && typeof block.text === 'string' ) {
-				blocks.push( { type: 'text', text: block.text } );
+				// Old transcripts embed media widget payload markers in screenshot
+				// results; strip them from replayed tool output like the desktop
+				// conversation UIs do.
+				blocks.push( { type: 'text', text: stripMediaWidgetPayloadLines( block.text ) } );
 			}
 		}
 		return {
-			content: blocks.length > 0 ? blocks : undefined,
+			content: blocks,
 			isError: result.isError,
 		};
 	}
@@ -1891,13 +1897,39 @@ export class AiChatUI implements AiOutputAdapter {
 			this.showFilePreview( toolCall.name, toolCall.input, target );
 		}
 
-		const content = typedResult.content;
-		if ( content === undefined ) {
-			this.tui.requestRender();
+		this.renderToolResultText( typedResult.content, toolCall, isError, target );
+		this.renderToolResultImages( result, target );
+		this.tui.requestRender();
+	}
+
+	// Render image blocks (e.g. take_screenshot captures) inline when the
+	// terminal supports an image protocol. Elsewhere the saved-file progress
+	// line is the user's only handle on the capture.
+	private renderToolResultImages( result: ToolResultMessage, target: Container ): void {
+		const { images } = getCapabilities();
+		if ( ! images ) {
 			return;
 		}
-		this.renderToolResultText( content, toolCall, isError, target );
-		this.tui.requestRender();
+		for ( const block of result.content ) {
+			if ( block.type !== 'image' || ! block.data || ! block.mimeType ) {
+				continue;
+			}
+			// The kitty graphics protocol only renders PNG and screenshots are
+			// JPEG; converting would need an optional WASM dependency we don't
+			// ship, so those terminals keep the saved-file link instead.
+			if ( images === 'kitty' && block.mimeType !== 'image/png' ) {
+				continue;
+			}
+			target.addChild( new Spacer( 1 ) );
+			target.addChild(
+				new Image(
+					block.data,
+					block.mimeType,
+					{ fallbackColor: ( value ) => chalk.dim( value ) },
+					{ maxWidthCells: 60 }
+				)
+			);
+		}
 	}
 
 	/**

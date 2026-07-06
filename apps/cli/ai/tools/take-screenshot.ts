@@ -98,6 +98,14 @@ export const takeScreenshotTool = defineTool(
 						format: 'jpeg',
 						colorScheme,
 					} );
+					// Progress lines persist in the CLI transcript (but not in the
+					// desktop conversation history, where the inline artifact is the
+					// UI), so this is the terminal user's only handle on the file.
+					emitProgress(
+						`Saved ${ getCaptureLabel( { viewportType, colorScheme } ) } screenshot to ${
+							screenshotFile.fileUrl
+						}`
+					);
 					return {
 						viewportType,
 						colorScheme,

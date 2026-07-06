@@ -149,4 +149,27 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '- screenshot-auto-artifact:' );
 		expect( prompt ).not.toContain( 'studio_present' );
 	} );
+
+	it( 'warns that terminal users may not see screenshots when chat artifacts are disabled', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
+
+		expect( prompt ).toContain( '## Screenshots' );
+		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
+	} );
+
+	it( 'omits the terminal screenshot caveat when chat artifacts are enabled', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
+	} );
+
+	it( 'omits the terminal screenshot caveat for remote-bridge sessions', () => {
+		// The Telegram user cannot open local file paths; delivery is covered
+		// by the remote-session share_screenshot guidance instead.
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false, remoteSession: true } );
+
+		expect( prompt ).not.toContain( '## Screenshots' );
+		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
+		expect( prompt ).toContain( '## Telegram remote session' );
+	} );
 } );

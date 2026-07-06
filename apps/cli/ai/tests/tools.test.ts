@@ -366,10 +366,22 @@ describe( 'Studio AI MCP tools', () => {
 	it( 'keeps take_screenshot output compact while returning artifacts structurally', async () => {
 		const screenshotBuffer = Buffer.from( 'fake-jpeg' );
 		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 2400 } ) );
+		const progressMessages: string[] = [];
+		setProgressCallback( ( message ) => {
+			progressMessages.push( message );
+		} );
 
 		const result = await getTool( 'take_screenshot' ).rawHandler( {
 			url: 'http://localhost:8903/story-time',
 		} as never );
+
+		// Terminal users have no artifact rendering; the saved-file progress
+		// line is their only handle on the capture.
+		expect( progressMessages ).toContainEqual(
+			expect.stringMatching(
+				/^Saved desktop screenshot to file:\/\/.*screenshot-desktop-[0-9a-f]{8}\.jpg$/
+			)
+		);
 		const text = getTextContent( result );
 		expect( text ).toContain( 'Screenshot captured' );
 		expect( text ).toContain( 'desktop: captured full page (2400px tall)' );

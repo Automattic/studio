@@ -5,6 +5,9 @@
 	/* Subtle opentype improvements — lining numerals in tables, contextual
 	   alternates in prose. Falls back silently on fonts that don't support them. */
 	font-feature-settings: "ss01", "cv11";
+	/* Long unbroken tokens (URLs, hashes) wrap instead of pushing the
+	   conversation wider than its panel. */
+	overflow-wrap: break-word;
 }
 
 .root > *:first-child {
@@ -141,8 +144,10 @@
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: 0.875em;
 	color: var(--wpds-color-fg-content-neutral);
-	/* Discourage code from breaking awkwardly across lines. */
-	white-space: nowrap;
+	/* Prefer one line, but let long tokens (paths, URLs, commands) break
+	   rather than force the conversation wider than its panel. */
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
 	/* Code is meant to be copied — keep it selectable. */
 	-webkit-user-select: text;
 	user-select: text;

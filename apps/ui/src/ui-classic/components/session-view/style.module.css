@@ -114,6 +114,9 @@
 	min-height: 0;
 	box-sizing: border-box;
 	overflow-y: auto;
+	/* The panel never scrolls sideways — wide content (code blocks, tables)
+	   must scroll inside its own container instead. */
+	overflow-x: hidden;
 	padding-block: var(--classic-header-height)
 		calc(var(--classic-composer-height) + var(--classic-panel-footer-height));
 	z-index: 0;

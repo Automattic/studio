@@ -62,7 +62,7 @@ before_all do |_lane|
 end
 
 desc 'Download the development signing certificates to this machine'
-lane :set_up_signing do
+lane :set_up_signing do |readonly: true|
   sync_code_signing(
     platform: 'macos',
     app_identifier: APPLE_BUNDLE_IDENTIFIER,
@@ -70,7 +70,8 @@ lane :set_up_signing do
     type: 'developer_id',
     storage_mode: 's3',
     s3_bucket: 'a8c-fastlane-match',
-    readonly: true
+    readonly: readonly,
+    api_key: readonly ? nil : app_store_connect_api_key
   )
 end
 

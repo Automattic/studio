@@ -45,6 +45,7 @@ import {
 	reconcilePrimedSessionQueryData,
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
+import { useScrambledText } from '@/hooks/use-scrambled-text';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -68,10 +69,6 @@ const COMPOSER_TEXTAREA_MAX_VIEWPORT_RATIO = 0.4;
 const COMPOSER_TEXTAREA_MANUAL_MAX_HEIGHT = 560;
 const COMPOSER_TEXTAREA_MANUAL_MAX_VIEWPORT_RATIO = 0.7;
 const COMPOSER_TEXTAREA_RESIZE_STEP = 16;
-const PLACEHOLDER_SCRAMBLE_DURATION_MS = 420;
-const PLACEHOLDER_SCRAMBLE_STAGGER_MS = 12;
-const PLACEHOLDER_SCRAMBLE_TICK_MS = 32;
-const PLACEHOLDER_SCRAMBLE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789!?*+-=';
 
 function AttachmentHoverTextPreview( { text }: { text: string } ) {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
@@ -279,83 +276,6 @@ function resizeComposerTextarea(
 	node.style.height = `${ nextHeight }px`;
 	node.style.overflowY = node.scrollHeight > nextHeight ? 'auto' : 'hidden';
 	return nextHeight;
-}
-
-function getScrambleCharacter( index: number, elapsed: number ) {
-	const characterIndex =
-		( index * 7 + Math.floor( elapsed / PLACEHOLDER_SCRAMBLE_TICK_MS ) ) %
-		PLACEHOLDER_SCRAMBLE_CHARS.length;
-	return PLACEHOLDER_SCRAMBLE_CHARS.charAt( characterIndex );
-}
-
-function useScrambledPlaceholder( targetText: string, shouldAnimate: boolean ) {
-	const [ displayText, setDisplayText ] = useState( targetText );
-	const previousTargetRef = useRef( targetText );
-
-	useEffect( () => {
-		const previousText = previousTargetRef.current;
-		previousTargetRef.current = targetText;
-
-		if ( previousText === targetText || ! shouldAnimate ) {
-			setDisplayText( targetText );
-			return;
-		}
-
-		if ( window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches ) {
-			setDisplayText( targetText );
-			return;
-		}
-
-		const maxLength = Math.max( previousText.length, targetText.length );
-		const startTime = performance.now();
-		let animationFrame = 0;
-
-		const renderFrame = ( now: number ) => {
-			const elapsed = now - startTime;
-			let isComplete = true;
-			let nextText = '';
-
-			for ( let index = 0; index < maxLength; index++ ) {
-				const previousCharacter = previousText.charAt( index );
-				const targetCharacter = targetText.charAt( index );
-				const characterElapsed = elapsed - index * PLACEHOLDER_SCRAMBLE_STAGGER_MS;
-
-				if ( characterElapsed <= 0 ) {
-					nextText += previousCharacter;
-					isComplete = false;
-					continue;
-				}
-
-				if ( characterElapsed >= PLACEHOLDER_SCRAMBLE_DURATION_MS ) {
-					nextText += targetCharacter;
-					continue;
-				}
-
-				isComplete = false;
-				nextText +=
-					previousCharacter === ' ' && targetCharacter === ' '
-						? ' '
-						: getScrambleCharacter( index, elapsed );
-			}
-
-			setDisplayText( nextText.trimEnd() );
-
-			if ( isComplete ) {
-				setDisplayText( targetText );
-				return;
-			}
-
-			animationFrame = window.requestAnimationFrame( renderFrame );
-		};
-
-		animationFrame = window.requestAnimationFrame( renderFrame );
-
-		return () => {
-			window.cancelAnimationFrame( animationFrame );
-		};
-	}, [ targetText, shouldAnimate ] );
-
-	return displayText;
 }
 
 export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Composer(
@@ -740,7 +660,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		  ];
 	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
 	const showAnimatedPlaceholder = value.length === 0;
-	const animatedPlaceholder = useScrambledPlaceholder( placeholder, showAnimatedPlaceholder );
+	const animatedPlaceholder = useScrambledText( placeholder, showAnimatedPlaceholder );
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );

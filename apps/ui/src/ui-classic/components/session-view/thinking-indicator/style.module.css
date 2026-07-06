@@ -11,30 +11,73 @@
 .head {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-md);
+	/* Same gap as the conversation's tool rows so the counter's text lines
+	   up with the tool labels above it. */
+	gap: var(--wpds-dimension-padding-xs);
 }
 
-.dot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
-	animation: pulse 1.2s ease-in-out infinite;
-	flex-shrink: 0;
-}
-
-.label {
-	font-style: italic;
+/* Center the pixel grid in a slot the width of a tool row's 18px icon so
+   both columns (mark, then text) align across rows. */
+.pixels {
+	width: 18px;
+	justify-content: center;
 }
 
 .elapsed {
+	/* Flex (not inline text flow): the odometer cells' `overflow: hidden`
+	   moves their inline baseline to their bottom edge, which shoves the
+	   digits above the line box and misaligns the counter with the pixel
+	   grid. Flex items don't baseline-align, so the cells sit true. */
+	display: inline-flex;
+	align-items: center;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.7;
 	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+/* Odometer cells: each character clips its own box so the outgoing char can
+   roll up and out while the incoming one rolls in from below. */
+.rollCell {
+	position: relative;
+	display: inline-block;
+	overflow: hidden;
+	line-height: 1.4;
+}
+
+.rollIn {
+	display: inline-block;
+	animation: roll-in 240ms ease;
+}
+
+.rollOut {
+	position: absolute;
+	inset: 0;
+	display: inline-block;
+	animation: roll-out 240ms ease forwards;
+}
+
+@keyframes roll-in {
+	from {
+		transform: translateY(100%);
+	}
+	to {
+		transform: translateY(0);
+	}
+}
+
+@keyframes roll-out {
+	from {
+		transform: translateY(0);
+	}
+	to {
+		transform: translateY(-100%);
+	}
 }
 
 .progress {
-	padding-left: calc(8px + var(--wpds-dimension-padding-md));
+	/* Indent past the icon slot, aligned with the counter text. */
+	padding-left: calc(18px + var(--wpds-dimension-padding-xs));
 	color: var(--wpds-color-fg-content-neutral-weak);
 	opacity: 0.8;
 	overflow: hidden;
@@ -42,14 +85,13 @@
 	white-space: nowrap;
 }
 
-@keyframes pulse {
-	0%,
-	100% {
-		opacity: 0.35;
-		transform: scale(0.85);
+@media (prefers-reduced-motion: reduce) {
+	.rollIn,
+	.rollOut {
+		animation: none;
 	}
-	50% {
-		opacity: 1;
-		transform: scale(1);
+
+	.rollOut {
+		display: none;
 	}
 }

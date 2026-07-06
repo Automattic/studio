@@ -4,11 +4,11 @@ import { chevronDown, chevronRight, settings } from '@wordpress/icons';
 import { Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteContextMenu } from '@/components/site-context-menu';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
-import { Spinner } from '@/components/spinner';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -104,7 +104,10 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 		>
 			{ renderedActivity === 'working' ? (
 				<SiteAgentActivityTooltip label={ workingLabel } childProvidesLabel>
-					<Spinner className={ styles.siteAgentActivitySpinner } label={ workingLabel } />
+					<AgentWorkingIndicator
+						className={ styles.siteAgentActivityPixels }
+						label={ workingLabel }
+					/>
 				</SiteAgentActivityTooltip>
 			) : null }
 			{ renderedActivity === 'pending-question' ? (

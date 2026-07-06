@@ -162,10 +162,11 @@
 	place-items: center;
 }
 
-.siteAgentActivitySpinner {
-	--spinner-size: 10px;
-	box-sizing: border-box;
-	border-width: 1.5px;
+.siteAgentActivityPixels {
+	/* Slightly tighter than the chat indicator so the 3×2 grid sits inside
+	   the 14px activity slot. */
+	--agent-pixel-size: 2.5px;
+	--agent-pixel-gap: 2px;
 }
 
 .siteAgentActivityQuestion {

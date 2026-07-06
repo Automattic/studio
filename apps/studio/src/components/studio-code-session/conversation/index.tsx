@@ -16,6 +16,7 @@ import {
 import {
 	getToolDetail,
 	getToolDisplayName,
+	getToolResultDiff,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
 import { __ } from '@wordpress/i18n';
@@ -76,6 +77,7 @@ interface PiToolResultLike {
 	role: 'toolResult';
 	toolCallId: string;
 	content?: Array< { type: string; text?: string } >;
+	details?: unknown;
 	isError?: boolean;
 }
 
@@ -98,6 +100,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			// results; strip them from every tool's display text.
 			text: stripMediaWidgetPayloadLines( text ),
 			isError: message.isError === true,
+			diff: message.isError === true ? undefined : getToolResultDiff( message.details ),
 		} );
 	}
 
@@ -296,8 +299,11 @@ function ToolUseRow( {
 	const detail = getToolDetail( name, input );
 	const [ expanded, setExpanded ] = useState( false );
 	const resultText = result?.text?.trim() ?? '';
-	const hasOutput = resultText.length > 0;
-	const isLong = resultText.split( '\n' ).length > TOOL_RESULT_PREVIEW_MAX_LINES;
+	const diff = result?.diff;
+	const hasOutput = resultText.length > 0 || Boolean( diff );
+	const isLong =
+		resultText.split( '\n' ).length > TOOL_RESULT_PREVIEW_MAX_LINES ||
+		( diff ? diff.split( '\n' ).length > TOOL_RESULT_PREVIEW_MAX_LINES : false );
 
 	return (
 		<div className={ styles.toolBlock }>
@@ -307,15 +313,41 @@ function ToolUseRow( {
 			</div>
 			{ hasOutput ? (
 				<div className={ styles.toolOutputWrap }>
-					<pre
-						className={ cx(
-							styles.toolOutput,
-							result?.isError && styles.toolOutputError,
-							! expanded && isLong && styles.toolOutputCollapsed
-						) }
-					>
-						{ resultText }
-					</pre>
+					{ resultText.length > 0 ? (
+						<pre
+							className={ cx(
+								styles.toolOutput,
+								result?.isError && styles.toolOutputError,
+								! expanded && isLong && styles.toolOutputCollapsed
+							) }
+						>
+							{ resultText }
+						</pre>
+					) : null }
+					{ diff ? (
+						<pre
+							className={ cx(
+								styles.toolDiff,
+								! expanded && isLong && styles.toolOutputCollapsed
+							) }
+						>
+							{ diff
+								.replace( /\n$/, '' )
+								.split( '\n' )
+								.map( ( line, index ) => (
+									<span
+										key={ index }
+										className={ cx(
+											styles.diffLine,
+											line.startsWith( '+' ) && styles.diffLineAdded,
+											line.startsWith( '-' ) && styles.diffLineRemoved
+										) }
+									>
+										{ line.length > 0 ? line : ' ' }
+									</span>
+								) ) }
+						</pre>
+					) : null }
 					{ isLong ? (
 						<button
 							type="button"

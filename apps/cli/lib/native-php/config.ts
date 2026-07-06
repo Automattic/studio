@@ -276,7 +276,15 @@ export function getDefaultPhpArgs(
 			'-d',
 			`zend_extension="${ path.join( getExtensionDir( phpVersion ), getXdebugFilename() ) }"`,
 			'-d',
-			'xdebug.mode=debug'
+			'xdebug.mode=debug',
+			// Xdebug's own default for this is `trigger` (i.e. requires
+			// XDEBUG_TRIGGER/XDEBUG_SESSION on every request) — see
+			// https://xdebug.org/docs/all_settings#start_with_request. Studio's
+			// Xdebug is already an explicit, one-site-at-a-time opt-in, so once
+			// it's on we want every request on that site to start a debug
+			// session — matching the sandbox (php-wasm) runtime
+			'-d',
+			'xdebug.start_with_request=yes'
 		);
 	}
 

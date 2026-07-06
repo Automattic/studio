@@ -103,7 +103,13 @@ export function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
 			const result = await tool.execute( toolCallId, params, signal, onUpdate );
 			const details = result.details as StudioToolResultDetails | undefined;
-			await emitChatArtifactWidgets( details?.studioArtifacts );
+			try {
+				await emitChatArtifactWidgets( details?.studioArtifacts );
+			} catch ( error ) {
+				// Artifacts are presentation-only; a failed emit (e.g. session file
+				// unwritable) must never turn a successful tool result into an error.
+				console.warn( `[chat-artifacts] failed to emit artifact for ${ tool.name }:`, error );
+			}
 			return result;
 		},
 	};

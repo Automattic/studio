@@ -6,6 +6,7 @@ import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { validateBlocks } from 'cli/ai/block-validator';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { setChatArtifactCallback } from 'cli/ai/chat-artifacts';
 import { emitEvent } from 'cli/ai/json-events';
 import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -952,6 +953,33 @@ describe( 'Studio AI MCP tools', () => {
 		it( 'returns the tool unchanged when chat artifacts are disabled', () => {
 			const { tool } = makeFakeTool();
 			expect( withChatArtifactEmission( tool, false ) ).toBe( tool );
+		} );
+
+		it( 'does not fail the tool result when artifact emission throws', async () => {
+			const { tool } = makeFakeTool();
+			const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+			setChatArtifactCallback( () => {
+				throw new Error( 'disk full' );
+			} );
+
+			try {
+				const wrapped = withChatArtifactEmission( tool, true );
+				const result = await wrapped.execute(
+					'tool-call-9',
+					{} as never,
+					new AbortController().signal,
+					() => {}
+				);
+
+				expect( result.content ).toEqual( [ { type: 'text', text: 'ok' } ] );
+				expect( warnSpy ).toHaveBeenCalledWith(
+					expect.stringContaining( '[chat-artifacts] failed to emit artifact for fake_tool' ),
+					expect.any( Error )
+				);
+			} finally {
+				setChatArtifactCallback( null );
+				warnSpy.mockRestore();
+			}
 		} );
 
 		it( 'emits site_create artifacts when wrapped directly (remote tool list)', async () => {

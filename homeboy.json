@@ -1,0 +1,13 @@
+{
+  "auto_cleanup": false,
+  "extensions": {
+    "nodejs": {}
+  },
+  "id": "studio-mysql-poc-lab-evidence-20260706",
+  "remote_path": "",
+  "scripts": {
+    "fuzz": [
+      "node artifacts/fuzz/mysql-fuzz-runner.mjs"
+    ]
+  }
+}

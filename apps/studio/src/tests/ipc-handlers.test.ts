@@ -31,7 +31,7 @@ vi.mock( 'src/lib/wordpress-setup', () => ( {
 } ) );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/sqlite-versions', () => ( {
-	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( false ),
+	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( undefined ),
 	installSqliteIntegration: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {

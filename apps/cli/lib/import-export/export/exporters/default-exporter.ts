@@ -21,6 +21,7 @@ import { glob } from 'glob';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integration';
 import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
 import {
@@ -285,6 +286,11 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		if ( ! this.options.includes.database ) {
 			return;
 		}
+
+		// The `wp sqlite export` below requires the SQLite integration to be discoverable
+		// in wp-content, which imported sites don't ship. It's excluded from the archive
+		// (see isExactPathExcluded), so it never reaches the backup or the remote.
+		await ensureSqliteIntegrationForImportedSite( this.options.site );
 
 		this.emit( ExportEvents.DATABASE_EXPORT_START );
 		const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );

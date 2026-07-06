@@ -7,9 +7,9 @@ import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
-import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { drawerIcon } from '@/lib/icons';
 import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import styles from './style.module.css';
@@ -18,7 +18,7 @@ import type { CSSProperties, ReactNode } from 'react';
 export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const [ collapsed, setCollapsed ] = useState( false );
 	const connector = useConnector();
-	const isFullscreen = useFullscreen();
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
@@ -67,7 +67,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 						<div
 							className={ clsx(
 								styles.floatingToggle,
-								isFullscreen && styles.floatingToggleFullscreen
+								! reserveTrafficLightSpace && styles.floatingToggleFlush
 							) }
 						>
 							<IconButton

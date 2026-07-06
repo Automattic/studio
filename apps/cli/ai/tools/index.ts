@@ -1,6 +1,7 @@
 import { emitChatArtifactWidgets } from 'cli/ai/chat-artifacts';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
+import { dataLiberationTool } from './data-liberation';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
@@ -15,6 +16,7 @@ import { openAnnotationBrowserTool } from './open-annotation-browser';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
+import { refreshBrowserTool } from './refresh-browser';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { shareScreenshotTool } from './share-screenshot';
 import { getSiteInfoTool } from './site-info';
@@ -42,12 +44,14 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	updatePreviewTool,
 	deletePreviewTool,
 	runWpCliTool,
+	refreshBrowserTool,
 	scaffoldThemeTool,
 	validateBlocksTool,
 	takeScreenshotTool,
 	inspectDesignTool,
 	shareScreenshotTool,
 	installTaxonomyScriptsTool,
+	dataLiberationTool,
 	auditPerformanceTool,
 	auditSeoTool,
 	listConnectedRemoteSitesTool,

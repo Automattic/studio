@@ -1,4 +1,3 @@
-import { execSync } from 'child_process';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import path from 'path';

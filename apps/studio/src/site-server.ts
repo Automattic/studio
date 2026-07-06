@@ -25,18 +25,6 @@ export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
 const servers = new Map< string, SiteServer >();
 const deletedServers: string[] = [];
 
-// The `site stop --all` CLI reports completion via an IPC progress event a few hundred ms in,
-// well before its process exits. On Windows that process can linger (it doesn't reliably
-// self-exit), so this lets the caller act on the reported completion instead of waiting for exit.
-function isStopAllSuccess( data: unknown ): boolean {
-	return (
-		typeof data === 'object' &&
-		data !== null &&
-		( data as Record< string, unknown > ).action === 'stopAllSites' &&
-		( data as Record< string, unknown > ).status === 'success'
-	);
-}
-
 /**
  * Stop all running sites using the CLI `site stop --all` command.
  *
@@ -46,36 +34,11 @@ export async function stopAllServers( timeoutAfterMs?: number ) {
 	let timeoutId: NodeJS.Timeout | undefined;
 
 	return new Promise< void >( ( resolve ) => {
-		let settled = false;
-		const settle = () => {
-			if ( settled ) {
-				return;
-			}
-			settled = true;
-			resolve();
-		};
-
 		const args = [ 'site', 'stop', '--all' ];
 		const [ emitter, childProcess ] = executeCliCommand( args, { output: 'ignore' } );
-		// Log the CLI's IPC progress events: when the command hangs or times out, this shows how
-		// far it got (e.g. before/after connecting to the daemon).
-		emitter.on( 'data', ( { data } ) => {
-			console.log( '[site stop --all]', JSON.stringify( data ) );
-			// The sites are already stopped once the CLI reports success; its process can linger on
-			// Windows, so reap it now instead of waiting out the full timeout on every quit.
-			if ( isStopAllSuccess( data ) ) {
-				childProcess.kill( 'SIGKILL' );
-				settle();
-			}
-		} );
-		emitter.on( 'success', () => settle() );
-		emitter.on( 'failure', ( { error } ) => {
-			if ( ! settled ) {
-				console.warn( '[site stop --all] failed:', error.message );
-			}
-			settle();
-		} );
-		emitter.on( 'error', () => settle() );
+		emitter.on( 'success', () => resolve() );
+		emitter.on( 'failure', () => resolve() );
+		emitter.on( 'error', () => resolve() );
 
 		if ( timeoutAfterMs ) {
 			timeoutId = setTimeout( () => {
@@ -83,7 +46,7 @@ export async function stopAllServers( timeoutAfterMs?: number ) {
 					`site stop --all command timed out after ${ timeoutAfterMs }ms. Killing process.`
 				);
 				childProcess.kill( 'SIGKILL' );
-				settle();
+				resolve();
 			}, timeoutAfterMs );
 		}
 	} ).finally( () => {

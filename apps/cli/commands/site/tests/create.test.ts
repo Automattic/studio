@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
+import { DATABASE_ENGINE_MYSQL } from '@studio/common/lib/database-engine';
 import {
 	isEmptyDir,
 	isWordPressDirectory,
@@ -54,6 +55,7 @@ vi.mock( '@studio/common/lib/port-finder', () => ( {
 } ) );
 vi.mock( '@studio/common/lib/passwords', () => ( {
 	createPassword: vi.fn().mockReturnValue( 'generated-password-123' ),
+	encodePassword: vi.fn( ( password: string ) => password ),
 } ) );
 vi.mock( '@studio/common/lib/blueprint-validation' );
 vi.mock( 'cli/lib/cli-config/core', async () => {
@@ -325,6 +327,38 @@ describe( 'CLI: studio site create', () => {
 			);
 		} );
 
+		it( 'should persist MySQL configuration and skip SQLite integration for native PHP sites', async () => {
+			vi.mocked( portFinder.getOpenPort )
+				.mockResolvedValueOnce( mockPort )
+				.mockResolvedValueOnce( 8899 );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				runtime: SITE_RUNTIME_NATIVE_PHP,
+				phpVersion: '8.4',
+				databaseEngine: DATABASE_ENGINE_MYSQL,
+				noStart: true,
+			} );
+
+			expect( keepSqliteIntegrationUpdated ).not.toHaveBeenCalled();
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( {
+							runtime: SITE_RUNTIME_NATIVE_PHP,
+							databaseEngine: DATABASE_ENGINE_MYSQL,
+							mysql: expect.objectContaining( {
+								host: '127.0.0.1',
+								port: 8899,
+								serverVersion: '8.4.10',
+							} ),
+						} ),
+					] ),
+				} )
+			);
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+		} );
+
 		it( 'should reject "all-files" file access for sandbox sites', async () => {
 			await expect(
 				runCommand( mockSitePath, {
@@ -332,6 +366,17 @@ describe( 'CLI: studio site create', () => {
 					fileAccess: 'all-files',
 				} )
 			).rejects.toThrow( 'File access "all-files" requires the native PHP runtime.' );
+
+			expect( saveCliConfig ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should reject MySQL for sandbox sites', async () => {
+			await expect(
+				runCommand( mockSitePath, {
+					...defaultTestOptions,
+					databaseEngine: DATABASE_ENGINE_MYSQL,
+				} )
+			).rejects.toThrow( 'MySQL requires the native PHP runtime.' );
 
 			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );

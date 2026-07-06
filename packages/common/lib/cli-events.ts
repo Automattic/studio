@@ -6,6 +6,7 @@
  */
 import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
+import { databaseEngineSchema, mysqlSiteConfigSchema } from '@studio/common/lib/database-engine';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { siteRuntimeSchema } from '@studio/common/lib/site-runtime';
 import { snapshotSchema } from '@studio/common/types/snapshot';
@@ -22,6 +23,8 @@ export const siteDetailsSchema = z.object( {
 	phpVersion: z.string(),
 	runtime: siteRuntimeSchema.optional(),
 	fileAccess: siteFileAccessSchema.optional(),
+	databaseEngine: databaseEngineSchema.optional(),
+	mysql: mysqlSiteConfigSchema.optional(),
 	customDomain: z.string().optional(),
 	enableHttps: z.boolean().optional(),
 	adminUsername: z.string().optional(),

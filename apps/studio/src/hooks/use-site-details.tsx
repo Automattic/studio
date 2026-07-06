@@ -1,4 +1,5 @@
 import { SITE_EVENTS, SiteEvent } from '@studio/common/lib/cli-events';
+import { type DatabaseEngine } from '@studio/common/lib/database-engine';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -37,7 +38,8 @@ interface SiteDetailsContext {
 		adminPassword?: string,
 		adminEmail?: string,
 		runtime?: SiteRuntime,
-		fileAccess?: SiteFileAccess
+		fileAccess?: SiteFileAccess,
+		databaseEngine?: DatabaseEngine
 	) => Promise< SiteDetails | void >;
 	copySite: ( sourceSiteId: string ) => Promise< SiteDetails | void >;
 	startServer: (
@@ -277,7 +279,8 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			adminPassword?: string,
 			adminEmail?: string,
 			runtime?: SiteRuntime,
-			fileAccess?: SiteFileAccess
+			fileAccess?: SiteFileAccess,
+			databaseEngine?: DatabaseEngine
 		) => {
 			// Function to handle error messages and cleanup
 			const showError = ( error?: unknown, hasBlueprint?: boolean ) => {
@@ -336,6 +339,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 						running: false,
 						isAddingSite: true,
 						phpVersion: '',
+						databaseEngine,
 					},
 				] )
 			);
@@ -352,6 +356,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					phpVersion,
 					runtime,
 					fileAccess,
+					databaseEngine,
 					blueprint,
 					adminUsername,
 					adminPassword,

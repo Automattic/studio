@@ -2,7 +2,6 @@ import http from 'http';
 import https from 'https';
 import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
-import httpProxy from 'http-proxy';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 
@@ -10,17 +9,6 @@ let httpProxyServer: http.Server | null = null;
 let httpsProxyServer: https.Server | null = null;
 let isHttpProxyRunning = false;
 let isHttpsProxyRunning = false;
-
-const proxy = httpProxy.createProxyServer();
-
-// Setup error handling for the proxy
-proxy.on( 'error', ( err, req, res ) => {
-	console.error( '[Proxy Error]', err.message );
-	if ( res && res instanceof http.ServerResponse ) {
-		res.writeHead( 502, { 'Content-Type': 'text/plain' } );
-		res.end( 'Proxy error: ' + err.message );
-	}
-} );
 
 function logProxyBindError( err: NodeJS.ErrnoException, port: number ): void {
 	console.error( `[Proxy] Error starting ${ port === 443 ? 'HTTPS' : 'HTTP' } server:`, err );
@@ -106,17 +94,97 @@ async function handleProxyRequest(
 		return;
 	}
 
-	const headers: Record< string, string > = {};
+	forwardToSite( req, res, site.port, isHttps );
+}
 
-	if ( isHttps ) {
-		headers[ 'X-Forwarded-Proto' ] = 'https';
-	}
+/**
+ * Forwards a request to a site's local HTTP port, decoupling the UPSTREAM
+ * request's lifetime from the client connection.
+ *
+ * We do the forward with a raw `http.request` rather than `http-proxy`'s
+ * `proxy.web()` because `http-proxy` tears down the upstream request when the
+ * client aborts. That breaks fire-and-forget loopback requests, which WordPress
+ * async fanout depends on: WordPress dispatches Action Scheduler's async queue
+ * runner with a ~0.01s timeout and a non-blocking transport, so the client
+ * disconnects almost immediately by design and the PHP worker is meant to keep
+ * running (claim + execute a queued branch). If the client abort propagated to
+ * the upstream, the worker request would be killed before it did any work and
+ * the branch would never run.
+ *
+ * So: forward the request, but on a client abort DO NOT destroy the upstream —
+ * finish sending the request and let the worker run to completion. When the
+ * client is still connected we write the response back as usual; when it has
+ * gone we simply drain the upstream response so the request completes cleanly.
+ */
+function forwardToSite(
+	req: http.IncomingMessage,
+	res: http.ServerResponse,
+	sitePort: number,
+	isHttps: boolean
+): void {
+	const headers = { ...req.headers };
+	// Mirror `xfwd: true` (the x-forwarded-* headers http-proxy set for us) plus
+	// the explicit X-Forwarded-Proto we passed through before.
+	const remoteAddress = req.socket.remoteAddress ?? '';
+	headers[ 'x-forwarded-for' ] = headers[ 'x-forwarded-for' ]
+		? `${ headers[ 'x-forwarded-for' ] }, ${ remoteAddress }`
+		: remoteAddress;
+	headers[ 'x-forwarded-port' ] = String( isHttps ? 443 : 80 );
+	headers[ 'x-forwarded-proto' ] = isHttps ? 'https' : 'http';
+	headers[ 'x-forwarded-host' ] = headers.host ?? '';
+	// Let the upstream keep-alive/length be recomputed by the target.
+	delete headers.connection;
+	delete headers[ 'proxy-connection' ];
 
-	proxy.web( req, res, {
-		target: `http://localhost:${ site.port }`,
-		xfwd: true, // Pass along x-forwarded headers
-		headers,
+	const upstream = http.request(
+		{
+			hostname: 'localhost',
+			port: sitePort,
+			path: req.url,
+			method: req.method,
+			headers,
+		},
+		( upstreamRes ) => {
+			if ( ! res.writableEnded && ! res.destroyed ) {
+				res.writeHead( upstreamRes.statusCode ?? 502, upstreamRes.headers );
+				upstreamRes.pipe( res );
+			} else {
+				// Client already gone (fire-and-forget): drain the response so the
+				// upstream request finishes instead of stalling on backpressure.
+				upstreamRes.resume();
+			}
+		}
+	);
+
+	upstream.on( 'error', ( err ) => {
+		console.error( '[Proxy] Upstream error:', err.message );
+		if ( ! res.headersSent && ! res.writableEnded && ! res.destroyed ) {
+			res.writeHead( 502, { 'Content-Type': 'text/plain' } );
+			res.end( 'Proxy error: ' + err.message );
+		}
 	} );
+
+	// Forward the request body manually. A client abort must NOT destroy the
+	// upstream — finish the request to the worker so it runs to completion. This
+	// keeps a fire-and-forget loopback (client disconnects immediately by design)
+	// from killing the worker request it just kicked off.
+	const finishUpstream = () => {
+		if ( ! upstream.writableEnded ) {
+			upstream.end();
+		}
+	};
+	req.on( 'data', ( chunk ) => {
+		if ( ! upstream.writableEnded ) {
+			upstream.write( chunk );
+		}
+	} );
+	req.on( 'end', finishUpstream );
+	// A fire-and-forget client aborts without a normal `end`. On abort/close/error,
+	// still finish sending the (already-received) request to the worker so the
+	// upstream runs to completion — do NOT let the client's disconnect tear it down.
+	req.on( 'aborted', finishUpstream );
+	req.on( 'close', finishUpstream );
+	req.on( 'error', finishUpstream );
 }
 
 /**

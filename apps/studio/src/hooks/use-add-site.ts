@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/electron/renderer';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { updateBlueprintWithFormValues } from '@studio/common/lib/blueprint-settings';
+import { type DatabaseEngine } from '@studio/common/lib/database-engine';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
 import { type SiteRuntime } from '@studio/common/lib/site-runtime';
@@ -30,6 +31,7 @@ export interface CreateSiteFormValues {
 	wpVersion: string;
 	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
+	databaseEngine?: DatabaseEngine;
 	useCustomDomain: boolean;
 	customDomain: string | null;
 	enableHttps: boolean;
@@ -300,7 +302,8 @@ export function useAddSite() {
 					formValues.adminPassword,
 					formValues.adminEmail,
 					formValues.runtime,
-					formValues.fileAccess
+					formValues.fileAccess,
+					formValues.databaseEngine
 				);
 			} catch ( e ) {
 				Sentry.captureException( e );

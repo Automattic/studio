@@ -184,6 +184,14 @@ function buildServerConfig(
 		serverConfig.fileAccess = site.fileAccess;
 	}
 
+	if ( site.databaseEngine ) {
+		serverConfig.databaseEngine = site.databaseEngine;
+	}
+
+	if ( site.mysql ) {
+		serverConfig.mysql = site.mysql;
+	}
+
 	if ( site.enableXdebug ) {
 		serverConfig.enableXdebug = true;
 	}

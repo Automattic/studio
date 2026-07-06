@@ -177,6 +177,7 @@ export class SiteServer {
 			port: 0,
 			phpVersion: options.phpVersion || '',
 			running: false,
+			databaseEngine: options.databaseEngine,
 		};
 		const server = SiteServer.register( placeholderDetails, meta );
 
@@ -185,6 +186,7 @@ export class SiteServer {
 		const result = await createSiteViaCli( { ...options, runtime, siteId } );
 		server.details.runtime = runtime;
 		server.details.fileAccess = options.fileAccess;
+		server.details.databaseEngine = options.databaseEngine;
 
 		server.details.port = result.port;
 		if ( result.running ) {

@@ -1,4 +1,5 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
+import { isMysqlSite } from '@studio/common/lib/database-engine';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
@@ -63,12 +64,14 @@ export async function runCommand(
 
 		await setupCustomDomain( site, logger );
 
-		logger.reportStart(
-			LoggerAction.INSTALL_SQLITE,
-			__( 'Setting up SQLite integration, if needed…' )
-		);
-		await keepSqliteIntegrationUpdated( sitePath );
-		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+		if ( ! isMysqlSite( site ) ) {
+			logger.reportStart(
+				LoggerAction.INSTALL_SQLITE,
+				__( 'Setting up SQLite integration, if needed…' )
+			);
+			await keepSqliteIntegrationUpdated( sitePath );
+			logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+		}
 
 		try {
 			await updateManagedInstructionFiles( site, getAiInstructionsPath() );

@@ -177,7 +177,9 @@ describe( 'site convert internals', () => {
 		mocks.saveCliConfig.mockImplementation( async ( nextConfig ) => {
 			mocks.cliConfig = structuredClone( nextConfig );
 		} );
-		mocks.getSiteByFolder.mockImplementation( async () => structuredClone( mocks.cliConfig.sites[ 0 ] ) );
+		mocks.getSiteByFolder.mockImplementation( async () =>
+			structuredClone( mocks.cliConfig.sites[ 0 ] )
+		);
 		mocks.getDatabaseProvider.mockReturnValue( { preflight: vi.fn() } );
 		mocks.exportDatabaseToFile.mockImplementation( async ( _site, dumpPath: string ) => {
 			fs.writeFileSync( dumpPath, 'SQL DUMP', 'utf8' );
@@ -388,10 +390,8 @@ describe( 'site convert internals', () => {
 			mysql: sourceMysql,
 		} );
 		expect( mysqlDumpPath ).toContain( 'convert-db-test.sql' );
-		const [ importedSite, sqliteDumpPath ] = mocks.importDatabaseFromFile.mock.calls[ 0 ] as unknown as [
-			SiteData,
-			string,
-		];
+		const [ importedSite, sqliteDumpPath ] = mocks.importDatabaseFromFile.mock
+			.calls[ 0 ] as unknown as [ SiteData, string ];
 		expect( importedSite ).toMatchObject( {
 			id: site.id,
 			databaseEngine: DATABASE_ENGINE_SQLITE,
@@ -420,7 +420,10 @@ describe( 'site convert internals', () => {
 			} ),
 			expect.any( Object )
 		);
-		expect( mocks.updateSiteLatestCliPid ).toHaveBeenCalledWith( 'site-id', processDescription.pid );
+		expect( mocks.updateSiteLatestCliPid ).toHaveBeenCalledWith(
+			'site-id',
+			processDescription.pid
+		);
 		expect( mocks.disconnectFromDaemon ).toHaveBeenCalled();
 	} );
 

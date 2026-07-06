@@ -17,7 +17,6 @@ UI.user_error!('Please run fastlane via `bundle exec`') unless FastlaneCore::Hel
 # Constants and Environment Variables
 ########################################################################
 PROJECT_ROOT_FOLDER = File.dirname(File.expand_path(__dir__))
-SECRETS_FOLDER = File.join(Dir.home, '.configure', 'studio', 'secrets')
 BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'out')
 PHP_CLI_BUILDS_FOLDER = File.join(PROJECT_ROOT_FOLDER, 'out', 'php-binaries')
 # Standalone Studio CLI bundles (studio-cli-<platform>-<arch>.tgz) from `npm run cli:bundle`
@@ -36,11 +35,10 @@ POT_FILE_PATH = File.join(PROJECT_ROOT_FOLDER, 'i18n', 'bundle-strings.pot')
 
 # GlotPress project URL and output directory for Studio UI translations (Jed 1.x JSON)
 GLOTPRESS_PROJECT_URL = 'https://translate.wordpress.com/projects/studio'
-TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'tools', 'common', 'translations')
+TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'packages', 'common', 'translations')
 
 APPLE_TEAM_ID = 'PZYM8XX95Q'
 APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
-APPLE_API_KEY_PATH = File.join(SECRETS_FOLDER, 'app_store_connect_fastlane_api_key.json')
 
 # Site ID for WordPress.com Studio in the Apps CDN
 WPCOM_STUDIO_SITE_ID = '239164481'
@@ -64,7 +62,7 @@ before_all do |_lane|
 end
 
 desc 'Download the development signing certificates to this machine'
-lane :set_up_signing do |_options|
+lane :set_up_signing do |readonly: true|
   sync_code_signing(
     platform: 'macos',
     app_identifier: APPLE_BUNDLE_IDENTIFIER,
@@ -72,8 +70,8 @@ lane :set_up_signing do |_options|
     type: 'developer_id',
     storage_mode: 's3',
     s3_bucket: 'a8c-fastlane-match',
-    api_key_path: APPLE_API_KEY_PATH,
-    readonly: true
+    readonly: readonly,
+    api_key: readonly ? nil : app_store_connect_api_key
   )
 end
 
@@ -82,7 +80,7 @@ lane :notarize_binary do
   Dir[File.join(BUILDS_FOLDER, '**', 'Studio.app')].each do |path|
     notarize(
       package: path,
-      api_key_path: APPLE_API_KEY_PATH,
+      api_key: app_store_connect_api_key,
       print_log: true
     )
   end
@@ -91,7 +89,7 @@ lane :notarize_binary do
     notarize(
       bundle_id: APPLE_BUNDLE_IDENTIFIER,
       package: path,
-      api_key_path: APPLE_API_KEY_PATH,
+      api_key: app_store_connect_api_key,
       print_log: true
     )
   end
@@ -128,7 +126,7 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
 end
 
 desc 'Ship the binary to internal testers'
-lane :distribute_dev_build do |_options|
+lane :distribute_dev_build do
   distribute_builds
 end
 
@@ -166,7 +164,13 @@ lane :distribute_release_build do |version: read_package_json_version|
     success: true,
     slack_url: get_required_env('SLACK_WEBHOOK'),
     payload: {
-      ':studio-app-icon-mac: Release available for': builds.each_value.map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
+      # Link only the installers users download: "Full Install" builds plus the Linux .debs
+      # (tagged "Update" but the sole Linux installer). Skip the Mac/Windows "Update" payloads,
+      # and the unsigned Appx builds (grabbed from Buildkite for the Microsoft Store publish).
+      ':studio-app-icon-mac: Release available for': builds.each_value
+        .reject { |b| b[:install_type] == 'Update' && !b[:platform].to_s.start_with?('Linux') }
+        .reject { |b| b[:platform].to_s.start_with?('Microsoft Store') }
+        .map { |b| "[#{b[:name]}](#{b[:cdn_url]})" }.join(', ')
     },
     default_payloads: []
   )

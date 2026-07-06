@@ -1,8 +1,8 @@
 import { readFile, writeFile } from 'fs/promises';
+import { generateUnifiedPatch } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 import { validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from 'cli/ai/block-validator';
-import { createUnifiedDiff } from 'cli/ai/content-diff';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
@@ -146,12 +146,7 @@ export const validateBlocksTool = defineTool(
 					lines.push( '', `Auto-fix proposal failed validation: ${ fixedReport.error }` );
 				} else if ( fixedReport.invalidBlocks === 0 ) {
 					const fixedContent = report.proposedFix.fixedContent;
-					const diff = createUnifiedDiff(
-						blockContent,
-						fixedContent,
-						fileName,
-						`${ fileName } (editor-fixed)`
-					);
+					const diff = generateUnifiedPatch( fileName, blockContent, fixedContent );
 					if ( shouldApplyFixToFile && args.filePath ) {
 						await writeFile( args.filePath, fixedContent, 'utf-8' );
 						emitProgress( `${ fileName }: editor serialization fix applied` );

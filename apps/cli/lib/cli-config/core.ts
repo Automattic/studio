@@ -28,14 +28,35 @@ export const reprintOriginSchema = z.object( {
 	secret: z.string(),
 } );
 
+/**
+ * Health of a site's local install.
+ *
+ *   - `ready`        a normal, fully-written site (the default; `site
+ *                    create` produces one and a successful pull restores
+ *                    one).
+ *   - `pulling`      a reprint pull is in flight (or was interrupted
+ *                    mid-flight) — the site directory may be partially
+ *                    written and must not be trusted as a healthy site.
+ *   - `pull-failed`  the last reprint pull errored or was killed; the
+ *                    site is half-written. Recovered by re-running
+ *                    `pull-reprint --path <site>` (idempotent) or `site
+ *                    delete`.
+ *
+ * Absent on records created before this field existed; readers treat a
+ * missing value as `ready`.
+ */
+export const siteStatusSchema = z.enum( [ 'ready', 'pulling', 'pull-failed' ] );
+export type SiteStatus = z.infer< typeof siteStatusSchema >;
+
 const siteSchema = siteDetailsSchema
 	.extend( {
 		url: z.string().optional(),
 		latestCliPid: z.number().optional(),
 		reprintOrigin: reprintOriginSchema.optional(),
 		// True once a full reprint pull has completed at least once; selects
-		// first-full-pull vs. delta and survives loss of the transient pull.json.
+		// first-full-pull vs. delta. Durable on the site record.
 		importComplete: z.boolean().optional(),
+		status: siteStatusSchema.default( 'ready' ).optional(),
 	} )
 	.loose();
 

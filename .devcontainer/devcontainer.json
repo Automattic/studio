@@ -4,6 +4,6 @@
 	"features": {
 		"ghcr.io/devcontainers/features/node:1": { "version": "24.15.0" }
 	},
-	"postCreateCommand": "npm ci && npm run cli:build && node apps/cli/dist/cli/main.mjs --help",
+	"postCreateCommand": "npm ci && npm run cli:build",
 	"hostRequirements": { "cpus": 4, "memory": "8gb" }
 }

@@ -11,6 +11,17 @@
 	align-items: center;
 	gap: var(--wpds-dimension-gap-xs);
 	-webkit-app-region: no-drag;
+	/* Ease in/out of the sidebar-collapsed offset alongside the split
+	   frame's 150ms full-bleed transition. */
+	transition: top 150ms ease;
+}
+
+/* With the sidebar hidden the panels go full-bleed to the window's top edge;
+   drop the 24px buttons so they center at 24px — matching the preview
+   toolbar's controls in its collapsed state (see .headerSidebarCollapsed in
+   site-preview) and the macOS traffic lights (center 26). */
+.rootSidebarCollapsed {
+	top: 12px;
 }
 
 /* The theme derives its brand button tokens from the neutral chrome color,

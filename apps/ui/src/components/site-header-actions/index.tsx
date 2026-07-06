@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { Button, Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import { CustomizeMenu } from '@/components/customize-menu';
 import * as Menu from '@/components/menu';
@@ -7,6 +8,7 @@ import { OpenInMenu } from '@/components/open-in-menu';
 import { PublishPickerView } from '@/components/site-dropdown/publish-picker-view';
 import { pickLiveSite } from '@/components/site-dropdown/utils';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { usePluginSiteTag } from '@/lib/plugin-prototype';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -64,8 +66,12 @@ function PublishButton( { site }: { site: SiteDetails } ) {
  * toolbar buttons.
  */
 export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
+	// With the sidebar hidden the panels go full-bleed to the window top; the
+	// cluster drops by the lost frame gap, in step with the preview toolbar.
+	const sidebarCollapsed = useSidebarCollapsed();
+
 	return (
-		<div className={ styles.root }>
+		<div className={ clsx( styles.root, sidebarCollapsed && styles.rootSidebarCollapsed ) }>
 			<PublishButton site={ site } />
 			<CustomizeMenu site={ site } />
 			<OpenInMenu site={ site } />

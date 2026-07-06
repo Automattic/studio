@@ -84,12 +84,15 @@ export function QuickMenuPopup( { children }: { children: ReactNode } ) {
 export function QuickMenuItem( {
 	icon,
 	label,
+	shortcut,
 	onClick,
 	disabled,
 	destructive,
 }: {
 	icon: ReactElement;
 	label: string;
+	// Right-aligned muted keyboard hint, e.g. "Hold ⌘".
+	shortcut?: string;
 	onClick: () => void;
 	disabled?: boolean;
 	destructive?: boolean;
@@ -104,6 +107,7 @@ export function QuickMenuItem( {
 				<Icon icon={ icon } size={ 18 } />
 			</span>
 			{ label }
+			{ shortcut ? <span className={ styles.itemShortcut }>{ shortcut }</span> : null }
 		</Menu.Item>
 	);
 }

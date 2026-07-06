@@ -438,6 +438,15 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 export interface NormalizedToolResult {
 	text: string;
 	isError: boolean;
+	diff?: string;
+}
+
+export function getToolResultDiff( details: unknown ): string | undefined {
+	if ( ! details || typeof details !== 'object' ) {
+		return undefined;
+	}
+	const diff = ( details as { diff?: unknown } ).diff;
+	return typeof diff === 'string' && diff.length > 0 ? diff : undefined;
 }
 
 export interface ToolResultPreview {

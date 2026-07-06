@@ -3,6 +3,7 @@ import { Type } from 'typebox';
 import { defineTool } from './define-tool';
 import { REQUEST_BODY_FILES_RELATIVE_DIR, resolveRequestBody } from './request-body-files';
 import { textResult } from './utils';
+import { buildRestApiUrl } from './wp-rest';
 
 export const WP_REQUEST_BODY_FILES_RELATIVE_DIR = REQUEST_BODY_FILES_RELATIVE_DIR;
 
@@ -29,6 +30,7 @@ export function createWpRequestTool(
 	siteUrl: string,
 	username: string,
 	appPassword: string,
+	restRoot: string,
 	options: WpRequestToolOptions = {}
 ) {
 	const basicAuth = Buffer.from( `${ username }:${ appPassword }` ).toString( 'base64' );
@@ -83,9 +85,7 @@ export function createWpRequestTool(
 		},
 		async ( args ) => {
 			try {
-				const apiNamespace = ( args.apiNamespace ?? 'wp/v2' ).replace( /^\/+|\/+$/g, '' );
-				const relativePath = args.path.startsWith( '/' ) ? args.path : `/${ args.path }`;
-				const url = new URL( `${ baseUrl }/wp-json/${ apiNamespace }${ relativePath }` );
+				const url = buildRestApiUrl( restRoot, args.apiNamespace ?? 'wp/v2', args.path );
 
 				if ( args.query ) {
 					for ( const [ key, value ] of Object.entries( args.query ) ) {

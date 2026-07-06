@@ -83,7 +83,12 @@ export interface StudioAgentTurnConfig {
 	wpcomAccessToken?: string;
 	// Application Password credentials for the active self-hosted site,
 	// resolved from cli.json by the caller.
-	selfHostedSiteCredentials?: { url: string; username: string; appPassword: string };
+	selfHostedSiteCredentials?: {
+		url: string;
+		username: string;
+		appPassword: string;
+		restRoot: string;
+	};
 	onAskUser?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }
@@ -292,7 +297,7 @@ async function resolveActiveSiteRuntime(
 // site ID + OAuth token.
 function getSelfHostedSiteCredentials(
 	config: StudioAgentTurnConfig
-): { url: string; username: string; appPassword: string } | null {
+): { url: string; username: string; appPassword: string; restRoot: string } | null {
 	if ( config.activeSite?.selfHostedSite && config.selfHostedSiteCredentials ) {
 		return config.selfHostedSiteCredentials;
 	}
@@ -571,7 +576,8 @@ function buildAgentTools(
 			createWpRequestTool(
 				selfHostedSite.url,
 				selfHostedSite.username,
-				selfHostedSite.appPassword
+				selfHostedSite.appPassword,
+				selfHostedSite.restRoot
 			),
 			takeScreenshotTool,
 			createSiteTool,

@@ -79,6 +79,9 @@ export const selfHostedSiteSchema = z.object( {
 	username: z.string(),
 	appPassword: z.string(),
 	name: z.string(),
+	// REST API root discovered at connect time, e.g. "https://site.com/wp-json/"
+	// or the plain-permalink fallback "https://site.com/?rest_route=/".
+	restRoot: z.string(),
 } );
 
 const cliConfigSchema = z.looseObject( {

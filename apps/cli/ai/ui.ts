@@ -32,6 +32,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
+import { buildRestApiUrl, discoverRestApiRoot } from 'cli/ai/tools/wp-rest';
 import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import {
@@ -853,14 +854,17 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 		normalizedUrl = normalizedUrl.replace( /\/+$/, '' );
 
-		// Validate the credentials against an authenticated endpoint (the
-		// /wp-json/ index is public, so it would accept wrong credentials),
-		// then read the site name from the index.
+		// Validate the credentials against an authenticated endpoint (the REST
+		// index is public, so it would accept wrong credentials), then read the
+		// site name from the index. Discover the REST root first so sites without
+		// pretty permalinks (which serve the API at ?rest_route=) still connect.
 		this.showInfo( __( 'Connecting…' ) );
 		const basicAuth = Buffer.from( `${ username }:${ appPassword }` ).toString( 'base64' );
 		let siteName: string;
+		let restRoot: string;
 		try {
-			const authResponse = await fetch( `${ normalizedUrl }/wp-json/wp/v2/users/me`, {
+			restRoot = await discoverRestApiRoot( normalizedUrl );
+			const authResponse = await fetch( buildRestApiUrl( restRoot, 'wp/v2', '/users/me' ), {
 				headers: { Authorization: `Basic ${ basicAuth }` },
 			} );
 			if ( ! authResponse.ok ) {
@@ -874,7 +878,7 @@ export class AiChatUI implements AiOutputAdapter {
 				);
 				return;
 			}
-			const response = await fetch( `${ normalizedUrl }/wp-json/` );
+			const response = await fetch( restRoot );
 			const data = response.ok ? ( ( await response.json() ) as { name?: string } ) : {};
 			siteName = data.name || new URL( normalizedUrl ).hostname;
 		} catch ( error ) {
@@ -896,6 +900,7 @@ export class AiChatUI implements AiOutputAdapter {
 			username,
 			appPassword,
 			name: siteName,
+			restRoot,
 		};
 
 		try {

@@ -16,8 +16,8 @@ describe( 'wp_request', () => {
 	let rootDir: string;
 	let fetchMock: ReturnType< typeof vi.fn >;
 
-	const createTool = () =>
-		createWpRequestTool( 'https://example.com/', 'admin', 'abcd efgh ijkl', {
+	const createTool = ( restRoot = 'https://example.com/wp-json/' ) =>
+		createWpRequestTool( 'https://example.com/', 'admin', 'abcd efgh ijkl', restRoot, {
 			bodyFilesRoot: rootDir,
 			fetchImplementation: fetchMock as unknown as typeof fetch,
 		} );
@@ -63,6 +63,22 @@ describe( 'wp_request', () => {
 
 		expect( fetchMock ).toHaveBeenCalledWith(
 			'https://example.com/wp-json/wc/v3/products',
+			expect.anything()
+		);
+	} );
+
+	it( 'targets the ?rest_route= fallback root for plain-permalink sites', async () => {
+		fetchMock.mockResolvedValue( jsonResponse( [ { id: 1 } ] ) );
+
+		const tool = createTool( 'https://example.com/?rest_route=/' );
+		await tool.rawHandler( {
+			method: 'GET',
+			path: '/posts',
+			query: { per_page: 5 },
+		} );
+
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'https://example.com/?rest_route=%2Fwp%2Fv2%2Fposts&per_page=5',
 			expect.anything()
 		);
 	} );

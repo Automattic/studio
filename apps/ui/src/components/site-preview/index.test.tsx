@@ -36,11 +36,16 @@ function renderPreview( children: ReactNode ) {
 			mutations: { retry: false },
 		},
 	} );
-	return render(
+	const wrap = ( node: ReactNode ) => (
 		<QueryClientProvider client={ queryClient }>
-			<Tooltip.Provider>{ children }</Tooltip.Provider>
+			<Tooltip.Provider>{ node }</Tooltip.Provider>
 		</QueryClientProvider>
 	);
+	const result = render( wrap( children ) );
+	return {
+		...result,
+		rerender: ( node: ReactNode ) => result.rerender( wrap( node ) ),
+	};
 }
 
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
@@ -595,7 +600,6 @@ describe( 'SitePreview', () => {
 
 	it( 'shows the Annotate control when the host supports preview annotation', () => {
 		useConnectorMock.mockReturnValue( {
-			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: { ...CAPABILITIES, annotatePreview: true },
 		} as never );
@@ -605,6 +609,57 @@ describe( 'SitePreview', () => {
 		);
 
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'omits the full preview toggle unless the host provides one', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		expect( screen.queryByRole( 'button', { name: 'Full preview' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'toggles full preview from the toolbar button', () => {
+		const onToggleFullscreen = vi.fn();
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		const { rerender } = renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onToggleFullscreen={ onToggleFullscreen }
+			/>
+		);
+
+		const button = screen.getByRole( 'button', { name: 'Full preview' } );
+		expect( button ).toHaveAttribute( 'aria-pressed', 'false' );
+
+		fireEvent.click( button );
+		expect( onToggleFullscreen ).toHaveBeenCalledTimes( 1 );
+
+		rerender(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				fullscreen
+				onToggleFullscreen={ onToggleFullscreen }
+			/>
+		);
+
+		expect( screen.getByRole( 'button', { name: 'Exit full preview' } ) ).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
 	} );
 } );
 

@@ -19,31 +19,46 @@ interface PreviewSplitFrameProps {
 	// handles the open/close slide animation.
 	preview?: ( props: PreviewSplitFramePreviewProps ) => ReactNode;
 	previewOpen?: boolean;
+	// Full preview: the preview takes the whole frame and the content column
+	// collapses to zero width (kept mounted so chat state survives).
+	previewFullscreen?: boolean;
 	children?: ReactNode;
 }
 
 export function PreviewSplitFrame( {
 	preview,
 	previewOpen = false,
+	previewFullscreen = false,
 	children,
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
+	const showFullscreen = showPreview && previewFullscreen;
 	const { rootRef, contentWidthVar, isResizing, handleProps } = usePreviewSplit( { showPreview } );
 	// The inset frame reads as chrome that belongs with the sidebar; when the
 	// sidebar is hidden the container goes full-bleed.
 	const isSidebarCollapsed = useSidebarCollapsed();
 
-	// Animate only open/close toggles of an already-mounted preview — never the
-	// initial layout, so a route loading with the preview visible doesn't replay
-	// the slide-in. The render-phase update lands the transition class in the
-	// same commit as the width change; an effect-based update would race it.
+	// Animate only open/close/fullscreen toggles of an already-mounted preview —
+	// never the initial layout, so a route loading with the preview visible
+	// doesn't replay the slide-in. The render-phase update lands the transition
+	// class in the same commit as the width change; an effect-based update would
+	// race it.
 	const [ animatingPreviewToggle, setAnimatingPreviewToggle ] = useState( false );
 	const [ previousPreview, setPreviousPreview ] = useState( {
 		mounted: preview != null,
 		open: showPreview,
+		fullscreen: showFullscreen,
 	} );
-	if ( previousPreview.mounted !== ( preview != null ) || previousPreview.open !== showPreview ) {
-		setPreviousPreview( { mounted: preview != null, open: showPreview } );
+	if (
+		previousPreview.mounted !== ( preview != null ) ||
+		previousPreview.open !== showPreview ||
+		previousPreview.fullscreen !== showFullscreen
+	) {
+		setPreviousPreview( {
+			mounted: preview != null,
+			open: showPreview,
+			fullscreen: showFullscreen,
+		} );
 		if ( previousPreview.mounted && preview != null ) {
 			setAnimatingPreviewToggle( true );
 		}
@@ -58,13 +73,18 @@ export function PreviewSplitFrame( {
 			PREVIEW_TOGGLE_DURATION
 		);
 		return () => window.clearTimeout( timeoutId );
-	}, [ animatingPreviewToggle, showPreview ] );
+	}, [ animatingPreviewToggle, showPreview, showFullscreen ] );
 
 	const previewVisible = showPreview || animatingPreviewToggle;
 	const renderedPreview = preview?.( { collapsed: ! previewVisible } );
 	const rootStyle = {
-		'--preview-frame-content-width': contentWidthVar,
+		// Fullscreen collapses the content column; the split geometry keeps its
+		// last width so leaving fullscreen restores the previous split.
+		'--preview-frame-content-width': showFullscreen ? '0px' : contentWidthVar,
 	} as CSSProperties;
+	// Keep the zero-width column visible while it animates shut, then hide it
+	// so the (still mounted) chat can't be reached by focus or a screen reader.
+	const contentHidden = showFullscreen && ! animatingPreviewToggle;
 
 	return (
 		<div
@@ -78,7 +98,12 @@ export function PreviewSplitFrame( {
 			) }
 			style={ rootStyle }
 		>
-			<div className={ styles.contentColumn }>{ children }</div>
+			<div
+				className={ clsx( styles.contentColumn, contentHidden && styles.contentColumnHidden ) }
+				aria-hidden={ contentHidden || undefined }
+			>
+				{ children }
+			</div>
 			{ preview ? (
 				<div
 					className={ clsx(
@@ -91,7 +116,7 @@ export function PreviewSplitFrame( {
 					{ renderedPreview }
 				</div>
 			) : null }
-			{ showPreview && ! animatingPreviewToggle ? (
+			{ showPreview && ! showFullscreen && ! animatingPreviewToggle ? (
 				<ResizeHandle
 					className={ styles.previewResizeHandle }
 					label={ __( 'Resize site preview' ) }

@@ -114,6 +114,80 @@ describe( 'PreviewSplitFrame', () => {
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
 	} );
 
+	describe( 'fullscreen', () => {
+		it( 'collapses the content column and hides the resize handle', async () => {
+			render(
+				<PreviewSplitFrame
+					previewOpen
+					previewFullscreen
+					preview={ () => <aside aria-label="Site preview" /> }
+				>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			);
+
+			const root = getFrameRoot();
+			expect( root ).toHaveStyle( '--preview-frame-content-width: 0px' );
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize site preview' } )
+			).not.toBeInTheDocument();
+			// The chat column stays mounted but leaves the accessibility tree.
+			expect( screen.getByTestId( 'content' ).parentElement ).toHaveAttribute(
+				'aria-hidden',
+				'true'
+			);
+			expect( screen.getByLabelText( 'Site preview' ) ).toBeInTheDocument();
+		} );
+
+		it( 'restores the split when leaving fullscreen', async () => {
+			const preview = () => <aside aria-label="Site preview" />;
+			const { rerender } = render(
+				<PreviewSplitFrame previewOpen previewFullscreen preview={ preview }>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			);
+
+			const root = getFrameRoot();
+			expect( root ).toHaveStyle( '--preview-frame-content-width: 0px' );
+
+			rerender(
+				<PreviewSplitFrame previewOpen preview={ preview }>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			);
+
+			await waitFor( () => {
+				expect( root ).toHaveStyle( '--preview-frame-content-width: 480px' );
+			} );
+			expect( screen.getByTestId( 'content' ).parentElement ).not.toHaveAttribute( 'aria-hidden' );
+			await waitFor( () => {
+				expect(
+					screen.getByRole( 'separator', { name: 'Resize site preview' } )
+				).toBeInTheDocument();
+			} );
+		} );
+
+		it( 'keeps the content visible while the fullscreen toggle animates', () => {
+			const preview = () => <aside aria-label="Site preview" />;
+			const { rerender } = render(
+				<PreviewSplitFrame previewOpen preview={ preview }>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			);
+
+			rerender(
+				<PreviewSplitFrame previewOpen previewFullscreen preview={ preview }>
+					<span data-testid="content">Content</span>
+				</PreviewSplitFrame>
+			);
+
+			const root = getFrameRoot();
+			// Width snaps immediately; the hide waits for the slide to finish.
+			expect( root ).toHaveStyle( '--preview-frame-content-width: 0px' );
+			expect( screen.getByTestId( 'content' ).parentElement ).not.toHaveAttribute( 'aria-hidden' );
+		} );
+	} );
+
 	describe( 'keyboard and pointer resizing', () => {
 		async function renderOpenAndSettle() {
 			render(

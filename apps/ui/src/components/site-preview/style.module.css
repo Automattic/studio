@@ -13,6 +13,12 @@
 	overflow: hidden;
 }
 
+/* Fullscreen (full preview): the panel sits flush against the window's left
+   edge, where the content/preview separator would read as a stray line. */
+.rootFullscreen {
+	border-left: none;
+}
+
 .header {
 	position: relative;
 	display: flex;

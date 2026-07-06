@@ -31,6 +31,9 @@ import type {
 
 interface PreviewUIState {
 	open: boolean;
+	// Full preview: the preview fills the window (sidebar and chat hidden).
+	// Only meaningful while `open`; closing the panel always clears it.
+	fullscreen: boolean;
 	path: string;
 	reloadNonce: number;
 }
@@ -47,13 +50,15 @@ export interface SessionUIState {
 export type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
+	| { type: 'preview/set-fullscreen'; value: boolean }
+	| { type: 'preview/toggle-fullscreen' }
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
 	| { type: 'preview-console/set-entries'; entries: PreviewConsoleEntry[] };
 
 const INITIAL_STATE: SessionUIState = {
-	preview: { open: true, path: '/', reloadNonce: 0 },
+	preview: { open: true, fullscreen: false, path: '/', reloadNonce: 0 },
 	previewConsole: { entries: [] },
 };
 
@@ -62,9 +67,45 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 		case 'preview/set-open':
 			return state.preview.open === action.value
 				? state
-				: { ...state, preview: { ...state.preview, open: action.value } };
+				: {
+						...state,
+						preview: {
+							...state.preview,
+							open: action.value,
+							// Closing the panel leaves full preview; reopening starts split.
+							fullscreen: action.value && state.preview.fullscreen,
+						},
+				  };
 		case 'preview/toggle':
-			return { ...state, preview: { ...state.preview, open: ! state.preview.open } };
+			return {
+				...state,
+				preview: {
+					...state.preview,
+					open: ! state.preview.open,
+					fullscreen: false,
+				},
+			};
+		case 'preview/set-fullscreen':
+			return state.preview.fullscreen === action.value
+				? state
+				: {
+						...state,
+						preview: {
+							...state.preview,
+							fullscreen: action.value,
+							// Entering full preview reveals the panel it expands.
+							open: action.value || state.preview.open,
+						},
+				  };
+		case 'preview/toggle-fullscreen':
+			return {
+				...state,
+				preview: {
+					...state.preview,
+					fullscreen: ! state.preview.fullscreen,
+					open: ! state.preview.fullscreen || state.preview.open,
+				},
+			};
 		case 'preview/navigate':
 			return {
 				...state,
@@ -175,10 +216,13 @@ export function useSessionUIDispatch(): Dispatch< SessionUIAction > {
 
 export interface SessionPreviewUI {
 	readonly open: boolean;
+	readonly fullscreen: boolean;
 	readonly path: string;
 	readonly reloadNonce: number;
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
+	setFullscreen: ( value: boolean ) => void;
+	toggleFullscreen: () => void;
 	updatePath: ( path: string ) => void;
 }
 
@@ -195,6 +239,14 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		[ dispatch ]
 	);
 	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
+	const setFullscreen = useCallback(
+		( value: boolean ) => dispatch?.( { type: 'preview/set-fullscreen', value } ),
+		[ dispatch ]
+	);
+	const toggleFullscreen = useCallback(
+		() => dispatch?.( { type: 'preview/toggle-fullscreen' } ),
+		[ dispatch ]
+	);
 	const updatePath = useCallback(
 		( path: string ) => dispatch?.( { type: 'preview/update-path', path } ),
 		[ dispatch ]
@@ -205,13 +257,16 @@ export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
 		}
 		return {
 			open: state.preview.open,
+			fullscreen: state.preview.fullscreen,
 			path: state.preview.path,
 			reloadNonce: state.preview.reloadNonce,
 			setOpen,
 			toggle,
+			setFullscreen,
+			toggleFullscreen,
 			updatePath,
 		};
-	}, [ state, dispatch, setOpen, toggle, updatePath ] );
+	}, [ state, dispatch, setOpen, toggle, setFullscreen, toggleFullscreen, updatePath ] );
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {
@@ -222,6 +277,14 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 		[ dispatch ]
 	);
 	const toggle = useCallback( () => dispatch( { type: 'preview/toggle' } ), [ dispatch ] );
+	const setFullscreen = useCallback(
+		( value: boolean ) => dispatch( { type: 'preview/set-fullscreen', value } ),
+		[ dispatch ]
+	);
+	const toggleFullscreen = useCallback(
+		() => dispatch( { type: 'preview/toggle-fullscreen' } ),
+		[ dispatch ]
+	);
 	const updatePath = useCallback(
 		( path: string ) => dispatch( { type: 'preview/update-path', path } ),
 		[ dispatch ]
@@ -229,18 +292,24 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 	return useMemo(
 		() => ( {
 			open: state.preview.open,
+			fullscreen: state.preview.fullscreen,
 			path: state.preview.path,
 			reloadNonce: state.preview.reloadNonce,
 			setOpen,
 			toggle,
+			setFullscreen,
+			toggleFullscreen,
 			updatePath,
 		} ),
 		[
 			state.preview.open,
+			state.preview.fullscreen,
 			state.preview.path,
 			state.preview.reloadNonce,
 			setOpen,
 			toggle,
+			setFullscreen,
+			toggleFullscreen,
 			updatePath,
 		]
 	);

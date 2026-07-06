@@ -65,6 +65,7 @@ function DashboardLayoutContent() {
 	const preview = useSessionPreviewUI();
 	const previewConsole = useSessionPreviewConsoleUI();
 	const setPreviewOpen = preview.setOpen;
+	const setPreviewFullscreen = preview.setFullscreen;
 	const updatePreviewPath = preview.updatePath;
 	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
 	const onScreenshotDone = useSessionPreviewScreenshotHandler();
@@ -177,6 +178,18 @@ function DashboardLayoutContent() {
 		: undefined;
 	const previewSite = routeSite ?? lastPreviewSite;
 	const showPreview = preview.open && supportsPreview && !! previewSite;
+	const previewFullscreen = preview.fullscreen && showPreview;
+	// Leave full preview when the route stops supporting a preview (settings,
+	// site settings…) so the user is never left staring at a hidden layout.
+	useEffect( () => {
+		if ( ! supportsPreview ) {
+			setPreviewFullscreen( false );
+		}
+	}, [ supportsPreview, setPreviewFullscreen ] );
+	const exitPreviewFullscreen = useCallback(
+		() => setPreviewFullscreen( false ),
+		[ setPreviewFullscreen ]
+	);
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
@@ -189,6 +202,8 @@ function DashboardLayoutContent() {
 					onConsoleFileDone={ canAttachPreviewScreenshot ? onConsoleFileDone : undefined }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
+					fullscreen={ previewFullscreen }
+					onToggleFullscreen={ preview.toggleFullscreen }
 					onConsoleEntriesChange={ previewConsole.setEntries }
 				/>
 			) : null,
@@ -200,14 +215,23 @@ function DashboardLayoutContent() {
 			preview.path,
 			preview.reloadNonce,
 			preview.updatePath,
+			preview.toggleFullscreen,
 			previewConsole.setEntries,
+			previewFullscreen,
 			previewSite,
 		]
 	);
 
 	return (
-		<SidebarLayout>
-			<PreviewSplitFrame previewOpen={ showPreview } preview={ renderPreview }>
+		<SidebarLayout
+			forceCollapsed={ previewFullscreen }
+			onForceCollapsedToggle={ exitPreviewFullscreen }
+		>
+			<PreviewSplitFrame
+				previewOpen={ showPreview }
+				previewFullscreen={ previewFullscreen }
+				preview={ renderPreview }
+			>
 				<Outlet />
 			</PreviewSplitFrame>
 		</SidebarLayout>

@@ -81,4 +81,73 @@ describe( 'SidebarLayout', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'collapses without a floating toggle while force-collapsed', () => {
+		const { rerender } = render(
+			<SidebarLayout forceCollapsed>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		// Collapsed: no resize handle — and no floating toggle either, since the
+		// forcing feature owns the exit affordance.
+		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
+
+		rerender(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		// The user never collapsed it themselves, so it comes back expanded.
+		expect( screen.getByRole( 'separator', { name: 'Resize sidebar' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'preserves the user-collapsed state across a forced collapse', () => {
+		const { rerender } = render(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		act( () => toggleSidebarListener?.() );
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
+
+		rerender(
+			<SidebarLayout forceCollapsed>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+		expect( screen.queryByRole( 'button', { name: 'Show sidebar' } ) ).not.toBeInTheDocument();
+
+		rerender(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+		expect( screen.getByRole( 'button', { name: 'Show sidebar' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'hands the shortcut toggle to the forcing feature and expands', () => {
+		const onForceCollapsedToggle = vi.fn();
+		const { rerender } = render(
+			<SidebarLayout forceCollapsed onForceCollapsedToggle={ onForceCollapsedToggle }>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+
+		act( () => toggleSidebarListener?.() );
+
+		expect( onForceCollapsedToggle ).toHaveBeenCalledTimes( 1 );
+
+		// Once the forcing feature stands down, the sidebar is expanded — even
+		// if the user had collapsed it before.
+		rerender(
+			<SidebarLayout>
+				<div>Content</div>
+			</SidebarLayout>
+		);
+		expect( screen.getByRole( 'separator', { name: 'Resize sidebar' } ) ).toBeInTheDocument();
+	} );
 } );

@@ -10,6 +10,7 @@ import {
 	copy,
 	external,
 	file as fileIcon,
+	fullscreen as fullscreenIcon,
 	globe,
 	moreVertical,
 	pencil,
@@ -88,6 +89,12 @@ interface SitePreviewProps {
 	// True while the panel is toggled off but kept mounted (so the webview
 	// stays warm). Disables the global browser shortcuts in that state.
 	collapsed?: boolean;
+	// True while the preview fills the whole window (sidebar and chat hidden).
+	// Reflected on the toolbar's full-preview toggle button.
+	fullscreen?: boolean;
+	// Called when the user toggles full preview from the toolbar. The button
+	// only renders when provided.
+	onToggleFullscreen?: () => void;
 	// Mirrors the preview's bounded console buffer to dashboard/session state so
 	// agent turns can include recent browser console output.
 	onConsoleEntriesChange?: ( entries: PreviewConsoleEntry[] ) => void;
@@ -869,6 +876,8 @@ export function SitePreview( {
 	onConsoleFileDone,
 	onPathChange,
 	collapsed = false,
+	fullscreen = false,
+	onToggleFullscreen,
 	onConsoleEntriesChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
@@ -1259,7 +1268,11 @@ export function SitePreview( {
 	}, [ canPreview, canUseWebview, collapsed, sendInspectorCommand ] );
 
 	return (
-		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
+		<aside
+			ref={ rootRef }
+			className={ clsx( styles.root, fullscreen && styles.rootFullscreen ) }
+			aria-label={ __( 'Site preview' ) }
+		>
 			<div className={ clsx( styles.header, sidebarCollapsed && styles.headerSidebarCollapsed ) }>
 				{ canPreview ? (
 					<>
@@ -1357,6 +1370,17 @@ export function SitePreview( {
 							disabled={ ! canUseWebview }
 							onChange={ togglePreviewColorScheme }
 						/>
+						{ onToggleFullscreen ? (
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ fullscreenIcon }
+								label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
+								aria-pressed={ fullscreen }
+								onClick={ onToggleFullscreen }
+							/>
+						) : null }
 					</>
 				) : null }
 				<PreviewOverflowMenu

@@ -28,8 +28,26 @@ const { ThemeProvider } = unlock( privateApis );
 const CHROME_BG_LIGHT = '#1e1e1e';
 const CHROME_BG_DARK = '#161616';
 
-export function SidebarLayout( { children }: { children: ReactNode } ) {
+interface SidebarLayoutProps {
+	children: ReactNode;
+	// Hides the sidebar without touching the user's own collapsed state, so
+	// clearing it restores whatever the sidebar was doing before (e.g. while
+	// the site preview is fullscreen). The floating "Show sidebar" toggle is
+	// suppressed too — the forcing feature owns the exit affordance.
+	forceCollapsed?: boolean;
+	// Called when the user asks to toggle the sidebar while it is force-
+	// collapsed (the app-menu shortcut), so the forcing feature can stand down.
+	// The sidebar expands alongside it.
+	onForceCollapsedToggle?: () => void;
+}
+
+export function SidebarLayout( {
+	children,
+	forceCollapsed = false,
+	onForceCollapsedToggle,
+}: SidebarLayoutProps ) {
 	const [ collapsed, setCollapsed ] = useState( false );
+	const effectiveCollapsed = collapsed || forceCollapsed;
 	const connector = useConnector();
 	const colorScheme = useColorScheme();
 	const chromeBg = colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT;
@@ -39,21 +57,26 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
 	const toggleSidebar = useCallback( () => {
+		if ( forceCollapsed ) {
+			onForceCollapsedToggle?.();
+			setCollapsed( false );
+			return;
+		}
 		setCollapsed( ( value ) => ! value );
-	}, [] );
-	const sidebarStyle = collapsed
+	}, [ forceCollapsed, onForceCollapsedToggle ] );
+	const sidebarStyle = effectiveCollapsed
 		? undefined
 		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 
 	return (
-		<SidebarCollapsedContext.Provider value={ collapsed }>
+		<SidebarCollapsedContext.Provider value={ effectiveCollapsed }>
 			<div className={ styles.root }>
 				<aside
 					className={ clsx(
 						styles.sidebar,
-						collapsed && styles.sidebarCollapsed,
+						effectiveCollapsed && styles.sidebarCollapsed,
 						sidebarResize.isResizing && styles.sidebarResizing
 					) }
 					style={ sidebarStyle }
@@ -69,17 +92,19 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 							<div className={ styles.sidebarFooter }>
 								{ /* Persistent cards stack above the ephemeral toasts; while
 								     collapsed the floating toggle's dot stands in for them. */ }
-								{ ! collapsed ? <AppMessageCards className={ styles.sidebarCards } /> : null }
+								{ ! effectiveCollapsed ? (
+									<AppMessageCards className={ styles.sidebarCards } />
+								) : null }
 								{ /* Single AppToasts instance app-wide: here when expanded,
 								     floating over the main panel when collapsed. The store
 								     survives the swap. */ }
-								{ ! collapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
+								{ ! effectiveCollapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
 								<UserMenu onToggleSidebar={ toggleSidebar } />
 							</div>
 						</div>
 					</ThemeProvider>
 				</aside>
-				{ ! collapsed ? (
+				{ ! effectiveCollapsed ? (
 					// Same dark theme scope as the sidebar so the indicator's
 					// brand token resolves against the dark ramp.
 					<ThemeProvider color={ { bg: chromeBg } }>
@@ -100,8 +125,10 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 				     the floating toast shelf can clear the chat composer. */ }
 				<main className={ styles.main } data-app-main>
 					{ children }
-					{ collapsed ? <AppToasts className={ styles.floatingToasts } fit="content" /> : null }
-					{ collapsed ? (
+					{ effectiveCollapsed ? (
+						<AppToasts className={ styles.floatingToasts } fit="content" />
+					) : null }
+					{ effectiveCollapsed && ! forceCollapsed ? (
 						<div className={ styles.floatingToggle }>
 							{ /* The wrapper pins the pending-cards dot to the button's
 							     corner; the outer container is taller than the button. */ }

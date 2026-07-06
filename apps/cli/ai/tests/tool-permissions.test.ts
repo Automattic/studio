@@ -224,6 +224,36 @@ describe( 'createToolPermissionsExtension', () => {
 		const request = onRequestPermission.mock.calls[ 0 ][ 0 ] as PermissionRequestData;
 		expect( request.allowAlways ).toBe( true );
 	} );
+
+	it( 'describes known WP-CLI commands concretely, without the raw command', async () => {
+		const onRequestPermission = vi.fn().mockResolvedValue( 'deny' );
+		const handler = getToolCallHandler( onRequestPermission );
+		await handler(
+			toolCallEvent( 'wp_cli', {
+				nameOrPath: 'Sunset Bakery',
+				command: 'post delete 2 --force',
+			} ),
+			{}
+		);
+		const request = onRequestPermission.mock.calls[ 0 ][ 0 ] as PermissionRequestData;
+		expect( request.title ).toBe( 'Delete post ID 2 on “Sunset Bakery”?' );
+		expect( request.consequences.join( ' ' ) ).not.toContain( 'wp post delete' );
+		expect( request.consequences.join( ' ' ) ).toContain( 'cannot be undone' );
+	} );
+
+	it( 'falls back to a sentence that names the command for unknown WP-CLI commands', async () => {
+		const onRequestPermission = vi.fn().mockResolvedValue( 'deny' );
+		const handler = getToolCallHandler( onRequestPermission );
+		await handler(
+			toolCallEvent( 'wp_cli', {
+				nameOrPath: 'Sunset Bakery',
+				command: '--exec="dangerous()" post list',
+			} ),
+			{}
+		);
+		const request = onRequestPermission.mock.calls[ 0 ][ 0 ] as PermissionRequestData;
+		expect( request.consequences.join( ' ' ) ).toContain( 'wp --exec' );
+	} );
 } );
 
 describe( 'deleteSiteTool', () => {

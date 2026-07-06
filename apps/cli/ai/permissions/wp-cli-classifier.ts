@@ -31,10 +31,26 @@ const TRASH_AWARE_COMMANDS = new Set( [ 'post', 'comment' ] );
 // Global WP-CLI flags that execute arbitrary PHP before the command runs.
 const DANGEROUS_GLOBAL_FLAGS = [ '--exec', '--require' ];
 
-export function classifyWpCliCommand( command: string ): ToolPermissionLevel {
+export interface ParsedWpCliCommand {
+	// Positional tokens: command, subcommand, then arguments.
+	words: string[];
+	// Flag tokens (`--force`, `--path=…`), in order.
+	flags: string[];
+}
+
+// Rough whitespace tokenization — good enough for classification and for
+// building confirmation copy. Quoted values with spaces split apart, but only
+// flag values quote in practice and those are never positional words.
+export function parseWpCliCommand( command: string ): ParsedWpCliCommand {
 	const tokens = command.trim().split( /\s+/ );
-	const flags = tokens.filter( ( token ) => token.startsWith( '-' ) );
-	const words = tokens.filter( ( token ) => token !== '' && ! token.startsWith( '-' ) );
+	return {
+		words: tokens.filter( ( token ) => token !== '' && ! token.startsWith( '-' ) ),
+		flags: tokens.filter( ( token ) => token.startsWith( '-' ) ),
+	};
+}
+
+export function classifyWpCliCommand( command: string ): ToolPermissionLevel {
+	const { words, flags } = parseWpCliCommand( command );
 
 	if (
 		flags.some( ( flag ) =>

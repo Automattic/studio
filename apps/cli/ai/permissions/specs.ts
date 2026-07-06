@@ -9,7 +9,7 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { resolveSite } from 'cli/ai/tools/utils';
 import { getSnapshotsFromConfig } from 'cli/lib/cli-config/snapshots';
-import { classifyWpCliCommand } from './wp-cli-classifier';
+import { classifyWpCliCommand, parseWpCliCommand } from './wp-cli-classifier';
 import type { GatedToolName, ToolPermissionLevel } from '@studio/common/ai/tool-permissions';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -231,15 +231,200 @@ export const TOOL_PERMISSION_SPECS: Record< GatedToolName, ToolPermissionSpec > 
 		describe: async ( params ) => {
 			const site = await tryResolveSite( params.nameOrPath );
 			const siteName = site?.name ?? asString( params.nameOrPath );
-			return {
-				// translators: %s: site name
-				title: sprintf( __( 'Run a destructive WP-CLI command on “%s”?' ), siteName ),
-				consequences: [
-					// translators: %s: the WP-CLI command
-					sprintf( __( 'Command: wp %s' ), asString( params.command ) ),
-					__( 'This command can permanently modify or delete site data.' ),
-				],
-			};
+			return describeDestructiveWpCliCommand( asString( params.command ), siteName );
 		},
 	},
 };
+
+// Human copy for the destructive WP-CLI commands the classifier escalates.
+// Each known command gets a concrete question ("Delete post ID 2 on
+// “Site”?") and a consequence sentence in plain language; only the generic
+// fallback mentions the raw command, woven into a sentence.
+function describeDestructiveWpCliCommand(
+	command: string,
+	siteName: string
+): PermissionRequestDescription {
+	const { words } = parseWpCliCommand( command );
+	const [ commandName, subcommand ] = words;
+	const args = words.slice( 2 );
+	const argList = args.join( ', ' );
+
+	if ( commandName === 'post' && subcommand === 'delete' ) {
+		return {
+			title: sprintf(
+				// translators: 1: site name, 2: comma-separated post IDs
+				_n( 'Delete post ID %2$s on “%1$s”?', 'Delete posts %2$s on “%1$s”?', args.length ),
+				siteName,
+				argList
+			),
+			consequences: [
+				_n(
+					'The post will be permanently deleted, skipping the trash — this cannot be undone.',
+					'The posts will be permanently deleted, skipping the trash — this cannot be undone.',
+					args.length
+				),
+			],
+		};
+	}
+
+	if ( commandName === 'comment' && subcommand === 'delete' ) {
+		return {
+			title: sprintf(
+				// translators: 1: site name, 2: comma-separated comment IDs
+				_n( 'Delete comment ID %2$s on “%1$s”?', 'Delete comments %2$s on “%1$s”?', args.length ),
+				siteName,
+				argList
+			),
+			consequences: [
+				_n(
+					'The comment will be permanently deleted, skipping the trash — this cannot be undone.',
+					'The comments will be permanently deleted, skipping the trash — this cannot be undone.',
+					args.length
+				),
+			],
+		};
+	}
+
+	if ( commandName === 'user' && subcommand === 'delete' ) {
+		return {
+			title: sprintf(
+				// translators: 1: site name, 2: comma-separated user IDs or logins
+				_n( 'Delete user %2$s on “%1$s”?', 'Delete users %2$s on “%1$s”?', args.length ),
+				siteName,
+				argList
+			),
+			consequences: [ __( 'The user account will be permanently removed from the site.' ) ],
+		};
+	}
+
+	if ( commandName === 'plugin' && ( subcommand === 'delete' || subcommand === 'uninstall' ) ) {
+		return {
+			// translators: 1: site name, 2: plugin name
+			title: sprintf( __( 'Delete the plugin “%2$s” from “%1$s”?' ), siteName, argList ),
+			consequences: [ __( 'The plugin and its files will be permanently removed from the site.' ) ],
+		};
+	}
+
+	if ( commandName === 'theme' && subcommand === 'delete' ) {
+		return {
+			// translators: 1: site name, 2: theme name
+			title: sprintf( __( 'Delete the theme “%2$s” from “%1$s”?' ), siteName, argList ),
+			consequences: [ __( 'The theme and its files will be permanently removed from the site.' ) ],
+		};
+	}
+
+	if ( commandName === 'option' && subcommand === 'delete' ) {
+		return {
+			// translators: 1: site name, 2: option name
+			title: sprintf( __( 'Delete the setting “%2$s” on “%1$s”?' ), siteName, argList ),
+			consequences: [ __( 'The setting will be permanently removed — this cannot be undone.' ) ],
+		};
+	}
+
+	if ( commandName === 'term' && subcommand === 'delete' ) {
+		return {
+			// translators: %s: site name
+			title: sprintf( __( 'Delete taxonomy terms on “%s”?' ), siteName ),
+			consequences: [ __( 'The terms (such as categories or tags) will be permanently deleted.' ) ],
+		};
+	}
+
+	if ( commandName === 'menu' && subcommand === 'delete' ) {
+		return {
+			// translators: 1: site name, 2: menu name
+			title: sprintf( __( 'Delete the menu “%2$s” on “%1$s”?' ), siteName, argList ),
+			consequences: [ __( 'The menu and its items will be permanently deleted.' ) ],
+		};
+	}
+
+	if ( commandName === 'db' ) {
+		if ( subcommand === 'reset' || subcommand === 'drop' || subcommand === 'clean' ) {
+			return {
+				// translators: %s: site name
+				title: sprintf( __( 'Erase the database of “%s”?' ), siteName ),
+				consequences: [
+					__(
+						'All posts, pages, settings, and users on the site will be erased — this cannot be undone.'
+					),
+				],
+			};
+		}
+		if ( subcommand === 'import' ) {
+			return {
+				// translators: %s: site name
+				title: sprintf( __( 'Replace the database of “%s” with an imported file?' ), siteName ),
+				consequences: [ __( 'Everything currently in the site’s database will be overwritten.' ) ],
+			};
+		}
+		if ( subcommand === 'query' ) {
+			return {
+				// translators: %s: site name
+				title: sprintf( __( 'Run a raw database query on “%s”?' ), siteName ),
+				consequences: [
+					__( 'Raw queries can permanently change or delete any of the site’s data.' ),
+				],
+			};
+		}
+	}
+
+	if ( commandName === 'site' && subcommand === 'empty' ) {
+		return {
+			// translators: %s: site name
+			title: sprintf( __( 'Delete all content on “%s”?' ), siteName ),
+			consequences: [
+				__(
+					'All posts, pages, comments, and terms will be permanently deleted — this cannot be undone.'
+				),
+			],
+		};
+	}
+
+	if ( commandName === 'search-replace' ) {
+		const [ from, to ] = args;
+		return {
+			title:
+				from && to
+					? sprintf(
+							// translators: 1: site name, 2: text being replaced, 3: replacement text
+							__( 'Replace “%2$s” with “%3$s” across the database of “%1$s”?' ),
+							siteName,
+							from,
+							to
+					  )
+					: // translators: %s: site name
+					  sprintf( __( 'Search and replace across the database of “%s”?' ), siteName ),
+			consequences: [
+				__(
+					'Every matching value in the site’s database will be rewritten — this cannot be undone.'
+				),
+			],
+		};
+	}
+
+	if ( commandName === 'eval' || commandName === 'eval-file' ) {
+		return {
+			// translators: %s: site name
+			title: sprintf( __( 'Run custom PHP code on “%s”?' ), siteName ),
+			consequences: [
+				__(
+					'Custom code has full access to the site’s files and data, and its changes may not be reversible.'
+				),
+			],
+		};
+	}
+
+	return {
+		// translators: %s: site name
+		title: sprintf( __( 'Run a destructive command on “%s”?' ), siteName ),
+		consequences: [
+			sprintf(
+				// translators: 1: site name, 2: the WP-CLI command
+				__(
+					'This will run “wp %2$s” on “%1$s”, which can permanently change or delete the site’s data.'
+				),
+				siteName,
+				command
+			),
+		],
+	};
+}

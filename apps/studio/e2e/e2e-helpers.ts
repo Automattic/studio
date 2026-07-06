@@ -62,11 +62,6 @@ export class E2ESession {
 
 	async closeApp() {
 		console.log( 'Closing app...' );
-		if ( ! this.electronApp ) {
-			// Launch failed or never happened; nothing to close, and touching
-			// `electronApp.process()` would throw and abort the rest of cleanup.
-			return;
-		}
 		const childProcess = this.electronApp.process();
 
 		// Playwright's electronApp.close() can hang, especially on Windows. This is likely due to how

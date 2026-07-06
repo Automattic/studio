@@ -853,12 +853,19 @@
 	}
 }
 
-/* Agent tool-permission rows: one gated tool per line with an Ask /
-   Always-allow select on the right. */
+/* Agent permissions section: full-width description, then one gated tool per
+   row with an Ask / Always-allow segmented control on the right. */
+.permissionsDescription {
+	margin: 0 0 var(--wpds-dimension-padding-lg);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
 .permissionRows {
 	display: flex;
 	flex-direction: column;
-	gap: var(--wpds-dimension-padding-sm);
+	gap: var(--wpds-dimension-padding-md);
 }
 
 .permissionRow {
@@ -870,6 +877,15 @@
 
 .permissionRowLabel {
 	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-sm);
+	font-size: var(--wpds-typography-font-size-md);
 	white-space: nowrap;
+}
+
+/* Two-segment variant of the appearance picker (Ask / Always allow). */
+.permissionPicker {
+	grid-template-columns: repeat(2, minmax(72px, 1fr));
+}
+
+.permissionPicker::before {
+	inline-size: calc(100% / 2);
 }

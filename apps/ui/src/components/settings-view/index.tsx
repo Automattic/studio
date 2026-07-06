@@ -363,20 +363,81 @@ function AgenticFeaturesSection( {
 // site_delete is intentionally absent: it always asks and cannot be relaxed.
 const CONFIGURABLE_PERMISSION_TOOLS = GATED_TOOL_NAMES.filter( supportsAlwaysAllow );
 
+function AgentPermissionsSection( {
+	toolPermissions,
+	onToolPermissionChange,
+}: {
+	toolPermissions: ToolPermissionOverrides;
+	onToolPermissionChange: ( toolName: GatedToolName, level: ToolPermissionLevel ) => void;
+} ) {
+	const toolLabels: Record< string, string > = {
+		preview_delete: __( 'Delete preview sites' ),
+		site_push: __( 'Push sites to WordPress.com' ),
+		site_pull: __( 'Pull sites from WordPress.com' ),
+		site_import: __( 'Import backups into sites' ),
+		wp_cli: __( 'Destructive WP-CLI commands' ),
+	};
+	const levels: Array< { value: ToolPermissionLevel; label: string } > = [
+		{ value: 'ask', label: __( 'Ask' ) },
+		{ value: 'allow', label: __( 'Always allow' ) },
+	];
+
+	return (
+		<section className={ styles.preferenceSectionGroup }>
+			<h2 className={ styles.preferenceSectionHeading }>{ __( 'Permissions' ) }</h2>
+			<p className={ styles.permissionsDescription }>
+				{ __(
+					'Risky agent actions ask for your approval before running. Deleting a site always asks and cannot be changed here.'
+				) }
+			</p>
+			<div className={ styles.permissionRows }>
+				{ CONFIGURABLE_PERMISSION_TOOLS.map( ( toolName ) => {
+					const label = toolLabels[ toolName ] ?? toolName;
+					const current: ToolPermissionLevel =
+						toolPermissions[ toolName ] === 'allow' ? 'allow' : 'ask';
+					const activeIndex = current === 'ask' ? 0 : 1;
+					return (
+						<div key={ toolName } className={ styles.permissionRow }>
+							<span className={ styles.permissionRowLabel }>{ label }</span>
+							<div
+								className={ clsx( styles.appearancePicker, styles.permissionPicker ) }
+								role="group"
+								aria-label={ label }
+								data-active-index={ activeIndex }
+							>
+								{ levels.map( ( level ) => (
+									<button
+										key={ level.value }
+										type="button"
+										className={ clsx(
+											styles.appearanceButton,
+											level.value === current && styles.appearanceButtonActive
+										) }
+										aria-pressed={ level.value === current }
+										onClick={ () => onToolPermissionChange( toolName, level.value ) }
+									>
+										{ level.label }
+									</button>
+								) ) }
+							</div>
+						</div>
+					);
+				} ) }
+			</div>
+		</section>
+	);
+}
+
 function AgentSection( {
 	value,
 	onChange,
 	model,
 	onModelChange,
-	toolPermissions,
-	onToolPermissionChange,
 }: {
 	value: AiResponseLength;
 	onChange: ( value: AiResponseLength ) => void;
 	model: AiModelId;
 	onModelChange: ( value: AiModelId ) => void;
-	toolPermissions: ToolPermissionOverrides;
-	onToolPermissionChange: ( toolName: GatedToolName, level: ToolPermissionLevel ) => void;
 } ) {
 	const options: Array< { value: AiResponseLength; label: string } > = [
 		{ value: 'compact', label: __( 'Compact' ) },
@@ -390,17 +451,6 @@ function AgentSection( {
 	const modelOptions: Array< { value: AiModelId; label: string } > = AI_MODELS.map(
 		( { id, label } ) => ( { value: id, label } )
 	);
-	const permissionToolLabels: Record< string, string > = {
-		preview_delete: __( 'Delete preview sites' ),
-		site_push: __( 'Push sites to WordPress.com' ),
-		site_pull: __( 'Pull sites from WordPress.com' ),
-		site_import: __( 'Import backups into sites' ),
-		wp_cli: __( 'Destructive WP-CLI commands' ),
-	};
-	const permissionLevelOptions: Array< { value: ToolPermissionLevel; label: string } > = [
-		{ value: 'ask', label: __( 'Ask' ) },
-		{ value: 'allow', label: __( 'Always allow' ) },
-	];
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
@@ -443,28 +493,6 @@ function AgentSection( {
 						>
 							{ option.label }
 						</button>
-					) ) }
-				</div>
-			</PreferenceRow>
-			<PreferenceRow
-				title={ __( 'Permissions' ) }
-				description={ __(
-					'Risky agent actions ask for your approval before running. Deleting a site always asks and cannot be changed here.'
-				) }
-			>
-				<div className={ styles.permissionRows }>
-					{ CONFIGURABLE_PERMISSION_TOOLS.map( ( toolName ) => (
-						<div key={ toolName } className={ styles.permissionRow }>
-							<span className={ styles.permissionRowLabel }>
-								{ permissionToolLabels[ toolName ] ?? toolName }
-							</span>
-							<PreferenceSelect< ToolPermissionLevel >
-								label={ permissionToolLabels[ toolName ] ?? toolName }
-								value={ toolPermissions[ toolName ] === 'allow' ? 'allow' : 'ask' }
-								options={ permissionLevelOptions }
-								onChange={ ( level ) => onToolPermissionChange( toolName, level ) }
-							/>
-						</div>
 					) ) }
 				</div>
 			</PreferenceRow>
@@ -736,6 +764,10 @@ function AiSettingsPanel( {
 					onChange={ ( agentResponseLength ) => onChange( { agentResponseLength } ) }
 					model={ data.defaultAiModel }
 					onModelChange={ ( defaultAiModel ) => onChange( { defaultAiModel } ) }
+				/>
+			) : null }
+			{ showNativePreferences ? (
+				<AgentPermissionsSection
 					toolPermissions={ data.toolPermissions }
 					onToolPermissionChange={ ( toolName, level ) =>
 						onChange( { toolPermissions: { ...data.toolPermissions, [ toolName ]: level } } )

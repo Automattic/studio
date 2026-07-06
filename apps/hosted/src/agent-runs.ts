@@ -1,8 +1,13 @@
 import crypto from 'node:crypto';
 import { stubRuntime } from './stub-runtime';
 import type { AgentProcess, AgentRuntime } from './runtime';
-import type { ActiveAgentRun, AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { PermissionDecision } from '@studio/common/ai/tool-permissions';
+import type {
+	ActiveAgentRun,
+	AgentEvent,
+	AgentRunEvent,
+	PendingAgentQuestion,
+} from '@studio/common/ai/agent-events';
+import type { PermissionDecision, PermissionRequestData } from '@studio/common/ai/tool-permissions';
 
 /**
  * Headless analog of the desktop `run-manager` (apps/studio/src/modules/
@@ -24,6 +29,11 @@ interface AgentRun {
 	interrupted: boolean;
 	interruptAttempts: number;
 	startedAt: number;
+	// What the run is blocked on — unanswered questions keyed by question text,
+	// gated tool calls keyed by request id. Carried in the active-run snapshot
+	// so a reloaded client can restore the pending interaction.
+	pendingQuestions: Map< string, PendingAgentQuestion >;
+	pendingPermissions: Map< string, PermissionRequestData >;
 }
 
 const runsBySessionId = new Map< string, AgentRun >();
@@ -71,7 +81,21 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		prompt,
 		displayMessage,
 		onSpawn: () => emit( runId, sessionId, { type: 'run.started', timestamp: nowIso() } ),
-		onEvent: ( event ) => emit( runId, sessionId, event ),
+		onEvent: ( event ) => {
+			if ( event.type === 'permission.requested' ) {
+				runsById.get( runId )?.pendingPermissions.set( event.request.id, event.request );
+			} else if ( event.type === 'question.asked' ) {
+				for ( const question of event.questions ) {
+					runsById.get( runId )?.pendingQuestions.set( question.question, question );
+				}
+			} else if ( event.type === 'turn.completed' ) {
+				// A completed turn cannot be blocked on an answer; drop anything
+				// stale so hydration can't resurrect it.
+				runsById.get( runId )?.pendingQuestions.clear();
+				runsById.get( runId )?.pendingPermissions.clear();
+			}
+			emit( runId, sessionId, event );
+		},
 		onError: ( message ) =>
 			emit( runId, sessionId, { type: 'error', timestamp: nowIso(), message } ),
 		onExit: ( code ) => {
@@ -97,6 +121,8 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		interrupted: false,
 		interruptAttempts: 0,
 		startedAt,
+		pendingQuestions: new Map(),
+		pendingPermissions: new Map(),
 	};
 	runsBySessionId.set( sessionId, run );
 	runsById.set( runId, run );
@@ -110,6 +136,8 @@ export function listActiveAgentRuns(): ActiveAgentRun[] {
 		sessionId: run.sessionId,
 		startedAt: run.startedAt,
 		phase: run.interrupted ? 'interrupting' : 'running',
+		pendingQuestions: Array.from( run.pendingQuestions.values() ),
+		pendingPermissions: Array.from( run.pendingPermissions.values() ),
 	} ) );
 }
 
@@ -153,6 +181,9 @@ export function answerAgentRun( runId: string, answers: Record< string, string >
 	if ( ! run ) {
 		return;
 	}
+	for ( const question of Object.keys( answers ) ) {
+		run.pendingQuestions.delete( question );
+	}
 	run.process.answer( answers );
 }
 
@@ -165,5 +196,6 @@ export function answerAgentPermission(
 	if ( ! run ) {
 		return;
 	}
+	run.pendingPermissions.delete( requestId );
 	run.process.answerPermission( requestId, decision );
 }

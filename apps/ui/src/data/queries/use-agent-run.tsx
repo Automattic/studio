@@ -205,11 +205,21 @@ function reducer( state: State, action: Action ): State {
 				pendingPermissions: [],
 				pendingAnswers: {},
 			};
-		case 'questions_added':
+		case 'questions_added': {
+			// Both the live event and active-run hydration can deliver the same
+			// questions (e.g. right after a renderer reload) — keep one of each.
+			const fresh = action.questions.filter(
+				( question ) =>
+					! state.pendingQuestions.some( ( pending ) => pending.question === question.question )
+			);
+			if ( fresh.length === 0 ) {
+				return state;
+			}
 			return {
 				...state,
-				pendingQuestions: [ ...state.pendingQuestions, ...action.questions ],
+				pendingQuestions: [ ...state.pendingQuestions, ...fresh ],
 			};
+		}
 		case 'question_answered':
 			return {
 				...state,
@@ -218,6 +228,11 @@ function reducer( state: State, action: Action ): State {
 		case 'batch_dispatched':
 			return { ...state, pendingQuestions: [], pendingAnswers: {} };
 		case 'permission_requested':
+			// Both the live event and active-run hydration can deliver the same
+			// request (e.g. right after a renderer reload) — keep one.
+			if ( state.pendingPermissions.some( ( request ) => request.id === action.request.id ) ) {
+				return state;
+			}
 			return {
 				...state,
 				pendingPermissions: [ ...state.pendingPermissions, action.request ],
@@ -364,6 +379,19 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						startedAt: run.startedAt,
 						interrupting: run.phase === 'interrupting',
 					} );
+					// Restore what the run is still blocked on — the live events
+					// predate this renderer, but the agent process is waiting on the
+					// answers. The transcript entries come from disk; this makes the
+					// question and permission cards interactive again.
+					if ( ( run.pendingQuestions ?? [] ).length > 0 ) {
+						dispatchSession( run.sessionId, {
+							type: 'questions_added',
+							questions: run.pendingQuestions ?? [],
+						} );
+					}
+					for ( const request of run.pendingPermissions ?? [] ) {
+						dispatchSession( run.sessionId, { type: 'permission_requested', request } );
+					}
 				}
 			} )
 			.catch( () => {

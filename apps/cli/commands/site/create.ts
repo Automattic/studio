@@ -73,6 +73,7 @@ import {
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { resolveDefaultDatabaseEngine } from 'cli/lib/database/default-engine';
 import { getDatabaseProvider } from 'cli/lib/database/providers';
 import {
 	getAiInstructionsPath,
@@ -124,7 +125,7 @@ export async function runCommand(
 	options: CreateCommandOptions
 ): Promise< void > {
 	const siteRuntime = options.runtime;
-	const databaseEngine = options.databaseEngine ?? DATABASE_ENGINE_SQLITE;
+	const databaseEngine = await resolveDefaultDatabaseEngine( options.databaseEngine );
 	const databaseProvider = getDatabaseProvider( databaseEngine );
 	if ( ! isFileAccessAllowedForRuntime( siteRuntime, options.fileAccess ) ) {
 		throw new LoggerError(
@@ -589,7 +590,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'Database engine for the site' ),
 					choices: [ DATABASE_ENGINE_SQLITE, DATABASE_ENGINE_MYSQL ] as const,
-					default: DATABASE_ENGINE_SQLITE,
+					defaultDescription: DATABASE_ENGINE_SQLITE,
 				} )
 				.option( 'domain', {
 					type: 'string',
@@ -650,7 +651,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			let adminEmail = argv.adminEmail;
 			const runtime = siteRuntimeFromMode( argv.runtime );
 			const fileAccess = argv.fileAccess;
-			const databaseEngine = argv.databaseEngine as DatabaseEngine;
+			const databaseEngine = argv.databaseEngine as DatabaseEngine | undefined;
 			if ( ! isFileAccessAllowedForRuntime( runtime, fileAccess ) ) {
 				logger.reportError(
 					new LoggerError(

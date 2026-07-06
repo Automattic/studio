@@ -52,6 +52,7 @@ import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { type DatabaseEngine } from '@studio/common/lib/database-engine';
+import { readDefaultDatabaseEnginePreference } from '@studio/common/lib/default-database-engine';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import {
 	calculateDirectorySizeForArchive,
@@ -744,8 +745,10 @@ export async function createSite(
 		adminPassword,
 		adminEmail,
 		noStart = false,
-		databaseEngine,
+		databaseEngine: configuredDatabaseEngine,
 	} = config;
+	const databaseEngine =
+		configuredDatabaseEngine ?? ( await readDefaultDatabaseEnginePreference() );
 
 	const siteId = providedSiteId || crypto.randomUUID();
 

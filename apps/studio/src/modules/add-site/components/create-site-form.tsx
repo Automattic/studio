@@ -110,6 +110,7 @@ export const CreateSiteForm = ( {
 		useState< SiteRuntime >( SITE_RUNTIME_NATIVE_PHP );
 	const [ selectedDatabaseEngine, setSelectedDatabaseEngine ] =
 		useState< DatabaseEngine >( DATABASE_ENGINE_SQLITE );
+	const [ hasUserSelectedDatabaseEngine, setHasUserSelectedDatabaseEngine ] = useState( false );
 	const [ selectedFileAccess, setSelectedFileAccess ] = useState< SiteFileAccess >(
 		SITE_FILE_ACCESS_SITE_DIRECTORY
 	);
@@ -353,7 +354,10 @@ export const CreateSiteForm = ( {
 			wpVersion,
 			runtime: selectedRuntime,
 			fileAccess: usedFileAccess,
-			databaseEngine: usedDatabaseEngine,
+			databaseEngine:
+				selectedRuntime === SITE_RUNTIME_PLAYGROUND || hasUserSelectedDatabaseEngine
+					? usedDatabaseEngine
+					: undefined,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -369,6 +373,7 @@ export const CreateSiteForm = ( {
 			selectedRuntime,
 			usedFileAccess,
 			usedDatabaseEngine,
+			hasUserSelectedDatabaseEngine,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -572,7 +577,10 @@ export const CreateSiteForm = ( {
 												{ label: __( 'SQLite' ), value: DATABASE_ENGINE_SQLITE },
 												{ label: __( 'MySQL' ), value: DATABASE_ENGINE_MYSQL },
 											] }
-											onChange={ ( value ) => setSelectedDatabaseEngine( value ) }
+											onChange={ ( value ) => {
+												setHasUserSelectedDatabaseEngine( true );
+												setSelectedDatabaseEngine( value );
+											} }
 											__next40pxDefaultSize
 											__nextHasNoMarginBottom
 										/>

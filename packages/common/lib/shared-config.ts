@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, SHARED_CONFIG_LOCKFILE_NAME } from '../constants';
 import { syncSiteSchema } from '../types/sync';
 import { authTokenSchema, type StoredAuthToken } from './auth-token-schema';
+import { databaseEngineSchema } from './database-engine';
 import { hideDirectoryOnWindows } from './hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from './lockfile';
 import { getConfigDirectory, getSharedConfigPath } from './well-known-paths';
@@ -39,6 +40,7 @@ export const sharedConfigSchema = z
 		version: z.literal( SHARED_CONFIG_VERSION ),
 		authToken: authTokenSchema.optional(),
 		locale: z.string().optional(),
+		defaultDatabaseEngine: databaseEngineSchema.optional(),
 		selectedSkills: z.array( z.string() ).optional(),
 		sessions: z.record( z.string(), sharedSessionMetadataSchema ).optional(),
 		// WordPress.com sites connected to local sites, keyed by user id.

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
-import { DATABASE_ENGINE_MYSQL } from '@studio/common/lib/database-engine';
+import { DATABASE_ENGINE_MYSQL, DATABASE_ENGINE_SQLITE } from '@studio/common/lib/database-engine';
 import {
 	isEmptyDir,
 	isWordPressDirectory,
@@ -12,6 +12,7 @@ import {
 import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
+import { readSharedConfig } from '@studio/common/lib/shared-config';
 import {
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
@@ -83,6 +84,13 @@ vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/mysql-binary' );
 vi.mock( 'cli/lib/dependency-management/setup' );
 vi.mock( 'cli/lib/dependency-management/wordpress' );
+vi.mock( '@studio/common/lib/shared-config', async () => {
+	const actual = await vi.importActual( '@studio/common/lib/shared-config' );
+	return {
+		...actual,
+		readSharedConfig: vi.fn(),
+	};
+} );
 vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal ) => {
 	const actual = await importOriginal();
 	return {
@@ -189,6 +197,7 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
 		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
 		vi.mocked( assertMysqlBinarySupportedForCurrentPlatform ).mockReturnValue( undefined );
+		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1 } );
 	} );
 
 	afterEach( () => {
@@ -360,6 +369,60 @@ describe( 'CLI: studio site create', () => {
 				} )
 			);
 			expect( startWordPressServer ).not.toHaveBeenCalled();
+		} );
+
+		it( 'should use the global database engine preference when no explicit engine is supplied', async () => {
+			vi.mocked( readSharedConfig ).mockResolvedValue( {
+				version: 1,
+				defaultDatabaseEngine: DATABASE_ENGINE_MYSQL,
+			} );
+			vi.mocked( portFinder.getOpenPort )
+				.mockResolvedValueOnce( mockPort )
+				.mockResolvedValueOnce( 8899 );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				runtime: SITE_RUNTIME_NATIVE_PHP,
+				noStart: true,
+			} );
+
+			expect( keepSqliteIntegrationUpdated ).not.toHaveBeenCalled();
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( {
+							databaseEngine: DATABASE_ENGINE_MYSQL,
+							mysql: expect.objectContaining( { port: 8899 } ),
+						} ),
+					] ),
+				} )
+			);
+		} );
+
+		it( 'should let an explicit database engine override the global preference', async () => {
+			vi.mocked( readSharedConfig ).mockResolvedValue( {
+				version: 1,
+				defaultDatabaseEngine: DATABASE_ENGINE_MYSQL,
+			} );
+
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				runtime: SITE_RUNTIME_NATIVE_PHP,
+				databaseEngine: DATABASE_ENGINE_SQLITE,
+				noStart: true,
+			} );
+
+			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( {
+							databaseEngine: undefined,
+							mysql: undefined,
+						} ),
+					] ),
+				} )
+			);
 		} );
 
 		it( 'should reject "all-files" file access for sandbox sites', async () => {

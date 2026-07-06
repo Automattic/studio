@@ -101,12 +101,14 @@ describe( 'Shared Config', () => {
 				version: 1,
 				authToken: validToken,
 				locale: 'en',
+				defaultDatabaseEngine: 'mysql',
 			};
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( data ) ) );
 
 			const config = await readSharedConfig();
 			expect( config.authToken?.accessToken ).toBe( 'valid-token' );
 			expect( config.locale ).toBe( 'en' );
+			expect( config.defaultDatabaseEngine ).toBe( 'mysql' );
 		} );
 
 		it( 'should return defaults on malformed JSON', async () => {

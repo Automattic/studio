@@ -29,7 +29,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
-import { Conversation } from './conversation';
+import { Conversation, isConversationStopped } from './conversation';
 import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
@@ -270,6 +270,12 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	// After the user stops a run, let them pull their last prompt back into the
+	// composer to tweak and resend it instead of retyping it from scratch.
+	const canEditLastUserMessage = useMemo(
+		() => ! composerBusy && ! isRunning && isConversationStopped( data?.entries ?? [] ),
+		[ composerBusy, isRunning, data?.entries ]
+	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	// Whether new content should keep the view pinned to the bottom. Disabled
 	// when the user scrolls up to read history, re-enabled when they return.
@@ -421,6 +427,8 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							pendingAnswers={ pendingAnswers }
 							answeredQuestions={ answeredQuestions }
 							onAnswerQuestion={ answerQuestion }
+							canEditLastUserMessage={ canEditLastUserMessage }
+							onEditUserMessage={ selectPrompt }
 						/>
 					) }
 				</div>

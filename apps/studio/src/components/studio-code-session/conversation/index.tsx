@@ -185,6 +185,24 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	return items;
 }
 
+// A conversation counts as "stopped" when the most recent turn ended because
+// the user interrupted it. We scan back from the end: the first turn boundary
+// we meet decides the answer, and a trailing user prompt (a turn that has since
+// been started again) means we're no longer in the stopped state.
+export function isConversationStopped( entries: SessionEntry[] ): boolean {
+	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
+		const entry = entries[ index ];
+		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.turn_closed' > ).data;
+			return data?.status === 'interrupted';
+		}
+		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			return false;
+		}
+	}
+	return false;
+}
+
 // Progress from earlier turns must not leak into the current indicator, so
 // the scan stops at the nearest turn boundary.
 function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
@@ -207,9 +225,13 @@ function findLatestProgressMessage( entries: SessionEntry[] ): string | null {
 function UserTurn( {
 	text,
 	attachments,
+	editable = false,
+	onEdit,
 }: {
 	text: string;
 	attachments?: StudioChatAttachmentSummary[];
+	editable?: boolean;
+	onEdit?: () => void;
 } ) {
 	return (
 		<div className={ styles.userTurn }>
@@ -239,6 +261,18 @@ function UserTurn( {
 						)
 					) }
 				</ul>
+			) : null }
+			{ editable && onEdit ? (
+				<div className={ styles.userActions }>
+					<button
+						type="button"
+						className={ styles.userEditButton }
+						onClick={ onEdit }
+						aria-label={ __( 'Edit your last message' ) }
+					>
+						{ __( 'Edit' ) }
+					</button>
+				</div>
 			) : null }
 		</div>
 	);
@@ -375,6 +409,8 @@ export function Conversation( {
 	pendingAnswers,
 	answeredQuestions,
 	onAnswerQuestion,
+	canEditLastUserMessage = false,
+	onEditUserMessage,
 }: {
 	data: LoadedAiSession;
 	isRunning: boolean;
@@ -383,6 +419,8 @@ export function Conversation( {
 	pendingAnswers: Record< string, string >;
 	answeredQuestions: Record< string, string >;
 	onAnswerQuestion: ( question: string, label: string ) => void;
+	canEditLastUserMessage?: boolean;
+	onEditUserMessage?: ( text: string ) => void;
 } ) {
 	const entries = data.entries;
 	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
@@ -390,15 +428,35 @@ export function Conversation( {
 		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
 		[ entries, isRunning ]
 	);
+	// Only the most recent user prompt is offered for editing, and only once
+	// the run behind it has been stopped.
+	const lastUserTextKey = useMemo( () => {
+		for ( let index = items.length - 1; index >= 0; index -= 1 ) {
+			if ( items[ index ].kind === 'user-text' ) {
+				return items[ index ].key;
+			}
+		}
+		return null;
+	}, [ items ] );
 
 	return (
 		<div className={ styles.root }>
 			{ items.map( ( item ) => {
 				switch ( item.kind ) {
-					case 'user-text':
+					case 'user-text': {
+						const editable = canEditLastUserMessage && item.key === lastUserTextKey;
 						return (
-							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
+							<UserTurn
+								key={ item.key }
+								text={ item.text }
+								attachments={ item.attachments }
+								editable={ editable }
+								onEdit={
+									editable && onEditUserMessage ? () => onEditUserMessage( item.text ) : undefined
+								}
+							/>
 						);
+					}
 					case 'assistant-text':
 						return <AssistantText key={ item.key } text={ item.text } />;
 					case 'tool-use':

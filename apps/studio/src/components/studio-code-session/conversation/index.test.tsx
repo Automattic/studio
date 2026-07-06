@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { describe, expect, it } from 'vitest';
-import { entriesToRenderItems } from './index';
+import { entriesToRenderItems, isConversationStopped } from './index';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 function customEntry( customType: string, data: unknown ): SessionEntry {
@@ -25,6 +25,14 @@ function question( q: string, options: string[] ): SessionEntry {
 
 function answer( text: string ): SessionEntry {
 	return customEntry( 'studio.user_prompt', { text, source: 'ask_user' } );
+}
+
+function prompt( text: string ): SessionEntry {
+	return customEntry( 'studio.user_prompt', { text, source: 'prompt' } );
+}
+
+function turnClosed( status: 'completed' | 'interrupted' ): SessionEntry {
+	return customEntry( 'studio.turn_closed', { status } );
 }
 
 describe( 'entriesToRenderItems – persisted picked answers', () => {
@@ -58,5 +66,30 @@ describe( 'entriesToRenderItems – persisted picked answers', () => {
 	it( 'does not render ask_user prompts as user text', () => {
 		const items = entriesToRenderItems( [ question( 'Q1', [ 'A' ] ), answer( 'A' ) ] );
 		expect( items.some( ( i ) => i.kind === 'user-text' ) ).toBe( false );
+	} );
+} );
+
+describe( 'isConversationStopped', () => {
+	it( 'is false for an in-flight or completed turn', () => {
+		expect( isConversationStopped( [ prompt( 'Build me a blog' ) ] ) ).toBe( false );
+		expect(
+			isConversationStopped( [ prompt( 'Build me a blog' ), turnClosed( 'completed' ) ] )
+		).toBe( false );
+	} );
+
+	it( 'is true once the latest turn was interrupted', () => {
+		expect(
+			isConversationStopped( [ prompt( 'Build me a blog' ), turnClosed( 'interrupted' ) ] )
+		).toBe( true );
+	} );
+
+	it( 'is false again once a newer turn has started', () => {
+		expect(
+			isConversationStopped( [
+				prompt( 'Build me a blog' ),
+				turnClosed( 'interrupted' ),
+				prompt( 'Actually, a shop' ),
+			] )
+		).toBe( false );
 	} );
 } );

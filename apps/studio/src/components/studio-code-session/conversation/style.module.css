@@ -79,6 +79,28 @@
 	object-fit: cover;
 }
 
+.userActions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: var(--wpds-dimension-padding-xs);
+}
+
+.userEditButton {
+	appearance: none;
+	border: none;
+	background: transparent;
+	padding: 2px 6px;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-xs);
+	cursor: pointer;
+}
+
+.userEditButton:hover {
+	color: var(--color-frame-text);
+	background-color: var(--color-frame-surface);
+}
+
 .toolBlock {
 	display: flex;
 	flex-direction: column;

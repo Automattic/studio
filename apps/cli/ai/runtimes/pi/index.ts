@@ -55,6 +55,7 @@ import {
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { ConfirmSiteDeletion } from 'cli/ai/tools/delete-site';
 import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -550,8 +551,41 @@ function buildAgentTools(
 	const studioTools = resolveStudioToolDefinitions( {
 		emitChatArtifacts: chatArtifactsEnabled,
 		remoteSession,
+		confirmSiteDeletion: config.onAskUser
+			? buildSiteDeletionConfirm( config.onAskUser )
+			: undefined,
 	} ) as unknown as AgentToolAny[];
 	return [ ...studioTools, ...askUserTool, ...skillTool, ...piTools ];
+}
+
+// Turns the agent's AskUserQuestion handler into an explicit yes/no gate for
+// site deletion. The user must pick the affirmative option; anything else
+// (Cancel, a free-form reply, or a dismissed prompt) leaves the site intact.
+const CONFIRM_DELETE_SITE_LABEL = 'Delete site';
+
+function buildSiteDeletionConfirm( onAskUser: AskUserHandler ): ConfirmSiteDeletion {
+	return async ( { name, deleteFiles } ) => {
+		const question = `Permanently delete the site "${ name }"?`;
+		const answers = await onAskUser( [
+			{
+				question,
+				options: [
+					{
+						label: CONFIRM_DELETE_SITE_LABEL,
+						description: deleteFiles
+							? `Remove "${ name }" from Studio and move its files to the trash.`
+							: `Remove "${ name }" from Studio but keep its files on disk.`,
+					},
+					{
+						label: 'Cancel',
+						description: 'Keep the site. Nothing will be deleted.',
+					},
+				],
+				allowFreeForm: true,
+			},
+		] );
+		return answers[ question ] === CONFIRM_DELETE_SITE_LABEL;
+	};
 }
 
 function parseJsonHeaderEnv( value: string | undefined ): Record< string, string > | undefined {

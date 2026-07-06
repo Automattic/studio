@@ -678,5 +678,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		onAddSite() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onOpenSettings() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
 	};
 }

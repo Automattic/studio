@@ -363,5 +363,13 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		onAddSite() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onOpenSettings() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
 	};
 }

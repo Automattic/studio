@@ -112,7 +112,8 @@ cli/vendor/
 
 # Build output
 dist
-dist-web
+dist-hosted
+dist-local
 
 # Playwright traces
 test-results

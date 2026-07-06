@@ -336,30 +336,32 @@ export function SitePreview( {
 								<span className={ styles.browserTitle }>{ pageTitle }</span>
 							</ToolbarTooltip>
 						</div>
-						<div className={ styles.annotationControls }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ pencil }
-								label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-								disabled={ ! canAnnotate }
-								aria-pressed={ inspectorState.isPicking }
-								onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-							/>
-							{ inspectorState.annotationCount > 0 ? (
-								<Button
-									variant="solid"
-									tone="brand"
+						{ connector.capabilities.annotatePreview ? (
+							<div className={ styles.annotationControls }>
+								<IconButton
+									variant="minimal"
+									tone="neutral"
 									size="small"
+									icon={ pencil }
+									label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
 									disabled={ ! canAnnotate }
-									aria-label={ __( 'Submit annotations' ) }
-									onClick={ () => sendInspectorCommand( 'submit' ) }
-								>
-									{ __( 'Submit' ) }
-								</Button>
-							) : null }
-						</div>
+									aria-pressed={ inspectorState.isPicking }
+									onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
+								/>
+								{ inspectorState.annotationCount > 0 ? (
+									<Button
+										variant="solid"
+										tone="brand"
+										size="small"
+										disabled={ ! canAnnotate }
+										aria-label={ __( 'Submit annotations' ) }
+										onClick={ () => sendInspectorCommand( 'submit' ) }
+									>
+										{ __( 'Submit' ) }
+									</Button>
+								) : null }
+							</div>
+						) : null }
 					</>
 				) : (
 					<span className={ styles.headerSpacer } aria-hidden="true" />

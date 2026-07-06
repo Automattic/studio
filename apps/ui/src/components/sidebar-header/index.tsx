@@ -13,7 +13,6 @@ export function SidebarHeader() {
 
 	return (
 		<div className={ `${ styles.root } ${ reserveTrafficLightSpace ? '' : styles.flush }` }>
-			<span className={ styles.title }>{ __( 'Studio' ) }</span>
 			<div className={ styles.actions }>
 				<Menu.Root modal={ false }>
 					<Menu.Trigger

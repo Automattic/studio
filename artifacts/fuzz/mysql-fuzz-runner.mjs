@@ -131,7 +131,13 @@ const cli = ( ...args ) => run( process.execPath, [ cliPath, ...args ] );
 const sitePath = ( name ) => path.join( sitesRoot, name );
 
 await runCase( 'build-cli', 'studio.mysql.binary.delivery', 'binary.metadata.platform.resolve', () =>
-	run( 'npm', [ 'run', 'cli:build', '--silent' ] )
+	run( 'npm', [ 'ci' ] ).then( async ( install ) => {
+		if ( install.code !== 0 ) {
+			return install;
+		}
+
+		return await run( 'npm', [ 'run', 'cli:build', '--silent' ] );
+	} )
 );
 
 await runCase( 'create-mysql-native', 'studio.cli.site.create.mysql', 'create.mysql.native', () =>

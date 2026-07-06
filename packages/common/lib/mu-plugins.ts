@@ -23,6 +23,15 @@ export interface MuPluginOptions {
 	runtime?: MuPluginRuntime;
 	errorLogPath?: string;
 	errorLogStopAfterBoot?: boolean;
+	/**
+	 * The site's own host (e.g. `my-site.local`) and local HTTP port. When set on
+	 * the native-PHP runtime, a mu-plugin pins this host to 127.0.0.1 for
+	 * WordPress's own loopback requests, so a `.local` custom domain — which macOS
+	 * resolves via multicast DNS with a ~5s timeout — does not stall self-calls
+	 * (Action Scheduler async runner, wp-cron, REST-to-self).
+	 */
+	siteHost?: string;
+	sitePort?: number;
 }
 
 /**
@@ -198,6 +207,46 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		}
 		`,
 	} );
+
+	// Loopback DNS fast-path (native-PHP only). A Studio custom domain is a
+	// `.local` name, which macOS resolves via multicast DNS (RFC 6762) with a ~5s
+	// timeout even when the name is in /etc/hosts. WordPress fires its own loopback
+	// requests — Action Scheduler's async queue runner, wp-cron, REST-to-self —
+	// with sub-second timeouts, so they die during that mDNS wait and the async
+	// work never runs. Pin the site's OWN host to 127.0.0.1 for curl requests
+	// WordPress makes to itself, so a self-call goes straight to loopback instead
+	// of out to mDNS. This does NOT change how `.local` resolves for the browser or
+	// anything external — it only short-circuits the site addressing itself, which
+	// is exactly what 127.0.0.1 is for. Runs as a real mu-plugin (loaded after WP
+	// core), so add_action()/wp_parse_url() are available.
+	if ( options.runtime === 'native-php' && options.siteHost ) {
+		const escapedHost = escapePhpSingleQuotedString( options.siteHost );
+		const portLine =
+			options.sitePort && options.sitePort > 0
+				? `$resolve[] = $self_host . ':' . ${ Math.trunc( options.sitePort ) } . ':127.0.0.1';`
+				: '';
+		muPlugins.push( {
+			filename: '0-loopback-dns-fast-path.php',
+			content: `<?php
+			add_action( 'http_api_curl', function ( $handle, $args, $url ) {
+				if ( ! defined( 'CURLOPT_RESOLVE' ) ) {
+					return;
+				}
+				$self_host = '${ escapedHost }';
+				$target    = wp_parse_url( (string) $url, PHP_URL_HOST );
+				if ( ! $target || 0 !== strcasecmp( $self_host, $target ) ) {
+					return;
+				}
+				$resolve = array(
+					$self_host . ':443:127.0.0.1',
+					$self_host . ':80:127.0.0.1',
+				);
+				${ portLine }
+				curl_setopt( $handle, CURLOPT_RESOLVE, $resolve );
+			}, 10, 3 );
+			`,
+		} );
+	}
 
 	// Redirect to SITEURL constant
 	muPlugins.push( {
@@ -711,7 +760,8 @@ export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< [ 
 
 export async function writeStudioMuPluginsForNativePhpRuntime(
 	siteFolder: string,
-	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ]
+	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ],
+	loopback?: { siteHost?: string; sitePort?: number }
 ): Promise< string > {
 	const muPluginsDir = path.join( siteFolder, 'wp-content', 'mu-plugins' );
 	await mkdir( muPluginsDir, { recursive: true } );
@@ -720,6 +770,8 @@ export async function writeStudioMuPluginsForNativePhpRuntime(
 	const options: MuPluginOptions = {
 		isWpAutoUpdating,
 		runtime: 'native-php',
+		siteHost: loopback?.siteHost,
+		sitePort: loopback?.sitePort,
 	};
 	const existingMuPluginsDir = await getExistingNativePhpMuPluginsDir( loaderPath, options );
 	if ( existingMuPluginsDir ) {

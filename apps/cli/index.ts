@@ -9,6 +9,7 @@ import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull';
 import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint';
 import { registerCommand as registerPushCommand } from 'cli/commands/push';
+import { registerCommand as registerSiteConvertCommand } from 'cli/commands/site/convert';
 import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
 import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
@@ -207,6 +208,7 @@ async function main() {
 	registerSiteStopCommand( studioArgv );
 	registerSiteDeleteCommand( studioArgv );
 	registerSiteStatusCommand( studioArgv );
+	registerSiteConvertCommand( studioArgv );
 
 	registerPushCommand( studioArgv );
 	registerPullCommand( studioArgv );
@@ -305,6 +307,7 @@ async function main() {
 			registerSiteStartCommand( sitesYargs );
 			registerSiteStopCommand( sitesYargs );
 			registerSiteDeleteCommand( sitesYargs );
+			registerSiteConvertCommand( sitesYargs );
 			registerSiteSetCommand( sitesYargs );
 
 			sitesYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );

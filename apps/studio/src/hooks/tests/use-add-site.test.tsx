@@ -152,6 +152,7 @@ describe( 'useAddSite', () => {
 			sitePath: '/test/path',
 			phpVersion: '8.2',
 			wpVersion: '6.1.7',
+			databaseEngine: 'mysql',
 			useCustomDomain: false,
 			customDomain: null,
 			enableHttps: false,
@@ -175,7 +176,8 @@ describe( 'useAddSite', () => {
 			undefined, // adminPassword
 			undefined, // adminEmail
 			undefined, // runtime
-			undefined // fileAccess
+			undefined, // fileAccess
+			'mysql'
 		);
 	} );
 

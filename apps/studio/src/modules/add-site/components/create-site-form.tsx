@@ -1,5 +1,10 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
+	DATABASE_ENGINE_MYSQL,
+	DATABASE_ENGINE_SQLITE,
+	type DatabaseEngine,
+} from '@studio/common/lib/database-engine';
+import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
@@ -103,6 +108,8 @@ export const CreateSiteForm = ( {
 	// New sites default to the native PHP runtime.
 	const [ selectedRuntime, setSelectedRuntime ] =
 		useState< SiteRuntime >( SITE_RUNTIME_NATIVE_PHP );
+	const [ selectedDatabaseEngine, setSelectedDatabaseEngine ] =
+		useState< DatabaseEngine >( DATABASE_ENGINE_SQLITE );
 	const [ selectedFileAccess, setSelectedFileAccess ] = useState< SiteFileAccess >(
 		SITE_FILE_ACCESS_SITE_DIRECTORY
 	);
@@ -112,6 +119,8 @@ export const CreateSiteForm = ( {
 		selectedRuntime === SITE_RUNTIME_PLAYGROUND
 			? SITE_FILE_ACCESS_SITE_DIRECTORY
 			: selectedFileAccess;
+	const usedDatabaseEngine =
+		selectedRuntime === SITE_RUNTIME_PLAYGROUND ? DATABASE_ENGINE_SQLITE : selectedDatabaseEngine;
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
@@ -344,6 +353,7 @@ export const CreateSiteForm = ( {
 			wpVersion,
 			runtime: selectedRuntime,
 			fileAccess: usedFileAccess,
+			databaseEngine: usedDatabaseEngine,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -358,6 +368,7 @@ export const CreateSiteForm = ( {
 			wpVersion,
 			selectedRuntime,
 			usedFileAccess,
+			usedDatabaseEngine,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -547,6 +558,24 @@ export const CreateSiteForm = ( {
 										<span className="text-frame-text-secondary text-xs">
 											<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
 										</span>
+									</div>
+
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="font-semibold" htmlFor="database-engine-select">
+											{ __( 'Database engine' ) }
+										</label>
+										<SelectControl< DatabaseEngine >
+											id="database-engine-select"
+											disabled={ selectedRuntime === SITE_RUNTIME_PLAYGROUND }
+											value={ usedDatabaseEngine }
+											options={ [
+												{ label: __( 'SQLite' ), value: DATABASE_ENGINE_SQLITE },
+												{ label: __( 'MySQL' ), value: DATABASE_ENGINE_MYSQL },
+											] }
+											onChange={ ( value ) => setSelectedDatabaseEngine( value ) }
+											__next40pxDefaultSize
+											__nextHasNoMarginBottom
+										/>
 									</div>
 
 									<div className="flex flex-col gap-1.5 leading-4">

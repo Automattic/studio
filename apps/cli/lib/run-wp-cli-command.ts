@@ -12,6 +12,7 @@ import {
 } from '@php-wasm/universal';
 import { createSpawnHandler } from '@php-wasm/util';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { isMysqlSite } from '@studio/common/lib/database-engine';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import {
 	cleanupLegacyMuPlugins,
@@ -27,12 +28,14 @@ import {
 import { __ } from '@wordpress/i18n';
 import { setupPlatformLevelMuPlugins } from '@wp-playground/wordpress';
 import {
+	getMysqlClientBinaryDir,
 	getPhpBinaryPath,
 	getSqliteCommandPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
 import { validatePhpVersion } from 'cli/lib/utils';
 import { ensurePhpBinaryAvailable } from './dependency-management/php-binary';
+import { ensureMysqlServerRunning, type ManagedMysqlServer } from './mysql/mysql-process';
 import { getDefaultPhpArgs } from './native-php/config';
 import {
 	DETACH_FOR_GROUP_KILL,
@@ -160,6 +163,25 @@ async function ensureChildSpawned( child: ChildProcess ): Promise< void > {
 	} );
 }
 
+// Builds the environment for a native WP-CLI child. For MySQL-engine sites the
+// bundled MySQL client's `bin/` dir is prepended to PATH: `wp db *` subcommands
+// (query/export/import/…) shell out to a bare `mysql`/`mysqldump` resolved via
+// PATH, and Studio ships that client without installing it globally, so without
+// this WP-CLI fails with `env: mysql: No such file or directory`. SQLite sites
+// need no MySQL client, so their env is left untouched.
+function buildWpCliChildEnv( site: SiteData ): NodeJS.ProcessEnv {
+	if ( ! isMysqlSite( site ) || ! site.mysql ) {
+		return process.env;
+	}
+
+	const mysqlClientDir = getMysqlClientBinaryDir( site.mysql.serverVersion );
+	const currentPath = process.env.PATH ?? '';
+	return {
+		...process.env,
+		PATH: currentPath ? `${ mysqlClientDir }${ path.delimiter }${ currentPath }` : mysqlClientDir,
+	};
+}
+
 type DisposableWpCliResponse = Disposable & {
 	response: WpCliResponse;
 };
@@ -185,7 +207,17 @@ async function runNativeWpCliCommand(
 ): Promise< DisposableWpCliResponse | DisposableExitCode > {
 	const phpVersion = resolveNativePhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
-	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating );
+	await writeStudioMuPluginsForNativePhpRuntime( site.path, site.isWpAutoUpdating, {
+		siteHost: site.customDomain,
+		sitePort: site.port,
+	} );
+	let mysqlServer: ManagedMysqlServer | null = null;
+	if ( isMysqlSite( site ) ) {
+		if ( ! site.mysql ) {
+			throw new Error( 'MySQL site is missing database configuration.' );
+		}
+		mysqlServer = await ensureMysqlServerRunning( site.mysql );
+	}
 
 	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
 	// so load it here too. No-op for normal sites (helper returns undefined).
@@ -200,12 +232,18 @@ async function runNativeWpCliCommand(
 		[ ...defaultArgs, getWpCliPharPath(), `--path=${ site.path }`, ...nativeArgs ],
 		{
 			cwd: site.path,
+			env: buildWpCliChildEnv( site ),
 			stdio: options.stdio === 'inherit' ? 'inherit' : [ 'ignore', 'pipe', 'pipe' ],
 			detached: DETACH_FOR_GROUP_KILL,
 		}
 	);
 
-	await ensureChildSpawned( child );
+	try {
+		await ensureChildSpawned( child );
+	} catch ( error ) {
+		await mysqlServer?.stop().catch( () => undefined );
+		throw error;
+	}
 	const removeReaper = reapPhpTreeOnInterrupt( child );
 
 	const exitCode = new Promise< number >( ( resolve, reject ) => {
@@ -219,6 +257,7 @@ async function runNativeWpCliCommand(
 		if ( child.exitCode === null && child.signalCode === null && ! child.killed ) {
 			killPhpProcessTree( child, 'SIGKILL' );
 		}
+		void mysqlServer?.stop();
 	};
 
 	if ( options.stdio === 'inherit' ) {

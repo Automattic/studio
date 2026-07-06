@@ -7,6 +7,9 @@ import {
 import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
 
 const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
+const MYSQLD_BINARY_FILENAME = process.platform === 'win32' ? 'mysqld.exe' : 'mysqld';
+const MYSQLADMIN_BINARY_FILENAME = process.platform === 'win32' ? 'mysqladmin.exe' : 'mysqladmin';
+const MYSQL_CLIENT_BINARY_FILENAME = process.platform === 'win32' ? 'mysql.exe' : 'mysql';
 
 function getPhpBinaryRoot(): string {
 	return path.join( getConfigDirectory(), 'php-bin' );
@@ -31,6 +34,38 @@ export function getPhpBinaryPath( version: NativePhpSupportedVersion | string ):
 	return getExactPhpBinaryPath( packageId ?? version );
 }
 
+export function getMysqlBinaryRoot(): string {
+	return path.join( getConfigDirectory(), 'mysql-bin' );
+}
+
+export function getMysqlInstallRoot( version: string ): string {
+	return path.join( getMysqlBinaryRoot(), version );
+}
+
+export function getMysqlServerBinaryPath( version: string ): string {
+	return path.join( getMysqlInstallRoot( version ), 'bin', MYSQLD_BINARY_FILENAME );
+}
+
+export function getMysqlAdminBinaryPath( version: string ): string {
+	return path.join( getMysqlInstallRoot( version ), 'bin', MYSQLADMIN_BINARY_FILENAME );
+}
+
+export function getMysqlClientBinaryPath( version: string ): string {
+	return path.join( getMysqlInstallRoot( version ), 'bin', MYSQL_CLIENT_BINARY_FILENAME );
+}
+
+// Directory holding the bundled MySQL client binaries (mysql, mysqldump, …).
+// WP-CLI's `wp db` subcommands shell out to a bare `mysql`/`mysqldump` looked up
+// on PATH, so this dir must be prepended to PATH when running WP-CLI against a
+// MySQL-engine site — Studio bundles the client but never installs it globally.
+export function getMysqlClientBinaryDir( version: string ): string {
+	return path.join( getMysqlInstallRoot( version ), 'bin' );
+}
+
+export function getMysqlDataRoot(): string {
+	return path.join( getConfigDirectory(), 'mysql-data' );
+}
+
 const WP_CLI_PHAR_FILENAME = 'wp-cli.phar';
 const SQLITE_COMMAND_DIRNAME = 'sqlite-command';
 
@@ -42,6 +77,13 @@ export function getWpFilesPath(): string {
 
 export function getWordPressVersionPath( version: string ): string {
 	return path.join( getServerFilesPath(), 'wordpress-versions', version );
+}
+
+// The `php/` helper scripts ship alongside the bundled CLI code (`dist/cli/php`).
+// Vite emits all chunks to the same output dir, so `import.meta.dirname` resolves
+// to that directory from any module.
+export function getWpConfigTransformerPath(): string {
+	return path.join( import.meta.dirname, 'php', 'wp-config-transformer.php' );
 }
 
 // reprint.phar ships read-only with the CLI bundle (downloaded into `wp-files` at build time) and is

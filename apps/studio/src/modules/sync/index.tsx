@@ -1,3 +1,5 @@
+import { isMysqlSite } from '@studio/common/lib/database-engine';
+import { Notice } from '@wordpress/components';
 import { check, Icon } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useState } from 'react';
@@ -163,6 +165,18 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 			: null;
 
 	const effectiveRemoteSite = deepLinkRemoteSite || selectedRemoteSite;
+
+	if ( isMysqlSite( selectedSite ) ) {
+		return (
+			<div className="flex flex-col p-8">
+				<Notice status="warning" isDismissible={ false }>
+					<span className="font-bold">{ __( 'Sync is not available for this site' ) }</span>
+					<br />
+					{ __( 'Sync currently supports sites using the default SQLite integration.' ) }
+				</Notice>
+			</div>
+		);
+	}
 
 	if ( ! isAuthenticated ) {
 		return <NoAuthSyncTab />;

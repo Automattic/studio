@@ -337,6 +337,14 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setupAppMenu( { needsOnboarding: false } );
 		},
 
+		// Native desktop app: every affordance is available.
+		capabilities: {
+			nativeFolderPicker: true,
+			nativeSaveDialog: true,
+			openInOS: true,
+			annotatePreview: true,
+		},
+
 		// Auth — optional in Electron, delegated to main process
 		requiresAuth: false,
 		supportsAgenticOptOut: true,
@@ -1114,6 +1122,11 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Window state
+		// The IPC connector only runs in Electron, so `navigator` reflects the
+		// desktop OS. macOS overlays the traffic lights on the content (so we
+		// reserve space for them); Windows and Linux don't.
+		reservesTrafficLightSpace: /mac/i.test( navigator.platform || navigator.userAgent ),
+
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();
 		},

@@ -4,15 +4,16 @@ import { plugins, plus, wordpress } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
 import { QuickMenuItem } from '@/components/site-quick-menu';
-import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import styles from './style.module.css';
 
 export function SidebarHeader() {
-	const isFullscreen = useFullscreen();
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const navigate = useNavigate();
 
 	return (
-		<div className={ `${ styles.root } ${ isFullscreen ? styles.fullscreen : '' }` }>
+		<div className={ `${ styles.root } ${ reserveTrafficLightSpace ? '' : styles.flush }` }>
+			<span className={ styles.title }>{ __( 'Studio' ) }</span>
 			<div className={ styles.actions }>
 				<Menu.Root modal={ false }>
 					<Menu.Trigger

@@ -10,7 +10,7 @@ import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
 import { useConnector } from '@/data/core';
-import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
 import { drawerIcon } from '@/lib/icons';
@@ -31,7 +31,7 @@ const CHROME_BG_DARK = '#161616';
 export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const [ collapsed, setCollapsed ] = useState( false );
 	const connector = useConnector();
-	const colorScheme = usePrefersColorScheme();
+	const colorScheme = useColorScheme();
 	const chromeBg = colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT;
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,

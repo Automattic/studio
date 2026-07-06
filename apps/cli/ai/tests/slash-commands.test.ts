@@ -383,12 +383,12 @@ describe( '/model slash command', () => {
 		expect( modelHandler ).toBeDefined();
 		const { ctx, persistMock } = buildModelCtx( {
 			currentModel: 'gpt-5.5',
-			askUserResponse: 'Sonnet 4.6',
+			askUserResponse: 'Sonnet 5',
 		} );
 
 		await modelHandler!( '/model', ctx );
 
-		expect( ctx.currentModel ).toBe( 'claude-sonnet-4-6' );
+		expect( ctx.currentModel ).toBe( 'claude-sonnet-5' );
 		expect( persistMock ).toHaveBeenCalledTimes( 1 );
 	} );
 

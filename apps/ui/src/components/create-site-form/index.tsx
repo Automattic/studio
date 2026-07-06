@@ -2,7 +2,7 @@ import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { generatePassword } from '@studio/common/lib/passwords';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
-import { BaseControl, CheckboxControl } from '@wordpress/components';
+import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, sprintf } from '@wordpress/i18n';
 import { chevronLeft, chevronDown, chevronRight } from '@wordpress/icons';
@@ -21,6 +21,7 @@ import {
 	customDomainToggleField,
 	wpVersionField,
 } from '@/components/site-fields';
+import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
@@ -146,10 +147,13 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 	}, [ data.name, data.hasCustomPath, data.path, data.pathError, generateProposedPath ] );
 }
 
-// Rendered as a button (not an input) because the value is always set by
-// the name→path auto-gen or the native folder dialog — never typed. Also
-// sidesteps the browser's refusal to expose `validationMessage` on readonly
-// inputs, which was swallowing async errors like path collisions.
+// On the desktop this is a button that opens the native folder dialog (the
+// value is set by the name→path auto-gen or the dialog, never typed) — which
+// also sidesteps the browser's refusal to expose `validationMessage` on
+// readonly inputs. In the browser (`studio ui` / hosted) there's no native
+// picker, so it falls back to an editable text field: the path is still
+// prefilled from the site name, and the server validates the final path on
+// create.
 function PathField( {
 	data: item,
 	field,
@@ -157,6 +161,7 @@ function PathField( {
 	onChange,
 	validity,
 }: DataFormControlProps< FormData > ) {
+	const connector = useConnector();
 	const { data: sites } = useSites();
 	const { selectPath } = usePathValidator( sites );
 
@@ -172,6 +177,31 @@ function PathField( {
 	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
 
 	const errorMessage = validity?.custom?.message;
+	const help = errorMessage ? (
+		<span className={ styles.pathErrorHelp }>{ errorMessage }</span>
+	) : (
+		<>
+			{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
+			<LearnMoreLink docsLinksKey="docsSites" />
+		</>
+	);
+
+	// No native folder picker in the browser — edit the path as text. It's
+	// prefilled from the site name; the server validates it on create.
+	if ( ! connector.capabilities.nativeFolderPicker ) {
+		return (
+			<TextControl
+				__nextHasNoMarginBottom
+				__next40pxDefaultSize
+				label={ field.label }
+				hideLabelFromVision={ hideLabelFromVision }
+				value={ item.path }
+				onChange={ ( value ) => onChange( { path: value, hasCustomPath: true, pathError: '' } ) }
+				help={ help }
+			/>
+		);
+	}
+
 	const triggerLabel = item.path
 		? sprintf(
 				// translators: %s is the currently selected folder path.
@@ -185,16 +215,7 @@ function PathField( {
 			__nextHasNoMarginBottom
 			label={ field.label }
 			hideLabelFromVision={ hideLabelFromVision }
-			help={
-				errorMessage ? (
-					<span className={ styles.pathErrorHelp }>{ errorMessage }</span>
-				) : (
-					<>
-						{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsSites" />
-					</>
-				)
-			}
+			help={ help }
 		>
 			<button
 				type="button"

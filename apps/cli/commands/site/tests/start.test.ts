@@ -30,6 +30,7 @@ describe( 'CLI: studio site start', () => {
 		phpVersion: '8.0',
 		adminUsername: 'admin',
 		adminPassword: 'password123',
+		status: 'ready',
 	};
 
 	const testSiteWithDomain: SiteData = {
@@ -69,6 +70,23 @@ describe( 'CLI: studio site start', () => {
 			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Site not found' ) );
 
 			await expect( runCommand( '/invalid/path' ) ).rejects.toThrow( 'Site not found' );
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should refuse to start a site whose pull is still in progress', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( { ...testSite, status: 'pulling' } );
+
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow( /not ready to start/ );
+			// It bails before touching the server.
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should refuse to start a site whose last pull failed', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( { ...testSite, status: 'pull-failed' } );
+
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow( /not ready to start/ );
+			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 

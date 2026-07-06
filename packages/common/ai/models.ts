@@ -19,7 +19,7 @@ export interface AiModel {
 // `/v1/responses` server-side or extend the proxy/SDK timeout window for
 // reasoning turns.
 export const AI_MODELS = [
-	{ id: 'claude-sonnet-4-6', label: 'Sonnet 4.6', family: 'anthropic' },
+	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
 	{ id: 'claude-opus-4-8', label: 'Opus 4.8', family: 'anthropic' },
 	{ id: 'gpt-5.5', label: 'GPT 5.5', family: 'openai' },
 ] as const satisfies readonly AiModel[];
@@ -29,7 +29,7 @@ export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
 /** Model ids as a tuple, for zod enums and other literal-union consumers. */
 export const AI_MODEL_IDS = AI_MODELS.map( ( model ) => model.id ) as [ AiModelId, ...AiModelId[] ];
 
-export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-4-6';
+export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-5';
 
 // Module-scoped lookup so `getAiModelFamily` / `getAiModelLabel` are O(1)
 // and don't re-scan the array per call. Keyed by id; values are the same

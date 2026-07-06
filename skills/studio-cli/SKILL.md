@@ -5,7 +5,7 @@ description: Use the Studio CLI to manage local WordPress sites, authentication,
 
 # Studio CLI
 
-The `studio` command manages local WordPress sites powered by WordPress Playground (PHP WASM).
+The `studio` command manages local WordPress sites.
 
 ## Global Options
 
@@ -126,7 +126,7 @@ studio preview delete <host>       # Delete a preview site
 
 ## WP-CLI
 
-Run WP-CLI commands inside the site's PHP WASM environment:
+Run WP-CLI commands against the site's PHP runtime:
 
 ```bash
 studio wp --path ~/Studio/my-site core version

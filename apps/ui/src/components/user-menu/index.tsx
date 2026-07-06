@@ -7,8 +7,7 @@ import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
@@ -23,15 +22,11 @@ type Props = {
 export function UserMenu( { onToggleSidebar }: Props ) {
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
-	const { data: preferences } = useUserPreferences();
 	const login = useLogin();
 	const logout = useLogout();
 	const navigate = useNavigate();
-	const effectiveScheme = usePrefersColorScheme();
 
-	const savedScheme = preferences?.colorScheme;
-	const themeIsDark =
-		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
+	const themeIsDark = useColorScheme() === 'dark';
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );

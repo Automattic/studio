@@ -29,7 +29,7 @@ Call `site_create` with the provided name and use the layout preference to guide
 
 State the plan as a short **Site Spec** summary before building, alongside the design direction. The summary MUST include:
 
-- **Functionality & plugins**: review the requested features, load the `plugin-recommendations` skill, and list the specific plugins the site needs — e.g. WooCommerce for selling products, Jetpack Forms for a contact form — or "None — core blocks only" when nothing beyond static content is required. Install the listed plugins while building (Workflow Step 4); do not silently hand-build static markup for a feature a plugin should provide.
+- **Functionality & plugins**: review the requested features, load the `plugin-recommendations` skill, and list the specific plugins the site needs — e.g. WooCommerce for selling products, Jetpack Forms for a contact form, Jetpack Newsletter for email signups, Sensei LMS for courses, Crowdsignal for polls/surveys — or "None — core blocks only" when nothing beyond static content is required. Install the listed plugins while building (Workflow Step 4); do not silently hand-build static markup for a feature a plugin should provide.
 - **Interaction model**: state whether the site is static/core-block only, plugin-powered, custom-block powered, Interactivity API powered, or progressive-enhancement JavaScript. Load `interactive-frontend` before implementing custom frontend behavior.
 
 ## After site_create returns

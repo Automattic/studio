@@ -541,6 +541,13 @@ async function rollbackToPriorSite(
 	}
 }
 
+export const __testing = {
+	createBackup,
+	convertSqliteToMysql,
+	convertMysqlToSqlite,
+	rollbackToPriorSite,
+};
+
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'convert',

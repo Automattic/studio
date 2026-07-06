@@ -326,6 +326,10 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 
 	// Permission decisions pair with their request by id.
 	const permissionDecisionsById = new Map< string, PermissionDecision >();
+	// Gated tool calls, keyed by their toolCallId, so the raw tool-call row can
+	// be hidden until the tool actually ran: showing "Delete site …" above a
+	// pending confirmation reads as if it already happened.
+	const permissionRequestIdsByToolCallId = new Map< string, string >();
 	for ( const entry of entries ) {
 		if ( isStudioCustomEntryOfType( entry, 'studio.permission_response' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.permission_response' > ).data;
@@ -333,7 +337,24 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				permissionDecisionsById.set( data.id, data.decision );
 			}
 		}
+		if ( isStudioCustomEntryOfType( entry, 'studio.permission_request' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.permission_request' > ).data;
+			if ( data ) {
+				permissionRequestIdsByToolCallId.set( data.toolCallId, data.id );
+			}
+		}
 	}
+	// The tool-call row only appears once the request was approved (the tool
+	// ran). Pending, denied, and expired requests are represented entirely by
+	// the permission card / its resolved row.
+	const isHiddenGatedToolCall = ( toolCallId: string ): boolean => {
+		const requestId = permissionRequestIdsByToolCallId.get( toolCallId );
+		if ( ! requestId ) {
+			return false;
+		}
+		const decision = permissionDecisionsById.get( requestId );
+		return decision === undefined || decision === 'deny';
+	};
 
 	const items: RenderItem[] = [];
 	for ( let entryIndex = 0; entryIndex < entries.length; entryIndex += 1 ) {
@@ -387,7 +408,8 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 					block.type === 'toolCall' &&
 					typeof block.id === 'string' &&
 					typeof block.name === 'string' &&
-					! HIDDEN_TOOL_ROWS.has( block.name )
+					! HIDDEN_TOOL_ROWS.has( block.name ) &&
+					! isHiddenGatedToolCall( block.id )
 				) {
 					items.push( {
 						kind: 'tool-use',
@@ -1367,6 +1389,28 @@ function PermissionRequest( {
 	decision: PermissionDecision | undefined;
 	onDecide: ( decision: PermissionDecision ) => void;
 } ) {
+	const titleId = useId();
+	const descriptionId = useId();
+	const containerRef = useRef< HTMLDivElement >( null );
+	const prefersReducedMotion = usePrefersReducedMotion();
+
+	// Move keyboard focus to the card (not a button) when it appears: a screen
+	// reader announces the whole question via the group's name/description, Tab
+	// reaches the actions, and Enter can't trigger the destructive action until
+	// the user deliberately moves to it. Not a dialog — the user can still
+	// scroll and read the conversation to inform the decision.
+	useEffect( () => {
+		if ( ! isInteractive ) {
+			return;
+		}
+		const element = containerRef.current;
+		if ( ! element ) {
+			return;
+		}
+		scrollElementIntoViewIfNeeded( element, prefersReducedMotion );
+		element.focus( { preventScroll: true } );
+	}, [ isInteractive, prefersReducedMotion ] );
+
 	// Resolved (or expired) requests collapse to a tool-call-style row — the
 	// full card is only for the decision that's actually being made.
 	if ( ! isInteractive ) {
@@ -1390,13 +1434,31 @@ function PermissionRequest( {
 	}
 
 	return (
-		<div className={ styles.permission } role="alertdialog">
-			<p className={ styles.permissionTitle }>{ request.title }</p>
-			{ request.consequences.map( ( line, index ) => (
-				<p key={ index } className={ styles.permissionConsequence }>
-					{ line }
-				</p>
-			) ) }
+		<div
+			ref={ containerRef }
+			className={ styles.permission }
+			role="group"
+			tabIndex={ -1 }
+			aria-labelledby={ titleId }
+			aria-describedby={ descriptionId }
+			onKeyDown={ ( event ) => {
+				// Escape is the keyboard's "dismiss", and dismissal means deny.
+				if ( event.key === 'Escape' ) {
+					event.stopPropagation();
+					onDecide( 'deny' );
+				}
+			} }
+		>
+			<p id={ titleId } className={ styles.permissionTitle }>
+				{ request.title }
+			</p>
+			<div id={ descriptionId } className={ styles.permissionConsequences }>
+				{ request.consequences.map( ( line, index ) => (
+					<p key={ index } className={ styles.permissionConsequence }>
+						{ line }
+					</p>
+				) ) }
+			</div>
 			<div className={ styles.permissionActions }>
 				{ /* Same error-token remap the wpds AlertDialog uses for its
 				     irreversible confirm button — a solid Button rendered with
@@ -1414,6 +1476,7 @@ function PermissionRequest( {
 						variant="outline"
 						tone="neutral"
 						size="compact"
+						className={ styles.permissionAlwaysButton }
 						onClick={ () => onDecide( 'always_allow' ) }
 						title={ sprintf(
 							/* translators: %s: what will be allowed without asking again (e.g. "pushing sites to WordPress.com") */

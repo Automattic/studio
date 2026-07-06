@@ -277,7 +277,20 @@
 	margin: 0;
 	font-weight: 600;
 	color: var(--color-frame-text);
+	line-height: var(--wpds-typography-line-height-md);
 	text-wrap: balance;
+}
+
+/* The card receives programmatic focus as a group (see PermissionRequest);
+   the visible focus treatment belongs to the action buttons. */
+.permission:focus {
+	outline: none;
+}
+
+.permissionConsequences {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
 }
 
 .permissionConsequence {
@@ -332,4 +345,18 @@
 	background-color: var(--color-frame-error);
 	border-color: var(--color-frame-error);
 	opacity: 0.85;
+}
+
+/* "Always allow" also relaxes a destructive gate, so it reads as destructive
+   too: outlined in the error color. */
+.permissionActionAlways {
+	color: var(--color-frame-error);
+	border-color: var(--color-frame-error);
+}
+
+.permissionActionAlways:hover,
+.permissionActionAlways:focus-visible {
+	color: var(--color-frame-error);
+	border-color: var(--color-frame-error);
+	background-color: var(--color-frame-surface-alt);
 }

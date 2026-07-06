@@ -56,7 +56,7 @@ import {
 } from './session-chat-actions';
 import styles from './style.module.css';
 import { useStickToBottom } from './use-stick-to-bottom';
-import type { AiSessionSummary } from '@/data/core';
+import type { AiSessionSummary, PermissionDecision } from '@/data/core';
 
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
@@ -269,6 +269,15 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	// The pending permission card holds keyboard focus; hand it back to the
+	// composer once the user decides (the card collapses to a static row).
+	const answerPermissionAndRefocus = useCallback(
+		( requestId: string, decision: PermissionDecision ) => {
+			answerPermission( requestId, decision );
+			composerRef.current?.focus();
+		},
+		[ answerPermission ]
+	);
 	const { isAtBottom, isAtBottomRef, scrollToBottom } = useStickToBottom( scrollRef, sessionId );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
@@ -526,7 +535,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					pendingPermissions={ pendingPermissionIds }
 					answeredPermissions={ answeredPermissions }
 					onAnswerQuestion={ answerQuestion }
-					onAnswerPermission={ answerPermission }
+					onAnswerPermission={ answerPermissionAndRefocus }
 				/>
 			</div>
 		</SessionFrame>

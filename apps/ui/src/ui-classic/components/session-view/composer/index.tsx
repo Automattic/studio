@@ -226,6 +226,9 @@ export interface ComposerHandle {
 	): void;
 	addFiles( files: FileList | File[] ): Promise< boolean >;
 	addFileAttachments( files: StudioChatFileAttachment[] ): boolean;
+	// Move keyboard focus to the textarea (e.g. after answering a permission
+	// request, whose card takes focus while it's pending).
+	focus(): void;
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -382,6 +385,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	useImperativeHandle(
 		ref,
 		() => ( {
+			focus() {
+				textareaRef.current?.focus();
+			},
 			appendDraft( text ) {
 				if ( ! text ) return;
 				setValue( ( current ) =>

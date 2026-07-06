@@ -4,7 +4,6 @@ import { defineTool } from './define-tool';
 import {
 	captureScreenshotBuffer,
 	saveScreenshotFile,
-	SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
 	SCREENSHOT_COLOR_SCHEME_VALUES,
 	VIEWPORTS,
 	type ScreenshotColorScheme,
@@ -18,10 +17,8 @@ type ScreenshotViewportArgument = 'desktop' | 'mobile' | 'all';
 type ScreenshotViewportType = keyof typeof VIEWPORTS;
 
 const screenshotColorSchemeSchema = Type.Enum( [ ...SCREENSHOT_COLOR_SCHEME_VALUES, 'all' ], {
-	description: SCREENSHOT_COLOR_SCHEME_DESCRIPTION.replace(
-		'"light" or "dark"',
-		'"light", "dark", or "all" to capture both'
-	),
+	description:
+		'Color scheme to emulate: "light", "dark", or "all" to capture both. Defaults to the browser/system preference.',
 } );
 type ScreenshotColorSchemeArgument = ScreenshotColorScheme | 'all';
 
@@ -36,7 +33,7 @@ function resolveColorSchemes(
 	colorScheme?: ScreenshotColorSchemeArgument
 ): Array< ScreenshotColorScheme | undefined > {
 	if ( colorScheme === 'all' ) {
-		return [ 'light', 'dark' ];
+		return [ ...SCREENSHOT_COLOR_SCHEME_VALUES ];
 	}
 	return [ colorScheme ];
 }

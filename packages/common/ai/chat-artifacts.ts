@@ -42,10 +42,7 @@ export function isRecord( value: unknown ): value is Record< string, unknown > {
 // Legacy transcript markers. take_screenshot used to append its media widget
 // payload to the tool result text behind these prefixes; artifacts are now
 // emitted structurally, so the markers survive only in old persisted sessions.
-export const MEDIA_WIDGET_PAYLOAD_MARKERS = [
-	'mediaWidgetPayload=',
-	'mediaWidgetPayloads=',
-] as const;
+const MEDIA_WIDGET_PAYLOAD_MARKERS = [ 'mediaWidgetPayload=', 'mediaWidgetPayloads=' ] as const;
 
 export function stripMediaWidgetPayloadLines( text: string ): string {
 	return text
@@ -55,6 +52,11 @@ export function stripMediaWidgetPayloadLines( text: string ): string {
 		)
 		.join( '\n' )
 		.trim();
+}
+
+export function getMediaAltText( widget: StudioChatArtifactWidgetDraft, fallback: string ): string {
+	const { alt } = widget.widgetProps;
+	return typeof alt === 'string' && alt.trim() ? alt : fallback;
 }
 
 export function getLocalMediaPath( widget: StudioChatArtifactWidgetDraft ): string | null {

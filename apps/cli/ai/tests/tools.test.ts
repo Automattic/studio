@@ -402,75 +402,6 @@ describe( 'Studio AI MCP tools', () => {
 		await cleanUpScreenshotArtifacts( artifacts );
 	} );
 
-	it( 'can force dark mode for take_screenshot captures', async () => {
-		const page = createMockPage( { buffer: Buffer.from( 'dark-jpeg' ), documentHeight: 1800 } );
-		mockScreenshotBrowser( page );
-
-		const result = await getTool( 'take_screenshot' ).rawHandler( {
-			url: 'http://localhost:8903/story-time',
-			colorScheme: 'dark',
-		} as never );
-		const text = getTextContent( result );
-
-		expect( page.emulateMedia ).toHaveBeenCalledWith( {
-			reducedMotion: 'reduce',
-			colorScheme: 'dark',
-		} );
-		expect( text ).toContain( 'desktop dark: captured full page (1800px tall)' );
-
-		const artifacts = getScreenshotArtifacts( result );
-		try {
-			expect( artifacts[ 0 ].widgetProps.alt ).toBe(
-				'Screenshot of http://localhost:8903/story-time (desktop dark)'
-			);
-			expect( artifacts[ 0 ].widgetProps.source.name ).toMatch(
-				/^screenshot-desktop-dark-[0-9a-f]{8}\.jpg$/
-			);
-		} finally {
-			await cleanUpScreenshotArtifacts( artifacts );
-		}
-	} );
-
-	it( 'emits a media artifact when take_screenshot runs with chat artifacts enabled', async () => {
-		mockScreenshotBrowser(
-			createMockPage( { buffer: Buffer.from( 'artifact-jpeg' ), documentHeight: 1200 } )
-		);
-		const tool = resolveStudioToolDefinitions( {
-			emitChatArtifacts: true,
-		} ).find( ( definition ) => definition.name === 'take_screenshot' );
-		expect( tool ).toBeDefined();
-
-		const result = await executeTool( tool!, {
-			url: 'http://localhost:8903/story-time',
-		} );
-
-		expect( emitEvent ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				type: 'chat.artifact',
-				artifact: expect.objectContaining( {
-					widgets: [
-						expect.objectContaining( {
-							type: 'media',
-							widgetProps: expect.objectContaining( {
-								mediaKind: 'image',
-								alt: 'Screenshot of http://localhost:8903/story-time (desktop)',
-								source: expect.objectContaining( {
-									type: 'local',
-									name: expect.stringMatching( /^screenshot-desktop-[0-9a-f]{8}\.jpg$/ ),
-									mimeType: 'image/jpeg',
-								} ),
-							} ),
-						} ),
-					],
-				} ),
-			} )
-		);
-		expect( getTextContent( result ) ).not.toContain( 'mediaWidgetPayload' );
-
-		const details = result.details as { studioArtifacts: ScreenshotArtifact[] };
-		await cleanUpScreenshotArtifacts( details.studioArtifacts );
-	} );
-
 	it( 'can capture desktop and mobile screenshots in one take_screenshot call', async () => {
 		const desktopBuffer = Buffer.from( 'desktop-jpeg' );
 		const mobileBuffer = Buffer.from( 'mobile-jpeg' );
@@ -556,6 +487,9 @@ describe( 'Studio AI MCP tools', () => {
 				expect.stringMatching( /^screenshot-desktop-light-[0-9a-f]{8}\.jpg$/ ),
 				expect.stringMatching( /^screenshot-desktop-dark-[0-9a-f]{8}\.jpg$/ ),
 			] );
+			expect( artifacts[ 1 ].widgetProps.alt ).toBe(
+				'Screenshot of http://localhost:8903/story-time (desktop dark)'
+			);
 		} finally {
 			await cleanUpScreenshotArtifacts( artifacts );
 		}

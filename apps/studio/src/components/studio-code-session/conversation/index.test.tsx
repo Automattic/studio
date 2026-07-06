@@ -1,9 +1,28 @@
-/**
- * @jest-environment node
- */
-import { describe, expect, it } from 'vitest';
-import { entriesToRenderItems } from './index';
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Conversation, entriesToRenderItems } from './index';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
+
+const ipcApiMocks = vi.hoisted( () => ( {
+	readLocalMediaFile: vi.fn(),
+} ) );
+
+vi.mock( 'src/lib/get-ipc-api', () => ( {
+	getIpcApi: () => ipcApiMocks,
+} ) );
+
+vi.mock( '../markdown', () => ( {
+	Markdown: ( { children }: { children: string } ) => children,
+} ) );
+
+vi.mock( '../thinking-indicator', () => ( {
+	ThinkingIndicator: () => null,
+} ) );
+
+vi.mock( '@wordpress/ui', () => ( {
+	Icon: () => null,
+} ) );
 
 function customEntry( customType: string, data: unknown ): SessionEntry {
 	return {
@@ -171,5 +190,84 @@ describe( 'entriesToRenderItems – chat artifacts', () => {
 				[]
 			);
 		}
+	} );
+} );
+
+describe( 'Conversation – inline media artifacts', () => {
+	beforeEach( () => {
+		ipcApiMocks.readLocalMediaFile.mockReset();
+	} );
+
+	function localScreenshotWidget( path: string ) {
+		return {
+			type: 'media',
+			widgetProps: {
+				url: `file://${ path }`,
+				mediaKind: 'image',
+				alt: 'Screenshot of http://localhost:8888/ (desktop)',
+				mediaId: null,
+				source: {
+					type: 'local',
+					path,
+					name: 'screenshot-desktop.jpg',
+					mimeType: 'image/jpeg',
+				},
+			},
+		};
+	}
+
+	function renderConversation( entries: SessionEntry[] ) {
+		render(
+			<Conversation
+				data={ { entries } as unknown as LoadedAiSession }
+				isRunning={ false }
+				startedAt={ null }
+				pendingQuestions={ new Set() }
+				pendingAnswers={ {} }
+				answeredQuestions={ {} }
+				onAnswerQuestion={ () => {} }
+			/>
+		);
+	}
+
+	it( 'renders local screenshot media artifacts inline', async () => {
+		ipcApiMocks.readLocalMediaFile.mockResolvedValue( {
+			name: 'screenshot-desktop.jpg',
+			mimeType: 'image/jpeg',
+			data: new Uint8Array( [ 1, 2, 3 ] ).buffer,
+		} );
+		// Paths are unique per test: the component caches data URLs by path
+		// for the app lifetime.
+		const path = '/tmp/studio-screenshot/screenshot-desktop-render.jpg';
+
+		renderConversation( [
+			customEntry( 'studio.chat_artifact', {
+				version: 1,
+				id: 'artifact-1',
+				widgets: [ localScreenshotWidget( path ) ],
+			} ),
+		] );
+
+		const screenshot = await screen.findByRole( 'img', {
+			name: 'Screenshot of http://localhost:8888/ (desktop)',
+		} );
+		expect( screenshot ).toHaveAttribute( 'src', 'data:image/jpeg;base64,AQID' );
+		expect( ipcApiMocks.readLocalMediaFile ).toHaveBeenCalledWith( path );
+	} );
+
+	it( 'shows a fallback when reading the local file fails', async () => {
+		ipcApiMocks.readLocalMediaFile.mockRejectedValue( new Error( 'gone' ) );
+
+		renderConversation( [
+			customEntry( 'studio.chat_artifact', {
+				version: 1,
+				id: 'artifact-1',
+				widgets: [
+					localScreenshotWidget( '/tmp/studio-screenshot/screenshot-desktop-missing.jpg' ),
+				],
+			} ),
+		] );
+
+		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Image unavailable' );
 	} );
 } );

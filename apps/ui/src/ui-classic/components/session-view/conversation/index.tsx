@@ -1,5 +1,6 @@
 import {
 	getLocalMediaPath,
+	getMediaAltText,
 	getSafeMediaUrl,
 	isRenderableMediaWidget,
 	isStudioChatArtifactData,
@@ -197,12 +198,6 @@ function resolveBatchedAnswerForQuestion(
 	}
 	const answer = answers[ batchPosition ];
 	return optionLabels.has( answer ) ? answer : undefined;
-}
-
-function getMediaAltText( widget: StudioChatArtifactWidgetDraft ): string {
-	return typeof widget.widgetProps.alt === 'string' && widget.widgetProps.alt.trim()
-		? widget.widgetProps.alt
-		: __( 'Image' );
 }
 
 export function entriesToRenderItems(
@@ -732,7 +727,11 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 
 	return (
 		<figure className={ styles.mediaArtifactItem }>
-			<img className={ styles.mediaArtifactImage } src={ src } alt={ getMediaAltText( widget ) } />
+			<img
+				className={ styles.mediaArtifactImage }
+				src={ src }
+				alt={ getMediaAltText( widget, __( 'Image' ) ) }
+			/>
 		</figure>
 	);
 }

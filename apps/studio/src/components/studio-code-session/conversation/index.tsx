@@ -1,5 +1,6 @@
 import {
 	getLocalMediaPath,
+	getMediaAltText,
 	getSafeMediaUrl,
 	isRenderableMediaWidget,
 	isStudioChatArtifactData,
@@ -330,12 +331,6 @@ function ToolUseRow( {
 	);
 }
 
-function getMediaAltText( widget: StudioChatArtifactWidgetDraft ): string {
-	return typeof widget.widgetProps.alt === 'string' && widget.widgetProps.alt.trim()
-		? widget.widgetProps.alt
-		: __( 'Image' );
-}
-
 // Data URLs for already-read screenshot files, keyed by path. Screenshot
 // files are immutable, so one IPC read per path per app lifetime is enough.
 // Data URLs (allowed by the renderer CSP, unlike blob:) need no revocation.
@@ -408,7 +403,11 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 
 	return (
 		<figure className={ styles.mediaArtifactItem }>
-			<img className={ styles.mediaArtifactImage } src={ src } alt={ getMediaAltText( widget ) } />
+			<img
+				className={ styles.mediaArtifactImage }
+				src={ src }
+				alt={ getMediaAltText( widget, __( 'Image' ) ) }
+			/>
 		</figure>
 	);
 }

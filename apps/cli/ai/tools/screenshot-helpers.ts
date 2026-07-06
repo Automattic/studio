@@ -63,9 +63,9 @@ async function waitForPageToSettle( page: Page ): Promise< void > {
 }
 
 export type ScreenshotFormat = 'png' | 'jpeg';
-export type ScreenshotColorScheme = 'light' | 'dark';
 
 export const SCREENSHOT_COLOR_SCHEME_VALUES = [ 'light', 'dark' ] as const;
+export type ScreenshotColorScheme = ( typeof SCREENSHOT_COLOR_SCHEME_VALUES )[ number ];
 export const SCREENSHOT_COLOR_SCHEME_DESCRIPTION =
 	'Color scheme to emulate: "light" or "dark". Defaults to the browser/system preference.';
 

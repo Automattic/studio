@@ -4,7 +4,7 @@
  * image scrolling, font settling, admin-bar hiding, 8000px height cap) and
  * writes the JPEG to `--out`.
  *
- * The desktop app shells out to this for the preview's "Clip the full page"
+ * The desktop app shells out to this for the preview's "Clip the page"
  * action — CDP full-page capture is unreliable for webview guests, while a
  * headless top-level page renders it correctly in one pass.
  */

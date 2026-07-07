@@ -14,7 +14,23 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+// The Open in… split button brings router and data hooks along; its behavior
+// is covered by its own tests.
+vi.mock( '@/components/open-in-menu', () => ( {
+	OpenInMenu: () => <button type="button">Open in…</button>,
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
+
+// Connector methods every render needs (the traffic-light hook subscribes
+// to fullscreen state); merged under each test's specific mocks.
+function baseConnector() {
+	return {
+		reservesTrafficLightSpace: false,
+		isFullscreen: vi.fn().mockResolvedValue( false ),
+		onFullscreenChange: vi.fn( () => () => {} ),
+	};
+}
 
 // Browser-style capabilities (no native dialogs, no preview annotation) — the
 // component reads `connector.capabilities` to decide which toolbar controls show.
@@ -113,8 +129,8 @@ function mockWebviewContentsId( webContentsId = 42 ) {
 	};
 }
 
-// Console and open-in-browser live in the trailing "•••" menu.
-async function clickOverflowMenuItem( name: string ) {
+// Console and the preview environment controls live in the trailing "•••" menu.
+async function clickOverflowMenuItem( name: string | RegExp ) {
 	fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name } ) );
 }
@@ -150,6 +166,7 @@ function dispatchWebviewConsoleMessage(
 describe( 'SitePreview', () => {
 	it( 'shows the active realm name with the same tooltip as when inactive', async () => {
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -177,6 +194,7 @@ describe( 'SitePreview', () => {
 
 	it( 'shows adjacent toolbar tooltips immediately while the delay group is active', async () => {
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -210,6 +228,7 @@ describe( 'SitePreview', () => {
 	it( 'hides browser controls and shows the stopped preview treatment when the site is not running', async () => {
 		const getSiteThumbnail = vi.fn().mockResolvedValue( 'data:image/png;base64,thumbnail' );
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			getSiteThumbnail,
 			capabilities: CAPABILITIES,
@@ -233,6 +252,7 @@ describe( 'SitePreview', () => {
 
 	it( 'shows a refresh button that reloads the active preview surface', () => {
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -263,6 +283,7 @@ describe( 'SitePreview', () => {
 		} );
 		const onClip = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			capabilities: { ...CAPABILITIES, annotatePreview: true },
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			captureFullPageScreenshot,
@@ -278,7 +299,7 @@ describe( 'SitePreview', () => {
 				/>
 			);
 
-			await clickClipMenuItem( 'Clip the full page' );
+			await clickClipMenuItem( 'Clip the page' );
 
 			await waitFor( () => {
 				expect( captureFullPageScreenshot ).toHaveBeenCalledWith(
@@ -301,12 +322,65 @@ describe( 'SitePreview', () => {
 		}
 	} );
 
+	it( 'does not replay a stale page-clip request when switching sites', async () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		const restoreWebviewContentsId = mockWebviewContentsId();
+		const captureFullPageScreenshot = vi.fn().mockResolvedValue( {
+			name: 'clip-page.jpg',
+			mimeType: 'image/jpeg',
+			data: new Uint8Array( [ 1 ] ).buffer,
+		} );
+		const onClip = vi.fn().mockResolvedValue( undefined );
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			captureFullPageScreenshot,
+		} as never );
+
+		try {
+			const { rerender } = renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/"
+					reloadNonce={ 0 }
+					onClip={ onClip }
+				/>
+			);
+
+			await clickClipMenuItem( 'Clip the page' );
+			await waitFor( () => expect( captureFullPageScreenshot ).toHaveBeenCalledTimes( 1 ) );
+
+			// Switching sites remounts the webview surface while the request
+			// state lives on in SitePreview; the fresh surface must not treat
+			// the old request as new (regression: every site switch fired a
+			// ghost page clip).
+			rerender(
+				<SitePreview
+					site={ createSite( { id: 'site-2', name: 'Other Site', running: true } ) }
+					path="/"
+					reloadNonce={ 0 }
+					onClip={ onClip }
+				/>
+			);
+			await act( async () => {
+				await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+			} );
+
+			expect( captureFullPageScreenshot ).toHaveBeenCalledTimes( 1 );
+		} finally {
+			restoreWebviewContentsId();
+			restoreUserAgent();
+		}
+	} );
+
 	it( 'shows an error toast when the page clip cannot be added', async () => {
 		resetAppMessagesForTests();
 		const restoreUserAgent = mockElectronUserAgent();
 		const restoreWebviewContentsId = mockWebviewContentsId();
 		const consoleError = vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			capabilities: { ...CAPABILITIES, annotatePreview: true },
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			captureFullPageScreenshot: vi.fn().mockRejectedValue( new Error( 'No IPC handler' ) ),
@@ -322,7 +396,7 @@ describe( 'SitePreview', () => {
 				/>
 			);
 
-			await clickClipMenuItem( 'Clip the full page' );
+			await clickClipMenuItem( 'Clip the page' );
 
 			await waitFor( () =>
 				expect( getVisibleToasts().map( ( item ) => item.title ) ).toContain(
@@ -336,9 +410,10 @@ describe( 'SitePreview', () => {
 		}
 	} );
 
-	it( 'uses a switch to toggle the preview color scheme', () => {
+	it( 'switches the preview color scheme from the Appearance section', async () => {
 		const restoreUserAgent = mockElectronUserAgent();
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 		} as never );
@@ -348,12 +423,41 @@ describe( 'SitePreview', () => {
 				<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 			);
 
-			const switchControl = screen.getByRole( 'switch', { name: 'Preview in dark mode' } );
-			expect( switchControl ).not.toBeChecked();
+			fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+			// The item names include the toggle shortcut hint on the inactive
+			// scheme, so match on the leading label.
+			const darkOption = await screen.findByRole( 'menuitemradio', { name: /^Dark/ } );
+			expect( screen.getByRole( 'menuitemradio', { name: /^Light/ } ) ).toBeChecked();
 
-			fireEvent.click( switchControl );
+			fireEvent.click( darkOption );
 
-			expect( screen.getByRole( 'switch', { name: 'Preview in light mode' } ) ).toBeChecked();
+			// Radio items keep the menu open, so the switch is observable in place.
+			await waitFor( () =>
+				expect( screen.getByRole( 'menuitemradio', { name: /^Dark/ } ) ).toBeChecked()
+			);
+		} finally {
+			restoreUserAgent();
+		}
+	} );
+
+	it( 'toggles the preview color scheme on the primary-shift+D shortcut', async () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			capabilities: CAPABILITIES,
+			startSite: vi.fn().mockResolvedValue( undefined ),
+		} as never );
+
+		try {
+			renderPreview(
+				<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+			);
+
+			// jsdom reports a non-Apple platform, so the modifier pair is Ctrl+Shift.
+			fireEvent.keyDown( document.body, { key: 'd', ctrlKey: true, shiftKey: true } );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+			expect( await screen.findByRole( 'menuitemradio', { name: /^Dark/ } ) ).toBeChecked();
 		} finally {
 			restoreUserAgent();
 		}
@@ -369,6 +473,7 @@ describe( 'SitePreview', () => {
 			data: new Uint8Array( [ 1 ] ).buffer,
 		} );
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			capabilities: { ...CAPABILITIES, annotatePreview: true },
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			captureFullPageScreenshot,
@@ -384,7 +489,7 @@ describe( 'SitePreview', () => {
 				/>
 			);
 
-			await clickClipMenuItem( 'Clip the full page' );
+			await clickClipMenuItem( 'Clip the page' );
 
 			await waitFor( () => {
 				expect( captureFullPageScreenshot ).toHaveBeenCalledWith(
@@ -403,6 +508,7 @@ describe( 'SitePreview', () => {
 		const restoreUserAgent = mockElectronUserAgent();
 		const onConsoleEntriesChange = vi.fn();
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			copyText: vi.fn().mockResolvedValue( undefined ),
@@ -454,6 +560,7 @@ describe( 'SitePreview', () => {
 		const onClip = vi.fn().mockResolvedValue( undefined );
 		const createTemporaryTextFile = vi.fn().mockResolvedValue( '/tmp/browser-console.txt' );
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			copyText: vi.fn().mockResolvedValue( undefined ),
@@ -503,6 +610,7 @@ describe( 'SitePreview', () => {
 	it( 'resizes the console drawer from the shared resize handle', async () => {
 		const restoreUserAgent = mockElectronUserAgent();
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			copyText: vi.fn().mockResolvedValue( undefined ),
@@ -543,6 +651,7 @@ describe( 'SitePreview', () => {
 		const restoreUserAgent = mockElectronUserAgent();
 		const onConsoleEntriesChange = vi.fn();
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			copyText: vi.fn().mockResolvedValue( undefined ),
@@ -579,6 +688,7 @@ describe( 'SitePreview', () => {
 
 	it( 'reloads the preview on the primary-modifier+R shortcut', () => {
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -602,6 +712,7 @@ describe( 'SitePreview', () => {
 
 	it( 'switches realms on primary-modifier number shortcuts', () => {
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -635,6 +746,7 @@ describe( 'SitePreview', () => {
 
 	it( 'hides the Clip split button when the host cannot annotate the preview', () => {
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -659,6 +771,7 @@ describe( 'SitePreview', () => {
 		// may have stored one.
 		window.localStorage.clear();
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: { ...CAPABILITIES, annotatePreview: true },
 		} as never );
@@ -678,15 +791,16 @@ describe( 'SitePreview', () => {
 			expect( screen.getByRole( 'button', { name: 'Clip an element' } ) ).toBeInTheDocument();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Clip…' } ) );
 			expect( await screen.findByRole( 'menuitem', { name: 'Clip a region' } ) ).toBeVisible();
-			expect( screen.getByRole( 'menuitem', { name: 'Zoom in and snap' } ) ).toBeVisible();
-			expect( screen.getByRole( 'menuitem', { name: 'Clip the full page' } ) ).toBeVisible();
+			expect( screen.getByRole( 'menuitem', { name: 'Clip a detail' } ) ).toBeVisible();
+			expect( screen.getByRole( 'menuitem', { name: 'Clip the page' } ) ).toBeVisible();
 		} finally {
 			restoreUserAgent();
 		}
 	} );
 
-	it( 'omits the full preview toggle unless the host provides one', () => {
+	it( 'omits the full preview toggle unless the host provides one', async () => {
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -695,12 +809,16 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
 		);
 
-		expect( screen.queryByRole( 'button', { name: 'Full preview' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		// Wait for the menu to open before asserting the item's absence.
+		await screen.findByRole( 'menuitem', { name: 'Show console' } );
+		expect( screen.queryByRole( 'menuitem', { name: /^Full preview/ } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'toggles full preview from the toolbar button', () => {
+	it( 'toggles full preview from the overflow menu', async () => {
 		const onToggleFullscreen = vi.fn();
 		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
@@ -714,10 +832,7 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		const button = screen.getByRole( 'button', { name: 'Full preview' } );
-		expect( button ).toHaveAttribute( 'aria-pressed', 'false' );
-
-		fireEvent.click( button );
+		await clickOverflowMenuItem( /^Full preview/ );
 		expect( onToggleFullscreen ).toHaveBeenCalledTimes( 1 );
 
 		rerender(
@@ -730,10 +845,50 @@ describe( 'SitePreview', () => {
 			/>
 		);
 
-		expect( screen.getByRole( 'button', { name: 'Exit full preview' } ) ).toHaveAttribute(
-			'aria-pressed',
-			'true'
+		fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		expect( await screen.findByRole( 'menuitem', { name: /^Exit full preview/ } ) ).toBeVisible();
+	} );
+
+	it( 'toggles full preview on the primary-shift+F shortcut', () => {
+		const onToggleFullscreen = vi.fn();
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onToggleFullscreen={ onToggleFullscreen }
+			/>
 		);
+
+		// jsdom reports a non-Apple platform, so the modifier pair is Ctrl+Shift.
+		fireEvent.keyDown( document.body, { key: 'f', ctrlKey: true, shiftKey: true } );
+		expect( onToggleFullscreen ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'ignores the full preview shortcut when the host provides no toggle', () => {
+		useConnectorMock.mockReturnValue( {
+			...baseConnector(),
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		const keydown = fireEvent.keyDown( document.body, {
+			key: 'f',
+			ctrlKey: true,
+			shiftKey: true,
+		} );
+		// Nothing claimed the keystroke, so default handling continues.
+		expect( keydown ).toBe( true );
 	} );
 } );
 

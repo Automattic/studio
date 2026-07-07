@@ -115,6 +115,16 @@
 	opacity: 1;
 }
 
+/* Narrow toolbars: every segment goes icon-only (the active pill keeps its
+   fill, just not its name) so the tabs never crowd the toolbar's buttons. */
+@container studio-preview-toolbar (max-width: 680px) {
+	.segment[data-active='true'] .segmentTitle {
+		max-width: 0;
+		margin-inline: 0;
+		opacity: 0;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.indicator,
 	.segment,

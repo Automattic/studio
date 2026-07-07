@@ -45,6 +45,13 @@
 	padding-block: calc(var(--wpds-dimension-padding-xs) + 4px);
 }
 
+/* Full preview hides the sidebar, so the macOS traffic lights (at {20, 20})
+   overlay this toolbar's left edge; clear them the same way the sidebar
+   header does (94px). */
+.headerTrafficLights {
+	padding-left: 94px;
+}
+
 /* The toolbar doubles as a window drag region; the controls (including the
    omnibox trigger button) opt back out so they keep receiving mouse events. */
 .header button {
@@ -64,13 +71,6 @@
 
 .headerSideEnd {
 	justify-content: flex-end;
-}
-
-.browserControls {
-	display: flex;
-	align-items: center;
-	gap: 0;
-	flex-shrink: 0;
 }
 
 .refreshButton {
@@ -96,6 +96,7 @@
 	flex: 0 1 auto;
 	align-items: center;
 	justify-content: center;
+	gap: var(--wpds-dimension-padding-xs);
 	min-width: 0;
 }
 
@@ -128,16 +129,6 @@
 	background-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 	transform-origin: left center;
 	transition: transform 160ms ease-out;
-}
-
-.separator {
-	width: 1px;
-	height: 14px;
-	background-color: color-mix(
-		in srgb,
-		var(--wpds-color-fg-content-neutral) 22%,
-		transparent
-	);
 }
 
 .body {

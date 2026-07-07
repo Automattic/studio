@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import {
-	aspectRatio,
 	capturePhoto,
 	chevronLeft,
 	chevronRight,
@@ -22,17 +21,23 @@ import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DotGrid } from '@/components/dot-grid';
-import { IconSwitch } from '@/components/icon-switch';
 import * as Menu from '@/components/menu';
+import { OpenInDestinationItems, OpenInMenu } from '@/components/open-in-menu';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
-import { QuickMenuItem, QuickMenuPopup, QuickMenuTrigger } from '@/components/site-quick-menu';
+import {
+	QuickMenuItem,
+	QuickMenuPopup,
+	QuickMenuSubmenuTrigger,
+	QuickMenuTrigger,
+} from '@/components/site-quick-menu';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { bottomDrawerIcon, moonIcon, playIcon, refreshIcon, sunIcon } from '@/lib/icons';
+import { bottomDrawerIcon, playIcon, refreshIcon } from '@/lib/icons';
 import { usePluginSiteTag } from '@/lib/plugin-prototype';
 import {
 	formatPreviewConsoleEntriesForText,
@@ -188,6 +193,11 @@ const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
 	database: DATABASE_HOME_PATH,
 };
 
+// The split buttons fold into the overflow menu below this toolbar width;
+// the address segments drop their titles a little earlier via the
+// `studio-preview-toolbar` container query in location-omnibox.module.css.
+const NARROW_TOOLBAR_WIDTH = 600;
+
 const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 const DEFAULT_CONSOLE_HEIGHT = 280;
 const MIN_CONSOLE_HEIGHT = 168;
@@ -231,6 +241,28 @@ function getBrowserShortcutCommand(
 	return null;
 }
 
+// Preview chrome shortcuts (⇧⌘ on macOS, Ctrl+Shift elsewhere): D flips the
+// preview color scheme, F toggles full preview. Handled by the same
+// host-document listener as the browser shortcuts; the "•••" menu items
+// advertise them.
+const COLOR_SCHEME_SHORTCUT_KEY = 'd';
+const FULL_PREVIEW_SHORTCUT_KEY = 'f';
+
+function getPreviewChromeShortcut(
+	event: globalThis.KeyboardEvent
+): 'color-scheme' | 'full-preview' | null {
+	if ( event.defaultPrevented || event.repeat ) {
+		return null;
+	}
+	if ( isKeyboardEvent.primaryShift( event, COLOR_SCHEME_SHORTCUT_KEY ) ) {
+		return 'color-scheme';
+	}
+	if ( isKeyboardEvent.primaryShift( event, FULL_PREVIEW_SHORTCUT_KEY ) ) {
+		return 'full-preview';
+	}
+	return null;
+}
+
 // ⌘1/⌘2/⌘3 (Ctrl elsewhere) select the address bar's realm segments.
 function getRealmShortcut( event: globalThis.KeyboardEvent ): PreviewRealm | null {
 	if ( event.defaultPrevented || event.repeat ) {
@@ -259,99 +291,51 @@ function ToolbarTooltip( {
 	);
 }
 
-function PreviewColorSchemeSwitch( {
+// Trailing "•••" menu holding the preview's environment controls (responsive
+// mode, appearance, full preview) and the occasional actions that don't earn
+// a permanent toolbar button (console). All clip actions live in the Clip
+// split button; the open-in destinations live in the Open in… split button.
+function PreviewOverflowMenu( {
+	canPreview,
+	canUseWebview,
+	viewportWidth,
+	onViewportWidthChange,
 	colorScheme,
-	disabled,
-	onChange,
+	onColorSchemeChange,
+	fullscreen,
+	onToggleFullscreen,
+	consoleLabel,
+	onToggleConsole,
+	collapsedTools,
 }: {
+	canPreview: boolean;
+	canUseWebview: boolean;
+	viewportWidth: number | null;
+	onViewportWidthChange: ( width: number | null ) => void;
 	colorScheme: PreviewColorScheme;
-	disabled: boolean;
-	onChange: () => void;
+	onColorSchemeChange: ( scheme: PreviewColorScheme ) => void;
+	fullscreen: boolean;
+	onToggleFullscreen?: () => void;
+	consoleLabel: string;
+	onToggleConsole: () => void;
+	// At narrow toolbar widths the Clip and Open in… split buttons fold in
+	// here so they can't collide with the address segments.
+	collapsedTools?: {
+		clip: {
+			onRunAction: ( action: PreviewClipAction ) => void;
+			pageClipBusy: boolean;
+			clipCount: number;
+			onClearClips?: () => void;
+		} | null;
+		openIn: { site: SiteDetails; browserUrl?: string };
+	} | null;
 } ) {
-	const label =
-		colorScheme === 'dark' ? __( 'Preview in light mode' ) : __( 'Preview in dark mode' );
-
-	return (
-		<IconSwitch
-			checked={ colorScheme === 'dark' }
-			onChange={ onChange }
-			label={ label }
-			disabled={ disabled }
-			startIcon={ sunIcon }
-			endIcon={ moonIcon }
-		/>
-	);
-}
-
-// Temporary control for the viewport simulation while its real UI is being
-// designed: a plain radio menu of simulated-width presets.
-function PreviewViewportMenu( {
-	value,
-	disabled,
-	onChange,
-}: {
-	value: number | null;
-	disabled?: boolean;
-	onChange: ( width: number | null ) => void;
-} ) {
-	const labels: Record< ( typeof VIEWPORT_PRESETS )[ number ][ 'id' ], string > = {
+	const viewportLabels: Record< ( typeof VIEWPORT_PRESETS )[ number ][ 'id' ], string > = {
 		mobile: __( 'Mobile' ),
 		tablet: __( 'Tablet' ),
 		desktop: __( 'Desktop' ),
 	};
-	return (
-		<Menu.Root modal={ false }>
-			<Menu.Trigger
-				render={
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ aspectRatio }
-						label={ __( 'Simulate viewport size' ) }
-						aria-pressed={ value !== null }
-						disabled={ disabled }
-					/>
-				}
-			/>
-			<Menu.Popup side="bottom" align="end">
-				<Menu.RadioGroup
-					value={ value === null ? 'fit' : String( value ) }
-					onValueChange={ ( next ) => onChange( next === 'fit' ? null : Number( next ) ) }
-				>
-					<Menu.RadioItem value="fit">{ __( 'Fit pane' ) }</Menu.RadioItem>
-					{ VIEWPORT_PRESETS.map( ( preset ) => (
-						<Menu.RadioItem key={ preset.id } value={ String( preset.width ) }>
-							{ sprintf(
-								/* translators: 1: device name (e.g. Mobile), 2: viewport width in pixels */
-								__( '%1$s · %2$dpx' ),
-								labels[ preset.id ],
-								preset.width
-							) }
-						</Menu.RadioItem>
-					) ) }
-				</Menu.RadioGroup>
-			</Menu.Popup>
-		</Menu.Root>
-	);
-}
-
-// Trailing "•••" menu holding the occasional actions that don't earn a
-// permanent toolbar button: console and open in browser. All clip actions
-// live in the Clip split button.
-function PreviewOverflowMenu( {
-	canPreview,
-	canUseWebview,
-	consoleLabel,
-	onToggleConsole,
-	onOpenInBrowser,
-}: {
-	canPreview: boolean;
-	canUseWebview: boolean;
-	consoleLabel: string;
-	onToggleConsole: () => void;
-	onOpenInBrowser: () => void;
-} ) {
+	const colorSchemeShortcut = displayShortcut.primaryShift( COLOR_SCHEME_SHORTCUT_KEY );
 	return (
 		<Menu.Root modal={ false }>
 			<Menu.Trigger
@@ -366,19 +350,121 @@ function PreviewOverflowMenu( {
 				}
 			/>
 			<Menu.Popup side="bottom" align="end">
+				{ canPreview ? (
+					<>
+						<Menu.Group>
+							<Menu.GroupLabel>{ __( 'Responsive mode' ) }</Menu.GroupLabel>
+							<Menu.RadioGroup
+								value={ viewportWidth === null ? 'fit' : String( viewportWidth ) }
+								onValueChange={ ( next ) =>
+									onViewportWidthChange( next === 'fit' ? null : Number( next ) )
+								}
+							>
+								<Menu.RadioItem value="fit">{ __( 'Fit pane' ) }</Menu.RadioItem>
+								{ VIEWPORT_PRESETS.map( ( preset ) => (
+									<Menu.RadioItem key={ preset.id } value={ String( preset.width ) }>
+										{ sprintf(
+											/* translators: 1: device name (e.g. Mobile), 2: viewport width in pixels */
+											__( '%1$s · %2$dpx' ),
+											viewportLabels[ preset.id ],
+											preset.width
+										) }
+									</Menu.RadioItem>
+								) ) }
+							</Menu.RadioGroup>
+						</Menu.Group>
+						<Menu.Separator />
+						<Menu.Group>
+							<Menu.GroupLabel>{ __( 'Appearance' ) }</Menu.GroupLabel>
+							<Menu.RadioGroup
+								value={ colorScheme }
+								onValueChange={ ( next ) => onColorSchemeChange( next as PreviewColorScheme ) }
+							>
+								{ /* The toggle shortcut is advertised on the scheme it
+									would switch to. */ }
+								<Menu.RadioItem
+									value="light"
+									disabled={ ! canUseWebview }
+									shortcut={ colorScheme === 'dark' ? colorSchemeShortcut : undefined }
+								>
+									{ __( 'Light' ) }
+								</Menu.RadioItem>
+								<Menu.RadioItem
+									value="dark"
+									disabled={ ! canUseWebview }
+									shortcut={ colorScheme === 'light' ? colorSchemeShortcut : undefined }
+								>
+									{ __( 'Dark' ) }
+								</Menu.RadioItem>
+							</Menu.RadioGroup>
+						</Menu.Group>
+						<Menu.Separator />
+						{ onToggleFullscreen ? (
+							<QuickMenuItem
+								icon={ fullscreenIcon }
+								label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
+								shortcut={ displayShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ) }
+								onClick={ onToggleFullscreen }
+							/>
+						) : null }
+					</>
+				) : null }
 				<QuickMenuItem
 					icon={ bottomDrawerIcon }
 					label={ consoleLabel }
 					disabled={ ! canUseWebview }
 					onClick={ onToggleConsole }
 				/>
-				<Menu.Separator />
-				<QuickMenuItem
-					icon={ external }
-					label={ __( 'Open site in browser' ) }
-					disabled={ ! canPreview }
-					onClick={ onOpenInBrowser }
-				/>
+				{ collapsedTools ? (
+					<>
+						<Menu.Separator />
+						{ collapsedTools.clip ? (
+							<Menu.SubmenuRoot>
+								<QuickMenuSubmenuTrigger
+									icon={ capturePhoto }
+									label={ __( 'Clips' ) }
+									flyoutSide="left"
+								/>
+								<Menu.Popup side="left" align="start">
+									{ getClipActions().map( ( action ) => (
+										<QuickMenuItem
+											key={ action.id }
+											icon={ action.icon }
+											label={ action.label }
+											disabled={ action.id === 'page' && collapsedTools.clip?.pageClipBusy }
+											onClick={ () => collapsedTools.clip?.onRunAction( action.id ) }
+										/>
+									) ) }
+									{ collapsedTools.clip.onClearClips ? (
+										<>
+											<Menu.Separator />
+											<QuickMenuItem
+												icon={ trash }
+												label={ __( 'Clear clips' ) }
+												destructive
+												disabled={ collapsedTools.clip.clipCount === 0 }
+												onClick={ collapsedTools.clip.onClearClips }
+											/>
+										</>
+									) : null }
+								</Menu.Popup>
+							</Menu.SubmenuRoot>
+						) : null }
+						<Menu.SubmenuRoot>
+							<QuickMenuSubmenuTrigger
+								icon={ external }
+								label={ __( 'Open in…' ) }
+								flyoutSide="left"
+							/>
+							<Menu.Popup side="left" align="start">
+								<OpenInDestinationItems
+									site={ collapsedTools.openIn.site }
+									browserUrl={ collapsedTools.openIn.browserUrl }
+								/>
+							</Menu.Popup>
+						</Menu.SubmenuRoot>
+					</>
+				) : null }
 			</Menu.Popup>
 		</Menu.Root>
 	);
@@ -403,6 +489,16 @@ function getStoredClipAction(): PreviewClipAction {
 	} catch {
 		return 'element';
 	}
+}
+
+// Shared by the split button and the narrow-toolbar overflow section.
+function getClipActions(): { id: PreviewClipAction; icon: ReactElement; label: string }[] {
+	return [
+		{ id: 'element', icon: pencil, label: __( 'Clip an element' ) },
+		{ id: 'region', icon: crop, label: __( 'Clip a region' ) },
+		{ id: 'loupe', icon: search, label: __( 'Clip a detail' ) },
+		{ id: 'page', icon: capturePhoto, label: __( 'Clip the page' ) },
+	];
 }
 
 function PreviewClipMenu( {
@@ -432,12 +528,7 @@ function PreviewClipMenu( {
 			// Storage failures only mean the trigger won't persist.
 		}
 	};
-	const actions: { id: PreviewClipAction; icon: ReactElement; label: string }[] = [
-		{ id: 'element', icon: pencil, label: __( 'Clip an element' ) },
-		{ id: 'region', icon: crop, label: __( 'Clip a region' ) },
-		{ id: 'loupe', icon: search, label: __( 'Zoom in and snap' ) },
-		{ id: 'page', icon: capturePhoto, label: __( 'Clip the full page' ) },
-	];
+	const actions = getClipActions();
 	const runAction = ( action: PreviewClipAction ) => {
 		rememberAction( action );
 		if ( action === 'page' ) {
@@ -717,6 +808,10 @@ export function SitePreview( {
 	// With the sidebar hidden the split frame goes full-bleed, so the toolbar
 	// compensates for the lost frame gap (see .headerSidebarCollapsed).
 	const sidebarCollapsed = useSidebarCollapsed();
+	// In full preview the sidebar is gone, so the macOS traffic lights sit
+	// on top of this toolbar; reserve their corner (the hook is false on
+	// other platforms, in the browser, and in OS fullscreen).
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	// Prototype: plugin sites get plugin-flavored copy in the stopped state.
 	const pluginTag = usePluginSiteTag( site.id );
 	const siteUrl = getSiteUrl( site );
@@ -750,6 +845,25 @@ export function SitePreview( {
 	const [ isAttachingConsoleFile, setIsAttachingConsoleFile ] = useState( false );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const bodyRef = useRef< HTMLDivElement | null >( null );
+	const headerRef = useRef< HTMLDivElement | null >( null );
+	// Below this toolbar width the Clip and Open in… split buttons fold into
+	// the overflow menu so they can't collide with the address segments (the
+	// segments' titles collapse a little earlier, via a container query).
+	const [ isToolbarNarrow, setIsToolbarNarrow ] = useState( false );
+	useEffect( () => {
+		const header = headerRef.current;
+		if ( ! header || typeof ResizeObserver === 'undefined' ) {
+			return;
+		}
+		const observer = new ResizeObserver( ( entries ) => {
+			const width = entries[ entries.length - 1 ]?.contentRect.width;
+			if ( typeof width === 'number' ) {
+				setIsToolbarNarrow( width < NARROW_TOOLBAR_WIDTH );
+			}
+		} );
+		observer.observe( header );
+		return () => observer.disconnect();
+	}, [] );
 	const locationRef = useRef< HTMLDivElement | null >( null );
 	const paneRef = useRef< HTMLDivElement | null >( null );
 	const commandIdRef = useRef( 0 );
@@ -1004,6 +1118,21 @@ export function SitePreview( {
 		commandIdRef.current += 1;
 		setPageClipRequest( { id: commandIdRef.current } );
 	}, [ canPageClip, isCapturingPageClip ] );
+	// Runs a clip action from the collapsed (narrow-toolbar) menu items;
+	// the split button owns its own copy of this toggle logic.
+	const runClipAction = useCallback(
+		( action: PreviewClipAction ) => {
+			if ( action === 'page' ) {
+				requestPageClip();
+				return;
+			}
+			sendInspectorCommand( {
+				type: 'set-mode',
+				mode: inspectorState.mode === action ? 'off' : action,
+			} );
+		},
+		[ inspectorState.mode, requestPageClip, sendInspectorCommand ]
+	);
 	const togglePreviewColorScheme = useCallback( () => {
 		setPreviewColorScheme( ( current ) => ( current === 'dark' ? 'light' : 'dark' ) );
 	}, [] );
@@ -1093,7 +1222,14 @@ export function SitePreview( {
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
 			const command = getBrowserShortcutCommand( event );
 			const realm = command ? null : getRealmShortcut( event );
-			if ( ! command && ! realm ) {
+			const chrome = command || realm ? null : getPreviewChromeShortcut( event );
+			// Chrome shortcuts only claim the keystroke when their action is
+			// actually available (color scheme needs the webview's emulation,
+			// full preview needs a host-provided toggle).
+			const chromeEnabled =
+				( chrome === 'color-scheme' && canUseWebview ) ||
+				( chrome === 'full-preview' && !! onToggleFullscreen );
+			if ( ! command && ! realm && ! chromeEnabled ) {
 				return;
 			}
 			const activeElement = document.activeElement;
@@ -1110,12 +1246,24 @@ export function SitePreview( {
 				sendBrowserCommand( command );
 			} else if ( realm ) {
 				handleSwitchRealm( realm );
+			} else if ( chrome === 'color-scheme' ) {
+				togglePreviewColorScheme();
+			} else if ( chrome === 'full-preview' ) {
+				onToggleFullscreen?.();
 			}
 		};
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ canPreview, collapsed, handleSwitchRealm, sendBrowserCommand ] );
+	}, [
+		canPreview,
+		canUseWebview,
+		collapsed,
+		handleSwitchRealm,
+		onToggleFullscreen,
+		sendBrowserCommand,
+		togglePreviewColorScheme,
+	] );
 
 	// Escape pressed while focus is in the host document exits the active
 	// clip mode (the guest handles Escape itself when focused).
@@ -1147,12 +1295,41 @@ export function SitePreview( {
 			className={ clsx( styles.root, fullscreen && styles.rootFullscreen ) }
 			aria-label={ __( 'Site preview' ) }
 		>
-			<div className={ clsx( styles.header, sidebarCollapsed && styles.headerSidebarCollapsed ) }>
+			<div
+				ref={ headerRef }
+				className={ clsx(
+					styles.header,
+					sidebarCollapsed && styles.headerSidebarCollapsed,
+					fullscreen && reserveTrafficLightSpace && styles.headerTrafficLights
+				) }
+			>
 				{ /* Equal-flex side tracks keep the address control truly centered
 					in the toolbar regardless of what each side holds. */ }
 				<div className={ styles.headerSide }>
 					{ canPreview ? (
-						<div className={ styles.browserControls } aria-label={ __( 'Browser navigation' ) }>
+						<ToolbarTooltip label={ refreshTooltipLabel.trim() }>
+							<Button
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								className={ styles.refreshButton }
+								aria-label={ __( 'Refresh' ) }
+								aria-keyshortcuts={ browserShortcuts.reload.ariaKeyShortcut }
+								onClick={ () => sendBrowserCommand( 'reload' ) }
+							>
+								<span className={ styles.refreshIcon } aria-hidden="true">
+									{ refreshIcon }
+								</span>
+							</Button>
+						</ToolbarTooltip>
+					) : null }
+				</div>
+				{ /* Back/forward flank the address segments so history controls sit
+					with the place they navigate; symmetric widths keep the segments
+					(and the omnibox popup anchored to this element) centered. */ }
+				<div ref={ locationRef } className={ styles.browserLocation }>
+					{ canPreview ? (
+						<>
 							<IconButton
 								variant="minimal"
 								tone="neutral"
@@ -1162,6 +1339,15 @@ export function SitePreview( {
 								shortcut={ browserShortcuts.back }
 								disabled={ ! browserState.canGoBack }
 								onClick={ () => sendBrowserCommand( 'back' ) }
+							/>
+							<PreviewAddressBar
+								site={ site }
+								siteUrl={ siteUrl }
+								path={ getSafePath( path ) }
+								searchEnabled={ canUseWebview }
+								anchorRef={ locationRef }
+								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
+								onSwitchRealm={ handleSwitchRealm }
 							/>
 							<IconButton
 								variant="minimal"
@@ -1173,80 +1359,57 @@ export function SitePreview( {
 								disabled={ ! browserState.canGoForward }
 								onClick={ () => sendBrowserCommand( 'forward' ) }
 							/>
-							<ToolbarTooltip label={ refreshTooltipLabel.trim() }>
-								<Button
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									className={ styles.refreshButton }
-									aria-label={ __( 'Refresh' ) }
-									aria-keyshortcuts={ browserShortcuts.reload.ariaKeyShortcut }
-									onClick={ () => sendBrowserCommand( 'reload' ) }
-								>
-									<span className={ styles.refreshIcon } aria-hidden="true">
-										{ refreshIcon }
-									</span>
-								</Button>
-							</ToolbarTooltip>
-						</div>
-					) : null }
-				</div>
-				<div ref={ locationRef } className={ styles.browserLocation }>
-					{ canPreview ? (
-						<PreviewAddressBar
-							site={ site }
-							siteUrl={ siteUrl }
-							path={ getSafePath( path ) }
-							searchEnabled={ canUseWebview }
-							anchorRef={ locationRef }
-							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
-							onSwitchRealm={ handleSwitchRealm }
-						/>
+						</>
 					) : null }
 				</div>
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
-					{ canPreview ? (
-						<>
-							{ connector.capabilities.annotatePreview && onClip && canUseWebview ? (
-								<>
-									<PreviewClipMenu
-										activeMode={ inspectorState.mode }
-										onSetMode={ ( nextMode ) =>
-											sendInspectorCommand( { type: 'set-mode', mode: nextMode } )
-										}
-										onPageClip={ requestPageClip }
-										pageClipBusy={ isCapturingPageClip }
-										clipCount={ clipMarkers?.length ?? 0 }
-										onClearClips={ onClipRemove ? clearClips : undefined }
-									/>
-									<span className={ styles.separator } aria-hidden="true" />
-								</>
-							) : null }
-							<PreviewViewportMenu value={ viewportWidth } onChange={ setViewportWidth } />
-							<PreviewColorSchemeSwitch
-								colorScheme={ previewColorScheme }
-								disabled={ ! canUseWebview }
-								onChange={ togglePreviewColorScheme }
-							/>
-							{ onToggleFullscreen ? (
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ fullscreenIcon }
-									label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
-									aria-pressed={ fullscreen }
-									onClick={ onToggleFullscreen }
-								/>
-							) : null }
-						</>
+					{ ! isToolbarNarrow &&
+					canPreview &&
+					connector.capabilities.annotatePreview &&
+					onClip &&
+					canUseWebview ? (
+						<PreviewClipMenu
+							activeMode={ inspectorState.mode }
+							onSetMode={ ( nextMode ) =>
+								sendInspectorCommand( { type: 'set-mode', mode: nextMode } )
+							}
+							onPageClip={ requestPageClip }
+							pageClipBusy={ isCapturingPageClip }
+							clipCount={ clipMarkers?.length ?? 0 }
+							onClearClips={ onClipRemove ? clearClips : undefined }
+						/>
 					) : null }
+					{ ! isToolbarNarrow ? <OpenInMenu site={ site } browserUrl={ previewUrl } /> : null }
 					<PreviewOverflowMenu
 						canPreview={ canPreview }
 						canUseWebview={ canUseWebview }
+						viewportWidth={ viewportWidth }
+						onViewportWidthChange={ setViewportWidth }
+						colorScheme={ previewColorScheme }
+						onColorSchemeChange={ setPreviewColorScheme }
+						fullscreen={ fullscreen }
+						onToggleFullscreen={ onToggleFullscreen }
 						consoleLabel={ consoleButtonLabel }
 						onToggleConsole={ () => setConsoleOpen( ( current ) => ! current ) }
-						onOpenInBrowser={ () => void connector.openExternalUrl( previewUrl ) }
+						collapsedTools={
+							isToolbarNarrow
+								? {
+										clip:
+											canPreview &&
+											connector.capabilities.annotatePreview &&
+											onClip &&
+											canUseWebview
+												? {
+														onRunAction: runClipAction,
+														pageClipBusy: isCapturingPageClip,
+														clipCount: clipMarkers?.length ?? 0,
+														onClearClips: onClipRemove ? clearClips : undefined,
+												  }
+												: null,
+										openIn: { site, browserUrl: previewUrl },
+								  }
+								: null
+						}
 					/>
 				</div>
 				{ showLoadingProgress ? (

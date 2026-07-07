@@ -166,8 +166,10 @@ function reducer( state: State, action: Action ): State {
 			};
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
-			// survive the transition. Everything else resets.
-			return { ...initialState, queuedPrompts: state.queuedPrompts };
+			// survive the transition, and any error surfaced during the run so a
+			// failed turn stays visible after the subprocess winds down (the next
+			// send clears it). Everything else resets.
+			return { ...initialState, error: state.error, queuedPrompts: state.queuedPrompts };
 		case 'interrupt_requested':
 			return {
 				...state,

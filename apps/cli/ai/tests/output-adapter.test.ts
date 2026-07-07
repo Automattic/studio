@@ -123,3 +123,68 @@ describe( 'JsonAdapter showTosNotice', () => {
 		expect( stdoutWriteSpy ).not.toHaveBeenCalled();
 	} );
 } );
+
+describe( 'JsonAdapter handleEvent error surfacing', () => {
+	let originalSend: typeof process.send;
+	let emitted: Array< { type: string; message?: string } >;
+
+	beforeEach( () => {
+		emitted = [];
+		originalSend = process.send;
+		( process as unknown as { send: typeof process.send } ).send = ( ( event: unknown ) => {
+			emitted.push( event as { type: string; message?: string } );
+			return true;
+		} ) as typeof process.send;
+	} );
+
+	afterEach( () => {
+		( process as unknown as { send: typeof process.send } ).send = originalSend;
+	} );
+
+	const buildAgentEnd = ( overrides: {
+		stopReason?: string;
+		errorMessage?: string;
+		text?: string;
+	} ) =>
+		( {
+			type: 'agent_end',
+			messages: [
+				{
+					role: 'assistant',
+					content: overrides.text ? [ { type: 'text', text: overrides.text } ] : [],
+					stopReason: overrides.stopReason ?? 'stop',
+					errorMessage: overrides.errorMessage,
+				},
+			],
+		} ) as unknown as Parameters< JsonAdapter[ 'handleEvent' ] >[ 0 ];
+
+	it( 'emits an error event when an agent_end turn errored, using the errorMessage', () => {
+		new JsonAdapter().handleEvent(
+			buildAgentEnd( { stopReason: 'error', errorMessage: 'API Error: 500 internal server error' } )
+		);
+
+		const errorEvent = emitted.find( ( e ) => e.type === 'error' );
+		expect( errorEvent ).toBeDefined();
+		expect( errorEvent?.message ).toBe( 'API Error: 500 internal server error' );
+	} );
+
+	it( 'falls back to a generic message when the errored turn carries no reason', () => {
+		new JsonAdapter().handleEvent( buildAgentEnd( { stopReason: 'error' } ) );
+
+		const errorEvent = emitted.find( ( e ) => e.type === 'error' );
+		expect( errorEvent ).toBeDefined();
+		expect( errorEvent?.message ).toMatch( /error/i );
+	} );
+
+	it( 'does not emit an error event for a successful agent_end', () => {
+		new JsonAdapter().handleEvent( buildAgentEnd( { stopReason: 'stop', text: 'Done!' } ) );
+
+		expect( emitted.some( ( e ) => e.type === 'error' ) ).toBe( false );
+	} );
+
+	it( 'does not emit an error event when the turn was interrupted', () => {
+		new JsonAdapter().handleEvent( buildAgentEnd( { stopReason: 'aborted' } ) );
+
+		expect( emitted.some( ( e ) => e.type === 'error' ) ).toBe( false );
+	} );
+} );

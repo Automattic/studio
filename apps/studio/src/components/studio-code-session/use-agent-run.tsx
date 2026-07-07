@@ -171,9 +171,12 @@ function reducer( state: State, action: Action ): State {
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
 			// survive the transition, and the answered-question map so picked
-			// options stay highlighted in history. Everything else resets.
+			// options stay highlighted in history. Keep any error surfaced during
+			// the run so a failed turn stays visible after the subprocess winds
+			// down (the next send clears it). Everything else resets.
 			return {
 				...initialState,
+				error: state.error,
 				queuedPrompts: state.queuedPrompts,
 				answeredQuestions: state.answeredQuestions,
 			};

@@ -1,4 +1,6 @@
 import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { getAgentEndErrorMessage, getAgentEndTurnResult } from '@studio/common/ai/session-events';
+import { __ } from '@wordpress/i18n';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
@@ -144,6 +146,21 @@ export class JsonAdapter implements AiOutputAdapter {
 		// state without loading the JSONL itself. The wire keeps the existing
 		// `'message'` envelope, with a native AgentSessionEvent as the payload.
 		emitEvent( { type: 'message', timestamp: new Date().toISOString(), message: event } );
+
+		// A turn that fails mid-run (e.g. a model API 5xx) comes back as a
+		// resolved `agent_end` whose last assistant message has
+		// `stopReason: 'error'` — it never rejects, so nothing else emits a
+		// user-facing error. Surface it here so the desktop UI shows the failure
+		// instead of silently returning to idle.
+		if ( event.type === 'agent_end' ) {
+			const result = getAgentEndTurnResult( event );
+			if ( ! result.success && ! result.interrupted ) {
+				this.showError(
+					getAgentEndErrorMessage( event ) ??
+						__( 'The AI agent stopped because of an unexpected error. Please try again.' )
+				);
+			}
+		}
 	}
 
 	emitTurnCompleted(

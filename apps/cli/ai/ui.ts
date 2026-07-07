@@ -27,7 +27,7 @@ import {
 } from '@earendil-works/pi-tui';
 import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
-import { findLastAssistant } from '@studio/common/ai/session-events';
+import { findLastAssistant, getAgentEndErrorMessage } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio/common/ai/tools';
 import chalk from '@studio/common/lib/chalk';
@@ -2144,13 +2144,7 @@ export class AiChatUI implements AiOutputAdapter {
 					lastAssistant?.stopReason === 'error' || lastAssistant?.stopReason === 'aborted';
 
 				if ( isError ) {
-					const errorText = lastAssistant?.errorMessage?.trim();
-					const fallbackText = lastAssistant?.content
-						.filter( ( block ): block is { type: 'text'; text: string } => block.type === 'text' )
-						.map( ( block ) => block.text )
-						.join( '\n' )
-						.trim();
-					this.showError( errorText || fallbackText || __( 'Unknown error' ) );
+					this.showError( getAgentEndErrorMessage( event ) ?? __( 'Unknown error' ) );
 					return;
 				}
 

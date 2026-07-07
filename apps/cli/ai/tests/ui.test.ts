@@ -591,6 +591,53 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showInfo ).not.toHaveBeenCalled();
 	} );
 
+	it( 'surfaces an error when an agent_end turn ended in error', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const showError = vi.fn();
+
+		ui.hideLoader = vi.fn();
+		ui.showError = showError;
+		ui.usageCapReached = false;
+		ui.wasInterrupted = false;
+
+		ui.handleEvent( {
+			type: 'agent_end',
+			messages: [
+				{
+					role: 'assistant',
+					content: [],
+					stopReason: 'error',
+					errorMessage: 'API Error: 500 internal server error',
+				},
+			],
+		} );
+
+		expect( showError ).toHaveBeenCalledWith( 'API Error: 500 internal server error' );
+	} );
+
+	it( 'falls back to a generic error message for an errored agent_end with no reason', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		const showError = vi.fn();
+
+		ui.hideLoader = vi.fn();
+		ui.showError = showError;
+		ui.usageCapReached = false;
+		ui.wasInterrupted = false;
+
+		ui.handleEvent( {
+			type: 'agent_end',
+			messages: [ { role: 'assistant', content: [], stopReason: 'error' } ],
+		} );
+
+		expect( showError ).toHaveBeenCalledWith( expect.stringMatching( /error/i ) );
+	} );
+
 	it( 'does not trip the cap branch when an assistant error has no 429 marker', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
 			handleEvent: ( e: unknown ) => unknown;

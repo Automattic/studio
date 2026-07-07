@@ -111,16 +111,6 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 	}
 
-	/**
-	 * Run a PowerShell script and resolve with its stdout.
-	 *
-	 * We read and write the user PATH via PowerShell rather than a native
-	 * registry module: the previous `winreg` dependency is abandoned, and its
-	 * maintained native replacements compile from source (node-gyp), which is a
-	 * poor fit for our cross-platform build. PowerShell is always present on
-	 * Windows and needs no build step. This mirrors the raw-registry approach in
-	 * `apps/cli/commands/uninstall.ts`.
-	 */
 	private runPowerShell( script: string ): Promise< string > {
 		return new Promise( ( resolve, reject ) => {
 			const child = spawn(

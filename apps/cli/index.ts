@@ -3,6 +3,7 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import yargs from 'yargs';
+import { registerCommand as registerCheckpointCommand } from 'cli/commands/checkpoint';
 import { registerCommand as registerExportCommand } from 'cli/commands/export';
 import { registerCommand as registerImportCommand } from 'cli/commands/import';
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
@@ -216,6 +217,7 @@ async function main() {
 
 	registerImportCommand( studioArgv );
 	registerExportCommand( studioArgv );
+	registerCheckpointCommand( studioArgv );
 
 	registerUiCommand( studioArgv );
 	registerUninstallCommand( studioArgv );

@@ -2,14 +2,12 @@
  * Accessors for reprint.phar's on-disk state files.
  *
  * reprint.phar writes a JSON progress file (`.import-state.json`) and a
- * JSONL index (`.import-remote-index.jsonl`) under each pull's state
- * directory.  Studio reads those files to decide whether to resume or
- * restart a phase, detect stale layouts, etc.
+ * skipped-download list under each pull's state directory. Studio reads
+ * only the fields it needs to wire the imported runtime and decide
+ * whether to invoke the follow-up skipped-files sync.
  *
- * This module is the single seam where Studio couples to reprint's
- * internal schema.  When reprint renames a field or moves data around,
- * the fix is scoped to this file — every other caller goes through
- * these accessors.
+ * This module is the single place where Studio couples to reprint's
+ * on-disk output. Reprint owns its own state machine.
  */
 import fs from 'fs';
 import path from 'path';
@@ -17,23 +15,13 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { z } from 'zod';
 
 const STATE_FILE = '.import-state.json';
-export const SKIPPED_DOWNLOAD_LIST = '.import-download-list-skipped.jsonl';
+const SKIPPED_DOWNLOAD_LIST = '.import-download-list-skipped.jsonl';
 
-export const reprintStateSnapshotSchema = z.looseObject( {
-	command: z.string().nullish(),
-	status: z.string().nullish(),
-	cursor: z.unknown().optional(),
-	stage: z.string().nullish(),
-	filter: z.string().nullish(),
+const reprintStateSnapshotSchema = z.looseObject( {
 	preflight: z
 		.looseObject( {
 			data: z
 				.looseObject( {
-					runtime: z
-						.looseObject( {
-							document_root: z.string().nullish(),
-						} )
-						.optional(),
 					database: z
 						.looseObject( {
 							wp: z
@@ -53,13 +41,13 @@ export const reprintStateSnapshotSchema = z.looseObject( {
 		.optional(),
 } );
 
-export type ReprintStateSnapshot = z.infer< typeof reprintStateSnapshotSchema >;
+type ReprintStateSnapshot = z.infer< typeof reprintStateSnapshotSchema >;
 
-export function getReprintStatePath( stateDirectory: string ): string {
+function getReprintStatePath( stateDirectory: string ): string {
 	return path.join( stateDirectory, STATE_FILE );
 }
 
-export function readReprintState( stateDirectory: string ): ReprintStateSnapshot | null {
+function readReprintState( stateDirectory: string ): ReprintStateSnapshot | null {
 	let raw: string;
 	try {
 		raw = fs.readFileSync( getReprintStatePath( stateDirectory ), 'utf-8' );
@@ -73,14 +61,6 @@ export function readReprintState( stateDirectory: string ): ReprintStateSnapshot
 	const parsedJson = JSON.parse( raw );
 	const parsed = reprintStateSnapshotSchema.safeParse( parsedJson );
 	return parsed.success ? parsed.data : null;
-}
-
-export function writeReprintState( stateDirectory: string, state: ReprintStateSnapshot ): void {
-	const parsedState = reprintStateSnapshotSchema.parse( state );
-	fs.writeFileSync(
-		getReprintStatePath( stateDirectory ),
-		JSON.stringify( parsedState, null, 2 ) + '\n'
-	);
 }
 
 /**

@@ -134,7 +134,7 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		).toEqual( { id: 1, name: 'Example', url: 'https://example.wordpress.com/' } );
 	} );
 
-	it( 'rewrites the reprint state before downloading skipped-earlier files', async () => {
+	it( 'invokes reprint to download skipped-earlier files', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-skipped-' )
 		);
@@ -143,29 +143,13 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		fs.mkdirSync( stateDirectory, { recursive: true } );
 		fs.mkdirSync( rawDirectory, { recursive: true } );
 
-		// Pre-existing state from a previous db-apply run + a non-empty
-		// skipped-download list is the signal that there's a tail of files
-		// to fetch.
-		fs.writeFileSync(
-			path.join( stateDirectory, '.import-state.json' ),
-			JSON.stringify( {
-				command: 'db-apply',
-				status: 'complete',
-				stage: 'sql',
-				filter: 'skipped-earlier',
-				preflight: { data: { ok: true } },
-			} )
-		);
-		fs.writeFileSync(
-			path.join( stateDirectory, '.import-download-list-skipped.jsonl' ),
-			'{"path":"foo"}\n'
-		);
-
-		vi.spyOn( migrationClient, 'runReprintCommandUntilComplete' ).mockResolvedValue( {
-			stdout: '{"ok":true}',
-			stderr: '',
-			exitCode: 0,
-		} );
+		const reprintSpy = vi
+			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
+			.mockResolvedValue( {
+				stdout: '{"ok":true}',
+				stderr: '',
+				exitCode: 0,
+			} );
 
 		await downloadSkippedFiles(
 			SITE_RUNTIME_PLAYGROUND,
@@ -179,16 +163,9 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 			false
 		);
 
-		// Reprint state was rewritten to the shape reprint's next
-		// files-sync call expects when resuming into skipped-earlier.
-		const nextState = JSON.parse(
-			fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' )
+		expect( reprintSpy.mock.calls[ 0 ][ 2 ] ).toEqual(
+			expect.arrayContaining( [ 'files-sync', '--filter=skipped-earlier' ] )
 		);
-		expect( nextState.command ).toBe( 'files-sync' );
-		expect( nextState.status ).toBe( 'complete' );
-		expect( nextState.stage ).toBeNull();
-		expect( nextState.filter ).toBe( 'essential-files' );
-		expect( nextState.preflight ).toEqual( { data: { ok: true } } );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
@@ -810,47 +787,21 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		expect( logSpy.mock.calls.flat().join( '\n' ) ).toContain( 'Updating "My Completed Site"' );
 	} );
 
-	it( 'normalizes stale skipped-earlier reprint state before starting an essential-files re-pull', async () => {
+	it( 'runs an essential-files reprint pull for a completed site without forcing', async () => {
 		const { runCommand } = await loadRunCommandWithFakeHome();
 		mockWpComPullSource();
 
-		const pullsRoot = path.join( fakeHome, '.studio', 'pulls' );
-		const technicalSiteDirectory = path.join( pullsRoot, 'stale-filter-id' );
-		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
 		const sitePath = path.join( fakeHome, 'Studio', 'Stale-Filter-Site' );
 
 		seedCliConfigSite( fakeHome, [
-			makeSiteRecord( { id: 'stale-filter-id', name: 'Stale Filter Site', path: sitePath } ),
+			makeSiteRecord( {
+				id: 'stale-filter-id',
+				name: 'Stale Filter Site',
+				path: sitePath,
+				importComplete: true,
+				status: 'ready',
+			} ),
 		] );
-
-		fs.mkdirSync( stateDirectory, { recursive: true } );
-		fs.mkdirSync( sitePath, { recursive: true } );
-		fs.writeFileSync(
-			path.join( technicalSiteDirectory, 'pull.json' ),
-			JSON.stringify( { version: 1, stage: 'completed' } )
-		);
-		fs.writeFileSync(
-			path.join( stateDirectory, '.import-state.json' ),
-			JSON.stringify( {
-				command: 'files-pull',
-				status: 'in_progress',
-				filter: 'skipped-earlier',
-				preflight: {
-					data: {
-						database: {
-							wp: {
-								paths_urls: { content_dir: '/srv/htdocs/wp-content' },
-							},
-						},
-					},
-				},
-			} )
-		);
-		fs.writeFileSync( path.join( stateDirectory, '.import-index.jsonl' ), '{"path":"old"}\n' );
-		fs.writeFileSync(
-			path.join( stateDirectory, '.import-download-list-skipped.jsonl' ),
-			'{"path":"tail"}\n'
-		);
 
 		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
 		const reprintSpy = vi
@@ -876,28 +827,9 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 				}
 
 				if ( args[ 0 ] === 'pull' ) {
-					const state = JSON.parse(
-						fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' )
-					);
-					expect( state ).toMatchObject( {
-						command: 'files-pull',
-						status: 'complete',
-						stage: null,
-						filter: 'essential-files',
-						preflight: {
-							data: {
-								database: {
-									wp: {
-										paths_urls: { content_dir: '/srv/htdocs/wp-content' },
-									},
-								},
-							},
-						},
-					} );
-					expect( fs.existsSync( path.join( stateDirectory, '.import-index.jsonl' ) ) ).toBe(
-						true
-					);
-					throw new Error( 'stop after essential-files state normalization' );
+					expect( args ).toEqual( expect.arrayContaining( [ '--filter=essential-files' ] ) );
+					expect( args ).not.toContain( '--force' );
+					throw new Error( 'stop after essential-files pull invocation' );
 				}
 
 				throw new Error( `Unexpected reprint command: ${ args[ 0 ] }` );
@@ -906,7 +838,7 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
 
 		await expect( runCommand( sitePath, 'https://example.com', false ) ).rejects.toThrow(
-			/stop after essential-files state normalization/
+			/stop after essential-files pull invocation/
 		);
 
 		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [

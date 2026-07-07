@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { STUDIO_CHAT_MAX_FILES } from '../chat-files';
-import { STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES } from '../chat-images';
+import { STUDIO_CHAT_MAX_IMAGE_BYTES, STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES } from '../chat-images';
 import {
 	COMPOSER_FILE_IMAGE_PREVIEW_MAX_BYTES,
 	getComposerClipboardFiles,
@@ -8,6 +8,7 @@ import {
 	prepareComposerAttachments,
 	type ComposerAttachment,
 } from '../composer-attachments';
+import { stubImageEnvironment } from './utils/image-stubs';
 
 const prepareMessages = {
 	imageTooLarge: 'image too large',
@@ -39,7 +40,57 @@ function createImageAttachment( id: string, size: number ): ComposerAttachment {
 	};
 }
 
+afterEach( () => {
+	vi.unstubAllGlobals();
+} );
+
 describe( 'prepareComposerAttachments', () => {
+	it( 'downscales images that exceed the dimension limit before attaching', async () => {
+		stubImageEnvironment( { width: 9000, height: 4500 } );
+
+		const result = await prepareComposerAttachments(
+			[ new File( [ new Uint8Array( 1024 ) ], 'huge.png', { type: 'image/png' } ) ],
+			{
+				resolveFilePath: () => '/tmp/huge.png',
+				messages: prepareMessages,
+			}
+		);
+
+		expect( result.error ).toBeNull();
+		expect( result.attachments ).toHaveLength( 1 );
+		expect( result.attachments[ 0 ] ).toMatchObject( {
+			kind: 'image',
+			name: 'huge.jpg',
+			mimeType: 'image/jpeg',
+			size: 'downscaled'.length,
+			dataBase64: Buffer.from( 'downscaled' ).toString( 'base64' ),
+		} );
+	} );
+
+	it( 'accepts an over-limit-byte image once downscaling brings it under the cap', async () => {
+		stubImageEnvironment( { width: 8500, height: 8500 } );
+
+		const result = await prepareComposerAttachments(
+			[
+				new File( [ new Uint8Array( STUDIO_CHAT_MAX_IMAGE_BYTES + 1 ) ], 'dense.png', {
+					type: 'image/png',
+				} ),
+			],
+			{
+				resolveFilePath: () => '/tmp/dense.png',
+				messages: prepareMessages,
+			}
+		);
+
+		expect( result.error ).toBeNull();
+		expect( result.attachments ).toHaveLength( 1 );
+		expect( result.attachments[ 0 ] ).toMatchObject( {
+			kind: 'image',
+			mimeType: 'image/jpeg',
+			size: 'downscaled'.length,
+		} );
+	} );
+
 	it( 'returns an attach error when resolving a file path fails', async () => {
 		const result = await prepareComposerAttachments(
 			[ new File( [ '%PDF-1.7' ], 'sample.pdf', { type: 'application/pdf' } ) ],

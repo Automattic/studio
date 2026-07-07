@@ -7,6 +7,7 @@ import {
 	type StudioChatImage,
 	type StudioChatImageMimeType,
 } from './chat-images';
+import { fitImageFileWithinLimit } from './image-fit';
 
 export interface ComposerImageAttachment {
 	id: string;
@@ -260,7 +261,9 @@ export async function prepareComposerAttachments(
 
 	for ( const file of incoming ) {
 		if ( isStudioChatImageMimeType( file.type ) ) {
-			if ( file.size > STUDIO_CHAT_MAX_IMAGE_BYTES ) {
+			const fitted = await fitImageFileWithinLimit( file );
+			const mimeType = isStudioChatImageMimeType( fitted.type ) ? fitted.type : file.type;
+			if ( fitted.size > STUDIO_CHAT_MAX_IMAGE_BYTES ) {
 				addUniqueError( errors, messages.imageTooLarge );
 				continue;
 			}
@@ -268,22 +271,22 @@ export async function prepareComposerAttachments(
 				addUniqueError( errors, messages.maxImages );
 				continue;
 			}
-			if ( imageBytes + file.size > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) {
+			if ( imageBytes + fitted.size > STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES ) {
 				addUniqueError( errors, messages.totalImagesTooLarge );
 				continue;
 			}
 			try {
-				const dataBase64 = await readFileAsBase64( file );
+				const dataBase64 = await readFileAsBase64( fitted );
 				attachments.push( {
 					id: newAttachmentId(),
 					kind: 'image',
-					name: file.name,
-					mimeType: file.type,
-					size: file.size,
+					name: fitted.name,
+					mimeType,
+					size: fitted.size,
 					dataBase64,
 				} );
 				imageCount++;
-				imageBytes += file.size;
+				imageBytes += fitted.size;
 			} catch {
 				addUniqueError( errors, messages.imageReadFailed );
 			}

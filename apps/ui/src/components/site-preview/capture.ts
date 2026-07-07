@@ -27,6 +27,54 @@ export function localMediaFileToDataUrl( file: LocalMediaFile ): string {
 export const isFiniteNumber = ( value: unknown ): value is number =>
 	typeof value === 'number' && Number.isFinite( value );
 
+// Longest side any clip image may have when it reaches the composer. The
+// Anthropic API hard-rejects images over 8000px in either dimension (a 400
+// that poisons the whole conversation, since history re-sends attachments),
+// and anything past ~1568px gets downscaled server-side anyway — extra
+// pixels are pure upload cost.
+export const MAX_CLIP_IMAGE_DIMENSION = 2000;
+
+/**
+ * Downscales an image file so its longest side fits `maxDimension`,
+ * re-encoding as JPEG. Returns the original file when it already fits.
+ */
+export async function fitImageFileWithinLimit(
+	file: File,
+	maxDimension: number = MAX_CLIP_IMAGE_DIMENSION
+): Promise< File > {
+	let bitmap: ImageBitmap;
+	try {
+		bitmap = await createImageBitmap( file );
+	} catch {
+		// Undecodable image (or no createImageBitmap, e.g. tests): pass the
+		// original through rather than dropping the clip.
+		return file;
+	}
+	try {
+		const scale = maxDimension / Math.max( bitmap.width, bitmap.height );
+		if ( scale >= 1 ) {
+			return file;
+		}
+		const canvas = document.createElement( 'canvas' );
+		canvas.width = Math.max( 1, Math.round( bitmap.width * scale ) );
+		canvas.height = Math.max( 1, Math.round( bitmap.height * scale ) );
+		const context = canvas.getContext( '2d' );
+		if ( ! context ) {
+			return file;
+		}
+		context.drawImage( bitmap, 0, 0, canvas.width, canvas.height );
+		const blob = await new Promise< Blob | null >( ( resolve ) =>
+			canvas.toBlob( resolve, 'image/jpeg', 0.85 )
+		);
+		if ( ! blob ) {
+			return file;
+		}
+		return new File( [ blob ], file.name, { type: 'image/jpeg' } );
+	} finally {
+		bitmap.close();
+	}
+}
+
 // Rects come from the (untrusted) guest page over the console bridge; only
 // clean numeric rects are acted on.
 export function sanitizeViewportRect( rect: unknown ): ClipViewportRect | null {
@@ -71,9 +119,11 @@ export async function cropViewportCapture(
 		const sw = Math.min( bitmap.width - sx, rect.width * ratio );
 		const sh = Math.min( bitmap.height - sy, rect.height * ratio );
 		if ( sw < 1 || sh < 1 ) return null;
+		// Keep crops within the attachment dimension budget as they render.
+		const fit = Math.min( 1, MAX_CLIP_IMAGE_DIMENSION / Math.max( sw, sh ) );
 		const canvas = document.createElement( 'canvas' );
-		canvas.width = Math.round( sw );
-		canvas.height = Math.round( sh );
+		canvas.width = Math.max( 1, Math.round( sw * fit ) );
+		canvas.height = Math.max( 1, Math.round( sh * fit ) );
 		const context = canvas.getContext( '2d' );
 		if ( ! context ) return null;
 		context.drawImage( bitmap, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height );

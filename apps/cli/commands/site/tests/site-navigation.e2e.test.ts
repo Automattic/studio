@@ -151,8 +151,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site navigation', () =>
 	} );
 
 	it( '"Post name" permalink structure works', { tags: [ 'e2e' ], timeout: 120_000 }, async () => {
-		// `wp rewrite structure` hangs under Playground; set the option and clear
-		// the cached rules instead — WordPress regenerates them on the next request.
+		// `wp rewrite structure` spawns a child `wp rewrite flush` process, which hangs
+		// under Playground; set the option and clear the cached rules instead.
 		await wp( 'option', 'update', 'permalink_structure', '/%postname%/' );
 		await wp( 'option', 'delete', 'rewrite_rules' );
 

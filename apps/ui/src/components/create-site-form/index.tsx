@@ -1,6 +1,16 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { generatePassword } from '@studio/common/lib/passwords';
+import {
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
@@ -16,9 +26,11 @@ import {
 	adminPasswordField,
 	adminUsernameField,
 	customDomainField,
-	phpVersionField,
-	siteNameField,
 	customDomainToggleField,
+	fileAccessField,
+	phpVersionField,
+	runtimeField,
+	siteNameField,
 	wpVersionField,
 } from '@/components/site-fields';
 import { useConnector } from '@/data/core';
@@ -41,6 +53,8 @@ export interface CreateSiteFormValues {
 	name: string;
 	path: string;
 	phpVersion: SupportedPHPVersion;
+	runtime: SiteRuntime;
+	fileAccess: SiteFileAccess;
 	wpVersion: string;
 	customDomain?: string;
 	enableHttps: boolean;
@@ -71,6 +85,8 @@ interface FormData {
 	// toggle before `generateProposedPath` resolves.
 	isPathPending: boolean;
 	phpVersion: SupportedPHPVersion;
+	runtime: SiteRuntime;
+	fileAccess: SiteFileAccess;
 	wpVersion: string;
 	useCustomDomain: boolean;
 	customDomain: string;
@@ -90,6 +106,8 @@ function applyInitialValues( prev: FormData, values: Partial< CreateSiteFormValu
 	const next: FormData = { ...prev };
 	if ( values.name !== undefined && ! prev.name ) next.name = values.name;
 	if ( values.phpVersion !== undefined ) next.phpVersion = values.phpVersion;
+	if ( values.runtime !== undefined ) next.runtime = values.runtime;
+	if ( values.fileAccess !== undefined ) next.fileAccess = values.fileAccess;
 	if ( values.wpVersion !== undefined ) next.wpVersion = values.wpVersion;
 	if ( values.adminUsername !== undefined ) next.adminUsername = values.adminUsername;
 	if ( values.adminPassword !== undefined ) next.adminPassword = values.adminPassword;
@@ -298,6 +316,8 @@ export function CreateSiteForm( {
 			pathError: '',
 			isPathPending: false,
 			phpVersion: RecommendedPHPVersion,
+			runtime: SITE_RUNTIME_NATIVE_PHP,
+			fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 			wpVersion: DEFAULT_WORDPRESS_VERSION,
 			useCustomDomain: false,
 			customDomain: '',
@@ -375,6 +395,8 @@ export function CreateSiteForm( {
 				},
 			},
 			phpVersionField< FormData >(),
+			runtimeField< FormData >(),
+			fileAccessField< FormData >(),
 			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions ),
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
@@ -411,6 +433,11 @@ export function CreateSiteForm( {
 					id: 'versions',
 					layout: { type: 'row' },
 					children: [ 'phpVersion', 'wpVersion' ],
+				},
+				{
+					id: 'runtimeSettings',
+					layout: { type: 'row' },
+					children: [ 'runtime', 'fileAccess' ],
 				},
 				{
 					id: 'adminCredentials',
@@ -451,6 +478,9 @@ export function CreateSiteForm( {
 			if ( ! prev.useCustomDomain && next.useCustomDomain && ! next.customDomain ) {
 				next.customDomain = generateCustomDomainFromSiteName( next.name );
 			}
+			if ( next.runtime !== prev.runtime && getSiteRuntime( next ) === SITE_RUNTIME_PLAYGROUND ) {
+				next.fileAccess = SITE_FILE_ACCESS_SITE_DIRECTORY;
+			}
 			return next;
 		} );
 	}, [] );
@@ -466,6 +496,11 @@ export function CreateSiteForm( {
 			name: data.name.trim(),
 			path: data.path,
 			phpVersion: data.phpVersion,
+			runtime: data.runtime,
+			fileAccess:
+				getSiteRuntime( data ) === SITE_RUNTIME_PLAYGROUND
+					? SITE_FILE_ACCESS_SITE_DIRECTORY
+					: data.fileAccess,
 			wpVersion: data.wpVersion,
 			customDomain: data.useCustomDomain
 				? data.customDomain || generateCustomDomainFromSiteName( data.name )

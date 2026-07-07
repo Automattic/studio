@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
+import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-certificate-trust';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import {
 	useCopySite,
@@ -18,6 +19,7 @@ import {
 	useXdebugEnabledSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import { SiteOverviewView } from './index';
 import type { SiteDetails } from '@/data/core';
 
@@ -88,6 +90,15 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-certificate-trust', () => ( {
+	useCertificateTrust: vi.fn(),
+	useTrustCertificate: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
+	useWordPressVersions: vi.fn(),
+} ) );
+
 vi.mock( '@/hooks/use-fullscreen', () => ( {
 	useFullscreen: () => false,
 } ) );
@@ -112,6 +123,9 @@ const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
 const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
+const useCertificateTrustMock = vi.mocked( useCertificateTrust, { partial: true } );
+const useTrustCertificateMock = vi.mocked( useTrustCertificate, { partial: true } );
+const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 
 describe( 'SiteOverviewView', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
@@ -222,6 +236,9 @@ describe( 'SiteOverviewView', () => {
 				defaultAiModel: 'claude-sonnet-5',
 			},
 		} );
+		useCertificateTrustMock.mockReturnValue( { data: true } );
+		useTrustCertificateMock.mockReturnValue( { mutate: vi.fn() } );
+		useWordPressVersionsMock.mockReturnValue( { data: [] } );
 	} );
 
 	it( 'renders the shortcut sections', async () => {

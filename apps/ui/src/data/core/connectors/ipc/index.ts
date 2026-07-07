@@ -13,6 +13,7 @@ import type {
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
+	InstructionFileStatus,
 	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
@@ -398,6 +399,8 @@ export function createIpcConnector(): Connector {
 				name,
 				path,
 				phpVersion,
+				runtime,
+				fileAccess,
 				wpVersion,
 				customDomain,
 				enableHttps,
@@ -410,6 +413,8 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.createSite( path, {
 				siteName: name,
 				phpVersion,
+				runtime,
+				fileAccess,
 				wpVersion,
 				customDomain,
 				enableHttps,
@@ -658,6 +663,51 @@ export function createIpcConnector(): Connector {
 
 		async getXdebugEnabledSite() {
 			return ( await ipcApi.getXdebugEnabledSite() ) as SiteDetails | null;
+		},
+
+		async isCertificateTrusted() {
+			return ( await ipcApi.isCATrusted() ) as boolean;
+		},
+
+		async trustCertificate() {
+			await ipcApi.trustCertificate();
+		},
+
+		async openSiteFileInEditor( siteId, relativePath ) {
+			ipcApi.openFileInIDE( relativePath, siteId );
+		},
+
+		async openSiteDebugLog( siteId ) {
+			const logPath = ( await ipcApi.getAbsolutePathFromSite( siteId, 'wp-content/debug.log' ) ) as
+				| string
+				| null;
+			if ( logPath ) {
+				ipcApi.openLocalPath( logPath );
+			}
+		},
+
+		async getAgentInstructionsStatus( siteId ) {
+			return ( await ipcApi.getAgentInstructionsStatus( siteId ) ) as InstructionFileStatus[];
+		},
+
+		async installAgentInstructions( siteId, options ) {
+			await ipcApi.installAgentInstructions( siteId, options );
+		},
+
+		async removeAgentInstruction( siteId, fileType ) {
+			await ipcApi.removeAgentInstruction( siteId, fileType );
+		},
+
+		async getWordPressSkillsStatus( siteId ) {
+			return ( await ipcApi.getWordPressSkillsStatus( siteId ) ) as SkillStatus[];
+		},
+
+		async installWordPressSkillById( siteId, skillId ) {
+			await ipcApi.installWordPressSkillById( siteId, skillId );
+		},
+
+		async removeWordPressSkillById( siteId, skillId ) {
+			await ipcApi.removeWordPressSkillById( siteId, skillId );
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {

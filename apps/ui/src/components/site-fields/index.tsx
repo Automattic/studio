@@ -11,11 +11,25 @@ import {
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
+import {
+	SITE_FILE_ACCESS_ALL_FILES,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { SelectControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
+import { FileAccessDescription, RuntimeDescription } from '@/components/site-runtime-copy';
+import styles from './style.module.css';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
-import type { Field } from '@wordpress/dataviews';
+import type { DataFormControlProps, Field } from '@wordpress/dataviews';
 
 const PHP_VERSION_ELEMENTS = SupportedPHPVersions.map( ( version ) => ( {
 	value: version,
@@ -37,6 +51,82 @@ export function phpVersionField< T extends { phpVersion: SupportedPHPVersion } >
 		type: 'text',
 		label: __( 'PHP version' ),
 		elements: PHP_VERSION_ELEMENTS,
+	};
+}
+
+function RuntimeControl< T extends { runtime: SiteRuntime } >( {
+	data: item,
+	field,
+	onChange,
+}: DataFormControlProps< T > ) {
+	return (
+		<div>
+			<SelectControl
+				__next40pxDefaultSize
+				__nextHasNoMarginBottom
+				label={ field.label }
+				value={ item.runtime }
+				options={ [
+					/* translators: As in an application that runs natively on a computer */
+					{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
+					/* translators: As in a secure, sandboxed environment */
+					{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
+				] }
+				onChange={ ( value ) => onChange( { runtime: value as SiteRuntime } as Partial< T > ) }
+			/>
+			<p className={ styles.fieldDescription }>
+				<RuntimeDescription runtime={ item.runtime } learnMoreLink />
+			</p>
+		</div>
+	);
+}
+
+function FileAccessControl< T extends { runtime: SiteRuntime; fileAccess: SiteFileAccess } >( {
+	data: item,
+	field,
+	onChange,
+}: DataFormControlProps< T > ) {
+	const runtime = getSiteRuntime( item );
+	const usedFileAccess =
+		runtime === SITE_RUNTIME_PLAYGROUND ? SITE_FILE_ACCESS_SITE_DIRECTORY : item.fileAccess;
+	return (
+		<div>
+			<SelectControl
+				__next40pxDefaultSize
+				__nextHasNoMarginBottom
+				label={ field.label }
+				value={ usedFileAccess }
+				disabled={ runtime === SITE_RUNTIME_PLAYGROUND }
+				options={ [
+					{ label: __( 'Site directory' ), value: SITE_FILE_ACCESS_SITE_DIRECTORY },
+					{ label: __( 'All files' ), value: SITE_FILE_ACCESS_ALL_FILES },
+				] }
+				onChange={ ( value ) =>
+					onChange( { fileAccess: value as SiteFileAccess } as Partial< T > )
+				}
+			/>
+			<p className={ styles.fieldDescription }>
+				<FileAccessDescription runtime={ runtime } fileAccess={ usedFileAccess } />
+			</p>
+		</div>
+	);
+}
+
+export function runtimeField< T extends { runtime: SiteRuntime } >(): Field< T > {
+	return {
+		id: 'runtime',
+		label: __( 'PHP runtime' ),
+		Edit: RuntimeControl,
+	};
+}
+
+export function fileAccessField<
+	T extends { runtime: SiteRuntime; fileAccess: SiteFileAccess },
+>(): Field< T > {
+	return {
+		id: 'fileAccess',
+		label: __( 'File access' ),
+		Edit: FileAccessControl,
 	};
 }
 

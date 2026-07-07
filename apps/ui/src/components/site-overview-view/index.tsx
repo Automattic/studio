@@ -19,7 +19,6 @@ import {
 import { Button } from '@wordpress/ui';
 import { useState } from 'react';
 import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
-import { CheckpointTimeline } from '@/components/checkpoint-timeline';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
@@ -73,13 +72,24 @@ type SiteOverviewTabId = 'overview' | SiteSettingsTabId;
 
 function isSiteOverviewTab( value: string ): value is SiteOverviewTabId {
 	return (
-		value === 'overview' || value === 'general' || value === 'debugging' || value === 'checkpoints'
+		value === 'overview' ||
+		value === 'general' ||
+		value === 'debugging' ||
+		value === 'skills' ||
+		value === 'instructions' ||
+		value === 'checkpoints'
 	);
 }
 
-// The settings-form tabs; checkpoints renders its own panel, not the form.
+// The settings-form tabs; checkpoints/skills/instructions render their own panels.
 function isSettingsTab( value: SiteOverviewTabId ): value is SiteSettingsTabId {
-	return value === 'general' || value === 'debugging';
+	return (
+		value === 'general' ||
+		value === 'debugging' ||
+		value === 'skills' ||
+		value === 'instructions' ||
+		value === 'checkpoints'
+	);
 }
 
 function OverviewHeader( { site }: { site: SiteDetails } ) {
@@ -316,6 +326,8 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 								<Tabs.Tab tabId="overview">{ __( 'Overview' ) }</Tabs.Tab>
 								<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
 								<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
+								<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
+								<Tabs.Tab tabId="instructions">{ __( 'Instructions' ) }</Tabs.Tab>
 								{ supportsCheckpoints ? (
 									<Tabs.Tab tabId="checkpoints">{ __( 'Checkpoints' ) }</Tabs.Tab>
 								) : null }
@@ -463,11 +475,6 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 										embedded
 										showTabs={ false }
 									/>
-								</Tabs.Panel>
-							) : null }
-							{ supportsCheckpoints && activeTab === 'checkpoints' ? (
-								<Tabs.Panel tabId="checkpoints" className={ styles.panel }>
-									<CheckpointTimeline siteId={ site.id } />
 								</Tabs.Panel>
 							) : null }
 						</main>

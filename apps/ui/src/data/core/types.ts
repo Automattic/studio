@@ -9,6 +9,8 @@ import type {
 	ToolPermissionOverrides,
 } from '@studio/common/ai/tool-permissions';
 import type { SupportedLocale } from '@studio/common/lib/locale';
+import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
+import type { SiteRuntime } from '@studio/common/lib/site-runtime';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
@@ -98,6 +100,17 @@ export interface AiSessionPlacementUpdatedEvent {
 	placement: AiSessionSitePlacement;
 }
 
+export type InstructionFileType = 'agents' | 'claude' | 'studio';
+
+export interface InstructionFileStatus {
+	id: InstructionFileType;
+	fileName: string;
+	displayName: string;
+	description: string;
+	exists: boolean;
+	path: string;
+}
+
 export interface SiteDetails {
 	id: string;
 	name: string;
@@ -108,6 +121,8 @@ export interface SiteDetails {
 	customDomain?: string;
 	enableHttps?: boolean;
 	phpVersion: string;
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 	isWpAutoUpdating?: boolean;
 	adminUsername?: string;
 	// Base64-encoded. Use encodePassword/decodePassword from
@@ -272,6 +287,25 @@ export interface Connector {
 	// Xdebug is exclusive across sites; returns the one site currently using
 	// it (or null) so the settings form can block a conflicting toggle.
 	getXdebugEnabledSite(): Promise< SiteDetails | null >;
+	// Whether the Studio root CA is trusted in the OS keychain (HTTPS custom
+	// domains). Desktop only.
+	isCertificateTrusted(): Promise< boolean >;
+	trustCertificate(): Promise< void >;
+	// Opens a file relative to the site root in the preferred editor. Desktop only.
+	openSiteFileInEditor( siteId: string, relativePath: string ): Promise< void >;
+	// Opens wp-content/debug.log in the system default app. Desktop only.
+	openSiteDebugLog( siteId: string ): Promise< void >;
+	// Per-site agent instruction files (AGENTS.md, CLAUDE.md, STUDIO.md).
+	getAgentInstructionsStatus( siteId: string ): Promise< InstructionFileStatus[] >;
+	installAgentInstructions(
+		siteId: string,
+		options?: { fileType?: InstructionFileType; overwrite?: boolean }
+	): Promise< void >;
+	removeAgentInstruction( siteId: string, fileType: InstructionFileType ): Promise< void >;
+	// Per-site WordPress skill overrides (override global skills from Settings).
+	getWordPressSkillsStatus( siteId: string ): Promise< SkillStatus[] >;
+	installWordPressSkillById( siteId: string, skillId: string ): Promise< void >;
+	removeWordPressSkillById( siteId: string, skillId: string ): Promise< void >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -655,6 +689,8 @@ export interface CreateSiteParams {
 	name: string;
 	path: string;
 	phpVersion?: SupportedPHPVersion;
+	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 	wpVersion?: string;
 	customDomain?: string;
 	enableHttps?: boolean;

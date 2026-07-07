@@ -115,6 +115,8 @@ function OnboardingBlueprintPage() {
 				name: values.name,
 				path: values.path,
 				phpVersion: values.phpVersion,
+				runtime: values.runtime,
+				fileAccess: values.fileAccess,
 				wpVersion: values.wpVersion,
 				customDomain: values.customDomain,
 				enableHttps: values.enableHttps,

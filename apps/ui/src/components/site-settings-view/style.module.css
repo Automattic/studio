@@ -116,3 +116,25 @@
 	justify-content: flex-end;
 	gap: var(--wpds-dimension-padding-sm);
 }
+
+.phpVersionWarning,
+.inlineWarning {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-xs);
+	margin: 0 0 var(--wpds-dimension-padding-md);
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.phpVersionWarning svg {
+	flex-shrink: 0;
+	fill: var(--wpds-color-fg-content-warning);
+}
+
+.debuggingActions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-padding-sm);
+	margin-bottom: var(--wpds-dimension-padding-md);
+}

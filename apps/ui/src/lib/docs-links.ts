@@ -25,6 +25,9 @@ const DOCS_LINKS = {
 	docsSkills: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/',
 	},
+	docsPhpRuntimes: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/',
+	},
 	docsSyncSupportedSites: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/#sitios-compatibles',

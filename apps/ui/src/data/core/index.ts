@@ -14,6 +14,8 @@ export type {
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
+	InstructionFileStatus,
+	InstructionFileType,
 	LocalMediaFile,
 	LoadedAiSession,
 	PermissionDecision,

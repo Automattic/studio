@@ -205,6 +205,36 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getXdebugEnabledSite(): Promise< SiteDetails | null > {
 			return null;
 		},
+		async isCertificateTrusted(): Promise< boolean > {
+			return false;
+		},
+		async trustCertificate() {
+			throw new UnsupportedError( 'trustCertificate' );
+		},
+		async openSiteFileInEditor() {
+			throw new UnsupportedError( 'openSiteFileInEditor' );
+		},
+		async openSiteDebugLog() {
+			throw new UnsupportedError( 'openSiteDebugLog' );
+		},
+		async getAgentInstructionsStatus() {
+			throw new UnsupportedError( 'getAgentInstructionsStatus' );
+		},
+		async installAgentInstructions() {
+			throw new UnsupportedError( 'installAgentInstructions' );
+		},
+		async removeAgentInstruction() {
+			throw new UnsupportedError( 'removeAgentInstruction' );
+		},
+		async getWordPressSkillsStatus() {
+			throw new UnsupportedError( 'getWordPressSkillsStatus' );
+		},
+		async installWordPressSkillById() {
+			throw new UnsupportedError( 'installWordPressSkillById' );
+		},
+		async removeWordPressSkillById() {
+			throw new UnsupportedError( 'removeWordPressSkillById' );
+		},
 		async exportFullSite(): Promise< string | null > {
 			throw new UnsupportedError( 'exportFullSite' );
 		},

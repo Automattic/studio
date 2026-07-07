@@ -351,6 +351,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					name: params.name,
 					path: params.path,
 					phpVersion: params.phpVersion,
+					runtime: params.runtime,
+					fileAccess: params.fileAccess,
 					wpVersion: params.wpVersion,
 					customDomain: params.customDomain,
 					enableHttps: params.enableHttps,
@@ -817,6 +819,49 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getXdebugEnabledSite(): Promise< SiteDetails | null > {
 			return null;
 		},
+
+		async isCertificateTrusted(): Promise< boolean > {
+			return false;
+		},
+
+		async trustCertificate() {
+			throw new UnsupportedError( 'trustCertificate' );
+		},
+
+		async openSiteFileInEditor() {
+			throw new UnsupportedError( 'openSiteFileInEditor' );
+		},
+
+		async openSiteDebugLog( siteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-debug-log`, {
+				method: 'POST',
+			} );
+		},
+
+		async getAgentInstructionsStatus() {
+			throw new UnsupportedError( 'getAgentInstructionsStatus' );
+		},
+
+		async installAgentInstructions() {
+			throw new UnsupportedError( 'installAgentInstructions' );
+		},
+
+		async removeAgentInstruction() {
+			throw new UnsupportedError( 'removeAgentInstruction' );
+		},
+
+		async getWordPressSkillsStatus() {
+			throw new UnsupportedError( 'getWordPressSkillsStatus' );
+		},
+
+		async installWordPressSkillById() {
+			throw new UnsupportedError( 'installWordPressSkillById' );
+		},
+
+		async removeWordPressSkillById() {
+			throw new UnsupportedError( 'removeWordPressSkillById' );
+		},
+
 		async findAvailableSitePath(): Promise< AvailableSitePath > {
 			throw new UnsupportedError( 'findAvailableSitePath' );
 		},

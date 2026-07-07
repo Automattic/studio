@@ -45,6 +45,8 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-runtime';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { createJsonResponse, fetchSiteRest } from '@studio/common/lib/wordpress-rest';
@@ -145,6 +147,8 @@ function toSiteDetails( site: SiteListItem ) {
 		running: site.running,
 		url: site.url,
 		phpVersion: site.phpVersion,
+		runtime: site.runtime,
+		fileAccess: site.fileAccess,
 		customDomain: site.customDomain,
 		enableHttps: site.enableHttps,
 		adminUsername: site.adminUsername,
@@ -515,6 +519,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				name?: string;
 				path?: string;
 				phpVersion?: string;
+				runtime?: SiteCreateOptions[ 'runtime' ];
+				fileAccess?: SiteCreateOptions[ 'fileAccess' ];
 				wpVersion?: string;
 				customDomain?: string;
 				enableHttps?: boolean;
@@ -543,6 +549,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				siteId,
 				wpVersion: body.wpVersion,
 				phpVersion: body.phpVersion,
+				runtime: body.runtime,
+				fileAccess: body.fileAccess,
 				customDomain: body.customDomain,
 				enableHttps: body.enableHttps,
 				adminUsername: body.adminUsername,
@@ -598,7 +606,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// Edit a site's settings — the same CLI `site set` the desktop uses, built
 	// from the shared arg builder. Mirrors the desktop's diff: only changed
-	// fields are forwarded (the agentic UI doesn't edit runtime/file-access).
+	// fields are forwarded.
 	api.post(
 		'/sites/:id/update',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -631,6 +639,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			if ( wpVersion ) {
 				options.wp = isWordPressDevVersion( wpVersion ) ? 'nightly' : wpVersion;
+			}
+			if ( getSiteRuntime( updated ) !== getSiteRuntime( current ) ) {
+				options.runtime = siteModeFromRuntime( getSiteRuntime( updated ) );
+			}
+			if ( getSiteFileAccess( updated ) !== getSiteFileAccess( current ) ) {
+				options.fileAccess = getSiteFileAccess( updated );
 			}
 			if ( ( updated.enableXdebug ?? false ) !== ( current.enableXdebug ?? false ) ) {
 				options.xdebug = updated.enableXdebug ?? false;
@@ -695,6 +709,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				name: newName,
 				siteId: newId,
 				phpVersion: source.phpVersion,
+				runtime: source.runtime,
+				fileAccess: source.fileAccess,
 				adminUsername: source.adminUsername || undefined,
 				adminPassword: source.adminPassword ? decodePassword( source.adminPassword ) : undefined,
 				adminEmail: source.adminEmail || undefined,
@@ -1029,6 +1045,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await openPath( site.path );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.post(
+		'/sites/:id/open-debug-log',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await openPath( path.join( site.path, 'wp-content', 'debug.log' ) );
 			res.status( 204 ).end();
 		} )
 	);

@@ -1,5 +1,7 @@
 import {
 	resolveNativePhpVersion,
+	getConfiguredPhpBinaryPackageId,
+	getConfiguredPhpBinaryPackageVersion,
 	getConfiguredPhpBinaryVersion,
 	getPhpBinaryDownloadInfo,
 } from '@studio/common/lib/php-binary-metadata';
@@ -11,6 +13,8 @@ describe( 'getPhpBinaryDownloadInfo', () => {
 		expect( getPhpBinaryDownloadInfo( '8.4', 'darwin', 'arm64' ) ).toEqual(
 			expect.objectContaining( {
 				patchVersion: getConfiguredPhpBinaryVersion( '8.4' ),
+				packageId: getConfiguredPhpBinaryPackageId( '8.4' ),
+				packageVersion: getConfiguredPhpBinaryPackageVersion( '8.4' ),
 				url: expect.stringContaining( '/downloads/wordpress-com-studio-php-cli/mac-silicon/' ),
 				sha: expect.stringMatching( /^[a-f0-9]{64}$/ ),
 			} )
@@ -21,6 +25,8 @@ describe( 'getPhpBinaryDownloadInfo', () => {
 		expect( getPhpBinaryDownloadInfo( '8.4', 'win32', 'arm64' ) ).toEqual(
 			expect.objectContaining( {
 				patchVersion: getConfiguredPhpBinaryVersion( '8.4' ),
+				packageId: getConfiguredPhpBinaryPackageId( '8.4' ),
+				packageVersion: getConfiguredPhpBinaryPackageVersion( '8.4' ),
 				url: expect.stringContaining( '/downloads/wordpress-com-studio-php-cli/windows-x64/' ),
 				sha: expect.stringMatching( /^[a-f0-9]{64}$/ ),
 			} )
@@ -29,6 +35,15 @@ describe( 'getPhpBinaryDownloadInfo', () => {
 
 	it( 'returns the configured patch version for a PHP minor', () => {
 		expect( getConfiguredPhpBinaryVersion( '8.4' ) ).toMatch( /^\d+\.\d+\.\d+$/ );
+	} );
+
+	it( 'returns a package ID composed from the PHP patch and optional package version', () => {
+		const patchVersion = getConfiguredPhpBinaryVersion( '8.4' );
+		const packageVersion = getConfiguredPhpBinaryPackageVersion( '8.4' );
+
+		expect( getConfiguredPhpBinaryPackageId( '8.4' ) ).toBe(
+			packageVersion ? `${ patchVersion }-${ packageVersion }` : patchVersion
+		);
 	} );
 
 	it( 'returns undefined when metadata is missing for the platform', () => {

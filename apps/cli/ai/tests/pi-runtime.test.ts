@@ -413,7 +413,7 @@ describe( 'pi runtime', () => {
 				ANTHROPIC_CUSTOM_HEADERS:
 					'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-1',
 			},
-			model: 'claude-sonnet-4-6',
+			model: 'claude-sonnet-5',
 			session: newSession(),
 		} );
 
@@ -447,7 +447,7 @@ describe( 'pi runtime', () => {
 				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
 				ANTHROPIC_CUSTOM_HEADERS: 'X-WPCOM-AI-Feature: studio-assistant-anthropic',
 			},
-			model: 'claude-sonnet-4-6',
+			model: 'claude-sonnet-5',
 			session: newSession(),
 		} );
 

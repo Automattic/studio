@@ -13,6 +13,16 @@ vi.mock( '@/data/core', () => ( {
 
 const useConnectorMock = vi.mocked( useConnector );
 
+// Browser-style capabilities (no native dialogs, no preview annotation) — the
+// component reads `connector.capabilities` to decide which toolbar controls show.
+const CAPABILITIES = {
+	nativeFolderPicker: false,
+	nativeSaveDialog: false,
+	openInOS: false,
+	annotatePreview: false,
+	readLocalMedia: false,
+};
+
 function renderPreview( children: ReactNode ) {
 	const queryClient = new QueryClient( {
 		defaultOptions: {
@@ -43,6 +53,7 @@ describe( 'SitePreview', () => {
 	it( 'shows the current page title and exposes the URL in a tooltip', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
 		} as never );
 
 		renderPreview(
@@ -65,6 +76,7 @@ describe( 'SitePreview', () => {
 	it( 'shows adjacent toolbar tooltips immediately while the delay group is active', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
 		} as never );
 
 		renderPreview(
@@ -92,6 +104,7 @@ describe( 'SitePreview', () => {
 	it( 'hides the browser controls when the site is not running', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
 		} as never );
 
 		renderPreview( <SitePreview site={ createSite() } path="/wp-admin/" reloadNonce={ 0 } /> );
@@ -105,6 +118,7 @@ describe( 'SitePreview', () => {
 	it( 'shows a refresh button that reloads the active preview surface', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
 		} as never );
 
 		const { container } = renderPreview(
@@ -126,6 +140,7 @@ describe( 'SitePreview', () => {
 	it( 'reloads the preview on the primary-modifier+R shortcut', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
 		} as never );
 
 		const { container } = renderPreview(
@@ -143,6 +158,34 @@ describe( 'SitePreview', () => {
 		const reloadedIframe = container.querySelector( 'iframe' );
 		fireEvent.keyDown( document.body, { key: 'r', ctrlKey: true, shiftKey: true } );
 		expect( container.querySelector( 'iframe' ) ).toBe( reloadedIframe );
+	} );
+
+	it( 'hides the Annotate control when the host cannot annotate the preview', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		// The toolbar is present (Refresh shows) but Annotate is omitted entirely.
+		expect( screen.getByRole( 'button', { name: 'Refresh' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows the Annotate control when the host supports preview annotation', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
+		} as never );
+
+		renderPreview(
+			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+		);
+
+		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
 	} );
 } );
 

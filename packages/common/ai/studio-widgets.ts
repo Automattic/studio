@@ -1,3 +1,4 @@
+import { isRecord } from './chat-artifacts';
 import type { StudioChatArtifactWidgetDraft } from './chat-artifacts';
 
 interface StudioWidgetSpec {
@@ -60,9 +61,9 @@ export const STUDIO_PRESENTATION_RULES: StudioPresentationRule[] = [
 			'When an image, video, SVG, logo, icon, illustration, or other visual asset is generated, written to, or discovered on disk, present it as a media widget using a file:// URL and local source metadata. For generated SVGs, write a complete .svg file to a local path first, then present that file. Use a temporary file when the user only wants to see the asset; save under the site or project only when they ask for a durable file. Do not present generated SVG code as a drawing widget.',
 	},
 	{
-		id: 'screenshot-local-media',
+		id: 'screenshot-auto-artifact',
 		description:
-			'When the user asks to take, show, or capture a screenshot, present the actual captured PNG from take_screenshot as a media widget using the returned local-file payload. Do not substitute a site-preview widget for a screenshot; site-preview is for live previews, not captured screenshots. Do not present every internal verification screenshot.',
+			'take_screenshot captures are already shown to the user as inline media in the conversation. Never call studio_present for a screenshot, and do not substitute a site-preview widget for one; site-preview is for live previews, not captured screenshots.',
 	},
 ];
 
@@ -370,10 +371,6 @@ function isPostCollectionWidgetProps( props: Record< string, unknown > ): boolea
 		isOneOf( props.query.order, POST_COLLECTION_ORDERS ) &&
 		( props.viewMode === undefined || isOneOf( props.viewMode, STACK_VIEW_MODES ) )
 	);
-}
-
-function isRecord( value: unknown ): value is Record< string, unknown > {
-	return Boolean( value ) && typeof value === 'object' && ! Array.isArray( value );
 }
 
 function isNonNegativeInteger( value: unknown ): value is number {

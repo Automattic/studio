@@ -1,6 +1,7 @@
 import { emitChatArtifactWidgets } from 'cli/ai/chat-artifacts';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
+import { dataLiberationTool } from './data-liberation';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
@@ -27,7 +28,7 @@ import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
 import { waitForAnnotationsTool } from './wait-for-annotations';
 import { runWpCliTool } from './wp-cli';
-import type { AnyStudioAgentTool } from './define-tool';
+import type { AnyStudioAgentTool, StudioToolResultDetails } from './define-tool';
 
 export { captureCommandOutput } from './utils';
 
@@ -50,6 +51,7 @@ export const studioToolDefinitions: AnyStudioAgentTool[] = [
 	inspectDesignTool,
 	shareScreenshotTool,
 	installTaxonomyScriptsTool,
+	dataLiberationTool,
 	auditPerformanceTool,
 	auditSeoTool,
 	listConnectedRemoteSitesTool,
@@ -89,18 +91,26 @@ export function resolveStudioToolDefinitions(
 	} );
 }
 
-function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
+export function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(
 	tool: TTool,
 	emitChatArtifacts: boolean
 ): TTool {
+	if ( ! emitChatArtifacts ) {
+		return tool;
+	}
 	return {
 		...tool,
-		execute: async ( _toolCallId, params ) => {
-			const result = await tool.rawHandler( params );
-			if ( emitChatArtifacts ) {
-				await emitChatArtifactWidgets( result.studioArtifacts );
+		execute: async ( toolCallId, params, signal, onUpdate ) => {
+			const result = await tool.execute( toolCallId, params, signal, onUpdate );
+			const details = result.details as StudioToolResultDetails | undefined;
+			try {
+				await emitChatArtifactWidgets( details?.studioArtifacts );
+			} catch ( error ) {
+				// Artifacts are presentation-only; a failed emit (e.g. session file
+				// unwritable) must never turn a successful tool result into an error.
+				console.warn( `[chat-artifacts] failed to emit artifact for ${ tool.name }:`, error );
 			}
-			return { content: result.content, details: undefined };
+			return result;
 		},
 	};
 }

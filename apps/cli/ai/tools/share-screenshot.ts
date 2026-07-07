@@ -3,6 +3,8 @@ import { emitEvent } from 'cli/ai/json-events';
 import { defineTool } from './define-tool';
 import {
 	captureScreenshotPng,
+	SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
+	SCREENSHOT_COLOR_SCHEME_VALUES,
 	SHARE_DEVICE_SCALE_FACTOR,
 	SHARE_VIEWPORTS,
 } from './screenshot-helpers';
@@ -28,6 +30,7 @@ export const shareScreenshotTool = defineTool(
 		'The user already has the picture; do not analyze or describe what was sent in your reply. ' +
 		'After calling this, write at most one short follow-up sentence and end the turn. ' +
 		'Defaults to a 16:9 above-the-fold view. Set `fullPage: true` only when the user explicitly asks for the whole scroll length. ' +
+		'Pass `colorScheme: "light"` or `colorScheme: "dark"` to send a page as it renders for that prefers-color-scheme mode. ' +
 		'Distinct from `take_screenshot`, which is for your own visual reasoning before continuing work.',
 	{
 		url: Type.String( { description: 'The URL to screenshot and send to the user' } ),
@@ -43,6 +46,11 @@ export const shareScreenshotTool = defineTool(
 					'When true, capture the entire scrolled page instead of just the viewport. Defaults to false; only set this when the user has explicitly asked for the full page.',
 			} )
 		),
+		colorScheme: Type.Optional(
+			Type.Enum( SCREENSHOT_COLOR_SCHEME_VALUES, {
+				description: SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
+			} )
+		),
 		caption: Type.Optional(
 			Type.String( {
 				description:
@@ -56,6 +64,7 @@ export const shareScreenshotTool = defineTool(
 			const base64 = await captureScreenshotPng( args.url, SHARE_VIEWPORTS[ viewportType ], {
 				fullPage: args.fullPage ?? false,
 				deviceScaleFactor: SHARE_DEVICE_SCALE_FACTOR,
+				colorScheme: args.colorScheme,
 			} );
 
 			emitEvent( {
@@ -70,6 +79,8 @@ export const shareScreenshotTool = defineTool(
 			return textResult(
 				`Screenshot delivered to the user (${ viewportType }${
 					args.fullPage ? ', full page' : ''
+				}${
+					args.colorScheme ? `, ${ args.colorScheme } mode` : ''
 				}). The user is viewing it now; do not describe what was sent.`
 			);
 		} catch ( error ) {

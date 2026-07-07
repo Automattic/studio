@@ -139,9 +139,8 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 	const { cliBinary, nodeBinary, execArgv = [ '--experimental-wasm-jspi' ], onError } = config;
 	const liveChildren = new Set< ChildProcess >();
 
-	// Only kills the child; its `close` handler still runs afterwards so the
-	// emitter settles and callers awaiting the command see a failure instead
-	// of hanging forever.
+	// Only kills the child; its `close` handler still runs so awaiting callers
+	// see a failure instead of hanging forever.
 	function killChild( child: ChildProcess ): void {
 		const pid = child.pid;
 

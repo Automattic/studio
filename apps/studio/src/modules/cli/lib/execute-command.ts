@@ -179,10 +179,8 @@ export function executeCliCommand(
 		eventEmitter.emit( 'data', { data: message } );
 	} );
 
-	// Only kills the child here; the `close` handler still runs afterwards to
-	// settle the emitter and detach this listener. Removing the child's
-	// listeners at this point would leak the `will-quit` listener whenever the
-	// quit is prevented and the app keeps running.
+	// Only kills the child; the `close` handler still runs to settle the
+	// emitter and detach this listener if a prevented quit keeps the app alive.
 	function appQuitHandler() {
 		const pid = child.pid;
 

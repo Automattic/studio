@@ -1,16 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { displayShortcut } from '@wordpress/keycodes';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
-import {
-	getPathFromPreviewUrl,
-	getSimulatedViewport,
-	getToolbarPageTitle,
-	SitePreview,
-} from './index';
+import { getPathFromPreviewUrl, getSimulatedViewport, SitePreview } from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
@@ -146,7 +142,7 @@ function dispatchWebviewConsoleMessage(
 }
 
 describe( 'SitePreview', () => {
-	it( 'shows the current page title and exposes the URL in a tooltip', async () => {
+	it( 'shows the active realm name with the same tooltip as when inactive', async () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
@@ -156,17 +152,21 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite( { running: true } ) } path="/wp-admin/" reloadNonce={ 0 } />
 		);
 
-		const pageTitle = screen.getByText( 'Example Site' );
-		expect( pageTitle ).toBeVisible();
+		// The active segment wears the realm name ("WordPress" for /wp-admin/).
+		const realmTitle = screen.getByText( 'WordPress' );
+		expect( realmTitle ).toBeVisible();
 
-		fireEvent.mouseEnter( pageTitle );
-		fireEvent.mouseMove( pageTitle, { movementX: 1, movementY: 1 } );
+		// The title is a span inside the address trigger; tooltip hover events
+		// don't bubble, so target the button itself.
+		const addressTrigger = realmTitle.closest( 'button' ) as HTMLElement;
+		fireEvent.mouseEnter( addressTrigger );
+		fireEvent.mouseMove( addressTrigger, { movementX: 1, movementY: 1 } );
 
-		expect( screen.queryByText( 'http://localhost:8881/wp-admin/' ) ).not.toBeInTheDocument();
+		// jsdom reports a non-Apple platform, so the shortcut renders as Ctrl+2.
+		const tooltip = `View WP Admin ${ displayShortcut.primary( '2' ) }`;
+		expect( screen.queryByText( tooltip ) ).not.toBeInTheDocument();
 		// Tooltips use Base UI's default open delay, so wait long enough for the popup to appear.
-		expect(
-			await screen.findByText( 'http://localhost:8881/wp-admin/', {}, { timeout: 2000 } )
-		).toBeVisible();
+		expect( await screen.findByText( tooltip, {}, { timeout: 2000 } ) ).toBeVisible();
 	} );
 
 	it( 'shows adjacent toolbar tooltips immediately while the delay group is active', async () => {
@@ -179,17 +179,21 @@ describe( 'SitePreview', () => {
 			<SitePreview site={ createSite( { running: true } ) } path="/wp-admin/" reloadNonce={ 0 } />
 		);
 
-		const pageTitle = screen.getByText( 'Example Site' );
-		fireEvent.mouseEnter( pageTitle );
-		fireEvent.mouseMove( pageTitle, { movementX: 1, movementY: 1 } );
+		const addressTrigger = screen.getByText( 'WordPress' ).closest( 'button' ) as HTMLElement;
+		fireEvent.mouseEnter( addressTrigger );
+		fireEvent.mouseMove( addressTrigger, { movementX: 1, movementY: 1 } );
 
-		await screen.findByText( 'http://localhost:8881/wp-admin/', {}, { timeout: 2000 } );
+		await screen.findByText(
+			`View WP Admin ${ displayShortcut.primary( '2' ) }`,
+			{},
+			{ timeout: 2000 }
+		);
 
 		const refreshButton = screen.getByRole( 'button', { name: 'Refresh' } );
 		expect( screen.queryByText( /^Refresh/ ) ).not.toBeInTheDocument();
 
-		fireEvent.mouseLeave( pageTitle, { relatedTarget: refreshButton } );
-		fireEvent.mouseEnter( refreshButton, { relatedTarget: pageTitle } );
+		fireEvent.mouseLeave( addressTrigger, { relatedTarget: refreshButton } );
+		fireEvent.mouseEnter( refreshButton, { relatedTarget: addressTrigger } );
 		fireEvent.mouseMove( refreshButton, { movementX: 1, movementY: 1 } );
 
 		const refreshTooltip = screen.getByText( /^Refresh/ );
@@ -583,6 +587,39 @@ describe( 'SitePreview', () => {
 		expect( container.querySelector( 'iframe' ) ).toBe( reloadedIframe );
 	} );
 
+	it( 'switches realms on primary-modifier number shortcuts', () => {
+		useConnectorMock.mockReturnValue( {
+			startSite: vi.fn().mockResolvedValue( undefined ),
+			capabilities: CAPABILITIES,
+		} as never );
+		const onPathChange = vi.fn();
+
+		renderPreview(
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onPathChange={ onPathChange }
+			/>
+		);
+
+		// jsdom reports a non-Apple platform, so the primary modifier is Ctrl.
+		fireEvent.keyDown( document.body, { key: '2', ctrlKey: true } );
+		expect( onPathChange ).toHaveBeenCalledWith(
+			`/studio-auto-login?redirect_to=${ encodeURIComponent( 'http://localhost:8881/wp-admin/' ) }`
+		);
+
+		fireEvent.keyDown( document.body, { key: '3', ctrlKey: true } );
+		expect( onPathChange ).toHaveBeenCalledWith(
+			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
+		);
+
+		// Re-selecting the already-active realm is a no-op.
+		onPathChange.mockClear();
+		fireEvent.keyDown( document.body, { key: '1', ctrlKey: true } );
+		expect( onPathChange ).not.toHaveBeenCalled();
+	} );
+
 	it( 'hides the Annotate control when the host cannot annotate the preview', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -660,27 +697,6 @@ describe( 'SitePreview', () => {
 			'aria-pressed',
 			'true'
 		);
-	} );
-} );
-
-describe( 'getToolbarPageTitle', () => {
-	it( 'strips the WordPress admin suffix from document titles', () => {
-		expect( getToolbarPageTitle( 'Dashboard ‹ Example Site — WordPress', 'Example Site' ) ).toBe(
-			'Dashboard'
-		);
-		expect( getToolbarPageTitle( 'Posts ‹ My Blog — WordPress', 'My Blog' ) ).toBe( 'Posts' );
-	} );
-
-	it( 'returns front-end titles unchanged', () => {
-		expect( getToolbarPageTitle( 'Example Site – Just another WordPress site', 'Example' ) ).toBe(
-			'Example Site – Just another WordPress site'
-		);
-	} );
-
-	it( 'falls back to the site name, then a generic label', () => {
-		expect( getToolbarPageTitle( null, 'Example Site' ) ).toBe( 'Example Site' );
-		expect( getToolbarPageTitle( '   ', 'Example Site' ) ).toBe( 'Example Site' );
-		expect( getToolbarPageTitle( null, '' ) ).toBe( 'Site preview' );
 	} );
 } );
 

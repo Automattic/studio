@@ -11,12 +11,10 @@ import {
 	external,
 	file as fileIcon,
 	fullscreen as fullscreenIcon,
-	globe,
 	moreVertical,
 	pencil,
 	search,
 	trash,
-	wordpress,
 } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
@@ -46,7 +44,15 @@ import {
 	INSPECTOR_COMMAND_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
 } from './inspector-script';
-import { getPathFromPreviewUrl, LocationOmnibox } from './location-omnibox';
+import {
+	DATABASE_HOME_PATH,
+	getPathFromPreviewUrl,
+	getPreviewRealm,
+	getRealmNavigationPath,
+	PreviewAddressBar,
+	REALM_SHORTCUT_KEYS,
+	type PreviewRealm,
+} from './location-omnibox';
 import styles from './style.module.css';
 import type {
 	Annotation,
@@ -390,6 +396,14 @@ const EMPTY_INSPECTOR_STATE: InspectorState = {
 	isLoupeActive: false,
 };
 
+// Where each realm segment lands before its per-realm memory has anything
+// better: site root, WP Admin dashboard, and phpMyAdmin's WordPress database.
+const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
+	frontend: '/',
+	admin: '/wp-admin/',
+	database: DATABASE_HOME_PATH,
+};
+
 const SITE_THUMBNAIL_QUERY_KEY = [ 'site-preview-thumbnail' ] as const;
 const DEFAULT_CONSOLE_HEIGHT = 280;
 const MIN_CONSOLE_HEIGHT = 168;
@@ -445,6 +459,19 @@ function getBrowserShortcutCommand(
 	}
 	if ( isKeyboardEvent.primary( event, ']' ) ) {
 		return 'forward';
+	}
+	return null;
+}
+
+// ⌘1/⌘2/⌘3 (Ctrl elsewhere) select the address bar's realm segments.
+function getRealmShortcut( event: globalThis.KeyboardEvent ): PreviewRealm | null {
+	if ( event.defaultPrevented || event.repeat ) {
+		return null;
+	}
+	for ( const realm of Object.keys( REALM_SHORTCUT_KEYS ) as PreviewRealm[] ) {
+		if ( isKeyboardEvent.primary( event, REALM_SHORTCUT_KEYS[ realm ] ) ) {
+			return realm;
+		}
 	}
 	return null;
 }
@@ -542,29 +569,6 @@ function PreviewViewportMenu( {
 				</Menu.RadioGroup>
 			</Menu.Popup>
 		</Menu.Root>
-	);
-}
-
-// Front end / WP Admin switch: globe on the left, WordPress mark on the
-// right, thumb under the active side.
-function PreviewViewSwitch( {
-	isBackend,
-	disabled,
-	onChange,
-}: {
-	isBackend: boolean;
-	disabled?: boolean;
-	onChange: () => void;
-} ) {
-	return (
-		<IconSwitch
-			checked={ isBackend }
-			onChange={ onChange }
-			label={ isBackend ? __( 'View site front end' ) : __( 'View WP Admin' ) }
-			disabled={ disabled }
-			startIcon={ <Icon icon={ globe } size={ 14 } /> }
-			endIcon={ <Icon icon={ wordpress } size={ 14 } /> }
-		/>
 	);
 }
 
@@ -922,7 +926,6 @@ export function SitePreview( {
 	} );
 	const canAnnotate = canPreview && inspectorState.ready;
 	const canCaptureScreenshot = canPreview && canUseWebview && !! onScreenshotDone;
-	const pageTitle = getToolbarPageTitle( browserState.title, site.name );
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
@@ -943,17 +946,16 @@ export function SitePreview( {
 		},
 		[ onPathChange, path, siteUrl ]
 	);
-	// Front end / backend toggle. Each side remembers where you last were:
-	// toggling to WP Admin and back returns to the exact front-end page, and
-	// vice versa. The backend side goes through the site's /studio-auto-login
-	// endpoint so it never lands on the login form.
-	const isBackendView = isBackendPreviewPath( getSafePath( path ) );
-	const lastFrontendPathRef = useRef( '/' );
-	const lastBackendPathRef = useRef( '/wp-admin/' );
+	// Realm segments (front end / WP Admin / database). Each realm remembers
+	// where you last were: flipping to WP Admin and back returns to the exact
+	// front-end page, and vice versa. Admin targets go through the site's
+	// /studio-auto-login endpoint so they never land on the login form.
+	const lastRealmPathsRef = useRef< Record< PreviewRealm, string > >( {
+		...DEFAULT_REALM_PATHS,
+	} );
 	useEffect( () => {
-		// Reset the per-side memory when the preview moves to another site.
-		lastFrontendPathRef.current = '/';
-		lastBackendPathRef.current = '/wp-admin/';
+		// Reset the per-realm memory when the preview moves to another site.
+		lastRealmPathsRef.current = { ...DEFAULT_REALM_PATHS };
 	}, [ site.id ] );
 	useEffect( () => {
 		const safePath = getSafePath( path );
@@ -961,25 +963,20 @@ export function SitePreview( {
 		if ( safePath.startsWith( '/studio-auto-login' ) ) {
 			return;
 		}
-		if ( isBackendPreviewPath( safePath ) ) {
-			lastBackendPathRef.current = safePath;
-		} else {
-			lastFrontendPathRef.current = safePath;
-		}
+		lastRealmPathsRef.current[ getPreviewRealm( safePath ) ] = safePath;
 	}, [ path ] );
-	const showFrontend = useCallback(
-		() => onPathChange?.( lastFrontendPathRef.current ),
-		[ onPathChange ]
+	const handleSwitchRealm = useCallback(
+		( realm: PreviewRealm ) => {
+			// Re-selecting the active realm (e.g. via its shortcut) is a no-op —
+			// don't bounce the current page through another auto-login hop.
+			if ( getPreviewRealm( getSafePath( path ) ) === realm ) {
+				return;
+			}
+			const target = lastRealmPathsRef.current[ realm ];
+			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
+		},
+		[ onPathChange, path, siteUrl ]
 	);
-	const showBackend = useCallback( () => {
-		const target = lastBackendPathRef.current;
-		try {
-			const redirectTo = new URL( target, siteUrl ).toString();
-			onPathChange?.( `/studio-auto-login?redirect_to=${ encodeURIComponent( redirectTo ) }` );
-		} catch {
-			onPathChange?.( target );
-		}
-	}, [ onPathChange, siteUrl ] );
 	const handleBrowserStateChange = useCallback( ( state: BrowserNavigationState ) => {
 		setBrowserState( ( current ) => ( areBrowserStatesEqual( current, state ) ? current : state ) );
 	}, [] );
@@ -1199,7 +1196,8 @@ export function SitePreview( {
 		}
 		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
 			const command = getBrowserShortcutCommand( event );
-			if ( ! command ) {
+			const realm = command ? null : getRealmShortcut( event );
+			if ( ! command && ! realm ) {
 				return;
 			}
 			const activeElement = document.activeElement;
@@ -1212,12 +1210,16 @@ export function SitePreview( {
 			}
 			event.preventDefault();
 			event.stopPropagation();
-			sendBrowserCommand( command );
+			if ( command ) {
+				sendBrowserCommand( command );
+			} else if ( realm ) {
+				handleSwitchRealm( realm );
+			}
 		};
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-	}, [ canPreview, collapsed, sendBrowserCommand ] );
+	}, [ canPreview, collapsed, handleSwitchRealm, sendBrowserCommand ] );
 
 	// Hold-to-loupe. The guest handles the modifier itself when focused;
 	// these listeners cover presses that land in the host document instead
@@ -1274,8 +1276,10 @@ export function SitePreview( {
 			aria-label={ __( 'Site preview' ) }
 		>
 			<div className={ clsx( styles.header, sidebarCollapsed && styles.headerSidebarCollapsed ) }>
-				{ canPreview ? (
-					<>
+				{ /* Equal-flex side tracks keep the address control truly centered
+					in the toolbar regardless of what each side holds. */ }
+				<div className={ styles.headerSide }>
+					{ canPreview ? (
 						<div className={ styles.browserControls } aria-label={ __( 'Browser navigation' ) }>
 							<IconButton
 								variant="minimal"
@@ -1313,110 +1317,105 @@ export function SitePreview( {
 								</Button>
 							</ToolbarTooltip>
 						</div>
-						<div className={ styles.viewToggle }>
-							<PreviewViewSwitch
-								isBackend={ isBackendView }
-								onChange={ isBackendView ? showFrontend : showBackend }
+					) : null }
+				</div>
+				<div ref={ locationRef } className={ styles.browserLocation }>
+					{ canPreview ? (
+						<PreviewAddressBar
+							site={ site }
+							siteUrl={ siteUrl }
+							path={ getSafePath( path ) }
+							searchEnabled={ canUseWebview }
+							anchorRef={ locationRef }
+							onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
+							onSwitchRealm={ handleSwitchRealm }
+						/>
+					) : null }
+				</div>
+				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
+					{ canPreview ? (
+						<>
+							{ connector.capabilities.annotatePreview ? (
+								<div className={ styles.annotationControls }>
+									<IconButton
+										variant="minimal"
+										tone="neutral"
+										size="small"
+										icon={ pencil }
+										label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
+										disabled={ ! canAnnotate }
+										aria-pressed={ inspectorState.isPicking }
+										onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
+									/>
+									{ inspectorState.annotationCount > 0 ? (
+										<Button
+											variant="solid"
+											tone="brand"
+											size="small"
+											disabled={ ! canAnnotate }
+											aria-label={ __( 'Submit annotations' ) }
+											onClick={ () => sendInspectorCommand( 'submit' ) }
+										>
+											{ __( 'Submit' ) }
+										</Button>
+									) : null }
+								</div>
+							) : null }
+							<span className={ styles.separator } aria-hidden="true" />
+							<PreviewViewportMenu value={ viewportWidth } onChange={ setViewportWidth } />
+							<PreviewColorSchemeSwitch
+								colorScheme={ previewColorScheme }
+								disabled={ ! canUseWebview }
+								onChange={ togglePreviewColorScheme }
 							/>
-						</div>
-						<div ref={ locationRef } className={ styles.browserLocation }>
-							<LocationOmnibox
-								siteId={ site.id }
-								siteUrl={ siteUrl }
-								path={ getSafePath( path ) }
-								previewUrl={ previewUrl }
-								pageTitle={ pageTitle }
-								searchEnabled={ canUseWebview }
-								anchorRef={ locationRef }
-								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
-							/>
-						</div>
-						{ connector.capabilities.annotatePreview ? (
-							<div className={ styles.annotationControls }>
+							{ onToggleFullscreen ? (
 								<IconButton
 									variant="minimal"
 									tone="neutral"
 									size="small"
-									icon={ pencil }
-									label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-									disabled={ ! canAnnotate }
-									aria-pressed={ inspectorState.isPicking }
-									onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
+									icon={ fullscreenIcon }
+									label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
+									aria-pressed={ fullscreen }
+									onClick={ onToggleFullscreen }
 								/>
-								{ inspectorState.annotationCount > 0 ? (
-									<Button
-										variant="solid"
-										tone="brand"
-										size="small"
-										disabled={ ! canAnnotate }
-										aria-label={ __( 'Submit annotations' ) }
-										onClick={ () => sendInspectorCommand( 'submit' ) }
-									>
-										{ __( 'Submit' ) }
-									</Button>
-								) : null }
-							</div>
-						) : null }
-					</>
-				) : (
-					<span className={ styles.headerSpacer } aria-hidden="true" />
-				) }
-				<span className={ styles.separator } aria-hidden="true" />
-				{ canPreview ? (
-					<>
-						<PreviewViewportMenu value={ viewportWidth } onChange={ setViewportWidth } />
-						<PreviewColorSchemeSwitch
-							colorScheme={ previewColorScheme }
-							disabled={ ! canUseWebview }
-							onChange={ togglePreviewColorScheme }
-						/>
-						{ onToggleFullscreen ? (
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ fullscreenIcon }
-								label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
-								aria-pressed={ fullscreen }
-								onClick={ onToggleFullscreen }
-							/>
-						) : null }
-					</>
-				) : null }
-				<PreviewOverflowMenu
-					canPreview={ canPreview }
-					canUseWebview={ canUseWebview }
-					consoleLabel={ consoleButtonLabel }
-					onToggleConsole={ () => setConsoleOpen( ( current ) => ! current ) }
-					loupe={
-						canUseWebview
-							? {
-									label: inspectorState.isLoupeActive
-										? __( 'Turn off digital loupe' )
-										: __( 'Digital loupe' ),
-									shortcut: isAppleOS()
-										? /* translators: keyboard hint: hold the Command key */
-										  __( 'Hold ⌘' )
-										: /* translators: keyboard hint: hold the Control key */
-										  __( 'Hold Ctrl' ),
-									disabled: ! canAnnotate,
-									onToggle: () => sendInspectorCommand( 'loupe-toggle' ),
-							  }
-							: null
-					}
-					screenshot={
-						onScreenshotDone
-							? {
-									label: isCapturingScreenshot
-										? __( 'Adding screenshot...' )
-										: __( 'Add full-page screenshot to composer' ),
-									disabled: ! canCaptureScreenshot || isCapturingScreenshot,
-									onCapture: () => void capturePreviewScreenshot(),
-							  }
-							: null
-					}
-					onOpenInBrowser={ () => void connector.openExternalUrl( previewUrl ) }
-				/>
+							) : null }
+						</>
+					) : null }
+					<PreviewOverflowMenu
+						canPreview={ canPreview }
+						canUseWebview={ canUseWebview }
+						consoleLabel={ consoleButtonLabel }
+						onToggleConsole={ () => setConsoleOpen( ( current ) => ! current ) }
+						loupe={
+							canUseWebview
+								? {
+										label: inspectorState.isLoupeActive
+											? __( 'Turn off digital loupe' )
+											: __( 'Digital loupe' ),
+										shortcut: isAppleOS()
+											? /* translators: keyboard hint: hold the Command key */
+											  __( 'Hold ⌘' )
+											: /* translators: keyboard hint: hold the Control key */
+											  __( 'Hold Ctrl' ),
+										disabled: ! canAnnotate,
+										onToggle: () => sendInspectorCommand( 'loupe-toggle' ),
+								  }
+								: null
+						}
+						screenshot={
+							onScreenshotDone
+								? {
+										label: isCapturingScreenshot
+											? __( 'Adding screenshot...' )
+											: __( 'Add full-page screenshot to composer' ),
+										disabled: ! canCaptureScreenshot || isCapturingScreenshot,
+										onCapture: () => void capturePreviewScreenshot(),
+								  }
+								: null
+						}
+						onOpenInBrowser={ () => void connector.openExternalUrl( previewUrl ) }
+					/>
+				</div>
 				{ showLoadingProgress ? (
 					<div className={ styles.loadingProgress } aria-hidden="true">
 						<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />
@@ -1543,34 +1542,6 @@ export function SitePreview( {
 
 function getSafePath( path: unknown ) {
 	return typeof path === 'string' && path.trim() ? path : '/';
-}
-
-/**
- * Whether a preview path shows the WordPress backend — either a wp-admin
- * screen directly, or the auto-login endpoint on its way to one.
- */
-export function isBackendPreviewPath( path: string ): boolean {
-	if ( path.startsWith( '/wp-admin' ) ) {
-		return true;
-	}
-	if ( path.startsWith( '/studio-auto-login' ) ) {
-		const query = path.split( '?' )[ 1 ] ?? '';
-		const redirectTo = new URLSearchParams( query ).get( 'redirect_to' ) ?? '';
-		return redirectTo.includes( '/wp-admin' );
-	}
-	return false;
-}
-
-export function getToolbarPageTitle( title: string | null, siteName: string ) {
-	const trimmedTitle = normalizeDocumentTitle( title );
-	if ( trimmedTitle ) {
-		const [ wordPressAdminTitle ] = trimmedTitle.split( /\s+‹\s+/ );
-		const withoutWordPressSuffix = wordPressAdminTitle
-			.replace( /\s+[–—-]\s+WordPress$/i, '' )
-			.trim();
-		return withoutWordPressSuffix || trimmedTitle;
-	}
-	return siteName || __( 'Site preview' );
 }
 
 interface WebviewSurfaceProps {

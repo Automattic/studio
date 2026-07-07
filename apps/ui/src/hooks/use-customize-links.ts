@@ -14,13 +14,16 @@ import {
 	widget,
 	wordpress,
 } from '@wordpress/icons';
+import { useMemo } from 'react';
 import { usePluginSiteTag } from '@/lib/plugin-prototype';
 import type { SiteDetails } from '@/data/core';
-import type { ReactElement } from 'react';
+import type { ReactElement, SVGProps } from 'react';
 
 export interface CustomizeLink {
 	id: string;
-	icon: ReactElement;
+	// Matches the element type `Icon` accepts, so links render via
+	// `<Icon icon={ link.icon } />` without widening casts.
+	icon: ReactElement< SVGProps< SVGSVGElement > >;
 	label: string;
 	url: string;
 }
@@ -41,6 +44,23 @@ export function useCustomizeLinks( site: SiteDetails ): {
 	// instead of the theme-editing surfaces.
 	const pluginTag = usePluginSiteTag( site.id );
 	const themeDetails = site.themeDetails;
+
+	// Memoized so consumers can feed the lists to identity-sensitive APIs
+	// (the address bar hands them to Base UI as autocomplete items, which
+	// re-renders on every items identity change).
+	return useMemo(
+		() => buildCustomizeLinks( { isPluginSite: !! pluginTag, themeDetails } ),
+		[ pluginTag, themeDetails ]
+	);
+}
+
+function buildCustomizeLinks( {
+	isPluginSite,
+	themeDetails,
+}: {
+	isPluginSite: boolean;
+	themeDetails: SiteDetails[ 'themeDetails' ];
+} ) {
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
 
 	const pluginLinks: CustomizeLink[] = [
@@ -131,7 +151,7 @@ export function useCustomizeLinks( site: SiteDetails ): {
 		url: '/wp-admin/',
 	};
 
-	const customizeLinks = pluginTag ? pluginLinks : themeLinks;
+	const customizeLinks = isPluginSite ? pluginLinks : themeLinks;
 	return {
 		customizeLinks,
 		contentLinks,

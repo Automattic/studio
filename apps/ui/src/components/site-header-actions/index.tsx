@@ -2,7 +2,6 @@ import { __ } from '@wordpress/i18n';
 import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
-import { CustomizeMenu } from '@/components/customize-menu';
 import * as Menu from '@/components/menu';
 import { OpenInMenu } from '@/components/open-in-menu';
 import { PublishPickerView } from '@/components/site-dropdown/publish-picker-view';
@@ -73,7 +72,6 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 	return (
 		<div className={ clsx( styles.root, sidebarCollapsed && styles.rootSidebarCollapsed ) }>
 			<PublishButton site={ site } />
-			<CustomizeMenu site={ site } />
 			<OpenInMenu site={ site } />
 		</div>
 	);

@@ -44,6 +44,24 @@ export const bottomDrawerIcon = (
 	</svg>
 );
 
+export const databaseIcon = (
+	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+		<ellipse cx="12" cy="6" rx="7" ry="3" stroke="currentColor" strokeWidth="1.5" />
+		<path
+			d="M5 6v6c0 1.66 3.13 3 7 3s7-1.34 7-3V6"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+		/>
+		<path
+			d="M5 12v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+		/>
+	</svg>
+);
+
 export const sunIcon = (
 	<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
 		<circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.5" />

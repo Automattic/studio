@@ -18,6 +18,5 @@ else
 fi
 
 echo '--- :npm: Run Unit Tests'
-# Unit tests assert default runtime behavior unless a test sets STUDIO_RUNTIME itself.
-unset STUDIO_RUNTIME
 npm run test
+

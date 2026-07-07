@@ -29,7 +29,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
-import { Conversation, isConversationStopped } from './conversation';
+import { Conversation, wasLastTurnInterrupted } from './conversation';
 import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
@@ -271,7 +271,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
 	const canEditLastUserMessage = useMemo(
-		() => ! composerBusy && ! isRunning && isConversationStopped( data?.entries ?? [] ),
+		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
 	);
 	const editAndResendMessage = useCallback(

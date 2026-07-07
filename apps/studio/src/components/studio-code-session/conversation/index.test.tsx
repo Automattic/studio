@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Conversation, entriesToRenderItems, isConversationStopped } from './index';
+import { Conversation, entriesToRenderItems, wasLastTurnInterrupted } from './index';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
@@ -122,23 +122,23 @@ describe( 'entriesToRenderItems – persisted picked answers', () => {
 	} );
 } );
 
-describe( 'isConversationStopped', () => {
+describe( 'wasLastTurnInterrupted', () => {
 	it( 'is false for an in-flight or completed turn', () => {
-		expect( isConversationStopped( [ prompt( 'Build me a blog' ) ] ) ).toBe( false );
+		expect( wasLastTurnInterrupted( [ prompt( 'Build me a blog' ) ] ) ).toBe( false );
 		expect(
-			isConversationStopped( [ prompt( 'Build me a blog' ), turnClosed( 'completed' ) ] )
+			wasLastTurnInterrupted( [ prompt( 'Build me a blog' ), turnClosed( 'completed' ) ] )
 		).toBe( false );
 	} );
 
 	it( 'is true once the latest turn was interrupted', () => {
 		expect(
-			isConversationStopped( [ prompt( 'Build me a blog' ), turnClosed( 'interrupted' ) ] )
+			wasLastTurnInterrupted( [ prompt( 'Build me a blog' ), turnClosed( 'interrupted' ) ] )
 		).toBe( true );
 	} );
 
 	it( 'is false again once a newer turn has started', () => {
 		expect(
-			isConversationStopped( [
+			wasLastTurnInterrupted( [
 				prompt( 'Build me a blog' ),
 				turnClosed( 'interrupted' ),
 				prompt( 'Actually, a shop' ),

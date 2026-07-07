@@ -252,8 +252,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	return items;
 }
 
-// True when the most recent turn was interrupted by the user.
-export function isConversationStopped( entries: SessionEntry[] ): boolean {
+export function wasLastTurnInterrupted( entries: SessionEntry[] ): boolean {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const entry = entries[ index ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.turn_closed' ) ) {

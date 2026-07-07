@@ -47,7 +47,9 @@ export function calculateDirectorySizeForArchive(
 								totalSize += stats.size;
 							}
 						} catch ( error ) {
-							console.warn( `Error processing ${ filePath }:`, error );
+							// Dangling symlink or unreadable entry. Skip it (uncounted)
+							// rather than failing the size calculation.
+							console.warn( `Skipping ${ filePath }: ${ error }` );
 						}
 					} )
 				);

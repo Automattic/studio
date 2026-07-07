@@ -391,6 +391,16 @@ export async function continueAiSession(
 	} );
 }
 
+export async function markAiMessageEdited(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	originalEntryId: string
+): Promise< void > {
+	await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.message_edited', {
+		originalEntryId,
+	} );
+}
+
 export async function listActiveAiAgentRuns(
 	_event: IpcMainInvokeEvent
 ): Promise< ActiveAgentRun[] > {

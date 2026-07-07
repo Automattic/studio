@@ -13,7 +13,8 @@ export type StudioCustomEntryType =
 	| 'studio.agent_question'
 	| 'studio.turn_closed'
 	| 'studio.session_context'
-	| 'studio.user_prompt';
+	| 'studio.user_prompt'
+	| 'studio.message_edited';
 
 export interface StudioSiteSelectedData {
 	siteName: string;
@@ -74,6 +75,10 @@ export interface StudioUserPromptData {
 	attachments?: StudioChatAttachmentSummary[];
 }
 
+export interface StudioMessageEditedData {
+	originalEntryId: string;
+}
+
 export interface StudioCustomEntryDataMap {
 	'studio.site_selected': StudioSiteSelectedData;
 	'studio.tool_progress': StudioToolProgressData;
@@ -82,6 +87,7 @@ export interface StudioCustomEntryDataMap {
 	'studio.turn_closed': StudioTurnClosedData;
 	'studio.session_context': StudioSessionContextData;
 	'studio.user_prompt': StudioUserPromptData;
+	'studio.message_edited': StudioMessageEditedData;
 }
 
 export type StudioCustomEntry< T extends StudioCustomEntryType = StudioCustomEntryType > = Omit<

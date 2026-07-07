@@ -270,11 +270,17 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
-	// After the user stops a run, let them pull their last prompt back into the
-	// composer to tweak and resend it instead of retyping it from scratch.
 	const canEditLastUserMessage = useMemo(
 		() => ! composerBusy && ! isRunning && isConversationStopped( data?.entries ?? [] ),
 		[ composerBusy, isRunning, data?.entries ]
+	);
+	const editAndResendMessage = useCallback(
+		async ( entryId: string, newText: string ) => {
+			if ( ! sessionId ) return;
+			await getIpcApi().markAiMessageEdited( sessionId, entryId );
+			await sendMessage( newText );
+		},
+		[ sessionId, sendMessage ]
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	// Whether new content should keep the view pinned to the bottom. Disabled
@@ -428,7 +434,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							answeredQuestions={ answeredQuestions }
 							onAnswerQuestion={ answerQuestion }
 							canEditLastUserMessage={ canEditLastUserMessage }
-							onEditUserMessage={ selectPrompt }
+							onEditUserMessage={ editAndResendMessage }
 						/>
 					) }
 				</div>

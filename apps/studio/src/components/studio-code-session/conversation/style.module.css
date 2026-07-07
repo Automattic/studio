@@ -101,6 +101,67 @@
 	background-color: var(--color-frame-surface);
 }
 
+.userEditTextarea {
+	width: 100%;
+	resize: vertical;
+	padding: 8px 12px;
+	border: 1px solid var(--color-frame-border);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--color-frame-surface);
+	color: var(--color-frame-text);
+	font-family: inherit;
+	font-size: inherit;
+	line-height: inherit;
+	box-sizing: border-box;
+}
+
+.userEditTextarea:focus {
+	outline: none;
+	border-color: var(--color-frame-theme);
+}
+
+.userEditActions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: var(--wpds-dimension-padding-xs);
+}
+
+.userEditCancelButton {
+	appearance: none;
+	border: 1px solid var(--color-frame-border);
+	background: transparent;
+	padding: 4px 12px;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	color: var(--color-frame-text);
+	font-size: var(--wpds-typography-font-size-xs);
+	cursor: pointer;
+}
+
+.userEditCancelButton:hover {
+	background-color: var(--color-frame-surface);
+}
+
+.userEditSendButton {
+	appearance: none;
+	border: none;
+	background-color: var(--color-frame-theme);
+	color: #fff;
+	padding: 4px 12px;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	font-size: var(--wpds-typography-font-size-xs);
+	cursor: pointer;
+}
+
+.userEditSendButton:hover {
+	background-color: var(--color-frame-theme-hover);
+}
+
+.userEditSendButton:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
 .toolBlock {
 	display: flex;
 	flex-direction: column;

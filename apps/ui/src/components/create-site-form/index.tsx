@@ -1,7 +1,7 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { generatePassword } from '@studio/common/lib/passwords';
-import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
+import { RecommendedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, sprintf } from '@wordpress/i18n';
@@ -23,6 +23,7 @@ import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
 import styles from './style.module.css';
+import type { WpEnvFolderInfo } from '@/data/core';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
 	DataFormControlProps,
@@ -38,7 +39,9 @@ export interface CreateSiteFormValues {
 	name: string;
 	path: string;
 	phpVersion: SupportedPHPVersion;
-	wpVersion: string;
+	// Omitted for wp-env projects: the project file defines the WordPress
+	// version and the CLI refuses a conflicting --wp.
+	wpVersion?: string;
 	customDomain?: string;
 	enableHttps: boolean;
 	adminUsername: string;
@@ -67,6 +70,8 @@ interface FormData {
 	// window so a seeded name doesn't flash "1 error found" on the Advanced
 	// toggle before `generateProposedPath` resolves.
 	isPathPending: boolean;
+	// Set when the selected path holds a .wp-env.json project.
+	wpEnv?: WpEnvFolderInfo;
 	phpVersion: SupportedPHPVersion;
 	wpVersion: string;
 	useCustomDomain: boolean;
@@ -79,6 +84,12 @@ interface FormData {
 
 function hasAnyValue( values: Partial< CreateSiteFormValues > ): boolean {
 	return Object.values( values ).some( ( value ) => value !== undefined && value !== '' );
+}
+
+// The project's PHP version is applied as a suggestion; the select stays editable.
+function wpEnvFormUpdates( wpEnv: WpEnvFolderInfo | undefined ): Partial< FormData > {
+	const projectPhpVersion = SupportedPHPVersions.find( ( v ) => v === wpEnv?.phpVersion );
+	return { wpEnv, ...( projectPhpVersion ? { phpVersion: projectPhpVersion } : {} ) };
 }
 
 // Only fields the caller actually provided overwrite prev — user edits to
@@ -133,6 +144,7 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 				path: result.path,
 				pathError: result.error ?? '',
 				isPathPending: false,
+				...wpEnvFormUpdates( result.wpEnv ),
 			} );
 		} )();
 		return () => {
@@ -169,6 +181,7 @@ function PathField( {
 			path: result.path,
 			hasCustomPath: true,
 			pathError: result.error ?? '',
+			...wpEnvFormUpdates( result.wpEnv ),
 			...( ! item.name && result.name ? { name: result.name } : {} ),
 		} );
 	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
@@ -176,6 +189,10 @@ function PathField( {
 	const errorMessage = validity?.custom?.message;
 	const help = errorMessage ? (
 		<span className={ styles.pathErrorHelp }>{ errorMessage }</span>
+	) : item.wpEnv ? (
+		__(
+			'This folder contains a wp-env project. The WordPress version, plugins, and themes come from its .wp-env.json file.'
+		)
 	) : (
 		<>
 			{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
@@ -184,7 +201,8 @@ function PathField( {
 	);
 
 	// No native folder picker in the browser — edit the path as text. It's
-	// prefilled from the site name; the server validates it on create.
+	// prefilled from the site name; the server validates it on create. The
+	// typed folder is inspected on blur so wp-env projects are still detected.
 	if ( ! connector.capabilities.nativeFolderPicker ) {
 		return (
 			<TextControl
@@ -194,6 +212,11 @@ function PathField( {
 				hideLabelFromVision={ hideLabelFromVision }
 				value={ item.path }
 				onChange={ ( value ) => onChange( { path: value, hasCustomPath: true, pathError: '' } ) }
+				onBlur={ async () => {
+					if ( ! item.path || ! connector.inspectSiteFolder ) return;
+					const info = await connector.inspectSiteFolder( item.path ).catch( () => undefined );
+					if ( info ) onChange( wpEnvFormUpdates( info.wpEnv ) );
+				} }
 				help={ help }
 			/>
 		);
@@ -232,6 +255,27 @@ function PathField( {
 				</span>
 			</button>
 		</BaseControl>
+	);
+}
+
+// Read-only replacement for the WordPress version field on wp-env projects:
+// the project file owns the version.
+function WpEnvWpVersionField( {
+	data: item,
+	field,
+	hideLabelFromVision,
+}: DataFormControlProps< FormData > ) {
+	return (
+		<TextControl
+			__nextHasNoMarginBottom
+			__next40pxDefaultSize
+			label={ field.label }
+			hideLabelFromVision={ hideLabelFromVision }
+			value={ item.wpEnv?.wpVersion ?? '' }
+			onChange={ () => undefined }
+			disabled
+			help={ __( 'Defined by the .wp-env.json project file.' ) }
+		/>
 	);
 }
 
@@ -342,7 +386,16 @@ export function CreateSiteForm( {
 				},
 			},
 			phpVersionField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION ),
+			{
+				...wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION ),
+				isVisible: ( item: FormData ) => ! item.wpEnv,
+			},
+			{
+				id: 'wpEnvWpVersion',
+				label: __( 'WordPress version' ),
+				isVisible: ( item: FormData ) => !! item.wpEnv,
+				Edit: WpEnvWpVersionField,
+			},
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
@@ -377,7 +430,7 @@ export function CreateSiteForm( {
 				{
 					id: 'versions',
 					layout: { type: 'row' },
-					children: [ 'phpVersion', 'wpVersion' ],
+					children: [ 'phpVersion', 'wpVersion', 'wpEnvWpVersion' ],
 				},
 				{
 					id: 'adminCredentials',
@@ -433,7 +486,7 @@ export function CreateSiteForm( {
 			name: data.name.trim(),
 			path: data.path,
 			phpVersion: data.phpVersion,
-			wpVersion: data.wpVersion,
+			wpVersion: data.wpEnv ? undefined : data.wpVersion,
 			customDomain: data.useCustomDomain
 				? data.customDomain || generateCustomDomainFromSiteName( data.name )
 				: undefined,

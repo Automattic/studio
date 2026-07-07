@@ -50,6 +50,16 @@ import {
 	isWordPressVersionAtLeast,
 } from '@studio/common/lib/wordpress-version-utils';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
+import {
+	hasWpEnvConfig,
+	loadWpEnvConfig,
+	resolveWpEnvCoreVersion,
+} from '@studio/common/lib/wp-env/config';
+import {
+	getWpEnvCoreDirectory,
+	wpEnvToSiteConfig,
+	type WpEnvSiteConfig,
+} from '@studio/common/lib/wp-env/site-config';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import {
 	RecommendedPHPVersion,
@@ -93,8 +103,11 @@ const logger = new Logger< LoggerAction >();
 export type CreateCommandOptions = {
 	name?: string;
 	siteId?: string;
-	wpVersion: string;
-	phpVersion: SupportedPHPVersion;
+	// wpVersion and phpVersion are optional so a wp-env project's `core` and
+	// `phpVersion` can apply when the user didn't choose them explicitly;
+	// they default to DEFAULT_WORDPRESS_VERSION / RecommendedPHPVersion.
+	wpVersion?: string;
+	phpVersion?: SupportedPHPVersion;
 	runtime: SiteRuntime;
 	fileAccess: SiteFileAccess;
 	customDomain?: string;
@@ -123,7 +136,9 @@ export async function runCommand(
 			)
 		);
 	}
-	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
+	const phpVersion = options.phpVersion
+		? validateSupportedPhpVersion( options.phpVersion )
+		: undefined;
 	const isOnlineStatus = await isOnline();
 
 	try {
@@ -148,10 +163,34 @@ export async function runCommand(
 		const pathExistsResult = await pathExists( sitePath );
 		const isEmptyDirResult = pathExistsResult && ( await isEmptyDir( sitePath ) );
 		const isWordPressDirResult = pathExistsResult && isWordPressDirectory( sitePath );
+		const isWpEnvProject = pathExistsResult && ! isWordPressDirResult && hasWpEnvConfig( sitePath );
 
-		if ( pathExistsResult && ! isEmptyDirResult && ! isWordPressDirResult ) {
+		if ( pathExistsResult && ! isEmptyDirResult && ! isWordPressDirResult && ! isWpEnvProject ) {
 			throw new LoggerError(
 				__( 'The selected directory is not empty nor an existing WordPress site.' )
+			);
+		}
+
+		if ( isWpEnvProject && options.blueprint ) {
+			throw new LoggerError(
+				__(
+					'Cannot combine a Blueprint with a .wp-env.json project. Remove the --blueprint option or the .wp-env.json file.'
+				)
+			);
+		}
+
+		const wpEnvFileConfig = isWpEnvProject ? loadWpEnvConfig( sitePath )?.config : undefined;
+		// The project file is the source of truth for the WordPress version;
+		// a conflicting flag is refused rather than silently resolved.
+		if ( wpEnvFileConfig?.core != null && options.wpVersion ) {
+			throw new LoggerError(
+				sprintf(
+					/* translators: %s: the wp-env core value */
+					__(
+						'This project\'s .wp-env.json already defines the WordPress version (core: "%s"). Remove the --wp option, or override the project with a .wp-env.override.json file.'
+					),
+					wpEnvFileConfig.core
+				)
 			);
 		}
 
@@ -224,7 +263,22 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Site directory created' ) );
 		}
 
-		if ( options.wpVersion === 'latest' ) {
+		const siteId = options.siteId || crypto.randomUUID();
+		// For wp-env projects, WordPress lives in a Studio-managed technical
+		// directory; the user's project folder is never written to.
+		const wpRootDir = isWpEnvProject ? getWpEnvCoreDirectory( siteId ) : sitePath;
+		if ( isWpEnvProject ) {
+			fs.mkdirSync( wpRootDir, { recursive: true } );
+		}
+
+		// Resolved quietly here because the copy below needs the version before
+		// wpEnvToSiteConfig can run (which reports the authoritative warnings).
+		const wpEnvCoreVersion = wpEnvFileConfig
+			? resolveWpEnvCoreVersion( wpEnvFileConfig.core, [] )
+			: undefined;
+		const wpVersion = wpEnvCoreVersion ?? options.wpVersion ?? DEFAULT_WORDPRESS_VERSION;
+
+		if ( wpVersion === 'latest' ) {
 			const bundledWPPath = path.join( getServerFilesPath(), 'wordpress-versions', 'latest' );
 
 			if ( ! ( await pathExists( bundledWPPath ) ) ) {
@@ -236,7 +290,7 @@ export async function runCommand(
 			}
 
 			logger.reportStart( LoggerAction.SETUP_WORDPRESS, __( 'Copying bundled WordPress…' ) );
-			await recursiveCopyDirectory( bundledWPPath, sitePath );
+			await recursiveCopyDirectory( bundledWPPath, wpRootDir );
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		} else if ( ! isOnlineStatus ) {
 			throw new LoggerError(
@@ -247,45 +301,87 @@ export async function runCommand(
 		} else if ( siteRuntime === SITE_RUNTIME_NATIVE_PHP && ! isWordPressDirResult ) {
 			logger.reportStart(
 				LoggerAction.SETUP_WORDPRESS,
-				sprintf( __( 'Downloading WordPress %s…' ), options.wpVersion )
+				sprintf( __( 'Downloading WordPress %s…' ), wpVersion )
 			);
-			await downloadWordPress( options.wpVersion );
+			await downloadWordPress( wpVersion );
 			logger.reportSuccess( __( 'WordPress files downloaded' ) );
 
 			logger.reportStart(
 				LoggerAction.SETUP_WORDPRESS,
-				sprintf( __( 'Copying WordPress %s…' ), options.wpVersion )
+				sprintf( __( 'Copying WordPress %s…' ), wpVersion )
 			);
-			await recursiveCopyDirectory( getWordPressVersionPath( options.wpVersion ), sitePath );
+			await recursiveCopyDirectory( getWordPressVersionPath( wpVersion ), wpRootDir );
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		}
 
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
-		await keepSqliteIntegrationUpdated( sitePath );
+		await keepSqliteIntegrationUpdated( wpRootDir );
 		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
-		try {
-			const sharedConfig = await readSharedConfig();
-			const selectedSkills = sharedConfig.selectedSkills ?? [];
-			await installAiInstructionsToSite(
-				{ path: sitePath, runtime: siteRuntime },
-				getAiInstructionsPath(),
-				selectedSkills
+		let wpEnvSiteConfig: WpEnvSiteConfig | undefined;
+		if ( isWpEnvProject ) {
+			// Must run after WordPress is in place: on the native runtime this
+			// creates symlinks inside the technical directory's wp-content.
+			wpEnvSiteConfig = await wpEnvToSiteConfig( sitePath, wpRootDir, siteRuntime );
+			for ( const warning of wpEnvSiteConfig?.warnings ?? [] ) {
+				console.warn( `[wp-env] ${ warning }` );
+			}
+		}
+
+		const sitePhpVersion = phpVersion ?? wpEnvSiteConfig?.phpVersion ?? RecommendedPHPVersion;
+		if ( isWpEnvProject ) {
+			logger.reportSuccess(
+				sprintf(
+					/* translators: %1$s: WordPress version, %2$s: PHP version, %3$d: number of plugins, %4$d: number of themes, %5$d: number of mappings */
+					__(
+						'Using .wp-env.json: WordPress %1$s, PHP %2$s, plugins: %3$d, themes: %4$d, mappings: %5$d'
+					),
+					wpVersion,
+					sitePhpVersion,
+					wpEnvFileConfig?.plugins?.length ?? 0,
+					wpEnvFileConfig?.themes?.length ?? 0,
+					Object.keys( wpEnvFileConfig?.mappings ?? {} ).length
+				)
 			);
-		} catch ( error ) {
-			logger.reportError(
-				new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
-				false
-			);
+			if (
+				phpVersion &&
+				wpEnvSiteConfig?.phpVersion &&
+				phpVersion !== wpEnvSiteConfig.phpVersion
+			) {
+				console.warn(
+					`[wp-env] ${ sprintf(
+						/* translators: %1$s: the chosen PHP version, %2$s: the PHP version from .wp-env.json */
+						__( 'Using PHP %1$s instead of %2$s from .wp-env.json.' ),
+						phpVersion,
+						wpEnvSiteConfig.phpVersion
+					) }`
+				);
+			}
+		}
+
+		if ( ! isWpEnvProject ) {
+			try {
+				const sharedConfig = await readSharedConfig();
+				const selectedSkills = sharedConfig.selectedSkills ?? [];
+				await installAiInstructionsToSite(
+					{ path: sitePath, runtime: siteRuntime },
+					getAiInstructionsPath(),
+					selectedSkills
+				);
+			} catch ( error ) {
+				logger.reportError(
+					new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
+					false
+				);
+			}
 		}
 
 		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
-		const port = await portFinder.getOpenPort();
+		const port = await portFinder.getOpenPort( wpEnvSiteConfig?.preferredPort );
 		// translators: %d is the port number
 		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
 
 		const siteName = options.name || path.basename( sitePath );
-		const siteId = options.siteId || crypto.randomUUID();
 
 		// Determine admin credentials: CLI args > Blueprint > defaults
 		// External passwords need to be encoded; createPassword() already returns encoded
@@ -307,14 +403,14 @@ export async function runCommand(
 		const externalPassword = options.adminPassword || blueprintCredentials?.adminPassword;
 		const adminPassword = externalPassword ? encodePassword( externalPassword ) : createPassword();
 
-		const siteLanguage = await getPreferredSiteLanguage( options.wpVersion );
+		const siteLanguage = await getPreferredSiteLanguage( wpVersion );
 
 		if (
 			siteLanguage &&
 			siteLanguage !== DEFAULT_LOCALE &&
-			options.wpVersion === DEFAULT_WORDPRESS_VERSION
+			wpVersion === DEFAULT_WORDPRESS_VERSION
 		) {
-			await copyLanguagePackToSite( sitePath, siteLanguage );
+			await copyLanguagePackToSite( wpRootDir, siteLanguage );
 		}
 
 		const siteDetails: SiteData = {
@@ -325,15 +421,18 @@ export async function runCommand(
 			adminPassword,
 			adminEmail,
 			port,
-			phpVersion,
+			phpVersion: sitePhpVersion,
 			runtime: siteRuntime,
 			fileAccess: options.fileAccess,
 			running: false,
 			status: 'ready',
-			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
+			isWpAutoUpdating: wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
 			landingPage: normalizeLandingPage( blueprint?.landingPage ),
+			...( isWpEnvProject
+				? { technicalSiteDirectory: wpRootDir, projectType: 'wp-env' as const }
+				: {} ),
 		};
 
 		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
@@ -364,14 +463,16 @@ export async function runCommand(
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
 				const processDesc = await startWordPressServer( siteDetails, logger, {
-					wpVersion: options.wpVersion,
+					wpVersion,
 					blueprint,
 					blueprintUri,
 					siteLanguage,
+					// wp-env projects bring their own mounts and blueprint.
+					...( wpEnvSiteConfig?.startOptions ?? {} ),
 				} );
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
-				stripWpConfigDbConstants( sitePath );
+				stripWpConfigDbConstants( wpRootDir );
 
 				if ( processDesc.status === 'online' ) {
 					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
@@ -390,7 +491,11 @@ export async function runCommand(
 				}
 			} catch ( error ) {
 				await removeSiteFromConfig( siteDetails.id );
-				if ( ! isWordPressDirResult ) {
+				if ( isWpEnvProject ) {
+					// Only the Studio-managed technical directory is removed; the
+					// user's project folder is never touched.
+					await fs.promises.rm( wpRootDir, { recursive: true, force: true } );
+				} else if ( ! isWordPressDirResult ) {
 					await fs.promises.rm( sitePath, { recursive: true, force: true } );
 				}
 				throw new LoggerError( __( 'Failed to start WordPress server' ), error );
@@ -407,7 +512,7 @@ export async function runCommand(
 						throw new LoggerError( __( 'Blueprint source path is missing' ) );
 					}
 					await runBlueprint( siteDetails, logger, {
-						wpVersion: options.wpVersion,
+						wpVersion,
 						blueprint,
 						blueprintUri,
 						siteLanguage,
@@ -480,6 +585,11 @@ function readBlueprint( blueprintPath: string ) {
 			error
 		);
 	}
+}
+
+/** Whether the raw command line contains an explicit --path argument. */
+export function wasPathOptionProvided( argv: string[] ): boolean {
+	return argv.some( ( arg ) => arg === '--path' || arg.startsWith( '--path=' ) );
 }
 
 function coerceSiteId( value: string ) {
@@ -686,9 +796,19 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						} );
 					}
 
-					const pathWasExplicitlyProvided = sitePath !== process.cwd();
+					// The value alone can't reveal whether --path was passed: `--path .`
+					// resolves to the same value as the cwd default. Check the raw
+					// command line so an explicit path — including "." — is respected
+					// instead of being overridden by the prompt below.
+					const pathWasExplicitlyProvided = wasPathOptionProvided( process.argv );
 					if ( ! pathWasExplicitlyProvided ) {
-						const suggestedPath = getDefaultSitePath( siteName || __( 'My WordPress Website' ) );
+						// When run from inside an existing WordPress install or a wp-env
+						// project, the user almost certainly means "create the site
+						// here" — suggest the current directory over ~/Studio/<name>.
+						const cwdIsProject = isWordPressDirectory( sitePath ) || hasWpEnvConfig( sitePath );
+						const suggestedPath = cwdIsProject
+							? sitePath
+							: getDefaultSitePath( siteName || __( 'My WordPress Website' ) );
 						const promptedPath = await input( {
 							message: __( 'Site path:' ),
 							default: suggestedPath,
@@ -696,7 +816,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 						sitePath = path.resolve( untildify( promptedPath ) );
 					}
 
-					if ( ! wpVersion ) {
+					// A wp-env project defines its own WordPress version, so the
+					// prompt is skipped; PHP stays promptable, defaulting to the
+					// project's phpVersion.
+					const promptWpEnvConfig = hasWpEnvConfig( sitePath )
+						? loadWpEnvConfig( sitePath )?.config
+						: undefined;
+
+					if ( ! wpVersion && ! promptWpEnvConfig ) {
 						let wpChoices: { name: string; value: string }[];
 						try {
 							const versions = await fetchWordPressVersions();
@@ -722,13 +849,21 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					}
 
 					if ( ! phpVersion ) {
+						const wpEnvPhpVersion = SupportedPHPVersions.find(
+							( v ) => v === promptWpEnvConfig?.phpVersion
+						);
 						phpVersion = await select( {
 							message: __( 'PHP version:' ),
 							choices: SupportedPHPVersions.map( ( v ) => ( {
-								name: v === RecommendedPHPVersion ? sprintf( __( '%s (recommended)' ), v ) : v,
+								name:
+									v === wpEnvPhpVersion
+										? sprintf( __( '%s (from .wp-env.json)' ), v )
+										: v === RecommendedPHPVersion
+										? sprintf( __( '%s (recommended)' ), v )
+										: v,
 								value: v,
 							} ) ),
-							default: RecommendedPHPVersion,
+							default: wpEnvPhpVersion ?? RecommendedPHPVersion,
 						} );
 					}
 
@@ -783,14 +918,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				return;
 			}
 
-			// Apply defaults for non-interactive mode when flags weren't provided
-			wpVersion = wpVersion ?? DEFAULT_WORDPRESS_VERSION;
-
 			const config: CreateCommandOptions = {
 				name: siteName,
 				siteId: argv.id,
 				wpVersion,
-				phpVersion: phpVersion ?? RecommendedPHPVersion,
+				phpVersion,
 				runtime,
 				fileAccess,
 				customDomain,

@@ -3,7 +3,12 @@ import { __ } from '@wordpress/i18n';
 import { useCallback, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
-import type { ProposedSitePath, SelectedSiteFolder, SiteDetails } from '@/data/core';
+import type {
+	ProposedSitePath,
+	SelectedSiteFolder,
+	SiteDetails,
+	WpEnvFolderInfo,
+} from '@/data/core';
 
 const PROPOSED_SITE_NAME_QUERY_KEY = [ 'proposedSiteName' ] as const;
 
@@ -88,6 +93,8 @@ export interface PathValidationResult {
 	name?: string;
 	isEmpty: boolean;
 	isWordPress: boolean;
+	/** Present when the folder holds a .wp-env.json project. */
+	wpEnv?: WpEnvFolderInfo;
 	error?: string;
 }
 
@@ -95,35 +102,35 @@ function validateProposedPath(
 	result: ProposedSitePath,
 	pathExists: boolean
 ): PathValidationResult {
+	const base = {
+		path: result.path,
+		isEmpty: result.isEmpty,
+		isWordPress: result.isWordPress,
+		wpEnv: result.wpEnv,
+	};
 	if ( result.isNameTooLong ) {
 		return {
-			path: result.path,
-			isEmpty: result.isEmpty,
-			isWordPress: result.isWordPress,
+			...base,
 			error: __( 'The site name is too long. Please choose a shorter site name.' ),
 		};
 	}
 	if ( pathExists ) {
 		return {
-			path: result.path,
-			isEmpty: result.isEmpty,
-			isWordPress: result.isWordPress,
+			...base,
 			error: __(
 				'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
 			),
 		};
 	}
-	if ( ! result.isEmpty && ! result.isWordPress ) {
+	if ( ! result.isEmpty && ! result.isWordPress && ! result.wpEnv ) {
 		return {
-			path: result.path,
-			isEmpty: result.isEmpty,
-			isWordPress: result.isWordPress,
+			...base,
 			error: __(
 				'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
 			),
 		};
 	}
-	return { path: result.path, isEmpty: result.isEmpty, isWordPress: result.isWordPress };
+	return base;
 }
 
 function validateSelectedFolder(
@@ -135,6 +142,7 @@ function validateSelectedFolder(
 		name: folder.name,
 		isEmpty: folder.isEmpty,
 		isWordPress: folder.isWordPress,
+		wpEnv: folder.wpEnv,
 	};
 	if ( pathExists ) {
 		return {
@@ -144,7 +152,7 @@ function validateSelectedFolder(
 			),
 		};
 	}
-	if ( ! folder.isEmpty && ! folder.isWordPress ) {
+	if ( ! folder.isEmpty && ! folder.isWordPress && ! folder.wpEnv ) {
 		return {
 			...base,
 			error: __(

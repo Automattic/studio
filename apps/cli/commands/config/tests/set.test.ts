@@ -7,6 +7,7 @@ import {
 	SITE_RUNTIME_NATIVE_PHP,
 	SITE_RUNTIME_PLAYGROUND,
 } from '@studio/common/lib/site-runtime';
+import { loadWpEnvConfig } from '@studio/common/lib/wp-env/config';
 import { vi } from 'vitest';
 import { readCliConfig, saveCliConfig, unlockCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -54,6 +55,7 @@ vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( '@studio/common/lib/wp-env/config' );
 
 describe( 'CLI: studio config set', () => {
 	const testSitePath = '/test/site';
@@ -651,6 +653,60 @@ describe( 'CLI: studio config set', () => {
 
 			await expect( runCommand( testSitePath, { name: 'New Name' } ) ).rejects.toThrow();
 			expect( unlockCliConfig ).toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'wp-env project sites', () => {
+		const getWpEnvSite = (): SiteData => ( {
+			...getTestSite(),
+			projectType: 'wp-env',
+			technicalSiteDirectory: '/test/.studio/wp-env/site-1',
+		} );
+
+		beforeEach( () => {
+			// Earlier suites replace these implementations (clearAllMocks keeps them).
+			vi.mocked( saveCliConfig ).mockResolvedValue( undefined );
+			const mockResponse: Partial< WpCliResponse > = {
+				exitCode: Promise.resolve( 0 ),
+			};
+			vi.mocked( runWpCliCommand ).mockResolvedValue( {
+				response: mockResponse as WpCliResponse,
+				[ Symbol.dispose ]: vi.fn().mockResolvedValue( undefined ),
+			} );
+		} );
+
+		it( 'refuses --wp when the project defines core', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( getWpEnvSite() );
+			vi.mocked( loadWpEnvConfig ).mockReturnValue( {
+				config: { core: 'WordPress/WordPress' },
+				warnings: [],
+			} );
+
+			await expect( runCommand( testSitePath, { wp: 'latest' } ) ).rejects.toThrow(
+				/already defines the WordPress version/
+			);
+		} );
+
+		it( 'allows --wp when the project leaves core null', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( getWpEnvSite() );
+			vi.mocked( loadWpEnvConfig ).mockReturnValue( { config: { core: null }, warnings: [] } );
+
+			await expect( runCommand( testSitePath, { wp: 'latest' } ) ).resolves.toBeUndefined();
+		} );
+
+		it( 'allows --php but surfaces the divergence from the project file', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( getWpEnvSite() );
+			vi.mocked( loadWpEnvConfig ).mockReturnValue( {
+				config: { phpVersion: '8.3' },
+				warnings: [],
+			} );
+			const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+
+			await runCommand( testSitePath, { php: '8.2' } );
+
+			expect( warnSpy ).toHaveBeenCalledWith(
+				expect.stringContaining( 'Using PHP 8.2 instead of 8.3' )
+			);
 		} );
 	} );
 } );

@@ -11,6 +11,7 @@ import {
 	PLAYGROUND_CLI_INACTIVITY_TIMEOUT,
 	PLAYGROUND_CLI_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { getSiteWpRoot } from '@studio/common/lib/cli-events';
 import { readLastLines } from '@studio/common/lib/fs-utils';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
@@ -107,7 +108,9 @@ function buildServerConfig(
 ): ServerConfig {
 	const serverConfig: ServerConfig = {
 		siteId: site.id,
-		sitePath: site.path,
+		// For project-backed sites (wp-env), the server runs from the technical
+		// directory rather than the user's project folder.
+		sitePath: getSiteWpRoot( site ),
 		port: site.port,
 		phpVersion:
 			runtime === SITE_RUNTIME_NATIVE_PHP
@@ -287,7 +290,7 @@ export async function startWordPressServer(
 
 	await clearStudioErrorLog( site );
 	const phpErrorLogPath = path.join(
-		site.path,
+		getSiteWpRoot( site ),
 		'wp-content',
 		site.enableDebugLog ? 'debug.log' : STUDIO_ERROR_LOG_FILENAME
 	);
@@ -318,7 +321,7 @@ export async function startWordPressServer(
 }
 
 async function clearStudioErrorLog( site: SiteData ): Promise< void > {
-	const logPath = path.join( site.path, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
+	const logPath = path.join( getSiteWpRoot( site ), 'wp-content', STUDIO_ERROR_LOG_FILENAME );
 	await fs.promises.rm( logPath, { force: true } ).catch( () => undefined );
 }
 

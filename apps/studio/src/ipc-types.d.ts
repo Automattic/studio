@@ -49,6 +49,10 @@ interface StoppedSiteDetails {
 	landingPage?: string;
 	runtime?: SiteRuntime;
 	fileAccess?: SiteFileAccess;
+	// For wp-env project sites: `path` is the user's project folder and
+	// `technicalSiteDirectory` is the WordPress root the server runs from.
+	projectType?: 'wp-env';
+	technicalSiteDirectory?: string;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {

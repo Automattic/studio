@@ -67,6 +67,11 @@ export async function runCommand(
 		site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
+		// Pulling would write WordPress files into the user's project folder.
+		if ( site.projectType === 'wp-env' ) {
+			throw new LoggerError( __( 'Pull is not supported yet for wp-env project sites.' ) );
+		}
+
 		logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
 		const remoteSites = await fetchSyncableSites( token.accessToken );
 		logger.spinner.stop();

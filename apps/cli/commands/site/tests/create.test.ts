@@ -21,6 +21,7 @@ import {
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
+import { hasWpEnvConfig, loadWpEnvConfig } from '@studio/common/lib/wp-env/config';
 import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
@@ -42,7 +43,7 @@ import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import { runCommand } from '../create';
+import { runCommand, wasPathOptionProvided } from '../create';
 
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@studio/common/lib/network-utils' );
@@ -91,6 +92,7 @@ vi.mock( 'cli/lib/site-utils' );
 vi.mock( '@studio/common/lib/agent-skills' );
 vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
+vi.mock( '@studio/common/lib/wp-env/config' );
 
 describe( 'CLI: studio site create', () => {
 	const mockSitePath = '/test/site/new-site';
@@ -184,6 +186,8 @@ describe( 'CLI: studio site create', () => {
 		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
 		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
+		vi.mocked( hasWpEnvConfig ).mockReturnValue( false );
+		vi.mocked( loadWpEnvConfig ).mockReturnValue( undefined );
 	} );
 
 	afterEach( () => {
@@ -1012,6 +1016,55 @@ $table_prefix = 'wp_';
 		} );
 	} );
 
+	describe( 'wp-env projects', () => {
+		const setupWpEnvProject = ( config: Record< string, unknown > ) => {
+			// The project folder exists, is not empty, and is not a WordPress dir.
+			const bundledWPPath = path.join( '/test/server-files', 'wordpress-versions', 'latest' );
+			vi.mocked( pathExists ).mockImplementation( ( checkPath: string ) =>
+				Promise.resolve( checkPath === mockSitePath || checkPath === bundledWPPath )
+			);
+			vi.mocked( isEmptyDir ).mockResolvedValue( false );
+			vi.mocked( isWordPressDirectory ).mockReturnValue( false );
+			vi.mocked( hasWpEnvConfig ).mockReturnValue( true );
+			vi.mocked( loadWpEnvConfig ).mockReturnValue( { config, warnings: [] } );
+		};
+
+		it( 'creates a project-backed site with a technical directory', async () => {
+			setupWpEnvProject( { core: null } );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, wpVersion: undefined } );
+
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: [
+						expect.objectContaining( {
+							path: mockSitePath,
+							projectType: 'wp-env',
+							technicalSiteDirectory: expect.stringContaining( 'wp-env' ),
+						} ),
+					],
+				} )
+			);
+		} );
+
+		it( 'refuses an explicit --wp when the project defines core', async () => {
+			setupWpEnvProject( { core: 'WordPress/WordPress' } );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, wpVersion: '6.4' } )
+			).rejects.toThrow( /already defines the WordPress version/ );
+			expect( saveCliConfig ).not.toHaveBeenCalled();
+		} );
+
+		it( 'allows an explicit --wp when the project leaves core null', async () => {
+			setupWpEnvProject( { core: null } );
+
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions, wpVersion: '6.4' } )
+			).resolves.toBeUndefined();
+		} );
+	} );
+
 	describe( 'Dependency updates', () => {
 		it( 'calls updateServerFiles when online', async () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
@@ -1026,5 +1079,15 @@ $table_prefix = 'wp_';
 
 			expect( updateServerFiles ).not.toHaveBeenCalled();
 		} );
+	} );
+} );
+
+describe( 'wasPathOptionProvided', () => {
+	it( 'detects an explicit --path in any form, including "."', () => {
+		expect( wasPathOptionProvided( [ 'node', 'main.mjs', 'create', '--path', '.' ] ) ).toBe( true );
+		expect( wasPathOptionProvided( [ 'node', 'main.mjs', 'create', '--path=.' ] ) ).toBe( true );
+		expect( wasPathOptionProvided( [ 'node', 'main.mjs', 'create', '--name', 'x' ] ) ).toBe(
+			false
+		);
 	} );
 } );

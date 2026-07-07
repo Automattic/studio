@@ -274,6 +274,11 @@ export async function runCommand(
 		site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
 
+		// The site path is the project folder, not a WordPress install.
+		if ( site.projectType === 'wp-env' ) {
+			throw new LoggerError( __( 'Import is not supported yet for wp-env project sites.' ) );
+		}
+
 		if ( ! fs.existsSync( importFile ) ) {
 			throw new LoggerError( sprintf( __( 'Import file not found: %s' ), importFile ) );
 		}

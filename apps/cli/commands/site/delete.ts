@@ -119,10 +119,15 @@ export async function runCommand(
 		if ( deleteFiles ) {
 			// Imported sites have both a visible site directory and a
 			// hidden technical directory under ~/.studio/imports; delete
-			// both if they exist.
-			const deleteTargets = [ siteFolder, site.technicalSiteDirectory ].filter(
-				( value ): value is string => typeof value === 'string' && fs.existsSync( value )
-			);
+			// both if they exist. For wp-env project sites, the site path is
+			// the user's project folder — Studio didn't create it and must
+			// never trash it; only the technical directory (the WordPress
+			// install) is removed.
+			const deleteTargets = (
+				site.projectType === 'wp-env'
+					? [ site.technicalSiteDirectory ]
+					: [ siteFolder, site.technicalSiteDirectory ]
+			).filter( ( value ): value is string => typeof value === 'string' && fs.existsSync( value ) );
 
 			if ( deleteTargets.length > 0 ) {
 				logger.reportStart( LoggerAction.DELETE_FILES, __( 'Moving site files to trash…' ) );

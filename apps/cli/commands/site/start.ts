@@ -1,4 +1,7 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
+import { getSiteWpRoot } from '@studio/common/lib/cli-events';
+import { getSiteRuntime } from '@studio/common/lib/site-runtime';
+import { wpEnvToSiteConfig } from '@studio/common/lib/wp-env/site-config';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
@@ -6,7 +9,11 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
-import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import {
+	isServerRunning,
+	startWordPressServer,
+	StartServerOptions,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -63,25 +70,48 @@ export async function runCommand(
 
 		await setupCustomDomain( site, logger );
 
+		const wpRoot = getSiteWpRoot( site );
+
 		logger.reportStart(
 			LoggerAction.INSTALL_SQLITE,
 			__( 'Setting up SQLite integration, if needed…' )
 		);
-		await keepSqliteIntegrationUpdated( sitePath );
+		await keepSqliteIntegrationUpdated( wpRoot );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
-		try {
-			await updateManagedInstructionFiles( site, getAiInstructionsPath() );
-		} catch ( error ) {
-			logger.reportError(
-				new LoggerError( __( 'Failed to update AI instructions. Proceeding anyway…' ), error ),
-				false
-			);
+		// Recomputed on every start so changes to .wp-env.json are picked up
+		// (the wp-env Blueprint steps are idempotent).
+		let startOptions: StartServerOptions | undefined;
+		if ( site.projectType === 'wp-env' ) {
+			const wpEnvSiteConfig = await wpEnvToSiteConfig( site.path, wpRoot, getSiteRuntime( site ) );
+			if ( ! wpEnvSiteConfig ) {
+				throw new LoggerError(
+					sprintf(
+						// translators: %s: path to the project folder.
+						__( 'This site is a wp-env project, but no .wp-env.json was found in %s.' ),
+						site.path
+					)
+				);
+			}
+			for ( const warning of wpEnvSiteConfig.warnings ) {
+				console.warn( `[wp-env] ${ warning }` );
+			}
+			startOptions = wpEnvSiteConfig.startOptions;
+		} else {
+			// Skipped for wp-env sites: the site path is the user's project folder.
+			try {
+				await updateManagedInstructionFiles( site, getAiInstructionsPath() );
+			} catch ( error ) {
+				logger.reportError(
+					new LoggerError( __( 'Failed to update AI instructions. Proceeding anyway…' ), error ),
+					false
+				);
+			}
 		}
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 		try {
-			const processDesc = await startWordPressServer( site, logger );
+			const processDesc = await startWordPressServer( site, logger, startOptions );
 
 			logger.reportSuccess( __( 'WordPress server started' ) );
 			if ( processDesc.status === 'online' ) {

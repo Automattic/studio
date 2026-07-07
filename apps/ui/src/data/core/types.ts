@@ -168,6 +168,9 @@ export interface Connector {
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
+	// Folder details for a typed path — connectors without a native folder
+	// picker provide this so the create form can adapt (e.g. wp-env projects).
+	inspectSiteFolder?( path: string ): Promise< InspectedSiteFolder >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
 	// Featured blueprints gallery for the "Start from blueprint" onboarding
@@ -403,11 +406,19 @@ export interface ExtractedBlueprintBundle {
 	tempDir: string;
 }
 
+/** Present when a validated folder holds a .wp-env.json project. */
+export interface WpEnvFolderInfo {
+	/** The resolved Studio version from the file's `core` (e.g. 'nightly'). */
+	wpVersion: string;
+	phpVersion?: string;
+}
+
 export interface ProposedSitePath {
 	path: string;
 	isEmpty: boolean;
 	isWordPress: boolean;
 	isNameTooLong?: boolean;
+	wpEnv?: WpEnvFolderInfo;
 }
 
 export interface SelectedSiteFolder {
@@ -415,4 +426,11 @@ export interface SelectedSiteFolder {
 	name: string;
 	isEmpty: boolean;
 	isWordPress: boolean;
+	wpEnv?: WpEnvFolderInfo;
+}
+
+export interface InspectedSiteFolder {
+	isEmpty: boolean;
+	isWordPress: boolean;
+	wpEnv?: WpEnvFolderInfo;
 }

@@ -15,6 +15,7 @@ import type {
 	LoadedAiSession,
 	LocalMediaFile,
 	ProposedSitePath,
+	InspectedSiteFolder,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -356,6 +357,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No native folder picker in a browser; the create form falls back to
 			// an editable path field (see capabilities.nativeFolderPicker).
 			return null;
+		},
+		async inspectSiteFolder( folderPath ): Promise< InspectedSiteFolder > {
+			return api< InspectedSiteFolder >( '/paths/inspect', {
+				method: 'POST',
+				body: JSON.stringify( { path: folderPath } ),
+			} );
 		},
 		async comparePaths( path1, path2 ) {
 			const { equal } = await api< { equal: boolean } >( '/paths/compare', {

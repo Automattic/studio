@@ -125,6 +125,8 @@ export const CreateSiteForm = ( {
 
 	const [ pathError, setPathError ] = useState( '' );
 	const [ doesPathContainWordPress, setDoesPathContainWordPress ] = useState( false );
+	// Set when the selected path holds a .wp-env.json project.
+	const [ wpEnvInfo, setWpEnvInfo ] = useState< PathValidationResult[ 'wpEnv' ] >( undefined );
 	const [ customDomainError, setCustomDomainError ] = useState( '' );
 	const [ hasCustomPath, setHasCustomPath ] = useState( false );
 
@@ -255,6 +257,15 @@ export const CreateSiteForm = ( {
 		adminEmail,
 	] );
 
+	const applyWpEnvInfo = useCallback( ( wpEnv: PathValidationResult[ 'wpEnv' ] ) => {
+		setWpEnvInfo( wpEnv );
+		// Suggest the project's PHP version; the select stays editable.
+		const projectPhpVersion = SupportedPHPVersions.find( ( v ) => v === wpEnv?.phpVersion );
+		if ( projectPhpVersion ) {
+			setPhpVersion( projectPhpVersion );
+		}
+	}, [] );
+
 	const handleSiteNameChange = useCallback(
 		async ( name: string ) => {
 			hasUserInteracted.current = true;
@@ -269,12 +280,14 @@ export const CreateSiteForm = ( {
 					setPathError( '' );
 				}
 				setDoesPathContainWordPress( ! result.isEmpty && result.isWordPress );
+				applyWpEnvInfo( result.wpEnv );
 				setSitePath( result.path );
 			}
 		},
 		[
 			onSiteNameChange,
 			hasCustomPath,
+			applyWpEnvInfo,
 			setDoesPathContainWordPress,
 			setPathError,
 			setSiteName,
@@ -309,6 +322,7 @@ export const CreateSiteForm = ( {
 			setPathError( '' );
 		}
 		setDoesPathContainWordPress( ! result.isEmpty && result.isWordPress );
+		applyWpEnvInfo( result.wpEnv );
 
 		if ( result.name && ! siteName ) {
 			setSiteName( result.name );
@@ -319,6 +333,7 @@ export const CreateSiteForm = ( {
 		sitePath,
 		siteName,
 		hasCustomPath,
+		applyWpEnvInfo,
 		setDoesPathContainWordPress,
 		setHasCustomPath,
 		setPathError,
@@ -341,7 +356,7 @@ export const CreateSiteForm = ( {
 			siteName,
 			sitePath,
 			phpVersion,
-			wpVersion,
+			wpVersion: wpEnvInfo ? undefined : wpVersion,
 			runtime: selectedRuntime,
 			fileAccess: usedFileAccess,
 			useCustomDomain,
@@ -356,6 +371,7 @@ export const CreateSiteForm = ( {
 			sitePath,
 			phpVersion,
 			wpVersion,
+			wpEnvInfo,
 			selectedRuntime,
 			usedFileAccess,
 			useCustomDomain,
@@ -487,7 +503,11 @@ export const CreateSiteForm = ( {
 								</span>
 								<FormPathInputComponent
 									tipMessage={
-										doesPathContainWordPress
+										wpEnvInfo
+											? __(
+													'This folder contains a wp-env project. The WordPress version, plugins, and themes come from its .wp-env.json file.'
+											  )
+											: doesPathContainWordPress
 											? __( 'The existing WordPress site at this path will be added.' )
 											: ''
 									}
@@ -514,16 +534,36 @@ export const CreateSiteForm = ( {
 										/>
 									</div>
 
-									<WPVersionSelector
-										selectedValue={ wpVersion }
-										onChange={ setWpVersion }
-										fallbackOptions={ [
-											{ label: __( 'Latest' ), value: DEFAULT_WORDPRESS_VERSION },
-										] }
-										offlineMessage={ __(
-											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
-										) }
-									/>
+									{ wpEnvInfo ? (
+										<div className="flex flex-col gap-1.5 leading-4">
+											<label className="font-semibold" htmlFor="wp-env-version-select">
+												{ __( 'WordPress version' ) }
+											</label>
+											<SelectControl
+												id="wp-env-version-select"
+												disabled
+												value={ wpEnvInfo.wpVersion }
+												options={ [ { label: wpEnvInfo.wpVersion, value: wpEnvInfo.wpVersion } ] }
+												onChange={ () => undefined }
+												__next40pxDefaultSize
+												__nextHasNoMarginBottom
+											/>
+											<span className="text-frame-text-secondary text-xs">
+												{ __( 'Defined by the .wp-env.json project file.' ) }
+											</span>
+										</div>
+									) : (
+										<WPVersionSelector
+											selectedValue={ wpVersion }
+											onChange={ setWpVersion }
+											fallbackOptions={ [
+												{ label: __( 'Latest' ), value: DEFAULT_WORDPRESS_VERSION },
+											] }
+											offlineMessage={ __(
+												'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
+											) }
+										/>
+									) }
 								</div>
 
 								<div className="grid grid-cols-2 gap-4 mt-4">

@@ -29,6 +29,7 @@ import {
 	isValidWordPressVersion,
 	isWordPressVersionAtLeast,
 } from '@studio/common/lib/wordpress-version-utils';
+import { loadWpEnvConfig } from '@studio/common/lib/wp-env/config';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -152,6 +153,39 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			);
 		}
 		const validatedPhp = php === undefined ? undefined : validateSupportedPhpVersion( php );
+
+		// wp-env project sites: the project file is the source of truth for
+		// the WordPress version — a conflicting --wp is refused (mirroring
+		// `create`). PHP remains a dev choice, but a divergence from the
+		// file's phpVersion is surfaced.
+		if ( site.projectType === 'wp-env' ) {
+			const wpEnvConfig = loadWpEnvConfig( site.path )?.config;
+			if ( wp !== undefined && wpEnvConfig?.core != null ) {
+				throw new LoggerError(
+					sprintf(
+						/* translators: %s: the wp-env core value */
+						__(
+							'This project\'s .wp-env.json already defines the WordPress version (core: "%s"). Remove the --wp option, or override the project with a .wp-env.override.json file.'
+						),
+						wpEnvConfig.core
+					)
+				);
+			}
+			if (
+				validatedPhp !== undefined &&
+				wpEnvConfig?.phpVersion != null &&
+				validatedPhp !== wpEnvConfig.phpVersion
+			) {
+				console.warn(
+					`[wp-env] ${ sprintf(
+						/* translators: %1$s: the chosen PHP version, %2$s: the PHP version from .wp-env.json */
+						__( 'Using PHP %1$s instead of %2$s from .wp-env.json.' ),
+						validatedPhp,
+						wpEnvConfig.phpVersion
+					) }`
+				);
+			}
+		}
 
 		const initialCliConfig = await readCliConfig();
 

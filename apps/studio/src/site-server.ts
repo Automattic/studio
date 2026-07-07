@@ -2,6 +2,7 @@ import fs from 'fs';
 import nodePath from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { SQLITE_FILENAME } from '@studio/common/constants';
+import { getSiteWpRoot } from '@studio/common/lib/cli-events';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { listSites } from '@studio/common/sites/list';
@@ -477,7 +478,7 @@ export class SiteServer {
 				this.details.siteIconPath = null;
 			} else {
 				const { relativePath } = SiteServer.siteIconSchema.parse( parsed );
-				this.details.siteIconPath = nodePath.join( this.details.path, relativePath );
+				this.details.siteIconPath = nodePath.join( getSiteWpRoot( this.details ), relativePath );
 			}
 		} catch ( error ) {
 			console.error( 'Failed to get site icon:', error );
@@ -518,7 +519,8 @@ export class SiteServer {
 	}
 
 	async hasSQLitePlugin(): Promise< boolean > {
-		const wpContentPath = nodePath.join( this.details.path, 'wp-content' );
+		const wpRoot = getSiteWpRoot( this.details );
+		const wpContentPath = nodePath.join( wpRoot, 'wp-content' );
 
 		const sqliteIntegrationPaths = {
 			muPlugin: nodePath.join( wpContentPath, 'mu-plugins', SQLITE_FILENAME ),
@@ -527,7 +529,7 @@ export class SiteServer {
 		};
 
 		const requiredConfigPaths = {
-			wpConfig: nodePath.join( this.details.path, 'wp-config.php' ),
+			wpConfig: nodePath.join( wpRoot, 'wp-config.php' ),
 			dbConfig: nodePath.join( wpContentPath, 'db.php' ),
 			dbSqlite: nodePath.join( wpContentPath, 'database', '.ht.sqlite' ),
 		};

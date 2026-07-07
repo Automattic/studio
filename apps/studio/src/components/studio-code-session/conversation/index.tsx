@@ -252,10 +252,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	return items;
 }
 
-// A conversation counts as "stopped" when the most recent turn ended because
-// the user interrupted it. We scan back from the end: the first turn boundary
-// we meet decides the answer, and a trailing user prompt (a turn that has since
-// been started again) means we're no longer in the stopped state.
+// True when the most recent turn was interrupted by the user.
 export function isConversationStopped( entries: SessionEntry[] ): boolean {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const entry = entries[ index ];

@@ -1,6 +1,8 @@
 import {
 	getCheckpointArtifactProps,
 	isCheckpointArtifactWidget,
+	type CheckpointArtifactProps,
+	StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
 import {
 	isStudioCustomEntryOfType,
@@ -17,6 +19,7 @@ import {
 } from '@studio/common/ai/tools';
 import { __, sprintf } from '@wordpress/i18n';
 import {
+	backup,
 	blockDefault,
 	brush,
 	capturePhoto,
@@ -62,7 +65,7 @@ import {
 import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { CheckpointArtifactChip } from '@/components/checkpoint-timeline/artifact-chip';
+import { RestoreCheckpointDialog } from '@/components/checkpoint-timeline';
 import { ImageContextMenu } from '@/components/image-context-menu';
 import { ImageLightbox, type LightboxImage } from '@/components/image-lightbox';
 import { Markdown } from '@/components/markdown';
@@ -74,10 +77,10 @@ import {
 	type PermissionDecision,
 	type PermissionRequestData,
 } from '@/data/core';
+import { formatRelativeTime } from '@/lib/format-relative-time';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
 
 interface AgentQuestionRenderItem {
 	key: string;
@@ -984,7 +987,7 @@ function ThinkingRow( { text, durationMs }: { text: string; durationMs?: number 
 }
 
 function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] } ) {
-	// Checkpoint chips render standalone; everything else is media in a grid.
+	// Checkpoints render as tool-style rows; everything else is media in a grid.
 	const checkpointArtifacts = widgets
 		.map( getCheckpointArtifactProps )
 		.filter( ( artifact ): artifact is NonNullable< typeof artifact > => artifact !== null );
@@ -992,7 +995,7 @@ function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] }
 	return (
 		<>
 			{ checkpointArtifacts.map( ( artifact ) => (
-				<CheckpointArtifactChip key={ artifact.checkpointId } artifact={ artifact } />
+				<CheckpointRow key={ artifact.checkpointId } artifact={ artifact } />
 			) ) }
 			{ mediaWidgets.length > 0 ? (
 				<div className={ styles.mediaArtifactGrid }>
@@ -1002,6 +1005,47 @@ function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] }
 				</div>
 			) : null }
 		</>
+	);
+}
+
+// A checkpoint capture rendered with the same anatomy as a tool call row —
+// icon, muted label, detail — plus a Restore action. Restore opens the same
+// confirmation dialog the site's checkpoint timeline uses.
+function CheckpointRow( { artifact }: { artifact: CheckpointArtifactProps } ) {
+	const [ restoreOpen, setRestoreOpen ] = useState( false );
+
+	let title = artifact.label;
+	if ( ! title ) {
+		title = artifact.toolName
+			? /* translators: %s: the agent tool a checkpoint was captured before (e.g. "wp_cli") */
+			  sprintf( __( 'Checkpoint before %s' ), artifact.toolName )
+			: __( 'Checkpoint' );
+	}
+
+	return (
+		<div className={ styles.toolBlock }>
+			<div className={ styles.toolRow }>
+				<Icon icon={ backup } className={ styles.toolIcon } />
+				<span className={ styles.toolLabel }>{ title }</span>
+				<span className={ styles.toolDetail }>
+					{ formatRelativeTime( new Date( artifact.createdAt ).toISOString() ) }
+				</span>
+				<button
+					type="button"
+					className={ styles.toolActionButton }
+					onClick={ () => setRestoreOpen( true ) }
+				>
+					{ __( 'Restore' ) }
+				</button>
+			</div>
+			<RestoreCheckpointDialog
+				siteId={ artifact.siteId }
+				checkpointId={ artifact.checkpointId }
+				title={ title }
+				open={ restoreOpen }
+				onOpenChange={ setRestoreOpen }
+			/>
+		</div>
 	);
 }
 

@@ -6,7 +6,13 @@ import { normalize } from 'path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import { createSite, isFullscreen, getXdebugEnabledSite, loadThemeDetails } from 'src/ipc-handlers';
+import {
+	createSite,
+	getFileSize,
+	getXdebugEnabledSite,
+	isFullscreen,
+	loadThemeDetails,
+} from 'src/ipc-handlers';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
@@ -25,7 +31,7 @@ vi.mock( 'src/lib/wordpress-setup', () => ( {
 } ) );
 vi.mock( 'src/main-window' );
 vi.mock( 'src/lib/sqlite-versions', () => ( {
-	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( false ),
+	keepSqliteIntegrationUpdated: vi.fn().mockResolvedValue( undefined ),
 	installSqliteIntegration: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
@@ -290,5 +296,39 @@ describe( 'loadThemeDetails', () => {
 
 		expect( mockServer.persistThemeDetails ).toHaveBeenCalled();
 		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id', true );
+	} );
+} );
+
+describe( 'getFileSize', () => {
+	it( 'returns the file size', () => {
+		vi.mocked( SiteServer.get ).mockReturnValue( {
+			details: { path: '/test' },
+		} as unknown as SiteServer );
+		vol.fromJSON( { '/test/wp-content/index.php': '<?php' } );
+
+		expect(
+			getFileSize( mockIpcMainInvokeEvent, 'test-site-id', [ 'wp-content', 'index.php' ] )
+		).toBe( 5 );
+	} );
+
+	it( 'returns 0 for a dangling symlink instead of throwing', () => {
+		vi.mocked( SiteServer.get ).mockReturnValue( {
+			details: { path: '/test' },
+		} as unknown as SiteServer );
+		// A broken symlink whose target was never created — mirrors the WP Cloud
+		// `advanced-cache.php` drop-in that a reprint pull leaves dangling.
+		vol.mkdirSync( '/test/wp-content', { recursive: true } );
+		vol.symlinkSync(
+			'/test/wordpress/drop-ins/advanced-cache.php',
+			'/test/wp-content/advanced-cache.php'
+		);
+		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+
+		expect(
+			getFileSize( mockIpcMainInvokeEvent, 'test-site-id', [ 'wp-content', 'advanced-cache.php' ] )
+		).toBe( 0 );
+		expect( warnSpy ).toHaveBeenCalledWith( expect.stringContaining( 'advanced-cache.php' ) );
+
+		warnSpy.mockRestore();
 	} );
 } );

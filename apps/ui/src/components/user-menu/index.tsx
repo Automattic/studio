@@ -8,7 +8,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { moonIcon, sunIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { ColorScheme } from '@/data/core';
@@ -25,12 +25,9 @@ export function UserMenu() {
 	const login = useLogin();
 	const logout = useLogout();
 	const navigate = useNavigate();
-	const effectiveScheme = usePrefersColorScheme();
 
-	const savedScheme = preferences?.colorScheme;
-	const currentScheme: ColorScheme = savedScheme ?? 'system';
-	const themeIsDark =
-		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
+	const currentScheme: ColorScheme = preferences?.colorScheme ?? 'system';
+	const themeIsDark = useColorScheme() === 'dark';
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );

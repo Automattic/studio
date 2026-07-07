@@ -23,9 +23,9 @@
 		"zod": "^4.0.0"
 	},
 	"devDependencies": {
-		"@earendil-works/pi-coding-agent": "0.79.0",
+		"@earendil-works/pi-coding-agent": "0.80.3",
 		"@types/lockfile": "^1.0.4",
 		"@types/yauzl": "^2.10.3",
-		"@wp-playground/blueprints": "3.1.38"
+		"@wp-playground/blueprints": "3.1.43"
 	}
 }

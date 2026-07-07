@@ -89,12 +89,42 @@ export interface AuthUser {
 	displayName: string;
 }
 
+// What native affordances the host environment offers, so the UI can choose
+// between a native flow and a browser-friendly fallback (instead of branching on
+// "am I in Electron"). The desktop app has them all; the browser (`studio ui` /
+// hosted) does not — except `openInOS`, which the local server can do because it
+// runs on the user's own machine.
+export interface ConnectorCapabilities {
+	// A native OS folder picker is available (`selectSiteFolder`). When false,
+	// the UI offers an editable path field instead.
+	nativeFolderPicker: boolean;
+	// A native "Save As" dialog is available, so exports write to a chosen path.
+	// When false, exports are delivered to the browser as a download.
+	nativeSaveDialog: boolean;
+	// The host can open paths in OS apps (file manager, editor, terminal) and
+	// detect installed apps. True on the desktop and the local server (both on
+	// the user's machine); false when hosted remotely.
+	openInOS: boolean;
+	// The preview can host the annotation inspector (script injection + a bridge
+	// into the previewed page). Only the desktop's <webview> supports this; in a
+	// browser the preview is a cross-origin <iframe> that can't be injected, so
+	// the Annotate control is hidden.
+	annotatePreview: boolean;
+	// `readLocalMediaFile` can read media files from the host's disk (used to
+	// render local screenshot artifacts inline). Only the desktop IPC connector
+	// supports it; the browser connectors reject local file reads.
+	readLocalMedia: boolean;
+}
+
 export interface Connector {
 	/**
 	 * Optional hook for connector-specific setup that must run after the
 	 * connector is constructed but before the UI renders.
 	 */
 	init?(): Promise< void >;
+
+	// What native affordances this host offers (see ConnectorCapabilities).
+	capabilities: ConnectorCapabilities;
 
 	// Auth
 	requiresAuth: boolean;
@@ -210,6 +240,11 @@ export interface Connector {
 			autoOpenPush?: boolean;
 		} ) => void
 	): () => void;
+	// Optional: ask the backend to watch for a freshly-created WordPress.com site
+	// (the "Create new" checkout) and report it via `onSyncConnectSite`. Used by
+	// surfaces that can't receive the desktop's wp-studio:// deep link — the local
+	// web server polls the account's sites instead.
+	watchForPublishedSite?( siteId: string ): Promise< void >;
 
 	// AI sessions (shared with the CLI — stored as JSONL on disk)
 	getSessions(): Promise< AiSessionSummary[] >;
@@ -289,6 +324,14 @@ export interface Connector {
 		relativeUrl?: string,
 		options?: { autoLogin?: boolean }
 	): Promise< void >;
+
+	// Whether this host overlays macOS window controls ("traffic lights") on the
+	// top-left of the content, so the UI must reserve space for them. True only
+	// in the macOS desktop app; false on other platforms and in the browser
+	// (`studio ui` / hosted), where there are no traffic lights. Combined with
+	// `isFullscreen` — macOS hides the traffic lights in fullscreen — to decide
+	// when to actually leave the gap (see `useTrafficLightSpace`).
+	reservesTrafficLightSpace: boolean;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).

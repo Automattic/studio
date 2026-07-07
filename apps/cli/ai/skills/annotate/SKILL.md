@@ -22,31 +22,31 @@ Then identify the target site. If there's an active site, use it. If there are m
 
 Call `site_info` to get the site URL — do NOT guess the URL or port.
 
-Use the `open_annotation_browser` tool with the site URL. This opens a headed browser with the Studio annotation inspector injected — a small dark pill in the bottom-right with **"Annotate"** and **"Done"** buttons.
+Use the `open_annotation_browser` tool with the site URL. This opens a headed browser with the Studio clip inspector injected — a small dark bar in the bottom-right with **Element** and **Region** mode toggles, a clip count, and a **"Send to agent"** button.
 
 Tell the user:
-> The browser is open. Click **Annotate** in the bottom-right toolbar, click any element on the page, type your feedback, then click **Done** when you're finished.
+> The browser is open. Pick **Element** in the bottom-right toolbar and click any part of the page to clip it (add a note if you like), or pick **Region** and drag a box around an area. Right-click also works for quick clips. Click **Send to agent** when you're finished.
 
 ### 2. Wait for the user to submit
 
-Call `wait_for_annotations`. This blocks until the user clicks **Done** and returns the annotations they wrote, captured straight from the page.
+Call `wait_for_annotations`. This blocks until the user clicks **Send to agent** and returns the clips they made.
 
-Each annotation includes:
-- **CSS selector / elementPath** — use to find the element in the theme or via WP-CLI
-- **Computed styles** — current CSS values (colors, sizes, spacing)
-- **nearbyText** — visible text content of the element
-- **User feedback (comment)** — what the user wants changed
-- **pathname** — which page of the site the annotation was made on
+Each clip includes:
+- **grain** — `element` (clicked element), `region` (dragged box), or `page` (full page)
+- **CSS selector** (element clips) — use to find the element in the theme or via WP-CLI
+- **Computed styles** (element clips) — current CSS values (colors, sizes, spacing)
+- **nearbyText** (element clips) — visible text content of the element
+- **User feedback (comment)** — what the user wants changed (optional)
+- **pathname** — which page of the site the clip was made on
+- **imagePath** — a screenshot of the clipped element/region/page on disk. Read it to see exactly what the user is pointing at, especially for region and page clips where there's no selector.
 
-### 3. Review the annotations
+### 3. Review the clips
 
-Address the annotations in the order they were submitted. When you reference one for the user, identify the element by what they can see — the tag name plus `nearbyText` — rather than by selector. Selectors are noisy and unreadable; use them only for implementation.
-
-If the user wants to re-annotate, point them back to the open browser and call `wait_for_annotations` again — the inspector keeps working without re-opening the browser.
+Address the clips in the order they were submitted. When you reference one for the user, identify the element by what they can see — the tag name plus `nearbyText`, or what's visible in its screenshot — rather than by selector. Selectors are noisy and unreadable; use them only for implementation.
 
 ### 4. Make changes
 
-For each annotation:
+For each clip:
 	1. **Identify what to change:**
 	   - Use the CSS selector to find the element in theme templates or stylesheets
 	   - Use `wp_cli` with `post list --post_type=wp_template --format=json` to check if it's in a template override
@@ -61,9 +61,9 @@ For each annotation:
 
 ### 5. Verify
 
-After all annotations are addressed, take a screenshot and confirm with the user.
+After all clips are addressed, take a screenshot and confirm with the user.
 
-The browser window auto-closes about 10 seconds after the user clicks **Done**, so by the time you finish making changes it's already gone. If they want another round, run the skill again from the top — `/annotate` opens a fresh browser. Don't try to "reattach" to the previous window.
+The browser window closes shortly after the submission is read, so by the time you finish making changes it's already gone. If they want another round, run the skill again from the top — `/annotate` opens a fresh browser. Don't try to "reattach" to the previous window.
 
 ## Making changes the WordPress way
 

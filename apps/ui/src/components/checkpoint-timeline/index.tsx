@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { backup } from '@wordpress/icons';
-import { Badge, Button, Dialog, Icon } from '@wordpress/ui';
+import { backup, trash } from '@wordpress/icons';
+import { Badge, Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import {
 	useCheckpoints,
@@ -232,6 +232,81 @@ function CreateCheckpointDialog( {
 	);
 }
 
+// Confirmation before permanently removing a checkpoint. Same shape as the
+// restore and delete-site dialogs.
+function DeleteCheckpointDialog( {
+	siteId,
+	checkpoint,
+	open,
+	onOpenChange,
+}: {
+	siteId: string;
+	checkpoint: SiteCheckpoint;
+	open: boolean;
+	onOpenChange: ( open: boolean ) => void;
+} ) {
+	const deleteCheckpoint = useDeleteCheckpoint();
+	const [ error, setError ] = useState< string | null >( null );
+
+	const handleConfirm = () => {
+		setError( null );
+		deleteCheckpoint.mutate(
+			{ siteId, checkpointId: checkpoint.id },
+			{
+				onSuccess: () => onOpenChange( false ),
+				onError: ( err: Error ) => {
+					setError( err.message ?? __( 'Unable to delete the checkpoint. Please try again.' ) );
+				},
+			}
+		);
+	};
+
+	return (
+		<Dialog.Root
+			open={ open }
+			onOpenChange={ ( next ) => {
+				if ( ! deleteCheckpoint.isPending ) {
+					onOpenChange( next );
+					if ( ! next ) {
+						setError( null );
+					}
+				}
+			} }
+		>
+			<Dialog.Popup size="small">
+				<Dialog.Header>
+					{ /* translators: %s: the checkpoint's name */ }
+					<Dialog.Title>
+						{ sprintf( __( 'Delete “%s”?' ), checkpointTitle( checkpoint ) ) }
+					</Dialog.Title>
+				</Dialog.Header>
+				<Dialog.Content>
+					<p className={ styles.dialogText }>
+						{ __(
+							'This save point will be permanently removed and can no longer be restored. Your site itself is not affected.'
+						) }
+					</p>
+					{ error ? <div className={ styles.dialogError }>{ error }</div> : null }
+				</Dialog.Content>
+				<Dialog.Footer>
+					<Dialog.Action variant="minimal" tone="neutral" disabled={ deleteCheckpoint.isPending }>
+						{ __( 'Cancel' ) }
+					</Dialog.Action>
+					<Button
+						variant="solid"
+						tone="brand"
+						loading={ deleteCheckpoint.isPending }
+						loadingAnnouncement={ __( 'Deleting checkpoint' ) }
+						onClick={ handleConfirm }
+					>
+						{ __( 'Delete checkpoint' ) }
+					</Button>
+				</Dialog.Footer>
+			</Dialog.Popup>
+		</Dialog.Root>
+	);
+}
+
 function CheckpointRow( {
 	siteId,
 	checkpoint,
@@ -241,29 +316,19 @@ function CheckpointRow( {
 	checkpoint: SiteCheckpoint;
 	onRestore: ( checkpoint: SiteCheckpoint ) => void;
 } ) {
-	const deleteCheckpoint = useDeleteCheckpoint();
-	const [ deleteError, setDeleteError ] = useState< string | null >( null );
-
-	const handleDelete = () => {
-		setDeleteError( null );
-		deleteCheckpoint.mutate(
-			{ siteId, checkpointId: checkpoint.id },
-			{
-				onError: ( err: Error ) => {
-					setDeleteError( err.message ?? __( 'Unable to delete the checkpoint.' ) );
-				},
-			}
-		);
-	};
+	const [ deleteOpen, setDeleteOpen ] = useState( false );
 
 	return (
 		<li className={ styles.row }>
 			<div className={ styles.rowMain }>
 				<div className={ styles.rowTitleLine }>
-					<span className={ styles.rowTitle }>{ checkpointTitle( checkpoint ) }</span>
-					<Badge intent={ checkpoint.trigger === 'manual' ? 'informational' : 'none' }>
+					<Badge
+						intent={ checkpoint.trigger === 'manual' ? 'informational' : 'draft' }
+						className={ styles.triggerBadge }
+					>
 						{ triggerLabel( checkpoint.trigger ) }
 					</Badge>
+					<span className={ styles.rowTitle }>{ checkpointTitle( checkpoint ) }</span>
 				</div>
 				<div className={ styles.rowMeta }>
 					<span>{ formatRelativeTime( new Date( checkpoint.createdAt ).toISOString() ) }</span>
@@ -276,27 +341,30 @@ function CheckpointRow( {
 						) }
 					</span>
 				</div>
-				{ deleteError ? <div className={ styles.rowError }>{ deleteError }</div> : null }
 			</div>
 			<div className={ styles.rowActions }>
 				<Button
-					variant="outline"
+					variant="minimal"
 					tone="neutral"
 					size="compact"
 					onClick={ () => onRestore( checkpoint ) }
 				>
 					{ __( 'Restore' ) }
 				</Button>
-				<Button
+				<IconButton
 					variant="minimal"
 					tone="neutral"
-					size="compact"
-					loading={ deleteCheckpoint.isPending }
-					loadingAnnouncement={ __( 'Deleting checkpoint' ) }
-					onClick={ handleDelete }
-				>
-					{ __( 'Delete' ) }
-				</Button>
+					size="small"
+					icon={ trash }
+					label={ __( 'Delete checkpoint' ) }
+					onClick={ () => setDeleteOpen( true ) }
+				/>
+				<DeleteCheckpointDialog
+					siteId={ siteId }
+					checkpoint={ checkpoint }
+					open={ deleteOpen }
+					onOpenChange={ setDeleteOpen }
+				/>
 			</div>
 		</li>
 	);

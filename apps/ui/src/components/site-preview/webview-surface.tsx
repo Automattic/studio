@@ -925,8 +925,16 @@ export function WebviewSurface( {
 		webview.loadURL( url ).catch( () => undefined );
 	}, [ url, reloadNonce, ready ] );
 
+	// The command/request props outlive this component: SitePreview keeps
+	// them across site switches while the surface remounts (keyed on site
+	// id). Each guard ref is seeded with the mount-time value so a stale
+	// command from the previous site is never replayed — only changes made
+	// after mount act.
+	const lastInspectorCommandIdRef = useRef< number | null >( inspectorCommand?.id ?? null );
 	useEffect( () => {
 		if ( ! ready || ! inspectorCommand ) return;
+		if ( lastInspectorCommandIdRef.current === inspectorCommand.id ) return;
+		lastInspectorCommandIdRef.current = inspectorCommand.id;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
 		runInGuest( webview, buildInspectorCommandScript( inspectorCommand.command ) ).catch(
@@ -937,7 +945,7 @@ export function WebviewSurface( {
 	// One-shot page-clip trigger from host chrome. Not gated on the inspector
 	// being ready: the capture goes through the debugger, not the guest
 	// script (overlay hiding degrades gracefully when the script is absent).
-	const lastPageClipIdRef = useRef< number | null >( null );
+	const lastPageClipIdRef = useRef< number | null >( pageClipRequest?.id ?? null );
 	useEffect( () => {
 		if ( ! pageClipRequest ) return;
 		if ( lastPageClipIdRef.current === pageClipRequest.id ) return;
@@ -947,8 +955,11 @@ export function WebviewSurface( {
 		void capturePageClip( webview );
 	}, [ pageClipRequest, capturePageClip ] );
 
+	const lastBrowserCommandIdRef = useRef< number | null >( browserCommand?.id ?? null );
 	useEffect( () => {
 		if ( ! ready || ! browserCommand ) return;
+		if ( lastBrowserCommandIdRef.current === browserCommand.id ) return;
+		lastBrowserCommandIdRef.current = browserCommand.id;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
 		try {

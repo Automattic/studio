@@ -10,7 +10,6 @@ Unreleased
 * Studio Code: Improved plugin recommendations for Automattic products, and tuned agent behavior for native PHP vs Playground sites #4023, #3995
 * Studio Code: Fixed an unwanted gap in block themes scaffolded by the assistant #4053
 * Fixed native-PHP sites failing to load on Windows when the user profile path uses a short (8.3) name #4082
-* Fixed studio push for sites pulled with native reprint #3994
 * Sync: preserved Pressable site metadata during reconciliation #4078
 * Fixed recreating missing db.php drop-ins and preserving custom SQLite drop-ins #3993
 * Fixed occasional failures when duplicating a site #4074

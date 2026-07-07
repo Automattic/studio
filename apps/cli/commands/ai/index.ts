@@ -24,6 +24,7 @@ import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
+import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import {
@@ -200,6 +201,18 @@ export async function runCommand( options: {
 	setChatArtifactCallback( ( artifact ) =>
 		append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) )
 	);
+
+	// Persist screenshots next to the session file (`<session>.screenshots/`)
+	// so artifacts in the transcript keep rendering after OS temp cleanup;
+	// `deleteAiSession` removes the sidecar together with the session.
+	setScreenshotDirectoryProvider( async () => {
+		const sm = await ensureSession();
+		const sessionFile = sm.getSessionFile();
+		if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
+			return null;
+		}
+		return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
+	} );
 
 	ui.onSiteSelected = ( site ) => {
 		void append( ( sm ) =>

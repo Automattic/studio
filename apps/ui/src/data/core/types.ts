@@ -110,6 +110,10 @@ export interface ConnectorCapabilities {
 	// browser the preview is a cross-origin <iframe> that can't be injected, so
 	// the Annotate control is hidden.
 	annotatePreview: boolean;
+	// `readLocalMediaFile` can read media files from the host's disk (used to
+	// render local screenshot artifacts inline). Only the desktop IPC connector
+	// supports it; the browser connectors reject local file reads.
+	readLocalMedia: boolean;
 }
 
 export interface Connector {

@@ -167,8 +167,10 @@ export function SiteSettingsForm( {
 	showTabs?: boolean;
 } ) {
 	// Checkpoints run on the user's machine (the CLI checkpoint engine), so the
-	// tab only exists where the connector can reach it.
-	const supportsCheckpoints = useConnector().capabilities.siteCheckpoints;
+	// tab only exists where the connector can reach it. Optional-chained:
+	// embedded usages (site overview) may provide a connector without
+	// capabilities in tests.
+	const supportsCheckpoints = useConnector().capabilities?.siteCheckpoints ?? false;
 	const allDomains = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
 		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),

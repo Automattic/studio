@@ -1,5 +1,6 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
 import { useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import {
 	createContext,
 	useCallback,
@@ -433,6 +434,17 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					dispatchSession( payload.sessionId, { type: 'error_set', message: event.message } );
 					return;
 				case 'turn.completed':
+					// A turn can "complete" by dying (e.g. the model API
+					// rejecting the request). Without surfacing the status the
+					// failure is indistinguishable from a hang.
+					if ( event.status === 'error' ) {
+						dispatchSession( payload.sessionId, {
+							type: 'error_set',
+							message: __(
+								'The agent stopped with an error. Try again — if it keeps failing, the last message (or an attachment) may be the cause; start a new chat without it.'
+							),
+						} );
+					}
 					dispatchSession( payload.sessionId, { type: 'turn_completed' } );
 					return;
 				case 'run.interrupting':

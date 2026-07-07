@@ -1815,7 +1815,15 @@ export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePat
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return fs.statSync( nodePath.join( site.details.path, ...filePath ) ).size;
+	const fullPath = nodePath.join( site.details.path, ...filePath );
+	try {
+		return fs.statSync( fullPath ).size;
+	} catch ( error ) {
+		// Dangling symlink or unreadable entry. It's skipped when archiving,
+		// so count it as zero rather than failing the size check.
+		console.warn( `Skipping ${ fullPath }: ${ error }` );
+		return 0;
+	}
 }
 
 export function openCertificate( _event: IpcMainInvokeEvent ) {

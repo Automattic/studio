@@ -26,7 +26,7 @@ export function StudioCliToggle( { value, onChange }: StudioCLIToggleProps ) {
 				<div className="a8c-body-small text-frame-text-secondary">
 					{ createInterpolateElement(
 						__(
-							'Use the <code>studio</code> command in any terminal to manage sites, run WP-CLI commands, and control your local environment. <learn_more_link />'
+							'Use the <code>studio</code> command in any terminal to manage sites, run WP-CLI commands, and control your local environment. <learn_more_link/>'
 						),
 						{
 							code: <code className="bg-black/10 rounded px-1 py-0.5 text-xs" />,

@@ -189,6 +189,29 @@ module.exports = {
 					from: { opacity: 0 },
 					to: { opacity: 1 },
 				},
+				'slow-spin': {
+					from: { transform: 'rotate(0deg)' },
+					to: { transform: 'rotate(360deg)' },
+				},
+				'arrow-nudge': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(2px)' },
+				},
+				'gentle-pulse': {
+					'0%, 100%': { opacity: '0.5' },
+					'50%': { opacity: '1' },
+				},
+				'card-shift': {
+					'0%, 100%': { transform: 'translate(0, 0)' },
+					'50%': { transform: 'translate(-3px, -3px)' },
+				},
+			},
+			animation: {
+				'slow-spin': 'slow-spin 20s linear infinite',
+				'slow-spin-reverse': 'slow-spin 24s linear infinite reverse',
+				'arrow-nudge': 'arrow-nudge 1.2s ease-in-out infinite',
+				'gentle-pulse': 'gentle-pulse 3s ease-in-out infinite',
+				'card-shift': 'card-shift 3s ease-in-out infinite',
 			},
 			screens: {
 				sd: `${ MAIN_MIN_WIDTH }px`,

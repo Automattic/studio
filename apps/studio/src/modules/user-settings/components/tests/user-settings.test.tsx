@@ -15,6 +15,7 @@ vi.mock( 'src/lib/app-globals', () => ( {
 	} ) ),
 	isMac: vi.fn( () => true ),
 	isWindows: vi.fn( () => false ),
+	isLinux: vi.fn( () => false ),
 	isWindowsStore: vi.fn( () => false ),
 } ) );
 vi.mock( 'src/hooks/use-auth' );
@@ -31,6 +32,8 @@ vi.mock( 'src/lib/get-ipc-api', () => ( {
 		} ),
 		isStudioCliInstalled: vi.fn().mockResolvedValue( true ),
 		copyText: vi.fn().mockResolvedValue( undefined ),
+		getDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/default/site/path' ),
+		getWapuuScore: vi.fn().mockResolvedValue( undefined ),
 	} ),
 } ) );
 
@@ -47,6 +50,7 @@ const mockIpcEvent = {
 
 describe( 'UserSettings', () => {
 	beforeEach( () => {
+		vi.mocked( useOffline ).mockReturnValue( false );
 		// Triggers IPC listener to show modal
 		vi.mocked( useIpcListener ).mockImplementationOnce( ( listener, callback ) => {
 			if ( listener === 'user-settings' ) {
@@ -138,7 +142,11 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Log out' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
-				expect( screen.getByText( 'AI assistant' ) ).toBeInTheDocument();
+				expect( screen.getByText( 'Studio Code' ) ).toBeInTheDocument();
+				expect(
+					screen.getByText( 'Studio Code limits are temporarily unavailable.' )
+				).toBeInTheDocument();
+				expect( screen.queryByText( /monthly prompts used/ ) ).not.toBeInTheDocument();
 			} );
 		} );
 	} );

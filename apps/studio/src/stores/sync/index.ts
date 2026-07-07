@@ -1,5 +1,10 @@
 export { syncReducer } from './sync-slice';
-export { useLatestRewindId, useRemoteFileTree, useLocalFileTree } from './sync-hooks';
+export {
+	useLatestRewindId,
+	useRemoteFileTree,
+	useLocalFileTree,
+	useHostingPhpVersion,
+} from './sync-hooks';
 export { useGetLatestRewindIdQuery, fetchRemoteFileTree } from './sync-api';
 export {
 	syncOperationsReducer,

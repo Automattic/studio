@@ -16,7 +16,7 @@ const mockSites: SiteDetails[] = [
 		name: 'Site 1',
 		path: '/path/to/site1',
 		port: 1234,
-		phpVersion: '8.3',
+		phpVersion: '8.4',
 		running: false as const,
 		autoStart: true,
 		themeDetails: undefined,
@@ -26,7 +26,7 @@ const mockSites: SiteDetails[] = [
 		name: 'Site 2',
 		path: '/path/to/site2',
 		port: 1235,
-		phpVersion: '8.3',
+		phpVersion: '8.4',
 		running: false as const,
 		autoStart: false,
 		themeDetails: undefined,
@@ -36,7 +36,7 @@ const mockSites: SiteDetails[] = [
 		name: 'Site 3',
 		path: '/path/to/site3',
 		port: 1236,
-		phpVersion: '8.3',
+		phpVersion: '8.4',
 		running: false as const,
 		autoStart: true,
 		themeDetails: undefined,
@@ -327,6 +327,81 @@ describe( 'useSiteDetails', () => {
 					title: "Failed to start ''",
 				} )
 			);
+		} );
+
+		it( 'should show capacity limit error and return capacityLimitReached', async () => {
+			const { showErrorMessageBox } = setupStartServerError(
+				new Error( 'CAPACITY_LIMIT_REACHED' )
+			);
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			vi.mocked( getIpcApi().startServer ).mockClear();
+
+			let startResult: { capacityLimitReached: boolean } | undefined;
+			await act( async () => {
+				startResult = await result.current.startServer( mockSites[ 0 ] as SiteDetails );
+			} );
+
+			expect( startResult?.capacityLimitReached ).toBe( true );
+			expect( showErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					title: "Failed to start 'Site 1'",
+					message: expect.stringContaining( 'maximum number of running sites' ),
+				} )
+			);
+		} );
+	} );
+
+	describe( 'autoStart shows single error on capacity limit', () => {
+		it( 'should start all sites in parallel and show a single error when capacity limit is reached', async () => {
+			const autoStartSites = [
+				{ ...mockSites[ 0 ], autoStart: true },
+				{ ...mockSites[ 1 ], autoStart: true },
+				{ ...mockSites[ 2 ], autoStart: true },
+			];
+
+			const startServer = vi
+				.fn()
+				.mockResolvedValueOnce( undefined )
+				.mockRejectedValueOnce( new Error( 'CAPACITY_LIMIT_REACHED' ) )
+				.mockResolvedValueOnce( undefined );
+
+			const showErrorMessageBox = vi.fn();
+			const stopServer = vi.fn( () => Promise.resolve() );
+
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( autoStartSites ),
+				startServer,
+				showErrorMessageBox,
+				stopServer,
+				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+
+			// Wait for parallel autoStart to complete
+			await waitFor( () => {
+				// All sites are attempted in parallel
+				expect( startServer ).toHaveBeenCalledWith( 'site-1' );
+				expect( startServer ).toHaveBeenCalledWith( 'site-2' );
+				expect( startServer ).toHaveBeenCalledWith( 'site-3' );
+				// A single consolidated error modal is shown
+				expect( showErrorMessageBox ).toHaveBeenCalledTimes( 1 );
+				expect( showErrorMessageBox ).toHaveBeenCalledWith(
+					expect.objectContaining( {
+						message: expect.stringContaining( 'maximum number of running sites' ),
+					} )
+				);
+			} );
 		} );
 	} );
 

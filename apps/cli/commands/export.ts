@@ -1,13 +1,15 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { ExportEvents, ExportIpcEvent } from '@studio/common/lib/import-export-events';
+import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { ExportEvents } from 'cli/lib/import-export/export/events';
-import { exportBackup } from 'cli/lib/import-export/export/export-manager';
-import { BackupCreateProgressEventData, ExportOptions } from 'cli/lib/import-export/export/types';
-import { ImportExportEventData } from 'cli/lib/import-export/handle-events';
+import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
+import { getExporter } from 'cli/lib/import-export/export/export-manager';
+import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -15,68 +17,116 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-export function exportEventHandler( { event, data }: ImportExportEventData ): void {
-	switch ( event ) {
-		case ExportEvents.EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_SITE, __( 'Starting export…' ) );
-			break;
+function sendIpcEvent( eventTuple: ExportIpcEvent[ 'event' ] ) {
+	const ipcEvent: ExportIpcEvent = { event: eventTuple };
+	process.send!( ipcEvent );
+}
 
-		case ExportEvents.BACKUP_CREATE_START:
-			logger.reportStart( LoggerAction.CREATE_BACKUP, __( 'Creating backup file…' ) );
-			break;
+function handleExportIpc( emitter: ImportExportEventEmitter ) {
+	emitter.on( ExportEvents.EXPORT_START, () => {
+		sendIpcEvent( [ ExportEvents.EXPORT_START, undefined ] );
+	} );
+	emitter.on( ExportEvents.BACKUP_CREATE_START, () => {
+		sendIpcEvent( [ ExportEvents.BACKUP_CREATE_START, undefined ] );
+	} );
+	emitter.on( ExportEvents.WP_CONTENT_EXPORT_START, () => {
+		sendIpcEvent( [ ExportEvents.WP_CONTENT_EXPORT_START, undefined ] );
+	} );
+	emitter.on( ExportEvents.WP_CONTENT_EXPORT_COMPLETE, () => {
+		sendIpcEvent( [ ExportEvents.WP_CONTENT_EXPORT_COMPLETE, undefined ] );
+	} );
+	emitter.on( ExportEvents.DATABASE_EXPORT_START, () => {
+		sendIpcEvent( [ ExportEvents.DATABASE_EXPORT_START, undefined ] );
+	} );
+	emitter.on( ExportEvents.DATABASE_EXPORT_COMPLETE, () => {
+		sendIpcEvent( [ ExportEvents.DATABASE_EXPORT_COMPLETE, undefined ] );
+	} );
+	emitter.on( ExportEvents.BACKUP_CREATE_PROGRESS, ( progressData ) => {
+		sendIpcEvent( [ ExportEvents.BACKUP_CREATE_PROGRESS, progressData ] );
+	} );
+	emitter.on( ExportEvents.BACKUP_CREATE_COMPLETE, () => {
+		sendIpcEvent( [ ExportEvents.BACKUP_CREATE_COMPLETE, undefined ] );
+	} );
+	emitter.on( ExportEvents.CONFIG_EXPORT_START, () => {
+		sendIpcEvent( [ ExportEvents.CONFIG_EXPORT_START, undefined ] );
+	} );
+	emitter.on( ExportEvents.CONFIG_EXPORT_COMPLETE, () => {
+		sendIpcEvent( [ ExportEvents.CONFIG_EXPORT_COMPLETE, undefined ] );
+	} );
+	emitter.on( ExportEvents.EXPORT_COMPLETE, () => {
+		sendIpcEvent( [ ExportEvents.EXPORT_COMPLETE, undefined ] );
+	} );
+	emitter.on( ExportEvents.EXPORT_ERROR, ( payload ) => {
+		sendIpcEvent( [ ExportEvents.EXPORT_ERROR, payload ] );
+	} );
+}
 
-		case ExportEvents.WP_CONTENT_EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_WP_CONTENT, __( 'Traversing WordPress content…' ) );
-			break;
-		case ExportEvents.WP_CONTENT_EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'WordPress content traversed' ) );
-			break;
+export function handleExportEvents( emitter: ImportExportEventEmitter ): void {
+	emitter.on( ExportEvents.EXPORT_START, () => {
+		logger.reportStart( LoggerAction.EXPORT_SITE, __( 'Starting export…' ) );
+	} );
 
-		case ExportEvents.DATABASE_EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_DATABASE, __( 'Exporting database…' ) );
-			break;
-		case ExportEvents.DATABASE_EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'Database exported' ) );
-			break;
+	emitter.on( ExportEvents.BACKUP_CREATE_START, () => {
+		logger.reportStart( LoggerAction.CREATE_BACKUP, __( 'Creating backup file…' ) );
+	} );
 
-		case ExportEvents.BACKUP_CREATE_PROGRESS: {
-			const progressData = data as BackupCreateProgressEventData;
-			const processed = progressData?.progress?.entries?.processed;
+	emitter.on( ExportEvents.WP_CONTENT_EXPORT_START, () => {
+		logger.reportStart( LoggerAction.EXPORT_WP_CONTENT, __( 'Traversing WordPress content…' ) );
+	} );
 
-			if ( processed != null ) {
-				logger.reportProgress(
-					sprintf(
-						_n( 'Backing up file… (%d processed)', 'Backing up files… (%d processed)', processed ),
-						processed
-					)
-				);
-			}
-			break;
-		}
-		case ExportEvents.BACKUP_CREATE_COMPLETE:
-			logger.reportSuccess( __( 'Backup file created' ) );
-			break;
+	emitter.on( ExportEvents.WP_CONTENT_EXPORT_COMPLETE, () => {
+		logger.reportSuccess( __( 'WordPress content traversed' ) );
+	} );
 
-		case ExportEvents.CONFIG_EXPORT_START:
-			logger.reportStart( LoggerAction.EXPORT_CONFIG, __( 'Exporting configuration…' ) );
-			break;
-		case ExportEvents.CONFIG_EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'Configuration exported' ) );
-			break;
+	emitter.on( ExportEvents.DATABASE_EXPORT_START, () => {
+		logger.reportStart( LoggerAction.EXPORT_DATABASE, __( 'Exporting database…' ) );
+	} );
 
-		case ExportEvents.EXPORT_COMPLETE:
-			logger.reportSuccess( __( 'Site exported successfully' ) );
-			break;
+	emitter.on( ExportEvents.DATABASE_EXPORT_COMPLETE, () => {
+		logger.reportSuccess( __( 'Database exported' ) );
+	} );
 
-		case ExportEvents.EXPORT_ERROR:
-			throw new LoggerError( __( 'Export failed' ), data instanceof Error ? data : undefined );
-	}
+	emitter.on( ExportEvents.BACKUP_CREATE_PROGRESS, ( progressData ) => {
+		const processed = progressData.progress.entries.processed;
+		logger.reportProgress(
+			sprintf(
+				_n( 'Backing up file… (%d processed)', 'Backing up files… (%d processed)', processed ),
+				processed
+			)
+		);
+	} );
+
+	emitter.on( ExportEvents.BACKUP_CREATE_COMPLETE, () => {
+		logger.reportSuccess( __( 'Backup file created' ) );
+	} );
+
+	emitter.on( ExportEvents.CONFIG_EXPORT_START, () => {
+		logger.reportStart( LoggerAction.EXPORT_CONFIG, __( 'Exporting configuration…' ) );
+	} );
+
+	emitter.on( ExportEvents.CONFIG_EXPORT_COMPLETE, () => {
+		logger.reportSuccess( __( 'Configuration exported' ) );
+	} );
+
+	emitter.on( ExportEvents.EXPORT_COMPLETE, () => {
+		logger.reportSuccess( __( 'Site exported successfully' ) );
+	} );
+
+	emitter.on( ExportEvents.EXPORT_ERROR, ( payload ) => {
+		throw new LoggerError(
+			__( 'Export failed' ),
+			payload.message ? new Error( payload.message ) : undefined
+		);
+	} );
 }
 
 export async function runCommand(
 	siteFolder: string,
 	exportPath: string,
-	mode?: 'full' | 'db'
+	mode: 'full' | 'content' | 'db' = 'full',
+	splitDbDumpByTable = false,
+	includeOnlyPaths?: string[],
+	applyDeployIgnore = false
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -98,23 +148,36 @@ export async function runCommand(
 
 		if ( mode === 'db' ) {
 			includes.wpContent = false;
+		} else if ( mode === 'content' ) {
+			includes.database = false;
 		}
 
-		const isExported = await exportBackup(
-			{
-				site,
-				backupFile: exportPath,
-				phpVersion: DEFAULT_PHP_VERSION,
-				includes,
-			},
-			exportEventHandler
-		);
+		const ignoreFilter = applyDeployIgnore
+			? await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS )
+			: undefined;
 
-		logger.reportSuccess( sprintf( __( '%s successfully exported' ), exportPath ) );
+		const exporter = await getExporter( {
+			site,
+			backupFile: exportPath,
+			phpVersion: DEFAULT_PHP_VERSION,
+			includes,
+			splitDatabaseDumpByTable: splitDbDumpByTable,
+			specificSelectionPaths: includeOnlyPaths,
+			ignoreFilter,
+		} );
 
-		if ( ! isExported ) {
+		if ( ! exporter ) {
 			throw new LoggerError( __( 'No suitable exporter found for the provided backup file' ) );
 		}
+
+		if ( process.send ) {
+			handleExportIpc( exporter );
+		} else {
+			handleExportEvents( exporter );
+		}
+		await exporter.export();
+
+		logger.reportSuccess( sprintf( __( '%s successfully exported' ), exportPath ) );
 	} finally {
 		await disconnectFromDaemon();
 	}
@@ -144,7 +207,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					normalize: true,
 					demandOption: false,
 					description: __(
-						'Path to the export file. Full-site exports use .zip or .tar.gz. Database-only exports use .sql.'
+						'Path to the export file. All exports can use .zip or .tar.gz. Database-only exports can also use .sql.'
 					),
 					coerce: ( value ) => {
 						return path.resolve( untildify( value ) );
@@ -152,11 +215,34 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} )
 				.option( 'mode', {
 					type: 'string',
-					choices: [ 'full', 'db' ] as const,
+					choices: [ 'full', 'content', 'db' ] as const,
 					default: 'full' as const,
 					description: __(
-						'Export the full site or just the database. Default exports full site.'
+						'Export the full site, just the content, or just the database. Default exports full site.'
 					),
+				} )
+				.option( 'split-db-dump-by-table', {
+					type: 'boolean',
+					default: false,
+					description: __( 'Split the database dump by table' ),
+					hidden: true,
+				} )
+				.option( 'include-only', {
+					type: 'array',
+					description: __( 'Include only the specified paths in the export' ),
+					coerce: ( value ) => {
+						if ( ! Array.isArray( value ) ) {
+							throw new Error( __( 'include-only must be an array' ) );
+						}
+						return value.map( String );
+					},
+					hidden: true,
+				} )
+				.option( 'apply-deploy-ignore', {
+					type: 'boolean',
+					default: false,
+					description: __( 'Apply .deployignore patterns when exporting' ),
+					hidden: true,
 				} );
 		},
 		handler: async ( argv ) => {
@@ -166,14 +252,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 				if ( argv.exportFile ) {
 					exportFile = argv.exportFile;
-				} else if ( argv.mode === 'full' ) {
+				} else if ( argv.mode === 'full' || argv.mode === 'content' ) {
 					exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }.zip` );
 				} else {
 					exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }.sql` );
 				}
 
 				if (
-					argv.mode === 'full' &&
+					( argv.mode === 'full' || argv.mode === 'content' ) &&
 					! exportFile.endsWith( '.zip' ) &&
 					! exportFile.endsWith( '.tar.gz' )
 				) {
@@ -184,13 +270,14 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					);
 				}
 
-				if ( argv.mode === 'db' && ! exportFile.endsWith( '.sql' ) ) {
-					throw new LoggerError(
-						__( 'Invalid export file extension. Must be .sql when exporting database only.' )
-					);
-				}
-
-				await runCommand( argv.path, exportFile, argv.mode );
+				await runCommand(
+					argv.path,
+					exportFile,
+					argv.mode,
+					argv.splitDbDumpByTable,
+					argv.includeOnly,
+					argv.applyDeployIgnore
+				);
 			} catch ( error ) {
 				if ( error instanceof LoggerError ) {
 					logger.reportError( error );

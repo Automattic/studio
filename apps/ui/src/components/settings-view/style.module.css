@@ -1,0 +1,84 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+}
+
+.state {
+	padding: var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
+	min-height: 46px;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	-webkit-app-region: drag;
+}
+
+.toggleSpacer {
+	display: block;
+	flex-shrink: 0;
+	width: 118px;
+	align-self: stretch;
+	-webkit-app-region: no-drag;
+}
+
+/* No traffic lights to clear (non-macOS, the browser, or macOS fullscreen): a
+   minimal spacer so the toggle still clears the header's drag region. */
+.toggleSpacerFlush {
+	display: block;
+	flex-shrink: 0;
+	width: calc(var(--wpds-dimension-padding-xl) + 24px);
+	align-self: stretch;
+	-webkit-app-region: no-drag;
+}
+
+.titleBlock {
+	max-width: 760px;
+	margin: 0 auto;
+	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl) 0;
+	width: 100%;
+}
+
+.tabsBar {
+	width: 100%;
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	margin-top: var(--wpds-dimension-padding-xl);
+}
+
+.tabsBarInner {
+	max-width: 760px;
+	margin: 0 auto;
+	padding: 0 var(--wpds-dimension-padding-xl);
+}
+
+.scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.contentBlock {
+	max-width: 760px;
+	margin: 0 auto;
+	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--wpds-dimension-padding-xl)
+		var(--wpds-dimension-padding-2xl);
+}
+
+.form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xl);
+}
+
+.actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--wpds-dimension-padding-sm);
+}

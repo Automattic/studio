@@ -6,11 +6,68 @@ import {
 	getPhpMyAdminInstallSteps,
 } from '@wp-playground/tools';
 import fs from 'fs-extra';
+import { z } from 'zod';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { SQLITE_DATABASE_INTEGRATION_RELEASE_URL } from '../apps/studio/src/constants';
-import { getLatestSQLiteCommandRelease } from '../apps/studio/src/lib/sqlite-command-release';
-import { extractZip } from '../tools/common/lib/extract-zip';
+import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry';
 
-const WP_SERVER_FILES_PATH = path.join( __dirname, '..', 'wp-files' );
+async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
+	return withRetry( name, async () => {
+		const response = await fetch( url, {
+			dispatcher: sharedDispatcher,
+		} );
+		if ( ! response.ok ) {
+			throwForHttpStatus( 'Request', response.status );
+		}
+		return Buffer.from( await response.arrayBuffer() );
+	} );
+}
+
+const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
+const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
+const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
+	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
+	[
+		'libraries/classes/Dbal/DbiMysqli.php',
+		path.join( PHPMYADMIN_PATCH_FILES_PATH, 'DbiMysqli.php' ),
+	],
+] );
+
+const partialGithubReleaseSchema = z.object( {
+	tag_name: z.string(),
+	assets: z.array( z.object( { name: z.string(), browser_download_url: z.string() } ) ),
+} );
+
+export async function fetchLatestGithubRelease( repo: string ) {
+	return withRetry( `github:${ repo }`, async () => {
+		const headers: HeadersInit = {
+			Accept: 'application/vnd.github.v3+json',
+			'User-Agent': 'wp-studio-cli',
+		};
+
+		// GitHub API has rate limits:
+		// - 60 requests/hour for unauthenticated requests
+		// - 5,000 requests/hour with token authentication
+		// In CI environments, the IP-based rate limit is shared across runners,
+		// so we authenticate with GITHUB_TOKEN when available.
+		if ( process.env.GITHUB_TOKEN ) {
+			headers.Authorization = `token ${ process.env.GITHUB_TOKEN }`;
+		}
+
+		const response = await fetch( `https://api.github.com/repos/${ repo }/releases/latest`, {
+			headers,
+			dispatcher: sharedDispatcher,
+		} );
+
+		if ( ! response.ok ) {
+			throwForHttpStatus( 'GitHub API request', response.status, response.statusText );
+		}
+
+		const rawResponse: unknown = await response.json();
+
+		return partialGithubReleaseSchema.parse( rawResponse );
+	} );
+}
 
 type MaybePromise< T > = T | Promise< T >;
 type FileToDownload = {
@@ -42,8 +99,14 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		name: 'sqlite-command',
 		description: 'SQLite command',
 		getUrl: async () => {
-			const latestRelease = await getLatestSQLiteCommandRelease();
-			return latestRelease.assets?.[ 0 ].browser_download_url ?? '';
+			const release = await fetchLatestGithubRelease( 'automattic/wp-cli-sqlite-command' );
+			const asset = release.assets[ 0 ];
+			if ( ! asset ) {
+				throw new Error(
+					`No asset found in latest wp-cli-sqlite-command release ${ release.tag_name }`
+				);
+			}
+			return asset.browser_download_url;
 		},
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'sqlite-command' ),
 	},
@@ -52,6 +115,19 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		description: 'phpMyAdmin',
 		getUrl: () => PHPMYADMIN_DOWNLOAD_URL,
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'phpmyadmin' ),
+	},
+	{
+		name: 'reprint',
+		description: `reprint.phar`,
+		getUrl: async () => {
+			const release = await fetchLatestGithubRelease( 'WordPress/reprint' );
+			const asset = release.assets.find( ( a ) => a.name === 'reprint.phar' );
+			if ( ! asset ) {
+				throw new Error( `No asset found in latest reprint release ${ release.tag_name }` );
+			}
+			return asset.browser_download_url;
+		},
+		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	},
 ];
 
@@ -69,16 +145,15 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 	}
 
 	const url = await file.getUrl();
-	const response = await fetch( url );
-	if ( ! response.ok ) {
-		throw new Error( `Request failed with status code: ${ response.status }` );
-	}
-	const buffer = Buffer.from( await response.arrayBuffer() );
+	const buffer = await fetchWithRetry( name, url );
 	await fs.writeFile( zipPath, buffer );
 
 	if ( name === 'wp-cli' ) {
 		console.log( `[${ name }] Moving WP-CLI to destination ...` );
 		fs.moveSync( zipPath, path.join( extractedPath, 'wp-cli.phar' ), { overwrite: true } );
+	} else if ( name === 'reprint' ) {
+		console.log( `[${ name }] Moving reprint.phar to destination ...` );
+		fs.moveSync( zipPath, path.join( extractedPath, 'reprint.phar' ), { overwrite: true } );
 	} else if ( name === 'sqlite' ) {
 		/**
 		 * The SQLite database integration plugin zip extracts into a folder named
@@ -125,7 +200,9 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 				const destFile = path.join( extractedPath, relativePath );
 				await fs.ensureDir( path.dirname( destFile ) );
 
-				await fs.writeFile( destFile, step.data );
+				const localPatchFile = PHPMYADMIN_LOCAL_PATCH_FILES.get( relativePath );
+				const patchData = localPatchFile ? await fs.readFile( localPatchFile, 'utf8' ) : step.data;
+				await fs.writeFile( destFile, patchData );
 			}
 		}
 	} else {

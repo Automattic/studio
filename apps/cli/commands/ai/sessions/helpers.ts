@@ -1,9 +1,10 @@
+import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 import { select } from '@inquirer/prompts';
-import { truncateToWidth, visibleWidth } from '@mariozechner/pi-tui';
+import { listAiSessions } from '@studio/common/ai/sessions/store';
+import chalk from '@studio/common/lib/chalk';
 import { __ } from '@wordpress/i18n';
-import chalk from 'chalk';
-import { listAiSessions } from 'cli/ai/sessions/store';
-import type { AiSessionSummary } from 'cli/ai/sessions/types';
+import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
+import type { AiSessionSummary } from '@studio/common/ai/sessions/types';
 
 function formatSessionTimestamp( timestamp: string ): string {
 	const parsed = Date.parse( timestamp );
@@ -200,7 +201,7 @@ export async function chooseSessionForAction(
 	actionLabel: string,
 	noSessionsMessage: string
 ): Promise< AiSessionSummary | undefined > {
-	const sessions = await listAiSessions();
+	const sessions = await listAiSessions( getAiSessionsRootDirectory() );
 	if ( sessions.length === 0 ) {
 		console.log( noSessionsMessage );
 		return undefined;

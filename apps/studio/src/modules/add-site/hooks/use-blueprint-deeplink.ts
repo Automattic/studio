@@ -1,8 +1,5 @@
 import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
-import {
-	BlueprintPreferredVersions,
-	BlueprintValidationWarning,
-} from '@studio/common/lib/blueprint-validation';
+import { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useCallback } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
@@ -21,7 +18,6 @@ interface UseBlueprintDeeplinkOptions {
 	setPhpVersion: ( version: SupportedPHPVersion ) => void;
 	setWpVersion: ( version: string ) => void;
 	setBlueprintPreferredVersions: ( versions: BlueprintPreferredVersions | undefined ) => void;
-	setBlueprintWarnings: ( warnings: BlueprintValidationWarning[] | undefined ) => void;
 	setBlueprintSuggestedDomain: ( domain: string | undefined ) => void;
 	setBlueprintSuggestedHttps: ( https: boolean | undefined ) => void;
 	setBlueprintSuggestedSiteName: ( name: string | undefined ) => void;
@@ -37,7 +33,6 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 		setPhpVersion,
 		setWpVersion,
 		setBlueprintPreferredVersions,
-		setBlueprintWarnings,
 		setBlueprintSuggestedDomain,
 		setBlueprintSuggestedHttps,
 		setBlueprintSuggestedSiteName,
@@ -53,10 +48,8 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				_event: unknown,
 				{
 					blueprintPath,
-					warnings,
 				}: {
 					blueprintPath: string;
-					warnings?: BlueprintValidationWarning[];
 				}
 			) => {
 				if ( isAnySiteProcessing ) {
@@ -89,7 +82,6 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 						setBlueprintRequiresCustomDomain,
 					} );
 
-					setBlueprintWarnings( warnings );
 					setIsDeeplinkFlow( true );
 					onModalOpen?.();
 				} catch ( error ) {
@@ -102,7 +94,6 @@ export function useBlueprintDeeplink( options: UseBlueprintDeeplinkOptions ): vo
 				setPhpVersion,
 				setWpVersion,
 				setBlueprintPreferredVersions,
-				setBlueprintWarnings,
 				setBlueprintSuggestedDomain,
 				setBlueprintSuggestedHttps,
 				setBlueprintSuggestedSiteName,

@@ -1,0 +1,22 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"module": "es2022",
+		"moduleResolution": "bundler",
+		"outDir": "dist",
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"paths": {
+			"@wp-playground/blueprints/blueprint-schema-validator": [ "../../node_modules/@wp-playground/blueprints/blueprint-schema-validator" ]
+		}
+	},
+	"include": [ "**/*", "**/*.json" ],
+	"exclude": [
+		"**/__mocks__/**/*",
+		"**/node_modules/**/*",
+		"**/dist/**/*",
+		"**/out/**/*",
+		"vitest.config.ts"
+	]
+}

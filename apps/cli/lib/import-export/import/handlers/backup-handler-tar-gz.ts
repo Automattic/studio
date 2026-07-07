@@ -1,12 +1,12 @@
-import { EventEmitter } from 'events';
 import fs from 'fs';
 import zlib from 'zlib';
+import { ImportEvents } from '@studio/common/lib/import-export-events';
 import * as tar from 'tar';
-import { ImportEvents } from '../events';
-import { BackupArchiveInfo, BackupExtractProgressEventData } from '../types';
+import { ImportExportEventEmitter } from '../../events';
+import { BackupArchiveInfo } from '../types';
 import { BackupHandler, isFileAllowed } from './backup-handler-factory';
 
-export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
+export class BackupHandlerTarGz extends ImportExportEventEmitter implements BackupHandler {
 	async listFiles( backup: BackupArchiveInfo ): Promise< string[] > {
 		const filesSet = new Set< string >();
 		await tar.t( {
@@ -53,7 +53,7 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 						currentFile,
 						extractedBytes: processedSize,
 						totalBytes: totalSize,
-					} as BackupExtractProgressEventData );
+					} );
 				} )
 				.on( 'error', ( error ) => {
 					this.emit( ImportEvents.BACKUP_EXTRACT_ERROR, error );
@@ -74,7 +74,7 @@ export class BackupHandlerTarGz extends EventEmitter implements BackupHandler {
 									currentFile,
 									processedFiles,
 									totalFiles,
-								} as BackupExtractProgressEventData );
+								} );
 							}
 						},
 					} )

@@ -8,15 +8,15 @@ import {
 	Menu,
 	dialog,
 	MessageBoxSyncOptions,
+	shell,
 } from 'electron';
 import path from 'path';
-import { pathToFileURL } from 'url';
 import * as Sentry from '@sentry/electron/main';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __, _n } from '@wordpress/i18n';
 import {
 	installExtension,
 	REACT_DEVELOPER_TOOLS,
@@ -24,10 +24,12 @@ import {
 } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
+import { markAppQuitting } from 'src/ipc-utils';
 import {
 	hasActiveSyncOperations,
 	hasUploadingPushOperations,
 } from 'src/lib/active-sync-operations';
+import { getBetaFeatures } from 'src/lib/beta-features';
 import {
 	bumpStat,
 	bumpAggregatedUniqueStat,
@@ -37,36 +39,53 @@ import {
 import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
+import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
-import { createMainWindow, getMainWindow } from 'src/main-window';
+import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
 import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
 } from 'src/modules/cli/lib/cli-events-subscriber';
-import { isStudioCliInstalled } from 'src/modules/cli/lib/ipc-handlers';
+import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import { getRunningSiteCount, SiteServer, stopAllServers } from 'src/site-server';
+import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
+import {
+	getRunningSiteCount,
+	persistAutoStartForRunningSites,
+	SiteServer,
+	stopAllServers,
+} from 'src/site-server';
 import {
 	loadUserData,
 	lockAppdata,
 	saveUserData,
 	unlockAppdata,
 	updateAppdata,
+	type QuitSitesBehavior,
 } from 'src/storage/user-data';
 import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 // eslint-disable-next-line import-x/order
 import packageJson from '../package.json';
 
+const STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS = process.env.E2E ? 20_000 : 6_000;
+
 // Helper function to get the actual URL for validation
 function getRendererUrl(): string {
-	if ( ! app.isPackaged && process.env[ 'ELECTRON_RENDERER_URL' ] ) {
-		return process.env[ 'ELECTRON_RENDERER_URL' ];
-	} else {
-		// For production file paths, convert to file:// URL
-		return pathToFileURL( path.join( __dirname, '../renderer/index.html' ) ).href;
+	return getCurrentRendererUrl();
+}
+
+function openExternalWebUrl( url: string ): void {
+	try {
+		const parsedUrl = new URL( url );
+		if ( ! [ 'http:', 'https:' ].includes( parsedUrl.protocol ) ) {
+			return;
+		}
+		void shell.openExternal( parsedUrl.toString() ).catch( () => undefined );
+	} catch {
+		// Ignore malformed URLs from untrusted pages.
 	}
 }
 
@@ -90,6 +109,26 @@ const isInInstaller = require( 'electron-squirrel-startup' );
 const gotTheLock = app.requestSingleInstanceLock();
 
 let finishedInitialization = false;
+let stopRemoteSessionStatusPolling: ( () => void ) | undefined;
+
+const YOUTUBE_EMBED_REFERRER = 'https://developer.wordpress.com/studio/';
+const YOUTUBE_EMBED_URL_PATTERNS = [
+	'https://*.youtube.com/embed/*',
+	'https://youtube.com/embed/*',
+	'https://*.youtube-nocookie.com/embed/*',
+	'https://youtube-nocookie.com/embed/*',
+];
+
+function getYouTubeEmbedRequestHeaders( requestHeaders: Record< string, string > ) {
+	const headers = { ...requestHeaders };
+	for ( const key of Object.keys( headers ) ) {
+		if ( key.toLowerCase() === 'referer' ) {
+			delete headers[ key ];
+		}
+	}
+	headers.Referer = YOUTUBE_EMBED_REFERRER;
+	return headers;
+}
 
 if ( gotTheLock && ! isInInstaller ) {
 	void appBoot();
@@ -157,16 +196,29 @@ async function appBoot() {
 	// be able to perform privileged operations.
 	app.enableSandbox();
 
-	// Prevent navigation to anywhere other than known locations
+	// Prevent navigation to anywhere other than known locations.
+	// The site-preview `<webview>` is a separate webContents that intentionally
+	// loads local WordPress pages — it's identified by `getType() === 'webview'`
+	// and exempted from the renderer-origin restriction below.
 	app.on( 'web-contents-created', ( _event, contents ) => {
+		const isSitePreviewWebview = contents.getType() === 'webview';
+
 		contents.on( 'will-navigate', ( event, navigationUrl ) => {
+			if ( isSitePreviewWebview ) {
+				return;
+			}
 			const { origin } = new URL( navigationUrl );
 			const allowedOrigins = [ new URL( getRendererUrl() ).origin ];
 			if ( ! allowedOrigins.includes( origin ) ) {
 				event.preventDefault();
 			}
 		} );
-		contents.setWindowOpenHandler( () => {
+		contents.setWindowOpenHandler( ( details ) => {
+			// Site-preview popups (target="_blank", admin-bar links, …) open
+			// in the user's browser rather than spawning a new Electron window.
+			if ( isSitePreviewWebview ) {
+				openExternalWebUrl( details.url );
+			}
 			return { action: 'deny' };
 		} );
 	} );
@@ -267,6 +319,15 @@ async function appBoot() {
 			callback( false );
 		} );
 
+		session.defaultSession.webRequest.onBeforeSendHeaders(
+			{ urls: YOUTUBE_EMBED_URL_PATTERNS },
+			( details, callback ) => {
+				callback( {
+					requestHeaders: getYouTubeEmbedRequestHeaders( details.requestHeaders ),
+				} );
+			}
+		);
+
 		session.defaultSession.webRequest.onHeadersReceived( ( details, callback ) => {
 			// Only set a custom CSP header the main window UI. For other pages (like login) we should
 			// use the CSP provided by the server, which is more likely to be up-to-date and complete.
@@ -278,16 +339,20 @@ async function appBoot() {
 			const basePolicies = [
 				"default-src 'self'", // Allow resources from these domains
 				"script-src-attr 'none'",
-				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com data:",
+				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com data:",
 				"style-src 'self' 'unsafe-inline'", // unsafe-inline used by tailwindcss in development, and also in production after the app rename
-				"script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+				process.env.NODE_ENV === 'development'
+					? "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval' data: http://localhost:*"
+					: "script-src 'self' 'wasm-unsafe-eval'", // allow WebAssembly to compile and instantiate
+				// Site preview uses `<webview>` to host local WordPress sites
+				// served from arbitrary localhost ports and (optionally) HTTPS
+				// custom domains.
+				'frame-src http: https:',
 			];
 			const prodPolicies = [
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org",
 			];
 			const devPolicies = [
-				// Webpack uses eval in development, react-devtools uses localhost
-				"script-src 'self' 'unsafe-eval' 'unsafe-inline' data: http://localhost:*",
 				// react-devtools uses localhost
 				"connect-src 'self' https://public-api.wordpress.com https://api.wordpress.org ws://localhost:*",
 			];
@@ -310,6 +375,7 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await setupSentryUserId();
+		await getBetaFeatures();
 
 		// Fetch data from CLI and subscribe to CLI events before starting the user data
 		// watcher. The watcher can trigger getMainWindow() which creates the window early,
@@ -318,6 +384,9 @@ async function appBoot() {
 		await startCliEventsSubscriber();
 
 		await createMainWindow();
+
+		void maybePromptNightlySwitch().catch( Sentry.captureException );
+		startNightlyPromptPoller();
 
 		const userData = await loadUserData();
 		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
@@ -342,6 +411,9 @@ async function appBoot() {
 
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();
+		await autoInstallLinuxCliIfNeeded();
+
+		stopRemoteSessionStatusPolling = startRemoteSessionStatusPolling();
 
 		finishedInitialization = true;
 	} );
@@ -362,7 +434,13 @@ async function appBoot() {
 	 * - There are running sites, and the user has confirmed they want to stop them upon closing the app
 	 */
 	let shouldStopSitesOnQuit = true;
+	let clearAutoStartOnQuit = false;
 	let isQuittingConfirmed = false;
+
+	const applyQuitSitesBehavior = ( behavior: QuitSitesBehavior ) => {
+		shouldStopSitesOnQuit = behavior !== 'leave-running';
+		clearAutoStartOnQuit = behavior === 'stop';
+	};
 
 	app.on( 'before-quit', ( event ) => {
 		if ( isQuittingConfirmed ) {
@@ -411,52 +489,53 @@ async function appBoot() {
 
 			void ( async () => {
 				const userData = await loadUserData();
-				const isCliInstalled = await isStudioCliInstalled();
 
-				if ( userData.stopSitesOnQuit !== undefined ) {
-					shouldStopSitesOnQuit = userData.stopSitesOnQuit;
+				if ( userData.quitSitesBehavior !== undefined ) {
+					applyQuitSitesBehavior( userData.quitSitesBehavior );
 					isQuittingConfirmed = true;
 					app.quit();
 					return;
 				}
 
-				if ( ! isCliInstalled || process.env.E2E ) {
+				if ( process.env.E2E ) {
 					isQuittingConfirmed = true;
 					app.quit();
 					return;
 				}
 
-				const STOP_SITES_BUTTON_INDEX = 0;
-				const CANCEL_BUTTON_INDEX = 2;
+				const quitChoices: { label: string; behavior: QuitSitesBehavior }[] = [
+					{ label: __( 'Stop' ), behavior: 'stop' },
+					{ label: __( 'Auto-start' ), behavior: 'stop-and-auto-start' },
+					{ label: __( 'Keep running' ), behavior: 'leave-running' },
+				];
+				const cancelButtonIndex = quitChoices.length;
+				const defaultButtonIndex = quitChoices.findIndex(
+					( choice ) => choice.behavior === 'leave-running'
+				);
 
 				const { response, checkboxChecked } = await dialog.showMessageBox( {
 					type: 'question',
 					message: _n( 'You have a running site', 'You have running sites', runningSiteCount ),
-					detail: sprintf(
-						_n(
-							'%d site is currently running. Do you want to stop it before quitting?',
-							'%d sites are currently running. Do you want to stop them before quitting?',
-							runningSiteCount
-						),
-						runningSiteCount
+					detail: __(
+						'Choose what to do with your running sites when Studio quits:\n\n• Keep running — sites stay running after Studio closes.\n• Auto-start — sites stop now and start again when you reopen Studio.\n• Stop — sites stop now and stay stopped.'
 					),
-					buttons: [ __( 'Stop sites' ), __( 'Leave running' ), __( 'Cancel' ) ],
+					buttons: [ ...quitChoices.map( ( choice ) => choice.label ), __( 'Cancel' ) ],
 					checkboxLabel: __( "Don't ask again" ),
-					cancelId: CANCEL_BUTTON_INDEX,
-					defaultId: STOP_SITES_BUTTON_INDEX,
+					cancelId: cancelButtonIndex,
+					defaultId: defaultButtonIndex,
 				} );
 
-				if ( response === CANCEL_BUTTON_INDEX ) {
+				if ( response === cancelButtonIndex ) {
 					return;
 				}
 
-				const stopSites = response === STOP_SITES_BUTTON_INDEX;
+				const { behavior } = quitChoices[ response ];
 
 				if ( checkboxChecked ) {
-					await updateAppdata( { stopSitesOnQuit: stopSites } );
+					await updateAppdata( { quitSitesBehavior: behavior } );
 				}
 
-				shouldStopSitesOnQuit = stopSites;
+				applyQuitSitesBehavior( behavior );
 				isQuittingConfirmed = true;
 				app.quit();
 			} )();
@@ -466,18 +545,24 @@ async function appBoot() {
 	} );
 
 	app.on( 'will-quit', ( event ) => {
+		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
+		stopRemoteSessionStatusPolling?.();
 
 		if ( shouldStopSitesOnQuit ) {
 			event.preventDefault();
-			stopAllServers( true, 6_000 )
-				.then( () => {
+			void ( async () => {
+				try {
+					// The events subscriber is already stopped, so the "Stop" choice clears autoStart here.
+					if ( clearAutoStartOnQuit ) {
+						await persistAutoStartForRunningSites( false );
+					}
+					await stopAllServers( STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS );
+				} finally {
 					app.exit();
-				} )
-				.catch( () => {
-					app.exit();
-				} );
+				}
+			} )();
 		}
 	} );
 

@@ -53,7 +53,7 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
 		const command =
 			platform() === 'win32'
 				? `type ${ tempPath } > ${ hostsPath }`
-				: `cat ${ tempPath } > ${ hostsPath }`;
+				: `tee ${ hostsPath } < ${ tempPath } > /dev/null`;
 		await sudoExec( command, {
 			name: 'WordPress Studio',
 		} );
@@ -64,16 +64,31 @@ export const writeHostsFile = async ( content: string ): Promise< void > => {
 };
 
 /**
- * Create a regular expression matching the hosts entry for a given domain:
+ * Create a regular expression matching the hosts entries for a given domain,
+ * covering both the IPv4 and IPv6 loopback addresses:
  *
  * 	127.0.0.1 foo.wp.cloud # Port 8000
+ * 	::1 foo.wp.cloud # Port 8000
  *
  * 	Remove backslashes as a security measure and escape regex special characters.
  */
 export function createHostsEntryPattern( domain: string ): RegExp {
 	const sanitizedDomain = domain.replace( /\\/g, '' );
 	const escapedDomain = escapeRegex( sanitizedDomain );
-	return new RegExp( `127\\.0\\.0\\.1\\s+${ escapedDomain }(\\s|$)`, 'i' );
+	return new RegExp( `(?:127\\.0\\.0\\.1|::1)\\s+${ escapedDomain }(\\s|$)`, 'i' );
+}
+
+/**
+ * Build the canonical hosts entries for a domain. We add both an IPv4 and an
+ * IPv6 loopback entry: without the explicit `::1` line, macOS issues an IPv6
+ * (AAAA) lookup for `.local` domains that has to time out before the IPv4
+ * result is used, adding several seconds to every request.
+ */
+function createHostsEntries( encodedDomain: string, port: number ): string[] {
+	return [
+		`127.0.0.1 ${ encodedDomain } # Port ${ port }`,
+		`::1 ${ encodedDomain } # Port ${ port }`,
+	];
 }
 
 /**
@@ -86,13 +101,23 @@ export const addDomainToHosts = async ( domain: string, port: number ): Promise<
 
 		const newContent = updateStudioBlock( hostsContent, ( entries ) => {
 			const pattern = createHostsEntryPattern( encodedDomain );
+			const desired = createHostsEntries( encodedDomain, port );
+			const existing = entries.filter( ( entry ) => entry.match( pattern ) );
 
-			// No changes if domain already present
-			if ( entries.some( ( entry ) => entry.match( pattern ) ) ) {
+			// No changes if the canonical entries are already present. This also
+			// preserves ordering so unchanged sites don't trigger a write (and an
+			// elevated-permissions prompt) on every start.
+			if (
+				existing.length === desired.length &&
+				desired.every( ( entry, index ) => existing[ index ] === entry )
+			) {
 				return entries;
 			}
 
-			return [ ...entries, `127.0.0.1 ${ encodedDomain } # Port ${ port }` ];
+			// Otherwise drop any stale entries for this domain (e.g. a legacy
+			// IPv4-only line from before IPv6 support) and add the canonical pair.
+			const filtered = entries.filter( ( entry ) => ! entry.match( pattern ) );
+			return [ ...filtered, ...desired ];
 		} );
 
 		if ( newContent !== hostsContent ) {
@@ -157,7 +182,7 @@ export const updateDomainInHosts = async (
 		const oldPattern = createHostsEntryPattern( encodedOldDomain );
 		const newContent = updateStudioBlock( hostsContent, ( entries ) => {
 			const filtered = entries.filter( ( entry ) => ! entry.match( oldPattern ) );
-			return [ ...filtered, `127.0.0.1 ${ encodedNewDomain } # Port ${ port }` ];
+			return [ ...filtered, ...createHostsEntries( encodedNewDomain, port ) ];
 		} );
 
 		if ( newContent !== hostsContent ) {

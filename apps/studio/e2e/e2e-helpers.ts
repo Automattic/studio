@@ -1,7 +1,6 @@
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import path from 'path';
-import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { findLatestBuild, parseElectronApp } from 'electron-playwright-helpers';
 import fs from 'fs-extra';
 import { _electron as electron, Page, ElectronApplication } from 'playwright';
@@ -94,19 +93,11 @@ export class E2ESession {
 
 	async cleanup() {
 		await this.closeApp();
-		// Retry on ENOTEMPTY: CLI child processes (e.g. copying skills to server-files) may still be
-		// writing to the session directory briefly after the Electron process exits.
-		for ( let attempt = 0; attempt < 5; attempt++ ) {
-			try {
-				await rimraf( this.sessionPath );
-				return;
-			} catch ( error ) {
-				if ( ! isErrnoException( error ) || error.code !== 'ENOTEMPTY' || attempt === 4 ) {
-					throw error;
-				}
-				await new Promise< void >( ( resolve ) => setTimeout( resolve, 500 ) );
-			}
-		}
+		await rimraf( this.sessionPath, {
+			backoff: 2,
+			maxBackoff: 2500,
+			maxRetries: 50,
+		} );
 	}
 
 	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
@@ -121,8 +112,38 @@ export class E2ESession {
 			executablePath = executablePath.replace( 'Squirrel.exe', 'Studio.exe' );
 		}
 
+		// Linux E2E runs as a non-root user inside a Docker container with
+		// chrome-sandbox removed and no SYS_ADMIN capability, so neither the
+		// SUID sandbox nor the user-namespace sandbox can initialize. Without
+		// --no-sandbox Chromium aborts with "No usable sandbox!" before any
+		// window is created. Playwright auto-adds this flag only when the
+		// launching user is root, so we add it explicitly here.
+		//
+		// --disable-gpu + --use-gl=swiftshader force CPU-based software
+		// rendering. xvfb has no real GPU, and Chromium's default fallback
+		// path in containers can leave the compositor hung — the renderer
+		// populates the DOM but no frames are painted, so Playwright sees
+		// elements that are technically present but never become "visible".
+		// SwiftShader is the deterministic software GL driver Chromium ships
+		// for exactly this case.
+		//
+		// --disable-dev-shm-usage avoids Docker's small default /dev/shm
+		// mount. The Linux Buildkite step is already headless, so using /tmp
+		// for Chromium shared memory is a better tradeoff than intermittent
+		// renderer or helper-process instability under load.
+		const linuxFlags =
+			appInfo.platform === 'linux'
+				? [
+						'--no-sandbox',
+						'--disable-gpu',
+						'--use-gl=swiftshader',
+						'--disable-dev-shm-usage',
+						'--host-resolver-rules=MAP localhost 127.0.0.1',
+				  ]
+				: [];
+
 		this.electronApp = await electron.launch( {
-			args: [ appInfo.main ],
+			args: [ ...linuxFlags, appInfo.main ],
 			executablePath,
 			env: {
 				...process.env,

@@ -36,9 +36,7 @@ export const ColorSchemePicker = ( { value, onChange }: ColorSchemePickerProps )
 							aria-checked={ isSelected }
 							aria-label={ option.label }
 							onClick={ () => onChange( option.value ) }
-							className={ cx(
-								'group flex flex-col items-center p-0 bg-transparent rounded-[4px] focus-visible:outline-none'
-							) }
+							className="group flex flex-col items-center p-0 bg-transparent rounded-[4px] focus-visible:outline-none"
 						>
 							<img
 								src={ option.illustration }

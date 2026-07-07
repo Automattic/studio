@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
@@ -19,6 +19,7 @@ const mockGetXdebugEnabledSite = vi.fn().mockResolvedValue( null );
 
 vi.mock( 'src/lib/app-globals', () => ( {
 	isWindows: () => false,
+	isLinux: () => false,
 } ) );
 
 vi.mock( 'src/hooks/use-site-details' );
@@ -69,7 +70,14 @@ vi.mock( 'src/hooks/use-offline', () => ( {
 } ) );
 
 const renderWithProvider = ( children: React.ReactElement ) => {
-	const store = createTestStore();
+	const store = createTestStore( {
+		preloadedState: {
+			betaFeatures: {
+				features: { remoteSession: false },
+				loading: false,
+			},
+		},
+	} );
 	return render( <Provider store={ store }>{ children }</Provider> );
 };
 
@@ -85,7 +93,7 @@ describe( 'EditSiteDetails', () => {
 			name: 'Test Site',
 			path: '/path/to/site',
 			port: 8881,
-			phpVersion: '8.3',
+			phpVersion: '8.4',
 			running: true,
 			url: 'http://localhost:8881',
 		},
@@ -139,7 +147,7 @@ describe( 'EditSiteDetails', () => {
 		} );
 
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Test Site' );
-		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.3' );
+		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.4' );
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' );
 	} );
 
@@ -220,6 +228,36 @@ describe( 'EditSiteDetails', () => {
 		await user.selectOptions( phpVersionSelect, '8.2' );
 
 		expect( screen.getByRole( 'button', { name: 'Save' } ) ).toBeEnabled();
+	} );
+
+	it( 'should show a fallback warning for unsupported stored PHP versions', async () => {
+		const user = userEvent.setup();
+		vi.mocked( useSiteDetails ).mockReturnValue(
+			createMock< ReturnType< typeof useSiteDetails > >( {
+				...baseMockSiteDetails,
+				selectedSite: {
+					...baseMockSiteDetails.selectedSite,
+					runtime: 'native-php',
+					phpVersion: '7.4',
+				},
+				isEditModalOpen: true,
+			} )
+		);
+
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
+
+		await waitFor( () => {
+			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
+		} );
+		const dialog = screen.getByRole( 'dialog' );
+		expect( within( dialog ).getByLabelText( 'PHP version' ) ).toHaveValue( '8.2' );
+		await user.hover( within( dialog ).getByRole( 'img', { name: 'PHP version warning' } ) );
+
+		expect(
+			await screen.findByText(
+				'PHP 7.4 is no longer supported. Saving will update this site to PHP 8.2.'
+			)
+		).toBeVisible();
 	} );
 
 	it( 'should enable the save button when WordPress version is changed', async () => {

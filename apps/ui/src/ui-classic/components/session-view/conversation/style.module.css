@@ -1,0 +1,673 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-lg);
+}
+
+/* User bubbles act as turn anchors; give them generous breathing room above
+   and below so the user's prompt stands apart from the assistant response. */
+.userTurn {
+	display: flex;
+	flex-direction: column;
+	margin-right: calc(-1 * var(--classic-composer-shell-inline-padding));
+	padding: var(--wpds-dimension-padding-xl) 0;
+}
+
+.userTurn:first-child {
+	padding-top: 0;
+}
+
+.userAttachments {
+	align-self: flex-end;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: var(--wpds-dimension-padding-xs);
+	margin: var(--wpds-dimension-padding-xs) 0 0;
+	padding: 0;
+	list-style: none;
+	max-width: 80%;
+}
+
+.userAttachmentChip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 200px;
+	padding: 2px 8px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+}
+
+.userAttachmentName {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.userAttachmentThumbItem {
+	display: inline-flex;
+}
+
+.userAttachmentThumb {
+	max-width: 160px;
+	max-height: 160px;
+	border-radius: var(--wpds-border-radius-md, 8px);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	object-fit: cover;
+}
+
+.userText {
+	align-self: flex-end;
+	padding: var(--wpds-dimension-padding-md) calc(var(--wpds-dimension-padding-lg) + 8px);
+	background-color: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 10%, transparent);
+	/* Bottom-right tight so the bubble reads as originating from the user
+	   on the right; other corners round generously. */
+	border-radius: 18px 18px var(--wpds-border-radius-md, 8px) 18px;
+	max-width: 80%;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.55;
+	color: var(--wpds-color-fg-content-neutral);
+	white-space: pre-wrap;
+	word-wrap: break-word;
+}
+
+.toolBlock {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.toolRow {
+	--tool-trigger-color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral-weak) 70%,
+		transparent
+	);
+	--tool-text-color: var(--tool-trigger-color);
+	--tool-icon-color: var(--tool-trigger-color);
+
+	display: flex;
+	align-items: baseline;
+	gap: var(--wpds-dimension-padding-xs);
+	box-sizing: border-box;
+	max-width: 100%;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.55;
+	color: var(--tool-text-color);
+	padding: 2px 0;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+@media (prefers-color-scheme: light) {
+	.toolRow {
+		--tool-text-color: var(--wpds-color-fg-content-neutral-weak);
+	}
+}
+
+.toolRowButton {
+	--tool-row-active-background: var(--wpds-color-bg-interactive-neutral-weak-active, #ededed);
+
+	appearance: none;
+	align-self: flex-start;
+	max-width: 100%;
+	margin: -4px -8px;
+	padding: 4px 8px;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background: transparent;
+	font-family: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition:
+		background-color 120ms ease,
+		color 120ms ease;
+}
+
+.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) {
+	--tool-text-color: var(--wpds-color-fg-interactive-neutral-active);
+	--tool-icon-color: var(--wpds-color-fg-interactive-neutral-active);
+
+	background-color: var(--tool-row-active-background);
+}
+
+.toolRowButton:focus:not(:focus-visible):not([data-expanded='true']) {
+	outline: none;
+	background-color: transparent;
+}
+
+.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolLabel,
+.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolDetail {
+	color: var(--tool-text-color);
+}
+
+.toolRowButton:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline-offset: 2px;
+}
+
+.toolDetailsShell {
+	display: grid;
+	grid-template-rows: 0fr;
+	margin-left: -8px;
+	opacity: 0;
+	overflow: hidden;
+	transform: translateY(-2px);
+	transition:
+		grid-template-rows 180ms cubic-bezier(0.2, 0, 0, 1),
+		opacity 140ms ease,
+		transform 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.toolDetailsShell[data-expanded='true'] {
+	grid-template-rows: 1fr;
+	opacity: 1;
+	transform: translateY(0);
+	animation: toolDetailsExpand 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.toolDetailsClip {
+	min-height: 0;
+	overflow: hidden;
+}
+
+.toolOutputWrap {
+	margin: 8px 0 0;
+	padding: var(--wpds-dimension-padding-lg);
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	box-sizing: border-box;
+	max-height: min(320px, 45vh);
+	overflow: auto;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.toolInput,
+.toolOutput {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	overflow: visible;
+}
+
+.toolInput {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.toolOutputError {
+	color: var(--wpds-color-fg-content-error, #dc2626);
+}
+
+.toolDiff {
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	overflow: visible;
+}
+
+.diffLine {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.diffLineAdded {
+	color: var(--wpds-color-fg-content-success);
+	background-color: var(--wpds-color-bg-surface-success-weak);
+}
+
+.diffLineRemoved {
+	color: var(--wpds-color-fg-content-error);
+	background-color: var(--wpds-color-bg-surface-error-weak);
+}
+
+.toolLabel {
+	color: var(--tool-text-color);
+	font-weight: 400;
+	min-width: 0;
+	flex: 0 1 auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.toolDetail {
+	color: var(--tool-text-color);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.toolIcon {
+	flex: 0 0 auto;
+	width: 18px;
+	height: 18px;
+	color: var(--tool-icon-color);
+	stroke: var(--tool-icon-color);
+	transform: translateY(3px);
+}
+
+.toolIcon,
+.toolIcon :where(path:not([fill='none']), rect:not([fill='none']), circle:not([fill='none']), polygon:not([fill='none'])) {
+	fill: var(--tool-icon-color);
+}
+
+.mediaArtifactGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+	gap: var(--wpds-dimension-padding-sm);
+	width: min(100%, 680px);
+}
+
+.mediaArtifactItem {
+	margin: 0;
+	min-width: 0;
+}
+
+.mediaArtifactImage {
+	display: block;
+	width: 100%;
+	max-height: min(520px, 58vh);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	object-fit: contain;
+}
+
+.mediaArtifactLoading,
+.mediaArtifactUnavailable {
+	box-sizing: border-box;
+	min-height: 180px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.mediaArtifactLoading {
+	background-image: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--wpds-color-fg-content-neutral) 8%, transparent),
+		transparent
+	);
+	background-size: 200% 100%;
+	animation: mediaArtifactLoading 1.2s ease-in-out infinite;
+}
+
+.mediaArtifactUnavailable {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--wpds-dimension-padding-md);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+@keyframes toolDetailsExpand {
+	from {
+		grid-template-rows: 0fr;
+		opacity: 0;
+		transform: translateY(-2px);
+	}
+
+	to {
+		grid-template-rows: 1fr;
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes mediaArtifactLoading {
+	from {
+		background-position: 200% 0;
+	}
+
+	to {
+		background-position: -200% 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.toolRowButton,
+	.toolDetailsShell,
+	.toolDetailsShell[data-expanded='true'],
+	.mediaArtifactLoading {
+		animation: none;
+		transform: none;
+		transition: none;
+	}
+}
+
+.question {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-lg);
+}
+
+.questionBatch {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	overflow-anchor: none;
+}
+
+.questionBatchStep {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+	overflow: hidden;
+	transform-origin: top left;
+	animation: questionBatchStepEnter 120ms ease-out;
+}
+
+.questionBatchStep[data-state='asking'][data-has-prior='true'] {
+	position: relative;
+	padding-top: var(--wpds-dimension-padding-lg);
+}
+
+.questionBatchStep[data-state='asking'][data-has-prior='true']::before {
+	content: '';
+	display: block;
+	width: 100%;
+	height: 1px;
+	margin-bottom: var(--wpds-dimension-padding-xs);
+	background-color: var(--wpds-color-stroke-surface-neutral);
+	opacity: 0.7;
+}
+
+.questionBatchStep[data-state='answered'] {
+	animation: none;
+}
+
+.questionBatchStep:focus {
+	outline: none;
+}
+
+.questionBatchStep[data-state='answered'] .questionBatchProgress {
+	animation: questionAnsweredElementFade 180ms ease-out forwards;
+}
+
+.questionBatchProgress {
+	display: inline-flex;
+	align-items: center;
+	align-self: flex-start;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	font-weight: 500;
+	line-height: 1.4;
+}
+
+.questionSummary {
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
+
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--wpds-dimension-padding-xs);
+	width: 100%;
+	padding: var(--wpds-dimension-padding-xs) 0;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+	text-align: left;
+}
+
+.questionSummary[data-interactive='true'] {
+	cursor: pointer;
+}
+
+.questionSummary[data-interactive='true']:is(:hover, :focus-visible) {
+	background-color: transparent;
+}
+
+.questionSummary[data-interactive='true']:is(:hover, :focus-visible) .questionSummaryText {
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.questionSummary[data-interactive='true']:is(:hover, :focus-visible) .questionSummaryOption {
+	opacity: 0.82;
+}
+
+.questionSummary:focus:not(:focus-visible) {
+	outline: none;
+	background-color: transparent;
+}
+
+.questionSummary:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline-offset: 2px;
+}
+
+.questionSummaryBody {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+}
+
+.questionSummaryText {
+	min-width: 0;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.questionSummaryOption {
+	gap: var(--wpds-dimension-padding-sm);
+	pointer-events: none;
+}
+
+@keyframes questionBatchStepEnter {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes questionAnsweredElementFade {
+	from {
+		opacity: 1;
+	}
+
+	to {
+		opacity: 0.38;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.questionBatchStep,
+	.questionBatchStep[data-state='answered'],
+	.questionBatchStep[data-state='answered'] .questionBatchProgress,
+	.question[data-state='folding'] .questionOptionItem:not([data-picked='true']),
+	.question[data-state='folding'] .questionOptionDescription {
+		animation: none;
+	}
+}
+
+.questionText {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.questionOptions {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-lg);
+}
+
+.questionOptionItem {
+	margin: 0;
+	padding: 0;
+}
+
+.question[data-state='folding'] .questionOptionItem:not([data-picked='true']) {
+	animation: questionAnsweredElementFade 180ms ease-out forwards;
+}
+
+.question[data-state='folding'] .questionOptionDescription {
+	display: block;
+	animation: questionAnsweredElementFade 180ms ease-out forwards;
+}
+
+.questionOption {
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-border-color: transparent;
+
+	display: flex;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-md);
+	width: 100%;
+	background: transparent;
+	border: none;
+	padding: 0;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	color: var(--wpds-color-fg-content-neutral);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+/* Prevent the global button focus reset from adding an active background after
+   mouse clicks; keyboard focus still gets the local focus-visible ring. */
+.questionOption:focus:not(:focus-visible) {
+	outline: none;
+	background-color: transparent;
+}
+
+.questionOption:focus-visible:not(:disabled) {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--wpds-color-stroke-interactive-focus, #2563eb);
+}
+
+.questionOption:hover:not(:disabled) .questionOptionLabel,
+.questionOption:focus-visible:not(:disabled) .questionOptionLabel {
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.questionOption:hover:not(:disabled) .questionOptionNumber,
+.questionOption:focus-visible:not(:disabled) .questionOptionNumber {
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.questionOptionNumber {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	min-width: 1.5em;
+	height: 1.5em;
+	margin-top: 3px;
+	padding: 0 0.35em;
+	border: 1px dashed var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1;
+	transition:
+		border-color 120ms ease,
+		background-color 220ms ease,
+		color 120ms ease;
+}
+
+.questionOptionCopy {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.questionOptionLabel {
+	color: var(--wpds-color-fg-content-neutral);
+	transition: color 120ms ease;
+}
+
+.questionOptionDescription {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
+}
+
+.questionOption:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+/* Keep the picked option fully legible even when disabled, so the user
+   can still see their choice once the batch is finalized. */
+.questionOptionPicked,
+.questionOptionPicked:disabled {
+	opacity: 1;
+}
+
+.questionOption.questionOptionPicked .questionOptionNumber,
+.questionOption.questionOptionPicked:disabled .questionOptionNumber,
+.questionOption.questionOptionPicked:is(:hover, :focus-visible):not(:disabled) .questionOptionNumber {
+	border-color: var(--wpds-color-bg-interactive-brand-strong);
+	background-color: var(--wpds-color-bg-interactive-brand-strong);
+	color: var(--wpds-color-fg-interactive-brand-strong);
+}
+
+.questionOption.questionOptionPicked .questionOptionLabel,
+.questionOption.questionOptionPicked:disabled .questionOptionLabel,
+.questionOption.questionOptionPicked:is(:hover, :focus-visible):not(:disabled) .questionOptionLabel {
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 500;
+}
+
+.questionOption.questionSummaryOption .questionOptionNumber {
+	border-style: solid;
+	border-color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-interactive-brand, #2563eb) 45%,
+		var(--wpds-color-stroke-surface-neutral)
+	);
+	background-color: transparent;
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.question[data-state='folding'] .questionOption.questionOptionPicked .questionOptionNumber {
+	border-style: solid;
+	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: transparent;
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+}
+
+.interruptedMarker {
+	align-self: center;
+	margin: var(--wpds-dimension-padding-sm) 0;
+	padding: 2px 10px;
+	border-radius: 9999px;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	text-align: center;
+}

@@ -4,7 +4,7 @@ export default class ImportExportTab {
 	constructor( private page: Page ) {}
 
 	get locator() {
-		return this.page.getByRole( 'tabpanel', { name: 'Import / Export' } );
+		return this.page.locator( '[role="tabpanel"][id$="-import-export-view"]' );
 	}
 
 	get importDropZone() {

@@ -1,15 +1,23 @@
+import { getAiModelFamily } from '@studio/common/ai/models';
+import { getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
+import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
-import { AI_MODELS, type AiModelId } from 'cli/ai/agent';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
-import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
+import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { captureCommandOutput } from 'cli/ai/tools';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { runCommand as runPushCommand } from 'cli/commands/push';
+import { openBrowser } from 'cli/lib/browser';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
+import { loadRemoteSessionConfig } from 'cli/remote-session/config';
+import { DaemonAlreadyRunningError, startDaemon, stopDaemon } from 'cli/remote-session/daemon';
+import type { AutocompleteItem } from '@earendil-works/pi-tui';
 import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
@@ -36,6 +44,16 @@ export interface SlashCommandDef {
 	name: string;
 	description: string;
 	handler?: SlashCommandHandler;
+	/**
+	 * Optional argument completion. When the user has typed past the first
+	 * whitespace (e.g. `/remote-session `), the autocomplete provider calls
+	 * this to surface subcommand suggestions.
+	 */
+	getArgumentCompletions?: ( argumentPrefix: string ) => AutocompleteItem[] | null;
+}
+
+export function getActiveSlashCommands(): SlashCommandDef[] {
+	return AI_CHAT_SLASH_COMMANDS;
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -43,6 +61,175 @@ function isPromptAbortError( error: unknown ): boolean {
 		error instanceof Error &&
 		[ 'AbortPromptError', 'CancelPromptError', 'ExitPromptError' ].includes( error.name )
 	);
+}
+
+function parseRemoteSessionSubcommand( prompt: string ): 'start' | 'stop' | undefined {
+	const tokens = prompt.trim().split( /\s+/ );
+	const sub = tokens[ 1 ]?.toLowerCase();
+	if ( sub === 'start' || sub === 'stop' ) {
+		return sub;
+	}
+	return undefined;
+}
+
+async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void > {
+	// Validate config in-process so a missing token surfaces as an error in the
+	// REPL rather than silently spawning a child that exits on its own.
+	try {
+		await loadRemoteSessionConfig();
+	} catch ( error ) {
+		// RemoteSessionConfigError already carries a user-facing message
+		// telling the user how to authenticate. Anything else (fs permissions,
+		// JSON parse, etc.) gets a generic surface so the REPL stays alive —
+		// the dispatcher does not catch handler throws.
+		ctx.ui.showError(
+			error instanceof Error ? error.message : __( 'Failed to load remote-session config.' )
+		);
+		return;
+	}
+
+	try {
+		const result = await startDaemon();
+		ctx.ui.showSuccess(
+			sprintf(
+				/* translators: %d: daemon PID */
+				__(
+					'Remote-session started (PID %d). Message WordPress Agent (@wordpressagentbot) on Telegram to work with Studio.'
+				),
+				result.pid
+			)
+		);
+		ctx.ui.setDaemonStatus( { running: true, pid: result.pid } );
+	} catch ( error ) {
+		if ( error instanceof DaemonAlreadyRunningError ) {
+			ctx.ui.showInfo(
+				sprintf(
+					/* translators: %d: daemon PID */
+					__(
+						'Remote-session already running (PID %d). Message WordPress Agent (@wordpressagentbot) on Telegram to work with Studio.'
+					),
+					error.pid
+				)
+			);
+			ctx.ui.setDaemonStatus( { running: true, pid: error.pid } );
+			return;
+		}
+		// DaemonStartTimeoutError and any other unexpected errors (spawn
+		// failure, fs write failure, etc.) get surfaced via showError so the
+		// REPL stays alive.
+		ctx.ui.showError(
+			error instanceof Error ? error.message : __( 'Failed to start the remote-session daemon.' )
+		);
+	}
+}
+
+async function runRemoteSessionStop( ctx: SlashCommandContext ): Promise< void > {
+	let result;
+	try {
+		result = await stopDaemon();
+	} catch ( error ) {
+		// stopDaemon rethrows non-ESRCH errors from process.kill (e.g. EPERM
+		// when the PID was reused by another user, or any unexpected fs error
+		// while removing the PID file). The REPL dispatcher does not wrap
+		// handlers in a try/catch, so we surface these as a friendly error
+		// rather than letting them terminate the interactive session.
+		ctx.ui.showError(
+			error instanceof Error ? error.message : __( 'Failed to stop the remote-session daemon.' )
+		);
+		return;
+	}
+	ctx.ui.setDaemonStatus( { running: false } );
+	if ( result.alreadyStopped ) {
+		ctx.ui.showInfo( __( 'Remote-session daemon was not running.' ) );
+		return;
+	}
+	if ( ! result.stopped ) {
+		ctx.ui.showError(
+			sprintf(
+				/* translators: %d: daemon PID */
+				__( 'Remote-session daemon (PID %d) did not exit after SIGKILL. PID file left in place.' ),
+				result.pid ?? 0
+			)
+		);
+		return;
+	}
+	if ( result.usedSigKill ) {
+		ctx.ui.showInfo(
+			sprintf(
+				/* translators: %d: daemon PID */
+				__( 'Remote-session daemon (PID %d) did not exit gracefully; sent SIGKILL.' ),
+				result.pid ?? 0
+			)
+		);
+		return;
+	}
+	ctx.ui.showSuccess(
+		sprintf(
+			/* translators: %d: daemon PID */
+			__( 'Remote-session stopped (PID %d).' ),
+			result.pid ?? 0
+		)
+	);
+}
+
+async function pickRemoteSessionSubcommand(
+	ctx: SlashCommandContext
+): Promise< 'start' | 'stop' | undefined > {
+	try {
+		const answer = await ctx.ui.askUser( [
+			{
+				question: __( 'Remote session' ),
+				options: [
+					{ label: __( 'Start' ), description: __( 'Spawn the daemon' ) },
+					{ label: __( 'Stop' ), description: __( 'Stop the daemon' ) },
+				],
+			},
+		] );
+		const selected = ( Object.values( answer )[ 0 ] as string | undefined )?.toLowerCase();
+		if ( selected === undefined ) {
+			return undefined;
+		}
+		if ( selected.startsWith( 'start' ) ) {
+			return 'start';
+		}
+		if ( selected.startsWith( 'stop' ) ) {
+			return 'stop';
+		}
+		return undefined;
+	} catch ( error ) {
+		if ( isPromptAbortError( error ) ) {
+			return undefined;
+		}
+		throw error;
+	}
+}
+
+async function runRemoteSessionSlashCommand(
+	prompt: string,
+	ctx: SlashCommandContext
+): Promise< 'continue' | 'break' > {
+	let sub = parseRemoteSessionSubcommand( prompt );
+	if ( sub === undefined ) {
+		const tokens = prompt.trim().split( /\s+/ );
+		// `tokens.length > 1` means the user typed something like
+		// `/remote-session bogus` — surface usage rather than silently popping
+		// a picker that ignores the bad input.
+		if ( tokens.length > 1 ) {
+			ctx.ui.showInfo( __( 'Usage: /remote-session [start|stop]' ) );
+			return 'continue';
+		}
+		sub = await pickRemoteSessionSubcommand( ctx );
+		if ( sub === undefined ) {
+			ctx.ui.showInfo( __( 'Remote session selection canceled.' ) );
+			return 'continue';
+		}
+	}
+	if ( sub === 'start' ) {
+		await runRemoteSessionStart( ctx );
+	} else if ( sub === 'stop' ) {
+		await runRemoteSessionStop( ctx );
+	}
+	return 'continue';
 }
 
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
@@ -144,34 +331,54 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const modelOptions = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).map(
-				( [ id, label ] ) => ( {
-					label:
-						id === ctx.currentModel
-							? sprintf(
-									/* translators: %s: model name */
-									__( '%s (current)' ),
-									label
-							  )
-							: label,
-					description: id,
-				} )
-			);
+			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
+			// Build options and a reverse lookup at the same time so we never
+			// have to recover the model id from the label. A startsWith-based
+			// match is buggy when one model's label is a prefix of another's
+			// (e.g. "GPT 5.5" prefixes "GPT 5.5 Pro" — picking Pro silently
+			// returns the non-pro id), so we keep the label → id mapping
+			// explicit here and look up by exact match below.
+			const labelToId = new Map< string, AiModelId >();
+			const modelOptions = availableModels.map( ( id ) => {
+				const label =
+					id === ctx.currentModel
+						? sprintf(
+								/* translators: %s: model name */
+								__( '%s (current)' ),
+								getAiModelLabel( id )
+						  )
+						: getAiModelLabel( id );
+				labelToId.set( label, id );
+				return { label, description: id };
+			} );
 			const answer = await ctx.ui.askUser( [
 				{ question: __( 'Select a model' ), options: modelOptions },
 			] );
-			const selectedId = Object.values( answer )[ 0 ] as string;
-			const newModel = ( Object.entries( AI_MODELS ) as [ AiModelId, string ][] ).find(
-				( [ , label ] ) => selectedId.startsWith( label )
-			);
-			if ( newModel && newModel[ 0 ] !== ctx.currentModel ) {
-				ctx.currentModel = newModel[ 0 ];
+			const selectedLabel = Object.values( answer )[ 0 ] as string;
+			const newModel = labelToId.get( selectedLabel );
+			if ( newModel && newModel !== ctx.currentModel ) {
+				// Switching to a model in a different family (Anthropic ↔ OpenAI)
+				// hands the next turn off to a different runtime. Each runtime keeps
+				// its own session store, so the existing session id from the previous
+				// runtime won't resolve there ("No conversation found"). Clear the
+				// session before the model swap so the new runtime starts fresh.
+				const familyChanged = getAiModelFamily( ctx.currentModel ) !== getAiModelFamily( newModel );
+				if ( familyChanged ) {
+					await ctx.clearSession();
+					ctx.ui.showInfo(
+						__(
+							"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
+						)
+					);
+				}
+
+				ctx.currentModel = newModel;
 				ctx.ui.currentModel = ctx.currentModel;
 				ctx.ui.showInfo(
 					sprintf(
 						/* translators: %s: model name */
 						__( 'Switched to %s' ),
-						AI_MODELS[ ctx.currentModel ]
+						getAiModelLabel( ctx.currentModel )
 					)
 				);
 				await ctx.persistSessionContext();
@@ -289,10 +496,122 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		},
 	},
 	{
+		name: 'publish',
+		description: __( 'Publish the active site to WordPress.com' ),
+		handler: async ( _prompt, ctx ) => {
+			const site = ctx.ui.activeSite;
+			if ( ! site ) {
+				ctx.ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
+				return 'continue';
+			}
+
+			const token = await readAuthToken();
+			if ( ! token ) {
+				ctx.ui.showInfo( __( 'WordPress.com login required. Use /login to authenticate.' ) );
+				return 'continue';
+			}
+
+			try {
+				ctx.ui.showProgress( __( 'Fetching your WordPress.com sites…' ) );
+				ctx.ui.setBusy( true );
+
+				const remoteSites = await fetchSyncableSites( token.accessToken );
+				const syncable = remoteSites.filter( ( s ) => s.syncSupport === 'syncable' );
+
+				if ( syncable.length === 0 ) {
+					ctx.ui.setBusy( false );
+					const checkoutUrl = new URL( 'https://wordpress.com/setup/new-hosted-site' );
+					checkoutUrl.searchParams.set( 'ref', 'studio' );
+					checkoutUrl.searchParams.set( 'section', 'studio-sync' );
+					checkoutUrl.searchParams.set( 'showDomainStep', 'true' );
+					checkoutUrl.searchParams.set( 'new', site.name );
+
+					await openBrowser( checkoutUrl.toString() );
+					ctx.ui.showInfo(
+						__(
+							'No WordPress.com sites found. Opening WordPress.com to create one — once your site is ready, run /publish again.'
+						)
+					);
+					return 'continue';
+				}
+
+				// Let the user pick which site to publish to.
+				const siteOptions = syncable.map( ( s ) => ( {
+					label: s.name,
+					description: s.url,
+				} ) );
+				ctx.ui.setBusy( false );
+				const answer = await ctx.ui.askUser( [
+					{
+						question: __( 'Select a WordPress.com site to publish to' ),
+						options: siteOptions,
+					},
+				] );
+				const selectedName = Object.values( answer )[ 0 ] as string;
+				const remoteSite = syncable.find( ( s ) => s.name === selectedName );
+				if ( ! remoteSite ) {
+					ctx.ui.showInfo( __( 'No site selected.' ) );
+					return 'continue';
+				}
+
+				ctx.ui.showProgress(
+					sprintf( __( 'Publishing to %s… this may take several minutes.' ), remoteSite.name )
+				);
+				ctx.ui.setBusy( true );
+
+				const result = await captureCommandOutput( () =>
+					runPushCommand( site.path, [ 'all' ], String( remoteSite.id ) )
+				);
+
+				ctx.ui.setBusy( false );
+
+				if ( result.exitCode ) {
+					ctx.ui.showError( result.consoleOutput || __( 'Failed to publish site.' ) );
+				} else {
+					ctx.ui.showSuccess(
+						sprintf( __( 'Published to %s' ), remoteSite.url ) + '\n\n   ' + remoteSite.url
+					);
+				}
+			} catch ( error ) {
+				ctx.ui.setBusy( false );
+				if ( isPromptAbortError( error ) ) {
+					ctx.ui.showInfo( __( 'Publish canceled.' ) );
+					return 'continue';
+				}
+				if ( error instanceof LoggerError ) {
+					ctx.ui.showError( error.message );
+				} else {
+					ctx.ui.showError( __( 'Failed to publish site.' ) );
+				}
+			}
+			return 'continue';
+		},
+	},
+	{
+		name: 'remote-session',
+		description: __( 'Manage the Telegram remote-session daemon (start, stop)' ),
+		getArgumentCompletions: ( argumentPrefix ) => {
+			const items: AutocompleteItem[] = [
+				{ value: 'start', label: 'start', description: __( 'Spawn the daemon' ) },
+				{ value: 'stop', label: 'stop', description: __( 'Stop the daemon' ) },
+			];
+			const lower = argumentPrefix.toLowerCase();
+			return items.filter( ( item ) => item.value.startsWith( lower ) );
+		},
+		handler: runRemoteSessionSlashCommand,
+	},
+	{
+		name: 'swag',
+		description: __( 'Treat yourself to some WordPress swag' ),
+		handler: async () => {
+			await openBrowser( 'https://mercantile.wordpress.org/' );
+			return 'continue';
+		},
+	},
+	{
 		name: 'exit',
 		description: __( 'Exit the chat' ),
 		handler: async () => 'break',
 	},
-	{ name: 'taxonomist', description: __( 'Optimize category taxonomy with AI' ) },
-	{ name: 'need-for-speed', description: __( 'Run a performance audit on a site' ) },
+	...AI_SKILL_COMMANDS,
 ];

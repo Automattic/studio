@@ -42,7 +42,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 				</div>
 				<div className="max-w-[40ch] text-frame-text-secondary a8c-body">
 					{ __(
-						'Launch your existing WordPress.com or Jetpack-activated Pressable sites, or import an existing one. Then, share your work with the world.'
+						'Connect your existing WordPress.com or Jetpack-activated Pressable sites to keep your local and live work in sync.'
 					) }
 				</div>
 				<div className="mt-6">
@@ -141,10 +141,14 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 	const [ disconnectSite ] = useDisconnectSiteMutation();
 
 	const connectedSiteIds = connectedSites.map( ( { id } ) => id );
-	const { data: syncSites = [] } = useGetWpComSitesQuery( {
+	// Subscribe to /me/sites so reconcileConnectedSites runs on page load to
+	// refresh stored connection metadata. The list itself isn't rendered here —
+	// the connect modal has its own subscription with a larger page size.
+	const { data: wpcomSitesData } = useGetWpComSitesQuery( {
 		connectedSiteIds,
 		userId: user?.id,
 	} );
+	const _syncSites = wpcomSitesData?.sites ?? [];
 
 	const [ selectedRemoteSite, setSelectedRemoteSite ] = useState< SyncSite | null >( null );
 
@@ -175,16 +179,7 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 		}
 	};
 
-	const handleSiteSelection = async ( siteId: number ) => {
-		const selectedSiteFromList = syncSites.find( ( site ) => site.id === siteId );
-		if ( ! selectedSiteFromList ) {
-			getIpcApi().showErrorMessageBox( {
-				title: __( 'Failed to select site' ),
-				message: __( 'Please try again.' ),
-			} );
-			return;
-		}
-
+	const handleSiteSelection = async ( selectedSiteFromList: SyncSite ) => {
 		if ( reduxModalMode === 'push' || reduxModalMode === 'pull' ) {
 			dispatch( connectedSitesActions.openModal( reduxModalMode ) );
 			setSelectedRemoteSite( selectedSiteFromList );
@@ -233,8 +228,8 @@ export function ContentTabSync( { selectedSite }: { selectedSite: SiteDetails } 
 					onRequestClose={ () => {
 						dispatch( connectedSitesActions.closeModal() );
 					} }
-					onConnect={ async ( siteId: number ) => {
-						await handleSiteSelection( siteId );
+					onConnect={ async ( site: SyncSite ) => {
+						await handleSiteSelection( site );
 					} }
 					selectedSite={ selectedSite }
 				/>

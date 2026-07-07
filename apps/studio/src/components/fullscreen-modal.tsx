@@ -6,7 +6,7 @@ import {
 import { __ } from '@wordpress/i18n';
 import { close } from '@wordpress/icons';
 import React, { useEffect, useRef } from 'react';
-import { isWindows } from 'src/lib/app-globals';
+import { isLinux, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
@@ -67,7 +67,9 @@ export const FullscreenModal: React.FC< FullscreenModalProps > = ( {
 			<HStack
 				className={ cx(
 					'flex p-4 app-drag-region',
-					isWindows() ? 'ltr:justify-start rtl:justify-end' : 'ltr:justify-end rtl:justify-start'
+					isWindows() || isLinux()
+						? 'ltr:justify-start rtl:justify-end'
+						: 'ltr:justify-end rtl:justify-start'
 				) }
 			>
 				<Button

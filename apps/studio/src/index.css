@@ -3,6 +3,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
+   Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
+@font-face {
+	font-family: 'Vazirmatn';
+	src: url( './fonts/Vazirmatn-Variable.woff2' ) format( 'woff2' );
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
 :root {
 	--color-frame-bg: #fff;
 	--color-frame-text: #1e1e1e;
@@ -18,6 +28,10 @@
 	--color-frame-running: #008a20;
 	--color-frame-error: #d63638;
 	--color-frame-tab-active: #000;
+	--color-frame-diff-add-text: #008a20;
+	--color-frame-diff-add-bg: #edfaef;
+	--color-frame-diff-remove-text: #d63638;
+	--color-frame-diff-remove-bg: #fcf0f1;
 	--wp-admin-theme-color: var( --color-frame-theme );
 	--wp-admin-theme-color-darker-20: var( --color-frame-theme-hover );
 }
@@ -39,6 +53,10 @@
 		--color-frame-running: #1ed15a;
 		--color-frame-error: #f87171;
 		--color-frame-tab-active: #fff;
+		--color-frame-diff-add-text: #1ed15a;
+		--color-frame-diff-add-bg: rgba( 30, 209, 90, 0.12 );
+		--color-frame-diff-remove-text: #f87171;
+		--color-frame-diff-remove-bg: rgba( 248, 113, 113, 0.12 );
 	}
 }
 
@@ -48,8 +66,13 @@
 	}
 
 	.skeleton-bg {
-		animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-		background-image: linear-gradient(to right, var(--color-frame-surface), var(--color-frame-surface-alt), var(--color-frame-surface));
+		animation: pulse 2s cubic-bezier( 0.4, 0, 0.6, 1 ) infinite;
+		background-image: linear-gradient(
+			to right,
+			var( --color-frame-surface ),
+			var( --color-frame-surface-alt ),
+			var( --color-frame-surface )
+		);
 	}
 }
 
@@ -59,12 +82,45 @@ body {
 		BlinkMacSystemFont,
 		/* macOS/iOS system UI */ 'Segoe UI',
 		Roboto,
-		/* Windows + Android system UI */ 'Apple Color Emoji',
+		/* Windows + Android system UI */ Ubuntu,
+		Cantarell,
+		'Liberation Sans',
+		'DejaVu Sans',
+		/* Linux system UI — listed before emoji fonts so the space glyph
+		   resolves from a text font, not from Noto Color Emoji's wide space. */
+			'Apple Color Emoji',
 		'Segoe UI Emoji',
 		'Noto Color Emoji',
 		/* emoji */ 'Noto Sans',
 		'Arial Unicode MS',
 		/* broad Unicode coverage */ sans-serif;
+}
+
+/* `lang` is set to 'ckb' in use-localization-support.ts. The extra selectors
+   cover @wordpress/components controls that hardcode their own font-family at
+   class specificity, which body inheritance alone wouldn't override. */
+body:lang( ckb ),
+body:lang( ckb ) input,
+body:lang( ckb ) textarea,
+body:lang( ckb ) select,
+body:lang( ckb ) button,
+body:lang( ckb ) [class*='components-'] {
+	font-family:
+		'Vazirmatn',
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		Roboto,
+		Ubuntu,
+		Cantarell,
+		'Liberation Sans',
+		'DejaVu Sans',
+		'Apple Color Emoji',
+		'Segoe UI Emoji',
+		'Noto Color Emoji',
+		'Noto Sans',
+		'Arial Unicode MS',
+		sans-serif;
 }
 
 .app-drag-region {
@@ -96,6 +152,21 @@ blockquote {
 /* Settings modal — reduce WP's default 128px viewport margin to 32px */
 .components-modal__frame.has-size-medium {
 	max-height: calc( 100% - 32px );
+}
+
+/* Sync sites modal — center the title across the full header width regardless
+   of the close button position. */
+.sync-sites-modal .components-modal__header {
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+}
+.sync-sites-modal .components-modal__header-heading-container {
+	grid-column: 2;
+	justify-content: center;
+}
+.sync-sites-modal .components-modal__header > button {
+	grid-column: 3;
+	justify-self: end;
 }
 
 /* Tabs */
@@ -396,7 +467,14 @@ div:has( > progress ) > div:first-child {
 		color: var( --color-frame-text );
 	}
 	:is( [data-testid='site-content'], .components-modal__frame, [data-fullscreen-modal] )
-		span:not( .components-button span, button span, .text-a8c-red-50, .text-a8c-green-50, .text-frame-error, .text-frame-running ) {
+		span:not(
+			.components-button span,
+			button span,
+			.text-a8c-red-50,
+			.text-a8c-green-50,
+			.text-frame-error,
+			.text-frame-running
+		) {
 		color: var( --color-frame-text );
 	}
 
@@ -421,13 +499,14 @@ div:has( > progress ) > div:first-child {
 	}
 
 	/* Tab labels */
-	.components-tab-panel__tabs-item {
+	.components-tab-panel__tabs-item,
+	.components-tab-panel__tabs-item:not( .is-active ):hover,
+	.components-tab-panel__tabs-item:not( .is-active ):focus {
 		color: var( --color-frame-text-secondary );
 	}
-	.components-tab-panel__tabs-item.is-active {
-		color: var( --color-frame-text );
-	}
-	.components-tab-panel__tabs-item:hover {
+	.components-tab-panel__tabs-item.is-active,
+	.components-tab-panel__tabs-item.is-active:hover,
+	.components-tab-panel__tabs-item.is-active:focus {
 		color: var( --color-frame-text );
 	}
 	.components-tab-panel__tabs {

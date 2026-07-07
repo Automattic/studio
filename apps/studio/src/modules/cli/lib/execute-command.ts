@@ -1,8 +1,8 @@
 import { app } from 'electron';
-import { fork, ChildProcess, StdioOptions } from 'node:child_process';
-import EventEmitter from 'node:events';
+import { fork, spawnSync, type ChildProcess, type StdioOptions } from 'node:child_process';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
+import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
 export type CliCommandResult = {
@@ -10,7 +10,7 @@ export type CliCommandResult = {
 	stderr: string;
 };
 
-class CliCommandError extends Error {
+export class CliCommandError extends Error {
 	baseMessage = 'CLI command failed';
 	readonly lastErrorMessage: string | undefined;
 	readonly cliCommandResult: CliCommandResult | undefined;
@@ -67,7 +67,7 @@ class CliCommandError extends Error {
 	}
 }
 
-type CliCommandEventMap< CapturesOutput extends boolean = false > = {
+type CliCommandEventMap< CapturesOutput extends boolean > = {
 	started: void;
 	error: { error: Error };
 	data: { data: unknown };
@@ -82,39 +82,28 @@ const cliErrorMessageSchema = z.object( {
 	status: z.literal( 'fail' ),
 	message: z.string(),
 } );
-
-class CliCommandEventEmitter< CapturesOutput extends boolean = false > extends EventEmitter {
-	on< K extends keyof CliCommandEventMap< CapturesOutput > >(
-		event: K,
-		listener: ( payload: CliCommandEventMap< CapturesOutput >[ K ] ) => void
-	): this {
-		return super.on( event, listener );
-	}
-
-	emit< K extends keyof CliCommandEventMap< CapturesOutput > >(
-		event: K,
-		payload?: CliCommandEventMap< CapturesOutput >[ K ]
-	): boolean {
-		return super.emit( event, payload );
-	}
-}
+type CliCommandEventEmitter< CapturesOutput extends boolean > = TypedEventEmitter<
+	CliCommandEventMap< CapturesOutput >
+>;
 
 type ExecuteCliCommandOptionsIgnore = {
 	output: 'ignore';
+	env?: NodeJS.ProcessEnv;
 };
 type ExecuteCliCommandOptionsCapture = {
 	output: 'capture';
 	logPrefix?: string;
+	env?: NodeJS.ProcessEnv;
 };
 type ExecuteCliCommandOptions = ExecuteCliCommandOptionsIgnore | ExecuteCliCommandOptionsCapture;
 
 export function executeCliCommand(
 	args: string[],
-	options: { output: 'capture'; logPrefix?: string }
+	options: { output: 'capture'; logPrefix?: string; env?: NodeJS.ProcessEnv }
 ): [ CliCommandEventEmitter< true >, ChildProcess ];
 export function executeCliCommand(
 	args: string[],
-	options: { output: 'ignore'; logPrefix?: string }
+	options: { output: 'ignore'; logPrefix?: string; env?: NodeJS.ProcessEnv }
 ): [ CliCommandEventEmitter< false >, ChildProcess ];
 export function executeCliCommand(
 	args: string[],
@@ -142,9 +131,9 @@ export function executeCliCommand(
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
 		execArgv: [ '--experimental-wasm-jspi' ],
-		env: { ...process.env },
+		env: { ...process.env, ...options.env },
 	} );
-	const eventEmitter = new CliCommandEventEmitter< boolean >();
+	const eventEmitter = new TypedEventEmitter< CliCommandEventMap< boolean > >();
 
 	child.on( 'spawn', () => {
 		eventEmitter.emit( 'started' );
@@ -161,13 +150,19 @@ export function executeCliCommand(
 	let lastErrorMessage: string | undefined;
 
 	if ( options.output === 'capture' ) {
-		const logPrefix = options.logPrefix ? `[CLI - site ID ${ options.logPrefix }]` : '[CLI]';
+		// Only callers that opted-in with a `logPrefix` get stdout echoed to
+		// the main-process console. Commands like `preview list --format json`
+		// dump large structured payloads on stdout that would otherwise spam
+		// `npm start` output every time snapshots are fetched.
+		const logPrefix = options.logPrefix ? `[CLI - site ID ${ options.logPrefix }]` : null;
 		child.stdout?.on( 'data', ( data: Buffer ) => {
 			const text = data.toString();
 			stdout += text;
-			const trimmed = text.trimEnd();
-			if ( trimmed ) {
-				console.log( `${ logPrefix } ${ trimmed }` );
+			if ( logPrefix ) {
+				const trimmed = text.trimEnd();
+				if ( trimmed ) {
+					console.log( `${ logPrefix } ${ trimmed }` );
+				}
 			}
 		} );
 		child.stderr?.on( 'data', ( data: Buffer ) => {
@@ -187,6 +182,17 @@ export function executeCliCommand(
 	function appQuitHandler() {
 		const pid = child.pid;
 		child.removeAllListeners();
+
+		// `child.kill()` only terminates the forked CLI process; on Windows its php.exe descendants
+		// would orphan and keep their DLLs locked. `taskkill /T` walks the whole tree instead.
+		if ( process.platform === 'win32' && pid ) {
+			spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
+				windowsHide: true,
+				stdio: 'ignore',
+			} );
+			return;
+		}
+
 		const result = child.kill();
 		if ( result ) {
 			console.log( `Successfully killed child process with pid ${ pid }. Args:`, args );

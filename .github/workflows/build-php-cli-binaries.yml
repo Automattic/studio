@@ -1,0 +1,685 @@
+name: Build PHP CLI Binaries
+run-name: Build PHP ${{ inputs.php_version }}-${{ inputs.package_version }} with Xdebug ${{ inputs.xdebug_version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      php_version:
+        description: PHP patch version to build
+        required: true
+        default: 8.4.20
+      package_version:
+        description: Package version (choose a new value when rebuilding a PHP version)
+        required: true
+        default: studio-1
+      xdebug_version:
+        description: Xdebug version to package
+        required: true
+        default: 3.5.1
+      spc_ref:
+        # Pinned past 2.8.5 to pick up PR #1132 ("fix centos 7 gd build"),
+        # which patches a `-l-lpthread` malformation in libcurl.pc that
+        # breaks every extension link test on the gnu-docker image's
+        # older glibc / CMake FindThreads combination. The fix landed
+        # 2026-05-07; bump to the next SPC release once it cuts.
+        description: static-php-cli ref to use for the macOS and Linux builds
+        required: true
+        default: ef95e4f857b3c205ee3c9fb06eb8737d2d715fe5
+      debug:
+        description: Enable verbose build logs
+        required: true
+        type: boolean
+        default: false
+      apps_cdn_visibility:
+        description: Apps CDN visibility (choose 'none' to skip the upload)
+        required: true
+        type: choice
+        options:
+          - none
+          - internal
+          - external
+        default: none
+
+permissions:
+  contents: read
+
+env:
+  GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: macos-aarch64
+            runner: macos-15
+            artifact_platform: macos
+            artifact_arch: aarch64
+            extensions: &unix_extensions apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,gettext,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,readline,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,xsl,yaml,zip,zlib
+          - target: macos-x86_64
+            runner: macos-15-intel
+            artifact_platform: macos
+            artifact_arch: x86_64
+            extensions: *unix_extensions
+          - target: linux-x86_64
+            # Matches SPC's own CI for the glibc variant. The runner here is
+            # just the Docker host; the actual glibc version baked into the
+            # binary comes from the spc-gnu-docker base image.
+            runner: ubuntu-22.04
+            artifact_platform: linux
+            artifact_arch: x86_64
+            extensions: *unix_extensions
+          - target: linux-aarch64
+            runner: ubuntu-22.04-arm
+            artifact_platform: linux
+            artifact_arch: aarch64
+            extensions: *unix_extensions
+          - target: windows-x86_64
+            # PHP 8.4+ Windows builds use the VS17 toolchain. Pin the runner so
+            # the matching VC143 app-local runtime remains available even as
+            # windows-latest moves to newer Visual Studio releases.
+            runner: windows-2022
+            artifact_platform: windows
+            artifact_arch: x86_64
+            extensions: apcu,bcmath,calendar,ctype,curl,dba,dom,exif,fileinfo,filter,ftp,gd,iconv,igbinary,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pdo,pdo_mysql,pdo_sqlite,phar,redis,session,shmop,simplexml,sockets,sodium,sqlite3,ssh2,tokenizer,xdebug,xml,xmlreader,xmlwriter,yaml,zip,zlib
+    env:
+      PHP_VERSION: ${{ inputs.php_version }}
+      PHP_PACKAGE_VERSION: ${{ inputs.package_version }}
+      XDEBUG_VERSION: ${{ inputs.xdebug_version }}
+      SPC_REF: ${{ inputs.spc_ref }}
+      PHP_CLI_EXTENSIONS: ${{ matrix.extensions }}
+      PHP_CLI_ARTIFACT_PLATFORM: ${{ matrix.artifact_platform }}
+      PHP_CLI_ARTIFACT_ARCH: ${{ matrix.artifact_arch }}
+      BUILD_DEBUG: ${{ inputs.debug }}
+
+    steps:
+      - name: Checkout Studio
+        uses: actions/checkout@v7
+
+      - name: Checkout static-php-cli
+        if: runner.os == 'macOS' || runner.os == 'Linux'
+        uses: actions/checkout@v7
+        with:
+          repository: crazywhalecc/static-php-cli
+          ref: ${{ env.SPC_REF }}
+          path: .cache/static-php-cli
+
+      - name: Resolve PHP minor version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$PHP_VERSION" =~ ^8\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unsupported PHP version: $PHP_VERSION (expected 8.x.y)" >&2
+            exit 1
+          fi
+
+          if [[ ! "$PHP_PACKAGE_VERSION" =~ ^[a-z0-9][a-z0-9._-]{0,63}$ ]]; then
+            echo "Unsupported package version: $PHP_PACKAGE_VERSION (use 1-64 lowercase letters, numbers, dots, underscores, or dashes)" >&2
+            exit 1
+          fi
+
+          php_minor="${PHP_VERSION%.*}"
+          echo "PHP_MINOR=$php_minor" >> "$GITHUB_ENV"
+          echo "PHP_PACKAGE_ID=$PHP_VERSION-$PHP_PACKAGE_VERSION" >> "$GITHUB_ENV"
+
+      - name: Setup PHP for static-php-cli
+        # Linux runs SPC inside the spc-gnu-docker container, which ships
+        # its own PHP + Composer; host PHP is only needed for the macOS path.
+        if: runner.os == 'macOS'
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          coverage: none
+          tools: composer:v2
+          php-version: 8.4
+          ini-values: memory_limit=-1
+          extensions: curl, openssl, mbstring
+        env:
+          phpts: nts
+
+      - name: Install static-php-cli dependencies
+        # See above — composer install for Linux happens inside the container.
+        if: runner.os == 'macOS'
+        working-directory: .cache/static-php-cli
+        run: composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
+
+      - name: Build PHP runtime with static-php-cli
+        if: runner.os == 'macOS' || runner.os == 'Linux'
+        working-directory: .cache/static-php-cli
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$BUILD_DEBUG" = "true" ]; then
+            set -x
+          fi
+
+          # Build PHP with every extension statically linked into the binary,
+          # except Xdebug. Xdebug declares target: ["shared"] in SPC's
+          # config/ext.json — it's a Zend extension that hooks into the engine
+          # at startup via dlopen, so it has to be loadable from outside the
+          # main binary. Everything else lives inside php itself, which is
+          # SPC's well-trodden code path. This sidesteps the per-extension
+          # --build-shared quirks on Unix (on Darwin: lexbor for dom, $ext_dir
+          # for phar, mbregex CLI bug, etc.) at the cost of artifact-shape
+          # divergence from Windows.
+          IFS=',' read -ra _all_exts <<< "$PHP_CLI_EXTENSIONS"
+          static_list=()
+          for ext in "${_all_exts[@]}"; do
+            ext_trimmed="${ext// /}"
+            # xdebug only supports shared per SPC's ext.json; exclude from static.
+            [ "$ext_trimmed" = "xdebug" ] && continue
+            static_list+=("$ext_trimmed")
+          done
+          static_extensions=$(IFS=','; echo "${static_list[*]}")
+
+          download_args=(
+            --with-php="$PHP_VERSION"
+            --for-extensions="$PHP_CLI_EXTENSIONS"
+            # Pulled from PECL rather than xdebug.org: the spc-gnu-docker
+            # container's curl/OpenSSL can't negotiate TLS with xdebug.org,
+            # and PECL is the canonical PHP extension distribution channel.
+            --custom-url="xdebug:https://pecl.php.net/get/xdebug-${XDEBUG_VERSION}.tgz"
+            --ignore-cache-sources=php-src
+            --prefer-pre-built
+          )
+          build_args=(
+            "$static_extensions"
+            # Give gd JPEG/WebP image support and FreeType (TrueType text).
+            --with-libs=freetype,libjpeg,libwebp
+            --build-shared=xdebug
+            --build-cli
+          )
+
+          if [ "$BUILD_DEBUG" = "true" ]; then
+            download_args+=(--debug)
+            build_args+=(--debug)
+          fi
+
+          # Pick the right SPC entrypoint. On Linux we use the gnu-docker
+          # wrapper, which builds against glibc inside an Ubuntu-based
+          # container. The alpine-docker wrapper would give us a smaller,
+          # fully-static binary but static musl lacks dlopen, which means
+          # the shared Xdebug extension (target: ["shared"] in SPC's
+          # ext.json) can't be loaded at runtime. glibc-dynamic is the
+          # standard SPC answer for "I need shared extensions on Linux."
+          # On macOS we drive SPC on the host, so doctor --auto-fix is
+          # still needed to install any missing Homebrew build deps.
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            spc=(./bin/spc-gnu-docker)
+          else
+            spc=(php bin/spc)
+            "${spc[@]}" doctor --auto-fix
+          fi
+          "${spc[@]}" download "${download_args[@]}"
+          "${spc[@]}" build "${build_args[@]}"
+
+      - name: Package macOS artifact
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          spc_root="$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot"
+          staging_dir="$RUNNER_TEMP/php-artifact"
+          out_dir="$GITHUB_WORKSPACE/out/php-binaries"
+          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.zip"
+
+          rm -rf "$staging_dir"
+          mkdir -p "$staging_dir/ext" "$out_dir"
+
+          cp "$spc_root/bin/php" "$staging_dir/php"
+          chmod +x "$staging_dir/php"
+          cp "$spc_root/modules/xdebug.so" "$staging_dir/ext/xdebug.so"
+
+          extension_dir="$staging_dir/ext"
+
+          find_macho_files() {
+            find "$staging_dir" -type f \( -name '*.dylib' -o -name '*.so' -o -perm -111 \) -print | while read -r candidate; do
+              if file "$candidate" | grep -q 'Mach-O'; then
+                printf '%s\n' "$candidate"
+              fi
+            done
+          }
+
+          find_macho_files | while read -r file; do
+            if otool -L "$file" | grep -E '/opt/homebrew/|/usr/local/'; then
+              echo "Found non-portable Homebrew dependency in $file" >&2
+              exit 1
+            fi
+            if otool -L "$file" | grep -F "$spc_root"; then
+              echo "Found non-portable static-php-cli dependency in $file" >&2
+              exit 1
+            fi
+          done
+
+          xattr -cr "$staging_dir"
+          find_macho_files | while read -r file; do
+            codesign --force --sign - "$file"
+            codesign --verify --strict "$file"
+          done
+
+          cat > "$staging_dir/runtime.json" <<JSON
+          {
+            "phpVersion": "$PHP_VERSION",
+            "packageVersion": "$PHP_PACKAGE_VERSION",
+            "packageId": "$PHP_PACKAGE_ID",
+            "phpMinor": "$PHP_MINOR",
+            "threadSafety": "nts",
+            "platform": "$PHP_CLI_ARTIFACT_PLATFORM",
+            "arch": "$PHP_CLI_ARTIFACT_ARCH",
+            "binary": "php",
+            "extensionDir": "ext",
+            "xdebug": "ext/xdebug.so"
+          }
+          JSON
+
+          # SPC's post-build sanity pass (UnixBuilderBase::sanityCheck) has
+          # already verified every extension loads via `php -n --ri <ext>`.
+          # Re-run a minimal pair of checks after codesigning to catch the
+          # unlikely case where ad-hoc signing breaks the binary or the
+          # shared Xdebug load.
+          "$staging_dir/php" -n --version
+          "$staging_dir/php" -n \
+            -d "extension_dir=$extension_dir" \
+            -d "zend_extension=$extension_dir/xdebug.so" \
+            -d "xdebug.mode=debug" \
+            --ri xdebug
+
+          ( cd "$staging_dir" && zip -qr "$out_dir/$artifact" . )
+          shasum -a 256 "$out_dir/$artifact" | awk '{print $1}' > "$out_dir/$artifact.sha256"
+
+      - name: Package Linux artifact
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          spc_root="$GITHUB_WORKSPACE/.cache/static-php-cli/buildroot"
+          staging_dir="$RUNNER_TEMP/php-artifact"
+          out_dir="$GITHUB_WORKSPACE/out/php-binaries"
+          artifact="php-${PHP_VERSION}-cli-${PHP_CLI_ARTIFACT_PLATFORM}-${PHP_CLI_ARTIFACT_ARCH}.zip"
+
+          rm -rf "$staging_dir"
+          mkdir -p "$staging_dir/ext" "$out_dir"
+
+          cp "$spc_root/bin/php" "$staging_dir/php"
+          chmod +x "$staging_dir/php"
+          cp "$spc_root/modules/xdebug.so" "$staging_dir/ext/xdebug.so"
+
+          extension_dir="$staging_dir/ext"
+
+          # PHP configure bakes `-Wl,-rpath,/app/buildroot/lib` into the
+          # binary to satisfy link-time conftests, but the libs that
+          # path pointed at are statically embedded in the final binary,
+          # so the rpath is dead weight pointing at a path that doesn't
+          # exist on the user's machine. Strip it, then verify no host
+          # (`$spc_root`) or container (`/app/...`) build-tree paths
+          # survived.
+          for f in "$staging_dir/php" "$staging_dir/ext/xdebug.so"; do
+            patchelf --remove-rpath "$f"
+            rpaths=$(readelf -d "$f" 2>/dev/null | grep -E '\(R(UN)?PATH\)' || true)
+            if [ -n "$rpaths" ] && echo "$rpaths" | grep -qE "$spc_root|/app/"; then
+              echo "Found non-portable rpath in $f after patchelf:" >&2
+              echo "$rpaths" >&2
+              exit 1
+            fi
+          done
+
+          cat > "$staging_dir/runtime.json" <<JSON
+          {
+            "phpVersion": "$PHP_VERSION",
+            "packageVersion": "$PHP_PACKAGE_VERSION",
+            "packageId": "$PHP_PACKAGE_ID",
+            "phpMinor": "$PHP_MINOR",
+            "threadSafety": "nts",
+            "platform": "$PHP_CLI_ARTIFACT_PLATFORM",
+            "arch": "$PHP_CLI_ARTIFACT_ARCH",
+            "binary": "php",
+            "extensionDir": "ext",
+            "xdebug": "ext/xdebug.so"
+          }
+          JSON
+
+          # SPC's post-build sanity pass (UnixBuilderBase::sanityCheck) has
+          # already verified every extension loads via `php -n --ri <ext>`.
+          # Re-run a minimal pair of checks after staging to catch the
+          # unlikely case where the move breaks the binary or the shared
+          # Xdebug load.
+          "$staging_dir/php" -n --version
+          "$staging_dir/php" -n \
+            -d "extension_dir=$extension_dir" \
+            -d "zend_extension=$extension_dir/xdebug.so" \
+            -d "xdebug.mode=debug" \
+            --ri xdebug
+
+          ( cd "$staging_dir" && zip -qr "$out_dir/$artifact" . )
+          sha256sum "$out_dir/$artifact" | awk '{print $1}' > "$out_dir/$artifact.sha256"
+
+      - name: Resolve Windows runtime metadata
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $phpMinor = $env:PHP_MINOR
+          switch ( $phpMinor ) {
+            '8.0' { $vsVersion = 'vs16' }
+            '8.1' { $vsVersion = 'vs16' }
+            '8.2' { $vsVersion = 'vs16' }
+            '8.3' { $vsVersion = 'vs16' }
+            '8.4' { $vsVersion = 'vs17' }
+            '8.5' { $vsVersion = 'vs17' }
+            default {
+              Write-Error "Unsupported PHP minor: $phpMinor"
+              exit 1
+            }
+          }
+
+          "PHP_WINDOWS_VS_VERSION=$vsVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Assemble PHP runtime on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if ( $env:BUILD_DEBUG -eq 'true' ) {
+            Set-PSDebug -Trace 1
+          }
+
+          $workDir = Join-Path $env:RUNNER_TEMP 'php-build'
+          $stagingDir = Join-Path $env:RUNNER_TEMP 'php-artifact'
+          $phpArchive = Join-Path $workDir 'php.zip'
+          $phpReleaseUrl = "https://windows.php.net/downloads/releases/php-$env:PHP_VERSION-nts-Win32-$env:PHP_WINDOWS_VS_VERSION-x64.zip"
+          $phpArchiveUrl = "https://windows.php.net/downloads/releases/archives/php-$env:PHP_VERSION-nts-Win32-$env:PHP_WINDOWS_VS_VERSION-x64.zip"
+          $xdebugUrl = "https://xdebug.org/files/php_xdebug-$env:XDEBUG_VERSION-$env:PHP_MINOR-nts-$env:PHP_WINDOWS_VS_VERSION-x86_64.dll"
+
+          Remove-Item -Recurse -Force @($workDir, $stagingDir) -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force $workDir, $stagingDir | Out-Null
+
+          try {
+            Invoke-WebRequest -Uri $phpReleaseUrl -OutFile $phpArchive -ErrorAction Stop
+          } catch {
+            Invoke-WebRequest -Uri $phpArchiveUrl -OutFile $phpArchive -ErrorAction Stop
+          }
+          Expand-Archive -Path $phpArchive -DestinationPath $stagingDir
+
+          $xdebugPath = Join-Path $stagingDir 'ext\php_xdebug.dll'
+          Invoke-WebRequest -Uri $xdebugUrl -OutFile $xdebugPath
+
+          # Find the newest PECL release of $Name that publishes a Windows build
+          # for the current PHP minor + VS toolchain. Pins like "apcu 5.1.24" go
+          # stale every time PHP releases a new minor, so resolve at build time
+          # by walking the directory listing on windows.php.net.
+          function Find-LatestPECLVersion {
+            param([Parameter(Mandatory)][string]$Name)
+
+            $indexUrl = "https://downloads.php.net/~windows/pecl/releases/$Name/"
+            $response = Invoke-WebRequest -Uri $indexUrl -UseBasicParsing -ErrorAction Stop
+
+            $versions = [regex]::Matches(
+              $response.Content,
+              'href="(\d+\.\d+\.\d+(?:[A-Za-z0-9.\-]*)?)/"'
+            ) | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
+
+            if ( -not $versions ) {
+              throw "No versions listed at $indexUrl"
+            }
+
+            $sorted = $versions | Sort-Object -Descending {
+              $stable = ($_ -split '[A-Za-z\-]')[0]
+              try { [version]$stable } catch { [version]'0.0.0' }
+            }
+
+            foreach ($v in $sorted) {
+              $zipUrl = "https://downloads.php.net/~windows/pecl/releases/$Name/$v/php_$Name-$v-$env:PHP_MINOR-nts-$env:PHP_WINDOWS_VS_VERSION-x64.zip"
+              try {
+                Invoke-WebRequest -Uri $zipUrl -Method Head -UseBasicParsing -ErrorAction Stop | Out-Null
+                Write-Host "PECL $Name -> $v (matches PHP $env:PHP_MINOR / $env:PHP_WINDOWS_VS_VERSION)"
+                return $v
+              } catch {
+                # No build at this version for the current PHP minor / VS; try the next one
+              }
+            }
+
+            throw "No Windows PECL build of $Name found for PHP $env:PHP_MINOR / $env:PHP_WINDOWS_VS_VERSION"
+          }
+
+          function Add-PECLExtension {
+            param([Parameter(Mandatory)][string]$Name)
+
+            $version = Find-LatestPECLVersion -Name $Name
+            Write-Host "::group::Fetch PECL $Name $version"
+            $url = "https://downloads.php.net/~windows/pecl/releases/$Name/$version/php_$Name-$version-$env:PHP_MINOR-nts-$env:PHP_WINDOWS_VS_VERSION-x64.zip"
+            $zipPath = Join-Path $workDir "pecl-$Name.zip"
+            $extractDir = Join-Path $workDir "pecl-$Name"
+
+            if ( Test-Path $extractDir ) { Remove-Item -Recurse -Force $extractDir }
+            Invoke-WebRequest -Uri $url -OutFile $zipPath -ErrorAction Stop
+            Expand-Archive -Path $zipPath -DestinationPath $extractDir
+
+            $extDll = Get-ChildItem -Path $extractDir -Filter "php_$Name.dll" -Recurse | Select-Object -First 1
+            if ( $null -eq $extDll ) {
+              throw "Expected php_$Name.dll in PECL package for $Name $version"
+            }
+            Copy-Item -Path $extDll.FullName -Destination (Join-Path $stagingDir "ext\php_$Name.dll") -Force
+
+            Get-ChildItem -Path $extractDir -Filter '*.dll' -Recurse |
+              Where-Object { $_.Name -ne "php_$Name.dll" } |
+              ForEach-Object { Copy-Item -Path $_.FullName -Destination (Join-Path $stagingDir $_.Name) -Force }
+            Write-Host "::endgroup::"
+          }
+
+          Add-PECLExtension -Name apcu
+          Add-PECLExtension -Name igbinary
+          Add-PECLExtension -Name redis
+          Add-PECLExtension -Name ssh2
+          Add-PECLExtension -Name yaml
+
+          # PHP's stock Windows builds require the Visual C++ runtime. Deploy it
+          # app-locally so php.exe also works on systems without the machine-wide
+          # redistributable installed.
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsInstallPath = & $vswhere -latest -version '[17.0,18.0)' -products * -property installationPath
+          if ( -not $vsInstallPath ) {
+            throw 'Could not locate Visual Studio to package the Visual C++ runtime'
+          }
+
+          $vcRedistRoot = Join-Path $vsInstallPath 'VC\Redist\MSVC'
+          $vcRuntimeDir = Get-ChildItem -Path $vcRedistRoot -Directory |
+            ForEach-Object { Join-Path $_.FullName 'x64\Microsoft.VC143.CRT' } |
+            Where-Object { Test-Path (Join-Path $_ 'vcruntime140.dll') } |
+            Sort-Object {
+              [version]( (Get-Item (Join-Path $_ 'vcruntime140.dll')).VersionInfo.FileVersion )
+            } -Descending |
+            Select-Object -First 1
+          if ( -not $vcRuntimeDir ) {
+            throw "Could not locate the x64 app-local Visual C++ runtime under $vcRedistRoot"
+          }
+
+          $requiredVcRuntimeDlls = @('vcruntime140.dll', 'vcruntime140_1.dll')
+          foreach ( $dll in $requiredVcRuntimeDlls ) {
+            if ( -not (Test-Path (Join-Path $vcRuntimeDir $dll)) ) {
+              throw "Required Visual C++ runtime DLL not found: $dll"
+            }
+          }
+
+          Copy-Item -Path (Join-Path $vcRuntimeDir '*.dll') -Destination $stagingDir
+          $vcRuntimeVersion = (Get-Item (Join-Path $vcRuntimeDir 'vcruntime140.dll')).VersionInfo.FileVersion
+          Set-Content -Path (Join-Path $stagingDir 'vc-runtime.version') -Value $vcRuntimeVersion -NoNewline
+
+          $runtimeJson = @{
+            phpVersion = $env:PHP_VERSION
+            packageVersion = $env:PHP_PACKAGE_VERSION
+            packageId = $env:PHP_PACKAGE_ID
+            phpMinor = $env:PHP_MINOR
+            threadSafety = 'nts'
+            platform = $env:PHP_CLI_ARTIFACT_PLATFORM
+            arch = $env:PHP_CLI_ARTIFACT_ARCH
+            binary = 'php.exe'
+            extensionDir = 'ext'
+            xdebug = 'ext/php_xdebug.dll'
+            vcRuntimeVersion = $vcRuntimeVersion
+          } | ConvertTo-Json -Depth 4
+          Set-Content -Path (Join-Path $stagingDir 'runtime.json') -Value $runtimeJson
+
+          $env:PATH = "$stagingDir;$env:PATH"
+
+          & (Join-Path $stagingDir 'php.exe') -n `
+            -d "extension_dir=$(Join-Path $stagingDir 'ext')" `
+            -d "zend_extension=$xdebugPath" `
+            -d "xdebug.mode=debug" `
+            --ri xdebug
+          if ( $LASTEXITCODE -ne 0 ) {
+            exit $LASTEXITCODE
+          }
+
+          & (Join-Path $stagingDir 'php.exe') -n `
+            -d "extension_dir=$(Join-Path $stagingDir 'ext')" `
+            -d "extension=apcu" `
+            -d "extension=curl" `
+            -d "extension=gd" `
+            -d "extension=igbinary" `
+            -d "extension=mbstring" `
+            -d "extension=pdo" `
+            -d "extension=pdo_sqlite" `
+            -d "extension=redis" `
+            -d "extension=sodium" `
+            -d "extension=sqlite3" `
+            -d "extension=ssh2" `
+            -d "extension=yaml" `
+            -r "echo PHP_VERSION, PHP_EOL;"
+          if ( $LASTEXITCODE -ne 0 ) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Package Windows artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $outDir = Join-Path $env:GITHUB_WORKSPACE 'out/php-binaries'
+          $stagingDir = Join-Path $env:RUNNER_TEMP 'php-artifact'
+          $artifact = "php-$env:PHP_VERSION-cli-$env:PHP_CLI_ARTIFACT_PLATFORM-$env:PHP_CLI_ARTIFACT_ARCH.zip"
+          $archive = Join-Path $outDir $artifact
+
+          New-Item -ItemType Directory -Force $outDir | Out-Null
+          Compress-Archive -Force -Path (Join-Path $stagingDir '*') -DestinationPath $archive
+          (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower() | Set-Content -NoNewline "$archive.sha256"
+
+      - name: Upload PHP CLI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: php-${{ env.PHP_VERSION }}-cli-${{ matrix.target }}
+          path: out/php-binaries/*
+
+      - name: Upload static-php-cli logs
+        if: ${{ failure() && (runner.os == 'macOS' || runner.os == 'Linux') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: spc-logs-${{ matrix.target }}
+          path: .cache/static-php-cli/log/*.log
+          if-no-files-found: ignore
+
+  publish-apps-cdn:
+    name: Publish Apps CDN artifacts
+    needs: build
+    if: inputs.apps_cdn_visibility != 'none'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    env:
+      PHP_VERSION: ${{ inputs.php_version }}
+      PHP_PACKAGE_VERSION: ${{ inputs.package_version }}
+      PHP_CLI_VISIBILITY: ${{ inputs.apps_cdn_visibility }}
+      WPCOM_API_TOKEN: ${{ secrets.WPCOM_API_TOKEN }}
+    steps:
+      - name: Checkout Studio
+        uses: actions/checkout@v7
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@d45b1a4e94b71acab930e56e79c6aa188764e7f9 # v1.316.0
+        with:
+          bundler-cache: true
+
+      - name: Download PHP CLI artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: php-${{ env.PHP_VERSION }}-cli-*
+          path: out/php-binaries
+          merge-multiple: true
+
+      - name: Publish PHP CLI artifacts to Apps CDN
+        run: |
+          set -euo pipefail
+
+          if [ -z "${WPCOM_API_TOKEN:-}" ]; then
+            echo "WPCOM_API_TOKEN secret is required to upload PHP CLI artifacts to Apps CDN."
+            exit 1
+          fi
+
+          upload_results_file="${PWD}/out/php-binaries/apps-cdn-upload-results.json"
+
+          bundle exec fastlane publish_php_cli_binaries \
+            version:"${PHP_VERSION}" \
+            package_version:"${PHP_PACKAGE_VERSION}" \
+            artifacts_dir:"${PWD}/out/php-binaries" \
+            visibility:"${PHP_CLI_VISIBILITY}" \
+            output_file:"${upload_results_file}"
+
+          echo "### Apps CDN PHP CLI upload" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Uploaded PHP ${PHP_VERSION} package ${PHP_PACKAGE_VERSION} CLI artifacts with ${PHP_CLI_VISIBILITY} visibility." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          PHP_CLI_UPLOAD_RESULTS_FILE="$upload_results_file" ruby -rjson -e '
+            results = JSON.parse(File.read(ENV.fetch("PHP_CLI_UPLOAD_RESULTS_FILE")))
+
+            File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") do |summary|
+              summary.puts "| File | Apps CDN URL |"
+              summary.puts "| --- | --- |"
+
+              results.each do |file_name, result|
+                summary.puts "| `#{file_name}` | <#{result["cdn_url"]}> |"
+              end
+            end
+          '
+
+      - name: Update PHP CLI metadata
+        id: php-cli-metadata
+        run: |
+          set -euo pipefail
+
+          node scripts/update-php-binary-cdn-metadata.mjs \
+            --version "${PHP_VERSION}" \
+            --package-version "${PHP_PACKAGE_VERSION}" \
+            --upload-results "${PWD}/out/php-binaries/apps-cdn-upload-results.json"
+
+          if git diff --quiet -- packages/common/lib/php-binary-cdn-metadata.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PHP CLI metadata PR
+        if: ${{ steps.php-cli-metadata.outputs.changed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          branch="update-php-cli-metadata-${PHP_VERSION}-${PHP_PACKAGE_VERSION}-${GITHUB_RUN_ID}"
+          # Standard GitHub Actions bot noreply identity for workflow-created commits.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add packages/common/lib/php-binary-cdn-metadata.json
+          git commit -m "Update PHP ${PHP_VERSION}-${PHP_PACKAGE_VERSION} metadata"
+          git push --set-upstream origin "$branch"
+          gh pr create \
+            --base "${GITHUB_REF_NAME}" \
+            --head "$branch" \
+            --title "Update PHP ${PHP_VERSION}-${PHP_PACKAGE_VERSION} metadata" \
+            --body "Updates PHP CLI binary CDN metadata after a successful immutable Apps CDN upload."

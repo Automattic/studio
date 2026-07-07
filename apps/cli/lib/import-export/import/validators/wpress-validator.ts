@@ -1,10 +1,9 @@
-import { EventEmitter } from 'events';
 import path from 'path';
-import { ImportEvents } from '../events';
+import { ImportExportEventEmitter } from '../../events';
 import { BackupContents } from '../types';
 import { Validator } from './validator';
 
-export class WpressValidator extends EventEmitter implements Validator {
+export class WpressValidator extends ImportExportEventEmitter implements Validator {
 	canHandle( fileList: string[] ): boolean {
 		const requiredFiles = [ 'database.sql', 'package.json' ];
 		const optionalDirs = [ 'uploads', 'plugins', 'themes', 'fonts' ];
@@ -15,7 +14,6 @@ export class WpressValidator extends EventEmitter implements Validator {
 	}
 
 	parseBackupContents( fileList: string[], extractionDirectory: string ): BackupContents {
-		this.emit( ImportEvents.IMPORT_VALIDATION_START );
 		const extractedBackup: BackupContents = {
 			extractionDirectory,
 			sqlFiles: [],
@@ -48,8 +46,6 @@ export class WpressValidator extends EventEmitter implements Validator {
 		extractedBackup.sqlFiles.sort( ( a: string, b: string ) =>
 			path.basename( a ).localeCompare( path.basename( b ) )
 		);
-
-		this.emit( ImportEvents.IMPORT_VALIDATION_COMPLETE );
 		return extractedBackup;
 	}
 }

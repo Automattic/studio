@@ -1,31 +1,63 @@
-import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
 import { createInterface } from 'readline';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
+import { ImportEvents } from '@studio/common/lib/import-export-events';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
-import { SupportedPHPVersionsList } from '@studio/common/types/php-versions';
+import {
+	RecommendedPHPVersion,
+	SupportedPHPVersions,
+	type SupportedPHPVersion,
+} from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import semver from 'semver';
 import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { generateBackupFilename } from '../../export/generate-backup-filename';
-import { ImportEvents } from '../events';
-import { BackupContents, MetaFileData, ImportWpContentProgressEventData } from '../types';
+import { ImportExportEventEmitter } from '../../events';
+import { BackupContents, MetaFileData } from '../types';
 import { updateSiteUrl } from '../update-site-url';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;
-	importerType?: string;
 }
 
-export interface Importer extends Partial< EventEmitter > {
+export interface Importer extends ImportExportEventEmitter {
 	import( site: SiteData ): Promise< ImporterResult >;
 }
 
-abstract class BaseImporter extends EventEmitter implements Importer {
+// Recovers from EEXIST/ENOTDIR by removing a non-directory blocker on the path.
+export async function ensureDir( dir: string ): Promise< void > {
+	try {
+		await fs.promises.mkdir( dir, { recursive: true } );
+	} catch ( error ) {
+		if ( ! isErrnoException( error ) || ( error.code !== 'EEXIST' && error.code !== 'ENOTDIR' ) ) {
+			throw error;
+		}
+		const parent = path.dirname( dir );
+		if ( parent === dir ) {
+			throw error;
+		}
+		await ensureDir( parent );
+		try {
+			const stat = await fs.promises.stat( dir );
+			if ( ! stat.isDirectory() ) {
+				await trash( dir );
+				console.warn( `ensureDir: moved non-directory blocker at ${ dir } to trash` );
+			}
+		} catch ( e ) {
+			if ( ! isErrnoException( e ) || e.code !== 'ENOENT' ) {
+				throw e;
+			}
+		}
+		await fs.promises.mkdir( dir, { recursive: true } );
+	}
+}
+
+abstract class BaseImporter extends ImportExportEventEmitter implements Importer {
 	protected meta?: MetaFileData;
 
 	constructor( protected backup: BackupContents ) {
@@ -60,15 +92,21 @@ abstract class BaseImporter extends EventEmitter implements Importer {
 				await move( sqlFile, tmpPath );
 				await this.prepareSqlFile( tmpPath );
 
-				await using command = await runWpCliCommand( site.path, DEFAULT_PHP_VERSION, [
-					'sqlite',
-					'import',
-					`/wordpress/${ sqlTempFile }`,
-					'--require=/tmp/sqlite-command/command.php',
-					'--enable-ast-driver',
-					'--skip-plugins',
-					'--skip-themes',
-				] );
+				await using command = await runWpCliCommand(
+					site,
+					[
+						'sqlite',
+						'import',
+						sqlTempFile,
+						'--enable-ast-driver',
+						'--skip-plugins',
+						'--skip-themes',
+					],
+					{
+						requireSqliteCliCommand: true,
+						phpVersion: DEFAULT_PHP_VERSION,
+					}
+				);
 
 				const exitCode = await command.response.exitCode;
 				const stderr = await command.response.stderrText;
@@ -106,8 +144,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 	protected shouldCleanUpBeforeImport: boolean = true;
 
 	async import( site: SiteData ): Promise< ImporterResult > {
-		this.emit( ImportEvents.IMPORT_START );
-
 		try {
 			if ( this.shouldCleanUpBeforeImport ) {
 				await this.moveExistingWpContentToTrash( site.path );
@@ -126,7 +162,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 				await this.importDatabase( site, this.backup.sqlFiles );
 			}
 
-			this.emit( ImportEvents.IMPORT_COMPLETE );
 			return {
 				extractionDirectory: this.backup.extractionDirectory,
 				sqlFiles: this.backup.sqlFiles,
@@ -134,10 +169,12 @@ abstract class BaseBackupImporter extends BaseImporter {
 				wpContentDirectory: this.backup.wpContentDirectory,
 				wpConfig: this.backup.wpConfig,
 				meta: this.meta,
-				importerType: this.constructor.name,
 			};
 		} catch ( error ) {
-			this.emit( ImportEvents.IMPORT_ERROR, error );
+			this.emit(
+				ImportEvents.IMPORT_ERROR,
+				error instanceof Error ? error.message : String( error )
+			);
 			throw error;
 		}
 	}
@@ -228,7 +265,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 				);
 
 				const destPath = path.join( wpContentDestDir, relativePath );
-				await fs.promises.mkdir( path.dirname( destPath ), { recursive: true } );
+				await ensureDir( path.dirname( destPath ) );
 				await fs.promises.copyFile( file, destPath );
 
 				processedItems++;
@@ -239,7 +276,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 					currentItem: relativePath,
 					processedItems,
 					totalItems,
-				} as ImportWpContentProgressEventData );
+				} );
 			}
 		}
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
@@ -272,16 +309,18 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 	protected parsePhpVersion( version: string | undefined ): string {
 		if ( ! version ) {
-			return DEFAULT_PHP_VERSION;
+			return RecommendedPHPVersion;
 		}
 		const phpVersion = semver.coerce( version );
 		if ( ! phpVersion ) {
-			return DEFAULT_PHP_VERSION;
+			return RecommendedPHPVersion;
 		}
 
 		const parsedVersion = `${ phpVersion.major }.${ phpVersion.minor }`;
 
-		return SupportedPHPVersionsList.includes( parsedVersion ) ? parsedVersion : DEFAULT_PHP_VERSION;
+		return SupportedPHPVersions.includes( parsedVersion as SupportedPHPVersion )
+			? parsedVersion
+			: RecommendedPHPVersion;
 	}
 }
 
@@ -308,6 +347,13 @@ export class JetpackImporter extends BaseBackupImporter {
 			this.emit( ImportEvents.IMPORT_META_COMPLETE );
 		}
 	}
+
+	async import( site: SiteData ): Promise< ImporterResult > {
+		this.emit( ImportEvents.IMPORT_START, 'jetpack' );
+		const result = await super.import( site );
+		this.emit( ImportEvents.IMPORT_COMPLETE, 'jetpack' );
+		return result;
+	}
 }
 
 export class LocalImporter extends BaseBackupImporter {
@@ -329,6 +375,13 @@ export class LocalImporter extends BaseBackupImporter {
 		} finally {
 			this.emit( ImportEvents.IMPORT_META_COMPLETE );
 		}
+	}
+
+	async import( site: SiteData ): Promise< ImporterResult > {
+		this.emit( ImportEvents.IMPORT_START, 'local' );
+		const result = await super.import( site );
+		this.emit( ImportEvents.IMPORT_COMPLETE, 'local' );
+		return result;
 	}
 }
 
@@ -353,26 +406,35 @@ export class PlaygroundImporter extends BaseBackupImporter {
 	protected async parseMetaFile(): Promise< MetaFileData | undefined > {
 		return undefined;
 	}
+
+	async import( site: SiteData ): Promise< ImporterResult > {
+		this.emit( ImportEvents.IMPORT_START, 'playground' );
+		const result = await super.import( site );
+		this.emit( ImportEvents.IMPORT_COMPLETE, 'playground' );
+		return result;
+	}
 }
 
 export class SQLImporter extends BaseImporter {
 	async import( site: SiteData ): Promise< ImporterResult > {
-		this.emit( ImportEvents.IMPORT_START );
+		this.emit( ImportEvents.IMPORT_START, 'sql' );
 
 		try {
 			await this.importDatabase( site, this.backup.sqlFiles );
 
-			this.emit( ImportEvents.IMPORT_COMPLETE );
+			this.emit( ImportEvents.IMPORT_COMPLETE, 'sql' );
 			return {
 				extractionDirectory: this.backup.extractionDirectory,
 				sqlFiles: this.backup.sqlFiles,
 				wpConfig: this.backup.wpConfig,
 				wpContentFiles: this.backup.wpContentFiles,
 				wpContentDirectory: this.backup.wpContentDirectory,
-				importerType: this.constructor.name,
 			};
 		} catch ( error ) {
-			this.emit( ImportEvents.IMPORT_ERROR, error );
+			this.emit(
+				ImportEvents.IMPORT_ERROR,
+				error instanceof Error ? error.message : String( error )
+			);
 			throw error;
 		}
 	}
@@ -464,5 +526,12 @@ export class WpressImporter extends BaseBackupImporter {
 		await this.addSqlToSetTheme( sqlFiles );
 		await this.addSqlToActivatePlugins( sqlFiles );
 		await super.importDatabase( site, sqlFiles );
+	}
+
+	async import( site: SiteData ): Promise< ImporterResult > {
+		this.emit( ImportEvents.IMPORT_START, 'wpress' );
+		const result = await super.import( site );
+		this.emit( ImportEvents.IMPORT_COMPLETE, 'wpress' );
+		return result;
 	}
 }

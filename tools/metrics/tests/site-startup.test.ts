@@ -79,7 +79,7 @@ test.describe( 'Startup Metrics', () => {
 
 		// Delete the site after test
 		await test.step( 'Delete the site', async () => {
-			const settingsTab = await siteContent.navigateToTab( 'Settings' );
+			const settingsTab = await siteContent.navigateToTab( 'settings' );
 			await session.electronApp.evaluate( ( { dialog } ) => {
 				dialog.showMessageBox = async () => {
 					return { response: 0, checkboxChecked: true };

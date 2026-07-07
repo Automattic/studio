@@ -1,3 +1,6 @@
+# Standalone CLI bundles
+standalone-bundles/
+
 # Logs
 logs
 *.log
@@ -95,7 +98,8 @@ typings/
 out/
 
 # The latest WordPress files downloaded from the web
-wp-files/
+wp-files/*
+!wp-files/blueprints/
 
 # Release Tooling
 vendor/*
@@ -108,6 +112,8 @@ cli/vendor/
 
 # Build output
 dist
+dist-hosted
+dist-local
 
 # Playwright traces
 test-results
@@ -131,5 +137,16 @@ CLAUDE.md
 apps/studio/bin/node
 apps/studio/bin/node.exe
 
+# Bundled PHP binary (downloaded during packaging)
+apps/studio/php-bin/
+
 # CLI launcher executable (built during packaging via @yao-pkg/pkg)
 bin/studio-cli.exe
+
+# PromptFoo evaluation outputs
+scripts/eval/output/
+scripts/eval/test-sites/
+.promptfoo/
+
+# Codex
+.codex/

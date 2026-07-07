@@ -1,0 +1,418 @@
+import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
+import type { AiModelId } from '@studio/common/ai/models';
+import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { SupportedLocale } from '@studio/common/lib/locale';
+import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
+import type { Snapshot } from '@studio/common/types/snapshot';
+import type { SyncSite } from '@studio/common/types/sync';
+import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
+
+export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+export type { StudioChatImage, StudioChatImageAttachment } from '@studio/common/ai/chat-images';
+export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+export type { SessionEntry } from '@earendil-works/pi-coding-agent';
+export type {
+	StudioCustomEntry,
+	StudioCustomEntryType,
+	StudioCustomEntryDataMap,
+	StudioSiteSelectedData,
+	StudioToolProgressData,
+	StudioAgentQuestionData,
+	StudioTurnClosedData,
+	StudioSessionContextData,
+	StudioUserPromptData,
+} from '@studio/common/ai/sessions/entry-types';
+export type { AiModelId } from '@studio/common/ai/models';
+export type { Snapshot } from '@studio/common/types/snapshot';
+export type { SyncSite } from '@studio/common/types/sync';
+export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+export type { SupportedLocale } from '@studio/common/lib/locale';
+
+export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
+
+export interface AiSessionSitePlacement {
+	kind: 'site';
+	siteId: string;
+	sitePath: string;
+	siteName: string;
+}
+
+export interface AiSessionPlacementUpdatedEvent {
+	sessionId: string;
+	placement: AiSessionSitePlacement;
+}
+
+export interface SiteDetails {
+	id: string;
+	name: string;
+	path: string;
+	port: number;
+	running: boolean;
+	url?: string;
+	customDomain?: string;
+	enableHttps?: boolean;
+	phpVersion: string;
+	isWpAutoUpdating?: boolean;
+	adminUsername?: string;
+	// Base64-encoded. Use encodePassword/decodePassword from
+	// @studio/common/lib/passwords when reading or writing.
+	adminPassword?: string;
+	adminEmail?: string;
+	enableXdebug?: boolean;
+	enableDebugLog?: boolean;
+	enableDebugDisplay?: boolean;
+	themeDetails?: {
+		name: string;
+		path: string;
+		slug: string;
+		isBlockTheme: boolean;
+	};
+	siteIcon?: string | null;
+}
+
+export interface LocalMediaFile {
+	name: string;
+	mimeType: string;
+	data: ArrayBuffer;
+}
+
+export interface AuthUser {
+	id: number;
+	email: string;
+	displayName: string;
+}
+
+// What native affordances the host environment offers, so the UI can choose
+// between a native flow and a browser-friendly fallback (instead of branching on
+// "am I in Electron"). The desktop app has them all; the browser (`studio ui` /
+// hosted) does not — except `openInOS`, which the local server can do because it
+// runs on the user's own machine.
+export interface ConnectorCapabilities {
+	// A native OS folder picker is available (`selectSiteFolder`). When false,
+	// the UI offers an editable path field instead.
+	nativeFolderPicker: boolean;
+	// A native "Save As" dialog is available, so exports write to a chosen path.
+	// When false, exports are delivered to the browser as a download.
+	nativeSaveDialog: boolean;
+	// The host can open paths in OS apps (file manager, editor, terminal) and
+	// detect installed apps. True on the desktop and the local server (both on
+	// the user's machine); false when hosted remotely.
+	openInOS: boolean;
+	// The preview can host the annotation inspector (script injection + a bridge
+	// into the previewed page). Only the desktop's <webview> supports this; in a
+	// browser the preview is a cross-origin <iframe> that can't be injected, so
+	// the Annotate control is hidden.
+	annotatePreview: boolean;
+	// `readLocalMediaFile` can read media files from the host's disk (used to
+	// render local screenshot artifacts inline). Only the desktop IPC connector
+	// supports it; the browser connectors reject local file reads.
+	readLocalMedia: boolean;
+}
+
+export interface Connector {
+	/**
+	 * Optional hook for connector-specific setup that must run after the
+	 * connector is constructed but before the UI renders.
+	 */
+	init?(): Promise< void >;
+
+	// What native affordances this host offers (see ConnectorCapabilities).
+	capabilities: ConnectorCapabilities;
+
+	// Auth
+	requiresAuth: boolean;
+	isAuthenticated(): Promise< boolean >;
+	getAuthUser(): Promise< AuthUser | null >;
+	authenticate(): Promise< void >;
+	logout(): Promise< void >;
+	onAuthStateChanged?( listener: () => void ): () => void;
+
+	// Sites
+	getSites(): Promise< SiteDetails[] >;
+	createSite( params: CreateSiteParams ): Promise< SiteDetails >;
+	// Deletes a site from Studio. When `deleteFiles` is true the site folder is
+	// also removed from disk; otherwise the files stay and only the Studio entry
+	// is dropped.
+	deleteSite( id: string, deleteFiles?: boolean ): Promise< void >;
+	// Duplicates an existing site (copies its files and admin credentials, then
+	// registers it as a new site). The connector picks a numbered name and a new
+	// site id internally so callers stay simple.
+	copySite( sourceSiteId: string ): Promise< SiteDetails >;
+	startSite( id: string ): Promise< void >;
+	stopSite( id: string ): Promise< void >;
+	// Persists edits from the site-settings screen via the CLI-backed main
+	// process handler. `wpVersion` is only forwarded when the user explicitly
+	// picked a pinned version — undefined means "keep auto-updating".
+	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
+	// Refreshes the cached WordPress Site Icon path after a site-level icon
+	// change. The renderer receives image bytes through getSites().
+	refreshSiteIcon( siteId: string ): Promise< void >;
+
+	// Exports a site as a full backup archive (files + database). Prompts the
+	// user for a destination via a save-as dialog; resolves with the chosen
+	// path on success, or `null` if the user cancelled the dialog.
+	exportFullSite( siteId: string ): Promise< string | null >;
+	// Exports only the site database as a .sql dump. Same dialog/cancel
+	// semantics as `exportFullSite`.
+	exportDatabase( siteId: string ): Promise< string | null >;
+
+	// Site-creation helpers — surface the same main-process capabilities the
+	// desktop app's add-site flow relies on (folder pickers and path validation).
+	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
+	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
+	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
+	comparePaths( path1: string, path2: string ): Promise< boolean >;
+
+	// Featured blueprints gallery for the "Start from blueprint" onboarding
+	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
+	// no auth required, localized by the user's current UI locale.
+	getFeaturedBlueprints( locale?: string ): Promise< FeaturedBlueprint[] >;
+
+	// Resolves the absolute filesystem path of a File handle picked or dropped
+	// in the renderer. Returns an empty string when the underlying file lacks
+	// a real path (synthetic blobs, non-Electron environments).
+	getFilePath( file: File ): Promise< string >;
+	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
+
+	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
+	// parsed `blueprint.json`. The caller is responsible for calling
+	// `cleanupBlueprintTempDir` if the extraction succeeds but the upload
+	// flow never reaches `createSite` — otherwise `createSite` cleans the
+	// temp directory automatically when it uses the extracted blueprint.
+	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
+	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
+
+	// Imports a backup archive into an already-created site. Extracts the
+	// archive, installs the SQLite integration if missing, then imports the
+	// archive's database + wp-content on top of the site's folder.
+	// `backup.path` comes from `getFilePath`.
+	importSiteFromBackup(
+		siteId: string,
+		backup: { path: string; type: string }
+	): Promise< SiteDetails >;
+
+	// Preview snapshots (WordPress.com hosted previews of local sites)
+	getSnapshots(): Promise< Snapshot[] >;
+	// Creates a new preview snapshot for the given site, or refreshes the
+	// existing one when `existingHostname` is supplied. Resolves with the
+	// final preview URL when the CLI command completes.
+	publishPreviewSite( siteId: string, existingHostname?: string ): Promise< { url: string } >;
+
+	// Connected WordPress.com live sites for a given local site
+	getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] >;
+	// All WordPress.com sites the authenticated user can sync with, regardless
+	// of which (if any) local site they're already connected to. The publish
+	// picker filters this list to sites that aren't connected anywhere yet.
+	fetchSyncableWpcomSites(): Promise< SyncSite[] >;
+	// Persists a new local↔live connection so the dropdown picks it up via
+	// `getConnectedWpcomSites`. Safe to call with the minimal `SyncSite` we
+	// receive from a sync-connect-site deep link — later fetches backfill the
+	// display name and URL.
+	connectWpcomSite( localSiteId: string, site: SyncSite ): Promise< void >;
+	// Removes a local↔live connection. The remote WordPress.com site is
+	// unaffected — only the Studio-side mapping is dropped, so Pull/Push
+	// are no longer available until the user reconnects.
+	disconnectWpcomSite( localSiteId: string, remoteSiteId: number ): Promise< void >;
+	// Pushes the local site to a previously connected WordPress.com site.
+	// Replaces the remote contents with the local database and wp-content.
+	pushSiteToLive( siteId: string, remoteSiteId: number ): Promise< void >;
+	// Pulls the connected WordPress.com site's database + wp-content back
+	// into the local Studio site. Stops the local server while the backup
+	// imports and restarts it on completion.
+	pullSiteFromLive( siteId: string, remoteSiteId: number ): Promise< void >;
+	// URL to open in the browser when the user wants to publish a site that
+	// isn't connected to WordPress.com yet (checkout + deep-link back to the
+	// desktop app). Returns `undefined` when the connector can't provide one.
+	getPublishCheckoutUrl( site: SiteDetails ): string | undefined;
+	// Fires when a WordPress.com "Connect to Studio" flow deep-links back
+	// into the app after the user picks a site on wordpress.com.
+	onSyncConnectSite(
+		listener: ( event: {
+			remoteSiteId: number;
+			studioSiteId: string;
+			autoOpenPush?: boolean;
+		} ) => void
+	): () => void;
+	// Optional: ask the backend to watch for a freshly-created WordPress.com site
+	// (the "Create new" checkout) and report it via `onSyncConnectSite`. Used by
+	// surfaces that can't receive the desktop's wp-studio:// deep link — the local
+	// web server polls the account's sites instead.
+	watchForPublishedSite?( siteId: string ): Promise< void >;
+
+	// AI sessions (shared with the CLI — stored as JSONL on disk)
+	getSessions(): Promise< AiSessionSummary[] >;
+	getSession( sessionId: string ): Promise< LoadedAiSession >;
+	deleteSession( sessionId: string ): Promise< void >;
+	updateSessionMetadata(
+		sessionId: string,
+		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	): Promise< AiSessionSummary >;
+
+	// Create an empty session file so it appears immediately. When `siteId`
+	// is omitted, the session is a user chat with no owner site.
+	createSession( siteId?: string ): Promise< AiSessionSummary >;
+
+	// Continue an existing session by sending a new prompt. Returns a `runId`
+	// that identifies the in-flight agent run; live events for that run stream
+	// through `onAgentEvent`.
+	continueSession(
+		sessionId: string,
+		prompt: string,
+		options?: {
+			displayMessage?: string;
+			images?: StudioChatImage[];
+			files?: StudioChatFileAttachment[];
+		}
+	): Promise< { runId: string } >;
+	getActiveAgentRuns(): Promise< ActiveAgentRun[] >;
+	// Persist a UI-driven model override for the session. The CLI picks this up
+	// on the next turn; the change survives reloads because it's written to the
+	// session JSONL.
+	setSessionModel( sessionId: string, model: AiModelId ): Promise< void >;
+	interruptAgentRun( runId: string ): Promise< void >;
+	answerAgentQuestion( runId: string, answers: Record< string, string > ): Promise< void >;
+	onAgentEvent( listener: ( event: AgentRunEvent ) => void ): () => void;
+	onSessionPlacementUpdated(
+		listener: ( event: AiSessionPlacementUpdatedEvent ) => void
+	): () => void;
+
+	// Flip the session between acting on its owner site's local runtime vs.
+	// its linked WordPress.com live site. The owner site itself never changes.
+	setSessionEnvironment(
+		sessionId: string,
+		environment: 'local' | 'live'
+	): Promise< { environment: 'local' | 'live'; url?: string; wpcomSiteId?: number } >;
+
+	// User preferences — editor, terminal, color scheme, locale. Fanned out to
+	// the granular main-process handlers inside the connector so the UI has a
+	// single query + mutation to work with.
+	getUserPreferences(): Promise< UserPreferences >;
+	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
+
+	// Apps detected on disk (editors + terminals). Options in the preferences
+	// form are filtered against this so users can't pick something that isn't
+	// installed.
+	getInstalledApps(): Promise< InstalledApps >;
+
+	// Site WordPress REST API. The renderer uses this as the transport for
+	// @wordpress/api-fetch / @wordpress/core-data so WordPress entity semantics
+	// stay in the WordPress packages while Studio owns site resolution and auth.
+	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
+
+	// Open the given site's folder in the system file manager, preferred
+	// editor, or preferred terminal. When no editor/terminal preference is
+	// set these reject — callers are expected to route the user to Settings.
+	openSiteFolder( siteId: string ): Promise< void >;
+	openSiteInEditor( siteId: string ): Promise< void >;
+	openSiteInTerminal( siteId: string ): Promise< void >;
+
+	// External links
+	openExternalUrl( url: string ): Promise< void >;
+
+	// Clipboard — routed to the host so it works where the renderer's
+	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
+	copyText( text: string ): Promise< void >;
+	openSiteUrl(
+		siteId: string,
+		relativeUrl?: string,
+		options?: { autoLogin?: boolean }
+	): Promise< void >;
+
+	// Whether this host overlays macOS window controls ("traffic lights") on the
+	// top-left of the content, so the UI must reserve space for them. True only
+	// in the macOS desktop app; false on other platforms and in the browser
+	// (`studio ui` / hosted), where there are no traffic lights. Combined with
+	// `isFullscreen` — macOS hides the traffic lights in fullscreen — to decide
+	// when to actually leave the gap (see `useTrafficLightSpace`).
+	reservesTrafficLightSpace: boolean;
+
+	// Window state (macOS fullscreen hides traffic lights, so the UI needs
+	// to reclaim the space we normally leave for them).
+	isFullscreen(): Promise< boolean >;
+	onFullscreenChange( listener: ( fullscreen: boolean ) => void ): () => void;
+
+	// Fires whenever a site is created, updated, started, stopped, or deleted.
+	// Consumers typically invalidate cached site data in response.
+	onSiteEvent( listener: () => void ): () => void;
+
+	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
+	// application menu.
+	onToggleSitePreview( listener: () => void ): () => void;
+
+	// Fires when the user activates the sidebar toggle shortcut or menu command.
+	onToggleSidebar( listener: () => void ): () => void;
+}
+
+export type ColorScheme = 'system' | 'light' | 'dark';
+
+export interface UserPreferences {
+	editor: SupportedEditor | null;
+	terminal: SupportedTerminal | null;
+	colorScheme: ColorScheme;
+	locale: string | undefined;
+}
+
+// Subset of UserPreferences that callers can actually mutate. `locale` is
+// typed as `SupportedLocale` on the write side because only locales we ship
+// translations for can be persisted.
+export type WritableUserPreferences = Omit< UserPreferences, 'locale' > & {
+	locale: SupportedLocale;
+};
+
+export interface FeaturedBlueprint {
+	slug: string;
+	title: string;
+	excerpt: string;
+	image: string;
+	playgroundUrl: string;
+	blueprint: BlueprintV1Declaration;
+}
+
+export interface CreateSiteParams {
+	name: string;
+	path: string;
+	phpVersion?: SupportedPHPVersion;
+	wpVersion?: string;
+	customDomain?: string;
+	enableHttps?: boolean;
+	adminUsername?: string;
+	adminPassword?: string;
+	adminEmail?: string;
+	// Optional blueprint payload. When present, `blueprint` is the parsed
+	// blueprint JSON; `slug` is set for featured blueprints (used for stats);
+	// `filePath` points at the extracted `blueprint.json` inside a ZIP bundle
+	// so the CLI can resolve relative asset references. Main process cleans
+	// up the temp dir automatically once `createSite` completes.
+	blueprint?: {
+		blueprint: BlueprintV1Declaration;
+		slug?: string;
+		filePath?: string;
+	};
+}
+
+export interface ExtractedBlueprintBundle {
+	blueprintJson: BlueprintV1Declaration;
+	blueprintJsonPath: string;
+	tempDir: string;
+}
+
+export interface ProposedSitePath {
+	path: string;
+	isEmpty: boolean;
+	isWordPress: boolean;
+	isNameTooLong?: boolean;
+}
+
+export interface SelectedSiteFolder {
+	path: string;
+	name: string;
+	isEmpty: boolean;
+	isWordPress: boolean;
+}

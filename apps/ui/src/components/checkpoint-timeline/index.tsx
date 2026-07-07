@@ -350,7 +350,7 @@ function CheckpointRow( {
 				<IconButton
 					variant="minimal"
 					tone="neutral"
-					size="small"
+					size="compact"
 					icon={ trash }
 					label={ __( 'Delete checkpoint' ) }
 					onClick={ () => setDeleteOpen( true ) }

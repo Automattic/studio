@@ -267,6 +267,12 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
 export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
+export {
+	listSiteCheckpoints,
+	createSiteCheckpoint,
+	restoreSiteCheckpoint,
+	deleteSiteCheckpoint,
+} from 'src/modules/checkpoints/lib/ipc-handlers';
 
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 

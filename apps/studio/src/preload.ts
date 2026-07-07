@@ -105,6 +105,13 @@ const api: IpcApi = {
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
 	importSite: ( siteId, importArchivePath, options ) =>
 		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
+	listSiteCheckpoints: ( siteId ) => ipcRendererInvoke( 'listSiteCheckpoints', siteId ),
+	createSiteCheckpoint: ( siteId, label ) =>
+		ipcRendererInvoke( 'createSiteCheckpoint', siteId, label ),
+	restoreSiteCheckpoint: ( siteId, checkpointId ) =>
+		ipcRendererInvoke( 'restoreSiteCheckpoint', siteId, checkpointId ),
+	deleteSiteCheckpoint: ( siteId, checkpointId ) =>
+		ipcRendererInvoke( 'deleteSiteCheckpoint', siteId, checkpointId ),
 	executeWPCLiInline: ( options ) => ipcRendererInvoke( 'executeWPCLiInline', options ),
 	scaffoldPlugin: ( options ) => ipcRendererInvoke( 'scaffoldPlugin', options ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),

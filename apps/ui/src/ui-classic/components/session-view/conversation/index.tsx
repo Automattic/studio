@@ -1,4 +1,8 @@
 import {
+	getCheckpointArtifactProps,
+	isCheckpointArtifactWidget,
+} from '@studio/common/ai/chat-artifacts';
+import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
@@ -58,6 +62,7 @@ import {
 import { Button, Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { CheckpointArtifactChip } from '@/components/checkpoint-timeline/artifact-chip';
 import { ImageContextMenu } from '@/components/image-context-menu';
 import { ImageLightbox, type LightboxImage } from '@/components/image-lightbox';
 import { Markdown } from '@/components/markdown';
@@ -471,7 +476,10 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 
 		if ( isStudioCustomEntryOfType( entry, 'studio.chat_artifact' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.chat_artifact' > ).data;
-			const widgets = data?.widgets.filter( isRenderableMediaWidget ) ?? [];
+			const widgets =
+				data?.widgets.filter(
+					( widget ) => isCheckpointArtifactWidget( widget ) || isRenderableMediaWidget( widget )
+				) ?? [];
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',
@@ -976,12 +984,24 @@ function ThinkingRow( { text, durationMs }: { text: string; durationMs?: number 
 }
 
 function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] } ) {
+	// Checkpoint chips render standalone; everything else is media in a grid.
+	const checkpointArtifacts = widgets
+		.map( getCheckpointArtifactProps )
+		.filter( ( artifact ): artifact is NonNullable< typeof artifact > => artifact !== null );
+	const mediaWidgets = widgets.filter( ( widget ) => ! isCheckpointArtifactWidget( widget ) );
 	return (
-		<div className={ styles.mediaArtifactGrid }>
-			{ widgets.map( ( widget, index ) => (
-				<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
+		<>
+			{ checkpointArtifacts.map( ( artifact ) => (
+				<CheckpointArtifactChip key={ artifact.checkpointId } artifact={ artifact } />
 			) ) }
-		</div>
+			{ mediaWidgets.length > 0 ? (
+				<div className={ styles.mediaArtifactGrid }>
+					{ mediaWidgets.map( ( widget, index ) => (
+						<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
+					) ) }
+				</div>
+			) : null }
+		</>
 	);
 }
 

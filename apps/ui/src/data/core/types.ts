@@ -150,6 +150,28 @@ export interface LocalMediaFile {
 	data: ArrayBuffer;
 }
 
+// What captured a checkpoint: a user action, an agent tool call, the automatic
+// pre-tool capture, or the safety capture taken right before a restore.
+export type SiteCheckpointTrigger = 'manual' | 'agent' | 'auto-pre-tool' | 'pre-restore';
+
+// One entry of a site's checkpoint index (mirrors the CLI engine's
+// `CheckpointIndexEntry`). `createdAt` is epoch milliseconds.
+export interface SiteCheckpoint {
+	id: string;
+	label?: string;
+	createdAt: number;
+	trigger: SiteCheckpointTrigger;
+	// Set for `auto-pre-tool` checkpoints: the agent tool that was about to run.
+	toolName?: string;
+	pinned?: boolean;
+	stats: {
+		fileCount: number;
+		logicalBytes: number;
+		// Bytes of data unique to this checkpoint (not shared with earlier ones).
+		newObjectBytes: number;
+	};
+}
+
 export interface AuthUser {
 	id: number;
 	email: string;
@@ -177,6 +199,10 @@ export interface ConnectorCapabilities {
 	// browser the preview is a cross-origin <iframe> that can't be injected, so
 	// the Annotate control is hidden.
 	annotatePreview: boolean;
+	// Site checkpoints (files + database save points) are available. True on
+	// the desktop and the local server (both run the CLI checkpoint engine on
+	// the user's machine); false when hosted remotely.
+	siteCheckpoints: boolean;
 }
 
 export interface Connector {
@@ -309,6 +335,14 @@ export interface Connector {
 		siteId: string,
 		backup: { path: string; type: string }
 	): Promise< SiteDetails >;
+
+	// Site checkpoints — content-addressed save points of a site's files +
+	// database, captured and restored by the CLI checkpoint engine. Restore
+	// automatically captures a safety checkpoint of the current state first.
+	listCheckpoints( siteId: string ): Promise< SiteCheckpoint[] >;
+	createCheckpoint( siteId: string, label?: string ): Promise< void >;
+	restoreCheckpoint( siteId: string, checkpointId: string ): Promise< void >;
+	deleteCheckpoint( siteId: string, checkpointId: string ): Promise< void >;
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;

@@ -26,6 +26,8 @@ export type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SessionEntry,
+	SiteCheckpoint,
+	SiteCheckpointTrigger,
 	SiteDetails,
 	SiteOverviewDetails,
 	SiteOverviewExtension,

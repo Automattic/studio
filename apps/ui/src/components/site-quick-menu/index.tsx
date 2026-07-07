@@ -1,4 +1,4 @@
-import { chevronDown, Icon } from '@wordpress/icons';
+import { chevronDown, chevronLeftSmall, chevronRightSmall, Icon } from '@wordpress/icons';
 import { Button, Tooltip } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
 import { Spinner } from '@/components/spinner';
@@ -85,6 +85,36 @@ export function QuickMenuPopup( { children }: { children: ReactNode } ) {
 		<Menu.Popup side="bottom" align="end" className={ styles.popup }>
 			{ children }
 		</Menu.Popup>
+	);
+}
+
+// Submenu trigger dressed like a QuickMenuItem (leading icon, trailing
+// chevron) so nested menus align with the plain items around them. When the
+// parent menu hugs the viewport's right edge its flyouts open left — pass
+// `flyoutSide="left"` so the chevron points where the submenu will appear
+// (it stays in the trailing slot to keep labels aligned with sibling items).
+export function QuickMenuSubmenuTrigger( {
+	icon,
+	label,
+	flyoutSide = 'right',
+}: {
+	icon: ReactElement;
+	label: string;
+	flyoutSide?: 'left' | 'right';
+} ) {
+	return (
+		<Menu.SubmenuTrigger>
+			<span className={ styles.itemIcon } aria-hidden="true">
+				<Icon icon={ icon } size={ 18 } />
+			</span>
+			{ label }
+			<Icon
+				icon={ flyoutSide === 'left' ? chevronLeftSmall : chevronRightSmall }
+				size={ 16 }
+				className={ styles.submenuChevron }
+				aria-hidden="true"
+			/>
+		</Menu.SubmenuTrigger>
 	);
 }
 

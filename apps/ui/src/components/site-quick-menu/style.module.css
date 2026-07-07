@@ -56,6 +56,13 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
+.submenuChevron {
+	margin-left: auto;
+	flex-shrink: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	fill: currentColor;
+}
+
 .itemShortcut {
 	margin-left: auto;
 	padding-left: 16px;

@@ -19,6 +19,7 @@ import {
 import { Button } from '@wordpress/ui';
 import { useState } from 'react';
 import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
+import { CheckpointTimeline } from '@/components/checkpoint-timeline';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
@@ -26,6 +27,7 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteHeaderActions } from '@/components/site-header-actions';
 import { SiteSettingsForm, type SiteSettingsTabId } from '@/components/site-settings-view';
 import * as Tabs from '@/components/tabs';
+import { useConnector } from '@/data/core';
 import {
 	useCopySite,
 	useExportDatabase,
@@ -70,9 +72,12 @@ interface DetailSectionProps {
 type SiteOverviewTabId = 'overview' | SiteSettingsTabId;
 
 function isSiteOverviewTab( value: string ): value is SiteOverviewTabId {
-	return value === 'overview' || value === 'general' || value === 'debugging';
+	return (
+		value === 'overview' || value === 'general' || value === 'debugging' || value === 'checkpoints'
+	);
 }
 
+// The settings-form tabs; checkpoints renders its own panel, not the form.
 function isSettingsTab( value: SiteOverviewTabId ): value is SiteSettingsTabId {
 	return value === 'general' || value === 'debugging';
 }
@@ -283,6 +288,9 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 
 	const busy = isStarting || isStopping;
 	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
+	// Checkpoints run on the user's machine (the CLI checkpoint engine), so the
+	// tab only exists where the connector can reach it.
+	const supportsCheckpoints = useConnector().capabilities?.siteCheckpoints ?? false;
 	const themeDetails = site.themeDetails;
 	const isBlockTheme = themeDetails?.isBlockTheme === true;
 
@@ -308,6 +316,9 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 								<Tabs.Tab tabId="overview">{ __( 'Overview' ) }</Tabs.Tab>
 								<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
 								<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
+								{ supportsCheckpoints ? (
+									<Tabs.Tab tabId="checkpoints">{ __( 'Checkpoints' ) }</Tabs.Tab>
+								) : null }
 							</Tabs.List>
 						</div>
 					</div>
@@ -452,6 +463,11 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 										embedded
 										showTabs={ false }
 									/>
+								</Tabs.Panel>
+							) : null }
+							{ supportsCheckpoints && activeTab === 'checkpoints' ? (
+								<Tabs.Panel tabId="checkpoints" className={ styles.panel }>
+									<CheckpointTimeline siteId={ site.id } />
 								</Tabs.Panel>
 							) : null }
 						</main>

@@ -10,7 +10,7 @@ Unreleased
 * Studio Code: Agent file edits now show as proper line-by-line diffs in the CLI and desktop assistant #4076
 * Studio Code: Improved plugin recommendations for Automattic products, and tuned agent behavior for native PHP vs Playground sites #4023, #3995
 * Studio Code: Fixed an unwanted gap in block themes scaffolded by the assistant #4053
-* Sync: preserved Pressable site metadata during reconciliation #4078
+* Fixed an issue where Pressable sites were marked unsupported on the Sync tab #4078
 * Fixed recreating missing db.php drop-ins and preserving custom SQLite drop-ins #3993
 * Fixed occasional failures when duplicating a site #4074
 * Fixed broken Central Kurdish (Sorani) text on macOS by bundling the Vazirmatn font #4062

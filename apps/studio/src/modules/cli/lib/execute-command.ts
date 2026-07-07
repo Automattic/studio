@@ -179,9 +179,12 @@ export function executeCliCommand(
 		eventEmitter.emit( 'data', { data: message } );
 	} );
 
+	// Only kills the child here; the `close` handler still runs afterwards to
+	// settle the emitter and detach this listener. Removing the child's
+	// listeners at this point would leak the `will-quit` listener whenever the
+	// quit is prevented and the app keeps running.
 	function appQuitHandler() {
 		const pid = child.pid;
-		child.removeAllListeners();
 
 		// `child.kill()` only terminates the forked CLI process; on Windows its php.exe descendants
 		// would orphan and keep their DLLs locked. `taskkill /T` walks the whole tree instead.

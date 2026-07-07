@@ -36,8 +36,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site navigation', () =>
 	let sitePath: string;
 	let siteUrl: string;
 
-	// All cases exercise the same running site, mirroring the Playwright suite
-	// which ran against the single onboarding-created site.
+	// All cases share one running site; creating and starting WordPress is the
+	// slow part.
 	beforeAll( async () => {
 		env = setupCliEnv();
 		sitePath = path.join( env.sitesDir, 'navigation-e2e-site' );
@@ -85,7 +85,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site navigation', () =>
 	}
 
 	it( 'opens site at homepage', { tags: [ 'e2e' ], timeout: 60_000 }, async () => {
-		// expectedStatus polls past the proxy's transient warm-up 302.
 		const response = await waitForSiteResponse( siteUrl, { expectedStatus: 200 } );
 		expect( response.status ).toBe( 200 );
 		expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );

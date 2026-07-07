@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { backup, trash } from '@wordpress/icons';
-import { Badge, Button, Dialog, Icon, IconButton } from '@wordpress/ui';
+import { Button, Dialog, Icon, IconButton } from '@wordpress/ui';
 import { useMemo, useState } from 'react';
 import {
 	useCheckpoints,
@@ -322,15 +322,11 @@ function CheckpointRow( {
 		<li className={ styles.row }>
 			<div className={ styles.rowMain }>
 				<div className={ styles.rowTitleLine }>
-					<Badge
-						intent={ checkpoint.trigger === 'manual' ? 'informational' : 'draft' }
-						className={ styles.triggerBadge }
-					>
-						{ triggerLabel( checkpoint.trigger ) }
-					</Badge>
 					<span className={ styles.rowTitle }>{ checkpointTitle( checkpoint ) }</span>
 				</div>
 				<div className={ styles.rowMeta }>
+					<span>{ triggerLabel( checkpoint.trigger ) }</span>
+					<span aria-hidden="true">·</span>
 					<span>{ formatRelativeTime( new Date( checkpoint.createdAt ).toISOString() ) }</span>
 					<span aria-hidden="true">·</span>
 					{ /* translators: %s: amount of new data this checkpoint added (e.g. "1.2 MB") */ }
@@ -400,7 +396,7 @@ export function CheckpointTimeline( { siteId }: { siteId: string } ) {
 						'No checkpoints yet. Create one to capture the site’s files and database, so you can always come back to a known-good state.'
 					) }
 				</p>
-				<Button variant="outline" tone="neutral" onClick={ () => setCreateOpen( true ) }>
+				<Button variant="solid" tone="brand" onClick={ () => setCreateOpen( true ) }>
 					{ __( 'Create checkpoint' ) }
 				</Button>
 			</div>
@@ -429,7 +425,7 @@ export function CheckpointTimeline( { siteId }: { siteId: string } ) {
 					) }
 				</p>
 				{ orderedCheckpoints.length > 0 ? (
-					<Button variant="outline" tone="neutral" onClick={ () => setCreateOpen( true ) }>
+					<Button variant="solid" tone="brand" onClick={ () => setCreateOpen( true ) }>
 						{ __( 'Create checkpoint' ) }
 					</Button>
 				) : null }

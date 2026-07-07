@@ -1,8 +1,9 @@
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import os from 'node:os';
+import { randomUUID } from 'node:crypto';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { resolveScreenshotDirectory } from 'cli/ai/screenshot-storage';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
@@ -63,6 +64,26 @@ async function waitForPageToSettle( page: Page ): Promise< void > {
 
 export type ScreenshotFormat = 'png' | 'jpeg';
 
+export const SCREENSHOT_COLOR_SCHEME_VALUES = [ 'light', 'dark' ] as const;
+export type ScreenshotColorScheme = ( typeof SCREENSHOT_COLOR_SCHEME_VALUES )[ number ];
+export const SCREENSHOT_COLOR_SCHEME_DESCRIPTION =
+	'Color scheme to emulate: "light" or "dark". Defaults to the browser/system preference.';
+
+/**
+ * Apply the media emulation shared by every browser-driving tool. Keeping
+ * this in one place guarantees `inspect_design` reports styles under the same
+ * prefers-color-scheme mode `take_screenshot` renders.
+ */
+export async function applyScreenshotMediaEmulation(
+	page: Page,
+	colorScheme?: ScreenshotColorScheme
+): Promise< void > {
+	await page.emulateMedia( {
+		reducedMotion: 'reduce',
+		...( colorScheme ? { colorScheme } : {} ),
+	} );
+}
+
 export interface ScreenshotCapture {
 	buffer: Buffer;
 	documentHeight: number;
@@ -91,6 +112,7 @@ export async function captureScreenshotBuffer(
 		deviceScaleFactor?: number;
 		format?: ScreenshotFormat;
 		offset?: number;
+		colorScheme?: ScreenshotColorScheme;
 	}
 ): Promise< ScreenshotCapture > {
 	const format = options.format ?? 'png';
@@ -101,7 +123,7 @@ export async function captureScreenshotBuffer(
 	} );
 
 	try {
-		await page.emulateMedia( { reducedMotion: 'reduce' } );
+		await applyScreenshotMediaEmulation( page, options.colorScheme );
 		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
 		await waitForPageToSettle( page );
 
@@ -228,15 +250,19 @@ export async function captureScreenshotBuffer(
 export async function captureScreenshotPng(
 	url: string,
 	viewport: { width: number; height: number },
-	options: { fullPage: boolean; deviceScaleFactor?: number }
+	options: {
+		fullPage: boolean;
+		deviceScaleFactor?: number;
+		colorScheme?: ScreenshotColorScheme;
+	}
 ): Promise< string > {
 	const capture = await captureScreenshotBuffer( url, viewport, { ...options, format: 'png' } );
 	return capture.buffer.toString( 'base64' );
 }
 
-export async function saveScreenshotToTempFile(
+export async function saveScreenshotFile(
 	buffer: Buffer,
-	options: { viewportType: string; format?: ScreenshotFormat }
+	options: { viewportType: string; format?: ScreenshotFormat; colorScheme?: ScreenshotColorScheme }
 ): Promise< {
 	path: string;
 	fileUrl: string;
@@ -246,8 +272,14 @@ export async function saveScreenshotToTempFile(
 	const format = options.format ?? 'png';
 	const extension = format === 'jpeg' ? 'jpg' : 'png';
 	const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-	const directory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshot-' ) );
-	const name = `screenshot-${ options.viewportType }.${ extension }`;
+	const directory = await resolveScreenshotDirectory();
+	const colorSchemeSuffix = options.colorScheme ? `-${ options.colorScheme }` : '';
+	// The directory can be shared by every capture in a session, so the file
+	// name carries a random suffix to keep earlier captures addressable.
+	const name = `screenshot-${ options.viewportType }${ colorSchemeSuffix }-${ randomUUID().slice(
+		0,
+		8
+	) }.${ extension }`;
 	const filePath = path.join( directory, name );
 
 	await writeFile( filePath, buffer );

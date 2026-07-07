@@ -47,10 +47,18 @@ const AUTO_CHECKPOINT_TOOLS: Record< string, SiteRefExtractor > = {
 	},
 };
 
+// Concurrent tool calls (the agent often issues several wp_cli calls in one
+// turn) must not each capture a checkpoint: the debounce reads the index
+// before the other call's entry lands. Track the in-flight capture per site;
+// later callers wait for it and get no chip — the first caller's chip already
+// says "checkpoint before <tool>".
+const inFlightBySiteId = new Map< string, Promise< unknown > >();
+
 // Captures a checkpoint before a destructive tool runs. Never throws — a
 // checkpoint failure must not block the tool — and returns the manifest only
-// when a checkpoint was actually created (not when debounced), so chat chips
-// never imply a fresh capture that didn't happen.
+// when a checkpoint was actually created (not when debounced or coalesced
+// with a concurrent capture), so chat chips never imply a fresh capture that
+// didn't happen.
 async function maybeCreateAutoCheckpoint(
 	toolName: string,
 	siteRef: string | undefined
@@ -64,16 +72,35 @@ async function maybeCreateAutoCheckpoint(
 			return undefined;
 		}
 
-		const index = await readCheckpointIndex( site.id );
-		const newest = index.checkpoints[ index.checkpoints.length - 1 ];
-		if ( newest && Date.now() - newest.createdAt < AUTO_CHECKPOINT_DEBOUNCE_MS ) {
+		const inFlight = inFlightBySiteId.get( site.id );
+		if ( inFlight ) {
+			// Wait so the tool runs against the checkpointed state, but let the
+			// concurrent caller own the chip.
+			await inFlight.catch( () => {} );
 			return undefined;
 		}
 
-		return await createCheckpoint( site, {
-			trigger: 'auto-pre-tool',
-			toolName,
-		} );
+		const capture = ( async () => {
+			const index = await readCheckpointIndex( site.id );
+			const newest = index.checkpoints[ index.checkpoints.length - 1 ];
+			if ( newest && Date.now() - newest.createdAt < AUTO_CHECKPOINT_DEBOUNCE_MS ) {
+				return undefined;
+			}
+
+			return await createCheckpoint( site, {
+				trigger: 'auto-pre-tool',
+				toolName,
+			} );
+		} )();
+		inFlightBySiteId.set(
+			site.id,
+			capture.catch( () => {} )
+		);
+		try {
+			return await capture;
+		} finally {
+			inFlightBySiteId.delete( site.id );
+		}
 	} catch ( error ) {
 		console.warn(
 			`[checkpoints] auto-checkpoint before ${ toolName } failed:`,

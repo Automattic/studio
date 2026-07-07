@@ -50,6 +50,7 @@ const mockIpcEvent = {
 
 describe( 'UserSettings', () => {
 	beforeEach( () => {
+		vi.mocked( useOffline ).mockReturnValue( false );
 		// Triggers IPC listener to show modal
 		vi.mocked( useIpcListener ).mockImplementationOnce( ( listener, callback ) => {
 			if ( listener === 'user-settings' ) {
@@ -141,9 +142,9 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Log out' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
-				expect( screen.getByText( 'AI assistant' ) ).toBeInTheDocument();
+				expect( screen.getByText( 'Studio Code' ) ).toBeInTheDocument();
 				expect(
-					screen.getByText( 'Unlimited tokens while Studio Code is in beta.' )
+					screen.getByText( 'Studio Code limits are temporarily unavailable.' )
 				).toBeInTheDocument();
 				expect( screen.queryByText( /monthly prompts used/ ) ).not.toBeInTheDocument();
 			} );

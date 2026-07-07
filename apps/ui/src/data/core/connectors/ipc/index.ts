@@ -7,11 +7,8 @@ import type {
 	AuthUser,
 	ColorScheme,
 	Connector,
-	DeskConfig,
-	DeskSettings,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
-	FeatureFlags,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
@@ -22,7 +19,6 @@ import type {
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
-	StudioUiMode,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -108,6 +104,33 @@ export function createIpcConnector(): Connector {
 		return site.path;
 	}
 
+	async function markConnectedWpcomSiteSynced(
+		localSiteId: string,
+		remoteSiteId: number,
+		direction: 'push' | 'pull'
+	): Promise< void > {
+		try {
+			const connectedSites = ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
+			const connectedSite = connectedSites.find(
+				( site ) => site.id === remoteSiteId && site.localSiteId === localSiteId
+			);
+
+			if ( ! connectedSite ) {
+				return;
+			}
+
+			const timestampKey = direction === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp';
+			await ipcApi.updateConnectedWpcomSites( [
+				{
+					...connectedSite,
+					[ timestampKey ]: new Date().toISOString(),
+				},
+			] );
+		} catch ( error ) {
+			console.warn( 'Failed to update connected site sync timestamp:', error );
+		}
+	}
+
 	// Bridges `createSnapshot`/`updateSnapshot`'s fire-and-forget IPC pattern
 	// into an awaitable promise. The main process emits `snapshot-key-value`
 	// with the final preview URL right before `snapshot-success`; fatal
@@ -173,6 +196,15 @@ export function createIpcConnector(): Connector {
 			// The old renderer does this from its app bootstrap; the new UI
 			// needs to opt in explicitly.
 			await ipcApi.setupAppMenu( { needsOnboarding: false } );
+		},
+
+		// Native desktop app: every affordance is available.
+		capabilities: {
+			nativeFolderPicker: true,
+			nativeSaveDialog: true,
+			openInOS: true,
+			annotatePreview: true,
+			readLocalMedia: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process
@@ -287,10 +319,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.comparePaths( path1, path2 ) ) as boolean;
 		},
 
-		async getAllCustomDomains(): Promise< string[] > {
-			return ( await ipcApi.getAllCustomDomains() ) as string[];
-		},
-
 		async getFeaturedBlueprints( locale ) {
 			const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/blueprints' );
 			if ( locale ) {
@@ -379,10 +407,6 @@ export function createIpcConnector(): Connector {
 
 		async refreshSiteIcon( siteId ) {
 			await ipcApi.loadSiteIcon( siteId );
-		},
-
-		async getXdebugEnabledSite() {
-			return ( await ipcApi.getXdebugEnabledSite() ) as SiteDetails | null;
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -487,27 +511,18 @@ export function createIpcConnector(): Connector {
 		},
 
 		async pushSiteToLive( siteId, remoteSiteId ): Promise< void > {
-			// Mirrors the desktop app's `pushSiteThunk` — export a backup, then
-			// TUS-upload it + initiate the remote import. We skip the
-			// post-upload polling that the desktop app uses for progress UI;
-			// `pushArchive` only resolves after `import/initiate` succeeds, so
-			// the remote import may still be running when this returns.
-			const operationId = window.crypto.randomUUID();
-			const { archivePath } = ( await ipcApi.exportSiteForPush( siteId, operationId, {} ) ) as {
-				archivePath: string;
-			};
-			const result = ( await ipcApi.pushArchive( siteId, remoteSiteId, archivePath ) ) as {
-				success: boolean;
-				error?: string;
-			};
-			if ( ! result.success ) {
-				throw new Error( result.error ?? 'Push failed' );
-			}
+			// The agentic UI pushes via the shared `pushSite` (export → TUS
+			// upload → import) in both desktop and `studio ui`; the desktop runs
+			// it behind this single IPC handler. Resolves once the import is
+			// initiated (the remote import may still be running).
+			await ipcApi.pushSiteToLive( siteId, remoteSiteId );
+			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
 		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
 			const siteFolder = await resolveSiteFolder( siteId );
 			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
 
 		getPublishCheckoutUrl( site ): string {
@@ -633,53 +648,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
 
-		async getFeatureFlags(): Promise< FeatureFlags > {
-			const appGlobals = ( await ipcApi.getAppGlobals() ) as Partial< FeatureFlags >;
-			return {
-				enableDesksUiSwitch: appGlobals.enableDesksUiSwitch ?? false,
-			};
-		},
-
-		async getStudioUiMode(): Promise< StudioUiMode > {
-			return ( await ipcApi.getStudioUiMode() ) as StudioUiMode;
-		},
-
-		async setStudioUiMode( mode ): Promise< void > {
-			await ipcApi.setStudioUiMode( mode );
-		},
-
-		async getDeskSettings(): Promise< DeskSettings > {
-			return ( await ipcApi.getDeskSettings() ) as DeskSettings;
-		},
-
-		async saveDeskSettings( settings ): Promise< void > {
-			await ipcApi.saveDeskSettings( settings );
-		},
-
-		async exportDeskConfig( config, suggestedFilename ): Promise< string | null > {
-			return ( await ipcApi.exportDeskConfig( config, suggestedFilename ) ) as string | null;
-		},
-
-		async importDeskConfig(): Promise< DeskConfig | null > {
-			return ( await ipcApi.importDeskConfig() ) as DeskConfig | null;
-		},
-
-		async getUserDeskConfig(): Promise< DeskConfig | undefined > {
-			return ( await ipcApi.getUserDeskConfig() ) as DeskConfig | undefined;
-		},
-
-		async saveUserDeskConfig( config ): Promise< void > {
-			await ipcApi.saveUserDeskConfig( config );
-		},
-
-		async getSiteDeskConfig( siteId ): Promise< DeskConfig | undefined > {
-			return ( await ipcApi.getSiteDeskConfig( siteId ) ) as DeskConfig | undefined;
-		},
-
-		async saveSiteDeskConfig( siteId, config ): Promise< void > {
-			await ipcApi.saveSiteDeskConfig( siteId, config );
-		},
-
 		async fetchSiteRest( siteId, request ) {
 			return await ipcApi.fetchSiteRestApi( siteId, request );
 		},
@@ -708,11 +676,20 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
+		async copyText( text: string ): Promise< void > {
+			await ipcApi.copyText( text );
+		},
+
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
 		// Window state
+		// The IPC connector only runs in Electron, so `navigator` reflects the
+		// desktop OS. macOS overlays the traffic lights on the content (so we
+		// reserve space for them); Windows and Linux don't.
+		reservesTrafficLightSpace: /mac/i.test( navigator.platform || navigator.userAgent ),
+
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();
 		},
@@ -730,6 +707,18 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'site-event', () => listener() );
+		},
+
+		onToggleSitePreview( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'toggle-site-preview', () => listener() );
+		},
+
+		onToggleSidebar( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'toggle-sidebar', () => listener() );
 		},
 	};
 }

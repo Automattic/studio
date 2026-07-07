@@ -77,6 +77,10 @@ vi.mock( 'src/modules/cli/lib/cli-server-process', () => {
 
 vi.mock( 'src/storage/user-data' );
 
+vi.mock( 'src/lib/beta-features', () => ( {
+	getDefaultSiteRuntime: vi.fn().mockResolvedValue( 'playground' ),
+} ) );
+
 describe( 'SiteServer', () => {
 	describe( 'create', () => {
 		beforeEach( () => {

@@ -19,7 +19,6 @@ import Button from 'src/components/button';
 import { DotGrid } from 'src/components/dot-grid';
 import { FullscreenModal } from 'src/components/fullscreen-modal';
 import { useAddSite, CreateSiteFormValues } from 'src/hooks/use-add-site';
-import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { cx } from 'src/lib/cx';
@@ -103,7 +102,6 @@ interface NavigationContentProps {
 function NavigationContent( props: NavigationContentProps ) {
 	const { goTo, goBack, location } = useNavigator();
 	const { __ } = useI18n();
-	const { enableBlueprints } = useFeatureFlags();
 	const [ blueprintFileError, setBlueprintFileError ] = useState< string | undefined >();
 	const {
 		startOver,
@@ -344,7 +342,6 @@ function NavigationContent( props: NavigationContentProps ) {
 			<Navigator.Screen className="h-full overflow-y-auto" path="/new">
 				<ScreenContent>
 					<NewSiteOptions
-						enableBlueprints={ enableBlueprints }
 						blueprints={ blueprints }
 						isLoadingBlueprints={ isLoadingBlueprints }
 						blueprintsErrorMessage={ blueprintsErrorMessage }
@@ -352,7 +349,7 @@ function NavigationContent( props: NavigationContentProps ) {
 						onBlueprintChange={ handleBlueprintChange }
 						blueprintFileError={ blueprintFileError }
 						uploadButton={
-							enableBlueprints && ! isLoadingBlueprints ? (
+							! isLoadingBlueprints ? (
 								<UploadBlueprintButton
 									onFileBlueprintSelect={ handleFileBlueprintSelect }
 									onError={ setBlueprintFileError }

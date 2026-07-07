@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 
-// One Studio Code session per site. Unlike the standalone Desks UI there is no
-// session list — we persist a single session id per site so the assistant tab
-// reopens the same conversation, and "New conversation" just swaps in a fresh
-// session id. The transcript itself lives on disk (CLI session store); this
-// only remembers which session id belongs to which site.
+// One Studio Code session per site. There is no session list in the tab, so
+// we persist a single session id per site; the assistant tab reopens the same
+// conversation, and "New conversation" swaps in a fresh session id. The
+// transcript itself lives on disk (CLI session store); this only remembers
+// which session id belongs to which site.
 const STORAGE_KEY = 'studio_code_session_ids';
 
 function loadStored( siteId: string ): string | null {

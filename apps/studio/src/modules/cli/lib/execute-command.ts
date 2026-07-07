@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import { fork, spawnSync, ChildProcess, StdioOptions } from 'node:child_process';
+import { fork, spawnSync, type ChildProcess, type StdioOptions } from 'node:child_process';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
 import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';

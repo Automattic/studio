@@ -37,7 +37,7 @@ function useTabs() {
 			{
 				order: 5,
 				name: 'settings',
-				title: __( 'Settings' ),
+				title: __( 'Site Settings' ),
 			}
 		);
 

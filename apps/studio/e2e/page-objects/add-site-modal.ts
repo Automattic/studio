@@ -1,5 +1,6 @@
 import { type Page } from '@playwright/test';
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { type SiteRuntime } from '@studio/common/lib/site-runtime';
 import SiteForm from './site-form';
 
 export default class AddSiteModal {
@@ -18,7 +19,7 @@ export default class AddSiteModal {
 	}
 
 	get importButton() {
-		return this.page.locator( 'button:has-text("Import from a backup")' ).first();
+		return this.page.getByText( 'Import from a backup' ).first();
 	}
 
 	get continueButton() {
@@ -54,6 +55,10 @@ export default class AddSiteModal {
 
 	async selectLocalPathForTesting( partialExpectedPath: string ) {
 		await this.siteForm.clickLocalPathButtonAndSelectFromEnv( partialExpectedPath );
+	}
+
+	async selectRuntime( runtime: SiteRuntime ) {
+		await this.siteForm.selectRuntime( runtime );
 	}
 
 	async selectBlueprintFile( filePath: string ) {

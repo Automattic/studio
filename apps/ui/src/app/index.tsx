@@ -1,7 +1,5 @@
 import { AppProviders } from '@/app/app-providers';
-import { useUiMode } from '@/app/use-ui-mode';
 import { ClassicUiApp } from '@/ui-classic/app';
-import { DesksUiApp } from '@/ui-desks/app';
 import '@wordpress/components/build-style/style.css';
 import '@wordpress/dataviews/build-style/style.css';
 import '@wordpress/theme/design-tokens.css';
@@ -10,14 +8,13 @@ import type { Connector } from '@/data/core';
 
 interface AppProps {
 	connector: Connector;
+	forcedMode?: 'classic';
 }
 
 export function App( { connector }: AppProps ) {
-	const { mode } = useUiMode();
-
 	return (
 		<AppProviders connector={ connector }>
-			{ mode === 'desks' ? <DesksUiApp /> : <ClassicUiApp connector={ connector } /> }
+			<ClassicUiApp connector={ connector } />
 		</AppProviders>
 	);
 }

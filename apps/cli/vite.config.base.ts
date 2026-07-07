@@ -1,5 +1,6 @@
-import { copyFileSync, cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
-import { resolve } from 'path';
+import { execSync } from 'child_process';
+import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { relative, resolve, sep } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
 import packageJson from './package.json';
@@ -28,12 +29,29 @@ if ( ! minimumNodeVersion ) {
 
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
-const bundledReprintPhar = resolve( __dirname, 'lib/pull/reprint.phar' );
 // The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
 // `ai/skills.ts`), so they must sit directly next to the built chunks.
 const skillsSourcePath = resolve( __dirname, 'ai/skills' );
 
+const dataLiberationSourcePath = resolve(
+	__dirname,
+	'..',
+	'..',
+	'packages',
+	'data-liberation-agent'
+);
+const repoRoot = resolve( __dirname, '..', '..' );
+
+// The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
+// from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
+// separately (`npm run build:local --workspace=apps/ui`); absent in API-only
+// or dev-server setups, which is fine.
+const localUiDistPath = resolve( __dirname, '../ui/dist-local' );
+
 export const baseConfig = defineConfig( {
+	oxc: {
+		target: `node${ semver.major( minimumNodeVersion ) }`,
+	},
 	plugins: [
 		{
 			name: 'write-dist-extras',
@@ -51,11 +69,30 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( bundledWpFilesPath ) ) {
 					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
 				}
-				if ( existsSync( bundledReprintPhar ) ) {
-					copyFileSync( bundledReprintPhar, resolve( outDir, 'reprint.phar' ) );
-				}
 				if ( existsSync( skillsSourcePath ) ) {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
+				}
+
+				execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
+				cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
+					recursive: true,
+					filter: ( src ) => {
+						const rel = relative( dataLiberationSourcePath, src );
+						if ( rel === '' ) {
+							return true;
+						}
+
+						const top = rel.split( sep )[ 0 ];
+						if ( top !== 'dist' && top !== 'package.json' && top !== 'skills' ) {
+							return false;
+						}
+						// Within dist/, drop build-only artifacts (types, tests, cache, maps).
+						return ! /\.(d\.ts|test\.js|js\.map|tsbuildinfo)$/.test( rel );
+					},
+				} );
+
+				if ( existsSync( localUiDistPath ) ) {
+					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );
 				}
 			},
 		},
@@ -76,7 +113,7 @@ export const baseConfig = defineConfig( {
 		},
 		outDir: 'dist/cli',
 		target: 'node22',
-		rollupOptions: {
+		rolldownOptions: {
 			output: {
 				format: 'es',
 				entryFileNames: '[name].mjs',
@@ -120,7 +157,10 @@ export const baseConfig = defineConfig( {
 	resolve: {
 		alias: {
 			cli: resolve( __dirname, '.' ),
-			'@studio/common': resolve( __dirname, '../../tools/common' ),
+			'@studio/common': resolve( __dirname, '../../packages/common' ),
+			// The `studio ui` local server (apps/local) is bundled into the CLI
+			// from source, the same way `@studio/common` is.
+			'@studio/local': resolve( __dirname, '../local/src' ),
 			'@wp-playground/blueprints/blueprint-schema-validator': resolve(
 				__dirname,
 				'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
@@ -132,6 +172,7 @@ export const baseConfig = defineConfig( {
 	define: {
 		__ENABLE_CLI_TELEMETRY__: false,
 		__IS_PACKAGED_FOR_NPM__: false,
+		__IS_PACKAGED_FOR_STANDALONE__: false,
 		__MINIMUM_NODE_VERSION__: JSON.stringify( minimumNodeVersion ),
 		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 	},

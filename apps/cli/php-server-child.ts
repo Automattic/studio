@@ -14,6 +14,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { writeStudioMuPluginsForNativePhpRuntime } from '@studio/common/lib/mu-plugins';
 import { resolveNativePhpVersion } from '@studio/common/lib/php-binary-metadata';
+import {
+	getSiteFileAccess,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+} from '@studio/common/lib/site-file-access';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -34,7 +38,11 @@ import {
 	getPhpMyAdminSessionPath,
 	writeNativePhpMyAdminWpEnv,
 } from './lib/native-php/phpmyadmin';
-import { ensureWpConfig, installWordPress } from './lib/native-php/site-setup';
+import {
+	ensureWpConfig,
+	installWordPress,
+	writeSiteUrlPrependFile,
+} from './lib/native-php/site-setup';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
@@ -104,6 +112,12 @@ let runningConfig: ServerConfig | null = null;
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
 const NATIVE_PHP_WORKER_POOL_SIZE = 4;
+
+// "Site directory" file access applies the open_basedir jail and
+// disable_functions list; "all files" runs PHP unrestricted.
+function isFileAccessRestricted( config: ServerConfig ): boolean {
+	return getSiteFileAccess( config ) === SITE_FILE_ACCESS_SITE_DIRECTORY;
+}
 
 function logToConsole( ...args: Parameters< typeof console.log > ) {
 	console.log( `[PHP Server]`, ...args );
@@ -439,49 +453,72 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
+	// Sites imported by `studio pull-reprint` arrive with WordPress already
+	// installed and a database already in place; reprint's auto_prepend_file
+	// owns their constants and SQLite wiring. So we skip wp-config rewriting,
+	// the WordPress installer, and Blueprint execution — running any of them
+	// against the imported database would be wrong — and just write Studio's
+	// mu-plugins before starting the workers.
+	const isImportedSite = Boolean( config.autoPrependFile );
+
 	try {
 		stopSignal.throwIfAborted();
-		await ensureWpConfig(
-			config.sitePath,
-			phpVersion,
-			stopSignal,
-			WP_CONFIG_TRANSFORMER_PATH,
-			config
-		);
-		stopSignal.throwIfAborted();
+
+		if ( ! isImportedSite ) {
+			await ensureWpConfig(
+				config.sitePath,
+				phpVersion,
+				stopSignal,
+				WP_CONFIG_TRANSFORMER_PATH,
+				config
+			);
+			stopSignal.throwIfAborted();
+		}
+
 		const muPluginsPath = await writeStudioMuPluginsForNativePhpRuntime(
 			config.sitePath,
 			config.isWpAutoUpdating
 		);
 		stopSignal.throwIfAborted();
-		await installWordPress(
-			config,
-			phpVersion,
-			stopSignal,
-			SET_DEFAULT_PERMALINKS_PATH,
-			logToConsole
-		);
-		stopSignal.throwIfAborted();
 
-		if ( config.blueprint ) {
-			await runBlueprint( config, config.blueprint, phpVersion, stopSignal );
+		if ( ! isImportedSite ) {
+			await installWordPress(
+				config,
+				phpVersion,
+				stopSignal,
+				SET_DEFAULT_PERMALINKS_PATH,
+				logToConsole
+			);
 			stopSignal.throwIfAborted();
+
+			if ( config.blueprint ) {
+				await runBlueprint( config, config.blueprint, phpVersion, stopSignal );
+				stopSignal.throwIfAborted();
+			}
 		}
 
-		// Snapshot existing symlink targets so open_basedir grants them upfront. New
-		// symlinks added while the server runs are picked up by startSymlinkWatcher
-		// below and trigger a debounced restart with an extended allowlist.
-		const symlinkAllowlistEntries = await collectSymlinkAllowlistEntries( config.sitePath );
-		stopSignal.throwIfAborted();
+		// With "all files" access the allowlist stays empty, which disables
+		// open_basedir entirely (see getDefaultPhpArgs).
+		if ( isFileAccessRestricted( config ) ) {
+			// Snapshot existing symlink targets so open_basedir grants them upfront. New
+			// symlinks added while the server runs are picked up by startSymlinkWatcher
+			// below and trigger a debounced restart with an extended allowlist.
+			const symlinkAllowlistEntries = await collectSymlinkAllowlistEntries( config.sitePath );
+			stopSignal.throwIfAborted();
 
-		currentOpenBasedirAllowlist.add( config.sitePath );
-		currentOpenBasedirAllowlist.add( ROUTER_PATH );
-		currentOpenBasedirAllowlist.add( getPhpMyAdminPath() );
-		currentOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
-		currentOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
-		currentOpenBasedirAllowlist.add( muPluginsPath );
-		currentOpenBasedirAllowlist.add( os.tmpdir() );
-		symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
+			currentOpenBasedirAllowlist.add( config.sitePath );
+			currentOpenBasedirAllowlist.add( ROUTER_PATH );
+			currentOpenBasedirAllowlist.add( getPhpMyAdminPath() );
+			currentOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
+			currentOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
+			currentOpenBasedirAllowlist.add( muPluginsPath );
+			currentOpenBasedirAllowlist.add( os.tmpdir() );
+			if ( config.autoPrependFile ) {
+				currentOpenBasedirAllowlist.add( path.dirname( config.autoPrependFile ) );
+			}
+			symlinkAllowlistEntries.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
+			config.openBasedirAllowList?.forEach( ( entry ) => currentOpenBasedirAllowlist.add( entry ) );
+		}
 
 		runningConfig = config;
 
@@ -523,6 +560,8 @@ async function doStartServer(
 
 	try {
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
+		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
+		const autoPrependFile = writeSiteUrlPrependFile( siteUrl, config.autoPrependFile );
 		const workerPorts: number[] = [];
 		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
 			workerPorts.push( await getAvailablePort() );
@@ -547,8 +586,9 @@ async function doStartServer(
 					STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
 				},
 				onlyPathsThatPhpCanAccess: Array.from( openBasedirAllowlist ),
-				disallowRiskyFunctions: true,
+				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
+				autoPrependFile,
 			} );
 			spawnedChildren.push( serverChild );
 
@@ -591,8 +631,11 @@ async function doStartServer(
 
 		// Watch for symlinks created after startup. open_basedir cannot be extended
 		// at runtime, so the watcher triggers a debounced restart with an updated
-		// allowlist when a new symlink target is discovered.
-		startSymlinkWatcher( config.sitePath );
+		// allowlist when a new symlink target is discovered. With "all files"
+		// access there is no open_basedir to extend, so no watcher is needed.
+		if ( isFileAccessRestricted( config ) ) {
+			startSymlinkWatcher( config.sitePath );
+		}
 		return spawnedChildren[ 0 ];
 	} catch ( error ) {
 		const serverToClose = proxyServer;

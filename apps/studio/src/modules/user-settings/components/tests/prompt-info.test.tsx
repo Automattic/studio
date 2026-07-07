@@ -1,0 +1,81 @@
+import { render, screen } from '@testing-library/react';
+import { vi } from 'vitest';
+import { useOffline } from 'src/hooks/use-offline';
+import { PromptInfo } from 'src/modules/user-settings/components/prompt-info';
+import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
+
+vi.mock( 'src/hooks/use-offline' );
+
+vi.mock( 'src/stores', () => ( {
+	useI18nLocale: vi.fn( () => 'en-US' ),
+} ) );
+
+vi.mock( 'src/stores/wpcom-api', () => ( {
+	useGetStudioAssistantQuota: vi.fn(),
+} ) );
+
+describe( 'PromptInfo', () => {
+	beforeEach( () => {
+		vi.mocked( useOffline ).mockReturnValue( false );
+	} );
+
+	it( 'shows Studio Code dollar usage and reset date', () => {
+		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
+			data: {
+				costUsage: 33392,
+				costCap: 20000000,
+				costResetDate: '2026-07-01T00:00:00+00:00',
+			},
+			isError: false,
+			isLoading: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <PromptInfo /> );
+
+		expect( screen.getByText( 'Studio Code' ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( '0.17% of monthly limit used (resets on July 1, 2026)' )
+		).toBeInTheDocument();
+		expect( screen.queryByText( /monthly prompts used/ ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'progressbar' ) ).toBeInTheDocument();
+	} );
+
+	it( 'shows unavailable message when cost cap is missing', () => {
+		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
+			data: {
+				costUsage: 0,
+				costCap: 0,
+				costResetDate: '2026-07-01T00:00:00+00:00',
+			},
+			isError: false,
+			isLoading: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <PromptInfo /> );
+
+		expect(
+			screen.getByText( 'Studio Code limits are temporarily unavailable.' )
+		).toBeInTheDocument();
+	} );
+
+	it( 'caps over-limit usage at 100%', () => {
+		vi.mocked( useGetStudioAssistantQuota, { partial: true } ).mockReturnValue( {
+			data: {
+				costUsage: 3403700000,
+				costCap: 20000000,
+				costResetDate: '2026-07-01T00:00:00+00:00',
+			},
+			isError: false,
+			isLoading: false,
+			refetch: vi.fn(),
+		} );
+
+		render( <PromptInfo /> );
+
+		expect(
+			screen.getByText( '100% of monthly limit used (resets on July 1, 2026)' )
+		).toBeInTheDocument();
+	} );
+} );

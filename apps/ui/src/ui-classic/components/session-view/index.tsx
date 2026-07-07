@@ -1,25 +1,21 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
+import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
-import { SitePreview } from '@/components/site-preview';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
-import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { SessionUIProvider, useSessionPreviewUI } from '@/hooks/use-session-ui';
+import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { drawerIcon } from '@/lib/icons';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
-import { Composer, ComposerSkeleton } from './composer';
-import { pickLiveSite } from './composer/environment-pill';
+import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
@@ -28,20 +24,12 @@ import type { AiSessionSummary } from '@/data/core';
 
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
-	previewOpen: boolean;
-	onTogglePreview: () => void;
-	canTogglePreview: boolean;
 }
 
-function SessionHeader( {
-	summary,
-	previewOpen,
-	onTogglePreview,
-	canTogglePreview,
-}: SessionHeaderProps ) {
+function SessionHeader( { summary }: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
@@ -50,9 +38,9 @@ function SessionHeader( {
 	}
 
 	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
+		? reserveTrafficLightSpace
+			? styles.toggleSpacer
+			: styles.toggleSpacerFlush
 		: null;
 
 	return (
@@ -63,6 +51,7 @@ function SessionHeader( {
 					site={ site }
 					activeEnvironment={ effectiveEnvironment }
 					showSiteIcon={ sidebarCollapsed }
+					showStatus={ sidebarCollapsed }
 				/>
 			) : (
 				<>
@@ -77,19 +66,6 @@ function SessionHeader( {
 				</>
 			) }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ canTogglePreview ? (
-				<div className={ styles.headerActions }>
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ drawerIcon }
-						label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
-						aria-pressed={ previewOpen }
-						onClick={ onTogglePreview }
-					/>
-				</div>
-			) : null }
 		</div>
 	);
 }
@@ -97,24 +73,69 @@ function SessionHeader( {
 interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
-	preview?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
 
-function SessionFrame( { header, composer, preview, scrollRef, children }: SessionFrameProps ) {
+// Lays out the chat column as fixed chrome over a full-height conversation
+// scroller. The site preview panel lives in the dashboard layout's
+// PreviewSplitFrame, which keeps it mounted across routes.
+function SessionFrame( { header, composer, scrollRef, children }: SessionFrameProps ) {
+	const rootRef = useRef< HTMLDivElement >( null );
+	const headerRef = useRef< HTMLDivElement >( null );
+	const composerRef = useRef< HTMLDivElement >( null );
+
+	useLayoutEffect( () => {
+		const root = rootRef.current;
+		if ( ! root ) {
+			return;
+		}
+
+		const updateChromeSize = () => {
+			root.style.setProperty(
+				'--classic-header-height',
+				`${ headerRef.current?.offsetHeight ?? 0 }px`
+			);
+			root.style.setProperty(
+				'--classic-composer-height',
+				`${ composerRef.current?.offsetHeight ?? 0 }px`
+			);
+		};
+
+		updateChromeSize();
+
+		if ( typeof ResizeObserver === 'undefined' ) {
+			window.addEventListener( 'resize', updateChromeSize );
+			return () => window.removeEventListener( 'resize', updateChromeSize );
+		}
+
+		const resizeObserver = new ResizeObserver( updateChromeSize );
+		if ( headerRef.current ) {
+			resizeObserver.observe( headerRef.current );
+		}
+		if ( composerRef.current ) {
+			resizeObserver.observe( composerRef.current );
+		}
+
+		return () => resizeObserver.disconnect();
+	}, [] );
+
 	return (
-		<div className={ styles.root }>
-			<div className={ styles.chatColumn }>
+		<div ref={ rootRef } className={ styles.root }>
+			<div ref={ headerRef } className={ styles.headerLayer }>
 				{ header }
-				<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
-					{ children }
-				</div>
-				<div className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }>
-					{ composer }
-				</div>
 			</div>
-			{ preview }
+			<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
+				{ children }
+			</div>
+			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
+			<ProgressiveBlur direction="up" className={ styles.composerBlur } />
+			<div
+				ref={ composerRef }
+				className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
+			>
+				{ composer }
+			</div>
 		</div>
 	);
 }
@@ -135,8 +156,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const ownerSite = ownerSitePath
 		? sites?.find( ( candidate ) => candidate.path === ownerSitePath )
 		: undefined;
-	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
-	const liveSite = pickLiveSite( connectedSites );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
 		isRunning,
@@ -169,10 +188,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ data?.entries ]
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
+	const composerRef = useRef< ComposerHandle >( null );
 	useSessionCommands( sessionId );
-	const preview = useSessionPreviewUI();
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const showPreview = preview.open && canTogglePreview;
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -183,10 +201,24 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ sendMessage ]
 	);
+	// The preview panel itself is hosted by the dashboard layout; route its
+	// annotation submissions to this session while it is on screen.
+	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview );
+
+	const reopenQueuedPrompt = useCallback(
+		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {
+			removeQueuedPrompt( queuedPrompt.id );
+			composerRef.current?.replaceDraft( queuedPrompt.prompt, {
+				images: queuedPrompt.images,
+				files: queuedPrompt.files,
+			} );
+		},
+		[ removeQueuedPrompt ]
+	);
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
-		if ( ! node ) {
+		if ( ! node || pendingQuestions.length > 0 ) {
 			return;
 		}
 		node.scrollTop = node.scrollHeight;
@@ -194,7 +226,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			node.scrollTop = node.scrollHeight;
 		} );
 		return () => cancelAnimationFrame( id );
-	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
+	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
 
 	if ( isLoading ) {
 		// Use the same SessionFrame with an empty header and a structural
@@ -205,7 +237,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			<SessionFrame
 				header={ <div className={ styles.header } /> }
 				composer={
-					<div className={ styles.classicColumn }>
+					<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
 						<ComposerSkeleton />
 					</div>
 				}
@@ -227,18 +259,16 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	return (
 		<SessionFrame
 			scrollRef={ scrollRef }
-			header={
-				<SessionHeader
-					summary={ data.summary }
-					previewOpen={ showPreview }
-					onTogglePreview={ preview.toggle }
-					canTogglePreview={ canTogglePreview }
-				/>
-			}
+			header={ <SessionHeader summary={ data.summary } /> }
 			composer={
-				<div className={ styles.classicColumn }>
-					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
+				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
+					<QueuedPrompts
+						prompts={ queuedPrompts }
+						onRemove={ removeQueuedPrompt }
+						onEdit={ reopenQueuedPrompt }
+					/>
 					<Composer
+						ref={ composerRef }
 						busy={ composerBusy }
 						isInterrupting={ isInterrupting }
 						error={ runError }
@@ -246,8 +276,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onSend={ sendMessage }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
-						effectiveEnvironment={ effectiveEnvironment }
-						liveSite={ liveSite }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
 						onSwitchSession={ ( nextSessionId ) =>
@@ -259,19 +287,15 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					/>
 				</div>
 			}
-			preview={
-				showPreview && ownerSite ? (
-					<SitePreview
-						site={ ownerSite }
-						path={ preview.path }
-						reloadNonce={ preview.reloadNonce }
-						onAnnotationsDone={ handleAnnotationsDone }
-					/>
-				) : null
-			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
+			<div
+				className={ clsx(
+					styles.classicColumn,
+					styles.classicConversationSpacing,
+					pendingQuestions.length > 0 && styles.classicConversationWithQuestions
+				) }
+			>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

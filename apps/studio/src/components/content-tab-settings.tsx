@@ -1,5 +1,7 @@
 import { decodePassword } from '@studio/common/lib/passwords';
-import { getClosestNativePhpVersion } from '@studio/common/types/php-versions';
+import { getSiteFileAccess, SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
+import { getSiteRuntime, SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
+import { getClosestSupportedPhpVersion } from '@studio/common/types/php-versions';
 import {
 	DropdownMenu,
 	MenuGroup,
@@ -8,7 +10,7 @@ import {
 	__experimentalHeading as Heading,
 } from '@wordpress/components';
 import { sprintf } from '@wordpress/i18n';
-import { cautionFilled, moreVertical } from '@wordpress/icons';
+import { cautionFilled, info, moreVertical } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
 import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 import StudioButton from 'src/components/button';
@@ -20,8 +22,9 @@ import { useDeleteSite } from 'src/hooks/use-delete-site';
 import { useGetWpVersion } from 'src/hooks/use-get-wp-version';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
 import EditSiteDetails from 'src/modules/site-settings/edit-site-details';
-import { useAppDispatch, useRootSelector } from 'src/stores';
+import { useAppDispatch } from 'src/stores';
 import {
 	certificateTrustApi,
 	useCheckCertificateTrustQuery,
@@ -46,9 +49,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 	const dispatch = useAppDispatch();
 	const { __ } = useI18n();
 	const { data: isCertificateTrusted } = useCheckCertificateTrustQuery();
-	const isNativePhpRuntime = useRootSelector(
-		( state ) => state.betaFeatures.features.nativePhpRuntime
-	);
+	const isNativePhpRuntime = getSiteRuntime( selectedSite ) === SITE_RUNTIME_NATIVE_PHP;
 	const username = selectedSite.adminUsername || 'admin';
 	// Empty strings account for legacy sites lacking a stored password.
 	const storedPassword = decodePassword( selectedSite.adminPassword ?? '' );
@@ -60,7 +61,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		: `localhost:${ selectedSite.port }`;
 	const protocol = selectedSite.customDomain && selectedSite.enableHttps ? 'https' : 'http';
 	const resolvedNativePhpVersion = isNativePhpRuntime
-		? getClosestNativePhpVersion( selectedSite.phpVersion )
+		? getClosestSupportedPhpVersion( selectedSite.phpVersion )
 		: undefined;
 	const showNativePhpVersionWarning =
 		isNativePhpRuntime &&
@@ -106,6 +107,12 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		void checkDebugLogExists();
 	}, [ checkDebugLogExists ] );
 
+	/* translators: As in an application that runs natively on a computer */
+	const nativeLabel = __( 'Native' );
+	/* translators: As in a secure, sandboxed environment */
+	const sandboxLabel = __( 'Sandbox' );
+	const runtimeLabel = isNativePhpRuntime ? nativeLabel : sandboxLabel;
+
 	return (
 		<div className="p-8 ltr:pr-4 rtl:pl-4">
 			<div className="flex justify-between items-center mb-4">
@@ -122,7 +129,7 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 						{ ( { onClose }: { onClose: () => void } ) => (
 							<MenuGroup>
 								<SettingsMenuItem onClick={ () => void copySite( selectedSite.id ) }>
-									{ __( 'Copy site' ) }
+									{ __( 'Duplicate site' ) }
 								</SettingsMenuItem>
 								<SettingsMenuItem
 									onClick={ () => {
@@ -200,6 +207,52 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 									</span>
 								</Tooltip>
 							) }
+						</div>
+					</SettingsRow>
+					<SettingsRow label={ __( 'PHP runtime' ) }>
+						<div className="inline-flex items-center gap-2">
+							<span>{ runtimeLabel }</span>
+							<Tooltip
+								text={ <RuntimeDescription runtime={ getSiteRuntime( selectedSite ) } /> }
+								placement="top-start"
+							>
+								<span
+									role="img"
+									aria-label={ __( 'About the PHP runtime setting' ) }
+									tabIndex={ 0 }
+									className="text-frame-text-secondary inline-flex cursor-help items-center"
+								>
+									<Icon icon={ info } size={ 18 } className="fill-current" />
+								</span>
+							</Tooltip>
+						</div>
+					</SettingsRow>
+					<SettingsRow label={ __( 'File access' ) }>
+						<div className="inline-flex items-center gap-2">
+							{ /* translators: value for the File access setting on the site settings screen */ }
+							<span>
+								{ getSiteFileAccess( selectedSite ) === SITE_FILE_ACCESS_ALL_FILES
+									? __( 'All files' )
+									: __( 'Site directory' ) }
+							</span>
+							<Tooltip
+								text={
+									<FileAccessDescription
+										runtime={ getSiteRuntime( selectedSite ) }
+										fileAccess={ getSiteFileAccess( selectedSite ) }
+									/>
+								}
+								placement="top-start"
+							>
+								<span
+									role="img"
+									aria-label={ __( 'About the file access setting' ) }
+									tabIndex={ 0 }
+									className="text-frame-text-secondary inline-flex cursor-help items-center"
+								>
+									<Icon icon={ info } size={ 18 } className="fill-current" />
+								</span>
+							</Tooltip>
 						</div>
 					</SettingsRow>
 					<tr>

@@ -17,7 +17,11 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
-import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
+import {
+	cleanupLegacyMuPlugins,
+	getMuPlugins,
+	STUDIO_ERROR_LOG_FILENAME,
+} from '@studio/common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -218,28 +222,6 @@ async function getBaseRunCLIArgs(
 	command: RunCLIArgs[ 'command' ],
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
-	// For sites imported via `studio pull-reprint`, the pull command
-	// persists the computed start options to start-options.json so the
-	// daemon doesn't need to recompute them (which would spin up PHP
-	// WASM to extract runtime.php constants from the imported site).
-	if ( ! config.useExactMountLayout && config.blueprint?.uri ) {
-		try {
-			const optionsPath = path.join( path.dirname( config.blueprint.uri ), 'start-options.json' );
-			if ( fs.existsSync( optionsPath ) ) {
-				const saved = JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) );
-				if ( saved.useExactMountLayout ) {
-					config.mountsBeforeInstall = saved.mountsBeforeInstall;
-					config.mounts = saved.mounts;
-					config.wordpressInstallMode = saved.wordpressInstallMode ?? config.wordpressInstallMode;
-					config.useExactMountLayout = true;
-					logToConsole( `Loaded persisted start options from ${ optionsPath } before startup` );
-				}
-			}
-		} catch {
-			// Ignore missing or invalid start options and continue with the provided config.
-		}
-	}
-
 	const wordpressInstallMode =
 		config.wordpressInstallMode ?? ( await getWordPressInstallMode( config.sitePath ) );
 	const useExactMountLayout = config.useExactMountLayout ?? false;
@@ -250,6 +232,10 @@ async function getBaseRunCLIArgs(
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,
+		errorLogPath: config.enableDebugLog
+			? '/wordpress/wp-content/debug.log'
+			: `/wordpress/wp-content/${ STUDIO_ERROR_LOG_FILENAME }`,
+		errorLogStopAfterBoot: ! config.enableDebugLog,
 	} );
 
 	if ( ! useExactMountLayout ) {
@@ -461,6 +447,7 @@ const startServer = wrapWithStartingPromise(
 			await setPhpIniEntries( server.playground, {
 				'openssl.cafile': '/internal/shared/ca-bundle.crt',
 				'curl.cainfo': '/internal/shared/ca-bundle.crt',
+				memory_limit: '512M',
 			} );
 
 			stopSignal.throwIfAborted();

@@ -174,6 +174,35 @@ export async function ensureImportedSiteSqliteReady(
 	return sqlitePath;
 }
 
+/**
+ * Builds the native-runtime options for an imported site: reprint's generated
+ * `runtime.php` loaded as a PHP `auto_prepend_file` (which wires SQLite the same
+ * way the imported site's web server does), plus open_basedir access to the
+ * technical site directory.
+ *
+ * Accepts anything carrying the imported-site fields — both `SiteData` and the
+ * pull session metadata qualify. Returns undefined — never throws — for normal
+ * `studio create` sites (no `runtimeBlueprintPath`) or when `runtime.php` is
+ * absent, so callers decide whether that's fatal.
+ */
+export function loadImportedRuntimeStartOptionsNative( site: {
+	technicalSiteDirectory?: string;
+	runtimeBlueprintPath?: string;
+} ): StartServerOptions | undefined {
+	if ( ! site.runtimeBlueprintPath ) {
+		return undefined;
+	}
+	const runtimePhpPath = path.join( path.dirname( site.runtimeBlueprintPath ), 'runtime.php' );
+	if ( ! fs.existsSync( runtimePhpPath ) ) {
+		return undefined;
+	}
+
+	return {
+		autoPrependFile: runtimePhpPath,
+		openBasedirAllowList: site.technicalSiteDirectory ? [ site.technicalSiteDirectory ] : [],
+	};
+}
+
 export function loadRuntimeBlueprint( runtimeBlueprintPath: string ): Blueprint {
 	if ( ! fs.existsSync( runtimeBlueprintPath ) ) {
 		throw new LoggerError( `Runtime Blueprint not found: ${ runtimeBlueprintPath }` );

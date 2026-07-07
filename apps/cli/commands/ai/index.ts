@@ -4,7 +4,7 @@ import {
 	type StudioChatFileAttachment,
 } from '@studio/common/ai/chat-files';
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
-import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -24,6 +24,7 @@ import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
+import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import {
@@ -38,6 +39,7 @@ import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
@@ -123,6 +125,8 @@ export async function runCommand( options: {
 	ui.start();
 	ui.showWelcome();
 
+	await maybeShowTosNotice( () => ui.showTosNotice() );
+
 	if ( options.showLegacyCommandNotice && ! isJsonMode ) {
 		ui.showInfo( __( 'ⓘ The "studio ai" command is now "studio code".' ) );
 	}
@@ -143,6 +147,8 @@ export async function runCommand( options: {
 					if ( sm.getSessionId() === options.resumeSessionId ) {
 						session = sm;
 						match = file;
+						currentModel = resolveSessionModel( sm.getEntries() );
+						ui.currentModel = currentModel;
 						break;
 					}
 				} catch {
@@ -194,6 +200,18 @@ export async function runCommand( options: {
 	setChatArtifactCallback( ( artifact ) =>
 		append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) )
 	);
+
+	// Persist screenshots next to the session file (`<session>.screenshots/`)
+	// so artifacts in the transcript keep rendering after OS temp cleanup;
+	// `deleteAiSession` removes the sidecar together with the session.
+	setScreenshotDirectoryProvider( async () => {
+		const sm = await ensureSession();
+		const sessionFile = sm.getSessionFile();
+		if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
+			return null;
+		}
+		return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
+	} );
 
 	ui.onSiteSelected = ( site ) => {
 		void append( ( sm ) =>
@@ -314,6 +332,12 @@ export async function runCommand( options: {
 
 	const config = await readCliConfig();
 	let showCapabilitiesOnConnect = ! config.aiProvider;
+
+	// Studio Code Desktop defaults to WordPress.com provider.
+	if ( isJsonMode && showCapabilitiesOnConnect ) {
+		await switchProvider( 'wpcom', false );
+		showCapabilitiesOnConnect = false;
+	}
 
 	if ( showCapabilitiesOnConnect ) {
 		ui.showOnboarding();
@@ -688,7 +712,7 @@ export async function runCommand( options: {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: '$0 [message]',
-		describe: __( 'AI agent for building WordPress' ),
+		describe: __( 'Start an interactive AI chat to build WordPress sites' ),
 		builder: ( yargs ) => {
 			let chain = yargs
 				.positional( 'message', {

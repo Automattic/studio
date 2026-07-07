@@ -4,9 +4,10 @@ import os from 'os';
 import path from 'path';
 import { ARCHIVER_OPTIONS, DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
-import { ExportEvents } from '@studio/common/lib/import-export-events';
+import { createExportErrorPayload, ExportEvents } from '@studio/common/lib/import-export-events';
 import {
 	LEGACY_MU_PLUGIN_FILENAMES,
+	STUDIO_ERROR_LOG_FILENAME,
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
 } from '@studio/common/lib/mu-plugins';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
@@ -15,10 +16,12 @@ import {
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import { __, sprintf } from '@wordpress/i18n';
-import archiver from 'archiver';
+import { Archiver, TarArchive, ZipArchive } from 'archiver';
+import { glob } from 'glob';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integration';
 import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
 import {
@@ -35,7 +38,7 @@ const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
 );
 
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
-	private archiveBuilder!: archiver.Archiver;
+	private archiveBuilder!: Archiver;
 	private backup: BackupContents;
 	private readonly options: ExportOptions;
 
@@ -45,6 +48,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			'wp-content/database',
 			'wp-content/db.php',
 			'wp-content/debug.log',
+			`wp-content/${ STUDIO_ERROR_LOG_FILENAME }`,
 			...prefixedLegacyMuPluginNames,
 			`wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`,
 		];
@@ -141,7 +145,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
 			this.archiveBuilder.abort();
-			this.emit( ExportEvents.EXPORT_ERROR, error );
+			this.emit( ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) );
 			throw error;
 		} finally {
 			if ( this.options.includes.database ) {
@@ -150,11 +154,12 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		}
 	}
 
-	private createArchiveBuilder(): archiver.Archiver {
+	private createArchiveBuilder(): Archiver {
 		this.emit( ExportEvents.BACKUP_CREATE_START );
-		const isZip = this.options.backupFile.endsWith( '.zip' );
-		const format = isZip ? 'zip' : 'tar';
-		return archiver( format, ARCHIVER_OPTIONS[ format ] );
+
+		return this.options.backupFile.endsWith( '.zip' )
+			? new ZipArchive( ARCHIVER_OPTIONS.zip )
+			: new TarArchive( ARCHIVER_OPTIONS.tar );
 	}
 
 	private setupArchiveListeners( output: fs.WriteStream ): Promise< void > {
@@ -221,21 +226,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 
 				const stat = await fsPromises.stat( fullPath );
 				if ( stat.isDirectory() ) {
-					this.archiveBuilder.directory( fullPath, archivePath, ( entry ) => {
-						const entryPathRelativeToArchiveRoot = path.join( archivePath, entry.name );
-						const fullEntryPathOnDisk = path.join(
-							this.options.site.path,
-							entryPathRelativeToArchiveRoot
-						);
-						if (
-							this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
-							this.isPathExcludedByPattern( fullEntryPathOnDisk ) ||
-							this.options.ignoreFilter?.ignores( entryPathRelativeToArchiveRoot )
-						) {
-							return false;
-						}
-						return entry;
-					} );
+					await this.addDirectory( fullPath, archivePath );
 				} else {
 					if (
 						this.isExactPathExcluded( archivePath ) ||
@@ -251,10 +242,55 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE );
 	}
 
+	// `Archiver.directory()` does not follow symlinks, so we glob the directory
+	// ourselves to support symlinked plugins/themes, then add each file
+	// individually via `Archiver.file()`. If the source path is a symlink,
+	// `Archiver.file()` appends a symlink to the archive instead of the target
+	// file. We don't want this. By calling realpath first, we ensure the source
+	// file data is always appended. This is preferable to passing readable
+	// streams to `Archiver.append()`, which can lead to EMFILE errors.
+	private async addDirectory( dirPath: string, archivePath: string ): Promise< void > {
+		const relativePaths = await glob( '**/*', {
+			cwd: dirPath,
+			dot: true,
+			follow: true,
+			nodir: true,
+			// Keep entry names forward-slashed on Windows
+			posix: true,
+		} );
+
+		for ( const relativePath of relativePaths ) {
+			const entryPathRelativeToArchiveRoot = path.join( archivePath, relativePath );
+			const fullEntryPathOnDisk = path.join(
+				this.options.site.path,
+				entryPathRelativeToArchiveRoot
+			);
+			if (
+				this.isExactPathExcluded( entryPathRelativeToArchiveRoot ) ||
+				this.isPathExcludedByPattern( fullEntryPathOnDisk ) ||
+				this.options.ignoreFilter?.ignores( entryPathRelativeToArchiveRoot )
+			) {
+				continue;
+			}
+			try {
+				const resolvedPath = fs.realpathSync( fullEntryPathOnDisk );
+				this.archiveBuilder.file( resolvedPath, { name: entryPathRelativeToArchiveRoot } );
+			} catch ( error ) {
+				// Dangling symlink. Skip it rather than aborting the whole archive.
+				console.warn( `Skipping ${ entryPathRelativeToArchiveRoot }: ${ error }` );
+			}
+		}
+	}
+
 	private async addDatabase(): Promise< void > {
 		if ( ! this.options.includes.database ) {
 			return;
 		}
+
+		// The `wp sqlite export` below requires the SQLite integration to be discoverable
+		// in wp-content, which imported sites don't ship. It's excluded from the archive
+		// (see isExactPathExcluded), so it never reaches the backup or the remote.
+		await ensureSqliteIntegrationForImportedSite( this.options.site );
 
 		this.emit( ExportEvents.DATABASE_EXPORT_START );
 		const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );

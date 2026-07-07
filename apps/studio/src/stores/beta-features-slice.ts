@@ -8,7 +8,7 @@ type BetaFeaturesState = {
 };
 
 const initialState: BetaFeaturesState = {
-	features: { remoteSession: false, nativePhpRuntime: false },
+	features: { remoteSession: false },
 	loading: false,
 };
 

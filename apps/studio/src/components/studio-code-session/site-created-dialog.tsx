@@ -1,13 +1,13 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import buttonDefense from './wp-ui-button-defense.module.css';
+import dialogDefense from './wp-ui-dialog-defense.module.css';
 import type { PendingSiteCreation } from './use-site-creation-switch';
 
 /**
  * Shown when the agent creates a new site mid-conversation. The conversation
  * has already been re-homed to the new site; this asks whether to follow it
- * there or stay on the current site with a fresh chat. Mirrors the desk UI's
- * "Continue in the site desk?" prompt, adapted to the single-site tab.
+ * there or stay on the current site with a fresh chat.
  *
  * Pure presentation: the switch/new-chat logic lives in
  * `useSiteCreationSwitch`.
@@ -30,7 +30,7 @@ export function SiteCreatedDialog( {
 				}
 			} }
 		>
-			<Dialog.Popup size="small">
+			<Dialog.Popup size="small" className={ dialogDefense.popup }>
 				<Dialog.Header>
 					<Dialog.Title>{ __( 'Site created' ) }</Dialog.Title>
 				</Dialog.Header>

@@ -2,6 +2,11 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-lg);
+	color: var(--color-frame-text);
+	/* The app shell sets `select-none` (user-select: none) globally for a
+	   native feel; re-enable selection here so conversation text can be
+	   selected and copied (STU-1831). */
+	user-select: text;
 }
 
 /* User bubbles act as turn anchors; give them generous breathing room above
@@ -19,14 +24,14 @@
 .userText {
 	align-self: flex-end;
 	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
-	background-color: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 10%, transparent);
+	background-color: color-mix(in srgb, var(--color-frame-theme) 16%, transparent);
 	/* Bottom-right tight so the bubble reads as originating from the user
 	   on the right; other corners round generously. */
 	border-radius: 18px 18px var(--wpds-border-radius-md, 8px) 18px;
 	max-width: 80%;
 	font-size: var(--wpds-typography-font-size-md);
 	line-height: 1.55;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--color-frame-text);
 	white-space: pre-wrap;
 	word-wrap: break-word;
 }
@@ -49,11 +54,11 @@
 	gap: 4px;
 	max-width: 200px;
 	padding: 2px 8px;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--color-frame-border);
 	border-radius: var(--wpds-border-radius-sm, 4px);
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: var(--color-frame-surface);
 	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 }
 
 .userAttachmentName {
@@ -70,7 +75,7 @@
 	max-width: 160px;
 	max-height: 160px;
 	border-radius: var(--wpds-border-radius-md, 8px);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border: 1px solid var(--color-frame-border);
 	object-fit: cover;
 }
 
@@ -86,7 +91,7 @@
 	gap: var(--wpds-dimension-padding-sm);
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 	padding: 2px 0;
 	min-width: 0;
 }
@@ -101,8 +106,8 @@
 .toolOutput {
 	margin: 0;
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
-	border-left: 2px solid var(--wpds-color-stroke-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
+	border-left: 2px solid var(--color-frame-border);
+	color: var(--color-frame-text);
 	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 	font-size: var(--wpds-typography-font-size-xs);
 	line-height: 1.5;
@@ -117,8 +122,36 @@
 }
 
 .toolOutputError {
-	border-left-color: var(--wpds-color-fg-content-error, #dc2626);
-	color: var(--wpds-color-fg-content-error, #dc2626);
+	border-left-color: var(--color-frame-error);
+	color: var(--color-frame-error);
+}
+
+.toolDiff {
+	margin: 0;
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	border-left: 2px solid var(--color-frame-border);
+	display: flex;
+	flex-direction: column;
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	overflow: hidden;
+}
+
+.diffLine {
+	color: var(--color-frame-text-secondary);
+}
+
+.diffLineAdded {
+	color: var(--color-frame-diff-add-text);
+	background-color: var(--color-frame-diff-add-bg);
+}
+
+.diffLineRemoved {
+	color: var(--color-frame-diff-remove-text);
+	background-color: var(--color-frame-diff-remove-bg);
 }
 
 .toolOutputToggle {
@@ -126,7 +159,7 @@
 	background: none;
 	border: none;
 	padding: 0;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	color: var(--color-frame-theme);
 	font: inherit;
 	font-size: var(--wpds-typography-font-size-xs);
 	cursor: pointer;
@@ -138,13 +171,13 @@
 }
 
 .toolLabel {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--color-frame-text);
 	font-weight: 600;
 	flex-shrink: 0;
 }
 
 .toolDetail {
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--color-frame-text);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -160,7 +193,7 @@
 
 .questionText {
 	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--color-frame-text);
 }
 
 .questionOptions {
@@ -173,21 +206,28 @@
 }
 
 .questionOption {
-	background: none;
-	border: none;
-	padding: 0;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	display: inline-flex;
+	align-items: center;
+	background-color: var(--color-frame-surface);
+	border: 1px solid var(--color-frame-border);
+	border-radius: 6px;
+	padding: 4px 10px;
+	color: var(--color-frame-text);
 	font: inherit;
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: 1.4;
 	cursor: pointer;
+	transition: background-color 120ms ease, border-color 120ms ease;
 }
 
 .questionOption:hover:not(:disabled),
 .questionOption:focus-visible:not(:disabled) {
-	text-decoration: underline;
+	background-color: var(--color-frame-surface-alt);
+	border-color: var(--color-frame-text-secondary);
 }
 
 .questionOption:disabled {
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: var(--color-frame-text-secondary);
 	opacity: 0.6;
 	cursor: default;
 }
@@ -197,8 +237,17 @@
 .questionOptionPicked,
 .questionOptionPicked:disabled {
 	font-weight: 600;
-	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	background-color: var(--color-frame-surface-alt);
+	border-color: var(--color-frame-theme);
+	color: var(--color-frame-text);
 	opacity: 1;
+}
+
+/* Once finalized, the picked option still reads as the selection (accent
+   border) but dims so it clearly looks disabled rather than clickable. */
+.questionOptionPicked:disabled {
+	opacity: 0.6;
+	cursor: default;
 }
 
 .interruptedMarker {
@@ -206,8 +255,75 @@
 	margin: var(--wpds-dimension-padding-sm) 0;
 	padding: 2px 10px;
 	border-radius: 9999px;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
-	color: var(--wpds-color-fg-content-neutral-weak);
+	background-color: var(--color-frame-surface);
+	color: var(--color-frame-text-secondary);
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
+}
+
+.mediaArtifactGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+	gap: var(--wpds-dimension-padding-sm);
+	width: min(100%, 680px);
+}
+
+.mediaArtifactItem {
+	margin: 0;
+	min-width: 0;
+}
+
+.mediaArtifactImage {
+	display: block;
+	width: 100%;
+	max-height: min(520px, 58vh);
+	border: 1px solid var(--color-frame-border);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--color-frame-surface);
+	object-fit: contain;
+}
+
+.mediaArtifactLoading,
+.mediaArtifactUnavailable {
+	box-sizing: border-box;
+	min-height: 180px;
+	border: 1px solid var(--color-frame-border);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--color-frame-surface);
+}
+
+.mediaArtifactLoading {
+	background-image: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--color-frame-text) 8%, transparent),
+		transparent
+	);
+	background-size: 200% 100%;
+	animation: mediaArtifactLoading 1.2s ease-in-out infinite;
+}
+
+.mediaArtifactUnavailable {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--wpds-dimension-padding-md);
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+@keyframes mediaArtifactLoading {
+	from {
+		background-position: 200% 0;
+	}
+
+	to {
+		background-position: -200% 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mediaArtifactLoading {
+		animation: none;
+	}
 }

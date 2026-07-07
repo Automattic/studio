@@ -1,10 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { chevronDownSmall } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
+import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import styles from './dropdown-trigger.module.css';
+import type { TriggerSecondaryTone } from './trigger-secondary';
 import type { ComponentProps, ElementRef } from 'react';
 
 export type SiteStatus = 'running' | 'stopped' | 'transitioning';
@@ -15,7 +16,10 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	status: SiteStatus;
 	statusLabel: string;
 	environment: 'local' | 'live';
+	secondaryLabel: string;
+	secondaryTone?: TriggerSecondaryTone;
 	showSiteIcon?: boolean;
+	showStatus?: boolean;
 	siteIconSeed?: string;
 	siteIconImage?: string | null;
 };
@@ -28,7 +32,10 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 			status,
 			statusLabel,
 			environment,
+			secondaryLabel,
+			secondaryTone = 'neutral',
 			showSiteIcon = false,
+			showStatus = true,
 			siteIconSeed,
 			siteIconImage,
 			className,
@@ -38,34 +45,71 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 	) {
 		// In live mode the local server's running/stopped status is irrelevant
 		// to what the agent targets; use a dedicated dot color so the trigger
-		// visibly mirrors the environment pill.
+		// still reflects the active target.
+		const isLive = environment === 'live';
 		const dotClass = environment === 'live' ? styles.dot_live : styles[ `dot_${ status }` ];
-		return (
-			<Button
-				ref={ ref }
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				className={ clsx( styles.trigger, className ) }
-				{ ...props }
+		const statusClass =
+			environment === 'live' ? styles.statusBadge_live : styles[ `statusBadge_${ status }` ];
+		const dotLabel = isLive ? __( 'Live site' ) : statusLabel;
+		const statusBadge = showStatus ? (
+			<span
+				className={ clsx(
+					styles.statusBadge,
+					showSiteIcon && styles.statusBadge_overlay,
+					statusClass
+				) }
+				role="img"
+				aria-label={ dotLabel }
+				title={ dotLabel }
 			>
-				{ showSiteIcon ? (
-					<SiteIcon
-						className={ styles.siteIcon }
-						seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
-						imageSrc={ siteIconImage }
-					/>
+				{ status === 'stopped' && ! isLive ? (
+					<span className={ styles.pauseMark } aria-hidden="true" />
+				) : (
+					<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />
+				) }
+				{ ! showSiteIcon && isLive ? (
+					<span className={ styles.statusLabel }>{ __( 'Live' ) }</span>
 				) : null }
-				<span className={ styles.site }>{ siteName }</span>
-				<span className={ styles.status }>
-					<span className={ clsx( styles.dot, dotClass ) } role="img" aria-label={ statusLabel } />
-					<span className={ styles.env }>
-						{ environment === 'live' ? __( 'Live' ) : __( 'Local' ) }
-					</span>
-				</span>
-				<span className={ styles.url }>{ siteUrl }</span>
-				<Icon icon={ chevronDownSmall } />
-			</Button>
+			</span>
+		) : null;
+
+		return (
+			<Tooltip.Provider delay={ 0 }>
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						ref={ ref }
+						render={ <Button variant="minimal" tone="neutral" { ...props } /> }
+						className={ clsx( styles.trigger, className ) }
+					>
+						{ showSiteIcon ? (
+							<span className={ styles.siteIconWrap }>
+								<SiteIcon
+									className={ clsx(
+										styles.siteIcon,
+										status === 'stopped' && ! isLive && styles.siteIcon_stopped
+									) }
+									seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
+									imageSrc={ siteIconImage }
+								/>
+								{ statusBadge }
+							</span>
+						) : null }
+						<span className={ styles.identity }>
+							<span className={ styles.site }>{ siteName }</span>
+							<span
+								className={ clsx( styles.secondary, styles[ `secondary_${ secondaryTone }` ] ) }
+							>
+								<span className={ styles.secondaryLabel }>{ secondaryLabel }</span>
+							</span>
+						</span>
+						{ showSiteIcon ? null : statusBadge }
+						<Icon className={ styles.chevron } icon={ chevronDownSmall } />
+					</Tooltip.Trigger>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
+						{ __( 'Publish, preview, and more' ) }
+					</Tooltip.Popup>
+				</Tooltip.Root>
+			</Tooltip.Provider>
 		);
 	}
 );

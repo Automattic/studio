@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10 · The Shared Blocks Engine</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part III — Reconstruction</span>
+  <span>Lesson 10 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 10 · Reconstruction drill</div>
+<h1>The Shared Blocks Engine</h1>
+<p class="subtitle">The deterministic core of "section spec → native blocks" is general — it isn't DLA-specific — so it lives in a separate, reusable package, <code>@automattic/blocks-engine</code>, which DLA consumes. Understanding this seam is understanding how reconstruction is structured.</p>
+
+<p>The pure, deterministic "turn a section into block markup" logic isn't unique to data
+liberation — any "specs → blocks" consumer needs it. So it lives in its own package, and DLA
+is a <em>consumer</em> of that engine plus its own orchestration.</p>
+
+<h2>How the dependency is wired</h2>
+<p>DLA depends on the published package <code>@automattic/blocks-engine</code> (a normal semver
+range, e.g. <code>^0.1.0</code> in <code>package.json</code>). It is an ordinary npm
+dependency — no special checkout required to install DLA.</p>
+
+<h2>The seam: what lives where</h2>
+<table>
+  <thead><tr><th>In the engine</th><th>In DLA</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>The deterministic reconstruct <em>core</em>: <code>reconstructNativeAggregate</code>
+      — the pure section-spec → native-block-aggregate transform.</td>
+      <td>The per-page <em>boundary</em>: <code>reconstructPagePattern</code> lives DLA-side and
+      delegates <em>into</em> the engine core.</td>
+    </tr>
+    <tr>
+      <td>The general block-emit logic any "specs → blocks" consumer needs.</td>
+      <td>The orchestration: capture, resume-state, the carry path, diagnostics, the
+      tick/judgment loop — all DLA.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code>reconstructPagePattern</code> is a thin boundary (~200 lines) that hands its core work
+to the engine's single-sourced <code>reconstructNativeAggregate</code>. The engine owns the
+transform; DLA owns where and when it runs.</p>
+
+<div class="callout key">
+  <span class="label">The guardrail: a frozen-output harness</span>
+  The seam is protected by a frozen harness test: the exact reconstruct output is pinned in a
+  fixture. Any divergence — whether from a DLA-side change or an engine version bump — fails the
+  test loudly. That is what makes depending on a shared engine safe: the consumer freezes the
+  precise output it expects, so the shared code can't silently drift under it.
+</div>
+
+<h2>What stays DLA-local (and why that's correct)</h2>
+<p>Not everything is shared. The <em>local</em> emit-blocks path (Lesson 13) keeps a distinct
+strategy rather than using the engine core, because it preserves the owned source DOM instead
+of re-emitting markup from captured specs — a genuinely different transform. The principle:
+share the core where the output is identical; keep strategies separate where they truly differ.</p>
+
+<div class="callout decision">
+  <span class="label">Why this matters for architecture calls</span>
+  When you weigh "shared engine or DLA-local," the test is concrete: can the shared version
+  produce exactly the output the consumer needs, pinned by a frozen harness? If yes, depend on
+  it. If two callers genuinely need different strategies, a forced shared abstraction will
+  leak — keep them separate behind a clean interface instead.
+</div>
+
+<div class="callout gotcha">
+  <span class="label">Test-runner trap</span>
+  Running <code>vitest</code> from the DLA repo root can go red due to <code>.worktrees/*</code>
+  pollution (sibling copies of every test colliding on cwd-relative fixtures). Verify with
+  <code>--dir src</code> or inside a clean worktree, not from a polluted root.
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">What makes it safe for DLA to depend on the engine's <code>reconstructNativeAggregate</code>?</div>
+  <ul class="opts">
+    <li><button class="opt">The engine has far more test coverage than DLA itself does</button></li>
+    <li><button class="opt">The carry path provides a parallel implementation as a backstop</button></li>
+    <li><button class="opt">A frozen harness pins the reconstruct output, catching any drift</button></li>
+    <li><button class="opt">The local emit-blocks path shares the exact same engine core</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Right — the consumer pins the exact expected output in a frozen fixture, so an engine version bump (or a DLA change) that alters the result fails loudly."
+    data-wrong="Safety comes from the frozen-output harness DLA holds — not from coverage, a carry backstop, or local sharing (the local path deliberately stays distinct).">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  State what lives in the engine vs what lives in DLA, and the guardrail that makes the
+  dependency safe. Then say why the local emit-blocks path stays DLA-local.
+  <details><summary>Check yourself</summary>
+  Engine: deterministic core (<code>reconstructNativeAggregate</code>). DLA: per-page boundary
+  (<code>reconstructPagePattern</code>), carry, capture, resume-state, diagnostics,
+  orchestration. Guardrail: a frozen-output harness pins the reconstruct result. The local path
+  preserves the owned source DOM rather than re-emitting from specs — a different transform.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read <span class="path">src/lib/replicate/reconstruct-pages.ts</span>
+  (<code>reconstructPagePattern</code>'s delegation) alongside the engine's
+  <code>reconstructNativeAggregate</code>. The <code>@automattic/blocks-engine</code> dependency
+  is declared in <span class="path">package.json</span>.
+</div>
+
+<p class="ask">Want to see exactly what the engine's <code>reconstructNativeAggregate</code>
+signature takes and returns? Ask and we'll read it together.</p>
+
+<div class="lesson-nav">
+  <a href="0009-the-carry-path.html">← Lesson 9</a>
+  <a href="0011-output-artifacts.html">Lesson 11: Output artifacts →</a>
+</div>
+</div>
+</body>
+</html>

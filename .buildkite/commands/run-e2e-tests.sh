@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+trap 'echo "Termination signal received — failing the job."; exit 1' TERM INT
+
 PLATFORM=${1:?Expected platform to be provided as first parameter}
 ARCH=${2:?Expected architecture to be provided as second parameter}
 
@@ -83,7 +85,7 @@ if [ "$PLATFORM" = "linux" ]; then
   # and Chromium aborts on the misconfigured helper. Removing the helper
   # makes Chromium skip the SUID path and fall through to the user-
   # namespace sandbox, which doesn't need setuid.
-  rm -f apps/studio/out/Studio-linux-x64/chrome-sandbox
+  rm -f "apps/studio/out/Studio-linux-${ARCH}/chrome-sandbox"
 
   # Grant cap_net_bind_service to the bundled node so the proxy daemon can
   # listen on privileged ports 80/443 without running as root — mirrors the
@@ -101,7 +103,7 @@ fi
 echo '--- :mag: Verify CLI build artifacts'
 CLI_DIST="apps/cli/dist/cli"
 missing=()
-for f in reprint.phar reprint-child.mjs main.mjs; do
+for f in reprint-child.mjs main.mjs wp-files/reprint/reprint.phar; do
   [ -f "$CLI_DIST/$f" ] || missing+=("$f")
 done
 if [ ${#missing[@]} -gt 0 ]; then

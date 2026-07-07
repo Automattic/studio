@@ -4,7 +4,7 @@
 
 [WordPress Studio](https://developer.wordpress.com/studio/) is an open source desktop application for creating and managing WordPress sites and testing and building plugins and themes locally. Powered by [WordPress Playground](https://developer.wordpress.org/playground/) and [WordPress.com](https://wordpress.com/), it streamlines modern WordPress development workflows and requires no external dependencies.
 
-Spin up sites in seconds, sync with WordPress.com or Pressable, or import any WordPress site to work on it locally. Use the Studio CLI to access WordPress Studio features outside the desktop application. Share live preview links with clients, and collaborate with the built-in AI Assistant that runs WP-CLI commands natively.
+Spin up sites in seconds, sync with WordPress.com or Pressable, or import any WordPress site to work on it locally. Use the Studio CLI to access WordPress Studio features outside the desktop application. Share live preview links with clients, and collaborate with the built-in Studio Code assistant that runs WP-CLI commands natively.
 
 ![WordPress Studio](/docs/assets/wordpress-studio-main.png)
 
@@ -32,11 +32,11 @@ Push updates or pull down a WordPress.com or Pressable production or staging sit
 
 Preview, polish, then hand it off. Share a stable, cloud-hosted preview link that your clients or team can access at any time. Preview sites expire after seven days without updates. [Learn more about Preview Sites →](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/)
 
-### AI Assistant
+### Studio Code
 
-![WordPress Studio - AI Assistant](/docs/assets/wordpress-studio-ai-assistant.png)
+![WordPress Studio - Studio Code](/docs/assets/wordpress-studio-ai-assistant.png)
 
-Skip the repetitive setup and ask the assistant to install plugins, create pages, or run WP-CLI commands without leaving the app or searching for syntax. [Learn more about the Studio Assistant →](https://developer.wordpress.com/docs/developer-tools/studio/assistant/)
+Skip the repetitive setup and ask Studio Code to install plugins, create pages, or run WP-CLI commands without leaving the app or searching for syntax. [Learn more about Studio Code →](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/)
 
 ### Powered by WordPress Playground
 

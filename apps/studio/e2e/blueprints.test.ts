@@ -71,7 +71,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify theme was installed
@@ -106,7 +106,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify theme was activated
@@ -143,7 +143,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was installed
@@ -178,7 +178,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was activated
@@ -216,7 +216,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to verify site is accessible
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify the site was created successfully and admin is accessible
@@ -254,7 +254,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to verify site is accessible
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify the site was created successfully and admin is accessible

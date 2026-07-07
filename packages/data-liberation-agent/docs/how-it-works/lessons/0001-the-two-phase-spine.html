@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1 · The Two-Phase Spine</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js"></script>
+</head>
+<body>
+<div class="masthead">
+  <span><a href="../index.html">Data Liberation</a> · Part I — Scaffold</span>
+  <span>Lesson 1 / 17</span>
+</div>
+
+<div class="wide">
+<div class="lesson-num">Lesson 01 · The scaffold</div>
+<h1>The Two-Phase Spine</h1>
+<p class="subtitle">Everything in this codebase hangs off one sentence: <em>extract a URL into artifacts, then reconstruct those artifacts into a WordPress site.</em> Get this skeleton in muscle memory and every other lesson is just detail on a bone you already know.</p>
+
+<p>When you make an architecture call in this repo, the first question is always <em>which
+phase, which stage</em>. So before anything else, hold the whole shape in your head:</p>
+
+<div class="flow">
+  <div class="flow-stage">
+    <span class="flow-badge">IN</span>
+    <div class="flow-body"><strong>A URL</strong> (or an owned local directory)<br>
+    <span class="artifact">e.g. https://someshop.example</span></div>
+  </div>
+  <div class="flow-stage">
+    <span class="flow-badge">P1</span>
+    <div class="flow-body"><strong>Extraction phase</strong> — turn the live site into on-disk artifacts.<br>
+    <span class="artifact">→ output.wxr · products.jsonl · screenshots/ · palette/typography/breakpoints.json</span></div>
+  </div>
+  <div class="flow-stage">
+    <span class="flow-badge">P2</span>
+    <div class="flow-body"><strong>Reconstruction phase</strong> — turn those artifacts into a real, styled WordPress site.<br>
+    <span class="artifact">→ a block theme + imported content, running in Studio</span></div>
+  </div>
+  <div class="flow-stage">
+    <span class="flow-badge">OUT</span>
+    <div class="flow-body"><strong>A self-hosted WordPress site</strong> that looks and reads like the original.</div>
+  </div>
+</div>
+
+<h2>Why two phases, not one</h2>
+<p>The split is the most important design decision in the system, and it is deliberate.
+Extraction is <em>expensive and fragile</em> — it hits a live site, fights bot defenses,
+downloads media, and can crash halfway. Reconstruction is <em>cheap and deterministic</em> —
+it reads local files and rebuilds. Separating them means you can re-run reconstruction a
+hundred times against one expensive extraction. Every architecture conversation about
+"can we change how pages are built" lives entirely in phase two and never re-touches the
+live site.</p>
+
+<div class="callout key">
+  <span class="label">The load-bearing idea</span>
+  Extraction is a <strong>capture-once, resumable</strong> investment. Reconstruction is a
+  <strong>repeatable, deterministic</strong> transform over that capture. The artifacts on
+  disk are the contract between them — that is why the resume-state files (Lesson 6) matter
+  so much.
+</div>
+
+<h2>Extraction has named stages</h2>
+<p>Phase one is not a blob — it is a fixed sequence of stages, persisted so a crashed run
+resumes where it left off. This exact union lives in the source:</p>
+
+<pre><code>initial → discovering → extracting → downloading-media
+        → screenshotting → finalizing → complete
+                                        (error from any stage)</code></pre>
+<p class="path">src/lib/resume-state/import-session.ts:22</p>
+
+<p>You will drill into each of these. For now, just notice: <strong>discover</strong> finds
+the URLs, <strong>extract</strong> turns each URL into content + products, <strong>download-media</strong>
+fetches the assets, <strong>screenshot</strong> captures the design. Reconstruction is a
+<em>separate</em> phase driven by its own tools — it is not in this union.</p>
+
+<div class="callout gotcha">
+  <span class="label">Common mental-model error</span>
+  Don't picture reconstruction as a stage after <code>complete</code>. The
+  <code>ImportStage</code> union ends at <code>complete</code> — that is the end of
+  <em>extraction</em>. Reconstruction is a different set of tools (<code>liberate_reconstruct_*</code>)
+  reading the artifacts. The default streaming run blurs them together in time, but
+  architecturally they are two systems.
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why is the extraction / reconstruction split the central design decision?</div>
+  <ul class="opts">
+    <li><button class="opt">It lets the system support more source platforms cleanly</button></li>
+    <li><button class="opt">It lets one costly capture feed many cheap deterministic rebuilds</button></li>
+    <li><button class="opt">It keeps the WordPress import code fully separate now</button></li>
+    <li><button class="opt">It makes the command line interface simpler to read now</button></li>
+  </ul>
+  <div class="feedback"
+    data-correct="Exactly — extraction is expensive/fragile and captured once; reconstruction is cheap/deterministic and re-runnable against that capture."
+    data-wrong="Re-read 'Why two phases': the point is expensive capture-once vs cheap repeatable rebuild. Platform support is the adapter seam, a different idea.">
+  </div>
+</div>
+
+<div class="recall">
+  <span class="label">Retrieval practice</span>
+  Without scrolling up: name the seven extraction stages in order, and say which artifact
+  the <em>extract</em> stage and the <em>screenshot</em> stage each produce.
+  <details><summary>Check yourself</summary>
+  initial → discovering → extracting → downloading-media → screenshotting → finalizing →
+  complete. Extract produces <code>output.wxr</code> + <code>products.jsonl</code>;
+  screenshot produces <code>screenshots/</code> + <code>palette/typography/breakpoints.json</code>.
+  </details>
+</div>
+
+<div class="source-cite">
+  <span class="label">Primary source</span><br>
+  Read the stage diagram and union at the top of
+  <span class="path">src/lib/resume-state/import-session.ts</span> (lines 5–30). It is the
+  most authoritative one-screen statement of the extraction spine in the whole repo.
+</div>
+
+<p class="ask">Anything unclear? I'm your teacher — ask me to expand any stage, draw the
+flow differently, or connect it to a decision you're weighing.</p>
+
+<div class="lesson-nav">
+  <a href="../index.html">← Course home</a>
+  <a href="0002-three-entry-points.html">Lesson 2: Three entry points, one core →</a>
+</div>
+</div>
+</body>
+</html>

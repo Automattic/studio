@@ -1,11 +1,7 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __ } from '@wordpress/i18n';
-import {
-	getSiteByFolder,
-	updateSiteAutoStart,
-	updateSiteLatestCliPid,
-} from 'cli/lib/cli-config/sites';
+import { __, sprintf } from '@wordpress/i18n';
+import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -29,6 +25,26 @@ export async function runCommand(
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		const site = await getSiteByFolder( sitePath );
 		logger.reportSuccess( __( 'Site loaded' ) );
+
+		// A site mid-pull (`pulling`) or whose last pull failed
+		// (`pull-failed`) is not a healthy install — its directory may be
+		// partially written. Refuse to start it rather than serve a broken
+		// site; recovery is to re-run the (idempotent) pull or delete it.
+		if ( site.status !== 'ready' ) {
+			const detail =
+				site.status === 'pulling'
+					? __( 'A pull is in progress or was interrupted before it finished.' )
+					: __( 'Its last pull failed and the site is incomplete.' );
+			throw new LoggerError(
+				sprintf(
+					// translators: %s: explanation of why the site is not ready to start.
+					__(
+						'This site is not ready to start. %s Re-run `studio pull-reprint` to finish the pull, or `studio delete` to remove the site.'
+					),
+					detail
+				)
+			);
+		}
 
 		const runningProcess = await isServerRunning( site.id );
 		if ( runningProcess ) {
@@ -55,7 +71,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 		try {
-			await updateManagedInstructionFiles( sitePath, getAiInstructionsPath() );
+			await updateManagedInstructionFiles( site, getAiInstructionsPath() );
 		} catch ( error ) {
 			logger.reportError(
 				new LoggerError( __( 'Failed to update AI instructions. Proceeding anyway…' ), error ),
@@ -71,7 +87,6 @@ export async function runCommand(
 			if ( processDesc.status === 'online' ) {
 				await updateSiteLatestCliPid( site.id, processDesc.pid );
 			}
-			await updateSiteAutoStart( site.id, true );
 
 			if ( ! skipLogDetails ) {
 				logSiteDetails( site );

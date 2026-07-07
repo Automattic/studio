@@ -102,7 +102,7 @@ describe( 'useBlueprintDeeplink', () => {
 		const mockBlueprintData = {
 			steps: [],
 			preferredVersions: {
-				php: '8.0',
+				php: '8.2',
 				wp: '6.4',
 			},
 		};
@@ -121,10 +121,10 @@ describe( 'useBlueprintDeeplink', () => {
 		} );
 
 		expect( mockSetBlueprintPreferredVersions ).toHaveBeenCalledWith( {
-			php: '8.0',
+			php: '8.2',
 			wp: '6.4',
 		} );
-		expect( mockSetPhpVersion ).toHaveBeenCalledWith( '8.0' );
+		expect( mockSetPhpVersion ).toHaveBeenCalledWith( '8.2' );
 		expect( mockSetWpVersion ).toHaveBeenCalledWith( '6.4' );
 	} );
 

@@ -35,6 +35,18 @@ const snapshotStatusSchema = z
 		isDeleted: data.is_deleted === '1',
 	} ) );
 
+const studioAssistantQuotaSchema = z
+	.object( {
+		cost_usage: z.number(),
+		cost_cap: z.number(),
+		cost_reset_date: z.string(),
+	} )
+	.transform( ( data ) => ( {
+		costUsage: data.cost_usage,
+		costCap: data.cost_cap,
+		costResetDate: data.cost_reset_date,
+	} ) );
+
 export type { Blueprint };
 
 let wpcomClient: WPCOM | undefined;
@@ -118,6 +130,15 @@ export const wpcomApi = createApi( {
 				apiNamespace: 'wpcom/v2',
 			} ),
 			transformResponse: ( response: unknown ) => parseResponse( response, snapshotStatusSchema ),
+			keepUnusedDataFor: 60 * 60,
+		} ),
+		getStudioAssistantQuota: builder.query< z.infer< typeof studioAssistantQuotaSchema >, void >( {
+			query: () => ( {
+				path: '/studio-app/ai-assistant/quota',
+				apiNamespace: 'wpcom/v2',
+			} ),
+			transformResponse: ( response: unknown ) =>
+				parseResponse( response, studioAssistantQuotaSchema ),
 			keepUnusedDataFor: 60 * 60,
 		} ),
 		deleteAllSnapshots: builder.mutation< void, void >( {
@@ -217,6 +238,10 @@ export const useGetSnapshotUsage = withWpcomClientCheck(
 
 export const useGetSnapshotStatus = withWpcomClientCheck(
 	withOfflineCheck( wpcomApi.useGetSnapshotStatusQuery )
+);
+
+export const useGetStudioAssistantQuota = withWpcomClientCheck(
+	withOfflineCheck( wpcomApi.useGetStudioAssistantQuotaQuery )
 );
 
 export const useDeleteAllSnapshots = withWpcomClientCheckMutation(

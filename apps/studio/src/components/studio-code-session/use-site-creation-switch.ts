@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useSiteDetails } from 'src/hooks/use-site-details';
 import { setStoredSessionId } from './use-single-session';
+import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
 import type { IpcRendererEvent } from 'electron';
-import type { AiSessionPlacementUpdatedEvent } from 'src/lib/ai-session-placement';
 
 export interface PendingSiteCreation {
 	siteId: string;
@@ -31,9 +31,7 @@ export interface SiteCreationSwitch {
 /**
  * Reacts to a site being created mid-conversation. The agent runs in the CLI;
  * when its `site_create` tool finishes, the main process re-homes the session
- * onto the new site and emits `ai-session-placement-updated`. The desk UI
- * (apps/ui) shows a "Continue in the site desk?" dialog off the same event;
- * this is the embedded-tab equivalent.
+ * onto the new site and emits `ai-session-placement-updated`.
  *
  * The migration happens as soon as the event arrives, not on the user's click:
  * the new site is mapped to the moved session and the current site is reset to

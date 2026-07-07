@@ -69,11 +69,11 @@ vi.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: vi.fn().mockReturnValue( false ),
 } ) );
 
-const renderWithProvider = ( children: React.ReactElement, nativePhpRuntime = false ) => {
+const renderWithProvider = ( children: React.ReactElement ) => {
 	const store = createTestStore( {
 		preloadedState: {
 			betaFeatures: {
-				features: { remoteSession: false, nativePhpRuntime },
+				features: { remoteSession: false },
 				loading: false,
 			},
 		},
@@ -230,20 +230,21 @@ describe( 'EditSiteDetails', () => {
 		expect( screen.getByRole( 'button', { name: 'Save' } ) ).toBeEnabled();
 	} );
 
-	it( 'should show a native PHP fallback warning for unsupported stored PHP versions', async () => {
+	it( 'should show a fallback warning for unsupported stored PHP versions', async () => {
 		const user = userEvent.setup();
 		vi.mocked( useSiteDetails ).mockReturnValue(
 			createMock< ReturnType< typeof useSiteDetails > >( {
 				...baseMockSiteDetails,
 				selectedSite: {
 					...baseMockSiteDetails.selectedSite,
+					runtime: 'native-php',
 					phpVersion: '7.4',
 				},
 				isEditModalOpen: true,
 			} )
 		);
 
-		renderWithProvider( <EditSiteDetails { ...defaultProps } />, true );
+		renderWithProvider( <EditSiteDetails { ...defaultProps } /> );
 
 		await waitFor( () => {
 			expect( screen.getByRole( 'dialog' ) ).toBeInTheDocument();
@@ -254,7 +255,7 @@ describe( 'EditSiteDetails', () => {
 
 		expect(
 			await screen.findByText(
-				'Native PHP does not support PHP 7.4. This site will run with PHP 8.2 instead.'
+				'PHP 7.4 is no longer supported. Saving will update this site to PHP 8.2.'
 			)
 		).toBeVisible();
 	} );

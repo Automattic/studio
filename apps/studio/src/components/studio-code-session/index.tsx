@@ -5,9 +5,8 @@ import {
 } from '@studio/common/ai/sessions/entry-types';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Spinner } from '@wordpress/components';
-import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { chevronDown } from '@wordpress/icons';
+import { check, chevronDown, Icon as WpIcon } from '@wordpress/icons';
 import { privateApis } from '@wordpress/theme';
 import { Button as UiButton, Icon } from '@wordpress/ui';
 import {
@@ -22,17 +21,21 @@ import {
 } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
 import Button from 'src/components/button';
+import { IllustrationGrid } from 'src/components/illustration-grid';
+import offlineIcon from 'src/components/offline-icon';
+import { Tooltip } from 'src/components/tooltip';
 import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
-import { Composer, ComposerSkeleton } from './composer';
+import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
 import { Conversation } from './conversation';
 import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
 import { isScrolledToBottom } from './scroll-utils';
 import { SiteCreatedDialog } from './site-created-dialog';
+import { StudioCodeTabImage } from './studio-code-tab-image';
 import styles from './style.module.css';
 import { AgentRunProvider, useAgentRun } from './use-agent-run';
 import { useExamplePrompts } from './use-example-prompts';
@@ -101,27 +104,80 @@ function SessionHeader( { onNewConversation }: { onNewConversation: () => void }
 	);
 }
 
-function UnauthenticatedNotice( { onAuthenticate }: { onAuthenticate: () => void } ) {
+function NoAuth() {
+	const isOffline = useOffline();
+	const { authenticate } = useAuth();
+	const offlineMessage = __( "You're currently offline." );
+
 	return (
-		<div className="px-4 pb-4">
-			<div className="p-3 rounded border border-frame-border bg-frame/45">
-				<div className="mb-3 a8c-label-semibold">{ __( 'Hold up!' ) }</div>
-				<div className="mb-1">
-					{ __( 'You need to log in to your WordPress.com account to use Studio Code.' ) }
-				</div>
-				<div className="mb-3">
-					{ createInterpolateElement(
-						__( "If you don't have an account yet, <a>create one for free</a>." ),
-						{
-							a: <Button variant="link" onClick={ () => getIpcApi().authenticate( true ) } />,
-						}
+		<div className="p-8 flex justify-between max-w-3xl gap-4 overflow-hidden">
+			<div className="flex flex-col">
+				<div className="a8c-subtitle mb-1">{ __( 'Build with Studio Code' ) }</div>
+				<div className="w-[40ch] text-frame-text-secondary a8c-body">
+					{ __(
+						'Your AI coding agent for WordPress. Describe what you want and Studio Code builds, edits, and debugs your site.'
 					) }
 				</div>
-				<Button variant="primary" onClick={ onAuthenticate }>
-					{ __( 'Log in to WordPress.com' ) }
-					<ArrowIcon />
-				</Button>
+				<div className="mt-6">
+					{ [
+						__( 'Create and edit themes, plugins, and content.' ),
+						__( 'Debug issues and run WP-CLI commands.' ),
+						__( 'Build with built-in feedback loops and agent skills.' ),
+					].map( ( text ) => (
+						<div key={ text } className="text-frame-text-secondary a8c-body flex items-center">
+							<WpIcon className="fill-frame-theme ltr:mr-2 rtl:ml-2 shrink-0" icon={ check } />
+							{ text }
+						</div>
+					) ) }
+				</div>
+				<div className="mt-8">
+					<Tooltip disabled={ ! isOffline } icon={ offlineIcon } text={ offlineMessage }>
+						<Button
+							aria-description={ isOffline ? offlineMessage : '' }
+							aria-disabled={ isOffline }
+							variant="primary"
+							onClick={ () => {
+								if ( isOffline ) {
+									return;
+								}
+								authenticate();
+							} }
+						>
+							{ __( 'Log in to WordPress.com' ) }
+							<ArrowIcon />
+						</Button>
+					</Tooltip>
+				</div>
+				<div className="mt-3 w-[40ch] text-frame-text-secondary a8c-body">
+					<Tooltip
+						disabled={ ! isOffline }
+						icon={ offlineIcon }
+						text={ offlineMessage }
+						placement="bottom-start"
+					>
+						<span>
+							{ __( 'A WordPress.com account is required to use Studio Code.' ) }{ ' ' }
+							<Button
+								aria-description={ isOffline ? offlineMessage : '' }
+								aria-disabled={ isOffline }
+								className="!p-0 text-frame-theme hover:opacity-80 h-auto inline-flex items-center"
+								onClick={ () => {
+									if ( isOffline ) {
+										return;
+									}
+									getIpcApi().authenticate( true );
+								} }
+							>
+								{ __( 'Create a free account' ) }
+								<ArrowIcon />
+							</Button>
+						</span>
+					</Tooltip>
+				</div>
 			</div>
+			<IllustrationGrid>
+				<StudioCodeTabImage />
+			</IllustrationGrid>
 		</div>
 	);
 }
@@ -197,6 +253,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		error: runError,
 		pendingQuestions,
 		pendingAnswers,
+		answeredQuestions,
 		queuedPrompts,
 		sendMessage,
 		interrupt,
@@ -254,6 +311,12 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		setStickToBottom( true );
 	}, [ scrollToBottom ] );
 
+	const handleNewConversation = useCallback( () => {
+		clearSessionDraft( sessionId );
+		selectPrompt( '' );
+		void newSession();
+	}, [ newSession, sessionId, selectPrompt ] );
+
 	// A fresh session starts pinned to the bottom.
 	useLayoutEffect( () => {
 		setStickToBottom( true );
@@ -305,7 +368,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 			<SessionFrame
 				scrollRef={ scrollRef }
 				onScroll={ handleScroll }
-				header={ <SessionHeader onNewConversation={ () => void newSession() } /> }
+				header={ <SessionHeader onNewConversation={ handleNewConversation } /> }
 				scrollToBottomButton={
 					! stickToBottom && (
 						<div className={ styles.scrollToBottom }>
@@ -356,6 +419,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							startedAt={ startedAt }
 							pendingQuestions={ pendingQuestionTexts }
 							pendingAnswers={ pendingAnswers }
+							answeredQuestions={ answeredQuestions }
 							onAnswerQuestion={ answerQuestion }
 						/>
 					) }
@@ -377,11 +441,10 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 }
 
 function SessionGate( { selectedSite }: { selectedSite: SiteDetails } ) {
-	const { isAuthenticated, authenticate } = useAuth();
-	const isOffline = useOffline();
+	const { isAuthenticated } = useAuth();
 
-	if ( ! isAuthenticated && ! isOffline ) {
-		return <UnauthenticatedNotice onAuthenticate={ authenticate } />;
+	if ( ! isAuthenticated ) {
+		return <NoAuth />;
 	}
 
 	return <SessionContent selectedSite={ selectedSite } />;

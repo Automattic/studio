@@ -1,11 +1,15 @@
 .root {
+	--sidebar-header-inline-end: calc(
+		var(--wpds-dimension-padding-2xl) - var(--wpds-dimension-padding-xs)
+	);
+
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
 	/* Leave room for macOS traffic lights at {20, 20} plus a visible gap.
 	   min-height is tuned so the flex-centered content lines up with the
 	   vertical center of the traffic lights. */
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl)
+	padding: var(--wpds-dimension-padding-sm) var(--sidebar-header-inline-end)
 		var(--wpds-dimension-padding-sm) 94px;
 	min-height: 46px;
 	-webkit-app-region: drag;
@@ -17,16 +21,14 @@
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 }
 
-/* In macOS fullscreen the traffic lights are hidden, so reclaim the
-   padding that was reserved for them and align the title with the
-   site list entries below — the site list outer padding is `xl + sm`
-   and each site label sits inside a button with another `sm` of
-   padding-inline, so its text starts at `xl + 2*sm` from the sidebar
-   edge. */
-.fullscreen {
-	padding-left: calc(
-		var(--wpds-dimension-padding-xl) + 2 * var(--wpds-dimension-padding-sm)
-	);
+/* When there are no traffic lights to clear — non-macOS, the browser
+   (`studio ui` / hosted), or macOS fullscreen (which hides them) — reclaim the
+   reserved padding and align the title with the site list entries below. The
+   site list outer padding is `2xl` and its rows now start flush with that edge
+   (no row/button inline-start padding), so the site label text starts at `2xl`
+   from the sidebar edge. */
+.flush {
+	padding-left: var(--wpds-dimension-padding-2xl);
 }
 
 .title {
@@ -43,13 +45,14 @@
 .actions {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
-	opacity: 0.65;
-}
-
-.actions:hover,
-.actions:focus-within {
-	opacity: 1;
+	margin-inline-start: auto;
+	/* Match the site-row action buttons (`.siteActions` in site-list), which
+	   sit flush with no gap. */
+	gap: 0;
+	/* The site rows have their action rail tucked into the row padding. Pull
+	   the header buttons over by the row's inner padding so the create/toggle
+	   controls share those same trailing columns. */
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
 }
 
 .popup {

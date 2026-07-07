@@ -47,7 +47,7 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS * 60 * 60 * 1000; // 6hr
 
 // SQLite
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.3';
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.6';
 
 export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 
@@ -75,4 +75,4 @@ export const IPC_VOID_HANDLERS = [
 // Flip to `true` when shipping new modal content so users who haven't seen the
 // current app version get the modal once. Keep at `false` otherwise — the modal
 // will only auto-show for first-time users of Studio.
-export const FORCE_SHOW_WHATS_NEW = false;
+export const FORCE_SHOW_WHATS_NEW = true;

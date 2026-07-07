@@ -6,9 +6,20 @@ user-invokable: true
 
 # Visual Polish
 
-Use this skill to verify a built or redesigned site and fix the design issues that make generated sites feel unpolished. The generated block markup, the editor serialization fixes from `validate_and_fix_blocks`, and WordPress's own injected layout classes mean the rendered page often differs from what you intended. This skill closes that gap.
+Use this skill to verify a built or redesigned site and fix the design issues that make generated sites feel unpolished. The generated block markup, the editor serialization fixes from `validate_blocks`, and WordPress's own injected layout classes mean the rendered page often differs from what you intended. This skill closes that gap.
 
 The core method is **diagnose from evidence, not from memory**. Do not guess why something looks wrong from the screenshot alone — the rendered DOM usually differs from the markup you wrote. Read the real DOM with `inspect_design`, find the actual cause, then fix it.
+
+## Scope: which pages to polish, and how much
+
+Polish **every page of the site**, not just the home page. This includes all user-created pages (Home, About, Contact, and similar) and any plugin-provided pages. A page the user never sees polished feels unfinished, and plugin pages ship with generic default styling that rarely matches the theme.
+
+For a WooCommerce shop, polish each of these pages: Shop, single-product, Cart, Checkout, and My Account.
+
+How much to iterate depends on the page:
+
+- **Home page** — run the full loop below, including Phase 3 (re-diagnose and fix again, up to the pass cap). The home page is the highest-traffic, highest-impact page and is worth iterating until it is right.
+- **Every other page** (other user pages AND WooCommerce pages) — run a **single pass**: diagnose (Phase 1), fix the batch (Phase 2), take one verification screenshot, then move on. Do not loop these pages; a single diagnose-and-fix pass is enough.
 
 ## Method: diagnose the whole page first, then fix in one batch
 
@@ -27,11 +38,13 @@ Do not make a single edit until you have diagnosed every section and listed ever
 
 ### Phase 2 — Fix the whole batch
 
-Work through the plan with targeted `Edit` calls (one `Write`/`Edit` per turn, per the system prompt cadence — never batch files into one turn). Do **not** screenshot between edits. If an edit changes block markup (not just CSS), re-run `validate_and_fix_blocks` on that file and re-check its diff, since the serializer can change classes again.
+Work through the plan with targeted `Edit` calls (one `Write`/`Edit` per turn, per the system prompt cadence — never batch files into one turn). Do **not** screenshot between edits. If an edit changes block markup (not just CSS), re-run `validate_blocks` on that file and re-check its diff, since the serializer can change classes again.
 
 ### Phase 3 — Verify and loop
 
-After the whole batch, take one `viewport: "all"` screenshot. Check each plan item off and look for regressions the fixes introduced. Each pass is expensive, so cap the cycle at **5 passes**. If issues remain and you are within that budget, return to Phase 1 for what's left — re-diagnose the remaining issues with `inspect_design`, don't fix blind.
+After the whole batch, take one `viewport: "all"` screenshot. Check each plan item off and look for regressions the fixes introduced.
+
+This looping phase applies to the **home page only** (see "Scope" above). For every other page — including WooCommerce pages — stop after this single verification screenshot; do not loop. For the home page, each pass is expensive, so cap the cycle at **5 passes**. If issues remain and you are within that budget, return to Phase 1 for what's left — re-diagnose the remaining issues with `inspect_design`, don't fix blind.
 
 ## Recurring issues and what to inspect
 

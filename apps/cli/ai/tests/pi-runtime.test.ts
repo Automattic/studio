@@ -413,7 +413,7 @@ describe( 'pi runtime', () => {
 				ANTHROPIC_CUSTOM_HEADERS:
 					'X-WPCOM-AI-Feature: studio-assistant-anthropic\nX-WPCOM-Session-ID: session-1',
 			},
-			model: 'claude-sonnet-4-6',
+			model: 'claude-sonnet-5',
 			session: newSession(),
 		} );
 
@@ -431,6 +431,30 @@ describe( 'pi runtime', () => {
 				'X-WPCOM-Session-ID': 'session-1',
 			},
 		} );
+	} );
+
+	// pi parses registerProvider config values as templates, so a wpcom token
+	// containing `$name` would be read as an undefined env-var reference and the
+	// provider would look unauthenticated ("No API key found"). The token must be
+	// escaped so pi resolves it back to the literal value.
+	it( 'keeps the wpcom token configured when it contains template metacharacters', async () => {
+		const tokenWithDollar = 'abc$t5CmlMyb$VRe7t1xyz';
+
+		await runRuntime( {
+			prompt: 'hello',
+			env: {
+				ANTHROPIC_AUTH_TOKEN: tokenWithDollar,
+				ANTHROPIC_BASE_URL: 'https://proxy.example.com',
+				ANTHROPIC_CUSTOM_HEADERS: 'X-WPCOM-AI-Feature: studio-assistant-anthropic',
+			},
+			model: 'claude-sonnet-5',
+			session: newSession(),
+		} );
+
+		const options = mocks.createdSessions[ 0 ].options;
+		expect( options.modelRegistry!.hasConfiguredAuth( options.model! ) ).toBe( true );
+		const auth = await options.modelRegistry!.getApiKeyAndHeaders( options.model! );
+		expect( auth ).toMatchObject( { ok: true, apiKey: tokenWithDollar } );
 	} );
 
 	// Silent header-drop would surface as an opaque 401 from the wpcom proxy.

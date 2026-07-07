@@ -2,7 +2,10 @@ import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
-import { streamAnthropic, type AnthropicOptions } from '@earendil-works/pi-ai/anthropic';
+import {
+	stream as streamAnthropic,
+	type AnthropicOptions,
+} from '@earendil-works/pi-ai/api/anthropic-messages';
 import {
 	AuthStorage,
 	createAgentSession,
@@ -27,15 +30,21 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { resolveStudioToolDefinitions } from 'cli/ai/tools';
+import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
@@ -255,6 +264,25 @@ async function runAgentSessionTurn(
 	}
 }
 
+// Resolve the runtime of the active local site so the system prompt can drop
+// Playground-specific WP-CLI guidance for native PHP sites. The active site
+// (a SiteInfo) doesn't carry the runtime, so look it up by path in the CLI
+// config. Falls back to native-php (the default runtime) for unknown, remote,
+// or unreadable sites.
+async function resolveActiveSiteRuntime(
+	activeSite: SiteInfo | null | undefined
+): Promise< SiteRuntime > {
+	if ( ! activeSite || activeSite.remote || ! activeSite.path ) {
+		return SITE_RUNTIME_NATIVE_PHP;
+	}
+	try {
+		const site = await getSiteByFolder( activeSite.path );
+		return getSiteRuntime( site );
+	} catch {
+		return SITE_RUNTIME_NATIVE_PHP;
+	}
+}
+
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
@@ -276,7 +304,11 @@ async function createStudioAgentSession(
 					},
 					remoteSession,
 			  }
-			: { chatArtifactsEnabled, remoteSession }
+			: {
+					chatArtifactsEnabled,
+					remoteSession,
+					runtime: await resolveActiveSiteRuntime( config.activeSite ),
+			  }
 	);
 
 	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
@@ -293,6 +325,7 @@ async function createStudioAgentSession(
 		noThemes: true,
 		noContextFiles: true,
 		systemPrompt,
+		appendSystemPrompt: [],
 	} );
 	await resourceLoader.reload();
 
@@ -372,13 +405,25 @@ function createModelRegistry(
 	return { authStorage, modelRegistry };
 }
 
+// pi (>= 0.78) parses `registerProvider` config values (apiKey, headers) as
+// templates: a `$NAME` / `${NAME}` sequence is read as an environment-variable
+// reference and a leading `!` is read as a shell command. wpcom OAuth tokens are
+// random strings that can contain `$` followed by a name-like sequence, so pi
+// resolves that fragment to an undefined env var and treats the provider as
+// unauthenticated ("No API key found for studio-wpcom-anthropic."). Escape the
+// token so pi treats it as a literal: `$` -> `$$`, and a leading `!` -> `$!`.
+function escapePiConfigValue( value: string ): string {
+	const dollarEscaped = value.replace( /\$/g, () => '$$' );
+	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
+}
+
 function createWpcomAnthropicProviderConfig(
 	model: Model< 'anthropic-messages' >,
 	creds: ResolvedCredentials
 ): ProviderConfigInput {
 	return {
 		baseUrl: creds.baseURL,
-		apiKey: creds.apiKey,
+		apiKey: escapePiConfigValue( creds.apiKey ),
 		api: 'anthropic-messages',
 		headers: creds.extraHeaders,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) => {
@@ -418,10 +463,13 @@ function createWpcomAnthropicProviderConfig(
 }
 
 function createSettingsManager( _env: Record< string, string > ): SettingsManager {
-	return SettingsManager.inMemory( {
-		defaultThinkingLevel: 'high',
-		compaction: STUDIO_COMPACTION_SETTINGS,
-	} );
+	return SettingsManager.inMemory(
+		{
+			defaultThinkingLevel: 'high',
+			compaction: STUDIO_COMPACTION_SETTINGS,
+		},
+		{ projectTrusted: false }
+	);
 }
 
 function toToolDefinition(
@@ -479,11 +527,12 @@ function buildAgentTools(
 	];
 
 	if ( isRemoteSite ) {
+		const remoteStudioTools = [ takeScreenshotTool, createSiteTool, pullSiteTool ].map( ( tool ) =>
+			withChatArtifactEmission( tool, chatArtifactsEnabled )
+		);
 		return [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
-			takeScreenshotTool,
-			createSiteTool,
-			pullSiteTool,
+			...remoteStudioTools,
 			...remoteScratchTools,
 			...askUserTool,
 			...skillTool,

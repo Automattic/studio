@@ -6,7 +6,7 @@
 }
 
 .popup {
-	min-width: 320px;
+	width: min(336px, calc(100vw - 32px));
 	padding: 0;
 	gap: 0;
 }

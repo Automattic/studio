@@ -1,3 +1,8 @@
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '../skills';
 import { buildSystemPrompt } from '../system-prompt';
@@ -36,9 +41,8 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'For generated SVGs, write a complete .svg file' );
 		expect( prompt ).toContain( 'Do not present generated SVG code as a drawing widget' );
 		expect( prompt ).not.toContain( '- drawing:' );
-		expect( prompt ).toContain( '- screenshot-local-media:' );
-		expect( prompt ).toContain( 'present the actual captured PNG' );
-		expect( prompt ).toContain( 'Do not substitute a site-preview widget for a screenshot' );
+		expect( prompt ).toContain( '- screenshot-auto-artifact:' );
+		expect( prompt ).toContain( 'Never call studio_present for a screenshot' );
 		expect( prompt ).toContain( 'site-preview is for live previews, not captured screenshots' );
 		expect( prompt ).toContain( '- theme:' );
 		expect( prompt ).toContain( '- theme-template:' );
@@ -75,6 +79,22 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 
+	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (local)', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
+		expect( prompt ).toContain( 'Do NOT answer from memory' );
+		expect( prompt ).toContain( 'Personal or Premium cannot install plugins' );
+	} );
+
+	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (remote)', () => {
+		const prompt = buildSystemPrompt( { remoteSite } );
+
+		expect( prompt ).toContain( '`hosting-plans-helper` skill' );
+		expect( prompt ).toContain( 'Do NOT answer from memory' );
+		expect( prompt ).toContain( 'Personal or Premium cannot install plugins' );
+	} );
+
 	it( 'references only bundled skills', () => {
 		const prompts = [
 			buildSystemPrompt( { chatArtifactsEnabled: true } ),
@@ -88,13 +108,68 @@ describe( 'buildSystemPrompt', () => {
 		expect( missingSkillNames ).toEqual( [] );
 	} );
 
+	it( 'gives Playground sites the inline post_content guidance', () => {
+		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_PLAYGROUND } );
+
+		expect( prompt ).toContain( 'rewrite large content to a virtual temp file' );
+		expect( prompt ).toContain( 'cannot read your machine' );
+		expect( prompt ).not.toContain( 'write the validated markup to a scratch file' );
+	} );
+
+	it( 'lets native PHP sites use a scratch file for post_content', () => {
+		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_NATIVE_PHP } );
+
+		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
+		expect( prompt ).toContain( 'wp post create <file>' );
+		expect( prompt ).not.toContain( 'virtual temp file' );
+		expect( prompt ).not.toContain( 'cannot read your machine' );
+	} );
+
+	it( 'defaults to native PHP post_content guidance when no runtime is given', () => {
+		const prompt = buildSystemPrompt( {} );
+
+		expect( prompt ).toContain( 'write the validated markup to a scratch file' );
+		expect( prompt ).not.toContain( 'virtual temp file' );
+	} );
+
+	it( 'keeps the shared no-shell post_content rule for both runtimes', () => {
+		const runtimes: SiteRuntime[] = [ SITE_RUNTIME_PLAYGROUND, SITE_RUNTIME_NATIVE_PHP ];
+		for ( const runtime of runtimes ) {
+			const prompt = buildSystemPrompt( { runtime } );
+			expect( prompt ).toContain( 'takes literal arguments, not shell commands' );
+		}
+	} );
+
 	it( 'omits Studio presentation rules when chat artifacts are disabled', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
 
 		expect( prompt ).not.toContain( '## Visual artifacts' );
 		expect( prompt ).not.toContain( '- site-code-scratchpad:' );
 		expect( prompt ).not.toContain( '- saved-local-media:' );
-		expect( prompt ).not.toContain( '- screenshot-local-media:' );
+		expect( prompt ).not.toContain( '- screenshot-auto-artifact:' );
 		expect( prompt ).not.toContain( 'studio_present' );
+	} );
+
+	it( 'warns that terminal users may not see screenshots when chat artifacts are disabled', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false } );
+
+		expect( prompt ).toContain( '## Screenshots' );
+		expect( prompt ).toContain( 'Do not respond as though the user is looking at the capture' );
+	} );
+
+	it( 'omits the terminal screenshot caveat when chat artifacts are enabled', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
+	} );
+
+	it( 'omits the terminal screenshot caveat for remote-bridge sessions', () => {
+		// The Telegram user cannot open local file paths; delivery is covered
+		// by the remote-session share_screenshot guidance instead.
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: false, remoteSession: true } );
+
+		expect( prompt ).not.toContain( '## Screenshots' );
+		expect( prompt ).not.toContain( 'Do not respond as though the user is looking at the capture' );
+		expect( prompt ).toContain( '## Telegram remote session' );
 	} );
 } );

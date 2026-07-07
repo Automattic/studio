@@ -24,16 +24,18 @@
 .toggleSpacer {
 	display: block;
 	flex-shrink: 0;
-	width: calc(118px - var(--wpds-dimension-padding-xs));
-	height: 100%;
+	width: 118px;
+	align-self: stretch;
 	-webkit-app-region: no-drag;
 }
 
-.toggleSpacerFullscreen {
+/* No traffic lights to clear (non-macOS, the browser, or macOS fullscreen): a
+   minimal spacer so the toggle still clears the header's drag region. */
+.toggleSpacerFlush {
 	display: block;
 	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-md) + 24px - var(--wpds-dimension-padding-xs));
-	height: 100%;
+	width: calc(var(--wpds-dimension-padding-xl) + 24px);
+	align-self: stretch;
 	-webkit-app-region: no-drag;
 }
 

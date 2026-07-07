@@ -1,37 +1,24 @@
+/* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
+   Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
+@font-face {
+	font-family: 'Vazirmatn';
+	src: url( './fonts/Vazirmatn-Variable.woff2' ) format( 'woff2' );
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
 :root {
 	/* Default is 2px; 4px reads a bit softer. */
 	--wpds-border-radius-sm: 4px;
 
 	/* Overlay stacking — portals mount into `document.body` and must beat
 	   app-chrome stacking contexts (sidebar header z-index: 1, floating
-	   toggle z-index: 10). Menus stay below modal surfaces; tooltips live
+	   toggle z-index: 30). Menus stay below modal surfaces; tooltips live
 	   above dialogs so help text on controls inside a modal still surfaces
 	   above the containing overlay. */
-	--ui-desks-z-popover: 100;
-	--ui-desks-z-dialog: 700;
-	--ui-desks-z-tooltip: 800;
-	--wp-ui-dialog-z-index: var( --ui-desks-z-dialog );
-	--wp-ui-tooltip-z-index: var( --ui-desks-z-tooltip );
-
-	--ui-desks-bg: rgb( 232, 234, 235 );
-	--ui-desks-material: #fff;
-	--ui-desks-glass: rgba( 255, 255, 255, 0.85 );
-	--ui-desks-glass-border: rgba( 255, 255, 255, 0.7 );
-	--ui-desks-text: #14171a;
-	--ui-desks-muted: #6b7280;
-	--ui-desks-divider: rgba( 15, 23, 42, 0.06 );
-	--ui-desks-control-hover: rgba( 15, 23, 42, 0.07 );
-	--ui-desks-focus: #3858e9;
-	--ui-desks-radius-control: 16px;
-	--ui-desks-radius-surface: 18px;
-	--ui-desks-radius-panel: 22px;
-	--ui-desks-radius-button: 12px;
-	--ui-desks-corner-shape: superellipse( 1.42 );
-	--ui-desks-shadow-control: 0 1px 2px rgba( 15, 23, 42, 0.04 ), 0 8px 24px rgba( 15, 23, 42, 0.06 );
-	--ui-desks-shadow-control-raised: 0 1px 2px rgba( 15, 23, 42, 0.04 ),
-		0 18px 44px rgba( 15, 23, 42, 0.1 );
-	--ui-desks-shadow-surface-raised: 0 1px 2px rgba( 15, 23, 42, 0.04 ),
-		0 18px 44px rgba( 15, 23, 42, 0.1 );
+	--wp-ui-dialog-z-index: 700;
+	--wp-ui-tooltip-z-index: 800;
 }
 
 body {
@@ -45,6 +32,32 @@ body {
 	color-scheme: light dark;
 	scrollbar-width: thin;
 	scrollbar-color: gray transparent;
+}
+
+/* Overriding the font-family tokens covers everything themed by the design
+   system; `lang` is set on bootstrap in lib/apply-locale.ts. */
+:root:lang( ckb ) {
+	--wpds-typography-font-family-body: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
+		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+	--wpds-typography-font-family-heading: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
+		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+}
+
+/* @wordpress/components controls hardcode their own font-family at class
+   specificity, so the token override alone doesn't reach them. */
+body:lang( ckb ) input,
+body:lang( ckb ) textarea,
+body:lang( ckb ) select,
+body:lang( ckb ) button,
+body:lang( ckb ) [class*='components-'] {
+	font-family: var( --wpds-typography-font-family-body );
+}
+
+@media ( prefers-color-scheme: dark ) {
+	:root {
+		--wp-ui-tooltip-background-color: #fff;
+		--wp-ui-tooltip-color: #000;
+	}
 }
 
 /* Universal heading styles derived from the design system's font-size /
@@ -135,19 +148,6 @@ a:focus:not( :focus-visible ),
 [data-wpds-density='compact'] [data-ui-mode='classic'] svg {
 	width: 16px;
 	height: 16px;
-}
-
-/* Desks uses each shape's indicator as the visible selection outline.
-   Hide tldraw's default selection box and handle glyphs while keeping the
-   underlying resize/rotate wrappers interactive. */
-[data-ui-mode='desks'] .tl-selection__fg__outline {
-	stroke: transparent;
-}
-
-[data-ui-mode='desks'] .tl-corner-handle,
-[data-ui-mode='desks'] .tl-mobile-rotate__fg,
-[data-ui-mode='desks'] .tl-text-handle {
-	opacity: 0;
 }
 
 /* @wordpress/components' ComboboxControl (used by DataForm's adaptive

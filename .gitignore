@@ -1,3 +1,6 @@
+# Standalone CLI bundles
+standalone-bundles/
+
 # Logs
 logs
 *.log
@@ -109,6 +112,8 @@ cli/vendor/
 
 # Build output
 dist
+dist-hosted
+dist-local
 
 # Playwright traces
 test-results
@@ -139,6 +144,9 @@ apps/studio/php-bin/
 bin/studio-cli.exe
 
 # PromptFoo evaluation outputs
-eval/output/
-eval/test-sites/
+scripts/eval/output/
+scripts/eval/test-sites/
 .promptfoo/
+
+# Codex
+.codex/

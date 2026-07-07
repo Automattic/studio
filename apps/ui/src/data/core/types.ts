@@ -1,10 +1,11 @@
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
-import type { DeskConfig, DeskSettings, StudioUiMode } from '@studio/common/types/desk';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -12,6 +13,8 @@ import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wor
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+export type { StudioChatImage, StudioChatImageAttachment } from '@studio/common/ai/chat-images';
 export type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type {
@@ -28,12 +31,6 @@ export type {
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
-export type {
-	DeskConfig,
-	DeskSettings,
-	DeskWidgetBase,
-	StudioUiMode,
-} from '@studio/common/types/desk';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -92,12 +89,42 @@ export interface AuthUser {
 	displayName: string;
 }
 
+// What native affordances the host environment offers, so the UI can choose
+// between a native flow and a browser-friendly fallback (instead of branching on
+// "am I in Electron"). The desktop app has them all; the browser (`studio ui` /
+// hosted) does not — except `openInOS`, which the local server can do because it
+// runs on the user's own machine.
+export interface ConnectorCapabilities {
+	// A native OS folder picker is available (`selectSiteFolder`). When false,
+	// the UI offers an editable path field instead.
+	nativeFolderPicker: boolean;
+	// A native "Save As" dialog is available, so exports write to a chosen path.
+	// When false, exports are delivered to the browser as a download.
+	nativeSaveDialog: boolean;
+	// The host can open paths in OS apps (file manager, editor, terminal) and
+	// detect installed apps. True on the desktop and the local server (both on
+	// the user's machine); false when hosted remotely.
+	openInOS: boolean;
+	// The preview can host the annotation inspector (script injection + a bridge
+	// into the previewed page). Only the desktop's <webview> supports this; in a
+	// browser the preview is a cross-origin <iframe> that can't be injected, so
+	// the Annotate control is hidden.
+	annotatePreview: boolean;
+	// `readLocalMediaFile` can read media files from the host's disk (used to
+	// render local screenshot artifacts inline). Only the desktop IPC connector
+	// supports it; the browser connectors reject local file reads.
+	readLocalMedia: boolean;
+}
+
 export interface Connector {
 	/**
 	 * Optional hook for connector-specific setup that must run after the
 	 * connector is constructed but before the UI renders.
 	 */
 	init?(): Promise< void >;
+
+	// What native affordances this host offers (see ConnectorCapabilities).
+	capabilities: ConnectorCapabilities;
 
 	// Auth
 	requiresAuth: boolean;
@@ -127,9 +154,6 @@ export interface Connector {
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;
-	// Xdebug is exclusive across sites; returns the one site currently using
-	// it (or null) so the settings form can block a conflicting toggle.
-	getXdebugEnabledSite(): Promise< SiteDetails | null >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -140,13 +164,11 @@ export interface Connector {
 	exportDatabase( siteId: string ): Promise< string | null >;
 
 	// Site-creation helpers — surface the same main-process capabilities the
-	// desktop app's add-site flow relies on (folder pickers, path validation,
-	// and domain lookups).
+	// desktop app's add-site flow relies on (folder pickers and path validation).
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
-	getAllCustomDomains(): Promise< string[] >;
 
 	// Featured blueprints gallery for the "Start from blueprint" onboarding
 	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
@@ -218,6 +240,11 @@ export interface Connector {
 			autoOpenPush?: boolean;
 		} ) => void
 	): () => void;
+	// Optional: ask the backend to watch for a freshly-created WordPress.com site
+	// (the "Create new" checkout) and report it via `onSyncConnectSite`. Used by
+	// surfaces that can't receive the desktop's wp-studio:// deep link — the local
+	// web server polls the account's sites instead.
+	watchForPublishedSite?( siteId: string ): Promise< void >;
 
 	// AI sessions (shared with the CLI — stored as JSONL on disk)
 	getSessions(): Promise< AiSessionSummary[] >;
@@ -229,7 +256,7 @@ export interface Connector {
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
-	// is omitted, the session is a user-desk chat with no owner site.
+	// is omitted, the session is a user chat with no owner site.
 	createSession( siteId?: string ): Promise< AiSessionSummary >;
 
 	// Continue an existing session by sending a new prompt. Returns a `runId`
@@ -238,7 +265,11 @@ export interface Connector {
 	continueSession(
 		sessionId: string,
 		prompt: string,
-		options?: { displayMessage?: string }
+		options?: {
+			displayMessage?: string;
+			images?: StudioChatImage[];
+			files?: StudioChatFileAttachment[];
+		}
 	): Promise< { runId: string } >;
 	getActiveAgentRuns(): Promise< ActiveAgentRun[] >;
 	// Persist a UI-driven model override for the session. The CLI picks this up
@@ -270,19 +301,6 @@ export interface Connector {
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
 
-	// Desks
-	getFeatureFlags(): Promise< FeatureFlags >;
-	getStudioUiMode(): Promise< StudioUiMode >;
-	setStudioUiMode( mode: StudioUiMode ): Promise< void >;
-	getDeskSettings(): Promise< DeskSettings >;
-	saveDeskSettings( settings: DeskSettings ): Promise< void >;
-	exportDeskConfig( config: DeskConfig, suggestedFilename: string ): Promise< string | null >;
-	importDeskConfig(): Promise< DeskConfig | null >;
-	getUserDeskConfig(): Promise< DeskConfig | undefined >;
-	saveUserDeskConfig( config: DeskConfig ): Promise< void >;
-	getSiteDeskConfig( siteId: string ): Promise< DeskConfig | undefined >;
-	saveSiteDeskConfig( siteId: string, config: DeskConfig ): Promise< void >;
-
 	// Site WordPress REST API. The renderer uses this as the transport for
 	// @wordpress/api-fetch / @wordpress/core-data so WordPress entity semantics
 	// stay in the WordPress packages while Studio owns site resolution and auth.
@@ -297,11 +315,23 @@ export interface Connector {
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+
+	// Clipboard — routed to the host so it works where the renderer's
+	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
+	copyText( text: string ): Promise< void >;
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,
 		options?: { autoLogin?: boolean }
 	): Promise< void >;
+
+	// Whether this host overlays macOS window controls ("traffic lights") on the
+	// top-left of the content, so the UI must reserve space for them. True only
+	// in the macOS desktop app; false on other platforms and in the browser
+	// (`studio ui` / hosted), where there are no traffic lights. Combined with
+	// `isFullscreen` — macOS hides the traffic lights in fullscreen — to decide
+	// when to actually leave the gap (see `useTrafficLightSpace`).
+	reservesTrafficLightSpace: boolean;
 
 	// Window state (macOS fullscreen hides traffic lights, so the UI needs
 	// to reclaim the space we normally leave for them).
@@ -311,10 +341,13 @@ export interface Connector {
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
 	onSiteEvent( listener: () => void ): () => void;
-}
 
-export interface FeatureFlags {
-	enableDesksUiSwitch: boolean;
+	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
+	// application menu.
+	onToggleSitePreview( listener: () => void ): () => void;
+
+	// Fires when the user activates the sidebar toggle shortcut or menu command.
+	onToggleSidebar( listener: () => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

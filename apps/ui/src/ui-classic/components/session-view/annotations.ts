@@ -22,27 +22,15 @@ function stringifyAnnotation( annotation: Annotation ): string {
 
 /**
  * Builds the submitted annotation prompt for the agent. The prompt mirrors the
- * CLI `/annotate` workflow: summarize first, ask for confirmation, then create
- * a TodoWrite list before making any site changes.
+ * CLI `/annotate` workflow: act on the submitted annotations directly.
  */
 export function formatAnnotationsAsPrompt( annotations: Annotation[] ): string {
 	const lines: string[] = [
 		`The user submitted ${ describeCount( annotations.length ) } from the site preview.`,
 		'',
-		'First, reply with a markdown summary of every requested change and ask the user to confirm before editing. Follow this shape:',
+		'Make the requested changes. When there are several annotations, address them in the order they were submitted.',
 		'',
-		"Here's what you asked me to change:",
-		'',
-		'1. <one-line description in your own words> - <visible element and nearby text>',
-		'   (your note: "<the user comment, verbatim>")',
-		'',
-		`Want me to go ahead with these ${ annotations.length } change(s)?`,
-		'',
-		'Use `AskUserQuestion` for that confirmation with options like "Yes, go ahead", "No, let me re-annotate", and "Skip some - I will tell you which". Do not edit files, run WP-CLI mutations, or change the site until the user explicitly confirms.',
-		'',
-		'After explicit confirmation, call `TodoWrite` (the Todo tool) with one task for each confirmed annotation, then keep that todo list updated as you complete the work.',
-		'',
-		'When summarizing for the user, identify elements by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.',
+		'When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.',
 		'',
 		'## Submitted Annotations',
 		'',

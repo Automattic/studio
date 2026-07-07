@@ -1,5 +1,7 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { Type } from 'typebox';
 import { emitLocalSiteSelected } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
@@ -29,6 +31,8 @@ export const createSiteTool = defineTool(
 				name: args.name,
 				wpVersion: 'latest',
 				phpVersion: DEFAULT_PHP_VERSION,
+				runtime: SITE_RUNTIME_NATIVE_PHP,
+				fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 				enableHttps: false,
 				noStart: false,
 				skipBrowser: true,

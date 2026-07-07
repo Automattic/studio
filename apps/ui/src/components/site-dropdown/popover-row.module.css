@@ -2,9 +2,7 @@
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-md);
-	/* Padding + inter-row spacing come from the parent view (e.g.
-	   main-view's `.rows`) so every row picks up a consistent rhythm
-	   without each one hardcoding its own box. */
+	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
 	min-height: 40px;
 }
 
@@ -40,6 +38,9 @@
 
 .action {
 	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	color: var(--wpds-color-fg-interactive-brand);
 	font-size: var(--wpds-typography-font-size-sm);
 }

@@ -42,7 +42,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 				</div>
 				<div className="max-w-[40ch] text-frame-text-secondary a8c-body">
 					{ __(
-						'Launch your existing WordPress.com or Jetpack-activated Pressable sites, or import an existing one. Then, share your work with the world.'
+						'Connect your existing WordPress.com or Jetpack-activated Pressable sites to keep your local and live work in sync.'
 					) }
 				</div>
 				<div className="mt-6">

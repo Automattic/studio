@@ -4,24 +4,334 @@
 }
 
 .shell {
+	--composer-resting-fill: color-mix(
+		in srgb,
+		var(--wpds-color-bg-surface-neutral-weak, #f4f4f4) 82%,
+		transparent
+	);
+	--composer-resting-tint: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 5%,
+		transparent
+	);
+	--composer-focus-ring: var(--wpds-color-fg-interactive-brand, #2563eb);
+	--composer-border-radius: 8px 8px 20px 8px;
+	--composer-block-padding: var(--wpds-dimension-padding-md);
+	--composer-inline-padding: var(--wpds-dimension-padding-lg);
+
+	position: relative;
 	display: flex;
 	flex-direction: column;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
-	border-radius: 16px;
-	background-color: var(--wpds-color-bg-surface-neutral-strong);
-	padding: var(--wpds-dimension-padding-lg);
-	box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 4px 12px rgb(0 0 0 / 6%);
-	transition: border-color 120ms ease, box-shadow 120ms ease;
+	border-radius: var(--composer-border-radius);
+	background-color: var(--composer-resting-fill);
+	background-image: linear-gradient(var(--composer-resting-tint), var(--composer-resting-tint));
+	backdrop-filter: blur(20px) saturate(115%);
+	-webkit-backdrop-filter: blur(20px) saturate(115%);
+	padding: 0;
+	outline: 0 solid transparent;
+	transition: outline-color 80ms ease, outline-width 80ms ease;
 }
 
 .shell:focus-within {
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	background-image: none;
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	outline: 2px solid var(--composer-focus-ring);
+}
+
+.shellDragging {
+	outline: 2px dashed var(--composer-focus-ring);
+}
+
+.shellResizing {
+	cursor: ns-resize;
+}
+
+.shellResizing .input {
+	user-select: none;
+}
+
+.resizeHandle {
+	position: absolute;
+	top: -5px;
+	right: var(--composer-inline-padding);
+	left: var(--composer-inline-padding);
+	z-index: 20;
+	height: 10px;
+	cursor: ns-resize;
+	touch-action: none;
+	-webkit-app-region: no-drag;
+}
+
+.resizeHandle:focus-visible {
+	border-radius: 999px;
+	outline: 2px solid var(--composer-focus-ring);
+	outline-offset: 2px;
+}
+
+.dropOverlay {
+	position: absolute;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--composer-border-radius);
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-interactive-brand, #2563eb);
+	font-size: var(--wpds-typography-font-size-sm);
+	pointer-events: none;
+}
+
+.fileInput {
+	display: none;
+}
+
+.attachments {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-sm);
+	margin: 0;
+	padding: var(--composer-block-padding) var(--composer-inline-padding) 0;
+	list-style: none;
+}
+
+.attachmentItem,
+.attachmentTile {
+	box-sizing: border-box;
+	width: 56px;
+	height: 56px;
+	user-select: none;
+}
+
+.attachmentItem {
+	position: relative;
+	display: inline-flex;
+}
+
+.attachmentAssistiveText {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.attachmentTile {
+	position: relative;
+	display: inline-flex;
+	padding: 0;
+	overflow: hidden;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 6px;
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	color: inherit;
+}
+
+.attachmentItem:hover .attachmentTile,
+.attachmentItem:focus-within .attachmentTile {
 	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
-	box-shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 6px 16px rgb(0 0 0 / 8%);
+}
+
+.attachmentPreviewImage,
+.attachmentHoverImage {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	user-select: none;
+}
+
+.attachmentPreviewText,
+.attachmentHoverText {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(--wpds-typography-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	user-select: none;
+}
+
+.attachmentPreviewText {
+	height: 100%;
+	padding: 5px;
+	overflow: hidden;
+	font-size: 5px;
+	line-height: 1.25;
+}
+
+.attachmentPreviewFallback {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	gap: 2px;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: 8px;
+	font-weight: 600;
+	line-height: 1;
+	user-select: none;
+}
+
+.attachmentRemove {
+	position: absolute;
+	top: 3px;
+	right: 3px;
+	z-index: 2;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 999px;
+	box-shadow: var(--wpds-elevation-small, 0 1px 2px rgb(0 0 0 / 16%));
+	cursor: pointer;
+	opacity: 0;
+	pointer-events: none;
+	transform: scale(0.94);
+	transition: opacity 120ms ease, transform 120ms ease;
+}
+
+/* Doubled class keeps the native button background above generic button resets. */
+.attachmentRemove.attachmentRemove,
+.attachmentRemove.attachmentRemove:focus:not(:focus-visible) {
+	background: var(--wpds-color-bg-surface-neutral);
+	border-color: var(--wpds-color-stroke-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.attachmentItem:hover .attachmentRemove,
+.attachmentItem:focus-within .attachmentRemove {
+	opacity: 1;
+	pointer-events: auto;
+	transform: scale(1);
+}
+
+.attachmentHoverPreview {
+	--attachment-hover-artwork-height: 198px;
+
+	position: fixed;
+	z-index: 10000;
+	overflow: hidden;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 8px;
+	background-color: var(--wpds-color-bg-surface-neutral-strong);
+	box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+	animation: attachmentHoverPreviewIn 120ms ease-out;
+	pointer-events: none;
+	transform-origin: bottom left;
+	user-select: none;
+}
+
+.attachmentHoverArtwork {
+	display: block;
+	width: 100%;
+	height: var(--attachment-hover-artwork-height);
+	overflow: hidden;
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral);
+	user-select: none;
+}
+
+.attachmentHoverTextViewport {
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	background-color: var(--wpds-color-bg-surface-neutral);
+	user-select: none;
+}
+
+.attachmentHoverText {
+	min-height: var(--attachment-hover-artwork-height);
+	height: auto;
+	padding: 12px;
+	overflow: visible;
+	font-size: 11px;
+	line-height: 1.35;
+}
+
+.attachmentHoverDetails {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 2px;
+	padding: 8px 10px;
+	color: var(--wpds-color-fg-content-neutral);
+	user-select: none;
+}
+
+.attachmentHoverName {
+	overflow: hidden;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.25;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.attachmentHoverMeta {
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	gap: 5px;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: 11px;
+	line-height: 1.2;
+}
+
+.attachmentHoverType {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+@keyframes attachmentHoverPreviewIn {
+	from {
+		opacity: 0;
+		transform: translateY(4px) scale(0.98);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+.attachmentItem:hover .attachmentRemove.attachmentRemove,
+.attachmentItem:focus-within .attachmentRemove.attachmentRemove,
+.attachmentRemove.attachmentRemove:hover,
+.attachmentRemove.attachmentRemove:focus-visible,
+.attachmentRemove.attachmentRemove:active {
+	background: var(--wpds-color-bg-surface-neutral-weak, #f4f4f4);
+	border-color: var(--wpds-color-stroke-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.inputArea {
+	position: relative;
+	min-width: 0;
 }
 
 .input {
+	display: block;
 	min-height: 48px;
-	padding: var(--wpds-dimension-padding-xs) 0;
+	max-height: clamp(180px, 70vh, 560px);
+	padding: var(--composer-block-padding) var(--composer-inline-padding)
+		var(--wpds-dimension-padding-xs);
 	border: 0;
 	background: transparent;
 	color: var(--wpds-color-fg-content-neutral);
@@ -29,13 +339,38 @@
 	line-height: 1.5;
 	width: 100%;
 	resize: none;
+	overflow-y: hidden;
 	font-family: inherit;
 	box-sizing: border-box;
 	outline: none;
 }
 
+.inputAreaWithAttachments .input {
+	padding-top: var(--wpds-dimension-padding-xs);
+}
+
 .input::placeholder {
+	color: transparent;
+}
+
+.placeholderText {
+	position: absolute;
+	top: var(--composer-block-padding);
+	right: var(--composer-inline-padding);
+	left: var(--composer-inline-padding);
+	overflow: hidden;
 	color: var(--wpds-color-fg-content-neutral-weak);
+	font-family: inherit;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.5;
+	pointer-events: none;
+	text-overflow: ellipsis;
+	user-select: none;
+	white-space: nowrap;
+}
+
+.inputAreaWithAttachments .placeholderText {
+	top: var(--wpds-dimension-padding-xs);
 }
 
 .toolbar {
@@ -43,7 +378,9 @@
 	align-items: flex-end;
 	justify-content: space-between;
 	gap: var(--wpds-dimension-padding-sm);
-	padding-top: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+	padding: 0 calc(var(--composer-inline-padding) - var(--wpds-dimension-padding-xs))
+		var(--composer-block-padding);
 }
 
 .leftActions,
@@ -53,34 +390,40 @@
 	gap: var(--wpds-dimension-padding-xs);
 }
 
+.leftActions {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.rightActions {
+	flex: 0 0 auto;
+}
+
 .iconButton {
 	display: inline-flex;
+	flex: 0 0 28px;
 	align-items: center;
 	justify-content: center;
-	width: 22px;
-	height: 22px;
+	width: 28px;
+	height: 28px;
 	padding: 0;
-	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border: 0;
 	border-radius: var(--wpds-border-radius-sm, 4px);
 	background-color: transparent;
-	color: var(--wpds-color-fg-content-neutral);
+	color: var(--wpds-color-fg-content-neutral-weak);
 	cursor: pointer;
 	font: inherit;
 }
 
-.iconButton svg {
-	width: 14px;
-	height: 14px;
-}
-
-.glyphButton {
-	font-size: 11px;
-	line-height: 1;
+.shell .iconButton.iconButton svg {
+	width: 18px;
+	height: 18px;
 }
 
 .iconButton:hover:not(:disabled),
 .iconButton:focus-visible:not(:disabled) {
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: transparent;
+	color: var(--wpds-color-fg-content-neutral);
 }
 
 .iconButton:disabled {
@@ -90,8 +433,10 @@
 
 .pill {
 	display: inline-flex;
+	flex: 0 0 auto;
 	align-items: center;
 	gap: 6px;
+	max-width: min(42vw, 160px);
 	height: 28px;
 	padding: 0 var(--wpds-dimension-padding-sm);
 	border: 0;
@@ -101,57 +446,78 @@
 	font: inherit;
 	font-size: var(--wpds-typography-font-size-sm);
 	cursor: pointer;
+	white-space: nowrap;
+}
+
+.pill span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .pill:hover:not(:disabled),
 .pill:focus-visible:not(:disabled) {
-	background-color: var(--wpds-color-bg-surface-neutral);
+	background-color: transparent;
+	color: var(--wpds-color-fg-content-neutral);
 }
 
 .pill:disabled {
 	cursor: default;
 }
 
-.pillDot {
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background-color: #16a34a;
-	flex-shrink: 0;
-}
-
-.pillDotLive {
-	background-color: #2563eb;
-}
-
-.envMenuPopup {
-	min-width: 140px;
-}
-
 .commandsMenuPopup {
-	min-width: 280px;
+	min-width: 172px;
 }
 
-.commandItem {
+.skillsSubmenuTrigger > span {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.submenuChevron {
+	flex: 0 0 auto;
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.skillsMenuPopup {
+	min-width: 272px;
+	max-width: min(360px, calc(100vw - 32px));
+}
+
+.skillMenuItem {
+	align-items: flex-start;
+}
+
+.skillMenuItemBody {
 	display: flex;
+	min-width: 0;
 	flex-direction: column;
 	gap: 2px;
 }
 
-.commandName {
-	font-family: var(--wpds-typography-font-family-mono, ui-monospace, monospace);
-	font-size: var(--wpds-typography-font-size-sm);
+.skillMenuItemLabel {
+	overflow: hidden;
 	color: var(--wpds-color-fg-content-neutral);
+	font-weight: 500;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.commandDescription {
-	font-size: var(--wpds-typography-font-size-xs);
+.skillMenuItemDescription {
 	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+	white-space: normal;
 }
 
 .sendButton,
 .stopButton {
 	display: inline-flex;
+	flex: 0 0 28px;
 	align-items: center;
 	justify-content: center;
 	width: 28px;
@@ -213,23 +579,8 @@
 .meta {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: var(--wpds-dimension-padding-md);
 	margin-top: var(--wpds-dimension-padding-sm);
 	padding: 0 var(--wpds-dimension-padding-xs);
-	min-height: 16px;
-	font-size: var(--wpds-typography-font-size-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.metaHint {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-}
-
-.metaUses {
-	margin-left: auto;
 }
 
 .error {

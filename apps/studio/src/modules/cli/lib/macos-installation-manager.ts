@@ -44,12 +44,20 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			return false;
 		}
 
+		// A standalone (curl) install is managed outside the app: report it as
+		// installed — matching the Windows manager — so the UI doesn't offer an
+		// install that would silently no-op. We never install over or uninstall it.
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return true;
+		}
+
 		return await this.doesSymlinkLeadToPackagedCli( cliSymlinkPath );
 	}
 
 	async installCliWithConfirmation(): Promise< void > {
 		try {
 			await this.installCli();
+			await updateAppdata( { cliUserUninstalled: false } );
 		} catch ( error ) {
 			console.error( 'Failed to install CLI', error );
 
@@ -88,6 +96,7 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 		try {
 			await this.uninstallCli();
 			await this.uninstallLegacyCliIfNeeded();
+			await updateAppdata( { cliUserUninstalled: true } );
 			const mainWindow = await getMainWindow();
 			await dialog.showMessageBox( mainWindow, {
 				type: 'info',
@@ -116,15 +125,12 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 	}
 
 	async autoInstallIfNeeded(): Promise< void > {
-		// Only auto-install on first launch. If the flag is already set but the CLI isn't
-		// installed, the user must have explicitly disabled it — respect their choice.
 		const userData = await loadUserData();
-		if ( userData.cliAutoInstalled ) {
+		if ( userData.cliUserUninstalled ) {
 			return;
 		}
 
 		await this.installCli();
-		await updateAppdata( { cliAutoInstalled: true } );
 	}
 
 	private async installCli(): Promise< void > {
@@ -140,6 +146,12 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			} else {
 				throw error;
 			}
+		}
+
+		// Never overwrite a CLI the app didn't install — e.g. a standalone curl
+		// install symlinking studio at <STUDIO_CLI_HOME>/bin/studio (any location).
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return;
 		}
 
 		if ( await this.isCliInstalled() ) {
@@ -174,6 +186,11 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 				return;
 			}
 			throw error;
+		}
+
+		// Don't remove a CLI the app didn't install (e.g. a standalone curl install).
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
+			return;
 		}
 
 		await fs.promises.unlink( cliSymlinkPath );
@@ -232,6 +249,30 @@ export class MacOSCliInstallationManager implements StudioCliInstallationManager
 			}
 			throw error;
 		}
+	}
+
+	private async isExternallyManagedCli( symlinkPath: string ): Promise< boolean > {
+		let isSymlink = false;
+		try {
+			isSymlink = ( await fs.promises.lstat( symlinkPath ) ).isSymbolicLink();
+		} catch {
+			return false;
+		}
+		if ( ! isSymlink ) {
+			return false;
+		}
+		// A dangling symlink (e.g. a standalone install that was deleted without
+		// removing the link) is broken, not externally managed — reclaim it so a
+		// reinstall can repair `studio` instead of refusing to touch it.
+		try {
+			await fs.promises.stat( symlinkPath );
+		} catch {
+			return false;
+		}
+		// A symlink that doesn't point at our packaged CLI is managed outside the
+		// app (e.g. a standalone curl install at <STUDIO_CLI_HOME>/bin/studio, any
+		// location). Treat it as installed and never overwrite it.
+		return ! ( await this.doesSymlinkLeadToPackagedCli( symlinkPath ) );
 	}
 
 	private async doesSymlinkLeadToPackagedCli( symlinkPath: string ): Promise< boolean > {

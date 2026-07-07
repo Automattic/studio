@@ -2,6 +2,7 @@ import { getAiModelLabel } from '@studio/common/ai/models';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import buttonDefense from '../wp-ui-button-defense.module.css';
+import dialogDefense from '../wp-ui-dialog-defense.module.css';
 import type { AiModelId } from '@studio/common/ai/models';
 
 /**
@@ -36,7 +37,7 @@ export function FamilySwitchConfirmDialog( {
 				}
 			} }
 		>
-			<Dialog.Popup size="small">
+			<Dialog.Popup size="small" className={ dialogDefense.popup }>
 				<Dialog.Header>
 					<Dialog.Title>{ __( 'Start a new conversation?' ) }</Dialog.Title>
 				</Dialog.Header>

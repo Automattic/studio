@@ -1,8 +1,8 @@
 import { useIsMutating } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { external } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
+import { arrowDown, arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
+import { Button, IconButton, Tooltip } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { useMemo } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
@@ -21,10 +21,10 @@ import {
 	usePullSiteFromLive,
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
+import { getSyncActivityLabel } from './trigger-secondary';
 import {
 	deriveSiteStatus,
 	ensureProtocol,
@@ -34,9 +34,14 @@ import {
 	stripProtocol,
 } from './utils';
 import type { SiteDetails } from '@/data/core';
+import type { SyncActivity } from '@/data/sync-activity';
+import type { ComponentProps } from 'react';
+
+type ButtonProps = ComponentProps< typeof Button >;
 
 type Props = {
 	site: SiteDetails;
+	activity: SyncActivity | null;
 	// Switches the dropdown to the publish picker. Lives in the parent because
 	// the picker is a sibling view at the popup level.
 	onSetupClick: () => void;
@@ -65,10 +70,8 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 	return { push, pull };
 }
 
-export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
+export function MainView( { site, activity, onSetupClick, onDisconnectClick }: Props ) {
 	const connector = useConnector();
-	const navigate = useNavigate();
-	const { data: userPreferences } = useUserPreferences();
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 
@@ -86,25 +89,19 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
+	const isLocalTransitioning = isStarting || isStopping;
 	const { push: isPushPending, pull: isPullPending } = useIsSiteSyncing( site.id );
 	const isPreviewPending = publishPreviewSite.isPending;
 	// Preview / push / pull all mutate the same local site; running them
 	// concurrently would wedge the site runtime.
 	const isSyncing = isPreviewPending || isPushPending || isPullPending;
 
-	const { status, localSublabel } = deriveSiteStatus( site, isStarting, isStopping );
+	const { localSublabel } = deriveSiteStatus( site, isStarting, isStopping );
+	const localSiteUrl = getSiteUrl( site );
+	const canOpenLocalSite = site.running && ! isStopping;
 
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
-	};
-
-	const handleToggleServer = () => {
-		if ( status === 'transitioning' ) return;
-		if ( site.running ) {
-			stopSite.mutate( site.id );
-		} else {
-			startSite.mutate( site.id );
-		}
 	};
 
 	const handlePreviewClick = () => {
@@ -116,6 +113,22 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 			},
 			{ onSuccess: ( { url } ) => openExternal( ensureProtocol( url ) ) }
 		);
+	};
+
+	const handleCopyPreviewClick = ( url: string ) => {
+		void connector.copyText( url ).catch( ( error ) => {
+			console.error( 'Failed to copy preview URL:', error );
+		} );
+	};
+
+	const handleStartLocalClick = () => {
+		if ( isLocalTransitioning || isSyncing || site.running ) return;
+		startSite.mutate( site.id );
+	};
+
+	const handleStopLocalClick = () => {
+		if ( isLocalTransitioning || isSyncing || ! site.running ) return;
+		stopSite.mutate( site.id );
 	};
 
 	const handlePullClick = () => {
@@ -131,193 +144,289 @@ export function MainView( { site, onSetupClick, onDisconnectClick }: Props ) {
 		);
 	};
 
-	const handleOpenFolder = () => {
-		void connector.openSiteFolder( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site folder:', error );
-		} );
-	};
+	const renderTooltipButton = ( {
+		tooltip,
+		children,
+		...props
+	}: ButtonProps & { tooltip: string } ) => (
+		<Tooltip.Root>
+			<Tooltip.Trigger render={ <Button { ...props }>{ children }</Button> } />
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ tooltip }</Tooltip.Popup>
+		</Tooltip.Root>
+	);
 
-	const handleOpenInEditor = () => {
-		// No editor preference yet — send the user to Settings so they can
-		// pick one before the action becomes useful.
-		if ( ! userPreferences?.editor ) {
-			void navigate( { to: '/settings' } );
-			return;
-		}
-		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site in editor:', error );
-		} );
-	};
-
-	const handleOpenInTerminal = () => {
-		void connector.openSiteInTerminal( site.id ).catch( ( error ) => {
-			console.error( 'Failed to open site in terminal:', error );
-		} );
-	};
-
-	const handleOpenPhpMyAdmin = () => {
-		openExternal(
-			`${ getSiteUrl( site ) }/phpmyadmin/index.php?route=/database/structure&db=wordpress`
-		);
-	};
-
-	const handleOpenWpAdmin = () => {
-		const siteUrl = getSiteUrl( site );
-		const redirectTo = new URL( '/wp-admin/', siteUrl ).toString();
-		const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
-		autoLoginUrl.searchParams.set( 'redirect_to', redirectTo );
-		openExternal( autoLoginUrl.toString() );
-	};
+	const renderUrlLink = ( { text, url, label }: { text: string; url: string; label: string } ) => (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<button
+						type="button"
+						className={ styles.urlLink }
+						aria-label={ label }
+						onClick={ () => openExternal( url ) }
+					>
+						<span>{ text }</span>
+						<Icon icon={ external } size={ 12 } aria-hidden="true" />
+					</button>
+				}
+			/>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
+		</Tooltip.Root>
+	);
 
 	return (
-		<>
-			<div className={ styles.rows }>
-				<PopoverRow
-					label={
-						<>
-							{ __( 'Local site' ) }
-							{ site.running ? (
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ external }
-									label={ __( 'Open local site' ) }
-									onClick={ () => openExternal( getSiteUrl( site ) ) }
-								/>
-							) : null }
-						</>
-					}
-					sublabel={ localSublabel }
-					action={
-						<Button
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							loading={ status === 'transitioning' }
-							loadingAnnouncement={ isStopping ? __( 'Stopping' ) : __( 'Starting' ) }
-							onClick={ handleToggleServer }
-						>
-							{ site.running ? __( 'Stop' ) : __( 'Start' ) }
-						</Button>
-					}
-				/>
+		<div className={ styles.rows }>
+			{ activity?.kind === 'error' ? <SyncActivityError activity={ activity } /> : null }
 
+			<PopoverRow
+				label={ __( 'Studio' ) }
+				sublabel={
+					canOpenLocalSite
+						? renderUrlLink( {
+								text: localSublabel,
+								url: localSiteUrl,
+								label: __( 'Open Studio site in your browser' ),
+						  } )
+						: localSublabel
+				}
+				action={
+					<LocalServerControl
+						running={ site.running }
+						starting={ isStarting }
+						stopping={ isStopping }
+						disabled={ isSyncing }
+						busyLabel={
+							isLocalTransitioning
+								? isStopping
+									? __( 'Stopping Studio site' )
+									: __( 'Starting Studio site' )
+								: undefined
+						}
+						onStart={ handleStartLocalClick }
+						onStop={ handleStopLocalClick }
+					/>
+				}
+			/>
+
+			{ previewSnapshot ? (
 				<PopoverRow
-					label={
-						<>
-							{ __( 'Live site' ) }
-							{ liveSite ? (
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ external }
-									label={ __( 'Open live site' ) }
-									onClick={ () => openExternal( ensureProtocol( liveSite.url ) ) }
-								/>
-							) : null }
-						</>
-					}
-					sublabel={ liveSite ? stripProtocol( liveSite.url ) : __( 'Not yet set up' ) }
+					label={ __( 'Preview' ) }
+					sublabel={ __( 'Ready to share for feedback.' ) }
 					action={
-						liveSite ? (
-							<div className={ styles.rowActions }>
-								<Button
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									loading={ isPullPending }
-									loadingAnnouncement={ __( 'Pulling from live' ) }
-									disabled={ isSyncing }
-									onClick={ handlePullClick }
-								>
-									{ __( 'Pull' ) }
-								</Button>
-								<Button
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									loading={ isPushPending }
-									loadingAnnouncement={ __( 'Pushing to live' ) }
-									disabled={ isSyncing }
-									onClick={ handlePushClick }
-								>
-									{ __( 'Push' ) }
-								</Button>
-								<Button
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									disabled={ isSyncing }
-									onClick={ onDisconnectClick }
-								>
-									{ __( 'Disconnect' ) }
-								</Button>
-							</div>
-						) : (
-							<Button
+						<div className={ styles.rowActions }>
+							{ renderTooltipButton( {
+								tooltip: __( 'Open preview site in your browser' ),
+								variant: 'minimal',
+								tone: 'neutral',
+								size: 'compact',
+								onClick: () => openExternal( ensureProtocol( previewSnapshot.url ) ),
+								children: __( 'View' ),
+							} ) }
+							<IconButton
 								variant="minimal"
 								tone="neutral"
 								size="small"
+								icon={ copy }
+								label={ __( 'Copy preview URL' ) }
+								className={ styles.rowActionButton }
+								onClick={ () => handleCopyPreviewClick( ensureProtocol( previewSnapshot.url ) ) }
+							/>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ arrowUp }
+								label={ isPreviewPending ? __( 'Updating preview' ) : __( 'Update preview site' ) }
+								className={ styles.rowActionButton }
+								loading={ isPreviewPending }
+								loadingAnnouncement={ __( 'Updating preview' ) }
 								disabled={ isSyncing }
-								onClick={ onSetupClick }
-							>
-								{ __( 'Connect' ) }
-							</Button>
-						)
+								focusableWhenDisabled
+								onClick={ handlePreviewClick }
+							/>
+						</div>
 					}
 				/>
+			) : (
+				<EnvironmentActionPanel
+					title={ __( 'Preview' ) }
+					copy={ __( 'Share a review link for this version.' ) }
+					buttonLabel={ __( 'Share' ) }
+					variant="outline"
+					tone="neutral"
+					loading={ isPreviewPending }
+					loadingAnnouncement={ __( 'Creating preview' ) }
+					disabled={ isSyncing }
+					onClick={ handlePreviewClick }
+				/>
+			) }
 
+			{ liveSite ? (
 				<PopoverRow
-					label={
-						<>
-							{ __( 'Preview site' ) }
-							{ previewSnapshot ? (
-								<IconButton
-									variant="minimal"
-									tone="neutral"
-									size="small"
-									icon={ external }
-									label={ __( 'Open preview site' ) }
-									onClick={ () => openExternal( ensureProtocol( previewSnapshot.url ) ) }
-								/>
-							) : null }
-						</>
-					}
-					sublabel={
-						previewSnapshot ? stripProtocol( previewSnapshot.url ) : __( 'Not yet created' )
-					}
+					label={ __( 'Live' ) }
+					sublabel={ renderUrlLink( {
+						text: stripProtocol( liveSite.url ),
+						url: ensureProtocol( liveSite.url ),
+						label: __( 'Open live site in your browser' ),
+					} ) }
 					action={
-						<Button
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							loading={ isPreviewPending }
-							loadingAnnouncement={
-								previewSnapshot ? __( 'Updating preview' ) : __( 'Creating preview' )
-							}
-							disabled={ isSyncing }
-							onClick={ handlePreviewClick }
-						>
-							{ previewSnapshot ? __( 'Update' ) : __( 'Preview' ) }
-						</Button>
+						<div className={ styles.rowActions }>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ arrowDown }
+								label={ isPullPending ? __( 'Pulling from live' ) : __( 'Pull from live' ) }
+								className={ styles.rowActionButton }
+								disabled={ isSyncing }
+								focusableWhenDisabled
+								onClick={ handlePullClick }
+							/>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ arrowUp }
+								label={ isPushPending ? __( 'Pushing to live' ) : __( 'Push to live' ) }
+								className={ styles.rowActionButton }
+								disabled={ isSyncing }
+								focusableWhenDisabled
+								onClick={ handlePushClick }
+							/>
+							<Menu.SubmenuRoot>
+								<Menu.SubmenuTrigger
+									className={ styles.moreMenuTrigger }
+									disabled={ isSyncing }
+									aria-label={ __( 'More live site actions' ) }
+								>
+									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
+								</Menu.SubmenuTrigger>
+								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
+									<Menu.Item disabled={ isSyncing } onClick={ onDisconnectClick }>
+										{ __( 'Disconnect' ) }
+									</Menu.Item>
+								</Menu.Popup>
+							</Menu.SubmenuRoot>
+						</div>
 					}
 				/>
-			</div>
+			) : (
+				<EnvironmentActionPanel
+					title={ __( 'Live' ) }
+					copy={ __( 'No connected site.' ) }
+					buttonLabel={ __( 'Publish' ) }
+					variant="solid"
+					tone="brand"
+					disabled={ isSyncing }
+					onClick={ onSetupClick }
+				/>
+			) }
+		</div>
+	);
+}
 
-			<Menu.Separator />
-			<div className={ styles.menuItems }>
-				<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
-				<Menu.Item onClick={ handleOpenInEditor }>{ __( 'Open in editor' ) }</Menu.Item>
-				<Menu.Item onClick={ handleOpenInTerminal }>{ __( 'Open in terminal' ) }</Menu.Item>
-				<Menu.Item disabled={ ! site.running } onClick={ handleOpenPhpMyAdmin }>
-					{ __( 'Open phpMyAdmin' ) }
-				</Menu.Item>
-				<Menu.Item disabled={ ! site.running } onClick={ handleOpenWpAdmin }>
-					{ __( 'Open WP admin' ) }
-				</Menu.Item>
+function SyncActivityError( {
+	activity,
+}: {
+	activity: Extract< SyncActivity, { kind: 'error' } >;
+} ) {
+	return (
+		<div className={ styles.activityError } role="status">
+			<div className={ styles.activityErrorTitle }>{ getSyncActivityLabel( activity ) }</div>
+			<div className={ styles.activityErrorMessage }>{ activity.message }</div>
+		</div>
+	);
+}
+
+function LocalServerControl( {
+	running,
+	starting,
+	stopping,
+	disabled,
+	busyLabel,
+	onStart,
+	onStop,
+}: {
+	running: boolean;
+	starting: boolean;
+	stopping: boolean;
+	disabled: boolean;
+	busyLabel?: string;
+	onStart: () => void;
+	onStop: () => void;
+} ) {
+	const pending = starting || stopping;
+	const targetRunning = starting ? true : stopping ? false : running;
+
+	return (
+		<button
+			type="button"
+			className={ clsx(
+				styles.localServerControl,
+				targetRunning && styles.localServerControl_running,
+				pending && styles.localServerControl_pending
+			) }
+			aria-label={ busyLabel ?? __( 'Studio site status' ) }
+			role="switch"
+			aria-checked={ targetRunning }
+			aria-busy={ pending || undefined }
+			disabled={ disabled || pending }
+			onClick={ targetRunning ? onStop : onStart }
+		>
+			<span className={ styles.localServerThumb } aria-hidden="true">
+				<span
+					className={ clsx(
+						styles.localServerGlyph,
+						targetRunning ? styles.playIcon : styles.pauseIcon
+					) }
+				/>
+			</span>
+		</button>
+	);
+}
+
+function EnvironmentActionPanel( {
+	title,
+	copy,
+	buttonLabel,
+	variant,
+	tone,
+	loading,
+	loadingAnnouncement,
+	disabled,
+	onClick,
+}: {
+	title: string;
+	copy: string;
+	buttonLabel: string;
+	variant: ButtonProps[ 'variant' ];
+	tone: ButtonProps[ 'tone' ];
+	loading?: boolean;
+	loadingAnnouncement?: string;
+	disabled: boolean;
+	onClick: () => void;
+} ) {
+	return (
+		<div className={ styles.environmentActionRow }>
+			<div className={ styles.environmentActionText }>
+				<div className={ styles.environmentActionTitle }>{ title }</div>
+				<p className={ styles.environmentActionCopy }>{ copy }</p>
 			</div>
-		</>
+			<Button
+				variant={ variant }
+				tone={ tone }
+				size="compact"
+				className={ clsx(
+					styles.environmentActionButton,
+					variant === 'outline' && styles.environmentActionButton_outline
+				) }
+				loading={ loading }
+				loadingAnnouncement={ loadingAnnouncement }
+				disabled={ disabled }
+				onClick={ onClick }
+			>
+				{ buttonLabel }
+			</Button>
+		</div>
 	);
 }

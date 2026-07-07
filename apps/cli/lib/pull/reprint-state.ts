@@ -13,24 +13,35 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
+import { z } from 'zod';
 
 const STATE_FILE = '.import-state.json';
 const REMOTE_INDEX_FILE = '.import-remote-index.jsonl';
 export const SKIPPED_DOWNLOAD_LIST = '.import-download-list-skipped.jsonl';
 
-export interface ReprintStateSnapshot {
-	command?: string | null;
-	status?: string | null;
-	cursor?: unknown;
-	stage?: string | null;
-	preflight?: {
-		data?: {
-			runtime?: {
-				document_root?: string | null;
-			};
-		};
-	};
-}
+export const reprintStateSnapshotSchema = z.looseObject( {
+	command: z.string().nullish(),
+	status: z.string().nullish(),
+	cursor: z.unknown().optional(),
+	stage: z.string().nullish(),
+	filter: z.string().nullish(),
+	preflight: z
+		.looseObject( {
+			data: z
+				.looseObject( {
+					runtime: z
+						.looseObject( {
+							document_root: z.string().nullish(),
+						} )
+						.optional(),
+				} )
+				.optional(),
+		} )
+		.optional(),
+} );
+
+export type ReprintStateSnapshot = z.infer< typeof reprintStateSnapshotSchema >;
 
 export function getReprintStatePath( stateDirectory: string ): string {
 	return path.join( stateDirectory, STATE_FILE );
@@ -44,14 +55,24 @@ export function readReprintState( stateDirectory: string ): ReprintStateSnapshot
 	let raw: string;
 	try {
 		raw = fs.readFileSync( getReprintStatePath( stateDirectory ), 'utf-8' );
-	} catch ( error: unknown ) {
-		if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) {
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
 			return null;
 		}
 		throw error;
 	}
 
-	return JSON.parse( raw ) as ReprintStateSnapshot;
+	const parsedJson = JSON.parse( raw );
+	const parsed = reprintStateSnapshotSchema.safeParse( parsedJson );
+	return parsed.success ? parsed.data : null;
+}
+
+export function writeReprintState( stateDirectory: string, state: ReprintStateSnapshot ): void {
+	const parsedState = reprintStateSnapshotSchema.parse( state );
+	fs.writeFileSync(
+		getReprintStatePath( stateDirectory ),
+		JSON.stringify( parsedState, null, 2 ) + '\n'
+	);
 }
 
 /**
@@ -61,9 +82,7 @@ export function readReprintState( stateDirectory: string ): ReprintStateSnapshot
  * inside the raw fs-root.
  */
 export function getContentDirFromState( stateDirectory: string ): string | null {
-	const state = readReprintState( stateDirectory ) as
-		| ( ReprintStateSnapshot & Record< string, unknown > )
-		| null;
+	const state = readReprintState( stateDirectory );
 	const preflight = state?.preflight?.data as Record< string, unknown > | undefined;
 	const database = preflight?.database as Record< string, unknown > | undefined;
 	const wp = database?.wp as Record< string, unknown > | undefined;
@@ -92,7 +111,13 @@ export function shouldRestartFilesSyncIndex( stateDirectory: string ): boolean {
 		return false;
 	}
 
-	if ( state.command !== 'files-sync' || state.status === 'complete' ) {
+	// reprint canonicalizes the legacy 'files-sync' command name to
+	// 'files-pull' when it saves state; accept both so this check keeps
+	// working across reprint versions.
+	if (
+		( state.command !== 'files-sync' && state.command !== 'files-pull' ) ||
+		state.status === 'complete'
+	) {
 		return false;
 	}
 
@@ -115,7 +140,7 @@ export function hasSkippedFiles( stateDirectory: string ): boolean {
  * we don't have to round-trip the remote for it again.
  */
 export function resetEssentialFilesState( stateDirectory: string ): void {
-	const existingState = readReprintState( stateDirectory ) as Record< string, unknown > | null;
+	const existingState = readReprintState( stateDirectory );
 	const preflight = existingState?.preflight;
 
 	for ( const fileName of [
@@ -130,7 +155,7 @@ export function resetEssentialFilesState( stateDirectory: string ): void {
 
 	const statePath = getReprintStatePath( stateDirectory );
 	if ( preflight ) {
-		fs.writeFileSync( statePath, JSON.stringify( { preflight }, null, 2 ) + '\n' );
+		writeReprintState( stateDirectory, { preflight } );
 	} else {
 		fs.rmSync( statePath, { force: true } );
 	}

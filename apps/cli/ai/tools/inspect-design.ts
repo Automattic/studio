@@ -2,6 +2,11 @@ import { Type } from 'typebox';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
+import {
+	applyScreenshotMediaEmulation,
+	SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
+	SCREENSHOT_COLOR_SCHEME_VALUES,
+} from './screenshot-helpers';
 import { textResult } from './utils';
 
 /**
@@ -88,6 +93,7 @@ export const inspectDesignTool = defineTool(
 		'and the ancestor chain of layout classes (is-layout-constrained, alignfull, wp-block-group) that controls width and spacing. ' +
 		'Pass `includeHover: true` to also capture computed styles while hovering the first match — use this for button/link hover states. ' +
 		'Pair this with take_screenshot: the screenshot shows the symptom, inspect_design shows the cause. ' +
+		'Pass `colorScheme: "light"` or `colorScheme: "dark"` to inspect styles under the same prefers-color-scheme mode used by take_screenshot. ' +
 		'Use it before editing CSS so you target the element that actually carries the style (e.g. .wp-block-button__link, not the .wp-block-button wrapper) instead of guessing.',
 	{
 		url: Type.String( { description: 'The URL of the running site page to inspect' } ),
@@ -108,11 +114,18 @@ export const inspectDesignTool = defineTool(
 					'When true, also captures the computed styles of the first match of each selector while it is hovered. Use for button/link hover diagnosis.',
 			} )
 		),
+		colorScheme: Type.Optional(
+			Type.Enum( SCREENSHOT_COLOR_SCHEME_VALUES, {
+				description: SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
+			} )
+		),
 	},
 	async ( args ) => {
 		const viewport: InspectViewport = ( args.viewport as InspectViewport ) ?? 'desktop';
 		emitProgress(
-			`Inspecting ${ args.selectors.length } selector(s) on ${ args.url } (${ viewport })…`
+			`Inspecting ${ args.selectors.length } selector(s) on ${ args.url } (${ viewport }${
+				args.colorScheme ? `, ${ args.colorScheme }` : ''
+			})…`
 		);
 
 		const browser = await getSharedBrowser();
@@ -122,7 +135,7 @@ export const inspectDesignTool = defineTool(
 		} );
 
 		try {
-			await page.emulateMedia( { reducedMotion: 'reduce' } );
+			await applyScreenshotMediaEmulation( page, args.colorScheme );
 			await page.goto( args.url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
 			await page.waitForLoadState( 'networkidle', { timeout: 2500 } ).catch( () => {} );
 			await page.evaluate(
@@ -263,6 +276,7 @@ export const inspectDesignTool = defineTool(
 						url: args.url,
 						viewport,
 						viewportWidth: INSPECT_VIEWPORTS[ viewport ].width,
+						...( args.colorScheme ? { colorScheme: args.colorScheme } : {} ),
 						selectors: report,
 						...( hover ? { hover } : {} ),
 					},

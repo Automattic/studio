@@ -15,9 +15,10 @@ const SRC = join(repoRoot, 'src');
 const DIST = join(repoRoot, 'dist');
 
 // Extensions of runtime (non-test, non-fixture) assets to mirror into dist/.
-const RUNTIME_EXT = /\.php$/;
-// Directories never copied (test fixtures / snapshots are not runtime).
-const SKIP_DIR = /(^|\/)(__fixtures__|__snapshots__)(\/|$)/;
+// .php: vendored WP helpers; .json: data assets read at runtime (e.g. core-block-attrs.json).
+const RUNTIME_EXT = /\.(php|json)$/;
+// Directories never copied (tests / fixtures / snapshots are not runtime).
+const SKIP_DIR = /(^|\/)(__fixtures__|__snapshots__|__tests__)(\/|$)/;
 
 let copied = 0;
 function walk(dir) {

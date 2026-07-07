@@ -8,6 +8,7 @@ import {
 import { sitesEndpointSiteSchema, sitesEndpointResponseSchema } from '@studio/common/types/sync';
 import { z } from 'zod';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { buildSupplementalSyncSite } from 'src/modules/sync/lib/build-supplemental-sync-site';
 import { reconcileConnectedSites } from 'src/modules/sync/lib/reconcile-connected-sites';
 import { withOfflineCheck } from 'src/stores/utils/with-offline-check';
 import { getWpcomClient } from 'src/stores/wpcom-api';
@@ -165,12 +166,9 @@ export const wpcomSitesApi = createApi( {
 										}
 									);
 									const parsed = sitesEndpointSiteSchema.parse( singleResponse );
-									const syncSupport = getSyncSupport( parsed, connectedIds );
-									const isStaging =
-										parsed.environment_type === 'staging' ||
-										parsed.environment_type === 'development';
+									const storedSite = allConnectedSites.find( ( { id } ) => id === siteId );
 									supplementalSites.push(
-										transformSingleSiteResponse( parsed, syncSupport, isStaging )
+										buildSupplementalSyncSite( parsed, storedSite, connectedIds )
 									);
 								} catch ( error ) {
 									const status = ( error as { status?: number } )?.status;

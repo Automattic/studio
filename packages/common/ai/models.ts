@@ -34,6 +34,7 @@ export interface AiModel {
 export const AI_MODELS = [
 	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic', thinking: 'adaptive' },
 	{ id: 'claude-opus-4-8', label: 'Opus 4.8', family: 'anthropic', thinking: 'adaptive' },
+	{ id: 'claude-fable-5', label: 'Fable 5', family: 'anthropic', thinking: 'adaptive' },
 	{ id: 'gpt-5.5', label: 'GPT 5.5', family: 'openai', thinking: 'none' },
 ] as const satisfies readonly AiModel[];
 

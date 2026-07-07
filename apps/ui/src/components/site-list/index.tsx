@@ -1,3 +1,4 @@
+import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { moreHorizontal } from '@wordpress/icons';
@@ -29,6 +30,7 @@ import {
 	useSites,
 	useStartSite,
 	useStopSite,
+	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
@@ -45,7 +47,6 @@ type SiteRow = {
 type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
-const SITE_ORDER_STORAGE_KEY = 'studio-ui-site-list-order-v1';
 
 function SiteAgentActivityTooltip( {
 	label,
@@ -149,36 +150,14 @@ function getTimestamp( session: AiSessionSummary | undefined ): number {
 	return session ? Date.parse( session.updatedAt ) || 0 : 0;
 }
 
-function readStoredSiteOrder(): string[] {
-	try {
-		const stored = window.localStorage.getItem( SITE_ORDER_STORAGE_KEY );
-		const parsed = stored ? JSON.parse( stored ) : [];
-		return Array.isArray( parsed )
-			? parsed.filter( ( id ): id is string => typeof id === 'string' )
-			: [];
-	} catch {
-		return [];
-	}
-}
-
-function writeStoredSiteOrder( siteIds: string[] ): void {
-	try {
-		window.localStorage.setItem( SITE_ORDER_STORAGE_KEY, JSON.stringify( siteIds ) );
-	} catch {
-		// Ignore storage failures; drag order still updates for this render.
-	}
-}
-
-function sortSitesByManualOrder(
-	sites: SiteDetails[] | undefined,
-	manualOrder: string[]
-): SiteDetails[] {
-	const sourceSites = sites ?? [];
+// Overlays the just-dragged order (kept in state while the persisted
+// `sortOrder` catches up) on top of the fetched sites.
+function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): SiteDetails[] {
 	if ( manualOrder.length === 0 ) {
-		return sourceSites;
+		return sites;
 	}
 
-	const sitesById = new Map( sourceSites.map( ( site ) => [ site.id, site ] ) );
+	const sitesById = new Map( sites.map( ( site ) => [ site.id, site ] ) );
 	const orderedIds = new Set< string >();
 	const orderedSites: SiteDetails[] = [];
 
@@ -190,7 +169,7 @@ function sortSitesByManualOrder(
 		}
 	}
 
-	for ( const site of sourceSites ) {
+	for ( const site of sites ) {
 		if ( ! orderedIds.has( site.id ) ) {
 			orderedSites.push( site );
 		}
@@ -614,7 +593,8 @@ export function SiteList() {
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
-	const [ manualSiteOrder, setManualSiteOrder ] = useState( readStoredSiteOrder );
+	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
+	const updateSitesSortOrder = useUpdateSitesSortOrder();
 	const [ seenSiteSessionTimestampsInitialized, setSeenSiteSessionTimestampsInitialized ] =
 		useState( false );
 	const [ seenSiteSessionTimestamps, setSeenSiteSessionTimestamps ] = useState<
@@ -622,7 +602,7 @@ export function SiteList() {
 	>( {} );
 
 	const orderedSites = useMemo(
-		() => sortSitesByManualOrder( sites, manualSiteOrder ),
+		() => sortSitesByManualOrder( sortSites( [ ...( sites ?? [] ) ] ), manualSiteOrder ),
 		[ sites, manualSiteOrder ]
 	);
 	const rows = useMemo(
@@ -695,7 +675,7 @@ export function SiteList() {
 
 	const persistOrder = ( nextSiteIds: string[] ) => {
 		setManualSiteOrder( nextSiteIds );
-		writeStoredSiteOrder( nextSiteIds );
+		updateSitesSortOrder.mutate( nextSiteIds );
 	};
 
 	const renderSiteRow = ( row: SiteRow ) => (

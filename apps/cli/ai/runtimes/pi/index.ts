@@ -46,6 +46,7 @@ import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
+import { loadAgentsInstructions } from './agents-instructions';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
 	getIncompleteToolCallReason,
@@ -291,6 +292,8 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
+	const activeSitePath =
+		config.activeSite && ! config.activeSite.remote ? config.activeSite.path : undefined;
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
 
@@ -325,7 +328,7 @@ async function createStudioAgentSession(
 		noThemes: true,
 		noContextFiles: true,
 		systemPrompt,
-		appendSystemPrompt: [],
+		appendSystemPrompt: await loadAgentsInstructions( activeSitePath ),
 	} );
 	await resourceLoader.reload();
 

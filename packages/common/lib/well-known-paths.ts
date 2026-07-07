@@ -24,6 +24,10 @@ export function getAppConfigLockFilePath(): string {
 	return path.join( getConfigDirectory(), APP_CONFIG_LOCKFILE_NAME );
 }
 
+export function getGlobalAgentsFilePath(): string {
+	return path.join( getConfigDirectory(), 'AGENTS.md' );
+}
+
 export function getCliConfigPath(): string {
 	if ( process.env.E2E && process.env.E2E_CLI_CONFIG_PATH ) {
 		return path.join( process.env.E2E_CLI_CONFIG_PATH, 'cli.json' );

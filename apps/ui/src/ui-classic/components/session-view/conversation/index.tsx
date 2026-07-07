@@ -1,4 +1,13 @@
 import {
+	getLocalMediaPath,
+	getMediaAltText,
+	getSafeMediaUrl,
+	isRenderableMediaWidget,
+	isStudioChatArtifactData,
+	stripMediaWidgetPayloadLines,
+	type StudioChatArtifactWidgetDraft,
+} from '@studio/common/ai/chat-artifacts';
+import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
@@ -7,6 +16,7 @@ import {
 	getInputString,
 	getToolDetail,
 	getToolDisplayName,
+	getToolResultDiff,
 	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
@@ -56,9 +66,10 @@ import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Markdown } from '@/components/markdown';
+import { useConnector, type LoadedAiSession } from '@/data/core';
+import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
-import type { LoadedAiSession } from '@/data/core';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 interface AgentQuestionRenderItem {
@@ -88,6 +99,11 @@ type RenderItem =
 			key: string;
 			questions: AgentQuestionRenderItem[];
 	  }
+	| {
+			kind: 'chat-artifact';
+			key: string;
+			widgets: StudioChatArtifactWidgetDraft[];
+	  }
 	| { kind: 'interrupted-marker'; key: string };
 
 interface PiAssistantContentBlock {
@@ -107,6 +123,7 @@ interface PiToolResultLike {
 	role: 'toolResult';
 	toolCallId: string;
 	content?: Array< { type: string; text?: string } >;
+	details?: unknown;
 	isError?: boolean;
 }
 
@@ -185,7 +202,10 @@ function resolveBatchedAnswerForQuestion(
 	return optionLabels.has( answer ) ? answer : undefined;
 }
 
-export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
+export function entriesToRenderItems(
+	entries: SessionEntry[],
+	options: { canReadLocalMedia?: boolean } = {}
+): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -198,8 +218,11 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			.map( ( b ) => b.text as string )
 			.join( '\n' );
 		resultsByToolCallId.set( message.toolCallId, {
-			text,
+			// Old transcripts embed media widget payload markers in screenshot
+			// results; strip them from every tool's display text.
+			text: stripMediaWidgetPayloadLines( text ),
 			isError: message.isError === true,
+			diff: message.isError === true ? undefined : getToolResultDiff( message.details ),
 		} );
 	}
 
@@ -284,6 +307,30 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				key: `${ batchStartIndex }:question-batch`,
 				questions,
 			} );
+			continue;
+		}
+
+		if ( isStudioCustomEntryOfType( entry, 'studio.chat_artifact' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.chat_artifact' > ).data;
+			// Guard against malformed persisted entries so one bad line can't
+			// take down the whole transcript.
+			if ( ! isStudioChatArtifactData( data ) ) {
+				continue;
+			}
+			const widgets = data.widgets.filter(
+				( widget ) =>
+					isRenderableMediaWidget( widget ) &&
+					// Without local media access (browser builds), only widgets
+					// with a renderable remote URL are worth showing.
+					( options.canReadLocalMedia !== false || Boolean( getSafeMediaUrl( widget ) ) )
+			);
+			if ( widgets.length > 0 ) {
+				items.push( {
+					kind: 'chat-artifact',
+					key: `${ entryIndex }:chat-artifact`,
+					widgets,
+				} );
+			}
 			continue;
 		}
 
@@ -553,6 +600,26 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 	}
 }
 
+function DiffBlock( { diff }: { diff: string } ) {
+	const lines = diff.replace( /\n$/, '' ).split( '\n' );
+	return (
+		<pre className={ styles.toolDiff }>
+			{ lines.map( ( line, index ) => (
+				<span
+					key={ index }
+					className={ clsx(
+						styles.diffLine,
+						line.startsWith( '+' ) && styles.diffLineAdded,
+						line.startsWith( '-' ) && styles.diffLineRemoved
+					) }
+				>
+					{ line.length > 0 ? line : ' ' }
+				</span>
+			) ) }
+		</pre>
+	);
+}
+
 function ToolIcon( { name, input }: { name: string; input?: Record< string, unknown > } ) {
 	return (
 		<Icon
@@ -578,7 +645,8 @@ function ToolUseRow( {
 	const resultText = result?.text?.trim() ?? '';
 	const hasOutput = resultText.length > 0;
 	const hasInput = display.inputText.length > 0;
-	const hasExpandableDetails = hasInput || hasOutput;
+	const hasDiff = Boolean( result?.diff );
+	const hasExpandableDetails = hasInput || hasOutput || hasDiff;
 	const [ expanded, setExpanded ] = useState( false );
 	const [ detailsMounted, setDetailsMounted ] = useState( false );
 	useEffect( () => {
@@ -643,11 +711,53 @@ function ToolUseRow( {
 									{ resultText }
 								</pre>
 							) : null }
+							{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
 						</div>
 					</div>
 				</div>
 			) : null }
 		</div>
+	);
+}
+
+function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] } ) {
+	return (
+		<div className={ styles.mediaArtifactGrid }>
+			{ widgets.map( ( widget, index ) => (
+				<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
+			) ) }
+		</div>
+	);
+}
+
+function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
+	const connector = useConnector();
+	const localPath = connector.capabilities.readLocalMedia ? getLocalMediaPath( widget ) : null;
+	const safeUrl = getSafeMediaUrl( widget );
+	const localFileQuery = useLocalMediaDataUrl( localPath );
+
+	const src = localPath ? localFileQuery.data ?? null : safeUrl;
+
+	if ( localFileQuery.isError || ( ! localPath && ! safeUrl ) ) {
+		return (
+			<div className={ styles.mediaArtifactUnavailable } role="status">
+				{ __( 'Image unavailable' ) }
+			</div>
+		);
+	}
+
+	if ( ! src ) {
+		return <div className={ styles.mediaArtifactLoading } aria-hidden="true" />;
+	}
+
+	return (
+		<figure className={ styles.mediaArtifactItem }>
+			<img
+				className={ styles.mediaArtifactImage }
+				src={ src }
+				alt={ getMediaAltText( widget, __( 'Image' ) ) }
+			/>
+		</figure>
 	);
 }
 
@@ -1011,7 +1121,11 @@ export function Conversation( {
 	onAnswerQuestion: ( question: string, label: string ) => void;
 } ) {
 	const entries = data.entries;
-	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
+	const canReadLocalMedia = useConnector().capabilities.readLocalMedia;
+	const items = useMemo(
+		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
+		[ entries, canReadLocalMedia ]
+	);
 	const progressMessage = useMemo(
 		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
 		[ entries, isRunning ]
@@ -1046,6 +1160,8 @@ export function Conversation( {
 								onAnswer={ onAnswerQuestion }
 							/>
 						);
+					case 'chat-artifact':
+						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
 					case 'interrupted-marker':
 						return (
 							<div key={ item.key } className={ styles.interruptedMarker } role="status">

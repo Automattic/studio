@@ -1,4 +1,14 @@
 import {
+	getLocalMediaPath,
+	getMediaAltText,
+	getSafeMediaUrl,
+	isRenderableMediaWidget,
+	isStudioChatArtifactData,
+	stripMediaWidgetPayloadLines,
+	type StudioChatArtifactWidgetDraft,
+} from '@studio/common/ai/chat-artifacts';
+import { readBlobAsDataUrl } from '@studio/common/ai/composer-attachments';
+import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
@@ -12,8 +22,9 @@ import {
 import { __ } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cx } from 'src/lib/cx';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { Markdown } from '../markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -41,6 +52,11 @@ type RenderItem =
 			question: string;
 			options: Array< { label: string; description: string } >;
 			answer?: string;
+	  }
+	| {
+			kind: 'chat-artifact';
+			key: string;
+			widgets: StudioChatArtifactWidgetDraft[];
 	  }
 	| { kind: 'interrupted-marker'; key: string };
 
@@ -80,7 +96,9 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			.map( ( b ) => b.text as string )
 			.join( '\n' );
 		resultsByToolCallId.set( message.toolCallId, {
-			text,
+			// Old transcripts embed media widget payload markers in screenshot
+			// results; strip them from every tool's display text.
+			text: stripMediaWidgetPayloadLines( text ),
 			isError: message.isError === true,
 			diff: message.isError === true ? undefined : getToolResultDiff( message.details ),
 		} );
@@ -167,6 +185,24 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				answer: askUserAnswers[ questionOrdinal ],
 			} );
 			questionOrdinal += 1;
+			return;
+		}
+
+		if ( isStudioCustomEntryOfType( entry, 'studio.chat_artifact' ) ) {
+			const data = ( entry as StudioCustomEntry< 'studio.chat_artifact' > ).data;
+			// Guard against malformed persisted entries so one bad line can't
+			// take down the whole transcript.
+			if ( ! isStudioChatArtifactData( data ) ) {
+				return;
+			}
+			const widgets = data.widgets.filter( isRenderableMediaWidget );
+			if ( widgets.length > 0 ) {
+				items.push( {
+					kind: 'chat-artifact',
+					key: `${ entryIndex }:chat-artifact`,
+					widgets,
+				} );
+			}
 			return;
 		}
 
@@ -361,6 +397,87 @@ function ToolUseRow( {
 	);
 }
 
+// Data URLs for already-read screenshot files, keyed by path. Screenshot
+// files are immutable, so one IPC read per path per app lifetime is enough.
+// Data URLs (allowed by the renderer CSP, unlike blob:) need no revocation.
+const localMediaDataUrls = new Map< string, Promise< string > >();
+
+function readLocalMediaDataUrl( path: string ): Promise< string > {
+	let promise = localMediaDataUrls.get( path );
+	if ( ! promise ) {
+		promise = getIpcApi()
+			.readLocalMediaFile( path )
+			.then( ( file ) => readBlobAsDataUrl( new Blob( [ file.data ], { type: file.mimeType } ) ) );
+		promise.catch( () => localMediaDataUrls.delete( path ) );
+		localMediaDataUrls.set( path, promise );
+	}
+	return promise;
+}
+
+function ChatArtifact( { widgets }: { widgets: StudioChatArtifactWidgetDraft[] } ) {
+	return (
+		<div className={ styles.mediaArtifactGrid }>
+			{ widgets.map( ( widget, index ) => (
+				<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
+			) ) }
+		</div>
+	);
+}
+
+function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
+	const localPath = getLocalMediaPath( widget );
+	const safeUrl = getSafeMediaUrl( widget );
+	const [ localSrc, setLocalSrc ] = useState< string | null >( null );
+	const [ failed, setFailed ] = useState( false );
+
+	useEffect( () => {
+		if ( ! localPath ) {
+			return;
+		}
+		let active = true;
+		setLocalSrc( null );
+		setFailed( false );
+		readLocalMediaDataUrl( localPath )
+			.then( ( dataUrl ) => {
+				if ( active ) {
+					setLocalSrc( dataUrl );
+				}
+			} )
+			.catch( () => {
+				if ( active ) {
+					setFailed( true );
+				}
+			} );
+		return () => {
+			active = false;
+		};
+	}, [ localPath ] );
+
+	const src = localPath ? localSrc : safeUrl;
+
+	if ( failed || ( ! localPath && ! safeUrl ) ) {
+		return (
+			<div className={ styles.mediaArtifactUnavailable } role="status">
+				{ __( 'Image unavailable' ) }
+			</div>
+		);
+	}
+
+	if ( ! src ) {
+		return <div className={ styles.mediaArtifactLoading } aria-hidden="true" />;
+	}
+
+	return (
+		<figure className={ styles.mediaArtifactItem }>
+			<img
+				className={ styles.mediaArtifactImage }
+				src={ src }
+				alt={ getMediaAltText( widget, __( 'Image' ) ) }
+			/>
+		</figure>
+	);
+}
+
 function AgentQuestion( {
 	question,
 	options,
@@ -483,6 +600,8 @@ export function Conversation( {
 								onAnswer={ ( label ) => onAnswerQuestion( item.question, label ) }
 							/>
 						);
+					case 'chat-artifact':
+						return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
 					case 'interrupted-marker':
 						return (
 							<div key={ item.key } className={ styles.interruptedMarker } role="status">

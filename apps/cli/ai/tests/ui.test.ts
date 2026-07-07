@@ -1,5 +1,5 @@
-import { Container } from '@earendil-works/pi-tui';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Container, resetCapabilitiesCache, setCapabilities } from '@earendil-works/pi-tui';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -616,5 +616,84 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showError ).not.toHaveBeenCalled();
 		expect( showInfo ).not.toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( false );
+	} );
+} );
+
+describe( 'AiChatUI.renderToolResultImages', () => {
+	// 1x1 transparent PNG.
+	const TINY_PNG =
+		'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+	function createUiStub() {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			renderToolResultImages: ( result: unknown, target: Container ) => void;
+			[ key: string ]: unknown;
+		};
+		ui.tui = { requestRender: vi.fn() };
+		return ui;
+	}
+
+	afterEach( () => {
+		resetCapabilitiesCache();
+	} );
+
+	it( 'renders image blocks inline when the terminal supports an image protocol', () => {
+		setCapabilities( { images: 'iterm2', trueColor: true, hyperlinks: true } );
+		const ui = createUiStub();
+		const target = new Container();
+
+		ui.renderToolResultImages(
+			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/png' } ] },
+			target
+		);
+
+		expect( target.render( 120 ).join( '\n' ) ).toContain( '1337;File=' );
+	} );
+
+	it( 'renders nothing when the terminal has no image protocol', () => {
+		setCapabilities( { images: null, trueColor: false, hyperlinks: false } );
+		const ui = createUiStub();
+		const target = new Container();
+
+		ui.renderToolResultImages(
+			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/png' } ] },
+			target
+		);
+
+		expect( target.render( 120 ) ).toHaveLength( 0 );
+	} );
+
+	it( 'skips non-PNG images on kitty-protocol terminals', () => {
+		setCapabilities( { images: 'kitty', trueColor: true, hyperlinks: true } );
+		const ui = createUiStub();
+		const target = new Container();
+
+		ui.renderToolResultImages(
+			{ content: [ { type: 'image', data: TINY_PNG, mimeType: 'image/jpeg' } ] },
+			target
+		);
+
+		expect( target.render( 120 ) ).toHaveLength( 0 );
+	} );
+} );
+
+describe( 'AiChatUI.getToolResultContent', () => {
+	it( 'strips legacy media widget payload lines from replayed tool results', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			getToolResultContent: ( result: unknown ) => {
+				content: Array< { type: string; text?: string } >;
+			};
+		};
+
+		const result = ui.getToolResultContent( {
+			content: [
+				{
+					type: 'text',
+					text: 'Screenshot captured — desktop.\nmediaWidgetPayload={"type":"media"}',
+				},
+			],
+		} );
+
+		expect( result.content[ 0 ].text ).toBe( 'Screenshot captured — desktop.' );
 	} );
 } );

@@ -161,6 +161,9 @@ export function SettingsView( {
 				type: 'text',
 				label: __( 'Language' ),
 				elements: LOCALE_ELEMENTS,
+				// Force the native <select>. DataForm otherwise uses a clearable
+				// combobox for 10+ options, whose "x" could empty the language.
+				Edit: 'select',
 			},
 		],
 		[ installedApps ]

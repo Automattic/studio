@@ -9,7 +9,7 @@ export function useCheckpoints( siteId: string | undefined ) {
 	return useQuery( {
 		queryKey: checkpointsQueryKey( siteId ?? '' ),
 		queryFn: () => connector.listCheckpoints( siteId! ),
-		enabled: !! siteId && connector.capabilities.siteCheckpoints,
+		enabled: !! siteId && ( connector.capabilities?.siteCheckpoints ?? false ),
 	} );
 }
 

@@ -5,6 +5,7 @@ import { Button, Field, IconButton, Select, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useCheckpoints, useCreateCheckpoint } from '@/data/queries/use-checkpoints';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
@@ -640,6 +641,14 @@ export function MainView( {
 	const localSiteUrl = getSiteUrl( site );
 	const canOpenLocalSite = site.running && ! isStopping;
 
+	// Checkpoints run on the user's machine, so the affordance only exists
+	// where the connector can reach the CLI checkpoint engine.
+	const supportsCheckpoints = connector.capabilities?.siteCheckpoints ?? false;
+	const checkpoints = useCheckpoints( supportsCheckpoints ? site.id : undefined );
+	const createCheckpoint = useCreateCheckpoint();
+	// The list is ordered oldest → newest.
+	const latestCheckpoint = checkpoints.data?.[ checkpoints.data.length - 1 ];
+
 	const openExternal = ( url: string ) => {
 		void connector.openExternalUrl( url );
 	};
@@ -745,30 +754,59 @@ export function MainView( {
 			<PopoverRow
 				label={ __( 'Studio' ) }
 				sublabel={
-					canOpenLocalSite
-						? renderUrlLink( {
-								text: localSublabel,
-								url: localSiteUrl,
-								label: __( 'Open Studio site in your browser' ),
-						  } )
-						: localSublabel
+					<>
+						{ canOpenLocalSite
+							? renderUrlLink( {
+									text: localSublabel,
+									url: localSiteUrl,
+									label: __( 'Open Studio site in your browser' ),
+							  } )
+							: localSublabel }
+						{ supportsCheckpoints ? (
+							<div>
+								{ latestCheckpoint
+									? sprintf(
+											__( 'Checkpoint saved %s' ),
+											formatRelativeTime( new Date( latestCheckpoint.createdAt ).toISOString() )
+									  )
+									: __( 'No checkpoints yet.' ) }
+							</div>
+						) : null }
+					</>
 				}
 				action={
-					<LocalServerControl
-						running={ site.running }
-						starting={ isStarting }
-						stopping={ isStopping }
-						disabled={ isSyncing }
-						busyLabel={
-							isLocalTransitioning
-								? isStopping
-									? __( 'Stopping Studio site' )
-									: __( 'Starting Studio site' )
-								: undefined
-						}
-						onStart={ handleStartLocalClick }
-						onStop={ handleStopLocalClick }
-					/>
+					<div className={ styles.rowActions }>
+						{ supportsCheckpoints
+							? renderTooltipButton( {
+									tooltip: __( 'Save a checkpoint of the site’s files and database' ),
+									variant: 'minimal',
+									tone: 'neutral',
+									size: 'compact',
+									loading: createCheckpoint.isPending,
+									onClick: () => {
+										if ( ! createCheckpoint.isPending ) {
+											createCheckpoint.mutate( { siteId: site.id } );
+										}
+									},
+									children: __( 'Checkpoint' ),
+							  } )
+							: null }
+						<LocalServerControl
+							running={ site.running }
+							starting={ isStarting }
+							stopping={ isStopping }
+							disabled={ isSyncing }
+							busyLabel={
+								isLocalTransitioning
+									? isStopping
+										? __( 'Stopping Studio site' )
+										: __( 'Starting Studio site' )
+									: undefined
+							}
+							onStart={ handleStartLocalClick }
+							onStop={ handleStopLocalClick }
+						/>
+					</div>
 				}
 			/>
 

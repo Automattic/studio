@@ -109,6 +109,7 @@ const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } 
 
 describe( 'OpenInMenu', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
+	const openExternalUrl = vi.fn().mockResolvedValue( undefined );
 	const openSiteFolder = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
 	const openSiteInTerminal = vi.fn().mockResolvedValue( undefined );
@@ -122,6 +123,7 @@ describe( 'OpenInMenu', () => {
 		window.localStorage.clear();
 		useConnectorMock.mockReturnValue( {
 			openSiteUrl,
+			openExternalUrl,
 			openSiteFolder,
 			openSiteInEditor,
 			openSiteInTerminal,
@@ -173,6 +175,32 @@ describe( 'OpenInMenu', () => {
 			)
 		);
 		expect( startSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'offers the browser destination only when a URL is provided', () => {
+		const { rerender } = render( <OpenInMenu site={ createSite( { running: true } ) } /> );
+		expect( screen.queryByText( 'Browser' ) ).not.toBeInTheDocument();
+
+		rerender(
+			<OpenInMenu
+				site={ createSite( { running: true } ) }
+				browserUrl="http://localhost:8881/about/"
+			/>
+		);
+
+		fireEvent.click( screen.getByText( 'Browser' ).closest( 'button' )! );
+
+		expect( openExternalUrl ).toHaveBeenCalledWith( 'http://localhost:8881/about/' );
+		expect( window.localStorage.getItem( 'studio:open-in-menu:last-used' ) ).toBe( 'browser' );
+	} );
+
+	it( 'disables the browser destination while the site is stopped', () => {
+		render(
+			<OpenInMenu site={ createSite( { running: false } ) } browserUrl="http://localhost:8881/" />
+		);
+
+		const browserItem = screen.getByText( 'Browser' ).closest( 'button' )!;
+		expect( browserItem ).toBeDisabled();
 	} );
 
 	it( 'starts a stopped site before opening phpMyAdmin', async () => {

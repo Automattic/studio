@@ -13,7 +13,13 @@ import type { SiteDetails } from '@/data/core';
 const LAST_USED_STORAGE_KEY = 'studio:open-in-menu:last-used';
 
 function isOpenInDestination( value: string | null ): value is OpenInDestination {
-	return value === 'files' || value === 'editor' || value === 'terminal' || value === 'phpmyadmin';
+	return (
+		value === 'browser' ||
+		value === 'files' ||
+		value === 'editor' ||
+		value === 'terminal' ||
+		value === 'phpmyadmin'
+	);
 }
 
 function getStoredDestination(): OpenInDestination {
@@ -25,7 +31,51 @@ function getStoredDestination(): OpenInDestination {
 	}
 }
 
-export function OpenInMenu( { site }: { site: SiteDetails } ) {
+function storeLastUsedDestination( destination: OpenInDestination ): void {
+	try {
+		window.localStorage.setItem( LAST_USED_STORAGE_KEY, destination );
+	} catch {
+		// Storage failures only mean the split trigger won't persist.
+	}
+}
+
+/**
+ * Just the destination items, for embedding in another menu (the preview's
+ * narrow-toolbar overflow). Site-management actions (Duplicate, Export,
+ * Delete) stay with the full `OpenInMenu` and the sidebar context menu.
+ */
+export function OpenInDestinationItems( {
+	site,
+	browserUrl,
+}: {
+	site: SiteDetails;
+	browserUrl?: string;
+} ) {
+	const destinations = useOpenInDestinations( site, storeLastUsedDestination, browserUrl );
+	return (
+		<>
+			{ destinations.map( ( destination ) => (
+				<QuickMenuItem
+					key={ destination.id }
+					icon={ destination.logo }
+					label={ destination.label }
+					disabled={ destination.disabled }
+					onClick={ destination.open }
+				/>
+			) ) }
+		</>
+	);
+}
+
+export function OpenInMenu( {
+	site,
+	browserUrl,
+}: {
+	site: SiteDetails;
+	// Enables the "Browser" destination: the absolute URL to open externally
+	// (e.g. the preview's current page).
+	browserUrl?: string;
+} ) {
 	const navigate = useNavigate();
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
@@ -40,14 +90,10 @@ export function OpenInMenu( { site }: { site: SiteDetails } ) {
 
 	const rememberDestination = ( destination: OpenInDestination ) => {
 		setLastUsed( destination );
-		try {
-			window.localStorage.setItem( LAST_USED_STORAGE_KEY, destination );
-		} catch {
-			// Storage failures only mean the trigger icon won't persist.
-		}
+		storeLastUsedDestination( destination );
 	};
 
-	const destinations = useOpenInDestinations( site, rememberDestination );
+	const destinations = useOpenInDestinations( site, rememberDestination, browserUrl );
 	const lastUsedDestination =
 		destinations.find( ( destination ) => destination.id === lastUsed ) ?? destinations[ 0 ];
 

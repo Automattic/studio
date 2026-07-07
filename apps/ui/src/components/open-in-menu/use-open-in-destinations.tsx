@@ -2,7 +2,7 @@ import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { code } from '@wordpress/icons';
+import { code, globe } from '@wordpress/icons';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useIsSiteStopping } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -18,7 +18,7 @@ import {
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 
-export type OpenInDestination = 'files' | 'editor' | 'terminal' | 'phpmyadmin';
+export type OpenInDestination = 'browser' | 'files' | 'editor' | 'terminal' | 'phpmyadmin';
 
 export interface OpenInDestinationEntry {
 	id: OpenInDestination;
@@ -40,14 +40,19 @@ export function getFileManager(): { label: string; logo: ReactElement } {
 }
 
 /**
- * The "Open in…" destinations for a site (file manager, editor, terminal,
- * phpMyAdmin) with their labels, logos, and open handlers. `onOpen` fires
- * only when a destination actually opens — picking the editor without a
+ * The "Open in…" destinations for a site (browser, file manager, editor,
+ * terminal, phpMyAdmin) with their labels, logos, and open handlers. `onOpen`
+ * fires only when a destination actually opens — picking the editor without a
  * configured preference navigates to settings instead and reports nothing.
+ *
+ * The browser destination only appears when the caller provides `browserUrl`
+ * (the absolute URL to hand to the external browser, e.g. the preview's
+ * current page).
  */
 export function useOpenInDestinations(
 	site: SiteDetails,
-	onOpen?: ( destination: OpenInDestination ) => void
+	onOpen?: ( destination: OpenInDestination ) => void,
+	browserUrl?: string
 ): OpenInDestinationEntry[] {
 	const connector = useConnector();
 	const navigate = useNavigate();
@@ -69,7 +74,25 @@ export function useOpenInDestinations(
 		? terminalLogos[ userPreferences.terminal ]
 		: appleTerminalLogo;
 
+	const browserDestination: OpenInDestinationEntry[] = browserUrl
+		? [
+				{
+					id: 'browser',
+					label: __( 'Browser' ),
+					logo: globe,
+					disabled: ! site.running,
+					open: () => {
+						onOpen?.( 'browser' );
+						void connector.openExternalUrl( browserUrl ).catch( ( error ) => {
+							console.error( 'Failed to open site in browser:', error );
+						} );
+					},
+				},
+		  ]
+		: [];
+
 	return [
+		...browserDestination,
 		{
 			id: 'files',
 			label: fileManager.label,

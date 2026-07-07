@@ -3,7 +3,6 @@ import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
-import { OpenInMenu } from '@/components/open-in-menu';
 import { PublishPickerView } from '@/components/site-dropdown/publish-picker-view';
 import { pickLiveSite } from '@/components/site-dropdown/utils';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
@@ -72,7 +71,6 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 	return (
 		<div className={ clsx( styles.root, sidebarCollapsed && styles.rootSidebarCollapsed ) }>
 			<PublishButton site={ site } />
-			<OpenInMenu site={ site } />
 		</div>
 	);
 }

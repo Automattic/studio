@@ -170,10 +170,8 @@
 	flex-shrink: 0;
 }
 
-/* Hardcoded because `--wpds-color-fg-content-success` is #002900 (reads as
-   black at 6px) and the critical/accent equivalents don't exist. */
 .dot_running {
-	background-color: #16a34a;
+	background-color: var(--studio-color-status-running);
 }
 
 .dot_stopped {

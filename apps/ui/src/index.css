@@ -9,6 +9,14 @@
 	   above the containing overlay. */
 	--wp-ui-dialog-z-index: 700;
 	--wp-ui-tooltip-z-index: 800;
+
+	/* Vivid status colors the wpds palette lacks: --wpds-color-fg-content-success
+	   resolves to #002900 (reads black at dot size) and there are no
+	   caution/accent equivalents. */
+	--studio-color-status-running: #16a34a;
+	--studio-color-status-transitioning: #a16207;
+	--studio-color-status-attention: #facc15;
+	--studio-color-status-sync: #a855f7;
 }
 
 body {

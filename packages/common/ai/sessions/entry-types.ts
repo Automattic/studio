@@ -21,6 +21,8 @@ export interface StudioSiteSelectedData {
 	remote?: boolean;
 	url?: string;
 	wpcomSiteId?: number;
+	sshSite?: boolean;
+	sshSiteId?: string;
 }
 
 export interface StudioToolProgressData {

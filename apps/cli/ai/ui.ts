@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import {
 	TUI,
 	ProcessTerminal,
@@ -38,9 +39,17 @@ import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/pro
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
-import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
+import {
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	unlockCliConfig,
+	type SiteData,
+	type SshSiteData,
+} from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
+import { isValidSshDestination, probeSshWordPressSite } from 'cli/lib/ssh';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
@@ -48,7 +57,25 @@ import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
-type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | typeof SITE_PICKER_TAB_REMOTE;
+const SITE_PICKER_TAB_SSH = 'ssh' as const;
+type SitePickerTab =
+	| typeof SITE_PICKER_TAB_LOCAL
+	| typeof SITE_PICKER_TAB_REMOTE
+	| typeof SITE_PICKER_TAB_SSH;
+
+const SSH_ADD_NEW_VALUE = '__add_new_ssh_site__';
+
+function sshSiteDataToSiteInfo( site: SshSiteData ): SiteInfo {
+	return {
+		name: site.name,
+		path: '',
+		running: false,
+		remote: true,
+		url: site.url,
+		sshSite: true,
+		sshSiteId: site.id,
+	};
+}
 
 const sitePickerTheme: SelectListTheme = {
 	selectedPrefix: ( text ) => chalk.blue( text ),
@@ -342,6 +369,8 @@ export class AiChatUI implements AiOutputAdapter {
 	private sitePickerTab: SitePickerTab = SITE_PICKER_TAB_LOCAL;
 	private sitePickerRemoteItems: SiteInfo[] = [];
 	private sitePickerRemoteLoading = false;
+	private sitePickerRemoteError: string | null = null;
+	private sitePickerSshItems: SiteInfo[] = [];
 	private sitePickerQuery = '';
 
 	get activeSite(): SiteInfo | null {
@@ -571,13 +600,25 @@ export class AiChatUI implements AiOutputAdapter {
 					void this.openSelectedSite();
 					return { consume: true };
 				}
-				if ( matchesKey( data, 'right' ) && this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) {
-					void this.switchToRemoteSites();
-					return { consume: true };
+				if ( matchesKey( data, 'right' ) ) {
+					if ( this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) {
+						void this.switchToRemoteSites();
+						return { consume: true };
+					}
+					if ( this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
+						this.switchToSshSites();
+						return { consume: true };
+					}
 				}
-				if ( matchesKey( data, 'left' ) && this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
-					this.switchToLocalSites();
-					return { consume: true };
+				if ( matchesKey( data, 'left' ) ) {
+					if ( this.sitePickerTab === SITE_PICKER_TAB_SSH ) {
+						void this.switchToRemoteSites();
+						return { consume: true };
+					}
+					if ( this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
+						this.switchToLocalSites();
+						return { consume: true };
+					}
 				}
 				if ( matchesKey( data, 'escape' ) ) {
 					if ( this.sitePickerQuery ) {
@@ -590,6 +631,8 @@ export class AiChatUI implements AiOutputAdapter {
 				if ( matchesKey( data, 'backspace' ) ) {
 					if ( this.sitePickerQuery ) {
 						this.setSitePickerQuery( this.sitePickerQuery.slice( 0, -1 ) );
+					} else if ( this.sitePickerTab === SITE_PICKER_TAB_SSH ) {
+						void this.confirmDeleteSshSite();
 					}
 					return { consume: true };
 				}
@@ -627,7 +670,8 @@ export class AiChatUI implements AiOutputAdapter {
 	private async openSitePicker(): Promise< void > {
 		const config = await readCliConfig();
 		const sites: SiteData[] = config.sites ?? [];
-		if ( sites.length === 0 ) {
+		const sshSites: SshSiteData[] = config.sshSites ?? [];
+		if ( sites.length === 0 && sshSites.length === 0 ) {
 			this.messages.addChild(
 				new Text( chalk.dim( '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
 			);
@@ -642,6 +686,7 @@ export class AiChatUI implements AiOutputAdapter {
 			path: site.path,
 			running: runningStatus.get( site.id ) ?? false,
 		} ) );
+		this.sitePickerSshItems = sshSites.map( ( site ) => sshSiteDataToSiteInfo( site ) );
 		this.sitePickerVisible = true;
 		this.editor.showBottomBar = false;
 		this.sitePickerContainer = new Container();
@@ -680,25 +725,213 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
+	// Shows the error inline on the WordPress.com tab (instead of closing or
+	// resetting the picker) so ←/→ navigation to the other tabs keeps working —
+	// the SSH tab must stay reachable without a WordPress.com login.
 	private showSitePickerError( message: string ): void {
-		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
-		this.sitePickerRemoteItems = [];
+		this.sitePickerRemoteLoading = false;
+		this.sitePickerRemoteError = message;
 		this.rebuildSitePickerList();
 		this.renderSitePicker();
-		this.messages.addChild( new Text( `\n${ chalk.dim( message ) }\n`, 1, 0 ) );
-		this.tui.requestRender();
 	}
 
 	private resetSitePickerTab( tab: SitePickerTab ): void {
 		this.sitePickerTab = tab;
 		this.sitePickerQuery = '';
 		this.sitePickerRemoteLoading = false;
+		this.sitePickerRemoteError = null;
 	}
 
 	private switchToLocalSites(): void {
 		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );
 		this.rebuildSitePickerList();
 		this.renderSitePicker();
+	}
+
+	private switchToSshSites(): void {
+		this.resetSitePickerTab( SITE_PICKER_TAB_SSH );
+		this.rebuildSitePickerList();
+		this.renderSitePicker();
+	}
+
+	// `askUser` ends each call by starting a "thinking" loader because it is
+	// built for mid-agent-turn questions. The SSH connect/delete flows use it
+	// for plain input outside any agent turn, so the loader would be left
+	// spinning ("Drafting…") after they finish. These wrappers clear it on every
+	// exit path — success, validation error, or connection failure.
+	private async confirmDeleteSshSite(): Promise< void > {
+		try {
+			await this.confirmDeleteSshSiteFlow();
+		} finally {
+			this.hideLoader();
+		}
+	}
+
+	private async confirmDeleteSshSiteFlow(): Promise< void > {
+		const selectedItem = this.sitePickerSelectList?.getSelectedItem();
+		if ( ! selectedItem || selectedItem.value === SSH_ADD_NEW_VALUE ) {
+			return;
+		}
+		const site = this.sitePickerItemMap.get( selectedItem.value );
+		if ( ! site?.sshSite ) {
+			return;
+		}
+
+		this.closeSitePicker();
+		const answers = await this.askUser( [
+			{
+				question: sprintf(
+					/* translators: %s: site name */
+					__( 'Remove "%s" from saved sites?' ),
+					site.name
+				),
+				options: [
+					{ label: __( 'Yes' ), description: __( 'Remove this site' ) },
+					{ label: __( 'No' ), description: __( 'Keep this site' ) },
+				],
+			},
+		] );
+		const answer = Object.values( answers )[ 0 ]?.toLowerCase();
+		if ( answer !== __( 'yes' ).toLowerCase() ) {
+			return;
+		}
+		try {
+			await lockCliConfig();
+			const config = await readCliConfig();
+			config.sshSites = ( config.sshSites ?? [] ).filter( ( s ) => s.id !== site.sshSiteId );
+			await saveCliConfig( config );
+		} finally {
+			await unlockCliConfig();
+		}
+		// Clear the active site if we just deleted it
+		if ( this._activeSite?.sshSite && this._activeSite?.sshSiteId === site.sshSiteId ) {
+			this.clearActiveSite();
+		}
+		this.showInfo(
+			sprintf(
+				/* translators: %s: site name */
+				__( 'Removed "%s"' ),
+				site.name
+			)
+		);
+	}
+
+	private async connectSshSite(): Promise< void > {
+		try {
+			await this.connectSshSiteFlow();
+		} finally {
+			this.hideLoader();
+		}
+	}
+
+	private async connectSshSiteFlow(): Promise< void > {
+		this.closeSitePicker();
+
+		this.showInfo(
+			__(
+				'To connect a WordPress site over SSH, you need:\n' +
+					'  - key-based SSH access to the server (`ssh user@host` must work without a password prompt),\n' +
+					'  - WP-CLI installed on the server (https://wp-cli.org).'
+			)
+		);
+
+		const destinationAnswers = await this.askUser( [
+			{
+				question: __( 'SSH destination (user@host, user@host:2222, or an ~/.ssh/config alias)' ),
+				options: [],
+				allowFreeForm: true,
+			},
+		] );
+		const destinationInput = Object.values( destinationAnswers )[ 0 ]?.trim() ?? '';
+		if ( ! destinationInput ) {
+			this.showError( __( 'SSH destination is required.' ) );
+			return;
+		}
+		// A trailing `:2222` selects a non-default port.
+		let destination = destinationInput;
+		let port: number | undefined;
+		const portMatch = destinationInput.match( /^(.+):(\d{1,5})$/ );
+		if ( portMatch ) {
+			destination = portMatch[ 1 ];
+			port = Number.parseInt( portMatch[ 2 ], 10 );
+			if ( port <= 0 || port > 65535 ) {
+				this.showError( __( 'Invalid SSH port.' ) );
+				return;
+			}
+		}
+		if ( ! isValidSshDestination( destination ) ) {
+			this.showError(
+				__(
+					'Invalid SSH destination. Use "host", "user@host", "user@host:2222", or an ~/.ssh/config alias.'
+				)
+			);
+			return;
+		}
+
+		const pathAnswers = await this.askUser( [
+			{
+				question: __( 'WordPress root path on the server (e.g. /var/www/html or public_html)' ),
+				options: [],
+				allowFreeForm: true,
+			},
+		] );
+		const remotePath = Object.values( pathAnswers )[ 0 ]?.trim() ?? '';
+		if ( ! remotePath ) {
+			this.showError( __( 'WordPress root path is required.' ) );
+			return;
+		}
+
+		// One SSH round-trip validates reachability, key auth, WP-CLI presence,
+		// and the WordPress root, and reads the site URL and name.
+		this.showInfo( __( 'Connecting…' ) );
+		let homeUrl: string;
+		let siteName: string;
+		try {
+			const probe = await probeSshWordPressSite( { destination, port, remotePath } );
+			homeUrl = probe.homeUrl;
+			siteName = probe.siteName;
+		} catch ( error ) {
+			this.showError(
+				sprintf(
+					/* translators: %s: error message */
+					__( 'Connection failed: %s' ),
+					error instanceof Error ? error.message : String( error )
+				)
+			);
+			return;
+		}
+
+		const newSite: SshSiteData = {
+			id: randomUUID(),
+			name: siteName,
+			url: homeUrl,
+			destination,
+			port,
+			remotePath,
+		};
+
+		try {
+			await lockCliConfig();
+			const config = await readCliConfig();
+			config.sshSites = [ ...( config.sshSites ?? [] ), newSite ];
+			await saveCliConfig( config );
+		} finally {
+			await unlockCliConfig();
+		}
+
+		this._activeSiteData = null;
+		this.setActiveSite( sshSiteDataToSiteInfo( newSite ) );
+	}
+
+	private handleSshSitePickerSelect( item: SelectItem ): void {
+		if ( item.value === SSH_ADD_NEW_VALUE ) {
+			void this.connectSshSite();
+			return;
+		}
+		const site = this.sitePickerItemMap.get( item.value );
+		if ( site ) {
+			this.selectFilteredSite( site );
+		}
 	}
 
 	private setSitePickerQuery( query: string ): void {
@@ -720,6 +953,13 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	private siteInfoToSelectItem( site: SiteInfo ): SelectItem {
+		if ( site.sshSite ) {
+			return {
+				value: site.sshSiteId ?? site.url ?? site.name,
+				label: site.name,
+				description: site.url?.replace( /^https?:\/\//, '' ),
+			};
+		}
 		if ( site.remote ) {
 			return {
 				value: site.url ?? site.name,
@@ -735,10 +975,14 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	private rebuildSitePickerList(): void {
-		const allItems =
-			this.sitePickerTab === SITE_PICKER_TAB_REMOTE
-				? this.sitePickerRemoteItems
-				: this.sitePickerItems;
+		let allItems: SiteInfo[];
+		if ( this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
+			allItems = this.sitePickerRemoteItems;
+		} else if ( this.sitePickerTab === SITE_PICKER_TAB_SSH ) {
+			allItems = this.sitePickerSshItems;
+		} else {
+			allItems = this.sitePickerItems;
+		}
 		const filtered = this.sitePickerQuery
 			? allItems.filter( ( site ) => {
 					const query = this.sitePickerQuery.toLowerCase();
@@ -752,14 +996,29 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerItemMap = new Map(
 			filtered.map( ( site, i ) => [ selectItems[ i ].value, site ] )
 		);
+
+		// Append the "Add new site" entry for the SSH tab
+		if ( this.sitePickerTab === SITE_PICKER_TAB_SSH ) {
+			selectItems.push( {
+				value: SSH_ADD_NEW_VALUE,
+				label: `${ chalk.green( '+' ) } ${ __( 'Add new site' ) }`,
+			} );
+		}
+
 		const maxVisible = Math.max( 5, ( process.stdout.rows ?? 24 ) - 4 );
 		this.sitePickerSelectList = new SelectList( selectItems, maxVisible, sitePickerTheme );
-		this.sitePickerSelectList.onSelect = ( item ) => {
-			const site = this.sitePickerItemMap.get( item.value );
-			if ( site ) {
-				this.selectFilteredSite( site );
-			}
-		};
+		if ( this.sitePickerTab === SITE_PICKER_TAB_SSH ) {
+			this.sitePickerSelectList.onSelect = ( item ) => {
+				this.handleSshSitePickerSelect( item );
+			};
+		} else {
+			this.sitePickerSelectList.onSelect = ( item ) => {
+				const site = this.sitePickerItemMap.get( item.value );
+				if ( site ) {
+					this.selectFilteredSite( site );
+				}
+			};
+		}
 		this.sitePickerSelectList.onCancel = () => {
 			this.closeSitePicker();
 		};
@@ -771,31 +1030,39 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 		this.sitePickerContainer.clear();
 
-		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
-		const localTab = isLocal ? chalk.bold( __( '[Local]' ) ) : chalk.dim( __( 'Local' ) );
-		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
+		const currentTab = this.sitePickerTab;
+		const tabLabel = ( label: string, active: boolean ) =>
+			active ? chalk.bold( `[${ label }]` ) : chalk.dim( label );
+		const localTab = tabLabel( __( 'Local' ), currentTab === SITE_PICKER_TAB_LOCAL );
+		const remoteTab = tabLabel( 'WordPress.com', currentTab === SITE_PICKER_TAB_REMOTE );
+		const sshTab = tabLabel( __( 'SSH' ), currentTab === SITE_PICKER_TAB_SSH );
 		const pad = ' ';
-		const header = `${ pad }${ localTab }  ${ remoteTab }`;
+		const header = `${ pad }${ localTab }  ${ remoteTab }  ${ sshTab }`;
 
 		const searchLine = this.sitePickerQuery
 			? `${ pad }${ chalk.dim( __( 'Search:' ) ) } ${ this.sitePickerQuery }`
 			: '';
 
-		const hints = isLocal
-			? `${ pad }${ __(
-					'↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel'
-			  ) }`
-			: `${ pad }${ __(
-					'↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel'
-			  ) }`;
+		let hints: string;
+		if ( currentTab === SITE_PICKER_TAB_SSH ) {
+			hints = `${ pad }${ __(
+				'↑↓ navigate · ←→ switch tabs · enter select · backspace remove · esc cancel'
+			) }`;
+		} else {
+			hints = `${ pad }${ __(
+				'↑↓ navigate · ←→ switch tabs · enter select · tab open in browser · esc cancel'
+			) }`;
+		}
 
 		const lines = [ header, '' ];
 		if ( searchLine ) {
 			lines.push( searchLine, '' );
 		}
 
-		if ( ! isLocal && this.sitePickerRemoteLoading ) {
+		if ( currentTab === SITE_PICKER_TAB_REMOTE && this.sitePickerRemoteLoading ) {
 			lines.push( chalk.dim( `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
+		} else if ( currentTab === SITE_PICKER_TAB_REMOTE && this.sitePickerRemoteError ) {
+			lines.push( chalk.dim( `${ pad }  ${ this.sitePickerRemoteError }` ) );
 		} else if ( this.sitePickerSelectList ) {
 			const termWidth = process.stdout.columns ?? 80;
 			lines.push(
@@ -816,17 +1083,26 @@ export class AiChatUI implements AiOutputAdapter {
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
 		this.refreshPromptChrome();
-		const label = site.remote
-			? sprintf(
-					/* translators: %s: site name */
-					__( ' Selected site: %s (WordPress.com)' ),
-					site.name
-			  )
-			: sprintf(
-					/* translators: %s: site name */
-					__( ' Selected site: %s' ),
-					site.name
-			  );
+		let label: string;
+		if ( site.sshSite ) {
+			label = sprintf(
+				/* translators: %s: site name */
+				__( ' Selected site: %s (SSH)' ),
+				site.name
+			);
+		} else if ( site.remote ) {
+			label = sprintf(
+				/* translators: %s: site name */
+				__( ' Selected site: %s (WordPress.com)' ),
+				site.name
+			);
+		} else {
+			label = sprintf(
+				/* translators: %s: site name */
+				__( ' Selected site: %s' ),
+				site.name
+			);
+		}
 		if ( announce ) {
 			this.messages.addChild( new Text( `\n${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
 		}
@@ -1016,6 +1292,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
 		this.sitePickerRemoteItems = [];
+		this.sitePickerSshItems = [];
 		this.sitePickerSelectList = null;
 		this.sitePickerItemMap = new Map();
 		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );

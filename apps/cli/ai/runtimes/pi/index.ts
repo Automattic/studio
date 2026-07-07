@@ -42,8 +42,10 @@ import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
+import { createSshSiteTools } from 'cli/ai/tools/ssh-site-tools';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
+import { type SshSiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { stripStaleImagesFromContext } from './strip-stale-images';
@@ -80,6 +82,9 @@ export interface StudioAgentTurnConfig {
 	model?: AiModelId;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
+	// Saved SSH connection for the active SSH site, resolved from cli.json by
+	// the caller.
+	sshSiteConnection?: SshSiteData;
 	onAskUser?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }
@@ -283,6 +288,15 @@ async function resolveActiveSiteRuntime(
 	}
 }
 
+// SSH sites are flagged `remote` like WP.com sites but are managed through an
+// SSH connection stored in cli.json instead of a WP.com site ID + OAuth token.
+function getSshSiteConnection( config: StudioAgentTurnConfig ): SshSiteData | null {
+	if ( config.activeSite?.sshSite && config.sshSiteConnection ) {
+		return config.sshSiteConnection;
+	}
+	return null;
+}
+
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
@@ -291,25 +305,37 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
+	const sshSite = getSshSiteConnection( config );
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
 
-	const systemPrompt = buildSystemPrompt(
-		isRemoteSite
-			? {
-					remoteSite: {
-						name: config.activeSite!.name,
-						url: config.activeSite!.url ?? '',
-						id: config.activeSite!.wpcomSiteId!,
-					},
-					remoteSession,
-			  }
-			: {
-					chatArtifactsEnabled,
-					remoteSession,
-					runtime: await resolveActiveSiteRuntime( config.activeSite ),
-			  }
-	);
+	let systemPromptOptions;
+	if ( isRemoteSite ) {
+		systemPromptOptions = {
+			remoteSite: {
+				name: config.activeSite!.name,
+				url: config.activeSite!.url ?? '',
+				id: config.activeSite!.wpcomSiteId!,
+			},
+			remoteSession,
+		};
+	} else if ( sshSite ) {
+		systemPromptOptions = {
+			sshSite: {
+				name: config.activeSite!.name,
+				url: sshSite.url,
+				remotePath: sshSite.remotePath,
+			},
+			remoteSession,
+		};
+	} else {
+		systemPromptOptions = {
+			chatArtifactsEnabled,
+			remoteSession,
+			runtime: await resolveActiveSiteRuntime( config.activeSite ),
+		};
+	}
+	const systemPrompt = buildSystemPrompt( systemPromptOptions );
 
 	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
@@ -534,6 +560,20 @@ function buildAgentTools(
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
 			...remoteStudioTools,
 			...remoteScratchTools,
+			...askUserTool,
+			...skillTool,
+		];
+	}
+
+	// SSH sites get remote wp_cli plus file tools jailed to the site's
+	// WordPress root. Their Read/Write/Edit/Ls operate on the remote server,
+	// so the local scratch tools (same names) are omitted.
+	const sshSite = getSshSiteConnection( config );
+	if ( sshSite ) {
+		return [
+			...createSshSiteTools( sshSite ),
+			takeScreenshotTool,
+			createSiteTool,
 			...askUserTool,
 			...skillTool,
 		];

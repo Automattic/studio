@@ -73,6 +73,25 @@ export const updateCheckSchema = z.object( {
 	latestVersion: z.string(),
 } );
 
+/**
+ * A third-party WordPress site the Studio Code agent manages over SSH.
+ * Authentication is delegated entirely to the system `ssh` binary (keys,
+ * agent, ~/.ssh/config) — no credential is ever stored here.
+ */
+export const sshSiteSchema = z.object( {
+	id: z.string(),
+	name: z.string(),
+	// Home URL read from the remote at connect time (`wp option get home`).
+	url: z.string(),
+	// SSH destination: `host`, `user@host`, or an ~/.ssh/config alias.
+	destination: z.string(),
+	port: z.number().optional(),
+	// Absolute path of the WordPress root on the remote server.
+	remotePath: z.string(),
+	// WP-CLI executable on the remote; defaults to `wp` on PATH.
+	wpCliPath: z.string().optional(),
+} );
+
 const cliConfigSchema = z.looseObject( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
@@ -92,10 +111,12 @@ const cliConfigSchema = z.looseObject( {
 	standaloneUpdateCheck: updateCheckSchema.optional(),
 	// Unix ms timestamp of when the one-time ToS/Privacy notice was displayed.
 	tosNoticeShownAt: z.number().optional(),
+	sshSites: z.array( sshSiteSchema ).optional(),
 } );
 
 type CliConfig = z.infer< typeof cliConfigSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
+export type SshSiteData = z.infer< typeof sshSiteSchema >;
 
 const DEFAULT_CLI_CONFIG: CliConfig = {
 	version: CLI_CONFIG_VERSION,

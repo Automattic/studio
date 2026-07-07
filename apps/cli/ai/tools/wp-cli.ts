@@ -94,7 +94,7 @@ function splitPostContentCommandArgs( command: string, postContentIndex: number 
 	];
 }
 
-function splitCommandArgs( command: string ): string[] {
+export function splitCommandArgs( command: string ): string[] {
 	const postContentMarker = '--post_content=';
 	const postContentIndex = command.indexOf( postContentMarker );
 
@@ -107,7 +107,7 @@ function splitCommandArgs( command: string ): string[] {
 
 // LLMs sometimes emit en/em dashes (`‐porcelain`, `–color`); WP-CLI silently
 // ignores them, so reject up-front and let the agent retry with ASCII hyphens.
-function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
+export function getUnsupportedWpCliOptionMessage( args: string[] ): string | null {
 	const unsupportedOption = args.find( ( arg ) => /^[‐-―]\S+/.test( arg ) );
 	if ( ! unsupportedOption ) {
 		return null;

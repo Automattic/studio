@@ -13,6 +13,12 @@ const remoteSite = {
 	id: 123,
 };
 
+const sshSite = {
+	name: 'SSH Studio Test',
+	url: 'https://example.com',
+	remotePath: '/var/www/html',
+};
+
 function extractReferencedSkillNames( prompt: string ): string[] {
 	return [
 		...new Set( Array.from( prompt.matchAll( /`([a-z0-9-]+)` skill/g ), ( match ) => match[ 1 ] ) ),
@@ -79,6 +85,27 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 
+	it( 'routes SSH-site guidance to the ssh remote management skill', () => {
+		const prompt = buildSystemPrompt( { sshSite } );
+
+		expect( prompt ).toContain( 'ssh-remote-management' );
+		expect( prompt ).toContain( 'remote WordPress site: "SSH Studio Test"' );
+		expect( prompt ).toContain( 'WordPress root: /var/www/html' );
+		expect( prompt ).toContain( 'LIVE PRODUCTION' );
+		expect( prompt ).toContain( 'wp_cli' );
+		expect( prompt ).not.toContain( 'wpcom_request' );
+		// No plan gating on SSH sites.
+		expect( prompt ).not.toContain( 'plan.product_slug' );
+		expect( prompt ).not.toContain( '## Design capabilities by plan' );
+	} );
+
+	it( 'prefers the WP.com remote prompt when both remote and SSH contexts are set', () => {
+		const prompt = buildSystemPrompt( { remoteSite, sshSite } );
+
+		expect( prompt ).toContain( 'wpcom_request' );
+		expect( prompt ).not.toContain( 'ssh-remote-management' );
+	} );
+
 	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (local)', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
@@ -99,6 +126,7 @@ describe( 'buildSystemPrompt', () => {
 		const prompts = [
 			buildSystemPrompt( { chatArtifactsEnabled: true } ),
 			buildSystemPrompt( { remoteSite } ),
+			buildSystemPrompt( { sshSite } ),
 		];
 		const availableSkillNames = new Set( loadSkills().map( ( skill ) => skill.name ) );
 		const missingSkillNames = prompts

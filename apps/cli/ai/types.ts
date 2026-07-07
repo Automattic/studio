@@ -15,4 +15,9 @@ export interface SiteInfo {
 	remote?: boolean;
 	url?: string;
 	wpcomSiteId?: number;
+	// SSH sites are flagged `remote` like WP.com sites but carry the id of
+	// their saved connection in cli.json; the connection details are resolved
+	// from the config at turn time and never stored on SiteInfo.
+	sshSite?: boolean;
+	sshSiteId?: string;
 }

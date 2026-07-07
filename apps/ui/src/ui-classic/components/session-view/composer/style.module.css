@@ -138,6 +138,26 @@
 	border-color: var(--wpds-color-fg-interactive-brand, #2563eb);
 }
 
+/* Clip chips wear the same numbered badge as their marker on the page. */
+.attachmentClipBadge {
+	position: absolute;
+	bottom: 3px;
+	left: 3px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	border-radius: 8px;
+	background-color: var(--wpds-color-bg-interactive-brand, #2563eb);
+	color: var(--wpds-color-fg-interactive-onbrand, #fff);
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1;
+	pointer-events: none;
+}
+
 .attachmentPreviewImage,
 .attachmentHoverImage {
 	display: block;

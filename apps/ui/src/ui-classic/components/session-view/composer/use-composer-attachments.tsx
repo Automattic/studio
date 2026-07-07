@@ -4,8 +4,10 @@ import {
 	getComposerClipboardFiles,
 	mergeComposerAttachments,
 	prepareComposerAttachments,
+	prepareComposerClipAttachment,
 	toComposerSendAttachments,
 	type ComposerAttachment,
+	type ComposerClipInput,
 	type ComposerFilePreview,
 	type ComposerSendAttachments,
 } from '@studio/common/ai/composer-attachments';
@@ -15,7 +17,7 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 
 export { toComposerSendAttachments };
-export type { ComposerAttachment, ComposerSendAttachments };
+export type { ComposerAttachment, ComposerClipInput, ComposerSendAttachments };
 
 type ComposerFileAttachmentInput = StudioChatFileAttachment & {
 	preview?: ComposerFilePreview;
@@ -135,6 +137,44 @@ export function useComposerAttachments() {
 		[ setTrackedAttachments ]
 	);
 
+	// Clips from the site preview. Same quota rules as images (their capture
+	// rides as an image content block); errors surface as toasts like the
+	// file paths above.
+	const addClip = useCallback(
+		async ( input: ComposerClipInput ): Promise< boolean > => {
+			const messages = getComposerAttachmentMessages();
+			const prepared = await prepareComposerClipAttachment( input, messages );
+			if ( prepared.error || ! prepared.attachment ) {
+				toast.error( prepared.error ?? messages.fileAttachFailed );
+				return false;
+			}
+			const merged = mergeComposerAttachments(
+				attachmentsRef.current,
+				[ prepared.attachment ],
+				messages
+			);
+			if ( merged.error ) {
+				toast.error( merged.error );
+			}
+			const didAdd = merged.attachments.length > attachmentsRef.current.length;
+			setTrackedAttachments( merged.attachments );
+			return didAdd;
+		},
+		[ setTrackedAttachments ]
+	);
+
+	const updateClipComment = useCallback( ( id: string, comment: string ) => {
+		setAttachments( ( current ) => {
+			const next = current.map( ( item ) =>
+				item.id === id && item.kind === 'clip'
+					? { ...item, comment: comment.trim() || undefined }
+					: item
+			);
+			attachmentsRef.current = next;
+			return next;
+		} );
+	}, [] );
+
 	const onDragOver = useCallback( ( event: React.DragEvent ) => {
 		if ( ! Array.from( event.dataTransfer.types ).includes( 'Files' ) ) {
 			return;
@@ -179,6 +219,8 @@ export function useComposerAttachments() {
 		isDraggingOver,
 		addFiles,
 		addFileAttachments,
+		addClip,
+		updateClipComment,
 		removeAttachment,
 		clear,
 		restore,

@@ -1,3 +1,4 @@
+import { formatClipsAsPrompt, formatClipsFallbackMessage } from '@studio/common/ai/clips';
 import {
 	formatComposerAttachmentSize,
 	getComposerAttachmentHoverPreviewPosition,
@@ -9,6 +10,7 @@ import {
 	watchComposerAttachmentTextScroll,
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
+import { getComposerClipAttachments } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
@@ -52,6 +54,7 @@ import {
 	toComposerSendAttachments,
 	useComposerAttachments,
 	type ComposerAttachment,
+	type ComposerClipInput,
 	type ComposerSendAttachments,
 } from './use-composer-attachments';
 import type {
@@ -199,8 +202,14 @@ interface ComposerProps {
 	busy: boolean;
 	isInterrupting?: boolean;
 	model: AiModelId;
-	onSend: ( prompt: string, attachments?: ComposerSendAttachments ) => Promise< void >;
+	onSend: (
+		prompt: string,
+		attachments?: ComposerSendAttachments & { displayMessage?: string }
+	) => Promise< void >;
 	onInterrupt: () => Promise< void >;
+	// Fires whenever the attachment set changes; the session view derives
+	// preview clip markers from it.
+	onAttachmentsChange?: ( attachments: ComposerAttachment[] ) => void;
 	sessionId?: string;
 	entries?: SessionEntry[];
 	// Local owner site id, when the session is anchored to one. Required to
@@ -226,6 +235,10 @@ export interface ComposerHandle {
 	): void;
 	addFiles( files: FileList | File[] ): Promise< boolean >;
 	addFileAttachments( files: StudioChatFileAttachment[] ): boolean;
+	// Clips from the site preview (element/region/page/console grains).
+	addClip( input: ComposerClipInput ): Promise< boolean >;
+	updateClipComment( id: string, comment: string ): void;
+	removeClip( id: string ): void;
 	// Move keyboard focus to the textarea (e.g. after answering a permission
 	// request, whose card takes focus while it's pending).
 	focus(): void;
@@ -288,6 +301,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		model,
 		onSend,
 		onInterrupt,
+		onAttachmentsChange,
 		sessionId,
 		entries,
 		ownerSiteId,
@@ -318,6 +332,8 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		isDraggingOver,
 		addFiles,
 		addFileAttachments,
+		addClip,
+		updateClipComment,
 		removeAttachment,
 		clear: clearAttachments,
 		restore: restoreAttachments,
@@ -325,6 +341,11 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		pasteHandlers,
 	} = useComposerAttachments();
 	const hasAttachments = attachments.length > 0;
+
+	// Mirror the attachment set to the parent (preview clip markers).
+	useEffect( () => {
+		onAttachmentsChange?.( attachments );
+	}, [ attachments, onAttachmentsChange ] );
 
 	// Cross-family swap state. We hold the picked model here while the
 	// confirmation dialog is open; nothing is persisted until the user
@@ -432,8 +453,24 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 				}
 				return didAdd;
 			},
+			async addClip( input ) {
+				return addClip( input );
+			},
+			updateClipComment( id, comment ) {
+				updateClipComment( id, comment );
+			},
+			removeClip( id ) {
+				removeAttachment( id );
+			},
 		} ),
-		[ addFileAttachments, addFiles, restoreAttachments ]
+		[
+			addClip,
+			addFileAttachments,
+			addFiles,
+			removeAttachment,
+			restoreAttachments,
+			updateClipComment,
+		]
 	);
 
 	const send = useCallback( async () => {
@@ -443,12 +480,25 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		if ( ! trimmed && ! hasAttachments ) {
 			return;
 		}
-		const prompt = trimmed || __( 'Please review the attached files.' );
 		const sentAttachments = attachments;
+		const clips = getComposerClipAttachments( sentAttachments );
+		const prompt =
+			trimmed ||
+			( clips.length > 0
+				? formatClipsFallbackMessage( clips.length )
+				: __( 'Please review the attached files.' ) );
+		// Clips serialize into a prompt block the user doesn't see typed out;
+		// the visible message stays their own words (the chips are visible as
+		// the message's attachments).
+		const clipsPrompt = formatClipsAsPrompt( clips );
+		const fullPrompt = clipsPrompt ? `${ prompt }\n${ clipsPrompt }` : prompt;
 		setValue( '' );
 		clearAttachments();
 		try {
-			await onSend( prompt, toComposerSendAttachments( sentAttachments ) );
+			await onSend( fullPrompt, {
+				...toComposerSendAttachments( sentAttachments ),
+				...( clipsPrompt ? { displayMessage: prompt } : {} ),
+			} );
 		} catch {
 			// Restore the draft and attachments so the user can retry; the parent
 			// surfaces the error message via `error`. Queued sends never throw from
@@ -726,6 +776,14 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					{ hasAttachments ? (
 						<ul className={ styles.attachments } aria-label={ __( 'Attachments' ) }>
 							{ attachments.map( ( attachment ) => {
+								// Clip chips wear the same number as their on-page marker
+								// (position among clip siblings, matching the marker sync).
+								const clipNumber =
+									attachment.kind === 'clip'
+										? getComposerClipAttachments( attachments ).findIndex(
+												( clip ) => clip.id === attachment.id
+										  ) + 1
+										: 0;
 								const attachmentDetailsId = getAttachmentDetailsId( attachment.id );
 								const attachmentSizeLabel = formatComposerAttachmentSize( attachment.size );
 								const attachmentTypeDescription = getComposerAttachmentTypeDescription(
@@ -791,6 +849,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 									>
 										<div className={ styles.attachmentTile } aria-hidden="true">
 											{ renderAttachmentVisual( attachment, 'tile', fallbackAttachmentTypeLabel ) }
+											{ clipNumber > 0 ? (
+												<span className={ styles.attachmentClipBadge }>{ clipNumber }</span>
+											) : null }
 										</div>
 										<span id={ attachmentDetailsId } className={ styles.attachmentAssistiveText }>
 											{ attachmentDetails }

@@ -10,10 +10,10 @@ import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-s
 import { useSites } from '@/data/queries/use-sites';
 import {
 	SessionUIProvider,
-	useSessionPreviewAnnotationsHandler,
-	useSessionPreviewConsoleFileHandler,
+	useSessionPreviewAgentMarkers,
+	useSessionPreviewClipActions,
+	useSessionPreviewClipMarkers,
 	useSessionPreviewConsoleUI,
-	useSessionPreviewScreenshotHandler,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
 import { getSiteUrl } from '@/lib/get-site-url';
@@ -67,9 +67,9 @@ function DashboardLayoutContent() {
 	const setPreviewOpen = preview.setOpen;
 	const setPreviewFullscreen = preview.setFullscreen;
 	const updatePreviewPath = preview.updatePath;
-	const onAnnotationsDone = useSessionPreviewAnnotationsHandler();
-	const onScreenshotDone = useSessionPreviewScreenshotHandler();
-	const onConsoleFileDone = useSessionPreviewConsoleFileHandler();
+	const clipActions = useSessionPreviewClipActions();
+	const clipMarkers = useSessionPreviewClipMarkers();
+	const agentMarkers = useSessionPreviewAgentMarkers();
 	const sessionOwnerSitePath = sessionData?.summary.ownerSitePath;
 	const sessionSite = sessionOwnerSitePath
 		? sites?.find( ( site ) => site.path === sessionOwnerSitePath )
@@ -89,7 +89,7 @@ function DashboardLayoutContent() {
 		overviewSite ??
 		newSessionSite ??
 		( effectiveEnvironment === 'local' ? sessionSite : undefined );
-	const canAttachPreviewScreenshot =
+	const canClipToSession =
 		sessionId !== undefined && effectiveEnvironment === 'local' && !! sessionSite;
 	// While session or site data is still loading, preview-capable routes stay
 	// preview-capable so navigation doesn't close and reopen the panel around
@@ -197,9 +197,12 @@ function DashboardLayoutContent() {
 					site={ previewSite }
 					path={ preview.path }
 					reloadNonce={ preview.reloadNonce }
-					onAnnotationsDone={ onAnnotationsDone }
-					onScreenshotDone={ canAttachPreviewScreenshot ? onScreenshotDone : undefined }
-					onConsoleFileDone={ canAttachPreviewScreenshot ? onConsoleFileDone : undefined }
+					onClip={ canClipToSession ? clipActions.addClip : undefined }
+					onClipUpdate={ canClipToSession ? clipActions.updateClipComment : undefined }
+					onClipRemove={ canClipToSession ? clipActions.removeClip : undefined }
+					onComposerText={ canClipToSession ? clipActions.appendComposerText : undefined }
+					clipMarkers={ clipMarkers }
+					agentMarkers={ agentMarkers }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
 					fullscreen={ previewFullscreen }
@@ -208,10 +211,10 @@ function DashboardLayoutContent() {
 				/>
 			) : null,
 		[
-			onAnnotationsDone,
-			onConsoleFileDone,
-			onScreenshotDone,
-			canAttachPreviewScreenshot,
+			agentMarkers,
+			clipActions,
+			clipMarkers,
+			canClipToSession,
 			preview.path,
 			preview.reloadNonce,
 			preview.updatePath,

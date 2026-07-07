@@ -1,3 +1,4 @@
+import { INSPECTOR_BRIDGE_PREFIX } from '@studio/common/inspector/protocol';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { displayShortcut } from '@wordpress/keycodes';
@@ -5,7 +6,6 @@ import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { INSPECTOR_BRIDGE_PREFIX } from './inspector-script';
 import { getPathFromPreviewUrl, getSimulatedViewport, SitePreview } from './index';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -214,7 +214,7 @@ describe( 'SitePreview', () => {
 		);
 
 		expect( screen.queryByRole( 'button', { name: 'Refresh' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: /^Clip/ } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'http://localhost:8881/wp-admin/' ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Start site' } ) ).toBeVisible();
 		expect( container.querySelector( 'canvas' ) ).toBeInTheDocument();
@@ -247,7 +247,7 @@ describe( 'SitePreview', () => {
 		expect( container.querySelector( 'iframe' ) ).not.toBe( initialIframe );
 	} );
 
-	it( 'captures a full-page screenshot and forwards it to the composer callback', async () => {
+	it( 'captures a page clip and forwards it to the clip callback', async () => {
 		const restoreUserAgent = mockElectronUserAgent();
 		const restoreWebviewContentsId = mockWebviewContentsId();
 		const captureSiteScreenshot = vi.fn().mockResolvedValue( {
@@ -255,7 +255,7 @@ describe( 'SitePreview', () => {
 			mimeType: 'image/jpeg',
 			data: new Uint8Array( [ 1, 2, 3 ] ).buffer,
 		} );
-		const onScreenshotDone = vi.fn().mockResolvedValue( undefined );
+		const onClip = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
 			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
@@ -268,31 +268,33 @@ describe( 'SitePreview', () => {
 					site={ createSite( { running: true } ) }
 					path="/about/"
 					reloadNonce={ 0 }
-					onScreenshotDone={ onScreenshotDone }
+					onClip={ onClip }
 				/>
 			);
 
-			await clickOverflowMenuItem( 'Add full-page screenshot to composer' );
+			await clickOverflowMenuItem( 'Clip full page to chat' );
 
 			await waitFor( () => {
 				expect( captureSiteScreenshot ).toHaveBeenCalledWith( 42, {
 					colorScheme: 'light',
 				} );
 			} );
-			await waitFor( () => expect( onScreenshotDone ).toHaveBeenCalledTimes( 1 ) );
+			await waitFor( () => expect( onClip ).toHaveBeenCalledTimes( 1 ) );
 
-			const [ file ] = onScreenshotDone.mock.calls[ 0 ];
-			expect( file ).toBeInstanceOf( File );
-			expect( file.name ).toBe( 'screenshot-desktop.jpg' );
-			expect( file.type ).toBe( 'image/jpeg' );
-			expect( file.size ).toBe( 3 );
+			const [ input ] = onClip.mock.calls[ 0 ];
+			expect( input.grain ).toBe( 'page' );
+			expect( input.image ).toBeInstanceOf( File );
+			expect( input.image.name ).toBe( 'screenshot-desktop.jpg' );
+			expect( input.image.type ).toBe( 'image/jpeg' );
+			expect( input.image.size ).toBe( 3 );
+			expect( input.context ).toMatchObject( { realm: 'frontend', colorScheme: 'light' } );
 		} finally {
 			restoreWebviewContentsId();
 			restoreUserAgent();
 		}
 	} );
 
-	it( 'shows an error toast when the screenshot cannot be added', async () => {
+	it( 'shows an error toast when the page clip cannot be added', async () => {
 		resetAppMessagesForTests();
 		const restoreUserAgent = mockElectronUserAgent();
 		const restoreWebviewContentsId = mockWebviewContentsId();
@@ -309,15 +311,15 @@ describe( 'SitePreview', () => {
 					site={ createSite( { running: true } ) }
 					path="/about/"
 					reloadNonce={ 0 }
-					onScreenshotDone={ vi.fn().mockResolvedValue( undefined ) }
+					onClip={ vi.fn().mockResolvedValue( undefined ) }
 				/>
 			);
 
-			await clickOverflowMenuItem( 'Add full-page screenshot to composer' );
+			await clickOverflowMenuItem( 'Clip full page to chat' );
 
 			await waitFor( () =>
 				expect( getVisibleToasts().map( ( item ) => item.title ) ).toContain(
-					'Screenshot could not be added.'
+					'Clip could not be added.'
 				)
 			);
 		} finally {
@@ -350,7 +352,7 @@ describe( 'SitePreview', () => {
 		}
 	} );
 
-	it( 'uses the preferred dark color scheme when capturing screenshots', async () => {
+	it( 'uses the preferred dark color scheme when capturing page clips', async () => {
 		const restoreMatchMedia = mockPrefersDarkColorScheme( true );
 		const restoreUserAgent = mockElectronUserAgent();
 		const restoreWebviewContentsId = mockWebviewContentsId();
@@ -371,11 +373,11 @@ describe( 'SitePreview', () => {
 					site={ createSite( { running: true } ) }
 					path="/"
 					reloadNonce={ 0 }
-					onScreenshotDone={ vi.fn().mockResolvedValue( undefined ) }
+					onClip={ vi.fn().mockResolvedValue( undefined ) }
 				/>
 			);
 
-			await clickOverflowMenuItem( 'Add full-page screenshot to composer' );
+			await clickOverflowMenuItem( 'Clip full page to chat' );
 
 			await waitFor( () => {
 				expect( captureSiteScreenshot ).toHaveBeenCalledWith( 42, {
@@ -439,13 +441,15 @@ describe( 'SitePreview', () => {
 		}
 	} );
 
-	it( 'attaches visible console messages as a text file', async () => {
+	it( 'attaches visible console messages as a console clip', async () => {
 		const restoreUserAgent = mockElectronUserAgent();
-		const onConsoleFileDone = vi.fn().mockResolvedValue( undefined );
+		const onClip = vi.fn().mockResolvedValue( undefined );
+		const createTemporaryTextFile = vi.fn().mockResolvedValue( '/tmp/browser-console.txt' );
 		useConnectorMock.mockReturnValue( {
 			capabilities: CAPABILITIES,
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			copyText: vi.fn().mockResolvedValue( undefined ),
+			createTemporaryTextFile,
 		} as never );
 
 		try {
@@ -454,7 +458,7 @@ describe( 'SitePreview', () => {
 					site={ createSite( { running: true } ) }
 					path="/"
 					reloadNonce={ 0 }
-					onConsoleFileDone={ onConsoleFileDone }
+					onClip={ onClip }
 				/>
 			);
 			const webview = container.querySelector( 'webview' );
@@ -474,14 +478,15 @@ describe( 'SitePreview', () => {
 				);
 			} );
 
-			await waitFor( () => expect( onConsoleFileDone ).toHaveBeenCalledTimes( 1 ) );
-			const [ file ] = onConsoleFileDone.mock.calls[ 0 ];
-			expect( file.name ).toMatch( /^browser-console-.*\.txt$/ );
-			expect( file.mimeType ).toBe( 'text/plain' );
-			expect( file.contents ).toContain(
-				'Uncaught TypeError: Cannot read properties of undefined'
-			);
-			expect( file.size ).toBeGreaterThan( 0 );
+			await waitFor( () => expect( onClip ).toHaveBeenCalledTimes( 1 ) );
+			const [ fileName, contents ] = createTemporaryTextFile.mock.calls[ 0 ];
+			expect( fileName ).toMatch( /^browser-console-.*\.txt$/ );
+			expect( contents ).toContain( 'Uncaught TypeError: Cannot read properties of undefined' );
+			const [ input ] = onClip.mock.calls[ 0 ];
+			expect( input.grain ).toBe( 'console' );
+			expect( input.filePath ).toBe( '/tmp/browser-console.txt' );
+			expect( input.entryCount ).toBe( 1 );
+			expect( input.fileSize ).toBeGreaterThan( 0 );
 		} finally {
 			restoreUserAgent();
 		}
@@ -620,32 +625,43 @@ describe( 'SitePreview', () => {
 		expect( onPathChange ).not.toHaveBeenCalled();
 	} );
 
-	it( 'hides the Annotate control when the host cannot annotate the preview', () => {
+	it( 'hides the Clip control when the host cannot annotate the preview', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
 		} as never );
 
 		renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onClip={ vi.fn() }
+			/>
 		);
 
-		// The toolbar is present (Refresh shows) but Annotate is omitted entirely.
+		// The toolbar is present (Refresh shows) but Clip is omitted entirely.
 		expect( screen.getByRole( 'button', { name: 'Refresh' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: /^Clip/ } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'shows the Annotate control when the host supports preview annotation', () => {
+	it( 'shows the Clip control when the host supports preview annotation', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: { ...CAPABILITIES, annotatePreview: true },
 		} as never );
 
 		renderPreview(
-			<SitePreview site={ createSite( { running: true } ) } path="/" reloadNonce={ 0 } />
+			<SitePreview
+				site={ createSite( { running: true } ) }
+				path="/"
+				reloadNonce={ 0 }
+				onClip={ vi.fn() }
+			/>
 		);
 
-		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeInTheDocument();
+		// jsdom reports a non-Apple platform, so the hold hint names Ctrl.
+		expect( screen.getByRole( 'button', { name: 'Clip (hold Ctrl)' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'omits the full preview toggle unless the host provides one', () => {

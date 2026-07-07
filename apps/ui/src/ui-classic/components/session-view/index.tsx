@@ -20,9 +20,7 @@ import {
 	appendPreviewConsoleEntriesToPrompt,
 	stripPreviewConsolePromptBlock,
 } from '@/components/site-preview/console-utils';
-import { type Annotation, type PreviewConsoleTextFile } from '@/components/site-preview/types';
 import { toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import {
 	useCreateSession,
@@ -35,14 +33,13 @@ import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import {
 	SessionUIProvider,
-	useSessionPreviewAnnotations,
-	useSessionPreviewConsoleFile,
+	useSessionPreviewClipMarkersPublisher,
+	useSessionPreviewClips,
 	useSessionPreviewConsoleEntries,
-	useSessionPreviewScreenshot,
+	type SessionPreviewClipActions,
 } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { pendingSessionPromptSlot, type PendingSessionPrompt } from '@/lib/pending-session-prompt';
-import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
@@ -56,7 +53,9 @@ import {
 } from './session-chat-actions';
 import styles from './style.module.css';
 import { useStickToBottom } from './use-stick-to-bottom';
+import type { ComposerAttachment } from './composer/use-composer-attachments';
 import type { AiSessionSummary, PermissionDecision } from '@/data/core';
+import type { ClipMarker } from '@studio/common/inspector/protocol';
 
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
@@ -207,7 +206,6 @@ export function SessionView( { sessionId }: { sessionId: string } ) {
 
 function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
-	const connector = useConnector();
 	const { data, isLoading, isFetching, error } = useSession( sessionId );
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
@@ -347,54 +345,58 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ data, ownerSite?.path, sessions ]
 	);
 
-	const handleAnnotationsDone = useCallback(
-		( annotations: Annotation[] ) => {
-			if ( annotations.length === 0 ) return;
-			void sendMessageWithConsole( formatAnnotationsAsPrompt( annotations ), {
-				displayMessage: formatAnnotationsSubmittedMessage( annotations.length ),
-			} );
-		},
-		[ sendMessageWithConsole ]
-	);
-	const handleScreenshotDone = useCallback( async ( file: File ) => {
-		const composer = composerRef.current;
-		if ( ! composer ) {
-			throw new Error( 'Composer is not ready.' );
-		}
-		const didAdd = await composer.addFiles( [ file ] );
-		if ( ! didAdd ) {
-			throw new Error( __( 'Screenshot could not be added.' ) );
-		}
-	}, [] );
-	const handleConsoleFileDone = useCallback(
-		async ( file: PreviewConsoleTextFile ) => {
-			const composer = composerRef.current;
-			if ( ! composer ) {
-				throw new Error( 'Composer is not ready.' );
-			}
-			const path = await connector.createTemporaryTextFile( file.name, file.contents );
-			const didAdd = composer.addFileAttachments( [
-				{
-					id: `console-${ Date.now().toString( 36 ) }-${ Math.random()
-						.toString( 36 )
-						.slice( 2, 10 ) }`,
-					name: file.name,
-					path,
-					mimeType: file.mimeType,
-					size: file.size,
-				},
-			] );
-			if ( ! didAdd ) {
-				throw new Error( __( 'Console messages could not be attached.' ) );
-			}
-		},
-		[ connector ]
+	// Clips from the site preview land in this session's composer as
+	// attachments; edits made on the page markers round-trip through here.
+	const clipActions = useMemo< SessionPreviewClipActions >(
+		() => ( {
+			async addClip( input ) {
+				const composer = composerRef.current;
+				if ( ! composer ) {
+					throw new Error( 'Composer is not ready.' );
+				}
+				await composer.addClip( input );
+			},
+			updateClipComment( id, comment ) {
+				composerRef.current?.updateClipComment( id, comment );
+			},
+			removeClip( id ) {
+				composerRef.current?.removeClip( id );
+			},
+			appendComposerText( text ) {
+				composerRef.current?.appendDraft( text );
+			},
+		} ),
+		[]
 	);
 	// The preview panel itself is hosted by the dashboard layout; route its
 	// actions to this session while it is on screen.
-	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview );
-	useSessionPreviewScreenshot( handleScreenshotDone, canTogglePreview );
-	useSessionPreviewConsoleFile( handleConsoleFileDone, canTogglePreview );
+	useSessionPreviewClips( clipActions, canTogglePreview );
+	// Mirror the composer's clips back to the preview as numbered markers.
+	const publishClipMarkers = useSessionPreviewClipMarkersPublisher();
+	const handleAttachmentsChange = useCallback(
+		( attachments: ComposerAttachment[] ) => {
+			const markers: ClipMarker[] = [];
+			for ( const attachment of attachments ) {
+				if ( attachment.kind !== 'clip' ) {
+					continue;
+				}
+				markers.push( {
+					id: attachment.id,
+					number: markers.length + 1,
+					grain: attachment.grain,
+					comment: attachment.comment,
+					pathname: attachment.context.pathname,
+					documentRect: attachment.documentRect,
+				} );
+			}
+			publishClipMarkers( markers );
+		},
+		[ publishClipMarkers ]
+	);
+	// Clear leftover markers when leaving this session.
+	useEffect( () => {
+		return () => publishClipMarkers( [] );
+	}, [ publishClipMarkers, sessionId ] );
 
 	const switchSession = useCallback(
 		( nextSessionId: string ) =>
@@ -494,6 +496,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						model={ currentModel }
 						onSend={ sendMessageWithConsole }
 						onInterrupt={ interrupt }
+						onAttachmentsChange={ canTogglePreview ? handleAttachmentsChange : undefined }
 						sessionId={ sessionId }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }

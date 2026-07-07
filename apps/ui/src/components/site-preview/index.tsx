@@ -12,8 +12,6 @@ import {
 	file as fileIcon,
 	fullscreen as fullscreenIcon,
 	moreVertical,
-	pencil,
-	search,
 	trash,
 } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
@@ -35,15 +33,9 @@ import { bottomDrawerIcon, moonIcon, playIcon, refreshIcon, sunIcon } from '@/li
 import { usePluginSiteTag } from '@/lib/plugin-prototype';
 import {
 	formatPreviewConsoleEntriesForText,
-	getPreviewConsoleLevelFromWebviewLevel,
 	getPreviewConsoleSourceLabel,
 	MAX_PREVIEW_CONSOLE_ENTRIES,
 } from './console-utils';
-import {
-	INSPECTOR_BRIDGE_PREFIX,
-	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_PAGE_SCRIPT,
-} from './inspector-script';
 import {
 	DATABASE_HOME_PATH,
 	getPathFromPreviewUrl,
@@ -54,13 +46,33 @@ import {
 	type PreviewRealm,
 } from './location-omnibox';
 import styles from './style.module.css';
+import {
+	areBrowserStatesEqual,
+	EMPTY_BROWSER_STATE,
+	EMPTY_INSPECTOR_STATE,
+	WebviewSurface,
+	type BrowserCommand,
+	type BrowserNavigationState,
+	type BrowserShortcutCommandType,
+	type InspectorCommandRequest,
+	type InspectorState,
+	type PageClipRequest,
+	type PreviewColorScheme,
+	type PreviewViewport,
+} from './webview-surface';
 import type {
-	Annotation,
 	PreviewConsoleEntry,
 	PreviewConsoleLevel,
 	PreviewConsoleTextFile,
+	RawClipCapture,
 } from './types';
-import type { LocalMediaFile, SiteDetails } from '@/data/core';
+import type { SiteDetails } from '@/data/core';
+import type { ComposerClipInput } from '@studio/common/ai/composer-attachments';
+import type {
+	AgentMarker,
+	ClipMarker,
+	InspectorHostCommand,
+} from '@studio/common/inspector/protocol';
 import type {
 	CSSProperties,
 	ComponentProps,
@@ -68,7 +80,8 @@ import type {
 	ReactElement,
 } from 'react';
 
-export type { Annotation, PreviewConsoleEntry, PreviewConsoleTextFile } from './types';
+export type { PreviewConsoleEntry, PreviewConsoleTextFile, RawClipCapture } from './types';
+export type { PreviewViewport } from './webview-surface';
 export { getPathFromPreviewUrl } from './location-omnibox';
 
 interface SitePreviewProps {
@@ -79,15 +92,21 @@ interface SitePreviewProps {
 	path: string;
 	// Bumped by the parent to force a webview reload.
 	reloadNonce: number;
-	// Called when the user clicks "Submit" in the annotation controls. Receives
-	// the full annotation payload assembled inside the webview's guest page.
-	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
-	// Called when the user captures the preview as an image to attach to the
-	// composer for the active session.
-	onScreenshotDone?: ( file: File ) => void | Promise< void >;
-	// Called when the user exports console messages as a text file to attach to
-	// the composer for the active session.
-	onConsoleFileDone?: ( file: PreviewConsoleTextFile ) => void | Promise< void >;
+	// Called for every finished clip (element, region, page, console): the
+	// session view turns it into a composer attachment. The clip UI only
+	// renders when provided.
+	onClip?: ( input: ComposerClipInput ) => void | Promise< void >;
+	// Marker-popup edits to existing clips (the composer owns them).
+	onClipUpdate?: ( id: string, comment: string ) => void;
+	onClipRemove?: ( id: string ) => void;
+	// "Add selected text to chat": quoted text for the composer draft.
+	onComposerText?: ( text: string ) => void;
+	// The active session's clips, mirrored into the guest page as numbered
+	// markers (and used for chip↔marker identity).
+	clipMarkers?: ClipMarker[];
+	// Agent-placed highlights ("I changed this"), rendered by the guest
+	// overlay in a distinct style from the user's clip markers.
+	agentMarkers?: AgentMarker[];
 	// Called when the user navigates within the preview (link clicks,
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
@@ -106,63 +125,7 @@ interface SitePreviewProps {
 	onConsoleEntriesChange?: ( entries: PreviewConsoleEntry[] ) => void;
 }
 
-interface InspectorEvent {
-	type: 'browser-command' | 'done' | 'state' | 'loupe-capture' | 'loupe-snap';
-	annotations?: Annotation[];
-	isPicking?: boolean;
-	annotationCount?: number;
-	command?: BrowserShortcutCommandType;
-	isLoupeActive?: boolean;
-	loupeZoom?: number;
-	// loupe-snap rect (viewport-relative CSS px) / loupe-capture viewport size.
-	x?: number;
-	y?: number;
-	width?: number;
-	height?: number;
-	// loupe-capture document anchor (scroll position at request time), echoed
-	// back to the guest with the capture so it can map cursor -> pixels.
-	docX?: number;
-	docY?: number;
-}
-
-interface InspectorState {
-	ready: boolean;
-	isPicking: boolean;
-	annotationCount: number;
-	// Reflects the guest's loupe (hold-key or menu-toggled) for menu state.
-	isLoupeActive: boolean;
-}
-
-interface InspectorCommand {
-	id: number;
-	type: 'toggle-picking' | 'submit' | 'loupe-hold-start' | 'loupe-hold-end' | 'loupe-toggle';
-}
-
-interface BrowserNavigationState {
-	canGoBack: boolean;
-	canGoForward: boolean;
-	loading: boolean;
-	progress: number;
-	title: string | null;
-}
-
-type BrowserShortcutCommandType = 'back' | 'forward' | 'reload';
-
-interface BrowserCommand {
-	id: number;
-	type: BrowserShortcutCommandType;
-}
-
-type PreviewColorScheme = 'light' | 'dark';
 type ConsoleFilter = 'all' | PreviewConsoleLevel;
-
-// A simulated guest viewport: the page lays out at `width`×`height` CSS px
-// and its rendering is scaled by `scale` to fit the preview pane.
-export interface PreviewViewport {
-	width: number;
-	height: number;
-	scale: number;
-}
 
 // Simulated-width presets, pending a designed control: the WordPress editor's
 // desktop/tablet/mobile trio, sized to an iPhone-class width, the classic
@@ -172,44 +135,6 @@ const VIEWPORT_PRESETS = [
 	{ id: 'tablet', width: 768 },
 	{ id: 'desktop', width: 1440 },
 ] as const;
-
-interface PreviewWindow extends Window {
-	ipcApi?: {
-		setWebviewColorScheme?: (
-			webContentsId: number,
-			colorScheme: PreviewColorScheme
-		) => Promise< void >;
-		setWebviewViewport?: (
-			webContentsId: number,
-			viewport: PreviewViewport | null
-		) => Promise< void >;
-	};
-}
-
-// Electron's `<webview>` is a custom element with non-standard methods. Type
-// just the surface we use so this file compiles without an `electron` dep.
-interface WebviewTag extends HTMLElement {
-	loadURL( url: string ): Promise< void >;
-	executeJavaScript( code: string, userGesture?: boolean ): Promise< unknown >;
-	canGoBack?(): boolean;
-	canGoForward?(): boolean;
-	getWebContentsId?(): number;
-	goBack?(): void;
-	goForward?(): void;
-	reload?(): void;
-	isLoading?(): boolean;
-}
-
-interface WebviewConsoleEvent extends Event {
-	level: number;
-	message: string;
-	sourceId?: string;
-	line?: number;
-}
-
-interface WebviewPageTitleUpdatedEvent extends Event {
-	title?: string;
-}
 
 // Best-effort UA sniff: webview is only meaningful inside Electron. Outside
 // (e.g. running apps/ui standalone in a regular browser) the tag is inert, so
@@ -228,136 +153,6 @@ function getInitialPreviewColorScheme(): PreviewColorScheme {
 		return 'dark';
 	}
 	return 'light';
-}
-
-function localMediaFileToFile( file: LocalMediaFile ): File {
-	return new File( [ file.data ], file.name, { type: file.mimeType } );
-}
-
-// Loupe backdrops travel into the guest page via `executeJavaScript`, which
-// only carries strings — so the capture becomes a data URL. Chunked to keep
-// the argument list under the call-stack limit.
-function localMediaFileToDataUrl( file: LocalMediaFile ): string {
-	const bytes = new Uint8Array( file.data );
-	const chunkSize = 0x8000;
-	let binary = '';
-	for ( let i = 0; i < bytes.length; i += chunkSize ) {
-		binary += String.fromCharCode( ...bytes.subarray( i, i + chunkSize ) );
-	}
-	return `data:${ file.mimeType };base64,${ btoa( binary ) }`;
-}
-
-// Document-coordinate anchor of a loupe backdrop capture (the guest's
-// scroll position and viewport size when it asked for the capture).
-interface LoupeCaptureAnchor {
-	docX: number;
-	docY: number;
-	width: number;
-	height: number;
-}
-
-// Viewport-relative rect (CSS px) of the lens content for a snap.
-interface LoupeSnapRect {
-	x: number;
-	y: number;
-	width: number;
-	height: number;
-}
-
-const isFiniteNumber = ( value: unknown ): value is number =>
-	typeof value === 'number' && Number.isFinite( value );
-
-// Region messages come from the (untrusted) guest page over the console
-// bridge; only clean numeric rects are acted on.
-function getLoupeCaptureAnchor( parsed: InspectorEvent ): LoupeCaptureAnchor | null {
-	const { docX, docY, width, height } = parsed;
-	if ( ! [ docX, docY, width, height ].every( isFiniteNumber ) ) {
-		return null;
-	}
-	if ( ( width as number ) <= 0 || ( height as number ) <= 0 ) {
-		return null;
-	}
-	return {
-		docX: docX as number,
-		docY: docY as number,
-		width: width as number,
-		height: height as number,
-	};
-}
-
-function getLoupeSnapRect( parsed: InspectorEvent ): LoupeSnapRect | null {
-	const { x, y, width, height } = parsed;
-	if ( ! [ x, y, width, height ].every( isFiniteNumber ) ) {
-		return null;
-	}
-	if (
-		( x as number ) < 0 ||
-		( y as number ) < 0 ||
-		( width as number ) <= 0 ||
-		( height as number ) <= 0
-	) {
-		return null;
-	}
-	return { x: x as number, y: y as number, width: width as number, height: height as number };
-}
-
-// Crops the lens region (viewport-relative CSS px) out of a native-resolution
-// viewport capture. The capture's device-pixel ratio is derived from its
-// width vs the webview's CSS width, so the crop stays aligned on any display.
-async function cropViewportCapture(
-	capture: LocalMediaFile,
-	rect: LoupeSnapRect,
-	viewportCssWidth: number
-): Promise< File | null > {
-	const bitmap = await createImageBitmap(
-		new Blob( [ capture.data ], { type: capture.mimeType } )
-	);
-	try {
-		if ( viewportCssWidth <= 0 ) return null;
-		const ratio = bitmap.width / viewportCssWidth;
-		const sx = Math.max( 0, Math.min( bitmap.width, rect.x * ratio ) );
-		const sy = Math.max( 0, Math.min( bitmap.height, rect.y * ratio ) );
-		const sw = Math.min( bitmap.width - sx, rect.width * ratio );
-		const sh = Math.min( bitmap.height - sy, rect.height * ratio );
-		if ( sw < 1 || sh < 1 ) return null;
-		const canvas = document.createElement( 'canvas' );
-		canvas.width = Math.round( sw );
-		canvas.height = Math.round( sh );
-		const context = canvas.getContext( '2d' );
-		if ( ! context ) return null;
-		context.drawImage( bitmap, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height );
-		const blob = await new Promise< Blob | null >( ( resolve ) =>
-			canvas.toBlob( resolve, 'image/jpeg', 0.9 )
-		);
-		if ( ! blob ) return null;
-		return new File( [ blob ], 'screenshot-loupe.jpg', { type: 'image/jpeg' } );
-	} finally {
-		bitmap.close();
-	}
-}
-
-function getWebviewContentsId( webview: WebviewTag ): number {
-	const webContentsId = webview.getWebContentsId?.();
-	if ( ! webContentsId ) {
-		throw new Error( 'Preview webview is not ready.' );
-	}
-	return webContentsId;
-}
-
-async function applyWebviewColorScheme(
-	webview: WebviewTag,
-	colorScheme: PreviewColorScheme
-): Promise< void > {
-	const { ipcApi } = window as PreviewWindow;
-	await ipcApi?.setWebviewColorScheme?.( getWebviewContentsId( webview ), colorScheme );
-}
-
-async function applyWebviewViewport(
-	webview: WebviewTag,
-	viewport: PreviewViewport | null
-): Promise< void > {
-	const { ipcApi } = window as PreviewWindow;
-	await ipcApi?.setWebviewViewport?.( getWebviewContentsId( webview ), viewport );
 }
 
 /**
@@ -381,21 +176,6 @@ export function getSimulatedViewport(
 	};
 }
 
-const EMPTY_BROWSER_STATE: BrowserNavigationState = {
-	canGoBack: false,
-	canGoForward: false,
-	loading: false,
-	progress: 0,
-	title: null,
-};
-
-const EMPTY_INSPECTOR_STATE: InspectorState = {
-	ready: false,
-	isPicking: false,
-	annotationCount: 0,
-	isLoupeActive: false,
-};
-
 // Where each realm segment lands before its per-realm memory has anything
 // better: site root, WP Admin dashboard, and phpMyAdmin's WordPress database.
 const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
@@ -409,22 +189,6 @@ const DEFAULT_CONSOLE_HEIGHT = 280;
 const MIN_CONSOLE_HEIGHT = 168;
 const MAX_CONSOLE_HEIGHT = 560;
 const MIN_BROWSER_HEIGHT_WHILE_RESIZING = 120;
-
-function safeWebviewBoolean( webview: WebviewTag | null, method: 'canGoBack' | 'canGoForward' ) {
-	try {
-		return typeof webview?.[ method ] === 'function' ? Boolean( webview[ method ]() ) : false;
-	} catch {
-		return false;
-	}
-}
-
-function safeWebviewIsLoading( webview: WebviewTag | null, fallback: boolean ) {
-	try {
-		return typeof webview?.isLoading === 'function' ? webview.isLoading() : fallback;
-	} catch {
-		return fallback;
-	}
-}
 
 function normalizeDocumentTitle( value: unknown ) {
 	return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -474,10 +238,6 @@ function getRealmShortcut( event: globalThis.KeyboardEvent ): PreviewRealm | nul
 		}
 	}
 	return null;
-}
-
-function isBrowserShortcutCommand( command: unknown ): command is BrowserShortcutCommandType {
-	return command === 'back' || command === 'forward' || command === 'reload';
 }
 
 function ToolbarTooltip( {
@@ -573,30 +333,21 @@ function PreviewViewportMenu( {
 }
 
 // Trailing "•••" menu holding the occasional actions that don't earn a
-// permanent toolbar button: console, loupe, screenshot, open in browser.
+// permanent toolbar button: console, page clip, open in browser. The
+// element/region/loupe grains all live in the clip layer itself.
 function PreviewOverflowMenu( {
 	canPreview,
 	canUseWebview,
 	consoleLabel,
 	onToggleConsole,
-	loupe,
-	screenshot,
+	pageClip,
 	onOpenInBrowser,
 }: {
 	canPreview: boolean;
 	canUseWebview: boolean;
 	consoleLabel: string;
 	onToggleConsole: () => void;
-	// Mostly a discovery affordance for the hold-key loupe: the item shows
-	// the shortcut and also toggles a sticky loupe on click.
-	loupe: {
-		label: string;
-		shortcut: string;
-		disabled: boolean;
-		onToggle: () => void;
-	} | null;
-	screenshot: {
-		label: string;
+	pageClip: {
 		disabled: boolean;
 		onCapture: () => void;
 	} | null;
@@ -622,21 +373,12 @@ function PreviewOverflowMenu( {
 					disabled={ ! canUseWebview }
 					onClick={ onToggleConsole }
 				/>
-				{ loupe ? (
-					<QuickMenuItem
-						icon={ search }
-						label={ loupe.label }
-						shortcut={ loupe.shortcut }
-						disabled={ loupe.disabled }
-						onClick={ loupe.onToggle }
-					/>
-				) : null }
-				{ screenshot ? (
+				{ pageClip ? (
 					<QuickMenuItem
 						icon={ capturePhoto }
-						label={ screenshot.label }
-						disabled={ screenshot.disabled }
-						onClick={ screenshot.onCapture }
+						label={ __( 'Clip full page to chat' ) }
+						disabled={ pageClip.disabled }
+						onClick={ pageClip.onCapture }
 					/>
 				) : null }
 				<Menu.Separator />
@@ -648,24 +390,6 @@ function PreviewOverflowMenu( {
 				/>
 			</Menu.Popup>
 		</Menu.Root>
-	);
-}
-
-function getPreviewWebviewContentsId( root: HTMLElement | null ): number {
-	const webview = root?.querySelector( 'webview' ) as WebviewTag | null;
-	if ( ! webview ) {
-		throw new Error( 'Preview webview is not ready.' );
-	}
-	return getWebviewContentsId( webview );
-}
-
-function areBrowserStatesEqual( a: BrowserNavigationState, b: BrowserNavigationState ) {
-	return (
-		a.canGoBack === b.canGoBack &&
-		a.canGoForward === b.canGoForward &&
-		a.loading === b.loading &&
-		a.progress === b.progress &&
-		a.title === b.title
 	);
 }
 
@@ -875,9 +599,12 @@ export function SitePreview( {
 	site,
 	path,
 	reloadNonce,
-	onAnnotationsDone,
-	onScreenshotDone,
-	onConsoleFileDone,
+	onClip,
+	onClipUpdate,
+	onClipRemove,
+	onComposerText,
+	clipMarkers,
+	agentMarkers,
 	onPathChange,
 	collapsed = false,
 	fullscreen = false,
@@ -900,7 +627,15 @@ export function SitePreview( {
 		useState< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const [ browserCommand, setBrowserCommand ] = useState< BrowserCommand | null >( null );
 	const [ inspectorState, setInspectorState ] = useState< InspectorState >( EMPTY_INSPECTOR_STATE );
-	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommand | null >( null );
+	const [ inspectorCommand, setInspectorCommand ] = useState< InspectorCommandRequest | null >(
+		null
+	);
+	const [ pageClipRequest, setPageClipRequest ] = useState< PageClipRequest | null >( null );
+	// Read by document-level key handlers without re-subscribing per change.
+	const inspectorStateRef = useRef( inspectorState );
+	useEffect( () => {
+		inspectorStateRef.current = inspectorState;
+	}, [ inspectorState ] );
 	const [ previewColorScheme, setPreviewColorScheme ] = useState< PreviewColorScheme >(
 		getInitialPreviewColorScheme
 	);
@@ -912,7 +647,6 @@ export function SitePreview( {
 	const [ consoleFilter, setConsoleFilter ] = useState< ConsoleFilter >( 'all' );
 	const [ consoleHeight, setConsoleHeight ] = useState( DEFAULT_CONSOLE_HEIGHT );
 	const [ isAttachingConsoleFile, setIsAttachingConsoleFile ] = useState( false );
-	const [ isCapturingScreenshot, setIsCapturingScreenshot ] = useState( false );
 	const rootRef = useRef< HTMLElement | null >( null );
 	const bodyRef = useRef< HTMLDivElement | null >( null );
 	const locationRef = useRef< HTMLDivElement | null >( null );
@@ -924,8 +658,10 @@ export function SitePreview( {
 		enabled: ! canPreview,
 		meta: { persist: false },
 	} );
-	const canAnnotate = canPreview && inspectorState.ready;
-	const canCaptureScreenshot = canPreview && canUseWebview && !! onScreenshotDone;
+	// The layer tool needs the injected inspector; page clips only need the
+	// webview (the capture goes through the debugger, not the guest script).
+	const canClip = canPreview && canUseWebview && inspectorState.ready && !! onClip;
+	const canPageClip = canPreview && canUseWebview && !! onClip;
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
 		: browserState.progress;
@@ -998,20 +734,78 @@ export function SitePreview( {
 				// Clipboard failures are non-fatal; the console remains visible.
 			} );
 	}, [ connector, visibleConsoleEntries ] );
+	// Preview state every clip carries: which realm/page it was made on and
+	// how the preview was set up at the time. Restorable context for the
+	// agent ("mobile viewport, dark mode, WP Admin").
+	const buildClipInput = useCallback(
+		( raw: RawClipCapture ): ComposerClipInput => {
+			const names: Record< RawClipCapture[ 'grain' ], string > = {
+				element: __( 'Element clip' ),
+				region: __( 'Region clip' ),
+				page: __( 'Page clip' ),
+				console: __( 'Console clip' ),
+			};
+			return {
+				grain: raw.grain,
+				name: names[ raw.grain ],
+				comment: raw.comment,
+				target: raw.target,
+				documentRect: raw.documentRect,
+				coveredTag: raw.coveredTag,
+				coveredSelector: raw.coveredSelector,
+				zoom: raw.zoom,
+				image: raw.image,
+				context: {
+					realm: getPreviewRealm( getSafePath( path ) ),
+					url: raw.url,
+					pathname: raw.pathname,
+					viewportWidth,
+					colorScheme: previewColorScheme,
+				},
+			};
+		},
+		[ path, previewColorScheme, viewportWidth ]
+	);
+	const handleClipCapture = useCallback(
+		async ( raw: RawClipCapture ) => {
+			await onClip?.( buildClipInput( raw ) );
+		},
+		[ buildClipInput, onClip ]
+	);
+	const handleTextSelection = useCallback(
+		( text: string, pathname: string ) => {
+			if ( ! onComposerText ) {
+				return;
+			}
+			const quoted = text
+				.split( '\n' )
+				.map( ( line ) => `> ${ line }` )
+				.join( '\n' );
+			onComposerText( pathname ? `${ quoted }\n\n(from ${ pathname })` : quoted );
+		},
+		[ onComposerText ]
+	);
 	const attachVisibleConsoleEntries = useCallback( async () => {
-		if ( ! onConsoleFileDone || visibleConsoleEntries.length === 0 || isAttachingConsoleFile ) {
+		if ( ! onClip || visibleConsoleEntries.length === 0 || isAttachingConsoleFile ) {
 			return;
 		}
 		setIsAttachingConsoleFile( true );
 		try {
-			await onConsoleFileDone( createConsoleTextFile( visibleConsoleEntries ) );
+			const file = createConsoleTextFile( visibleConsoleEntries );
+			const filePath = await connector.createTemporaryTextFile( file.name, file.contents );
+			await onClip( {
+				...buildClipInput( { grain: 'console' } ),
+				filePath,
+				fileSize: file.size,
+				entryCount: visibleConsoleEntries.length,
+			} );
 		} catch ( error ) {
 			console.error( 'Failed to attach console messages:', error );
 			toast.error( __( 'Console messages could not be attached.' ) );
 		} finally {
 			setIsAttachingConsoleFile( false );
 		}
-	}, [ isAttachingConsoleFile, onConsoleFileDone, visibleConsoleEntries ] );
+	}, [ buildClipInput, connector, isAttachingConsoleFile, onClip, visibleConsoleEntries ] );
 	const getMaxConsoleHeight = useCallback( () => {
 		const bodyHeight = bodyRef.current?.getBoundingClientRect().height;
 		if ( ! bodyHeight ) {
@@ -1078,36 +872,17 @@ export function SitePreview( {
 		commandIdRef.current += 1;
 		setBrowserCommand( { id: commandIdRef.current, type } );
 	}, [] );
-	const sendInspectorCommand = useCallback( ( type: InspectorCommand[ 'type' ] ) => {
+	const sendInspectorCommand = useCallback( ( command: InspectorHostCommand ) => {
 		commandIdRef.current += 1;
-		setInspectorCommand( { id: commandIdRef.current, type } );
+		setInspectorCommand( { id: commandIdRef.current, command } );
 	}, [] );
-	const capturePreviewScreenshot = useCallback( async () => {
-		if ( ! canCaptureScreenshot || isCapturingScreenshot ) {
+	const requestPageClip = useCallback( () => {
+		if ( ! canPageClip ) {
 			return;
 		}
-		setIsCapturingScreenshot( true );
-		try {
-			const screenshot = await connector.captureSiteScreenshot(
-				getPreviewWebviewContentsId( rootRef.current ),
-				{
-					colorScheme: previewColorScheme,
-				}
-			);
-			await onScreenshotDone?.( localMediaFileToFile( screenshot ) );
-		} catch ( error ) {
-			console.error( 'Failed to add preview screenshot:', error );
-			toast.error( __( 'Screenshot could not be added.' ) );
-		} finally {
-			setIsCapturingScreenshot( false );
-		}
-	}, [
-		canCaptureScreenshot,
-		connector,
-		isCapturingScreenshot,
-		onScreenshotDone,
-		previewColorScheme,
-	] );
+		commandIdRef.current += 1;
+		setPageClipRequest( { id: commandIdRef.current } );
+	}, [ canPageClip ] );
 	const togglePreviewColorScheme = useCallback( () => {
 		setPreviewColorScheme( ( current ) => ( current === 'dark' ? 'light' : 'dark' ) );
 	}, [] );
@@ -1221,10 +996,11 @@ export function SitePreview( {
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
 	}, [ canPreview, collapsed, handleSwitchRealm, sendBrowserCommand ] );
 
-	// Hold-to-loupe. The guest handles the modifier itself when focused;
+	// Hold-to-clip. The guest handles the modifier itself when focused;
 	// these listeners cover presses that land in the host document instead
 	// (both paths are idempotent in the guest). Chords (modifier + another
-	// key) are shortcuts, not loupe use, so they end the hold.
+	// key) are shortcuts, not layer use, so they end the hold. Escape from
+	// the host document also dismisses a pinned layer.
 	useEffect( () => {
 		if ( ! canPreview || collapsed || ! canUseWebview ) {
 			return;
@@ -1244,20 +1020,24 @@ export function SitePreview( {
 			}
 			if ( event.key === holdKey ) {
 				if ( ! event.repeat ) {
-					sendInspectorCommand( 'loupe-hold-start' );
+					sendInspectorCommand( { type: 'layer-hold-start' } );
 				}
 				return;
 			}
+			if ( event.key === 'Escape' && inspectorStateRef.current.active ) {
+				sendInspectorCommand( { type: 'layer-off' } );
+				return;
+			}
 			if ( isAppleOS() ? event.metaKey : event.ctrlKey ) {
-				sendInspectorCommand( 'loupe-hold-end' );
+				sendInspectorCommand( { type: 'layer-hold-end' } );
 			}
 		};
 		const handleKeyUp = ( event: globalThis.KeyboardEvent ) => {
 			if ( event.key === holdKey ) {
-				sendInspectorCommand( 'loupe-hold-end' );
+				sendInspectorCommand( { type: 'layer-hold-end' } );
 			}
 		};
-		const handleWindowBlur = () => sendInspectorCommand( 'loupe-hold-end' );
+		const handleWindowBlur = () => sendInspectorCommand( { type: 'layer-hold-end' } );
 
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
 		document.addEventListener( 'keyup', handleKeyUp, { capture: true } );
@@ -1335,33 +1115,29 @@ export function SitePreview( {
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
 					{ canPreview ? (
 						<>
-							{ connector.capabilities.annotatePreview ? (
-								<div className={ styles.annotationControls }>
+							{ connector.capabilities.annotatePreview && onClip ? (
+								<>
 									<IconButton
 										variant="minimal"
 										tone="neutral"
 										size="small"
-										icon={ pencil }
-										label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-										disabled={ ! canAnnotate }
-										aria-pressed={ inspectorState.isPicking }
-										onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
+										icon={ capturePhoto }
+										label={
+											inspectorState.active
+												? __( 'Finish clipping' )
+												: isAppleOS()
+												? /* translators: keyboard hint: hold the Command key */
+												  __( 'Clip (hold ⌘)' )
+												: /* translators: keyboard hint: hold the Control key */
+												  __( 'Clip (hold Ctrl)' )
+										}
+										disabled={ ! canClip }
+										aria-pressed={ inspectorState.active }
+										onClick={ () => sendInspectorCommand( { type: 'layer-toggle' } ) }
 									/>
-									{ inspectorState.annotationCount > 0 ? (
-										<Button
-											variant="solid"
-											tone="brand"
-											size="small"
-											disabled={ ! canAnnotate }
-											aria-label={ __( 'Submit annotations' ) }
-											onClick={ () => sendInspectorCommand( 'submit' ) }
-										>
-											{ __( 'Submit' ) }
-										</Button>
-									) : null }
-								</div>
+									<span className={ styles.separator } aria-hidden="true" />
+								</>
 							) : null }
-							<span className={ styles.separator } aria-hidden="true" />
 							<PreviewViewportMenu value={ viewportWidth } onChange={ setViewportWidth } />
 							<PreviewColorSchemeSwitch
 								colorScheme={ previewColorScheme }
@@ -1386,30 +1162,11 @@ export function SitePreview( {
 						canUseWebview={ canUseWebview }
 						consoleLabel={ consoleButtonLabel }
 						onToggleConsole={ () => setConsoleOpen( ( current ) => ! current ) }
-						loupe={
-							canUseWebview
+						pageClip={
+							onClip && canUseWebview
 								? {
-										label: inspectorState.isLoupeActive
-											? __( 'Turn off digital loupe' )
-											: __( 'Digital loupe' ),
-										shortcut: isAppleOS()
-											? /* translators: keyboard hint: hold the Command key */
-											  __( 'Hold ⌘' )
-											: /* translators: keyboard hint: hold the Control key */
-											  __( 'Hold Ctrl' ),
-										disabled: ! canAnnotate,
-										onToggle: () => sendInspectorCommand( 'loupe-toggle' ),
-								  }
-								: null
-						}
-						screenshot={
-							onScreenshotDone
-								? {
-										label: isCapturingScreenshot
-											? __( 'Adding screenshot...' )
-											: __( 'Add full-page screenshot to composer' ),
-										disabled: ! canCaptureScreenshot || isCapturingScreenshot,
-										onCapture: () => void capturePreviewScreenshot(),
+										disabled: ! canPageClip,
+										onCapture: requestPageClip,
 								  }
 								: null
 						}
@@ -1436,7 +1193,6 @@ export function SitePreview( {
 								key={ site.id }
 								url={ previewUrl }
 								reloadNonce={ reloadNonce }
-								onAnnotationsDone={ onAnnotationsDone }
 								onInspectorState={ handleInspectorState }
 								inspectorCommand={ inspectorCommand }
 								browserCommand={ browserCommand }
@@ -1447,7 +1203,13 @@ export function SitePreview( {
 								viewport={ previewViewport }
 								surfaceStyle={ surfaceStyle }
 								onConsoleEntry={ handleConsoleEntry }
-								onScreenshotDone={ onScreenshotDone }
+								clipMarkers={ clipMarkers }
+								agentMarkers={ agentMarkers }
+								pageClipRequest={ pageClipRequest }
+								onClipCapture={ onClip ? handleClipCapture : undefined }
+								onClipUpdate={ onClipUpdate }
+								onClipRemove={ onClipRemove }
+								onTextSelection={ onComposerText ? handleTextSelection : undefined }
 							/>
 						) : (
 							// Non-Electron fallback: plain iframe, no inspector. Reloads
@@ -1530,7 +1292,7 @@ export function SitePreview( {
 						onFilterChange={ setConsoleFilter }
 						onClear={ clearConsoleEntries }
 						onCopy={ copyVisibleConsoleEntries }
-						onAttach={ onConsoleFileDone ? () => void attachVisibleConsoleEntries() : undefined }
+						onAttach={ onClip ? () => void attachVisibleConsoleEntries() : undefined }
 						onClose={ () => setConsoleOpen( false ) }
 					/>
 				) : null }
@@ -1542,543 +1304,4 @@ export function SitePreview( {
 
 function getSafePath( path: unknown ) {
 	return typeof path === 'string' && path.trim() ? path : '/';
-}
-
-interface WebviewSurfaceProps {
-	url: string;
-	reloadNonce: number;
-	onAnnotationsDone?: ( annotations: Annotation[] ) => void;
-	onInspectorState?: ( state: InspectorState ) => void;
-	onConsoleEntry?: ( entry: PreviewConsoleEntry ) => void;
-	inspectorCommand?: InspectorCommand | null;
-	browserCommand?: BrowserCommand | null;
-	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
-	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
-	onNavigate?: ( url: string ) => void;
-	colorScheme: PreviewColorScheme;
-	// Simulated guest viewport, or null for the webview's natural size.
-	viewport?: PreviewViewport | null;
-	// Letterbox sizing for a simulated viewport narrower than the pane.
-	surfaceStyle?: CSSProperties;
-	// Receives loupe snapshots for the composer, same contract as the
-	// SitePreview-level screenshot flow.
-	onScreenshotDone?: ( file: File ) => void | Promise< void >;
-}
-
-/**
- * Renders the site preview as an Electron `<webview>` tag.
- *
- * The annotation inspector is injected into the guest page via
- * `executeJavaScript()` after each load. It reports completed annotation
- * batches by calling `console.log(BRIDGE_PREFIX + JSON.stringify(...))`,
- * which we receive through the webview's `console-message` event.
- */
-function WebviewSurface( {
-	url,
-	reloadNonce,
-	onAnnotationsDone,
-	onInspectorState,
-	onConsoleEntry,
-	inspectorCommand,
-	browserCommand,
-	onBrowserStateChange,
-	onBrowserCommand,
-	onNavigate,
-	colorScheme,
-	viewport = null,
-	surfaceStyle,
-	onScreenshotDone,
-}: WebviewSurfaceProps ) {
-	const connector = useConnector();
-	const ref = useRef< HTMLElement | null >( null );
-	const [ ready, setReady ] = useState( false );
-	const onAnnotationsDoneRef = useRef( onAnnotationsDone );
-	const onInspectorStateRef = useRef( onInspectorState );
-	const onConsoleEntryRef = useRef( onConsoleEntry );
-	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
-	const onBrowserCommandRef = useRef( onBrowserCommand );
-	const onNavigateRef = useRef( onNavigate );
-	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
-	const domReadyRef = useRef( false );
-	const currentUrlRef = useRef( url );
-	const lastReloadNonceRef = useRef( reloadNonce );
-	const consoleEntryIdRef = useRef( 0 );
-	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
-	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
-	useEffect( () => {
-		onAnnotationsDoneRef.current = onAnnotationsDone;
-	}, [ onAnnotationsDone ] );
-	useEffect( () => {
-		onInspectorStateRef.current = onInspectorState;
-	}, [ onInspectorState ] );
-	useEffect( () => {
-		onConsoleEntryRef.current = onConsoleEntry;
-	}, [ onConsoleEntry ] );
-	useEffect( () => {
-		onBrowserStateChangeRef.current = onBrowserStateChange;
-	}, [ onBrowserStateChange ] );
-	useEffect( () => {
-		onBrowserCommandRef.current = onBrowserCommand;
-	}, [ onBrowserCommand ] );
-	useEffect( () => {
-		onNavigateRef.current = onNavigate;
-	}, [ onNavigate ] );
-	const onScreenshotDoneRef = useRef( onScreenshotDone );
-	useEffect( () => {
-		onScreenshotDoneRef.current = onScreenshotDone;
-	}, [ onScreenshotDone ] );
-	const colorSchemeRef = useRef( colorScheme );
-	useEffect( () => {
-		colorSchemeRef.current = colorScheme;
-	}, [ colorScheme ] );
-	const viewportRef = useRef( viewport );
-	useEffect( () => {
-		viewportRef.current = viewport;
-	}, [ viewport ] );
-
-	// The CDP metrics override persists across navigations, so it only needs
-	// applying when the simulated viewport changes (or on the first dom-ready
-	// after one was requested). The `applied` ref skips the initial clear so
-	// plain previews don't pay for an emulation round-trip.
-	const appliedViewportRef = useRef( false );
-	useEffect( () => {
-		if ( ! ready ) return;
-		if ( ! viewport && ! appliedViewportRef.current ) return;
-		const webview = ref.current as WebviewTag | null;
-		if ( ! webview ) return;
-		appliedViewportRef.current = Boolean( viewport );
-		void applyWebviewViewport( webview, viewport ).catch( () => undefined );
-	}, [ viewport, ready ] );
-
-	useEffect( () => {
-		if ( ! ready ) return;
-		const webview = ref.current as WebviewTag | null;
-		if ( ! webview ) return;
-		void applyWebviewColorScheme( webview, colorScheme )
-			// An active loupe holds a capture of the old scheme; nudge it to
-			// request a fresh one (no-op while the loupe is inactive).
-			.then( () =>
-				webview.executeJavaScript(
-					`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
-						INSPECTOR_COMMAND_EVENT
-					) }, { detail: { type: 'loupe-refresh' } }));`,
-					false
-				)
-			)
-			.catch( () => undefined );
-	}, [ colorScheme, ready ] );
-
-	// Loupe backdrop captures: serialized so rapid zoom/scroll requests
-	// never overlap; only the newest request queued while busy survives.
-	// The visible viewport is captured whole (DevTools clips silently fail
-	// for webview guests) and pushed into the guest as a data URL anchored
-	// at the guest's request-time scroll position.
-	const loupeCaptureBusyRef = useRef( false );
-	const loupeCapturePendingRef = useRef< LoupeCaptureAnchor | null >( null );
-	// Last zoom the guest reported; reseeded into fresh documents on dom-ready.
-	const lastLoupeZoomRef = useRef< number | null >( null );
-	const pushLoupeBackdrop = useCallback(
-		async ( webview: WebviewTag, firstAnchor: LoupeCaptureAnchor ) => {
-			if ( loupeCaptureBusyRef.current ) {
-				loupeCapturePendingRef.current = firstAnchor;
-				return;
-			}
-			loupeCaptureBusyRef.current = true;
-			let anchor: LoupeCaptureAnchor | null = firstAnchor;
-			try {
-				while ( anchor ) {
-					loupeCapturePendingRef.current = null;
-					// The lens must not photograph itself into its own backdrop:
-					// the guest hides it and resolves once the hidden frame paints.
-					await webview.executeJavaScript(
-						'window.__studioLoupePrepareCapture && window.__studioLoupePrepareCapture();',
-						false
-					);
-					const capture = await connector.captureSiteScreenshot( getWebviewContentsId( webview ), {
-						colorScheme: colorSchemeRef.current,
-						area: 'viewport',
-					} );
-					const payload = JSON.stringify( {
-						url: localMediaFileToDataUrl( capture ),
-						x: anchor.docX,
-						y: anchor.docY,
-						width: anchor.width,
-						height: anchor.height,
-					} );
-					// Pushing the backdrop also un-hides the lens in the guest.
-					await webview.executeJavaScript(
-						`window.__studioLoupeBackdrop && window.__studioLoupeBackdrop(${ payload });`,
-						false
-					);
-					anchor = loupeCapturePendingRef.current;
-				}
-			} catch {
-				// Backdrop captures are cosmetic: a failure leaves the previous
-				// image in place and the next scroll/zoom retries. Un-hide the
-				// lens, since no backdrop push will do it.
-				webview
-					.executeJavaScript(
-						'window.__studioLoupeFinishCapture && window.__studioLoupeFinishCapture();',
-						false
-					)
-					.catch( () => undefined );
-			} finally {
-				loupeCaptureBusyRef.current = false;
-			}
-		},
-		[ connector ]
-	);
-	const snapLoupeRegion = useCallback(
-		async ( webview: WebviewTag, rect: LoupeSnapRect ) => {
-			try {
-				// Hide the lens so it can't end up inside its own snapshot.
-				await webview.executeJavaScript(
-					'window.__studioLoupePrepareCapture && window.__studioLoupePrepareCapture();',
-					false
-				);
-				const capture = await connector.captureSiteScreenshot( getWebviewContentsId( webview ), {
-					colorScheme: colorSchemeRef.current,
-					area: 'viewport',
-				} );
-				// Under viewport simulation the guest's CSS width is the emulated
-				// width, not the webview element's.
-				const file = await cropViewportCapture(
-					capture,
-					rect,
-					viewportRef.current?.width ?? webview.offsetWidth
-				);
-				if ( ! file ) {
-					throw new Error( 'Loupe crop produced no image.' );
-				}
-				await onScreenshotDoneRef.current?.( file );
-			} catch ( error ) {
-				console.error( 'Failed to add loupe snapshot:', error );
-				toast.error( __( 'Screenshot could not be added.' ) );
-			} finally {
-				webview
-					.executeJavaScript(
-						'window.__studioLoupeFinishCapture && window.__studioLoupeFinishCapture();',
-						false
-					)
-					.catch( () => undefined );
-			}
-		},
-		[ connector ]
-	);
-
-	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
-		const webview = ref.current as WebviewTag | null;
-		const canReadWebviewState = domReadyRef.current;
-		const next = {
-			...browserStateRef.current,
-			canGoBack: canReadWebviewState
-				? safeWebviewBoolean( webview, 'canGoBack' )
-				: browserStateRef.current.canGoBack,
-			canGoForward: canReadWebviewState
-				? safeWebviewBoolean( webview, 'canGoForward' )
-				: browserStateRef.current.canGoForward,
-			loading: canReadWebviewState
-				? safeWebviewIsLoading( webview, browserStateRef.current.loading )
-				: browserStateRef.current.loading,
-			...patch,
-		};
-		if ( areBrowserStatesEqual( browserStateRef.current, next ) ) {
-			return;
-		}
-		browserStateRef.current = next;
-		onBrowserStateChangeRef.current?.( next );
-	}, [] );
-
-	const clearProgressTimers = useCallback( () => {
-		if ( progressTimerRef.current ) {
-			clearInterval( progressTimerRef.current );
-			progressTimerRef.current = null;
-		}
-		if ( progressResetTimerRef.current ) {
-			clearTimeout( progressResetTimerRef.current );
-			progressResetTimerRef.current = null;
-		}
-	}, [] );
-
-	// The webview emits no incremental load progress, so the bar is
-	// simulated: it eases toward 88% while loading and snaps to 100% on
-	// completion before resetting.
-	const startProgress = useCallback( () => {
-		clearProgressTimers();
-		publishBrowserState( {
-			loading: true,
-			progress: Math.max( browserStateRef.current.progress, 0.12 ),
-		} );
-		progressTimerRef.current = setInterval( () => {
-			const current = browserStateRef.current.progress;
-			const next = Math.min( 0.88, current + Math.max( 0.02, ( 0.88 - current ) * 0.18 ) );
-			publishBrowserState( { loading: true, progress: next } );
-		}, 250 );
-	}, [ clearProgressTimers, publishBrowserState ] );
-
-	const finishProgress = useCallback( () => {
-		clearProgressTimers();
-		publishBrowserState( { loading: false, progress: 1 } );
-		progressResetTimerRef.current = setTimeout( () => {
-			publishBrowserState( { loading: false, progress: 0 } );
-		}, 180 );
-	}, [ clearProgressTimers, publishBrowserState ] );
-
-	// The mount-time url is loaded via the `src` attribute (calling `loadURL`
-	// before `dom-ready` throws); it must stay stable so later navigation
-	// goes through `loadURL` instead of remounting the webview.
-	const [ initialSrc ] = useState( () => url );
-
-	// Wire DOM events on the underlying custom element. We use refs + native
-	// event listeners because React doesn't recognise `<webview>`'s
-	// non-standard events (`dom-ready`, `console-message`).
-	useEffect( () => {
-		const webview = ref.current as WebviewTag | null;
-		if ( ! webview ) return;
-
-		const publishDocumentTitle = ( title?: unknown ) => {
-			if ( typeof title === 'string' ) {
-				publishBrowserState( { title: normalizeDocumentTitle( title ) } );
-				return;
-			}
-
-			webview
-				.executeJavaScript( 'document.title', false )
-				.then( ( nextTitle ) => {
-					publishBrowserState( { title: normalizeDocumentTitle( nextTitle ) } );
-				} )
-				.catch( () => undefined );
-		};
-
-		const handleDomReady = () => {
-			domReadyRef.current = true;
-			setReady( true );
-			publishDocumentTitle();
-			webview
-				.executeJavaScript( INSPECTOR_PAGE_SCRIPT, false )
-				.then( () => {
-					// The injected script reports the real picking/count state
-					// through the console bridge; this just flips `ready` so the
-					// host controls enable without waiting for that round-trip.
-					onInspectorStateRef.current?.( {
-						ready: true,
-						isPicking: false,
-						annotationCount: 0,
-						isLoupeActive: false,
-					} );
-					// A fresh document resets the injected script's loupe zoom;
-					// reseed the level the user last dialed in.
-					if ( lastLoupeZoomRef.current !== null ) {
-						webview
-							.executeJavaScript(
-								`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
-									INSPECTOR_COMMAND_EVENT
-								) }, { detail: { type: 'loupe-set-zoom', zoom: ${
-									lastLoupeZoomRef.current
-								} } }));`,
-								false
-							)
-							.catch( () => undefined );
-					}
-				} )
-				.catch( () => {
-					// Transient injection failures (e.g. frame swapped mid-eval)
-					// are recoverable on the next dom-ready.
-				} );
-		};
-
-		const handleConsoleMessage = ( event: Event ) => {
-			const consoleEvent = event as WebviewConsoleEvent;
-			if ( typeof consoleEvent.message !== 'string' ) return;
-			if ( ! consoleEvent.message.startsWith( INSPECTOR_BRIDGE_PREFIX ) ) {
-				consoleEntryIdRef.current += 1;
-				onConsoleEntryRef.current?.( {
-					id: `${ Date.now().toString( 36 ) }-${ consoleEntryIdRef.current }`,
-					level: getPreviewConsoleLevelFromWebviewLevel( consoleEvent.level ),
-					message: consoleEvent.message,
-					timestamp: Date.now(),
-					sourceId:
-						typeof consoleEvent.sourceId === 'string' && consoleEvent.sourceId.trim()
-							? consoleEvent.sourceId
-							: undefined,
-					lineNumber:
-						typeof consoleEvent.line === 'number' && Number.isFinite( consoleEvent.line )
-							? consoleEvent.line
-							: undefined,
-				} );
-				return;
-			}
-			let parsed: InspectorEvent | null = null;
-			try {
-				parsed = JSON.parse( consoleEvent.message.slice( INSPECTOR_BRIDGE_PREFIX.length ) );
-			} catch {
-				return;
-			}
-			if ( ! parsed ) return;
-			if ( parsed.type === 'browser-command' ) {
-				if ( isBrowserShortcutCommand( parsed.command ) ) {
-					onBrowserCommandRef.current?.( parsed.command );
-				}
-				return;
-			}
-			if ( parsed.type === 'loupe-capture' ) {
-				const anchor = getLoupeCaptureAnchor( parsed );
-				if ( anchor ) {
-					void pushLoupeBackdrop( webview, anchor );
-				}
-				return;
-			}
-			if ( parsed.type === 'loupe-snap' ) {
-				const rect = getLoupeSnapRect( parsed );
-				if ( rect ) {
-					void snapLoupeRegion( webview, rect );
-				}
-				return;
-			}
-			if ( parsed.type === 'state' ) {
-				// Remember the last loupe zoom so it survives navigations (the
-				// injected script starts fresh on every document).
-				if ( isFiniteNumber( parsed.loupeZoom ) ) {
-					lastLoupeZoomRef.current = parsed.loupeZoom;
-				}
-				onInspectorStateRef.current?.( {
-					ready: true,
-					isPicking: Boolean( parsed.isPicking ),
-					annotationCount: typeof parsed.annotationCount === 'number' ? parsed.annotationCount : 0,
-					isLoupeActive: Boolean( parsed.isLoupeActive ),
-				} );
-				return;
-			}
-			if ( parsed.type !== 'done' || ! parsed.annotations ) return;
-			onAnnotationsDoneRef.current?.( parsed.annotations );
-		};
-		const handlePageTitleUpdated = ( event: Event ) => {
-			publishDocumentTitle( ( event as WebviewPageTitleUpdatedEvent ).title );
-		};
-		// `did-finish-load` and `did-stop-loading` both fire at the end of a
-		// successful load; without a per-load guard the title query would run
-		// once per event instead of once per navigation.
-		let didReadTitleAfterLoad = false;
-		const handleNavigate = ( event: Event ) => {
-			const navigateEvent = event as { url?: unknown };
-			if ( typeof navigateEvent.url === 'string' ) {
-				currentUrlRef.current = navigateEvent.url;
-				onNavigateRef.current?.( navigateEvent.url );
-			}
-			didReadTitleAfterLoad = false;
-			publishBrowserState();
-		};
-		const handleStartLoading = () => {
-			didReadTitleAfterLoad = false;
-			onInspectorStateRef.current?.( EMPTY_INSPECTOR_STATE );
-			publishBrowserState( { title: null } );
-			startProgress();
-		};
-		const handleStopLoading = () => {
-			finishProgress();
-			if ( domReadyRef.current && ! didReadTitleAfterLoad ) {
-				didReadTitleAfterLoad = true;
-				publishDocumentTitle();
-			}
-		};
-
-		webview.addEventListener( 'dom-ready', handleDomReady );
-		webview.addEventListener( 'console-message', handleConsoleMessage );
-		webview.addEventListener( 'page-title-updated', handlePageTitleUpdated );
-		webview.addEventListener( 'did-navigate', handleNavigate );
-		webview.addEventListener( 'did-navigate-in-page', handleNavigate );
-		webview.addEventListener( 'did-start-loading', handleStartLoading );
-		webview.addEventListener( 'did-stop-loading', handleStopLoading );
-		webview.addEventListener( 'did-fail-load', handleStopLoading );
-		webview.addEventListener( 'did-finish-load', handleStopLoading );
-		publishBrowserState();
-		return () => {
-			domReadyRef.current = false;
-			clearProgressTimers();
-			webview.removeEventListener( 'dom-ready', handleDomReady );
-			webview.removeEventListener( 'console-message', handleConsoleMessage );
-			webview.removeEventListener( 'page-title-updated', handlePageTitleUpdated );
-			webview.removeEventListener( 'did-navigate', handleNavigate );
-			webview.removeEventListener( 'did-navigate-in-page', handleNavigate );
-			webview.removeEventListener( 'did-start-loading', handleStartLoading );
-			webview.removeEventListener( 'did-stop-loading', handleStopLoading );
-			webview.removeEventListener( 'did-fail-load', handleStopLoading );
-			webview.removeEventListener( 'did-finish-load', handleStopLoading );
-		};
-	}, [
-		clearProgressTimers,
-		finishProgress,
-		publishBrowserState,
-		pushLoupeBackdrop,
-		snapLoupeRegion,
-		startProgress,
-	] );
-
-	// Navigation effect — gated on `ready` so the first call happens after
-	// `dom-ready` (the initial url is loaded by the `src` attribute on the
-	// `<webview>`, tracked by `currentUrlRef`'s initial value; calling
-	// `loadURL` before `dom-ready` throws). In-preview navigation reported
-	// via `onNavigate` round-trips through the parent's `path` state, so skip
-	// the reload when the webview is already showing the requested url —
-	// this also covers the initial render, and unlike a mount-time snapshot
-	// it doesn't block navigating *back* to the starting url later.
-	useEffect( () => {
-		if ( ! ready ) return;
-		if ( url === currentUrlRef.current && reloadNonce === lastReloadNonceRef.current ) return;
-		const webview = ref.current as WebviewTag | null;
-		if ( ! webview ) return;
-		currentUrlRef.current = url;
-		lastReloadNonceRef.current = reloadNonce;
-		webview.loadURL( url ).catch( () => undefined );
-	}, [ url, reloadNonce, ready ] );
-
-	useEffect( () => {
-		if ( ! ready || ! inspectorCommand ) return;
-		const webview = ref.current as WebviewTag | null;
-		if ( ! webview ) return;
-		const detail = JSON.stringify( { type: inspectorCommand.type } );
-		webview
-			.executeJavaScript(
-				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
-					INSPECTOR_COMMAND_EVENT
-				) }, { detail: ${ detail } }));`,
-				false
-			)
-			.catch( () => undefined );
-	}, [ inspectorCommand, ready ] );
-
-	useEffect( () => {
-		if ( ! ready || ! browserCommand ) return;
-		const webview = ref.current as WebviewTag | null;
-		if ( ! webview ) return;
-		try {
-			if ( browserCommand.type === 'back' && webview.canGoBack?.() ) {
-				webview.goBack?.();
-			} else if ( browserCommand.type === 'forward' && webview.canGoForward?.() ) {
-				webview.goForward?.();
-			} else if ( browserCommand.type === 'reload' ) {
-				webview.reload?.();
-			}
-		} finally {
-			publishBrowserState();
-		}
-	}, [ browserCommand, publishBrowserState, ready ] );
-
-	return (
-		<>
-			<webview
-				ref={ ref }
-				src={ initialSrc }
-				className={ styles.iframe }
-				style={ surfaceStyle }
-				allowpopups={ true }
-				partition="persist:site-preview"
-			/>
-			{ ! ready ? (
-				<div className={ styles.spinnerOverlay } aria-hidden="true">
-					<span className={ styles.spinner } />
-				</div>
-			) : null }
-		</>
-	);
 }

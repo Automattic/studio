@@ -50,6 +50,11 @@ export function getComposerAttachmentImageSrc( attachment: ComposerAttachment ):
 	if ( attachment.kind === 'image' ) {
 		return toImageDataUrl( attachment.mimeType, attachment.dataBase64 );
 	}
+	if ( attachment.kind === 'clip' ) {
+		return attachment.dataBase64 && attachment.mimeType
+			? toImageDataUrl( attachment.mimeType, attachment.dataBase64 )
+			: null;
+	}
 	return attachment.preview?.kind === 'image' ? attachment.preview.dataUrl : null;
 }
 
@@ -57,12 +62,18 @@ export function getComposerAttachmentTextPreview( attachment: ComposerAttachment
 	if ( attachment.kind === 'image' ) {
 		return null;
 	}
+	if ( attachment.kind === 'clip' ) {
+		return attachment.comment || null;
+	}
 	return attachment.preview?.kind === 'text' ? attachment.preview.text : null;
 }
 
 export function hasComposerAttachmentVisualPreview( attachment: ComposerAttachment ): boolean {
 	if ( attachment.kind === 'image' ) {
 		return true;
+	}
+	if ( attachment.kind === 'clip' ) {
+		return !! attachment.dataBase64 || !! attachment.comment;
 	}
 	return attachment.preview?.kind === 'image' || attachment.preview?.kind === 'text';
 }

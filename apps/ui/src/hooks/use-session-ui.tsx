@@ -11,11 +11,9 @@ import {
 	type ReactNode,
 } from 'react';
 import { useConnector } from '@/data/core';
-import type {
-	Annotation,
-	PreviewConsoleEntry,
-	PreviewConsoleTextFile,
-} from '@/components/site-preview/types';
+import type { PreviewConsoleEntry } from '@/components/site-preview/types';
+import type { ComposerClipInput } from '@studio/common/ai/composer-attachments';
+import type { AgentMarker, ClipMarker } from '@studio/common/inspector/protocol';
 
 // Dashboard-scoped UI store (mounted once in the dashboard layout, shared by
 // every route under it). Holds the slices of UI state that the chat agent
@@ -42,9 +40,23 @@ interface PreviewConsoleUIState {
 	entries: PreviewConsoleEntry[];
 }
 
+// The on-screen session's clips, mirrored into the preview's guest page as
+// numbered markers (published by the composer, read by the preview).
+interface PreviewClipsUIState {
+	markers: ClipMarker[];
+}
+
+// Agent-placed highlights ("I changed *this*"), set by `preview.highlight`
+// agent events and rendered by the preview's guest overlay.
+interface PreviewAgentMarkersUIState {
+	markers: AgentMarker[];
+}
+
 export interface SessionUIState {
 	preview: PreviewUIState;
 	previewConsole: PreviewConsoleUIState;
+	previewClips: PreviewClipsUIState;
+	previewAgentMarkers: PreviewAgentMarkersUIState;
 }
 
 export type SessionUIAction =
@@ -55,11 +67,15 @@ export type SessionUIAction =
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
-	| { type: 'preview-console/set-entries'; entries: PreviewConsoleEntry[] };
+	| { type: 'preview-console/set-entries'; entries: PreviewConsoleEntry[] }
+	| { type: 'preview-clips/set-markers'; markers: ClipMarker[] }
+	| { type: 'preview-agent-markers/set'; markers: AgentMarker[] };
 
 const INITIAL_STATE: SessionUIState = {
 	preview: { open: true, fullscreen: false, path: '/', reloadNonce: 0 },
 	previewConsole: { entries: [] },
+	previewClips: { markers: [] },
+	previewAgentMarkers: { markers: [] },
 };
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
@@ -135,6 +151,14 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 			return state.previewConsole.entries === action.entries
 				? state
 				: { ...state, previewConsole: { entries: action.entries } };
+		case 'preview-clips/set-markers':
+			return state.previewClips.markers === action.markers
+				? state
+				: { ...state, previewClips: { markers: action.markers } };
+		case 'preview-agent-markers/set':
+			return state.previewAgentMarkers.markers === action.markers
+				? state
+				: { ...state, previewAgentMarkers: { markers: action.markers } };
 	}
 }
 
@@ -142,16 +166,22 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 // `useSessionCommands`) don't re-run on every state change.
 const SessionUIStateContext = createContext< SessionUIState | null >( null );
 const SessionUIDispatchContext = createContext< Dispatch< SessionUIAction > | null >( null );
+/**
+ * Everything the preview can do *to* the on-screen session. Registered by
+ * the session view while it's displayed; invoked by the dashboard-level
+ * preview. The composer owns the clips, so edits round-trip through here.
+ */
+export interface SessionPreviewClipActions {
+	addClip: ( input: ComposerClipInput ) => void | Promise< void >;
+	updateClipComment: ( id: string, comment: string ) => void;
+	removeClip: ( id: string ) => void;
+	appendComposerText: ( text: string ) => void;
+}
+
 // Ref (not state) so registering/unregistering the handler never re-renders
-// the tree; the dashboard-level preview reads it lazily on submit.
-const SessionUIPreviewAnnotationsContext = createContext< MutableRefObject<
-	( ( annotations: Annotation[] ) => void ) | undefined
-> | null >( null );
-const SessionUIPreviewScreenshotContext = createContext< MutableRefObject<
-	( ( file: File ) => void | Promise< void > ) | undefined
-> | null >( null );
-const SessionUIPreviewConsoleFileContext = createContext< MutableRefObject<
-	( ( file: PreviewConsoleTextFile ) => void | Promise< void > ) | undefined
+// the tree; the dashboard-level preview reads it lazily on use.
+const SessionUIPreviewClipActionsContext = createContext< MutableRefObject<
+	SessionPreviewClipActions | undefined
 > | null >( null );
 
 export function SessionUIProvider( { children }: { children: ReactNode } ) {
@@ -168,15 +198,7 @@ export function SessionUIProvider( { children }: { children: ReactNode } ) {
 
 function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE );
-	const previewAnnotationsRef = useRef< ( ( annotations: Annotation[] ) => void ) | undefined >(
-		undefined
-	);
-	const previewScreenshotRef = useRef< ( ( file: File ) => void | Promise< void > ) | undefined >(
-		undefined
-	);
-	const previewConsoleFileRef = useRef<
-		( ( file: PreviewConsoleTextFile ) => void | Promise< void > ) | undefined
-	>( undefined );
+	const previewClipActionsRef = useRef< SessionPreviewClipActions | undefined >( undefined );
 	const connector = useConnector();
 	useEffect( () => {
 		return connector.onToggleSitePreview( () => {
@@ -185,15 +207,11 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	}, [ connector ] );
 	return (
 		<SessionUIDispatchContext.Provider value={ dispatch }>
-			<SessionUIPreviewConsoleFileContext.Provider value={ previewConsoleFileRef }>
-				<SessionUIPreviewScreenshotContext.Provider value={ previewScreenshotRef }>
-					<SessionUIPreviewAnnotationsContext.Provider value={ previewAnnotationsRef }>
-						<SessionUIStateContext.Provider value={ state }>
-							{ children }
-						</SessionUIStateContext.Provider>
-					</SessionUIPreviewAnnotationsContext.Provider>
-				</SessionUIPreviewScreenshotContext.Provider>
-			</SessionUIPreviewConsoleFileContext.Provider>
+			<SessionUIPreviewClipActionsContext.Provider value={ previewClipActionsRef }>
+				<SessionUIStateContext.Provider value={ state }>
+					{ children }
+				</SessionUIStateContext.Provider>
+			</SessionUIPreviewClipActionsContext.Provider>
 		</SessionUIDispatchContext.Provider>
 	);
 }
@@ -341,108 +359,66 @@ export function useSessionPreviewConsoleEntries(): PreviewConsoleEntry[] {
 	return useSessionUIState().previewConsole.entries;
 }
 
-// Registers the on-screen session's annotations handler (its "send to chat")
-// with the shared store, so the dashboard-level preview can submit
-// annotations to whichever session is currently displayed.
-export function useSessionPreviewAnnotations(
-	onAnnotationsDone: ( annotations: Annotation[] ) => void,
+// Registers the on-screen session's clip actions with the shared store, so
+// the dashboard-level preview routes clips to whichever session is
+// currently displayed.
+export function useSessionPreviewClips(
+	actions: SessionPreviewClipActions,
 	enabled: boolean
 ): void {
-	const ref = useContext( SessionUIPreviewAnnotationsContext );
+	const ref = useContext( SessionUIPreviewClipActionsContext );
 	if ( ! ref ) {
-		throw new Error( 'useSessionPreviewAnnotations must be used within a SessionUIProvider' );
+		throw new Error( 'useSessionPreviewClips must be used within a SessionUIProvider' );
 	}
 	useEffect( () => {
 		if ( ! enabled ) {
 			return;
 		}
-		ref.current = onAnnotationsDone;
+		ref.current = actions;
 		return () => {
-			if ( ref.current === onAnnotationsDone ) {
+			if ( ref.current === actions ) {
 				ref.current = undefined;
 			}
 		};
-	}, [ enabled, onAnnotationsDone, ref ] );
+	}, [ enabled, actions, ref ] );
 }
 
-export function useSessionPreviewAnnotationsHandler(): ( annotations: Annotation[] ) => void {
-	const ref = useContext( SessionUIPreviewAnnotationsContext );
+export function useSessionPreviewClipActions(): SessionPreviewClipActions {
+	const ref = useContext( SessionUIPreviewClipActionsContext );
 	if ( ! ref ) {
-		throw new Error(
-			'useSessionPreviewAnnotationsHandler must be used within a SessionUIProvider'
-		);
+		throw new Error( 'useSessionPreviewClipActions must be used within a SessionUIProvider' );
 	}
-	return useCallback( ( annotations: Annotation[] ) => ref.current?.( annotations ), [ ref ] );
-}
-
-export function useSessionPreviewScreenshot(
-	onScreenshotDone: ( file: File ) => void | Promise< void >,
-	enabled: boolean
-): void {
-	const ref = useContext( SessionUIPreviewScreenshotContext );
-	if ( ! ref ) {
-		throw new Error( 'useSessionPreviewScreenshot must be used within a SessionUIProvider' );
-	}
-	useEffect( () => {
-		if ( ! enabled ) {
-			return;
-		}
-		ref.current = onScreenshotDone;
-		return () => {
-			if ( ref.current === onScreenshotDone ) {
-				ref.current = undefined;
-			}
-		};
-	}, [ enabled, onScreenshotDone, ref ] );
-}
-
-export function useSessionPreviewScreenshotHandler(): ( file: File ) => Promise< void > {
-	const ref = useContext( SessionUIPreviewScreenshotContext );
-	if ( ! ref ) {
-		throw new Error( 'useSessionPreviewScreenshotHandler must be used within a SessionUIProvider' );
-	}
-	return useCallback(
-		async ( file: File ) => {
-			await ref.current?.( file );
-		},
+	return useMemo(
+		() => ( {
+			addClip: async ( input: ComposerClipInput ) => {
+				await ref.current?.addClip( input );
+			},
+			updateClipComment: ( id: string, comment: string ) =>
+				ref.current?.updateClipComment( id, comment ),
+			removeClip: ( id: string ) => ref.current?.removeClip( id ),
+			appendComposerText: ( text: string ) => ref.current?.appendComposerText( text ),
+		} ),
 		[ ref ]
 	);
 }
 
-export function useSessionPreviewConsoleFile(
-	onConsoleFileDone: ( file: PreviewConsoleTextFile ) => void | Promise< void >,
-	enabled: boolean
-): void {
-	const ref = useContext( SessionUIPreviewConsoleFileContext );
-	if ( ! ref ) {
-		throw new Error( 'useSessionPreviewConsoleFile must be used within a SessionUIProvider' );
-	}
-	useEffect( () => {
-		if ( ! enabled ) {
-			return;
-		}
-		ref.current = onConsoleFileDone;
-		return () => {
-			if ( ref.current === onConsoleFileDone ) {
-				ref.current = undefined;
-			}
-		};
-	}, [ enabled, onConsoleFileDone, ref ] );
+/** The on-screen session's clip markers, for the preview to mirror into the
+ * guest page. */
+export function useSessionPreviewClipMarkers(): ClipMarker[] {
+	return useSessionUIState().previewClips.markers;
 }
 
-export function useSessionPreviewConsoleFileHandler(): (
-	file: PreviewConsoleTextFile
-) => Promise< void > {
-	const ref = useContext( SessionUIPreviewConsoleFileContext );
-	if ( ! ref ) {
-		throw new Error(
-			'useSessionPreviewConsoleFileHandler must be used within a SessionUIProvider'
-		);
-	}
+/** Publisher side: the composer keeps this in sync with its attachments. */
+export function useSessionPreviewClipMarkersPublisher(): ( markers: ClipMarker[] ) => void {
+	const dispatch = useSessionUIDispatch();
 	return useCallback(
-		async ( file: PreviewConsoleTextFile ) => {
-			await ref.current?.( file );
-		},
-		[ ref ]
+		( markers: ClipMarker[] ) => dispatch( { type: 'preview-clips/set-markers', markers } ),
+		[ dispatch ]
 	);
+}
+
+/** Agent-placed preview highlights, for the preview to mirror into the
+ * guest page (set by `preview.highlight` agent events). */
+export function useSessionPreviewAgentMarkers(): AgentMarker[] {
+	return useSessionUIState().previewAgentMarkers.markers;
 }

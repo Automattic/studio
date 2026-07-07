@@ -3,33 +3,18 @@ Unreleased
 
 1.14.0
 =====
-<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
-* Update Playground and PHP-WASM dependencies to 3.1.43 #4015
-* Zero WordPress's default root block gap in Studio Code scaffolded themes #4053
-* Restore blocks-engine registry dependency (drop temporary vendor) #4028
-* Implement the /publish slash command to push local sites to WP.com #4043
-* Bump sqlite-database-integration to v3.0.0-rc.6 for the SET write-lock fix #4033
-* Fix `studio push` for native reprint-pulled sites #3994
-* Recreate missing db.php drop-ins and preserve custom SQLite drop-ins #3993
-* Add refresh_browser tool so the agent can reload the site preview #4027
-* Fully remove `pull.json` state #4007
-* build(deps): bump anthropics/claude-code-action from 1.0.158 to 1.0.163 #4069
-* build(deps): bump ruby/setup-ruby from 1.314.0 to 1.316.0 #4068
-* Add the studio ui local web surface #3953
-* Add design doc: Studio apps & surfaces #4006
-* Adjust native PHP vs Playground agent expectations #3995
-* Close gaps in plugin recommendations supporting Automattic products #4023
-* Bump pi packages to 0.80.3 #4073
-* Fix flaky site duplication by tolerating transient files deleted mid-copy #4074
-* Trim release Slack message to installer download links only #4071
-* Use ASC API key env vars #3951
-* build(deps): bump fastlane from 2.236.1 to 2.237.0 in the ruby-minor-and-patch group #4081
-* Render pi-computed edit diffs in chat UIs #4076
-* Fix broken Central Kurdish text on macOS by bundling Vazirmatn font #4062
-* Fix Windows E2E: combined status reporting, PHP INI tilde fixes, and per-command CLI shutdown #4082
-* Sync: preserve Pressable metadata in reconciliation fallback #4078
-* Studio Code: Add data liberation slash command  #3940
-* Update Studio Code agent's supported Sonnet model to Sonnet 5 #4024
+* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082  
+* Studio Code: Added a /liberate command to recreate sites from other platforms (e.g. Wix) as WordPress #3940
+* Studio Code: Added a /publish command to push local sites to WordPress.com #4043
+* Studio Code: Updated the assistant's available model to Sonnet 5 #4024
+* Studio Code: Agent file edits now show as proper line-by-line diffs in the CLI and desktop assistant #4076
+* Studio Code: Improved plugin recommendations for Automattic products, and tuned agent behavior for native PHP vs Playground sites #4023, #3995
+* Studio Code: Fixed an unwanted gap in block themes scaffolded by the assistant #4053
+* Fixed an issue where Pressable sites were marked unsupported on the Sync tab #4078
+* Fixed recreating missing db.php drop-ins and preserving custom SQLite drop-ins #3993
+* Fixed occasional failures when duplicating a site #4074
+* Fixed broken Central Kurdish (Sorani) text on macOS by bundling the Vazirmatn font #4062
+* Updated multiple dependencies, including WP Playground and PHP-WASM, the SQLite database integration, and the pi (agent) packages #4015, #4033, #4073
 **Full Changelog**: https://github.com/Automattic/studio/compare/v1.13.0...v1.14.0
 
 1.13.0

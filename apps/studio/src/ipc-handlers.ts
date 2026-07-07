@@ -65,6 +65,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
+import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
@@ -934,6 +935,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return;
+	}
+
+	const maintenanceCheck = checkMaintenanceFile( server.details.path );
+	if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
+		throw new Error( 'MAINTENANCE_MODE' );
 	}
 
 	try {

@@ -493,7 +493,7 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 								showOpenLogs: false,
 							} );
 						}
-					} else if ( error instanceof Error && error.message.includes( 'maintenance mode' ) ) {
+					} else if ( error instanceof Error && error.message.includes( 'MAINTENANCE_MODE' ) ) {
 						getIpcApi().showErrorMessageBox( {
 							title: sprintf( __( "'%s' is in maintenance mode" ), siteName ),
 							message: __(

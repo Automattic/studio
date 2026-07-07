@@ -184,7 +184,7 @@
 }
 
 .dialogField input:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-focus);
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
 	outline-offset: -1px;
 }
 

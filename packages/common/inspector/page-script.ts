@@ -1,12 +1,18 @@
 /**
- * The clip layer: the inspector script injected into the previewed site.
+ * The clip inspector: the script injected into the previewed site.
  *
- * One tool, three grains. While the layer is up (hold the primary modifier,
- * or pin it from the host toolbar) the user can:
- * - hover + click an element  -> comment popup -> element clip
- * - drag a marquee            -> region clip (instant, no popup)
- * - scroll to zoom the loupe  -> click snaps the lens region (instant)
- * - press the HUD button      -> page clip
+ * One tool, explicit modes — each with its own trigger in the host chrome
+ * (the preview's split button, or the CLI toolbar), so gestures never
+ * fight the page:
+ * - element: hover highlights, click opens the comment popup -> element clip
+ * - region:  drag a marquee -> region clip (instant, no popup)
+ * - loupe:   a magnifying lens follows the cursor; scroll zooms (only in
+ *            this mode), click snaps the lens region (instant)
+ * Page clips have no mode: the host captures on demand.
+ *
+ * In the app, modes are one-shot (`config.oneShotModes`): producing a clip
+ * exits the mode, so the split button reads as "do one clip of this kind".
+ * Scrolling always scrolls the page in element/region modes; Escape exits.
  *
  * Runs in the cross-origin guest page: vanilla DOM inside a Shadow DOM
  * root, no React, no imports. It is written here as a real, type-checked
@@ -91,17 +97,13 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 		return /mac|iphone|ipad|ipod/i.test( navigator.platform || navigator.userAgent || '' );
 	}
 
-	function holdKey(): string {
-		return isApplePlatform() ? 'Meta' : 'Control';
-	}
-
-	function isHoldModifierDown( event: MouseEvent | KeyboardEvent ): boolean {
+	function isPrimaryModifierDown( event: { metaKey: boolean; ctrlKey: boolean } ): boolean {
 		return isApplePlatform() ? event.metaKey : event.ctrlKey;
 	}
 
 	function getBrowserShortcutCommand( event: KeyboardEvent ): string | null {
 		if ( event.defaultPrevented || event.repeat || event.shiftKey || event.altKey ) return null;
-		if ( ! isHoldModifierDown( event ) ) return null;
+		if ( ! isPrimaryModifierDown( event ) ) return null;
 		const key = event.key.toLowerCase();
 		if ( key === 'r' ) return 'reload';
 		if ( key === '[' ) return 'back';
@@ -236,6 +238,12 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 		.regionOutline {
 			position: absolute; pointer-events: none;
 			border: 1.5px dashed ${ ACCENT };
+			border-radius: 2px;
+			background: rgba(37,99,235,0.05);
+		}
+		.elementOutline {
+			position: absolute; pointer-events: none;
+			border: 1.5px solid ${ ACCENT };
 			border-radius: 2px;
 			background: rgba(37,99,235,0.05);
 		}
@@ -408,10 +416,10 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	/* ------------------------------------------------------------------
 	 * State
 	 * ---------------------------------------------------------------- */
-	// The layer: 'off' | 'held' (modifier down) | 'pinned' (toolbar toggle
-	// or auto-pinned by opening the comment popup, which needs the
-	// modifier-free keyboard).
-	let layer: 'off' | 'held' | 'pinned' = 'off';
+	// Exactly one mode at a time; 'off' means the page behaves natively
+	// (markers stay clickable for editing existing clips).
+	let mode: 'off' | 'element' | 'region' | 'loupe' = 'off';
+	const ONE_SHOT = !! config.oneShotModes;
 	let hoveredEl: Element | null = null;
 	let cursorX = -1;
 	let cursorY = -1;
@@ -453,9 +461,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 
 	// Loupe.
 	let loupeZoom = typeof config.initialZoom === 'number' ? config.initialZoom : 3;
-	// The lens only materializes once the user scrolls to zoom; at 1x the
-	// layer is element highlight + marquee.
-	let loupeEngaged = false;
 	let loupeWidth = 280;
 	let loupeBackdrop: { url: string; x: number; y: number; width: number; height: number } | null =
 		null;
@@ -484,23 +489,12 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	let popupNode: HTMLElement | null = null;
 	let contextMenuNode: HTMLElement | null = null;
 
-	// HUD: gesture hints + capture-page button, shown while the layer is up.
+	// HUD: a slim hint pill naming the active mode's gesture.
 	const hudNode = document.createElement( 'div' );
 	hudNode.className = 'hud';
 	const hudHints = document.createElement( 'div' );
 	hudHints.className = 'hints';
 	hudNode.appendChild( hudHints );
-	let hudPageButton: HTMLButtonElement | null = null;
-	if ( FEATURES.pageClips ) {
-		hudPageButton = document.createElement( 'button' );
-		hudPageButton.type = 'button';
-		hudPageButton.textContent = 'Capture page';
-		hudPageButton.addEventListener( 'click', ( e ) => {
-			e.stopPropagation();
-			send( { type: 'clip-page' } );
-		} );
-		hudNode.appendChild( hudPageButton );
-	}
 	root.appendChild( hudNode );
 
 	// Loupe lens.
@@ -525,25 +519,28 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	}
 	root.appendChild( loupeNode );
 
-	// CLI standalone submit bar: layer toggle + clip count + submit.
+	// CLI standalone submit bar: mode toggles + clip count + submit.
 	let submitBarNode: HTMLElement | null = null;
 	let submitCountNode: HTMLElement | null = null;
 	let submitButtonNode: HTMLButtonElement | null = null;
-	let submitToggleNode: HTMLButtonElement | null = null;
+	const submitModeToggles: Array< { node: HTMLButtonElement; toggleMode: 'element' | 'region' } > =
+		[];
 	if ( FEATURES.submitToolbar ) {
 		submitBarNode = document.createElement( 'div' );
 		submitBarNode.className = 'submitBar';
-		submitToggleNode = document.createElement( 'button' );
-		submitToggleNode.type = 'button';
-		submitToggleNode.className = 'toggle';
-		submitToggleNode.textContent = 'Clip';
-		submitToggleNode.addEventListener( 'click', () => {
-			if ( layer === 'pinned' ) {
-				exitLayer();
-			} else {
-				enterLayer( 'pinned' );
-			}
-		} );
+		const addModeToggle = ( label: string, toggleMode: 'element' | 'region' ) => {
+			const button = document.createElement( 'button' );
+			button.type = 'button';
+			button.className = 'toggle';
+			button.textContent = label;
+			button.addEventListener( 'click', () => {
+				setMode( mode === toggleMode ? 'off' : toggleMode );
+			} );
+			submitModeToggles.push( { node: button, toggleMode } );
+			submitBarNode!.appendChild( button );
+		};
+		if ( FEATURES.elementClips ) addModeToggle( 'Element', 'element' );
+		if ( FEATURES.regionClips ) addModeToggle( 'Region', 'region' );
 		submitCountNode = document.createElement( 'span' );
 		submitCountNode.className = 'count';
 		submitButtonNode = document.createElement( 'button' );
@@ -552,7 +549,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 		submitButtonNode.addEventListener( 'click', () => {
 			send( { type: 'submit' } );
 		} );
-		submitBarNode.appendChild( submitToggleNode );
 		submitBarNode.appendChild( submitCountNode );
 		submitBarNode.appendChild( submitButtonNode );
 		root.appendChild( submitBarNode );
@@ -568,23 +564,29 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	function sendState(): void {
 		send( {
 			type: 'state',
-			active: layer !== 'off',
-			pinned: layer === 'pinned',
+			mode,
 			zoom: loupeZoom,
 			clipCount: clipMarkers.length,
 		} );
 	}
 
 	function renderHighlight(): void {
-		const show =
-			layer !== 'off' &&
-			FEATURES.elementClips &&
-			! loupeEngaged &&
-			! activePopup &&
-			! ( marquee && marquee.active ) &&
-			hoveredEl &&
-			! captureHidden;
-		if ( ! show || ! hoveredEl ) {
+		if ( captureHidden ) {
+			highlightNode.style.display = 'none';
+			return;
+		}
+		// While the comment popup is open, keep its target outlined so the
+		// user can see what they're annotating.
+		if ( activePopup ) {
+			const r = activePopup.documentRect;
+			highlightNode.style.display = 'block';
+			highlightNode.style.left = r.left + 'px';
+			highlightNode.style.top = r.top + 'px';
+			highlightNode.style.width = r.width + 'px';
+			highlightNode.style.height = r.height + 'px';
+			return;
+		}
+		if ( mode !== 'element' || ! hoveredEl ) {
 			highlightNode.style.display = 'none';
 			return;
 		}
@@ -603,9 +605,12 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 			if ( clip.pathname && clip.pathname !== pathname ) continue;
 			const rect = clip.documentRect;
 			if ( ! rect ) continue;
-			if ( clip.grain === 'region' ) {
+			// Every clipped element/region keeps a visible outline alongside
+			// its numbered marker: dashed for pixel regions, solid for
+			// elements.
+			if ( clip.grain === 'region' || clip.grain === 'element' ) {
 				const outline = document.createElement( 'div' );
-				outline.className = 'regionOutline';
+				outline.className = clip.grain === 'region' ? 'regionOutline' : 'elementOutline';
 				outline.style.left = rect.left + 'px';
 				outline.style.top = rect.top + 'px';
 				outline.style.width = rect.width + 'px';
@@ -632,13 +637,11 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 		if ( submitCountNode && submitButtonNode ) {
 			const n = clipMarkers.length;
 			submitCountNode.textContent =
-				n === 0
-					? ( isApplePlatform() ? '⌘' : 'Ctrl' ) + '-click an element to clip'
-					: n + ( n === 1 ? ' clip' : ' clips' );
+				n === 0 ? 'Pick a mode, then clip the page' : n + ( n === 1 ? ' clip' : ' clips' );
 			submitButtonNode.disabled = n === 0;
 		}
-		if ( submitToggleNode ) {
-			submitToggleNode.setAttribute( 'aria-pressed', layer === 'pinned' ? 'true' : 'false' );
+		for ( const toggle of submitModeToggles ) {
+			toggle.node.setAttribute( 'aria-pressed', mode === toggle.toggleMode ? 'true' : 'false' );
 		}
 	}
 
@@ -672,26 +675,25 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	}
 
 	function renderHud(): void {
-		const show = layer !== 'off' && ! captureHidden && ! FEATURES.submitToolbar;
+		const show = mode !== 'off' && ! captureHidden && ! activePopup;
 		hudNode.style.display = show ? 'inline-flex' : 'none';
 		if ( ! show ) return;
 		const hints: string[] = [];
-		if ( FEATURES.elementClips ) hints.push( '<span><b>Click</b> element</span>' );
-		if ( FEATURES.regionClips ) hints.push( '<span><b>Drag</b> region</span>' );
-		if ( FEATURES.loupe ) {
-			hints.push(
-				loupeEngaged
-					? '<span><b>Click</b> to snap · <b>Scroll</b> zoom</span>'
-					: '<span><b>Scroll</b> zoom</span>'
-			);
+		if ( mode === 'element' ) {
+			hints.push( '<span><b>Click</b> an element to clip it</span>' );
+		} else if ( mode === 'region' ) {
+			hints.push( '<span><b>Drag</b> to clip a region</span>' );
+		} else if ( mode === 'loupe' ) {
+			const modifier = isApplePlatform() ? '⌘' : 'Ctrl';
+			hints.push( '<span><b>' + modifier + '+Scroll</b> zoom · <b>Click</b> to snap</span>' );
 		}
-		hints.push( layer === 'pinned' ? '<span><b>Esc</b> done</span>' : '' );
+		hints.push( '<span><b>Esc</b> cancel</span>' );
 		hudHints.innerHTML = hints.join( '' );
 	}
 
 	function renderCursor(): void {
-		if ( layer !== 'off' && ! activePopup ) {
-			document.documentElement.style.cursor = loupeEngaged ? 'zoom-in' : 'crosshair';
+		if ( mode !== 'off' && ! activePopup ) {
+			document.documentElement.style.cursor = mode === 'loupe' ? 'zoom-in' : 'crosshair';
 		} else {
 			document.documentElement.style.cursor = '';
 		}
@@ -706,33 +708,35 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	}
 
 	/* ------------------------------------------------------------------
-	 * Layer lifecycle
+	 * Mode lifecycle
 	 * ---------------------------------------------------------------- */
-	function enterLayer( mode: 'held' | 'pinned' ): void {
-		const wasOff = layer === 'off';
-		if ( layer === 'pinned' && mode === 'held' ) return;
-		layer = mode;
-		if ( wasOff ) {
-			closeContextMenu();
-			if ( FEATURES.loupe && loupeEngaged ) sendLoupeCaptureRequest();
+	function setMode( next: 'off' | 'element' | 'region' | 'loupe' ): void {
+		if ( next === 'element' && ! FEATURES.elementClips ) return;
+		if ( next === 'region' && ! FEATURES.regionClips ) return;
+		if ( next === 'loupe' && ! FEATURES.loupe ) return;
+		if ( mode === next ) return;
+		mode = next;
+		hoveredEl = null;
+		activePopup = null;
+		closePopup();
+		closeContextMenu();
+		cancelMarquee();
+		captureHidden = false;
+		if ( next === 'loupe' ) {
+			sendLoupeCaptureRequest();
+		} else {
+			loupeBackdrop = null;
+			loupeBackdropNode.style.backgroundImage = '';
+			if ( loupeCaptureTimer ) clearTimeout( loupeCaptureTimer );
 		}
 		render();
 		sendState();
 	}
 
-	function exitLayer(): void {
-		if ( layer === 'off' ) return;
-		layer = 'off';
-		hoveredEl = null;
-		activePopup = null;
-		closePopup();
-		cancelMarquee();
-		loupeBackdrop = null;
-		loupeBackdropNode.style.backgroundImage = '';
-		captureHidden = false;
-		if ( loupeCaptureTimer ) clearTimeout( loupeCaptureTimer );
-		render();
-		sendState();
+	// One-shot modes (the app's split-button actions) end themselves after
+	// producing a clip; CLI toggles stay on until switched off.
+	function completeOneShot(): void {
+		if ( ONE_SHOT ) setMode( 'off' );
 	}
 
 	/* ------------------------------------------------------------------
@@ -749,13 +753,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 		closePopup();
 		const state = activePopup;
 		if ( ! state ) return;
-
-		// Opening the popup auto-pins the layer: typing a comment needs the
-		// modifier-free keyboard, and a held layer would collapse on release.
-		if ( layer === 'held' ) {
-			layer = 'pinned';
-			sendState();
-		}
 
 		const popup = document.createElement( 'div' );
 		popup.className = 'popup';
@@ -872,6 +869,9 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 					pathname: context.pathname,
 				},
 			} );
+			// Cancel keeps the mode on (pick a different element instead);
+			// a confirmed clip completes the one-shot.
+			completeOneShot();
 		}
 		render();
 	}
@@ -902,11 +902,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	function openPopupForMarker( id: string ): void {
 		const clip = clipMarkers.find( ( c ) => c.id === id );
 		if ( ! clip || ! clip.documentRect ) return;
-		// Marker edits work with or without the layer; opening one pins it
-		// so the popup survives modifier release.
-		if ( layer === 'off' ) {
-			enterLayer( 'pinned' );
-		}
 		const rect = clip.documentRect;
 		activePopup = {
 			existingId: clip.id,
@@ -958,7 +953,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 
 		if ( FEATURES.elementClips && el && ! isOurElement( el ) ) {
 			addItem( 'Clip this element', () => {
-				enterLayer( 'pinned' );
 				openPopupForElement( el );
 			} );
 		}
@@ -1043,6 +1037,7 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 				pathname: context.pathname,
 			},
 		} );
+		completeOneShot();
 		render();
 	}
 
@@ -1067,7 +1062,7 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	}
 
 	function updateLoupe(): void {
-		const show = layer !== 'off' && FEATURES.loupe && loupeEngaged && ! captureHidden;
+		const show = mode === 'loupe' && ! captureHidden;
 		if ( ! show || cursorX < 0 || cursorY < 0 ) {
 			loupeNode.style.display = 'none';
 			return;
@@ -1097,20 +1092,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 			loupeBackdropNode.style.transform =
 				'translate(' + tx + 'px, ' + ty + 'px) scale(' + loupeZoom + ')';
 		}
-	}
-
-	function engageLoupe(): void {
-		if ( ! FEATURES.loupe || loupeEngaged ) return;
-		loupeEngaged = true;
-		hoveredEl = null;
-		sendLoupeCaptureRequest();
-		render();
-	}
-
-	function disengageLoupe(): void {
-		if ( ! loupeEngaged ) return;
-		loupeEngaged = false;
-		render();
 	}
 
 	function flashLoupe(): void {
@@ -1156,6 +1137,7 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 			},
 		} );
 		flashLoupe();
+		completeOneShot();
 	}
 
 	/* ------------------------------------------------------------------
@@ -1215,22 +1197,15 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	window.addEventListener( COMMAND_EVENT, ( event ) => {
 		const command = ( event as CustomEvent ).detail || {};
 		switch ( command.type ) {
-			case 'layer-hold-start':
-				// Idempotent; never demotes a pinned layer.
-				if ( layer === 'off' ) enterLayer( 'held' );
-				return;
-			case 'layer-hold-end':
-				if ( layer === 'held' ) exitLayer();
-				return;
-			case 'layer-toggle':
-				if ( layer === 'pinned' ) {
-					exitLayer();
-				} else {
-					enterLayer( 'pinned' );
+			case 'set-mode':
+				if (
+					command.mode === 'off' ||
+					command.mode === 'element' ||
+					command.mode === 'region' ||
+					command.mode === 'loupe'
+				) {
+					setMode( command.mode );
 				}
-				return;
-			case 'layer-off':
-				exitLayer();
 				return;
 			case 'set-zoom':
 				if ( typeof command.zoom === 'number' && isFinite( command.zoom ) ) {
@@ -1239,7 +1214,7 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 				}
 				return;
 			case 'refresh-backdrop':
-				if ( layer !== 'off' && loupeEngaged ) sendLoupeCaptureRequest();
+				if ( mode === 'loupe' ) sendLoupeCaptureRequest();
 				return;
 			case 'sync-clips':
 				clipMarkers = Array.isArray( command.clips ) ? command.clips : [];
@@ -1264,14 +1239,8 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 		( e ) => {
 			cursorX = e.clientX;
 			cursorY = e.clientY;
-			if ( layer === 'off' ) return;
-			// Self-heal a lost keyup (modifier released outside the window):
-			// every mouse event carries the live modifier state.
-			if ( layer === 'held' && ! isHoldModifierDown( e ) ) {
-				exitLayer();
-				return;
-			}
-			if ( marquee ) {
+			if ( mode === 'off' ) return;
+			if ( mode === 'region' && marquee ) {
 				marquee.x = e.clientX;
 				marquee.y = e.clientY;
 				if (
@@ -1280,17 +1249,15 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 						Math.abs( marquee.y - marquee.startY ) > MARQUEE_THRESHOLD )
 				) {
 					marquee.active = true;
-					hoveredEl = null;
-					renderHighlight();
 				}
 				renderMarquee();
 				return;
 			}
-			if ( loupeEngaged ) {
+			if ( mode === 'loupe' ) {
 				updateLoupe();
 				return;
 			}
-			if ( ! FEATURES.elementClips || activePopup ) return;
+			if ( mode !== 'element' || activePopup ) return;
 			if ( isOurElement( e.target ) ) {
 				if ( hoveredEl !== null ) {
 					hoveredEl = null;
@@ -1310,13 +1277,11 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 		'mousedown',
 		( e ) => {
 			if ( contextMenuNode && ! isOurElement( e.target ) ) closeContextMenu();
-			if ( layer === 'off' || activePopup ) return;
+			if ( mode !== 'region' || activePopup ) return;
 			if ( isOurElement( e.target ) ) return;
 			if ( e.button !== 0 ) return;
 			e.preventDefault();
 			e.stopPropagation();
-			if ( loupeEngaged ) return;
-			if ( ! FEATURES.regionClips ) return;
 			marquee = { startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, active: false };
 		},
 		true
@@ -1325,7 +1290,7 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	document.addEventListener(
 		'mouseup',
 		( e ) => {
-			if ( layer === 'off' || ! marquee ) return;
+			if ( mode !== 'region' || ! marquee ) return;
 			if ( e.button !== 0 ) return;
 			const wasActive = marquee.active;
 			e.preventDefault();
@@ -1342,7 +1307,7 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	document.addEventListener(
 		'click',
 		( e ) => {
-			if ( layer === 'off' ) return;
+			if ( mode === 'off' ) return;
 			if ( isOurElement( e.target ) ) return;
 			e.preventDefault();
 			e.stopPropagation();
@@ -1351,11 +1316,11 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 				dismissPopup();
 				return;
 			}
-			if ( loupeEngaged ) {
+			if ( mode === 'loupe' ) {
 				snapLoupeLens();
 				return;
 			}
-			if ( FEATURES.elementClips && e.target ) {
+			if ( mode === 'element' && e.target ) {
 				openPopupForElement( e.target as Element );
 			}
 		},
@@ -1367,7 +1332,7 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 		() => {
 			cursorX = -1;
 			cursorY = -1;
-			if ( layer !== 'off' ) updateLoupe();
+			if ( mode === 'loupe' ) updateLoupe();
 		},
 		true
 	);
@@ -1386,14 +1351,15 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	}
 
 	/* ------------------------------------------------------------------
-	 * Wheel: zoom the loupe (shift+wheel resizes the lens). Zooming past
-	 * 1x materializes the lens; zooming back to 1x returns to the
-	 * element/region grains.
+	 * Wheel: plain scrolling always scrolls the page, even in loupe mode
+	 * (the lens re-anchors via the scroll listener). Zoom is ⌘+scroll
+	 * (Ctrl elsewhere), with shift added to resize the lens.
 	 * ---------------------------------------------------------------- */
 	window.addEventListener(
 		'wheel',
 		( e ) => {
-			if ( layer === 'off' || ! FEATURES.loupe || activePopup ) return;
+			if ( mode !== 'loupe' || activePopup ) return;
+			if ( ! isPrimaryModifierDown( e ) ) return;
 			e.preventDefault();
 			const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
 			if ( e.shiftKey ) {
@@ -1404,26 +1370,12 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 				updateLoupe();
 				return;
 			}
-			if ( ! loupeEngaged ) {
-				if ( delta < 0 ) {
-					// First zoom-in tick jumps to the remembered zoom level.
-					engageLoupe();
-				}
-				return;
-			}
 			// No recapture needed: the backdrop is a native-resolution
 			// viewport capture magnified by a compositor transform.
-			const nextZoom = Math.max(
+			loupeZoom = Math.max(
 				LOUPE_MIN_ZOOM,
 				Math.min( LOUPE_MAX_ZOOM, loupeZoom * Math.exp( -delta * 0.003 ) )
 			);
-			if ( nextZoom <= LOUPE_MIN_ZOOM + 0.05 && delta > 0 ) {
-				loupeZoom = Math.max( 2, loupeZoom );
-				disengageLoupe();
-				sendState();
-				return;
-			}
-			loupeZoom = nextZoom;
 			updateLoupe();
 			sendState();
 		},
@@ -1433,9 +1385,9 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	window.addEventListener(
 		'scroll',
 		() => {
-			if ( layer === 'off' ) return;
+			if ( mode === 'off' ) return;
 			renderHighlight();
-			if ( loupeEngaged ) {
+			if ( mode === 'loupe' ) {
 				updateLoupe();
 				scheduleLoupeCapture();
 			}
@@ -1444,15 +1396,15 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	);
 
 	window.addEventListener( 'resize', () => {
-		if ( layer === 'off' ) return;
-		if ( loupeEngaged ) {
+		if ( mode === 'loupe' ) {
 			updateLoupe();
 			scheduleLoupeCapture();
 		}
 	} );
 
 	/* ------------------------------------------------------------------
-	 * Keyboard
+	 * Keyboard: Escape backs out one step at a time (menu, popup, drag,
+	 * then the mode itself). No modifier gestures — modes are explicit.
 	 * ---------------------------------------------------------------- */
 	document.addEventListener(
 		'keydown',
@@ -1460,59 +1412,31 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 			if ( FEATURES.browserShortcuts ) {
 				const browserCommand = getBrowserShortcutCommand( e );
 				if ( browserCommand ) {
-					if ( layer === 'held' ) exitLayer();
 					e.preventDefault();
 					e.stopPropagation();
 					send( { type: 'browser-command', command: browserCommand } );
 					return;
 				}
 			}
-			if ( e.key === holdKey() ) {
-				if ( layer === 'off' && ! e.repeat && ! activePopup ) enterLayer( 'held' );
+			if ( e.key !== 'Escape' ) return;
+			if ( contextMenuNode ) {
+				closeContextMenu();
 				return;
 			}
-			if ( e.key === 'Escape' ) {
-				if ( contextMenuNode ) {
-					closeContextMenu();
-					return;
-				}
-				if ( activePopup ) {
-					dismissPopup();
-					return;
-				}
-				if ( marquee ) {
-					cancelMarquee();
-					return;
-				}
-				if ( loupeEngaged ) {
-					disengageLoupe();
-					return;
-				}
-				if ( layer !== 'off' ) {
-					exitLayer();
-				}
+			if ( activePopup ) {
+				dismissPopup();
 				return;
 			}
-			// Any other key while holding means a keyboard shortcut, not
-			// layer use; stand down until the modifier is pressed again.
-			if ( layer === 'held' && ! activePopup ) {
-				exitLayer();
+			if ( marquee ) {
+				cancelMarquee();
+				return;
+			}
+			if ( mode !== 'off' ) {
+				setMode( 'off' );
 			}
 		},
 		true
 	);
-
-	document.addEventListener(
-		'keyup',
-		( e ) => {
-			if ( e.key === holdKey() && layer === 'held' ) exitLayer();
-		},
-		true
-	);
-
-	window.addEventListener( 'blur', () => {
-		if ( layer === 'held' ) exitLayer();
-	} );
 
 	renderMarkers();
 	renderAgentMarkers();

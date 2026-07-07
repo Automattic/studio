@@ -94,12 +94,17 @@ export interface AgentMarker {
 	documentRect?: ClipDocumentRect;
 }
 
+/** The inspector's explicit modes. Exactly one is active at a time; each
+ * has its own trigger in the host chrome (split button / CLI toolbar), so
+ * gestures never conflict — scroll only zooms in `loupe`, drag only
+ * marquees in `region`, plain clicks only pick in `element`. */
+export type InspectorMode = 'off' | 'element' | 'region' | 'loupe';
+
 export type InspectorGuestEvent =
-	// Layer status for host chrome (toolbar pressed-state, menu labels).
+	// Mode status for host chrome (split-button pressed-state, hints).
 	| {
 			type: 'state';
-			active: boolean;
-			pinned: boolean;
+			mode: InspectorMode;
 			zoom: number;
 			clipCount: number;
 	  }
@@ -120,12 +125,8 @@ export type InspectorGuestEvent =
 	| { type: 'submit' };
 
 export type InspectorHostCommand =
-	// Modifier hold lifecycle forwarded from the host document.
-	| { type: 'layer-hold-start' }
-	| { type: 'layer-hold-end' }
-	// Toolbar/menu toggle: pin or unpin the layer.
-	| { type: 'layer-toggle' }
-	| { type: 'layer-off' }
+	// Switch the inspector's mode (host split button / Escape).
+	| { type: 'set-mode'; mode: InspectorMode }
 	// Reseed the remembered loupe zoom after a navigation reset the script.
 	| { type: 'set-zoom'; zoom: number }
 	// Refresh the loupe backdrop (e.g. after a color-scheme change).
@@ -156,6 +157,9 @@ export interface InspectorFeatures {
 
 export interface InspectorConfig {
 	features: InspectorFeatures;
+	/** Modes exit themselves after producing a clip (the app's split-button
+	 * quick actions). The CLI keeps modes on until toggled off. */
+	oneShotModes?: boolean;
 	/** Loupe zoom to restore (a fresh document resets the script). */
 	initialZoom?: number;
 }

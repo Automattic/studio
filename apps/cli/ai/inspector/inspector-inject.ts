@@ -41,9 +41,12 @@ const CLI_INSPECTOR_SCRIPT = buildInspectorPageScript( {
 		contextMenu: true,
 		// No host toolbar to receive them.
 		browserShortcuts: false,
-		// Standalone chrome: clip count + "Send to agent" button.
+		// Standalone chrome: mode toggles + clip count + "Send to agent".
 		submitToolbar: true,
 	},
+	// The CLI toolbar's Element/Region toggles keep their mode on until
+	// switched off (no split button to re-trigger from).
+	oneShotModes: false,
 } );
 
 interface CliClip {
@@ -330,7 +333,7 @@ export async function openAnnotationBrowser( siteUrl: string ): Promise< string 
 		try {
 			await inspectorPage.bringToFront();
 			await injectInspector( inspectorPage );
-			return 'Inspector reattached to the open browser. ⌘-click an element (or drag a region), then "Send to agent" when finished.';
+			return 'Inspector reattached to the open browser. Pick a mode in the bottom-right toolbar (Element or Region), make clips, then "Send to agent".';
 		} catch {
 			await shutdownBrowser();
 		}
@@ -401,5 +404,5 @@ export async function openAnnotationBrowser( siteUrl: string ): Promise< string 
 
 	installProcessExitHook();
 
-	return `Annotation browser opened at ${ siteUrl }. Hold ⌘ (Ctrl on Windows/Linux) and click an element to clip it, drag for a region, right-click for more, then click "Send to agent" when finished.`;
+	return `Annotation browser opened at ${ siteUrl }. Pick a mode in the bottom-right toolbar (Element or Region), clip the page (right-click for more options), then click "Send to agent" when finished.`;
 }

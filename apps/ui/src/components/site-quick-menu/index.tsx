@@ -1,6 +1,7 @@
 import { chevronDown, Icon } from '@wordpress/icons';
 import { Button, Tooltip } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
+import { Spinner } from '@/components/spinner';
 import styles from './style.module.css';
 import type { ReactElement, ReactNode } from 'react';
 
@@ -17,11 +18,15 @@ export function QuickMenuTrigger( {
 	actionLabel,
 	logo,
 	onActionClick,
+	busy = false,
 }: {
 	menuLabel: string;
 	actionLabel: string;
 	logo: ReactElement;
 	onActionClick: () => void;
+	// The action half shows a spinner and stops accepting clicks while its
+	// work is in flight (the dropdown half stays usable).
+	busy?: boolean;
 } ) {
 	return (
 		<div className={ styles.splitTrigger }>
@@ -34,11 +39,13 @@ export function QuickMenuTrigger( {
 							size="small"
 							className={ styles.splitAction }
 							aria-label={ actionLabel }
+							aria-busy={ busy }
+							disabled={ busy }
 							onClick={ onActionClick }
 						/>
 					}
 				>
-					<Icon icon={ logo } size={ 18 } />
+					{ busy ? <Spinner label={ actionLabel } /> : <Icon icon={ logo } size={ 18 } /> }
 				</Tooltip.Trigger>
 				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
 					{ actionLabel }

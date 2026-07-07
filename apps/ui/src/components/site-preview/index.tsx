@@ -8,13 +8,16 @@ import {
 	closeSmall,
 	code,
 	copy,
+	crop,
 	external,
 	file as fileIcon,
 	fullscreen as fullscreenIcon,
 	moreVertical,
+	pencil,
+	search,
 	trash,
 } from '@wordpress/icons';
-import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
+import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,7 +25,7 @@ import { DotGrid } from '@/components/dot-grid';
 import { IconSwitch } from '@/components/icon-switch';
 import * as Menu from '@/components/menu';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
-import { QuickMenuItem } from '@/components/site-quick-menu';
+import { QuickMenuItem, QuickMenuPopup, QuickMenuTrigger } from '@/components/site-quick-menu';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
@@ -72,6 +75,7 @@ import type {
 	AgentMarker,
 	ClipMarker,
 	InspectorHostCommand,
+	InspectorMode,
 } from '@studio/common/inspector/protocol';
 import type {
 	CSSProperties,
@@ -333,24 +337,19 @@ function PreviewViewportMenu( {
 }
 
 // Trailing "•••" menu holding the occasional actions that don't earn a
-// permanent toolbar button: console, page clip, open in browser. The
-// element/region/loupe grains all live in the clip layer itself.
+// permanent toolbar button: console and open in browser. All clip actions
+// live in the Clip split button.
 function PreviewOverflowMenu( {
 	canPreview,
 	canUseWebview,
 	consoleLabel,
 	onToggleConsole,
-	pageClip,
 	onOpenInBrowser,
 }: {
 	canPreview: boolean;
 	canUseWebview: boolean;
 	consoleLabel: string;
 	onToggleConsole: () => void;
-	pageClip: {
-		disabled: boolean;
-		onCapture: () => void;
-	} | null;
 	onOpenInBrowser: () => void;
 } ) {
 	return (
@@ -373,14 +372,6 @@ function PreviewOverflowMenu( {
 					disabled={ ! canUseWebview }
 					onClick={ onToggleConsole }
 				/>
-				{ pageClip ? (
-					<QuickMenuItem
-						icon={ capturePhoto }
-						label={ __( 'Clip full page to chat' ) }
-						disabled={ pageClip.disabled }
-						onClick={ pageClip.onCapture }
-					/>
-				) : null }
 				<Menu.Separator />
 				<QuickMenuItem
 					icon={ external }
@@ -389,6 +380,115 @@ function PreviewOverflowMenu( {
 					onClick={ onOpenInBrowser }
 				/>
 			</Menu.Popup>
+		</Menu.Root>
+	);
+}
+
+// The clip actions, as a split button (like "Open in…"): the main button
+// re-runs whatever the user clipped last; the dropdown switches kinds. Each
+// action is an explicit mode with its own gestures, so nothing fights the
+// page — scrolling only zooms inside the loupe.
+type PreviewClipAction = 'element' | 'region' | 'loupe' | 'page';
+
+const CLIP_ACTION_STORAGE_KEY = 'studio:preview-clip-menu:last-used';
+
+function isPreviewClipAction( value: string | null ): value is PreviewClipAction {
+	return value === 'element' || value === 'region' || value === 'loupe' || value === 'page';
+}
+
+function getStoredClipAction(): PreviewClipAction {
+	try {
+		const stored = window.localStorage.getItem( CLIP_ACTION_STORAGE_KEY );
+		return isPreviewClipAction( stored ) ? stored : 'element';
+	} catch {
+		return 'element';
+	}
+}
+
+function PreviewClipMenu( {
+	activeMode,
+	onSetMode,
+	onPageClip,
+	pageClipBusy = false,
+	clipCount = 0,
+	onClearClips,
+}: {
+	activeMode: InspectorMode;
+	onSetMode: ( mode: InspectorMode ) => void;
+	onPageClip: () => void;
+	// Page clips render in a headless browser and take seconds; the trigger
+	// wears a spinner while one is in flight.
+	pageClipBusy?: boolean;
+	// Pending clips in the composer; enables "Clear clips".
+	clipCount?: number;
+	onClearClips?: () => void;
+} ) {
+	const [ lastUsed, setLastUsed ] = useState< PreviewClipAction >( getStoredClipAction );
+	const rememberAction = ( action: PreviewClipAction ) => {
+		setLastUsed( action );
+		try {
+			window.localStorage.setItem( CLIP_ACTION_STORAGE_KEY, action );
+		} catch {
+			// Storage failures only mean the trigger won't persist.
+		}
+	};
+	const actions: { id: PreviewClipAction; icon: ReactElement; label: string }[] = [
+		{ id: 'element', icon: pencil, label: __( 'Clip an element' ) },
+		{ id: 'region', icon: crop, label: __( 'Clip a region' ) },
+		{ id: 'loupe', icon: search, label: __( 'Zoom in and snap' ) },
+		{ id: 'page', icon: capturePhoto, label: __( 'Clip the full page' ) },
+	];
+	const runAction = ( action: PreviewClipAction ) => {
+		rememberAction( action );
+		if ( action === 'page' ) {
+			if ( ! pageClipBusy ) {
+				onPageClip();
+			}
+			return;
+		}
+		onSetMode( activeMode === action ? 'off' : action );
+	};
+	const isActive = activeMode !== 'off';
+	const lastUsedAction = actions.find( ( action ) => action.id === lastUsed ) ?? actions[ 0 ];
+
+	return (
+		<Menu.Root modal={ false }>
+			<QuickMenuTrigger
+				menuLabel={ __( 'Clip…' ) }
+				actionLabel={
+					pageClipBusy
+						? __( 'Clipping the page…' )
+						: isActive
+						? __( 'Stop clipping' )
+						: lastUsedAction.label
+				}
+				logo={ lastUsedAction.icon }
+				busy={ pageClipBusy }
+				onActionClick={ () => ( isActive ? onSetMode( 'off' ) : runAction( lastUsed ) ) }
+			/>
+			<QuickMenuPopup>
+				{ actions.map( ( action ) => (
+					<QuickMenuItem
+						key={ action.id }
+						icon={ action.icon }
+						label={ action.label }
+						disabled={ action.id === 'page' && pageClipBusy }
+						onClick={ () => runAction( action.id ) }
+					/>
+				) ) }
+				{ onClearClips ? (
+					<>
+						<Menu.Separator />
+						<QuickMenuItem
+							icon={ trash }
+							label={ __( 'Clear clips' ) }
+							destructive
+							disabled={ clipCount === 0 }
+							onClick={ onClearClips }
+						/>
+					</>
+				) : null }
+			</QuickMenuPopup>
 		</Menu.Root>
 	);
 }
@@ -631,6 +731,7 @@ export function SitePreview( {
 		null
 	);
 	const [ pageClipRequest, setPageClipRequest ] = useState< PageClipRequest | null >( null );
+	const [ isCapturingPageClip, setIsCapturingPageClip ] = useState( false );
 	// Read by document-level key handlers without re-subscribing per change.
 	const inspectorStateRef = useRef( inspectorState );
 	useEffect( () => {
@@ -658,9 +759,9 @@ export function SitePreview( {
 		enabled: ! canPreview,
 		meta: { persist: false },
 	} );
-	// The layer tool needs the injected inspector; page clips only need the
-	// webview (the capture goes through the debugger, not the guest script).
-	const canClip = canPreview && canUseWebview && inspectorState.ready && !! onClip;
+	// Page clips only need the webview (the capture goes through the
+	// debugger, not the guest script); mode commands no-op until the
+	// inspector script reports ready.
 	const canPageClip = canPreview && canUseWebview && !! onClip;
 	const progress = browserState.loading
 		? Math.max( browserState.progress, 0.12 )
@@ -772,6 +873,26 @@ export function SitePreview( {
 		},
 		[ buildClipInput, onClip ]
 	);
+	// Clips are composer attachments; clearing removes each one there, and
+	// the marker sync takes the on-page markers with them.
+	const clearClips = useCallback( () => {
+		for ( const marker of clipMarkers ?? [] ) {
+			onClipRemove?.( marker.id );
+		}
+	}, [ clipMarkers, onClipRemove ] );
+	// The headless page-clip browser has no cookies; send admin/database
+	// URLs through the site's auto-login endpoint so they don't capture the
+	// login form.
+	const resolvePageClipUrl = useCallback(
+		( url: string ) => {
+			const clipPath = getPathFromPreviewUrl( url, siteUrl );
+			if ( ! clipPath ) {
+				return url;
+			}
+			return `${ siteUrl }${ getRealmNavigationPath( clipPath, siteUrl ) }`;
+		},
+		[ siteUrl ]
+	);
 	const handleTextSelection = useCallback(
 		( text: string, pathname: string ) => {
 			if ( ! onComposerText ) {
@@ -877,12 +998,12 @@ export function SitePreview( {
 		setInspectorCommand( { id: commandIdRef.current, command } );
 	}, [] );
 	const requestPageClip = useCallback( () => {
-		if ( ! canPageClip ) {
+		if ( ! canPageClip || isCapturingPageClip ) {
 			return;
 		}
 		commandIdRef.current += 1;
 		setPageClipRequest( { id: commandIdRef.current } );
-	}, [ canPageClip ] );
+	}, [ canPageClip, isCapturingPageClip ] );
 	const togglePreviewColorScheme = useCallback( () => {
 		setPreviewColorScheme( ( current ) => ( current === 'dark' ? 'light' : 'dark' ) );
 	}, [] );
@@ -996,57 +1117,28 @@ export function SitePreview( {
 		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
 	}, [ canPreview, collapsed, handleSwitchRealm, sendBrowserCommand ] );
 
-	// Hold-to-clip. The guest handles the modifier itself when focused;
-	// these listeners cover presses that land in the host document instead
-	// (both paths are idempotent in the guest). Chords (modifier + another
-	// key) are shortcuts, not layer use, so they end the hold. Escape from
-	// the host document also dismisses a pinned layer.
+	// Escape pressed while focus is in the host document exits the active
+	// clip mode (the guest handles Escape itself when focused).
 	useEffect( () => {
 		if ( ! canPreview || collapsed || ! canUseWebview ) {
 			return;
 		}
-		const holdKey = isAppleOS() ? 'Meta' : 'Control';
-		const isEligibleFocus = () => {
+		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
+			if ( event.key !== 'Escape' || inspectorStateRef.current.mode === 'off' ) {
+				return;
+			}
 			const activeElement = document.activeElement;
-			return ! (
+			if (
 				activeElement &&
 				activeElement !== document.body &&
 				! rootRef.current?.contains( activeElement )
-			);
-		};
-		const handleKeyDown = ( event: globalThis.KeyboardEvent ) => {
-			if ( ! isEligibleFocus() ) {
+			) {
 				return;
 			}
-			if ( event.key === holdKey ) {
-				if ( ! event.repeat ) {
-					sendInspectorCommand( { type: 'layer-hold-start' } );
-				}
-				return;
-			}
-			if ( event.key === 'Escape' && inspectorStateRef.current.active ) {
-				sendInspectorCommand( { type: 'layer-off' } );
-				return;
-			}
-			if ( isAppleOS() ? event.metaKey : event.ctrlKey ) {
-				sendInspectorCommand( { type: 'layer-hold-end' } );
-			}
+			sendInspectorCommand( { type: 'set-mode', mode: 'off' } );
 		};
-		const handleKeyUp = ( event: globalThis.KeyboardEvent ) => {
-			if ( event.key === holdKey ) {
-				sendInspectorCommand( { type: 'layer-hold-end' } );
-			}
-		};
-		const handleWindowBlur = () => sendInspectorCommand( { type: 'layer-hold-end' } );
-
 		document.addEventListener( 'keydown', handleKeyDown, { capture: true } );
-		document.addEventListener( 'keyup', handleKeyUp, { capture: true } );
-		window.addEventListener( 'blur', handleWindowBlur );
-		return () => {
-			document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
-			document.removeEventListener( 'keyup', handleKeyUp, { capture: true } );
-			window.removeEventListener( 'blur', handleWindowBlur );
-		};
+		return () => document.removeEventListener( 'keydown', handleKeyDown, { capture: true } );
 	}, [ canPreview, canUseWebview, collapsed, sendInspectorCommand ] );
 
 	return (
@@ -1115,25 +1207,17 @@ export function SitePreview( {
 				<div className={ clsx( styles.headerSide, styles.headerSideEnd ) }>
 					{ canPreview ? (
 						<>
-							{ connector.capabilities.annotatePreview && onClip ? (
+							{ connector.capabilities.annotatePreview && onClip && canUseWebview ? (
 								<>
-									<IconButton
-										variant="minimal"
-										tone="neutral"
-										size="small"
-										icon={ capturePhoto }
-										label={
-											inspectorState.active
-												? __( 'Finish clipping' )
-												: isAppleOS()
-												? /* translators: keyboard hint: hold the Command key */
-												  __( 'Clip (hold ⌘)' )
-												: /* translators: keyboard hint: hold the Control key */
-												  __( 'Clip (hold Ctrl)' )
+									<PreviewClipMenu
+										activeMode={ inspectorState.mode }
+										onSetMode={ ( nextMode ) =>
+											sendInspectorCommand( { type: 'set-mode', mode: nextMode } )
 										}
-										disabled={ ! canClip }
-										aria-pressed={ inspectorState.active }
-										onClick={ () => sendInspectorCommand( { type: 'layer-toggle' } ) }
+										onPageClip={ requestPageClip }
+										pageClipBusy={ isCapturingPageClip }
+										clipCount={ clipMarkers?.length ?? 0 }
+										onClearClips={ onClipRemove ? clearClips : undefined }
 									/>
 									<span className={ styles.separator } aria-hidden="true" />
 								</>
@@ -1162,14 +1246,6 @@ export function SitePreview( {
 						canUseWebview={ canUseWebview }
 						consoleLabel={ consoleButtonLabel }
 						onToggleConsole={ () => setConsoleOpen( ( current ) => ! current ) }
-						pageClip={
-							onClip && canUseWebview
-								? {
-										disabled: ! canPageClip,
-										onCapture: requestPageClip,
-								  }
-								: null
-						}
 						onOpenInBrowser={ () => void connector.openExternalUrl( previewUrl ) }
 					/>
 				</div>
@@ -1206,6 +1282,8 @@ export function SitePreview( {
 								clipMarkers={ clipMarkers }
 								agentMarkers={ agentMarkers }
 								pageClipRequest={ pageClipRequest }
+								resolvePageClipUrl={ resolvePageClipUrl }
+								onPageClipBusyChange={ setIsCapturingPageClip }
 								onClipCapture={ onClip ? handleClipCapture : undefined }
 								onClipUpdate={ onClipUpdate }
 								onClipRemove={ onClipRemove }

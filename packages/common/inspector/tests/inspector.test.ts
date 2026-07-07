@@ -49,9 +49,10 @@ describe( 'parseInspectorGuestEvent', () => {
 
 describe( 'buildInspectorCommandScript', () => {
 	it( 'serializes a dispatchable command statement', () => {
-		const script = buildInspectorCommandScript( { type: 'layer-toggle' } );
+		const script = buildInspectorCommandScript( { type: 'set-mode', mode: 'element' } );
 		expect( script ).toContain( 'dispatchEvent' );
-		expect( script ).toContain( '"layer-toggle"' );
+		expect( script ).toContain( '"set-mode"' );
+		expect( script ).toContain( '"element"' );
 		expect( () => new Function( script ) ).not.toThrow();
 	} );
 } );

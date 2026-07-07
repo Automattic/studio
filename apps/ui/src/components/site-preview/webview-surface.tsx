@@ -19,6 +19,7 @@ import {
 	type ClipViewportRect,
 	type InspectorConfig,
 	type InspectorHostCommand,
+	type InspectorMode,
 } from '@studio/common/inspector';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -26,6 +27,7 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import {
 	cropViewportCapture,
+	fitImageFileWithinLimit,
 	isFiniteNumber,
 	localMediaFileToDataUrl,
 	localMediaFileToFile,
@@ -48,6 +50,10 @@ const APP_INSPECTOR_FEATURES: InspectorConfig[ 'features' ] = {
 	browserShortcuts: true,
 	submitToolbar: false,
 };
+
+function isInspectorMode( value: unknown ): value is InspectorMode {
+	return value === 'off' || value === 'element' || value === 'region' || value === 'loupe';
+}
 
 export interface BrowserNavigationState {
 	canGoBack: boolean;
@@ -72,19 +78,17 @@ export interface BrowserCommand {
 	type: BrowserShortcutCommandType;
 }
 
-/** Layer status mirrored from the guest for host chrome. */
+/** Mode status mirrored from the guest for host chrome. */
 export interface InspectorState {
 	ready: boolean;
-	active: boolean;
-	pinned: boolean;
+	mode: InspectorMode;
 	zoom: number;
 	clipCount: number;
 }
 
 export const EMPTY_INSPECTOR_STATE: InspectorState = {
 	ready: false,
-	active: false,
-	pinned: false,
+	mode: 'off',
 	zoom: 3,
 	clipCount: 0,
 };
@@ -251,8 +255,15 @@ export interface WebviewSurfaceProps {
 	clipMarkers?: ClipMarker[];
 	// Agent-placed highlights, mirrored into the guest overlay.
 	agentMarkers?: AgentMarker[];
-	// Bump to capture a page clip from host chrome (overflow menu).
+	// Bump to capture a page clip from host chrome (split button/menu).
 	pageClipRequest?: PageClipRequest | null;
+	// Rewrites the page-clip URL for the headless capture browser (e.g.
+	// routing wp-admin through the site's auto-login endpoint, since the
+	// capture session has no cookies).
+	resolvePageClipUrl?: ( url: string ) => string;
+	// Page clips take seconds (CLI spawn + headless browser + page load);
+	// mirrors the in-flight state so host chrome can show progress.
+	onPageClipBusyChange?: ( busy: boolean ) => void;
 	// Finished captures and guest-initiated clip edits.
 	onClipCapture?: ( capture: RawClipCapture ) => void | Promise< void >;
 	onClipUpdate?: ( id: string, comment: string ) => void;
@@ -276,6 +287,8 @@ export function WebviewSurface( {
 	clipMarkers,
 	agentMarkers,
 	pageClipRequest,
+	resolvePageClipUrl,
+	onPageClipBusyChange,
 	onClipCapture,
 	onClipUpdate,
 	onClipRemove,
@@ -343,6 +356,14 @@ export function WebviewSurface( {
 	useEffect( () => {
 		agentMarkersRef.current = agentMarkers;
 	}, [ agentMarkers ] );
+	const resolvePageClipUrlRef = useRef( resolvePageClipUrl );
+	useEffect( () => {
+		resolvePageClipUrlRef.current = resolvePageClipUrl;
+	}, [ resolvePageClipUrl ] );
+	const onPageClipBusyChangeRef = useRef( onPageClipBusyChange );
+	useEffect( () => {
+		onPageClipBusyChangeRef.current = onPageClipBusyChange;
+	}, [ onPageClipBusyChange ] );
 
 	const runInGuest = useCallback( ( webview: WebviewTag, script: string ) => {
 		// Normalize sync throws (e.g. a webview that isn't attached yet, or a
@@ -533,27 +554,40 @@ export function WebviewSurface( {
 		[ captureViewportCrop, enqueueCapture, withHiddenOverlay ]
 	);
 
+	// Full-page clips render in a headless top-level browser via the CLI's
+	// Playwright pipeline (shared with the agent's take_screenshot tool):
+	// CDP's own full-page paths (`captureBeyondViewport`, viewport emulation)
+	// both tile the visible surface for webview guests. The capture is a
+	// fresh page load in a separate session, so the host resolves admin URLs
+	// through /studio-auto-login via `resolvePageClipUrl`.
 	const capturePageClip = useCallback(
-		( webview: WebviewTag ) =>
-			enqueueCapture( () =>
-				withHiddenOverlay( webview, async () => {
-					try {
-						const capture = await connector.captureSiteScreenshot(
-							getWebviewContentsId( webview ),
-							{ colorScheme: colorSchemeRef.current }
-						);
-						await onClipCaptureRef.current?.( {
-							grain: 'page',
-							image: localMediaFileToFile( capture ),
-							url: currentUrlRef.current,
-						} );
-					} catch ( error ) {
-						console.error( 'Failed to add page clip:', error );
-						toast.error( __( 'Clip could not be added.' ) );
-					}
-				} )
-			),
-		[ connector, enqueueCapture, withHiddenOverlay ]
+		async ( webview: WebviewTag ) => {
+			onPageClipBusyChangeRef.current?.( true );
+			try {
+				const rawUrl = currentUrlRef.current;
+				const url = resolvePageClipUrlRef.current?.( rawUrl ) ?? rawUrl;
+				const capture = await connector.captureFullPageScreenshot( url, {
+					// Match the preview's simulated width so the clip shows the
+					// same layout the user is looking at.
+					width: viewportRef.current?.width ?? ( webview.offsetWidth || undefined ),
+					colorScheme: colorSchemeRef.current,
+				} );
+				// The CLI caps captures at 8000px tall; the attachment budget is
+				// tighter still.
+				const image = await fitImageFileWithinLimit( localMediaFileToFile( capture ) );
+				await onClipCaptureRef.current?.( {
+					grain: 'page',
+					image,
+					url: rawUrl,
+				} );
+			} catch ( error ) {
+				console.error( 'Failed to add page clip:', error );
+				toast.error( __( 'Clip could not be added.' ) );
+			} finally {
+				onPageClipBusyChangeRef.current?.( false );
+			}
+		},
+		[ connector ]
 	);
 
 	// Loupe backdrop captures: serialized so rapid zoom/scroll requests
@@ -705,6 +739,9 @@ export function WebviewSurface( {
 			publishDocumentTitle();
 			const script = buildInspectorPageScript( {
 				features: APP_INSPECTOR_FEATURES,
+				// Split-button actions are one-shot: producing a clip exits
+				// the mode.
+				oneShotModes: true,
 				// A fresh document resets the injected script's loupe zoom;
 				// reseed the level the user last dialed in.
 				initialZoom: lastLoupeZoomRef.current ?? undefined,
@@ -797,8 +834,7 @@ export function WebviewSurface( {
 					}
 					onInspectorStateRef.current?.( {
 						ready: true,
-						active: Boolean( parsed.active ),
-						pinned: Boolean( parsed.pinned ),
+						mode: isInspectorMode( parsed.mode ) ? parsed.mode : 'off',
 						zoom: isFiniteNumber( parsed.zoom ) ? parsed.zoom : 3,
 						clipCount: typeof parsed.clipCount === 'number' ? parsed.clipCount : 0,
 					} );

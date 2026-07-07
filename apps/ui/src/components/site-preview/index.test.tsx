@@ -113,9 +113,15 @@ function mockWebviewContentsId( webContentsId = 42 ) {
 	};
 }
 
-// Console, screenshot, and open-in-browser live in the trailing "•••" menu.
+// Console and open-in-browser live in the trailing "•••" menu.
 async function clickOverflowMenuItem( name: string ) {
 	fireEvent.click( screen.getByRole( 'button', { name: 'More options' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name } ) );
+}
+
+// The clip kinds live in the Clip split button's dropdown.
+async function clickClipMenuItem( name: string ) {
+	fireEvent.click( screen.getByRole( 'button', { name: 'Clip…' } ) );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name } ) );
 }
 
@@ -250,16 +256,16 @@ describe( 'SitePreview', () => {
 	it( 'captures a page clip and forwards it to the clip callback', async () => {
 		const restoreUserAgent = mockElectronUserAgent();
 		const restoreWebviewContentsId = mockWebviewContentsId();
-		const captureSiteScreenshot = vi.fn().mockResolvedValue( {
-			name: 'screenshot-desktop.jpg',
+		const captureFullPageScreenshot = vi.fn().mockResolvedValue( {
+			name: 'clip-page.jpg',
 			mimeType: 'image/jpeg',
 			data: new Uint8Array( [ 1, 2, 3 ] ).buffer,
 		} );
 		const onClip = vi.fn().mockResolvedValue( undefined );
 		useConnectorMock.mockReturnValue( {
-			capabilities: CAPABILITIES,
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
 			startSite: vi.fn().mockResolvedValue( undefined ),
-			captureSiteScreenshot,
+			captureFullPageScreenshot,
 		} as never );
 
 		try {
@@ -272,19 +278,20 @@ describe( 'SitePreview', () => {
 				/>
 			);
 
-			await clickOverflowMenuItem( 'Clip full page to chat' );
+			await clickClipMenuItem( 'Clip the full page' );
 
 			await waitFor( () => {
-				expect( captureSiteScreenshot ).toHaveBeenCalledWith( 42, {
-					colorScheme: 'light',
-				} );
+				expect( captureFullPageScreenshot ).toHaveBeenCalledWith(
+					'http://localhost:8881/about/',
+					expect.objectContaining( { colorScheme: 'light' } )
+				);
 			} );
 			await waitFor( () => expect( onClip ).toHaveBeenCalledTimes( 1 ) );
 
 			const [ input ] = onClip.mock.calls[ 0 ];
 			expect( input.grain ).toBe( 'page' );
 			expect( input.image ).toBeInstanceOf( File );
-			expect( input.image.name ).toBe( 'screenshot-desktop.jpg' );
+			expect( input.image.name ).toBe( 'clip-page.jpg' );
 			expect( input.image.type ).toBe( 'image/jpeg' );
 			expect( input.image.size ).toBe( 3 );
 			expect( input.context ).toMatchObject( { realm: 'frontend', colorScheme: 'light' } );
@@ -300,9 +307,9 @@ describe( 'SitePreview', () => {
 		const restoreWebviewContentsId = mockWebviewContentsId();
 		const consoleError = vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
 		useConnectorMock.mockReturnValue( {
-			capabilities: CAPABILITIES,
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
 			startSite: vi.fn().mockResolvedValue( undefined ),
-			captureSiteScreenshot: vi.fn().mockRejectedValue( new Error( 'No IPC handler' ) ),
+			captureFullPageScreenshot: vi.fn().mockRejectedValue( new Error( 'No IPC handler' ) ),
 		} as never );
 
 		try {
@@ -315,7 +322,7 @@ describe( 'SitePreview', () => {
 				/>
 			);
 
-			await clickOverflowMenuItem( 'Clip full page to chat' );
+			await clickClipMenuItem( 'Clip the full page' );
 
 			await waitFor( () =>
 				expect( getVisibleToasts().map( ( item ) => item.title ) ).toContain(
@@ -356,15 +363,15 @@ describe( 'SitePreview', () => {
 		const restoreMatchMedia = mockPrefersDarkColorScheme( true );
 		const restoreUserAgent = mockElectronUserAgent();
 		const restoreWebviewContentsId = mockWebviewContentsId();
-		const captureSiteScreenshot = vi.fn().mockResolvedValue( {
-			name: 'screenshot-desktop-dark.jpg',
+		const captureFullPageScreenshot = vi.fn().mockResolvedValue( {
+			name: 'clip-page-dark.jpg',
 			mimeType: 'image/jpeg',
 			data: new Uint8Array( [ 1 ] ).buffer,
 		} );
 		useConnectorMock.mockReturnValue( {
-			capabilities: CAPABILITIES,
+			capabilities: { ...CAPABILITIES, annotatePreview: true },
 			startSite: vi.fn().mockResolvedValue( undefined ),
-			captureSiteScreenshot,
+			captureFullPageScreenshot,
 		} as never );
 
 		try {
@@ -377,12 +384,13 @@ describe( 'SitePreview', () => {
 				/>
 			);
 
-			await clickOverflowMenuItem( 'Clip full page to chat' );
+			await clickClipMenuItem( 'Clip the full page' );
 
 			await waitFor( () => {
-				expect( captureSiteScreenshot ).toHaveBeenCalledWith( 42, {
-					colorScheme: 'dark',
-				} );
+				expect( captureFullPageScreenshot ).toHaveBeenCalledWith(
+					expect.any( String ),
+					expect.objectContaining( { colorScheme: 'dark' } )
+				);
 			} );
 		} finally {
 			restoreMatchMedia();
@@ -625,7 +633,7 @@ describe( 'SitePreview', () => {
 		expect( onPathChange ).not.toHaveBeenCalled();
 	} );
 
-	it( 'hides the Clip control when the host cannot annotate the preview', () => {
+	it( 'hides the Clip split button when the host cannot annotate the preview', () => {
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: CAPABILITIES,
@@ -645,23 +653,36 @@ describe( 'SitePreview', () => {
 		expect( screen.queryByRole( 'button', { name: /^Clip/ } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'shows the Clip control when the host supports preview annotation', () => {
+	it( 'shows the Clip split button when the host supports preview annotation', async () => {
+		const restoreUserAgent = mockElectronUserAgent();
+		// The trigger reflects the last-used action; other tests in this file
+		// may have stored one.
+		window.localStorage.clear();
 		useConnectorMock.mockReturnValue( {
 			startSite: vi.fn().mockResolvedValue( undefined ),
 			capabilities: { ...CAPABILITIES, annotatePreview: true },
 		} as never );
 
-		renderPreview(
-			<SitePreview
-				site={ createSite( { running: true } ) }
-				path="/"
-				reloadNonce={ 0 }
-				onClip={ vi.fn() }
-			/>
-		);
+		try {
+			renderPreview(
+				<SitePreview
+					site={ createSite( { running: true } ) }
+					path="/"
+					reloadNonce={ 0 }
+					onClip={ vi.fn() }
+				/>
+			);
 
-		// jsdom reports a non-Apple platform, so the hold hint names Ctrl.
-		expect( screen.getByRole( 'button', { name: 'Clip (hold Ctrl)' } ) ).toBeInTheDocument();
+			// The main action defaults to the element grain; the chevron opens
+			// the other clip kinds.
+			expect( screen.getByRole( 'button', { name: 'Clip an element' } ) ).toBeInTheDocument();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Clip…' } ) );
+			expect( await screen.findByRole( 'menuitem', { name: 'Clip a region' } ) ).toBeVisible();
+			expect( screen.getByRole( 'menuitem', { name: 'Zoom in and snap' } ) ).toBeVisible();
+			expect( screen.getByRole( 'menuitem', { name: 'Clip the full page' } ) ).toBeVisible();
+		} finally {
+			restoreUserAgent();
+		}
 	} );
 
 	it( 'omits the full preview toggle unless the host provides one', () => {

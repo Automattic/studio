@@ -15,7 +15,7 @@
 		var(--wpds-color-bg-interactive-error-strong) 34%,
 		var(--wpds-color-bg-surface-caution)
 	);
-	--site-list-sync-indicator-bg: #a855f7;
+	--site-list-sync-indicator-bg: var(--studio-color-status-sync);
 
 	/* Pull the row shape slightly left, then add the inset back inside rows so
 	   labels keep their column while selected rows have breathing room. */
@@ -29,7 +29,7 @@
 
 @media (prefers-color-scheme: dark) {
 	.root {
-		--site-list-pending-indicator-bg: #facc15;
+		--site-list-pending-indicator-bg: var(--studio-color-status-attention);
 	}
 }
 
@@ -406,7 +406,7 @@
 	width: 8px;
 	height: 8px;
 	rx: 4px;
-	fill: #16a34a;
+	fill: var(--studio-color-status-running);
 	transition: fill 160ms ease, rx 160ms ease;
 }
 
@@ -415,12 +415,12 @@
 }
 
 .siteStatus[data-state='running'] .siteStatusShape {
-	fill: #16a34a;
+	fill: var(--studio-color-status-running);
 	rx: 4px;
 }
 
 .siteStatus[data-state='transitioning'] .siteStatusShape {
-	fill: #a16207;
+	fill: var(--studio-color-status-transitioning);
 	rx: 4px;
 	animation: siteStatusBlink 1s ease-in-out infinite;
 }

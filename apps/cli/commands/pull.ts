@@ -16,7 +16,12 @@ import {
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
-import { clearSiteLatestCliPid, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
+import {
+	clearSiteLatestCliPid,
+	getSiteByFolder,
+	getSiteUrl,
+	updateSiteLatestCliPid,
+} from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import {
@@ -213,7 +218,10 @@ export async function runCommand(
 		try {
 			if ( site && wasServerRunning ) {
 				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
-				await startWordPressServer( site, logger );
+				const processDesc = await startWordPressServer( site, logger );
+				if ( processDesc.status === 'online' ) {
+					await updateSiteLatestCliPid( site.id, processDesc.pid );
+				}
 				logger.reportSuccess( __( 'WordPress server started' ) );
 			}
 		} catch ( error ) {

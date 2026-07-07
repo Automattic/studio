@@ -17,6 +17,7 @@ import {
 	clearSiteLatestCliPid,
 	getSiteByFolder,
 	getSiteUrl,
+	updateSiteLatestCliPid,
 	updateSitePhpVersion,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
@@ -330,7 +331,10 @@ export async function runCommand(
 				logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
 				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
-				await startWordPressServer( site, logger );
+				const processDesc = await startWordPressServer( site, logger );
+				if ( processDesc.status === 'online' ) {
+					await updateSiteLatestCliPid( site.id, processDesc.pid );
+				}
 				logger.reportSuccess( __( 'WordPress server started' ) );
 			}
 		} catch ( error ) {

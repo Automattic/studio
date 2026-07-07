@@ -1465,21 +1465,25 @@ export async function readLocalMediaFile(
 	};
 }
 
-// `area: 'viewport'` captures just the visible viewport at the surface's
-// native resolution (CSS size × device scale factor). The default captures
-// the full page height at 1x. Note the DevTools `clip` parameter is NOT
-// used for viewport captures: it silently produces blank images for
-// webview guests, so callers needing a region must crop the viewport
-// capture themselves.
+// Captures the webview's visible viewport at native (device pixel)
+// resolution. Viewport-only by design: CDP has no working full-page capture
+// for webview guests (`clip` silently produces blank images,
+// `captureBeyondViewport` and viewport emulation both tile the visible
+// surface down the page) — full pages go through
+// `captureFullPageScreenshot`, which renders in a headless top-level
+// browser instead. `area` is accepted for call-site clarity.
 export async function captureSiteScreenshot(
 	event: IpcMainInvokeEvent,
 	webContentsId: number,
-	options: { colorScheme?: 'light' | 'dark'; area?: 'viewport' | 'fullPage' } = {}
+	options: {
+		colorScheme?: 'light' | 'dark';
+		area?: 'viewport';
+	} = {}
 ): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
 	if ( options.colorScheme && options.colorScheme !== 'light' && options.colorScheme !== 'dark' ) {
 		throw new Error( 'Unsupported screenshot color scheme.' );
 	}
-	if ( options.area && options.area !== 'viewport' && options.area !== 'fullPage' ) {
+	if ( options.area && options.area !== 'viewport' ) {
 		throw new Error( 'Unsupported screenshot area.' );
 	}
 
@@ -1491,52 +1495,90 @@ export async function captureSiteScreenshot(
 		} );
 	}
 
-	const isViewport = options.area === 'viewport';
-	let captureParams: Record< string, unknown > = {
-		format: 'jpeg',
-		quality: 80,
-		captureBeyondViewport: false,
-	};
-	if ( ! isViewport ) {
-		const metrics = await sendDebuggerCommand< {
-			contentSize: { width: number; height: number };
-			cssLayoutViewport?: { clientWidth: number };
-			cssVisualViewport?: { clientWidth: number };
-			cssContentSize?: { width: number; height: number };
-		} >( target, 'Page.getLayoutMetrics' );
-		const width = Math.ceil(
-			metrics.cssLayoutViewport?.clientWidth ??
-				metrics.cssVisualViewport?.clientWidth ??
-				metrics.cssContentSize?.width ??
-				metrics.contentSize.width
-		);
-		const height = Math.ceil( metrics.cssContentSize?.height ?? metrics.contentSize.height );
-		if ( width <= 0 || height <= 0 ) {
-			throw new Error( 'Preview page has no visible content to capture.' );
-		}
-		captureParams = {
-			...captureParams,
-			captureBeyondViewport: true,
-			clip: { x: 0, y: 0, width, height, scale: 1 },
-		};
-	}
-
 	const screenshot = await sendDebuggerCommand< { data: string } >(
 		target,
 		'Page.captureScreenshot',
-		captureParams
+		{
+			format: 'jpeg',
+			quality: 80,
+			captureBeyondViewport: false,
+		}
 	);
 
 	const buffer = Buffer.from( screenshot.data, 'base64' );
-	const baseName = isViewport ? 'screenshot-viewport' : 'screenshot-preview';
 	return {
-		name: `${ baseName }${ options.colorScheme ? `-${ options.colorScheme }` : '' }.jpg`,
+		name: `screenshot-viewport${ options.colorScheme ? `-${ options.colorScheme }` : '' }.jpg`,
 		mimeType: 'image/jpeg',
 		data: buffer.buffer.slice(
 			buffer.byteOffset,
 			buffer.byteOffset + buffer.byteLength
 		) as ArrayBuffer,
 	};
+}
+
+// Full-page screenshots delegate to the CLI's Playwright pipeline (the same
+// engine as the agent's `take_screenshot` tool): a headless top-level page
+// renders the whole document correctly in one pass, with lazy-image
+// scrolling and font settling handled there. First use may download the
+// Playwright browser. The capture runs against a fresh page load in a
+// separate browser session, so admin URLs should be routed through the
+// site's `/studio-auto-login` endpoint by the caller.
+export async function captureFullPageScreenshot(
+	_event: IpcMainInvokeEvent,
+	url: string,
+	options: { width?: number; colorScheme?: 'light' | 'dark' } = {}
+): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
+	let parsedUrl: URL;
+	try {
+		parsedUrl = new URL( url );
+	} catch {
+		throw new Error( 'Unsupported screenshot URL.' );
+	}
+	if ( parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:' ) {
+		throw new Error( 'Unsupported screenshot URL.' );
+	}
+	if ( options.colorScheme && options.colorScheme !== 'light' && options.colorScheme !== 'dark' ) {
+		throw new Error( 'Unsupported screenshot color scheme.' );
+	}
+	const width = options.width === undefined ? undefined : Math.round( options.width );
+	if ( width !== undefined && ( ! Number.isFinite( width ) || width < 200 || width > 4000 ) ) {
+		throw new Error( 'Unsupported screenshot width.' );
+	}
+
+	const outPath = nodePath.join(
+		os.tmpdir(),
+		`studio-page-clip-${ Date.now().toString( 36 ) }-${ Math.random()
+			.toString( 36 )
+			.slice( 2, 8 ) }.jpg`
+	);
+	const args = [ 'screenshot', url, '--out', outPath ];
+	if ( width !== undefined ) {
+		args.push( '--width', String( width ) );
+	}
+	if ( options.colorScheme ) {
+		args.push( '--color-scheme', options.colorScheme );
+	}
+
+	await new Promise< void >( ( resolve, reject ) => {
+		const [ emitter ] = executeCliCommand( args, { output: 'capture' } );
+		emitter.on( 'success', () => resolve() );
+		emitter.on( 'failure', ( { error } ) => reject( error ) );
+		emitter.on( 'error', ( { error } ) => reject( error ) );
+	} );
+
+	try {
+		const buffer = await fsPromises.readFile( outPath );
+		return {
+			name: `clip-page${ options.colorScheme ? `-${ options.colorScheme }` : '' }.jpg`,
+			mimeType: 'image/jpeg',
+			data: buffer.buffer.slice(
+				buffer.byteOffset,
+				buffer.byteOffset + buffer.byteLength
+			) as ArrayBuffer,
+		};
+	} finally {
+		fsPromises.unlink( outPath ).catch( () => undefined );
+	}
 }
 
 function getOwnedWebviewContents( event: IpcMainInvokeEvent, webContentsId: number ): WebContents {

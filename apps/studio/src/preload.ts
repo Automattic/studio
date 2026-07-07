@@ -182,6 +182,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setWebviewViewport', webContentsId, viewport ),
 	captureSiteScreenshot: ( webContentsId, options ) =>
 		ipcRendererInvoke( 'captureSiteScreenshot', webContentsId, options ),
+	captureFullPageScreenshot: ( url, options ) =>
+		ipcRendererInvoke( 'captureFullPageScreenshot', url, options ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>

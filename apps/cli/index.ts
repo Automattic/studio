@@ -13,6 +13,7 @@ import { registerCommand as registerPushCommand } from 'cli/commands/push';
 import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
 import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
+import { registerCommand as registerSiteScreenshotCommand } from 'cli/commands/site/screenshot';
 import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
 import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
@@ -208,6 +209,7 @@ async function main() {
 	registerSiteStopCommand( studioArgv );
 	registerSiteDeleteCommand( studioArgv );
 	registerSiteStatusCommand( studioArgv );
+	registerSiteScreenshotCommand( studioArgv );
 
 	registerPushCommand( studioArgv );
 	registerPullCommand( studioArgv );

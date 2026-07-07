@@ -826,6 +826,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async captureSiteScreenshot() {
 			throw new UnsupportedError( 'captureSiteScreenshot' );
 		},
+		async captureFullPageScreenshot() {
+			throw new UnsupportedError( 'captureFullPageScreenshot' );
+		},
 		async readBlueprintFile(): Promise< Record< string, unknown > > {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},

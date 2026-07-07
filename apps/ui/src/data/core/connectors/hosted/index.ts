@@ -256,6 +256,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async captureSiteScreenshot() {
 			throw new UnsupportedError( 'captureSiteScreenshot' );
 		},
+		async captureFullPageScreenshot() {
+			throw new UnsupportedError( 'captureFullPageScreenshot' );
+		},
 		async extractBlueprintBundle() {
 			throw new UnsupportedError( 'extractBlueprintBundle' );
 		},

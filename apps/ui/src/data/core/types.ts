@@ -309,11 +309,24 @@ export interface Connector {
 	getFilePath( file: File ): Promise< string >;
 	createTemporaryTextFile( name: string, contents: string ): Promise< string >;
 	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
-	// `area: 'viewport'` captures the visible viewport at native (device
-	// pixel) resolution; the default captures the full page height at 1x.
+	// Captures the preview webview's visible viewport at native (device
+	// pixel) resolution. Viewport-only: CDP full-page capture doesn't work
+	// for webview guests, so full pages use `captureFullPageScreenshot`.
 	captureSiteScreenshot(
 		webContentsId: number,
-		options?: { colorScheme?: 'light' | 'dark'; area?: 'viewport' | 'fullPage' }
+		options?: {
+			colorScheme?: 'light' | 'dark';
+			area?: 'viewport';
+		}
+	): Promise< LocalMediaFile >;
+	// Renders `url` in a headless top-level browser (the CLI's Playwright
+	// screenshot pipeline, shared with the agent's `take_screenshot` tool)
+	// and returns a full-page JPEG. Fresh page load in a separate session:
+	// route admin URLs through `/studio-auto-login`. First use may download
+	// the Playwright browser.
+	captureFullPageScreenshot(
+		url: string,
+		options?: { width?: number; colorScheme?: 'light' | 'dark' }
 	): Promise< LocalMediaFile >;
 
 	// Extracts a Blueprint ZIP bundle to a temp directory and returns the

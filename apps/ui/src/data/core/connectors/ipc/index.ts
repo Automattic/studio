@@ -555,6 +555,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.captureSiteScreenshot( webContentsId, options ) ) as LocalMediaFile;
 		},
 
+		async captureFullPageScreenshot( url, options ): Promise< LocalMediaFile > {
+			return ( await ipcApi.captureFullPageScreenshot( url, options ) ) as LocalMediaFile;
+		},
+
 		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
 			return ( await ipcApi.extractBlueprintBundle( zipFilePath ) ) as ExtractedBlueprintBundle;
 		},

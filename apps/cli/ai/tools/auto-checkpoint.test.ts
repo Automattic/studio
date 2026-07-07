@@ -128,4 +128,33 @@ describe( 'withAutoCheckpoint', () => {
 		expect( createCheckpoint ).not.toHaveBeenCalled();
 		expect( tool.rawHandler ).toHaveBeenCalled();
 	} );
+
+	it( 'coalesces concurrent tool calls into a single checkpoint and chip', async () => {
+		// Simulate a slow capture so the second call arrives while the first
+		// is still in flight (the agent often issues several wp_cli calls in
+		// one turn — this must not produce one checkpoint per call).
+		let releaseCapture!: ( manifest: typeof MANIFEST ) => void;
+		createCheckpoint.mockImplementation(
+			() => new Promise( ( resolve ) => ( releaseCapture = resolve ) )
+		);
+		const tool = makeTool( 'wp_cli' );
+		const wrapped = withAutoCheckpoint( tool );
+
+		const first = wrapped.rawHandler( { nameOrPath: 'site', command: 'wp option get x' } as never );
+		const second = wrapped.rawHandler( { nameOrPath: 'site', command: 'wp post list' } as never );
+		// Let both calls reach the in-flight gate before the capture resolves.
+		await new Promise( ( resolve ) => setImmediate( resolve ) );
+		releaseCapture( MANIFEST );
+
+		const [ firstResult, secondResult ] = ( await Promise.all( [ first, second ] ) ) as Array< {
+			studioArtifacts?: Array< { type: string } >;
+		} >;
+
+		expect( createCheckpoint ).toHaveBeenCalledTimes( 1 );
+		// Exactly one of the two results carries the chip.
+		const chips = [ firstResult, secondResult ].filter(
+			( result ) => result.studioArtifacts?.[ 0 ]?.type === 'checkpoint'
+		);
+		expect( chips ).toHaveLength( 1 );
+	} );
 } );

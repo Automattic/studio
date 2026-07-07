@@ -1,7 +1,13 @@
 import { Type } from 'typebox';
 import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
-import { captureScreenshotBuffer, saveScreenshotToTempFile, VIEWPORTS } from './screenshot-helpers';
+import {
+	captureScreenshotBuffer,
+	saveScreenshotFile,
+	SCREENSHOT_COLOR_SCHEME_VALUES,
+	VIEWPORTS,
+	type ScreenshotColorScheme,
+} from './screenshot-helpers';
 
 const screenshotViewportSchema = Type.Enum( [ 'desktop', 'mobile', 'all' ], {
 	description:
@@ -10,6 +16,12 @@ const screenshotViewportSchema = Type.Enum( [ 'desktop', 'mobile', 'all' ], {
 type ScreenshotViewportArgument = 'desktop' | 'mobile' | 'all';
 type ScreenshotViewportType = keyof typeof VIEWPORTS;
 
+const screenshotColorSchemeSchema = Type.Enum( [ ...SCREENSHOT_COLOR_SCHEME_VALUES, 'all' ], {
+	description:
+		'Color scheme to emulate: "light", "dark", or "all" to capture both. Defaults to the browser/system preference.',
+} );
+type ScreenshotColorSchemeArgument = ScreenshotColorScheme | 'all';
+
 function resolveViewportTypes( viewport?: ScreenshotViewportArgument ): ScreenshotViewportType[] {
 	if ( viewport === 'all' ) {
 		return [ 'desktop', 'mobile' ];
@@ -17,21 +29,42 @@ function resolveViewportTypes( viewport?: ScreenshotViewportArgument ): Screensh
 	return [ viewport ?? 'desktop' ];
 }
 
-function getViewportLabel( viewportTypes: ScreenshotViewportType[] ): string {
-	return viewportTypes.length === 1 ? viewportTypes[ 0 ] : viewportTypes.join( ' and ' );
+function resolveColorSchemes(
+	colorScheme?: ScreenshotColorSchemeArgument
+): Array< ScreenshotColorScheme | undefined > {
+	if ( colorScheme === 'all' ) {
+		return [ ...SCREENSHOT_COLOR_SCHEME_VALUES ];
+	}
+	return [ colorScheme ];
+}
+
+function getCaptureLabel( target: {
+	viewportType: ScreenshotViewportType;
+	colorScheme?: ScreenshotColorScheme;
+} ): string {
+	return target.colorScheme
+		? `${ target.viewportType } ${ target.colorScheme }`
+		: target.viewportType;
+}
+
+function getCaptureListLabel(
+	targets: Array< { viewportType: ScreenshotViewportType; colorScheme?: ScreenshotColorScheme } >
+): string {
+	return targets.map( getCaptureLabel ).join( ', ' );
 }
 
 export const takeScreenshotTool = defineTool(
 	'take_screenshot',
 	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
-		'Also saves the screenshot as a temporary local image and returns a ready-to-use media widget payload. ' +
 		'Supports desktop and mobile viewports; pass `viewport: "all"` when you need both for design verification. ' +
+		'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` to verify pages that respond to prefers-color-scheme. ' +
 		'Long pages are clipped at 8000 vertical pixels (a vision-model limit); the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
 		'Use this to verify the site looks correct after building it. ' +
 		'Use `share_screenshot` instead only in remote sessions where you need to deliver the rendered page outside the Studio UI.',
 	{
 		url: Type.String( { description: 'The URL to screenshot' } ),
 		viewport: Type.Optional( screenshotViewportSchema ),
+		colorScheme: Type.Optional( screenshotColorSchemeSchema ),
 		offset: Type.Optional(
 			Type.Number( {
 				minimum: 0,
@@ -43,21 +76,36 @@ export const takeScreenshotTool = defineTool(
 	async ( args ) => {
 		try {
 			const viewportTypes = resolveViewportTypes( args.viewport );
-			const viewportLabel = getViewportLabel( viewportTypes );
-			emitProgress( `Taking ${ viewportLabel } screenshot of ${ args.url }…` );
+			const colorSchemes = resolveColorSchemes( args.colorScheme );
+			const captureTargets = viewportTypes.flatMap( ( viewportType ) =>
+				colorSchemes.map( ( colorScheme ) => ( { viewportType, colorScheme } ) )
+			);
+			const captureLabel = getCaptureListLabel( captureTargets );
+			emitProgress( `Taking ${ captureLabel } screenshot of ${ args.url }…` );
 			const captures = await Promise.all(
-				viewportTypes.map( async ( viewportType ) => {
+				captureTargets.map( async ( { viewportType, colorScheme } ) => {
 					const capture = await captureScreenshotBuffer( args.url, VIEWPORTS[ viewportType ], {
 						fullPage: true,
 						format: 'jpeg',
 						offset: args.offset,
+						colorScheme,
 					} );
-					const screenshotFile = await saveScreenshotToTempFile( capture.buffer, {
+					const screenshotFile = await saveScreenshotFile( capture.buffer, {
 						viewportType,
 						format: 'jpeg',
+						colorScheme,
 					} );
+					// Progress lines persist in the CLI transcript (but not in the
+					// desktop conversation history, where the inline artifact is the
+					// UI), so this is the terminal user's only handle on the file.
+					emitProgress(
+						`Saved ${ getCaptureLabel( { viewportType, colorScheme } ) } screenshot to ${
+							screenshotFile.fileUrl
+						}`
+					);
 					return {
 						viewportType,
+						colorScheme,
 						buffer: capture.buffer,
 						documentHeight: capture.documentHeight,
 						capturedHeight: capture.capturedHeight,
@@ -69,7 +117,10 @@ export const takeScreenshotTool = defineTool(
 							widgetProps: {
 								url: screenshotFile.fileUrl,
 								mediaKind: 'image',
-								alt: `Screenshot of ${ args.url } (${ viewportType })`,
+								alt: `Screenshot of ${ args.url } (${ getCaptureLabel( {
+									viewportType,
+									colorScheme,
+								} ) })`,
 								mediaId: null,
 								source: {
 									type: 'local',
@@ -84,29 +135,21 @@ export const takeScreenshotTool = defineTool(
 			);
 			const describeCapture = ( capture: ( typeof captures )[ number ] ): string => {
 				const captureEnd = capture.offset + capture.capturedHeight;
+				const label = getCaptureLabel( capture );
 				if ( capture.clipped ) {
-					return `${ capture.viewportType }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page. Page was clipped; call again with offset:${ captureEnd } to fetch the next slice.`;
+					return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page. Page was clipped; call again with offset:${ captureEnd } to fetch the next slice.`;
 				}
 				if ( capture.offset > 0 ) {
-					return `${ capture.viewportType }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page (end of page).`;
+					return `${ label }: captured rows ${ capture.offset }-${ captureEnd } of a ${ capture.documentHeight }px page (end of page).`;
 				}
-				return `${ capture.viewportType }: captured full page (${ capture.documentHeight }px tall).`;
+				return `${ label }: captured full page (${ capture.documentHeight }px tall).`;
 			};
 			const captureLines = captures.map( describeCapture );
 			const textLines =
 				captures.length === 1
-					? [
-							`Screenshot captured — ${ captureLines[ 0 ] }`,
-							`mediaWidgetPayload=${ JSON.stringify( captures[ 0 ].mediaWidgetPayload ) }`,
-					  ]
-					: [
-							'Screenshots captured:',
-							...captureLines.map( ( line ) => `- ${ line }` ),
-							`mediaWidgetPayloads=${ JSON.stringify(
-								captures.map( ( capture ) => capture.mediaWidgetPayload )
-							) }`,
-					  ];
-			emitProgress( `Screenshot captured (${ viewportLabel })` );
+					? [ `Screenshot captured — ${ captureLines[ 0 ] }` ]
+					: [ 'Screenshots captured:', ...captureLines.map( ( line ) => `- ${ line }` ) ];
+			emitProgress( `Screenshot captured (${ captureLabel })` );
 			return {
 				content: [
 					{
@@ -119,6 +162,7 @@ export const takeScreenshotTool = defineTool(
 						mimeType: capture.mimeType,
 					} ) ),
 				],
+				studioArtifacts: captures.map( ( capture ) => capture.mediaWidgetPayload ),
 			};
 		} catch ( error ) {
 			throw new Error(

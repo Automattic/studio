@@ -3,11 +3,13 @@
 import { spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 import phpVersionsMetadata from '../packages/common/lib/php-binary-cdn-metadata.mjs';
 
 const DEFAULT_METADATA_PATH = path.join(
-	process.cwd(),
-	'packages/common/lib/php-binary-cdn-metadata.mjs'
+	import.meta.dirname,
+	'../packages/common/lib/php-binary-cdn-metadata.mjs'
 );
 
 const ARTIFACT_PLATFORM_MAP = {
@@ -24,27 +26,37 @@ const ARTIFACT_ARCH_MAP = {
 const ARTIFACT_ORDER = [ 'darwin-arm64', 'darwin-x64', 'win32-x64', 'linux-arm64', 'linux-x64' ];
 
 function parseArgs() {
-	const args = process.argv.slice( 2 );
-	const options = {};
-
-	for ( let i = 0; i < args.length; i += 2 ) {
-		const key = args[ i ];
-		const value = args[ i + 1 ];
-		if ( ! key?.startsWith( '--' ) || ! value ) {
-			throw new Error(
-				`Invalid arguments. Usage: ${ path.basename(
-					process.argv[ 1 ]
-				) } --version 8.4.20 --upload-results out/php-binaries/apps-cdn-upload-results.json`
-			);
-		}
-		options[ key.slice( 2 ) ] = value;
-	}
-
-	if ( ! options.version || ! options[ 'upload-results' ] ) {
-		throw new Error( 'Missing required --version or --upload-results argument.' );
-	}
-
-	return options;
+	return (
+		yargs( hideBin( process.argv ) )
+			.usage(
+				'$0 --version 8.4.20 --package-version 1.0.0 --upload-results out/php-binaries/apps-cdn-upload-results.json'
+			)
+			// The `version` option below is the PHP version, so disable yargs' built-in --version flag.
+			.version( false )
+			.option( 'version', {
+				type: 'string',
+				demandOption: true,
+				description: 'PHP patch version to record (e.g. 8.4.20)',
+			} )
+			.option( 'package-version', {
+				type: 'string',
+				demandOption: true,
+				description: 'CDN package version for the uploaded binaries',
+			} )
+			.option( 'upload-results', {
+				type: 'string',
+				demandOption: true,
+				description: 'Path to the JSON file with CDN upload results',
+			} )
+			.option( 'metadata', {
+				type: 'string',
+				default: DEFAULT_METADATA_PATH,
+				defaultDescription: 'packages/common/lib/php-binary-cdn-metadata.mjs',
+				description: 'Path to the metadata file to update',
+			} )
+			.strict()
+			.parseSync()
+	);
 }
 
 function minorVersionFor( version ) {
@@ -154,11 +166,17 @@ function formatMetadataFile() {
 function main() {
 	const options = parseArgs();
 	const version = options.version;
+	const packageVersion = options.packageVersion;
+	if ( ! /^[a-z0-9][a-z0-9._-]{0,63}$/.test( packageVersion ) ) {
+		throw new Error( `Invalid package version: ${ packageVersion }` );
+	}
 	const minorVersion = minorVersionFor( version );
+	const metadataPath = path.resolve( options.metadata );
 	const metadata = normalizeMetadata( phpVersionsMetadata );
-	const uploadResults = JSON.parse( fs.readFileSync( options[ 'upload-results' ], 'utf8' ) );
+	const uploadResults = JSON.parse( fs.readFileSync( options.uploadResults, 'utf8' ) );
 	const uploadEntries = Object.entries( uploadResults );
 	const currentVersion = metadata.versions[ minorVersion ]?.version;
+	const currentPackageVersion = metadata.versions[ minorVersion ]?.packageVersion;
 
 	if ( uploadEntries.length === 0 ) {
 		throw new Error( 'Upload results do not include any PHP binary artifacts.' );
@@ -171,8 +189,8 @@ function main() {
 		return;
 	}
 
-	const isNewPatch = currentVersion !== version;
-	const currentArtifacts = isNewPatch ? {} : metadata.versions[ minorVersion ]?.artifacts || {};
+	const isNewPackage = currentVersion !== version || currentPackageVersion !== packageVersion;
+	const currentArtifacts = isNewPackage ? {} : metadata.versions[ minorVersion ]?.artifacts || {};
 	const artifacts = { ...currentArtifacts };
 
 	for ( const [ fileName, result ] of uploadEntries ) {
@@ -185,17 +203,16 @@ function main() {
 		};
 	}
 
-	metadata.versions[ minorVersion ] = {
-		version,
-		artifacts: orderedObject( artifacts, ARTIFACT_ORDER ),
-	};
+	const versionMetadata = { version, packageVersion };
+	versionMetadata.artifacts = orderedObject( artifacts, ARTIFACT_ORDER );
+	metadata.versions[ minorVersion ] = versionMetadata;
 	metadata.versions = orderedObject(
 		metadata.versions,
 		Object.keys( metadata.versions ).sort( ( a, b ) => comparePatchVersions( b, a ) )
 	);
 
 	fs.writeFileSync(
-		DEFAULT_METADATA_PATH,
+		metadataPath,
 		`const phpVersionsMetadata = ${ JSON.stringify(
 			metadata,
 			null,
@@ -203,7 +220,9 @@ function main() {
 		) };\n\nexport default phpVersionsMetadata;\n`
 	);
 	formatMetadataFile();
-	console.log( `Updated PHP ${ minorVersion } CDN metadata to ${ version }.` );
+	console.log(
+		`Updated PHP ${ minorVersion } CDN metadata to PHP ${ version }, package ${ packageVersion }.`
+	);
 }
 
 try {

@@ -98,27 +98,37 @@ export async function pathExists( path: string ): Promise< boolean > {
 	}
 }
 
+// The source may be mutated while copying (e.g. duplicating a running site whose
+// SQLite journal and cache files come and go), so entries that disappear between
+// enumeration and copy are skipped rather than failing the whole copy. A missing
+// top-level source still throws.
 export async function recursiveCopyDirectory(
 	source: string,
 	destination: string
 ): Promise< void > {
-	await fsPromises.mkdir( destination, { recursive: true } );
-
 	const entries = await fsPromises.readdir( source, { withFileTypes: true } );
 
+	await fsPromises.mkdir( destination, { recursive: true } );
+
 	await Promise.all(
-		entries.map( ( entry ) => {
+		entries.map( async ( entry ) => {
 			const sourcePath = path.join( source, entry.name );
 			const destinationPath = path.join( destination, entry.name );
 
-			if ( entry.isDirectory() ) {
-				return recursiveCopyDirectory( sourcePath, destinationPath );
-			}
-			if ( entry.isFile() ) {
-				return fsPromises.cp( sourcePath, destinationPath, {
-					mode: fs.constants.COPYFILE_FICLONE,
-					preserveTimestamps: true,
-				} );
+			try {
+				if ( entry.isDirectory() ) {
+					await recursiveCopyDirectory( sourcePath, destinationPath );
+				} else if ( entry.isFile() ) {
+					await fsPromises.cp( sourcePath, destinationPath, {
+						mode: fs.constants.COPYFILE_FICLONE,
+						preserveTimestamps: true,
+					} );
+				}
+			} catch ( error ) {
+				if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+					return;
+				}
+				throw error;
 			}
 		} )
 	);

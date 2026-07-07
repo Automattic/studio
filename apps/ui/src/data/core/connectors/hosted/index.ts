@@ -1,4 +1,5 @@
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
@@ -18,19 +19,6 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 export interface HostedConnectorOptions {
 	// Base URL of the Studio hosted backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
-}
-
-/**
- * Thrown by connector methods that have no meaning in a browser (native file
- * dialogs, opening an editor/terminal, etc.). Callers in the UI already wrap
- * these affordances in try/catch, so throwing keeps the surface honest without
- * breaking the app.
- */
-export class WebUnsupportedError extends Error {
-	constructor( operation: string ) {
-		super( `"${ operation }" is not available in Studio Web.` );
-		this.name = 'WebUnsupportedError';
-	}
 }
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
@@ -54,7 +42,7 @@ type ServerEvent =
  * surface it exercises is implemented for real (AI sessions and runs, the site
  * list, featured blueprints, external links). Desktop-only capabilities either
  * return benign defaults (so mount-time queries don't throw) or throw
- * `WebUnsupportedError` for user-triggered actions.
+ * `UnsupportedError` for user-triggered actions.
  */
 export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ): Connector {
 	// The backend namespaces its API under /api so the SPA's real-path routes
@@ -117,6 +105,16 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			};
 		},
 
+		// Remote browser host: no native dialogs, no access to the user's machine,
+		// and a cross-origin iframe preview that can't host the annotation inspector.
+		capabilities: {
+			nativeFolderPicker: false,
+			nativeSaveDialog: false,
+			openInOS: false,
+			annotatePreview: false,
+			readLocalMedia: false,
+		},
+
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
 		// in the browser is a follow-up (explored in the PR linked above).
 		requiresAuth: false,
@@ -142,43 +140,43 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return lastSites;
 		},
 		async createSite() {
-			throw new WebUnsupportedError( 'createSite' );
+			throw new UnsupportedError( 'createSite' );
 		},
 		async deleteSite() {
-			throw new WebUnsupportedError( 'deleteSite' );
+			throw new UnsupportedError( 'deleteSite' );
 		},
 		async copySite(): Promise< SiteDetails > {
-			throw new WebUnsupportedError( 'copySite' );
+			throw new UnsupportedError( 'copySite' );
 		},
 		async startSite() {
-			throw new WebUnsupportedError( 'startSite' );
+			throw new UnsupportedError( 'startSite' );
 		},
 		async stopSite() {
-			throw new WebUnsupportedError( 'stopSite' );
+			throw new UnsupportedError( 'stopSite' );
 		},
 		async updateSite() {
-			throw new WebUnsupportedError( 'updateSite' );
+			throw new UnsupportedError( 'updateSite' );
 		},
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
 		},
 		async exportFullSite(): Promise< string | null > {
-			throw new WebUnsupportedError( 'exportFullSite' );
+			throw new UnsupportedError( 'exportFullSite' );
 		},
 		async exportDatabase(): Promise< string | null > {
-			throw new WebUnsupportedError( 'exportDatabase' );
+			throw new UnsupportedError( 'exportDatabase' );
 		},
 		async generateProposedSiteName(): Promise< string > {
-			throw new WebUnsupportedError( 'generateProposedSiteName' );
+			throw new UnsupportedError( 'generateProposedSiteName' );
 		},
 		async generateProposedSitePath() {
-			throw new WebUnsupportedError( 'generateProposedSitePath' );
+			throw new UnsupportedError( 'generateProposedSitePath' );
 		},
 		async selectSiteFolder() {
-			throw new WebUnsupportedError( 'selectSiteFolder' );
+			throw new UnsupportedError( 'selectSiteFolder' );
 		},
 		async comparePaths() {
-			throw new WebUnsupportedError( 'comparePaths' );
+			throw new UnsupportedError( 'comparePaths' );
 		},
 
 		// Featured blueprints — public endpoint, same source as the desktop app.
@@ -199,16 +197,16 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return '';
 		},
 		async readLocalMediaFile() {
-			throw new WebUnsupportedError( 'readLocalMediaFile' );
+			throw new UnsupportedError( 'readLocalMediaFile' );
 		},
 		async extractBlueprintBundle() {
-			throw new WebUnsupportedError( 'extractBlueprintBundle' );
+			throw new UnsupportedError( 'extractBlueprintBundle' );
 		},
 		async cleanupBlueprintTempDir() {
 			// No-op.
 		},
 		async importSiteFromBackup(): Promise< SiteDetails > {
-			throw new WebUnsupportedError( 'importSiteFromBackup' );
+			throw new UnsupportedError( 'importSiteFromBackup' );
 		},
 
 		// Preview snapshots / sync — out of scope for this increment.
@@ -216,7 +214,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return [];
 		},
 		async publishPreviewSite(): Promise< { url: string } > {
-			throw new WebUnsupportedError( 'publishPreviewSite' );
+			throw new UnsupportedError( 'publishPreviewSite' );
 		},
 		async getConnectedWpcomSites(): Promise< SyncSite[] > {
 			return [];
@@ -225,19 +223,19 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return [];
 		},
 		async connectWpcomSite() {
-			throw new WebUnsupportedError( 'connectWpcomSite' );
+			throw new UnsupportedError( 'connectWpcomSite' );
 		},
 		async disconnectWpcomSite() {
-			throw new WebUnsupportedError( 'disconnectWpcomSite' );
+			throw new UnsupportedError( 'disconnectWpcomSite' );
 		},
 		onSyncConnectSite() {
 			return () => {};
 		},
 		async pushSiteToLive() {
-			throw new WebUnsupportedError( 'pushSiteToLive' );
+			throw new UnsupportedError( 'pushSiteToLive' );
 		},
 		async pullSiteFromLive() {
-			throw new WebUnsupportedError( 'pullSiteFromLive' );
+			throw new UnsupportedError( 'pullSiteFromLive' );
 		},
 		getPublishCheckoutUrl() {
 			return undefined;
@@ -320,18 +318,18 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 
 		async fetchSiteRest() {
-			throw new WebUnsupportedError( 'fetchSiteRest' );
+			throw new UnsupportedError( 'fetchSiteRest' );
 		},
 
 		// Filesystem / native integrations — not available in a browser.
 		async openSiteFolder() {
-			throw new WebUnsupportedError( 'openSiteFolder' );
+			throw new UnsupportedError( 'openSiteFolder' );
 		},
 		async openSiteInEditor() {
-			throw new WebUnsupportedError( 'openSiteInEditor' );
+			throw new UnsupportedError( 'openSiteInEditor' );
 		},
 		async openSiteInTerminal() {
-			throw new WebUnsupportedError( 'openSiteInTerminal' );
+			throw new UnsupportedError( 'openSiteInTerminal' );
 		},
 
 		// External links work natively in the browser.
@@ -348,6 +346,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 
 		// Window chrome — no traffic lights in a browser tab.
+		reservesTrafficLightSpace: false,
 		async isFullscreen() {
 			return false;
 		},

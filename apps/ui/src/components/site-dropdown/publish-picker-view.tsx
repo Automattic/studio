@@ -47,10 +47,13 @@ export function PublishPickerView( { site, onClose }: Props ) {
 	const handleCreateNew = () => {
 		const checkoutUrl = connector.getPublishCheckoutUrl( site );
 		if ( checkoutUrl ) {
+			// Desktop receives the new site via the wp-studio:// deep link; surfaces
+			// that can't (the local web server) opt into a server-side watch instead.
+			void connector.watchForPublishedSite?.( site.id );
 			openExternal( checkoutUrl );
 		}
-		// The deep-link listener handles the follow-up connection once the
-		// user finishes checkout, so we just close the picker here.
+		// The connect listener (deep link on desktop, sync-connect SSE on the local
+		// server) handles the follow-up connection, so we just close the picker.
 		onClose();
 	};
 

@@ -80,10 +80,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			const verbose = argv.verbose as boolean;
+			const verbose = argv.verbose;
 
 			try {
-				await runCommand( argv.path as string, argv.url as string | undefined, verbose );
+				await runCommand( argv.path, argv.url, verbose );
 			} catch ( error ) {
 				if ( error instanceof PullError ) {
 					logger.spinner.fail( __( 'Pull failed' ) );

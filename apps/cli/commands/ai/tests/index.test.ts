@@ -9,6 +9,8 @@ import {
 	openStudioSession,
 } from 'cli/ai/sessions/pi-session';
 import { readCliConfig } from 'cli/lib/cli-config/core';
+import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { isSiteRunning } from 'cli/lib/site-utils';
 import { runCommand } from '../index';
 
 vi.mock( '@studio/common/lib/shared-config', () => ( {
@@ -35,6 +37,9 @@ vi.mock( 'cli/lib/cli-config/core', () => ( {
 } ) );
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	findSiteByFolder: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/site-utils', () => ( {
+	isSiteRunning: vi.fn(),
 } ) );
 vi.mock( 'cli/ai/sessions/context', () => ( {
 	resolveResumeSessionContext: () => ( { provider: undefined, model: undefined } ),
@@ -151,5 +156,104 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
 		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { model: string };
 		expect( callArgs.model ).toBe( 'claude-opus-4-8' );
+	} );
+} );
+
+describe( 'AI runCommand — active site banner running state', () => {
+	let stdoutSpy: ReturnType< typeof vi.spyOn >;
+
+	const dispatchedPrompt = () =>
+		( ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { prompt: string } ).prompt;
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		( createStudioSession as Mock ).mockResolvedValue( {
+			appendCustomEntry: vi.fn( () => 'entry-id' ),
+			getSessionId: () => 'session-id',
+			getEntries: () => [],
+		} );
+		( readAuthToken as Mock ).mockResolvedValue( null );
+		( readCliConfig as Mock ).mockResolvedValue( { aiProvider: 'wpcom' } );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
+		stdoutSpy = vi.spyOn( process.stdout, 'write' ).mockImplementation( () => true );
+	} );
+
+	afterEach( () => {
+		stdoutSpy.mockRestore();
+	} );
+
+	it( 'reports the site as running when the daemon says it is', async () => {
+		( findSiteByFolder as Mock ).mockResolvedValue( { id: 'site-1', path: '/sites/my-site' } );
+		( isSiteRunning as Mock ).mockResolvedValue( true );
+
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			activeSite: { name: 'My Site', path: '/sites/my-site' },
+		} );
+
+		expect( dispatchedPrompt() ).toContain(
+			'[Active site: "My Site" at /sites/my-site (running)]'
+		);
+	} );
+
+	it( 'reports the site as stopped when the daemon says it is not running', async () => {
+		( findSiteByFolder as Mock ).mockResolvedValue( { id: 'site-1', path: '/sites/my-site' } );
+		( isSiteRunning as Mock ).mockResolvedValue( false );
+
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			activeSite: { name: 'My Site', path: '/sites/my-site' },
+		} );
+
+		expect( dispatchedPrompt() ).toContain( '(stopped)' );
+	} );
+
+	it( 'overrides a stale stored running flag with the live daemon state', async () => {
+		( findSiteByFolder as Mock ).mockResolvedValue( { id: 'site-1', path: '/sites/my-site' } );
+		( isSiteRunning as Mock ).mockResolvedValue( true );
+
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			// e.g. hydrated from a session event log, which carries no live state
+			activeSite: { name: 'My Site', path: '/sites/my-site', running: false },
+		} );
+
+		expect( dispatchedPrompt() ).toContain( '(running)' );
+	} );
+
+	it( 'treats a site missing from the CLI config as stopped', async () => {
+		( findSiteByFolder as Mock ).mockResolvedValue( undefined );
+
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			activeSite: { name: 'Gone', path: '/sites/gone' },
+		} );
+
+		expect( isSiteRunning ).not.toHaveBeenCalled();
+		expect( dispatchedPrompt() ).toContain( '(stopped)' );
+	} );
+
+	it( 'skips the daemon check for remote sites', async () => {
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			activeSite: {
+				name: 'Live',
+				path: '',
+				remote: true,
+				url: 'https://example.wordpress.com',
+				wpcomSiteId: 123,
+			},
+		} );
+
+		expect( findSiteByFolder ).not.toHaveBeenCalled();
+		expect( isSiteRunning ).not.toHaveBeenCalled();
+		expect( dispatchedPrompt() ).toContain(
+			'[Active site: "Live" (ID: 123) at https://example.wordpress.com (WordPress.com)]'
+		);
 	} );
 } );

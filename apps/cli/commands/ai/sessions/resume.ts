@@ -9,8 +9,6 @@ import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runAiCommand } from 'cli/commands/ai';
 import { chooseSessionForAction } from 'cli/commands/ai/sessions/helpers';
-import { findSiteByFolder } from 'cli/lib/cli-config/sites';
-import { isSiteRunning } from 'cli/lib/site-utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { StudioAiSessionInputPayload } from '@studio/common/ai/chat-images';
@@ -74,15 +72,6 @@ export async function runCommand(
 	const resolvedSite =
 		adapter instanceof JsonAdapter ? resolveActiveSiteFromEntries( session.entries ) : undefined;
 
-	// The event log carries no running state (it would be stale anyway), and
-	// `runAiCommand` treats a missing flag as stopped — so without a live check
-	// the agent's context banner reports every local site as stopped.
-	let running: boolean | undefined;
-	if ( resolvedSite && ! resolvedSite.remote ) {
-		const siteData = await findSiteByFolder( resolvedSite.path );
-		running = siteData ? await isSiteRunning( siteData ) : false;
-	}
-
 	await runAiCommand( {
 		adapter,
 		resumeSession: session,
@@ -90,7 +79,7 @@ export async function runCommand(
 		initialDisplayMessage: inputPayload?.displayMessage ?? options.displayMessage,
 		initialImages: inputPayload?.images,
 		initialFiles: inputPayload?.files,
-		activeSite: resolvedSite ? { ...resolvedSite, running } : undefined,
+		activeSite: resolvedSite,
 	} );
 }
 

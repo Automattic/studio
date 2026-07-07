@@ -98,7 +98,6 @@ export async function runCommand( options: {
 	activeSite?: {
 		name: string;
 		path: string;
-		running?: boolean;
 		remote?: boolean;
 		url?: string;
 		wpcomSiteId?: number;
@@ -116,7 +115,8 @@ export async function runCommand( options: {
 		ui.activeSite = {
 			name: options.activeSite.name,
 			path: options.activeSite.path,
-			running: options.activeSite.running ?? false,
+			// Placeholder — turn dispatch resolves the live state before each prompt.
+			running: false,
 			remote: options.activeSite.remote,
 			url: options.activeSite.url,
 			wpcomSiteId: options.activeSite.wpcomSiteId,

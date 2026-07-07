@@ -210,20 +210,6 @@ describe( 'AI runCommand — active site banner running state', () => {
 		expect( dispatchedPrompt() ).toContain( '(stopped)' );
 	} );
 
-	it( 'overrides a stale stored running flag with the live daemon state', async () => {
-		( findSiteByFolder as Mock ).mockResolvedValue( { id: 'site-1', path: '/sites/my-site' } );
-		( isSiteRunning as Mock ).mockResolvedValue( true );
-
-		await runCommand( {
-			adapter: new JsonAdapter(),
-			initialMessage: 'hello',
-			// e.g. hydrated from a session event log, which carries no live state
-			activeSite: { name: 'My Site', path: '/sites/my-site', running: false },
-		} );
-
-		expect( dispatchedPrompt() ).toContain( '(running)' );
-	} );
-
 	it( 'treats a site missing from the CLI config as stopped', async () => {
 		( findSiteByFolder as Mock ).mockResolvedValue( undefined );
 

@@ -35,6 +35,8 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 							remote: data.remote === true,
 							url: data.url,
 							wpcomSiteId: data.wpcomSiteId,
+							sshSite: data.sshSite === true,
+							sshSiteId: data.sshSiteId,
 						},
 						{ announce: true, emitEvent: false }
 					);

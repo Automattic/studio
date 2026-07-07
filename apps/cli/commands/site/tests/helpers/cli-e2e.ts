@@ -121,3 +121,45 @@ export function readCliConfig( env: CliEnv ): {
 } {
 	return JSON.parse( fs.readFileSync( env.cliConfigPath, 'utf-8' ) );
 }
+
+/**
+ * Polls a URL until the server accepts a connection, then resolves with the
+ * response. A freshly started site can take a moment to begin listening, so
+ * this retries the connection until the deadline; once it responds, the caller
+ * asserts on the status and content type. Redirects are not followed so a
+ * canonical 302 is observed as-is rather than chased to its target.
+ *
+ * Right after `site start` the proxy briefly answers `302 Location: /` while
+ * PHP warms up, so pass `expectedStatus` to also poll past interim responses;
+ * on deadline the last response is returned so the caller's status assertion
+ * fails with the real value.
+ */
+export async function waitForSiteResponse(
+	url: string,
+	{
+		timeoutMs = 30_000,
+		intervalMs = 500,
+		expectedStatus,
+	}: { timeoutMs?: number; intervalMs?: number; expectedStatus?: number } = {}
+): Promise< Response > {
+	const deadline = Date.now() + timeoutMs;
+	let lastError: unknown;
+	let lastResponse: Response | undefined;
+
+	while ( Date.now() < deadline ) {
+		try {
+			lastResponse = await fetch( url, { redirect: 'manual' } );
+			if ( expectedStatus === undefined || lastResponse.status === expectedStatus ) {
+				return lastResponse;
+			}
+		} catch ( error ) {
+			lastError = error;
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, intervalMs ) );
+	}
+
+	if ( lastResponse ) {
+		return lastResponse;
+	}
+	throw new Error( `Timed out waiting for a response from ${ url }: ${ String( lastError ) }` );
+}

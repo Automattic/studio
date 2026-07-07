@@ -92,3 +92,44 @@ export function isRenderableMediaWidget( widget: StudioChatArtifactWidgetDraft )
 		( Boolean( getLocalMediaPath( widget ) ) || Boolean( getSafeMediaUrl( widget ) ) )
 	);
 }
+
+// The widgetProps the checkpoint agent tools attach to their results (see
+// `apps/cli/ai/tools/checkpoints.ts`), rendered as a chip in the transcript.
+export interface CheckpointArtifactProps {
+	checkpointId: string;
+	siteId: string;
+	label: string | null;
+	trigger: string;
+	toolName: string | null;
+	// Epoch milliseconds.
+	createdAt: number;
+}
+
+export function getCheckpointArtifactProps(
+	widget: StudioChatArtifactWidgetDraft
+): CheckpointArtifactProps | null {
+	if ( widget.type !== 'checkpoint' ) {
+		return null;
+	}
+	const { checkpointId, siteId, label, trigger, toolName, createdAt } = widget.widgetProps;
+	if (
+		typeof checkpointId !== 'string' ||
+		typeof siteId !== 'string' ||
+		typeof trigger !== 'string' ||
+		typeof createdAt !== 'number'
+	) {
+		return null;
+	}
+	return {
+		checkpointId,
+		siteId,
+		label: typeof label === 'string' && label ? label : null,
+		trigger,
+		toolName: typeof toolName === 'string' && toolName ? toolName : null,
+		createdAt,
+	};
+}
+
+export function isCheckpointArtifactWidget( widget: StudioChatArtifactWidgetDraft ): boolean {
+	return getCheckpointArtifactProps( widget ) !== null;
+}

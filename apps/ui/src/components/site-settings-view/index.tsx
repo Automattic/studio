@@ -7,6 +7,7 @@ import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckpointTimeline } from '@/components/checkpoint-timeline';
 import { LearnHowLink } from '@/components/learn-more';
 import { SiteDropdown } from '@/components/site-dropdown';
 import {
@@ -23,6 +24,7 @@ import {
 	wpVersionField,
 } from '@/components/site-fields';
 import * as Tabs from '@/components/tabs';
+import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useSites, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -33,7 +35,7 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
-type TabId = 'general' | 'debugging';
+type TabId = 'general' | 'debugging' | 'checkpoints';
 
 interface FormData {
 	name: string;
@@ -151,6 +153,9 @@ function SiteSettingsBody( {
 	activeTab: TabId;
 	onTabChange: ( tab: TabId ) => void;
 } ) {
+	// Checkpoints run on the user's machine (the CLI checkpoint engine), so the
+	// tab only exists where the connector can reach it.
+	const supportsCheckpoints = useConnector().capabilities.siteCheckpoints;
 	const allDomains = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
 		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),
@@ -314,6 +319,9 @@ function SiteSettingsBody( {
 						<Tabs.List>
 							<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
 							<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
+							{ supportsCheckpoints ? (
+								<Tabs.Tab tabId="checkpoints">{ __( 'Checkpoints' ) }</Tabs.Tab>
+							) : null }
 						</Tabs.List>
 					</div>
 				</div>
@@ -340,21 +348,30 @@ function SiteSettingsBody( {
 								/>
 							</Tabs.Panel>
 
-							{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
+							{ activeTab !== 'checkpoints' && (
+								<>
+									{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 
-							<div className={ styles.actions }>
-								<Button
-									type="submit"
-									variant="solid"
-									tone="brand"
-									disabled={ ! canSubmit }
-									loading={ updateSite.isPending }
-									loadingAnnouncement={ __( 'Saving settings' ) }
-								>
-									{ __( 'Save settings' ) }
-								</Button>
-							</div>
+									<div className={ styles.actions }>
+										<Button
+											type="submit"
+											variant="solid"
+											tone="brand"
+											disabled={ ! canSubmit }
+											loading={ updateSite.isPending }
+											loadingAnnouncement={ __( 'Saving settings' ) }
+										>
+											{ __( 'Save settings' ) }
+										</Button>
+									</div>
+								</>
+							) }
 						</form>
+						{ supportsCheckpoints ? (
+							<Tabs.Panel tabId="checkpoints">
+								<CheckpointTimeline siteId={ site.id } />
+							</Tabs.Panel>
+						) : null }
 					</div>
 				</div>
 			</Tabs.Root>
@@ -363,7 +380,7 @@ function SiteSettingsBody( {
 }
 
 export function isSiteSettingsTab( value: string ): value is TabId {
-	return value === 'general' || value === 'debugging';
+	return value === 'general' || value === 'debugging' || value === 'checkpoints';
 }
 
 export type SiteSettingsTabId = TabId;

@@ -9,6 +9,7 @@ import type {
 	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
+	SiteCheckpoint,
 	SiteDetails,
 	Snapshot,
 	SyncSite,
@@ -113,6 +114,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			openInOS: false,
 			annotatePreview: false,
 			readLocalMedia: false,
+			siteCheckpoints: false,
 		},
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
@@ -207,6 +209,21 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async importSiteFromBackup(): Promise< SiteDetails > {
 			throw new UnsupportedError( 'importSiteFromBackup' );
+		},
+
+		// Site checkpoints — local-machine only (the CLI checkpoint engine).
+		// The list returns a benign default so mount-time queries don't throw.
+		async listCheckpoints(): Promise< SiteCheckpoint[] > {
+			return [];
+		},
+		async createCheckpoint() {
+			throw new UnsupportedError( 'createCheckpoint' );
+		},
+		async restoreCheckpoint() {
+			throw new UnsupportedError( 'restoreCheckpoint' );
+		},
+		async deleteCheckpoint() {
+			throw new UnsupportedError( 'deleteCheckpoint' );
 		},
 
 		// Preview snapshots / sync — out of scope for this increment.

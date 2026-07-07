@@ -240,6 +240,13 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
+export {
+	listSiteCheckpoints,
+	createSiteCheckpoint,
+	restoreSiteCheckpoint,
+	deleteSiteCheckpoint,
+} from 'src/modules/checkpoints/lib/ipc-handlers';
+
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {

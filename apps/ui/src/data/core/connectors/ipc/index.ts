@@ -14,6 +14,7 @@ import type {
 	LoadedAiSession,
 	ProposedSitePath,
 	SelectedSiteFolder,
+	SiteCheckpoint,
 	SiteDetails,
 	Snapshot,
 	SupportedEditor,
@@ -205,6 +206,7 @@ export function createIpcConnector(): Connector {
 			openInOS: true,
 			annotatePreview: true,
 			readLocalMedia: true,
+			siteCheckpoints: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process
@@ -391,6 +393,21 @@ export function createIpcConnector(): Connector {
 				id: siteId,
 				backupFile: backup,
 			} ) ) as SiteDetails;
+		},
+
+		// Site checkpoints — the main process forks the same `studio checkpoint`
+		// CLI commands the terminal user runs.
+		async listCheckpoints( siteId ): Promise< SiteCheckpoint[] > {
+			return ( await ipcApi.listSiteCheckpoints( siteId ) ) as SiteCheckpoint[];
+		},
+		async createCheckpoint( siteId, label ) {
+			await ipcApi.createSiteCheckpoint( siteId, label );
+		},
+		async restoreCheckpoint( siteId, checkpointId ) {
+			await ipcApi.restoreSiteCheckpoint( siteId, checkpointId );
+		},
+		async deleteCheckpoint( siteId, checkpointId ) {
+			await ipcApi.deleteSiteCheckpoint( siteId, checkpointId );
 		},
 
 		async startSite( id ) {

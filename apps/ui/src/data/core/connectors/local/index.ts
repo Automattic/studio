@@ -16,6 +16,7 @@ import type {
 	LocalMediaFile,
 	ProposedSitePath,
 	SelectedSiteFolder,
+	SiteCheckpoint,
 	SiteDetails,
 	Snapshot,
 	SupportedEditor,
@@ -214,6 +215,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			openInOS: true,
 			annotatePreview: false,
 			readLocalMedia: false,
+			siteCheckpoints: true,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -437,6 +439,34 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 				body: JSON.stringify( { path: backup.path, type: backup.type } ),
 			} );
+		},
+
+		// Site checkpoints — the server forks the same `studio checkpoint`
+		// commands the terminal user runs.
+		async listCheckpoints( siteId ): Promise< SiteCheckpoint[] > {
+			return api< SiteCheckpoint[] >( `/sites/${ encodeURIComponent( siteId ) }/checkpoints` );
+		},
+		async createCheckpoint( siteId, label ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/checkpoints`, {
+				method: 'POST',
+				body: JSON.stringify( { label } ),
+			} );
+		},
+		async restoreCheckpoint( siteId, checkpointId ) {
+			await api(
+				`/sites/${ encodeURIComponent( siteId ) }/checkpoints/${ encodeURIComponent(
+					checkpointId
+				) }/restore`,
+				{ method: 'POST' }
+			);
+		},
+		async deleteCheckpoint( siteId, checkpointId ) {
+			await api(
+				`/sites/${ encodeURIComponent( siteId ) }/checkpoints/${ encodeURIComponent(
+					checkpointId
+				) }`,
+				{ method: 'DELETE' }
+			);
 		},
 
 		// Preview snapshots + WordPress.com sync — backed by the server's snapshot

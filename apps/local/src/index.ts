@@ -14,6 +14,7 @@ import {
 import {
 	deleteAiSessionPlacement,
 	readAiSessionPlacement,
+	readAiSessionPlacements,
 } from '@studio/common/ai/sessions/placement';
 import {
 	appendModelChangeEntry,
@@ -858,6 +859,121 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const imported = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			res.json( toSiteDetails( imported ?? site ) );
+		} )
+	);
+
+	// --- Site checkpoints ------------------------------------------------------
+	// Files + database save points, backed by the CLI checkpoint engine. Every
+	// route forks the same `studio checkpoint` command the terminal user runs.
+
+	// Runs a checkpoint CLI command to completion, resolving with the captured
+	// stdout (used by `list --json`; the mutations ignore it).
+	function runCheckpointCommand( args: string[] ): Promise< string > {
+		return new Promise< string >( ( resolve, reject ) => {
+			const [ emitter ] = execute( args, { output: 'capture' } );
+			emitter.on( 'success', ( { result } ) => resolve( result?.stdout ?? '' ) );
+			emitter.on( 'failure', ( { error } ) => reject( error ) );
+			emitter.on( 'error', ( { error } ) => reject( error ) );
+		} );
+	}
+
+	api.get(
+		'/sites/:id/checkpoints',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const stdout = await runCheckpointCommand( [
+				'checkpoint',
+				'list',
+				'--path',
+				site.path,
+				'--json',
+			] );
+			// `checkpoint list --json` prints a single JSON object on stdout:
+			// `{ checkpoints: [...], interruptedRestore: ... }`. Parse from the
+			// first `{` so any stray CLI output before it can't break the parse.
+			const jsonStart = stdout.indexOf( '{' );
+			const parsed = JSON.parse( jsonStart >= 0 ? stdout.slice( jsonStart ) : stdout ) as {
+				checkpoints?: unknown[];
+			};
+			res.json( parsed.checkpoints ?? [] );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/checkpoints',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			const label = typeof req.body?.label === 'string' ? req.body.label.trim() : '';
+			const args = [ 'checkpoint', 'create', '--path', site.path ];
+			if ( label ) {
+				args.push( '--label', label );
+			}
+			await runCheckpointCommand( args );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.post(
+		'/sites/:id/checkpoints/:checkpointId/restore',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			// Refuse to rewrite the site tree under an agent that is actively
+			// working on it — restoring mid-run would yank files out from under
+			// the run's tools. Active runs are matched to the site through their
+			// session placement.
+			const activeRuns = runManager.listActiveAgentRuns();
+			if ( activeRuns.length > 0 ) {
+				const placements = await readAiSessionPlacements();
+				const busy = activeRuns.some(
+					( run ) => placements[ run.sessionId ]?.siteId === req.params.id
+				);
+				if ( busy ) {
+					res.status( 409 ).json( {
+						error: 'An agent is currently working on this site. Stop the run before restoring.',
+					} );
+					return;
+				}
+			}
+			await runCheckpointCommand( [
+				'checkpoint',
+				'restore',
+				req.params.checkpointId,
+				'--path',
+				site.path,
+				'--yes',
+			] );
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.delete(
+		'/sites/:id/checkpoints/:checkpointId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await runCheckpointCommand( [
+				'checkpoint',
+				'delete',
+				req.params.checkpointId,
+				'--path',
+				site.path,
+			] );
+			res.status( 204 ).end();
 		} )
 	);
 

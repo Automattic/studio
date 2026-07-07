@@ -1,6 +1,37 @@
 Unreleased
 ==========
 
+1.14.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Update Playground and PHP-WASM dependencies to 3.1.43 #4015
+* Zero WordPress's default root block gap in Studio Code scaffolded themes #4053
+* Restore blocks-engine registry dependency (drop temporary vendor) #4028
+* Implement the /publish slash command to push local sites to WP.com #4043
+* Bump sqlite-database-integration to v3.0.0-rc.6 for the SET write-lock fix #4033
+* Fix `studio push` for native reprint-pulled sites #3994
+* Recreate missing db.php drop-ins and preserve custom SQLite drop-ins #3993
+* Add refresh_browser tool so the agent can reload the site preview #4027
+* Fully remove `pull.json` state #4007
+* build(deps): bump anthropics/claude-code-action from 1.0.158 to 1.0.163 #4069
+* build(deps): bump ruby/setup-ruby from 1.314.0 to 1.316.0 #4068
+* Add the studio ui local web surface #3953
+* Add design doc: Studio apps & surfaces #4006
+* Adjust native PHP vs Playground agent expectations #3995
+* Close gaps in plugin recommendations supporting Automattic products #4023
+* Bump pi packages to 0.80.3 #4073
+* Fix flaky site duplication by tolerating transient files deleted mid-copy #4074
+* Trim release Slack message to installer download links only #4071
+* Use ASC API key env vars #3951
+* build(deps): bump fastlane from 2.236.1 to 2.237.0 in the ruby-minor-and-patch group #4081
+* Render pi-computed edit diffs in chat UIs #4076
+* Fix broken Central Kurdish text on macOS by bundling Vazirmatn font #4062
+* Fix Windows E2E: combined status reporting, PHP INI tilde fixes, and per-command CLI shutdown #4082
+* Sync: preserve Pressable metadata in reconciliation fallback #4078
+* Studio Code: Add data liberation slash command  #3940
+* Update Studio Code agent's supported Sonnet model to Sonnet 5 #4024
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.13.0...v1.14.0
+
 1.13.0
 =====
 * Fixed PHP error (code: 3221225781) by updating native PHP packages to include necessary Windows DLLs #4042, #4045, #4050, #4055, #4049

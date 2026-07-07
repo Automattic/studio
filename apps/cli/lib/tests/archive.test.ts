@@ -137,6 +137,32 @@ describe( 'Archive Module', () => {
 			);
 		} );
 
+		it( 'should skip a dangling symlink instead of aborting the archive', async () => {
+			vol.fromJSON( {
+				[ path.join( mockWpContentPath, 'index.php' ) ]: '<?php',
+			} );
+			// A broken symlink whose target was never created — mirrors the WP Cloud
+			// `advanced-cache.php` drop-in that a reprint pull leaves dangling.
+			vol.symlinkSync(
+				path.join( mockWpContentPath, 'wordpress/drop-ins/advanced-cache.php' ),
+				path.join( mockWpContentPath, 'advanced-cache.php' )
+			);
+			mockGlobResults( [ 'advanced-cache.php', 'index.php' ] );
+			const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+
+			// Resolves (does not reject) and archives the good file, skipping the broken link.
+			await expect( archiveSiteContent( mockSiteFolder, mockArchivePath ) ).resolves.toBe(
+				mockArchiver
+			);
+
+			expect( archivedNames() ).toContain( 'wp-content/index.php' );
+			expect( archivedNames() ).not.toContain( 'wp-content/advanced-cache.php' );
+			expect( warnSpy ).toHaveBeenCalledWith(
+				expect.stringContaining( 'wp-content/advanced-cache.php' )
+			);
+			warnSpy.mockRestore();
+		} );
+
 		it( 'should include wp-config.php when it exists', async () => {
 			vol.fromJSON( { [ mockWpConfigPath ]: '<?php' } );
 

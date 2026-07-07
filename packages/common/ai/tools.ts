@@ -320,6 +320,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		need_for_speed: __( 'Audit performance' ),
 		rank_me_up: __( 'Audit SEO' ),
 		install_taxonomy_scripts: __( 'Install taxonomy scripts' ),
+		data_liberation: __( 'Data Liberation' ),
 		wpcom_request: __( 'WordPress.com API' ),
 		AskUserQuestion: __( 'Ask user' ),
 		Read: __( 'Read' ),
@@ -337,6 +338,41 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 }
 
 const BASH_DETAIL_MAX_LENGTH = 60;
+const DATA_LIBERATION_DETAIL_MAX_LENGTH = 80;
+
+// The `data_liberation` tool forwards a single call to the Data Liberation
+// engine's MCP server. Surface WHICH engine operation ran (`input.tool`, or
+// `setup` when omitted) plus its arguments, so the tool-call line reads e.g.
+// `Data Liberation liberate_detect {"url":"https://…"}` instead of a bare name.
+// `args` is normally an object but the model sometimes sends stringified JSON,
+// so accept both for display.
+function getDataLiberationDetail( input: Record< string, unknown > ): string {
+	const tool = typeof input.tool === 'string' && input.tool ? input.tool : 'setup';
+
+	let argsObj: Record< string, unknown > | undefined;
+	const rawArgs = input.args;
+	if ( rawArgs && typeof rawArgs === 'object' && ! Array.isArray( rawArgs ) ) {
+		argsObj = rawArgs as Record< string, unknown >;
+	} else if ( typeof rawArgs === 'string' && rawArgs.trim() ) {
+		try {
+			const parsed: unknown = JSON.parse( rawArgs );
+			if ( parsed && typeof parsed === 'object' && ! Array.isArray( parsed ) ) {
+				argsObj = parsed as Record< string, unknown >;
+			}
+		} catch {
+			// Not JSON — fall through and show just the operation name.
+		}
+	}
+
+	if ( ! argsObj || Object.keys( argsObj ).length === 0 ) {
+		return tool;
+	}
+
+	const detail = `${ tool } ${ JSON.stringify( argsObj ) }`;
+	return detail.length > DATA_LIBERATION_DETAIL_MAX_LENGTH
+		? detail.slice( 0, DATA_LIBERATION_DETAIL_MAX_LENGTH - 1 ) + '…'
+		: detail;
+}
 
 function getAskUserDetail( input: Record< string, unknown > | undefined ): string {
 	const questions = input?.questions;
@@ -389,6 +425,8 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 			const path = typeof input.path === 'string' ? input.path : '';
 			return [ method, path ].filter( Boolean ).join( ' ' );
 		}
+		case 'data_liberation':
+			return getDataLiberationDetail( input );
 		case 'wp_cli':
 			return typeof input.command === 'string' ? `wp ${ input.command }` : '';
 		case 'scaffold_theme':
@@ -438,6 +476,15 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 export interface NormalizedToolResult {
 	text: string;
 	isError: boolean;
+	diff?: string;
+}
+
+export function getToolResultDiff( details: unknown ): string | undefined {
+	if ( ! details || typeof details !== 'object' ) {
+		return undefined;
+	}
+	const diff = ( details as { diff?: unknown } ).diff;
+	return typeof diff === 'string' && diff.length > 0 ? diff : undefined;
 }
 
 export interface ToolResultPreview {

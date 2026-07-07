@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Conversation, entriesToRenderItems } from './index';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -6,6 +6,7 @@ import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 const ipcApiMocks = vi.hoisted( () => ( {
 	readLocalMediaFile: vi.fn(),
+	copyText: vi.fn(),
 } ) );
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
@@ -269,5 +270,98 @@ describe( 'Conversation – inline media artifacts', () => {
 		] );
 
 		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Image unavailable' );
+	} );
+} );
+
+describe( 'Conversation – assistant message copy button', () => {
+	beforeEach( () => {
+		ipcApiMocks.copyText.mockClear();
+	} );
+
+	function assistantTextEntry( text: string ): SessionEntry {
+		return {
+			type: 'message',
+			id: `assistant-text-${ text }`,
+			parentId: null,
+			timestamp: '2026-06-19T00:00:00.000Z',
+			message: {
+				role: 'assistant',
+				content: [ { type: 'text', text } ],
+			},
+		} as unknown as SessionEntry;
+	}
+
+	function assistantMultiBlockEntry(): SessionEntry {
+		return {
+			type: 'message',
+			id: 'assistant-multi-block',
+			parentId: null,
+			timestamp: '2026-06-19T00:00:00.000Z',
+			message: {
+				role: 'assistant',
+				content: [
+					{ type: 'text', text: 'First part.' },
+					{ type: 'toolCall', id: 'tool-call-1', name: 'read_file', arguments: {} },
+					{ type: 'text', text: 'Second part.' },
+				],
+			},
+		} as unknown as SessionEntry;
+	}
+
+	function userPromptEntry( text: string ): SessionEntry {
+		return customEntry( 'studio.user_prompt', { text, source: 'prompt' } );
+	}
+
+	function renderConversation( entries: SessionEntry[] ) {
+		render(
+			<Conversation
+				data={ { entries } as unknown as LoadedAiSession }
+				isRunning={ false }
+				startedAt={ null }
+				pendingQuestions={ new Set() }
+				pendingAnswers={ {} }
+				answeredQuestions={ {} }
+				onAnswerQuestion={ () => {} }
+			/>
+		);
+	}
+
+	it( 'copies the raw markdown of an assistant message', async () => {
+		renderConversation( [ assistantTextEntry( '# Hello\n\nSome **bold** text.' ) ] );
+
+		const button = screen.getByRole( 'button', { name: 'Copy message' } );
+		expect( button ).toBeInTheDocument();
+
+		fireEvent.click( button );
+
+		expect( ipcApiMocks.copyText ).toHaveBeenCalledWith( '# Hello\n\nSome **bold** text.' );
+		await waitFor( () => expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Copied' ) );
+	} );
+
+	it( 'copies the full joined message for a message split across text blocks', () => {
+		renderConversation( [ assistantMultiBlockEntry() ] );
+
+		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
+		expect( buttons ).toHaveLength( 1 );
+
+		fireEvent.click( buttons[ 0 ] );
+
+		expect( ipcApiMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
+	} );
+
+	it( 'does not render a copy button for user messages', () => {
+		renderConversation( [ userPromptEntry( 'Hello there' ) ] );
+
+		expect( screen.queryByRole( 'button', { name: 'Copy message' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows a tooltip for the copy button', async () => {
+		renderConversation( [ assistantTextEntry( 'Plain reply.' ) ] );
+
+		fireEvent.mouseOver( screen.getByRole( 'button', { name: 'Copy message' } ) );
+
+		await waitFor( () =>
+			expect( screen.getByRole( 'tooltip' ) ).toHaveTextContent( 'Copy message' )
+		);
 	} );
 } );

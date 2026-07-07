@@ -1030,13 +1030,15 @@ function CheckpointRow( { artifact }: { artifact: CheckpointArtifactProps } ) {
 				<span className={ styles.toolDetail }>
 					{ formatRelativeTime( new Date( artifact.createdAt ).toISOString() ) }
 				</span>
-				<button
-					type="button"
-					className={ styles.toolActionButton }
+				<Button
+					variant="minimal"
+					tone="neutral"
+					size="compact"
+					className={ styles.toolAction }
 					onClick={ () => setRestoreOpen( true ) }
 				>
 					{ __( 'Restore' ) }
-				</button>
+				</Button>
 			</div>
 			<RestoreCheckpointDialog
 				siteId={ artifact.siteId }

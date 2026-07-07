@@ -269,30 +269,12 @@
 }
 
 /* Inline action on a tool-style row (e.g. Restore on a checkpoint capture).
-   Speaks in the row's muted voice until hovered. */
-.toolActionButton {
+   A standard minimal Button, nudged so its text sits on the row baseline and
+   its padding doesn't inflate the row height. */
+.toolAction {
 	flex: 0 0 auto;
-	appearance: none;
-	background: none;
-	border: none;
-	padding: 0;
-	margin: 0;
-	font: inherit;
-	color: var(--tool-text-color);
-	cursor: var(--wpds-cursor-interactive);
-	white-space: nowrap;
-}
-
-.toolActionButton:hover,
-.toolActionButton:focus-visible {
-	color: var(--wpds-color-fg-content-neutral);
-	text-decoration: underline;
-}
-
-.toolActionButton:focus-visible {
-	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
-	outline-offset: 2px;
-	border-radius: var(--wpds-border-radius-xs);
+	align-self: center;
+	margin-block: calc(var(--wpds-dimension-padding-xs) * -1);
 }
 
 .toolIcon {

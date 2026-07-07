@@ -671,3 +671,23 @@
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
 }
+
+/* Assistant response wrapper: the copy button stays hidden until the turn is
+   hovered (or a control inside it is focused). */
+.assistantTurn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.messageActions {
+	display: flex;
+	align-items: center;
+	opacity: 0;
+	transition: opacity 0.12s ease;
+}
+
+.assistantTurn:hover .messageActions,
+.assistantTurn:focus-within .messageActions {
+	opacity: 1;
+}

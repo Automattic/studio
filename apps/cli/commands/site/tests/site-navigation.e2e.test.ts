@@ -1,16 +1,8 @@
 /**
  * @vitest-environment node
  *
- * Real end-to-end tests for site navigation and content actions, migrated from
- * the Playwright suite `apps/studio/e2e/site-navigation.test.ts`. Serving the
- * homepage and wp-admin is verified over HTTP; content actions (posts, media,
- * themes, plugins, permalinks) go through `studio wp`. Auto-login to wp-admin
- * is a Studio desktop feature (magic URL via IPC) and stays in the UI suite.
- *
- * Requires the CLI to be built first (`npm run cli:build`); the suite skips
- * itself otherwise. Tagged `e2e` so it runs in the slower (release/manual)
- * suite rather than on every PR — run with `npm test -- --tagsFilter='e2e'`.
- * The "adds new themes/plugin" cases download from wordpress.org (network).
+ * Site navigation and content actions against the built CLI (`npm run cli:build` first),
+ * migrated from `apps/studio/e2e/site-navigation.test.ts`; auto-login stays in the UI suite.
  */
 import fs from 'fs';
 import path from 'path';
@@ -74,10 +66,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site navigation', () =>
 		cleanupCliEnv( env );
 	}, 60_000 );
 
-	/**
-	 * Runs `studio wp <args>` against the shared site and asserts it exited 0.
-	 * Returns stdout for further assertions.
-	 */
+	/** Runs `studio wp <args>` against the shared site, asserts exit 0, and returns stdout. */
 	async function wp( ...args: string[] ): Promise< string > {
 		const result = await runCli( [ 'wp', ...args, '--path', sitePath ], env );
 		expect( result.code, result.stderr ).toBe( 0 );
@@ -120,9 +109,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site navigation', () =>
 	} );
 
 	it( 'uploads media', { tags: [ 'e2e' ], timeout: 120_000 }, async () => {
-		// The Playground wp-cli only mounts the site directory (at /wordpress,
-		// its cwd), so the file must live inside the site and be referenced by
-		// a relative path.
+		// Playground wp-cli only mounts the site directory (its cwd), so the
+		// file must live there and be passed as a relative path.
 		fs.writeFileSync( path.join( sitePath, 'e2e-test-image.png' ), TINY_PNG );
 
 		await wp( 'media', 'import', 'e2e-test-image.png' );
@@ -163,9 +151,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site navigation', () =>
 	} );
 
 	it( '"Post name" permalink structure works', { tags: [ 'e2e' ], timeout: 120_000 }, async () => {
-		// `wp rewrite structure` hangs under Playground, so set the option
-		// directly and clear the cached rules — WordPress regenerates them on
-		// the next request.
+		// `wp rewrite structure` hangs under Playground; set the option and clear
+		// the cached rules instead — WordPress regenerates them on the next request.
 		await wp( 'option', 'update', 'permalink_structure', '/%postname%/' );
 		await wp( 'option', 'delete', 'rewrite_rules' );
 

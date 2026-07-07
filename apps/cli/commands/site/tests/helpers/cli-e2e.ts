@@ -123,16 +123,8 @@ export function readCliConfig( env: CliEnv ): {
 }
 
 /**
- * Polls a URL until the server accepts a connection, then resolves with the
- * response. A freshly started site can take a moment to begin listening, so
- * this retries the connection until the deadline; once it responds, the caller
- * asserts on the status and content type. Redirects are not followed so a
- * canonical 302 is observed as-is rather than chased to its target.
- *
- * Right after `site start` the proxy briefly answers `302 Location: /` while
- * PHP warms up, so pass `expectedStatus` to also poll past interim responses;
- * on deadline the last response is returned so the caller's status assertion
- * fails with the real value.
+ * Polls a URL until the freshly started server responds (redirects not followed). Pass
+ * `expectedStatus` to also poll past interim responses like the proxy's warm-up 302.
  */
 export async function waitForSiteResponse(
 	url: string,

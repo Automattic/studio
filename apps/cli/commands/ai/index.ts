@@ -37,7 +37,7 @@ import { setLocalSiteSelectedCallback } from 'cli/ai/site-selection';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
-import { readCliConfig } from 'cli/lib/cli-config/core';
+import { readCliConfig, type SelfHostedSiteData } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
@@ -221,6 +221,8 @@ export async function runCommand( options: {
 				remote: site.remote,
 				url: site.url,
 				wpcomSiteId: site.wpcomSiteId,
+				selfHostedSite: site.selfHostedSite,
+				selfHostedSiteId: site.selfHostedSiteId,
 			} )
 		);
 	};
@@ -472,10 +474,12 @@ export async function runCommand( options: {
 		ui.beginAgentTurn( sessionId );
 
 		// Prepend active site context to the prompt.
-		// Remote (WordPress.com) sites only have a URL and site ID; local sites have a filesystem path and running state.
+		// Remote sites have a URL; local sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
-		if ( site?.remote && site?.url ) {
+		if ( site?.selfHostedSite && site?.url ) {
+			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.url } (self-hosted)]\n\n${ prompt }`;
+		} else if ( site?.remote && site?.url ) {
 			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
 		} else if ( site ) {
 			enrichedPrompt = `[Active site: "${ site.name }" at ${ site.path }${
@@ -489,11 +493,32 @@ export async function runCommand( options: {
 			enrichedPrompt = `${ enrichedPrompt }${ buildAttachedFilesPromptBlock( files ) }`;
 		}
 
-		// Read the WP.com access token for remote sites
+		// Read the WP.com access token for WP.com remote sites
 		let wpcomAccessToken: string | undefined;
-		if ( site?.remote ) {
+		if ( site?.remote && ! site?.selfHostedSite ) {
 			const token = await readAuthToken();
 			wpcomAccessToken = token?.accessToken;
+		}
+
+		// Resolve the saved Application Password for self-hosted sites. SiteInfo
+		// only carries the connection id; credentials live in cli.json.
+		let selfHostedSiteCredentials: SelfHostedSiteData | undefined;
+		if ( site?.selfHostedSite ) {
+			const config = await readCliConfig();
+			const selfHostedSites = config.selfHostedSites ?? [];
+			selfHostedSiteCredentials =
+				selfHostedSites.find( ( s ) => s.id === site.selfHostedSiteId ) ??
+				selfHostedSites.find( ( s ) => s.url === site.url );
+			if ( ! selfHostedSiteCredentials ) {
+				ui.showError(
+					sprintf(
+						/* translators: %s: site name */
+						__( 'No saved credentials found for "%s". Reconnect the site from the site picker.' ),
+						site.name
+					)
+				);
+				return { status: 'error', sessionId };
+			}
 		}
 
 		await persistSessionContext();
@@ -518,6 +543,7 @@ export async function runCommand( options: {
 			session: sm,
 			activeSite: site,
 			wpcomAccessToken,
+			selfHostedSiteCredentials,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );

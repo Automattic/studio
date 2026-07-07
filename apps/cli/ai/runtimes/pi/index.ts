@@ -43,6 +43,7 @@ import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
+import { createWpRequestTool } from 'cli/ai/tools/wp-request';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
@@ -80,6 +81,14 @@ export interface StudioAgentTurnConfig {
 	model?: AiModelId;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
+	// Application Password credentials for the active self-hosted site,
+	// resolved from cli.json by the caller.
+	selfHostedSiteCredentials?: {
+		url: string;
+		username: string;
+		appPassword: string;
+		restRoot: string;
+	};
 	onAskUser?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
 }
@@ -283,6 +292,18 @@ async function resolveActiveSiteRuntime(
 	}
 }
 
+// Self-hosted sites are flagged `remote` like WP.com sites but authenticate
+// with their own REST credentials (Application Password) instead of a WP.com
+// site ID + OAuth token.
+function getSelfHostedSiteCredentials(
+	config: StudioAgentTurnConfig
+): { url: string; username: string; appPassword: string; restRoot: string } | null {
+	if ( config.activeSite?.selfHostedSite && config.selfHostedSiteCredentials ) {
+		return config.selfHostedSiteCredentials;
+	}
+	return null;
+}
+
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
@@ -291,25 +312,36 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
+	const selfHostedSite = getSelfHostedSiteCredentials( config );
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
 
-	const systemPrompt = buildSystemPrompt(
-		isRemoteSite
-			? {
-					remoteSite: {
-						name: config.activeSite!.name,
-						url: config.activeSite!.url ?? '',
-						id: config.activeSite!.wpcomSiteId!,
-					},
-					remoteSession,
-			  }
-			: {
-					chatArtifactsEnabled,
-					remoteSession,
-					runtime: await resolveActiveSiteRuntime( config.activeSite ),
-			  }
-	);
+	let systemPromptOptions;
+	if ( isRemoteSite ) {
+		systemPromptOptions = {
+			remoteSite: {
+				name: config.activeSite!.name,
+				url: config.activeSite!.url ?? '',
+				id: config.activeSite!.wpcomSiteId!,
+			},
+			remoteSession,
+		};
+	} else if ( selfHostedSite ) {
+		systemPromptOptions = {
+			selfHostedSite: {
+				name: config.activeSite!.name,
+				url: selfHostedSite.url,
+			},
+			remoteSession,
+		};
+	} else {
+		systemPromptOptions = {
+			chatArtifactsEnabled,
+			remoteSession,
+			runtime: await resolveActiveSiteRuntime( config.activeSite ),
+		};
+	}
+	const systemPrompt = buildSystemPrompt( systemPromptOptions );
 
 	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
 	const toolDefinitions = tools.map( ( tool ) => toToolDefinition( tool, payloadGuardState ) );
@@ -533,6 +565,23 @@ function buildAgentTools(
 		return [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
 			...remoteStudioTools,
+			...remoteScratchTools,
+			...askUserTool,
+			...skillTool,
+		];
+	}
+
+	const selfHostedSite = getSelfHostedSiteCredentials( config );
+	if ( selfHostedSite ) {
+		return [
+			createWpRequestTool(
+				selfHostedSite.url,
+				selfHostedSite.username,
+				selfHostedSite.appPassword,
+				selfHostedSite.restRoot
+			),
+			takeScreenshotTool,
+			createSiteTool,
 			...remoteScratchTools,
 			...askUserTool,
 			...skillTool,

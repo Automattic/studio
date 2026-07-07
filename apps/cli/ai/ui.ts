@@ -36,9 +36,17 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
+import { buildRestApiUrl, discoverRestApiRoot } from 'cli/ai/tools/wp-rest';
 import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
-import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
+import {
+	lockCliConfig,
+	readCliConfig,
+	saveCliConfig,
+	unlockCliConfig,
+	type SelfHostedSiteData,
+	type SiteData,
+} from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
@@ -48,7 +56,13 @@ import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
-type SitePickerTab = typeof SITE_PICKER_TAB_LOCAL | typeof SITE_PICKER_TAB_REMOTE;
+const SITE_PICKER_TAB_SELF_HOSTED = 'self-hosted' as const;
+type SitePickerTab =
+	| typeof SITE_PICKER_TAB_LOCAL
+	| typeof SITE_PICKER_TAB_REMOTE
+	| typeof SITE_PICKER_TAB_SELF_HOSTED;
+
+const SELF_HOSTED_ADD_NEW_VALUE = '__add_new_self_hosted__';
 
 const sitePickerTheme: SelectListTheme = {
 	selectedPrefix: ( text ) => chalk.blue( text ),
@@ -342,6 +356,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private sitePickerTab: SitePickerTab = SITE_PICKER_TAB_LOCAL;
 	private sitePickerRemoteItems: SiteInfo[] = [];
 	private sitePickerRemoteLoading = false;
+	private sitePickerSelfHostedItems: SiteInfo[] = [];
 	private sitePickerQuery = '';
 
 	get activeSite(): SiteInfo | null {
@@ -571,13 +586,25 @@ export class AiChatUI implements AiOutputAdapter {
 					void this.openSelectedSite();
 					return { consume: true };
 				}
-				if ( matchesKey( data, 'right' ) && this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) {
-					void this.switchToRemoteSites();
-					return { consume: true };
+				if ( matchesKey( data, 'right' ) ) {
+					if ( this.sitePickerTab === SITE_PICKER_TAB_LOCAL ) {
+						void this.switchToRemoteSites();
+						return { consume: true };
+					}
+					if ( this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
+						this.switchToSelfHostedSites();
+						return { consume: true };
+					}
 				}
-				if ( matchesKey( data, 'left' ) && this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
-					this.switchToLocalSites();
-					return { consume: true };
+				if ( matchesKey( data, 'left' ) ) {
+					if ( this.sitePickerTab === SITE_PICKER_TAB_SELF_HOSTED ) {
+						void this.switchToRemoteSites();
+						return { consume: true };
+					}
+					if ( this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
+						this.switchToLocalSites();
+						return { consume: true };
+					}
 				}
 				if ( matchesKey( data, 'escape' ) ) {
 					if ( this.sitePickerQuery ) {
@@ -590,6 +617,8 @@ export class AiChatUI implements AiOutputAdapter {
 				if ( matchesKey( data, 'backspace' ) ) {
 					if ( this.sitePickerQuery ) {
 						this.setSitePickerQuery( this.sitePickerQuery.slice( 0, -1 ) );
+					} else if ( this.sitePickerTab === SITE_PICKER_TAB_SELF_HOSTED ) {
+						void this.confirmDeleteSelfHostedSite();
 					}
 					return { consume: true };
 				}
@@ -627,7 +656,9 @@ export class AiChatUI implements AiOutputAdapter {
 	private async openSitePicker(): Promise< void > {
 		const config = await readCliConfig();
 		const sites: SiteData[] = config.sites ?? [];
-		if ( sites.length === 0 ) {
+		const selfHostedSites: SelfHostedSiteData[] = config.selfHostedSites ?? [];
+
+		if ( sites.length === 0 && selfHostedSites.length === 0 ) {
 			this.messages.addChild(
 				new Text( chalk.dim( '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
 			);
@@ -641,6 +672,15 @@ export class AiChatUI implements AiOutputAdapter {
 			name: site.name,
 			path: site.path,
 			running: runningStatus.get( site.id ) ?? false,
+		} ) );
+		this.sitePickerSelfHostedItems = selfHostedSites.map( ( site ) => ( {
+			name: site.name,
+			path: '',
+			running: false,
+			remote: true,
+			url: site.url,
+			selfHostedSite: true,
+			selfHostedSiteId: site.id,
 		} ) );
 		this.sitePickerVisible = true;
 		this.editor.showBottomBar = false;
@@ -701,6 +741,194 @@ export class AiChatUI implements AiOutputAdapter {
 		this.renderSitePicker();
 	}
 
+	private switchToSelfHostedSites(): void {
+		this.resetSitePickerTab( SITE_PICKER_TAB_SELF_HOSTED );
+		this.rebuildSitePickerList();
+		this.renderSitePicker();
+	}
+
+	private async confirmDeleteSelfHostedSite(): Promise< void > {
+		const selectedItem = this.sitePickerSelectList?.getSelectedItem();
+		if ( ! selectedItem || selectedItem.value === SELF_HOSTED_ADD_NEW_VALUE ) {
+			return;
+		}
+		const site = this.sitePickerItemMap.get( selectedItem.value );
+		if ( ! site?.selfHostedSite ) {
+			return;
+		}
+
+		this.closeSitePicker();
+		const answers = await this.askUser( [
+			{
+				question: sprintf(
+					/* translators: %s: site name */
+					__( 'Remove "%s" from saved sites?' ),
+					site.name
+				),
+				options: [
+					{ label: __( 'Yes' ), description: __( 'Remove this site' ) },
+					{ label: __( 'No' ), description: __( 'Keep this site' ) },
+				],
+			},
+		] );
+		const answer = Object.values( answers )[ 0 ]?.toLowerCase();
+		if ( answer === __( 'yes' ).toLowerCase() ) {
+			try {
+				await lockCliConfig();
+				const config = await readCliConfig();
+				config.selfHostedSites = ( config.selfHostedSites ?? [] ).filter(
+					( s ) => s.id !== site.selfHostedSiteId
+				);
+				await saveCliConfig( config );
+			} finally {
+				await unlockCliConfig();
+			}
+			// Clear active site if we just deleted it
+			if (
+				this._activeSite?.selfHostedSite &&
+				this._activeSite?.selfHostedSiteId === site.selfHostedSiteId
+			) {
+				this.clearActiveSite();
+			}
+			this.showInfo(
+				sprintf(
+					/* translators: %s: site name */
+					__( 'Removed "%s"' ),
+					site.name
+				)
+			);
+		}
+	}
+
+	private async connectSelfHostedSite(): Promise< void > {
+		this.closeSitePicker();
+
+		this.showInfo(
+			__(
+				'To connect a self-hosted WordPress site, you need an Application Password.\n' +
+					'  Create one in your WordPress admin: Users → Profile → Application Passwords.\n' +
+					'  Enter a name (e.g. "Studio"), click "Add New", and copy the generated password.'
+			)
+		);
+
+		const answers = await this.askUser( [
+			{
+				question: __( 'Site URL' ),
+				options: [],
+				allowFreeForm: true,
+			},
+		] );
+		const siteUrl = Object.values( answers )[ 0 ]?.trim();
+		if ( ! siteUrl ) {
+			this.showError( __( 'Site URL is required.' ) );
+			return;
+		}
+
+		const credAnswers = await this.askUser( [
+			{
+				question: __( 'Username' ),
+				options: [],
+				allowFreeForm: true,
+			},
+		] );
+		const username = Object.values( credAnswers )[ 0 ]?.trim();
+		if ( ! username ) {
+			this.showError( __( 'Username is required.' ) );
+			return;
+		}
+
+		const passAnswers = await this.askUser( [
+			{
+				question: __( 'Application password' ),
+				options: [],
+				allowFreeForm: true,
+			},
+		] );
+		const appPassword = Object.values( passAnswers )[ 0 ]?.trim();
+		if ( ! appPassword ) {
+			this.showError( __( 'Application password is required.' ) );
+			return;
+		}
+
+		// Normalize URL
+		let normalizedUrl = siteUrl;
+		if ( ! normalizedUrl.startsWith( 'http' ) ) {
+			normalizedUrl = `https://${ normalizedUrl }`;
+		}
+		normalizedUrl = normalizedUrl.replace( /\/+$/, '' );
+
+		// Validate the credentials against an authenticated endpoint (the REST
+		// index is public, so it would accept wrong credentials), then read the
+		// site name from the index. Discover the REST root first so sites without
+		// pretty permalinks (which serve the API at ?rest_route=) still connect.
+		this.showInfo( __( 'Connecting…' ) );
+		const basicAuth = Buffer.from( `${ username }:${ appPassword }` ).toString( 'base64' );
+		let siteName: string;
+		let restRoot: string;
+		try {
+			restRoot = await discoverRestApiRoot( normalizedUrl );
+			const authResponse = await fetch( buildRestApiUrl( restRoot, 'wp/v2', '/users/me' ), {
+				headers: { Authorization: `Basic ${ basicAuth }` },
+			} );
+			if ( ! authResponse.ok ) {
+				this.showError(
+					sprintf(
+						/* translators: 1: HTTP status code, 2: status text */
+						__( 'Connection failed: %1$s %2$s. Check the URL and credentials.' ),
+						String( authResponse.status ),
+						authResponse.statusText
+					)
+				);
+				return;
+			}
+			const response = await fetch( restRoot );
+			const data = response.ok ? ( ( await response.json() ) as { name?: string } ) : {};
+			siteName = data.name || new URL( normalizedUrl ).hostname;
+		} catch ( error ) {
+			this.showError(
+				sprintf(
+					/* translators: %s: error message */
+					__( 'Connection failed: %s' ),
+					error instanceof Error ? error.message : String( error )
+				)
+			);
+			return;
+		}
+
+		// Save to config
+		const id = crypto.randomUUID();
+		const newSite: SelfHostedSiteData = {
+			id,
+			url: normalizedUrl,
+			username,
+			appPassword,
+			name: siteName,
+			restRoot,
+		};
+
+		try {
+			await lockCliConfig();
+			const config = await readCliConfig();
+			config.selfHostedSites = [ ...( config.selfHostedSites ?? [] ), newSite ];
+			await saveCliConfig( config );
+		} finally {
+			await unlockCliConfig();
+		}
+
+		// Select the new site as active
+		const siteInfo: SiteInfo = {
+			name: siteName,
+			path: '',
+			running: false,
+			remote: true,
+			url: normalizedUrl,
+			selfHostedSite: true,
+			selfHostedSiteId: id,
+		};
+		this._activeSiteData = null;
+		this.setActiveSite( siteInfo );
+	}
+
 	private setSitePickerQuery( query: string ): void {
 		this.sitePickerQuery = query;
 		this.rebuildSitePickerList();
@@ -719,7 +947,25 @@ export class AiChatUI implements AiOutputAdapter {
 		this.closeSitePicker();
 	}
 
+	private handleSelfHostedSitePickerSelect( item: SelectItem ): void {
+		if ( item.value === SELF_HOSTED_ADD_NEW_VALUE ) {
+			void this.connectSelfHostedSite();
+			return;
+		}
+		const site = this.sitePickerItemMap.get( item.value );
+		if ( site ) {
+			this.selectFilteredSite( site );
+		}
+	}
+
 	private siteInfoToSelectItem( site: SiteInfo ): SelectItem {
+		if ( site.selfHostedSite ) {
+			return {
+				value: site.selfHostedSiteId ?? site.url ?? site.name,
+				label: site.name,
+				description: site.url?.replace( /^https?:\/\//, '' ),
+			};
+		}
 		if ( site.remote ) {
 			return {
 				value: site.url ?? site.name,
@@ -735,10 +981,14 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	private rebuildSitePickerList(): void {
-		const allItems =
-			this.sitePickerTab === SITE_PICKER_TAB_REMOTE
-				? this.sitePickerRemoteItems
-				: this.sitePickerItems;
+		let allItems: SiteInfo[];
+		if ( this.sitePickerTab === SITE_PICKER_TAB_REMOTE ) {
+			allItems = this.sitePickerRemoteItems;
+		} else if ( this.sitePickerTab === SITE_PICKER_TAB_SELF_HOSTED ) {
+			allItems = this.sitePickerSelfHostedItems;
+		} else {
+			allItems = this.sitePickerItems;
+		}
 		const filtered = this.sitePickerQuery
 			? allItems.filter( ( site ) => {
 					const query = this.sitePickerQuery.toLowerCase();
@@ -752,14 +1002,29 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerItemMap = new Map(
 			filtered.map( ( site, i ) => [ selectItems[ i ].value, site ] )
 		);
+
+		// Append "Add new site" entry for the self-hosted tab
+		if ( this.sitePickerTab === SITE_PICKER_TAB_SELF_HOSTED ) {
+			selectItems.push( {
+				value: SELF_HOSTED_ADD_NEW_VALUE,
+				label: `${ chalk.green( '+' ) } ${ __( 'Add new site' ) }`,
+			} );
+		}
+
 		const maxVisible = Math.max( 5, ( process.stdout.rows ?? 24 ) - 4 );
 		this.sitePickerSelectList = new SelectList( selectItems, maxVisible, sitePickerTheme );
-		this.sitePickerSelectList.onSelect = ( item ) => {
-			const site = this.sitePickerItemMap.get( item.value );
-			if ( site ) {
-				this.selectFilteredSite( site );
-			}
-		};
+		if ( this.sitePickerTab === SITE_PICKER_TAB_SELF_HOSTED ) {
+			this.sitePickerSelectList.onSelect = ( item ) => {
+				this.handleSelfHostedSitePickerSelect( item );
+			};
+		} else {
+			this.sitePickerSelectList.onSelect = ( item ) => {
+				const site = this.sitePickerItemMap.get( item.value );
+				if ( site ) {
+					this.selectFilteredSite( site );
+				}
+			};
+		}
 		this.sitePickerSelectList.onCancel = () => {
 			this.closeSitePicker();
 		};
@@ -771,30 +1036,43 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 		this.sitePickerContainer.clear();
 
-		const isLocal = this.sitePickerTab === SITE_PICKER_TAB_LOCAL;
-		const localTab = isLocal ? chalk.bold( __( '[Local]' ) ) : chalk.dim( __( 'Local' ) );
-		const remoteTab = isLocal ? chalk.dim( 'WordPress.com' ) : chalk.bold( '[WordPress.com]' );
+		const currentTab = this.sitePickerTab;
+		const tabLabel = ( label: string, active: boolean ) =>
+			active ? chalk.bold( `[${ label }]` ) : chalk.dim( label );
+		const localTab = tabLabel( __( 'Local' ), currentTab === SITE_PICKER_TAB_LOCAL );
+		const remoteTab = tabLabel( 'WordPress.com', currentTab === SITE_PICKER_TAB_REMOTE );
+		const selfHostedTab = tabLabel(
+			__( 'Self-hosted' ),
+			currentTab === SITE_PICKER_TAB_SELF_HOSTED
+		);
 		const pad = ' ';
-		const header = `${ pad }${ localTab }  ${ remoteTab }`;
+		const header = `${ pad }${ localTab }  ${ remoteTab }  ${ selfHostedTab }`;
 
 		const searchLine = this.sitePickerQuery
 			? `${ pad }${ chalk.dim( __( 'Search:' ) ) } ${ this.sitePickerQuery }`
 			: '';
 
-		const hints = isLocal
-			? `${ pad }${ __(
-					'↑↓ navigate · → remote sites · enter select · tab open in browser · esc cancel'
-			  ) }`
-			: `${ pad }${ __(
-					'↑↓ navigate · ← local sites · enter select · tab open in browser · esc cancel'
-			  ) }`;
+		let hints: string;
+		if ( currentTab === SITE_PICKER_TAB_LOCAL ) {
+			hints = `${ pad }${ __(
+				'↑↓ navigate · ←→ switch tabs · enter select · tab open in browser · esc cancel'
+			) }`;
+		} else if ( currentTab === SITE_PICKER_TAB_SELF_HOSTED ) {
+			hints = `${ pad }${ __(
+				'↑↓ navigate · ←→ switch tabs · enter select · backspace remove · esc cancel'
+			) }`;
+		} else {
+			hints = `${ pad }${ __(
+				'↑↓ navigate · ←→ switch tabs · enter select · tab open in browser · esc cancel'
+			) }`;
+		}
 
 		const lines = [ header, '' ];
 		if ( searchLine ) {
 			lines.push( searchLine, '' );
 		}
 
-		if ( ! isLocal && this.sitePickerRemoteLoading ) {
+		if ( currentTab === SITE_PICKER_TAB_REMOTE && this.sitePickerRemoteLoading ) {
 			lines.push( chalk.dim( `${ pad }  ${ __( 'Loading WordPress.com sites…' ) }` ) );
 		} else if ( this.sitePickerSelectList ) {
 			const termWidth = process.stdout.columns ?? 80;
@@ -816,17 +1094,26 @@ export class AiChatUI implements AiOutputAdapter {
 		this._activeSite = site;
 		this.editor.activeSiteName = site.name;
 		this.refreshPromptChrome();
-		const label = site.remote
-			? sprintf(
-					/* translators: %s: site name */
-					__( ' Selected site: %s (WordPress.com)' ),
-					site.name
-			  )
-			: sprintf(
-					/* translators: %s: site name */
-					__( ' Selected site: %s' ),
-					site.name
-			  );
+		let label: string;
+		if ( site.selfHostedSite ) {
+			label = sprintf(
+				/* translators: %s: site name */
+				__( ' Selected site: %s (self-hosted)' ),
+				site.name
+			);
+		} else if ( site.remote ) {
+			label = sprintf(
+				/* translators: %s: site name */
+				__( ' Selected site: %s (WordPress.com)' ),
+				site.name
+			);
+		} else {
+			label = sprintf(
+				/* translators: %s: site name */
+				__( ' Selected site: %s' ),
+				site.name
+			);
+		}
 		if ( announce ) {
 			this.messages.addChild( new Text( `\n${ chalk.hex( '#8839ef' )( label ) }\n`, 0, 0 ) );
 		}
@@ -1016,6 +1303,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerItems = [];
 		this.sitePickerSiteData = [];
 		this.sitePickerRemoteItems = [];
+		this.sitePickerSelfHostedItems = [];
 		this.sitePickerSelectList = null;
 		this.sitePickerItemMap = new Map();
 		this.resetSitePickerTab( SITE_PICKER_TAB_LOCAL );

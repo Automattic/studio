@@ -1,17 +1,15 @@
-import { readFile } from 'fs/promises';
-import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { Type } from 'typebox';
 import { defineTool } from './define-tool';
+import { REQUEST_BODY_FILES_RELATIVE_DIR, resolveRequestBody } from './request-body-files';
 import { textResult } from './utils';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ApiResponse = any;
 
-export const WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR = 'tmp/ai-payloads';
-const BODY_FILE_FIELD_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+export const WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR = REQUEST_BODY_FILES_RELATIVE_DIR;
 
 interface WpcomRequestToolOptions {
 	bodyFilesRoot?: string;
@@ -57,109 +55,6 @@ function getErrorMessage( error: unknown ): string {
 		return error.message;
 	}
 	return String( error );
-}
-
-function hasOwnProperty( value: Record< string, unknown >, key: string ): boolean {
-	return Object.prototype.hasOwnProperty.call( value, key );
-}
-
-function isRecord( value: unknown ): value is Record< string, unknown > {
-	return Boolean( value && typeof value === 'object' && ! Array.isArray( value ) );
-}
-
-function validateBodyFileFieldName( key: string ): void {
-	if ( ! BODY_FILE_FIELD_NAME_PATTERN.test( key ) ) {
-		throw new Error(
-			`bodyFiles keys must be top-level REST body field names such as "content" or "excerpt", not filenames, nested paths, or JSON paths. Use the value as the file path, for example bodyFiles: { content: "${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }/home.html" }.`
-		);
-	}
-}
-
-function resolveBodyFilePath( rootDir: string, filePath: string ): string {
-	if ( path.isAbsolute( filePath ) ) {
-		throw new Error(
-			`bodyFile and bodyFiles paths must be relative paths under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }.`
-		);
-	}
-
-	const resolvedRoot = path.resolve( rootDir, WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR );
-	const resolvedPath = path.resolve( rootDir, filePath );
-	const relativePath = path.relative( resolvedRoot, resolvedPath );
-
-	if ( ! relativePath || relativePath.startsWith( '..' ) || path.isAbsolute( relativePath ) ) {
-		throw new Error(
-			`bodyFile and bodyFiles paths must be relative paths under ${ WPCOM_REQUEST_BODY_FILES_RELATIVE_DIR }.`
-		);
-	}
-
-	return resolvedPath;
-}
-
-function validateSingleBodySource(
-	body: Record< string, unknown > | undefined,
-	bodyFile: string | undefined,
-	bodyFiles: Record< string, string > | undefined
-): void {
-	if ( bodyFile && ( body || bodyFiles ) ) {
-		throw new Error(
-			'Use only one request body source: body, bodyFile, or bodyFiles. bodyFile provides the entire JSON request body.'
-		);
-	}
-}
-
-async function readBodyFile(
-	bodyFile: string,
-	rootDir: string
-): Promise< Record< string, unknown > > {
-	const fileContents = await readFile( resolveBodyFilePath( rootDir, bodyFile ), 'utf8' );
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse( fileContents );
-	} catch {
-		throw new Error( 'bodyFile must contain valid JSON.' );
-	}
-	if ( ! isRecord( parsed ) ) {
-		throw new Error( 'bodyFile JSON must be an object.' );
-	}
-	return parsed;
-}
-
-async function mergeBodyFiles(
-	body: Record< string, unknown > | undefined,
-	bodyFiles: Record< string, string > | undefined,
-	rootDir: string
-): Promise< Record< string, unknown > > {
-	const mergedBody: Record< string, unknown > = { ...( body ?? {} ) };
-
-	if ( ! bodyFiles ) {
-		return mergedBody;
-	}
-
-	for ( const [ key, filePath ] of Object.entries( bodyFiles ) ) {
-		validateBodyFileFieldName( key );
-		if ( body && hasOwnProperty( body, key ) ) {
-			throw new Error(
-				`wpcom_request defines both body.${ key } and bodyFiles.${ key }. Put file-backed fields only in bodyFiles.`
-			);
-		}
-
-		mergedBody[ key ] = await readFile( resolveBodyFilePath( rootDir, filePath ), 'utf8' );
-	}
-
-	return mergedBody;
-}
-
-async function resolveRequestBody(
-	body: Record< string, unknown > | undefined,
-	bodyFile: string | undefined,
-	bodyFiles: Record< string, string > | undefined,
-	rootDir: string
-): Promise< Record< string, unknown > > {
-	validateSingleBodySource( body, bodyFile, bodyFiles );
-	if ( bodyFile ) {
-		return readBodyFile( bodyFile, rootDir );
-	}
-	return mergeBodyFiles( body, bodyFiles, rootDir );
 }
 
 /**
@@ -257,14 +152,26 @@ export function createWpcomRequestTool(
 						result = await wpcom.req.post< ApiResponse >(
 							fullPath,
 							queryParams,
-							await resolveRequestBody( args.body, args.bodyFile, args.bodyFiles, bodyFilesRoot )
+							await resolveRequestBody(
+								'wpcom_request',
+								args.body,
+								args.bodyFile,
+								args.bodyFiles,
+								bodyFilesRoot
+							)
 						);
 						break;
 					case 'PUT':
 						result = await wpcom.req.put< ApiResponse >(
 							fullPath,
 							queryParams,
-							await resolveRequestBody( args.body, args.bodyFile, args.bodyFiles, bodyFilesRoot )
+							await resolveRequestBody(
+								'wpcom_request',
+								args.body,
+								args.bodyFile,
+								args.bodyFiles,
+								bodyFilesRoot
+							)
 						);
 						break;
 					case 'DELETE':

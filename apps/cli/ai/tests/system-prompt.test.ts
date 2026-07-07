@@ -13,6 +13,11 @@ const remoteSite = {
 	id: 123,
 };
 
+const selfHostedSite = {
+	name: 'Self-Hosted Studio Test',
+	url: 'https://example.com',
+};
+
 function extractReferencedSkillNames( prompt: string ): string[] {
 	return [
 		...new Set( Array.from( prompt.matchAll( /`([a-z0-9-]+)` skill/g ), ( match ) => match[ 1 ] ) ),
@@ -79,6 +84,26 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
 	} );
 
+	it( 'routes self-hosted endpoint recipes to the self-hosted management skill', () => {
+		const prompt = buildSystemPrompt( { selfHostedSite } );
+
+		expect( prompt ).toContain( 'self-hosted-remote-management' );
+		expect( prompt ).toContain( 'self-hosted WordPress site: "Self-Hosted Studio Test"' );
+		expect( prompt ).toContain( 'wp_request' );
+		expect( prompt ).not.toContain( 'wpcom_request' );
+		expect( prompt ).not.toContain( '## Common wp/v2 Endpoints' );
+		// No plan gating on self-hosted sites.
+		expect( prompt ).not.toContain( 'plan.product_slug' );
+		expect( prompt ).not.toContain( '## Design capabilities by plan' );
+	} );
+
+	it( 'prefers the WP.com remote prompt when both remote and self-hosted contexts are set', () => {
+		const prompt = buildSystemPrompt( { remoteSite, selfHostedSite } );
+
+		expect( prompt ).toContain( 'wpcom_request' );
+		expect( prompt ).not.toContain( 'self-hosted-remote-management' );
+	} );
+
 	it( 'guards plan/pricing/feature answers behind the hosting-plans-helper skill (local)', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
@@ -99,6 +124,7 @@ describe( 'buildSystemPrompt', () => {
 		const prompts = [
 			buildSystemPrompt( { chatArtifactsEnabled: true } ),
 			buildSystemPrompt( { remoteSite } ),
+			buildSystemPrompt( { selfHostedSite } ),
 		];
 		const availableSkillNames = new Set( loadSkills().map( ( skill ) => skill.name ) );
 		const missingSkillNames = prompts

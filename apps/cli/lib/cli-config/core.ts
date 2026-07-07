@@ -73,6 +73,17 @@ export const updateCheckSchema = z.object( {
 	latestVersion: z.string(),
 } );
 
+export const selfHostedSiteSchema = z.object( {
+	id: z.string(),
+	url: z.string(),
+	username: z.string(),
+	appPassword: z.string(),
+	name: z.string(),
+	// REST API root discovered at connect time, e.g. "https://site.com/wp-json/"
+	// or the plain-permalink fallback "https://site.com/?rest_route=/".
+	restRoot: z.string(),
+} );
+
 const cliConfigSchema = z.looseObject( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
@@ -92,10 +103,12 @@ const cliConfigSchema = z.looseObject( {
 	standaloneUpdateCheck: updateCheckSchema.optional(),
 	// Unix ms timestamp of when the one-time ToS/Privacy notice was displayed.
 	tosNoticeShownAt: z.number().optional(),
+	selfHostedSites: z.array( selfHostedSiteSchema ).optional(),
 } );
 
 type CliConfig = z.infer< typeof cliConfigSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
+export type SelfHostedSiteData = z.infer< typeof selfHostedSiteSchema >;
 
 const DEFAULT_CLI_CONFIG: CliConfig = {
 	version: CLI_CONFIG_VERSION,

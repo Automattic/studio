@@ -15,4 +15,9 @@ export interface SiteInfo {
 	remote?: boolean;
 	url?: string;
 	wpcomSiteId?: number;
+	// Self-hosted sites are flagged `remote` and carry the id of their saved
+	// connection in cli.json; credentials (Application Password) are resolved
+	// from the config at turn time and never stored on SiteInfo.
+	selfHostedSite?: boolean;
+	selfHostedSiteId?: string;
 }

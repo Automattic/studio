@@ -3,13 +3,13 @@ Unreleased
 
 1.14.0
 =====
+* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082  
 * Studio Code: Added a /liberate command to recreate sites from other platforms (e.g. Wix) as WordPress #3940
 * Studio Code: Added a /publish command to push local sites to WordPress.com #4043
 * Studio Code: Updated the assistant's available model to Sonnet 5 #4024
 * Studio Code: Agent file edits now show as proper line-by-line diffs in the CLI and desktop assistant #4076
 * Studio Code: Improved plugin recommendations for Automattic products, and tuned agent behavior for native PHP vs Playground sites #4023, #3995
 * Studio Code: Fixed an unwanted gap in block themes scaffolded by the assistant #4053
-* Fixed native-PHP sites failing to load on Windows when the user profile path uses a short (8.3) name #4082
 * Sync: preserved Pressable site metadata during reconciliation #4078
 * Fixed recreating missing db.php drop-ins and preserving custom SQLite drop-ins #3993
 * Fixed occasional failures when duplicating a site #4074

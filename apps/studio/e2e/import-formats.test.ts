@@ -166,21 +166,7 @@ test.describe( 'Import backup formats', () => {
 		// The tab's import flow asks for confirmation via a native dialog.
 		// Record every dialog so a failed import surfaces its message below
 		// instead of silently timing out on the completion banner.
-		await session.electronApp.evaluate( ( { dialog } ) => {
-			const dialogGlobal = globalThis as typeof globalThis & { __e2eDialogs?: string[] };
-			dialogGlobal.__e2eDialogs = [];
-			dialog.showMessageBox = ( async ( ...args: unknown[] ) => {
-				const options = ( args.length > 1 ? args[ 1 ] : args[ 0 ] ) as {
-					title?: string;
-					message?: string;
-					detail?: string;
-				};
-				dialogGlobal.__e2eDialogs?.push(
-					[ options?.title, options?.message, options?.detail ].filter( Boolean ).join( ' — ' )
-				);
-				return { response: 0, checkboxChecked: false };
-			} ) as typeof dialog.showMessageBox;
-		} );
+		await session.stubMessageBox();
 
 		const tab = await siteContent.navigateToTab( 'import-export' );
 		if ( ! ( 'uploadFile' in tab ) ) {
@@ -190,19 +176,16 @@ test.describe( 'Import backup formats', () => {
 		// Unlike the new-site flow, the tab's import UI reports completion with
 		// "Import complete!". Errors are reported via a (stubbed) native dialog,
 		// so fail fast with the dialog's message rather than timing out.
-		const completeBanner = session.mainWindow.getByText( 'Import complete!' );
 		await expect
 			.poll(
 				async () => {
-					const dialogs = await session.electronApp.evaluate(
-						() =>
-							( globalThis as typeof globalThis & { __e2eDialogs?: string[] } ).__e2eDialogs ?? []
+					const failure = ( await session.getRecordedDialogs() ).find( ( entry ) =>
+						entry.includes( 'Failed importing site' )
 					);
-					const failure = dialogs.find( ( entry ) => entry.includes( 'Failed importing site' ) );
 					if ( failure ) {
 						throw new Error( `Import failed: ${ failure }` );
 					}
-					return completeBanner.isVisible();
+					return tab.importCompleteBanner.isVisible();
 				},
 				{ timeout: 120_000 }
 			)

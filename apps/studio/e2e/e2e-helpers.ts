@@ -59,6 +59,37 @@ export class E2ESession {
 		await this.launchFirstWindow( testEnv );
 	}
 
+	/**
+	 * Stub native message boxes to auto-answer with the given response index,
+	 * recording each dialog's text so tests can assert on what was shown (see
+	 * `getRecordedDialogs`). The stub handles both `showMessageBox( options )`
+	 * and `showMessageBox( parentWindow, options )` call shapes.
+	 */
+	async stubMessageBox( response = 0 ) {
+		await this.electronApp.evaluate( ( { dialog }, autoResponse ) => {
+			const dialogGlobal = globalThis as typeof globalThis & { __e2eDialogs: string[] };
+			dialogGlobal.__e2eDialogs = [];
+			dialog.showMessageBox = ( async ( ...args: unknown[] ) => {
+				const options = ( args.length > 1 ? args[ 1 ] : args[ 0 ] ) as {
+					title?: string;
+					message?: string;
+					detail?: string;
+				};
+				dialogGlobal.__e2eDialogs.push(
+					[ options?.title, options?.message, options?.detail ].filter( Boolean ).join( ' — ' )
+				);
+				return { response: autoResponse, checkboxChecked: false };
+			} ) as typeof dialog.showMessageBox;
+		}, response );
+	}
+
+	/** Dialog texts recorded by the `stubMessageBox` stub, oldest first. */
+	async getRecordedDialogs(): Promise< string[] > {
+		return this.electronApp.evaluate(
+			() => ( globalThis as typeof globalThis & { __e2eDialogs?: string[] } ).__e2eDialogs ?? []
+		);
+	}
+
 	async closeApp() {
 		console.log( 'Closing app...' );
 		const childProcess = this.electronApp.process();

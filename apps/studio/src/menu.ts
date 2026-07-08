@@ -467,6 +467,13 @@ async function getAppMenu(
 					},
 					enabled: ! needsOnboarding,
 				},
+				{
+					label: __( 'Getting Started' ),
+					click: async () => {
+						void sendIpcEventToRenderer( 'show-getting-started' );
+					},
+					enabled: ! needsOnboarding,
+				},
 				{ type: 'separator' },
 				...( process.platform === 'win32'
 					? [

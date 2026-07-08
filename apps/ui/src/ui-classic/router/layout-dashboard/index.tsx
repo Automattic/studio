@@ -6,6 +6,8 @@ import {
 } from '@/components/preview-split-frame';
 import { SidebarLayout } from '@/components/sidebar-layout';
 import { SitePreview } from '@/components/site-preview';
+import { useOnboardingRouteEvents } from '@/data/onboarding/use-onboarding-events';
+import { useOrientationAutostart } from '@/data/onboarding/use-orientation-autostart';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
@@ -65,6 +67,10 @@ function DashboardLayoutContent() {
 	const preview = useSessionPreviewUI();
 	const previewConsole = useSessionPreviewConsoleUI();
 	const setPreviewOpen = preview.setOpen;
+	// Open the preview when the orientation tour starts so its final step's
+	// anchor lays out (the overview route already opens it on its own).
+	useOrientationAutostart();
+	useOnboardingRouteEvents();
 	const setPreviewFullscreen = preview.setFullscreen;
 	const updatePreviewPath = preview.updatePath;
 	const clipActions = useSessionPreviewClipActions();

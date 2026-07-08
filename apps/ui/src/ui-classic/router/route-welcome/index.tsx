@@ -16,18 +16,21 @@ import { EmptyBackground } from '../../components/session-view/empty-background'
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
 
+// The welcome screen owns the account story: these are the features a
+// WordPress.com login unlocks. The purely-local story (real sites on your
+// machine) and the agent's own pitch live on the tour screens that follow.
 const FEATURES = [
 	{
-		title: __( 'Build with AI' ),
-		body: __( 'Describe what you want and let AI build it with you, right on your machine.' ),
+		title: __( 'Studio Code' ),
+		body: __( 'An AI collaborator that designs, writes code, and builds sites with you.' ),
 	},
 	{
-		title: __( 'Seamless sync' ),
-		body: __( 'Go from local to live in minutes, or pull any site down to work locally.' ),
+		title: __( 'Sync with live sites' ),
+		body: __( 'Push and pull changes to WordPress.com or Pressable anytime.' ),
 	},
 	{
-		title: __( 'Plugins, themes, and more' ),
-		body: __( 'Develop and test safely before shipping anywhere.' ),
+		title: __( 'Preview links' ),
+		body: __( 'Share a temporary copy of any site with anyone.' ),
 	},
 ];
 

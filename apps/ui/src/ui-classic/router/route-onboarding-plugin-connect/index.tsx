@@ -26,7 +26,7 @@ function SignedOutView( { onLogin }: { onLogin: () => void } ) {
 	const benefits = [
 		__( 'See the plugins you contribute to.' ),
 		__( 'Work on them locally with a test site.' ),
-		__( 'Uses your WordPress.org account — separate from WordPress.com.' ),
+		__( 'Uses your WordPress.org account, separate from WordPress.com.' ),
 	];
 
 	return (

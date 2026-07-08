@@ -1,10 +1,13 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { check, Icon } from '@wordpress/icons';
+import { Button } from '@wordpress/ui';
 import { useCallback } from 'react';
 import { SiteListIllustration } from '@/components/onboarding-illustrations';
 import { AgentPixelField } from '@/components/onboarding-illustrations/agent-pixel-field';
 import { useConnector } from '@/data/core';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { useOffline } from '@/hooks/use-offline';
 import { WizardPage } from '../../components/wizard-page';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 // The checkmark feature-list styles are shared with the welcome screen so
@@ -15,7 +18,9 @@ import styles from './style.module.css';
 const STEPS = [
 	{
 		title: __( 'Sites run right on your machine' ),
-		subtitle: __( 'Every Studio site is a full WordPress install that lives locally.' ),
+		subtitle: __(
+			'Every Studio site is a real WordPress install that lives locally, PHP and database included.'
+		),
 		illustration: (
 			<div className={ styles.tourIllustration }>
 				<SiteListIllustration />
@@ -23,18 +28,18 @@ const STEPS = [
 		),
 		points: [
 			{
-				title: __( 'Start and stop anytime' ),
-				body: __( 'Run only what you need. Each site has its own settings and WordPress version.' ),
-			},
-			{
-				title: __( 'Share previews' ),
+				title: __( 'Zero setup' ),
 				body: __(
-					'Put a copy of your site on a temporary preview link. Previews expire automatically.'
+					'No servers to set up, no accounts to create. A fresh site is ready in seconds.'
 				),
 			},
 			{
-				title: __( 'Sync with live sites' ),
-				body: __( 'Connect to WordPress.com or Pressable, then push or pull changes anytime.' ),
+				title: __( 'Works offline' ),
+				body: __( 'Your sites don’t need the internet. Build on a plane, at a café, anywhere.' ),
+			},
+			{
+				title: __( 'Safe to break' ),
+				body: __( 'Experiment freely. If something breaks, just start over. Nothing is at stake.' ),
 			},
 		],
 	},
@@ -73,6 +78,13 @@ const STEPS = [
 export function OnboardingTourPage() {
 	const navigate = useNavigate();
 	const connector = useConnector();
+	// Users who skipped login on the welcome screen arrive at the Studio Code
+	// step signed out; since the agent needs a WordPress.com account, this
+	// step doubles as the second (and last) login prompt in the flow.
+	const { data: authUser } = useAuthUser();
+	const login = useLogin();
+	const isOffline = useOffline();
+	const offlineMessage = __( "You're currently offline." );
 	// The step lives in the URL so moving between steps is a navigation and
 	// picks up the onboarding flow's view transitions.
 	const { step: stepSearch } = onboardingTourRoute.useSearch();
@@ -120,6 +132,43 @@ export function OnboardingTourPage() {
 					</li>
 				) ) }
 			</ul>
+			{ isLastStep && ! authUser && (
+				<div className={ styles.tourAuth }>
+					<p className={ styles.tourAuthText }>
+						{ __( 'AI features require a free WordPress.com account.' ) }
+					</p>
+					{ /* Same auth pair as the welcome screen. */ }
+					<div className={ styles.tourAuthButtons }>
+						<Button
+							type="button"
+							variant="minimal"
+							tone="neutral"
+							disabled={ isOffline }
+							title={ isOffline ? offlineMessage : undefined }
+							onClick={ () => void connector.authenticate( true ) }
+						>
+							{ __( 'Sign up' ) }
+							<span aria-hidden className={ welcomeStyles.arrow }>
+								{ '↗' }
+							</span>
+						</Button>
+						<Button
+							type="button"
+							variant="solid"
+							tone="brand"
+							disabled={ isOffline }
+							title={ isOffline ? offlineMessage : undefined }
+							loading={ login.isPending }
+							onClick={ () => login.mutate() }
+						>
+							{ __( 'Log in with WordPress.com' ) }
+							<span aria-hidden className={ welcomeStyles.arrow }>
+								{ '↗' }
+							</span>
+						</Button>
+					</div>
+				</div>
+			) }
 		</WizardPage>
 	);
 }

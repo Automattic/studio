@@ -149,23 +149,18 @@ test.describe( 'Import backup formats', () => {
 	} );
 
 	test( 'imports a backup file into an existing site', async ( { page } ) => {
-		// Import into the stopped onboarding site; a successful import is
-		// observable as its title changing from the fresh-install one to the
-		// fixture's. The site must not be started first: on every
-		// stopped→running transition the app spawns WP-CLI processes (theme
-		// details, site icon) that intermittently make the import's database
-		// step exit non-zero when both touch the SQLite file. The import itself
-		// starts the server on completion (`alwaysStartServer`).
+		// Import into the onboarding site while it's stopped: starting it first
+		// spawns WP-CLI processes (theme details, site icon) that race the
+		// database import and intermittently fail it. The import starts the
+		// server itself on completion.
 		const sidebar = new MainSidebar( session.mainWindow );
 		await sidebar.getSiteNavButton( DEFAULT_SITE_NAME ).click();
 		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
-		// On a retry in a fresh worker, beforeAll leaves the onboarding site
-		// running — stop it so both attempts follow the same stopped-site flow.
+		// On retries, beforeAll leaves the site running — stop it.
 		await stopAllSites();
 
-		// The tab's import flow asks for confirmation via a native dialog.
-		// Record every dialog so a failed import surfaces its message below
-		// instead of silently timing out on the completion banner.
+		// Auto-confirm the import's native confirmation dialog, recording all
+		// dialogs so a failure surfaces its message below.
 		await session.stubMessageBox();
 
 		const tab = await siteContent.navigateToTab( 'import-export' );
@@ -173,9 +168,8 @@ test.describe( 'Import backup formats', () => {
 			throw new Error( 'Expected ImportExportTab but got a different tab type' );
 		}
 		await tab.uploadFile( path.join( FIXTURES_DIR, 'local-backup.zip' ) );
-		// Unlike the new-site flow, the tab's import UI reports completion with
-		// "Import complete!". Errors are reported via a (stubbed) native dialog,
-		// so fail fast with the dialog's message rather than timing out.
+		// Wait for the completion banner, but fail fast with the recorded
+		// dialog message if the import errors instead.
 		await expect
 			.poll(
 				async () => {

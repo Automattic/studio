@@ -42,35 +42,43 @@ export function AppToasts( {
 				{ toasts.map( ( item ) => (
 					<div
 						key={ item.id }
-						className={ styles.toast }
-						onMouseEnter={ () => pauseToastExpiry( item.id ) }
-						onMouseLeave={ () => resumeToastExpiry( item.id ) }
+						// Collapsible row: grid-template-rows 0fr↔1fr animates the
+						// space a toast occupies, so neighbors slide (not jump) as
+						// it enters and leaves.
+						className={ styles.cell }
+						data-leaving={ item.leaving ? '' : undefined }
 					>
-						<Notice.Root intent={ item.intent } className={ styles.notice }>
-							<Notice.Title>{ item.title }</Notice.Title>
-							{ item.description ? (
-								<Notice.Description>{ item.description }</Notice.Description>
-							) : null }
-							{ item.action ? (
-								<Notice.Actions>
-									{ /* Notice.ActionButton doesn't expose `size`; the plain
-									     Button primitive does. */ }
-									<Button
-										size="small"
-										variant="solid"
-										tone="neutral"
-										className={ styles.actionButton }
-										onClick={ item.action.onClick }
-									>
-										{ item.action.label }
-									</Button>
-								</Notice.Actions>
-							) : null }
-							<Notice.CloseIcon
-								label={ __( 'Dismiss' ) }
-								onClick={ () => dismissToast( item.id ) }
-							/>
-						</Notice.Root>
+						<div
+							className={ styles.toast }
+							onMouseEnter={ () => pauseToastExpiry( item.id ) }
+							onMouseLeave={ () => resumeToastExpiry( item.id ) }
+						>
+							<Notice.Root intent={ item.intent } className={ styles.notice }>
+								<Notice.Title>{ item.title }</Notice.Title>
+								{ item.description ? (
+									<Notice.Description>{ item.description }</Notice.Description>
+								) : null }
+								{ item.action ? (
+									<Notice.Actions>
+										{ /* Notice.ActionButton doesn't expose `size`; the plain
+										     Button primitive does. */ }
+										<Button
+											size="small"
+											variant="solid"
+											tone="neutral"
+											className={ styles.actionButton }
+											onClick={ item.action.onClick }
+										>
+											{ item.action.label }
+										</Button>
+									</Notice.Actions>
+								) : null }
+								<Notice.CloseIcon
+									label={ __( 'Dismiss' ) }
+									onClick={ () => dismissToast( item.id ) }
+								/>
+							</Notice.Root>
+						</div>
 					</div>
 				) ) }
 				{ /* Stacked-card slivers hint at queued toasts waiting behind the

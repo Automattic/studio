@@ -33,12 +33,19 @@ export type ToastMessage = {
 	description?: string;
 	action?: ToastAction;
 	durationMs: number;
+	// True while the exit transition plays. The toast stays in the visible
+	// list (so the renderer can animate it out) and is actually removed —
+	// and the queue promoted — TOAST_EXIT_MS later.
+	leaving?: boolean;
 };
 
 const DEFAULT_TOAST_TTL_MS = 4_500;
 // Failures linger so a glance away doesn't miss them.
 const ERROR_TOAST_TTL_MS = 10_000;
 const MAX_VISIBLE_TOASTS = 3;
+// Slightly longer than the CSS exit transition (180ms) so the collapse
+// finishes before the node is dropped.
+export const TOAST_EXIT_MS = 200;
 
 // Oldest first; capped at MAX_VISIBLE_TOASTS. Overflow waits in `queued` and
 // is promoted FIFO as visible toasts expire or are dismissed.
@@ -75,7 +82,7 @@ function scheduleExpiry( toast: ToastMessage ) {
 	clearExpiryTimer( toast.id );
 	const timer = setTimeout( () => {
 		timers.delete( toast.id );
-		removeToast( toast.id );
+		beginToastExit( toast.id );
 	}, toast.durationMs );
 	timers.set( toast.id, timer );
 }
@@ -88,15 +95,35 @@ function promoteQueued() {
 	}
 }
 
-function removeToast( id: string ) {
+// Phase 2 of removal: drop the toast for real and let the queue promote —
+// the entering toast animates in as the leaving one finishes collapsing.
+function finalizeToastRemoval( id: string ) {
 	clearExpiryTimer( id );
-	if ( visible.some( ( toast ) => toast.id === id ) ) {
-		visible = visible.filter( ( toast ) => toast.id !== id );
-		promoteQueued();
-	} else {
-		queued = queued.filter( ( toast ) => toast.id !== id );
-	}
+	visible = visible.filter( ( toast ) => toast.id !== id );
+	promoteQueued();
 	emit();
+}
+
+// Phase 1 of removal (expiry or dismissal): flag the toast as leaving so the
+// renderer plays its exit, then remove it after the transition window.
+function beginToastExit( id: string ) {
+	const target = visible.find( ( toast ) => toast.id === id );
+	if ( ! target ) {
+		queued = queued.filter( ( toast ) => toast.id !== id );
+		emit();
+		return;
+	}
+	if ( target.leaving ) {
+		return;
+	}
+	clearExpiryTimer( id );
+	visible = visible.map( ( toast ) => ( toast.id === id ? { ...toast, leaving: true } : toast ) );
+	emit();
+	const timer = setTimeout( () => {
+		timers.delete( id );
+		finalizeToastRemoval( id );
+	}, TOAST_EXIT_MS );
+	timers.set( id, timer );
 }
 
 export function showToast( input: ToastInput ): string {
@@ -112,6 +139,8 @@ export function showToast( input: ToastInput ): string {
 	};
 
 	if ( visible.some( ( toast ) => toast.id === toastMessage.id ) ) {
+		// Re-showing also rescues a toast mid-exit: the replacement carries no
+		// leaving flag, and scheduleExpiry clears the pending removal timer.
 		visible = visible.map( ( toast ) => ( toast.id === toastMessage.id ? toastMessage : toast ) );
 		scheduleExpiry( toastMessage );
 	} else if ( queued.some( ( toast ) => toast.id === toastMessage.id ) ) {
@@ -128,7 +157,7 @@ export function showToast( input: ToastInput ): string {
 }
 
 export function dismissToast( id: string ): void {
-	removeToast( id );
+	beginToastExit( id );
 }
 
 export const toast = {
@@ -141,14 +170,19 @@ export const toast = {
 };
 
 // Hover pause — <AppToasts /> calls these on mouse enter/leave. Resuming
-// restarts the full duration; no remaining-time bookkeeping.
+// restarts the full duration; no remaining-time bookkeeping. A toast that is
+// already exiting can't be paused or resumed: pausing would cancel its
+// removal timer (stranding it), resuming would resurrect it.
 export function pauseToastExpiry( id: string ): void {
-	clearExpiryTimer( id );
+	const toastMessage = visible.find( ( item ) => item.id === id );
+	if ( toastMessage && ! toastMessage.leaving ) {
+		clearExpiryTimer( id );
+	}
 }
 
 export function resumeToastExpiry( id: string ): void {
 	const toastMessage = visible.find( ( item ) => item.id === id );
-	if ( toastMessage ) {
+	if ( toastMessage && ! toastMessage.leaving ) {
 		scheduleExpiry( toastMessage );
 	}
 }

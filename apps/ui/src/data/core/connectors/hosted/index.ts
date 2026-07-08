@@ -12,6 +12,7 @@ import type {
 	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
+	OnboardingHintsState,
 	SiteCheckpoint,
 	SiteDetails,
 	SkillStatus,
@@ -28,6 +29,7 @@ export interface HostedConnectorOptions {
 }
 
 const DISMISSED_MESSAGES_STORAGE_KEY = 'studio-dismissed-messages';
+const ONBOARDING_HINTS_STORAGE_KEY = 'studio-onboarding-hints';
 
 function readDismissedMessages(): string[] {
 	try {
@@ -39,6 +41,26 @@ function readDismissedMessages(): string[] {
 	} catch {
 		return [];
 	}
+}
+
+function readOnboardingHints(): OnboardingHintsState {
+	try {
+		const raw = window.localStorage.getItem( ONBOARDING_HINTS_STORAGE_KEY );
+		const parsed: unknown = raw ? JSON.parse( raw ) : {};
+		return parsed && typeof parsed === 'object' ? ( parsed as OnboardingHintsState ) : {};
+	} catch {
+		return {};
+	}
+}
+
+function writeOnboardingHints( partial: Partial< OnboardingHintsState > ): void {
+	const current = readOnboardingHints();
+	const merged: OnboardingHintsState = {
+		...current,
+		...partial,
+		completedItems: { ...( current.completedItems ?? {} ), ...( partial.completedItems ?? {} ) },
+	};
+	window.localStorage.setItem( ONBOARDING_HINTS_STORAGE_KEY, JSON.stringify( merged ) );
 }
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
@@ -599,6 +621,17 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 					JSON.stringify( [ ...dismissed, id ] )
 				);
 			}
+		},
+
+		async getOnboardingHints() {
+			return readOnboardingHints();
+		},
+		async setOnboardingHints( partial ) {
+			writeOnboardingHints( partial );
+		},
+		onShowGettingStarted() {
+			// No application menu on the hosted surface.
+			return () => {};
 		},
 
 		// Browser tabs have no auto-updater; report an inert status (rather

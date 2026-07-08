@@ -85,6 +85,7 @@ type UserDataSafeKeys =
 	| 'wapuuScore'
 	| 'agenticFeaturesEnabled'
 	| 'chatNotificationsEnabled'
+	| 'onboardingHints'
 	| 'lastNightlyUpdateCheck'
 	| 'nightlyPromptResult';
 

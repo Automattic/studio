@@ -4,7 +4,7 @@ import { createRoute, useNavigate } from '@tanstack/react-router';
 import { speak } from '@wordpress/a11y';
 import { Spinner } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronLeft, check, external, info, search, wordpress } from '@wordpress/icons';
+import { chevronLeft, check, external, info, search } from '@wordpress/icons';
 import { Button, Icon, IconButton, Input, InputLayout } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BusyOverlay } from '@/components/busy-overlay';
@@ -24,6 +24,9 @@ import { useOffline } from '@/hooks/use-offline';
 import { getLocalizedLink } from '@/lib/docs-links';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
+// The external-link arrow on the auth buttons is shared with the welcome
+// screen so the two auth prompts stay visually identical.
+import welcomeStyles from '../route-welcome/style.module.css';
 import styles from './style.module.css';
 import type { SyncSite } from '@/data/core';
 
@@ -138,29 +141,34 @@ function SignedOutView() {
 				) ) }
 			</ul>
 			<div className={ styles.authActions }>
-				<Button
-					type="button"
-					variant="solid"
-					tone="brand"
-					disabled={ isOffline }
-					onClick={ () => void connector.authenticate() }
-				>
-					<Icon icon={ wordpress } />
-					<span>{ __( 'Log in with WordPress.com' ) }</span>
-				</Button>
-				<p className={ styles.signupHint }>
-					{ __( 'New to WordPress.com?' ) }{ ' ' }
+				{ /* Same auth pair as the welcome screen so the two prompts
+				     can't drift apart. */ }
+				<div className={ styles.authButtons }>
 					<Button
 						type="button"
 						variant="minimal"
-						tone="brand"
-						className={ styles.signupLink }
+						tone="neutral"
 						disabled={ isOffline }
 						onClick={ () => void connector.authenticate( true ) }
 					>
-						{ __( 'Create a free account' ) }
+						{ __( 'Sign up' ) }
+						<span aria-hidden className={ welcomeStyles.arrow }>
+							{ '↗' }
+						</span>
 					</Button>
-				</p>
+					<Button
+						type="button"
+						variant="solid"
+						tone="brand"
+						disabled={ isOffline }
+						onClick={ () => void connector.authenticate() }
+					>
+						{ __( 'Log in with WordPress.com' ) }
+						<span aria-hidden className={ welcomeStyles.arrow }>
+							{ '↗' }
+						</span>
+					</Button>
+				</div>
 				{ isOffline && (
 					<p className={ styles.offlineHint }>{ __( "You're currently offline." ) }</p>
 				) }
@@ -521,7 +529,7 @@ export function OnboardingConnectPage() {
 				{ isSignedIn && isSingleSite ? __( 'Connect your site' ) : __( 'Connect a site' ) }
 			</h1>
 			<p className={ sharedStyles.subtitle }>
-				{ ! isSignedIn && __( 'Connect your WordPress.com account to access your sites.' ) }
+				{ ! isSignedIn && __( 'Log in with your WordPress.com account to see your sites.' ) }
 				{ isSignedIn &&
 					( isSingleSite
 						? __( 'Ready to bring into your Studio.' )
@@ -674,7 +682,7 @@ export function OnboardingConnectPage() {
 						onClick={ () => void handleConnect() }
 						data-testid="connect-site-submit"
 					>
-						{ __( 'Add site' ) }
+						{ __( 'Connect site' ) }
 					</Button>
 				) }
 			</OnboardingFooter>

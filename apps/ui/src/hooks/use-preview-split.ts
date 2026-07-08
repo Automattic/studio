@@ -3,6 +3,7 @@ import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import {
 	getInitialPreviewContentWidth,
 	getPreviewSplitLayout,
+	PREVIEW_CONTENT_DEFAULT_WIDTH,
 	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
 	PREVIEW_PANEL_DEFAULT_WIDTH,
 	PREVIEW_PANEL_MIN_WIDTH,
@@ -25,9 +26,9 @@ interface PreviewSplitHandleProps {
 
 interface UsePreviewSplitResult {
 	rootRef: RefObject< HTMLDivElement | null >;
-	// The value for the --preview-frame-content-width CSS var: a px width once
-	// measured, or a `calc(100% - <default>px)` fallback that reserves preview
-	// space before the first measurement.
+	// The value for the --preview-frame-content-width CSS var: the clamped px
+	// width once measured, or the default content width before the first
+	// measurement.
 	contentWidthVar: string;
 	isResizing: boolean;
 	handleProps: PreviewSplitHandleProps;
@@ -45,9 +46,10 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 	// displayed width is always re-derived from it against the current
 	// container, never stored back. Recomputing from a previously-clamped
 	// displayed value would lose the intent on shrink-then-grow. While null (the
-	// user never resized the split), the content width derives from the live
-	// container instead — the preview keeps its default width and window growth
-	// benefits the content column (chat line lengths, not more preview).
+	// user never resized the split), the content column anchors to
+	// PREVIEW_CONTENT_DEFAULT_WIDTH against the live container — a narrow window
+	// clamps it down but growth restores it (never freezing a squeezed
+	// measurement), and the preview absorbs the rest.
 	const [ preferredContentWidth, setPreferredContentWidth ] = useState< number | null >(
 		getInitialPreviewContentWidth
 	);
@@ -82,12 +84,13 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 	);
 
 	// The content width a resize gesture starts from: the user's explicit
-	// intent when set, otherwise the derived default. Pure — deriving must not
-	// become intent, or the split would stop tracking future window growth.
+	// intent when set, otherwise the clamped default. Pure — deriving must not
+	// become intent, or the split would stop recovering from a squeezed layout
+	// when the window later grows.
 	const resolveContentWidth = useCallback(
 		( container: number ) =>
 			preferredRef.current ??
-			getPreviewSplitLayout( container, container - PREVIEW_PANEL_DEFAULT_WIDTH ).contentWidth,
+			getPreviewSplitLayout( container, PREVIEW_CONTENT_DEFAULT_WIDTH ).contentWidth,
 		[]
 	);
 
@@ -184,15 +187,13 @@ export function usePreviewSplit( { showPreview }: UsePreviewSplitOptions ): UseP
 				? null
 				: getPreviewSplitLayout(
 						containerWidth,
-						preferredContentWidth ?? containerWidth - PREVIEW_PANEL_DEFAULT_WIDTH
+						preferredContentWidth ?? PREVIEW_CONTENT_DEFAULT_WIDTH
 				  ),
 		[ containerWidth, preferredContentWidth ]
 	);
 
 	const contentWidthVar =
-		layout === null
-			? `calc(100% - ${ PREVIEW_PANEL_DEFAULT_WIDTH }px)`
-			: `${ layout.contentWidth }px`;
+		layout === null ? `${ PREVIEW_CONTENT_DEFAULT_WIDTH }px` : `${ layout.contentWidth }px`;
 
 	return {
 		rootRef,

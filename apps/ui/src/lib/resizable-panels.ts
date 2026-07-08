@@ -9,6 +9,10 @@ export const PREVIEW_CONTENT_WIDTH_STORAGE_KEY = 'studio-ui-preview-content-widt
 export const PREVIEW_PANEL_DEFAULT_WIDTH = 480;
 export const PREVIEW_PANEL_MIN_WIDTH = 360;
 export const PREVIEW_PANEL_MIN_CONTENT_WIDTH = 280;
+// Default width of the chat/overview column. Until the user resizes the split
+// this is the anchor: the column stays at this width (clamped against the
+// container) and the preview absorbs window growth.
+export const PREVIEW_CONTENT_DEFAULT_WIDTH = 520;
 
 export const SIDEBAR_PANEL_CONFIG: ResizablePanelConfig = {
 	defaultWidth: 280,

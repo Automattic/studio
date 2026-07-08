@@ -77,7 +77,7 @@ describe( 'PreviewSplitFrame', () => {
 		);
 	} );
 
-	it( 'gives window growth to the content column until the user resizes', async () => {
+	it( 'keeps the content column at its default width as the window grows', async () => {
 		render(
 			<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
 				<span data-testid="content">Content</span>
@@ -89,17 +89,34 @@ describe( 'PreviewSplitFrame', () => {
 			expect( root ).toHaveStyle( '--preview-frame-content-width: 520px' );
 		} );
 
-		// The preview keeps its default width; the content column absorbs the
-		// growth (e.g. the workbench window expansion after onboarding).
-		frameWidth = 1120;
-		fireEvent( window, new Event( 'resize' ) );
-
-		expect( root ).toHaveStyle( '--preview-frame-content-width: 640px' );
-
 		frameWidth = 1300;
 		fireEvent( window, new Event( 'resize' ) );
 
-		expect( root ).toHaveStyle( '--preview-frame-content-width: 820px' );
+		expect( root ).toHaveStyle( '--preview-frame-content-width: 520px' );
+	} );
+
+	it( 'restores the squeezed default content width when the window grows', async () => {
+		// A narrow frame (e.g. before the post-onboarding window expansion)
+		// clamps the content column below its default…
+		frameWidth = 700;
+
+		render(
+			<PreviewSplitFrame previewOpen preview={ () => <aside aria-label="Site preview" /> }>
+				<span data-testid="content">Content</span>
+			</PreviewSplitFrame>
+		);
+
+		const root = getFrameRoot();
+		await waitFor( () => {
+			expect( root ).toHaveStyle( '--preview-frame-content-width: 340px' );
+		} );
+
+		// …and the growth goes back to the content column, not the preview: the
+		// clamped width was never frozen as the user's intent.
+		frameWidth = 1000;
+		fireEvent( window, new Event( 'resize' ) );
+
+		expect( root ).toHaveStyle( '--preview-frame-content-width: 520px' );
 	} );
 
 	it( 'keeps a user-chosen content width stable as the window grows', async () => {
@@ -122,7 +139,7 @@ describe( 'PreviewSplitFrame', () => {
 		expect( root ).toHaveStyle( '--preview-frame-content-width: 500px' );
 	} );
 
-	it( 'keeps preview space reserved when the first mount measurement is zero', () => {
+	it( 'falls back to the default content width when the first mount measurement is zero', () => {
 		frameWidth = 0;
 
 		render(
@@ -132,7 +149,7 @@ describe( 'PreviewSplitFrame', () => {
 		);
 
 		const root = getFrameRoot();
-		expect( root ).toHaveStyle( '--preview-frame-content-width: calc(100% - 480px)' );
+		expect( root ).toHaveStyle( '--preview-frame-content-width: 520px' );
 		expect( screen.getByLabelText( 'Site preview' ) ).toBeVisible();
 	} );
 

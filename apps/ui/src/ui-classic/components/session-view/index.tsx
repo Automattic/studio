@@ -52,6 +52,7 @@ import {
 	SessionChatActionsSkeleton,
 } from './session-chat-actions';
 import styles from './style.module.css';
+import { SuggestedPrompts } from './suggested-prompts';
 import { useStickToBottom } from './use-stick-to-bottom';
 import type { ComposerAttachment } from './composer/use-composer-attachments';
 import type { AiSessionSummary, PermissionDecision } from '@/data/core';
@@ -522,6 +523,15 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
+			{ isEmpty && ownerSite ? (
+				<SuggestedPrompts
+					siteName={ ownerSite.name }
+					onPick={ ( prompt ) => {
+						composerRef.current?.replaceDraft( prompt );
+						composerRef.current?.focus();
+					} }
+				/>
+			) : null }
 			<div
 				className={ clsx(
 					styles.classicColumn,

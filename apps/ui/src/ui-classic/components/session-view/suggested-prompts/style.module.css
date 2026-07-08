@@ -1,0 +1,101 @@
+/* Overlays the empty-state canvas, sitting just above the bottom of the W:
+   the logo is 320px centered in the scroll area, so its bottom edge lands at
+   center + 160px — the list starts at +72px to overlap the lower legs.
+   Rendered after the canvas, so its backdrop blur frosts the dots behind it.
+   The layer itself never takes pointer events; only the buttons do (the
+   canvas underneath keeps its ripple interactions). */
+.root {
+	position: absolute;
+	inset: 0;
+	top: calc(50% + 72px);
+	bottom: auto;
+	display: flex;
+	justify-content: center;
+	pointer-events: none;
+}
+
+.group {
+	position: relative;
+	display: flex;
+}
+
+/* Progressive frost behind the labels (see components/progressive-blur for
+   the directional original): four backdrop-blur layers, each stronger and
+   masked to a smaller radial area, so blur ramps up toward the center with
+   no visible seam where a single blur region would end. The negative inset
+   lets the softest ring dissolve past the label box. */
+.frost {
+	position: absolute;
+	inset: calc(-1 * var(--wpds-dimension-padding-xl));
+	pointer-events: none;
+	backdrop-filter: blur(var(--frost-radius));
+	-webkit-backdrop-filter: blur(var(--frost-radius));
+	mask-image: radial-gradient(
+		70% 90% at 50% 50%,
+		black var(--frost-hold),
+		transparent var(--frost-fade)
+	);
+	-webkit-mask-image: radial-gradient(
+		70% 90% at 50% 50%,
+		black var(--frost-hold),
+		transparent var(--frost-fade)
+	);
+}
+
+.frostSoft {
+	--frost-radius: 1.5px;
+	--frost-hold: 0%;
+	--frost-fade: 100%;
+}
+
+.frostMedium {
+	--frost-radius: 3px;
+	--frost-hold: 0%;
+	--frost-fade: 80%;
+}
+
+.frostStrong {
+	--frost-radius: 6px;
+	--frost-hold: 0%;
+	--frost-fade: 60%;
+}
+
+.frostIntense {
+	--frost-radius: 10px;
+	--frost-hold: 0%;
+	--frost-fade: 42%;
+}
+
+.list {
+	position: relative;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 2px var(--wpds-dimension-gap-lg);
+	max-width: 560px;
+	margin: 0;
+	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
+	list-style: none;
+}
+
+.prompt {
+	padding: 2px 0;
+	border: 0;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	white-space: nowrap;
+	cursor: var(--wpds-cursor-control);
+	pointer-events: auto;
+}
+
+.prompt:hover {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.prompt:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
+	outline-offset: 2px;
+	border-radius: var(--wpds-border-radius-xs);
+}

@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { archiveAiSessionsForSite } from '@studio/common/ai/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
@@ -114,6 +115,15 @@ export async function runCommand(
 			await saveCliConfig( cliConfig );
 		} finally {
 			await unlockCliConfig();
+		}
+
+		try {
+			await archiveAiSessionsForSite( { id: site.id, path: site.path } );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to archive chat sessions. Proceeding anyway…' ), error ),
+				false
+			);
 		}
 
 		if ( deleteFiles ) {

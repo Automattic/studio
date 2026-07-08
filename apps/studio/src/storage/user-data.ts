@@ -11,11 +11,12 @@ import { getUserDataFilePath } from 'src/storage/paths';
 import {
 	EMPTY_USER_DATA,
 	type QuitSitesBehavior,
+	type QuitSitesBehaviorSetting,
 	type UserData,
 	type WindowBounds,
 } from 'src/storage/storage-types';
 
-export type { QuitSitesBehavior };
+export type { QuitSitesBehavior, QuitSitesBehaviorSetting };
 
 export async function loadUserData(): Promise< UserData > {
 	const filePath = getUserDataFilePath();

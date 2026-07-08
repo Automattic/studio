@@ -8,10 +8,12 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
+import { QuitSitesBehaviorPicker } from 'src/modules/user-settings/components/quit-sites-behavior-picker';
 import { StudioCliToggle } from 'src/modules/user-settings/components/studio-cli-toggle';
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
 import { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
+import { QuitSitesBehaviorSetting } from 'src/storage/storage-types';
 import { useAppDispatch, useI18nLocale } from 'src/stores';
 import { saveUserLocale } from 'src/stores/i18n-slice';
 import {
@@ -25,6 +27,8 @@ import {
 	useSaveStudioCliIsInstalledMutation,
 	useGetDefaultSiteDirectoryQuery,
 	useSaveDefaultSiteDirectoryMutation,
+	useGetQuitSitesBehaviorQuery,
+	useSaveQuitSitesBehaviorMutation,
 } from 'src/stores/installed-apps-api';
 import { SettingsFormField } from './settings-form-field';
 
@@ -39,12 +43,14 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { data: isCliInstalled } = useGetStudioCliIsInstalledQuery();
 	const { data: defaultSiteDirectory, isLoading: isLoadingDefaultSiteDirectory } =
 		useGetDefaultSiteDirectoryQuery();
+	const { data: quitSitesBehavior } = useGetQuitSitesBehaviorQuery();
 
 	const [ saveColorSchemePreference ] = useSaveColorSchemeMutation();
 	const [ saveEditor ] = useSaveUserEditorMutation();
 	const [ saveTerminal ] = useSaveUserTerminalMutation();
 	const [ saveCliIsInstalled ] = useSaveStudioCliIsInstalledMutation();
 	const [ saveDefaultSiteDirectory ] = useSaveDefaultSiteDirectoryMutation();
+	const [ saveQuitSitesBehavior ] = useSaveQuitSitesBehaviorMutation();
 
 	const [ dirtyColorScheme, setDirtyColorScheme ] = useState< 'system' | 'light' | 'dark' >();
 	const [ dirtyLocale, setDirtyLocale ] = useState< SupportedLocale >();
@@ -52,6 +58,8 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ dirtyTerminal, setDirtyTerminal ] = useState< SupportedTerminal >();
 	const [ dirtyIsCliInstalled, setDirtyIsCliInstalled ] = useState< boolean >();
 	const [ dirtyDefaultSiteDirectory, setDirtyDefaultSiteDirectory ] = useState< string >();
+	const [ dirtyQuitSitesBehavior, setDirtyQuitSitesBehavior ] =
+		useState< QuitSitesBehaviorSetting >();
 
 	const wasSavedRef = useRef( false );
 	const dirtyColorSchemeRef = useRef( dirtyColorScheme );
@@ -99,6 +107,9 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		if ( dirtyDefaultSiteDirectory ) {
 			await saveDefaultSiteDirectory( dirtyDefaultSiteDirectory );
 		}
+		if ( dirtyQuitSitesBehavior ) {
+			await saveQuitSitesBehavior( dirtyQuitSitesBehavior );
+		}
 		onClose();
 	};
 
@@ -108,6 +119,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const terminalSelection = dirtyTerminal ?? terminal ?? 'terminal';
 	const isCliInstalledSelection = dirtyIsCliInstalled ?? isCliInstalled ?? false;
 	const defaultSiteDirectorySelection = dirtyDefaultSiteDirectory ?? defaultSiteDirectory ?? '';
+	const quitSitesBehaviorSelection = dirtyQuitSitesBehavior ?? quitSitesBehavior ?? 'ask';
 
 	const hasChanges = [
 		[ dirtyColorScheme, colorScheme ],
@@ -116,6 +128,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		[ dirtyTerminal, terminal ],
 		[ dirtyIsCliInstalled, isCliInstalled ],
 		[ dirtyDefaultSiteDirectory, defaultSiteDirectory ],
+		[ dirtyQuitSitesBehavior, quitSitesBehavior ],
 	].some( ( [ a, b ] ) => a !== undefined && a !== b );
 
 	const handleChangeDefaultDirectory = async () => {
@@ -146,6 +159,10 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 					onClick={ handleChangeDefaultDirectory }
 				/>
 			</SettingsFormField>
+			<QuitSitesBehaviorPicker
+				value={ quitSitesBehaviorSelection }
+				onChange={ setDirtyQuitSitesBehavior }
+			/>
 			{ ! isWindowsStore() && (
 				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
 			) }

@@ -352,11 +352,16 @@ export interface Connector {
 
 export type ColorScheme = 'system' | 'light' | 'dark';
 
+// Mirrors the desktop's QuitSitesBehavior storage union, plus 'ask' for the
+// unset state (the quit dialog prompts on every quit).
+export type QuitSitesBehaviorSetting = 'ask' | 'leave-running' | 'stop-and-auto-start' | 'stop';
+
 export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
 	locale: string | undefined;
+	quitSitesBehavior: QuitSitesBehaviorSetting;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

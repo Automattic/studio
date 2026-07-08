@@ -13,6 +13,7 @@ import type {
 	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
+	QuitSitesBehaviorSetting,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -613,18 +614,20 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale ] = ( await Promise.all( [
+			const [ editor, terminal, colorScheme, locale, quitSitesBehavior ] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
 				ipcApi.getUserLocale(),
+				ipcApi.getQuitSitesBehavior(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
 				string | undefined,
+				QuitSitesBehaviorSetting,
 			];
-			return { editor, terminal, colorScheme, locale };
+			return { editor, terminal, colorScheme, locale, quitSitesBehavior };
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -640,6 +643,9 @@ export function createIpcConnector(): Connector {
 			}
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
+			}
+			if ( 'quitSitesBehavior' in partial && partial.quitSitesBehavior ) {
+				writes.push( ipcApi.saveQuitSitesBehavior( partial.quitSitesBehavior ) );
 			}
 			await Promise.all( writes );
 		},

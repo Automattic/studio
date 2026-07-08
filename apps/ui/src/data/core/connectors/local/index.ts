@@ -587,6 +587,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					null,
 				colorScheme,
 				locale: undefined,
+				// Quitting is a desktop concern; the browser-served UI treats it as unset.
+				quitSitesBehavior: 'ask',
 			};
 		},
 		async setUserPreferences( partial ) {

@@ -11,6 +11,7 @@ import {
 	terminalConfig,
 	getTerminalsSupportedOnPlatform,
 } from 'src/modules/user-settings/lib/terminal';
+import { QuitSitesBehaviorSetting } from 'src/storage/storage-types';
 
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
@@ -22,6 +23,7 @@ export const installedAppsApi = createApi( {
 		'UserTerminal',
 		'ColorScheme',
 		'DefaultSiteDirectory',
+		'QuitSitesBehavior',
 	],
 	endpoints: ( builder ) => ( {
 		getStudioCliIsInstalled: builder.query< boolean, void >( {
@@ -91,6 +93,20 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'ColorScheme' ],
 		} ),
+		getQuitSitesBehavior: builder.query< QuitSitesBehaviorSetting, void >( {
+			queryFn: async () => {
+				const behavior = await getIpcApi().getQuitSitesBehavior();
+				return { data: behavior };
+			},
+			providesTags: [ 'QuitSitesBehavior' ],
+		} ),
+		saveQuitSitesBehavior: builder.mutation< QuitSitesBehaviorSetting, QuitSitesBehaviorSetting >( {
+			queryFn: async ( behavior ) => {
+				await getIpcApi().saveQuitSitesBehavior( behavior );
+				return { data: behavior };
+			},
+			invalidatesTags: [ 'QuitSitesBehavior' ],
+		} ),
 		getDefaultSiteDirectory: builder.query< string, void >( {
 			queryFn: async () => {
 				const directory = await getIpcApi().getDefaultSiteDirectory();
@@ -120,6 +136,8 @@ export const {
 	useSaveColorSchemeMutation,
 	useGetDefaultSiteDirectoryQuery,
 	useSaveDefaultSiteDirectoryMutation,
+	useGetQuitSitesBehaviorQuery,
+	useSaveQuitSitesBehaviorMutation,
 } = installedAppsApi;
 
 export const selectInstalledEditors = createSelector(

@@ -13,6 +13,7 @@ export type {
 	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
+	QuitSitesBehaviorSetting,
 	SelectedSiteFolder,
 	SessionEntry,
 	SiteDetails,

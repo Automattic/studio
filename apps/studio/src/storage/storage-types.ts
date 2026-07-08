@@ -13,6 +13,10 @@ export interface WindowBounds {
 
 export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
 
+// Settings-level view of QuitSitesBehavior: 'ask' is the unset state (the
+// quit dialog prompts on every quit) and persists as an absent key.
+export type QuitSitesBehaviorSetting = QuitSitesBehavior | 'ask';
+
 export interface AppdataSiteData {
 	themeDetails?: SiteDetails[ 'themeDetails' ];
 	siteIconPath?: SiteDetails[ 'siteIconPath' ];

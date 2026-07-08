@@ -15,6 +15,7 @@ import styles from './style.module.css';
 import type {
 	ColorScheme,
 	InstalledApps,
+	QuitSitesBehaviorSetting,
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,
@@ -41,6 +42,7 @@ interface FormData {
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
 	locale: SupportedLocale;
+	quitSitesBehavior: QuitSitesBehaviorSetting;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -56,6 +58,7 @@ function toFormData( prefs: UserPreferences ): FormData {
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
 		locale: resolveFormLocale( prefs.locale ),
+		quitSitesBehavior: prefs.quitSitesBehavior ?? 'ask',
 	};
 }
 
@@ -70,6 +73,9 @@ function diffFromSaved(
 	if ( nextTerminal !== saved.terminal ) patch.terminal = nextTerminal;
 	if ( next.colorScheme !== saved.colorScheme ) patch.colorScheme = next.colorScheme;
 	if ( next.locale !== resolveFormLocale( saved.locale ) ) patch.locale = next.locale;
+	if ( next.quitSitesBehavior !== ( saved.quitSitesBehavior ?? 'ask' ) ) {
+		patch.quitSitesBehavior = next.quitSitesBehavior;
+	}
 	return patch;
 }
 
@@ -97,6 +103,13 @@ const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
 	{ value: 'system', label: __( 'System' ) },
 	{ value: 'light', label: __( 'Light' ) },
 	{ value: 'dark', label: __( 'Dark' ) },
+];
+
+const QUIT_SITES_BEHAVIOR_ELEMENTS: { value: QuitSitesBehaviorSetting; label: string }[] = [
+	{ value: 'ask', label: __( 'Ask every time' ) },
+	{ value: 'leave-running', label: __( 'Keep sites running' ) },
+	{ value: 'stop-and-auto-start', label: __( 'Stop, restart on next launch' ) },
+	{ value: 'stop', label: __( 'Stop sites' ) },
 ];
 
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
@@ -165,6 +178,12 @@ export function SettingsView( {
 				// combobox for 10+ options, whose "x" could empty the language.
 				Edit: 'select',
 			},
+			{
+				id: 'quitSitesBehavior',
+				type: 'text',
+				label: __( 'When quitting with running sites' ),
+				elements: QUIT_SITES_BEHAVIOR_ELEMENTS,
+			},
 		],
 		[ installedApps ]
 	);
@@ -180,6 +199,7 @@ export function SettingsView( {
 				},
 				'colorScheme',
 				'locale',
+				'quitSitesBehavior',
 			],
 		} ),
 		[]

@@ -105,6 +105,7 @@ describe( 'SiteList', () => {
 				terminal: 'terminal',
 				colorScheme: 'system',
 				locale: undefined,
+				quitSitesBehavior: 'ask',
 			},
 		} );
 		useSitesMock.mockReturnValue( {

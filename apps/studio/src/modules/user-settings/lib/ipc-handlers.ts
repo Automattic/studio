@@ -14,6 +14,7 @@ import {
 	saveUserData,
 	unlockAppdata,
 	updateAppdata,
+	type QuitSitesBehaviorSetting,
 } from 'src/storage/user-data';
 
 export function getInstalledAppsAndTerminals(): InstalledApps {
@@ -99,6 +100,28 @@ export async function saveColorScheme(
 ) {
 	nativeTheme.themeSource = colorScheme;
 	await updateAppdata( { colorScheme } );
+}
+
+const QUIT_SITES_BEHAVIOR_SETTINGS: QuitSitesBehaviorSetting[] = [
+	'ask',
+	'leave-running',
+	'stop-and-auto-start',
+	'stop',
+];
+
+export async function getQuitSitesBehavior(): Promise< QuitSitesBehaviorSetting > {
+	const userData = await loadUserData();
+	return userData.quitSitesBehavior ?? 'ask';
+}
+
+export async function saveQuitSitesBehavior(
+	event: IpcMainInvokeEvent,
+	behavior: QuitSitesBehaviorSetting
+): Promise< void > {
+	if ( ! QUIT_SITES_BEHAVIOR_SETTINGS.includes( behavior ) ) {
+		throw new Error( `Unknown quit sites behavior: ${ behavior }` );
+	}
+	await updateAppdata( { quitSitesBehavior: behavior === 'ask' ? undefined : behavior } );
 }
 
 export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {

@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
-import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
-import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
+import { useSiteAgentActivity } from '@/data/queries/use-agent-run';
+import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
 	useDeleteSite,
@@ -16,28 +16,35 @@ import {
 	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import { SiteList } from './index';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
-import type { ReactNode } from 'react';
+
+const navigateMock = vi.fn();
+let paramsMock: { sessionId?: string; siteId?: string } = {};
+let pathnameMock = '/';
 
 vi.mock( '@tanstack/react-router', () => ( {
-	Link: ( props: { children?: ReactNode } ) => <a>{ props.children }</a>,
-	useNavigate: () => vi.fn(),
-	useParams: () => ( {} ),
+	useNavigate: () => navigateMock,
+	useParams: () => paramsMock,
+	useRouterState: ( options?: {
+		select?: ( state: { location: { pathname: string } } ) => unknown;
+	} ) => {
+		const state = { location: { pathname: pathnameMock } };
+		return options?.select ? options.select( state ) : state;
+	},
 } ) );
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
-vi.mock( '@/data/queries/use-agent-run', () => ( {
-	useIsSessionRunning: vi.fn(),
-	useSessionHasPendingQuestion: vi.fn(),
-} ) );
-
 vi.mock( '@/data/queries/use-sessions', () => ( {
 	useSessions: vi.fn(),
-	useUpdateSessionMetadata: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-agent-run', () => ( {
+	useSiteAgentActivity: vi.fn(),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -57,23 +64,25 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
-const useConnectorMock = vi.mocked( useConnector, { partial: true } );
+vi.mock( '@/data/sync-activity', () => ( {
+	useSiteSyncActivity: vi.fn(),
+} ) );
+
+const useConnectorMock = vi.mocked( useConnector );
 const useCopySiteMock = vi.mocked( useCopySite, { partial: true } );
 const useDeleteSiteMock = vi.mocked( useDeleteSite, { partial: true } );
 const useExportDatabaseMock = vi.mocked( useExportDatabase, { partial: true } );
 const useExportFullSiteMock = vi.mocked( useExportFullSite, { partial: true } );
-const useIsSessionRunningMock = vi.mocked( useIsSessionRunning );
-const useSessionHasPendingQuestionMock = vi.mocked( useSessionHasPendingQuestion );
 const useIsSiteStartingMock = vi.mocked( useIsSiteStarting );
 const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
+const useSiteAgentActivityMock = vi.mocked( useSiteAgentActivity );
 const useSessionsMock = vi.mocked( useSessions, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
-const useUpdateSessionMetadataMock = vi.mocked( useUpdateSessionMetadata, { partial: true } );
 const useUpdateSitesSortOrderMock = vi.mocked( useUpdateSitesSortOrder, { partial: true } );
+const useSiteSyncActivityMock = vi.mocked( useSiteSyncActivity );
 const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } );
-
 describe( 'SiteList', () => {
 	const startSite = vi.fn();
 	const stopSite = vi.fn();
@@ -81,38 +90,36 @@ describe( 'SiteList', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		paramsMock = {};
+		pathnameMock = '/';
 
+		useIsSiteStartingMock.mockReturnValue( false );
+		useIsSiteStoppingMock.mockReturnValue( false );
+		useSiteAgentActivityMock.mockReturnValue( 'idle' );
+		useSiteSyncActivityMock.mockReturnValue( null );
+		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
 		useConnectorMock.mockReturnValue( {
 			openExternalUrl: vi.fn(),
 			openSiteFolder: vi.fn(),
 			openSiteInEditor: vi.fn(),
 			openSiteInTerminal: vi.fn(),
-		} );
+		} as unknown as ReturnType< typeof useConnector > );
 		useCopySiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useDeleteSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
-		useIsSessionRunningMock.mockReturnValue( false );
-		useSessionHasPendingQuestionMock.mockReturnValue( false );
-		useIsSiteStartingMock.mockReturnValue( false );
-		useIsSiteStoppingMock.mockReturnValue( false );
-		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
 		useStartSiteMock.mockReturnValue( { isPending: false, mutate: startSite } );
 		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } );
-		useUpdateSessionMetadataMock.mockReturnValue( {
-			isPending: false,
-			mutate: vi.fn(),
-		} );
 		useUpdateSitesSortOrderMock.mockReturnValue( {
 			isPending: false,
 			mutate: updateSitesSortOrder,
 		} );
 		useUserPreferencesMock.mockReturnValue( {
 			data: {
-				editor: 'zed',
-				terminal: 'terminal',
+				editor: 'vscode',
+				terminal: null,
 				colorScheme: 'system',
-				locale: undefined,
+				locale: 'en',
 			},
 		} );
 		useSitesMock.mockReturnValue( {
@@ -152,18 +159,123 @@ describe( 'SiteList', () => {
 
 		expect( startSite ).toHaveBeenCalledWith( 'stopped-site' );
 		expect( stopSite ).not.toHaveBeenCalled();
+		expect( navigateMock ).not.toHaveBeenCalled();
 	} );
 
-	it( 'keeps a stop glyph as the running site action', () => {
+	it( 'uses a pause glyph as the running site action', () => {
 		render( <SiteList /> );
 
 		const runningButton = screen.getByRole( 'button', {
 			name: 'Site status: Running. Stop site',
 		} );
-		const actionGlyph = runningButton.querySelector( 'svg:nth-of-type(2)' );
+		const actionGlyph = runningButton.querySelector( 'span[aria-hidden="true"]' );
 
-		expect( actionGlyph?.querySelector( 'rect' ) ).toHaveAttribute( 'width', '8' );
-		expect( actionGlyph?.querySelector( 'path' ) ).not.toBeInTheDocument();
+		expect( runningButton.querySelectorAll( 'svg' ) ).toHaveLength( 1 );
+		expect( actionGlyph?.querySelector( 'span' ) ).toBeInTheDocument();
+	} );
+
+	it( 'opens site actions from the row without opening the latest chat', async () => {
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site actions' } )[ 0 ] );
+
+		expect( navigateMock ).not.toHaveBeenCalled();
+		expect( await screen.findByText( 'Site settings' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Duplicate site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Open folder' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Export entire site' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Delete site' ) ).toBeInTheDocument();
+	} );
+
+	it( 'opens site settings from the site actions menu', async () => {
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site actions' } )[ 0 ] );
+		fireEvent.click( await screen.findByText( 'Site settings' ) );
+
+		expect( navigateMock ).toHaveBeenCalledTimes( 1 );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sites/$siteId/settings',
+			params: { siteId: 'stopped-site' },
+		} );
+	} );
+
+	it( 'dims stopped site titles without dimming running sites', () => {
+		render( <SiteList /> );
+
+		const stoppedSiteClassName = screen.getByText( 'Stopped Site' ).getAttribute( 'class' ) ?? '';
+		const runningSiteClassName = screen.getByText( 'Running Site' ).getAttribute( 'class' ) ?? '';
+
+		expect( stoppedSiteClassName ).toContain( 'siteNameStopped' );
+		expect( runningSiteClassName ).not.toContain( 'siteNameStopped' );
+	} );
+
+	it( 'marks the site row as current for the active chat', () => {
+		paramsMock = { sessionId: 'stopped-chat' };
+		pathnameMock = '/sessions/stopped-chat';
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'stopped-chat',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
+
+		expect( siteButton ).toHaveAttribute( 'aria-current', 'page' );
+	} );
+
+	it( 'marks the site row as contextual on site settings routes', () => {
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/settings';
+
+		render( <SiteList /> );
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const siteButton = within( stoppedRow ).getByRole( 'button', { name: 'Stopped Site' } );
+
+		expect( siteButton ).not.toHaveAttribute( 'aria-current' );
+		expect( stoppedRow.getAttribute( 'class' ) ?? '' ).toContain( 'siteContextActive' );
+	} );
+
+	it( 'opens the latest active chat when a site is clicked', () => {
+		useSessionsMock.mockReturnValue( {
+			data: [
+				createSession( {
+					id: 'older-chat',
+					firstPrompt: 'Older visible chat',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+					updatedAt: '2026-06-01T12:00:00.000Z',
+				} ),
+				createSession( {
+					id: 'latest-chat',
+					firstPrompt: 'Latest visible chat',
+					ownerSitePath: '/Users/example/Studio/stopped-site',
+					updatedAt: '2026-06-20T12:00:00.000Z',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		expect( screen.queryByText( 'Latest visible chat' ) ).not.toBeInTheDocument();
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'header' );
+		expect( stoppedRow ).toBeInTheDocument();
+
+		fireEvent.click( stoppedRow! );
+
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sessions/$sessionId',
+			params: { sessionId: 'latest-chat' },
+		} );
 	} );
 
 	it( 'keeps the site list order instead of sorting by recent chat activity', () => {
@@ -193,7 +305,7 @@ describe( 'SiteList', () => {
 		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 	} );
 
-	it( 'groups sessions by owner site id, falling back to path for legacy sessions', () => {
+	it( 'matches sessions by owner site id, falling back to path for legacy sessions', () => {
 		useSitesMock.mockReturnValue( {
 			data: [
 				createSite( { id: 'site-a', name: 'Site A', path: '/sites/site-a' } ),
@@ -206,22 +318,22 @@ describe( 'SiteList', () => {
 				// A stale path must lose to the site id.
 				createSession( {
 					id: 'by-id',
-					firstPrompt: 'Matched by id',
 					ownerSiteId: 'site-b',
 					ownerSitePath: '/sites/site-a',
+					updatedAt: '2026-06-20T12:00:00.000Z',
 				} ),
 				createSession( {
 					id: 'legacy',
-					firstPrompt: 'Matched by path',
 					ownerSitePath: '/sites/site-a',
+					updatedAt: '2026-06-10T12:00:00.000Z',
 				} ),
 				// A deleted site's id must not fall back to a path that now
 				// belongs to another site.
 				createSession( {
 					id: 'orphan',
-					firstPrompt: 'Dead site id',
 					ownerSiteId: 'deleted-site',
 					ownerSitePath: '/sites/site-a',
+					updatedAt: '2026-06-25T12:00:00.000Z',
 				} ),
 			],
 			isLoading: false,
@@ -229,14 +341,18 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const siteA = screen.getByText( 'Site A' ).closest( 'section' )!;
-		const siteB = screen.getByText( 'Site B' ).closest( 'section' )!;
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site B' } ) );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sessions/$sessionId',
+			params: { sessionId: 'by-id' },
+		} );
 
-		expect( within( siteB ).getByText( 'Matched by id' ) ).toBeInTheDocument();
-		expect( within( siteA ).getByText( 'Matched by path' ) ).toBeInTheDocument();
-		// Orphaned chats land in the unassigned bucket, which this sidebar
-		// intentionally does not render.
-		expect( screen.queryByText( 'Dead site id' ) ).not.toBeInTheDocument();
+		// The orphan is newer but must not attach to Site A via its stale path.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site A' } ) );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sessions/$sessionId',
+			params: { sessionId: 'legacy' },
+		} );
 	} );
 
 	it( 'persists a manual site order after drag and drop', () => {
@@ -249,59 +365,13 @@ describe( 'SiteList', () => {
 
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
 
-		// The order lives in SiteList state, so the drop must reorder the DOM
-		// immediately — no waiting on a data-layer round trip.
-		expect(
-			screen
-				.getByText( 'Running Site' )
-				.compareDocumentPosition( screen.getByText( 'Stopped Site' ) ) &
-				Node.DOCUMENT_POSITION_FOLLOWING
-		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
-		expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
-	} );
-
-	it( 'moves focus to the dragged site after the drop', () => {
-		render( <SiteList /> );
-		dragStoppedSiteBelowRunningSite();
-
-		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
-
-		const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
-		expect( stoppedRow ).toBeInTheDocument();
-		expect( stoppedRow!.contains( document.activeElement ) ).toBe( true );
-	} );
-
-	it( 'marks the list with data-dragging while a drag is active', () => {
-		render( <SiteList /> );
-
-		expect( document.querySelector( '[data-dragging]' ) ).not.toBeInTheDocument();
-
-		dragStoppedSiteBelowRunningSite();
-
-		expect( document.querySelector( '[data-dragging]' ) ).toBeInTheDocument();
-
-		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
-
-		expect( document.querySelector( '[data-dragging]' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'aborts the drag without reordering on pointercancel', () => {
-		render( <SiteList /> );
-		dragStoppedSiteBelowRunningSite();
-
-		expect( screen.getByTestId( 'drop-placeholder' ) ).toBeInTheDocument();
-
-		fireEvent( window, createPointerEvent( 'pointercancel', { clientX: 16, clientY: 70 } ) );
-
-		expect( screen.queryByTestId( 'drop-placeholder' ) ).not.toBeInTheDocument();
-		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
-
 		const stoppedSite = screen.getByText( 'Stopped Site' );
 		const runningSite = screen.getByText( 'Running Site' );
 
 		expect(
-			stoppedSite.compareDocumentPosition( runningSite ) & Node.DOCUMENT_POSITION_FOLLOWING
+			runningSite.compareDocumentPosition( stoppedSite ) & Node.DOCUMENT_POSITION_FOLLOWING
 		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+		expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
 	} );
 
 	it( 'animates other sites into the drop placeholder while dragging', () => {
@@ -374,13 +444,14 @@ describe( 'SiteList', () => {
 		}
 	} );
 
-	it( 'does not start a drag from the session list or site actions', () => {
+	it( 'creates a chat when a site has no active chats', () => {
 		useSessionsMock.mockReturnValue( {
 			data: [
 				createSession( {
-					id: 'stopped-chat',
-					firstPrompt: 'Stopped site chat',
-					ownerSitePath: '/Users/example/Studio/stopped-site',
+					id: 'archived-chat',
+					firstPrompt: 'Archived chat',
+					ownerSitePath: '/Users/example/Studio/running-site',
+					archived: true,
 				} ),
 			],
 			isLoading: false,
@@ -388,45 +459,119 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const sessionLabel = screen.getByText( 'Stopped site chat' );
+		expect( screen.queryByText( 'Archived chat' ) ).not.toBeInTheDocument();
 
-		fireEvent(
-			sessionLabel,
-			createPointerEvent( 'pointerdown', { button: 0, clientX: 16, clientY: 10 } )
+		fireEvent.click( screen.getByRole( 'button', { name: 'Running Site' } ) );
+
+		expect( navigateMock ).toHaveBeenCalledWith( {
+			to: '/sites/$siteId/new',
+			params: { siteId: 'running-site' },
+		} );
+	} );
+
+	it( 'shows pending chat activity before the site name', () => {
+		useSiteAgentActivityMock.mockReturnValue( 'pending-question' );
+
+		render( <SiteList /> );
+
+		const stoppedSiteRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const indicator = within( stoppedSiteRow ).getByRole( 'status', {
+			name: 'Studio needs an answer.',
+		} );
+		const siteName = screen.getByText( 'Stopped Site' );
+
+		expect( indicator ).toBeInTheDocument();
+		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
 		);
-		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
+	} );
 
-		expect( screen.queryByTestId( 'drop-placeholder' ) ).not.toBeInTheDocument();
+	it( 'shows live sync activity before the site name while a site is syncing', () => {
+		useSiteAgentActivityMock.mockReturnValue( 'working' );
+		useSiteSyncActivityMock.mockImplementation( ( siteId ) =>
+			siteId === 'running-site' ? { kind: 'pending', direction: 'push', phase: 'uploading' } : null
+		);
 
-		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
+		render( <SiteList /> );
 
-		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
+		const runningSiteRow = screen.getByText( 'Running Site' ).closest( 'section' )!;
+		const indicator = within( runningSiteRow ).getByRole( 'status', {
+			name: 'Syncing live site',
+		} );
+		const siteName = screen.getByText( 'Running Site' );
+
+		expect( indicator ).toBeInTheDocument();
+		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
+		);
+		expect(
+			within( runningSiteRow ).queryByRole( 'status', { name: 'Working…' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'shows a new message indicator when an inactive site chat updates', () => {
+		let sessions = [
+			createSession( {
+				id: 'stopped-chat',
+				ownerSitePath: '/Users/example/Studio/stopped-site',
+				updatedAt: '2026-06-20T12:00:00.000Z',
+			} ),
+		];
+		useSessionsMock.mockImplementation( () => ( {
+			data: sessions,
+			isLoading: false,
+		} ) );
+
+		const { rerender } = render( <SiteList /> );
+
+		expect( screen.queryByRole( 'status', { name: 'New message' } ) ).not.toBeInTheDocument();
+
+		sessions = [
+			createSession( {
+				id: 'stopped-chat',
+				ownerSitePath: '/Users/example/Studio/stopped-site',
+				updatedAt: '2026-06-20T12:01:00.000Z',
+			} ),
+		];
+		rerender( <SiteList /> );
+
+		const indicator = screen.getByRole( 'status', { name: 'New message' } );
+		const siteName = screen.getByText( 'Stopped Site' );
+
+		expect( indicator ).toBeInTheDocument();
+		expect( indicator.compareDocumentPosition( siteName ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING
+		);
+	} );
+
+	it( 'does not show a new message indicator for the active site', () => {
+		paramsMock = { siteId: 'stopped-site' };
+		let sessions = [
+			createSession( {
+				id: 'stopped-chat',
+				ownerSitePath: '/Users/example/Studio/stopped-site',
+				updatedAt: '2026-06-20T12:00:00.000Z',
+			} ),
+		];
+		useSessionsMock.mockImplementation( () => ( {
+			data: sessions,
+			isLoading: false,
+		} ) );
+
+		const { rerender } = render( <SiteList /> );
+
+		sessions = [
+			createSession( {
+				id: 'stopped-chat',
+				ownerSitePath: '/Users/example/Studio/stopped-site',
+				updatedAt: '2026-06-20T12:01:00.000Z',
+			} ),
+		];
+		rerender( <SiteList /> );
+
+		expect( screen.queryByRole( 'status', { name: 'New message' } ) ).not.toBeInTheDocument();
 	} );
 } );
-
-function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
-	return {
-		id: 'session-1',
-		filePath: '/sessions/session-1.jsonl',
-		createdAt: '2026-07-01T00:00:00.000Z',
-		updatedAt: '2026-07-01T00:00:00.000Z',
-		activeEnvironment: 'local',
-		eventCount: 1,
-		...overrides,
-	};
-}
-
-function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
-	return {
-		id: 'site-1',
-		name: 'Demo Site',
-		path: '/Users/example/Studio/demo-site',
-		port: 8881,
-		running: false,
-		phpVersion: '8.4',
-		...overrides,
-	};
-}
 
 function dragStoppedSiteBelowRunningSite() {
 	const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
@@ -485,4 +630,30 @@ function createRect( {
 		y: top,
 		toJSON: () => ( {} ),
 	} as DOMRect;
+}
+
+function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
+	return {
+		id: 'site-1',
+		name: 'Demo Site',
+		path: '/Users/example/Studio/demo-site',
+		port: 8881,
+		running: false,
+		phpVersion: '8.4',
+		...overrides,
+	};
+}
+
+function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
+	return {
+		id: 'session-1',
+		filePath: '/Users/example/.studio/sessions/session-1.jsonl',
+		createdAt: '2026-06-01T12:00:00.000Z',
+		updatedAt: '2026-06-20T12:00:00.000Z',
+		firstPrompt: 'Site chat',
+		ownerSitePath: '/Users/example/Studio/demo-site',
+		activeEnvironment: 'local',
+		eventCount: 1,
+		...overrides,
+	};
 }

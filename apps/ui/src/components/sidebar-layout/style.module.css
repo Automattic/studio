@@ -5,6 +5,9 @@
 }
 
 .sidebar {
+	--sidebar-row-background-hover: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--sidebar-row-background-active: var(--wpds-color-bg-interactive-neutral-weak-active);
+
 	width: var(--sidebar-width, 320px);
 	/* The 240px floor is owned by useResizablePanel, which clamps
 	   --sidebar-width on every path. A CSS min-width here would be redundant

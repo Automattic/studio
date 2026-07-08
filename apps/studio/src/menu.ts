@@ -31,10 +31,12 @@ import {
 } from 'src/lib/feature-flags';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
+import { showQuitSitesDialog } from 'src/lib/quit-sites-dialog';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
 import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
+import { getRunningSiteNames } from 'src/site-server';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 // Feature flags that select which Studio UI is shown; toggling them requires
@@ -302,6 +304,19 @@ async function getAppMenu(
 							{
 								label: __( 'Feature Flags' ),
 								submenu: featureFlagsMenu,
+							},
+							{
+								label: __( 'Show Quit Dialog (dev only)' ),
+								click: async () => {
+									// Preview-only: shows the running-sites quit dialog without
+									// quitting or persisting the choice. Falls back to sample
+									// site names when nothing is running.
+									const runningSiteNames = getRunningSiteNames();
+									const choice = await showQuitSitesDialog(
+										runningSiteNames.length ? runningSiteNames : [ 'Beach Vibes', 'Client Demo' ]
+									);
+									console.log( 'Quit dialog simulation result:', choice );
+								},
 							},
 					  ]
 					: [] ),

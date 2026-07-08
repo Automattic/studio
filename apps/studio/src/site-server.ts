@@ -60,6 +60,12 @@ export function getRunningSiteCount(): number {
 	return Array.from( servers.values() ).filter( ( server ) => server.details.running ).length;
 }
 
+export function getRunningSiteNames(): string[] {
+	return Array.from( servers.values() )
+		.filter( ( server ) => server.details.running )
+		.map( ( server ) => server.details.name );
+}
+
 // Persist autoStart for every currently-running site in a single locked write. Used on quit, where the
 // CLI events subscriber (which normally mirrors autoStart into app.json) has already been stopped.
 export async function persistAutoStartForRunningSites( autoStart: boolean ): Promise< void > {

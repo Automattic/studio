@@ -16,7 +16,7 @@ import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
-import { __, _n } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import {
 	installExtension,
 	REACT_DEVELOPER_TOOLS,
@@ -40,6 +40,7 @@ import { handleDeeplink } from 'src/lib/deeplink';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
+import { showQuitSitesDialog } from 'src/lib/quit-sites-dialog';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { setupLogging } from 'src/logging';
 import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
@@ -54,6 +55,7 @@ import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-insta
 import { startRemoteSessionStatusPolling } from 'src/modules/remote-session/daemon-status-poller';
 import {
 	getRunningSiteCount,
+	getRunningSiteNames,
 	persistAutoStartForRunningSites,
 	SiteServer,
 	stopAllServers,
@@ -503,39 +505,17 @@ async function appBoot() {
 					return;
 				}
 
-				const quitChoices: { label: string; behavior: QuitSitesBehavior }[] = [
-					{ label: __( 'Stop' ), behavior: 'stop' },
-					{ label: __( 'Auto-start' ), behavior: 'stop-and-auto-start' },
-					{ label: __( 'Keep running' ), behavior: 'leave-running' },
-				];
-				const cancelButtonIndex = quitChoices.length;
-				const defaultButtonIndex = quitChoices.findIndex(
-					( choice ) => choice.behavior === 'leave-running'
-				);
+				const choice = await showQuitSitesDialog( getRunningSiteNames() );
 
-				const { response, checkboxChecked } = await dialog.showMessageBox( {
-					type: 'question',
-					message: _n( 'You have a running site', 'You have running sites', runningSiteCount ),
-					detail: __(
-						'Choose what to do with your running sites when Studio quits:\n\n• Keep running — sites stay running after Studio closes.\n• Auto-start — sites stop now and start again when you reopen Studio.\n• Stop — sites stop now and stay stopped.'
-					),
-					buttons: [ ...quitChoices.map( ( choice ) => choice.label ), __( 'Cancel' ) ],
-					checkboxLabel: __( "Don't ask again" ),
-					cancelId: cancelButtonIndex,
-					defaultId: defaultButtonIndex,
-				} );
-
-				if ( response === cancelButtonIndex ) {
+				if ( ! choice ) {
 					return;
 				}
 
-				const { behavior } = quitChoices[ response ];
-
-				if ( checkboxChecked ) {
-					await updateAppdata( { quitSitesBehavior: behavior } );
+				if ( choice.remember ) {
+					await updateAppdata( { quitSitesBehavior: choice.behavior } );
 				}
 
-				applyQuitSitesBehavior( behavior );
+				applyQuitSitesBehavior( choice.behavior );
 				isQuittingConfirmed = true;
 				app.quit();
 			} )();

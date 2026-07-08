@@ -184,7 +184,11 @@ jobs:
             # and PECL is the canonical PHP extension distribution channel.
             --custom-url="xdebug:https://pecl.php.net/get/xdebug-${XDEBUG_VERSION}.tgz"
             --ignore-cache-sources=php-src
-            --prefer-pre-built
+            # NOTE: intentionally not using --prefer-pre-built. SPC's prebuilt
+            # libsqlite3 is compiled without SQLITE_ENABLE_COLUMN_METADATA and
+            # skips the source build that #1204 patched to add the CFLAG, so it
+            # fails SPC's column-metadata sanity check. Building libs from
+            # source keeps the flag; the cost is a slower build.
           )
           build_args=(
             "$static_extensions"

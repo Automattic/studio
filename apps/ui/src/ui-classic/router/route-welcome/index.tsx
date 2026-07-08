@@ -101,7 +101,7 @@ export function WelcomePage() {
 					<div aria-hidden="true" className={ styles.contentScrim } />
 					<h1 className={ styles.title }>{ __( 'WordPress Studio' ) }</h1>
 					<p className={ styles.subtitle }>
-						{ __( 'Connect your WordPress.com account to unlock AI and seamless sync.' ) }
+						{ __( 'Your local studio for building WordPress sites, plugins, and themes.' ) }
 					</p>
 
 					<ul className={ styles.features }>
@@ -185,7 +185,7 @@ export function WelcomePage() {
 							loading={ login.isPending }
 							onClick={ () => login.mutate() }
 						>
-							{ __( 'Log in to WordPress.com' ) }
+							{ __( 'Log in with WordPress.com' ) }
 							<span aria-hidden className={ styles.arrow }>
 								{ '↗' }
 							</span>

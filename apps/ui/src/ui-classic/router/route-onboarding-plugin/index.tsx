@@ -45,7 +45,7 @@ function ConnectDotOrgCard() {
 			<div className={ styles.cardText }>
 				<h3 className={ styles.cardTitle }>{ __( 'Connect to WordPress.org' ) }</h3>
 				<p className={ styles.cardBody }>
-					{ __( 'Work on a plugin you contribute to in the WordPress.org directory' ) }
+					{ __( 'Work on a plugin you contribute to in the WordPress.org directory.' ) }
 				</p>
 			</div>
 		</Link>
@@ -87,7 +87,7 @@ function ExistingPluginCard() {
 			<div className={ styles.cardText }>
 				<h3 className={ styles.cardTitle }>{ __( 'Add an existing plugin' ) }</h3>
 				<p className={ styles.cardBody }>
-					{ __( 'Choose a folder on your computer that contains a WordPress plugin' ) }
+					{ __( 'Choose a folder on your computer that contains a WordPress plugin.' ) }
 				</p>
 				{ error && (
 					<span role="alert" className={ styles.cardError }>
@@ -119,7 +119,7 @@ export function OnboardingPluginPage() {
 					<div className={ styles.cardText }>
 						<h3 className={ styles.cardTitle }>{ __( 'Create a new plugin' ) }</h3>
 						<p className={ styles.cardBody }>
-							{ __( 'Start from scratch with a fresh plugin scaffold' ) }
+							{ __( 'Start from scratch with a fresh plugin scaffold.' ) }
 						</p>
 					</div>
 				</Link>

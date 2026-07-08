@@ -100,9 +100,9 @@ export function OnboardingImportPage() {
 
 	return (
 		<div className={ sharedStyles.page }>
-			<h1 className={ sharedStyles.title }>{ __( 'Configure the imported site' ) }</h1>
+			<h1 className={ sharedStyles.title }>{ __( 'Set up your imported site' ) }</h1>
 			<p className={ sharedStyles.subtitle }>
-				{ __( 'Pick a name and local folder. The backup will restore on top of this new site.' ) }
+				{ __( 'Choose a name and local folder. The backup will restore on top of this new site.' ) }
 			</p>
 			<CreateSiteForm
 				initialValues={ initialValues }

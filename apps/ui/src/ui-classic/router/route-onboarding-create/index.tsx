@@ -55,7 +55,7 @@ function CreateSitePage() {
 		<div className={ styles.page }>
 			<h1 className={ styles.title }>{ __( 'Create a new site' ) }</h1>
 			<p className={ styles.subtitle }>
-				{ __( 'Choose a name and we\u2019ll scaffold a fresh WordPress site locally.' ) }
+				{ __( 'Choose a name and we\u2019ll set up a fresh WordPress site on your machine.' ) }
 			</p>
 			<CreateSiteForm
 				initialValues={ proposedName ? { name: proposedName } : undefined }

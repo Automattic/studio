@@ -43,7 +43,7 @@ function ConnectSiteCard() {
 			<div className={ styles.cardText }>
 				<h3 className={ styles.cardTitle }>{ __( 'Connect a site' ) }</h3>
 				<p className={ styles.cardBody }>
-					{ __( 'Edit a WordPress.com or Pressable site locally, then push changes back' ) }
+					{ __( 'Edit a WordPress.com or Pressable site locally, then push or pull changes.' ) }
 				</p>
 			</div>
 		</Link>
@@ -120,7 +120,7 @@ function ImportDropCard() {
 				<div className={ styles.cardText }>
 					<h3 className={ styles.cardTitle }>{ __( 'Import from a backup' ) }</h3>
 					<p className={ styles.cardBody }>
-						{ __( 'Drop a file or click to browse (.zip, .tar.gz, .sql, .wpress)' ) }
+						{ __( 'Drop a file or click to browse (.zip, .tar.gz, .sql, .wpress).' ) }
 					</p>
 					{ error && (
 						<span role="alert" className={ styles.cardError }>
@@ -151,7 +151,7 @@ export function OnboardingHomePage() {
 				<Link to="/onboarding/blueprint" className={ cardClass } data-arrow-nav-item>
 					<BuildNewSiteIllustration />
 					<div className={ styles.cardText }>
-						<h3 className={ styles.cardTitle }>{ __( 'Build a new site' ) }</h3>
+						<h3 className={ styles.cardTitle }>{ __( 'Create a new site' ) }</h3>
 						<p className={ styles.cardBody }>
 							{ __(
 								'Start from scratch or use a blueprint. Perfect for theme and plugin development.'

@@ -141,7 +141,7 @@ function OnboardingBlueprintPage() {
 			setSubmitError(
 				error instanceof Error
 					? error.message
-					: __( 'Failed to create site from Blueprint. Please try again.' )
+					: __( 'Failed to create site from blueprint. Please try again.' )
 			);
 		}
 	};
@@ -149,7 +149,7 @@ function OnboardingBlueprintPage() {
 	if ( activeStep === 'select' ) {
 		return (
 			<div className={ `${ styles.page } ${ styles.pageSpacious }` }>
-				<h1 className={ styles.title }>{ __( 'Build a new site' ) }</h1>
+				<h1 className={ styles.title }>{ __( 'Create a new site' ) }</h1>
 				<p className={ styles.subtitle }>
 					{ __( 'Choose a starting point for your new WordPress site.' ) }
 				</p>
@@ -199,7 +199,7 @@ function OnboardingBlueprintPage() {
 				onCancel={ handleBackToSelect }
 				isSubmitting={ createSite.isPending }
 				submitError={ submitError }
-				submitLabel={ __( 'Create site from Blueprint' ) }
+				submitLabel={ __( 'Create site from blueprint' ) }
 			/>
 		</div>
 	);

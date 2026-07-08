@@ -39,7 +39,7 @@ const STEPS = [
 		],
 	},
 	{
-		title: __( 'Build with the Studio agent' ),
+		title: __( 'Build with Studio Code' ),
 		subtitle: __( 'Studio Code is an AI collaborator that works on your sites with you.' ),
 		illustration: (
 			<div className={ styles.tourPixelField }>
@@ -49,7 +49,9 @@ const STEPS = [
 		points: [
 			{
 				title: __( 'Chat to build' ),
-				body: __( 'Describe what you want. The agent designs, writes code, and edits your site.' ),
+				body: __(
+					'Describe what you want. Studio Code designs, writes code, and edits your site.'
+				),
 			},
 			{
 				title: __( 'Sites, plugins, and themes' ),
@@ -57,7 +59,7 @@ const STEPS = [
 			},
 			{
 				title: __( 'Anything you can imagine' ),
-				body: __( 'If WordPress can do it, you can build it in Studio.' ),
+				body: __( 'If WordPress can do it, you can build it in your Studio.' ),
 			},
 		],
 	},

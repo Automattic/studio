@@ -45,7 +45,7 @@ export function OnboardingAiPage() {
 				} );
 				void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 			} catch ( sendError ) {
-				setError( __( 'Something went wrong creating a site. Try again.' ) );
+				setError( __( 'Failed to create site. Please try again.' ) );
 				// Rethrow so the composer restores the draft and attachments.
 				throw sendError;
 			} finally {
@@ -58,9 +58,7 @@ export function OnboardingAiPage() {
 	return (
 		<WizardPage
 			title={ __( 'What should we build?' ) }
-			subtitle={ __(
-				'Describe your idea and the Studio agent will set up a site and start building.'
-			) }
+			subtitle={ __( 'Describe your idea and Studio Code will set up a site and start building.' ) }
 			onBack={ () => void navigate( { to: '/onboarding' } ) }
 		>
 			<div className={ styles.composerHost }>

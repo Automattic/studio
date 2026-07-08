@@ -76,8 +76,10 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 			expect( fs.existsSync( path.join( sitePath, 'wp-includes', 'version.php' ) ) ).toBe( true );
 			expect( fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ).toBe( true );
 
-			// A plain localhost site has no custom domain, so it serves directly (no redirect).
-			const response = await waitForSiteResponse( `http://localhost:${ String( site.port ) }` );
+			// A freshly started site can return a warm-up 302 before serving, so poll for the 200.
+			const response = await waitForSiteResponse( `http://localhost:${ String( site.port ) }`, {
+				expectedStatus: 200,
+			} );
 			expect( response.status ).toBe( 200 );
 			expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
 		}

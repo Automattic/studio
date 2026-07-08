@@ -416,7 +416,7 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	// Clearing the cache before each upgrade forces a fresh filesystem read.
 	// Excluded from native PHP, where every request starts with clean caches.
 	//
-	// @see https://linear.app/a8c/issue/STU-1931
+	// @see STU-1931
 	muPlugins.push( {
 		filename: '0-clear-stat-cache-before-upgrade.php',
 		content: `<?php

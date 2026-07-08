@@ -11,7 +11,7 @@ import type { SlashCommandDef } from 'cli/ai/slash-commands';
 // Vitest isolates env changes per test file.
 process.env.FORCE_COLOR = '3';
 
-const highlight = ( text: string ) => chalk.hex( '#3858e9' )( text );
+const highlight = ( text: string ) => chalk.hex( '#a4cafa' )( text );
 
 const COMMANDS: SlashCommandDef[] = [
 	{ name: 'exit', description: 'Exit the chat' },

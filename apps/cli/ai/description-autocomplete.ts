@@ -4,7 +4,7 @@ import { escapeRegex } from '@studio/common/lib/escape-regex';
 import type { AutocompleteSuggestions } from '@earendil-works/pi-tui';
 import type { SlashCommandDef } from 'cli/ai/slash-commands';
 
-const wordPressBlue = chalk.hex( '#3858e9' );
+const highlightBlue = chalk.hex( '#a4cafa' );
 
 export function highlightMatch( text: string, query: string ): string {
 	const index = text.toLowerCase().indexOf( query.toLowerCase() );
@@ -13,7 +13,7 @@ export function highlightMatch( text: string, query: string ): string {
 	}
 	return (
 		text.slice( 0, index ) +
-		wordPressBlue( text.slice( index, index + query.length ) ) +
+		highlightBlue( text.slice( index, index + query.length ) ) +
 		text.slice( index + query.length )
 	);
 }
@@ -23,7 +23,7 @@ export function highlightMatch( text: string, query: string ): string {
 let highlightSpan: RegExp | null | undefined;
 function getHighlightSpan(): RegExp | null {
 	if ( highlightSpan === undefined ) {
-		const [ open, close ] = wordPressBlue( ' ' ).split( ' ' );
+		const [ open, close ] = highlightBlue( ' ' ).split( ' ' );
 		highlightSpan = open
 			? new RegExp( `(${ escapeRegex( open ) }.*?${ escapeRegex( close ) })` )
 			: null;

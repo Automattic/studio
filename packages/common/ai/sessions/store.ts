@@ -284,8 +284,8 @@ export async function deleteAiSession(
 	const sessionToDelete = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
 	await fs.rm( sessionToDelete.filePath, { force: false } );
 
-	// Sweep sidecar files (e.g. legacy `.openai-state.json`) sharing the
-	// JSONL's stem. Best-effort.
+	// Sweep sidecars sharing the JSONL's stem: legacy files like
+	// `.openai-state.json` and directories like `.screenshots`. Best-effort.
 	const sessionDir = path.dirname( sessionToDelete.filePath );
 	const baseName = path.basename( sessionToDelete.filePath, '.jsonl' );
 	try {
@@ -294,7 +294,9 @@ export async function deleteAiSession(
 			siblings
 				.filter( ( name ) => name.startsWith( `${ baseName }.` ) && name !== `${ baseName }.jsonl` )
 				.map( ( name ) =>
-					fs.rm( path.join( sessionDir, name ), { force: true } ).catch( () => undefined )
+					fs
+						.rm( path.join( sessionDir, name ), { force: true, recursive: true } )
+						.catch( () => undefined )
 				)
 		);
 	} catch {

@@ -1,4 +1,5 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
+import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
@@ -76,6 +77,15 @@ export async function runCommand(
 			logger.reportError(
 				new LoggerError( __( 'Failed to update AI instructions. Proceeding anyway…' ), error ),
 				false
+			);
+		}
+
+		const maintenanceCheck = checkMaintenanceFile( sitePath );
+		if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
+			throw new LoggerError(
+				__(
+					'This site is in maintenance mode. WordPress is currently performing an update. The maintenance lock should expire automatically within 10 minutes. Please wait and try again.'
+				)
 			);
 		}
 

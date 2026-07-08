@@ -1,5 +1,6 @@
 // MCP server launcher — picks the right way to run the server for where this
-// package is sitting. `.mcp.json` (and gemini-extension.json) point here.
+// package is sitting. `.mcp.json`, `.mcp.codex.json`, and gemini-extension.json
+// point here.
 //
 // Two situations share one manifest:
 // - Development checkout (Studio workspace or the standalone repo):

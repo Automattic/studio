@@ -8,7 +8,7 @@
   "homepage": "https://github.com/Automattic/studio",
   "license": "GPL-2.0-or-later",
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
+  "mcpServers": "./.mcp.codex.json",
   "interface": {
     "displayName": "Data Liberation",
     "shortDescription": "Extract closed-platform sites into WordPress-compatible exports",

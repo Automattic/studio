@@ -1,10 +1,9 @@
-import path from 'path';
-import { getAiSessionsDirectoryForDate as getDirectoryForDate } from '@studio/common/ai/sessions/paths';
-import { getAppdataDirectory } from 'cli/lib/appdata';
+import {
+	getAiSessionsDirectoryForDate as getDirectoryForDate,
+	getAiSessionsRootDirectory,
+} from '@studio/common/ai/sessions/paths';
 
-export function getAiSessionsRootDirectory(): string {
-	return path.join( getAppdataDirectory(), 'sessions' );
-}
+export { getAiSessionsRootDirectory };
 
 export function getAiSessionsDirectoryForDate( date: Date ): string {
 	return getDirectoryForDate( getAiSessionsRootDirectory(), date );

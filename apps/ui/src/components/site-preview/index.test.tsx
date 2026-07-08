@@ -20,6 +20,7 @@ const CAPABILITIES = {
 	nativeSaveDialog: false,
 	openInOS: false,
 	annotatePreview: false,
+	readLocalMedia: false,
 };
 
 function renderPreview( children: ReactNode ) {

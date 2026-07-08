@@ -149,29 +149,41 @@ test.describe( 'Import backup formats', () => {
 	} );
 
 	test( 'imports a backup file into an existing site', async ( { page } ) => {
-		// Restart the onboarding site; a successful import is observable as its
-		// title changing from the fresh-install one to the fixture's.
+		// Import into the onboarding site while it's stopped: starting it first
+		// spawns WP-CLI processes (theme details, site icon) that race the
+		// database import and intermittently fail it. The import starts the
+		// server itself on completion.
 		const sidebar = new MainSidebar( session.mainWindow );
 		await sidebar.getSiteNavButton( DEFAULT_SITE_NAME ).click();
 		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
-		await siteContent.locator.getByRole( 'button', { name: 'Start' } ).click();
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+		// On retries, beforeAll leaves the site running — stop it.
+		await stopAllSites();
 
-		// The tab's import flow asks for confirmation via a native dialog.
-		await session.electronApp.evaluate( ( { dialog } ) => {
-			dialog.showMessageBox = async () => ( { response: 0, checkboxChecked: false } );
-		} );
+		// Auto-confirm the import's native confirmation dialog, recording all
+		// dialogs so a failure surfaces its message below.
+		await session.stubMessageBox();
 
 		const tab = await siteContent.navigateToTab( 'import-export' );
 		if ( ! ( 'uploadFile' in tab ) ) {
 			throw new Error( 'Expected ImportExportTab but got a different tab type' );
 		}
 		await tab.uploadFile( path.join( FIXTURES_DIR, 'local-backup.zip' ) );
-		// Unlike the new-site flow, the tab's import UI reports completion with
-		// "Import complete!".
-		await expect( session.mainWindow.getByText( 'Import complete!' ) ).toBeVisible( {
-			timeout: 120_000,
-		} );
+		// Wait for the completion banner, but fail fast with the recorded
+		// dialog message if the import errors instead.
+		await expect
+			.poll(
+				async () => {
+					const failure = ( await session.getRecordedDialogs() ).find( ( entry ) =>
+						entry.includes( 'Failed importing site' )
+					);
+					if ( failure ) {
+						throw new Error( `Import failed: ${ failure }` );
+					}
+					return tab.importCompleteBanner.isVisible();
+				},
+				{ timeout: 120_000 }
+			)
+			.toBe( true );
 
 		await assertImportedSiteContent( page, siteContent );
 	} );

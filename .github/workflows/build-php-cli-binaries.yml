@@ -183,12 +183,16 @@ jobs:
             # container's curl/OpenSSL can't negotiate TLS with xdebug.org,
             # and PECL is the canonical PHP extension distribution channel.
             --custom-url="xdebug:https://pecl.php.net/get/xdebug-${XDEBUG_VERSION}.tgz"
+            # Force sqlite to download from source (a --custom-url is honored
+            # before the --prefer-pre-built lookup) so #1204's
+            # -DSQLITE_ENABLE_COLUMN_METADATA CFLAG is applied at build time.
+            # SPC's prebuilt libsqlite3 was compiled without the flag and skips
+            # the source build, failing SPC's column-metadata sanity check.
+            # Every other lib still uses prebuilts. URL matches the sqlite
+            # version pinned by spc_ref above; update it if that ref bumps sqlite.
+            --custom-url="sqlite:https://www.sqlite.org/2024/sqlite-autoconf-3450200.tar.gz"
             --ignore-cache-sources=php-src
-            # NOTE: intentionally not using --prefer-pre-built. SPC's prebuilt
-            # libsqlite3 is compiled without SQLITE_ENABLE_COLUMN_METADATA and
-            # skips the source build that #1204 patched to add the CFLAG, so it
-            # fails SPC's column-metadata sanity check. Building libs from
-            # source keeps the flag; the cost is a slower build.
+            --prefer-pre-built
           )
           build_args=(
             "$static_extensions"

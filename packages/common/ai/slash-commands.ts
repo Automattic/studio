@@ -3,8 +3,6 @@ import { __ } from '@wordpress/i18n';
 export interface SkillSlashCommand {
 	name: string;
 	description: string;
-	/** Skill invoked by this command when it differs from `name` (alias commands). */
-	skill?: string;
 }
 
 export const AI_SKILL_COMMANDS: SkillSlashCommand[] = [
@@ -14,16 +12,10 @@ export const AI_SKILL_COMMANDS: SkillSlashCommand[] = [
 	{ name: 'rank-me-up', description: __( 'Run an on-page SEO audit on a site' ) },
 	{
 		name: 'liberate',
-		description: __( 'Import & rebuild a site from a closed platform' ),
-	},
-	{
-		name: 'migrate',
-		skill: 'liberate',
-		description: __( 'Import & rebuild a site from a closed platform (alias of /liberate)' ),
+		description: __( 'Migrate & rebuild a site from a closed platform' ),
 	},
 ];
 
 export function buildSkillInvocationPrompt( name: string ): string {
-	const skill = AI_SKILL_COMMANDS.find( ( cmd ) => cmd.name === name )?.skill ?? name;
-	return `Run the /${ skill } skill using the Skill tool.`;
+	return `Run the /${ name } skill using the Skill tool.`;
 }

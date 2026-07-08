@@ -18,11 +18,9 @@ describe( 'getSlashCommandMatches', () => {
 	it( 'filters by case-insensitive substring (including the start)', () => {
 		const result = getSlashCommandMatches( '/an', null );
 		expect( result.open ).toBe( true );
-		// `annotate` starts with it; `need-for-speed` has it in its description
-		// ("performance"); `rank-me-up` contains it in the middle.
+		// `annotate` starts with it; `rank-me-up` contains it in the middle.
 		expect( result.matches.map( ( command ) => command.name ) ).toEqual( [
 			'annotate',
-			'need-for-speed',
 			'rank-me-up',
 		] );
 	} );
@@ -39,13 +37,15 @@ describe( 'getSlashCommandMatches', () => {
 		expect( result.matches.map( ( command ) => command.name ) ).toEqual( [ 'need-for-speed' ] );
 	} );
 
-	it( 'matches a substring of a command description', () => {
-		const result = getSlashCommandMatches( '/migrate', null );
-		expect( result.open ).toBe( true );
-		expect( result.matches.map( ( command ) => command.name ) ).toEqual( [ 'liberate' ] );
+	it( 'matches a command keyword, including partial input', () => {
+		for ( const input of [ '/migrate', '/mig', '/import' ] ) {
+			const result = getSlashCommandMatches( input, null );
+			expect( result.open ).toBe( true );
+			expect( result.matches.map( ( command ) => command.name ) ).toEqual( [ 'liberate' ] );
+		}
 	} );
 
-	it( 'matches descriptions case-insensitively', () => {
+	it( 'matches keywords case-insensitively', () => {
 		const result = getSlashCommandMatches( '/MIGRATE', null );
 		expect( result.open ).toBe( true );
 		expect( result.matches.map( ( command ) => command.name ) ).toEqual( [ 'liberate' ] );

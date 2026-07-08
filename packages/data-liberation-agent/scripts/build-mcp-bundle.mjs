@@ -41,6 +41,7 @@ const scriptsOutDir = resolve(pkgRoot, 'dist', 'scripts');
 // or the step only works in dev checkouts.
 const SKILL_DRIVERS = [
   '_shot',
+  '_validate',
   'carry-chrome-audit-run',
   'carry-reconstruct-drive',
   'carry-replica-shots',
@@ -109,6 +110,14 @@ const drivers = await build({
   chunkNames: 'chunk-[hash]',
   plugins: [perModuleImportMetaUrl(scriptsOutDir)],
 });
+
+// The block-fixer sidecar is NOT bundled: registerCoreBlocks drags the whole
+// @wordpress/block-library + block-editor React tree in (~92 MB minified) —
+// far too large to commit. Instead the sidecar ships its own committed
+// package-lock.json and block-fixer-client restores the nested install at
+// first use (`npm ci --ignore-scripts`) when the deps don't resolve. The
+// deps must stay nested — hoisting them into this package's tree would put
+// React 18 next to Ink's React 19, the exact conflict the sidecar isolates.
 
 for (const [result, label] of [
   [server, relative(pkgRoot, serverOutfile)],

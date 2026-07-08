@@ -33,10 +33,11 @@ const bundle = join(bundleDir, `${name}.mjs`);
 
 function available() {
   const names = new Set();
-  for (const [dir, ext] of [
-    [join(pkgRoot, 'scripts'), '.ts'],
-    [bundleDir, '.mjs'],
-  ]) {
+  // Without resolvable dev deps only the committed bundles can run — don't
+  // advertise source-only scripts the caller would just fail on.
+  const dirs = [[bundleDir, '.mjs']];
+  if (resolveDevTsx()) dirs.push([join(pkgRoot, 'scripts'), '.ts']);
+  for (const [dir, ext] of dirs) {
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir)) {
       if (f.endsWith(ext) && !f.startsWith('chunk-')) names.add(basename(f, ext));

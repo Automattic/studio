@@ -209,7 +209,7 @@ Custom blocks (rare — only when core blocks cannot express a real source inter
 
 ### Step 6 — Validate
 
-`liberate_reconstruct_pages` ALREADY gates every page through `validate_artifacts` against that page's own spec corpus and refuses to install a failing page — that is the authoritative trust boundary and it ran in Step 5. For an independent on-disk sweep, run `scripts/_validate.ts <outputDir>` (auto-discovers `theme/patterns/*.php`). Its security/injection/drift checks are exact; its provenance check is APPROXIMATE (corpus from `html/<slug>.html`) and can FALSE-POSITIVE when the renderer concatenated text across source elements — verify any provenance flag against the source before treating it as real. The raw `liberate_validate_artifacts` MCP tool takes `{ patterns: ArtifactPattern[] }` (not `{ outputDir }`).
+`liberate_reconstruct_pages` ALREADY gates every page through `validate_artifacts` against that page's own spec corpus and refuses to install a failing page — that is the authoritative trust boundary and it ran in Step 5. For an independent on-disk sweep, run `node scripts/run.mjs _validate <outputDir>` (auto-discovers `theme/patterns/*.php`). Its security/injection/drift checks are exact; its provenance check is APPROXIMATE (corpus from `html/<slug>.html`) and can FALSE-POSITIVE when the renderer concatenated text across source elements — verify any provenance flag against the source before treating it as real. The raw `liberate_validate_artifacts` MCP tool takes `{ patterns: ArtifactPattern[] }` (not `{ outputDir }`).
 
 It asserts:
 - All source-derived text is escaped (`esc_html`/`esc_attr`/`esc_url`)

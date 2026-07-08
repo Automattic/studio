@@ -60,11 +60,18 @@ export const takeScreenshotTool = defineTool(
 		'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` to verify pages that respond to prefers-color-scheme. ' +
 		'Long pages are clipped at 8000 vertical pixels (a vision-model limit); the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
 		'Use this to verify the site looks correct after building it. ' +
+		'Captures are shown to the user in the chat by default; pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones. ' +
 		'Use `share_screenshot` instead only in remote sessions where you need to deliver the rendered page outside the Studio UI.',
 	{
 		url: Type.String( { description: 'The URL to screenshot' } ),
 		viewport: Type.Optional( screenshotViewportSchema ),
 		colorScheme: Type.Optional( screenshotColorSchemeSchema ),
+		display: Type.Optional(
+			Type.Boolean( {
+				description:
+					'Whether to show the capture to the user in the chat. Defaults to true; set false for internal verification captures the user does not need to see.',
+			} )
+		),
 		offset: Type.Optional(
 			Type.Number( {
 				minimum: 0,
@@ -162,7 +169,9 @@ export const takeScreenshotTool = defineTool(
 						mimeType: capture.mimeType,
 					} ) ),
 				],
-				studioArtifacts: captures.map( ( capture ) => capture.mediaWidgetPayload ),
+				...( args.display === false
+					? {}
+					: { studioArtifacts: captures.map( ( capture ) => capture.mediaWidgetPayload ) } ),
 			};
 		} catch ( error ) {
 			throw new Error(

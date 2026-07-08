@@ -1,27 +1,14 @@
-import { getLocaleData, isSupportedLocale } from '@studio/common/lib/locale';
-import { defaultI18n } from '@wordpress/i18n';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
 import { persistPromise } from '@/data/core';
 import { createLocalConnector } from '@/data/core/connectors/local';
-import type { Connector } from '@/data/core';
+import { applyLocale } from '@/lib/apply-locale';
 
 // Local entry point. Identical to `main.tsx` except it wires the HTTP/SSE local
 // connector instead of the Electron IPC connector, so the same React app runs
 // in a plain browser tab against the local server started by `studio ui`
 // (`apps/local`, bundled into the Studio CLI).
-
-async function loadTranslations( connector: Connector ) {
-	const { locale } = await connector.getUserPreferences();
-	if ( ! locale || ! isSupportedLocale( locale ) ) {
-		return;
-	}
-	const translations = getLocaleData( locale )?.messages;
-	if ( translations ) {
-		defaultI18n.setLocaleData( translations );
-	}
-}
 
 function getDefaultApiBaseUrl(): string {
 	// Production builds are served by the local server itself, so the API is
@@ -35,7 +22,7 @@ async function bootstrap() {
 		apiBaseUrl: import.meta.env.VITE_STUDIO_API_URL ?? getDefaultApiBaseUrl(),
 	} );
 
-	await Promise.all( [ connector.init?.(), loadTranslations( connector ), persistPromise ] );
+	await Promise.all( [ connector.init?.(), applyLocale( connector ), persistPromise ] );
 
 	createRoot( document.getElementById( 'root' )! ).render(
 		<StrictMode>

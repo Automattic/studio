@@ -271,7 +271,12 @@ export function getDefaultPhpArgs(
 			'-d',
 			`zend_extension="${ path.join( getExtensionDir( phpVersion ), getXdebugFilename() ) }"`,
 			'-d',
-			'xdebug.mode=debug'
+			'xdebug.mode=debug',
+			// Override Xdebug's default `trigger` mode
+			// (https://xdebug.org/docs/all_settings#start_with_request):
+			// enabling Xdebug for a site means every request starts debugging.
+			'-d',
+			'xdebug.start_with_request=yes'
 		);
 	}
 

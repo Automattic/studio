@@ -63,7 +63,7 @@ export const STUDIO_PRESENTATION_RULES: StudioPresentationRule[] = [
 	{
 		id: 'screenshot-auto-artifact',
 		description:
-			'take_screenshot captures are already shown to the user as inline media in the conversation. Never call studio_present for a screenshot, and do not substitute a site-preview widget for one; site-preview is for live previews, not captured screenshots.',
+			'take_screenshot captures are shown to the user as inline media in the conversation by default. Do not show every internal verification screenshot: while iterating (design polish loops, intermediate checks), pass `display: false` and let only deliberate milestone captures display. Never call studio_present for a screenshot, and do not substitute a site-preview widget for one; site-preview is for live previews, not captured screenshots.',
 	},
 ];
 

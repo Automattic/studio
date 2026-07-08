@@ -154,7 +154,7 @@ export function executeCliCommand(
 		// the main-process console. Commands like `preview list --format json`
 		// dump large structured payloads on stdout that would otherwise spam
 		// `npm start` output every time snapshots are fetched.
-		const logPrefix = options.logPrefix ? `[CLI - site ID ${ options.logPrefix }]` : null;
+		const logPrefix = options.logPrefix ? `[CLI - ${ options.logPrefix }]` : null;
 		child.stdout?.on( 'data', ( data: Buffer ) => {
 			const text = data.toString();
 			stdout += text;

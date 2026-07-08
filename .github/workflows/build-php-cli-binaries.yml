@@ -17,14 +17,10 @@ on:
         required: true
         default: 3.5.1
       spc_ref:
-        # Pinned to PR #1204 ("Enable SQLite column metadata"), which builds
-        # libsqlite3 with SQLITE_ENABLE_COLUMN_METADATA and stops SPC from
-        # disabling sqlite3_column_table_name() in pdo_sqlite's configure.
-        # Without it PDO omits getColumnMeta()['table'] on Unix builds, which
-        # breaks phpMyAdmin's unique-column detection on the native runtime.
-        # This ref descends from the previous pin (ef95e4f, PR #1132 "fix
-        # centos 7 gd build" for the libcurl.pc `-l-lpthread` link failure),
-        # so that fix is retained. Bump to the next SPC release once it cuts.
+        # Pinned to PR #1204, which enables SQLITE_ENABLE_COLUMN_METADATA on
+        # Unix builds so PDO populates getColumnMeta()['table'] (fixes
+        # phpMyAdmin's unique-column detection on the native runtime). Descends
+        # from #1132's centos 7 gd fix. Bump to the next SPC release once it cuts.
         description: static-php-cli ref to use for the macOS and Linux builds
         required: true
         default: 532972337e2cc9b0436923a50fdffe3e3d683c68

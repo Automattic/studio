@@ -100,10 +100,15 @@ export function DevMessageLab() {
 	};
 
 	if ( ! open ) {
+		// The pill stays invisible until the pointer reaches the corner hot
+		// zone, so it never covers real UI (the onboarding Continue button
+		// lives right next to it).
 		return (
-			<button type="button" className={ styles.pill } onClick={ () => setOpen( true ) }>
-				Message lab
-			</button>
+			<div className={ styles.corner }>
+				<button type="button" className={ styles.pill } onClick={ () => setOpen( true ) }>
+					Message lab
+				</button>
+			</div>
 		);
 	}
 

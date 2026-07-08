@@ -98,6 +98,23 @@ export interface UpdateSiteInput {
 	wpVersion?: string;
 }
 
+// Persists the sidebar's manual site order. Spaced values (1000, 2000, …)
+// match the legacy desktop sidebar's convention for the same appdata field.
+// No invalidation: the site list applies the new order optimistically, and the
+// next natural refetch returns the same order.
+export function useUpdateSitesSortOrder() {
+	const connector = useConnector();
+	return useMutation( {
+		mutationFn: ( orderedSiteIds: string[] ) =>
+			connector.updateSitesSortOrder(
+				orderedSiteIds.map( ( siteId, index ) => ( {
+					siteId,
+					sortOrder: ( index + 1 ) * 1000,
+				} ) )
+			),
+	} );
+}
+
 export function useUpdateSite() {
 	const connector = useConnector();
 	return useMutation( {

@@ -43,6 +43,32 @@
 	gap: 0;
 }
 
+/* Structural drag styles (touch-action, fixed preview positioning,
+   will-change) live in the shared reorderable-list module; these classes
+   carry only the site rows' visual treatment. */
+
+.siteDragWrapper {
+	border-radius: 6px;
+}
+
+.siteDropPlaceholder {
+	block-size: var(--site-list-row-height);
+	border-radius: 6px;
+	background-color: var(--site-list-row-background-hover);
+	box-shadow: inset 0 0 0 1px
+		color-mix(in srgb, var(--wpds-color-stroke-interactive-brand) 45%, transparent);
+	transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.siteDragPreview {
+	opacity: 0.95;
+	filter: drop-shadow(0 6px 14px rgb(0 0 0 / 14%));
+}
+
+.siteDragPreview .siteHeader {
+	background-color: var(--site-list-row-background-active);
+}
+
 .site {
 	display: flex;
 	flex-direction: column;
@@ -280,6 +306,10 @@
 	.siteStatusGlyph,
 	.siteStatusActionGlyph {
 		transition: none;
+	}
+
+	.siteDragPreview {
+		filter: none;
 	}
 }
 

@@ -82,7 +82,11 @@ export async function createOrReuseAiSession(
 	if ( ! site ) {
 		const reusable = existing
 			.filter(
-				( session ) => ! session.ownerSitePath && ! session.firstPrompt && ! session.archived
+				( session ) =>
+					! session.ownerSiteId &&
+					! session.ownerSitePath &&
+					! session.firstPrompt &&
+					! session.archived
 			)
 			.sort( newestFirst )[ 0 ];
 		if ( reusable ) {
@@ -94,7 +98,13 @@ export async function createOrReuseAiSession(
 	const reusable = existing
 		.filter(
 			( session ) =>
-				session.ownerSitePath === site.path && ! session.firstPrompt && ! session.archived
+				! session.firstPrompt &&
+				! session.archived &&
+				// Placements written before siteId existed lack it; match those by
+				// path rather than dropping them.
+				( session.ownerSiteId
+					? session.ownerSiteId === site.id
+					: session.ownerSitePath === site.path )
 		)
 		.sort( newestFirst )[ 0 ];
 	if ( reusable ) {

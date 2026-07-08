@@ -50,8 +50,9 @@ function groupSessionsByOwner(
 	sites: SiteDetails[] | undefined,
 	sessions: AiSessionSummary[] | undefined
 ): SiteGroup[] {
-	const knownSitePaths = new Set( ( sites ?? [] ).map( ( site ) => site.path ) );
-	const sessionsByPath = new Map< string, AiSessionSummary[] >();
+	const knownSiteIds = new Set( ( sites ?? [] ).map( ( site ) => site.id ) );
+	const siteIdsByPath = new Map( ( sites ?? [] ).map( ( site ) => [ site.path, site.id ] ) );
+	const sessionsBySiteId = new Map< string, AiSessionSummary[] >();
 	const unassigned: AiSessionSummary[] = [];
 
 	for ( const session of sessions ?? [] ) {
@@ -61,16 +62,21 @@ function groupSessionsByOwner(
 		if ( session.archived ) {
 			continue;
 		}
-		if ( ! session.ownerSitePath || ! knownSitePaths.has( session.ownerSitePath ) ) {
+		// Placements written before siteId existed lack ownerSiteId; match
+		// those by path rather than dropping them.
+		const ownerSiteId =
+			session.ownerSiteId ??
+			( session.ownerSitePath ? siteIdsByPath.get( session.ownerSitePath ) : undefined );
+		if ( ! ownerSiteId || ! knownSiteIds.has( ownerSiteId ) ) {
 			unassigned.push( session );
 			continue;
 		}
 
-		const existing = sessionsByPath.get( session.ownerSitePath );
+		const existing = sessionsBySiteId.get( ownerSiteId );
 		if ( existing ) {
 			existing.push( session );
 		} else {
-			sessionsByPath.set( session.ownerSitePath, [ session ] );
+			sessionsBySiteId.set( ownerSiteId, [ session ] );
 		}
 	}
 
@@ -78,7 +84,7 @@ function groupSessionsByOwner(
 		key: site.id,
 		site,
 		label: site.name,
-		sessions: sessionsByPath.get( site.path ) ?? [],
+		sessions: sessionsBySiteId.get( site.id ) ?? [],
 	} ) );
 
 	// Sort site-groups by the newest session's updatedAt so the most recently

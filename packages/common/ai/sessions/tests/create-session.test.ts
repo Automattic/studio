@@ -21,6 +21,7 @@ describe( 'createAiSession', () => {
 			site: { name: 'My Site', path: '/tmp/my-site' },
 		} );
 
+		expect( summary.ownerSiteId ).toBeUndefined();
 		expect( summary.ownerSitePath ).toBeUndefined();
 		expect( summary.ownerSiteName ).toBeUndefined();
 		expect( summary.selectedSiteName ).toBe( 'My Site' );

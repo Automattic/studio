@@ -34,6 +34,15 @@ Use these patterns:
 
 The common failure is a hero or banner that was intended to be full-width but still renders in the narrow content column. Fix that in markup by adding `align: "full"` on the outer group or correcting the inner `layout` type, not by trying to force width in CSS.
 
+## Root Block Gap
+
+WordPress inserts `margin-block-start: var(--wp--style--block-gap)` between the top-level children of the rendered template — between the header template part, the main group, and the footer template part (`.wp-site-blocks > * + *`). Core supplies a default gap (24px) even when the theme's `theme.json` never declares `styles.spacing.blockGap`, so a gap appears there that no markup asked for.
+
+- Themes created with `scaffold_theme` already zero this in `style.css` (`.wp-site-blocks > * + * { margin-block-start: 0; }`) — sections butt edge-to-edge and own their vertical rhythm via their own padding. Keep that reset when editing the file.
+- When working in a theme without that reset, add the same rule to the theme's `style.css` instead of compensating with negative margins or guessing at the extra space.
+- Do not zero the gap by setting `styles.spacing.blockGap: "0"` in `theme.json` — that value cascades as the default gap inside every flow and constrained layout and collapses content rhythm site-wide.
+- When you want visible space between top-level sections, add it deliberately (padding on the sections) so the spacing is designed, not inherited.
+
 ## Skeleton-First Recipes
 
 For long files over about 200 lines, write a small skeleton first and fill anchors across later `Edit` calls.

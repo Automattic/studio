@@ -24,6 +24,7 @@ import { startDaemonStatusPolling } from 'cli/ai/daemon-status-poll';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
+import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
 import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import {
@@ -38,6 +39,7 @@ import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -97,7 +99,6 @@ export async function runCommand( options: {
 	activeSite?: {
 		name: string;
 		path: string;
-		running?: boolean;
 		remote?: boolean;
 		url?: string;
 		wpcomSiteId?: number;
@@ -115,7 +116,8 @@ export async function runCommand( options: {
 		ui.activeSite = {
 			name: options.activeSite.name,
 			path: options.activeSite.path,
-			running: options.activeSite.running ?? false,
+			// Placeholder — turn dispatch resolves the live state before each prompt.
+			running: false,
 			remote: options.activeSite.remote,
 			url: options.activeSite.url,
 			wpcomSiteId: options.activeSite.wpcomSiteId,
@@ -199,6 +201,18 @@ export async function runCommand( options: {
 	setChatArtifactCallback( ( artifact ) =>
 		append( ( sm ) => appendStudioEntry( sm, 'studio.chat_artifact', artifact ) )
 	);
+
+	// Persist screenshots next to the session file (`<session>.screenshots/`)
+	// so artifacts in the transcript keep rendering after OS temp cleanup;
+	// `deleteAiSession` removes the sidecar together with the session.
+	setScreenshotDirectoryProvider( async () => {
+		const sm = await ensureSession();
+		const sessionFile = sm.getSessionFile();
+		if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
+			return null;
+		}
+		return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
+	} );
 
 	ui.onSiteSelected = ( site ) => {
 		void append( ( sm ) =>
@@ -462,6 +476,13 @@ export async function runCommand( options: {
 		// Remote (WordPress.com) sites only have a URL and site ID; local sites have a filesystem path and running state.
 		let enrichedPrompt = prompt;
 		const site = ui.activeSite;
+		// The stored running flag can be absent or stale — the session event log
+		// carries no running state, replay hardcodes false, and the site can be
+		// started/stopped mid-session — so ask the daemon before every turn.
+		if ( site && ! site.remote ) {
+			const siteData = await findSiteByFolder( site.path );
+			site.running = siteData ? await isSiteRunning( siteData ) : false;
+		}
 		if ( site?.remote && site?.url ) {
 			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
 		} else if ( site ) {

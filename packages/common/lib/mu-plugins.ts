@@ -34,6 +34,7 @@ const NATIVE_PHP_EXCLUDED_MU_PLUGINS = new Set( [
 	'0-allowed-redirect-hosts.php',
 	'0-suppress-dns-get-record-warnings.php',
 	'0-http-request-timeout.php',
+	'0-clear-stat-cache-before-upgrade.php',
 ] );
 
 export function escapePhpSingleQuotedString( value: string ): string {
@@ -408,20 +409,12 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// In the Sandbox (PHP WASM) runtime, PHP runs as a persistent process whose
-	// internal stat/realpath caches persist across HTTP requests. A plugin that
-	// was deleted in a previous request may still appear to exist according to
-	// those caches. When WordPress then tries to install the same plugin again
-	// it calls is_dir() on the destination folder – the stale cache says "yes" –
-	// and then tries (and fails) to delete it, producing the error:
-	//   "The destination directory already exists and could not be removed."
-	//
-	// Calling clearstatcache( true ) immediately before any upgrade/install
-	// forces PHP to re-examine the real filesystem, so is_dir() returns an
-	// accurate result and the upgrade can proceed.
-	//
-	// This is harmless in the native PHP runtime where each request forks a
-	// fresh PHP process (no cached state to clear).
+	// Playground's PHP runs as a persistent process, so its stat/realpath caches
+	// survive across requests. After a plugin is deleted, the stale cache can
+	// still report its directory as existing, breaking a subsequent reinstall
+	// with "The destination directory already exists and could not be removed."
+	// Clearing the cache before each upgrade forces a fresh filesystem read.
+	// Excluded from native PHP, where every request starts with clean caches.
 	//
 	// @see https://linear.app/a8c/issue/STU-1931
 	muPlugins.push( {

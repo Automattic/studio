@@ -423,9 +423,9 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	muPlugins.push( {
 		filename: '0-clear-stat-cache-before-upgrade.php',
 		content: `<?php
-		add_filter( 'upgrader_pre_install', function( \$result ) {
+		add_filter( 'upgrader_pre_install', function( $result ) {
 			clearstatcache( true );
-			return \$result;
+			return $result;
 		} );
 		`,
 	} );

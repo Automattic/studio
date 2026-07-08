@@ -6,12 +6,12 @@ export interface ResizablePanelConfig {
 
 export const SIDEBAR_PANEL_STORAGE_KEY = 'studio-ui-sidebar-width';
 export const PREVIEW_CONTENT_WIDTH_STORAGE_KEY = 'studio-ui-preview-content-width';
-export const PREVIEW_PANEL_DEFAULT_WIDTH = 520;
+export const PREVIEW_PANEL_DEFAULT_WIDTH = 480;
 export const PREVIEW_PANEL_MIN_WIDTH = 360;
 export const PREVIEW_PANEL_MIN_CONTENT_WIDTH = 280;
 
 export const SIDEBAR_PANEL_CONFIG: ResizablePanelConfig = {
-	defaultWidth: 320,
+	defaultWidth: 280,
 	minWidth: 240,
 	maxWidthRatio: 0.25,
 };

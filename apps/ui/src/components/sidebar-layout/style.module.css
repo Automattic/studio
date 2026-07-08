@@ -16,7 +16,8 @@
 }
 
 .sidebar {
-	width: var(--sidebar-width, 320px);
+	/* Fallback mirrors SIDEBAR_PANEL_CONFIG.defaultWidth in resizable-panels.ts. */
+	width: var(--sidebar-width, 280px);
 	/* The 240px floor is owned by useResizablePanel, which clamps
 	   --sidebar-width on every path. A CSS min-width here would be redundant
 	   while open and, because it can't transition in lockstep with width, would

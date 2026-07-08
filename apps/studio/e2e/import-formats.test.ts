@@ -149,17 +149,37 @@ test.describe( 'Import backup formats', () => {
 	} );
 
 	test( 'imports a backup file into an existing site', async ( { page } ) => {
-		// Restart the onboarding site; a successful import is observable as its
-		// title changing from the fresh-install one to the fixture's.
+		// Import into the stopped onboarding site; a successful import is
+		// observable as its title changing from the fresh-install one to the
+		// fixture's. The site must not be started first: on every
+		// stopped→running transition the app spawns WP-CLI processes (theme
+		// details, site icon) that intermittently make the import's database
+		// step exit non-zero when both touch the SQLite file. The import itself
+		// starts the server on completion (`alwaysStartServer`).
 		const sidebar = new MainSidebar( session.mainWindow );
 		await sidebar.getSiteNavButton( DEFAULT_SITE_NAME ).click();
 		const siteContent = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
-		await siteContent.locator.getByRole( 'button', { name: 'Start' } ).click();
-		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
+		// On a retry in a fresh worker, beforeAll leaves the onboarding site
+		// running — stop it so both attempts follow the same stopped-site flow.
+		await stopAllSites();
 
 		// The tab's import flow asks for confirmation via a native dialog.
+		// Record every dialog so a failed import surfaces its message below
+		// instead of silently timing out on the completion banner.
 		await session.electronApp.evaluate( ( { dialog } ) => {
-			dialog.showMessageBox = async () => ( { response: 0, checkboxChecked: false } );
+			const dialogGlobal = globalThis as typeof globalThis & { __e2eDialogs?: string[] };
+			dialogGlobal.__e2eDialogs = [];
+			dialog.showMessageBox = ( async ( ...args: unknown[] ) => {
+				const options = ( args.length > 1 ? args[ 1 ] : args[ 0 ] ) as {
+					title?: string;
+					message?: string;
+					detail?: string;
+				};
+				dialogGlobal.__e2eDialogs?.push(
+					[ options?.title, options?.message, options?.detail ].filter( Boolean ).join( ' — ' )
+				);
+				return { response: 0, checkboxChecked: false };
+			} ) as typeof dialog.showMessageBox;
 		} );
 
 		const tab = await siteContent.navigateToTab( 'import-export' );
@@ -168,10 +188,25 @@ test.describe( 'Import backup formats', () => {
 		}
 		await tab.uploadFile( path.join( FIXTURES_DIR, 'local-backup.zip' ) );
 		// Unlike the new-site flow, the tab's import UI reports completion with
-		// "Import complete!".
-		await expect( session.mainWindow.getByText( 'Import complete!' ) ).toBeVisible( {
-			timeout: 120_000,
-		} );
+		// "Import complete!". Errors are reported via a (stubbed) native dialog,
+		// so fail fast with the dialog's message rather than timing out.
+		const completeBanner = session.mainWindow.getByText( 'Import complete!' );
+		await expect
+			.poll(
+				async () => {
+					const dialogs = await session.electronApp.evaluate(
+						() =>
+							( globalThis as typeof globalThis & { __e2eDialogs?: string[] } ).__e2eDialogs ?? []
+					);
+					const failure = dialogs.find( ( entry ) => entry.includes( 'Failed importing site' ) );
+					if ( failure ) {
+						throw new Error( `Import failed: ${ failure }` );
+					}
+					return completeBanner.isVisible();
+				},
+				{ timeout: 120_000 }
+			)
+			.toBe( true );
 
 		await assertImportedSiteContent( page, siteContent );
 	} );

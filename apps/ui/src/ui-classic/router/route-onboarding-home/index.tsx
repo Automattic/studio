@@ -137,9 +137,9 @@ export function OnboardingHomePage() {
 	const handleGridKeyDown = useGridArrowNavigation();
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
-	// First-run users (no sites yet) arrived here from the build chooser —
-	// let them step back to it. With sites, the layout's close button is the
-	// way out instead.
+	// First-run users (no sites yet) arrived here from the tour — let them
+	// step back to its last step. With sites, the layout's close button is
+	// the way out instead.
 	const hasSites = ( sites?.length ?? 0 ) > 0;
 	return (
 		<div className={ styles.page }>
@@ -168,7 +168,7 @@ export function OnboardingHomePage() {
 						type="button"
 						variant="minimal"
 						tone="neutral"
-						onClick={ () => void navigate( { to: '/onboarding/start' } ) }
+						onClick={ () => void navigate( { to: '/onboarding/tour', search: { step: 'agent' } } ) }
 					>
 						<Icon icon={ chevronLeft } size={ 16 } />
 						<span>{ __( 'Back' ) }</span>

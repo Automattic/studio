@@ -17,7 +17,7 @@ export const indexRoute = createRoute( {
 			// Brand-new users see the first-run welcome (log in or skip) before
 			// the add-a-site flow.
 			const onboardingCompleted = await context.connector.getOnboardingCompleted();
-			throw redirect( { to: onboardingCompleted ? '/onboarding/start' : '/welcome' } );
+			throw redirect( { to: onboardingCompleted ? '/onboarding' : '/welcome' } );
 		}
 
 		// Return the user to where they were (recorded by the dashboard

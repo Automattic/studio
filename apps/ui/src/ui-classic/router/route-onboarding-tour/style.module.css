@@ -6,3 +6,23 @@
 	margin-inline: auto;
 	margin-top: 32px;
 }
+
+/* The agent step's pixel field sits bare — no card, no glass — so it reads
+   as a loose field of pixels. It stays interactive, so no pointer-events
+   suppression here. */
+.tourPixelField {
+	display: inline-block;
+	margin-bottom: 24px;
+	line-height: 0;
+}
+
+/* Decorative mini site list above the title (see SiteListIllustration).
+   The wrapper shrink-wraps the SVG and lends it the shared glass surface —
+   the radius matches the outer edge of the card's 4px stroke (rx 12 + 2). */
+.tourIllustration {
+	composes: glassSurface from '../layout-onboarding/style.module.css';
+	display: inline-block;
+	margin-bottom: 40px;
+	border-radius: 14px;
+	line-height: 0;
+}

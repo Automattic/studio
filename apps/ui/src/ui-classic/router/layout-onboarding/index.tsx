@@ -21,7 +21,6 @@ export function OnboardingShell() {
 	const isWide = matches.some( ( match ) => {
 		if ( match.pathname === '/onboarding' ) return true;
 		if ( match.pathname === '/onboarding/tour' ) return true;
-		if ( match.pathname === '/onboarding/start' ) return true;
 		if ( match.pathname === '/onboarding/plugin' ) return true;
 		if ( match.pathname === '/onboarding/plugin/connect' ) return true;
 		if ( match.pathname !== '/onboarding/blueprint' ) return false;

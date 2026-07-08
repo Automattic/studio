@@ -2,6 +2,8 @@ import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { check, Icon } from '@wordpress/icons';
 import { useCallback } from 'react';
+import { SiteListIllustration } from '@/components/onboarding-illustrations';
+import { AgentPixelField } from '@/components/onboarding-illustrations/agent-pixel-field';
 import { useConnector } from '@/data/core';
 import { WizardPage } from '../../components/wizard-page';
 import { onboardingLayoutRoute } from '../layout-onboarding';
@@ -14,6 +16,11 @@ const STEPS = [
 	{
 		title: __( 'Sites run right on your machine' ),
 		subtitle: __( 'Every Studio site is a full WordPress install that lives locally.' ),
+		illustration: (
+			<div className={ styles.tourIllustration }>
+				<SiteListIllustration />
+			</div>
+		),
 		points: [
 			{
 				title: __( 'Start and stop anytime' ),
@@ -34,6 +41,11 @@ const STEPS = [
 	{
 		title: __( 'Build with the Studio agent' ),
 		subtitle: __( 'Studio Code is an AI collaborator that works on your sites with you.' ),
+		illustration: (
+			<div className={ styles.tourPixelField }>
+				<AgentPixelField />
+			</div>
+		),
 		points: [
 			{
 				title: __( 'Chat to build' ),
@@ -69,13 +81,14 @@ export function OnboardingTourPage() {
 
 	const finishTour = useCallback( async () => {
 		await connector.setOnboardingCompleted( true );
-		void navigate( { to: '/onboarding/start' } );
+		void navigate( { to: '/onboarding' } );
 	}, [ connector, navigate ] );
 
 	return (
 		<WizardPage
 			title={ step.title }
 			subtitle={ step.subtitle }
+			illustration={ step.illustration }
 			onBack={ () => {
 				if ( stepIndex === 0 ) {
 					void navigate( { to: '/welcome' } );

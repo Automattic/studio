@@ -14,7 +14,6 @@ import { onboardingImportRoute } from './route-onboarding-import';
 import { onboardingPluginRoute } from './route-onboarding-plugin';
 import { onboardingPluginConnectRoute } from './route-onboarding-plugin-connect';
 import { onboardingPluginCreateRoute } from './route-onboarding-plugin-create';
-import { onboardingStartRoute } from './route-onboarding-start';
 import { onboardingTourRoute } from './route-onboarding-tour';
 import { sessionDetailRoute } from './route-session-detail';
 import { settingsRoute } from './route-settings';
@@ -35,7 +34,6 @@ const routeTree = rootRoute.addChildren( [
 	] ),
 	onboardingLayoutRoute.addChildren( [
 		onboardingTourRoute,
-		onboardingStartRoute,
 		onboardingAiRoute,
 		onboardingHomeRoute,
 		onboardingCreateRoute,

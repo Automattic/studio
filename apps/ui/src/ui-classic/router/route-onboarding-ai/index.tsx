@@ -61,7 +61,7 @@ export function OnboardingAiPage() {
 			subtitle={ __(
 				'Describe your idea and the Studio agent will set up a site and start building.'
 			) }
-			onBack={ () => void navigate( { to: '/onboarding/start' } ) }
+			onBack={ () => void navigate( { to: '/onboarding' } ) }
 		>
 			<div className={ styles.composerHost }>
 				<Composer
@@ -84,12 +84,11 @@ export function OnboardingAiPage() {
 export const onboardingAiRoute = createRoute( {
 	getParentRoute: () => onboardingLayoutRoute,
 	path: '/onboarding/ai',
-	// The agent needs a WordPress.com login; the chooser gates its card on
-	// auth, and this guard covers deep links.
+	// The agent needs a WordPress.com login; this guard covers deep links.
 	beforeLoad: async ( { context } ) => {
 		const authenticated = await context.connector.isAuthenticated();
 		if ( ! authenticated ) {
-			throw redirect( { to: '/onboarding/start' } );
+			throw redirect( { to: '/onboarding' } );
 		}
 	},
 	component: OnboardingAiPage,

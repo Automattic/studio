@@ -15,6 +15,8 @@ interface WizardPrimaryAction {
 interface WizardPageProps {
 	title: string;
 	subtitle?: string;
+	/** Decorative visual rendered above the title. */
+	illustration?: ReactNode;
 	children: ReactNode;
 	/**
 	 * Renders the standard Back button pinned bottom-left. Omit on pages
@@ -40,6 +42,7 @@ interface WizardPageProps {
 export function WizardPage( {
 	title,
 	subtitle,
+	illustration,
 	children,
 	onBack,
 	backLabel,
@@ -48,6 +51,7 @@ export function WizardPage( {
 	const hasFooter = Boolean( onBack || primaryAction );
 	return (
 		<div className={ sharedStyles.page }>
+			{ illustration }
 			<h1 className={ sharedStyles.title }>{ title }</h1>
 			{ subtitle ? <p className={ sharedStyles.subtitle }>{ subtitle }</p> : null }
 			{ children }

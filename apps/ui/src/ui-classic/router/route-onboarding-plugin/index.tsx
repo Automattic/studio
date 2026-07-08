@@ -132,7 +132,7 @@ export function OnboardingPluginPage() {
 						type="button"
 						variant="minimal"
 						tone="neutral"
-						onClick={ () => void navigate( { to: '/onboarding/start' } ) }
+						onClick={ () => void navigate( { to: '/onboarding' } ) }
 					>
 						<Icon icon={ chevronLeft } size={ 16 } />
 						<span>{ __( 'Back' ) }</span>

@@ -15,15 +15,20 @@ npm run lint
 echo '--- :typescript: Typecheck'
 npm run typecheck
 
-# The data-liberation plugin ships its MCP server as a committed esbuild
-# bundle (the plugin installer copies the package from git verbatim — no
-# npm install, no build). Rebuild it and fail if the committed artifact
-# doesn't match src/, so the two can never drift. The build is
-# byte-deterministic for a given lockfile, so a clean tree means fresh.
-echo '--- :package: Verify data-liberation MCP bundle is fresh'
+# The data-liberation plugin ships its MCP server and skill-invoked driver
+# scripts as committed esbuild bundles (the plugin installer copies the
+# package from git verbatim — no npm install, no build). Rebuild them and
+# fail if the committed artifacts don't match src/ and scripts/, so they can
+# never drift. The build is byte-deterministic for a given lockfile, so a
+# clean tree means fresh. Driver chunk files are content-hashed, so drift can
+# show up as untracked/deleted files, not just modified ones — check the
+# whole dist/ status, not only the diff.
+echo '--- :package: Verify data-liberation plugin bundles are fresh'
 npm -w data-liberation run build:mcp-bundle
-if ! git diff --exit-code -- packages/data-liberation-agent/dist/mcp-server.bundle.mjs; then
+if [[ -n "$(git status --porcelain -- packages/data-liberation-agent/dist)" ]]; then
+  git status --porcelain -- packages/data-liberation-agent/dist
+  git diff -- packages/data-liberation-agent/dist | head -n 100
   echo "^^^ +++"
-  echo "The committed data-liberation MCP bundle is stale. Run 'npm -w data-liberation run build:mcp-bundle' and commit the updated bundle."
+  echo "The committed data-liberation plugin bundles are stale. Run 'npm -w data-liberation run build:mcp-bundle' and commit the updated dist/ artifacts."
   exit 1
 fi

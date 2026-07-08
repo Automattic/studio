@@ -1,0 +1,23 @@
+import { createRequire as __bundleCreateRequire } from 'node:module';
+const require = __bundleCreateRequire(import.meta.url);
+import{a as $,b as y,c as w,d as S}from"./chunk-ENWLFTGA.mjs";import"./chunk-OC7B7ARH.mjs";import{writeFileSync as g,existsSync as P,mkdirSync as O,copyFileSync as D}from"node:fs";import{join as r}from"node:path";function N(s){console.log(`pages: ${s.pages.length} (${s.pages.filter(o=>o.postType==="post").length} posts, home=${s.pages.some(o=>o.isHome)})`),s.excluded.length&&console.log(`excluded (${s.excluded.length}): ${s.excluded.map(o=>o.slug).join(", ")}`),s.skipped.length&&console.log(`skipped \u2014 no captured html (${s.skipped.length}): ${s.skipped.map(o=>`${o.postType}:${o.postName}`).join(", ")}`)}async function k(){let s=process.argv.slice(2),o=s.includes("--list"),m=s.includes("--slim"),[n,d,_="Liberated (Carry)"]=s.filter(t=>t!=="--list"&&t!=="--slim");if((!n||!o&&!m&&!d)&&(console.error(`usage:
+  node scripts/run.mjs carry-reconstruct-drive <outputDir> --slim   # slim output.wxr for provisioning (run BEFORE liberate_preview)
+  node scripts/run.mjs carry-reconstruct-drive <outputDir> --list   # inspect the carry page list (no handler)
+  node scripts/run.mjs carry-reconstruct-drive <outputDir> <studioSitePath> "<Theme Name>"`),process.exit(2)),m){let{dropped:t,flipped:C}=S(n);console.log(`slimmed: dropped ${t} attachment items, flipped ${C} draft->publish; full WXR preserved at output.wxr.full`);return}let b=(process.env.EXCLUDE??"").split(",").map(t=>t.trim()).filter(Boolean),c=$(n,{exclude:b});if(g(r(n,"carry-pages.json"),JSON.stringify(c.pages,null,2)),N(c),o){console.log(`wrote ${r(n,"carry-pages.json")}`);return}let{reconstructPagesCarryHandler:x}=await import("./chunk-NITXMAPH.mjs"),E={textResult:t=>({_data:t}),errorResult:t=>{throw new Error(`handler error: ${t}`)}},f=!/^(0|false)$/i.test(process.env.EDITABLE_ISLANDS??""),e=(await x({outputDir:n,studioSitePath:d,themeName:_,pages:c.pages,editableIslands:f},E))._data;console.log(`theme: ${e.themeSlug}  media: ${e.mediaInstalled}  mediaErrors: ${e.mediaErrors.length}  fetchErrors: ${e.fetchErrors.length}  missingMediaDownloaded: ${e.missingMediaDownloaded??0}  fontsLocalized: ${e.fontsLocalized??0}`),e.missingMediaFailed?.length&&console.log("  missingMediaFailed:",JSON.stringify(e.missingMediaFailed)),e.fontsFailed?.length&&console.log("  fontsFailed:",JSON.stringify(e.fontsFailed)),f&&console.log(`editable islands: converted=${e.islandsConverted??0}  plugin=${e.editableHtmlPluginSlug??"(none)"}`);let p=e.residualCdnAssets??0;console.log(`self-host audit: residualCdnAssets=${p}${p?`  byHost=${JSON.stringify(e.residualCdnByHost)}`:" \u2713"}`),p&&console.log("  residualCdnSamples:",JSON.stringify(e.residualCdnSamples)),e.mediaErrors.length&&console.log("  mediaErrors sample:",JSON.stringify(e.mediaErrors.slice(0,3))),e.fetchErrors.length&&console.log("  fetchErrors:",JSON.stringify(e.fetchErrors));let i=r(d,"wp-content/uploads/_carry-islands");O(i,{recursive:!0});let u=e.pages.map(t=>t.slug),l=w(i,u);l.length&&console.log(`  removed ${l.length} stale island(s): ${l.slice(0,8).join(", ")}${l.length>8?" \u2026":""}`);for(let t of e.pages)g(r(i,`${t.slug}.html`),t.postContent);let v=`<?php
+$dir = '/wordpress/wp-content/uploads/_carry-islands';
+$slugs = ${JSON.stringify(u)};
+foreach ($slugs as $slug) {
+  $file = "$dir/$slug.html";
+  if (!file_exists($file)) { echo "MISSING $slug\\n"; continue; }
+  $content = file_get_contents($file);
+  $posts = get_posts(['name'=>$slug,'post_type'=>['page','post'],'post_status'=>'any','numberposts'=>1]);
+  if (empty($posts)) { echo "NO POST $slug\\n"; continue; }
+  // wp_slash: wp_update_post() unslashes post_content, which would strip the backslashes
+  // in dla/editable-html's frame-attr JSON (e.g. the -- escape for "--"),
+  // corrupting the block attributes -> "invalid content" in the editor. Slash so the DB
+  // write round-trips byte-exact. (Mirrors the install-post.php/install-data.php fix.)
+  $r = wp_update_post(wp_slash(['ID'=>$posts[0]->ID,'post_content'=>$content,'post_status'=>'publish']), true);
+  if (is_wp_error($r)) echo "ERR $slug: ".$r->get_error_message()."\\n";
+  else echo "OK $slug id=".$posts[0]->ID." bytes=".strlen($content)."\\n";
+}
+`;g(r(i,"_swap.php"),v),console.log(`islands written: ${u.length} -> ${i}`);let a=y(n,i);console.log(`output-carry.wxr: items=${a.items} patched=${a.patched} cdataBalanced=${a.cdataBalanced} -> ${a.outPath}`);let h=r(n,"output.wxr.full");P(h)&&(D(h,r(n,"output.wxr")),console.log("restored output.wxr from output.wxr.full (non-lossy)")),console.log(`THEMESLUG=${e.themeSlug}`)}k().catch(s=>{console.error(s),process.exit(1)});

@@ -133,7 +133,7 @@ Sitewide-shared sections (header, footer, a recurring CTA band that appears iden
 
 Classify decorative-looking assets BEFORE reconstruction so the builder expresses them structurally instead of emitting broken/cluttered images.
 
-1. Candidates are deterministic — pipe a short script to `npx tsx --input-type=module` (from the repo root): `import { selectTriageCandidates } from './src/lib/replicate/triage-candidates.js'` over every captured page's SectionSpecs (`<outputDir>/sections/<slug>.json`). Zero candidates → skip this step entirely.
+1. Candidates are deterministic — run `node scripts/run.mjs triage-candidates <outputDir>` (wraps `selectTriageCandidates` over every captured page's SectionSpecs in `<outputDir>/sections/`; prints `{ pages: [{ sourceUrl, candidates }], total }` on stdout). `total: 0` → skip this step entirely.
 2. For EACH candidate, LOOK at it (fetch the asset file, or crop the section screenshot at the candidate's position). Classify:
    - `keep` — real content: logo, illustration, product shot, photo, meaningful icon. When in doubt, KEEP (never-lose-source-content).
    - `decoration` — divider line, ornament, gradient stripe, background blob. Write a 1-sentence description of what the visual IS (e.g. "thin full-width horizontal rule between sections") — downstream uses it to pick a structural replacement (`wp:separator` / parent `border.*` / parent `background`); `wp:html` is banned.

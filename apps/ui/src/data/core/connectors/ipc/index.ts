@@ -1210,6 +1210,10 @@ export function createIpcConnector(): Connector {
 			return ipcApi.isFullscreen();
 		},
 
+		async expandWindowForWorkbench(): Promise< void > {
+			await ipcApi.expandWindowForWorkbench();
+		},
+
 		onFullscreenChange( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;

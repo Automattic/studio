@@ -185,6 +185,7 @@ const api: IpcApi = {
 	captureFullPageScreenshot: ( url, options ) =>
 		ipcRendererInvoke( 'captureFullPageScreenshot', url, options ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
+	expandWindowForWorkbench: () => ipcRendererInvoke( 'expandWindowForWorkbench' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>
 		ipcRendererInvoke( 'saveUserTerminal', preferredTerminal ),

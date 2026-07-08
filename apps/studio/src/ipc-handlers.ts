@@ -136,6 +136,7 @@ import { scaffoldPluginInSite, type PluginScaffoldMeta } from 'src/lib/scaffold-
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { updateSiteUrl } from 'src/lib/update-site-url';
+import { expandWindowForWorkbench as expandMainWindowForWorkbench } from 'src/lib/window-expansion';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import { getMainWindow } from 'src/main-window';
@@ -2421,6 +2422,11 @@ export async function checkSyncBackupSize(
 export async function isFullscreen( _event: IpcMainInvokeEvent ): Promise< boolean > {
 	const window = await getMainWindow();
 	return window.isFullScreen();
+}
+
+export async function expandWindowForWorkbench( _event: IpcMainInvokeEvent ): Promise< void > {
+	const window = await getMainWindow();
+	await expandMainWindowForWorkbench( window );
 }
 
 export async function getAllCustomDomains(): Promise< string[] > {

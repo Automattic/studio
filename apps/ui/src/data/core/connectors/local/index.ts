@@ -752,6 +752,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onFullscreenChange() {
 			return () => {};
 		},
+		async expandWindowForWorkbench() {
+			// A browser tab can't resize itself.
+		},
 		onSiteEvent() {
 			return () => {};
 		},

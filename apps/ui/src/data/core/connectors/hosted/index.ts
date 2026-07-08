@@ -596,6 +596,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onFullscreenChange() {
 			return () => {};
 		},
+		async expandWindowForWorkbench() {
+			// A browser tab can't resize itself.
+		},
 		onSiteEvent() {
 			return () => {};
 		},

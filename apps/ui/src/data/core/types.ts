@@ -591,6 +591,12 @@ export interface Connector {
 	isFullscreen(): Promise< boolean >;
 	onFullscreenChange( listener: ( fullscreen: boolean ) => void ): () => void;
 
+	// One-time workbench entrance: smoothly grows the desktop window (centered
+	// on its current position) so the sidebar, chat/overview, and preview fit
+	// comfortably. Resolves once the animation settles. No-ops in the browser
+	// and when the window is fullscreen, maximized, or already large enough.
+	expandWindowForWorkbench(): Promise< void >;
+
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
 	onSiteEvent( listener: () => void ): () => void;

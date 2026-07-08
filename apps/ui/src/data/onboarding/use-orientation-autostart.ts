@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useOnboardingGuide } from '@/components/onboarding-guide/use-onboarding-guide';
+import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
 	useOnboardingCompleted,
@@ -52,15 +53,27 @@ export function deriveOrientationAutostart( {
 	return agentic.enabled ? 'agentic' : 'overview';
 }
 
+/**
+ * Pure decision: is this the user's first-ever arrival in the workbench?
+ * True only when no orientation guide of any version has been completed or
+ * dismissed. Guards the one-time window expansion so a guide re-armed by a
+ * version bump doesn't resize an existing user's window.
+ */
+export function isFirstWorkbenchArrival( hints: OnboardingHintsState | undefined ): boolean {
+	return ( hints?.tourCompletedVersion ?? 0 ) === 0 && ( hints?.tourDismissedVersion ?? 0 ) === 0;
+}
+
 // Let the workbench render and settle before the guide appears, so it reads as
 // an entrance rather than part of the initial paint.
 const GUIDE_START_DELAY_MS = 500;
 
 /**
  * Auto-opens the orientation guide once on first arrival in the workbench.
- * Mounted in the dashboard layout.
+ * On the first-ever arrival it also grows the window to a comfortable
+ * workbench size before the guide appears. Mounted in the dashboard layout.
  */
 export function useOrientationAutostart(): void {
+	const connector = useConnector();
 	const { data: sites } = useSites();
 	const agentic = useAgenticFeatures();
 	const { data: hints } = useOnboardingHints();
@@ -71,6 +84,7 @@ export function useOrientationAutostart(): void {
 
 	const startedRef = useRef( false );
 	const startTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
+	const mountedRef = useRef( true );
 
 	useEffect( () => {
 		const variant = deriveOrientationAutostart( {
@@ -86,18 +100,34 @@ export function useOrientationAutostart(): void {
 		}
 		// Mark started immediately so a dependency change can't schedule twice.
 		startedRef.current = true;
-		startTimerRef.current = setTimeout( () => {
-			startTimerRef.current = null;
-			openGuide( variant, {
-				onEnd: ( reason ) => {
-					if ( reason === 'completed' ) {
-						setHints.mutate( { tourCompletedVersion: ORIENTATION_GUIDE_VERSION } );
-					} else {
-						setHints.mutate( { tourDismissedVersion: ORIENTATION_GUIDE_VERSION } );
-					}
-				},
-			} );
-		}, GUIDE_START_DELAY_MS );
+		const openGuideAfterDelay = () => {
+			// The expansion can settle after the layout unmounted; don't open then.
+			if ( ! mountedRef.current ) {
+				return;
+			}
+			startTimerRef.current = setTimeout( () => {
+				startTimerRef.current = null;
+				openGuide( variant, {
+					onEnd: ( reason ) => {
+						if ( reason === 'completed' ) {
+							setHints.mutate( { tourCompletedVersion: ORIENTATION_GUIDE_VERSION } );
+						} else {
+							setHints.mutate( { tourDismissedVersion: ORIENTATION_GUIDE_VERSION } );
+						}
+					},
+				} );
+			}, GUIDE_START_DELAY_MS );
+		};
+		if ( isFirstWorkbenchArrival( hints ) ) {
+			// First-ever arrival: grow the window to a comfortable workbench size,
+			// then bring the guide in once the animation settles.
+			void connector
+				.expandWindowForWorkbench()
+				.catch( () => undefined )
+				.then( openGuideAfterDelay );
+		} else {
+			openGuideAfterDelay();
+		}
 		// No timer cleanup here: a dependency change re-runs this effect and
 		// returns early (startedRef guard); clearing on every re-run would
 		// cancel the pending open. The mount-scoped cleanup below handles it.
@@ -110,10 +140,15 @@ export function useOrientationAutostart(): void {
 		isOpen,
 		openGuide,
 		setHints,
+		connector,
 	] );
 
 	useEffect( () => {
+		// Reset on mount: StrictMode re-runs effects on the same refs, so the
+		// dev-only unmount pass would otherwise leave this false forever.
+		mountedRef.current = true;
 		return () => {
+			mountedRef.current = false;
 			if ( startTimerRef.current ) {
 				clearTimeout( startTimerRef.current );
 				startTimerRef.current = null;

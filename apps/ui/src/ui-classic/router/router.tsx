@@ -6,7 +6,6 @@ import { rootRoute } from './layout-root';
 import { indexRoute } from './route-index';
 import { newSessionRoute } from './route-new-session';
 import { onboardingAiRoute } from './route-onboarding-ai';
-import { onboardingBlueprintRoute } from './route-onboarding-blueprint';
 import { onboardingConnectRoute } from './route-onboarding-connect';
 import { onboardingCreateRoute } from './route-onboarding-create';
 import { onboardingHomeRoute } from './route-onboarding-home';
@@ -37,7 +36,6 @@ const routeTree = rootRoute.addChildren( [
 		onboardingAiRoute,
 		onboardingHomeRoute,
 		onboardingCreateRoute,
-		onboardingBlueprintRoute,
 		onboardingConnectRoute,
 		onboardingImportRoute,
 		onboardingPluginRoute,

@@ -14,13 +14,13 @@
 	padding: var(--wpds-dimension-padding-3xl);
 	/* Auto block margins center the content vertically when it's shorter
 	   than the viewport but — unlike `justify: center` on the flex parent —
-	   keep the top reachable by scrolling when it's taller (e.g. the full
-	   blueprint gallery). */
+	   keep the top reachable by scrolling when it's taller (e.g. the connect
+	   picker's site list). */
 	margin-block: auto;
 }
 
-/* `wide` variant — used by content-heavy onboarding pages like the blueprint
-   selector. Sized to fit a 3-column card grid (see `blueprint-selector`). */
+/* `wide` variant — used by content-heavy onboarding pages like the flow
+   pickers. Sized to fit a 3-column card grid. */
 .contentWide {
 	max-width: 960px;
 }

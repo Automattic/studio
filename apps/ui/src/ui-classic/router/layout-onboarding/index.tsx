@@ -10,12 +10,10 @@ export function OnboardingShell() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
 	const hasSites = ( sites?.length ?? 0 ) > 0;
-	// Grid-heavy pages (onboarding home with its flow picker cards, and the
-	// blueprint selector's "select" step) need more horizontal room than the
-	// single-column form pages; thread the variant through here so each child
-	// route doesn't have to re-declare its own layout chrome. The blueprint
-	// "configure" step reuses the shared site form and should match the
-	// narrow "/onboarding/create" width.
+	// Grid-heavy pages (onboarding home with its flow picker cards) need more
+	// horizontal room than the single-column form pages; thread the variant
+	// through here so each child route doesn't have to re-declare its own
+	// layout chrome.
 	const matches = useMatches();
 	const isFull = matches.some( ( match ) => match.pathname === '/onboarding/connect' );
 	const isWide = matches.some( ( match ) => {
@@ -23,9 +21,7 @@ export function OnboardingShell() {
 		if ( match.pathname === '/onboarding/tour' ) return true;
 		if ( match.pathname === '/onboarding/plugin' ) return true;
 		if ( match.pathname === '/onboarding/plugin/connect' ) return true;
-		if ( match.pathname !== '/onboarding/blueprint' ) return false;
-		const step = ( match.search as { step?: string } ).step;
-		return step !== 'configure';
+		return false;
 	} );
 	// The dot grid backs every step of the flow; it stays mounted across
 	// navigations so its intro sweep plays once per visit, not per step.

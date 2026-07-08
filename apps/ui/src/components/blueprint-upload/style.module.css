@@ -1,0 +1,38 @@
+/* Quiet centered footer for the bring-your-own-blueprint path: an error
+   pill (when needed) above a one-line hint. */
+.uploadFooter {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	margin-top: 32px;
+}
+
+.uploadHint {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	font-size: 0.875rem;
+}
+
+/* Inline "upload a file" link inside the hint — strip the button box so it
+   flows with the sentence. */
+.uploadLink {
+	padding: 0;
+	height: auto;
+	min-height: 0;
+	font-size: inherit;
+}
+
+/* Matches the FileDropzone error pill the desktop upload section renders. */
+.uploadError {
+	padding: 8px 12px;
+	border-radius: 4px;
+	background: #fce8e8;
+	color: #7a1a1a;
+	font-size: 13px;
+	margin: 0;
+}
+
+.hiddenInput {
+	display: none;
+}

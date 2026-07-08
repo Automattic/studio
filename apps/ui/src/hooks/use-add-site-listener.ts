@@ -15,7 +15,7 @@ import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
  * - A `wp-studio://add-site?blueprint_url=…` deep link fires
  *   `add-site-with-blueprint` with the path of a blueprint JSON the main
  *   process already downloaded and validated. Load it, stash it in the
- *   pending-blueprint slot, and land directly on the configure step.
+ *   pending-blueprint slot, and land on the create-site form.
  *
  * Must be mounted inside the RouterProvider (it navigates); the classic
  * router's root layout is the canonical spot.
@@ -42,10 +42,7 @@ export function useAddSiteListener(): void {
 					excerpt: meta?.description || generateDefaultBlueprintDescription( blueprint ),
 					blueprint,
 				} );
-				void navigate( {
-					to: '/onboarding/blueprint',
-					search: { step: 'configure' },
-				} );
+				void navigate( { to: '/onboarding/create' } );
 			} catch ( error ) {
 				console.error( 'Failed to load blueprint from deep link:', error );
 			}

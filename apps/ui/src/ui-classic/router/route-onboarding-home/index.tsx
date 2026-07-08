@@ -148,7 +148,7 @@ export function OnboardingHomePage() {
 				{ __( 'Start fresh or bring an existing site into your Studio.' ) }
 			</p>
 			<div className={ styles.cards } onKeyDown={ handleGridKeyDown }>
-				<Link to="/onboarding/blueprint" className={ cardClass } data-arrow-nav-item>
+				<Link to="/onboarding/create" className={ cardClass } data-arrow-nav-item>
 					<BuildNewSiteIllustration />
 					<div className={ styles.cardText }>
 						<h3 className={ styles.cardTitle }>{ __( 'Create a new site' ) }</h3>

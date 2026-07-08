@@ -1,5 +1,5 @@
 import { createPendingSlot } from './pending-slot';
-import type { PickedBlueprint } from '@/components/blueprint-selector';
+import type { PickedBlueprint } from '@/components/blueprint-upload';
 
 /**
  * One-slot handoff for a blueprint that arrives from outside the blueprint

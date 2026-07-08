@@ -66,16 +66,13 @@ describe( 'useAddSiteListener', () => {
 		expect( routerMock.navigate ).toHaveBeenCalledWith( { to: '/onboarding' } );
 	} );
 
-	it( 'stores the deep-linked blueprint and lands on the configure step', async () => {
+	it( 'stores the deep-linked blueprint and lands on the create form', async () => {
 		const { connector, emitAddSiteWithBlueprint } = renderListener();
 
 		emitAddSiteWithBlueprint( { blueprintPath: '/tmp/blueprint-123.json' } );
 
 		await waitFor( () =>
-			expect( routerMock.navigate ).toHaveBeenCalledWith( {
-				to: '/onboarding/blueprint',
-				search: { step: 'configure' },
-			} )
+			expect( routerMock.navigate ).toHaveBeenCalledWith( { to: '/onboarding/create' } )
 		);
 		expect( connector.readBlueprintFile ).toHaveBeenCalledWith( '/tmp/blueprint-123.json' );
 		expect( peekPendingBlueprint() ).toMatchObject( {

@@ -488,6 +488,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				studioCliInstalled: false,
 				agenticFeaturesEnabled: true,
 				chatNotificationsEnabled: true,
+				quitSitesBehavior: 'ask',
 				agentResponseLength: 'normal',
 				defaultAiModel: DEFAULT_MODEL,
 				toolPermissions: {},

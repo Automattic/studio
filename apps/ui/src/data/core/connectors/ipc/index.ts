@@ -17,6 +17,7 @@ import type {
 	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
+	QuitSitesBehaviorSetting,
 	SelectedSiteFolder,
 	SiteCheckpoint,
 	SiteDetails,
@@ -1004,6 +1005,7 @@ export function createIpcConnector(): Connector {
 				studioCliInstalled,
 				agenticFeaturesEnabled,
 				chatNotificationsEnabled,
+				quitSitesBehavior,
 				agentResponseLength,
 				defaultAiModel,
 				toolPermissions,
@@ -1016,6 +1018,7 @@ export function createIpcConnector(): Connector {
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.getAgenticFeaturesEnabled(),
 				ipcApi.getChatNotificationsEnabled(),
+				ipcApi.getQuitSitesBehavior(),
 				ipcApi.getAgentResponseLength(),
 				ipcApi.getDefaultAiModel(),
 				ipcApi.getToolPermissions(),
@@ -1028,6 +1031,7 @@ export function createIpcConnector(): Connector {
 				boolean,
 				boolean,
 				boolean,
+				QuitSitesBehaviorSetting,
 				AiResponseLength,
 				AiModelId,
 				ToolPermissionOverrides,
@@ -1041,6 +1045,7 @@ export function createIpcConnector(): Connector {
 				studioCliInstalled,
 				agenticFeaturesEnabled,
 				chatNotificationsEnabled,
+				quitSitesBehavior,
 				agentResponseLength,
 				defaultAiModel,
 				toolPermissions,
@@ -1080,6 +1085,9 @@ export function createIpcConnector(): Connector {
 				typeof partial.chatNotificationsEnabled === 'boolean'
 			) {
 				writes.push( ipcApi.saveChatNotificationsEnabled( partial.chatNotificationsEnabled ) );
+			}
+			if ( 'quitSitesBehavior' in partial && partial.quitSitesBehavior ) {
+				writes.push( ipcApi.saveQuitSitesBehavior( partial.quitSitesBehavior ) );
 			}
 			if ( 'agentResponseLength' in partial && partial.agentResponseLength ) {
 				writes.push( ipcApi.saveAgentResponseLength( partial.agentResponseLength ) );

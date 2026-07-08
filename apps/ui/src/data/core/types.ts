@@ -634,6 +634,10 @@ export interface SnapshotUsage {
 
 export type ColorScheme = 'system' | 'light' | 'dark';
 
+// Mirrors the desktop's QuitSitesBehavior storage union, plus 'ask' for the
+// unset state (the quit dialog prompts on every quit).
+export type QuitSitesBehaviorSetting = 'ask' | 'leave-running' | 'stop-and-auto-start' | 'stop';
+
 export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
@@ -643,6 +647,7 @@ export interface UserPreferences {
 	studioCliInstalled: boolean;
 	agenticFeaturesEnabled: boolean;
 	chatNotificationsEnabled: boolean;
+	quitSitesBehavior: QuitSitesBehaviorSetting;
 	agentResponseLength: AiResponseLength;
 	defaultAiModel: AiModelId;
 	// Per-tool "Always allow" overrides for the agent's gated tools.

@@ -206,6 +206,8 @@ const api: IpcApi = {
 	saveChatNotificationsEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'saveChatNotificationsEnabled', enabled ),
 	getChatNotificationsEnabled: () => ipcRendererInvoke( 'getChatNotificationsEnabled' ),
+	saveQuitSitesBehavior: ( behavior ) => ipcRendererInvoke( 'saveQuitSitesBehavior', behavior ),
+	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getDismissedMessages: () => ipcRendererInvoke( 'getDismissedMessages' ),

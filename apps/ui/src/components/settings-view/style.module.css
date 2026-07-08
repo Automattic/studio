@@ -308,6 +308,11 @@
 	max-inline-size: 100%;
 }
 
+/* Wider variant for selects with long option labels ("Stop, restart on next launch"). */
+.selectControlWide {
+	inline-size: 260px;
+}
+
 .selectControl > * {
 	inline-size: 100%;
 }

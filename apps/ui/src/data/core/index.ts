@@ -26,6 +26,7 @@ export type {
 	LiveSyncItems,
 	LiveSyncOptions,
 	ProposedSitePath,
+	QuitSitesBehaviorSetting,
 	SelectedSiteFolder,
 	SessionEntry,
 	SiteCheckpoint,

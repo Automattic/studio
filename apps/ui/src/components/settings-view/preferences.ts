@@ -3,6 +3,7 @@ import { DEFAULT_RESPONSE_LENGTH } from '@studio/common/ai/response-length';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import type {
 	ColorScheme,
+	QuitSitesBehaviorSetting,
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,
@@ -24,6 +25,7 @@ export interface PreferencesFormData {
 	studioCliInstalled: boolean;
 	agenticFeaturesEnabled: boolean;
 	chatNotificationsEnabled: boolean;
+	quitSitesBehavior: QuitSitesBehaviorSetting;
 	agentResponseLength: AiResponseLength;
 	defaultAiModel: AiModelId;
 	toolPermissions: ToolPermissionOverrides;
@@ -48,6 +50,7 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		// Persisted query caches from before this field existed rehydrate it as
 		// undefined; enabled is the real default, so render the toggle on.
 		chatNotificationsEnabled: prefs.chatNotificationsEnabled ?? true,
+		quitSitesBehavior: prefs.quitSitesBehavior ?? 'ask',
 		agentResponseLength: prefs.agentResponseLength ?? DEFAULT_RESPONSE_LENGTH,
 		defaultAiModel: prefs.defaultAiModel ?? DEFAULT_MODEL,
 		toolPermissions: prefs.toolPermissions ?? {},
@@ -82,6 +85,9 @@ export function toPreferencesPatch(
 	}
 	if ( update.chatNotificationsEnabled !== undefined ) {
 		patch.chatNotificationsEnabled = update.chatNotificationsEnabled;
+	}
+	if ( update.quitSitesBehavior !== undefined ) {
+		patch.quitSitesBehavior = update.quitSitesBehavior;
 	}
 	if ( update.agentResponseLength !== undefined ) {
 		patch.agentResponseLength = update.agentResponseLength;

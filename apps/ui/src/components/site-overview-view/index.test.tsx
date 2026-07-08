@@ -231,6 +231,7 @@ describe( 'SiteOverviewView', () => {
 				studioCliInstalled: false,
 				agenticFeaturesEnabled: true,
 				chatNotificationsEnabled: true,
+				quitSitesBehavior: 'ask',
 				agentResponseLength: 'normal',
 				toolPermissions: {},
 				defaultAiModel: 'claude-sonnet-5',

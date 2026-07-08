@@ -64,6 +64,7 @@ import styles from './style.module.css';
 import type {
 	ColorScheme,
 	InstalledApps,
+	QuitSitesBehaviorSetting,
 	SkillStatus,
 	SupportedEditor,
 	SupportedLocale,
@@ -122,6 +123,15 @@ function colorSchemeElements(): { value: ColorScheme; label: string }[] {
 
 function isColorScheme( value: unknown ): value is ColorScheme {
 	return value === 'system' || value === 'light' || value === 'dark';
+}
+
+function quitSitesBehaviorElements(): { value: QuitSitesBehaviorSetting; label: string }[] {
+	return [
+		{ value: 'ask', label: __( 'Ask every time' ) },
+		{ value: 'leave-running', label: __( 'Keep sites running' ) },
+		{ value: 'stop-and-auto-start', label: __( 'Stop, restart on next launch' ) },
+		{ value: 'stop', label: __( 'Stop sites' ) },
+	];
 }
 
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
@@ -224,18 +234,20 @@ function PreferenceSelect< TValue extends string >( {
 	value,
 	options,
 	onChange,
+	className,
 }: {
 	label: string;
 	value: TValue;
 	options: Array< { value: TValue; label: string } >;
 	onChange: ( value: TValue ) => void;
+	className?: string;
 } ) {
 	const selectedItem = options.find( ( option ) => option.value === value );
 
 	return (
 		<SelectControl
 			hideLabelFromVision
-			className={ styles.selectControl }
+			className={ clsx( styles.selectControl, className ) }
 			items={ options }
 			label={ label }
 			value={ selectedItem ?? null }
@@ -728,6 +740,15 @@ function PreferencesPanel( {
 							value={ data.defaultSiteDirectory }
 							onSelect={ onDefaultSiteDirectorySelect }
 						/>
+						<PreferenceRow title={ __( 'When quitting with running sites' ) }>
+							<PreferenceSelect< QuitSitesBehaviorSetting >
+								label={ __( 'When quitting with running sites' ) }
+								className={ styles.selectControlWide }
+								value={ data.quitSitesBehavior }
+								options={ quitSitesBehaviorElements() }
+								onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
+							/>
+						</PreferenceRow>
 					</>
 				) : null }
 			</section>

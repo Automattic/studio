@@ -646,6 +646,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				studioCliInstalled: true,
 				agenticFeaturesEnabled: true,
 				chatNotificationsEnabled: true,
+				quitSitesBehavior: 'ask',
 				agentResponseLength: 'normal',
 				defaultAiModel: DEFAULT_MODEL,
 				toolPermissions: {},

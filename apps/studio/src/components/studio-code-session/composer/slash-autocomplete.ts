@@ -15,9 +15,8 @@ export interface SlashCommandMatches {
  * no preview prompt is active. A `/` glued to the end of a word (e.g.
  * `path/to`) does not trigger it. The text after the `/` is matched as a
  * case-insensitive substring against the available skill command names and
- * their locale-independent keywords (so `/speed` matches `need-for-speed` and
- * `/migrate` matches `liberate`). Descriptions are translated and therefore
- * not matched. If nothing matches, the popup closes.
+ * descriptions (so `/speed` matches `need-for-speed` and `/migrate` matches
+ * `liberate`). If nothing matches, the popup closes.
  */
 export function getSlashCommandMatches(
 	value: string,
@@ -34,7 +33,7 @@ export function getSlashCommandMatches(
 	const matches = AI_SKILL_COMMANDS.filter(
 		( command ) =>
 			command.name.toLowerCase().includes( query ) ||
-			command.keywords?.some( ( keyword ) => keyword.includes( query ) )
+			command.description.toLowerCase().includes( query )
 	);
 	if ( matches.length === 0 ) {
 		return { open: false, matches: [] };

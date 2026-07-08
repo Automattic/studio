@@ -3,12 +3,6 @@ import { __ } from '@wordpress/i18n';
 export interface SkillSlashCommand {
 	name: string;
 	description: string;
-	/**
-	 * Locale-independent lowercase terms the composer autocomplete matches in
-	 * addition to `name`. Descriptions are translated, so they can't serve as
-	 * search keys.
-	 */
-	keywords?: string[];
 }
 
 export const AI_SKILL_COMMANDS: SkillSlashCommand[] = [
@@ -19,7 +13,6 @@ export const AI_SKILL_COMMANDS: SkillSlashCommand[] = [
 	{
 		name: 'liberate',
 		description: __( 'Migrate & rebuild a site from a closed platform' ),
-		keywords: [ 'migrate', 'import' ],
 	},
 ];
 

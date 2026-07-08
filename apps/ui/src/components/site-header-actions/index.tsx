@@ -1,11 +1,15 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo, useState } from 'react';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import * as Menu from '@/components/menu';
 import { PublishPickerView } from '@/components/site-dropdown/publish-picker-view';
 import { pickLiveSite } from '@/components/site-dropdown/utils';
+import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import { markChecklistItemComplete } from '@/data/queries/use-onboarding-hints';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { usePluginSiteTag } from '@/lib/plugin-prototype';
 import styles from './style.module.css';
@@ -17,6 +21,9 @@ function PublishButton( { site }: { site: SiteDetails } ) {
 	const [ pickerOpen, setPickerOpen ] = useState( false );
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	const publishAnchorRef = useTourAnchor( 'publish-button' );
 	// Prototype: publishing to WordPress.com doesn't apply to plugins — their
 	// publish story is WordPress.org (submit/release), which doesn't exist
 	// here yet.
@@ -29,13 +36,24 @@ function PublishButton( { site }: { site: SiteDetails } ) {
 	}
 
 	return (
-		<Menu.Root modal={ false } open={ pickerOpen } onOpenChange={ setPickerOpen }>
+		<Menu.Root
+			modal={ false }
+			open={ pickerOpen }
+			onOpenChange={ ( open ) => {
+				setPickerOpen( open );
+				// Opening the publish picker counts as engaging with publishing.
+				if ( open ) {
+					void markChecklistItemComplete( connector, queryClient, 'publish-site' );
+				}
+			} }
+		>
 			<Tooltip.Root disabled={ pickerOpen }>
 				<Menu.Trigger
 					render={
 						<Tooltip.Trigger
 							render={
 								<Button
+									ref={ publishAnchorRef }
 									variant="solid"
 									tone="brand"
 									size="small"

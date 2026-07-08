@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { cog } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import { Gravatar } from '@/components/gravatar';
 import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
@@ -25,6 +26,7 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 	const login = useLogin();
 	const logout = useLogout();
 	const navigate = useNavigate();
+	const settingsAnchorRef = useTourAnchor( 'sidebar-user-menu' );
 
 	const themeIsDark = useColorScheme() === 'dark';
 
@@ -34,7 +36,7 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 
 	return (
 		<div className={ styles.root }>
-			<div className={ styles.row }>
+			<div className={ styles.row } ref={ settingsAnchorRef }>
 				{ user ? (
 					<Menu.Root modal={ false }>
 						<Menu.Trigger

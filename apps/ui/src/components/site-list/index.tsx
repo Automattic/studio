@@ -5,6 +5,7 @@ import { Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteContextMenu } from '@/components/site-context-menu';
@@ -225,15 +226,23 @@ function SiteOverviewButton( {
 	site,
 	isActive = false,
 	isPlugin = false,
+	isOverviewAnchor = false,
 }: {
 	site: SiteDetails;
 	isActive?: boolean;
 	isPlugin?: boolean;
+	// Registers this gear as the coachmark target for "view site overview".
+	// Exactly one row's gear is the anchor at a time.
+	isOverviewAnchor?: boolean;
 } ) {
 	const navigate = useNavigate();
+	const overviewAnchorRef = useTourAnchor( 'sidebar-site-row-overview', {
+		disabled: ! isOverviewAnchor,
+	} );
 
 	return (
 		<IconButton
+			ref={ overviewAnchorRef }
 			variant="minimal"
 			tone="neutral"
 			size="small"
@@ -346,6 +355,7 @@ function SiteSection( {
 	hasUnreadUpdate = false,
 	isPlugin = false,
 	agenticGated = false,
+	isOverviewAnchor = false,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
@@ -357,6 +367,8 @@ function SiteSection( {
 	// When agentic features are unavailable the row opens the overview
 	// directly, making the dedicated overview button redundant.
 	agenticGated?: boolean;
+	// Marks this row's gear as the "view site overview" coachmark target.
+	isOverviewAnchor?: boolean;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
@@ -442,6 +454,7 @@ function SiteSection( {
 									site={ site }
 									isActive={ isContextActive }
 									isPlugin={ isPlugin }
+									isOverviewAnchor={ isOverviewAnchor }
 								/>
 							) }
 							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
@@ -637,6 +650,17 @@ export function SiteList() {
 	const rowSiteIds = useMemo( () => siteRows.map( getRowSiteId ), [ siteRows ] );
 	const pluginRowIds = useMemo( () => pluginSiteRows.map( getRowSiteId ), [ pluginSiteRows ] );
 
+	// Exactly one site row's gear is the "view site overview" coachmark anchor:
+	// the active site's, falling back to the first site row.
+	const overviewAnchorSiteId = useMemo( () => {
+		if ( activeSiteKey && siteRows.some( ( row ) => row.site.id === activeSiteKey ) ) {
+			return activeSiteKey;
+		}
+		return siteRows[ 0 ]?.site.id;
+	}, [ activeSiteKey, siteRows ] );
+
+	const listAnchorRef = useTourAnchor( 'sidebar-site-list' );
+
 	// Both groups persist into the single stored order (ordering is applied to
 	// the full site list before the rows split into groups), so a drop in one
 	// group merges its new order with the other group's current order.
@@ -653,6 +677,7 @@ export function SiteList() {
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			agenticGated={ agenticGated }
+			isOverviewAnchor={ ! isPlugin && row.site.id === overviewAnchorSiteId }
 		/>
 	);
 
@@ -727,5 +752,9 @@ export function SiteList() {
 		listContent = siteRowsBlock;
 	}
 
-	return <div className={ styles.root }>{ listContent }</div>;
+	return (
+		<div className={ styles.root } ref={ listAnchorRef }>
+			{ listContent }
+		</div>
+	);
 }

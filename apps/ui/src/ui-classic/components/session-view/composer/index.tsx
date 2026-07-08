@@ -40,6 +40,7 @@ import {
 	type PointerEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import {
@@ -310,6 +311,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 	},
 	ref
 ) {
+	const composerAnchorRef = useTourAnchor( 'composer' );
 	const [ value, setValue ] = useState( '' );
 	const [ placeholderIndex, setPlaceholderIndex ] = useState( 0 );
 	const [ hoverPreview, setHoverPreview ] = useState< ComposerAttachmentHoverPreviewState | null >(
@@ -740,7 +742,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	return (
 		<>
-			<div className={ styles.root }>
+			<div className={ styles.root } ref={ composerAnchorRef }>
 				<div
 					className={ clsx(
 						styles.shell,

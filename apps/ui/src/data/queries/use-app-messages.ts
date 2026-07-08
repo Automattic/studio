@@ -3,25 +3,55 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useMemo, useSyncExternalStore } from 'react';
 import { ANNOUNCEMENTS, getActiveAnnouncements } from '@/data/announcements';
 import { useConnector } from '@/data/core';
+import { getLabMessages, subscribeLabMessages } from '@/data/dev-lab-messages';
+import { useGettingStartedMessage } from '@/data/onboarding/use-getting-started-message';
 import { useAppUpdateStatus, useInstallAppUpdate } from '@/data/queries/use-app-update';
+import type { ChecklistItemId } from '@/data/core';
+import type { ChecklistCardItem } from '@/data/onboarding/checklist';
 
 // Persistent messages ("cards") shown in the sidebar footer: condition-driven
 // rather than fire-and-forget — an app update waiting to install, a running
-// promotion. Sources are composed here; rendering lives in
-// components/app-message-cards.
+// promotion, the getting-started checklist. Sources are composed here;
+// rendering lives in components/app-message-cards.
 
-export interface PersistentMessage {
-	// Stable id; doubles as the dismissal key.
+interface PersistentMessageBase {
+	// Stable id; doubles as the dismissal key for messages that persist via
+	// the dismissed-messages store.
 	id: string;
+	// When false the dismissal lives only in this session (used by the update
+	// card when the version is unknown). Ignored when onDismiss is set.
+	persistDismissal?: boolean;
+	// Custom dismissal (checklist un-dismiss must not ride the append-only
+	// dismissed-messages store). When present it fully replaces the default
+	// dismissMessage() behavior.
+	onDismiss?: () => void;
+}
+
+export interface StandardMessage extends PersistentMessageBase {
+	kind?: 'standard';
 	intent: 'info' | 'success' | 'warning' | 'error';
 	title: string;
 	description?: string;
 	cta?: { label: string; onClick: () => void };
-	// When false the dismissal lives only in this session (used by the
-	// update card when the version is unknown, so a persisted dismissal can
-	// never hide a future update).
-	persistDismissal?: boolean;
 }
+
+// The getting-started checklist: a card with multiple line items whose done
+// state comes from persisted onboarding hints. See data/onboarding.
+export interface ChecklistMessage extends PersistentMessageBase {
+	kind: 'checklist';
+	title: string;
+	items: ChecklistCardItem[];
+	completedCount: number;
+	totalCount: number;
+	// Collapsed to the compact bar. Toggled by the — button.
+	minimized: boolean;
+	onActivateItem: ( id: ChecklistItemId ) => void;
+	onReplayTour: () => void;
+	onToggleMinimized: () => void;
+	allComplete: boolean;
+}
+
+export type PersistentMessage = StandardMessage | ChecklistMessage;
 
 export const DISMISSED_MESSAGES_QUERY_KEY = [ 'dismissed-messages' ] as const;
 
@@ -60,6 +90,8 @@ export function useDismissMessage() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( message: PersistentMessage ) => {
+			// Messages with their own dismissal (the checklist) never touch the
+			// dismissed-messages store — routed before this in dismiss().
 			if ( message.persistDismissal === false ) {
 				dismissForSession( message.id );
 				return Promise.resolve();
@@ -103,16 +135,25 @@ export function useActivePersistentMessages(): {
 	const installUpdate = useInstallAppUpdate();
 	const dismissed = useDismissedMessages();
 	const dismissMessage = useDismissMessage();
+	const gettingStarted = useGettingStartedMessage();
 	const sessionIds = useSyncExternalStore(
 		subscribeSessionDismissed,
 		() => sessionSnapshot,
 		() => sessionSnapshot
 	);
+	// Dev message-lab injections (always empty in production; only the
+	// dev-gated lab panel writes to the store).
+	const labMessages = useSyncExternalStore( subscribeLabMessages, getLabMessages, getLabMessages );
 
 	const install = installUpdate.mutate;
 
 	const sources = useMemo( () => {
 		const messages: PersistentMessage[] = [];
+
+		// Getting-started checklist first, so it sits at the top of the stack.
+		if ( gettingStarted ) {
+			messages.push( gettingStarted );
+		}
 
 		if ( updateStatus.data?.readyToInstall ) {
 			const version = updateStatus.data.version;
@@ -148,8 +189,10 @@ export function useActivePersistentMessages(): {
 			} );
 		}
 
+		messages.push( ...labMessages );
+
 		return messages;
-	}, [ updateStatus.data, install, connector ] );
+	}, [ gettingStarted, updateStatus.data, install, connector, labMessages ] );
 
 	const messages = useMemo(
 		() => deriveActiveMessages( sources, dismissed.data ?? [], sessionIds ),
@@ -158,6 +201,14 @@ export function useActivePersistentMessages(): {
 
 	return {
 		messages,
-		dismiss: ( message: PersistentMessage ) => dismissMessage.mutate( message ),
+		dismiss: ( message: PersistentMessage ) => {
+			// A message with its own dismissal (the checklist) owns the behavior
+			// end-to-end; everything else records in the dismissed-messages store.
+			if ( message.onDismiss ) {
+				message.onDismiss();
+				return;
+			}
+			dismissMessage.mutate( message );
+		},
 	};
 }

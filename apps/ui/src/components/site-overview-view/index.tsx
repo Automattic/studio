@@ -19,6 +19,7 @@ import {
 import { Button } from '@wordpress/ui';
 import { useState } from 'react';
 import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
+import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
@@ -287,6 +288,7 @@ export function SiteOverviewView( { siteId }: SiteOverviewViewProps ) {
 
 function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
+	const overviewAnchorRef = useTourAnchor( 'site-overview-content' );
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
@@ -338,7 +340,7 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 						<main className={ styles.content }>
 							<Tabs.Panel tabId="overview" className={ styles.panel }>
 								<AgenticSigninBanner />
-								<div className={ styles.actionsColumn }>
+								<div className={ styles.actionsColumn } ref={ overviewAnchorRef }>
 									<ButtonSection title={ __( 'Customize' ) }>
 										{ isBlockTheme ? (
 											<>

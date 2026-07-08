@@ -203,9 +203,23 @@ for ( const appxFile of appxFiles ) {
 	const appxPath = path.join( appxOutputPathSigned, appxFile );
 	console.log( `Signing ${ appxPath }...` );
 	const { signtoolPath } = getAzureSigningConfig();
-	execFileSync( signtoolPath, getAzureSignArgs( appxPath ), {
-		stdio: 'inherit',
-	} );
+	// The Microsoft timestamp server (timestamp.acs.microsoft.com) fails
+	// intermittently, so retry a few times before giving up.
+	const maxAttempts = 3;
+	for ( let attempt = 1; ; attempt++ ) {
+		try {
+			execFileSync( signtoolPath, getAzureSignArgs( appxPath ), {
+				stdio: 'inherit',
+			} );
+			break;
+		} catch ( error ) {
+			if ( attempt >= maxAttempts ) {
+				throw error;
+			}
+			console.log( `Signing attempt ${ attempt } of ${ maxAttempts } failed, retrying in 30s...` );
+			await new Promise( ( resolve ) => setTimeout( resolve, 30_000 ) );
+		}
+	}
 	console.log( `Signed ${ appxFile } successfully.` );
 
 	// Rename to remove misleading "unsigned" from the filename

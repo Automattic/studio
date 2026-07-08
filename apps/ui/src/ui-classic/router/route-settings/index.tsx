@@ -1,6 +1,6 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { normalizeSettingsTab, SettingsView } from '@/components/settings-view';
-import { dashboardLayoutRoute } from '../layout-dashboard';
+import { settingsLayoutRoute } from '../layout-settings';
 import type { SettingsTabId } from '@/components/settings-view';
 
 interface SettingsSearch {
@@ -29,7 +29,7 @@ function SettingsPage() {
 }
 
 export const settingsRoute = createRoute( {
-	getParentRoute: () => dashboardLayoutRoute,
+	getParentRoute: () => settingsLayoutRoute,
 	path: '/settings',
 	validateSearch: ( search: Record< string, unknown > ): SettingsSearch => {
 		const value = search.tab;

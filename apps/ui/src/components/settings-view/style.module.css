@@ -19,39 +19,29 @@
 	line-height: var(--wpds-typography-line-height-md);
 }
 
+/* Centered tab bar for the fullscreen settings view. Not a window-drag region:
+   the close button sits in it and a drag region would swallow its clicks. The
+   fullscreen chrome's edges handle window dragging. */
 .header {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
+	position: relative;
+	display: flex;
+	align-items: stretch;
+	justify-content: center;
+	/* Equal insets clear the macOS traffic lights (left) and the close button
+	   (right) so the tabs stay centered on the window and never collide with
+	   either on a narrow window. */
+	padding: 0 64px;
 	min-height: 54px;
-	padding: 0 var(--wpds-dimension-padding-xl) 0 0;
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
-	-webkit-app-region: drag;
 }
 
-.headerWithSpacer {
-	grid-template-columns: auto minmax(0, 1fr) auto;
-}
-
-.headerStart,
-.headerTabs,
-.headerActions {
-	display: flex;
-	align-items: center;
-	min-width: 0;
-}
-
-.headerStart {
-	pointer-events: none;
-	-webkit-app-region: drag;
-}
-
-.headerTabs {
-	align-self: stretch;
-	align-items: stretch;
-	-webkit-app-region: drag;
+/* Anchored to the toolbar's right edge, vertically centered in the bar. */
+.closeButton {
+	position: absolute;
+	top: 50%;
+	right: var(--wpds-dimension-padding-lg);
+	transform: translateY(-50%);
 }
 
 .headerTabList {
@@ -101,28 +91,6 @@
 	}
 }
 
-.headerActions {
-	justify-self: end;
-	-webkit-app-region: no-drag;
-}
-
-.toggleSpacer {
-	display: block;
-	flex-shrink: 0;
-	width: 118px;
-	align-self: stretch;
-	-webkit-app-region: no-drag;
-}
-
-/* No traffic lights to clear (non-macOS, the browser, or macOS fullscreen): a
-   minimal spacer so the toggle still clears the header's drag region. */
-.toggleSpacerFlush {
-	display: block;
-	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-xl) + 24px);
-	align-self: stretch;
-	-webkit-app-region: no-drag;
-}
 
 .scroll {
 	flex: 1;

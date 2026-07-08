@@ -1,6 +1,6 @@
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { isSiteSettingsTab, SiteSettingsView } from '@/components/site-settings-view';
-import { dashboardLayoutRoute } from '../layout-dashboard';
+import { settingsLayoutRoute } from '../layout-settings';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 
 interface SiteSettingsSearch {
@@ -31,7 +31,7 @@ function SiteSettingsPage() {
 }
 
 export const siteSettingsRoute = createRoute( {
-	getParentRoute: () => dashboardLayoutRoute,
+	getParentRoute: () => settingsLayoutRoute,
 	path: '/sites/$siteId/settings',
 	validateSearch: ( search: Record< string, unknown > ): SiteSettingsSearch => {
 		const value = search.tab;

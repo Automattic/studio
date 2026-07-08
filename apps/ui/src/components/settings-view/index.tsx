@@ -13,7 +13,7 @@ import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/use
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { FormToggle } from '@wordpress/components';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { check, copy, file, Icon, moreHorizontal } from '@wordpress/icons';
+import { check, close, copy, file, Icon, moreHorizontal } from '@wordpress/icons';
 import {
 	Button,
 	IconButton,
@@ -47,8 +47,7 @@ import {
 } from '@/data/queries/use-wordpress-skills';
 import { useOffline } from '@/hooks/use-offline';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { useSettingsClose } from '@/hooks/use-settings-close';
 import {
 	SIMULATED_WPORG_USERNAME,
 	setWporgConnected,
@@ -139,32 +138,33 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
-	const sidebarCollapsed = useSidebarCollapsed();
-	const reserveTrafficLightSpace = useTrafficLightSpace();
-	const toggleSpacerClass = sidebarCollapsed
-		? reserveTrafficLightSpace
-			? styles.toggleSpacer
-			: styles.toggleSpacerFlush
-		: null;
-
+	// Fullscreen settings has no sidebar, so the tab bar is centered in the
+	// window. The header is not a window-drag region — that would sit over the
+	// close button and swallow its clicks; dragging happens on the fullscreen
+	// chrome's edges instead. The close button is anchored to the toolbar's
+	// right edge; the tabs stay centered on the window regardless of its width.
+	const onClose = useSettingsClose();
 	return (
-		<div className={ clsx( styles.header, toggleSpacerClass && styles.headerWithSpacer ) }>
-			{ toggleSpacerClass ? (
-				<div className={ styles.headerStart }>
-					<span className={ toggleSpacerClass } aria-hidden="true" />
-				</div>
+		<div className={ styles.header }>
+			<Tabs.List className={ styles.headerTabList }>
+				<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
+				<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
+				<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
+				<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
+				<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
+				<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
+			</Tabs.List>
+			{ onClose ? (
+				<IconButton
+					className={ styles.closeButton }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ close }
+					label={ __( 'Close settings' ) }
+					onClick={ onClose }
+				/>
 			) : null }
-			<div className={ styles.headerTabs }>
-				<Tabs.List className={ styles.headerTabList }>
-					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
-				</Tabs.List>
-			</div>
-			<div className={ styles.headerActions } />
 		</div>
 	);
 }

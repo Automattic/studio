@@ -19,14 +19,21 @@
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
-	-webkit-app-region: drag;
 }
 
-.headerSidebarCollapsed {
+/* macOS overlays the window traffic lights on the top-left; drop the header
+   below them so the site dropdown clears the controls. */
+.headerTrafficLights {
 	padding-top: calc(
 		var(--wpds-dimension-padding-xl) + var(--wpds-dimension-padding-2xl) +
 			var(--wpds-dimension-padding-2xl)
 	);
+}
+
+/* Pushed to the toolbar's right edge, opposite the site dropdown. */
+.closeButton {
+	margin-inline-start: auto;
+	flex-shrink: 0;
 }
 
 .titleBlock {

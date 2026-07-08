@@ -41,6 +41,14 @@ function getNewSessionSiteId( pathname: string ): string | undefined {
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
+// Settings renders as a fullscreen overlay above this layout (see
+// layout-settings). While it's open the dashboard is fully hidden, so it must
+// stay frozen — in particular the preview panel must not animate open/closed
+// underneath — until the overlay closes and reveals it again.
+function isSettingsRoute( pathname: string ): boolean {
+	return /^\/settings\/?$/.test( pathname ) || /^\/sites\/[^/]+\/settings\/?$/.test( pathname );
+}
+
 function DashboardLayout() {
 	return (
 		<SessionUIProvider>
@@ -59,9 +67,10 @@ function DashboardLayoutContent() {
 			sessionId: getRouteSessionId( state.location.pathname ),
 			overviewSiteId: getRouteOverviewSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
+			settingsOverlay: isSettingsRoute( state.location.pathname ),
 		} ),
 	} );
-	const { sessionId, overviewSiteId, newSessionSiteId } = routePreviewContext;
+	const { sessionId, overviewSiteId, newSessionSiteId, settingsOverlay } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	const preview = useSessionPreviewUI();
@@ -99,8 +108,10 @@ function DashboardLayoutContent() {
 		sessionId !== undefined && effectiveEnvironment === 'local' && !! sessionSite;
 	// While session or site data is still loading, preview-capable routes stay
 	// preview-capable so navigation doesn't close and reopen the panel around
-	// the fetch.
+	// the fetch. The settings overlay keeps whatever the panel was doing so the
+	// dashboard behind it stays perfectly still.
 	const supportsPreview =
+		settingsOverlay ||
 		overviewSiteId !== undefined ||
 		newSessionSiteId !== undefined ||
 		( sessionId !== undefined && ( sessionData === undefined || !! routeSite ) );

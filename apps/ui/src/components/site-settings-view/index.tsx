@@ -24,8 +24,8 @@ import {
 import { CheckboxControl, Icon } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, sprintf } from '@wordpress/i18n';
-import { cautionFilled } from '@wordpress/icons';
-import { Button } from '@wordpress/ui';
+import { cautionFilled, close } from '@wordpress/icons';
+import { Button, IconButton } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckpointTimeline } from '@/components/checkpoint-timeline';
 import { LearnHowLink } from '@/components/learn-more';
@@ -52,7 +52,8 @@ import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-cer
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useSites, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useSettingsClose } from '@/hooks/use-settings-close';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -133,14 +134,32 @@ function getRestartChanges( initial: FormData, data: FormData, site: SiteDetails
 }
 
 function SettingsHeader( { site }: { site: SiteDetails } ) {
-	const sidebarCollapsed = useSidebarCollapsed();
+	// Site settings is a fullscreen view with no sidebar, so the header sits
+	// alone at the top: the site dropdown on the left, the close button on the
+	// right. On macOS it drops below the traffic lights that overlay the
+	// top-left corner.
+	const reserveTrafficLightSpace = useTrafficLightSpace();
+	const onClose = useSettingsClose();
 	return (
 		<div
 			className={
-				sidebarCollapsed ? `${ styles.header } ${ styles.headerSidebarCollapsed }` : styles.header
+				reserveTrafficLightSpace
+					? `${ styles.header } ${ styles.headerTrafficLights }`
+					: styles.header
 			}
 		>
-			<SiteDropdown site={ site } showSiteIcon showStatus={ sidebarCollapsed } />
+			<SiteDropdown site={ site } showSiteIcon showStatus />
+			{ onClose ? (
+				<IconButton
+					className={ styles.closeButton }
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					icon={ close }
+					label={ __( 'Close settings' ) }
+					onClick={ onClose }
+				/>
+			) : null }
 		</div>
 	);
 }

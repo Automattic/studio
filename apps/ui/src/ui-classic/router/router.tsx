@@ -3,6 +3,7 @@ import { createPackagedRouterHistory } from '@/app/router-history';
 import { dashboardLayoutRoute } from './layout-dashboard';
 import { onboardingLayoutRoute } from './layout-onboarding';
 import { rootRoute } from './layout-root';
+import { settingsLayoutRoute } from './layout-settings';
 import { indexRoute } from './route-index';
 import { newSessionRoute } from './route-new-session';
 import { onboardingAiRoute } from './route-onboarding-ai';
@@ -28,8 +29,10 @@ const routeTree = rootRoute.addChildren( [
 		newSessionRoute,
 		sessionDetailRoute,
 		siteOverviewRoute,
-		siteSettingsRoute,
-		settingsRoute,
+		// Settings lives inside the dashboard layout so opening it keeps the
+		// sidebar and (warm) site preview mounted; the settings layout hides
+		// them behind a fullscreen chrome and closing just navigates back.
+		settingsLayoutRoute.addChildren( [ settingsRoute, siteSettingsRoute ] ),
 	] ),
 	onboardingLayoutRoute.addChildren( [
 		onboardingTourRoute,

@@ -1,0 +1,48 @@
+/* Fullscreen views fill the window with no title bar; invisible strips along
+   the top, left, and bottom edges act as the window drag region. A full-
+   background region would also work, but it would swallow the mouse events any
+   interactive background (e.g. the onboarding dot grid) depends on. The right
+   edge is left free for the scroll bar, and interactive elements overlapping a
+   strip (the close button) stay clickable via the global no-drag rule. */
+.dragEdge {
+	position: fixed;
+	pointer-events: none;
+	-webkit-app-region: drag;
+}
+
+.dragEdgeTop {
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 36px;
+}
+
+.dragEdgeLeft {
+	top: 36px;
+	left: 0;
+	bottom: 0;
+	width: 16px;
+}
+
+.dragEdgeBottom {
+	left: 16px;
+	right: 0;
+	bottom: 0;
+	height: 16px;
+}
+
+.close {
+	/* Fixed so it stays in the corner while the page scrolls; above the
+	   footer scrim/actions (z-index 5/6). */
+	position: fixed;
+	top: 16px;
+	right: 16px;
+	z-index: 7;
+	/* Own snapshot group so route view transitions leave it stationary. */
+	view-transition-name: fullscreen-close;
+}
+
+.close svg {
+	width: 32px;
+	height: 32px;
+}

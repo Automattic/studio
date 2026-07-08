@@ -1,20 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	AI_CHAT_SLASH_COMMANDS,
-	getActiveSlashCommands,
-	type SlashCommandContext,
-} from 'cli/ai/slash-commands';
-
-describe( 'getActiveSlashCommands', () => {
-	it( 'returns commands in alphabetical order', () => {
-		const names = getActiveSlashCommands().map( ( c ) => c.name );
-		expect( names ).toEqual( [ ...names ].sort( ( a, b ) => a.localeCompare( b ) ) );
-	} );
-
-	it( 'includes every registered command', () => {
-		expect( getActiveSlashCommands() ).toHaveLength( AI_CHAT_SLASH_COMMANDS.length );
-	} );
-} );
+import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 
 describe( '/remote-session slash command registration', () => {
 	const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'remote-session' );

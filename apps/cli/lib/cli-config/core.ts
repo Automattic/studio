@@ -18,14 +18,12 @@ import { LoggerError } from 'cli/logger';
 
 /**
  * Durable origin of a site that was populated by `studio pull-reprint`:
- * where it syncs from and the credential needed to talk to that remote.
- * Present only on reprint-pulled sites.
+ * where it syncs from. Present only on reprint-pulled sites.
  */
 export const reprintOriginSchema = z.object( {
 	remoteUrl: z.string(),
 	remoteSiteUrl: z.string().optional(),
 	tablePrefix: z.string().optional(),
-	secret: z.string(),
 } );
 
 /**

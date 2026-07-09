@@ -18,57 +18,72 @@ import {
 	readCliConfig,
 	runCli,
 	setupCliEnv,
+	waitForSiteResponse,
 	type CliEnv,
 } from './helpers/cli-e2e';
 
 describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', () => {
 	let env: CliEnv | undefined;
 
-	afterEach( () => {
+	afterEach( async () => {
 		if ( env ) {
+			// The homepage test starts a site; stop it before tearing down the env.
+			await runCli( [ 'site', 'stop', '--all' ], env );
 			cleanupCliEnv( env );
 			env = undefined;
 		}
-	} );
+	}, 60_000 );
 
-	it( 'creates a site with a custom name', { tags: [ 'e2e' ], timeout: 120_000 }, async () => {
-		env = setupCliEnv();
-		const siteName = 'Custom E2E Site';
-		const sitePath = path.join( env.sitesDir, 'custom-e2e-site' );
+	it(
+		'creates a site that serves its homepage',
+		{ tags: [ 'e2e' ], timeout: 180_000 },
+		async () => {
+			env = setupCliEnv();
+			const siteName = 'Custom E2E Site';
+			const sitePath = path.join( env.sitesDir, 'custom-e2e-site' );
 
-		const result = await runCli(
-			[
-				'site',
-				'create',
-				'--name',
-				siteName,
-				'--path',
-				sitePath,
-				'--wp',
-				'latest',
-				'--no-start',
-				'--skip-browser',
-				'--skip-log-details',
-			],
-			env
-		);
+			const result = await runCli(
+				[
+					'site',
+					'create',
+					'--name',
+					siteName,
+					'--path',
+					sitePath,
+					'--wp',
+					'latest',
+					// Sandbox is bundled; the default native runtime downloads PHP on start.
+					'--runtime',
+					'sandbox',
+					'--skip-browser',
+					'--skip-log-details',
+				],
+				env
+			);
 
-		expect( result.code, result.stderr ).toBe( 0 );
+			expect( result.code, result.stderr ).toBe( 0 );
 
-		// The site is persisted to the real cli.json with the custom name.
-		const config = readCliConfig( env );
-		expect( config.sites ).toHaveLength( 1 );
-		const [ site ] = config.sites;
-		expect( site.name ).toBe( siteName );
-		expect( site.path ).toBe( sitePath );
-		expect( site.phpVersion ).toBeTruthy();
-		expect( site.running ).toBe( false );
+			const config = readCliConfig( env );
+			expect( config.sites ).toHaveLength( 1 );
+			const [ site ] = config.sites;
+			expect( site.name ).toBe( siteName );
+			expect( site.path ).toBe( sitePath );
+			expect( site.phpVersion ).toBeTruthy();
+			expect( site.port ).toBeTruthy();
 
-		// Real WordPress core files were copied into the site directory.
-		// (wp-config.php is generated at server start, which --no-start skips.)
-		expect( fs.existsSync( path.join( sitePath, 'wp-load.php' ) ) ).toBe( true );
-		expect( fs.existsSync( path.join( sitePath, 'wp-includes', 'version.php' ) ) ).toBe( true );
-	} );
+			// wp-config.php only exists if the server started (create alone doesn't generate it).
+			expect( fs.existsSync( path.join( sitePath, 'wp-load.php' ) ) ).toBe( true );
+			expect( fs.existsSync( path.join( sitePath, 'wp-includes', 'version.php' ) ) ).toBe( true );
+			expect( fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ).toBe( true );
+
+			// A freshly started site can return a warm-up 302 before serving, so poll for the 200.
+			const response = await waitForSiteResponse( `http://localhost:${ String( site.port ) }`, {
+				expectedStatus: 200,
+			} );
+			expect( response.status ).toBe( 200 );
+			expect( response.headers.get( 'content-type' ) ).toMatch( /text\/html/ );
+		}
+	);
 
 	it(
 		'creates a site with a custom domain and HTTPS',
@@ -101,8 +116,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 
 			expect( result.code, result.stderr ).toBe( 0 );
 
-			// The custom domain and HTTPS preference are persisted to cli.json.
-			// (--no-start skips the hosts-file / certificate setup that running would do.)
+			// --no-start skips the hosts-file / certificate setup that running would do,
+			// so this only checks the custom domain and HTTPS preference are persisted.
 			const config = readCliConfig( env );
 			expect( config.sites ).toHaveLength( 1 );
 			const [ site ] = config.sites;

@@ -1,3 +1,4 @@
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
@@ -157,8 +158,14 @@ export function useSyncSitesWithEvents(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	useEffect( () => {
-		return connector.onSiteEvent( () => {
+		return connector.onSiteEvent( ( event ) => {
 			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			// Site deletion archives the site's chat sessions (CLI `site
+			// delete`), so refresh the session list too. Scoped to deletes:
+			// start/stop events fire often and don't affect sessions.
+			if ( event.event === SITE_EVENTS.DELETED ) {
+				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+			}
 		} );
 	}, [ connector, queryClient ] );
 }

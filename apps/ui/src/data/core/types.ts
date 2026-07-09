@@ -3,6 +3,7 @@ import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -340,7 +341,7 @@ export interface Connector {
 
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
-	onSiteEvent( listener: () => void ): () => void;
+	onSiteEvent( listener: ( event: SiteEvent ) => void ): () => void;
 
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.

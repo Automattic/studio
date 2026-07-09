@@ -1,10 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	getSiteArchivedSessionHistory,
-	getSiteSessionHistory,
-	SessionChatActions,
-} from './session-chat-actions';
+import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
 import type { AiSessionSummary } from '@/data/core';
 
 const updateSessionMetadataMutate = vi.hoisted( () => vi.fn() );
@@ -66,7 +62,8 @@ describe( 'getSiteSessionHistory', () => {
 			updatedAt: '2026-06-20T12:00:00.000Z',
 		} );
 
-		const history = getSiteArchivedSessionHistory( {
+		const history = getSiteSessionHistory( {
+			archived: true,
 			currentSession,
 			ownerSitePath: '/Users/example/Studio/demo-site',
 			sessions: [
@@ -206,7 +203,6 @@ describe( 'SessionChatActions', () => {
 		const olderItem = screen.getByText( 'Older chat' ).closest( '[role="menuitem"]' );
 
 		expect( currentItem ).toHaveAttribute( 'aria-current', 'page' );
-		expect( currentItem ).toHaveAttribute( 'data-current', 'true' );
 		expect( olderItem ).toBeInTheDocument();
 
 		fireEvent.click( olderItem! );

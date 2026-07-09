@@ -5,16 +5,11 @@ import { Button, Dialog, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { useEffect, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { useUpdateSessionMetadata } from '@/data/queries/use-sessions';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
 const NEW_CHAT_SHORTCUT_KEY = 'n';
-const NEW_CHAT_SHORTCUT = {
-	displayShortcut: displayShortcut.primary( NEW_CHAT_SHORTCUT_KEY ),
-	ariaKeyShortcut: ariaKeyShortcut.primary( NEW_CHAT_SHORTCUT_KEY ),
-};
 
 function getTimestamp( session: AiSessionSummary ): number {
 	return Date.parse( session.updatedAt ) || 0;
@@ -28,53 +23,24 @@ export function getSiteSessionHistory( {
 	currentSession,
 	ownerSitePath,
 	sessions,
+	archived = false,
 }: {
 	currentSession: AiSessionSummary;
 	ownerSitePath: string | undefined;
 	sessions: AiSessionSummary[] | undefined;
+	archived?: boolean;
 } ): AiSessionSummary[] {
 	if ( ! ownerSitePath ) {
 		return [];
 	}
 
+	// The current session comes from a separate query and may be fresher than
+	// its copy in the list, so it goes last and wins the Map dedupe.
 	const sessionsById = new Map< string, AiSessionSummary >();
-	for ( const session of sessions ?? [] ) {
-		if ( session.archived || session.ownerSitePath !== ownerSitePath ) {
-			continue;
+	for ( const session of [ ...( sessions ?? [] ), currentSession ] ) {
+		if ( !! session.archived === archived && session.ownerSitePath === ownerSitePath ) {
+			sessionsById.set( session.id, session );
 		}
-		sessionsById.set( session.id, session );
-	}
-
-	if ( ! currentSession.archived && currentSession.ownerSitePath === ownerSitePath ) {
-		sessionsById.set( currentSession.id, currentSession );
-	}
-
-	return [ ...sessionsById.values() ].sort( ( a, b ) => getTimestamp( b ) - getTimestamp( a ) );
-}
-
-export function getSiteArchivedSessionHistory( {
-	currentSession,
-	ownerSitePath,
-	sessions,
-}: {
-	currentSession: AiSessionSummary;
-	ownerSitePath: string | undefined;
-	sessions: AiSessionSummary[] | undefined;
-} ): AiSessionSummary[] {
-	if ( ! ownerSitePath ) {
-		return [];
-	}
-
-	const sessionsById = new Map< string, AiSessionSummary >();
-	for ( const session of sessions ?? [] ) {
-		if ( ! session.archived || session.ownerSitePath !== ownerSitePath ) {
-			continue;
-		}
-		sessionsById.set( session.id, session );
-	}
-
-	if ( currentSession.archived && currentSession.ownerSitePath === ownerSitePath ) {
-		sessionsById.set( currentSession.id, currentSession );
 	}
 
 	return [ ...sessionsById.values() ].sort( ( a, b ) => getTimestamp( b ) - getTimestamp( a ) );
@@ -97,7 +63,6 @@ export function SessionChatActions( {
 	onSwitchSession,
 	sessions,
 }: SessionChatActionsProps ) {
-	const sidebarCollapsed = useSidebarCollapsed();
 	const updateSessionMetadata = useUpdateSessionMetadata();
 	const [ archiveDialogOpen, setArchiveDialogOpen ] = useState( false );
 	const [ historyMenuOpen, setHistoryMenuOpen ] = useState( false );
@@ -132,13 +97,7 @@ export function SessionChatActions( {
 	}, [ isCreatingSession, onNewChat ] );
 
 	return (
-		<div
-			className={
-				sidebarCollapsed
-					? `${ styles.classicComposerFooter } ${ styles.classicComposerFooterSidebarCollapsed }`
-					: styles.classicComposerFooter
-			}
-		>
+		<div className={ styles.classicComposerFooter }>
 			<div className={ styles.classicComposerFooterSide }>
 				<Menu.Root modal={ false } onOpenChange={ setHistoryMenuOpen }>
 					<Tooltip.Root disabled={ historyMenuOpen }>
@@ -174,7 +133,6 @@ export function SessionChatActions( {
 									<Menu.Item
 										key={ session.id }
 										className={ styles.classicComposerHistoryItem }
-										data-current={ isCurrent ? 'true' : undefined }
 										aria-current={ isCurrent ? 'page' : undefined }
 										onClick={ () => {
 											if ( ! isCurrent ) {
@@ -278,7 +236,7 @@ export function SessionChatActions( {
 								onClick={ onNewChat }
 								disabled={ isCreatingSession }
 								aria-busy={ isCreatingSession || undefined }
-								aria-keyshortcuts={ NEW_CHAT_SHORTCUT.ariaKeyShortcut }
+								aria-keyshortcuts={ ariaKeyShortcut.primary( NEW_CHAT_SHORTCUT_KEY ) }
 							/>
 						}
 					>
@@ -288,50 +246,10 @@ export function SessionChatActions( {
 						{ sprintf(
 							// translators: %s: keyboard shortcut for starting a new chat.
 							__( 'New chat %s' ),
-							NEW_CHAT_SHORTCUT.displayShortcut
+							displayShortcut.primary( NEW_CHAT_SHORTCUT_KEY )
 						) }
 					</Tooltip.Popup>
 				</Tooltip.Root>
-			</div>
-		</div>
-	);
-}
-
-export function SessionChatActionsSkeleton() {
-	const sidebarCollapsed = useSidebarCollapsed();
-
-	return (
-		<div
-			className={
-				sidebarCollapsed
-					? `${ styles.classicComposerFooter } ${ styles.classicComposerFooterSidebarCollapsed }`
-					: styles.classicComposerFooter
-			}
-			style={ { visibility: 'hidden' } }
-			aria-hidden="true"
-		>
-			<div className={ styles.classicComposerFooterSide }>
-				<Button
-					type="button"
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					className={ `${ styles.classicComposerTextButton } ${ styles.classicComposerIconButton }` }
-					aria-label={ __( 'Chat history' ) }
-					tabIndex={ -1 }
-				>
-					<Icon icon={ backup } size={ 26 } className={ styles.classicComposerIcon } />
-				</Button>
-				<Button
-					type="button"
-					className={ styles.classicComposerTextButton }
-					variant="minimal"
-					tone="neutral"
-					size="small"
-					tabIndex={ -1 }
-				>
-					<span>{ __( 'New chat' ) }</span>
-				</Button>
 			</div>
 		</div>
 	);

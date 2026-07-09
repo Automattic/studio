@@ -24,12 +24,7 @@ import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
-import {
-	getSiteArchivedSessionHistory,
-	getSiteSessionHistory,
-	SessionChatActions,
-	SessionChatActionsSkeleton,
-} from './session-chat-actions';
+import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
@@ -206,28 +201,21 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const composerRef = useRef< ComposerHandle >( null );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const siteSessionHistory = useMemo(
-		() =>
-			data
-				? getSiteSessionHistory( {
-						currentSession: data.summary,
-						ownerSitePath: ownerSite?.path,
-						sessions,
-				  } )
-				: [],
-		[ data, ownerSite?.path, sessions ]
-	);
-	const archivedSiteSessionHistory = useMemo(
-		() =>
-			data
-				? getSiteArchivedSessionHistory( {
-						currentSession: data.summary,
-						ownerSitePath: ownerSite?.path,
-						sessions,
-				  } )
-				: [],
-		[ data, ownerSite?.path, sessions ]
-	);
+	const siteSessionHistory = data
+		? getSiteSessionHistory( {
+				currentSession: data.summary,
+				ownerSitePath: ownerSite?.path,
+				sessions,
+		  } )
+		: [];
+	const archivedSiteSessionHistory = data
+		? getSiteSessionHistory( {
+				currentSession: data.summary,
+				ownerSitePath: ownerSite?.path,
+				sessions,
+				archived: true,
+		  } )
+		: [];
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -298,7 +286,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						<ComposerSkeleton />
 					</div>
 				}
-				footer={ <SessionChatActionsSkeleton /> }
+				footer={ <div aria-hidden /> }
 			>
 				<EmptyBackground />
 			</SessionFrame>

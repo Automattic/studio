@@ -107,6 +107,7 @@ const usePluginSiteTagMock = vi.mocked( usePluginSiteTag );
 describe( 'SiteContextMenu', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
 	const openSiteInEditor = vi.fn().mockResolvedValue( undefined );
+	const openExternalUrl = vi.fn().mockResolvedValue( undefined );
 	const startSite = vi.fn().mockResolvedValue( undefined );
 	const stopSite = vi.fn();
 	const copySite = vi.fn();
@@ -116,7 +117,7 @@ describe( 'SiteContextMenu', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		paramsMock.mockReturnValue( {} );
-		useConnectorMock.mockReturnValue( { openSiteUrl, openSiteInEditor } );
+		useConnectorMock.mockReturnValue( { openSiteUrl, openSiteInEditor, openExternalUrl } );
 		useCopySiteMock.mockReturnValue( { isPending: false, mutate: copySite } );
 		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: exportFullSite } );
 		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: exportDatabase } );
@@ -185,6 +186,14 @@ describe( 'SiteContextMenu', () => {
 		expect( screen.getByText( 'Plugins' ) ).toBeVisible();
 		expect( screen.getByText( 'Site Health' ) ).toBeVisible();
 		expect( screen.queryByText( 'Site Editor' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offers Browser in Open in and opens the running site externally', () => {
+		renderMenu( createSite( { running: true } ) );
+
+		fireEvent.click( screen.getByText( 'Browser' ).closest( 'button' )! );
+
+		expect( openExternalUrl ).toHaveBeenCalledWith( 'http://localhost:8881' );
 	} );
 
 	it( 'sends the user to settings when no editor is configured', () => {

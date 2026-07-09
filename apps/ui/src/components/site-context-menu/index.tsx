@@ -7,9 +7,6 @@ import * as Menu from '@/components/menu';
 import { useOpenInDestinations } from '@/components/open-in-menu/use-open-in-destinations';
 import { QuickMenuItem } from '@/components/site-quick-menu';
 import {
-	useCopySite,
-	useExportDatabase,
-	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useStartSite,
@@ -17,6 +14,8 @@ import {
 } from '@/data/queries/use-sites';
 import { useCustomizeLinks } from '@/hooks/use-customize-links';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
+import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
+import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { CustomizeLink } from '@/hooks/use-customize-links';
@@ -51,15 +50,16 @@ export function SiteContextMenu( { site, trigger }: { site: SiteDetails; trigger
 	const stopSite = useStopSite();
 	const openSiteUrl = useOpenSiteUrl( site );
 	const { customizeLinks, contentLinks, adminLink } = useCustomizeLinks( site );
-	// No `onOpen`: last-used tracking belongs to the split-button menus.
-	const destinations = useOpenInDestinations( site );
-	const copySite = useCopySite();
-	const exportFullSite = useExportFullSite();
-	const exportDatabase = useExportDatabase();
+	// No `onOpen`: last-used tracking belongs to the split-button menus. Pass
+	// the site's home URL as `browserUrl` so "Open in" offers Browser here too,
+	// matching the preview's menu (it opens externally, disabled while stopped).
+	const destinations = useOpenInDestinations( site, undefined, getSiteUrl( site ) );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
+	const managementActions = useSiteManagementActions( site, {
+		onDelete: () => setDeleteOpen( true ),
+	} );
 
 	const busy = isStarting || isStopping;
-	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
 
 	const linkItem = ( link: CustomizeLink ) => (
 		<QuickMenuItem
@@ -114,19 +114,26 @@ export function SiteContextMenu( { site, trigger }: { site: SiteDetails; trigger
 						</Menu.Popup>
 					</Menu.SubmenuRoot>
 					<Menu.Separator />
-					<Menu.Item disabled={ copySite.isPending } onClick={ () => copySite.mutate( site.id ) }>
-						{ __( 'Duplicate' ) }
-					</Menu.Item>
-					<Menu.Item disabled={ isExporting } onClick={ () => exportFullSite.mutate( site.id ) }>
-						{ __( 'Export' ) }
-					</Menu.Item>
-					<Menu.Item disabled={ isExporting } onClick={ () => exportDatabase.mutate( site.id ) }>
-						{ __( 'Export DB' ) }
-					</Menu.Item>
+					{ managementActions
+						.filter( ( action ) => ! action.destructive )
+						.map( ( action ) => (
+							<Menu.Item key={ action.id } disabled={ action.disabled } onClick={ action.run }>
+								{ action.label }
+							</Menu.Item>
+						) ) }
 					<Menu.Separator />
-					<Menu.Item className={ styles.destructiveItem } onClick={ () => setDeleteOpen( true ) }>
-						{ __( 'Delete' ) }
-					</Menu.Item>
+					{ managementActions
+						.filter( ( action ) => action.destructive )
+						.map( ( action ) => (
+							<Menu.Item
+								key={ action.id }
+								className={ styles.destructiveItem }
+								disabled={ action.disabled }
+								onClick={ action.run }
+							>
+								{ action.label }
+							</Menu.Item>
+						) ) }
 				</Menu.ContextPopup>
 			</Menu.ContextMenuRoot>
 			<DeleteSiteDialog

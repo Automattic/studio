@@ -1,11 +1,10 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { copy, download, grid, trash } from '@wordpress/icons';
 import { useState } from 'react';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { QuickMenuItem, QuickMenuPopup, QuickMenuTrigger } from '@/components/site-quick-menu';
-import { useCopySite, useExportDatabase, useExportFullSite } from '@/data/queries/use-sites';
+import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import { useOpenInDestinations } from './use-open-in-destinations';
 import type { OpenInDestination } from './use-open-in-destinations';
 import type { SiteDetails } from '@/data/core';
@@ -77,12 +76,10 @@ export function OpenInMenu( {
 	browserUrl?: string;
 } ) {
 	const navigate = useNavigate();
-	const copySite = useCopySite();
-	const exportFullSite = useExportFullSite();
-	const exportDatabase = useExportDatabase();
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
-
-	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
+	const managementActions = useSiteManagementActions( site, {
+		onDelete: () => setDeleteOpen( true ),
+	} );
 
 	// The trigger reflects the destination the user opened last, like a
 	// split button's default action.
@@ -121,31 +118,30 @@ export function OpenInMenu( {
 						/>
 					) ) }
 					<Menu.Separator />
-					<QuickMenuItem
-						icon={ copy }
-						label={ __( 'Duplicate' ) }
-						disabled={ copySite.isPending }
-						onClick={ () => copySite.mutate( site.id ) }
-					/>
-					<QuickMenuItem
-						icon={ download }
-						label={ __( 'Export' ) }
-						disabled={ isExporting }
-						onClick={ () => exportFullSite.mutate( site.id ) }
-					/>
-					<QuickMenuItem
-						icon={ grid }
-						label={ __( 'Export DB' ) }
-						disabled={ isExporting }
-						onClick={ () => exportDatabase.mutate( site.id ) }
-					/>
+					{ managementActions
+						.filter( ( action ) => ! action.destructive )
+						.map( ( action ) => (
+							<QuickMenuItem
+								key={ action.id }
+								icon={ action.icon }
+								label={ action.label }
+								disabled={ action.disabled }
+								onClick={ action.run }
+							/>
+						) ) }
 					<Menu.Separator />
-					<QuickMenuItem
-						icon={ trash }
-						label={ __( 'Delete' ) }
-						destructive
-						onClick={ () => setDeleteOpen( true ) }
-					/>
+					{ managementActions
+						.filter( ( action ) => action.destructive )
+						.map( ( action ) => (
+							<QuickMenuItem
+								key={ action.id }
+								icon={ action.icon }
+								label={ action.label }
+								disabled={ action.disabled }
+								destructive
+								onClick={ action.run }
+							/>
+						) ) }
 				</QuickMenuPopup>
 			</Menu.Root>
 			<DeleteSiteDialog

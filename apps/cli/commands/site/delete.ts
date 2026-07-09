@@ -1,11 +1,12 @@
 import fs from 'fs';
-import { archiveAiSessionsForSite } from '@studio/common/ai/sessions/manage';
+import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
+import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { deleteSnapshot } from 'cli/lib/api';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
@@ -118,10 +119,13 @@ export async function runCommand(
 		}
 
 		try {
-			await archiveAiSessionsForSite( { id: site.id, path: site.path } );
+			await deleteAiSessionsForSite( getAiSessionsRootDirectory(), {
+				id: site.id,
+				path: site.path,
+			} );
 		} catch ( error ) {
 			logger.reportError(
-				new LoggerError( __( 'Failed to archive chat sessions. Proceeding anyway…' ), error ),
+				new LoggerError( __( 'Failed to delete chat sessions. Proceeding anyway…' ), error ),
 				false
 			);
 		}

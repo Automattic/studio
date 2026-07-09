@@ -40,7 +40,7 @@ export function useDeleteSite() {
 	return useMutation( {
 		mutationFn: ( { id, deleteFiles = true }: DeleteSiteInput ) =>
 			connector.deleteSite( id, deleteFiles ),
-		// Deleting a site also archives its chat sessions (CLI `site delete`),
+		// Deleting a site also deletes its chat sessions (CLI `site delete`),
 		// so refresh the session list alongside the site list.
 		onSuccess: () =>
 			Promise.all( [
@@ -160,7 +160,7 @@ export function useSyncSitesWithEvents(): void {
 	useEffect( () => {
 		return connector.onSiteEvent( ( event ) => {
 			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-			// Site deletion archives the site's chat sessions (CLI `site
+			// Site deletion deletes the site's chat sessions (CLI `site
 			// delete`), so refresh the session list too. Scoped to deletes:
 			// start/stop events fire often and don't affect sessions.
 			if ( event.event === SITE_EVENTS.DELETED ) {

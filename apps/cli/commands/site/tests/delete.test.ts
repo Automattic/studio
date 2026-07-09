@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { archiveAiSessionsForSite } from '@studio/common/ai/sessions/manage';
+import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
@@ -133,7 +133,7 @@ describe( 'CLI: studio site delete', () => {
 		vi.mocked( deleteSnapshotFromConfig ).mockResolvedValue( undefined );
 		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
 		vi.mocked( arePathsEqual ).mockImplementation( ( a: string, b: string ) => a === b );
-		vi.mocked( archiveAiSessionsForSite ).mockResolvedValue( [] );
+		vi.mocked( deleteAiSessionsForSite ).mockResolvedValue( [] );
 		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
 	} );
 
@@ -348,17 +348,17 @@ describe( 'CLI: studio site delete', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'should archive the chat sessions associated with the site', async () => {
+		it( 'should delete the chat sessions associated with the site', async () => {
 			await runCommand( testSiteFolder, false );
 
-			expect( archiveAiSessionsForSite ).toHaveBeenCalledWith( {
+			expect( deleteAiSessionsForSite ).toHaveBeenCalledWith( expect.any( String ), {
 				id: testSite.id,
 				path: testSite.path,
 			} );
 		} );
 
-		it( 'should proceed when archiving chat sessions fails', async () => {
-			vi.mocked( archiveAiSessionsForSite ).mockRejectedValue( new Error( 'archive failed' ) );
+		it( 'should proceed when deleting chat sessions fails', async () => {
+			vi.mocked( deleteAiSessionsForSite ).mockRejectedValue( new Error( 'delete failed' ) );
 
 			await expect( runCommand( testSiteFolder, true ) ).resolves.not.toThrow();
 			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder ] );

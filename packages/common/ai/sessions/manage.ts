@@ -1,16 +1,22 @@
 import {
+	deleteAiSessionPlacement,
 	hydrateAiSessionSummaryWithPlacement,
 	readAiSessionPlacement,
 	readAiSessionPlacements,
 	setAiSessionSitePlacement,
 	type AiSessionSitePlacement,
 } from '@studio/common/ai/sessions/placement';
-import { createAiSession, listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
+import {
+	createAiSession,
+	deleteAiSession,
+	listAiSessions,
+	loadAiSession,
+} from '@studio/common/ai/sessions/store';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import {
+	deleteSharedSession,
 	readSharedSession,
 	readSharedSessions,
-	updateSharedSession,
 } from '@studio/common/lib/shared-config';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 
@@ -69,7 +75,8 @@ export async function loadHydratedAiSession(
 // Match by id OR path: placements may hold either a stale path (site moved) or
 // a stale id, and sidebar grouping is transitioning from path- to id-keyed —
 // matching both ensures no session is left orphaned by a site deletion.
-export async function archiveAiSessionsForSite(
+export async function deleteAiSessionsForSite(
+	rootDirectory: string,
 	site: Pick< SessionSite, 'id' | 'path' >
 ): Promise< string[] > {
 	const placements = await readAiSessionPlacements();
@@ -81,7 +88,13 @@ export async function archiveAiSessionsForSite(
 		.map( ( [ sessionId ] ) => sessionId );
 
 	for ( const sessionId of sessionIds ) {
-		await updateSharedSession( sessionId, { archived: true } );
+		try {
+			await deleteAiSession( rootDirectory, sessionId );
+		} catch {
+			// A placement can outlive its session file; still drop the metadata.
+		}
+		await deleteSharedSession( sessionId );
+		await deleteAiSessionPlacement( sessionId );
 	}
 	return sessionIds;
 }

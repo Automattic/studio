@@ -2,7 +2,7 @@ import path from 'path';
 import { defineConfig } from '@playwright/test';
 import baseConfig from '../../playwright.config';
 
-process.env.ARTIFACTS_PATH ??= path.join( __dirname, 'artifacts' );
+process.env.ARTIFACTS_PATH ??= path.join( import.meta.dirname, 'artifacts' );
 
 export default defineConfig( {
 	...baseConfig,

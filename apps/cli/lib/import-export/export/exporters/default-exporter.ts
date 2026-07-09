@@ -5,11 +5,6 @@ import path from 'path';
 import { ARCHIVER_OPTIONS, DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { createExportErrorPayload, ExportEvents } from '@studio/common/lib/import-export-events';
-import {
-	LEGACY_MU_PLUGIN_FILENAMES,
-	STUDIO_ERROR_LOG_FILENAME,
-	STUDIO_LOADER_MU_PLUGIN_FILENAME,
-} from '@studio/common/lib/mu-plugins';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import {
 	hasDefaultDbBlock,
@@ -31,11 +26,8 @@ import {
 	StudioJson,
 	StudioJsonPluginOrTheme,
 } from '../types';
+import { isExactPathExcluded, isPathExcludedByPattern } from './path-exclusions';
 import type { SiteData } from 'cli/lib/cli-config/core';
-
-const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
-	( name ) => `wp-content/mu-plugins/${ name }`
-);
 
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
 	private archiveBuilder!: Archiver;
@@ -43,42 +35,13 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 	private readonly options: ExportOptions;
 
 	isExactPathExcluded( pathToCheck: string ) {
-		const PATHS_TO_EXCLUDE = [
-			'wp-content/mu-plugins/sqlite-database-integration',
-			'wp-content/database',
-			'wp-content/db.php',
-			'wp-content/debug.log',
-			`wp-content/${ STUDIO_ERROR_LOG_FILENAME }`,
-			...prefixedLegacyMuPluginNames,
-			`wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`,
-		];
-
-		return PATHS_TO_EXCLUDE.some( ( pathToExclude ) =>
-			pathToCheck.startsWith( path.normalize( pathToExclude ) )
-		);
+		return isExactPathExcluded( pathToCheck );
 	}
 
 	// Look for disallowed directory names in a given path. If found, determine whether that part of
 	// the path is a directory or not.
 	isPathExcludedByPattern( pathToCheck: string ) {
-		const DIRECTORY_NAMES_TO_EXCLUDE = [ '.git', 'node_modules', 'cache' ];
-		const pathParts = pathToCheck.split( path.sep );
-
-		for ( const directoryName of DIRECTORY_NAMES_TO_EXCLUDE ) {
-			if ( ! pathParts.includes( directoryName ) ) {
-				continue;
-			}
-			const offenderIndex = pathToCheck.lastIndexOf( directoryName );
-			const offenderPath = pathToCheck.substring( 0, offenderIndex + directoryName.length );
-			try {
-				const stat = fs.statSync( offenderPath );
-				return stat.isDirectory();
-			} catch ( error ) {
-				return false;
-			}
-		}
-
-		return false;
+		return isPathExcludedByPattern( pathToCheck );
 	}
 
 	constructor( options: ExportOptions ) {

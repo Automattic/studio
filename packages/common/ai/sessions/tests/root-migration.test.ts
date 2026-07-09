@@ -15,16 +15,16 @@ describe( 'migrateLegacyAiSessionsRoot', () => {
 		fs.rmSync( tmpDir, { recursive: true, force: true } );
 	} );
 
-	function seedLegacy( root: string ) {
-		const dayDir = path.join( root, '2026', '07', '08' );
-		fs.mkdirSync( dayDir, { recursive: true } );
-		fs.writeFileSync( path.join( dayDir, 'session.jsonl' ), '{"type":"session"}\n' );
+	function seed( root: string, relativePath: string, content: string ) {
+		const filePath = path.join( root, relativePath );
+		fs.mkdirSync( path.dirname( filePath ), { recursive: true } );
+		fs.writeFileSync( filePath, content );
 	}
 
 	it( 'moves the legacy sessions directory to the new root', () => {
 		const legacy = path.join( tmpDir, 'legacy', 'sessions' );
 		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
-		seedLegacy( legacy );
+		seed( legacy, '2026/07/08/session.jsonl', '{"type":"session"}\n' );
 
 		migrateLegacyAiSessionsRoot( newRoot, [ legacy ] );
 
@@ -34,31 +34,60 @@ describe( 'migrateLegacyAiSessionsRoot', () => {
 		).toBe( '{"type":"session"}\n' );
 	} );
 
-	it( 'uses the first existing legacy candidate', () => {
-		const missing = path.join( tmpDir, 'missing', 'sessions' );
-		const legacy = path.join( tmpDir, 'legacy', 'sessions' );
+	it( 'merges every existing legacy candidate', () => {
+		const legacyA = path.join( tmpDir, 'legacy-a', 'sessions' );
+		const legacyB = path.join( tmpDir, 'legacy-b', 'sessions' );
 		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
-		seedLegacy( legacy );
+		seed( legacyA, '2026/07/08/a.jsonl', 'a\n' );
+		seed( legacyB, '2026/07/09/b.jsonl', 'b\n' );
 
-		migrateLegacyAiSessionsRoot( newRoot, [ missing, legacy ] );
+		migrateLegacyAiSessionsRoot( newRoot, [ legacyA, legacyB ] );
 
-		expect( fs.existsSync( path.join( newRoot, '2026', '07', '08', 'session.jsonl' ) ) ).toBe(
-			true
+		expect( fs.readFileSync( path.join( newRoot, '2026', '07', '08', 'a.jsonl' ), 'utf8' ) ).toBe(
+			'a\n'
 		);
+		expect( fs.readFileSync( path.join( newRoot, '2026', '07', '09', 'b.jsonl' ), 'utf8' ) ).toBe(
+			'b\n'
+		);
+		expect( fs.existsSync( legacyA ) ).toBe( false );
+		expect( fs.existsSync( legacyB ) ).toBe( false );
 	} );
 
-	it( 'does nothing when the new root already exists', () => {
+	it( 'sweeps stragglers into an existing new root', () => {
 		const legacy = path.join( tmpDir, 'legacy', 'sessions' );
 		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
-		seedLegacy( legacy );
-		fs.mkdirSync( newRoot, { recursive: true } );
+		seed( newRoot, '2026/07/08/existing.jsonl', 'existing\n' );
+		seed( legacy, '2026/07/09/straggler.jsonl', 'straggler\n' );
 
 		migrateLegacyAiSessionsRoot( newRoot, [ legacy ] );
 
-		expect( fs.existsSync( path.join( legacy, '2026', '07', '08', 'session.jsonl' ) ) ).toBe(
-			true
-		);
-		expect( fs.existsSync( path.join( newRoot, '2026' ) ) ).toBe( false );
+		expect(
+			fs.readFileSync( path.join( newRoot, '2026', '07', '08', 'existing.jsonl' ), 'utf8' )
+		).toBe( 'existing\n' );
+		expect(
+			fs.readFileSync( path.join( newRoot, '2026', '07', '09', 'straggler.jsonl' ), 'utf8' )
+		).toBe( 'straggler\n' );
+		expect( fs.existsSync( legacy ) ).toBe( false );
+	} );
+
+	it( 'keeps the destination file and leaves the source behind on collision', () => {
+		const legacy = path.join( tmpDir, 'legacy', 'sessions' );
+		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
+		seed( newRoot, '2026/07/08/session.jsonl', 'migrated\n' );
+		seed( legacy, '2026/07/08/session.jsonl', 'stale copy\n' );
+		seed( legacy, '2026/07/08/other.jsonl', 'other\n' );
+
+		migrateLegacyAiSessionsRoot( newRoot, [ legacy ] );
+
+		expect(
+			fs.readFileSync( path.join( newRoot, '2026', '07', '08', 'session.jsonl' ), 'utf8' )
+		).toBe( 'migrated\n' );
+		expect(
+			fs.readFileSync( path.join( newRoot, '2026', '07', '08', 'other.jsonl' ), 'utf8' )
+		).toBe( 'other\n' );
+		expect(
+			fs.readFileSync( path.join( legacy, '2026', '07', '08', 'session.jsonl' ), 'utf8' )
+		).toBe( 'stale copy\n' );
 	} );
 
 	it( 'does nothing when no legacy directory exists', () => {

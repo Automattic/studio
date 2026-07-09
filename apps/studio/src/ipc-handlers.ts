@@ -268,9 +268,9 @@ export async function createAiSession(
 	_event: IpcMainInvokeEvent,
 	siteId?: string
 ): Promise< AiSessionSummary > {
-	const sitesRoot = getSessionsDirectory();
+	const sessionsRoot = getSessionsDirectory();
 	if ( ! siteId ) {
-		return createOrReuseAiSession( sitesRoot );
+		return createOrReuseAiSession( sessionsRoot );
 	}
 
 	const server = SiteServer.get( siteId );
@@ -281,7 +281,7 @@ export async function createAiSession(
 	// Binds the session to the site and reuses an existing empty draft for it
 	// instead of piling up orphans — the shared logic the `studio ui` server
 	// uses too.
-	return createOrReuseAiSession( sitesRoot, {
+	return createOrReuseAiSession( sessionsRoot, {
 		site: {
 			id: server.details.id,
 			name: server.details.name,

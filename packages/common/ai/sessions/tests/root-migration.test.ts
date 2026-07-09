@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { migrateLegacyAiSessionsRoot } from '@studio/common/ai/sessions/paths';
+import { migrateLegacyAiSessionsRoot } from '@studio/common/ai/sessions/root-migration';
 
 describe( 'migrateLegacyAiSessionsRoot', () => {
 	let tmpDir: string;

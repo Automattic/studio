@@ -750,6 +750,8 @@ export function getToolResultPreview(
 			return getSkillPreview( text );
 		case 'wpcom_request':
 			return getWpcomResultPreview( input, text, isError );
+		case 'wp_cli':
+			return getWpCliResultPreview( input, text, isError );
 		case 'Read':
 		case 'Write':
 		case 'Edit':
@@ -759,4 +761,215 @@ export function getToolResultPreview(
 		default:
 			return null;
 	}
+}
+
+function getWpCliResultPreview(
+	input: Record< string, unknown > | undefined,
+	text: string,
+	isError: boolean
+): ToolResultPreview {
+	const command = getInputString( input, 'command' );
+	const firstLine = firstNonEmptyLine( text );
+	if ( isError ) {
+		return {
+			summaryLines: [ firstLine || __( 'WP-CLI command failed' ) ],
+			detailText: text,
+			detailLabel: __( 'Full command output hidden · click to expand' ),
+		};
+	}
+	const summary = firstLine || __( 'Command completed' );
+	return {
+		summaryLines: [
+			command
+				? sprintf( __( '%1$s: %2$s' ), getToolDisplayName( 'wp_cli', input ), summary )
+				: summary,
+		],
+		detailText: text,
+		detailLabel: __( 'Full command output hidden · click to expand' ),
+	};
+}
+
+export function getWritePseudoDiff(
+	input: Record< string, unknown > | undefined
+): string | undefined {
+	const content = input?.content;
+	if ( typeof content !== 'string' || content.length === 0 ) {
+		return undefined;
+	}
+	return content
+		.split( '\n' )
+		.map( ( line ) => `+${ line }` )
+		.join( '\n' );
+}
+
+export interface DiffLineStats {
+	additions: number;
+	deletions: number;
+}
+
+export function countDiffLineStats( diff: string | undefined ): DiffLineStats {
+	if ( ! diff ) {
+		return { additions: 0, deletions: 0 };
+	}
+	let additions = 0;
+	let deletions = 0;
+	for ( const line of diff.split( '\n' ) ) {
+		if ( line.startsWith( '+' ) && ! line.startsWith( '+++' ) ) {
+			additions += 1;
+		} else if ( line.startsWith( '-' ) && ! line.startsWith( '---' ) ) {
+			deletions += 1;
+		}
+	}
+	return { additions, deletions };
+}
+
+type ToolCategory =
+	| 'file_edit'
+	| 'file_read'
+	| 'search'
+	| 'wp_cli'
+	| 'shell'
+	| 'checkpoint'
+	| 'skill'
+	| 'site'
+	| 'other';
+
+export function getToolCategory( name: string ): ToolCategory {
+	switch ( name ) {
+		case 'Edit':
+		case 'Write':
+			return 'file_edit';
+		case 'Read':
+			return 'file_read';
+		case 'Grep':
+		case 'Glob':
+		case 'Ls':
+			return 'search';
+		case 'wp_cli':
+			return 'wp_cli';
+		case 'Bash':
+			return 'shell';
+		case 'checkpoint_create':
+		case 'checkpoint_restore':
+		case 'checkpoint_diff':
+		case 'checkpoint_list':
+			return 'checkpoint';
+		case 'Skill':
+			return 'skill';
+		case 'site_create':
+		case 'site_list':
+		case 'site_info':
+		case 'site_start':
+		case 'site_stop':
+		case 'site_delete':
+		case 'site_push':
+		case 'site_pull':
+			return 'site';
+		default:
+			return 'other';
+	}
+}
+
+export interface ToolGroupToolInput {
+	name: string;
+	input?: Record< string, unknown >;
+	result?: NormalizedToolResult;
+}
+
+export interface ToolGroupSummary {
+	label: string;
+	additions: number;
+	deletions: number;
+}
+
+function getToolDiffForStats( tool: ToolGroupToolInput ): string | undefined {
+	if ( tool.result?.diff ) {
+		return tool.result.diff;
+	}
+	if ( tool.name === 'Write' ) {
+		return getWritePseudoDiff( tool.input );
+	}
+	return undefined;
+}
+
+export function buildToolGroupSummary( tools: ToolGroupToolInput[] ): ToolGroupSummary {
+	const counts: Record< ToolCategory, number > = {
+		file_edit: 0,
+		file_read: 0,
+		search: 0,
+		wp_cli: 0,
+		shell: 0,
+		checkpoint: 0,
+		skill: 0,
+		site: 0,
+		other: 0,
+	};
+	let additions = 0;
+	let deletions = 0;
+
+	for ( const tool of tools ) {
+		counts[ getToolCategory( tool.name ) ] += 1;
+		const diffStats = countDiffLineStats( getToolDiffForStats( tool ) );
+		additions += diffStats.additions;
+		deletions += diffStats.deletions;
+	}
+
+	const fragments: string[] = [];
+	if ( counts.skill > 0 ) {
+		fragments.push(
+			sprintf( _n( 'Loaded %d skill', 'Loaded %d skills', counts.skill ), counts.skill )
+		);
+	}
+	if ( counts.site > 0 ) {
+		fragments.push(
+			sprintf( _n( 'Used %d site tool', 'Used %d site tools', counts.site ), counts.site )
+		);
+	}
+	if ( counts.file_edit > 0 ) {
+		fragments.push(
+			sprintf( _n( 'Edited %d file', 'Edited %d files', counts.file_edit ), counts.file_edit )
+		);
+	}
+	if ( counts.file_read > 0 ) {
+		fragments.push(
+			sprintf( _n( 'Read %d file', 'Read %d files', counts.file_read ), counts.file_read )
+		);
+	}
+	if ( counts.search > 0 ) {
+		fragments.push(
+			sprintf( _n( 'Explored %d path', 'Explored %d paths', counts.search ), counts.search )
+		);
+	}
+	if ( counts.wp_cli > 0 ) {
+		fragments.push(
+			sprintf(
+				_n( 'Ran %d WP-CLI command', 'Ran %d WP-CLI commands', counts.wp_cli ),
+				counts.wp_cli
+			)
+		);
+	}
+	if ( counts.shell > 0 ) {
+		fragments.push(
+			sprintf( _n( 'Ran %d command', 'Ran %d commands', counts.shell ), counts.shell )
+		);
+	}
+	if ( counts.checkpoint > 0 ) {
+		fragments.push(
+			sprintf(
+				_n( 'Checked %d checkpoint', 'Checked %d checkpoints', counts.checkpoint ),
+				counts.checkpoint
+			)
+		);
+	}
+	if ( counts.other > 0 ) {
+		fragments.push( sprintf( _n( 'Used %d tool', 'Used %d tools', counts.other ), counts.other ) );
+	}
+
+	return {
+		label:
+			fragments.join( ' · ' ) ||
+			sprintf( _n( 'Used %d tool', 'Used %d tools', tools.length ), tools.length ),
+		additions,
+		deletions,
+	};
 }

@@ -221,6 +221,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		hasActiveRun,
 		isInterrupting,
 		startedAt,
+		activeTool,
 		error: runError,
 		pendingQuestions,
 		pendingPermissions,
@@ -543,6 +544,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					data={ data }
 					isRunning={ isRunning }
 					startedAt={ startedAt }
+					activeTool={ activeTool }
 					pendingQuestions={ pendingQuestionTexts }
 					pendingAnswers={ pendingAnswers }
 					pendingPermissions={ pendingPermissionIds }

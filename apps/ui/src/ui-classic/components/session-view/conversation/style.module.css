@@ -756,3 +756,109 @@
 	--wp-ui-button-border-color: var(--wpds-color-stroke-interactive-error);
 	--wp-ui-button-border-color-active: var(--wpds-color-stroke-interactive-error);
 }
+
+.toolGroupButton {
+	align-self: stretch;
+	width: 100%;
+}
+
+.toolGroupStats {
+	flex-shrink: 0;
+	margin-left: auto;
+	display: inline-flex;
+	align-items: baseline;
+	gap: 6px;
+	font-size: var(--wpds-typography-font-size-sm);
+	font-variant-numeric: tabular-nums;
+}
+
+.toolGroupStatAdded {
+	color: var(--wpds-color-fg-content-success);
+}
+
+.toolGroupStatRemoved {
+	color: var(--wpds-color-fg-content-error);
+}
+
+.toolGroupChevron {
+	flex-shrink: 0;
+	margin-left: 4px;
+	opacity: 0.6;
+	transition: transform 180ms ease;
+}
+
+.toolRowButton[data-expanded='true'] .toolGroupChevron {
+	transform: rotate(180deg);
+}
+
+.toolGroupChildren {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-top: 4px;
+	padding-left: calc(18px + var(--wpds-dimension-padding-xs));
+}
+
+.activeToolSlot {
+	position: relative;
+	overflow: hidden;
+	min-height: 1.55em;
+}
+
+.activeToolRow {
+	display: flex;
+	align-items: baseline;
+	gap: var(--wpds-dimension-padding-xs);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.55;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	padding: 2px 0;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+.activeToolRowEnter {
+	animation: activeToolRollIn 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.activeToolRowExit {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: baseline;
+	gap: var(--wpds-dimension-padding-xs);
+	animation: activeToolRollOut 240ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+@keyframes activeToolRollIn {
+	from {
+		opacity: 0;
+		transform: translateY(100%);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes activeToolRollOut {
+	from {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(-100%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.activeToolRowEnter,
+	.activeToolRowExit {
+		animation: none;
+	}
+
+	.activeToolRowExit {
+		display: none;
+	}
+}

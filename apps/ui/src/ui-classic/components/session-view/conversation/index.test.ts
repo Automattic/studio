@@ -515,6 +515,7 @@ function renderConversation( data: LoadedAiSession, options: RenderConversationO
 			data,
 			isRunning: options.isRunning ?? false,
 			startedAt: options.startedAt ?? null,
+			activeTool: null,
 			pendingQuestions: options.pendingQuestions ?? new Set< string >(),
 			pendingAnswers: options.pendingAnswers ?? {},
 			pendingPermissions: new Set< string >(),
@@ -554,6 +555,7 @@ function InteractiveConversation( {
 		data,
 		isRunning: false,
 		startedAt: null,
+		activeTool: null,
 		pendingQuestions: new Set( pendingQuestionTexts ),
 		pendingAnswers,
 		pendingPermissions: new Set< string >(),
@@ -755,3 +757,111 @@ describe( 'Conversation thinking rows', () => {
 		expect( screen.getByText( /Second reasoning line/ ) ).toBeInTheDocument();
 	} );
 } );
+
+describe( 'Conversation tool grouping', () => {
+	it( 'keeps a single tool as an individual row', () => {
+		const items = entriesToRenderItems( [
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/studio/app.tsx' } ),
+		] );
+		expect( items ).toHaveLength( 1 );
+		expect( items[ 0 ]?.kind ).toBe( 'tool-use' );
+	} );
+
+	it( 'groups consecutive tools into a collapsed summary row', () => {
+		const items = entriesToRenderItems( [
+			assistantMultiToolCallEntry( [
+				{ id: 'tool-1', name: 'Ls', arguments: { path: '/tmp/pages' } },
+				{ id: 'tool-2', name: 'Ls', arguments: { path: '/tmp/themes' } },
+				{ id: 'tool-3', name: 'Read', arguments: { file_path: '/tmp/page.html' } },
+			] ),
+		] );
+		expect( items ).toHaveLength( 1 );
+		expect( items[ 0 ]?.kind ).toBe( 'tool-group' );
+		if ( items[ 0 ]?.kind === 'tool-group' ) {
+			expect( items[ 0 ].tools ).toHaveLength( 3 );
+			expect( items[ 0 ].summary.label ).toContain( 'Explored 2 paths' );
+			expect( items[ 0 ].summary.label ).toContain( 'Read 1 file' );
+		}
+	} );
+
+	it( 'breaks groups on assistant text between tools', () => {
+		const items = entriesToRenderItems( [
+			{
+				type: 'message',
+				id: 'assistant-mixed',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				message: {
+					role: 'assistant',
+					content: [
+						{ type: 'toolCall', id: 'tool-1', name: 'Read', arguments: { file_path: '/a' } },
+						{ type: 'text', text: 'Found the template.' },
+						{ type: 'toolCall', id: 'tool-2', name: 'Read', arguments: { file_path: '/b' } },
+						{ type: 'toolCall', id: 'tool-3', name: 'Write', arguments: { file_path: '/c' } },
+					],
+				},
+			} as unknown as SessionEntry,
+		] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [
+			'tool-use',
+			'assistant-text',
+			'tool-group',
+		] );
+	} );
+
+	it( 'renders grouped tools as one expandable summary row', () => {
+		const data = loadedSession( [
+			assistantMultiToolCallEntry( [
+				{ id: 'tool-1', name: 'Bash', arguments: { command: 'npm test' } },
+				{ id: 'tool-2', name: 'Bash', arguments: { command: 'npm run lint' } },
+			] ),
+			toolResultEntryForId( 'tool-1', 'ok' ),
+			toolResultEntryForId( 'tool-2', 'ok' ),
+		] );
+
+		renderConversation( data );
+
+		expect( screen.getByRole( 'button', { name: 'Ran 2 commands' } ) ).toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', { name: 'Run terminal command' } )
+		).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Ran 2 commands' } ) );
+
+		expect( screen.getAllByRole( 'button', { name: 'Run terminal command' } ) ).toHaveLength( 2 );
+	} );
+} );
+
+function assistantMultiToolCallEntry(
+	tools: Array< { id: string; name: string; arguments: Record< string, unknown > } >
+): SessionEntry {
+	return {
+		type: 'message',
+		id: 'assistant-multi-tool',
+		parentId: null,
+		timestamp: '2026-06-05T12:00:00.000Z',
+		message: {
+			role: 'assistant',
+			content: tools.map( ( tool ) => ( {
+				type: 'toolCall',
+				id: tool.id,
+				name: tool.name,
+				arguments: tool.arguments,
+			} ) ),
+		},
+	} as unknown as SessionEntry;
+}
+
+function toolResultEntryForId( toolCallId: string, text: string ): SessionEntry {
+	return {
+		type: 'message',
+		id: `tool-result-${ toolCallId }`,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:01.000Z',
+		message: {
+			role: 'toolResult',
+			toolCallId,
+			content: [ { type: 'text', text } ],
+		},
+	} as unknown as SessionEntry;
+}

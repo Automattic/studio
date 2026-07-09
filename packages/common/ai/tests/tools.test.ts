@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { getToolDetail, getToolDisplayName } from '../tools';
+import {
+	buildToolGroupSummary,
+	countDiffLineStats,
+	getToolDetail,
+	getToolDisplayName,
+	getWritePseudoDiff,
+} from '../tools';
 
 describe( 'tool display helpers', () => {
 	it( 'summarizes common WP-CLI commands from their input', () => {
@@ -113,5 +119,30 @@ describe( 'tool display helpers', () => {
 				],
 			} )
 		).toBe( 'What kind of visual direction should this site use?' );
+	} );
+} );
+
+describe( 'tool group summaries', () => {
+	it( 'builds category counts for mixed tool groups', () => {
+		const summary = buildToolGroupSummary( [
+			{ name: 'Read' },
+			{ name: 'Read' },
+			{ name: 'Edit' },
+			{ name: 'wp_cli' },
+		] );
+		expect( summary.label ).toBe( 'Edited 1 file · Read 2 files · Ran 1 WP-CLI command' );
+	} );
+
+	it( 'counts unified diff line stats', () => {
+		const stats = countDiffLineStats(
+			[ '--- a/file.txt', '+++ b/file.txt', '-old line', '+new line', '+another line' ].join( '\n' )
+		);
+		expect( stats ).toEqual( { additions: 2, deletions: 1 } );
+	} );
+
+	it( 'builds pseudo diffs for write tool input', () => {
+		expect( getWritePseudoDiff( { content: 'line one\nline two' } ) ).toBe(
+			'+line one\n+line two'
+		);
 	} );
 } );

@@ -58,6 +58,12 @@ export interface SendMessageOptions {
 	files?: StudioChatFileAttachment[];
 }
 
+export interface ActiveToolState {
+	name: string;
+	input: Record< string, unknown >;
+	startedAt: number;
+}
+
 export interface LiveAgentEvents {
 	// Agent loop is working - drives the thinking indicator. Clears at
 	// `turn.completed`, before the subprocess has finished winding down.
@@ -70,6 +76,7 @@ export interface LiveAgentEvents {
 	// Gives the Stop button immediate "Stopping..." feedback.
 	isInterrupting: boolean;
 	startedAt: number | null;
+	activeTool: ActiveToolState | null;
 	error: string | null;
 	pendingQuestions: PendingQuestion[];
 	// Gated tool calls awaiting the user's decision, in arrival order. Each
@@ -103,6 +110,7 @@ interface State {
 	phase: RunPhase;
 	runId: string | null;
 	startedAt: number | null;
+	activeTool: ActiveToolState | null;
 	error: string | null;
 	isInterrupting: boolean;
 	pendingQuestions: PendingQuestion[];
@@ -120,6 +128,7 @@ const initialState: State = {
 	phase: 'idle',
 	runId: null,
 	startedAt: null,
+	activeTool: null,
 	error: null,
 	isInterrupting: false,
 	pendingQuestions: [],
@@ -145,7 +154,14 @@ type Action =
 	| { type: 'queue_append'; prompt: QueuedPrompt }
 	| { type: 'queue_remove'; id: string }
 	| { type: 'queue_shift' }
-	| { type: 'queue_clear' };
+	| { type: 'queue_clear' }
+	| {
+			type: 'tool_execution_started';
+			name: string;
+			input: Record< string, unknown >;
+			startedAt: number;
+	  }
+	| { type: 'tool_execution_ended' };
 
 function reducer( state: State, action: Action ): State {
 	switch ( action.type ) {
@@ -164,6 +180,7 @@ function reducer( state: State, action: Action ): State {
 				phase: 'starting',
 				runId: null,
 				startedAt: action.startedAt,
+				activeTool: null,
 				error: null,
 				isInterrupting: false,
 			};
@@ -173,6 +190,7 @@ function reducer( state: State, action: Action ): State {
 				phase: 'running',
 				runId: action.runId,
 				startedAt: action.startedAt,
+				activeTool: null,
 				error: null,
 				isInterrupting: false,
 			};
@@ -182,6 +200,7 @@ function reducer( state: State, action: Action ): State {
 			return {
 				...state,
 				phase: state.phase === 'idle' ? 'idle' : 'winding_down',
+				activeTool: null,
 				pendingQuestions: [],
 				pendingPermissions: [],
 				pendingAnswers: {},
@@ -201,6 +220,7 @@ function reducer( state: State, action: Action ): State {
 				phase: 'idle',
 				runId: null,
 				startedAt: null,
+				activeTool: null,
 				isInterrupting: false,
 				pendingQuestions: [],
 				pendingPermissions: [],
@@ -260,6 +280,17 @@ function reducer( state: State, action: Action ): State {
 			return { ...state, queuedPrompts: state.queuedPrompts.slice( 1 ) };
 		case 'queue_clear':
 			return { ...state, queuedPrompts: [] };
+		case 'tool_execution_started':
+			return {
+				...state,
+				activeTool: {
+					name: action.name,
+					input: action.input,
+					startedAt: action.startedAt,
+				},
+			};
+		case 'tool_execution_ended':
+			return { ...state, activeTool: null };
 	}
 }
 
@@ -482,6 +513,24 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				case 'message': {
 					// Only message-bearing pi event variants need optimistic entries.
 					const inner = event.message;
+					if ( inner.type === 'tool_execution_start' ) {
+						const name = typeof inner.toolName === 'string' ? inner.toolName : 'tool';
+						const input =
+							inner.args && typeof inner.args === 'object' && ! Array.isArray( inner.args )
+								? ( inner.args as Record< string, unknown > )
+								: {};
+						dispatchSession( payload.sessionId, {
+							type: 'tool_execution_started',
+							name,
+							input,
+							startedAt: getTimestampMs( event.timestamp ),
+						} );
+						return;
+					}
+					if ( inner.type === 'tool_execution_end' ) {
+						dispatchSession( payload.sessionId, { type: 'tool_execution_ended' } );
+						return;
+					}
 					if (
 						inner.type === 'message_end' &&
 						( inner.message as { role?: string } ).role === 'assistant'
@@ -798,6 +847,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 	const {
 		phase,
 		startedAt,
+		activeTool,
 		error,
 		isInterrupting,
 		pendingQuestions,
@@ -922,6 +972,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		hasActiveRun: phase !== 'idle',
 		isInterrupting,
 		startedAt,
+		activeTool,
 		error,
 		pendingQuestions,
 		pendingPermissions,

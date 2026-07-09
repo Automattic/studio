@@ -1,0 +1,55 @@
+.rollingText {
+	display: inline-flex;
+	align-items: baseline;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.rollCell {
+	position: relative;
+	display: inline-block;
+	overflow: hidden;
+	line-height: 1.4;
+}
+
+.rollIn {
+	display: inline-block;
+	animation: roll-in 240ms ease;
+}
+
+.rollOut {
+	position: absolute;
+	inset: 0;
+	display: inline-block;
+	animation: roll-out 240ms ease forwards;
+}
+
+@keyframes roll-in {
+	from {
+		transform: translateY(100%);
+	}
+	to {
+		transform: translateY(0);
+	}
+}
+
+@keyframes roll-out {
+	from {
+		transform: translateY(0);
+	}
+	to {
+		transform: translateY(-100%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rollIn,
+	.rollOut {
+		animation: none;
+	}
+
+	.rollOut {
+		display: none;
+	}
+}

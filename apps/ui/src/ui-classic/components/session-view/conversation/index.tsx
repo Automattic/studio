@@ -10,12 +10,16 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
+	buildToolGroupSummary,
 	getInputString,
 	getToolDetail,
 	getToolDisplayName,
 	getToolResultDiff,
+	getToolResultPreview,
+	getWritePseudoDiff,
 	splitCommandArgs,
 	type NormalizedToolResult,
+	type ToolGroupSummary,
 } from '@studio/common/ai/tools';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -70,6 +74,7 @@ import { ImageContextMenu } from '@/components/image-context-menu';
 import { ImageLightbox, type LightboxImage } from '@/components/image-lightbox';
 import { Markdown } from '@/components/markdown';
 import * as Menu from '@/components/menu';
+import { RollingText } from '@/components/rolling-text';
 import {
 	useConnector,
 	type LoadedAiSession,
@@ -80,6 +85,7 @@ import {
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
+import type { ActiveToolState } from '@/data/queries/use-agent-run';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 interface AgentQuestionRenderItem {
@@ -104,6 +110,17 @@ type RenderItem =
 			name: string;
 			input?: Record< string, unknown >;
 			result?: NormalizedToolResult;
+	  }
+	| {
+			kind: 'tool-group';
+			key: string;
+			tools: Array< {
+				key: string;
+				name: string;
+				input?: Record< string, unknown >;
+				result?: NormalizedToolResult;
+			} >;
+			summary: ToolGroupSummary;
 	  }
 	| {
 			kind: 'agent-question-batch';
@@ -505,7 +522,45 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 		}
 	}
 
-	return items;
+	return groupConsecutiveToolUses( items );
+}
+
+export function groupConsecutiveToolUses( items: RenderItem[] ): RenderItem[] {
+	const grouped: RenderItem[] = [];
+	let pendingTools: Extract< RenderItem, { kind: 'tool-use' } >[] = [];
+
+	const flushTools = () => {
+		if ( pendingTools.length === 0 ) {
+			return;
+		}
+		if ( pendingTools.length === 1 ) {
+			grouped.push( pendingTools[ 0 ] );
+		} else {
+			grouped.push( {
+				kind: 'tool-group',
+				key: pendingTools.map( ( tool ) => tool.key ).join( ':' ),
+				tools: pendingTools.map( ( tool ) => ( {
+					key: tool.key,
+					name: tool.name,
+					input: tool.input,
+					result: tool.result,
+				} ) ),
+				summary: buildToolGroupSummary( pendingTools ),
+			} );
+		}
+		pendingTools = [];
+	};
+
+	for ( const item of items ) {
+		if ( item.kind === 'tool-use' ) {
+			pendingTools.push( item );
+			continue;
+		}
+		flushTools();
+		grouped.push( item );
+	}
+	flushTools();
+	return grouped;
 }
 
 // Progress from earlier turns must not leak into the current indicator, so
@@ -805,6 +860,38 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 	}
 }
 
+function getToolDiffForDisplay(
+	name: string,
+	input: Record< string, unknown > | undefined,
+	result?: NormalizedToolResult
+): string | undefined {
+	if ( result?.diff ) {
+		return result.diff;
+	}
+	if ( name === 'Write' ) {
+		return getWritePseudoDiff( input );
+	}
+	return undefined;
+}
+
+function getToolResultDisplayText(
+	name: string,
+	input: Record< string, unknown > | undefined,
+	result?: NormalizedToolResult
+): string {
+	const rawResultText = result?.text?.trim() ?? '';
+	const resultText =
+		name === 'take_screenshot' ? stripScreenshotMediaPayloadLines( rawResultText ) : rawResultText;
+	if ( ! resultText ) {
+		return '';
+	}
+	const preview = getToolResultPreview( name, input, resultText, result?.isError === true );
+	if ( preview?.summaryLines.length ) {
+		return preview.summaryLines.join( '\n' );
+	}
+	return resultText;
+}
+
 function DiffBlock( { diff }: { diff: string } ) {
 	const lines = diff.replace( /\n$/, '' ).split( '\n' );
 	return (
@@ -840,19 +927,25 @@ function ToolUseRow( {
 	name,
 	input,
 	result,
+	compact = false,
 }: {
 	name: string;
 	input?: Record< string, unknown >;
 	result?: NormalizedToolResult;
+	compact?: boolean;
 } ) {
 	const display = getClassicToolDisplay( name, input );
 	const detailsId = useId();
 	const rawResultText = result?.text?.trim() ?? '';
 	const resultText =
 		name === 'take_screenshot' ? stripScreenshotMediaPayloadLines( rawResultText ) : rawResultText;
-	const hasOutput = resultText.length > 0;
+	const preview = getToolResultPreview( name, input, resultText, result?.isError === true );
+	const displayResultText = getToolResultDisplayText( name, input, result );
+	const detailText = preview?.detailText ?? resultText;
+	const hasOutput = detailText.length > 0;
 	const hasInput = display.inputText.length > 0;
-	const hasDiff = Boolean( result?.diff );
+	const diff = getToolDiffForDisplay( name, input, result );
+	const hasDiff = Boolean( diff );
 	const hasExpandableDetails = hasInput || hasOutput || hasDiff;
 	const [ expanded, setExpanded ] = useState( false );
 	const [ detailsMounted, setDetailsMounted ] = useState( false );
@@ -868,6 +961,9 @@ function ToolUseRow( {
 			<ToolIcon name={ name } input={ input } />
 			<span className={ styles.toolLabel }>{ display.label }</span>
 			{ display.detail ? <span className={ styles.toolDetail }>{ display.detail }</span> : null }
+			{ compact && displayResultText && ! expanded ? (
+				<span className={ styles.toolDetail }>{ displayResultText.split( '\n' )[ 0 ] }</span>
+			) : null }
 		</>
 	);
 
@@ -915,14 +1011,159 @@ function ToolUseRow( {
 								<pre
 									className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }
 								>
-									{ resultText }
+									{ detailText }
 								</pre>
 							) : null }
-							{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
+							{ hasDiff ? <DiffBlock diff={ diff! } /> : null }
 						</div>
 					</div>
 				</div>
 			) : null }
+		</div>
+	);
+}
+
+function ToolGroupStats( { summary }: { summary: ToolGroupSummary } ) {
+	if ( summary.additions === 0 && summary.deletions === 0 ) {
+		return null;
+	}
+	return (
+		<span className={ styles.toolGroupStats } aria-hidden="true">
+			{ summary.additions > 0 ? (
+				<span className={ styles.toolGroupStatAdded }>+{ summary.additions }</span>
+			) : null }
+			{ summary.deletions > 0 ? (
+				<span className={ styles.toolGroupStatRemoved }>-{ summary.deletions }</span>
+			) : null }
+		</span>
+	);
+}
+
+function ToolGroupRow( {
+	tools,
+	summary,
+}: {
+	tools: Array< {
+		key: string;
+		name: string;
+		input?: Record< string, unknown >;
+		result?: NormalizedToolResult;
+	} >;
+	summary: ToolGroupSummary;
+} ) {
+	const detailsId = useId();
+	const [ expanded, setExpanded ] = useState( false );
+	const [ detailsMounted, setDetailsMounted ] = useState( false );
+	useEffect( () => {
+		if ( expanded || ! detailsMounted ) {
+			return;
+		}
+		const timeoutId = window.setTimeout( () => setDetailsMounted( false ), 220 );
+		return () => window.clearTimeout( timeoutId );
+	}, [ detailsMounted, expanded ] );
+
+	return (
+		<div className={ styles.toolBlock }>
+			<button
+				type="button"
+				className={ clsx( styles.toolRow, styles.toolRowButton, styles.toolGroupButton ) }
+				aria-label={ summary.label }
+				aria-expanded={ expanded }
+				aria-controls={ detailsId }
+				data-expanded={ expanded }
+				onClick={ () => {
+					if ( expanded ) {
+						setExpanded( false );
+						return;
+					}
+					setDetailsMounted( true );
+					setExpanded( true );
+				} }
+				title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
+			>
+				<span className={ styles.toolLabel }>{ summary.label }</span>
+				<ToolGroupStats summary={ summary } />
+				<span className={ styles.toolGroupChevron } aria-hidden="true">
+					▼
+				</span>
+			</button>
+			{ detailsMounted ? (
+				<div
+					id={ detailsId }
+					className={ styles.toolDetailsShell }
+					data-expanded={ expanded }
+					aria-hidden={ ! expanded }
+					onTransitionEnd={ ( event ) => {
+						if ( event.currentTarget === event.target && ! expanded ) {
+							setDetailsMounted( false );
+						}
+					} }
+				>
+					<div className={ styles.toolDetailsClip }>
+						<div className={ styles.toolGroupChildren }>
+							{ tools.map( ( tool ) => (
+								<ToolUseRow
+									key={ tool.key }
+									name={ tool.name }
+									input={ tool.input }
+									result={ tool.result }
+									compact
+								/>
+							) ) }
+						</div>
+					</div>
+				</div>
+			) : null }
+		</div>
+	);
+}
+
+function ActiveToolSlot( { tool }: { tool: ActiveToolState | null } ) {
+	const [ current, setCurrent ] = useState( tool );
+	const [ previous, setPrevious ] = useState< ActiveToolState | null >( null );
+	const currentKey = tool ? `${ tool.name }:${ tool.startedAt }` : null;
+	const renderedKey = current ? `${ current.name }:${ current.startedAt }` : null;
+
+	if ( currentKey !== renderedKey ) {
+		if ( current && tool ) {
+			setPrevious( current );
+		}
+		setCurrent( tool );
+	}
+
+	useEffect( () => {
+		if ( ! previous ) {
+			return;
+		}
+		const timeoutId = window.setTimeout( () => setPrevious( null ), 240 );
+		return () => window.clearTimeout( timeoutId );
+	}, [ previous ] );
+
+	if ( ! current ) {
+		return null;
+	}
+
+	const display = getClassicToolDisplay( current.name, current.input );
+	const labelText = display.detail ? `${ display.label } ${ display.detail }` : display.label;
+	const previousDisplay = previous ? getClassicToolDisplay( previous.name, previous.input ) : null;
+	const previousLabel = previousDisplay
+		? previousDisplay.detail
+			? `${ previousDisplay.label } ${ previousDisplay.detail }`
+			: previousDisplay.label
+		: '';
+
+	return (
+		<div className={ styles.activeToolSlot }>
+			{ previous ? (
+				<div className={ styles.activeToolRowExit } aria-hidden="true">
+					<ToolIcon name={ previous.name } input={ previous.input } />
+					<RollingText text={ previousLabel } />
+				</div>
+			) : null }
+			<div className={ previous ? styles.activeToolRowEnter : styles.activeToolRow }>
+				<ToolIcon name={ current.name } input={ current.input } />
+				<RollingText text={ labelText } />
+			</div>
 		</div>
 	);
 }
@@ -1570,6 +1811,7 @@ export function Conversation( {
 	data,
 	isRunning,
 	startedAt,
+	activeTool,
 	pendingQuestions,
 	pendingAnswers,
 	pendingPermissions,
@@ -1580,6 +1822,7 @@ export function Conversation( {
 	data: LoadedAiSession;
 	isRunning: boolean;
 	startedAt: number | null;
+	activeTool: ActiveToolState | null;
 	pendingQuestions: Set< string >;
 	pendingAnswers: Record< string, string >;
 	// Ids of gated tool calls awaiting a decision on the active run.
@@ -1653,6 +1896,10 @@ export function Conversation( {
 									result={ item.result }
 								/>
 							);
+						case 'tool-group':
+							return (
+								<ToolGroupRow key={ item.key } tools={ item.tools } summary={ item.summary } />
+							);
 						case 'agent-question-batch':
 							return (
 								<AgentQuestionBatch
@@ -1685,11 +1932,18 @@ export function Conversation( {
 							return null;
 					}
 				} ) }
-				<ThinkingIndicator
-					active={ isRunning && pendingQuestions.size === 0 && pendingPermissions.size === 0 }
-					startedAt={ startedAt }
-					progressMessage={ progressMessage }
-				/>
+				{ isRunning &&
+				activeTool &&
+				pendingQuestions.size === 0 &&
+				pendingPermissions.size === 0 ? (
+					<ActiveToolSlot tool={ activeTool } />
+				) : (
+					<ThinkingIndicator
+						active={ isRunning && pendingQuestions.size === 0 && pendingPermissions.size === 0 }
+						startedAt={ startedAt }
+						progressMessage={ progressMessage }
+					/>
+				) }
 			</div>
 		</ConversationGalleryContext.Provider>
 	);

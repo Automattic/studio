@@ -103,8 +103,6 @@ wp-files/*
 
 # Release Tooling
 vendor/*
-# TEMP: vendored blocks-engine 0.2.2 until it ages past min-release-age (remove in follow-up PR)
-!packages/data-liberation-agent/vendor/automattic-blocks-engine-0.2.2.tgz
 /fastlane/report.xml
 /fastlane/README.md
 /fastlane/github_release_notes.txt
@@ -114,7 +112,12 @@ cli/vendor/
 
 # Build output
 dist
-dist-web
+dist-hosted
+dist-local
+# …except the data-liberation plugin's committed MCP server bundle (the plugin
+# installer copies the package without running npm install or a build). The
+# package-level .gitignore keeps everything else in its dist/ ignored.
+!packages/data-liberation-agent/dist
 
 # Playwright traces
 test-results

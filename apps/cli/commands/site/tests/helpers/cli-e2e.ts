@@ -100,12 +100,6 @@ export function runCli( args: string[], env: CliEnv ): Promise< CliResult > {
 				...process.env,
 				DEV_CONFIG_DIR: env.configDir,
 				STUDIO_PROCESS_MANAGER_HOME: env.daemonHome,
-				// Isolate the legacy Electron appdata dir too. `getAppdataDirectory()`
-				// ignores DEV_CONFIG_DIR and only honors E2E_APP_DATA_PATH, so without
-				// this the Studio-compatibility migration finds a real pre-split
-				// ~/Library/.../appdata-v1.json on a dev machine and exits 1.
-				E2E: '1',
-				E2E_APP_DATA_PATH: env.root,
 			},
 		} );
 
@@ -126,4 +120,38 @@ export function readCliConfig( env: CliEnv ): {
 	[ key: string ]: unknown;
 } {
 	return JSON.parse( fs.readFileSync( env.cliConfigPath, 'utf-8' ) );
+}
+
+/**
+ * Polls a URL until the freshly started server responds (redirects not followed). Pass
+ * `expectedStatus` to also poll past interim responses like the proxy's warm-up 302.
+ */
+export async function waitForSiteResponse(
+	url: string,
+	{
+		timeoutMs = 30_000,
+		intervalMs = 500,
+		expectedStatus,
+	}: { timeoutMs?: number; intervalMs?: number; expectedStatus?: number } = {}
+): Promise< Response > {
+	const deadline = Date.now() + timeoutMs;
+	let lastError: unknown;
+	let lastResponse: Response | undefined;
+
+	while ( Date.now() < deadline ) {
+		try {
+			lastResponse = await fetch( url, { redirect: 'manual' } );
+			if ( expectedStatus === undefined || lastResponse.status === expectedStatus ) {
+				return lastResponse;
+			}
+		} catch ( error ) {
+			lastError = error;
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, intervalMs ) );
+	}
+
+	if ( lastResponse ) {
+		return lastResponse;
+	}
+	throw new Error( `Timed out waiting for a response from ${ url }: ${ String( lastError ) }` );
 }

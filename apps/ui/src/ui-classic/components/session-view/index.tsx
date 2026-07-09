@@ -10,10 +10,10 @@ import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { useFullscreen } from '@/hooks/use-fullscreen';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
 import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
@@ -29,7 +29,7 @@ interface SessionHeaderProps {
 function SessionHeader( { summary }: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const { data: sites } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
@@ -38,9 +38,9 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 	}
 
 	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
+		? reserveTrafficLightSpace
+			? styles.toggleSpacer
+			: styles.toggleSpacerFlush
 		: null;
 
 	return (

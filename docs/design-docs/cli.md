@@ -54,6 +54,30 @@ We could almost ship the CLI source code as-is. We know which Node.js version in
 
 Long-term, we might want to move in that direction, but for now, we are still bundling. It offers us some flexibility around which exact code we ship to users (by allowing us to define globals that act as feature flags), and we've seen in testing that bundled code uses less memory, presumably because of code splitting and tree shaking. 
 
+### Pulling a remote site (`pull-reprint`)
+
+`studio pull-reprint` refreshes an **existing** local Studio site from a connected WordPress.com or Pressable source using the reprint pull tool. It is a state-transition on a site, not a site creator — the same shape as the WordPress.com sync `pull`. Third-party WordPress hosts are not supported: a source URL must resolve to a site returned by the user's authenticated WordPress.com Jetpack API site list.
+
+The flow is:
+
+1. `studio create` — create the local site (a full `SiteData` record plus a blank WordPress install). This is a prerequisite; `pull-reprint` never creates a site.
+2. `studio pull-reprint --path <site> --url <remote>` — pull the remote into the local site resolved by `--path`. `--url` identifies only the remote source; if omitted, `pull-reprint` first reuses the site's saved `reprintOrigin.remoteUrl`, and if there is no saved origin, a WordPress.com/Pressable source picker runs (Pressable support is still WIP). The matched remote must be `syncable`. Each run rotates a fresh Reprint secret through the WordPress.com API, enables the exporter, then runs preflight once. The pull is idempotent: re-running it resumes an interrupted pull or performs a delta re-pull of an already-imported site.
+3. `studio delete --path <site>` — the only teardown path. It trashes the site folder and the site's `technicalSiteDirectory`, which for a reprint-pulled site is the `siteId`-keyed scratch under `~/.studio/pulls/<siteId>` (reprint's `.import-state.json`, the preflight cache, and the raw/runtime working dirs). `pull-reprint` records `technicalSiteDirectory` on the site at pull *start*, so the scratch is cleaned up even for a pull that failed before linking. There is no `--abort` verb.
+
+#### State model
+
+All durable state lives on the `SiteData` record in `cli.json`. The pull-relevant fields are:
+
+- `status: 'ready' | 'pulling' | 'pull-failed'` — health of the local install. `site create` produces `ready`; a pull sets `pulling` up front, `ready` on success, and `pull-failed` if it errors or is killed. A missing value (legacy records) is treated as `ready`. `site start` refuses to start a non-`ready` site rather than serving a half-written install.
+- `reprintOrigin` — durable origin metadata for a pulled site (`remoteUrl`, `remoteSiteUrl`, `tablePrefix`), so a re-pull can reuse the remote source.
+- `importComplete: boolean` — true once a full pull has completed at least once; selects first-full-pull vs. delta on the next run.
+
+#### Resume by derivation
+
+Rather than a written stage cursor, "where do I continue from?" is computed from observable state: reprint resumes its own pipeline from `.import-state.json` (and the pull is idempotent), the server-start phase keys off whether the process is already running, the skipped-files phase keys off `hasSkippedFiles`, and full-vs-delta keys off `importComplete`. A `pull-failed` (or interrupted `pulling`) site is recovered by **re-running** the pull, not repaired in place — or removed with `site delete`.
+
+> The only on-disk pull state is reprint's opaque `.import-state.json` and the preflight cache, both in the `siteId`-keyed scratch dir. An interrupted reprint pull can leave the live site half-written; making that crash-atomic is upstream work in reprint. The `pull-failed` status + idempotent re-run is the consumer-side safety net until that lands, so resume is not advertised as crash-proof.
+
 ### Studio calling the CLI
 
 Studio instantiates CLI child processes to execute certain operations. In the first CLI iteration, Studio does this when creating, updating, and deleting preview sites. The CLI communicates with Studio through node IPC calls (using the `process.send` API).

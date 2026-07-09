@@ -209,6 +209,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'updateAiSessionMetadata', sessionIdOrPrefix, patch ),
 	continueAiSession: ( sessionId, prompt, options ) =>
 		ipcRendererInvoke( 'continueAiSession', sessionId, prompt, options ),
+	markAiMessageEdited: ( sessionId, originalEntryId ) =>
+		ipcRendererInvoke( 'markAiMessageEdited', sessionId, originalEntryId ),
 	listActiveAiAgentRuns: () => ipcRendererInvoke( 'listActiveAiAgentRuns' ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),

@@ -91,6 +91,20 @@ describe('joinCarryPageList', () => {
     expect(skipped[0]).toMatchObject({ postName: 'ghost', reason: 'no-manifest-match' });
   });
 
+  it('flags the homepage on a subpath-hosted site via the channel <link> base', () => {
+    const w = `<rss><channel>\n<link>https://builder.example/my-site</link>\n${[
+      item({ type: 'page', name: 'my-site', title: 'Home', link: 'https://builder.example/my-site/my-site' }),
+      item({ type: 'page', name: 'blog', title: 'Blog', link: 'https://builder.example/my-site/blog' }),
+    ].join('\n')}\n</channel></rss>`;
+    const entries = {
+      'https://builder.example/my-site': { slug: 'my-site' },
+      'https://builder.example/my-site/blog': { slug: 'my-site--blog' },
+    };
+    const { pages } = joinCarryPageList(w, entries, new Set(['my-site', 'my-site--blog']));
+    expect(pages.find((p) => p.isHome)).toMatchObject({ slug: 'my-site', htmlSlug: 'my-site', postType: 'page' });
+    expect(pages.find((p) => p.slug === 'blog')?.isHome).toBeUndefined();
+  });
+
   it('does NOT match a page against a WooCommerce `products--*` manifest slug', () => {
     const w = wxr([item({ type: 'page', name: 'widget', title: 'Widget', link: 'https://fictional.example/widget' })]);
     const { pages, skipped } = joinCarryPageList(w, { 'https://fictional.example/products/widget': { slug: 'products--widget' } }, new Set(['products--widget']));

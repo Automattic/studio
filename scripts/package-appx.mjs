@@ -206,6 +206,7 @@ for ( const appxFile of appxFiles ) {
 	// The Microsoft timestamp server (timestamp.acs.microsoft.com) fails
 	// intermittently, so retry a few times before giving up.
 	const maxAttempts = 3;
+	const retryDelaySeconds = 30;
 	for ( let attempt = 1; ; attempt++ ) {
 		try {
 			execFileSync( signtoolPath, getAzureSignArgs( appxPath ), {
@@ -216,8 +217,8 @@ for ( const appxFile of appxFiles ) {
 			if ( attempt >= maxAttempts ) {
 				throw error;
 			}
-			console.log( `Signing attempt ${ attempt } of ${ maxAttempts } failed, retrying in 30s...` );
-			await new Promise( ( resolve ) => setTimeout( resolve, 30_000 ) );
+			console.log( `Signing attempt ${ attempt } of ${ maxAttempts } failed, retrying in ${ retryDelaySeconds }s...` );
+			await new Promise( ( resolve ) => setTimeout( resolve, retryDelaySeconds * 1000 ) );
 		}
 	}
 	console.log( `Signed ${ appxFile } successfully.` );

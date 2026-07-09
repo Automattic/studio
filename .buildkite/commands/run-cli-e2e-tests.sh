@@ -13,4 +13,6 @@ echo '--- :wordpress: Seed server files'
 node apps/cli/dist/cli/main.mjs site list
 
 echo '--- :vitest: Run CLI E2E Tests'
-npm test -- --tagsFilter='e2e'
+# Serialize the files: each spins up its own sandbox WordPress + daemon, and
+# booting several at once starves the CI host, flaking `site start`.
+npm test -- --tagsFilter='e2e' --no-file-parallelism

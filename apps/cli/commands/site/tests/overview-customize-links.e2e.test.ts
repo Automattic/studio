@@ -1,8 +1,10 @@
 /**
  * @vitest-environment node
  *
- * Overview "Customize" shortcuts against the built CLI (`npm run cli:build`
- * first), migrated from `apps/studio/e2e/overview-customize-links.test.ts`.
+ * Overview "Customize" shortcuts against the built CLI, migrated from
+ * `apps/studio/e2e/overview-customize-links.test.ts`. Needs `npm run cli:build`
+ * and the bundled WordPress under `~/.studio/server-files` (seeded by running
+ * Studio once); the suite skips itself otherwise.
  * The desktop suite's button clicks are UI-only, but the URL each button opens
  * is reproducible headless: this logs in via `/studio-auto-login` and confirms
  * a block theme is active and every Site Editor route the buttons target loads
@@ -67,7 +69,9 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: overview customize link
 		);
 		expect( result.code, result.stderr ).toBe( 0 );
 
-		const [ site ] = readCliConfig( env ).sites;
+		const { sites } = readCliConfig( env );
+		expect( sites ).toHaveLength( 1 );
+		const [ site ] = sites;
 		siteUrl = `http://localhost:${ String( site.port ) }`;
 
 		// Poll the homepage to 200 so the proxy's warm-up 302 is gone before the

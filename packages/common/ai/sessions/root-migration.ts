@@ -1,7 +1,13 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getSessionsDirectory } from '../../lib/well-known-paths';
+import {
+	LOCKFILE_STALE_TIME,
+	LOCKFILE_WAIT_TIME,
+	SESSIONS_MIGRATION_LOCKFILE_NAME,
+} from '../../constants';
+import { lockFileAsync, unlockFileAsync } from '../../lib/lockfile';
+import { getConfigDirectory, getSessionsDirectory } from '../../lib/well-known-paths';
 import type { Migration } from '../../lib/migration';
 
 // Pre-move sessions locations: the CLI hardcoded <platform appdata>/Studio/sessions
@@ -54,9 +60,9 @@ export function migrateLegacyAiSessionsRoot( newRoot: string, legacyRoots: strin
 }
 
 // Registered in BOTH the CLI and desktop migration pipelines so it runs for
-// CLI-only and desktop-only users alike. A concurrent desktop + CLI first run
-// is safe without a lockfile: the rename is atomic and the loser's failure is
-// swallowed above.
+// CLI-only and desktop-only users alike. The lockfile serializes a concurrent
+// desktop + CLI first run; the rename's atomicity and the swallowed loser
+// errors above remain as a second line of defense (e.g. a stale-lock steal).
 export const moveAiSessionsToStudioDir: Migration = {
 	async needsToRun() {
 		// E2E/dev sandboxes resolve the sessions root inside the sandbox while
@@ -70,6 +76,16 @@ export const moveAiSessionsToStudioDir: Migration = {
 		return getLegacyAiSessionsRootDirectories().some( ( dir ) => fs.existsSync( dir ) );
 	},
 	async run() {
-		migrateLegacyAiSessionsRoot( getSessionsDirectory(), getLegacyAiSessionsRootDirectories() );
+		const lockPath = path.join( getConfigDirectory(), SESSIONS_MIGRATION_LOCKFILE_NAME );
+		fs.mkdirSync( path.dirname( lockPath ), { recursive: true } );
+		await lockFileAsync( lockPath, {
+			wait: LOCKFILE_WAIT_TIME,
+			stale: LOCKFILE_STALE_TIME,
+		} );
+		try {
+			migrateLegacyAiSessionsRoot( getSessionsDirectory(), getLegacyAiSessionsRootDirectories() );
+		} finally {
+			await unlockFileAsync( lockPath );
+		}
 	},
 };

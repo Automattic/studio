@@ -1,28 +1,28 @@
 {
 	"versions": {
 		"8.5": {
-			"version": "8.5.7",
+			"version": "8.5.8",
 			"packageVersion": "studio-1",
 			"artifacts": {
 				"darwin-arm64": {
-					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-silicon/8.5.7-studio-1/full-install",
-					"sha": "8ce60d2dc6f7aba110a226737af94b7ffc52127ea131b9cbed8cc861b231cc79"
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-silicon/8.5.8-studio-1/full-install",
+					"sha": "9395f1599627a214e86648b526729144b331e939e9d4eb610cbc6c0a582447c0"
 				},
 				"darwin-x64": {
-					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-intel/8.5.7-studio-1/full-install",
-					"sha": "e2e6b7e9cf882bf152aaf961792b068651b828c2744411f5d33de89d42257dd6"
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/mac-intel/8.5.8-studio-1/full-install",
+					"sha": "997d98252eb71e1496b4d9aed87ef439c1666d6b7e23a41727c3f6823e08868e"
 				},
 				"win32-x64": {
-					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/windows-x64/8.5.7-studio-1/full-install",
-					"sha": "07f47f46aa3a5509a7af5b05b4c4320c2497e2475973b8f25895fef26003e588"
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/windows-x64/8.5.8-studio-1/full-install",
+					"sha": "cb291bd48329c3529cb85e6199b63876566007552c9ab6ab812214e8a06c08cb"
 				},
 				"linux-arm64": {
-					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/linux-arm64/8.5.7-studio-1/full-install",
-					"sha": "90595759a4d6aa53ec41faf86aaca93058f3db5fbc962a387cc8d7c72a57960b"
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/linux-arm64/8.5.8-studio-1/full-install",
+					"sha": "d2e20a51878236612010c927310c2a57139866639bf7812672c010a5139fc6fb"
 				},
 				"linux-x64": {
-					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/linux-x64/8.5.7-studio-1/full-install",
-					"sha": "ab2e1f21d4057633474997289167585c93e3cf2b7524f5764bfcc759869f8e77"
+					"url": "https://appscdn.wordpress.com/downloads/wordpress-com-studio-php-cli/linux-x64/8.5.8-studio-1/full-install",
+					"sha": "b4bafca9eaf740d006faf707c912b1407cc777d10a3de51c071bc9b493e6cb7e"
 				}
 			}
 		},

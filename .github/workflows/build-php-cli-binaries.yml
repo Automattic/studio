@@ -185,7 +185,8 @@ jobs:
             --custom-url="xdebug:https://pecl.php.net/get/xdebug-${XDEBUG_VERSION}.tgz"
             # Build sqlite from source (--custom-url wins over --prefer-pre-built)
             # so #1204's -DSQLITE_ENABLE_COLUMN_METADATA CFLAG applies; the prebuilt
-            # lacks it. URL must match the sqlite version pinned by spc_ref above.
+            # lacks it. This is the same URL SPC uses in config/source.json at the
+            # spc_ref above — keep it in sync when bumping spc_ref.
             --custom-url="sqlite:https://www.sqlite.org/2024/sqlite-autoconf-3450200.tar.gz"
             --ignore-cache-sources=php-src
             --prefer-pre-built

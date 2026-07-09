@@ -21,39 +21,50 @@ describe( 'migrateLegacyAiSessionsRoot', () => {
 		fs.writeFileSync( filePath, content );
 	}
 
-	it( 'moves the legacy sessions directory to the new root', () => {
+	function isLinkTo( linkPath: string, target: string ): boolean {
+		return (
+			fs.lstatSync( linkPath ).isSymbolicLink() &&
+			fs.realpathSync( linkPath ) === fs.realpathSync( target )
+		);
+	}
+
+	it( 'moves the legacy directory to the new root and links the old location', () => {
 		const legacy = path.join( tmpDir, 'legacy', 'sessions' );
 		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
-		seed( legacy, '2026/07/08/session.jsonl', '{"type":"session"}\n' );
+		seed( legacy, '2026/07/08/session.jsonl', 'original\n' );
 
 		migrateLegacyAiSessionsRoot( newRoot, [ legacy ] );
 
-		expect( fs.existsSync( legacy ) ).toBe( false );
 		expect(
 			fs.readFileSync( path.join( newRoot, '2026', '07', '08', 'session.jsonl' ), 'utf8' )
-		).toBe( '{"type":"session"}\n' );
+		).toBe( 'original\n' );
+		expect( isLinkTo( legacy, newRoot ) ).toBe( true );
+		// Old binaries and persisted absolute paths keep working via the link.
+		expect(
+			fs.readFileSync( path.join( legacy, '2026', '07', '08', 'session.jsonl' ), 'utf8' )
+		).toBe( 'original\n' );
+		seed( legacy, '2026/07/09/via-link.jsonl', 'written through link\n' );
+		expect(
+			fs.readFileSync( path.join( newRoot, '2026', '07', '09', 'via-link.jsonl' ), 'utf8' )
+		).toBe( 'written through link\n' );
 	} );
 
-	it( 'merges every existing legacy candidate', () => {
-		const legacyA = path.join( tmpDir, 'legacy-a', 'sessions' );
-		const legacyB = path.join( tmpDir, 'legacy-b', 'sessions' );
+	it( 'is a no-op when the legacy location is already a link', () => {
+		const legacy = path.join( tmpDir, 'legacy', 'sessions' );
 		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
-		seed( legacyA, '2026/07/08/a.jsonl', 'a\n' );
-		seed( legacyB, '2026/07/09/b.jsonl', 'b\n' );
+		seed( legacy, '2026/07/08/session.jsonl', 'original\n' );
+		migrateLegacyAiSessionsRoot( newRoot, [ legacy ] );
 
-		migrateLegacyAiSessionsRoot( newRoot, [ legacyA, legacyB ] );
+		migrateLegacyAiSessionsRoot( newRoot, [ legacy ] );
 
-		expect( fs.readFileSync( path.join( newRoot, '2026', '07', '08', 'a.jsonl' ), 'utf8' ) ).toBe(
-			'a\n'
-		);
-		expect( fs.readFileSync( path.join( newRoot, '2026', '07', '09', 'b.jsonl' ), 'utf8' ) ).toBe(
-			'b\n'
-		);
-		expect( fs.existsSync( legacyA ) ).toBe( false );
-		expect( fs.existsSync( legacyB ) ).toBe( false );
+		expect( isLinkTo( legacy, newRoot ) ).toBe( true );
+		expect( fs.existsSync( path.join( newRoot, 'sessions' ) ) ).toBe( false );
+		expect( fs.readdirSync( path.join( newRoot, '2026', '07', '08' ) ) ).toEqual( [
+			'session.jsonl',
+		] );
 	} );
 
-	it( 'sweeps stragglers into an existing new root', () => {
+	it( 'merges stragglers into an existing new root, then links', () => {
 		const legacy = path.join( tmpDir, 'legacy', 'sessions' );
 		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
 		seed( newRoot, '2026/07/08/existing.jsonl', 'existing\n' );
@@ -67,10 +78,10 @@ describe( 'migrateLegacyAiSessionsRoot', () => {
 		expect(
 			fs.readFileSync( path.join( newRoot, '2026', '07', '09', 'straggler.jsonl' ), 'utf8' )
 		).toBe( 'straggler\n' );
-		expect( fs.existsSync( legacy ) ).toBe( false );
+		expect( isLinkTo( legacy, newRoot ) ).toBe( true );
 	} );
 
-	it( 'keeps the destination file and leaves the source behind on collision', () => {
+	it( 'keeps the destination file on collision and does not link the leftover', () => {
 		const legacy = path.join( tmpDir, 'legacy', 'sessions' );
 		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
 		seed( newRoot, '2026/07/08/session.jsonl', 'migrated\n' );
@@ -88,13 +99,26 @@ describe( 'migrateLegacyAiSessionsRoot', () => {
 		expect(
 			fs.readFileSync( path.join( legacy, '2026', '07', '08', 'session.jsonl' ), 'utf8' )
 		).toBe( 'stale copy\n' );
+		expect( fs.lstatSync( legacy ).isSymbolicLink() ).toBe( false );
 	} );
 
-	it( 'does nothing when no legacy directory exists', () => {
+	it( 'repairs a missing link when the new root and the legacy parent exist', () => {
+		const legacy = path.join( tmpDir, 'legacy', 'sessions' );
+		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
+		fs.mkdirSync( path.dirname( legacy ), { recursive: true } );
+		seed( newRoot, '2026/07/08/session.jsonl', 'already migrated\n' );
+
+		migrateLegacyAiSessionsRoot( newRoot, [ legacy ] );
+
+		expect( isLinkTo( legacy, newRoot ) ).toBe( true );
+	} );
+
+	it( 'does nothing when neither the legacy parent nor the new root exist', () => {
 		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
 
-		migrateLegacyAiSessionsRoot( newRoot, [ path.join( tmpDir, 'missing' ) ] );
+		migrateLegacyAiSessionsRoot( newRoot, [ path.join( tmpDir, 'missing', 'sessions' ) ] );
 
 		expect( fs.existsSync( newRoot ) ).toBe( false );
+		expect( fs.existsSync( path.join( tmpDir, 'missing' ) ) ).toBe( false );
 	} );
 } );

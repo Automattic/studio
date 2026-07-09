@@ -74,12 +74,41 @@ function mergeDirectoryInto( source: string, destination: string ): number {
 	return moved;
 }
 
+// Best-effort: a failure leaves the sweep in mergeDirectoryInto as the
+// (slower, but correct) compatibility mechanism. 'junction' needs no
+// privileges on Windows and is ignored on POSIX.
+function linkLegacyRoot( legacyRoot: string, newRoot: string ): void {
+	try {
+		fs.symlinkSync( newRoot, legacyRoot, 'junction' );
+		console.log(
+			`Linked ${ sanitizeUserpath( legacyRoot ) } to ${ sanitizeUserpath(
+				newRoot
+			) } for older Studio versions`
+		);
+	} catch ( error ) {
+		console.error(
+			`Failed to link legacy sessions path ${ sanitizeUserpath( legacyRoot ) }:`,
+			error
+		);
+	}
+}
+
 export function migrateLegacyAiSessionsRoot( newRoot: string, legacyRoots: string[] ): void {
 	for ( const legacyRoot of legacyRoots ) {
-		if ( ! fs.existsSync( legacyRoot ) ) {
-			continue;
-		}
 		try {
+			const legacyStat = fs.lstatSync( legacyRoot, { throwIfNoEntry: false } );
+			if ( legacyStat?.isSymbolicLink() ) {
+				continue;
+			}
+			if ( ! legacyStat ) {
+				// Repair pass: roots migrated before linking existed (or a removed
+				// link). Only when the parent dir exists — never plant Electron
+				// app dirs for CLI-only users.
+				if ( fs.existsSync( newRoot ) && fs.existsSync( path.dirname( legacyRoot ) ) ) {
+					linkLegacyRoot( legacyRoot, newRoot );
+				}
+				continue;
+			}
 			if ( ! fs.existsSync( newRoot ) ) {
 				fs.mkdirSync( path.dirname( newRoot ), { recursive: true } );
 				try {
@@ -89,6 +118,7 @@ export function migrateLegacyAiSessionsRoot( newRoot: string, legacyRoots: strin
 							newRoot
 						) }`
 					);
+					linkLegacyRoot( legacyRoot, newRoot );
 					continue;
 				} catch ( error ) {
 					if ( ( error as NodeJS.ErrnoException ).code !== 'EXDEV' ) {
@@ -105,6 +135,11 @@ export function migrateLegacyAiSessionsRoot( newRoot: string, legacyRoots: strin
 					) } into ${ sanitizeUserpath( newRoot ) }`
 				);
 			}
+			// Only link once the legacy dir fully drained — a collision leftover
+			// keeps it a real dir so the merge can retry on a later launch.
+			if ( ! fs.existsSync( legacyRoot ) ) {
+				linkLegacyRoot( legacyRoot, newRoot );
+			}
 		} catch ( error ) {
 			// Files stay where they are; needsToRun retries on the next launch.
 			console.error(
@@ -116,11 +151,11 @@ export function migrateLegacyAiSessionsRoot( newRoot: string, legacyRoots: strin
 }
 
 // Registered in BOTH the CLI and desktop migration pipelines so it runs for
-// CLI-only and desktop-only users alike. needsToRun keys off the legacy
-// directories existing at all — so if an out-of-date surface (older desktop
-// next to a newer standalone CLI, or vice versa) writes sessions to a legacy
-// location after the first migration, the next run of any up-to-date surface
-// sweeps the stragglers in. The lockfile serializes concurrent runs.
+// CLI-only and desktop-only users alike. After moving the files, each legacy
+// location is replaced with a symlink (junction on Windows) to the new root,
+// so out-of-date surfaces — and absolute paths persisted inside session
+// entries, e.g. screenshot artifacts — keep resolving. The merge sweep covers
+// roots where linking failed. The lockfile serializes concurrent runs.
 export const moveAiSessionsToStudioDir: Migration = {
 	async needsToRun() {
 		// E2E/dev sandboxes resolve the sessions root inside the sandbox while
@@ -128,7 +163,18 @@ export const moveAiSessionsToStudioDir: Migration = {
 		if ( process.env.E2E || process.env.DEV_CONFIG_DIR ) {
 			return false;
 		}
-		return getLegacyAiSessionsRootDirectories().some( ( dir ) => fs.existsSync( dir ) );
+		const newRootExists = fs.existsSync( getSessionsDirectory() );
+		return getLegacyAiSessionsRootDirectories().some( ( dir ) => {
+			// lstat, not existsSync: the link we leave behind resolves to the new
+			// root and must read as "done", not retrigger the migration.
+			const stat = fs.lstatSync( dir, { throwIfNoEntry: false } );
+			if ( stat ) {
+				return ! stat.isSymbolicLink();
+			}
+			// Missing entirely: link repair, for roots migrated before linking
+			// existed. Guarded on the parent so fresh CLI-only setups skip it.
+			return newRootExists && fs.existsSync( path.dirname( dir ) );
+		} );
 	},
 	async run() {
 		const lockPath = path.join( getConfigDirectory(), SESSIONS_MIGRATION_LOCKFILE_NAME );

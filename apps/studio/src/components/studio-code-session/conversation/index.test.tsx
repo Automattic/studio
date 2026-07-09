@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Conversation, entriesToRenderItems } from './index';
-import type { SessionEntry } from '@earendil-works/pi-coding-agent';
+import type { SessionEntry, SessionMessageEntry } from '@earendil-works/pi-coding-agent';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 const ipcApiMocks = vi.hoisted( () => ( {
@@ -278,34 +278,47 @@ describe( 'Conversation – assistant message copy button', () => {
 		ipcApiMocks.copyText.mockClear();
 	} );
 
-	function assistantTextEntry( text: string ): SessionEntry {
+	type AssistantContent = Extract<
+		SessionMessageEntry[ 'message' ],
+		{ role: 'assistant' }
+	>[ 'content' ];
+
+	function assistantEntry( id: string, content: AssistantContent ): SessionEntry {
 		return {
 			type: 'message',
-			id: `assistant-text-${ text }`,
+			id,
 			parentId: null,
 			timestamp: '2026-06-19T00:00:00.000Z',
 			message: {
 				role: 'assistant',
-				content: [ { type: 'text', text } ],
+				content,
+				api: 'test-messages',
+				provider: 'test',
+				model: 'test-model',
+				usage: {
+					input: 0,
+					output: 0,
+					cacheRead: 0,
+					cacheWrite: 0,
+					totalTokens: 0,
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+				},
+				stopReason: 'stop',
+				timestamp: 0,
 			},
-		} as unknown as SessionEntry;
+		};
+	}
+
+	function assistantTextEntry( text: string ): SessionEntry {
+		return assistantEntry( `assistant-text-${ text }`, [ { type: 'text', text } ] );
 	}
 
 	function assistantMultiBlockEntry(): SessionEntry {
-		return {
-			type: 'message',
-			id: 'assistant-multi-block',
-			parentId: null,
-			timestamp: '2026-06-19T00:00:00.000Z',
-			message: {
-				role: 'assistant',
-				content: [
-					{ type: 'text', text: 'First part.' },
-					{ type: 'toolCall', id: 'tool-call-1', name: 'read_file', arguments: {} },
-					{ type: 'text', text: 'Second part.' },
-				],
-			},
-		} as unknown as SessionEntry;
+		return assistantEntry( 'assistant-multi-block', [
+			{ type: 'text', text: 'First part.' },
+			{ type: 'toolCall', id: 'tool-call-1', name: 'read_file', arguments: {} },
+			{ type: 'text', text: 'Second part.' },
+		] );
 	}
 
 	function userPromptEntry( text: string ): SessionEntry {
@@ -313,9 +326,20 @@ describe( 'Conversation – assistant message copy button', () => {
 	}
 
 	function renderConversation( entries: SessionEntry[] ) {
+		const data: LoadedAiSession = {
+			summary: {
+				id: 'session-1',
+				filePath: '/sessions/session-1.jsonl',
+				createdAt: '2026-06-19T00:00:00.000Z',
+				updatedAt: '2026-06-19T00:00:00.000Z',
+				activeEnvironment: 'local',
+				eventCount: entries.length,
+			},
+			entries,
+		};
 		render(
 			<Conversation
-				data={ { entries } as unknown as LoadedAiSession }
+				data={ data }
 				isRunning={ false }
 				startedAt={ null }
 				pendingQuestions={ new Set() }

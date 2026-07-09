@@ -217,7 +217,9 @@ for ( const appxFile of appxFiles ) {
 			if ( attempt >= maxAttempts ) {
 				throw error;
 			}
-			console.log( `Signing attempt ${ attempt } of ${ maxAttempts } failed, retrying in ${ retryDelaySeconds }s...` );
+			console.log(
+				`Signing attempt ${ attempt } of ${ maxAttempts } failed, retrying in ${ retryDelaySeconds }s...`
+			);
 			await new Promise( ( resolve ) => setTimeout( resolve, retryDelaySeconds * 1000 ) );
 		}
 	}

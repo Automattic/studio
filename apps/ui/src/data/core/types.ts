@@ -349,11 +349,12 @@ export interface Connector {
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;
 
-	// Fires when the user activates "File > Add Site…" (⌘N) in the application
-	// menu.
+	// Fires when the user activates "File > Add Site…" (or its keyboard
+	// shortcut) in the application menu.
 	onAddSite( listener: () => void ): () => void;
 
-	// Fires when the user activates "Settings…" (⌘,) in the application menu.
+	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
+	// the application menu.
 	onOpenSettings( listener: () => void ): () => void;
 }
 

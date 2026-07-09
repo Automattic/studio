@@ -10,7 +10,7 @@ export interface RouterContext {
 }
 
 // Bridges the Electron application menu ("Add Site…", "Settings…" and their
-// ⌘N / ⌘, shortcuts) to router navigation. Mounted at the root so the
+// keyboard shortcuts) to router navigation. Mounted at the root so the
 // shortcuts work from any route, including onboarding.
 function AppMenuNavigation() {
 	const connector = useConnector();

@@ -74,14 +74,9 @@ export type ReorderableListProps< T > = {
 	/** Called on drop with the list's new id order. */
 	onReorder: ( nextIds: string[] ) => void;
 	className?: string;
-	/** Applied to the container while a drag is active. */
-	dragActiveClassName?: string;
 	itemClassName?: string;
 	placeholderClassName?: string;
 	previewClassName?: string;
-	placeholderTestId?: string;
-	/** Data attribute carrying each row's id on its drag wrapper. */
-	itemIdAttribute?: string;
 	/** Pointer-downs inside a match of this selector never start a drag. */
 	excludeSelector?: string;
 };
@@ -92,12 +87,9 @@ export function ReorderableList< T >( {
 	renderItem,
 	onReorder,
 	className,
-	dragActiveClassName,
 	itemClassName,
 	placeholderClassName,
 	previewClassName,
-	placeholderTestId = 'drop-placeholder',
-	itemIdAttribute = 'data-reorder-id',
 	excludeSelector,
 }: ReorderableListProps< T > ) {
 	const [ activeDrag, setActiveDrag ] = useState< ActiveDrag | null >( null );
@@ -298,15 +290,13 @@ export function ReorderableList< T >( {
 	const dropPlaceholder = (
 		<div
 			className={ clsx( styles.placeholder, placeholderClassName ) }
-			data-testid={ placeholderTestId }
+			data-testid="drop-placeholder"
 			aria-hidden="true"
 		/>
 	);
 
 	return (
-		<div
-			className={ clsx( className, isDragging && clsx( styles.dragging, dragActiveClassName ) ) }
-		>
+		<div className={ clsx( className, isDragging && styles.dragging ) }>
 			{ displayItems.map( ( item, index ) => {
 				const id = getItemId( item );
 				return (
@@ -321,7 +311,7 @@ export function ReorderableList< T >( {
 								}
 							} }
 							className={ clsx( styles.itemWrapper, itemClassName ) }
-							{ ...{ [ itemIdAttribute ]: id } }
+							data-reorder-id={ id }
 							onPointerDown={ ( event ) => handlePointerDown( event, id ) }
 							onClickCapture={ handleClickCapture }
 						>

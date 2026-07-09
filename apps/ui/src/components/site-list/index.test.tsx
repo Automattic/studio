@@ -196,8 +196,8 @@ describe( 'SiteList', () => {
 	it( 'persists a manual site order after drag and drop', () => {
 		render( <SiteList /> );
 
-		const stoppedRow = document.querySelector( '[data-site-id="stopped-site"]' );
-		const runningRow = document.querySelector( '[data-site-id="running-site"]' );
+		const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
+		const runningRow = document.querySelector( '[data-reorder-id="running-site"]' );
 
 		expect( stoppedRow ).toBeInTheDocument();
 		expect( runningRow ).toBeInTheDocument();
@@ -228,10 +228,10 @@ describe( 'SiteList', () => {
 		);
 		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
 
-		const placeholder = screen.getByTestId( 'site-drop-placeholder' );
+		const placeholder = screen.getByTestId( 'drop-placeholder' );
 
 		expect( placeholder ).toBeInTheDocument();
-		expect( document.querySelector( '[data-site-id="stopped-site"]' ) ).not.toBeInTheDocument();
+		expect( document.querySelector( '[data-reorder-id="stopped-site"]' ) ).not.toBeInTheDocument();
 		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
@@ -248,8 +248,8 @@ describe( 'SiteList', () => {
 	it( 'animates other sites into the drop placeholder while dragging', () => {
 		render( <SiteList /> );
 
-		const stoppedRow = document.querySelector( '[data-site-id="stopped-site"]' );
-		const runningRow = document.querySelector( '[data-site-id="running-site"]' );
+		const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
+		const runningRow = document.querySelector( '[data-reorder-id="running-site"]' );
 		const originalAnimate = Element.prototype.animate;
 		const animateMock = vi.fn(
 			() =>
@@ -337,7 +337,7 @@ describe( 'SiteList', () => {
 		);
 		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
 
-		expect( screen.queryByTestId( 'site-drop-placeholder' ) ).not.toBeInTheDocument();
+		expect( screen.queryByTestId( 'drop-placeholder' ) ).not.toBeInTheDocument();
 
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
 

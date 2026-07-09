@@ -97,31 +97,13 @@ function groupSessionsByOwner(
 }
 
 // Overlays the just-dragged order (kept in state while the persisted
-// `sortOrder` catches up) on top of the fetched sites.
+// `sortOrder` catches up) on top of the fetched sites; sites not in the
+// overlay keep their order via sort stability.
 function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): SiteDetails[] {
-	if ( manualOrder.length === 0 ) {
-		return sites;
-	}
-
-	const sitesById = new Map( sites.map( ( site ) => [ site.id, site ] ) );
-	const orderedIds = new Set< string >();
-	const orderedSites: SiteDetails[] = [];
-
-	for ( const id of manualOrder ) {
-		const site = sitesById.get( id );
-		if ( site && ! orderedIds.has( id ) ) {
-			orderedIds.add( id );
-			orderedSites.push( site );
-		}
-	}
-
-	for ( const site of sites ) {
-		if ( ! orderedIds.has( site.id ) ) {
-			orderedSites.push( site );
-		}
-	}
-
-	return orderedSites;
+	const rank = new Map( manualOrder.map( ( id, index ) => [ id, index ] ) );
+	return [ ...sites ].sort(
+		( a, b ) => ( rank.get( a.id ) ?? Infinity ) - ( rank.get( b.id ) ?? Infinity )
+	);
 }
 
 function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
@@ -753,8 +735,6 @@ export function SiteList() {
 					itemClassName={ styles.siteDragWrapper }
 					placeholderClassName={ styles.siteDropPlaceholder }
 					previewClassName={ styles.siteDragPreview }
-					placeholderTestId="site-drop-placeholder"
-					itemIdAttribute="data-site-id"
 					excludeSelector="[data-reorder-exclude]"
 				/>
 			) }

@@ -76,8 +76,14 @@ function mergeDirectoryInto( source: string, destination: string ): number {
 
 // Best-effort: a failure leaves the sweep in mergeDirectoryInto as the
 // (slower, but correct) compatibility mechanism. 'junction' needs no
-// privileges on Windows and is ignored on POSIX.
-function linkLegacyRoot( legacyRoot: string, newRoot: string ): void {
+// privileges on Windows and is ignored on POSIX. The repair pass retries on
+// every launch, so its failures log as warnings to avoid an eternal
+// per-command error for environments where linking can never succeed.
+function linkLegacyRoot(
+	legacyRoot: string,
+	newRoot: string,
+	failureLevel: 'error' | 'warn' = 'error'
+): void {
 	try {
 		fs.symlinkSync( newRoot, legacyRoot, 'junction' );
 		console.log(
@@ -86,7 +92,7 @@ function linkLegacyRoot( legacyRoot: string, newRoot: string ): void {
 			) } for older Studio versions`
 		);
 	} catch ( error ) {
-		console.error(
+		console[ failureLevel ](
 			`Failed to link legacy sessions path ${ sanitizeUserpath( legacyRoot ) }:`,
 			error
 		);
@@ -105,7 +111,7 @@ export function migrateLegacyAiSessionsRoot( newRoot: string, legacyRoots: strin
 				// link). Only when the parent dir exists — never plant Electron
 				// app dirs for CLI-only users.
 				if ( fs.existsSync( newRoot ) && fs.existsSync( path.dirname( legacyRoot ) ) ) {
-					linkLegacyRoot( legacyRoot, newRoot );
+					linkLegacyRoot( legacyRoot, newRoot, 'warn' );
 				}
 				continue;
 			}

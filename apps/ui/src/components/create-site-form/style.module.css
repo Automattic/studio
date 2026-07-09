@@ -10,7 +10,7 @@
    neutral border, 2px radius, matching the InputBase chrome so the field
    reads as "one more input" alongside its siblings. The actual value is
    chosen via the OS folder picker opened by clicking the button. */
-.pathTrigger.pathTrigger {
+.pathTrigger {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;

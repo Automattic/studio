@@ -8,6 +8,7 @@
  * `saveUserLocale` command. Following the #3950 pattern it mounts the real
  * component and store and mocks only the IPC bridge.
  */
+import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Provider } from 'react-redux';
@@ -15,6 +16,7 @@ import { beforeEach, vi } from 'vitest';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
 import { store } from 'src/stores';
+import { saveUserLocale } from 'src/stores/i18n-slice';
 
 vi.mock( 'src/lib/get-ipc-api' );
 vi.mock( 'src/lib/app-globals', () => ( {
@@ -33,7 +35,7 @@ function renderPreferences() {
 	);
 }
 
-beforeEach( () => {
+beforeEach( async () => {
 	vi.clearAllMocks();
 	vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 		// RTK Query mount-time reads.
@@ -49,6 +51,10 @@ beforeEach( () => {
 		resetDefaultLocaleData: vi.fn().mockResolvedValue( undefined ),
 		setupAppMenu: vi.fn().mockResolvedValue( undefined ),
 	} );
+
+	// Saving mutates the shared singleton store's locale; restore it so tests
+	// don't depend on run order.
+	await store.dispatch( saveUserLocale( DEFAULT_LOCALE ) );
 } );
 
 describe( 'PreferencesTab — language (IPC command boundary)', () => {

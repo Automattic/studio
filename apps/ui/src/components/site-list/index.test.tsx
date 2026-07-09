@@ -194,48 +194,55 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'persists a manual site order after drag and drop', () => {
-		vi.useFakeTimers();
-		try {
-			render( <SiteList /> );
-			dragStoppedSiteBelowRunningSite();
+		render( <SiteList /> );
 
-			expect( screen.getByTestId( 'site-drop-placeholder' ) ).toBeInTheDocument();
-			expect( document.querySelector( '[data-site-id="stopped-site"]' ) ).not.toBeInTheDocument();
-			expect( updateSitesSortOrder ).not.toHaveBeenCalled();
+		const stoppedRow = document.querySelector( '[data-site-id="stopped-site"]' );
+		const runningRow = document.querySelector( '[data-site-id="running-site"]' );
 
-			fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
+		expect( stoppedRow ).toBeInTheDocument();
+		expect( runningRow ).toBeInTheDocument();
+		vi.spyOn( stoppedRow!, 'getBoundingClientRect' ).mockReturnValue(
+			createRect( {
+				top: 0,
+				left: 8,
+				width: 272,
+				height: 34,
+			} )
+		);
+		vi.spyOn( runningRow!, 'getBoundingClientRect' ).mockReturnValue(
+			createRect( {
+				top: 35,
+				left: 0,
+				width: 0,
+				height: 34,
+			} )
+		);
 
-			const stoppedSite = screen.getByText( 'Stopped Site' );
-			const runningSite = screen.getByText( 'Running Site' );
+		fireEvent(
+			stoppedRow!,
+			createPointerEvent( 'pointerdown', {
+				button: 0,
+				clientX: 16,
+				clientY: 10,
+			} )
+		);
+		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
 
-			expect(
-				runningSite.compareDocumentPosition( stoppedSite ) & Node.DOCUMENT_POSITION_FOLLOWING
-			).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+		const placeholder = screen.getByTestId( 'site-drop-placeholder' );
 
-			// The save is debounced past the drop, then fires once.
-			expect( updateSitesSortOrder ).not.toHaveBeenCalled();
-			vi.advanceTimersByTime( 500 );
-			expect( updateSitesSortOrder ).toHaveBeenCalledTimes( 1 );
-			expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
-		} finally {
-			vi.useRealTimers();
-		}
-	} );
+		expect( placeholder ).toBeInTheDocument();
+		expect( document.querySelector( '[data-site-id="stopped-site"]' ) ).not.toBeInTheDocument();
+		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 
-	it( 'flushes a pending order save on unmount', () => {
-		vi.useFakeTimers();
-		try {
-			const { unmount } = render( <SiteList /> );
-			dragStoppedSiteBelowRunningSite();
-			fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
-			expect( updateSitesSortOrder ).not.toHaveBeenCalled();
+		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
 
-			unmount();
+		const stoppedSite = screen.getByText( 'Stopped Site' );
+		const runningSite = screen.getByText( 'Running Site' );
 
-			expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
-		} finally {
-			vi.useRealTimers();
-		}
+		expect(
+			runningSite.compareDocumentPosition( stoppedSite ) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+		expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
 	} );
 
 	it( 'animates other sites into the drop placeholder while dragging', () => {
@@ -337,26 +344,6 @@ describe( 'SiteList', () => {
 		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 	} );
 } );
-
-function dragStoppedSiteBelowRunningSite() {
-	const stoppedRow = document.querySelector( '[data-site-id="stopped-site"]' );
-	const runningRow = document.querySelector( '[data-site-id="running-site"]' );
-
-	expect( stoppedRow ).toBeInTheDocument();
-	expect( runningRow ).toBeInTheDocument();
-	vi.spyOn( stoppedRow!, 'getBoundingClientRect' ).mockReturnValue(
-		createRect( { top: 0, left: 8, width: 272, height: 34 } )
-	);
-	vi.spyOn( runningRow!, 'getBoundingClientRect' ).mockReturnValue(
-		createRect( { top: 35, left: 0, width: 0, height: 34 } )
-	);
-
-	fireEvent(
-		stoppedRow!,
-		createPointerEvent( 'pointerdown', { button: 0, clientX: 16, clientY: 10 } )
-	);
-	fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
-}
 
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 	return {

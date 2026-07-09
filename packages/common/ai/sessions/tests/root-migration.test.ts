@@ -102,18 +102,7 @@ describe( 'migrateLegacyAiSessionsRoot', () => {
 		expect( fs.lstatSync( legacy ).isSymbolicLink() ).toBe( false );
 	} );
 
-	it( 'repairs a missing link when the new root and the legacy parent exist', () => {
-		const legacy = path.join( tmpDir, 'legacy', 'sessions' );
-		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
-		fs.mkdirSync( path.dirname( legacy ), { recursive: true } );
-		seed( newRoot, '2026/07/08/session.jsonl', 'already migrated\n' );
-
-		migrateLegacyAiSessionsRoot( newRoot, [ legacy ] );
-
-		expect( isLinkTo( legacy, newRoot ) ).toBe( true );
-	} );
-
-	it( 'does nothing when neither the legacy parent nor the new root exist', () => {
+	it( 'does nothing when the legacy location does not exist', () => {
 		const newRoot = path.join( tmpDir, '.studio', 'sessions' );
 
 		migrateLegacyAiSessionsRoot( newRoot, [ path.join( tmpDir, 'missing', 'sessions' ) ] );

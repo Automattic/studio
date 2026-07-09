@@ -75,15 +75,10 @@ function mergeDirectoryInto( source: string, destination: string ): number {
 }
 
 // Best-effort: a failure leaves the sweep in mergeDirectoryInto as the
-// (slower, but correct) compatibility mechanism. 'junction' needs no
-// privileges on Windows and is ignored on POSIX. The repair pass retries on
-// every launch, so its failures log as warnings to avoid an eternal
-// per-command error for environments where linking can never succeed.
-function linkLegacyRoot(
-	legacyRoot: string,
-	newRoot: string,
-	failureLevel: 'error' | 'warn' = 'error'
-): void {
+// (slower, but correct) compatibility mechanism — an old surface writing to
+// a re-created legacy dir triggers the sweep, which retries the link.
+// 'junction' needs no privileges on Windows and is ignored on POSIX.
+function linkLegacyRoot( legacyRoot: string, newRoot: string ): void {
 	try {
 		fs.symlinkSync( newRoot, legacyRoot, 'junction' );
 		console.log(
@@ -92,7 +87,7 @@ function linkLegacyRoot(
 			) } for older Studio versions`
 		);
 	} catch ( error ) {
-		console[ failureLevel ](
+		console.error(
 			`Failed to link legacy sessions path ${ sanitizeUserpath( legacyRoot ) }:`,
 			error
 		);
@@ -103,16 +98,7 @@ export function migrateLegacyAiSessionsRoot( newRoot: string, legacyRoots: strin
 	for ( const legacyRoot of legacyRoots ) {
 		try {
 			const legacyStat = fs.lstatSync( legacyRoot, { throwIfNoEntry: false } );
-			if ( legacyStat?.isSymbolicLink() ) {
-				continue;
-			}
-			if ( ! legacyStat ) {
-				// Repair pass: roots migrated before linking existed (or a removed
-				// link). Only when the parent dir exists — never plant Electron
-				// app dirs for CLI-only users.
-				if ( fs.existsSync( newRoot ) && fs.existsSync( path.dirname( legacyRoot ) ) ) {
-					linkLegacyRoot( legacyRoot, newRoot, 'warn' );
-				}
+			if ( ! legacyStat || legacyStat.isSymbolicLink() ) {
 				continue;
 			}
 			if ( ! fs.existsSync( newRoot ) ) {
@@ -169,17 +155,11 @@ export const moveAiSessionsToStudioDir: Migration = {
 		if ( process.env.E2E || process.env.DEV_CONFIG_DIR ) {
 			return false;
 		}
-		const newRootExists = fs.existsSync( getSessionsDirectory() );
 		return getLegacyAiSessionsRootDirectories().some( ( dir ) => {
 			// lstat, not existsSync: the link we leave behind resolves to the new
 			// root and must read as "done", not retrigger the migration.
 			const stat = fs.lstatSync( dir, { throwIfNoEntry: false } );
-			if ( stat ) {
-				return ! stat.isSymbolicLink();
-			}
-			// Missing entirely: link repair, for roots migrated before linking
-			// existed. Guarded on the parent so fresh CLI-only setups skip it.
-			return newRootExists && fs.existsSync( path.dirname( dir ) );
+			return !! stat && ! stat.isSymbolicLink();
 		} );
 	},
 	async run() {

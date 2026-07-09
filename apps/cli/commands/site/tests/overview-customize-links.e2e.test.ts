@@ -3,13 +3,15 @@
  *
  * Overview "Customize" shortcuts against the built CLI (`npm run cli:build`
  * first), migrated from `apps/studio/e2e/overview-customize-links.test.ts`.
- * The desktop suite's button clicks and in-editor navigation are UI-only, so
- * this keeps the headless-verifiable core: a block theme is active and every
- * Site Editor route the buttons target is served.
+ * The desktop suite's button clicks are UI-only, but the URL each button opens
+ * is reproducible headless: this logs in via `/studio-auto-login` and confirms
+ * a block theme is active and every Site Editor route the buttons target loads
+ * for an authenticated admin.
  */
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+	autoLoginCookie,
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
 	readCliConfig,
@@ -18,6 +20,11 @@ import {
 	waitForSiteResponse,
 	type CliEnv,
 } from './helpers/cli-e2e';
+
+// The Site Editor's server HTML is a shell it hydrates with JS; `id="site-editor"`
+// is the mount root, present for every route. The `path=` query only steers the
+// client, so headless we can confirm the editor loads but not the per-path view.
+const SITE_EDITOR_MARKER = 'id="site-editor"';
 
 // Server-side every route is the same core admin file; the `path=` query is a
 // client-only hint the Site Editor reads post-login.
@@ -34,6 +41,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: overview customize link
 	let env: CliEnv;
 	let sitePath: string;
 	let siteUrl: string;
+	let cookie: string;
 
 	beforeAll( async () => {
 		env = setupCliEnv();
@@ -63,8 +71,9 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: overview customize link
 		siteUrl = `http://localhost:${ String( site.port ) }`;
 
 		// Poll the homepage to 200 so the proxy's warm-up 302 is gone before the
-		// route checks assert on the real auth redirect (also a 302).
+		// authenticated route checks.
 		await waitForSiteResponse( siteUrl, { expectedStatus: 200 } );
+		cookie = await autoLoginCookie( siteUrl );
 	}, 240_000 );
 
 	afterAll( async () => {
@@ -85,14 +94,17 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: overview customize link
 	} );
 
 	it.each( CUSTOMIZE_ROUTES )(
-		'serves the $label customize route',
+		'loads the $label editor page for an authenticated admin',
 		{ tags: [ 'e2e' ], timeout: 60_000 },
 		async ( { route } ) => {
-			// The route is served (not 404); unauthenticated it bounces to the login
-			// screen, since auto-login is desktop-only.
-			const response = await waitForSiteResponse( `${ siteUrl }${ route }` );
-			expect( response.status ).toBe( 302 );
-			expect( response.headers.get( 'location' ) ).toContain( 'wp-login.php' );
+			// Follow redirects: WordPress canonicalizes the older `?path=` scheme to
+			// `?p=`, so several of these routes 302 to the equivalent editor URL.
+			const response = await fetch( `${ siteUrl }${ route }`, {
+				headers: { Cookie: cookie },
+				redirect: 'follow',
+			} );
+			expect( response.status ).toBe( 200 );
+			expect( await response.text() ).toContain( SITE_EDITOR_MARKER );
 		}
 	);
 } );

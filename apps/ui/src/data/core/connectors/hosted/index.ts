@@ -307,6 +307,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				editor: null,
 				terminal: null,
 				colorScheme: 'system',
+				quitSitesBehavior: undefined,
 				locale: undefined,
 			};
 		},

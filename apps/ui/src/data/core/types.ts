@@ -351,11 +351,13 @@ export interface Connector {
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';
+export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
+	quitSitesBehavior?: QuitSitesBehavior;
 	locale: string | undefined;
 }
 

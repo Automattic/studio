@@ -7,7 +7,7 @@
  */
 import { getLocaleData } from '@studio/common/lib/locale';
 import { render } from '@testing-library/react';
-import { defaultI18n } from '@wordpress/i18n';
+import { createI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { Provider } from 'react-redux';
 import { afterEach } from 'vitest';
@@ -19,11 +19,13 @@ function Probe() {
 	return null;
 }
 
+// A fresh i18n instance per render keeps each case isolated and avoids mutating
+// the shared `defaultI18n` singleton, which would fire cross-test updates.
 function renderWithLocale( locale: string ) {
-	defaultI18n.setLocaleData( getLocaleData( locale )?.messages );
+	const i18n = createI18n( getLocaleData( locale )?.messages );
 	return render(
 		<Provider store={ store }>
-			<I18nProvider i18n={ defaultI18n }>
+			<I18nProvider i18n={ i18n }>
 				<Probe />
 			</I18nProvider>
 		</Provider>
@@ -31,7 +33,6 @@ function renderWithLocale( locale: string ) {
 }
 
 afterEach( () => {
-	defaultI18n.resetLocaleData();
 	document.documentElement.dir = 'ltr';
 } );
 

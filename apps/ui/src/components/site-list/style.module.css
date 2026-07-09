@@ -313,10 +313,6 @@
 	}
 }
 
-.unassigned {
-	margin-top: var(--wpds-dimension-padding-sm);
-}
-
 .empty {
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);

@@ -574,13 +574,11 @@ function SiteStatusButton( {
 
 function SiteSection( {
 	group,
-	isUnassigned,
 	isActive,
 	isOpen,
 	onToggle,
 }: {
 	group: SiteGroup;
-	isUnassigned: boolean;
 	isActive: boolean;
 	isOpen: boolean;
 	onToggle: () => void;
@@ -590,13 +588,7 @@ function SiteSection( {
 	const isStopped = !! group.site && ! group.site.running && ! isStarting;
 
 	return (
-		<section
-			className={ clsx(
-				styles.site,
-				isUnassigned && styles.unassigned,
-				isActive && styles.siteActive
-			) }
-		>
+		<section className={ clsx( styles.site, isActive && styles.siteActive ) }>
 			<header className={ styles.siteHeader }>
 				<div className={ styles.siteText }>
 					<SidebarButton
@@ -703,20 +695,21 @@ export function SiteList() {
 		() => groupSessionsByOwner( orderedSites, sessions ),
 		[ orderedSites, sessions ]
 	);
+	// Unassigned chats are intentionally not rendered; the grouping logic
+	// itself goes away with the site-centric sidebar rework.
 	const siteGroups = useMemo(
 		() => groups.filter( ( group ) => group.key !== UNASSIGNED_KEY ),
 		[ groups ]
 	);
-	const unassignedGroup = groups.find( ( group ) => group.key === UNASSIGNED_KEY );
 	const activeSiteKey = useMemo(
-		() => findActiveSiteKey( groups, activeSessionId, activeSiteId ),
-		[ groups, activeSessionId, activeSiteId ]
+		() => findActiveSiteKey( siteGroups, activeSessionId, activeSiteId ),
+		[ siteGroups, activeSessionId, activeSiteId ]
 	);
 
 	// Expansion is derived: by default the active site (or, if none, the
 	// first site in the list) is open. Manual toggles are stored as
 	// overrides so the user's explicit choice wins until they toggle again.
-	const firstKey = groups[ 0 ]?.key;
+	const firstKey = siteGroups[ 0 ]?.key;
 	const [ overrides, setOverrides ] = useState< Record< string, boolean > >( {} );
 
 	const isOpen = ( key: string ): boolean => {
@@ -738,7 +731,6 @@ export function SiteList() {
 	const renderSiteGroup = ( group: SiteGroup ) => (
 		<SiteSection
 			group={ group }
-			isUnassigned={ false }
 			isActive={ group.key === activeSiteKey }
 			isOpen={ isOpen( group.key ) }
 			onToggle={ () => toggleSite( group.key ) }
@@ -749,32 +741,22 @@ export function SiteList() {
 		<div className={ styles.root }>
 			{ sitesLoading || sessionsLoading ? (
 				<p className={ styles.empty }>{ __( 'Loading…' ) }</p>
-			) : groups.length === 0 ? (
+			) : siteGroups.length === 0 ? (
 				<p className={ styles.empty }>{ __( 'No sites yet' ) }</p>
 			) : (
-				<div className={ styles.sites }>
-					<ReorderableList
-						items={ siteGroups }
-						getItemId={ getGroupKey }
-						renderItem={ renderSiteGroup }
-						onReorder={ persistOrder }
-						itemClassName={ styles.siteDragWrapper }
-						placeholderClassName={ styles.siteDropPlaceholder }
-						previewClassName={ styles.siteDragPreview }
-						placeholderTestId="site-drop-placeholder"
-						itemIdAttribute="data-site-id"
-						excludeSelector="[data-reorder-exclude]"
-					/>
-					{ unassignedGroup ? (
-						<SiteSection
-							group={ unassignedGroup }
-							isUnassigned
-							isActive={ unassignedGroup.key === activeSiteKey }
-							isOpen={ isOpen( unassignedGroup.key ) }
-							onToggle={ () => toggleSite( unassignedGroup.key ) }
-						/>
-					) : null }
-				</div>
+				<ReorderableList
+					items={ siteGroups }
+					getItemId={ getGroupKey }
+					renderItem={ renderSiteGroup }
+					onReorder={ persistOrder }
+					className={ styles.sites }
+					itemClassName={ styles.siteDragWrapper }
+					placeholderClassName={ styles.siteDropPlaceholder }
+					previewClassName={ styles.siteDragPreview }
+					placeholderTestId="site-drop-placeholder"
+					itemIdAttribute="data-site-id"
+					excludeSelector="[data-reorder-exclude]"
+				/>
 			) }
 		</div>
 	);

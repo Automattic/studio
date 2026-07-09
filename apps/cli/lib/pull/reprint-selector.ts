@@ -28,6 +28,14 @@ const CONTENT_DIR_TOKENS: Record< string, string > = {
 	uploads: ':wp-uploads:',
 };
 
+/** A selected wp-content entry that is a symlink on the remote. */
+export interface SelectedSymlink {
+	/** Absolute remote path of the symlink (e.g. …/wp-content/plugins/jetpack). */
+	path: string;
+	/** Absolute remote path of the symlink's target. */
+	target: string;
+}
+
 export interface PullSelection {
 	/** reprint `--only` source values; empty means "everything" (no `--only`). */
 	fileOnlyPaths: string[];
@@ -37,6 +45,13 @@ export interface PullSelection {
 	skipUploads: boolean;
 	/** False when only the database was selected. */
 	hasAnyFile: boolean;
+	/**
+	 * Selected entries that are symlinks on the remote (wp.com serves each
+	 * plugin as a symlink into a shared store). A scoped listing follows the
+	 * link — its files arrive under the *target* path — but never lists the
+	 * `--only` root itself, so the link must be recreated after the pull.
+	 */
+	symlinkPaths: SelectedSymlink[];
 }
 
 /**
@@ -76,9 +91,15 @@ function finalizeNodes( nodes: TreeNode[] ): TreeNode[] {
  * Parse reprint's remote index into the nested wp-content child tree,
  * keeping only directories. A path counts as a directory when it has
  * indexed descendants, is `type:dir`, or is a `link` whose target has
- * indexed descendants (covers wp.com's per-plugin symlinks).
+ * indexed descendants (covers wp.com's per-plugin symlinks). Alongside
+ * the tree, reports the kept nodes that are symlinks (node value →
+ * absolute target path), so a selection can record links that need
+ * recreating after a scoped pull.
  */
-function parseIndexChildren( remoteIndexPath: string, contentDir: string ): TreeNode[] {
+function parseIndexChildren(
+	remoteIndexPath: string,
+	contentDir: string
+): { children: TreeNode[]; linkTargets: Record< string, string > } {
 	const contentRoot = contentDir.replace( /\/+$/, '' );
 	const prefix = contentRoot + '/';
 
@@ -86,7 +107,7 @@ function parseIndexChildren( remoteIndexPath: string, contentDir: string ): Tree
 	try {
 		raw = fs.readFileSync( remoteIndexPath, 'utf-8' );
 	} catch {
-		return [];
+		return { children: [], linkTargets: {} };
 	}
 
 	const entryByPath = new Map< string, { type?: string; target?: string } >();
@@ -136,6 +157,7 @@ function parseIndexChildren( remoteIndexPath: string, contentDir: string ): Tree
 
 	const rootChildren: TreeNode[] = [];
 	const byPath = new Map< string, TreeNode >();
+	const linkTargets: Record< string, string > = {};
 
 	for ( const absolutePath of contentEntries ) {
 		const relativePath = absolutePath.slice( prefix.length ).replace( /\/+$/, '' );
@@ -168,12 +190,17 @@ function parseIndexChildren( remoteIndexPath: string, contentDir: string ): Tree
 				};
 				byPath.set( currentRel, node );
 				parentChildren.push( node );
+
+				const entry = entryByPath.get( currentAbs );
+				if ( entry?.type === 'link' && entry.target ) {
+					linkTargets[ currentRel ] = entry.target;
+				}
 			}
 			parentChildren = node.children!;
 		}
 	}
 
-	return finalizeNodes( rootChildren );
+	return { children: finalizeNodes( rootChildren ), linkTargets };
 }
 
 /**
@@ -183,15 +210,15 @@ function parseIndexChildren( remoteIndexPath: string, contentDir: string ): Tree
 export function buildReprintTreeFromIndex(
 	remoteIndexPath: string,
 	contentDir: string | null
-): TreeNode[] {
+): { tree: TreeNode[]; linkTargets: Record< string, string > } {
 	if ( ! contentDir ) {
-		return [];
+		return { tree: [], linkTargets: {} };
 	}
-	const children = parseIndexChildren( remoteIndexPath, contentDir );
+	const { children, linkTargets } = parseIndexChildren( remoteIndexPath, contentDir );
 	if ( children.length === 0 ) {
-		return [];
+		return { tree: [], linkTargets: {} };
 	}
-	return buildRootTree( children );
+	return { tree: buildRootTree( children ), linkTargets };
 }
 
 /** Map a wp-content-relative node value to a reprint `--only` source value. */
@@ -217,13 +244,34 @@ export function mapCliOnlyToReprint( values: string[], contentDir: string ): str
 }
 
 /**
+ * The selected symlinks among a set of wp-content-relative values,
+ * resolved to absolute link/target remote paths. Only the values passed
+ * in matter — links *inside* a selected directory are listed by the
+ * scoped index (as children) and recreated by reprint itself.
+ */
+export function selectedSymlinksFor(
+	values: string[],
+	contentDir: string,
+	linkTargets: Record< string, string >
+): SelectedSymlink[] {
+	const contentRoot = contentDir.replace( /\/+$/, '' );
+	return values
+		.filter( ( value ) => linkTargets[ value ] )
+		.map( ( value ) => ( {
+			path: `${ contentRoot }/${ value }`,
+			target: linkTargets[ value ],
+		} ) );
+}
+
+/**
  * Reduce the flat list of checked nodes to the reprint flags, keeping each
  * fully-selected directory and dropping its descendants. A checked
  * `wp-content` root means everything is selected and no `--only` is needed.
  */
 export function mapCheckedNodesToSelection(
 	selected: TreeNode[],
-	contentDir: string
+	contentDir: string,
+	linkTargets: Record< string, string > = {}
 ): PullSelection {
 	const checkedValues = new Set( selected.map( ( node ) => node.value ) );
 	const skipDatabase = ! checkedValues.has( 'database' );
@@ -232,7 +280,7 @@ export function mapCheckedNodesToSelection(
 	);
 
 	if ( checkedValues.has( 'wp-content' ) ) {
-		return { fileOnlyPaths: [], skipDatabase, skipUploads, hasAnyFile: true };
+		return { fileOnlyPaths: [], skipDatabase, skipUploads, hasAnyFile: true, symlinkPaths: [] };
 	}
 
 	const fileNodes = selected.filter(
@@ -252,6 +300,11 @@ export function mapCheckedNodesToSelection(
 		skipDatabase,
 		skipUploads,
 		hasAnyFile: fileNodes.length > 0,
+		symlinkPaths: selectedSymlinksFor(
+			maximal.map( ( node ) => node.value ),
+			contentDir,
+			linkTargets
+		),
 	};
 }
 
@@ -274,14 +327,16 @@ interface FetchReprintPullTreeParams {
  * *initial* `pull-files` appends its scoped index to any existing file
  * and would fetch the entire site regardless of the selection.
  */
-export async function fetchReprintPullTree(
-	params: FetchReprintPullTreeParams
-): Promise< { tree: TreeNode[]; contentDir: string | null } > {
+export async function fetchReprintPullTree( params: FetchReprintPullTreeParams ): Promise< {
+	tree: TreeNode[];
+	contentDir: string | null;
+	linkTargets: Record< string, string >;
+} > {
 	const { stateDirectory, rawDirectory, apiUrl, secret, runtime, verbose } = params;
 
 	const contentDir = getContentDirFromState( stateDirectory );
 	if ( ! contentDir ) {
-		return { tree: [], contentDir: null };
+		return { tree: [], contentDir: null, linkTargets: {} };
 	}
 
 	const indexStateDirectory = `${ stateDirectory.replace( /\/+$/, '' ) }-tree`;
@@ -313,10 +368,11 @@ export async function fetchReprintPullTree(
 			}
 		);
 
-		return {
-			tree: buildReprintTreeFromIndex( getRemoteIndexPath( indexStateDirectory ), contentDir ),
-			contentDir,
-		};
+		const { tree, linkTargets } = buildReprintTreeFromIndex(
+			getRemoteIndexPath( indexStateDirectory ),
+			contentDir
+		);
+		return { tree, contentDir, linkTargets };
 	} finally {
 		fs.rmSync( indexStateDirectory, { recursive: true, force: true } );
 	}
@@ -331,7 +387,7 @@ export async function fetchReprintPullTree(
 export async function selectPullItems(
 	tree: TreeNode[],
 	contentDir: string,
-	options: { allowDatabaseOnly?: boolean } = {}
+	options: { allowDatabaseOnly?: boolean; linkTargets?: Record< string, string > } = {}
 ): Promise< PullSelection | undefined > {
 	const selected = await treeCheckbox( {
 		message: __( 'Select what to pull from the remote site' ),
@@ -342,7 +398,7 @@ export async function selectPullItems(
 		return undefined;
 	}
 
-	const selection = mapCheckedNodesToSelection( selected, contentDir );
+	const selection = mapCheckedNodesToSelection( selected, contentDir, options.linkTargets ?? {} );
 
 	if ( ! selection.hasAnyFile && ! options.allowDatabaseOnly ) {
 		console.log(

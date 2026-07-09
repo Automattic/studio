@@ -6,6 +6,7 @@ import {
 	getCoreRootsFromState,
 	hasLocalFilesIndex,
 	hasSkippedFiles,
+	setSqliteRuntimeTarget,
 } from 'cli/lib/pull/reprint-state';
 
 describe( 'reprint state accessors', () => {
@@ -63,10 +64,32 @@ describe( 'reprint state accessors', () => {
 				} )
 			);
 
-			expect( getCoreRootsFromState( stateDirectory ) ).toEqual( [
-				'/wordpress/core/7.0',
-				'/wordpress/core',
-			] );
+			// The parent root is an ancestor of the live install and would
+			// pull every other core version alongside it — dropped.
+			expect( getCoreRootsFromState( stateDirectory ) ).toEqual( [ '/wordpress/core/7.0' ] );
+		} finally {
+			fs.rmSync( stateDirectory, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'records the sqlite runtime target when the database pull is skipped', () => {
+		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-reprint-state-' ) );
+
+		try {
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-state.json' ),
+				JSON.stringify( { filter: 'essential-files', apply: { target_db: null } } )
+			);
+
+			setSqliteRuntimeTarget( stateDirectory, '/pulls/raw/wp-content/database/.ht.sqlite' );
+
+			const state = JSON.parse(
+				fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' )
+			);
+			expect( state.apply.target_engine ).toBe( 'sqlite' );
+			expect( state.apply.target_sqlite_path ).toBe( '/pulls/raw/wp-content/database/.ht.sqlite' );
+			expect( state.apply.target_db ).toBeNull();
+			expect( state.filter ).toBe( 'essential-files' );
 		} finally {
 			fs.rmSync( stateDirectory, { recursive: true, force: true } );
 		}

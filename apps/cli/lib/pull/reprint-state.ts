@@ -123,18 +123,26 @@ function decodeStatePath( value: string ): string {
 
 /**
  * Read the WordPress core roots the remote preflight detected (e.g.
- * `/wordpress/core/7.0` and `/wordpress/core` on WP Cloud). A
- * `--only`-scoped pull must pass these explicitly: `--only` *replaces*
- * reprint's default export roots, so without them a partial selection
- * would drop WordPress core and the site could not be assembled.
+ * `/wordpress/core/7.0` on WP Cloud). A `--only`-scoped pull must pass
+ * these explicitly: `--only` *replaces* reprint's default export roots,
+ * so without them a partial selection would drop WordPress core and the
+ * site could not be assembled.
+ *
+ * Roots that are ancestors of another root are dropped: on WP Cloud the
+ * detected roots are `/wordpress/core/7.0` (the live install) and
+ * `/wordpress/core` (its parent, which also holds every *other* core
+ * version) — pulling the parent would download them all.
  */
 export function getCoreRootsFromState( stateDirectory: string ): string[] {
 	const state = readReprintState( stateDirectory );
-	const roots = state?.preflight?.data?.wp_detect?.roots ?? [];
-	return roots
+	const roots = ( state?.preflight?.data?.wp_detect?.roots ?? [] )
 		.map( ( root ) => root.path )
 		.filter( ( rootPath ): rootPath is string => typeof rootPath === 'string' && rootPath !== '' )
 		.map( decodeStatePath );
+	return roots.filter(
+		( rootPath ) =>
+			! roots.some( ( other ) => other !== rootPath && other.startsWith( `${ rootPath }/` ) )
+	);
 }
 
 export function hasSkippedFiles( stateDirectory: string ): boolean {
@@ -154,6 +162,31 @@ export function hasSkippedFiles( stateDirectory: string ): boolean {
  * `pull-files` itself.
  */
 export function markSkippedFilesPending( stateDirectory: string ): void {
+	mergeReprintStateFields( stateDirectory, ( state ) => {
+		state.pull_pipeline = { ...( state.pull_pipeline ?? {} ), skipped_pending: true };
+	} );
+}
+
+/**
+ * Record the SQLite target in reprint's state when the database pull is
+ * skipped. `apply-runtime` generates the SQLite runtime section only
+ * from the target that `db-apply` persisted; without it the generated
+ * runtime has no database configuration and WordPress dies on a
+ * database-connection error. Point it at the kept local database.
+ */
+export function setSqliteRuntimeTarget( stateDirectory: string, sqlitePath: string ): void {
+	mergeReprintStateFields( stateDirectory, ( state ) => {
+		state.apply = {
+			...( state.apply ?? {} ),
+			target_engine: 'sqlite',
+			target_sqlite_path: sqlitePath,
+		};
+	} );
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function mergeReprintStateFields( stateDirectory: string, mutate: ( state: any ) => void ): void {
+	/* eslint-enable @typescript-eslint/no-explicit-any */
 	const statePath = getReprintStatePath( stateDirectory );
 	let raw: string;
 	try {
@@ -166,7 +199,7 @@ export function markSkippedFilesPending( stateDirectory: string ): void {
 	}
 
 	const state = JSON.parse( raw );
-	state.pull_pipeline = { ...( state.pull_pipeline ?? {} ), skipped_pending: true };
+	mutate( state );
 	fs.writeFileSync( statePath, JSON.stringify( state, null, 2 ) + '\n' );
 }
 

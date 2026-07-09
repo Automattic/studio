@@ -1290,6 +1290,31 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 						exitCode: 0,
 					};
 				}
+				if ( args[ 0 ] === 'files-index' ) {
+					const stateDirArg = args
+						.find( ( arg ) => arg.startsWith( '--state-dir=' ) )!
+						.slice( '--state-dir='.length );
+					const encode = ( value: string ) => Buffer.from( value, 'utf-8' ).toString( 'base64' );
+					fs.writeFileSync(
+						path.join( stateDirArg, '.import-remote-index.jsonl' ),
+						[
+							JSON.stringify( {
+								path: encode( '/srv/htdocs/wp-content/themes/some-theme/style.css' ),
+								type: 'file',
+							} ),
+							JSON.stringify( {
+								path: encode( '/srv/htdocs/wp-content/plugins/jetpack' ),
+								type: 'link',
+								target: encode( '/wordpress/plugins/jetpack/16.0' ),
+							} ),
+							JSON.stringify( {
+								path: encode( '/wordpress/plugins/jetpack/16.0/jetpack.php' ),
+								type: 'file',
+							} ),
+						].join( '\n' )
+					);
+					return { stdout: '{"status":"complete"}', stderr: '', exitCode: 0 };
+				}
 				if ( args[ 0 ] === 'pull-files' ) {
 					return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
 				}
@@ -1315,24 +1340,35 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 
 		await expect(
 			runCommand( sitePath, 'https://example.com', false, {
-				only: [ 'themes' ],
+				only: [ 'themes', 'plugins/jetpack' ],
 				skipDatabase: true,
 			} )
 		).rejects.toThrow( /stop after flat-docroot preservation checks/ );
 
-		// No pull-db: the database was skipped.
+		// No pull-db: the database was skipped. files-index resolved the
+		// remote symlinks for the selection.
 		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [
 			'preflight',
+			'files-index',
 			'pull-files',
 			'flat-docroot',
 		] );
 
-		// The include-list carries the preflight core roots plus the selection.
-		const filesArgs = reprintSpy.mock.calls[ 1 ][ 2 ] as string[];
+		// The include-list carries the live core root (the ancestor root
+		// holding other core versions is dropped) plus the selection.
+		const filesArgs = reprintSpy.mock.calls[ 2 ][ 2 ] as string[];
 		expect( filesArgs ).toContain( '--only=/wordpress/core/7.0' );
-		expect( filesArgs ).toContain( '--only=/wordpress/core' );
+		expect( filesArgs ).not.toContain( '--only=/wordpress/core' );
 		expect( filesArgs ).toContain( '--only=/srv/htdocs/wp-content/themes' );
-		expect( filesArgs.some( ( arg ) => arg.includes( 'plugins' ) ) ).toBe( false );
+		expect( filesArgs ).toContain( '--only=/srv/htdocs/wp-content/plugins/jetpack' );
+
+		// The selected remote symlink was recreated in the scratch, pointing
+		// at its pulled target.
+		const rawLink = path.join( rawDirectory, 'srv', 'htdocs', 'wp-content', 'plugins', 'jetpack' );
+		expect( fs.lstatSync( rawLink ).isSymbolicLink() ).toBe( true );
+		expect( fs.readlinkSync( rawLink ) ).toBe(
+			path.join( '..', '..', '..', '..', 'wordpress', 'plugins', 'jetpack', '16.0' )
+		);
 
 		// The persisted sidecar records the healed selection a resume reuses.
 		const sidecar = JSON.parse(
@@ -1340,8 +1376,14 @@ describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
 		);
 		expect( sidecar.fileOnlyPaths ).toEqual( [
 			'/wordpress/core/7.0',
-			'/wordpress/core',
 			'/srv/htdocs/wp-content/themes',
+			'/srv/htdocs/wp-content/plugins/jetpack',
+		] );
+		expect( sidecar.symlinkPaths ).toEqual( [
+			{
+				path: '/srv/htdocs/wp-content/plugins/jetpack',
+				target: '/wordpress/plugins/jetpack/16.0',
+			},
 		] );
 		expect( sidecar.skipDatabase ).toBe( true );
 	} );

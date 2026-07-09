@@ -56,7 +56,7 @@ describe( 'buildReprintTreeFromIndex', () => {
 			].join( '\n' )
 		);
 
-		const tree = buildReprintTreeFromIndex( indexPath, CONTENT_DIR );
+		const { tree } = buildReprintTreeFromIndex( indexPath, CONTENT_DIR );
 
 		expect( tree ).toHaveLength( 2 );
 		expect( tree[ 0 ] ).toMatchObject( { value: 'database', depth: 0 } );
@@ -85,8 +85,10 @@ describe( 'buildReprintTreeFromIndex', () => {
 			].join( '\n' )
 		);
 
-		const topLevel = buildReprintTreeFromIndex( indexPath, CONTENT_DIR )[ 1 ].children ?? [];
+		const { tree, linkTargets } = buildReprintTreeFromIndex( indexPath, CONTENT_DIR );
+		const topLevel = tree[ 1 ].children ?? [];
 		expect( topLevel.map( ( n ) => n.value ) ).toEqual( [ 'plugins' ] );
+		expect( linkTargets ).toEqual( { 'plugins/jetpack': '/wordpress/plugins/jetpack/16.0' } );
 		expect( ( topLevel[ 0 ].children ?? [] ).map( ( n ) => n.value ) ).toEqual( [
 			'plugins/jetpack',
 		] );
@@ -95,8 +97,8 @@ describe( 'buildReprintTreeFromIndex', () => {
 
 	it( 'returns an empty tree when the content dir is unknown or nothing is under it', () => {
 		fs.writeFileSync( indexPath, encodeEntry( '/srv/htdocs/index.php' ) );
-		expect( buildReprintTreeFromIndex( indexPath, null ) ).toEqual( [] );
-		expect( buildReprintTreeFromIndex( indexPath, CONTENT_DIR ) ).toEqual( [] );
+		expect( buildReprintTreeFromIndex( indexPath, null ).tree ).toEqual( [] );
+		expect( buildReprintTreeFromIndex( indexPath, CONTENT_DIR ).tree ).toEqual( [] );
 	} );
 } );
 
@@ -108,7 +110,26 @@ describe( 'mapCheckedNodesToSelection', () => {
 			skipDatabase: false,
 			skipUploads: false,
 			hasAnyFile: true,
+			symlinkPaths: [],
 		} );
+	} );
+
+	it( 'records selected entries that are symlinks on the remote', () => {
+		const linkTargets = { 'plugins/jetpack': '/wordpress/plugins/jetpack/16.0' };
+		const selection = mapCheckedNodesToSelection(
+			[ checked( 'plugins/jetpack', 2 ), checked( 'themes' ) ],
+			CONTENT_DIR,
+			linkTargets
+		);
+		expect( selection.symlinkPaths ).toEqual( [
+			{ path: `${ CONTENT_DIR }/plugins/jetpack`, target: '/wordpress/plugins/jetpack/16.0' },
+		] );
+
+		// A link inside a fully-selected parent needs no restoration: the
+		// scoped listing of the parent includes it as a child.
+		expect(
+			mapCheckedNodesToSelection( [ checked( 'plugins' ) ], CONTENT_DIR, linkTargets ).symlinkPaths
+		).toEqual( [] );
 	} );
 
 	it( 'skips the media library unless uploads (or everything) is selected', () => {

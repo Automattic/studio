@@ -84,16 +84,6 @@ export interface ClipMarker {
 	documentRect?: ClipDocumentRect;
 }
 
-/** A marker the *agent* places to point at something for the user —
- * rendered in a distinct style from the user's numbered clip markers. */
-export interface AgentMarker {
-	id: string;
-	label?: string;
-	// Either a selector resolved in the guest or an explicit rect.
-	selector?: string;
-	documentRect?: ClipDocumentRect;
-}
-
 /** The inspector's explicit modes. Exactly one is active at a time; each
  * has its own trigger in the host chrome (split button / CLI toolbar), so
  * gestures never conflict — scroll only zooms in `loupe`, drag only
@@ -133,9 +123,7 @@ export type InspectorHostCommand =
 	| { type: 'refresh-backdrop' }
 	| { type: 'report-state' }
 	// Full clip list; the guest re-renders markers from scratch.
-	| { type: 'sync-clips'; clips: ClipMarker[] }
-	// Agent-placed markers; replaces the previous set. Empty array clears.
-	| { type: 'agent-markers'; markers: AgentMarker[] };
+	| { type: 'sync-clips'; clips: ClipMarker[] };
 
 export interface InspectorFeatures {
 	/** Element clips (hover highlight + comment popup). */

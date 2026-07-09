@@ -73,7 +73,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	const FEATURES = config.features;
 	const HOST_ID = '__studio-inspector-host';
 	const ACCENT = '#2563eb';
-	const AGENT_ACCENT = '#7c3aed';
 
 	const LOUPE_MIN_ZOOM = 1;
 	const LOUPE_MAX_ZOOM = 8;
@@ -247,24 +246,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 			border-radius: 2px;
 			background: rgba(37,99,235,0.05);
 		}
-		.agentMarker {
-			position: absolute; pointer-events: none;
-			border: 2px solid ${ AGENT_ACCENT };
-			background: rgba(124,58,237,0.12);
-			border-radius: 3px;
-			animation: __studio-agent-pulse 1.6s ease-in-out infinite;
-		}
-		.agentMarker .agentLabel {
-			position: absolute; top: -26px; left: -2px;
-			background: ${ AGENT_ACCENT }; color: #fff;
-			font: 600 11px/1 inherit;
-			padding: 5px 8px; border-radius: 4px;
-			white-space: nowrap;
-		}
-		@keyframes __studio-agent-pulse {
-			0%, 100% { box-shadow: 0 0 0 0 rgba(124,58,237,0.35); }
-			50% { box-shadow: 0 0 0 6px rgba(124,58,237,0); }
-		}
 		.popup {
 			position: fixed; width: 320px;
 			background: #1a1a1a; color: #fff;
@@ -433,12 +414,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 		pathname?: string;
 		documentRect?: { left: number; top: number; width: number; height: number };
 	} > = [];
-	let agentMarkers: Array< {
-		id: string;
-		label?: string;
-		selector?: string;
-		documentRect?: { left: number; top: number; width: number; height: number };
-	} > = [];
 
 	// Comment popup: `pending` for a new element clip, `existing` when
 	// opened from a marker.
@@ -483,8 +458,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 
 	const markerLayer = document.createElement( 'div' );
 	root.appendChild( markerLayer );
-	const agentLayer = document.createElement( 'div' );
-	root.appendChild( agentLayer );
 
 	let popupNode: HTMLElement | null = null;
 	let contextMenuNode: HTMLElement | null = null;
@@ -642,35 +615,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 		}
 		for ( const toggle of submitModeToggles ) {
 			toggle.node.setAttribute( 'aria-pressed', mode === toggle.toggleMode ? 'true' : 'false' );
-		}
-	}
-
-	function renderAgentMarkers(): void {
-		agentLayer.textContent = '';
-		for ( const marker of agentMarkers ) {
-			let rect = marker.documentRect || null;
-			if ( ! rect && marker.selector ) {
-				try {
-					const el = document.querySelector( marker.selector );
-					if ( el ) rect = documentRectOf( el );
-				} catch {
-					// Invalid selector from the agent: skip the marker.
-				}
-			}
-			if ( ! rect ) continue;
-			const node = document.createElement( 'div' );
-			node.className = 'agentMarker';
-			node.style.left = rect.left + 'px';
-			node.style.top = rect.top + 'px';
-			node.style.width = rect.width + 'px';
-			node.style.height = rect.height + 'px';
-			if ( marker.label ) {
-				const label = document.createElement( 'div' );
-				label.className = 'agentLabel';
-				label.textContent = marker.label;
-				node.appendChild( label );
-			}
-			agentLayer.appendChild( node );
 		}
 	}
 
@@ -1153,7 +1097,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 		hudNode.style.display = 'none';
 		loupeNode.style.display = 'none';
 		markerLayer.style.display = 'none';
-		agentLayer.style.display = 'none';
 		if ( popupNode ) popupNode.style.display = 'none';
 		if ( submitBarNode ) submitBarNode.style.display = 'none';
 		return new Promise< boolean >( ( resolve ) => {
@@ -1168,7 +1111,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	win.__studioInspectorFinishCapture = () => {
 		captureHidden = false;
 		markerLayer.style.display = '';
-		agentLayer.style.display = '';
 		if ( popupNode ) popupNode.style.display = '';
 		if ( submitBarNode ) submitBarNode.style.display = '';
 		render();
@@ -1177,7 +1119,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	win.__studioInspectorBackdrop = ( payload ) => {
 		captureHidden = false;
 		markerLayer.style.display = '';
-		agentLayer.style.display = '';
 		if ( popupNode ) popupNode.style.display = '';
 		if ( submitBarNode ) submitBarNode.style.display = '';
 		if ( ! payload || typeof payload.url !== 'string' ) {
@@ -1220,10 +1161,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 				clipMarkers = Array.isArray( command.clips ) ? command.clips : [];
 				renderMarkers();
 				sendState();
-				return;
-			case 'agent-markers':
-				agentMarkers = Array.isArray( command.markers ) ? command.markers : [];
-				renderAgentMarkers();
 				return;
 			case 'report-state':
 				sendState();
@@ -1439,7 +1376,6 @@ function inspectorPageMain( config: InspectorInjectedConfig ): void {
 	);
 
 	renderMarkers();
-	renderAgentMarkers();
 	sendState();
 }
 

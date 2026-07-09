@@ -76,7 +76,6 @@ import type {
 import type { SiteDetails } from '@/data/core';
 import type { ComposerClipInput } from '@studio/common/ai/composer-attachments';
 import type {
-	AgentMarker,
 	ClipMarker,
 	InspectorHostCommand,
 	InspectorMode,
@@ -112,9 +111,6 @@ interface SitePreviewProps {
 	// The active session's clips, mirrored into the guest page as numbered
 	// markers (and used for chip↔marker identity).
 	clipMarkers?: ClipMarker[];
-	// Agent-placed highlights ("I changed this"), rendered by the guest
-	// overlay in a distinct style from the user's clip markers.
-	agentMarkers?: AgentMarker[];
 	// Called when the user navigates within the preview (link clicks,
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
@@ -836,7 +832,6 @@ export function SitePreview( {
 	onClipRemove,
 	onComposerText,
 	clipMarkers,
-	agentMarkers,
 	onPathChange,
 	collapsed = false,
 	fullscreen = false,
@@ -1528,7 +1523,6 @@ export function SitePreview( {
 								surfaceStyle={ surfaceStyle }
 								onConsoleEntry={ handleConsoleEntry }
 								clipMarkers={ clipMarkers }
-								agentMarkers={ agentMarkers }
 								pageClipRequest={ pageClipRequest }
 								resolvePageClipUrl={ resolvePageClipUrl }
 								onPageClipBusyChange={ setIsCapturingPageClip }

@@ -13,7 +13,7 @@ import {
 import { useConnector } from '@/data/core';
 import type { PreviewConsoleEntry } from '@/components/site-preview/types';
 import type { ComposerClipInput } from '@studio/common/ai/composer-attachments';
-import type { AgentMarker, ClipMarker } from '@studio/common/inspector/protocol';
+import type { ClipMarker } from '@studio/common/inspector/protocol';
 
 // Dashboard-scoped UI store (mounted once in the dashboard layout, shared by
 // every route under it). Holds the slices of UI state that the chat agent
@@ -46,17 +46,10 @@ interface PreviewClipsUIState {
 	markers: ClipMarker[];
 }
 
-// Agent-placed highlights ("I changed *this*"), set by `preview.highlight`
-// agent events and rendered by the preview's guest overlay.
-interface PreviewAgentMarkersUIState {
-	markers: AgentMarker[];
-}
-
 export interface SessionUIState {
 	preview: PreviewUIState;
 	previewConsole: PreviewConsoleUIState;
 	previewClips: PreviewClipsUIState;
-	previewAgentMarkers: PreviewAgentMarkersUIState;
 }
 
 export type SessionUIAction =
@@ -68,14 +61,12 @@ export type SessionUIAction =
 	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string }
 	| { type: 'preview-console/set-entries'; entries: PreviewConsoleEntry[] }
-	| { type: 'preview-clips/set-markers'; markers: ClipMarker[] }
-	| { type: 'preview-agent-markers/set'; markers: AgentMarker[] };
+	| { type: 'preview-clips/set-markers'; markers: ClipMarker[] };
 
 const INITIAL_STATE: SessionUIState = {
 	preview: { open: true, fullscreen: false, path: '/', reloadNonce: 0 },
 	previewConsole: { entries: [] },
 	previewClips: { markers: [] },
-	previewAgentMarkers: { markers: [] },
 };
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
@@ -155,10 +146,6 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 			return state.previewClips.markers === action.markers
 				? state
 				: { ...state, previewClips: { markers: action.markers } };
-		case 'preview-agent-markers/set':
-			return state.previewAgentMarkers.markers === action.markers
-				? state
-				: { ...state, previewAgentMarkers: { markers: action.markers } };
 	}
 }
 
@@ -415,10 +402,4 @@ export function useSessionPreviewClipMarkersPublisher(): ( markers: ClipMarker[]
 		( markers: ClipMarker[] ) => dispatch( { type: 'preview-clips/set-markers', markers } ),
 		[ dispatch ]
 	);
-}
-
-/** Agent-placed preview highlights, for the preview to mirror into the
- * guest page (set by `preview.highlight` agent events). */
-export function useSessionPreviewAgentMarkers(): AgentMarker[] {
-	return useSessionUIState().previewAgentMarkers.markers;
 }

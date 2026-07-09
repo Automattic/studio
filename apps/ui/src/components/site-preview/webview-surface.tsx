@@ -14,7 +14,6 @@ import {
 	buildInspectorCommandScript,
 	buildInspectorPageScript,
 	parseInspectorGuestEvent,
-	type AgentMarker,
 	type ClipMarker,
 	type ClipViewportRect,
 	type InspectorConfig,
@@ -256,8 +255,6 @@ export interface WebviewSurfaceProps {
 	surfaceStyle?: CSSProperties;
 	// Existing clips, mirrored into the guest as numbered markers.
 	clipMarkers?: ClipMarker[];
-	// Agent-placed highlights, mirrored into the guest overlay.
-	agentMarkers?: AgentMarker[];
 	// Bump to capture a page clip from host chrome (split button/menu).
 	pageClipRequest?: PageClipRequest | null;
 	// Rewrites the page-clip URL for the headless capture browser (e.g.
@@ -289,7 +286,6 @@ export function WebviewSurface( {
 	viewport = null,
 	surfaceStyle,
 	clipMarkers,
-	agentMarkers,
 	pageClipRequest,
 	resolvePageClipUrl,
 	onPageClipBusyChange,
@@ -360,10 +356,6 @@ export function WebviewSurface( {
 	useEffect( () => {
 		clipMarkersRef.current = clipMarkers;
 	}, [ clipMarkers ] );
-	const agentMarkersRef = useRef( agentMarkers );
-	useEffect( () => {
-		agentMarkersRef.current = agentMarkers;
-	}, [ agentMarkers ] );
 	const resolvePageClipUrlRef = useRef( resolvePageClipUrl );
 	useEffect( () => {
 		resolvePageClipUrlRef.current = resolvePageClipUrl;
@@ -396,32 +388,14 @@ export function WebviewSurface( {
 		},
 		[ runInGuest ]
 	);
-	const syncAgentMarkers = useCallback(
-		( webview: WebviewTag ) => {
-			runInGuest(
-				webview,
-				buildInspectorCommandScript( {
-					type: 'agent-markers',
-					markers: agentMarkersRef.current ?? [],
-				} )
-			).catch( () => undefined );
-		},
-		[ runInGuest ]
-	);
 
-	// Push marker updates whenever either set changes.
+	// Push marker updates whenever the clips change.
 	useEffect( () => {
 		if ( ! ready ) return;
 		const webview = ref.current as WebviewTag | null;
 		if ( ! webview ) return;
 		syncClipMarkers( webview );
 	}, [ clipMarkers, ready, syncClipMarkers ] );
-	useEffect( () => {
-		if ( ! ready ) return;
-		const webview = ref.current as WebviewTag | null;
-		if ( ! webview ) return;
-		syncAgentMarkers( webview );
-	}, [ agentMarkers, ready, syncAgentMarkers ] );
 
 	// The CDP metrics override persists across navigations, so it only needs
 	// applying when the simulated viewport changes (or on the first dom-ready
@@ -774,7 +748,6 @@ export function WebviewSurface( {
 					onInspectorStateRef.current?.( { ...EMPTY_INSPECTOR_STATE, ready: true } );
 					// Existing clips need their markers back on the new document.
 					syncClipMarkers( webview );
-					syncAgentMarkers( webview );
 				} )
 				.catch( () => {
 					// Transient injection failures (e.g. frame swapped mid-eval)
@@ -922,7 +895,6 @@ export function WebviewSurface( {
 		publishBrowserState,
 		pushLoupeBackdrop,
 		startProgress,
-		syncAgentMarkers,
 		syncClipMarkers,
 	] );
 

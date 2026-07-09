@@ -12,7 +12,6 @@ import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-s
 import { useSites } from '@/data/queries/use-sites';
 import {
 	SessionUIProvider,
-	useSessionPreviewAgentMarkers,
 	useSessionPreviewClipActions,
 	useSessionPreviewClipMarkers,
 	useSessionPreviewConsoleUI,
@@ -84,7 +83,6 @@ function DashboardLayoutContent() {
 	const updatePreviewPath = preview.updatePath;
 	const clipActions = useSessionPreviewClipActions();
 	const clipMarkers = useSessionPreviewClipMarkers();
-	const agentMarkers = useSessionPreviewAgentMarkers();
 	const sessionOwnerSitePath = sessionData?.summary.ownerSitePath;
 	const sessionSite = sessionOwnerSitePath
 		? sites?.find( ( site ) => site.path === sessionOwnerSitePath )
@@ -219,7 +217,6 @@ function DashboardLayoutContent() {
 					onClipRemove={ canClipToSession ? clipActions.removeClip : undefined }
 					onComposerText={ canClipToSession ? clipActions.appendComposerText : undefined }
 					clipMarkers={ clipMarkers }
-					agentMarkers={ agentMarkers }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
 					fullscreen={ previewFullscreen }
@@ -228,7 +225,6 @@ function DashboardLayoutContent() {
 				/>
 			) : null,
 		[
-			agentMarkers,
 			clipActions,
 			clipMarkers,
 			canClipToSession,

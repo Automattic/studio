@@ -29,14 +29,6 @@ export type JsonEvent =
 	| { type: 'error'; timestamp: string; message: string }
 	| { type: 'chat.artifact'; timestamp: string; artifact: StudioChatArtifactData }
 	| { type: 'preview.reload'; timestamp: string }
-	// Agent-placed highlight markers in the site preview (the reverse of the
-	// user's clips): "I changed *this*". Selectors resolve in the guest page;
-	// an empty array clears the previous set.
-	| {
-			type: 'preview.highlight';
-			timestamp: string;
-			markers: Array< { id: string; selector: string; label?: string } >;
-	  }
 	| {
 			type: 'question.asked';
 			timestamp: string;

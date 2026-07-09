@@ -28,9 +28,11 @@ const reprintStateSnapshotSchema = z.looseObject( {
 						.looseObject( {
 							wp: z
 								.looseObject( {
+									table_prefix: z.string().nullish(),
 									paths_urls: z
 										.looseObject( {
 											content_dir: z.string().nullish(),
+											abspath: z.string().nullish(),
 										} )
 										.optional(),
 								} )
@@ -84,6 +86,26 @@ export function getContentDirFromState( stateDirectory: string ): string | null 
 	const state = readReprintState( stateDirectory );
 	const contentDir = state?.preflight?.data?.database?.wp?.paths_urls?.content_dir;
 	return typeof contentDir === 'string' ? contentDir : null;
+}
+
+/**
+ * Read the remote WordPress ABSPATH from the reprint state's preflight
+ * data (e.g. "/wordpress/core/7.0" on WP Cloud).
+ */
+export function getAbspathFromState( stateDirectory: string ): string | null {
+	const state = readReprintState( stateDirectory );
+	const abspath = state?.preflight?.data?.database?.wp?.paths_urls?.abspath;
+	return typeof abspath === 'string' && abspath !== '' ? decodeStatePath( abspath ) : null;
+}
+
+/**
+ * Read the remote site's database table prefix from the reprint state's
+ * preflight data.
+ */
+export function getTablePrefixFromState( stateDirectory: string ): string | null {
+	const state = readReprintState( stateDirectory );
+	const tablePrefix = state?.preflight?.data?.database?.wp?.table_prefix;
+	return typeof tablePrefix === 'string' && tablePrefix !== '' ? tablePrefix : null;
 }
 
 /**

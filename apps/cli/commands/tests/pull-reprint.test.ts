@@ -11,6 +11,7 @@ import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import {
 	runFullPull,
 	downloadSkippedFiles,
+	ensureScopedPullWpConfig,
 	findMatchingWpComSite,
 	getReprintApiUrlForSite,
 	normalizeSiteUrl,
@@ -185,6 +186,64 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		expect( state.pull_pipeline.skipped_pending ).toBe( true );
 		expect( state.pull_pipeline.started_by_command ).toBe( 'pull-db' );
 		expect( state.filter ).toBe( 'essential-files' );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	it( 'synthesizes a wp-config when a scoped pull left only an empty symlink target', () => {
+		const technicalSiteDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-wpconfig-' ) );
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		const rawAbspath = path.join( rawDirectory, 'wordpress', 'core', '7.0' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( rawAbspath, { recursive: true } );
+		fs.mkdirSync( path.join( rawDirectory, 'srv', 'htdocs' ), { recursive: true } );
+
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( {
+				preflight: {
+					data: {
+						database: {
+							wp: {
+								table_prefix: 'wp_abc123_',
+								paths_urls: { abspath: '/wordpress/core/7.0' },
+							},
+						},
+					},
+				},
+			} )
+		);
+
+		// The WP Cloud layout a scoped pull recreates: parent-of-ABSPATH
+		// wp-config.php is a symlink to a document-root file that was never
+		// fetched (empty placeholder).
+		fs.writeFileSync( path.join( rawDirectory, 'srv', 'htdocs', 'wp-config.php' ), '' );
+		fs.symlinkSync(
+			'../../srv/htdocs/wp-config.php',
+			path.join( rawDirectory, 'wordpress', 'core', 'wp-config.php' )
+		);
+
+		const metadata = { stateDirectory, rawDirectory } as never;
+		ensureScopedPullWpConfig( metadata );
+
+		// Written through the symlink into its target, with the remote prefix.
+		const written = fs.readFileSync(
+			path.join( rawDirectory, 'srv', 'htdocs', 'wp-config.php' ),
+			'utf-8'
+		);
+		expect( written ).toContain( "$table_prefix = 'wp_abc123_';" );
+		expect( written ).toContain( "require_once ABSPATH . 'wp-settings.php';" );
+
+		// A non-empty config is left alone on a second run.
+		fs.writeFileSync(
+			path.join( rawDirectory, 'srv', 'htdocs', 'wp-config.php' ),
+			'<?php // real remote config'
+		);
+		ensureScopedPullWpConfig( metadata );
+		expect(
+			fs.readFileSync( path.join( rawDirectory, 'srv', 'htdocs', 'wp-config.php' ), 'utf-8' )
+		).toBe( '<?php // real remote config' );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );

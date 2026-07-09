@@ -51,6 +51,7 @@ import {
 	getCoreRootsFromState,
 	hasLocalFilesIndex,
 	hasSkippedFiles,
+	markSkippedFilesPending,
 	resetEssentialFilesState,
 } from 'cli/lib/pull/reprint-state';
 import {
@@ -1000,6 +1001,11 @@ export async function downloadSkippedFiles(
 	selection: PullSelection = {}
 ): Promise< void > {
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
+
+	// Studio's split pipeline runs pull-db between pull-files and this
+	// tail, and pull-db's prepare_repull() resets the skipped_pending flag
+	// the tail's recovery keys on; restore it (see markSkippedFilesPending).
+	markSkippedFilesPending( metadata.stateDirectory );
 
 	await runReprintCommandUntilComplete(
 		metadata.stateDirectory,

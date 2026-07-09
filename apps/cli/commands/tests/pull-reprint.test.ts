@@ -143,6 +143,16 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		fs.mkdirSync( stateDirectory, { recursive: true } );
 		fs.mkdirSync( rawDirectory, { recursive: true } );
 
+		// State as pull-db's prepare_repull leaves it: the skipped_pending
+		// flag pull-files set has been reset, though deferred files remain.
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( {
+				filter: 'essential-files',
+				pull_pipeline: { started_by_command: 'pull-db', skipped_pending: false },
+			} )
+		);
+
 		const reprintSpy = vi
 			.spyOn( migrationClient, 'runReprintCommandUntilComplete' )
 			.mockResolvedValue( {
@@ -166,6 +176,15 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 		expect( reprintSpy.mock.calls[ 0 ][ 2 ] ).toEqual(
 			expect.arrayContaining( [ 'files-sync', '--filter=skipped-earlier' ] )
 		);
+
+		// The tail restored the flag its recovery keys on, preserving the
+		// rest of the state file.
+		const state = JSON.parse(
+			fs.readFileSync( path.join( stateDirectory, '.import-state.json' ), 'utf-8' )
+		);
+		expect( state.pull_pipeline.skipped_pending ).toBe( true );
+		expect( state.pull_pipeline.started_by_command ).toBe( 'pull-db' );
+		expect( state.filter ).toBe( 'essential-files' );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );

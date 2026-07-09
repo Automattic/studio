@@ -121,6 +121,34 @@ export function hasSkippedFiles( stateDirectory: string ): boolean {
 }
 
 /**
+ * Restore reprint's `pull_pipeline.skipped_pending` flag before the
+ * standalone skipped-earlier tail. `pull-files` sets the flag when it
+ * defers the media library, but Studio runs `pull-db` as a separate
+ * composite command (so the database can be skipped), and its
+ * prepare_repull() resets the flag along with the rest of the pipeline
+ * checkpoint. `files-sync --filter=skipped-earlier` keys its recovery
+ * on that flag; without it the tail is rejected with "no completed sync
+ * with skipped files". Unnecessary once reprint folds the tail into
+ * `pull-files` itself.
+ */
+export function markSkippedFilesPending( stateDirectory: string ): void {
+	const statePath = getReprintStatePath( stateDirectory );
+	let raw: string;
+	try {
+		raw = fs.readFileSync( statePath, 'utf-8' );
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'ENOENT' ) {
+			return;
+		}
+		throw error;
+	}
+
+	const state = JSON.parse( raw );
+	state.pull_pipeline = { ...( state.pull_pipeline ?? {} ), skipped_pending: true };
+	fs.writeFileSync( statePath, JSON.stringify( state, null, 2 ) + '\n' );
+}
+
+/**
  * True when reprint's local file index says a file sync completed, so the
  * raw fs-root holds the site (WordPress core included) and a
  * `--only`-restricted delta pull is safe. Unlike the durable

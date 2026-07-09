@@ -1,3 +1,4 @@
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import {
 	hydrateAiSessionSummaryWithPlacement,
 	readAiSessionPlacement,
@@ -98,13 +99,7 @@ export async function createOrReuseAiSession(
 	const reusable = existing
 		.filter(
 			( session ) =>
-				! session.firstPrompt &&
-				! session.archived &&
-				// Placements written before siteId existed lack it; match those by
-				// path rather than dropping them.
-				( session.ownerSiteId
-					? session.ownerSiteId === site.id
-					: session.ownerSitePath === site.path )
+				! session.firstPrompt && ! session.archived && aiSessionBelongsToSite( session, site )
 		)
 		.sort( newestFirst )[ 0 ];
 	if ( reusable ) {

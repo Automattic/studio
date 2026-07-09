@@ -1,3 +1,4 @@
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -50,8 +51,6 @@ function groupSessionsByOwner(
 	sites: SiteDetails[] | undefined,
 	sessions: AiSessionSummary[] | undefined
 ): SiteGroup[] {
-	const knownSiteIds = new Set( ( sites ?? [] ).map( ( site ) => site.id ) );
-	const siteIdsByPath = new Map( ( sites ?? [] ).map( ( site ) => [ site.path, site.id ] ) );
 	const sessionsBySiteId = new Map< string, AiSessionSummary[] >();
 	const unassigned: AiSessionSummary[] = [];
 
@@ -62,21 +61,17 @@ function groupSessionsByOwner(
 		if ( session.archived ) {
 			continue;
 		}
-		// Placements written before siteId existed lack ownerSiteId; match
-		// those by path rather than dropping them.
-		const ownerSiteId =
-			session.ownerSiteId ??
-			( session.ownerSitePath ? siteIdsByPath.get( session.ownerSitePath ) : undefined );
-		if ( ! ownerSiteId || ! knownSiteIds.has( ownerSiteId ) ) {
+		const ownerSite = findAiSessionOwnerSite( sites, session );
+		if ( ! ownerSite ) {
 			unassigned.push( session );
 			continue;
 		}
 
-		const existing = sessionsBySiteId.get( ownerSiteId );
+		const existing = sessionsBySiteId.get( ownerSite.id );
 		if ( existing ) {
 			existing.push( session );
 		} else {
-			sessionsBySiteId.set( ownerSiteId, [ session ] );
+			sessionsBySiteId.set( ownerSite.id, [ session ] );
 		}
 	}
 

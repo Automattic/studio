@@ -1,12 +1,13 @@
 import { Autocomplete } from '@base-ui/react/autocomplete';
 import { __ } from '@wordpress/i18n';
-import { globe, page as pageIcon, post as postIcon, wordpress } from '@wordpress/icons';
+import { globe, help, home, page as pageIcon, post as postIcon, wordpress } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { privateApis } from '@wordpress/theme';
 import { Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
+import { useSiteFrontLinks } from '@/data/queries/use-site-front-links';
 import { useSiteSearch } from '@/data/queries/use-site-search';
 import { useCustomizeLinks } from '@/hooks/use-customize-links';
 import { databaseIcon } from '@/lib/icons';
@@ -38,6 +39,10 @@ export type PreviewRealm = 'frontend' | 'admin' | 'database';
 // The phpMyAdmin landing the database segment opens by default (same deep
 // link the "Open in…" menu uses: straight to the WordPress database).
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
+
+// A deliberately nonexistent front-end path, so the omnibox can offer a way to
+// preview the theme's 404 template.
+const FRONT_END_NOT_FOUND_PATH = '/this-page-does-not-exist';
 
 /**
  * Which realm a preview path shows. Auto-login hops classify as their
@@ -124,6 +129,14 @@ interface AddressItem {
 	icon: IconElement;
 	title: string;
 	path: string;
+}
+
+// A labeled group of address items for the dropdown (e.g. "Front end",
+// "WordPress"). An empty label renders the rows without a heading. The `items`
+// shape is what Base UI keys grouped rendering off (see `Autocomplete.Group`).
+interface AddressGroup {
+	value: string;
+	items: AddressItem[];
 }
 
 // Primary-modifier number shortcuts for the realm segments (⌘1/⌘2/⌘3 on
@@ -228,9 +241,9 @@ export function PreviewAddressBar( {
 		return () => observer.disconnect();
 	}, [ measureIndicator ] );
 
-	// The WordPress destinations offered at rest and matched while typing —
-	// the former "Open WordPress…" menu, folded into the address bar.
-	const destinations = useMemo< AddressItem[] >(
+	// The WordPress (WP Admin) destinations — the former "Open WordPress…" menu,
+	// folded into the address bar — plus the optional database link.
+	const wordpressItems = useMemo< AddressItem[] >(
 		() => [
 			...allLinks.map( ( link ) => ( {
 				kind: 'destination' as const,
@@ -260,21 +273,62 @@ export function PreviewAddressBar( {
 	const searchTerm = intent?.type === 'search' ? intent.term : '';
 	const debouncedTerm = useDebouncedValue( searchTerm, 250 );
 	const search = useSiteSearch( site.id, debouncedTerm, searchEnabled && open );
+	// Real front-end permalinks (latest post + a page) for the zero state; only
+	// worth fetching while the popup is open and the REST transport is available.
+	const frontLinks = useSiteFrontLinks( site.id, searchEnabled && open );
 
-	// Untouched (prefilled) or cleared input rests on the destination list;
-	// search terms blend destination matches with content results; typed
-	// paths suppress the list entirely so Enter always navigates the path
-	// instead of a stale highlighted result.
+	// Front-end destinations: the home page and a 404 preview always, plus the
+	// latest post and a page once their permalinks resolve.
+	const frontendItems = useMemo< AddressItem[] >( () => {
+		const items: AddressItem[] = [
+			{ kind: 'destination', id: 'home', icon: home, title: __( 'Home' ), path: '/' },
+			{
+				kind: 'destination',
+				id: 'not-found',
+				icon: help,
+				title: __( '404 page' ),
+				path: FRONT_END_NOT_FOUND_PATH,
+			},
+		];
+		if ( frontLinks.data?.post ) {
+			items.push( {
+				kind: 'destination',
+				id: 'latest-post',
+				icon: postIcon,
+				title: frontLinks.data.post.title,
+				path: frontLinks.data.post.path,
+			} );
+		}
+		if ( frontLinks.data?.page ) {
+			items.push( {
+				kind: 'destination',
+				id: 'published-page',
+				icon: pageIcon,
+				title: frontLinks.data.page.title,
+				path: frontLinks.data.page.path,
+			} );
+		}
+		return items;
+	}, [ frontLinks.data ] );
+
+	// Untouched (prefilled) or cleared input rests on the grouped destinations
+	// (Front end / WordPress); search terms blend destination matches with
+	// content results into a single unlabeled group; typed paths suppress the
+	// list entirely so Enter always navigates the path instead of a stale
+	// highlighted result.
 	const isZeroState = ! inputValue.trim() || inputValue === path;
-	const items = useMemo< AddressItem[] >( () => {
+	const groups = useMemo< AddressGroup[] >( () => {
 		if ( isZeroState ) {
-			return destinations;
+			return [
+				{ value: __( 'Front end' ), items: frontendItems },
+				{ value: __( 'WordPress' ), items: wordpressItems },
+			].filter( ( group ) => group.items.length > 0 );
 		}
 		if ( ! searchTerm ) {
 			return [];
 		}
 		const term = searchTerm.toLowerCase();
-		const destinationMatches = destinations.filter( ( destination ) =>
+		const destinationMatches = [ ...frontendItems, ...wordpressItems ].filter( ( destination ) =>
 			destination.title.toLowerCase().includes( term )
 		);
 		const contentMatches = debouncedTerm
@@ -286,8 +340,10 @@ export function PreviewAddressBar( {
 					path: result.path,
 			  } ) )
 			: [];
-		return [ ...destinationMatches, ...contentMatches ];
-	}, [ debouncedTerm, destinations, isZeroState, search.data, searchTerm ] );
+		const matches = [ ...destinationMatches, ...contentMatches ];
+		return matches.length > 0 ? [ { value: '', items: matches } ] : [];
+	}, [ isZeroState, frontendItems, wordpressItems, searchTerm, debouncedTerm, search.data ] );
+	const flatItems = useMemo( () => groups.flatMap( ( group ) => group.items ), [ groups ] );
 
 	const navigateTo = useCallback(
 		( nextPath: string ) => {
@@ -316,7 +372,7 @@ export function PreviewAddressBar( {
 		if ( event.key !== 'Enter' ) {
 			return;
 		}
-		if ( highlightedItem && items.length > 0 ) {
+		if ( highlightedItem && flatItems.length > 0 ) {
 			event.preventDefault();
 			navigateTo( highlightedItem.path );
 			return;
@@ -335,20 +391,22 @@ export function PreviewAddressBar( {
 
 	const showsSearchUi = searchEnabled && ! isZeroState && intent?.type === 'search';
 	const isSearching =
-		showsSearchUi && items.length === 0 && ( search.isFetching || debouncedTerm !== searchTerm );
+		showsSearchUi &&
+		flatItems.length === 0 &&
+		( search.isFetching || debouncedTerm !== searchTerm );
 	const status = ! showsSearchUi
 		? null
 		: search.isError
 		? __( 'Search unavailable' )
 		: isSearching
 		? __( 'Searching…' )
-		: items.length === 0 && debouncedTerm
+		: flatItems.length === 0 && debouncedTerm
 		? __( 'No matches' )
 		: null;
 
 	return (
 		<Autocomplete.Root
-			items={ items }
+			items={ groups }
 			mode="none"
 			// In the zero state Enter should re-navigate the prefilled path,
 			// not the first destination — highlight only follows typing.
@@ -456,27 +514,42 @@ export function PreviewAddressBar( {
 								aria-label={ __( 'Address and search' ) }
 								onKeyDown={ handleInputKeyDown }
 							/>
-							{ items.length > 0 ? (
+							{ groups.length > 0 ? (
 								<Autocomplete.List className={ styles.list }>
-									{ ( item: AddressItem ) => (
-										<Autocomplete.Item
-											key={ item.id }
-											value={ item }
-											className={ styles.item }
-											onClick={ () => navigateTo( item.path ) }
+									{ ( group: AddressGroup ) => (
+										<Autocomplete.Group
+											key={ group.value || 'results' }
+											items={ group.items }
+											className={ styles.group }
 										>
-											<span
-												className={ clsx(
-													styles.itemIcon,
-													item.kind === 'destination' && styles.itemIconDestination
+											{ group.value ? (
+												<Autocomplete.GroupLabel className={ styles.groupLabel }>
+													{ group.value }
+												</Autocomplete.GroupLabel>
+											) : null }
+											<Autocomplete.Collection>
+												{ ( item: AddressItem ) => (
+													<Autocomplete.Item
+														key={ item.id }
+														value={ item }
+														className={ styles.item }
+														onClick={ () => navigateTo( item.path ) }
+													>
+														<span
+															className={ clsx(
+																styles.itemIcon,
+																item.kind === 'destination' && styles.itemIconDestination
+															) }
+															aria-hidden="true"
+														>
+															<Icon icon={ item.icon } size={ 16 } />
+														</span>
+														<span className={ styles.itemTitle }>{ item.title }</span>
+														<span className={ styles.itemPath }>{ item.path }</span>
+													</Autocomplete.Item>
 												) }
-												aria-hidden="true"
-											>
-												<Icon icon={ item.icon } size={ 16 } />
-											</span>
-											<span className={ styles.itemTitle }>{ item.title }</span>
-											<span className={ styles.itemPath }>{ item.path }</span>
-										</Autocomplete.Item>
+											</Autocomplete.Collection>
+										</Autocomplete.Group>
 									) }
 								</Autocomplete.List>
 							) : null }

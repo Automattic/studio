@@ -184,6 +184,22 @@
 	overflow-y: auto;
 }
 
+.group {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+/* Section heading over a group of destinations (e.g. "Front end",
+   "WordPress"), matching the shared menu's group-label treatment. */
+.groupLabel {
+	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm) 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-sm);
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
 .item {
 	display: flex;
 	align-items: center;

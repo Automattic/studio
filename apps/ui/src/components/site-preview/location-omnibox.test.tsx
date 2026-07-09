@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { Tooltip } from '@wordpress/ui';
 import { describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -228,6 +228,52 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenCalledWith( autoLoginPath( '/wp-admin/' ) );
 	} );
 
+	it( 'groups the zero state into Front end and WordPress destinations', async () => {
+		renderAddressBar( { path: '/' } );
+
+		await openOmnibox();
+
+		// Scope to the dropdown: "WordPress" is also the WP Admin segment title.
+		const list = await screen.findByRole( 'listbox' );
+		expect( within( list ).getByText( 'Front end' ) ).toBeInTheDocument();
+		expect( within( list ).getByText( 'WordPress' ) ).toBeInTheDocument();
+		// The static front-end rows are always offered.
+		expect( within( list ).getByText( 'Home' ) ).toBeInTheDocument();
+		expect( within( list ).getByText( '404 page' ) ).toBeInTheDocument();
+	} );
+
+	it( 'offers the latest post and a page as real front-end permalinks', async () => {
+		const fetchSiteRest = vi
+			.fn()
+			.mockImplementation( ( _siteId: string, request: { path: string } ) => {
+				if ( request.path.includes( '/wp/v2/posts' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{
+								id: 5,
+								link: 'http://127.0.0.1:8881/hello-world/',
+								title: { rendered: 'Hello World' },
+							},
+						] )
+					);
+				}
+				if ( request.path.includes( '/wp/v2/pages' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{ id: 2, link: 'http://127.0.0.1:8881/about/', title: { rendered: 'About' } },
+						] )
+					);
+				}
+				return Promise.resolve( createSearchResponse( [] ) );
+			} );
+		const { onNavigate } = renderAddressBar( { fetchSiteRest, path: '/' } );
+
+		await openOmnibox();
+		fireEvent.click( await screen.findByText( 'Hello World' ) );
+
+		expect( onNavigate ).toHaveBeenCalledWith( '/hello-world/' );
+	} );
+
 	it( 'navigates destination-free paths directly from the zero state', async () => {
 		const { onNavigate } = renderAddressBar( { path: '/' } );
 
@@ -249,7 +295,12 @@ describe( 'PreviewAddressBar', () => {
 		fireEvent.keyDown( input, { key: 'Enter' } );
 
 		expect( onNavigate ).toHaveBeenCalledWith( '/sample-page' );
-		expect( fetchSiteRest ).not.toHaveBeenCalled();
+		// Opening the omnibox fetches front-end links, but typing a path must
+		// not trigger the content search endpoint.
+		expect( fetchSiteRest ).not.toHaveBeenCalledWith(
+			'site-1',
+			expect.objectContaining( { path: expect.stringContaining( '/wp/v2/search' ) } )
+		);
 	} );
 
 	it( 'routes typed wp-admin paths through auto-login', async () => {
@@ -274,17 +325,26 @@ describe( 'PreviewAddressBar', () => {
 	} );
 
 	it( 'searches the site for typed terms and navigates to a clicked result', async () => {
-		const fetchSiteRest = vi.fn().mockResolvedValue(
-			createSearchResponse( [
-				{
-					id: 12,
-					title: 'About &amp; Team',
-					url: 'http://127.0.0.1:8881/about/',
-					type: 'post',
-					subtype: 'page',
-				},
-			] )
-		);
+		const fetchSiteRest = vi
+			.fn()
+			.mockImplementation( ( _siteId: string, request: { path: string } ) => {
+				// Only the content-search endpoint returns a match; front-end link
+				// lookups stay empty so they don't blend into the search results.
+				if ( request.path.includes( '/wp/v2/search' ) ) {
+					return Promise.resolve(
+						createSearchResponse( [
+							{
+								id: 12,
+								title: 'About &amp; Team',
+								url: 'http://127.0.0.1:8881/about/',
+								type: 'post',
+								subtype: 'page',
+							},
+						] )
+					);
+				}
+				return Promise.resolve( createSearchResponse( [] ) );
+			} );
 		const { onNavigate } = renderAddressBar( { fetchSiteRest } );
 
 		const input = await openOmnibox();

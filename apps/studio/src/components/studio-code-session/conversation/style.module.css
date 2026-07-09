@@ -142,7 +142,8 @@
 	background-color: var(--color-frame-surface);
 }
 
-.userEditSendButton {
+/* Doubled class outweighs Tailwind preflight's `[type='button'] { background-color: transparent }` reset. */
+.userEditSendButton.userEditSendButton {
 	appearance: none;
 	border: none;
 	background-color: var(--color-frame-theme);

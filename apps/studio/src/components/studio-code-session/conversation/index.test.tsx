@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Conversation, entriesToRenderItems } from './index';
+import { Conversation, entriesToRenderItems, wasLastTurnInterrupted } from './index';
 import type { SessionEntry, SessionMessageEntry } from '@earendil-works/pi-coding-agent';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
 
@@ -45,6 +45,14 @@ function question( q: string, options: string[] ): SessionEntry {
 
 function answer( text: string ): SessionEntry {
 	return customEntry( 'studio.user_prompt', { text, source: 'ask_user' } );
+}
+
+function prompt( text: string ): SessionEntry {
+	return customEntry( 'studio.user_prompt', { text, source: 'prompt' } );
+}
+
+function turnClosed( status: 'completed' | 'interrupted' ): SessionEntry {
+	return customEntry( 'studio.turn_closed', { status } );
 }
 
 function assistantToolCallEntry( name: string ): SessionEntry {
@@ -112,6 +120,31 @@ describe( 'entriesToRenderItems – persisted picked answers', () => {
 	it( 'does not render ask_user prompts as user text', () => {
 		const items = entriesToRenderItems( [ question( 'Q1', [ 'A' ] ), answer( 'A' ) ] );
 		expect( items.some( ( i ) => i.kind === 'user-text' ) ).toBe( false );
+	} );
+} );
+
+describe( 'wasLastTurnInterrupted', () => {
+	it( 'is false for an in-flight or completed turn', () => {
+		expect( wasLastTurnInterrupted( [ prompt( 'Build me a blog' ) ] ) ).toBe( false );
+		expect(
+			wasLastTurnInterrupted( [ prompt( 'Build me a blog' ), turnClosed( 'completed' ) ] )
+		).toBe( false );
+	} );
+
+	it( 'is true once the latest turn was interrupted', () => {
+		expect(
+			wasLastTurnInterrupted( [ prompt( 'Build me a blog' ), turnClosed( 'interrupted' ) ] )
+		).toBe( true );
+	} );
+
+	it( 'is false again once a newer turn has started', () => {
+		expect(
+			wasLastTurnInterrupted( [
+				prompt( 'Build me a blog' ),
+				turnClosed( 'interrupted' ),
+				prompt( 'Actually, a shop' ),
+			] )
+		).toBe( false );
 	} );
 } );
 

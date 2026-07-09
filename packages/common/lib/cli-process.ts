@@ -139,9 +139,10 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 	const { cliBinary, nodeBinary, execArgv = [ '--experimental-wasm-jspi' ], onError } = config;
 	const liveChildren = new Set< ChildProcess >();
 
+	// Only kills the child; its `close` handler still runs so awaiting callers
+	// see a failure instead of hanging forever.
 	function killChild( child: ChildProcess ): void {
 		const pid = child.pid;
-		child.removeAllListeners();
 
 		// `child.kill()` only terminates the forked CLI process; on Windows its
 		// php.exe descendants would orphan and keep their DLLs locked. `taskkill
@@ -201,7 +202,7 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 			// the host console. Commands like `preview list --format json` dump
 			// large structured payloads on stdout that would otherwise spam the
 			// console every time snapshots are fetched.
-			const logPrefix = options.logPrefix ? `[CLI - site ID ${ options.logPrefix }]` : null;
+			const logPrefix = options.logPrefix ? `[CLI - ${ options.logPrefix }]` : null;
 			child.stdout?.on( 'data', ( data: Buffer ) => {
 				const text = data.toString();
 				stdout += text;

@@ -10,7 +10,6 @@ import {
 	crop,
 	external,
 	file as fileIcon,
-	fullscreen as fullscreenIcon,
 	moreVertical,
 	pencil,
 	search,
@@ -37,7 +36,7 @@ import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { getSiteUrl } from '@/lib/get-site-url';
-import { bottomDrawerIcon, playIcon, refreshIcon } from '@/lib/icons';
+import { playIcon, refreshIcon } from '@/lib/icons';
 import { usePluginSiteTag } from '@/lib/plugin-prototype';
 import {
 	formatPreviewConsoleEntriesForText,
@@ -306,6 +305,10 @@ function PreviewOverflowMenu( {
 	onToggleFullscreen,
 	consoleLabel,
 	onToggleConsole,
+	showDatabaseTab,
+	onToggleDatabaseTab,
+	onForceSignIn,
+	isSignedIn,
 	collapsedTools,
 }: {
 	canPreview: boolean;
@@ -318,6 +321,14 @@ function PreviewOverflowMenu( {
 	onToggleFullscreen?: () => void;
 	consoleLabel: string;
 	onToggleConsole: () => void;
+	// Whether the address bar's Database segment is shown, and the toggle for it.
+	showDatabaseTab: boolean;
+	onToggleDatabaseTab: () => void;
+	// Manually run the site's auto-login. Absent when there's no preview to
+	// navigate or the site isn't reachable.
+	onForceSignIn?: () => void;
+	// Disables the sign-in item when the previewed page is already signed in.
+	isSignedIn?: boolean;
 	// At narrow toolbar widths the Clip and Open in… split buttons fold in
 	// here so they can't collide with the address segments.
 	collapsedTools?: {
@@ -399,9 +410,18 @@ function PreviewOverflowMenu( {
 							</Menu.RadioGroup>
 						</Menu.Group>
 						<Menu.Separator />
+						<Menu.Group>
+							<Menu.GroupLabel>{ __( 'Tabs' ) }</Menu.GroupLabel>
+							<Menu.CheckboxItem
+								checked={ showDatabaseTab }
+								onCheckedChange={ () => onToggleDatabaseTab() }
+							>
+								{ __( 'Database tab' ) }
+							</Menu.CheckboxItem>
+						</Menu.Group>
+						<Menu.Separator />
 						{ onToggleFullscreen ? (
 							<QuickMenuItem
-								icon={ fullscreenIcon }
 								label={ fullscreen ? __( 'Exit full preview' ) : __( 'Full preview' ) }
 								shortcut={ displayShortcut.primaryShift( FULL_PREVIEW_SHORTCUT_KEY ) }
 								onClick={ onToggleFullscreen }
@@ -410,11 +430,18 @@ function PreviewOverflowMenu( {
 					</>
 				) : null }
 				<QuickMenuItem
-					icon={ bottomDrawerIcon }
 					label={ consoleLabel }
 					disabled={ ! canUseWebview }
 					onClick={ onToggleConsole }
 				/>
+				{ onForceSignIn ? (
+					<QuickMenuItem
+						label={ __( 'Sign in to this site' ) }
+						disabled={ isSignedIn }
+						tooltip={ isSignedIn ? __( "You're already signed in to this site" ) : undefined }
+						onClick={ onForceSignIn }
+					/>
+				) : null }
 				{ collapsedTools ? (
 					<>
 						<Menu.Separator />
@@ -477,6 +504,20 @@ function PreviewOverflowMenu( {
 type PreviewClipAction = 'element' | 'region' | 'loupe' | 'page';
 
 const CLIP_ACTION_STORAGE_KEY = 'studio:preview-clip-menu:last-used';
+
+// Whether the address bar shows the Database (phpMyAdmin) segment. A global
+// preference (like the clip/open-in defaults), remembered across sessions;
+// defaults to shown.
+const PREVIEW_SHOW_DATABASE_TAB_STORAGE_KEY = 'studio:preview-show-database-tab';
+
+function getStoredShowDatabaseTab(): boolean {
+	try {
+		// Only an explicit "false" hides the tab; anything else shows it.
+		return window.localStorage.getItem( PREVIEW_SHOW_DATABASE_TAB_STORAGE_KEY ) !== 'false';
+	} catch {
+		return true;
+	}
+}
 
 function isPreviewClipAction( value: string | null ): value is PreviewClipAction {
 	return value === 'element' || value === 'region' || value === 'loupe' || value === 'page';
@@ -818,6 +859,10 @@ export function SitePreview( {
 	const canUseWebview = isElectron();
 	const canPreview = site.running;
 	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
+	// Site-runtime controls (front-end admin bar, force sign-in) reach the
+	// running site over REST / auto-login, which only the on-machine webview
+	// connector serves; scope them to it like the omnibox search.
+	const canRuntimeControls = canPreview && canUseWebview;
 	const [ browserState, setBrowserState ] =
 		useState< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const [ browserCommand, setBrowserCommand ] = useState< BrowserCommand | null >( null );
@@ -835,6 +880,11 @@ export function SitePreview( {
 	const [ previewColorScheme, setPreviewColorScheme ] = useState< PreviewColorScheme >(
 		getInitialPreviewColorScheme
 	);
+	// Whether the address bar shows the Database segment (global preference).
+	const [ showDatabaseTab, setShowDatabaseTab ] = useState( getStoredShowDatabaseTab );
+	// Whether the previewed page shows a signed-in WordPress user (from its
+	// `logged-in` body class), so "Sign in to this site" can disable itself.
+	const [ previewLoggedIn, setPreviewLoggedIn ] = useState( false );
 	// Simulated page width in CSS px; null renders at the pane's natural size.
 	const [ viewportWidth, setViewportWidth ] = useState< number | null >( null );
 	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
@@ -918,6 +968,11 @@ export function SitePreview( {
 	}, [ path ] );
 	const handleSwitchRealm = useCallback(
 		( realm: PreviewRealm ) => {
+			// The database realm is unreachable while its tab is hidden — ignore
+			// clicks (there is none) and the ⌘3 shortcut.
+			if ( realm === 'database' && ! showDatabaseTab ) {
+				return;
+			}
 			// Re-selecting the active realm (e.g. via its shortcut) is a no-op —
 			// don't bounce the current page through another auto-login hop.
 			if ( getPreviewRealm( getSafePath( path ) ) === realm ) {
@@ -926,8 +981,31 @@ export function SitePreview( {
 			const target = lastRealmPathsRef.current[ realm ];
 			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
 		},
-		[ onPathChange, path, siteUrl ]
+		[ onPathChange, path, showDatabaseTab, siteUrl ]
 	);
+	const toggleDatabaseTab = useCallback( () => {
+		const next = ! showDatabaseTab;
+		setShowDatabaseTab( next );
+		try {
+			window.localStorage.setItem( PREVIEW_SHOW_DATABASE_TAB_STORAGE_KEY, next ? 'true' : 'false' );
+		} catch {
+			// Storage failures only mean the preference won't persist.
+		}
+		// Hiding the tab while viewing the database leaves nowhere to go — fall
+		// back to the front end.
+		if ( ! next && getPreviewRealm( getSafePath( path ) ) === 'database' ) {
+			onPathChange?.( getRealmNavigationPath( lastRealmPathsRef.current.frontend, siteUrl ) );
+		}
+	}, [ onPathChange, path, showDatabaseTab, siteUrl ] );
+	// Manually run the site's auto-login and return to the current page. For the
+	// times it doesn't happen on its own; harmless when already signed in.
+	const handleForceSignIn = useCallback( () => {
+		const current = getSafePath( path );
+		// Don't nest an auto-login inside another; just land on the site root.
+		const destination = current.startsWith( '/studio-auto-login' ) ? '/' : current;
+		const redirectTo = new URL( destination, siteUrl ).toString();
+		onPathChange?.( `/studio-auto-login?redirect_to=${ encodeURIComponent( redirectTo ) }` );
+	}, [ onPathChange, path, siteUrl ] );
 	const handleBrowserStateChange = useCallback( ( state: BrowserNavigationState ) => {
 		setBrowserState( ( current ) => ( areBrowserStatesEqual( current, state ) ? current : state ) );
 	}, [] );
@@ -1154,6 +1232,7 @@ export function SitePreview( {
 		setConsoleOpen( false );
 		setConsoleHeight( DEFAULT_CONSOLE_HEIGHT );
 		setViewportWidth( null );
+		setPreviewLoggedIn( false );
 	}, [ site.id ] );
 
 	// The simulated viewport is derived from the pane's size, so it has to
@@ -1346,6 +1425,7 @@ export function SitePreview( {
 								path={ getSafePath( path ) }
 								searchEnabled={ canUseWebview }
 								anchorRef={ locationRef }
+								showDatabaseTab={ showDatabaseTab }
 								onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 								onSwitchRealm={ handleSwitchRealm }
 							/>
@@ -1391,6 +1471,10 @@ export function SitePreview( {
 						onToggleFullscreen={ onToggleFullscreen }
 						consoleLabel={ consoleButtonLabel }
 						onToggleConsole={ () => setConsoleOpen( ( current ) => ! current ) }
+						showDatabaseTab={ showDatabaseTab }
+						onToggleDatabaseTab={ toggleDatabaseTab }
+						onForceSignIn={ canRuntimeControls && onPathChange ? handleForceSignIn : undefined }
+						isSignedIn={ previewLoggedIn }
 						collapsedTools={
 							isToolbarNarrow
 								? {
@@ -1438,6 +1522,7 @@ export function SitePreview( {
 								onBrowserStateChange={ handleBrowserStateChange }
 								onBrowserCommand={ sendBrowserCommand }
 								onNavigate={ handlePreviewNavigation }
+								onLoggedInChange={ setPreviewLoggedIn }
 								colorScheme={ previewColorScheme }
 								viewport={ previewViewport }
 								surfaceStyle={ surfaceStyle }

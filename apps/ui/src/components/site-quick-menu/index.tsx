@@ -125,26 +125,42 @@ export function QuickMenuItem( {
 	onClick,
 	disabled,
 	destructive,
+	tooltip,
 }: {
-	icon: ReactElement;
+	// Optional leading icon; omit for plain text rows.
+	icon?: ReactElement;
 	label: string;
 	// Right-aligned muted keyboard hint, e.g. "Hold ⌘".
 	shortcut?: string;
 	onClick: () => void;
 	disabled?: boolean;
 	destructive?: boolean;
+	// Optional hover hint — handy for explaining why an item is disabled
+	// (disabled items keep pointer events, so the tooltip still shows).
+	tooltip?: string;
 } ) {
-	return (
+	const item = (
 		<Menu.Item
 			disabled={ disabled }
 			onClick={ onClick }
 			className={ destructive ? styles.destructiveItem : undefined }
 		>
-			<span className={ styles.itemIcon } aria-hidden="true">
-				<Icon icon={ icon } size={ 18 } />
-			</span>
+			{ icon ? (
+				<span className={ styles.itemIcon } aria-hidden="true">
+					<Icon icon={ icon } size={ 18 } />
+				</span>
+			) : null }
 			{ label }
 			{ shortcut ? <span className={ styles.itemShortcut }>{ shortcut }</span> : null }
 		</Menu.Item>
+	);
+	if ( ! tooltip ) {
+		return item;
+	}
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger render={ item } />
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="left" /> }>{ tooltip }</Tooltip.Popup>
+		</Tooltip.Root>
 	);
 }

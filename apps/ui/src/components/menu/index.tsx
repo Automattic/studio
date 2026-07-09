@@ -170,6 +170,45 @@ export const RadioItem = forwardRef< ElementRef< typeof BaseMenu.RadioItem >, Ra
 	}
 );
 
+type CheckboxItemProps = ComponentPropsWithoutRef< typeof BaseMenu.CheckboxItem > & {
+	// Right-aligned muted keyboard hint, e.g. "⇧⌘D".
+	shortcut?: string;
+};
+
+// A toggleable menu row that wears the same check indicator + label + shortcut
+// layout as `RadioItem`, so on/off preferences sit flush with the radio groups
+// around them.
+export const CheckboxItem = forwardRef<
+	ElementRef< typeof BaseMenu.CheckboxItem >,
+	CheckboxItemProps
+>( function CheckboxItem( { className, children, shortcut, ...props }, ref ) {
+	return (
+		<BaseMenu.CheckboxItem
+			ref={ ref }
+			className={ `${ styles.item } ${ styles.radioItem } ${ className ?? '' }` }
+			// Keep the menu open when toggled, so the checked state stays visible.
+			closeOnClick={ false }
+			{ ...props }
+		>
+			<span className={ styles.indicator } aria-hidden="true">
+				<BaseMenu.CheckboxItemIndicator className={ styles.indicatorMark } keepMounted>
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+						<path
+							d="M5 12l5 5L20 7"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						/>
+					</svg>
+				</BaseMenu.CheckboxItemIndicator>
+			</span>
+			<span className={ styles.itemLabel }>{ children }</span>
+			{ shortcut ? <span className={ styles.itemShortcut }>{ shortcut }</span> : null }
+		</BaseMenu.CheckboxItem>
+	);
+} );
+
 export function GroupLabel( { children }: { children: ReactNode } ) {
 	return <BaseMenu.GroupLabel className={ styles.groupLabel }>{ children }</BaseMenu.GroupLabel>;
 }

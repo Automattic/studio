@@ -246,6 +246,9 @@ export interface WebviewSurfaceProps {
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onBrowserCommand?: ( type: BrowserShortcutCommandType ) => void;
 	onNavigate?: ( url: string ) => void;
+	// Reports whether the loaded page shows a signed-in WordPress user (its
+	// `logged-in` body class), refreshed on every document load.
+	onLoggedInChange?: ( loggedIn: boolean ) => void;
 	colorScheme: PreviewColorScheme;
 	// Simulated guest viewport, or null for the webview's natural size.
 	viewport?: PreviewViewport | null;
@@ -281,6 +284,7 @@ export function WebviewSurface( {
 	onBrowserStateChange,
 	onBrowserCommand,
 	onNavigate,
+	onLoggedInChange,
 	colorScheme,
 	viewport = null,
 	surfaceStyle,
@@ -302,6 +306,7 @@ export function WebviewSurface( {
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onBrowserCommandRef = useRef( onBrowserCommand );
 	const onNavigateRef = useRef( onNavigate );
+	const onLoggedInChangeRef = useRef( onLoggedInChange );
 	const onClipCaptureRef = useRef( onClipCapture );
 	const onClipUpdateRef = useRef( onClipUpdate );
 	const onClipRemoveRef = useRef( onClipRemove );
@@ -328,6 +333,9 @@ export function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	useEffect( () => {
+		onLoggedInChangeRef.current = onLoggedInChange;
+	}, [ onLoggedInChange ] );
 	useEffect( () => {
 		onClipCaptureRef.current = onClipCapture;
 	}, [ onClipCapture ] );
@@ -737,6 +745,17 @@ export function WebviewSurface( {
 			domReadyRef.current = true;
 			setReady( true );
 			publishDocumentTitle();
+			// WordPress adds a `logged-in` body class for authenticated users on
+			// both the front end and wp-admin; report it so host chrome can reflect
+			// the session (e.g. disabling "Sign in"). Non-WordPress pages (e.g.
+			// phpMyAdmin) simply report false.
+			webview
+				.executeJavaScript(
+					'!!(document.body && document.body.classList.contains("logged-in"))',
+					false
+				)
+				.then( ( loggedIn ) => onLoggedInChangeRef.current?.( loggedIn === true ) )
+				.catch( () => undefined );
 			const script = buildInspectorPageScript( {
 				features: APP_INSPECTOR_FEATURES,
 				// Split-button actions are one-shot: producing a clip exits

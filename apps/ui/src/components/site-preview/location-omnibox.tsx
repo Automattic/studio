@@ -159,6 +159,9 @@ interface PreviewAddressBarProps {
 	// The popup anchors to this element (the toolbar's location slot) so it
 	// opens wide and centered like a browser address bar.
 	anchorRef: RefObject< HTMLElement | null >;
+	// The database (phpMyAdmin) segment is optional — hidden when the user
+	// turns it off in the preview's "•••" menu.
+	showDatabaseTab: boolean;
 	onNavigate: ( path: string ) => void;
 	// Called when the user clicks an inactive segment; the host navigates to
 	// its remembered path for that realm.
@@ -178,6 +181,7 @@ export function PreviewAddressBar( {
 	path,
 	searchEnabled,
 	anchorRef,
+	showDatabaseTab,
 	onNavigate,
 	onSwitchRealm,
 }: PreviewAddressBarProps ) {
@@ -186,6 +190,11 @@ export function PreviewAddressBar( {
 	const [ highlightedItem, setHighlightedItem ] = useState< AddressItem | undefined >( undefined );
 	const realm = getPreviewRealm( path );
 	const { allLinks } = useCustomizeLinks( site );
+	// The database segment is optional; everything else always shows.
+	const segments = useMemo(
+		() => REALM_SEGMENTS.filter( ( segment ) => segment.realm !== 'database' || showDatabaseTab ),
+		[ showDatabaseTab ]
+	);
 
 	// The selected-segment fill is a separate element that slides between
 	// segments. Its position comes from measuring the active button; the
@@ -205,7 +214,7 @@ export function PreviewAddressBar( {
 			current && current.left === left && current.width === width ? current : { left, width }
 		);
 	}, [] );
-	useLayoutEffect( measureIndicator, [ measureIndicator, realm, site.name ] );
+	useLayoutEffect( measureIndicator, [ measureIndicator, realm, site.name, showDatabaseTab ] );
 	useEffect( () => {
 		const root = segmentsRef.current;
 		if ( ! root || typeof ResizeObserver === 'undefined' ) {
@@ -230,15 +239,21 @@ export function PreviewAddressBar( {
 				title: link.label,
 				path: link.url,
 			} ) ),
-			{
-				kind: 'destination' as const,
-				id: 'database',
-				icon: databaseIcon,
-				title: __( 'Database' ),
-				path: DATABASE_HOME_PATH,
-			},
+			// The database destination follows the tab's visibility, so turning
+			// the tab off removes it from the omnibox list too.
+			...( showDatabaseTab
+				? [
+						{
+							kind: 'destination' as const,
+							id: 'database',
+							icon: databaseIcon,
+							title: __( 'Database' ),
+							path: DATABASE_HOME_PATH,
+						},
+				  ]
+				: [] ),
 		],
-		[ allLinks ]
+		[ allLinks, showDatabaseTab ]
 	);
 
 	const intent = parseOmniboxInput( inputValue, siteUrl );
@@ -360,7 +375,7 @@ export function PreviewAddressBar( {
 							: { opacity: 0 }
 					}
 				/>
-				{ REALM_SEGMENTS.map( ( segment ) => {
+				{ segments.map( ( segment ) => {
 					const isActive = segment.realm === realm;
 					const content = (
 						<>

@@ -268,6 +268,43 @@ describe( 'App initialization', () => {
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 	} );
 
+	it( 'should show the quit-sites dialog with keep-running choices', async () => {
+		vi.doMock( 'src/site-server', () => ( {
+			getRunningSiteCount: vi.fn().mockReturnValue( 1 ),
+			persistAutoStartForRunningSites: vi.fn().mockResolvedValue( undefined ),
+			SiteServer: {
+				fetchAll: vi.fn().mockResolvedValue( undefined ),
+			},
+			stopAllServers: vi.fn().mockResolvedValue( undefined ),
+		} ) );
+		const { mockedEvents } = mockElectron();
+
+		vi.resetModules();
+		await import( '../index' );
+		const { app, dialog } = await import( 'electron' );
+		vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
+			response: 0,
+			checkboxChecked: true,
+		} );
+		const event = { preventDefault: vi.fn() };
+
+		void mockedEvents[ 'before-quit' ]( event );
+
+		await vi.waitFor( () => {
+			expect( dialog.showMessageBox ).toHaveBeenCalledWith( {
+				type: 'question',
+				message: 'Keep the site running?',
+				detail: 'Your site can stay available in the background after Studio quits.',
+				buttons: [ 'Stop site', 'Keep site running', 'Cancel' ],
+				checkboxLabel: 'Remember my choice',
+				cancelId: 2,
+				defaultId: 0,
+			} );
+			expect( app.quit ).toHaveBeenCalled();
+		} );
+		expect( event.preventDefault ).toHaveBeenCalled();
+	} );
+
 	it( 'should wait app initialization before creating main window via second-instance event', async () => {
 		vi.mocked( getMainWindow, { partial: true } ).mockResolvedValue( {
 			focus: vi.fn(),

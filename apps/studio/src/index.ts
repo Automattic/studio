@@ -503,33 +503,34 @@ async function appBoot() {
 					return;
 				}
 
-				const quitChoices: { label: string; behavior: QuitSitesBehavior }[] = [
-					{ label: __( 'Stop' ), behavior: 'stop' },
-					{ label: __( 'Auto-start' ), behavior: 'stop-and-auto-start' },
-					{ label: __( 'Keep running' ), behavior: 'leave-running' },
-				];
-				const cancelButtonIndex = quitChoices.length;
-				const defaultButtonIndex = quitChoices.findIndex(
-					( choice ) => choice.behavior === 'leave-running'
-				);
+				const STOP_SITES_BUTTON_INDEX = 0;
+				const KEEP_RUNNING_BUTTON_INDEX = 1;
+				const CANCEL_BUTTON_INDEX = 2;
 
 				const { response, checkboxChecked } = await dialog.showMessageBox( {
 					type: 'question',
-					message: _n( 'You have a running site', 'You have running sites', runningSiteCount ),
-					detail: __(
-						'Choose what to do with your running sites when Studio quits:\n\n• Keep running — sites stay running after Studio closes.\n• Auto-start — sites stop now and start again when you reopen Studio.\n• Stop — sites stop now and stay stopped.'
+					message: _n( 'Keep the site running?', 'Keep the sites running?', runningSiteCount ),
+					detail: _n(
+						'Your site can stay available in the background after Studio quits.',
+						'Your sites can stay available in the background after Studio quits.',
+						runningSiteCount
 					),
-					buttons: [ ...quitChoices.map( ( choice ) => choice.label ), __( 'Cancel' ) ],
-					checkboxLabel: __( "Don't ask again" ),
-					cancelId: cancelButtonIndex,
-					defaultId: defaultButtonIndex,
+					buttons: [
+						_n( 'Stop site', 'Stop sites', runningSiteCount ),
+						_n( 'Keep site running', 'Keep sites running', runningSiteCount ),
+						__( 'Cancel' ),
+					],
+					checkboxLabel: __( 'Remember my choice' ),
+					cancelId: CANCEL_BUTTON_INDEX,
+					defaultId: STOP_SITES_BUTTON_INDEX,
 				} );
 
-				if ( response === cancelButtonIndex ) {
+				if ( response === CANCEL_BUTTON_INDEX ) {
 					return;
 				}
 
-				const { behavior } = quitChoices[ response ];
+				const behavior: QuitSitesBehavior =
+					response === KEEP_RUNNING_BUTTON_INDEX ? 'leave-running' : 'stop-and-auto-start';
 
 				if ( checkboxChecked ) {
 					await updateAppdata( { quitSitesBehavior: behavior } );

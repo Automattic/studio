@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import {
 	Fragment,
+	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -101,6 +102,7 @@ export function ReorderableList< T >( {
 	const dragStartRowRectsRef = useRef< Map< string, DOMRectReadOnly > >( new Map() );
 	const rowMoveAnimationsRef = useRef< Map< string, Animation > >( new Map() );
 	const suppressNextClickRef = useRef( false );
+	const removeDragListenersRef = useRef< ( () => void ) | null >( null );
 
 	const itemIds = useMemo( () => items.map( getItemId ), [ items, getItemId ] );
 	const activeDragId = activeDrag?.id;
@@ -167,6 +169,9 @@ export function ReorderableList< T >( {
 		previousRowRectsRef.current = nextRowRects;
 	}, [ activeDragId, activeDropIndex, displayItems, isDragging ] );
 
+	// Tear down the window drag listeners if the list unmounts mid-drag.
+	useEffect( () => () => removeDragListenersRef.current?.(), [] );
+
 	const updateActiveDrag = ( nextDrag: ActiveDrag | null ) => {
 		activeDragRef.current = nextDrag;
 		setActiveDrag( nextDrag );
@@ -203,7 +208,7 @@ export function ReorderableList< T >( {
 		return index;
 	};
 
-	const handleWindowPointerMove = ( event: PointerEvent ) => {
+	const getDragCandidate = ( event: PointerEvent ) => {
 		const candidate = dragCandidateRef.current;
 		if (
 			! candidate ||
@@ -211,6 +216,14 @@ export function ReorderableList< T >( {
 				event.pointerId !== undefined &&
 				event.pointerId !== candidate.pointerId )
 		) {
+			return null;
+		}
+		return candidate;
+	};
+
+	const handleWindowPointerMove = ( event: PointerEvent ) => {
+		const candidate = getDragCandidate( event );
+		if ( ! candidate ) {
 			return;
 		}
 		const active = activeDragRef.current;
@@ -232,13 +245,7 @@ export function ReorderableList< T >( {
 	};
 
 	const handleWindowPointerUp = ( event: PointerEvent ) => {
-		const candidate = dragCandidateRef.current;
-		if (
-			! candidate ||
-			( candidate.pointerId !== undefined &&
-				event.pointerId !== undefined &&
-				event.pointerId !== candidate.pointerId )
-		) {
+		if ( ! getDragCandidate( event ) ) {
 			return;
 		}
 		const active = activeDragRef.current;
@@ -247,10 +254,29 @@ export function ReorderableList< T >( {
 				dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
 			onReorder( insertIdAtIndex( sourceOrder, active.id, active.dropIndex ) );
 			suppressNextClickRef.current = true;
+			// The rows' click-capture consumes the flag, but a drop outside any
+			// row never reaches it — clear on the next click wherever it lands
+			// so it can't swallow a later, legitimate one.
+			window.addEventListener(
+				'click',
+				() => {
+					suppressNextClickRef.current = false;
+				},
+				{ once: true }
+			);
 		}
 		resetDragState();
-		window.removeEventListener( 'pointermove', handleWindowPointerMove );
-		window.removeEventListener( 'pointerup', handleWindowPointerUp );
+		removeDragListenersRef.current?.();
+	};
+
+	// An interrupted pointer (touch cancel, system gesture) never delivers
+	// pointerup — abort the drag without reordering.
+	const handleWindowPointerCancel = ( event: PointerEvent ) => {
+		if ( ! getDragCandidate( event ) ) {
+			return;
+		}
+		resetDragState();
+		removeDragListenersRef.current?.();
 	};
 
 	const handlePointerDown = ( event: ReactPointerEvent< HTMLElement >, id: string ) => {
@@ -276,6 +302,13 @@ export function ReorderableList< T >( {
 		};
 		window.addEventListener( 'pointermove', handleWindowPointerMove, { passive: false } );
 		window.addEventListener( 'pointerup', handleWindowPointerUp );
+		window.addEventListener( 'pointercancel', handleWindowPointerCancel );
+		removeDragListenersRef.current = () => {
+			window.removeEventListener( 'pointermove', handleWindowPointerMove );
+			window.removeEventListener( 'pointerup', handleWindowPointerUp );
+			window.removeEventListener( 'pointercancel', handleWindowPointerCancel );
+			removeDragListenersRef.current = null;
+		};
 	};
 
 	const handleClickCapture = ( event: MouseEvent< HTMLElement > ) => {

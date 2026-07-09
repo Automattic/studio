@@ -195,42 +195,9 @@ describe( 'SiteList', () => {
 
 	it( 'persists a manual site order after drag and drop', () => {
 		render( <SiteList /> );
+		dragStoppedSiteBelowRunningSite();
 
-		const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
-		const runningRow = document.querySelector( '[data-reorder-id="running-site"]' );
-
-		expect( stoppedRow ).toBeInTheDocument();
-		expect( runningRow ).toBeInTheDocument();
-		vi.spyOn( stoppedRow!, 'getBoundingClientRect' ).mockReturnValue(
-			createRect( {
-				top: 0,
-				left: 8,
-				width: 272,
-				height: 34,
-			} )
-		);
-		vi.spyOn( runningRow!, 'getBoundingClientRect' ).mockReturnValue(
-			createRect( {
-				top: 35,
-				left: 0,
-				width: 0,
-				height: 34,
-			} )
-		);
-
-		fireEvent(
-			stoppedRow!,
-			createPointerEvent( 'pointerdown', {
-				button: 0,
-				clientX: 16,
-				clientY: 10,
-			} )
-		);
-		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
-
-		const placeholder = screen.getByTestId( 'drop-placeholder' );
-
-		expect( placeholder ).toBeInTheDocument();
+		expect( screen.getByTestId( 'drop-placeholder' ) ).toBeInTheDocument();
 		expect( document.querySelector( '[data-reorder-id="stopped-site"]' ) ).not.toBeInTheDocument();
 		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 
@@ -243,6 +210,25 @@ describe( 'SiteList', () => {
 			runningSite.compareDocumentPosition( stoppedSite ) & Node.DOCUMENT_POSITION_FOLLOWING
 		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 		expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
+	} );
+
+	it( 'aborts the drag without reordering on pointercancel', () => {
+		render( <SiteList /> );
+		dragStoppedSiteBelowRunningSite();
+
+		expect( screen.getByTestId( 'drop-placeholder' ) ).toBeInTheDocument();
+
+		fireEvent( window, createPointerEvent( 'pointercancel', { clientX: 16, clientY: 70 } ) );
+
+		expect( screen.queryByTestId( 'drop-placeholder' ) ).not.toBeInTheDocument();
+		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
+
+		const stoppedSite = screen.getByText( 'Stopped Site' );
+		const runningSite = screen.getByText( 'Running Site' );
+
+		expect(
+			stoppedSite.compareDocumentPosition( runningSite ) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 	} );
 
 	it( 'animates other sites into the drop placeholder while dragging', () => {
@@ -371,8 +357,28 @@ function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSession
 	};
 }
 
+function dragStoppedSiteBelowRunningSite() {
+	const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
+	const runningRow = document.querySelector( '[data-reorder-id="running-site"]' );
+
+	expect( stoppedRow ).toBeInTheDocument();
+	expect( runningRow ).toBeInTheDocument();
+	vi.spyOn( stoppedRow!, 'getBoundingClientRect' ).mockReturnValue(
+		createRect( { top: 0, left: 8, width: 272, height: 34 } )
+	);
+	vi.spyOn( runningRow!, 'getBoundingClientRect' ).mockReturnValue(
+		createRect( { top: 35, left: 0, width: 0, height: 34 } )
+	);
+
+	fireEvent(
+		stoppedRow!,
+		createPointerEvent( 'pointerdown', { button: 0, clientX: 16, clientY: 10 } )
+	);
+	fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
+}
+
 function createPointerEvent(
-	type: 'pointerdown' | 'pointermove' | 'pointerup',
+	type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
 	options: { button?: number; clientX: number; clientY: number }
 ) {
 	const event = new MouseEvent( type, {

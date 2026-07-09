@@ -100,9 +100,13 @@ function groupSessionsByOwner(
 // `sortOrder` catches up) on top of the fetched sites; sites not in the
 // overlay keep their order via sort stability.
 function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): SiteDetails[] {
+	// MAX_SAFE_INTEGER (not Infinity): two unranked sites must compare as 0,
+	// not NaN, for the sort to be well-defined.
 	const rank = new Map( manualOrder.map( ( id, index ) => [ id, index ] ) );
 	return [ ...sites ].sort(
-		( a, b ) => ( rank.get( a.id ) ?? Infinity ) - ( rank.get( b.id ) ?? Infinity )
+		( a, b ) =>
+			( rank.get( a.id ) ?? Number.MAX_SAFE_INTEGER ) -
+			( rank.get( b.id ) ?? Number.MAX_SAFE_INTEGER )
 	);
 }
 

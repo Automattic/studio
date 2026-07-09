@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import {
 	getContentDirFromState,
+	getCoreRootsFromState,
 	hasLocalFilesIndex,
 	hasSkippedFiles,
 } from 'cli/lib/pull/reprint-state';
@@ -30,6 +31,38 @@ describe( 'reprint state accessors', () => {
 			);
 
 			expect( getContentDirFromState( stateDirectory ) ).toBe( '/srv/htdocs/wp-content' );
+		} finally {
+			fs.rmSync( stateDirectory, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'reads the WordPress core roots from preflight state', () => {
+		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-reprint-state-' ) );
+
+		try {
+			expect( getCoreRootsFromState( stateDirectory ) ).toEqual( [] );
+
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-state.json' ),
+				JSON.stringify( {
+					preflight: {
+						data: {
+							wp_detect: {
+								roots: [
+									{ path: '/wordpress/core/7.0' },
+									{ path: '/wordpress/core' },
+									{ path: null },
+								],
+							},
+						},
+					},
+				} )
+			);
+
+			expect( getCoreRootsFromState( stateDirectory ) ).toEqual( [
+				'/wordpress/core/7.0',
+				'/wordpress/core',
+			] );
 		} finally {
 			fs.rmSync( stateDirectory, { recursive: true, force: true } );
 		}

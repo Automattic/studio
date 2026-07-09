@@ -1,19 +1,18 @@
 /**
  * Selective-sync prompts for `pull-reprint`.
  *
- * A first pull (keyed on `site.importComplete`) only offers a media-library
- * toggle: reprint's `--only` is an *include* list that replaces the default
- * export roots, so a partial folder selection would drop WordPress core,
- * while excluding uploads rides on `--filter=essential-files` and is safe
- * anytime. Subsequent pulls — core already in the raw fs-root — offer the
- * full wp-content folder tree plus a database toggle.
+ * Both first and subsequent pulls offer the full wp-content folder tree
+ * plus a database toggle. reprint's `--only` is an *include* list that
+ * replaces the default export roots, so on a first pull the caller must
+ * add the preflight-detected core roots to a partial selection — the tree
+ * itself only ever describes wp-content.
  *
  * `--only` accepts directories only (a file or symlink-to-file crashes the
  * remote exporter), so the tree is built from directories and symlinks that
  * resolve to directories, e.g. wp.com's per-plugin symlinks.
  */
 import fs from 'fs';
-import { checkbox } from '@inquirer/prompts';
+import path from 'path';
 import { SiteRuntime } from '@studio/common/lib/site-runtime';
 import { __ } from '@wordpress/i18n';
 import { runReprintCommandUntilComplete } from 'cli/lib/pull/migration-client';
@@ -29,31 +28,35 @@ const CONTENT_DIR_TOKENS: Record< string, string > = {
 	uploads: ':wp-uploads:',
 };
 
-export interface FreshPullSelection {
-	skipUploads: boolean;
-}
-
-export function freshSelectionFromValues( values: string[] ): FreshPullSelection {
-	return { skipUploads: ! values.includes( 'uploads' ) };
-}
-
-export async function selectFreshPullOptions(): Promise< FreshPullSelection > {
-	const selected = await checkbox( {
-		message: __(
-			'Select what to pull. WordPress core, plugins, themes, and the database are always included on a first pull.'
-		),
-		choices: [ { name: __( 'Media library (uploads)' ), value: 'uploads', checked: true } ],
-	} );
-	return freshSelectionFromValues( selected );
-}
-
 export interface PullSelection {
 	/** reprint `--only` source values; empty means "everything" (no `--only`). */
 	fileOnlyPaths: string[];
 	/** True when "Database" was unchecked. */
 	skipDatabase: boolean;
+	/** True when no part of the media library was selected. */
+	skipUploads: boolean;
 	/** False when only the database was selected. */
 	hasAnyFile: boolean;
+}
+
+/**
+ * Resolve `--only` source values (reprint tokens or absolute paths) to
+ * absolute remote path prefixes. Tokens resolve to their conventional
+ * location under the content dir, matching how the tree maps them.
+ */
+export function resolveOnlyPathsToAbsolute(
+	fileOnlyPaths: string[],
+	contentDir: string
+): string[] {
+	const contentRoot = contentDir.replace( /\/+$/, '' );
+	return fileOnlyPaths.map( ( source ) => {
+		for ( const [ name, token ] of Object.entries( CONTENT_DIR_TOKENS ) ) {
+			if ( source === token || source.startsWith( `${ token }/` ) ) {
+				return `${ contentRoot }/${ name }${ source.slice( token.length ) }`;
+			}
+		}
+		return source;
+	} );
 }
 
 /** Append the directory-marker slash and sort each level alphabetically. */
@@ -224,9 +227,12 @@ export function mapCheckedNodesToSelection(
 ): PullSelection {
 	const checkedValues = new Set( selected.map( ( node ) => node.value ) );
 	const skipDatabase = ! checkedValues.has( 'database' );
+	const skipUploads = ! [ ...checkedValues ].some(
+		( value ) => value === 'wp-content' || value === 'uploads' || value.startsWith( 'uploads/' )
+	);
 
 	if ( checkedValues.has( 'wp-content' ) ) {
-		return { fileOnlyPaths: [], skipDatabase, hasAnyFile: true };
+		return { fileOnlyPaths: [], skipDatabase, skipUploads, hasAnyFile: true };
 	}
 
 	const fileNodes = selected.filter(
@@ -244,6 +250,7 @@ export function mapCheckedNodesToSelection(
 	return {
 		fileOnlyPaths: maximal.map( ( node ) => valueToOnly( node.value, contentDir ) ),
 		skipDatabase,
+		skipUploads,
 		hasAnyFile: fileNodes.length > 0,
 	};
 }
@@ -260,6 +267,12 @@ interface FetchReprintPullTreeParams {
 /**
  * Run `reprint files-index` (requires a prior preflight) and build the
  * selector tree from the resulting `.import-remote-index.jsonl`.
+ *
+ * The index runs against a throwaway copy of the state directory: the
+ * shared one must stay pristine, or the leftover remote index and
+ * `files-index` checkpoint would derail the pull that follows — an
+ * *initial* `pull-files` appends its scoped index to any existing file
+ * and would fetch the entire site regardless of the selection.
  */
 export async function fetchReprintPullTree(
 	params: FetchReprintPullTreeParams
@@ -271,40 +284,57 @@ export async function fetchReprintPullTree(
 		return { tree: [], contentDir: null };
 	}
 
-	await runReprintCommandUntilComplete(
-		stateDirectory,
-		rawDirectory,
-		[
-			'files-index',
-			apiUrl,
-			`--secret=${ secret }`,
-			'--no-adaptive',
-			`--state-dir=${ stateDirectory }`,
-			`--fs-root=${ rawDirectory }`,
-		],
-		undefined,
-		{
-			progressLabel: __( 'Scanning remote files' ),
-			verboseCommands: verbose,
-			runtime,
-		}
+	const indexStateDirectory = `${ stateDirectory.replace( /\/+$/, '' ) }-tree`;
+	fs.rmSync( indexStateDirectory, { recursive: true, force: true } );
+	fs.mkdirSync( indexStateDirectory, { recursive: true } );
+	// files-index requires preflight data; hand it the session's copy.
+	fs.copyFileSync(
+		path.join( stateDirectory, '.import-state.json' ),
+		path.join( indexStateDirectory, '.import-state.json' )
 	);
 
-	const tree = buildReprintTreeFromIndex( getRemoteIndexPath( stateDirectory ), contentDir );
-	return { tree, contentDir };
+	try {
+		await runReprintCommandUntilComplete(
+			indexStateDirectory,
+			rawDirectory,
+			[
+				'files-index',
+				apiUrl,
+				`--secret=${ secret }`,
+				'--no-adaptive',
+				`--state-dir=${ indexStateDirectory }`,
+				`--fs-root=${ rawDirectory }`,
+			],
+			undefined,
+			{
+				progressLabel: __( 'Scanning remote files' ),
+				verboseCommands: verbose,
+				runtime,
+			}
+		);
+
+		return {
+			tree: buildReprintTreeFromIndex( getRemoteIndexPath( indexStateDirectory ), contentDir ),
+			contentDir,
+		};
+	} finally {
+		fs.rmSync( indexStateDirectory, { recursive: true, force: true } );
+	}
 }
 
 /**
- * Prompt for what to refresh. Returns `undefined` when the user cancels, or
- * selects only the database — a database-only refresh isn't supported yet,
+ * Prompt for what to pull. Returns `undefined` when the user cancels.
+ * A database-only choice is allowed only where the caller supports it
+ * (first pull); on a delta re-pull `pull-files` needs at least one folder,
  * so guidance is printed and the caller aborts.
  */
 export async function selectPullItems(
 	tree: TreeNode[],
-	contentDir: string
+	contentDir: string,
+	options: { allowDatabaseOnly?: boolean } = {}
 ): Promise< PullSelection | undefined > {
 	const selected = await treeCheckbox( {
-		message: __( 'Select what to refresh from the remote site' ),
+		message: __( 'Select what to pull from the remote site' ),
 		tree,
 	} );
 
@@ -314,7 +344,7 @@ export async function selectPullItems(
 
 	const selection = mapCheckedNodesToSelection( selected, contentDir );
 
-	if ( ! selection.hasAnyFile ) {
+	if ( ! selection.hasAnyFile && ! options.allowDatabaseOnly ) {
 		console.log(
 			__(
 				'Refreshing the database on its own is not supported yet. Select at least one folder to refresh.'

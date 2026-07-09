@@ -490,9 +490,9 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 
-	it( 'does not apply the selective-sync choice yet — no --no-db/--only even when captured (inert menu)', async () => {
+	it( 'ignores the selection sidecar unless the resolved selection is passed in', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
-			path.join( os.tmpdir(), 'studio-import-pull-inert-' )
+			path.join( os.tmpdir(), 'studio-import-pull-sidecar-' )
 		);
 		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
 		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
@@ -1114,6 +1114,158 @@ describe( 'CLI: studio pull-reprint delta re-pull of a completed pull', () => {
 			'preflight',
 			'pull-files',
 		] );
+	} );
+} );
+
+describe( 'CLI: studio pull-reprint first-pull selective sync', () => {
+	let fakeHome: string;
+
+	afterEach( () => {
+		vi.restoreAllMocks();
+		vi.resetModules();
+		if ( fakeHome ) {
+			fs.rmSync( fakeHome, { recursive: true, force: true } );
+		}
+	} );
+
+	async function loadRunCommandWithFakeHome() {
+		fakeHome = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-first-selective-' ) );
+
+		vi.resetModules();
+		vi.doMock( 'os', async () => {
+			const actual = await vi.importActual< typeof import('os') >( 'os' );
+			return {
+				...actual,
+				default: { ...actual, homedir: () => fakeHome },
+				homedir: () => fakeHome,
+			};
+		} );
+
+		const mod = await import( '../pull-reprint' );
+		return mod;
+	}
+
+	it( 'accepts --only/--skip-database on a first pull, adds core roots, and preserves unselected local content', async () => {
+		const { runCommand } = await loadRunCommandWithFakeHome();
+		mockWpComPullSource();
+
+		const pullsRoot = path.join( fakeHome, '.studio', 'pulls' );
+		const technicalSiteDirectory = path.join( pullsRoot, 'fresh-id' );
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		const sitePath = path.join( fakeHome, 'Studio', 'My-Fresh-Site' );
+
+		seedCliConfigSite( fakeHome, [
+			makeSiteRecord( {
+				id: 'fresh-id',
+				name: 'My Fresh Site',
+				path: sitePath,
+				status: 'ready',
+			} ),
+		] );
+
+		// The `studio create` install this first pull runs against: a real
+		// wp-content with local changes plus the SQLite database.
+		fs.mkdirSync( path.join( sitePath, 'wp-content', 'plugins', 'local-plugin' ), {
+			recursive: true,
+		} );
+		fs.writeFileSync(
+			path.join( sitePath, 'wp-content', 'plugins', 'local-plugin', 'plugin.php' ),
+			'<?php // local'
+		);
+		fs.mkdirSync( path.join( sitePath, 'wp-content', 'database' ), { recursive: true } );
+		fs.writeFileSync( path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' ), 'local-db' );
+
+		// Preflight data (content dir + core roots) as the real preflight
+		// stage would have persisted it into reprint's state file.
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( {
+				preflight: {
+					data: {
+						database: {
+							wp: { paths_urls: { content_dir: '/srv/htdocs/wp-content' } },
+						},
+						wp_detect: {
+							roots: [ { path: '/wordpress/core/7.0' }, { path: '/wordpress/core' } ],
+						},
+					},
+				},
+			} )
+		);
+
+		const migrationClientMod = await import( 'cli/lib/pull/migration-client' );
+		const reprintSpy = vi
+			.spyOn( migrationClientMod, 'runReprintCommandUntilComplete' )
+			.mockImplementation( async ( _stateDir, _rawDir, args ) => {
+				if ( args[ 0 ] === 'preflight' ) {
+					return {
+						stdout: JSON.stringify( {
+							data: {
+								ok: true,
+								database: { wp: { siteurl: 'https://example.com', table_prefix: 'wp_' } },
+								php: { version: '8.3' },
+							},
+						} ),
+						stderr: '',
+						exitCode: 0,
+					};
+				}
+				if ( args[ 0 ] === 'pull-files' ) {
+					return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
+				}
+				if ( args[ 0 ] === 'flat-docroot' ) {
+					// Preservation runs before flattening: the unselected local
+					// plugin and the kept database are in the scratch by now.
+					const rawContent = path.join( rawDirectory, 'srv', 'htdocs', 'wp-content' );
+					expect(
+						fs.readFileSync(
+							path.join( rawContent, 'plugins', 'local-plugin', 'plugin.php' ),
+							'utf-8'
+						)
+					).toBe( '<?php // local' );
+					expect(
+						fs.readFileSync( path.join( rawContent, 'database', '.ht.sqlite' ), 'utf-8' )
+					).toBe( 'local-db' );
+					throw new Error( 'stop after flat-docroot preservation checks' );
+				}
+				throw new Error( `Unexpected reprint command: ${ args[ 0 ] }` );
+			} );
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+		await expect(
+			runCommand( sitePath, 'https://example.com', false, {
+				only: [ 'themes' ],
+				skipDatabase: true,
+			} )
+		).rejects.toThrow( /stop after flat-docroot preservation checks/ );
+
+		// No pull-db: the database was skipped.
+		expect( reprintSpy.mock.calls.map( ( call ) => call[ 2 ][ 0 ] ) ).toEqual( [
+			'preflight',
+			'pull-files',
+			'flat-docroot',
+		] );
+
+		// The include-list carries the preflight core roots plus the selection.
+		const filesArgs = reprintSpy.mock.calls[ 1 ][ 2 ] as string[];
+		expect( filesArgs ).toContain( '--only=/wordpress/core/7.0' );
+		expect( filesArgs ).toContain( '--only=/wordpress/core' );
+		expect( filesArgs ).toContain( '--only=/srv/htdocs/wp-content/themes' );
+		expect( filesArgs.some( ( arg ) => arg.includes( 'plugins' ) ) ).toBe( false );
+
+		// The persisted sidecar records the healed selection a resume reuses.
+		const sidecar = JSON.parse(
+			fs.readFileSync( path.join( stateDirectory, 'selection.json' ), 'utf-8' )
+		);
+		expect( sidecar.fileOnlyPaths ).toEqual( [
+			'/wordpress/core/7.0',
+			'/wordpress/core',
+			'/srv/htdocs/wp-content/themes',
+		] );
+		expect( sidecar.skipDatabase ).toBe( true );
 	} );
 } );
 

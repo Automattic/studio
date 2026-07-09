@@ -4,23 +4,13 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	buildReprintTreeFromIndex,
-	freshSelectionFromValues,
 	mapCheckedNodesToSelection,
 	mapCliOnlyToReprint,
+	resolveOnlyPathsToAbsolute,
 } from './reprint-selector';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
 
 const CONTENT_DIR = '/srv/htdocs/wp-content';
-
-describe( 'freshSelectionFromValues', () => {
-	it( 'keeps the media library when checked', () => {
-		expect( freshSelectionFromValues( [ 'uploads' ] ) ).toEqual( { skipUploads: false } );
-	} );
-
-	it( 'skips the media library when unchecked', () => {
-		expect( freshSelectionFromValues( [] ) ).toEqual( { skipUploads: true } );
-	} );
-} );
 
 function encodeEntry(
 	absolutePath: string,
@@ -116,8 +106,21 @@ describe( 'mapCheckedNodesToSelection', () => {
 		expect( mapCheckedNodesToSelection( selected, CONTENT_DIR ) ).toEqual( {
 			fileOnlyPaths: [],
 			skipDatabase: false,
+			skipUploads: false,
 			hasAnyFile: true,
 		} );
+	} );
+
+	it( 'skips the media library unless uploads (or everything) is selected', () => {
+		expect( mapCheckedNodesToSelection( [ checked( 'plugins' ) ], CONTENT_DIR ).skipUploads ).toBe(
+			true
+		);
+		expect( mapCheckedNodesToSelection( [ checked( 'uploads' ) ], CONTENT_DIR ).skipUploads ).toBe(
+			false
+		);
+		expect(
+			mapCheckedNodesToSelection( [ checked( 'uploads/2026', 2 ) ], CONTENT_DIR ).skipUploads
+		).toBe( false );
 	} );
 
 	it( 'flags --no-db when the database is unchecked', () => {
@@ -175,5 +178,21 @@ describe( 'mapCliOnlyToReprint', () => {
 		expect(
 			mapCliOnlyToReprint( [ ':wp-uploads:', '/wordpress/plugins/akismet' ], CONTENT_DIR )
 		).toEqual( [ ':wp-uploads:', '/wordpress/plugins/akismet' ] );
+	} );
+} );
+
+describe( 'resolveOnlyPathsToAbsolute', () => {
+	it( 'resolves tokens to their conventional content-dir locations', () => {
+		expect(
+			resolveOnlyPathsToAbsolute(
+				[ ':wp-plugins:', ':wp-uploads:/2026', `${ CONTENT_DIR }/themes`, '/wordpress/core' ],
+				CONTENT_DIR
+			)
+		).toEqual( [
+			`${ CONTENT_DIR }/plugins`,
+			`${ CONTENT_DIR }/uploads/2026`,
+			`${ CONTENT_DIR }/themes`,
+			'/wordpress/core',
+		] );
 	} );
 } );

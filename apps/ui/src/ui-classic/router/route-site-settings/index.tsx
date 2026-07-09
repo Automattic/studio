@@ -5,7 +5,7 @@ import type { SiteSettingsTabId } from '@/components/site-settings-view';
 
 interface SiteSettingsSearch {
 	// Tab selection is a `search` param so opening the route defaults to
-	// General and deep-links like `?tab=debugging` stay human-readable.
+	// Settings and deep-links like `?tab=agent` stay human-readable.
 	tab?: SiteSettingsTabId;
 }
 
@@ -13,7 +13,7 @@ function SiteSettingsPage() {
 	const { siteId } = siteSettingsRoute.useParams();
 	const { tab } = siteSettingsRoute.useSearch();
 	const navigate = useNavigate();
-	const activeTab: SiteSettingsTabId = tab ?? 'general';
+	const activeTab: SiteSettingsTabId = tab ?? 'settings';
 	return (
 		<SiteSettingsView
 			siteId={ siteId }

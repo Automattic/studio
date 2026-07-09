@@ -143,5 +143,16 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--wpds-dimension-padding-sm);
-	margin-bottom: var(--wpds-dimension-padding-md);
+}
+
+/* The "Agent" tab stacks the Skills and Instructions panels with a divider. */
+.agentPanels {
+	display: flex;
+	flex-direction: column;
+}
+
+.agentPanels > * + * {
+	margin-top: var(--wpds-dimension-padding-2xl);
+	padding-top: var(--wpds-dimension-padding-2xl);
+	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
 }

@@ -185,10 +185,6 @@ describe( 'SiteOverviewView', () => {
 		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: exportDatabase } );
 		useSiteOverviewDetailsMock.mockReturnValue( {
 			data: {
-				content: {
-					pages: 3,
-					posts: 7,
-				},
 				plugins: [
 					{
 						slug: 'akismet/akismet.php',
@@ -253,8 +249,12 @@ describe( 'SiteOverviewView', () => {
 		);
 		expect( screen.getByRole( 'tab', { name: 'Overview' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Chats' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'tab', { name: 'General' } ) ).toBeVisible();
-		expect( screen.getByRole( 'tab', { name: 'Debugging' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Settings' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Agent' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'General' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Debugging' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Skills' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: 'Instructions' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Active chats' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Archived chats' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'heading', { name: 'Theme' } ) ).not.toBeInTheDocument();
@@ -264,14 +264,11 @@ describe( 'SiteOverviewView', () => {
 			expect.objectContaining( { site: expect.objectContaining( { id: 'site-1' } ) } )
 		);
 		expect( screen.getByRole( 'heading', { name: 'Manage' } ) ).toBeVisible();
-		expect( screen.getByRole( 'heading', { name: 'Content' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'heading', { name: 'Content' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'heading', { name: 'Plugins' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Themes' } ) ).toBeVisible();
 		expect( screen.getByText( 'Site Editor' ) ).toBeVisible();
 		expect( screen.getByText( 'Media Library' ) ).toBeVisible();
-		const contentSection = screen.getByRole( 'heading', { name: 'Content' } ).closest( 'section' )!;
-		expect( contentSection ).toHaveTextContent( 'Pages3' );
-		expect( contentSection ).toHaveTextContent( 'Posts7' );
 		expect( screen.getByText( 'Akismet Anti-spam' ) ).toBeVisible();
 		expect( screen.getByText( 'Version 5.3 | Active' ) ).toBeVisible();
 		expect( screen.getByText( 'Hello Dolly' ) ).toBeVisible();
@@ -279,7 +276,7 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Twenty Twenty-Five' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'tab', { name: 'General' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Settings' } ) );
 
 		expect( screen.getByDisplayValue( 'Demo Site' ) ).toBeVisible();
 		expect( screen.queryByText( 'Site settings' ) ).not.toBeInTheDocument();
@@ -339,6 +336,18 @@ describe( 'SiteOverviewView', () => {
 			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/site-editor.php' )
 		);
 		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/upload.php' );
+	} );
+
+	it( 'opens the plugins and themes screens from their sections', async () => {
+		render( <SiteOverviewView siteId="site-1" /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Plugins' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Themes' } ) );
+
+		await waitFor( () =>
+			expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/plugins.php' )
+		);
+		expect( openSiteUrl ).toHaveBeenCalledWith( 'site-1', '/wp-admin/themes.php' );
 	} );
 } );
 

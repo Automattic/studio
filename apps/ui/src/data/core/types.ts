@@ -151,10 +151,6 @@ export interface SiteOverviewExtension {
 }
 
 export interface SiteOverviewDetails {
-	content: {
-		pages: number;
-		posts: number;
-	};
 	plugins: SiteOverviewExtension[];
 	themes: SiteOverviewExtension[];
 }

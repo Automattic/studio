@@ -5,6 +5,10 @@
 	flex-direction: column;
 	height: 100%;
 	min-height: 0;
+	/* Let this panel shrink below the tab strip's intrinsic width so the tabs
+	   scroll inside their own bar (see .tabsBar) instead of widening the panel
+	   and spilling past its edge. */
+	min-width: 0;
 	color: var(--wpds-color-fg-content-neutral);
 	background: var(--wpds-color-bg-surface-neutral);
 }
@@ -45,23 +49,29 @@
 .tabsFrame {
 	flex: 1;
 	min-height: 0;
+	/* Keep the width constraint flowing down to the tab strip's scroll
+	   container (WP's TabList is `overflow-x: auto`). */
+	min-width: 0;
 	display: flex;
 	flex-direction: column;
 }
 
 .tabsBar {
 	flex: 0 0 auto;
+	min-width: 0;
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	padding: 0 var(--wpds-dimension-padding-xl);
 }
 
 .tabsBarInner {
+	min-width: 0;
 	max-width: 760px;
 }
 
 .scroll {
 	flex: 1;
 	min-height: 0;
+	min-width: 0;
 	overflow-y: auto;
 }
 
@@ -119,12 +129,13 @@
 	color: var(--wpds-color-fg-content-neutral);
 }
 
+/* Each section is a full-width row (Customize, then Manage), stacked. */
 .actionsColumn {
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+	display: flex;
+	flex-direction: column;
 	width: 100%;
 	min-width: 0;
-	gap: var(--wpds-dimension-padding-lg);
+	gap: var(--wpds-dimension-padding-xl);
 	margin-bottom: calc(var(--wpds-dimension-padding-xl) * 1.25);
 	padding-bottom: var(--wpds-dimension-padding-xl);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
@@ -134,10 +145,11 @@
 	width: 100%;
 }
 
+/* Buttons flow across the row and wrap to the next line as the panel narrows. */
 .buttonGrid {
 	display: flex;
-	flex-direction: column;
-	gap: 2px;
+	flex-wrap: wrap;
+	gap: var(--wpds-dimension-padding-xs);
 }
 
 .overviewButton {
@@ -146,10 +158,12 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: flex-start;
+	/* Never squeeze a button until its label wraps — wrap the whole button to
+	   the next row instead. */
+	flex: 0 0 auto;
 	gap: var(--wpds-dimension-padding-xs);
-	width: 100%;
 	min-width: 0;
-	padding: 0 var(--wpds-dimension-padding-xs);
+	padding: 0 var(--wpds-dimension-padding-sm);
 	border: 0;
 	border-radius: 4px;
 	background: transparent;
@@ -179,9 +193,6 @@
 }
 
 .overviewButtonLabel {
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
@@ -209,7 +220,7 @@
 	border-bottom: 0;
 }
 
-.detailSection h2 {
+.detailSectionHeading {
 	margin: 0 0 var(--wpds-dimension-padding-md);
 	color: var(--wpds-color-fg-content-neutral);
 	font-size: var(--wpds-typography-font-size-sm);
@@ -217,41 +228,52 @@
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
+/* Plugins / Themes headings double as the link into the matching wp-admin
+   screen ("Plugins ›"). The button reads as the heading itself — same type —
+   with a trailing chevron and a hover target that hangs back so the label's
+   left edge stays aligned with the list beneath it. */
+.sectionHeadingButton {
+	--wp-ui-button-height: 26px;
+
+	display: inline-flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xs);
+	margin-inline-start: calc(-1 * var(--wpds-dimension-padding-sm));
+	padding: 0 var(--wpds-dimension-padding-sm);
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: inherit;
+	font-size: inherit;
+	font-weight: inherit;
+	line-height: inherit;
+	white-space: nowrap;
+}
+
+.sectionHeadingButton:not([data-disabled]):is(:hover, :focus-visible) {
+	background: var(
+		--wpds-color-bg-interactive-neutral-weak-active,
+		var(--wpds-color-bg-surface-neutral-weak)
+	);
+}
+
+.sectionActionIcon {
+	display: grid;
+	place-items: center;
+	flex: 0 0 auto;
+	color: currentColor;
+}
+
+.sectionActionIcon svg {
+	color: currentColor;
+	fill: currentColor;
+}
+
 .detailStatus {
 	margin: 0;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
-}
-
-.contentCounts {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: var(--wpds-dimension-padding-sm);
-	margin: 0;
-}
-
-.contentCount {
-	min-width: 0;
-	padding: var(--wpds-dimension-padding-md);
-	border: 1px solid var(--wpds-color-stroke-surface-neutral-weak);
-	border-radius: 6px;
-	background: var(--wpds-color-bg-surface-neutral-weak);
-}
-
-.contentCount dt {
-	margin: 0 0 var(--wpds-dimension-padding-xs);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
-}
-
-.contentCount dd {
-	margin: 0;
-	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-xl);
-	font-weight: var(--wpds-typography-font-weight-medium);
-	line-height: var(--wpds-typography-line-height-xl);
 }
 
 .extensionList {
@@ -304,16 +326,8 @@
 			calc(var(--wpds-dimension-padding-2xl) + 46px);
 	}
 
-	.actionsColumn {
-		grid-template-columns: 1fr;
-	}
-
-	.contentCounts,
 	.extensionItem {
 		grid-template-columns: 1fr;
-	}
-
-	.extensionItem {
 		gap: 2px;
 	}
 }

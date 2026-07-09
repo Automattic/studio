@@ -1,10 +1,8 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
-	copy,
+	chevronRight,
 	desktop,
-	download,
-	grid,
 	Icon,
 	layout,
 	media,
@@ -13,7 +11,6 @@ import {
 	pencil,
 	styles as stylesIcon,
 	symbolFilled,
-	trash,
 	widget,
 } from '@wordpress/icons';
 import { Button } from '@wordpress/ui';
@@ -29,9 +26,6 @@ import { SiteSettingsForm, type SiteSettingsTabId } from '@/components/site-sett
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
 import {
-	useCopySite,
-	useExportDatabase,
-	useExportFullSite,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSiteOverviewDetails,
@@ -39,6 +33,7 @@ import {
 } from '@/data/queries/use-sites';
 import { useOpenSiteUrl } from '@/hooks/use-open-site-url';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useSiteManagementActions } from '@/hooks/use-site-management-actions';
 import styles from './style.module.css';
 import type { SiteDetails, SiteOverviewDetails, SiteOverviewExtension } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -66,6 +61,10 @@ interface ButtonSectionProps {
 
 interface DetailSectionProps {
 	title: string;
+	// When provided, the section heading becomes a button that opens the
+	// matching wp-admin screen (e.g. "Plugins ›").
+	onOpen?: () => void;
+	disabled?: boolean;
 	children: ReactNode;
 }
 
@@ -73,24 +72,13 @@ type SiteOverviewTabId = 'overview' | SiteSettingsTabId;
 
 function isSiteOverviewTab( value: string ): value is SiteOverviewTabId {
 	return (
-		value === 'overview' ||
-		value === 'general' ||
-		value === 'debugging' ||
-		value === 'skills' ||
-		value === 'instructions' ||
-		value === 'checkpoints'
+		value === 'overview' || value === 'settings' || value === 'agent' || value === 'checkpoints'
 	);
 }
 
-// The settings-form tabs; checkpoints/skills/instructions render their own panels.
+// Tabs whose content is rendered by the shared SiteSettingsForm.
 function isSettingsTab( value: SiteOverviewTabId ): value is SiteSettingsTabId {
-	return (
-		value === 'general' ||
-		value === 'debugging' ||
-		value === 'skills' ||
-		value === 'instructions' ||
-		value === 'checkpoints'
-	);
+	return value === 'settings' || value === 'agent' || value === 'checkpoints';
 }
 
 function OverviewHeader( { site }: { site: SiteDetails } ) {
@@ -145,10 +133,26 @@ function ButtonSection( { title, children, className }: ButtonSectionProps ) {
 	);
 }
 
-function DetailSection( { title, children }: DetailSectionProps ) {
+function DetailSection( { title, onOpen, disabled, children }: DetailSectionProps ) {
 	return (
 		<section className={ styles.detailSection }>
-			<h2>{ title }</h2>
+			<h2 className={ styles.detailSectionHeading }>
+				{ onOpen ? (
+					<Button
+						variant="minimal"
+						className={ styles.sectionHeadingButton }
+						disabled={ disabled }
+						onClick={ onOpen }
+					>
+						<span>{ title }</span>
+						<span className={ styles.sectionActionIcon } aria-hidden="true">
+							<Icon icon={ chevronRight } size={ 18 } />
+						</span>
+					</Button>
+				) : (
+					title
+				) }
+			</h2>
 			{ children }
 		</section>
 	);
@@ -168,42 +172,36 @@ function OverviewDetailsSections( {
 	details,
 	isLoading,
 	isError,
+	onOpenPlugins,
+	onOpenThemes,
+	disabled,
 }: {
 	details?: SiteOverviewDetails;
 	isLoading: boolean;
 	isError: boolean;
+	onOpenPlugins: () => void;
+	onOpenThemes: () => void;
+	disabled?: boolean;
 } ) {
 	const status = getDetailsStatus( { isLoading, isError } );
 
 	return (
 		<div className={ styles.detailsColumn }>
-			<DetailSection title={ __( 'Content' ) }>
-				{ status ? (
-					<p className={ styles.detailStatus }>{ status }</p>
-				) : (
-					<dl className={ styles.contentCounts }>
-						<div className={ styles.contentCount }>
-							<dt>{ __( 'Pages' ) }</dt>
-							<dd>{ details?.content.pages ?? 0 }</dd>
-						</div>
-						<div className={ styles.contentCount }>
-							<dt>{ __( 'Posts' ) }</dt>
-							<dd>{ details?.content.posts ?? 0 }</dd>
-						</div>
-					</dl>
-				) }
-			</DetailSection>
 			<ExtensionListSection
 				title={ __( 'Plugins' ) }
 				items={ details?.plugins }
 				status={ status }
 				emptyLabel={ __( 'No plugins installed.' ) }
+				onOpen={ onOpenPlugins }
+				disabled={ disabled }
 			/>
 			<ExtensionListSection
 				title={ __( 'Themes' ) }
 				items={ details?.themes }
 				status={ status }
 				emptyLabel={ __( 'No themes installed.' ) }
+				onOpen={ onOpenThemes }
+				disabled={ disabled }
 			/>
 		</div>
 	);
@@ -214,14 +212,18 @@ function ExtensionListSection( {
 	items,
 	status,
 	emptyLabel,
+	onOpen,
+	disabled,
 }: {
 	title: string;
 	items?: SiteOverviewExtension[];
 	status: string | null;
 	emptyLabel: string;
+	onOpen?: () => void;
+	disabled?: boolean;
 } ) {
 	return (
-		<DetailSection title={ title }>
+		<DetailSection title={ title } onOpen={ onOpen } disabled={ disabled }>
 			{ status ? (
 				<p className={ styles.detailStatus }>{ status }</p>
 			) : items?.length ? (
@@ -289,17 +291,16 @@ export function SiteOverviewView( { siteId }: SiteOverviewViewProps ) {
 function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
 	const overviewAnchorRef = useTourAnchor( 'site-overview-content' );
-	const copySite = useCopySite();
-	const exportFullSite = useExportFullSite();
-	const exportDatabase = useExportDatabase();
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const overviewDetails = useSiteOverviewDetails( site.id );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	const [ activeTab, setActiveTab ] = useState< SiteOverviewTabId >( 'overview' );
+	const managementActions = useSiteManagementActions( site, {
+		onDelete: () => setDeleteOpen( true ),
+	} );
 
 	const busy = isStarting || isStopping;
-	const isExporting = exportFullSite.isPending || exportDatabase.isPending;
 	// Checkpoints run on the user's machine (the CLI checkpoint engine), so the
 	// tab only exists where the connector can reach it.
 	const supportsCheckpoints = useConnector().capabilities?.siteCheckpoints ?? false;
@@ -326,10 +327,8 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 						<div className={ styles.tabsBarInner }>
 							<Tabs.List>
 								<Tabs.Tab tabId="overview">{ __( 'Overview' ) }</Tabs.Tab>
-								<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
-								<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
-								<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
-								<Tabs.Tab tabId="instructions">{ __( 'Instructions' ) }</Tabs.Tab>
+								<Tabs.Tab tabId="settings">{ __( 'Settings' ) }</Tabs.Tab>
+								<Tabs.Tab tabId="agent">{ __( 'Agent' ) }</Tabs.Tab>
 								{ supportsCheckpoints ? (
 									<Tabs.Tab tabId="checkpoints">{ __( 'Checkpoints' ) }</Tabs.Tab>
 								) : null }
@@ -430,42 +429,27 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 									</ButtonSection>
 
 									<ButtonSection title={ __( 'Manage' ) } className={ styles.manageSection }>
-										<OverviewButton
-											icon={ <Icon icon={ copy } size={ 18 } /> }
-											label={ __( 'Duplicate' ) }
-											loading={ copySite.isPending }
-											loadingAnnouncement={ __( 'Duplicating site' ) }
-											disabled={ copySite.isPending }
-											onClick={ () => copySite.mutate( site.id ) }
-										/>
-										<OverviewButton
-											icon={ <Icon icon={ download } size={ 18 } /> }
-											label={ __( 'Export' ) }
-											loading={ exportFullSite.isPending }
-											loadingAnnouncement={ __( 'Exporting site' ) }
-											disabled={ isExporting }
-											onClick={ () => exportFullSite.mutate( site.id ) }
-										/>
-										<OverviewButton
-											icon={ <Icon icon={ grid } size={ 18 } /> }
-											label={ __( 'Export DB' ) }
-											loading={ exportDatabase.isPending }
-											loadingAnnouncement={ __( 'Exporting database' ) }
-											disabled={ isExporting }
-											onClick={ () => exportDatabase.mutate( site.id ) }
-										/>
-										<OverviewButton
-											icon={ <Icon icon={ trash } size={ 18 } /> }
-											label={ __( 'Delete' ) }
-											className={ styles.destructiveButton }
-											onClick={ () => setDeleteOpen( true ) }
-										/>
+										{ managementActions.map( ( action ) => (
+											<OverviewButton
+												key={ action.id }
+												icon={ <Icon icon={ action.icon } size={ 18 } /> }
+												label={ action.label }
+												loading={ action.loading }
+												loadingAnnouncement={ action.loadingAnnouncement }
+												disabled={ action.disabled }
+												className={ action.destructive ? styles.destructiveButton : undefined }
+												onClick={ action.run }
+											/>
+										) ) }
 									</ButtonSection>
 								</div>
 								<OverviewDetailsSections
 									details={ overviewDetails.data }
 									isLoading={ overviewDetails.isLoading }
 									isError={ overviewDetails.isError }
+									onOpenPlugins={ () => void openSiteUrl( '/wp-admin/plugins.php' ) }
+									onOpenThemes={ () => void openSiteUrl( '/wp-admin/themes.php' ) }
+									disabled={ busy }
 								/>
 							</Tabs.Panel>
 							{ isSettingsTab( activeTab ) ? (

@@ -120,13 +120,12 @@ async function runExport(
 
 const SITE_OVERVIEW_DETAILS_SCRIPT = [
 	'require_once ABSPATH . "wp-admin/includes/plugin.php";',
-	'function studio_overview_count_posts($post_type) { $counts = wp_count_posts($post_type); $total = 0; foreach ((array) $counts as $status => $count) { if ("trash" === $status || "auto-draft" === $status) { continue; } $total += (int) $count; } return $total; }',
 	'$plugins = array();',
 	'foreach (get_plugins() as $plugin_file => $plugin_data) { $plugins[] = array("slug" => $plugin_file, "name" => empty($plugin_data["Name"]) ? $plugin_file : $plugin_data["Name"], "status" => is_plugin_active($plugin_file) ? "active" : "inactive", "version" => empty($plugin_data["Version"]) ? "" : $plugin_data["Version"]); }',
 	'$themes = array();',
 	'$active_theme = get_stylesheet();',
 	'foreach (wp_get_themes() as $stylesheet => $theme) { $themes[] = array("slug" => $stylesheet, "name" => $theme->get("Name") ?: $stylesheet, "status" => $stylesheet === $active_theme ? "active" : "inactive", "version" => $theme->get("Version") ?: ""); }',
-	'echo wp_json_encode(array("content" => array("pages" => studio_overview_count_posts("page"), "posts" => studio_overview_count_posts("post")), "plugins" => $plugins, "themes" => $themes));',
+	'echo wp_json_encode(array("plugins" => $plugins, "themes" => $themes));',
 ].join( ' ' );
 
 const SITE_OVERVIEW_DETAILS_COMMAND = `eval '${ SITE_OVERVIEW_DETAILS_SCRIPT }'`;
@@ -145,16 +144,8 @@ function parseSiteOverviewDetails( result: WpCliResult ): SiteOverviewDetails {
 
 	const record =
 		parsed && typeof parsed === 'object' ? ( parsed as Record< string, unknown > ) : {};
-	const content =
-		record.content && typeof record.content === 'object'
-			? ( record.content as Record< string, unknown > )
-			: {};
 
 	return {
-		content: {
-			pages: getNumber( content.pages ),
-			posts: getNumber( content.posts ),
-		},
 		plugins: normalizeOverviewExtensions( record.plugins ),
 		themes: normalizeOverviewExtensions( record.themes ),
 	};
@@ -192,11 +183,6 @@ function normalizeOverviewExtensions( value: unknown ): SiteOverviewExtension[] 
 				getExtensionStatusSortValue( first.status ) - getExtensionStatusSortValue( second.status );
 			return statusOrder || first.name.localeCompare( second.name );
 		} );
-}
-
-function getNumber( value: unknown ): number {
-	const number = typeof value === 'number' ? value : Number( value );
-	return Number.isFinite( number ) ? number : 0;
 }
 
 function getText( value: unknown ): string | undefined {

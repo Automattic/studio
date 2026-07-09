@@ -60,7 +60,9 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent, ReactNode } from 'react';
 
-type TabId = 'general' | 'debugging' | 'skills' | 'instructions' | 'checkpoints';
+// "settings" merges the former General + Debugging forms; "agent" merges the
+// former Skills + Instructions panels.
+type TabId = 'settings' | 'agent' | 'checkpoints';
 
 interface FormData {
 	name: string;
@@ -449,134 +451,96 @@ export function SiteSettingsForm( {
 		);
 	};
 
-	const isFormTab = activeTab === 'general' || activeTab === 'debugging';
-	const activeForm = activeTab === 'debugging' ? debuggingForm : generalForm;
-	const formContent = (
-		<div className={ embedded ? styles.embeddedContentBlock : styles.contentBlock }>
-			{ isFormTab ? (
-				<form onSubmit={ handleSubmit } className={ styles.form }>
-					{ showTabs ? (
-						<>
-							<Tabs.Panel tabId="general">
-								{ phpVersionWarning && (
-									<div className={ styles.phpVersionWarning } role="note">
-										<Icon icon={ cautionFilled } size={ 18 } />
-										<span>{ phpVersionWarning }</span>
-									</div>
-								) }
-								{ showUsernameWarning && (
-									<p className={ styles.inlineWarning }>
-										{ __( 'Changing the username will create a new admin user.' ) }
-									</p>
-								) }
-								<DataForm< FormData >
-									data={ data }
-									fields={ fields }
-									form={ generalForm }
-									onChange={ handleChange }
-									validity={ validity }
-								/>
-							</Tabs.Panel>
-							<Tabs.Panel tabId="debugging">
-								<DebuggingActions
-									site={ site }
-									showTrustCertificate={ showTrustCertificate }
-									onTrustCertificate={ () => void trustCertificate.mutate() }
-									onOpenDebugLog={ () => void connector.openSiteDebugLog( site.id ) }
-								/>
-								<DataForm< FormData >
-									data={ data }
-									fields={ fields }
-									form={ debuggingForm }
-									onChange={ handleChange }
-									validity={ validity }
-								/>
-							</Tabs.Panel>
-						</>
-					) : (
-						<>
-							{ activeTab === 'general' && phpVersionWarning && (
-								<div className={ styles.phpVersionWarning } role="note">
-									<Icon icon={ cautionFilled } size={ 18 } />
-									<span>{ phpVersionWarning }</span>
-								</div>
-							) }
-							{ activeTab === 'debugging' && (
-								<DebuggingActions
-									site={ site }
-									showTrustCertificate={ showTrustCertificate }
-									onTrustCertificate={ () => void trustCertificate.mutate() }
-									onOpenDebugLog={ () => void connector.openSiteDebugLog( site.id ) }
-								/>
-							) }
-							{ showUsernameWarning && activeTab === 'general' && (
-								<p className={ styles.inlineWarning }>
-									{ __( 'Changing the username will create a new admin user.' ) }
-								</p>
-							) }
-							<DataForm< FormData >
-								data={ data }
-								fields={ fields }
-								form={ activeForm }
-								onChange={ handleChange }
-								validity={ validity }
-							/>
-						</>
-					) }
+	// The "Settings" tab shows the general + debugging fields as one form, with
+	// the debugging actions (trust cert / open debug log) beneath them.
+	const settingsFormBody = (
+		<>
+			{ phpVersionWarning && (
+				<div className={ styles.phpVersionWarning } role="note">
+					<Icon icon={ cautionFilled } size={ 18 } />
+					<span>{ phpVersionWarning }</span>
+				</div>
+			) }
+			{ showUsernameWarning && (
+				<p className={ styles.inlineWarning }>
+					{ __( 'Changing the username will create a new admin user.' ) }
+				</p>
+			) }
+			<DataForm< FormData >
+				data={ data }
+				fields={ fields }
+				form={ fullForm }
+				onChange={ handleChange }
+				validity={ validity }
+			/>
+			<DebuggingActions
+				site={ site }
+				showTrustCertificate={ showTrustCertificate }
+				onTrustCertificate={ () => void trustCertificate.mutate() }
+				onOpenDebugLog={ () => void connector.openSiteDebugLog( site.id ) }
+			/>
+		</>
+	);
 
-					{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
+	const settingsForm = (
+		<form onSubmit={ handleSubmit } className={ styles.form }>
+			{ settingsFormBody }
+			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
+			<div className={ styles.actions }>
+				<Button
+					type="submit"
+					variant="solid"
+					tone="brand"
+					disabled={ ! canSubmit }
+					loading={ updateSite.isPending }
+					loadingAnnouncement={
+						willRestart ? __( 'Saving and restarting…' ) : __( 'Saving settings' )
+					}
+				>
+					{ __( 'Save settings' ) }
+				</Button>
+			</div>
+		</form>
+	);
 
-					<div className={ styles.actions }>
-						<Button
-							type="submit"
-							variant="solid"
-							tone="brand"
-							disabled={ ! canSubmit }
-							loading={ updateSite.isPending }
-							loadingAnnouncement={
-								willRestart ? __( 'Saving and restarting…' ) : __( 'Saving settings' )
-							}
-						>
-							{ __( 'Save settings' ) }
-						</Button>
-					</div>
-				</form>
-			) : null }
-			{ showTabs && supportsCheckpoints ? (
-				<Tabs.Panel tabId="checkpoints">
-					<CheckpointTimeline siteId={ site.id } />
-				</Tabs.Panel>
-			) : null }
-			{ showTabs && activeTab === 'skills' ? (
-				<Tabs.Panel tabId="skills">
-					<WordPressSkillsPanel siteId={ site.id } />
-				</Tabs.Panel>
-			) : null }
-			{ showTabs && activeTab === 'instructions' ? (
-				<Tabs.Panel tabId="instructions">
-					<AgentInstructionsPanel siteId={ site.id } />
-				</Tabs.Panel>
-			) : null }
+	// The "Agent" tab stacks the skills and instructions panels.
+	const agentPanels = (
+		<div className={ styles.agentPanels }>
+			<WordPressSkillsPanel siteId={ site.id } />
+			<AgentInstructionsPanel siteId={ site.id } />
 		</div>
 	);
-	const maybeScrollContent: ReactNode = embedded ? (
-		formContent
-	) : (
-		<div className={ styles.scroll }>{ formContent }</div>
-	);
 
+	// Embedded in the site overview: the overview owns the tab strip, so render
+	// only the active tab's content.
 	if ( ! showTabs ) {
-		if ( activeTab === 'skills' ) {
-			return <WordPressSkillsPanel siteId={ site.id } />;
-		}
-		if ( activeTab === 'instructions' ) {
-			return <AgentInstructionsPanel siteId={ site.id } />;
+		if ( activeTab === 'agent' ) {
+			return agentPanels;
 		}
 		if ( activeTab === 'checkpoints' && supportsCheckpoints ) {
 			return <CheckpointTimeline siteId={ site.id } />;
 		}
-		return <>{ maybeScrollContent }</>;
+		return <div className={ styles.embeddedContentBlock }>{ settingsForm }</div>;
 	}
+
+	// Fullscreen site settings: own the tab strip and mount every panel so the
+	// WP Tabs component can toggle between them.
+	const tabsContent = (
+		<div className={ embedded ? styles.embeddedContentBlock : styles.contentBlock }>
+			<Tabs.Panel tabId="settings">{ settingsForm }</Tabs.Panel>
+			<Tabs.Panel tabId="agent">{ agentPanels }</Tabs.Panel>
+			{ supportsCheckpoints ? (
+				<Tabs.Panel tabId="checkpoints">
+					<CheckpointTimeline siteId={ site.id } />
+				</Tabs.Panel>
+			) : null }
+		</div>
+	);
+	const scrollContent: ReactNode = embedded ? (
+		tabsContent
+	) : (
+		<div className={ styles.scroll }>{ tabsContent }</div>
+	);
 
 	return (
 		<Tabs.Root
@@ -593,29 +557,21 @@ export function SiteSettingsForm( {
 			<div className={ embedded ? styles.embeddedTabsBar : styles.tabsBar }>
 				<div className={ embedded ? styles.embeddedTabsBarInner : styles.tabsBarInner }>
 					<Tabs.List>
-						<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
-						<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
-						<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
-						<Tabs.Tab tabId="instructions">{ __( 'Instructions' ) }</Tabs.Tab>
+						<Tabs.Tab tabId="settings">{ __( 'Settings' ) }</Tabs.Tab>
+						<Tabs.Tab tabId="agent">{ __( 'Agent' ) }</Tabs.Tab>
 						{ supportsCheckpoints ? (
 							<Tabs.Tab tabId="checkpoints">{ __( 'Checkpoints' ) }</Tabs.Tab>
 						) : null }
 					</Tabs.List>
 				</div>
 			</div>
-			{ maybeScrollContent }
+			{ scrollContent }
 		</Tabs.Root>
 	);
 }
 
 export function isSiteSettingsTab( value: string ): value is TabId {
-	return (
-		value === 'general' ||
-		value === 'debugging' ||
-		value === 'skills' ||
-		value === 'instructions' ||
-		value === 'checkpoints'
-	);
+	return value === 'settings' || value === 'agent' || value === 'checkpoints';
 }
 
 export type SiteSettingsTabId = TabId;

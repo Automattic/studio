@@ -69,9 +69,17 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 }
 
 describe( 'isSiteSettingsTab', () => {
-	it( 'includes skills and instructions tabs', () => {
-		expect( isSiteSettingsTab( 'skills' ) ).toBe( true );
-		expect( isSiteSettingsTab( 'instructions' ) ).toBe( true );
+	it( 'recognizes the settings, agent, and checkpoints tabs', () => {
+		expect( isSiteSettingsTab( 'settings' ) ).toBe( true );
+		expect( isSiteSettingsTab( 'agent' ) ).toBe( true );
+		expect( isSiteSettingsTab( 'checkpoints' ) ).toBe( true );
+	} );
+
+	it( 'rejects the former general/debugging/skills/instructions tabs', () => {
+		expect( isSiteSettingsTab( 'general' ) ).toBe( false );
+		expect( isSiteSettingsTab( 'debugging' ) ).toBe( false );
+		expect( isSiteSettingsTab( 'skills' ) ).toBe( false );
+		expect( isSiteSettingsTab( 'instructions' ) ).toBe( false );
 	} );
 } );
 
@@ -108,7 +116,7 @@ describe( 'SiteSettingsForm', () => {
 		render(
 			<SiteSettingsForm
 				site={ site }
-				activeTab="general"
+				activeTab="settings"
 				onTabChange={ vi.fn() }
 				embedded
 				showTabs={ false }

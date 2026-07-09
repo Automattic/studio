@@ -247,6 +247,45 @@ describe( 'CLI: studio pull-reprint helpers', () => {
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
+
+	it( 'escapes backslashes and quotes when writing the table prefix', () => {
+		const technicalSiteDirectory = fs.mkdtempSync(
+			path.join( os.tmpdir(), 'studio-wpconfig-esc-' )
+		);
+		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
+		const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+		fs.mkdirSync( stateDirectory, { recursive: true } );
+		fs.mkdirSync( path.join( rawDirectory, 'wordpress', 'core', '7.0' ), { recursive: true } );
+
+		fs.writeFileSync(
+			path.join( stateDirectory, '.import-state.json' ),
+			JSON.stringify( {
+				preflight: {
+					data: {
+						database: {
+							wp: {
+								table_prefix: "wp\\x'_",
+								paths_urls: { abspath: '/wordpress/core/7.0' },
+							},
+						},
+					},
+				},
+			} )
+		);
+
+		ensureScopedPullWpConfig( { stateDirectory, rawDirectory } as never );
+
+		// With no config at either candidate, it writes to the parent-of-ABSPATH
+		// location wp-load falls back to.
+		const written = fs.readFileSync(
+			path.join( rawDirectory, 'wordpress', 'core', 'wp-config.php' ),
+			'utf-8'
+		);
+		// Backslash doubled, quote escaped — a valid PHP single-quoted literal.
+		expect( written ).toContain( "$table_prefix = 'wp\\\\x\\'_';" );
+
+		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
 } );
 
 describe( 'CLI: studio pull-reprint single pull phase', () => {

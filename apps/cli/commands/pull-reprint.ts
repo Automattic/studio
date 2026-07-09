@@ -938,6 +938,9 @@ export function ensureScopedPullWpConfig( metadata: PullSession ): void {
 	}
 
 	const tablePrefix = getTablePrefixFromState( metadata.stateDirectory ) ?? 'wp_';
+	// Escape for a PHP single-quoted string: backslashes first, then single
+	// quotes (both are the only special characters there).
+	const escapedTablePrefix = tablePrefix.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 	// Written to the last candidate wp-load checks; writeFileSync follows
 	// an existing symlink and creates its target.
 	const target = candidates[ candidates.length - 1 ];
@@ -951,7 +954,7 @@ export function ensureScopedPullWpConfig( metadata: PullSession ): void {
 			" * scoped pull's selection. Database constants come from the",
 			' * runtime prepend; ABSPATH is defined by wp-load.php.',
 			' */',
-			`$table_prefix = '${ tablePrefix.replace( /'/g, "\\'" ) }';`,
+			`$table_prefix = '${ escapedTablePrefix }';`,
 			'',
 			"require_once ABSPATH . 'wp-settings.php';",
 			'',

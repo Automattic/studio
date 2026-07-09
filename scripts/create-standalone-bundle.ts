@@ -138,6 +138,14 @@ async function main(): Promise< void > {
 	// prod build, but `package:standalone` stamps `__IS_PACKAGED_FOR_STANDALONE__` so the
 	// curl-installed CLI identifies itself at runtime (update notifier + launch stats).
 	console.log( '==> Step 1/4: Building CLI package...' );
+	// install:bundle can run twice per CI job (the desktop make's forge hook runs
+	// it first). npm's --install-links re-resolves the changed data-liberation
+	// file: dep from the registry (E404) when reinstalling over that tree, so
+	// start from a clean node_modules, same as forge.config.ts does.
+	fs.rmSync( path.join( repoRoot, 'apps', 'cli', 'node_modules' ), {
+		recursive: true,
+		force: true,
+	} );
 	run( 'npm run cli:package:standalone' );
 
 	// Step 2: Assemble the bundle layout in a staging dir

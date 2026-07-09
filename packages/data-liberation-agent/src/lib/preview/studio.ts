@@ -407,6 +407,10 @@ export async function startStudioPreview(opts: StartStudioOpts): Promise<StartPr
         '--name', name,
         '--path', sitePath,
         '--blueprint', blueprintPath,
+        // Studio 1.12+ defaults to the native runtime, which drops the
+        // `/wordpress` VFS mount our `wp eval-file` script paths rely on;
+        // pin the sandbox runtime until those callers are runtime-aware.
+        '--runtime', 'sandbox',
         '--skip-browser',
         '--skip-log-details',
         '--start',

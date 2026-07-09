@@ -4,7 +4,9 @@
    tab's line reads as a continuation of the rest of the border. */
 .list {
 	margin-bottom: -1px;
-	gap: calc(var(--wpds-dimension-padding-lg) * 2);
+	/* Paired with the tabs' inline padding below, this keeps the label-to-label
+	   spacing close to the prior `padding-lg * 2`. */
+	gap: var(--wpds-dimension-padding-lg);
 }
 
 /* Active-tab indicator: matches the selected-tab text color so the underline
@@ -16,8 +18,10 @@
 }
 
 /* Override WP Tabs defaults:
-   - No inline padding so the active-tab underline aligns with the label text
-     (the list's `gap` keeps tabs from touching).
+   - Modest inline padding (smaller than WP's default 16px) so the keyboard
+     focus ring has room to wrap the label without spilling past the tab —
+     an outward ring would extend beyond the tablist's content edge and make
+     this scroll container (overflow-x: auto) think it's overflowing.
    - Compact vertical padding + medium font size replace the 48px tall default.
    - `flex: 0 0 auto` stops tabs from stretching to fill the tablist, which
      would otherwise widen the indicator beyond the text.
@@ -28,7 +32,7 @@
    stylesheet wins source-order. `!important` is the simplest, targeted way
    to force our condensed sizing through. */
 .list .tab {
-	padding-inline: 0 !important;
+	padding-inline: var(--wpds-dimension-padding-sm) !important;
 	padding-block: var(--wpds-dimension-padding-lg) !important;
 	height: auto !important;
 	flex: 0 0 auto;
@@ -44,6 +48,16 @@
 
 .list .tab:not([aria-disabled='true']):is(:hover, [data-focus-visible]) {
 	color: var(--wpds-color-fg-content-neutral);
+}
+
+/* WP draws the keyboard-focus ring with `.tab::after { inset: space(3) }` (a
+   12px inset sized for its taller, 16px-padded default tab). Re-inset it for
+   our condensed tabs so it wraps the label snugly while staying entirely
+   inside the tab box — a ring that reached past the tab would inflate the
+   tablist's scrollWidth and trigger phantom horizontal scrolling. */
+.list .tab::after {
+	inset-block: var(--wpds-dimension-padding-md) !important;
+	inset-inline: var(--wpds-dimension-padding-xs) !important;
 }
 
 .panel {

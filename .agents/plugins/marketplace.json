@@ -1,0 +1,20 @@
+{
+  "name": "studio",
+  "interface": {
+    "displayName": "studio"
+  },
+  "plugins": [
+    {
+      "name": "data-liberation",
+      "source": {
+        "source": "local",
+        "path": "./packages/data-liberation-agent"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Coding"
+    }
+  ]
+}

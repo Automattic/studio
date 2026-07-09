@@ -1,6 +1,52 @@
 import { CombinedAutocompleteProvider } from '@earendil-works/pi-tui';
+import chalk from '@studio/common/lib/chalk';
+import { escapeRegex } from '@studio/common/lib/escape-regex';
 import type { AutocompleteSuggestions } from '@earendil-works/pi-tui';
 import type { SlashCommandDef } from 'cli/ai/slash-commands';
+
+const highlightBlue = chalk.hex( '#a4cafa' );
+
+export function highlightMatch( text: string, query: string ): string {
+	const index = text.toLowerCase().indexOf( query.toLowerCase() );
+	if ( index === -1 ) {
+		return text;
+	}
+	return (
+		text.slice( 0, index ) +
+		highlightBlue( text.slice( index, index + query.length ) ) +
+		text.slice( index + query.length )
+	);
+}
+
+// Matches one highlightMatch span. Built once from the codes the chalk
+// wrapper actually emits; null when colors are off.
+let highlightSpan: RegExp | null | undefined;
+function getHighlightSpan(): RegExp | null {
+	if ( highlightSpan === undefined ) {
+		const [ open, close ] = highlightBlue( ' ' ).split( ' ' );
+		highlightSpan = open
+			? new RegExp( `(${ escapeRegex( open ) }.*?${ escapeRegex( close ) })` )
+			: null;
+	}
+	return highlightSpan;
+}
+
+/**
+ * Select-list `description` theme function: dims the text like `chalk.dim`,
+ * but keeps `highlightMatch` spans at full intensity — wrapping the whole
+ * string in `chalk.dim` would dim the highlight too.
+ */
+export function dimUnhighlighted( text: string ): string {
+	const span = getHighlightSpan();
+	if ( ! span ) {
+		return chalk.dim( text );
+	}
+	// Captured highlight spans land at odd indices of split().
+	return text
+		.split( span )
+		.map( ( part, i ) => ( i % 2 ? part : part && chalk.dim( part ) ) )
+		.join( '' );
+}
 
 /**
  * Autocomplete provider that extends pi-tui's slash-command matching (command
@@ -53,11 +99,16 @@ export class DescriptionAwareAutocompleteProvider extends CombinedAutocompletePr
 				label: command.name,
 				description: command.description,
 			} ) );
-		if ( descriptionItems.length === 0 ) {
-			return suggestions;
+		if ( descriptionItems.length === 0 && ! suggestions ) {
+			return null;
 		}
+		const items = [ ...( suggestions?.items ?? [] ), ...descriptionItems ].map( ( item ) => ( {
+			...item,
+			label: highlightMatch( item.label ?? item.value, query ),
+			...( item.description && { description: highlightMatch( item.description, query ) } ),
+		} ) );
 		return {
-			items: [ ...( suggestions?.items ?? [] ), ...descriptionItems ],
+			items,
 			prefix: textBeforeCursor,
 		};
 	}

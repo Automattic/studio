@@ -54,7 +54,7 @@ If you can't test against a real site, note that in the PR and explain what you 
 
 ### 3. Add to DISCOVERIES.md
 
-This is required. Add a new entry at the top of [DISCOVERIES.md](./DISCOVERIES.md) in this format:
+This is required. DISCOVERIES.md is a local, untracked log (gitignored — it is not committed to the repo); create it at the package root if it doesn't exist yet. Add a new entry at the top in this format:
 
 ```markdown
 ## YYYY-MM-DD — Short title

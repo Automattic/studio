@@ -1,6 +1,22 @@
 Unreleased
 ==========
 
+1.14.0
+=====
+* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082  
+* Studio Code: Added a /liberate command to recreate sites from other platforms (e.g. Wix) as WordPress #3940
+* Studio Code: Added a /publish command to push local sites to WordPress.com #4043
+* Studio Code: Updated the assistant's available model to Sonnet 5 #4024
+* Studio Code: Agent file edits now show as proper line-by-line diffs in the CLI and desktop assistant #4076
+* Studio Code: Improved plugin recommendations for Automattic products, and tuned agent behavior for native PHP vs Playground sites #4023, #3995
+* Studio Code: Fixed an unwanted gap in block themes scaffolded by the assistant #4053
+* Fixed an issue where Pressable sites were marked unsupported on the Sync tab #4078
+* Fixed recreating missing db.php drop-ins and preserving custom SQLite drop-ins #3993
+* Fixed occasional failures when duplicating a site #4074
+* Fixed broken Central Kurdish (Sorani) text on macOS by bundling the Vazirmatn font #4062
+* Updated multiple dependencies, including WP Playground and PHP-WASM, the SQLite database integration, and the pi (agent) packages #4015, #4033, #4073
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.13.0...v1.14.0
+
 1.13.0
 =====
 * Fixed PHP error (code: 3221225781) by updating native PHP packages to include necessary Windows DLLs #4042, #4045, #4050, #4055, #4049

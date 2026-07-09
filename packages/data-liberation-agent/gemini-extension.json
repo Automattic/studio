@@ -11,8 +11,8 @@
   "skills": "./skills/",
   "mcpServers": {
     "data-liberation": {
-      "command": "npx",
-      "args": ["tsx", "${extensionPath}${/}src${/}mcp-server.ts"],
+      "command": "node",
+      "args": ["${extensionPath}${/}scripts${/}mcp-launcher.mjs"],
       "cwd": "${extensionPath}"
     }
   }

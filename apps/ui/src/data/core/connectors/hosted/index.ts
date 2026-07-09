@@ -112,6 +112,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			nativeSaveDialog: false,
 			openInOS: false,
 			annotatePreview: false,
+			readLocalMedia: false,
 		},
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
@@ -360,6 +361,14 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return () => {};
 		},
 		onToggleSidebar() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onAddSite() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onOpenSettings() {
 			// No application menu in a browser tab.
 			return () => {};
 		},

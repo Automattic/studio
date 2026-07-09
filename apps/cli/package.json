@@ -1,7 +1,7 @@
 {
 	"name": "wp-studio",
 	"author": "Automattic Inc.",
-	"version": "1.13.0",
+	"version": "1.14.0",
 	"productName": "Studio CLI",
 	"description": "WordPress Studio CLI",
 	"license": "GPL-2.0-or-later",
@@ -44,6 +44,7 @@
 		"atomically": "^2.1.1",
 		"chokidar": "^5.0.0",
 		"cli-table3": "^0.6.5",
+		"data-liberation": "file:../../packages/data-liberation-agent",
 		"express": "^4.22.0",
 		"express-rate-limit": "^8.5.2",
 		"fs-extra": "^11.3.4",

@@ -90,8 +90,6 @@
 .messageActions {
 	display: flex;
 	align-items: center;
-	/* Cancel the icon-centering inset of the 1.75rem button so the 16px icon
-	   lines up with the message text edge. */
 	margin-inline-start: calc((16px - 1.75rem) / 2);
 	opacity: 0;
 	transition: opacity 0.12s ease;

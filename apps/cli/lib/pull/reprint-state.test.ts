@@ -36,12 +36,16 @@ describe( 'reprint state accessors', () => {
 		}
 	} );
 
-	it( 'reads the WordPress core roots from preflight state', () => {
+	it( 'reads the WordPress core roots from preflight state, decoding base64-marked paths', () => {
 		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-reprint-state-' ) );
 
 		try {
 			expect( getCoreRootsFromState( stateDirectory ) ).toEqual( [] );
 
+			// reprint persists wp_detect root paths base64-encoded with a
+			// `base64:` marker; plain strings are the legacy fallback.
+			const encode = ( value: string ) =>
+				`base64:${ Buffer.from( value, 'utf-8' ).toString( 'base64' ) }`;
 			fs.writeFileSync(
 				path.join( stateDirectory, '.import-state.json' ),
 				JSON.stringify( {
@@ -49,7 +53,7 @@ describe( 'reprint state accessors', () => {
 						data: {
 							wp_detect: {
 								roots: [
-									{ path: '/wordpress/core/7.0' },
+									{ path: encode( '/wordpress/core/7.0' ) },
 									{ path: '/wordpress/core' },
 									{ path: null },
 								],

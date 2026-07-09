@@ -87,6 +87,19 @@ export function getContentDirFromState( stateDirectory: string ): string | null 
 }
 
 /**
+ * reprint base64-encodes some path fields when persisting its state
+ * (`wp_detect` roots among them), marked with a `base64:` prefix; plain
+ * values pass through for backward compatibility.
+ */
+function decodeStatePath( value: string ): string {
+	const prefix = 'base64:';
+	if ( ! value.startsWith( prefix ) ) {
+		return value;
+	}
+	return Buffer.from( value.slice( prefix.length ), 'base64' ).toString( 'utf-8' );
+}
+
+/**
  * Read the WordPress core roots the remote preflight detected (e.g.
  * `/wordpress/core/7.0` and `/wordpress/core` on WP Cloud). A
  * `--only`-scoped pull must pass these explicitly: `--only` *replaces*
@@ -98,7 +111,8 @@ export function getCoreRootsFromState( stateDirectory: string ): string[] {
 	const roots = state?.preflight?.data?.wp_detect?.roots ?? [];
 	return roots
 		.map( ( root ) => root.path )
-		.filter( ( rootPath ): rootPath is string => typeof rootPath === 'string' && rootPath !== '' );
+		.filter( ( rootPath ): rootPath is string => typeof rootPath === 'string' && rootPath !== '' )
+		.map( decodeStatePath );
 }
 
 export function hasSkippedFiles( stateDirectory: string ): boolean {

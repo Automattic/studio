@@ -40,6 +40,7 @@ beforeEach( () => {
 		getColorScheme: vi.fn().mockResolvedValue( 'light' ),
 		getUserEditor: vi.fn().mockResolvedValue( null ),
 		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
+		getInstalledAppsAndTerminals: vi.fn().mockResolvedValue( { terminals: [], editors: [] } ),
 		isStudioCliInstalled: vi.fn().mockResolvedValue( false ),
 		getDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/sites' ),
 		// Save path.

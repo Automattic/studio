@@ -61,7 +61,7 @@ Long-term, we might want to move in that direction, but for now, we are still bu
 The flow is:
 
 1. `studio create` — create the local site (a full `SiteData` record plus a blank WordPress install). This is a prerequisite; `pull-reprint` never creates a site.
-2. `studio pull-reprint --path <site> --url <remote>` — pull the remote into the local site resolved by `--path`. `--url` identifies only the remote source; if omitted, `pull-reprint` first reuses the site's saved `reprintOrigin.remoteUrl`, and if there is no saved origin, a WordPress.com/Pressable source picker runs (remote discovery only — it never identifies the local site). The matched remote must be `syncable`. Each run rotates a fresh Reprint secret through the WordPress.com API, enables the exporter, then runs preflight once. The pull is idempotent: re-running it resumes an interrupted pull or performs a delta re-pull of an already-imported site.
+2. `studio pull-reprint --path <site> --url <remote>` — pull the remote into the local site resolved by `--path`. `--url` identifies only the remote source; if omitted, `pull-reprint` first reuses the site's saved `reprintOrigin.remoteUrl`, and if there is no saved origin, a WordPress.com/Pressable source picker runs (Pressable support is still WIP). The matched remote must be `syncable`. Each run rotates a fresh Reprint secret through the WordPress.com API, enables the exporter, then runs preflight once. The pull is idempotent: re-running it resumes an interrupted pull or performs a delta re-pull of an already-imported site.
 3. `studio delete --path <site>` — the only teardown path. It trashes the site folder and the site's `technicalSiteDirectory`, which for a reprint-pulled site is the `siteId`-keyed scratch under `~/.studio/pulls/<siteId>` (reprint's `.import-state.json`, the preflight cache, and the raw/runtime working dirs). `pull-reprint` records `technicalSiteDirectory` on the site at pull *start*, so the scratch is cleaned up even for a pull that failed before linking. There is no `--abort` verb.
 
 #### State model
@@ -69,7 +69,7 @@ The flow is:
 All durable state lives on the `SiteData` record in `cli.json`. The pull-relevant fields are:
 
 - `status: 'ready' | 'pulling' | 'pull-failed'` — health of the local install. `site create` produces `ready`; a pull sets `pulling` up front, `ready` on success, and `pull-failed` if it errors or is killed. A missing value (legacy records) is treated as `ready`. `site start` refuses to start a non-`ready` site rather than serving a half-written install.
-- `reprintOrigin` — durable origin metadata for a pulled site (`remoteUrl`, `remoteSiteUrl`, `tablePrefix`), so a re-pull can reuse the remote source. Credentials are not stored; the Reprint secret is rotated fresh on every run.
+- `reprintOrigin` — durable origin metadata for a pulled site (`remoteUrl`, `remoteSiteUrl`, `tablePrefix`), so a re-pull can reuse the remote source.
 - `importComplete: boolean` — true once a full pull has completed at least once; selects first-full-pull vs. delta on the next run.
 
 #### Resume by derivation

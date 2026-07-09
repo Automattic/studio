@@ -1,6 +1,7 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
+import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
@@ -38,7 +39,13 @@ export function useDeleteSite() {
 	return useMutation( {
 		mutationFn: ( { id, deleteFiles = true }: DeleteSiteInput ) =>
 			connector.deleteSite( id, deleteFiles ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+		// Deleting a site also archives its chat sessions (CLI `site delete`),
+		// so refresh the session list alongside the site list.
+		onSuccess: () =>
+			Promise.all( [
+				queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+				queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } ),
+			] ),
 	} );
 }
 

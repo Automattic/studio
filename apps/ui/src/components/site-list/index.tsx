@@ -12,7 +12,7 @@ import {
 } from '@wordpress/icons';
 import { Button, Dialog, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
@@ -41,6 +41,7 @@ import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
 const UNASSIGNED_KEY = '__unassigned__';
+const SORT_ORDER_SAVE_DEBOUNCE_MS = 500;
 
 type SiteGroup = {
 	key: string;
@@ -685,7 +686,11 @@ export function SiteList() {
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
 	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
-	const updateSitesSortOrder = useUpdateSitesSortOrder();
+	// `mutate` is referentially stable, so the unmount-flush effect below runs
+	// its cleanup exactly once.
+	const { mutate: saveSortOrder } = useUpdateSitesSortOrder();
+	const saveTimeoutRef = useRef< ReturnType< typeof setTimeout > >( undefined );
+	const pendingOrderRef = useRef< string[] | null >( null );
 
 	const orderedSites = useMemo(
 		() => sortSitesByManualOrder( sortSites( [ ...( sites ?? [] ) ] ), manualSiteOrder ),
@@ -723,10 +728,28 @@ export function SiteList() {
 		setOverrides( ( prev ) => ( { ...prev, [ key ]: ! isOpen( key ) } ) );
 	};
 
+	// The order applies optimistically via `manualSiteOrder`; the save is
+	// debounced so a burst of quick rearrangements collapses into one IPC
+	// write, and any pending save flushes on unmount so it isn't lost.
 	const persistOrder = ( nextSiteIds: string[] ) => {
 		setManualSiteOrder( nextSiteIds );
-		updateSitesSortOrder.mutate( nextSiteIds );
+		pendingOrderRef.current = nextSiteIds;
+		clearTimeout( saveTimeoutRef.current );
+		saveTimeoutRef.current = setTimeout( () => {
+			pendingOrderRef.current = null;
+			saveSortOrder( nextSiteIds );
+		}, SORT_ORDER_SAVE_DEBOUNCE_MS );
 	};
+
+	useEffect( () => {
+		return () => {
+			clearTimeout( saveTimeoutRef.current );
+			if ( pendingOrderRef.current ) {
+				saveSortOrder( pendingOrderRef.current );
+				pendingOrderRef.current = null;
+			}
+		};
+	}, [ saveSortOrder ] );
 
 	const renderSiteGroup = ( group: SiteGroup ) => (
 		<SiteSection

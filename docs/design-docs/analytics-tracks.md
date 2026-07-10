@@ -163,16 +163,4 @@ Every event also carries the common props `channel`, `is_a11n`, `platform`, `arc
 The install UUID is a persistent pseudonymous identifier; events are anonymous (`_ut=anon`) and carry
 no PII (no site names, paths, or WordPress.com user id). Analytics defaults ON with an opt-out in
 Settings and onboarding, plus a Privacy Policy reference. `is_a11n` is a boolean flag, not an
-identifier. Confirm the anonymous-pixel + opt-out model with Legal for the exact Studio case before
-broad rollout.
-
-## Open items / prerequisites
-
-- **Pixel params verified.** `_en`, `_ut`, `_ui`, `_ts` are the canonical reserved Tracks pixel params.
-  A nonce is not required — `t.gif` is a plain unauthenticated GET (a nonce only applies to the
-  authenticated `/rest/v1.1/tracks/record` route, a different mechanism we don't use). The builder in
-  `record-tracks-event.ts` is isolated so any future param correction is a one-file change.
-- **Register the events server-side** in the Tracks event schema. Unregistered events are still
-  ingested (they are not dropped), but registration is required to have the events and their properties
-  formally defined and reliably queryable in the dashboards. Do this before relying on the data.
-- **Register or re-encode `ui_version`** with the data team (custom property).
+identifier.

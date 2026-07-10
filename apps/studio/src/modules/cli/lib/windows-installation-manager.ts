@@ -1,9 +1,9 @@
 import { app } from 'electron';
 import { mkdir, rm, writeFile } from 'fs/promises';
+import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
-import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.com/fresc81/node-winreg/issues/65
 import {
 	runCliAutoInstall,
 	showCliErrorDialog,
@@ -14,13 +14,6 @@ import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 // `STABLE_BIN_DIR_PATH` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
 export const STABLE_BIN_DIR_PATH = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
-
-const PATH_KEY = 'Path';
-
-const currentUserRegistry = new Registry( {
-	hive: Registry.HKCU,
-	key: '\\Environment',
-} );
 
 export class WindowsCliInstallationManager implements StudioCliInstallationManager {
 	constructor() {
@@ -107,28 +100,46 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 	}
 
-	private getPathFromRegistry(): Promise< string > {
+	private runPowerShell( script: string ): Promise< string > {
 		return new Promise( ( resolve, reject ) => {
-			currentUserRegistry.get( PATH_KEY, ( error, item ) => {
-				if ( error ) {
-					return reject( error );
-				}
+			const child = spawn(
+				'powershell.exe',
+				[ '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', script ],
+				{ windowsHide: true }
+			);
 
-				resolve( item?.value || '' );
+			let stdout = '';
+			child.stdout.on( 'data', ( chunk ) => {
+				stdout += chunk.toString();
 			} );
+			child.on( 'error', reject );
+			child.on( 'exit', ( code ) =>
+				code === 0
+					? resolve( stdout )
+					: reject( new Error( `PowerShell exited with code ${ code }` ) )
+			);
 		} );
 	}
 
-	private setPathInRegistry( updatedPath: string ): Promise< void > {
-		return new Promise( ( resolve, reject ) => {
-			currentUserRegistry.set( PATH_KEY, Registry.REG_EXPAND_SZ, updatedPath, ( error ) => {
-				if ( error ) {
-					return reject( error );
-				}
+	private async getPathFromRegistry(): Promise< string > {
+		// Read the raw, unexpanded value (DoNotExpandEnvironmentNames) so that any
+		// %VAR% entries survive a read/modify/write round-trip untouched.
+		const script = `
+$key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment')
+if ($key) {
+	[Console]::Out.Write([string]$key.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames))
+	$key.Close()
+}`;
+		return ( await this.runPowerShell( script ) ).trim();
+	}
 
-				resolve();
-			} );
-		} );
+	private async setPathInRegistry( updatedPath: string ): Promise< void > {
+		// SetEnvironmentVariable(..., 'User') also broadcasts WM_SETTINGCHANGE so
+		// open shells pick up the new PATH without a re-login.
+		const escaped = updatedPath.replace( /'/g, "''" );
+		await this.runPowerShell(
+			`[Environment]::SetEnvironmentVariable('PATH', '${ escaped }', 'User')`
+		);
 	}
 
 	private async isStudioCliDirInPath(): Promise< boolean > {

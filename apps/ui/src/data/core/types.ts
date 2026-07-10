@@ -110,6 +110,10 @@ export interface ConnectorCapabilities {
 	// browser the preview is a cross-origin <iframe> that can't be injected, so
 	// the Annotate control is hidden.
 	annotatePreview: boolean;
+	// `readLocalMediaFile` can read media files from the host's disk (used to
+	// render local screenshot artifacts inline). Only the desktop IPC connector
+	// supports it; the browser connectors reject local file reads.
+	readLocalMedia: boolean;
 }
 
 export interface Connector {
@@ -344,6 +348,14 @@ export interface Connector {
 
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;
+
+	// Fires when the user activates "File > Add Site…" (or its keyboard
+	// shortcut) in the application menu.
+	onAddSite( listener: () => void ): () => void;
+
+	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
+	// the application menu.
+	onOpenSettings( listener: () => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

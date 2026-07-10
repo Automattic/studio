@@ -40,6 +40,7 @@ import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
@@ -520,6 +521,11 @@ export async function runCommand( options: {
 		if ( site && ! site.remote ) {
 			const siteData = await findSiteByFolder( site.path );
 			site.running = siteData ? await isSiteRunning( siteData ) : false;
+			// isSiteRunning opens the daemon bus; release it like every other
+			// daemon consumer (wp-cli, import, pull-reprint). A socket left open
+			// keeps the headless `--json` child alive after its turn, so the
+			// desktop never receives `run.exited` and the session looks stuck.
+			await disconnectFromDaemon();
 		}
 		if ( site?.remote && site?.url ) {
 			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;

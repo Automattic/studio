@@ -2,6 +2,7 @@ import { SupportedLocale } from '@studio/common/lib/locale';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
+import { DotGrid } from 'src/components/dot-grid';
 import { FormPathInputComponent } from 'src/components/form-path-input';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
@@ -29,7 +30,7 @@ import {
 } from 'src/stores/installed-apps-api';
 import { SettingsFormField } from './settings-form-field';
 
-function AgenticUiBanner() {
+function AgenticUiCallout() {
 	const { __ } = useI18n();
 	const { enableAgenticUi } = useFeatureFlags();
 
@@ -38,20 +39,28 @@ function AgenticUiBanner() {
 	}
 
 	return (
-		<div className="flex items-center justify-between gap-4 rounded-md p-4 border border-[var(--color-frame-border)] bg-[var(--color-frame-surface)]">
-			<div>
-				<p className="m-0 font-semibold text-[var(--color-frame-text)]">
-					{ __( 'Try the new Studio experience' ) }
-				</p>
-				<p className="m-0 mt-1 text-xs text-[var(--color-frame-text-secondary)]">
-					{ __(
-						'A redesigned interface with AI-powered site building. You can switch back anytime.'
-					) }
-				</p>
+		<div className="relative overflow-hidden rounded-md p-4 border border-[var(--color-frame-border)] bg-[var(--color-frame-bg)]">
+			<DotGrid
+				spacing={ 16 }
+				crossSize={ 3 }
+				opacity={ 0.2 }
+				className="text-frame-text-secondary"
+			/>
+			<div className="relative flex items-center justify-between gap-4">
+				<div>
+					<p className="m-0 font-semibold text-[var(--color-frame-text)]">
+						{ __( 'There’s a new way to build in Studio' ) }
+					</p>
+					<p className="m-0 mt-1 text-xs text-[var(--color-frame-text-secondary)]">
+						{ __(
+							'A workbench combining Studio Code and a new in-app browser to watch it work. You can switch back anytime.'
+						) }
+					</p>
+				</div>
+				<Button variant="primary" onClick={ () => getIpcApi().enableAgenticUi() }>
+					{ __( 'Try it' ) }
+				</Button>
 			</div>
-			<Button variant="primary" onClick={ () => getIpcApi().enableAgenticUi() }>
-				{ __( 'Try it' ) }
-			</Button>
 		</div>
 	);
 }
@@ -158,7 +167,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 
 	return (
 		<>
-			<AgenticUiBanner />
+			<AgenticUiCallout />
 			<ColorSchemePicker value={ colorSchemeSelection } onChange={ handleColorSchemeChange } />
 			<LanguagePicker value={ localeSelection } onChange={ setDirtyLocale } />
 			<div className="grid grid-cols-2 gap-3">

@@ -1486,6 +1486,15 @@ export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< vo
 	}
 }
 
+export async function dismissAgenticUiBanner( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateAppdata( { agenticUiBannerDismissed: true } );
+}
+
+export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.agenticUiBannerDismissed === true;
+}
+
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
 	{

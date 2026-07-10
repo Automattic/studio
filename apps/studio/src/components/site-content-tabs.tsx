@@ -1,6 +1,6 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
@@ -24,7 +24,20 @@ export function SiteContentTabs() {
 	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
 	const { __ } = useI18n();
 	const { enableAgenticUi } = useFeatureFlags();
-	const [ bannerDismissed, setBannerDismissed ] = useState( false );
+	const [ bannerDismissed, setBannerDismissed ] = useState( true );
+
+	useEffect( () => {
+		void getIpcApi()
+			.isAgenticUiBannerDismissed()
+			.then( ( dismissed ) => {
+				setBannerDismissed( dismissed );
+			} );
+	}, [] );
+
+	const handleDismissBanner = useCallback( () => {
+		setBannerDismissed( true );
+		void getIpcApi().dismissAgenticUiBanner();
+	}, [] );
 
 	// Remount: Avoid focus loss on user tab changes (no remount),
 	// but remount on programmatic changes and site switches so initial tab/content state resets.
@@ -96,7 +109,7 @@ export function SiteContentTabs() {
 						</p>
 					</div>
 					<div className="flex gap-2 shrink-0">
-						<Button variant="tertiary" onClick={ () => setBannerDismissed( true ) }>
+						<Button variant="tertiary" onClick={ handleDismissBanner }>
 							{ __( 'Dismiss' ) }
 						</Button>
 						<Button variant="primary" onClick={ () => getIpcApi().enableAgenticUi() }>

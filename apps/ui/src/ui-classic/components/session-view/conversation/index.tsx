@@ -75,7 +75,16 @@ import {
 } from '@wordpress/icons';
 import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
 import { RestoreCheckpointDialog } from '@/components/checkpoint-timeline';
 import { CopyButton } from '@/components/copy-button';
 import { ImageContextMenu } from '@/components/image-context-menu';
@@ -652,8 +661,32 @@ function UserTurn( {
 }
 
 function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
+	const connector = useConnector();
+	const [ showCopied, setShowCopied ] = useState( false );
+	const copiedTimer = useRef< ReturnType< typeof setTimeout > | null >( null );
+	useEffect( () => {
+		return () => {
+			if ( copiedTimer.current ) {
+				clearTimeout( copiedTimer.current );
+			}
+		};
+	}, [] );
+
+	// Double-click anywhere in the reply copies it (the whole message when
+	// this is its last text block, otherwise this fragment). Native word
+	// selection still happens — the copy is additive, and the notice is the
+	// only signal that more than a selection occurred.
+	const handleDoubleClick = useCallback( () => {
+		void connector.copyText( copyText ?? text );
+		setShowCopied( true );
+		if ( copiedTimer.current ) {
+			clearTimeout( copiedTimer.current );
+		}
+		copiedTimer.current = setTimeout( () => setShowCopied( false ), 1500 );
+	}, [ connector, copyText, text ] );
+
 	return (
-		<div className={ styles.assistantTurn }>
+		<div className={ styles.assistantTurn } onDoubleClick={ handleDoubleClick }>
 			<Markdown>{ text }</Markdown>
 			{ copyText ? (
 				<CopyButton
@@ -661,6 +694,11 @@ function AssistantText( { text, copyText }: { text: string; copyText?: string } 
 					label={ __( 'Copy message' ) }
 					className={ styles.messageActions }
 				/>
+			) : null }
+			{ showCopied ? (
+				<span className={ styles.copyNotice } role="status">
+					{ __( 'Copied' ) }
+				</span>
 			) : null }
 		</div>
 	);

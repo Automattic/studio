@@ -117,6 +117,27 @@ describe( 'Assistant message copy button', () => {
 		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
 	} );
 
+	it( 'copies the message on double-click and shows a notice', () => {
+		const data = loadedSession( [
+			{
+				type: 'message',
+				id: 'assistant-single',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				message: {
+					role: 'assistant',
+					content: [ { type: 'text', text: 'Plain reply.' } ],
+				},
+			} as unknown as SessionEntry,
+		] );
+		renderConversation( data );
+
+		fireEvent.doubleClick( screen.getByText( 'Plain reply.' ) );
+
+		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'Plain reply.' );
+		expect( screen.getByText( 'Copied' ) ).toBeInTheDocument();
+	} );
+
 	it( 'does not add a copy button to user messages', () => {
 		const data = loadedSession( [
 			{

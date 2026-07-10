@@ -103,9 +103,33 @@
 	transition: opacity 0.12s ease;
 }
 
-.assistantTurn:hover .messageActions,
+/* Reveal needs a beat of hover intent so casual mouse travel across the
+   transcript doesn't flicker buttons; keyboard focus reveals immediately. */
+.assistantTurn:hover .messageActions {
+	opacity: 1;
+	transition-delay: 1s;
+}
+
 .assistantTurn:focus-within .messageActions {
 	opacity: 1;
+	transition-delay: 0s;
+}
+
+/* Transient double-click feedback, sitting beside the button's spot. */
+.copyNotice {
+	position: absolute;
+	top: 100%;
+	inset-inline-start: calc(1.5rem + var(--wpds-dimension-padding-xs));
+	display: inline-flex;
+	align-items: center;
+	height: 1.5rem;
+	padding: 0 var(--wpds-dimension-padding-sm);
+	border: 1px solid var(--color-frame-border);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--color-frame-surface);
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-sm);
+	white-space: nowrap;
 }
 
 .userActions {

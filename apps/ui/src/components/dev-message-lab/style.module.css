@@ -114,3 +114,21 @@
 	opacity: 0.5;
 	cursor: default;
 }
+
+.activityRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-gap-sm);
+}
+
+.activityRowLabel {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.activityRow select {
+	font-size: var(--wpds-typography-font-size-xs);
+	cursor: var(--wpds-cursor-control);
+}

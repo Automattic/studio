@@ -10,6 +10,7 @@ import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteContextMenu } from '@/components/site-context-menu';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
+import { useSiteActivityOverride } from '@/data/dev-lab-site-activity';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -380,13 +381,16 @@ function SiteSection( {
 	const isLiveSyncPending =
 		syncActivity?.kind === 'pending' &&
 		( syncActivity.direction === 'push' || syncActivity.direction === 'pull' );
-	const displayActivity = isLiveSyncPending
+	const computedActivity: SiteRowActivity = isLiveSyncPending
 		? 'sync'
 		: agentActivity !== 'idle'
 		? agentActivity
 		: hasUnreadUpdate
 		? 'new-message'
 		: 'idle';
+	// Dev-only message lab override (see components/dev-message-lab).
+	const forcedActivity = useSiteActivityOverride( site.id );
+	const displayActivity = forcedActivity === 'auto' ? computedActivity : forcedActivity;
 	const handleOpenSite = () => {
 		if ( agenticGated ) {
 			void navigate( {

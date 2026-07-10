@@ -3,6 +3,11 @@ import { useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { isLabMessageActive, toggleLabMessage } from '@/data/dev-lab-messages';
+import {
+	setSiteActivityOverride,
+	useSiteActivityOverride,
+	type ForcedActivity,
+} from '@/data/dev-lab-site-activity';
 import { deriveChecklistItems, getChecklistItems } from '@/data/onboarding/checklist';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { APP_UPDATE_STATUS_QUERY_KEY } from '@/data/queries/use-app-update';
@@ -11,20 +16,54 @@ import {
 	ONBOARDING_HINTS_QUERY_KEY,
 	useOnboardingHints,
 } from '@/data/queries/use-onboarding-hints';
+import { useSites } from '@/data/queries/use-sites';
 import styles from './style.module.css';
 import type { AppUpdateStatus, OnboardingHintsState } from '@/data/core';
 
 // Dev-only message lab (the QA panel STU-1984 asks for): fires every toast
-// variant and toggles simulated persistent cards, so the sidebar stack —
-// getting-started checklist, update card, announcements, toasts — can be
-// exercised without real failures. Mounted behind import.meta.env.DEV; copy
-// is deliberately unlocalized.
+// variant, toggles simulated persistent cards, and forces sidebar site rows
+// to a chosen activity indicator, so the sidebar stack — getting-started
+// checklist, update card, announcements, toasts, activity dots — can be
+// exercised (and screenshotted) without real failures or agent runs. Mounted
+// behind import.meta.env.DEV; copy is deliberately unlocalized.
 
 // Fresh fake version per injection so a persisted dismissal of the previous
 // one never hides the next.
 let updateCounter = 0;
 
 const UPSELL_MESSAGE_ID = 'lab-upsell';
+
+const ACTIVITY_OPTIONS: { value: ForcedActivity; label: string }[] = [
+	{ value: 'auto', label: 'Auto' },
+	{ value: 'idle', label: 'None' },
+	{ value: 'working', label: 'Working' },
+	{ value: 'pending-question', label: 'Pending' },
+	{ value: 'new-message', label: 'New msg' },
+	{ value: 'sync', label: 'Syncing' },
+];
+
+// One row per sidebar site, forcing its activity indicator to a chosen state
+// for screenshots regardless of real agent/sync activity.
+function SiteActivityOverrideRow( { siteId, siteName }: { siteId: string; siteName: string } ) {
+	const forced = useSiteActivityOverride( siteId );
+	return (
+		<label className={ styles.activityRow }>
+			<span className={ styles.activityRowLabel }>{ siteName }</span>
+			<select
+				value={ forced }
+				onChange={ ( event ) =>
+					setSiteActivityOverride( siteId, event.target.value as ForcedActivity )
+				}
+			>
+				{ ACTIVITY_OPTIONS.map( ( option ) => (
+					<option key={ option.value } value={ option.value }>
+						{ option.label }
+					</option>
+				) ) }
+			</select>
+		</label>
+	);
+}
 
 function fireToastBurst() {
 	toast.success( 'Site started' );
@@ -42,6 +81,7 @@ export function DevMessageLab() {
 	const connector = useConnector();
 	const agentic = useAgenticFeatures();
 	const { data: hints } = useOnboardingHints();
+	const { data: sites } = useSites();
 
 	// Simulate checklist progress (the real events — agent runs, pushes —
 	// aren't available in a sim/new-user environment).
@@ -170,6 +210,14 @@ export function DevMessageLab() {
 					Reset items (session only)
 				</button>
 			</div>
+			{ sites && sites.length > 0 ? (
+				<div className={ styles.section }>
+					<span className={ styles.sectionLabel }>Site indicators</span>
+					{ sites.map( ( site ) => (
+						<SiteActivityOverrideRow key={ site.id } siteId={ site.id } siteName={ site.name } />
+					) ) }
+				</div>
+			) : null }
 		</div>
 	);
 }

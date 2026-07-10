@@ -797,11 +797,11 @@
 	padding-left: calc(18px + var(--wpds-dimension-padding-xs));
 }
 
-/* Hangs off the turn's bottom-left without reserving layout space. Kept
-   flush (top: 100%, no gap) so the pointer can travel from the text onto
-   the button without ever leaving the turn's :hover. pointer-events is
-   gated too: an invisible floating button must not swallow clicks meant
-   for the row below it. */
+/* Hangs off the turn's bottom-left without reserving layout space. The
+   hidden button keeps pointer-events so its own footprint is a hover
+   target: hovering where the icon would be reveals it (it's a descendant,
+   so the turn's :hover fires). The 28px button only grazes the next row's
+   top edge, and it fades in on hover, so clicks there are informed. */
 .messageActions {
 	position: absolute;
 	top: 100%;
@@ -809,12 +809,10 @@
 	display: flex;
 	align-items: center;
 	opacity: 0;
-	pointer-events: none;
 	transition: opacity 0.12s ease;
 }
 
 .assistantTurn:hover .messageActions,
 .assistantTurn:focus-within .messageActions {
 	opacity: 1;
-	pointer-events: auto;
 }

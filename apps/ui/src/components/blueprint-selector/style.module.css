@@ -66,16 +66,17 @@
 	top: 8px;
 	right: 8px;
 	gap: 4px;
-	background: rgba(255, 255, 255, 0.92);
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-strong, #fff) 92%, transparent);
 	backdrop-filter: blur(6px);
 	border-radius: 4px;
+	box-shadow: var(--wpds-elevation-sm);
 }
 
 .cardImage {
 	width: 100%;
 	aspect-ratio: 16 / 9;
 	object-fit: cover;
-	background: #f0f0f0;
+	background: var(--wpds-color-bg-surface-neutral-weak);
 }
 
 .cardBody {

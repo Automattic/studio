@@ -58,7 +58,9 @@ function toFormData( prefs: UserPreferences ): FormData {
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
 		locale: resolveFormLocale( prefs.locale ),
-		analyticsEnabled: prefs.analyticsEnabled,
+		// Default to opted-in if absent (e.g. a persisted preferences cache from
+		// before this field existed) so the toggle never renders a false negative.
+		analyticsEnabled: prefs.analyticsEnabled ?? true,
 	};
 }
 

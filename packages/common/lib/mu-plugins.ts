@@ -409,12 +409,9 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Playground's PHP runs as a persistent process, so its stat/realpath caches
-	// survive across requests. After a plugin is deleted, the stale cache can
-	// still report its directory as existing, breaking a subsequent reinstall
-	// with "The destination directory already exists and could not be removed."
-	// Clearing the cache before each upgrade forces a fresh filesystem read.
-	// Excluded from native PHP, where every request starts with clean caches.
+	// Playground's PHP persists stat caches across requests, so a deleted plugin
+	// can still look present and break a reinstall. Clear the cache before each
+	// upgrade. Excluded from native PHP, where every request starts clean.
 	//
 	// @see STU-1931
 	muPlugins.push( {

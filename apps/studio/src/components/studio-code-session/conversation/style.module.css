@@ -79,6 +79,27 @@
 	object-fit: cover;
 }
 
+/* Assistant response wrapper: the copy button below stays hidden until the
+   turn is hovered (or a control inside it is focused), mirroring Claude/ChatGPT. */
+.assistantTurn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.messageActions {
+	display: flex;
+	align-items: center;
+	margin-inline-start: calc((16px - 1.75rem) / 2);
+	opacity: 0;
+	transition: opacity 0.12s ease;
+}
+
+.assistantTurn:hover .messageActions,
+.assistantTurn:focus-within .messageActions {
+	opacity: 1;
+}
+
 .userActions {
 	display: flex;
 	justify-content: flex-end;

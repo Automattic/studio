@@ -710,6 +710,14 @@
 	gap: var(--wpds-dimension-padding-xs);
 }
 
+/* Assistant response wrapper: the copy button stays hidden until the turn is
+   hovered (or a control inside it is focused). */
+.assistantTurn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
 .permissionTitle {
 	margin: 0;
 	font-weight: 600;
@@ -786,4 +794,17 @@
 	gap: 4px;
 	margin-top: 4px;
 	padding-left: calc(18px + var(--wpds-dimension-padding-xs));
+}
+
+.messageActions {
+	display: flex;
+	align-items: center;
+	margin-inline-start: calc((16px - 1.75rem) / 2);
+	opacity: 0;
+	transition: opacity 0.12s ease;
+}
+
+.assistantTurn:hover .messageActions,
+.assistantTurn:focus-within .messageActions {
+	opacity: 1;
 }

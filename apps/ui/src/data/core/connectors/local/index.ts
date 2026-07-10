@@ -259,6 +259,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			openInOS: true,
 			annotatePreview: false,
 			siteCheckpoints: true,
+			readLocalMedia: false,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as

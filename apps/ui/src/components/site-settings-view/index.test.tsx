@@ -94,6 +94,7 @@ describe( 'SiteSettingsForm', () => {
 				nativeSaveDialog: true,
 				openInOS: true,
 				annotatePreview: true,
+				readLocalMedia: true,
 				siteCheckpoints: false,
 			},
 			openSiteDebugLog: vi.fn(),

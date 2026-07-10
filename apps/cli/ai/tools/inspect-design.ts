@@ -2,6 +2,11 @@ import { Type } from 'typebox';
 import { getSharedBrowser } from 'cli/ai/browser-utils';
 import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
+import {
+	applyScreenshotMediaEmulation,
+	SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
+	SCREENSHOT_COLOR_SCHEME_VALUES,
+} from './screenshot-helpers';
 import { textResult } from './utils';
 
 /**
@@ -110,9 +115,8 @@ export const inspectDesignTool = defineTool(
 			} )
 		),
 		colorScheme: Type.Optional(
-			Type.Enum( [ 'light', 'dark' ], {
-				description:
-					'Color scheme to emulate: "light" or "dark". Defaults to the browser/system preference.',
+			Type.Enum( SCREENSHOT_COLOR_SCHEME_VALUES, {
+				description: SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
 			} )
 		),
 	},
@@ -131,10 +135,7 @@ export const inspectDesignTool = defineTool(
 		} );
 
 		try {
-			await page.emulateMedia( {
-				reducedMotion: 'reduce',
-				...( args.colorScheme ? { colorScheme: args.colorScheme } : {} ),
-			} );
+			await applyScreenshotMediaEmulation( page, args.colorScheme );
 			await page.goto( args.url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
 			await page.waitForLoadState( 'networkidle', { timeout: 2500 } ).catch( () => {} );
 			await page.evaluate(

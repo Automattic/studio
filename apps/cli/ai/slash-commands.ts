@@ -71,7 +71,9 @@ export interface SlashCommandDef {
 }
 
 export function getActiveSlashCommands(): SlashCommandDef[] {
-	return AI_CHAT_SLASH_COMMANDS;
+	// Alphabetical order is what the autocomplete shows for a bare `/`; once
+	// the user types a query, fuzzy-match scoring takes over the ordering.
+	return [ ...AI_CHAT_SLASH_COMMANDS ].sort( ( a, b ) => a.name.localeCompare( b.name ) );
 }
 
 function getResponseLengthLabel( level: AiResponseLength ): string {

@@ -16,7 +16,8 @@ export type StudioCustomEntryType =
 	| 'studio.session_context'
 	| 'studio.user_prompt'
 	| 'studio.permission_request'
-	| 'studio.permission_response';
+	| 'studio.permission_response'
+	| 'studio.message_edited';
 
 export interface StudioSiteSelectedData {
 	siteName: string;
@@ -88,6 +89,10 @@ export interface StudioPermissionResponseData {
 	decision: PermissionDecision;
 }
 
+export interface StudioMessageEditedData {
+	originalEntryId: string;
+}
+
 export interface StudioCustomEntryDataMap {
 	'studio.site_selected': StudioSiteSelectedData;
 	'studio.tool_progress': StudioToolProgressData;
@@ -98,6 +103,7 @@ export interface StudioCustomEntryDataMap {
 	'studio.user_prompt': StudioUserPromptData;
 	'studio.permission_request': StudioPermissionRequestData;
 	'studio.permission_response': StudioPermissionResponseData;
+	'studio.message_edited': StudioMessageEditedData;
 }
 
 export type StudioCustomEntry< T extends StudioCustomEntryType = StudioCustomEntryType > = Omit<

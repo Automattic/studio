@@ -3,7 +3,8 @@ import { emitProgress } from 'cli/logger';
 import { defineTool } from './define-tool';
 import {
 	captureScreenshotBuffer,
-	saveScreenshotToTempFile,
+	saveScreenshotFile,
+	SCREENSHOT_COLOR_SCHEME_VALUES,
 	VIEWPORTS,
 	type ScreenshotColorScheme,
 } from './screenshot-helpers';
@@ -15,7 +16,7 @@ const screenshotViewportSchema = Type.Enum( [ 'desktop', 'mobile', 'all' ], {
 type ScreenshotViewportArgument = 'desktop' | 'mobile' | 'all';
 type ScreenshotViewportType = keyof typeof VIEWPORTS;
 
-const screenshotColorSchemeSchema = Type.Enum( [ 'light', 'dark', 'all' ], {
+const screenshotColorSchemeSchema = Type.Enum( [ ...SCREENSHOT_COLOR_SCHEME_VALUES, 'all' ], {
 	description:
 		'Color scheme to emulate: "light", "dark", or "all" to capture both. Defaults to the browser/system preference.',
 } );
@@ -32,7 +33,7 @@ function resolveColorSchemes(
 	colorScheme?: ScreenshotColorSchemeArgument
 ): Array< ScreenshotColorScheme | undefined > {
 	if ( colorScheme === 'all' ) {
-		return [ 'light', 'dark' ];
+		return [ ...SCREENSHOT_COLOR_SCHEME_VALUES ];
 	}
 	return [ colorScheme ];
 }
@@ -49,24 +50,28 @@ function getCaptureLabel( target: {
 function getCaptureListLabel(
 	targets: Array< { viewportType: ScreenshotViewportType; colorScheme?: ScreenshotColorScheme } >
 ): string {
-	return targets.length === 1
-		? getCaptureLabel( targets[ 0 ] )
-		: targets.map( getCaptureLabel ).join( ', ' );
+	return targets.map( getCaptureLabel ).join( ', ' );
 }
 
 export const takeScreenshotTool = defineTool(
 	'take_screenshot',
 	'Takes a full-page screenshot of a URL. Returns the screenshot as an image that you can analyze visually. ' +
-		'Also saves the screenshot as a temporary local image and returns a ready-to-use media widget payload. ' +
 		'Supports desktop and mobile viewports; pass `viewport: "all"` when you need both for design verification. ' +
 		'Pass `colorScheme: "light"`, `colorScheme: "dark"`, or `colorScheme: "all"` to verify pages that respond to prefers-color-scheme. ' +
 		'Long pages are clipped at 8000 vertical pixels (a vision-model limit); the response reports the document height and whether more remains, and you can call again with `offset` to fetch the next slice. ' +
 		'Use this to verify the site looks correct after building it. ' +
+		'Captures are shown to the user in the chat by default; pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones. ' +
 		'Use `share_screenshot` instead only in remote sessions where you need to deliver the rendered page outside the Studio UI.',
 	{
 		url: Type.String( { description: 'The URL to screenshot' } ),
 		viewport: Type.Optional( screenshotViewportSchema ),
 		colorScheme: Type.Optional( screenshotColorSchemeSchema ),
+		display: Type.Optional(
+			Type.Boolean( {
+				description:
+					'Whether to show the capture to the user in the chat. Defaults to true; set false for internal verification captures the user does not need to see.',
+			} )
+		),
 		offset: Type.Optional(
 			Type.Number( {
 				minimum: 0,
@@ -92,11 +97,19 @@ export const takeScreenshotTool = defineTool(
 						offset: args.offset,
 						colorScheme,
 					} );
-					const screenshotFile = await saveScreenshotToTempFile( capture.buffer, {
+					const screenshotFile = await saveScreenshotFile( capture.buffer, {
 						viewportType,
 						format: 'jpeg',
 						colorScheme,
 					} );
+					// Progress lines persist in the CLI transcript (but not in the
+					// desktop conversation history, where the inline artifact is the
+					// UI), so this is the terminal user's only handle on the file.
+					emitProgress(
+						`Saved ${ getCaptureLabel( { viewportType, colorScheme } ) } screenshot to ${
+							screenshotFile.fileUrl
+						}`
+					);
 					return {
 						viewportType,
 						colorScheme,
@@ -141,17 +154,8 @@ export const takeScreenshotTool = defineTool(
 			const captureLines = captures.map( describeCapture );
 			const textLines =
 				captures.length === 1
-					? [
-							`Screenshot captured — ${ captureLines[ 0 ] }`,
-							`mediaWidgetPayload=${ JSON.stringify( captures[ 0 ].mediaWidgetPayload ) }`,
-					  ]
-					: [
-							'Screenshots captured:',
-							...captureLines.map( ( line ) => `- ${ line }` ),
-							`mediaWidgetPayloads=${ JSON.stringify(
-								captures.map( ( capture ) => capture.mediaWidgetPayload )
-							) }`,
-					  ];
+					? [ `Screenshot captured — ${ captureLines[ 0 ] }` ]
+					: [ 'Screenshots captured:', ...captureLines.map( ( line ) => `- ${ line }` ) ];
 			emitProgress( `Screenshot captured (${ captureLabel })` );
 			return {
 				content: [
@@ -165,7 +169,9 @@ export const takeScreenshotTool = defineTool(
 						mimeType: capture.mimeType,
 					} ) ),
 				],
-				studioArtifacts: captures.map( ( capture ) => capture.mediaWidgetPayload ),
+				...( args.display === false
+					? {}
+					: { studioArtifacts: captures.map( ( capture ) => capture.mediaWidgetPayload ) } ),
 			};
 		} catch ( error ) {
 			throw new Error(

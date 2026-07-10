@@ -235,9 +235,13 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			) {
 				continue;
 			}
-			this.archiveBuilder.file( fs.realpathSync( fullEntryPathOnDisk ), {
-				name: entryPathRelativeToArchiveRoot,
-			} );
+			try {
+				const resolvedPath = fs.realpathSync( fullEntryPathOnDisk );
+				this.archiveBuilder.file( resolvedPath, { name: entryPathRelativeToArchiveRoot } );
+			} catch ( error ) {
+				// Dangling symlink. Skip it rather than aborting the whole archive.
+				console.warn( `Skipping ${ entryPathRelativeToArchiveRoot }: ${ error }` );
+			}
 		}
 	}
 

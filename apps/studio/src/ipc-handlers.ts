@@ -68,6 +68,7 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
+import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
@@ -427,6 +428,16 @@ export async function continueAiSession(
 		images,
 		files,
 		webContents: event.sender,
+	} );
+}
+
+export async function markAiMessageEdited(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	originalEntryId: string
+): Promise< void > {
+	await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.message_edited', {
+		originalEntryId,
 	} );
 }
 
@@ -982,6 +993,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 	const server = SiteServer.get( id );
 	if ( ! server ) {
 		return;
+	}
+
+	const maintenanceCheck = checkMaintenanceFile( server.details.path );
+	if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
+		throw new Error( 'MAINTENANCE_MODE' );
 	}
 
 	try {
@@ -2133,7 +2149,15 @@ export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePat
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return fs.statSync( nodePath.join( site.details.path, ...filePath ) ).size;
+	const fullPath = nodePath.join( site.details.path, ...filePath );
+	try {
+		return fs.statSync( fullPath ).size;
+	} catch ( error ) {
+		// Dangling symlink or unreadable entry. It's skipped when archiving,
+		// so count it as zero rather than failing the size check.
+		console.warn( `Skipping ${ fullPath }: ${ error }` );
+		return 0;
+	}
 }
 
 export function openCertificate( _event: IpcMainInvokeEvent ) {

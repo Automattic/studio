@@ -29,7 +29,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
-import { Conversation } from './conversation';
+import { Conversation, wasLastTurnInterrupted } from './conversation';
 import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
@@ -283,6 +283,18 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		[ pendingPermissions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0 || pendingPermissions.length > 0;
+	const canEditLastUserMessage = useMemo(
+		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
+		[ composerBusy, isRunning, data?.entries ]
+	);
+	const editAndResendMessage = useCallback(
+		async ( entryId: string, newText: string ) => {
+			if ( ! sessionId ) return;
+			await getIpcApi().markAiMessageEdited( sessionId, entryId );
+			await sendMessage( newText );
+		},
+		[ sessionId, sendMessage ]
+	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	// Whether new content should keep the view pinned to the bottom. Disabled
 	// when the user scrolls up to read history, re-enabled when they return.
@@ -437,6 +449,8 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							answeredPermissions={ answeredPermissions }
 							onAnswerQuestion={ answerQuestion }
 							onAnswerPermission={ answerPermission }
+							canEditLastUserMessage={ canEditLastUserMessage }
+							onEditUserMessage={ editAndResendMessage }
 						/>
 					) }
 				</div>

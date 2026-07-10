@@ -154,7 +154,7 @@ export function executeCliCommand(
 		// the main-process console. Commands like `preview list --format json`
 		// dump large structured payloads on stdout that would otherwise spam
 		// `npm start` output every time snapshots are fetched.
-		const logPrefix = options.logPrefix ? `[CLI - site ID ${ options.logPrefix }]` : null;
+		const logPrefix = options.logPrefix ? `[CLI - ${ options.logPrefix }]` : null;
 		child.stdout?.on( 'data', ( data: Buffer ) => {
 			const text = data.toString();
 			stdout += text;
@@ -179,9 +179,10 @@ export function executeCliCommand(
 		eventEmitter.emit( 'data', { data: message } );
 	} );
 
+	// Only kills the child; the `close` handler still runs to settle the
+	// emitter and detach this listener if a prevented quit keeps the app alive.
 	function appQuitHandler() {
 		const pid = child.pid;
-		child.removeAllListeners();
 
 		// `child.kill()` only terminates the forked CLI process; on Windows its php.exe descendants
 		// would orphan and keep their DLLs locked. `taskkill /T` walks the whole tree instead.

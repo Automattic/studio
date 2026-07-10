@@ -258,6 +258,10 @@ function readFileAsDataUrl( file: File ): Promise< string > {
 	return readBlobWithFileReader( file, 'readAsDataURL' );
 }
 
+export function readBlobAsDataUrl( blob: Blob ): Promise< string > {
+	return readBlobWithFileReader( blob, 'readAsDataURL' );
+}
+
 async function readBlobTextPreview( blob: Blob ): Promise< string > {
 	const text = await readBlobWithFileReader( blob, 'readAsText' );
 	// The preview slice may cut through the final multibyte character.

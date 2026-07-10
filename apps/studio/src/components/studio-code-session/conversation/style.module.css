@@ -79,6 +79,111 @@
 	object-fit: cover;
 }
 
+/* Assistant response wrapper: the copy button below stays hidden until the
+   turn is hovered (or a control inside it is focused), mirroring Claude/ChatGPT. */
+.assistantTurn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.messageActions {
+	display: flex;
+	align-items: center;
+	margin-inline-start: calc((16px - 1.75rem) / 2);
+	opacity: 0;
+	transition: opacity 0.12s ease;
+}
+
+.assistantTurn:hover .messageActions,
+.assistantTurn:focus-within .messageActions {
+	opacity: 1;
+}
+
+.userActions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: var(--wpds-dimension-padding-xs);
+}
+
+.userEditButton {
+	appearance: none;
+	border: none;
+	background: transparent;
+	padding: 2px 6px;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-xs);
+	cursor: pointer;
+}
+
+.userEditButton:hover {
+	color: var(--color-frame-text);
+	background-color: var(--color-frame-surface);
+}
+
+.userEditTextarea {
+	width: 100%;
+	resize: vertical;
+	padding: 8px 12px;
+	border: 1px solid var(--color-frame-border);
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background-color: var(--color-frame-surface);
+	color: var(--color-frame-text);
+	font-family: inherit;
+	font-size: inherit;
+	line-height: inherit;
+	box-sizing: border-box;
+}
+
+.userEditTextarea:focus {
+	outline: none;
+	border-color: var(--color-frame-theme);
+}
+
+.userEditActions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: var(--wpds-dimension-padding-xs);
+}
+
+.userEditCancelButton {
+	appearance: none;
+	border: 1px solid var(--color-frame-border);
+	background: transparent;
+	padding: 4px 12px;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	color: var(--color-frame-text);
+	font-size: var(--wpds-typography-font-size-xs);
+	cursor: pointer;
+}
+
+.userEditCancelButton:hover {
+	background-color: var(--color-frame-surface);
+}
+
+/* Doubled class outweighs Tailwind preflight's `[type='button'] { background-color: transparent }` reset. */
+.userEditSendButton.userEditSendButton {
+	appearance: none;
+	border: none;
+	background-color: var(--color-frame-theme);
+	color: #fff;
+	padding: 4px 12px;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	font-size: var(--wpds-typography-font-size-xs);
+	cursor: pointer;
+}
+
+.userEditSendButton:hover {
+	background-color: var(--color-frame-theme-hover);
+}
+
+.userEditSendButton:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
 .toolBlock {
 	display: flex;
 	flex-direction: column;
@@ -359,4 +464,70 @@
 	color: var(--color-frame-error);
 	border-color: var(--color-frame-error);
 	background-color: var(--color-frame-surface-alt);
+
+.mediaArtifactGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+	gap: var(--wpds-dimension-padding-sm);
+	width: min(100%, 680px);
+}
+
+.mediaArtifactItem {
+	margin: 0;
+	min-width: 0;
+}
+
+.mediaArtifactImage {
+	display: block;
+	width: 100%;
+	max-height: min(520px, 58vh);
+	border: 1px solid var(--color-frame-border);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--color-frame-surface);
+	object-fit: contain;
+}
+
+.mediaArtifactLoading,
+.mediaArtifactUnavailable {
+	box-sizing: border-box;
+	min-height: 180px;
+	border: 1px solid var(--color-frame-border);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--color-frame-surface);
+}
+
+.mediaArtifactLoading {
+	background-image: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--color-frame-text) 8%, transparent),
+		transparent
+	);
+	background-size: 200% 100%;
+	animation: mediaArtifactLoading 1.2s ease-in-out infinite;
+}
+
+.mediaArtifactUnavailable {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--wpds-dimension-padding-md);
+	color: var(--color-frame-text-secondary);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+@keyframes mediaArtifactLoading {
+	from {
+		background-position: 200% 0;
+	}
+
+	to {
+		background-position: -200% 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mediaArtifactLoading {
+		animation: none;
+	}
 }

@@ -39,6 +39,7 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 
 	return `${ buildLocalIntro( {
 		chatArtifactsEnabled: options?.chatArtifactsEnabled ?? false,
+		remoteSession: options?.remoteSession ?? false,
 		runtime: options?.runtime,
 	} ) }
 
@@ -97,9 +98,20 @@ function getPostContentGuidance( runtime?: SiteRuntime ): string {
 
 function buildLocalIntro( options: {
 	chatArtifactsEnabled: boolean;
+	remoteSession: boolean;
 	runtime?: SiteRuntime;
 } ): string {
 	const postContentGuidance = getPostContentGuidance( options.runtime );
+	// Remote-bridge sessions also run without chat artifacts, but their user is
+	// on the other end of a messaging bridge: local file paths are unreachable
+	// and REMOTE_SESSION_GUIDANCE (share_screenshot) already covers delivery.
+	const terminalScreenshotSection = options.remoteSession
+		? ''
+		: `
+
+## Screenshots
+
+This session runs in a terminal, which may not be able to display images. Screenshots you capture are for your own visual verification; the user may only see a link to the saved image file in the transcript. Do not respond as though the user is looking at the capture (e.g. "Here's your site!") — instead, state what you verified and describe notable findings, and point to the saved screenshot file when it helps.`;
 	const automaticArtifactSection = options.chatArtifactsEnabled
 		? `
 
@@ -114,7 +126,7 @@ ${ getStudioPresentationRulesPrompt() }
 
 Available desks widget types:
 ${ getStudioWidgetPromptManifest() }`
-		: '';
+		: terminalScreenshotSection;
 	const studioPresentToolBullet = options.chatArtifactsEnabled
 		? `
 - studio_present: Show one or more Studio desks widgets as inline visual artifacts.`

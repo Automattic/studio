@@ -333,6 +333,7 @@ export function createIpcConnector(): Connector {
 			openInOS: true,
 			annotatePreview: true,
 			siteCheckpoints: true,
+			readLocalMedia: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process

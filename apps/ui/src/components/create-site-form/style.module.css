@@ -71,19 +71,19 @@
 }
 
 .pathValuePlaceholder {
-	color: var(--wpds-color-fg-interactive-neutral-disabled);
+	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .pathTriggerAction {
 	flex: 0 0 auto;
 	padding: 6px 12px;
-	font-size: var(--wpds-typography-font-size-md, 13px);
+	font-size: var(--wpds-typography-font-size-sm);
 	font-weight: 500;
 	color: var(--wpds-color-fg-interactive-neutral);
 }
 
 .pathErrorHelp {
-	color: var(--wpds-color-fg-content-error, #d63638);
+	color: var(--wpds-color-fg-content-error);
 }
 
 .advancedToggle {
@@ -132,14 +132,14 @@
 	margin-left: 8px;
 	font-size: 12px;
 	font-weight: 500;
-	color: var(--wpds-color-fg-content-error, #d63638);
+	color: var(--wpds-color-fg-content-error);
 }
 
 .submitError {
 	padding: 10px 12px;
 	border-radius: 4px;
-	background: color-mix(in srgb, var(--wpds-color-fg-content-error, #d63638) 12%, transparent);
-	color: var(--wpds-color-fg-content-error, #7a1a1a);
+	background: var(--wpds-color-bg-surface-error-weak);
+	color: var(--wpds-color-fg-content-error);
 	font-size: 13px;
 }
 

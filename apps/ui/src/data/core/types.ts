@@ -214,6 +214,10 @@ export interface ConnectorCapabilities {
 	// the desktop and the local server (both run the CLI checkpoint engine on
 	// the user's machine); false when hosted remotely.
 	siteCheckpoints: boolean;
+	// `readLocalMediaFile` can read media files from the host's disk (used to
+	// render local screenshot artifacts inline). Only the desktop IPC connector
+	// supports it; the browser connectors reject local file reads.
+	readLocalMedia: boolean;
 }
 
 export interface Connector {

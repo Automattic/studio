@@ -1,8 +1,14 @@
 import {
 	getCheckpointArtifactProps,
+	getLocalMediaPath,
+	getMediaAltText,
+	getSafeMediaUrl,
 	isCheckpointArtifactWidget,
+	isRenderableMediaWidget,
+	isStudioChatArtifactData,
+	stripMediaWidgetPayloadLines,
 	type CheckpointArtifactProps,
-	StudioChatArtifactWidgetDraft,
+	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
 import {
 	isStudioCustomEntryOfType,
@@ -71,6 +77,7 @@ import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { RestoreCheckpointDialog } from '@/components/checkpoint-timeline';
+import { CopyButton } from '@/components/copy-button';
 import { ImageContextMenu } from '@/components/image-context-menu';
 import { ImageLightbox, type LightboxImage } from '@/components/image-lightbox';
 import { Markdown } from '@/components/markdown';
@@ -78,10 +85,10 @@ import * as Menu from '@/components/menu';
 import {
 	useConnector,
 	type LoadedAiSession,
-	type LocalMediaFile,
 	type PermissionDecision,
 	type PermissionRequestData,
 } from '@/data/core';
+import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -117,7 +124,7 @@ type RenderItem =
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
 	  }
-	| { kind: 'assistant-text'; key: string; text: string }
+	| { kind: 'assistant-text'; key: string; text: string; copyText?: string }
 	| {
 			kind: 'work-phase';
 			key: string;
@@ -136,6 +143,11 @@ type RenderItem =
 			// Disk-backed decision paired by request id; undefined while pending
 			// (or forever, if the session died before the user answered).
 			decision?: PermissionDecision;
+	  }
+	| {
+			kind: 'chat-artifact';
+			key: string;
+			widgets: StudioChatArtifactWidgetDraft[];
 	  }
 	| { kind: 'interrupted-marker'; key: string };
 
@@ -190,68 +202,6 @@ function getThinkingLabel( durationMs?: number ): string {
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
 const QUESTION_SCROLL_BOTTOM_CLEARANCE_PX = 96;
-
-function isRecord( value: unknown ): value is Record< string, unknown > {
-	return Boolean( value ) && typeof value === 'object' && ! Array.isArray( value );
-}
-
-function getLocalMediaPath( widget: StudioChatArtifactWidgetDraft ): string | null {
-	const { source } = widget.widgetProps;
-	if ( ! isRecord( source ) || source.type !== 'local' || typeof source.path !== 'string' ) {
-		return null;
-	}
-	return source.path;
-}
-
-function getSafeMediaUrl( widget: StudioChatArtifactWidgetDraft ): string | null {
-	const { url } = widget.widgetProps;
-	if ( typeof url !== 'string' ) {
-		return null;
-	}
-	try {
-		const parsed = new URL( url );
-		return [ 'http:', 'https:', 'data:' ].includes( parsed.protocol ) ? url : null;
-	} catch {
-		return null;
-	}
-}
-
-function isRenderableMediaWidget(
-	widget: StudioChatArtifactWidgetDraft
-): widget is StudioChatArtifactWidgetDraft {
-	return (
-		widget.type === 'media' &&
-		widget.widgetProps.mediaKind === 'image' &&
-		( Boolean( getLocalMediaPath( widget ) ) || Boolean( getSafeMediaUrl( widget ) ) )
-	);
-}
-
-function getMediaAltText( widget: StudioChatArtifactWidgetDraft ): string {
-	return typeof widget.widgetProps.alt === 'string' && widget.widgetProps.alt.trim()
-		? widget.widgetProps.alt
-		: __( 'Image' );
-}
-
-function localMediaFileToDataUrl( file: LocalMediaFile ): string {
-	const bytes = new Uint8Array( file.data );
-	const chunkSize = 0x8000;
-	let binary = '';
-	for ( let index = 0; index < bytes.length; index += chunkSize ) {
-		binary += String.fromCharCode( ...bytes.subarray( index, index + chunkSize ) );
-	}
-	return `data:${ file.mimeType };base64,${ btoa( binary ) }`;
-}
-
-function stripScreenshotMediaPayloadLines( text: string ): string {
-	return text
-		.split( '\n' )
-		.filter(
-			( line ) =>
-				! line.startsWith( 'mediaWidgetPayload=' ) && ! line.startsWith( 'mediaWidgetPayloads=' )
-		)
-		.join( '\n' )
-		.trim();
-}
 
 function usePrefersReducedMotion(): boolean {
 	const [ prefersReducedMotion, setPrefersReducedMotion ] = useState( false );
@@ -323,7 +273,10 @@ function resolveBatchedAnswerForQuestion(
 	return optionLabels.has( answer ) ? answer : undefined;
 }
 
-export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
+export function entriesToRenderItems(
+	entries: SessionEntry[],
+	options: { canReadLocalMedia?: boolean } = {}
+): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
 	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
@@ -336,7 +289,9 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			.map( ( b ) => b.text as string )
 			.join( '\n' );
 		resultsByToolCallId.set( message.toolCallId, {
-			text,
+			// Old transcripts embed media widget payload markers in screenshot
+			// results; strip them from every tool's display text.
+			text: stripMediaWidgetPayloadLines( text ),
 			isError: message.isError === true,
 			diff: message.isError === true ? undefined : getToolResultDiff( message.details ),
 		} );
@@ -402,6 +357,17 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				startedMs !== null && endedMs !== null && endedMs > startedMs
 					? endedMs - startedMs
 					: undefined;
+			// A single assistant message can hold several text blocks split by tool
+			// calls. Copy must yield the whole message, so join every text block and
+			// hang one copy button off the last one rather than one per fragment.
+			const textBlocks = message.content.filter(
+				( block ) => block.type === 'text' && typeof block.text === 'string' && block.text.trim()
+			);
+			const fullMessageText = textBlocks
+				.map( ( block ) => ( block.text as string ).trim() )
+				.join( '\n\n' );
+			const lastTextBlock = textBlocks[ textBlocks.length - 1 ];
+
 			message.content.forEach( ( block, blockIndex ) => {
 				if ( block.type === 'text' && typeof block.text === 'string' ) {
 					const text = block.text.trim();
@@ -410,6 +376,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
 				} else if ( block.type === 'thinking' && typeof block.thinking === 'string' ) {
@@ -489,10 +456,19 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 
 		if ( isStudioCustomEntryOfType( entry, 'studio.chat_artifact' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.chat_artifact' > ).data;
-			const widgets =
-				data?.widgets.filter(
-					( widget ) => isCheckpointArtifactWidget( widget ) || isRenderableMediaWidget( widget )
-				) ?? [];
+			// Guard against malformed persisted entries so one bad line can't
+			// take down the whole transcript.
+			if ( ! isStudioChatArtifactData( data ) ) {
+				continue;
+			}
+			const widgets = data.widgets.filter(
+				( widget ) =>
+					isCheckpointArtifactWidget( widget ) ||
+					( isRenderableMediaWidget( widget ) &&
+						// Without local media access (browser builds), only widgets
+						// with a renderable remote URL are worth showing.
+						( options.canReadLocalMedia !== false || Boolean( getSafeMediaUrl( widget ) ) ) )
+			);
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',
@@ -675,8 +651,19 @@ function UserTurn( {
 	);
 }
 
-function AssistantText( { text }: { text: string } ) {
-	return <Markdown>{ text }</Markdown>;
+function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
+	return (
+		<div className={ styles.assistantTurn }>
+			<Markdown>{ text }</Markdown>
+			{ copyText ? (
+				<CopyButton
+					text={ copyText }
+					label={ __( 'Copy message' ) }
+					className={ styles.messageActions }
+				/>
+			) : null }
+		</div>
+	);
 }
 
 const TOOL_DETAIL_MAX_LENGTH = 96;
@@ -888,7 +875,7 @@ function getToolResultDisplayText(
 ): string {
 	const rawResultText = result?.text?.trim() ?? '';
 	const resultText =
-		name === 'take_screenshot' ? stripScreenshotMediaPayloadLines( rawResultText ) : rawResultText;
+		name === 'take_screenshot' ? stripMediaWidgetPayloadLines( rawResultText ) : rawResultText;
 	if ( ! resultText ) {
 		return '';
 	}
@@ -945,7 +932,7 @@ function ToolUseRow( {
 	const detailsId = useId();
 	const rawResultText = result?.text?.trim() ?? '';
 	const resultText =
-		name === 'take_screenshot' ? stripScreenshotMediaPayloadLines( rawResultText ) : rawResultText;
+		name === 'take_screenshot' ? stripMediaWidgetPayloadLines( rawResultText ) : rawResultText;
 	const preview = getToolResultPreview( name, input, resultText, result?.isError === true );
 	const displayResultText = getToolResultDisplayText( name, input, result );
 	const detailText = preview?.detailText ?? resultText;
@@ -1308,39 +1295,13 @@ function CheckpointRow( { artifact }: { artifact: CheckpointArtifactProps } ) {
 
 function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
 	const connector = useConnector();
-	const localPath = getLocalMediaPath( widget );
+	const localPath = connector.capabilities.readLocalMedia ? getLocalMediaPath( widget ) : null;
 	const safeUrl = getSafeMediaUrl( widget );
-	const [ src, setSrc ] = useState< string | null >( localPath ? null : safeUrl );
-	const [ failed, setFailed ] = useState( false );
+	const localFileQuery = useLocalMediaDataUrl( localPath );
 
-	useEffect( () => {
-		setFailed( false );
-		if ( ! localPath ) {
-			setSrc( safeUrl );
-			return;
-		}
+	const src = localPath ? localFileQuery.data ?? null : safeUrl;
 
-		let active = true;
-		setSrc( null );
-		connector
-			.readLocalMediaFile( localPath )
-			.then( ( file ) => {
-				if ( active ) {
-					setSrc( localMediaFileToDataUrl( file ) );
-				}
-			} )
-			.catch( () => {
-				if ( active ) {
-					setFailed( true );
-				}
-			} );
-
-		return () => {
-			active = false;
-		};
-	}, [ connector, localPath, safeUrl ] );
-
-	if ( failed ) {
+	if ( localFileQuery.isError || ( ! localPath && ! safeUrl ) ) {
 		return (
 			<div className={ styles.mediaArtifactUnavailable } role="status">
 				{ __( 'Image unavailable' ) }
@@ -1352,7 +1313,7 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 		return <div className={ styles.mediaArtifactLoading } aria-hidden="true" />;
 	}
 
-	return <ConversationImage src={ src } alt={ getMediaAltText( widget ) } />;
+	return <ConversationImage src={ src } alt={ getMediaAltText( widget, __( 'Image' ) ) } />;
 }
 
 function AgentQuestion( {
@@ -1847,7 +1808,11 @@ export function Conversation( {
 	onAnswerPermission: ( requestId: string, decision: PermissionDecision ) => void;
 } ) {
 	const entries = data.entries;
-	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
+	const canReadLocalMedia = useConnector().capabilities.readLocalMedia;
+	const items = useMemo(
+		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
+		[ entries, canReadLocalMedia ]
+	);
 	const progressMessage = useMemo( () => findLatestProgressMessage( entries ), [ entries ] );
 
 	// While a turn is in flight, the last work-phase (after the latest user
@@ -1941,7 +1906,9 @@ export function Conversation( {
 								<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
 							);
 						case 'assistant-text':
-							return <AssistantText key={ item.key } text={ item.text } />;
+							return (
+								<AssistantText key={ item.key } text={ item.text } copyText={ item.copyText } />
+							);
 						case 'work-phase':
 							return (
 								<WorkPhaseRow key={ item.key } steps={ item.steps } summary={ item.summary } />

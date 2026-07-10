@@ -1,5 +1,5 @@
 .root {
-	height: 100vh;
+	min-height: 100vh;
 	position: relative;
 	overflow-y: auto;
 	/* New stacking context so the backdrop layer's negative z-index nests

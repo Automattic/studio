@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { cloneElement, createElement, useState, type ReactElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +8,8 @@ import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artif
 
 const connectorMocks = vi.hoisted( () => ( {
 	readLocalMediaFile: vi.fn(),
+	copyText: vi.fn(),
+	capabilities: { readLocalMedia: true },
 } ) );
 
 vi.mock( '@/components/markdown', () => ( {
@@ -34,7 +37,7 @@ vi.mock( '@wordpress/ui', () => {
 		props: Record< string, unknown >,
 		children: ReactNode
 	) {
-		return cloneElement( render, {
+		return cloneElement( render as ReactElement< Record< string, unknown > >, {
 			...props,
 			...( typeof render.props === 'object' && render.props !== null ? render.props : {} ),
 			children:
@@ -83,6 +86,54 @@ vi.mock( '@wordpress/ui', () => {
 
 beforeEach( () => {
 	connectorMocks.readLocalMediaFile.mockReset();
+	connectorMocks.copyText.mockReset();
+	connectorMocks.capabilities.readLocalMedia = true;
+} );
+
+describe( 'Assistant message copy button', () => {
+	it( 'copies the full message when text blocks are split by tool calls', () => {
+		const data = loadedSession( [
+			{
+				type: 'message',
+				id: 'assistant-multi-block',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				message: {
+					role: 'assistant',
+					content: [
+						{ type: 'text', text: 'First part.' },
+						{ type: 'toolCall', id: 'tool-call-1', name: 'Bash', arguments: {} },
+						{ type: 'text', text: 'Second part.' },
+					],
+				},
+			} as unknown as SessionEntry,
+		] );
+		renderConversation( data );
+
+		const buttons = screen.getAllByRole( 'button', { name: 'Copy message' } );
+		expect( buttons ).toHaveLength( 1 );
+
+		fireEvent.click( buttons[ 0 ] );
+		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'First part.\n\nSecond part.' );
+	} );
+
+	it( 'does not add a copy button to user messages', () => {
+		const data = loadedSession( [
+			{
+				type: 'message',
+				id: 'user-1',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				message: {
+					role: 'user',
+					content: [ { type: 'text', text: 'Hello there' } ],
+				},
+			} as unknown as SessionEntry,
+		] );
+		renderConversation( data );
+
+		expect( screen.queryByRole( 'button', { name: 'Copy message' } ) ).not.toBeInTheDocument();
+	} );
 } );
 
 describe( 'Conversation tool rows', () => {
@@ -211,7 +262,7 @@ describe( 'Conversation tool rows', () => {
 		expect( screen.getByRole( 'button', { name: 'Minimal & Clean' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'hides screenshot media payload markers from expanded tool details', () => {
+	it( 'hides legacy media payload markers from expanded tool details for any tool', () => {
 		const data = loadedSession( [
 			assistantToolCallEntry( 'take_screenshot', { url: 'http://localhost:8888/' } ),
 			toolResultEntry(
@@ -268,7 +319,75 @@ describe( 'Conversation chat artifacts', () => {
 			'/tmp/studio-screenshot/screenshot-desktop.jpg'
 		);
 	} );
+
+	it( 'shows a fallback when reading the local file fails', async () => {
+		connectorMocks.readLocalMediaFile.mockRejectedValue( new Error( 'gone' ) );
+		const data = loadedSession( [ chatArtifactEntry( [ localScreenshotWidget() ] ) ] );
+
+		renderConversation( data );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Captured 1 artifact' } ) );
+
+		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Image unavailable' );
+	} );
+
+	it( 'skips malformed chat artifact entries without crashing', () => {
+		const malformed = [
+			{ version: 1, id: 'artifact-1' }, // missing widgets
+			{ version: 1, id: 'artifact-2', widgets: 'nope' }, // wrong widgets type
+			{ id: 'artifact-3', widgets: [] }, // missing version
+		];
+		for ( const data of malformed ) {
+			const entry = {
+				type: 'custom',
+				id: 'chat-artifact',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:02.000Z',
+				customType: 'studio.chat_artifact',
+				data,
+			} as unknown as SessionEntry;
+
+			expect( entriesToRenderItems( [ entry ] ) ).toEqual( [] );
+		}
+	} );
+
+	it( 'drops local-only media widgets when the connector cannot read local files', () => {
+		const localOnly = chatArtifactEntry( [ localScreenshotWidget() ] );
+		const remote = chatArtifactEntry( [
+			{
+				type: 'media',
+				widgetProps: {
+					url: 'https://example.com/capture.jpg',
+					mediaKind: 'image',
+					alt: 'Remote capture',
+					mediaId: null,
+				},
+			},
+		] );
+
+		expect( entriesToRenderItems( [ localOnly ], { canReadLocalMedia: false } ) ).toEqual( [] );
+		expect( entriesToRenderItems( [ remote ], { canReadLocalMedia: false } ) ).toHaveLength( 1 );
+		expect( entriesToRenderItems( [ localOnly ], { canReadLocalMedia: true } ) ).toHaveLength( 1 );
+	} );
 } );
+
+function localScreenshotWidget(): StudioChatArtifactWidgetDraft {
+	return {
+		type: 'media',
+		widgetProps: {
+			url: 'file:///tmp/studio-screenshot/screenshot-desktop.jpg',
+			mediaKind: 'image',
+			alt: 'Screenshot of http://localhost:8888/ (desktop)',
+			mediaId: null,
+			source: {
+				type: 'local',
+				path: '/tmp/studio-screenshot/screenshot-desktop.jpg',
+				name: 'screenshot-desktop.jpg',
+				mimeType: 'image/jpeg',
+			},
+		},
+	};
+}
 
 describe( 'Conversation Ask User questions', () => {
 	it( 'shows option descriptions and a selected historical answer', () => {
@@ -561,19 +680,26 @@ interface RenderConversationOptions {
 }
 
 function renderConversation( data: LoadedAiSession, options: RenderConversationOptions = {} ) {
+	const queryClient = new QueryClient( {
+		defaultOptions: { queries: { retry: false } },
+	} );
 	return render(
-		createElement( Conversation, {
-			data,
-			isRunning: options.isRunning ?? false,
-			startedAt: options.startedAt ?? null,
-			activeTool: null,
-			pendingQuestions: options.pendingQuestions ?? new Set< string >(),
-			pendingAnswers: options.pendingAnswers ?? {},
-			pendingPermissions: new Set< string >(),
-			answeredPermissions: {},
-			onAnswerQuestion: options.onAnswerQuestion ?? vi.fn(),
-			onAnswerPermission: vi.fn(),
-		} )
+		createElement(
+			QueryClientProvider,
+			{ client: queryClient },
+			createElement( Conversation, {
+				data,
+				isRunning: options.isRunning ?? false,
+				startedAt: options.startedAt ?? null,
+				activeTool: null,
+				pendingQuestions: options.pendingQuestions ?? new Set< string >(),
+				pendingAnswers: options.pendingAnswers ?? {},
+				pendingPermissions: new Set< string >(),
+				answeredPermissions: {},
+				onAnswerQuestion: options.onAnswerQuestion ?? vi.fn(),
+				onAnswerPermission: vi.fn(),
+			} )
+		)
 	);
 }
 
@@ -692,20 +818,6 @@ function agentQuestionEntry(
 	} as SessionEntry;
 }
 
-function askUserAnswerEntry( id: string, text: string ): SessionEntry {
-	return {
-		type: 'custom',
-		id,
-		parentId: null,
-		timestamp: '2026-06-05T12:00:02.000Z',
-		customType: 'studio.user_prompt',
-		data: {
-			text,
-			source: 'ask_user',
-		},
-	} as SessionEntry;
-}
-
 function chatArtifactEntry( widgets: StudioChatArtifactWidgetDraft[] ): SessionEntry {
 	return {
 		type: 'custom',
@@ -717,6 +829,20 @@ function chatArtifactEntry( widgets: StudioChatArtifactWidgetDraft[] ): SessionE
 			version: 1,
 			id: 'artifact-1',
 			widgets,
+		},
+	} as SessionEntry;
+}
+
+function askUserAnswerEntry( id: string, text: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:02.000Z',
+		customType: 'studio.user_prompt',
+		data: {
+			text,
+			source: 'ask_user',
 		},
 	} as SessionEntry;
 }
@@ -908,6 +1034,8 @@ describe( 'Conversation work phases', () => {
 				timestamp: '2026-06-05T12:00:02.000Z',
 				customType: 'studio.chat_artifact',
 				data: {
+					version: 1,
+					id: 'artifact-1',
 					widgets: [
 						{
 							type: 'media',

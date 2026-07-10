@@ -12,7 +12,7 @@ export const AI_SKILL_COMMANDS: SkillSlashCommand[] = [
 	{ name: 'rank-me-up', description: __( 'Run an on-page SEO audit on a site' ) },
 	{
 		name: 'liberate',
-		description: __( 'Import & rebuild a site from a closed platform' ),
+		description: __( 'Migrate & rebuild a site from a closed platform' ),
 	},
 ];
 

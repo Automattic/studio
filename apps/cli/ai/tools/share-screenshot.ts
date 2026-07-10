@@ -3,6 +3,8 @@ import { emitEvent } from 'cli/ai/json-events';
 import { defineTool } from './define-tool';
 import {
 	captureScreenshotPng,
+	SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
+	SCREENSHOT_COLOR_SCHEME_VALUES,
 	SHARE_DEVICE_SCALE_FACTOR,
 	SHARE_VIEWPORTS,
 } from './screenshot-helpers';
@@ -45,9 +47,8 @@ export const shareScreenshotTool = defineTool(
 			} )
 		),
 		colorScheme: Type.Optional(
-			Type.Enum( [ 'light', 'dark' ], {
-				description:
-					'Color scheme to emulate: "light" or "dark". Defaults to the browser/system preference.',
+			Type.Enum( SCREENSHOT_COLOR_SCHEME_VALUES, {
+				description: SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
 			} )
 		),
 		caption: Type.Optional(

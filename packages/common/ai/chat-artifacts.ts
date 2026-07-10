@@ -35,8 +35,62 @@ export function isStudioChatArtifactWidgetDraft(
 	);
 }
 
-function isRecord( value: unknown ): value is Record< string, unknown > {
+export function isRecord( value: unknown ): value is Record< string, unknown > {
 	return Boolean( value ) && typeof value === 'object' && ! Array.isArray( value );
+}
+
+// Legacy transcript markers. take_screenshot used to append its media widget
+// payload to the tool result text behind these prefixes; artifacts are now
+// emitted structurally, so the markers survive only in old persisted sessions.
+const MEDIA_WIDGET_PAYLOAD_MARKERS = [ 'mediaWidgetPayload=', 'mediaWidgetPayloads=' ] as const;
+
+export function stripMediaWidgetPayloadLines( text: string ): string {
+	// Fast path: new sessions never contain the markers, and this runs over
+	// every tool result on each conversation render.
+	if ( ! text.includes( 'mediaWidgetPayload' ) ) {
+		return text;
+	}
+	return text
+		.split( '\n' )
+		.filter(
+			( line ) => ! MEDIA_WIDGET_PAYLOAD_MARKERS.some( ( marker ) => line.startsWith( marker ) )
+		)
+		.join( '\n' )
+		.trim();
+}
+
+export function getMediaAltText( widget: StudioChatArtifactWidgetDraft, fallback: string ): string {
+	const { alt } = widget.widgetProps;
+	return typeof alt === 'string' && alt.trim() ? alt : fallback;
+}
+
+export function getLocalMediaPath( widget: StudioChatArtifactWidgetDraft ): string | null {
+	const { source } = widget.widgetProps;
+	if ( ! isRecord( source ) || source.type !== 'local' || typeof source.path !== 'string' ) {
+		return null;
+	}
+	return source.path;
+}
+
+export function getSafeMediaUrl( widget: StudioChatArtifactWidgetDraft ): string | null {
+	const { url } = widget.widgetProps;
+	if ( typeof url !== 'string' ) {
+		return null;
+	}
+	try {
+		const parsed = new URL( url );
+		return [ 'http:', 'https:', 'data:' ].includes( parsed.protocol ) ? url : null;
+	} catch {
+		return null;
+	}
+}
+
+export function isRenderableMediaWidget( widget: StudioChatArtifactWidgetDraft ): boolean {
+	return (
+		widget.type === 'media' &&
+		widget.widgetProps.mediaKind === 'image' &&
+		( Boolean( getLocalMediaPath( widget ) ) || Boolean( getSafeMediaUrl( widget ) ) )
+	);
 }
 
 // The widgetProps the checkpoint agent tools attach to their results (see

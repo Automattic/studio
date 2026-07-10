@@ -2,11 +2,26 @@ import { afterEach, beforeEach, vi } from 'vitest';
 import {
 	__buildTracksPixelUrl,
 	__recordTracksEvent,
+	isTracksEventName,
 	TRACKS_EVENTS,
 	type TracksIdentity,
 } from '../record-tracks-event';
 
 const IDENTITY: TracksIdentity = { type: 'anon', id: 'install-uuid-123' };
+
+describe( 'isTracksEventName', () => {
+	it( 'accepts known event names', () => {
+		expect( isTracksEventName( TRACKS_EVENTS.APP_LAUNCH ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.SITE_START ) ).toBe( true );
+	} );
+
+	it( 'rejects unknown or non-string values', () => {
+		expect( isTracksEventName( 'studio_not_a_real_event' ) ).toBe( false );
+		expect( isTracksEventName( '' ) ).toBe( false );
+		expect( isTracksEventName( undefined ) ).toBe( false );
+		expect( isTracksEventName( 42 ) ).toBe( false );
+	} );
+} );
 
 describe( '__buildTracksPixelUrl', () => {
 	it( 'targets the Tracks pixel endpoint with identity and timestamp params', () => {

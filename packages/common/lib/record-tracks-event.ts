@@ -14,6 +14,14 @@ export const TRACKS_EVENTS = {
 
 export type TracksEventName = ( typeof TRACKS_EVENTS )[ keyof typeof TRACKS_EVENTS ];
 
+const TRACKS_EVENT_NAMES = new Set< string >( Object.values( TRACKS_EVENTS ) );
+
+// Runtime check that a value is a known event name. Use at trust boundaries (e.g. the renderer IPC
+// handler) where the compile-time `TracksEventName` type isn't enforced.
+export function isTracksEventName( value: unknown ): value is TracksEventName {
+	return typeof value === 'string' && TRACKS_EVENT_NAMES.has( value );
+}
+
 // Phase 1 is anonymous-only: `_ut=anon` with an anonymous install UUID. No PII is ever attached.
 export interface TracksIdentity {
 	type: 'anon';

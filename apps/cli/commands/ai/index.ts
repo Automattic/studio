@@ -38,7 +38,7 @@ import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-c
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
-import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
@@ -97,6 +97,7 @@ export async function runCommand( options: {
 	resumeSessionId?: string;
 	showLegacyCommandNotice?: boolean;
 	activeSite?: {
+		id?: string;
 		name: string;
 		path: string;
 		remote?: boolean;
@@ -114,6 +115,7 @@ export async function runCommand( options: {
 	ui.currentModel = currentModel;
 	if ( options.activeSite ) {
 		ui.activeSite = {
+			id: options.activeSite.id,
 			name: options.activeSite.name,
 			path: options.activeSite.path,
 			// Placeholder — turn dispatch resolves the live state before each prompt.
@@ -219,6 +221,7 @@ export async function runCommand( options: {
 			appendStudioEntry( sm, 'studio.site_selected', {
 				siteName: site.name,
 				sitePath: site.path,
+				siteId: site.id,
 				remote: site.remote,
 				url: site.url,
 				wpcomSiteId: site.wpcomSiteId,
@@ -234,6 +237,7 @@ export async function runCommand( options: {
 						appendStudioEntry( sm, 'studio.site_selected', {
 							siteName: site.name,
 							sitePath: site.path,
+							siteId: site.id,
 						} )
 					);
 			  }
@@ -479,9 +483,21 @@ export async function runCommand( options: {
 		// The stored running flag can be absent or stale — the session event log
 		// carries no running state, replay hardcodes false, and the site can be
 		// started/stopped mid-session — so ask the daemon before every turn.
+		// Resolve by id when the session recorded one, so a folder reused by a
+		// newer site can't redirect the turn; the registry record also refreshes
+		// a moved site's current name/path. Old events only carry the path.
 		if ( site && ! site.remote ) {
-			const siteData = await findSiteByFolder( site.path );
-			site.running = siteData ? await isSiteRunning( siteData ) : false;
+			const siteData = site.id
+				? await findSiteById( site.id )
+				: await findSiteByFolder( site.path );
+			if ( siteData ) {
+				site.id = siteData.id;
+				site.name = siteData.name;
+				site.path = siteData.path;
+				site.running = await isSiteRunning( siteData );
+			} else {
+				site.running = false;
+			}
 		}
 		if ( site?.remote && site?.url ) {
 			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;
@@ -653,6 +669,7 @@ export async function runCommand( options: {
 					appendStudioEntry( sm, 'studio.site_selected', {
 						siteName: site.name,
 						sitePath: site.path,
+						siteId: site.id,
 						remote: site.remote,
 						url: site.url,
 						wpcomSiteId: site.wpcomSiteId,
@@ -801,13 +818,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				}
 
 				const sitePath = typeof argv.path === 'string' ? argv.path : undefined;
-				let activeSite: { name: string; path: string } | undefined;
+				let activeSite: { id?: string; name: string; path: string } | undefined;
 				if ( sitePath && typedArgv.siteName ) {
 					activeSite = { name: typedArgv.siteName, path: sitePath };
 				} else if ( sitePath ) {
 					const matchedSite = await findSiteByFolder( sitePath );
 					if ( matchedSite ) {
-						activeSite = { name: matchedSite.name, path: matchedSite.path };
+						activeSite = { id: matchedSite.id, name: matchedSite.name, path: matchedSite.path };
 					}
 				}
 				await runCommand( {

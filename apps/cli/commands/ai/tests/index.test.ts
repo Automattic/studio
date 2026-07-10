@@ -183,7 +183,11 @@ describe( 'AI runCommand — active site banner running state', () => {
 	} );
 
 	it( 'reports the site as running when the daemon says it is', async () => {
-		( findSiteByFolder as Mock ).mockResolvedValue( { id: 'site-1', path: '/sites/my-site' } );
+		( findSiteByFolder as Mock ).mockResolvedValue( {
+			id: 'site-1',
+			name: 'My Site',
+			path: '/sites/my-site',
+		} );
 		( isSiteRunning as Mock ).mockResolvedValue( true );
 
 		await runCommand( {
@@ -198,7 +202,11 @@ describe( 'AI runCommand — active site banner running state', () => {
 	} );
 
 	it( 'reports the site as stopped when the daemon says it is not running', async () => {
-		( findSiteByFolder as Mock ).mockResolvedValue( { id: 'site-1', path: '/sites/my-site' } );
+		( findSiteByFolder as Mock ).mockResolvedValue( {
+			id: 'site-1',
+			name: 'My Site',
+			path: '/sites/my-site',
+		} );
 		( isSiteRunning as Mock ).mockResolvedValue( false );
 
 		await runCommand( {

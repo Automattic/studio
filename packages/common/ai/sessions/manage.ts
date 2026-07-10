@@ -107,7 +107,7 @@ export async function createOrReuseAiSession(
 	}
 
 	const created = await createAiSession( rootDirectory, {
-		site: { name: site.name, path: site.path },
+		site: { id: site.id, name: site.name, path: site.path },
 	} );
 	const placement = await setAiSessionSitePlacement( created.id, {
 		siteId: site.id,

@@ -4,6 +4,7 @@ import path from 'path';
 import { readFile, writeFile } from 'atomically';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createOrReuseAiSession } from '../manage';
+import { readPiFileEntries } from '../store';
 
 // Sessions live in a real temp directory (store.ts uses `fs/promises`), while
 // app.json goes through `atomically`, mocked to an in-memory string — same
@@ -55,6 +56,14 @@ describe( 'createOrReuseAiSession', () => {
 	it( 'reuses an empty draft only when the site id matches', async () => {
 		const first = await createOrReuseAiSession( rootDirectory, { site } );
 		expect( first.ownerSiteId ).toBe( 'site-a' );
+
+		// The initial site_selected event records the id so turn dispatch can
+		// resolve the site by id instead of path.
+		const entries = await readPiFileEntries( first.filePath );
+		expect( entries[ 1 ] ).toMatchObject( {
+			customType: 'studio.site_selected',
+			data: { siteId: 'site-a', sitePath: site.path },
+		} );
 
 		const again = await createOrReuseAiSession( rootDirectory, { site } );
 		expect( again.id ).toBe( first.id );

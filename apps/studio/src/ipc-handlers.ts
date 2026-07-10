@@ -344,6 +344,7 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
 		siteName: ownerServer.details.name,
 		sitePath: ownerServer.details.path,
+		siteId: ownerServer.details.id,
 	} );
 }
 
@@ -466,9 +467,10 @@ export async function setSessionEnvironment(
 
 		await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
 			siteName: liveSite.name,
-			// Keep the local owner's path on remote picks too, so live/local
+			// Keep the local owner's path and id on remote picks too, so live/local
 			// environment flips still resolve against the same local site.
 			sitePath: ownerServer.details.path,
+			siteId: ownerServer.details.id,
 			remote: true,
 			url: liveSite.url,
 			wpcomSiteId: liveSite.id,
@@ -487,6 +489,7 @@ export async function setSessionEnvironment(
 	await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
 		siteName: details.name,
 		sitePath: details.path,
+		siteId: details.id,
 		url: 'url' in details ? details.url : undefined,
 	} );
 

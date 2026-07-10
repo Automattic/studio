@@ -647,6 +647,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
+		// Analytics — no-op here. Tracks currently flows through the desktop IPC connector; the
+		// local (browser) target has no Main-process choke point yet. See the design doc.
+		async trackEvent() {
+			// intentionally empty
+		},
+
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );

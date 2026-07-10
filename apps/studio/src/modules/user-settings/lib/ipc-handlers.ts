@@ -1,5 +1,5 @@
 import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
-import { updateSharedConfig } from '@studio/common/lib/shared-config';
+import { isAnalyticsOptedOut, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { isInstalled } from 'src/lib/is-installed';
@@ -106,6 +106,19 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const colorScheme = userData.colorScheme ?? 'light';
 	nativeTheme.themeSource = colorScheme;
 	return colorScheme;
+}
+
+// Analytics opt-out. Stored in shared.json so both Studio and the Studio CLI honor it. Default is
+// opted IN (analytics ON). See `docs/design-docs/analytics-tracks.md`.
+export async function getAnalyticsEnabled(): Promise< boolean > {
+	return ! ( await isAnalyticsOptedOut() );
+}
+
+export async function saveAnalyticsEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await updateSharedConfig( { analyticsOptOut: ! enabled } );
 }
 
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {

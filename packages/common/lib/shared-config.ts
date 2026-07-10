@@ -45,6 +45,12 @@ export const sharedConfigSchema = z
 		// Both Studio and the Studio CLI read and write this field through
 		// the helpers in `./connected-sites.ts`.
 		connectedWpcomSites: z.record( z.string(), z.array( syncSiteSchema ) ).optional(),
+		// Anonymous install identifier for Tracks analytics, shared by Studio and the Studio CLI.
+		// See `docs/design-docs/analytics-tracks.md`.
+		analyticsInstallId: z.string().optional(),
+		// When true, the user has opted out of Tracks analytics. Absent/false means opted in
+		// (analytics default ON). Does not affect MC Stats or Sentry.
+		analyticsOptOut: z.boolean().optional(),
 	} )
 	.loose();
 
@@ -212,4 +218,32 @@ export async function readAuthToken(): Promise< StoredAuthToken | null > {
 export async function getCurrentUserId(): Promise< number | null > {
 	const token = await readAuthToken();
 	return token?.id ?? null;
+}
+
+// Returns the anonymous Tracks install id, minting and persisting one on first use. Shared by Studio
+// and the Studio CLI (both read the same `shared.json`). See `docs/design-docs/analytics-tracks.md`.
+export async function getOrCreateAnalyticsInstallId(): Promise< string > {
+	const config = await readSharedConfig();
+	if ( config.analyticsInstallId ) {
+		return config.analyticsInstallId;
+	}
+
+	const id = crypto.randomUUID();
+	await updateSharedConfig( { analyticsInstallId: id } );
+	return id;
+}
+
+// True when the user has opted out of Tracks analytics. Default is opted IN (analytics ON).
+export async function isAnalyticsOptedOut(): Promise< boolean > {
+	const config = await readSharedConfig();
+	return config.analyticsOptOut === true;
+}
+
+// Best-effort Automattician flag for the shared `is_a11n` Tracks property, derived from the stored
+// auth token's email domain. Returns false when logged out. Kept synchronous-friendly (no network
+// call) so it can run on every event; the authoritative team-membership check lives elsewhere.
+export async function isAutomatticianFromToken(): Promise< boolean > {
+	const token = await readAuthToken();
+	const email = token?.email?.toLowerCase() ?? '';
+	return email.endsWith( '@a8c.com' ) || email.endsWith( '@automattic.com' );
 }

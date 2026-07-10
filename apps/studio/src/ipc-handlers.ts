@@ -128,6 +128,12 @@ import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
+import {
+	recordTracksEvent,
+	type TracksEventName,
+	type TracksChannel,
+	type TracksUiVersion,
+} from 'src/lib/tracks';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
@@ -223,6 +229,7 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	getAnalyticsEnabled,
 	getColorScheme,
 	getInstalledAppsAndTerminals,
 	getUserEditor,
@@ -230,6 +237,7 @@ export {
 	getUserTerminal,
 	getWapuuScore,
 	previewColorScheme,
+	saveAnalyticsEnabled,
 	saveColorScheme,
 	saveUserEditor,
 	saveUserLocale,
@@ -242,6 +250,17 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
+
+export async function recordAnalyticsEvent(
+	_event: IpcMainInvokeEvent,
+	eventName: TracksEventName,
+	props: Record< string, string | number | boolean | undefined > & {
+		channel?: TracksChannel;
+		ui_version?: TracksUiVersion;
+	} = {}
+): Promise< void > {
+	await recordTracksEvent( eventName, props );
+}
 
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
 	return listHydratedAiSessions( getAiSessionsRootDirectory() );

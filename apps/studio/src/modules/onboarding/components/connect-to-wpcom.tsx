@@ -1,4 +1,4 @@
-import { __experimentalHeading as Heading, Icon } from '@wordpress/components';
+import { __experimentalHeading as Heading, FormToggle, Icon } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { check } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
@@ -12,7 +12,15 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
 import { useI18nLocale } from 'src/stores';
 
-export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
+export function OnboardingConnectToWpcom( {
+	onSkip,
+	analyticsEnabled,
+	onAnalyticsEnabledChange,
+}: {
+	onSkip: () => void;
+	analyticsEnabled: boolean;
+	onAnalyticsEnabledChange: ( value: boolean ) => void;
+} ) {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
 	const offlineMessage = __( "You're currently offline." );
@@ -69,6 +77,21 @@ export function OnboardingConnectToWpcom( { onSkip }: { onSkip: () => void } ) {
 							),
 						}
 					) }
+				</div>
+
+				<div className="flex justify-start items-start gap-2">
+					<FormToggle
+						className="mt-0.5"
+						id="onboarding-analytics-toggle"
+						checked={ analyticsEnabled }
+						onChange={ ( event ) => onAnalyticsEnabledChange( event.target.checked ) }
+					/>
+					<label
+						htmlFor="onboarding-analytics-toggle"
+						className="text-frame-text-secondary text-xs leading-5"
+					>
+						{ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+					</label>
 				</div>
 
 				<div className="flex flex-row gap-2 items-center">

@@ -671,6 +671,15 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openTerminalAtPath( sitePath );
 		},
 
+		// Analytics
+		async trackEvent( eventName, props = {} ): Promise< void > {
+			await ipcApi.recordAnalyticsEvent( eventName, {
+				channel: 'studio-ui',
+				ui_version: 'v2',
+				...props,
+			} );
+		},
+
 		// External links
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );

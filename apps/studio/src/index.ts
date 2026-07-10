@@ -41,8 +41,14 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
+import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
-import { createMainWindow, getCurrentRendererUrl, getMainWindow } from 'src/main-window';
+import {
+	createMainWindow,
+	getCurrentRendererUrl,
+	getMainWindow,
+	getPreferredStudioUiMode,
+} from 'src/main-window';
 import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
@@ -408,6 +414,13 @@ async function appBoot() {
 			getPlatformMetric(),
 			'monthly'
 		).catch( ( err ) => Sentry.captureException( err ) );
+
+		// Tracks: structured launch event, runs in parallel with the MC Stats bumps above.
+		void recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, {
+			channel: 'studio-ui',
+			ui_version: getPreferredStudioUiMode() === 'agentic' ? 'v2' : 'v1',
+			is_first_launch: ! userData.lastBumpStats,
+		} ).catch( ( err ) => Sentry.captureException( err ) );
 
 		await autoInstallWindowsCliIfNeeded();
 		await autoInstallMacOSCliIfNeeded();

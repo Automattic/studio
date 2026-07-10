@@ -134,6 +134,7 @@ If you've built a substantial new feature — especially one generated with AI a
 For in-depth information, see these docs:
 - **CLI Design**: `docs/design-docs/cli.md` - CLI architecture, installation, IPC communication, data flow
 - **Custom Domains/SSL**: `docs/design-docs/custom-domains-and-ssl.md` - Proxy server, certificates, hosts file
+- **Analytics (Tracks)**: `docs/design-docs/analytics-tracks.md` - Tracks vs MC Stats, anonymous identity, opt-out, event catalog
 - **Localization**: `docs/localization.md` - GlotPress workflow, translation process
 - **Release Process**: `docs/release-process.md` - ReleasesV2 + Fastlane lifecycle, running lanes locally
 - **Overview**: `README.md` - Features, download links, contribution guidelines

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { cloneElement, createElement, useState, type ReactElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from '@/data/app-messages';
 import { Conversation, entriesToRenderItems } from './index';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artifacts';
@@ -14,6 +15,10 @@ const connectorMocks = vi.hoisted( () => ( {
 
 vi.mock( '@/components/markdown', () => ( {
 	Markdown: ( { children }: { children: string } ) => children,
+} ) );
+
+vi.mock( '@/data/app-messages', () => ( {
+	toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() },
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -135,7 +140,7 @@ describe( 'Assistant message copy button', () => {
 		fireEvent.doubleClick( screen.getByText( 'Plain reply.' ) );
 
 		expect( connectorMocks.copyText ).toHaveBeenCalledWith( 'Plain reply.' );
-		expect( screen.getByText( 'Copied' ) ).toBeInTheDocument();
+		expect( toast.success ).toHaveBeenCalledWith( 'Copied', { id: 'copy-feedback' } );
 	} );
 
 	it( 'does not add a copy button to user messages', () => {

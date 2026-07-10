@@ -405,6 +405,14 @@ exports — those are local components or `@base-ui/react` wrappers.
 - **Local wrappers** — where `@wordpress/ui` has no equivalent, this app wraps
   `@base-ui/react`: [`components/menu/`](src/components/menu/) (menus & context menus),
   [`components/spinner/`](src/components/spinner/). Reuse these instead of the legacy library.
+- **Ephemeral feedback (toasts)** — NEVER build a bespoke "Copied"/"Saved"/"Failed"
+  notice. Fire the app messaging system: `toast.success( __( 'Copied' ), { id: 'copy-feedback' } )`
+  (also `toast.info` / `toast.error`) from [`data/app-messages.ts`](src/data/app-messages.ts).
+  Rendering, stacking, expiry, and hover-pause are handled by the single `<AppToasts />`
+  instance in `SidebarLayout` — components only call `toast.*`. Reuse a stable `id`
+  (e.g. `'copy-feedback'`) when repeat-firing should replace the toast instead of stacking.
+  Persistent messages (update cards, announcements) are `app-message-cards` — see
+  `data/app-messages.ts` for both queues.
 - **Routing** — code-based routes via `createRoute` / `useNavigate` from `@wordpress/ui`
   (see `README.md` → Routing).
 

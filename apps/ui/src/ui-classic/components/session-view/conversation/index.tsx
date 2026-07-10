@@ -91,6 +91,7 @@ import { ImageContextMenu } from '@/components/image-context-menu';
 import { ImageLightbox, type LightboxImage } from '@/components/image-lightbox';
 import { Markdown } from '@/components/markdown';
 import * as Menu from '@/components/menu';
+import { toast } from '@/data/app-messages';
 import {
 	useConnector,
 	type LoadedAiSession,
@@ -662,27 +663,14 @@ function UserTurn( {
 
 function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
 	const connector = useConnector();
-	const [ showCopied, setShowCopied ] = useState( false );
-	const copiedTimer = useRef< ReturnType< typeof setTimeout > | null >( null );
-	useEffect( () => {
-		return () => {
-			if ( copiedTimer.current ) {
-				clearTimeout( copiedTimer.current );
-			}
-		};
-	}, [] );
 
 	// Double-click anywhere in the reply copies it (the whole message when
 	// this is its last text block, otherwise this fragment). Native word
-	// selection still happens — the copy is additive, and the notice is the
-	// only signal that more than a selection occurred.
+	// selection still happens — the copy is additive, and the app toast is
+	// the signal that more than a selection occurred.
 	const handleDoubleClick = useCallback( () => {
 		void connector.copyText( copyText ?? text );
-		setShowCopied( true );
-		if ( copiedTimer.current ) {
-			clearTimeout( copiedTimer.current );
-		}
-		copiedTimer.current = setTimeout( () => setShowCopied( false ), 1500 );
+		toast.success( __( 'Copied' ), { id: 'copy-feedback' } );
 	}, [ connector, copyText, text ] );
 
 	return (
@@ -694,11 +682,6 @@ function AssistantText( { text, copyText }: { text: string; copyText?: string } 
 					label={ __( 'Copy message' ) }
 					className={ styles.messageActions }
 				/>
-			) : null }
-			{ showCopied ? (
-				<span className={ styles.copyNotice } role="status">
-					{ __( 'Copied' ) }
-				</span>
 			) : null }
 		</div>
 	);

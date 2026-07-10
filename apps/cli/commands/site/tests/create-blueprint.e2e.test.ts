@@ -153,11 +153,14 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 		{ tags: [ 'e2e' ], timeout: 120_000 },
 		async () => {
 			env = setupCliEnv();
+			const sitePath = path.join( env.sitesDir, 'bp-run-php' );
+			// Write a marker into wp-content: its presence on disk is what proves the
+			// runPHP step actually executed (a skipped/no-op step would still exit 0).
 			const blueprintPath = writeBlueprint( env, {
 				steps: [
 					{
 						step: 'runPHP',
-						code: "<?php require_once '/wordpress/wp-load.php'; update_option( 'blogname', 'Blueprint Test Site' );",
+						code: "<?php file_put_contents( '/wordpress/wp-content/blueprint-php-marker.txt', 'ok' );",
 					},
 				],
 			} );
@@ -169,9 +172,11 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 				blueprintPath
 			);
 
-			// The runPHP step applies without error during create.
 			expect( result.code, result.stderr ).toBe( 0 );
 			expect( readCliConfig( env ).sites ).toHaveLength( 1 );
+			expect(
+				fs.existsSync( path.join( sitePath, 'wp-content', 'blueprint-php-marker.txt' ) )
+			).toBe( true );
 		}
 	);
 
@@ -180,11 +185,14 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 		{ tags: [ 'e2e' ], timeout: 120_000 },
 		async () => {
 			env = setupCliEnv();
+			const sitePath = path.join( env.sitesDir, 'bp-wp-cli' );
+			// `wp eval` writes a marker into wp-content: asserting it on disk proves the
+			// wp-cli step actually ran (a skipped/no-op step would still exit 0).
 			const blueprintPath = writeBlueprint( env, {
 				steps: [
 					{
 						step: 'wp-cli',
-						command: "wp option update blogname 'WP-CLI Test Site'",
+						command: `wp eval "file_put_contents( '/wordpress/wp-content/blueprint-wpcli-marker.txt', 'ok' );"`,
 					},
 				],
 			} );
@@ -196,9 +204,11 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 				blueprintPath
 			);
 
-			// The wp-cli step applies without error during create.
 			expect( result.code, result.stderr ).toBe( 0 );
 			expect( readCliConfig( env ).sites ).toHaveLength( 1 );
+			expect(
+				fs.existsSync( path.join( sitePath, 'wp-content', 'blueprint-wpcli-marker.txt' ) )
+			).toBe( true );
 		}
 	);
 } );

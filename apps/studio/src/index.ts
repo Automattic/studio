@@ -416,6 +416,10 @@ async function appBoot() {
 		).catch( ( err ) => Sentry.captureException( err ) );
 
 		// Tracks: structured launch event, runs in parallel with the MC Stats bumps above.
+		// `is_first_launch` intentionally reuses `lastBumpStats` — it's a durable pre-existing marker,
+		// so existing users read false and fresh installs read true. If the MC Stats launch bumps are
+		// ever removed, migrate this to another durable per-install marker (e.g. `sentryUserId`) or a
+		// dedicated flag, or it will silently report true on every launch. See the analytics design doc.
 		void recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, {
 			channel: 'studio-ui',
 			ui_version: getPreferredStudioUiMode() === 'agentic' ? 'v2' : 'v1',

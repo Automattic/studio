@@ -24,6 +24,12 @@ We are adopting Tracks **alongside** MC Stats, not as a replacement:
   dashboards are established.
 - The MC Stats **launch** counters stay permanently as a simple headcount ping.
 
+> **Coupling to watch when removing MC Stats:** the `studio_app_launch` event derives `is_first_launch`
+> from the MC Stats `lastBumpStats` field (a durable pre-existing marker, so it's accurate for both
+> existing users and fresh installs today). If the MC Stats launch bumps are ever removed, migrate this
+> signal to another durable per-install marker (e.g. `sentryUserId`) or a dedicated flag in the same
+> change — otherwise `is_first_launch` will silently report `true` on every launch.
+
 ## High level approach
 
 The pieces mirror the MC Stats layering:

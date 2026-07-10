@@ -1,6 +1,6 @@
 import path from 'path';
 import { test, expect } from '@playwright/test';
-import { arePathsEqual, pathExists } from '@studio/common/lib/fs-utils';
+import { arePathsEqual, pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import {
 	RecommendedPHPVersion as DEFAULT_PHP_VERSION,
 	SupportedPHPVersions as ALLOWED_PHP_VERSIONS,
@@ -286,8 +286,10 @@ test.describe( 'Sites', () => {
 		const originalSite = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
 		await expect( originalSite.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		// Copy the full install into a folder not yet associated with any site.
-		await fs.copy( originalPath, existingDir );
+		// Copy the full install into a folder not yet associated with any site. The
+		// source site is running, so recursiveCopyDirectory (unlike fs.copy) tolerates
+		// its SQLite journal/cache files vanishing mid-copy.
+		await recursiveCopyDirectory( originalPath, existingDir );
 
 		const sidebar = new MainSidebar( session.mainWindow );
 		const modal = await sidebar.openAddSiteModal();
@@ -317,7 +319,9 @@ test.describe( 'Sites', () => {
 		const originalSite = new SiteContent( session.mainWindow, DEFAULT_SITE_NAME );
 		await expect( originalSite.runningButton ).toBeAttached( { timeout: 120_000 } );
 
-		await fs.copy( originalPath, existingDir );
+		// The source site is running, so recursiveCopyDirectory (unlike fs.copy)
+		// tolerates its SQLite journal/cache files vanishing mid-copy.
+		await recursiveCopyDirectory( originalPath, existingDir );
 
 		// Configure the existing wp-config.php for a real MySQL database. The custom
 		// connection identity (host/user/password) must survive adoption — Studio

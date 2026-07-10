@@ -175,26 +175,31 @@ What fires depends on the build, so pick the right method:
   `__ENABLE_CLI_TELEMETRY__` gate, so a plain `npm start` logs `Would have recorded… studio_app_launch`
   in the **Main-process terminal** (the shared core no-ops the network send in dev/E2E). Add
   `enableAgenticUi` to see `ui_version: v2`.
-- **`studio_site_start` — NOT observable in a plain dev run.** It fires from the CLI, gated by
+- **`studio_site_start` — NOT emitted in a plain dev run.** It fires from the CLI, gated by
   `__ENABLE_CLI_TELEMETRY__`, which is compiled to `false` in dev builds — so `npm start` and a normal
-  `npm run cli:build` emit nothing, by design. To exercise it manually, **all** of these must hold
-  (each is a step that, if skipped, produces silent no-output):
+  `npm run cli:build` emit nothing, by design. To exercise it against a dev build **without** rebuilding,
+  set the runtime override `STUDIO_FORCE_CLI_TELEMETRY=1`, and run the CLI directly in a terminal:
 
-  1. Temporarily set `__ENABLE_CLI_TELEMETRY__: true` in `apps/cli/vite.config.dev.ts`, then
-     `npm run cli:build`. (A rebuild with the flag back to `false` re-disables it — rebuild only while
-     it's `true`.)
-  2. **Stop the site first** — `start` no-ops with `WordPress server is already running` and never
-     reaches the event if the site is already up:
-     `node apps/cli/dist/cli/main.mjs stop --path <site>`
-  3. Start it **directly in a terminal** (not from the desktop app, whose child-process stdout you
-     won't see), with debug logging on:
-     `STUDIO_DEBUG_TRACKS=1 node apps/cli/dist/cli/main.mjs start --path <site>`
+  ```
+  # pick a site that is OFFLINE in `studio list` — `start` no-ops on an already-running site
+  # ("WordPress server is already running") and never reaches the event.
+  node apps/cli/dist/cli/main.mjs stop --path <site>   # ensure it's stopped
+  STUDIO_FORCE_CLI_TELEMETRY=1 STUDIO_DEBUG_TRACKS=1 \
+    node apps/cli/dist/cli/main.mjs start --path <site>
+  ```
 
-  Look for `Tracks event URL: https://pixel.wp.com/t.gif?_en=studio_site_start…` in the CLI stdout.
-  Add `NODE_ENV=development` to also get the `Would have recorded… studio_site_start` line and skip the
-  real network send. Revert the flag when done. `channel` is `studio-cli` for a standalone invocation,
-  or `studio-ui` (with `ui_version`) when `STUDIO_TRACKS_ORIGIN` is set (as the desktop does when it
-  spawns the CLI, e.g. `STUDIO_TRACKS_ORIGIN=studio-ui:v2`).
+  Look for `Tracks event URL: https://pixel.wp.com/t.gif?_en=studio_site_start…` in the terminal.
+  (Add `NODE_ENV=development` to also print the `Would have recorded… studio_site_start` line.)
+
+  Gotchas, each of which silently produces no output:
+  - **Watch the terminal, not a log file.** The line is `console` output from the CLI child; it goes to
+    the terminal that ran it — for the desktop path, that's the `npm start` terminal, not
+    `~/Library/Logs/Studio/`.
+  - **Use an OFFLINE site** — a running site short-circuits `start` before the event. Beware a site the
+    desktop app is holding alive; quit the app (or pick a different site) so it doesn't keep respawning.
+  - **`channel`** is `studio-cli` standalone, or `studio-ui` (with `ui_version`) when
+    `STUDIO_TRACKS_ORIGIN` is set — as the desktop injects when it spawns the CLI (e.g.
+    `STUDIO_TRACKS_ORIGIN=studio-ui:v2`).
 - **Live pixel to `pixel.wp.com`.** Only a shipped npm/prod build sends the real request (dev/E2E always
   no-ops). Best confirmed server-side once the events are registered.
 

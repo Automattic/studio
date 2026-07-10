@@ -62,11 +62,21 @@ describe( 'getTracksOrigin', () => {
 describe( 'recordTracksEvent', () => {
 	it( 'does not send when the build-time telemetry flag is off', async () => {
 		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
+		delete process.env.STUDIO_FORCE_CLI_TELEMETRY;
 
 		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { channel: 'studio-cli' } );
 
 		expect( mockRecord ).not.toHaveBeenCalled();
 		expect( mockOptedOut ).not.toHaveBeenCalled();
+	} );
+
+	it( 'STUDIO_FORCE_CLI_TELEMETRY overrides the build-time flag being off', async () => {
+		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
+		process.env.STUDIO_FORCE_CLI_TELEMETRY = '1';
+
+		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { channel: 'studio-cli' } );
+
+		expect( mockRecord ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'does not send when opted out', async () => {

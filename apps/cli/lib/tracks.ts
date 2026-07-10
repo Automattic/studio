@@ -60,12 +60,14 @@ async function commonProps(): Promise< TracksProps > {
 //      matches how the sibling MC-Stats CLI code gates — see `recordSiteRuntimeUsage`.)
 //
 // Consequence for local runs: in a dev build this returns early, so you will NOT see a "Would have
-// recorded studio_site_start" log — that's expected, not a bug.
+// recorded studio_site_start" log — that's expected, not a bug. To exercise Tracks against a dev
+// build without rebuilding, set `STUDIO_FORCE_CLI_TELEMETRY=1` at runtime (the shared core still
+// no-ops the network send in dev/E2E, so this only enables the code path + logging).
 export async function recordTracksEvent(
 	event: TracksEventName,
 	props: TracksProps = {}
 ): Promise< void > {
-	if ( ! __ENABLE_CLI_TELEMETRY__ ) {
+	if ( ! __ENABLE_CLI_TELEMETRY__ && ! process.env.STUDIO_FORCE_CLI_TELEMETRY ) {
 		return;
 	}
 	if ( await isAnalyticsOptedOut() ) {

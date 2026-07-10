@@ -139,13 +139,8 @@ async function main(): Promise< void > {
 	// curl-installed CLI identifies itself at runtime (update notifier + launch stats).
 	console.log( '==> Step 1/4: Building CLI package...' );
 	// install:bundle can run twice per CI job (the desktop make's forge hook runs
-	// it first). npm's --install-links re-resolves the changed data-liberation
-	// file: dep from the registry (E404) when reinstalling over that tree, so
-	// start from a clean node_modules, same as forge.config.ts does.
-	fs.rmSync( path.join( repoRoot, 'apps', 'cli', 'node_modules' ), {
-		recursive: true,
-		force: true,
-	} );
+	// it first); reinstalling over that tree is a cheap no-op since the CLI has
+	// no file: deps in prod dependencies (--omit=dev skips them all).
 	run( 'npm run cli:package:standalone' );
 
 	// Step 2: Assemble the bundle layout in a staging dir

@@ -12,6 +12,7 @@
     "build:mcp-bundle": "node scripts/build-mcp-bundle.mjs",
     "copy-runtime-assets": "node scripts/copy-runtime-assets.mjs",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "test:watch": "vitest",
     "mcp": "tsx src/mcp-server.ts",
     "inspect": "tsx src/cli.ts inspect",

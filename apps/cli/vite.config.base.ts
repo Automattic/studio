@@ -6,6 +6,7 @@ import {
 	mkdirSync,
 	readdirSync,
 	readFileSync,
+	rmdirSync,
 	statSync,
 	writeFileSync,
 } from 'fs';
@@ -51,14 +52,19 @@ const dataLiberationSourcePath = resolve(
 );
 const repoRoot = resolve( __dirname, '..', '..' );
 
-// The nested data-liberation build (cold tsc over ~600 files) is expensive,
-// especially on Windows CI where the CLI is built twice per job (desktop make +
-// standalone bundle). Skip it when its inputs are unchanged since the last
-// successful build, tracked via a fingerprint stamp inside the engine's dist/.
-// The root lockfile is included so dependency bumps invalidate the inlined
-// MCP bundle even when the engine's own sources are untouched.
+// The CLI only ships the engine's self-contained MCP bundle. On CI the
+// committed bundle is used as-is: run-lint.sh rebuilds it and fails on any
+// drift from src/, so every CI checkout carries a provably fresh copy and
+// rebuilding here would only waste time (the Windows job builds the CLI twice
+// per run). Locally the CLI spawns the bundle rather than running the engine
+// from src/ via tsx (unlike the plugin flow, see the engine's
+// scripts/mcp-launcher.mjs), so rebuild it when its inputs changed since the
+// last successful build — tracked via a fingerprint stamp inside the engine's
+// dist/ — to keep engine devs from silently testing a stale bundle. The root
+// lockfile is included so dependency bumps invalidate the inlined bundle even
+// when the engine's own sources are untouched.
 const dataLiberationStampPath = resolve( dataLiberationSourcePath, 'dist', '.studio-build-stamp' );
-const dataLiberationInputs = [ 'src', 'skills', 'scripts', 'package.json', 'tsconfig.json' ];
+const dataLiberationInputs = [ 'src', 'scripts', 'package.json' ];
 
 function computeDataLiberationFingerprint(): string {
 	const entries: string[] = [];
@@ -88,17 +94,43 @@ function computeDataLiberationFingerprint(): string {
 	return createHash( 'sha256' ).update( entries.join( '\n' ) ).digest( 'hex' );
 }
 
+const dataLiberationBundlePath = resolve(
+	dataLiberationSourcePath,
+	'dist',
+	'mcp-server.bundle.mjs'
+);
+
 function buildDataLiberationIfStale() {
+	if ( process.env.CI && existsSync( dataLiberationBundlePath ) ) {
+		console.log( 'data-liberation engine: using the committed bundle (CI verifies its freshness)' );
+		return;
+	}
 	const fingerprint = computeDataLiberationFingerprint();
 	if (
+		existsSync( dataLiberationBundlePath ) &&
 		existsSync( dataLiberationStampPath ) &&
 		readFileSync( dataLiberationStampPath, 'utf8' ) === fingerprint
 	) {
 		console.log( 'data-liberation engine is up to date — skipping nested build' );
 		return;
 	}
-	execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
+	execSync( 'npm -w data-liberation run build:mcp-bundle', { cwd: repoRoot, stdio: 'inherit' } );
 	writeFileSync( dataLiberationStampPath, fingerprint );
+}
+
+// The cpSync filter below keeps only the engine's runtime assets, which leaves
+// behind the directories whose files were all filtered out.
+function pruneEmptyDirs( dir: string ): boolean {
+	let empty = true;
+	for ( const entry of readdirSync( dir, { withFileTypes: true } ) ) {
+		const entryPath = join( dir, entry.name );
+		if ( entry.isDirectory() && pruneEmptyDirs( entryPath ) ) {
+			rmdirSync( entryPath );
+		} else {
+			empty = false;
+		}
+	}
+	return empty;
 }
 
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
@@ -141,17 +173,24 @@ export const baseConfig = defineConfig( {
 							return true;
 						}
 
+						const normalized = rel.split( sep ).join( '/' );
 						const top = rel.split( sep )[ 0 ];
-						if ( top !== 'dist' && top !== 'package.json' && top !== 'skills' ) {
-							return false;
+						// The bundle resolves the engine's vendored PHP helpers and JSON
+						// data relative to their original src/ paths (see the engine's
+						// build-mcp-bundle.mjs), so those assets must ship alongside it.
+						if ( top === 'src' ) {
+							if ( /(^|\/)(__fixtures__|__snapshots__|__tests__)(\/|$)/.test( normalized ) ) {
+								return false;
+							}
+							return statSync( src ).isDirectory() || /\.(php|json)$/.test( rel );
 						}
-						// Within dist/, drop build-only artifacts (types, tests, cache, maps, stamp).
-						return (
-							! /\.(d\.ts|test\.js|js\.map|tsbuildinfo)$/.test( rel ) &&
-							rel !== join( 'dist', '.studio-build-stamp' )
-						);
+						if ( top === 'dist' ) {
+							return rel === 'dist' || normalized === 'dist/mcp-server.bundle.mjs';
+						}
+						return top === 'package.json' || top === 'skills';
 					},
 				} );
+				pruneEmptyDirs( resolve( outDir, 'data-liberation-agent' ) );
 
 				if ( existsSync( localUiDistPath ) ) {
 					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );

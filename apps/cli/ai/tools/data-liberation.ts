@@ -44,16 +44,16 @@ function getClient(): Promise< Client > {
 }
 
 async function connectClient(): Promise< Client > {
-	if ( ! existsSync( path.join( engineDir, 'dist', 'mcp-server.js' ) ) ) {
+	if ( ! existsSync( path.join( engineDir, 'dist', 'mcp-server.bundle.mjs' ) ) ) {
 		throw new Error(
-			'Data Liberation engine is not compiled. Run `npm run cli:build` — it builds the ' +
-				'`data-liberation` workspace and bundles it into `dist/cli`.'
+			'Data Liberation engine is not compiled. Run `npm run cli:build` — it bundles the ' +
+				'`data-liberation` MCP server into `dist/cli`.'
 		);
 	}
 
 	const transport = new StdioClientTransport( {
 		command: process.execPath,
-		args: [ path.join( engineDir, 'dist', 'mcp-server.js' ) ],
+		args: [ path.join( engineDir, 'dist', 'mcp-server.bundle.mjs' ) ],
 		cwd: engineDir,
 		stderr: 'pipe',
 	} );

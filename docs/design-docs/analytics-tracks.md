@@ -58,8 +58,8 @@ the user is authenticated with WordPress.com. Tracks also supports authenticated
 (`_ut=wpcom:user_id`, `_ui=<wpcom user id>`), which would enable cross-product analytics — deferred to a
 later phase per the proposal, as it carries stronger privacy implications.
 
-Set the `STUDIO_DEBUG_TRACKS` env var to log the exact pixel URL for each event (useful for manual
-verification).
+Set the `STUDIO_DEBUG_TRACKS` env var to log the exact pixel URL for each event. Note this only helps
+where the sender actually runs — see Testing below for what fires in which build.
 
 ## Identity and opt-out
 
@@ -161,6 +161,30 @@ Every event also carries the common props `channel`, `is_a11n`, `platform`, `arc
    without this, but registration is what makes them and their props formally defined and reliably
    queryable in the dashboards.
 4. Add a row to the event catalog above.
+
+## Testing
+
+What fires depends on the build, so pick the right method:
+
+- **Unit tests (primary).** The wrapper logic — opt-out gating, common props, `is_a11n` resolution,
+  origin/`channel` resolution, and the `__ENABLE_CLI_TELEMETRY__` gate — is covered by
+  `packages/common/lib/tests/record-tracks-event.test.ts`, `apps/studio/src/lib/tests/tracks.test.ts`,
+  and `apps/cli/lib/tests/tracks.test.ts`. These stub the build flag, so they verify the behavior
+  without any build. Run: `npm test -- <path>`.
+- **`studio_app_launch` in a dev run.** Fires from the desktop Main process, which has no
+  `__ENABLE_CLI_TELEMETRY__` gate, so a plain `npm start` logs `Would have recorded… studio_app_launch`
+  in the **Main-process terminal** (the shared core no-ops the network send in dev/E2E). Add
+  `enableAgenticUi` to see `ui_version: v2`.
+- **`studio_site_start` — NOT observable in a plain dev run.** It fires from the CLI, gated by
+  `__ENABLE_CLI_TELEMETRY__`, which is compiled to `false` in dev builds — so `npm start` and a normal
+  `npm run cli:build` emit nothing, by design. To exercise it manually, temporarily set
+  `__ENABLE_CLI_TELEMETRY__: true` in `apps/cli/vite.config.dev.ts`, `npm run cli:build`, then run
+  `node apps/cli/dist/cli/main.mjs start --path <site>` and read the CLI stdout for the
+  `Would have recorded… studio_site_start` line (still a dev no-op on the network). Revert the flag
+  after. `channel` is `studio-cli` for a standalone invocation, or `studio-ui` (with `ui_version`) when
+  spawned by the desktop, which passes `STUDIO_TRACKS_ORIGIN`.
+- **Live pixel to `pixel.wp.com`.** Only a shipped npm/prod build sends the real request (dev/E2E always
+  no-ops). Best confirmed server-side once the events are registered.
 
 ## Privacy / GDPR
 

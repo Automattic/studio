@@ -34,9 +34,6 @@ function SiteEventsBridge() {
 function ThemedApp( { children }: PropsWithChildren ) {
 	const colorScheme = useColorScheme();
 	const themeColor = colorScheme === 'dark' ? { bg: '#1e1e1e' } : undefined;
-	// Drive the CSS color-scheme from the resolved app theme so native controls
-	// (the language <select> popup, scrollbars, etc.) match it. Without this they
-	// follow prefers-color-scheme, which can differ from the in-app preference.
 	useEffect( () => {
 		document.documentElement.style.colorScheme = colorScheme;
 	}, [ colorScheme ] );

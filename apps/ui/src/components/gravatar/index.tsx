@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import styles from './style.module.css';
 
-// The `-black` asset has dark pixels (visible on a light background) and the
-// plain asset has light pixels (visible on a dark background), so each is used
-// under the opposite theme.
 const PROFILE_ICON_FOR_LIGHT = 'https://s0.wp.com/i/studio-app/profile-icon-black.png';
 const PROFILE_ICON_FOR_DARK = 'https://s0.wp.com/i/studio-app/profile-icon.png';
 

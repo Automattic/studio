@@ -6,7 +6,6 @@ import {
 	app,
 	clipboard,
 	dialog,
-	nativeTheme,
 	shell,
 	type IpcMainInvokeEvent,
 	Notification,
@@ -100,7 +99,6 @@ import {
 	MACOS_TRAFFIC_LIGHT_POSITION,
 	MAIN_MIN_WIDTH,
 	SIDEBAR_WIDTH,
-	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
@@ -131,7 +129,7 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
-import { getMainWindow } from 'src/main-window';
+import { getMainWindow, getTitleBarOverlayOptions } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
 import {
@@ -2252,42 +2250,21 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
 		}
 	} else if ( process.platform === 'win32' || process.platform === 'linux' ) {
-		const isDark = nativeTheme.shouldUseDarkColors;
-		if ( visible ) {
-			parentWindow.setTitleBarOverlay( {
-				color: 'rgba(30, 30, 30, 1)',
-				symbolColor: 'white',
-				height: WINDOWS_TITLEBAR_HEIGHT,
-			} );
-		} else {
-			parentWindow.setTitleBarOverlay( {
-				color: isDark ? '#2f2f2f' : '#fff',
-				symbolColor: isDark ? 'white' : '#1e1e1e',
-				height: WINDOWS_TITLEBAR_HEIGHT,
-			} );
-		}
+		parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 	}
 }
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
+	// The overlay tracks the app theme (see getTitleBarOverlayOptions), so a modal
+	// backdrop no longer needs a distinct titlebar color. Kept as a stable hook
+	// for the modal open/close callers; it just re-applies the themed overlay.
+	void enabled;
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
 		return;
 	}
 
-	if ( enabled ) {
-		parentWindow.setTitleBarOverlay( {
-			color: '#131313',
-			symbolColor: 'white',
-			height: WINDOWS_TITLEBAR_HEIGHT,
-		} );
-	} else {
-		parentWindow.setTitleBarOverlay( {
-			color: 'rgba(30, 30, 30, 1)',
-			symbolColor: 'white',
-			height: WINDOWS_TITLEBAR_HEIGHT,
-		} );
-	}
+	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 
 export async function updateSitesSortOrder(

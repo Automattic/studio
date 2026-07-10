@@ -805,7 +805,7 @@
 .messageActions {
 	position: absolute;
 	top: 100%;
-	inset-inline-start: calc((16px - 1.75rem) / 2);
+	inset-inline-start: calc((16px - 1.5rem) / 2);
 	display: flex;
 	align-items: center;
 	opacity: 0;

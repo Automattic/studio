@@ -108,7 +108,6 @@ import {
 	getBetaFeatures as getBetaFeaturesFromLib,
 	updateBetaFeature as updateBetaFeatureInLib,
 } from 'src/lib/beta-features';
-import { setFeatureFlagInEnv } from 'src/lib/feature-flags';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -125,7 +124,7 @@ import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
 } from 'src/lib/error-formatting';
-import { buildFeatureFlags } from 'src/lib/feature-flags';
+import { setFeatureFlagInEnv, buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';

@@ -87,6 +87,7 @@ const api: IpcApi = {
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
+	enableAgenticUi: () => ipcRendererInvoke( 'enableAgenticUi' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	generateProposedSitePath: ( siteName ) =>

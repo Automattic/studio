@@ -3,6 +3,7 @@ import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { FormPathInputComponent } from 'src/components/form-path-input';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
@@ -27,6 +28,33 @@ import {
 	useSaveDefaultSiteDirectoryMutation,
 } from 'src/stores/installed-apps-api';
 import { SettingsFormField } from './settings-form-field';
+
+function AgenticUiBanner() {
+	const { __ } = useI18n();
+	const { enableAgenticUi } = useFeatureFlags();
+
+	if ( enableAgenticUi ) {
+		return null;
+	}
+
+	return (
+		<div className="flex items-center justify-between gap-4 rounded-md p-4 border border-[var(--color-frame-border)] bg-[var(--color-frame-surface)]">
+			<div>
+				<p className="m-0 font-semibold text-[var(--color-frame-text)]">
+					{ __( 'Try the new Studio experience' ) }
+				</p>
+				<p className="m-0 mt-1 text-xs text-[var(--color-frame-text-secondary)]">
+					{ __(
+						'A redesigned interface with AI-powered site building. You can switch back anytime.'
+					) }
+				</p>
+			</div>
+			<Button variant="primary" onClick={ () => getIpcApi().enableAgenticUi() }>
+				{ __( 'Try it' ) }
+			</Button>
+		</div>
+	);
+}
 
 export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
@@ -130,6 +158,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 
 	return (
 		<>
+			<AgenticUiBanner />
 			<ColorSchemePicker value={ colorSchemeSelection } onChange={ handleColorSchemeChange } />
 			<LanguagePicker value={ localeSelection } onChange={ setDirtyLocale } />
 			<div className="grid grid-cols-2 gap-3">

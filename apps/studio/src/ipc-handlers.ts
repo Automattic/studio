@@ -104,7 +104,11 @@ import {
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
-import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
+import {
+	getBetaFeatures as getBetaFeaturesFromLib,
+	updateBetaFeature as updateBetaFeatureInLib,
+} from 'src/lib/beta-features';
+import { setFeatureFlagInEnv } from 'src/lib/feature-flags';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -131,7 +135,7 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
-import { getMainWindow } from 'src/main-window';
+import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
 import {
@@ -172,11 +176,11 @@ import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
+	updateAppdata,
 	loadUserData,
 	lockAppdata,
 	saveUserData,
 	unlockAppdata,
-	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
@@ -1472,6 +1476,15 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 
 export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
 	return await getBetaFeaturesFromLib();
+}
+
+export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', true );
+	setFeatureFlagInEnv( 'enableAgenticUi', true );
+	const mainWindow = await getMainWindow();
+	if ( mainWindow && ! mainWindow.isDestroyed() ) {
+		await loadMainWindowRenderer( mainWindow );
+	}
 }
 
 export async function executeWPCLiInline(

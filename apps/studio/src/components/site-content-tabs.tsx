@@ -1,6 +1,7 @@
 import { TabPanel } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useEffect, useRef, useState } from 'react';
+import Button from 'src/components/button';
 import { ContentTabImportExport } from 'src/components/content-tab-import-export';
 import { ContentTabOverview } from 'src/components/content-tab-overview';
 import { ContentTabPreviews } from 'src/components/content-tab-previews';
@@ -11,8 +12,10 @@ import { StudioCodeSession } from 'src/components/studio-code-session';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
 import { TabName } from 'src/hooks/use-content-tabs';
 import { useEffectiveTab } from 'src/hooks/use-effective-tab';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { useImportExport } from 'src/hooks/use-import-export';
 import { useSiteDetails } from 'src/hooks/use-site-details';
+import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ContentTabSync } from 'src/modules/sync';
 
 export function SiteContentTabs() {
@@ -20,6 +23,8 @@ export function SiteContentTabs() {
 	const { importState } = useImportExport();
 	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
 	const { __ } = useI18n();
+	const { enableAgenticUi } = useFeatureFlags();
+	const [ bannerDismissed, setBannerDismissed ] = useState( false );
 
 	// Remount: Avoid focus loss on user tab changes (no remount),
 	// but remount on programmatic changes and site switches so initial tab/content state resets.
@@ -75,9 +80,31 @@ export function SiteContentTabs() {
 		);
 	}
 
+	const showBanner = ! enableAgenticUi && ! bannerDismissed;
+
 	return (
 		<div className="flex flex-col w-full h-full app-no-drag-region pt-8 overflow-y-auto">
 			<Header />
+			{ showBanner && (
+				<div className="mx-8 mt-4 flex items-center justify-between gap-4 rounded-md p-4 border border-[var(--color-frame-border)] bg-[var(--color-frame-surface)]">
+					<div>
+						<p className="m-0 font-semibold text-[var(--color-frame-text)]">
+							{ __( 'Try the new Studio experience' ) }
+						</p>
+						<p className="m-0 mt-1 text-xs text-[var(--color-frame-text-secondary)]">
+							{ __( 'A redesigned interface with AI-powered site building.' ) }
+						</p>
+					</div>
+					<div className="flex gap-2 shrink-0">
+						<Button variant="tertiary" onClick={ () => setBannerDismissed( true ) }>
+							{ __( 'Dismiss' ) }
+						</Button>
+						<Button variant="primary" onClick={ () => getIpcApi().enableAgenticUi() }>
+							{ __( 'Try it' ) }
+						</Button>
+					</div>
+				</div>
+			) }
 			<TabPanel
 				className={ `mt-6 h-full flex flex-col overflow-hidden ${ MIN_WIDTH_CLASS_TO_MEASURE }` }
 				tabs={ tabs }

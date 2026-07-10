@@ -99,6 +99,15 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 							getPlatformMetric()
 						);
 					}
+					if ( key === 'enableAgenticUi' ) {
+						setFeatureFlagInEnv( 'enableAgenticUi', menuItem.checked );
+						const mainWindow = await getMainWindow();
+						if ( mainWindow && ! mainWindow.isDestroyed() ) {
+							setTimeout( () => {
+								void loadMainWindowRenderer( mainWindow );
+							}, 0 );
+						}
+					}
 					void sendIpcEventToRenderer( 'beta-features-updated' );
 				},
 			};

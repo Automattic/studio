@@ -37,6 +37,7 @@ import {
 	StatsGroup,
 } from 'src/lib/bump-stats';
 import { handleDeeplink } from 'src/lib/deeplink';
+import { setFeatureFlagInEnv } from 'src/lib/feature-flags';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
@@ -375,7 +376,10 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await setupSentryUserId();
-		await getBetaFeatures();
+		const betaFeatures = await getBetaFeatures();
+		if ( betaFeatures.enableAgenticUi ) {
+			setFeatureFlagInEnv( 'enableAgenticUi', true );
+		}
 
 		// Fetch data from CLI and subscribe to CLI events before starting the user data
 		// watcher. The watcher can trigger getMainWindow() which creates the window early,

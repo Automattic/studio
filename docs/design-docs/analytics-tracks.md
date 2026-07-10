@@ -177,12 +177,24 @@ What fires depends on the build, so pick the right method:
   `enableAgenticUi` to see `ui_version: v2`.
 - **`studio_site_start` — NOT observable in a plain dev run.** It fires from the CLI, gated by
   `__ENABLE_CLI_TELEMETRY__`, which is compiled to `false` in dev builds — so `npm start` and a normal
-  `npm run cli:build` emit nothing, by design. To exercise it manually, temporarily set
-  `__ENABLE_CLI_TELEMETRY__: true` in `apps/cli/vite.config.dev.ts`, `npm run cli:build`, then run
-  `node apps/cli/dist/cli/main.mjs start --path <site>` and read the CLI stdout for the
-  `Would have recorded… studio_site_start` line (still a dev no-op on the network). Revert the flag
-  after. `channel` is `studio-cli` for a standalone invocation, or `studio-ui` (with `ui_version`) when
-  spawned by the desktop, which passes `STUDIO_TRACKS_ORIGIN`.
+  `npm run cli:build` emit nothing, by design. To exercise it manually, **all** of these must hold
+  (each is a step that, if skipped, produces silent no-output):
+
+  1. Temporarily set `__ENABLE_CLI_TELEMETRY__: true` in `apps/cli/vite.config.dev.ts`, then
+     `npm run cli:build`. (A rebuild with the flag back to `false` re-disables it — rebuild only while
+     it's `true`.)
+  2. **Stop the site first** — `start` no-ops with `WordPress server is already running` and never
+     reaches the event if the site is already up:
+     `node apps/cli/dist/cli/main.mjs stop --path <site>`
+  3. Start it **directly in a terminal** (not from the desktop app, whose child-process stdout you
+     won't see), with debug logging on:
+     `STUDIO_DEBUG_TRACKS=1 node apps/cli/dist/cli/main.mjs start --path <site>`
+
+  Look for `Tracks event URL: https://pixel.wp.com/t.gif?_en=studio_site_start…` in the CLI stdout.
+  Add `NODE_ENV=development` to also get the `Would have recorded… studio_site_start` line and skip the
+  real network send. Revert the flag when done. `channel` is `studio-cli` for a standalone invocation,
+  or `studio-ui` (with `ui_version`) when `STUDIO_TRACKS_ORIGIN` is set (as the desktop does when it
+  spawns the CLI, e.g. `STUDIO_TRACKS_ORIGIN=studio-ui:v2`).
 - **Live pixel to `pixel.wp.com`.** Only a shipped npm/prod build sends the real request (dev/E2E always
   no-ops). Best confirmed server-side once the events are registered.
 

@@ -305,8 +305,6 @@ export function SitePreview( {
 					windowControls
 						? {
 								minHeight: windowControls.height,
-								// Clear the OS controls plus a gap so the preview options
-								// don't butt against the window buttons.
 								paddingInlineEnd: windowControls.controlsWidth + 12,
 						  }
 						: undefined

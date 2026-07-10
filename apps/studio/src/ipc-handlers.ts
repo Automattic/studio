@@ -2255,9 +2255,6 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 }
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
-	// The overlay tracks the app theme (see getTitleBarOverlayOptions), so a modal
-	// backdrop no longer needs a distinct titlebar color. Kept as a stable hook
-	// for the modal open/close callers; it just re-applies the themed overlay.
 	void enabled;
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {

@@ -1,6 +1,7 @@
 import { isSupportedLocale, supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
+import { CheckboxControl } from '@wordpress/components';
 import { DataForm } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
@@ -21,7 +22,7 @@ import type {
 	UserPreferences,
 	WritableUserPreferences,
 } from '@/data/core';
-import type { Field, Form } from '@wordpress/dataviews';
+import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
 type TabId = 'preferences';
@@ -107,6 +108,19 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 	supportedLocaleNames
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
+// DataForm's default boolean renderer doesn't bind a plain checkbox to the record value, so — like
+// the other boolean fields in this app (e.g. site settings) — supply a custom control.
+function AnalyticsEnabledControl( { data, field, onChange }: DataFormControlProps< FormData > ) {
+	return (
+		<CheckboxControl
+			__nextHasNoMarginBottom
+			label={ field.label }
+			checked={ data.analyticsEnabled }
+			onChange={ ( checked ) => onChange( { analyticsEnabled: checked } ) }
+		/>
+	);
+}
+
 function SettingsHeader() {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace();
@@ -173,6 +187,7 @@ export function SettingsView( {
 				id: 'analyticsEnabled',
 				type: 'boolean',
 				label: __( 'Help improve Studio by sharing anonymous usage statistics' ),
+				Edit: AnalyticsEnabledControl,
 			},
 		],
 		[ installedApps ]

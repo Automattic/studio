@@ -22,6 +22,11 @@ export interface TracksIdentity {
 
 export type TracksProps = Record< string, string | number | boolean | undefined >;
 
+// Shared origin vocabulary — which application/renderer an event came from. Kept here so the desktop
+// and CLI wrappers stay in sync. See `docs/design-docs/analytics-tracks.md`.
+export type TracksChannel = 'studio-ui' | 'studio-cli';
+export type TracksUiVersion = 'v1' | 'v2';
+
 // Builds the Tracks pixel URL. Isolated so a param-name correction is a one-file change.
 // `_en` event name, `_ut`/`_ui` identity, `_ts` timestamp (ms), `_via` origin tag. Every prop is
 // coerced to a string (Tracks stores all values as strings). `undefined` props are dropped.

@@ -1,8 +1,9 @@
 import {
 	__recordTracksEvent,
-	TRACKS_EVENTS,
+	type TracksChannel,
 	type TracksEventName,
 	type TracksProps,
+	type TracksUiVersion,
 } from '@studio/common/lib/record-tracks-event';
 import {
 	getOrCreateAnalyticsInstallId,
@@ -10,10 +11,12 @@ import {
 	isAutomatticianFromToken,
 } from '@studio/common/lib/shared-config';
 
-export { TRACKS_EVENTS, type TracksEventName };
-
-export type TracksChannel = 'studio-ui' | 'studio-cli';
-export type TracksUiVersion = 'v1' | 'v2';
+export {
+	TRACKS_EVENTS,
+	type TracksEventName,
+	type TracksChannel,
+	type TracksUiVersion,
+} from '@studio/common/lib/record-tracks-event';
 
 export interface TracksOrigin {
 	channel: TracksChannel;

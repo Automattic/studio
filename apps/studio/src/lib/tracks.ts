@@ -1,7 +1,6 @@
 import { app } from 'electron';
 import {
 	__recordTracksEvent,
-	TRACKS_EVENTS,
 	type TracksEventName,
 	type TracksProps,
 } from '@studio/common/lib/record-tracks-event';
@@ -11,11 +10,12 @@ import {
 	isAutomatticianFromToken,
 } from '@studio/common/lib/shared-config';
 
-export { TRACKS_EVENTS, type TracksEventName };
-
-// Which application/renderer sent the event. See `docs/design-docs/analytics-tracks.md`.
-export type TracksChannel = 'studio-ui' | 'studio-cli';
-export type TracksUiVersion = 'v1' | 'v2';
+export {
+	TRACKS_EVENTS,
+	type TracksEventName,
+	type TracksChannel,
+	type TracksUiVersion,
+} from '@studio/common/lib/record-tracks-event';
 
 async function commonProps(): Promise< TracksProps > {
 	return {

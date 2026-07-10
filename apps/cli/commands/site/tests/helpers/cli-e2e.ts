@@ -100,6 +100,13 @@ export function runCli( args: string[], env: CliEnv ): Promise< CliResult > {
 				...process.env,
 				DEV_CONFIG_DIR: env.configDir,
 				STUDIO_PROCESS_MANAGER_HOME: env.daemonHome,
+				// Isolate the legacy Electron appdata lookup too: getAppdataDirectory()
+				// ignores DEV_CONFIG_DIR, so without these the 00-check-studio-compatibility
+				// migration finds the developer's real pre-split appdata-v1.json (when
+				// Studio is installed) and aborts the CLI — passing in CI, failing on dev
+				// machines. E2E=1 also disables bump-stats in the spawned CLI.
+				E2E: '1',
+				E2E_APP_DATA_PATH: env.root,
 			},
 		} );
 

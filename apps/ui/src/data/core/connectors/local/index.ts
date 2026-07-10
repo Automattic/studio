@@ -587,6 +587,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					null,
 				colorScheme,
 				locale: undefined,
+				// Analytics doesn't flow through the browser target in Phase 1; report enabled.
+				analyticsEnabled: true,
 			};
 		},
 		async setUserPreferences( partial ) {

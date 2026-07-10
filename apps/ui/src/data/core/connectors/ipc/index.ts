@@ -613,18 +613,20 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale ] = ( await Promise.all( [
+			const [ editor, terminal, colorScheme, locale, analyticsEnabled ] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
 				ipcApi.getUserLocale(),
+				ipcApi.getAnalyticsEnabled(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
 				string | undefined,
+				boolean,
 			];
-			return { editor, terminal, colorScheme, locale };
+			return { editor, terminal, colorScheme, locale, analyticsEnabled };
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -640,6 +642,9 @@ export function createIpcConnector(): Connector {
 			}
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
+			}
+			if ( 'analyticsEnabled' in partial ) {
+				writes.push( ipcApi.saveAnalyticsEnabled( partial.analyticsEnabled ) );
 			}
 			await Promise.all( writes );
 		},

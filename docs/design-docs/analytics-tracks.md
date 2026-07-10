@@ -59,10 +59,14 @@ verification).
   `shared.json`. Because `shared.json` is read by both the desktop app and the CLI, both attribute
   events to the same install. No PII is attached; identity is always `_ut=anon`.
 - **Opt-out.** `analyticsOptOut` in `shared.json` (absent/false = opted **in**; analytics default ON).
-  Enforced in both wrappers before any send. The user controls it from **two** places, both writing
-  the same shared flag through `saveAnalyticsEnabled` → `updateSharedConfig`:
-  - Settings → General (the `AnalyticsToggle` in `preferences-tab.tsx`).
-  - The onboarding screen (`connect-to-wpcom.tsx`), persisted on skip/login.
+  Enforced in both wrappers before any send. The user controls it from several places, all writing the
+  same shared flag through the `getAnalyticsEnabled` / `saveAnalyticsEnabled` IPC handlers →
+  `updateSharedConfig`:
+  - Legacy renderer Settings → General (`AnalyticsToggle` in `preferences-tab.tsx`).
+  - Onboarding screen (`connect-to-wpcom.tsx`), persisted on skip/login.
+  - Agentic renderer (`apps/ui`) Settings → Preferences — folded into `UserPreferences`
+    (`analyticsEnabled`) so it rides the existing preferences query/mutation through the connector,
+    which calls the same IPC handlers.
 - **What opt-out does *not* affect.** MC Stats (aggregate headcount, not behavioral) and Sentry (crash
   reports, not analytics) keep sending. Only Tracks stops.
 - **`--avoid-telemetry`.** This existing CLI flag is unrelated to the Tracks opt-out. It prevents the

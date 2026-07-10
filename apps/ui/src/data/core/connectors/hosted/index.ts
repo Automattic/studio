@@ -308,6 +308,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				terminal: null,
 				colorScheme: 'system',
 				locale: undefined,
+				analyticsEnabled: true,
 			};
 		},
 		async setUserPreferences() {

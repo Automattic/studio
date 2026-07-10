@@ -370,6 +370,9 @@ export interface UserPreferences {
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
 	locale: string | undefined;
+	// Whether the user shares anonymous usage statistics (Tracks). Default true.
+	// See `docs/design-docs/analytics-tracks.md`.
+	analyticsEnabled: boolean;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

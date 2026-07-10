@@ -41,6 +41,7 @@ interface FormData {
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
 	locale: SupportedLocale;
+	analyticsEnabled: boolean;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -56,6 +57,7 @@ function toFormData( prefs: UserPreferences ): FormData {
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
 		locale: resolveFormLocale( prefs.locale ),
+		analyticsEnabled: prefs.analyticsEnabled,
 	};
 }
 
@@ -70,6 +72,8 @@ function diffFromSaved(
 	if ( nextTerminal !== saved.terminal ) patch.terminal = nextTerminal;
 	if ( next.colorScheme !== saved.colorScheme ) patch.colorScheme = next.colorScheme;
 	if ( next.locale !== resolveFormLocale( saved.locale ) ) patch.locale = next.locale;
+	if ( next.analyticsEnabled !== saved.analyticsEnabled )
+		patch.analyticsEnabled = next.analyticsEnabled;
 	return patch;
 }
 
@@ -165,6 +169,11 @@ export function SettingsView( {
 				// combobox for 10+ options, whose "x" could empty the language.
 				Edit: 'select',
 			},
+			{
+				id: 'analyticsEnabled',
+				type: 'boolean',
+				label: __( 'Help improve Studio by sharing anonymous usage statistics' ),
+			},
 		],
 		[ installedApps ]
 	);
@@ -180,6 +189,7 @@ export function SettingsView( {
 				},
 				'colorScheme',
 				'locale',
+				'analyticsEnabled',
 			],
 		} ),
 		[]

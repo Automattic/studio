@@ -14,8 +14,9 @@ export interface SlashCommandMatches {
  * very start or right after whitespace (e.g. `/`, `/an`, `fix this /sp`), and
  * no preview prompt is active. A `/` glued to the end of a word (e.g.
  * `path/to`) does not trigger it. The text after the `/` is matched as a
- * case-insensitive substring against the available skill command names (so
- * `/speed` matches `need-for-speed`). If nothing matches, the popup closes.
+ * case-insensitive substring against the available skill command names and
+ * descriptions (so `/speed` matches `need-for-speed` and `/migrate` matches
+ * `liberate`). If nothing matches, the popup closes.
  */
 export function getSlashCommandMatches(
 	value: string,
@@ -29,8 +30,10 @@ export function getSlashCommandMatches(
 		return { open: false, matches: [] };
 	}
 	const query = match[ 1 ].toLowerCase();
-	const matches = AI_SKILL_COMMANDS.filter( ( command ) =>
-		command.name.toLowerCase().includes( query )
+	const matches = AI_SKILL_COMMANDS.filter(
+		( command ) =>
+			command.name.toLowerCase().includes( query ) ||
+			command.description.toLowerCase().includes( query )
 	);
 	if ( matches.length === 0 ) {
 		return { open: false, matches: [] };

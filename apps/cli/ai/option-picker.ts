@@ -5,10 +5,8 @@ const DESCRIPTION_INDENT = '     '; // aligns descriptions under the numbered la
 const MIN_DESCRIPTION_WIDTH = 10;
 
 /**
- * Render AskUserQuestion options as multi-line rows: the full label, then the
- * description word-wrapped and indented beneath it. Unlike SelectList's
- * built-in single-row layout, nothing is truncated, and embedded newlines in
- * labels and descriptions are preserved.
+ * Multi-line option rows for AskUserQuestion: full label with the wrapped
+ * description indented below — no truncation, newlines preserved.
  */
 export function buildOptionPickerLines(
 	items: SelectItem[],

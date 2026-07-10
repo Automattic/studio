@@ -78,8 +78,12 @@ verification).
 - **What opt-out does *not* affect.** MC Stats (aggregate headcount, not behavioral) and Sentry (crash
   reports, not analytics) keep sending. Only Tracks stops.
 - **`--avoid-telemetry`.** This existing CLI flag is unrelated to the Tracks opt-out. It prevents the
-  MC-Stats launch counters from being double-counted when the desktop spawns the CLI. Tracks site-start
-  is intentionally **not** suppressed by it (see below).
+  MC-Stats launch counters from being double-counted when the desktop spawns the CLI. Tracks
+  `studio_site_start` is intentionally **not** suppressed by it: the only thing that stops it is the
+  Tracks opt-out (`analyticsOptOut`). **For data consumers:** every site start is counted once, whether
+  it originated in a UI (`channel=studio-ui`) or the standalone CLI (`channel=studio-cli`) — app-spawned
+  CLI runs are *not* excluded despite carrying `--avoid-telemetry`. Filter by `channel` to separate UI
+  from CLI starts.
 
 ## Data flow
 

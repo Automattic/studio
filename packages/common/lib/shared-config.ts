@@ -223,14 +223,26 @@ export async function getCurrentUserId(): Promise< number | null > {
 // Returns the anonymous Tracks install id, minting and persisting one on first use. Shared by Studio
 // and the Studio CLI (both read the same `shared.json`). See `docs/design-docs/analytics-tracks.md`.
 export async function getOrCreateAnalyticsInstallId(): Promise< string > {
-	const config = await readSharedConfig();
-	if ( config.analyticsInstallId ) {
-		return config.analyticsInstallId;
+	// Fast path: already minted. Avoids taking the lock on every launch.
+	const existing = ( await readSharedConfig() ).analyticsInstallId;
+	if ( existing ) {
+		return existing;
 	}
 
-	const id = crypto.randomUUID();
-	await updateSharedConfig( { analyticsInstallId: id } );
-	return id;
+	// Mint under lock. The desktop app and the CLI it spawns can both reach this on first launch;
+	// re-read inside the critical section so we don't clobber an id another process just minted.
+	try {
+		await lockSharedConfig();
+		const config = await readSharedConfig();
+		if ( config.analyticsInstallId ) {
+			return config.analyticsInstallId;
+		}
+		const id = crypto.randomUUID();
+		await saveSharedConfig( { ...config, analyticsInstallId: id } );
+		return id;
+	} finally {
+		await unlockSharedConfig();
+	}
 }
 
 // True when the user has opted out of Tracks analytics. Default is opted IN (analytics ON).

@@ -48,19 +48,44 @@ const repoRoot = resolve( __dirname, '..', '..' );
 // or dev-server setups, which is fine.
 const localUiDistPath = resolve( __dirname, '../ui/dist-local' );
 
-function copyEngineRuntimeAssets( srcDir: string, destDir: string ) {
-	for ( const entry of readdirSync( srcDir, { withFileTypes: true } ) ) {
-		const from = resolve( srcDir, entry.name );
-		if ( entry.isDirectory() ) {
-			if ( /^__(tests|fixtures|snapshots)__$/.test( entry.name ) ) {
-				continue;
+// Ship only the self-contained engine bundle — its deps are inlined. Shipping
+// the tsc output + node_modules instead added ~10k files to the installer and
+// ~8 min to the Windows CI build (STU-2027).
+function copyDataLiberationEngine( outDir: string ) {
+	execSync( 'npm -w data-liberation run build:mcp-bundle', {
+		cwd: repoRoot,
+		stdio: 'inherit',
+	} );
+	const engineOutDir = resolve( outDir, 'data-liberation-agent' );
+	mkdirSync( resolve( engineOutDir, 'dist' ), { recursive: true } );
+	copyFileSync(
+		resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' ),
+		resolve( engineOutDir, 'dist', 'mcp-server.bundle.mjs' )
+	);
+	cpSync( resolve( dataLiberationSourcePath, 'skills' ), resolve( engineOutDir, 'skills' ), {
+		recursive: true,
+	} );
+
+	// The bundle resolves vendored runtime assets (.php helpers run via
+	// `wp eval-file`, .json data like core-block-attrs.json) relative to the
+	// engine's original src/ module paths — see the import.meta.url rewrite in
+	// packages/data-liberation-agent/scripts/build-mcp-bundle.mjs — so mirror
+	// those files (and nothing else) under src/.
+	const copyRuntimeAssets = ( srcDir: string, destDir: string ) => {
+		for ( const entry of readdirSync( srcDir, { withFileTypes: true } ) ) {
+			const from = resolve( srcDir, entry.name );
+			if ( entry.isDirectory() ) {
+				if ( /^__(tests|fixtures|snapshots)__$/.test( entry.name ) ) {
+					continue;
+				}
+				copyRuntimeAssets( from, resolve( destDir, entry.name ) );
+			} else if ( /\.(php|json)$/.test( entry.name ) ) {
+				mkdirSync( destDir, { recursive: true } );
+				copyFileSync( from, resolve( destDir, entry.name ) );
 			}
-			copyEngineRuntimeAssets( from, resolve( destDir, entry.name ) );
-		} else if ( /\.(php|json)$/.test( entry.name ) ) {
-			mkdirSync( destDir, { recursive: true } );
-			copyFileSync( from, resolve( destDir, entry.name ) );
 		}
-	}
+	};
+	copyRuntimeAssets( resolve( dataLiberationSourcePath, 'src' ), resolve( engineOutDir, 'src' ) );
 }
 
 export const baseConfig = defineConfig( {
@@ -88,36 +113,7 @@ export const baseConfig = defineConfig( {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
 
-				// Ship the engine as its self-contained MCP bundle only — never the tsc
-				// output tree or its node_modules. The engine's dependencies are inlined
-				// in the bundle; shipping them as loose files added ~17k files to the
-				// installer payload and ~8 min to the Windows CI build (STU-2027).
-				execSync( 'npm -w data-liberation run build:mcp-bundle', {
-					cwd: repoRoot,
-					stdio: 'inherit',
-				} );
-				const engineOutDir = resolve( outDir, 'data-liberation-agent' );
-				mkdirSync( resolve( engineOutDir, 'dist' ), { recursive: true } );
-				copyFileSync(
-					resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' ),
-					resolve( engineOutDir, 'dist', 'mcp-server.bundle.mjs' )
-				);
-				copyFileSync(
-					resolve( dataLiberationSourcePath, 'package.json' ),
-					resolve( engineOutDir, 'package.json' )
-				);
-				cpSync( resolve( dataLiberationSourcePath, 'skills' ), resolve( engineOutDir, 'skills' ), {
-					recursive: true,
-				} );
-				// The bundle resolves vendored runtime assets (.php helpers run via
-				// `wp eval-file`, .json data like core-block-attrs.json) relative to the
-				// engine's original src/ module paths — see the import.meta.url rewrite in
-				// packages/data-liberation-agent/scripts/build-mcp-bundle.mjs — so mirror
-				// those files (and nothing else) under src/.
-				copyEngineRuntimeAssets(
-					resolve( dataLiberationSourcePath, 'src' ),
-					resolve( engineOutDir, 'src' )
-				);
+				copyDataLiberationEngine( outDir );
 
 				if ( existsSync( localUiDistPath ) ) {
 					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );

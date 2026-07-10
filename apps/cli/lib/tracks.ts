@@ -47,9 +47,20 @@ async function commonProps(): Promise< TracksProps > {
 	};
 }
 
-// The CLI choke point for Tracks. Gated by the shared opt-out AND the build-time telemetry switch (off
-// in dev builds, like MC Stats). Unlike MC-Stats launch bumps, this is NOT suppressed by
-// `--avoid-telemetry`: the CLI is the sole emitter of site-start events regardless of who spawned it.
+// The CLI choke point for Tracks. Two distinct CLI telemetry mechanisms apply here — don't conflate
+// them:
+//
+//   1. `--avoid-telemetry` (runtime flag): the double-count guard marking an app-spawned CLI run.
+//      Tracks deliberately IGNORES it — the CLI is the sole emitter of site-start, so app-initiated
+//      starts must still count. (This is the "skip the bump-stats double-count setting" decision.)
+//   2. `__ENABLE_CLI_TELEMETRY__` (build-time flag): true only in shipped npm/prod builds, false in
+//      dev builds. This gates ALL CLI telemetry — MC Stats and Tracks alike — so developer builds
+//      emit nothing. It is unrelated to (1). (The shared Tracks core also no-ops in dev/E2E, so this
+//      is partly belt-and-suspenders, but it keeps a non-dev build with the flag off silent too, and
+//      matches how the sibling MC-Stats CLI code gates — see `recordSiteRuntimeUsage`.)
+//
+// Consequence for local runs: in a dev build this returns early, so you will NOT see a "Would have
+// recorded studio_site_start" log — that's expected, not a bug.
 export async function recordTracksEvent(
 	event: TracksEventName,
 	props: TracksProps = {}

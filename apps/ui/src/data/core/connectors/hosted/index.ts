@@ -1,10 +1,12 @@
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
 	AuthUser,
+	AvailableSitePath,
 	Connector,
 	FeaturedBlueprint,
 	InstalledApps,
@@ -172,6 +174,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async generateProposedSitePath() {
 			throw new UnsupportedError( 'generateProposedSitePath' );
 		},
+		async findAvailableSitePath(): Promise< AvailableSitePath > {
+			throw new UnsupportedError( 'findAvailableSitePath' );
+		},
 		async selectSiteFolder() {
 			throw new UnsupportedError( 'selectSiteFolder' );
 		},
@@ -191,6 +196,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
 			} ) );
 		},
+		getWordPressVersions: fetchWordPressVersions,
 
 		async getFilePath() {
 			// Browsers can't resolve a real filesystem path for a File.

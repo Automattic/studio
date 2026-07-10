@@ -3,7 +3,12 @@ import { __ } from '@wordpress/i18n';
 import { useCallback, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
-import type { ProposedSitePath, SelectedSiteFolder, SiteDetails } from '@/data/core';
+import type {
+	AvailableSitePath,
+	ProposedSitePath,
+	SelectedSiteFolder,
+	SiteDetails,
+} from '@/data/core';
 
 const PROPOSED_SITE_NAME_QUERY_KEY = [ 'proposedSiteName' ] as const;
 
@@ -37,6 +42,15 @@ export function useProposedSiteName( sites: SiteDetails[] | undefined ) {
 		enabled: !! sites,
 		staleTime: Infinity,
 	} );
+}
+
+export function useFindAvailableSitePath() {
+	const connector = useConnector();
+	return useCallback(
+		( baseName: string ): Promise< AvailableSitePath > =>
+			connector.findAvailableSitePath( baseName ),
+		[ connector ]
+	);
 }
 
 /**

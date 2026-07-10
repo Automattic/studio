@@ -1,10 +1,12 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import type {
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
 	AuthUser,
+	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
@@ -292,6 +294,13 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
 		},
 
+		async findAvailableSitePath( baseName ): Promise< AvailableSitePath > {
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const name = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
+			const { path } = ( await ipcApi.generateProposedSitePath( name ) ) as ProposedSitePath;
+			return { name, path };
+		},
+
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
 			const response = ( await ipcApi.generateProposedSitePath( siteName ) ) as {
 				path: string;
@@ -365,6 +374,8 @@ export function createIpcConnector(): Connector {
 			}
 			return list;
 		},
+
+		getWordPressVersions: fetchWordPressVersions,
 
 		async getFilePath( file ) {
 			// `webUtils.getPathForFile` is a synchronous preload-only API; the

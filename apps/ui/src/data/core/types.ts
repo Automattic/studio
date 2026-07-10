@@ -6,6 +6,7 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -167,6 +168,7 @@ export interface Connector {
 	// desktop app's add-site flow relies on (folder pickers and path validation).
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
+	findAvailableSitePath( baseName: string ): Promise< AvailableSitePath >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
@@ -174,6 +176,7 @@ export interface Connector {
 	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
 	// no auth required, localized by the user's current UI locale.
 	getFeaturedBlueprints( locale?: string ): Promise< FeaturedBlueprint[] >;
+	getWordPressVersions(): Promise< WordPressVersion[] >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
 	// in the renderer. Returns an empty string when the underlying file lacks
@@ -416,6 +419,11 @@ export interface ProposedSitePath {
 	isEmpty: boolean;
 	isWordPress: boolean;
 	isNameTooLong?: boolean;
+}
+
+export interface AvailableSitePath {
+	name: string;
+	path: string;
 }
 
 export interface SelectedSiteFolder {

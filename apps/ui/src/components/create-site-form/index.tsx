@@ -22,6 +22,7 @@ import {
 import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
+import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import styles from './style.module.css';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type {
@@ -47,7 +48,6 @@ export interface CreateSiteFormValues {
 }
 
 interface CreateSiteFormProps {
-	/** Applied once when first defined — user edits win after. */
 	initialValues?: Partial< CreateSiteFormValues >;
 	existingDomainNames: string[];
 	onSubmit: ( values: CreateSiteFormValues ) => void;
@@ -77,26 +77,46 @@ interface FormData {
 	adminEmail: string;
 }
 
-function hasAnyValue( values: Partial< CreateSiteFormValues > ): boolean {
-	return Object.values( values ).some( ( value ) => value !== undefined && value !== '' );
-}
-
-// Only fields the caller actually provided overwrite prev — user edits to
-// everything else survive an async initial-value arrival.
-function applyInitialValues( prev: FormData, values: Partial< CreateSiteFormValues > ): FormData {
+function applyInitialValues(
+	prev: FormData,
+	values: Partial< CreateSiteFormValues >,
+	dirtyFields: Set< keyof CreateSiteFormValues > = new Set()
+): FormData {
 	const next: FormData = { ...prev };
-	if ( values.name !== undefined && ! prev.name ) next.name = values.name;
-	if ( values.phpVersion !== undefined ) next.phpVersion = values.phpVersion;
-	if ( values.wpVersion !== undefined ) next.wpVersion = values.wpVersion;
-	if ( values.adminUsername !== undefined ) next.adminUsername = values.adminUsername;
-	if ( values.adminPassword !== undefined ) next.adminPassword = values.adminPassword;
-	if ( values.adminEmail !== undefined ) next.adminEmail = values.adminEmail;
-	if ( values.customDomain ) {
-		next.useCustomDomain = true;
+	if ( values.name !== undefined && ! dirtyFields.has( 'name' ) ) next.name = values.name;
+	if ( values.path !== undefined && ! dirtyFields.has( 'path' ) ) {
+		next.path = values.path;
+		next.hasCustomPath = !! values.path;
+		next.pathError = '';
+		next.isPathPending = false;
+	}
+	if ( values.phpVersion !== undefined && ! dirtyFields.has( 'phpVersion' ) ) {
+		next.phpVersion = values.phpVersion;
+	}
+	if ( values.wpVersion !== undefined && ! dirtyFields.has( 'wpVersion' ) ) {
+		next.wpVersion = values.wpVersion;
+	}
+	if ( values.adminUsername !== undefined && ! dirtyFields.has( 'adminUsername' ) ) {
+		next.adminUsername = values.adminUsername;
+	}
+	if ( values.adminPassword !== undefined && ! dirtyFields.has( 'adminPassword' ) ) {
+		next.adminPassword = values.adminPassword;
+	}
+	if ( values.adminEmail !== undefined && ! dirtyFields.has( 'adminEmail' ) ) {
+		next.adminEmail = values.adminEmail;
+	}
+	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
+		next.useCustomDomain = !! values.customDomain;
 		next.customDomain = values.customDomain;
 	}
-	if ( values.enableHttps !== undefined ) next.enableHttps = values.enableHttps;
-	return next;
+	if ( values.enableHttps !== undefined && ! dirtyFields.has( 'enableHttps' ) ) {
+		next.enableHttps = values.enableHttps;
+	}
+	return Object.keys( next ).some(
+		( key ) => next[ key as keyof FormData ] !== prev[ key as keyof FormData ]
+	)
+		? next
+		: prev;
 }
 
 // Called from the form (not `PathField`) so it runs even when Advanced is
@@ -113,35 +133,42 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 
 	const pendingNameRef = useRef< string | null >( null );
 	useEffect( () => {
-		if ( data.hasCustomPath ) return;
+		if ( data.hasCustomPath ) {
+			pendingNameRef.current = null;
+			onChangeRef.current( { isPathPending: false } );
+			return;
+		}
 		const trimmed = data.name.trim();
 		if ( ! trimmed ) {
-			if ( data.path || data.pathError || data.isPathPending ) {
-				onChangeRef.current( { path: '', pathError: '', isPathPending: false } );
-			}
+			pendingNameRef.current = null;
+			onChangeRef.current( { path: '', pathError: '', isPathPending: false } );
 			return;
 		}
 		pendingNameRef.current = trimmed;
-		if ( ! data.isPathPending ) {
-			onChangeRef.current( { isPathPending: true } );
-		}
+		onChangeRef.current( { isPathPending: true } );
 		let cancelled = false;
 		void ( async () => {
-			const result = await generateProposedPath( trimmed );
-			if ( cancelled || pendingNameRef.current !== trimmed ) return;
-			onChangeRef.current( {
-				path: result.path,
-				pathError: result.error ?? '',
-				isPathPending: false,
-			} );
+			try {
+				const result = await generateProposedPath( trimmed );
+				if ( cancelled || pendingNameRef.current !== trimmed ) return;
+				onChangeRef.current( {
+					path: result.path,
+					pathError: result.error ?? '',
+					isPathPending: false,
+				} );
+			} catch {
+				if ( cancelled || pendingNameRef.current !== trimmed ) return;
+				onChangeRef.current( {
+					path: '',
+					pathError: __( 'Unable to suggest a folder for this site name.' ),
+					isPathPending: false,
+				} );
+			}
 		} )();
 		return () => {
 			cancelled = true;
 		};
-		// `data.isPathPending` intentionally omitted — the effect writes it,
-		// so including it would re-trigger a redundant generate each cycle.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [ data.name, data.hasCustomPath, data.path, data.pathError, generateProposedPath ] );
+	}, [ data.name, data.hasCustomPath, generateProposedPath ] );
 }
 
 // On the desktop this is a button that opens the native folder dialog (the
@@ -173,7 +200,7 @@ function PathField( {
 		} );
 	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
 
-	const errorMessage = validity?.custom?.message;
+	const errorMessage = item.pathError || validity?.custom?.message;
 	const help = errorMessage ? (
 		<span className={ styles.pathErrorHelp }>{ errorMessage }</span>
 	) : (
@@ -305,23 +332,25 @@ export function CreateSiteForm( {
 		};
 		if ( ! initialValues ) return base;
 		const seeded = applyInitialValues( base, initialValues );
-		if ( seeded.name.trim() && ! seeded.path ) seeded.isPathPending = true;
-		return seeded;
+		return seeded.name.trim() && ! seeded.path ? { ...seeded, isPathPending: true } : seeded;
 	} );
+	const dirtyFieldsRef = useRef( new Set< keyof CreateSiteFormValues >() );
 
-	// Handles the async seed case (e.g. `useProposedSiteName` resolving after
-	// mount) without clobbering user edits on subsequent renders.
-	const hasAppliedInitialValues = useRef( initialValues ? hasAnyValue( initialValues ) : false );
 	useEffect( () => {
-		if ( hasAppliedInitialValues.current || ! initialValues ) return;
-		if ( ! hasAnyValue( initialValues ) ) return;
-		hasAppliedInitialValues.current = true;
-		setData( ( prev ) => {
-			const next = applyInitialValues( prev, initialValues );
-			if ( next.name.trim() && ! next.path ) next.isPathPending = true;
-			return next;
-		} );
+		if ( initialValues ) {
+			setData( ( prev ) => applyInitialValues( prev, initialValues, dirtyFieldsRef.current ) );
+		}
 	}, [ initialValues ] );
+
+	const { data: wpVersions } = useWordPressVersions();
+	useEffect( () => {
+		if ( ! wpVersions?.length ) return;
+		setData( ( prev ) =>
+			wpVersions.some( ( version ) => version.value === prev.wpVersion )
+				? prev
+				: { ...prev, wpVersion: DEFAULT_WORDPRESS_VERSION }
+		);
+	}, [ wpVersions, data.wpVersion ] );
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
@@ -342,7 +371,7 @@ export function CreateSiteForm( {
 				},
 			},
 			phpVersionField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION ),
+			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions ),
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
@@ -356,7 +385,7 @@ export function CreateSiteForm( {
 				Edit: EnableHttpsControl,
 			},
 		],
-		[ existingDomainNames ]
+		[ existingDomainNames, wpVersions ]
 	);
 
 	const basicForm = useMemo< Form >(
@@ -411,6 +440,25 @@ export function CreateSiteForm( {
 	usePathAutoGenerate( data, handleChangePartial );
 
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
+		for ( const key of Object.keys( update ) ) {
+			if ( key === 'useCustomDomain' ) {
+				dirtyFieldsRef.current.add( 'customDomain' );
+			} else if (
+				[
+					'name',
+					'path',
+					'phpVersion',
+					'wpVersion',
+					'customDomain',
+					'enableHttps',
+					'adminUsername',
+					'adminPassword',
+					'adminEmail',
+				].includes( key )
+			) {
+				dirtyFieldsRef.current.add( key as keyof CreateSiteFormValues );
+			}
+		}
 		setData( ( prev ) => {
 			const next: FormData = { ...prev, ...( update as Partial< FormData > ) };
 			// Seed the custom-domain input on first toggle with a sensible
@@ -424,7 +472,7 @@ export function CreateSiteForm( {
 
 	// `isPathPending` is deliberately absent from `isValid` (so the Advanced
 	// toggle doesn't flash), so gate submit on it separately.
-	const canSubmit = isValid && ! isSubmitting && ! data.isPathPending;
+	const canSubmit = isValid && ! isSubmitting && ! data.isPathPending && ! data.pathError;
 
 	const handleSubmit = ( event: FormEvent ) => {
 		event.preventDefault();

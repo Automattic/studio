@@ -1,5 +1,6 @@
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { UnsupportedError } from '../unsupported-error';
 import type {
@@ -7,6 +8,7 @@ import type {
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
 	AuthUser,
+	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
@@ -352,6 +354,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
+		async findAvailableSitePath( baseName ): Promise< AvailableSitePath > {
+			return api< AvailableSitePath >(
+				`/site-defaults/available-path?name=${ encodeURIComponent( baseName ) }`
+			);
+		},
 		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
 			// No native folder picker in a browser; the create form falls back to
 			// an editable path field (see capabilities.nativeFolderPicker).
@@ -406,6 +413,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
 			} ) );
 		},
+		getWordPressVersions: fetchWordPressVersions,
 
 		async getFilePath( file ) {
 			// No real filesystem path in a browser, so upload the bytes and hand

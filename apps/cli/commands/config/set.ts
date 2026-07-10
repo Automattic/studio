@@ -39,7 +39,7 @@ import {
 	saveCliConfig,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
@@ -351,10 +351,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 			}
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
-			const processDesc = await startWordPressServer( site, logger );
-			if ( processDesc.status === 'online' ) {
-				await updateSiteLatestCliPid( site.id, processDesc.pid );
-			}
+			await startWordPressServer( site, logger );
 			logger.reportSuccess( __( 'WordPress server started' ) );
 		}
 

@@ -24,6 +24,7 @@ import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
+import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import {
 	isProcessRunning,
 	startProcess,
@@ -250,6 +251,7 @@ function dropStaleReprintStateMounts( options: StartServerOptions ): StartServer
  * 2. Wait for 'ready' message
  * 3. Send 'start-server' message with config
  * 4. Wait for response before resolving
+ * 5. Persist the process PID so running-status checks match the live process
  */
 export async function startWordPressServer(
 	site: SiteData,
@@ -309,7 +311,11 @@ export async function startWordPressServer(
 
 		await recordSiteRuntimeUsage( site );
 
-		return withSiteRuntime( processDesc );
+		const runningProcess = withSiteRuntime( processDesc );
+		if ( runningProcess.status === 'online' ) {
+			await updateSiteLatestCliPid( site.id, runningProcess.pid );
+		}
+		return runningProcess;
 	} catch ( error ) {
 		throw await withCapturedPhpErrors( error, phpErrorLogPath, phpErrorLogSizeAtStart );
 	} finally {

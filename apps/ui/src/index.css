@@ -160,6 +160,23 @@ a:focus:not( :focus-visible ),
 	background-color: var( --wp-components-color-background, #fff );
 }
 
+/* @wordpress/components InputControl prefix/suffix icons (e.g. the envelope in
+   the Admin email field) paint with currentColor, but this app doesn't theme
+   @wordpress/components for dark, so they render near-black. Set the SVG fill
+   directly (currentColor gets overridden by the component's own styles). */
+.components-input-control__prefix svg,
+.components-input-control__suffix svg {
+	fill: var( --wpds-color-fg-content-neutral-weak );
+}
+
+/* Native <select> popups (DataForm select fields) render their option list from
+   the browser, which on Linux does not follow the app's dark theme, leaving a
+   white popup with near-invisible light text. Style the options explicitly. */
+select option {
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+}
+
 /* Honor the user's reduced-motion preference across the entire app. Class-
    scoped transitions out-specify a `*`-targeted rule, so `!important` is
    needed to clamp them. Components that genuinely need to keep motion can

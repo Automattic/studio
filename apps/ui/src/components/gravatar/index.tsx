@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import styles from './style.module.css';
 
-const DEFAULT_LIGHT = 'https://s0.wp.com/i/studio-app/profile-icon.png';
-const DEFAULT_DARK = 'https://s0.wp.com/i/studio-app/profile-icon-black.png';
+// The `-black` asset has dark pixels (visible on a light background) and the
+// plain asset has light pixels (visible on a dark background), so each is used
+// under the opposite theme.
+const PROFILE_ICON_FOR_LIGHT = 'https://s0.wp.com/i/studio-app/profile-icon-black.png';
+const PROFILE_ICON_FOR_DARK = 'https://s0.wp.com/i/studio-app/profile-icon.png';
 
 async function sha256Hex( input: string ): Promise< string > {
 	const digest = await crypto.subtle.digest( 'SHA-256', new TextEncoder().encode( input ) );
@@ -20,7 +23,7 @@ function useGravatarUrl( email: string | undefined, isDark: boolean ): string | 
 			return;
 		}
 		let cancelled = false;
-		const fallback = isDark ? DEFAULT_DARK : DEFAULT_LIGHT;
+		const fallback = isDark ? PROFILE_ICON_FOR_DARK : PROFILE_ICON_FOR_LIGHT;
 		void sha256Hex( email.trim().toLowerCase() ).then( ( hash ) => {
 			if ( cancelled ) {
 				return;

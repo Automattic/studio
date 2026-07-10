@@ -10,6 +10,7 @@ import { useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSyncConnectSiteListener } from '@/hooks/use-sync-connect-site-listener';
 import { unlock } from '@/lock-unlock';
+import { useEffect } from 'react';
 import type { Connector } from '@/data/core';
 import type { PropsWithChildren } from 'react';
 
@@ -33,6 +34,12 @@ function SiteEventsBridge() {
 function ThemedApp( { children }: PropsWithChildren ) {
 	const colorScheme = useColorScheme();
 	const themeColor = colorScheme === 'dark' ? { bg: '#1e1e1e' } : undefined;
+	// Drive the CSS color-scheme from the resolved app theme so native controls
+	// (the language <select> popup, scrollbars, etc.) match it. Without this they
+	// follow prefers-color-scheme, which can differ from the in-app preference.
+	useEffect( () => {
+		document.documentElement.style.colorScheme = colorScheme;
+	}, [ colorScheme ] );
 	return (
 		<ThemeProvider isRoot color={ themeColor } density="compact">
 			<Tooltip.Provider>{ children }</Tooltip.Provider>

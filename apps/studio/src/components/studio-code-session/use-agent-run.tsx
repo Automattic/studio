@@ -351,7 +351,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					const isUsageCap = isUsageCapError( event.message );
 					const message = isUsageCap
 						? __(
-								'You\u2019ve reached your AI usage limit. Try again later or use your own Anthropic API key via the CLI (/provider).'
+								'You\u2019ve reached your AI usage limit. Try again later.'
 						  )
 						: event.message;
 					dispatchSession( payload.sessionId, {

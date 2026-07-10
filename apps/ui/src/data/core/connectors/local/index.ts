@@ -213,6 +213,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			nativeSaveDialog: false,
 			openInOS: true,
 			annotatePreview: false,
+			readLocalMedia: false,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -675,6 +676,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await navigator.clipboard.writeText( text );
 		},
 		onToggleSidebar() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onAddSite() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onOpenSettings() {
 			// No application menu in a browser tab.
 			return () => {};
 		},

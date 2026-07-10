@@ -204,6 +204,7 @@ export function createIpcConnector(): Connector {
 			nativeSaveDialog: true,
 			openInOS: true,
 			annotatePreview: true,
+			readLocalMedia: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process
@@ -718,6 +719,18 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'toggle-sidebar', () => listener() );
+		},
+
+		onAddSite( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'add-site', () => listener() );
+		},
+
+		onOpenSettings( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'user-settings', () => listener() );
 		},
 	};
 }

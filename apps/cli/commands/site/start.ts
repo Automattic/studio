@@ -1,4 +1,5 @@
 import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
+import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
@@ -79,14 +80,20 @@ export async function runCommand(
 			);
 		}
 
+		const maintenanceCheck = checkMaintenanceFile( sitePath );
+		if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
+			throw new LoggerError(
+				__(
+					'This site is in maintenance mode. WordPress is currently performing an update. The maintenance lock should expire automatically within 10 minutes. Please wait and try again.'
+				)
+			);
+		}
+
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 		try {
-			const processDesc = await startWordPressServer( site, logger );
+			await startWordPressServer( site, logger );
 
 			logger.reportSuccess( __( 'WordPress server started' ) );
-			if ( processDesc.status === 'online' ) {
-				await updateSiteLatestCliPid( site.id, processDesc.pid );
-			}
 
 			if ( ! skipLogDetails ) {
 				logSiteDetails( site );

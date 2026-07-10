@@ -1,6 +1,15 @@
 import { execSync } from 'child_process';
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
-import { relative, resolve, sep } from 'path';
+import { createHash } from 'crypto';
+import {
+	cpSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	statSync,
+	writeFileSync,
+} from 'fs';
+import { join, relative, resolve, sep } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
 import packageJson from './package.json';
@@ -42,6 +51,56 @@ const dataLiberationSourcePath = resolve(
 );
 const repoRoot = resolve( __dirname, '..', '..' );
 
+// The nested data-liberation build (cold tsc over ~600 files) is expensive,
+// especially on Windows CI where the CLI is built twice per job (desktop make +
+// standalone bundle). Skip it when its inputs are unchanged since the last
+// successful build, tracked via a fingerprint stamp inside the engine's dist/.
+// The root lockfile is included so dependency bumps invalidate the inlined
+// MCP bundle even when the engine's own sources are untouched.
+const dataLiberationStampPath = resolve( dataLiberationSourcePath, 'dist', '.studio-build-stamp' );
+const dataLiberationInputs = [ 'src', 'skills', 'scripts', 'package.json', 'tsconfig.json' ];
+
+function computeDataLiberationFingerprint(): string {
+	const entries: string[] = [];
+	const walk = ( filePath: string ) => {
+		const stats = statSync( filePath );
+		if ( stats.isDirectory() ) {
+			for ( const name of readdirSync( filePath ).sort() ) {
+				walk( join( filePath, name ) );
+			}
+		} else {
+			entries.push(
+				`${ relative( dataLiberationSourcePath, filePath ) }|${ stats.size }|${ stats.mtimeMs }`
+			);
+		}
+	};
+	for ( const input of dataLiberationInputs ) {
+		const inputPath = resolve( dataLiberationSourcePath, input );
+		if ( existsSync( inputPath ) ) {
+			walk( inputPath );
+		}
+	}
+	const lockfilePath = resolve( repoRoot, 'package-lock.json' );
+	if ( existsSync( lockfilePath ) ) {
+		const lockStats = statSync( lockfilePath );
+		entries.push( `package-lock.json|${ lockStats.size }|${ lockStats.mtimeMs }` );
+	}
+	return createHash( 'sha256' ).update( entries.join( '\n' ) ).digest( 'hex' );
+}
+
+function buildDataLiberationIfStale() {
+	const fingerprint = computeDataLiberationFingerprint();
+	if (
+		existsSync( dataLiberationStampPath ) &&
+		readFileSync( dataLiberationStampPath, 'utf8' ) === fingerprint
+	) {
+		console.log( 'data-liberation engine is up to date — skipping nested build' );
+		return;
+	}
+	execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
+	writeFileSync( dataLiberationStampPath, fingerprint );
+}
+
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
 // from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
 // separately (`npm run build:local --workspace=apps/ui`); absent in API-only
@@ -73,7 +132,7 @@ export const baseConfig = defineConfig( {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
 
-				execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
+				buildDataLiberationIfStale();
 				cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
 					recursive: true,
 					filter: ( src ) => {
@@ -86,8 +145,11 @@ export const baseConfig = defineConfig( {
 						if ( top !== 'dist' && top !== 'package.json' && top !== 'skills' ) {
 							return false;
 						}
-						// Within dist/, drop build-only artifacts (types, tests, cache, maps).
-						return ! /\.(d\.ts|test\.js|js\.map|tsbuildinfo)$/.test( rel );
+						// Within dist/, drop build-only artifacts (types, tests, cache, maps, stamp).
+						return (
+							! /\.(d\.ts|test\.js|js\.map|tsbuildinfo)$/.test( rel ) &&
+							rel !== join( 'dist', '.studio-build-stamp' )
+						);
 					},
 				} );
 

@@ -121,3 +121,57 @@ export function readCliConfig( env: CliEnv ): {
 } {
 	return JSON.parse( fs.readFileSync( env.cliConfigPath, 'utf-8' ) );
 }
+
+/**
+ * Logs in as the site's admin through the `/studio-auto-login` mu-plugin and
+ * returns the auth cookies as a `Cookie` header value, so a plain `fetch` can
+ * request admin-only pages. Mirrors the desktop suite's auto-login.
+ */
+export async function autoLoginCookie( siteUrl: string ): Promise< string > {
+	const loginUrl = new URL( '/studio-auto-login', siteUrl );
+	loginUrl.searchParams.set( 'redirect_to', '/wp-admin/' );
+
+	const response = await fetch( loginUrl, { redirect: 'manual' } );
+	const cookies = ( response.headers.getSetCookie?.() ?? [] )
+		.map( ( cookie ) => cookie.split( ';' )[ 0 ] )
+		.filter( Boolean );
+
+	if ( cookies.length === 0 ) {
+		throw new Error( `Auto-login returned no cookies (status ${ String( response.status ) }).` );
+	}
+	return cookies.join( '; ' );
+}
+
+/**
+ * Polls a URL until the freshly started server responds (redirects not followed). Pass
+ * `expectedStatus` to also poll past interim responses like the proxy's warm-up 302.
+ */
+export async function waitForSiteResponse(
+	url: string,
+	{
+		timeoutMs = 30_000,
+		intervalMs = 500,
+		expectedStatus,
+	}: { timeoutMs?: number; intervalMs?: number; expectedStatus?: number } = {}
+): Promise< Response > {
+	const deadline = Date.now() + timeoutMs;
+	let lastError: unknown;
+	let lastResponse: Response | undefined;
+
+	while ( Date.now() < deadline ) {
+		try {
+			lastResponse = await fetch( url, { redirect: 'manual' } );
+			if ( expectedStatus === undefined || lastResponse.status === expectedStatus ) {
+				return lastResponse;
+			}
+		} catch ( error ) {
+			lastError = error;
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, intervalMs ) );
+	}
+
+	if ( lastResponse ) {
+		return lastResponse;
+	}
+	throw new Error( `Timed out waiting for a response from ${ url }: ${ String( lastError ) }` );
+}

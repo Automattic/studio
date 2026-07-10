@@ -47,17 +47,13 @@ export function spawnPhpProcess(
 		autoPrependFile,
 	}: SpawnPhpProcessOptions
 ): ChildProcess {
-	const defaultArgs = getDefaultPhpArgs(
-		phpVersion,
-		onlyPathsThatPhpCanAccess,
+	const defaultArgs = getDefaultPhpArgs( phpVersion, {
+		openBasedir: onlyPathsThatPhpCanAccess,
 		disallowRiskyFunctions,
-		enableXdebug
-	);
-	// Run a PHP file before the main script on every request — used to inject
-	// reprint's generated runtime.php (constants, SQLite loader, upload proxy)
-	// into imported sites without modifying their wp-config.php.
-	const prependArgs = autoPrependFile ? [ '-d', `auto_prepend_file=${ autoPrependFile }` ] : [];
-	const phpArgs = [ ...defaultArgs, ...prependArgs, ...args ];
+		enableXdebug,
+		autoPrependFile,
+	} );
+	const phpArgs = [ ...defaultArgs, ...args ];
 	const phpScriptProcess = spawn( getPhpBinaryPath( phpVersion ), phpArgs, {
 		cwd: siteFolder,
 		env: env ? { ...process.env, ...env } : process.env,

@@ -1,6 +1,86 @@
 Unreleased
 ==========
 
+1.15.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Prevent clearing the language field in Agentic UI settings #4084
+* [Tooling] Secure Claude workflows #4037
+* Allow agent to control light/dark color theme, and display screenshots in the chat #3982
+* Add devcontainer for faster GitHub Codespaces setup #4089
+* build(deps): bump fastlane-plugin-wpmreleasetoolkit from 14.9.0 to 14.10.0 in the ruby-minor-and-patch group #4099
+* Skip dangling symlinks when archiving site content #4038
+* Update CI to Xcode 26.6 and Ruby 3.4.9 #4072
+* Add code comment hygiene guideline to AGENTS.md #4100
+* Fix standalone CLI bundle build failing with data-liberation E404 #4101
+* Fix liberate_extract timeout #4095
+* Fix broken Central Kurdish text in agentic UI on macOS #4088
+* Avoid Node binary downloads for matching runtime #3734
+* Let take_screenshot skip chat display for internal verification captures #4097
+* Add e2e coverage for Local, Playground, .wpress and existing-site imports #4057
+* Allow longer time-to-first-byte for AI API requests (cURL low-speed timeout) #3120
+* Ensure that we display an appropriate error message for when there is .maintenance file #3948
+* Fix Xdebug not starting on a normal page load on the native PHP runtime #4086
+* Resolve the real site running state when resuming code sessions headlessly #4096
+* Allow editing the previous user message #4094
+* build(deps): bump rubocop from 1.88.1 to 1.88.2 in the ruby-minor-and-patch group #4114
+* Replace abandoned winreg module with PowerShell for Windows PATH management #4032
+* Liberate: fix resolving sites as path instead of only real domains #4110
+* Studio Code TUI: sort slash command autocomplete alphabetically #4116
+* Disable automatic What's New modal on app updates #4117
+* Fix flaky e2e: import a backup into an existing site #4115
+* Liberate: surface /liberate when searching for migrate #4111
+* Add CLI e2e tests for site navigation and content actions #4105
+* Use a neutral CLI log prefix instead of hard-coded 'site ID' #4108
+* Keep CLI child close handlers alive when killing on quit #4109
+* Set up Studio as a Claude and Codex marketplace for data-liberation #4011
+* CLI: highlight the matched query in slash-command autocomplete #4120
+* CLI test: add HTTP response check for created site #4000
+* Bump static-php-cli ref to enable SQLite column metadata #4118
+* Refactor remote site picking in `pull-reprint` #4102
+* Wire up Add Site and Settings menu actions in agentic UI #4085
+* Retry AppX signing on transient timestamp server failures #4121
+* Update PHP 8.5.8-studio-1 metadata #4141
+* Update PHP 8.4.23-studio-1 metadata #4142
+* Update PHP 8.3.32-studio-1 metadata #4143
+* Update PHP 8.2.32-studio-1 metadata #4144
+* Fix submit button while editing prompts in Studio Code UI #4123
+* @juanmaguitar made their first contribution in https://github.com/Automattic/studio/pull/4086
+* @borkweb made their first contribution in https://github.com/Automattic/studio/pull/4011
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.14.0...v1.15.0
+
+1.14.0
+=====
+* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082  
+* Studio Code: Added a /liberate command to recreate sites from other platforms (e.g. Wix) as WordPress #3940
+* Studio Code: Added a /publish command to push local sites to WordPress.com #4043
+* Studio Code: Updated the assistant's available model to Sonnet 5 #4024
+* Studio Code: Agent file edits now show as proper line-by-line diffs in the CLI and desktop assistant #4076
+* Studio Code: Improved plugin recommendations for Automattic products, and tuned agent behavior for native PHP vs Playground sites #4023, #3995
+* Studio Code: Fixed an unwanted gap in block themes scaffolded by the assistant #4053
+* Fixed an issue where Pressable sites were marked unsupported on the Sync tab #4078
+* Fixed recreating missing db.php drop-ins and preserving custom SQLite drop-ins #3993
+* Fixed occasional failures when duplicating a site #4074
+* Fixed broken Central Kurdish (Sorani) text on macOS by bundling the Vazirmatn font #4062
+* Updated multiple dependencies, including WP Playground and PHP-WASM, the SQLite database integration, and the pi (agent) packages #4015, #4033, #4073
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.13.0...v1.14.0
+
+1.13.0
+=====
+* Fixed PHP error (code: 3221225781) by updating native PHP packages to include necessary Windows DLLs #4042, #4045, #4050, #4055, #4049
+* Added sidebar toggle keyboard shortcut (Cmd+B on macOS and Ctrl+B on Windows/Linux) #3960
+* Differentiated preview sites from connected WordPress.com remote sites #3677
+* Improved attachment handling in the Studio Code composer #3925
+* Added copy button and selectable text to agent code blocks #3963
+* Tweaked system prompt to mention database #3957
+* Documented SQLite-to-MySQL migration path in STUDIO.md and publishing to supported hostings #3984
+* Handle 413 push failures gracefully in Studio sync #3973
+* Fixed transparent active state on attachment delete button in composer #3962
+* Skip persisted tool_progress entries during session replay #3909
+* Added hosting-plans-helper skill for plan and pricing answers #4010
+* Fixed Studio Code annotate closing message that always referenced the CLI #4020
+* Removed noop menu items from topbar context menu #4031
+
 1.12.0
 =====
 * Introduced PHP runtime and File Access options, and improved the native PHP runtime: fixed WP-CLI tool calls, asset loading for sites with a remote site URL, and blueprint creation from read-only directories, and made pull-reprint work with native PHP #3786, #3926, #3915, #3847, #3988, #3889, #3881

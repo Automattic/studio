@@ -30,6 +30,7 @@ describe( 'CLI: studio site start', () => {
 		phpVersion: '8.0',
 		adminUsername: 'admin',
 		adminPassword: 'password123',
+		status: 'ready',
 	};
 
 	const testSiteWithDomain: SiteData = {
@@ -53,7 +54,7 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( false );
+		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( testProcessDescription );
 		vi.mocked( updateSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
@@ -69,6 +70,23 @@ describe( 'CLI: studio site start', () => {
 			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Site not found' ) );
 
 			await expect( runCommand( '/invalid/path' ) ).rejects.toThrow( 'Site not found' );
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should refuse to start a site whose pull is still in progress', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( { ...testSite, status: 'pulling' } );
+
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow( /not ready to start/ );
+			// It bails before touching the server.
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'should refuse to start a site whose last pull failed', async () => {
+			vi.mocked( getSiteByFolder ).mockResolvedValue( { ...testSite, status: 'pull-failed' } );
+
+			await expect( runCommand( '/test/site' ) ).rejects.toThrow( /not ready to start/ );
+			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
@@ -137,10 +155,6 @@ describe( 'CLI: studio site start', () => {
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
 			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
-			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
-				testSite.id,
-				testProcessDescription.pid
-			);
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( openSiteInBrowser ).toHaveBeenCalledWith( testSite );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();

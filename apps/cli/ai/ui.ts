@@ -21,7 +21,11 @@ import {
 	visibleWidth,
 	truncateToWidth,
 	CURSOR_MARKER,
+	getCapabilities,
+	Image,
+	Spacer,
 } from '@earendil-works/pi-tui';
+import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
@@ -29,6 +33,11 @@ import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio
 import chalk from '@studio/common/lib/chalk';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, _n, sprintf } from '@wordpress/i18n';
+import {
+	DescriptionAwareAutocompleteProvider,
+	dimUnhighlighted,
+} from 'cli/ai/description-autocomplete';
+import { buildOptionPickerLines } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
@@ -247,7 +256,7 @@ const editorTheme: EditorTheme = {
 	selectList: {
 		selectedPrefix: ( text ) => chalk.cyan( text ),
 		selectedText: ( text ) => chalk.bold( text ),
-		description: ( text ) => chalk.dim( text ),
+		description: ( text ) => dimUnhighlighted( text ),
 		scrollInfo: ( text ) => chalk.dim( text ),
 		noMatch: ( text ) => chalk.dim( text ),
 	},
@@ -263,9 +272,8 @@ function formatToolName( name: string, input?: Record< string, unknown > ): stri
 }
 
 interface ToolUseResultContent {
-	// Pi `ToolResultMessage` content is always an array of text/image blocks;
-	// we render text and ignore image blocks for the terminal preview.
-	content?: Array< { type: string; text?: string } >;
+	// Text blocks of a pi `ToolResultMessage`; image blocks render separately.
+	content: Array< { type: string; text?: string } >;
 	isError?: boolean;
 }
 
@@ -322,6 +330,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private optionPickerHasFreeForm = false;
 	private optionPickerItemCount = 0;
 	private optionPickerInput: Input | null = null;
+	private optionPickerItems: SelectItem[] = [];
 	private static readonly OTHER_VALUE = '__other__';
 	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
 		selectedPrefix: ( text: string ) => chalk.blue( text ),
@@ -467,7 +476,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.editor = new PromptEditor( this.tui, editorTheme );
 
 		this.editor.setAutocompleteProvider(
-			new CombinedAutocompleteProvider( getActiveSlashCommands(), process.cwd() )
+			new DescriptionAwareAutocompleteProvider( getActiveSlashCommands(), process.cwd() )
 		);
 
 		this.editor.onSubmit = ( text ) => {
@@ -1028,9 +1037,16 @@ export class AiChatUI implements AiOutputAdapter {
 		this.optionPickerContainer.clear();
 
 		const width = ( process.stdout.columns ?? 80 ) - 1;
-		const lines = this.optionPickerSelectList.render( width );
+		// Custom multi-line rendering (full labels + wrapped descriptions);
+		// SelectList is kept only for keyboard navigation and selection state.
+		const lines = buildOptionPickerLines(
+			this.optionPickerItems,
+			this.optionPickerSelectList.getSelectedItem()?.value,
+			width
+		);
 
 		// When "Other" is active, replace the last line with the inline input
+		// ("Other" is always the last item and has no description lines).
 		if ( this.optionPickerOtherActive && this.optionPickerInput && lines.length > 0 ) {
 			const inputText = this.optionPickerInput.getValue();
 			const cursor = chalk.inverse( ' ' );
@@ -1075,6 +1091,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.optionPickerSelectList = null;
 		this.optionPickerHasFreeForm = false;
 		this.optionPickerItemCount = 0;
+		this.optionPickerItems = [];
 		this.deactivateOptionPickerOther();
 		this.tui.requestRender();
 	}
@@ -1576,30 +1593,6 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 	}
 
-	private showFilePreview(
-		toolName: string,
-		input: Record< string, unknown >,
-		target: Container = this.messages
-	): void {
-		let preview: { collapsed: string; expanded: string } | null = null;
-
-		if ( toolName === 'Write' && typeof input.content === 'string' ) {
-			preview = this.generateWritePreview( input.content );
-		} else if (
-			toolName === 'Edit' &&
-			typeof input.old_string === 'string' &&
-			typeof input.new_string === 'string'
-		) {
-			preview = this.generateEditPreview( input.old_string, input.new_string );
-		}
-
-		if ( ! preview ) {
-			return;
-		}
-
-		this.addExpandablePreview( preview, target );
-	}
-
 	private addExpandablePreview(
 		preview: { collapsed: string; expanded: string },
 		target: Container = this.messages
@@ -1671,22 +1664,45 @@ export class AiChatUI implements AiOutputAdapter {
 		);
 	}
 
-	private generateEditPreview(
-		oldStr: string,
-		newStr: string
-	): { collapsed: string; expanded: string } {
-		const oldLines = oldStr.split( '\n' );
-		const newLines = newStr.split( '\n' );
+	private generateDiffPreview( diff: string ): { collapsed: string; expanded: string } {
+		const rawLines = diff.replace( /\n$/, '' ).split( '\n' );
+		const coloredLines = rawLines.map( ( line ) => {
+			if ( line.startsWith( '+' ) ) {
+				return chalk.green( line );
+			}
+			if ( line.startsWith( '-' ) ) {
+				return chalk.red( line );
+			}
+			return chalk.dim( line );
+		} );
+		const expanded = formatToolOutputLines( coloredLines );
 
-		const diffLines: string[] = [];
-		for ( const line of oldLines ) {
-			diffLines.push( chalk.red( '- ' + line ) );
-		}
-		for ( const line of newLines ) {
-			diffLines.push( chalk.green( '+ ' + line ) );
+		if ( rawLines.length <= DEFAULT_COLLAPSE_THRESHOLD_LINES ) {
+			return { collapsed: expanded, expanded };
 		}
 
-		return this.generateExpandablePreview( diffLines );
+		// Window the collapsed view around the first change so the +/- lines
+		// are visible instead of the diff's leading context lines.
+		const firstChanged = rawLines.findIndex(
+			( line ) => line.startsWith( '+' ) || line.startsWith( '-' )
+		);
+		const start = Math.max(
+			0,
+			Math.min( firstChanged - 1, rawLines.length - DEFAULT_COLLAPSE_THRESHOLD_LINES )
+		);
+		const windowLines = coloredLines.slice( start, start + DEFAULT_COLLAPSE_THRESHOLD_LINES );
+		const collapsed =
+			formatToolOutputLines( windowLines ) +
+			'\n     ' +
+			chalk.dim(
+				sprintf(
+					/* translators: %d: number of hidden lines */
+					__( '... %d more lines · ctrl+o to expand' ),
+					rawLines.length - windowLines.length
+				)
+			);
+
+		return { collapsed, expanded };
 	}
 
 	private toggleExpandablePreview(): void {
@@ -1707,11 +1723,14 @@ export class AiChatUI implements AiOutputAdapter {
 		const blocks: Array< { type: string; text?: string } > = [];
 		for ( const block of result.content ) {
 			if ( block.type === 'text' && typeof block.text === 'string' ) {
-				blocks.push( { type: 'text', text: block.text } );
+				// Old transcripts embed media widget payload markers in screenshot
+				// results; strip them from replayed tool output like the desktop
+				// conversation UIs do.
+				blocks.push( { type: 'text', text: stripMediaWidgetPayloadLines( block.text ) } );
 			}
 		}
 		return {
-			content: blocks.length > 0 ? blocks : undefined,
+			content: blocks,
 			isError: result.isError,
 		};
 	}
@@ -1887,17 +1906,58 @@ export class AiChatUI implements AiOutputAdapter {
 		if ( ! toolCall ) {
 			this.renderToolUseLine( isError, label, null, target );
 		}
-		if ( toolCall && ( toolCall.name === 'Write' || toolCall.name === 'Edit' ) ) {
-			this.showFilePreview( toolCall.name, toolCall.input, target );
+		if ( toolCall && ! isError ) {
+			let preview: { collapsed: string; expanded: string } | null = null;
+			if ( toolCall.name === 'Write' && typeof toolCall.input.content === 'string' ) {
+				preview = this.generateWritePreview( toolCall.input.content );
+			} else if ( toolCall.name === 'Edit' ) {
+				const details = result.details as { diff?: string } | undefined;
+				if ( typeof details?.diff === 'string' && details.diff.length > 0 ) {
+					preview = this.generateDiffPreview( details.diff );
+				}
+			}
+			if ( preview ) {
+				const summary = toolCall.name === 'Write' ? __( 'File written' ) : __( 'File edited' );
+				target.addChild( new Text( formatToolOutputLines( [ chalk.dim( summary ) ] ), 0, 0 ) );
+				this.addExpandablePreview( preview, target );
+				this.tui.requestRender();
+				return;
+			}
 		}
 
-		const content = typedResult.content;
-		if ( content === undefined ) {
-			this.tui.requestRender();
+		this.renderToolResultText( typedResult.content, toolCall, isError, target );
+		this.renderToolResultImages( result, target );
+		this.tui.requestRender();
+	}
+
+	// Render image blocks (e.g. take_screenshot captures) inline when the
+	// terminal supports an image protocol. Elsewhere the saved-file progress
+	// line is the user's only handle on the capture.
+	private renderToolResultImages( result: ToolResultMessage, target: Container ): void {
+		const { images } = getCapabilities();
+		if ( ! images ) {
 			return;
 		}
-		this.renderToolResultText( content, toolCall, isError, target );
-		this.tui.requestRender();
+		for ( const block of result.content ) {
+			if ( block.type !== 'image' || ! block.data || ! block.mimeType ) {
+				continue;
+			}
+			// The kitty graphics protocol only renders PNG and screenshots are
+			// JPEG; converting would need an optional WASM dependency we don't
+			// ship, so those terminals keep the saved-file link instead.
+			if ( images === 'kitty' && block.mimeType !== 'image/png' ) {
+				continue;
+			}
+			target.addChild( new Spacer( 1 ) );
+			target.addChild(
+				new Image(
+					block.data,
+					block.mimeType,
+					{ fallbackColor: ( value ) => chalk.dim( value ) },
+					{ maxWidthCells: 60 }
+				)
+			);
+		}
 	}
 
 	/**
@@ -1935,6 +1995,7 @@ export class AiChatUI implements AiOutputAdapter {
 					} );
 				}
 
+				this.optionPickerItems = selectItems;
 				this.optionPickerItemCount = selectItems.length;
 				const selectList = new SelectList(
 					selectItems,
@@ -1946,8 +2007,7 @@ export class AiChatUI implements AiOutputAdapter {
 				this.optionPickerVisible = true;
 				this.optionPickerContainer = new Container();
 				this.tui.addChild( this.optionPickerContainer );
-				this.optionPickerContainer.addChild( this.optionPickerSelectList );
-				this.tui.requestRender();
+				this.renderOptionPicker();
 
 				const selected = await new Promise< string >( ( resolve ) => {
 					this.optionPickerResolve = resolve;

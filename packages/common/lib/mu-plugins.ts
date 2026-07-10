@@ -34,6 +34,7 @@ const NATIVE_PHP_EXCLUDED_MU_PLUGINS = new Set( [
 	'0-allowed-redirect-hosts.php',
 	'0-suppress-dns-get-record-warnings.php',
 	'0-http-request-timeout.php',
+	'0-clear-stat-cache-before-upgrade.php',
 ] );
 
 export function escapePhpSingleQuotedString( value: string ): string {
@@ -383,7 +384,8 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		content: `<?php
 		// Use low-speed timeout instead of hard timeout to handle both large downloads and stalled connections
 		// - Allows large plugin downloads (e.g., Jetpack 33MB) to complete with reasonable internet speeds
-		// - Fails fast if connection stalls (speed drops below 1KB/s for 30 seconds)
+		// - Allows long time-to-first-byte requests (e.g., AI API calls to flagship LLMs) to complete
+		// - Fails fast if connection stalls (speed stays below 1KB/s for 120 seconds)
 		// - Provides quick feedback for genuinely broken/unresponsive servers
 		// Match WordPress core's timeout for plugin downloads (300s)
 		add_filter( 'http_request_timeout', function() {
@@ -394,12 +396,30 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 			// Abort if connection can't be established within 30 seconds
 			curl_setopt( $curl, CURLOPT_CONNECTTIMEOUT, 30 );
 
-			// Abort if speed drops below 1KB/s for 30 consecutive seconds
-			// This allows slow but steady downloads while catching truly stalled connections
+			// Abort if speed stays below 1KB/s for 120 consecutive seconds.
+			// The 120s window accommodates long time-to-first-byte on AI API requests
+			// (flagship LLMs commonly take 30-90s to emit the first token on long prompts)
+			// while still catching truly stalled connections. The 300s outer cap above
+			// remains the ultimate ceiling for any single request.
 			curl_setopt( $curl, CURLOPT_LOW_SPEED_LIMIT, 1024 ); // 1KB/s minimum
-			curl_setopt( $curl, CURLOPT_LOW_SPEED_TIME, 30 );    // Must stay above limit for 30s
+			curl_setopt( $curl, CURLOPT_LOW_SPEED_TIME, 120 );   // Must stay above limit for 120s
 			return $curl;
 		}, 1, 3);
+		`,
+	} );
+
+	// Playground's PHP persists stat caches across requests, so a deleted plugin
+	// can still look present and break a reinstall. Clear the cache before each
+	// upgrade. Excluded from native PHP, where every request starts clean.
+	//
+	// @see STU-1931
+	muPlugins.push( {
+		filename: '0-clear-stat-cache-before-upgrade.php',
+		content: `<?php
+		add_filter( 'upgrader_pre_install', function( $result ) {
+			clearstatcache( true );
+			return $result;
+		} );
 		`,
 	} );
 
@@ -756,6 +776,7 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-allowed-redirect-hosts.php',
 	'0-auto-login.php',
 	'0-check-theme-availability.php',
+	'0-clear-stat-cache-before-upgrade.php',
 	'0-deactivate-jetpack-modules.php',
 	'0-disable-auto-updates.php',
 	'0-enable-auto-updates.php',

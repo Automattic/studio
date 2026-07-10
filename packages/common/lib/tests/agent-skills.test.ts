@@ -4,9 +4,11 @@ import { vi } from 'vitest';
 import {
 	installAiInstructionsToSite,
 	installSkillToSite,
+	renderRuntimeInstructions,
 	updateManagedInstructionFiles,
 } from '../agent-skills';
 import { pathExists, recursiveCopyDirectory } from '../fs-utils';
+import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '../site-runtime';
 
 vi.mock( 'fs' );
 
@@ -26,10 +28,13 @@ describe( 'installAiInstructionsToSite', () => {
 		vi.mocked( fs.promises.mkdir ).mockResolvedValue( undefined );
 		vi.mocked( fs.promises.rm ).mockResolvedValue( undefined );
 		vi.mocked( fs.promises.symlink ).mockResolvedValue( undefined );
-		vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
+		// readFile echoes the source path back as the "content" so writeFile
+		// assertions can verify the source→destination mapping in one call.
+		vi.mocked( fs.promises.readFile ).mockImplementation( async ( p ) => p as string );
+		vi.mocked( fs.promises.writeFile ).mockResolvedValue( undefined );
 	} );
 
-	it( 'copies loose .md files to site root', async () => {
+	it( 'writes loose .md files to site root', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
 			if ( p === BUNDLED_PATH ) {
 				return true;
@@ -41,15 +46,18 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'STUDIO.md', isFile: () => true, isDirectory: () => false },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
-
-		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'AGENTS.md' ),
-			path.join( SITE_PATH, 'AGENTS.md' )
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
 		);
-		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'STUDIO.md' ),
-			path.join( SITE_PATH, 'STUDIO.md' )
+
+		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
+			path.join( SITE_PATH, 'AGENTS.md' ),
+			path.join( BUNDLED_PATH, 'AGENTS.md' )
+		);
+		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
+			path.join( SITE_PATH, 'STUDIO.md' ),
+			path.join( BUNDLED_PATH, 'STUDIO.md' )
 		);
 	} );
 
@@ -68,12 +76,17 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'STUDIO.md', isFile: () => true, isDirectory: () => false },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, [], false );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH,
+			[],
+			false
+		);
 
-		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 1 );
-		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'STUDIO.md' ),
-			path.join( SITE_PATH, 'STUDIO.md' )
+		expect( fs.promises.writeFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
+			path.join( SITE_PATH, 'STUDIO.md' ),
+			path.join( BUNDLED_PATH, 'STUDIO.md' )
 		);
 	} );
 
@@ -88,7 +101,10 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'studio-cli', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		expect( fs.promises.symlink ).not.toHaveBeenCalled();
@@ -105,7 +121,12 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'wp-rest-api', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, [], true );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH,
+			[],
+			true
+		);
 
 		expect( fs.promises.rm ).not.toHaveBeenCalled();
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
@@ -114,14 +135,17 @@ describe( 'installAiInstructionsToSite', () => {
 	it( 'skips when bundled path does not exist', async () => {
 		vi.mocked( pathExists ).mockResolvedValue( false );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		expect( fs.promises.symlink ).not.toHaveBeenCalled();
-		expect( fs.promises.copyFile ).not.toHaveBeenCalled();
+		expect( fs.promises.writeFile ).not.toHaveBeenCalled();
 	} );
 
-	it( 'copies .md files but skips unselected skill directories', async () => {
+	it( 'writes .md files but skips unselected skill directories', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
 			if ( p === BUNDLED_PATH || p === path.join( BUNDLED_PATH, 'studio-cli' ) ) {
 				return true;
@@ -133,9 +157,12 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'studio-cli', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
-		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.promises.writeFile ).toHaveBeenCalledTimes( 1 );
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		expect( fs.promises.symlink ).not.toHaveBeenCalled();
 	} );
@@ -153,16 +180,19 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'raw-imports.d.ts', isFile: () => true, isDirectory: () => false },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
-		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 1 );
-		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'AGENTS.md' ),
-			path.join( SITE_PATH, 'AGENTS.md' )
+		expect( fs.promises.writeFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
+			path.join( SITE_PATH, 'AGENTS.md' ),
+			path.join( BUNDLED_PATH, 'AGENTS.md' )
 		);
 	} );
 
-	it( 'copies only .md files when skill directories are not user-selected', async () => {
+	it( 'writes only .md files when skill directories are not user-selected', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
 			if ( p === BUNDLED_PATH ) {
 				return true;
@@ -177,10 +207,13 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'wp-block-development', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
-		// 2 .md files copied to site root
-		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 2 );
+		// 2 .md files written to site root
+		expect( fs.promises.writeFile ).toHaveBeenCalledTimes( 2 );
 
 		// No skill directories installed
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
@@ -199,7 +232,10 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'good-skill', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		expect( fs.promises.symlink ).not.toHaveBeenCalled();
@@ -216,10 +252,43 @@ describe( 'installAiInstructionsToSite', () => {
 			{ name: 'wp-plugin-development', isFile: () => false, isDirectory: () => true },
 		] as never );
 
-		await installAiInstructionsToSite( SITE_PATH, BUNDLED_PATH, [], false );
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH,
+			[],
+			false
+		);
 
 		expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		expect( fs.promises.symlink ).not.toHaveBeenCalled();
+	} );
+
+	it( 'renders runtime-conditional content for the site runtime', async () => {
+		const studioContent = [
+			'Shared line.',
+			'<!-- IF playground -->',
+			'PLAYGROUND NOTE',
+			'<!-- ENDIF playground -->',
+			'<!-- IF native-php -->',
+			'NATIVE NOTE',
+			'<!-- ENDIF native-php -->',
+			'',
+		].join( '\n' );
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => p === BUNDLED_PATH );
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
+			{ name: 'STUDIO.md', isFile: () => true, isDirectory: () => false },
+		] as never );
+		vi.mocked( fs.promises.readFile ).mockResolvedValue( studioContent );
+
+		await installAiInstructionsToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_NATIVE_PHP },
+			BUNDLED_PATH
+		);
+
+		const written = vi.mocked( fs.promises.writeFile ).mock.calls[ 0 ][ 1 ] as string;
+		expect( written ).toContain( 'NATIVE NOTE' );
+		expect( written ).not.toContain( 'PLAYGROUND NOTE' );
+		expect( written ).not.toContain( '<!-- IF' );
 	} );
 } );
 
@@ -231,6 +300,11 @@ describe( 'installSkillToSite', () => {
 		vi.mocked( fs.promises.mkdir ).mockResolvedValue( undefined );
 		vi.mocked( fs.promises.rm ).mockResolvedValue( undefined );
 		vi.mocked( fs.promises.symlink ).mockResolvedValue( undefined );
+		// After recursiveCopyDirectory, the code reads the destination to render
+		// .md files. Default to an empty directory so existing tests don't break.
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [] as never );
+		vi.mocked( fs.promises.readFile ).mockImplementation( async ( p ) => p as string );
+		vi.mocked( fs.promises.writeFile ).mockResolvedValue( undefined );
 	} );
 
 	it( 'installs a skill directory with symlink', async () => {
@@ -241,7 +315,12 @@ describe( 'installSkillToSite', () => {
 			return false;
 		} );
 
-		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'studio-cli', false );
+		await installSkillToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH,
+			'studio-cli',
+			false
+		);
 
 		expect( recursiveCopyDirectory ).toHaveBeenCalledWith(
 			path.join( BUNDLED_PATH, 'studio-cli' ),
@@ -268,13 +347,54 @@ describe( 'installSkillToSite', () => {
 			return false;
 		} );
 
-		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'wp-rest-api', true );
+		await installSkillToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH,
+			'wp-rest-api',
+			true
+		);
 
 		expect( fs.promises.rm ).toHaveBeenCalledWith(
 			path.join( SITE_PATH, '.agents', 'skills', 'wp-rest-api' ),
 			{ recursive: true, force: true }
 		);
 		expect( recursiveCopyDirectory ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'renders runtime-conditional markers in skill .md files', async () => {
+		const skillContent = [
+			'Shared skill line.',
+			'<!-- IF playground -->',
+			'PLAYGROUND SKILL NOTE',
+			'<!-- ENDIF playground -->',
+			'<!-- IF native-php -->',
+			'NATIVE SKILL NOTE',
+			'<!-- ENDIF native-php -->',
+			'',
+		].join( '\n' );
+
+		vi.mocked( pathExists ).mockImplementation( async ( p: string ) => {
+			if ( p === path.join( BUNDLED_PATH, 'my-skill' ) ) {
+				return true;
+			}
+			return false;
+		} );
+		vi.mocked( fs.promises.readdir ).mockResolvedValue( [
+			{ name: 'SKILL.md', isFile: () => true, isDirectory: () => false },
+		] as never );
+		vi.mocked( fs.promises.readFile ).mockResolvedValue( skillContent );
+
+		await installSkillToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_NATIVE_PHP },
+			BUNDLED_PATH,
+			'my-skill',
+			false
+		);
+
+		const written = vi.mocked( fs.promises.writeFile ).mock.calls[ 0 ][ 1 ] as string;
+		expect( written ).toContain( 'NATIVE SKILL NOTE' );
+		expect( written ).not.toContain( 'PLAYGROUND SKILL NOTE' );
+		expect( written ).not.toContain( '<!-- IF' );
 	} );
 
 	it( 'falls back to junction on Windows EPERM', async () => {
@@ -293,7 +413,12 @@ describe( 'installSkillToSite', () => {
 			.mockRejectedValueOnce( epermError )
 			.mockResolvedValue( undefined );
 
-		await installSkillToSite( SITE_PATH, BUNDLED_PATH, 'wp-plugin-development', false );
+		await installSkillToSite(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH,
+			'wp-plugin-development',
+			false
+		);
 
 		expect( fs.promises.symlink ).toHaveBeenCalledWith(
 			path.resolve( path.join( SITE_PATH, '.agents', 'skills', 'wp-plugin-development' ) ),
@@ -309,19 +434,23 @@ describe( 'updateManagedInstructionFiles', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( pathExists ).mockResolvedValue( false );
-		vi.mocked( fs.promises.copyFile ).mockResolvedValue( undefined );
+		vi.mocked( fs.promises.readFile ).mockImplementation( async ( p ) => p as string );
+		vi.mocked( fs.promises.writeFile ).mockResolvedValue( undefined );
 	} );
 
 	it( 'updates STUDIO.md when it exists in the site', async () => {
 		vi.mocked( pathExists ).mockResolvedValue( true );
 
-		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
-
-		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'STUDIO.md' ),
-			path.join( SITE_PATH, 'STUDIO.md' )
+		await updateManagedInstructionFiles(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
 		);
-		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 1 );
+
+		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
+			path.join( SITE_PATH, 'STUDIO.md' ),
+			path.join( BUNDLED_PATH, 'STUDIO.md' )
+		);
+		expect( fs.promises.writeFile ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'skips files that do not exist in the site', async () => {
@@ -336,12 +465,15 @@ describe( 'updateManagedInstructionFiles', () => {
 			return false;
 		} );
 
-		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
+		await updateManagedInstructionFiles(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
-		expect( fs.promises.copyFile ).toHaveBeenCalledTimes( 1 );
-		expect( fs.promises.copyFile ).toHaveBeenCalledWith(
-			path.join( BUNDLED_PATH, 'STUDIO.md' ),
-			path.join( SITE_PATH, 'STUDIO.md' )
+		expect( fs.promises.writeFile ).toHaveBeenCalledTimes( 1 );
+		expect( fs.promises.writeFile ).toHaveBeenCalledWith(
+			path.join( SITE_PATH, 'STUDIO.md' ),
+			path.join( BUNDLED_PATH, 'STUDIO.md' )
 		);
 	} );
 
@@ -357,16 +489,80 @@ describe( 'updateManagedInstructionFiles', () => {
 			return false;
 		} );
 
-		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
+		await updateManagedInstructionFiles(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
-		expect( fs.promises.copyFile ).not.toHaveBeenCalled();
+		expect( fs.promises.writeFile ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does nothing when no managed files exist in the site', async () => {
 		vi.mocked( pathExists ).mockResolvedValue( false );
 
-		await updateManagedInstructionFiles( SITE_PATH, BUNDLED_PATH );
+		await updateManagedInstructionFiles(
+			{ path: SITE_PATH, runtime: SITE_RUNTIME_PLAYGROUND },
+			BUNDLED_PATH
+		);
 
-		expect( fs.promises.copyFile ).not.toHaveBeenCalled();
+		expect( fs.promises.writeFile ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'renderRuntimeInstructions', () => {
+	const content = [
+		'Shared line.',
+		'<!-- IF playground -->',
+		'PLAYGROUND ONLY',
+		'<!-- ENDIF playground -->',
+		'<!-- IF native-php -->',
+		'NATIVE ONLY',
+		'<!-- ENDIF native-php -->',
+		'Outro line.',
+		'',
+	].join( '\n' );
+
+	it( 'keeps Playground blocks and strips native blocks for playground', () => {
+		const rendered = renderRuntimeInstructions( content, SITE_RUNTIME_PLAYGROUND );
+
+		expect( rendered ).toContain( 'PLAYGROUND ONLY' );
+		expect( rendered ).not.toContain( 'NATIVE ONLY' );
+		expect( rendered ).not.toContain( '<!-- IF' );
+		expect( rendered ).not.toContain( '<!-- ENDIF' );
+		expect( rendered ).toContain( 'Shared line.' );
+		expect( rendered ).toContain( 'Outro line.' );
+	} );
+
+	it( 'keeps native blocks and strips Playground blocks for native-php', () => {
+		const rendered = renderRuntimeInstructions( content, SITE_RUNTIME_NATIVE_PHP );
+
+		expect( rendered ).toContain( 'NATIVE ONLY' );
+		expect( rendered ).not.toContain( 'PLAYGROUND ONLY' );
+		expect( rendered ).not.toContain( '<!-- IF' );
+	} );
+
+	it( 'leaves content without markers unchanged', () => {
+		const plain = 'Just some instructions.\nNo markers here.\n';
+		expect( renderRuntimeInstructions( plain, SITE_RUNTIME_NATIVE_PHP ) ).toBe( plain );
+	} );
+
+	it( 'preserves a conditional table row only for the matching runtime', () => {
+		const table = [
+			"| Don't | Do instead |",
+			'|-------|-----------|',
+			'| Use bare `wp` CLI | Use `studio wp` |',
+			'<!-- IF playground -->',
+			'| Use `wp shell` | Use `studio wp eval` |',
+			'<!-- ENDIF playground -->',
+			'| Hardcode ports | Use `studio status` |',
+			'',
+		].join( '\n' );
+
+		expect( renderRuntimeInstructions( table, SITE_RUNTIME_PLAYGROUND ) ).toContain(
+			'| Use `wp shell` | Use `studio wp eval` |'
+		);
+		expect( renderRuntimeInstructions( table, SITE_RUNTIME_NATIVE_PHP ) ).not.toContain(
+			'wp shell'
+		);
 	} );
 } );

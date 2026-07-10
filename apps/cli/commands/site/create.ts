@@ -66,7 +66,7 @@ import {
 	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { removeSiteFromConfig, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	getAiInstructionsPath,
@@ -261,15 +261,17 @@ export async function runCommand(
 		}
 
 		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
-		const isSqliteUpdated = await keepSqliteIntegrationUpdated( sitePath );
-		logger.reportSuccess(
-			isSqliteUpdated ? __( 'SQLite integration configured' ) : __( 'SQLite integration skipped' )
-		);
+		await keepSqliteIntegrationUpdated( sitePath );
+		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
 		try {
 			const sharedConfig = await readSharedConfig();
 			const selectedSkills = sharedConfig.selectedSkills ?? [];
-			await installAiInstructionsToSite( sitePath, getAiInstructionsPath(), selectedSkills );
+			await installAiInstructionsToSite(
+				{ path: sitePath, runtime: siteRuntime },
+				getAiInstructionsPath(),
+				selectedSkills
+			);
 		} catch ( error ) {
 			logger.reportError(
 				new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),
@@ -327,6 +329,7 @@ export async function runCommand(
 			runtime: siteRuntime,
 			fileAccess: options.fileAccess,
 			running: false,
+			status: 'ready',
 			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 			customDomain: options.customDomain,
 			enableHttps: options.enableHttps,
@@ -360,7 +363,7 @@ export async function runCommand(
 				: __( 'Starting WordPress server…' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
-				const processDesc = await startWordPressServer( siteDetails, logger, {
+				await startWordPressServer( siteDetails, logger, {
 					wpVersion: options.wpVersion,
 					blueprint,
 					blueprintUri,
@@ -369,10 +372,6 @@ export async function runCommand(
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
 				stripWpConfigDbConstants( sitePath );
-
-				if ( processDesc.status === 'online' ) {
-					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
-				}
 
 				siteDetails.running = true;
 				siteDetails.url = siteDetails.customDomain

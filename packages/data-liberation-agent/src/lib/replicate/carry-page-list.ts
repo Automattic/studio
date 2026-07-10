@@ -56,7 +56,8 @@ export interface BuildPageListOptions {
  *
  * Generic across platforms:
  *  - pages: WXR `post_name` → manifest slug; the front page is captured as `homepage` (matched by
- *    root-URL `<link>` OR `post_name` `home`/`homepage`).
+ *    root-URL `<link>`, `post_name` `home`/`homepage`, OR — for subpath-hosted sites like free
+ *    `*.wixsite.com/<site>` — a manifest sourceUrl equal to the channel `<link>` site base).
  *  - posts: WXR `post_name` → `post--<name>` (exact, then prefix-match for %-encoded / truncated slugs).
  *  - Shopify/Squarespace namespaced slugs (`pages--<name>`, `blogs--<blog>--<name>`): fall back to the
  *    last `--` segment (products `products--*` excluded — they're WooCommerce items, not carry pages).
@@ -68,6 +69,9 @@ export function joinCarryPageList(
   opts: BuildPageListOptions = {},
 ): BuildPageListResult {
   const excludeSet = new Set(opts.exclude ?? []);
+  // Site base URL from the channel <link> — identifies the front page on subpath-hosted
+  // sites (e.g. free *.wixsite.com/<site>), where the homepage URL path is not `/`.
+  const channelLink = (wxrText.split('<item>')[0].match(/<link>([^<]+)<\/link>/)?.[1] ?? '').replace(/\/+$/, '');
   const bySlug = new Map<string, { sourceUrl: string }>();
   for (const [url, e] of Object.entries(entries)) if (e.slug) bySlug.set(e.slug, { sourceUrl: url });
 
@@ -114,7 +118,8 @@ export function joinCarryPageList(
       skipped.push({ postType, postName, title, link, reason: htmlSlug ? 'html-missing' : 'no-manifest-match' });
       continue;
     }
-    const isHome = postType === 'page' && (htmlSlug === 'homepage' || rootLink);
+    const isHome = postType === 'page' &&
+      (htmlSlug === 'homepage' || rootLink || (!!channelLink && sourceUrl.replace(/\/+$/, '') === channelLink));
     const page: CarryPage = { slug: isHome ? (postName || 'home') : postName, sourceUrl, title, postType, htmlSlug, ...(isHome ? { isHome: true } : {}) };
     if (excludeSet.has(page.slug) || excludeSet.has(htmlSlug)) excluded.push(page);
     else pages.push(page);

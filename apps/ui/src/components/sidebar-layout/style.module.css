@@ -86,8 +86,9 @@
 	-webkit-app-region: no-drag;
 }
 
-/* In macOS fullscreen the traffic lights are hidden, so the toggle can
-   sit near the main area's left edge. */
-.floatingToggleFullscreen {
+/* With no traffic lights to clear — non-macOS, the browser, or macOS
+   fullscreen (which hides them) — the toggle sits near the main area's left
+   edge instead of leaving an empty gap. */
+.floatingToggleFlush {
 	left: var(--wpds-dimension-padding-xl);
 }

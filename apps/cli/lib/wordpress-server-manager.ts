@@ -313,8 +313,9 @@ export async function startWordPressServer(
 		await recordSiteRuntimeUsage( site );
 
 		// Tracks: the CLI is the sole emitter of site-start, whether started standalone or by the
-		// desktop app (which passes its origin via STUDIO_TRACKS_ORIGIN). Fire-and-forget.
-		void recordTracksEvent( TRACKS_EVENTS.SITE_START, { ...getTracksOrigin() } );
+		// desktop app (which passes its origin via STUDIO_TRACKS_ORIGIN). Awaited (not fire-and-forget)
+		// so a short-lived `studio start` process doesn't exit before the event is sent.
+		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { ...getTracksOrigin() } );
 
 		const runningProcess = withSiteRuntime( processDesc );
 		if ( runningProcess.status === 'online' ) {

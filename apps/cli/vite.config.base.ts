@@ -73,24 +73,6 @@ export const baseConfig = defineConfig( {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
 
-				execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
-				cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
-					recursive: true,
-					filter: ( src ) => {
-						const rel = relative( dataLiberationSourcePath, src );
-						if ( rel === '' ) {
-							return true;
-						}
-
-						const top = rel.split( sep )[ 0 ];
-						if ( top !== 'dist' && top !== 'package.json' && top !== 'skills' ) {
-							return false;
-						}
-						// Within dist/, drop build-only artifacts (types, tests, cache, maps).
-						return ! /\.(d\.ts|test\.js|js\.map|tsbuildinfo)$/.test( rel );
-					},
-				} );
-
 				if ( existsSync( localUiDistPath ) ) {
 					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );
 				}

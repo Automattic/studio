@@ -64,7 +64,6 @@ it( 'sends with anonymous identity and common props when opted in', async () => 
 			arch: process.arch,
 			app_version: '9.9.9',
 			is_a11n: true,
-			_via: 'studio-desktop',
 			channel: 'studio-ui',
 			ui_version: 'v1',
 		} )

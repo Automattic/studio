@@ -65,6 +65,6 @@ export async function recordTracksEvent(
 	__recordTracksEvent(
 		event,
 		{ type: 'anon', id: installId },
-		{ ...( await commonProps() ), _via: 'studio-cli', ...props }
+		{ ...( await commonProps() ), ...props }
 	);
 }

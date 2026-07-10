@@ -41,14 +41,22 @@ The pieces mirror the MC Stats layering:
 | CLI wrapper | `apps/cli/lib/tracks.ts` | Choke point for the CLI. Enforces the opt-out **and** the build-time `__ENABLE_CLI_TELEMETRY__` switch. Resolves origin from `STUDIO_TRACKS_ORIGIN`. |
 | Identity + opt-out | `packages/common/lib/shared-config.ts` | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `shared.json`. |
 
-Events are sent as a **pixel GET** to `https://pixel.wp.com/t.gif` with query params. The core builder
-attaches:
+Events are sent as a **pixel GET** to `https://pixel.wp.com/t.gif` with query params. The reserved
+Tracks pixel params the core builder attaches are:
 
 - `_en` — event name (snake_case, `studio_` prefix)
-- `_ut=anon` + `_ui=<install-uuid>` — anonymous identity
+- `_ut=anon` + `_ui=<install-uuid>` — anonymous identity (see note below)
 - `_ts` — timestamp (ms)
-- `_via` — origin tag (`studio-desktop` / `studio-cli`)
 - one query param per event property (all values coerced to strings)
+
+The reserved `_`-prefixed params are a fixed set owned by the Tracks libraries — do not invent new ones
+(a made-up `_foo` is ignored server-side). Origin/context is a normal event property (`channel`), not a
+reserved param.
+
+**Identity is anonymous-only in Phase 1.** We always send `_ut=anon` with the install UUID, even when
+the user is authenticated with WordPress.com. Tracks also supports authenticated identity
+(`_ut=wpcom:user_id`, `_ui=<wpcom user id>`), which would enable cross-product analytics — deferred to a
+later phase per the proposal, as it carries stronger privacy implications.
 
 Set the `STUDIO_DEBUG_TRACKS` env var to log the exact pixel URL for each event (useful for manual
 verification).
@@ -160,9 +168,10 @@ broad rollout.
 
 ## Open items / prerequisites
 
-- **Verify the exact Tracks pixel param names** (`_en`, `_ut`, `_ui`, `_ts`, `_via`) against an existing
-  Automattic implementation, and whether anonymous pixel events need a nonce. The builder in
-  `record-tracks-event.ts` is isolated so a correction is a one-file change.
+- **Pixel params verified.** `_en`, `_ut`, `_ui`, `_ts` are the canonical reserved Tracks pixel params.
+  A nonce is not required — `t.gif` is a plain unauthenticated GET (a nonce only applies to the
+  authenticated `/rest/v1.1/tracks/record` route, a different mechanism we don't use). The builder in
+  `record-tracks-event.ts` is isolated so any future param correction is a one-file change.
 - **Register the events server-side** in the Tracks event schema. Unregistered events are still
   ingested (they are not dropped), but registration is required to have the events and their properties
   formally defined and reliably queryable in the dashboards. Do this before relying on the data.

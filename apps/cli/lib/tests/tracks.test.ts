@@ -91,7 +91,6 @@ describe( 'recordTracksEvent', () => {
 				arch: process.arch,
 				app_version: '2.3.4',
 				is_a11n: false,
-				_via: 'studio-cli',
 				channel: 'studio-cli',
 			} )
 		);

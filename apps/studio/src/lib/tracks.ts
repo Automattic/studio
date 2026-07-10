@@ -40,6 +40,6 @@ export async function recordTracksEvent(
 	__recordTracksEvent(
 		event,
 		{ type: 'anon', id: installId },
-		{ ...( await commonProps() ), _via: 'studio-desktop', ...props }
+		{ ...( await commonProps() ), ...props }
 	);
 }

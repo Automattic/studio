@@ -27,9 +27,11 @@ export type TracksProps = Record< string, string | number | boolean | undefined 
 export type TracksChannel = 'studio-ui' | 'studio-cli';
 export type TracksUiVersion = 'v1' | 'v2';
 
-// Builds the Tracks pixel URL. Isolated so a param-name correction is a one-file change.
-// `_en` event name, `_ut`/`_ui` identity, `_ts` timestamp (ms), `_via` origin tag. Every prop is
-// coerced to a string (Tracks stores all values as strings). `undefined` props are dropped.
+// Builds the Tracks pixel URL. Isolated so a param-name correction is a one-file change. These are
+// the reserved Tracks pixel params: `_en` event name, `_ut`/`_ui` identity, `_ts` timestamp (ms).
+// Every event prop is coerced to a string (Tracks stores all values as strings) and appended as its
+// own query param; `undefined` props are dropped. Origin/context lives in the `channel` event prop,
+// not a reserved param.
 export function __buildTracksPixelUrl(
 	eventName: TracksEventName,
 	identity: TracksIdentity,
@@ -54,7 +56,7 @@ export function __buildTracksPixelUrl(
 }
 
 // Returns true if we attempted to record the event. Fire-and-forget, no-ops in E2E/dev like
-// `__bumpStat`. `_via` is expected to be supplied by the caller within `props`.
+// `__bumpStat`.
 export function __recordTracksEvent(
 	eventName: TracksEventName,
 	identity: TracksIdentity,

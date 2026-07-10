@@ -95,16 +95,6 @@
 	gap: 4px;
 }
 
-/* The reply's copy button hangs 1.75rem below the text (see
-   .messageActions) without reserving flow space. When a tool row follows
-   the reply directly, the transcript's own gap is smaller than that
-   footprint, so the floating icon would land on the row's label. Top up
-   the gap to exactly clear the button (plus a little air), whatever the
-   density's gap value is. */
-.assistantTurn + .toolBlock {
-	margin-top: calc(1.75rem + 6px - var(--wpds-dimension-padding-lg));
-}
-
 .toolRow {
 	--tool-trigger-color: color-mix(
 		in srgb,

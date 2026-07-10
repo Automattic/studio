@@ -1,6 +1,6 @@
 import { execSync } from 'child_process';
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
-import { relative, resolve, sep } from 'path';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
 import packageJson from './package.json';
@@ -48,6 +48,21 @@ const repoRoot = resolve( __dirname, '..', '..' );
 // or dev-server setups, which is fine.
 const localUiDistPath = resolve( __dirname, '../ui/dist-local' );
 
+function copyEngineRuntimeAssets( srcDir: string, destDir: string ) {
+	for ( const entry of readdirSync( srcDir, { withFileTypes: true } ) ) {
+		const from = resolve( srcDir, entry.name );
+		if ( entry.isDirectory() ) {
+			if ( /^__(tests|fixtures|snapshots)__$/.test( entry.name ) ) {
+				continue;
+			}
+			copyEngineRuntimeAssets( from, resolve( destDir, entry.name ) );
+		} else if ( /\.(php|json)$/.test( entry.name ) ) {
+			mkdirSync( destDir, { recursive: true } );
+			copyFileSync( from, resolve( destDir, entry.name ) );
+		}
+	}
+}
+
 export const baseConfig = defineConfig( {
 	oxc: {
 		target: `node${ semver.major( minimumNodeVersion ) }`,
@@ -73,23 +88,36 @@ export const baseConfig = defineConfig( {
 					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
 				}
 
-				execSync( 'npm -w data-liberation run build', { cwd: repoRoot, stdio: 'inherit' } );
-				cpSync( dataLiberationSourcePath, resolve( outDir, 'data-liberation-agent' ), {
-					recursive: true,
-					filter: ( src ) => {
-						const rel = relative( dataLiberationSourcePath, src );
-						if ( rel === '' ) {
-							return true;
-						}
-
-						const top = rel.split( sep )[ 0 ];
-						if ( top !== 'dist' && top !== 'package.json' && top !== 'skills' ) {
-							return false;
-						}
-						// Within dist/, drop build-only artifacts (types, tests, cache, maps).
-						return ! /\.(d\.ts|test\.js|js\.map|tsbuildinfo)$/.test( rel );
-					},
+				// Ship the engine as its self-contained MCP bundle only — never the tsc
+				// output tree or its node_modules. The engine's dependencies are inlined
+				// in the bundle; shipping them as loose files added ~17k files to the
+				// installer payload and ~8 min to the Windows CI build (STU-2027).
+				execSync( 'npm -w data-liberation run build:mcp-bundle', {
+					cwd: repoRoot,
+					stdio: 'inherit',
 				} );
+				const engineOutDir = resolve( outDir, 'data-liberation-agent' );
+				mkdirSync( resolve( engineOutDir, 'dist' ), { recursive: true } );
+				copyFileSync(
+					resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' ),
+					resolve( engineOutDir, 'dist', 'mcp-server.bundle.mjs' )
+				);
+				copyFileSync(
+					resolve( dataLiberationSourcePath, 'package.json' ),
+					resolve( engineOutDir, 'package.json' )
+				);
+				cpSync( resolve( dataLiberationSourcePath, 'skills' ), resolve( engineOutDir, 'skills' ), {
+					recursive: true,
+				} );
+				// The bundle resolves vendored runtime assets (.php helpers run via
+				// `wp eval-file`, .json data like core-block-attrs.json) relative to the
+				// engine's original src/ module paths — see the import.meta.url rewrite in
+				// packages/data-liberation-agent/scripts/build-mcp-bundle.mjs — so mirror
+				// those files (and nothing else) under src/.
+				copyEngineRuntimeAssets(
+					resolve( dataLiberationSourcePath, 'src' ),
+					resolve( engineOutDir, 'src' )
+				);
 
 				if ( existsSync( localUiDistPath ) ) {
 					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );

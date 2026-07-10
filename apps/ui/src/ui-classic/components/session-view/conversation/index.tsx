@@ -10,7 +10,8 @@ import {
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
 import {
-	buildToolGroupSummary,
+	buildWorkPhaseSummary,
+	formatThinkingDurationLabel,
 	getInputString,
 	getToolDetail,
 	getToolDisplayName,
@@ -66,7 +67,7 @@ import {
 	update,
 	upload,
 } from '@wordpress/icons';
-import { Button, Icon } from '@wordpress/ui';
+import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { RestoreCheckpointDialog } from '@/components/checkpoint-timeline';
@@ -74,7 +75,6 @@ import { ImageContextMenu } from '@/components/image-context-menu';
 import { ImageLightbox, type LightboxImage } from '@/components/image-lightbox';
 import { Markdown } from '@/components/markdown';
 import * as Menu from '@/components/menu';
-import { RollingText } from '@/components/rolling-text';
 import {
 	useConnector,
 	type LoadedAiSession,
@@ -95,14 +95,7 @@ interface AgentQuestionRenderItem {
 	pickedLabel?: string;
 }
 
-type RenderItem =
-	| {
-			kind: 'user-text';
-			key: string;
-			text: string;
-			attachments?: StudioChatAttachmentSummary[];
-	  }
-	| { kind: 'assistant-text'; key: string; text: string }
+type WorkPhaseStep =
 	| { kind: 'thinking'; key: string; text: string; durationMs?: number }
 	| {
 			kind: 'tool-use';
@@ -112,25 +105,29 @@ type RenderItem =
 			result?: NormalizedToolResult;
 	  }
 	| {
-			kind: 'tool-group';
+			kind: 'chat-artifact';
 			key: string;
-			tools: Array< {
-				key: string;
-				name: string;
-				input?: Record< string, unknown >;
-				result?: NormalizedToolResult;
-			} >;
+			widgets: StudioChatArtifactWidgetDraft[];
+	  };
+
+type RenderItem =
+	| {
+			kind: 'user-text';
+			key: string;
+			text: string;
+			attachments?: StudioChatAttachmentSummary[];
+	  }
+	| { kind: 'assistant-text'; key: string; text: string }
+	| {
+			kind: 'work-phase';
+			key: string;
+			steps: WorkPhaseStep[];
 			summary: ToolGroupSummary;
 	  }
 	| {
 			kind: 'agent-question-batch';
 			key: string;
 			questions: AgentQuestionRenderItem[];
-	  }
-	| {
-			kind: 'chat-artifact';
-			key: string;
-			widgets: StudioChatArtifactWidgetDraft[];
 	  }
 	| {
 			kind: 'permission-request';
@@ -141,6 +138,15 @@ type RenderItem =
 			decision?: PermissionDecision;
 	  }
 	| { kind: 'interrupted-marker'; key: string };
+
+/** Intermediate items before work-phase grouping. */
+type FlatRenderItem =
+	| Extract< RenderItem, { kind: 'user-text' } >
+	| Extract< RenderItem, { kind: 'assistant-text' } >
+	| WorkPhaseStep
+	| Extract< RenderItem, { kind: 'agent-question-batch' } >
+	| Extract< RenderItem, { kind: 'permission-request' } >
+	| Extract< RenderItem, { kind: 'interrupted-marker' } >;
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -179,20 +185,7 @@ function getEntryTimestampMs( entry: SessionEntry | undefined ): number | null {
 // message carrying the thinking block — the closest the transcript gets to
 // the model's thinking time (pi doesn't persist per-block durations).
 function getThinkingLabel( durationMs?: number ): string {
-	if ( ! durationMs || durationMs > 60 * 60 * 1000 ) {
-		return __( 'Thinking…' );
-	}
-	const totalSeconds = Math.max( 1, Math.round( durationMs / 1000 ) );
-	if ( totalSeconds < 60 ) {
-		/* translators: %d: number of seconds the agent spent thinking */
-		return sprintf( __( 'Thought for %ds' ), totalSeconds );
-	}
-	return sprintf(
-		/* translators: 1: minutes, 2: seconds the agent spent thinking */
-		__( 'Thought for %1$dm %2$ds' ),
-		Math.floor( totalSeconds / 60 ),
-		totalSeconds % 60
-	);
+	return formatThinkingDurationLabel( durationMs );
 }
 const QUESTION_COLLAPSE_DELAY_MS = 650;
 const QUESTION_SCROLL_TOP_MARGIN_PX = 12;
@@ -381,7 +374,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 		return decision === undefined || decision === 'deny';
 	};
 
-	const items: RenderItem[] = [];
+	const items: FlatRenderItem[] = [];
 	for ( let entryIndex = 0; entryIndex < entries.length; entryIndex += 1 ) {
 		const entry = entries[ entryIndex ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
@@ -522,44 +515,58 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 		}
 	}
 
-	return groupConsecutiveToolUses( items );
+	return groupIntoWorkPhases( items );
 }
 
-export function groupConsecutiveToolUses( items: RenderItem[] ): RenderItem[] {
-	const grouped: RenderItem[] = [];
-	let pendingTools: Extract< RenderItem, { kind: 'tool-use' } >[] = [];
+function isWorkPhaseStep( item: FlatRenderItem ): item is WorkPhaseStep {
+	return item.kind === 'thinking' || item.kind === 'tool-use' || item.kind === 'chat-artifact';
+}
 
-	const flushTools = () => {
-		if ( pendingTools.length === 0 ) {
+function buildWorkPhaseItem(
+	steps: WorkPhaseStep[]
+): Extract< RenderItem, { kind: 'work-phase' } > {
+	const tools = steps.filter(
+		( step ): step is Extract< WorkPhaseStep, { kind: 'tool-use' } > => step.kind === 'tool-use'
+	);
+	const thinkingDurationMs = steps
+		.filter(
+			( step ): step is Extract< WorkPhaseStep, { kind: 'thinking' } > => step.kind === 'thinking'
+		)
+		.reduce( ( total, step ) => total + ( step.durationMs ?? 0 ), 0 );
+	const artifactCount = steps.filter( ( step ) => step.kind === 'chat-artifact' ).length;
+	return {
+		kind: 'work-phase',
+		key: steps.map( ( step ) => step.key ).join( ':' ),
+		steps,
+		summary: buildWorkPhaseSummary( tools, thinkingDurationMs || undefined, { artifactCount } ),
+	};
+}
+
+/**
+ * Collapse everything between a user prompt and the assistant's reply into
+ * one work-phase row: thinking, tools, and artifacts across agent iterations.
+ */
+export function groupIntoWorkPhases( items: FlatRenderItem[] ): RenderItem[] {
+	const grouped: RenderItem[] = [];
+	let pendingSteps: WorkPhaseStep[] = [];
+
+	const flushPhase = () => {
+		if ( pendingSteps.length === 0 ) {
 			return;
 		}
-		if ( pendingTools.length === 1 ) {
-			grouped.push( pendingTools[ 0 ] );
-		} else {
-			grouped.push( {
-				kind: 'tool-group',
-				key: pendingTools.map( ( tool ) => tool.key ).join( ':' ),
-				tools: pendingTools.map( ( tool ) => ( {
-					key: tool.key,
-					name: tool.name,
-					input: tool.input,
-					result: tool.result,
-				} ) ),
-				summary: buildToolGroupSummary( pendingTools ),
-			} );
-		}
-		pendingTools = [];
+		grouped.push( buildWorkPhaseItem( pendingSteps ) );
+		pendingSteps = [];
 	};
 
 	for ( const item of items ) {
-		if ( item.kind === 'tool-use' ) {
-			pendingTools.push( item );
+		if ( isWorkPhaseStep( item ) ) {
+			pendingSteps.push( item );
 			continue;
 		}
-		flushTools();
+		flushPhase();
 		grouped.push( item );
 	}
-	flushTools();
+	flushPhase();
 	return grouped;
 }
 
@@ -970,25 +977,35 @@ function ToolUseRow( {
 	return (
 		<div className={ styles.toolBlock }>
 			{ hasExpandableDetails ? (
-				<button
-					type="button"
-					className={ clsx( styles.toolRow, styles.toolRowButton ) }
-					aria-label={ display.detail ? `${ display.label } ${ display.detail }` : display.label }
-					aria-expanded={ expanded }
-					aria-controls={ detailsId }
-					data-expanded={ expanded }
-					onClick={ () => {
-						if ( expanded ) {
-							setExpanded( false );
-							return;
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						render={
+							<button
+								type="button"
+								className={ clsx( styles.toolRow, styles.toolRowButton ) }
+								aria-label={
+									display.detail ? `${ display.label } ${ display.detail }` : display.label
+								}
+								aria-expanded={ expanded }
+								aria-controls={ detailsId }
+								data-expanded={ expanded }
+								onClick={ () => {
+									if ( expanded ) {
+										setExpanded( false );
+										return;
+									}
+									setDetailsMounted( true );
+									setExpanded( true );
+								} }
+							/>
 						}
-						setDetailsMounted( true );
-						setExpanded( true );
-					} }
-					title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
-				>
-					{ rowContent }
-				</button>
+					>
+						{ rowContent }
+					</Tooltip.Trigger>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+						{ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
+					</Tooltip.Popup>
+				</Tooltip.Root>
 			) : (
 				<div className={ styles.toolRow }>{ rowContent }</div>
 			) }
@@ -1023,34 +1040,23 @@ function ToolUseRow( {
 	);
 }
 
-function ToolGroupStats( { summary }: { summary: ToolGroupSummary } ) {
+function WorkPhaseStats( { summary }: { summary: ToolGroupSummary } ) {
 	if ( summary.additions === 0 && summary.deletions === 0 ) {
 		return null;
 	}
 	return (
-		<span className={ styles.toolGroupStats } aria-hidden="true">
+		<span className={ styles.workPhaseStats } aria-hidden="true">
 			{ summary.additions > 0 ? (
-				<span className={ styles.toolGroupStatAdded }>+{ summary.additions }</span>
+				<span className={ styles.workPhaseStatAdded }>+{ summary.additions }</span>
 			) : null }
 			{ summary.deletions > 0 ? (
-				<span className={ styles.toolGroupStatRemoved }>-{ summary.deletions }</span>
+				<span className={ styles.workPhaseStatRemoved }>-{ summary.deletions }</span>
 			) : null }
 		</span>
 	);
 }
 
-function ToolGroupRow( {
-	tools,
-	summary,
-}: {
-	tools: Array< {
-		key: string;
-		name: string;
-		input?: Record< string, unknown >;
-		result?: NormalizedToolResult;
-	} >;
-	summary: ToolGroupSummary;
-} ) {
+function WorkPhaseRow( { steps, summary }: { steps: WorkPhaseStep[]; summary: ToolGroupSummary } ) {
 	const detailsId = useId();
 	const [ expanded, setExpanded ] = useState( false );
 	const [ detailsMounted, setDetailsMounted ] = useState( false );
@@ -1064,29 +1070,34 @@ function ToolGroupRow( {
 
 	return (
 		<div className={ styles.toolBlock }>
-			<button
-				type="button"
-				className={ clsx( styles.toolRow, styles.toolRowButton, styles.toolGroupButton ) }
-				aria-label={ summary.label }
-				aria-expanded={ expanded }
-				aria-controls={ detailsId }
-				data-expanded={ expanded }
-				onClick={ () => {
-					if ( expanded ) {
-						setExpanded( false );
-						return;
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					render={
+						<button
+							type="button"
+							className={ clsx( styles.toolRow, styles.toolRowButton, styles.workPhaseButton ) }
+							aria-label={ summary.label }
+							aria-expanded={ expanded }
+							aria-controls={ detailsId }
+							data-expanded={ expanded }
+							onClick={ () => {
+								if ( expanded ) {
+									setExpanded( false );
+									return;
+								}
+								setDetailsMounted( true );
+								setExpanded( true );
+							} }
+						/>
 					}
-					setDetailsMounted( true );
-					setExpanded( true );
-				} }
-				title={ expanded ? __( 'Hide tool details' ) : __( 'Show tool details' ) }
-			>
-				<span className={ styles.toolLabel }>{ summary.label }</span>
-				<ToolGroupStats summary={ summary } />
-				<span className={ styles.toolGroupChevron } aria-hidden="true">
-					▼
-				</span>
-			</button>
+				>
+					<span className={ styles.toolLabel }>{ summary.label }</span>
+					<WorkPhaseStats summary={ summary } />
+				</Tooltip.Trigger>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+					{ expanded ? __( 'Hide work details' ) : __( 'Show work details' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
 			{ detailsMounted ? (
 				<div
 					id={ detailsId }
@@ -1100,16 +1111,33 @@ function ToolGroupRow( {
 					} }
 				>
 					<div className={ styles.toolDetailsClip }>
-						<div className={ styles.toolGroupChildren }>
-							{ tools.map( ( tool ) => (
-								<ToolUseRow
-									key={ tool.key }
-									name={ tool.name }
-									input={ tool.input }
-									result={ tool.result }
-									compact
-								/>
-							) ) }
+						<div className={ styles.workPhaseChildren }>
+							{ steps.map( ( step ) => {
+								switch ( step.kind ) {
+									case 'thinking':
+										return (
+											<ThinkingRow
+												key={ step.key }
+												text={ step.text }
+												durationMs={ step.durationMs }
+											/>
+										);
+									case 'tool-use':
+										return (
+											<ToolUseRow
+												key={ step.key }
+												name={ step.name }
+												input={ step.input }
+												result={ step.result }
+												compact
+											/>
+										);
+									case 'chat-artifact':
+										return <ChatArtifact key={ step.key } widgets={ step.widgets } />;
+									default:
+										return null;
+								}
+							} ) }
 						</div>
 					</div>
 				</div>
@@ -1118,54 +1146,32 @@ function ToolGroupRow( {
 	);
 }
 
-function ActiveToolSlot( { tool }: { tool: ActiveToolState | null } ) {
-	const [ current, setCurrent ] = useState( tool );
-	const [ previous, setPrevious ] = useState< ActiveToolState | null >( null );
-	const currentKey = tool ? `${ tool.name }:${ tool.startedAt }` : null;
-	const renderedKey = current ? `${ current.name }:${ current.startedAt }` : null;
-
-	if ( currentKey !== renderedKey ) {
-		if ( current && tool ) {
-			setPrevious( current );
+function LiveWorkPhase( {
+	steps,
+	activeTool,
+}: {
+	steps: WorkPhaseStep[];
+	activeTool: ActiveToolState | null;
+} ) {
+	const liveSteps = useMemo( () => {
+		if ( ! activeTool ) {
+			return steps;
 		}
-		setCurrent( tool );
-	}
+		const pending: WorkPhaseStep = {
+			kind: 'tool-use',
+			key: `live:${ activeTool.name }:${ activeTool.startedAt }`,
+			name: activeTool.name,
+			input: activeTool.input,
+		};
+		return [ ...steps, pending ];
+	}, [ activeTool, steps ] );
 
-	useEffect( () => {
-		if ( ! previous ) {
-			return;
-		}
-		const timeoutId = window.setTimeout( () => setPrevious( null ), 240 );
-		return () => window.clearTimeout( timeoutId );
-	}, [ previous ] );
-
-	if ( ! current ) {
+	if ( liveSteps.length === 0 ) {
 		return null;
 	}
 
-	const display = getClassicToolDisplay( current.name, current.input );
-	const labelText = display.detail ? `${ display.label } ${ display.detail }` : display.label;
-	const previousDisplay = previous ? getClassicToolDisplay( previous.name, previous.input ) : null;
-	const previousLabel = previousDisplay
-		? previousDisplay.detail
-			? `${ previousDisplay.label } ${ previousDisplay.detail }`
-			: previousDisplay.label
-		: '';
-
-	return (
-		<div className={ styles.activeToolSlot }>
-			{ previous ? (
-				<div className={ styles.activeToolRowExit } aria-hidden="true">
-					<ToolIcon name={ previous.name } input={ previous.input } />
-					<RollingText text={ previousLabel } />
-				</div>
-			) : null }
-			<div className={ previous ? styles.activeToolRowEnter : styles.activeToolRow }>
-				<ToolIcon name={ current.name } input={ current.input } />
-				<RollingText text={ labelText } />
-			</div>
-		</div>
-	);
+	const phase = buildWorkPhaseItem( liveSteps );
+	return <WorkPhaseRow steps={ phase.steps } summary={ phase.summary } />;
 }
 
 // The model's extended-thinking block, shown collapsed like a tool call —
@@ -1184,26 +1190,34 @@ function ThinkingRow( { text, durationMs }: { text: string; durationMs?: number 
 	}, [ detailsMounted, expanded ] );
 	return (
 		<div className={ styles.toolBlock }>
-			<button
-				type="button"
-				className={ clsx( styles.toolRow, styles.toolRowButton ) }
-				aria-label={ label }
-				aria-expanded={ expanded }
-				aria-controls={ detailsId }
-				data-expanded={ expanded }
-				onClick={ () => {
-					if ( expanded ) {
-						setExpanded( false );
-						return;
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					render={
+						<button
+							type="button"
+							className={ clsx( styles.toolRow, styles.toolRowButton ) }
+							aria-label={ label }
+							aria-expanded={ expanded }
+							aria-controls={ detailsId }
+							data-expanded={ expanded }
+							onClick={ () => {
+								if ( expanded ) {
+									setExpanded( false );
+									return;
+								}
+								setDetailsMounted( true );
+								setExpanded( true );
+							} }
+						/>
 					}
-					setDetailsMounted( true );
-					setExpanded( true );
-				} }
-				title={ expanded ? __( 'Hide thinking' ) : __( 'Show thinking' ) }
-			>
-				<Icon icon={ tip } size={ 18 } className={ styles.toolIcon } aria-hidden="true" />
-				<span className={ styles.toolLabel }>{ label }</span>
-			</button>
+				>
+					<Icon icon={ tip } size={ 18 } className={ styles.toolIcon } aria-hidden="true" />
+					<span className={ styles.toolLabel }>{ label }</span>
+				</Tooltip.Trigger>
+				<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+					{ expanded ? __( 'Hide thinking' ) : __( 'Show thinking' ) }
+				</Tooltip.Popup>
+			</Tooltip.Root>
 			{ detailsMounted ? (
 				<div
 					id={ detailsId }
@@ -1836,6 +1850,51 @@ export function Conversation( {
 	const items = useMemo( () => entriesToRenderItems( entries ), [ entries ] );
 	const progressMessage = useMemo( () => findLatestProgressMessage( entries ), [ entries ] );
 
+	// While a turn is in flight, the last work-phase (after the latest user
+	// prompt, before any reply text) is shown as a live updating summary.
+	// Completed phases earlier in the transcript stay as normal rows.
+	const { committedItems, livePhaseSteps } = useMemo( () => {
+		if ( ! isRunning ) {
+			return { committedItems: items, livePhaseSteps: null as WorkPhaseStep[] | null };
+		}
+		let lastUserIndex = -1;
+		for ( let i = items.length - 1; i >= 0; i -= 1 ) {
+			if ( items[ i ].kind === 'user-text' ) {
+				lastUserIndex = i;
+				break;
+			}
+		}
+		const turnItems = lastUserIndex >= 0 ? items.slice( lastUserIndex + 1 ) : items;
+		const hasReply = turnItems.some( ( item ) => item.kind === 'assistant-text' );
+		if ( hasReply ) {
+			return { committedItems: items, livePhaseSteps: null as WorkPhaseStep[] | null };
+		}
+		let lastPhaseIndex = -1;
+		for ( let i = items.length - 1; i >= 0; i -= 1 ) {
+			if ( items[ i ].kind === 'work-phase' ) {
+				lastPhaseIndex = i;
+				break;
+			}
+		}
+		if ( lastPhaseIndex < 0 || lastPhaseIndex < lastUserIndex ) {
+			return { committedItems: items, livePhaseSteps: [] as WorkPhaseStep[] };
+		}
+		const phase = items[ lastPhaseIndex ];
+		if ( phase.kind !== 'work-phase' ) {
+			return { committedItems: items, livePhaseSteps: null as WorkPhaseStep[] | null };
+		}
+		return {
+			committedItems: items.slice( 0, lastPhaseIndex ),
+			livePhaseSteps: phase.steps,
+		};
+	}, [ isRunning, items ] );
+
+	const showLiveWork =
+		isRunning &&
+		livePhaseSteps !== null &&
+		pendingQuestions.size === 0 &&
+		pendingPermissions.size === 0;
+
 	// Gallery registry: insertion order matches render (≈ chronological)
 	// order, so the lightbox pages through images as they appear in the
 	// transcript. A ref (not state) — registration must not re-render the
@@ -1875,7 +1934,7 @@ export function Conversation( {
 				/>
 			) : null }
 			<div className={ styles.root }>
-				{ items.map( ( item ) => {
+				{ committedItems.map( ( item ) => {
 					switch ( item.kind ) {
 						case 'user-text':
 							return (
@@ -1883,22 +1942,9 @@ export function Conversation( {
 							);
 						case 'assistant-text':
 							return <AssistantText key={ item.key } text={ item.text } />;
-						case 'thinking':
+						case 'work-phase':
 							return (
-								<ThinkingRow key={ item.key } text={ item.text } durationMs={ item.durationMs } />
-							);
-						case 'tool-use':
-							return (
-								<ToolUseRow
-									key={ item.key }
-									name={ item.name }
-									input={ item.input }
-									result={ item.result }
-								/>
-							);
-						case 'tool-group':
-							return (
-								<ToolGroupRow key={ item.key } tools={ item.tools } summary={ item.summary } />
+								<WorkPhaseRow key={ item.key } steps={ item.steps } summary={ item.summary } />
 							);
 						case 'agent-question-batch':
 							return (
@@ -1910,8 +1956,6 @@ export function Conversation( {
 									onAnswer={ onAnswerQuestion }
 								/>
 							);
-						case 'chat-artifact':
-							return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
 						case 'permission-request':
 							return (
 								<PermissionRequest
@@ -1932,11 +1976,11 @@ export function Conversation( {
 							return null;
 					}
 				} ) }
-				{ isRunning &&
-				activeTool &&
-				pendingQuestions.size === 0 &&
-				pendingPermissions.size === 0 ? (
-					<ActiveToolSlot tool={ activeTool } />
+				{ showLiveWork ? (
+					<>
+						<LiveWorkPhase steps={ livePhaseSteps } activeTool={ activeTool } />
+						<ThinkingIndicator active startedAt={ startedAt } progressMessage={ progressMessage } />
+					</>
 				) : (
 					<ThinkingIndicator
 						active={ isRunning && pendingQuestions.size === 0 && pendingPermissions.size === 0 }

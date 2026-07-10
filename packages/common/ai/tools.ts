@@ -973,3 +973,54 @@ export function buildToolGroupSummary( tools: ToolGroupToolInput[] ): ToolGroupS
 		deletions,
 	};
 }
+
+export function formatThinkingDurationLabel( durationMs?: number ): string {
+	if ( ! durationMs || durationMs > 60 * 60 * 1000 ) {
+		return __( 'Thinking…' );
+	}
+	const totalSeconds = Math.max( 1, Math.round( durationMs / 1000 ) );
+	if ( totalSeconds < 60 ) {
+		/* translators: %d: number of seconds the agent spent thinking */
+		return sprintf( __( 'Thought for %ds' ), totalSeconds );
+	}
+	return sprintf(
+		/* translators: 1: minutes, 2: seconds the agent spent thinking */
+		__( 'Thought for %1$dm %2$ds' ),
+		Math.floor( totalSeconds / 60 ),
+		totalSeconds % 60
+	);
+}
+
+/** Summary for a work phase: tool categories when present, else thinking duration. */
+export function buildWorkPhaseSummary(
+	tools: ToolGroupToolInput[],
+	thinkingDurationMs?: number,
+	options?: { artifactCount?: number }
+): ToolGroupSummary {
+	if ( tools.length > 0 ) {
+		return buildToolGroupSummary( tools );
+	}
+	if ( thinkingDurationMs && thinkingDurationMs > 0 ) {
+		return {
+			label: formatThinkingDurationLabel( thinkingDurationMs ),
+			additions: 0,
+			deletions: 0,
+		};
+	}
+	const artifactCount = options?.artifactCount ?? 0;
+	if ( artifactCount > 0 ) {
+		return {
+			label: sprintf(
+				_n( 'Captured %d artifact', 'Captured %d artifacts', artifactCount ),
+				artifactCount
+			),
+			additions: 0,
+			deletions: 0,
+		};
+	}
+	return {
+		label: formatThinkingDurationLabel( thinkingDurationMs ),
+		additions: 0,
+		deletions: 0,
+	};
+}

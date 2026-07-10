@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	buildToolGroupSummary,
+	buildWorkPhaseSummary,
 	countDiffLineStats,
 	getToolDetail,
 	getToolDisplayName,
@@ -144,5 +145,9 @@ describe( 'tool group summaries', () => {
 		expect( getWritePseudoDiff( { content: 'line one\nline two' } ) ).toBe(
 			'+line one\n+line two'
 		);
+	} );
+
+	it( 'uses thinking duration when a work phase has no tools', () => {
+		expect( buildWorkPhaseSummary( [], 3000 ).label ).toBe( 'Thought for 3s' );
 	} );
 } );

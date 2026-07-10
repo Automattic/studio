@@ -82,22 +82,32 @@
 /* Assistant response wrapper: the copy button below stays hidden until the
    turn is hovered (or a control inside it is focused), mirroring Claude/ChatGPT. */
 .assistantTurn {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-xs);
 }
 
+/* Hangs off the turn's bottom-left without reserving layout space. Kept
+   flush (top: 100%, no gap) so the pointer can travel from the text onto
+   the button without ever leaving the turn's :hover. pointer-events is
+   gated too: an invisible floating button must not swallow clicks meant
+   for the row below it. */
 .messageActions {
+	position: absolute;
+	top: 100%;
+	inset-inline-start: calc((16px - 1.75rem) / 2);
 	display: flex;
 	align-items: center;
-	margin-inline-start: calc((16px - 1.75rem) / 2);
 	opacity: 0;
+	pointer-events: none;
 	transition: opacity 0.12s ease;
 }
 
 .assistantTurn:hover .messageActions,
 .assistantTurn:focus-within .messageActions {
 	opacity: 1;
+	pointer-events: auto;
 }
 
 .userActions {

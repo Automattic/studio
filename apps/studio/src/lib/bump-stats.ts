@@ -31,6 +31,8 @@ export enum StatsGroup {
 	STUDIO_CODE_UI_RUN = 'studio-code-ui-run',
 	STUDIO_CODE_UI_WKLY_UNQ = 'studio-code-ui-wk-unq',
 	STUDIO_CODE_UI_MON_UNQ = 'studio-code-ui-mon-unq',
+	// In-app feedback submissions (success/failure) from the desktop UI.
+	STUDIO_APP_FEEDBACK = 'studio-app-feedback',
 }
 
 export enum StatsMetric {

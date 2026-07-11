@@ -69,6 +69,7 @@ export const IPC_VOID_HANDLERS = [
 	'showItemInFolder',
 	'showNotification',
 	'authenticate',
+	'openApplicationLogs',
 ] as const;
 
 // What's New

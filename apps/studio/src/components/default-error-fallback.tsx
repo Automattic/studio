@@ -4,12 +4,14 @@ import {
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
+import { useState } from 'react';
 import Button from 'src/components/button';
 import { DynamicStylesheet } from 'src/components/dynamic-stylesheet';
 import { getWordpressStylesHref } from 'src/components/wordpress-styles';
 import { isLinux, isMac, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { FeedbackModal } from 'src/modules/feedback';
 
 const SiteItemSkeleton = () => {
 	return (
@@ -50,6 +52,7 @@ const GravatarSkeleton = () => {
 
 const RightPanel = () => {
 	const { __ } = useI18n();
+	const [ showFeedback, setShowFeedback ] = useState( false );
 	const locale = DEFAULT_LOCALE;
 	const openLocalizedSupport = () => {
 		getIpcApi().openURL( `https://wordpress.com/${ locale }/support/contact` );
@@ -76,7 +79,7 @@ const RightPanel = () => {
 					</Button>
 				</p>
 			</div>
-			<div>
+			<div className="flex items-center gap-3">
 				<Button
 					className="bg-frame-theme hover:text-white text-white"
 					variant="primary"
@@ -84,7 +87,17 @@ const RightPanel = () => {
 				>
 					{ __( 'Restart' ) }
 				</Button>
+				<Button variant="secondary" onClick={ () => setShowFeedback( true ) }>
+					{ __( 'Share feedback' ) }
+				</Button>
 			</div>
+			{ showFeedback && (
+				<FeedbackModal
+					identity={ undefined }
+					source="crash"
+					onClose={ () => setShowFeedback( false ) }
+				/>
+			) }
 		</div>
 	);
 };

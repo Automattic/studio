@@ -439,6 +439,12 @@ async function getAppMenu(
 				},
 				{ type: 'separator' },
 				{
+					label: __( 'Share Feedback…' ),
+					click: () => {
+						void sendIpcEventToRenderer( 'feedback-modal', { source: 'menu' } );
+					},
+				},
+				{
 					label: __( 'Report an Issue' ),
 					click: () => {
 						void shellOpenExternalWrapper( BUG_REPORT_URL );

@@ -19,6 +19,7 @@ import { useSiteDetails } from 'src/hooks/use-site-details';
 import { isLinux, isWindows } from 'src/lib/app-globals';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { FeedbackModalContainer } from 'src/modules/feedback';
 import { Onboarding } from 'src/modules/onboarding';
 import { useOnboarding } from 'src/modules/onboarding/hooks/use-onboarding';
 import { UserSettings } from 'src/modules/user-settings';
@@ -134,6 +135,7 @@ export default function App() {
 				</VStack>
 			) }
 			<UserSettings />
+			<FeedbackModalContainer />
 			<WhatsNewModal showModal={ shouldShowWhatsNew } onClose={ closeWhatsNew } />
 			{ isWapuuWorldOpen && <WapuuWorldGame /> }
 		</>

@@ -7,6 +7,7 @@ import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { FeedbackForm } from 'src/modules/feedback';
 import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
@@ -94,6 +95,11 @@ export default function UserSettings() {
 			title: __( 'MCP' ),
 		} );
 
+		result.push( {
+			name: 'feedback',
+			title: __( 'Feedback' ),
+		} );
+
 		return result;
 	}, [ __ ] );
 
@@ -121,6 +127,16 @@ export default function UserSettings() {
 								{ name === 'general' && <PreferencesTab onClose={ resetLocalState } /> }
 								{ name === 'skills' && <SkillsTab /> }
 								{ name === 'mcp' && <McpSettings /> }
+								{ name === 'feedback' && (
+									<FeedbackForm
+										identity={ {
+											isAuthenticated: !! user,
+											email: user?.email,
+											displayName: user?.displayName,
+										} }
+										source="settings"
+									/>
+								) }
 								{ name === 'account' && (
 									<AccountTab
 										loadingDeletingAllSnapshots={ isDeletingAllSnapshots }

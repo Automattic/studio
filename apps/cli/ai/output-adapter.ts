@@ -1,5 +1,7 @@
 import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { __ } from '@wordpress/i18n';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
+import { notifyTerminal } from 'cli/lib/notify';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
@@ -151,6 +153,11 @@ export class JsonAdapter implements AiOutputAdapter {
 		sessionId: string,
 		usage?: { numTurns: number; costUsd?: number }
 	): void {
+		if ( status === 'success' ) {
+			void notifyTerminal( __( 'Studio Code response is ready' ) );
+		} else if ( status === 'paused' ) {
+			void notifyTerminal( __( 'Studio Code is waiting for your answer' ) );
+		}
 		emitEvent( {
 			type: 'turn.completed',
 			timestamp: new Date().toISOString(),

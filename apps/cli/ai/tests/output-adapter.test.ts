@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { JsonAdapter } from 'cli/ai/output-adapter';
+import { notifyTerminal } from 'cli/lib/notify';
 import { PRIVACY_POLICY_URL, TOS_URL } from 'cli/lib/tos-notice';
+
+vi.mock( 'cli/lib/notify', () => ( {
+	notifyTerminal: vi.fn().mockResolvedValue( undefined ),
+} ) );
 
 describe( 'JsonAdapter IPC messaging', () => {
 	let originalSend: typeof process.send;
@@ -121,5 +126,56 @@ describe( 'JsonAdapter showTosNotice', () => {
 		expect( output ).toContain( TOS_URL );
 		expect( output ).toContain( PRIVACY_POLICY_URL );
 		expect( stdoutWriteSpy ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'JsonAdapter terminal notifications', () => {
+	const originalSend = process.send;
+
+	beforeEach( () => {
+		vi.mocked( notifyTerminal ).mockClear();
+	} );
+
+	afterEach( () => {
+		( process as unknown as { send: typeof process.send } ).send = originalSend;
+	} );
+
+	it( 'notifies "response is ready" on a successful turn', () => {
+		new JsonAdapter().emitTurnCompleted( 'success', 'session-1' );
+		expect( notifyTerminal ).toHaveBeenCalledExactlyOnceWith(
+			expect.stringContaining( 'response is ready' )
+		);
+	} );
+
+	it( 'notifies "waiting for your answer" on a paused turn', () => {
+		new JsonAdapter().emitTurnCompleted( 'paused', 'session-1' );
+		expect( notifyTerminal ).toHaveBeenCalledExactlyOnceWith(
+			expect.stringContaining( 'waiting for your answer' )
+		);
+	} );
+
+	it.each( [ 'error', 'max_turns' ] as const )( 'does not notify on a %s turn', ( status ) => {
+		new JsonAdapter().emitTurnCompleted( status, 'session-1' );
+		expect( notifyTerminal ).not.toHaveBeenCalled();
+	} );
+
+	it( 'notifies exactly once when askUser pauses a standalone (non-IPC) session', async () => {
+		( process as unknown as { send: typeof process.send } ).send =
+			undefined as unknown as typeof process.send;
+
+		const adapter = new JsonAdapter();
+		adapter.onBeforeExit = vi.fn().mockResolvedValue( undefined );
+		// askUser() never resolves in standalone mode (process.exitCode is set
+		// instead); don't await it, just let the microtasks up to that point run.
+		void adapter.askUser( [ { question: 'q', options: [] } ] );
+		await Promise.resolve();
+		await Promise.resolve();
+
+		// Regression guard: askUser() used to fire its own "waiting for your
+		// answer" notification AND emitTurnCompleted('paused', ...) fired a
+		// second, identical one - a double OS notification/bell for one event.
+		expect( notifyTerminal ).toHaveBeenCalledExactlyOnceWith(
+			expect.stringContaining( 'waiting for your answer' )
+		);
 	} );
 } );

@@ -12,6 +12,7 @@ import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/crea
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { openBrowser } from 'cli/lib/browser';
+import { areNotificationsEnabled, setNotificationsEnabled } from 'cli/lib/notify';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
@@ -251,6 +252,20 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Clear the conversation and start a fresh session' ),
 		handler: async ( _prompt, ctx ) => {
 			await ctx.clearSession();
+			return 'continue';
+		},
+	},
+	{
+		name: 'notifications',
+		description: __(
+			'Toggle terminal notifications when a response is ready or your input is needed (off by default)'
+		),
+		handler: async ( _prompt, ctx ) => {
+			const enabled = await areNotificationsEnabled();
+			await setNotificationsEnabled( ! enabled );
+			ctx.ui.showInfo(
+				! enabled ? __( 'Notifications enabled.' ) : __( 'Notifications disabled.' )
+			);
 			return 'continue';
 		},
 	},

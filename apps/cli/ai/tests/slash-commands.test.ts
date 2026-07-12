@@ -1,5 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	AI_CHAT_SLASH_COMMANDS,
+	getActiveSlashCommands,
+	type SlashCommandContext,
+} from 'cli/ai/slash-commands';
+import { areNotificationsEnabled, setNotificationsEnabled } from 'cli/lib/notify';
 
 describe( '/remote-session slash command registration', () => {
 	const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'remote-session' );
@@ -38,6 +43,10 @@ vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/create', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
 vi.mock( '@studio/common/lib/shared-config', () => ( { readAuthToken: vi.fn() } ) );
+vi.mock( 'cli/lib/notify', () => ( {
+	areNotificationsEnabled: vi.fn(),
+	setNotificationsEnabled: vi.fn().mockResolvedValue( undefined ),
+} ) );
 
 vi.mock( 'cli/remote-session/daemon', () => {
 	return {
@@ -399,5 +408,65 @@ describe( '/model slash command', () => {
 		// Same model picked → no swap, no persist.
 		expect( ctx.currentModel ).toBe( 'gpt-5.5' );
 		expect( persistMock ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( '/notifications slash command', () => {
+	const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'notifications' )!;
+
+	function makeUi() {
+		return { showInfo: vi.fn() };
+	}
+	function makeCtx( ui: ReturnType< typeof makeUi > ): SlashCommandContext {
+		return {
+			ui: ui as unknown as SlashCommandContext[ 'ui' ],
+			currentModel: 'claude-sonnet-4-5' as SlashCommandContext[ 'currentModel' ],
+			currentProvider: 'wpcom' as SlashCommandContext[ 'currentProvider' ],
+			showCapabilitiesOnConnect: false,
+			switchProvider: vi.fn().mockResolvedValue( undefined ),
+			prepareProviderSelection: vi.fn().mockResolvedValue( undefined ),
+			maybeAutoSwitchProvider: vi.fn().mockResolvedValue( undefined ),
+			persistSessionContext: vi.fn().mockResolvedValue( undefined ),
+			clearSession: vi.fn().mockResolvedValue( undefined ),
+		};
+	}
+
+	afterEach( () => {
+		vi.mocked( areNotificationsEnabled ).mockReset();
+		vi.mocked( setNotificationsEnabled ).mockClear();
+	} );
+
+	it( 'is registered with a handler and a discoverable description', () => {
+		expect( cmd ).toBeDefined();
+		expect( typeof cmd.handler ).toBe( 'function' );
+		expect( cmd.description ).toBeTruthy();
+	} );
+
+	// Regression test: the interactive autocomplete (DescriptionAwareAutocompleteProvider
+	// in ai/ui.ts) is wired directly to getActiveSlashCommands() — there is no separate
+	// list to keep in sync. If this ever stops finding the command, autocomplete broke too.
+	it( 'shows up in the list the interactive autocomplete reads from', () => {
+		const active = getActiveSlashCommands().find( ( c ) => c.name === 'notifications' );
+		expect( active ).toBeDefined();
+		expect( typeof active!.handler ).toBe( 'function' );
+	} );
+
+	it( 'enables notifications and reports the new state when currently disabled', async () => {
+		vi.mocked( areNotificationsEnabled ).mockResolvedValue( false );
+		const ui = makeUi();
+		const result = await cmd.handler!( '/notifications', makeCtx( ui ) );
+
+		expect( setNotificationsEnabled ).toHaveBeenCalledWith( true );
+		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'enabled' ) );
+		expect( result ).toBe( 'continue' );
+	} );
+
+	it( 'disables notifications and reports the new state when currently enabled', async () => {
+		vi.mocked( areNotificationsEnabled ).mockResolvedValue( true );
+		const ui = makeUi();
+		await cmd.handler!( '/notifications', makeCtx( ui ) );
+
+		expect( setNotificationsEnabled ).toHaveBeenCalledWith( false );
+		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'disabled' ) );
 	} );
 } );

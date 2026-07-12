@@ -39,6 +39,7 @@ import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
+import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
@@ -498,6 +499,10 @@ export async function runCommand( options: {
 			} else {
 				site.running = false;
 			}
+			// isSiteRunning leaves a DaemonBus socket open, which keeps headless
+			// (--json) runs alive after turn.completed; close it so the process
+			// can exit naturally.
+			await disconnectFromDaemon();
 		}
 		if ( site?.remote && site?.url ) {
 			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;

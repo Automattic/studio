@@ -7,7 +7,6 @@ import type {
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
 	AuthUser,
-	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
@@ -352,11 +351,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
-		async findAvailableSitePath( baseName ): Promise< AvailableSitePath > {
-			return api< AvailableSitePath >(
-				`/site-defaults/available-path?name=${ encodeURIComponent( baseName ) }`
-			);
-		},
 		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
 			// No native folder picker in a browser; the create form falls back to
 			// an editable path field (see capabilities.nativeFolderPicker).
@@ -413,14 +407,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			throw new UnsupportedError( 'readLocalMediaFile' );
 		},
 		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
-			const response = await fetch(
-				`${ base }/blueprints/extract?name=${ encodeURIComponent( file.name ) }`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/octet-stream' },
-					body: file,
-				}
-			);
+			const response = await fetch( `${ base }/blueprints/extract`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/octet-stream' },
+				body: file,
+			} );
 			if ( ! response.ok ) {
 				const text = await response.text().catch( () => '' );
 				throw new Error( `POST /blueprints/extract failed (${ response.status }): ${ text }` );

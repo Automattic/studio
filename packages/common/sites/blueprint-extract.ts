@@ -55,13 +55,10 @@ export async function extractBlueprintBundle(
 
 export async function extractBlueprintUpload(
 	upload: Readable,
-	fileName: string,
 	extract: ( filePath: string ) => Promise< ExtractedBlueprintBundle > = extractBlueprintBundle
 ): Promise< ExtractedBlueprintBundle > {
 	const uploadTempDir = await mkdtemp( path.join( os.tmpdir(), 'studio-upload-' ) );
-	const baseName = path.basename( fileName );
-	const safeName = ! baseName || baseName === '.' || baseName === '..' ? 'blueprint.zip' : baseName;
-	const filePath = path.join( uploadTempDir, safeName );
+	const filePath = path.join( uploadTempDir, 'blueprint.zip' );
 
 	try {
 		await pipeline( upload, createWriteStream( filePath ) );

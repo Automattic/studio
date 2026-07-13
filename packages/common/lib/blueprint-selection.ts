@@ -52,6 +52,10 @@ export async function prepareBlueprint(
 
 	const blueprint = parsed as BlueprintV1Declaration;
 	const details = getBlueprintDisplayDetails( blueprint, fallbackTitle );
-	const warnings = validation.warnings?.length ? validation.warnings : undefined;
-	return { valid: true, blueprint, ...details, ...( warnings ? { warnings } : {} ) };
+	return {
+		valid: true,
+		blueprint,
+		...details,
+		warnings: validation.warnings?.length ? validation.warnings : undefined,
+	};
 }

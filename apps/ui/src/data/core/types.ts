@@ -168,7 +168,6 @@ export interface Connector {
 	// desktop app's add-site flow relies on (folder pickers and path validation).
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
-	findAvailableSitePath( baseName: string ): Promise< AvailableSitePath >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
@@ -404,11 +403,6 @@ export interface ProposedSitePath {
 	isEmpty: boolean;
 	isWordPress: boolean;
 	isNameTooLong?: boolean;
-}
-
-export interface AvailableSitePath {
-	name: string;
-	path: string;
 }
 
 export interface SelectedSiteFolder {

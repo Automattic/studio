@@ -23,19 +23,20 @@ export function validateProposedSitePath(
 	result: ProposedSitePathDetails,
 	pathExists: boolean
 ): PathValidationResult {
+	const base = {
+		path: result.path,
+		isEmpty: result.isEmpty,
+		isWordPress: result.isWordPress,
+	};
 	if ( result.isNameTooLong ) {
 		return {
-			path: result.path,
-			isEmpty: result.isEmpty,
-			isWordPress: result.isWordPress,
+			...base,
 			error: __( 'The site name is too long. Please choose a shorter site name.' ),
 		};
 	}
 	if ( pathExists ) {
 		return {
-			path: result.path,
-			isEmpty: result.isEmpty,
-			isWordPress: result.isWordPress,
+			...base,
 			error: __(
 				'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
 			),
@@ -43,15 +44,13 @@ export function validateProposedSitePath(
 	}
 	if ( ! result.isEmpty && ! result.isWordPress ) {
 		return {
-			path: result.path,
-			isEmpty: result.isEmpty,
-			isWordPress: result.isWordPress,
+			...base,
 			error: __(
 				'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
 			),
 		};
 	}
-	return { path: result.path, isEmpty: result.isEmpty, isWordPress: result.isWordPress };
+	return base;
 }
 
 export function validateSelectedSitePath(

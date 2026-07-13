@@ -78,6 +78,17 @@ interface FormData {
 	adminEmail: string;
 }
 
+const SIMPLE_FIELDS = [
+	'name',
+	'phpVersion',
+	'wpVersion',
+	'enableHttps',
+	'adminUsername',
+	'adminPassword',
+	'adminEmail',
+] as const satisfies readonly ( keyof CreateSiteFormValues )[];
+const INITIAL_VALUE_FIELDS = [ ...SIMPLE_FIELDS, 'path', 'customDomain' ] as const;
+
 function createDefaultFormData(): FormData {
 	return {
 		name: '',
@@ -137,34 +148,20 @@ function applyInitialValues(
 		if ( values[ field ] !== undefined || dirtyFields.has( field ) ) continue;
 		Object.assign( next, defaultValuesByField[ field ] );
 	}
-	if ( values.name !== undefined && ! dirtyFields.has( 'name' ) ) next.name = values.name;
+	for ( const field of SIMPLE_FIELDS ) {
+		if ( values[ field ] !== undefined && ! dirtyFields.has( field ) ) {
+			Object.assign( next, { [ field ]: values[ field ] } );
+		}
+	}
 	if ( values.path !== undefined && ! dirtyFields.has( 'path' ) ) {
 		next.path = values.path;
 		next.hasCustomPath = !! values.path;
 		next.pathError = '';
 		next.isPathPending = false;
 	}
-	if ( values.phpVersion !== undefined && ! dirtyFields.has( 'phpVersion' ) ) {
-		next.phpVersion = values.phpVersion;
-	}
-	if ( values.wpVersion !== undefined && ! dirtyFields.has( 'wpVersion' ) ) {
-		next.wpVersion = values.wpVersion;
-	}
-	if ( values.adminUsername !== undefined && ! dirtyFields.has( 'adminUsername' ) ) {
-		next.adminUsername = values.adminUsername;
-	}
-	if ( values.adminPassword !== undefined && ! dirtyFields.has( 'adminPassword' ) ) {
-		next.adminPassword = values.adminPassword;
-	}
-	if ( values.adminEmail !== undefined && ! dirtyFields.has( 'adminEmail' ) ) {
-		next.adminEmail = values.adminEmail;
-	}
 	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
 		next.useCustomDomain = !! values.customDomain;
 		next.customDomain = values.customDomain;
-	}
-	if ( values.enableHttps !== undefined && ! dirtyFields.has( 'enableHttps' ) ) {
-		next.enableHttps = values.enableHttps;
 	}
 	return Object.keys( next ).some(
 		( key ) => next[ key as keyof FormData ] !== prev[ key as keyof FormData ]
@@ -516,19 +513,7 @@ export function CreateSiteForm( {
 		for ( const key of Object.keys( update ) ) {
 			if ( key === 'useCustomDomain' ) {
 				dirtyFieldsRef.current.add( 'customDomain' );
-			} else if (
-				[
-					'name',
-					'path',
-					'phpVersion',
-					'wpVersion',
-					'customDomain',
-					'enableHttps',
-					'adminUsername',
-					'adminPassword',
-					'adminEmail',
-				].includes( key )
-			) {
+			} else if ( INITIAL_VALUE_FIELDS.includes( key as keyof CreateSiteFormValues ) ) {
 				dirtyFieldsRef.current.add( key as keyof CreateSiteFormValues );
 			}
 		}

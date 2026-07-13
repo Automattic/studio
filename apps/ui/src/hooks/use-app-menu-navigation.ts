@@ -4,10 +4,6 @@ import { useConnector } from '@/data/core';
 import { createSelectedBlueprint } from '@/lib/blueprint-selection';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 
-function fileNameFromPath( filePath: string ): string {
-	return filePath.split( /[\\/]/ ).pop() || 'blueprint.json';
-}
-
 export function useAppMenuNavigation() {
 	const connector = useConnector();
 	const navigate = useNavigate();
@@ -23,7 +19,7 @@ export function useAppMenuNavigation() {
 					try {
 						const blueprintJson = await connector.readBlueprintFile( blueprintPath );
 						const blueprint = await createSelectedBlueprint( blueprintJson, {
-							name: fileNameFromPath( blueprintPath ),
+							name: blueprintPath.split( /[\\/]/ ).pop() || 'blueprint.json',
 							size: 0,
 						} );
 						pendingBlueprintSlot.set( blueprint );

@@ -5,7 +5,6 @@ import type {
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
 	AuthUser,
-	AvailableSitePath,
 	Connector,
 	InstalledApps,
 	LoadedAiSession,
@@ -171,9 +170,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async generateProposedSitePath() {
 			throw new UnsupportedError( 'generateProposedSitePath' );
-		},
-		async findAvailableSitePath(): Promise< AvailableSitePath > {
-			throw new UnsupportedError( 'findAvailableSitePath' );
 		},
 		async selectSiteFolder() {
 			throw new UnsupportedError( 'selectSiteFolder' );

@@ -501,19 +501,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	api.get(
-		'/site-defaults/available-path',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const sites = await listSites( execute );
-			const name = await generateNumberedName(
-				String( req.query.name ?? '' ),
-				sites.map( ( site ) => site.name ),
-				sitesRoot
-			);
-			res.json( { name, path: path.join( sitesRoot, sanitizeFolderName( name ) ) } );
-		} )
-	);
-
 	api.post( '/paths/compare', ( req: Request, res: Response ) => {
 		const { path1, path2 } = req.body as { path1?: string; path2?: string };
 		res.json( { equal: !! path1 && !! path2 && arePathsEqual( path1, path2 ) } );
@@ -812,8 +799,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/blueprints/extract',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const rawName = typeof req.query.name === 'string' ? req.query.name : '';
-			res.json( await extractBlueprintUpload( req, rawName ) );
+			res.json( await extractBlueprintUpload( req ) );
 		} )
 	);
 

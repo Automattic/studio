@@ -6,7 +6,6 @@ import type {
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
 	AuthUser,
-	AvailableSitePath,
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
@@ -292,13 +291,6 @@ export function createIpcConnector(): Connector {
 
 		async generateProposedSiteName( usedSites ): Promise< string > {
 			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
-		},
-
-		async findAvailableSitePath( baseName ): Promise< AvailableSitePath > {
-			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
-			const name = ( await ipcApi.generateNumberedNameFromList( baseName, sites ) ) as string;
-			const { path } = ( await ipcApi.generateProposedSitePath( name ) ) as ProposedSitePath;
-			return { name, path };
 		},
 
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {

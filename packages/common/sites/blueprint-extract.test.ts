@@ -12,20 +12,17 @@ const extractedBundle: ExtractedBlueprintBundle = {
 };
 
 describe( 'extractBlueprintUpload', () => {
-	it.each( [
-		[ '../../bundle.zip', 'bundle.zip' ],
-		[ '..', 'blueprint.zip' ],
-	] )( 'contains the upload %s as %s and removes it', async ( fileName, expectedName ) => {
+	it( 'writes the upload to a fixed filename and removes it', async () => {
 		let uploadedPath = '';
 		const extract = vi.fn( async ( filePath: string ) => {
 			uploadedPath = filePath;
-			expect( path.basename( filePath ) ).toBe( expectedName );
+			expect( path.basename( filePath ) ).toBe( 'blueprint.zip' );
 			expect( await fs.readFile( filePath, 'utf8' ) ).toBe( 'zip contents' );
 			return extractedBundle;
 		} );
 
 		await expect(
-			extractBlueprintUpload( Readable.from( 'zip contents' ), fileName, extract )
+			extractBlueprintUpload( Readable.from( 'zip contents' ), extract )
 		).resolves.toBe( extractedBundle );
 		await expect( fs.access( path.dirname( uploadedPath ) ) ).rejects.toThrow();
 	} );
@@ -37,9 +34,9 @@ describe( 'extractBlueprintUpload', () => {
 			throw new Error( 'Invalid ZIP' );
 		} );
 
-		await expect(
-			extractBlueprintUpload( Readable.from( 'invalid' ), 'bundle.zip', extract )
-		).rejects.toThrow( 'Invalid ZIP' );
+		await expect( extractBlueprintUpload( Readable.from( 'invalid' ), extract ) ).rejects.toThrow(
+			'Invalid ZIP'
+		);
 		await expect( fs.access( path.dirname( uploadedPath ) ) ).rejects.toThrow();
 	} );
 } );

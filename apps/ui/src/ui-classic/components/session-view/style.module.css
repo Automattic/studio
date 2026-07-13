@@ -185,7 +185,9 @@
 .panelFooterControls {
 	position: absolute;
 	left: var(--classic-panel-footer-left);
-	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
+	/* Keep the controls fully inside .root (overflow: hidden) so focus
+	   rings aren't clipped at the window edge. */
+	bottom: 0;
 	z-index: 3;
 	display: flex;
 	align-items: center;

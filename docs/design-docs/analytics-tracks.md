@@ -20,26 +20,27 @@ Events have a name and an arbitrary property bag, tied to an anonymous or authen
 We are adopting Tracks **alongside** MC Stats, not as a replacement:
 
 - Both systems run in parallel so we can validate that the numbers agree.
-- Later, the MC Stats **site-operation** counters (create/import/export) will be removed once Tracks
+- Later, the MC Stats **site-operation** counters (create/import/export) may be removed once Tracks
   dashboards are established.
 - The MC Stats **launch** counters stay permanently as a simple headcount ping.
 
 > **Coupling to watch when removing MC Stats:** the `studio_app_launch` event derives `is_first_launch`
 > from the MC Stats `lastBumpStats` field (a durable pre-existing marker, so it's accurate for both
-> existing users and fresh installs today). If the MC Stats launch bumps are ever removed, migrate this
-> signal to another durable per-install marker (e.g. `sentryUserId`) or a dedicated flag in the same
-> change — otherwise `is_first_launch` will silently report `true` on every launch.
+> existing users and fresh installs today). If the MC Stats launch bumps are ever removed, in the same
+> change migrate this signal to another durable per-install marker (e.g. `sentryUserId`) or a dedicated
+> flag — and rename it to reflect the new source — otherwise `is_first_launch` will silently report
+> `true` on every launch.
 
 ## High level approach
 
 The pieces mirror the MC Stats layering:
 
-| Layer | File | Responsibility |
-|---|---|---|
-| Shared core | `packages/common/lib/record-tracks-event.ts` | Pure, environment-agnostic URL builder + fire-and-forget pixel sender. No config/opt-out logic. No-ops in E2E/dev. |
-| Desktop wrapper | `apps/studio/src/lib/tracks.ts` | Choke point for the desktop (Main process). Enforces the opt-out, attaches common props. |
-| CLI wrapper | `apps/cli/lib/tracks.ts` | Choke point for the CLI. Enforces the opt-out **and** the build-time `__ENABLE_CLI_TELEMETRY__` switch. Resolves origin from `STUDIO_TRACKS_ORIGIN`. |
-| Identity + opt-out | `packages/common/lib/shared-config.ts` | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `shared.json`. |
+| Layer | File | Responsibility                                                                                                                                              |
+|---|---|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Shared core | `packages/common/lib/record-tracks-event.ts` | Pure, environment-agnostic URL builder + fire-and-forget pixel sender. No config/opt-out logic. No-ops in E2E/dev.                                          |
+| Desktop wrapper | `apps/studio/src/lib/tracks.ts` | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props.                                                             |
+| CLI wrapper | `apps/cli/lib/tracks.ts` | Single entry point for the CLI. Enforces the opt-out **and** the build-time `__ENABLE_CLI_TELEMETRY__` switch. Resolves origin from `STUDIO_TRACKS_ORIGIN`. |
+| Identity + opt-out | `packages/common/lib/shared-config.ts` | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `shared.json`.                                       |
 
 Events are sent as a **pixel GET** to `https://pixel.wp.com/t.gif` with query params. The reserved
 Tracks pixel params the core builder attaches are:
@@ -49,21 +50,19 @@ Tracks pixel params the core builder attaches are:
 - `_ts` — timestamp (ms)
 - one query param per event property (all values coerced to strings)
 
-The reserved `_`-prefixed params are a fixed set owned by the Tracks libraries — do not invent new ones
-(a made-up `_foo` is ignored server-side). Origin/context is a normal event property (`channel`), not a
-reserved param.
+The reserved `_`-prefixed params are a fixed set owned by the Tracks libraries.
 
 **Identity is anonymous-only in Phase 1.** We always send `_ut=anon` with the install UUID, even when
 the user is authenticated with WordPress.com. Tracks also supports authenticated identity
-(`_ut=wpcom:user_id`, `_ui=<wpcom user id>`), which would enable cross-product analytics — deferred to a
-later phase per the proposal, as it carries stronger privacy implications.
+(`_ut=wpcom:user_id`, `_ui=<wpcom user id>`), which would enable cross-product analytics — we can change
+it in a later phase, but it carries stronger privacy implications.
 
 Set the `STUDIO_DEBUG_TRACKS` env var to log the exact pixel URL for each event. Note this only helps
 where the sender actually runs — see Testing below for what fires in which build.
 
 ## Identity and opt-out
 
-- **Anonymous install UUID.** Minted lazily on first event and stored as `analyticsInstallId` in
+- **Anonymous install UUID.** Generated on first event and stored as `analyticsInstallId` in
   `shared.json`. Because `shared.json` is read by both the desktop app and the CLI, both attribute
   events to the same install. No PII is attached; identity is always `_ut=anon`.
 - **Opt-out.** `analyticsOptOut` in `shared.json` (absent/false = opted **in**; analytics default ON).
@@ -112,7 +111,7 @@ where the sender actually runs — see Testing below for what fires in which bui
   spawned CLI via the `STUDIO_TRACKS_ORIGIN` env var (`studio-ui:v1` / `studio-ui:v2`), injected in
   `apps/studio/src/modules/cli/lib/execute-command.ts`.
 - **Renderer-originated events** (future) go through the `recordAnalyticsEvent` IPC handler
-  (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main choke point: the legacy
+  (`apps/studio/src/ipc-handlers.ts`). Both renderers share the same Main single entry point: the legacy
   `apps/studio` renderer tags `ui_version: v1`; the agentic `apps/ui` renderer routes through its
   `Connector.trackEvent` (IPC connector), tagging `ui_version: v2`. The `apps/ui` browser
   (`local`/`hosted`) connectors have no Main process and currently no-op `trackEvent`.
@@ -120,7 +119,7 @@ where the sender actually runs — see Testing below for what fires in which bui
 ## Property vocabulary
 
 Studio adopts the data team's standardized shared property names so events aggregate cleanly across
-Automattic products. Prefer a standard name over a bespoke one; only introduce a custom property when
+other products. Prefer a standard name over a bespoke one; only introduce a custom property when
 none fits, and flag it for registration.
 
 | Property | Meaning | Studio values |
@@ -133,8 +132,7 @@ none fits, and flag it for registration.
 | `ui_version` | **Custom (Studio-only):** which desktop renderer | `v1` (legacy), `v2` (agentic). No standard slot — must be registered as a Studio-custom property. |
 
 Reserved for later phases (documented so future events conform): `surface` (in-app area, e.g.
-`onboarding`/`settings`), `outcome` (`success`/`error`), `site_type` (`simple`/`atomic`/`jetpack`/
-`none`).
+`onboarding`/`settings`), `outcome` (`success`/`error`).
 
 **AI / assistant events (Phase 2+).** Studio Code assistant usage events must use the data team's
 AI-event vocabulary: `ai_session_id`, `agent_name`, `agent_version`, `ability_name`, `outcome`,
@@ -195,8 +193,6 @@ What fires depends on the build, so pick the right method:
   - **Watch the terminal, not a log file.** The line is `console` output from the CLI child; it goes to
     the terminal that ran it — for the desktop path, that's the `npm start` terminal, not
     `~/Library/Logs/Studio/`.
-  - **Use an OFFLINE site** — a running site short-circuits `start` before the event. Beware a site the
-    desktop app is holding alive; quit the app (or pick a different site) so it doesn't keep respawning.
   - **`channel`** is `studio-cli` standalone, or `studio-ui` (with `ui_version`) when
     `STUDIO_TRACKS_ORIGIN` is set — as the desktop injects when it spawns the CLI (e.g.
     `STUDIO_TRACKS_ORIGIN=studio-ui:v2`).

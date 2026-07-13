@@ -272,30 +272,39 @@ function DeleteSiteDialog( {
 	onOpenChange: ( open: boolean ) => void;
 } ) {
 	const navigate = useNavigate();
-	const params = useParams( { strict: false } ) as { siteId?: string };
+	const params = useParams( { strict: false } ) as { siteId?: string; sessionId?: string };
+	const { data: sessions } = useSessions();
 	const deleteSite = useDeleteSite();
 	const [ deleteFiles, setDeleteFiles ] = useState( true );
 	const [ error, setError ] = useState< string | null >( null );
 
-	const handleConfirm = () => {
-		setError( null );
-		deleteSite.mutate(
-			{ id: site.id, deleteFiles },
-			{
-				onSuccess: () => {
-					onOpenChange( false );
-					// If the user is currently viewing this site (settings or a
-					// session that belongs to it), bounce them back to the root
-					// so they don't land on a 404 once the cache refreshes.
-					if ( params.siteId === site.id ) {
-						void navigate( { to: '/' } );
-					}
-				},
-				onError: ( err: Error ) => {
-					setError( err.message ?? __( 'Unable to delete the site. Please try again.' ) );
-				},
-			}
+	// The open view belongs to this site — its settings, or one of its chats,
+	// which the delete removes along with it.
+	const viewingDeletedSite =
+		params.siteId === site.id ||
+		!! sessions?.some(
+			( session ) => session.id === params.sessionId && session.ownerSitePath === site.path
 		);
+
+	// Deliberately not `mutate`'s onSuccess/onError: refreshing the site list
+	// unmounts this dialog along with its row, and React Query drops a
+	// caller's mutate callbacks once the caller stops listening — so the
+	// redirect below would never run.
+	const handleConfirm = async () => {
+		setError( null );
+		try {
+			await deleteSite.mutateAsync( { id: site.id, deleteFiles } );
+		} catch ( err ) {
+			setError( ( err as Error )?.message ?? __( 'Unable to delete the site. Please try again.' ) );
+			return;
+		}
+
+		onOpenChange( false );
+		// Bounce to the root, which lands on the next available site, so the
+		// deleted site's settings or chats don't 404 underneath the user.
+		if ( viewingDeletedSite ) {
+			void navigate( { to: '/' } );
+		}
 	};
 
 	return (
@@ -337,7 +346,7 @@ function DeleteSiteDialog( {
 						tone="brand"
 						loading={ deleteSite.isPending }
 						loadingAnnouncement={ __( 'Deleting site' ) }
-						onClick={ handleConfirm }
+						onClick={ () => void handleConfirm() }
 					>
 						{ __( 'Delete site' ) }
 					</Button>

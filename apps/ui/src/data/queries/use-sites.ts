@@ -40,12 +40,14 @@ export function useDeleteSite() {
 	return useMutation( {
 		mutationFn: ( { id, deleteFiles = true }: DeleteSiteInput ) =>
 			connector.deleteSite( id, deleteFiles ),
-		// Deleting a site also deletes its chat sessions (CLI `site delete`),
-		// so refresh the session list alongside the site list.
+		// Deleting a site also deletes its chat sessions (CLI `site delete`), so
+		// refresh the session list alongside the site list. `exact` keeps this
+		// off the open session's own query: refetching that one races the
+		// navigate-away and flashes "Session not found" before it resolves.
 		onSuccess: () =>
 			Promise.all( [
 				queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
-				queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } ),
+				queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } ),
 			] ),
 	} );
 }

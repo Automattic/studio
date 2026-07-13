@@ -342,7 +342,13 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
 		},
 
-		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
+		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const zipFilePath = ( ipcApi.getPathForFile( file ) as string ) ?? '';
+			if ( ! zipFilePath ) {
+				throw new Error(
+					__( 'Unable to resolve the ZIP file path. Try choosing the file via the button.' )
+				);
+			}
 			return ( await ipcApi.extractBlueprintBundle( zipFilePath ) ) as ExtractedBlueprintBundle;
 		},
 

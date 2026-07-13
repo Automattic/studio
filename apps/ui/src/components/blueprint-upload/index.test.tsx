@@ -43,7 +43,6 @@ describe( 'BlueprintUpload', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		useConnectorMock.mockReturnValue( {
-			getFilePath: vi.fn( async () => '/tmp/upload.zip' ),
 			extractBlueprintBundle,
 			cleanupBlueprintTempDir,
 		} );
@@ -80,6 +79,9 @@ describe( 'BlueprintUpload', () => {
 		chooseFile( createFile( 'bundle.zip', 'zip', 'application/zip' ) );
 
 		await waitFor( () => expect( onSelect ).toHaveBeenCalledOnce() );
+		expect( extractBlueprintBundle ).toHaveBeenCalledWith(
+			expect.objectContaining( { name: 'bundle.zip' } )
+		);
 		expect( onSelect.mock.calls[ 0 ][ 0 ] ).toMatchObject( {
 			filePath: '/tmp/extracted/blueprint.json',
 			tempDir: '/tmp/extracted',

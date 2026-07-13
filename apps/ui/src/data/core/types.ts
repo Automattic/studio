@@ -180,12 +180,12 @@ export interface Connector {
 	getFilePath( file: File ): Promise< string >;
 	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
 
-	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
+	// Uploads and extracts a Blueprint ZIP bundle to a temp directory and returns the
 	// parsed `blueprint.json`. The caller is responsible for calling
 	// `cleanupBlueprintTempDir` if the extraction succeeds but the upload
 	// flow never reaches `createSite` — otherwise `createSite` cleans the
 	// temp directory automatically when it uses the extracted blueprint.
-	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
+	extractBlueprintBundle( file: File ): Promise< ExtractedBlueprintBundle >;
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
 	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 

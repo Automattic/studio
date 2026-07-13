@@ -42,14 +42,7 @@ async function loadBlueprintFile( file: File, connector: Connector ): Promise< S
 		throw new Error( __( 'Please select a Blueprint JSON or ZIP bundle.' ) );
 	}
 
-	const zipPath = await connector.getFilePath( file );
-	if ( ! zipPath ) {
-		throw new Error(
-			__( 'Unable to resolve the ZIP file path. Try choosing the file via the button.' )
-		);
-	}
-
-	const extracted = await connector.extractBlueprintBundle( zipPath );
+	const extracted = await connector.extractBlueprintBundle( file );
 	try {
 		return await createSelectedBlueprint( extracted.blueprintJson, file, {
 			filePath: extracted.blueprintJsonPath,

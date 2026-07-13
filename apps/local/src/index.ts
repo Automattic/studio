@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import { createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
-import { rm as rmAsync } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -51,7 +50,7 @@ import { createJsonResponse, fetchSiteRest } from '@studio/common/lib/wordpress-
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import {
 	cleanupBlueprintTempDir,
-	extractBlueprintBundle,
+	extractBlueprintUpload,
 } from '@studio/common/sites/blueprint-extract';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs } from '@studio/common/sites/edit';
@@ -810,32 +809,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Extract an uploaded Blueprint ZIP (the path comes from /uploads) and return
-	// its parsed blueprint.json — the shared extractor the desktop uses.
 	api.post(
 		'/blueprints/extract',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const zipFilePath = req.body?.zipFilePath;
-			if ( typeof zipFilePath !== 'string' || ! zipFilePath ) {
-				res.status( 400 ).json( { error: 'Missing zipFilePath' } );
-				return;
-			}
-			// The zip is always an upload under the OS temp dir (via /uploads);
-			// reject anything else so this can't be used to read arbitrary files.
-			const resolvedZip = path.resolve( zipFilePath );
-			const uploadDir = path.dirname( resolvedZip );
-			if (
-				path.dirname( uploadDir ) !== path.resolve( os.tmpdir() ) ||
-				! path.basename( uploadDir ).startsWith( 'studio-upload-' )
-			) {
-				res.status( 400 ).json( { error: 'zipFilePath must be an uploaded file' } );
-				return;
-			}
-			try {
-				res.json( await extractBlueprintBundle( resolvedZip ) );
-			} finally {
-				await rmAsync( uploadDir, { recursive: true, force: true } );
-			}
+			const rawName = typeof req.query.name === 'string' ? req.query.name : '';
+			res.json( await extractBlueprintUpload( req, rawName ) );
 		} )
 	);
 

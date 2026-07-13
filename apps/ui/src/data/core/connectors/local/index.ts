@@ -412,13 +412,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// with a server-side path-containment policy when a real consumer lands.
 			throw new UnsupportedError( 'readLocalMediaFile' );
 		},
-		// Upload-your-own Blueprint ZIP: the file is uploaded via getFilePath, then
-		// the server extracts it (shared extractor) and returns the parsed bundle.
-		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
-			return api< ExtractedBlueprintBundle >( '/blueprints/extract', {
-				method: 'POST',
-				body: JSON.stringify( { zipFilePath } ),
-			} );
+		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const response = await fetch(
+				`${ base }/blueprints/extract?name=${ encodeURIComponent( file.name ) }`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/octet-stream' },
+					body: file,
+				}
+			);
+			if ( ! response.ok ) {
+				const text = await response.text().catch( () => '' );
+				throw new Error( `POST /blueprints/extract failed (${ response.status }): ${ text }` );
+			}
+			return ( await response.json() ) as ExtractedBlueprintBundle;
 		},
 		async cleanupBlueprintTempDir( tempDir ) {
 			await api( '/blueprints/cleanup', {

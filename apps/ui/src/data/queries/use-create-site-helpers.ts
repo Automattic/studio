@@ -1,14 +1,13 @@
+import {
+	validateProposedSitePath,
+	validateSelectedSitePath,
+	type PathValidationResult,
+} from '@studio/common/lib/site-path-validation';
 import { useQuery } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
 import { useCallback, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
-import type {
-	AvailableSitePath,
-	ProposedSitePath,
-	SelectedSiteFolder,
-	SiteDetails,
-} from '@/data/core';
+import type { AvailableSitePath, SiteDetails } from '@/data/core';
 
 const PROPOSED_SITE_NAME_QUERY_KEY = [ 'proposedSiteName' ] as const;
 
@@ -78,93 +77,21 @@ export function usePathValidator( sites: SiteDetails[] | undefined ) {
 
 	const generateProposedPath = useCallback(
 		async ( siteName: string ): Promise< PathValidationResult > => {
-			const result: ProposedSitePath = await connector.generateProposedSitePath( siteName );
-			return validateProposedPath( result, await checkPathExists( result.path ) );
+			const result = await connector.generateProposedSitePath( siteName );
+			return validateProposedSitePath( result, await checkPathExists( result.path ) );
 		},
 		[ connector, checkPathExists ]
 	);
 
 	const selectPath = useCallback(
 		async ( currentPath: string ): Promise< PathValidationResult | null > => {
-			const response: SelectedSiteFolder | null = await connector.selectSiteFolder( currentPath );
+			const response = await connector.selectSiteFolder( currentPath );
 			if ( ! response ) return null;
 			const exists = await checkPathExists( response.path );
-			return validateSelectedFolder( response, exists );
+			return validateSelectedSitePath( response, exists );
 		},
 		[ connector, checkPathExists ]
 	);
 
 	return { generateProposedPath, selectPath };
-}
-
-export interface PathValidationResult {
-	path: string;
-	name?: string;
-	isEmpty: boolean;
-	isWordPress: boolean;
-	error?: string;
-}
-
-function validateProposedPath(
-	result: ProposedSitePath,
-	pathExists: boolean
-): PathValidationResult {
-	if ( result.isNameTooLong ) {
-		return {
-			path: result.path,
-			isEmpty: result.isEmpty,
-			isWordPress: result.isWordPress,
-			error: __( 'The site name is too long. Please choose a shorter site name.' ),
-		};
-	}
-	if ( pathExists ) {
-		return {
-			path: result.path,
-			isEmpty: result.isEmpty,
-			isWordPress: result.isWordPress,
-			error: __(
-				'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
-			),
-		};
-	}
-	if ( ! result.isEmpty && ! result.isWordPress ) {
-		return {
-			path: result.path,
-			isEmpty: result.isEmpty,
-			isWordPress: result.isWordPress,
-			error: __(
-				'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-			),
-		};
-	}
-	return { path: result.path, isEmpty: result.isEmpty, isWordPress: result.isWordPress };
-}
-
-function validateSelectedFolder(
-	folder: SelectedSiteFolder,
-	pathExists: boolean
-): PathValidationResult {
-	const base = {
-		path: folder.path,
-		name: folder.name,
-		isEmpty: folder.isEmpty,
-		isWordPress: folder.isWordPress,
-	};
-	if ( pathExists ) {
-		return {
-			...base,
-			error: __(
-				'The directory is already associated with another Studio site. Please choose a different custom local path.'
-			),
-		};
-	}
-	if ( ! folder.isEmpty && ! folder.isWordPress ) {
-		return {
-			...base,
-			error: __(
-				'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-			),
-		};
-	}
-	return base;
 }

@@ -3,6 +3,7 @@ import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { privateApis } from '@wordpress/theme';
 import { Tooltip } from '@wordpress/ui';
+import { useEffect } from 'react';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
@@ -10,7 +11,6 @@ import { useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSyncConnectSiteListener } from '@/hooks/use-sync-connect-site-listener';
 import { unlock } from '@/lock-unlock';
-import { useEffect } from 'react';
 import type { Connector } from '@/data/core';
 import type { PropsWithChildren } from 'react';
 

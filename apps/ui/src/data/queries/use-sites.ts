@@ -162,11 +162,13 @@ export function useSyncSitesWithEvents(): void {
 	useEffect( () => {
 		return connector.onSiteEvent( ( event ) => {
 			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-			// Site deletion deletes the site's chat sessions (CLI `site
-			// delete`), so refresh the session list too. Scoped to deletes:
-			// start/stop events fire often and don't affect sessions.
+			// Site deletion deletes the site's chat sessions (CLI `site delete`),
+			// so refresh the session list too. Scoped to deletes: start/stop
+			// events fire often and don't affect sessions. `exact` keeps this off
+			// the open session's own query, which would otherwise refetch into
+			// "Session not found" before `DeletedSiteRedirect` navigates away.
 			if ( event.event === SITE_EVENTS.DELETED ) {
-				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } );
 			}
 		} );
 	}, [ connector, queryClient ] );

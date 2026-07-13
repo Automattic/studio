@@ -128,6 +128,36 @@ describe( 'CreateSiteForm', () => {
 		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
 	} );
 
+	it( 'keeps path validation pending while an asynchronous name suggestion resolves', async () => {
+		const pending = deferred< {
+			path: string;
+			isEmpty: boolean;
+			isWordPress: boolean;
+		} >();
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: vi.fn( () => pending.promise ),
+			selectPath: vi.fn(),
+		} );
+		const { rerenderWith } = renderForm();
+		expect( screen.queryByText( '1 error found' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Please fill out this field.' ) ).not.toBeInTheDocument();
+
+		rerenderWith( { name: 'Suggested site' } );
+		expect( screen.queryByText( '1 error found' ) ).not.toBeInTheDocument();
+		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+
+		await act( async () => {
+			pending.resolve( { path: '/sites/suggested', isEmpty: true, isWordPress: false } );
+			await pending.promise;
+		} );
+		await waitFor( () =>
+			expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
+				'aria-disabled',
+				'false'
+			)
+		);
+	} );
+
 	it( 'replaces previous suggestions and restores defaults without overwriting edits', async () => {
 		const { rerenderWith } = renderForm( { name: 'Suggested site' } );
 		openAdvancedSettings();
@@ -211,6 +241,7 @@ describe( 'CreateSiteForm', () => {
 		renderForm( { name: 'First' } );
 		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'First' ) );
 		fireEvent.change( screen.getByLabelText( /Site name/ ), { target: { value: 'Second' } } );
+		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
 		await waitFor( () => expect( generateProposedPath ).toHaveBeenCalledWith( 'Second' ) );
 
 		await act( async () => {

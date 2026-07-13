@@ -19,6 +19,14 @@ function createFile( name: string, contents: string, type: string ): File {
 	return file;
 }
 
+function deferred< T >() {
+	let resolve!: ( value: T ) => void;
+	const promise = new Promise< T >( ( promiseResolve ) => {
+		resolve = promiseResolve;
+	} );
+	return { promise, resolve };
+}
+
 function TestUpload( { onSelect = vi.fn() }: { onSelect?: ( value: SelectedBlueprint ) => void } ) {
 	const [ selected, setSelected ] = useState< SelectedBlueprint | null >( null );
 	return (
@@ -108,6 +116,39 @@ describe( 'BlueprintUpload', () => {
 			expect( cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/extracted' )
 		);
 		expect( await screen.findByText( /must be object/ ) ).toBeInTheDocument();
+	} );
+
+	it( 'cancels and cleans a replacement ZIP when the selection is removed', async () => {
+		const onSelect = vi.fn();
+		const replacement = deferred< {
+			blueprintJson: { meta: { title: string; author: string } };
+			blueprintJsonPath: string;
+			tempDir: string;
+		} >();
+		extractBlueprintBundle.mockReturnValue( replacement.promise );
+		render( <TestUpload onSelect={ onSelect } /> );
+		chooseFile(
+			createFile(
+				'initial.json',
+				JSON.stringify( { meta: { title: 'Initial', author: 'Studio' } } ),
+				'application/json'
+			)
+		);
+		await waitFor( () => expect( onSelect ).toHaveBeenCalledOnce() );
+
+		chooseFile( createFile( 'replacement.zip', 'zip', 'application/zip' ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'remove' } ) );
+		replacement.resolve( {
+			blueprintJson: { meta: { title: 'Replacement', author: 'Studio' } },
+			blueprintJsonPath: '/tmp/replacement/blueprint.json',
+			tempDir: '/tmp/replacement',
+		} );
+
+		await waitFor( () =>
+			expect( cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/replacement' )
+		);
+		expect( onSelect ).toHaveBeenCalledOnce();
+		expect( screen.getByRole( 'button', { name: 'upload a file' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'accepts a full-window file drop', async () => {

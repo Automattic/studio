@@ -98,6 +98,11 @@ export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUplo
 		if ( file ) void handleFile( file );
 		event.target.value = '';
 	};
+	const handleRemove = () => {
+		requestRef.current += 1;
+		setError( null );
+		onRemove();
+	};
 
 	useEffect( () => {
 		const handleDragEnter = ( event: DragEvent ) => {
@@ -163,7 +168,9 @@ export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUplo
 											onClick={ () => fileInputRef.current?.click() }
 										/>
 									),
-									remove: <button type="button" className={ styles.action } onClick={ onRemove } />,
+									remove: (
+										<button type="button" className={ styles.action } onClick={ handleRemove } />
+									),
 								}
 						  )
 						: createInterpolateElement(

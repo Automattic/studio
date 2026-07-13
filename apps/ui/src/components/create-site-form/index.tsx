@@ -4,7 +4,7 @@ import { generatePassword } from '@studio/common/lib/passwords';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { chevronDown, chevronLeft, chevronRight } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -162,6 +162,11 @@ function applyInitialValues(
 	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
 		next.useCustomDomain = !! values.customDomain;
 		next.customDomain = values.customDomain;
+	}
+	if ( ! next.hasCustomPath && next.name !== prev.name ) {
+		next.isPathPending = !! next.name.trim();
+		next.pathError = '';
+		if ( ! next.name.trim() ) next.path = '';
 	}
 	return Object.keys( next ).some(
 		( key ) => next[ key as keyof FormData ] !== prev[ key as keyof FormData ]
@@ -366,13 +371,13 @@ export function CreateSiteForm( {
 	submitLabel,
 }: CreateSiteFormProps ) {
 	const formRef = useRef< HTMLFormElement >( null );
-	const shouldReportSuggestedErrorsRef = useRef( !! initialValues );
+	const initialSuggestedFields = getSuggestedFields( initialValues ?? {} );
+	const shouldReportSuggestedErrorsRef = useRef( initialSuggestedFields.size > 0 );
 	const [ defaults ] = useState( createDefaultFormData );
-	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
+	const suggestedFieldsRef = useRef( initialSuggestedFields );
 	const [ data, setData ] = useState< FormData >( () => {
 		if ( ! initialValues ) return defaults;
-		const seeded = applyInitialValues( defaults, initialValues, defaults );
-		return seeded.name.trim() && ! seeded.path ? { ...seeded, isPathPending: true } : seeded;
+		return applyInitialValues( defaults, initialValues, defaults );
 	} );
 	const dirtyFieldsRef = useRef( new Set< keyof CreateSiteFormValues >() );
 
@@ -380,8 +385,8 @@ export function CreateSiteForm( {
 		const values = initialValues ?? {};
 		const suggestedFields = getSuggestedFields( values );
 		const previousSuggestedFields = suggestedFieldsRef.current;
-		if ( initialValues || previousSuggestedFields.size ) {
-			shouldReportSuggestedErrorsRef.current = true;
+		if ( suggestedFields.size || previousSuggestedFields.size ) {
+			if ( suggestedFields.size ) shouldReportSuggestedErrorsRef.current = true;
 			setData( ( prev ) =>
 				applyInitialValues(
 					prev,
@@ -417,7 +422,7 @@ export function CreateSiteForm( {
 				isValid: {
 					custom: ( item: FormData ) => {
 						if ( item.pathError ) return item.pathError;
-						if ( item.isPathPending ) return null;
+						if ( item.isPathPending || ! item.name.trim() ) return null;
 						if ( ! item.path ) return __( 'Local path is required.' );
 						return null;
 					},
@@ -519,6 +524,11 @@ export function CreateSiteForm( {
 		}
 		setData( ( prev ) => {
 			const next: FormData = { ...prev, ...( update as Partial< FormData > ) };
+			if ( update.name !== undefined && ! prev.hasCustomPath && next.name !== prev.name ) {
+				next.isPathPending = !! next.name.trim();
+				next.pathError = '';
+				if ( ! next.name.trim() ) next.path = '';
+			}
 			// Seed the custom-domain input on first toggle with a sensible
 			// default derived from the site name.
 			if ( ! prev.useCustomDomain && next.useCustomDomain && ! next.customDomain ) {
@@ -600,10 +610,11 @@ export function CreateSiteForm( {
 					<span>{ __( 'Advanced settings' ) }</span>
 					{ ! isAdvancedOpen && advancedErrorCount > 0 && (
 						<span className={ styles.advancedErrorCount }>
-							{ advancedErrorCount === 1
-								? __( '1 error found' )
-								: /* translators: %d: number of errors */
-								  `${ advancedErrorCount } ${ __( 'errors found' ) }` }
+							{ sprintf(
+								/* translators: %d: number of validation errors. */
+								_n( '%d error found', '%d errors found', advancedErrorCount ),
+								advancedErrorCount
+							) }
 						</span>
 					) }
 				</Button>

@@ -213,8 +213,21 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 
 function useNewSessionAction( site: SiteDetails ) {
 	const navigate = useNavigate();
+	const { data: sessions } = useSessions();
+	const params = useParams( { strict: false } ) as { sessionId?: string };
 	const [ isPending, setIsPending ] = useState( false );
 	const handleClick = async () => {
+		// The backend reuses the site's newest empty draft, so if we're already
+		// viewing it the round-trip would only flicker back to the same session.
+		const current = sessions?.find( ( session ) => session.id === params.sessionId );
+		if (
+			current &&
+			! current.firstPrompt &&
+			! current.archived &&
+			current.ownerSitePath === site.path
+		) {
+			return;
+		}
 		setIsPending( true );
 		try {
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );

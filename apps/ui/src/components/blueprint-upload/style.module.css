@@ -1,3 +1,46 @@
+.root {
+	text-align: center;
+}
+
+.fileInput {
+	display: none;
+}
+
+.prompt,
+.error {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.prompt {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.action {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--wpds-color-fg-interactive-brand);
+	font: inherit;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.action:hover {
+	text-decoration: underline;
+}
+
+.action:focus-visible {
+	border-radius: 2px;
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
+	outline-offset: 2px;
+}
+
+.error {
+	margin-top: 8px;
+	color: var(--wpds-color-fg-content-error);
+}
+
 .fullScreenDrop {
 	position: fixed;
 	inset: 0;

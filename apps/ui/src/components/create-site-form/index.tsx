@@ -34,7 +34,7 @@ import type {
 	FormField,
 	FormValidity,
 } from '@wordpress/dataviews';
-import type { FormEvent, ReactNode } from 'react';
+import type { FormEvent } from 'react';
 
 export interface CreateSiteFormValues {
 	name: string;
@@ -56,7 +56,6 @@ interface CreateSiteFormProps {
 	isSubmitting?: boolean;
 	submitError?: string;
 	submitLabel?: string;
-	beforeFields?: ReactNode;
 }
 
 interface FormData {
@@ -315,7 +314,6 @@ export function CreateSiteForm( {
 	isSubmitting,
 	submitError,
 	submitLabel,
-	beforeFields,
 }: CreateSiteFormProps ) {
 	const [ data, setData ] = useState< FormData >( () => {
 		const base: FormData = {
@@ -525,7 +523,6 @@ export function CreateSiteForm( {
 	return (
 		<form className={ styles.form } onSubmit={ handleSubmit }>
 			<div className={ styles.panel }>
-				{ beforeFields }
 				<DataForm< FormData >
 					data={ data }
 					fields={ fields }

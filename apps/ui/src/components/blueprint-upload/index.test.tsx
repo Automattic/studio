@@ -64,8 +64,9 @@ describe( 'BlueprintUpload', () => {
 			title: 'Portfolio Blueprint',
 			file: { name: 'portfolio.json' },
 		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Remove' } ) );
-		expect( screen.getByRole( 'button', { name: 'Choose file…' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Replace' } ) ).toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'remove' } ) );
+		expect( screen.getByRole( 'button', { name: 'upload a file' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'extracts a ZIP Blueprint and keeps its temporary-file metadata', async () => {

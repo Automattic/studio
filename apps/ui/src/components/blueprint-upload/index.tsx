@@ -1,11 +1,11 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FileDropzone } from '@/components/file-dropzone';
 import { useConnector } from '@/data/core';
 import { createSelectedBlueprint } from '@/lib/blueprint-selection';
 import styles from './style.module.css';
 import type { Connector } from '@/data/core';
 import type { SelectedBlueprint } from '@/lib/blueprint-selection';
+import type { ChangeEvent } from 'react';
 
 export type { SelectedBlueprint } from '@/lib/blueprint-selection';
 
@@ -62,6 +62,7 @@ export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUplo
 	const connector = useConnector();
 	const [ error, setError ] = useState< string | null >( null );
 	const [ isDragging, setIsDragging ] = useState( false );
+	const fileInputRef = useRef< HTMLInputElement | null >( null );
 	const requestRef = useRef( 0 );
 	const dragDepthRef = useRef( 0 );
 
@@ -90,6 +91,12 @@ export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUplo
 		},
 		[ connector, onSelect ]
 	);
+
+	const handleInputChange = ( event: ChangeEvent< HTMLInputElement > ) => {
+		const file = event.target.files?.[ 0 ];
+		if ( file ) void handleFile( file );
+		event.target.value = '';
+	};
 
 	useEffect( () => {
 		const handleDragEnter = ( event: DragEvent ) => {
@@ -132,14 +139,57 @@ export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUplo
 
 	return (
 		<>
-			<FileDropzone
-				accept={ FILE_ACCEPT }
-				prompt={ __( 'Drop a Blueprint JSON or ZIP bundle here, or' ) }
-				onFile={ ( file ) => void handleFile( file ) }
-				error={ error }
-				file={ selected?.file }
-				onClear={ selected ? onRemove : undefined }
-			/>
+			<div className={ styles.root }>
+				<input
+					ref={ fileInputRef }
+					type="file"
+					accept={ FILE_ACCEPT }
+					onChange={ handleInputChange }
+					className={ styles.fileInput }
+				/>
+				<p className={ styles.prompt }>
+					{ selected ? (
+						<>
+							<span title={ selected.file.name }>
+								{ sprintf(
+									// translators: %s is the selected Blueprint filename.
+									__( 'Using %s.' ),
+									selected.file.name
+								) }
+							</span>{ ' ' }
+							<button
+								type="button"
+								className={ styles.action }
+								onClick={ () => fileInputRef.current?.click() }
+							>
+								{ __( 'Replace' ) }
+							</button>{ ' ' }
+							{ __( 'or' ) }{ ' ' }
+							<button type="button" className={ styles.action } onClick={ onRemove }>
+								{ __( 'remove' ) }
+							</button>
+							.
+						</>
+					) : (
+						<>
+							{ __( 'Have a blueprint? Drop it anywhere, or' ) }{ ' ' }
+							<button
+								type="button"
+								className={ styles.action }
+								onClick={ () => fileInputRef.current?.click() }
+							>
+								{ __( 'upload a file' ) }
+							</button>
+							.
+						</>
+					) }
+				</p>
+				{ error && (
+					<p role="alert" className={ styles.error }>
+						{ error }
+					</p>
+				) }
+			</div>
 			{ isDragging && (
 				<div className={ styles.fullScreenDrop } aria-hidden="true">
 					{ __( 'Drop Blueprint to use it for this site' ) }

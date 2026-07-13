@@ -150,7 +150,7 @@ export function CreateSitePage() {
 		<div className={ styles.page }>
 			<h1 className={ styles.title }>{ __( 'Create a new site' ) }</h1>
 			<p className={ styles.subtitle }>
-				{ __( 'Choose a name and optionally add a Blueprint to preconfigure your site.' ) }
+				{ __( "Choose a name and we'll set up a fresh WordPress site on your machine." ) }
 			</p>
 			<CreateSiteForm
 				initialValues={ initialValues }
@@ -160,17 +160,14 @@ export function CreateSitePage() {
 				isSubmitting={ createSite.isPending }
 				submitError={ submitError }
 				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
-				beforeFields={
-					<section className={ localStyles.blueprint }>
-						<h2 className={ localStyles.sectionTitle }>{ __( 'Blueprint (optional)' ) }</h2>
-						<BlueprintUpload
-							selected={ selectedBlueprint }
-							onSelect={ replaceBlueprint }
-							onRemove={ () => replaceBlueprint( null ) }
-						/>
-					</section>
-				}
 			/>
+			<div className={ localStyles.blueprint }>
+				<BlueprintUpload
+					selected={ selectedBlueprint }
+					onSelect={ replaceBlueprint }
+					onRemove={ () => replaceBlueprint( null ) }
+				/>
+			</div>
 		</div>
 	);
 }

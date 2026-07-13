@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateSitePage } from './index';
 import type { SelectedBlueprint } from '@/components/blueprint-upload';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
-import type { ReactNode } from 'react';
 
 const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn( async () => undefined ),
@@ -36,7 +35,6 @@ vi.mock( '@/components/create-site-form', () => ( {
 		mocks.formProps = props;
 		return (
 			<>
-				{ props.beforeFields as ReactNode }
 				<button
 					type="button"
 					onClick={ () =>

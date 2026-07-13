@@ -379,12 +379,8 @@ export async function runCommand(
 				if ( runningProcess ) {
 					await stopWordPressServer( site.id );
 				}
-				const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
+				await startWordPressServer( site, logger, runtimeStartOptions );
 				logger.reportSuccess( __( 'WordPress server restarted' ) );
-
-				if ( processDesc.status === 'online' ) {
-					await updateSiteLatestCliPid( site.id, processDesc.pid );
-				}
 			} else {
 				// On a re-pull, the site's server is often already running.
 				// The synced files and database are picked up live (PHP
@@ -409,12 +405,8 @@ export async function runCommand(
 						await updateSiteLatestCliPid( site.id, runningProcess.pid );
 					}
 				} else {
-					const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
+					await startWordPressServer( site, logger, runtimeStartOptions );
 					logger.reportSuccess( __( 'WordPress server started' ) );
-
-					if ( processDesc.status === 'online' ) {
-						await updateSiteLatestCliPid( site.id, processDesc.pid );
-					}
 				}
 			}
 		} catch ( serverError ) {

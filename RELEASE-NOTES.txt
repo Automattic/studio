@@ -15,7 +15,8 @@ Unreleased
 * Allowed more time for AI-powered plugins to receive a response before timing out #3120
 * Showed a clearer error message when a site is in maintenance mode #3948
 * Improved CLI slash-command autocomplete with alphabetical sorting and match highlighting #4116, #4120
-* Misc CLI and maintenance improvements #4089, #4108, #4109, #4011, #4000
+* Stopped showing the What's New modal automatically on app updates #4117
+* Misc CLI and maintenance improvements #4089, #4108, #4109, #4011, #4000, #4032
 
 1.14.0
 =====

@@ -69,6 +69,7 @@ import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -586,6 +587,8 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 			return capturePhoto;
 		case 'inspect_design':
 			return search;
+		case 'refresh_browser':
+			return refreshIcon;
 		case 'share_screenshot':
 			return share;
 		case 'validate_blocks':

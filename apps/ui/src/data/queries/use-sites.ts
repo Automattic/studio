@@ -98,20 +98,38 @@ export interface UpdateSiteInput {
 	wpVersion?: string;
 }
 
-// Persists the sidebar's manual site order. Spaced values (1000, 2000, …)
-// match the legacy desktop sidebar's convention for the same appdata field.
-// No invalidation: the site list applies the new order optimistically, and the
-// next natural refetch returns the same order.
+// Spaced values (1000, 2000, …) match the legacy desktop sidebar's
+// convention for the same appdata field.
+const toSortOrderUpdates = ( orderedSiteIds: string[] ) =>
+	orderedSiteIds.map( ( siteId, index ) => ( { siteId, sortOrder: ( index + 1 ) * 1000 } ) );
+
+// Persists the sidebar's manual site order. The new order is patched into the
+// sites cache optimistically, so the UI — and the persisted query snapshot a
+// reload hydrates from — reorders immediately; on error a refetch restores
+// the stored truth.
 export function useUpdateSitesSortOrder() {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( orderedSiteIds: string[] ) =>
-			connector.updateSitesSortOrder(
-				orderedSiteIds.map( ( siteId, index ) => ( {
+			connector.updateSitesSortOrder( toSortOrderUpdates( orderedSiteIds ) ),
+		onMutate: ( orderedSiteIds ) => {
+			const rank = new Map(
+				toSortOrderUpdates( orderedSiteIds ).map( ( { siteId, sortOrder } ) => [
 					siteId,
-					sortOrder: ( index + 1 ) * 1000,
-				} ) )
-			),
+					sortOrder,
+				] )
+			);
+			queryClient.setQueryData< SiteDetails[] >(
+				SITES_QUERY_KEY,
+				( sites ) =>
+					sites?.map( ( site ) => {
+						const sortOrder = rank.get( site.id );
+						return sortOrder === undefined ? site : { ...site, sortOrder };
+					} )
+			);
+		},
+		onError: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
 	} );
 }
 

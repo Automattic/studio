@@ -194,7 +194,24 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'persists a manual site order after drag and drop', () => {
-		render( <SiteList /> );
+		// Mirror the mutation's optimistic cache patch: the same sites come
+		// back through useSites with their new sortOrder values.
+		updateSitesSortOrder.mockImplementationOnce( ( orderedSiteIds: string[] ) => {
+			useSitesMock.mockReturnValue( {
+				data: orderedSiteIds.map( ( id, index ) =>
+					createSite( {
+						id,
+						name: id === 'stopped-site' ? 'Stopped Site' : 'Running Site',
+						path: `/Users/example/Studio/${ id }`,
+						running: id === 'running-site',
+						sortOrder: ( index + 1 ) * 1000,
+					} )
+				),
+				isLoading: false,
+			} );
+		} );
+
+		const { rerender } = render( <SiteList /> );
 		dragStoppedSiteBelowRunningSite();
 
 		expect( screen.getByTestId( 'drop-placeholder' ) ).toBeInTheDocument();
@@ -202,6 +219,9 @@ describe( 'SiteList', () => {
 		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
+		// In the app the optimistic cache patch re-renders SiteList through the
+		// useSites subscription; with the hook mocked, trigger that render here.
+		rerender( <SiteList /> );
 
 		const stoppedSite = screen.getByText( 'Stopped Site' );
 		const runningSite = screen.getByText( 'Running Site' );

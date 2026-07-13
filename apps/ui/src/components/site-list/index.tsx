@@ -96,20 +96,6 @@ function groupSessionsByOwner(
 	return groups;
 }
 
-// Overlays the just-dragged order (kept in state while the persisted
-// `sortOrder` catches up) on top of the fetched sites; sites not in the
-// overlay keep their order via sort stability.
-function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): SiteDetails[] {
-	// MAX_SAFE_INTEGER (not Infinity): two unranked sites must compare as 0,
-	// not NaN, for the sort to be well-defined.
-	const rank = new Map( manualOrder.map( ( id, index ) => [ id, index ] ) );
-	return [ ...sites ].sort(
-		( a, b ) =>
-			( rank.get( a.id ) ?? Number.MAX_SAFE_INTEGER ) -
-			( rank.get( b.id ) ?? Number.MAX_SAFE_INTEGER )
-	);
-}
-
 function SessionActionsMenu( { session }: { session: AiSessionSummary } ) {
 	const updateSessionMetadata = useUpdateSessionMetadata();
 	const isPending = updateSessionMetadata.isPending;
@@ -670,13 +656,11 @@ export function SiteList() {
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
-	const [ manualSiteOrder, setManualSiteOrder ] = useState< string[] >( [] );
+	// The drag's new order lands in the sites cache synchronously via the
+	// mutation's optimistic patch, so no local order state is needed here.
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
 
-	const orderedSites = useMemo(
-		() => sortSitesByManualOrder( sortSites( [ ...( sites ?? [] ) ] ), manualSiteOrder ),
-		[ sites, manualSiteOrder ]
-	);
+	const orderedSites = useMemo( () => sortSites( [ ...( sites ?? [] ) ] ), [ sites ] );
 	const groups = useMemo(
 		() => groupSessionsByOwner( orderedSites, sessions ),
 		[ orderedSites, sessions ]
@@ -709,11 +693,6 @@ export function SiteList() {
 		setOverrides( ( prev ) => ( { ...prev, [ key ]: ! isOpen( key ) } ) );
 	};
 
-	const persistOrder = ( nextSiteIds: string[] ) => {
-		setManualSiteOrder( nextSiteIds );
-		updateSitesSortOrder.mutate( nextSiteIds );
-	};
-
 	const renderSiteGroup = ( group: SiteGroup ) => (
 		<SiteSection
 			group={ group }
@@ -734,7 +713,7 @@ export function SiteList() {
 					items={ siteGroups }
 					getItemId={ getGroupKey }
 					renderItem={ renderSiteGroup }
-					onReorder={ persistOrder }
+					onReorder={ updateSitesSortOrder.mutate }
 					className={ styles.sites }
 					itemClassName={ styles.siteDragWrapper }
 					placeholderClassName={ styles.siteDropPlaceholder }

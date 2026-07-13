@@ -31,18 +31,18 @@ describe( 'OnboardingHomePage', () => {
 		mocks.hasSites = false;
 	} );
 
-	it( 'shows only the working Create and Import jobs in the updated card design', () => {
+	it( 'shows only the Create job in the updated card design', () => {
 		render( <OnboardingHomePage /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Add a site' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( 'Start fresh with a blank site or use a Blueprint.' )
+		).toBeInTheDocument();
 		expect( screen.getByRole( 'link', { name: /Create a new site/ } ) ).toHaveAttribute(
 			'href',
 			'/onboarding/create'
 		);
-		expect( screen.getByRole( 'link', { name: /Import from a backup/ } ) ).toHaveAttribute(
-			'href',
-			'/onboarding/import'
-		);
+		expect( screen.queryByText( 'Import from a backup' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Connect a site' ) ).not.toBeInTheDocument();
 	} );
 

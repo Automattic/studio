@@ -1,19 +1,19 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { chevronLeft, download } from '@wordpress/icons';
+import { arrowLeft, download } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { CreateSiteForm } from '@/components/create-site-form';
 import { FileDropzone } from '@/components/file-dropzone';
-import { OnboardingFooter } from '@/components/onboarding-footer';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite } from '@/data/queries/use-sites';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
+import styles from './style.module.css';
 import type { CreateSiteFormValues } from '@/components/create-site-form';
 
 type Step = 'select' | 'configure';
@@ -169,17 +169,6 @@ function OnboardingImportPage() {
 					onClear={ handleClearPick }
 					error={ pickError }
 				/>
-				<OnboardingFooter>
-					<Button
-						type="button"
-						variant="minimal"
-						tone="neutral"
-						onClick={ () => void navigate( { to: '/onboarding' } ) }
-					>
-						<Icon icon={ chevronLeft } size={ 16 } />
-						<span>{ __( 'Back' ) }</span>
-					</Button>
-				</OnboardingFooter>
 			</div>
 		);
 	}
@@ -195,6 +184,16 @@ function OnboardingImportPage() {
 
 	return (
 		<div className={ sharedStyles.page }>
+			<Button
+				type="button"
+				variant="minimal"
+				tone="neutral"
+				className={ styles.backLink }
+				onClick={ handleBackToSelect }
+			>
+				<Icon icon={ arrowLeft } />
+				<span>{ __( 'Back to backup' ) }</span>
+			</Button>
 			<h1 className={ sharedStyles.title }>{ __( 'Configure the imported site' ) }</h1>
 			<p className={ sharedStyles.subtitle }>
 				{ __( 'Pick a name and local folder. The backup will restore on top of this new site.' ) }
@@ -203,7 +202,7 @@ function OnboardingImportPage() {
 				initialValues={ initialValues }
 				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
-				onCancel={ handleBackToSelect }
+				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ isSubmitting }
 				submitError={ submitError }
 				submitLabel={ __( 'Import site' ) }

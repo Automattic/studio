@@ -20,10 +20,6 @@
 	stroke: var(--wpds-color-stroke-interactive-brand);
 }
 
-.host:hover .cardShift {
-	animation: card-shift 3s ease-in-out infinite;
-}
-
 @keyframes spin {
 	from {
 		transform: rotate(0deg);
@@ -34,21 +30,9 @@
 	}
 }
 
-@keyframes card-shift {
-	0%,
-	100% {
-		transform: translate(0, 0);
-	}
-
-	50% {
-		transform: translate(-3px, -3px);
-	}
-}
-
 @media (prefers-reduced-motion: reduce) {
 	.spin,
-	.host:hover .hoverSpinReverse,
-	.host:hover .cardShift {
+	.host:hover .hoverSpinReverse {
 		animation: none;
 	}
 }

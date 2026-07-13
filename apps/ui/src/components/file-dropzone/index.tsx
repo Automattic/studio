@@ -35,7 +35,7 @@ interface FileDropzoneProps {
 	error?: string | null;
 	// When set, renders a filled state (filename + Remove). Leave unset for
 	// callers that navigate away on successful pick.
-	file?: Pick< File, 'name' | 'size' > | null;
+	file?: File | null;
 	// Required whenever `file` is set.
 	onClear?: () => void;
 	className?: string;
@@ -129,11 +129,7 @@ export function FileDropzone( {
 					onChange={ handleFileInputChange }
 				/>
 			</div>
-			{ error && (
-				<p role="alert" className={ styles.error }>
-					{ error }
-				</p>
-			) }
+			{ error && <p className={ styles.error }>{ error }</p> }
 		</section>
 	);
 }

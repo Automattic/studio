@@ -5,7 +5,6 @@ import { Button, Icon } from '@wordpress/ui';
 import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
 	BuildNewSiteIllustration,
-	DropBackupIllustration,
 	illustrationHostClass,
 } from '@/components/onboarding-illustrations';
 import { useSites } from '@/data/queries/use-sites';
@@ -22,7 +21,7 @@ export function OnboardingHomePage() {
 		<div className={ styles.page }>
 			<h1 className={ sharedStyles.title }>{ __( 'Add a site' ) }</h1>
 			<p className={ sharedStyles.subtitle }>
-				{ __( 'Start fresh or bring an existing site into your Studio.' ) }
+				{ __( 'Start fresh with a blank site or use a Blueprint.' ) }
 			</p>
 			<div className={ styles.cards }>
 				<Link to="/onboarding/create" className={ cardClass }>
@@ -33,15 +32,6 @@ export function OnboardingHomePage() {
 							{ __(
 								'Start from scratch or use a Blueprint. Perfect for theme and plugin development.'
 							) }
-						</p>
-					</div>
-				</Link>
-				<Link to="/onboarding/import" className={ cardClass }>
-					<DropBackupIllustration />
-					<div className={ styles.cardText }>
-						<h3 className={ styles.cardTitle }>{ __( 'Import from a backup' ) }</h3>
-						<p className={ styles.cardBody }>
-							{ __( 'Choose a backup archive to restore an existing site locally.' ) }
 						</p>
 					</div>
 				</Link>

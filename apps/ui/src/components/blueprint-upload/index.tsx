@@ -1,3 +1,4 @@
+import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -148,41 +149,35 @@ export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUplo
 					className={ styles.fileInput }
 				/>
 				<p className={ styles.prompt }>
-					{ selected ? (
-						<>
-							<span title={ selected.file.name }>
-								{ sprintf(
-									// translators: %s is the selected Blueprint filename.
-									__( 'Using %s.' ),
-									selected.file.name
-								) }
-							</span>{ ' ' }
-							<button
-								type="button"
-								className={ styles.action }
-								onClick={ () => fileInputRef.current?.click() }
-							>
-								{ __( 'Replace' ) }
-							</button>{ ' ' }
-							{ __( 'or' ) }{ ' ' }
-							<button type="button" className={ styles.action } onClick={ onRemove }>
-								{ __( 'remove' ) }
-							</button>
-							.
-						</>
-					) : (
-						<>
-							{ __( 'Have a blueprint? Drop it anywhere, or' ) }{ ' ' }
-							<button
-								type="button"
-								className={ styles.action }
-								onClick={ () => fileInputRef.current?.click() }
-							>
-								{ __( 'upload a file' ) }
-							</button>
-							.
-						</>
-					) }
+					{ selected
+						? createInterpolateElement(
+								__(
+									'Using <filename></filename>. <replace>Replace</replace> or <remove>remove</remove>.'
+								),
+								{
+									filename: <span title={ selected.file.name }>{ selected.file.name }</span>,
+									replace: (
+										<button
+											type="button"
+											className={ styles.action }
+											onClick={ () => fileInputRef.current?.click() }
+										/>
+									),
+									remove: <button type="button" className={ styles.action } onClick={ onRemove } />,
+								}
+						  )
+						: createInterpolateElement(
+								__( 'Have a blueprint? Drop it anywhere, or <upload>upload a file</upload>.' ),
+								{
+									upload: (
+										<button
+											type="button"
+											className={ styles.action }
+											onClick={ () => fileInputRef.current?.click() }
+										/>
+									),
+								}
+						  ) }
 				</p>
 				{ error && (
 					<p role="alert" className={ styles.error }>

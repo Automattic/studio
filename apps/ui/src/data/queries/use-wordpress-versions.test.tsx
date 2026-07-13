@@ -19,7 +19,7 @@ function createWrapper( connector: Connector ) {
 	};
 }
 
-describe( 'site creation helper queries', () => {
+describe( 'useWordPressVersions', () => {
 	it( 'loads installable WordPress versions through the connector', async () => {
 		const versions = [ { label: '6.8', value: 'latest', isBeta: false, isDevelopment: false } ];
 		const getWordPressVersions = vi.fn().mockResolvedValue( versions );

@@ -54,7 +54,3 @@
 	   controls share those same trailing columns. */
 	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
 }
-
-.popup {
-	min-width: 200px;
-}

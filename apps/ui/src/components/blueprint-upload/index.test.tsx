@@ -65,8 +65,13 @@ describe( 'BlueprintUpload', () => {
 			file: { name: 'portfolio.json' },
 		} );
 		expect( screen.getByRole( 'button', { name: 'Replace' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Replace' } ).closest( 'p' ) ).toHaveTextContent(
+			'Using portfolio.json. Replace or remove.'
+		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'remove' } ) );
-		expect( screen.getByRole( 'button', { name: 'upload a file' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByRole( 'button', { name: 'upload a file' } ).closest( 'p' )
+		).toHaveTextContent( 'Have a blueprint? Drop it anywhere, or upload a file.' );
 	} );
 
 	it( 'extracts a ZIP Blueprint and keeps its temporary-file metadata', async () => {

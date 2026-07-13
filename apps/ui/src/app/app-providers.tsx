@@ -3,6 +3,7 @@ import { defaultI18n } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
 import { privateApis } from '@wordpress/theme';
 import { Tooltip } from '@wordpress/ui';
+import { useEffect } from 'react';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
@@ -33,6 +34,9 @@ function SiteEventsBridge() {
 function ThemedApp( { children }: PropsWithChildren ) {
 	const colorScheme = useColorScheme();
 	const themeColor = colorScheme === 'dark' ? { bg: '#1e1e1e' } : undefined;
+	useEffect( () => {
+		document.documentElement.style.colorScheme = colorScheme;
+	}, [ colorScheme ] );
 	return (
 		<ThemeProvider isRoot color={ themeColor } density="compact">
 			<Tooltip.Provider>{ children }</Tooltip.Provider>

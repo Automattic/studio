@@ -45,3 +45,13 @@ export type JsonEvent =
 			usage?: { numTurns: number; costUsd?: number };
 	  }
 	| MediaShareEvent;
+
+const USAGE_CAP_PATTERN = /(?:API Error:\s*429\b|status code\s+429\b|"status"\s*:\s*429\b)/i;
+
+/**
+ * Returns true when an error message indicates the user hit the AI usage cap
+ * (HTTP 429 from the WordPress.com proxy).
+ */
+export function isUsageCapError( message: string | undefined | null ): boolean {
+	return USAGE_CAP_PATTERN.test( message ?? '' );
+}

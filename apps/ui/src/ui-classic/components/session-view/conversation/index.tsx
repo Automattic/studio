@@ -65,9 +65,11 @@ import {
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
 import { useConnector, type LoadedAiSession } from '@/data/core';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -86,7 +88,7 @@ type RenderItem =
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
 	  }
-	| { kind: 'assistant-text'; key: string; text: string }
+	| { kind: 'assistant-text'; key: string; text: string; copyText?: string }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -248,6 +250,17 @@ export function entriesToRenderItems(
 			if ( ! message || message.role !== 'assistant' || ! Array.isArray( message.content ) ) {
 				continue;
 			}
+			// A single assistant message can hold several text blocks split by tool
+			// calls. Copy must yield the whole message, so join every text block and
+			// hang one copy button off the last one rather than one per fragment.
+			const textBlocks = message.content.filter(
+				( block ) => block.type === 'text' && typeof block.text === 'string' && block.text.trim()
+			);
+			const fullMessageText = textBlocks
+				.map( ( block ) => ( block.text as string ).trim() )
+				.join( '\n\n' );
+			const lastTextBlock = textBlocks[ textBlocks.length - 1 ];
+
 			message.content.forEach( ( block, blockIndex ) => {
 				if ( block.type === 'text' && typeof block.text === 'string' ) {
 					const text = block.text.trim();
@@ -256,6 +269,7 @@ export function entriesToRenderItems(
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
 				} else if (
@@ -408,8 +422,19 @@ function UserTurn( {
 	);
 }
 
-function AssistantText( { text }: { text: string } ) {
-	return <Markdown>{ text }</Markdown>;
+function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
+	return (
+		<div className={ styles.assistantTurn }>
+			<Markdown>{ text }</Markdown>
+			{ copyText ? (
+				<CopyButton
+					text={ copyText }
+					label={ __( 'Copy message' ) }
+					className={ styles.messageActions }
+				/>
+			) : null }
+		</div>
+	);
 }
 
 const TOOL_DETAIL_MAX_LENGTH = 96;
@@ -562,6 +587,8 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 			return capturePhoto;
 		case 'inspect_design':
 			return search;
+		case 'refresh_browser':
+			return refreshIcon;
 		case 'share_screenshot':
 			return share;
 		case 'validate_blocks':
@@ -1140,7 +1167,7 @@ export function Conversation( {
 							<UserTurn key={ item.key } text={ item.text } attachments={ item.attachments } />
 						);
 					case 'assistant-text':
-						return <AssistantText key={ item.key } text={ item.text } />;
+						return <AssistantText key={ item.key } text={ item.text } copyText={ item.copyText } />;
 					case 'tool-use':
 						return (
 							<ToolUseRow

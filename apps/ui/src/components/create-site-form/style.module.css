@@ -16,36 +16,37 @@
 	justify-content: space-between;
 	gap: 8px;
 	width: 100%;
-	min-height: 40px;
-	padding: 0 4px 0 12px;
-	border: 1px solid #8a8a8a;
+	height: 40px;
+	padding: 0 4px 0 var(--wpds-dimension-padding-md);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-interactive-neutral);
 	border-radius: 2px;
-	background: #fff;
-	color: #1e1e1e;
-	font: inherit;
-	font-size: 16px;
+	background-color: var(--wp-components-color-background, #fff);
+	color: var(--wpds-color-fg-interactive-neutral);
+	font-family: var(--wpds-typography-font-family-body);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1;
 	text-align: left;
 	cursor: pointer;
 	transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .pathTrigger:hover {
-	border-color: #1e1e1e;
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
 }
 
 .pathTrigger:focus-visible {
-	border-color: #1e1e1e;
-	box-shadow: 0 0 0 0.5px #1e1e1e;
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+	box-shadow: 0 0 0 0.5px var(--wpds-color-stroke-interactive-neutral-active);
 	outline: none;
 }
 
 .pathTriggerError {
-	border-color: #d63638;
+	border-color: var(--wpds-color-stroke-surface-error);
 }
 
 .pathTriggerError:focus-visible {
-	border-color: #d63638;
-	box-shadow: 0 0 0 0.5px #d63638;
+	border-color: var(--wpds-color-stroke-surface-error);
+	box-shadow: 0 0 0 0.5px var(--wpds-color-stroke-surface-error);
 }
 
 .pathValue {
@@ -57,19 +58,19 @@
 }
 
 .pathValuePlaceholder {
-	color: #757575;
+	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .pathTriggerAction {
 	flex: 0 0 auto;
 	padding: 6px 12px;
-	font-size: 13px;
+	font-size: var(--wpds-typography-font-size-sm);
 	font-weight: 500;
-	color: #1e1e1e;
+	color: var(--wpds-color-fg-interactive-neutral);
 }
 
 .pathErrorHelp {
-	color: #d63638;
+	color: var(--wpds-color-fg-content-error);
 }
 
 .advancedToggle {
@@ -83,14 +84,14 @@
 	margin-left: 8px;
 	font-size: 12px;
 	font-weight: 500;
-	color: #d63638;
+	color: var(--wpds-color-fg-content-error);
 }
 
 .submitError {
 	padding: 10px 12px;
 	border-radius: 4px;
-	background: #fce8e8;
-	color: #7a1a1a;
+	background: var(--wpds-color-bg-surface-error-weak);
+	color: var(--wpds-color-fg-content-error);
 	font-size: 13px;
 }
 

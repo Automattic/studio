@@ -160,6 +160,16 @@ a:focus:not( :focus-visible ),
 	background-color: var( --wp-components-color-background, #fff );
 }
 
+.components-input-control__prefix svg,
+.components-input-control__suffix svg {
+	fill: var( --wpds-color-fg-content-neutral-weak );
+}
+
+select option {
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
+}
+
 /* Honor the user's reduced-motion preference across the entire app. Class-
    scoped transitions out-specify a `*`-targeted rule, so `!important` is
    needed to clamp them. Components that genuinely need to keep motion can

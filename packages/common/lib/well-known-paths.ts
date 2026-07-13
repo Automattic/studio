@@ -31,6 +31,13 @@ export function getCliConfigPath(): string {
 	return path.join( getConfigDirectory(), 'cli.json' );
 }
 
+export function getSessionsDirectory(): string {
+	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
+		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio', 'sessions' );
+	}
+	return path.join( getConfigDirectory(), 'sessions' );
+}
+
 export function getCertificatesPath(): string {
 	return path.join( getConfigDirectory(), 'certificates' );
 }

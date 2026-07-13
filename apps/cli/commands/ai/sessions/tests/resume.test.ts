@@ -7,7 +7,10 @@ vi.mock( '@studio/common/ai/sessions/store', () => ( {
 	loadAiSession: vi.fn(),
 	listAiSessions: vi.fn(),
 } ) );
-vi.mock( 'cli/ai/sessions/paths', () => ( { getAiSessionsRootDirectory: vi.fn() } ) );
+vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/well-known-paths') >() ),
+	getSessionsDirectory: vi.fn(),
+} ) );
 vi.mock( 'cli/ai/ui', () => ( { AiChatUI: class AiChatUI {} } ) );
 vi.mock( 'cli/commands/ai', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/ai/sessions/helpers', () => ( { chooseSessionForAction: vi.fn() } ) );

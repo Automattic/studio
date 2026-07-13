@@ -112,7 +112,6 @@ export function ReorderableList< T >( {
 	excludeSelector,
 }: ReorderableListProps< T > ) {
 	const [ activeDrag, setActiveDrag ] = useState< ActiveDrag | null >( null );
-	const [ settleOrder, setSettleOrder ] = useState< string[] | null >( null );
 	const activeDragRef = useRef< ActiveDrag | null >( null );
 	const dragCandidateRef = useRef< DragCandidate | null >( null );
 	const dragStartOrderRef = useRef< string[] >( [] );
@@ -129,39 +128,17 @@ export function ReorderableList< T >( {
 	const autoScrollRef = useRef< { step: number; rafId: number } | null >( null );
 	const lastDroppedIdRef = useRef< string | null >( null );
 
-	// After a drop, keep rendering the dropped order until the parent hands us
-	// new items — the reordered data usually lands a tick later (e.g. via a
-	// query-cache notification), and rendering the raw prop order in between
-	// flashes the pre-drag order for a frame.
-	const orderedItems = useMemo( () => {
-		if ( ! settleOrder ) {
-			return items;
-		}
-		const rank = new Map( settleOrder.map( ( id, index ) => [ id, index ] ) );
-		if ( items.some( ( item ) => ! rank.has( getItemId( item ) ) ) ) {
-			return items;
-		}
-		return [ ...items ].sort(
-			( a, b ) => ( rank.get( getItemId( a ) ) ?? 0 ) - ( rank.get( getItemId( b ) ) ?? 0 )
-		);
-	}, [ items, settleOrder, getItemId ] );
-
-	// Once the parent hands us new items its order is authoritative again.
-	const previousItemsRef = useRef( items );
-	useEffect( () => {
-		if ( previousItemsRef.current !== items ) {
-			previousItemsRef.current = items;
-			setSettleOrder( null );
-		}
-	}, [ items ] );
-
-	const itemIds = useMemo( () => orderedItems.map( getItemId ), [ orderedItems, getItemId ] );
+	// The drop relies on the parent applying the new order synchronously in
+	// its own state (same React commit as the drag teardown) — deriving the
+	// order from an async source instead would flash the pre-drag order for
+	// a tick after the drop.
+	const itemIds = useMemo( () => items.map( getItemId ), [ items, getItemId ] );
 	const activeDragId = activeDrag?.id;
 	const activeDropIndex = activeDrag?.dropIndex;
 	const isDragging = activeDrag !== null;
 	const displayItems = useMemo(
-		() => orderedItems.filter( ( item ) => getItemId( item ) !== activeDragId ),
-		[ orderedItems, getItemId, activeDragId ]
+		() => items.filter( ( item ) => getItemId( item ) !== activeDragId ),
+		[ items, getItemId, activeDragId ]
 	);
 	const draggedItem = activeDragId
 		? items.find( ( item ) => getItemId( item ) === activeDragId )
@@ -407,7 +384,6 @@ export function ReorderableList< T >( {
 			const sourceOrder =
 				dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
 			const nextIds = insertIdAtIndex( sourceOrder, active.id, active.dropIndex );
-			setSettleOrder( nextIds );
 			lastDroppedIdRef.current = active.id;
 			onReorder( nextIds );
 			suppressNextClickRef.current = true;

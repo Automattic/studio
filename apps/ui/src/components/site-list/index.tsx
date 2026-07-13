@@ -12,7 +12,7 @@ import {
 } from '@wordpress/icons';
 import { Button, Dialog, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
@@ -656,11 +656,38 @@ export function SiteList() {
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
-	// The drag's new order lands in the sites cache synchronously via the
-	// mutation's optimistic patch, so no local order state is needed here.
 	const updateSitesSortOrder = useUpdateSitesSortOrder();
 
-	const orderedSites = useMemo( () => sortSites( [ ...( sites ?? [] ) ] ), [ sites ] );
+	// The renderer owns the site order for the session: seeded once from the
+	// first loaded sites, changed only by the user's drags, and pushed to the
+	// backend as a fire-and-forget write. Refetches only refresh row data —
+	// they can never reorder the list, so the sidebar cannot flicker.
+	const [ siteOrder, setSiteOrder ] = useState< string[] | null >( null );
+	useEffect( () => {
+		if ( siteOrder === null && sites && sites.length > 0 ) {
+			setSiteOrder( sortSites( [ ...sites ] ).map( ( site ) => site.id ) );
+		}
+	}, [ sites, siteOrder ] );
+
+	const orderedSites = useMemo( () => {
+		const bySortOrder = sortSites( [ ...( sites ?? [] ) ] );
+		if ( ! siteOrder ) {
+			return bySortOrder;
+		}
+		const rank = new Map( siteOrder.map( ( id, index ) => [ id, index ] ) );
+		// Sites created after the seed aren't ranked yet; they append at the end.
+		return [
+			...bySortOrder
+				.filter( ( site ) => rank.has( site.id ) )
+				.sort( ( a, b ) => ( rank.get( a.id ) ?? 0 ) - ( rank.get( b.id ) ?? 0 ) ),
+			...bySortOrder.filter( ( site ) => ! rank.has( site.id ) ),
+		];
+	}, [ sites, siteOrder ] );
+
+	const reorderSites = ( nextSiteIds: string[] ) => {
+		setSiteOrder( nextSiteIds );
+		updateSitesSortOrder.mutate( nextSiteIds );
+	};
 	const groups = useMemo(
 		() => groupSessionsByOwner( orderedSites, sessions ),
 		[ orderedSites, sessions ]
@@ -713,7 +740,7 @@ export function SiteList() {
 					items={ siteGroups }
 					getItemId={ getGroupKey }
 					renderItem={ renderSiteGroup }
-					onReorder={ updateSitesSortOrder.mutate }
+					onReorder={ reorderSites }
 					className={ styles.sites }
 					itemClassName={ styles.siteDragWrapper }
 					placeholderClassName={ styles.siteDropPlaceholder }

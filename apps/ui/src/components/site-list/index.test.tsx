@@ -194,24 +194,7 @@ describe( 'SiteList', () => {
 	} );
 
 	it( 'persists a manual site order after drag and drop', () => {
-		// Mirror the mutation's optimistic cache patch: the same sites come
-		// back through useSites with their new sortOrder values.
-		updateSitesSortOrder.mockImplementationOnce( ( orderedSiteIds: string[] ) => {
-			useSitesMock.mockReturnValue( {
-				data: orderedSiteIds.map( ( id, index ) =>
-					createSite( {
-						id,
-						name: id === 'stopped-site' ? 'Stopped Site' : 'Running Site',
-						path: `/Users/example/Studio/${ id }`,
-						running: id === 'running-site',
-						sortOrder: ( index + 1 ) * 1000,
-					} )
-				),
-				isLoading: false,
-			} );
-		} );
-
-		const { rerender } = render( <SiteList /> );
+		render( <SiteList /> );
 		dragStoppedSiteBelowRunningSite();
 
 		expect( screen.getByTestId( 'drop-placeholder' ) ).toBeInTheDocument();
@@ -220,20 +203,8 @@ describe( 'SiteList', () => {
 
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
 
-		// The dropped order must hold immediately, before the sites cache
-		// notification lands a tick later — otherwise the list flashes the
-		// pre-drag order for a frame.
-		expect(
-			screen
-				.getByText( 'Running Site' )
-				.compareDocumentPosition( screen.getByText( 'Stopped Site' ) ) &
-				Node.DOCUMENT_POSITION_FOLLOWING
-		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
-
-		// In the app the optimistic cache patch re-renders SiteList through the
-		// useSites subscription; with the hook mocked, trigger that render here.
-		rerender( <SiteList /> );
-
+		// The order lives in SiteList state, so the drop must reorder the DOM
+		// immediately — no waiting on a data-layer round trip.
 		expect(
 			screen
 				.getByText( 'Running Site' )

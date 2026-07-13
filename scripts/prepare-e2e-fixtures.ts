@@ -12,7 +12,7 @@
  * fixtures are hosted and how to add one.
  */
 import path from 'path';
-import { prepareE2eFixtures } from './lib/prepare-e2e-fixtures';
+import { prepareE2eFixtures } from '@studio/common/lib/prepare-e2e-fixtures';
 
 const isRequired = process.env.CI === 'true' || process.argv.includes( '--require' );
 

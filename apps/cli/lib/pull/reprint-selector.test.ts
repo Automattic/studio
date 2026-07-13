@@ -44,7 +44,7 @@ describe( 'buildReprintTreeFromIndex', () => {
 		fs.rmSync( dir, { recursive: true, force: true } );
 	} );
 
-	it( 'builds a directories-only Database + wp-content tree, pruning files', () => {
+	it( 'builds a directories-only Database + wp-content tree, pruning files', async () => {
 		fs.writeFileSync(
 			indexPath,
 			[
@@ -56,7 +56,7 @@ describe( 'buildReprintTreeFromIndex', () => {
 			].join( '\n' )
 		);
 
-		const { tree } = buildReprintTreeFromIndex( indexPath, CONTENT_DIR );
+		const { tree } = await buildReprintTreeFromIndex( indexPath, CONTENT_DIR );
 
 		expect( tree ).toHaveLength( 2 );
 		expect( tree[ 0 ] ).toMatchObject( { value: 'database', depth: 0 } );
@@ -71,7 +71,7 @@ describe( 'buildReprintTreeFromIndex', () => {
 		expect( plugins.children![ 0 ].children ?? [] ).toEqual( [] ); // akismet.php pruned
 	} );
 
-	it( 'keeps symlinks that point at directories and prunes symlinks that point at files', () => {
+	it( 'keeps symlinks that point at directories and prunes symlinks that point at files', async () => {
 		fs.writeFileSync(
 			indexPath,
 			[
@@ -85,7 +85,7 @@ describe( 'buildReprintTreeFromIndex', () => {
 			].join( '\n' )
 		);
 
-		const { tree, linkTargets } = buildReprintTreeFromIndex( indexPath, CONTENT_DIR );
+		const { tree, linkTargets } = await buildReprintTreeFromIndex( indexPath, CONTENT_DIR );
 		const topLevel = tree[ 1 ].children ?? [];
 		expect( topLevel.map( ( n ) => n.value ) ).toEqual( [ 'plugins' ] );
 		expect( linkTargets ).toEqual( { 'plugins/jetpack': '/wordpress/plugins/jetpack/16.0' } );
@@ -95,10 +95,45 @@ describe( 'buildReprintTreeFromIndex', () => {
 		expect( topLevel[ 0 ].children![ 0 ].isDirectory ).toBe( true );
 	} );
 
-	it( 'returns an empty tree when the content dir is unknown or nothing is under it', () => {
+	it( 'caps plugins/themes/mu-plugins at the add-on level, keeping uploads subdirs', async () => {
+		fs.writeFileSync(
+			indexPath,
+			[
+				// A plugin with nested internals — must stop at plugins/woocommerce.
+				encodeEntry( `${ CONTENT_DIR }/plugins/woocommerce/includes/class-wc.php` ),
+				encodeEntry( `${ CONTENT_DIR }/plugins/woocommerce/assets/js/app.js` ),
+				// A theme with internals — must stop at themes/storefront.
+				encodeEntry( `${ CONTENT_DIR }/themes/storefront/inc/setup.php` ),
+				// A mu-plugin with internals — must stop at mu-plugins/wpcomsh.
+				encodeEntry( `${ CONTENT_DIR }/mu-plugins/wpcomsh/lib/load.php` ),
+				// uploads is NOT capped — its date subdirs stay as directories.
+				encodeEntry( `${ CONTENT_DIR }/uploads/2026/07/photo.jpg` ),
+			].join( '\n' )
+		);
+
+		const { tree } = await buildReprintTreeFromIndex( indexPath, CONTENT_DIR );
+		const byValue = ( nodes: TreeNode[] = [] ) =>
+			Object.fromEntries( nodes.map( ( n ) => [ n.value, n ] ) );
+
+		const top = byValue( tree[ 1 ].children );
+		expect( Object.keys( top ).sort() ).toEqual( [ 'mu-plugins', 'plugins', 'themes', 'uploads' ] );
+
+		// plugins/woocommerce is a leaf — its includes/assets are not expanded.
+		const woo = byValue( top.plugins.children )[ 'plugins/woocommerce' ];
+		expect( woo.children ?? [] ).toEqual( [] );
+		// same for the theme and mu-plugin.
+		expect( byValue( top.themes.children )[ 'themes/storefront' ].children ?? [] ).toEqual( [] );
+		expect(
+			byValue( top[ 'mu-plugins' ].children )[ 'mu-plugins/wpcomsh' ].children ?? []
+		).toEqual( [] );
+		// uploads keeps its (directory) subtree.
+		expect( byValue( top.uploads.children )[ 'uploads/2026' ] ).toBeDefined();
+	} );
+
+	it( 'returns an empty tree when the content dir is unknown or nothing is under it', async () => {
 		fs.writeFileSync( indexPath, encodeEntry( '/srv/htdocs/index.php' ) );
-		expect( buildReprintTreeFromIndex( indexPath, null ).tree ).toEqual( [] );
-		expect( buildReprintTreeFromIndex( indexPath, CONTENT_DIR ).tree ).toEqual( [] );
+		expect( ( await buildReprintTreeFromIndex( indexPath, null ) ).tree ).toEqual( [] );
+		expect( ( await buildReprintTreeFromIndex( indexPath, CONTENT_DIR ) ).tree ).toEqual( [] );
 	} );
 } );
 

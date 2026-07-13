@@ -13,7 +13,9 @@
  */
 import fs from 'fs';
 import path from 'path';
+import readline from 'readline';
 import { SiteRuntime } from '@studio/common/lib/site-runtime';
+import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { __ } from '@wordpress/i18n';
 import { runReprintCommandUntilComplete } from 'cli/lib/pull/migration-client';
 import { getContentDirFromState, getRemoteIndexPath } from 'cli/lib/pull/reprint-state';
@@ -95,71 +97,99 @@ function finalizeNodes( nodes: TreeNode[] ): TreeNode[] {
  * the tree, reports the kept nodes that are symlinks (node value →
  * absolute target path), so a selection can record links that need
  * recreating after a scoped pull.
+ *
+ * The index is streamed line-by-line and only directory/symlink entries
+ * are retained (plus a set of directory prefixes) — never per-file
+ * entries — so peak memory scales with the directory count, not the file
+ * count (a media library with hundreds of thousands of uploads stays
+ * cheap). The tree is capped with the shared `shouldLimitDepth` helper,
+ * matching `push`: plugins/themes/mu-plugins stop at the individual
+ * add-on and are not expanded into their files.
  */
-function parseIndexChildren(
+async function parseIndexChildren(
 	remoteIndexPath: string,
 	contentDir: string
-): { children: TreeNode[]; linkTargets: Record< string, string > } {
+): Promise< { children: TreeNode[]; linkTargets: Record< string, string > } > {
 	const contentRoot = contentDir.replace( /\/+$/, '' );
 	const prefix = contentRoot + '/';
 
-	let raw: string;
+	// Directories only: dirPrefixes holds every path that has an indexed
+	// descendant; dirEntries holds the `dir`/`link` entries (files are never
+	// consulted by isDirectory, so they are dropped).
+	const dirPrefixes = new Set< string >();
+	const dirEntries = new Map< string, { type: string; target?: string } >();
+
 	try {
-		raw = fs.readFileSync( remoteIndexPath, 'utf-8' );
+		const rl = readline.createInterface( {
+			input: fs.createReadStream( remoteIndexPath ),
+			crlfDelay: Infinity,
+		} );
+		for await ( const line of rl ) {
+			if ( ! line ) {
+				continue;
+			}
+			let entry: { path?: string; type?: string; target?: string };
+			try {
+				entry = JSON.parse( line );
+			} catch {
+				continue;
+			}
+			if ( typeof entry.path !== 'string' || entry.path === '' ) {
+				continue;
+			}
+			const absolutePath = Buffer.from( entry.path, 'base64' ).toString( 'utf-8' );
+
+			const segments = absolutePath.split( '/' );
+			for ( let i = 1; i < segments.length; i++ ) {
+				dirPrefixes.add( segments.slice( 0, i ).join( '/' ) );
+			}
+
+			if ( entry.type === 'dir' || entry.type === 'link' ) {
+				const target =
+					typeof entry.target === 'string' && entry.target
+						? Buffer.from( entry.target, 'base64' ).toString( 'utf-8' )
+						: undefined;
+				dirEntries.set( absolutePath, { type: entry.type, target } );
+			}
+		}
 	} catch {
 		return { children: [], linkTargets: {} };
-	}
-
-	const entryByPath = new Map< string, { type?: string; target?: string } >();
-	const dirPrefixes = new Set< string >();
-	const contentEntries: string[] = [];
-
-	for ( const line of raw.split( '\n' ) ) {
-		if ( ! line.trim() ) {
-			continue;
-		}
-		let entry: { path?: string; type?: string; target?: string };
-		try {
-			entry = JSON.parse( line );
-		} catch {
-			continue;
-		}
-		if ( typeof entry.path !== 'string' || entry.path === '' ) {
-			continue;
-		}
-		const absolutePath = Buffer.from( entry.path, 'base64' ).toString( 'utf-8' );
-		const target =
-			typeof entry.target === 'string' && entry.target
-				? Buffer.from( entry.target, 'base64' ).toString( 'utf-8' )
-				: undefined;
-		entryByPath.set( absolutePath, { type: entry.type, target } );
-
-		const segments = absolutePath.split( '/' );
-		for ( let i = 1; i < segments.length; i++ ) {
-			dirPrefixes.add( segments.slice( 0, i ).join( '/' ) );
-		}
-
-		if ( absolutePath.startsWith( prefix ) ) {
-			contentEntries.push( absolutePath );
-		}
 	}
 
 	const isDirectory = ( absolutePath: string ): boolean => {
 		if ( dirPrefixes.has( absolutePath ) ) {
 			return true;
 		}
-		const entry = entryByPath.get( absolutePath );
+		const entry = dirEntries.get( absolutePath );
 		if ( entry?.type === 'dir' ) {
 			return true;
 		}
 		return entry?.type === 'link' && !! entry.target && dirPrefixes.has( entry.target );
 	};
 
+	// The wp-content directories to show: prefixes under wp-content, plus
+	// `dir`/`link` entries that resolve to directories (e.g. per-plugin
+	// symlinks, whose path has no indexed descendants of its own).
+	const contentDirs = new Set< string >();
+	for ( const dir of dirPrefixes ) {
+		if ( dir.startsWith( prefix ) ) {
+			contentDirs.add( dir );
+		}
+	}
+	for ( const [ absolutePath, entry ] of dirEntries ) {
+		if (
+			absolutePath.startsWith( prefix ) &&
+			( entry.type === 'dir' || isDirectory( absolutePath ) )
+		) {
+			contentDirs.add( absolutePath );
+		}
+	}
+
 	const rootChildren: TreeNode[] = [];
 	const byPath = new Map< string, TreeNode >();
 	const linkTargets: Record< string, string > = {};
 
-	for ( const absolutePath of contentEntries ) {
+	for ( const absolutePath of contentDirs ) {
 		const relativePath = absolutePath.slice( prefix.length ).replace( /\/+$/, '' );
 		if ( ! relativePath ) {
 			continue;
@@ -173,9 +203,6 @@ function parseIndexChildren(
 			const segment = segments[ i ];
 			currentRel = currentRel ? `${ currentRel }/${ segment }` : segment;
 			currentAbs = `${ currentAbs }/${ segment }`;
-			if ( ! isDirectory( currentAbs ) ) {
-				break;
-			}
 
 			let node = byPath.get( currentRel );
 			if ( ! node ) {
@@ -191,12 +218,18 @@ function parseIndexChildren(
 				byPath.set( currentRel, node );
 				parentChildren.push( node );
 
-				const entry = entryByPath.get( currentAbs );
+				const entry = dirEntries.get( currentAbs );
 				if ( entry?.type === 'link' && entry.target ) {
 					linkTargets[ currentRel ] = entry.target;
 				}
 			}
 			parentChildren = node.children!;
+
+			// Stop at the first level inside plugins/themes/mu-plugins — you
+			// select whole add-ons, not their files. Same cap as `push`.
+			if ( shouldLimitDepth( currentRel ) ) {
+				break;
+			}
 		}
 	}
 
@@ -207,14 +240,14 @@ function parseIndexChildren(
  * Build the selector tree (Database + wp-content) from reprint's remote
  * index. Empty when there's no content dir or no wp-content entries.
  */
-export function buildReprintTreeFromIndex(
+export async function buildReprintTreeFromIndex(
 	remoteIndexPath: string,
 	contentDir: string | null
-): { tree: TreeNode[]; linkTargets: Record< string, string > } {
+): Promise< { tree: TreeNode[]; linkTargets: Record< string, string > } > {
 	if ( ! contentDir ) {
 		return { tree: [], linkTargets: {} };
 	}
-	const { children, linkTargets } = parseIndexChildren( remoteIndexPath, contentDir );
+	const { children, linkTargets } = await parseIndexChildren( remoteIndexPath, contentDir );
 	if ( children.length === 0 ) {
 		return { tree: [], linkTargets: {} };
 	}
@@ -368,7 +401,7 @@ export async function fetchReprintPullTree( params: FetchReprintPullTreeParams )
 			}
 		);
 
-		const { tree, linkTargets } = buildReprintTreeFromIndex(
+		const { tree, linkTargets } = await buildReprintTreeFromIndex(
 			getRemoteIndexPath( indexStateDirectory ),
 			contentDir
 		);

@@ -77,7 +77,7 @@ async function createStoppedSite( env: CliEnv, name: string, dirName: string ): 
  * Whether the CLI reports the site at `sitePath` as running, via
  * `studio site list --format json` (stdout is clean JSON; progress goes to stderr).
  */
-async function isSiteRunning( env: CliEnv, sitePath: string ): Promise< boolean > {
+async function isSiteRunningPerCliList( env: CliEnv, sitePath: string ): Promise< boolean > {
 	const result = await runCli( [ 'site', 'list', '--format', 'json' ], env );
 	expect( result.code, result.stderr ).toBe( 0 );
 	const sites = JSON.parse( result.stdout.trim() ) as Array< {
@@ -172,7 +172,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio import', () => {
 				env
 			);
 			expect( startResult.code, startResult.stderr ).toBe( 0 );
-			expect( await isSiteRunning( env, sitePath ) ).toBe( true );
+			expect( await isSiteRunningPerCliList( env, sitePath ) ).toBe( true );
 
 			const result = await runCli(
 				[ 'import', path.join( FIXTURES_DIR, 'local-backup.zip' ), '--path', sitePath ],
@@ -182,7 +182,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio import', () => {
 
 			// Importing into a running site stops it first, then restores the
 			// running state after the import completes.
-			expect( await isSiteRunning( env, sitePath ) ).toBe( true );
+			expect( await isSiteRunningPerCliList( env, sitePath ) ).toBe( true );
 			assertImportedSiteOnDisk( sitePath );
 			expect( await getBlogname( env, sitePath ) ).toBe( FIXTURE_BLOGNAME );
 		}

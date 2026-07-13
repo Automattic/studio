@@ -28,7 +28,9 @@ function readGeometry(): WindowControlsOverlayGeometry | null {
 }
 
 export function useWindowControlsOverlay(): WindowControlsOverlayGeometry | null {
-	const [ geometry, setGeometry ] = useState< WindowControlsOverlayGeometry | null >( readGeometry );
+	const [ geometry, setGeometry ] = useState< WindowControlsOverlayGeometry | null >(
+		readGeometry
+	);
 
 	useEffect( () => {
 		const overlay = getOverlay();

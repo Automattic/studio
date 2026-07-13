@@ -46,8 +46,7 @@ export type JsonEvent =
 	  }
 	| MediaShareEvent;
 
-const USAGE_CAP_PATTERN =
-	/(?:API Error:\s*429\b|status code\s+429\b|"status"\s*:\s*429\b)/i;
+const USAGE_CAP_PATTERN = /(?:API Error:\s*429\b|status code\s+429\b|"status"\s*:\s*429\b)/i;
 
 /**
  * Returns true when an error message indicates the user hit the AI usage cap

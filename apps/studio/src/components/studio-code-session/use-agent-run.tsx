@@ -350,9 +350,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				case 'error': {
 					const isUsageCap = isUsageCapError( event.message );
 					const message = isUsageCap
-						? __(
-								'You\u2019ve reached your AI usage limit. Try again later.'
-						  )
+						? __( 'You\u2019ve reached your AI usage limit. Try again later.' )
 						: event.message;
 					dispatchSession( payload.sessionId, {
 						type: 'error_set',

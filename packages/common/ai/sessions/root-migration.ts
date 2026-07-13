@@ -1,14 +1,12 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import {
-	LOCKFILE_STALE_TIME,
-	LOCKFILE_WAIT_TIME,
-	SESSIONS_MIGRATION_LOCKFILE_NAME,
-} from '../../constants';
+import { LOCKFILE_STALE_TIME, SESSIONS_MIGRATION_LOCKFILE_NAME } from '../../constants';
 import { lockFileAsync, unlockFileAsync } from '../../lib/lockfile';
 import { getConfigDirectory, getSessionsDirectory } from '../../lib/well-known-paths';
 import type { Migration } from '../../lib/migration';
+
+const SESSIONS_MIGRATION_LOCK_WAIT_TIME = 10 * 60 * 1000;
 
 // Pre-move sessions locations: the CLI hardcoded <platform appdata>/Studio/sessions
 // (the macOS path on every non-Windows platform), the desktop used Electron's
@@ -32,55 +30,97 @@ function getLegacyAiSessionsRootDirectories(): string[] {
 	return roots;
 }
 
+async function lstatIfExists( target: string ): Promise< fs.Stats | undefined > {
+	try {
+		return await fs.promises.lstat( target );
+	} catch ( error ) {
+		if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) {
+			return undefined;
+		}
+		throw error;
+	}
+}
+
+function normalizePathForComparison( target: string ): string {
+	const normalized = path.resolve( target ).replace( /^\\\\\?\\/, '' );
+	return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+async function linkPointsTo( linkPath: string, target: string ): Promise< boolean > {
+	try {
+		const [ linkTarget, targetPath ] = await Promise.all( [
+			fs.promises.realpath( linkPath ),
+			fs.promises.realpath( target ),
+		] );
+		return normalizePathForComparison( linkTarget ) === normalizePathForComparison( targetPath );
+	} catch {
+		try {
+			const linkTarget = await fs.promises.readlink( linkPath );
+			return (
+				normalizePathForComparison( path.resolve( path.dirname( linkPath ), linkTarget ) ) ===
+				normalizePathForComparison( target )
+			);
+		} catch {
+			return false;
+		}
+	}
+}
+
 function sanitizeUserpath( target: string ): string {
 	return target.replace( os.homedir(), '~' );
 }
 
-function moveFile( from: string, to: string ): void {
+async function moveFile( from: string, to: string ): Promise< void > {
 	try {
-		fs.renameSync( from, to );
+		await fs.promises.rename( from, to );
 	} catch ( error ) {
-		// EXDEV: destination sits on a different volume — copy, then remove.
 		if ( ( error as NodeJS.ErrnoException ).code !== 'EXDEV' ) {
 			throw error;
 		}
-		fs.copyFileSync( from, to );
-		fs.rmSync( from );
+		await fs.promises.copyFile( from, to );
+		await fs.promises.rm( from );
 	}
 }
 
-// Moves every file under `source` into `destination`, preserving structure.
-// On a path collision the destination file wins and the source file is left
-// behind (session file names embed UUIDs, so collisions mean the file was
-// already migrated). Returns the number of files moved.
-function mergeDirectoryInto( source: string, destination: string ): number {
-	fs.mkdirSync( destination, { recursive: true } );
+// On a collision the destination wins and the source stays for inspection.
+async function mergeDirectoryInto( source: string, destination: string ): Promise< number > {
+	await fs.promises.mkdir( destination, { recursive: true } );
 	let moved = 0;
-	for ( const entry of fs.readdirSync( source, { withFileTypes: true } ) ) {
+	for ( const entry of await fs.promises.readdir( source, { withFileTypes: true } ) ) {
 		const from = path.join( source, entry.name );
 		const to = path.join( destination, entry.name );
 		if ( entry.isDirectory() ) {
-			moved += mergeDirectoryInto( from, to );
+			moved += await mergeDirectoryInto( from, to );
 		} else if ( ! fs.existsSync( to ) ) {
-			moveFile( from, to );
+			await moveFile( from, to );
 			moved += 1;
 		}
 	}
 	try {
-		fs.rmdirSync( source );
+		await fs.promises.rmdir( source );
 	} catch {
-		// Not empty: a collided file stayed behind for inspection.
+		// A collision or a symlink source can keep the root in place.
 	}
 	return moved;
 }
 
-// Best-effort: a failure leaves the sweep in mergeDirectoryInto as the
-// (slower, but correct) compatibility mechanism — an old surface writing to
-// a re-created legacy dir triggers the sweep, which retries the link.
-// 'junction' needs no privileges on Windows and is ignored on POSIX.
-function linkLegacyRoot( legacyRoot: string, newRoot: string ): void {
+async function removeEmptyLegacyLink( legacyRoot: string ): Promise< void > {
+	const stat = await lstatIfExists( legacyRoot );
+	if ( ! stat?.isSymbolicLink() ) {
+		return;
+	}
 	try {
-		fs.symlinkSync( newRoot, legacyRoot, 'junction' );
+		if ( ( await fs.promises.readdir( legacyRoot ) ).length === 0 ) {
+			await fs.promises.unlink( legacyRoot );
+		}
+	} catch {
+		// A broken or non-directory link stays in place for inspection.
+	}
+}
+
+async function linkLegacyRoot( legacyRoot: string, newRoot: string ): Promise< void > {
+	try {
+		await fs.promises.symlink( newRoot, legacyRoot, 'junction' );
 		console.log(
 			`Linked ${ sanitizeUserpath( legacyRoot ) } to ${ sanitizeUserpath(
 				newRoot
@@ -91,35 +131,45 @@ function linkLegacyRoot( legacyRoot: string, newRoot: string ): void {
 			`Failed to link legacy sessions path ${ sanitizeUserpath( legacyRoot ) }:`,
 			error
 		);
+		try {
+			await fs.promises.mkdir( legacyRoot, { recursive: true } );
+		} catch {
+			// Current versions can still resolve moved artifacts through the path fallback.
+		}
 	}
 }
 
-export function migrateLegacyAiSessionsRoot( newRoot: string, legacyRoots: string[] ): void {
+export async function migrateLegacyAiSessionsRoot(
+	newRoot: string,
+	legacyRoots: string[]
+): Promise< void > {
 	for ( const legacyRoot of legacyRoots ) {
 		try {
-			const legacyStat = fs.lstatSync( legacyRoot, { throwIfNoEntry: false } );
-			if ( ! legacyStat || legacyStat.isSymbolicLink() ) {
+			const legacyStat = await lstatIfExists( legacyRoot );
+			if (
+				! legacyStat ||
+				( legacyStat.isSymbolicLink() && ( await linkPointsTo( legacyRoot, newRoot ) ) )
+			) {
 				continue;
 			}
 			if ( ! fs.existsSync( newRoot ) ) {
-				fs.mkdirSync( path.dirname( newRoot ), { recursive: true } );
+				await fs.promises.mkdir( path.dirname( newRoot ), { recursive: true } );
 				try {
-					fs.renameSync( legacyRoot, newRoot );
+					await fs.promises.rename( legacyRoot, newRoot );
 					console.log(
 						`Moved AI sessions from ${ sanitizeUserpath( legacyRoot ) } to ${ sanitizeUserpath(
 							newRoot
 						) }`
 					);
-					linkLegacyRoot( legacyRoot, newRoot );
+					await linkLegacyRoot( legacyRoot, newRoot );
 					continue;
 				} catch ( error ) {
 					if ( ( error as NodeJS.ErrnoException ).code !== 'EXDEV' ) {
 						throw error;
 					}
-					// Different volume: fall through to the per-file merge.
 				}
 			}
-			const moved = mergeDirectoryInto( legacyRoot, newRoot );
+			const moved = await mergeDirectoryInto( legacyRoot, newRoot );
 			if ( moved > 0 ) {
 				console.log(
 					`Merged ${ moved } AI session file(s) from ${ sanitizeUserpath(
@@ -127,13 +177,11 @@ export function migrateLegacyAiSessionsRoot( newRoot: string, legacyRoots: strin
 					) } into ${ sanitizeUserpath( newRoot ) }`
 				);
 			}
-			// Only link once the legacy dir fully drained — a collision leftover
-			// keeps it a real dir so the merge can retry on a later launch.
+			await removeEmptyLegacyLink( legacyRoot );
 			if ( ! fs.existsSync( legacyRoot ) ) {
-				linkLegacyRoot( legacyRoot, newRoot );
+				await linkLegacyRoot( legacyRoot, newRoot );
 			}
 		} catch ( error ) {
-			// Files stay where they are; needsToRun retries on the next launch.
 			console.error(
 				`Failed to migrate AI sessions from ${ sanitizeUserpath( legacyRoot ) }:`,
 				error
@@ -142,37 +190,74 @@ export function migrateLegacyAiSessionsRoot( newRoot: string, legacyRoots: strin
 	}
 }
 
-// Registered in BOTH the CLI and desktop migration pipelines so it runs for
-// CLI-only and desktop-only users alike. After moving the files, each legacy
-// location is replaced with a symlink (junction on Windows) to the new root,
-// so out-of-date surfaces — and absolute paths persisted inside session
-// entries, e.g. screenshot artifacts — keep resolving. The merge sweep covers
-// roots where linking failed. The lockfile serializes concurrent runs.
+export function resolveMigratedAiSessionsPath(
+	target: string,
+	newRoot = getSessionsDirectory(),
+	legacyRoots = getLegacyAiSessionsRootDirectories()
+): string {
+	for ( const legacyRoot of legacyRoots ) {
+		const relative = path.relative( legacyRoot, target );
+		if (
+			relative &&
+			relative !== '..' &&
+			! relative.startsWith( `..${ path.sep }` ) &&
+			! path.isAbsolute( relative )
+		) {
+			return path.join( newRoot, relative );
+		}
+	}
+	return target;
+}
+
+interface SessionsMigrationLockOptions {
+	wait?: number;
+	stale?: number;
+	update?: number;
+}
+
+export async function withSessionsMigrationLock(
+	lockPath: string,
+	task: () => Promise< void >,
+	options: SessionsMigrationLockOptions = {}
+): Promise< void > {
+	const stale = options.stale ?? LOCKFILE_STALE_TIME;
+	const update = options.update ?? Math.max( 1, Math.floor( stale / 2 ) );
+	await lockFileAsync( lockPath, {
+		wait: options.wait ?? SESSIONS_MIGRATION_LOCK_WAIT_TIME,
+		stale,
+	} );
+	const heartbeat = setInterval( () => {
+		const now = new Date();
+		void fs.promises.utimes( lockPath, now, now ).catch( () => {} );
+	}, update );
+	heartbeat.unref();
+	try {
+		await task();
+	} finally {
+		clearInterval( heartbeat );
+		await unlockFileAsync( lockPath );
+	}
+}
+
 export const moveAiSessionsToStudioDir: Migration = {
 	async needsToRun() {
-		// E2E/dev sandboxes resolve the sessions root inside the sandbox while
-		// the legacy candidates point at the real user's sessions — never migrate.
 		if ( process.env.E2E || process.env.DEV_CONFIG_DIR ) {
 			return false;
 		}
-		return getLegacyAiSessionsRootDirectories().some( ( dir ) => {
-			// lstat, not existsSync: the link we leave behind resolves to the new
-			// root and must read as "done", not retrigger the migration.
-			const stat = fs.lstatSync( dir, { throwIfNoEntry: false } );
-			return !! stat && ! stat.isSymbolicLink();
-		} );
+		const newRoot = getSessionsDirectory();
+		for ( const dir of getLegacyAiSessionsRootDirectories() ) {
+			const stat = await lstatIfExists( dir );
+			if ( stat && ( ! stat.isSymbolicLink() || ! ( await linkPointsTo( dir, newRoot ) ) ) ) {
+				return true;
+			}
+		}
+		return false;
 	},
 	async run() {
 		const lockPath = path.join( getConfigDirectory(), SESSIONS_MIGRATION_LOCKFILE_NAME );
-		fs.mkdirSync( path.dirname( lockPath ), { recursive: true } );
-		await lockFileAsync( lockPath, {
-			wait: LOCKFILE_WAIT_TIME,
-			stale: LOCKFILE_STALE_TIME,
-		} );
-		try {
-			migrateLegacyAiSessionsRoot( getSessionsDirectory(), getLegacyAiSessionsRootDirectories() );
-		} finally {
-			await unlockFileAsync( lockPath );
-		}
+		await fs.promises.mkdir( path.dirname( lockPath ), { recursive: true } );
+		await withSessionsMigrationLock( lockPath, () =>
+			migrateLegacyAiSessionsRoot( getSessionsDirectory(), getLegacyAiSessionsRootDirectories() )
+		);
 	},
 };

@@ -32,6 +32,7 @@ import {
 	deleteAiSessionPlacement,
 	readAiSessionPlacement,
 } from '@studio/common/ai/sessions/placement';
+import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
@@ -1378,7 +1379,20 @@ export async function readLocalMediaFile(
 	_event: IpcMainInvokeEvent,
 	path: string
 ): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
-	const stats = await fsPromises.stat( path );
+	let resolvedPath = path;
+	let stats: fs.Stats;
+	try {
+		stats = await fsPromises.stat( resolvedPath );
+	} catch ( error ) {
+		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
+			throw error;
+		}
+		resolvedPath = resolveMigratedAiSessionsPath( path );
+		if ( resolvedPath === path ) {
+			throw error;
+		}
+		stats = await fsPromises.stat( resolvedPath );
+	}
 	if ( ! stats.isFile() ) {
 		throw new Error( 'Local media path must be a file.' );
 	}
@@ -1388,7 +1402,7 @@ export async function readLocalMediaFile(
 		throw new Error( 'Local media file type is not supported.' );
 	}
 
-	const buffer = await fsPromises.readFile( path );
+	const buffer = await fsPromises.readFile( resolvedPath );
 	return {
 		name: nodePath.basename( path ),
 		mimeType,

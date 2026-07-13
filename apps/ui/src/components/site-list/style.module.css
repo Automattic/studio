@@ -69,6 +69,18 @@
 	background-color: var(--site-list-row-background-active);
 }
 
+/* While a drag is active every chat sublist collapses (instantly — the drag's
+   hit-test rects are captured right after this style applies), so rows are
+   uniform and long lists stay easy to reorder. */
+.sites[data-dragging] .sessionListFrame {
+	grid-template-rows: 0fr;
+	margin-top: 0;
+	margin-bottom: 0;
+	opacity: 0;
+	pointer-events: none;
+	transition: none;
+}
+
 .site {
 	display: flex;
 	flex-direction: column;

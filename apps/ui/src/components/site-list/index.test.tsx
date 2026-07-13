@@ -212,6 +212,20 @@ describe( 'SiteList', () => {
 		expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
 	} );
 
+	it( 'marks the list with data-dragging while a drag is active', () => {
+		render( <SiteList /> );
+
+		expect( document.querySelector( '[data-dragging]' ) ).not.toBeInTheDocument();
+
+		dragStoppedSiteBelowRunningSite();
+
+		expect( document.querySelector( '[data-dragging]' ) ).toBeInTheDocument();
+
+		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
+
+		expect( document.querySelector( '[data-dragging]' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'aborts the drag without reordering on pointercancel', () => {
 		render( <SiteList /> );
 		dragStoppedSiteBelowRunningSite();

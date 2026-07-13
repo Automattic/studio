@@ -35,6 +35,7 @@ vi.mock( 'electron', () => {
 		loadFile = vi.fn().mockResolvedValue( undefined );
 		loadURL = vi.fn().mockResolvedValue( undefined );
 		setBackgroundColor = vi.fn();
+		setTitleBarOverlay = vi.fn();
 		getBounds = vi.fn().mockReturnValue( { x: 0, y: 0, width: 800, height: 600 } );
 
 		on = vi.fn().mockImplementation( ( event: string, handler: ( ...args: any[] ) => void ) => {
@@ -75,6 +76,9 @@ vi.mock( 'electron', () => {
 		},
 		nativeTheme: {
 			themeSource: 'light',
+			shouldUseDarkColors: false,
+			on: vi.fn(),
+			removeListener: vi.fn(),
 		},
 		screen: {
 			getAllDisplays: vi.fn().mockReturnValue( [] ),

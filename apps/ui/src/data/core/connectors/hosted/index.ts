@@ -327,6 +327,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async popupAppMenu() {},
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
 		},

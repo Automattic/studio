@@ -1,10 +1,12 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { plus } from '@wordpress/icons';
+import { menu, plus } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
+import { useConnector } from '@/data/core';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
+import type { MouseEvent } from 'react';
 
 type Props = {
 	onToggleSidebar: () => void;
@@ -13,8 +15,22 @@ type Props = {
 export function SidebarHeader( { onToggleSidebar }: Props ) {
 	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const navigate = useNavigate();
+	const connector = useConnector();
+	const handleOpenAppMenu = ( event: MouseEvent< HTMLButtonElement > ) => {
+		const rect = event.currentTarget.getBoundingClientRect();
+		void connector.popupAppMenu( { x: Math.round( rect.left ), y: Math.round( rect.bottom ) } );
+	};
 	return (
 		<div className={ `${ styles.root } ${ reserveTrafficLightSpace ? '' : styles.flush }` }>
+			<IconButton
+				variant="minimal"
+				tone="neutral"
+				size="small"
+				className={ styles.menuButton }
+				icon={ menu }
+				label={ __( 'Menu' ) }
+				onClick={ handleOpenAppMenu }
+			/>
 			<span className={ styles.title }>{ __( 'Studio' ) }</span>
 			<div className={ styles.actions }>
 				<IconButton

@@ -2,7 +2,7 @@
 	"fixtures": [
 		{
 			"name": "pipeline-test.sql",
-			"description": "Hosting-pipeline smoke test (STU-1866): tiny zip-wrapped SQL file on the fixtures site. Not consumed by any test — it keeps CI exercising the real download + verify + unwrap path even while no data-heavy fixture is wired up yet.",
+			"description": "Hosting-pipeline smoke test (STU-1866): tiny SQL file on the fixtures site. Not consumed by any test — it keeps CI exercising the real download + verify + unwrap path even while no data-heavy fixture is wired up yet.",
 			"url": "https://studioe2efixtures.wordpress.com/wp-content/uploads/2026/07/studio-fixture-pipeline-test-2026-07.zip",
 			"sha256": "eaaada4e0a0d9ee0d18334e9541569eddfae920c30f8561f952d66e72523192f",
 			"bytes": 327,

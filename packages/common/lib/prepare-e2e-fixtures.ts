@@ -4,10 +4,9 @@
  * SHA-256. Files that already verify are skipped, so repeat runs are cheap and
  * a corrupted download self-heals on the next run.
  *
- * Hosted artifacts are zip wrappers when `innerFilename` is set (WordPress.com
- * media uploads only accept .zip, not .tar.gz/.wpress/.sql — see
- * test-fixtures/readme.md): the wrapper hash is verified before extraction and
- * the inner file's hash after.
+ * When `innerFilename` is set the hosted artifact is a zip wrapper (see
+ * test-fixtures/readme.md for why): the wrapper hash is verified before
+ * extraction and the inner file's hash after.
  */
 import crypto from 'crypto';
 import fs from 'fs';

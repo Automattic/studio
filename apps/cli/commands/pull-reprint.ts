@@ -177,11 +177,8 @@ interface PullSession {
  * everything".
  */
 interface PullSelection {
-	/** True when the database should be skipped. */
 	skipDatabase?: boolean;
-	/** True when the media library should be skipped. */
 	skipUploads?: boolean;
-	/** reprint `--only` source values restricting the file pull. */
 	fileOnlyPaths?: string[];
 	/**
 	 * Selected entries that are symlinks on the remote. A scoped listing

@@ -47,6 +47,7 @@
 	display: flex;
 	flex-direction: column;
 	width: 100%;
+	height: 100%;
 	padding: 0;
 	border: 1px solid var(--wpds-color-stroke-surface-neutral, #ddd);
 	border-radius: 8px;
@@ -66,16 +67,17 @@
 	top: 8px;
 	right: 8px;
 	gap: 4px;
-	background: rgba(255, 255, 255, 0.92);
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-strong, #fff) 92%, transparent);
 	backdrop-filter: blur(6px);
 	border-radius: 4px;
+	box-shadow: var(--wpds-elevation-sm);
 }
 
 .cardImage {
 	width: 100%;
 	aspect-ratio: 16 / 9;
 	object-fit: cover;
-	background: #f0f0f0;
+	background: var(--wpds-color-bg-surface-neutral-weak);
 }
 
 .cardBody {
@@ -98,6 +100,7 @@
 	line-height: 1.4;
 	display: -webkit-box;
 	-webkit-line-clamp: 3;
+	line-clamp: 3;
 	-webkit-box-orient: vertical;
 	overflow: hidden;
 }

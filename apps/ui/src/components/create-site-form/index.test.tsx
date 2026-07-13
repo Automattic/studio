@@ -1,3 +1,5 @@
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
+import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -124,6 +126,49 @@ describe( 'CreateSiteForm', () => {
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.8' );
 		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( '8.3' );
 		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
+	} );
+
+	it( 'replaces previous suggestions and restores defaults without overwriting edits', async () => {
+		const { rerenderWith } = renderForm( { name: 'Suggested site' } );
+		openAdvancedSettings();
+		const defaultPassword = ( screen.getByLabelText( /Admin password/ ) as HTMLInputElement ).value;
+
+		rerenderWith( {
+			name: 'First Blueprint',
+			path: '/sites/first-blueprint',
+			phpVersion: '8.2',
+			wpVersion: '6.7',
+			customDomain: 'first.local',
+			enableHttps: true,
+			adminUsername: 'first-admin',
+			adminPassword: 'first-password',
+			adminEmail: 'first@example.com',
+		} );
+		fireEvent.change( screen.getByLabelText( /Admin username/ ), {
+			target: { value: 'manual-admin' },
+		} );
+
+		rerenderWith( {
+			name: 'Second Blueprint',
+			adminEmail: 'second@example.com',
+		} );
+
+		expect( screen.getByLabelText( /Site name/ ) ).toHaveValue( 'Second Blueprint' );
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/Second Blueprint' )
+		);
+		expect( screen.getByLabelText( 'PHP version' ) ).toHaveValue( RecommendedPHPVersion );
+		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( DEFAULT_WORDPRESS_VERSION );
+		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'manual-admin' );
+		expect( screen.getByLabelText( /Admin password/ ) ).toHaveValue( defaultPassword );
+		expect( screen.getByLabelText( /Admin email/ ) ).toHaveValue( 'second@example.com' );
+		expect( screen.getByRole( 'checkbox', { name: 'Use custom domain' } ) ).not.toBeChecked();
+		expect( screen.queryByLabelText( 'Domain name' ) ).not.toBeInTheDocument();
+
+		rerenderWith( { name: 'Suggested site' } );
+		expect( screen.getByLabelText( /Site name/ ) ).toHaveValue( 'Suggested site' );
+		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'manual-admin' );
+		expect( screen.getByLabelText( /Admin email/ ) ).toHaveValue( 'admin@localhost.com' );
 	} );
 
 	it( 'shows validation errors from asynchronous suggestions', async () => {

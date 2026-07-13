@@ -78,12 +78,65 @@ interface FormData {
 	adminEmail: string;
 }
 
+function createDefaultFormData(): FormData {
+	return {
+		name: '',
+		path: '',
+		hasCustomPath: false,
+		pathError: '',
+		isPathPending: false,
+		phpVersion: RecommendedPHPVersion,
+		wpVersion: DEFAULT_WORDPRESS_VERSION,
+		useCustomDomain: false,
+		customDomain: '',
+		enableHttps: false,
+		adminUsername: 'admin',
+		adminPassword: generatePassword(),
+		adminEmail: 'admin@localhost.com',
+	};
+}
+
+function getSuggestedFields(
+	values: Partial< CreateSiteFormValues >
+): Set< keyof CreateSiteFormValues > {
+	return new Set(
+		( Object.keys( values ) as ( keyof CreateSiteFormValues )[] ).filter(
+			( field ) => values[ field ] !== undefined
+		)
+	);
+}
+
 function applyInitialValues(
 	prev: FormData,
 	values: Partial< CreateSiteFormValues >,
+	defaults: FormData,
+	previousSuggestedFields: Set< keyof CreateSiteFormValues > = new Set(),
 	dirtyFields: Set< keyof CreateSiteFormValues > = new Set()
 ): FormData {
 	const next: FormData = { ...prev };
+	const defaultValuesByField: Record< keyof CreateSiteFormValues, Partial< FormData > > = {
+		name: { name: defaults.name },
+		path: {
+			path: defaults.path,
+			hasCustomPath: defaults.hasCustomPath,
+			pathError: defaults.pathError,
+			isPathPending: defaults.isPathPending,
+		},
+		phpVersion: { phpVersion: defaults.phpVersion },
+		wpVersion: { wpVersion: defaults.wpVersion },
+		customDomain: {
+			useCustomDomain: defaults.useCustomDomain,
+			customDomain: defaults.customDomain,
+		},
+		enableHttps: { enableHttps: defaults.enableHttps },
+		adminUsername: { adminUsername: defaults.adminUsername },
+		adminPassword: { adminPassword: defaults.adminPassword },
+		adminEmail: { adminEmail: defaults.adminEmail },
+	};
+	for ( const field of previousSuggestedFields ) {
+		if ( values[ field ] !== undefined || dirtyFields.has( field ) ) continue;
+		Object.assign( next, defaultValuesByField[ field ] );
+	}
 	if ( values.name !== undefined && ! dirtyFields.has( 'name' ) ) next.name = values.name;
 	if ( values.path !== undefined && ! dirtyFields.has( 'path' ) ) {
 		next.path = values.path;
@@ -317,34 +370,33 @@ export function CreateSiteForm( {
 }: CreateSiteFormProps ) {
 	const formRef = useRef< HTMLFormElement >( null );
 	const shouldReportSuggestedErrorsRef = useRef( !! initialValues );
+	const [ defaults ] = useState( createDefaultFormData );
+	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
 	const [ data, setData ] = useState< FormData >( () => {
-		const base: FormData = {
-			name: '',
-			path: '',
-			hasCustomPath: false,
-			pathError: '',
-			isPathPending: false,
-			phpVersion: RecommendedPHPVersion,
-			wpVersion: DEFAULT_WORDPRESS_VERSION,
-			useCustomDomain: false,
-			customDomain: '',
-			enableHttps: false,
-			adminUsername: 'admin',
-			adminPassword: generatePassword(),
-			adminEmail: 'admin@localhost.com',
-		};
-		if ( ! initialValues ) return base;
-		const seeded = applyInitialValues( base, initialValues );
+		if ( ! initialValues ) return defaults;
+		const seeded = applyInitialValues( defaults, initialValues, defaults );
 		return seeded.name.trim() && ! seeded.path ? { ...seeded, isPathPending: true } : seeded;
 	} );
 	const dirtyFieldsRef = useRef( new Set< keyof CreateSiteFormValues >() );
 
 	useEffect( () => {
-		if ( initialValues ) {
+		const values = initialValues ?? {};
+		const suggestedFields = getSuggestedFields( values );
+		const previousSuggestedFields = suggestedFieldsRef.current;
+		if ( initialValues || previousSuggestedFields.size ) {
 			shouldReportSuggestedErrorsRef.current = true;
-			setData( ( prev ) => applyInitialValues( prev, initialValues, dirtyFieldsRef.current ) );
+			setData( ( prev ) =>
+				applyInitialValues(
+					prev,
+					values,
+					defaults,
+					previousSuggestedFields,
+					dirtyFieldsRef.current
+				)
+			);
 		}
-	}, [ initialValues ] );
+		suggestedFieldsRef.current = suggestedFields;
+	}, [ defaults, initialValues ] );
 
 	const { data: wpVersions } = useWordPressVersions();
 	useEffect( () => {

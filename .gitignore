@@ -114,6 +114,10 @@ cli/vendor/
 dist
 dist-hosted
 dist-local
+# …except the data-liberation plugin's committed MCP server bundle (the plugin
+# installer copies the package without running npm install or a build). The
+# package-level .gitignore keeps everything else in its dist/ ignored.
+!packages/data-liberation-agent/dist
 
 # Playwright traces
 test-results

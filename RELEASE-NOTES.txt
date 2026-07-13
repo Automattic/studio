@@ -4,16 +4,14 @@ Unreleased
 1.15.0
 =====
 * Fixed Xdebug not starting on a normal page load on the native PHP runtime #4086
-* Fixed broken Central Kurdish text in agentic UI on macOS #4088
-* Update native PHP binaries to latest versions to include SQLite issue fix #4118, #4141, #4142, #4143, #4144
 * Added skipping dangling symlinks when archiving site content #4038
-* Fixed issue with clearing the language field in Agentic UI settings #4084
 * Studio Code: Screenshots taken by the assistant now appear inline in the conversation, and the agent can capture pages in light or dark mode #3982, #4097
 * Studio Code: Allowed editing your last message after interrupting the assistant #4094, #4123
 * Studio Code: Improved the /liberate command for recreating sites from other platforms, including surfacing it when searching for "migrate" #4095, #4110, #4111
 * Studio Code: Fixed the agent seeing running local sites as stopped when resuming a session, avoiding redundant site starts #4096
+* Update native PHP binaries to latest versions to fix SQLite issue #4118, #4141, #4142, #4143, #4144
 * Allowed more time for AI-powered plugins to receive a response before timing out #3120
-* Showed a clearer error message when a site is in maintenance mode #3948
+* Improved an error message when a site is in maintenance mode #3948
 * Improved CLI slash-command autocomplete with alphabetical sorting and match highlighting #4116, #4120
 * Misc CLI and maintenance improvements #4089, #4108, #4109, #4011, #4000
 

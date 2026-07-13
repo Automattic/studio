@@ -249,7 +249,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ navigate ]
 	);
 	const startNewChat = useCallback( async () => {
-		if ( ! ownerSite ) {
+		// Already on a chat with no prompts yet — creating another empty
+		// session would just flash the view for an identical result.
+		if ( ! ownerSite || isEmpty ) {
 			return;
 		}
 		try {
@@ -259,7 +261,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			// The mutation owns the error state; avoid an unhandled rejection
 			// from this command button if session creation fails.
 		}
-	}, [ createSession, ownerSite, switchSession ] );
+	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;

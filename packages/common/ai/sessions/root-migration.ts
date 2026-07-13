@@ -83,17 +83,15 @@ async function moveFile( from: string, to: string ): Promise< void > {
 }
 
 // On a collision the destination wins and the source stays for inspection.
-async function mergeDirectoryInto( source: string, destination: string ): Promise< number > {
+async function mergeDirectoryInto( source: string, destination: string ): Promise< void > {
 	await fs.promises.mkdir( destination, { recursive: true } );
-	let moved = 0;
 	for ( const entry of await fs.promises.readdir( source, { withFileTypes: true } ) ) {
 		const from = path.join( source, entry.name );
 		const to = path.join( destination, entry.name );
 		if ( entry.isDirectory() ) {
-			moved += await mergeDirectoryInto( from, to );
+			await mergeDirectoryInto( from, to );
 		} else if ( ! fs.existsSync( to ) ) {
 			await moveFile( from, to );
-			moved += 1;
 		}
 	}
 	try {
@@ -101,7 +99,6 @@ async function mergeDirectoryInto( source: string, destination: string ): Promis
 	} catch {
 		// A collision or a symlink source can keep the root in place.
 	}
-	return moved;
 }
 
 async function removeEmptyLegacyLink( legacyRoot: string ): Promise< void > {
@@ -118,14 +115,11 @@ async function removeEmptyLegacyLink( legacyRoot: string ): Promise< void > {
 	}
 }
 
+// Silent on success, like the other migrations — this runs on every CLI
+// invocation, so its output would land in users' terminals.
 async function linkLegacyRoot( legacyRoot: string, newRoot: string ): Promise< void > {
 	try {
 		await fs.promises.symlink( newRoot, legacyRoot, 'junction' );
-		console.log(
-			`Linked ${ sanitizeUserpath( legacyRoot ) } to ${ sanitizeUserpath(
-				newRoot
-			) } for older Studio versions`
-		);
 	} catch ( error ) {
 		console.error(
 			`Failed to link legacy sessions path ${ sanitizeUserpath( legacyRoot ) }:`,
@@ -156,11 +150,6 @@ export async function migrateLegacyAiSessionsRoot(
 				await fs.promises.mkdir( path.dirname( newRoot ), { recursive: true } );
 				try {
 					await fs.promises.rename( legacyRoot, newRoot );
-					console.log(
-						`Moved AI sessions from ${ sanitizeUserpath( legacyRoot ) } to ${ sanitizeUserpath(
-							newRoot
-						) }`
-					);
 					await linkLegacyRoot( legacyRoot, newRoot );
 					continue;
 				} catch ( error ) {
@@ -169,14 +158,7 @@ export async function migrateLegacyAiSessionsRoot(
 					}
 				}
 			}
-			const moved = await mergeDirectoryInto( legacyRoot, newRoot );
-			if ( moved > 0 ) {
-				console.log(
-					`Merged ${ moved } AI session file(s) from ${ sanitizeUserpath(
-						legacyRoot
-					) } into ${ sanitizeUserpath( newRoot ) }`
-				);
-			}
+			await mergeDirectoryInto( legacyRoot, newRoot );
 			await removeEmptyLegacyLink( legacyRoot );
 			if ( ! fs.existsSync( legacyRoot ) ) {
 				await linkLegacyRoot( legacyRoot, newRoot );

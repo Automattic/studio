@@ -315,6 +315,8 @@ export function CreateSiteForm( {
 	submitError,
 	submitLabel,
 }: CreateSiteFormProps ) {
+	const formRef = useRef< HTMLFormElement >( null );
+	const shouldReportSuggestedErrorsRef = useRef( !! initialValues );
 	const [ data, setData ] = useState< FormData >( () => {
 		const base: FormData = {
 			name: '',
@@ -339,6 +341,7 @@ export function CreateSiteForm( {
 
 	useEffect( () => {
 		if ( initialValues ) {
+			shouldReportSuggestedErrorsRef.current = true;
 			setData( ( prev ) => applyInitialValues( prev, initialValues, dirtyFieldsRef.current ) );
 		}
 	}, [ initialValues ] );
@@ -435,6 +438,23 @@ export function CreateSiteForm( {
 	const { validity, isValid } = useFormValidity( data, fields, fullForm );
 	const [ isAdvancedOpen, setIsAdvancedOpen ] = useState( false );
 
+	// Validated controls hide programmatic errors until they receive an invalid event.
+	// Wait for DataForm to apply custom validity, then reveal errors from suggested values.
+	useEffect( () => {
+		if ( ! shouldReportSuggestedErrorsRef.current ) return;
+		const timeout = window.setTimeout( () => {
+			shouldReportSuggestedErrorsRef.current = false;
+			formRef.current
+				?.querySelectorAll< HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement >(
+					'input, select, textarea'
+				)
+				.forEach( ( control ) => {
+					if ( ! control.validity.valid ) control.reportValidity();
+				} );
+		}, 0 );
+		return () => window.clearTimeout( timeout );
+	}, [ data, initialValues, validity ] );
+
 	const handleChangePartial = useCallback( ( update: Partial< FormData > ) => {
 		setData( ( prev ) => ( { ...prev, ...update } ) );
 	}, [] );
@@ -521,7 +541,7 @@ export function CreateSiteForm( {
 	);
 
 	return (
-		<form className={ styles.form } onSubmit={ handleSubmit }>
+		<form ref={ formRef } className={ styles.form } onSubmit={ handleSubmit }>
 			<div className={ styles.panel }>
 				<DataForm< FormData >
 					data={ data }

@@ -126,6 +126,23 @@ describe( 'CreateSiteForm', () => {
 		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
 	} );
 
+	it( 'shows validation errors from asynchronous suggestions', async () => {
+		const { rerenderWith } = renderForm( { name: 'Blueprint site' } );
+		rerenderWith( {
+			name: 'Blueprint site',
+			customDomain: 'example.com',
+		} );
+		openAdvancedSettings();
+
+		expect( await screen.findByText( 'The domain name must end with .local' ) ).toBeInTheDocument();
+		const domainInput = screen.getByLabelText( 'Domain name' );
+		expect( domainInput ).toBeInvalid();
+
+		fireEvent.change( domainInput, { target: { value: 'example.local' } } );
+		await waitFor( () => expect( domainInput ).toBeValid() );
+		expect( screen.queryByText( 'The domain name must end with .local' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'ignores a stale generated path after the site name changes', async () => {
 		const first = deferred< {
 			path: string;

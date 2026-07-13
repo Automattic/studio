@@ -1,11 +1,11 @@
 .blueprint {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
-	margin-bottom: 32px;
+	gap: 8px;
 }
 
 .sectionTitle {
-	font-size: 1rem;
-	font-weight: 600;
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: 500;
+	text-transform: uppercase;
 }

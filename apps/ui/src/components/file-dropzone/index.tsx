@@ -129,7 +129,11 @@ export function FileDropzone( {
 					onChange={ handleFileInputChange }
 				/>
 			</div>
-			{ error && <p className={ styles.error }>{ error }</p> }
+			{ error && (
+				<p role="alert" className={ styles.error }>
+					{ error }
+				</p>
+			) }
 		</section>
 	);
 }

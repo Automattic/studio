@@ -5,10 +5,11 @@ import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronRight } from '@wordpress/icons';
+import { chevronDown, chevronLeft, chevronRight } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LearnHowLink, LearnMoreLink } from '@/components/learn-more';
+import { OnboardingFooter } from '@/components/onboarding-footer';
 import {
 	adminEmailField,
 	adminPasswordField,
@@ -33,7 +34,7 @@ import type {
 	FormField,
 	FormValidity,
 } from '@wordpress/dataviews';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 export interface CreateSiteFormValues {
 	name: string;
@@ -55,6 +56,7 @@ interface CreateSiteFormProps {
 	isSubmitting?: boolean;
 	submitError?: string;
 	submitLabel?: string;
+	beforeFields?: ReactNode;
 }
 
 interface FormData {
@@ -313,6 +315,7 @@ export function CreateSiteForm( {
 	isSubmitting,
 	submitError,
 	submitLabel,
+	beforeFields,
 }: CreateSiteFormProps ) {
 	const [ data, setData ] = useState< FormData >( () => {
 		const base: FormData = {
@@ -493,71 +496,91 @@ export function CreateSiteForm( {
 	};
 
 	const advancedErrorCount = countAdvancedErrors( validity, advancedForm );
+	const actions = (
+		<>
+			<Button
+				type="button"
+				variant="minimal"
+				tone="neutral"
+				onClick={ onCancel }
+				disabled={ isSubmitting }
+			>
+				<Icon icon={ chevronLeft } size={ 16 } />
+				<span>{ __( 'Back' ) }</span>
+			</Button>
+			<Button
+				type="submit"
+				variant="solid"
+				tone="brand"
+				disabled={ ! canSubmit }
+				loading={ isSubmitting }
+				loadingAnnouncement={ __( 'Creating site' ) }
+				data-testid="create-site-submit"
+			>
+				{ submitLabel ?? __( 'Create site' ) }
+			</Button>
+		</>
+	);
 
 	return (
 		<form className={ styles.form } onSubmit={ handleSubmit }>
-			<DataForm< FormData >
-				data={ data }
-				fields={ fields }
-				form={ basicForm }
-				onChange={ handleChange }
-				validity={ validity }
-			/>
-
-			<Button
-				type="button"
-				variant="unstyled"
-				tone="neutral"
-				className={ styles.advancedToggle }
-				onClick={ () => setIsAdvancedOpen( ( value ) => ! value ) }
-				aria-expanded={ isAdvancedOpen }
-			>
-				<Icon icon={ isAdvancedOpen ? chevronDown : chevronRight } />
-				<span>{ __( 'Advanced settings' ) }</span>
-				{ ! isAdvancedOpen && advancedErrorCount > 0 && (
-					<span className={ styles.advancedErrorCount }>
-						{ advancedErrorCount === 1
-							? __( '1 error found' )
-							: /* translators: %d: number of errors */
-							  `${ advancedErrorCount } ${ __( 'errors found' ) }` }
-					</span>
-				) }
-			</Button>
-
-			{ isAdvancedOpen && (
+			<div className={ styles.panel }>
+				{ beforeFields }
 				<DataForm< FormData >
 					data={ data }
 					fields={ fields }
-					form={ advancedForm }
+					form={ basicForm }
 					onChange={ handleChange }
 					validity={ validity }
 				/>
-			) }
 
-			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
-
-			<div className={ styles.actions }>
 				<Button
 					type="button"
-					variant="minimal"
+					variant="unstyled"
 					tone="neutral"
-					onClick={ onCancel }
-					disabled={ isSubmitting }
+					className={ styles.advancedToggle }
+					onClick={ () => setIsAdvancedOpen( ( value ) => ! value ) }
+					aria-expanded={ isAdvancedOpen }
 				>
-					{ __( 'Cancel' ) }
+					<Icon icon={ isAdvancedOpen ? chevronDown : chevronRight } />
+					<span>{ __( 'Advanced settings' ) }</span>
+					{ ! isAdvancedOpen && advancedErrorCount > 0 && (
+						<span className={ styles.advancedErrorCount }>
+							{ advancedErrorCount === 1
+								? __( '1 error found' )
+								: /* translators: %d: number of errors */
+								  `${ advancedErrorCount } ${ __( 'errors found' ) }` }
+						</span>
+					) }
 				</Button>
-				<Button
-					type="submit"
-					variant="solid"
-					tone="brand"
-					disabled={ ! canSubmit }
-					loading={ isSubmitting }
-					loadingAnnouncement={ __( 'Creating site' ) }
-					data-testid="create-site-submit"
+
+				<div
+					className={
+						isAdvancedOpen
+							? `${ styles.advancedCollapse } ${ styles.advancedCollapseOpen }`
+							: styles.advancedCollapse
+					}
+					inert={ ! isAdvancedOpen || undefined }
 				>
-					{ submitLabel ?? __( 'Create site' ) }
-				</Button>
+					<div className={ styles.advancedCollapseInner }>
+						<DataForm< FormData >
+							data={ data }
+							fields={ fields }
+							form={ advancedForm }
+							onChange={ handleChange }
+							validity={ validity }
+						/>
+					</div>
+				</div>
+
+				{ submitError && (
+					<div role="alert" className={ styles.submitError }>
+						{ submitError }
+					</div>
+				) }
 			</div>
+
+			<OnboardingFooter>{ actions }</OnboardingFooter>
 		</form>
 	);
 }

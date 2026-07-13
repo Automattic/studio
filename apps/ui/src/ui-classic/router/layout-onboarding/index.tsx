@@ -1,5 +1,6 @@
 import { createRoute, Outlet, useLocation, useMatches, useNavigate } from '@tanstack/react-router';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { DotGrid } from '@/components/dot-grid';
 import { OnboardingLayout } from '@/components/onboarding-layout';
 import { useSites } from '@/data/queries/use-sites';
 import { rootRoute } from '../layout-root';
@@ -51,13 +52,20 @@ export function OnboardingShellView( {
 				closeDisabled={ !! progress }
 				width={ isWide ? 'wide' : 'default' }
 				contentRef={ contentRef }
+				background={
+					<div aria-hidden="true" className={ styles.dotGridLayer }>
+						<DotGrid spacing={ 32 } crossSize={ 5 } opacity={ 0.2 } />
+					</div>
+				}
 			>
 				{ progress && (
 					<p className={ styles.progress } role="status" aria-live="polite">
 						{ progress }
 					</p>
 				) }
-				<div inert={ progress ? true : undefined }>{ children }</div>
+				<div className={ styles.outlet } inert={ progress ? true : undefined }>
+					{ children }
+				</div>
 			</OnboardingLayout>
 		</OnboardingProgressContext.Provider>
 	);

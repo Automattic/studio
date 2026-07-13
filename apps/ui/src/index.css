@@ -150,6 +150,11 @@ a:focus:not( :focus-visible ),
 	height: 16px;
 }
 
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
+	width: auto;
+	height: auto;
+}
+
 /* @wordpress/components' ComboboxControl (used by DataForm's adaptive
    picker once a field has 10+ elements) leaves its wrapper without a
    background, so the body surface bleeds through around the inner input

@@ -15,6 +15,7 @@ interface OnboardingLayoutProps {
 	closeDisabled?: boolean;
 	width?: 'default' | 'wide';
 	contentRef?: Ref< HTMLDivElement >;
+	background?: ReactNode;
 }
 
 export function OnboardingLayout( {
@@ -23,9 +24,16 @@ export function OnboardingLayout( {
 	closeDisabled = false,
 	width = 'default',
 	contentRef,
+	background,
 }: OnboardingLayoutProps ) {
 	return (
-		<Stack align="center" justify="center" className={ styles.root }>
+		<Stack align="flex-start" justify="center" className={ styles.root }>
+			{ background }
+			<div aria-hidden="true">
+				<div className={ `${ styles.dragEdge } ${ styles.dragEdgeTop }` } />
+				<div className={ `${ styles.dragEdge } ${ styles.dragEdgeLeft }` } />
+				<div className={ `${ styles.dragEdge } ${ styles.dragEdgeBottom }` } />
+			</div>
 			{ onClose && (
 				<IconButton
 					className={ styles.close }

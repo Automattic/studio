@@ -3,6 +3,10 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { OnboardingShellView, useOnboardingProgress } from './index';
 
+vi.mock( '@/components/dot-grid', () => ( {
+	DotGrid: () => <canvas data-testid="dot-grid" />,
+} ) );
+
 function TestRoute() {
 	const { setProgress } = useOnboardingProgress();
 	const [ page, setPage ] = useState( 'Create' );

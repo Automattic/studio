@@ -219,17 +219,39 @@ describe( 'SiteList', () => {
 		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
+
+		// The dropped order must hold immediately, before the sites cache
+		// notification lands a tick later — otherwise the list flashes the
+		// pre-drag order for a frame.
+		expect(
+			screen
+				.getByText( 'Running Site' )
+				.compareDocumentPosition( screen.getByText( 'Stopped Site' ) ) &
+				Node.DOCUMENT_POSITION_FOLLOWING
+		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
+
 		// In the app the optimistic cache patch re-renders SiteList through the
 		// useSites subscription; with the hook mocked, trigger that render here.
 		rerender( <SiteList /> );
 
-		const stoppedSite = screen.getByText( 'Stopped Site' );
-		const runningSite = screen.getByText( 'Running Site' );
-
 		expect(
-			runningSite.compareDocumentPosition( stoppedSite ) & Node.DOCUMENT_POSITION_FOLLOWING
+			screen
+				.getByText( 'Running Site' )
+				.compareDocumentPosition( screen.getByText( 'Stopped Site' ) ) &
+				Node.DOCUMENT_POSITION_FOLLOWING
 		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 		expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
+	} );
+
+	it( 'moves focus to the dragged site after the drop', () => {
+		render( <SiteList /> );
+		dragStoppedSiteBelowRunningSite();
+
+		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
+
+		const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
+		expect( stoppedRow ).toBeInTheDocument();
+		expect( stoppedRow!.contains( document.activeElement ) ).toBe( true );
 	} );
 
 	it( 'marks the list with data-dragging while a drag is active', () => {

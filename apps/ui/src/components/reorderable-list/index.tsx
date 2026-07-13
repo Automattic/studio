@@ -112,6 +112,7 @@ export function ReorderableList< T >( {
 	excludeSelector,
 }: ReorderableListProps< T > ) {
 	const [ activeDrag, setActiveDrag ] = useState< ActiveDrag | null >( null );
+	const [ settleOrder, setSettleOrder ] = useState< string[] | null >( null );
 	const activeDragRef = useRef< ActiveDrag | null >( null );
 	const dragCandidateRef = useRef< DragCandidate | null >( null );
 	const dragStartOrderRef = useRef< string[] >( [] );
@@ -126,14 +127,41 @@ export function ReorderableList< T >( {
 	const placeholderElementRef = useRef< HTMLDivElement | null >( null );
 	const wasDraggingRef = useRef( false );
 	const autoScrollRef = useRef< { step: number; rafId: number } | null >( null );
+	const lastDroppedIdRef = useRef< string | null >( null );
 
-	const itemIds = useMemo( () => items.map( getItemId ), [ items, getItemId ] );
+	// After a drop, keep rendering the dropped order until the parent hands us
+	// new items — the reordered data usually lands a tick later (e.g. via a
+	// query-cache notification), and rendering the raw prop order in between
+	// flashes the pre-drag order for a frame.
+	const orderedItems = useMemo( () => {
+		if ( ! settleOrder ) {
+			return items;
+		}
+		const rank = new Map( settleOrder.map( ( id, index ) => [ id, index ] ) );
+		if ( items.some( ( item ) => ! rank.has( getItemId( item ) ) ) ) {
+			return items;
+		}
+		return [ ...items ].sort(
+			( a, b ) => ( rank.get( getItemId( a ) ) ?? 0 ) - ( rank.get( getItemId( b ) ) ?? 0 )
+		);
+	}, [ items, settleOrder, getItemId ] );
+
+	// Once the parent hands us new items its order is authoritative again.
+	const previousItemsRef = useRef( items );
+	useEffect( () => {
+		if ( previousItemsRef.current !== items ) {
+			previousItemsRef.current = items;
+			setSettleOrder( null );
+		}
+	}, [ items ] );
+
+	const itemIds = useMemo( () => orderedItems.map( getItemId ), [ orderedItems, getItemId ] );
 	const activeDragId = activeDrag?.id;
 	const activeDropIndex = activeDrag?.dropIndex;
 	const isDragging = activeDrag !== null;
 	const displayItems = useMemo(
-		() => items.filter( ( item ) => getItemId( item ) !== activeDragId ),
-		[ items, getItemId, activeDragId ]
+		() => orderedItems.filter( ( item ) => getItemId( item ) !== activeDragId ),
+		[ orderedItems, getItemId, activeDragId ]
 	);
 	const draggedItem = activeDragId
 		? items.find( ( item ) => getItemId( item ) === activeDragId )
@@ -144,12 +172,26 @@ export function ReorderableList< T >( {
 		const nextRowRects = measureRowRects( rowElementsRef.current, scrollOffset );
 		const previousRowRects = previousRowRectsRef.current;
 
+		const dragJustStarted = isDragging && ! wasDraggingRef.current;
+		const dragJustEnded = ! isDragging && wasDraggingRef.current;
+		wasDraggingRef.current = isDragging;
+
+		// Move focus to the dropped row (unless it is already inside it) so
+		// keyboard interaction continues from the item the user just moved.
+		if ( dragJustEnded && lastDroppedIdRef.current ) {
+			const rowElement = rowElementsRef.current.get( lastDroppedIdRef.current );
+			lastDroppedIdRef.current = null;
+			if ( rowElement && ! rowElement.contains( document.activeElement ) ) {
+				rowElement
+					.querySelector< HTMLElement >( 'button, a[href], [tabindex]' )
+					?.focus( { preventScroll: true } );
+			}
+		}
+
 		// Activating the drag can restyle rows (consumers may collapse them via
 		// [data-dragging]), so the rects captured on pointerdown no longer match
 		// the layout. Recapture them, minus the placeholder's offset on the rows
 		// sitting below it.
-		const dragJustStarted = isDragging && ! wasDraggingRef.current;
-		wasDraggingRef.current = isDragging;
 		if ( dragJustStarted ) {
 			const placeholderRect = placeholderElementRef.current?.getBoundingClientRect();
 			const placeholderTop = placeholderRect ? placeholderRect.top + scrollOffset : Infinity;
@@ -364,7 +406,10 @@ export function ReorderableList< T >( {
 		if ( active ) {
 			const sourceOrder =
 				dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
-			onReorder( insertIdAtIndex( sourceOrder, active.id, active.dropIndex ) );
+			const nextIds = insertIdAtIndex( sourceOrder, active.id, active.dropIndex );
+			setSettleOrder( nextIds );
+			lastDroppedIdRef.current = active.id;
+			onReorder( nextIds );
 			suppressNextClickRef.current = true;
 			// The rows' click-capture consumes the flag, but a drop outside any
 			// row never reaches it — clear on the next click wherever it lands

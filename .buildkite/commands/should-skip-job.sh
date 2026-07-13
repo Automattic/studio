@@ -127,22 +127,11 @@ if [[ -z "$job_type" ]]; then
   exit 1
 fi
 
-# git-based drop-in for the a8c-ci-toolkit `pr_changed_files` command. That
-# command ships with the toolkit plugin, which loads only on the host agents;
-# Linux jobs run inside a Docker container without it. This replicates the two
-# modes we use with plain git, so the same diff is available everywhere. On any
-# uncertainty (not a PR, base fetch fails, empty diff) it returns non-zero so
-# the job runs, matching the plugin's fail-open behavior.
 git_pr_changed_files() {
   local mode="$1"; shift
 
   [[ "${BUILDKITE_PULL_REQUEST:-false}" =~ ^[0-9]+$ ]] || return 1
 
-  # Anonymous HTTPS fetch: the container has no SSH keys and origin may be an SSH
-  # URL. Studio is public, so this needs no credentials. Reference FETCH_HEAD to
-  # avoid mutating the checkout's remote.
-  # ponytail: falls open (returns 1) on shallow clones where --merge-base can't
-  # resolve; wire up unshallow only if that turns out to skip too little.
   git fetch --no-tags "https://github.com/Automattic/studio.git" "$BUILDKITE_PULL_REQUEST_BASE_BRANCH" &> /dev/null || return 1
 
   local changed_files=()
@@ -155,7 +144,7 @@ git_pr_changed_files() {
   for file in "${changed_files[@]}"; do
     matched="false"
     for pattern in "$@"; do
-      # shellcheck disable=SC2053 # Unquoted rhs so */?/[…] are treated as a glob.
+      # shellcheck disable=SC2053
       if [[ "$file" == ${pattern} ]]; then
         matched="true"
         break
@@ -169,7 +158,6 @@ git_pr_changed_files() {
   return 1
 }
 
-# Use the plugin command on host agents; fall back to git inside containers.
 if ! command -v pr_changed_files &> /dev/null; then
   pr_changed_files() { git_pr_changed_files "$@"; }
 fi

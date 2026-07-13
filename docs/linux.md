@@ -51,6 +51,12 @@ xdg-mime default studio.desktop x-scheme-handler/wp-studio
 
 This depends on the `.desktop` file from the previous section. Without it, browsers will show "Open With… / No Apps Available" when WordPress.com OAuth redirects back, or hand the callback off to an installed `.deb` build (masking the bug you're trying to debug).
 
+## Continuous Integration
+
+Linux CI jobs (build, unit, and E2E) run inside a Debian Node container on Buildkite's shared `default` queue, since there is no dedicated Linux agent. The container provides `dpkg`/`fakeroot` for the `.deb` build and the Electron runtime libraries, `xvfb`, and Playwright browser dependencies that E2E needs.
+
+Jobs are skipped when a pull request only touches irrelevant files (docs, config, localization). On Mac and Windows this uses the `pr_changed_files` command from the `a8c-ci-toolkit` plugin, which loads only on the host. Because the Linux jobs run inside the container without that plugin, `should-skip-job.sh` falls back to computing the changed files with plain `git` so the same skip behavior applies on every platform.
+
 ## Troubleshooting
 
 If `./studio` fails with a permission error, ensure it has execute permissions:

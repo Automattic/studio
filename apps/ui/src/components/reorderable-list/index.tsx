@@ -72,7 +72,6 @@ export type ReorderableListProps< T > = {
 	getItemId: ( item: T ) => string;
 	/** Renders a row; also used for the floating drag preview. */
 	renderItem: ( item: T ) => ReactNode;
-	/** Called on drop with the list's new id order. */
 	onReorder: ( nextIds: string[] ) => void;
 	className?: string;
 	itemClassName?: string;

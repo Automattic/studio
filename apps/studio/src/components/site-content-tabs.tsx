@@ -10,6 +10,7 @@ import Header from 'src/components/header';
 import { SiteIsBeingCreated } from 'src/components/site-is-being-created';
 import { StudioCodeSession } from 'src/components/studio-code-session';
 import { MIN_WIDTH_CLASS_TO_MEASURE } from 'src/constants';
+import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { TabName } from 'src/hooks/use-content-tabs';
 import { useEffectiveTab } from 'src/hooks/use-effective-tab';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
@@ -24,6 +25,7 @@ export function SiteContentTabs() {
 	const { effectiveTab, selectedTab, setSelectedTab, tabs } = useEffectiveTab();
 	const { __ } = useI18n();
 	const { enableAgenticUi } = useFeatureFlags();
+	const betaFeatures = useBetaFeatures();
 	const [ bannerDismissed, setBannerDismissed ] = useState( true );
 
 	useEffect( () => {
@@ -93,7 +95,7 @@ export function SiteContentTabs() {
 		);
 	}
 
-	const showBanner = ! enableAgenticUi && ! bannerDismissed;
+	const showBanner = enableAgenticUi && ! betaFeatures.enableAgenticUi && ! bannerDismissed;
 
 	return (
 		<div className="relative w-full h-full">

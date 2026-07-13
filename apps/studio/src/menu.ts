@@ -37,10 +37,6 @@ import { getLogsFilePath } from 'src/logging';
 import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
-// Feature flags that select which Studio UI is shown; toggling them requires
-// reloading the main window renderer.
-const UI_MODE_FEATURE_FLAGS: ( keyof FeatureFlags )[] = [ 'enableAgenticUi' ];
-
 export async function setupMenu( config: {
 	needsOnboarding: boolean;
 	isAddSiteVisible?: boolean;
@@ -75,8 +71,14 @@ export async function popupMenu( position?: { x: number; y: number } ) {
 
 async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
 	const currentBetaFeatures = await getBetaFeatures();
-	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() ).map(
-		( [ key, definition ] ) => {
+	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() )
+		.filter( ( [ key ] ) => {
+			if ( key === 'enableAgenticUi' ) {
+				return getFeatureFlagFromEnv( 'enableAgenticUi' );
+			}
+			return true;
+		} )
+		.map( ( [ key, definition ] ) => {
 			// On Windows, use the description as the label for a more compact display
 			const label =
 				process.platform === 'win32' && definition.description
@@ -111,8 +113,7 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 					void sendIpcEventToRenderer( 'beta-features-updated' );
 				},
 			};
-		}
-	);
+		} );
 }
 
 export function buildViewMenuItems( {
@@ -216,15 +217,6 @@ async function getAppMenu(
 		checked: getFeatureFlagFromEnv( flag as keyof FeatureFlags ),
 		click: ( menuItem: MenuItem ) => {
 			setFeatureFlagInEnv( flag as keyof FeatureFlags, menuItem.checked );
-			if (
-				UI_MODE_FEATURE_FLAGS.includes( flag as keyof FeatureFlags ) &&
-				mainWindow &&
-				! mainWindow.isDestroyed()
-			) {
-				setTimeout( () => {
-					void loadMainWindowRenderer( mainWindow );
-				}, 0 );
-			}
 			void sendIpcEventToRenderer( 'refresh-app-globals' );
 		},
 	} ) );

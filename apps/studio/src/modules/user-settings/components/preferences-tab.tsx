@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
 import { DotGrid } from 'src/components/dot-grid';
 import { FormPathInputComponent } from 'src/components/form-path-input';
+import { useBetaFeatures } from 'src/hooks/use-beta-features';
 import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
@@ -33,8 +34,9 @@ import { SettingsFormField } from './settings-form-field';
 function AgenticUiCallout() {
 	const { __ } = useI18n();
 	const { enableAgenticUi } = useFeatureFlags();
+	const betaFeatures = useBetaFeatures();
 
-	if ( enableAgenticUi ) {
+	if ( ! enableAgenticUi || betaFeatures.enableAgenticUi ) {
 		return null;
 	}
 

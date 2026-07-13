@@ -1036,8 +1036,13 @@ export async function runFullPull(
 ): Promise< void > {
 	const contentDir = getContentDirFromState( metadata.stateDirectory );
 	const sqlitePath = contentDir
-		? `${ metadata.rawDirectory }${ contentDir }/database/.ht.sqlite`
-		: `${ metadata.sitePath }/wp-content/database/.ht.sqlite`;
+		? path.join(
+				metadata.rawDirectory,
+				...contentDir.split( '/' ).filter( Boolean ),
+				'database',
+				'.ht.sqlite'
+		  )
+		: path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' );
 	const reprintRuntime = runtime === SITE_RUNTIME_NATIVE_PHP ? 'nginx-fpm' : 'playground-cli';
 	const onlyArgs = ( selection.fileOnlyPaths ?? [] ).map( ( onlyPath ) => `--only=${ onlyPath }` );
 

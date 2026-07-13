@@ -86,9 +86,7 @@ export function AgenticUiBanner( { onDismiss }: AgenticUiBannerProps ) {
 						{ __( 'There’s a new way to build in Studio' ) }
 					</p>
 					<p className="m-0 mt-1.5 text-xs text-[var(--color-frame-text-secondary)]">
-						{ __(
-							'The new workbench gives you Studio Code, an expert WordPress agent, with a new in-app browser to watch it work.'
-						) }
+						{ __( 'A redesigned interface with AI-powered site building.' ) }
 					</p>
 					<Button
 						variant="primary"

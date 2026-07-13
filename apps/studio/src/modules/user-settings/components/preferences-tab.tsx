@@ -55,7 +55,7 @@ function AgenticUiCallout() {
 					</p>
 					<p className="m-0 mt-1 text-xs text-[var(--color-frame-text-secondary)]">
 						{ __(
-							'A workbench combining Studio Code and a new in-app browser to watch it work. You can switch back anytime.'
+							'A redesigned interface with AI-powered site building. You can switch back anytime.'
 						) }
 					</p>
 				</div>

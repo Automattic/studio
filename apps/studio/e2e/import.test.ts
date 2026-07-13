@@ -88,11 +88,17 @@ test.describe( 'Import', () => {
 		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
 		expect( frontendUrl ).not.toBeNull();
 
-		// The imported database is being served: the blog name comes from the
-		// backup, and the sticky hero post states the site's purpose on the
-		// front page.
+		// The imported database and theme are being served: the blog name comes
+		// from the backup's DB, and the custom cool-beans theme renders its
+		// landing-page front page (the blog posts live under their permalinks).
 		await page.goto( frontendUrl );
 		expect( await page.title() ).toContain( 'Cool Beans' );
+		await expect( page.getByText( 'Life is too short for' ).first() ).toBeVisible();
+
+		// The hero post resolves at its pretty permalink — this only works when
+		// the backup's "post name" permalink structure imported too.
+		await page.goto( `${ frontendUrl }/cool-beans-%e2%98%95-jetpack-backup-import-test-site/` );
 		await expect( page.getByText( 'Jetpack Backup Import Test Site' ).first() ).toBeVisible();
+		await expect( page.getByText( 'What to verify after importing' ) ).toBeVisible();
 	} );
 } );

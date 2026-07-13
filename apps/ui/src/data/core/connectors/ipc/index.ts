@@ -209,6 +209,7 @@ export function createIpcConnector(): Connector {
 
 		// Auth — optional in Electron, delegated to main process
 		requiresAuth: false,
+		supportsAgenticOptOut: true,
 
 		async isAuthenticated(): Promise< boolean > {
 			return ipcApi.isAuthenticated();
@@ -226,8 +227,8 @@ export function createIpcConnector(): Connector {
 			};
 		},
 
-		async authenticate(): Promise< void > {
-			await ipcApi.authenticate( false );
+		async authenticate( signup = false ): Promise< void > {
+			await ipcApi.authenticate( signup );
 		},
 
 		async logout(): Promise< void > {
@@ -236,6 +237,14 @@ export function createIpcConnector(): Connector {
 
 		onAuthStateChanged( listener ) {
 			return ipcListener.subscribe( 'auth-updated', () => listener() );
+		},
+
+		async getOnboardingCompleted(): Promise< boolean > {
+			return ipcApi.getOnboardingData();
+		},
+
+		async setOnboardingCompleted( completed: boolean ): Promise< void > {
+			await ipcApi.saveOnboarding( completed );
 		},
 
 		// Sites

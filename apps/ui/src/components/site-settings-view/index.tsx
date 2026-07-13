@@ -7,6 +7,7 @@ import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
 import { LearnHowLink } from '@/components/learn-more';
 import { SiteDropdown } from '@/components/site-dropdown';
 import {
@@ -295,6 +296,7 @@ function SiteSettingsBody( {
 	return (
 		<div className={ styles.root }>
 			<SettingsHeader site={ site } />
+			<AgenticSigninBanner />
 			<Tabs.Root
 				selectedTabId={ activeTab }
 				onSelect={ ( tabId ) => {

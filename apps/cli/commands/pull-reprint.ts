@@ -711,7 +711,14 @@ async function applySelection( params: {
 			skipUploads: !! cli.skipUploads,
 		};
 		if ( cliOnly.length > 0 ) {
-			const contentDir = getContentDirFromState( session.stateDirectory ) ?? '';
+			const contentDir = getContentDirFromState( session.stateDirectory );
+			if ( ! contentDir ) {
+				throw new LoggerError(
+					__(
+						'Could not determine the remote wp-content path from preflight state, so --only cannot be used for this site. Run a full pull, or try again.'
+					)
+				);
+			}
 			const mapped = mapCliOnlyToReprint( cliOnly, contentDir );
 			// Selected entries that are symlinks on the remote need their
 			// links recreated after the scoped pull; the remote index is the

@@ -59,7 +59,7 @@ import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioModel = Model< 'openai-completions' > | Model< 'anthropic-messages' >;
+type StudioModel = Model< 'openai-responses' > | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
@@ -363,11 +363,13 @@ function buildModel(
 	};
 
 	if ( family === 'openai' ) {
+		// GPT-5.6 models reject function tools on /v1/chat/completions unless
+		// reasoning is disabled; the Responses API supports tools + reasoning.
 		return {
 			...common,
-			api: 'openai-completions',
+			api: 'openai-responses',
 			provider: 'openai',
-			reasoning: false,
+			reasoning: true,
 			contextWindow: 200_000,
 			maxTokens: 16_384,
 		};

@@ -11,8 +11,6 @@
 	padding: 64px var(--wpds-dimension-padding-3xl);
 }
 
-/* `wide` variant — used by content-heavy onboarding pages like the blueprint
-   selector. Sized to fit a 3-column card grid (see `blueprint-selector`). */
 .contentWide {
 	max-width: 820px;
 }

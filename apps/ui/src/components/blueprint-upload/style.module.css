@@ -1,0 +1,14 @@
+.fullScreenDrop {
+	position: fixed;
+	inset: 0;
+	z-index: 20;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 2px dashed var(--wpds-color-stroke-interactive-brand, #3858e9);
+	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	color: var(--wpds-color-fg-content-neutral, #1e1e1e);
+	font-size: 1.25rem;
+	font-weight: 600;
+	pointer-events: none;
+}

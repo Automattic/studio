@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
+import { rm as rmAsync } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -548,22 +549,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const siteId = crypto.randomUUID();
 			// Build the create args with the same shared helper the desktop uses, so
 			// Blueprints (and --wp dev→nightly, etc.) are handled identically.
-			const { args, cleanup } = buildSiteCreateArgs( {
-				path: body.path,
-				name: body.name,
-				siteId,
-				wpVersion: body.wpVersion,
-				phpVersion: body.phpVersion,
-				customDomain: body.customDomain,
-				enableHttps: body.enableHttps,
-				adminUsername: body.adminUsername,
-				adminPassword: body.adminPassword,
-				adminEmail: body.adminEmail,
-				blueprint: body.blueprint?.blueprint,
-				originalBlueprintPath: body.blueprint?.filePath,
-			} );
-
+			let cleanupCreateArgs: () => void = () => undefined;
 			try {
+				const { args, cleanup } = buildSiteCreateArgs( {
+					path: body.path,
+					name: body.name,
+					siteId,
+					wpVersion: body.wpVersion,
+					phpVersion: body.phpVersion,
+					customDomain: body.customDomain,
+					enableHttps: body.enableHttps,
+					adminUsername: body.adminUsername,
+					adminPassword: body.adminPassword,
+					adminEmail: body.adminEmail,
+					blueprint: body.blueprint?.blueprint,
+					originalBlueprintPath: body.blueprint?.filePath,
+				} );
+				cleanupCreateArgs = cleanup;
 				await new Promise< void >( ( resolve, reject ) => {
 					const [ emitter ] = execute( args, { output: 'capture' } );
 					emitter.on( 'success', () => resolve() );
@@ -571,7 +573,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			} finally {
-				cleanup();
+				cleanupCreateArgs();
+				if ( body.blueprint?.filePath ) {
+					await cleanupBlueprintTempDir( path.dirname( body.blueprint.filePath ) ).catch(
+						() => undefined
+					);
+				}
 			}
 
 			const created = ( await listSites( execute ) ).find( ( s ) => s.id === siteId );
@@ -816,11 +823,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			// The zip is always an upload under the OS temp dir (via /uploads);
 			// reject anything else so this can't be used to read arbitrary files.
 			const resolvedZip = path.resolve( zipFilePath );
-			if ( ! ( resolvedZip + path.sep ).startsWith( path.resolve( os.tmpdir() ) + path.sep ) ) {
+			const uploadDir = path.dirname( resolvedZip );
+			if (
+				path.dirname( uploadDir ) !== path.resolve( os.tmpdir() ) ||
+				! path.basename( uploadDir ).startsWith( 'studio-upload-' )
+			) {
 				res.status( 400 ).json( { error: 'zipFilePath must be an uploaded file' } );
 				return;
 			}
-			res.json( await extractBlueprintBundle( resolvedZip ) );
+			try {
+				res.json( await extractBlueprintBundle( resolvedZip ) );
+			} finally {
+				await rmAsync( uploadDir, { recursive: true, force: true } );
+			}
 		} )
 	);
 

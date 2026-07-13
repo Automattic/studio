@@ -12,21 +12,13 @@ function OnboardingHomePage() {
 			</p>
 			<div className={ styles.cards }>
 				<Link to="/onboarding/create" className={ styles.card }>
-					<h3 className={ styles.cardTitle }>{ __( 'Create new' ) }</h3>
+					<h3 className={ styles.cardTitle }>{ __( 'Create' ) }</h3>
 					<p className={ styles.cardBody }>
-						{ __( 'Start fresh with a blank site and build it with AI' ) }
-					</p>
-				</Link>
-				<Link to="/onboarding/blueprint" className={ styles.card }>
-					<h3 className={ styles.cardTitle }>{ __( 'Start from a blueprint' ) }</h3>
-					<p className={ styles.cardBody }>
-						{ __(
-							'Pick a featured blueprint or drop in your own to provision plugins, content, and settings.'
-						) }
+						{ __( 'Start blank or upload a Blueprint to preconfigure your site' ) }
 					</p>
 				</Link>
 				<Link to="/onboarding/import" className={ styles.card }>
-					<h3 className={ styles.cardTitle }>{ __( 'Bring existing' ) }</h3>
+					<h3 className={ styles.cardTitle }>{ __( 'Import' ) }</h3>
 					<p className={ styles.cardBody }>
 						{ __( 'Import from a Jetpack backup or another full-site export' ) }
 					</p>

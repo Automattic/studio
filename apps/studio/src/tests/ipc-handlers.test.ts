@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { IpcMainInvokeEvent } from 'electron';
+import { existsSync } from 'fs';
 import { normalize } from 'path';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
@@ -12,12 +13,17 @@ import {
 	getXdebugEnabledSite,
 	isFullscreen,
 	loadThemeDetails,
+	readBlueprintFile,
 } from 'src/ipc-handlers';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
 
 vi.mock( 'fs' );
+vi.mock( 'fs/promises', async () => {
+	const { fs } = await import( 'memfs' );
+	return { default: fs.promises };
+} );
 vi.mock( 'fs-extra' );
 vi.mock( '@studio/common/lib/fs-utils' );
 vi.mock( '@sentry/electron/main', () => ( {
@@ -133,6 +139,26 @@ describe( 'createSite', () => {
 			} ),
 			expect.any( Object )
 		);
+	} );
+} );
+
+describe( 'readBlueprintFile', () => {
+	it( 'deletes the temporary deep-link file after reading it', async () => {
+		const filePath = normalize( '/mock/path/wp-studio-blueprints/blueprint.json' );
+		vol.fromJSON( { [ filePath ]: JSON.stringify( { meta: { title: 'Deep link' } } ) } );
+
+		await expect( readBlueprintFile( mockIpcMainInvokeEvent, filePath ) ).resolves.toEqual( {
+			meta: { title: 'Deep link' },
+		} );
+		expect( existsSync( filePath ) ).toBe( false );
+	} );
+
+	it( 'deletes invalid temporary deep-link JSON', async () => {
+		const filePath = normalize( '/mock/path/wp-studio-blueprints/invalid.json' );
+		vol.fromJSON( { [ filePath ]: '{invalid' } );
+
+		await expect( readBlueprintFile( mockIpcMainInvokeEvent, filePath ) ).rejects.toThrow();
+		expect( existsSync( filePath ) ).toBe( false );
 	} );
 } );
 

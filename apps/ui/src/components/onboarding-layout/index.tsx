@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { close } from '@wordpress/icons';
 import { IconButton, Stack } from '@wordpress/ui';
 import styles from './style.module.css';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 interface OnboardingLayoutProps {
 	children: ReactNode;
@@ -12,18 +12,17 @@ interface OnboardingLayoutProps {
 	 * the user isn't trapped in the flow.
 	 */
 	onClose?: () => void;
-	/**
-	 * Content width variant. Defaults to a narrow column (`'default'`) sized
-	 * for forms and short cards; `'wide'` is used by pages that host grids of
-	 * content (e.g. the blueprint selector).
-	 */
+	closeDisabled?: boolean;
 	width?: 'default' | 'wide';
+	contentRef?: Ref< HTMLDivElement >;
 }
 
 export function OnboardingLayout( {
 	children,
 	onClose,
+	closeDisabled = false,
 	width = 'default',
+	contentRef,
 }: OnboardingLayoutProps ) {
 	return (
 		<Stack align="center" justify="center" className={ styles.root }>
@@ -36,9 +35,13 @@ export function OnboardingLayout( {
 					icon={ close }
 					label={ __( 'Close' ) }
 					onClick={ onClose }
+					disabled={ closeDisabled }
 				/>
 			) }
-			<div className={ `${ styles.content } ${ width === 'wide' ? styles.contentWide : '' }` }>
+			<div
+				ref={ contentRef }
+				className={ `${ styles.content } ${ width === 'wide' ? styles.contentWide : '' }` }
+			>
 				{ children }
 			</div>
 		</Stack>

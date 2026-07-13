@@ -35,7 +35,7 @@ interface FileDropzoneProps {
 	error?: string | null;
 	// When set, renders a filled state (filename + Remove). Leave unset for
 	// callers that navigate away on successful pick.
-	file?: File | null;
+	file?: Pick< File, 'name' | 'size' > | null;
 	// Required whenever `file` is set.
 	onClear?: () => void;
 	className?: string;

@@ -10,7 +10,6 @@ import type {
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
-	FeaturedBlueprint,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
@@ -24,6 +23,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
 	const now = new Date();
@@ -328,53 +328,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.comparePaths( path1, path2 ) ) as boolean;
 		},
 
-		async getFeaturedBlueprints( locale ) {
-			const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/blueprints' );
-			if ( locale ) {
-				url.searchParams.set( 'locale', locale );
-			}
-			const response = await fetch( url.toString() );
-			if ( ! response.ok ) {
-				throw new Error( `Failed to fetch blueprints: ${ response.status }` );
-			}
-			const body = ( await response.json() ) as {
-				blueprints?: Array< {
-					slug?: string;
-					title?: string;
-					excerpt?: string;
-					image?: string;
-					playground_url?: string;
-					blueprint?: unknown;
-				} >;
-			};
-			// Drop any blueprint missing the fields the UI relies on rather
-			// than failing the whole request — matches the desktop app's
-			// tolerant `transformResponse` behaviour.
-			const list: FeaturedBlueprint[] = [];
-			for ( const item of body.blueprints ?? [] ) {
-				if (
-					typeof item.slug !== 'string' ||
-					typeof item.title !== 'string' ||
-					typeof item.excerpt !== 'string' ||
-					typeof item.image !== 'string' ||
-					typeof item.playground_url !== 'string' ||
-					! item.blueprint ||
-					typeof item.blueprint !== 'object'
-				) {
-					continue;
-				}
-				list.push( {
-					slug: item.slug,
-					title: item.title,
-					excerpt: item.excerpt,
-					image: item.image,
-					playgroundUrl: item.playground_url,
-					blueprint: item.blueprint as FeaturedBlueprint[ 'blueprint' ],
-				} );
-			}
-			return list;
-		},
-
 		getWordPressVersions: fetchWordPressVersions,
 
 		async getFilePath( file ) {
@@ -395,6 +348,10 @@ export function createIpcConnector(): Connector {
 
 		async cleanupBlueprintTempDir( tempDir ) {
 			await ipcApi.cleanupBlueprintTempDir( tempDir );
+		},
+
+		async readBlueprintFile( filePath ) {
+			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
 		},
 
 		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
@@ -736,6 +693,13 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'add-site', () => listener() );
+		},
+
+		onAddSiteWithBlueprint( listener ) {
+			return ipcListener.subscribe(
+				'add-site-with-blueprint',
+				( _event: unknown, payload: { blueprintPath: string } ) => listener( payload )
+			);
 		},
 
 		onOpenSettings( listener ) {

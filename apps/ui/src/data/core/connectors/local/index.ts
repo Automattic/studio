@@ -1,5 +1,4 @@
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { UnsupportedError } from '../unsupported-error';
@@ -12,7 +11,6 @@ import type {
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
-	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
@@ -401,18 +399,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=database` );
 		},
 
-		// Featured blueprints — public endpoint, same source as the desktop app.
-		async getFeaturedBlueprints( locale ): Promise< FeaturedBlueprint[] > {
-			const blueprints = await fetchStudioBlueprints( locale );
-			return blueprints.map( ( blueprint ) => ( {
-				slug: blueprint.slug,
-				title: blueprint.title,
-				excerpt: blueprint.excerpt,
-				image: blueprint.image,
-				playgroundUrl: blueprint.playground_url,
-				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
-			} ) );
-		},
 		getWordPressVersions: fetchWordPressVersions,
 
 		async getFilePath( file ) {
@@ -439,6 +425,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 				body: JSON.stringify( { tempDir } ),
 			} );
+		},
+		async readBlueprintFile() {
+			throw new UnsupportedError( 'readBlueprintFile' );
 		},
 		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
 			return api< SiteDetails >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
@@ -689,6 +678,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		onAddSite() {
 			// No application menu in a browser tab.
+			return () => {};
+		},
+		onAddSiteWithBlueprint() {
 			return () => {};
 		},
 		onOpenSettings() {

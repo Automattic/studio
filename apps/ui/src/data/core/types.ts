@@ -172,10 +172,6 @@ export interface Connector {
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
-	// Featured blueprints gallery for the "Start from blueprint" onboarding
-	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
-	// no auth required, localized by the user's current UI locale.
-	getFeaturedBlueprints( locale?: string ): Promise< FeaturedBlueprint[] >;
 	getWordPressVersions(): Promise< WordPressVersion[] >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
@@ -191,6 +187,7 @@ export interface Connector {
 	// temp directory automatically when it uses the extracted blueprint.
 	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
+	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 
 	// Imports a backup archive into an already-created site. Extracts the
 	// archive, installs the SQLite integration if missing, then imports the
@@ -355,6 +352,7 @@ export interface Connector {
 	// Fires when the user activates "File > Add Site…" (or its keyboard
 	// shortcut) in the application menu.
 	onAddSite( listener: () => void ): () => void;
+	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
 	// the application menu.
@@ -377,15 +375,6 @@ export type WritableUserPreferences = Omit< UserPreferences, 'locale' > & {
 	locale: SupportedLocale;
 };
 
-export interface FeaturedBlueprint {
-	slug: string;
-	title: string;
-	excerpt: string;
-	image: string;
-	playgroundUrl: string;
-	blueprint: BlueprintV1Declaration;
-}
-
 export interface CreateSiteParams {
 	name: string;
 	path: string;
@@ -396,14 +385,10 @@ export interface CreateSiteParams {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
-	// Optional blueprint payload. When present, `blueprint` is the parsed
-	// blueprint JSON; `slug` is set for featured blueprints (used for stats);
-	// `filePath` points at the extracted `blueprint.json` inside a ZIP bundle
-	// so the CLI can resolve relative asset references. Main process cleans
-	// up the temp dir automatically once `createSite` completes.
+	// Optional blueprint payload. `filePath` points at the extracted
+	// `blueprint.json` inside a ZIP bundle so the CLI can resolve relative assets.
 	blueprint?: {
 		blueprint: BlueprintV1Declaration;
-		slug?: string;
 		filePath?: string;
 	};
 }

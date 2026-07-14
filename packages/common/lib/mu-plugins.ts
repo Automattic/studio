@@ -34,6 +34,7 @@ const NATIVE_PHP_EXCLUDED_MU_PLUGINS = new Set( [
 	'0-allowed-redirect-hosts.php',
 	'0-suppress-dns-get-record-warnings.php',
 	'0-http-request-timeout.php',
+	'0-clear-stat-cache-before-upgrade.php',
 ] );
 
 export function escapePhpSingleQuotedString( value: string ): string {
@@ -408,6 +409,21 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
+	// Playground's PHP persists stat caches across requests, so a deleted plugin
+	// can still look present and break a reinstall. Clear the cache before each
+	// upgrade. Excluded from native PHP, where every request starts clean.
+	//
+	// @see STU-1931
+	muPlugins.push( {
+		filename: '0-clear-stat-cache-before-upgrade.php',
+		content: `<?php
+		add_filter( 'upgrader_pre_install', function( $result ) {
+			clearstatcache( true );
+			return $result;
+		} );
+		`,
+	} );
+
 	// Studio-specific: Fix plugin spinner display
 	muPlugins.push( {
 		filename: '0-tmp-fix-hide-plugins-spinner.php',
@@ -761,6 +777,7 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-allowed-redirect-hosts.php',
 	'0-auto-login.php',
 	'0-check-theme-availability.php',
+	'0-clear-stat-cache-before-upgrade.php',
 	'0-deactivate-jetpack-modules.php',
 	'0-disable-auto-updates.php',
 	'0-enable-auto-updates.php',

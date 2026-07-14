@@ -105,9 +105,17 @@ function ensureBundledServerFiles( stagingRoot: string ) {
 	}
 
 	console.log( 'Downloading missing bundled server files in packaging directory ...' );
-	runOrFail( 'npx', [ 'tsx', './scripts/download-wp-server-files.ts' ], stagingRoot );
+	runOrFail(
+		'node',
+		[ '--experimental-strip-types', './scripts/download-wp-server-files.ts' ],
+		stagingRoot
+	);
 	runOrFail( 'node', [ './scripts/download-available-site-translations.mjs' ], stagingRoot );
-	runOrFail( 'npx', [ 'tsx', './scripts/download-agent-skills.ts' ], stagingRoot );
+	runOrFail(
+		'node',
+		[ '--experimental-strip-types', './scripts/download-agent-skills.ts' ],
+		stagingRoot
+	);
 }
 
 function shouldCopyToStaging( sourcePath: string ): boolean {

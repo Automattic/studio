@@ -645,6 +645,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerSiteData = sites;
 		const runningStatus = await getSitesRunningStatus( sites );
 		this.sitePickerItems = sites.map( ( site ) => ( {
+			id: site.id,
 			name: site.name,
 			path: site.path,
 			running: runningStatus.get( site.id ) ?? false,
@@ -863,6 +864,7 @@ export class AiChatUI implements AiOutputAdapter {
 		// Keep _activeSiteData in sync for /browser command
 		this._activeSiteData = site;
 		return {
+			id: site.id,
 			name: site.name,
 			path: site.path,
 			running: await isSiteRunning( site ),

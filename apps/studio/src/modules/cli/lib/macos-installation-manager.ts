@@ -5,7 +5,7 @@ import {
 	doesSymlinkLeadToPackagedCli,
 	runCliAutoInstall,
 	UnixCliInstallationManager,
-} from 'src/modules/cli/lib/cli-installation-manager-base';
+} from 'src/modules/cli/lib/unix-installation-manager';
 import { getResourcesPath } from 'src/storage/paths';
 import packageJson from '../../../../package.json';
 

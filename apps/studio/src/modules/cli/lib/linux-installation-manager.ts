@@ -1,7 +1,7 @@
 import {
 	runCliAutoInstall,
 	UnixCliInstallationManager,
-} from 'src/modules/cli/lib/cli-installation-manager-base';
+} from 'src/modules/cli/lib/unix-installation-manager';
 
 // Production install path for the Studio DEB package. Used in development mode to detect
 // whether a production CLI is already installed alongside the running dev build.

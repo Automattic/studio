@@ -4,12 +4,12 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
+import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 import {
 	runCliAutoInstall,
 	showCliErrorDialog,
 	showCliInfoDialog,
-} from 'src/modules/cli/lib/cli-installation-manager-base';
-import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
+} from 'src/modules/cli/lib/unix-installation-manager';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 // `STABLE_BIN_DIR_PATH` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin

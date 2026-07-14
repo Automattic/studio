@@ -1,3 +1,4 @@
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -50,8 +51,7 @@ function groupSessionsByOwner(
 	sites: SiteDetails[] | undefined,
 	sessions: AiSessionSummary[] | undefined
 ): SiteGroup[] {
-	const knownSitePaths = new Set( ( sites ?? [] ).map( ( site ) => site.path ) );
-	const sessionsByPath = new Map< string, AiSessionSummary[] >();
+	const sessionsBySiteId = new Map< string, AiSessionSummary[] >();
 	const unassigned: AiSessionSummary[] = [];
 
 	for ( const session of sessions ?? [] ) {
@@ -61,16 +61,17 @@ function groupSessionsByOwner(
 		if ( session.archived ) {
 			continue;
 		}
-		if ( ! session.ownerSitePath || ! knownSitePaths.has( session.ownerSitePath ) ) {
+		const ownerSite = findAiSessionOwnerSite( sites, session );
+		if ( ! ownerSite ) {
 			unassigned.push( session );
 			continue;
 		}
 
-		const existing = sessionsByPath.get( session.ownerSitePath );
+		const existing = sessionsBySiteId.get( ownerSite.id );
 		if ( existing ) {
 			existing.push( session );
 		} else {
-			sessionsByPath.set( session.ownerSitePath, [ session ] );
+			sessionsBySiteId.set( ownerSite.id, [ session ] );
 		}
 	}
 
@@ -78,7 +79,7 @@ function groupSessionsByOwner(
 		key: site.id,
 		site,
 		label: site.name,
-		sessions: sessionsByPath.get( site.path ) ?? [],
+		sessions: sessionsBySiteId.get( site.id ) ?? [],
 	} ) );
 
 	// Sort site-groups by the newest session's updatedAt so the most recently

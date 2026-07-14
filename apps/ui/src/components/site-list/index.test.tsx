@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
@@ -16,7 +16,7 @@ import {
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SiteList } from './index';
-import type { SiteDetails } from '@/data/core';
+import type { AiSessionSummary, SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
 
 vi.mock( '@tanstack/react-router', () => ( {
@@ -145,7 +145,64 @@ describe( 'SiteList', () => {
 		expect( actionGlyph?.querySelector( 'rect' ) ).toHaveAttribute( 'width', '8' );
 		expect( actionGlyph?.querySelector( 'path' ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'groups sessions by owner site id, falling back to path for legacy sessions', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( { id: 'site-a', name: 'Site A', path: '/sites/site-a' } ),
+				createSite( { id: 'site-b', name: 'Site B', path: '/sites/site-b' } ),
+			],
+			isLoading: false,
+		} );
+		useSessionsMock.mockReturnValue( {
+			data: [
+				// A stale path must lose to the site id.
+				createSession( {
+					id: 'by-id',
+					firstPrompt: 'Matched by id',
+					ownerSiteId: 'site-b',
+					ownerSitePath: '/sites/site-a',
+				} ),
+				createSession( {
+					id: 'legacy',
+					firstPrompt: 'Matched by path',
+					ownerSitePath: '/sites/site-a',
+				} ),
+				// A deleted site's id must not fall back to a path that now
+				// belongs to another site.
+				createSession( {
+					id: 'orphan',
+					firstPrompt: 'Dead site id',
+					ownerSiteId: 'deleted-site',
+					ownerSitePath: '/sites/site-a',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const siteA = screen.getByText( 'Site A' ).closest( 'section' )!;
+		const siteB = screen.getByText( 'Site B' ).closest( 'section' )!;
+		const unassigned = screen.getByText( 'Unassigned' ).closest( 'section' )!;
+
+		expect( within( siteB ).getByText( 'Matched by id' ) ).toBeInTheDocument();
+		expect( within( siteA ).getByText( 'Matched by path' ) ).toBeInTheDocument();
+		expect( within( unassigned ).getByText( 'Dead site id' ) ).toBeInTheDocument();
+	} );
 } );
+
+function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
+	return {
+		id: 'session-1',
+		filePath: '/sessions/session-1.jsonl',
+		createdAt: '2026-07-01T00:00:00.000Z',
+		updatedAt: '2026-07-01T00:00:00.000Z',
+		activeEnvironment: 'local',
+		eventCount: 1,
+		...overrides,
+	};
+}
 
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 	return {

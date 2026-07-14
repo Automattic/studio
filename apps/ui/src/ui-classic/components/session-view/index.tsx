@@ -1,4 +1,5 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -31,7 +32,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const { data: sites } = useSites();
-	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
+	const site = findAiSessionOwnerSite( sites, summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
 	if ( ! siteName ) {
 		return null;
@@ -152,10 +153,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
-	const ownerSitePath = data?.summary.ownerSitePath;
-	const ownerSite = ownerSitePath
-		? sites?.find( ( candidate ) => candidate.path === ownerSitePath )
-		: undefined;
+	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
 		isRunning,

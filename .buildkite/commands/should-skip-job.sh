@@ -127,10 +127,39 @@ if [[ -z "$job_type" ]]; then
   exit 1
 fi
 
-# Check if pr_changed_files command is available
+git_pr_changed_files() {
+  local mode="$1"; shift
+
+  [[ "${BUILDKITE_PULL_REQUEST:-false}" =~ ^[0-9]+$ ]] || return 1
+
+  git fetch --no-tags "https://github.com/Automattic/studio.git" "$BUILDKITE_PULL_REQUEST_BASE_BRANCH" &> /dev/null || return 1
+
+  local changed_files=()
+  while IFS= read -r -d '' file; do
+    changed_files+=("$file")
+  done < <(git --no-pager diff --name-only -z --merge-base FETCH_HEAD HEAD)
+  [[ ${#changed_files[@]} -gt 0 ]] || return 1
+
+  local file pattern matched
+  for file in "${changed_files[@]}"; do
+    matched="false"
+    for pattern in "$@"; do
+      # shellcheck disable=SC2053
+      if [[ "$file" == ${pattern} ]]; then
+        matched="true"
+        break
+      fi
+    done
+    [[ "$mode" == "--all-match" && "$matched" == "false" ]] && return 1
+    [[ "$mode" == "--any-match" && "$matched" == "true" ]] && return 0
+  done
+
+  [[ "$mode" == "--all-match" ]] && return 0
+  return 1
+}
+
 if ! command -v pr_changed_files &> /dev/null; then
-  echo "pr_changed_files command not found. Running job."
-  exit 1
+  pr_changed_files() { git_pr_changed_files "$@"; }
 fi
 
 case "$job_type" in

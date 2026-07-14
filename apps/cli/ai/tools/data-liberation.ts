@@ -9,6 +9,10 @@ import { textResult } from './utils';
 
 const engineDir = path.join( import.meta.dirname, 'data-liberation-agent' );
 
+// Engine ops (extract/screenshot/reconstruct) routinely run for minutes; the MCP SDK's
+// 60 s default times them out (-32001) even though the engine keeps working.
+const ENGINE_CALL_TIMEOUT_MS = 600_000;
+
 let chromiumPromise: Promise< void > | null = null;
 
 function ensureEngineChromium(): Promise< void > {
@@ -40,16 +44,16 @@ function getClient(): Promise< Client > {
 }
 
 async function connectClient(): Promise< Client > {
-	if ( ! existsSync( path.join( engineDir, 'dist', 'mcp-server.js' ) ) ) {
+	if ( ! existsSync( path.join( engineDir, 'dist', 'mcp-server.bundle.mjs' ) ) ) {
 		throw new Error(
 			'Data Liberation engine is not compiled. Run `npm run cli:build` — it builds the ' +
-				'`data-liberation` workspace and bundles it into `dist/cli`.'
+				'`data-liberation` MCP bundle and copies it into `dist/cli`.'
 		);
 	}
 
 	const transport = new StdioClientTransport( {
 		command: process.execPath,
-		args: [ path.join( engineDir, 'dist', 'mcp-server.js' ) ],
+		args: [ path.join( engineDir, 'dist', 'mcp-server.bundle.mjs' ) ],
 		cwd: engineDir,
 		stderr: 'pipe',
 	} );
@@ -147,10 +151,14 @@ export const dataLiberationTool = defineTool(
 
 		await ensureEngineChromium();
 
-		const result = await client.callTool( {
-			name: args.tool,
-			arguments: normalizeArgs( args.args ),
-		} );
+		const result = await client.callTool(
+			{
+				name: args.tool,
+				arguments: normalizeArgs( args.args ),
+			},
+			undefined,
+			{ timeout: ENGINE_CALL_TIMEOUT_MS, resetTimeoutOnProgress: true }
+		);
 
 		const rawContent = Array.isArray( result.content )
 			? ( result.content as DataLiberationResultContent[] )

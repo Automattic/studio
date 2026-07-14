@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
@@ -401,6 +402,39 @@ describe( 'Studio AI MCP tools', () => {
 			/^screenshot-desktop-[0-9a-f]{8}\.jpg$/
 		);
 		await cleanUpScreenshotArtifacts( artifacts );
+	} );
+
+	it( 'returns no artifacts when take_screenshot is called with display: false', async () => {
+		const screenshotBuffer = Buffer.from( 'internal-jpeg' );
+		mockScreenshotBrowser( createMockPage( { buffer: screenshotBuffer, documentHeight: 900 } ) );
+		const progressMessages: string[] = [];
+		setProgressCallback( ( message ) => {
+			progressMessages.push( message );
+		} );
+
+		const result = await getTool( 'take_screenshot' ).rawHandler( {
+			url: 'http://localhost:8903/story-time',
+			display: false,
+		} as never );
+
+		// Nothing to emit into the chat, but the model still gets the image
+		// for its own verification.
+		expect( result.studioArtifacts ).toBeUndefined();
+		expect( result.content[ 1 ] ).toEqual( {
+			type: 'image',
+			data: screenshotBuffer.toString( 'base64' ),
+			mimeType: 'image/jpeg',
+		} );
+
+		const savedLine = progressMessages.find( ( message ) => message.startsWith( 'Saved ' ) );
+		expect( savedLine ).toBeDefined();
+		await rm(
+			path.dirname( fileURLToPath( savedLine!.slice( savedLine!.indexOf( 'file://' ) ) ) ),
+			{
+				recursive: true,
+				force: true,
+			}
+		);
 	} );
 
 	it( 'can capture desktop and mobile screenshots in one take_screenshot call', async () => {
@@ -1010,6 +1044,7 @@ describe( 'Studio AI MCP tools', () => {
 		await getTool( 'site_create' ).rawHandler( { name: 'My Site' } as never );
 
 		expect( onSiteSelected ).toHaveBeenCalledWith( {
+			id: 'site-123',
 			name: 'My Site',
 			path: '/sites/my-site',
 			running: true,

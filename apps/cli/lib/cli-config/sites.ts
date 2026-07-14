@@ -31,6 +31,11 @@ export async function findSiteByFolder( siteFolder: string ): Promise< SiteData 
 	return config.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );
 }
 
+export async function findSiteById( siteId: string ): Promise< SiteData | undefined > {
+	const config = await readCliConfig();
+	return config.sites.find( ( site ) => site.id === siteId );
+}
+
 export function getSiteUrl( site: SiteData ): string {
 	if ( site.url ) {
 		return site.url;

@@ -303,127 +303,22 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	}
 
 	muPlugins.push( {
-		filename: '0-local-admin-performance.php',
+		filename: '0-local-admin-dashboard-health.php',
 		content: `<?php
-		const STUDIO_REFRESH_LOCAL_ADMIN_CHECKS_HOOK = 'studio_refresh_local_admin_checks';
-
-		function studio_is_dashboard_request() {
-			$request_uri = $_SERVER['REQUEST_URI'] ?? '';
-			$path = parse_url( $request_uri, PHP_URL_PATH );
-
-			return '/wp-admin/' === $path || '/wp-admin/index.php' === $path;
-		}
-
-		function studio_should_defer_local_admin_checks() {
-			$request_uri = $_SERVER['REQUEST_URI'] ?? '';
-			$path = parse_url( $request_uri, PHP_URL_PATH );
-
-			if ( ! is_string( $path ) || ! str_starts_with( $path, '/wp-admin/' ) ) {
-				return false;
-			}
-
-			$explicit_check_pages = array(
-				'/wp-admin/update-core.php',
-				'/wp-admin/update.php',
-				'/wp-admin/plugins.php',
-				'/wp-admin/plugin-install.php',
-				'/wp-admin/themes.php',
-				'/wp-admin/theme-install.php',
-			);
-
-			return ! in_array( $path, $explicit_check_pages, true );
-		}
-
-		function studio_schedule_local_admin_checks_refresh() {
-			$user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-			$args = array( $user_agent );
-
-			if ( ! wp_next_scheduled( STUDIO_REFRESH_LOCAL_ADMIN_CHECKS_HOOK, $args ) ) {
-				wp_schedule_single_event( time() + 1, STUDIO_REFRESH_LOCAL_ADMIN_CHECKS_HOOK, $args );
-			}
-		}
-
-		add_action( STUDIO_REFRESH_LOCAL_ADMIN_CHECKS_HOOK, function( $user_agent = '' ) {
-				require_once ABSPATH . 'wp-admin/includes/update.php';
-				require_once ABSPATH . 'wp-admin/includes/dashboard.php';
-				require_once ABSPATH . 'wp-admin/includes/misc.php';
-				require_once ABSPATH . 'wp-admin/includes/translation-install.php';
-
-				wp_version_check();
-				wp_update_plugins();
-				wp_update_themes();
-
-			if ( $user_agent ) {
-				$previous_user_agent = $_SERVER['HTTP_USER_AGENT'] ?? null;
-				$_SERVER['HTTP_USER_AGENT'] = $user_agent;
-				wp_check_browser_version();
-				if ( null === $previous_user_agent ) {
-					unset( $_SERVER['HTTP_USER_AGENT'] );
-				} else {
-					$_SERVER['HTTP_USER_AGENT'] = $previous_user_agent;
-				}
-			}
-
-				wp_check_php_version();
-				wp_get_available_translations();
-			}, 10, 1 );
-
-		function studio_local_admin_check_response( $body ) {
-			return array(
-				'headers'  => array(),
-				'body'     => wp_json_encode( $body ),
-				'response' => array(
-					'code'    => 200,
-					'message' => 'OK',
-				),
-				'cookies'  => array(),
-			);
-		}
-
-		// Studio sites are local development sites. Avoid blocking passive wp-admin
-		// navigation on opportunistic WordPress.org update checks. A background
-		// Studio task refreshes the real update and health transients after startup.
-		add_action( 'admin_init', function() {
-			if ( ! studio_should_defer_local_admin_checks() ) {
-				return;
-			}
-
-			remove_action( 'admin_init', '_maybe_update_core' );
-			remove_action( 'admin_init', '_maybe_update_plugins' );
-			remove_action( 'admin_init', '_maybe_update_themes' );
-			studio_schedule_local_admin_checks_refresh();
-		}, 0 );
-
 		add_filter( 'pre_http_request', function( $preempt, $parsed_args, $url ) {
-			if ( ! studio_is_dashboard_request() ) {
+			global $pagenow;
+			if ( ! is_admin() || is_network_admin() || 'index.php' !== $pagenow ) {
 				return $preempt;
 			}
 
-			if ( str_contains( $url, 'api.wordpress.org/core/browse-happy/1.1/' ) ) {
-				studio_schedule_local_admin_checks_refresh();
-				return studio_local_admin_check_response( array(
-					'platform'        => '',
-					'name'            => '',
-					'version'         => '',
-					'current_version' => '',
-					'upgrade'         => false,
-					'insecure'        => false,
-					'update_url'      => '',
-					'img_src'         => '',
-					'img_src_ssl'     => '',
-				) );
-			}
-
-			if ( str_contains( $url, 'api.wordpress.org/core/serve-happy/1.0/' ) ) {
-				studio_schedule_local_admin_checks_refresh();
-				return studio_local_admin_check_response( array(
-					'recommended_version'           => PHP_VERSION,
-					'minimum_version'               => '7.4',
-					'is_supported'                  => true,
-					'is_secure'                     => true,
-					'is_acceptable'                 => true,
-					'is_lower_than_future_minimum'  => false,
-				) );
+			if (
+				str_contains( $url, 'api.wordpress.org/core/browse-happy/1.1/' ) ||
+				str_contains( $url, 'api.wordpress.org/core/serve-happy/1.0/' )
+			) {
+				return new WP_Error(
+					'studio_dashboard_health_check_deferred',
+					'Health checks are available from Tools > Site Health.'
+				);
 			}
 
 			return $preempt;

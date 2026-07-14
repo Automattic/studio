@@ -118,32 +118,25 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 } );
 
 describe( 'local admin performance mu-plugin', () => {
-	it( 'defers opportunistic checks on passive admin pages and exposes the refresh hook', async () => {
+	it( 'skips remote health checks only on the regular Dashboard', async () => {
 		const [ muPluginsDir ] = await getMuPlugins( {} );
 		const pluginContent = await readFile(
-			join( muPluginsDir, '0-local-admin-performance.php' ),
+			join( muPluginsDir, '0-local-admin-dashboard-health.php' ),
 			'utf8'
 		);
 
 		expect( pluginContent ).toContain(
-			"const STUDIO_REFRESH_LOCAL_ADMIN_CHECKS_HOOK = 'studio_refresh_local_admin_checks';"
+			"! is_admin() || is_network_admin() || 'index.php' !== $pagenow"
 		);
-		expect( pluginContent ).toContain( "'/wp-admin/' === $path" );
-		expect( pluginContent ).toContain( "'/wp-admin/index.php' === $path" );
-		expect( pluginContent ).toContain( 'function studio_should_defer_local_admin_checks()' );
-		expect( pluginContent ).toContain( "'/wp-admin/update-core.php'" );
-		expect( pluginContent ).toContain( "'/wp-admin/plugins.php'" );
-		expect( pluginContent ).toContain( "'/wp-admin/plugin-install.php'" );
-		expect( pluginContent ).toContain( "'/wp-admin/themes.php'" );
-		expect( pluginContent ).toContain( "'/wp-admin/theme-install.php'" );
-		expect( pluginContent ).toContain( "remove_action( 'admin_init', '_maybe_update_core' );" );
-		expect( pluginContent ).toContain( "remove_action( 'admin_init', '_maybe_update_plugins' );" );
-		expect( pluginContent ).toContain( "remove_action( 'admin_init', '_maybe_update_themes' );" );
-		expect( pluginContent ).toContain( 'wp_version_check();' );
-		expect( pluginContent ).toContain( 'wp_update_plugins();' );
-		expect( pluginContent ).toContain( 'wp_update_themes();' );
-		expect( pluginContent ).toContain( 'wp_check_browser_version();' );
-		expect( pluginContent ).toContain( 'wp_check_php_version();' );
-		expect( pluginContent ).toContain( 'wp_get_available_translations();' );
+		expect( pluginContent ).toContain(
+			"str_contains( $url, 'api.wordpress.org/core/browse-happy/1.1/' )"
+		);
+		expect( pluginContent ).toContain(
+			"str_contains( $url, 'api.wordpress.org/core/serve-happy/1.0/' )"
+		);
+		expect( pluginContent ).toContain( 'new WP_Error(' );
+		expect( pluginContent ).not.toContain( "'upgrade'" );
+		expect( pluginContent ).not.toContain( "'is_supported'" );
+		expect( pluginContent ).not.toContain( "remove_action( 'admin_init'" );
 	} );
 } );

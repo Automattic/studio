@@ -74,7 +74,7 @@ jobs:
       - name: Format Slack message
         id: format-message
         if: steps.fetch-prs.outputs.count > 0
-        run: node scripts/format-stale-pr-message.js
+        run: node scripts/format-stale-pr-message.mjs
 
       - name: Send Slack notification
         if: steps.fetch-prs.outputs.count > 0

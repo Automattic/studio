@@ -8,6 +8,7 @@ import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/comm
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	getAvailableAiProviders,
@@ -26,7 +27,6 @@ import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
-import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import {
 	createStudioSession,
 	listStudioSessionFiles,
@@ -141,7 +141,7 @@ export async function runCommand( options: {
 		if ( options.resumeSession ) {
 			session = await openStudioSession( options.resumeSession.summary.filePath );
 		} else if ( options.resumeSessionId ) {
-			const files = await listStudioSessionFiles( getAiSessionsRootDirectory() );
+			const files = await listStudioSessionFiles( getSessionsDirectory() );
 			let match: string | undefined;
 			for ( const file of files ) {
 				try {

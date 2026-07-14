@@ -48,6 +48,27 @@ body:
     validations:
       required: true
   - type: dropdown
+    id: product
+    attributes:
+      label: App or CLI?
+      description: Where did the bug occur?
+      options:
+        - Studio App
+        - Studio CLI
+        - Both
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: |
+        - **Studio App**: open the Studio menu and select "About WordPress Studio".
+        - **Studio CLI**: run `studio --version` in your terminal.
+      placeholder: e.g. 1.5.4
+    validations:
+      required: true
+  - type: dropdown
     id: users-affected
     attributes:
       label: Impact

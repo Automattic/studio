@@ -405,6 +405,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.updateSite( site, wpVersion );
 		},
 
+		async updateSitesSortOrder( updates ) {
+			await ipcApi.updateSitesSortOrder( updates );
+		},
+
 		async refreshSiteIcon( siteId ) {
 			await ipcApi.loadSiteIcon( siteId );
 		},
@@ -674,6 +678,10 @@ export function createIpcConnector(): Connector {
 		// External links
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );
+		},
+
+		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
+			ipcApi.popupAppMenu( position );
 		},
 
 		async copyText( text: string ): Promise< void > {

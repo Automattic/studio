@@ -3,9 +3,9 @@ import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
 import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { resolveActiveSiteFromEntries } from '@studio/common/ai/sessions/active-site';
 import { listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { JsonAdapter } from 'cli/ai/output-adapter';
-import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runAiCommand } from 'cli/commands/ai';
 import { chooseSessionForAction } from 'cli/commands/ai/sessions/helpers';
@@ -51,7 +51,7 @@ export async function runCommand(
 	}
 
 	if ( resolvedSessionIdOrPrefix.toLowerCase() === 'latest' ) {
-		const sessions = await listAiSessions( getAiSessionsRootDirectory() );
+		const sessions = await listAiSessions( getSessionsDirectory() );
 		if ( sessions.length === 0 ) {
 			throw new Error( __( 'No code sessions found' ) );
 		}
@@ -59,7 +59,7 @@ export async function runCommand(
 		resolvedSessionIdOrPrefix = sessions[ 0 ].id;
 	}
 
-	const session = await loadAiSession( getAiSessionsRootDirectory(), resolvedSessionIdOrPrefix );
+	const session = await loadAiSession( getSessionsDirectory(), resolvedSessionIdOrPrefix );
 	const adapter: AiOutputAdapter = options.json ? new JsonAdapter() : new AiChatUI();
 	const inputPayload = options.inputPayloadPath
 		? await readInputPayload( options.inputPayloadPath )

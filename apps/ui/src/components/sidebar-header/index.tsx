@@ -4,6 +4,7 @@ import { comment, download, globe, menu, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
@@ -17,6 +18,7 @@ export function SidebarHeader( { onToggleSidebar }: Props ) {
 	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const navigate = useNavigate();
 	const connector = useConnector();
+	const { enabled: agenticEnabled } = useAgenticFeatures();
 	const handleOpenAppMenu = ( event: MouseEvent< HTMLButtonElement > ) => {
 		const rect = event.currentTarget.getBoundingClientRect();
 		void connector.popupAppMenu( { x: Math.round( rect.left ), y: Math.round( rect.bottom ) } );
@@ -47,7 +49,7 @@ export function SidebarHeader( { onToggleSidebar }: Props ) {
 						}
 					/>
 					<Menu.Popup side="bottom" align="end" className={ styles.popup }>
-						<Menu.Item>
+						<Menu.Item disabled={ ! agenticEnabled } onClick={ () => void navigate( { to: '/' } ) }>
 							<Icon icon={ comment } />
 							<span>{ __( 'New chat' ) }</span>
 						</Menu.Item>

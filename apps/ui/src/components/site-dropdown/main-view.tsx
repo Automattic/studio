@@ -6,6 +6,7 @@ import { clsx } from 'clsx';
 import { useMemo } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
@@ -72,6 +73,7 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 
 export function MainView( { site, activity, onSetupClick, onDisconnectClick }: Props ) {
 	const connector = useConnector();
+	const { enabled: agenticEnabled } = useAgenticFeatures();
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 
@@ -250,13 +252,17 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Preview' ) }
-					copy={ __( 'Share a review link for this version.' ) }
+					copy={
+						agenticEnabled
+							? __( 'Share a review link for this version.' )
+							: __( 'Sign in to share a review link.' )
+					}
 					buttonLabel={ __( 'Share' ) }
 					variant="outline"
 					tone="neutral"
 					loading={ isPreviewPending }
 					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ isSyncing }
+					disabled={ isSyncing || ! agenticEnabled }
 					onClick={ handlePreviewClick }
 				/>
 			) }

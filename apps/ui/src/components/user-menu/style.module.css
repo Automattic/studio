@@ -57,6 +57,7 @@
 
 .loginButton {
 	flex: 1;
+	text-align: left;
 }
 
 .popup {

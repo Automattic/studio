@@ -66,6 +66,7 @@ interface ComposerProps {
 	busy: boolean;
 	isInterrupting?: boolean;
 	error: string | null;
+	usageCapMessage?: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments: ComposerSendAttachments ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
@@ -225,6 +226,7 @@ export function Composer( {
 	busy,
 	isInterrupting = false,
 	error,
+	usageCapMessage,
 	model,
 	onSend,
 	onInterrupt,
@@ -458,6 +460,11 @@ export function Composer( {
 	return (
 		<>
 			<div className={ styles.root }>
+				{ usageCapMessage ? (
+					<div className={ styles.usageCapBanner } role="alert">
+						{ usageCapMessage }
+					</div>
+				) : null }
 				<div
 					className={ cx( styles.shell, isDraggingOver && styles.shellDragging ) }
 					onDragOver={ dragHandlers.onDragOver }

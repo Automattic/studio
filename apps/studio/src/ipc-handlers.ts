@@ -32,6 +32,7 @@ import {
 	deleteAiSessionPlacement,
 	readAiSessionPlacement,
 } from '@studio/common/ai/sessions/placement';
+import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
@@ -90,6 +91,7 @@ import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-run
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
@@ -104,7 +106,6 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
 	bumpAggregatedUniqueStat,
@@ -265,21 +266,21 @@ export async function recordAnalyticsEvent(
 }
 
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
-	return listHydratedAiSessions( getAiSessionsRootDirectory() );
+	return listHydratedAiSessions( getSessionsDirectory() );
 }
 
 export async function loadAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< LoadedAiSession > {
-	return loadHydratedAiSession( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	return loadHydratedAiSession( getSessionsDirectory(), sessionIdOrPrefix );
 }
 
 export async function deleteAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< AiSessionSummary > {
-	const deleted = await deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	const deleted = await deleteAiSessionFromStore( getSessionsDirectory(), sessionIdOrPrefix );
 	await deleteSharedSession( deleted.id );
 	await deleteAiSessionPlacement( deleted.id );
 	return deleted;
@@ -289,9 +290,9 @@ export async function createAiSession(
 	_event: IpcMainInvokeEvent,
 	siteId?: string
 ): Promise< AiSessionSummary > {
-	const sitesRoot = getAiSessionsRootDirectory();
+	const sessionsRoot = getSessionsDirectory();
 	if ( ! siteId ) {
-		return createOrReuseAiSession( sitesRoot );
+		return createOrReuseAiSession( sessionsRoot );
 	}
 
 	const server = SiteServer.get( siteId );
@@ -302,7 +303,7 @@ export async function createAiSession(
 	// Binds the session to the site and reuses an existing empty draft for it
 	// instead of piling up orphans — the shared logic the `studio ui` server
 	// uses too.
-	return createOrReuseAiSession( sitesRoot, {
+	return createOrReuseAiSession( sessionsRoot, {
 		site: {
 			id: server.details.id,
 			name: server.details.name,
@@ -316,10 +317,7 @@ export async function updateAiSessionMetadata(
 	sessionIdOrPrefix: string,
 	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
 ): Promise< AiSessionSummary > {
-	const { summary } = await loadAiSessionFromStore(
-		getAiSessionsRootDirectory(),
-		sessionIdOrPrefix
-	);
+	const { summary } = await loadAiSessionFromStore( getSessionsDirectory(), sessionIdOrPrefix );
 	const [ metadata, placement ] = await Promise.all( [
 		updateSharedSession( summary.id, patch ),
 		readAiSessionPlacement( summary.id ),
@@ -339,7 +337,7 @@ export async function updateAiSessionMetadata(
  * tool set reflect the same truth on the next turn.
  */
 async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promise< void > {
-	const root = getAiSessionsRootDirectory();
+	const root = getSessionsDirectory();
 	const { summary } = await loadHydratedAiSession( root, sessionId );
 
 	if ( summary.activeEnvironment !== 'live' ) {
@@ -418,7 +416,7 @@ export async function markAiMessageEdited(
 	sessionId: string,
 	originalEntryId: string
 ): Promise< void > {
-	await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.message_edited', {
+	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.message_edited', {
 		originalEntryId,
 	} );
 }
@@ -437,7 +435,7 @@ export async function setAiSessionModel(
 	if ( ! isAiModelId( model ) ) {
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
-	await appendModelChangeEntry( getAiSessionsRootDirectory(), sessionId, '', model );
+	await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
 }
 
 export interface SetSessionEnvironmentResult {
@@ -461,7 +459,7 @@ export async function setSessionEnvironment(
 	sessionId: string,
 	environment: 'local' | 'live'
 ): Promise< SetSessionEnvironmentResult > {
-	const { summary } = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
+	const { summary } = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
 
 	if ( ! summary.ownerSitePath || ! summary.ownerSiteName ) {
 		throw new Error( 'Cannot change environment: session has no owner site' );
@@ -484,7 +482,7 @@ export async function setSessionEnvironment(
 			throw new Error( 'Cannot switch to live: no linked WordPress.com site for this session' );
 		}
 
-		await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
+		await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
 			siteName: liveSite.name,
 			// Keep the desktop placement path on remote picks too, so live/local
 			// environment flips still resolve against the same local site.
@@ -494,7 +492,7 @@ export async function setSessionEnvironment(
 			wpcomSiteId: liveSite.id,
 		} );
 
-		const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
+		const refreshed = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
 		return {
 			environment: 'live',
 			url: liveSite.url,
@@ -504,13 +502,13 @@ export async function setSessionEnvironment(
 	}
 
 	const details = ownerServer.details;
-	await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
+	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
 		siteName: details.name,
 		sitePath: details.path,
 		url: 'url' in details ? details.url : undefined,
 	} );
 
-	const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
+	const refreshed = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
 	return {
 		environment: 'local',
 		summary: refreshed.summary,
@@ -1402,7 +1400,20 @@ export async function readLocalMediaFile(
 	_event: IpcMainInvokeEvent,
 	path: string
 ): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
-	const stats = await fsPromises.stat( path );
+	let resolvedPath = path;
+	let stats: fs.Stats;
+	try {
+		stats = await fsPromises.stat( resolvedPath );
+	} catch ( error ) {
+		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
+			throw error;
+		}
+		resolvedPath = resolveMigratedAiSessionsPath( path );
+		if ( resolvedPath === path ) {
+			throw error;
+		}
+		stats = await fsPromises.stat( resolvedPath );
+	}
 	if ( ! stats.isFile() ) {
 		throw new Error( 'Local media path must be a file.' );
 	}
@@ -1412,7 +1423,7 @@ export async function readLocalMediaFile(
 		throw new Error( 'Local media file type is not supported.' );
 	}
 
-	const buffer = await fsPromises.readFile( path );
+	const buffer = await fsPromises.readFile( resolvedPath );
 	return {
 		name: nodePath.basename( path ),
 		mimeType,

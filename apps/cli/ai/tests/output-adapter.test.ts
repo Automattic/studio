@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { JsonAdapter } from 'cli/ai/output-adapter';
+import { PRIVACY_POLICY_URL, TOS_URL } from 'cli/lib/tos-notice';
 
 describe( 'JsonAdapter IPC messaging', () => {
 	let originalSend: typeof process.send;
@@ -95,5 +96,30 @@ describe( 'JsonAdapter IPC messaging', () => {
 		adapter.start();
 
 		expect( listeners ).toHaveLength( 0 );
+	} );
+} );
+
+describe( 'JsonAdapter showTosNotice', () => {
+	let stderrWriteSpy: MockInstance;
+	let stdoutWriteSpy: MockInstance;
+
+	beforeEach( () => {
+		stderrWriteSpy = vi.spyOn( process.stderr, 'write' ).mockImplementation( () => true );
+		stdoutWriteSpy = vi.spyOn( process.stdout, 'write' ).mockImplementation( () => true );
+	} );
+
+	afterEach( () => {
+		stderrWriteSpy.mockRestore();
+		stdoutWriteSpy.mockRestore();
+	} );
+
+	it( 'writes the notice with both URLs to stderr, keeping stdout clean', () => {
+		new JsonAdapter().showTosNotice();
+
+		expect( stderrWriteSpy ).toHaveBeenCalledTimes( 1 );
+		const output = String( stderrWriteSpy.mock.calls[ 0 ][ 0 ] );
+		expect( output ).toContain( TOS_URL );
+		expect( output ).toContain( PRIVACY_POLICY_URL );
+		expect( stdoutWriteSpy ).not.toHaveBeenCalled();
 	} );
 } );

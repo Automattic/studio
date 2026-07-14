@@ -6,6 +6,7 @@ interface ShowNotificationOptions extends Electron.NotificationConstructorOption
 }
 
 type SiteRuntime = 'playground' | 'native-php';
+type SiteFileAccess = 'site-directory' | 'all-files';
 
 interface StoppedSiteDetails {
 	running: false;
@@ -47,6 +48,7 @@ interface StoppedSiteDetails {
 	sortOrder?: number;
 	landingPage?: string;
 	runtime?: SiteRuntime;
+	fileAccess?: SiteFileAccess;
 }
 
 interface StartedSiteDetails extends StoppedSiteDetails {
@@ -98,13 +100,12 @@ type IpcApi = {
 };
 
 interface FeatureFlags {
-	enableBlueprints: boolean;
-	enableBlueprintsGallery: boolean;
-	enableStudioCodeUi: boolean;
+	enableAgenticUi: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface BetaFeatures {}
+interface BetaFeatures {
+	remoteSession: boolean;
+}
 
 interface AppGlobals extends FeatureFlags {
 	platform: NodeJS.Platform;

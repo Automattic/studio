@@ -11,6 +11,7 @@ import { SiteContentTabs } from 'src/components/site-content-tabs';
 import TopBar from 'src/components/top-bar';
 import { useListenDeepLinkConnection } from 'src/hooks/sync-sites/use-listen-deep-link-connection';
 import { useAuth } from 'src/hooks/use-auth';
+import { useIpcListener } from 'src/hooks/use-ipc-listener';
 import { useLocalizationSupport } from 'src/hooks/use-localization-support';
 import { useSidebarResize } from 'src/hooks/use-sidebar-resize';
 import { useSidebarVisibility } from 'src/hooks/use-sidebar-visibility';
@@ -42,12 +43,19 @@ export default function App() {
 	const { showWhatsNew, closeWhatsNew } = useWhatsNew();
 	const { sites: localSites, loadingSites } = useSiteDetails();
 	const isEmpty = ! loadingSites && ! localSites.length;
+	const canToggleSidebar = ! needsOnboarding && ! isEmpty;
 	const shouldShowWhatsNew = showWhatsNew && ! isEmpty;
 	const { client } = useAuth();
 	const dispatch = useAppDispatch();
 	const isWapuuWorldOpen = useRootSelector( selectIsWapuuWorldOpen );
 	const activateWapuuWorld = useCallback( () => dispatch( openWapuuWorld() ), [ dispatch ] );
+	const handleToggleSidebarShortcut = useCallback( () => {
+		if ( canToggleSidebar ) {
+			toggleSidebar();
+		}
+	}, [ canToggleSidebar, toggleSidebar ] );
 	useKonamiCode( activateWapuuWorld );
+	useIpcListener( 'toggle-sidebar', handleToggleSidebarShortcut );
 
 	// Initialize sync states from in-progress server operations
 	useEffect( () => {
@@ -69,10 +77,7 @@ export default function App() {
 	return (
 		<>
 			{ needsOnboarding || isEmpty ? (
-				<VStack
-					className={ cx( 'h-screen backdrop-blur-3xl app-drag-region select-none' ) }
-					spacing="0"
-				>
+				<VStack className="h-screen backdrop-blur-3xl app-drag-region select-none" spacing="0">
 					{ ( isWindows() || isLinux() ) && (
 						<CustomTitlebar className="h-titlebar-win flex-shrink-0" />
 					) }

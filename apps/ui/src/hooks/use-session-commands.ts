@@ -1,3 +1,4 @@
+import { isStudioChatArtifactData } from '@studio/common/ai/chat-artifacts';
 import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
 import { useSessionUIDispatch } from './use-session-ui';
@@ -14,13 +15,26 @@ export function useSessionCommands( sessionId: string ): void {
 		return connector.onAgentEvent( ( payload ) => {
 			if ( payload.sessionId !== sessionId ) return;
 			const event = payload.event;
-			if ( event.type === 'preview.command' ) {
-				if ( event.kind === 'navigate' ) {
-					dispatch( { type: 'preview/navigate', path: event.path } );
-				} else if ( event.kind === 'reload' ) {
-					dispatch( { type: 'preview/reload' } );
+			if ( event.type === 'preview.reload' ) {
+				dispatch( { type: 'preview/reload' } );
+				return;
+			}
+			if ( event.type === 'chat.artifact' && isStudioChatArtifactData( event.artifact ) ) {
+				const previewPath = getSitePreviewArtifactPath( event.artifact );
+				if ( previewPath ) {
+					dispatch( { type: 'preview/navigate', path: previewPath } );
 				}
 			}
 		} );
 	}, [ connector, sessionId, dispatch ] );
+}
+
+function getSitePreviewArtifactPath( artifact: {
+	widgets: Array< { type: string; widgetProps: Record< string, unknown > } >;
+} ): string | null {
+	const widget = artifact.widgets.find(
+		( candidate ) =>
+			candidate.type === 'site-preview' && typeof candidate.widgetProps.path === 'string'
+	);
+	return typeof widget?.widgetProps.path === 'string' ? widget.widgetProps.path : null;
 }

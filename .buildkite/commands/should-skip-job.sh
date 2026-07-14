@@ -14,6 +14,8 @@ set -eu
 #              Since metrics measure app performance, test file changes don't affect them.
 #   - build: Skip if changes are limited to documentation and config files.
 #            Does NOT skip on localization changes since builds should include translation updates.
+#   - fastlane: Inverse of the others — only runs when fastlane/ or Ruby setup files change.
+#               Used for the standalone tests in fastlane/test/. App-only PRs skip it.
 #
 # Exit codes:
 #   0 - Job should be skipped
@@ -62,7 +64,7 @@ COMMON_NON_CODE_PATTERNS=(
 
 # Localization files - changes here don't affect runtime behavior or performance
 LOCALIZATION_PATTERNS=(
-  "tools/common/translations/**"
+  "packages/common/translations/**"
 )
 
 # Test files - changes here don't affect app performance (for metrics)
@@ -72,8 +74,22 @@ TEST_PATTERNS=(
   "apps/studio/src/**/*.test.ts"
   "apps/studio/src/**/*.test.tsx"
   "apps/cli/**/*.test.ts"
-  "tools/common/**/*.test.ts"
+  "packages/common/**/*.test.ts"
   "metrics/**"
+)
+
+# Fastlane / Ruby setup files - changes here affect the standalone fastlane
+# helper tests. Anything that the test runner reads (Fastfile, lib/, test/),
+# that defines the Ruby environment, or that implements this CI job's runner /
+# skip logic belongs here.
+FASTLANE_PATTERNS=(
+  "fastlane/**"
+  "Gemfile"
+  "Gemfile.lock"
+  ".ruby-version"
+  ".bundle/**"
+  ".buildkite/commands/run-fastlane-tests.sh"
+  ".buildkite/commands/should-skip-job.sh"
 )
 
 show_skip_message() {
@@ -107,14 +123,43 @@ done
 
 if [[ -z "$job_type" ]]; then
   echo "Error: --job-type is required"
-  echo "Usage: should-skip-job.sh --job-type <validation|metrics|build>"
+  echo "Usage: should-skip-job.sh --job-type <validation|metrics|build|fastlane>"
   exit 1
 fi
 
-# Check if pr_changed_files command is available
+git_pr_changed_files() {
+  local mode="$1"; shift
+
+  [[ "${BUILDKITE_PULL_REQUEST:-false}" =~ ^[0-9]+$ ]] || return 1
+
+  git fetch --no-tags "https://github.com/Automattic/studio.git" "$BUILDKITE_PULL_REQUEST_BASE_BRANCH" &> /dev/null || return 1
+
+  local changed_files=()
+  while IFS= read -r -d '' file; do
+    changed_files+=("$file")
+  done < <(git --no-pager diff --name-only -z --merge-base FETCH_HEAD HEAD)
+  [[ ${#changed_files[@]} -gt 0 ]] || return 1
+
+  local file pattern matched
+  for file in "${changed_files[@]}"; do
+    matched="false"
+    for pattern in "$@"; do
+      # shellcheck disable=SC2053
+      if [[ "$file" == ${pattern} ]]; then
+        matched="true"
+        break
+      fi
+    done
+    [[ "$mode" == "--all-match" && "$matched" == "false" ]] && return 1
+    [[ "$mode" == "--any-match" && "$matched" == "true" ]] && return 0
+  done
+
+  [[ "$mode" == "--all-match" ]] && return 0
+  return 1
+}
+
 if ! command -v pr_changed_files &> /dev/null; then
-  echo "pr_changed_files command not found. Running job."
-  exit 1
+  pr_changed_files() { git_pr_changed_files "$@"; }
 fi
 
 case "$job_type" in
@@ -147,9 +192,18 @@ case "$job_type" in
     fi
     ;;
 
+  "fastlane")
+    # Run only if at least one changed file is fastlane/ or Ruby-setup-related.
+    # Other job types treat fastlane changes as non-code; this one is the inverse.
+    if ! pr_changed_files --any-match "${FASTLANE_PATTERNS[@]}"; then
+      show_skip_message "$job_type"
+      exit 0
+    fi
+    ;;
+
   *)
     echo "Unknown job type: $job_type"
-    echo "Valid types: validation, metrics, build"
+    echo "Valid types: validation, metrics, build, fastlane"
     exit 1
     ;;
 esac

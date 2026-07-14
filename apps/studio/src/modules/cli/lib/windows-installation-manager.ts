@@ -1,22 +1,16 @@
 import { app, dialog } from 'electron';
 import { mkdir, rm, writeFile } from 'fs/promises';
+import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
-import Registry from 'winreg'; // don't update winreg to 1.2.5 - https://github.com/fresc81/node-winreg/issues/65
 import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 // `STABLE_BIN_DIR_PATH` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
 export const STABLE_BIN_DIR_PATH = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
-const PATH_KEY = 'Path';
-
-const currentUserRegistry = new Registry( {
-	hive: Registry.HKCU,
-	key: '\\Environment',
-} );
 
 export class WindowsCliInstallationManager implements StudioCliInstallationManager {
 	constructor() {
@@ -27,9 +21,13 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 	/**
 	 * Check if the stable bin directory has been created and if it's contained in the registry PATH.
+	 * Also detects standalone CLI installed via install.ps1.
 	 */
 	async isCliInstalled(): Promise< boolean > {
 		try {
+			if ( await this.isStandaloneCli() ) {
+				return true;
+			}
 			const isStudioCliDirInPath = await this.isStudioCliDirInPath();
 			return isStudioCliDirInPath && existsSync( STABLE_BIN_DIR_PATH );
 		} catch ( error ) {
@@ -40,20 +38,23 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 
 	async autoInstallIfNeeded(): Promise< void > {
 		const userData = await loadUserData();
-		if ( userData.cliAutoInstalled ) {
-			// Already ran auto-install before. If CLI is still installed,
-			// update the proxy bat file for the current app version.
+		if ( userData.cliUserUninstalled ) {
+			return;
+		}
+
+		if ( await this.isCliInstalled() ) {
+			// Update the proxy bat file to point at the current app version.
 			await this.updateWindowsCliVersionedPathIfNeeded();
 			return;
 		}
 
 		await this.installCli();
-		await updateAppdata( { cliAutoInstalled: true } );
 	}
 
 	async installCliWithConfirmation(): Promise< void > {
 		try {
 			await this.installCli();
+			await updateAppdata( { cliUserUninstalled: false } );
 			const mainWindow = await getMainWindow();
 			await dialog.showMessageBox( mainWindow, {
 				type: 'info',
@@ -83,6 +84,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	async uninstallCliWithConfirmation(): Promise< void > {
 		try {
 			await this.uninstallCli();
+			await updateAppdata( { cliUserUninstalled: true } );
 			const mainWindow = await getMainWindow();
 			await dialog.showMessageBox( mainWindow, {
 				type: 'info',
@@ -109,28 +111,46 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 	}
 
-	private getPathFromRegistry(): Promise< string > {
+	private runPowerShell( script: string ): Promise< string > {
 		return new Promise( ( resolve, reject ) => {
-			currentUserRegistry.get( PATH_KEY, ( error, item ) => {
-				if ( error ) {
-					return reject( error );
-				}
+			const child = spawn(
+				'powershell.exe',
+				[ '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', script ],
+				{ windowsHide: true }
+			);
 
-				resolve( item?.value || '' );
+			let stdout = '';
+			child.stdout.on( 'data', ( chunk ) => {
+				stdout += chunk.toString();
 			} );
+			child.on( 'error', reject );
+			child.on( 'exit', ( code ) =>
+				code === 0
+					? resolve( stdout )
+					: reject( new Error( `PowerShell exited with code ${ code }` ) )
+			);
 		} );
 	}
 
-	private setPathInRegistry( updatedPath: string ): Promise< void > {
-		return new Promise( ( resolve, reject ) => {
-			currentUserRegistry.set( PATH_KEY, Registry.REG_EXPAND_SZ, updatedPath, ( error ) => {
-				if ( error ) {
-					return reject( error );
-				}
+	private async getPathFromRegistry(): Promise< string > {
+		// Read the raw, unexpanded value (DoNotExpandEnvironmentNames) so that any
+		// %VAR% entries survive a read/modify/write round-trip untouched.
+		const script = `
+$key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment')
+if ($key) {
+	[Console]::Out.Write([string]$key.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames))
+	$key.Close()
+}`;
+		return ( await this.runPowerShell( script ) ).trim();
+	}
 
-				resolve();
-			} );
-		} );
+	private async setPathInRegistry( updatedPath: string ): Promise< void > {
+		// SetEnvironmentVariable(..., 'User') also broadcasts WM_SETTINGCHANGE so
+		// open shells pick up the new PATH without a re-login.
+		const escaped = updatedPath.replace( /'/g, "''" );
+		await this.runPowerShell(
+			`[Environment]::SetEnvironmentVariable('PATH', '${ escaped }', 'User')`
+		);
 	}
 
 	private async isStudioCliDirInPath(): Promise< boolean > {
@@ -193,7 +213,39 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		}
 	}
 
+	/**
+	 * Check if a standalone CLI (installed via install.ps1) is present.
+	 * Detects the standalone launcher and its bundled Node binary in the
+	 * default or custom install path. Requiring both files means a broken
+	 * install (e.g. a launcher without its runtime) is not treated as
+	 * standalone, so the app can still install its own CLI.
+	 */
+	private async isStandaloneCli(): Promise< boolean > {
+		const currentPath = await this.getPathFromRegistry();
+		const pathDirs = currentPath
+			.split( ';' )
+			.map( ( item ) => item.trim() )
+			.filter( Boolean );
+
+		for ( const dir of pathDirs ) {
+			// Skip the app's own bin directory
+			if ( dir.toLowerCase() === STABLE_BIN_DIR_PATH.toLowerCase() ) {
+				continue;
+			}
+			const launcherPath = path.join( dir, 'studio.cmd' );
+			const bundledNodePath = path.join( dir, 'node.exe' );
+			if ( existsSync( launcherPath ) && existsSync( bundledNodePath ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private async installCli(): Promise< void > {
+		// Don't overwrite standalone CLI installed via install.ps1
+		if ( await this.isStandaloneCli() ) {
+			return;
+		}
 		await this.installPath();
 		await this.installProxyBatFile();
 	}

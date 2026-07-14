@@ -92,7 +92,8 @@ The project follows a modular architecture with both global and feature-specific
 | `apps/studio/src/modules/`    | Feature-specific code                                                         |
 | `apps/studio/src/stores/`     | Global state management (Redux stores)                                        |
 | `apps/studio/src/api/`        | API interfaces and implementations                                            |
-| `tools/common/`               | Shared code between CLI and Studio (constants, types, utility functions, etc) |
+| `packages/common/`            | Shared code between CLI and Studio (constants, types, utility functions, etc) |
+| `tools/`                      | Development-only tooling (not shipped): benchmarks, perf metrics, etc         |
 | `tools/compare-perf/`         | Compare-perf tooling workspace                                                |
 | `tools/eslint-plugin-studio/` | Custom ESLint rules                                                           |
 
@@ -117,7 +118,7 @@ apps/studio/src/modules/
   │   ├── hooks/             # Feature-specific hooks
   │   └── lib/               # Feature-specific utilities
   │
-  ├── ai-assistant/          # AI Assistant feature
+  ├── ai-agent/              # Studio Code AI agent feature
   │   └── ...
   │
   └── sidebar/               # Sites sidebar feature
@@ -196,7 +197,7 @@ Then open `chrome://inspect` in a Chromium-based browser and click "inspect" nex
 ## Building Installers
 
 Once all required dependencies are installed, you can build installers for the app.
-Installers can currently be built on Mac (Intel or Apple Silicon), Windows, and experimentally for Linux using the following commands:
+Installers can be built on Mac (Intel or Apple Silicon), Windows (x64 or ARM64), and Linux (x64 or ARM64) using the following commands:
 
 ```bash
 npm install
@@ -205,24 +206,7 @@ npm run make
 
 After the build process completes, you can find the executables in the `out/` directory.
 
-### Linux
-
-Linux support is currently in an experimental phase. While official packages are not yet available, you can build Studio from source:
-
-```bash
-npm install
-npm run package
-```
-
-After building, the executable will be located at `apps/studio/out/Studio-linux-x64/studio`.
-
-**Important considerations:**
-
-- The auto-update feature is not currently supported on Linux builds.
-- For Wayland systems, you may need to use additional flags when running the application.
-- Some features may not work as expected due to platform-specific implementations.
-
-For detailed instructions including how to create a desktop launcher, handle Wayland compatibility, and troubleshoot common issues, see the [**Linux Guide**](./linux.md).
+Linux has additional source-build steps and platform-specific troubleshooting — see the [Linux notes](./linux.md).
 
 ## Localization
 

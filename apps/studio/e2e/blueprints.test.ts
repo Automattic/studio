@@ -59,9 +59,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
@@ -72,7 +71,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify theme was installed
@@ -95,9 +94,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
@@ -108,7 +106,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify theme was activated
@@ -133,9 +131,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
@@ -146,7 +143,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was installed
@@ -169,9 +166,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
@@ -182,7 +178,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to get admin URL
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify plugin was activated
@@ -208,9 +204,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
@@ -221,7 +216,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to verify site is accessible
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify the site was created successfully and admin is accessible
@@ -247,9 +242,8 @@ test.describe( 'Blueprints', () => {
 		// Upload blueprint file
 		await modal.selectBlueprintFile( blueprintPath );
 
-		// Wait for file to be processed and continue button to be enabled
-		await expect( modal.continueButton ).toBeEnabled( { timeout: 5000 } );
-		await modal.continueButton.click();
+		// Wait for the create form to appear (file upload navigates directly to it)
+		await expect( modal.siteNameInput ).toBeVisible( { timeout: 5000 } );
 
 		// Fill in site name
 		await modal.siteNameInput.fill( siteName );
@@ -260,7 +254,7 @@ test.describe( 'Blueprints', () => {
 		await expect( siteContent.runningButton ).toBeAttached( { timeout: 120_000 } );
 
 		// Navigate to Settings tab to verify site is accessible
-		const settingsTab = await siteContent.navigateToTab( 'Settings' );
+		const settingsTab = await siteContent.navigateToTab( 'settings' );
 		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// Verify the site was created successfully and admin is accessible

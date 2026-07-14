@@ -1,15 +1,15 @@
 import { __ } from '@wordpress/i18n';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
-import { SidebarNav } from '@/components/sidebar-nav';
 import { SiteList } from '@/components/site-list';
 import { UserMenu } from '@/components/user-menu';
-import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useConnector } from '@/data/core';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { drawerIcon } from '@/lib/icons';
 import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import styles from './style.module.css';
@@ -17,27 +17,38 @@ import type { CSSProperties, ReactNode } from 'react';
 
 export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const [ collapsed, setCollapsed ] = useState( false );
-	const isFullscreen = useFullscreen();
+	const connector = useConnector();
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		edge: 'right',
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
+	const toggleSidebar = useCallback( () => {
+		setCollapsed( ( value ) => ! value );
+	}, [] );
 	const sidebarStyle = collapsed
 		? undefined
 		: ( { '--sidebar-width': `${ sidebarResize.width }px` } as CSSProperties );
+
+	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 
 	return (
 		<SidebarCollapsedContext.Provider value={ collapsed }>
 			<div className={ styles.root }>
 				<aside
-					className={ clsx( styles.sidebar, collapsed && styles.sidebarCollapsed ) }
+					className={ clsx(
+						styles.sidebar,
+						collapsed && styles.sidebarCollapsed,
+						sidebarResize.isResizing && styles.sidebarResizing
+					) }
 					style={ sidebarStyle }
 				>
-					<SidebarHeader onToggleSidebar={ () => setCollapsed( true ) } />
-					<SidebarNav />
+					<SidebarHeader onToggleSidebar={ toggleSidebar } />
 					<SiteList />
-					<UserMenu />
+					<div className={ styles.sidebarFooter }>
+						<UserMenu />
+					</div>
 				</aside>
 				{ ! collapsed ? (
 					<ResizeHandle
@@ -56,7 +67,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 						<div
 							className={ clsx(
 								styles.floatingToggle,
-								isFullscreen && styles.floatingToggleFullscreen
+								! reserveTrafficLightSpace && styles.floatingToggleFlush
 							) }
 						>
 							<IconButton
@@ -65,7 +76,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 								size="small"
 								icon={ drawerIcon }
 								label={ __( 'Show sidebar' ) }
-								onClick={ () => setCollapsed( false ) }
+								onClick={ toggleSidebar }
 							/>
 						</div>
 					) : null }

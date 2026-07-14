@@ -1,10 +1,11 @@
 {
 	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
-		"baseUrl": "..",
+		"module": "preserve",
+		"moduleResolution": "bundler",
+		"noEmit": true,
 		"paths": {
-			"*": [ "node_modules/*" ],
-			"@studio/common/*": [ "tools/common/*" ]
+			"@studio/common/*": [ "../packages/common/*" ]
 		}
 	},
 	"include": [ "**/*" ],

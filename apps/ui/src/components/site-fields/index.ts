@@ -75,6 +75,9 @@ export function adminEmailField< T extends { adminEmail: string } >(): Field< T 
 	return {
 		id: 'adminEmail',
 		type: 'email',
+		// The default email control prefixes the input with an envelope icon;
+		// use the plain text control instead (email-type validation still applies).
+		Edit: 'text',
 		label: __( 'Admin email' ),
 		isValid: {
 			required: true,

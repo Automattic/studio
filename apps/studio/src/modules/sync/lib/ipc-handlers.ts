@@ -10,11 +10,15 @@ import {
 	removeConnectedWpcomSite,
 	updateConnectedWpcomSites as updateConnectedWpcomSitesShared,
 } from '@studio/common/lib/connected-sites';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { pullSite, pushSite } from '@studio/common/sites/sync';
 import { SyncSite } from '@studio/common/types/sync';
+import { __, sprintf } from '@wordpress/i18n';
 import { Upload } from 'tus-js-client';
 import { z } from 'zod';
 import {
@@ -318,12 +322,7 @@ export async function pushArchive(
 				}
 
 				const status = error.originalResponse ? error.originalResponse.getStatus() : 0;
-				// Stop retrying if the upload failed because of a 403 error.
-				if ( status === 403 ) {
-					return false;
-				}
-
-				return true;
+				return shouldRetryTusStatus( status );
 			},
 		} );
 
@@ -387,8 +386,38 @@ export async function pushArchive(
 			return { success: false, error: parseResult.data.error };
 		}
 
-		return { success: false, error: 'Unknown error' };
+		// A bare upload failure (e.g. a 413) has no `{ error: string }` body, so
+		// fall back to the HTTP status for a meaningful message.
+		const status = getTusErrorStatus( error );
+		if ( status === 413 ) {
+			return {
+				success: false,
+				error: __( 'The site archive is too large to upload right now. Please try again later.' ),
+			};
+		}
+		if ( status ) {
+			return {
+				success: false,
+				// translators: %d is the HTTP status code of the failed upload, e.g. 500.
+				error: sprintf( __( 'Upload failed with HTTP status %d.' ), status ),
+			};
+		}
+
+		return { success: false, error: __( 'Unknown error' ) };
 	}
+}
+
+function getTusErrorStatus( error: unknown ): number {
+	if (
+		typeof error === 'object' &&
+		error !== null &&
+		'originalResponse' in error &&
+		error.originalResponse &&
+		typeof ( error.originalResponse as { getStatus?: unknown } ).getStatus === 'function'
+	) {
+		return ( error.originalResponse as { getStatus: () => number } ).getStatus();
+	}
+	return 0;
 }
 
 export async function downloadSyncBackup(
@@ -409,11 +438,13 @@ export async function downloadSyncBackup(
 		await download( downloadUrl, filePath, false, '', abortController.signal );
 		return filePath;
 	} catch ( error ) {
-		if ( error instanceof Error && error.name === 'AbortError' ) {
-			// Download was cancelled, throw the error
-		} else {
-			console.error( `[Download] Download failed for operation: ${ operationId }`, error );
+		// A cancelled operation (user cancel or logout cleanup) aborts this signal. That's an
+		// intentional stop, not a failure — return without logging or throwing so it doesn't
+		// surface as an error, and let the caller treat the missing path as "stopped".
+		if ( abortController.signal.aborted ) {
+			return undefined;
 		}
+		console.error( `[Download] Download failed for operation: ${ operationId }`, error );
 		throw error;
 	} finally {
 		SYNC_ABORT_CONTROLLERS.delete( operationId );
@@ -422,7 +453,16 @@ export async function downloadSyncBackup(
 
 export async function removeSyncBackup( event: IpcMainInvokeEvent, remoteSiteId: number ) {
 	const filePath = getSyncBackupTempPath( remoteSiteId );
-	await fsPromises.unlink( filePath );
+	try {
+		await fsPromises.unlink( filePath );
+	} catch ( error ) {
+		// The backup file may never have been created — e.g. cancelling a pull that was still
+		// initializing the remote backup, before anything was downloaded. A missing file is
+		// not an error here, so only rethrow unexpected failures.
+		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
+			throw error;
+		}
+	}
 }
 
 type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
@@ -491,16 +531,54 @@ export async function pullSiteFromLive(
 	siteFolder: string,
 	remoteSiteId: number
 ): Promise< void > {
-	return new Promise< void >( ( resolve, reject ) => {
-		const [ emitter ] = executeCliCommand(
-			[ 'pull', '--path', siteFolder, '--remote-site', String( remoteSiteId ), '--options', 'all' ],
-			{ output: 'capture' }
-		);
+	return pullSite( executeCliCommand, siteFolder, remoteSiteId );
+}
 
-		emitter.on( 'success', () => resolve() );
-		emitter.on( 'failure', ( { error } ) => reject( error ) );
-		emitter.on( 'error', ( { error } ) => reject( error ) );
-	} );
+// Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`
+// server uses, so the agentic UI pushes identically in the desktop and the
+// browser (export → TUS upload → import). Progress is forwarded over the
+// existing `sync-upload-*` channels. The legacy renderer keeps its own
+// `exportSiteForPush` + `pushArchive` (with manual pause/resume) untouched.
+export async function pushSiteToLive(
+	_event: IpcMainInvokeEvent,
+	selectedSiteId: string,
+	remoteSiteId: number
+): Promise< void > {
+	const site = SiteServer.get( selectedSiteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'No token found' );
+	}
+	await pushSite(
+		{
+			executeCliCommand,
+			accessToken: token.accessToken,
+			emit: ( output ) => {
+				if ( output.kind === 'upload-progress' ) {
+					void sendIpcEventToRenderer( 'sync-upload-progress', {
+						selectedSiteId,
+						remoteSiteId,
+						progress: output.progress,
+					} );
+				} else if ( output.kind === 'network-paused' ) {
+					void sendIpcEventToRenderer( 'sync-upload-network-paused', {
+						selectedSiteId,
+						remoteSiteId,
+						error: output.error,
+					} );
+				} else if ( output.kind === 'resumed' ) {
+					void sendIpcEventToRenderer( 'sync-upload-resumed', {
+						selectedSiteId,
+						remoteSiteId,
+					} );
+				}
+			},
+		},
+		{ sitePath: site.details.path, remoteSiteId }
+	);
 }
 
 // Fetches every WordPress.com site the authenticated user can sync to.

@@ -22,7 +22,7 @@ export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
 // Mirrors `useConnectedWpcomSites` but returns connections for every local
 // site — used to filter out WordPress.com sites that are already attached to
 // another Studio site when picking a publish target.
-export function useAllConnectedWpcomSites() {
+export function useAllConnectedWpcomSites( options: { enabled?: boolean } = {} ) {
 	const connector = useConnector();
 	return useQuery( {
 		queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY,
@@ -30,12 +30,13 @@ export function useAllConnectedWpcomSites() {
 		// as "no filter" so we get every connection on record. See the
 		// `getConnectedWpcomSites` main-process handler.
 		queryFn: () => connector.getConnectedWpcomSites( '' ),
+		enabled: options.enabled ?? true,
 	} );
 }
 
 export function usePickableWpcomSites( options: { enabled?: boolean } = {} ) {
 	const syncable = useSyncableWpcomSites( options );
-	const connected = useAllConnectedWpcomSites();
+	const connected = useAllConnectedWpcomSites( options );
 
 	const data = useMemo< SyncSite[] | undefined >( () => {
 		if ( ! syncable.data ) {
@@ -50,6 +51,11 @@ export function usePickableWpcomSites( options: { enabled?: boolean } = {} ) {
 	return {
 		data,
 		isLoading: syncable.isLoading || connected.isLoading,
+		isFetching: syncable.isFetching || connected.isFetching,
 		error: syncable.error ?? connected.error,
+		refetch: () => {
+			void syncable.refetch();
+			void connected.refetch();
+		},
 	};
 }

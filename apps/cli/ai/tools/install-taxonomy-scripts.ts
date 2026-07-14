@@ -1,6 +1,7 @@
 import { cp } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
+import { getSkillPath } from 'cli/ai/skills';
 import { defineTool } from './define-tool';
 import { resolveSite, textResult } from './utils';
 
@@ -16,7 +17,7 @@ export const installTaxonomyScriptsTool = defineTool(
 	async ( args ) => {
 		try {
 			const site = await resolveSite( args.nameOrPath );
-			const srcDir = path.join( import.meta.dirname, '..', 'skills', 'taxonomist', 'scripts' );
+			const srcDir = getSkillPath( 'taxonomist', 'scripts' );
 			const destDir = path.join( site.path, TAXONOMIST_SCRIPTS_DIR );
 
 			await cp( srcDir, destDir, { recursive: true } );

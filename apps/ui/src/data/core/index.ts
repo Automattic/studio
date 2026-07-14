@@ -10,6 +10,7 @@ export type {
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
+	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
 	SelectedSiteFolder,
@@ -17,6 +18,9 @@ export type {
 	SiteDetails,
 	Snapshot,
 	StudioAgentQuestionData,
+	StudioChatFileAttachment,
+	StudioChatImage,
+	StudioChatImageAttachment,
 	StudioCustomEntry,
 	StudioCustomEntryDataMap,
 	StudioCustomEntryType,
@@ -32,4 +36,4 @@ export type {
 	UserPreferences,
 	WritableUserPreferences,
 } from './types';
-export type { AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { ActiveAgentRun, AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';

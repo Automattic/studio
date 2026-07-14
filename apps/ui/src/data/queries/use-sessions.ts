@@ -1,11 +1,57 @@
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import type { AiSessionSummary, LoadedAiSession } from '@/data/core';
 
 export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
+
+export function primeSessionQueryData( queryClient: QueryClient, summary: AiSessionSummary ): void {
+	queryClient.setQueryData< AiSessionSummary[] >( SESSIONS_QUERY_KEY, ( current ) => {
+		const withoutSummary = ( current ?? [] ).filter( ( session ) => session.id !== summary.id );
+		return [ summary, ...withoutSummary ].sort(
+			( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt )
+		);
+	} );
+
+	queryClient.setQueryData< LoadedAiSession >(
+		[ ...SESSIONS_QUERY_KEY, summary.id ],
+		( current ) => {
+			if ( current ) {
+				return {
+					...current,
+					summary,
+				};
+			}
+
+			if ( summary.firstPrompt || summary.eventCount > 0 ) {
+				return current;
+			}
+
+			// Newly-created draft sessions have no transcript yet. This shell
+			// gives routes owner metadata immediately while the full JSONL load
+			// reconciles in the background after invalidation.
+			return {
+				summary,
+				entries: [],
+			};
+		}
+	);
+}
+
+export function reconcilePrimedSessionQueryData(
+	queryClient: QueryClient,
+	sessionId: string
+): Promise< void > {
+	return Promise.all( [
+		queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } ),
+		queryClient.invalidateQueries( {
+			queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
+			exact: true,
+		} ),
+	] ).then( () => undefined );
+}
 
 export function useSessions() {
 	const connector = useConnector();
@@ -43,8 +89,99 @@ export function useCreateSession() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( siteId: string ) => connector.createSession( siteId ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } ),
+		mutationFn: ( siteId?: string ) => connector.createSession( siteId ),
+		onSuccess: ( summary ) => {
+			primeSessionQueryData( queryClient, summary );
+			void reconcilePrimedSessionQueryData( queryClient, summary.id );
+		},
+	} );
+}
+
+function mergeSessionMetadata(
+	summary: AiSessionSummary,
+	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+): AiSessionSummary {
+	return {
+		...summary,
+		starred: patch.starred,
+		archived: patch.archived,
+	};
+}
+
+export function useUpdateSessionMetadata() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation<
+		AiSessionSummary,
+		Error,
+		{
+			sessionId: string;
+			patch: Pick< AiSessionSummary, 'starred' | 'archived' >;
+		},
+		{
+			previousSessions: AiSessionSummary[] | undefined;
+			previousSession: LoadedAiSession | undefined;
+		}
+	>( {
+		mutationFn: ( { sessionId, patch } ) => connector.updateSessionMetadata( sessionId, patch ),
+		onMutate: async ( { sessionId, patch } ) => {
+			const sessionKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
+			await queryClient.cancelQueries( { queryKey: SESSIONS_QUERY_KEY } );
+
+			const previousSessions = queryClient.getQueryData< AiSessionSummary[] >( SESSIONS_QUERY_KEY );
+			const previousSession = queryClient.getQueryData< LoadedAiSession >( sessionKey );
+
+			queryClient.setQueryData< AiSessionSummary[] >(
+				SESSIONS_QUERY_KEY,
+				( current ) =>
+					current?.map( ( session ) =>
+						session.id === sessionId ? mergeSessionMetadata( session, patch ) : session
+					)
+			);
+			queryClient.setQueryData< LoadedAiSession >( sessionKey, ( current ) =>
+				current
+					? {
+							...current,
+							summary: mergeSessionMetadata( current.summary, patch ),
+					  }
+					: current
+			);
+
+			return { previousSessions, previousSession };
+		},
+		onError: ( _error, { sessionId }, context ) => {
+			if ( context?.previousSessions ) {
+				queryClient.setQueryData( SESSIONS_QUERY_KEY, context.previousSessions );
+			}
+			if ( context?.previousSession ) {
+				queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, sessionId ], context.previousSession );
+			}
+		},
+		onSuccess: ( summary ) => {
+			queryClient.setQueryData< AiSessionSummary[] >(
+				SESSIONS_QUERY_KEY,
+				( current ) =>
+					current?.map( ( session ) => ( session.id === summary.id ? summary : session ) )
+			);
+			queryClient.setQueryData< LoadedAiSession >(
+				[ ...SESSIONS_QUERY_KEY, summary.id ],
+				( current ) =>
+					current
+						? {
+								...current,
+								summary: {
+									...current.summary,
+									starred: summary.starred,
+									archived: summary.archived,
+								},
+						  }
+						: current
+			);
+		},
+		onSettled: ( _data, _error, { sessionId } ) => {
+			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+			void queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
+		},
 	} );
 }
 
@@ -125,4 +262,17 @@ export function useSessionEffectiveEnvironment(
 		const connectedLiveIds = new Set( ( connectedSites ?? [] ).map( ( site ) => site.id ) );
 		return deriveEffectiveEnvironment( summary, ( blogId ) => connectedLiveIds.has( blogId ) );
 	}, [ summary, connectedSites ] );
+}
+
+export function useSyncSessionsWithEvents(): void {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	useEffect( () => {
+		return connector.onSessionPlacementUpdated( ( event ) => {
+			void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+			void queryClient.invalidateQueries( {
+				queryKey: [ ...SESSIONS_QUERY_KEY, event.sessionId ],
+			} );
+		} );
+	}, [ connector, queryClient ] );
 }

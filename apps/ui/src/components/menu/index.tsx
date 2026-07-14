@@ -1,6 +1,7 @@
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { privateApis } from '@wordpress/theme';
 import { forwardRef } from 'react';
+import motionStyles from '@/components/floating-surface-motion/style.module.css';
 import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
 import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
@@ -10,6 +11,7 @@ const { ThemeProvider } = unlock( privateApis );
 export const Root = BaseMenu.Root;
 export const Trigger = BaseMenu.Trigger;
 export const RadioGroup = BaseMenu.RadioGroup;
+export const SubmenuRoot = BaseMenu.SubmenuRoot;
 
 type PopupProps = {
 	children: ReactNode;
@@ -49,7 +51,9 @@ export function Popup( {
 					establish the density context here so icons inside the
 					popup render at 16px like the rest of the app. */ }
 				<ThemeProvider density="compact">
-					<BaseMenu.Popup className={ `${ styles.popup } ${ className ?? '' }` }>
+					<BaseMenu.Popup
+						className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
+					>
 						{ children }
 					</BaseMenu.Popup>
 				</ThemeProvider>
@@ -68,6 +72,23 @@ export const Item = forwardRef< ElementRef< typeof BaseMenu.Item >, ItemProps >(
 		<BaseMenu.Item ref={ ref } className={ `${ styles.item } ${ className ?? '' }` } { ...props }>
 			{ children }
 		</BaseMenu.Item>
+	);
+} );
+
+type SubmenuTriggerProps = ComponentPropsWithoutRef< typeof BaseMenu.SubmenuTrigger >;
+
+export const SubmenuTrigger = forwardRef<
+	ElementRef< typeof BaseMenu.SubmenuTrigger >,
+	SubmenuTriggerProps
+>( function SubmenuTrigger( { className, children, ...props }, ref ) {
+	return (
+		<BaseMenu.SubmenuTrigger
+			ref={ ref }
+			className={ `${ styles.item } ${ styles.submenuTrigger } ${ className ?? '' }` }
+			{ ...props }
+		>
+			{ children }
+		</BaseMenu.SubmenuTrigger>
 	);
 } );
 

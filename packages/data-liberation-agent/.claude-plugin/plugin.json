@@ -1,0 +1,27 @@
+{
+  "name": "data-liberation",
+  "description": "Extract content from closed web platforms (GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix) into WordPress-compatible WXR files. Inspect, extract, QA, and import to WordPress.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Automattic"
+  },
+  "homepage": "https://github.com/Automattic/studio",
+  "repository": "https://github.com/Automattic/studio",
+  "license": "GPL-2.0-or-later",
+  "keywords": [
+    "content-extraction",
+    "data-liberation",
+    "godaddy",
+    "hostinger",
+    "hubspot",
+    "migration",
+    "shopify",
+    "squarespace",
+    "webflow",
+    "weebly",
+    "wix",
+    "wordpress",
+    "wxr"
+  ],
+  "mcpServers": "./.mcp.json"
+}

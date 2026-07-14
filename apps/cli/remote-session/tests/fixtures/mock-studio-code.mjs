@@ -8,6 +8,7 @@
 //   paused         — question.asked + turn.completed paused
 //   error          — agent_end with stopReason='error' + turn.completed error
 //   stale-resume   — stale-session stderr line + non-zero exit
+//   stale-resume-error-event — stale-session reported as JSON `error` event + non-zero exit
 //   hang           — never exits (tests timeout path)
 //   media-share    — media.share + agent_end with success + turn.completed success
 //   empty-result-with-text — assistant emits text, but agent_end lacks final text
@@ -85,6 +86,16 @@ function runStaleResume() {
 	process.exit( 1 );
 }
 
+function runStaleResumeErrorEvent() {
+	emit( {
+		type: 'error',
+		timestamp: ts(),
+		message: 'No AI session found for resume ID: bogus-sess-id',
+	} );
+	emit( { type: 'turn.completed', timestamp: ts(), sessionId, status: 'error' } );
+	process.exit( 1 );
+}
+
 function runHang() {
 	setInterval( () => {}, 1000 );
 }
@@ -149,6 +160,7 @@ const handlers = {
 	paused: runPaused,
 	error: runError,
 	'stale-resume': runStaleResume,
+	'stale-resume-error-event': runStaleResumeErrorEvent,
 	hang: runHang,
 	'media-share': runMediaShare,
 	'empty-result-with-text': runEmptyResultWithText,

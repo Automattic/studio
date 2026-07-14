@@ -1,0 +1,50 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { getContentDirFromState, hasSkippedFiles } from 'cli/lib/pull/reprint-state';
+
+describe( 'reprint state accessors', () => {
+	it( 'reads the remote wp-content path from preflight state', () => {
+		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-reprint-state-' ) );
+
+		try {
+			fs.writeFileSync(
+				path.join( stateDirectory, '.import-state.json' ),
+				JSON.stringify( {
+					preflight: {
+						data: {
+							database: {
+								wp: {
+									paths_urls: {
+										content_dir: '/srv/htdocs/wp-content',
+									},
+								},
+							},
+						},
+					},
+				} )
+			);
+
+			expect( getContentDirFromState( stateDirectory ) ).toBe( '/srv/htdocs/wp-content' );
+		} finally {
+			fs.rmSync( stateDirectory, { recursive: true, force: true } );
+		}
+	} );
+
+	it( 'detects whether reprint left skipped files to download', () => {
+		const stateDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-reprint-state-' ) );
+		const skippedListPath = path.join( stateDirectory, '.import-download-list-skipped.jsonl' );
+
+		try {
+			expect( hasSkippedFiles( stateDirectory ) ).toBe( false );
+
+			fs.writeFileSync( skippedListPath, '' );
+			expect( hasSkippedFiles( stateDirectory ) ).toBe( false );
+
+			fs.writeFileSync( skippedListPath, '{"path":"wp-content/cache/file"}\n' );
+			expect( hasSkippedFiles( stateDirectory ) ).toBe( true );
+		} finally {
+			fs.rmSync( stateDirectory, { recursive: true, force: true } );
+		}
+	} );
+} );

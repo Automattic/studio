@@ -16,6 +16,7 @@ interface StartArgs {
 	detach?: boolean;
 	remoteChatId?: number;
 	remoteBot?: string;
+	avoidTelemetry?: boolean;
 }
 
 function buildExtraArgs( argv: StartArgs ): string[] {
@@ -25,6 +26,11 @@ function buildExtraArgs( argv: StartArgs ): string[] {
 	}
 	if ( typeof argv.remoteBot === 'string' && argv.remoteBot.length > 0 ) {
 		out.push( '--remote-bot', argv.remoteBot );
+	}
+	// The daemon child is a fresh `node studio` invocation, so it does NOT inherit the
+	// top-level `--avoid-telemetry` flag. Forward it explicitly so the child respects opt-out.
+	if ( argv.avoidTelemetry ) {
+		out.push( '--avoid-telemetry' );
 	}
 	return out;
 }
@@ -84,10 +90,13 @@ async function runStart( argv: StartArgs ): Promise< void > {
 	}
 
 	try {
-		await runRemoteSession( {
-			chat_id: argv.remoteChatId,
-			bot: argv.remoteBot,
-		} );
+		await runRemoteSession(
+			{
+				chat_id: argv.remoteChatId,
+				bot: argv.remoteBot,
+			},
+			{ avoidTelemetry: argv.avoidTelemetry }
+		);
 	} catch ( error ) {
 		if ( error instanceof RemoteSessionConfigError ) {
 			process.stderr.write( `${ error.message }\n` );

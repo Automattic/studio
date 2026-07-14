@@ -68,7 +68,7 @@ describe( 'ContentTabImportExport Import', () => {
 		expect( screen.getByText( /Drop file/i ) ).toBeInTheDocument();
 	} );
 
-	test( 'should display inital text on drop leave', async () => {
+	test( 'should display initial text on drop leave', async () => {
 		renderWithProvider( <ContentTabImportExport selectedSite={ selectedSite } /> );
 		await waitFor( () => {
 			expect( screen.getByTestId( 'import-export-supported' ) ).toBeVisible();

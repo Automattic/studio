@@ -143,10 +143,20 @@
 	color: var(--wpds-color-fg-content-neutral);
 	/* Discourage code from breaking awkwardly across lines. */
 	white-space: nowrap;
+	/* Code is meant to be copied — keep it selectable. */
+	-webkit-user-select: text;
+	user-select: text;
+}
+
+/* Wrapper anchors the overlaid copy button and carries the block spacing that
+   used to live on the <pre>. */
+.codeBlock {
+	position: relative;
+	margin: 0.75em 0 1.25em;
 }
 
 .pre {
-	margin: 0.75em 0 1.25em;
+	margin: 0;
 	padding: 0.875em 1em;
 	border-radius: var(--wpds-border-radius-md, 8px);
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
@@ -154,6 +164,10 @@
 	font-size: 0.85em;
 	line-height: 1.55;
 	overflow-x: auto;
+	/* Ensure code stays selectable even when an ancestor surface (e.g. the
+	   desks canvas) opts out of text selection. */
+	-webkit-user-select: text;
+	user-select: text;
 }
 
 .pre > code {
@@ -164,6 +178,16 @@
 	color: inherit;
 	white-space: pre;
 }
+
+.copyButtonContainer {
+	position: absolute;
+	top: 0.5em;
+	inset-inline-end: 0.5em;
+	z-index: 1;
+}
+
+
+
 
 .tableWrap {
 	margin: 0 0 1em;

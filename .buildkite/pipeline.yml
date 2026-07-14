@@ -7,11 +7,13 @@ env:
   IMAGE_ID: $IMAGE_ID
 
 e2e_config: &e2e_config
+  timeout_in_minutes: 100
   command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
   artifact_paths:
     - test-results/**/*.zip
     - test-results/**/*.png
     - test-results/**/*error-context.md
+    - test-results/daemon-logs/**/*.log
   plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
   agents:
     queue: "{{matrix.platform}}"
@@ -23,9 +25,6 @@ e2e_config: &e2e_config
     adjustments:
       - with: { platform: mac, arch: arm64 }
       - with: { platform: windows, arch: x64 }
-  notify:
-    - github_commit_status:
-        context: E2E Tests
 
 steps:
   - label: Lint
@@ -38,54 +37,101 @@ steps:
       - github_commit_status:
           context: Lint
 
-  - label: Unit Tests on {{matrix}}
-    key: unit_tests
-    command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"
+  - label: ":fastlane: fastlane Helper Tests"
+    agents:
+      queue: mac
+    key: fastlane_tests
+    command: bash .buildkite/commands/run-fastlane-tests.sh
+    plugins: [$CI_TOOLKIT_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: fastlane Helper Tests
+
+  - group: Unit Tests
+    key: unit-tests
+    steps:
+      - label: Unit Tests on {{matrix}}
+        key: unit_tests
+        command: bash .buildkite/commands/run-unit-tests.sh "{{matrix}}"
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        agents:
+          queue: "{{matrix}}"
+        matrix:
+          - mac
+          - windows
+        notify:
+          - github_commit_status:
+              context: Unit Tests
+
+      # Linux unit tests run on the shared `default` queue inside a Debian Node
+      # container — the same pattern the Linux build group uses. Kept as a
+      # separate step (rather than another matrix entry above) because Mac and
+      # Windows share queue/plugin defaults that Linux doesn't.
+      - label: Unit Tests on linux
+        key: unit_tests_linux
+        command: bash .buildkite/commands/run-unit-tests.sh "linux"
+        agents:
+          queue: default
+        plugins:
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
+        notify:
+          - github_commit_status:
+              context: Unit Tests
+
+  - group: E2E Tests
+    key: e2e-tests
+    notify:
+      - github_commit_status:
+          context: E2E Tests
+    steps:
+      # E2E tests run on supported platform/architecture combinations.
+      # - mac-arm64: Native on Apple Silicon agents
+      # - windows-x64: Native on x64 agents
+      - <<: *e2e_config
+        label: E2E Tests on {{matrix.platform}}-{{matrix.arch}}
+        key: e2e_tests
+        if: (build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft) && !(build.pull_request.labels includes 'native-php')
+
+      # Linux E2E tests run on the shared `default` queue inside a Debian Node
+      # container — the same pattern the Linux build/unit-test steps use. Kept as
+      # a separate step (rather than another matrix entry on *e2e_config) because
+      # Mac and Windows share queue/plugin defaults that Linux doesn't.
+      - label: E2E Tests on linux-x64
+        key: e2e_tests_linux
+        command: bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
+        agents:
+          queue: default
+        plugins:
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
+        artifact_paths:
+          - test-results/**/*.zip
+          - test-results/**/*.png
+          - test-results/**/*error-context.md
+          - test-results/daemon-logs/**/*.log
+        env:
+          DEBUG: "pw:browser"
+        if: (build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft) && !(build.pull_request.labels includes 'native-php')
+
+  # Manual-only and not a required GitHub check: it never runs until someone
+  # unblocks it in Buildkite, and it never gates PR merges.
+  - input: "🚦 Run CLI E2E Tests?"
+    prompt: "Run the CLI end-to-end test suite (creates real sites via the built CLI)?"
+    key: input-cli-e2e
+
+  - label: CLI E2E Tests
+    key: cli-e2e-tests
+    depends_on: input-cli-e2e
+    agents:
+      queue: mac
+    command: bash .buildkite/commands/run-cli-e2e-tests.sh
+    timeout_in_minutes: 30
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-    agents:
-      queue: "{{matrix}}"
-    matrix:
-      - mac
-      - windows
-    notify:
-      - github_commit_status:
-          context: Unit Tests
-
-  # Linux unit tests run on the shared `default` queue inside a Debian Node
-  # container — the same pattern the Linux build group uses. Kept as a
-  # separate step (rather than another matrix entry above) because Mac and
-  # Windows share queue/plugin defaults that Linux doesn't.
-  - label: Unit Tests on linux
-    key: unit_tests_linux
-    command: bash .buildkite/commands/run-unit-tests.sh "linux"
-    agents:
-      queue: default
-    plugins:
-      - $DOCKER_PLUGIN:
-          image: "$NODE_DOCKER_IMAGE"
-          propagate-environment: true
-          mount-buildkite-agent: true
-    notify:
-      - github_commit_status:
-          context: Unit Tests
-
-  # E2E tests run on supported platform/architecture combinations.
-  # - mac-arm64: Native on Apple Silicon agents
-  # - windows-x64: Native on x64 agents
-  - <<: *e2e_config
-    label: E2E Tests on {{matrix.platform}}-{{matrix.arch}}
-    key: e2e_tests
-    # Skip E2E tests on draft PRs to save CI resources
-    # Tests will run automatically when PR is marked ready for review
-    if: (build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft) && !(build.pull_request.labels includes 'native-php')
-
-  - <<: *e2e_config
-    label: E2E Tests on {{matrix.platform}}-{{matrix.arch}} with native PHP
-    key: e2e_tests_native_php
-    env:
-      DEBUG: "pw:browser"
-      STUDIO_RUNTIME: native-php
-    if: (build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft) && build.pull_request.labels includes 'native-php'
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics
@@ -146,10 +192,15 @@ steps:
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
+
+          echo "--- :package: Building standalone CLI bundle"
+          npm run cli:bundle -- darwin {{matrix}}
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
           - apps/studio/out/**/*.app.zip
           - apps/studio/out/*.dmg
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
         matrix:
           - x64
           - arm64
@@ -168,13 +219,15 @@ steps:
         agents:
           queue: windows
         env:
-          USE_AZURE_TRUSTED_SIGNING: 1
+          SIGN_WINDOWS_BUILD: 1
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
         artifact_paths:
           - apps\studio\out\**\studio-setup.exe
           - apps\studio\out\**\studio-update.nupkg
           - apps\studio\out\**\RELEASES
           - apps\studio\out\**\*.appx
+          - standalone-bundles\studio-cli-*.tgz
+          - standalone-bundles\studio-cli-*.tgz.sha256
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - x64
@@ -215,8 +268,13 @@ steps:
 
           echo "--- :node: Building DEB"
           npm run make:linux-{{matrix}}
+
+          echo "--- :package: Building standalone CLI bundle"
+          npm run cli:bundle -- linux {{matrix}}
         artifact_paths:
           - apps/studio/out/make/deb/**/*.deb
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
         plugins:
           # Amazon Linux on the `default` queue lacks `dpkg`/`fakeroot`
           # required by electron-forge's MakerDeb, so we build inside a
@@ -240,6 +298,9 @@ steps:
       buildkite-agent artifact download "*.appx" .
       buildkite-agent artifact download "*.nupkg" .
       buildkite-agent artifact download "*\\RELEASES" .
+      buildkite-agent artifact download "*.deb" .
+      buildkite-agent artifact download "*.tgz" .
+      buildkite-agent artifact download "*.tgz.sha256" .
 
       .buildkite/commands/install-node-dependencies.sh
 
@@ -256,6 +317,7 @@ steps:
     depends_on:
       - step: dev-mac
       - step: dev-windows
+      - step: dev-linux
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     if: build.branch == 'trunk' && build.tag !~ /^v[0-9]+/
     notify:

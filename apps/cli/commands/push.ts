@@ -265,7 +265,7 @@ export async function runCommand(
 		}
 
 		logger.reportSuccess(
-			sprintf( __( 'Successfully pushed to %s (%s)' ), remoteSite.name, remoteSite.url )
+			sprintf( __( 'Successfully pushed to %1$s (%2$s)' ), remoteSite.name, remoteSite.url )
 		);
 	} finally {
 		fs.rmSync( tempDir, { recursive: true, force: true } );

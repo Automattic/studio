@@ -1,23 +1,23 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"baseUrl": ".",
+		"module": "es2022",
+		"moduleResolution": "bundler",
 		"outDir": "dist",
 		"paths": {
-			"*": [ "node_modules/*" ],
-			"cli/*": [ "apps/cli/*" ],
-			"src/*": [ "apps/studio/src/*" ],
-			"vendor/*": [ "vendor/*" ],
-			"@studio/common/*": [ "tools/common/*" ]
+			"cli/*": [ "./apps/cli/*" ],
+			"src/*": [ "./apps/studio/src/*" ],
+			"vendor/*": [ "./vendor/*" ],
+			"@studio/common/*": [ "./packages/common/*" ]
 		}
 	},
 	"include": [
-		"apps/studio/src/**/*",
-		"apps/studio/e2e/**/*",
-		"apps/cli/**/*",
-		"tools/common/**/*",
+		"./apps/studio/src/**/*",
+		"./apps/studio/e2e/**/*",
+		"./apps/cli/**/*",
+		"./packages/common/**/*",
 		"./vitest.global-setup.ts",
-		"scripts/**/*"
+		"./scripts/**/*"
 	],
 	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
 }

@@ -1,4 +1,8 @@
-import { ExportEvents, exportIpcEventSchema } from '@studio/common/lib/import-export-events';
+import {
+	createExportErrorPayload,
+	ExportEvents,
+	exportIpcEventSchema,
+} from '@studio/common/lib/import-export-events';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
@@ -39,7 +43,7 @@ export function executeExportCliCommand(
 			sendIpcEventToRendererWithWindow(
 				parentWindow,
 				'on-export',
-				[ ExportEvents.EXPORT_ERROR, error ],
+				[ ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) ],
 				siteId
 			);
 		}

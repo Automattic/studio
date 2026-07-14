@@ -1,9 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { SessionManager } from '@mariozechner/pi-coding-agent';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { migrateLegacyFileInPlace } from '@studio/common/ai/sessions/migration';
 import { getAiSessionsDirectoryForDate } from '@studio/common/ai/sessions/paths';
-import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 
 export interface CreateStudioSessionOptions {
@@ -14,7 +14,7 @@ export async function createStudioSession(
 	options: CreateStudioSessionOptions = {}
 ): Promise< SessionManager > {
 	const startedAt = options.startedAt ?? new Date();
-	const sessionDir = getAiSessionsDirectoryForDate( getAiSessionsRootDirectory(), startedAt );
+	const sessionDir = getAiSessionsDirectoryForDate( getSessionsDirectory(), startedAt );
 	await fs.mkdir( sessionDir, { recursive: true } );
 	return SessionManager.create( STUDIO_SITES_ROOT, sessionDir );
 }

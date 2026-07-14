@@ -1,6 +1,9 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { SITE_RUNTIME_NATIVE_PHP } from '@studio/common/lib/site-runtime';
 import { Type } from 'typebox';
+import { emitLocalSiteSelected } from 'cli/ai/site-selection';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
@@ -28,6 +31,8 @@ export const createSiteTool = defineTool(
 				name: args.name,
 				wpVersion: 'latest',
 				phpVersion: DEFAULT_PHP_VERSION,
+				runtime: SITE_RUNTIME_NATIVE_PHP,
+				fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 				enableHttps: false,
 				noStart: false,
 				skipBrowser: true,
@@ -36,21 +41,41 @@ export const createSiteTool = defineTool(
 
 			const site = await resolveSite( args.name );
 			const url = getSiteUrl( site );
-			return textResult(
-				JSON.stringify(
+			await emitLocalSiteSelected( {
+				name: site.name,
+				path: site.path,
+				running: true,
+			} );
+			return {
+				...textResult(
+					JSON.stringify(
+						{
+							id: site.id,
+							name: site.name,
+							path: site.path,
+							url,
+							adminUrl: `${ url }/wp-admin`,
+							username: 'admin',
+							password: site.adminPassword,
+							phpVersion: site.phpVersion,
+						},
+						null,
+						2
+					)
+				),
+				studioArtifacts: [
 					{
-						name: site.name,
-						path: site.path,
-						url,
-						adminUrl: `${ url }/wp-admin`,
-						username: 'admin',
-						password: site.adminPassword,
-						phpVersion: site.phpVersion,
+						type: 'site-preview',
+						widgetProps: {
+							path: '/',
+							siteId: site.id,
+							siteName: site.name,
+							sitePath: site.path,
+							url,
+						},
 					},
-					null,
-					2
-				)
-			);
+				],
+			};
 		} catch ( error ) {
 			throw new Error(
 				`Failed to create site: ${ error instanceof Error ? error.message : String( error ) }`

@@ -1,59 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	AI_CHAT_SLASH_COMMANDS,
-	getActiveSlashCommands,
-	type SlashCommandContext,
-} from 'cli/ai/slash-commands';
-
-describe( 'getActiveSlashCommands feature gate', () => {
-	const originalValue = process.env.STUDIO_ENABLE_REMOTE_SESSION;
-
-	beforeEach( () => {
-		delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
-	} );
-
-	afterEach( () => {
-		if ( originalValue === undefined ) {
-			delete process.env.STUDIO_ENABLE_REMOTE_SESSION;
-		} else {
-			process.env.STUDIO_ENABLE_REMOTE_SESSION = originalValue;
-		}
-	} );
-
-	const has = ( name: string, cmds: { name: string }[] ) => cmds.some( ( c ) => c.name === name );
-
-	it( 'omits /remote-session by default (flag off)', () => {
-		expect( has( 'remote-session', getActiveSlashCommands() ) ).toBe( false );
-	} );
-
-	it( 'includes /remote-session when STUDIO_ENABLE_REMOTE_SESSION=true', () => {
-		process.env.STUDIO_ENABLE_REMOTE_SESSION = 'true';
-		expect( has( 'remote-session', getActiveSlashCommands() ) ).toBe( true );
-	} );
-
-	it.each( [ '1', 'TRUE', 'yes', 'on', '' ] )(
-		'omits /remote-session for non-canonical truthy-looking values: %s',
-		( value ) => {
-			process.env.STUDIO_ENABLE_REMOTE_SESSION = value;
-			expect( has( 'remote-session', getActiveSlashCommands() ) ).toBe( false );
-		}
-	);
-
-	it( 'preserves non-gated commands when the flag is off', () => {
-		const names = getActiveSlashCommands().map( ( c ) => c.name );
-		expect( names ).toContain( 'clear' );
-		expect( names ).toContain( 'login' );
-		expect( names ).toContain( 'exit' );
-	} );
-} );
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 
 describe( '/remote-session slash command registration', () => {
 	const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'remote-session' );
 
-	it( 'is registered with a handler, feature gate, and argument completions', () => {
+	it( 'is registered with a handler and argument completions', () => {
 		expect( cmd ).toBeDefined();
 		expect( typeof cmd!.handler ).toBe( 'function' );
-		expect( typeof cmd!.enabled ).toBe( 'function' );
 		expect( typeof cmd!.getArgumentCompletions ).toBe( 'function' );
 		expect( cmd!.description ).toBeTruthy();
 	} );
@@ -426,12 +379,12 @@ describe( '/model slash command', () => {
 		expect( modelHandler ).toBeDefined();
 		const { ctx, persistMock } = buildModelCtx( {
 			currentModel: 'gpt-5.5',
-			askUserResponse: 'Sonnet 4.6',
+			askUserResponse: 'Sonnet 5',
 		} );
 
 		await modelHandler!( '/model', ctx );
 
-		expect( ctx.currentModel ).toBe( 'claude-sonnet-4-6' );
+		expect( ctx.currentModel ).toBe( 'claude-sonnet-5' );
 		expect( persistMock ).toHaveBeenCalledTimes( 1 );
 	} );
 

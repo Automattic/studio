@@ -1,0 +1,12 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"module": "es2022",
+		"moduleResolution": "bundler",
+		"paths": {
+			"@studio/common/*": [ "../../packages/common/*" ]
+		}
+	},
+	"include": [ "**/*" ],
+	"exclude": [ "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
+}

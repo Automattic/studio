@@ -51,10 +51,15 @@ steps:
 
           echo "--- 📃 Notarizing Binary"
           bundle exec fastlane notarize_binary
+
+          echo "--- :package: Building standalone CLI bundle"
+          npm run cli:bundle -- darwin {{matrix}}
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         artifact_paths:
           - apps/studio/out/**/*.app.zip
           - apps/studio/out/*.dmg
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
         matrix:
           - x64
           - arm64
@@ -69,7 +74,7 @@ steps:
         agents:
           queue: windows
         env:
-          USE_AZURE_TRUSTED_SIGNING: 1
+          SIGN_WINDOWS_BUILD: 1
         command: |
           bash .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
           powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release -Architecture {{matrix}}
@@ -78,6 +83,8 @@ steps:
           - apps\studio\out\**\studio-update.nupkg
           - apps\studio\out\**\RELEASES
           - apps\studio\out\**\*.appx
+          - standalone-bundles\studio-cli-*.tgz
+          - standalone-bundles\studio-cli-*.tgz.sha256
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - x64
@@ -85,6 +92,51 @@ steps:
         notify:
           - github_commit_status:
               context: All Windows Release Builds
+
+  - group: 📦 Build for Linux
+    key: release-linux
+    steps:
+      - label: 🔨 Linux Release Build - {{matrix}}
+        agents:
+          queue: default
+        command: |
+          set -eu
+
+          # The container has no SSH keys / known_hosts, use anonymous HTTPS
+          git remote set-url origin https://github.com/Automattic/studio.git
+
+          bash .buildkite/commands/checkout-release-branch.sh "${RELEASE_VERSION}"
+
+          apt-get -o Acquire::Retries=3 update
+          apt-get install -y --no-install-recommends fakeroot
+
+          # `--maxsockets 1` works around npm/cli#4652 (ECONNRESETs on Linux);
+          # see install-node-dependencies.sh for the original rationale.
+          npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
+
+          echo "--- :node: Building DEB"
+          npm run make:linux-{{matrix}}
+
+          echo "--- :package: Building standalone CLI bundle"
+          npm run cli:bundle -- linux {{matrix}}
+        artifact_paths:
+          - apps/studio/out/make/deb/**/*.deb
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
+        plugins:
+          # Same Docker-on-default-queue pattern as the dev Linux build group
+          # (see .buildkite/pipeline.yml): Amazon Linux on `default` lacks
+          # `dpkg`/`fakeroot`, so we build inside the Debian Node image.
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
+        matrix:
+          - x64
+          - arm64
+        notify:
+          - github_commit_status:
+              context: All Linux Release Builds
 
   - label: ":rocket: Publish Release Builds"
     command: |
@@ -99,7 +151,10 @@ steps:
       buildkite-agent artifact download "*.exe" .
       buildkite-agent artifact download "*.appx" .
       buildkite-agent artifact download "*.nupkg" .
+      buildkite-agent artifact download "*.deb" .
       buildkite-agent artifact download "*\\RELEASES" .
+      buildkite-agent artifact download "*.tgz" .
+      buildkite-agent artifact download "*.tgz.sha256" .
 
       .buildkite/commands/install-node-dependencies.sh
 
@@ -111,6 +166,7 @@ steps:
     depends_on:
       - step: release-mac
       - step: release-windows
+      - step: release-linux
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
       - github_commit_status:

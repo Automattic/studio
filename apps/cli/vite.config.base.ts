@@ -1,4 +1,5 @@
-import { copyFileSync, cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { execSync } from 'child_process';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
@@ -28,9 +29,69 @@ if ( ! minimumNodeVersion ) {
 
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
-const bundledReprintPhar = resolve( __dirname, 'lib/pull/reprint.phar' );
+// The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
+// `ai/skills.ts`), so they must sit directly next to the built chunks.
+const skillsSourcePath = resolve( __dirname, 'ai/skills' );
+
+const dataLiberationSourcePath = resolve(
+	__dirname,
+	'..',
+	'..',
+	'packages',
+	'data-liberation-agent'
+);
+const repoRoot = resolve( __dirname, '..', '..' );
+
+// The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
+// from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
+// separately (`npm run build:local --workspace=apps/ui`); absent in API-only
+// or dev-server setups, which is fine.
+const localUiDistPath = resolve( __dirname, '../ui/dist-local' );
+
+// Ship only the self-contained engine bundle — its deps are inlined. Shipping
+// the tsc output + node_modules instead added ~10k files to the installer and
+// ~8 min to the Windows CI build (STU-2027).
+function copyDataLiberationEngine( outDir: string ) {
+	execSync( 'npm -w data-liberation run build:mcp-bundle', {
+		cwd: repoRoot,
+		stdio: 'inherit',
+	} );
+	const engineOutDir = resolve( outDir, 'data-liberation-agent' );
+	mkdirSync( resolve( engineOutDir, 'dist' ), { recursive: true } );
+	copyFileSync(
+		resolve( dataLiberationSourcePath, 'dist', 'mcp-server.bundle.mjs' ),
+		resolve( engineOutDir, 'dist', 'mcp-server.bundle.mjs' )
+	);
+	cpSync( resolve( dataLiberationSourcePath, 'skills' ), resolve( engineOutDir, 'skills' ), {
+		recursive: true,
+	} );
+
+	// The bundle resolves vendored runtime assets (.php helpers run via
+	// `wp eval-file`, .json data like core-block-attrs.json) relative to the
+	// engine's original src/ module paths — see the import.meta.url rewrite in
+	// packages/data-liberation-agent/scripts/build-mcp-bundle.mjs — so mirror
+	// those files (and nothing else) under src/.
+	const copyRuntimeAssets = ( srcDir: string, destDir: string ) => {
+		for ( const entry of readdirSync( srcDir, { withFileTypes: true } ) ) {
+			const from = resolve( srcDir, entry.name );
+			if ( entry.isDirectory() ) {
+				if ( /^__(tests|fixtures|snapshots)__$/.test( entry.name ) ) {
+					continue;
+				}
+				copyRuntimeAssets( from, resolve( destDir, entry.name ) );
+			} else if ( /\.(php|json)$/.test( entry.name ) ) {
+				mkdirSync( destDir, { recursive: true } );
+				copyFileSync( from, resolve( destDir, entry.name ) );
+			}
+		}
+	};
+	copyRuntimeAssets( resolve( dataLiberationSourcePath, 'src' ), resolve( engineOutDir, 'src' ) );
+}
 
 export const baseConfig = defineConfig( {
+	oxc: {
+		target: `node${ semver.major( minimumNodeVersion ) }`,
+	},
 	plugins: [
 		{
 			name: 'write-dist-extras',
@@ -48,8 +109,14 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( bundledWpFilesPath ) ) {
 					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
 				}
-				if ( existsSync( bundledReprintPhar ) ) {
-					copyFileSync( bundledReprintPhar, resolve( outDir, 'reprint.phar' ) );
+				if ( existsSync( skillsSourcePath ) ) {
+					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
+				}
+
+				copyDataLiberationEngine( outDir );
+
+				if ( existsSync( localUiDistPath ) ) {
+					cpSync( localUiDistPath, resolve( outDir, 'ui' ), { recursive: true } );
 				}
 			},
 		},
@@ -70,11 +137,26 @@ export const baseConfig = defineConfig( {
 		},
 		outDir: 'dist/cli',
 		target: 'node22',
-		rollupOptions: {
+		rolldownOptions: {
 			output: {
 				format: 'es',
 				entryFileNames: '[name].mjs',
 				chunkFileNames: '[name]-[hash].mjs',
+				// Some bundled CommonJS dependencies (e.g. `lockfile`, `debug`) call
+				// `require( ... )` for Node built-ins at module init. Rolldown (the
+				// default bundler in Vite 8) emits a shim that throws when those calls
+				// run in an ESM output (`.mjs`), since ESM has no implicit `require`.
+				// Provide a real `require` per chunk via `createRequire` so the shim
+				// uses it instead of throwing. `main.mjs` additionally gets a shebang so
+				// the npm-published bundle can be executed directly as a CLI (harmless in
+				// other builds — Node ignores it when the file is run via `node main.mjs`).
+				banner: ( chunk ) => {
+					const requireShim =
+						'import { createRequire as __studioCreateRequire } from "node:module"; const require = __studioCreateRequire(import.meta.url);';
+					return chunk.fileName === 'main.mjs'
+						? `#!/usr/bin/env node\n${ requireShim }`
+						: requireShim;
+				},
 			},
 			external: ( id ) => {
 				// Bundle the `@wp-playground/blueprints/blueprint-schema-validator` module since we've defined
@@ -99,7 +181,10 @@ export const baseConfig = defineConfig( {
 	resolve: {
 		alias: {
 			cli: resolve( __dirname, '.' ),
-			'@studio/common': resolve( __dirname, '../../tools/common' ),
+			'@studio/common': resolve( __dirname, '../../packages/common' ),
+			// The `studio ui` local server (apps/local) is bundled into the CLI
+			// from source, the same way `@studio/common` is.
+			'@studio/local': resolve( __dirname, '../local/src' ),
 			'@wp-playground/blueprints/blueprint-schema-validator': resolve(
 				__dirname,
 				'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
@@ -111,6 +196,7 @@ export const baseConfig = defineConfig( {
 	define: {
 		__ENABLE_CLI_TELEMETRY__: false,
 		__IS_PACKAGED_FOR_NPM__: false,
+		__IS_PACKAGED_FOR_STANDALONE__: false,
 		__MINIMUM_NODE_VERSION__: JSON.stringify( minimumNodeVersion ),
 		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
 	},

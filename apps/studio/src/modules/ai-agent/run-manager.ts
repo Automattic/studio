@@ -1,174 +1,76 @@
-import crypto from 'crypto';
-import { fork, type ChildProcess } from 'node:child_process';
+import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
-import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { JsonEvent } from '@studio/common/ai/json-events';
+import type { ActiveAgentRun } from '@studio/common/ai/agent-events';
+import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
+import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { WebContents } from 'electron';
 
-interface AgentRun {
-	runId: string;
-	sessionId: string;
-	child: ChildProcess;
-	webContents: WebContents;
-	interrupted: boolean;
-	interruptAttempts: number;
-}
+/**
+ * Desktop binding for the shared agent run-manager
+ * (`@studio/common/ai/run-manager`). The fork, lifecycle, stats,
+ * placement, and error reporting all live in the shared core; this module only
+ * supplies the desktop's two host specifics — the bundled CLI/Node binaries and
+ * the IPC transport — plus per-run routing. The `studio ui` server wires the
+ * same core to SSE instead.
+ */
 
-// Two subprocesses resuming the same session id would race on the JSONL
-// recorder, so we reject the second one here.
-const runsBySessionId = new Map< string, AgentRun >();
-const runsById = new Map< string, AgentRun >();
+// The renderer that started each run, keyed by the unique runId so overlapping
+// runs on the same session (interrupt-then-restart, or a rejected double-send)
+// never clobber each other's routing.
+const runWebContents = new Map< string, WebContents >();
 
-function nowIso(): string {
-	return new Date().toISOString();
-}
-
-function sendEvent( run: AgentRun, event: AgentRunEvent[ 'event' ] ): void {
-	if ( run.webContents.isDestroyed() ) {
-		return;
-	}
-	const payload: AgentRunEvent = {
-		runId: run.runId,
-		sessionId: run.sessionId,
-		event,
-	};
-	run.webContents.send( 'ai-agent-event', payload );
-}
+const runManager = createAgentRunManager( {
+	cliBinary: getCliPath(),
+	nodeBinary: getBundledNodeBinaryPath(),
+	surface: 'desktop',
+	emit: ( output ) => {
+		const webContents = runWebContents.get( output.runId );
+		if ( webContents && ! webContents.isDestroyed() ) {
+			if ( output.kind === 'agent' ) {
+				webContents.send( 'ai-agent-event', output.event );
+			} else {
+				webContents.send( 'ai-session-placement-updated', output.event );
+			}
+		}
+		// The run is over once it exits; drop its mapping so a destroyed window
+		// doesn't linger.
+		if ( output.kind === 'agent' && output.event.event.type === 'run.exited' ) {
+			runWebContents.delete( output.runId );
+		}
+	},
+} );
 
 export interface StartAgentRunOptions {
 	sessionId: string;
 	prompt: string;
 	displayMessage?: string;
+	images?: StudioChatImage[];
+	files?: StudioChatFileAttachment[];
 	webContents: WebContents;
 }
 
 export function startAgentRun( options: StartAgentRunOptions ): { runId: string } {
-	const { sessionId, prompt, displayMessage, webContents } = options;
-
-	if ( runsBySessionId.has( sessionId ) ) {
-		throw new Error( `A run is already in progress for session ${ sessionId }` );
-	}
-
-	const runId = crypto.randomUUID();
-	const cliPath = getCliPath();
-	const args = [ 'code', 'sessions', 'resume', sessionId, prompt, '--json', '--avoid-telemetry' ];
-	if ( displayMessage ) {
-		args.push( '--display-message', displayMessage );
-	}
-	const child = fork( cliPath, args, {
-		// Agent events arrive over the Node IPC channel (via `process.send`
-		// in the child). stdout/stderr are ignored — the child's
-		// `emitEvent` falls back to stdout only when IPC isn't available.
-		stdio: [ 'ignore', 'ignore', 'ignore', 'ipc' ],
-		execPath: getBundledNodeBinaryPath(),
-		execArgv: [ '--experimental-wasm-jspi' ],
-		env: { ...process.env },
-	} );
-
-	const run: AgentRun = {
-		runId,
-		sessionId,
-		child,
-		webContents,
-		interrupted: false,
-		interruptAttempts: 0,
-	};
-
-	runsBySessionId.set( sessionId, run );
-	runsById.set( runId, run );
-
-	child.on( 'spawn', () => {
-		sendEvent( run, { type: 'run.started', timestamp: nowIso() } );
-	} );
-
-	child.on( 'message', ( message ) => {
-		// The CLI's `Logger` also writes to this IPC channel with a different
-		// shape (`{ action, status, message }`) on error paths. Forward only
-		// messages that look like the CLI JSON transport envelope.
-		if ( message && typeof message === 'object' && 'type' in message ) {
-			sendEvent( run, message as JsonEvent );
-		}
-	} );
-
-	const cleanup = ( code: number | null ) => {
-		runsBySessionId.delete( sessionId );
-		runsById.delete( runId );
-
-		if ( run.interrupted ) {
-			sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );
-		}
-		sendEvent( run, {
-			type: 'run.exited',
-			timestamp: nowIso(),
-			status: code === 0 ? 'success' : 'error',
-			code,
-		} );
-	};
-
-	child.on( 'error', ( error ) => {
-		sendEvent( run, {
-			type: 'error',
-			timestamp: nowIso(),
-			message: error.message || 'CLI subprocess failed to start',
-		} );
-	} );
-
-	child.on( 'exit', cleanup );
-
-	const abortOnDestroy = () => {
-		if ( ! runsById.has( runId ) ) {
-			return;
-		}
-		interruptAgentRun( runId );
-	};
-	webContents.once( 'destroyed', abortOnDestroy );
-
-	return { runId };
+	const { sessionId, prompt, displayMessage, images, files, webContents } = options;
+	// `startAgentRun` forks the child and returns its id synchronously; the
+	// child's first event arrives async (next tick), so registering the route
+	// after a successful start — keyed by the unique runId — is in time, and a
+	// rejected start (e.g. a concurrent run on the same session) never touches
+	// another run's routing.
+	const result = runManager.startAgentRun( { sessionId, prompt, displayMessage, images, files } );
+	runWebContents.set( result.runId, webContents );
+	// Abort the run if the window that started it goes away.
+	webContents.once( 'destroyed', () => runManager.interruptAgentRun( result.runId ) );
+	return result;
 }
 
-const INTERRUPT_FORCE_KILL_TIMEOUT_MS = 2000;
+export function listActiveAgentRuns(): ActiveAgentRun[] {
+	return runManager.listActiveAgentRuns();
+}
 
 export function interruptAgentRun( runId: string ): void {
-	const run = runsById.get( runId );
-	if ( ! run ) {
-		return;
-	}
-	run.interrupted = true;
-	run.interruptAttempts += 1;
-	if ( runsBySessionId.get( run.sessionId ) === run ) {
-		runsBySessionId.delete( run.sessionId );
-	}
-
-	// Second click escalates: the graceful path is in flight but evidently
-	// not landing fast enough, so skip the grace period.
-	if ( run.interruptAttempts > 1 ) {
-		run.child.kill( 'SIGKILL' );
-		return;
-	}
-
-	// First click: tell the child to interrupt via the Agent SDK and exit
-	// cleanly (so the session recorder flushes). SIGTERM is swallowed by
-	// module-level handlers that aren't wired to the SDK, so we use IPC.
-	if ( run.child.connected ) {
-		run.child.send( { type: 'interrupt' } );
-		sendEvent( run, { type: 'run.interrupting', timestamp: nowIso() } );
-		// Safety net: if the graceful path doesn't land quickly, force-kill
-		// so the renderer can't get stuck in a busy state.
-		setTimeout( () => {
-			if ( runsById.get( runId ) === run && ! run.child.killed ) {
-				run.child.kill( 'SIGKILL' );
-			}
-		}, INTERRUPT_FORCE_KILL_TIMEOUT_MS ).unref();
-		return;
-	}
-
-	run.child.kill( 'SIGKILL' );
+	runManager.interruptAgentRun( runId );
 }
 
 export function answerAgentRun( runId: string, answers: Record< string, string > ): void {
-	const run = runsById.get( runId );
-	if ( ! run || ! run.child.connected ) {
-		return;
-	}
-	run.child.send( { type: 'answer', answers } );
+	runManager.answerAgentRun( runId, answers );
 }

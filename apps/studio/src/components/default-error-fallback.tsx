@@ -116,11 +116,7 @@ export default function DefaultErrorFallback() {
 						) }
 					>
 						<div className="flex flex-col h-full">
-							<div
-								className={ cx(
-									'w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4'
-								) }
-							>
+							<div className="w-full overflow-y-auto overflow-x-hidden flex flex-col gap-0.5 pb-4">
 								<SitesSkeleton />
 							</div>
 							<div className="mt-auto min-h-[103px] pt-5">

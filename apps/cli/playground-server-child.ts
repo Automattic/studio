@@ -10,13 +10,18 @@
  * - Sends response back when ready
  * - Sends activity heartbeats to prevent timeout during long operations
  */
+import { rootCertificates } from 'node:tls';
 import path, { dirname } from 'path';
+import { setPhpIniEntries } from '@php-wasm/universal';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { IS_JSPI_AVAILABLE } from '@studio/common/lib/jspi';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
-import { cleanupLegacyMuPlugins, getMuPlugins } from '@studio/common/lib/mu-plugins';
-import { decodePassword } from '@studio/common/lib/passwords';
+import {
+	cleanupLegacyMuPlugins,
+	getMuPlugins,
+	STUDIO_ERROR_LOG_FILENAME,
+} from '@studio/common/lib/mu-plugins';
 import { formatPlaygroundCliMessage } from '@studio/common/lib/playground-cli-messages';
 import { sequential } from '@studio/common/lib/sequential';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -31,6 +36,11 @@ import {
 import { WordPressInstallMode } from '@wp-playground/wordpress';
 import fs from 'fs-extra';
 import { z } from 'zod';
+import {
+	requestSetAdminCredentials,
+	SetAdminCredentialsRequest,
+	SetAdminCredentialsRequestBody,
+} from 'cli/lib/admin-credentials';
 import { sanitizeRunCLIArgs } from 'cli/lib/cli-args-sanitizer';
 import {
 	getPhpMyAdminPath,
@@ -98,24 +108,27 @@ function escapePhpString( str: string ): string {
 	return str.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 
-async function setAdminCredentials(
-	server: RunCLIServer,
-	adminPassword?: string,
-	adminUsername?: string,
-	adminEmail?: string
-): Promise< void > {
-	await server.playground.request( {
-		url: '/?studio-admin-api',
-		method: 'POST',
-		body: {
-			action: 'set_admin_password',
-			...( adminPassword && {
-				password: escapePhpString( decodePassword( adminPassword ) ),
-			} ),
-			...( adminUsername && { username: escapePhpString( adminUsername ) } ),
-			...( adminEmail && { email: escapePhpString( adminEmail ) } ),
-		},
+async function setAdminCredentials( server: RunCLIServer, config: ServerConfig ): Promise< void > {
+	await requestSetAdminCredentials( config, async ( request ) => {
+		await server.playground.request( escapeRequestForPlayground( request ) );
 	} );
+}
+
+function escapeRequestForPlayground(
+	request: SetAdminCredentialsRequest
+): SetAdminCredentialsRequest {
+	return {
+		...request,
+		body: escapeRequestBodyForPlayground( request.body ),
+	};
+}
+
+function escapeRequestBodyForPlayground(
+	body: SetAdminCredentialsRequestBody
+): SetAdminCredentialsRequestBody {
+	return Object.fromEntries(
+		Object.entries( body ).map( ( [ key, value ] ) => [ key, escapePhpString( value ) ] )
+	) as SetAdminCredentialsRequestBody;
 }
 
 /**
@@ -178,6 +191,25 @@ function buildSetupSteps( config: ServerConfig ): Array< Record< string, unknown
 	return steps;
 }
 
+function blueprintInjectsWpCliPhar( config: ServerConfig ): boolean {
+	const contents = config.blueprint?.contents;
+	const steps = contents?.steps;
+	const extraLibraries = ( contents as { extraLibraries?: unknown } | undefined )?.extraLibraries;
+	const hasTriggeringStep =
+		Array.isArray( steps ) &&
+		steps.some(
+			( step ) =>
+				typeof step === 'object' &&
+				step !== null &&
+				'step' in step &&
+				( step.step === 'wp-cli' || step.step === 'enableMultisite' )
+		);
+	const wpCliInExtraLibraries =
+		Array.isArray( extraLibraries ) && extraLibraries.includes( 'wp-cli' );
+
+	return hasTriggeringStep || wpCliInExtraLibraries;
+}
+
 function getBaseRunCLIArgs(
 	command: 'server',
 	config: ServerConfig
@@ -190,28 +222,6 @@ async function getBaseRunCLIArgs(
 	command: RunCLIArgs[ 'command' ],
 	config: ServerConfig
 ): Promise< RunCLIArgs > {
-	// For sites imported via `studio pull-reprint`, the pull command
-	// persists the computed start options to start-options.json so the
-	// daemon doesn't need to recompute them (which would spin up PHP
-	// WASM to extract runtime.php constants from the imported site).
-	if ( ! config.useExactMountLayout && config.blueprint?.uri ) {
-		try {
-			const optionsPath = path.join( path.dirname( config.blueprint.uri ), 'start-options.json' );
-			if ( fs.existsSync( optionsPath ) ) {
-				const saved = JSON.parse( fs.readFileSync( optionsPath, 'utf-8' ) );
-				if ( saved.useExactMountLayout ) {
-					config.mountsBeforeInstall = saved.mountsBeforeInstall;
-					config.mounts = saved.mounts;
-					config.wordpressInstallMode = saved.wordpressInstallMode ?? config.wordpressInstallMode;
-					config.useExactMountLayout = true;
-					logToConsole( `Loaded persisted start options from ${ optionsPath } before startup` );
-				}
-			}
-		} catch {
-			// Ignore missing or invalid start options and continue with the provided config.
-		}
-	}
-
 	const wordpressInstallMode =
 		config.wordpressInstallMode ?? ( await getWordPressInstallMode( config.sitePath ) );
 	const useExactMountLayout = config.useExactMountLayout ?? false;
@@ -222,9 +232,14 @@ async function getBaseRunCLIArgs(
 
 	const [ studioMuPluginsHostPath, loaderMuPluginHostPath ] = await getMuPlugins( {
 		isWpAutoUpdating: config.isWpAutoUpdating,
+		errorLogPath: config.enableDebugLog
+			? '/wordpress/wp-content/debug.log'
+			: `/wordpress/wp-content/${ STUDIO_ERROR_LOG_FILENAME }`,
+		errorLogStopAfterBoot: ! config.enableDebugLog,
 	} );
 
 	if ( ! useExactMountLayout ) {
+		const shouldMountBundledWpCli = ! blueprintInjectsWpCliPhar( config );
 		mountsBeforeInstall = [
 			...( config.mountsBeforeInstall ?? [
 				{
@@ -232,15 +247,25 @@ async function getBaseRunCLIArgs(
 					vfsPath: '/wordpress',
 				},
 			] ),
-			{
-				hostPath: getWpCliPharPath(),
-				vfsPath: '/tmp/wp-cli.phar',
-			},
+			...( shouldMountBundledWpCli
+				? [
+						{
+							hostPath: getWpCliPharPath(),
+							vfsPath: '/tmp/wp-cli.phar',
+						},
+				  ]
+				: [] ),
 			{
 				hostPath: getSqliteCommandPath(),
 				vfsPath: '/tmp/sqlite-command',
 			},
 		];
+
+		if ( ! shouldMountBundledWpCli ) {
+			logToConsole(
+				'Skipping bundled WP-CLI mount because Playground injects /tmp/wp-cli.phar for this Blueprint'
+			);
+		}
 	}
 
 	// Studio MU-plugins (auto-login, admin-api, etc.) must be mounted for
@@ -414,14 +439,20 @@ const startServer = wrapWithStartingPromise(
 
 			stopSignal.throwIfAborted();
 
-			if ( config.adminPassword || config.adminUsername || config.adminEmail ) {
-				await setAdminCredentials(
-					server,
-					config.adminPassword,
-					config.adminUsername,
-					config.adminEmail
-				);
-			}
+			// Playground CLI only writes the CA bundle when booting a fresh WordPress install; set it here for existing sites too (#3153).
+			await server.playground.writeFile(
+				'/internal/shared/ca-bundle.crt',
+				rootCertificates.join( '\n' )
+			);
+			await setPhpIniEntries( server.playground, {
+				'openssl.cafile': '/internal/shared/ca-bundle.crt',
+				'curl.cainfo': '/internal/shared/ca-bundle.crt',
+				memory_limit: '512M',
+			} );
+
+			stopSignal.throwIfAborted();
+
+			await setAdminCredentials( server, config );
 
 			stopSignal.throwIfAborted();
 		} catch ( error ) {

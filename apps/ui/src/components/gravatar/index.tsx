@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import styles from './style.module.css';
 
-const DEFAULT_LIGHT = 'https://s0.wp.com/i/studio-app/profile-icon.png';
-const DEFAULT_DARK = 'https://s0.wp.com/i/studio-app/profile-icon-black.png';
+const PROFILE_ICON_FOR_LIGHT = 'https://s0.wp.com/i/studio-app/profile-icon-black.png';
+const PROFILE_ICON_FOR_DARK = 'https://s0.wp.com/i/studio-app/profile-icon.png';
 
 async function sha256Hex( input: string ): Promise< string > {
 	const digest = await crypto.subtle.digest( 'SHA-256', new TextEncoder().encode( input ) );
@@ -20,7 +20,7 @@ function useGravatarUrl( email: string | undefined, isDark: boolean ): string | 
 			return;
 		}
 		let cancelled = false;
-		const fallback = isDark ? DEFAULT_DARK : DEFAULT_LIGHT;
+		const fallback = isDark ? PROFILE_ICON_FOR_DARK : PROFILE_ICON_FOR_LIGHT;
 		void sha256Hex( email.trim().toLowerCase() ).then( ( hash ) => {
 			if ( cancelled ) {
 				return;
@@ -38,20 +38,22 @@ function useGravatarUrl( email: string | undefined, isDark: boolean ): string | 
 type GravatarProps = {
 	email: string;
 	isDark: boolean;
+	className?: string;
 };
 
-export function Gravatar( { email, isDark }: GravatarProps ) {
+export function Gravatar( { email, isDark, className }: GravatarProps ) {
 	const url = useGravatarUrl( email, isDark );
 	const [ errored, setErrored ] = useState( false );
+	const rootClassName = `${ styles.root } ${ className ?? '' }`;
 
 	if ( ! url || errored ) {
-		return <span aria-hidden="true" className={ styles.root } />;
+		return <span aria-hidden="true" className={ rootClassName } />;
 	}
 
 	return (
 		<img
 			aria-hidden="true"
-			className={ styles.root }
+			className={ rootClassName }
 			src={ url }
 			alt=""
 			onError={ () => setErrored( true ) }

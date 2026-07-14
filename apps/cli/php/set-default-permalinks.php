@@ -1,4 +1,5 @@
 <?php
+
 function __is_wp_installed() {
 	$wp_load = getcwd() . '/wp-load.php';
 	if ( !file_exists( $wp_load ) ) {

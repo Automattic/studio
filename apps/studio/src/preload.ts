@@ -38,6 +38,8 @@ const api: IpcApi = {
 			optionsToSync,
 			specificSelectionPaths
 		),
+	pushSiteToLive: ( selectedSiteId, remoteSiteId ) =>
+		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	copySite: ( sourceSiteId, newSiteId, siteName ) =>
 		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),
@@ -147,6 +149,7 @@ const api: IpcApi = {
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
 	getFileSize: ( id, filePath ) => ipcRendererInvoke( 'getFileSize', id, filePath ),
 	getPathForFile: ( file ) => webUtils.getPathForFile( file ),
+	readLocalMediaFile: ( path ) => ipcRendererInvoke( 'readLocalMediaFile', path ),
 	isFullscreen: () => ipcRendererInvoke( 'isFullscreen' ),
 	getAllCustomDomains: () => ipcRendererInvoke( 'getAllCustomDomains' ),
 	saveUserTerminal: ( preferredTerminal ) =>
@@ -173,6 +176,9 @@ const api: IpcApi = {
 	setTitleBarBackdropEffect: ( enabled ) =>
 		ipcRendererInvoke( 'setTitleBarBackdropEffect', enabled ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
+	getRemoteSessionDaemonStatus: () => ipcRendererInvoke( 'getRemoteSessionDaemonStatus' ),
+	startRemoteSessionDaemon: () => ipcRendererInvoke( 'startRemoteSessionDaemon' ),
+	stopRemoteSessionDaemon: () => ipcRendererInvoke( 'stopRemoteSessionDaemon' ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
@@ -185,19 +191,6 @@ const api: IpcApi = {
 	getWordPressSkillsStatus: ( siteId ) => ipcRendererInvoke( 'getWordPressSkillsStatus', siteId ),
 	installWordPressSkills: ( siteId, options ) =>
 		ipcRendererInvoke( 'installWordPressSkills', siteId, options ),
-	studioCodeSendMessage: ( siteId, sitePath, siteName, message ) =>
-		ipcRendererInvoke( 'studioCodeSendMessage', siteId, sitePath, siteName, message ),
-	studioCodeRespondToPermission: ( siteId, sitePath, siteName, message, permissionResponse ) =>
-		ipcRendererInvoke(
-			'studioCodeRespondToPermission',
-			siteId,
-			sitePath,
-			siteName,
-			message,
-			permissionResponse
-		),
-	studioCodeAbort: ( siteId ) => ipcRendererSend( 'studioCodeAbort', siteId ),
-	studioCodeCheckProvider: () => ipcRendererInvoke( 'studioCodeCheckProvider' ),
 	installWordPressSkillById: ( siteId, skillId, options ) =>
 		ipcRendererInvoke( 'installWordPressSkillById', siteId, skillId, options ),
 	removeWordPressSkillById: ( siteId, skillId ) =>
@@ -212,8 +205,13 @@ const api: IpcApi = {
 	deleteAiSession: ( sessionIdOrPrefix ) =>
 		ipcRendererInvoke( 'deleteAiSession', sessionIdOrPrefix ),
 	createAiSession: ( siteId ) => ipcRendererInvoke( 'createAiSession', siteId ),
+	updateAiSessionMetadata: ( sessionIdOrPrefix, patch ) =>
+		ipcRendererInvoke( 'updateAiSessionMetadata', sessionIdOrPrefix, patch ),
 	continueAiSession: ( sessionId, prompt, options ) =>
 		ipcRendererInvoke( 'continueAiSession', sessionId, prompt, options ),
+	markAiMessageEdited: ( sessionId, originalEntryId ) =>
+		ipcRendererInvoke( 'markAiMessageEdited', sessionId, originalEntryId ),
+	listActiveAiAgentRuns: () => ipcRendererInvoke( 'listActiveAiAgentRuns' ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
@@ -221,6 +219,7 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
 	setSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setSessionEnvironment', sessionId, environment ),
+	fetchSiteRestApi: ( siteId, request ) => ipcRendererInvoke( 'fetchSiteRestApi', siteId, request ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

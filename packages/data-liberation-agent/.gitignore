@@ -1,0 +1,32 @@
+graphify-out/
+output/
+skills/replicate-workspace/
+node_modules/
+.DS_Store
+*.log
+# dist/ is build output, EXCEPT the committed plugin bundle: the Claude/Codex
+# plugin installer copies this package verbatim (no npm install, no build), so
+# the self-contained MCP server bundle must live in git.
+dist/*
+!dist/mcp-server.bundle.mjs
+docs/plans/
+docs/superpowers/
+qa-screenshots/
+.claude/
+.liberation-lock
+.playwright-mcp/
+.superpowers/
+.worktrees/
+.tmp-test/
+TODOS.md
+# Local discovery log — see CONTRIBUTING.md; intentionally not committed
+DISCOVERIES.md
+
+# Streaming compose-then-install scratch dir
+.tmp-compose/
+
+# Scratch reference clones (e.g. source-site mirrors, try-wordpress)
+clones/
+
+# This repo uses npm (package-lock.json) — a stray pnpm lockfile shouldn't land
+pnpm-lock.yaml

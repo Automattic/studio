@@ -10,12 +10,14 @@ import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
-import { isRemoteSessionEnabled } from 'cli/lib/feature-flags';
+import { runCommand as runPushCommand } from 'cli/commands/push';
+import { openBrowser } from 'cli/lib/browser';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
 import { loadRemoteSessionConfig } from 'cli/remote-session/config';
 import { DaemonAlreadyRunningError, startDaemon, stopDaemon } from 'cli/remote-session/daemon';
-import type { AutocompleteItem } from '@mariozechner/pi-tui';
+import type { AutocompleteItem } from '@earendil-works/pi-tui';
 import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
@@ -43,13 +45,6 @@ export interface SlashCommandDef {
 	description: string;
 	handler?: SlashCommandHandler;
 	/**
-	 * Optional gate. When provided and returning false at evaluation time, the
-	 * command is hidden from autocomplete and unreachable from the dispatcher.
-	 * Used for feature-flagged commands so the surface stays clean for users
-	 * who haven't opted in.
-	 */
-	enabled?: () => boolean;
-	/**
 	 * Optional argument completion. When the user has typed past the first
 	 * whitespace (e.g. `/remote-session `), the autocomplete provider calls
 	 * this to surface subcommand suggestions.
@@ -57,18 +52,10 @@ export interface SlashCommandDef {
 	getArgumentCompletions?: ( argumentPrefix: string ) => AutocompleteItem[] | null;
 }
 
-/**
- * Returns the slash commands that are active at the time this function is
- * called.
- *
- * Consumers such as the dispatcher should call this rather than reading
- * `AI_CHAT_SLASH_COMMANDS` directly so feature-flag evaluation happens
- * against current state. Consumers that cache the returned list, or build
- * long-lived autocomplete providers from it, must refresh those consumers
- * separately for later feature-flag changes to be reflected.
- */
 export function getActiveSlashCommands(): SlashCommandDef[] {
-	return AI_CHAT_SLASH_COMMANDS.filter( ( c ) => c.enabled === undefined || c.enabled() );
+	// Alphabetical order is what the autocomplete shows for a bare `/`; once
+	// the user types a query, fuzzy-match scoring takes over the ordering.
+	return [ ...AI_CHAT_SLASH_COMMANDS ].sort( ( a, b ) => a.name.localeCompare( b.name ) );
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -109,7 +96,7 @@ async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void 
 			sprintf(
 				/* translators: %d: daemon PID */
 				__(
-					'Remote-session started (PID %d). Message Dolly (@wordpress_com_bot) on Telegram to work with Studio.'
+					'Remote-session started (PID %d). Message WordPress Agent (@wordpressagentbot) on Telegram to work with Studio.'
 				),
 				result.pid
 			)
@@ -121,7 +108,7 @@ async function runRemoteSessionStart( ctx: SlashCommandContext ): Promise< void 
 				sprintf(
 					/* translators: %d: daemon PID */
 					__(
-						'Remote-session already running (PID %d). Message Dolly (@wordpress_com_bot) on Telegram to work with Studio.'
+						'Remote-session already running (PID %d). Message WordPress Agent (@wordpressagentbot) on Telegram to work with Studio.'
 					),
 					error.pid
 				)
@@ -511,9 +498,100 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		},
 	},
 	{
+		name: 'publish',
+		description: __( 'Publish the active site to WordPress.com' ),
+		handler: async ( _prompt, ctx ) => {
+			const site = ctx.ui.activeSite;
+			if ( ! site ) {
+				ctx.ui.showInfo( __( 'No site selected. Use ↓ to select a site first.' ) );
+				return 'continue';
+			}
+
+			const token = await readAuthToken();
+			if ( ! token ) {
+				ctx.ui.showInfo( __( 'WordPress.com login required. Use /login to authenticate.' ) );
+				return 'continue';
+			}
+
+			try {
+				ctx.ui.showProgress( __( 'Fetching your WordPress.com sites…' ) );
+				ctx.ui.setBusy( true );
+
+				const remoteSites = await fetchSyncableSites( token.accessToken );
+				const syncable = remoteSites.filter( ( s ) => s.syncSupport === 'syncable' );
+
+				if ( syncable.length === 0 ) {
+					ctx.ui.setBusy( false );
+					const checkoutUrl = new URL( 'https://wordpress.com/setup/new-hosted-site' );
+					checkoutUrl.searchParams.set( 'ref', 'studio' );
+					checkoutUrl.searchParams.set( 'section', 'studio-sync' );
+					checkoutUrl.searchParams.set( 'showDomainStep', 'true' );
+					checkoutUrl.searchParams.set( 'new', site.name );
+
+					await openBrowser( checkoutUrl.toString() );
+					ctx.ui.showInfo(
+						__(
+							'No WordPress.com sites found. Opening WordPress.com to create one — once your site is ready, run /publish again.'
+						)
+					);
+					return 'continue';
+				}
+
+				// Let the user pick which site to publish to.
+				const siteOptions = syncable.map( ( s ) => ( {
+					label: s.name,
+					description: s.url,
+				} ) );
+				ctx.ui.setBusy( false );
+				const answer = await ctx.ui.askUser( [
+					{
+						question: __( 'Select a WordPress.com site to publish to' ),
+						options: siteOptions,
+					},
+				] );
+				const selectedName = Object.values( answer )[ 0 ] as string;
+				const remoteSite = syncable.find( ( s ) => s.name === selectedName );
+				if ( ! remoteSite ) {
+					ctx.ui.showInfo( __( 'No site selected.' ) );
+					return 'continue';
+				}
+
+				ctx.ui.showProgress(
+					sprintf( __( 'Publishing to %s… this may take several minutes.' ), remoteSite.name )
+				);
+				ctx.ui.setBusy( true );
+
+				const result = await captureCommandOutput( () =>
+					runPushCommand( site.path, [ 'all' ], String( remoteSite.id ) )
+				);
+
+				ctx.ui.setBusy( false );
+
+				if ( result.exitCode ) {
+					ctx.ui.showError( result.consoleOutput || __( 'Failed to publish site.' ) );
+				} else {
+					ctx.ui.showSuccess(
+						sprintf( __( 'Published to %s' ), remoteSite.url ) + '\n\n   ' + remoteSite.url
+					);
+				}
+			} catch ( error ) {
+				ctx.ui.setBusy( false );
+				if ( isPromptAbortError( error ) ) {
+					ctx.ui.showInfo( __( 'Publish canceled.' ) );
+					return 'continue';
+				}
+				if ( error instanceof LoggerError ) {
+					ctx.ui.showError( error.message );
+				} else {
+					ctx.ui.showError( __( 'Failed to publish site.' ) );
+				}
+			}
+			return 'continue';
+		},
+	},
+	{
 		name: 'remote-session',
 		description: __( 'Manage the Telegram remote-session daemon (start, stop)' ),
-		enabled: isRemoteSessionEnabled,
 		getArgumentCompletions: ( argumentPrefix ) => {
 			const items: AutocompleteItem[] = [
 				{ value: 'start', label: 'start', description: __( 'Spawn the daemon' ) },
@@ -523,6 +601,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			return items.filter( ( item ) => item.value.startsWith( lower ) );
 		},
 		handler: runRemoteSessionSlashCommand,
+	},
+	{
+		name: 'swag',
+		description: __( 'Treat yourself to some WordPress swag' ),
+		handler: async () => {
+			await openBrowser( 'https://mercantile.wordpress.org/' );
+			return 'continue';
+		},
 	},
 	{
 		name: 'exit',

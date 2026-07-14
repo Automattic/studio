@@ -1,0 +1,55 @@
+{
+  "product": {
+    "title": "Gothic Silver Ring",
+    "handle": "gothic-silver-ring",
+    "body_html": "<p>A stunning gothic ring. <img src=\"https://cdn.shopify.com/s/files/1/inline-ring.jpg\" alt=\"ring detail\"></p>",
+    "product_type": "Rings",
+    "tags": "gothic, silver, ring",
+    "vendor": "RegalRose",
+    "image": {
+      "src": "https://cdn.shopify.com/s/files/1/featured-ring.jpg"
+    },
+    "images": [
+      { "src": "https://cdn.shopify.com/s/files/1/ring-front.jpg" },
+      { "src": "https://cdn.shopify.com/s/files/1/ring-side.jpg" }
+    ],
+    "variants": [
+      {
+        "title": "Small",
+        "price": "49.99",
+        "compare_at_price": "59.99",
+        "sku": "GSR-S",
+        "option1": "S",
+        "inventory_quantity": 10,
+        "available": true,
+        "weight": 15,
+        "weight_unit": "g"
+      },
+      {
+        "title": "Medium",
+        "price": "49.99",
+        "compare_at_price": "59.99",
+        "sku": "GSR-M",
+        "option1": "M",
+        "inventory_quantity": 5,
+        "available": true,
+        "weight": 18,
+        "weight_unit": "g"
+      },
+      {
+        "title": "Large",
+        "price": "54.99",
+        "compare_at_price": null,
+        "sku": "GSR-L",
+        "option1": "L",
+        "inventory_quantity": 0,
+        "available": false,
+        "weight": 20,
+        "weight_unit": "g"
+      }
+    ],
+    "options": [
+      { "name": "Size", "values": ["S", "M", "L"] }
+    ]
+  }
+}

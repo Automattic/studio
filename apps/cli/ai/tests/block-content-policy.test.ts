@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getHtmlBlockPolicyIssues } from 'cli/ai/block-content-policy';
+import { getHtmlBlockPolicyIssues, validateHtmlBlockPolicy } from 'cli/ai/block-content-policy';
 
 describe( 'HTML block content policy', () => {
 	it( 'allows inline SVG markup', () => {
@@ -34,5 +34,16 @@ describe( 'HTML block content policy', () => {
 
 		expect( issues ).toHaveLength( 1 );
 		expect( issues[ 0 ] ).toContain( 'should use editable core blocks' );
+	} );
+
+	it( 'returns invalid core/html blocks from full block content', () => {
+		const report =
+			validateHtmlBlockPolicy( `<!-- wp:html --><svg viewBox="0 0 10 10"></svg><!-- /wp:html -->
+<!-- wp:paragraph --><p>Editable text</p><!-- /wp:paragraph -->
+<!-- wp:html --><section><h2>Wrapped text</h2></section><!-- /wp:html -->` );
+
+		expect( report.totalHtmlBlocks ).toBe( 2 );
+		expect( report.invalidHtmlBlocks ).toHaveLength( 1 );
+		expect( report.invalidHtmlBlocks[ 0 ].content ).toContain( '<section>' );
 	} );
 } );

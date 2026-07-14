@@ -201,14 +201,29 @@ function extractMessages( payload: unknown ): PolledMessage[] {
 	return out;
 }
 
+export type RespondAction = 'create' | 'edit';
+
 export interface RespondParams {
 	chatId: number;
 	bot?: string;
-	/** Plain text reply. Required when no `photo` is provided. */
+	/**
+	 * What to do on Telegram's side. Defaults to `create` (sendMessage / sendPhoto).
+	 *  - `edit` requires `text` + `messageId`, forbids `photo` / `caption` in v1.
+	 *
+	 * The wpcom endpoint also accepts `delete` and `chat_action`, but neither
+	 * has a production caller in this codebase: the progress streamer settled
+	 * on edit-not-delete after Beeper rendered deletions as a persistent
+	 * tombstone. Add them back to the client when a consumer needs them.
+	 */
+	action?: RespondAction;
+	/** Required for `edit`. Returned by an earlier successful create. */
+	messageId?: number;
+	/** Plain text reply. Required for `create` (when no `photo`) and for `edit`. */
 	text?: string;
 	/**
-	 * Base64-encoded image bytes (PNG or JPEG). When set, the request goes out as
-	 * `multipart/form-data` so the server forwards it to Telegram via `sendPhoto`.
+	 * Base64-encoded image bytes (PNG or JPEG). `create` only. When set, the
+	 * request goes out as `multipart/form-data` so the server forwards it to
+	 * Telegram via `sendPhoto`.
 	 */
 	photo?: string;
 	/** MIME type of the photo bytes. Defaults to `image/png`. */
@@ -217,11 +232,34 @@ export interface RespondParams {
 	caption?: string;
 }
 
+/**
+ * Structured outcome of a `respondMessage` call. Always returned on 2xx, even
+ * when `success === false` — callers inspect `retryAfterMs` / `error` to
+ * decide what to do next, rather than catching exceptions.
+ */
+export interface RespondOutcome {
+	success: boolean;
+	/**
+	 * Telegram message ids returned by the server. For `create`, one per chunk
+	 * (text + optional photo). For `edit`, contains the edited message id.
+	 * Empty for any failure mode that didn't land a message.
+	 */
+	messageIds: number[];
+	/** Populated when Telegram throttled the underlying API call. */
+	retryAfterMs?: number;
+	textSent?: boolean;
+	photoSent?: boolean;
+	chunksSent?: number;
+	error?: string;
+}
+
 interface RespondResponseBody {
 	success?: boolean;
 	photo_sent?: boolean;
 	text_sent?: boolean;
 	chunks_sent?: number;
+	message_ids?: number[];
+	retry_after_ms?: number;
 	error?: string;
 }
 
@@ -229,29 +267,32 @@ interface RespondResponseBody {
  * POST a message back to Telegram. Retries up to 3 times on 5xx with exponential backoff.
  * 4xx responses are surfaced as TelegramBadRequestError and should be logged but not retried.
  *
- * Transports:
- *   - Text-only: `application/json` body — `{ chat_id, bot, text }`.
- *   - Photo (with optional caption / follow-up text): `multipart/form-data` with a
- *     binary `photo` file part plus text fields. The server validates the photo
- *     bytes (size + magic bytes) before forwarding to Telegram.
+ * Dispatches on `params.action` (default `create`). All actions share the same
+ * auth, retry, and outcome envelope:
+ *   - `create` (text only)      — `application/json` body to /local-agent-respond.
+ *   - `create` (text + photo)   — `multipart/form-data` with the raw photo bytes.
+ *   - `edit`                    — `application/json` body, single message, no chunking.
  *
  * The server always answers with HTTP 200 and a JSON body indicating partial outcomes
- * (`success`, `photo_sent`, `text_sent`, `error`). We log a warning when `success` is
- * false but do not throw — the caller has already committed to best-effort delivery.
+ * (`success`, `photo_sent`, `text_sent`, `message_ids`, `retry_after_ms`, `error`).
+ * We log a warning when `success` is false but do NOT throw on `retry_after_ms` —
+ * the caller inspects the returned outcome and decides how long to back off.
  */
 export async function respondMessage(
 	config: RemoteSessionConfig,
 	params: RespondParams,
 	options: { signal?: AbortSignal; maxRetries?: number; logger?: RemoteSessionLogger } = {}
-): Promise< void > {
+): Promise< RespondOutcome > {
+	const action: RespondAction = params.action ?? 'create';
+
 	// Normalize empty strings to "absent" so every downstream check (early
 	// guard, body builder, debug log) agrees on what counts as present.
 	const text = params.text && params.text.length > 0 ? params.text : undefined;
 	const photo = params.photo && params.photo.length > 0 ? params.photo : undefined;
+	const caption = params.caption && params.caption.length > 0 ? params.caption : undefined;
+	const messageId = params.messageId;
 
-	if ( ! text && ! photo ) {
-		throw new Error( 'respondMessage requires `text`, `photo`, or both' );
-	}
+	validateRespondParams( action, { text, photo, caption, messageId } );
 
 	const url = buildUrl( config.base_url, 'local-agent-respond' );
 	const allowedHost = new URL( config.base_url ).host;
@@ -261,10 +302,12 @@ export async function respondMessage(
 	const { body, contentType } = buildRespondBody( {
 		chatId: params.chatId,
 		bot,
+		action,
+		messageId,
 		text,
 		photo,
 		photoMimeType: params.photoMimeType,
-		caption: params.caption,
+		caption,
 	} );
 
 	const maxRetries = options.maxRetries ?? 3;
@@ -274,12 +317,14 @@ export async function respondMessage(
 	logger?.debug( 'Respond start', {
 		chat_id: params.chatId,
 		bot,
+		action,
+		message_id: messageId,
 		text_length: text?.length ?? 0,
 		text_preview: text?.slice( 0, 120 ),
 		has_photo: photo !== undefined,
 		photo_base64_chars: photo?.length ?? 0,
 		photo_mime_type: params.photoMimeType,
-		caption_length: params.caption?.length ?? 0,
+		caption_length: caption?.length ?? 0,
 		transport: contentType === undefined ? 'multipart' : 'json',
 	} );
 
@@ -354,29 +399,36 @@ export async function respondMessage(
 			);
 		}
 
-		const outcome = await readRespondOutcome( response );
-		if ( outcome && outcome.success === false ) {
+		const raw = await readRespondOutcome( response );
+		const outcome = toRespondOutcome( raw );
+		if ( ! outcome.success ) {
 			logger?.warn( 'Respond reported partial failure', {
 				chat_id: params.chatId,
-				photo_sent: outcome.photo_sent,
-				text_sent: outcome.text_sent,
+				action,
+				photo_sent: outcome.photoSent,
+				text_sent: outcome.textSent,
+				retry_after_ms: outcome.retryAfterMs,
 				error: outcome.error,
 			} );
 		} else {
 			logger?.debug( 'Respond ok', {
 				status: response.status,
 				chat_id: params.chatId,
+				action,
 				attempt,
-				photo_sent: outcome?.photo_sent,
-				text_sent: outcome?.text_sent,
-				chunks_sent: outcome?.chunks_sent,
+				photo_sent: outcome.photoSent,
+				text_sent: outcome.textSent,
+				chunks_sent: outcome.chunksSent,
+				message_ids: outcome.messageIds,
+				retry_after_ms: outcome.retryAfterMs,
 			} );
 		}
-		return;
+		return outcome;
 	}
 
 	logger?.error( 'Respond failed after retries', {
 		chat_id: params.chatId,
+		action,
 		max_retries: maxRetries,
 	} );
 	if ( lastError instanceof Error ) {
@@ -385,9 +437,74 @@ export async function respondMessage(
 	throw new TelegramTransientError( 'Respond failed after retries' );
 }
 
+function validateRespondParams(
+	action: RespondAction,
+	parts: {
+		text: string | undefined;
+		photo: string | undefined;
+		caption: string | undefined;
+		messageId: number | undefined;
+	}
+): void {
+	const { text, photo, caption, messageId } = parts;
+	switch ( action ) {
+		case 'create':
+			if ( ! text && ! photo ) {
+				throw new Error( 'respondMessage create requires `text`, `photo`, or both' );
+			}
+			if ( messageId !== undefined ) {
+				throw new Error( 'respondMessage create does not accept `messageId`' );
+			}
+			return;
+		case 'edit':
+			if ( messageId === undefined ) {
+				throw new Error( 'respondMessage edit requires `messageId`' );
+			}
+			if ( ! text ) {
+				throw new Error( 'respondMessage edit requires `text`' );
+			}
+			if ( photo || caption ) {
+				throw new Error( 'respondMessage edit does not accept `photo` or `caption` (v1)' );
+			}
+			return;
+	}
+}
+
+function toRespondOutcome( raw: RespondResponseBody | null ): RespondOutcome {
+	// A missing body is treated as a bare success — preserves the historical
+	// behavior where the server occasionally returned 200 with an empty body.
+	if ( ! raw ) {
+		return { success: true, messageIds: [] };
+	}
+	const out: RespondOutcome = {
+		success: raw.success !== false,
+		messageIds: Array.isArray( raw.message_ids )
+			? raw.message_ids.filter( ( id ): id is number => typeof id === 'number' )
+			: [],
+	};
+	if ( typeof raw.retry_after_ms === 'number' && raw.retry_after_ms > 0 ) {
+		out.retryAfterMs = raw.retry_after_ms;
+	}
+	if ( typeof raw.text_sent === 'boolean' ) {
+		out.textSent = raw.text_sent;
+	}
+	if ( typeof raw.photo_sent === 'boolean' ) {
+		out.photoSent = raw.photo_sent;
+	}
+	if ( typeof raw.chunks_sent === 'number' ) {
+		out.chunksSent = raw.chunks_sent;
+	}
+	if ( typeof raw.error === 'string' ) {
+		out.error = raw.error;
+	}
+	return out;
+}
+
 interface BuildBodyParams {
 	chatId: number;
 	bot?: string;
+	action: RespondAction;
+	messageId?: number;
 	text?: string;
 	photo?: string;
 	photoMimeType?: 'image/png' | 'image/jpeg';
@@ -414,11 +531,18 @@ function buildRespondBody( params: BuildBodyParams ): {
 	/** Set for the JSON path; `undefined` for multipart so fetch fills the boundary in. */
 	contentType?: string;
 } {
+	// Photos only ride the multipart path, and the server rejects `photo` on any
+	// non-create action — so multipart is implicitly create-only.
 	if ( params.photo ) {
 		const fd = new FormData();
 		fd.append( 'chat_id', String( params.chatId ) );
 		if ( params.bot ) {
 			fd.append( 'bot', params.bot );
+		}
+		// Default action is `create`; only emit the field when it's non-default
+		// so existing servers that don't yet know `action` still accept the body.
+		if ( params.action !== 'create' ) {
+			fd.append( 'action', params.action );
 		}
 		if ( params.text ) {
 			fd.append( 'text', params.text );
@@ -437,6 +561,12 @@ function buildRespondBody( params: BuildBodyParams ): {
 	const json: Record< string, unknown > = { chat_id: params.chatId };
 	if ( params.bot ) {
 		json.bot = params.bot;
+	}
+	if ( params.action !== 'create' ) {
+		json.action = params.action;
+	}
+	if ( params.messageId !== undefined ) {
+		json.message_id = params.messageId;
 	}
 	if ( params.text ) {
 		json.text = params.text;

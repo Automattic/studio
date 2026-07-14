@@ -1,8 +1,8 @@
 import { type ChildProcess, spawn } from 'child_process';
 import readline from 'readline';
 import { findLastAssistant } from '@studio/common/ai/session-events';
-import type { AgentMessage } from '@mariozechner/pi-agent-core';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { JsonEvent, TurnCompletedStatus } from '@studio/common/ai/json-events';
 import type { RemoteSessionLogger } from 'cli/remote-session/logger';
 
@@ -276,12 +276,9 @@ function appendStderrTail( current: string, chunk: Buffer ): string {
 function detectStaleSession(
 	stderrTail: string,
 	lastReply: string | undefined,
-	isError: boolean
+	errorEventMessage: string | undefined
 ): boolean {
-	const haystack = `${ stderrTail }\n${ lastReply ?? '' }`;
-	if ( ! isError && ! STALE_SESSION_PATTERNS.some( ( r ) => r.test( haystack ) ) ) {
-		return false;
-	}
+	const haystack = [ stderrTail, lastReply, errorEventMessage ].filter( Boolean ).join( '\n' );
 	return STALE_SESSION_PATTERNS.some( ( r ) => r.test( haystack ) );
 }
 
@@ -360,6 +357,7 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 	let nonJsonStdoutLines = 0;
 	let lastAssistantText = '';
 	let usedAssistantTextFallback = false;
+	let lastErrorEventMessage: string | undefined;
 
 	const rl = readline.createInterface( { input: child.stdout! } );
 	rl.on( 'line', ( line ) => {
@@ -380,6 +378,7 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		if ( event.type === 'progress' || event.type === 'info' ) {
 			logger?.event( event.type, event.message );
 		} else if ( event.type === 'error' ) {
+			lastErrorEventMessage = event.message;
 			logger?.event( 'error', event.message );
 		}
 
@@ -536,9 +535,10 @@ export async function runTurn( options: TurnRunOptions ): Promise< TurnOutcome >
 		} );
 	}
 
-	const status: TurnOutcomeStatus = completedStatus ?? ( isError ? 'error' : 'error' );
+	const status: TurnOutcomeStatus = completedStatus ?? 'error';
 	const staleSession =
-		options.sessionId !== undefined && detectStaleSession( stderrTail, replyText, isError );
+		options.sessionId !== undefined &&
+		detectStaleSession( stderrTail, replyText, lastErrorEventMessage );
 
 	logger?.info( 'Turn outcome', {
 		...logContext,

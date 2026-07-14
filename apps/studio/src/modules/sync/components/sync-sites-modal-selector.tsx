@@ -56,7 +56,12 @@ export function SyncSitesModalSelector( {
 
 	const sitesQuery = useSitesQuery( { connectedSiteIds, userId: user?.id } );
 
-	if ( sitesQuery.sites.length === 0 && sitesQuery.isSuccess && ! sitesQuery.isLoading ) {
+	if (
+		sitesQuery.sites.length === 0 &&
+		sitesQuery.isSuccess &&
+		! sitesQuery.isLoading &&
+		! sitesQuery.searchQuery
+	) {
 		return <NoWpcomSitesModal onRequestClose={ onRequestClose } selectedSite={ selectedSite } />;
 	}
 

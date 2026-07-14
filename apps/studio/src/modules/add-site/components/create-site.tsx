@@ -30,7 +30,7 @@ interface CreateSiteProps {
 	};
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	onValidityChange?: ( isValid: boolean ) => void;
-	formRef?: RefObject< HTMLFormElement >;
+	formRef?: RefObject< HTMLFormElement | null >;
 }
 
 export default function CreateSite( {

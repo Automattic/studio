@@ -1,13 +1,13 @@
+import path from 'node:path';
+import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import pluginImport from 'eslint-plugin-import-x';
-import pluginStudio from 'eslint-plugin-studio';
+import pluginJestDom from 'eslint-plugin-jest-dom';
 import pluginPrettier from 'eslint-plugin-prettier/recommended';
+import pluginReactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tsEslint from 'typescript-eslint';
-import js from '@eslint/js';
-import pluginReactHooks from 'eslint-plugin-react-hooks';
-import pluginJestDom from 'eslint-plugin-jest-dom';
-import path from 'node:path';
+import pluginStudio from 'eslint-plugin-studio';
 
 export default defineConfig(
 	globalIgnores( [
@@ -39,7 +39,18 @@ export default defineConfig(
 			sourceType: 'commonjs',
 			parserOptions: {
 				projectService: {
-					allowDefaultProject: [ 'apps/studio/tailwind.config.js' ],
+					allowDefaultProject: [
+						'apps/studio/forge.config.ts',
+						'apps/studio/windowsSign.ts',
+						'apps/studio/tailwind.config.js',
+						'apps/ui/vite.config.ts',
+						'eslint.config.mjs',
+						'vitest.config.ts',
+						'tools/eslint-plugin-studio/vitest.config.ts',
+						'tools/eslint-plugin-studio/src/index.js',
+						'tools/eslint-plugin-studio/src/rules/*.js',
+						'tools/eslint-plugin-studio/tests/*.ts',
+					],
 				},
 			},
 		},
@@ -52,7 +63,7 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'apps/cli/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
-						path.join( import.meta.dirname, 'tools/common/tsconfig.json' ),
+						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
 					],
@@ -83,6 +94,8 @@ export default defineConfig(
 					ignore: [
 						'@wp-playground/blueprints/blueprint-schema-validator',
 						'@modelcontextprotocol/sdk/server/stdio\\.js$',
+						'@modelcontextprotocol/sdk/client/index\\.js$',
+						'@modelcontextprotocol/sdk/client/stdio\\.js$',
 					],
 				},
 			],
@@ -95,6 +108,7 @@ export default defineConfig(
 				},
 			],
 			'react-hooks/set-state-in-effect': 'off',
+			'studio/no-redundant-cx': 'error',
 			'studio/require-lock-before-save': [
 				'error',
 				{

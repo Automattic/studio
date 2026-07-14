@@ -1,11 +1,12 @@
 import crypto from 'crypto';
 import { BrowserWindow } from 'electron';
 import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
-import { ExportEventTuple, ImportEventTuple } from '@studio/common/lib/import-export-events';
+import { ExportIpcEvent, ImportEventTuple } from '@studio/common/lib/import-export-events';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { getMainWindow } from 'src/main-window';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { JsonEvent as StudioCodeEvent } from '@studio/common/ai/json-events';
+import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
+import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 
 type SnapshotEventData = {
@@ -27,7 +28,7 @@ export interface IpcEvents {
 		},
 	];
 	'auth-updated': [ { token: StoredAuthToken } | { token: null } | { error: unknown } ];
-	'on-export': [ ExportEventTuple, string ];
+	'on-export': [ ExportIpcEvent[ 'event' ], string ];
 	'on-import': [ ImportEventTuple, string ];
 	'on-site-create-progress': [ { siteId: string; message: string } ];
 	'site-context-menu-action': [ { action: string; siteId: string } ];
@@ -51,6 +52,8 @@ export interface IpcEvents {
 		},
 	];
 	'test-render-failure': [ void ];
+	'toggle-sidebar': [ void ];
+	'toggle-site-preview': [ void ];
 	'theme-details-loading': [ { id: string } ];
 	'theme-details-loaded': [ { id: string; details: StartedSiteDetails[ 'themeDetails' ] } ];
 	'thumbnail-loading': [ { id: string } ];
@@ -62,15 +65,29 @@ export interface IpcEvents {
 	'refresh-app-globals': [ void ];
 	'beta-features-updated': [ void ];
 	'ai-agent-event': [ AgentRunEvent ];
-	'studio-code-event': [ { siteId: string; event: StudioCodeEvent } ];
+	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];
+	'remote-session-status': [ RemoteSessionStatus ];
+}
+
+let isAppQuitting = false;
+
+export function markAppQuitting() {
+	isAppQuitting = true;
 }
 
 export async function sendIpcEventToRenderer< T extends keyof IpcEvents >(
 	channel: T,
 	...args: IpcEvents[ T ]
 ): Promise< void > {
+	if ( isAppQuitting ) {
+		return;
+	}
 	const window = await getMainWindow();
-	if ( ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
+	// `getMainWindow()` can resolve to `null` during early boot — e.g., the
+	// daemon-status poller fires its initial tick before the renderer window
+	// has been created in some unit-test setups. Mirror the null-check that
+	// `sendIpcEventToRendererWithWindow` already does so we no-op cleanly.
+	if ( window && ! window.isDestroyed() && ! window.webContents.isDestroyed() ) {
 		window.webContents.send( channel, ...args );
 	}
 }

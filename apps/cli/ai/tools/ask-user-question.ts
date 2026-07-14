@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { defineTool } from './define-tool';
-import type { AgentTool } from '@mariozechner/pi-agent-core';
+import type { AgentTool } from '@earendil-works/pi-agent-core';
 import type { AskUserQuestion } from 'cli/ai/types';
 import type { TSchema } from 'typebox';
 

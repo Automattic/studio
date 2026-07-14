@@ -6,7 +6,11 @@
 
 .sidebar {
 	width: var(--sidebar-width, 320px);
-	min-width: 240px;
+	/* The 240px floor is owned by useResizablePanel, which clamps
+	   --sidebar-width on every path. A CSS min-width here would be redundant
+	   while open and, because it can't transition in lockstep with width, would
+	   snap the panel to 240px at the start of the open animation. */
+	min-width: 0;
 	max-width: 25vw;
 	flex-shrink: 0;
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
@@ -21,9 +25,27 @@
 	transition: width 150ms ease;
 }
 
+/* While dragging the handle the width updates every frame; the collapse
+   transition above would animate toward each step and lag behind the cursor.
+   Drop it for the duration of the drag (mirrors `.rootPreviewResizing` in
+   preview-split-frame). */
+.sidebarResizing {
+	transition: none;
+}
+
+/* Stay pinned at the bottom as the sidebar scrolls; `margin-top: auto`
+   pushes the footer to the bottom in the flex column when content is
+   shorter than the viewport. */
+.sidebarFooter {
+	margin-top: auto;
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+}
+
 .sidebarCollapsed {
 	width: 0;
-	min-width: 0;
 }
 
 .main {
@@ -31,12 +53,19 @@
 	min-width: 0;
 	overflow: auto;
 	position: relative;
+	isolation: isolate;
 }
 
+/* The negative margin cancels the handle's width so it adds no space to the
+   flex row — the main content butts straight against the sidebar's border and
+   the hit area overlays main's left edge. position/z-index lift it above main
+   (a later flex sibling) so the full-height indicator sits on the border. */
 .resizeHandle {
+	position: relative;
+	z-index: 20;
 	flex-shrink: 0;
+	margin-right: -8px;
 	justify-content: flex-start;
-	padding-left: 4px;
 }
 
 .floatingToggle {
@@ -49,11 +78,17 @@
 	align-items: center;
 	padding: var(--wpds-dimension-padding-sm) 0;
 	min-height: 46px;
-	z-index: 10;
+	z-index: 30;
+	-webkit-app-region: no-drag;
 }
 
-/* In macOS fullscreen the traffic lights are hidden, so the toggle can
-   sit near the main area's left edge. */
-.floatingToggleFullscreen {
+.floatingToggle button {
+	-webkit-app-region: no-drag;
+}
+
+/* With no traffic lights to clear — non-macOS, the browser, or macOS
+   fullscreen (which hides them) — the toggle sits near the main area's left
+   edge instead of leaving an empty gap. */
+.floatingToggleFlush {
 	left: var(--wpds-dimension-padding-xl);
 }

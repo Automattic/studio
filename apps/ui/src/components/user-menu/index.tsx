@@ -1,4 +1,6 @@
+import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { cog } from '@wordpress/icons';
 import { IconButton } from '@wordpress/ui';
 import { Gravatar } from '@/components/gravatar';
 import * as Menu from '@/components/menu';
@@ -6,7 +8,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { moonIcon, sunIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { ColorScheme } from '@/data/core';
@@ -22,12 +24,10 @@ export function UserMenu() {
 	const savePreferences = useSaveUserPreferences();
 	const login = useLogin();
 	const logout = useLogout();
-	const effectiveScheme = usePrefersColorScheme();
+	const navigate = useNavigate();
 
-	const savedScheme = preferences?.colorScheme;
-	const currentScheme: ColorScheme = savedScheme ?? 'system';
-	const themeIsDark =
-		savedScheme === 'dark' || ( savedScheme !== 'light' && effectiveScheme === 'dark' );
+	const currentScheme: ColorScheme = preferences?.colorScheme ?? 'system';
+	const themeIsDark = useColorScheme() === 'dark';
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );
@@ -50,6 +50,9 @@ export function UserMenu() {
 							<div className={ styles.email } title={ user.email }>
 								{ user.email }
 							</div>
+							<Menu.Item onClick={ () => void navigate( { to: '/settings' } ) }>
+								{ __( 'Settings' ) }
+							</Menu.Item>
 							<Menu.Item onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
 								{ __( 'Edit WordPress.com profile' ) }
 							</Menu.Item>
@@ -68,6 +71,19 @@ export function UserMenu() {
 						{ __( 'Log in with WordPress.com' ) }
 					</SidebarButton>
 				) }
+				{ ! user ? (
+					// Logged in, Settings lives in the user menu; logged out
+					// there is no menu, so keep the page reachable here.
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						className={ styles.settingsButton }
+						icon={ cog }
+						label={ __( 'Settings' ) }
+						onClick={ () => void navigate( { to: '/settings' } ) }
+					/>
+				) : null }
 				<Menu.Root modal={ false }>
 					<Menu.Trigger
 						render={

@@ -1,0 +1,87 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-sm);
+	margin-bottom: var(--wpds-dimension-padding-md);
+}
+
+.item {
+	position: relative;
+	align-self: flex-end;
+	display: flex;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-sm);
+	padding: var(--wpds-dimension-padding-md) var(--wpds-dimension-padding-lg);
+	/* Match the user bubble shape but lighter so staged follow-ups read as
+	   "drafted, not sent". Mirrors `.userText` (right-aligned, bottom-right
+	   tight corner). */
+	background-color: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 4%, transparent);
+	border: 1px dashed color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 30%, transparent);
+	border-radius: 18px 18px var(--wpds-border-radius-md, 8px) 18px;
+	max-width: 80%;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.55;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	cursor: pointer;
+	outline: none;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease,
+		color 120ms ease;
+}
+
+.item:hover,
+.item:focus-visible {
+	background-color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-interactive-brand, #2563eb) 7%,
+		transparent
+	);
+	border-color: color-mix(
+		in srgb,
+		var(--wpds-color-fg-interactive-brand, #2563eb) 42%,
+		transparent
+	);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.item:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline-offset: 2px;
+}
+
+.text {
+	flex: 1;
+	min-width: 0;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+}
+
+.remove {
+	appearance: none;
+	flex-shrink: 0;
+	width: 22px;
+	height: 22px;
+	margin: -2px -6px -2px 0;
+	border: 0;
+	border-radius: 50%;
+	padding: 0;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font: inherit;
+	font-size: 16px;
+	line-height: 1;
+	cursor: pointer;
+	opacity: 0.6;
+}
+
+.item:hover .remove,
+.remove:focus-visible {
+	opacity: 1;
+}
+
+.remove:hover,
+.remove:focus-visible {
+	background-color: color-mix(in srgb, var(--wpds-color-fg-interactive-brand, #2563eb) 12%, transparent);
+	color: var(--wpds-color-fg-content-neutral);
+}

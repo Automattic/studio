@@ -1,6 +1,7 @@
 import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
-import type { AgentSessionEvent } from '@mariozechner/pi-coding-agent';
+import { formatTosNoticeLines } from 'cli/lib/tos-notice';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AiProviderId } from 'cli/ai/providers';
 import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
@@ -14,6 +15,7 @@ export interface AiOutputAdapter {
 	start(): void;
 	stop(): void;
 	showWelcome(): void;
+	showTosNotice(): void;
 	showOnboarding(): void;
 	showCapabilities(): void;
 	showSuccess( message: string ): void;
@@ -76,6 +78,12 @@ export class JsonAdapter implements AiOutputAdapter {
 
 	showWelcome(): void {
 		// No-op in JSON mode
+	}
+
+	showTosNotice(): void {
+		// Plain stderr keeps the NDJSON stdout stream clean; the caller already
+		// gates on IPC mode, where the desktop app shows its own disclaimer.
+		process.stderr.write( '\n' + formatTosNoticeLines().join( '\n' ) + '\n\n' );
 	}
 
 	showOnboarding(): void {

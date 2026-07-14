@@ -1,9 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
+import { bumpStat } from 'cli/lib/bump-stat';
+import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { RemoteSessionLogger } from 'cli/remote-session/logger';
 import { runPollLoop, type PollLoopDeps } from 'cli/remote-session/poll-loop';
 import type { RemoteSessionConfig } from 'cli/remote-session/config';
 import type { PolledMessage } from 'cli/remote-session/telegram-client';
 import type { TurnOutcome } from 'cli/remote-session/turn-runner';
+
+vi.mock( 'cli/lib/bump-stat', () => ( {
+	bumpStat: vi.fn(),
+} ) );
+
+const mockedBumpStat = vi.mocked( bumpStat );
 
 const baseConfig: RemoteSessionConfig = {
 	base_url: 'https://api.example.test/telegram-bot',
@@ -36,7 +44,9 @@ function makeScriptedPoll( batches: Array< PolledMessage[] | PolledMessage > ): 
 function makeDeps(
 	overrides: Partial< PollLoopDeps > & { scriptedPoll?: ScriptedPoll }
 ): PollLoopDeps {
-	const respond = vi.fn().mockResolvedValue( undefined );
+	// respondMessage now returns a structured outcome — keep the mock honest so
+	// the streamers and best-effort post helpers see a valid envelope.
+	const respond = vi.fn().mockResolvedValue( { success: true, messageIds: [] } );
 	const runTurn = vi.fn< ( args: unknown ) => Promise< TurnOutcome > >();
 	const readState = vi.fn().mockResolvedValue( null );
 	const writeSession = vi.fn().mockResolvedValue( undefined );
@@ -339,6 +349,132 @@ describe( 'runPollLoop', () => {
 		expect( bodies.some( ( b ) => /Turn took too long/.test( b ) ) ).toBe( false );
 		expect( bodies.some( ( b ) => /did not return a result/.test( b ) ) ).toBe( false );
 		expect( bodies.at( -1 ) ).toMatch( /detached/ );
+	} );
+
+	describe( 'Dolly bump stats', () => {
+		it( 'does not emit any bumps when telemetryEnabled is false (default)', async () => {
+			const scripted = makeScriptedPoll( [ { chat_id: 42, text: 'hi' } ] );
+			const deps = makeDeps( { scriptedPoll: scripted } );
+			( deps.runTurn as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+				status: 'success',
+				sessionId: 's',
+				replyText: 'ok',
+				isError: false,
+				stderrTail: '',
+				exitCode: 0,
+				staleSession: false,
+			} satisfies TurnOutcome );
+
+			const handle = await runPollLoop( { config: baseConfig, deps } );
+			await scripted.done;
+			await handle.detach();
+			await handle.done;
+
+			expect( mockedBumpStat ).not.toHaveBeenCalled();
+		} );
+
+		it( 'emits attach, turn (success), and detach (requested) bumps for the happy path', async () => {
+			const scripted = makeScriptedPoll( [ { chat_id: 42, text: 'hi' } ] );
+			const deps = makeDeps( { scriptedPoll: scripted } );
+			( deps.runTurn as ReturnType< typeof vi.fn > ).mockResolvedValue( {
+				status: 'success',
+				sessionId: 's',
+				replyText: 'ok',
+				isError: false,
+				stderrTail: '',
+				exitCode: 0,
+				staleSession: false,
+			} satisfies TurnOutcome );
+
+			const handle = await runPollLoop( {
+				config: baseConfig,
+				deps,
+				telemetryEnabled: true,
+			} );
+			await scripted.done;
+			await handle.detach();
+			await handle.done;
+
+			expect( mockedBumpStat ).toHaveBeenCalledWith(
+				StatsGroup.STUDIO_CLI_DOLLY_ATTACH,
+				StatsMetric.SUCCESS
+			);
+			expect( mockedBumpStat ).toHaveBeenCalledWith(
+				StatsGroup.STUDIO_CLI_DOLLY_TURN,
+				StatsMetric.SUCCESS
+			);
+			expect( mockedBumpStat ).toHaveBeenCalledWith(
+				StatsGroup.STUDIO_CLI_DOLLY_DETACH,
+				StatsMetric.DETACH_REQUESTED
+			);
+		} );
+
+		it( 'maps turn outcome statuses to the right metric (timeout, spawn_error)', async () => {
+			const scripted = makeScriptedPoll( [
+				{ chat_id: 42, text: 'first' },
+				{ chat_id: 42, text: 'second' },
+			] );
+			const deps = makeDeps( { scriptedPoll: scripted } );
+			const outcomes: TurnOutcome[] = [
+				{
+					status: 'timeout',
+					isError: true,
+					stderrTail: '',
+					exitCode: null,
+					staleSession: false,
+				},
+				{
+					status: 'spawn_error',
+					isError: true,
+					stderrTail: 'boom',
+					exitCode: null,
+					staleSession: false,
+				},
+			];
+			( deps.runTurn as ReturnType< typeof vi.fn > ).mockImplementation( () =>
+				Promise.resolve( outcomes.shift()! )
+			);
+
+			const handle = await runPollLoop( {
+				config: baseConfig,
+				deps,
+				telemetryEnabled: true,
+			} );
+			await scripted.done;
+			await handle.detach();
+			await handle.done;
+
+			expect( mockedBumpStat ).toHaveBeenCalledWith(
+				StatsGroup.STUDIO_CLI_DOLLY_TURN,
+				StatsMetric.TURN_TIMEOUT
+			);
+			expect( mockedBumpStat ).toHaveBeenCalledWith(
+				StatsGroup.STUDIO_CLI_DOLLY_TURN,
+				StatsMetric.TURN_SPAWN_ERROR
+			);
+		} );
+
+		it( 'records an auth-error detach when polling returns a TelegramAuthError', async () => {
+			const deps = makeDeps( {} );
+			const { TelegramAuthError } = await import( 'cli/remote-session/telegram-client' );
+			( deps.poll as ReturnType< typeof vi.fn > ).mockRejectedValueOnce(
+				new TelegramAuthError( 401 )
+			);
+
+			const handle = await runPollLoop( {
+				config: baseConfig,
+				deps,
+				telemetryEnabled: true,
+			} );
+			await handle.done;
+
+			expect( mockedBumpStat ).toHaveBeenCalledWith(
+				StatsGroup.STUDIO_CLI_DOLLY_DETACH,
+				StatsMetric.DETACH_AUTH_ERROR
+			);
+			// process.exitCode is set as a side effect; reset so it doesn't poison later tests.
+			process.exitCode = 0;
+		} );
 	} );
 
 	describe( 'when chat_id is not pinned in config', () => {

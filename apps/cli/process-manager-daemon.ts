@@ -3,6 +3,11 @@ import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
 import path from 'path';
 import readline from 'readline';
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import semver from 'semver';
 import {
 	PROCESS_MANAGER_LOGS_DIR,
@@ -28,12 +33,24 @@ const STOP_TIMEOUT_MS = 2_500;
 const STDERR_BUFFER_MAX_LINES = 100;
 const STDERR_BUFFER_MAX_BYTES = 16 * 1024;
 
+// Weighted capacity limit for site processes. Playground (PHP WASM) sites use ~6x more memory
+// than native PHP sites (~720 MB vs ~120 MB), so they carry a heavier weight. The cap of 36
+// allows up to 36 native-PHP sites or 6 Playground sites (or a mix).
+const SITE_PROCESS_PREFIX = 'studio-site-';
+const CAPACITY_WEIGHTS: Record< SiteRuntime, number > = {
+	[ SITE_RUNTIME_NATIVE_PHP ]: 1,
+	[ SITE_RUNTIME_PLAYGROUND ]: 6,
+};
+const MAX_WEIGHTED_CAPACITY = 36;
+
 type ManagedProcessBase = {
 	pmId: number;
 	name: string;
 	scriptPath: string;
 	args: string[];
 	env: NodeJS.ProcessEnv;
+	// Used by clients to decide whether WP-CLI commands can run through this process.
+	runtime: SiteRuntime;
 	child: ChildProcess;
 	stdoutLogPath: string;
 	stderrLogPath: string;
@@ -42,6 +59,8 @@ type ManagedProcessBase = {
 	stderrBuffer: string[];
 	stderrBufferBytes: number;
 	settled: boolean;
+	// Track child pids of the child process so that they aren't orphaned when the parent exits.
+	grandchildrenPids?: number[];
 };
 type ManagedProcessRunning = ManagedProcessBase & {
 	pid: number;
@@ -150,7 +169,8 @@ export class ProcessManagerDaemon {
 					request.processName,
 					request.scriptPath,
 					request.env ?? {},
-					request.args ?? []
+					request.args ?? [],
+					request.runtime
 				);
 				return {
 					type: 'result',
@@ -196,15 +216,38 @@ export class ProcessManagerDaemon {
 		return undefined;
 	}
 
+	private getWeightedCapacityUsage(): number {
+		let usage = 0;
+		for ( const proc of this.managedProcesses.values() ) {
+			if ( proc.status === 'online' && proc.name.startsWith( SITE_PROCESS_PREFIX ) ) {
+				usage += CAPACITY_WEIGHTS[ proc.runtime ];
+			}
+		}
+		return usage;
+	}
+
 	private async startProcess(
 		processName: string,
 		scriptPath: string,
 		env: NodeJS.ProcessEnv,
-		args: string[]
+		args: string[],
+		runtime: SiteRuntime = SITE_RUNTIME_PLAYGROUND
 	): Promise< ProcessDescription > {
 		const existing = this.getManagedProcessByName( processName );
 		if ( existing && existing.status === 'online' ) {
 			return this.toProcessDescription( existing );
+		}
+
+		if ( processName.startsWith( SITE_PROCESS_PREFIX ) ) {
+			const weight = CAPACITY_WEIGHTS[ runtime ];
+			const currentUsage = this.getWeightedCapacityUsage();
+			if ( currentUsage + weight > MAX_WEIGHTED_CAPACITY ) {
+				const errorMessage =
+					runtime === SITE_RUNTIME_PLAYGROUND
+						? `Cannot start site. The maximum number of running sites has been reached (${ currentUsage }/${ MAX_WEIGHTED_CAPACITY }). Sandbox sites count as ${ weight } units. Stop some running sites first.`
+						: `Cannot start site. The maximum number of running sites has been reached (${ currentUsage }/${ MAX_WEIGHTED_CAPACITY }). Stop some running sites first.`;
+				throw new Error( `CAPACITY_LIMIT_REACHED: ${ errorMessage }` );
+			}
 		}
 
 		const pmId = this.nextPmId++;
@@ -227,6 +270,7 @@ export class ProcessManagerDaemon {
 			scriptPath,
 			args,
 			env,
+			runtime,
 			child,
 			// `child.pid` is only undefined if there's an error, in which case our error handler
 			// immediately changes the status and deletes the process from the map
@@ -256,6 +300,15 @@ export class ProcessManagerDaemon {
 					raw,
 				},
 			} );
+
+			if (
+				event.success &&
+				event.data.type === 'process-message' &&
+				event.data.payload.raw.topic === 'server-process-started'
+			) {
+				managedProcess.grandchildrenPids ??= [];
+				managedProcess.grandchildrenPids.push( event.data.payload.raw.data.pid );
+			}
 
 			if ( event.success ) {
 				void this.broadcastEvent( event.data );
@@ -404,6 +457,7 @@ export class ProcessManagerDaemon {
 				name: managedProcess.name,
 				pmId: managedProcess.pmId,
 				status: managedProcess.status,
+				runtime: managedProcess.runtime,
 			};
 		}
 
@@ -412,6 +466,7 @@ export class ProcessManagerDaemon {
 			pmId: managedProcess.pmId,
 			status: managedProcess.status,
 			pid: managedProcess.pid,
+			runtime: managedProcess.runtime,
 		};
 	}
 
@@ -435,50 +490,72 @@ export class ProcessManagerDaemon {
 
 		if ( process.platform === 'win32' ) {
 			if ( signal === 'SIGKILL' ) {
-				// Windows has no process-group concept Node can reach. /T walks the descendant
-				// tree via parent-PID lookup; /F forces termination. Without /T, grandchildren
-				// (e.g. the PHP server spawned by the wrapper) would be orphaned.
-				spawnSync( 'taskkill', [ '/F', '/T', '/PID', String( pid ) ], {
-					windowsHide: true,
-					stdio: 'ignore',
-				} );
-				return;
-			}
-			// Console apps on Windows have no SIGTERM equivalent — `child.kill( 'SIGTERM' )`
-			// maps to TerminateProcess of a single PID, so neither cleanup nor tree-walk runs.
-			// Closing the IPC channel triggers the wrapper's 'disconnect' handler instead, which
-			// kills the PHP child and exits cleanly. Force escalation falls back to taskkill /T.
-			if ( managedProcess.child.connected ) {
+				// Windows has no process group Node can reach; taskkill it instead.
+				this.taskkillTree( pid, true );
+			} else if ( managedProcess.child.connected ) {
+				// Console apps have no SIGTERM equivalent, so close the IPC channel: the wrapper's
+				// 'disconnect' handler kills the PHP child and exits cleanly.
 				try {
 					managedProcess.child.disconnect();
-					// Wait very briefly to allow the disconnect handler to run in the child process
+					// Give the disconnect handler a moment to run in the child.
 					await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
 				} catch {
 					// Do nothing
 				}
-				return;
+			} else {
+				try {
+					managedProcess.child.kill( signal );
+				} catch {
+					// Do nothing
+				}
 			}
-			try {
-				managedProcess.child.kill( signal );
-			} catch {
-				// Do nothing
-			}
-			return;
-		}
 
-		// Children are spawned with `detached: true` on non-Windows, so each lives in its own
-		// process group. Signalling the negative PID delivers to every member of that group,
-		// including grandchildren (e.g. the PHP server spawned by the wrapper).
-		try {
-			process.kill( -pid, signal );
-		} catch {
-			// Group send can fail if the leader has already exited but children remain.
+			// A reported grandchild (native PHP's server) is orphaned once the wrapper exits during
+			// the SIGTERM/disconnect path, leaving it outside the main child's /T tree, so taskkill
+			// it directly. The SIGTERM → SIGKILL escalation in stopProcess gives it a graceful
+			// attempt before forcing termination.
+			if ( managedProcess.grandchildrenPids ) {
+				for ( const grandchildPid of managedProcess.grandchildrenPids ) {
+					this.taskkillTree( grandchildPid, signal === 'SIGKILL' );
+				}
+			}
+		} else {
+			// Non-Windows children are spawned `detached`, so each leads its own process group; native
+			// PHP's server may lead another. Signal both groups when the wrapper reports the pid.
 			try {
-				managedProcess.child.kill( signal );
+				process.kill( -pid, signal );
 			} catch {
-				// Do nothing
+				// Group send can fail if the leader has already exited but children remain.
+				try {
+					managedProcess.child.kill( signal );
+				} catch {
+					// Do nothing
+				}
+			}
+
+			if ( managedProcess.grandchildrenPids ) {
+				for ( const pid of managedProcess.grandchildrenPids ) {
+					try {
+						process.kill( -pid, signal );
+					} catch {
+						// Do nothing
+					}
+				}
 			}
 		}
+	}
+
+	// Terminates a Windows process tree via taskkill: /T walks descendants by parent-PID; /F
+	// forces termination, otherwise taskkill requests a graceful close console apps may ignore.
+	private taskkillTree( pid: number, force: boolean ): void {
+		const args = [ '/T', '/PID', String( pid ) ];
+		if ( force ) {
+			args.unshift( '/F' );
+		}
+		spawnSync( 'taskkill', args, {
+			windowsHide: true,
+			stdio: 'ignore',
+		} );
 	}
 
 	private async shutdown( reason?: string ): Promise< void > {

@@ -8,7 +8,21 @@ import {
 	validateAdminEmail,
 	validateAdminUsername,
 } from '@studio/common/lib/passwords';
-import { SupportedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
+import {
+	SITE_FILE_ACCESS_ALL_FILES,
+	SITE_FILE_ACCESS_SITE_DIRECTORY,
+	type SiteFileAccess,
+} from '@studio/common/lib/site-file-access';
+import {
+	SITE_RUNTIME_NATIVE_PHP,
+	SITE_RUNTIME_PLAYGROUND,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
+import {
+	RecommendedPHPVersion,
+	SupportedPHPVersion,
+	SupportedPHPVersions,
+} from '@studio/common/types/php-versions';
 import { Icon, SelectControl, Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
@@ -23,6 +37,7 @@ import { SiteFormError } from 'src/components/site-form-error';
 import TextControlComponent from 'src/components/text-control';
 import { WPVersionSelector } from 'src/components/wp-version-selector';
 import { cx } from 'src/lib/cx';
+import { FileAccessDescription, RuntimeDescription } from 'src/lib/site-runtime-copy';
 import { useCheckCertificateTrustQuery } from 'src/stores/certificate-trust-api';
 import type { BlueprintPreferredVersions } from '@studio/common/lib/blueprint-validation';
 import type { CreateSiteFormValues, PathValidationResult } from 'src/hooks/use-add-site';
@@ -56,7 +71,7 @@ interface CreateSiteFormProps {
 	/** Called when form validity changes */
 	onValidityChange?: ( isValid: boolean ) => void;
 	/** Ref to form element for programmatic submission */
-	formRef?: RefObject< HTMLFormElement >;
+	formRef?: RefObject< HTMLFormElement | null >;
 }
 
 export const CreateSiteForm = ( {
@@ -78,11 +93,25 @@ export const CreateSiteForm = ( {
 	const [ siteName, setSiteName ] = useState( defaultValues.siteName ?? '' );
 	const [ sitePath, setSitePath ] = useState( defaultValues.sitePath ?? '' );
 	const [ phpVersion, setPhpVersion ] = useState< SupportedPHPVersion >(
-		defaultValues.phpVersion ?? SupportedPHPVersions[ 0 ] ?? '8.2'
+		defaultValues.phpVersion && SupportedPHPVersions.includes( defaultValues.phpVersion )
+			? defaultValues.phpVersion
+			: RecommendedPHPVersion
 	);
 	const [ wpVersion, setWpVersion ] = useState(
 		defaultValues.wpVersion ?? DEFAULT_WORDPRESS_VERSION
 	);
+	// New sites default to the native PHP runtime.
+	const [ selectedRuntime, setSelectedRuntime ] =
+		useState< SiteRuntime >( SITE_RUNTIME_NATIVE_PHP );
+	const [ selectedFileAccess, setSelectedFileAccess ] = useState< SiteFileAccess >(
+		SITE_FILE_ACCESS_SITE_DIRECTORY
+	);
+	// The sandbox only has access to the site directory, so "all files" is
+	// forced back to "site directory" when the sandbox mode is selected.
+	const usedFileAccess =
+		selectedRuntime === SITE_RUNTIME_PLAYGROUND
+			? SITE_FILE_ACCESS_SITE_DIRECTORY
+			: selectedFileAccess;
 	const [ useCustomDomain, setUseCustomDomain ] = useState( false );
 	const [ customDomain, setCustomDomain ] = useState< string | null >( null );
 	const [ enableHttps, setEnableHttps ] = useState( false );
@@ -127,7 +156,11 @@ export const CreateSiteForm = ( {
 	// Sync versions from defaultValues (initial load and deeplink flows)
 	useEffect( () => {
 		if ( defaultValues.phpVersion !== undefined ) {
-			setPhpVersion( defaultValues.phpVersion );
+			setPhpVersion(
+				SupportedPHPVersions.includes( defaultValues.phpVersion )
+					? defaultValues.phpVersion
+					: RecommendedPHPVersion
+			);
 		}
 		if ( defaultValues.wpVersion !== undefined ) {
 			setWpVersion( defaultValues.wpVersion );
@@ -239,7 +272,14 @@ export const CreateSiteForm = ( {
 				setSitePath( result.path );
 			}
 		},
-		[ onSiteNameChange, hasCustomPath ]
+		[
+			onSiteNameChange,
+			hasCustomPath,
+			setDoesPathContainWordPress,
+			setPathError,
+			setSiteName,
+			setSitePath,
+		]
 	);
 
 	const handleSelectPath = useCallback( async () => {
@@ -273,7 +313,18 @@ export const CreateSiteForm = ( {
 		if ( result.name && ! siteName ) {
 			setSiteName( result.name );
 		}
-	}, [ onSelectPath, onSiteNameChange, sitePath, siteName, hasCustomPath ] );
+	}, [
+		onSelectPath,
+		onSiteNameChange,
+		sitePath,
+		siteName,
+		hasCustomPath,
+		setDoesPathContainWordPress,
+		setHasCustomPath,
+		setPathError,
+		setSiteName,
+		setSitePath,
+	] );
 
 	const handleCustomDomainChange = useCallback(
 		( value: string ) => {
@@ -291,6 +342,8 @@ export const CreateSiteForm = ( {
 			sitePath,
 			phpVersion,
 			wpVersion,
+			runtime: selectedRuntime,
+			fileAccess: usedFileAccess,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -303,6 +356,8 @@ export const CreateSiteForm = ( {
 			sitePath,
 			phpVersion,
 			wpVersion,
+			selectedRuntime,
+			usedFileAccess,
 			useCustomDomain,
 			customDomain,
 			enableHttps,
@@ -416,7 +471,7 @@ export const CreateSiteForm = ( {
 								isAdvancedSettingsVisible ? 'h-auto opacity-100' : 'h-0 opacity-0'
 							) }
 						>
-							<div className={ cx( 'flex flex-col gap-1.5 leading-4 py-4' ) }>
+							<div className="flex flex-col gap-1.5 leading-4 py-4">
 								<label className="font-semibold" htmlFor="local-path">
 									{ __( 'Local path' ) }
 								</label>
@@ -469,6 +524,57 @@ export const CreateSiteForm = ( {
 											'You are currently offline so your site will be created with the latest version. Selecting a different WordPress version requires an internet connection.'
 										) }
 									/>
+								</div>
+
+								<div className="grid grid-cols-2 gap-4 mt-4">
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="font-semibold" htmlFor="php-runtime-select">
+											{ __( 'PHP runtime' ) }
+										</label>
+										<SelectControl< SiteRuntime >
+											id="php-runtime-select"
+											value={ selectedRuntime }
+											options={ [
+												/* translators: As in an application that runs natively on a computer */
+												{ label: __( 'Native' ), value: SITE_RUNTIME_NATIVE_PHP },
+												/* translators: As in a secure, sandboxed environment */
+												{ label: __( 'Sandbox' ), value: SITE_RUNTIME_PLAYGROUND },
+											] }
+											onChange={ ( value ) => setSelectedRuntime( value ) }
+											__next40pxDefaultSize
+											__nextHasNoMarginBottom
+										/>
+										<span className="text-frame-text-secondary text-xs">
+											<RuntimeDescription runtime={ selectedRuntime } learnMoreLink />
+										</span>
+									</div>
+
+									<div className="flex flex-col gap-1.5 leading-4">
+										<label className="font-semibold" htmlFor="file-access-select">
+											{ __( 'File access' ) }
+										</label>
+										<SelectControl< SiteFileAccess >
+											id="file-access-select"
+											disabled={ selectedRuntime === SITE_RUNTIME_PLAYGROUND }
+											value={ usedFileAccess }
+											options={ [
+												{
+													label: __( 'Site directory' ),
+													value: SITE_FILE_ACCESS_SITE_DIRECTORY,
+												},
+												{ label: __( 'All files' ), value: SITE_FILE_ACCESS_ALL_FILES },
+											] }
+											onChange={ ( value ) => setSelectedFileAccess( value ) }
+											__next40pxDefaultSize
+											__nextHasNoMarginBottom
+										/>
+										<span className="text-frame-text-secondary text-xs">
+											<FileAccessDescription
+												runtime={ selectedRuntime }
+												fileAccess={ usedFileAccess }
+											/>
+										</span>
+									</div>
 								</div>
 
 								<div className="flex flex-col gap-2 mt-4">

@@ -1,0 +1,163 @@
+/* The chat column. The site preview panel lives in the dashboard layout's
+   PreviewSplitFrame, which hosts this view in its content column. */
+.root {
+	--classic-column-inline-gutter: calc(var(--wpds-dimension-padding-2xl) + 8px);
+	--classic-composer-shell-inline-padding: var(--wpds-dimension-padding-lg);
+	--classic-header-height: 46px;
+	--classic-composer-height: 0px;
+	--classic-header-blur-overhang: 16px;
+	--classic-composer-blur-overhang: 40px;
+	--classic-scrollbar-blur-safe-area: 14px;
+
+	position: relative;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+	isolation: isolate;
+}
+
+.state {
+	padding: var(--wpds-dimension-padding-xl);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-sm);
+	padding-block: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
+	min-height: 46px;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	-webkit-app-region: drag;
+}
+
+/* Reserve a no-drag area at the left so the floating sidebar-toggle button
+   (collapsed state) doesn't sit on top of the header's drag region. */
+.toggleSpacer {
+	display: block;
+	flex-shrink: 0;
+	width: 118px;
+	align-self: stretch;
+	-webkit-app-region: no-drag;
+}
+
+/* No traffic lights to clear (non-macOS, the browser, or macOS fullscreen): a
+   minimal spacer so the toggle still clears the header's drag region. */
+.toggleSpacerFlush {
+	display: block;
+	flex-shrink: 0;
+	width: calc(var(--wpds-dimension-padding-xl) + 24px);
+	align-self: stretch;
+	-webkit-app-region: no-drag;
+}
+
+.headerSite {
+	font-weight: 600;
+}
+
+.headerSiteIcon {
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-xs));
+}
+
+.headerDot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background-color: var(--wpds-color-fg-content-success, #16a34a);
+	flex-shrink: 0;
+	/* Extra horizontal margin around the dot only — keeps the toggle-to-title
+	   gap at the header's base 8px while giving the site/dot/local grouping
+	   more breathing room. */
+	margin: 0 var(--wpds-dimension-padding-xs);
+}
+
+.headerEnv {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.headerSpacer {
+	flex: 1;
+}
+
+.scroll {
+	position: absolute;
+	inset: 0;
+	height: 100%;
+	min-height: 0;
+	box-sizing: border-box;
+	overflow-y: auto;
+	padding-block: var(--classic-header-height) var(--classic-composer-height);
+	z-index: 0;
+	/* Reserve scrollbar space symmetrically so the centered 760px column
+	   doesn't shift left when the scrollbar appears — keeping it aligned
+	   with the (non-scrolling) composer. */
+	scrollbar-gutter: stable both-edges;
+}
+
+.headerBlur,
+.composerBlur {
+	inset-inline-start: 0;
+	inset-inline-end: var(--classic-scrollbar-blur-safe-area);
+	z-index: 1;
+}
+
+.headerBlur {
+	top: 0;
+	height: calc(var(--classic-header-height) + var(--classic-header-blur-overhang));
+}
+
+.composerBlur {
+	bottom: 0;
+	height: calc(var(--classic-composer-height) + var(--classic-composer-blur-overhang));
+}
+
+.headerLayer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 2;
+}
+
+.composerOuter {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 2;
+}
+
+.classicScroll {
+	padding-inline: var(--classic-column-inline-gutter);
+}
+
+/* Classic session screen: keep the conversation + composer aligned to the
+   legacy 760px reading column. */
+.classicColumn {
+	max-width: 760px;
+	margin: 0 auto;
+}
+
+.classicComposerColumn {
+	max-width: calc(760px + (var(--classic-composer-shell-inline-padding) * 2));
+}
+
+.classicConversationSpacing {
+	padding-top: var(--wpds-dimension-padding-xl);
+	padding-bottom: var(--wpds-dimension-padding-2xl);
+}
+
+.classicConversationWithQuestions {
+	padding-bottom: calc(var(--wpds-dimension-padding-2xl) + 96px);
+}
+
+.classicComposerOuter {
+	padding: 0
+		max(
+			0px,
+			calc(var(--classic-column-inline-gutter) - var(--classic-composer-shell-inline-padding))
+		)
+		var(--wpds-dimension-padding-xl);
+}

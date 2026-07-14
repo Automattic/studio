@@ -1,13 +1,16 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { __ } from '@wordpress/i18n';
 import type {
+	ActiveAgentRun,
 	AiSessionSummary,
+	AiSessionPlacementUpdatedEvent,
 	AuthUser,
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
 	FeaturedBlueprint,
 	InstalledApps,
+	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
 	SelectedSiteFolder,
@@ -101,6 +104,33 @@ export function createIpcConnector(): Connector {
 		return site.path;
 	}
 
+	async function markConnectedWpcomSiteSynced(
+		localSiteId: string,
+		remoteSiteId: number,
+		direction: 'push' | 'pull'
+	): Promise< void > {
+		try {
+			const connectedSites = ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
+			const connectedSite = connectedSites.find(
+				( site ) => site.id === remoteSiteId && site.localSiteId === localSiteId
+			);
+
+			if ( ! connectedSite ) {
+				return;
+			}
+
+			const timestampKey = direction === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp';
+			await ipcApi.updateConnectedWpcomSites( [
+				{
+					...connectedSite,
+					[ timestampKey ]: new Date().toISOString(),
+				},
+			] );
+		} catch ( error ) {
+			console.warn( 'Failed to update connected site sync timestamp:', error );
+		}
+	}
+
 	// Bridges `createSnapshot`/`updateSnapshot`'s fire-and-forget IPC pattern
 	// into an awaitable promise. The main process emits `snapshot-key-value`
 	// with the final preview URL right before `snapshot-success`; fatal
@@ -168,6 +198,15 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setupAppMenu( { needsOnboarding: false } );
 		},
 
+		// Native desktop app: every affordance is available.
+		capabilities: {
+			nativeFolderPicker: true,
+			nativeSaveDialog: true,
+			openInOS: true,
+			annotatePreview: true,
+			readLocalMedia: true,
+		},
+
 		// Auth — optional in Electron, delegated to main process
 		requiresAuth: false,
 
@@ -193,6 +232,10 @@ export function createIpcConnector(): Connector {
 
 		async logout(): Promise< void > {
 			await ipcApi.clearAuthenticationToken();
+		},
+
+		onAuthStateChanged( listener ) {
+			return ipcListener.subscribe( 'auth-updated', () => listener() );
 		},
 
 		// Sites
@@ -276,10 +319,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.comparePaths( path1, path2 ) ) as boolean;
 		},
 
-		async getAllCustomDomains(): Promise< string[] > {
-			return ( await ipcApi.getAllCustomDomains() ) as string[];
-		},
-
 		async getFeaturedBlueprints( locale ) {
 			const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/blueprints' );
 			if ( locale ) {
@@ -335,6 +374,10 @@ export function createIpcConnector(): Connector {
 			return ( ipcApi.getPathForFile( file ) as string ) ?? '';
 		},
 
+		async readLocalMediaFile( path ): Promise< LocalMediaFile > {
+			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
+		},
+
 		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
 			return ( await ipcApi.extractBlueprintBundle( zipFilePath ) ) as ExtractedBlueprintBundle;
 		},
@@ -362,8 +405,8 @@ export function createIpcConnector(): Connector {
 			await ipcApi.updateSite( site, wpVersion );
 		},
 
-		async getXdebugEnabledSite() {
-			return ( await ipcApi.getXdebugEnabledSite() ) as SiteDetails | null;
+		async refreshSiteIcon( siteId ) {
+			await ipcApi.loadSiteIcon( siteId );
 		},
 
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -468,27 +511,18 @@ export function createIpcConnector(): Connector {
 		},
 
 		async pushSiteToLive( siteId, remoteSiteId ): Promise< void > {
-			// Mirrors the desktop app's `pushSiteThunk` — export a backup, then
-			// TUS-upload it + initiate the remote import. We skip the
-			// post-upload polling that the desktop app uses for progress UI;
-			// `pushArchive` only resolves after `import/initiate` succeeds, so
-			// the remote import may still be running when this returns.
-			const operationId = window.crypto.randomUUID();
-			const { archivePath } = ( await ipcApi.exportSiteForPush( siteId, operationId, {} ) ) as {
-				archivePath: string;
-			};
-			const result = ( await ipcApi.pushArchive( siteId, remoteSiteId, archivePath ) ) as {
-				success: boolean;
-				error?: string;
-			};
-			if ( ! result.success ) {
-				throw new Error( result.error ?? 'Push failed' );
-			}
+			// The agentic UI pushes via the shared `pushSite` (export → TUS
+			// upload → import) in both desktop and `studio ui`; the desktop runs
+			// it behind this single IPC handler. Resolves once the import is
+			// initiated (the remote import may still be running).
+			await ipcApi.pushSiteToLive( siteId, remoteSiteId );
+			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'push' );
 		},
 
 		async pullSiteFromLive( siteId, remoteSiteId ): Promise< void > {
 			const siteFolder = await resolveSiteFolder( siteId );
 			await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId );
+			await markConnectedWpcomSiteSynced( siteId, remoteSiteId, 'pull' );
 		},
 
 		getPublishCheckoutUrl( site ): string {
@@ -515,6 +549,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.deleteAiSession( sessionId );
 		},
 
+		async updateSessionMetadata( sessionId, patch ): Promise< AiSessionSummary > {
+			return ( await ipcApi.updateAiSessionMetadata( sessionId, patch ) ) as AiSessionSummary;
+		},
+
 		async createSession( siteId ): Promise< AiSessionSummary > {
 			return ( await ipcApi.createAiSession( siteId ) ) as AiSessionSummary;
 		},
@@ -523,6 +561,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.continueAiSession( sessionId, prompt, options ) ) as {
 				runId: string;
 			};
+		},
+
+		async getActiveAgentRuns(): Promise< ActiveAgentRun[] > {
+			return ( await ipcApi.listActiveAiAgentRuns() ) as ActiveAgentRun[];
 		},
 
 		async setSessionModel( sessionId, model ) {
@@ -555,6 +597,15 @@ export function createIpcConnector(): Connector {
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'ai-agent-event', ( _event: unknown, payload: AgentRunEvent ) =>
 				listener( payload )
+			);
+		},
+
+		onSessionPlacementUpdated( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe(
+				'ai-session-placement-updated',
+				( _event: unknown, payload: AiSessionPlacementUpdatedEvent ) => listener( payload )
 			);
 		},
 
@@ -597,6 +648,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
 
+		async fetchSiteRest( siteId, request ) {
+			return await ipcApi.fetchSiteRestApi( siteId, request );
+		},
+
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );
@@ -621,7 +676,24 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
+		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
+			ipcApi.popupAppMenu( position );
+		},
+
+		async copyText( text: string ): Promise< void > {
+			await ipcApi.copyText( text );
+		},
+
+		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
+			await ipcApi.openSiteURL( siteId, relativeUrl, options );
+		},
+
 		// Window state
+		// The IPC connector only runs in Electron, so `navigator` reflects the
+		// desktop OS. macOS overlays the traffic lights on the content (so we
+		// reserve space for them); Windows and Linux don't.
+		reservesTrafficLightSpace: /mac/i.test( navigator.platform || navigator.userAgent ),
+
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();
 		},
@@ -639,6 +711,30 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'site-event', () => listener() );
+		},
+
+		onToggleSitePreview( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'toggle-site-preview', () => listener() );
+		},
+
+		onToggleSidebar( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'toggle-sidebar', () => listener() );
+		},
+
+		onAddSite( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'add-site', () => listener() );
+		},
+
+		onOpenSettings( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'user-settings', () => listener() );
 		},
 	};
 }

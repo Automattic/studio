@@ -1,28 +1,63 @@
+/* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
+   Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
+@font-face {
+	font-family: 'Vazirmatn';
+	src: url( './fonts/Vazirmatn-Variable.woff2' ) format( 'woff2' );
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
 :root {
 	/* Default is 2px; 4px reads a bit softer. */
 	--wpds-border-radius-sm: 4px;
 
 	/* Overlay stacking — portals mount into `document.body` and must beat
 	   app-chrome stacking contexts (sidebar header z-index: 1, floating
-	   toggle z-index: 10). The menu popup uses the same 100 via its
-	   component stylesheet; dialogs sit at the same tier. Tooltips live
-	   higher so help text on controls inside a menu/dialog still surfaces
-	   above the containing popup. */
-	--wp-ui-dialog-z-index: 100;
-	--wp-ui-tooltip-z-index: 200;
+	   toggle z-index: 30). Menus stay below modal surfaces; tooltips live
+	   above dialogs so help text on controls inside a modal still surfaces
+	   above the containing overlay. */
+	--wp-ui-dialog-z-index: 700;
+	--wp-ui-tooltip-z-index: 800;
 }
 
 body {
 	margin: 0;
 	padding: 0;
-	font-family: var(--wpds-typography-font-family-body);
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: var(--wpds-typography-line-height-md);
-	background-color: var(--wpds-color-bg-surface-neutral);
-	color: var(--wpds-color-fg-content-neutral);
+	font-family: var( --wpds-typography-font-family-body );
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: var( --wpds-typography-line-height-md );
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
 	color-scheme: light dark;
 	scrollbar-width: thin;
 	scrollbar-color: gray transparent;
+}
+
+/* Overriding the font-family tokens covers everything themed by the design
+   system; `lang` is set on bootstrap in lib/apply-locale.ts. */
+:root:lang( ckb ) {
+	--wpds-typography-font-family-body: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
+		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+	--wpds-typography-font-family-heading: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
+		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+}
+
+/* @wordpress/components controls hardcode their own font-family at class
+   specificity, so the token override alone doesn't reach them. */
+body:lang( ckb ) input,
+body:lang( ckb ) textarea,
+body:lang( ckb ) select,
+body:lang( ckb ) button,
+body:lang( ckb ) [class*='components-'] {
+	font-family: var( --wpds-typography-font-family-body );
+}
+
+@media ( prefers-color-scheme: dark ) {
+	:root {
+		--wp-ui-tooltip-background-color: #fff;
+		--wp-ui-tooltip-color: #000;
+	}
 }
 
 /* Universal heading styles derived from the design system's font-size /
@@ -37,40 +72,40 @@ h3,
 h4,
 h5,
 h6 {
-	font-family: var(--wpds-typography-font-family-heading);
-	font-weight: var(--wpds-typography-font-weight-regular);
-	color: var(--wpds-color-fg-content-neutral);
+	font-family: var( --wpds-typography-font-family-heading );
+	font-weight: var( --wpds-typography-font-weight-regular );
+	color: var( --wpds-color-fg-content-neutral );
 	margin: 0;
 }
 
 h1 {
-	font-size: var(--wpds-typography-font-size-2xl);
-	line-height: var(--wpds-typography-line-height-2xl);
+	font-size: var( --wpds-typography-font-size-2xl );
+	line-height: var( --wpds-typography-line-height-2xl );
 }
 
 h2 {
-	font-size: var(--wpds-typography-font-size-xl);
-	line-height: var(--wpds-typography-line-height-xl);
+	font-size: var( --wpds-typography-font-size-xl );
+	line-height: var( --wpds-typography-line-height-xl );
 }
 
 h3 {
-	font-size: var(--wpds-typography-font-size-lg);
-	line-height: var(--wpds-typography-line-height-lg);
+	font-size: var( --wpds-typography-font-size-lg );
+	line-height: var( --wpds-typography-line-height-lg );
 }
 
 h4 {
-	font-size: var(--wpds-typography-font-size-md);
-	line-height: var(--wpds-typography-line-height-md);
+	font-size: var( --wpds-typography-font-size-md );
+	line-height: var( --wpds-typography-line-height-md );
 }
 
 h5 {
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
+	font-size: var( --wpds-typography-font-size-sm );
+	line-height: var( --wpds-typography-line-height-sm );
 }
 
 h6 {
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: var(--wpds-typography-line-height-xs);
+	font-size: var( --wpds-typography-font-size-xs );
+	line-height: var( --wpds-typography-line-height-xs );
 }
 
 /* Interactive elements inside drag-region ancestors (title bars, section
@@ -82,7 +117,7 @@ button,
 a,
 input,
 textarea,
-[role="button"],
+[role='button'],
 [data-base-ui-portal],
 [data-base-ui-portal] * {
 	-webkit-app-region: no-drag;
@@ -97,12 +132,12 @@ textarea,
    loading buttons rely on `color: transparent` to hide their label while
    the spinner runs, and overriding that here would make the label visible
    again. */
-button:focus:not(:focus-visible),
-a:focus:not(:focus-visible),
-[role="button"]:focus:not(:focus-visible) {
+button:focus:not( :focus-visible ),
+a:focus:not( :focus-visible ),
+[role='button']:focus:not( :focus-visible ) {
 	outline: none;
-	background-color: var(--wp-ui-button-background-color);
-	border-color: var(--wp-ui-button-border-color);
+	background-color: var( --wp-ui-button-background-color );
+	border-color: var( --wp-ui-button-border-color );
 }
 
 /* Compact density: shrink icons to match the tighter spacing tokens.
@@ -110,7 +145,7 @@ a:focus:not(:focus-visible),
    density only shrinks padding/gap tokens, not icon sizes. Override the
    svg width/height attributes with CSS until the design system exposes
    a density-aware icon token. Ideally this lives in ThemeProvider. */
-[data-wpds-density='compact'] svg {
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg {
 	width: 16px;
 	height: 16px;
 }
@@ -122,7 +157,17 @@ a:focus:not(:focus-visible),
    itself uses so the control reads as one solid field. */
 .components-combobox-control__suggestions-container,
 .components-form-token-field__suggestions-list {
-	background-color: var(--wp-components-color-background, #fff);
+	background-color: var( --wp-components-color-background, #fff );
+}
+
+.components-input-control__prefix svg,
+.components-input-control__suffix svg {
+	fill: var( --wpds-color-fg-content-neutral-weak );
+}
+
+select option {
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
 }
 
 /* Honor the user's reduced-motion preference across the entire app. Class-
@@ -130,7 +175,7 @@ a:focus:not(:focus-visible),
    needed to clamp them. Components that genuinely need to keep motion can
    re-enable it with a more specific `!important` rule inside the same
    media query. */
-@media (prefers-reduced-motion: reduce) {
+@media ( prefers-reduced-motion: reduce ) {
 	*,
 	*::before,
 	*::after {
@@ -140,4 +185,3 @@ a:focus:not(:focus-visible),
 		scroll-behavior: auto !important;
 	}
 }
-

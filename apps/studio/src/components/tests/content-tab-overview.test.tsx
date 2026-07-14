@@ -14,6 +14,9 @@ vi.mock( 'src/lib/app-globals', () => ( {
 	isLinux: vi.fn().mockReturnValue( false ),
 	getAppGlobals: vi.fn( () => ( { platform: 'darwin' } ) ),
 } ) );
+vi.mock( 'src/lib/file-manager', () => ( {
+	getFileManagerLabel: vi.fn().mockReturnValue( 'Finder' ),
+} ) );
 vi.mock( 'src/hooks/use-site-details' );
 vi.mock( 'src/hooks/use-theme-details' );
 vi.mock( 'src/lib/get-ipc-api', () => ( {

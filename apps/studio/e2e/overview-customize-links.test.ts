@@ -195,13 +195,7 @@ test.describe( 'Overview customize links', () => {
 			await expect( phpMyAdminButton ).toBeEnabled();
 		} );
 
-		// phpMyAdmin requires MySQL; native PHP sites use SQLite with no MySQL server running.
 		test( 'opens phpMyAdmin shortcut', async ( { page } ) => {
-			test.skip(
-				process.env.STUDIO_RUNTIME === 'native-php',
-				'phpMyAdmin requires MySQL — not available with native-php SQLite runtime'
-			);
-
 			const redirectUrl = await openShortcut( page, 'phpMyAdmin' );
 			expect( redirectUrl ).toContain( '/phpmyadmin/' );
 

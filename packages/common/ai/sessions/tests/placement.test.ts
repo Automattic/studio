@@ -102,6 +102,7 @@ describe( 'ai session placement (shared)', () => {
 			filePath: '/sessions/session-1.jsonl',
 			createdAt: '2026-05-13T00:00:00.000Z',
 			updatedAt: '2026-05-13T00:00:00.000Z',
+			ownerSiteId: 'ignored-from-jsonl',
 			ownerSitePath: '/ignored/from-jsonl',
 			ownerSiteName: 'Ignored',
 			activeEnvironment: 'local',
@@ -109,6 +110,7 @@ describe( 'ai session placement (shared)', () => {
 		} satisfies AiSessionSummary;
 
 		expect( hydrateAiSessionSummaryWithPlacement( summary ) ).toMatchObject( {
+			ownerSiteId: undefined,
 			ownerSitePath: undefined,
 			ownerSiteName: undefined,
 		} );
@@ -120,6 +122,7 @@ describe( 'ai session placement (shared)', () => {
 				siteName: 'Site One',
 			} )
 		).toMatchObject( {
+			ownerSiteId: 'site-1',
 			ownerSitePath: '/sites/site-1',
 			ownerSiteName: 'Site One',
 		} );

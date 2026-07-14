@@ -44,17 +44,32 @@ const PATH_DEFINITION = '$HOME/.local/bin';
 const PATH_EXPORT_LINE = `export PATH="${ PATH_DEFINITION }:$PATH"`;
 const ERROR_FILE_ALREADY_EXISTS = 'Studio CLI symlink path already occupied by non-symlink';
 
+export async function doesSymlinkLeadToPackagedCli(
+	symlinkPath: string,
+	prodCliPackagedPath: string
+): Promise< boolean > {
+	try {
+		const symlinkDestination = await fs.promises.readlink( symlinkPath );
+
+		if ( process.env.NODE_ENV !== 'production' && symlinkDestination === prodCliPackagedPath ) {
+			return true;
+		}
+
+		return symlinkDestination === cliPackagedPath;
+	} catch {
+		return false;
+	}
+}
+
 export interface UnixCliConfig {
 	platform: 'darwin' | 'linux';
 	shellProfiles: Record< string, string >;
 	defaultProfile: string;
 	prodCliPackagedPath: string;
+	onUninstalled?: () => Promise< void >;
 }
 
-export abstract class UnixCliInstallationManager implements StudioCliInstallationManager {
-	protected readonly cliSymlinkPath = cliSymlinkPath;
-	protected readonly cliPackagedPath = cliPackagedPath;
-
+export class UnixCliInstallationManager implements StudioCliInstallationManager {
 	constructor( private readonly config: UnixCliConfig ) {
 		if ( process.platform !== config.platform ) {
 			throw new Error( 'Use the appropriate installation manager for the current platform' );
@@ -71,11 +86,11 @@ export abstract class UnixCliInstallationManager implements StudioCliInstallatio
 		// A standalone (curl) install is managed outside the app: report it as
 		// installed — matching the Windows manager — so the UI doesn't offer an
 		// install that would silently no-op. We never install over or uninstall it.
-		if ( await this.isExternallyManagedCli( this.cliSymlinkPath ) ) {
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
 			return true;
 		}
 
-		return await this.doesSymlinkLeadToPackagedCli( this.cliSymlinkPath );
+		return await doesSymlinkLeadToPackagedCli( cliSymlinkPath, this.config.prodCliPackagedPath );
 	}
 
 	async installCliWithConfirmation(): Promise< void > {
@@ -97,7 +112,7 @@ export abstract class UnixCliInstallationManager implements StudioCliInstallatio
 						__(
 							'The installation path %1$s is already occupied by a file or directory. Please remove it and try again.'
 						),
-						this.cliSymlinkPath
+						cliSymlinkPath
 					);
 				} else {
 					Sentry.captureException( error );
@@ -113,7 +128,7 @@ export abstract class UnixCliInstallationManager implements StudioCliInstallatio
 	async uninstallCliWithConfirmation(): Promise< void > {
 		try {
 			await this.uninstallCli();
-			await this.onUninstalled();
+			await this.config.onUninstalled?.();
 			await updateAppdata( { cliUserUninstalled: true } );
 			await showCliInfoDialog(
 				__( 'CLI uninstalled' ),
@@ -144,12 +159,9 @@ export abstract class UnixCliInstallationManager implements StudioCliInstallatio
 		await this.installCli();
 	}
 
-	// Hook for platform-specific post-uninstall cleanup (e.g. legacy symlinks).
-	protected async onUninstalled(): Promise< void > {}
-
 	private async installCli(): Promise< void > {
 		try {
-			const stats = await fs.promises.lstat( this.cliSymlinkPath );
+			const stats = await fs.promises.lstat( cliSymlinkPath );
 
 			if ( ! stats.isSymbolicLink() ) {
 				throw new Error( ERROR_FILE_ALREADY_EXISTS );
@@ -164,7 +176,7 @@ export abstract class UnixCliInstallationManager implements StudioCliInstallatio
 
 		// Never overwrite a CLI the app didn't install — e.g. a standalone curl
 		// install symlinking studio at <STUDIO_CLI_HOME>/bin/studio (any location).
-		if ( await this.isExternallyManagedCli( this.cliSymlinkPath ) ) {
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
 			return;
 		}
 
@@ -172,10 +184,10 @@ export abstract class UnixCliInstallationManager implements StudioCliInstallatio
 			return;
 		}
 
-		const directoryPath = path.dirname( this.cliSymlinkPath );
+		const directoryPath = path.dirname( cliSymlinkPath );
 
 		try {
-			await fs.promises.unlink( this.cliSymlinkPath );
+			await fs.promises.unlink( cliSymlinkPath );
 		} catch ( error ) {
 			if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
 				throw error;
@@ -183,13 +195,13 @@ export abstract class UnixCliInstallationManager implements StudioCliInstallatio
 		}
 
 		await fs.promises.mkdir( directoryPath, { recursive: true } );
-		await fs.promises.symlink( this.cliPackagedPath, this.cliSymlinkPath );
+		await fs.promises.symlink( cliPackagedPath, cliSymlinkPath );
 		await this.ensurePathInProfile();
 	}
 
 	private async uninstallCli(): Promise< void > {
 		try {
-			const stats = await fs.promises.lstat( this.cliSymlinkPath );
+			const stats = await fs.promises.lstat( cliSymlinkPath );
 
 			if ( ! stats.isSymbolicLink() ) {
 				throw new Error( ERROR_FILE_ALREADY_EXISTS );
@@ -203,11 +215,11 @@ export abstract class UnixCliInstallationManager implements StudioCliInstallatio
 		}
 
 		// Don't remove a CLI the app didn't install (e.g. a standalone curl install).
-		if ( await this.isExternallyManagedCli( this.cliSymlinkPath ) ) {
+		if ( await this.isExternallyManagedCli( cliSymlinkPath ) ) {
 			return;
 		}
 
-		await fs.promises.unlink( this.cliSymlinkPath );
+		await fs.promises.unlink( cliSymlinkPath );
 	}
 
 	private async ensurePathInProfile(): Promise< void > {
@@ -265,23 +277,6 @@ export abstract class UnixCliInstallationManager implements StudioCliInstallatio
 		// A symlink that doesn't point at our packaged CLI is managed outside the
 		// app (e.g. a standalone curl install at <STUDIO_CLI_HOME>/bin/studio, any
 		// location). Treat it as installed and never overwrite it.
-		return ! ( await this.doesSymlinkLeadToPackagedCli( symlinkPath ) );
-	}
-
-	protected async doesSymlinkLeadToPackagedCli( symlinkPath: string ): Promise< boolean > {
-		try {
-			const symlinkDestination = await fs.promises.readlink( symlinkPath );
-
-			if (
-				process.env.NODE_ENV !== 'production' &&
-				symlinkDestination === this.config.prodCliPackagedPath
-			) {
-				return true;
-			}
-
-			return symlinkDestination === this.cliPackagedPath;
-		} catch {
-			return false;
-		}
+		return ! ( await doesSymlinkLeadToPackagedCli( symlinkPath, this.config.prodCliPackagedPath ) );
 	}
 }

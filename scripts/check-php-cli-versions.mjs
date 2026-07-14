@@ -87,10 +87,14 @@ async function findLatestPatchVersion( phpMinor ) {
 // The PHP binary version may exist on the CDN, but not in the metadata, if a
 // previous GitHub Actions run built the same version, but the resulting PR
 // hasn't yet been merged.
-export async function phpVersionExistsOnCdn( phpVersion, fetchImplementation = fetch ) {
+export async function phpVersionExistsOnCdn(
+	phpVersion,
+	packageVersion,
+	fetchImplementation = fetch
+) {
 	const checks = await Promise.all(
 		PHP_CDN_PLATFORMS.map( async ( platform ) => {
-			const url = `${ PHP_CDN_BASE_URL }/${ platform }/${ phpVersion }/full-install`;
+			const url = `${ PHP_CDN_BASE_URL }/${ platform }/${ phpVersion }-${ packageVersion }/full-install`;
 			const response = await fetchImplementation( url, {
 				method: 'HEAD',
 				redirect: 'manual',
@@ -118,14 +122,14 @@ async function main() {
 	const results = [];
 	const phpVersionsToBuild = [];
 
-	for ( const [ phpMinor, { version: currentVersion } ] of Object.entries(
+	for ( const [ phpMinor, { version: currentVersion, packageVersion } ] of Object.entries(
 		phpBinaryCdnMetadata.versions
 	) ) {
 		const latestVersion = await findLatestPatchVersion( phpMinor );
 		let result = 'Up to date';
 
 		if ( comparePatchVersions( latestVersion, currentVersion ) > 0 ) {
-			if ( await phpVersionExistsOnCdn( latestVersion ) ) {
+			if ( await phpVersionExistsOnCdn( latestVersion, packageVersion ) ) {
 				result = 'Already available on CDN';
 			} else {
 				phpVersionsToBuild.push( latestVersion );

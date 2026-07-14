@@ -112,16 +112,23 @@ async function getExistingNativePhpMuPluginsDir(
 		return null;
 	}
 
-	const expectedFiles = getStandardMuPlugins( options )
-		.map( ( plugin ) => plugin.filename )
-		.sort();
-	const actualFiles = existingFiles.filter( ( file ) => file.endsWith( '.php' ) ).sort();
+	const expectedPlugins = getStandardMuPlugins( options );
+	const actualFiles = existingFiles.filter( ( file ) => file.endsWith( '.php' ) );
 
-	if (
-		expectedFiles.length !== actualFiles.length ||
-		expectedFiles.some( ( filename, index ) => filename !== actualFiles[ index ] )
-	) {
+	if ( expectedPlugins.length !== actualFiles.length ) {
 		return null;
+	}
+
+	for ( const plugin of expectedPlugins ) {
+		let content: string;
+		try {
+			content = await readFile( path.join( muPluginsDir, plugin.filename ), 'utf8' );
+		} catch {
+			return null;
+		}
+		if ( content !== plugin.content ) {
+			return null;
+		}
 	}
 
 	return muPluginsDir;

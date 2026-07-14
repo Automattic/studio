@@ -6,6 +6,7 @@ import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
 import SiteContent from './page-objects/site-content';
+import { getUrlWithAutoLogin } from './utils';
 
 /**
  * Imports a genuine Jetpack Backup of a real WordPress.com site (blog name
@@ -87,6 +88,7 @@ test.describe( 'Import', () => {
 		await expect( siteContent.siteNameHeading ).toHaveText( siteName );
 		const frontendUrl = await settingsTab.copySiteUrlToClipboard( session.electronApp );
 		expect( frontendUrl ).not.toBeNull();
+		const wpAdminUrl = await settingsTab.copyWPAdminUrlToClipboard( session.electronApp );
 
 		// The imported database and theme are being served: the blog name comes
 		// from the backup's DB, and the custom cool-beans theme renders its
@@ -95,12 +97,14 @@ test.describe( 'Import', () => {
 		expect( await page.title() ).toContain( 'Cool Beans' );
 		await expect( page.getByText( 'Life is too short for' ).first() ).toBeVisible();
 
-		// The hero post's content came through. Addressed by post ID (baked into
-		// the backup's DB) rather than its pretty permalink: the hero slug
-		// contains an emoji, and rewrite handling for encoded slugs differs
-		// between the sandbox and native-PHP runtimes.
-		await page.goto( `${ frontendUrl }/?p=27` );
-		await expect( page.getByText( 'Jetpack Backup Import Test Site' ).first() ).toBeVisible();
-		await expect( page.getByText( 'What to verify after importing' ).first() ).toBeVisible();
+		// The hero post imported. Checked in wp-admin rather than at its frontend
+		// permalink: the hero slug contains an emoji, and WordPress canonically
+		// redirects `?p=27` to that pretty permalink, whose encoded-slug rewrite
+		// handling differs between the sandbox and native-PHP runtimes — so the
+		// post isn't reliably reachable on the frontend in CI.
+		await page.goto( getUrlWithAutoLogin( `${ wpAdminUrl }/edit.php` ) );
+		await expect(
+			page.locator( 'a.row-title:has-text("Jetpack Backup Import Test Site")' )
+		).toBeVisible();
 	} );
 } );

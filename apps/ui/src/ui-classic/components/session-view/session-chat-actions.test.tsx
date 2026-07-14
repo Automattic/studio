@@ -25,7 +25,7 @@ describe( 'getSiteSessionHistory', () => {
 
 		const history = getSiteSessionHistory( {
 			currentSession,
-			ownerSitePath: '/Users/example/Studio/demo-site',
+			ownerSite: { id: 'demo-site', path: '/Users/example/Studio/demo-site' },
 			sessions: [
 				createSession( {
 					id: 'other-site',
@@ -65,7 +65,7 @@ describe( 'getSiteSessionHistory', () => {
 		const history = getSiteSessionHistory( {
 			archived: true,
 			currentSession,
-			ownerSitePath: '/Users/example/Studio/demo-site',
+			ownerSite: { id: 'demo-site', path: '/Users/example/Studio/demo-site' },
 			sessions: [
 				createSession( {
 					id: 'active',

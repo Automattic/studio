@@ -1,3 +1,4 @@
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
 import { backup, box } from '@wordpress/icons';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
@@ -21,16 +22,16 @@ function getSessionTitle( session: AiSessionSummary ): string {
 
 export function getSiteSessionHistory( {
 	currentSession,
-	ownerSitePath,
+	ownerSite,
 	sessions,
 	archived = false,
 }: {
 	currentSession: AiSessionSummary;
-	ownerSitePath: string | undefined;
+	ownerSite: { id: string; path: string } | undefined;
 	sessions: AiSessionSummary[] | undefined;
 	archived?: boolean;
 } ): AiSessionSummary[] {
-	if ( ! ownerSitePath ) {
+	if ( ! ownerSite ) {
 		return [];
 	}
 
@@ -38,7 +39,7 @@ export function getSiteSessionHistory( {
 	// its copy in the list, so it goes last and wins the Map dedupe.
 	const sessionsById = new Map< string, AiSessionSummary >();
 	for ( const session of [ ...( sessions ?? [] ), currentSession ] ) {
-		if ( !! session.archived === archived && session.ownerSitePath === ownerSitePath ) {
+		if ( !! session.archived === archived && aiSessionBelongsToSite( session, ownerSite ) ) {
 			sessionsById.set( session.id, session );
 		}
 	}

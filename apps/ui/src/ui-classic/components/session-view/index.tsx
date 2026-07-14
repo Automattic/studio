@@ -202,14 +202,14 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const siteSessionHistory = data
 		? getSiteSessionHistory( {
 				currentSession: data.summary,
-				ownerSitePath: ownerSite?.path,
+				ownerSite,
 				sessions,
 		  } )
 		: [];
 	const archivedSiteSessionHistory = data
 		? getSiteSessionHistory( {
 				currentSession: data.summary,
-				ownerSitePath: ownerSite?.path,
+				ownerSite,
 				sessions,
 				archived: true,
 		  } )

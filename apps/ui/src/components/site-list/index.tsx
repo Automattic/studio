@@ -1,4 +1,7 @@
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import {
+	aiSessionBelongsToSite,
+	findAiSessionOwnerSite,
+} from '@studio/common/ai/sessions/owner-site';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -225,7 +228,7 @@ function useNewSessionAction( site: SiteDetails ) {
 			current &&
 			! current.firstPrompt &&
 			! current.archived &&
-			current.ownerSitePath === site.path
+			aiSessionBelongsToSite( current, site )
 		) {
 			return;
 		}

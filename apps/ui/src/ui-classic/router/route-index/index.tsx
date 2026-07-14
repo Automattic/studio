@@ -1,3 +1,4 @@
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { resolveAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -30,7 +31,7 @@ export const indexRoute = createRoute( {
 			queryKey: SESSIONS_QUERY_KEY,
 			queryFn: () => context.connector.getSessions(),
 		} );
-		const topSession = sessions.find( ( session ) => session.ownerSitePath === firstSite.path );
+		const topSession = sessions.find( ( session ) => aiSessionBelongsToSite( session, firstSite ) );
 		if ( topSession ) {
 			throw redirect( { to: '/sessions/$sessionId', params: { sessionId: topSession.id } } );
 		}

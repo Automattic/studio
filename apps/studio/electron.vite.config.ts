@@ -159,7 +159,7 @@ export default defineConfig( {
 			// Force CSS extraction instead of inlining
 			cssCodeSplit: true,
 			// Enable minification and compression
-			minify: 'esbuild',
+			minify: 'oxc',
 			// Target modern browsers for smaller output
 			target: 'chrome120',
 		},

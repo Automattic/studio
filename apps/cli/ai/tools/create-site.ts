@@ -42,6 +42,7 @@ export const createSiteTool = defineTool(
 			const site = await resolveSite( args.name );
 			const url = getSiteUrl( site );
 			await emitLocalSiteSelected( {
+				id: site.id,
 				name: site.name,
 				path: site.path,
 				running: true,

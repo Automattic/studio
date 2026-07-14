@@ -50,7 +50,10 @@ vi.mock( 'cli/ai/sessions/pi-session', () => ( {
 	listStudioSessionFiles: vi.fn(),
 } ) );
 vi.mock( 'cli/ai/sessions/replay', () => ( { replaySessionHistory: vi.fn() } ) );
-vi.mock( 'cli/ai/sessions/paths', () => ( { getAiSessionsRootDirectory: vi.fn() } ) );
+vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/well-known-paths') >() ),
+	getSessionsDirectory: vi.fn(),
+} ) );
 vi.mock( 'cli/ai/runtimes/pi', () => ( {
 	// A completed turn so the JSON single-turn path returns instead of looping.
 	runStudioAgentTurn: vi.fn( () => ( { result: Promise.resolve(), interrupt: vi.fn() } ) ),
@@ -183,7 +186,11 @@ describe( 'AI runCommand — active site banner running state', () => {
 	} );
 
 	it( 'reports the site as running when the daemon says it is', async () => {
-		( findSiteByFolder as Mock ).mockResolvedValue( { id: 'site-1', path: '/sites/my-site' } );
+		( findSiteByFolder as Mock ).mockResolvedValue( {
+			id: 'site-1',
+			name: 'My Site',
+			path: '/sites/my-site',
+		} );
 		( isSiteRunning as Mock ).mockResolvedValue( true );
 
 		await runCommand( {
@@ -198,7 +205,11 @@ describe( 'AI runCommand — active site banner running state', () => {
 	} );
 
 	it( 'reports the site as stopped when the daemon says it is not running', async () => {
-		( findSiteByFolder as Mock ).mockResolvedValue( { id: 'site-1', path: '/sites/my-site' } );
+		( findSiteByFolder as Mock ).mockResolvedValue( {
+			id: 'site-1',
+			name: 'My Site',
+			path: '/sites/my-site',
+		} );
 		( isSiteRunning as Mock ).mockResolvedValue( false );
 
 		await runCommand( {

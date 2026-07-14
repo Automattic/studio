@@ -1,6 +1,7 @@
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { __ } from '@wordpress/i18n';
+import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
@@ -316,7 +317,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = await api< SiteDetails[] >( '/sites' );
+			lastSites = applyStoredSiteOrder( await api< SiteDetails[] >( '/sites' ) );
 			return lastSites;
 		},
 		async startSite( id ) {
@@ -392,6 +393,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 				body: JSON.stringify( { site, wpVersion } ),
 			} );
+		},
+		async updateSitesSortOrder( updates ) {
+			storeSiteOrder( updates );
 		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
 		async exportFullSite( siteId ): Promise< string | null > {

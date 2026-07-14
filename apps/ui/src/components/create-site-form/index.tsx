@@ -179,7 +179,11 @@ function applyInitialValues(
 // Called from the form (not `PathField`) so it runs even when Advanced is
 // collapsed — otherwise `data.path` would stay empty on first load and the
 // Advanced toggle would falsely show "1 error found".
-function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormData > ) => void ) {
+function usePathAutoGenerate(
+	data: FormData,
+	onChange: ( update: Partial< FormData > ) => void,
+	isSubmitting: boolean
+) {
 	const { data: sites } = useSites();
 	const { generateProposedPath } = usePathValidator( sites );
 
@@ -190,6 +194,7 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 
 	const pendingNameRef = useRef< string | null >( null );
 	useEffect( () => {
+		if ( isSubmitting ) return;
 		if ( data.hasCustomPath ) {
 			pendingNameRef.current = null;
 			onChangeRef.current( { isPathPending: false } );
@@ -225,7 +230,7 @@ function usePathAutoGenerate( data: FormData, onChange: ( update: Partial< FormD
 		return () => {
 			cancelled = true;
 		};
-	}, [ data.name, data.hasCustomPath, generateProposedPath ] );
+	}, [ data.name, data.hasCustomPath, generateProposedPath, isSubmitting ] );
 }
 
 // On the desktop this is a button that opens the native folder dialog (the
@@ -529,7 +534,7 @@ export function CreateSiteForm( {
 	const handleChangePartial = useCallback( ( update: Partial< FormData > ) => {
 		setData( ( prev ) => ( { ...prev, ...update } ) );
 	}, [] );
-	usePathAutoGenerate( data, handleChangePartial );
+	usePathAutoGenerate( data, handleChangePartial, !! isSubmitting );
 
 	const handleChange = useCallback( ( update: Record< string, unknown > ) => {
 		for ( const key of Object.keys( update ) ) {

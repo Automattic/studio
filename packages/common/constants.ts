@@ -1,4 +1,4 @@
-import { RecommendedPHPVersion, PressablePHPVersion } from './types/php-versions';
+import { RecommendedPHPVersion, PressablePHPVersion } from './types/php-versions.ts';
 
 // Time constants
 export const HOUR_MS = 1000 * 60 * 60;

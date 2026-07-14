@@ -371,6 +371,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.updateSite( site, wpVersion );
 		},
 
+		async updateSitesSortOrder( updates ) {
+			await ipcApi.updateSitesSortOrder( updates );
+		},
+
 		async refreshSiteIcon( siteId ) {
 			await ipcApi.loadSiteIcon( siteId );
 		},

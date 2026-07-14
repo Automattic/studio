@@ -1,3 +1,8 @@
+import {
+	aiSessionBelongsToSite,
+	findAiSessionOwnerSite,
+} from '@studio/common/ai/sessions/owner-site';
+import { sortSites } from '@studio/common/lib/sort-sites';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -11,8 +16,9 @@ import {
 } from '@wordpress/icons';
 import { Button, Dialog, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as Menu from '@/components/menu';
+import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { SiteIcon } from '@/components/site-icon';
@@ -30,6 +36,7 @@ import {
 	useSites,
 	useStartSite,
 	useStopSite,
+	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { formatRelativeTime } from '@/lib/format-relative-time';
@@ -50,8 +57,7 @@ function groupSessionsByOwner(
 	sites: SiteDetails[] | undefined,
 	sessions: AiSessionSummary[] | undefined
 ): SiteGroup[] {
-	const knownSitePaths = new Set( ( sites ?? [] ).map( ( site ) => site.path ) );
-	const sessionsByPath = new Map< string, AiSessionSummary[] >();
+	const sessionsBySiteId = new Map< string, AiSessionSummary[] >();
 	const unassigned: AiSessionSummary[] = [];
 
 	for ( const session of sessions ?? [] ) {
@@ -61,42 +67,27 @@ function groupSessionsByOwner(
 		if ( session.archived ) {
 			continue;
 		}
-		if ( ! session.ownerSitePath || ! knownSitePaths.has( session.ownerSitePath ) ) {
+		const ownerSite = findAiSessionOwnerSite( sites, session );
+		if ( ! ownerSite ) {
 			unassigned.push( session );
 			continue;
 		}
 
-		const existing = sessionsByPath.get( session.ownerSitePath );
+		const existing = sessionsBySiteId.get( ownerSite.id );
 		if ( existing ) {
 			existing.push( session );
 		} else {
-			sessionsByPath.set( session.ownerSitePath, [ session ] );
+			sessionsBySiteId.set( ownerSite.id, [ session ] );
 		}
 	}
 
+	// Groups keep the given site order (sorted by `sortOrder` upstream).
 	const groups: SiteGroup[] = ( sites ?? [] ).map( ( site ) => ( {
 		key: site.id,
 		site,
 		label: site.name,
-		sessions: sessionsByPath.get( site.path ) ?? [],
+		sessions: sessionsBySiteId.get( site.id ) ?? [],
 	} ) );
-
-	// Sort site-groups by the newest session's updatedAt so the most recently
-	// used site lands at the top. Sites with no sessions drop to the bottom.
-	groups.sort( ( a, b ) => {
-		const aTimestamp = a.sessions[ 0 ]?.updatedAt;
-		const bTimestamp = b.sessions[ 0 ]?.updatedAt;
-		if ( ! aTimestamp && ! bTimestamp ) {
-			return 0;
-		}
-		if ( ! aTimestamp ) {
-			return 1;
-		}
-		if ( ! bTimestamp ) {
-			return -1;
-		}
-		return Date.parse( bTimestamp ) - Date.parse( aTimestamp );
-	} );
 
 	if ( unassigned.length > 0 ) {
 		groups.push( {
@@ -213,8 +204,21 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 
 function useNewSessionAction( site: SiteDetails ) {
 	const navigate = useNavigate();
+	const { data: sessions } = useSessions();
+	const params = useParams( { strict: false } ) as { sessionId?: string };
 	const [ isPending, setIsPending ] = useState( false );
 	const handleClick = async () => {
+		// The backend reuses the site's newest empty draft, so if we're already
+		// viewing it the round-trip would only flicker back to the same session.
+		const current = sessions?.find( ( session ) => session.id === params.sessionId );
+		if (
+			current &&
+			! current.firstPrompt &&
+			! current.archived &&
+			aiSessionBelongsToSite( current, site )
+		) {
+			return;
+		}
 		setIsPending( true );
 		try {
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
@@ -561,13 +565,11 @@ function SiteStatusButton( {
 
 function SiteSection( {
 	group,
-	isUnassigned,
 	isActive,
 	isOpen,
 	onToggle,
 }: {
 	group: SiteGroup;
-	isUnassigned: boolean;
 	isActive: boolean;
 	isOpen: boolean;
 	onToggle: () => void;
@@ -577,13 +579,7 @@ function SiteSection( {
 	const isStopped = !! group.site && ! group.site.running && ! isStarting;
 
 	return (
-		<section
-			className={ clsx(
-				styles.site,
-				isUnassigned && styles.unassigned,
-				isActive && styles.siteActive
-			) }
-		>
+		<section className={ clsx( styles.site, isActive && styles.siteActive ) }>
 			<header className={ styles.siteHeader }>
 				<div className={ styles.siteText }>
 					<SidebarButton
@@ -607,7 +603,7 @@ function SiteSection( {
 					</SidebarButton>
 				</div>
 				{ group.site ? (
-					<div className={ styles.siteActions }>
+					<div className={ styles.siteActions } data-reorder-exclude>
 						<SiteActionsMenu
 							site={ group.site }
 							isStarting={ isStarting }
@@ -626,6 +622,7 @@ function SiteSection( {
 				<div
 					className={ clsx( styles.sessionListFrame, isOpen && styles.sessionListFrameOpen ) }
 					aria-hidden={ ! isOpen }
+					data-reorder-exclude
 				>
 					{ group.sessions.length > 0 ? (
 						<ul className={ styles.sessionList }>
@@ -668,55 +665,107 @@ function findActiveSiteKey(
 	return undefined;
 }
 
+function getGroupKey( group: SiteGroup ) {
+	return group.key;
+}
+
 export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
+	const updateSitesSortOrder = useUpdateSitesSortOrder();
 
-	const groups = useMemo( () => groupSessionsByOwner( sites, sessions ), [ sites, sessions ] );
+	// The renderer owns the site order for the session: seeded once from the
+	// first loaded sites, changed only by the user's drags, and pushed to the
+	// backend as a fire-and-forget write. Refetches only refresh row data —
+	// they can never reorder the list, so the sidebar cannot flicker.
+	const [ siteOrder, setSiteOrder ] = useState< string[] | null >( null );
+	useEffect( () => {
+		if ( siteOrder === null && sites && sites.length > 0 ) {
+			setSiteOrder( sortSites( [ ...sites ] ).map( ( site ) => site.id ) );
+		}
+	}, [ sites, siteOrder ] );
+
+	const orderedSites = useMemo( () => {
+		const bySortOrder = sortSites( [ ...( sites ?? [] ) ] );
+		if ( ! siteOrder ) {
+			return bySortOrder;
+		}
+		const rank = new Map( siteOrder.map( ( id, index ) => [ id, index ] ) );
+		// Sites created after the seed aren't ranked yet; they append at the end.
+		return [
+			...bySortOrder
+				.filter( ( site ) => rank.has( site.id ) )
+				.sort( ( a, b ) => ( rank.get( a.id ) ?? 0 ) - ( rank.get( b.id ) ?? 0 ) ),
+			...bySortOrder.filter( ( site ) => ! rank.has( site.id ) ),
+		];
+	}, [ sites, siteOrder ] );
+
+	const reorderSites = ( nextSiteIds: string[] ) => {
+		setSiteOrder( nextSiteIds );
+		updateSitesSortOrder.mutate( nextSiteIds );
+	};
+	const groups = useMemo(
+		() => groupSessionsByOwner( orderedSites, sessions ),
+		[ orderedSites, sessions ]
+	);
+	// Unassigned chats are intentionally not rendered; the grouping logic
+	// itself goes away with the site-centric sidebar rework.
+	const siteGroups = useMemo(
+		() => groups.filter( ( group ) => group.key !== UNASSIGNED_KEY ),
+		[ groups ]
+	);
 	const activeSiteKey = useMemo(
-		() => findActiveSiteKey( groups, activeSessionId, activeSiteId ),
-		[ groups, activeSessionId, activeSiteId ]
+		() => findActiveSiteKey( siteGroups, activeSessionId, activeSiteId ),
+		[ siteGroups, activeSessionId, activeSiteId ]
 	);
 
 	// Expansion is derived: by default the active site (or, if none, the
-	// MRU site — first in the list) is open. Manual toggles are stored as
+	// first site in the list) is open. Manual toggles are stored as
 	// overrides so the user's explicit choice wins until they toggle again.
-	const mruKey = groups[ 0 ]?.key;
+	const firstKey = siteGroups[ 0 ]?.key;
 	const [ overrides, setOverrides ] = useState< Record< string, boolean > >( {} );
 
 	const isOpen = ( key: string ): boolean => {
 		if ( key in overrides ) {
 			return overrides[ key ];
 		}
-		return key === activeSiteKey || ( ! activeSiteKey && key === mruKey );
+		return key === activeSiteKey || ( ! activeSiteKey && key === firstKey );
 	};
 
 	const toggleSite = ( key: string ) => {
 		setOverrides( ( prev ) => ( { ...prev, [ key ]: ! isOpen( key ) } ) );
 	};
 
+	const renderSiteGroup = ( group: SiteGroup ) => (
+		<SiteSection
+			group={ group }
+			isActive={ group.key === activeSiteKey }
+			isOpen={ isOpen( group.key ) }
+			onToggle={ () => toggleSite( group.key ) }
+		/>
+	);
+
 	return (
 		<div className={ styles.root }>
 			{ sitesLoading || sessionsLoading ? (
 				<p className={ styles.empty }>{ __( 'Loading…' ) }</p>
-			) : groups.length === 0 ? (
+			) : siteGroups.length === 0 ? (
 				<p className={ styles.empty }>{ __( 'No sites yet' ) }</p>
 			) : (
-				<div className={ styles.sites }>
-					{ groups.map( ( group ) => (
-						<SiteSection
-							key={ group.key }
-							group={ group }
-							isUnassigned={ group.key === UNASSIGNED_KEY }
-							isActive={ group.key === activeSiteKey }
-							isOpen={ isOpen( group.key ) }
-							onToggle={ () => toggleSite( group.key ) }
-						/>
-					) ) }
-				</div>
+				<ReorderableList
+					items={ siteGroups }
+					getItemId={ getGroupKey }
+					renderItem={ renderSiteGroup }
+					onReorder={ reorderSites }
+					className={ styles.sites }
+					itemClassName={ styles.siteDragWrapper }
+					placeholderClassName={ styles.siteDropPlaceholder }
+					previewClassName={ styles.siteDragPreview }
+					excludeSelector="[data-reorder-exclude]"
+				/>
 			) }
 		</div>
 	);

@@ -127,6 +127,9 @@ apps/studio/e2e/imports/*.tar.gz
 apps/studio/e2e/imports/*.zip
 apps/studio/e2e/imports/*.wpress
 
+# Data-heavy e2e fixtures downloaded by `npm run e2e:fixtures` (see test-fixtures/readme.md)
+test-fixtures/downloads/
+
 # Metrics traces
 artifacts
 

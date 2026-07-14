@@ -69,6 +69,7 @@ export interface SiteDetails {
 	enableXdebug?: boolean;
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
+	sortOrder?: number;
 	themeDetails?: {
 		name: string;
 		path: string;
@@ -152,6 +153,9 @@ export interface Connector {
 	// process handler. `wpVersion` is only forwarded when the user explicitly
 	// picked a pinned version — undefined means "keep auto-updating".
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
+	// Persists the sidebar's manual site order (the same per-site `sortOrder`
+	// the legacy desktop sidebar uses).
+	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;

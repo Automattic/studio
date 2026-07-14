@@ -49,7 +49,8 @@ function deferred< T >() {
 function renderForm(
 	initialValues?: Partial< CreateSiteFormValues >,
 	onSubmit = vi.fn(),
-	isSubmitDisabled = false
+	isSubmitDisabled = false,
+	isSubmitting = false
 ) {
 	const props = {
 		initialValues,
@@ -57,12 +58,22 @@ function renderForm(
 		onSubmit,
 		onCancel: vi.fn(),
 		isSubmitDisabled,
+		isSubmitting,
 	};
 	const result = render( <CreateSiteForm { ...props } /> );
 	return {
 		...result,
-		rerenderWith: ( nextInitialValues?: Partial< CreateSiteFormValues > ) =>
-			result.rerender( <CreateSiteForm { ...props } initialValues={ nextInitialValues } /> ),
+		rerenderWith: (
+			nextInitialValues?: Partial< CreateSiteFormValues >,
+			nextIsSubmitting = isSubmitting
+		) =>
+			result.rerender(
+				<CreateSiteForm
+					{ ...props }
+					initialValues={ nextInitialValues }
+					isSubmitting={ nextIsSubmitting }
+				/>
+			),
 	};
 }
 
@@ -261,6 +272,38 @@ describe( 'CreateSiteForm', () => {
 			await first.promise;
 		} );
 		expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/second' );
+	} );
+
+	it( 'does not regenerate the path while navigation after submission completes', async () => {
+		const initialGenerator = vi.fn( async () => ( {
+			path: '/sites/created-site',
+			isEmpty: true,
+			isWordPress: false,
+		} ) );
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: initialGenerator,
+			selectPath: vi.fn(),
+		} );
+		const { rerenderWith } = renderForm( { name: 'Created site' } );
+		await waitFor( () => expect( initialGenerator ).toHaveBeenCalledOnce() );
+		openAdvancedSettings();
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/created-site' )
+		);
+
+		const refreshedGenerator = vi.fn( async () => ( {
+			path: '/sites/created-site-2',
+			isEmpty: true,
+			isWordPress: false,
+		} ) );
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: refreshedGenerator,
+			selectPath: vi.fn(),
+		} );
+		rerenderWith( { name: 'Created site' }, true );
+
+		expect( refreshedGenerator ).not.toHaveBeenCalled();
+		expect( screen.getByLabelText( 'Local path' ) ).toHaveValue( '/sites/created-site' );
 	} );
 
 	it( 'preserves a manual path when automatic generation is still pending', async () => {

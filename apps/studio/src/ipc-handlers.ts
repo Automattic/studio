@@ -28,6 +28,7 @@ import {
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 } from '@studio/common/ai/sessions/manage';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import {
 	deleteAiSessionPlacement,
 	readAiSessionPlacement,
@@ -322,11 +323,8 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	if ( summary.activeEnvironment !== 'live' ) {
 		return;
 	}
-	if ( ! summary.ownerSitePath ) {
-		return;
-	}
-
-	const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+	const ownerSite = findAiSessionOwnerSite( SiteServer.getAllDetails(), summary );
+	const ownerServer = ownerSite ? SiteServer.get( ownerSite.id ) : undefined;
 	if ( ! ownerServer ) {
 		return;
 	}
@@ -343,7 +341,8 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	// CLI's replay sees Local on the next turn.
 	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
 		siteName: ownerServer.details.name,
-		sitePath: summary.ownerSitePath,
+		sitePath: ownerServer.details.path,
+		siteId: ownerServer.details.id,
 	} );
 }
 
@@ -440,14 +439,17 @@ export async function setSessionEnvironment(
 ): Promise< SetSessionEnvironmentResult > {
 	const { summary } = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
 
-	if ( ! summary.ownerSitePath || ! summary.ownerSiteName ) {
+	if ( ! summary.ownerSiteId && ! summary.ownerSitePath ) {
 		throw new Error( 'Cannot change environment: session has no owner site' );
 	}
 
-	const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+	const ownerSite = findAiSessionOwnerSite( SiteServer.getAllDetails(), summary );
+	const ownerServer = ownerSite ? SiteServer.get( ownerSite.id ) : undefined;
 	if ( ! ownerServer ) {
 		throw new Error(
-			`Cannot change environment: owner site is no longer available (${ summary.ownerSitePath })`
+			`Cannot change environment: owner site is no longer available (${
+				summary.ownerSiteId ?? summary.ownerSitePath
+			})`
 		);
 	}
 
@@ -463,9 +465,10 @@ export async function setSessionEnvironment(
 
 		await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
 			siteName: liveSite.name,
-			// Keep the desktop placement path on remote picks too, so live/local
+			// Keep the local owner's path and id on remote picks too, so live/local
 			// environment flips still resolve against the same local site.
-			sitePath: summary.ownerSitePath,
+			sitePath: ownerServer.details.path,
+			siteId: ownerServer.details.id,
 			remote: true,
 			url: liveSite.url,
 			wpcomSiteId: liveSite.id,
@@ -484,6 +487,7 @@ export async function setSessionEnvironment(
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
 		siteName: details.name,
 		sitePath: details.path,
+		siteId: details.id,
 		url: 'url' in details ? details.url : undefined,
 	} );
 

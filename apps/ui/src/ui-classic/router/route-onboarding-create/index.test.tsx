@@ -9,6 +9,7 @@ const mocks = vi.hoisted( () => ( {
 	setProgress: vi.fn(),
 	mutateAsync: vi.fn(),
 	cleanup: vi.fn( async () => undefined ),
+	proposedName: 'My Studio Site',
 	formProps: null as Record< string, unknown > | null,
 	uploadProps: null as Record< string, unknown > | null,
 } ) );
@@ -59,7 +60,7 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 
 vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 	useExistingCustomDomains: () => [],
-	useProposedSiteName: () => ( { data: 'My Studio Site' } ),
+	useProposedSiteName: () => ( { data: mocks.proposedName } ),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -94,6 +95,7 @@ describe( 'CreateSitePage', () => {
 		vi.clearAllMocks();
 		mocks.formProps = null;
 		mocks.uploadProps = null;
+		mocks.proposedName = 'My Studio Site';
 		mocks.mutateAsync.mockResolvedValue( { id: 'site-1' } );
 	} );
 
@@ -107,6 +109,26 @@ describe( 'CreateSitePage', () => {
 			to: '/sites/$siteId/new',
 			params: { siteId: 'site-1' },
 		} );
+	} );
+
+	it( 'keeps the submitted suggestions visible until navigation completes', async () => {
+		let finishNavigation: () => void = () => undefined;
+		mocks.navigate.mockImplementationOnce(
+			() =>
+				new Promise< undefined >( ( resolve ) => {
+					finishNavigation = () => resolve( undefined );
+				} )
+		);
+		const { rerender } = render( <CreateSitePage /> );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Submit' } ) );
+		await waitFor( () => expect( mocks.navigate ).toHaveBeenCalledOnce() );
+
+		mocks.proposedName = 'My Next Studio Site';
+		rerender( <CreateSitePage /> );
+
+		expect( mocks.formProps?.initialValues ).toEqual( { name: 'My Studio Site' } );
+		expect( mocks.formProps?.isSubmitting ).toBe( true );
+		await act( async () => finishNavigation() );
 	} );
 
 	it( 'replaces and removes Blueprints while cleaning extracted temporary files', async () => {

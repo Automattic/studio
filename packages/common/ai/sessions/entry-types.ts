@@ -19,6 +19,9 @@ export type StudioCustomEntryType =
 export interface StudioSiteSelectedData {
 	siteName: string;
 	sitePath: string;
+	// Local site id. Optional: events written before it existed carry only the
+	// path, and consumers fall back to path resolution for those.
+	siteId?: string;
 	remote?: boolean;
 	url?: string;
 	wpcomSiteId?: number;

@@ -44,6 +44,8 @@ export function CreateSitePage() {
 	const createSite = useCreateSite();
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< SelectedBlueprint | null >( null );
 	const [ isBlueprintValid, setIsBlueprintValid ] = useState( true );
+	const [ submittedInitialValues, setSubmittedInitialValues ] =
+		useState< Partial< CreateSiteFormValues > | null >( null );
 	const selectedBlueprintRef = useRef< SelectedBlueprint | null >( null );
 	const transferredTempDirRef = useRef< string | null >( null );
 	const [ submitError, setSubmitError ] = useState( '' );
@@ -95,6 +97,7 @@ export function CreateSitePage() {
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
 		const blueprint = selectedBlueprintRef.current;
+		setSubmittedInitialValues( initialValues );
 		setSubmitError( '' );
 		setProgress( __( 'Creating site…' ) );
 		transferredTempDirRef.current = blueprint?.tempDir ?? null;
@@ -132,6 +135,7 @@ export function CreateSitePage() {
 			} );
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
+			setSubmittedInitialValues( null );
 			setProgress( null );
 			setSubmitError(
 				error instanceof Error ? error.message : __( 'Failed to create site. Please try again.' )
@@ -154,11 +158,11 @@ export function CreateSitePage() {
 				{ __( "Choose a name and we'll set up a fresh WordPress site on your machine." ) }
 			</p>
 			<CreateSiteForm
-				initialValues={ initialValues }
+				initialValues={ submittedInitialValues ?? initialValues }
 				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
-				isSubmitting={ createSite.isPending }
+				isSubmitting={ submittedInitialValues !== null }
 				isSubmitDisabled={ ! isBlueprintValid }
 				submitError={ submitError }
 				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }

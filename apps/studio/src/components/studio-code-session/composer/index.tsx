@@ -66,6 +66,7 @@ interface ComposerProps {
 	busy: boolean;
 	isInterrupting?: boolean;
 	error: string | null;
+	usageCapMessage?: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments: ComposerSendAttachments ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
@@ -194,10 +195,38 @@ export function clearSessionDraft( sessionId: string | undefined ): void {
 	saveDraft( getDraftStorageKey( sessionId ), '' );
 }
 
+function getIdlePlaceholderOptions(): string[] {
+	return [
+		__( 'What should we make better?' ),
+		__( 'What’s the next move?' ),
+		__( 'Tell me what to change next…' ),
+		__( 'Drop the next idea here…' ),
+		__( 'What are we tuning now?' ),
+	];
+}
+
+/**
+ * Pick a placeholder for the session. The choice is derived from the session id
+ * so it stays stable for the lifetime of a chat instead of changing on every
+ * render, while still varying between chats.
+ */
+function getSessionPlaceholder( sessionId: string | undefined ): string {
+	const options = getIdlePlaceholderOptions();
+	if ( ! sessionId ) {
+		return options[ 0 ];
+	}
+	let hash = 0;
+	for ( let i = 0; i < sessionId.length; i++ ) {
+		hash = ( hash * 31 + sessionId.charCodeAt( i ) ) | 0;
+	}
+	return options[ Math.abs( hash ) % options.length ];
+}
+
 export function Composer( {
 	busy,
 	isInterrupting = false,
 	error,
+	usageCapMessage,
 	model,
 	onSend,
 	onInterrupt,
@@ -410,7 +439,7 @@ export function Composer( {
 	const canSend = value.trim().length > 0 || attachments.length > 0;
 	const placeholder = busy
 		? __( 'Queue a follow-up instruction…' )
-		: __( 'Set your next instruction…' );
+		: getSessionPlaceholder( sessionId );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const modKey = isMacPlatform ? '⌘' : 'Ctrl';
 	const hoveredAttachment = hoverPreview
@@ -431,6 +460,11 @@ export function Composer( {
 	return (
 		<>
 			<div className={ styles.root }>
+				{ usageCapMessage ? (
+					<div className={ styles.usageCapBanner } role="alert">
+						{ usageCapMessage }
+					</div>
+				) : null }
 				<div
 					className={ cx( styles.shell, isDraggingOver && styles.shellDragging ) }
 					onDragOver={ dragHandlers.onDragOver }

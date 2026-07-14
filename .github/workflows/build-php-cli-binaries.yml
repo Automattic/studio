@@ -17,14 +17,13 @@ on:
         required: true
         default: 3.5.1
       spc_ref:
-        # Pinned past 2.8.5 to pick up PR #1132 ("fix centos 7 gd build"),
-        # which patches a `-l-lpthread` malformation in libcurl.pc that
-        # breaks every extension link test on the gnu-docker image's
-        # older glibc / CMake FindThreads combination. The fix landed
-        # 2026-05-07; bump to the next SPC release once it cuts.
+        # Pinned to PR #1204, which enables SQLITE_ENABLE_COLUMN_METADATA on
+        # Unix builds so PDO populates getColumnMeta()['table'] (fixes
+        # phpMyAdmin's unique-column detection on the native runtime). Descends
+        # from #1132's centos 7 gd fix. Bump to the next SPC release once it cuts.
         description: static-php-cli ref to use for the macOS and Linux builds
         required: true
-        default: ef95e4f857b3c205ee3c9fb06eb8737d2d715fe5
+        default: 532972337e2cc9b0436923a50fdffe3e3d683c68
       debug:
         description: Enable verbose build logs
         required: true
@@ -184,6 +183,11 @@ jobs:
             # container's curl/OpenSSL can't negotiate TLS with xdebug.org,
             # and PECL is the canonical PHP extension distribution channel.
             --custom-url="xdebug:https://pecl.php.net/get/xdebug-${XDEBUG_VERSION}.tgz"
+            # Build sqlite from source (--custom-url wins over --prefer-pre-built)
+            # so #1204's -DSQLITE_ENABLE_COLUMN_METADATA CFLAG applies; the prebuilt
+            # lacks it. This is the same URL SPC uses in config/source.json at the
+            # spc_ref above — keep it in sync when bumping spc_ref.
+            --custom-url="sqlite:https://www.sqlite.org/2024/sqlite-autoconf-3450200.tar.gz"
             --ignore-cache-sources=php-src
             --prefer-pre-built
           )
@@ -657,7 +661,7 @@ jobs:
             --package-version "${PHP_PACKAGE_VERSION}" \
             --upload-results "${PWD}/out/php-binaries/apps-cdn-upload-results.json"
 
-          if git diff --quiet -- packages/common/lib/php-binary-cdn-metadata.json; then
+          if git diff --quiet -- packages/common/lib/php-binary-cdn-metadata.mjs; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -675,7 +679,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add packages/common/lib/php-binary-cdn-metadata.json
+          git add packages/common/lib/php-binary-cdn-metadata.mjs
           git commit -m "Update PHP ${PHP_VERSION}-${PHP_PACKAGE_VERSION} metadata"
           git push --set-upstream origin "$branch"
           gh pr create \

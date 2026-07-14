@@ -31,7 +31,6 @@ import {
 	readCliConfig,
 	saveCliConfig,
 	type SiteData,
-	type SiteStatus,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
@@ -40,12 +39,7 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/migration-client';
-import {
-	getContentDirFromState,
-	hasSkippedFiles,
-	readReprintState,
-	writeReprintState,
-} from 'cli/lib/pull/reprint-state';
+import { getContentDirFromState, hasSkippedFiles } from 'cli/lib/pull/reprint-state';
 import {
 	ensureImportedSiteSqliteReady,
 	loadImportedRuntimeStartOptions,
@@ -79,12 +73,6 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'string',
 					describe: __( 'URL of the remote WordPress site to pull from (remote source)' ),
 				} )
-				.option( 'secret', {
-					type: 'string',
-					describe: __(
-						'Shared HMAC secret configured in the migration plugin on the remote source'
-					),
-				} )
 				.option( 'verbose', {
 					type: 'boolean',
 					describe: __( 'Show detailed error information and executed commands' ),
@@ -92,15 +80,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			const verbose = argv.verbose as boolean;
+			const verbose = argv.verbose;
 
 			try {
-				await runCommand(
-					argv.path as string,
-					argv.url as string | undefined,
-					argv.secret as string | undefined,
-					verbose
-				);
+				await runCommand( argv.path, argv.url, verbose );
 			} catch ( error ) {
 				if ( error instanceof PullError ) {
 					logger.spinner.fail( __( 'Pull failed' ) );
@@ -150,17 +133,15 @@ interface PullSession {
 
 /**
  * Normalized result of turning CLI arguments into something the pull
- * pipeline can act on: a remote URL to fetch from and the HMAC secret
- * the exporter will check.  For WordPress.com sources we also stash
- * the matched `SyncSite` and auth token so the preflight failure
- * path can rotate a fresh secret without loading the full site list a
- * second time.
+ * pipeline can act on: a WordPress.com/Pressable site URL to fetch from,
+ * the HMAC secret the exporter will check, and the API identity needed to
+ * enable the exporter.
  */
 interface PullSource {
 	secret: string;
 	url: string;
-	wpComSite?: SyncSite;
-	wpComToken?: StoredAuthToken;
+	wpComSite: SyncSite;
+	wpComToken: StoredAuthToken;
 }
 
 class PullError extends LoggerError {
@@ -177,7 +158,7 @@ class PullError extends LoggerError {
  *
  *   resolveSourceSite (remote source only) →
  *   getPullSession (scratch layout from siteId) →
- *   runPreflight (with secret-rotate retry on WP.com) →
+ *   runPreflight →
  *   saveReprintOrigin (durable origin onto SiteData) →
  *   runFullPull (one `reprint pull`: files-pull → db-pull → db-apply →
  *     flat-docroot → apply-runtime) →
@@ -208,20 +189,19 @@ class PullError extends LoggerError {
 export async function runCommand(
 	localPath: string,
 	remoteUrl?: string,
-	remoteSecret?: string,
 	verbose = false
 ): Promise< void > {
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 	const site = await getSiteByFolder( localPath );
 	logger.reportSuccess( __( 'Site loaded' ) );
 
-	const sourceSite = await resolveSourceSite( site, remoteUrl, remoteSecret, verbose );
+	const sourceSite = await resolveSourceSite( remoteUrl ?? site.reprintOrigin?.remoteUrl );
 	if ( ! sourceSite ) {
 		return;
 	}
 
 	const { url: sourceSiteUrl } = sourceSite;
-	let secret = sourceSite.secret;
+	const secret = sourceSite.secret;
 	const normalizedRemoteUrl = normalizeSiteUrl( sourceSiteUrl );
 	const studioMetadata = getPullSession( site );
 	const apiUrl = getReprintApiUrlForSite( normalizedRemoteUrl );
@@ -244,9 +224,8 @@ export async function runCommand(
 		fs.readdirSync( studioMetadata.stateDirectory ).length > 0;
 
 	if ( isRepull ) {
-		// Re-verify connectivity (and give the secret-rotation retry path
-		// a chance to run) instead of trusting the cached preflight from
-		// the original pull, which may be days old.
+		// Re-verify connectivity instead of trusting the cached preflight
+		// from the original pull, which may be days old.
 		fs.rmSync( path.join( studioMetadata.stateDirectory, 'preflight.json' ), { force: true } );
 	}
 
@@ -289,82 +268,27 @@ export async function runCommand(
 		// 60 minutes; without this the first preflight would be refused.
 		// Runs on every pull (including resumes) since the sliding
 		// window may have expired between runs.
-		if ( sourceSite.wpComSite && sourceSite.wpComToken ) {
-			await enableReprintExporter(
-				sourceSite.wpComSite.id,
-				sourceSite.wpComToken.accessToken,
-				verbose
-			);
-		}
+		await enableReprintExporter(
+			sourceSite.wpComSite.id,
+			sourceSite.wpComToken.accessToken,
+			verbose
+		);
 
-		let preflight;
-		try {
-			preflight = await runPreflight(
-				SITE_RUNTIME_NATIVE_PHP,
-				studioMetadata,
-				apiUrl,
-				secret,
-				verbose
-			);
-		} catch ( preflightError ) {
-			// Preflight against ?reprint-api can fail for two reasons we can
-			// recover from on WP.com: the stored secret expired, or the
-			// wpcomsh exporter gate (`reprint_exporter_enabled`, a 60-minute
-			// sliding window) closed since the last run.  A cached-secret
-			// resume skips the happy-path enable above, so this is the common
-			// case on a delta re-pull.  Resolve the WP.com site (loading the
-			// site list only now, if we haven't already), then both rotate the
-			// secret AND re-enable the exporter before retrying.
-			if ( sourceSite.wpComSite && sourceSite.wpComToken ) {
-				secret = await rotateReprintSecret(
-					sourceSite.wpComSite.id,
-					sourceSite.wpComToken.accessToken
-				);
-			} else {
-				let token: StoredAuthToken | null;
-				try {
-					token = await readAuthToken();
-				} catch {
-					token = null;
-				}
-				if ( ! token ) {
-					throw preflightError;
-				}
-				const sites = await fetchSyncableSites( token.accessToken );
-				const matched = findMatchingWpComSite( sites, sourceSiteUrl );
-				// Only syncable sites (hosting features enabled) can run the
-				// reprint exporter and rotate a secret.
-				if ( ! matched || matched.syncSupport !== 'syncable' ) {
-					throw preflightError;
-				}
-				sourceSite.wpComSite = matched;
-				sourceSite.wpComToken = token;
-				secret = await rotateReprintSecret( matched.id, token.accessToken );
-			}
-			// Rotating the secret does not bump `reprint_exporter_enabled`, so
-			// re-open the gate explicitly; otherwise the retry hits the same
-			// closed window and ?reprint-api falls through to an HTML page.
-			await enableReprintExporter(
-				sourceSite.wpComSite.id,
-				sourceSite.wpComToken.accessToken,
-				verbose
-			);
-			preflight = await runPreflight(
-				SITE_RUNTIME_NATIVE_PHP,
-				studioMetadata,
-				apiUrl,
-				secret,
-				verbose
-			);
-		}
+		const preflight = await runPreflight(
+			SITE_RUNTIME_NATIVE_PHP,
+			studioMetadata,
+			apiUrl,
+			secret,
+			verbose
+		);
 		// Persist the durable origin onto the site record: where it syncs
-		// from, the remote's self-reported siteurl, the table prefix, and the
-		// (possibly rotated) secret a resume will reuse.
+		// from, the remote's self-reported siteurl, and the table prefix.
+		// The Reprint secret is intentionally rotated for each run, not
+		// stored for later reuse.
 		const origin = {
 			remoteUrl: normalizedRemoteUrl,
 			remoteSiteUrl: preflight.siteurl || normalizedRemoteUrl,
 			tablePrefix: preflight.table_prefix || undefined,
-			secret,
 		};
 		site.status = 'pulling';
 		site.reprintOrigin = origin;
@@ -385,7 +309,6 @@ export async function runCommand(
 		// prepare_repull(). Always re-invoked: the pull is idempotent and
 		// reprint resumes its own pipeline from `.import-state.json`, so
 		// there is no Studio-side guard to skip it.
-		normalizeReprintStateForEssentialFilesPull( studioMetadata.stateDirectory );
 		await runFullPull(
 			SITE_RUNTIME_NATIVE_PHP,
 			studioMetadata,
@@ -456,12 +379,8 @@ export async function runCommand(
 				if ( runningProcess ) {
 					await stopWordPressServer( site.id );
 				}
-				const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
+				await startWordPressServer( site, logger, runtimeStartOptions );
 				logger.reportSuccess( __( 'WordPress server restarted' ) );
-
-				if ( processDesc.status === 'online' ) {
-					await updateSiteLatestCliPid( site.id, processDesc.pid );
-				}
 			} else {
 				// On a re-pull, the site's server is often already running.
 				// The synced files and database are picked up live (PHP
@@ -486,12 +405,8 @@ export async function runCommand(
 						await updateSiteLatestCliPid( site.id, runningProcess.pid );
 					}
 				} else {
-					const processDesc = await startWordPressServer( site, logger, runtimeStartOptions );
+					await startWordPressServer( site, logger, runtimeStartOptions );
 					logger.reportSuccess( __( 'WordPress server started' ) );
-
-					if ( processDesc.status === 'online' ) {
-						await updateSiteLatestCliPid( site.id, processDesc.pid );
-					}
 				}
 			}
 		} catch ( serverError ) {
@@ -543,9 +458,6 @@ export async function runCommand(
 		}
 
 		const resumeCommand = [ 'studio pull-reprint', `--path "${ localPath }"` ];
-		if ( remoteSecret ) {
-			resumeCommand.push( '--secret <secret>' );
-		}
 		console.log( '' );
 		console.log( 'To resume this pull, re-run the same command:' );
 		console.log( `  ${ resumeCommand.join( ' ' ) }` );
@@ -562,12 +474,10 @@ export async function runCommand(
  * Runs `reprint preflight` against the remote site and caches the
  * response envelope at `stateDirectory/preflight.json`.
  *
- * The first direct request to the site happens here — a failure from
- * an expired secret or a disabled exporter surfaces as a recognizable
- * PullError that the pull orchestrator turns into a secret-rotation
- * retry (for WP.com sources) or a user-facing abort.  Returns the
- * handful of site-identity fields runCommand needs to record on the
- * metadata before the download stages begin.
+ * The first direct request to the site happens here. Failures surface as
+ * recognizable PullErrors with technical details for verbose output.
+ * Returns the handful of site-identity fields runCommand needs to record
+ * on the metadata before the download stages begin.
  */
 async function runPreflight(
 	runtime: SiteRuntime,
@@ -656,25 +566,6 @@ async function runPreflight(
 		}`
 	);
 	return preflight;
-}
-
-/**
- * Reprint refuses to resume a files sync with a different --filter than
- * the one stored in its state. A completed Studio pull may leave that
- * state on the post-pull skipped-earlier pass; mark that pass complete
- * and restore the filter expected by the next essential-files pull
- * without deleting the cursor/index files reprint needs for deltas.
- */
-function normalizeReprintStateForEssentialFilesPull( stateDirectory: string ): void {
-	const reprintState = readReprintState( stateDirectory );
-	if ( reprintState?.filter && reprintState.filter !== 'essential-files' ) {
-		writeReprintState( stateDirectory, {
-			...reprintState,
-			status: 'complete',
-			stage: null,
-			filter: 'essential-files',
-		} );
-	}
 }
 
 /**
@@ -784,39 +675,18 @@ export async function downloadSkippedFiles(
 	secret: string,
 	verbose: boolean
 ): Promise< void > {
-	const reprintState = readReprintState( metadata.stateDirectory );
-	const isResumingSkipped =
-		reprintState?.stage === 'fetch-skipped' && reprintState?.status !== 'complete';
-
-	// Rewrite the reprint state so the next files-sync understands it
-	// should download the entries the essential-files pass skipped.  No-op
-	// when reprint is already mid-way through that run (its state file
-	// encodes the resume cursor; overwriting would break validation) or
-	// when no skipped entries exist.
-	if ( ! isResumingSkipped && hasSkippedFiles( metadata.stateDirectory ) ) {
-		writeReprintState( metadata.stateDirectory, {
-			...reprintState,
-			command: 'files-sync',
-			status: 'complete',
-			stage: null,
-			filter: 'essential-files',
-		} );
-	}
-
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Downloading remaining files…' ) );
 
-	const args = [ 'files-sync', apiUrl, `--secret=${ secret }` ];
-
-	if ( isResumingSkipped ) {
-		args.push( '--filter=skipped-earlier' );
-	}
-
-	args.push(
+	const args = [
+		'files-sync',
+		apiUrl,
+		`--secret=${ secret }`,
+		'--filter=skipped-earlier',
 		'--max-exec=30',
 		'--no-adaptive',
 		`--state-dir=${ metadata.stateDirectory }`,
-		`--fs-root=${ metadata.rawDirectory }`
-	);
+		`--fs-root=${ metadata.rawDirectory }`,
+	];
 
 	await runReprintCommandUntilComplete(
 		metadata.stateDirectory,
@@ -877,62 +747,25 @@ export function findMatchingWpComSite< T extends { url: string } >(
 }
 
 /**
- * Resolves the **remote source** to pull from — never the local site,
- * which `runCommand` resolves separately by `--path` and passes in as
- * `site` (used only to read its cached origin secret).  Returns the
- * remote `url`/`secret` (plus the matched WordPress.com site + token
- * when applicable).  Handles three input patterns:
+ * Resolves the **remote source** to pull from. A valid source must be
+ * present in the user's WordPress.com Jetpack API site list, which also
+ * includes Pressable sites on the same platform. Handles two input
+ * patterns:
  *
- *   1. `--url` + `--secret` — trusted pair, used as-is (self-hosted
- *      sites and arbitrary URLs).
- *   2. A site with a saved `reprintOrigin` (set by a previous pull),
- *      with either no `--url` or a `--url` that matches that origin —
- *      reuse the saved remote URL and HMAC secret so a re-pull needs no
- *      remote re-selection or secret re-rotation. An explicit `--secret`
- *      still overrides the stored one. If the stored secret is stale,
- *      preflight 403s and the WP.com retry path rotates a fresh one.
- *   3. `--url` with no matching stored secret — resolve it against the
- *      connected WordPress.com sites and rotate a fresh secret.
- *   4. No `--url` and no saved origin — among pullable (`syncable`)
- *      sites only: if the user has exactly one, pick it; with several,
- *      show an interactive picker in a TTY (returning `null` if the user
- *      cancels) or error out when run non-interactively. Non-pullable
- *      sites (Simple, or missing hosting features) are surfaced as
- *      disabled in the picker.
+ *   1. URL provided — resolve it against the connected WordPress.com/
+ *      Pressable sites and rotate a fresh secret.
+ *   2. No URL — among pullable (`syncable`) sites only: if the user has
+ *      exactly one, pick it; with several, show an interactive picker in a
+ *      TTY (returning `null` if the user cancels) or error out when run
+ *      non-interactively. Non-pullable sites (Simple, or missing hosting
+ *      features) are surfaced as disabled in the picker.
  */
-export async function resolveSourceSite(
-	site: SiteData,
-	url?: string,
-	providedSecret?: string,
-	_verbose = false
-): Promise< PullSource | null > {
-	// When the caller provides an explicit secret, use it directly.
-	if ( url && providedSecret ) {
-		return { url, secret: providedSecret };
-	}
-
-	// Reuse the site's saved origin from its last successful pull when no
-	// `--url` is given (default to the same remote) or when `--url` points
-	// at that same remote — so a re-pull doesn't force the user to
-	// re-select the remote or re-rotate the secret on every run. An
-	// explicit `--secret` still overrides the stored one.
-	if (
-		site.reprintOrigin &&
-		( ! url || normalizeSiteUrl( url ) === site.reprintOrigin.remoteUrl )
-	) {
-		return {
-			url: url ?? site.reprintOrigin.remoteUrl,
-			secret: providedSecret ?? site.reprintOrigin.secret,
-		};
-	}
-
-	// Need the full site list: either no URL was given (interactive pick) or
-	// no stored secret exists and we need the site ID to rotate one.
+export async function resolveSourceSite( url?: string ): Promise< PullSource | null > {
 	const token = await readAuthToken();
 	if ( ! token ) {
 		throw new LoggerError(
 			__(
-				'WordPress.com authentication is required. Run `studio auth login` to pull a connected WordPress.com site, or provide both `--url` and `--secret` for a non-WordPress.com site.'
+				'WordPress.com authentication is required. Run `studio auth login` to pull a WordPress.com or Pressable site.'
 			)
 		);
 	}
@@ -950,9 +783,7 @@ export async function resolveSourceSite(
 		const matched = findMatchingWpComSite( sites, url );
 		if ( ! matched ) {
 			throw new LoggerError(
-				__(
-					'No secret was provided, and this URL is not one of your connected WordPress.com sites. Provide `--secret` for a non-WordPress.com site.'
-				)
+				__( 'This URL is not a WordPress.com or Pressable site connected to your account.' )
 			);
 		}
 		if ( matched.syncSupport !== 'syncable' ) {
@@ -960,13 +791,13 @@ export async function resolveSourceSite(
 				sprintf(
 					// translators: %s: the site URL.
 					__(
-						'%s cannot be pulled. Pulling requires a WordPress.com site with hosting features enabled, or a self-hosted site (with `--url` and `--secret`).'
+						'%s cannot be pulled. Pulling requires a WordPress.com or Pressable site with hosting features enabled.'
 					),
 					matched.url
 				)
 			);
 		}
-		resolvedUrl = url;
+		resolvedUrl = matched.url;
 		wpComSite = matched;
 	} else {
 		// Only sites that can run the reprint exporter — those with hosting
@@ -975,7 +806,7 @@ export async function resolveSourceSite(
 		if ( pullableSites.length === 0 ) {
 			throw new LoggerError(
 				__(
-					'No pullable WordPress.com sites found. Pulling requires a WordPress.com site with hosting features; provide both `--url` and `--secret` to pull a self-hosted site.'
+					'No pullable WordPress.com or Pressable sites found. Pulling requires a site with hosting features enabled.'
 				)
 			);
 		}

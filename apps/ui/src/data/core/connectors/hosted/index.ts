@@ -337,6 +337,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async popupAppMenu() {},
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
 		},
@@ -362,6 +363,14 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return () => {};
 		},
 		onToggleSidebar() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onAddSite() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onOpenSettings() {
 			// No application menu in a browser tab.
 			return () => {};
 		},

@@ -2,6 +2,7 @@ import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { Composer } from '.';
@@ -35,7 +36,9 @@ function renderComposer(
 	return {
 		...render(
 			<QueryClientProvider client={ queryClient }>
-				<Composer { ...defaultProps } sessionId="session-1" { ...props } />
+				<Tooltip.Provider delay={ 0 }>
+					<Composer { ...defaultProps } sessionId="session-1" { ...props } />
+				</Tooltip.Provider>
 			</QueryClientProvider>
 		),
 		queryClient,

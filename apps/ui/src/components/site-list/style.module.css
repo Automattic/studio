@@ -43,6 +43,44 @@
 	gap: 0;
 }
 
+/* Structural drag styles (touch-action, fixed preview positioning,
+   will-change) live in the shared reorderable-list module; these classes
+   carry only the site rows' visual treatment. */
+
+.siteDragWrapper {
+	border-radius: 6px;
+}
+
+.siteDropPlaceholder {
+	block-size: var(--site-list-row-height);
+	border-radius: 6px;
+	background-color: var(--site-list-row-background-hover);
+	box-shadow: inset 0 0 0 1px
+		color-mix(in srgb, var(--wpds-color-stroke-interactive-brand) 45%, transparent);
+	transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.siteDragPreview {
+	opacity: 0.95;
+	filter: drop-shadow(0 6px 14px rgb(0 0 0 / 14%));
+}
+
+.siteDragPreview .siteHeader {
+	background-color: var(--site-list-row-background-active);
+}
+
+/* While a drag is active every chat sublist collapses (instantly — the drag's
+   hit-test rects are captured right after this style applies), so rows are
+   uniform and long lists stay easy to reorder. */
+.sites[data-dragging] .sessionListFrame {
+	grid-template-rows: 0fr;
+	margin-top: 0;
+	margin-bottom: 0;
+	opacity: 0;
+	pointer-events: none;
+	transition: none;
+}
+
 .site {
 	display: flex;
 	flex-direction: column;
@@ -157,6 +195,15 @@
 .siteHeader:focus-within .siteActions,
 .siteHeader:has(.siteAction[data-popup-open]) .siteActions {
 	max-width: 80px;
+}
+
+/* These containers clip only for their collapse/slide animations, and focus
+   can't be inside them unless they're expanded — un-clip so keyboard focus
+   rings aren't cut off at their edges. */
+.siteActions:focus-within,
+.sessionList:focus-within,
+.emptyChatState:focus-within {
+	overflow: visible;
 }
 
 .siteStatus {
@@ -281,10 +328,10 @@
 	.siteStatusActionGlyph {
 		transition: none;
 	}
-}
 
-.unassigned {
-	margin-top: var(--wpds-dimension-padding-sm);
+	.siteDragPreview {
+		filter: none;
+	}
 }
 
 .empty {

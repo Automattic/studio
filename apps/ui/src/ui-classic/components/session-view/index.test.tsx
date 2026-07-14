@@ -12,6 +12,8 @@ vi.mock( '@tanstack/react-router', () => ( {
 vi.mock( '@/data/queries/use-sessions', () => ( {
 	useSession: vi.fn(),
 	useSessionEffectiveEnvironment: () => 'local',
+	useSessions: () => ( { data: [] } ),
+	useCreateSession: () => ( { mutateAsync: vi.fn(), isPending: false } ),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {

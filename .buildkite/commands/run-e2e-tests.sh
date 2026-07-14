@@ -45,6 +45,23 @@ else
   bash .buildkite/commands/install-node-dependencies.sh
 fi
 
+echo '--- :inbox_tray: Prepare e2e fixtures'
+if [ "$PLATFORM" = "linux" ]; then
+  # The a8c-ci-toolkit cache helpers aren't available inside the Linux
+  # container (see the npm install note above), so fixtures download fresh
+  # each run. The prep script re-verifies hashes, so this stays correct.
+  npm run e2e:fixtures -- --require
+else
+  # Cache the verified downloads keyed on the manifest, so editing
+  # test-fixtures/manifest.json invalidates the cache. The prep script
+  # re-verifies every SHA-256 even on a cache hit, so a stale or corrupt
+  # cache self-heals rather than failing the run.
+  FIXTURES_CACHE_KEY="$BUILDKITE_PIPELINE_SLUG-e2e-fixtures-$(hash_file test-fixtures/manifest.json)"
+  restore_cache "$FIXTURES_CACHE_KEY"
+  npm run e2e:fixtures -- --require
+  save_cache test-fixtures/downloads "$FIXTURES_CACHE_KEY"
+fi
+
 export IS_DEV_BUILD=true
 
 # Map platform names to electron-forge platform values

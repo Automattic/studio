@@ -266,25 +266,18 @@ function DeleteSiteDialog( {
 	const [ deleteFiles, setDeleteFiles ] = useState( true );
 	const [ error, setError ] = useState< string | null >( null );
 
-	const handleConfirm = () => {
+	const handleConfirm = async () => {
 		setError( null );
-		deleteSite.mutate(
-			{ id: site.id, deleteFiles },
-			{
-				onSuccess: () => {
-					onOpenChange( false );
-					// If the user is currently viewing this site (settings or a
-					// session that belongs to it), bounce them back to the root
-					// so they don't land on a 404 once the cache refreshes.
-					if ( params.siteId === site.id ) {
-						void navigate( { to: '/' } );
-					}
-				},
-				onError: ( err: Error ) => {
-					setError( err.message ?? __( 'Unable to delete the site. Please try again.' ) );
-				},
-			}
-		);
+		try {
+			await deleteSite.mutateAsync( { id: site.id, deleteFiles } );
+		} catch ( err ) {
+			setError( ( err as Error )?.message ?? __( 'Unable to delete the site. Please try again.' ) );
+			return;
+		}
+		onOpenChange( false );
+		if ( params.siteId === site.id ) {
+			void navigate( { to: '/' } );
+		}
 	};
 
 	return (
@@ -328,7 +321,7 @@ function DeleteSiteDialog( {
 						tone="brand"
 						loading={ deleteSite.isPending }
 						loadingAnnouncement={ __( 'Deleting site' ) }
-						onClick={ handleConfirm }
+						onClick={ () => void handleConfirm() }
 					>
 						{ __( 'Delete site' ) }
 					</Button>

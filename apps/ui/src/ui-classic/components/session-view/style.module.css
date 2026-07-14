@@ -16,11 +16,6 @@
 	isolation: isolate;
 }
 
-.state {
-	padding: var(--wpds-dimension-padding-xl);
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
 .header {
 	display: flex;
 	align-items: center;

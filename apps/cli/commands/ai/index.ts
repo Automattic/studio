@@ -8,6 +8,7 @@ import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/comm
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	getAvailableAiProviders,
@@ -26,7 +27,6 @@ import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai
 import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
 import { setScreenshotDirectoryProvider } from 'cli/ai/screenshot-storage';
 import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
-import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import {
 	createStudioSession,
 	listStudioSessionFiles,
@@ -39,6 +39,7 @@ import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
 import { Logger, LoggerError, setProgressCallback } from 'cli/logger';
@@ -140,7 +141,7 @@ export async function runCommand( options: {
 		if ( options.resumeSession ) {
 			session = await openStudioSession( options.resumeSession.summary.filePath );
 		} else if ( options.resumeSessionId ) {
-			const files = await listStudioSessionFiles( getAiSessionsRootDirectory() );
+			const files = await listStudioSessionFiles( getSessionsDirectory() );
 			let match: string | undefined;
 			for ( const file of files ) {
 				try {
@@ -482,6 +483,10 @@ export async function runCommand( options: {
 		if ( site && ! site.remote ) {
 			const siteData = await findSiteByFolder( site.path );
 			site.running = siteData ? await isSiteRunning( siteData ) : false;
+			// isSiteRunning leaves a DaemonBus socket open, which keeps headless
+			// (--json) runs alive after turn.completed; close it so the process
+			// can exit naturally.
+			await disconnectFromDaemon();
 		}
 		if ( site?.remote && site?.url ) {
 			enrichedPrompt = `[Active site: "${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)]\n\n${ prompt }`;

@@ -1,4 +1,7 @@
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import {
+	aiSessionBelongsToSite,
+	findAiSessionOwnerSite,
+} from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
@@ -201,8 +204,21 @@ function SessionItem( { session, isVisible }: { session: AiSessionSummary; isVis
 
 function useNewSessionAction( site: SiteDetails ) {
 	const navigate = useNavigate();
+	const { data: sessions } = useSessions();
+	const params = useParams( { strict: false } ) as { sessionId?: string };
 	const [ isPending, setIsPending ] = useState( false );
 	const handleClick = async () => {
+		// The backend reuses the site's newest empty draft, so if we're already
+		// viewing it the round-trip would only flicker back to the same session.
+		const current = sessions?.find( ( session ) => session.id === params.sessionId );
+		if (
+			current &&
+			! current.firstPrompt &&
+			! current.archived &&
+			aiSessionBelongsToSite( current, site )
+		) {
+			return;
+		}
 		setIsPending( true );
 		try {
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );

@@ -365,13 +365,20 @@ function buildModel(
 	if ( family === 'openai' ) {
 		// GPT-5.6 models reject function tools on /v1/chat/completions unless
 		// reasoning is disabled; the Responses API supports tools + reasoning.
+		// GPT-5.6 Sol's real context window is 1.05M tokens, but we declare
+		// 272K — the threshold where OpenAI's 2x long-context pricing kicks
+		// in — so compaction keeps sessions below it. Understating the window
+		// is also load-bearing for correctness: pi clamps max output tokens to
+		// the declared window minus its (post-compaction, sometimes stale)
+		// context estimate, and a too-small window can clamp all the way down
+		// to 1, which the API rejects with a 400.
 		return {
 			...common,
 			api: 'openai-responses',
 			provider: 'openai',
 			reasoning: true,
-			contextWindow: 200_000,
-			maxTokens: 16_384,
+			contextWindow: 272_000,
+			maxTokens: 32_000,
 		};
 	}
 	return {

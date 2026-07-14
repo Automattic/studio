@@ -7,6 +7,13 @@ import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
 
+// The index route's redirect `beforeLoad` fetches the site and session lists to
+// choose a destination. Refreshing those lists after a delete with the default
+// `cancelRefetch: true` cancels that in-flight fetch, surfacing a `CancelledError`
+// in the router's error boundary (a red error flashes and recovers). Keeping the
+// in-flight fetch alive lets it settle with the fresh post-delete data instead.
+const KEEP_INFLIGHT_FETCH = { cancelRefetch: false } as const;
+
 const START_SITE_MUTATION_KEY = [ 'startSite' ] as const;
 const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
 
@@ -42,12 +49,15 @@ export function useDeleteSite() {
 			connector.deleteSite( id, deleteFiles ),
 		// Deleting a site also deletes its chat sessions (CLI `site delete`), so
 		// refresh the session list alongside the site list. `exact` keeps this
-		// off the open session's own query: refetching that one races the
-		// navigate-away and flashes "Session not found" before it resolves.
+		// off the open session's own detail query, which would refetch into a
+		// 404 for the just-deleted session.
 		onSuccess: () =>
 			Promise.all( [
-				queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
-				queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } ),
+				queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH ),
+				queryClient.invalidateQueries(
+					{ queryKey: SESSIONS_QUERY_KEY, exact: true },
+					KEEP_INFLIGHT_FETCH
+				),
 			] ),
 	} );
 }
@@ -161,14 +171,16 @@ export function useSyncSitesWithEvents(): void {
 	const queryClient = useQueryClient();
 	useEffect( () => {
 		return connector.onSiteEvent( ( event ) => {
-			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH );
 			// Site deletion deletes the site's chat sessions (CLI `site delete`),
 			// so refresh the session list too. Scoped to deletes: start/stop
 			// events fire often and don't affect sessions. `exact` keeps this off
-			// the open session's own query, which would otherwise refetch into
-			// "Session not found" before `DeletedSiteRedirect` navigates away.
+			// the open session's own detail query.
 			if ( event.event === SITE_EVENTS.DELETED ) {
-				void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY, exact: true } );
+				void queryClient.invalidateQueries(
+					{ queryKey: SESSIONS_QUERY_KEY, exact: true },
+					KEEP_INFLIGHT_FETCH
+				);
 			}
 		} );
 	}, [ connector, queryClient ] );

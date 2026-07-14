@@ -160,6 +160,9 @@ describe( 'useAgentRun queued handoff', () => {
 			} );
 		} );
 
-		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: SESSIONS_QUERY_KEY } );
+		expect( invalidateSpy ).toHaveBeenCalledWith(
+			{ queryKey: SESSIONS_QUERY_KEY },
+			{ cancelRefetch: false }
+		);
 	} );
 } );

@@ -99,6 +99,6 @@ test.describe( 'Import', () => {
 		// the backup's "post name" permalink structure imported too.
 		await page.goto( `${ frontendUrl }/cool-beans-%e2%98%95-jetpack-backup-import-test-site/` );
 		await expect( page.getByText( 'Jetpack Backup Import Test Site' ).first() ).toBeVisible();
-		await expect( page.getByText( 'What to verify after importing' ) ).toBeVisible();
+		await expect( page.getByText( 'What to verify after importing' ).first() ).toBeVisible();
 	} );
 } );

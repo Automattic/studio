@@ -33,11 +33,30 @@ const mockInstallId = vi.mocked( getOrCreateAnalyticsInstallId );
 const mockOptedOut = vi.mocked( isAnalyticsOptedOut );
 const mockIsA11n = vi.mocked( isAutomatticianFromToken );
 
+const originalEnv = { ...process.env };
+
 beforeEach( () => {
 	vi.clearAllMocks();
 	mockInstallId.mockResolvedValue( 'install-uuid' );
 	mockIsA11n.mockResolvedValue( false );
 	vi.mocked( app.getVersion ).mockReturnValue( '9.9.9' );
+	// The dev/CI-build gate reads this; ensure it's off unless a test opts in (a CI runner that
+	// exports IS_DEV_BUILD must not make these assertions flake).
+	delete process.env.IS_DEV_BUILD;
+} );
+
+afterEach( () => {
+	process.env = { ...originalEnv };
+} );
+
+it( 'does not send from a dev/CI build (IS_DEV_BUILD set)', async () => {
+	mockOptedOut.mockResolvedValue( false );
+	process.env.IS_DEV_BUILD = 'true';
+
+	await recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, { channel: 'studio-ui' } );
+
+	expect( mockRecord ).not.toHaveBeenCalled();
+	expect( mockOptedOut ).not.toHaveBeenCalled();
 } );
 
 it( 'does not send when opted out', async () => {

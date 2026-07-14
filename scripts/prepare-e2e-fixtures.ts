@@ -1,4 +1,3 @@
-#!/usr/bin/env tsx
 /**
  * Download the data-heavy e2e fixtures declared in test-fixtures/manifest.json
  * into test-fixtures/downloads/ (files that already verify are skipped).
@@ -12,7 +11,7 @@
  * fixtures are hosted and how to add one.
  */
 import path from 'path';
-import { prepareE2eFixtures } from '@studio/common/lib/prepare-e2e-fixtures';
+import { prepareE2eFixtures } from '../packages/common/lib/prepare-e2e-fixtures.ts';
 
 const isRequired = process.env.CI === 'true' || process.argv.includes( '--require' );
 

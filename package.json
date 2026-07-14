@@ -58,6 +58,7 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"e2e": "npx playwright install && npx playwright test",
+		"e2e:fixtures": "tsx ./scripts/prepare-e2e-fixtures.ts",
 		"test:metrics": "npx playwright test --config=./tools/metrics/playwright.metrics.config.ts",
 		"download-language-packs": "node --experimental-strip-types ./scripts/download-language-packs.ts",
 		"download-agent-skills": "node --experimental-strip-types ./scripts/download-agent-skills.ts",

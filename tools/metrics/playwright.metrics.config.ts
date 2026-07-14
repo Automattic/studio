@@ -6,6 +6,10 @@ process.env.ARTIFACTS_PATH ??= path.join( __dirname, 'artifacts' );
 
 export default defineConfig( {
 	...baseConfig,
+	// The perf suite has its own tests and doesn't need the e2e data-heavy
+	// fixtures, so drop the base config's fixture-download globalSetup — its
+	// repo-root-relative path wouldn't resolve from this config's directory.
+	globalSetup: undefined,
 	testDir: './tests',
 	testMatch: '*.test.ts',
 	reporter: [ [ 'list' ], [ './performance-reporter.ts' ] ],

@@ -15,7 +15,7 @@
 .heading {
 	margin: 0;
 	font-size: var(--wpds-typography-font-size-md);
-	font-weight: var(--wpds-typography-font-weight-bold);
+	font-weight: var(--wpds-typography-font-weight-medium);
 }
 
 .benefits {

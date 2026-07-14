@@ -115,6 +115,30 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 		expect( generatedPlugins ).toContain( '0-enable-auto-updates.php' );
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );
+
+	it( 'should disable Jetpack modules that affect local development', async () => {
+		await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+
+		const loaderPath = join(
+			sitePath,
+			'wp-content',
+			'mu-plugins',
+			STUDIO_LOADER_MU_PLUGIN_FILENAME
+		);
+		const loaderContent = await readFile( loaderPath, 'utf8' );
+		const muPluginsDir = loaderContent.match( /\$studio_mu_plugins_dir = '([^']+)';/ )?.[ 1 ];
+
+		expect( muPluginsDir ).toBeTruthy();
+
+		const content = await readFile(
+			join( muPluginsDir as string, '0-deactivate-jetpack-modules.php' ),
+			'utf8'
+		);
+
+		expect( content ).toContain( "add_filter( 'jetpack_active_modules'" );
+		expect( content ).toContain( "$disabled_modules = array( 'protect', 'stats' );" );
+		expect( content ).toContain( 'array_diff( $active, $disabled_modules )' );
+	} );
 } );
 
 describe( 'getMuPlugins error capture', () => {

@@ -5,8 +5,8 @@ import {
 	LatestNativePhpSupportedVersion,
 	NativePhpSupportedVersions,
 	type NativePhpSupportedVersion,
-} from '@studio/common/types/php-versions';
-import phpBinaryCdnMetadataJson from './php-binary-cdn-metadata.json';
+} from '../types/php-versions.ts';
+import phpBinaryCdnMetadataModule from './php-binary-cdn-metadata.mjs';
 
 export { NativePhpSupportedVersions, type NativePhpSupportedVersion };
 
@@ -61,7 +61,7 @@ const phpBinaryCdnMetadataSchema = z.object( {
 	),
 } );
 
-const phpBinaryCdnMetadata = phpBinaryCdnMetadataSchema.parse( phpBinaryCdnMetadataJson );
+const phpBinaryCdnMetadata = phpBinaryCdnMetadataSchema.parse( phpBinaryCdnMetadataModule );
 
 export type PhpBinaryDownloadInfo = z.infer< typeof phpBinaryArtifactSchema > & {
 	patchVersion: string;

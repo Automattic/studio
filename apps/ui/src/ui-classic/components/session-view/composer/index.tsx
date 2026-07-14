@@ -964,28 +964,26 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
 							<Menu.Root modal={ false }>
-								<Tooltip.Provider delay={ 0 }>
-									<Tooltip.Root>
-										<Menu.Trigger
-											render={
-												<Tooltip.Trigger
-													render={
-														<button
-															type="button"
-															className={ styles.iconButton }
-															aria-label={ __( 'Add skill or attachment' ) }
-														/>
-													}
-												>
-													<Icon icon={ plus } size={ 16 } />
-												</Tooltip.Trigger>
-											}
-										/>
-										<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-											{ __( 'Add skill or attachment' ) }
-										</Tooltip.Popup>
-									</Tooltip.Root>
-								</Tooltip.Provider>
+								<Tooltip.Root>
+									<Menu.Trigger
+										render={
+											<Tooltip.Trigger
+												render={
+													<button
+														type="button"
+														className={ styles.iconButton }
+														aria-label={ __( 'Add skill or attachment' ) }
+													/>
+												}
+											>
+												<Icon icon={ plus } size={ 16 } />
+											</Tooltip.Trigger>
+										}
+									/>
+									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+										{ __( 'Add skill or attachment' ) }
+									</Tooltip.Popup>
+								</Tooltip.Root>
 								<Menu.Popup side="top" align="start" className={ styles.commandsMenuPopup }>
 									<Menu.Item onClick={ openFilePicker }>{ __( 'Upload attachment' ) }</Menu.Item>
 									<Menu.SubmenuRoot>
@@ -1031,29 +1029,27 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 						<div className={ styles.rightActions }>
 							<Menu.Root modal={ false }>
-								<Tooltip.Provider delay={ 0 }>
-									<Tooltip.Root>
-										<Menu.Trigger
-											render={
-												<Tooltip.Trigger
-													render={
-														<button
-															type="button"
-															className={ styles.pill }
-															aria-label={ __( 'Select model' ) }
-														/>
-													}
-												>
-													<span>{ getAiModelLabel( model ) }</span>
-													<Icon icon={ chevronDownSmall } size={ 16 } />
-												</Tooltip.Trigger>
-											}
-										/>
-										<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-											{ __( 'Select model' ) }
-										</Tooltip.Popup>
-									</Tooltip.Root>
-								</Tooltip.Provider>
+								<Tooltip.Root>
+									<Menu.Trigger
+										render={
+											<Tooltip.Trigger
+												render={
+													<button
+														type="button"
+														className={ styles.pill }
+														aria-label={ __( 'Select model' ) }
+													/>
+												}
+											>
+												<span>{ getAiModelLabel( model ) }</span>
+												<Icon icon={ chevronDownSmall } size={ 16 } />
+											</Tooltip.Trigger>
+										}
+									/>
+									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+										{ __( 'Select model' ) }
+									</Tooltip.Popup>
+								</Tooltip.Root>
 								<Menu.Popup side="top" align="end">
 									<Menu.RadioGroup
 										value={ model }
@@ -1068,47 +1064,43 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 								</Menu.Popup>
 							</Menu.Root>
 							{ busy ? (
-								<Tooltip.Provider delay={ 0 }>
-									<Tooltip.Root>
-										<Tooltip.Trigger
-											render={
-												<button
-													type="button"
-													className={ styles.stopButton }
-													onClick={ () => void onInterrupt() }
-													aria-label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
-													aria-busy={ isInterrupting }
-												/>
-											}
-										>
-											<span className={ styles.stopGlyph } aria-hidden="true" />
-										</Tooltip.Trigger>
-										<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-											{ stopTooltipLabel }
-										</Tooltip.Popup>
-									</Tooltip.Root>
-								</Tooltip.Provider>
-							) : null }
-							<Tooltip.Provider delay={ 0 }>
 								<Tooltip.Root>
 									<Tooltip.Trigger
 										render={
 											<button
 												type="button"
-												className={ styles.sendButton }
-												onClick={ () => void send() }
-												disabled={ ! canSend }
-												aria-label={ sendAriaLabel }
+												className={ styles.stopButton }
+												onClick={ () => void onInterrupt() }
+												aria-label={ isInterrupting ? __( 'Stopping' ) : __( 'Stop' ) }
+												aria-busy={ isInterrupting }
 											/>
 										}
 									>
-										<Icon icon={ arrowUp } size={ 18 } />
+										<span className={ styles.stopGlyph } aria-hidden="true" />
 									</Tooltip.Trigger>
 									<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-										{ sendShortcutLabel }
+										{ stopTooltipLabel }
 									</Tooltip.Popup>
 								</Tooltip.Root>
-							</Tooltip.Provider>
+							) : null }
+							<Tooltip.Root>
+								<Tooltip.Trigger
+									render={
+										<button
+											type="button"
+											className={ styles.sendButton }
+											onClick={ () => void send() }
+											disabled={ ! canSend }
+											aria-label={ sendAriaLabel }
+										/>
+									}
+								>
+									<Icon icon={ arrowUp } size={ 18 } />
+								</Tooltip.Trigger>
+								<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+									{ sendShortcutLabel }
+								</Tooltip.Popup>
+							</Tooltip.Root>
 						</div>
 					</div>
 				</div>

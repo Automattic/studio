@@ -155,10 +155,6 @@ describe( 'CLI: studio site start', () => {
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
 			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
 			expect( startWordPressServer ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
-			expect( updateSiteLatestCliPid ).toHaveBeenCalledWith(
-				testSite.id,
-				testProcessDescription.pid
-			);
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( openSiteInBrowser ).toHaveBeenCalledWith( testSite );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();

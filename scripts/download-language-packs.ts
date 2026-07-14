@@ -1,9 +1,9 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
-import { extractZip } from '../packages/common/lib/extract-zip';
-import { WP_LOCALES } from '../packages/common/lib/wp-locales';
-import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry';
+import { extractZip } from '../packages/common/lib/extract-zip.ts';
+import { WP_LOCALES } from '../packages/common/lib/wp-locales.ts';
+import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
 const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 

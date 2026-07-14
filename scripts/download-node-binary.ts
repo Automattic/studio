@@ -1,9 +1,9 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env -S node --experimental-strip-types
 /**
  * Download Node.js binary for bundling with Studio.
  *
- * Usage: npx tsx scripts/download-node-binary.ts <platform> <arch> [destDir]
- * Example: npx tsx scripts/download-node-binary.ts darwin arm64 ./build
+ * Usage: node --experimental-strip-types scripts/download-node-binary.ts <platform> <arch> [destDir]
+ * Example: node --experimental-strip-types scripts/download-node-binary.ts darwin arm64 ./build
  *
  * When destDir is omitted, the binary is placed in apps/studio/bin/ for the
  * desktop packaging step. Callers can override it to land the binary anywhere
@@ -16,8 +16,8 @@ import os from 'os';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { extract } from 'tar';
-import { extractZip } from '../packages/common/lib/extract-zip';
-import { fetch } from './lib/with-retry';
+import { extractZip } from '../packages/common/lib/extract-zip.ts';
+import { fetch } from './lib/with-retry.ts';
 
 const LTS_FALLBACK = 'v24.13.1';
 

@@ -6,6 +6,7 @@ import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { SITE_RUNTIME_NATIVE_PHP, SITE_RUNTIME_PLAYGROUND } from '@studio/common/lib/site-runtime';
 import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
+import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
@@ -24,6 +25,9 @@ vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 } ) );
 vi.mock( 'cli/lib/site-runtime-stats', () => ( {
 	recordSiteRuntimeUsage: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/cli-config/sites', () => ( {
+	updateSiteLatestCliPid: vi.fn(),
 } ) );
 
 describe( 'WordPress Server Manager', () => {
@@ -176,6 +180,31 @@ describe( 'WordPress Server Manager', () => {
 			);
 
 			expect( result ).toEqual( mockProcessDescription );
+		} );
+
+		it( 'should persist the latest CLI pid when the server comes online', async () => {
+			setupIpcMocks();
+
+			await startWordPressServer( mockSiteData, mockLogger );
+
+			expect( vi.mocked( updateSiteLatestCliPid ) ).toHaveBeenCalledWith(
+				mockSiteData.id,
+				mockProcessDescription.pid
+			);
+		} );
+
+		it( 'should not persist the CLI pid when the process is not online', async () => {
+			setupIpcMocks();
+			vi.mocked( daemonClient.startProcess ).mockResolvedValue( {
+				name: mockProcessDescription.name,
+				pmId: mockProcessDescription.pmId,
+				runtime: SITE_RUNTIME_PLAYGROUND,
+				status: 'stopped',
+			} );
+
+			await startWordPressServer( mockSiteData, mockLogger );
+
+			expect( vi.mocked( updateSiteLatestCliPid ) ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should use the native-php child script when the site runtime is native-php', async () => {

@@ -25,6 +25,7 @@ import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { CopyButton } from '../copy-button';
 import { Markdown } from '../markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
@@ -39,7 +40,7 @@ type RenderItem =
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
 	  }
-	| { kind: 'assistant-text'; key: string; text: string }
+	| { kind: 'assistant-text'; key: string; text: string; copyText?: string }
 	| {
 			kind: 'tool-use';
 			key: string;
@@ -177,6 +178,15 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			if ( ! message || message.role !== 'assistant' || ! Array.isArray( message.content ) ) {
 				return;
 			}
+			// A single assistant message can hold several text blocks split by tool
+			// calls. Copy must yield the whole message, so join every text block and
+			// hang one copy button off the last one rather than one per fragment.
+			const textBlocks = message.content.filter(
+				( block ) => block.type === 'text' && typeof block.text === 'string' && block.text.trim()
+			);
+			const fullMessageText = textBlocks.map( ( block ) => block.text!.trim() ).join( '\n\n' );
+			const lastTextBlock = textBlocks[ textBlocks.length - 1 ];
+
 			message.content.forEach( ( block, blockIndex ) => {
 				if ( block.type === 'text' && typeof block.text === 'string' ) {
 					const text = block.text.trim();
@@ -185,6 +195,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 							kind: 'assistant-text',
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
+							copyText: block === lastTextBlock ? fullMessageText : undefined,
 						} );
 					}
 				} else if (
@@ -410,8 +421,19 @@ function UserTurn( {
 	);
 }
 
-function AssistantText( { text }: { text: string } ) {
-	return <Markdown>{ text }</Markdown>;
+function AssistantText( { text, copyText }: { text: string; copyText?: string } ) {
+	return (
+		<div className={ styles.assistantTurn }>
+			<Markdown>{ text }</Markdown>
+			{ copyText ? (
+				<CopyButton
+					text={ copyText }
+					label={ __( 'Copy message' ) }
+					className={ styles.messageActions }
+				/>
+			) : null }
+		</div>
+	);
 }
 
 const TOOL_RESULT_PREVIEW_MAX_LINES = 12;
@@ -701,7 +723,7 @@ export function Conversation( {
 						);
 					}
 					case 'assistant-text':
-						return <AssistantText key={ item.key } text={ item.text } />;
+						return <AssistantText key={ item.key } text={ item.text } copyText={ item.copyText } />;
 					case 'tool-use':
 						return (
 							<ToolUseRow

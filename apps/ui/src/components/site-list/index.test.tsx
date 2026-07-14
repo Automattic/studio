@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
@@ -193,6 +193,52 @@ describe( 'SiteList', () => {
 		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 	} );
 
+	it( 'groups sessions by owner site id, falling back to path for legacy sessions', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( { id: 'site-a', name: 'Site A', path: '/sites/site-a' } ),
+				createSite( { id: 'site-b', name: 'Site B', path: '/sites/site-b' } ),
+			],
+			isLoading: false,
+		} );
+		useSessionsMock.mockReturnValue( {
+			data: [
+				// A stale path must lose to the site id.
+				createSession( {
+					id: 'by-id',
+					firstPrompt: 'Matched by id',
+					ownerSiteId: 'site-b',
+					ownerSitePath: '/sites/site-a',
+				} ),
+				createSession( {
+					id: 'legacy',
+					firstPrompt: 'Matched by path',
+					ownerSitePath: '/sites/site-a',
+				} ),
+				// A deleted site's id must not fall back to a path that now
+				// belongs to another site.
+				createSession( {
+					id: 'orphan',
+					firstPrompt: 'Dead site id',
+					ownerSiteId: 'deleted-site',
+					ownerSitePath: '/sites/site-a',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const siteA = screen.getByText( 'Site A' ).closest( 'section' )!;
+		const siteB = screen.getByText( 'Site B' ).closest( 'section' )!;
+
+		expect( within( siteB ).getByText( 'Matched by id' ) ).toBeInTheDocument();
+		expect( within( siteA ).getByText( 'Matched by path' ) ).toBeInTheDocument();
+		// Orphaned chats land in the unassigned bucket, which this sidebar
+		// intentionally does not render.
+		expect( screen.queryByText( 'Dead site id' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'persists a manual site order after drag and drop', () => {
 		render( <SiteList /> );
 		dragStoppedSiteBelowRunningSite();
@@ -358,6 +404,18 @@ describe( 'SiteList', () => {
 	} );
 } );
 
+function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
+	return {
+		id: 'session-1',
+		filePath: '/sessions/session-1.jsonl',
+		createdAt: '2026-07-01T00:00:00.000Z',
+		updatedAt: '2026-07-01T00:00:00.000Z',
+		activeEnvironment: 'local',
+		eventCount: 1,
+		...overrides,
+	};
+}
+
 function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 	return {
 		id: 'site-1',
@@ -366,20 +424,6 @@ function createSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 		port: 8881,
 		running: false,
 		phpVersion: '8.4',
-		...overrides,
-	};
-}
-
-function createSession( overrides: Partial< AiSessionSummary > = {} ): AiSessionSummary {
-	return {
-		id: 'session-1',
-		filePath: '/Users/example/.studio/sessions/session-1.jsonl',
-		createdAt: '2026-06-01T12:00:00.000Z',
-		updatedAt: '2026-06-20T12:00:00.000Z',
-		firstPrompt: 'Site chat',
-		ownerSitePath: '/Users/example/Studio/demo-site',
-		activeEnvironment: 'local',
-		eventCount: 1,
 		...overrides,
 	};
 }

@@ -71,7 +71,7 @@ vi.mock( 'src/stores/wordpress-versions-api', async () => {
 	return {
 		...actual,
 		useGetWordPressVersions: vi.fn( () => ( {
-			sites: [
+			data: [
 				{ label: 'Latest', value: 'latest', isBeta: false, isDevelopment: false },
 				{ label: '6.4', value: '6.4', isBeta: false, isDevelopment: false },
 				{ label: '6.3', value: '6.3', isBeta: false, isDevelopment: false },

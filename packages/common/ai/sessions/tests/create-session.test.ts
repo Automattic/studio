@@ -18,9 +18,10 @@ describe( 'createAiSession', () => {
 		rootDirectory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-create-session-' ) );
 
 		const summary = await createAiSession( rootDirectory, {
-			site: { name: 'My Site', path: '/tmp/my-site' },
+			site: { id: 'site-1', name: 'My Site', path: '/tmp/my-site' },
 		} );
 
+		expect( summary.ownerSiteId ).toBeUndefined();
 		expect( summary.ownerSitePath ).toBeUndefined();
 		expect( summary.ownerSiteName ).toBeUndefined();
 		expect( summary.selectedSiteName ).toBe( 'My Site' );
@@ -37,6 +38,7 @@ describe( 'createAiSession', () => {
 		expect( entries[ 1 ] ).toMatchObject( {
 			type: 'custom',
 			customType: 'studio.site_selected',
+			data: { siteId: 'site-1', siteName: 'My Site', sitePath: '/tmp/my-site' },
 		} );
 	} );
 } );

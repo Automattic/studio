@@ -33,7 +33,7 @@ function getWindowsSign(): WindowsSignOptions | undefined {
 	}
 
 	return {
-		hookModulePath: path.resolve( __dirname, '..', '..', 'scripts', 'azure-sign-hook.js' ),
+		hookModulePath: path.resolve( __dirname, '..', '..', 'scripts', 'azure-sign-hook.cjs' ),
 	};
 }
 

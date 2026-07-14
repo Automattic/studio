@@ -112,7 +112,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			nativeSaveDialog: false,
 			openInOS: false,
 			annotatePreview: false,
-			appWindow: false,
 		},
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login

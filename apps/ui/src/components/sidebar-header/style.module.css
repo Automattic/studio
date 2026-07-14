@@ -30,19 +30,6 @@
 	padding-left: var(--wpds-dimension-padding-2xl);
 }
 
-/* Browser-tab wordmark (see the `appWindow` capability) — hidden in the
-   desktop app, where the window chrome already names the app. */
-.title {
-	flex: 1;
-	min-width: 0;
-	font-size: var(--wpds-typography-font-size-md);
-	font-weight: 600;
-	color: var(--wpds-color-fg-content-neutral);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
 .actions {
 	display: flex;
 	align-items: center;

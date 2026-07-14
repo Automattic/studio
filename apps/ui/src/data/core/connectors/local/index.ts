@@ -213,7 +213,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			nativeSaveDialog: false,
 			openInOS: true,
 			annotatePreview: false,
-			appWindow: false,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as

@@ -204,7 +204,6 @@ export function createIpcConnector(): Connector {
 			nativeSaveDialog: true,
 			openInOS: true,
 			annotatePreview: true,
-			appWindow: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process

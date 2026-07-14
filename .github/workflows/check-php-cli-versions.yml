@@ -3,7 +3,6 @@ name: Check for new PHP CLI versions
 on:
   schedule:
     - cron: '0 9 * * 1'
-  workflow_dispatch:
 
 permissions:
   actions: write

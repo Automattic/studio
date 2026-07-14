@@ -1,3 +1,4 @@
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet, useNavigate, useParams } from '@tanstack/react-router';
@@ -72,10 +73,15 @@ export function DeletedSiteRedirect() {
 				// so the deleted site and its chats are still resolvable.
 				const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
 				const sessions = queryClient.getQueryData< AiSessionSummary[] >( SESSIONS_QUERY_KEY );
-				const deletedSitePath = sites?.find( ( site ) => site.id === event.siteId )?.path;
+				const deletedSite = sites?.find( ( site ) => site.id === event.siteId );
 				const openSession = sessions?.find( ( session ) => session.id === sessionId );
 
-				if ( deletedSitePath && openSession?.ownerSitePath === deletedSitePath ) {
+				const belongsToDeletedSite =
+					openSession &&
+					( deletedSite
+						? aiSessionBelongsToSite( openSession, deletedSite )
+						: openSession.ownerSiteId === event.siteId );
+				if ( belongsToDeletedSite ) {
 					void navigate( { to: '/' } );
 				}
 			} ),

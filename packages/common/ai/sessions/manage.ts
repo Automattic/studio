@@ -1,3 +1,4 @@
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import {
 	deleteAiSessionPlacement,
 	hydrateAiSessionSummaryWithPlacement,
@@ -120,7 +121,11 @@ export async function createOrReuseAiSession(
 	if ( ! site ) {
 		const reusable = existing
 			.filter(
-				( session ) => ! session.ownerSitePath && ! session.firstPrompt && ! session.archived
+				( session ) =>
+					! session.ownerSiteId &&
+					! session.ownerSitePath &&
+					! session.firstPrompt &&
+					! session.archived
 			)
 			.sort( newestFirst )[ 0 ];
 		if ( reusable ) {
@@ -132,7 +137,7 @@ export async function createOrReuseAiSession(
 	const reusable = existing
 		.filter(
 			( session ) =>
-				session.ownerSitePath === site.path && ! session.firstPrompt && ! session.archived
+				! session.firstPrompt && ! session.archived && aiSessionBelongsToSite( session, site )
 		)
 		.sort( newestFirst )[ 0 ];
 	if ( reusable ) {
@@ -140,7 +145,7 @@ export async function createOrReuseAiSession(
 	}
 
 	const created = await createAiSession( rootDirectory, {
-		site: { name: site.name, path: site.path },
+		site: { id: site.id, name: site.name, path: site.path },
 	} );
 	const placement = await setAiSessionSitePlacement( created.id, {
 		siteId: site.id,

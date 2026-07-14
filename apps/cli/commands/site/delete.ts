@@ -3,10 +3,10 @@ import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
-import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { deleteSnapshot } from 'cli/lib/api';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
@@ -119,7 +119,7 @@ export async function runCommand(
 		}
 
 		try {
-			await deleteAiSessionsForSite( getAiSessionsRootDirectory(), {
+			await deleteAiSessionsForSite( getSessionsDirectory(), {
 				id: site.id,
 				path: site.path,
 			} );

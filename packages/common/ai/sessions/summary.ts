@@ -130,6 +130,7 @@ export async function readAiSessionSummaryFromEntries(
 		updatedAt: updatedAt ?? createdAt ?? fallbackTimestamp,
 		firstPrompt,
 		assistantReplyPreview,
+		ownerSiteId: undefined,
 		ownerSitePath: undefined,
 		ownerSiteName: undefined,
 		selectedSiteName,

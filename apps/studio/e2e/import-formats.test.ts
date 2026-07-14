@@ -15,13 +15,13 @@ import { getUrlWithAutoLogin } from './utils';
  * meta.json), exercising the multi-file SQL import path; the release-time test
  * against a genuine WordPress.com backup remains in import.test.ts.
  *
- * The fixture archives under fixtures/backups/ were generated from a demo
+ * The fixture archives under test-fixtures/backups/ were generated from a demo
  * Studio site (blog name "MyPet") with a custom theme, so each test can prove
  * the imported site serves the backup's content — custom theme and database —
- * rather than a fresh install. See fixtures/backups/readme.md for their
+ * rather than a fresh install. See test-fixtures/backups/readme.md for their
  * provenance and structure.
  */
-const FIXTURES_DIR = path.join( __dirname, 'fixtures', 'backups' );
+const FIXTURES_DIR = path.join( __dirname, '..', '..', '..', 'test-fixtures', 'backups' );
 const FIXTURE_SITE_TITLE = 'MyPet';
 
 test.describe( 'Import backup formats', () => {

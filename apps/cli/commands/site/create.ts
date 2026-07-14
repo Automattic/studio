@@ -66,7 +66,7 @@ import {
 	SiteData,
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
-import { removeSiteFromConfig, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import {
 	getAiInstructionsPath,
@@ -363,7 +363,7 @@ export async function runCommand(
 				: __( 'Starting WordPress server…' );
 			logger.reportStart( LoggerAction.START_SITE, startMessage );
 			try {
-				const processDesc = await startWordPressServer( siteDetails, logger, {
+				await startWordPressServer( siteDetails, logger, {
 					wpVersion: options.wpVersion,
 					blueprint,
 					blueprintUri,
@@ -372,10 +372,6 @@ export async function runCommand(
 				logger.reportSuccess( __( 'WordPress server started' ) );
 
 				stripWpConfigDbConstants( sitePath );
-
-				if ( processDesc.status === 'online' ) {
-					await updateSiteLatestCliPid( siteDetails.id, processDesc.pid );
-				}
 
 				siteDetails.running = true;
 				siteDetails.url = siteDetails.customDomain

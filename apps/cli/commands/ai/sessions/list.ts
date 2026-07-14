@@ -1,6 +1,6 @@
 import { listAiSessions } from '@studio/common/ai/sessions/store';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
-import { getAiSessionsRootDirectory } from 'cli/ai/sessions/paths';
 import { displaySessionsCompact } from 'cli/commands/ai/sessions/helpers';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -10,7 +10,7 @@ const logger = new Logger< string >();
 type SessionOutputFormat = 'compact' | 'json';
 
 export async function runCommand( format: SessionOutputFormat ): Promise< void > {
-	const sessions = await listAiSessions( getAiSessionsRootDirectory() );
+	const sessions = await listAiSessions( getSessionsDirectory() );
 
 	if ( format === 'json' ) {
 		console.log( JSON.stringify( sessions, null, 2 ) );

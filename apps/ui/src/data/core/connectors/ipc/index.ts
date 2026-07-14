@@ -677,6 +677,10 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
+		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
+			ipcApi.popupAppMenu( position );
+		},
+
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
 		},

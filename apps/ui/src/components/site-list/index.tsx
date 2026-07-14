@@ -22,6 +22,7 @@ import { SiteIcon } from '@/components/site-icon';
 import { Spinner } from '@/components/spinner';
 import { useConnector } from '@/data/core';
 import { useIsSessionRunning, useSessionHasPendingQuestion } from '@/data/queries/use-agent-run';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
@@ -552,15 +553,29 @@ function SiteSection( {
 	isActive,
 	isOpen,
 	onToggle,
+	agenticEnabled,
 }: {
 	group: SiteGroup;
 	isActive: boolean;
 	isOpen: boolean;
 	onToggle: () => void;
+	agenticEnabled: boolean;
 } ) {
+	const navigate = useNavigate();
 	const isStarting = useIsSiteStarting( group.site?.id );
 	const isStopping = useIsSiteStopping( group.site?.id );
 	const isStopped = !! group.site && ! group.site.running && ! isStarting;
+
+	const handleSiteClick = () => {
+		if ( ! agenticEnabled && group.site ) {
+			void navigate( {
+				to: '/sites/$siteId/settings',
+				params: { siteId: group.site.id },
+			} );
+		} else {
+			onToggle();
+		}
+	};
 
 	return (
 		<section className={ clsx( styles.site, isActive && styles.siteActive ) }>
@@ -568,8 +583,8 @@ function SiteSection( {
 				<div className={ styles.siteText }>
 					<SidebarButton
 						className={ styles.siteToggle }
-						onClick={ onToggle }
-						aria-expanded={ isOpen }
+						onClick={ handleSiteClick }
+						aria-expanded={ agenticEnabled ? isOpen : undefined }
 					>
 						{ group.site ? (
 							<span className={ styles.siteIconSlot } aria-hidden="true">
@@ -581,9 +596,11 @@ function SiteSection( {
 							</span>
 						) : null }
 						<span className={ styles.siteName }>{ group.label }</span>
-						<span className={ styles.siteChevron } aria-hidden="true">
-							<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />
-						</span>
+						{ agenticEnabled ? (
+							<span className={ styles.siteChevron } aria-hidden="true">
+								<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />
+							</span>
+						) : null }
 					</SidebarButton>
 				</div>
 				{ group.site ? (
@@ -593,7 +610,7 @@ function SiteSection( {
 							isStarting={ isStarting }
 							isStopping={ isStopping }
 						/>
-						<NewSessionButton site={ group.site } />
+						{ agenticEnabled ? <NewSessionButton site={ group.site } /> : null }
 						<SiteStatusButton
 							site={ group.site }
 							isStarting={ isStarting }
@@ -656,6 +673,7 @@ function getGroupKey( group: SiteGroup ) {
 export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
+	const { enabled: agenticEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const activeSessionId = params.sessionId;
 	const activeSiteId = params.siteId;
@@ -727,8 +745,9 @@ export function SiteList() {
 		<SiteSection
 			group={ group }
 			isActive={ group.key === activeSiteKey }
-			isOpen={ isOpen( group.key ) }
+			isOpen={ agenticEnabled && isOpen( group.key ) }
 			onToggle={ () => toggleSite( group.key ) }
+			agenticEnabled={ agenticEnabled }
 		/>
 	);
 

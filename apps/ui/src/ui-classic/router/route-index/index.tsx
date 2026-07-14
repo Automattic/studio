@@ -1,3 +1,4 @@
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
@@ -22,7 +23,7 @@ export const indexRoute = createRoute( {
 		} );
 		// Sessions arrive sorted newest-first, so the first session owned by
 		// the site is its most recently updated one.
-		const topSession = sessions.find( ( session ) => session.ownerSitePath === firstSite.path );
+		const topSession = sessions.find( ( session ) => aiSessionBelongsToSite( session, firstSite ) );
 		if ( topSession ) {
 			throw redirect( { to: '/sessions/$sessionId', params: { sessionId: topSession.id } } );
 		}

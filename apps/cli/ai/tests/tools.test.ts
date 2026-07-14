@@ -1044,6 +1044,7 @@ describe( 'Studio AI MCP tools', () => {
 		await getTool( 'site_create' ).rawHandler( { name: 'My Site' } as never );
 
 		expect( onSiteSelected ).toHaveBeenCalledWith( {
+			id: 'site-123',
 			name: 'My Site',
 			path: '/sites/my-site',
 			running: true,

@@ -2,6 +2,7 @@ import { isStudioCustomEntryOfType } from './entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
 export interface ResolvedActiveSite {
+	id?: string;
 	name: string;
 	path: string;
 	remote: boolean;
@@ -21,6 +22,7 @@ export function resolveActiveSiteFromEntries(
 		const data = entry.data;
 		if ( ! data ) continue;
 		state = {
+			id: data.siteId,
 			name: data.siteName,
 			path: data.sitePath,
 			remote: data.remote === true,

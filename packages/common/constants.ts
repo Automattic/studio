@@ -19,6 +19,7 @@ export const APP_CONFIG_LOCKFILE_NAME = 'app.json.lock';
 export const CLI_CONFIG_LOCKFILE_NAME = 'cli.json.lock';
 export const SHARED_CONFIG_LOCKFILE_NAME = 'shared.json.lock';
 export const REMOTE_SESSION_STATE_LOCKFILE_NAME = 'remote-session-state.lock';
+export const SESSIONS_MIGRATION_LOCKFILE_NAME = 'sessions-migration.lock';
 export const LOCKFILE_STALE_TIME = 5000;
 export const LOCKFILE_WAIT_TIME = 5000;
 

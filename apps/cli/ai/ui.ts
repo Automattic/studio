@@ -26,6 +26,7 @@ import {
 	Spacer,
 } from '@earendil-works/pi-tui';
 import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
+import { isUsageCapError } from '@studio/common/ai/json-events';
 import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
@@ -37,6 +38,7 @@ import {
 	DescriptionAwareAutocompleteProvider,
 	dimUnhighlighted,
 } from 'cli/ai/description-autocomplete';
+import { buildOptionPickerLines } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
 import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
@@ -329,6 +331,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private optionPickerHasFreeForm = false;
 	private optionPickerItemCount = 0;
 	private optionPickerInput: Input | null = null;
+	private optionPickerItems: SelectItem[] = [];
 	private static readonly OTHER_VALUE = '__other__';
 	private static readonly OPTION_PICKER_THEME: SelectListTheme = {
 		selectedPrefix: ( text: string ) => chalk.blue( text ),
@@ -1035,9 +1038,16 @@ export class AiChatUI implements AiOutputAdapter {
 		this.optionPickerContainer.clear();
 
 		const width = ( process.stdout.columns ?? 80 ) - 1;
-		const lines = this.optionPickerSelectList.render( width );
+		// Custom multi-line rendering (full labels + wrapped descriptions);
+		// SelectList is kept only for keyboard navigation and selection state.
+		const lines = buildOptionPickerLines(
+			this.optionPickerItems,
+			this.optionPickerSelectList.getSelectedItem()?.value,
+			width
+		);
 
 		// When "Other" is active, replace the last line with the inline input
+		// ("Other" is always the last item and has no description lines).
 		if ( this.optionPickerOtherActive && this.optionPickerInput && lines.length > 0 ) {
 			const inputText = this.optionPickerInput.getValue();
 			const cursor = chalk.inverse( ' ' );
@@ -1082,6 +1092,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.optionPickerSelectList = null;
 		this.optionPickerHasFreeForm = false;
 		this.optionPickerItemCount = 0;
+		this.optionPickerItems = [];
 		this.deactivateOptionPickerOther();
 		this.tui.requestRender();
 	}
@@ -1985,6 +1996,7 @@ export class AiChatUI implements AiOutputAdapter {
 					} );
 				}
 
+				this.optionPickerItems = selectItems;
 				this.optionPickerItemCount = selectItems.length;
 				const selectList = new SelectList(
 					selectItems,
@@ -1996,8 +2008,7 @@ export class AiChatUI implements AiOutputAdapter {
 				this.optionPickerVisible = true;
 				this.optionPickerContainer = new Container();
 				this.tui.addChild( this.optionPickerContainer );
-				this.optionPickerContainer.addChild( this.optionPickerSelectList );
-				this.tui.requestRender();
+				this.renderOptionPicker();
 
 				const selected = await new Promise< string >( ( resolve ) => {
 					this.optionPickerResolve = resolve;
@@ -2069,7 +2080,7 @@ export class AiChatUI implements AiOutputAdapter {
 				if (
 					message.stopReason === 'error' &&
 					this.currentProvider === 'wpcom' &&
-					/API Error:\s*429|status code 429|"status":\s*429/i.test( message.errorMessage ?? '' )
+					isUsageCapError( message.errorMessage )
 				) {
 					this.hideLoader();
 					this.usageCapReached = true;

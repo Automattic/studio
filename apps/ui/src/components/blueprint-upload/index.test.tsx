@@ -27,7 +27,13 @@ function deferred< T >() {
 	return { promise, resolve };
 }
 
-function TestUpload( { onSelect = vi.fn() }: { onSelect?: ( value: SelectedBlueprint ) => void } ) {
+function TestUpload( {
+	onSelect = vi.fn(),
+	onValidityChange = vi.fn(),
+}: {
+	onSelect?: ( value: SelectedBlueprint ) => void;
+	onValidityChange?: ( isValid: boolean ) => void;
+} ) {
 	const [ selected, setSelected ] = useState< SelectedBlueprint | null >( null );
 	return (
 		<BlueprintUpload
@@ -37,6 +43,7 @@ function TestUpload( { onSelect = vi.fn() }: { onSelect?: ( value: SelectedBluep
 				onSelect( value );
 			} }
 			onRemove={ () => setSelected( null ) }
+			onValidityChange={ onValidityChange }
 		/>
 	);
 }
@@ -116,6 +123,57 @@ describe( 'BlueprintUpload', () => {
 			expect( cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/extracted' )
 		);
 		expect( await screen.findByText( /must be object/ ) ).toBeInTheDocument();
+	} );
+
+	it( 'blocks creation until an invalid upload is replaced', async () => {
+		const onValidityChange = vi.fn();
+		render( <TestUpload onValidityChange={ onValidityChange } /> );
+		chooseFile( createFile( 'notes.txt', 'not a blueprint', 'text/plain' ) );
+
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
+			'Blueprint error: That file type is not supported. Choose a Blueprint JSON file or ZIP bundle.'
+		);
+		expect( onValidityChange ).toHaveBeenLastCalledWith( false );
+
+		chooseFile(
+			createFile(
+				'valid.json',
+				JSON.stringify( { meta: { title: 'Valid', author: 'Studio' } } ),
+				'application/json'
+			)
+		);
+		await waitFor( () => expect( onValidityChange ).toHaveBeenLastCalledWith( true ) );
+		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'allows an invalid upload to be removed', async () => {
+		const onValidityChange = vi.fn();
+		render( <TestUpload onValidityChange={ onValidityChange } /> );
+		chooseFile( createFile( 'notes.txt', 'not a blueprint', 'text/plain' ) );
+
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
+			'Blueprint error: That file type is not supported. Choose a Blueprint JSON file or ZIP bundle.'
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Remove' } ) );
+
+		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+		expect( onValidityChange ).toHaveBeenLastCalledWith( true );
+		expect( screen.getByRole( 'button', { name: 'upload a file' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'replaces ZIP extraction details with a user-friendly error', async () => {
+		extractBlueprintBundle.mockRejectedValue(
+			new Error(
+				"Error invoking remote method 'extractBlueprintBundle': No blueprint.json found in the ZIP file."
+			)
+		);
+		render( <TestUpload /> );
+		chooseFile( createFile( 'bundle.zip', 'zip', 'application/zip' ) );
+
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
+			'Blueprint error: This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level and try again.'
+		);
+		expect( screen.queryByText( /Error invoking remote method/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'cancels and cleans a replacement ZIP when the selection is removed', async () => {

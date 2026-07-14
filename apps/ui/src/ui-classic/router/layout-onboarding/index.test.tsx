@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import onboardingLayoutStyles from '@/components/onboarding-layout/style.module.css';
 import { OnboardingShellView, useOnboardingProgress } from './index';
 
 vi.mock( '@/components/dot-grid', () => ( {
@@ -94,5 +95,21 @@ describe( 'OnboardingShellView', () => {
 			</OnboardingShellView>
 		);
 		expect( screen.getByRole( 'heading', { name: 'Import' } ) ).toHaveFocus();
+	} );
+
+	it( 'reserves content space when Close is visible', () => {
+		render(
+			<OnboardingShellView
+				hasSites
+				isWide={ false }
+				pathname="/onboarding/create"
+				onClose={ vi.fn() }
+			>
+				<h1>Create</h1>
+			</OnboardingShellView>
+		);
+
+		const content = screen.getByRole( 'heading', { name: 'Create' } ).parentElement?.parentElement;
+		expect( content ).toHaveClass( onboardingLayoutStyles.contentWithClose );
 	} );
 } );

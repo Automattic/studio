@@ -123,6 +123,16 @@ describe( 'CreateSitePage', () => {
 		expect( mocks.formProps?.submitLabel ).toBeUndefined();
 	} );
 
+	it( 'blocks submission while the Blueprint upload is invalid', () => {
+		render( <CreateSitePage /> );
+
+		act( () => ( mocks.uploadProps?.onValidityChange as ( isValid: boolean ) => void )( false ) );
+		expect( mocks.formProps?.isSubmitDisabled ).toBe( true );
+
+		act( () => ( mocks.uploadProps?.onValidityChange as ( isValid: boolean ) => void )( true ) );
+		expect( mocks.formProps?.isSubmitDisabled ).toBe( false );
+	} );
+
 	it( 'submits the selected Blueprint and restores the form after failure', async () => {
 		mocks.mutateAsync.mockRejectedValue( new Error( 'Creation failed' ) );
 		render( <CreateSitePage /> );

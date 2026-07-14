@@ -46,12 +46,17 @@ function deferred< T >() {
 	return { promise, resolve, reject };
 }
 
-function renderForm( initialValues?: Partial< CreateSiteFormValues >, onSubmit = vi.fn() ) {
+function renderForm(
+	initialValues?: Partial< CreateSiteFormValues >,
+	onSubmit = vi.fn(),
+	isSubmitDisabled = false
+) {
 	const props = {
 		initialValues,
 		existingDomainNames: [],
 		onSubmit,
 		onCancel: vi.fn(),
+		isSubmitDisabled,
 	};
 	const result = render( <CreateSiteForm { ...props } /> );
 	return {
@@ -321,6 +326,37 @@ describe( 'CreateSiteForm', () => {
 		expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute( 'aria-disabled', 'true' );
 	} );
 
+	it( 'marks a focused folder picker invalid as soon as selection validation fails', async () => {
+		useConnectorMock.mockReturnValue( {
+			capabilities: {
+				nativeFolderPicker: true,
+				nativeSaveDialog: false,
+				openInOS: false,
+				annotatePreview: false,
+				readLocalMedia: false,
+			},
+		} );
+		usePathValidatorMock.mockReturnValue( {
+			generateProposedPath: vi.fn(),
+			selectPath: vi.fn( async () => ( {
+				path: '/sites/taken',
+				isEmpty: false,
+				isWordPress: false,
+				error: 'That path is already in use.',
+			} ) ),
+		} );
+		renderForm();
+		openAdvancedSettings();
+		const pathTrigger = screen.getByRole( 'button', { name: 'Select a folder' } );
+		pathTrigger.focus();
+		fireEvent.click( pathTrigger );
+
+		const error = await screen.findByText( 'That path is already in use.' );
+		expect( error ).toHaveClass( 'components-validated-control__indicator', 'is-invalid' );
+		expect( pathTrigger ).toHaveFocus();
+		expect( pathTrigger ).toHaveAttribute( 'aria-invalid', 'true' );
+	} );
+
 	it( 'falls back to the default WordPress version when a suggestion is unsupported', async () => {
 		useWordPressVersionsMock.mockReturnValue( {
 			data: [
@@ -333,6 +369,35 @@ describe( 'CreateSiteForm', () => {
 
 		await waitFor( () =>
 			expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( 'latest' )
+		);
+	} );
+
+	it( 'uses a stable select control for long WordPress version lists', () => {
+		useWordPressVersionsMock.mockReturnValue( {
+			data: [
+				{ label: 'latest', value: 'latest', isBeta: false, isDevelopment: false },
+				...Array.from( { length: 12 }, ( _, index ) => ( {
+					label: `6.${ index }`,
+					value: `6.${ index }`,
+					isBeta: false,
+					isDevelopment: false,
+				} ) ),
+			],
+		} );
+		renderForm( { name: 'Versioned site' } );
+		openAdvancedSettings();
+
+		expect( screen.getByLabelText( 'WordPress version' ).tagName ).toBe( 'SELECT' );
+	} );
+
+	it( 'supports an external submission gate', async () => {
+		renderForm( { name: 'Blocked site' }, vi.fn(), true );
+
+		await waitFor( () =>
+			expect( screen.getByTestId( 'create-site-submit' ) ).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			)
 		);
 	} );
 } );

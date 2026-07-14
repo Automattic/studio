@@ -43,6 +43,7 @@ export function CreateSitePage() {
 	const { data: proposedName } = useProposedSiteName( sites );
 	const createSite = useCreateSite();
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< SelectedBlueprint | null >( null );
+	const [ isBlueprintValid, setIsBlueprintValid ] = useState( true );
 	const selectedBlueprintRef = useRef< SelectedBlueprint | null >( null );
 	const transferredTempDirRef = useRef< string | null >( null );
 	const [ submitError, setSubmitError ] = useState( '' );
@@ -158,6 +159,7 @@ export function CreateSitePage() {
 				onSubmit={ handleSubmit }
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ createSite.isPending }
+				isSubmitDisabled={ ! isBlueprintValid }
 				submitError={ submitError }
 				submitLabel={ selectedBlueprint ? __( 'Create site from Blueprint' ) : undefined }
 			/>
@@ -166,6 +168,7 @@ export function CreateSitePage() {
 					selected={ selectedBlueprint }
 					onSelect={ replaceBlueprint }
 					onRemove={ () => replaceBlueprint( null ) }
+					onValidityChange={ setIsBlueprintValid }
 				/>
 			</div>
 		</div>

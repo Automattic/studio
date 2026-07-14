@@ -16,6 +16,10 @@
 	max-width: 960px;
 }
 
+.contentWithClose {
+	padding-block-start: calc(var(--wpds-dimension-padding-3xl) + 32px);
+}
+
 .dragEdge {
 	position: fixed;
 	pointer-events: none;

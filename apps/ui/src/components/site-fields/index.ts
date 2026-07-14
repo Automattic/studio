@@ -64,6 +64,7 @@ export function wpVersionField< T extends { wpVersion: string } >(
 			...prerelease.map( ( version ) => ( { value: version.value, label: version.label } ) ),
 			...stable.map( ( version ) => ( { value: version.value, label: version.label } ) ),
 		];
+		field.Edit = 'select';
 	}
 	return field;
 }

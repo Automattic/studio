@@ -14,6 +14,7 @@ interface BlueprintUploadProps {
 	selected: SelectedBlueprint | null;
 	onSelect: ( blueprint: SelectedBlueprint ) => void;
 	onRemove: () => void;
+	onValidityChange: ( isValid: boolean ) => void;
 }
 
 const FILE_ACCEPT = 'application/json,.json,application/zip,.zip';
@@ -27,12 +28,10 @@ async function loadBlueprintFile( file: File, connector: Connector ): Promise< S
 		let parsed: unknown;
 		try {
 			parsed = JSON.parse( await file.text() );
-		} catch ( error ) {
+		} catch {
 			throw new Error(
-				sprintf(
-					// translators: %s is the JSON parser error message.
-					__( 'Could not parse Blueprint JSON: %s' ),
-					error instanceof Error ? error.message : String( error )
+				__(
+					'This Blueprint JSON file could not be read. Check that it contains valid JSON and try again.'
 				)
 			);
 		}
@@ -40,10 +39,18 @@ async function loadBlueprintFile( file: File, connector: Connector ): Promise< S
 	}
 
 	if ( ! isZip ) {
-		throw new Error( __( 'Please select a Blueprint JSON or ZIP bundle.' ) );
+		throw new Error(
+			__( 'That file type is not supported. Choose a Blueprint JSON file or ZIP bundle.' )
+		);
 	}
 
-	const extracted = await connector.extractBlueprintBundle( file );
+	const extracted = await connector.extractBlueprintBundle( file ).catch( () => {
+		throw new Error(
+			__(
+				'This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level and try again.'
+			)
+		);
+	} );
 	try {
 		return await createSelectedBlueprint( extracted.blueprintJson, file, {
 			filePath: extracted.blueprintJsonPath,
@@ -59,7 +66,12 @@ function hasFiles( event: DragEvent ): boolean {
 	return Array.from( event.dataTransfer?.types ?? [] ).includes( 'Files' );
 }
 
-export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUploadProps ) {
+export function BlueprintUpload( {
+	selected,
+	onSelect,
+	onRemove,
+	onValidityChange,
+}: BlueprintUploadProps ) {
 	const connector = useConnector();
 	const [ error, setError ] = useState< string | null >( null );
 	const [ isDragging, setIsDragging ] = useState( false );
@@ -71,6 +83,7 @@ export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUplo
 		async ( file: File ) => {
 			const request = ++requestRef.current;
 			setError( null );
+			onValidityChange( false );
 			try {
 				const blueprint = await loadBlueprintFile( file, connector );
 				if ( request !== requestRef.current ) {
@@ -80,6 +93,7 @@ export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUplo
 					return;
 				}
 				onSelect( blueprint );
+				onValidityChange( true );
 			} catch ( loadError ) {
 				if ( request === requestRef.current ) {
 					setError(
@@ -90,7 +104,7 @@ export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUplo
 				}
 			}
 		},
-		[ connector, onSelect ]
+		[ connector, onSelect, onValidityChange ]
 	);
 
 	const handleInputChange = ( event: ChangeEvent< HTMLInputElement > ) => {
@@ -101,6 +115,8 @@ export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUplo
 	const handleRemove = () => {
 		requestRef.current += 1;
 		setError( null );
+		if ( fileInputRef.current ) fileInputRef.current.value = '';
+		onValidityChange( true );
 		onRemove();
 	};
 
@@ -188,7 +204,18 @@ export function BlueprintUpload( { selected, onSelect, onRemove }: BlueprintUplo
 				</p>
 				{ error && (
 					<p role="alert" className={ styles.error }>
-						{ error }
+						<span>
+							{ sprintf(
+								// translators: %s is the Blueprint validation or upload error.
+								__( 'Blueprint error: %s' ),
+								error
+							) }
+						</span>
+						{ ! selected && (
+							<button type="button" className={ styles.action } onClick={ handleRemove }>
+								{ __( 'Remove' ) }
+							</button>
+						) }
 					</p>
 				) }
 			</div>

@@ -48,7 +48,9 @@ export function OnboardingLayout( {
 			) }
 			<div
 				ref={ contentRef }
-				className={ `${ styles.content } ${ width === 'wide' ? styles.contentWide : '' }` }
+				className={ `${ styles.content } ${ width === 'wide' ? styles.contentWide : '' } ${
+					onClose ? styles.contentWithClose : ''
+				}` }
 			>
 				{ children }
 			</div>

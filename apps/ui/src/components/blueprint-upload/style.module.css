@@ -37,8 +37,20 @@
 }
 
 .error {
-	margin-top: 8px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 480px;
+	margin: 12px auto 0;
+	padding: 8px 12px;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-error);
+	border-radius: 4px;
+	background: var(--wpds-color-bg-surface-error-weak);
 	color: var(--wpds-color-fg-content-error);
+	text-align: center;
 }
 
 .fullScreenDrop {

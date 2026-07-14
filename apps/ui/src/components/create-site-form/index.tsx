@@ -5,7 +5,7 @@ import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { BaseControl, CheckboxControl, TextControl } from '@wordpress/components';
 import { DataForm, useFormValidity } from '@wordpress/dataviews';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronLeft, chevronRight } from '@wordpress/icons';
+import { chevronDown, chevronLeft, chevronRight, error as errorIcon } from '@wordpress/icons';
 import { Button, Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LearnHowLink, LearnMoreLink } from '@/components/learn-more';
@@ -54,6 +54,7 @@ interface CreateSiteFormProps {
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	onCancel: () => void;
 	isSubmitting?: boolean;
+	isSubmitDisabled?: boolean;
 	submitError?: string;
 	submitLabel?: string;
 }
@@ -257,28 +258,40 @@ function PathField( {
 	}, [ item.hasCustomPath, item.name, item.path, onChange, selectPath ] );
 
 	const errorMessage = item.pathError || validity?.custom?.message;
-	const help = errorMessage ? (
-		<span className={ styles.pathErrorHelp }>{ errorMessage }</span>
-	) : (
+	const help = (
 		<>
 			{ __( 'Select an empty directory or a directory with an existing WordPress site.' ) }{ ' ' }
 			<LearnMoreLink docsLinksKey="docsSites" />
 		</>
 	);
+	const error = errorMessage ? (
+		<p role="alert" className="components-validated-control__indicator is-invalid">
+			<Icon
+				className="components-validated-control__indicator-icon"
+				icon={ errorIcon }
+				size={ 16 }
+				fill="currentColor"
+			/>
+			{ errorMessage }
+		</p>
+	) : null;
 
 	// No native folder picker in the browser — edit the path as text. It's
 	// prefilled from the site name; the server validates it on create.
 	if ( ! connector.capabilities.nativeFolderPicker ) {
 		return (
-			<TextControl
-				__nextHasNoMarginBottom
-				__next40pxDefaultSize
-				label={ field.label }
-				hideLabelFromVision={ hideLabelFromVision }
-				value={ item.path }
-				onChange={ ( value ) => onChange( { path: value, hasCustomPath: true, pathError: '' } ) }
-				help={ help }
-			/>
+			<div className={ errorMessage ? styles.pathControlError : undefined }>
+				<TextControl
+					__nextHasNoMarginBottom
+					__next40pxDefaultSize
+					label={ field.label }
+					hideLabelFromVision={ hideLabelFromVision }
+					value={ item.path }
+					onChange={ ( value ) => onChange( { path: value, hasCustomPath: true, pathError: '' } ) }
+					help={ errorMessage ? undefined : help }
+				/>
+				{ error }
+			</div>
 		);
 	}
 
@@ -291,30 +304,33 @@ function PathField( {
 		: __( 'Select a folder' );
 
 	return (
-		<BaseControl
-			__nextHasNoMarginBottom
-			label={ field.label }
-			hideLabelFromVision={ hideLabelFromVision }
-			help={ help }
-		>
-			<button
-				type="button"
-				onClick={ handleSelect }
-				aria-label={ triggerLabel }
-				aria-invalid={ !! errorMessage || undefined }
-				className={ `${ styles.pathTrigger } ${ errorMessage ? styles.pathTriggerError : '' }` }
+		<div>
+			<BaseControl
+				__nextHasNoMarginBottom
+				label={ field.label }
+				hideLabelFromVision={ hideLabelFromVision }
+				help={ errorMessage ? undefined : help }
 			>
-				<span
-					className={ `${ styles.pathValue } ${ item.path ? '' : styles.pathValuePlaceholder }` }
-					aria-hidden="true"
+				<button
+					type="button"
+					onClick={ handleSelect }
+					aria-label={ triggerLabel }
+					aria-invalid={ !! errorMessage || undefined }
+					className={ `${ styles.pathTrigger } ${ errorMessage ? styles.pathTriggerError : '' }` }
 				>
-					{ item.path || __( 'Choose a folder…' ) }
-				</span>
-				<span className={ styles.pathTriggerAction } aria-hidden="true">
-					{ __( 'Choose\u2026' ) }
-				</span>
-			</button>
-		</BaseControl>
+					<span
+						className={ `${ styles.pathValue } ${ item.path ? '' : styles.pathValuePlaceholder }` }
+						aria-hidden="true"
+					>
+						{ item.path || __( 'Choose a folder…' ) }
+					</span>
+					<span className={ styles.pathTriggerAction } aria-hidden="true">
+						{ __( 'Choose\u2026' ) }
+					</span>
+				</button>
+			</BaseControl>
+			{ error }
+		</div>
 	);
 }
 
@@ -367,6 +383,7 @@ export function CreateSiteForm( {
 	onSubmit,
 	onCancel,
 	isSubmitting,
+	isSubmitDisabled,
 	submitError,
 	submitLabel,
 }: CreateSiteFormProps ) {
@@ -463,12 +480,12 @@ export function CreateSiteForm( {
 				},
 				{
 					id: 'versions',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'phpVersion', 'wpVersion' ],
 				},
 				{
 					id: 'adminCredentials',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'adminUsername', 'adminPassword' ],
 				},
 				'adminEmail',
@@ -540,7 +557,8 @@ export function CreateSiteForm( {
 
 	// `isPathPending` is deliberately absent from `isValid` (so the Advanced
 	// toggle doesn't flash), so gate submit on it separately.
-	const canSubmit = isValid && ! isSubmitting && ! data.isPathPending && ! data.pathError;
+	const canSubmit =
+		isValid && ! isSubmitting && ! isSubmitDisabled && ! data.isPathPending && ! data.pathError;
 
 	const handleSubmit = ( event: FormEvent ) => {
 		event.preventDefault();

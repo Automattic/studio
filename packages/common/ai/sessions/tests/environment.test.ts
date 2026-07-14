@@ -67,6 +67,7 @@ describe( 'site.selected — environment flips', () => {
 				data: {
 					siteName: 'My Site',
 					sitePath: '/tmp/my-site',
+					siteId: 'site-1',
 					remote: true,
 					url: 'https://mysite.example',
 					wpcomSiteId: 42,
@@ -75,6 +76,7 @@ describe( 'site.selected — environment flips', () => {
 		];
 
 		expect( resolveActiveSiteFromEntries( entries ) ).toEqual( {
+			id: 'site-1',
 			name: 'My Site',
 			path: '/tmp/my-site',
 			remote: true,

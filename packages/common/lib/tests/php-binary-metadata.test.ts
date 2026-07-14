@@ -1,9 +1,30 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+	getConfiguredPhpBinaryPackageId,
+	getConfiguredPhpBinaryPackageVersion,
+	getConfiguredPhpBinaryVersion,
+	getPhpBinaryDownloadInfo,
 	NativePhpSupportedVersions,
 	resolveNativePhpVersion,
 	validateNativePhpVersion,
-} from '@studio/common/lib/php-binary-metadata';
+} from '../php-binary-metadata';
+
+vi.mock( '../php-binary-cdn-metadata.mjs', () => ( {
+	default: {
+		versions: {
+			'8.4': {
+				version: '8.4.22',
+				packageVersion: 'studio-1',
+				artifacts: {
+					'win32-x64': {
+						url: 'https://example.com/8.4.22-studio-1/full-install',
+						sha: 'a'.repeat( 64 ),
+					},
+				},
+			},
+		},
+	},
+} ) );
 
 describe( 'Native PHP binary metadata', () => {
 	it( 'supports officially supported PHP versions', () => {
@@ -29,6 +50,19 @@ describe( 'Native PHP binary metadata', () => {
 	it( 'rejects malformed PHP versions when resolving native PHP', () => {
 		expect( () => resolveNativePhpVersion( 'nonsense' ) ).toThrow(
 			'PHP nonsense is not supported by the native-php runtime.'
+		);
+	} );
+
+	it( 'keeps the upstream PHP version separate from the package version', () => {
+		expect( getConfiguredPhpBinaryVersion( '8.4' ) ).toBe( '8.4.22' );
+		expect( getConfiguredPhpBinaryPackageVersion( '8.4' ) ).toBe( 'studio-1' );
+		expect( getConfiguredPhpBinaryPackageId( '8.4' ) ).toBe( '8.4.22-studio-1' );
+		expect( getPhpBinaryDownloadInfo( '8.4', 'win32', 'x64' ) ).toEqual(
+			expect.objectContaining( {
+				patchVersion: '8.4.22',
+				packageVersion: 'studio-1',
+				packageId: '8.4.22-studio-1',
+			} )
 		);
 	} );
 } );

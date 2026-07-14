@@ -153,6 +153,7 @@ export async function loadAiSession(
 
 export interface CreateAiSessionOptions {
 	site?: {
+		id?: string;
 		name: string;
 		path: string;
 		remote?: boolean;
@@ -201,6 +202,7 @@ export async function createAiSession(
 			data: {
 				siteName: options.site.name,
 				sitePath: options.site.path,
+				siteId: options.site.id,
 				remote: options.site.remote,
 				url: options.site.url,
 				wpcomSiteId: options.site.wpcomSiteId,

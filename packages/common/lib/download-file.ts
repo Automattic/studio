@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Writable } from 'stream';
-import { isErrnoException } from './is-errno-exception';
+import { isErrnoException } from './is-errno-exception.ts';
 
 export async function downloadFile(
 	url: string,

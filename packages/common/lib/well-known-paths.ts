@@ -1,6 +1,6 @@
 import os from 'os';
 import path from 'path';
-import { APP_CONFIG_LOCKFILE_NAME, REMOTE_SESSION_STATE_LOCKFILE_NAME } from '../constants';
+import { APP_CONFIG_LOCKFILE_NAME, REMOTE_SESSION_STATE_LOCKFILE_NAME } from '../constants.ts';
 
 export function getConfigDirectory(): string {
 	if ( process.env.DEV_CONFIG_DIR ) {
@@ -29,6 +29,13 @@ export function getCliConfigPath(): string {
 		return path.join( process.env.E2E_CLI_CONFIG_PATH, 'cli.json' );
 	}
 	return path.join( getConfigDirectory(), 'cli.json' );
+}
+
+export function getSessionsDirectory(): string {
+	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
+		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio', 'sessions' );
+	}
+	return path.join( getConfigDirectory(), 'sessions' );
 }
 
 export function getCertificatesPath(): string {

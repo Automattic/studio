@@ -1,0 +1,24 @@
+/* Structural styles inherent to the drag-to-reorder mechanism; consumers
+   supply the visual treatment (row shape, colors, shadows) via className
+   props on ReorderableList. */
+
+.itemWrapper {
+	touch-action: none;
+}
+
+/* The FLIP animation transforms each wrapper's first child (see
+   getRowAnimationTarget), so that's where the compositor hint goes. */
+.dragging .itemWrapper > :first-child {
+	will-change: transform;
+}
+
+.placeholder {
+	box-sizing: border-box;
+}
+
+.dragPreview {
+	position: fixed;
+	z-index: 1000;
+	pointer-events: none;
+	will-change: inset-block-start;
+}

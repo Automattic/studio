@@ -268,6 +268,57 @@
 	fill: var(--tool-icon-color);
 }
 
+.mediaArtifactGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+	gap: var(--wpds-dimension-padding-sm);
+	width: min(100%, 680px);
+}
+
+.mediaArtifactItem {
+	margin: 0;
+	min-width: 0;
+}
+
+.mediaArtifactImage {
+	display: block;
+	width: 100%;
+	max-height: min(520px, 58vh);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	object-fit: contain;
+}
+
+.mediaArtifactLoading,
+.mediaArtifactUnavailable {
+	box-sizing: border-box;
+	min-height: 180px;
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-md, 8px);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.mediaArtifactLoading {
+	background-image: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--wpds-color-fg-content-neutral) 8%, transparent),
+		transparent
+	);
+	background-size: 200% 100%;
+	animation: mediaArtifactLoading 1.2s ease-in-out infinite;
+}
+
+.mediaArtifactUnavailable {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--wpds-dimension-padding-md);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
 @keyframes toolDetailsExpand {
 	from {
 		grid-template-rows: 0fr;
@@ -282,10 +333,21 @@
 	}
 }
 
+@keyframes mediaArtifactLoading {
+	from {
+		background-position: 200% 0;
+	}
+
+	to {
+		background-position: -200% 0;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.toolRowButton,
 	.toolDetailsShell,
-	.toolDetailsShell[data-expanded='true'] {
+	.toolDetailsShell[data-expanded='true'],
+	.mediaArtifactLoading {
 		animation: none;
 		transform: none;
 		transition: none;
@@ -608,4 +670,25 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-xs);
 	text-align: center;
+}
+
+/* Assistant response wrapper: the copy button stays hidden until the turn is
+   hovered (or a control inside it is focused). */
+.assistantTurn {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.messageActions {
+	display: flex;
+	align-items: center;
+	margin-inline-start: calc((16px - 1.75rem) / 2);
+	opacity: 0;
+	transition: opacity 0.12s ease;
+}
+
+.assistantTurn:hover .messageActions,
+.assistantTurn:focus-within .messageActions {
+	opacity: 1;
 }

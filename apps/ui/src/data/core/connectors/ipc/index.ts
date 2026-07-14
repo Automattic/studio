@@ -204,6 +204,7 @@ export function createIpcConnector(): Connector {
 			nativeSaveDialog: true,
 			openInOS: true,
 			annotatePreview: true,
+			readLocalMedia: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process
@@ -402,6 +403,10 @@ export function createIpcConnector(): Connector {
 
 		async updateSite( site, wpVersion ) {
 			await ipcApi.updateSite( site, wpVersion );
+		},
+
+		async updateSitesSortOrder( updates ) {
+			await ipcApi.updateSitesSortOrder( updates );
 		},
 
 		async refreshSiteIcon( siteId ) {
@@ -675,6 +680,10 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
+		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
+			ipcApi.popupAppMenu( position );
+		},
+
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
 		},
@@ -718,6 +727,18 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'toggle-sidebar', () => listener() );
+		},
+
+		onAddSite( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'add-site', () => listener() );
+		},
+
+		onOpenSettings( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'user-settings', () => listener() );
 		},
 	};
 }

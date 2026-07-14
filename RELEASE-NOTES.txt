@@ -1,6 +1,36 @@
 Unreleased
 ==========
 
+1.15.0
+=====
+* Fixed Xdebug not starting on a normal page load on the native PHP runtime #4086
+* Added skipping dangling symlinks when archiving site content #4038
+* Studio Code: Screenshots taken by the assistant now appear inline in the conversation, and the agent can capture pages in light or dark mode #3982, #4097
+* Studio Code: Allowed editing your last message after interrupting the assistant #4094, #4123
+* Studio Code: Improved the /liberate command for recreating sites from other platforms, including surfacing it when searching for "migrate" #4095, #4110, #4111
+* Studio Code: Fixed the agent seeing running local sites as stopped when resuming a session, avoiding redundant site starts #4096
+* Update native PHP binaries to latest versions to fix SQLite issue #4118, #4141, #4142, #4143, #4144
+* Allowed more time for AI-powered plugins to receive a response before timing out #3120
+* Improved an error message when a site is in maintenance mode #3948
+* Improved CLI slash-command autocomplete with alphabetical sorting and match highlighting #4116, #4120
+* Stopped showing the What's New modal automatically on app updates #4117
+* Misc CLI and maintenance improvements #4089, #4108, #4109, #4011, #4000, #4032
+
+1.14.0
+=====
+* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082  
+* Studio Code: Added a /liberate command to recreate sites from other platforms (e.g. Wix) as WordPress #3940
+* Studio Code: Added a /publish command to push local sites to WordPress.com #4043
+* Studio Code: Updated the assistant's available model to Sonnet 5 #4024
+* Studio Code: Agent file edits now show as proper line-by-line diffs in the CLI and desktop assistant #4076
+* Studio Code: Improved plugin recommendations for Automattic products, and tuned agent behavior for native PHP vs Playground sites #4023, #3995
+* Studio Code: Fixed an unwanted gap in block themes scaffolded by the assistant #4053
+* Fixed an issue where Pressable sites were marked unsupported on the Sync tab #4078
+* Fixed recreating missing db.php drop-ins and preserving custom SQLite drop-ins #3993
+* Fixed occasional failures when duplicating a site #4074
+* Fixed broken Central Kurdish (Sorani) text on macOS by bundling the Vazirmatn font #4062
+* Updated multiple dependencies, including WP Playground and PHP-WASM, the SQLite database integration, and the pi (agent) packages #4015, #4033, #4073
+
 1.13.0
 =====
 * Fixed PHP error (code: 3221225781) by updating native PHP packages to include necessary Windows DLLs #4042, #4045, #4050, #4055, #4049

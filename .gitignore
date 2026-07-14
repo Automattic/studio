@@ -114,6 +114,10 @@ cli/vendor/
 dist
 dist-hosted
 dist-local
+# …except the data-liberation plugin's committed MCP server bundle (the plugin
+# installer copies the package without running npm install or a build). The
+# package-level .gitignore keeps everything else in its dist/ ignored.
+!packages/data-liberation-agent/dist
 
 # Playwright traces
 test-results
@@ -122,6 +126,9 @@ test-results
 apps/studio/e2e/imports/*.tar.gz
 apps/studio/e2e/imports/*.zip
 apps/studio/e2e/imports/*.wpress
+
+# Data-heavy e2e fixtures downloaded by `npm run e2e:fixtures` (see test-fixtures/readme.md)
+test-fixtures/downloads/
 
 # Metrics traces
 artifacts

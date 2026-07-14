@@ -3,17 +3,32 @@
  */
 import { IpcMainInvokeEvent } from 'electron';
 import { normalize } from 'path';
+import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import { createSite, isFullscreen, getXdebugEnabledSite, loadThemeDetails } from 'src/ipc-handlers';
+import {
+	createSite,
+	getFileSize,
+	getXdebugEnabledSite,
+	isFullscreen,
+	loadThemeDetails,
+	readLocalMediaFile,
+} from 'src/ipc-handlers';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { getMainWindow } from 'src/main-window';
 import { SiteServer } from 'src/site-server';
 
 vi.mock( 'fs' );
+vi.mock( 'fs/promises', async () => {
+	const fs = await import( 'fs' );
+	return { default: fs.promises };
+} );
 vi.mock( 'fs-extra' );
 vi.mock( '@studio/common/lib/fs-utils' );
+vi.mock( '@studio/common/ai/sessions/root-migration', () => ( {
+	resolveMigratedAiSessionsPath: vi.fn( ( path: string ) => path ),
+} ) );
 vi.mock( '@sentry/electron/main', () => ( {
 	captureException: vi.fn(),
 	captureMessage: vi.fn(),
@@ -290,5 +305,54 @@ describe( 'loadThemeDetails', () => {
 
 		expect( mockServer.persistThemeDetails ).toHaveBeenCalled();
 		expect( captureSiteThumbnail ).toHaveBeenCalledWith( 'test-site-id', true );
+	} );
+} );
+
+describe( 'getFileSize', () => {
+	it( 'returns the file size', () => {
+		vi.mocked( SiteServer.get ).mockReturnValue( {
+			details: { path: '/test' },
+		} as unknown as SiteServer );
+		vol.fromJSON( { '/test/wp-content/index.php': '<?php' } );
+
+		expect(
+			getFileSize( mockIpcMainInvokeEvent, 'test-site-id', [ 'wp-content', 'index.php' ] )
+		).toBe( 5 );
+	} );
+
+	it( 'returns 0 for a dangling symlink instead of throwing', () => {
+		vi.mocked( SiteServer.get ).mockReturnValue( {
+			details: { path: '/test' },
+		} as unknown as SiteServer );
+		// A broken symlink whose target was never created — mirrors the WP Cloud
+		// `advanced-cache.php` drop-in that a reprint pull leaves dangling.
+		vol.mkdirSync( '/test/wp-content', { recursive: true } );
+		vol.symlinkSync(
+			'/test/wordpress/drop-ins/advanced-cache.php',
+			'/test/wp-content/advanced-cache.php'
+		);
+		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+
+		expect(
+			getFileSize( mockIpcMainInvokeEvent, 'test-site-id', [ 'wp-content', 'advanced-cache.php' ] )
+		).toBe( 0 );
+		expect( warnSpy ).toHaveBeenCalledWith( expect.stringContaining( 'advanced-cache.php' ) );
+
+		warnSpy.mockRestore();
+	} );
+} );
+
+describe( 'readLocalMediaFile', () => {
+	it( 'reads artifacts from their migrated sessions path', async () => {
+		const legacyPath = '/legacy/sessions/session.screenshots/screenshot.jpg';
+		const migratedPath = '/.studio/sessions/session.screenshots/screenshot.jpg';
+		vol.fromJSON( { [ migratedPath ]: 'image' } );
+		vi.mocked( resolveMigratedAiSessionsPath ).mockReturnValueOnce( migratedPath );
+
+		const file = await readLocalMediaFile( mockIpcMainInvokeEvent, legacyPath );
+
+		expect( resolveMigratedAiSessionsPath ).toHaveBeenCalledWith( legacyPath );
+		expect( file.name ).toBe( 'screenshot.jpg' );
+		expect( Buffer.from( file.data ).toString() ).toBe( 'image' );
 	} );
 } );

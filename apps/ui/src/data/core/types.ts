@@ -68,6 +68,7 @@ export interface SiteDetails {
 	enableXdebug?: boolean;
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
+	sortOrder?: number;
 	themeDetails?: {
 		name: string;
 		path: string;
@@ -110,6 +111,10 @@ export interface ConnectorCapabilities {
 	// browser the preview is a cross-origin <iframe> that can't be injected, so
 	// the Annotate control is hidden.
 	annotatePreview: boolean;
+	// `readLocalMediaFile` can read media files from the host's disk (used to
+	// render local screenshot artifacts inline). Only the desktop IPC connector
+	// supports it; the browser connectors reject local file reads.
+	readLocalMedia: boolean;
 }
 
 export interface Connector {
@@ -147,6 +152,9 @@ export interface Connector {
 	// process handler. `wpVersion` is only forwarded when the user explicitly
 	// picked a pinned version — undefined means "keep auto-updating".
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
+	// Persists the sidebar's manual site order (the same per-site `sortOrder`
+	// the legacy desktop sidebar uses).
+	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;
@@ -312,6 +320,8 @@ export interface Connector {
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
 
+	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
+
 	// Clipboard — routed to the host so it works where the renderer's
 	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
 	copyText( text: string ): Promise< void >;
@@ -344,6 +354,14 @@ export interface Connector {
 
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;
+
+	// Fires when the user activates "File > Add Site…" (or its keyboard
+	// shortcut) in the application menu.
+	onAddSite( listener: () => void ): () => void;
+
+	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
+	// the application menu.
+	onOpenSettings( listener: () => void ): () => void;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

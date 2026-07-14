@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env -S node --experimental-strip-types
 /**
  * Creates a standalone Studio CLI bundle for terminal installs.
  *
@@ -29,18 +29,18 @@
  * build each platform's bundle on its own runner.
  *
  * Usage:
- *   npx tsx scripts/create-standalone-bundle.ts
- *   npx tsx scripts/create-standalone-bundle.ts darwin arm64
- *   npx tsx scripts/create-standalone-bundle.ts win32 x64
+ *   node --experimental-strip-types scripts/create-standalone-bundle.ts
+ *   node --experimental-strip-types scripts/create-standalone-bundle.ts darwin arm64
+ *   node --experimental-strip-types scripts/create-standalone-bundle.ts win32 x64
  */
 
 import { execSync, spawn } from 'child_process';
 import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { downloadNodeBinary } from './download-node-binary';
+import { downloadNodeBinary } from './download-node-binary.ts';
 
-const repoRoot = path.join( __dirname, '..' );
+const repoRoot = path.join( import.meta.dirname, '..' );
 
 const platformArg = process.argv[ 2 ] || process.platform;
 const archArg = process.argv[ 3 ] || process.arch;
@@ -138,6 +138,14 @@ async function main(): Promise< void > {
 	// prod build, but `package:standalone` stamps `__IS_PACKAGED_FOR_STANDALONE__` so the
 	// curl-installed CLI identifies itself at runtime (update notifier + launch stats).
 	console.log( '==> Step 1/4: Building CLI package...' );
+	// install:bundle can run twice per CI job (the desktop make's forge hook runs
+	// it first). npm's --install-links re-resolves the changed data-liberation
+	// file: dep from the registry (E404) when reinstalling over that tree, so
+	// start from a clean node_modules, same as forge.config.ts does.
+	fs.rmSync( path.join( repoRoot, 'apps', 'cli', 'node_modules' ), {
+		recursive: true,
+		force: true,
+	} );
 	run( 'npm run cli:package:standalone' );
 
 	// Step 2: Assemble the bundle layout in a staging dir

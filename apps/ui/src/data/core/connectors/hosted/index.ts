@@ -1,4 +1,5 @@
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
@@ -112,6 +113,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			nativeSaveDialog: false,
 			openInOS: false,
 			annotatePreview: false,
+			readLocalMedia: false,
 		},
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
@@ -135,7 +137,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = await api< SiteDetails[] >( '/sites' );
+			lastSites = applyStoredSiteOrder( await api< SiteDetails[] >( '/sites' ) );
 			return lastSites;
 		},
 		async createSite() {
@@ -155,6 +157,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async updateSite() {
 			throw new UnsupportedError( 'updateSite' );
+		},
+		async updateSitesSortOrder( updates ) {
+			storeSiteOrder( updates );
 		},
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
@@ -335,6 +340,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async popupAppMenu() {},
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
 		},
@@ -360,6 +366,14 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return () => {};
 		},
 		onToggleSidebar() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onAddSite() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		onOpenSettings() {
 			// No application menu in a browser tab.
 			return () => {};
 		},

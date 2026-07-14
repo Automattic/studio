@@ -1,3 +1,13 @@
+/* Vazirmatn (SIL OFL, see ./fonts/OFL.txt) — the macOS system font lacks
+   Central Kurdish glyphs (e.g. ێ ۆ ڵ). Applied to the ckb locale below. */
+@font-face {
+	font-family: 'Vazirmatn';
+	src: url( './fonts/Vazirmatn-Variable.woff2' ) format( 'woff2' );
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
 :root {
 	/* Default is 2px; 4px reads a bit softer. */
 	--wpds-border-radius-sm: 4px;
@@ -22,6 +32,25 @@ body {
 	color-scheme: light dark;
 	scrollbar-width: thin;
 	scrollbar-color: gray transparent;
+}
+
+/* Overriding the font-family tokens covers everything themed by the design
+   system; `lang` is set on bootstrap in lib/apply-locale.ts. */
+:root:lang( ckb ) {
+	--wpds-typography-font-family-body: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
+		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+	--wpds-typography-font-family-heading: 'Vazirmatn', -apple-system, system-ui, 'Segoe UI', 'Roboto',
+		'Oxygen-Sans', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+}
+
+/* @wordpress/components controls hardcode their own font-family at class
+   specificity, so the token override alone doesn't reach them. */
+body:lang( ckb ) input,
+body:lang( ckb ) textarea,
+body:lang( ckb ) select,
+body:lang( ckb ) button,
+body:lang( ckb ) [class*='components-'] {
+	font-family: var( --wpds-typography-font-family-body );
 }
 
 @media ( prefers-color-scheme: dark ) {
@@ -129,6 +158,16 @@ a:focus:not( :focus-visible ),
 .components-combobox-control__suggestions-container,
 .components-form-token-field__suggestions-list {
 	background-color: var( --wp-components-color-background, #fff );
+}
+
+.components-input-control__prefix svg,
+.components-input-control__suffix svg {
+	fill: var( --wpds-color-fg-content-neutral-weak );
+}
+
+select option {
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
 }
 
 /* Honor the user's reduced-motion preference across the entire app. Class-

@@ -13,12 +13,12 @@ import {
 	type PointerEvent as ReactPointerEvent,
 	type ReactNode,
 } from 'react';
+import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
 import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
-import { Spinner } from '@/components/spinner';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
@@ -118,7 +118,10 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 		>
 			{ renderedActivity === 'working' ? (
 				<SiteAgentActivityTooltip label={ workingLabel } childProvidesLabel>
-					<Spinner className={ styles.siteAgentActivitySpinner } label={ workingLabel } />
+					<AgentWorkingIndicator
+						className={ styles.siteAgentActivityPixels }
+						label={ workingLabel }
+					/>
 				</SiteAgentActivityTooltip>
 			) : null }
 			{ renderedActivity === 'pending-question' ? (

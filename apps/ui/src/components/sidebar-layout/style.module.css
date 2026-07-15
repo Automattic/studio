@@ -92,3 +92,17 @@
 .floatingToggleFlush {
 	left: var(--wpds-dimension-padding-xl);
 }
+
+.sidebarToasts {
+	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
+.floatingToasts {
+	position: absolute;
+	bottom: calc(52px + var(--app-main-composer-height, 0px));
+	left: var(--wpds-dimension-padding-xl);
+	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
+	z-index: 110;
+	pointer-events: auto;
+	-webkit-app-region: no-drag;
+}

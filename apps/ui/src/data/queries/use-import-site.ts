@@ -1,4 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SITES_QUERY_KEY } from './use-sites';
 import type { SiteDetails } from '@/data/core';
@@ -20,6 +22,9 @@ export function useImportSite() {
 	const queryClient = useQueryClient();
 	return useMutation< SiteDetails, Error, ImportSiteInput >( {
 		mutationFn: ( { siteId, backup } ) => connector.importSiteFromBackup( siteId, backup ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+		onSuccess: () => {
+			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			toast.success( __( 'Import finished' ) );
+		},
 	} );
 }

@@ -656,6 +656,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
 		async popupAppMenu() {},
+		showsAppMenuButton: false,
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();

@@ -444,12 +444,12 @@ function SiteSection( {
 	row,
 	isChatActive,
 	isContextActive,
-	hasUnreadUpdate = false,
+	hasUnreadUpdate,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
-	hasUnreadUpdate?: boolean;
+	hasUnreadUpdate: boolean;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
@@ -545,33 +545,7 @@ function findSessionSiteKey(
 	if ( ! activeSessionId ) {
 		return undefined;
 	}
-	for ( const row of rows ) {
-		if ( row.sessionIds.includes( activeSessionId ) ) {
-			return row.site.id;
-		}
-	}
-	return undefined;
-}
-
-function isSiteContextPath( pathname: string, siteId: string | undefined ) {
-	if ( ! siteId ) {
-		return false;
-	}
-
-	const [ root, routeSiteId, section, ...rest ] = pathname.split( '/' ).filter( Boolean );
-	if ( rest.length > 0 || root !== 'sites' || ! routeSiteId ) {
-		return false;
-	}
-
-	try {
-		return decodeURIComponent( routeSiteId ) === siteId && section === 'settings';
-	} catch {
-		return false;
-	}
-}
-
-function getRowSiteId( row: SiteRow ) {
-	return row.site.id;
+	return rows.find( ( row ) => row.sessionIds.includes( activeSessionId ) )?.site.id;
 }
 
 export function SiteList() {
@@ -605,9 +579,9 @@ export function SiteList() {
 		() => findSessionSiteKey( rows, activeSessionId ),
 		[ rows, activeSessionId ]
 	);
-	const activeContextSiteKey = isSiteContextPath( pathname, activeSiteId )
-		? activeSiteKey
-		: undefined;
+	// Site ids are UUIDs, so no URL decoding is needed to compare the path.
+	const activeContextSiteKey =
+		activeSiteId && pathname === `/sites/${ activeSiteId }/settings` ? activeSiteKey : undefined;
 	useEffect( () => {
 		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
 			return;
@@ -684,7 +658,7 @@ export function SiteList() {
 		listContent = (
 			<ReorderableList
 				items={ rows }
-				getItemId={ getRowSiteId }
+				getItemId={ ( row ) => row.site.id }
 				renderItem={ renderSiteRow }
 				onReorder={ persistOrder }
 				className={ styles.sites }

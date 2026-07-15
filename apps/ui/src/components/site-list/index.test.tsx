@@ -357,7 +357,24 @@ describe( 'SiteList', () => {
 
 	it( 'persists a manual site order after drag and drop', () => {
 		render( <SiteList /> );
-		dragStoppedSiteBelowRunningSite();
+
+		const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
+		const runningRow = document.querySelector( '[data-reorder-id="running-site"]' );
+
+		expect( stoppedRow ).toBeInTheDocument();
+		expect( runningRow ).toBeInTheDocument();
+		vi.spyOn( stoppedRow!, 'getBoundingClientRect' ).mockReturnValue(
+			createRect( { top: 0, left: 8, width: 272, height: 34 } )
+		);
+		vi.spyOn( runningRow!, 'getBoundingClientRect' ).mockReturnValue(
+			createRect( { top: 35, left: 0, width: 0, height: 34 } )
+		);
+
+		fireEvent(
+			stoppedRow!,
+			createPointerEvent( 'pointerdown', { button: 0, clientX: 16, clientY: 10 } )
+		);
+		fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
 
 		expect( screen.getByTestId( 'drop-placeholder' ) ).toBeInTheDocument();
 		expect( document.querySelector( '[data-reorder-id="stopped-site"]' ) ).not.toBeInTheDocument();
@@ -573,28 +590,8 @@ describe( 'SiteList', () => {
 	} );
 } );
 
-function dragStoppedSiteBelowRunningSite() {
-	const stoppedRow = document.querySelector( '[data-reorder-id="stopped-site"]' );
-	const runningRow = document.querySelector( '[data-reorder-id="running-site"]' );
-
-	expect( stoppedRow ).toBeInTheDocument();
-	expect( runningRow ).toBeInTheDocument();
-	vi.spyOn( stoppedRow!, 'getBoundingClientRect' ).mockReturnValue(
-		createRect( { top: 0, left: 8, width: 272, height: 34 } )
-	);
-	vi.spyOn( runningRow!, 'getBoundingClientRect' ).mockReturnValue(
-		createRect( { top: 35, left: 0, width: 0, height: 34 } )
-	);
-
-	fireEvent(
-		stoppedRow!,
-		createPointerEvent( 'pointerdown', { button: 0, clientX: 16, clientY: 10 } )
-	);
-	fireEvent( window, createPointerEvent( 'pointermove', { clientX: 16, clientY: 70 } ) );
-}
-
 function createPointerEvent(
-	type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
+	type: 'pointerdown' | 'pointermove' | 'pointerup',
 	options: { button?: number; clientX: number; clientY: number }
 ) {
 	const event = new MouseEvent( type, {

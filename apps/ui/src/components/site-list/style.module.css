@@ -1,7 +1,5 @@
 .root {
 	--site-list-row-height: 34px;
-	--site-list-row-background-hover: var(--sidebar-row-background-hover);
-	--site-list-row-background-active: var(--sidebar-row-background-active);
 	--site-list-row-leading-inset: var(--wpds-dimension-padding-sm);
 	--site-list-row-outer-inset: calc(
 		var(--wpds-dimension-padding-lg) - var(--site-list-row-leading-inset)
@@ -50,7 +48,7 @@
 .siteDropPlaceholder {
 	block-size: var(--site-list-row-height);
 	border-radius: 6px;
-	background-color: var(--site-list-row-background-hover);
+	background-color: var(--sidebar-row-background);
 	box-shadow: inset 0 0 0 1px
 		color-mix(in srgb, var(--wpds-color-stroke-interactive-brand) 45%, transparent);
 	transition: background-color 120ms ease, box-shadow 120ms ease;
@@ -62,7 +60,7 @@
 }
 
 .siteDragPreview .siteHeader {
-	background-color: var(--site-list-row-background-active);
+	background-color: var(--sidebar-row-background);
 }
 
 .site {
@@ -88,13 +86,13 @@
 
 .siteHeader:hover,
 .siteHeader:focus-within {
-	background-color: var(--site-list-row-background-hover);
+	background-color: var(--sidebar-row-background);
 }
 
 .siteActive .siteHeader,
 .siteActive .siteHeader:hover,
 .siteActive .siteHeader:focus-within {
-	background-color: var(--site-list-row-background-active);
+	background-color: var(--sidebar-row-background);
 }
 
 .siteContextActive .siteHeader {

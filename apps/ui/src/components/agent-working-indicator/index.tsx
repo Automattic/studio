@@ -20,26 +20,17 @@ const BREATHE_TIMINGS = [
  * The agent's "working" mark: a 2×3 grid of brand-blue pixels that breathe
  * out of phase with one another — same square-pixel language as the W
  * particle toy on empty chats. Size via the `--agent-pixel-size` /
- * `--agent-pixel-gap` custom properties. Pass `presentational` when a
- * parent already announces the working state (e.g. the thinking
- * indicator's live region).
+ * `--agent-pixel-gap` custom properties.
  */
 export function AgentWorkingIndicator( {
 	className,
 	label = __( 'Working…' ),
-	presentational = false,
 }: {
 	className?: string;
 	label?: string;
-	presentational?: boolean;
 } ) {
 	return (
-		<span
-			className={ clsx( styles.grid, className ) }
-			role={ presentational ? undefined : 'status' }
-			aria-label={ presentational ? undefined : label }
-			aria-hidden={ presentational ? 'true' : undefined }
-		>
+		<span className={ clsx( styles.grid, className ) } role="status" aria-label={ label }>
 			{ BREATHE_TIMINGS.map( ( { duration, phase }, cellIndex ) => (
 				<span
 					key={ cellIndex }

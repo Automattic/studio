@@ -552,7 +552,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		expect( pickSyncSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'rejects a non-syncable site passed via --url with a clear message', async () => {
+	it( 'rejects a needs-transfer site passed via --url with the hosting-features message', async () => {
 		setTTY( true );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
 			syncSite( {
@@ -564,8 +564,43 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		] );
 
 		await expect( resolveSourceSite( 'https://only-simple.example.com' ) ).rejects.toThrow(
-			/cannot be pulled/
+			/hosting features to be enabled.*hosting-features\/44/
 		);
+		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+	} );
+
+	it( 'rejects a needs-upgrade site passed via --url with the plan-upgrade message', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
+			syncSite( {
+				id: 55,
+				name: 'Free',
+				url: 'https://free.example.com',
+				syncSupport: 'needs-upgrade',
+			} ),
+		] );
+
+		await expect( resolveSourceSite( 'https://free.example.com' ) ).rejects.toThrow(
+			/Business plan or higher.*plans\/55/
+		);
+		expect( rotateReprintSecret ).not.toHaveBeenCalled();
+	} );
+
+	it( 'reports the specific reason when the only site is not pullable (no --url)', async () => {
+		setTTY( true );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [
+			syncSite( {
+				id: 66,
+				name: 'Simple',
+				url: 'https://lone-simple.example.com',
+				syncSupport: 'needs-transfer',
+			} ),
+		] );
+
+		await expect( resolveSourceSite() ).rejects.toThrow(
+			/hosting features to be enabled.*hosting-features\/66/
+		);
+		expect( pickSyncSite ).not.toHaveBeenCalled();
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );
 

@@ -47,7 +47,7 @@ import {
 } from 'cli/lib/pull/runtime-start-options';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
-import { pickSyncSite } from 'cli/lib/sync-site-picker';
+import { getSyncSupportError, pickSyncSite } from 'cli/lib/sync-site-picker';
 import {
 	startWordPressServer,
 	stopWordPressServer,
@@ -787,15 +787,7 @@ export async function resolveSourceSite( url?: string ): Promise< PullSource | n
 			);
 		}
 		if ( matched.syncSupport !== 'syncable' ) {
-			throw new LoggerError(
-				sprintf(
-					// translators: %s: the site URL.
-					__(
-						'%s cannot be pulled. Pulling requires a WordPress.com or Pressable site with hosting features enabled.'
-					),
-					matched.url
-				)
-			);
+			throw getSyncSupportError( matched );
 		}
 		resolvedUrl = matched.url;
 		wpComSite = matched;
@@ -804,6 +796,14 @@ export async function resolveSourceSite( url?: string ): Promise< PullSource | n
 		// features enabled (`syncable`) — are pull candidates.
 		const pullableSites = sites.filter( ( site ) => site.syncSupport === 'syncable' );
 		if ( pullableSites.length === 0 ) {
+			// When the account has exactly one site and it can't be pulled
+			// (e.g. a lone Business-plan site awaiting Atomic transfer), report
+			// the specific condition and next step rather than a generic
+			// "nothing to pull" message.
+			const nonSyncable = sites.filter( ( site ) => site.syncSupport !== 'syncable' );
+			if ( nonSyncable.length === 1 ) {
+				throw getSyncSupportError( nonSyncable[ 0 ] );
+			}
 			throw new LoggerError(
 				__(
 					'No pullable WordPress.com or Pressable sites found. Pulling requires a site with hosting features enabled.'

@@ -1,5 +1,5 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
@@ -181,6 +181,28 @@ export function useIsSiteStopping( siteId: string | undefined ): boolean {
  * Keeps the cached site list in sync with main-process events (site created,
  * updated, started, stopped, deleted). Mount once near the app root.
  */
+// Boot-time counterpart of the "Stop, restart on next launch" quit behavior:
+// those sites keep their autoStart flag when stopped on quit, and the renderer
+// starts them again on launch (mirrors the legacy UI's use-site-details
+// bootstrapping). Gated on isFetchedAfterMount so a rehydrated persisted cache
+// with stale flags can't trigger starts.
+export function useAutoStartSites(): void {
+	const { data: sites, isFetchedAfterMount } = useSites();
+	const { mutate: startSite } = useStartSite();
+	const startedRef = useRef( false );
+	useEffect( () => {
+		if ( ! isFetchedAfterMount || ! sites || startedRef.current ) {
+			return;
+		}
+		startedRef.current = true;
+		for ( const site of sites ) {
+			if ( site.autoStart && ! site.running ) {
+				startSite( site.id );
+			}
+		}
+	}, [ isFetchedAfterMount, sites, startSite ] );
+}
+
 export function useSyncSitesWithEvents(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();

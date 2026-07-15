@@ -69,6 +69,9 @@ export interface SiteDetails {
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
+	// True for sites that were running when the app quit with the
+	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
+	autoStart?: boolean;
 	themeDetails?: {
 		name: string;
 		path: string;

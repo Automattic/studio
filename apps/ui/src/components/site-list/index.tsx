@@ -3,6 +3,8 @@ import {
 	findAiSessionOwnerSite,
 } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
+import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
+import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -380,13 +382,12 @@ function SiteActionsMenu( {
 		} );
 	};
 
+	const editor = userPreferences?.editor;
+	const editorLabel = editor ? supportedEditorConfig[ editor ].label : null;
+	const terminal = userPreferences?.terminal;
+	const terminalLabel = terminal ? terminalConfig[ terminal ].name : null;
+
 	const handleOpenInEditor = () => {
-		// No editor preference yet — send the user to Settings so they can
-		// pick one before the action becomes useful.
-		if ( ! userPreferences?.editor ) {
-			void navigate( { to: '/settings' } );
-			return;
-		}
 		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
 			console.error( 'Failed to open site in editor:', error );
 		} );
@@ -453,8 +454,24 @@ function SiteActionsMenu( {
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
-					<Menu.Item onClick={ handleOpenInEditor }>{ __( 'Open in editor' ) }</Menu.Item>
-					<Menu.Item onClick={ handleOpenInTerminal }>{ __( 'Open in terminal' ) }</Menu.Item>
+					{ editorLabel ? (
+						<Menu.Item onClick={ handleOpenInEditor }>
+							{ sprintf(
+								/* translators: %s is the name of the editor. E.g. "Open in Cursor" */
+								__( 'Open in %s' ),
+								editorLabel
+							) }
+						</Menu.Item>
+					) : null }
+					{ terminalLabel ? (
+						<Menu.Item onClick={ handleOpenInTerminal }>
+							{ sprintf(
+								/* translators: %s is the name of the terminal app. E.g. "Open in iTerm2" */
+								__( 'Open in %s' ),
+								terminalLabel
+							) }
+						</Menu.Item>
+					) : null }
 					<Menu.Item disabled={ ! site.running } onClick={ handleOpenPhpMyAdmin }>
 						{ __( 'Open phpMyAdmin' ) }
 					</Menu.Item>

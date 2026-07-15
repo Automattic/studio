@@ -60,6 +60,8 @@ async function main() {
 		.usage( __( 'WordPress Studio CLI' ) )
 		.locale( yargsLocale )
 		.version( version )
+		.alias( 'v', 'version' )
+		.alias( 'h', 'help' )
 		.option( 'avoid-telemetry', {
 			type: 'boolean',
 			hidden: true,

@@ -66,6 +66,21 @@ function copyDataLiberationEngine( outDir: string ) {
 		recursive: true,
 	} );
 
+	// The skills also invoke pipeline drivers via `node scripts/run.mjs <name>`.
+	// Ship the launcher plus the self-contained driver bundles it falls back to
+	// when no dev dependencies resolve next to it (dist/scripts/, emitted by the
+	// same build:mcp-bundle run as the server bundle).
+	cpSync(
+		resolve( dataLiberationSourcePath, 'dist', 'scripts' ),
+		resolve( engineOutDir, 'dist', 'scripts' ),
+		{ recursive: true }
+	);
+	mkdirSync( resolve( engineOutDir, 'scripts' ), { recursive: true } );
+	copyFileSync(
+		resolve( dataLiberationSourcePath, 'scripts', 'run.mjs' ),
+		resolve( engineOutDir, 'scripts', 'run.mjs' )
+	);
+
 	// The bundle resolves vendored runtime assets (.php helpers run via
 	// `wp eval-file`, .json data like core-block-attrs.json) relative to the
 	// engine's original src/ module paths — see the import.meta.url rewrite in

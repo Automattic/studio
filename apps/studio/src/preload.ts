@@ -162,6 +162,9 @@ const api: IpcApi = {
 	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
+	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
+		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
+	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),

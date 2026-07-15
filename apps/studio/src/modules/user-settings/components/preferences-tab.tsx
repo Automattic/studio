@@ -11,6 +11,7 @@ import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
 import { EditorPicker } from 'src/modules/user-settings/components/editor-picker';
 import { LanguagePicker } from 'src/modules/user-settings/components/language-picker';
+import { QuitSitesBehaviorPicker } from 'src/modules/user-settings/components/quit-sites-behavior-picker';
 import { StudioCliToggle } from 'src/modules/user-settings/components/studio-cli-toggle';
 import { TerminalPicker } from 'src/modules/user-settings/components/terminal-picker';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
@@ -28,8 +29,11 @@ import {
 	useSaveStudioCliIsInstalledMutation,
 	useGetDefaultSiteDirectoryQuery,
 	useSaveDefaultSiteDirectoryMutation,
+	useGetQuitSitesBehaviorQuery,
+	useSaveQuitSitesBehaviorMutation,
 } from 'src/stores/installed-apps-api';
 import { SettingsFormField } from './settings-form-field';
+import type { QuitSitesBehavior } from 'src/storage/user-data';
 
 function AgenticUiCallout() {
 	const { __ } = useI18n();
@@ -76,6 +80,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { data: editor } = useGetUserEditorQuery();
 	const { data: terminal } = useGetUserTerminalQuery();
 	const { data: isCliInstalled } = useGetStudioCliIsInstalledQuery();
+	const { data: quitSitesBehavior } = useGetQuitSitesBehaviorQuery();
 	const { data: defaultSiteDirectory, isLoading: isLoadingDefaultSiteDirectory } =
 		useGetDefaultSiteDirectoryQuery();
 
@@ -84,6 +89,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ saveTerminal ] = useSaveUserTerminalMutation();
 	const [ saveCliIsInstalled ] = useSaveStudioCliIsInstalledMutation();
 	const [ saveDefaultSiteDirectory ] = useSaveDefaultSiteDirectoryMutation();
+	const [ saveQuitSitesBehavior ] = useSaveQuitSitesBehaviorMutation();
 
 	const [ dirtyColorScheme, setDirtyColorScheme ] = useState< 'system' | 'light' | 'dark' >();
 	const [ dirtyLocale, setDirtyLocale ] = useState< SupportedLocale >();
@@ -91,6 +97,10 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const [ dirtyTerminal, setDirtyTerminal ] = useState< SupportedTerminal >();
 	const [ dirtyIsCliInstalled, setDirtyIsCliInstalled ] = useState< boolean >();
 	const [ dirtyDefaultSiteDirectory, setDirtyDefaultSiteDirectory ] = useState< string >();
+	const [ dirtyQuitSitesBehavior, setDirtyQuitSitesBehavior ] = useState<
+		QuitSitesBehavior | undefined
+	>();
+	const [ isQuitSitesBehaviorDirty, setIsQuitSitesBehaviorDirty ] = useState( false );
 
 	const wasSavedRef = useRef( false );
 	const dirtyColorSchemeRef = useRef( dirtyColorScheme );
@@ -138,6 +148,9 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		if ( dirtyDefaultSiteDirectory ) {
 			await saveDefaultSiteDirectory( dirtyDefaultSiteDirectory );
 		}
+		if ( isQuitSitesBehaviorDirty ) {
+			await saveQuitSitesBehavior( dirtyQuitSitesBehavior );
+		}
 		onClose();
 	};
 
@@ -147,6 +160,9 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const terminalSelection = dirtyTerminal ?? terminal ?? 'terminal';
 	const isCliInstalledSelection = dirtyIsCliInstalled ?? isCliInstalled ?? false;
 	const defaultSiteDirectorySelection = dirtyDefaultSiteDirectory ?? defaultSiteDirectory ?? '';
+	const quitSitesBehaviorSelection = isQuitSitesBehaviorDirty
+		? dirtyQuitSitesBehavior
+		: quitSitesBehavior;
 
 	const hasChanges = [
 		[ dirtyColorScheme, colorScheme ],
@@ -156,6 +172,9 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 		[ dirtyIsCliInstalled, isCliInstalled ],
 		[ dirtyDefaultSiteDirectory, defaultSiteDirectory ],
 	].some( ( [ a, b ] ) => a !== undefined && a !== b );
+	const hasQuitSitesBehaviorChanges =
+		isQuitSitesBehaviorDirty && dirtyQuitSitesBehavior !== quitSitesBehavior;
+	const hasAnyChanges = hasChanges || hasQuitSitesBehaviorChanges;
 
 	const handleChangeDefaultDirectory = async () => {
 		const response = await getIpcApi().showOpenFolderDialog(
@@ -186,6 +205,13 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 					onClick={ handleChangeDefaultDirectory }
 				/>
 			</SettingsFormField>
+			<QuitSitesBehaviorPicker
+				value={ quitSitesBehaviorSelection }
+				onChange={ ( value ) => {
+					setDirtyQuitSitesBehavior( value );
+					setIsQuitSitesBehaviorDirty( true );
+				} }
+			/>
 			{ ! isWindowsStore() && (
 				<StudioCliToggle value={ isCliInstalledSelection } onChange={ setDirtyIsCliInstalled } />
 			) }
@@ -200,7 +226,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 				<Button
 					variant="primary"
 					onClick={ savePreferences }
-					disabled={ ! hasChanges }
+					disabled={ ! hasAnyChanges }
 					data-testid="preferences-save-button"
 				>
 					{ __( 'Save' ) }

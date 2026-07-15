@@ -95,6 +95,14 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( 'Personal or Premium cannot install plugins' );
 	} );
 
+	it( 'guards installed third-party theme edits behind child themes', () => {
+		const prompt = buildSystemPrompt( {} );
+
+		expect( prompt ).toContain( 'Do NOT edit the files of installed third-party themes' );
+		expect( prompt ).toContain( '`scaffold_theme` with `parentTheme`' );
+		expect( prompt ).toContain( 'warn once that a theme update will overwrite the changes' );
+	} );
+
 	it( 'references only bundled skills', () => {
 		const prompts = [
 			buildSystemPrompt( { chatArtifactsEnabled: true } ),

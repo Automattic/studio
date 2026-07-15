@@ -17,6 +17,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import * as tar from 'tar';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	cleanupCliEnv,
@@ -183,6 +184,47 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio import', () => {
 			// Importing into a running site stops it first, then restores the
 			// running state after the import completes.
 			expect( await isSiteRunningPerCliList( env, sitePath ) ).toBe( true );
+			assertImportedSiteOnDisk( sitePath );
+			expect( await getBlogname( env, sitePath ) ).toBe( FIXTURE_BLOGNAME );
+		}
+	);
+
+	// Regression test for https://github.com/Automattic/studio/issues/3518
+	// where db.php overwrites SQLite drop-in during restore causing database import error
+	// "Could not determine the version of the SQLite integration plugin".
+	it(
+		'imports a backup containing db.php drop-in',
+		{ tags: [ 'e2e' ], timeout: 300_000 },
+		async () => {
+			if ( ! env ) {
+				throw new Error( 'CLI e2e env was not initialised' );
+			}
+
+			const workDir = path.join( env.root, 'db-php' );
+			const cwd = path.join( workDir, 'contents' );
+			fs.mkdirSync( cwd, { recursive: true } );
+			await tar.x( { file: path.join( FIXTURES_DIR, 'jetpack-backup.tar.gz' ), cwd } );
+
+			fs.writeFileSync(
+				path.join( cwd, 'wp-content', 'db.php' ),
+				'<?php\n/**\n * Plugin Name: Query Monitor Database Class (Drop-in)\n */\nclass QM_DB extends wpdb {}\n'
+			);
+
+			const file = path.join( workDir, 'jetpack-backup-db-php-replaced.tar.gz' );
+			await tar.c( { file, cwd, gzip: true }, fs.readdirSync( cwd ) );
+			const sitePath = await createStoppedSite(
+				env,
+				'Foreign DB Import E2E Site',
+				'import-db-php'
+			);
+
+			const result = await runCli( [ 'import', file, '--path', sitePath ], env );
+			expect( result.code, result.stderr ).toBe( 0 );
+
+			const db = fs.readFileSync( path.join( sitePath, 'wp-content', 'db.php' ), 'utf8' );
+			expect( db ).toContain( 'SQLITE_DB_DROPIN_VERSION' );
+			expect( db ).not.toContain( 'QM_DB' );
+
 			assertImportedSiteOnDisk( sitePath );
 			expect( await getBlogname( env, sitePath ) ).toBe( FIXTURE_BLOGNAME );
 		}

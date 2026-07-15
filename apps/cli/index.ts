@@ -62,12 +62,14 @@ async function main() {
 		.version( version )
 		.alias( 'v', 'version' )
 		.alias( 'h', 'help' )
+		.wrap( Math.min( 90, yargs().terminalWidth() ?? 90 ) )
 		.option( 'avoid-telemetry', {
 			type: 'boolean',
 			hidden: true,
 		} )
 		.option( 'path', {
 			type: 'string',
+			alias: 'p',
 			normalize: true,
 			default: process.cwd(),
 			defaultDescription: __( 'Current directory' ),

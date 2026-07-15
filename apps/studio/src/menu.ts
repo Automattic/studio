@@ -315,7 +315,11 @@ async function getAppMenu(
 			submenu: [
 				{
 					label: __( 'Add Site…' ),
-					accelerator: 'CommandOrControl+N',
+					// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer;
+					// a menu accelerator would consume the key before it reaches the DOM.
+					accelerator: getFeatureFlagFromEnv( 'enableAgenticUi' )
+						? undefined
+						: 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},

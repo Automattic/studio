@@ -1,6 +1,6 @@
 import path from 'path';
 import { test, expect, type Page } from '@playwright/test';
-import { DEFAULT_SITE_NAME } from './constants';
+import { BACKUP_FIXTURES_DIR, DEFAULT_SITE_NAME } from './constants';
 import { E2ESession } from './e2e-helpers';
 import MainSidebar from './page-objects/main-sidebar';
 import Onboarding from './page-objects/onboarding';
@@ -21,7 +21,6 @@ import { getUrlWithAutoLogin } from './utils';
  * rather than a fresh install. See test-fixtures/backups/readme.md for their
  * provenance and structure.
  */
-const FIXTURES_DIR = path.join( __dirname, '..', '..', '..', 'test-fixtures', 'backups' );
 const FIXTURE_SITE_TITLE = 'MyPet';
 
 test.describe( 'Import backup formats', () => {
@@ -118,7 +117,7 @@ test.describe( 'Import backup formats', () => {
 
 	test( 'imports a new site from a Jetpack backup file', async ( { page } ) => {
 		const siteContent = await importNewSiteFromBackup(
-			path.join( FIXTURES_DIR, 'jetpack-backup.tar.gz' ),
+			path.join( BACKUP_FIXTURES_DIR, 'jetpack-backup.tar.gz' ),
 			'Jetpack-Import-Site'
 		);
 		await assertImportedSiteContent( page, siteContent );
@@ -126,7 +125,7 @@ test.describe( 'Import backup formats', () => {
 
 	test( 'imports a new site from a Local backup file', async ( { page } ) => {
 		const siteContent = await importNewSiteFromBackup(
-			path.join( FIXTURES_DIR, 'local-backup.zip' ),
+			path.join( BACKUP_FIXTURES_DIR, 'local-backup.zip' ),
 			'Local-Import-Site'
 		);
 		await assertImportedSiteContent( page, siteContent );
@@ -134,7 +133,7 @@ test.describe( 'Import backup formats', () => {
 
 	test( 'imports a new site from a Playground backup file', async ( { page } ) => {
 		const siteContent = await importNewSiteFromBackup(
-			path.join( FIXTURES_DIR, 'playground-backup.zip' ),
+			path.join( BACKUP_FIXTURES_DIR, 'playground-backup.zip' ),
 			'Playground-Import-Site'
 		);
 		await assertImportedSiteContent( page, siteContent );
@@ -142,7 +141,7 @@ test.describe( 'Import backup formats', () => {
 
 	test( 'imports a new site from a .wpress backup file', async ( { page } ) => {
 		const siteContent = await importNewSiteFromBackup(
-			path.join( FIXTURES_DIR, 'aio-backup.wpress' ),
+			path.join( BACKUP_FIXTURES_DIR, 'aio-backup.wpress' ),
 			'Wpress-Import-Site'
 		);
 		await assertImportedSiteContent( page, siteContent );
@@ -167,7 +166,7 @@ test.describe( 'Import backup formats', () => {
 		if ( ! ( 'uploadFile' in tab ) ) {
 			throw new Error( 'Expected ImportExportTab but got a different tab type' );
 		}
-		await tab.uploadFile( path.join( FIXTURES_DIR, 'local-backup.zip' ) );
+		await tab.uploadFile( path.join( BACKUP_FIXTURES_DIR, 'local-backup.zip' ) );
 		// Wait for the completion banner, but fail fast with the recorded
 		// dialog message if the import errors instead.
 		await expect

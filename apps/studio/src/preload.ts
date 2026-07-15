@@ -88,6 +88,7 @@ const api: IpcApi = {
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
 	enableAgenticUi: () => ipcRendererInvoke( 'enableAgenticUi' ),
+	disableAgenticUi: () => ipcRendererInvoke( 'disableAgenticUi' ),
 	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
 	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),

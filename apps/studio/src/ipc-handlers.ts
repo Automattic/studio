@@ -1501,6 +1501,15 @@ export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< vo
 	}
 }
 
+export async function disableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', false );
+	setAgenticUiEnabled( false );
+	const mainWindow = await getMainWindow();
+	if ( mainWindow && ! mainWindow.isDestroyed() ) {
+		await loadMainWindowRenderer( mainWindow );
+	}
+}
+
 export async function dismissAgenticUiBanner( _event: IpcMainInvokeEvent ): Promise< void > {
 	await updateAppdata( { agenticUiBannerDismissed: true } );
 }

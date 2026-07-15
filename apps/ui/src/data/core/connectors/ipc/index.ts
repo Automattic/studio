@@ -740,5 +740,9 @@ export function createIpcConnector(): Connector {
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'user-settings', () => listener() );
 		},
+
+		async disableAgenticUi(): Promise< void > {
+			await ipcApi.disableAgenticUi();
+		},
 	};
 }

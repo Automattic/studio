@@ -692,5 +692,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		async disableAgenticUi() {
+			// No-op in the browser.
+		},
 	};
 }

@@ -376,7 +376,14 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 			'https://example.com/?reprint-api',
 			'--secret=hmac-secret',
 			'--target-engine=sqlite',
-			`--target-sqlite-path=${ rawDirectory }/srv/htdocs/wp-content/database/.ht.sqlite`,
+			`--target-sqlite-path=${ path.join(
+				rawDirectory,
+				'srv',
+				'htdocs',
+				'wp-content',
+				'database',
+				'.ht.sqlite'
+			) }`,
 			'--new-site-url=http://localhost:8881',
 			'--no-adaptive',
 			`--state-dir=${ stateDirectory }`,
@@ -709,7 +716,7 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		const dbArgs = reprint.mock.calls[ 1 ][ 2 ] as string[];
 		expect( dbArgs[ 0 ] ).toBe( 'pull-db' );
 		expect( dbArgs ).toContain(
-			`--target-sqlite-path=${ sitePath }/wp-content/database/.ht.sqlite`
+			`--target-sqlite-path=${ path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' ) }`
 		);
 		// A delta re-pull (force=false) omits --force on the flatten step.
 		const flattenArgs = reprint.mock.calls[ 2 ][ 2 ] as string[];

@@ -4,11 +4,13 @@ skills/replicate-workspace/
 node_modules/
 .DS_Store
 *.log
-# dist/ is build output, EXCEPT the committed plugin bundle: the Claude/Codex
+# dist/ is build output, EXCEPT the committed plugin bundles: the Claude/Codex
 # plugin installer copies this package verbatim (no npm install, no build), so
-# the self-contained MCP server bundle must live in git.
+# the self-contained MCP server bundle and the skill-invoked driver bundles
+# must live in git.
 dist/*
 !dist/mcp-server.bundle.mjs
+!dist/scripts/
 docs/plans/
 docs/superpowers/
 qa-screenshots/

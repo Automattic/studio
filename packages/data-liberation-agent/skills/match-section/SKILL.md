@@ -68,7 +68,7 @@ If a value is missing from the spec, get it from `styledHtml`. Do not guess.
 
 **Captured px are measured at the desktop capture width (≈1440).** A FIXED dimension (a cover `minHeight`, a fixed section height) copied verbatim will be too tall at a narrower compare width — convert proportional dimensions to `vw` (e.g. a 733px hero at 1440 → `51vw`). Padding/font-size carried as `clamp()` already scale; fixed `minHeight`/`height` do not. Always compare at the SOURCE screenshot's real width so px line up.
 
-**Lazy images:** below-fold cover/section images decode lazily — a screenshot taken before they load shows a GREY block (looks like a "lost background"). Scroll the whole page to force-load (the `scripts/_shot.ts` helper does this with `mouse.wheel`, not `page.evaluate`) BEFORE judging a missing/grey background, or you will chase a phantom.
+**Lazy images:** below-fold cover/section images decode lazily — a screenshot taken before they load shows a GREY block (looks like a "lost background"). Scroll the whole page to force-load (the `_shot` helper — `node scripts/run.mjs _shot` — does this with `mouse.wheel`, not `page.evaluate`) BEFORE judging a missing/grey background, or you will chase a phantom.
 
 ## Apply it to the block markup — core attributes only
 

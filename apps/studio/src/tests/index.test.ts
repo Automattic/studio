@@ -282,6 +282,7 @@ describe( 'App initialization', () => {
 		vi.resetModules();
 		await import( '../index' );
 		const { app, dialog } = await import( 'electron' );
+		const { persistAutoStartForRunningSites } = await import( 'src/site-server' );
 		vi.mocked( dialog.showMessageBox ).mockResolvedValue( {
 			response: 0,
 			checkboxChecked: true,
@@ -303,6 +304,11 @@ describe( 'App initialization', () => {
 			expect( app.quit ).toHaveBeenCalled();
 		} );
 		expect( event.preventDefault ).toHaveBeenCalled();
+
+		// "Stop site" must stop and stay stopped, so autoStart is cleared rather than preserved.
+		const willQuitEvent = { preventDefault: vi.fn() };
+		await mockedEvents[ 'will-quit' ]( willQuitEvent );
+		expect( vi.mocked( persistAutoStartForRunningSites ) ).toHaveBeenCalledWith( false );
 	} );
 
 	it( 'should wait app initialization before creating main window via second-instance event', async () => {

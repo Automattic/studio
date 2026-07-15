@@ -530,7 +530,7 @@ async function appBoot() {
 				}
 
 				const behavior: QuitSitesBehavior =
-					response === KEEP_RUNNING_BUTTON_INDEX ? 'leave-running' : 'stop-and-auto-start';
+					response === KEEP_RUNNING_BUTTON_INDEX ? 'leave-running' : 'stop';
 
 				if ( checkboxChecked ) {
 					await updateAppdata( { quitSitesBehavior: behavior } );

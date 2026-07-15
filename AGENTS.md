@@ -111,6 +111,7 @@ If you've built a substantial new feature — especially one generated with AI a
 
 For in-depth information, see these docs:
 - **CLI Design**: `docs/design-docs/cli.md` - CLI architecture, installation, IPC communication, data flow
+- **Local AI Providers**: `docs/design-docs/local-ai-providers.md` - OpenAI-compatible gateway, context-window discovery, conversation compaction
 - **Custom Domains/SSL**: `docs/design-docs/custom-domains-and-ssl.md` - Proxy server, certificates, hosts file
 - **Localization**: `docs/localization.md` - GlotPress workflow, translation process
 - **Release Process**: `docs/release-process.md` - ReleasesV2 + Fastlane lifecycle, running lanes locally

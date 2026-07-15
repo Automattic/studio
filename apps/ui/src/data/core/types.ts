@@ -362,6 +362,9 @@ export interface Connector {
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
 	// the application menu.
 	onOpenSettings( listener: () => void ): () => void;
+
+	// Switches back to the legacy (classic) Studio UI.
+	disableAgenticUi(): Promise< void >;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

@@ -2,7 +2,10 @@ import { SupportedLocale } from '@studio/common/lib/locale';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from 'src/components/button';
+import { DotGrid } from 'src/components/dot-grid';
 import { FormPathInputComponent } from 'src/components/form-path-input';
+import { useBetaFeatures } from 'src/hooks/use-beta-features';
+import { useFeatureFlags } from 'src/hooks/use-feature-flags';
 import { isWindowsStore } from 'src/lib/app-globals';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { ColorSchemePicker } from 'src/modules/user-settings/components/color-scheme-picker';
@@ -31,6 +34,42 @@ import {
 } from 'src/stores/installed-apps-api';
 import { SettingsFormField } from './settings-form-field';
 import type { QuitSitesBehavior } from 'src/storage/user-data';
+
+function AgenticUiCallout() {
+	const { __ } = useI18n();
+	const { enableAgenticUi } = useFeatureFlags();
+	const betaFeatures = useBetaFeatures();
+
+	if ( ! enableAgenticUi || betaFeatures.enableAgenticUi ) {
+		return null;
+	}
+
+	return (
+		<div className="relative overflow-hidden rounded-md p-4 border border-[var(--color-frame-border)] bg-[var(--color-frame-bg)]">
+			<DotGrid
+				spacing={ 16 }
+				crossSize={ 3 }
+				opacity={ 0.2 }
+				className="text-frame-text-secondary"
+			/>
+			<div className="relative flex items-center justify-between gap-4">
+				<div>
+					<p className="m-0 font-semibold text-[var(--color-frame-text)]">
+						{ __( 'There’s a new way to build in Studio' ) }
+					</p>
+					<p className="m-0 mt-1 text-xs text-[var(--color-frame-text-secondary)]">
+						{ __(
+							'A redesigned interface with AI-powered site building. You can switch back anytime.'
+						) }
+					</p>
+				</div>
+				<Button variant="primary" onClick={ () => getIpcApi().enableAgenticUi() }>
+					{ __( 'Try it' ) }
+				</Button>
+			</div>
+		</div>
+	);
+}
 
 export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 	const { __ } = useI18n();
@@ -149,6 +188,7 @@ export const PreferencesTab = ( { onClose }: { onClose: () => void } ) => {
 
 	return (
 		<>
+			<AgenticUiCallout />
 			<ColorSchemePicker value={ colorSchemeSelection } onChange={ handleColorSchemeChange } />
 			<LanguagePicker value={ localeSelection } onChange={ setDirtyLocale } />
 			<div className="grid grid-cols-2 gap-3">

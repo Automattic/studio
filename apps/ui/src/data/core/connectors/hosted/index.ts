@@ -378,5 +378,8 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		async disableAgenticUi() {
+			// No-op in the browser.
+		},
 	};
 }

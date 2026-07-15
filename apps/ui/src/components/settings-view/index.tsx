@@ -6,6 +6,7 @@ import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Tabs from '@/components/tabs';
+import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -143,6 +144,7 @@ export function SettingsView( {
 	activeTab: TabId;
 	onTabChange: ( tab: TabId ) => void;
 } ) {
+	const connector = useConnector();
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
 	const savePreferences = useSaveUserPreferences();
@@ -291,6 +293,22 @@ export function SettingsView( {
 								</Button>
 							</div>
 						</form>
+						<div className={ styles.switchUiField }>
+							<div className={ styles.switchUiText }>
+								<span className={ styles.switchUiLabel }>{ __( 'Studio experience' ) }</span>
+								<span className={ styles.switchUiDescription }>
+									{ __( 'You are using the new Studio experience.' ) }
+								</span>
+							</div>
+							<Button
+								variant="outline"
+								tone="neutral"
+								size="compact"
+								onClick={ () => void connector.disableAgenticUi() }
+							>
+								{ __( 'Switch to classic' ) }
+							</Button>
+						</div>
 					</div>
 				</div>
 			</Tabs.Root>

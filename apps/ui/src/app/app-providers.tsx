@@ -6,6 +6,7 @@ import { Tooltip } from '@wordpress/ui';
 import { useEffect } from 'react';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
+import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
 import { useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -24,6 +25,7 @@ function SiteEventsBridge() {
 	useSyncSitesWithEvents();
 	useSyncSessionsWithEvents();
 	useSyncConnectSiteListener();
+	useSyncAppUpdateStatus();
 	return null;
 }
 

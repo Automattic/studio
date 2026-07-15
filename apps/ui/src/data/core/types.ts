@@ -362,6 +362,20 @@ export interface Connector {
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
 	// the application menu.
 	onOpenSettings( listener: () => void ): () => void;
+
+	// Persistent message dismissals.
+	getDismissedMessages(): Promise< string[] >;
+	dismissMessage( id: string ): Promise< void >;
+
+	// Auto-updater status.
+	getAppUpdateStatus(): Promise< AppUpdateStatus >;
+	installAppUpdate(): Promise< void >;
+	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
+}
+
+export interface AppUpdateStatus {
+	readyToInstall: boolean;
+	version: string | null;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

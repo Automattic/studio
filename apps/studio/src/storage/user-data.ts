@@ -84,7 +84,8 @@ type UserDataSafeKeys =
 	| 'cliUserUninstalled'
 	| 'wapuuScore'
 	| 'lastNightlyUpdateCheck'
-	| 'nightlyPromptResult';
+	| 'nightlyPromptResult'
+	| 'dismissedMessages';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

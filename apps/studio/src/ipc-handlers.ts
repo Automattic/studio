@@ -1489,6 +1489,17 @@ export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< Be
 	return await getBetaFeaturesFromLib();
 }
 
+export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
+
+export async function getDismissedMessages( _event: IpcMainInvokeEvent ): Promise< string[] > {
+	const userData = await loadUserData();
+	return userData.dismissedMessages ?? [];
+}
+
+export async function dismissMessage( _event: IpcMainInvokeEvent, id: string ): Promise< void > {
+	await updateAppdata( { dismissedMessages: [ ...( await getDismissedMessages( _event ) ), id ] } );
+}
+
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
 	{

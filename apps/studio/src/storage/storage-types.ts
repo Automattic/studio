@@ -53,6 +53,7 @@ export interface UserData {
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
+	dismissedMessages?: string[];
 }
 
 export interface PromptWindowsSpeedUpResult {

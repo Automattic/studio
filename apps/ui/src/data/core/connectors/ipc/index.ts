@@ -12,6 +12,7 @@ import type {
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
+	AppUpdateStatus,
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
@@ -739,6 +740,30 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'user-settings', () => listener() );
+		},
+
+		async getDismissedMessages(): Promise< string[] > {
+			return ipcApi.getDismissedMessages();
+		},
+
+		async dismissMessage( id: string ): Promise< void > {
+			await ipcApi.dismissMessage( id );
+		},
+
+		async getAppUpdateStatus() {
+			return ipcApi.getAppUpdateStatus();
+		},
+
+		async installAppUpdate(): Promise< void > {
+			await ipcApi.installAppUpdate();
+		},
+
+		onAppUpdateStatusChanged( listener ) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const ipcListener = ( window as any ).ipcListener;
+			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
+				listener( status as AppUpdateStatus )
+			);
 		},
 	};
 }

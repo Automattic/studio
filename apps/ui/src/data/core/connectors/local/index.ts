@@ -692,5 +692,28 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		async getDismissedMessages() {
+			try {
+				return JSON.parse( localStorage.getItem( 'studio-dismissed-messages' ) ?? '[]' );
+			} catch {
+				return [];
+			}
+		},
+		async dismissMessage( id ) {
+			const ids = JSON.parse( localStorage.getItem( 'studio-dismissed-messages' ) ?? '[]' );
+			if ( ! ids.includes( id ) ) {
+				ids.push( id );
+				localStorage.setItem( 'studio-dismissed-messages', JSON.stringify( ids ) );
+			}
+		},
+		async getAppUpdateStatus() {
+			return { readyToInstall: false, version: null };
+		},
+		async installAppUpdate() {
+			// No-op.
+		},
+		onAppUpdateStatusChanged() {
+			return () => {};
+		},
 	};
 }

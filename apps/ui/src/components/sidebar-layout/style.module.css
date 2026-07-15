@@ -68,6 +68,10 @@
 	justify-content: flex-start;
 }
 
+.sidebarCards {
+	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
 .floatingToggle {
 	position: absolute;
 	top: 0;
@@ -91,6 +95,11 @@
    edge instead of leaving an empty gap. */
 .floatingToggleFlush {
 	left: var(--wpds-dimension-padding-xl);
+}
+
+.floatingToggleButton {
+	position: relative;
+	display: inline-flex;
 }
 
 .sidebarToasts {

@@ -10,6 +10,11 @@ vi.mock( '@/components/sidebar-header', () => ( {
 	),
 } ) );
 
+vi.mock( '@/components/app-message-cards', () => ( {
+	AppMessageCards: () => null,
+	AppMessageCardsDot: () => null,
+} ) );
+
 vi.mock( '@/components/site-list', () => ( {
 	SiteList: () => <nav aria-label="Sites" />,
 } ) );

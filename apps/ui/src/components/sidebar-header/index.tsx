@@ -32,7 +32,6 @@ export function SidebarHeader( { onToggleSidebar }: Props ) {
 				label={ __( 'Menu' ) }
 				onClick={ handleOpenAppMenu }
 			/>
-			<span className={ styles.title }>{ __( 'Studio' ) }</span>
 			<div className={ styles.actions }>
 				<Menu.Root modal={ false }>
 					<Menu.Trigger

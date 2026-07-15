@@ -68,6 +68,15 @@ body:lang( ckb ) [class*='components-'] {
 	}
 }
 
+/* @wordpress/components and @wordpress/dataviews render help text and field
+   descriptions with hardcoded light-mode colors that don't adapt to the
+   ThemeProvider's dark palette. Force them to the design-system's weak
+   foreground so they match the surrounding UI in both schemes. */
+.components-base-control__help,
+[class*='dataforms-layouts'] [class*='description'] {
+	color: var( --wpds-color-fg-content-neutral-weak ) !important;
+}
+
 /* Universal heading styles derived from the design system's font-size /
    line-height ramp. Each level steps down one token (h1 = 2xl, h6 = xs),
    keeping the rest of the type contract — family, weight, color, zero

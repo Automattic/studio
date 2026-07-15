@@ -469,7 +469,6 @@
 	margin-inline-end: var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
-	opacity: 0.55;
 	transition: opacity 100ms ease;
 }
 

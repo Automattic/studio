@@ -10,11 +10,6 @@ import {
 } from '@/data/app-messages';
 import styles from './style.module.css';
 
-// Renders the ephemeral app-message toasts (see data/app-messages.ts).
-// A single instance is placed by SidebarLayout — in the sidebar footer when
-// expanded, floating over the main panel when collapsed — so it inherits the
-// right ThemeProvider scope from wherever it mounts. Renders nothing while
-// there are no toasts, so mount points carry no empty chrome.
 export function AppToasts( {
 	className,
 	fit = 'row',
@@ -34,17 +29,10 @@ export function AppToasts( {
 
 	return (
 		<div className={ clsx( fit === 'content' && styles.shelfHug, className ) }>
-			{ /* The inner stack is what hugs in `content` fit: it shrinks to the
-			     widest toast (the shelf keeps a definite width — an absolutely
-			     positioned shelf with auto width would resolve to min-content),
-			     and the peek slivers span the same stack width. */ }
 			<div className={ styles.stack }>
 				{ toasts.map( ( item ) => (
 					<div
 						key={ item.id }
-						// Collapsible row: grid-template-rows 0fr↔1fr animates the
-						// space a toast occupies, so neighbors slide (not jump) as
-						// it enters and leaves.
 						className={ styles.cell }
 						data-leaving={ item.leaving ? '' : undefined }
 					>
@@ -60,8 +48,6 @@ export function AppToasts( {
 								) : null }
 								{ item.action ? (
 									<Notice.Actions>
-										{ /* Notice.ActionButton doesn't expose `size`; the plain
-										     Button primitive does. */ }
 										<Button
 											size="small"
 											variant="solid"
@@ -81,8 +67,6 @@ export function AppToasts( {
 						</div>
 					</div>
 				) ) }
-				{ /* Stacked-card slivers hint at queued toasts waiting behind the
-				     visible ones; they promote as these expire or are dismissed. */ }
 				{ queuedCount > 0 ? <div className={ styles.queuePeek } aria-hidden="true" /> : null }
 				{ queuedCount > 1 ? (
 					<div className={ clsx( styles.queuePeek, styles.queuePeekDeeper ) } aria-hidden="true" />

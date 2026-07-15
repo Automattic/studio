@@ -140,17 +140,16 @@ export default function FeedbackForm( { identity, onSubmitted }: FeedbackFormPro
 				/>
 			) }
 
-			<div>
+			<div className="flex items-center justify-between gap-3">
 				<CheckboxControl
 					__nextHasNoMarginBottom
-					label={ __( 'Include logs & diagnostics' ) }
-					help={ __( 'Attaches recent app logs and version info so we can debug your report.' ) }
+					label={ __( 'Include recent app logs & diagnostics to help us debug' ) }
 					checked={ includeLogs }
 					onChange={ setIncludeLogs }
 				/>
 				<Button
 					variant="link"
-					className="text-[13px] !text-frame-theme"
+					className="!text-frame-theme shrink-0"
 					onClick={ () => getIpcApi().openApplicationLogs() }
 				>
 					{ __( 'View logs' ) }

@@ -45,7 +45,11 @@ describe( 'FeedbackForm', () => {
 
 	it( 'defaults the include-logs checkbox to checked', () => {
 		render( <FeedbackForm identity={ undefined } /> );
-		expect( screen.getByRole( 'checkbox', { name: 'Include logs & diagnostics' } ) ).toBeChecked();
+		expect(
+			screen.getByRole( 'checkbox', {
+				name: 'Include recent app logs & diagnostics to help us debug',
+			} )
+		).toBeChecked();
 	} );
 
 	it( 'submits the entered feedback and calls onSubmitted on success', async () => {

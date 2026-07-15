@@ -46,6 +46,11 @@ export const STUDIO_PRESENTATION_RULES: StudioPresentationRule[] = [
 			'Present widgets for meaningful user-visible progress, results, and durable context. Do not present routine inspection, low-level file reads, internal edits, or noisy intermediate steps.',
 	},
 	{
+		id: 'smallest-useful-widget',
+		description:
+			'Present a widget only when it makes a result materially easier to understand or act on than the same information in chat prose. Prefer the smallest widget that does the job: one note instead of several overlapping notes, one post-collection instead of many post cards, one site-preview per visible milestone. Skip widgets entirely for single facts, one-step confirmations, or information already clear from a short sentence, and never re-present a widget for content that has not changed.',
+	},
+	{
 		id: 'post-lists',
 		description:
 			'When showing latest, recent, top, feed, archive, query, or other post-list results, use one post-collection widget instead of multiple individual post widgets. Use multiple post widgets only for distinct hand-picked posts that need to be compared side by side.',

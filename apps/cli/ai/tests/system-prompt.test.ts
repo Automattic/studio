@@ -26,6 +26,8 @@ describe( 'buildSystemPrompt', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 
 		expect( prompt ).toContain( '## Visual artifacts' );
+		expect( prompt ).toContain( '- smallest-useful-widget:' );
+		expect( prompt ).toContain( 'Prefer the smallest widget that does the job' );
 		expect( prompt ).toContain( '- post-lists:' );
 		expect( prompt ).toContain( 'one post-collection widget' );
 		expect( prompt ).toContain( '- site-code-scratchpad:' );

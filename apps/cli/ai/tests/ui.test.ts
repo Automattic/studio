@@ -211,6 +211,64 @@ describe( 'AiChatUI interrupt handling', () => {
 	} );
 } );
 
+describe( 'AiChatUI mid-turn steering', () => {
+	function createStubUi() {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			submitMidTurn: ( text: string ) => void;
+			queuedPrompts: string[];
+			[ key: string ]: unknown;
+		};
+		ui.queuedPrompts = [];
+		ui.renderQueuedContainer = vi.fn();
+		ui.addUserMessage = vi.fn();
+		return ui;
+	}
+
+	it( 'delivers mid-turn input to the running agent when steering succeeds', async () => {
+		const ui = createStubUi();
+		const steerCallback = vi.fn().mockResolvedValue( true );
+		ui.steerCallback = steerCallback;
+
+		ui.submitMidTurn( 'make the hero darker' );
+
+		await vi.waitFor( () =>
+			expect( ui.addUserMessage ).toHaveBeenCalledWith( 'make the hero darker' )
+		);
+		expect( steerCallback ).toHaveBeenCalledWith( 'make the hero darker' );
+		expect( ui.queuedPrompts ).toEqual( [] );
+	} );
+
+	it( 'stages the prompt for the next turn when steering is rejected', async () => {
+		const ui = createStubUi();
+		ui.steerCallback = vi.fn().mockResolvedValue( false );
+
+		ui.submitMidTurn( 'add a contact page' );
+
+		await vi.waitFor( () => expect( ui.queuedPrompts ).toEqual( [ 'add a contact page' ] ) );
+		expect( ui.addUserMessage ).not.toHaveBeenCalled();
+	} );
+
+	it( 'stages the prompt when steering fails', async () => {
+		const ui = createStubUi();
+		ui.steerCallback = vi.fn().mockRejectedValue( new Error( 'boom' ) );
+
+		ui.submitMidTurn( 'add a contact page' );
+
+		await vi.waitFor( () => expect( ui.queuedPrompts ).toEqual( [ 'add a contact page' ] ) );
+		expect( ui.addUserMessage ).not.toHaveBeenCalled();
+	} );
+
+	it( 'stages the prompt when no steer callback is registered', () => {
+		const ui = createStubUi();
+		ui.steerCallback = null;
+
+		ui.submitMidTurn( 'add a contact page' );
+
+		expect( ui.queuedPrompts ).toEqual( [ 'add a contact page' ] );
+		expect( ui.addUserMessage ).not.toHaveBeenCalled();
+	} );
+} );
+
 describe( 'AiChatUI.handleEvent', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();

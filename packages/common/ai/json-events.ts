@@ -37,6 +37,9 @@ export type JsonEvent =
 			} >;
 	  }
 	| { type: 'turn.started'; timestamp: string }
+	// Reply to a `steer` IPC message: whether the mid-turn user message reached
+	// the live turn. When false the sender should resend it as a normal prompt.
+	| { type: 'steer.result'; timestamp: string; delivered: boolean; text: string }
 	| {
 			type: 'turn.completed';
 			timestamp: string;

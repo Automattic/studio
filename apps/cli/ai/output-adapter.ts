@@ -11,6 +11,9 @@ export interface AiOutputAdapter {
 	activeSite: SiteInfo | null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null;
 	onInterrupt: ( () => void ) | null;
+	// Deliver a mid-turn user message to the running agent. Resolves to false
+	// when no turn is live (the caller should stage the message instead).
+	onSteer: ( ( text: string ) => Promise< boolean > ) | null;
 
 	start(): void;
 	stop(): void;
@@ -44,6 +47,7 @@ export class JsonAdapter implements AiOutputAdapter {
 	activeSite: SiteInfo | null = null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;
+	onSteer: ( ( text: string ) => Promise< boolean > ) | null = null;
 	onBeforeExit: ( () => Promise< void > ) | null = null;
 	permissionResponse: Record< string, string > | null = null;
 
@@ -58,12 +62,28 @@ export class JsonAdapter implements AiOutputAdapter {
 			return;
 		}
 		this.ipcMessageListener = ( message ) => {
-			if (
-				message &&
-				typeof message === 'object' &&
-				( message as { type?: string } ).type === 'interrupt'
-			) {
+			if ( ! message || typeof message !== 'object' ) {
+				return;
+			}
+			const typed = message as { type?: string; text?: unknown };
+			if ( typed.type === 'interrupt' ) {
 				this.onInterrupt?.();
+				return;
+			}
+			// Mid-turn user message from the desktop app. Always answer with a
+			// steer.result event so the sender can stage the message for the
+			// next turn when it arrived too late to reach the live one.
+			if ( typed.type === 'steer' && typeof typed.text === 'string' ) {
+				const text = typed.text;
+				void ( async () => {
+					const delivered = ( await this.onSteer?.( text ).catch( () => false ) ) ?? false;
+					emitEvent( {
+						type: 'steer.result',
+						timestamp: new Date().toISOString(),
+						delivered,
+						text,
+					} );
+				} )();
 			}
 		};
 		process.on( 'message', this.ipcMessageListener );

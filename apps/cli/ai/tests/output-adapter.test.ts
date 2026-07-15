@@ -53,6 +53,47 @@ describe( 'JsonAdapter IPC messaging', () => {
 		expect( onInterrupt ).toHaveBeenCalledTimes( 1 );
 	} );
 
+	it( 'forwards steer messages to onSteer and reports the delivery result', async () => {
+		const sendSpy = vi.fn( () => true );
+		( process as unknown as { send: typeof process.send } ).send =
+			sendSpy as unknown as typeof process.send;
+
+		const adapter = new JsonAdapter();
+		const onSteer = vi.fn().mockResolvedValue( true );
+		adapter.onSteer = onSteer;
+
+		adapter.start();
+		listeners[ 0 ]( { type: 'steer', text: 'make the hero darker' } );
+
+		await vi.waitFor( () =>
+			expect( sendSpy ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					type: 'steer.result',
+					delivered: true,
+					text: 'make the hero darker',
+				} )
+			)
+		);
+		expect( onSteer ).toHaveBeenCalledWith( 'make the hero darker' );
+	} );
+
+	it( 'reports steer messages as undelivered when no turn is live', async () => {
+		const sendSpy = vi.fn( () => true );
+		( process as unknown as { send: typeof process.send } ).send =
+			sendSpy as unknown as typeof process.send;
+
+		const adapter = new JsonAdapter();
+		adapter.start();
+
+		listeners[ 0 ]( { type: 'steer', text: 'too late' } );
+
+		await vi.waitFor( () =>
+			expect( sendSpy ).toHaveBeenCalledWith(
+				expect.objectContaining( { type: 'steer.result', delivered: false, text: 'too late' } )
+			)
+		);
+	} );
+
 	it( 'ignores unrelated IPC messages', () => {
 		const adapter = new JsonAdapter();
 		const onInterrupt = vi.fn();

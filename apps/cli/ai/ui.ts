@@ -306,6 +306,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private loaderVisible = false;
 	private editorVisible = false;
 	private interruptCallback: ( () => void ) | null = null;
+	private steerCallback: ( ( text: string ) => Promise< boolean > ) | null = null;
 	private wasInterrupted = false;
 	private interruptionNoticeShown = false;
 	private usageCapReached = false;
@@ -492,12 +493,12 @@ export class AiChatUI implements AiOutputAdapter {
 				resolve( trimmed );
 				return;
 			}
-			// No waiter → we're mid-turn. Stage the prompt so it fires after
-			// the current run ends; `waitForInput` drains the head.
+			// No waiter → we're mid-turn. Steer the running agent when
+			// possible; otherwise stage the prompt so it fires after the
+			// current run ends (`waitForInput` drains the head).
 			if ( this._inAgentTurn ) {
-				this.queuedPrompts.push( trimmed );
 				this.editor.setText( '' );
-				this.renderQueuedContainer();
+				this.submitMidTurn( trimmed );
 			}
 		};
 		// Ctrl+C to exit, Escape to interrupt/close picker, arrow keys for picker
@@ -1191,6 +1192,34 @@ export class AiChatUI implements AiOutputAdapter {
 	set onInterrupt( fn: ( () => void ) | null ) {
 		this.interruptCallback = fn;
 		this.updateHints();
+	}
+
+	set onSteer( fn: ( ( text: string ) => Promise< boolean > ) | null ) {
+		this.steerCallback = fn;
+	}
+
+	// Deliver a mid-turn prompt to the running agent as a steering message.
+	// Falls back to staging it for the next turn when steering is unavailable
+	// or the delivery raced the end of the run.
+	private submitMidTurn( text: string ): void {
+		if ( ! this.steerCallback ) {
+			this.stagePrompt( text );
+			return;
+		}
+		void this.steerCallback( text )
+			.catch( () => false )
+			.then( ( delivered ) => {
+				if ( delivered ) {
+					this.addUserMessage( text );
+				} else {
+					this.stagePrompt( text );
+				}
+			} );
+	}
+
+	private stagePrompt( text: string ): void {
+		this.queuedPrompts.push( text );
+		this.renderQueuedContainer();
 	}
 
 	private requestInterrupt(): boolean {

@@ -566,6 +566,22 @@ export async function runCommand( options: {
 			void agentQuery.interrupt();
 		};
 
+		ui.onSteer = async ( text ) => {
+			const delivered = await agentQuery.steer( text );
+			if ( delivered ) {
+				// `source: 'prompt'` so replay and the desktop transcript render
+				// the steered message like any other user message.
+				await append( ( s ) =>
+					appendStudioEntry( s, 'studio.user_prompt', {
+						text,
+						source: 'prompt',
+						sitePath: site?.path,
+					} )
+				);
+			}
+			return delivered;
+		};
+
 		const consumeAgentTurnResult = agentQuery.result.catch( ( error ) => {
 			turnState.status = 'error';
 			// If the UI already surfaced a descriptive terminal error (e.g.
@@ -584,6 +600,9 @@ export async function runCommand( options: {
 		try {
 			await consumeAgentTurnResult;
 		} finally {
+			// Steering a finished turn must fail fast so the UI stages the
+			// message for the next turn instead.
+			ui.onSteer = null;
 			await append( ( s ) =>
 				appendStudioEntry( s, 'studio.turn_closed', { status: turnState.status } )
 			);

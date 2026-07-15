@@ -134,6 +134,13 @@ describe( 'buildSystemPrompt', () => {
 		}
 	} );
 
+	it( 'tells the agent to preserve user edits in the site directory', () => {
+		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+
+		expect( prompt ).toContain( 'Existing changes belong to the user' );
+		expect( prompt ).toContain( 'Read a file before overwriting it' );
+	} );
+
 	it( 'tells the agent to continue rather than restart after compaction', () => {
 		const prompts = [
 			buildSystemPrompt( { chatArtifactsEnabled: true } ),

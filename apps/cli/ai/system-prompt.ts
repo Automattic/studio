@@ -208,6 +208,7 @@ ${ studioPresentToolBullet }${ automaticArtifactSection }
 ## General rules
 
 - Design quality and visual ambition are not in conflict with using core blocks. Custom CSS targeting block classNames can achieve any visual design. The block structure is for editability; the CSS is for aesthetics.
+- Files in the site directory may have been hand-edited by the user (in Studio's code editor or externally) since you last touched them. Existing changes belong to the user: Read a file before overwriting it, preserve edits you did not make, and when a user edit conflicts with what you are about to do, say so and work around it rather than clobbering it.
 - Do NOT modify WordPress core files. Only work within wp-content/.
 - Before running wp_cli, ensure the site is running (site_start if needed).
 - After a change that alters what the site renders (content, options/settings, theme, plugins, activation), call refresh_browser so the in-app preview shows the result. Never stop/start the site (site_stop/site_start) just to refresh the preview.

@@ -34,7 +34,7 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
-import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
+import { getMainWindow, loadMainWindowRenderer, setAgenticUiEnabled } from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 export async function setupMenu( config: {
@@ -102,7 +102,7 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 						);
 					}
 					if ( key === 'enableAgenticUi' ) {
-						setFeatureFlagInEnv( 'enableAgenticUi', menuItem.checked );
+						setAgenticUiEnabled( menuItem.checked );
 						const mainWindow = await getMainWindow();
 						if ( mainWindow && ! mainWindow.isDestroyed() ) {
 							setTimeout( () => {

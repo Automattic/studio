@@ -126,7 +126,7 @@ import {
 	extractErrorFromProcessManagerLogs,
 	simplifyErrorForDisplay,
 } from 'src/lib/error-formatting';
-import { setFeatureFlagInEnv, buildFeatureFlags } from 'src/lib/feature-flags';
+import { buildFeatureFlags } from 'src/lib/feature-flags';
 import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
@@ -136,7 +136,7 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
-import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
+import { getMainWindow, loadMainWindowRenderer, setAgenticUiEnabled } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
 import {
@@ -1494,7 +1494,7 @@ export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< Be
 
 export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
 	await updateBetaFeatureInLib( 'enableAgenticUi', true );
-	setFeatureFlagInEnv( 'enableAgenticUi', true );
+	setAgenticUiEnabled( true );
 	const mainWindow = await getMainWindow();
 	if ( mainWindow && ! mainWindow.isDestroyed() ) {
 		await loadMainWindowRenderer( mainWindow );

@@ -212,11 +212,14 @@ async function getAppMenu(
 				mainWindow &&
 				! mainWindow.isDestroyed()
 			) {
+				// The renderer is being replaced; it fetches fresh globals on boot,
+				// and asking the dying page to refresh fails IPC sender validation.
 				setTimeout( () => {
 					void loadMainWindowRenderer( mainWindow );
 				}, 0 );
+			} else {
+				void sendIpcEventToRenderer( 'refresh-app-globals' );
 			}
-			void sendIpcEventToRenderer( 'refresh-app-globals' );
 		},
 	} ) );
 

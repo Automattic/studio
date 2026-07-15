@@ -561,8 +561,9 @@ describe( 'SiteList', () => {
 		);
 	} );
 
-	it( 'does not show a new message indicator for the active site', () => {
-		paramsMock = { siteId: 'stopped-site' };
+	it( 'does not show a new message indicator for the open chat', () => {
+		paramsMock = { sessionId: 'stopped-chat' };
+		pathnameMock = '/sessions/stopped-chat';
 		let sessions = [
 			createSession( {
 				id: 'stopped-chat',
@@ -587,6 +588,36 @@ describe( 'SiteList', () => {
 		rerender( <SiteList /> );
 
 		expect( screen.queryByRole( 'status', { name: 'New message' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows a new message indicator while only the site settings are open', () => {
+		// Settings don't show the chat, so an update there is still unseen.
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/settings';
+		let sessions = [
+			createSession( {
+				id: 'stopped-chat',
+				ownerSitePath: '/Users/example/Studio/stopped-site',
+				updatedAt: '2026-06-20T12:00:00.000Z',
+			} ),
+		];
+		useSessionsMock.mockImplementation( () => ( {
+			data: sessions,
+			isLoading: false,
+		} ) );
+
+		const { rerender } = render( <SiteList /> );
+
+		sessions = [
+			createSession( {
+				id: 'stopped-chat',
+				ownerSitePath: '/Users/example/Studio/stopped-site',
+				updatedAt: '2026-06-20T12:01:00.000Z',
+			} ),
+		];
+		rerender( <SiteList /> );
+
+		expect( screen.getByRole( 'status', { name: 'New message' } ) ).toBeInTheDocument();
 	} );
 } );
 

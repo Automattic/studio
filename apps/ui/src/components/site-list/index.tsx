@@ -526,18 +526,6 @@ function SiteSection( {
 	);
 }
 
-function findActiveSiteKey(
-	rows: SiteRow[],
-	activeSessionId: string | undefined,
-	activeSiteId: string | undefined
-): string | undefined {
-	if ( activeSiteId ) {
-		const match = rows.find( ( row ) => row.site.id === activeSiteId );
-		if ( match ) return match.site.id;
-	}
-	return findSessionSiteKey( rows, activeSessionId );
-}
-
 function findSessionSiteKey(
 	rows: SiteRow[],
 	activeSessionId: string | undefined
@@ -571,17 +559,13 @@ export function SiteList() {
 		() => createSiteRows( orderedSites, sessions ),
 		[ orderedSites, sessions ]
 	);
-	const activeSiteKey = useMemo(
-		() => findActiveSiteKey( rows, activeSessionId, activeSiteId ),
-		[ rows, activeSessionId, activeSiteId ]
-	);
 	const activeChatSiteKey = useMemo(
 		() => findSessionSiteKey( rows, activeSessionId ),
 		[ rows, activeSessionId ]
 	);
 	// Site ids are UUIDs, so no URL decoding is needed to compare the path.
 	const activeContextSiteKey =
-		activeSiteId && pathname === `/sites/${ activeSiteId }/settings` ? activeSiteKey : undefined;
+		activeSiteId && pathname === `/sites/${ activeSiteId }/settings` ? activeSiteId : undefined;
 	useEffect( () => {
 		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
 			return;
@@ -607,7 +591,7 @@ export function SiteList() {
 				if ( ! latestTimestamp ) {
 					continue;
 				}
-				if ( shouldSeedSeenTimestamps || row.site.id === activeSiteKey ) {
+				if ( shouldSeedSeenTimestamps || row.site.id === activeChatSiteKey ) {
 					updateSeenTimestamp( row.site.id, latestTimestamp );
 				}
 			}
@@ -617,14 +601,20 @@ export function SiteList() {
 		if ( ! seenSiteSessionTimestampsInitialized ) {
 			setSeenSiteSessionTimestampsInitialized( true );
 		}
-	}, [ activeSiteKey, rows, seenSiteSessionTimestampsInitialized, sessionsLoading, sitesLoading ] );
+	}, [
+		activeChatSiteKey,
+		rows,
+		seenSiteSessionTimestampsInitialized,
+		sessionsLoading,
+		sitesLoading,
+	] );
 	const unreadSiteIds = useMemo( () => {
 		if ( ! seenSiteSessionTimestampsInitialized ) {
 			return new Set< string >();
 		}
 		const unread = new Set< string >();
 		for ( const row of rows ) {
-			if ( row.site.id === activeSiteKey ) {
+			if ( row.site.id === activeChatSiteKey ) {
 				continue;
 			}
 			const latestTimestamp = getTimestamp( row.latestSession );
@@ -633,7 +623,7 @@ export function SiteList() {
 			}
 		}
 		return unread;
-	}, [ activeSiteKey, rows, seenSiteSessionTimestamps, seenSiteSessionTimestampsInitialized ] );
+	}, [ activeChatSiteKey, rows, seenSiteSessionTimestamps, seenSiteSessionTimestampsInitialized ] );
 
 	const persistOrder = ( nextSiteIds: string[] ) => {
 		setManualSiteOrder( nextSiteIds );

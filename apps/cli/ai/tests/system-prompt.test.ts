@@ -108,6 +108,44 @@ describe( 'buildSystemPrompt', () => {
 		expect( missingSkillNames ).toEqual( [] );
 	} );
 
+	it( 'includes communication guidance in local and remote prompts', () => {
+		const prompts = [
+			buildSystemPrompt( { chatArtifactsEnabled: true } ),
+			buildSystemPrompt( { remoteSite } ),
+		];
+
+		for ( const prompt of prompts ) {
+			expect( prompt ).toContain( '## Communicating with the user' );
+			expect( prompt ).toContain( 'Lead with the outcome' );
+			expect( prompt ).toContain( 'Never praise your own plan' );
+			expect( prompt ).toContain( 'Make the final message of a turn self-contained' );
+		}
+	} );
+
+	it( 'scopes actions to the request type in local and remote prompts', () => {
+		const prompts = [
+			buildSystemPrompt( { chatArtifactsEnabled: true } ),
+			buildSystemPrompt( { remoteSite } ),
+		];
+
+		for ( const prompt of prompts ) {
+			expect( prompt ).toContain( '## Matching actions to the request' );
+			expect( prompt ).toContain( 'Do not apply a fix until the user asks for one' );
+		}
+	} );
+
+	it( 'tells the agent to continue rather than restart after compaction', () => {
+		const prompts = [
+			buildSystemPrompt( { chatArtifactsEnabled: true } ),
+			buildSystemPrompt( { remoteSite } ),
+		];
+
+		for ( const prompt of prompts ) {
+			expect( prompt ).toContain( '## Conversation compaction' );
+			expect( prompt ).toContain( 'never redo or restart work it lists as done' );
+		}
+	} );
+
 	it( 'gives Playground sites the inline post_content guidance', () => {
 		const prompt = buildSystemPrompt( { runtime: SITE_RUNTIME_PLAYGROUND } );
 

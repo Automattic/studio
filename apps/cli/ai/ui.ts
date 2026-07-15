@@ -27,7 +27,7 @@ import {
 } from '@earendil-works/pi-tui';
 import { stripMediaWidgetPayloadLines } from '@studio/common/ai/chat-artifacts';
 import { isUsageCapError } from '@studio/common/ai/json-events';
-import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
+import { DEFAULT_MODEL, getAiModelLabel, type SelectedModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import { getToolDetail, getToolDisplayName, getToolResultPreview } from '@studio/common/ai/tools';
@@ -319,7 +319,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private replayMode = false;
 	private replayTimestampMs: number | null = null;
 	private pendingToolCalls = new Map< string, PendingToolCall >();
-	currentModel: AiModelId = DEFAULT_MODEL;
+	currentModel: SelectedModelId = DEFAULT_MODEL;
 	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
 	private numTurns = 0;
 

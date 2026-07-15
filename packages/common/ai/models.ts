@@ -25,6 +25,15 @@ export const AI_MODELS = [
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
 
+/**
+ * A model id the user has selected to run. It is usually a built-in
+ * `AiModelId`, but the `openai-compatible` provider lets the user run an
+ * arbitrary model served by a local endpoint, whose id is not in `AI_MODELS`.
+ * The `( string & {} )` member keeps editor autocomplete for the known ids
+ * while still accepting any string.
+ */
+export type SelectedModelId = AiModelId | ( string & {} );
+
 export const DEFAULT_MODEL: AiModelId = 'claude-sonnet-5';
 
 // Module-scoped lookup so `getAiModelFamily` / `getAiModelLabel` are O(1)
@@ -48,12 +57,22 @@ export function getAiModel( id: AiModelId ): AiModel {
 	return MODEL_BY_ID.get( id )!;
 }
 
-export function getAiModelFamily( id: AiModelId ): AiModelFamily {
-	return getAiModel( id ).family;
+/**
+ * Resolve a model's family. Built-in ids map to their declared family;
+ * unknown ids (e.g. a local model served through the `openai-compatible`
+ * provider) default to `'openai'`, since those endpoints speak the OpenAI
+ * wire protocol.
+ */
+export function getAiModelFamily( id: SelectedModelId ): AiModelFamily {
+	return MODEL_BY_ID.get( id )?.family ?? 'openai';
 }
 
-export function getAiModelLabel( id: AiModelId ): string {
-	return getAiModel( id ).label;
+/**
+ * Human-readable label for a model. Unknown ids (e.g. a local model) have no
+ * built-in label, so the id itself is shown.
+ */
+export function getAiModelLabel( id: SelectedModelId ): string {
+	return MODEL_BY_ID.get( id )?.label ?? id;
 }
 
 /**
@@ -79,17 +98,20 @@ function readEntryModelId( entry: SessionEntry ): string | undefined {
 /**
  * Derive the current model for a session from its pi entries.
  *
- * The most recently recorded model wins. If it names a model we no longer
- * offer (e.g. one that was removed from `AI_MODELS`), the session
- * auto-switches to `DEFAULT_MODEL` rather than pinning a dead id. Sessions
- * that recorded no model — e.g. a brand-new session before the first turn
- * runs — also fall back to `DEFAULT_MODEL`.
+ * The most recently recorded model wins and is returned verbatim — including
+ * ids that aren't in `AI_MODELS`, since the `openai-compatible` provider runs
+ * arbitrary local models whose ids we must preserve across resume. The
+ * recorded provider is restored alongside (see `resolveResumeSessionContext`),
+ * so provider and model stay consistent; if a resumed provider can't serve the
+ * recorded model, the provider-switch logic auto-corrects it. Sessions that
+ * recorded no model — e.g. a brand-new session before the first turn runs —
+ * fall back to `DEFAULT_MODEL`.
  */
-export function resolveSessionModel( entries: SessionEntry[] ): AiModelId {
+export function resolveSessionModel( entries: SessionEntry[] ): SelectedModelId {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const recordedModel = readEntryModelId( entries[ index ] );
 		if ( recordedModel === undefined ) continue;
-		return isAiModelId( recordedModel ) ? recordedModel : DEFAULT_MODEL;
+		return recordedModel;
 	}
 	return DEFAULT_MODEL;
 }

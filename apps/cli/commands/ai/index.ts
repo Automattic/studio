@@ -4,7 +4,7 @@ import {
 	type StudioChatFileAttachment,
 } from '@studio/common/ai/chat-files';
 import { type StudioChatImage } from '@studio/common/ai/chat-images';
-import { DEFAULT_MODEL, resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
+import { DEFAULT_MODEL, resolveSessionModel, type SelectedModelId } from '@studio/common/ai/models';
 import { getAgentEndTurnResult } from '@studio/common/ai/session-events';
 import { buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -111,7 +111,20 @@ export async function runCommand( options: {
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
-	let currentModel: AiModelId = resumeContext.model ?? DEFAULT_MODEL;
+	let currentModel: SelectedModelId = resumeContext.model ?? DEFAULT_MODEL;
+	// Reconcile the model with the active provider. This matters most for
+	// openai-compatible, whose model must come from the configured endpoint —
+	// the DEFAULT_MODEL fallback is an Anthropic id it can't serve. Mirrors the
+	// auto-correct in switchProvider, but for the initial (non-switch) load.
+	{
+		const initialDefinition = getAiProviderDefinition( currentProvider );
+		if ( ! initialDefinition.supportsModel( currentModel ) ) {
+			const dynamicDefault = initialDefinition.resolveDefaultModel
+				? await initialDefinition.resolveDefaultModel()
+				: undefined;
+			currentModel = dynamicDefault ?? initialDefinition.defaultModel;
+		}
+	}
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 	if ( options.activeSite ) {
@@ -280,7 +293,12 @@ export async function runCommand( options: {
 		// selected). Fall back to the provider's default.
 		const definition = getAiProviderDefinition( currentProvider );
 		if ( ! definition.supportsModel( currentModel ) ) {
-			currentModel = definition.defaultModel;
+			// Dynamic-model providers (openai-compatible) resolve their default
+			// from the configured endpoint; others use the static default.
+			const dynamicDefault = definition.resolveDefaultModel
+				? await definition.resolveDefaultModel()
+				: undefined;
+			currentModel = dynamicDefault ?? definition.defaultModel;
 			ui.currentModel = currentModel;
 		}
 

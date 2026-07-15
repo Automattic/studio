@@ -97,7 +97,7 @@ Call `liberate_paths({ url })` to resolve the output directory (`siteDir`). Do n
 - "This is obviously a store, blocks is the only sensible path." → Still ask. The operator may want fidelity over editability.
 - "I'll extract first so the operator has more data when they decide." → Discovery already gives platform · counts · features — enough to choose. Don't burn extraction to defer the question.
 
-Show the discovery inventory (pages · archetypes · products · platform features) and a scope/cost/time estimate as a plain chat message, then call **AskUserQuestion**. The question, labels, and descriptions below are **fixed copy — use them verbatim**: do not paraphrase, shorten, or restate the inventory inside them. List the recommended option first and append ` (Recommended)` to its label — that is the only allowed variation.
+Show the discovery inventory (pages · archetypes · products · platform features) and a scope/cost/time estimate as a plain chat message, then call **AskUserQuestion**. **Theme replication is the default recommendation** — recommend **Blocks + products** only when the site is clearly a store, or when you have a strong, specific reason Blocks fits better. The question, labels, and descriptions below are **fixed copy — use them verbatim**: do not paraphrase, shorten, or restate the inventory inside them. List the recommended option first and append ` (Recommended)` to its label — that is the only allowed variation.
 
 - question: `How should the site be reconstructed in WordPress?`
 - option label: `Blocks + products`
@@ -105,7 +105,7 @@ Show the discovery inventory (pages · archetypes · products · platform featur
 - option label: `Theme replication`
   description: `Carry-and-scope: highest-fidelity replica of the source, raw-HTML-editable (not block-editable). (Imports product data; product pages fall back to default WooCommerce, not a carried replica.)`
 
-Recommendation rule (fixed — decide from the discovery inventory already shown, first match wins): store detected or products > 0 → **Blocks + products**; posts ≥ pages → **Blocks + products**; otherwise → **Theme replication**. Exactly one option gets the ` (Recommended)` suffix and is listed first; the same inventory always yields the same recommendation. **The operator's selection is the sole go-ahead** (this replaces the old proceed/confirm gate). Only after they answer do you run Steps 3–6 (extraction/capture) and then Dispatch.
+**The operator's selection is the sole go-ahead** (this replaces the old proceed/confirm gate). Only after they answer do you run Steps 3–6 (extraction/capture) and then Dispatch.
 
 ### Step 3 — Extract
 

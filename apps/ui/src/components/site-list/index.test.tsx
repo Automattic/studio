@@ -53,6 +53,10 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useUpdateSitesSortOrder: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn( () => ( { enabled: true, reason: null, isReady: true } ) ),
+} ) );
+
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );

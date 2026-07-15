@@ -86,6 +86,8 @@ bodyFiles: { "content": "tmp/ai-payloads/home.html" }
 
 The `bodyFiles` keys must be top-level REST body field names such as `content`, `excerpt`, or `css`, not filenames or nested paths. Do not use keys like `home.html`, `styles.css`, `content.raw`, or `styles.color.background`.
 
+Staged payload files are single-use. When updating an existing resource, restage the file with the new content, based on its freshly fetched current content (`context=edit`) — never reuse a `tmp/ai-payloads/` file written for an earlier request or session. The live content may have changed since it was staged (for example, edits made in the WordPress editor), and resending a stale file overwrites those changes.
+
 Use `bodyFile` when the staged file is the complete JSON request body, especially for endpoints that expect nested JSON objects such as `POST /global-styles/{id}`:
 
 ```text
@@ -98,8 +100,9 @@ Do not combine `bodyFile` with `body` or `bodyFiles`.
 
 1. Check the site plan first. This is already required by the remote system prompt and must happen before any change.
 2. Understand the site with lightweight reads, such as `GET /posts` and `GET /themes?status=active`.
-3. Make changes with POST requests to create or update content, manage templates, switch themes, or manage plugins.
-4. Verify visually with `take_screenshot` using `viewport: "all"` for desktop and mobile.
-5. If an operation fails, inspect the error and try a lightweight GET request to discover the available shape before retrying.
+3. Before updating existing content (a post, page, template, or template part), fetch its current raw content first — for example `GET /posts/{id}?context=edit&_fields=id,content` — and base the update on that response. Never resend previously staged or remembered content; the user may have edited it in the WordPress editor since.
+4. Make changes with POST requests to create or update content, manage templates, switch themes, or manage plugins.
+5. Verify visually with `take_screenshot` using `viewport: "all"` for desktop and mobile.
+6. If an operation fails, inspect the error and try a lightweight GET request to discover the available shape before retrying.
 
 Always confirm destructive operations, including deleting posts or deactivating plugins, before proceeding.

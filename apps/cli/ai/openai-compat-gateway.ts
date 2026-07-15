@@ -24,6 +24,13 @@ export interface OpenAiCompatibleGatewayHandle {
 	close(): Promise< void >;
 }
 
+const DEFAULT_CONTEXT_WINDOW = 8192;
+const DEFAULT_MAX_TOKENS_RESERVE = 1024;
+const SAFETY_MARGIN_TOKENS = 500;
+const SUMMARY_RESERVE_TOKENS = 800;
+const SUMMARY_MAX_TOKENS = 500;
+const CHARS_PER_TOKEN_ESTIMATE = 4;
+
 interface AnthropicTextBlock {
 	type: 'text';
 	text: string;
@@ -34,14 +41,14 @@ interface AnthropicImageBlock {
 	source?: { type: string; media_type?: string; data?: string };
 }
 
-interface AnthropicToolUseBlock {
+export interface AnthropicToolUseBlock {
 	type: 'tool_use';
 	id: string;
 	name: string;
 	input: unknown;
 }
 
-interface AnthropicToolResultBlock {
+export interface AnthropicToolResultBlock {
 	type: 'tool_result';
 	tool_use_id: string;
 	content?: string | Array< AnthropicTextBlock | AnthropicImageBlock >;
@@ -54,7 +61,7 @@ type AnthropicContentBlock =
 	| AnthropicToolUseBlock
 	| AnthropicToolResultBlock;
 
-interface AnthropicMessage {
+export interface AnthropicMessage {
 	role: 'user' | 'assistant';
 	content: string | AnthropicContentBlock[];
 }
@@ -70,7 +77,7 @@ interface AnthropicToolChoice {
 	name?: string;
 }
 
-interface AnthropicMessagesRequest {
+export interface AnthropicMessagesRequest {
 	model: string;
 	max_tokens?: number;
 	system?: string | Array< { type: 'text'; text: string } >;
@@ -107,8 +114,22 @@ interface OpenAiChatRequest {
 	temperature?: number;
 }
 
+export interface CompactionState {
+	coveredMessages: AnthropicMessage[];
+	summary: string;
+}
+
+export interface GatewayState {
+	contextWindow: number;
+	compaction?: CompactionState;
+}
+
 let activeGateway:
-	| { handle: OpenAiCompatibleGatewayHandle; config: OpenAiCompatibleConfig }
+	| {
+			handle: OpenAiCompatibleGatewayHandle;
+			config: OpenAiCompatibleConfig;
+			state: GatewayState;
+	  }
 	| undefined;
 
 /**
@@ -127,9 +148,33 @@ export async function ensureOpenAiCompatibleGateway(
 		activeGateway = undefined;
 	}
 
-	const handle = await startOpenAiCompatibleGateway( config );
-	activeGateway = { handle, config };
+	const state: GatewayState = { contextWindow: await discoverContextWindow( config ) };
+	const handle = await startOpenAiCompatibleGateway( config, state );
+	activeGateway = { handle, config, state };
 	return handle;
+}
+
+export async function discoverContextWindow( config: OpenAiCompatibleConfig ): Promise< number > {
+	try {
+		const response = await fetch( joinUrl( config.baseUrl, '/models' ), {
+			headers: config.apiKey ? { authorization: `Bearer ${ config.apiKey }` } : {},
+			signal: AbortSignal.timeout( 3000 ),
+		} );
+		if ( ! response.ok ) {
+			return DEFAULT_CONTEXT_WINDOW;
+		}
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const body: any = await response.json();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const entry = ( body?.data ?? [] ).find( ( model: any ) => model?.id === config.model );
+		const contextWindow =
+			entry?.context_window ?? entry?.max_model_len ?? entry?.max_context_length;
+		return typeof contextWindow === 'number' && contextWindow > 0
+			? contextWindow
+			: DEFAULT_CONTEXT_WINDOW;
+	} catch {
+		return DEFAULT_CONTEXT_WINDOW;
+	}
 }
 
 function configsMatch( a: OpenAiCompatibleConfig, b: OpenAiCompatibleConfig ): boolean {
@@ -137,11 +182,12 @@ function configsMatch( a: OpenAiCompatibleConfig, b: OpenAiCompatibleConfig ): b
 }
 
 function startOpenAiCompatibleGateway(
-	config: OpenAiCompatibleConfig
+	config: OpenAiCompatibleConfig,
+	state: GatewayState
 ): Promise< OpenAiCompatibleGatewayHandle > {
 	return new Promise( ( resolve, reject ) => {
 		const server = http.createServer( ( req, res ) => {
-			handleRequest( req, res, config ).catch( ( error ) => {
+			handleRequest( req, res, config, state ).catch( ( error ) => {
 				if ( ! res.headersSent ) {
 					res.writeHead( 502, { 'content-type': 'application/json' } );
 					res.end(
@@ -176,7 +222,8 @@ function startOpenAiCompatibleGateway(
 async function handleRequest(
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
-	config: OpenAiCompatibleConfig
+	config: OpenAiCompatibleConfig,
+	state: GatewayState
 ): Promise< void > {
 	if ( req.method !== 'POST' || ! req.url?.startsWith( '/v1/messages' ) ) {
 		res.writeHead( 404 ).end();
@@ -184,7 +231,8 @@ async function handleRequest(
 	}
 
 	const rawBody = await readRequestBody( req );
-	const anthropicRequest = JSON.parse( rawBody ) as AnthropicMessagesRequest;
+	const parsedRequest = JSON.parse( rawBody ) as AnthropicMessagesRequest;
+	const anthropicRequest = await compactMessagesIfNeeded( parsedRequest, config, state );
 	const openAiRequest = toOpenAiChatRequest( anthropicRequest, config );
 
 	const upstream = await fetch( joinUrl( config.baseUrl, '/chat/completions' ), {
@@ -268,6 +316,220 @@ function toOpenAiToolChoice(
 		return 'none';
 	}
 	return 'auto';
+}
+
+function estimateTokens( text: string ): number {
+	return Math.ceil( text.length / CHARS_PER_TOKEN_ESTIMATE );
+}
+
+function messageBlocks( message: AnthropicMessage ): AnthropicContentBlock[] {
+	return typeof message.content === 'string'
+		? [ { type: 'text', text: message.content } ]
+		: message.content;
+}
+
+function estimateMessageTokens( message: AnthropicMessage ): number {
+	const serialized = messageBlocks( message )
+		.map( ( block ) => {
+			if ( block.type === 'text' ) {
+				return block.text;
+			}
+			if ( block.type === 'image' ) {
+				return '[image]';
+			}
+			if ( block.type === 'tool_use' ) {
+				return JSON.stringify( block.input ?? {} );
+			}
+			return toolResultContentToString( block.content );
+		} )
+		.join( '\n' );
+	return estimateTokens( serialized ) + 4;
+}
+
+export function estimateRequestTokens( request: AnthropicMessagesRequest ): number {
+	const systemText = Array.isArray( request.system )
+		? request.system.map( ( block ) => block.text ).join( '\n' )
+		: request.system ?? '';
+	const toolsTokens = request.tools ? estimateTokens( JSON.stringify( request.tools ) ) : 0;
+	const messagesTokens = request.messages.reduce(
+		( sum, message ) => sum + estimateMessageTokens( message ),
+		0
+	);
+	return estimateTokens( systemText ) + toolsTokens + messagesTokens;
+}
+
+function messageToolUseIds( message: AnthropicMessage ): string[] {
+	return messageBlocks( message )
+		.filter( ( block ): block is AnthropicToolUseBlock => block.type === 'tool_use' )
+		.map( ( block ) => block.id );
+}
+
+function messageToolResultIds( message: AnthropicMessage ): string[] {
+	return messageBlocks( message )
+		.filter( ( block ): block is AnthropicToolResultBlock => block.type === 'tool_result' )
+		.map( ( block ) => block.tool_use_id );
+}
+
+/**
+ * Finds the largest suffix of `messages` whose estimated token count fits within
+ * `recentBudget`, then extends it backward as needed so a `tool_use` message is never
+ * separated from the `tool_result` message that answers it.
+ */
+export function findSplitIndex( messages: AnthropicMessage[], recentBudget: number ): number {
+	let accumulated = 0;
+	let splitIndex = messages.length;
+	for ( let i = messages.length - 1; i >= 0; i-- ) {
+		const tokens = estimateMessageTokens( messages[ i ] );
+		if ( accumulated + tokens > recentBudget ) {
+			break;
+		}
+		accumulated += tokens;
+		splitIndex = i;
+	}
+	return stabilizeSplitIndex( messages, splitIndex );
+}
+
+function stabilizeSplitIndex( messages: AnthropicMessage[], splitIndex: number ): number {
+	let index = splitIndex;
+	let changed = true;
+	while ( changed && index > 0 ) {
+		changed = false;
+		const resultIds = new Set( messages.slice( index ).flatMap( messageToolResultIds ) );
+		const precedingToolUseIds = messageToolUseIds( messages[ index - 1 ] );
+		if ( precedingToolUseIds.some( ( id ) => resultIds.has( id ) ) ) {
+			index -= 1;
+			changed = true;
+		}
+	}
+	return index;
+}
+
+function messagesEqual( a: AnthropicMessage, b: AnthropicMessage ): boolean {
+	return JSON.stringify( a ) === JSON.stringify( b );
+}
+
+function isPrefixOf( prefix: AnthropicMessage[], full: AnthropicMessage[] ): boolean {
+	if ( prefix.length > full.length ) {
+		return false;
+	}
+	return prefix.every( ( message, index ) => messagesEqual( message, full[ index ] ) );
+}
+
+function serializeMessageForSummary( message: AnthropicMessage ): string {
+	const parts = messageBlocks( message ).map( ( block ) => {
+		if ( block.type === 'text' ) {
+			return block.text;
+		}
+		if ( block.type === 'image' ) {
+			return '[image omitted]';
+		}
+		if ( block.type === 'tool_use' ) {
+			return `Called ${ block.name } with ${ JSON.stringify( block.input ?? {} ) }`;
+		}
+		return `Result: ${ toolResultContentToString( block.content ) }`;
+	} );
+	return `${ message.role }: ${ parts.join( '\n' ) }`;
+}
+
+async function summarizeConversation(
+	messages: AnthropicMessage[],
+	config: OpenAiCompatibleConfig,
+	previousSummary?: string
+): Promise< string > {
+	const fallback = previousSummary ?? '[Unable to summarize earlier conversation]';
+	const transcript = messages.map( serializeMessageForSummary ).join( '\n\n' );
+	const instruction = previousSummary
+		? `Here is a summary of earlier conversation:\n${ previousSummary }\n\nUpdate this summary to also incorporate the following additional conversation, staying concise and preserving key facts and decisions:\n\n${ transcript }`
+		: `Summarize the following conversation concisely, preserving key facts and decisions:\n\n${ transcript }`;
+
+	try {
+		const response = await fetch( joinUrl( config.baseUrl, '/chat/completions' ), {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				...( config.apiKey ? { authorization: `Bearer ${ config.apiKey }` } : {} ),
+			},
+			body: JSON.stringify( {
+				model: config.model,
+				stream: false,
+				max_tokens: SUMMARY_MAX_TOKENS,
+				temperature: 0.2,
+				messages: [
+					{ role: 'system', content: 'You summarize conversations concisely and factually.' },
+					{ role: 'user', content: instruction },
+				],
+			} ),
+		} );
+
+		if ( ! response.ok ) {
+			return fallback;
+		}
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const body: any = await response.json();
+		const summary = body?.choices?.[ 0 ]?.message?.content;
+		return typeof summary === 'string' && summary.trim().length > 0 ? summary.trim() : fallback;
+	} catch {
+		return fallback;
+	}
+}
+
+async function resolveSummary(
+	oldChunk: AnthropicMessage[],
+	config: OpenAiCompatibleConfig,
+	state: GatewayState
+): Promise< string > {
+	const existing = state.compaction;
+
+	if ( existing && isPrefixOf( existing.coveredMessages, oldChunk ) ) {
+		if ( existing.coveredMessages.length === oldChunk.length ) {
+			return existing.summary;
+		}
+		const newPortion = oldChunk.slice( existing.coveredMessages.length );
+		const summary = await summarizeConversation( newPortion, config, existing.summary );
+		state.compaction = { coveredMessages: oldChunk, summary };
+		return summary;
+	}
+
+	const summary = await summarizeConversation( oldChunk, config );
+	state.compaction = { coveredMessages: oldChunk, summary };
+	return summary;
+}
+
+/**
+ * Shrinks an over-budget conversation to fit the local model's discovered context window by
+ * summarizing the oldest messages into the system prompt and keeping the recent tail verbatim.
+ * A `tool_use`/`tool_result` pair is never split across the boundary.
+ */
+export async function compactMessagesIfNeeded(
+	request: AnthropicMessagesRequest,
+	config: OpenAiCompatibleConfig,
+	state: GatewayState
+): Promise< AnthropicMessagesRequest > {
+	const budget =
+		state.contextWindow -
+		( request.max_tokens ?? DEFAULT_MAX_TOKENS_RESERVE ) -
+		SAFETY_MARGIN_TOKENS;
+	if ( estimateRequestTokens( request ) <= budget ) {
+		return request;
+	}
+
+	const recentBudget = budget - SUMMARY_RESERVE_TOKENS;
+	const splitIndex = findSplitIndex( request.messages, recentBudget );
+	if ( splitIndex <= 0 ) {
+		return request;
+	}
+
+	const oldChunk = request.messages.slice( 0, splitIndex );
+	const recentTail = request.messages.slice( splitIndex );
+	const summary = await resolveSummary( oldChunk, config, state );
+
+	const systemText = Array.isArray( request.system )
+		? request.system.map( ( block ) => block.text ).join( '\n' )
+		: request.system ?? '';
+	const compactedSystem = `${ systemText }\n\n[Summary of earlier conversation, condensed to fit the local model's context window]\n${ summary }`;
+
+	return { ...request, system: compactedSystem, messages: recentTail };
 }
 
 function toOpenAiChatRequest(

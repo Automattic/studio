@@ -15,7 +15,7 @@
  * Site-generic: everything is derived from the run's outputDir + the running Studio
  * site. Re-runnable/idempotent (re-updates the same products).
  *
- *   npx tsx scripts/enrich-product-marketing.ts <outputDir> <studioSitePath> [themeSlug]
+ *   node scripts/run.mjs enrich-product-marketing <outputDir> <studioSitePath> [themeSlug]
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
@@ -25,7 +25,7 @@ import { loadCarryDesignTokens } from '../src/lib/replicate/carry-design-tokens.
 
 const [outputDir, studioSitePath, themeSlugArg] = process.argv.slice(2);
 if (!outputDir || !studioSitePath) {
-  console.error('usage: tsx scripts/enrich-product-marketing.ts <outputDir> <studioSitePath> [themeSlug]');
+  console.error('usage: node scripts/run.mjs enrich-product-marketing <outputDir> <studioSitePath> [themeSlug]');
   process.exit(2);
 }
 

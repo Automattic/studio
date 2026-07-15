@@ -37,6 +37,16 @@ steps:
       - github_commit_status:
           context: Lint
 
+  - label: Data Liberation
+    agents:
+      queue: mac
+    key: data-liberation
+    command: bash .buildkite/commands/run-data-liberation-checks.sh
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: Data Liberation
+
   - label: ":fastlane: fastlane Helper Tests"
     agents:
       queue: mac

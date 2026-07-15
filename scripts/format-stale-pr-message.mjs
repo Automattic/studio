@@ -7,7 +7,7 @@
  * a formatted Slack message at /tmp/slack-message.json
  */
 
-const fs = require( 'fs' );
+import fs from 'fs';
 
 // Read stale PRs data
 const stalePRs = JSON.parse( fs.readFileSync( '/tmp/stale-prs.json', 'utf8' ) );

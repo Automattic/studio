@@ -24,10 +24,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			// `@studio/local` is bundled into the CLI from source (see the vite
 			// alias); the dynamic import keeps Express off the startup path of
 			// every other command.
-			const [ { startLocalServer }, { getAiSessionsRootDirectory }, { STUDIO_SITES_ROOT } ] =
+			const [ { startLocalServer }, { getSessionsDirectory }, { STUDIO_SITES_ROOT } ] =
 				await Promise.all( [
 					import( '@studio/local' ),
-					import( 'cli/ai/sessions/paths' ),
+					import( '@studio/common/lib/well-known-paths' ),
 					import( 'cli/lib/site-paths' ),
 				] );
 
@@ -46,7 +46,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 
 			const server = await startLocalServer( {
 				cliBinary,
-				sessionsRoot: getAiSessionsRootDirectory(),
+				sessionsRoot: getSessionsDirectory(),
 				sitesRoot: STUDIO_SITES_ROOT,
 				port: argv.port as number | undefined,
 				uiDist,

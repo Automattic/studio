@@ -23,10 +23,9 @@
 
 /* When there are no traffic lights to clear — non-macOS, the browser
    (`studio ui` / hosted), or macOS fullscreen (which hides them) — reclaim the
-   reserved padding and align the title with the site list entries below. The
-   site list outer padding is `2xl` and its rows now start flush with that edge
-   (no row/button inline-start padding), so the site label text starts at `2xl`
-   from the sidebar edge. */
+   reserved padding so the header content lines up with the site list entries
+   below. The site list outer padding is `2xl` and its rows start flush with
+   that edge, so text starts at `2xl` from the sidebar edge. */
 .flush {
 	padding-left: var(--wpds-dimension-padding-2xl);
 }
@@ -34,17 +33,6 @@
 .menuButton {
 	margin-inline-start: calc(-1 * var(--wpds-dimension-padding-sm));
 	cursor: var(--wpds-cursor-control);
-}
-
-.title {
-	flex: 1;
-	min-width: 0;
-	font-size: var(--wpds-typography-font-size-md);
-	font-weight: 600;
-	color: var(--wpds-color-fg-content-neutral);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .actions {

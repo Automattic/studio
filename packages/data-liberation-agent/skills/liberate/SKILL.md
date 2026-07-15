@@ -37,7 +37,7 @@ On the URL path, each reconstruct sub-skill owns its own reconstruct → install
 │  ┌────────────────────────────────────────────────────────────────────────┘
 │  ▼
 ├─ CONFIRM + PATH CHECKPOINT  ◀── MANDATORY HARD STOP, BEFORE EXTRACTION — never skip, never auto-select
-│     show discovery inventory + scope/cost estimate + a platform-informed recommendation,
+│     show discovery inventory + scope/cost estimate + the rule-based recommendation,
 │     then ALWAYS AskUserQuestion: blocks+products vs theme replication.
 │     The operator's answer is the ONLY thing that authorizes the rest of the run.
 │     Nothing expensive (extract/capture) runs until they have answered.
@@ -97,15 +97,15 @@ Call `liberate_paths({ url })` to resolve the output directory (`siteDir`). Do n
 - "This is obviously a store, blocks is the only sensible path." → Still ask. The operator may want fidelity over editability.
 - "I'll extract first so the operator has more data when they decide." → Discovery already gives platform · counts · features — enough to choose. Don't burn extraction to defer the question.
 
-Show the discovery inventory (pages · archetypes · products · platform features) and a scope/cost/time estimate as a plain chat message, then make a **platform-informed recommendation** and call **AskUserQuestion**. The question, labels, and descriptions below are **fixed copy — use them verbatim**: do not paraphrase, shorten, or restate the inventory inside them. List the recommended option first and append ` (Recommended)` to its label — that is the only allowed variation.
+Show the discovery inventory (pages · archetypes · products · platform features) and a scope/cost/time estimate as a plain chat message, then call **AskUserQuestion**. The question, labels, and descriptions below are **fixed copy — use them verbatim**: do not paraphrase, shorten, or restate the inventory inside them. List the recommended option first and append ` (Recommended)` to its label — that is the only allowed variation.
 
 - question: `How should the site be reconstructed in WordPress?`
-- option label: `Migrate content into blocks + products`
+- option label: `Blocks + products`
   description: `WordPress-native blocks + navigation + WooCommerce product pages. Best launchpad for a redesign. (Reconstructs product pages.)`
 - option label: `Theme replication`
   description: `Carry-and-scope: highest-fidelity replica of the source, raw-HTML-editable (not block-editable). (Imports product data; product pages fall back to default WooCommerce, not a carried replica.)`
 
-Recommendation examples: a store with many products → recommend blocks+products; a fixed-layout Wix marketing site, no store, where pixel-fidelity matters → recommend theme replication. **The operator's selection is the sole go-ahead** (this replaces the old proceed/confirm gate). Only after they answer do you run Steps 3–6 (extraction/capture) and then Dispatch.
+Recommendation rule (fixed — decide from the discovery inventory already shown, first match wins): store detected or products > 0 → **Blocks + products**; posts ≥ pages → **Blocks + products**; otherwise → **Theme replication**. Exactly one option gets the ` (Recommended)` suffix and is listed first; the same inventory always yields the same recommendation. **The operator's selection is the sole go-ahead** (this replaces the old proceed/confirm gate). Only after they answer do you run Steps 3–6 (extraction/capture) and then Dispatch.
 
 ### Step 3 — Extract
 

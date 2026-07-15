@@ -34,7 +34,12 @@ import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
-import { getMainWindow, loadMainWindowRenderer, setAgenticUiEnabled } from 'src/main-window';
+import {
+	getMainWindow,
+	getPreferredStudioUiMode,
+	loadMainWindowRenderer,
+	setAgenticUiEnabled,
+} from 'src/main-window';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
 
 export async function setupMenu( config: {
@@ -105,9 +110,12 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 						setAgenticUiEnabled( menuItem.checked );
 						const mainWindow = await getMainWindow();
 						if ( mainWindow && ! mainWindow.isDestroyed() ) {
+							// The renderer is being replaced; it fetches fresh state on boot,
+							// and messaging the dying page fails IPC sender validation.
 							setTimeout( () => {
 								void loadMainWindowRenderer( mainWindow );
 							}, 0 );
+							return;
 						}
 					}
 					void sendIpcEventToRenderer( 'beta-features-updated' );
@@ -138,7 +146,7 @@ export function buildViewMenuItems( {
 			enabled: ! needsOnboarding,
 			click: onToggleSidebar,
 		},
-		...( getFeatureFlagFromEnv( 'enableAgenticUi' )
+		...( getPreferredStudioUiMode() === 'agentic'
 			? [
 					{
 						label: __( 'Toggle Site Preview' ),

@@ -85,7 +85,11 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'lists available providers', async () => {
-		await expect( getAvailableAiProviders() ).resolves.toEqual( [ 'wpcom', 'anthropic-api-key' ] );
+		await expect( getAvailableAiProviders() ).resolves.toEqual( [
+			'wpcom',
+			'anthropic-api-key',
+			'openai-compatible',
+		] );
 	} );
 
 	it( 'configures the WP.com gateway environment', async () => {

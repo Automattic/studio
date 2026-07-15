@@ -29,7 +29,7 @@ const CLI_CONFIG_VERSION = 1;
 
 // IMPORTANT: Always consider that independently installed versions of the CLI (from npm) may also
 // read this file, and any updates to this schema may require updating the `version` field.
-export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-api-key' ] );
+export const aiProviderSchema = z.enum( [ 'wpcom', 'anthropic-api-key', 'openai-compatible' ] );
 
 const cliConfigSchema = z.object( {
 	version: z.literal( CLI_CONFIG_VERSION ),
@@ -37,6 +37,9 @@ const cliConfigSchema = z.object( {
 	snapshots: z.array( snapshotSchema ).default( () => [] ),
 	aiProvider: aiProviderSchema.optional(),
 	anthropicApiKey: z.string().optional(),
+	openAiCompatibleBaseUrl: z.string().optional(),
+	openAiCompatibleApiKey: z.string().optional(),
+	openAiCompatibleModel: z.string().optional(),
 	lastBumpStats: z
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 		.optional(),

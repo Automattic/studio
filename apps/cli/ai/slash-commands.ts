@@ -92,6 +92,32 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		},
 	},
 	{
+		name: 'openai-config',
+		description: __( 'Set or update the OpenAI-compatible endpoint (base URL, API key, model)' ),
+		handler: async ( _prompt, ctx ) => {
+			try {
+				await ctx.prepareProviderSelection( 'openai-compatible', { force: true } );
+				ctx.ui.showInfo( __( 'OpenAI-compatible endpoint updated.' ) );
+				if ( ctx.showCapabilitiesOnConnect ) {
+					ctx.showCapabilitiesOnConnect = false;
+					await ctx.switchProvider( 'openai-compatible' );
+					ctx.ui.showCapabilities();
+				}
+			} catch ( error ) {
+				if ( isPromptAbortError( error ) ) {
+					ctx.ui.showInfo( __( 'OpenAI-compatible endpoint update canceled.' ) );
+					return 'continue';
+				}
+				if ( error instanceof LoggerError ) {
+					ctx.ui.showError( error.message );
+					return 'continue';
+				}
+				throw error;
+			}
+			return 'continue';
+		},
+	},
+	{
 		name: 'login',
 		description: __( 'Log in to WordPress.com' ),
 		handler: async ( _prompt, ctx ) => {

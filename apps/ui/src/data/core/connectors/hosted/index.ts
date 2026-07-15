@@ -311,6 +311,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				editor: null,
 				terminal: null,
 				colorScheme: 'system',
+				quitSitesBehavior: undefined,
 				locale: undefined,
 			};
 		},
@@ -376,6 +377,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onOpenSettings() {
 			// No application menu in a browser tab.
 			return () => {};
+		},
+		async disableAgenticUi() {
+			// No-op in the browser.
 		},
 	};
 }

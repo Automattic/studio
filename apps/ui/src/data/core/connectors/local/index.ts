@@ -16,6 +16,7 @@ import type {
 	LoadedAiSession,
 	LocalMediaFile,
 	ProposedSitePath,
+	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -34,6 +35,13 @@ const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
 // store); the server reads them back from each open request.
 const EDITOR_STORAGE_KEY = 'studio-local-editor';
 const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
+const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
+
+function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
+	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'
+		? value
+		: undefined;
+}
 
 export interface LocalConnectorOptions {
 	// Base URL of the local Studio server started by `studio ui`, e.g.
@@ -583,6 +591,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const stored = window.localStorage.getItem( COLOR_SCHEME_STORAGE_KEY );
 			const colorScheme: ColorScheme =
 				stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+			const quitSitesBehavior = parseQuitSitesBehavior(
+				window.localStorage.getItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY )
+			);
 			return {
 				editor:
 					( window.localStorage.getItem( EDITOR_STORAGE_KEY ) as SupportedEditor | null ) || null,
@@ -590,6 +601,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					( window.localStorage.getItem( TERMINAL_STORAGE_KEY ) as SupportedTerminal | null ) ||
 					null,
 				colorScheme,
+				quitSitesBehavior,
 				locale: undefined,
 			};
 		},
@@ -609,6 +621,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					window.localStorage.setItem( TERMINAL_STORAGE_KEY, partial.terminal );
 				} else {
 					window.localStorage.removeItem( TERMINAL_STORAGE_KEY );
+				}
+			}
+			if ( 'quitSitesBehavior' in partial ) {
+				if ( partial.quitSitesBehavior ) {
+					window.localStorage.setItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY, partial.quitSitesBehavior );
+				} else {
+					window.localStorage.removeItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY );
 				}
 			}
 		},
@@ -691,6 +710,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onOpenSettings() {
 			// No application menu in a browser tab.
 			return () => {};
+		},
+		async disableAgenticUi() {
+			// No-op in the browser.
 		},
 	};
 }

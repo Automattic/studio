@@ -13,6 +13,7 @@ import type {
 	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
+	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -617,18 +618,20 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale ] = ( await Promise.all( [
+			const [ editor, terminal, colorScheme, quitSitesBehavior, locale ] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
+				ipcApi.getQuitSitesBehavior(),
 				ipcApi.getUserLocale(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
+				QuitSitesBehavior | undefined,
 				string | undefined,
 			];
-			return { editor, terminal, colorScheme, locale };
+			return { editor, terminal, colorScheme, quitSitesBehavior, locale };
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -641,6 +644,9 @@ export function createIpcConnector(): Connector {
 			}
 			if ( 'colorScheme' in partial && partial.colorScheme ) {
 				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
+			}
+			if ( 'quitSitesBehavior' in partial ) {
+				writes.push( ipcApi.saveQuitSitesBehavior( partial.quitSitesBehavior ) );
 			}
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
@@ -739,6 +745,10 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'user-settings', () => listener() );
+		},
+
+		async disableAgenticUi(): Promise< void > {
+			await ipcApi.disableAgenticUi();
 		},
 	};
 }

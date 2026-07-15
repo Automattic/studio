@@ -800,9 +800,8 @@ export async function resolveSourceSite( url?: string ): Promise< PullSource | n
 			// (e.g. a lone Business-plan site awaiting Atomic transfer), report
 			// the specific condition and next step rather than a generic
 			// "nothing to pull" message.
-			const nonSyncable = sites.filter( ( site ) => site.syncSupport !== 'syncable' );
-			if ( nonSyncable.length === 1 ) {
-				throw getSyncSupportError( nonSyncable[ 0 ] );
+			if ( sites.length === 1 ) {
+				throw getSyncSupportError( sites[ 0 ] );
 			}
 			throw new LoggerError(
 				__(

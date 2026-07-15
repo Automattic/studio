@@ -138,8 +138,10 @@ function getSyncSupportLabel( syncSupport: SyncSite[ 'syncSupport' ] ): string {
 			return __( 'Deleted' );
 		case 'missing-permissions':
 			return __( 'Missing permissions' );
+		case 'already-connected':
+			return __( 'Already connected' );
 		default:
-			return syncSupport;
+			return __( 'Not syncable' );
 	}
 }
 

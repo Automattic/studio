@@ -9,6 +9,7 @@ import {
 	watchComposerAttachmentTextScroll,
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
+import { getComposerClipboardFiles } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { useQueryClient } from '@tanstack/react-query';
@@ -292,6 +293,32 @@ export function Composer( {
 	useEffect( () => {
 		setValue( loadDraft( draftStorageKey ) );
 	}, [ draftStorageKey ] );
+
+	// Accept file pastes anywhere in the view (e.g. after clicking the
+	// conversation), like other AI chat tools. The textarea's own onPaste
+	// prevents default first, so `defaultPrevented` avoids double-adding;
+	// pastes inside open dialogs are left alone.
+	useEffect( () => {
+		const onDocumentPaste = ( event: ClipboardEvent ) => {
+			if ( event.defaultPrevented || ! event.clipboardData ) {
+				return;
+			}
+			if ( event.target instanceof Element && event.target.closest( '[role="dialog"]' ) ) {
+				return;
+			}
+			const files = getComposerClipboardFiles( event.clipboardData );
+			if ( files.length === 0 ) {
+				return;
+			}
+			event.preventDefault();
+			void addFiles( files );
+			textareaRef.current?.focus();
+		};
+		document.addEventListener( 'paste', onDocumentPaste );
+		return () => {
+			document.removeEventListener( 'paste', onDocumentPaste );
+		};
+	}, [ addFiles ] );
 
 	// Inline slash-command autocomplete (popup, keyboard nav, ARIA wiring, and
 	// the toolbar "/" toggle). Kept in its own hook so the Composer stays lean.

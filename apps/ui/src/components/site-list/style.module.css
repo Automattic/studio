@@ -197,6 +197,15 @@
 	max-width: 80px;
 }
 
+/* These containers clip only for their collapse/slide animations, and focus
+   can't be inside them unless they're expanded — un-clip so keyboard focus
+   rings aren't cut off at their edges. */
+.siteActions:focus-within,
+.sessionList:focus-within,
+.emptyChatState:focus-within {
+	overflow: visible;
+}
+
 .siteStatus {
 	display: inline-grid;
 	place-items: center;
@@ -469,7 +478,6 @@
 	margin-inline-end: var(--wpds-dimension-padding-sm);
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
-	opacity: 0.55;
 	transition: opacity 100ms ease;
 }
 

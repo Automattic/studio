@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useConnector } from '@/data/core';
 import { SidebarHeader } from './index';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
@@ -8,6 +9,10 @@ const navigate = vi.fn();
 
 vi.mock( '@tanstack/react-router', () => ( {
 	useNavigate: () => navigate,
+} ) );
+
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
 } ) );
 
 vi.mock( '@wordpress/ui', () => ( {
@@ -38,12 +43,6 @@ vi.mock( '@wordpress/ui', () => ( {
 	},
 } ) );
 
-vi.mock( '@/data/core', () => ( {
-	useConnector: () => ( {
-		popupAppMenu: vi.fn(),
-	} ),
-} ) );
-
 vi.mock( '@/components/menu', () => ( {
 	Root: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
 	Trigger: ( { render }: { render: ReactNode } ) => <>{ render }</>,
@@ -59,9 +58,12 @@ vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: () => true,
 } ) );
 
+const useConnectorMock = vi.mocked( useConnector, { partial: true } );
+
 describe( 'SidebarHeader', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		useConnectorMock.mockReturnValue( { showsAppMenuButton: true, popupAppMenu: vi.fn() } );
 	} );
 
 	it( 'opens site creation routes from the top-right create menu', () => {
@@ -83,5 +85,19 @@ describe( 'SidebarHeader', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Hide sidebar' } ) );
 
 		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'shows the app menu button when the host has no native menu bar', () => {
+		render( <SidebarHeader onToggleSidebar={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'button', { name: 'Menu' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'hides the app menu button when the host has a native menu bar', () => {
+		useConnectorMock.mockReturnValue( { showsAppMenuButton: false } );
+
+		render( <SidebarHeader onToggleSidebar={ vi.fn() } /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Menu' } ) ).not.toBeInTheDocument();
 	} );
 } );

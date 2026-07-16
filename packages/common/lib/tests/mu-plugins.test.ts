@@ -116,6 +116,27 @@ describe( 'writeStudioMuPluginsForNativePhpRuntime', () => {
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );
 
+	it( 'should reuse the existing mu-plugins directory when contents are up to date', async () => {
+		const firstDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+		const secondDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+
+		expect( secondDir ).toBe( firstDir );
+	} );
+
+	it( 'should regenerate mu-plugins when an existing file has stale content', async () => {
+		const firstDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+
+		const pluginFilename = '0-deactivate-jetpack-modules.php';
+		const expectedContent = await readFile( join( firstDir, pluginFilename ), 'utf8' );
+		writeFileSync( join( firstDir, pluginFilename ), '<?php // stale content from older Studio' );
+
+		const secondDir = await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
+		const regeneratedContent = await readFile( join( secondDir, pluginFilename ), 'utf8' );
+
+		expect( secondDir ).not.toBe( firstDir );
+		expect( regeneratedContent ).toBe( expectedContent );
+	} );
+
 	it( 'should disable Jetpack modules that affect local development', async () => {
 		await writeStudioMuPluginsForNativePhpRuntime( sitePath, false );
 

@@ -23,15 +23,17 @@ export function SidebarHeader( { onToggleSidebar }: Props ) {
 	};
 	return (
 		<div className={ `${ styles.root } ${ reserveTrafficLightSpace ? '' : styles.flush }` }>
-			<IconButton
-				variant="minimal"
-				tone="neutral"
-				size="small"
-				className={ styles.menuButton }
-				icon={ menu }
-				label={ __( 'Menu' ) }
-				onClick={ handleOpenAppMenu }
-			/>
+			{ connector.showsAppMenuButton && (
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					className={ styles.menuButton }
+					icon={ menu }
+					label={ __( 'Menu' ) }
+					onClick={ handleOpenAppMenu }
+				/>
+			) }
 			<div className={ styles.actions }>
 				<Menu.Root modal={ false }>
 					<Menu.Trigger

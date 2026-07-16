@@ -1,5 +1,7 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
@@ -48,6 +50,7 @@ export function useCopySite() {
 	return useMutation( {
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+		onError: () => toast.error( __( 'Failed to copy site' ) ),
 	} );
 }
 
@@ -76,6 +79,8 @@ export function useStartSite() {
 			await connector.startSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
+		onSuccess: () => toast.success( __( 'Site started' ) ),
+		onError: () => toast.error( __( 'Failed to start site' ) ),
 	} );
 }
 
@@ -88,6 +93,8 @@ export function useStopSite() {
 			await connector.stopSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
+		onSuccess: () => toast.success( __( 'Site stopped' ) ),
+		onError: () => toast.error( __( 'Failed to stop site' ) ),
 	} );
 }
 
@@ -148,6 +155,7 @@ export function useUpdateSite() {
 			// site-event lands, giving us a single refetch against fresh
 			// in-memory details.
 		},
+		onSuccess: () => toast.success( __( 'Settings saved' ) ),
 	} );
 }
 
@@ -181,6 +189,16 @@ export function useIsSiteStopping( siteId: string | undefined ): boolean {
  * Keeps the cached site list in sync with main-process events (site created,
  * updated, started, stopped, deleted). Mount once near the app root.
  */
+export function useSyncSitesWithEvents(): void {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	useEffect( () => {
+		return connector.onSiteEvent( () => {
+			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+		} );
+	}, [ connector, queryClient ] );
+}
+
 // Boot-time counterpart of the "Stop, restart on next launch" quit behavior:
 // those sites keep their autoStart flag when stopped on quit, and the renderer
 // starts them again on launch (mirrors the legacy UI's use-site-details
@@ -201,14 +219,4 @@ export function useAutoStartSites(): void {
 			}
 		}
 	}, [ isFetchedAfterMount, sites, startSite ] );
-}
-
-export function useSyncSitesWithEvents(): void {
-	const connector = useConnector();
-	const queryClient = useQueryClient();
-	useEffect( () => {
-		return connector.onSiteEvent( () => {
-			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
-		} );
-	}, [ connector, queryClient ] );
 }

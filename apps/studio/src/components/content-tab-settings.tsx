@@ -107,9 +107,9 @@ export function ContentTabSettings( { selectedSite }: ContentTabSettingsProps ) 
 		void checkDebugLogExists();
 	}, [ checkDebugLogExists ] );
 
-	/* translators: As in an application that runs natively on a computer */
+	/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary Studio bundles and runs natively on the machine. */
 	const nativeLabel = __( 'Native' );
-	/* translators: As in a secure, sandboxed environment */
+	/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
 	const sandboxLabel = __( 'Sandbox' );
 	const runtimeLabel = isNativePhpRuntime ? nativeLabel : sandboxLabel;
 

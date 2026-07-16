@@ -1,5 +1,7 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
@@ -48,6 +50,7 @@ export function useCopySite() {
 	return useMutation( {
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+		onError: () => toast.error( __( 'Failed to copy site' ) ),
 	} );
 }
 
@@ -76,6 +79,8 @@ export function useStartSite() {
 			await connector.startSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
+		onSuccess: () => toast.success( __( 'Site started' ) ),
+		onError: () => toast.error( __( 'Failed to start site' ) ),
 	} );
 }
 
@@ -88,6 +93,8 @@ export function useStopSite() {
 			await connector.stopSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
+		onSuccess: () => toast.success( __( 'Site stopped' ) ),
+		onError: () => toast.error( __( 'Failed to stop site' ) ),
 	} );
 }
 
@@ -96,6 +103,41 @@ export interface UpdateSiteInput {
 	// Provided only when the user switched WP version; undefined means the
 	// site stays on its current auto-updating track.
 	wpVersion?: string;
+}
+
+// Spaced values (1000, 2000, …) match the legacy desktop sidebar's
+// convention for the same appdata field.
+const toSortOrderUpdates = ( orderedSiteIds: string[] ) =>
+	orderedSiteIds.map( ( siteId, index ) => ( { siteId, sortOrder: ( index + 1 ) * 1000 } ) );
+
+// Persists the sidebar's manual site order. The new order is patched into the
+// sites cache optimistically, so the UI — and the persisted query snapshot a
+// reload hydrates from — reorders immediately; on error a refetch restores
+// the stored truth.
+export function useUpdateSitesSortOrder() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( orderedSiteIds: string[] ) =>
+			connector.updateSitesSortOrder( toSortOrderUpdates( orderedSiteIds ) ),
+		onMutate: ( orderedSiteIds ) => {
+			const rank = new Map(
+				toSortOrderUpdates( orderedSiteIds ).map( ( { siteId, sortOrder } ) => [
+					siteId,
+					sortOrder,
+				] )
+			);
+			queryClient.setQueryData< SiteDetails[] >(
+				SITES_QUERY_KEY,
+				( sites ) =>
+					sites?.map( ( site ) => {
+						const sortOrder = rank.get( site.id );
+						return sortOrder === undefined ? site : { ...site, sortOrder };
+					} )
+			);
+		},
+		onError: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+	} );
 }
 
 export function useUpdateSite() {
@@ -113,6 +155,7 @@ export function useUpdateSite() {
 			// site-event lands, giving us a single refetch against fresh
 			// in-memory details.
 		},
+		onSuccess: () => toast.success( __( 'Settings saved' ) ),
 	} );
 }
 

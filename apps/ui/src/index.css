@@ -19,6 +19,14 @@
 	   above the containing overlay. */
 	--wp-ui-dialog-z-index: 700;
 	--wp-ui-tooltip-z-index: 800;
+
+	/* Vivid status colors the wpds palette lacks: --wpds-color-fg-content-success
+	   resolves to #002900 (reads black at dot size) and there are no
+	   caution/accent equivalents. */
+	--studio-color-status-running: #16a34a;
+	--studio-color-status-transitioning: #a16207;
+	--studio-color-status-attention: #facc15;
+	--studio-color-status-sync: #a855f7;
 }
 
 body {
@@ -58,6 +66,15 @@ body:lang( ckb ) [class*='components-'] {
 		--wp-ui-tooltip-background-color: #fff;
 		--wp-ui-tooltip-color: #000;
 	}
+}
+
+/* @wordpress/components and @wordpress/dataviews render help text and field
+   descriptions with hardcoded light-mode colors that don't adapt to the
+   ThemeProvider's dark palette. Force them to the design-system's weak
+   foreground so they match the surrounding UI in both schemes. */
+.components-base-control__help,
+[class*='dataforms-layouts'] [class*='description'] {
+	color: var( --wpds-color-fg-content-neutral-weak ) !important;
 }
 
 /* Universal heading styles derived from the design system's font-size /

@@ -286,13 +286,13 @@ describe( 'Composer menu', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.click( await screen.findByText( 'GPT 5.5' ) );
+		fireEvent.click( await screen.findByText( 'GPT 5.6 Sol' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start new conversation' } ) );
 
 		await waitFor( () => {
 			expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' );
 		} );
-		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.5' );
+		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.6-sol' );
 
 		const loadedSession = queryClient.getQueryData< LoadedAiSession >( [
 			...SESSIONS_QUERY_KEY,
@@ -302,7 +302,7 @@ describe( 'Composer menu', () => {
 		expect( loadedSession?.entries ).toEqual( [
 			expect.objectContaining( {
 				type: 'model_change',
-				modelId: 'gpt-5.5',
+				modelId: 'gpt-5.6-sol',
 			} ),
 		] );
 	} );

@@ -10,6 +10,7 @@ import {
 	createMainWindow,
 	getMainWindow,
 	isToggleSidebarShortcut,
+	setAgenticUiEnabled,
 	__resetMainWindow,
 } from 'src/main-window';
 
@@ -160,6 +161,7 @@ describe( 'getMainWindow', () => {
 
 describe( 'renderer selection', () => {
 	afterEach( () => {
+		setAgenticUiEnabled( false );
 		__resetMainWindow();
 	} );
 
@@ -172,7 +174,7 @@ describe( 'renderer selection', () => {
 	} );
 
 	it( 'loads the UI dev server when the agentic UI flag is enabled', async () => {
-		process.env.ENABLE_AGENTIC_UI = 'true';
+		setAgenticUiEnabled( true );
 		process.env.ELECTRON_UI_RENDERER_URL = 'http://localhost:5200';
 
 		const createdWindow = await createMainWindow();

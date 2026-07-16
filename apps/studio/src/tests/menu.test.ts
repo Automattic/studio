@@ -1,10 +1,9 @@
 /**
  * @vitest-environment node
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setAgenticUiEnabled } from 'src/main-window';
 import { buildViewMenuItems } from 'src/menu';
-
-const originalEnableAgenticUi = process.env.ENABLE_AGENTIC_UI;
 
 function buildTestViewMenuItems(
 	overrides: Partial< Parameters< typeof buildViewMenuItems >[ 0 ] > = {}
@@ -25,17 +24,8 @@ function getLabels( items = buildTestViewMenuItems() ) {
 }
 
 describe( 'buildViewMenuItems', () => {
-	beforeEach( () => {
-		delete process.env.ENABLE_AGENTIC_UI;
-	} );
-
 	afterEach( () => {
-		if ( originalEnableAgenticUi === undefined ) {
-			delete process.env.ENABLE_AGENTIC_UI;
-			return;
-		}
-
-		process.env.ENABLE_AGENTIC_UI = originalEnableAgenticUi;
+		setAgenticUiEnabled( false );
 	} );
 
 	it( 'hides the site preview menu item when the agentic UI is disabled', () => {
@@ -43,13 +33,13 @@ describe( 'buildViewMenuItems', () => {
 	} );
 
 	it( 'shows the site preview menu item when the agentic UI is enabled', () => {
-		process.env.ENABLE_AGENTIC_UI = 'true';
+		setAgenticUiEnabled( true );
 
 		expect( getLabels() ).toContain( 'Toggle Site Preview' );
 	} );
 
 	it( 'keeps the site preview command wired to the expected shortcut and callback', () => {
-		process.env.ENABLE_AGENTIC_UI = 'true';
+		setAgenticUiEnabled( true );
 		const onToggleSitePreview = vi.fn();
 		const items = buildTestViewMenuItems( { onToggleSitePreview } );
 		const toggleSitePreviewItem = items.find( ( item ) => item.label === 'Toggle Site Preview' );
@@ -65,7 +55,7 @@ describe( 'buildViewMenuItems', () => {
 	} );
 
 	it( 'disables the site preview command during onboarding', () => {
-		process.env.ENABLE_AGENTIC_UI = 'true';
+		setAgenticUiEnabled( true );
 		const toggleSitePreviewItem = buildTestViewMenuItems( { needsOnboarding: true } ).find(
 			( item ) => item.label === 'Toggle Site Preview'
 		);
@@ -74,7 +64,7 @@ describe( 'buildViewMenuItems', () => {
 	} );
 
 	it( 'keeps development tools after the site preview command', () => {
-		process.env.ENABLE_AGENTIC_UI = 'true';
+		setAgenticUiEnabled( true );
 
 		expect(
 			getLabels(

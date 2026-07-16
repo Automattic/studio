@@ -100,7 +100,10 @@ import {
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
+import {
+	getBetaFeatures as getBetaFeaturesFromLib,
+	updateBetaFeature as updateBetaFeatureInLib,
+} from 'src/lib/beta-features';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -131,6 +134,8 @@ import {
 	getMainWindow,
 	getThemeAwareTitleBarOverlayOptions,
 	getTitleBarOverlayOptions,
+	loadMainWindowRenderer,
+	setAgenticUiEnabled,
 } from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
@@ -172,11 +177,11 @@ import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
+	updateAppdata,
 	loadUserData,
 	lockAppdata,
 	saveUserData,
 	unlockAppdata,
-	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
@@ -225,12 +230,14 @@ export {
 export {
 	getColorScheme,
 	getInstalledAppsAndTerminals,
+	getQuitSitesBehavior,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
 	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
+	saveQuitSitesBehavior,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -1485,6 +1492,33 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 
 export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
 	return await getBetaFeaturesFromLib();
+}
+
+export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', true );
+	setAgenticUiEnabled( true );
+	const mainWindow = await getMainWindow();
+	if ( mainWindow && ! mainWindow.isDestroyed() ) {
+		await loadMainWindowRenderer( mainWindow );
+	}
+}
+
+export async function disableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', false );
+	setAgenticUiEnabled( false );
+	const mainWindow = await getMainWindow();
+	if ( mainWindow && ! mainWindow.isDestroyed() ) {
+		await loadMainWindowRenderer( mainWindow );
+	}
+}
+
+export async function dismissAgenticUiBanner( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateAppdata( { agenticUiBannerDismissed: true } );
+}
+
+export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.agenticUiBannerDismissed === true;
 }
 
 export async function executeWPCLiInline(

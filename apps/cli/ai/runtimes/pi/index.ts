@@ -292,7 +292,10 @@ async function createStudioAgentSession(
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
-	const chatArtifactsEnabled = typeof process.send === 'function';
+	// STUDIO_FORCE_CHAT_ARTIFACTS lets headless harnesses (the eval runner)
+	// register the desks widget tools without a Studio UI attached over IPC.
+	const chatArtifactsEnabled =
+		typeof process.send === 'function' || config.env.STUDIO_FORCE_CHAT_ARTIFACTS === '1';
 
 	const systemPrompt = buildSystemPrompt(
 		isRemoteSite

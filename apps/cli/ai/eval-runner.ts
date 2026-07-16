@@ -39,6 +39,16 @@ import type { AiProviderId } from 'cli/ai/providers';
 // Optional fixtures a test can pre-seed before the agent turn, so flows that
 // depend on connected remote sites and/or preview sites can be exercised
 // deterministically and offline (no real WordPress.com connection/preview).
+// Optional mid-turn steering instruction: after `afterToolResults` tool
+// results have come back, the runner delivers `text` to the running turn via
+// the turn handle's steer() (feature-detected, so builds without steering
+// support report `supported: false` instead of crashing).
+const evalSteerSchema = z.object( {
+	text: z.string(),
+	afterToolResults: z.number().int().min( 1 ).default( 2 ),
+} );
+type EvalSteer = z.infer< typeof evalSteerSchema >;
+
 const evalSeedSchema = z.object( {
 	localSite: z
 		.object( {
@@ -60,6 +70,10 @@ interface EvalRunnerInput {
 	timeoutMs?: number;
 	model?: AiModelId;
 	seed?: EvalSeed;
+	steer?: EvalSteer;
+	// Registers desks widget tools (studio_present) as if a Studio UI were
+	// attached, so widget-presentation behavior can be evaluated headless.
+	forceChatArtifacts?: boolean;
 }
 
 /**
@@ -217,11 +231,18 @@ function readInput(): EvalRunnerInput {
 		seed = evalSeedSchema.parse( vars.seed );
 	}
 
+	let steer: EvalSteer | undefined;
+	if ( vars.steer ) {
+		steer = evalSteerSchema.parse( vars.steer );
+	}
+
 	return {
 		prompt: ( vars.prompt as string ) ?? prompt,
 		timeoutMs: typeof vars.timeoutMs === 'number' ? vars.timeoutMs : undefined,
 		model,
 		seed,
+		steer,
+		forceChatArtifacts: vars.forceChatArtifacts === true,
 	};
 }
 
@@ -250,6 +271,9 @@ async function runEval( input: EvalRunnerInput ) {
 	};
 	// Allow running inside a Claude Code session
 	delete env.CLAUDECODE;
+	if ( input.forceChatArtifacts ) {
+		env.STUDIO_FORCE_CHAT_ARTIFACTS = '1';
+	}
 
 	const toolCalls: ToolCallRecord[] = [];
 	const toolResults: {
@@ -263,6 +287,11 @@ async function runEval( input: EvalRunnerInput ) {
 	const toolNameById = new Map< string, string >();
 	const toolEventById = new Map< string, ToolEvent >();
 	let firstToolError: FirstToolError | null = null;
+	let toolResultCount = 0;
+	const steerState: { requested: boolean; supported: boolean; delivered: boolean } | null =
+		input.steer ? { requested: true, supported: false, delivered: false } : null;
+	let steerPromise: Promise< void > | null = null;
+	let steerHandle: { steer?: ( text: string ) => Promise< boolean > } | null = null;
 	// Wall-clock per turn, measured between successive assistant messages.
 	const turnDurationsMs: number[] = [];
 	let turnIndex = 0;
@@ -315,6 +344,28 @@ async function runEval( input: EvalRunnerInput ) {
 		textSegments.push( ...extractTextSegments( event ) );
 
 		if ( event.type === 'tool_execution_end' ) {
+			toolResultCount += 1;
+			if (
+				input.steer &&
+				steerState &&
+				! steerPromise &&
+				toolResultCount >= input.steer.afterToolResults
+			) {
+				const steerFn = steerHandle?.steer;
+				if ( typeof steerFn === 'function' ) {
+					steerState.supported = true;
+					steerPromise = steerFn.call( steerHandle, input.steer.text ).then(
+						( delivered ) => {
+							steerState.delivered = delivered === true;
+						},
+						() => {
+							steerState.delivered = false;
+						}
+					);
+				} else {
+					steerPromise = Promise.resolve();
+				}
+			}
 			const tr = extractToolResult( event );
 			if ( tr ) {
 				const id = tr.toolUseId;
@@ -362,6 +413,7 @@ async function runEval( input: EvalRunnerInput ) {
 		onEvent: handleEvent,
 		...( input.model ? { model: input.model } : {} ),
 	} );
+	steerHandle = query as unknown as { steer?: ( text: string ) => Promise< boolean > };
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
 
 	const timeout = setTimeout( () => {
@@ -371,6 +423,9 @@ async function runEval( input: EvalRunnerInput ) {
 
 	try {
 		await query.result;
+		if ( steerPromise ) {
+			await steerPromise;
+		}
 	} catch ( caught ) {
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
@@ -394,6 +449,7 @@ async function runEval( input: EvalRunnerInput ) {
 		toolEvents,
 		firstToolError,
 		textSegments,
+		steer: steerState,
 	};
 }
 

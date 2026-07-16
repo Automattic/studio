@@ -560,7 +560,13 @@ tests:
             if (badTool) return { pass: false, score: 0, reason: `diagnostic question triggered a mutating tool: ${badTool.name} ${JSON.stringify(badTool.input).slice(0, 200)}` };
             const mutatingWpCli = calls.find(c => c.name === 'wp_cli' && /\b(install|activate|deactivate|uninstall|delete|update|create|import|regenerate|switch|set)\b/.test(c.input?.command || ''));
             if (mutatingWpCli) return { pass: false, score: 0, reason: `diagnostic question triggered a mutating wp_cli call: ${mutatingWpCli.input?.command}` };
-            const mutatingBash = calls.find(c => c.name === 'Bash' && /(>|>>|\brm\b|\bmv\b|\bcp\b|sed -i|\btee\b)/.test(c.input?.command || ''));
+            const mutatingBash = calls.find(c => {
+              if (c.name !== 'Bash') return false;
+              // Strip stderr/null redirections (2>/dev/null, 2>&1) — they read
+              // as `>` but mutate nothing.
+              const cmd = (c.input?.command || '').replace(/\d?>>?\s*\/dev\/null/g, '').replace(/\d>&\d/g, '');
+              return /(>|>>|\brm\b|\bmv\b|\bcp\b|sed -i|\btee\b)/.test(cmd);
+            });
             if (mutatingBash) return { pass: false, score: 0, reason: `diagnostic question triggered a mutating Bash call: ${mutatingBash.input?.command}` };
             return { pass: true, score: 1, reason: `no mutations; tools used: ${JSON.stringify([...new Set(calls.map(c => c.name))])}` };
           });

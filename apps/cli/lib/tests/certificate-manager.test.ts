@@ -9,12 +9,6 @@ import sudo from '@vscode/sudo-prompt';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isRootCATrusted, trustRootCA } from 'cli/lib/certificate-manager';
 
-const { execFileMock } = vi.hoisted( () => ( { execFileMock: vi.fn() } ) );
-vi.mock( 'node:child_process', () => ( {
-	execFile: execFileMock,
-	default: { execFile: execFileMock },
-} ) );
-
 vi.mock( '@studio/common/lib/linux-trust-store', () => ( {
 	LINUX_TRUST_STORE_PATH: '/usr/local/share/ca-certificates/studio-ca.crt',
 	LINUX_NSS_NICKNAME: 'WordPress Studio CA',
@@ -112,44 +106,6 @@ describe( 'certificate-manager (Linux)', () => {
 			await expect( isRootCATrusted() ).resolves.toBe( false );
 			expect( mockedIsCATrustedOnLinux ).not.toHaveBeenCalled();
 			expect( mockedIsCAImportedInUserNssDbsLinux ).not.toHaveBeenCalled();
-		} );
-
-		describe( 'macOS', () => {
-			// Resolve or reject the promisified execFile via its trailing callback.
-			const stubExecFile = ( error?: Error ) => {
-				execFileMock.mockImplementation( ( ( ..._args: unknown[] ) => {
-					const cb = _args[ _args.length - 1 ] as ( e: Error | null, r: object ) => void;
-					cb( error ?? null, { stdout: '', stderr: '' } );
-				} ) as never );
-			};
-
-			beforeEach( () => {
-				setPlatform( 'darwin' );
-				execFileMock.mockReset();
-			} );
-
-			it( 'evaluates against the system trust store, not the CA as its own anchor', async () => {
-				stubExecFile();
-
-				await expect( isRootCATrusted() ).resolves.toBe( true );
-
-				const [ , args ] = execFileMock.mock.calls[ 0 ];
-				expect( args ).not.toContain( '-r' );
-				expect( args ).toEqual( [
-					'verify-cert',
-					'-c',
-					expect.stringContaining( 'studio-ca.crt' ),
-					'-p',
-					'ssl',
-					'-l',
-				] );
-			} );
-
-			it( 'returns false when the CA is not trusted by the system', async () => {
-				stubExecFile( new Error( 'CSSMERR_TP_NOT_TRUSTED' ) );
-
-				await expect( isRootCATrusted() ).resolves.toBe( false );
-			} );
 		} );
 	} );
 

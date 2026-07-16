@@ -581,7 +581,7 @@ describe( 'CLI: studio pull-reprint source resolution', () => {
 		] );
 
 		await expect( resolveSourceSite( 'https://free.example.com' ) ).rejects.toThrow(
-			/Business plan or higher.*plans\/55/
+			/plan with hosting features.*plans\/55/
 		);
 		expect( rotateReprintSecret ).not.toHaveBeenCalled();
 	} );

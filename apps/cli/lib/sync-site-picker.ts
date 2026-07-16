@@ -30,7 +30,7 @@ export function getSyncSupportError( site: SyncSite ): LoggerError {
 				sprintf(
 					// translators: %1$s: site name. %2$d: WordPress.com site ID.
 					__(
-						'Site %1$s requires a Business plan or higher to sync. Please upgrade at https://wordpress.com/plans/%2$d, then try again.'
+						'Site %1$s requires a plan with hosting features to sync. Please upgrade at https://wordpress.com/plans/%2$d, then try again.'
 					),
 					site.name,
 					site.id

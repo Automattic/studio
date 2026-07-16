@@ -39,15 +39,24 @@
 	display: flex;
 	align-items: center;
 	margin-inline-start: auto;
-	/* Match the site-row action buttons (`.siteActions` in site-list), which
-	   sit flush with no gap. */
-	gap: 0;
 	/* The site rows have their action rail tucked into the row padding. Pull
-	   the header buttons over by the row's inner padding so the create/toggle
-	   controls share those same trailing columns. */
+	   the header button over by the row's inner padding so it shares the same
+	   trailing column. */
 	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+	-webkit-app-region: no-drag;
 }
 
 .popup {
 	min-width: 200px;
+}
+
+/* The minimal button's hover fill is nearly the same grey as the sidebar
+   background, so it reads as having no hover state. Use a foreground-based
+   tint that stays visible on the sidebar in both color schemes. */
+.createButton {
+	--wp-ui-button-background-color-active: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 8%,
+		transparent
+	);
 }

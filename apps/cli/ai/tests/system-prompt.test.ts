@@ -52,6 +52,16 @@ describe( 'buildSystemPrompt', () => {
 		expect( prompt ).toContain( '- pdf:' );
 	} );
 
+	it( 'tells the model to treat mid-turn messages as course corrections in both variants', () => {
+		const localPrompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
+		const remotePrompt = buildSystemPrompt( { remoteSite } );
+
+		for ( const prompt of [ localPrompt, remotePrompt ] ) {
+			expect( prompt ).toContain( 'while you are working' );
+			expect( prompt ).toContain( 'never restart completed work' );
+		}
+	} );
+
 	it( 'routes plugin-specific feature work to the plugin recommendations skill', () => {
 		const prompt = buildSystemPrompt( { chatArtifactsEnabled: true } );
 

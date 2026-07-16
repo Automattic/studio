@@ -481,26 +481,7 @@ export class AiChatUI implements AiOutputAdapter {
 			new DescriptionAwareAutocompleteProvider( getActiveSlashCommands(), process.cwd() )
 		);
 
-		this.editor.onSubmit = ( text ) => {
-			const trimmed = text.trim();
-			if ( ! trimmed ) {
-				return;
-			}
-			this.editor.addToHistory( trimmed );
-			if ( this.submitResolve ) {
-				const resolve = this.submitResolve;
-				this.submitResolve = null;
-				resolve( trimmed );
-				return;
-			}
-			// No waiter → we're mid-turn. Steer the running agent when
-			// possible; otherwise stage the prompt so it fires after the
-			// current run ends (`waitForInput` drains the head).
-			if ( this._inAgentTurn ) {
-				this.editor.setText( '' );
-				this.submitMidTurn( trimmed );
-			}
-		};
+		this.editor.onSubmit = ( text ) => this.submitPrompt( text );
 		// Ctrl+C to exit, Escape to interrupt/close picker, arrow keys for picker
 		this.tui.addInputListener( ( data ) => {
 			// Ignore key release events (Kitty protocol sends press + release)
@@ -609,6 +590,11 @@ export class AiChatUI implements AiOutputAdapter {
 				// Forward remaining input (up/down/enter) to SelectList
 				this.sitePickerSelectList.handleInput( data );
 				this.renderSitePicker();
+				return { consume: true };
+			}
+			// Alt+Enter sends the drafted prompt to the running agent as a
+			// steering message; plain Enter queues it for the next turn.
+			if ( matchesKey( data, 'alt+enter' ) && this.steerFromEditor() ) {
 				return { consume: true };
 			}
 			// Backspace on an empty editor pops the most recent queued prompt.
@@ -1196,6 +1182,44 @@ export class AiChatUI implements AiOutputAdapter {
 
 	set onSteer( fn: ( ( text: string ) => Promise< boolean > ) | null ) {
 		this.steerCallback = fn;
+		this.updateHints();
+	}
+
+	private submitPrompt( text: string ): void {
+		const trimmed = text.trim();
+		if ( ! trimmed ) {
+			return;
+		}
+		this.editor.addToHistory( trimmed );
+		if ( this.submitResolve ) {
+			const resolve = this.submitResolve;
+			this.submitResolve = null;
+			resolve( trimmed );
+			return;
+		}
+		// No waiter → we're mid-turn. Stage the prompt so it fires after the
+		// current run ends (`waitForInput` drains the head). Reaching the live
+		// run instead requires the explicit alt+enter gesture.
+		if ( this._inAgentTurn ) {
+			this.editor.setText( '' );
+			this.stagePrompt( trimmed );
+		}
+	}
+
+	// Alt+Enter mid-turn: submit the drafted prompt as a steering message.
+	// Returns whether the gesture was consumed; outside a turn it falls
+	// through so the key keeps its default (no-op) behavior.
+	private steerFromEditor(): boolean {
+		if ( ! this._inAgentTurn ) {
+			return false;
+		}
+		const text = this.editor.getText().trim();
+		if ( text ) {
+			this.editor.addToHistory( text );
+			this.editor.setText( '' );
+			this.submitMidTurn( text );
+		}
+		return true;
 	}
 
 	// Deliver a mid-turn prompt to the running agent as a steering message.
@@ -1382,6 +1406,9 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 		if ( this.interruptCallback ) {
 			hints.push( __( 'esc to interrupt' ) );
+		}
+		if ( this.steerCallback && this._inAgentTurn ) {
+			hints.push( __( 'alt+enter to steer' ) );
 		}
 		this.editor.hints = hints;
 	}

@@ -89,6 +89,21 @@ function toolResultEntry( text: string ): SessionEntry {
 	} as unknown as SessionEntry;
 }
 
+describe( 'entriesToRenderItems – steered prompts', () => {
+	it( 'renders steered mid-turn messages as user prompts', () => {
+		const items = entriesToRenderItems( [
+			prompt( 'Build a bakery site' ),
+			customEntry( 'studio.user_prompt', { text: 'make the hero darker', source: 'steer' } ),
+		] );
+
+		const userTexts = items.filter( ( item ) => item.kind === 'user-text' );
+		expect( userTexts.map( ( item ) => ( item as { text: string } ).text ) ).toEqual( [
+			'Build a bakery site',
+			'make the hero darker',
+		] );
+	} );
+} );
+
 describe( 'entriesToRenderItems – persisted picked answers', () => {
 	it( 'pairs a question with its persisted ask_user answer', () => {
 		const items = entriesToRenderItems( [ question( 'Pick one', [ 'A', 'B' ] ), answer( 'B' ) ] );

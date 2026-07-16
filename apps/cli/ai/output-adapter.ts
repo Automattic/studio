@@ -65,16 +65,19 @@ export class JsonAdapter implements AiOutputAdapter {
 			if ( ! message || typeof message !== 'object' ) {
 				return;
 			}
-			const typed = message as { type?: string; text?: unknown };
+			const typed = message as { type?: string; text?: unknown; id?: unknown };
 			if ( typed.type === 'interrupt' ) {
 				this.onInterrupt?.();
 				return;
 			}
 			// Mid-turn user message from the desktop app. Always answer with a
 			// steer.result event so the sender can stage the message for the
-			// next turn when it arrived too late to reach the live one.
+			// next turn when it arrived too late to reach the live one. The
+			// optional id is echoed back so the sender can match the result to
+			// the exact message it sent (the same text can be steered twice).
 			if ( typed.type === 'steer' && typeof typed.text === 'string' ) {
 				const text = typed.text;
+				const id = typeof typed.id === 'string' ? typed.id : undefined;
 				void ( async () => {
 					const delivered = ( await this.onSteer?.( text ).catch( () => false ) ) ?? false;
 					emitEvent( {
@@ -82,6 +85,7 @@ export class JsonAdapter implements AiOutputAdapter {
 						timestamp: new Date().toISOString(),
 						delivered,
 						text,
+						...( id !== undefined ? { id } : {} ),
 					} );
 				} )();
 			}

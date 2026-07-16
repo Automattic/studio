@@ -39,7 +39,8 @@ export type JsonEvent =
 	| { type: 'turn.started'; timestamp: string }
 	// Reply to a `steer` IPC message: whether the mid-turn user message reached
 	// the live turn. When false the sender should resend it as a normal prompt.
-	| { type: 'steer.result'; timestamp: string; delivered: boolean; text: string }
+	// `id` echoes the sender-chosen correlation id from the `steer` message.
+	| { type: 'steer.result'; timestamp: string; delivered: boolean; text: string; id?: string }
 	| {
 			type: 'turn.completed';
 			timestamp: string;

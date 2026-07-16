@@ -569,12 +569,12 @@ export async function runCommand( options: {
 		ui.onSteer = async ( text ) => {
 			const delivered = await agentQuery.steer( text );
 			if ( delivered ) {
-				// `source: 'prompt'` so replay and the desktop transcript render
-				// the steered message like any other user message.
+				// `source: 'steer'` so replay and the transcripts render the
+				// message in place without treating it as a turn boundary.
 				await append( ( s ) =>
 					appendStudioEntry( s, 'studio.user_prompt', {
 						text,
-						source: 'prompt',
+						source: 'steer',
 						sitePath: site?.path,
 					} )
 				);

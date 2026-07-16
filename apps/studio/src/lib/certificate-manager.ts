@@ -47,7 +47,7 @@ export async function isRootCATrusted(): Promise< boolean > {
 		}
 	} else if ( process.platform === 'darwin' ) {
 		try {
-			await execFilePromise( 'security', [ 'verify-cert', '-r', CA_CERT_PATH, '-p', 'ssl' ] );
+			await execFilePromise( 'security', [ 'verify-cert', '-c', CA_CERT_PATH, '-p', 'ssl', '-l' ] );
 
 			return true;
 		} catch ( error ) {

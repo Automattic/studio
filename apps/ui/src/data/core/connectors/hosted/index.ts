@@ -1,4 +1,5 @@
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
@@ -136,7 +137,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = await api< SiteDetails[] >( '/sites' );
+			lastSites = applyStoredSiteOrder( await api< SiteDetails[] >( '/sites' ) );
 			return lastSites;
 		},
 		async createSite() {
@@ -156,6 +157,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async updateSite() {
 			throw new UnsupportedError( 'updateSite' );
+		},
+		async updateSitesSortOrder( updates ) {
+			storeSiteOrder( updates );
 		},
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
@@ -307,6 +311,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				editor: null,
 				terminal: null,
 				colorScheme: 'system',
+				quitSitesBehavior: undefined,
 				locale: undefined,
 			};
 		},
@@ -337,6 +342,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
 		async popupAppMenu() {},
+		showsAppMenuButton: false,
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
 		},
@@ -372,6 +378,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onOpenSettings() {
 			// No application menu in a browser tab.
 			return () => {};
+		},
+		async disableAgenticUi() {
+			// No-op in the browser.
 		},
 	};
 }

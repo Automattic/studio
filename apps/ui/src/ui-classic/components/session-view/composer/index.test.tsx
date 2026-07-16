@@ -269,6 +269,43 @@ describe( 'Composer menu', () => {
 		firePointerEventWithClientY( resizeHandle, 'pointerup', 620 );
 	} );
 
+	it( 'attaches images pasted outside the textarea and focuses the composer', async () => {
+		renderComposer();
+
+		const image = new File( [ 'image-bytes' ], '', { type: 'image/png' } );
+		const pasteEvent = new Event( 'paste', { bubbles: true, cancelable: true } );
+		Object.defineProperty( pasteEvent, 'clipboardData', {
+			value: { files: [ image ], items: [] },
+		} );
+		fireEvent( document.body, pasteEvent );
+
+		expect( pasteEvent.defaultPrevented ).toBe( true );
+		expect(
+			await screen.findByRole( 'button', { name: 'Remove attachment: pasted-image.png' } )
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'textbox' ) ).toHaveFocus();
+	} );
+
+	it( 'ignores pastes inside open dialogs', () => {
+		renderComposer();
+
+		const dialog = document.createElement( 'div' );
+		dialog.setAttribute( 'role', 'dialog' );
+		document.body.appendChild( dialog );
+
+		const image = new File( [ 'image-bytes' ], '', { type: 'image/png' } );
+		const pasteEvent = new Event( 'paste', { bubbles: true, cancelable: true } );
+		Object.defineProperty( pasteEvent, 'clipboardData', {
+			value: { files: [ image ], items: [] },
+		} );
+		fireEvent( dialog, pasteEvent );
+
+		expect( pasteEvent.defaultPrevented ).toBe( false );
+		expect( screen.queryByRole( 'button', { name: /Remove attachment/ } ) ).not.toBeInTheDocument();
+
+		dialog.remove();
+	} );
+
 	it( 'keeps the picked model in the fresh session cache after a family switch', async () => {
 		const queryClient = new QueryClient();
 		const onSwitchSession = vi.fn();
@@ -286,13 +323,13 @@ describe( 'Composer menu', () => {
 		);
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select model' } ) );
-		fireEvent.click( await screen.findByText( 'GPT 5.5' ) );
+		fireEvent.click( await screen.findByText( 'GPT 5.6 Sol' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start new conversation' } ) );
 
 		await waitFor( () => {
 			expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' );
 		} );
-		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.5' );
+		expect( connectorMocks.setSessionModel ).toHaveBeenCalledWith( 'fresh-session', 'gpt-5.6-sol' );
 
 		const loadedSession = queryClient.getQueryData< LoadedAiSession >( [
 			...SESSIONS_QUERY_KEY,
@@ -302,7 +339,7 @@ describe( 'Composer menu', () => {
 		expect( loadedSession?.entries ).toEqual( [
 			expect.objectContaining( {
 				type: 'model_change',
-				modelId: 'gpt-5.5',
+				modelId: 'gpt-5.6-sol',
 			} ),
 		] );
 	} );

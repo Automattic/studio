@@ -1,6 +1,7 @@
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { __ } from '@wordpress/i18n';
+import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
@@ -15,6 +16,7 @@ import type {
 	LoadedAiSession,
 	LocalMediaFile,
 	ProposedSitePath,
+	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -33,6 +35,13 @@ const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
 // store); the server reads them back from each open request.
 const EDITOR_STORAGE_KEY = 'studio-local-editor';
 const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
+const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
+
+function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
+	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'
+		? value
+		: undefined;
+}
 
 export interface LocalConnectorOptions {
 	// Base URL of the local Studio server started by `studio ui`, e.g.
@@ -309,7 +318,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = await api< SiteDetails[] >( '/sites' );
+			lastSites = applyStoredSiteOrder( await api< SiteDetails[] >( '/sites' ) );
 			return lastSites;
 		},
 		async startSite( id ) {
@@ -385,6 +394,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 				body: JSON.stringify( { site, wpVersion } ),
 			} );
+		},
+		async updateSitesSortOrder( updates ) {
+			storeSiteOrder( updates );
 		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
 		async exportFullSite( siteId ): Promise< string | null > {
@@ -579,6 +591,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const stored = window.localStorage.getItem( COLOR_SCHEME_STORAGE_KEY );
 			const colorScheme: ColorScheme =
 				stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+			const quitSitesBehavior = parseQuitSitesBehavior(
+				window.localStorage.getItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY )
+			);
 			return {
 				editor:
 					( window.localStorage.getItem( EDITOR_STORAGE_KEY ) as SupportedEditor | null ) || null,
@@ -586,6 +601,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					( window.localStorage.getItem( TERMINAL_STORAGE_KEY ) as SupportedTerminal | null ) ||
 					null,
 				colorScheme,
+				quitSitesBehavior,
 				locale: undefined,
 			};
 		},
@@ -605,6 +621,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					window.localStorage.setItem( TERMINAL_STORAGE_KEY, partial.terminal );
 				} else {
 					window.localStorage.removeItem( TERMINAL_STORAGE_KEY );
+				}
+			}
+			if ( 'quitSitesBehavior' in partial ) {
+				if ( partial.quitSitesBehavior ) {
+					window.localStorage.setItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY, partial.quitSitesBehavior );
+				} else {
+					window.localStorage.removeItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY );
 				}
 			}
 		},
@@ -652,6 +675,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
 		async popupAppMenu() {},
+		showsAppMenuButton: false,
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
@@ -687,6 +711,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onOpenSettings() {
 			// No application menu in a browser tab.
 			return () => {};
+		},
+		async disableAgenticUi() {
+			// No-op in the browser.
 		},
 	};
 }

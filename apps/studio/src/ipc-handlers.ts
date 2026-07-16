@@ -6,7 +6,6 @@ import {
 	app,
 	clipboard,
 	dialog,
-	nativeTheme,
 	shell,
 	type IpcMainInvokeEvent,
 	Notification,
@@ -28,6 +27,7 @@ import {
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 } from '@studio/common/ai/sessions/manage';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import {
 	deleteAiSessionPlacement,
 	readAiSessionPlacement,
@@ -98,14 +98,12 @@ import {
 	type ExtractedBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import {
-	MACOS_TRAFFIC_LIGHT_POSITION,
-	MAIN_MIN_WIDTH,
-	SIDEBAR_WIDTH,
-	WINDOWS_TITLEBAR_HEIGHT,
-} from 'src/constants';
+import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
+import {
+	getBetaFeatures as getBetaFeaturesFromLib,
+	updateBetaFeature as updateBetaFeatureInLib,
+} from 'src/lib/beta-features';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -132,7 +130,13 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
-import { getMainWindow } from 'src/main-window';
+import {
+	getFrameTitleBarOverlayOptions,
+	getMainWindow,
+	getTitleBarOverlayOptions,
+	loadMainWindowRenderer,
+	setAgenticUiEnabled,
+} from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
 import {
@@ -173,11 +177,11 @@ import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
+	updateAppdata,
 	loadUserData,
 	lockAppdata,
 	saveUserData,
 	unlockAppdata,
-	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
@@ -226,12 +230,14 @@ export {
 export {
 	getColorScheme,
 	getInstalledAppsAndTerminals,
+	getQuitSitesBehavior,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
 	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
+	saveQuitSitesBehavior,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -322,11 +328,8 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	if ( summary.activeEnvironment !== 'live' ) {
 		return;
 	}
-	if ( ! summary.ownerSitePath ) {
-		return;
-	}
-
-	const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+	const ownerSite = findAiSessionOwnerSite( SiteServer.getAllDetails(), summary );
+	const ownerServer = ownerSite ? SiteServer.get( ownerSite.id ) : undefined;
 	if ( ! ownerServer ) {
 		return;
 	}
@@ -343,7 +346,8 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	// CLI's replay sees Local on the next turn.
 	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
 		siteName: ownerServer.details.name,
-		sitePath: summary.ownerSitePath,
+		sitePath: ownerServer.details.path,
+		siteId: ownerServer.details.id,
 	} );
 }
 
@@ -440,14 +444,17 @@ export async function setSessionEnvironment(
 ): Promise< SetSessionEnvironmentResult > {
 	const { summary } = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
 
-	if ( ! summary.ownerSitePath || ! summary.ownerSiteName ) {
+	if ( ! summary.ownerSiteId && ! summary.ownerSitePath ) {
 		throw new Error( 'Cannot change environment: session has no owner site' );
 	}
 
-	const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+	const ownerSite = findAiSessionOwnerSite( SiteServer.getAllDetails(), summary );
+	const ownerServer = ownerSite ? SiteServer.get( ownerSite.id ) : undefined;
 	if ( ! ownerServer ) {
 		throw new Error(
-			`Cannot change environment: owner site is no longer available (${ summary.ownerSitePath })`
+			`Cannot change environment: owner site is no longer available (${
+				summary.ownerSiteId ?? summary.ownerSitePath
+			})`
 		);
 	}
 
@@ -463,9 +470,10 @@ export async function setSessionEnvironment(
 
 		await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
 			siteName: liveSite.name,
-			// Keep the desktop placement path on remote picks too, so live/local
+			// Keep the local owner's path and id on remote picks too, so live/local
 			// environment flips still resolve against the same local site.
-			sitePath: summary.ownerSitePath,
+			sitePath: ownerServer.details.path,
+			siteId: ownerServer.details.id,
 			remote: true,
 			url: liveSite.url,
 			wpcomSiteId: liveSite.id,
@@ -484,6 +492,7 @@ export async function setSessionEnvironment(
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
 		siteName: details.name,
 		sitePath: details.path,
+		siteId: details.id,
 		url: 'url' in details ? details.url : undefined,
 	} );
 
@@ -1485,6 +1494,33 @@ export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< Be
 	return await getBetaFeaturesFromLib();
 }
 
+export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', true );
+	setAgenticUiEnabled( true );
+	const mainWindow = await getMainWindow();
+	if ( mainWindow && ! mainWindow.isDestroyed() ) {
+		await loadMainWindowRenderer( mainWindow );
+	}
+}
+
+export async function disableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', false );
+	setAgenticUiEnabled( false );
+	const mainWindow = await getMainWindow();
+	if ( mainWindow && ! mainWindow.isDestroyed() ) {
+		await loadMainWindowRenderer( mainWindow );
+	}
+}
+
+export async function dismissAgenticUiBanner( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateAppdata( { agenticUiBannerDismissed: true } );
+}
+
+export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.agenticUiBannerDismissed === true;
+}
+
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
 	{
@@ -2263,42 +2299,22 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
 		}
 	} else if ( process.platform === 'win32' || process.platform === 'linux' ) {
-		const isDark = nativeTheme.shouldUseDarkColors;
-		if ( visible ) {
-			parentWindow.setTitleBarOverlay( {
-				color: 'rgba(30, 30, 30, 1)',
-				symbolColor: 'white',
-				height: WINDOWS_TITLEBAR_HEIGHT,
-			} );
-		} else {
-			parentWindow.setTitleBarOverlay( {
-				color: isDark ? '#2f2f2f' : '#fff',
-				symbolColor: isDark ? 'white' : '#1e1e1e',
-				height: WINDOWS_TITLEBAR_HEIGHT,
-			} );
-		}
+		// Hiding the controls means a fullscreen modal (e.g. Add site) now sits behind them,
+		// so the overlay must match its theme-aware `bg-frame` background instead of the chrome.
+		parentWindow.setTitleBarOverlay(
+			visible ? getTitleBarOverlayOptions() : getFrameTitleBarOverlayOptions()
+		);
 	}
 }
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
+	void enabled;
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
 		return;
 	}
 
-	if ( enabled ) {
-		parentWindow.setTitleBarOverlay( {
-			color: '#131313',
-			symbolColor: 'white',
-			height: WINDOWS_TITLEBAR_HEIGHT,
-		} );
-	} else {
-		parentWindow.setTitleBarOverlay( {
-			color: 'rgba(30, 30, 30, 1)',
-			symbolColor: 'white',
-			height: WINDOWS_TITLEBAR_HEIGHT,
-		} );
-	}
+	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 
 export async function updateSitesSortOrder(

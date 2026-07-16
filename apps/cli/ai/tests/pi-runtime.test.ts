@@ -65,9 +65,9 @@ const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 		message: {
 			role: 'assistant',
 			content: [ { type: 'text', text: 'mocked openai response' } ],
-			api: 'openai-completions',
+			api: 'openai-responses',
 			provider: 'openai',
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			usage: {
 				input: 0,
 				output: 0,
@@ -85,9 +85,9 @@ const DEFAULT_MOCK_EVENTS: AgentSessionEvent[] = [
 		message: {
 			role: 'assistant',
 			content: [ { type: 'text', text: 'mocked openai response' } ],
-			api: 'openai-completions',
+			api: 'openai-responses',
 			provider: 'openai',
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			usage: {
 				input: 0,
 				output: 0,
@@ -115,9 +115,9 @@ const assistantMessage = (
 		message: {
 			role: 'assistant',
 			content,
-			api: 'openai-completions',
+			api: 'openai-responses',
 			provider: 'openai',
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			usage: {
 				input: 0,
 				output: 0,
@@ -224,7 +224,7 @@ describe( 'pi runtime', () => {
 		const events = await runRuntime( {
 			prompt: 'hello',
 			env: {},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 		} );
 
@@ -249,7 +249,7 @@ describe( 'pi runtime', () => {
 				OPENAI_API_KEY: 'sk-test',
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 		} );
 
@@ -265,7 +265,7 @@ describe( 'pi runtime', () => {
 				OPENAI_API_KEY: 'sk-test',
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 		} );
 
@@ -279,7 +279,7 @@ describe( 'pi runtime', () => {
 				OPENAI_API_KEY: 'sk-test',
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 		} );
 
@@ -336,7 +336,7 @@ describe( 'pi runtime', () => {
 				OPENAI_API_KEY: 'sk-test',
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 			activeSite: {
 				name: 'Remote',
@@ -367,7 +367,7 @@ describe( 'pi runtime', () => {
 				OPENAI_API_KEY: 'sk-test',
 				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 			},
-			model: 'gpt-5.5',
+			model: 'gpt-5.6-sol',
 			session: newSession(),
 		} );
 
@@ -388,7 +388,7 @@ describe( 'pi runtime', () => {
 		const session = newSession();
 		const otherOpenAiModel = 'gpt-test-other' as AiModelId;
 
-		await runRuntime( { prompt: 'hi', env, model: 'gpt-5.5', session } );
+		await runRuntime( { prompt: 'hi', env, model: 'gpt-5.6-sol', session } );
 		await runRuntime( { prompt: 'follow-up', env, model: otherOpenAiModel, session } );
 		await runRuntime( {
 			prompt: 'still on the second model',
@@ -398,7 +398,7 @@ describe( 'pi runtime', () => {
 		} );
 
 		expect( mocks.createdSessions.map( ( s ) => s.state.model.id ) ).toEqual( [
-			'gpt-5.5',
+			'gpt-5.6-sol',
 			otherOpenAiModel,
 			otherOpenAiModel,
 		] );
@@ -469,7 +469,7 @@ describe( 'pi runtime', () => {
 					OPENAI_BASE_URL: 'https://proxy.example.com/v1',
 					STUDIO_OPENAI_DEFAULT_HEADERS: '{not json',
 				},
-				model: 'gpt-5.5',
+				model: 'gpt-5.6-sol',
 				session: newSession(),
 			} );
 

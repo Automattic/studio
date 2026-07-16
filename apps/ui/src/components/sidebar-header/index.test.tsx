@@ -36,6 +36,15 @@ describe( 'SidebarHeader', () => {
 		expect( screen.queryByText( 'Import from…' ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'hides the sidebar from the header toggle', () => {
+		const onToggleSidebar = vi.fn();
+		render( <SidebarHeader onToggleSidebar={ onToggleSidebar } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Hide sidebar' } ) );
+
+		expect( onToggleSidebar ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'opens the app menu when the host has no native menu bar', () => {
 		render( <SidebarHeader onToggleSidebar={ vi.fn() } /> );
 

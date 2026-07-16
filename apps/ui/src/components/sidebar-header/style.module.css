@@ -43,7 +43,8 @@
 	   sit flush with no gap. */
 	gap: 0;
 	/* The site rows have their action rail tucked into the row padding. Pull
-	   the header buttons over by the row's inner padding so the create/toggle
+	   the header buttons over by the row's inner padding so the add/toggle
 	   controls share those same trailing columns. */
 	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+	-webkit-app-region: no-drag;
 }

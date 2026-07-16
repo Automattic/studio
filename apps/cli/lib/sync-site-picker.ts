@@ -41,7 +41,7 @@ export function getSyncSupportError( site: SyncSite ): LoggerError {
 				sprintf(
 					// translators: %s: site name.
 					__(
-						'You do not have permission to sync site %s. Ask a site administrator for access, then try again.'
+						'You do not have permission to sync site %s. Please ask a site administrator for access, then try again.'
 					),
 					site.name
 				)

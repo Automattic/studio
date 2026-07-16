@@ -47,7 +47,11 @@ export async function isRootCATrusted(): Promise< boolean > {
 		}
 	} else if ( process.platform === 'darwin' ) {
 		try {
-			await execFilePromise( 'security', [ 'verify-cert', '-r', CA_CERT_PATH, '-p', 'ssl' ] );
+			// Evaluate against the system trust store. Passing the CA as `-r`
+			// would make it its own trust anchor, so verification passes even
+			// when the cert isn't trusted in any keychain — hiding the Trust
+			// Certificate button. `-l` allows the self-signed CA as the leaf.
+			await execFilePromise( 'security', [ 'verify-cert', '-c', CA_CERT_PATH, '-p', 'ssl', '-l' ] );
 
 			return true;
 		} catch ( error ) {

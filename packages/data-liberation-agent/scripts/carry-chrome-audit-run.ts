@@ -8,7 +8,7 @@
  * source-copied CSS corrections to the carry theme's site.css.
  *
  * Usage:
- *   npx tsx scripts/carry-chrome-audit-run.ts <outputDir> <builtBaseUrl> <studioSitePath>
+ *   node scripts/run.mjs carry-chrome-audit-run <outputDir> <builtBaseUrl> <studioSitePath>
  *
  * Arguments:
  *   outputDir       — extraction output dir, e.g. ~/Studio/_liberations/example.com
@@ -48,7 +48,7 @@ import type { Page } from 'playwright';
 const [outputDir, builtBaseUrl, studioSitePath] = process.argv.slice(2);
 if (!outputDir || !builtBaseUrl || !studioSitePath) {
   console.error(
-    'usage: npx tsx scripts/carry-chrome-audit-run.ts <outputDir> <builtBaseUrl> <studioSitePath>',
+    'usage: node scripts/run.mjs carry-chrome-audit-run <outputDir> <builtBaseUrl> <studioSitePath>',
   );
   process.exit(2);
 }

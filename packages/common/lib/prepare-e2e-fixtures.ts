@@ -13,8 +13,8 @@ import fs from 'fs';
 import path from 'path';
 import { pipeline } from 'stream/promises';
 import { z } from 'zod';
-import { downloadFile } from './download-file';
-import { extractZip } from './extract-zip';
+import { downloadFile } from './download-file.ts';
+import { extractZip } from './extract-zip.ts';
 
 const sha256Schema = z.string().regex( /^[0-9a-f]{64}$/ );
 

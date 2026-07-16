@@ -81,7 +81,7 @@
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background-color: var(--wpds-color-fg-content-success, #16a34a);
+	background-color: var(--studio-color-status-running);
 	flex-shrink: 0;
 	/* Extra horizontal margin around the dot only — keeps the toggle-to-title
 	   gap at the header's base 8px while giving the site/dot/local grouping

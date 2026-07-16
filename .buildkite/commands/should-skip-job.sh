@@ -16,6 +16,10 @@ set -eu
 #            Does NOT skip on localization changes since builds should include translation updates.
 #   - fastlane: Inverse of the others — only runs when fastlane/ or Ruby setup files change.
 #               Used for the standalone tests in fastlane/test/. App-only PRs skip it.
+#   - data-liberation: Inverse like fastlane — only runs when the data-liberation
+#                      package (or the lockfile, which affects its deterministic
+#                      bundle output) changes. Used for the bundle-freshness and
+#                      skill-driver checks.
 #
 # Exit codes:
 #   0 - Job should be skipped
@@ -92,6 +96,16 @@ FASTLANE_PATTERNS=(
   ".buildkite/commands/should-skip-job.sh"
 )
 
+# Data-liberation checks rebuild the plugin's committed esbuild bundles and
+# cross-check skill/command files against them. The lockfile is an input to
+# the byte-deterministic build, so dependency bumps must re-verify freshness.
+DATA_LIBERATION_PATTERNS=(
+  "packages/data-liberation-agent/**"
+  "package-lock.json"
+  ".buildkite/commands/run-data-liberation-checks.sh"
+  ".buildkite/commands/should-skip-job.sh"
+)
+
 show_skip_message() {
   local job_type=$1
   local job_label="${BUILDKITE_LABEL:-$job_type}"
@@ -123,7 +137,7 @@ done
 
 if [[ -z "$job_type" ]]; then
   echo "Error: --job-type is required"
-  echo "Usage: should-skip-job.sh --job-type <validation|metrics|build|fastlane>"
+  echo "Usage: should-skip-job.sh --job-type <validation|metrics|build|fastlane|data-liberation>"
   exit 1
 fi
 
@@ -201,9 +215,18 @@ case "$job_type" in
     fi
     ;;
 
+  "data-liberation")
+    # Run only if at least one changed file affects the data-liberation
+    # package or its bundle build inputs. Inverse logic, like fastlane.
+    if ! pr_changed_files --any-match "${DATA_LIBERATION_PATTERNS[@]}"; then
+      show_skip_message "$job_type"
+      exit 0
+    fi
+    ;;
+
   *)
     echo "Unknown job type: $job_type"
-    echo "Valid types: validation, metrics, build, fastlane"
+    echo "Valid types: validation, metrics, build, fastlane, data-liberation"
     exit 1
     ;;
 esac

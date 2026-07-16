@@ -136,14 +136,14 @@ Now the captured material becomes a living WordPress site. This is where AI ente
 
 After the survey (detect + discover) and **before** the slow extraction, the tool stops and asks you how to rebuild. This is a required, non-skippable decision — your answer is the only thing that authorizes the rest of the run. It's placed early on purpose: the survey already gives the tool what it needs to recommend a path, so you commit while you're still paying attention rather than after a long extraction has finished (or after you've walked away).
 
-The tool shows what it found, a rough scope/cost estimate, and a platform-informed recommendation, then asks you to pick. The recommendation is only a hint — even with a strong signal, the tool never chooses for you.
+The tool shows what it found, a rough scope/cost estimate, and a recommendation, then asks you to pick. The recommendation is only a hint — even with a strong signal, the tool never chooses for you.
 
 | You pick | You get | Products |
 |---|---|---|
 | **Blocks + products** | Editable WordPress blocks, navigation, and WooCommerce — the best starting point for a redesign | Product **pages** rebuilt |
 | **Theme replication** | The highest-fidelity visual copy of the source | Product **data** imported; product pages use the default WooCommerce layout |
 
-A rough rule: a store with lots of products leans toward **blocks**; a fixed-layout marketing site with no store, where pixel-fidelity matters most, leans toward **theme replication**. The choice costs nothing to change — capture is reusable, so re-running `/liberate` on an already-captured site jumps straight back to this question and you can try the other path without re-capturing.
+**Theme replication** is the default recommendation; **Blocks + products** is recommended when the site is clearly a store (or when there is a strong, stated reason blocks fit better). The choice costs nothing to change — capture is reusable, so re-running `/liberate` on an already-captured site jumps straight back to this question and you can try the other path without re-capturing.
 
 > **Under the hood:** the question is an `AskUserQuestion` with the recommended option marked `(Recommended)`. "Blocks + products" dispatches the `replicate-with-blocks` skill ([Path A](#path-a--blocks-replicate-with-blocks)); "theme replication" dispatches `replicate-theme` ([Path B](#path-b--theme-replication-replicate-theme)). Both run inline (shared context) and own their rebuild → install → QA → report. The third path, [Path C](#path-c--convert-a-site-you-already-own-liberate_convert_local_site), is a separate entry point for files you already have, not an option at this checkpoint.
 

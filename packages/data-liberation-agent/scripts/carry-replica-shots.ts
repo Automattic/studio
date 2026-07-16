@@ -11,7 +11,7 @@
  * let page.goto follow the 301 chain. The replica manifest stays keyed by the SOURCE url
  * so liberate_compare joins origin↔replica correctly.
  *
- *   npx tsx scripts/carry-replica-shots.ts <originDir> <carryBaseUrl> <replicaDir> [concurrency]
+ *   node scripts/run.mjs carry-replica-shots <originDir> <carryBaseUrl> <replicaDir> [concurrency]
  *   (concurrency defaults to 6; also settable via the CONCURRENCY env var)
  */
 import { chromium } from 'playwright';
@@ -22,7 +22,7 @@ import { join } from 'node:path';
 
 const [originDir, carryBaseUrl, replicaDir] = process.argv.slice(2);
 if (!originDir || !carryBaseUrl || !replicaDir) {
-  console.error('usage: tsx scripts/carry-replica-shots.ts <originDir> <carryBaseUrl> <replicaDir>');
+  console.error('usage: node scripts/run.mjs carry-replica-shots <originDir> <carryBaseUrl> <replicaDir>');
   process.exit(2);
 }
 

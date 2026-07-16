@@ -5,6 +5,8 @@
 }
 
 .sidebar {
+	--sidebar-row-background: var(--wpds-color-bg-interactive-neutral-weak-active);
+
 	width: var(--sidebar-width, 320px);
 	/* The 240px floor is owned by useResizablePanel, which clamps
 	   --sidebar-width on every path. A CSS min-width here would be redundant
@@ -68,17 +70,21 @@
 	justify-content: flex-start;
 }
 
+/* Pinned to the bottom-left of the main area, mirroring the sidebar footer.
+   The button carries its own `padding-sm` top/bottom for its hit area; the
+   matching negative `bottom` cancels that lower padding so the glyph sits flush
+   with the main area's bottom edge instead of floating a padding's-worth above
+   it. */
 .floatingToggle {
 	position: absolute;
-	top: 0;
-	left: 94px;
-	/* Mirror sidebar-header vertical box so the toggle button lands at the
-	   same y-coordinate as when it lives inside the open sidebar. */
+	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
+	left: var(--wpds-dimension-padding-xl);
 	display: flex;
 	align-items: center;
 	padding: var(--wpds-dimension-padding-sm) 0;
 	min-height: 46px;
-	z-index: 30;
+	z-index: 100;
+	pointer-events: auto;
 	-webkit-app-region: no-drag;
 }
 
@@ -91,4 +97,18 @@
    edge instead of leaving an empty gap. */
 .floatingToggleFlush {
 	left: var(--wpds-dimension-padding-xl);
+}
+
+.sidebarToasts {
+	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
+.floatingToasts {
+	position: absolute;
+	bottom: calc(52px + var(--app-main-composer-height, 0px));
+	left: var(--wpds-dimension-padding-xl);
+	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
+	z-index: 110;
+	pointer-events: auto;
+	-webkit-app-region: no-drag;
 }

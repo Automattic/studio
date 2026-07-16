@@ -36,6 +36,7 @@ vi.mock( 'src/lib/get-ipc-api', async () => ( {
 		getUserTerminal: vi.fn().mockResolvedValue( 'terminal' ),
 		getUserEditor: vi.fn().mockResolvedValue( 'vscode' ),
 		setWindowControlVisibility: vi.fn(),
+		isAgenticUiBannerDismissed: vi.fn().mockResolvedValue( true ),
 	} ),
 } ) );
 

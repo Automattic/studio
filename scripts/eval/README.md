@@ -23,6 +23,7 @@ Run one named test with `npm run eval -- --filter-pattern "preview sites"` (rege
 - **jetpack-catchall-slideshow** — Agent reaches for Jetpack on a slideshow request. Asserts the generated page content uses a `jetpack/*` block (i.e. the catch-all rule fired instead of the agent falling back to raw HTML).
 - **differentiate-preview-vs-remote** — Regression for STU-1775. Seeds one connected WordPress.com remote site and one preview site for a local site, then asserts the `site_connected_remote_sites` and `preview_list` tools tag their output with a `type` discriminator (`wpcom-remote` / `preview`) and that the agent's prose keeps the two categories distinct (preview sites are never described as connected WordPress.com remote sites).
 - **section-uses-theme-palette** — Agent adds sections to a site that keeps its default theme. Asserts the section block markup colors are drawn from the theme palette (color-slug attributes like `{"backgroundColor":"accent-1"}` or `var(--wp--preset--color--*)` in CSS) rather than hardcoded hex values. `theme.json` is excluded from the hex check since a palette is legitimately defined there.
+- **skill-routing-design-build** — A design/build task must load the `visual-design` and `block-content` skills (mandatory per the Skill tool's usage rules) and must load `visual-design` before the first Write/Edit, instead of improvising the workflow from training data.
 
 ## Adding tests
 

@@ -531,3 +531,49 @@ tests:
             }
             return { pass: true, score: 1, reason: `sections colored from the theme palette (${paletteRefs} palette color ref(s)) with no hardcoded hex` };
           });
+
+  # A design/build task must load the mandatory skills (visual-design,
+  # block-content) instead of improvising from training data, and must load
+  # visual-design before the first file write. Guards the Skill tool's
+  # usage rules.
+  - description: design build loads visual-design and block-content skills before writing files
+    vars:
+      caseId: skill-routing-design-build
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Skill Site" exists using site_list.
+        If it does, delete it with site_delete so we start from a clean slate.
+        Do NOT touch any other site.
+
+        Then create a new site named "Eval Skill Site" and build it a simple
+        one-page homepage: a hero section with a heading, and one short text
+        section below it. Keep it small and simple.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const skillLoads = (d.toolCalls || []).filter(c => c.name === 'Skill').map(c => c.input?.name);
+            const missing = ['visual-design', 'block-content'].filter(name => !skillLoads.includes(name));
+            if (missing.length > 0) {
+              return { pass: false, score: 0, reason: `design build skipped mandatory skill(s): ${missing.join(', ')}; loaded: ${JSON.stringify(skillLoads)}` };
+            }
+            return { pass: true, score: 1, reason: `loaded skills: ${JSON.stringify(skillLoads)}` };
+          });
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const events = d.toolEvents || [];
+            const firstDesignSkill = events.find(e => e.toolName === 'Skill' && e.input?.name === 'visual-design');
+            const firstWrite = events.find(e => e.toolName === 'Write' || e.toolName === 'Edit');
+            if (!firstWrite) return { pass: false, score: 0, reason: 'no Write/Edit calls recorded — build did not produce files' };
+            if (!firstDesignSkill) return { pass: false, score: 0, reason: 'visual-design skill never loaded' };
+            const ok = firstDesignSkill.startedAtMs < firstWrite.startedAtMs;
+            return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'visual-design loaded before the first file write' : `visual-design loaded at ${firstDesignSkill.startedAtMs}ms, after first write at ${firstWrite.startedAtMs}ms` };
+          });

@@ -12,6 +12,7 @@ import {
 	loadUserData,
 	lockAppdata,
 	saveUserData,
+	type QuitSitesBehavior,
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
@@ -119,6 +120,18 @@ export async function saveAnalyticsEnabled(
 	enabled: boolean
 ): Promise< void > {
 	await updateSharedConfig( { analyticsOptOut: ! enabled } );
+}
+
+export async function saveQuitSitesBehavior(
+	_event: IpcMainInvokeEvent,
+	quitSitesBehavior: QuitSitesBehavior | undefined
+) {
+	await updateAppdata( { quitSitesBehavior } );
+}
+
+export async function getQuitSitesBehavior(): Promise< QuitSitesBehavior | undefined > {
+	const userData = await loadUserData();
+	return userData.quitSitesBehavior;
 }
 
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {

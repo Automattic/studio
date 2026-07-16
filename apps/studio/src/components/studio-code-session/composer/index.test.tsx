@@ -152,6 +152,43 @@ describe( 'Composer', () => {
 		} );
 	} );
 
+	it( 'attaches images pasted outside the textarea and focuses the composer', async () => {
+		renderComposer();
+
+		const image = new File( [ 'image-bytes' ], '', { type: 'image/png' } );
+		const pasteEvent = new Event( 'paste', { bubbles: true, cancelable: true } );
+		Object.defineProperty( pasteEvent, 'clipboardData', {
+			value: { files: [ image ], items: [] },
+		} );
+		fireEvent( document.body, pasteEvent );
+
+		expect( pasteEvent.defaultPrevented ).toBe( true );
+		expect(
+			await screen.findByRole( 'button', { name: 'Remove attachment: pasted-image.png' } )
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'combobox' ) ).toHaveFocus();
+	} );
+
+	it( 'ignores pastes inside open dialogs', () => {
+		renderComposer();
+
+		const dialog = document.createElement( 'div' );
+		dialog.setAttribute( 'role', 'dialog' );
+		document.body.appendChild( dialog );
+
+		const image = new File( [ 'image-bytes' ], '', { type: 'image/png' } );
+		const pasteEvent = new Event( 'paste', { bubbles: true, cancelable: true } );
+		Object.defineProperty( pasteEvent, 'clipboardData', {
+			value: { files: [ image ], items: [] },
+		} );
+		fireEvent( dialog, pasteEvent );
+
+		expect( pasteEvent.defaultPrevented ).toBe( false );
+		expect( screen.queryByRole( 'button', { name: /Remove attachment/ } ) ).not.toBeInTheDocument();
+
+		dialog.remove();
+	} );
+
 	it( 'previews attached files as compact square tiles', async () => {
 		const { container } = renderComposer();
 

@@ -7,6 +7,7 @@ import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Tabs from '@/components/tabs';
+import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -16,6 +17,7 @@ import styles from './style.module.css';
 import type {
 	ColorScheme,
 	InstalledApps,
+	QuitSitesBehavior,
 	SupportedEditor,
 	SupportedLocale,
 	SupportedTerminal,
@@ -41,6 +43,7 @@ interface FormData {
 	editor: SupportedEditor | typeof UNSET;
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
+	quitSitesBehavior: QuitSitesBehavior | typeof UNSET;
 	locale: SupportedLocale;
 	analyticsEnabled: boolean;
 }
@@ -57,6 +60,7 @@ function toFormData( prefs: UserPreferences ): FormData {
 		editor: prefs.editor ?? UNSET,
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
+		quitSitesBehavior: prefs.quitSitesBehavior ?? UNSET,
 		locale: resolveFormLocale( prefs.locale ),
 		// Default to opted-in if absent (e.g. a persisted preferences cache from
 		// before this field existed) so the toggle never renders a false negative.
@@ -71,9 +75,14 @@ function diffFromSaved(
 	const patch: Partial< WritableUserPreferences > = {};
 	const nextEditor: SupportedEditor | null = next.editor === UNSET ? null : next.editor;
 	const nextTerminal: SupportedTerminal | null = next.terminal === UNSET ? null : next.terminal;
+	const nextQuitSitesBehavior: QuitSitesBehavior | undefined =
+		next.quitSitesBehavior === UNSET ? undefined : next.quitSitesBehavior;
 	if ( nextEditor !== saved.editor ) patch.editor = nextEditor;
 	if ( nextTerminal !== saved.terminal ) patch.terminal = nextTerminal;
 	if ( next.colorScheme !== saved.colorScheme ) patch.colorScheme = next.colorScheme;
+	if ( nextQuitSitesBehavior !== saved.quitSitesBehavior ) {
+		patch.quitSitesBehavior = nextQuitSitesBehavior;
+	}
 	if ( next.locale !== resolveFormLocale( saved.locale ) ) patch.locale = next.locale;
 	if ( next.analyticsEnabled !== saved.analyticsEnabled )
 		patch.analyticsEnabled = next.analyticsEnabled;
@@ -104,6 +113,16 @@ const COLOR_SCHEME_ELEMENTS: { value: ColorScheme; label: string }[] = [
 	{ value: 'system', label: __( 'System' ) },
 	{ value: 'light', label: __( 'Light' ) },
 	{ value: 'dark', label: __( 'Dark' ) },
+];
+
+const QUIT_SITES_BEHAVIOR_ELEMENTS: {
+	value: QuitSitesBehavior | typeof UNSET;
+	label: string;
+}[] = [
+	{ value: UNSET, label: __( 'Ask every time' ) },
+	{ value: 'leave-running', label: __( 'Keep sites running' ) },
+	{ value: 'stop-and-auto-start', label: __( 'Stop, restart on next launch' ) },
+	{ value: 'stop', label: __( 'Stop sites' ) },
 ];
 
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
@@ -145,6 +164,7 @@ export function SettingsView( {
 	activeTab: TabId;
 	onTabChange: ( tab: TabId ) => void;
 } ) {
+	const connector = useConnector();
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
 	const savePreferences = useSaveUserPreferences();
@@ -186,6 +206,12 @@ export function SettingsView( {
 				Edit: 'select',
 			},
 			{
+				id: 'quitSitesBehavior',
+				type: 'text',
+				label: __( 'When quitting with running sites' ),
+				elements: QUIT_SITES_BEHAVIOR_ELEMENTS,
+			},
+			{
 				id: 'analyticsEnabled',
 				type: 'boolean',
 				label: __( 'Help improve Studio by sharing anonymous usage statistics' ),
@@ -206,6 +232,7 @@ export function SettingsView( {
 				},
 				'colorScheme',
 				'locale',
+				'quitSitesBehavior',
 				'analyticsEnabled',
 			],
 		} ),
@@ -293,6 +320,22 @@ export function SettingsView( {
 								</Button>
 							</div>
 						</form>
+						<div className={ styles.switchUiField }>
+							<div className={ styles.switchUiText }>
+								<span className={ styles.switchUiLabel }>{ __( 'Studio experience' ) }</span>
+								<span className={ styles.switchUiDescription }>
+									{ __( 'You are using the new Studio experience.' ) }
+								</span>
+							</div>
+							<Button
+								variant="outline"
+								tone="neutral"
+								size="compact"
+								onClick={ () => void connector.disableAgenticUi() }
+							>
+								{ __( 'Switch to classic' ) }
+							</Button>
+						</div>
 					</div>
 				</div>
 			</Tabs.Root>

@@ -1,8 +1,8 @@
 import { dialog } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { getMainWindow } from 'src/main-window';
-import { LinuxCliInstallationManager } from 'src/modules/cli/lib/linux-installation-manager';
-import { MacOSCliInstallationManager } from 'src/modules/cli/lib/macos-installation-manager';
+import { createLinuxCliInstallationManager } from 'src/modules/cli/lib/linux-installation-manager';
+import { createMacOSCliInstallationManager } from 'src/modules/cli/lib/macos-installation-manager';
 import { WindowsCliInstallationManager } from 'src/modules/cli/lib/windows-installation-manager';
 
 /**
@@ -17,11 +17,11 @@ export interface StudioCliInstallationManager {
 function getCliInstallationManager(): StudioCliInstallationManager {
 	switch ( process.platform ) {
 		case 'darwin':
-			return new MacOSCliInstallationManager();
+			return createMacOSCliInstallationManager();
 		case 'win32':
 			return new WindowsCliInstallationManager();
 		case 'linux':
-			return new LinuxCliInstallationManager();
+			return createLinuxCliInstallationManager();
 		default:
 			throw new Error( 'Studio CLI is not available on this platform.' );
 	}

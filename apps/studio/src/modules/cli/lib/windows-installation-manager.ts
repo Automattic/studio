@@ -1,12 +1,15 @@
-import { app, dialog } from 'electron';
+import { app } from 'electron';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'path';
-import * as Sentry from '@sentry/electron/main';
 import { __ } from '@wordpress/i18n';
-import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
+import {
+	runCliAutoInstall,
+	showCliErrorDialog,
+	showCliInfoDialog,
+} from 'src/modules/cli/lib/unix-installation-manager';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 // `STABLE_BIN_DIR_PATH` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
@@ -55,12 +58,10 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		try {
 			await this.installCli();
 			await updateAppdata( { cliUserUninstalled: false } );
-			const mainWindow = await getMainWindow();
-			await dialog.showMessageBox( mainWindow, {
-				type: 'info',
-				title: __( 'CLI Installed' ),
-				message: __( 'The CLI has been installed successfully.' ),
-			} );
+			await showCliInfoDialog(
+				__( 'CLI Installed' ),
+				__( 'The CLI has been installed successfully.' )
+			);
 		} catch ( error ) {
 			console.error( 'Failed to install CLI', error );
 
@@ -72,12 +73,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 				message = error.message;
 			}
 
-			const mainWindow = await getMainWindow();
-			await dialog.showMessageBox( mainWindow, {
-				type: 'error',
-				title: __( 'Failed to install CLI' ),
-				message,
-			} );
+			await showCliErrorDialog( __( 'Failed to install CLI' ), message );
 		}
 	}
 
@@ -85,12 +81,10 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 		try {
 			await this.uninstallCli();
 			await updateAppdata( { cliUserUninstalled: true } );
-			const mainWindow = await getMainWindow();
-			await dialog.showMessageBox( mainWindow, {
-				type: 'info',
-				title: __( 'CLI uninstalled' ),
-				message: __( 'The CLI has been uninstalled successfully.' ),
-			} );
+			await showCliInfoDialog(
+				__( 'CLI uninstalled' ),
+				__( 'The CLI has been uninstalled successfully.' )
+			);
 		} catch ( error ) {
 			console.error( 'Failed to uninstall CLI', error );
 
@@ -102,12 +96,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 				message = error.message;
 			}
 
-			const mainWindow = await getMainWindow();
-			await dialog.showMessageBox( mainWindow, {
-				type: 'error',
-				title: __( 'Failed to uninstall CLI' ),
-				message,
-			} );
+			await showCliErrorDialog( __( 'Failed to uninstall CLI' ), message );
 		}
 	}
 
@@ -271,15 +260,9 @@ if ($key) {
 }
 
 export async function autoInstallWindowsCliIfNeeded(): Promise< void > {
-	if ( process.platform !== 'win32' || process.env.NODE_ENV !== 'production' ) {
-		return;
-	}
-
-	try {
-		const manager = new WindowsCliInstallationManager();
-		await manager.autoInstallIfNeeded();
-	} catch ( error ) {
-		console.error( 'Failed to auto-install Windows CLI', error );
-		Sentry.captureException( error );
-	}
+	await runCliAutoInstall(
+		'Windows',
+		process.platform === 'win32' && process.env.NODE_ENV === 'production',
+		() => new WindowsCliInstallationManager()
+	);
 }

@@ -77,6 +77,29 @@ describe( 'JsonAdapter IPC messaging', () => {
 		expect( onSteer ).toHaveBeenCalledWith( 'make the hero darker' );
 	} );
 
+	it( 'echoes the steer correlation id in the result', async () => {
+		const sendSpy = vi.fn( () => true );
+		( process as unknown as { send: typeof process.send } ).send =
+			sendSpy as unknown as typeof process.send;
+
+		const adapter = new JsonAdapter();
+		adapter.onSteer = vi.fn().mockResolvedValue( true );
+
+		adapter.start();
+		listeners[ 0 ]( { type: 'steer', text: 'make the hero darker', id: 'steer-42' } );
+
+		await vi.waitFor( () =>
+			expect( sendSpy ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					type: 'steer.result',
+					delivered: true,
+					text: 'make the hero darker',
+					id: 'steer-42',
+				} )
+			)
+		);
+	} );
+
 	it( 'reports steer messages as undelivered when no turn is live', async () => {
 		const sendSpy = vi.fn( () => true );
 		( process as unknown as { send: typeof process.send } ).send =

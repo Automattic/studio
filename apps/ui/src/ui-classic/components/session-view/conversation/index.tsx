@@ -233,7 +233,7 @@ export function entriesToRenderItems(
 		const entry = entries[ entryIndex ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
-			if ( ! data || data.source !== 'prompt' ) continue;
+			if ( ! data || ( data.source !== 'prompt' && data.source !== 'steer' ) ) continue;
 			items.push( {
 				kind: 'user-text',
 				key: `${ entryIndex }:user`,

@@ -31,6 +31,8 @@ export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string 
 	if ( options?.remoteSite ) {
 		return `${ buildRemoteIntro( options.remoteSite ) }
 
+${ MID_TURN_MESSAGE_GUIDANCE }
+
 ${ REMOTE_CONTENT_GUIDELINES }
 
 ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
@@ -43,9 +45,16 @@ ${ REMOTE_DESIGN_GUIDELINES }${ remoteSessionAddendum }
 		runtime: options?.runtime,
 	} ) }
 
+${ MID_TURN_MESSAGE_GUIDANCE }
+
 ${ LOCAL_SKILL_ROUTING }${ remoteSessionAddendum }
 `;
 }
+
+// Users can deliver a message into a running turn (steering); without this
+// rule the model sometimes treats one as a brand-new request and starts the
+// whole task over.
+const MID_TURN_MESSAGE_GUIDANCE = `A user message that arrives while you are working is a course correction or an addition to the current task: apply it right away, keep the parts of the task it does not affect, and never restart completed work because of it.`;
 
 function buildRemoteIntro( site: RemoteSiteContext ): string {
 	return `${ AGENT_IDENTITY } You manage WordPress.com sites using the WordPress.com REST API.

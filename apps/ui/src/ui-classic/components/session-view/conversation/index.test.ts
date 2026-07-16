@@ -286,6 +286,22 @@ describe( 'Conversation chat artifacts', () => {
 		}
 	} );
 
+	it( 'renders steered mid-turn messages as user prompts', () => {
+		const steered = {
+			type: 'custom',
+			id: 'steer-1',
+			parentId: null,
+			timestamp: '2026-06-05T12:00:02.000Z',
+			customType: 'studio.user_prompt',
+			data: { text: 'make the hero darker', source: 'steer' },
+		} as unknown as SessionEntry;
+
+		const items = entriesToRenderItems( [ steered ] );
+
+		expect( items ).toHaveLength( 1 );
+		expect( items[ 0 ] ).toMatchObject( { kind: 'user-text', text: 'make the hero darker' } );
+	} );
+
 	it( 'drops local-only media widgets when the connector cannot read local files', () => {
 		const localOnly = chatArtifactEntry( [ localScreenshotWidget() ] );
 		const remote = chatArtifactEntry( [

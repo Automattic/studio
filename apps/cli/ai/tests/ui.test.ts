@@ -215,6 +215,9 @@ describe( 'AiChatUI mid-turn steering', () => {
 	function createStubUi() {
 		const ui = Object.create( AiChatUI.prototype ) as {
 			submitMidTurn: ( text: string ) => void;
+			submitPrompt: ( text: string ) => void;
+			steerFromEditor: () => boolean;
+			updateHints: () => void;
 			queuedPrompts: string[];
 			[ key: string ]: unknown;
 		};
@@ -266,6 +269,110 @@ describe( 'AiChatUI mid-turn steering', () => {
 
 		expect( ui.queuedPrompts ).toEqual( [ 'add a contact page' ] );
 		expect( ui.addUserMessage ).not.toHaveBeenCalled();
+	} );
+
+	it( 'queues a plain mid-turn submit even when steering is available', () => {
+		const ui = createStubUi();
+		const editor = { addToHistory: vi.fn(), setText: vi.fn() };
+		const steerCallback = vi.fn();
+		ui.steerCallback = steerCallback;
+		ui._inAgentTurn = true;
+		ui.submitResolve = null;
+		ui.editor = editor;
+
+		ui.submitPrompt( 'add a contact page' );
+
+		expect( ui.queuedPrompts ).toEqual( [ 'add a contact page' ] );
+		expect( steerCallback ).not.toHaveBeenCalled();
+		expect( editor.setText ).toHaveBeenCalledWith( '' );
+	} );
+
+	it( 'resolves a waiting prompt instead of queueing when not mid-turn', () => {
+		const ui = createStubUi();
+		const resolve = vi.fn();
+		ui.submitResolve = resolve;
+		ui._inAgentTurn = false;
+		ui.editor = { addToHistory: vi.fn(), setText: vi.fn() };
+
+		ui.submitPrompt( ' build a bakery site ' );
+
+		expect( resolve ).toHaveBeenCalledWith( 'build a bakery site' );
+		expect( ui.queuedPrompts ).toEqual( [] );
+	} );
+
+	it( 'steers the drafted prompt on the explicit gesture', async () => {
+		const ui = createStubUi();
+		const steerCallback = vi.fn().mockResolvedValue( true );
+		const editor = {
+			getText: () => ' make the hero darker ',
+			addToHistory: vi.fn(),
+			setText: vi.fn(),
+		};
+		ui.steerCallback = steerCallback;
+		ui._inAgentTurn = true;
+		ui.editorVisible = true;
+		ui.editor = editor;
+
+		expect( ui.steerFromEditor() ).toBe( true );
+
+		await vi.waitFor( () =>
+			expect( ui.addUserMessage ).toHaveBeenCalledWith( 'make the hero darker' )
+		);
+		expect( steerCallback ).toHaveBeenCalledWith( 'make the hero darker' );
+		expect( editor.addToHistory ).toHaveBeenCalledWith( 'make the hero darker' );
+		expect( editor.setText ).toHaveBeenCalledWith( '' );
+	} );
+
+	it( 'does not consume the steer gesture outside an agent turn', () => {
+		const ui = createStubUi();
+		const steerCallback = vi.fn();
+		ui.steerCallback = steerCallback;
+		ui._inAgentTurn = false;
+		ui.editorVisible = true;
+		ui.editor = { getText: () => 'hello', addToHistory: vi.fn(), setText: vi.fn() };
+
+		expect( ui.steerFromEditor() ).toBe( false );
+		expect( steerCallback ).not.toHaveBeenCalled();
+	} );
+
+	it( 'consumes the steer gesture without steering when the draft is empty', () => {
+		const ui = createStubUi();
+		const steerCallback = vi.fn();
+		ui.steerCallback = steerCallback;
+		ui._inAgentTurn = true;
+		ui.editorVisible = true;
+		ui.editor = { getText: () => '  ', addToHistory: vi.fn(), setText: vi.fn() };
+
+		expect( ui.steerFromEditor() ).toBe( true );
+		expect( steerCallback ).not.toHaveBeenCalled();
+	} );
+
+	it( 'advertises the steer gesture while a turn can be steered', () => {
+		const ui = createStubUi();
+		const editor = { hints: [] as string[] };
+		ui.editor = editor;
+		ui.steerCallback = vi.fn();
+		ui._inAgentTurn = true;
+		ui.interruptCallback = vi.fn();
+		ui.activeExpandablePreview = null;
+
+		ui.updateHints();
+
+		expect( editor.hints ).toContain( 'alt+enter to steer' );
+	} );
+
+	it( 'does not advertise the steer gesture when steering is unavailable', () => {
+		const ui = createStubUi();
+		const editor = { hints: [] as string[] };
+		ui.editor = editor;
+		ui.steerCallback = null;
+		ui._inAgentTurn = true;
+		ui.interruptCallback = vi.fn();
+		ui.activeExpandablePreview = null;
+
+		ui.updateHints();
+
+		expect( editor.hints ).not.toContain( 'alt+enter to steer' );
 	} );
 } );
 

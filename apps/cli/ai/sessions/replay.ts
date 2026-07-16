@@ -46,7 +46,14 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 
 			if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 				const data = entry.data;
-				if ( ! data || data.source !== 'prompt' ) continue;
+				if ( ! data ) continue;
+				// A steered message landed inside a live turn, so it renders in
+				// place without closing or opening one.
+				if ( data.source === 'steer' ) {
+					ui.addUserMessage( data.text );
+					continue;
+				}
+				if ( data.source !== 'prompt' ) continue;
 				if ( isTurnOpen ) {
 					flushPendingResults();
 					ui.endAgentTurn();

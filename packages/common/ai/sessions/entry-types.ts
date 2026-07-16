@@ -69,11 +69,13 @@ export type StudioChatAttachmentSummary =
 	| StudioChatImageAttachmentSummary
 	| StudioChatFileAttachmentSummary;
 
-// `source` distinguishes a user-typed prompt from an `ask_user` answer the
-// runtime forwarded to the model — the renderer only shows `'prompt'`.
+// `source` distinguishes how the message reached the model: a user-typed
+// prompt starting a turn, a `steer` delivered into a live turn, or an
+// `ask_user` answer the runtime forwarded — renderers show `'prompt'` and
+// `'steer'` as user messages.
 export interface StudioUserPromptData {
 	text: string;
-	source: 'prompt' | 'ask_user';
+	source: 'prompt' | 'ask_user' | 'steer';
 	sitePath?: string;
 	attachments?: StudioChatAttachmentSummary[];
 }

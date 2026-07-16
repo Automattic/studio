@@ -70,6 +70,11 @@ export interface AgentRunManager {
 	listActiveAgentRuns(): ActiveAgentRun[];
 	interruptAgentRun( runId: string ): void;
 	answerAgentRun( runId: string, answers: Record< string, string > ): void;
+	// Deliver a mid-turn user message to the run's live turn. Returns whether
+	// the message was forwarded to the child; the definitive delivery outcome
+	// arrives as a `steer.result` event echoing the optional correlation id.
+	// A `false` return means the run is gone — treat it as not delivered.
+	steerAgentRun( runId: string, text: string, id?: string ): boolean;
 }
 
 const INTERRUPT_FORCE_KILL_TIMEOUT_MS = 2000;
@@ -306,5 +311,14 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		run.child.send( { type: 'answer', answers } );
 	}
 
-	return { startAgentRun, listActiveAgentRuns, interruptAgentRun, answerAgentRun };
+	function steerAgentRun( runId: string, text: string, id?: string ): boolean {
+		const run = runsById.get( runId );
+		if ( ! run || ! run.child.connected ) {
+			return false;
+		}
+		run.child.send( { type: 'steer', text, ...( id !== undefined ? { id } : {} ) } );
+		return true;
+	}
+
+	return { startAgentRun, listActiveAgentRuns, interruptAgentRun, answerAgentRun, steerAgentRun };
 }

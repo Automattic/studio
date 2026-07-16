@@ -531,3 +531,45 @@ tests:
             }
             return { pass: true, score: 1, reason: `sections colored from the theme palette (${paletteRefs} palette color ref(s)) with no hardcoded hex` };
           });
+
+  # A user message delivered mid-turn (via the turn handle's steer()) must
+  # reach the live run and change the produced content. The runner delivers
+  # the `steer.text` after `steer.afterToolResults` tool results.
+  - description: mid-turn steering message is delivered and honored in the built content
+    vars:
+      caseId: mid-turn-steering-honored
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      steer:
+        afterToolResults: 2
+        text: "Important change of plan: the About page's main heading must be exactly 'Steering Works'. Use that exact heading text."
+      prompt: |
+        First check if a site named "Eval Steering Site" exists using site_list.
+        If it does, delete it with site_delete so we start from a clean slate.
+        Do NOT touch any other site.
+
+        Then create a new site named "Eval Steering Site" and add an About page
+        with a main heading and one short paragraph about a fictional bakery.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const s = d.steer;
+            if (!s || !s.requested) return { pass: false, score: 0, reason: 'runner did not attempt steering (steer var missing?)' };
+            if (!s.supported) return { pass: false, score: 0, reason: 'this build has no steer() on the turn handle — mid-turn steering unsupported' };
+            if (!s.delivered) return { pass: false, score: 0, reason: 'steer() was available but the message did not reach the live turn' };
+            return { pass: true, score: 1, reason: 'steering message delivered to the live turn' };
+          });
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const allInputs = JSON.stringify((d.toolCalls || []).map(c => c.input));
+            const honored = allInputs.includes('Steering Works');
+            return { pass: honored, score: honored ? 1 : 0, reason: honored ? "steered heading 'Steering Works' found in built content" : 'the steered heading never appeared in any tool input — instruction not honored' };
+          });

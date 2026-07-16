@@ -37,7 +37,7 @@
 		"@wordpress/rich-text": "^7.47.0",
 		"@wordpress/theme": "^0.14.0",
 		"@wordpress/ui": "^0.14.0",
-		"@wp-playground/blueprints": "3.1.43",
+		"@wp-playground/blueprints": "3.1.45",
 		"clsx": "^2.1.1",
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",

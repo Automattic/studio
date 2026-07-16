@@ -91,7 +91,7 @@
 		"@wordpress/react-i18n": "4.47.0",
 		"@wordpress/theme": "0.14.0",
 		"@wordpress/ui": "0.14.0",
-		"@wp-playground/blueprints": "3.1.43",
+		"@wp-playground/blueprints": "3.1.45",
 		"cli-table3": "^0.6.5",
 		"date-fns": "^4.1.0",
 		"electron": "41.4.0",

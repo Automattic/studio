@@ -89,7 +89,7 @@
 }
 
 .localServerControl_running {
-	--local-server-track-bg: #16a34a;
+	--local-server-track-bg: var(--studio-color-status-running);
 	--local-server-track-bg-hover: #15803d;
 	--local-server-track-border: #148a42;
 	--local-server-track-border-hover: #137a3d;

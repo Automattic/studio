@@ -58,6 +58,7 @@ We’d love to hear about your experience using Studio. If you have questions, s
 
 - Open a GitHub Issue to to [suggest ideas](https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A) or [report bugs](https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml)  
 - Submit pull requests for bug fixes and enhancements  
+- Help translate Studio into your language via [GlotPress](https://translate.wordpress.com/projects/studio/)  
 - Proposals for new features may require additional review and discussion
 
 For details, please see our [Contributing Guidelines](CONTRIBUTING.md) and [Code Contributions](docs/code-contributions.md) guide.

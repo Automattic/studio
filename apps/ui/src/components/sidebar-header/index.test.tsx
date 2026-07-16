@@ -11,6 +11,10 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn( () => ( { enabled: true, reason: null, isReady: true } ) ),
+} ) );
+
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: () => false,
 } ) );

@@ -28,6 +28,10 @@ vi.mock( '@/data/queries/use-connected-wpcom-sites', () => ( {
 	useConnectedWpcomSites: () => ( { data: connectedSites } ),
 } ) );
 
+vi.mock( '@/data/queries/use-agentic-features', () => ( {
+	useAgenticFeatures: vi.fn( () => ( { enabled: true, reason: null, isReady: true } ) ),
+} ) );
+
 vi.mock( '@/data/queries/use-preview-site', () => ( {
 	usePublishPreviewSite: () => ( { isPending: false, mutate: vi.fn() } ),
 } ) );

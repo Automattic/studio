@@ -79,18 +79,15 @@ function DashboardLayoutContent() {
 			setLastPreviewSiteId( routeSite.id );
 		}
 	}, [ routeSite ] );
-	// Remember where the user is so the `/` index route can return here
+	// Remember the user's site so the `/` index route can return here
 	// instead of defaulting to the first site.
 	const sessionSiteId = sessionSite?.id;
 	useEffect( () => {
-		if ( sessionId ) {
-			writeLastVisited( { sessionId, siteId: sessionSiteId } );
-			return;
+		const siteId = sessionSiteId ?? newSessionSiteId;
+		if ( siteId ) {
+			writeLastVisited( { siteId } );
 		}
-		if ( newSessionSiteId ) {
-			writeLastVisited( { siteId: newSessionSiteId } );
-		}
-	}, [ sessionId, sessionSiteId, newSessionSiteId ] );
+	}, [ sessionSiteId, newSessionSiteId ] );
 	const lastPreviewSite = lastPreviewSiteId
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;

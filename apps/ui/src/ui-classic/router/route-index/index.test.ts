@@ -58,18 +58,8 @@ describe( 'indexRoute.beforeLoad', () => {
 		expect( redirect.to ).toBe( '/onboarding' );
 	} );
 
-	it( 'redirects to the last visited session when it is still active', async () => {
-		writeLastVisited( { sessionId: 'session-2', siteId: 'site-2' } );
-		const redirect = await runBeforeLoad(
-			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
-			[ createSession(), createSession( { id: 'session-2' } ) ]
-		);
-		expect( redirect.to ).toBe( '/sessions/$sessionId' );
-		expect( redirect.params ).toEqual( { sessionId: 'session-2' } );
-	} );
-
-	it( 'falls through to the last visited site when the session was archived', async () => {
-		writeLastVisited( { sessionId: 'session-2', siteId: 'site-2' } );
+	it( "redirects to the last visited site's newest active session", async () => {
+		writeLastVisited( { siteId: 'site-2' } );
 		const redirect = await runBeforeLoad(
 			[ createSite(), createSite( { id: 'site-2', path: '/Users/example/Studio/site-two' } ) ],
 			[
@@ -82,24 +72,20 @@ describe( 'indexRoute.beforeLoad', () => {
 		expect( redirect.params ).toEqual( { sessionId: 'session-3' } );
 	} );
 
-	it( 'falls through when the last visited session belongs to a deleted site', async () => {
-		writeLastVisited( { sessionId: 'session-2', siteId: 'deleted-site' } );
+	it( 'falls back to the top site in sidebar order when the last visited site was deleted', async () => {
+		writeLastVisited( { siteId: 'deleted-site' } );
 		const redirect = await runBeforeLoad(
-			[ createSite() ],
-			[ createSession(), createSession( { id: 'session-2', ownerSiteId: 'deleted-site' } ) ]
+			[
+				createSite(),
+				createSite( { id: 'site-2', path: '/Users/example/Studio/site-two', sortOrder: 1000 } ),
+			],
+			[ createSession(), createSession( { id: 'session-2', ownerSiteId: 'site-2' } ) ]
 		);
 		expect( redirect.to ).toBe( '/sessions/$sessionId' );
-		expect( redirect.params ).toEqual( { sessionId: 'session-1' } );
+		expect( redirect.params ).toEqual( { sessionId: 'session-2' } );
 	} );
 
-	it( 'falls back to the first site when the last visited ids no longer exist', async () => {
-		writeLastVisited( { sessionId: 'deleted-session', siteId: 'deleted-site' } );
-		const redirect = await runBeforeLoad( [ createSite() ], [ createSession() ] );
-		expect( redirect.to ).toBe( '/sessions/$sessionId' );
-		expect( redirect.params ).toEqual( { sessionId: 'session-1' } );
-	} );
-
-	it( 'falls back to the top site in sidebar order, not fetch order', async () => {
+	it( 'falls back to the top site in sidebar order, not fetch order, when nothing is stored', async () => {
 		const redirect = await runBeforeLoad(
 			[
 				createSite(),

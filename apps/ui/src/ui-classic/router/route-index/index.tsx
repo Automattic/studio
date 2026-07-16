@@ -1,7 +1,4 @@
-import {
-	aiSessionBelongsToSite,
-	findAiSessionOwnerSite,
-} from '@studio/common/ai/sessions/owner-site';
+import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -26,23 +23,11 @@ export const indexRoute = createRoute( {
 			queryFn: () => context.connector.getSessions(),
 		} );
 
-		// Return the user to where they were (recorded by the dashboard
-		// layout), validating against live data so stale ids from deleted
-		// sessions/sites fall through to the defaults.
+		// Return the user to their last visited site (recorded by the dashboard
+		// layout), validating against live data so a stale id from a deleted
+		// site falls through to the sidebar's top site — not the raw fetch
+		// order. `sortSites` sorts in place, so sort a copy.
 		const lastVisited = readLastVisited();
-		if ( lastVisited.sessionId ) {
-			const lastSession = sessions.find(
-				( session ) => session.id === lastVisited.sessionId && ! session.archived
-			);
-			// Only restore sessions whose owner site still exists; landing on an
-			// orphaned session at launch is disorienting even though the session
-			// view renders it.
-			if ( lastSession && findAiSessionOwnerSite( sites, lastSession ) ) {
-				throw redirect( { to: '/sessions/$sessionId', params: { sessionId: lastSession.id } } );
-			}
-		}
-		// Fall back to the sidebar's top site, not the raw fetch order.
-		// `sortSites` sorts in place, so sort a copy.
 		const targetSite =
 			( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
 			sortSites( [ ...sites ] )[ 0 ];

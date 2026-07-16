@@ -27,6 +27,7 @@ import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
 import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
 import styles from './style.module.css';
+import { SuggestedPrompts } from './suggested-prompts';
 import type { AiSessionSummary } from '@/data/core';
 
 interface SessionHeaderProps {
@@ -342,6 +343,12 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
+			{ isEmpty && ownerSite ? (
+				<SuggestedPrompts
+					siteName={ ownerSite.name }
+					onPick={ ( prompt ) => composerRef.current?.replaceDraft( prompt ) }
+				/>
+			) : null }
 			<div
 				className={ clsx(
 					styles.classicColumn,

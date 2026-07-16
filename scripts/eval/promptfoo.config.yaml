@@ -531,3 +531,45 @@ tests:
             }
             return { pass: true, score: 1, reason: `sections colored from the theme palette (${paletteRefs} palette color ref(s)) with no hardcoded hex` };
           });
+
+  # A single-fact question must be answered in chat prose, without pinning a
+  # desks widget. `forceChatArtifacts` registers studio_present headless so
+  # the presentation rules can be evaluated. Guards the smallest-useful-widget
+  # presentation rule.
+  - description: single-fact question is answered in prose without presenting widgets
+    vars:
+      caseId: single-fact-no-widgets
+      timeoutMs: 180000
+      askUserPolicy: allow_all
+      forceChatArtifacts: true
+      seed:
+        localSite:
+          id: eval-widget-site
+          name: Eval Widget Site
+          path: /tmp/eval-widget-site
+          port: 8899
+      prompt: |
+        Tell me the local URL of my site "Eval Widget Site".
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const presents = (d.toolCalls || []).filter(c => c.name === 'studio_present');
+            if (presents.length > 0) {
+              return { pass: false, score: 0, reason: `single-fact question produced ${presents.length} studio_present call(s): ${JSON.stringify(presents.map(p => p.input)).slice(0, 300)}` };
+            }
+            return { pass: true, score: 1, reason: 'no widgets presented for a single-fact question' };
+          });
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const text = (d.textSegments || []).join('\n');
+            const answered = /localhost:8899/.test(text);
+            return { pass: answered, score: answered ? 1 : 0, reason: answered ? 'URL answered in prose' : `prose did not contain the URL; got: ${text.slice(0, 300)}` };
+          });

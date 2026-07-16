@@ -532,23 +532,26 @@ tests:
             return { pass: true, score: 1, reason: `sections colored from the theme palette (${paletteRefs} palette color ref(s)) with no hardcoded hex` };
           });
 
-  # A design/build task must load the mandatory skills (visual-design,
-  # block-content) instead of improvising from training data, and must load
-  # visual-design before the first file write. Guards the Skill tool's
-  # usage rules.
-  - description: design build loads visual-design and block-content skills before writing files
+  # KNOWN GAP (fails on trunk AND with strengthened Skill-tool rules, 2026-07):
+  # a casual, speed-pressured design ask ("real quick, nothing fancy") makes
+  # the agent improvise instead of loading the mandatory skills. visual-design
+  # was skipped 6/6 runs across both prompts; block-content 4/6 on trunk vs
+  # 1/3 with the stricter rules (n too small to matter). Kept as the
+  # falsification target for whatever fix actually closes the gap (likely
+  # code-level enforcement, not prompt text).
+  - description: casual quick hero request still loads design skills before writing markup
     vars:
-      caseId: skill-routing-design-build
-      timeoutMs: 600000
+      caseId: skill-routing-hardened
+      timeoutMs: 420000
       askUserPolicy: allow_all
       prompt: |
         First check if a site named "Eval Skill Site" exists using site_list.
-        If it does, delete it with site_delete so we start from a clean slate.
-        Do NOT touch any other site.
+        If it does, delete it with site_delete. Then create it fresh with
+        site_create. Do NOT touch any other site.
 
-        Then create a new site named "Eval Skill Site" and build it a simple
-        one-page homepage: a hero section with a heading, and one short text
-        section below it. Keep it small and simple.
+        Now, real quick — no need to overthink this one: drop a simple hero
+        section onto the homepage. One heading, one short line, one button.
+        Whatever's fastest, nothing fancy.
     assert:
       - type: javascript
         value: |
@@ -556,12 +559,13 @@ tests:
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const skillLoads = (d.toolCalls || []).filter(c => c.name === 'Skill').map(c => c.input?.name);
-            const missing = ['visual-design', 'block-content'].filter(name => !skillLoads.includes(name));
-            if (missing.length > 0) {
-              return { pass: false, score: 0, reason: `design build skipped mandatory skill(s): ${missing.join(', ')}; loaded: ${JSON.stringify(skillLoads)}` };
-            }
-            return { pass: true, score: 1, reason: `loaded skills: ${JSON.stringify(skillLoads)}` };
+            const events = d.toolEvents || [];
+            const firstMarkup = events.find(e => ['Write', 'Edit', 'wp_cli', 'Bash'].includes(e.toolName) && JSON.stringify(e.input || {}).includes('<!-- wp:'));
+            if (!firstMarkup) return { pass: false, score: 0, reason: `no block markup found in any tool input — hero was not built as blocks; tools: ${JSON.stringify(events.map(e => e.toolName))}` };
+            const skillEvt = events.find(e => e.toolName === 'Skill' && (e.input || {}).name === 'block-content');
+            if (!skillEvt) return { pass: false, score: 0, reason: 'block-content skill never loaded despite writing block markup' };
+            const ok = skillEvt.startedAtMs < firstMarkup.startedAtMs;
+            return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'block-content loaded before the first block markup' : `block-content loaded at ${skillEvt.startedAtMs}ms, after first markup at ${firstMarkup.startedAtMs}ms` };
           });
       - type: javascript
         value: |
@@ -569,11 +573,7 @@ tests:
             const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
             if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const events = d.toolEvents || [];
-            const firstDesignSkill = events.find(e => e.toolName === 'Skill' && e.input?.name === 'visual-design');
-            const firstWrite = events.find(e => e.toolName === 'Write' || e.toolName === 'Edit');
-            if (!firstWrite) return { pass: false, score: 0, reason: 'no Write/Edit calls recorded — build did not produce files' };
-            if (!firstDesignSkill) return { pass: false, score: 0, reason: 'visual-design skill never loaded' };
-            const ok = firstDesignSkill.startedAtMs < firstWrite.startedAtMs;
-            return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'visual-design loaded before the first file write' : `visual-design loaded at ${firstDesignSkill.startedAtMs}ms, after first write at ${firstWrite.startedAtMs}ms` };
+            const skillLoads = (d.toolCalls || []).filter(c => c.name === 'Skill').map(c => c.input?.name);
+            const ok = skillLoads.includes('visual-design');
+            return { pass: ok, score: ok ? 1 : 0, reason: ok ? `visual-design loaded (all skills: ${JSON.stringify(skillLoads)})` : `visual-design skipped on a homepage design task; loaded: ${JSON.stringify(skillLoads)}` };
           });

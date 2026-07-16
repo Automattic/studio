@@ -229,6 +229,30 @@ tests:
         site only needs a single page — no extra pages, no blog posts, no
         navigation menu beyond what a one-page site requires.
     assert:
+      # The default new-site flow: no installed theme is mentioned, so the
+      # agent must start from a fresh blank scaffold — scaffold_theme called
+      # WITHOUT parentTheme (the parentTheme path is covered by the
+      # child-theme-for-installed-theme case below).
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const scaffolds = (d.toolCalls || []).filter(t => t.name === 'scaffold_theme');
+            if (scaffolds.length === 0) {
+              return { pass: false, score: 0, reason: `scaffold_theme was never called; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
+            }
+            const call = scaffolds[0];
+            if (call.input?.parentTheme) {
+              return { pass: false, score: 0, reason: `expected a blank scaffold but got a child theme: ${JSON.stringify(call.input)}` };
+            }
+            const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
+            if (!result || result.isError) {
+              return { pass: false, score: 0, reason: `scaffold_theme failed: ${JSON.stringify(result).slice(0, 300)}` };
+            }
+            return { pass: true, score: 1, reason: `blank theme scaffolded: ${JSON.stringify(call.input)}` };
+          });
       - type: javascript
         value: |
           return import('node:fs').then(({ readFileSync }) => {
@@ -456,47 +480,6 @@ tests:
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
             const n = (d.toolCalls || []).filter(t => t.name === 'wp_cli' && /wc\s+product\s+create/.test(t.input?.command || '')).length;
             return { pass: n >= 1, score: n >= 1 ? 1 : 0, reason: n >= 1 ? `${n} product(s) created` : 'no `wc product create` calls' };
-          });
-
-  # The default new-site flow: no installed theme is mentioned, so the agent
-  # must start from a fresh blank scaffold (scaffold_theme WITHOUT parentTheme).
-  # timeoutMs here is a cost cap, not a failure condition: the assertion only
-  # needs the scaffold_theme call (recorded within the first few turns), and
-  # the runner still writes the partial transcript when it interrupts on
-  # timeout, so the test passes without waiting for the full site build.
-  - description: new site with no theme mentioned scaffolds a blank theme
-    vars:
-      caseId: blank-theme-for-new-site
-      timeoutMs: 300000
-      askUserPolicy: allow_all
-      prompt: |
-        If a site named "Eval - Wapuu History" already exists, delete it first.
-
-        Create a new site about the history of Wapuu, named
-        "Eval - Wapuu History". Keep it as small and fast as possible: a
-        single page with one heading and one short paragraph. No images, no
-        menus, no extra sections, no plugins, and skip screenshots and any
-        final polish pass.
-    assert:
-      - type: javascript
-        value: |
-          return import('node:fs').then(({ readFileSync }) => {
-            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
-            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
-            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
-            const scaffolds = (d.toolCalls || []).filter(t => t.name === 'scaffold_theme');
-            if (scaffolds.length === 0) {
-              return { pass: false, score: 0, reason: `scaffold_theme was never called; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
-            }
-            const call = scaffolds[0];
-            if (call.input?.parentTheme) {
-              return { pass: false, score: 0, reason: `expected a blank scaffold but got a child theme: ${JSON.stringify(call.input)}` };
-            }
-            const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
-            if (!result || result.isError) {
-              return { pass: false, score: 0, reason: `scaffold_theme failed: ${JSON.stringify(result).slice(0, 300)}` };
-            }
-            return { pass: true, score: 1, reason: `blank theme scaffolded: ${JSON.stringify(call.input)}` };
           });
 
   # Regression (STU-2017): customizing a site running an installed third-party

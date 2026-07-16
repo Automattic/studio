@@ -22,8 +22,8 @@ export function useImportSite() {
 	const queryClient = useQueryClient();
 	return useMutation< SiteDetails, Error, ImportSiteInput >( {
 		mutationFn: ( { siteId, backup } ) => connector.importSiteFromBackup( siteId, backup ),
-		onSuccess: () => {
-			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+		onSuccess: async () => {
+			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 			toast.success( __( 'Import finished' ) );
 		},
 	} );

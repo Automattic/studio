@@ -53,11 +53,20 @@
 		transparent
 	);
 	--site-dropdown-menu-hover: var(--site-dropdown-menu-surface-active);
+	/* Brand fg flips with the theme while this surface is theme-inverted, so
+	   derive a link blue from the constant brand fill instead: periwinkle on
+	   the dark surface, royal navy on the light one. */
+	--site-dropdown-menu-brand: color-mix(
+		in srgb,
+		var(--wpds-color-bg-interactive-brand-strong, #3858e9) 65%,
+		var(--site-dropdown-menu-foreground)
+	);
 	--wpds-color-bg-surface-neutral: var(--site-dropdown-menu-surface-subtle);
 	--wpds-color-bg-surface-neutral-strong: var(--site-dropdown-menu-surface);
 	--wpds-color-bg-interactive-neutral-weak: transparent;
 	--wpds-color-bg-interactive-neutral-weak-active: var(--site-dropdown-menu-hover);
 	--wpds-color-bg-interactive-brand-weak-active: var(--site-dropdown-menu-hover);
+	--wpds-color-fg-interactive-brand: var(--site-dropdown-menu-brand);
 	--wpds-color-fg-content-neutral: var(--site-dropdown-menu-foreground);
 	--wpds-color-fg-content-neutral-weak: var(--site-dropdown-menu-foreground-weak);
 	--wpds-color-fg-interactive-neutral: var(--site-dropdown-menu-foreground);

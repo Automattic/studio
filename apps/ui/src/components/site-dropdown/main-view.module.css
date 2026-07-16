@@ -23,7 +23,11 @@
 }
 
 .activityErrorTitle {
-	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+	color: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground, var(--wpds-color-fg-content-neutral)) 72%,
+		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral))
+	);
 	font-weight: 600;
 }
 

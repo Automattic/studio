@@ -112,16 +112,23 @@ async function getExistingNativePhpMuPluginsDir(
 		return null;
 	}
 
-	const expectedFiles = getStandardMuPlugins( options )
-		.map( ( plugin ) => plugin.filename )
-		.sort();
-	const actualFiles = existingFiles.filter( ( file ) => file.endsWith( '.php' ) ).sort();
+	const expectedPlugins = getStandardMuPlugins( options );
+	const actualFiles = existingFiles.filter( ( file ) => file.endsWith( '.php' ) );
 
-	if (
-		expectedFiles.length !== actualFiles.length ||
-		expectedFiles.some( ( filename, index ) => filename !== actualFiles[ index ] )
-	) {
+	if ( expectedPlugins.length !== actualFiles.length ) {
 		return null;
+	}
+
+	for ( const plugin of expectedPlugins ) {
+		let content: string;
+		try {
+			content = await readFile( path.join( muPluginsDir, plugin.filename ), 'utf8' );
+		} catch {
+			return null;
+		}
+		if ( content !== plugin.content ) {
+			return null;
+		}
 	}
 
 	return muPluginsDir;
@@ -332,13 +339,12 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	muPlugins.push( {
 		filename: '0-deactivate-jetpack-modules.php',
 		content: `<?php
-			// Disable Jetpack Protect 2FA for local auto-login purpose
-			add_action( 'jetpack_active_modules', 'jetpack_deactivate_modules' );
-			function jetpack_deactivate_modules( $active ) {
-				if ( ( $index = array_search('protect', $active, true) ) !== false ) {
-					unset( $active[ $index ] );
-				}
-				return $active;
+			// Disable Jetpack Protect so local auto-login is not blocked by 2FA.
+			// Disable Jetpack Stats so local previews and thumbnails do not bump remote site stats.
+			add_filter( 'jetpack_active_modules', 'studio_deactivate_jetpack_modules' );
+			function studio_deactivate_jetpack_modules( $active ) {
+				$disabled_modules = array( 'protect', 'stats' );
+				return array_values( array_diff( $active, $disabled_modules ) );
 			}
 	`,
 	} );

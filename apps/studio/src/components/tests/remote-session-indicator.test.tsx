@@ -32,7 +32,7 @@ function setupHooks( {
 	isRunning: boolean;
 	isLoading?: boolean;
 } ) {
-	vi.mocked( useBetaFeatures ).mockReturnValue( { remoteSession } );
+	vi.mocked( useBetaFeatures ).mockReturnValue( { remoteSession, enableAgenticUi: false } );
 	vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated } );
 	vi.mocked( useRemoteSessionStatus ).mockReturnValue( {
 		status: isRunning ? { running: true } : undefined,

@@ -94,6 +94,10 @@ export function createIpcConnector(): Connector {
 		);
 	}
 
+	// The IPC connector only runs in Electron, so `navigator` reflects the
+	// desktop OS.
+	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
+
 	// Preview CLI commands are path-based, not id-based. Look up the matching
 	// site once per call so UI code can keep working with the stable site id.
 	async function resolveSiteFolder( siteId: string ): Promise< string > {
@@ -690,6 +694,10 @@ export function createIpcConnector(): Connector {
 			ipcApi.popupAppMenu( position );
 		},
 
+		// Windows/Linux have no native menu bar, so the UI provides the entry
+		// point; macOS keeps the native application menu.
+		showsAppMenuButton: ! isMacOS,
+
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
 		},
@@ -699,10 +707,9 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Window state
-		// The IPC connector only runs in Electron, so `navigator` reflects the
-		// desktop OS. macOS overlays the traffic lights on the content (so we
-		// reserve space for them); Windows and Linux don't.
-		reservesTrafficLightSpace: /mac/i.test( navigator.platform || navigator.userAgent ),
+		// macOS overlays the traffic lights on the content (so we reserve
+		// space for them); Windows and Linux don't.
+		reservesTrafficLightSpace: isMacOS,
 
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();

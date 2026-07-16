@@ -3,6 +3,7 @@ import { privateApis } from '@wordpress/theme';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
+import { AppToasts } from '@/components/app-toasts';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
@@ -66,6 +67,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 							<SidebarHeader onToggleSidebar={ toggleSidebar } />
 							<SiteList />
 							<div className={ styles.sidebarFooter }>
+								{ ! collapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
 								<UserMenu />
 							</div>
 						</div>
@@ -106,6 +108,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 						</div>
 					) : null }
 					{ children }
+					{ collapsed ? <AppToasts className={ styles.floatingToasts } fit="content" /> : null }
 				</main>
 				{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 			</div>

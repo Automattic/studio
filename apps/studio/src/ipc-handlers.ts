@@ -131,8 +131,8 @@ import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
 import {
+	getFrameTitleBarOverlayOptions,
 	getMainWindow,
-	getThemeAwareTitleBarOverlayOptions,
 	getTitleBarOverlayOptions,
 	loadMainWindowRenderer,
 	setAgenticUiEnabled,
@@ -2302,7 +2302,7 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 		// Hiding the controls means a fullscreen modal (e.g. Add site) now sits behind them,
 		// so the overlay must match its theme-aware `bg-frame` background instead of the chrome.
 		parentWindow.setTitleBarOverlay(
-			visible ? getTitleBarOverlayOptions() : getThemeAwareTitleBarOverlayOptions()
+			visible ? getTitleBarOverlayOptions() : getFrameTitleBarOverlayOptions()
 		);
 	}
 }

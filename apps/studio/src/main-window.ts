@@ -288,10 +288,11 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	return mainWindow;
 }
 
-export function getThemeAwareTitleBarOverlayOptions() {
+// Matches the renderer's `--color-frame-bg`, so window controls blend into a fullscreen modal.
+export function getFrameTitleBarOverlayOptions() {
 	const isDark = nativeTheme.shouldUseDarkColors;
 	return {
-		color: isDark ? '#242424' : '#fff',
+		color: isDark ? '#2f2f2f' : '#fff',
 		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
 		height: WINDOWS_TITLEBAR_HEIGHT,
 	};
@@ -301,7 +302,12 @@ export function getTitleBarOverlayOptions() {
 	if ( getPreferredStudioUiMode() !== 'agentic' ) {
 		return { color: 'rgba(30, 30, 30, 1)', symbolColor: 'white', height: WINDOWS_TITLEBAR_HEIGHT };
 	}
-	return getThemeAwareTitleBarOverlayOptions();
+	const isDark = nativeTheme.shouldUseDarkColors;
+	return {
+		color: isDark ? '#242424' : '#fff',
+		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
+		height: WINDOWS_TITLEBAR_HEIGHT,
+	};
 }
 
 function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {

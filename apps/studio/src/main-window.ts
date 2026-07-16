@@ -18,7 +18,6 @@ import {
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { removeMenu } from 'src/menu';
 import { SiteServer } from 'src/site-server';
@@ -39,11 +38,14 @@ interface RendererLocation {
 	filePath?: string;
 }
 
+let agenticUiEnabled = false;
+
+export function setAgenticUiEnabled( enabled: boolean ): void {
+	agenticUiEnabled = enabled;
+}
+
 export function getPreferredStudioUiMode(): StudioUiMode {
-	if ( getFeatureFlagFromEnv( 'enableAgenticUi' ) ) {
-		return 'agentic';
-	}
-	return 'default';
+	return agenticUiEnabled ? 'agentic' : 'default';
 }
 
 function getRendererFilePath( mode: StudioUiMode ) {

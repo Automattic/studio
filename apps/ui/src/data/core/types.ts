@@ -328,6 +328,12 @@ export interface Connector {
 
 	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
 
+	// Whether the UI should render a button that opens the app menu via
+	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
+	// native menu bar; macOS has the native application menu and the browser
+	// (`studio ui` / hosted) has no app menu at all.
+	showsAppMenuButton: boolean;
+
 	// Clipboard — routed to the host so it works where the renderer's
 	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
 	copyText( text: string ): Promise< void >;
@@ -368,14 +374,19 @@ export interface Connector {
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
 	// the application menu.
 	onOpenSettings( listener: () => void ): () => void;
+
+	// Switches back to the legacy (classic) Studio UI.
+	disableAgenticUi(): Promise< void >;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';
+export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
+	quitSitesBehavior?: QuitSitesBehavior;
 	locale: string | undefined;
 }
 

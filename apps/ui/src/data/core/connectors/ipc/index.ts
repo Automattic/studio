@@ -13,6 +13,7 @@ import type {
 	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
+	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -92,6 +93,10 @@ export function createIpcConnector(): Connector {
 			'IPC API not available. Are you running inside Electron with the preload script?'
 		);
 	}
+
+	// The IPC connector only runs in Electron, so `navigator` reflects the
+	// desktop OS.
+	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
 
 	// Preview CLI commands are path-based, not id-based. Look up the matching
 	// site once per call so UI code can keep working with the stable site id.
@@ -626,18 +631,20 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale ] = ( await Promise.all( [
+			const [ editor, terminal, colorScheme, quitSitesBehavior, locale ] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
+				ipcApi.getQuitSitesBehavior(),
 				ipcApi.getUserLocale(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
+				QuitSitesBehavior | undefined,
 				string | undefined,
 			];
-			return { editor, terminal, colorScheme, locale };
+			return { editor, terminal, colorScheme, quitSitesBehavior, locale };
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -650,6 +657,9 @@ export function createIpcConnector(): Connector {
 			}
 			if ( 'colorScheme' in partial && partial.colorScheme ) {
 				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
+			}
+			if ( 'quitSitesBehavior' in partial ) {
+				writes.push( ipcApi.saveQuitSitesBehavior( partial.quitSitesBehavior ) );
 			}
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
@@ -693,6 +703,10 @@ export function createIpcConnector(): Connector {
 			ipcApi.popupAppMenu( position );
 		},
 
+		// Windows/Linux have no native menu bar, so the UI provides the entry
+		// point; macOS keeps the native application menu.
+		showsAppMenuButton: ! isMacOS,
+
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
 		},
@@ -702,10 +716,9 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Window state
-		// The IPC connector only runs in Electron, so `navigator` reflects the
-		// desktop OS. macOS overlays the traffic lights on the content (so we
-		// reserve space for them); Windows and Linux don't.
-		reservesTrafficLightSpace: /mac/i.test( navigator.platform || navigator.userAgent ),
+		// macOS overlays the traffic lights on the content (so we reserve
+		// space for them); Windows and Linux don't.
+		reservesTrafficLightSpace: isMacOS,
 
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();
@@ -748,6 +761,10 @@ export function createIpcConnector(): Connector {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'user-settings', () => listener() );
+		},
+
+		async disableAgenticUi(): Promise< void > {
+			await ipcApi.disableAgenticUi();
 		},
 	};
 }

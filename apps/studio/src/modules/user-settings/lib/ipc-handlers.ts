@@ -12,6 +12,7 @@ import {
 	loadUserData,
 	lockAppdata,
 	saveUserData,
+	type QuitSitesBehavior,
 	unlockAppdata,
 	updateAppdata,
 } from 'src/storage/user-data';
@@ -106,6 +107,18 @@ export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {
 	const colorScheme = userData.colorScheme ?? 'light';
 	nativeTheme.themeSource = colorScheme;
 	return colorScheme;
+}
+
+export async function saveQuitSitesBehavior(
+	_event: IpcMainInvokeEvent,
+	quitSitesBehavior: QuitSitesBehavior | undefined
+) {
+	await updateAppdata( { quitSitesBehavior } );
+}
+
+export async function getQuitSitesBehavior(): Promise< QuitSitesBehavior | undefined > {
+	const userData = await loadUserData();
+	return userData.quitSitesBehavior;
 }
 
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {

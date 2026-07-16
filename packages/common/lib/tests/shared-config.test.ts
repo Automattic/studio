@@ -204,31 +204,31 @@ describe( 'Shared Config', () => {
 					JSON.stringify( {
 						version: 1,
 						sessions: {
-							abc123: { starred: true },
+							abc123: { archived: true },
 						},
 					} )
 				)
 			);
 
 			await expect( readSharedSessions() ).resolves.toEqual( {
-				abc123: { starred: true },
+				abc123: { archived: true },
 			} );
-			await expect( readSharedSession( 'abc123' ) ).resolves.toEqual( { starred: true } );
+			await expect( readSharedSession( 'abc123' ) ).resolves.toEqual( { archived: true } );
 			await expect( readSharedSession( 'missing' ) ).resolves.toBeUndefined();
 		} );
 
 		it( 'updates session metadata in place', async () => {
 			vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( { version: 1 } ) ) );
 
-			await expect( updateSharedSession( 'abc123', { starred: true } ) ).resolves.toEqual( {
-				starred: true,
+			await expect( updateSharedSession( 'abc123', { archived: true } ) ).resolves.toEqual( {
+				archived: true,
 			} );
 
 			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
 			expect( JSON.parse( written ) ).toEqual( {
 				version: 1,
 				sessions: {
-					abc123: { starred: true },
+					abc123: { archived: true },
 				},
 			} );
 		} );
@@ -239,21 +239,44 @@ describe( 'Shared Config', () => {
 					JSON.stringify( {
 						version: 1,
 						sessions: {
-							abc123: { starred: true, archived: true },
+							abc123: { archived: true },
 						},
 					} )
 				)
 			);
 
 			await expect(
-				updateSharedSession( 'abc123', {
-					starred: false,
-					archived: undefined,
-				} )
+				updateSharedSession( 'abc123', { archived: undefined } )
 			).resolves.toBeUndefined();
 
 			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
 			expect( JSON.parse( written ) ).toEqual( { version: 1 } );
+		} );
+
+		it( 'purges legacy starred flags on write', async () => {
+			vi.mocked( readFile ).mockResolvedValue(
+				Buffer.from(
+					JSON.stringify( {
+						version: 1,
+						sessions: {
+							abc123: { starred: true },
+							def456: { starred: true, archived: true },
+						},
+					} )
+				)
+			);
+
+			await expect( updateSharedSession( 'def456', { archived: true } ) ).resolves.toEqual( {
+				archived: true,
+			} );
+
+			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
+			expect( JSON.parse( written ) ).toEqual( {
+				version: 1,
+				sessions: {
+					def456: { archived: true },
+				},
+			} );
 		} );
 
 		it( 'deletes stored session metadata', async () => {

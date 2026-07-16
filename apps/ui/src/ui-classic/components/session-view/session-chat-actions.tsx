@@ -71,10 +71,7 @@ export function SessionChatActions( {
 	const archiveSession = ( session: AiSessionSummary ) => {
 		updateSessionMetadata.mutate( {
 			sessionId: session.id,
-			patch: {
-				starred: session.starred,
-				archived: true,
-			},
+			patch: { archived: true },
 		} );
 	};
 

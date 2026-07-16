@@ -251,11 +251,7 @@ describe( 'SessionChatActions', () => {
 				onSwitchSession={ onSwitchSession }
 				sessions={ [
 					createSession( { id: 'current', firstPrompt: 'Current chat' } ),
-					createSession( {
-						id: 'older',
-						firstPrompt: 'Older chat',
-						starred: true,
-					} ),
+					createSession( { id: 'older', firstPrompt: 'Older chat' } ),
 				] }
 			/>
 		);
@@ -268,10 +264,7 @@ describe( 'SessionChatActions', () => {
 
 		expect( updateSessionMetadataMutate ).toHaveBeenCalledWith( {
 			sessionId: 'older',
-			patch: {
-				starred: true,
-				archived: true,
-			},
+			patch: { archived: true },
 		} );
 		expect( onSwitchSession ).not.toHaveBeenCalled();
 	} );

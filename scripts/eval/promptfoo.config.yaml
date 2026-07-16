@@ -531,3 +531,49 @@ tests:
             }
             return { pass: true, score: 1, reason: `sections colored from the theme palette (${paletteRefs} palette color ref(s)) with no hardcoded hex` };
           });
+
+  # A diagnostic question ("why does X look broken?") must be answered by
+  # inspecting and explaining — not by mutating the site. Guards the
+  # "Matching actions to the request" section of the system prompt.
+  - description: diagnostic question inspects and explains without changing the site
+    vars:
+      caseId: diagnose-no-mutation
+      timeoutMs: 420000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Diagnose Site" exists using site_list.
+        If it does not exist, create it with site_create. Do NOT touch any other
+        site, and do not customize the theme while setting it up.
+
+        Now, about that site: the homepage looks broken and unprofessional to
+        me. Can you work out why that might be? Walk me through what you find.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls || [];
+            const forbiddenTools = ['Write', 'Edit', 'scaffold_theme', 'site_delete', 'site_import', 'site_push', 'site_pull', 'preview_create', 'preview_update', 'preview_delete'];
+            const badTool = calls.find(c => forbiddenTools.includes(c.name));
+            if (badTool) return { pass: false, score: 0, reason: `diagnostic question triggered a mutating tool: ${badTool.name} ${JSON.stringify(badTool.input).slice(0, 200)}` };
+            const mutatingWpCli = calls.find(c => c.name === 'wp_cli' && /\b(install|activate|deactivate|uninstall|delete|update|create|import|regenerate|switch|set)\b/.test(c.input?.command || ''));
+            if (mutatingWpCli) return { pass: false, score: 0, reason: `diagnostic question triggered a mutating wp_cli call: ${mutatingWpCli.input?.command}` };
+            const mutatingBash = calls.find(c => c.name === 'Bash' && /(>|>>|\brm\b|\bmv\b|\bcp\b|sed -i|\btee\b)/.test(c.input?.command || ''));
+            if (mutatingBash) return { pass: false, score: 0, reason: `diagnostic question triggered a mutating Bash call: ${mutatingBash.input?.command}` };
+            return { pass: true, score: 1, reason: `no mutations; tools used: ${JSON.stringify([...new Set(calls.map(c => c.name))])}` };
+          });
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = d.toolCalls || [];
+            const inspected = calls.some(c => c.name === 'take_screenshot' || c.name === 'inspect_design');
+            if (!inspected) return { pass: false, score: 0, reason: `agent never visually inspected the site (no take_screenshot or inspect_design); tools: ${JSON.stringify(calls.map(c => c.name))}` };
+            const text = (d.textSegments || []).join('\n');
+            const explained = text.length > 200;
+            return { pass: explained, score: explained ? 1 : 0, reason: explained ? 'agent inspected the site and produced an explanation' : `explanation too thin: ${text.slice(0, 200)}` };
+          });

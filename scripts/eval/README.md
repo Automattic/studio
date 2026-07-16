@@ -23,6 +23,7 @@ Run one named test with `npm run eval -- --filter-pattern "preview sites"` (rege
 - **jetpack-catchall-slideshow** — Agent reaches for Jetpack on a slideshow request. Asserts the generated page content uses a `jetpack/*` block (i.e. the catch-all rule fired instead of the agent falling back to raw HTML).
 - **differentiate-preview-vs-remote** — Regression for STU-1775. Seeds one connected WordPress.com remote site and one preview site for a local site, then asserts the `site_connected_remote_sites` and `preview_list` tools tag their output with a `type` discriminator (`wpcom-remote` / `preview`) and that the agent's prose keeps the two categories distinct (preview sites are never described as connected WordPress.com remote sites).
 - **section-uses-theme-palette** — Agent adds sections to a site that keeps its default theme. Asserts the section block markup colors are drawn from the theme palette (color-slug attributes like `{"backgroundColor":"accent-1"}` or `var(--wp--preset--color--*)` in CSS) rather than hardcoded hex values. `theme.json` is excluded from the hex check since a palette is legitimately defined there.
+- **diagnose-no-mutation** — A diagnostic question ("the homepage looks broken — why?") must be answered by inspecting (screenshot / DOM inspection) and explaining, without any Write/Edit, mutating `wp_cli`, or mutating Bash call. Guards the "Matching actions to the request" system-prompt section.
 
 ## Adding tests
 

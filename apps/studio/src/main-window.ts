@@ -286,16 +286,20 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 	return mainWindow;
 }
 
-export function getTitleBarOverlayOptions() {
-	if ( getPreferredStudioUiMode() !== 'agentic' ) {
-		return { color: 'rgba(30, 30, 30, 1)', symbolColor: 'white', height: WINDOWS_TITLEBAR_HEIGHT };
-	}
+export function getThemeAwareTitleBarOverlayOptions() {
 	const isDark = nativeTheme.shouldUseDarkColors;
 	return {
 		color: isDark ? '#242424' : '#fff',
 		symbolColor: isDark ? '#e0e0e0' : '#1e1e1e',
 		height: WINDOWS_TITLEBAR_HEIGHT,
 	};
+}
+
+export function getTitleBarOverlayOptions() {
+	if ( getPreferredStudioUiMode() !== 'agentic' ) {
+		return { color: 'rgba(30, 30, 30, 1)', symbolColor: 'white', height: WINDOWS_TITLEBAR_HEIGHT };
+	}
+	return getThemeAwareTitleBarOverlayOptions();
 }
 
 function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {

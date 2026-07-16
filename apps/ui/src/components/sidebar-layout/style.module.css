@@ -5,8 +5,6 @@
 }
 
 .sidebar {
-	--sidebar-row-background: var(--wpds-color-bg-interactive-neutral-weak-active);
-
 	width: var(--sidebar-width, 320px);
 	/* The 240px floor is owned by useResizablePanel, which clamps
 	   --sidebar-width on every path. A CSS min-width here would be redundant
@@ -15,8 +13,7 @@
 	min-width: 0;
 	max-width: 25vw;
 	flex-shrink: 0;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
-	border-right: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background-color: var(--app-chrome-bg);
 	display: flex;
 	flex-direction: column;
 	/* The sidebar itself scrolls so the scrollbar gutter affects the
@@ -25,6 +22,14 @@
 	   inner wrapper. */
 	overflow-y: auto;
 	transition: width 150ms ease;
+}
+
+/* Inside the sidebar's dark ThemeProvider; generates no box, but declares
+   the row background here so it resolves against the dark ramp (declared on
+   .sidebar it would resolve against the outer light theme). */
+.sidebarThemeScope {
+	display: contents;
+	--sidebar-row-background: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 /* While dragging the handle the width updates every frame; the collapse
@@ -43,7 +48,7 @@
 	position: sticky;
 	bottom: 0;
 	z-index: 1;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var(--app-chrome-bg);
 }
 
 .sidebarCollapsed {
@@ -56,6 +61,11 @@
 	overflow: auto;
 	position: relative;
 	isolation: isolate;
+	/* Continues the chrome canvas into the inset-frame gaps around the
+	   content/preview container. The exposed chrome doubles as a window drag
+	   handle — the content frame inside opts back out. */
+	background-color: var(--app-chrome-bg);
+	-webkit-app-region: drag;
 }
 
 /* The negative margin cancels the handle's width so it adds no space to the
@@ -68,6 +78,19 @@
 	flex-shrink: 0;
 	margin-right: -8px;
 	justify-content: flex-start;
+}
+
+/* Sidebar-specific indicator treatment: match the content card's vertical
+   extent instead of running through the frame gaps above/below it (keep the
+   12px in sync with --panel-frame-gap in preview-split-frame). The handle is
+   wrapped in the sidebar's dark ThemeProvider, so the brand token resolves
+   to the on-dark blue. Nudged left off the content card's edge onto the
+   chrome, with rounded caps to match the frame's soft corners. */
+.resizeHandle span {
+	margin-block: 12px;
+	margin-inline-start: -3px;
+	border-radius: 999px;
+	background-color: var(--wpds-color-fg-interactive-brand);
 }
 
 /* Pinned to the bottom-left of the main area, mirroring the sidebar footer.

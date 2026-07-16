@@ -18,7 +18,7 @@
 	position: sticky;
 	top: 0;
 	z-index: 1;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var(--app-chrome-bg);
 }
 
 /* When there are no traffic lights to clear — non-macOS, the browser

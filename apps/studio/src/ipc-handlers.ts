@@ -52,6 +52,7 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import {
@@ -105,7 +106,7 @@ import {
 	SIDEBAR_WIDTH,
 	WINDOWS_TITLEBAR_HEIGHT,
 } from 'src/constants';
-import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
 import {
 	bumpAggregatedUniqueStat,
@@ -128,6 +129,12 @@ import { getImageData } from 'src/lib/get-image-data';
 import { getUserLocaleWithFallback } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import * as oauthClient from 'src/lib/oauth';
+import {
+	isPhpUserError,
+	parsePhpError,
+	startErrorRecovery,
+	stopErrorRecovery,
+} from 'src/lib/php-error-recovery';
 import { getAiInstructionsPath } from 'src/lib/server-files-paths';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { updateSiteUrl } from 'src/lib/update-site-url';
@@ -973,6 +980,44 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 			throw new Error( 'CAPACITY_LIMIT_REACHED' );
 		}
 
+		// A fatal error in the user's own PHP (theme/plugin) code stops WordPress from booting.
+		// Rather than failing the start, serve the parsed PHP error on the site's port and watch for
+		// the fix so the site self-recovers. This is user code, not a Studio bug, so skip Sentry.
+		if ( isPhpUserError( error ) ) {
+			const processManagerLogs = readProcessManagerLogs( id );
+			const logContent = [
+				...( processManagerLogs.stdout ?? [] ),
+				...( processManagerLogs.stderr ?? [] ),
+			].join( '\n' );
+			const errorMessage = parsePhpError( logContent );
+
+			try {
+				await startErrorRecovery( server, errorMessage, readProcessManagerLogs );
+				console.log(
+					`[PHP Recovery - ${ id }] Serving PHP error page on port ${ server.details.port }`
+				);
+				void sendIpcEventToRenderer( 'site-event', {
+					event: SITE_EVENTS.UPDATED,
+					siteId: id,
+					site: {
+						id: server.details.id,
+						name: server.details.name,
+						path: server.details.path,
+						port: server.details.port,
+						url:
+							( 'url' in server.details ? server.details.url : undefined ) ??
+							`http://localhost:${ server.details.port }`,
+						phpVersion: server.details.phpVersion,
+					},
+					running: true,
+				} );
+				return;
+			} catch ( recoveryError ) {
+				console.error( `[PHP Recovery - ${ id }] Failed to start recovery:`, recoveryError );
+				// Fall through to report the original error.
+			}
+		}
+
 		const contexts: Record< string, Record< string, unknown > > = {
 			server: {
 				running: server.details.running,
@@ -1035,6 +1080,7 @@ export async function stopServer( event: IpcMainInvokeEvent, id: string ): Promi
 		return;
 	}
 
+	stopErrorRecovery( id );
 	await server.stop();
 	// Stopping a single site by hand clears its auto-start. SiteServer.stop() pre-empts the running
 	// transition the events subscriber relies on, so persist it explicitly here.

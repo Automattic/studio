@@ -29,8 +29,6 @@ export function PreviewSplitFrame( {
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
 	const { rootRef, contentWidthVar, isResizing, handleProps } = usePreviewSplit( { showPreview } );
-	// The inset frame reads as chrome that belongs with the sidebar; when the
-	// sidebar is hidden the container goes full-bleed.
 	const isSidebarCollapsed = useSidebarCollapsed();
 
 	// Animate only open/close toggles of an already-mounted preview — never the

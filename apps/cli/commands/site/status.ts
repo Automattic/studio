@@ -38,7 +38,7 @@ export async function runCommand( siteFolder: string, format: 'table' | 'json' )
 
 		const runtime = getSiteRuntime( site );
 		const fileAccess = getSiteFileAccess( site );
-		/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary Studio bundles and runs natively on the machine. */
+		/* translators: PHP runtime option, paired with "Sandbox". The compiled PHP binary that Studio bundles and runs natively on the machine. */
 		const nativeLabel = __( 'Native' );
 		/* translators: PHP runtime option, paired with "Native". Runs the site in an isolated WordPress Playground sandbox. */
 		const sandboxLabel = __( 'Sandbox' );

@@ -16,6 +16,12 @@
 }
 
 .sidebar {
+	/* Single source for the rendered sidebar-header height (its content-box
+	   min-height plus vertical padding — see sidebar-header/style.module.css).
+	   Sticky elements below the header (the site list's view switcher) offset
+	   against this so they pin exactly at the header's bottom edge. */
+	--sidebar-header-block-size: calc(46px + 2 * var(--wpds-dimension-padding-sm));
+
 	/* Fallback mirrors SIDEBAR_PANEL_CONFIG.defaultWidth in resizable-panels.ts. */
 	width: var(--sidebar-width, 280px);
 	/* The 240px floor is owned by useResizablePanel, which clamps
@@ -62,6 +68,27 @@
 	bottom: 0;
 	z-index: 1;
 	background-color: var(--app-chrome-bg);
+}
+
+/* Scroll hint above the sticky footer: anchored to the footer (its nearest
+   positioned ancestor), spanning the sidebar width. The surface fade blends
+   into the chrome, and the scroll-driven animation removes the blur as the
+   sidebar approaches the end of its scroll range (with no overflow the
+   timeline is inactive and the blur sits invisibly over the flat chrome). */
+.footerBlur {
+	inset-inline: 0;
+	bottom: 100%;
+	height: 48px;
+	--progressive-blur-surface-color: var(--app-chrome-bg);
+	animation: footerBlurFadeOut linear both;
+	animation-timeline: scroll(nearest);
+	animation-range: calc(100% - 48px) 100%;
+}
+
+@keyframes footerBlurFadeOut {
+	to {
+		opacity: 0;
+	}
 }
 
 /* Toast shelf above the UserMenu in the expanded footer. The inset matches

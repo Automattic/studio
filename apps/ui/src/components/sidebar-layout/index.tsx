@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import { AppMessageCards, AppMessageCardsDot } from '@/components/app-message-cards';
 import { AppToasts } from '@/components/app-toasts';
+import { ProgressiveBlur } from '@/components/progressive-blur';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
 import { SiteList } from '@/components/site-list';
@@ -90,6 +91,11 @@ export function SidebarLayout( {
 							<SidebarHeader />
 							<SiteList />
 							<div className={ styles.sidebarFooter }>
+								{ /* Rides the sticky footer's top edge, blurring list rows as
+								     they scroll under; a scroll-driven animation fades it out
+								     at the end of the scroll range so the last rows are never
+								     left obscured. */ }
+								<ProgressiveBlur direction="up" fadeToSurface className={ styles.footerBlur } />
 								{ /* Persistent cards stack above the ephemeral toasts; while
 								     collapsed the floating toggle's dot stands in for them. */ }
 								{ ! effectiveCollapsed ? (

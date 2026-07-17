@@ -9,11 +9,8 @@ fi
 
 echo '--- :package: Install deps'
 if [ "$PLATFORM" = "linux" ]; then
-  # Linux runs inside a Debian Node container on the shared `default` queue.
-  # The a8c-ci-toolkit cache helpers (hash_file, restore_cache) only exist on
-  # the host, so install-node-dependencies.sh can't run here. Unlike the UI e2e
-  # suite, no Electron/Playwright runtime libs are needed: these tests drive the
-  # CLI over Node and PHP-WASM, with no browser and no display server.
+  # The a8c-ci-toolkit cache helpers only exist on the host, so
+  # install-node-dependencies.sh cannot run inside the Linux container.
   npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
 else
   bash .buildkite/commands/install-node-dependencies.sh

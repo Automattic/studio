@@ -147,10 +147,8 @@ steps:
           - mac
           - windows
 
-      # Linux runs on the shared `default` queue inside a Debian Node container,
-      # the same pattern the Linux unit-test and E2E steps use. Kept separate
-      # from the matrix above because Mac and Windows share queue/plugin
-      # defaults that Linux doesn't.
+      # Separate from the matrix above: Mac and Windows share queue/plugin
+      # defaults that Linux doesn't. Same pattern as the unit-test group.
       - label: CLI E2E Tests on linux
         key: cli_e2e_tests_linux
         command: bash .buildkite/commands/run-cli-e2e-tests.sh "linux"

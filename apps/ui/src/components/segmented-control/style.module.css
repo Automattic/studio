@@ -1,0 +1,48 @@
+.root {
+	display: flex;
+	gap: 2px;
+	padding: 2px;
+	border-radius: var(--wpds-border-radius-lg);
+	background-color: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.segment {
+	flex: 1 1 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--wpds-dimension-gap-xs);
+	appearance: none;
+	border: 0;
+	margin: 0;
+	min-block-size: 24px;
+	padding: 0 var(--wpds-dimension-padding-sm);
+	border-radius: calc(var(--wpds-border-radius-lg) - 2px);
+	background: transparent;
+	font-family: inherit;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-xs);
+	font-weight: var(--wpds-typography-font-weight-regular);
+	color: var(--wpds-color-fg-interactive-neutral-weak);
+	cursor: var(--wpds-cursor-control);
+	white-space: nowrap;
+	transition: background-color var(--wpds-motion-duration-sm) var(--wpds-motion-easing-subtle),
+		color var(--wpds-motion-duration-sm) var(--wpds-motion-easing-subtle);
+}
+
+.segment:hover {
+	color: var(--wpds-color-fg-interactive-neutral);
+}
+
+/* Same fill as the sidebar rows' hover/active shape so the pressed segment
+   reads as "selected" with the rest of the app's chrome. */
+.segment[data-pressed] {
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	color: var(--wpds-color-fg-content-neutral);
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.segment:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: -1px;
+}

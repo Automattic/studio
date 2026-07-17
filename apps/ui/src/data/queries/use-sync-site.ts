@@ -1,4 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
@@ -30,10 +32,12 @@ export function usePushSiteToLive() {
 			void queryClient.invalidateQueries( {
 				queryKey: connectedWpcomSitesQueryKey( siteId ),
 			} );
+			toast.success( __( 'Push complete' ) );
 		},
 		onError: ( error, { siteId } ) => {
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'push', message );
+			toast.error( __( "Push didn't complete" ) );
 		},
 	} );
 }
@@ -78,10 +82,12 @@ export function usePullSiteFromLive() {
 			// and the site's database + themes just changed — refresh the
 			// site list so any downstream consumers see the new state.
 			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			toast.success( __( 'Pull complete' ) );
 		},
 		onError: ( error, { siteId } ) => {
 			const message = error instanceof Error ? error.message : String( error );
 			reportSyncError( siteId, 'pull', message );
+			toast.error( __( "Pull didn't complete" ) );
 		},
 	} );
 }

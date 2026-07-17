@@ -168,6 +168,11 @@ a:focus:not( :focus-visible ),
 	height: 16px;
 }
 
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
+	width: auto;
+	height: auto;
+}
+
 /* @wordpress/ui SelectControl and Autocomplete popup items use the brand
    weak-active fill for highlighted rows. In Studio's dark chrome that reads
    too saturated; the selected item is already indicated with a checkmark, so

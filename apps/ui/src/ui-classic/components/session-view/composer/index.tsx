@@ -9,6 +9,7 @@ import {
 	watchComposerAttachmentTextScroll,
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
+import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
@@ -421,6 +422,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			textareaRef.current?.focus();
 		}
 	}, [ autoFocus, sessionId ] );
+
+	useEffect( () => {
+		return watchComposerFilePaste( ( files ) => {
+			void addFiles( files );
+			textareaRef.current?.focus();
+		} );
+	}, [ addFiles ] );
 
 	useLayoutEffect( () => {
 		const nextHeight = resizeComposerTextarea( textareaRef.current, manualTextareaHeight );

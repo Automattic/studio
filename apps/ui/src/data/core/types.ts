@@ -6,6 +6,7 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -177,10 +178,7 @@ export interface Connector {
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
-	// Featured blueprints gallery for the "Start from blueprint" onboarding
-	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
-	// no auth required, localized by the user's current UI locale.
-	getFeaturedBlueprints( locale?: string ): Promise< FeaturedBlueprint[] >;
+	getWordPressVersions(): Promise< WordPressVersion[] >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
 	// in the renderer. Returns an empty string when the underlying file lacks
@@ -188,13 +186,14 @@ export interface Connector {
 	getFilePath( file: File ): Promise< string >;
 	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
 
-	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
+	// Uploads and extracts a Blueprint ZIP bundle to a temp directory and returns the
 	// parsed `blueprint.json`. The caller is responsible for calling
 	// `cleanupBlueprintTempDir` if the extraction succeeds but the upload
 	// flow never reaches `createSite` — otherwise `createSite` cleans the
 	// temp directory automatically when it uses the extracted blueprint.
-	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
+	extractBlueprintBundle( file: File ): Promise< ExtractedBlueprintBundle >;
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
+	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 
 	// Imports a backup archive into an already-created site. Extracts the
 	// archive, installs the SQLite integration if missing, then imports the
@@ -367,6 +366,7 @@ export interface Connector {
 	// Fires when the user activates "File > Add Site…" (or its keyboard
 	// shortcut) in the application menu.
 	onAddSite( listener: () => void ): () => void;
+	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
 	// the application menu.
@@ -394,15 +394,6 @@ export type WritableUserPreferences = Omit< UserPreferences, 'locale' > & {
 	locale: SupportedLocale;
 };
 
-export interface FeaturedBlueprint {
-	slug: string;
-	title: string;
-	excerpt: string;
-	image: string;
-	playgroundUrl: string;
-	blueprint: BlueprintV1Declaration;
-}
-
 export interface CreateSiteParams {
 	name: string;
 	path: string;
@@ -413,14 +404,10 @@ export interface CreateSiteParams {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
-	// Optional blueprint payload. When present, `blueprint` is the parsed
-	// blueprint JSON; `slug` is set for featured blueprints (used for stats);
-	// `filePath` points at the extracted `blueprint.json` inside a ZIP bundle
-	// so the CLI can resolve relative asset references. Main process cleans
-	// up the temp dir automatically once `createSite` completes.
+	// Optional blueprint payload. `filePath` points at the extracted
+	// `blueprint.json` inside a ZIP bundle so the CLI can resolve relative assets.
 	blueprint?: {
 		blueprint: BlueprintV1Declaration;
-		slug?: string;
 		filePath?: string;
 	};
 }

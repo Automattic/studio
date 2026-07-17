@@ -199,12 +199,12 @@ function SiteSettingsBody( {
 				'name',
 				{
 					id: 'versions',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'phpVersion', 'wpVersion' ],
 				},
 				{
 					id: 'adminCredentials',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'adminUsername', 'adminPassword' ],
 				},
 				'adminEmail',

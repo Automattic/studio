@@ -248,7 +248,9 @@
 	background: transparent;
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font: inherit;
-	font-size: var(--wpds-typography-font-size-sm);
+	/* Match SelectControl's trigger text so all controls in a card read the
+	   same size. */
+	font-size: var(--wpds-typography-font-size-md);
 	line-height: var(--wpds-typography-line-height-sm);
 	cursor: pointer;
 }

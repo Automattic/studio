@@ -314,7 +314,10 @@ export function SettingsView( {
 						// next mount then refetches preferences from the main
 						// process, which has the newly saved locale.
 						await persister.removeClient();
-						window.location.reload();
+						// Give the select popup a beat to finish closing — an
+						// immediate reload freezes its exit animation mid-flight
+						// and reads as lag.
+						window.setTimeout( () => window.location.reload(), 250 );
 					}
 				},
 			} );

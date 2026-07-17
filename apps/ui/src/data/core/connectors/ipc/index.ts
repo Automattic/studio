@@ -357,11 +357,12 @@ export function createIpcConnector(): Connector {
 			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
 		},
 
-		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
-			return ( await ipcApi.importSite( {
-				id: siteId,
-				backupFile: backup,
-			} ) ) as SiteDetails;
+		async importSiteFromBackup( siteId, backupPath ): Promise< void > {
+			await ipcApi.importSite( siteId, backupPath, {
+				alwaysStartServer: true,
+				showErrorModal: false,
+				showNotification: false,
+			} );
 		},
 
 		async startSite( id ) {

@@ -44,7 +44,15 @@ export const PRESSABLE_PHP_VERSION: typeof PressablePHPVersion = PressablePHPVer
 export const SQLITE_FILENAME = 'sqlite-database-integration' as const;
 
 // Import file constants
-export const ACCEPTED_IMPORT_FILE_TYPES = [ '.zip', '.gz', '.gzip', '.tar', '.tar.gz', '.wpress' ];
+export const ACCEPTED_IMPORT_FILE_TYPES = [
+	'.zip',
+	'.tar.gz',
+	'.gz',
+	'.gzip',
+	'.tar',
+	'.wpress',
+	'.sql',
+];
 
 // Archiver options
 export const ARCHIVER_OPTIONS = {

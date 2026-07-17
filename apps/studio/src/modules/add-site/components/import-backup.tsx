@@ -1,4 +1,5 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
@@ -45,7 +46,7 @@ interface ImportBackupProps {
 }
 
 const isValidBackupFile = ( file: File ): boolean => {
-	return ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) => file.name.toLowerCase().endsWith( ext ) );
+	return isSupportedBackupFilename( file.name );
 };
 
 export default function ImportBackup( {
@@ -97,7 +98,7 @@ export default function ImportBackup( {
 			} else {
 				setFileError(
 					__(
-						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, or .wpress file.'
+						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, .wpress, or .sql file.'
 					)
 				);
 			}

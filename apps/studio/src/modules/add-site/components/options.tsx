@@ -1,4 +1,5 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHeading as Heading,
@@ -73,10 +74,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 			if ( ! file ) {
 				return;
 			}
-			const hasValidExtension = ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) =>
-				file.name.toLowerCase().endsWith( ext )
-			);
-			if ( ! hasValidExtension ) {
+			if ( ! isSupportedBackupFilename( file.name ) ) {
 				setExtensionError( __( 'Unsupported file type.' ) );
 				return;
 			}

@@ -48,6 +48,12 @@ export interface CreateSiteFormValues {
 	adminEmail: string;
 }
 
+export interface CreateSiteFormError {
+	title: string;
+	message: string;
+	details?: string;
+}
+
 interface CreateSiteFormProps {
 	initialValues?: Partial< CreateSiteFormValues >;
 	existingDomainNames: string[];
@@ -55,8 +61,10 @@ interface CreateSiteFormProps {
 	onCancel: () => void;
 	isSubmitting?: boolean;
 	isSubmitDisabled?: boolean;
-	submitError?: string;
+	submitError?: string | CreateSiteFormError;
 	submitLabel?: string;
+	cancelLabel?: string;
+	loadingAnnouncement?: string;
 }
 
 interface FormData {
@@ -391,6 +399,8 @@ export function CreateSiteForm( {
 	isSubmitDisabled,
 	submitError,
 	submitLabel,
+	cancelLabel,
+	loadingAnnouncement,
 }: CreateSiteFormProps ) {
 	const formRef = useRef< HTMLFormElement >( null );
 	const initialSuggestedFields = getSuggestedFields( initialValues ?? {} );
@@ -594,7 +604,7 @@ export function CreateSiteForm( {
 				disabled={ isSubmitting }
 			>
 				<Icon icon={ chevronLeft } size={ 16 } />
-				<span>{ __( 'Back' ) }</span>
+				<span>{ cancelLabel ?? __( 'Back' ) }</span>
 			</Button>
 			<Button
 				type="submit"
@@ -602,7 +612,7 @@ export function CreateSiteForm( {
 				tone="brand"
 				disabled={ ! canSubmit }
 				loading={ isSubmitting }
-				loadingAnnouncement={ __( 'Creating site' ) }
+				loadingAnnouncement={ loadingAnnouncement ?? __( 'Creating site' ) }
 				data-testid="create-site-submit"
 			>
 				{ submitLabel ?? __( 'Create site' ) }
@@ -663,7 +673,20 @@ export function CreateSiteForm( {
 
 				{ submitError && (
 					<div role="alert" className={ styles.submitError }>
-						{ submitError }
+						{ typeof submitError === 'string' ? (
+							submitError
+						) : (
+							<>
+								<strong className={ styles.submitErrorTitle }>{ submitError.title }</strong>
+								<p className={ styles.submitErrorMessage }>{ submitError.message }</p>
+								{ submitError.details && (
+									<details className={ styles.submitErrorDetails }>
+										<summary>{ __( 'View technical details' ) }</summary>
+										<pre>{ submitError.details }</pre>
+									</details>
+								) }
+							</>
+						) }
 					</div>
 				) }
 			</div>

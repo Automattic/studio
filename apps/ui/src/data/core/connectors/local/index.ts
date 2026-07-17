@@ -439,10 +439,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
-			return api< SiteDetails >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
+		async importSiteFromBackup( siteId, backupPath ): Promise< void > {
+			await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
 				method: 'POST',
-				body: JSON.stringify( { path: backup.path, type: backup.type } ),
+				body: JSON.stringify( { path: backupPath } ),
 			} );
 		},
 

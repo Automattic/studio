@@ -200,7 +200,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		async importSiteFromBackup(): Promise< SiteDetails > {
+		async importSiteFromBackup(): Promise< void > {
 			throw new UnsupportedError( 'importSiteFromBackup' );
 		},
 

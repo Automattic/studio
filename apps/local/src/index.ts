@@ -814,9 +814,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Import a backup archive into an already-created site — the same CLI `import`
-	// the desktop forks. The archive path is normally an upload from `/uploads`,
-	// which is cleaned up afterwards.
+	// Import a backup into an already-created site. Uploaded files are cleaned up
+	// after each attempt, so a retry must upload the selected File again.
 	api.post(
 		'/sites/:id/import',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -832,9 +831,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			try {
 				await new Promise< void >( ( resolve, reject ) => {
-					const [ emitter ] = execute( [ 'import', '--path', site.path, archivePath ], {
-						output: 'capture',
-					} );
+					const [ emitter ] = execute(
+						[ 'import', '--path', site.path, archivePath, '--start-server' ],
+						{ output: 'capture' }
+					);
 					emitter.on( 'success', () => resolve() );
 					emitter.on( 'failure', ( { error } ) => reject( error ) );
 					emitter.on( 'error', ( { error } ) => reject( error ) );
@@ -844,12 +844,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				// direct child of the OS temp dir. Resolve first so `..` in the
 				// supplied path can't escape the temp root and delete elsewhere.
 				const uploadDir = path.dirname( path.resolve( archivePath ) );
-				if ( path.dirname( uploadDir ) === path.resolve( os.tmpdir() ) ) {
+				if (
+					path.dirname( uploadDir ) === path.resolve( os.tmpdir() ) &&
+					path.basename( uploadDir ).startsWith( 'studio-upload-' )
+				) {
 					rm( uploadDir, { recursive: true, force: true }, () => undefined );
 				}
 			}
-			const imported = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			res.json( toSiteDetails( imported ?? site ) );
+			res.status( 204 ).end();
 		} )
 	);
 

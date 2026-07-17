@@ -20,12 +20,31 @@ import {
 	type ExecFileSyncOptions,
 } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify( execFile );
 
 let cached: { file: string; prefix: string[] } | null = null;
+
+/**
+ * Launcher layout (standalone bundle and the desktop app's `resources/bin/`):
+ * a bundled `node.exe` beside the shim, entry at `../cli/main.mjs` or
+ * `../dist/cli/main.mjs`. Mirrors `apps/studio/bin/studio-cli.bat`.
+ */
+function resolveLauncherLayout( dir: string ): { file: string; prefix: string[] } | null {
+	const bundledNode = join( dir, 'node.exe' );
+	const node = existsSync( bundledNode ) ? bundledNode : process.execPath;
+	for ( const entry of [
+		join( dir, '..', 'cli', 'main.mjs' ),
+		join( dir, '..', 'dist', 'cli', 'main.mjs' ),
+	] ) {
+		if ( existsSync( entry ) ) {
+			return { file: node, prefix: [ '--experimental-wasm-jspi', entry ] };
+		}
+	}
+	return null;
+}
 
 /** Resolve how to spawn the Studio CLI on this platform (memoized). */
 function studioCommand(): { file: string; prefix: string[] } {
@@ -33,24 +52,43 @@ function studioCommand(): { file: string; prefix: string[] } {
 	if ( process.platform !== 'win32' ) {
 		return ( cached = { file: 'studio', prefix: [] } );
 	}
-	// The npm global layout is `<dir>/studio.cmd` + `<dir>/node_modules/wp-studio`;
-	// the package's bin field names the JS entry the shim wraps.
 	for ( const dir of ( process.env.PATH ?? '' ).split( delimiter ) ) {
-		if ( ! dir || ! existsSync( join( dir, 'studio.cmd' ) ) ) continue;
-		try {
-			const pkgDir = join( dir, 'node_modules', 'wp-studio' );
-			const { bin } = JSON.parse( readFileSync( join( pkgDir, 'package.json' ), 'utf8' ) ) as {
-				bin?: string | { studio?: string };
-			};
-			const entry = join( pkgDir, typeof bin === 'string' ? bin : bin?.studio ?? '' );
-			if ( existsSync( entry ) ) {
-				return ( cached = { file: process.execPath, prefix: [ entry ] } );
+		if ( ! dir ) continue;
+		if ( existsSync( join( dir, 'studio.cmd' ) ) ) {
+			// npm global layout: studio.cmd + node_modules/wp-studio; the package's
+			// bin field names the JS entry the shim wraps.
+			try {
+				const pkgDir = join( dir, 'node_modules', 'wp-studio' );
+				const { bin } = JSON.parse( readFileSync( join( pkgDir, 'package.json' ), 'utf8' ) ) as {
+					bin?: string | { studio?: string };
+				};
+				const rel = typeof bin === 'string' ? bin : bin?.studio;
+				if ( rel && existsSync( join( pkgDir, rel ) ) ) {
+					return ( cached = { file: process.execPath, prefix: [ join( pkgDir, rel ) ] } );
+				}
+			} catch {
+				// No readable wp-studio package beside this shim — try the launcher layout.
 			}
-		} catch {
-			// No readable wp-studio package next to this shim — keep scanning PATH.
+			// Standalone layout: node.exe + entry beside the shim.
+			const launcher = resolveLauncherLayout( dir );
+			if ( launcher ) return ( cached = launcher );
+		}
+		// Desktop app layout: a studio.bat one-liner (`"%~dp0\<rel>" %*`) forwarding
+		// to the versioned studio-cli.bat; see windows-installation-manager.ts.
+		const proxy = join( dir, 'studio.bat' );
+		if ( existsSync( proxy ) ) {
+			try {
+				const target = readFileSync( proxy, 'utf8' ).match( /"%~dp0\\?([^"]+)"\s+%\*/ )?.[ 1 ];
+				const launcher = target && resolveLauncherLayout( dirname( join( dir, target ) ) );
+				if ( launcher ) return ( cached = launcher );
+			} catch {
+				// Unreadable proxy — keep scanning PATH.
+			}
 		}
 	}
-	throw new Error( 'Studio CLI not found on PATH. Install it with `npm i -g wp-studio`.' );
+	throw new Error(
+		'Studio CLI not found on PATH. Enable the `studio` command from the Studio app settings, or install it with `npm i -g wp-studio`.'
+	);
 }
 
 /**

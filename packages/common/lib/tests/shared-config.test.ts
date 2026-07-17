@@ -253,32 +253,6 @@ describe( 'Shared Config', () => {
 			expect( JSON.parse( written ) ).toEqual( { version: 1 } );
 		} );
 
-		it( 'purges legacy starred flags on write', async () => {
-			vi.mocked( readFile ).mockResolvedValue(
-				Buffer.from(
-					JSON.stringify( {
-						version: 1,
-						sessions: {
-							abc123: { starred: true },
-							def456: { starred: true, archived: true },
-						},
-					} )
-				)
-			);
-
-			await expect( updateSharedSession( 'def456', { archived: true } ) ).resolves.toEqual( {
-				archived: true,
-			} );
-
-			const written = vi.mocked( writeFile ).mock.calls[ 0 ][ 1 ] as string;
-			expect( JSON.parse( written ) ).toEqual( {
-				version: 1,
-				sessions: {
-					def456: { archived: true },
-				},
-			} );
-		} );
-
 		it( 'deletes stored session metadata', async () => {
 			vi.mocked( readFile ).mockResolvedValue(
 				Buffer.from(

@@ -119,8 +119,6 @@ export async function updateSharedConfig( update: Partial< SharedConfig > ): Pro
 }
 
 function pruneSharedSessionMetadata( metadata: SharedSessionMetadata ): void {
-	// Leftover flag from the removed chat-starring feature.
-	delete ( metadata as { starred?: boolean } ).starred;
 	if ( ! metadata.archived ) {
 		delete metadata.archived;
 	}

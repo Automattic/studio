@@ -128,8 +128,8 @@ steps:
           DEBUG: "pw:browser"
         if: (build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft) && !(build.pull_request.labels includes 'native-php')
 
-  # Advisory: "CLI E2E Tests" is deliberately absent from trunk's required status
-  # checks, so a red run shows on the PR without blocking the merge.
+  # No `if:` guard: a required status check must report on every build, or PRs
+  # that skip it hang waiting for it. Doc-only PRs exit early but still report.
   - label: CLI E2E Tests
     key: cli-e2e-tests
     agents:

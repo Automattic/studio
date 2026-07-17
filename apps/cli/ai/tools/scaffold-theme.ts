@@ -1,4 +1,4 @@
-import { mkdir, stat, writeFile } from 'fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
 import { SiteData } from 'cli/lib/cli-config/core';
@@ -68,7 +68,7 @@ async function pathExists( p: string ): Promise< boolean > {
 function renderStyleCss( name: string, slug: string ): string {
 	return `/*
 Theme Name: ${ name }
-Description: A custom block theme.
+Description: A custom block theme scaffolded by Studio Code.
 Requires at least: 6.7
 Tested up to: 6.9
 Requires PHP: 7.2
@@ -87,6 +87,23 @@ Tags: full-site-editing, block-patterns, block-styles, wide-blocks, accessibilit
 .wp-site-blocks > * + * {
 	margin-block-start: 0;
 }
+`;
+}
+
+function renderChildStyleCss( name: string, slug: string, parentSlug: string ): string {
+	return `/*
+Theme Name: ${ name }
+Description: A child theme of ${ parentSlug }, scaffolded by Studio Code.
+Template: ${ parentSlug }
+Requires at least: 6.7
+Tested up to: 6.9
+Requires PHP: 7.2
+Version: 0.1.0
+License: GNU General Public License v2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: ${ slug }
+Tags: full-site-editing, block-patterns, block-styles, wide-blocks, accessibility-ready, style-variations
+*/
 `;
 }
 
@@ -114,6 +131,45 @@ add_action( 'wp_enqueue_scripts', function () {
 		'${ slug }-style',
 		get_parent_theme_file_uri( 'style.css' ),
 		array(),
+		wp_get_theme()->get( 'Version' )
+	);
+} );
+
+add_action( 'after_setup_theme', function () {
+	add_editor_style( 'style.css' );
+} );
+`;
+}
+
+function renderChildThemeJson(): string {
+	const data = {
+		$schema: 'https://schemas.wp.org/wp/6.7/theme.json',
+		version: 3,
+	};
+	return JSON.stringify( data, null, '\t' ) + '\n';
+}
+
+function renderChildFunctionsPhp( name: string, slug: string, parentSlug: string ): string {
+	return `<?php
+/**
+ * ${ name } child theme functions.
+ *
+ * @package ${ slug }
+ */
+
+add_action( 'wp_enqueue_scripts', function () {
+	// Parents that enqueue their stylesheet via get_stylesheet_uri() would load
+	// the child's near-empty style.css instead — enqueue the parent's directly.
+	wp_enqueue_style(
+		'${ parentSlug }-parent-style',
+		get_template_directory_uri() . '/style.css',
+		array(),
+		wp_get_theme( get_template() )->get( 'Version' )
+	);
+	wp_enqueue_style(
+		'${ slug }-style',
+		get_stylesheet_directory_uri() . '/style.css',
+		array( '${ parentSlug }-parent-style' ),
 		wp_get_theme()->get( 'Version' )
 	);
 } );
@@ -289,6 +345,7 @@ export const scaffoldThemeTool = defineTool(
 		'functions.php (frontend + editor style enqueue), default templates (index, single, page, archive, 404), ' +
 		'header/footer parts, and empty assets/fonts and patterns directories. ' +
 		'Use when the user wants to start a new custom theme — the agent fills in design-specific content afterwards. ' +
+		'Pass parentTheme to scaffold a child theme of an installed theme instead — required when customizing a third-party theme, whose files must never be edited directly. ' +
 		'Block themes only; does not support classic (PHP template) themes. ' +
 		'Fails if the target theme directory already exists. ' +
 		'When the site is not running or activation fails, the scaffold still succeeds and the result reports the manual activation command.',
@@ -304,6 +361,12 @@ export const scaffoldThemeTool = defineTool(
 			Type.String( {
 				description:
 					'Optional theme slug (lowercase letters, digits, dashes). Used as the directory name and text domain. Derived from the name when omitted.',
+			} )
+		),
+		parentTheme: Type.Optional(
+			Type.String( {
+				description:
+					"Slug of an installed theme to use as the parent (e.g. 'ollie'). When set, scaffolds a CHILD theme instead of a blank theme — templates, parts, patterns, theme.json settings, and styles inherit from the parent. Use to customize an installed third-party theme instead of editing its files (a theme update would wipe direct edits). The parent must already exist under wp-content/themes/.",
 			} )
 		),
 		activate: Type.Optional(
@@ -334,6 +397,34 @@ export const scaffoldThemeTool = defineTool(
 				throw new Error( `wp-content/themes directory not found in site: ${ themesDir }` );
 			}
 
+			const parentSlug = args.parentTheme?.trim();
+			if ( parentSlug !== undefined ) {
+				if ( ! parentSlug || ! /^[a-z0-9][a-z0-9-]*$/.test( parentSlug ) ) {
+					throw new Error(
+						'Parent theme slug must contain only lowercase letters, digits and dashes, and start with a letter or digit.'
+					);
+				}
+				if ( parentSlug === slug ) {
+					throw new Error(
+						'parentTheme must be different from the child theme slug. Pick a distinct slug for the child theme.'
+					);
+				}
+				const parentStyleCssPath = path.join( themesDir, parentSlug, 'style.css' );
+				if ( ! ( await pathExists( parentStyleCssPath ) ) ) {
+					throw new Error(
+						`Parent theme '${ parentSlug }' is not installed at wp-content/themes/${ parentSlug }/.`
+					);
+				}
+				const grandparentMatch = ( await readFile( parentStyleCssPath, 'utf8' ) ).match(
+					/^[ \t/*#@]*Template:[ \t]*(\S+)/im
+				);
+				if ( grandparentMatch ) {
+					throw new Error(
+						`'${ parentSlug }' is itself a child theme of '${ grandparentMatch[ 1 ] }' — WordPress does not support grandchild themes. Use parentTheme: '${ grandparentMatch[ 1 ] }' instead.`
+					);
+				}
+			}
+
 			const themeDir = path.join( themesDir, slug );
 			if ( await pathExists( themeDir ) ) {
 				throw new Error(
@@ -341,23 +432,36 @@ export const scaffoldThemeTool = defineTool(
 				);
 			}
 
-			await mkdir( path.join( themeDir, 'templates' ), { recursive: true } );
-			await mkdir( path.join( themeDir, 'parts' ), { recursive: true } );
-			await mkdir( path.join( themeDir, 'assets', 'fonts' ), { recursive: true } );
-			await mkdir( path.join( themeDir, 'patterns' ), { recursive: true } );
+			let files: Array< [ string, string ] >;
+			if ( parentSlug !== undefined ) {
+				// A block child theme inherits templates, parts, patterns, theme.json
+				// settings, and styles from the parent by path resolution — the child
+				// only needs the three root files until the agent adds overrides.
+				await mkdir( themeDir, { recursive: true } );
+				files = [
+					[ 'style.css', renderChildStyleCss( trimmedName, slug, parentSlug ) ],
+					[ 'theme.json', renderChildThemeJson() ],
+					[ 'functions.php', renderChildFunctionsPhp( trimmedName, slug, parentSlug ) ],
+				];
+			} else {
+				await mkdir( path.join( themeDir, 'templates' ), { recursive: true } );
+				await mkdir( path.join( themeDir, 'parts' ), { recursive: true } );
+				await mkdir( path.join( themeDir, 'assets', 'fonts' ), { recursive: true } );
+				await mkdir( path.join( themeDir, 'patterns' ), { recursive: true } );
 
-			const files: Array< [ string, string ] > = [
-				[ 'style.css', renderStyleCss( trimmedName, slug ) ],
-				[ 'theme.json', renderThemeJson() ],
-				[ 'functions.php', renderFunctionsPhp( trimmedName, slug ) ],
-				[ path.join( 'templates', 'index.html' ), TEMPLATE_INDEX ],
-				[ path.join( 'templates', 'single.html' ), TEMPLATE_SINGLE ],
-				[ path.join( 'templates', 'page.html' ), TEMPLATE_PAGE ],
-				[ path.join( 'templates', 'archive.html' ), TEMPLATE_ARCHIVE ],
-				[ path.join( 'templates', '404.html' ), TEMPLATE_404 ],
-				[ path.join( 'parts', 'header.html' ), PART_HEADER ],
-				[ path.join( 'parts', 'footer.html' ), PART_FOOTER ],
-			];
+				files = [
+					[ 'style.css', renderStyleCss( trimmedName, slug ) ],
+					[ 'theme.json', renderThemeJson() ],
+					[ 'functions.php', renderFunctionsPhp( trimmedName, slug ) ],
+					[ path.join( 'templates', 'index.html' ), TEMPLATE_INDEX ],
+					[ path.join( 'templates', 'single.html' ), TEMPLATE_SINGLE ],
+					[ path.join( 'templates', 'page.html' ), TEMPLATE_PAGE ],
+					[ path.join( 'templates', 'archive.html' ), TEMPLATE_ARCHIVE ],
+					[ path.join( 'templates', '404.html' ), TEMPLATE_404 ],
+					[ path.join( 'parts', 'header.html' ), PART_HEADER ],
+					[ path.join( 'parts', 'footer.html' ), PART_FOOTER ],
+				];
+			}
 
 			for ( const [ relPath, content ] of files ) {
 				await writeFile( path.join( themeDir, relPath ), content, 'utf8' );
@@ -366,23 +470,40 @@ export const scaffoldThemeTool = defineTool(
 			const shouldActivate = args.activate ?? true;
 			const activation = shouldActivate ? await activateTheme( site, slug ) : null;
 
-			const summaryLines = [
-				`Block theme '${ trimmedName }' scaffolded at wp-content/themes/${ slug }/.`,
-				'',
-				'Created files:',
-				...files.map( ( [ relPath ] ) => `  ${ relPath }` ),
-				'',
-				'Empty directories:',
-				'  assets/fonts/',
-				'  patterns/',
-				'',
-				// These files already contain standard WordPress headers and starter
-				// markup, so an Edit anchored on an assumed minimal header (e.g. just
-				// `Theme Name`) would fail to match. Nudge the agent to read first.
-				'These files already contain standard WordPress headers and starter content.',
-				'Read a file before editing it — do not assume its contents.',
-				'',
-			];
+			let summaryLines: Array< string >;
+			if ( parentSlug !== undefined ) {
+				summaryLines = [
+					`Child theme '${ trimmedName }' of '${ parentSlug }' scaffolded at wp-content/themes/${ slug }/.`,
+					'',
+					'Created files:',
+					...files.map( ( [ relPath ] ) => `  ${ relPath }` ),
+					'',
+					`Templates, parts, patterns, theme.json settings, and styles inherit from '${ parentSlug }'.`,
+					'Override by creating files at the same relative path inside the child theme; put CSS and theme.json changes in the child, never in the parent.',
+					'',
+					'These files already contain standard WordPress headers.',
+					'Read a file before editing it — do not assume its contents.',
+					'',
+				];
+			} else {
+				summaryLines = [
+					`Block theme '${ trimmedName }' scaffolded at wp-content/themes/${ slug }/.`,
+					'',
+					'Created files:',
+					...files.map( ( [ relPath ] ) => `  ${ relPath }` ),
+					'',
+					'Empty directories:',
+					'  assets/fonts/',
+					'  patterns/',
+					'',
+					// These files already contain standard WordPress headers and starter
+					// markup, so an Edit anchored on an assumed minimal header (e.g. just
+					// `Theme Name`) would fail to match. Nudge the agent to read first.
+					'These files already contain standard WordPress headers and starter content.',
+					'Read a file before editing it — do not assume its contents.',
+					'',
+				];
+			}
 
 			if ( ! activation ) {
 				summaryLines.push( `Activate with: wp theme activate ${ slug }` );

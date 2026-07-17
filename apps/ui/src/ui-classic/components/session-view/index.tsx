@@ -65,14 +65,12 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 				<SiteDropdown
 					site={ site }
 					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon={ sidebarCollapsed }
+					showSiteIcon
 					showStatus={ sidebarCollapsed }
 				/>
 			) : (
 				<>
-					{ sidebarCollapsed ? (
-						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
-					) : null }
+					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
 					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
 					<span className={ styles.headerEnv }>

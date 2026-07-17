@@ -8,7 +8,6 @@ export type {
 	Connector,
 	CreateSiteParams,
 	ExtractedBlueprintBundle,
-	FeaturedBlueprint,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,

@@ -1,6 +1,8 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
@@ -68,6 +70,7 @@ export function useCopySite() {
 	return useMutation( {
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+		onError: () => toast.error( __( 'Failed to copy site' ) ),
 	} );
 }
 
@@ -96,6 +99,8 @@ export function useStartSite() {
 			await connector.startSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
+		onSuccess: () => toast.success( __( 'Site started' ) ),
+		onError: () => toast.error( __( 'Failed to start site' ) ),
 	} );
 }
 
@@ -108,6 +113,8 @@ export function useStopSite() {
 			await connector.stopSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
+		onSuccess: () => toast.success( __( 'Site stopped' ) ),
+		onError: () => toast.error( __( 'Failed to stop site' ) ),
 	} );
 }
 
@@ -168,6 +175,7 @@ export function useUpdateSite() {
 			// site-event lands, giving us a single refetch against fresh
 			// in-memory details.
 		},
+		onSuccess: () => toast.success( __( 'Settings saved' ) ),
 	} );
 }
 

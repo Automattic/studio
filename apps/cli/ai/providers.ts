@@ -168,10 +168,10 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			}
 			env.ANTHROPIC_CUSTOM_HEADERS = buildAnthropicCustomHeaders( anthropicHeaders );
 
-			// OpenAI completions path. The wpcom proxy accepts the same bearer token and
+			// OpenAI Responses path. The wpcom proxy accepts the same bearer token and
 			// dispatches to the right upstream based on the request path.
-			// @ai-sdk/openai expects baseURL to include /v1 (like the real
-			// OpenAI API), so the request path becomes /v1/chat/completions —
+			// The OpenAI SDK expects baseURL to include /v1 (like the real
+			// OpenAI API), so the request path becomes /v1/responses —
 			// mirroring the Anthropic path's /v1/messages.
 			env.OPENAI_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
 			env.OPENAI_API_KEY = accessToken;

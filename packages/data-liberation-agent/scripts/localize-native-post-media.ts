@@ -17,7 +17,7 @@
 // Site-generic: all paths from argv. Run AFTER the carry reconstruct (step 3), which
 // installs media + records the localUrls.
 //
-//   npx tsx scripts/localize-native-post-media.ts <outputDir> <studioSitePath>
+//   node scripts/run.mjs localize-native-post-media <outputDir> <studioSitePath>
 //
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -26,7 +26,7 @@ import { MediaStubStore } from '../src/lib/resume-state/index.js';
 
 const [outputDir, studioSitePath] = process.argv.slice(2);
 if (!outputDir || !studioSitePath) {
-  console.error('usage: npx tsx scripts/localize-native-post-media.ts <outputDir> <studioSitePath>');
+  console.error('usage: node scripts/run.mjs localize-native-post-media <outputDir> <studioSitePath>');
   process.exit(1);
 }
 

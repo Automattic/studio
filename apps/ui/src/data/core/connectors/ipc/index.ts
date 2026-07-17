@@ -1,4 +1,5 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import type {
 	ActiveAgentRun,
@@ -8,11 +9,11 @@ import type {
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
-	FeaturedBlueprint,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
 	ProposedSitePath,
+	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -22,6 +23,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
 	const now = new Date();
@@ -92,6 +94,10 @@ export function createIpcConnector(): Connector {
 			'IPC API not available. Are you running inside Electron with the preload script?'
 		);
 	}
+
+	// The IPC connector only runs in Electron, so `navigator` reflects the
+	// desktop OS.
+	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
 
 	// Preview CLI commands are path-based, not id-based. Look up the matching
 	// site once per call so UI code can keep working with the stable site id.
@@ -319,52 +325,7 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.comparePaths( path1, path2 ) ) as boolean;
 		},
 
-		async getFeaturedBlueprints( locale ) {
-			const url = new URL( 'https://public-api.wordpress.com/wpcom/v2/studio-app/blueprints' );
-			if ( locale ) {
-				url.searchParams.set( 'locale', locale );
-			}
-			const response = await fetch( url.toString() );
-			if ( ! response.ok ) {
-				throw new Error( `Failed to fetch blueprints: ${ response.status }` );
-			}
-			const body = ( await response.json() ) as {
-				blueprints?: Array< {
-					slug?: string;
-					title?: string;
-					excerpt?: string;
-					image?: string;
-					playground_url?: string;
-					blueprint?: unknown;
-				} >;
-			};
-			// Drop any blueprint missing the fields the UI relies on rather
-			// than failing the whole request — matches the desktop app's
-			// tolerant `transformResponse` behaviour.
-			const list: FeaturedBlueprint[] = [];
-			for ( const item of body.blueprints ?? [] ) {
-				if (
-					typeof item.slug !== 'string' ||
-					typeof item.title !== 'string' ||
-					typeof item.excerpt !== 'string' ||
-					typeof item.image !== 'string' ||
-					typeof item.playground_url !== 'string' ||
-					! item.blueprint ||
-					typeof item.blueprint !== 'object'
-				) {
-					continue;
-				}
-				list.push( {
-					slug: item.slug,
-					title: item.title,
-					excerpt: item.excerpt,
-					image: item.image,
-					playgroundUrl: item.playground_url,
-					blueprint: item.blueprint as FeaturedBlueprint[ 'blueprint' ],
-				} );
-			}
-			return list;
-		},
+		getWordPressVersions: fetchWordPressVersions,
 
 		async getFilePath( file ) {
 			// `webUtils.getPathForFile` is a synchronous preload-only API; the
@@ -378,12 +339,22 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
 		},
 
-		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
+		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const zipFilePath = ( ipcApi.getPathForFile( file ) as string ) ?? '';
+			if ( ! zipFilePath ) {
+				throw new Error(
+					__( 'Unable to resolve the ZIP file path. Try choosing the file via the button.' )
+				);
+			}
 			return ( await ipcApi.extractBlueprintBundle( zipFilePath ) ) as ExtractedBlueprintBundle;
 		},
 
 		async cleanupBlueprintTempDir( tempDir ) {
 			await ipcApi.cleanupBlueprintTempDir( tempDir );
+		},
+
+		async readBlueprintFile( filePath ) {
+			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
 		},
 
 		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
@@ -403,6 +374,10 @@ export function createIpcConnector(): Connector {
 
 		async updateSite( site, wpVersion ) {
 			await ipcApi.updateSite( site, wpVersion );
+		},
+
+		async updateSitesSortOrder( updates ) {
+			await ipcApi.updateSitesSortOrder( updates );
 		},
 
 		async refreshSiteIcon( siteId ) {
@@ -613,18 +588,20 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, locale ] = ( await Promise.all( [
+			const [ editor, terminal, colorScheme, quitSitesBehavior, locale ] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
 				ipcApi.getColorScheme(),
+				ipcApi.getQuitSitesBehavior(),
 				ipcApi.getUserLocale(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
 				ColorScheme,
+				QuitSitesBehavior | undefined,
 				string | undefined,
 			];
-			return { editor, terminal, colorScheme, locale };
+			return { editor, terminal, colorScheme, quitSitesBehavior, locale };
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -637,6 +614,9 @@ export function createIpcConnector(): Connector {
 			}
 			if ( 'colorScheme' in partial && partial.colorScheme ) {
 				writes.push( ipcApi.saveColorScheme( partial.colorScheme ) );
+			}
+			if ( 'quitSitesBehavior' in partial ) {
+				writes.push( ipcApi.saveQuitSitesBehavior( partial.quitSitesBehavior ) );
 			}
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
@@ -680,6 +660,10 @@ export function createIpcConnector(): Connector {
 			ipcApi.popupAppMenu( position );
 		},
 
+		// Windows/Linux have no native menu bar, so the UI provides the entry
+		// point; macOS keeps the native application menu.
+		showsAppMenuButton: ! isMacOS,
+
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
 		},
@@ -689,10 +673,9 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Window state
-		// The IPC connector only runs in Electron, so `navigator` reflects the
-		// desktop OS. macOS overlays the traffic lights on the content (so we
-		// reserve space for them); Windows and Linux don't.
-		reservesTrafficLightSpace: /mac/i.test( navigator.platform || navigator.userAgent ),
+		// macOS overlays the traffic lights on the content (so we reserve
+		// space for them); Windows and Linux don't.
+		reservesTrafficLightSpace: isMacOS,
 
 		async isFullscreen(): Promise< boolean > {
 			return ipcApi.isFullscreen();
@@ -731,10 +714,21 @@ export function createIpcConnector(): Connector {
 			return ipcListener.subscribe( 'add-site', () => listener() );
 		},
 
+		onAddSiteWithBlueprint( listener ) {
+			return ipcListener.subscribe(
+				'add-site-with-blueprint',
+				( _event: unknown, payload: { blueprintPath: string } ) => listener( payload )
+			);
+		},
+
 		onOpenSettings( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'user-settings', () => listener() );
+		},
+
+		async disableAgenticUi(): Promise< void > {
+			await ipcApi.disableAgenticUi();
 		},
 	};
 }

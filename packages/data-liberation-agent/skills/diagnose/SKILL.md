@@ -107,11 +107,7 @@ Products were expected but `products.csv` is missing, empty, or has wrong data.
    - Finding alternate data sources when API interception fails
    - Understanding why content is empty (check if globals are populated)
 
-5. **Check if the platform is detected correctly:**
-   ```bash
-   npx tsx src/cli.ts inspect <site-url>
-   ```
-   If detection is wrong, the wrong adapter is running.
+5. **Check if the platform is detected correctly:** call the `liberate_detect` MCP tool with the site URL (in a dev checkout, `npx tsx src/cli.ts inspect <site-url>` shows the same detection plus extra probes). If detection is wrong, the wrong adapter is running.
 
 ### For individual page failures (Type B):
 

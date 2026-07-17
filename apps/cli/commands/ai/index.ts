@@ -38,7 +38,7 @@ import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-c
 import { AiChatUI } from 'cli/ai/ui';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { readCliConfig } from 'cli/lib/cli-config/core';
-import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { maybeShowTosNotice } from 'cli/lib/tos-notice';
@@ -98,6 +98,7 @@ export async function runCommand( options: {
 	resumeSessionId?: string;
 	showLegacyCommandNotice?: boolean;
 	activeSite?: {
+		id?: string;
 		name: string;
 		path: string;
 		remote?: boolean;
@@ -115,6 +116,7 @@ export async function runCommand( options: {
 	ui.currentModel = currentModel;
 	if ( options.activeSite ) {
 		ui.activeSite = {
+			id: options.activeSite.id,
 			name: options.activeSite.name,
 			path: options.activeSite.path,
 			// Placeholder — turn dispatch resolves the live state before each prompt.
@@ -220,6 +222,7 @@ export async function runCommand( options: {
 			appendStudioEntry( sm, 'studio.site_selected', {
 				siteName: site.name,
 				sitePath: site.path,
+				siteId: site.id,
 				remote: site.remote,
 				url: site.url,
 				wpcomSiteId: site.wpcomSiteId,
@@ -235,6 +238,7 @@ export async function runCommand( options: {
 						appendStudioEntry( sm, 'studio.site_selected', {
 							siteName: site.name,
 							sitePath: site.path,
+							siteId: site.id,
 						} )
 					);
 			  }
@@ -480,9 +484,21 @@ export async function runCommand( options: {
 		// The stored running flag can be absent or stale — the session event log
 		// carries no running state, replay hardcodes false, and the site can be
 		// started/stopped mid-session — so ask the daemon before every turn.
+		// Resolve by id when the session recorded one, so a folder reused by a
+		// newer site can't redirect the turn; the registry record also refreshes
+		// a moved site's current name/path. Old events only carry the path.
 		if ( site && ! site.remote ) {
-			const siteData = await findSiteByFolder( site.path );
-			site.running = siteData ? await isSiteRunning( siteData ) : false;
+			const siteData = site.id
+				? await findSiteById( site.id )
+				: await findSiteByFolder( site.path );
+			if ( siteData ) {
+				site.id = siteData.id;
+				site.name = siteData.name;
+				site.path = siteData.path;
+				site.running = await isSiteRunning( siteData );
+			} else {
+				site.running = false;
+			}
 			// isSiteRunning leaves a DaemonBus socket open, which keeps headless
 			// (--json) runs alive after turn.completed; close it so the process
 			// can exit naturally.
@@ -534,7 +550,9 @@ export async function runCommand( options: {
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );
-				if ( event.type !== 'agent_end' ) {
+				// An `agent_end` with `willRetry` is not final — the session
+				// restarts the turn after a backoff.
+				if ( event.type !== 'agent_end' || event.willRetry ) {
 					return;
 				}
 				const result = getAgentEndTurnResult( event );
@@ -658,6 +676,7 @@ export async function runCommand( options: {
 					appendStudioEntry( sm, 'studio.site_selected', {
 						siteName: site.name,
 						sitePath: site.path,
+						siteId: site.id,
 						remote: site.remote,
 						url: site.url,
 						wpcomSiteId: site.wpcomSiteId,
@@ -806,13 +825,13 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				}
 
 				const sitePath = typeof argv.path === 'string' ? argv.path : undefined;
-				let activeSite: { name: string; path: string } | undefined;
+				let activeSite: { id?: string; name: string; path: string } | undefined;
 				if ( sitePath && typedArgv.siteName ) {
 					activeSite = { name: typedArgv.siteName, path: sitePath };
 				} else if ( sitePath ) {
 					const matchedSite = await findSiteByFolder( sitePath );
 					if ( matchedSite ) {
-						activeSite = { name: matchedSite.name, path: matchedSite.path };
+						activeSite = { id: matchedSite.id, name: matchedSite.name, path: matchedSite.path };
 					}
 				}
 				await runCommand( {

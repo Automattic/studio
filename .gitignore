@@ -122,10 +122,8 @@ dist-local
 # Playwright traces
 test-results
 
-# E2E test import files (not versioned)
-apps/studio/e2e/imports/*.tar.gz
-apps/studio/e2e/imports/*.zip
-apps/studio/e2e/imports/*.wpress
+# Data-heavy e2e fixtures downloaded by `npm run e2e:fixtures` (see test-fixtures/readme.md)
+test-fixtures/downloads/
 
 # Metrics traces
 artifacts

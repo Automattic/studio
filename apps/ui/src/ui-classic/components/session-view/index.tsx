@@ -1,4 +1,5 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -8,7 +9,12 @@ import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
-import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
+import {
+	useCreateSession,
+	useSession,
+	useSessionEffectiveEnvironment,
+	useSessions,
+} from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
@@ -19,6 +25,7 @@ import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
+import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
@@ -31,7 +38,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const { data: sites } = useSites();
-	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
+	const site = findAiSessionOwnerSite( sites, summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
 	if ( ! siteName ) {
 		return null;
@@ -50,14 +57,12 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 				<SiteDropdown
 					site={ site }
 					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon={ sidebarCollapsed }
+					showSiteIcon
 					showStatus={ sidebarCollapsed }
 				/>
 			) : (
 				<>
-					{ sidebarCollapsed ? (
-						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
-					) : null }
+					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
 					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
 					<span className={ styles.headerEnv }>
@@ -73,6 +78,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
+	footer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
@@ -80,7 +86,7 @@ interface SessionFrameProps {
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( { header, composer, scrollRef, children }: SessionFrameProps ) {
+function SessionFrame( { header, composer, footer, scrollRef, children }: SessionFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
@@ -121,7 +127,7 @@ function SessionFrame( { header, composer, scrollRef, children }: SessionFramePr
 	}, [] );
 
 	return (
-		<div ref={ rootRef } className={ styles.root }>
+		<div ref={ rootRef } className={ clsx( styles.root, footer && styles.rootWithFooter ) }>
 			<div ref={ headerRef } className={ styles.headerLayer }>
 				{ header }
 			</div>
@@ -136,6 +142,7 @@ function SessionFrame( { header, composer, scrollRef, children }: SessionFramePr
 			>
 				{ composer }
 			</div>
+			{ footer ? <div className={ styles.panelFooterControls }>{ footer }</div> : null }
 		</div>
 	);
 }
@@ -152,10 +159,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
-	const ownerSitePath = data?.summary.ownerSitePath;
-	const ownerSite = ownerSitePath
-		? sites?.find( ( candidate ) => candidate.path === ownerSitePath )
-		: undefined;
+	const { data: sessions } = useSessions();
+	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
+	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
 		isRunning,
@@ -191,6 +197,21 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const composerRef = useRef< ComposerHandle >( null );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
+	const siteSessionHistory = data
+		? getSiteSessionHistory( {
+				currentSession: data.summary,
+				ownerSite,
+				sessions,
+		  } )
+		: [];
+	const archivedSiteSessionHistory = data
+		? getSiteSessionHistory( {
+				currentSession: data.summary,
+				ownerSite,
+				sessions,
+				archived: true,
+		  } )
+		: [];
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -215,6 +236,28 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		},
 		[ removeQueuedPrompt ]
 	);
+	const switchSession = useCallback(
+		( nextSessionId: string ) =>
+			void navigate( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: nextSessionId },
+			} ),
+		[ navigate ]
+	);
+	const startNewChat = useCallback( async () => {
+		// Already on a chat with no prompts yet — creating another empty
+		// session would just flash the view for an identical result.
+		if ( ! ownerSite || isEmpty ) {
+			return;
+		}
+		try {
+			const summary = await createSession( ownerSite.id );
+			switchSession( summary.id );
+		} catch {
+			// The mutation owns the error state; avoid an unhandled rejection
+			// from this command button if session creation fails.
+		}
+	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
@@ -241,6 +284,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						<ComposerSkeleton />
 					</div>
 				}
+				footer={ <div aria-hidden /> }
 			>
 				<EmptyBackground />
 			</SessionFrame>
@@ -278,14 +322,21 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						sessionId={ sessionId }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
-						onSwitchSession={ ( nextSessionId ) =>
-							void navigate( {
-								to: '/sessions/$sessionId',
-								params: { sessionId: nextSessionId },
-							} )
-						}
+						onSwitchSession={ switchSession }
 					/>
 				</div>
+			}
+			footer={
+				ownerSite ? (
+					<SessionChatActions
+						archivedSessions={ archivedSiteSessionHistory }
+						currentSessionId={ sessionId }
+						isCreatingSession={ isCreatingSession }
+						onNewChat={ startNewChat }
+						onSwitchSession={ switchSession }
+						sessions={ siteSessionHistory }
+					/>
+				) : null
 			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }

@@ -645,6 +645,7 @@ export class AiChatUI implements AiOutputAdapter {
 		this.sitePickerSiteData = sites;
 		const runningStatus = await getSitesRunningStatus( sites );
 		this.sitePickerItems = sites.map( ( site ) => ( {
+			id: site.id,
 			name: site.name,
 			path: site.path,
 			running: runningStatus.get( site.id ) ?? false,
@@ -863,6 +864,7 @@ export class AiChatUI implements AiOutputAdapter {
 		// Keep _activeSiteData in sync for /browser command
 		this._activeSiteData = site;
 		return {
+			id: site.id,
 			name: site.name,
 			path: site.path,
 			running: await isSiteRunning( site ),
@@ -2142,7 +2144,28 @@ export class AiChatUI implements AiOutputAdapter {
 				this.renderToolResults( event.toolResults );
 				return;
 			}
+			case 'auto_retry_start': {
+				const reason = event.errorMessage.split( '\n' )[ 0 ].trim();
+				if ( reason ) {
+					this.showInfo( reason );
+				}
+				this.showLoader(
+					sprintf(
+						/* translators: 1: retry attempt number, 2: maximum retry attempts, 3: delay in seconds */
+						__( 'Temporary provider error — retrying in %3$ds (attempt %1$d of %2$d)…' ),
+						event.attempt,
+						event.maxAttempts,
+						Math.round( event.delayMs / 1000 )
+					)
+				);
+				return;
+			}
 			case 'agent_end': {
+				// Not final when willRetry: the session auto-retries the turn
+				// after a backoff (`auto_retry_start` follows).
+				if ( event.willRetry ) {
+					return;
+				}
 				this.hideLoader();
 
 				if ( this.usageCapReached ) {
@@ -2187,9 +2210,9 @@ export class AiChatUI implements AiOutputAdapter {
 			}
 			default:
 				// agent_start / turn_start / message_start / message_update /
-				// tool_execution_* — UI doesn't act on these directly; pi
-				// events drive incremental state but the visible transitions
-				// happen at message_end / turn_end / agent_end.
+				// tool_execution_* / auto_retry_end — UI doesn't act on these
+				// directly; pi events drive incremental state but the visible
+				// transitions happen at message_end / turn_end / agent_end.
 				return;
 		}
 	}

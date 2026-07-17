@@ -1,5 +1,3 @@
-// TEMP: revert before merge. Touches apps/cli/ so should-skip-job.sh does not
-// skip validation, letting the CLI E2E group prove itself on all platforms.
 import path from 'node:path';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __, sprintf } from '@wordpress/i18n';

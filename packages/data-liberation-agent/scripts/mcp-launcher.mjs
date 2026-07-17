@@ -8,9 +8,8 @@
 //   edits take effect without any build step.
 // - Installed plugin (~/.claude/plugins/cache/...): the installer copies this
 //   package from git verbatim — no node_modules, no build hooks — so the only
-//   runnable form is the self-contained esbuild bundle that CI builds and
-//   publishes on the `plugin-dist` branch (see scripts/build-mcp-bundle.mjs
-//   and .github/workflows/publish-plugin-dist.yml).
+//   runnable form is the self-contained esbuild bundle committed to the tree
+//   (built by scripts/build-mcp-bundle.mjs; CI fails on drift from source).
 //
 // Detection: dev mode requires BOTH tsx and a real dependency to resolve from
 // the package root (two checks so a stray ~/node_modules can't fake it).
@@ -54,7 +53,7 @@ if (tsxCli) {
   console.error(
     '[data-liberation] Cannot start the MCP server: no resolvable dependencies for src/ and no dist/mcp-server.bundle.mjs.\n' +
       'In a development checkout, run `npm install` first.\n' +
-      'As a plugin, install from the published marketplace (the `plugin-dist` branch), which ships the prebuilt bundle — ' +
+      'As a plugin, install from the published marketplace, which ships the prebuilt bundle — ' +
       'or build one locally with `npm run build:mcp-bundle`.'
   );
   process.exit(1);

@@ -3,6 +3,7 @@ import { clsx } from 'clsx';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { usePreviewSplit } from '@/hooks/use-preview-split';
+import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import styles from './style.module.css';
 
 // Keep in sync with the content-column transition duration in style.module.css.
@@ -28,6 +29,7 @@ export function PreviewSplitFrame( {
 }: PreviewSplitFrameProps ) {
 	const showPreview = previewOpen && preview != null;
 	const { rootRef, contentWidthVar, isResizing, handleProps } = usePreviewSplit( { showPreview } );
+	const isSidebarCollapsed = useSidebarCollapsed();
 
 	// Animate only open/close toggles of an already-mounted preview — never the
 	// initial layout, so a route loading with the preview visible doesn't replay
@@ -67,6 +69,7 @@ export function PreviewSplitFrame( {
 			ref={ rootRef }
 			className={ clsx(
 				styles.root,
+				isSidebarCollapsed && styles.rootFrameless,
 				showPreview && styles.rootPreviewOpen,
 				isResizing && styles.rootPreviewResizing,
 				animatingPreviewToggle && styles.rootPreviewAnimating

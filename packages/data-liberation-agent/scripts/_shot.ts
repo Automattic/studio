@@ -1,6 +1,6 @@
 // Full-page screenshot of a URL at a given width, no 5s MCP cap. Used by the
 // match-section and match-page skills to capture source-vs-built crops.
-// Usage: npx tsx scripts/_shot.ts <url> <outPath> <width>
+// Usage: node scripts/run.mjs _shot <url> <outPath> <width>
 import { chromium } from 'playwright';
 const [, , url, out, widthArg] = process.argv;
 const width = Number(widthArg || 1008);

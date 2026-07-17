@@ -1,15 +1,15 @@
 /**
  * tsx driver for the carry-and-scope reconstruct (the `replicate-theme` path). Three modes:
  *
- *   npx tsx scripts/carry-reconstruct-drive.ts <outputDir> --slim
+ *   node scripts/run.mjs carry-reconstruct-drive <outputDir> --slim
  *       Slim `output.wxr` for provisioning: drop attachment items + flip draft→publish, backing the
  *       full WXR up to `output.wxr.full`. Run BEFORE `liberate_preview`. (Replaces wxr-slim-publish.py.)
  *
- *   npx tsx scripts/carry-reconstruct-drive.ts <outputDir> --list
+ *   node scripts/run.mjs carry-reconstruct-drive <outputDir> --list
  *       Inspect-only: build + print the carry page list and write carry-pages.json. CHEAP —
  *       does NOT load the reconstruct handler. (Replaces the old `_carry_list.py` debug tool.)
  *
- *   npx tsx scripts/carry-reconstruct-drive.ts <outputDir> <studioSitePath> "<Theme Name>"
+ *   node scripts/run.mjs carry-reconstruct-drive <outputDir> <studioSitePath> "<Theme Name>"
  *       Full reconstruct: drive reconstructPagesCarryHandler (theme + media + islands),
  *       write islands + _swap.php, write output-carry.wxr, restore output.wxr from .full.
  *
@@ -34,7 +34,7 @@ async function main(): Promise<void> {
   const slimOnly = argv.includes('--slim');
   const [outputDir, studioSitePath, themeName = 'Liberated (Carry)'] = argv.filter((a) => a !== '--list' && a !== '--slim');
   if (!outputDir || (!listOnly && !slimOnly && !studioSitePath)) {
-    console.error('usage:\n  tsx scripts/carry-reconstruct-drive.ts <outputDir> --slim   # slim output.wxr for provisioning (run BEFORE liberate_preview)\n  tsx scripts/carry-reconstruct-drive.ts <outputDir> --list   # inspect the carry page list (no handler)\n  tsx scripts/carry-reconstruct-drive.ts <outputDir> <studioSitePath> "<Theme Name>"');
+    console.error('usage:\n  node scripts/run.mjs carry-reconstruct-drive <outputDir> --slim   # slim output.wxr for provisioning (run BEFORE liberate_preview)\n  node scripts/run.mjs carry-reconstruct-drive <outputDir> --list   # inspect the carry page list (no handler)\n  node scripts/run.mjs carry-reconstruct-drive <outputDir> <studioSitePath> "<Theme Name>"');
     process.exit(2);
   }
 

@@ -242,7 +242,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								className={ styles.rowActionButton }
 								loading={ isPreviewPending }
 								loadingAnnouncement={ __( 'Updating preview' ) }
-								disabled={ isSyncing }
+								disabled={ isSyncing || isOffline }
 								focusableWhenDisabled
 								onClick={ handlePreviewClick }
 							/>
@@ -284,7 +284,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								icon={ arrowDown }
 								label={ isPullPending ? __( 'Pulling from live' ) : __( 'Pull from live' ) }
 								className={ styles.rowActionButton }
-								disabled={ isSyncing }
+								disabled={ isSyncing || isOffline }
 								focusableWhenDisabled
 								onClick={ handlePullClick }
 							/>
@@ -295,20 +295,20 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								icon={ arrowUp }
 								label={ isPushPending ? __( 'Pushing to live' ) : __( 'Push to live' ) }
 								className={ styles.rowActionButton }
-								disabled={ isSyncing }
+								disabled={ isSyncing || isOffline }
 								focusableWhenDisabled
 								onClick={ handlePushClick }
 							/>
 							<Menu.SubmenuRoot>
 								<Menu.SubmenuTrigger
 									className={ styles.moreMenuTrigger }
-									disabled={ isSyncing }
+									disabled={ isSyncing || isOffline }
 									aria-label={ __( 'More live site actions' ) }
 								>
 									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
 								</Menu.SubmenuTrigger>
 								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
-									<Menu.Item disabled={ isSyncing } onClick={ onDisconnectClick }>
+									<Menu.Item disabled={ isSyncing || isOffline } onClick={ onDisconnectClick }>
 										{ __( 'Disconnect' ) }
 									</Menu.Item>
 								</Menu.Popup>

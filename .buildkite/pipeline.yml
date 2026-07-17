@@ -137,7 +137,7 @@ steps:
           context: CLI E2E Tests
     steps:
       - label: CLI E2E Tests on {{matrix}}
-        key: cli_e2e_tests
+        key: cli_e2e_tests_mac_windows
         command: bash .buildkite/commands/run-cli-e2e-tests.sh "{{matrix}}"
         agents:
           queue: "{{matrix}}"

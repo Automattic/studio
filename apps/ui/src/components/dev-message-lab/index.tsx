@@ -2,6 +2,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import {
+	FAKE_SITE_COUNT_OPTIONS,
+	isFakeSite,
+	setFakeSiteCount,
+	useFakeSites,
+} from '@/data/dev-lab-fake-sites';
 import { isLabMessageActive, toggleLabMessage } from '@/data/dev-lab-messages';
 import {
 	setSiteActivityOverride,
@@ -82,6 +88,10 @@ export function DevMessageLab() {
 	const agentic = useAgenticFeatures();
 	const { data: hints } = useOnboardingHints();
 	const { data: sites } = useSites();
+	const fakeSiteCount = useFakeSites().length;
+	// The indicator overrides only make sense on real rows; the fake sites are
+	// scenery for the sidebar-scale exploration.
+	const realSites = sites?.filter( ( site ) => ! isFakeSite( site.id ) );
 
 	// Simulate checklist progress (the real events — agent runs, pushes —
 	// aren't available in a sim/new-user environment).
@@ -210,10 +220,23 @@ export function DevMessageLab() {
 					Reset items (session only)
 				</button>
 			</div>
-			{ sites && sites.length > 0 ? (
+			<div className={ styles.section }>
+				<span className={ styles.sectionLabel }>Fake sites</span>
+				{ FAKE_SITE_COUNT_OPTIONS.map( ( count ) => (
+					<button
+						key={ count }
+						type="button"
+						disabled={ count === fakeSiteCount }
+						onClick={ () => setFakeSiteCount( count ) }
+					>
+						{ count === 0 ? 'Off' : count }
+					</button>
+				) ) }
+			</div>
+			{ realSites && realSites.length > 0 ? (
 				<div className={ styles.section }>
 					<span className={ styles.sectionLabel }>Site indicators</span>
-					{ sites.map( ( site ) => (
+					{ realSites.map( ( site ) => (
 						<SiteActivityOverrideRow key={ site.id } siteId={ site.id } siteName={ site.name } />
 					) ) }
 				</div>

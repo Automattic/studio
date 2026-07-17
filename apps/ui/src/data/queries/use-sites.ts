@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { useFakeSites } from '@/data/dev-lab-fake-sites';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
@@ -17,10 +18,19 @@ function errorDescription( error: unknown ): string {
 
 export function useSites() {
 	const connector = useConnector();
-	return useQuery( {
+	const query = useQuery( {
 		queryKey: SITES_QUERY_KEY,
 		queryFn: () => connector.getSites(),
 	} );
+	// Dev-only message-lab injection: simulated sites appended so agency-scale
+	// lists can be exercised. Always empty outside the lab.
+	const fakeSites = useFakeSites();
+	return useMemo( () => {
+		if ( fakeSites.length === 0 ) {
+			return query;
+		}
+		return { ...query, data: [ ...( query.data ?? [] ), ...fakeSites ] } as typeof query;
+	}, [ query, fakeSites ] );
 }
 
 export function useSiteOverviewDetails( siteId: string ) {

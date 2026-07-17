@@ -87,11 +87,7 @@ function SettingsHeader( { site }: { site: SiteDetails } ) {
 	return (
 		<div className={ styles.header }>
 			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
-			<SiteDropdown
-				site={ site }
-				showSiteIcon={ sidebarCollapsed }
-				showStatus={ sidebarCollapsed }
-			/>
+			<SiteDropdown site={ site } showSiteIcon showStatus={ sidebarCollapsed } />
 		</div>
 	);
 }
@@ -204,12 +200,12 @@ function SiteSettingsBody( {
 				'name',
 				{
 					id: 'versions',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'phpVersion', 'wpVersion' ],
 				},
 				{
 					id: 'adminCredentials',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'adminUsername', 'adminPassword' ],
 				},
 				'adminEmail',

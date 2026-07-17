@@ -76,6 +76,10 @@
 	margin: 0;
 	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
 	list-style: none;
+	/* Catch pointer events over the whole cluster (gaps included), so the
+	   canvas underneath never sees the pointer and its wake/orbit motion
+	   stays calm while the user reads or picks a prompt. */
+	pointer-events: auto;
 }
 
 .prompt {

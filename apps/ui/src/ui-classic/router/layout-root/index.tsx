@@ -1,6 +1,5 @@
-import { createRootRouteWithContext, Outlet, useNavigate } from '@tanstack/react-router';
-import { useEffect } from 'react';
-import { useConnector } from '@/data/core';
+import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
+import { useAppMenuNavigation } from '@/hooks/use-app-menu-navigation';
 import type { Connector } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -9,22 +8,8 @@ export interface RouterContext {
 	connector: Connector;
 }
 
-// Bridges the Electron application menu ("Add Site…", "Settings…" and their
-// keyboard shortcuts) to router navigation. Mounted at the root so the
-// shortcuts work from any route, including onboarding.
 function AppMenuNavigation() {
-	const connector = useConnector();
-	const navigate = useNavigate();
-
-	useEffect(
-		() => connector.onAddSite( () => void navigate( { to: '/onboarding' } ) ),
-		[ connector, navigate ]
-	);
-	useEffect(
-		() => connector.onOpenSettings( () => void navigate( { to: '/settings' } ) ),
-		[ connector, navigate ]
-	);
-
+	useAppMenuNavigation();
 	return null;
 }
 

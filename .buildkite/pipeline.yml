@@ -138,7 +138,6 @@ steps:
     timeout_in_minutes: 30
     soft_fail: true
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
-    if: build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics

@@ -600,7 +600,11 @@ tests:
             if (!sim) {
               return { pass: false, score: 0, reason: `could not find the simulated editor edit (full-content update containing user-real-photo.jpg); wp_cli cmds: ${JSON.stringify(calls.filter(c => c.cmd).map(c => c.cmd.slice(0, 120)))}` };
             }
-            const apply = calls.find(c => c.idx > sim.idx && isApply(c.cmd) && !c.cmd.includes('user-real-photo.jpg'));
+            // The agent's own apply is the first apply after the simulated
+            // edit. An inline apply legitimately still contains the swapped
+            // image URL, so only treat a marker-bearing apply as a retry of
+            // the simulation when it does not carry the requested change.
+            const apply = calls.find(c => c.idx > sim.idx && isApply(c.cmd) && (c.cmd.includes('New Heading') || !c.cmd.includes('user-real-photo.jpg')));
             if (!apply) {
               return { pass: false, score: 0, reason: `no content apply found after the simulated editor edit; wp_cli cmds after idx ${sim.idx}: ${JSON.stringify(calls.filter(c => c.idx > sim.idx && c.cmd).map(c => c.cmd.slice(0, 120)))}` };
             }

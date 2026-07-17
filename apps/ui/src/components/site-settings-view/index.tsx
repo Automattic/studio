@@ -8,6 +8,7 @@ import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LearnHowLink } from '@/components/learn-more';
+import { OfflineBanner } from '@/components/offline-banner';
 import { SiteDropdown } from '@/components/site-dropdown';
 import {
 	adminEmailField,
@@ -291,6 +292,7 @@ function SiteSettingsBody( {
 	return (
 		<div className={ styles.root }>
 			<SettingsHeader site={ site } />
+			<OfflineBanner />
 			<Tabs.Root
 				selectedTabId={ activeTab }
 				onSelect={ ( tabId ) => {

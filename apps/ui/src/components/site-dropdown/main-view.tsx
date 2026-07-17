@@ -21,6 +21,7 @@ import {
 	usePullSiteFromLive,
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
+import { useOffline } from '@/hooks/use-offline';
 import { getSiteUrl } from '@/lib/get-site-url';
 import styles from './main-view.module.css';
 import { PopoverRow } from './popover-row';
@@ -72,6 +73,7 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 
 export function MainView( { site, activity, onSetupClick, onDisconnectClick }: Props ) {
 	const connector = useConnector();
+	const isOffline = useOffline();
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 
@@ -250,13 +252,17 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Preview' ) }
-					copy={ __( 'Share a review link for this version.' ) }
+					copy={
+						isOffline
+							? __( 'Go online to share a review link.' )
+							: __( 'Share a review link for this version.' )
+					}
 					buttonLabel={ __( 'Share' ) }
 					variant="outline"
 					tone="neutral"
 					loading={ isPreviewPending }
 					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ isSyncing }
+					disabled={ isSyncing || isOffline }
 					onClick={ handlePreviewClick }
 				/>
 			) }
@@ -313,11 +319,11 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Live' ) }
-					copy={ __( 'No connected site.' ) }
+					copy={ isOffline ? __( 'Go online to publish your site.' ) : __( 'No connected site.' ) }
 					buttonLabel={ __( 'Publish' ) }
 					variant="solid"
 					tone="brand"
-					disabled={ isSyncing }
+					disabled={ isSyncing || isOffline }
 					onClick={ onSetupClick }
 				/>
 			) }

@@ -9,6 +9,7 @@ import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useOffline } from '@/hooks/use-offline';
 import { moonIcon, sunIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { ColorScheme } from '@/data/core';
@@ -26,6 +27,7 @@ export function UserMenu() {
 	const logout = useLogout();
 	const navigate = useNavigate();
 
+	const isOffline = useOffline();
 	const currentScheme: ColorScheme = preferences?.colorScheme ?? 'system';
 	const themeIsDark = useColorScheme() === 'dark';
 
@@ -67,7 +69,11 @@ export function UserMenu() {
 						</Menu.Popup>
 					</Menu.Root>
 				) : (
-					<SidebarButton className={ styles.loginButton } onClick={ () => login.mutate() }>
+					<SidebarButton
+						className={ styles.loginButton }
+						disabled={ isOffline }
+						onClick={ () => login.mutate() }
+					>
 						{ __( 'Log in with WordPress.com' ) }
 					</SidebarButton>
 				) }

@@ -10,28 +10,8 @@ vi.mock( '@tanstack/react-router', () => ( {
 	useNavigate: () => navigate,
 } ) );
 
-vi.mock( '@/components/menu', () => {
-	const el = ( props: Record< string, unknown > ) => {
-		const { children, render: trigger, onClick, disabled } = props;
-		if ( trigger ) return trigger;
-		if ( onClick ) {
-			return (
-				<button type="button" onClick={ onClick as () => void } disabled={ !! disabled }>
-					{ children as never }
-				</button>
-			);
-		}
-		return <div>{ children as never }</div>;
-	};
-	return { Root: el, Trigger: el, Popup: el, Item: el };
-} );
-
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
-} ) );
-
-vi.mock( '@/data/queries/use-agentic-features', () => ( {
-	useAgenticFeatures: vi.fn( () => ( { enabled: true, reason: null, isReady: true } ) ),
 } ) );
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
@@ -46,14 +26,14 @@ describe( 'SidebarHeader', () => {
 		useConnectorMock.mockReturnValue( { showsAppMenuButton: true, popupAppMenu } );
 	} );
 
-	it( 'shows a create menu with New chat, New site, and Import options', async () => {
+	it( 'starts the add-site workflow from the plus button', () => {
 		render( <SidebarHeader onToggleSidebar={ vi.fn() } /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Create new' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 
-		expect( await screen.findByText( 'New chat' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'New site' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Import from…' ) ).toBeInTheDocument();
+		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding' } );
+		expect( screen.queryByText( 'New chat' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Import from…' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'hides the sidebar from the header toggle', () => {

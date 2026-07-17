@@ -32,6 +32,10 @@ vi.mock( '@/data/queries/use-agentic-features', () => ( {
 	useAgenticFeatures: vi.fn( () => ( { enabled: true, reason: null, isReady: true } ) ),
 } ) );
 
+vi.mock( '@/data/queries/use-auth-user', () => ( {
+	useLogin: () => ( { mutate: vi.fn(), isPending: false } ),
+} ) );
+
 vi.mock( '@/data/queries/use-preview-site', () => ( {
 	usePublishPreviewSite: () => ( { isPending: false, mutate: vi.fn() } ),
 } ) );

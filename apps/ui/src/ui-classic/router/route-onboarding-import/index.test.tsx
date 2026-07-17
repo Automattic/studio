@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { pendingBackupSlot } from '@/lib/pending-backup';
+import { setPendingBackup, takePendingBackup } from '@/lib/pending-backup';
 import { OnboardingImportPage } from './index';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
 
@@ -91,7 +91,7 @@ const formValues: CreateSiteFormValues = {
 };
 
 async function renderConfiguredImport( file = selectedBackup ) {
-	pendingBackupSlot.set( file );
+	setPendingBackup( file );
 	const view = render( <OnboardingImportPage /> );
 	await waitFor( () => expect( mocks.formProps ).not.toBeNull() );
 	return view;
@@ -101,8 +101,7 @@ describe( 'OnboardingImportPage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mocks.formProps = null;
-		const pendingFile = pendingBackupSlot.getSnapshot();
-		if ( pendingFile ) pendingBackupSlot.clear( pendingFile );
+		takePendingBackup();
 		mocks.getFilePath.mockResolvedValue( '/tmp/backup.sql' );
 		mocks.createSite.mockResolvedValue( { id: 'site-1' } );
 		mocks.importSite.mockResolvedValue( undefined );
@@ -115,7 +114,7 @@ describe( 'OnboardingImportPage', () => {
 		expect( mocks.getFilePath ).not.toHaveBeenCalled();
 		expect( mocks.formProps?.initialValues ).toEqual( { name: 'My Store' } );
 		expect( mocks.formProps?.isSubmitting ).toBe( false );
-		expect( pendingBackupSlot.getSnapshot() ).toBeNull();
+		expect( takePendingBackup() ).toBeNull();
 	} );
 
 	it( 'redirects direct visits without a selected File to Add a site', async () => {

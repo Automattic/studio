@@ -2,22 +2,18 @@ import { getSuggestedSiteNameFromBackupFilename } from '@studio/common/lib/backu
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
-import { pendingBackupSlot } from '@/lib/pending-backup';
+import { takePendingBackup } from '@/lib/pending-backup';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
 
 type ImportPhase = 'preparing' | 'creating' | 'importing';
-
-function getDisplayError( error: unknown, fallback: string ): string {
-	return getErrorMessage( error ) ?? fallback;
-}
 
 function getImportRecoveryMessage( details: string ): string {
 	if ( /absolute path:/i.test( details ) ) {
@@ -64,30 +60,16 @@ export function OnboardingImportPage() {
 	const importSite = useImportSite();
 	const deleteSite = useDeleteSite();
 
-	const pendingFile = useSyncExternalStore(
-		pendingBackupSlot.subscribe,
-		pendingBackupSlot.getSnapshot
-	);
-	const [ selectedFile, setSelectedFile ] = useState< File | null >( () =>
-		pendingBackupSlot.getSnapshot()
-	);
+	const [ selectedFile ] = useState< File | null >( takePendingBackup );
 	const [ submitError, setSubmitError ] = useState< CreateSiteFormError | null >( null );
-	const [ isRetrying, setIsRetrying ] = useState( false );
+	const [ hasFailed, setHasFailed ] = useState( false );
 	const [ isWorking, setIsWorking ] = useState( false );
 	const isWorkingRef = useRef( false );
 
 	useEffect( () => {
-		if ( ! pendingFile ) return;
-		setSelectedFile( pendingFile );
-		setSubmitError( null );
-		setIsRetrying( false );
-		pendingBackupSlot.clear( pendingFile );
-	}, [ pendingFile ] );
-
-	useEffect( () => {
-		if ( selectedFile || pendingFile ) return;
+		if ( selectedFile ) return;
 		void navigate( { to: '/onboarding', replace: true } );
-	}, [ navigate, pendingFile, selectedFile ] );
+	}, [ navigate, selectedFile ] );
 
 	useEffect( () => () => setProgress( null ), [ setProgress ] );
 
@@ -95,7 +77,6 @@ export function OnboardingImportPage() {
 		if ( ! selectedFile || isWorkingRef.current ) return;
 		isWorkingRef.current = true;
 		setIsWorking( true );
-		setIsRetrying( submitError !== null );
 		setSubmitError( null );
 		setProgress( __( 'Preparing backup…' ) );
 		let phase: ImportPhase = 'preparing';
@@ -130,10 +111,9 @@ export function OnboardingImportPage() {
 			importCompleted = true;
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
-			const failureDetails = getDisplayError(
-				error,
-				__( 'Failed to import site. Please try again.' )
-			);
+			setHasFailed( true );
+			const failureDetails =
+				getErrorMessage( error ) ?? __( 'Failed to import site. Please try again.' );
 			if ( createdSiteId && ! importCompleted ) {
 				setProgress( __( 'Removing incomplete site…' ) );
 				try {
@@ -150,7 +130,7 @@ export function OnboardingImportPage() {
 						details: sprintf(
 							__( 'Import error: %1$s\n\nCleanup error: %2$s' ),
 							failureDetails,
-							getDisplayError( rollbackError, __( 'Unknown deletion error.' ) )
+							getErrorMessage( rollbackError ) ?? __( 'Unknown deletion error.' )
 						),
 					} );
 					return;
@@ -160,7 +140,6 @@ export function OnboardingImportPage() {
 		} finally {
 			isWorkingRef.current = false;
 			setIsWorking( false );
-			setIsRetrying( false );
 			setProgress( null );
 		}
 	};
@@ -170,7 +149,6 @@ export function OnboardingImportPage() {
 	const initialValues: Partial< CreateSiteFormValues > = {
 		name: getSuggestedSiteNameFromBackupFilename( selectedFile.name ) || __( 'Imported site' ),
 	};
-	const showRetryActions = submitError !== null || isRetrying;
 
 	return (
 		<div className={ sharedStyles.page }>
@@ -185,8 +163,8 @@ export function OnboardingImportPage() {
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ isWorking }
 				submitError={ submitError ?? undefined }
-				submitLabel={ showRetryActions ? __( 'Retry import' ) : __( 'Import site' ) }
-				cancelLabel={ showRetryActions ? __( 'Choose another backup' ) : undefined }
+				submitLabel={ hasFailed ? __( 'Retry import' ) : __( 'Import site' ) }
+				cancelLabel={ hasFailed ? __( 'Choose another backup' ) : undefined }
 				loadingAnnouncement={ __( 'Importing site' ) }
 			/>
 		</div>

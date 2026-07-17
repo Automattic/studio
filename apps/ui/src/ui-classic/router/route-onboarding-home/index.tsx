@@ -12,7 +12,7 @@ import {
 	illustrationHostClass,
 } from '@/components/onboarding-illustrations';
 import { useSites } from '@/data/queries/use-sites';
-import { pendingBackupSlot } from '@/lib/pending-backup';
+import { setPendingBackup } from '@/lib/pending-backup';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import styles from './style.module.css';
@@ -38,7 +38,7 @@ function ImportBackupCard() {
 			}
 
 			setError( '' );
-			pendingBackupSlot.set( file );
+			setPendingBackup( file );
 			void navigate( { to: '/onboarding/import' } );
 		},
 		[ navigate ]

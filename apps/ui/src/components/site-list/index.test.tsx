@@ -352,6 +352,9 @@ describe( 'SiteList', () => {
 		try {
 			render( <SiteList /> );
 
+			// Plugins render in their own view behind the segmented control.
+			fireEvent.click( screen.getByRole( 'button', { name: /Plugins/ } ) );
+
 			const pluginARow = document.querySelector( '[data-site-id="plugin-a"]' );
 			const pluginBRow = document.querySelector( '[data-site-id="plugin-b"]' );
 

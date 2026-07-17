@@ -1,12 +1,14 @@
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronRight, settings } from '@wordpress/icons';
-import { Icon, IconButton, Tooltip } from '@wordpress/ui';
+import { chevronDown, chevronRight, closeSmall, funnel, search, settings } from '@wordpress/icons';
+import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
+import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
+import { SegmentedControl } from '@/components/segmented-control';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteContextMenu } from '@/components/site-context-menu';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
@@ -23,6 +25,12 @@ import {
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { usePluginSiteTags } from '@/lib/plugin-prototype';
+import {
+	createSiteGroup,
+	removeSiteGroup,
+	toggleSiteGroupCollapsed,
+	useSiteGroups,
+} from '@/lib/site-groups-prototype';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -36,6 +44,91 @@ type SiteRowActivity = SiteAgentActivity | 'new-message' | 'sync';
 
 const ACTIVITY_EXIT_DURATION_MS = 180;
 const SITE_ORDER_STORAGE_KEY = 'studio-ui-site-list-order-v1';
+const SIDEBAR_VIEW_STORAGE_KEY = 'studio-ui-sidebar-view-v1';
+const SIDEBAR_SORT_STORAGE_KEY = 'studio-ui-sidebar-sort-v1';
+
+type SidebarView = 'sites' | 'plugins';
+
+// 'custom' is the hand-arranged order (drag to reorder); every other mode
+// derives the order, so dragging is unavailable while one is active.
+type SidebarSort =
+	| 'custom'
+	| 'name-asc'
+	| 'name-desc'
+	| 'running-first'
+	| 'created-desc'
+	| 'created-asc';
+
+const SIDEBAR_SORTS: SidebarSort[] = [
+	'custom',
+	'name-asc',
+	'name-desc',
+	'running-first',
+	'created-desc',
+	'created-asc',
+];
+
+function readStoredSidebarSort(): SidebarSort {
+	try {
+		const stored = window.localStorage.getItem( SIDEBAR_SORT_STORAGE_KEY );
+		return SIDEBAR_SORTS.includes( stored as SidebarSort ) ? ( stored as SidebarSort ) : 'custom';
+	} catch {
+		return 'custom';
+	}
+}
+
+function writeStoredSidebarSort( sort: SidebarSort ): void {
+	try {
+		window.localStorage.setItem( SIDEBAR_SORT_STORAGE_KEY, sort );
+	} catch {
+		// Ignore storage failures; the selection still applies for this render.
+	}
+}
+
+// Creation dates aren't part of SiteDetails; the config order stands in for
+// them (sites are appended to cli.json as they're created), passed here as a
+// site-id → index rank.
+function compareRows(
+	a: SiteRow,
+	b: SiteRow,
+	sort: SidebarSort,
+	creationRank: Map< string, number >
+): number {
+	switch ( sort ) {
+		case 'name-asc':
+			return a.site.name.localeCompare( b.site.name );
+		case 'name-desc':
+			return b.site.name.localeCompare( a.site.name );
+		case 'running-first':
+			return (
+				Number( b.site.running ) - Number( a.site.running ) ||
+				a.site.name.localeCompare( b.site.name )
+			);
+		case 'created-desc':
+			return ( creationRank.get( b.site.id ) ?? 0 ) - ( creationRank.get( a.site.id ) ?? 0 );
+		case 'created-asc':
+			return ( creationRank.get( a.site.id ) ?? 0 ) - ( creationRank.get( b.site.id ) ?? 0 );
+		default:
+			return 0;
+	}
+}
+
+function readStoredSidebarView(): SidebarView {
+	try {
+		const stored = window.localStorage.getItem( SIDEBAR_VIEW_STORAGE_KEY );
+		return stored === 'plugins' ? 'plugins' : 'sites';
+	} catch {
+		return 'sites';
+	}
+}
+
+function writeStoredSidebarView( view: SidebarView ): void {
+	try {
+		window.localStorage.setItem( SIDEBAR_VIEW_STORAGE_KEY, view );
+	} catch {
+		// Ignore storage failures; the selection still applies for this render.
+	}
+}
 
 function SiteAgentActivityTooltip( {
 	label,
@@ -357,6 +450,9 @@ function SiteSection( {
 	isPlugin = false,
 	agenticGated = false,
 	isOverviewAnchor = false,
+	selecting = false,
+	selected = false,
+	onToggleSelect,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
@@ -370,6 +466,11 @@ function SiteSection( {
 	agenticGated?: boolean;
 	// Marks this row's gear as the "view site overview" coachmark target.
 	isOverviewAnchor?: boolean;
+	// Prototype grouping: while selecting (or on shift+click) row clicks
+	// toggle membership in the pending selection instead of navigating.
+	selecting?: boolean;
+	selected?: boolean;
+	onToggleSelect?: () => void;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
@@ -391,7 +492,11 @@ function SiteSection( {
 	// Dev-only message lab override (see components/dev-message-lab).
 	const forcedActivity = useSiteActivityOverride( site.id );
 	const displayActivity = forcedActivity === 'auto' ? computedActivity : forcedActivity;
-	const handleOpenSite = () => {
+	const handleOpenSite = ( event: MouseEvent< HTMLElement > ) => {
+		if ( onToggleSelect && ( selecting || event.shiftKey ) ) {
+			onToggleSelect();
+			return;
+		}
 		if ( agenticGated ) {
 			void navigate( {
 				to: '/sites/$siteId/overview',
@@ -427,7 +532,8 @@ function SiteSection( {
 					className={ clsx(
 						styles.site,
 						isPrimaryActive && styles.siteActive,
-						! agenticGated && isContextActive && styles.siteContextActive
+						! agenticGated && isContextActive && styles.siteContextActive,
+						selected && styles.siteSelected
 					) }
 				>
 					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
@@ -437,7 +543,7 @@ function SiteSection( {
 								className={ styles.siteToggle }
 								onClick={ ( event ) => {
 									event.stopPropagation();
-									handleOpenSite();
+									handleOpenSite( event );
 								} }
 								aria-current={ isPrimaryActive ? 'page' : undefined }
 							>
@@ -470,26 +576,43 @@ function SiteSection( {
 	);
 }
 
-// Prototype: accordion heading for the grouped sidebar variant.
+// Prototype: accordion heading for a named site group. Right-click offers
+// ungrouping (when the section is a real group) so experiments are easy to
+// undo.
 function GroupHeading( {
 	label,
 	isOpen,
 	onToggle,
+	onUngroup,
 }: {
 	label: string;
 	isOpen: boolean;
 	onToggle: () => void;
+	onUngroup?: () => void;
 } ) {
-	return (
+	const heading = (
 		<button
 			type="button"
 			className={ styles.groupHeading }
 			aria-expanded={ isOpen }
 			onClick={ onToggle }
 		>
-			<span>{ label }</span>
+			<span className={ styles.groupHeadingLabel }>{ label }</span>
 			<Icon icon={ isOpen ? chevronDown : chevronRight } size={ 16 } />
 		</button>
+	);
+
+	if ( ! onUngroup ) {
+		return heading;
+	}
+
+	return (
+		<Menu.ContextMenuRoot>
+			<Menu.ContextMenuTrigger render={ heading } />
+			<Menu.ContextPopup>
+				<Menu.Item onClick={ onUngroup }>{ __( 'Ungroup' ) }</Menu.Item>
+			</Menu.ContextPopup>
+		</Menu.ContextMenuRoot>
 	);
 }
 
@@ -558,8 +681,47 @@ export function SiteList() {
 	// Prototype: plugin-tagged sites (see plugin-prototype.ts). Plugins are
 	// just sites; tags only change where and how their rows render.
 	const pluginTags = usePluginSiteTags();
-	const [ isSitesGroupOpen, setIsSitesGroupOpen ] = useState( true );
-	const [ isPluginsGroupOpen, setIsPluginsGroupOpen ] = useState( true );
+	// Prototype: the sidebar shows one project type at a time, picked by the
+	// segmented control at the top. View and sort survive reloads; the search
+	// query is ephemeral.
+	const [ view, setView ] = useState< SidebarView >( readStoredSidebarView );
+	const selectView = ( nextView: SidebarView ) => {
+		setView( nextView );
+		writeStoredSidebarView( nextView );
+	};
+	const [ sort, setSort ] = useState< SidebarSort >( readStoredSidebarSort );
+	const selectSort = ( nextSort: SidebarSort ) => {
+		setSort( nextSort );
+		writeStoredSidebarSort( nextSort );
+	};
+	const [ searchQuery, setSearchQuery ] = useState( '' );
+	// Prototype grouping: selection is active while explicit select mode is on
+	// (funnel menu) or any row is selected (shift+click starts one); a named
+	// group is then cut from the selection.
+	const siteGroups = useSiteGroups();
+	const [ selectModeOn, setSelectModeOn ] = useState( false );
+	const [ selectedSiteIds, setSelectedSiteIds ] = useState< Set< string > >( () => new Set() );
+	const [ groupNaming, setGroupNaming ] = useState( false );
+	const [ groupName, setGroupName ] = useState( '' );
+	const [ otherGroupCollapsed, setOtherGroupCollapsed ] = useState( false );
+	const selecting = selectModeOn || selectedSiteIds.size > 0;
+	const toggleSelected = ( siteId: string ) => {
+		setSelectedSiteIds( ( current ) => {
+			const next = new Set( current );
+			if ( next.has( siteId ) ) {
+				next.delete( siteId );
+			} else {
+				next.add( siteId );
+			}
+			return next;
+		} );
+	};
+	const clearSelection = () => {
+		setSelectModeOn( false );
+		setSelectedSiteIds( new Set() );
+		setGroupNaming( false );
+		setGroupName( '' );
+	};
 	const [ seenSiteSessionTimestampsInitialized, setSeenSiteSessionTimestampsInitialized ] =
 		useState( false );
 	const [ seenSiteSessionTimestamps, setSeenSiteSessionTimestamps ] = useState<
@@ -569,6 +731,12 @@ export function SiteList() {
 	const orderedSites = useMemo(
 		() => sortSitesByManualOrder( sites, manualSiteOrder ),
 		[ sites, manualSiteOrder ]
+	);
+	// Config order before any manual rearranging — the creation-date proxy for
+	// the "Newest/Oldest first" sorts (see compareRows).
+	const creationRank = useMemo(
+		() => new Map( ( sites ?? [] ).map( ( site, index ) => [ site.id, index ] ) ),
+		[ sites ]
 	);
 	const rows = useMemo(
 		() => createSiteRows( orderedSites, sessions ),
@@ -588,6 +756,36 @@ export function SiteList() {
 		() => rows.filter( ( row ) => pluginSiteIds.has( row.site.id ) ),
 		[ rows, pluginSiteIds ]
 	);
+	// Prototype grouping: resolve stored groups against the current site rows.
+	// Members keep their stored order; groups whose sites all vanished drop
+	// out of the render (the store keeps them in case the sites come back).
+	const groupSections = useMemo( () => {
+		const rowsBySiteId = new Map( siteRows.map( ( row ) => [ row.site.id, row ] ) );
+		return siteGroups
+			.map( ( group ) => ( {
+				group,
+				groupRows: group.siteIds
+					.map( ( siteId ) => rowsBySiteId.get( siteId ) )
+					.filter( ( row ): row is SiteRow => Boolean( row ) ),
+			} ) )
+			.filter( ( section ) => section.groupRows.length > 0 );
+	}, [ siteGroups, siteRows ] );
+	const ungroupedRows = useMemo( () => {
+		const groupedIds = new Set( groupSections.flatMap( ( section ) => section.group.siteIds ) );
+		return siteRows.filter( ( row ) => ! groupedIds.has( row.site.id ) );
+	}, [ groupSections, siteRows ] );
+	const submitGroup = () => {
+		const name = groupName.trim();
+		if ( ! name || selectedSiteIds.size === 0 ) {
+			return;
+		}
+		// Members are stored in their current list order, not click order.
+		createSiteGroup(
+			name,
+			siteRows.map( getRowSiteId ).filter( ( siteId ) => selectedSiteIds.has( siteId ) )
+		);
+		clearSelection();
+	};
 	const activeSiteKey = useMemo(
 		() => findActiveSiteKey( rows, activeSessionId, activeSiteId ),
 		[ rows, activeSessionId, activeSiteId ]
@@ -682,7 +880,20 @@ export function SiteList() {
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
 			agenticGated={ agenticGated }
 			isOverviewAnchor={ ! isPlugin && row.site.id === overviewAnchorSiteId }
+			selecting={ ! isPlugin && selecting }
+			selected={ ! isPlugin && selectedSiteIds.has( row.site.id ) }
+			onToggleSelect={ isPlugin ? undefined : () => toggleSelected( row.site.id ) }
 		/>
+	);
+
+	const renderStaticRows = ( rowsToRender: SiteRow[], isPluginRows = false ) => (
+		<div className={ styles.sites }>
+			{ rowsToRender.map( ( row ) => (
+				<div key={ row.site.id } className={ styles.siteDragWrapper } data-site-id={ row.site.id }>
+					{ renderSiteRow( row, isPluginRows ) }
+				</div>
+			) ) }
+		</div>
 	);
 
 	const siteRowsBlock = (
@@ -702,14 +913,14 @@ export function SiteList() {
 	);
 
 	// Prototype: plugin-tagged sites render as ordinary site rows (status,
-	// chat, overview all intact), draggable within their own group.
+	// chat, overview all intact), draggable within their own view.
 	const pluginRowsBlock = (
 		<ReorderableList
 			items={ pluginSiteRows }
 			getItemId={ getRowSiteId }
 			renderItem={ ( row ) => renderSiteRow( row, true ) }
 			onReorder={ ( nextIds ) => persistOrder( [ ...rowSiteIds, ...nextIds ] ) }
-			className={ clsx( styles.groupBody, styles.groupList ) }
+			className={ styles.sites }
 			itemClassName={ styles.siteDragWrapper }
 			placeholderClassName={ styles.siteDropPlaceholder }
 			previewClassName={ styles.siteDragPreview }
@@ -719,45 +930,203 @@ export function SiteList() {
 		/>
 	);
 
-	// Plugin-tagged sites get their own accordion group under the sites. The
-	// headings only appear once a plugin exists — plugin-less sidebars keep
-	// the plain flat site list.
+	const isLoading = sitesLoading || sessionsLoading;
+	const baseRows = view === 'plugins' ? pluginSiteRows : siteRows;
+	const query = searchQuery.trim().toLowerCase();
+
+	// A search or a derived sort renders a plain (non-draggable) list; manual
+	// ordering only makes sense against the full custom-ordered list.
+	const derivedRows = useMemo( () => {
+		if ( ! query && sort === 'custom' ) {
+			return null;
+		}
+		const filtered = query
+			? baseRows.filter( ( row ) => row.site.name.toLowerCase().includes( query ) )
+			: baseRows;
+		return [ ...filtered ].sort( ( a, b ) => compareRows( a, b, sort, creationRank ) );
+	}, [ baseRows, query, sort, creationRank ] );
+
 	let listContent: ReactNode;
-	if ( sitesLoading || sessionsLoading ) {
+	if ( isLoading ) {
 		listContent = <p className={ styles.empty }>{ __( 'Loading…' ) }</p>;
-	} else if ( pluginSiteRows.length > 0 ) {
+	} else if ( baseRows.length === 0 ) {
+		listContent = (
+			<p className={ styles.empty }>
+				{ view === 'plugins' ? __( 'No plugins yet' ) : __( 'No sites yet' ) }
+			</p>
+		);
+	} else if ( derivedRows ) {
+		listContent =
+			derivedRows.length === 0 ? (
+				<p className={ styles.empty }>{ __( 'No matches' ) }</p>
+			) : (
+				renderStaticRows( derivedRows, view === 'plugins' )
+			);
+	} else if ( view === 'sites' && groupSections.length > 0 ) {
+		// Grouped sidebar: accordion sections per group, ungrouped sites under
+		// a trailing "Other" section. Rows render static — dragging across
+		// group boundaries is out of scope for the prototype.
 		listContent = (
 			<>
-				<GroupHeading
-					label={ __( 'Sites' ) }
-					isOpen={ isSitesGroupOpen }
-					onToggle={ () => setIsSitesGroupOpen( ( value ) => ! value ) }
-				/>
-				{ isSitesGroupOpen && (
-					<div className={ styles.groupBody }>
-						{ siteRows.length === 0 ? (
-							<p className={ styles.groupEmpty }>{ __( 'No sites yet' ) }</p>
-						) : (
-							siteRowsBlock
-						) }
+				{ groupSections.map( ( { group, groupRows } ) => (
+					<div key={ group.id } className={ styles.group }>
+						<GroupHeading
+							label={ group.name }
+							isOpen={ ! group.collapsed }
+							onToggle={ () => toggleSiteGroupCollapsed( group.id ) }
+							onUngroup={ () => removeSiteGroup( group.id ) }
+						/>
+						{ ! group.collapsed && renderStaticRows( groupRows ) }
 					</div>
-				) }
-				<GroupHeading
-					label={ __( 'Plugins' ) }
-					isOpen={ isPluginsGroupOpen }
-					onToggle={ () => setIsPluginsGroupOpen( ( value ) => ! value ) }
-				/>
-				{ isPluginsGroupOpen && pluginRowsBlock }
+				) ) }
+				{ ungroupedRows.length > 0 ? (
+					<div className={ styles.group }>
+						<GroupHeading
+							label={ __( 'Other' ) }
+							isOpen={ ! otherGroupCollapsed }
+							onToggle={ () => setOtherGroupCollapsed( ( value ) => ! value ) }
+						/>
+						{ ! otherGroupCollapsed && renderStaticRows( ungroupedRows ) }
+					</div>
+				) : null }
 			</>
 		);
-	} else if ( rows.length === 0 ) {
-		listContent = <p className={ styles.empty }>{ __( 'No sites yet' ) }</p>;
 	} else {
-		listContent = siteRowsBlock;
+		listContent = view === 'plugins' ? pluginRowsBlock : siteRowsBlock;
 	}
+
+	const viewLabel = ( label: string, count: number ) => (
+		<>
+			{ label }
+			{ ! isLoading && <span className={ styles.viewCount }>{ count }</span> }
+		</>
+	);
 
 	return (
 		<div className={ styles.root } ref={ listAnchorRef }>
+			<div className={ styles.viewSwitcherBar }>
+				<SegmentedControl
+					aria-label={ __( 'Project type' ) }
+					value={ view }
+					onChange={ selectView }
+					options={ [
+						{ value: 'sites', label: viewLabel( __( 'Sites' ), siteRows.length ) },
+						{ value: 'plugins', label: viewLabel( __( 'Plugins' ), pluginSiteRows.length ) },
+					] }
+				/>
+				<div className={ styles.searchRow }>
+					<div className={ styles.searchField }>
+						<Icon icon={ search } size={ 16 } className={ styles.searchIcon } />
+						<input
+							type="search"
+							className={ styles.searchInput }
+							placeholder={ view === 'plugins' ? __( 'Search plugins' ) : __( 'Search sites' ) }
+							aria-label={ view === 'plugins' ? __( 'Search plugins' ) : __( 'Search sites' ) }
+							value={ searchQuery }
+							onChange={ ( event ) => setSearchQuery( event.target.value ) }
+						/>
+					</div>
+					<Menu.Root modal={ false }>
+						<Menu.Trigger
+							render={
+								<IconButton
+									variant="minimal"
+									tone={ sort === 'custom' ? 'neutral' : 'brand' }
+									size="small"
+									icon={ funnel }
+									label={ __( 'Sort' ) }
+								/>
+							}
+						/>
+						<Menu.Popup side="bottom" align="end">
+							<Menu.Group>
+								<Menu.GroupLabel>{ __( 'Sort by' ) }</Menu.GroupLabel>
+								<Menu.RadioGroup
+									value={ sort }
+									onValueChange={ ( next ) => selectSort( next as SidebarSort ) }
+								>
+									<Menu.RadioItem value="custom">{ __( 'Custom order' ) }</Menu.RadioItem>
+									<Menu.RadioItem value="name-asc">{ __( 'Name, A to Z' ) }</Menu.RadioItem>
+									<Menu.RadioItem value="name-desc">{ __( 'Name, Z to A' ) }</Menu.RadioItem>
+									<Menu.RadioItem value="running-first">{ __( 'Running first' ) }</Menu.RadioItem>
+									<Menu.RadioItem value="created-desc">{ __( 'Newest first' ) }</Menu.RadioItem>
+									<Menu.RadioItem value="created-asc">{ __( 'Oldest first' ) }</Menu.RadioItem>
+								</Menu.RadioGroup>
+							</Menu.Group>
+							{ view === 'sites' ? (
+								<>
+									<Menu.Separator />
+									<Menu.Item onClick={ () => setSelectModeOn( true ) }>
+										{ __( 'Select sites to group' ) }
+									</Menu.Item>
+								</>
+							) : null }
+						</Menu.Popup>
+					</Menu.Root>
+				</div>
+				{ selecting ? (
+					<div className={ styles.selectionBar }>
+						{ groupNaming ? (
+							<>
+								{ /* The input appears on explicit user action; moving focus
+								     into it follows the intent. */ }
+								<input
+									className={ styles.groupNameInput }
+									autoFocus
+									placeholder={ __( 'Group name' ) }
+									aria-label={ __( 'Group name' ) }
+									value={ groupName }
+									onChange={ ( event ) => setGroupName( event.target.value ) }
+									onKeyDown={ ( event ) => {
+										if ( event.key === 'Enter' ) {
+											submitGroup();
+										} else if ( event.key === 'Escape' ) {
+											setGroupNaming( false );
+											setGroupName( '' );
+										}
+									} }
+								/>
+								<Button
+									size="small"
+									variant="solid"
+									tone="brand"
+									disabled={ ! groupName.trim() }
+									onClick={ submitGroup }
+								>
+									{ __( 'Save' ) }
+								</Button>
+							</>
+						) : (
+							<>
+								<span className={ styles.selectionCount }>
+									{ sprintf(
+										/* translators: %d: number of selected sites */
+										__( '%d selected' ),
+										selectedSiteIds.size
+									) }
+								</span>
+								<Button
+									size="small"
+									variant="solid"
+									tone="brand"
+									disabled={ selectedSiteIds.size === 0 }
+									onClick={ () => setGroupNaming( true ) }
+								>
+									{ __( 'Create group' ) }
+								</Button>
+							</>
+						) }
+						<IconButton
+							variant="minimal"
+							tone="neutral"
+							size="small"
+							icon={ closeSmall }
+							label={ __( 'Cancel selection' ) }
+							onClick={ clearSelection }
+						/>
+					</div>
+				) : null }
+			</div>
 			{ listContent }
 		</div>
 	);

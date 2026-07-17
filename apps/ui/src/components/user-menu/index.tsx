@@ -55,13 +55,13 @@ export function UserMenu() {
 							<Menu.Item onClick={ () => void navigate( { to: '/settings' } ) }>
 								{ __( 'Settings' ) }
 							</Menu.Item>
-							<Menu.Item onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
+							<Menu.Item disabled={ isOffline } onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
 								{ __( 'Edit WordPress.com profile' ) }
 							</Menu.Item>
-							<Menu.Item onClick={ () => openLink( DOCS_URL ) }>
+							<Menu.Item disabled={ isOffline } onClick={ () => openLink( DOCS_URL ) }>
 								{ __( 'Documentation' ) }
 							</Menu.Item>
-							<Menu.Item onClick={ () => openLink( REPORT_ISSUE_URL ) }>
+							<Menu.Item disabled={ isOffline } onClick={ () => openLink( REPORT_ISSUE_URL ) }>
 								{ __( 'Report an issue' ) }
 							</Menu.Item>
 							<Menu.Separator />

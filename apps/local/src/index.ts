@@ -50,7 +50,7 @@ import { createJsonResponse, fetchSiteRest } from '@studio/common/lib/wordpress-
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import {
 	cleanupBlueprintTempDir,
-	extractBlueprintBundle,
+	extractBlueprintUpload,
 } from '@studio/common/sites/blueprint-extract';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs } from '@studio/common/sites/edit';
@@ -535,22 +535,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const siteId = crypto.randomUUID();
 			// Build the create args with the same shared helper the desktop uses, so
 			// Blueprints (and --wp dev→nightly, etc.) are handled identically.
-			const { args, cleanup } = buildSiteCreateArgs( {
-				path: body.path,
-				name: body.name,
-				siteId,
-				wpVersion: body.wpVersion,
-				phpVersion: body.phpVersion,
-				customDomain: body.customDomain,
-				enableHttps: body.enableHttps,
-				adminUsername: body.adminUsername,
-				adminPassword: body.adminPassword,
-				adminEmail: body.adminEmail,
-				blueprint: body.blueprint?.blueprint,
-				originalBlueprintPath: body.blueprint?.filePath,
-			} );
-
+			let cleanupCreateArgs: () => void = () => undefined;
 			try {
+				const { args, cleanup } = buildSiteCreateArgs( {
+					path: body.path,
+					name: body.name,
+					siteId,
+					wpVersion: body.wpVersion,
+					phpVersion: body.phpVersion,
+					customDomain: body.customDomain,
+					enableHttps: body.enableHttps,
+					adminUsername: body.adminUsername,
+					adminPassword: body.adminPassword,
+					adminEmail: body.adminEmail,
+					blueprint: body.blueprint?.blueprint,
+					originalBlueprintPath: body.blueprint?.filePath,
+				} );
+				cleanupCreateArgs = cleanup;
 				await new Promise< void >( ( resolve, reject ) => {
 					const [ emitter ] = execute( args, { output: 'capture' } );
 					emitter.on( 'success', () => resolve() );
@@ -558,7 +559,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			} finally {
-				cleanup();
+				cleanupCreateArgs();
+				if ( body.blueprint?.filePath ) {
+					await cleanupBlueprintTempDir( path.dirname( body.blueprint.filePath ) ).catch(
+						() => undefined
+					);
+				}
 			}
 
 			const created = ( await listSites( execute ) ).find( ( s ) => s.id === siteId );
@@ -790,24 +796,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Extract an uploaded Blueprint ZIP (the path comes from /uploads) and return
-	// its parsed blueprint.json — the shared extractor the desktop uses.
 	api.post(
 		'/blueprints/extract',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const zipFilePath = req.body?.zipFilePath;
-			if ( typeof zipFilePath !== 'string' || ! zipFilePath ) {
-				res.status( 400 ).json( { error: 'Missing zipFilePath' } );
-				return;
-			}
-			// The zip is always an upload under the OS temp dir (via /uploads);
-			// reject anything else so this can't be used to read arbitrary files.
-			const resolvedZip = path.resolve( zipFilePath );
-			if ( ! ( resolvedZip + path.sep ).startsWith( path.resolve( os.tmpdir() ) + path.sep ) ) {
-				res.status( 400 ).json( { error: 'zipFilePath must be an uploaded file' } );
-				return;
-			}
-			res.json( await extractBlueprintBundle( resolvedZip ) );
+			res.json( await extractBlueprintUpload( req ) );
 		} )
 	);
 

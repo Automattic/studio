@@ -73,6 +73,10 @@ export function SessionChatActions( {
 			sessionId: session.id,
 			patch: { archived: true },
 		} );
+		// Archiving the chat you're on shouldn't leave you inside it.
+		if ( session.id === currentSessionId ) {
+			onNewChat();
+		}
 	};
 
 	useEffect( () => {

@@ -72,6 +72,7 @@ export function OnboardingImportPage() {
 		pendingBackupSlot.getSnapshot()
 	);
 	const [ submitError, setSubmitError ] = useState< CreateSiteFormError | null >( null );
+	const [ isRetrying, setIsRetrying ] = useState( false );
 	const [ isWorking, setIsWorking ] = useState( false );
 	const isWorkingRef = useRef( false );
 
@@ -79,6 +80,7 @@ export function OnboardingImportPage() {
 		if ( ! pendingFile ) return;
 		setSelectedFile( pendingFile );
 		setSubmitError( null );
+		setIsRetrying( false );
 		pendingBackupSlot.clear( pendingFile );
 	}, [ pendingFile ] );
 
@@ -93,6 +95,7 @@ export function OnboardingImportPage() {
 		if ( ! selectedFile || isWorkingRef.current ) return;
 		isWorkingRef.current = true;
 		setIsWorking( true );
+		setIsRetrying( submitError !== null );
 		setSubmitError( null );
 		setProgress( __( 'Preparing backup…' ) );
 		let phase: ImportPhase = 'preparing';
@@ -157,6 +160,7 @@ export function OnboardingImportPage() {
 		} finally {
 			isWorkingRef.current = false;
 			setIsWorking( false );
+			setIsRetrying( false );
 			setProgress( null );
 		}
 	};
@@ -166,6 +170,7 @@ export function OnboardingImportPage() {
 	const initialValues: Partial< CreateSiteFormValues > = {
 		name: getSuggestedSiteNameFromBackupFilename( selectedFile.name ) || __( 'Imported site' ),
 	};
+	const showRetryActions = submitError !== null || isRetrying;
 
 	return (
 		<div className={ sharedStyles.page }>
@@ -180,8 +185,8 @@ export function OnboardingImportPage() {
 				onCancel={ () => void navigate( { to: '/onboarding' } ) }
 				isSubmitting={ isWorking }
 				submitError={ submitError ?? undefined }
-				submitLabel={ submitError ? __( 'Retry import' ) : __( 'Import site' ) }
-				cancelLabel={ submitError ? __( 'Choose another backup' ) : undefined }
+				submitLabel={ showRetryActions ? __( 'Retry import' ) : __( 'Import site' ) }
+				cancelLabel={ showRetryActions ? __( 'Choose another backup' ) : undefined }
 				loadingAnnouncement={ __( 'Importing site' ) }
 			/>
 		</div>

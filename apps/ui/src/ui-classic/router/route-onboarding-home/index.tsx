@@ -67,6 +67,7 @@ function ImportBackupCard() {
 				} }
 				onDragLeave={ ( event ) => {
 					event.preventDefault();
+					if ( event.currentTarget.contains( event.relatedTarget as Node | null ) ) return;
 					setIsDragging( false );
 				} }
 				onDrop={ ( event ) => {
@@ -77,7 +78,7 @@ function ImportBackupCard() {
 			>
 				<DropBackupIllustration />
 				<div className={ styles.cardText }>
-					<h3 className={ styles.cardTitle }>{ __( 'Import from a backup' ) }</h3>
+					<span className={ styles.cardTitle }>{ __( 'Import from a backup' ) }</span>
 					<p className={ styles.cardBody }>{ __( 'Drop a file or click to browse.' ) }</p>
 					{ error && (
 						<span role="alert" className={ styles.cardError }>

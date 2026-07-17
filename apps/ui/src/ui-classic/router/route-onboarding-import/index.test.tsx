@@ -185,6 +185,30 @@ describe( 'OnboardingImportPage', () => {
 		expect( screen.getByText( 'Upload failed' ) ).toBeInTheDocument();
 	} );
 
+	it( 'keeps recovery action labels while a retry is active', async () => {
+		mocks.getFilePath.mockRejectedValueOnce( new Error( 'Upload failed' ) );
+		await renderConfiguredImport();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
+		await screen.findByText( 'Studio could not access this backup.' );
+
+		let resolvePath: ( path: string ) => void = () => undefined;
+		mocks.getFilePath.mockImplementationOnce(
+			() =>
+				new Promise< string >( ( resolve ) => {
+					resolvePath = resolve;
+				} )
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Retry import' } ) );
+
+		expect( mocks.formProps?.isSubmitting ).toBe( true );
+		expect( mocks.formProps?.submitLabel ).toBe( 'Retry import' );
+		expect( mocks.formProps?.cancelLabel ).toBe( 'Choose another backup' );
+
+		resolvePath( '/tmp/backup.sql' );
+		await waitFor( () => expect( mocks.formProps?.isSubmitting ).toBe( false ) );
+	} );
+
 	it( 'explains site creation failures without exposing raw details first', async () => {
 		mocks.createSite.mockRejectedValue( new Error( 'EACCES: cannot create directory' ) );
 		await renderConfiguredImport();

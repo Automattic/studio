@@ -98,7 +98,7 @@ export default function ImportBackup( {
 			} else {
 				setFileError(
 					__(
-						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, .wpress, or .sql file.'
+						'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .sql file.'
 					)
 				);
 			}

@@ -85,6 +85,23 @@ describe( 'OnboardingHomePage', () => {
 		expect( mocks.navigate ).toHaveBeenCalledWith( { to: '/onboarding/import' } );
 	} );
 
+	it( 'keeps the drag state while moving across the Import card contents', () => {
+		render( <OnboardingHomePage /> );
+		const importCard = screen.getByRole( 'button', { name: /Import from a backup/ } );
+		const cardContents = screen.getByText( 'Import from a backup' );
+
+		fireEvent.dragOver( importCard );
+		const draggingClassName = importCard.className;
+		const childDragLeave = new Event( 'dragleave', { bubbles: true, cancelable: true } );
+		Object.defineProperty( childDragLeave, 'relatedTarget', { value: cardContents } );
+		fireEvent( importCard, childDragLeave );
+
+		expect( importCard ).toHaveClass( draggingClassName, { exact: true } );
+
+		fireEvent.dragLeave( importCard );
+		expect( importCard ).not.toHaveClass( draggingClassName, { exact: true } );
+	} );
+
 	it( 'rejects unsupported selected and dropped files', () => {
 		const { container } = render( <OnboardingHomePage /> );
 		const input = container.querySelector< HTMLInputElement >( 'input[type="file"]' );

@@ -128,16 +128,18 @@ steps:
           DEBUG: "pw:browser"
         if: (build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft) && !(build.pull_request.labels includes 'native-php')
 
-  # `soft_fail` keeps this advisory: without it Buildkite's overall build status
-  # gates merges, even though the step declares no commit status of its own.
+  # Advisory: "CLI E2E Tests" is deliberately absent from trunk's required status
+  # checks, so a red run shows on the PR without blocking the merge.
   - label: CLI E2E Tests
     key: cli-e2e-tests
     agents:
       queue: mac
     command: bash .buildkite/commands/run-cli-e2e-tests.sh
     timeout_in_minutes: 30
-    soft_fail: true
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: CLI E2E Tests
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics

@@ -550,7 +550,9 @@ export async function runCommand( options: {
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
 			onEvent: ( event ) => {
 				ui.handleEvent( event );
-				if ( event.type !== 'agent_end' ) {
+				// An `agent_end` with `willRetry` is not final — the session
+				// restarts the turn after a backoff.
+				if ( event.type !== 'agent_end' || event.willRetry ) {
 					return;
 				}
 				const result = getAgentEndTurnResult( event );

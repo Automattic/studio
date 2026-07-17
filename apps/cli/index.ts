@@ -1,3 +1,5 @@
+// TEMP: revert before merge. Touches apps/cli/ so should-skip-job.sh does not
+// skip validation on this .buildkite-only PR, letting CLI E2E Tests prove itself.
 import path from 'node:path';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __, sprintf } from '@wordpress/i18n';

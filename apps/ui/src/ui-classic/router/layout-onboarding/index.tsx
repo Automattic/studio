@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { DotGrid } from '@/components/dot-grid';
 import { OnboardingLayout } from '@/components/onboarding-layout';
 import { useSites } from '@/data/queries/use-sites';
+import { useOffline } from '@/hooks/use-offline';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
@@ -75,13 +76,27 @@ export function OnboardingShell() {
 	const navigate = useNavigate();
 	const pathname = useLocation( { select: ( location ) => location.pathname } );
 	const { data: sites } = useSites();
+	const isOffline = useOffline();
 	const matches = useMatches();
+
+	const handleClose = () => {
+		const firstSiteId = sites?.[ 0 ]?.id;
+		if ( isOffline && firstSiteId ) {
+			void navigate( {
+				to: '/sites/$siteId/settings',
+				params: { siteId: firstSiteId },
+			} );
+		} else {
+			void navigate( { to: '/' } );
+		}
+	};
+
 	return (
 		<OnboardingShellView
 			hasSites={ ( sites?.length ?? 0 ) > 0 }
 			isWide={ matches.some( ( match ) => match.pathname === '/onboarding' ) }
 			pathname={ pathname }
-			onClose={ () => void navigate( { to: '/' } ) }
+			onClose={ handleClose }
 		>
 			<Outlet />
 		</OnboardingShellView>

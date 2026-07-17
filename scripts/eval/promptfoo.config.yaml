@@ -544,6 +544,100 @@ tests:
             return { pass: true, score: 1, reason: 'no Write/Edit/Bash mutation under themes/ollie/' };
           });
 
+  # Regression (STU-2048): a content-only edit to an existing page used to be
+  # applied from a stale local scratch copy, silently reverting changes made
+  # outside the agent (e.g. images swapped manually in the WordPress editor).
+  # We create a page, simulate an out-of-band editor edit (image URL swap via a
+  # direct full-content update), then request a heading-only change. The agent
+  # must re-read the live post_content before applying (hydration recipe from
+  # the block-content skill) so the swapped image survives the edit.
+  - description: content-only edit hydrates from live content and preserves manual editor changes
+    vars:
+      caseId: stale-content-hydration
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Stale Content" exists using
+        site_list. If it does, delete it with site_delete so we start from a
+        clean slate. Do NOT touch any other site.
+
+        Then do exactly this, in order:
+
+        1. Create a new site named "Eval Stale Content". Keep its default
+           theme — do not scaffold or switch themes.
+        2. Create a page titled "About" whose content is a heading that says
+           "Old Heading" and an image block using the image URL
+           https://example.com/placeholder-image.jpg.
+        3. Simulate an edit made by the user in the WordPress editor: run a
+           single wp_cli command that replaces the About page's entire
+           post_content with the same content except the image URL is now
+           https://example.com/user-real-photo.jpg (keep the heading
+           "Old Heading" unchanged).
+        4. Now make a content-only edit: change the About page heading text
+           from "Old Heading" to "New Heading". Do not change anything else
+           on the page.
+        5. Finally, print the About page's current content by reading its
+           post_content with wp_cli, and briefly confirm what the page
+           contains.
+    assert:
+      # The agent must re-read the live post_content between the simulated
+      # out-of-band edit (step 3) and its own content apply (step 4) — either
+      # as a separate hydration call or inside the apply command itself.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const calls = (d.toolCalls || []).map((t, idx) => ({ idx, name: t.name, cmd: t.name === 'wp_cli' && typeof t.input?.command === 'string' ? t.input.command : '' }));
+            // Content applies come in three shapes: `wp_update_post(...)` in an
+            // eval, `post update <id> --post_content=...` inline, and the
+            // native-PHP `post update <id> <scratch-file>` form (no literal
+            // "post_content" in the command).
+            const isApply = (cmd) => /wp_update_post/.test(cmd) || (/\bpost\s+update\b/.test(cmd) && /--post_content|file_get_contents|\.html?\b/.test(cmd));
+            const readsLive = (cmd) => /get_post_field\(\s*["']post_content|--field=post_content|post\s+get\s+\S+.*content/.test(cmd);
+            const sim = calls.find(c => c.cmd.includes('user-real-photo.jpg') && isApply(c.cmd));
+            if (!sim) {
+              return { pass: false, score: 0, reason: `could not find the simulated editor edit (full-content update containing user-real-photo.jpg); wp_cli cmds: ${JSON.stringify(calls.filter(c => c.cmd).map(c => c.cmd.slice(0, 120)))}` };
+            }
+            const apply = calls.find(c => c.idx > sim.idx && isApply(c.cmd) && !c.cmd.includes('user-real-photo.jpg'));
+            if (!apply) {
+              return { pass: false, score: 0, reason: `no content apply found after the simulated editor edit; wp_cli cmds after idx ${sim.idx}: ${JSON.stringify(calls.filter(c => c.idx > sim.idx && c.cmd).map(c => c.cmd.slice(0, 120)))}` };
+            }
+            const hydrated = readsLive(apply.cmd) || calls.some(c => c.idx > sim.idx && c.idx < apply.idx && readsLive(c.cmd));
+            return {
+              pass: hydrated,
+              score: hydrated ? 1 : 0,
+              reason: hydrated
+                ? 'live post_content was re-read between the out-of-band edit and the apply'
+                : `apply at idx ${apply.idx} (${apply.cmd.slice(0, 160)}) was not preceded by a live post_content read after the out-of-band edit at idx ${sim.idx}`,
+            };
+          });
+      # The behavioral outcome: after the heading edit, the manually swapped
+      # image URL must survive and the stale placeholder must not come back.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const results = (d.toolResults || []).filter(r => r.toolName === 'wp_cli' && typeof r.text === 'string');
+            const finalRead = [...results].reverse().find(r => r.text.includes('New Heading'));
+            if (!finalRead) {
+              return { pass: false, score: 0, reason: 'no wp_cli result shows the About page content containing "New Heading" — the final verification read (step 5) is missing or the heading edit never applied' };
+            }
+            const keptImage = finalRead.text.includes('user-real-photo.jpg');
+            const revertedImage = finalRead.text.includes('placeholder-image.jpg');
+            const pass = keptImage && !revertedImage;
+            return {
+              pass,
+              score: pass ? 1 : 0,
+              reason: pass
+                ? 'heading changed and the manually swapped image survived'
+                : `final content ${keptImage ? 'still has' : 'LOST'} user-real-photo.jpg and ${revertedImage ? 'REVERTED to' : 'does not contain'} placeholder-image.jpg: ${finalRead.text.slice(0, 400)}`,
+            };
+          });
+
   # When adding sections to a site that already has an active theme, the agent
   # should color them from the theme's color palette (block color-slug
   # attributes like {"backgroundColor":"accent-1"} or var(--wp--preset--color--*)

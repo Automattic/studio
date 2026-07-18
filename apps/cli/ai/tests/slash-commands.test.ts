@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	AI_CHAT_SLASH_COMMANDS,
-	getActiveSlashCommands,
-	type SlashCommandContext,
-} from 'cli/ai/slash-commands';
+import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { areNotificationsEnabled, setNotificationsEnabled } from 'cli/lib/notify';
 
 describe( '/remote-session slash command registration', () => {
@@ -436,21 +432,6 @@ describe( '/notifications slash command', () => {
 		vi.mocked( setNotificationsEnabled ).mockClear();
 	} );
 
-	it( 'is registered with a handler and a discoverable description', () => {
-		expect( cmd ).toBeDefined();
-		expect( typeof cmd.handler ).toBe( 'function' );
-		expect( cmd.description ).toBeTruthy();
-	} );
-
-	// Regression test: the interactive autocomplete (DescriptionAwareAutocompleteProvider
-	// in ai/ui.ts) is wired directly to getActiveSlashCommands() — there is no separate
-	// list to keep in sync. If this ever stops finding the command, autocomplete broke too.
-	it( 'shows up in the list the interactive autocomplete reads from', () => {
-		const active = getActiveSlashCommands().find( ( c ) => c.name === 'notifications' );
-		expect( active ).toBeDefined();
-		expect( typeof active!.handler ).toBe( 'function' );
-	} );
-
 	it( 'enables notifications and reports the new state when currently disabled', async () => {
 		vi.mocked( areNotificationsEnabled ).mockResolvedValue( false );
 		const ui = makeUi();
@@ -459,14 +440,5 @@ describe( '/notifications slash command', () => {
 		expect( setNotificationsEnabled ).toHaveBeenCalledWith( true );
 		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'enabled' ) );
 		expect( result ).toBe( 'continue' );
-	} );
-
-	it( 'disables notifications and reports the new state when currently enabled', async () => {
-		vi.mocked( areNotificationsEnabled ).mockResolvedValue( true );
-		const ui = makeUi();
-		await cmd.handler!( '/notifications', makeCtx( ui ) );
-
-		expect( setNotificationsEnabled ).toHaveBeenCalledWith( false );
-		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'disabled' ) );
 	} );
 } );

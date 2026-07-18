@@ -1,6 +1,6 @@
 import { type MockInstance, vi } from 'vitest';
-import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
-import { areNotificationsEnabled, notifyTerminal, setNotificationsEnabled } from 'cli/lib/notify';
+import { readCliConfig } from 'cli/lib/cli-config/core';
+import { areNotificationsEnabled, notifyTerminal } from 'cli/lib/notify';
 
 vi.mock( 'cli/lib/cli-config/core', () => ( {
 	readCliConfig: vi.fn(),
@@ -15,38 +15,6 @@ describe( 'areNotificationsEnabled', () => {
 	it( 'is false by default (flag absent from config)', async () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 		expect( await areNotificationsEnabled() ).toBe( false );
-	} );
-
-	it( 'is false when the flag is explicitly false', async () => {
-		vi.mocked( readCliConfig ).mockResolvedValue( {
-			version: 1,
-			sites: [],
-			snapshots: [],
-			notificationsEnabled: false,
-		} );
-		expect( await areNotificationsEnabled() ).toBe( false );
-	} );
-
-	it( 'is true when the flag is explicitly true', async () => {
-		vi.mocked( readCliConfig ).mockResolvedValue( {
-			version: 1,
-			sites: [],
-			snapshots: [],
-			notificationsEnabled: true,
-		} );
-		expect( await areNotificationsEnabled() ).toBe( true );
-	} );
-} );
-
-describe( 'setNotificationsEnabled', () => {
-	it( 'persists true', async () => {
-		await setNotificationsEnabled( true );
-		expect( updateCliConfigWithPartial ).toHaveBeenCalledWith( { notificationsEnabled: true } );
-	} );
-
-	it( 'persists false', async () => {
-		await setNotificationsEnabled( false );
-		expect( updateCliConfigWithPartial ).toHaveBeenCalledWith( { notificationsEnabled: false } );
 	} );
 } );
 

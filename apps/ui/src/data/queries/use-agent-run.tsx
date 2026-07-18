@@ -369,6 +369,14 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	const ignoredRunIdsRef = useRef< Set< string > >( new Set() );
 	const interruptRequestsBySessionRef = useRef< Map< string, Promise< void > > >( new Map() );
 	const interruptPendingStartSessionIdsRef = useRef< Set< string > >( new Set() );
+	// Sessions whose transcript cache may have missed a live event: the event
+	// landed while the transcript had no data yet (fresh renderer, its initial
+	// load still in flight) or while a refetch was in flight (whose snapshot was
+	// read from disk before the event and will overwrite the appended entry when
+	// it resolves). The CLI persists every entry to the JSONL *before* emitting
+	// its event, so disk is always at least as new as any event — flagged
+	// sessions just need one more refetch after the in-flight one settles.
+	const reconcileSessionIdsRef = useRef< Set< string > >( new Set() );
 
 	const dispatchSession = useCallback(
 		( sessionId: string, action: Action ) => {
@@ -379,23 +387,70 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 	const updateCache = useCallback(
 		( sessionId: string, updater: ( entries: SessionEntry[] ) => SessionEntry[] ) => {
-			queryClient.setQueryData< LoadedAiSession >(
-				[ ...SESSIONS_QUERY_KEY, sessionId ],
-				( prev ) => {
-					if ( ! prev ) {
-						return prev;
-					}
-					const current = prev.entries ?? [];
-					const entries = updater( current );
-					return entries === current ? prev : { ...prev, entries };
+			const queryKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
+			const queryState = queryClient.getQueryState< LoadedAiSession >( queryKey );
+			if ( ! queryState?.data || queryState.fetchStatus === 'fetching' ) {
+				reconcileSessionIdsRef.current.add( sessionId );
+			}
+			queryClient.setQueryData< LoadedAiSession >( queryKey, ( prev ) => {
+				if ( ! prev ) {
+					return prev;
 				}
-			);
+				const current = prev.entries ?? [];
+				const entries = updater( current );
+				return entries === current ? prev : { ...prev, entries };
+			} );
 		},
 		[ queryClient ]
 	);
 
+	// Second half of the reconcile contract: once a flagged session's transcript
+	// fetch settles, refetch it. That fetch started after the flagged event, so
+	// its disk snapshot is guaranteed to contain the event's entry. If more
+	// events land during the reconciling fetch they re-flag the session, and the
+	// loop converges as soon as a fetch window passes without one.
+	useEffect( () => {
+		return queryClient.getQueryCache().subscribe( ( event ) => {
+			if ( event.type !== 'updated' ) {
+				return;
+			}
+			if ( event.action.type !== 'success' && event.action.type !== 'error' ) {
+				return;
+			}
+			const queryKey = event.query.queryKey;
+			if (
+				! Array.isArray( queryKey ) ||
+				queryKey.length !== SESSIONS_QUERY_KEY.length + 1 ||
+				queryKey[ 0 ] !== SESSIONS_QUERY_KEY[ 0 ]
+			) {
+				return;
+			}
+			const sessionId = queryKey[ SESSIONS_QUERY_KEY.length ];
+			if ( typeof sessionId !== 'string' || ! reconcileSessionIdsRef.current.delete( sessionId ) ) {
+				return;
+			}
+			// Deferred so the refetch isn't started from inside the query cache's
+			// own notification cycle.
+			queueMicrotask( () => {
+				void queryClient.invalidateQueries( {
+					queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
+					exact: true,
+				} );
+			} );
+		} );
+	}, [ queryClient ] );
+
 	useEffect( () => {
 		let cancelled = false;
+
+		// Reconcile persisted transcripts with disk once per renderer boot.
+		// Session queries never refetch on their own (staleTime: Infinity —
+		// live events own the cache during a run), so anything that happened
+		// while this renderer wasn't alive (a question asked mid-restart, a
+		// run that finished with the app closed) would otherwise never appear.
+		// Invalidation refetches the open transcript now and marks the rest
+		// stale so they refetch on mount.
+		void queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
 
 		void connector
 			.getActiveAgentRuns()
@@ -433,7 +488,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		return () => {
 			cancelled = true;
 		};
-	}, [ connector, dispatchSession ] );
+	}, [ connector, dispatchSession, queryClient ] );
 
 	useEffect( () => {
 		return connector.onAgentEvent( ( payload: AgentRunEvent ) => {
@@ -504,8 +559,17 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
 					if ( ! hasQueuedFollowUp ) {
 						// Refetch to replace optimistic entries with disk-backed ones.
+						// Scoped to this session (plus the summaries list) — a broad
+						// invalidate would force-refetch every mounted transcript, and
+						// a refetch racing another session's live run can clobber its
+						// just-appended entries (e.g. a pending agent question).
 						void queryClient.invalidateQueries( {
 							queryKey: SESSIONS_QUERY_KEY,
+							exact: true,
+						} );
+						void queryClient.invalidateQueries( {
+							queryKey: [ ...SESSIONS_QUERY_KEY, payload.sessionId ],
+							exact: true,
 						} );
 					}
 					return;

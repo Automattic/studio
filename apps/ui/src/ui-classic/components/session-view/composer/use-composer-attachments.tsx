@@ -1,5 +1,8 @@
 import { STUDIO_CHAT_MAX_FILES, type StudioChatFileAttachment } from '@studio/common/ai/chat-files';
-import { STUDIO_CHAT_MAX_IMAGES } from '@studio/common/ai/chat-images';
+import {
+	getStudioChatImageLimits,
+	type StudioChatImageLimits,
+} from '@studio/common/ai/chat-images';
 import {
 	getComposerClipboardFiles,
 	mergeComposerAttachments,
@@ -12,9 +15,10 @@ import {
 	type ComposerSendAttachments,
 } from '@studio/common/ai/composer-attachments';
 import { __, sprintf } from '@wordpress/i18n';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import type { AiModelFamily } from '@studio/common/ai/models';
 
 export { toComposerSendAttachments };
 export type { ComposerAttachment, ComposerClipInput, ComposerSendAttachments };
@@ -23,15 +27,15 @@ type ComposerFileAttachmentInput = StudioChatFileAttachment & {
 	preview?: ComposerFilePreview;
 };
 
-function getComposerAttachmentMessages() {
+function getComposerAttachmentMessages( limits: StudioChatImageLimits ) {
 	return {
-		imageTooLarge: __( 'Images must be 5 MB or smaller.' ),
+		imageTooLarge: __( 'This image is too large to attach.' ),
 		imageReadFailed: __( 'Failed to read the attached image.' ),
 		fileAttachFailed: __( 'This file could not be attached.' ),
 		maxImages: sprintf(
 			/* translators: %d: maximum number of images. */
 			__( 'You can attach up to %d images.' ),
-			STUDIO_CHAT_MAX_IMAGES
+			limits.maxImages
 		),
 		totalImagesTooLarge: __( 'Attached images are too large to send together.' ),
 		maxFiles: sprintf(
@@ -42,8 +46,9 @@ function getComposerAttachmentMessages() {
 	};
 }
 
-export function useComposerAttachments() {
+export function useComposerAttachments( modelFamily?: AiModelFamily ) {
 	const connector = useConnector();
+	const limits = useMemo( () => getStudioChatImageLimits( modelFamily ), [ modelFamily ] );
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( [] );
 	const attachmentsRef = useRef< ComposerAttachment[] >( [] );
 	const [ isDraggingOver, setIsDraggingOver ] = useState( false );
@@ -79,12 +84,13 @@ export function useComposerAttachments() {
 			if ( list.length === 0 ) {
 				return false;
 			}
-			const messages = getComposerAttachmentMessages();
+			const messages = getComposerAttachmentMessages( limits );
 
 			const prepared = await prepareComposerAttachments( list, {
 				resolveFilePath: ( file ) => connector.getFilePath( file ),
 				messages,
 				existingAttachments: attachmentsRef.current,
+				limits,
 			} );
 			if ( prepared.error ) {
 				toast.error( prepared.error );
@@ -99,7 +105,8 @@ export function useComposerAttachments() {
 			const merged = mergeComposerAttachments(
 				attachmentsRef.current,
 				prepared.attachments,
-				messages
+				messages,
+				limits
 			);
 			if ( merged.error ) {
 				toast.error( merged.error );
@@ -107,7 +114,7 @@ export function useComposerAttachments() {
 			setTrackedAttachments( merged.attachments );
 			return true;
 		},
-		[ connector, setTrackedAttachments ]
+		[ connector, setTrackedAttachments, limits ]
 	);
 
 	const addFileAttachments = useCallback(
@@ -115,7 +122,7 @@ export function useComposerAttachments() {
 			if ( incoming.length === 0 ) {
 				return false;
 			}
-			const messages = getComposerAttachmentMessages();
+			const messages = getComposerAttachmentMessages( limits );
 			const prepared: ComposerAttachment[] = incoming.map( ( file ) => ( {
 				id: file.id,
 				kind: 'file',
@@ -126,7 +133,7 @@ export function useComposerAttachments() {
 				preview: file.preview,
 			} ) );
 
-			const merged = mergeComposerAttachments( attachmentsRef.current, prepared, messages );
+			const merged = mergeComposerAttachments( attachmentsRef.current, prepared, messages, limits );
 			if ( merged.error ) {
 				toast.error( merged.error );
 			}
@@ -134,7 +141,7 @@ export function useComposerAttachments() {
 			setTrackedAttachments( merged.attachments );
 			return didAdd;
 		},
-		[ setTrackedAttachments ]
+		[ setTrackedAttachments, limits ]
 	);
 
 	// Clips from the site preview. Same quota rules as images (their capture
@@ -142,8 +149,8 @@ export function useComposerAttachments() {
 	// file paths above.
 	const addClip = useCallback(
 		async ( input: ComposerClipInput ): Promise< boolean > => {
-			const messages = getComposerAttachmentMessages();
-			const prepared = await prepareComposerClipAttachment( input, messages );
+			const messages = getComposerAttachmentMessages( limits );
+			const prepared = await prepareComposerClipAttachment( input, messages, limits );
 			if ( prepared.error || ! prepared.attachment ) {
 				toast.error( prepared.error ?? messages.fileAttachFailed );
 				return false;
@@ -151,7 +158,8 @@ export function useComposerAttachments() {
 			const merged = mergeComposerAttachments(
 				attachmentsRef.current,
 				[ prepared.attachment ],
-				messages
+				messages,
+				limits
 			);
 			if ( merged.error ) {
 				toast.error( merged.error );
@@ -160,7 +168,7 @@ export function useComposerAttachments() {
 			setTrackedAttachments( merged.attachments );
 			return didAdd;
 		},
-		[ setTrackedAttachments ]
+		[ setTrackedAttachments, limits ]
 	);
 
 	const updateClipComment = useCallback( ( id: string, comment: string ) => {

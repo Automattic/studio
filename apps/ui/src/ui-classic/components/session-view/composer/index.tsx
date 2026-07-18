@@ -344,7 +344,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restore: restoreAttachments,
 		dragHandlers,
 		pasteHandlers,
-	} = useComposerAttachments();
+	} = useComposerAttachments( getAiModelFamily( model ) );
 	const hasAttachments = attachments.length > 0;
 
 	// Mirror the attachment set to the parent (preview clip markers).

@@ -10,6 +10,7 @@ import {
 } from 'cli/ai/sessions/pi-session';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
+import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { runCommand } from '../index';
 
@@ -41,6 +42,9 @@ vi.mock( 'cli/lib/cli-config/sites', () => ( {
 vi.mock( 'cli/lib/site-utils', () => ( {
 	isSiteRunning: vi.fn(),
 } ) );
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	disconnectFromDaemon: vi.fn().mockResolvedValue( undefined ),
+} ) );
 vi.mock( 'cli/ai/sessions/context', () => ( {
 	resolveResumeSessionContext: () => ( { provider: undefined, model: undefined } ),
 } ) );
@@ -50,7 +54,10 @@ vi.mock( 'cli/ai/sessions/pi-session', () => ( {
 	listStudioSessionFiles: vi.fn(),
 } ) );
 vi.mock( 'cli/ai/sessions/replay', () => ( { replaySessionHistory: vi.fn() } ) );
-vi.mock( 'cli/ai/sessions/paths', () => ( { getAiSessionsRootDirectory: vi.fn() } ) );
+vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/well-known-paths') >() ),
+	getSessionsDirectory: vi.fn(),
+} ) );
 vi.mock( 'cli/ai/runtimes/pi', () => ( {
 	// A completed turn so the JSON single-turn path returns instead of looping.
 	runStudioAgentTurn: vi.fn( () => ( { result: Promise.resolve(), interrupt: vi.fn() } ) ),
@@ -183,7 +190,11 @@ describe( 'AI runCommand — active site banner running state', () => {
 	} );
 
 	it( 'reports the site as running when the daemon says it is', async () => {
-		( findSiteByFolder as Mock ).mockResolvedValue( { id: 'site-1', path: '/sites/my-site' } );
+		( findSiteByFolder as Mock ).mockResolvedValue( {
+			id: 'site-1',
+			name: 'My Site',
+			path: '/sites/my-site',
+		} );
 		( isSiteRunning as Mock ).mockResolvedValue( true );
 
 		await runCommand( {
@@ -197,8 +208,35 @@ describe( 'AI runCommand — active site banner running state', () => {
 		);
 	} );
 
+	// STU-2040 regression guard: the per-turn isSiteRunning check opens a
+	// DaemonBus socket; without a disconnect the headless (--json) process
+	// never exits after the turn, and the desktop UI hangs in "working".
+	it( 'closes the daemon socket after the per-turn running check so headless runs can exit', async () => {
+		( findSiteByFolder as Mock ).mockResolvedValue( {
+			id: 'site-1',
+			name: 'My Site',
+			path: '/sites/my-site',
+		} );
+		( isSiteRunning as Mock ).mockResolvedValue( true );
+
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			activeSite: { name: 'My Site', path: '/sites/my-site' },
+		} );
+
+		expect( disconnectFromDaemon ).toHaveBeenCalled();
+		const checkOrder = ( isSiteRunning as Mock ).mock.invocationCallOrder[ 0 ];
+		const disconnectOrder = ( disconnectFromDaemon as Mock ).mock.invocationCallOrder[ 0 ];
+		expect( disconnectOrder ).toBeGreaterThan( checkOrder );
+	} );
+
 	it( 'reports the site as stopped when the daemon says it is not running', async () => {
-		( findSiteByFolder as Mock ).mockResolvedValue( { id: 'site-1', path: '/sites/my-site' } );
+		( findSiteByFolder as Mock ).mockResolvedValue( {
+			id: 'site-1',
+			name: 'My Site',
+			path: '/sites/my-site',
+		} );
 		( isSiteRunning as Mock ).mockResolvedValue( false );
 
 		await runCommand( {

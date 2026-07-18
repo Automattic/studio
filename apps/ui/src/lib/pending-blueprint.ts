@@ -1,14 +1,21 @@
 import { createPendingSlot } from './pending-slot';
-import type { PickedBlueprint } from '@/components/blueprint-upload';
+import type { SelectedBlueprint } from '@/lib/blueprint-selection';
 
 /**
- * One-slot handoff for a blueprint that arrives from outside the blueprint
- * route's own UI — currently the `wp-studio://add-site` deep link. The
- * listener stores the blueprint here and navigates to the configure step;
- * the route adopts it into component state on arrival and clears the slot.
+ * One-slot handoff for a blueprint that arrives from outside the create
+ * route's own UI — currently the `wp-studio://add-site` deep link and the
+ * File ▸ Open Blueprint menu item. The listener stores the blueprint here
+ * and navigates to the create step; the route adopts it into component
+ * state on arrival and clears the slot (identity-checked, so a newer
+ * blueprint that arrived mid-adoption survives).
  */
-export const pendingBlueprintSlot = createPendingSlot< PickedBlueprint >();
+const slot = createPendingSlot< SelectedBlueprint >();
 
-export const setPendingBlueprint = pendingBlueprintSlot.set;
-export const peekPendingBlueprint = pendingBlueprintSlot.peek;
-export const clearPendingBlueprint = pendingBlueprintSlot.clear;
+export const pendingBlueprintSlot = {
+	...slot,
+	getSnapshot: slot.peek,
+};
+
+export const setPendingBlueprint = slot.set;
+export const peekPendingBlueprint = slot.peek;
+export const clearPendingBlueprint = slot.clear;

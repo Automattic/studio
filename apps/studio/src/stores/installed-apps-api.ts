@@ -18,6 +18,7 @@ import type {
 	ToolPermissionLevel,
 	ToolPermissionOverrides,
 } from '@studio/common/ai/tool-permissions';
+import type { QuitSitesBehavior } from 'src/storage/user-data';
 
 export const installedAppsApi = createApi( {
 	reducerPath: 'installedAppsApi',
@@ -28,6 +29,7 @@ export const installedAppsApi = createApi( {
 		'UserEditor',
 		'UserTerminal',
 		'ColorScheme',
+		'QuitSitesBehavior',
 		'DefaultSiteDirectory',
 		'AgentResponseLength',
 		'DefaultAiModel',
@@ -101,6 +103,23 @@ export const installedAppsApi = createApi( {
 			},
 			invalidatesTags: [ 'ColorScheme' ],
 		} ),
+		getQuitSitesBehavior: builder.query< QuitSitesBehavior | undefined, void >( {
+			queryFn: async () => {
+				const quitSitesBehavior = await getIpcApi().getQuitSitesBehavior();
+				return { data: quitSitesBehavior };
+			},
+			providesTags: [ 'QuitSitesBehavior' ],
+		} ),
+		saveQuitSitesBehavior: builder.mutation<
+			QuitSitesBehavior | undefined,
+			QuitSitesBehavior | undefined
+		>( {
+			queryFn: async ( quitSitesBehavior ) => {
+				await getIpcApi().saveQuitSitesBehavior( quitSitesBehavior );
+				return { data: quitSitesBehavior };
+			},
+			invalidatesTags: [ 'QuitSitesBehavior' ],
+		} ),
 		getAgentResponseLength: builder.query< AiResponseLength, void >( {
 			queryFn: async () => {
 				const responseLength = await getIpcApi().getAgentResponseLength();
@@ -173,6 +192,8 @@ export const {
 	useSaveStudioCliIsInstalledMutation,
 	useGetColorSchemeQuery,
 	useSaveColorSchemeMutation,
+	useGetQuitSitesBehaviorQuery,
+	useSaveQuitSitesBehaviorMutation,
 	useGetAgentResponseLengthQuery,
 	useSaveAgentResponseLengthMutation,
 	useGetToolPermissionsQuery,

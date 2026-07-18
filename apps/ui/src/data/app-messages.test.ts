@@ -3,6 +3,7 @@ import {
 	dismissToast,
 	getQueuedToastCount,
 	getVisibleToasts,
+	notifyRendererMounted,
 	pauseToastExpiry,
 	resetAppMessagesForTests,
 	resumeToastExpiry,
@@ -21,6 +22,7 @@ describe( 'app-messages', () => {
 	beforeEach( () => {
 		vi.useFakeTimers();
 		resetAppMessagesForTests();
+		notifyRendererMounted();
 	} );
 
 	afterEach( () => {

@@ -344,7 +344,7 @@ export function SiteSettingsForm( {
 				'name',
 				{
 					id: 'versions',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'phpVersion', 'wpVersion' ],
 				},
 				{
@@ -354,7 +354,7 @@ export function SiteSettingsForm( {
 				},
 				{
 					id: 'adminCredentials',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'adminUsername', 'adminPassword' ],
 				},
 				'adminEmail',

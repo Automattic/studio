@@ -88,6 +88,10 @@ const api: IpcApi = {
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	copyImage: ( pngDataUrl ) => ipcRendererInvoke( 'copyImage', pngDataUrl ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
+	enableAgenticUi: () => ipcRendererInvoke( 'enableAgenticUi' ),
+	disableAgenticUi: () => ipcRendererInvoke( 'disableAgenticUi' ),
+	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
+	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	generateProposedSitePath: ( siteName ) =>
@@ -207,7 +211,8 @@ const api: IpcApi = {
 	saveChatNotificationsEnabled: ( enabled ) =>
 		ipcRendererInvoke( 'saveChatNotificationsEnabled', enabled ),
 	getChatNotificationsEnabled: () => ipcRendererInvoke( 'getChatNotificationsEnabled' ),
-	saveQuitSitesBehavior: ( behavior ) => ipcRendererInvoke( 'saveQuitSitesBehavior', behavior ),
+	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
+		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
 	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),

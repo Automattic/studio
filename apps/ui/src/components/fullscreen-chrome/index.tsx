@@ -11,6 +11,8 @@ interface FullscreenChromeProps {
 	onClose?: () => void;
 	/** Accessible label for the close button. Defaults to "Close". */
 	closeLabel?: string;
+	/** Disables the close button, e.g. while a submit is in flight. */
+	closeDisabled?: boolean;
 }
 
 /**
@@ -21,7 +23,7 @@ interface FullscreenChromeProps {
  * and the close button stays clickable over the drag strips via the global
  * no-drag rule in index.css.
  */
-export function FullscreenChrome( { onClose, closeLabel }: FullscreenChromeProps ) {
+export function FullscreenChrome( { onClose, closeLabel, closeDisabled }: FullscreenChromeProps ) {
 	return (
 		<>
 			<div aria-hidden="true">
@@ -38,6 +40,7 @@ export function FullscreenChrome( { onClose, closeLabel }: FullscreenChromeProps
 					icon={ close }
 					label={ closeLabel ?? __( 'Close' ) }
 					onClick={ onClose }
+					disabled={ closeDisabled }
 				/>
 			) }
 		</>

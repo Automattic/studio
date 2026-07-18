@@ -251,6 +251,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		isInterrupting,
 		startedAt,
 		error: runError,
+		usageCapReached,
 		pendingQuestions,
 		pendingPermissions,
 		answeredPermissions,
@@ -383,9 +384,18 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		);
 	} else if ( ! data ) {
 		body = (
-			<div className={ styles.state }>
-				<h1>{ __( 'Session not found' ) }</h1>
-				<p>{ sessionId }</p>
+			<div className="p-8 flex flex-col max-w-3xl">
+				<div className="a8c-subtitle mb-1">{ __( 'Session not found' ) }</div>
+				<div className="w-[40ch] text-frame-text-secondary a8c-body">
+					{ __(
+						'This conversation is no longer available. Start a new one to keep building with Studio Code.'
+					) }
+				</div>
+				<div className="mt-6">
+					<Button variant="primary" onClick={ handleNewConversation }>
+						{ __( 'Start a new conversation' ) }
+					</Button>
+				</div>
 			</div>
 		);
 	} else {
@@ -416,7 +426,8 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 						<Composer
 							busy={ composerBusy }
 							isInterrupting={ isInterrupting }
-							error={ runError }
+							error={ usageCapReached ? null : runError }
+							usageCapMessage={ usageCapReached ? runError : null }
 							model={ currentModel }
 							onSend={ sendMessage }
 							onInterrupt={ interrupt }

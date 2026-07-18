@@ -14,6 +14,7 @@ import { useConnector } from '@/data/core';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useResizablePanel } from '@/hooks/use-resizable-panel';
 import { SidebarCollapsedContext } from '@/hooks/use-sidebar-collapsed';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { drawerIcon } from '@/lib/icons';
 import { SIDEBAR_PANEL_CONFIG, SIDEBAR_PANEL_STORAGE_KEY } from '@/lib/resizable-panels';
 import { unlock } from '@/lock-unlock';
@@ -50,6 +51,7 @@ export function SidebarLayout( {
 	const [ collapsed, setCollapsed ] = useState( false );
 	const effectiveCollapsed = collapsed || forceCollapsed;
 	const connector = useConnector();
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const colorScheme = useColorScheme();
 	const chromeBg = colorScheme === 'dark' ? CHROME_BG_DARK : CHROME_BG_LIGHT;
 	const sidebarResize = useResizablePanel( {
@@ -135,7 +137,12 @@ export function SidebarLayout( {
 						<AppToasts className={ styles.floatingToasts } fit="content" />
 					) : null }
 					{ effectiveCollapsed && ! forceCollapsed ? (
-						<div className={ styles.floatingToggle }>
+						<div
+							className={ clsx(
+								styles.floatingToggle,
+								! reserveTrafficLightSpace && styles.floatingToggleFlush
+							) }
+						>
 							{ /* The wrapper pins the pending-cards dot to the button's
 							     corner; the outer container is taller than the button. */ }
 							<span className={ styles.floatingToggleButton }>

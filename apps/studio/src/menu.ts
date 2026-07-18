@@ -38,13 +38,14 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { isSimulatingNewUser, toggleNewUserSimulation } from 'src/lib/simulation-mode';
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { getLogsFilePath } from 'src/logging';
-import { getMainWindow, loadMainWindowRenderer } from 'src/main-window';
+import {
+	getMainWindow,
+	getPreferredStudioUiMode,
+	loadMainWindowRenderer,
+	setAgenticUiEnabled,
+} from 'src/main-window';
 import { getRunningSiteCount, getRunningSiteNames } from 'src/site-server';
 import { isUpdateReadyToInstall, manualCheckForUpdates } from 'src/updates';
-
-// Feature flags that select which Studio UI is shown; toggling them requires
-// reloading the main window renderer.
-const UI_MODE_FEATURE_FLAGS: ( keyof FeatureFlags )[] = [ 'enableAgenticUi' ];
 
 export async function setupMenu( config: {
 	needsOnboarding: boolean;
@@ -80,8 +81,14 @@ export async function popupMenu( position?: { x: number; y: number } ) {
 
 async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > {
 	const currentBetaFeatures = await getBetaFeatures();
-	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() ).map(
-		( [ key, definition ] ) => {
+	return Object.entries< BetaFeatureDefinition >( getBetaFeaturesDefinition() )
+		.filter( ( [ key ] ) => {
+			if ( key === 'enableAgenticUi' ) {
+				return getFeatureFlagFromEnv( 'enableAgenticUi' );
+			}
+			return true;
+		} )
+		.map( ( [ key, definition ] ) => {
 			// On Windows, use the description as the label for a more compact display
 			const label =
 				process.platform === 'win32' && definition.description
@@ -104,11 +111,22 @@ async function buildBetaFeaturesMenu(): Promise< MenuItemConstructorOptions[] > 
 							getPlatformMetric()
 						);
 					}
+					if ( key === 'enableAgenticUi' ) {
+						setAgenticUiEnabled( menuItem.checked );
+						const mainWindow = await getMainWindow();
+						if ( mainWindow && ! mainWindow.isDestroyed() ) {
+							// The renderer is being replaced; it fetches fresh state on boot,
+							// and messaging the dying page fails IPC sender validation.
+							setTimeout( () => {
+								void loadMainWindowRenderer( mainWindow );
+							}, 0 );
+							return;
+						}
+					}
 					void sendIpcEventToRenderer( 'beta-features-updated' );
 				},
 			};
-		}
-	);
+		} );
 }
 
 export function buildViewMenuItems( {
@@ -133,7 +151,7 @@ export function buildViewMenuItems( {
 			enabled: ! needsOnboarding,
 			click: onToggleSidebar,
 		},
-		...( getFeatureFlagFromEnv( 'enableAgenticUi' )
+		...( getPreferredStudioUiMode() === 'agentic'
 			? [
 					{
 						label: __( 'Toggle Site Preview' ),
@@ -212,15 +230,6 @@ async function getAppMenu(
 		checked: getFeatureFlagFromEnv( flag as keyof FeatureFlags ),
 		click: ( menuItem: MenuItem ) => {
 			setFeatureFlagInEnv( flag as keyof FeatureFlags, menuItem.checked );
-			if (
-				UI_MODE_FEATURE_FLAGS.includes( flag as keyof FeatureFlags ) &&
-				mainWindow &&
-				! mainWindow.isDestroyed()
-			) {
-				setTimeout( () => {
-					void loadMainWindowRenderer( mainWindow );
-				}, 0 );
-			}
 			void sendIpcEventToRenderer( 'refresh-app-globals' );
 		},
 	} ) );
@@ -366,7 +375,11 @@ async function getAppMenu(
 			submenu: [
 				{
 					label: __( 'Add Site…' ),
-					accelerator: 'CommandOrControl+N',
+					// The agentic UI binds Cmd/Ctrl+N to "New chat" in the renderer;
+					// a menu accelerator would consume the key before it reaches the DOM.
+					accelerator: getFeatureFlagFromEnv( 'enableAgenticUi' )
+						? undefined
+						: 'CommandOrControl+N',
 					click: async () => {
 						void sendIpcEventToRenderer( 'add-site' );
 					},

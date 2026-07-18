@@ -9,6 +9,7 @@ import {
 	watchComposerAttachmentTextScroll,
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
+import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { useQueryClient } from '@tanstack/react-query';
@@ -66,6 +67,7 @@ interface ComposerProps {
 	busy: boolean;
 	isInterrupting?: boolean;
 	error: string | null;
+	usageCapMessage?: string | null;
 	model: AiModelId;
 	onSend: ( prompt: string, attachments: ComposerSendAttachments ) => Promise< void >;
 	onInterrupt: () => Promise< void >;
@@ -225,6 +227,7 @@ export function Composer( {
 	busy,
 	isInterrupting = false,
 	error,
+	usageCapMessage,
 	model,
 	onSend,
 	onInterrupt,
@@ -290,6 +293,13 @@ export function Composer( {
 	useEffect( () => {
 		setValue( loadDraft( draftStorageKey ) );
 	}, [ draftStorageKey ] );
+
+	useEffect( () => {
+		return watchComposerFilePaste( ( files ) => {
+			void addFiles( files );
+			textareaRef.current?.focus();
+		} );
+	}, [ addFiles ] );
 
 	// Inline slash-command autocomplete (popup, keyboard nav, ARIA wiring, and
 	// the toolbar "/" toggle). Kept in its own hook so the Composer stays lean.
@@ -458,6 +468,11 @@ export function Composer( {
 	return (
 		<>
 			<div className={ styles.root }>
+				{ usageCapMessage ? (
+					<div className={ styles.usageCapBanner } role="alert">
+						{ usageCapMessage }
+					</div>
+				) : null }
 				<div
 					className={ cx( styles.shell, isDraggingOver && styles.shellDragging ) }
 					onDragOver={ dragHandlers.onDragOver }

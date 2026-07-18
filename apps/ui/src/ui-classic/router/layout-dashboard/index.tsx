@@ -1,3 +1,4 @@
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { createRoute, Outlet, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -83,10 +84,7 @@ function DashboardLayoutContent() {
 	const updatePreviewPath = preview.updatePath;
 	const clipActions = useSessionPreviewClipActions();
 	const clipMarkers = useSessionPreviewClipMarkers();
-	const sessionOwnerSitePath = sessionData?.summary.ownerSitePath;
-	const sessionSite = sessionOwnerSitePath
-		? sites?.find( ( site ) => site.path === sessionOwnerSitePath )
-		: undefined;
+	const sessionSite = findAiSessionOwnerSite( sites, sessionData?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment(
 		sessionData?.summary,
 		sessionSite?.id

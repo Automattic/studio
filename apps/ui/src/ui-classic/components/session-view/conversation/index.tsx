@@ -100,6 +100,7 @@ import {
 } from '@/data/core';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { formatRelativeTime } from '@/lib/format-relative-time';
+import { refreshIcon } from '@/lib/icons';
 import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { ActiveToolState } from '@/data/queries/use-agent-run';
@@ -837,6 +838,8 @@ function getToolIcon( name: string, input: Record< string, unknown > | undefined
 			return capturePhoto;
 		case 'inspect_design':
 			return search;
+		case 'refresh_browser':
+			return refreshIcon;
 		case 'share_screenshot':
 			return share;
 		case 'validate_blocks':

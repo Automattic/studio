@@ -87,7 +87,8 @@ type UserDataSafeKeys =
 	| 'chatNotificationsEnabled'
 	| 'onboardingHints'
 	| 'lastNightlyUpdateCheck'
-	| 'nightlyPromptResult';
+	| 'nightlyPromptResult'
+	| 'agenticUiBannerDismissed';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

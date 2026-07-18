@@ -1,8 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { Button, Notice } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { useEffect } from 'react';
 import {
 	dismissToast,
+	notifyRendererMounted,
+	notifyRendererUnmounted,
 	pauseToastExpiry,
 	resumeToastExpiry,
 	useQueuedToastCount,
@@ -27,6 +30,13 @@ export function AppToasts( {
 } ) {
 	const toasts = useVisibleToasts();
 	const queuedCount = useQueuedToastCount();
+
+	// Toast expiry is gated on a mounted renderer so toasts fired while no
+	// AppToasts is on screen wait (fully visible) instead of expiring unseen.
+	useEffect( () => {
+		notifyRendererMounted();
+		return () => notifyRendererUnmounted();
+	}, [] );
 
 	if ( ! toasts.length ) {
 		return null;

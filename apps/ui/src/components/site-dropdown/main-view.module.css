@@ -23,7 +23,11 @@
 }
 
 .activityErrorTitle {
-	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+	color: color-mix(
+		in srgb,
+		var(--site-dropdown-menu-foreground, var(--wpds-color-fg-content-neutral)) 72%,
+		var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral))
+	);
 	font-weight: 600;
 }
 
@@ -50,9 +54,20 @@
 	padding: 0 var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-lg);
 }
 
+/* Derived from the popup's remapped tokens so the control tracks the
+   inverted menu surface in both color schemes; scheme media queries
+   would key off the OS instead and land backwards here. */
 .localServerControl {
-	--local-server-track-bg: var(--wpds-color-bg-track-neutral-weak);
-	--local-server-track-bg-hover: var(--wpds-color-bg-track-neutral);
+	--local-server-track-bg: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 14%,
+		transparent
+	);
+	--local-server-track-bg-hover: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-neutral) 22%,
+		transparent
+	);
 	--local-server-track-border: color-mix(
 		in srgb,
 		var(--wpds-color-stroke-surface-neutral) 72%,
@@ -64,8 +79,8 @@
 		var(--wpds-color-fg-content-neutral) 6%,
 		transparent
 	);
-	--local-server-thumb-bg: var(--wpds-color-bg-surface-neutral-strong);
-	--local-server-thumb-color: var(--wpds-color-fg-content-neutral-weak);
+	--local-server-thumb-bg: var(--wpds-color-fg-content-neutral);
+	--local-server-thumb-color: var(--wpds-color-bg-surface-neutral-strong);
 	--local-server-thumb-ring: color-mix(
 		in srgb,
 		var(--wpds-color-stroke-surface-neutral) 52%,
@@ -194,40 +209,6 @@
 	transform: translateX(1px);
 	background: currentColor;
 	clip-path: polygon(28% 18%, 28% 82%, 82% 50%);
-}
-
-@media (prefers-color-scheme: dark) {
-	.localServerControl:not(.localServerControl_running) {
-		--local-server-track-bg: var(--wpds-color-bg-track-neutral-weak);
-		--local-server-track-bg-hover: var(--wpds-color-bg-track-neutral);
-		--local-server-track-border: color-mix(
-			in srgb,
-			var(--wpds-color-fg-content-neutral) 10%,
-			transparent
-		);
-		--local-server-track-border-hover: color-mix(
-			in srgb,
-			var(--wpds-color-fg-content-neutral) 14%,
-			transparent
-		);
-		--local-server-track-shadow: color-mix(in srgb, black 26%, transparent);
-		--local-server-thumb-bg: color-mix(
-			in srgb,
-			var(--wpds-color-bg-track-neutral) 88%,
-			var(--wpds-color-fg-content-neutral) 12%
-		);
-		--local-server-thumb-color: color-mix(
-			in srgb,
-			var(--wpds-color-fg-content-neutral) 76%,
-			transparent
-		);
-		--local-server-thumb-ring: color-mix(
-			in srgb,
-			var(--wpds-color-fg-content-neutral) 10%,
-			transparent
-		);
-		--local-server-thumb-shadow: color-mix(in srgb, black 38%, transparent);
-	}
 }
 
 .urlLink {

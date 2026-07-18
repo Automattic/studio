@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import {
 	Fragment,
+	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -35,6 +36,8 @@ const DRAG_START_THRESHOLD = 4;
 const DRAG_REORDER_DURATION_MS = 160;
 const DRAG_REORDER_EASING = 'cubic-bezier(0.2, 0, 0, 1)';
 const DRAG_REORDER_DISTANCE_EPSILON = 0.5;
+const AUTO_SCROLL_EDGE_PX = 40;
+const AUTO_SCROLL_MAX_STEP_PX = 12;
 
 function insertIdAtIndex( ids: string[], movedId: string, targetIndex: number ) {
 	const fromIndex = ids.indexOf( movedId );
@@ -48,12 +51,29 @@ function insertIdAtIndex( ids: string[], movedId: string, targetIndex: number ) 
 	return nextIds;
 }
 
-function measureRowRects( rowElements: Map< string, HTMLDivElement > ) {
-	const rects = new Map< string, DOMRectReadOnly >();
+// Row geometry in the scroll parent's content coordinates (viewport top +
+// scrollTop), so captured rects stay valid while auto-scroll moves the list.
+type RowRect = { top: number; left: number; width: number; height: number };
+
+function measureRowRects( rowElements: Map< string, HTMLDivElement >, scrollOffset: number ) {
+	const rects = new Map< string, RowRect >();
 	for ( const [ id, element ] of rowElements ) {
-		rects.set( id, element.getBoundingClientRect() );
+		const { top, left, width, height } = element.getBoundingClientRect();
+		rects.set( id, { top: top + scrollOffset, left, width, height } );
 	}
 	return rects;
+}
+
+function findScrollParent( element: HTMLElement | null ): HTMLElement | null {
+	for ( let node = element?.parentElement; node; node = node.parentElement ) {
+		if (
+			/(auto|scroll)/.test( getComputedStyle( node ).overflowY ) &&
+			node.scrollHeight > node.clientHeight
+		) {
+			return node;
+		}
+	}
+	return null;
 }
 
 function getRowAnimationTarget( rowElement: HTMLDivElement ) {
@@ -71,11 +91,8 @@ export type ReorderableListProps< T > = {
 	getItemId: ( item: T ) => string;
 	/** Renders a row; also used for the floating drag preview. */
 	renderItem: ( item: T ) => ReactNode;
-	/** Called on drop with the list's new id order. */
 	onReorder: ( nextIds: string[] ) => void;
 	className?: string;
-	/** Applied to the container while a drag is active. */
-	dragActiveClassName?: string;
 	itemClassName?: string;
 	placeholderClassName?: string;
 	previewClassName?: string;
@@ -92,7 +109,6 @@ export function ReorderableList< T >( {
 	renderItem,
 	onReorder,
 	className,
-	dragActiveClassName,
 	itemClassName,
 	placeholderClassName,
 	previewClassName,
@@ -105,11 +121,22 @@ export function ReorderableList< T >( {
 	const dragCandidateRef = useRef< DragCandidate | null >( null );
 	const dragStartOrderRef = useRef< string[] >( [] );
 	const rowElementsRef = useRef< Map< string, HTMLDivElement > >( new Map() );
-	const previousRowRectsRef = useRef< Map< string, DOMRectReadOnly > >( new Map() );
-	const dragStartRowRectsRef = useRef< Map< string, DOMRectReadOnly > >( new Map() );
+	const previousRowRectsRef = useRef< Map< string, RowRect > >( new Map() );
+	const dragStartRowRectsRef = useRef< Map< string, RowRect > >( new Map() );
 	const rowMoveAnimationsRef = useRef< Map< string, Animation > >( new Map() );
 	const suppressNextClickRef = useRef( false );
+	const removeDragListenersRef = useRef< ( () => void ) | null >( null );
+	const containerRef = useRef< HTMLDivElement | null >( null );
+	const scrollParentRef = useRef< HTMLElement | null >( null );
+	const placeholderElementRef = useRef< HTMLDivElement | null >( null );
+	const wasDraggingRef = useRef( false );
+	const autoScrollRef = useRef< { step: number; rafId: number } | null >( null );
+	const lastDroppedIdRef = useRef< string | null >( null );
 
+	// The drop relies on the parent applying the new order synchronously in
+	// its own state (same React commit as the drag teardown) — deriving the
+	// order from an async source instead would flash the pre-drag order for
+	// a tick after the drop.
 	const itemIds = useMemo( () => items.map( getItemId ), [ items, getItemId ] );
 	const activeDragId = activeDrag?.id;
 	const activeDropIndex = activeDrag?.dropIndex;
@@ -123,8 +150,45 @@ export function ReorderableList< T >( {
 		: undefined;
 
 	useLayoutEffect( () => {
-		const nextRowRects = measureRowRects( rowElementsRef.current );
+		const scrollOffset = scrollParentRef.current?.scrollTop ?? 0;
+		const nextRowRects = measureRowRects( rowElementsRef.current, scrollOffset );
 		const previousRowRects = previousRowRectsRef.current;
+
+		const dragJustStarted = isDragging && ! wasDraggingRef.current;
+		const dragJustEnded = ! isDragging && wasDraggingRef.current;
+		wasDraggingRef.current = isDragging;
+
+		// Move focus to the dropped row (unless it is already inside it) so
+		// keyboard interaction continues from the item the user just moved.
+		if ( dragJustEnded && lastDroppedIdRef.current ) {
+			const rowElement = rowElementsRef.current.get( lastDroppedIdRef.current );
+			lastDroppedIdRef.current = null;
+			if ( rowElement && ! rowElement.contains( document.activeElement ) ) {
+				rowElement
+					.querySelector< HTMLElement >( 'button, a[href], [tabindex]' )
+					?.focus( { preventScroll: true } );
+			}
+		}
+
+		// Activating the drag can restyle rows (consumers may collapse them via
+		// [data-dragging]), so the rects captured on pointerdown no longer match
+		// the layout. Recapture them, minus the placeholder's offset on the rows
+		// sitting below it.
+		if ( dragJustStarted ) {
+			const placeholderRect = placeholderElementRef.current?.getBoundingClientRect();
+			const placeholderTop = placeholderRect ? placeholderRect.top + scrollOffset : Infinity;
+			const settledRects = new Map< string, RowRect >();
+			for ( const [ id, rect ] of nextRowRects ) {
+				settledRects.set(
+					id,
+					rect.top > placeholderTop
+						? { ...rect, top: rect.top - ( placeholderRect?.height ?? 0 ) }
+						: rect
+				);
+			}
+			dragStartRowRectsRef.current = settledRects;
+		}
+
 		const shouldAnimateRows = isDragging && ! prefersReducedMotion();
 
 		if ( shouldAnimateRows ) {
@@ -175,6 +239,18 @@ export function ReorderableList< T >( {
 		previousRowRectsRef.current = nextRowRects;
 	}, [ activeDragId, activeDropIndex, displayItems, isDragging ] );
 
+	// Tear down the window drag listeners and auto-scroll if the list unmounts
+	// mid-drag.
+	useEffect(
+		() => () => {
+			removeDragListenersRef.current?.();
+			if ( autoScrollRef.current ) {
+				cancelAnimationFrame( autoScrollRef.current.rafId );
+			}
+		},
+		[]
+	);
+
 	const updateActiveDrag = ( nextDrag: ActiveDrag | null ) => {
 		activeDragRef.current = nextDrag;
 		setActiveDrag( nextDrag );
@@ -193,6 +269,7 @@ export function ReorderableList< T >( {
 	const getDropIndex = ( clientY: number, draggedId: string ) => {
 		const sourceOrder = dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
 		const rowRects = dragStartRowRectsRef.current;
+		const pointerY = clientY + ( scrollParentRef.current?.scrollTop ?? 0 );
 
 		let index = 0;
 		for ( const id of sourceOrder ) {
@@ -203,7 +280,7 @@ export function ReorderableList< T >( {
 			if ( ! rowRect ) {
 				continue;
 			}
-			if ( clientY < rowRect.top + rowRect.height / 2 ) {
+			if ( pointerY < rowRect.top + rowRect.height / 2 ) {
 				return index;
 			}
 			index += 1;
@@ -211,7 +288,62 @@ export function ReorderableList< T >( {
 		return index;
 	};
 
-	const handleWindowPointerMove = ( event: PointerEvent ) => {
+	const stopAutoScroll = () => {
+		if ( autoScrollRef.current ) {
+			cancelAnimationFrame( autoScrollRef.current.rafId );
+			autoScrollRef.current = null;
+		}
+	};
+
+	const runAutoScroll = () => {
+		const state = autoScrollRef.current;
+		const scrollParent = scrollParentRef.current;
+		const active = activeDragRef.current;
+		if ( ! state || ! scrollParent || ! active ) {
+			stopAutoScroll();
+			return;
+		}
+		const previousScrollTop = scrollParent.scrollTop;
+		scrollParent.scrollTop = previousScrollTop + state.step;
+		if ( scrollParent.scrollTop === previousScrollTop ) {
+			// Hit the end of the scroll range.
+			stopAutoScroll();
+			return;
+		}
+		const nextDropIndex = getDropIndex( active.currentY, active.id );
+		if ( nextDropIndex !== active.dropIndex ) {
+			updateActiveDrag( { ...active, dropIndex: nextDropIndex } );
+		}
+		state.rafId = requestAnimationFrame( runAutoScroll );
+	};
+
+	// Scroll the list when the drag pointer nears the scroll parent's top or
+	// bottom edge, speeding up toward the edge and continuing while the
+	// pointer rests inside the zone.
+	const updateAutoScroll = ( clientY: number ) => {
+		const scrollParent = scrollParentRef.current;
+		if ( ! scrollParent ) {
+			return;
+		}
+		const parentRect = scrollParent.getBoundingClientRect();
+		const intoBottomZone = clientY - ( parentRect.bottom - AUTO_SCROLL_EDGE_PX );
+		const intoTopZone = parentRect.top + AUTO_SCROLL_EDGE_PX - clientY;
+		let step = 0;
+		if ( intoBottomZone > 0 ) {
+			step = Math.min( 1, intoBottomZone / AUTO_SCROLL_EDGE_PX ) * AUTO_SCROLL_MAX_STEP_PX;
+		} else if ( intoTopZone > 0 ) {
+			step = -Math.min( 1, intoTopZone / AUTO_SCROLL_EDGE_PX ) * AUTO_SCROLL_MAX_STEP_PX;
+		}
+		if ( step === 0 ) {
+			stopAutoScroll();
+		} else if ( autoScrollRef.current ) {
+			autoScrollRef.current.step = step;
+		} else {
+			autoScrollRef.current = { step, rafId: requestAnimationFrame( runAutoScroll ) };
+		}
+	};
+
+	const getDragCandidate = ( event: PointerEvent ) => {
 		const candidate = dragCandidateRef.current;
 		if (
 			! candidate ||
@@ -219,6 +351,14 @@ export function ReorderableList< T >( {
 				event.pointerId !== undefined &&
 				event.pointerId !== candidate.pointerId )
 		) {
+			return null;
+		}
+		return candidate;
+	};
+
+	const handleWindowPointerMove = ( event: PointerEvent ) => {
+		const candidate = getDragCandidate( event );
+		if ( ! candidate ) {
 			return;
 		}
 		const active = activeDragRef.current;
@@ -237,28 +377,46 @@ export function ReorderableList< T >( {
 			previewLeft: candidate.previewLeft,
 			previewWidth: candidate.previewWidth,
 		} );
+		updateAutoScroll( event.clientY );
 	};
 
 	const handleWindowPointerUp = ( event: PointerEvent ) => {
-		const candidate = dragCandidateRef.current;
-		if (
-			! candidate ||
-			( candidate.pointerId !== undefined &&
-				event.pointerId !== undefined &&
-				event.pointerId !== candidate.pointerId )
-		) {
+		if ( ! getDragCandidate( event ) ) {
 			return;
 		}
 		const active = activeDragRef.current;
 		if ( active ) {
 			const sourceOrder =
 				dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
-			onReorder( insertIdAtIndex( sourceOrder, active.id, active.dropIndex ) );
+			const nextIds = insertIdAtIndex( sourceOrder, active.id, active.dropIndex );
+			lastDroppedIdRef.current = active.id;
+			onReorder( nextIds );
 			suppressNextClickRef.current = true;
+			// The rows' click-capture consumes the flag, but a drop outside any
+			// row never reaches it — clear on the next click wherever it lands
+			// so it can't swallow a later, legitimate one.
+			window.addEventListener(
+				'click',
+				() => {
+					suppressNextClickRef.current = false;
+				},
+				{ once: true }
+			);
 		}
+		stopAutoScroll();
 		resetDragState();
-		window.removeEventListener( 'pointermove', handleWindowPointerMove );
-		window.removeEventListener( 'pointerup', handleWindowPointerUp );
+		removeDragListenersRef.current?.();
+	};
+
+	// An interrupted pointer (touch cancel, system gesture) never delivers
+	// pointerup — abort the drag without reordering.
+	const handleWindowPointerCancel = ( event: PointerEvent ) => {
+		if ( ! getDragCandidate( event ) ) {
+			return;
+		}
+		stopAutoScroll();
+		resetDragState();
+		removeDragListenersRef.current?.();
 	};
 
 	const handlePointerDown = ( event: ReactPointerEvent< HTMLElement >, id: string ) => {
@@ -269,8 +427,12 @@ export function ReorderableList< T >( {
 			return;
 		}
 		const rowRect = event.currentTarget.getBoundingClientRect();
+		scrollParentRef.current = findScrollParent( containerRef.current );
 		dragStartOrderRef.current = itemIds;
-		const dragStartRowRects = measureRowRects( rowElementsRef.current );
+		const dragStartRowRects = measureRowRects(
+			rowElementsRef.current,
+			scrollParentRef.current?.scrollTop ?? 0
+		);
 		previousRowRectsRef.current = dragStartRowRects;
 		dragStartRowRectsRef.current = dragStartRowRects;
 		dragCandidateRef.current = {
@@ -284,6 +446,13 @@ export function ReorderableList< T >( {
 		};
 		window.addEventListener( 'pointermove', handleWindowPointerMove, { passive: false } );
 		window.addEventListener( 'pointerup', handleWindowPointerUp );
+		window.addEventListener( 'pointercancel', handleWindowPointerCancel );
+		removeDragListenersRef.current = () => {
+			window.removeEventListener( 'pointermove', handleWindowPointerMove );
+			window.removeEventListener( 'pointerup', handleWindowPointerUp );
+			window.removeEventListener( 'pointercancel', handleWindowPointerCancel );
+			removeDragListenersRef.current = null;
+		};
 	};
 
 	const handleClickCapture = ( event: MouseEvent< HTMLElement > ) => {
@@ -297,6 +466,7 @@ export function ReorderableList< T >( {
 
 	const dropPlaceholder = (
 		<div
+			ref={ placeholderElementRef }
 			className={ clsx( styles.placeholder, placeholderClassName ) }
 			data-testid={ placeholderTestId }
 			aria-hidden="true"
@@ -305,7 +475,9 @@ export function ReorderableList< T >( {
 
 	return (
 		<div
-			className={ clsx( className, isDragging && clsx( styles.dragging, dragActiveClassName ) ) }
+			ref={ containerRef }
+			className={ clsx( className, isDragging && styles.dragging ) }
+			data-dragging={ isDragging || undefined }
 		>
 			{ displayItems.map( ( item, index ) => {
 				const id = getItemId( item );

@@ -1,4 +1,5 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -66,7 +67,7 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
 	const { data: sites } = useSites();
-	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
+	const site = findAiSessionOwnerSite( sites, summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
 	if ( ! siteName ) {
 		return null;
@@ -211,10 +212,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const { data: sites } = useSites();
 	const { data: sessions } = useSessions();
 	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
-	const ownerSitePath = data?.summary.ownerSitePath;
-	const ownerSite = ownerSitePath
-		? sites?.find( ( candidate ) => candidate.path === ownerSitePath )
-		: undefined;
+	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
 		isRunning,
@@ -329,22 +327,22 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			data
 				? getSiteSessionHistory( {
 						currentSession: data.summary,
-						ownerSitePath: ownerSite?.path,
+						ownerSite,
 						sessions,
 				  } )
 				: [],
-		[ data, ownerSite?.path, sessions ]
+		[ data, ownerSite, sessions ]
 	);
 	const archivedSiteSessionHistory = useMemo(
 		() =>
 			data
 				? getSiteArchivedSessionHistory( {
 						currentSession: data.summary,
-						ownerSitePath: ownerSite?.path,
+						ownerSite,
 						sessions,
 				  } )
 				: [],
-		[ data, ownerSite?.path, sessions ]
+		[ data, ownerSite, sessions ]
 	);
 
 	// Clips from the site preview land in this session's composer as
@@ -419,7 +417,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ removeQueuedPrompt ]
 	);
 	const startNewChat = useCallback( async () => {
-		if ( ! ownerSite ) {
+		// Already on a chat with no prompts yet — creating another empty
+		// session would just flash the view for an identical result.
+		if ( ! ownerSite || isEmpty ) {
 			return;
 		}
 		try {
@@ -429,7 +429,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			// The mutation owns the error state; avoid an unhandled rejection
 			// from this command button if session creation fails.
 		}
-	}, [ createSession, ownerSite, switchSession ] );
+	}, [ createSession, isEmpty, ownerSite, switchSession ] );
 
 	const autoScrolledSessionRef = useRef< string | undefined >( undefined );
 	useLayoutEffect( () => {

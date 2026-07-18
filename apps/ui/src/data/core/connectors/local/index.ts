@@ -1,8 +1,8 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
@@ -13,12 +13,12 @@ import type {
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
-	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
 	OnboardingHintsState,
 	ProposedSitePath,
+	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteCheckpoint,
 	SiteDetails,
@@ -40,6 +40,14 @@ const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
 // store); the server reads them back from each open request.
 const EDITOR_STORAGE_KEY = 'studio-local-editor';
 const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
+const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
+
+function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
+	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'
+		? value
+		: undefined;
+}
+
 // Persistent-message dismissals live in the browser too (per origin).
 const DISMISSED_MESSAGES_STORAGE_KEY = 'studio-dismissed-messages';
 
@@ -355,7 +363,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = await api< SiteDetails[] >( '/sites' );
+			lastSites = applyStoredSiteOrder( await api< SiteDetails[] >( '/sites' ) );
 			return lastSites;
 		},
 		async startSite( id ) {
@@ -434,6 +442,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { site, wpVersion } ),
 			} );
 		},
+		async updateSitesSortOrder( updates ) {
+			storeSiteOrder( updates );
+		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
 		async exportFullSite( siteId ): Promise< string | null > {
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=full` );
@@ -442,18 +453,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=database` );
 		},
 
-		// Featured blueprints — public endpoint, same source as the desktop app.
-		async getFeaturedBlueprints( locale ): Promise< FeaturedBlueprint[] > {
-			const blueprints = await fetchStudioBlueprints( locale );
-			return blueprints.map( ( blueprint ) => ( {
-				slug: blueprint.slug,
-				title: blueprint.title,
-				excerpt: blueprint.excerpt,
-				image: blueprint.image,
-				playgroundUrl: blueprint.playground_url,
-				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
-			} ) );
-		},
+		getWordPressVersions: fetchWordPressVersions,
 
 		async getFilePath( file ) {
 			// No real filesystem path in a browser, so upload the bytes and hand
@@ -466,19 +466,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// with a server-side path-containment policy when a real consumer lands.
 			throw new UnsupportedError( 'readLocalMediaFile' );
 		},
-		// Upload-your-own Blueprint ZIP: the file is uploaded via getFilePath, then
-		// the server extracts it (shared extractor) and returns the parsed bundle.
-		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
-			return api< ExtractedBlueprintBundle >( '/blueprints/extract', {
+		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const response = await fetch( `${ base }/blueprints/extract`, {
 				method: 'POST',
-				body: JSON.stringify( { zipFilePath } ),
+				headers: { 'Content-Type': 'application/octet-stream' },
+				body: file,
 			} );
+			if ( ! response.ok ) {
+				const text = await response.text().catch( () => '' );
+				throw new Error( `POST /blueprints/extract failed (${ response.status }): ${ text }` );
+			}
+			return ( await response.json() ) as ExtractedBlueprintBundle;
 		},
 		async cleanupBlueprintTempDir( tempDir ) {
 			await api( '/blueprints/cleanup', {
 				method: 'POST',
 				body: JSON.stringify( { tempDir } ),
 			} );
+		},
+		async readBlueprintFile() {
+			throw new UnsupportedError( 'readBlueprintFile' );
 		},
 		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
 			return api< SiteDetails >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
@@ -655,6 +662,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const stored = window.localStorage.getItem( COLOR_SCHEME_STORAGE_KEY );
 			const colorScheme: ColorScheme =
 				stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+			const quitSitesBehavior = parseQuitSitesBehavior(
+				window.localStorage.getItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY )
+			);
 			return {
 				editor:
 					( window.localStorage.getItem( EDITOR_STORAGE_KEY ) as SupportedEditor | null ) || null,
@@ -671,7 +681,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				studioCliInstalled: true,
 				agenticFeaturesEnabled: true,
 				chatNotificationsEnabled: true,
-				quitSitesBehavior: 'ask',
+				quitSitesBehavior: quitSitesBehavior ?? 'ask',
 				agentResponseLength: 'normal',
 				defaultAiModel: DEFAULT_MODEL,
 				toolPermissions: {},
@@ -693,6 +703,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					window.localStorage.setItem( TERMINAL_STORAGE_KEY, partial.terminal );
 				} else {
 					window.localStorage.removeItem( TERMINAL_STORAGE_KEY );
+				}
+			}
+			if ( 'quitSitesBehavior' in partial ) {
+				if ( partial.quitSitesBehavior ) {
+					window.localStorage.setItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY, partial.quitSitesBehavior );
+				} else {
+					window.localStorage.removeItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY );
 				}
 			}
 		},
@@ -739,6 +756,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async popupAppMenu() {},
+		showsAppMenuButton: false,
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
@@ -845,6 +864,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		onOpenSettings() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async disableAgenticUi() {
+			// No-op in the browser.
+		},
 
 		// Sites — desktop-only affordances not yet exposed by the local server.
 		async getSiteOverviewDetails() {
@@ -914,17 +940,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async captureFullPageScreenshot() {
 			throw new UnsupportedError( 'captureFullPageScreenshot' );
 		},
-		async readBlueprintFile(): Promise< Record< string, unknown > > {
-			throw new UnsupportedError( 'readBlueprintFile' );
-		},
-		onAddSiteRequested() {
+		onAddSite() {
 			return () => {};
 		},
 		onAddSiteWithBlueprint() {
 			return () => {};
-		},
-		async getWordPressVersions() {
-			return fetchWordPressVersions();
 		},
 
 		// Preview snapshots — listed for real above; account-level usage and bulk

@@ -6,6 +6,7 @@
  * same record.
  */
 
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
@@ -148,17 +149,19 @@ export function wpVersionField< T extends { wpVersion: string } >(
 		placeholder,
 	};
 	if ( versions?.length ) {
-		const beta = versions.filter( ( version ) => version.isBeta || version.isDevelopment );
+		const prerelease = versions.filter( ( version ) => version.isBeta || version.isDevelopment );
 		const stable = versions.filter(
-			( version ) => version.value !== 'latest' && ! version.isBeta && ! version.isDevelopment
+			( version ) =>
+				version.value !== DEFAULT_WORDPRESS_VERSION && ! version.isBeta && ! version.isDevelopment
 		);
 		field.elements = [
 			...versions
-				.filter( ( version ) => version.value === 'latest' )
+				.filter( ( version ) => version.value === DEFAULT_WORDPRESS_VERSION )
 				.map( ( version ) => ( { value: version.value, label: __( 'latest' ) } ) ),
-			...beta.map( ( version ) => ( { value: version.value, label: version.label } ) ),
+			...prerelease.map( ( version ) => ( { value: version.value, label: version.label } ) ),
 			...stable.map( ( version ) => ( { value: version.value, label: version.label } ) ),
 		];
+		field.Edit = 'select';
 	}
 	return field;
 }
@@ -187,7 +190,10 @@ export function adminPasswordField< T extends { adminPassword: string } >(): Fie
 export function adminEmailField< T extends { adminEmail: string } >(): Field< T > {
 	return {
 		id: 'adminEmail',
-		type: 'text',
+		type: 'email',
+		// The default email control prefixes the input with an envelope icon;
+		// use the plain text control instead (email-type validation still applies).
+		Edit: 'text',
 		label: __( 'Admin email' ),
 		isValid: {
 			required: true,

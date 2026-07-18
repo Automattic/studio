@@ -61,6 +61,15 @@ body:lang( ckb ) [class*='components-'] {
 	}
 }
 
+/* @wordpress/components and @wordpress/dataviews render help text and field
+   descriptions with hardcoded light-mode colors that don't adapt to the
+   ThemeProvider's dark palette. Force them to the design-system's weak
+   foreground so they match the surrounding UI in both schemes. */
+.components-base-control__help,
+[class*='dataforms-layouts'] [class*='description'] {
+	color: var( --wpds-color-fg-content-neutral-weak ) !important;
+}
+
 /* Universal heading styles derived from the design system's font-size /
    line-height ramp. Each level steps down one token (h1 = 2xl, h6 = xs),
    keeping the rest of the type contract — family, weight, color, zero
@@ -209,6 +218,16 @@ a:focus:not( :focus-visible ),
 .components-combobox-control__suggestions-container,
 .components-form-token-field__suggestions-list {
 	background-color: var( --wp-components-color-background, #fff );
+}
+
+.components-input-control__prefix svg,
+.components-input-control__suffix svg {
+	fill: var( --wpds-color-fg-content-neutral-weak );
+}
+
+select option {
+	background-color: var( --wpds-color-bg-surface-neutral );
+	color: var( --wpds-color-fg-content-neutral );
 }
 
 /* Honor the user's reduced-motion preference across the entire app. Class-

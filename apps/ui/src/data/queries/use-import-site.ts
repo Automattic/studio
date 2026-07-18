@@ -24,9 +24,9 @@ export function useImportSite() {
 		mutationFn: ( { siteId, backup } ) => connector.importSiteFromBackup( siteId, backup ),
 		// Errors stay inline in the import flow's form, which is still on
 		// screen while the mutation runs.
-		onSuccess: () => {
+		onSuccess: async () => {
+			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 			toast.success( __( 'Import finished' ) );
-			return queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
 	} );
 }

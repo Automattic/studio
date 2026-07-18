@@ -60,14 +60,14 @@ msgid "Log in to WordPress.com"
 msgstr ""
 
 #: apps/cli/ai/slash-commands.ts:296
-#: apps/cli/commands/ai/index.ts:378
+#: apps/cli/commands/ai/index.ts:383
 #. 1: display name, 2: email
 msgid "Logged in as %1$s (%2$s)"
 msgstr ""
 
 #: apps/cli/ai/slash-commands.ts:304
-#: apps/cli/commands/ai/index.ts:386
-#: apps/cli/commands/ai/index.ts:416
+#: apps/cli/commands/ai/index.ts:391
+#: apps/cli/commands/ai/index.ts:421
 #. %s: display name
 #. %s: display name
 #. %s: user display name
@@ -108,7 +108,7 @@ msgid ""
 msgstr ""
 
 #: apps/cli/ai/slash-commands.ts:382
-#: apps/cli/commands/ai/index.ts:288
+#: apps/cli/commands/ai/index.ts:293
 #. %s: model name
 #. %s: provider name
 msgid "Switched to %s"
@@ -267,7 +267,7 @@ msgstr ""
 #: apps/cli/ai/slash-commands.ts:185
 #: apps/studio/src/components/action-button.tsx:112
 #: apps/studio/src/components/running-sites.tsx:43
-#: apps/studio/src/ipc-handlers.ts:1919
+#: apps/studio/src/ipc-handlers.ts:1966
 msgid "Start"
 msgid_plural "Start all"
 msgstr[0] ""
@@ -276,10 +276,9 @@ msgstr[1] ""
 #: apps/cli/ai/slash-commands.ts:186
 #: apps/studio/src/components/action-button.tsx:131
 #: apps/studio/src/components/running-sites.tsx:34
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:661
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:664
-#: apps/studio/src/index.ts:507
-#: apps/studio/src/ipc-handlers.ts:1902
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:703
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:706
+#: apps/studio/src/ipc-handlers.ts:1949
 msgid "Stop"
 msgid_plural "Stop all"
 msgstr[0] ""
@@ -293,317 +292,317 @@ msgstr ""
 msgid "Remote session selection canceled."
 msgstr ""
 
-#: apps/cli/ai/ui.ts:211
-#: apps/cli/ai/ui.ts:1331
+#: apps/cli/ai/ui.ts:213
+#: apps/cli/ai/ui.ts:1344
 msgid "↓ select site"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:446
+#: apps/cli/ai/ui.ts:449
 msgid "Thinking…"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:636
+#: apps/cli/ai/ui.ts:639
 msgid "No sites found. Create one first."
 msgstr ""
 
-#: apps/cli/ai/ui.ts:665
+#: apps/cli/ai/ui.ts:669
 msgid "Not logged in. Use /login first."
 msgstr ""
 
-#: apps/cli/ai/ui.ts:683
+#: apps/cli/ai/ui.ts:687
 msgid "Failed to load WordPress.com sites. Please try again."
 msgstr ""
 
-#: apps/cli/ai/ui.ts:779
+#: apps/cli/ai/ui.ts:783
 msgid "[Local]"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:779
+#: apps/cli/ai/ui.ts:783
 msgid "Local"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:785
+#: apps/cli/ai/ui.ts:789
 msgid "Search:"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:789
+#: apps/cli/ai/ui.ts:793
 msgid ""
 "↑↓ navigate · → remote sites · enter select · tab open in browser · esc "
 "cancel"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:792
+#: apps/cli/ai/ui.ts:796
 msgid ""
 "↑↓ navigate · ← local sites · enter select · tab open in browser · esc "
 "cancel"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:802
+#: apps/cli/ai/ui.ts:806
 msgid "Loading WordPress.com sites…"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:826
+#: apps/cli/ai/ui.ts:830
 #. %s: site name
 msgid " Selected site: %s (WordPress.com)"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:831
+#: apps/cli/ai/ui.ts:835
 #. %s: site name
 msgid " Selected site: %s"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:848
+#: apps/cli/ai/ui.ts:852
 msgid " ✻ Site deselected"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1046
+#: apps/cli/ai/ui.ts:1058
 msgid "Type your answer…"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1155
+#: apps/cli/ai/ui.ts:1168
 msgid "Code is Poetry"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1218
+#: apps/cli/ai/ui.ts:1231
 msgid "Interrupted"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1223
+#: apps/cli/ai/ui.ts:1236
 #. %d: number of seconds
 msgid "Ran for %ds before interruption"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1335
+#: apps/cli/ai/ui.ts:1348
 msgid "ctrl+o collapse"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1335
+#: apps/cli/ai/ui.ts:1348
 msgid "ctrl+o expand"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1339
+#: apps/cli/ai/ui.ts:1352
 msgid "backspace to unqueue"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1342
+#: apps/cli/ai/ui.ts:1355
 msgid "esc to interrupt"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1415
+#: apps/cli/ai/ui.ts:1428
 #. %s: product name (WordPress Studio)
 msgid "Hello, I'm %s, your local WordPress agent and builder."
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1436
+#: apps/cli/ai/ui.ts:1449
 msgid "Great, you're connected now! Let me tell you what I can do:"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1438
+#: apps/cli/ai/ui.ts:1451
 msgid "Local Sites Management"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1443
+#: apps/cli/ai/ui.ts:1456
 msgid ""
 "<b>Create</b> new local WordPress sites instantly (fully configured, ready "
 "to use)"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1446
+#: apps/cli/ai/ui.ts:1459
 #. <b> and </b> wrap the action verb, which translators can move anywhere in the sentence
 msgid "<b>Start / stop</b> existing local sites"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1448
+#: apps/cli/ai/ui.ts:1461
 #. <b> and </b> wrap the action verb, which translators can move anywhere in the sentence
 msgid "<b>List</b> all your local sites and their status"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1450
+#: apps/cli/ai/ui.ts:1463
 msgid "Design & Development"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1453
+#: apps/cli/ai/ui.ts:1466
 #. <b> and </b> wrap the action verb, which translators can move anywhere in the sentence
 msgid "<b>Build</b> block themes with striking, memorable designs"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1457
+#: apps/cli/ai/ui.ts:1470
 #. %s: bold "CSS, PHP, and JavaScript"
 msgid "Write custom %s for themes and plugins"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1458
+#: apps/cli/ai/ui.ts:1471
 msgid "CSS, PHP, and JavaScript"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1463
+#: apps/cli/ai/ui.ts:1476
 #. %s: bold "pages and posts"
 msgid "Create %s with valid Gutenberg block content"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1464
+#: apps/cli/ai/ui.ts:1477
 msgid "pages and posts"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1469
+#: apps/cli/ai/ui.ts:1482
 #. %s: bold "plugins"
 msgid "Install and activate %s via WP-CLI"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1470
+#: apps/cli/ai/ui.ts:1483
 msgid "plugins"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1473
+#: apps/cli/ai/ui.ts:1486
 msgid "Content"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1478
+#: apps/cli/ai/ui.ts:1491
 #. %s: bold "page content"
 msgid "Generate and import %s using core blocks"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1479
+#: apps/cli/ai/ui.ts:1492
 msgid "page content"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1484
+#: apps/cli/ai/ui.ts:1497
 #. %s: bold "navigation menus, site options, post types, taxonomies, and settings"
 msgid "Set up %s"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1485
+#: apps/cli/ai/ui.ts:1498
 msgid "navigation menus, site options, post types, taxonomies, and settings"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1487
+#: apps/cli/ai/ui.ts:1500
 msgid "Create realistic placeholder content tailored to your site's purpose"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1491
+#: apps/cli/ai/ui.ts:1504
 #. %s: bold "images and videos"
 msgid "Upload %s to your site, using local media files or remote URLs"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1492
+#: apps/cli/ai/ui.ts:1505
 msgid "images and videos"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1495
+#: apps/cli/ai/ui.ts:1508
 msgid "Preview & Publishing"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1500
+#: apps/cli/ai/ui.ts:1513
 #. %s: bold "screenshots"
 msgid "Take %s (desktop + mobile) to verify the design is well crafted"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1501
+#: apps/cli/ai/ui.ts:1514
 msgid "screenshots"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1505
+#: apps/cli/ai/ui.ts:1518
 msgid "<b>Validate</b> all block content to ensure it's editor-compatible"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1507
+#: apps/cli/ai/ui.ts:1520
 #. <b> and </b> wrap the action verb, which translators can move anywhere in the sentence
 msgid "<b>Push</b> your local site to the cloud in WordPress.com"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1510
+#: apps/cli/ai/ui.ts:1523
 msgid "<b>Generate preview sites</b> with shareable URLs for quick feedback"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1514
+#: apps/cli/ai/ui.ts:1527
 msgid "Just tell me what you want to build — for example:"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1516
+#: apps/cli/ai/ui.ts:1529
 msgid "\"Create a portfolio site for a photographer\""
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1517
+#: apps/cli/ai/ui.ts:1530
 msgid "\"Build a landing page for a SaaS product\""
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1518
+#: apps/cli/ai/ui.ts:1531
 msgid "\"Make a blog for a coffee shop\""
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1521
+#: apps/cli/ai/ui.ts:1534
 msgid ""
 "I'll ask a few quick questions about the name and layout, then build the "
 "whole thing for you. The more precise you are about what you want, the "
 "better the result will be."
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1557
+#: apps/cli/ai/ui.ts:1570
 msgid "Remote session active"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1619
-#: apps/cli/ai/ui.ts:1690
+#: apps/cli/ai/ui.ts:1632
+#: apps/cli/ai/ui.ts:1703
 #. %d: number of hidden lines
 msgid "... %d more lines · ctrl+o to expand"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1634
+#: apps/cli/ai/ui.ts:1647
 msgid "... output truncated"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1848
+#: apps/cli/ai/ui.ts:1861
 msgid "Full output hidden · ctrl+o to expand"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1886
+#: apps/cli/ai/ui.ts:1899
 msgid "Tool"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1910
+#: apps/cli/ai/ui.ts:1923
 #: packages/common/ai/tools.ts:684
 msgid "File written"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1910
+#: apps/cli/ai/ui.ts:1923
 #: packages/common/ai/tools.ts:684
 msgid "File edited"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:1984
+#: apps/cli/ai/ui.ts:1997
 msgid "Other (type my own)"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:2050
+#: apps/cli/ai/ui.ts:2063
 msgid "Compacting conversation history…"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:2057
+#: apps/cli/ai/ui.ts:2070
 msgid "Conversation history compacted"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:2077
+#: apps/cli/ai/ui.ts:2090
 msgid ""
 "AI usage cap reached. You can continue using Studio Code by switching to "
 "your own Anthropic API key."
 msgstr ""
 
-#: apps/cli/ai/ui.ts:2082
+#: apps/cli/ai/ui.ts:2095
 msgid "Use /provider to switch to Anthropic · API key, or try again later."
 msgstr ""
 
-#: apps/cli/ai/ui.ts:2157
+#: apps/cli/ai/ui.ts:2170
 #: apps/studio/src/modules/sync/lib/ipc-handlers.ts:406
 msgid "Unknown error"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:2164
+#: apps/cli/ai/ui.ts:2177
 #: apps/cli/remote-session/progress-streamer.ts:105
 #: apps/studio/src/modules/whats-new/components/whats-new-modal.tsx:130
 msgid "Done"
 msgstr ""
 
-#: apps/cli/ai/ui.ts:2170
+#: apps/cli/ai/ui.ts:2183
 #. 1: seconds spent thinking, 2: number of turns
 msgid "Thought for %1$ds · %2$d turn"
 msgid_plural "Thought for %1$ds · %2$d turns"
@@ -624,87 +623,87 @@ msgstr ""
 msgid "Events watcher failed"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:723
+#: apps/cli/commands/ai/index.ts:745
 msgid "Start an interactive AI chat to build WordPress sites"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:728
+#: apps/cli/commands/ai/index.ts:750
 msgid "Initial message to send to the AI agent"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:736
+#: apps/cli/commands/ai/index.ts:758
 msgid "Name of the active WordPress site"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:741
+#: apps/cli/commands/ai/index.ts:763
 #: apps/cli/commands/ai/sessions/resume.ts:105
 msgid "Output events as NDJSON to stdout (headless mode)"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:746
+#: apps/cli/commands/ai/index.ts:768
 msgid "SDK session ID to resume (for JSON mode multi-turn)"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:751
+#: apps/cli/commands/ai/index.ts:773
 msgid "JSON-encoded permission response for a paused session"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:761
+#: apps/cli/commands/ai/index.ts:783
 msgid "Read the initial message from stdin (for headless drivers)"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:766
+#: apps/cli/commands/ai/index.ts:788
 msgid "--json requires an initial message argument"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:789
+#: apps/cli/commands/ai/index.ts:811
 msgid "--message-from-stdin requires non-empty input on stdin"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:824
-#: apps/cli/commands/ai/index.ts:326
+#: apps/cli/commands/ai/index.ts:846
+#: apps/cli/commands/ai/index.ts:331
 msgid "AI agent failed"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:132
+#: apps/cli/commands/ai/index.ts:135
 msgid "ⓘ The \"studio ai\" command is now \"studio code\"."
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:163
+#: apps/cli/commands/ai/index.ts:166
 #. %s: agent session ID
 msgid "No AI session found for resume ID: %s"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:247
+#: apps/cli/commands/ai/index.ts:252
 #. %s: session ID
 msgid "Resuming session %s"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:330
+#: apps/cli/commands/ai/index.ts:335
 msgid "Use /api-key to update the Anthropic API key."
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:350
+#: apps/cli/commands/ai/index.ts:355
 msgid "WordPress.com (recommended)"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:356
+#: apps/cli/commands/ai/index.ts:361
 msgid "Choose how to connect"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:421
+#: apps/cli/commands/ai/index.ts:426
 msgid "Use /login to authenticate to WordPress.com"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:424
+#: apps/cli/commands/ai/index.ts:429
 msgid "No Anthropic API key saved. Use /api-key to enter one."
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:648
+#: apps/cli/commands/ai/index.ts:669
 msgid "Conversation cleared"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:306
+#: apps/cli/commands/ai/index.ts:311
 #. 1: previous provider name, 2: new provider name
 msgid "%1$s is no longer available. Switched to %2$s."
 msgstr ""
@@ -809,16 +808,16 @@ msgid ""
 "remote-session start`.\n"
 msgstr ""
 
-#: apps/cli/commands/ai/sessions/delete.ts:44
+#: apps/cli/commands/ai/sessions/delete.ts:41
 msgid "Delete a code session (id, prefix, \"latest\", or picker)"
 msgstr ""
 
-#: apps/cli/commands/ai/sessions/delete.ts:48
+#: apps/cli/commands/ai/sessions/delete.ts:45
 #: apps/cli/commands/ai/sessions/resume.ts:96
 msgid "Session id, id prefix, or \"latest\""
 msgstr ""
 
-#: apps/cli/commands/ai/sessions/delete.ts:58
+#: apps/cli/commands/ai/sessions/delete.ts:55
 msgid "Failed to delete code session"
 msgstr ""
 
@@ -834,7 +833,7 @@ msgstr ""
 msgid "No code sessions found"
 msgstr ""
 
-#: apps/cli/commands/ai/sessions/delete.ts:38
+#: apps/cli/commands/ai/sessions/delete.ts:35
 msgid "Deleted code session"
 msgstr ""
 
@@ -851,18 +850,18 @@ msgid "Most recent first"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/helpers.ts:173
-#: apps/cli/lib/sync-site-picker.ts:156
+#: apps/cli/lib/sync-site-picker.ts:223
 #: apps/cli/lib/tree-checkbox.ts:309
 msgid "↑↓ navigate"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/helpers.ts:173
-#: apps/cli/lib/sync-site-picker.ts:158
+#: apps/cli/lib/sync-site-picker.ts:225
 msgid "⏎ select"
 msgstr ""
 
 #: apps/cli/commands/ai/sessions/helpers.ts:173
-#: apps/cli/lib/sync-site-picker.ts:159
+#: apps/cli/lib/sync-site-picker.ts:226
 #: apps/cli/lib/tree-checkbox.ts:314
 msgid "esc cancel"
 msgstr ""
@@ -1053,7 +1052,7 @@ msgid "Blueprint slug (run \"studio blueprint list\" to see options)"
 msgstr ""
 
 #: apps/cli/commands/blueprint/use.ts:161
-#: apps/cli/commands/site/create.ts:530
+#: apps/cli/commands/site/create.ts:526
 #: apps/studio/src/components/content-tab-settings.tsx:150
 #: apps/studio/src/modules/add-site/components/create-site-form.tsx:416
 #: apps/studio/src/modules/site-settings/edit-site-details.tsx:392
@@ -1067,7 +1066,7 @@ msgid "WordPress version"
 msgstr ""
 
 #: apps/cli/commands/blueprint/use.ts:170
-#: apps/cli/commands/site/create.ts:540
+#: apps/cli/commands/site/create.ts:536
 #: apps/cli/commands/site/status.ts:72
 #: apps/studio/src/components/content-tab-settings.tsx:195
 #: apps/studio/src/modules/add-site/components/create-site-form.tsx:502
@@ -1076,12 +1075,12 @@ msgid "PHP version"
 msgstr ""
 
 #: apps/cli/commands/blueprint/use.ts:176
-#: apps/cli/commands/site/create.ts:562
+#: apps/cli/commands/site/create.ts:558
 msgid "Custom domain (e.g., \"mysite.local\")"
 msgstr ""
 
 #: apps/cli/commands/blueprint/use.ts:180
-#: apps/cli/commands/site/create.ts:566
+#: apps/cli/commands/site/create.ts:562
 msgid "Enable HTTPS for custom domain"
 msgstr ""
 
@@ -1101,24 +1100,24 @@ msgid "Admin email"
 msgstr ""
 
 #: apps/cli/commands/blueprint/use.ts:197
-#: apps/cli/commands/site/create.ts:593
+#: apps/cli/commands/site/create.ts:589
 msgid "Start the site after creation"
 msgstr ""
 
 #: apps/cli/commands/blueprint/use.ts:202
-#: apps/cli/commands/site/create.ts:598
-#: apps/cli/commands/site/start.ts:124
+#: apps/cli/commands/site/create.ts:594
+#: apps/cli/commands/site/start.ts:121
 msgid "Skip opening the site in browser after starting"
 msgstr ""
 
 #: apps/cli/commands/blueprint/use.ts:212
-#: apps/cli/commands/site/create.ts:691
+#: apps/cli/commands/site/create.ts:687
 #: packages/common/lib/generate-site-name.ts:7
 msgid "My WordPress Website"
 msgstr ""
 
 #: apps/cli/commands/blueprint/use.ts:215
-#: apps/cli/commands/site/create.ts:693
+#: apps/cli/commands/site/create.ts:689
 msgid "Site path:"
 msgstr ""
 
@@ -1274,7 +1273,7 @@ msgstr ""
 #: apps/cli/commands/import.ts:269
 #: apps/cli/commands/pull.ts:62
 #: apps/cli/commands/site/create.ts:355
-#: apps/cli/commands/site/create.ts:400
+#: apps/cli/commands/site/create.ts:396
 #: apps/cli/commands/site/delete.ts:70
 #: apps/cli/commands/site/start.ts:22
 #: apps/cli/commands/site/status.ts:19
@@ -1285,7 +1284,7 @@ msgstr ""
 #: apps/cli/commands/import.ts:271
 #: apps/cli/commands/pull.ts:64
 #: apps/cli/commands/site/create.ts:357
-#: apps/cli/commands/site/create.ts:402
+#: apps/cli/commands/site/create.ts:398
 #: apps/cli/commands/site/delete.ts:72
 #: apps/cli/commands/site/start.ts:24
 #: apps/cli/commands/site/status.ts:21
@@ -1508,12 +1507,12 @@ msgstr ""
 #: apps/cli/commands/pull.ts:215
 #: apps/cli/commands/site/create.ts:363
 #: apps/cli/commands/site/start.ts:92
-#: apps/cli/lib/wordpress-server-manager.ts:281
+#: apps/cli/lib/wordpress-server-manager.ts:283
 msgid "Starting WordPress server…"
 msgstr ""
 
 #: apps/cli/commands/import.ts:334
-#: apps/cli/commands/pull-reprint.ts:413
+#: apps/cli/commands/pull-reprint.ts:409
 #: apps/cli/commands/pull.ts:217
 #: apps/cli/commands/site/create.ts:372
 #: apps/cli/commands/site/start.ts:96
@@ -1835,16 +1834,16 @@ msgid "Pull failed"
 msgstr ""
 
 #: apps/cli/commands/pull-reprint.ts:99
-#: apps/cli/commands/pull-reprint.ts:477
+#: apps/cli/commands/pull-reprint.ts:469
 msgid "Failed to pull site"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:971
+#: apps/cli/commands/pull-reprint.ts:962
 #: apps/cli/lib/site-utils.ts:82
 msgid "Site URL: "
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:973
+#: apps/cli/commands/pull-reprint.ts:964
 msgid "WP Admin: "
 msgstr ""
 
@@ -1852,99 +1851,92 @@ msgstr ""
 msgid "WordPress server restarted"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:404
+#: apps/cli/commands/pull-reprint.ts:400
 msgid "WordPress server already running"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:422
+#: apps/cli/commands/pull-reprint.ts:414
 msgid "Failed to start the WordPress server for the pulled site."
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:508
+#: apps/cli/commands/pull-reprint.ts:500
 msgid "Initiating the migration…"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:532
+#: apps/cli/commands/pull-reprint.ts:524
 msgid "Could not connect to the remote site."
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:543
+#: apps/cli/commands/pull-reprint.ts:535
 msgid "The remote site did not respond with a recognized format."
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:554
+#: apps/cli/commands/pull-reprint.ts:546
 msgid "The remote site responded with HTML instead of the expected export API."
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:555
+#: apps/cli/commands/pull-reprint.ts:547
 msgid "Remote site preflight check failed."
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:649
+#: apps/cli/commands/pull-reprint.ts:641
 msgid "Pulling site…"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:656
+#: apps/cli/commands/pull-reprint.ts:648
 msgid "Pulling site"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:665
+#: apps/cli/commands/pull-reprint.ts:657
 msgid "Site pulled"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:686
+#: apps/cli/commands/pull-reprint.ts:678
 msgid "Downloading remaining files…"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:705
+#: apps/cli/commands/pull-reprint.ts:697
 msgid "Remaining files"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:710
+#: apps/cli/commands/pull-reprint.ts:702
 msgid "Remaining files downloaded"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:775
+#: apps/cli/commands/pull-reprint.ts:767
 msgid ""
 "WordPress.com authentication is required. Run `studio auth login` to pull a "
 "WordPress.com or Pressable site."
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:784
+#: apps/cli/commands/pull-reprint.ts:776
 msgid "Failed to load WordPress.com sites"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:794
+#: apps/cli/commands/pull-reprint.ts:786
 msgid "This URL is not a WordPress.com or Pressable site connected to your account."
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:801
-#. %s: the site URL.
-msgid ""
-"%s cannot be pulled. Pulling requires a WordPress.com or Pressable site "
-"with hosting features enabled."
-msgstr ""
-
-#: apps/cli/commands/pull-reprint.ts:816
+#: apps/cli/commands/pull-reprint.ts:807
 msgid ""
 "No pullable WordPress.com or Pressable sites found. Pulling requires a site "
 "with hosting features enabled."
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:829
+#: apps/cli/commands/pull-reprint.ts:820
 msgid "Multiple WordPress.com sites are available. Re-run with `--url <site-url>`."
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:835
+#: apps/cli/commands/pull-reprint.ts:826
 #: apps/cli/commands/pull.ts:78
 msgid "Select a site to pull from"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:848
+#: apps/cli/commands/pull-reprint.ts:839
 msgid "Using your only connected WordPress.com site:"
 msgstr ""
 
-#: apps/cli/commands/pull-reprint.ts:960
+#: apps/cli/commands/pull-reprint.ts:951
 #. %d: HTTP status code.
 msgid ""
 "Failed to re-apply the admin credentials after the database refresh (HTTP "
@@ -2070,142 +2062,142 @@ msgstr ""
 msgid "Successfully pushed to %1$s (%2$s)"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:471
+#: apps/cli/commands/site/create.ts:467
 msgid "Blueprint file not found: %s"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:479
+#: apps/cli/commands/site/create.ts:475
 msgid "Failed to parse Blueprint JSON file: %s"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:489
+#: apps/cli/commands/site/create.ts:485
 msgid "Must be a valid UUID"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:499
+#: apps/cli/commands/site/create.ts:495
 msgid ""
 "Must be: \"latest\", \"nightly\", or a valid version number (e.g., \"6.4\", "
 "\"6.4.1\", \"6.4-beta1\")"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:509
+#: apps/cli/commands/site/create.ts:505
 msgid "Must be: at least %s"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:519
+#: apps/cli/commands/site/create.ts:515
 msgid "Create a new site"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:524
+#: apps/cli/commands/site/create.ts:520
 msgid "Site ID (UUID format, used internally by Studio app)"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:534
+#: apps/cli/commands/site/create.ts:530
 msgid "WordPress version (e.g., \"latest\", \"6.4\", \"6.4.1\")"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:546
+#: apps/cli/commands/site/create.ts:542
 msgid ""
 "Run the site with native PHP (\"native\") or in the Playground sandbox "
 "(\"sandbox\")"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:554
+#: apps/cli/commands/site/create.ts:550
 msgid ""
 "Which files PHP can access with the native PHP runtime: the site directory "
 "only, or all files"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:571
+#: apps/cli/commands/site/create.ts:567
 msgid "Path or URL to Blueprint JSON file"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:579
+#: apps/cli/commands/site/create.ts:575
 msgid "Admin username (defaults to \"admin\")"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:583
+#: apps/cli/commands/site/create.ts:579
 msgid ""
 "Admin password (auto-generated if not provided). Note: passwords in CLI "
 "arguments may be visible in process lists; consider using a Blueprint file "
 "for sensitive passwords."
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:589
+#: apps/cli/commands/site/create.ts:585
 msgid "Admin email (defaults to \"admin@localhost.com\")"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:603
+#: apps/cli/commands/site/create.ts:599
 msgid "Skip printing site URL and admin credentials after creating"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:622
+#: apps/cli/commands/site/create.ts:618
 #: apps/cli/commands/site/create.ts:121
 msgid ""
 "File access \"all-files\" requires the native PHP runtime. The sandbox only "
 "has access to the site directory."
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:633
+#: apps/cli/commands/site/create.ts:629
 msgid "Checking WordPress version…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:646
+#: apps/cli/commands/site/create.ts:642
 #. %1$s: requested version, %2$s: list of available versions
 msgid "WordPress version \"%1$s\" is not available. Available versions: %2$s"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:659
+#: apps/cli/commands/site/create.ts:655
 #. %1$s: requested version, %2$s: resolved version
 msgid "WordPress version: %1$s → %2$s"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:668
+#: apps/cli/commands/site/create.ts:664
 #. %s: WordPress version
 msgid "WordPress version: %s"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:684
+#: apps/cli/commands/site/create.ts:680
 msgid "Site name:"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:711
+#: apps/cli/commands/site/create.ts:707
 msgid "Latest (recommended)"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:717
+#: apps/cli/commands/site/create.ts:713
 msgid "WordPress version:"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:726
+#: apps/cli/commands/site/create.ts:722
 msgid "PHP version:"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:728
+#: apps/cli/commands/site/create.ts:724
 msgid "%s (recommended)"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:742
+#: apps/cli/commands/site/create.ts:738
 msgid "Custom domain (leave empty to skip):"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:750
+#: apps/cli/commands/site/create.ts:746
 msgid "Enable HTTPS?"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:757
+#: apps/cli/commands/site/create.ts:753
 msgid "Admin username:"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:765
+#: apps/cli/commands/site/create.ts:761
 msgid "Admin password (leave empty to auto-generate):"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:775
+#: apps/cli/commands/site/create.ts:771
 msgid "Admin email:"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:848
+#: apps/cli/commands/site/create.ts:844
 #: apps/studio/src/hooks/use-site-details.tsx:304
 msgid "Failed to create site"
 msgstr ""
@@ -2290,46 +2282,46 @@ msgid "Saving site…"
 msgstr ""
 
 #: apps/cli/commands/site/create.ts:349
-#: apps/cli/commands/site/create.ts:427
+#: apps/cli/commands/site/create.ts:423
 msgid "Site created successfully"
 msgstr ""
 
 #: apps/cli/commands/site/create.ts:362
-#: apps/cli/lib/wordpress-server-manager.ts:280
+#: apps/cli/lib/wordpress-server-manager.ts:282
 msgid "Starting WordPress server and applying Blueprint…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:396
-#: apps/cli/commands/site/start.ts:109
+#: apps/cli/commands/site/create.ts:392
+#: apps/cli/commands/site/start.ts:106
 msgid "Failed to start WordPress server"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:404
-#: apps/cli/lib/wordpress-server-manager.ts:661
+#: apps/cli/commands/site/create.ts:400
+#: apps/cli/lib/wordpress-server-manager.ts:667
 msgid "Applying Blueprint…"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:407
+#: apps/cli/commands/site/create.ts:403
 msgid "Blueprint source path is missing"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:415
+#: apps/cli/commands/site/create.ts:411
 msgid "Blueprint applied successfully"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:423
+#: apps/cli/commands/site/create.ts:419
 msgid "Failed to apply Blueprint"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:432
+#: apps/cli/commands/site/create.ts:428
 msgid "Run \"studio start\" to start the site."
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:448
+#: apps/cli/commands/site/create.ts:444
 msgid "Failed to fetch Blueprint"
 msgstr ""
 
-#: apps/cli/commands/site/create.ts:454
+#: apps/cli/commands/site/create.ts:450
 msgid "Failed to parse Blueprint JSON"
 msgstr ""
 
@@ -2443,17 +2435,17 @@ msgid_plural "Found %d sites"
 msgstr[0] ""
 msgstr[1] ""
 
-#: apps/cli/commands/site/start.ts:119
+#: apps/cli/commands/site/start.ts:116
 #: apps/studio/src/components/site-menu.tsx:86
 #: packages/common/ai/tools.ts:300
 msgid "Start site"
 msgstr ""
 
-#: apps/cli/commands/site/start.ts:129
+#: apps/cli/commands/site/start.ts:126
 msgid "Skip printing site URL and admin credentials after starting"
 msgstr ""
 
-#: apps/cli/commands/site/start.ts:140
+#: apps/cli/commands/site/start.ts:137
 msgid "Failed to start site"
 msgstr ""
 
@@ -2895,9 +2887,9 @@ msgid ""
 "it."
 msgstr ""
 
-#: apps/cli/lib/cli-config/sites.ts:54
-#: apps/cli/lib/cli-config/sites.ts:71
-#: apps/cli/lib/cli-config/sites.ts:88
+#: apps/cli/lib/cli-config/sites.ts:59
+#: apps/cli/lib/cli-config/sites.ts:76
+#: apps/cli/lib/cli-config/sites.ts:93
 msgid "Site not found"
 msgstr ""
 
@@ -3035,60 +3027,104 @@ msgstr ""
 msgid "Select items to sync"
 msgstr ""
 
-#: apps/cli/lib/sync-site-picker.ts:12
+#: apps/cli/lib/sync-site-picker.ts:21
+#. %1$s: site name. %2$d: WordPress.com site ID.
 msgid ""
 "Site %1$s requires hosting features to be enabled. Please visit "
 "https://wordpress.com/hosting-features/%2$d to activate them, then try "
 "again."
 msgstr ""
 
-#: apps/cli/lib/sync-site-picker.ts:21
-msgid "Site %1$s is not syncable (%2$s)"
+#: apps/cli/lib/sync-site-picker.ts:32
+#. %1$s: site name. %2$d: WordPress.com site ID.
+msgid ""
+"Site %1$s requires a plan with hosting features to sync. Please upgrade at "
+"https://wordpress.com/plans/%2$d, then try again."
 msgstr ""
 
 #: apps/cli/lib/sync-site-picker.ts:43
-msgid "No site found matching \"%s\""
+#. %s: site name.
+msgid ""
+"You do not have permission to sync site %s. Please ask a site administrator "
+"for access, then try again."
 msgstr ""
 
-#: apps/cli/lib/sync-site-picker.ts:49
-msgid "Multiple sites match \"%1$s\". Use the site ID instead: %2$s"
+#: apps/cli/lib/sync-site-picker.ts:53
+#. %s: site name.
+msgid ""
+"Site %s is hosted somewhere Studio cannot sync with. Only WordPress.com and "
+"Pressable sites are supported."
 msgstr ""
 
-#: apps/cli/lib/sync-site-picker.ts:67
-msgid "Plan upgrade required"
-msgstr ""
-
-#: apps/cli/lib/sync-site-picker.ts:69
-msgid "Transfer required"
+#: apps/cli/lib/sync-site-picker.ts:63
+#. %s: site name.
+msgid "Site %s has been deleted and can no longer be synced."
 msgstr ""
 
 #: apps/cli/lib/sync-site-picker.ts:71
+#. %s: site name.
+msgid "Site %s is already connected to another local site."
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:79
+#. %s: site name.
+msgid "Site %s cannot be synced."
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:108
+msgid "No site found matching \"%s\""
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:114
+msgid "Multiple sites match \"%1$s\". Use the site ID instead: %2$s"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:132
+msgid "Plan upgrade required"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:134
+msgid "Transfer required"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:136
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector-classic.tsx:441
 msgid "Unsupported site"
 msgstr ""
 
-#: apps/cli/lib/sync-site-picker.ts:73
+#: apps/cli/lib/sync-site-picker.ts:138
 #: apps/studio/src/modules/preview-site/components/preview-site-row.tsx:174
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector-classic.tsx:432
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:528
 msgid "Deleted"
 msgstr ""
 
-#: apps/cli/lib/sync-site-picker.ts:75
+#: apps/cli/lib/sync-site-picker.ts:140
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector-classic.tsx:427
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:524
 msgid "Missing permissions"
 msgstr ""
 
-#: apps/cli/lib/sync-site-picker.ts:88
+#: apps/cli/lib/sync-site-picker.ts:142
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector-classic.tsx:393
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:357
+#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:519
+msgid "Already connected"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:144
+msgid "Not syncable"
+msgstr ""
+
+#: apps/cli/lib/sync-site-picker.ts:155
 msgid "[staging]"
 msgstr ""
 
-#: apps/cli/lib/sync-site-picker.ts:102
+#: apps/cli/lib/sync-site-picker.ts:169
 msgid "No syncable sites found."
 msgstr ""
 
-#: apps/cli/lib/sync-site-picker.ts:157
+#: apps/cli/lib/sync-site-picker.ts:224
 msgid "type to filter"
 msgstr ""
 
@@ -3220,7 +3256,7 @@ msgid "WordPress Studio"
 msgstr ""
 
 #: apps/studio/src/about-menu/open-about-menu.ts:68
-#: apps/studio/src/menu.ts:231
+#: apps/studio/src/menu.ts:240
 msgid "About WordPress Studio"
 msgstr ""
 
@@ -3270,6 +3306,25 @@ msgstr ""
 
 #: apps/studio/src/components/add-site-with-blueprint-button.tsx:34
 msgid "Add site from a Blueprint"
+msgstr ""
+
+#: apps/studio/src/components/agentic-ui-banner/index.tsx:81
+msgid "Dismiss"
+msgstr ""
+
+#: apps/studio/src/components/agentic-ui-banner/index.tsx:86
+#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:58
+msgid "There’s a new way to build in Studio"
+msgstr ""
+
+#: apps/studio/src/components/agentic-ui-banner/index.tsx:89
+#: apps/studio/src/lib/beta-features.ts:35
+msgid "A redesigned interface with AI-powered site building."
+msgstr ""
+
+#: apps/studio/src/components/agentic-ui-banner/index.tsx:96
+#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:67
+msgid "Try it"
 msgstr ""
 
 #: apps/studio/src/components/auth-provider.tsx:69
@@ -3341,7 +3396,6 @@ msgid "Overwrite %s?"
 msgstr ""
 
 #: apps/studio/src/components/content-tab-import-export.tsx:188
-#: apps/studio/src/index.ts:523
 #: apps/studio/src/lib/windows-helpers.ts:53
 #: apps/studio/src/modules/sync/components/sync-connected-sites.tsx:630
 msgid "Don't ask again"
@@ -3469,7 +3523,7 @@ msgstr ""
 #: apps/studio/src/components/content-tab-overview.tsx:240
 #: apps/studio/src/components/content-tab-overview.tsx:256
 #: apps/studio/src/components/studio-code-session/site-created-dialog.tsx:71
-#: apps/studio/src/ipc-handlers.ts:1939
+#: apps/studio/src/ipc-handlers.ts:1986
 msgid "Open site"
 msgstr ""
 
@@ -3705,7 +3759,7 @@ msgid "Try restarting the app, if the problem persists"
 msgstr ""
 
 #: apps/studio/src/components/default-error-fallback.tsx:71
-#: apps/studio/src/menu.ts:402
+#: apps/studio/src/menu.ts:415
 msgid "Help"
 msgstr ""
 
@@ -3732,7 +3786,7 @@ msgid "User avatar"
 msgstr ""
 
 #: apps/studio/src/components/header.tsx:48
-#: apps/studio/src/ipc-handlers.ts:1956
+#: apps/studio/src/ipc-handlers.ts:2003
 msgid "WP admin"
 msgstr ""
 
@@ -3801,7 +3855,7 @@ msgstr ""
 msgid "Preview of the %s site"
 msgstr ""
 
-#: apps/studio/src/components/site-content-tabs.tsx:61
+#: apps/studio/src/components/site-content-tabs.tsx:81
 msgid "Select a site to view details."
 msgstr ""
 
@@ -3848,9 +3902,12 @@ msgid "Starting"
 msgstr ""
 
 #: apps/studio/src/components/site-menu.tsx:85
+#: apps/studio/src/index.ts:525
 #: packages/common/ai/tools.ts:301
 msgid "Stop site"
-msgstr ""
+msgid_plural "Stop sites"
+msgstr[0] ""
+msgstr[1] ""
 
 #: apps/studio/src/components/site-menu.tsx:100
 msgid "stop %s site"
@@ -3968,10 +4025,10 @@ msgid ""
 msgstr ""
 
 #: apps/studio/src/components/studio-code-session/composer/family-switch-confirm-dialog.tsx:65
-#: apps/studio/src/components/studio-code-session/conversation/index.tsx:353
+#: apps/studio/src/components/studio-code-session/conversation/index.tsx:364
 #: apps/studio/src/hooks/use-confirmation-dialog.ts:21
 #: apps/studio/src/hooks/use-delete-site.ts:28
-#: apps/studio/src/index.ts:522
+#: apps/studio/src/index.ts:527
 #: apps/studio/src/modules/cli/lib/ipc-handlers.ts:40
 #: apps/studio/src/modules/cli/lib/ipc-handlers.ts:60
 #: apps/studio/src/modules/preview-site/components/rename-preview-modal.tsx:41
@@ -3980,7 +4037,7 @@ msgstr ""
 #: apps/studio/src/modules/sync/components/sync-dialog.tsx:540
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector-classic.tsx:491
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:654
-#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:158
+#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:224
 #: apps/studio/src/modules/user-settings/components/user-settings.tsx:56
 #: apps/studio/src/stores/sync/sync-operations-slice.ts:911
 msgid "Cancel"
@@ -3994,88 +4051,104 @@ msgstr ""
 msgid "Start new conversation"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:284
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:201
+msgid "What should we make better?"
+msgstr ""
+
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:202
+msgid "What’s the next move?"
+msgstr ""
+
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:203
+msgid "Tell me what to change next…"
+msgstr ""
+
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:204
+msgid "Drop the next idea here…"
+msgstr ""
+
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:205
+msgid "What are we tuning now?"
+msgstr ""
+
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:321
 msgid "Please review the attached files."
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:412
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:449
 msgid "Queue a follow-up instruction…"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:413
-msgid "Set your next instruction…"
-msgstr ""
-
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:414
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:451
 msgid "Queue"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:414
-#: apps/studio/src/components/studio-code-session/conversation/index.tsx:361
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:451
+#: apps/studio/src/components/studio-code-session/conversation/index.tsx:372
 msgid "Send"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:422
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:459
 msgid "FILE"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:423
-#: apps/studio/src/menu.ts:313
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:460
+#: apps/studio/src/menu.ts:322
 msgid "File"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:442
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:484
 msgid "Drop files to attach"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:446
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:488
 msgid "Attachments"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:457
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:499
 #. 1: attachment file name, 2: attachment type, 3: attachment size.
 msgid "Attachment: %1$s, %2$s, %3$s"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:464
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:506
 #. 1: attachment file name, 2: attachment type.
 msgid "Attachment: %1$s, %2$s"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:522
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:564
 #. %s: attachment file name.
 msgid "Remove attachment: %s"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:607
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:649
 #: apps/studio/src/modules/site-settings/edit-site-details.tsx:380
 #: apps/studio/src/modules/user-settings/components/user-settings.tsx:89
 msgid "Skills"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:615
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:616
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:657
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:658
 msgid "Attach files"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:636
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:678
 msgid "Select model"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:661
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:703
 msgid "Stopping"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:664
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:706
 msgid "Stopping… click again to force stop"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:686
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:728
 #. <send/> and <newline/> are keyboard-shortcut chips, e.g. "⌘ ↩" and "shift ↩".
 msgid "<send/> to send · <newline/> for newline"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/composer/index.tsx:696
+#: apps/studio/src/components/studio-code-session/composer/index.tsx:738
 msgid "Uses 1 message"
 msgstr ""
 
@@ -4109,34 +4182,42 @@ msgstr ""
 msgid "Slash commands"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/conversation/index.tsx:403
+#: apps/studio/src/components/studio-code-session/conversation/index.tsx:414
 msgid "Edit your last message"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/conversation/index.tsx:405
-#: apps/studio/src/menu.ts:339
+#: apps/studio/src/components/studio-code-session/conversation/index.tsx:416
+#: apps/studio/src/menu.ts:352
 #: packages/common/ai/tools.ts:328
 msgid "Edit"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/conversation/index.tsx:487
+#: apps/studio/src/components/studio-code-session/conversation/index.tsx:431
+msgid "Copy message"
+msgstr ""
+
+#: apps/studio/src/components/studio-code-session/conversation/index.tsx:509
 msgid "Show less"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/conversation/index.tsx:487
+#: apps/studio/src/components/studio-code-session/conversation/index.tsx:509
 msgid "Show more"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/conversation/index.tsx:557
+#: apps/studio/src/components/studio-code-session/conversation/index.tsx:579
 msgid "Image unavailable"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/conversation/index.tsx:571
+#: apps/studio/src/components/studio-code-session/conversation/index.tsx:593
 msgid "Image"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/conversation/index.tsx:734
+#: apps/studio/src/components/studio-code-session/conversation/index.tsx:756
 msgid "Interrupted by you"
+msgstr ""
+
+#: apps/studio/src/components/studio-code-session/copy-button.tsx:40
+msgid "Copied"
 msgstr ""
 
 #: apps/studio/src/components/studio-code-session/index.tsx:100
@@ -4173,20 +4254,26 @@ msgstr ""
 msgid "Ask Studio Code anything to get started."
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/index.tsx:374
+#: apps/studio/src/components/studio-code-session/index.tsx:375
 msgid "Session not found"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/index.tsx:392
+#: apps/studio/src/components/studio-code-session/index.tsx:377
+msgid ""
+"This conversation is no longer available. Start a new one to keep building "
+"with Studio Code."
+msgstr ""
+
+#: apps/studio/src/components/studio-code-session/index.tsx:383
+msgid "Start a new conversation"
+msgstr ""
+
+#: apps/studio/src/components/studio-code-session/index.tsx:402
 msgid "Scroll to bottom"
 msgstr ""
 
-#: apps/studio/src/components/studio-code-session/markdown/index.tsx:61
+#: apps/studio/src/components/studio-code-session/markdown/index.tsx:53
 msgid "Copy code"
-msgstr ""
-
-#: apps/studio/src/components/studio-code-session/markdown/index.tsx:62
-msgid "Copied"
 msgstr ""
 
 #: apps/studio/src/components/studio-code-session/queued-prompts/index.tsx:15
@@ -4221,6 +4308,16 @@ msgstr ""
 #: apps/studio/src/components/studio-code-session/thinking-indicator/index.tsx:47
 #. %d is the number of elapsed seconds, e.g. "5s".
 msgid "%ds"
+msgstr ""
+
+#: apps/studio/src/components/studio-code-session/use-agent-run.tsx:353
+msgid "You’ve reached your AI usage limit. Try again later."
+msgstr ""
+
+#: apps/studio/src/components/studio-code-session/use-agent-run.tsx:538
+msgid ""
+"You’ve reached your AI usage limit. Try again later or use your own "
+"Anthropic API key via the CLI (/provider)."
 msgstr ""
 
 #: apps/studio/src/components/studio-code-session/use-example-prompts.ts:24
@@ -4652,96 +4749,95 @@ msgstr ""
 msgid "Uploading site (%d%%)…"
 msgstr ""
 
-#: apps/studio/src/index.ts:457
+#: apps/studio/src/index.ts:463
 msgid "Sync is in progress"
 msgstr ""
 
-#: apps/studio/src/index.ts:458
+#: apps/studio/src/index.ts:464
 msgid ""
 "There's a sync operation in progress. Quitting the app will abort that "
 "operation. Are you sure you want to quit?"
 msgstr ""
 
-#: apps/studio/src/index.ts:464
+#: apps/studio/src/index.ts:470
 msgid "Sync will continue"
 msgstr ""
 
-#: apps/studio/src/index.ts:465
+#: apps/studio/src/index.ts:471
 msgid ""
 "The sync process will continue running remotely after you quit Studio. We "
 "will send you an email once it is complete."
 msgstr ""
 
-#: apps/studio/src/index.ts:475
+#: apps/studio/src/index.ts:481
 msgid "Yes, quit the app"
 msgstr ""
 
-#: apps/studio/src/index.ts:475
+#: apps/studio/src/index.ts:481
 msgid "No, take me back"
 msgstr ""
 
-#: apps/studio/src/index.ts:508
-msgid "Auto-start"
-msgstr ""
-
-#: apps/studio/src/index.ts:509
-msgid "Keep running"
-msgstr ""
-
 #: apps/studio/src/index.ts:518
-msgid "You have a running site"
-msgid_plural "You have running sites"
+msgid "Keep the site running?"
+msgid_plural "Keep the sites running?"
 msgstr[0] ""
 msgstr[1] ""
 
 #: apps/studio/src/index.ts:519
-msgid ""
-"Choose what to do with your running sites when Studio quits:\n"
-"\n"
-"• Keep running — sites stay running after Studio closes.\n"
-"• Auto-start — sites stop now and start again when you reopen Studio.\n"
-"• Stop — sites stop now and stay stopped."
+msgid "Your site can stay available in the background after Studio quits."
+msgid_plural "Your sites can stay available in the background after Studio quits."
+msgstr[0] ""
+msgstr[1] ""
+
+#: apps/studio/src/index.ts:526
+msgid "Keep site running"
+msgid_plural "Keep sites running"
+msgstr[0] ""
+msgstr[1] ""
+
+#: apps/studio/src/index.ts:529
+msgid "Remember my choice"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1977
-#: apps/studio/src/ipc-handlers.ts:1999
-#: apps/studio/src/ipc-handlers.ts:2021
+#: apps/studio/src/ipc-handlers.ts:2024
+#: apps/studio/src/ipc-handlers.ts:2046
+#: apps/studio/src/ipc-handlers.ts:2068
 #. %s is the name of the file explorer. E.g. "Open in Finder"
 #. %s is the name of the editor. E.g. "Open in Cursor"
 #. %s is the name of the terminal. E.g. "Open in Terminal"
 msgid "Open in %s"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:2042
+#: apps/studio/src/ipc-handlers.ts:2089
 msgid "Edit site…"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:2059
+#: apps/studio/src/ipc-handlers.ts:2106
 msgid "Duplicate site…"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:2076
+#: apps/studio/src/ipc-handlers.ts:2123
 msgid "Delete site…"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:379
+#: apps/studio/src/ipc-handlers.ts:381
 msgid "WordPress.com login required. Log in to use Studio Code."
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1252
+#: apps/studio/src/ipc-handlers.ts:1259
 msgid "Failed to open link"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1253
+#: apps/studio/src/ipc-handlers.ts:1260
 msgid "Please ensure your site files have not been moved or deleted."
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1691
+#: apps/studio/src/ipc-handlers.ts:1738
 #: apps/studio/src/lib/deeplink/handlers/add-site-with-blueprint.ts:97
 msgid "Open Studio Logs"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1691
+#: apps/studio/src/ipc-handlers.ts:1738
 #: apps/studio/src/lib/deeplink/handlers/add-site-with-blueprint.ts:97
 #: apps/studio/src/lib/shell-open-external-wrapper.ts:47
 #: apps/studio/src/modules/user-settings/components/user-settings.tsx:68
@@ -4751,22 +4847,26 @@ msgstr ""
 msgid "OK"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1860
+#: apps/studio/src/ipc-handlers.ts:1907
 msgid "Certificate Trust Failed"
 msgstr ""
 
-#: apps/studio/src/ipc-handlers.ts:1861
+#: apps/studio/src/ipc-handlers.ts:1908
 msgid ""
 "Studio was unable to trust the certificate automatically. You may need to "
 "trust it manually using certificate manager."
 msgstr ""
 
-#: apps/studio/src/lib/beta-features.ts:25
+#: apps/studio/src/lib/beta-features.ts:26
 msgid "Remote Session"
 msgstr ""
 
-#: apps/studio/src/lib/beta-features.ts:28
+#: apps/studio/src/lib/beta-features.ts:29
 msgid "Control Studio from Telegram via the remote-session daemon."
+msgstr ""
+
+#: apps/studio/src/lib/beta-features.ts:32
+msgid "New Studio experience"
 msgstr ""
 
 #: apps/studio/src/lib/date.ts:15
@@ -4939,195 +5039,195 @@ msgid ""
 "faster?\" in the application menu."
 msgstr ""
 
-#: apps/studio/src/menu.ts:126
+#: apps/studio/src/menu.ts:144
 msgid "Toggle Sidebar"
 msgstr ""
 
-#: apps/studio/src/menu.ts:134
+#: apps/studio/src/menu.ts:152
 msgid "Toggle Site Preview"
 msgstr ""
 
-#: apps/studio/src/menu.ts:143
+#: apps/studio/src/menu.ts:161
 msgid "Actual Size"
 msgstr ""
 
-#: apps/studio/src/menu.ts:147
+#: apps/studio/src/menu.ts:165
 msgid "Zoom In"
 msgstr ""
 
-#: apps/studio/src/menu.ts:151
+#: apps/studio/src/menu.ts:169
 msgid "Zoom Out"
 msgstr ""
 
-#: apps/studio/src/menu.ts:156
+#: apps/studio/src/menu.ts:174
 msgid "Toggle Fullscreen"
 msgstr ""
 
-#: apps/studio/src/menu.ts:161
+#: apps/studio/src/menu.ts:179
 msgid "Float on Top of All Other Windows"
 msgstr ""
 
-#: apps/studio/src/menu.ts:182
+#: apps/studio/src/menu.ts:200
 msgid "Test Hard Crash (dev only)"
 msgstr ""
 
-#: apps/studio/src/menu.ts:188
+#: apps/studio/src/menu.ts:206
 msgid "Test Render Failure (dev only)"
 msgstr ""
 
-#: apps/studio/src/menu.ts:196
+#: apps/studio/src/menu.ts:214
 msgid "Reload"
 msgstr ""
 
-#: apps/studio/src/menu.ts:197
+#: apps/studio/src/menu.ts:215
 msgid "Force Reload"
 msgstr ""
 
-#: apps/studio/src/menu.ts:198
+#: apps/studio/src/menu.ts:216
 msgid "Toggle DevTools"
 msgstr ""
 
-#: apps/studio/src/menu.ts:237
+#: apps/studio/src/menu.ts:246
 msgid "Restart to Apply Updates"
 msgstr ""
 
-#: apps/studio/src/menu.ts:241
+#: apps/studio/src/menu.ts:250
 msgid "Check for Updates"
 msgstr ""
 
-#: apps/studio/src/menu.ts:244
+#: apps/studio/src/menu.ts:253
 msgid "Settings…"
 msgstr ""
 
-#: apps/studio/src/menu.ts:251
+#: apps/studio/src/menu.ts:260
 msgid "Beta Features"
 msgstr ""
 
-#: apps/studio/src/menu.ts:258
+#: apps/studio/src/menu.ts:267
 msgid "Services"
 msgstr ""
 
-#: apps/studio/src/menu.ts:262
+#: apps/studio/src/menu.ts:271
 #: apps/studio/src/modules/sync/components/sync-dialog.tsx:500
 msgid "Hide"
 msgstr ""
 
-#: apps/studio/src/menu.ts:268
+#: apps/studio/src/menu.ts:277
 msgid "Open Config Files (dev only)"
 msgstr ""
 
-#: apps/studio/src/menu.ts:271
+#: apps/studio/src/menu.ts:280
 msgid "App Config (app.json)"
 msgstr ""
 
-#: apps/studio/src/menu.ts:281
+#: apps/studio/src/menu.ts:290
 msgid "Shared Config (shared.json)"
 msgstr ""
 
-#: apps/studio/src/menu.ts:291
+#: apps/studio/src/menu.ts:300
 msgid "CLI Config (cli.json)"
 msgstr ""
 
-#: apps/studio/src/menu.ts:303
+#: apps/studio/src/menu.ts:312
 msgid "Feature Flags"
 msgstr ""
 
-#: apps/studio/src/menu.ts:309
+#: apps/studio/src/menu.ts:318
 msgid "Quit"
 msgstr ""
 
-#: apps/studio/src/menu.ts:317
+#: apps/studio/src/menu.ts:326
 msgid "Add Site…"
 msgstr ""
 
-#: apps/studio/src/menu.ts:328
+#: apps/studio/src/menu.ts:341
 msgid "Close Window"
 msgstr ""
 
-#: apps/studio/src/menu.ts:343
+#: apps/studio/src/menu.ts:356
 msgid "Undo"
 msgstr ""
 
-#: apps/studio/src/menu.ts:347
+#: apps/studio/src/menu.ts:360
 msgid "Redo"
 msgstr ""
 
-#: apps/studio/src/menu.ts:351
+#: apps/studio/src/menu.ts:364
 msgid "Cut"
 msgstr ""
 
-#: apps/studio/src/menu.ts:352
+#: apps/studio/src/menu.ts:365
 #: apps/studio/src/modules/mcp/components/mcp-settings.tsx:33
 msgid "Copy"
 msgstr ""
 
-#: apps/studio/src/menu.ts:353
+#: apps/studio/src/menu.ts:366
 msgid "Paste"
 msgstr ""
 
-#: apps/studio/src/menu.ts:355
+#: apps/studio/src/menu.ts:368
 msgid "Paste and Match Style"
 msgstr ""
 
-#: apps/studio/src/menu.ts:358
+#: apps/studio/src/menu.ts:371
 #: apps/studio/src/modules/preview-site/components/preview-action-buttons-menu.tsx:61
 #: apps/studio/src/modules/preview-site/components/preview-action-buttons-menu.tsx:131
 msgid "Delete"
 msgstr ""
 
-#: apps/studio/src/menu.ts:359
+#: apps/studio/src/menu.ts:372
 msgid "Select All"
 msgstr ""
 
-#: apps/studio/src/menu.ts:362
+#: apps/studio/src/menu.ts:375
 msgid "Speech"
 msgstr ""
 
-#: apps/studio/src/menu.ts:364
+#: apps/studio/src/menu.ts:377
 msgid "Start Speaking"
 msgstr ""
 
-#: apps/studio/src/menu.ts:365
+#: apps/studio/src/menu.ts:378
 msgid "Stop Speaking"
 msgstr ""
 
-#: apps/studio/src/menu.ts:371
+#: apps/studio/src/menu.ts:384
 msgid "View"
 msgstr ""
 
-#: apps/studio/src/menu.ts:390
+#: apps/studio/src/menu.ts:403
 msgid "Window"
 msgstr ""
 
-#: apps/studio/src/menu.ts:396
+#: apps/studio/src/menu.ts:409
 msgid "Minimize"
 msgstr ""
 
-#: apps/studio/src/menu.ts:397
+#: apps/studio/src/menu.ts:410
 msgid "Zoom"
 msgstr ""
 
-#: apps/studio/src/menu.ts:406
+#: apps/studio/src/menu.ts:419
 msgid "WordPress Studio Help"
 msgstr ""
 
-#: apps/studio/src/menu.ts:413
+#: apps/studio/src/menu.ts:426
 msgid "What's New"
 msgstr ""
 
-#: apps/studio/src/menu.ts:423
+#: apps/studio/src/menu.ts:436
 msgid "How can I make WordPress Studio faster?"
 msgstr ""
 
-#: apps/studio/src/menu.ts:431
+#: apps/studio/src/menu.ts:444
 msgid "Open Application Logs"
 msgstr ""
 
-#: apps/studio/src/menu.ts:442
+#: apps/studio/src/menu.ts:455
 msgid "Report an Issue"
 msgstr ""
 
-#: apps/studio/src/menu.ts:448
+#: apps/studio/src/menu.ts:461
 msgid "Propose a Feature"
 msgstr ""
 
@@ -5554,52 +5654,45 @@ msgstr ""
 msgid "Proceed"
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/linux-installation-manager.ts:64
-#: apps/studio/src/modules/cli/lib/linux-installation-manager.ts:107
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:64
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:110
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:67
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:97
+#: apps/studio/src/modules/cli/lib/unix-installation-manager.ts:103
+#: apps/studio/src/modules/cli/lib/unix-installation-manager.ts:141
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:68
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:91
 msgid "There was an unknown error. Please check the logs for more information."
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/linux-installation-manager.ts:72
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:73
+#: apps/studio/src/modules/cli/lib/unix-installation-manager.ts:112
 #. 1: Installation path
 msgid ""
 "The installation path %1$s is already occupied by a file or directory. "
 "Please remove it and try again."
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/linux-installation-manager.ts:87
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:89
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:78
+#: apps/studio/src/modules/cli/lib/unix-installation-manager.ts:124
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:76
 msgid "Failed to install CLI"
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/linux-installation-manager.ts:100
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:103
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:91
+#: apps/studio/src/modules/cli/lib/unix-installation-manager.ts:134
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:85
 msgid "CLI uninstalled"
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/linux-installation-manager.ts:101
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:104
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:92
+#: apps/studio/src/modules/cli/lib/unix-installation-manager.ts:135
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:86
 msgid "The CLI has been uninstalled successfully."
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/linux-installation-manager.ts:118
-#: apps/studio/src/modules/cli/lib/macos-installation-manager.ts:121
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:108
+#: apps/studio/src/modules/cli/lib/unix-installation-manager.ts:149
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:99
 msgid "Failed to uninstall CLI"
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:61
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:62
 msgid "CLI Installed"
 msgstr ""
 
-#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:62
+#: apps/studio/src/modules/cli/lib/windows-installation-manager.ts:63
 msgid "The CLI has been installed successfully."
 msgstr ""
 
@@ -5841,7 +5934,7 @@ msgstr ""
 
 #: apps/studio/src/modules/preview-site/components/rename-preview-modal.tsx:48
 #: apps/studio/src/modules/site-settings/edit-site-details.tsx:341
-#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:166
+#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:232
 msgid "Save"
 msgstr ""
 
@@ -6244,19 +6337,13 @@ msgid "No sites found for \"%s\""
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector-classic.tsx:214
-#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:145
+#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:204
 msgid "Loading…"
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector-classic.tsx:233
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:136
 msgid "Refreshing…"
-msgstr ""
-
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector-classic.tsx:393
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:357
-#: apps/studio/src/modules/sync/components/sync-sites-modal-selector.tsx:519
-msgid "Already connected"
 msgstr ""
 
 #: apps/studio/src/modules/sync/components/sync-sites-modal-selector-classic.tsx:399
@@ -6524,11 +6611,17 @@ msgstr ""
 msgid "Language"
 msgstr ""
 
-#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:123
+#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:61
+msgid ""
+"A redesigned interface with AI-powered site building. You can switch back "
+"anytime."
+msgstr ""
+
+#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:181
 msgid "Select default site directory"
 msgstr ""
 
-#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:143
+#: apps/studio/src/modules/user-settings/components/preferences-tab.tsx:202
 msgid "Default site directory"
 msgstr ""
 
@@ -6547,6 +6640,26 @@ msgstr ""
 
 #: apps/studio/src/modules/user-settings/components/prompt-info.tsx:65
 msgid "Studio Code limits are temporarily unavailable."
+msgstr ""
+
+#: apps/studio/src/modules/user-settings/components/quit-sites-behavior-picker.tsx:15
+msgid "When quitting with running sites"
+msgstr ""
+
+#: apps/studio/src/modules/user-settings/components/quit-sites-behavior-picker.tsx:20
+msgid "Ask every time"
+msgstr ""
+
+#: apps/studio/src/modules/user-settings/components/quit-sites-behavior-picker.tsx:21
+msgid "Keep sites running"
+msgstr ""
+
+#: apps/studio/src/modules/user-settings/components/quit-sites-behavior-picker.tsx:22
+msgid "Stop, restart on next launch"
+msgstr ""
+
+#: apps/studio/src/modules/user-settings/components/quit-sites-behavior-picker.tsx:23
+msgid "Stop sites"
 msgstr ""
 
 #: apps/studio/src/modules/user-settings/components/skills-tab.tsx:92

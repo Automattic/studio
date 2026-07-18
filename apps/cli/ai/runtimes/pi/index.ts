@@ -67,7 +67,7 @@ import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioModel = Model< 'openai-completions' > | Model< 'anthropic-messages' >;
+type StudioModel = Model< 'openai-responses' > | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
@@ -381,13 +381,22 @@ function buildModel(
 	};
 
 	if ( family === 'openai' ) {
+		// GPT-5.6 models reject function tools on /v1/chat/completions unless
+		// reasoning is disabled; the Responses API supports tools + reasoning.
+		// GPT-5.6 Sol's real context window is 1.05M tokens, but we declare
+		// 272K — the threshold where OpenAI's 2x long-context pricing kicks
+		// in — so compaction keeps sessions below it. Understating the window
+		// is also load-bearing for correctness: pi clamps max output tokens to
+		// the declared window minus its (post-compaction, sometimes stale)
+		// context estimate, and a too-small window can clamp all the way down
+		// to 1, which the API rejects with a 400.
 		return {
 			...common,
-			api: 'openai-completions',
+			api: 'openai-responses',
 			provider: 'openai',
-			reasoning: false,
-			contextWindow: 200_000,
-			maxTokens: 16_384,
+			reasoning: true,
+			contextWindow: 272_000,
+			maxTokens: 32_000,
 		};
 	}
 	const thinking = getAiModelThinking( modelId );

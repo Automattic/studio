@@ -123,6 +123,7 @@ export function usePullSiteFromLive() {
 			// and the site's database + themes just changed — refresh the
 			// site list so any downstream consumers see the new state.
 			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			toast.success( __( 'Pull complete' ) );
 		},
 		onError: ( error, { siteId } ) => {
 			const message = error instanceof Error ? error.message : String( error );

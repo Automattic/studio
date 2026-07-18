@@ -862,3 +862,30 @@
 .permissionPicker::before {
 	inline-size: calc(100% / 2);
 }
+
+.switchUiField {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-lg);
+	margin-top: var(--wpds-dimension-padding-2xl);
+	padding-top: var(--wpds-dimension-padding-lg);
+	border-top: 1px solid var(--wpds-color-stroke-surface-neutral-weak);
+}
+
+.switchUiText {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.switchUiLabel {
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.switchUiDescription {
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}

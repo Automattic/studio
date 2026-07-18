@@ -33,6 +33,10 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+vi.mock( '@/hooks/use-fullscreen', () => ( {
+	useFullscreen: () => false,
+} ) );
+
 vi.mock( '@wordpress/ui', async () => {
 	const actual = await vi.importActual< typeof import('@wordpress/ui') >( '@wordpress/ui' );
 	return {

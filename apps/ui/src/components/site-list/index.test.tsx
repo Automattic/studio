@@ -9,6 +9,7 @@ import {
 	useSites,
 	useStartSite,
 	useStopSite,
+	useUpdateSitesSortOrder,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { removePluginSiteTag, tagSiteAsPlugin } from '@/lib/plugin-prototype';
@@ -55,6 +56,7 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: vi.fn(),
 	useStartSite: vi.fn(),
 	useStopSite: vi.fn(),
+	useUpdateSitesSortOrder: vi.fn(),
 } ) );
 
 vi.mock( '@/data/sync-activity', () => ( {
@@ -69,12 +71,13 @@ const useSessionsMock = vi.mocked( useSessions, { partial: true } );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useStopSiteMock = vi.mocked( useStopSite, { partial: true } );
+const useUpdateSitesSortOrderMock = vi.mocked( useUpdateSitesSortOrder, { partial: true } );
 const useSiteSyncActivityMock = vi.mocked( useSiteSyncActivity );
-const SITE_ORDER_STORAGE_KEY = 'studio-ui-site-list-order-v1';
 
 describe( 'SiteList', () => {
 	const startSite = vi.fn();
 	const stopSite = vi.fn();
+	const updateSitesSortOrder = vi.fn();
 
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -90,6 +93,10 @@ describe( 'SiteList', () => {
 		useSessionsMock.mockReturnValue( { data: [], isLoading: false } );
 		useStartSiteMock.mockReturnValue( { isPending: false, mutate: startSite } );
 		useStopSiteMock.mockReturnValue( { isPending: false, mutate: stopSite } );
+		useUpdateSitesSortOrderMock.mockReturnValue( {
+			isPending: false,
+			mutate: updateSitesSortOrder,
+		} );
 		useSitesMock.mockReturnValue( {
 			data: [
 				createSite( {
@@ -97,12 +104,14 @@ describe( 'SiteList', () => {
 					name: 'Stopped Site',
 					path: '/Users/example/Studio/stopped-site',
 					running: false,
+					sortOrder: 1000,
 				} ),
 				createSite( {
 					id: 'running-site',
 					name: 'Running Site',
 					path: '/Users/example/Studio/running-site',
 					running: true,
+					sortOrder: 2000,
 				} ),
 			],
 			isLoading: false,
@@ -262,6 +271,56 @@ describe( 'SiteList', () => {
 		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
 	} );
 
+	it( 'matches sessions by owner site id, falling back to path for legacy sessions', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( { id: 'site-a', name: 'Site A', path: '/sites/site-a', sortOrder: 1000 } ),
+				createSite( { id: 'site-b', name: 'Site B', path: '/sites/site-b', sortOrder: 2000 } ),
+			],
+			isLoading: false,
+		} );
+		useSessionsMock.mockReturnValue( {
+			data: [
+				// A stale path must lose to the site id.
+				createSession( {
+					id: 'by-id',
+					ownerSiteId: 'site-b',
+					ownerSitePath: '/sites/site-a',
+					updatedAt: '2026-06-20T12:00:00.000Z',
+				} ),
+				createSession( {
+					id: 'legacy',
+					ownerSitePath: '/sites/site-a',
+					updatedAt: '2026-06-10T12:00:00.000Z',
+				} ),
+				// A deleted site's id must not fall back to a path that now
+				// belongs to another site.
+				createSession( {
+					id: 'orphan',
+					ownerSiteId: 'deleted-site',
+					ownerSitePath: '/sites/site-a',
+					updatedAt: '2026-06-25T12:00:00.000Z',
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site B' } ) );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sessions/$sessionId',
+			params: { sessionId: 'by-id' },
+		} );
+
+		// The orphan is newer but must not attach to Site A via its stale path.
+		fireEvent.click( screen.getByRole( 'button', { name: 'Site A' } ) );
+		expect( navigateMock ).toHaveBeenLastCalledWith( {
+			to: '/sessions/$sessionId',
+			params: { sessionId: 'legacy' },
+		} );
+	} );
+
 	it( 'persists a manual site order after drag and drop', () => {
 		render( <SiteList /> );
 
@@ -301,7 +360,7 @@ describe( 'SiteList', () => {
 
 		expect( placeholder ).toBeInTheDocument();
 		expect( document.querySelector( '[data-site-id="stopped-site"]' ) ).not.toBeInTheDocument();
-		expect( window.localStorage.getItem( SITE_ORDER_STORAGE_KEY ) ).toBeNull();
+		expect( updateSitesSortOrder ).not.toHaveBeenCalled();
 
 		fireEvent( window, createPointerEvent( 'pointerup', { clientX: 16, clientY: 70 } ) );
 
@@ -311,9 +370,7 @@ describe( 'SiteList', () => {
 		expect(
 			runningSite.compareDocumentPosition( stoppedSite ) & Node.DOCUMENT_POSITION_FOLLOWING
 		).toBe( Node.DOCUMENT_POSITION_FOLLOWING );
-		expect( window.localStorage.getItem( SITE_ORDER_STORAGE_KEY ) ).toBe(
-			JSON.stringify( [ 'running-site', 'stopped-site' ] )
-		);
+		expect( updateSitesSortOrder ).toHaveBeenCalledWith( [ 'running-site', 'stopped-site' ] );
 	} );
 
 	it( 'reorders plugins within their group and keeps the site order intact', () => {
@@ -324,24 +381,28 @@ describe( 'SiteList', () => {
 					name: 'Stopped Site',
 					path: '/Users/example/Studio/stopped-site',
 					running: false,
+					sortOrder: 1000,
 				} ),
 				createSite( {
 					id: 'running-site',
 					name: 'Running Site',
 					path: '/Users/example/Studio/running-site',
 					running: true,
+					sortOrder: 2000,
 				} ),
 				createSite( {
 					id: 'plugin-a',
 					name: 'Plugin A',
 					path: '/Users/example/Studio/plugin-a',
 					running: false,
+					sortOrder: 3000,
 				} ),
 				createSite( {
 					id: 'plugin-b',
 					name: 'Plugin B',
 					path: '/Users/example/Studio/plugin-b',
 					running: false,
+					sortOrder: 4000,
 				} ),
 			],
 			isLoading: false,
@@ -398,9 +459,12 @@ describe( 'SiteList', () => {
 			expect( pluginB.compareDocumentPosition( pluginA ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBe(
 				Node.DOCUMENT_POSITION_FOLLOWING
 			);
-			expect( window.localStorage.getItem( SITE_ORDER_STORAGE_KEY ) ).toBe(
-				JSON.stringify( [ 'stopped-site', 'running-site', 'plugin-b', 'plugin-a' ] )
-			);
+			expect( updateSitesSortOrder ).toHaveBeenCalledWith( [
+				'stopped-site',
+				'running-site',
+				'plugin-b',
+				'plugin-a',
+			] );
 		} finally {
 			removePluginSiteTag( 'plugin-a' );
 			removePluginSiteTag( 'plugin-b' );

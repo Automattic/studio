@@ -1,53 +1,98 @@
 Unreleased
 ==========
 
-1.15.0
+1.16.0
 =====
 <!-- Release notes generated using configuration in .github/release.yml at HEAD -->
-* Prevent clearing the language field in Agentic UI settings #4084
-* [Tooling] Secure Claude workflows #4037
-* Allow agent to control light/dark color theme, and display screenshots in the chat #3982
-* Add devcontainer for faster GitHub Codespaces setup #4089
-* build(deps): bump fastlane-plugin-wpmreleasetoolkit from 14.9.0 to 14.10.0 in the ruby-minor-and-patch group #4099
-* Skip dangling symlinks when archiving site content #4038
-* Update CI to Xcode 26.6 and Ruby 3.4.9 #4072
-* Add code comment hygiene guideline to AGENTS.md #4100
-* Fix standalone CLI bundle build failing with data-liberation E404 #4101
-* Fix liberate_extract timeout #4095
-* Fix broken Central Kurdish text in agentic UI on macOS #4088
-* Avoid Node binary downloads for matching runtime #3734
-* Let take_screenshot skip chat display for internal verification captures #4097
-* Add e2e coverage for Local, Playground, .wpress and existing-site imports #4057
-* Allow longer time-to-first-byte for AI API requests (cURL low-speed timeout) #3120
-* Ensure that we display an appropriate error message for when there is .maintenance file #3948
-* Fix Xdebug not starting on a normal page load on the native PHP runtime #4086
-* Resolve the real site running state when resuming code sessions headlessly #4096
-* Allow editing the previous user message #4094
-* build(deps): bump rubocop from 1.88.1 to 1.88.2 in the ruby-minor-and-patch group #4114
-* Replace abandoned winreg module with PowerShell for Windows PATH management #4032
-* Liberate: fix resolving sites as path instead of only real domains #4110
-* Studio Code TUI: sort slash command autocomplete alphabetically #4116
-* Disable automatic What's New modal on app updates #4117
-* Fix flaky e2e: import a backup into an existing site #4115
-* Liberate: surface /liberate when searching for migrate #4111
-* Add CLI e2e tests for site navigation and content actions #4105
-* Use a neutral CLI log prefix instead of hard-coded 'site ID' #4108
-* Keep CLI child close handlers alive when killing on quit #4109
-* Set up Studio as a Claude and Codex marketplace for data-liberation #4011
-* CLI: highlight the matched query in slash-command autocomplete #4120
-* CLI test: add HTTP response check for created site #4000
-* Bump static-php-cli ref to enable SQLite column metadata #4118
-* Refactor remote site picking in `pull-reprint` #4102
-* Wire up Add Site and Settings menu actions in agentic UI #4085
-* Retry AppX signing on transient timestamp server failures #4121
-* Update PHP 8.5.8-studio-1 metadata #4141
-* Update PHP 8.4.23-studio-1 metadata #4142
-* Update PHP 8.3.32-studio-1 metadata #4143
-* Update PHP 8.2.32-studio-1 metadata #4144
-* Fix submit button while editing prompts in Studio Code UI #4123
-* @juanmaguitar made their first contribution in https://github.com/Automattic/studio/pull/4086
-* @borkweb made their first contribution in https://github.com/Automattic/studio/pull/4011
-**Full Changelog**: https://github.com/Automattic/studio/compare/v1.14.0...v1.15.0
+* Add Site Management UI integration tests #3950
+* Migrate localization tests to CLI e2e and UI tests #4146
+* Replace "Set your next instruction" placeholder with catchier copy #4149
+* Studio: Fix local path field in Agentic UI #4145
+* Add copy button to copy the full assistant message in Studio Code #4113
+* build(deps): bump aws-sdk-cloudfront from 1.150.0 to 1.151.0 in the ruby-minor-and-patch group #4154
+* build(deps): bump anthropics/claude-code-action from 1.0.163 to 1.0.170 #4153
+* Studio: site shows offline after import #4106
+* Migrate overview customize links e2e test to CLI #4139
+* Delete site confirmation layout is broken in agentic UI #4157
+* Fix plugin reinstall failure after deletion in Sandbox runtime #4044
+* Fix AskUserQuestion to support multiline #4119
+* Studio: Fix line clamp warning #4158
+* Studio: The Preview button for blueprints is not visible in agentic UI #4155
+* Studio: Fix the scroll that is stuck on blueprints gallery page in agentic UI #4148
+* Studio: Ensure that the blueprint cards are proportionate in the blueprints gallery #4156
+* Move backup fixtures to a shared root-level test-fixtures/ directory #4151
+* Remove envelope icon from admin email field in agentic UI #4174
+* Studio Code: Close daemon socket after per-turn site status check so headless runs can exit #4175
+* Agentic UI: Add app menu button #4172
+* Agentic UI: Fix agentic UI dark-mode icons and dropdowns #4168
+* Display error max token reached in Studio Code Desktop #4077
+* Studio: Ensure refresh browser tool has the right icon in the agentic UI #4159
+* Remove per-tooltip delay overrides so all tooltips share one delay #4129
+* Update release notes for 1.15.0 #4181
+* Re-add CLI integration test for creating a site from a custom Blueprint #4124
+* Restore E2E CI gate removed during Linux E2E iteration #4182
+* Add CLI e2e tests for studio import formats #4169
+* Skip CI jobs on Linux when a PR only touches irrelevant files #4184
+* Decrease windows build time caused by data-liberation-agent #4185
+* Add header navigation UI tests for opening the site and wp-admin #4180
+* Move AI chat sessions to ~/.studio/sessions #4128
+* Fix Refresh icon being too large in browser toolbar #4187
+* Remove `tsx` in favor of `node --experimental-strip-types` #4021
+* Match chat sessions to sites by site id instead of path #4131
+* Replace GPT 5.5 with GPT 5.6 Sol and route OpenAI models through the Responses API #4190
+* Add drag-to-reorder for sites in the agentic UI sidebar #4134
+* Add chat history and New chat controls below the composer #4133
+* 2nd take: Add weekly GitHub action cron job to check for new PHP versions #4052
+* Add manifest-driven prep script for hosted data-heavy e2e fixtures #4152
+* Remove the sidebar Studio wordmark #4092
+* Add regression test for daemon disconnect after per-turn site check #4193
+* Consolidate Unix CLI installation managers into a shared base #3972
+* Fix MODULE_TYPELESS_PACKAGE_JSON warning on npm install #4194
+* Rewire import e2e test to a hosted Jetpack backup #4186
+* Disable Jetpack Stats for local sites #4035
+* Fix contrast issues in the agentic UI #4199
+* Bundle skill-invoked driver scripts so data-liberation skills work as installed plugins #4126
+* Fix IPC sender validation error when toggling the Agentic UI feature flag #4200
+* Fix data-liberation scripts for Studio Code #4201
+* Liberate: Force AI to use always the same wording for data-liberation flows #4122
+* Regenerate native PHP mu-plugins when an existing file has stale content #4196
+* Simplify "What to do with running sites" dialog when quitting Studio #4140
+* Make Agentic UI available behind a beta feature flag #4163
+* Agentic UI: Show the app menu button only on Windows and Linux #4207
+* Agentic UI: Make the sidebar site-centric #4191
+* build(deps): bump uuid, @wordpress/block-editor, @wordpress/block-library and @wordpress/blocks in /packages/data-liberation-agent/scripts/block-fixer #4211
+* Agentic UI: Add toasts for notifications #4203
+* SSL: Fix macOS Trust Certificate button hidden for untrusted CAs #4223
+* Add Linux to bug report Platform field and split out Architecture #4224
+* Agentic UI: Fix Linux/Windows window controls #4166
+* Studio Code: accept image paste anywhere in the view #4208
+* Improve CLI sync error messages for sites that can't be synced #4202
+* build(deps): bump anthropics/claude-code-action from 1.0.170 to 1.0.176 #4237
+* build(deps): bump softprops/turnstyle from 3.3.1 to 3.3.2 #4239
+* build(deps): bump actions/setup-node from 6 to 7 #4238
+* build(deps): bump ruby/setup-ruby from 1.316.0 to 1.319.0 #4240
+* Update transitive dependencies to resolve Dependabot security alerts #4235
+* Run CLI e2e tests automatically on all PRs #4236
+* Agentic UI: Improve site menu button and dropdown contrast #4227
+* Agentic UI: Bring back the dark app frame around the content area #4233
+* Support new blank or child themes in Studio Code #4209
+* Studio Code: add recovery action to Session not found state #4243
+**Full Changelog**: https://github.com/Automattic/studio/compare/v1.15.0...v1.16.0
+
+1.15.0
+=====
+* Fixed Xdebug not starting on a normal page load on the native PHP runtime #4086
+* Added skipping dangling symlinks when archiving site content #4038
+* Studio Code: Screenshots taken by the assistant now appear inline in the conversation, and the agent can capture pages in light or dark mode #3982, #4097
+* Studio Code: Allowed editing your last message after interrupting the assistant #4094, #4123
+* Studio Code: Improved the /liberate command for recreating sites from other platforms, including surfacing it when searching for "migrate" #4095, #4110, #4111
+* Studio Code: Fixed the agent seeing running local sites as stopped when resuming a session, avoiding redundant site starts #4096
+* Update native PHP binaries to latest versions to fix SQLite issue #4118, #4141, #4142, #4143, #4144
+* Allowed more time for AI-powered plugins to receive a response before timing out #3120
+* Improved an error message when a site is in maintenance mode #3948
+* Improved CLI slash-command autocomplete with alphabetical sorting and match highlighting #4116, #4120
+* Stopped showing the What's New modal automatically on app updates #4117
+* Misc CLI and maintenance improvements #4089, #4108, #4109, #4011, #4000, #4032
 
 1.14.0
 =====
@@ -63,7 +108,6 @@ Unreleased
 * Fixed occasional failures when duplicating a site #4074
 * Fixed broken Central Kurdish (Sorani) text on macOS by bundling the Vazirmatn font #4062
 * Updated multiple dependencies, including WP Playground and PHP-WASM, the SQLite database integration, and the pi (agent) packages #4015, #4033, #4073
-**Full Changelog**: https://github.com/Automattic/studio/compare/v1.13.0...v1.14.0
 
 1.13.0
 =====

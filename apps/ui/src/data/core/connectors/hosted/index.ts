@@ -1,6 +1,6 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
+import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
@@ -9,7 +9,6 @@ import type {
 	AuthUser,
 	AvailableSitePath,
 	Connector,
-	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	OnboardingHintsState,
@@ -192,7 +191,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = await api< SiteDetails[] >( '/sites' );
+			lastSites = applyStoredSiteOrder( await api< SiteDetails[] >( '/sites' ) );
 			return lastSites;
 		},
 		async createSite() {
@@ -212,6 +211,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async updateSite() {
 			throw new UnsupportedError( 'updateSite' );
+		},
+		async updateSitesSortOrder( updates ) {
+			storeSiteOrder( updates );
 		},
 		async refreshSiteIcon() {
 			// No-op: icons come back with getSites().
@@ -280,21 +282,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			throw new UnsupportedError( 'comparePaths' );
 		},
 
-		// Featured blueprints — public endpoint, same source as the desktop app.
-		async getFeaturedBlueprints( locale ): Promise< FeaturedBlueprint[] > {
-			const blueprints = await fetchStudioBlueprints( locale );
-			return blueprints.map( ( blueprint ) => ( {
-				slug: blueprint.slug,
-				title: blueprint.title,
-				excerpt: blueprint.excerpt,
-				image: blueprint.image,
-				playgroundUrl: blueprint.playground_url,
-				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
-			} ) );
-		},
-		async getWordPressVersions() {
-			return fetchWordPressVersions();
-		},
+		getWordPressVersions: fetchWordPressVersions,
 
 		async getFilePath() {
 			// Browsers can't resolve a real filesystem path for a File.
@@ -318,10 +306,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async cleanupBlueprintTempDir() {
 			// No-op.
 		},
-		async readBlueprintFile(): Promise< Record< string, unknown > > {
+		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		onAddSiteRequested() {
+		onAddSite() {
 			return () => {};
 		},
 		onAddSiteWithBlueprint() {
@@ -562,6 +550,8 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async popupAppMenu() {},
+		showsAppMenuButton: false,
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
 		},
@@ -636,6 +626,13 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onShowGettingStarted() {
 			// No application menu on the hosted surface.
 			return () => {};
+		},
+		onOpenSettings() {
+			// No application menu in a browser tab.
+			return () => {};
+		},
+		async disableAgenticUi() {
+			// No-op in the browser.
 		},
 
 		// Browser tabs have no auto-updater; report an inert status (rather

@@ -333,6 +333,30 @@ function StudioCliSection( {
 	);
 }
 
+// The agentic UI ships behind a beta flag — this is the way back to the
+// classic experience.
+function SwitchExperienceSection() {
+	const connector = useConnector();
+	return (
+		<div className={ styles.switchUiField }>
+			<div className={ styles.switchUiText }>
+				<span className={ styles.switchUiLabel }>{ __( 'Studio experience' ) }</span>
+				<span className={ styles.switchUiDescription }>
+					{ __( 'You are using the new Studio experience.' ) }
+				</span>
+			</div>
+			<Button
+				variant="outline"
+				tone="neutral"
+				size="compact"
+				onClick={ () => void connector.disableAgenticUi() }
+			>
+				{ __( 'Switch to classic' ) }
+			</Button>
+		</div>
+	);
+}
+
 function AgenticFeaturesSection( {
 	checked,
 	onChange,
@@ -760,6 +784,7 @@ function PreferencesPanel( {
 					onChange={ ( studioCliInstalled ) => onChange( { studioCliInstalled } ) }
 				/>
 			) : null }
+			<SwitchExperienceSection />
 		</div>
 	);
 }

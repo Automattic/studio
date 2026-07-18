@@ -16,8 +16,8 @@ describe( 'resolveSessionModel', () => {
 	} );
 
 	it( 'keeps the recorded model over the fallback', () => {
-		expect( resolveSessionModel( [ modelChangeEntry( 'gpt-5.5' ) ], 'claude-opus-4-8' ) ).toBe(
-			'gpt-5.5'
+		expect( resolveSessionModel( [ modelChangeEntry( 'gpt-5.6-sol' ) ], 'claude-opus-4-8' ) ).toBe(
+			'gpt-5.6-sol'
 		);
 	} );
 
@@ -37,6 +37,6 @@ describe( 'getAiModelThinking', () => {
 	} );
 
 	it( 'marks GPT models as non-thinking', () => {
-		expect( getAiModelThinking( 'gpt-5.5' ) ).toBe( 'none' );
+		expect( getAiModelThinking( 'gpt-5.6-sol' ) ).toBe( 'none' );
 	} );
 } );

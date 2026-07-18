@@ -23,8 +23,12 @@
 	margin-bottom: 8px;
 }
 
+.title:focus {
+	outline: none;
+}
+
 .subtitle {
-	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	color: var(--wpds-color-fg-content-neutral-weak);
 	margin: 0 0 32px;
 }
 
@@ -34,6 +38,20 @@
 
 .outlet h1:focus:not(:focus-visible) {
 	outline: none;
+}
+
+.progress {
+	position: fixed;
+	top: 24px;
+	left: 50%;
+	z-index: 10;
+	margin: 0;
+	padding: 8px 12px;
+	transform: translateX(-50%);
+	border-radius: 4px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+	color: var(--wpds-color-fg-content-neutral);
+	box-shadow: var(--wpds-elevation-md);
 }
 
 /* Decorative dot-grid backdrop behind every onboarding step. Fixed so it

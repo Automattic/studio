@@ -14,7 +14,12 @@
 export interface PendingSlot< T > {
 	set( value: T ): void;
 	peek(): T | null;
-	clear(): void;
+	/**
+	 * Empties the slot. Pass the value you adopted to make the clear
+	 * identity-checked: the slot is only emptied if it still holds that exact
+	 * value, so a newer value that arrived in the meantime survives.
+	 */
+	clear( expected?: T ): void;
 	subscribe( listener: () => void ): () => void;
 }
 
@@ -32,8 +37,11 @@ export function createPendingSlot< T >(): PendingSlot< T > {
 			notify();
 		},
 		peek: () => value,
-		clear() {
+		clear( expected?: T ) {
 			if ( value === null ) {
+				return;
+			}
+			if ( expected !== undefined && value !== expected ) {
 				return;
 			}
 			value = null;

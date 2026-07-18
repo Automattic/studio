@@ -1,0 +1,22 @@
+{
+	"fixtures": [
+		{
+			"name": "pipeline-test.sql",
+			"description": "Hosting-pipeline smoke test (STU-1866): tiny SQL file on the fixtures site. Not consumed by any test — it keeps CI exercising the real download + verify + unwrap path even while no data-heavy fixture is wired up yet.",
+			"url": "https://studioe2efixtures.wordpress.com/wp-content/uploads/2026/07/studio-fixture-pipeline-test-2026-07.zip",
+			"sha256": "eaaada4e0a0d9ee0d18334e9541569eddfae920c30f8561f952d66e72523192f",
+			"bytes": 327,
+			"innerFilename": "pipeline-test.sql",
+			"innerSha256": "ffd7c4df8f00ef77ebf67ad170ecd8e46444b17eca7475a2f4038970ece41e4d"
+		},
+		{
+			"name": "coolbeans-jetpack-backup-2026-07.tar.gz",
+			"description": "Genuine Jetpack backup (2026-07-13) of gcsecseywoa11.wpcomstaging.com, a purpose-built Atomic test site. Consumed by apps/studio/e2e/import.test.ts, which asserts: blogname 'Cool Beans', tagline 'A Jetpack Backup import test site for WordPress Studio', theme landing text 'Life is too short for', and the hero post at /cool-beans-☕-jetpack-backup-import-test-site/ ('What to verify after importing'). Sanitized: wp-content/object-cache.php removed — that platform drop-in fatals sites outside Atomic; everything else (wpcomsh mu-plugins, __wp__ core tree, WooCommerce tables) kept for realism.",
+			"url": "https://studioe2efixtures.wordpress.com/wp-content/uploads/2026/07/coolbeans-jetpack-backup-2026-07.zip",
+			"sha256": "0003b00b67076334b67b9ccb2e410e38e4af18d7bea4cea669813444db397998",
+			"bytes": 149471869,
+			"innerFilename": "coolbeans-jetpack-backup-2026-07.tar.gz",
+			"innerSha256": "fbc0bbb62a1feddb63def8d571a8144dbad4f413e2d054716ae6ab57619e2943"
+		}
+	]
+}

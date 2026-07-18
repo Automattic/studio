@@ -31,10 +31,12 @@ import {
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 } from '@studio/common/ai/sessions/manage';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import {
 	deleteAiSessionPlacement,
 	readAiSessionPlacement,
 } from '@studio/common/ai/sessions/placement';
+import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
@@ -92,6 +94,7 @@ import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-run
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import {
 	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
@@ -99,15 +102,12 @@ import {
 	type ExtractedBlueprintBundle,
 } from '@studio/common/sites/blueprint-extract';
 import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
-import {
-	MACOS_TRAFFIC_LIGHT_POSITION,
-	MAIN_MIN_WIDTH,
-	SIDEBAR_WIDTH,
-	WINDOWS_TITLEBAR_HEIGHT,
-} from 'src/constants';
+import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
-import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
-import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
+import {
+	getBetaFeatures as getBetaFeaturesFromLib,
+	updateBetaFeature as updateBetaFeatureInLib,
+} from 'src/lib/beta-features';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -140,7 +140,13 @@ import { updateSiteUrl } from 'src/lib/update-site-url';
 import { expandWindowForWorkbench as expandMainWindowForWorkbench } from 'src/lib/window-expansion';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
-import { getMainWindow } from 'src/main-window';
+import {
+	getFrameTitleBarOverlayOptions,
+	getMainWindow,
+	getTitleBarOverlayOptions,
+	loadMainWindowRenderer,
+	setAgenticUiEnabled,
+} from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
 import {
@@ -182,11 +188,11 @@ import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
+	updateAppdata,
 	loadUserData,
 	lockAppdata,
 	saveUserData,
 	unlockAppdata,
-	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
@@ -283,21 +289,21 @@ export {
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
-	return listHydratedAiSessions( getAiSessionsRootDirectory() );
+	return listHydratedAiSessions( getSessionsDirectory() );
 }
 
 export async function loadAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< LoadedAiSession > {
-	return loadHydratedAiSession( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	return loadHydratedAiSession( getSessionsDirectory(), sessionIdOrPrefix );
 }
 
 export async function deleteAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< AiSessionSummary > {
-	const deleted = await deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	const deleted = await deleteAiSessionFromStore( getSessionsDirectory(), sessionIdOrPrefix );
 	await deleteSharedSession( deleted.id );
 	await deleteAiSessionPlacement( deleted.id );
 	return deleted;
@@ -307,9 +313,9 @@ export async function createAiSession(
 	_event: IpcMainInvokeEvent,
 	siteId?: string
 ): Promise< AiSessionSummary > {
-	const sitesRoot = getAiSessionsRootDirectory();
+	const sessionsRoot = getSessionsDirectory();
 	if ( ! siteId ) {
-		return createOrReuseAiSession( sitesRoot );
+		return createOrReuseAiSession( sessionsRoot );
 	}
 
 	const server = SiteServer.get( siteId );
@@ -320,7 +326,7 @@ export async function createAiSession(
 	// Binds the session to the site and reuses an existing empty draft for it
 	// instead of piling up orphans — the shared logic the `studio ui` server
 	// uses too.
-	return createOrReuseAiSession( sitesRoot, {
+	return createOrReuseAiSession( sessionsRoot, {
 		site: {
 			id: server.details.id,
 			name: server.details.name,
@@ -334,10 +340,7 @@ export async function updateAiSessionMetadata(
 	sessionIdOrPrefix: string,
 	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
 ): Promise< AiSessionSummary > {
-	const { summary } = await loadAiSessionFromStore(
-		getAiSessionsRootDirectory(),
-		sessionIdOrPrefix
-	);
+	const { summary } = await loadAiSessionFromStore( getSessionsDirectory(), sessionIdOrPrefix );
 	const [ metadata, placement ] = await Promise.all( [
 		updateSharedSession( summary.id, patch ),
 		readAiSessionPlacement( summary.id ),
@@ -357,17 +360,14 @@ export async function updateAiSessionMetadata(
  * tool set reflect the same truth on the next turn.
  */
 async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promise< void > {
-	const root = getAiSessionsRootDirectory();
+	const root = getSessionsDirectory();
 	const { summary } = await loadHydratedAiSession( root, sessionId );
 
 	if ( summary.activeEnvironment !== 'live' ) {
 		return;
 	}
-	if ( ! summary.ownerSitePath ) {
-		return;
-	}
-
-	const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+	const ownerSite = findAiSessionOwnerSite( SiteServer.getAllDetails(), summary );
+	const ownerServer = ownerSite ? SiteServer.get( ownerSite.id ) : undefined;
 	if ( ! ownerServer ) {
 		return;
 	}
@@ -384,7 +384,8 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	// CLI's replay sees Local on the next turn.
 	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
 		siteName: ownerServer.details.name,
-		sitePath: summary.ownerSitePath,
+		sitePath: ownerServer.details.path,
+		siteId: ownerServer.details.id,
 	} );
 }
 
@@ -436,7 +437,7 @@ export async function markAiMessageEdited(
 	sessionId: string,
 	originalEntryId: string
 ): Promise< void > {
-	await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.message_edited', {
+	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.message_edited', {
 		originalEntryId,
 	} );
 }
@@ -455,7 +456,7 @@ export async function setAiSessionModel(
 	if ( ! isAiModelId( model ) ) {
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
-	await appendModelChangeEntry( getAiSessionsRootDirectory(), sessionId, '', model );
+	await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
 }
 
 export interface SetSessionEnvironmentResult {
@@ -479,16 +480,19 @@ export async function setSessionEnvironment(
 	sessionId: string,
 	environment: 'local' | 'live'
 ): Promise< SetSessionEnvironmentResult > {
-	const { summary } = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
+	const { summary } = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
 
-	if ( ! summary.ownerSitePath || ! summary.ownerSiteName ) {
+	if ( ! summary.ownerSiteId && ! summary.ownerSitePath ) {
 		throw new Error( 'Cannot change environment: session has no owner site' );
 	}
 
-	const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+	const ownerSite = findAiSessionOwnerSite( SiteServer.getAllDetails(), summary );
+	const ownerServer = ownerSite ? SiteServer.get( ownerSite.id ) : undefined;
 	if ( ! ownerServer ) {
 		throw new Error(
-			`Cannot change environment: owner site is no longer available (${ summary.ownerSitePath })`
+			`Cannot change environment: owner site is no longer available (${
+				summary.ownerSiteId ?? summary.ownerSitePath
+			})`
 		);
 	}
 
@@ -502,17 +506,18 @@ export async function setSessionEnvironment(
 			throw new Error( 'Cannot switch to live: no linked WordPress.com site for this session' );
 		}
 
-		await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
+		await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
 			siteName: liveSite.name,
-			// Keep the desktop placement path on remote picks too, so live/local
+			// Keep the local owner's path and id on remote picks too, so live/local
 			// environment flips still resolve against the same local site.
-			sitePath: summary.ownerSitePath,
+			sitePath: ownerServer.details.path,
+			siteId: ownerServer.details.id,
 			remote: true,
 			url: liveSite.url,
 			wpcomSiteId: liveSite.id,
 		} );
 
-		const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
+		const refreshed = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
 		return {
 			environment: 'live',
 			url: liveSite.url,
@@ -522,13 +527,14 @@ export async function setSessionEnvironment(
 	}
 
 	const details = ownerServer.details;
-	await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
+	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
 		siteName: details.name,
 		sitePath: details.path,
+		siteId: details.id,
 		url: 'url' in details ? details.url : undefined,
 	} );
 
-	const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
+	const refreshed = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
 	return {
 		environment: 'local',
 		summary: refreshed.summary,
@@ -1465,7 +1471,20 @@ export async function readLocalMediaFile(
 	_event: IpcMainInvokeEvent,
 	path: string
 ): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
-	const stats = await fsPromises.stat( path );
+	let resolvedPath = path;
+	let stats: fs.Stats;
+	try {
+		stats = await fsPromises.stat( resolvedPath );
+	} catch ( error ) {
+		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
+			throw error;
+		}
+		resolvedPath = resolveMigratedAiSessionsPath( path );
+		if ( resolvedPath === path ) {
+			throw error;
+		}
+		stats = await fsPromises.stat( resolvedPath );
+	}
 	if ( ! stats.isFile() ) {
 		throw new Error( 'Local media path must be a file.' );
 	}
@@ -1475,7 +1494,7 @@ export async function readLocalMediaFile(
 		throw new Error( 'Local media file type is not supported.' );
 	}
 
-	const buffer = await fsPromises.readFile( path );
+	const buffer = await fsPromises.readFile( resolvedPath );
 	return {
 		name: nodePath.basename( path ),
 		mimeType,
@@ -1756,6 +1775,33 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 
 export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
 	return await getBetaFeaturesFromLib();
+}
+
+export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', true );
+	setAgenticUiEnabled( true );
+	const mainWindow = await getMainWindow();
+	if ( mainWindow && ! mainWindow.isDestroyed() ) {
+		await loadMainWindowRenderer( mainWindow );
+	}
+}
+
+export async function disableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', false );
+	setAgenticUiEnabled( false );
+	const mainWindow = await getMainWindow();
+	if ( mainWindow && ! mainWindow.isDestroyed() ) {
+		await loadMainWindowRenderer( mainWindow );
+	}
+}
+
+export async function dismissAgenticUiBanner( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateAppdata( { agenticUiBannerDismissed: true } );
+}
+
+export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.agenticUiBannerDismissed === true;
 }
 
 export async function executeWPCLiInline(
@@ -2545,8 +2591,12 @@ export async function readBlueprintFile(
 		throw new Error( 'Blueprint file path must be within the allowed directory' );
 	}
 
-	const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
-	return JSON.parse( fileContents );
+	try {
+		const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
+		return JSON.parse( fileContents );
+	} finally {
+		await fsPromises.rm( resolvedPath, { force: true } );
+	}
 }
 
 export async function extractBlueprintBundle(
@@ -2575,42 +2625,22 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
 		}
 	} else if ( process.platform === 'win32' || process.platform === 'linux' ) {
-		const isDark = nativeTheme.shouldUseDarkColors;
-		if ( visible ) {
-			parentWindow.setTitleBarOverlay( {
-				color: 'rgba(30, 30, 30, 1)',
-				symbolColor: 'white',
-				height: WINDOWS_TITLEBAR_HEIGHT,
-			} );
-		} else {
-			parentWindow.setTitleBarOverlay( {
-				color: isDark ? '#2f2f2f' : '#fff',
-				symbolColor: isDark ? 'white' : '#1e1e1e',
-				height: WINDOWS_TITLEBAR_HEIGHT,
-			} );
-		}
+		// Hiding the controls means a fullscreen modal (e.g. Add site) now sits behind them,
+		// so the overlay must match its theme-aware `bg-frame` background instead of the chrome.
+		parentWindow.setTitleBarOverlay(
+			visible ? getTitleBarOverlayOptions() : getFrameTitleBarOverlayOptions()
+		);
 	}
 }
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
+	void enabled;
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
 		return;
 	}
 
-	if ( enabled ) {
-		parentWindow.setTitleBarOverlay( {
-			color: '#131313',
-			symbolColor: 'white',
-			height: WINDOWS_TITLEBAR_HEIGHT,
-		} );
-	} else {
-		parentWindow.setTitleBarOverlay( {
-			color: 'rgba(30, 30, 30, 1)',
-			symbolColor: 'white',
-			height: WINDOWS_TITLEBAR_HEIGHT,
-		} );
-	}
+	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 
 export async function updateSitesSortOrder(

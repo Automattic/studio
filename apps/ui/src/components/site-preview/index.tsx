@@ -35,6 +35,7 @@ import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
 import { usePointerDrag } from '@/hooks/use-pointer-drag';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
 import { usePluginSiteTag } from '@/lib/plugin-prototype';
@@ -848,6 +849,7 @@ export function SitePreview( {
 	// on top of this toolbar; reserve their corner (the hook is false on
 	// other platforms, in the browser, and in OS fullscreen).
 	const reserveTrafficLightSpace = useTrafficLightSpace();
+	const windowControls = useWindowControlsOverlay();
 	// Prototype: plugin sites get plugin-flavored copy in the stopped state.
 	const pluginTag = usePluginSiteTag( site.id );
 	const siteUrl = getSiteUrl( site );
@@ -1376,6 +1378,14 @@ export function SitePreview( {
 					sidebarCollapsed && styles.headerSidebarCollapsed,
 					fullscreen && reserveTrafficLightSpace && styles.headerTrafficLights
 				) }
+				style={
+					windowControls
+						? {
+								minHeight: windowControls.height,
+								paddingInlineEnd: windowControls.controlsWidth + 12,
+						  }
+						: undefined
+				}
 			>
 				{ /* Equal-flex side tracks keep the address control truly centered
 					in the toolbar regardless of what each side holds. */ }

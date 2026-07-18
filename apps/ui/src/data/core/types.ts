@@ -132,6 +132,7 @@ export interface SiteDetails {
 	enableXdebug?: boolean;
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
+	sortOrder?: number;
 	themeDetails?: {
 		name: string;
 		path: string;
@@ -267,6 +268,9 @@ export interface Connector {
 	// process handler. `wpVersion` is only forwarded when the user explicitly
 	// picked a pinned version — undefined means "keep auto-updating".
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
+	// Persists the sidebar's manual site order (the same per-site `sortOrder`
+	// the legacy desktop sidebar uses).
+	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
 	// Refreshes the cached WordPress Site Icon path after a site-level icon
 	// change. The renderer receives image bytes through getSites().
 	refreshSiteIcon( siteId: string ): Promise< void >;
@@ -327,11 +331,6 @@ export interface Connector {
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
-	// Featured blueprints gallery for the "Start from blueprint" onboarding
-	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
-	// no auth required, localized by the user's current UI locale.
-	getFeaturedBlueprints( locale?: string ): Promise< FeaturedBlueprint[] >;
-
 	// Installable WordPress versions from the wordpress.org version-check
 	// API: a "latest" auto-updating option first, then nightly/beta and
 	// stable releases down to Playground's minimum supported version.
@@ -363,16 +362,14 @@ export interface Connector {
 		options?: { width?: number; colorScheme?: 'light' | 'dark' }
 	): Promise< LocalMediaFile >;
 
-	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
+	// Uploads and extracts a Blueprint ZIP bundle to a temp directory and returns the
 	// parsed `blueprint.json`. The caller is responsible for calling
 	// `cleanupBlueprintTempDir` if the extraction succeeds but the upload
 	// flow never reaches `createSite` — otherwise `createSite` cleans the
 	// temp directory automatically when it uses the extracted blueprint.
-	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
+	extractBlueprintBundle( file: File ): Promise< ExtractedBlueprintBundle >;
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
-	readBlueprintFile( filePath: string ): Promise< Record< string, unknown > >;
-	onAddSiteRequested( listener: () => void ): () => void;
-	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
+	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 
 	// Imports a backup archive into an already-created site. Extracts the
 	// archive, installs the SQLite integration if missing, then imports the
@@ -559,6 +556,14 @@ export interface Connector {
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
 
+	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
+
+	// Whether the UI should render a button that opens the app menu via
+	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
+	// native menu bar; macOS has the native application menu and the browser
+	// (`studio ui` / hosted) has no app menu at all.
+	showsAppMenuButton: boolean;
+
 	// Clipboard — routed to the host so it works where the renderer's
 	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
 	copyText( text: string ): Promise< void >;
@@ -607,6 +612,18 @@ export interface Connector {
 
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;
+
+	// Fires when the user activates "File > Add Site…" (or its keyboard
+	// shortcut) in the application menu.
+	onAddSite( listener: () => void ): () => void;
+	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
+
+	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
+	// the application menu.
+	onOpenSettings( listener: () => void ): () => void;
+
+	// Switches back to the legacy (classic) Studio UI.
+	disableAgenticUi(): Promise< void >;
 
 	// Persistent-message dismissals (update cards, announcements). Ids are
 	// opaque; dismissing is idempotent and survives relaunches.
@@ -679,6 +696,7 @@ export interface SnapshotUsage {
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';
+export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
 
 // Mirrors the desktop's QuitSitesBehavior storage union, plus 'ask' for the
 // unset state (the quit dialog prompts on every quit).
@@ -727,15 +745,6 @@ export interface AppGlobals {
 	enableAgenticUi: boolean;
 }
 
-export interface FeaturedBlueprint {
-	slug: string;
-	title: string;
-	excerpt: string;
-	image: string;
-	playgroundUrl: string;
-	blueprint: BlueprintV1Declaration;
-}
-
 export interface CreateSiteParams {
 	name: string;
 	path: string;
@@ -753,13 +762,12 @@ export interface CreateSiteParams {
 	// WordPress.com site), where the sync handler restarts the server itself.
 	skipStart?: boolean;
 	// Optional blueprint payload. When present, `blueprint` is the parsed
-	// blueprint JSON; `slug` is set for featured blueprints (used for stats);
-	// `filePath` points at the extracted `blueprint.json` inside a ZIP bundle
-	// so the CLI can resolve relative asset references. Main process cleans
-	// up the temp dir automatically once `createSite` completes.
+	// blueprint JSON; `filePath` points at the extracted `blueprint.json`
+	// inside a ZIP bundle so the CLI can resolve relative asset references.
+	// Main process cleans up the temp dir automatically once `createSite`
+	// completes.
 	blueprint?: {
 		blueprint: BlueprintV1Declaration;
-		slug?: string;
 		filePath?: string;
 	};
 }

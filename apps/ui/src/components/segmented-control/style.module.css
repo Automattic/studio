@@ -1,4 +1,5 @@
 .root {
+	position: relative;
 	display: flex;
 	gap: 2px;
 	padding: 2px;
@@ -6,7 +7,25 @@
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 }
 
+/* The selected-segment fill: a single element sliding between segments
+   (positioned by the component from measurements). Same fill as the sidebar
+   rows' hover/active shape so the pressed segment reads as "selected" with
+   the rest of the app's chrome. */
+.indicator {
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	left: 0;
+	border-radius: calc(var(--wpds-border-radius-lg) - 2px);
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
+	transition:
+		transform 200ms ease,
+		width 200ms ease;
+}
+
 .segment {
+	position: relative;
+	z-index: 1;
 	flex: 1 1 0;
 	display: inline-flex;
 	align-items: center;
@@ -30,14 +49,15 @@
 		color var(--wpds-motion-duration-sm) var(--wpds-motion-easing-subtle);
 }
 
+.segment svg {
+	fill: currentColor;
+}
+
 .segment:hover {
 	color: var(--wpds-color-fg-interactive-neutral);
 }
 
-/* Same fill as the sidebar rows' hover/active shape so the pressed segment
-   reads as "selected" with the rest of the app's chrome. */
 .segment[data-pressed] {
-	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
 	color: var(--wpds-color-fg-content-neutral);
 	font-weight: var(--wpds-typography-font-weight-medium);
 }
@@ -45,4 +65,10 @@
 .segment:focus-visible {
 	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
 	outline-offset: -1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.indicator {
+		transition: none;
+	}
 }

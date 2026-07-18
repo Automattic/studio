@@ -17,7 +17,6 @@ import type {
 	LoadedAiSession,
 	ProposedSitePath,
 	QuitSitesBehavior,
-	QuitSitesBehaviorSetting,
 	SelectedSiteFolder,
 	SiteCheckpoint,
 	SiteDetails,

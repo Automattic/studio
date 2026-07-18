@@ -7,7 +7,6 @@ import {
 	clipboard,
 	dialog,
 	nativeImage,
-	nativeTheme,
 	shell,
 	webContents,
 	type IpcMainInvokeEvent,

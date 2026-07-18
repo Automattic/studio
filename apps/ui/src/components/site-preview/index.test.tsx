@@ -894,22 +894,23 @@ describe( 'SitePreview', () => {
 } );
 
 describe( 'getSimulatedViewport', () => {
-	it( 'returns null without a requested width or a measured pane', () => {
+	it( 'returns null without a preset or a measured pane', () => {
 		expect( getSimulatedViewport( null, { width: 520, height: 700 } ) ).toBe( null );
-		expect( getSimulatedViewport( 390, null ) ).toBe( null );
-		expect( getSimulatedViewport( 390, { width: 0, height: 700 } ) ).toBe( null );
+		expect( getSimulatedViewport( { width: 390 }, null ) ).toBe( null );
+		expect( getSimulatedViewport( { width: 390 }, { width: 0, height: 700 } ) ).toBe( null );
 	} );
 
 	it( 'renders widths narrower than the pane 1:1', () => {
-		expect( getSimulatedViewport( 390, { width: 520, height: 700 } ) ).toEqual( {
+		expect( getSimulatedViewport( { width: 390 }, { width: 520, height: 700 } ) ).toEqual( {
 			width: 390,
 			height: 700,
 			scale: 1,
+			mobile: false,
 		} );
 	} );
 
 	it( 'scales widths wider than the pane down to fit, extending the emulated height', () => {
-		const viewport = getSimulatedViewport( 1440, { width: 480, height: 600 } );
+		const viewport = getSimulatedViewport( { width: 1440 }, { width: 480, height: 600 } );
 		expect( viewport?.width ).toBe( 1440 );
 		expect( viewport?.scale ).toBeCloseTo( 480 / 1440 );
 		// The scaled page still fills the pane vertically: height × scale ≈ pane height.
@@ -917,10 +918,36 @@ describe( 'getSimulatedViewport', () => {
 	} );
 
 	it( 'matches the pane exactly at equal widths', () => {
-		expect( getSimulatedViewport( 520, { width: 520, height: 700 } ) ).toEqual( {
+		expect( getSimulatedViewport( { width: 520 }, { width: 520, height: 700 } ) ).toEqual( {
 			width: 520,
 			height: 700,
 			scale: 1,
+			mobile: false,
+		} );
+	} );
+
+	it( 'keeps fixed-height presets at their exact dimensions, scaled to fit both axes', () => {
+		const viewport = getSimulatedViewport(
+			{ width: 390, height: 844, mobile: true },
+			{ width: 520, height: 700 }
+		);
+		// The height binds: 700 / 844 is smaller than 520 / 390.
+		expect( viewport ).toEqual( {
+			width: 390,
+			height: 844,
+			scale: 700 / 844,
+			mobile: true,
+		} );
+	} );
+
+	it( 'never scales fixed-height presets up in a larger pane', () => {
+		expect(
+			getSimulatedViewport( { width: 390, height: 844 }, { width: 600, height: 1000 } )
+		).toEqual( {
+			width: 390,
+			height: 844,
+			scale: 1,
+			mobile: false,
 		} );
 	} );
 } );

@@ -1678,7 +1678,7 @@ export async function setWebviewColorScheme(
 export async function setWebviewViewport(
 	event: IpcMainInvokeEvent,
 	webContentsId: number,
-	viewport: { width: number; height: number; scale: number } | null
+	viewport: { width: number; height: number; scale: number; mobile?: boolean } | null
 ): Promise< void > {
 	const target = getOwnedWebviewContents( event, webContentsId );
 	attachDebuggerIfNeeded( target );
@@ -1686,7 +1686,7 @@ export async function setWebviewViewport(
 		await sendDebuggerCommand( target, 'Emulation.clearDeviceMetricsOverride' );
 		return;
 	}
-	const { width, height, scale } = viewport;
+	const { width, height, scale, mobile } = viewport;
 	const isValidDimension = ( value: number ) =>
 		Number.isInteger( value ) && value > 0 && value <= 10000;
 	const isValidScale =
@@ -1699,7 +1699,9 @@ export async function setWebviewViewport(
 		height,
 		// 0 keeps the display's real device pixel ratio.
 		deviceScaleFactor: 0,
-		mobile: false,
+		// Mobile presets emulate a phone (meta-viewport handling and mobile UA
+		// hints), not just a narrow desktop window.
+		mobile: mobile === true,
 		scale,
 	} );
 }

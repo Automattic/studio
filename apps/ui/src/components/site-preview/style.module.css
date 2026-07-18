@@ -158,6 +158,52 @@
 	background-color: var(--wpds-color-bg-surface-neutral);
 }
 
+/* Fixed-height (device) presets float as a centered frame with breathing
+   room; the padding is excluded from the measured pane, so the frame's
+   fit-to-pane scale accounts for it automatically. */
+.previewViewportDevice {
+	align-items: safe center;
+	padding: 16px;
+}
+
+/* Wraps each preview surface. Fills the pane by default; explicit sizes for
+   letterboxed and device modes come in via inline style. Anchors the
+   loading spinner overlay and clips the iframe fallback's scaled box. */
+.surfaceFrame {
+	position: relative;
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* A device-sized frame, presented as a floating phone against the letterbox
+   background. The hairline ring is a shadow (not a border) so the frame's
+   content box stays exactly the scaled viewport size. */
+.deviceFrame {
+	border-radius: var(--wpds-border-radius-lg);
+	box-shadow:
+		0 0 0 1px var(--wpds-color-stroke-surface-neutral),
+		var(--wpds-elevation-md);
+	background-color: var(--wpds-color-bg-surface-neutral-strong, #fff);
+}
+
+/* The split view's phone pane, beside the pane-filling primary surface.
+   Shrinkable so a narrow panel never crushes the primary view entirely. */
+.splitMobilePane {
+	position: relative;
+	display: flex;
+	flex: 0 1 auto;
+	min-width: 0;
+	align-items: safe center;
+	justify-content: safe center;
+	padding: 16px;
+	overflow: hidden;
+	border-inline-start: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background-color: var(--wpds-color-bg-surface-neutral);
+}
+
 .spinnerOverlay {
 	position: absolute;
 	inset: 0;

@@ -36,7 +36,6 @@ import {
 import { getPreviewConsoleLevelFromWebviewLevel } from './console-utils';
 import styles from './style.module.css';
 import type { PreviewConsoleEntry, RawClipCapture } from './types';
-import type { CSSProperties } from 'react';
 
 // The inspector features the app preview runs with. The CLI's annotation
 // browser uses the same script with a different config (see apps/cli).
@@ -105,11 +104,14 @@ export interface PageClipRequest {
 export type PreviewColorScheme = 'light' | 'dark';
 
 // A simulated guest viewport: the page lays out at `width`×`height` CSS px
-// and its rendering is scaled by `scale` to fit the preview pane.
+// and its rendering is scaled by `scale` to fit the preview pane. `mobile`
+// makes the emulation report a mobile device, so meta-viewport handling and
+// responsive behavior match a real phone.
 export interface PreviewViewport {
 	width: number;
 	height: number;
 	scale: number;
+	mobile?: boolean;
 }
 
 interface PreviewWindow extends Window {
@@ -251,8 +253,6 @@ export interface WebviewSurfaceProps {
 	colorScheme: PreviewColorScheme;
 	// Simulated guest viewport, or null for the webview's natural size.
 	viewport?: PreviewViewport | null;
-	// Letterbox sizing for a simulated viewport narrower than the pane.
-	surfaceStyle?: CSSProperties;
 	// Existing clips, mirrored into the guest as numbered markers.
 	clipMarkers?: ClipMarker[];
 	// Bump to capture a page clip from host chrome (split button/menu).
@@ -284,7 +284,6 @@ export function WebviewSurface( {
 	onLoggedInChange,
 	colorScheme,
 	viewport = null,
-	surfaceStyle,
 	clipMarkers,
 	pageClipRequest,
 	resolvePageClipUrl,
@@ -972,7 +971,6 @@ export function WebviewSurface( {
 				ref={ ref }
 				src={ initialSrc }
 				className={ styles.iframe }
-				style={ surfaceStyle }
 				allowpopups={ true }
 				partition="persist:site-preview"
 			/>

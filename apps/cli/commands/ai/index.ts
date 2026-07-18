@@ -659,6 +659,12 @@ export async function runCommand( options: {
 			setLocalSiteSelectedCallback( null );
 			ui.stop();
 			await closeSharedBrowser();
+			// Catch-all for daemon sockets opened implicitly during the turn
+			// (listProcesses connects on demand — e.g. checkpoints probing
+			// isServerRunning). An open DaemonBus keeps this headless process
+			// alive after turn.completed, so the desktop never sees run.exited
+			// and the session sticks in the working state.
+			await disconnectFromDaemon();
 		}
 		return;
 	}

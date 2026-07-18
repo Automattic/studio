@@ -2,7 +2,17 @@ import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { chevronDown, chevronRight, closeSmall, funnel, search, settings } from '@wordpress/icons';
+import {
+	category,
+	chevronDown,
+	chevronRight,
+	closeSmall,
+	funnel,
+	plugins as pluginsIcon,
+	search,
+	settings,
+	wordpress,
+} from '@wordpress/icons';
 import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
@@ -49,7 +59,9 @@ const ACTIVITY_EXIT_DURATION_MS = 180;
 const SIDEBAR_VIEW_STORAGE_KEY = 'studio-ui-sidebar-view-v1';
 const SIDEBAR_SORT_STORAGE_KEY = 'studio-ui-sidebar-sort-v1';
 
-type SidebarView = 'sites' | 'plugins';
+type SidebarView = 'all' | 'sites' | 'plugins';
+
+const SIDEBAR_VIEWS: SidebarView[] = [ 'all', 'sites', 'plugins' ];
 
 // 'custom' is the hand-arranged order (drag to reorder); every other mode
 // derives the order, so dragging is unavailable while one is active.
@@ -118,9 +130,9 @@ function compareRows(
 function readStoredSidebarView(): SidebarView {
 	try {
 		const stored = window.localStorage.getItem( SIDEBAR_VIEW_STORAGE_KEY );
-		return stored === 'plugins' ? 'plugins' : 'sites';
+		return SIDEBAR_VIEWS.includes( stored as SidebarView ) ? ( stored as SidebarView ) : 'all';
 	} catch {
-		return 'sites';
+		return 'all';
 	}
 }
 
@@ -167,7 +179,16 @@ function SiteAgentActivityTooltip( {
 	);
 }
 
-function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity } ) {
+function SiteAgentActivityIndicator( {
+	activity,
+	idleGlyph,
+}: {
+	activity: SiteRowActivity;
+	// Occupies the slot while there's no activity (the mixed "All" view's
+	// type glyph); an active indicator crossfades in over it. Keeps the slot
+	// permanently expanded so row labels never shift.
+	idleGlyph?: ReactNode;
+} ) {
 	const [ exitingActivity, setExitingActivity ] = useState< SiteRowActivity >( 'idle' );
 
 	useEffect( () => {
@@ -195,40 +216,55 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 		<span
 			className={ clsx(
 				styles.siteAgentActivitySlot,
-				isVisible && styles.siteAgentActivitySlotVisible
+				( isVisible || idleGlyph ) && styles.siteAgentActivitySlotVisible
 			) }
 			aria-hidden={ isVisible ? undefined : 'true' }
 		>
-			{ renderedActivity === 'working' ? (
-				<SiteAgentActivityTooltip label={ workingLabel } childProvidesLabel>
-					<AgentWorkingIndicator
-						className={ styles.siteAgentActivityPixels }
-						label={ workingLabel }
+			{ idleGlyph ? (
+				<span
+					className={ clsx( styles.siteTypeGlyph, isVisible && styles.siteTypeGlyphHidden ) }
+					aria-hidden="true"
+				>
+					{ idleGlyph }
+				</span>
+			) : null }
+			<span
+				className={ clsx(
+					styles.siteActivityStack,
+					! isVisible && styles.siteActivityStackHidden
+				) }
+			>
+				{ renderedActivity === 'working' ? (
+					<SiteAgentActivityTooltip label={ workingLabel } childProvidesLabel>
+						<AgentWorkingIndicator
+							className={ styles.siteAgentActivityPixels }
+							label={ workingLabel }
+						/>
+					</SiteAgentActivityTooltip>
+				) : null }
+				{ renderedActivity === 'pending-question' ? (
+					<SiteAgentActivityTooltip
+						label={ pendingQuestionLabel }
+						ariaLabel={ pendingQuestionAriaLabel }
+						className={ styles.siteAgentActivityQuestion }
 					/>
-				</SiteAgentActivityTooltip>
-			) : null }
-			{ renderedActivity === 'pending-question' ? (
-				<SiteAgentActivityTooltip
-					label={ pendingQuestionLabel }
-					ariaLabel={ pendingQuestionAriaLabel }
-					className={ styles.siteAgentActivityQuestion }
-				/>
-			) : null }
-			{ renderedActivity === 'new-message' ? (
-				<SiteAgentActivityTooltip
-					label={ newMessageLabel }
-					className={ styles.siteAgentActivityMessage }
-				/>
-			) : null }
-			{ renderedActivity === 'sync' ? (
-				<SiteAgentActivityTooltip label={ syncLabel } className={ styles.siteAgentActivitySync }>
-					<span className={ styles.siteAgentActivitySyncDots } aria-hidden="true">
-						<span className={ styles.siteAgentActivitySyncDot } />
-						<span className={ styles.siteAgentActivitySyncDot } />
-						<span className={ styles.siteAgentActivitySyncDot } />
-					</span>
-				</SiteAgentActivityTooltip>
-			) : null }
+				) : null }
+				{ renderedActivity === 'new-message' ? (
+					<SiteAgentActivityTooltip
+						label={ newMessageLabel }
+						className={ styles.siteAgentActivityMessage }
+					/>
+				) : null }
+				{ renderedActivity === 'sync' ? (
+					<SiteAgentActivityTooltip label={ syncLabel } className={ styles.siteAgentActivitySync }>
+						<span className={ styles.siteAgentActivitySyncDots } aria-hidden="true">
+							<span className={ styles.siteAgentActivitySyncDot } />
+							<span className={ styles.siteAgentActivitySyncDot } />
+							<span className={ styles.siteAgentActivitySyncDot } />
+						</span>
+					</SiteAgentActivityTooltip>
+				) : null }
+			</span>
 		</span>
 	);
 }
@@ -412,6 +448,7 @@ function SiteSection( {
 	isContextActive,
 	hasUnreadUpdate = false,
 	isPlugin = false,
+	showTypeIcon = false,
 	agenticGated = false,
 	isOverviewAnchor = false,
 	selecting = false,
@@ -425,6 +462,8 @@ function SiteSection( {
 	// Prototype: true when this site is tagged as a plugin — only changes
 	// the overview action's label; plugin rows otherwise look like sites.
 	isPlugin?: boolean;
+	// In the mixed "All" view a small leading glyph tells the types apart.
+	showTypeIcon?: boolean;
 	// When agentic features are unavailable the row opens the overview
 	// directly, making the dedicated overview button redundant.
 	agenticGated?: boolean;
@@ -502,7 +541,14 @@ function SiteSection( {
 				>
 					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
 						<div className={ styles.siteText }>
-							<SiteAgentActivityIndicator activity={ displayActivity } />
+							<SiteAgentActivityIndicator
+								activity={ displayActivity }
+								idleGlyph={
+									showTypeIcon ? (
+										<Icon icon={ isPlugin ? pluginsIcon : wordpress } size={ 14 } />
+									) : undefined
+								}
+							/>
 							<SidebarButton
 								className={ styles.siteToggle }
 								onClick={ ( event ) => {
@@ -836,26 +882,30 @@ export function SiteList() {
 		updateSitesSortOrder.mutate( nextSiteIds );
 	};
 
-	const renderSiteRow = ( row: SiteRow, isPlugin = false ) => (
-		<SiteSection
-			row={ row }
-			isPlugin={ isPlugin }
-			isChatActive={ row.site.id === activeChatSiteKey }
-			isContextActive={ row.site.id === activeContextSiteKey }
-			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
-			agenticGated={ agenticGated }
-			isOverviewAnchor={ ! isPlugin && row.site.id === overviewAnchorSiteId }
-			selecting={ ! isPlugin && selecting }
-			selected={ ! isPlugin && selectedSiteIds.has( row.site.id ) }
-			onToggleSelect={ isPlugin ? undefined : () => toggleSelected( row.site.id ) }
-		/>
-	);
+	const renderSiteRow = ( row: SiteRow ) => {
+		const isPlugin = pluginSiteIds.has( row.site.id );
+		return (
+			<SiteSection
+				row={ row }
+				isPlugin={ isPlugin }
+				showTypeIcon={ view === 'all' }
+				isChatActive={ row.site.id === activeChatSiteKey }
+				isContextActive={ row.site.id === activeContextSiteKey }
+				hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
+				agenticGated={ agenticGated }
+				isOverviewAnchor={ ! isPlugin && row.site.id === overviewAnchorSiteId }
+				selecting={ ! isPlugin && selecting }
+				selected={ ! isPlugin && selectedSiteIds.has( row.site.id ) }
+				onToggleSelect={ isPlugin ? undefined : () => toggleSelected( row.site.id ) }
+			/>
+		);
+	};
 
-	const renderStaticRows = ( rowsToRender: SiteRow[], isPluginRows = false ) => (
+	const renderStaticRows = ( rowsToRender: SiteRow[] ) => (
 		<div className={ styles.sites }>
 			{ rowsToRender.map( ( row ) => (
 				<div key={ row.site.id } className={ styles.siteDragWrapper } data-site-id={ row.site.id }>
-					{ renderSiteRow( row, isPluginRows ) }
+					{ renderSiteRow( row ) }
 				</div>
 			) ) }
 		</div>
@@ -883,7 +933,7 @@ export function SiteList() {
 		<ReorderableList
 			items={ pluginSiteRows }
 			getItemId={ getRowSiteId }
-			renderItem={ ( row ) => renderSiteRow( row, true ) }
+			renderItem={ renderSiteRow }
 			onReorder={ ( nextIds ) => persistOrder( [ ...rowSiteIds, ...nextIds ] ) }
 			className={ styles.sites }
 			itemClassName={ styles.siteDragWrapper }
@@ -895,8 +945,32 @@ export function SiteList() {
 		/>
 	);
 
+	// The "All" view drags across the full combined list, so its order is the
+	// persisted order verbatim.
+	const allRowsBlock = (
+		<ReorderableList
+			items={ rows }
+			getItemId={ getRowSiteId }
+			renderItem={ renderSiteRow }
+			onReorder={ persistOrder }
+			className={ styles.sites }
+			itemClassName={ styles.siteDragWrapper }
+			placeholderClassName={ styles.siteDropPlaceholder }
+			previewClassName={ styles.siteDragPreview }
+			placeholderTestId="site-drop-placeholder"
+			itemIdAttribute="data-site-id"
+			excludeSelector="[data-site-actions]"
+		/>
+	);
+
 	const isLoading = sitesLoading || sessionsLoading;
-	const baseRows = view === 'plugins' ? pluginSiteRows : siteRows;
+	const baseRows = view === 'plugins' ? pluginSiteRows : view === 'sites' ? siteRows : rows;
+	const searchLabel =
+		view === 'plugins'
+			? __( 'Search plugins' )
+			: view === 'sites'
+			? __( 'Search sites' )
+			: __( 'Search' );
 	const query = searchQuery.trim().toLowerCase();
 
 	// A search or a derived sort renders a plain (non-draggable) list; manual
@@ -917,7 +991,11 @@ export function SiteList() {
 	} else if ( baseRows.length === 0 ) {
 		listContent = (
 			<p className={ styles.empty }>
-				{ view === 'plugins' ? __( 'No plugins yet' ) : __( 'No sites yet' ) }
+				{ view === 'plugins'
+					? __( 'No plugins yet' )
+					: view === 'sites'
+					? __( 'No sites yet' )
+					: __( 'Nothing yet' ) }
 			</p>
 		);
 	} else if ( derivedRows ) {
@@ -925,7 +1003,7 @@ export function SiteList() {
 			derivedRows.length === 0 ? (
 				<p className={ styles.empty }>{ __( 'No matches' ) }</p>
 			) : (
-				renderStaticRows( derivedRows, view === 'plugins' )
+				renderStaticRows( derivedRows )
 			);
 	} else if ( view === 'sites' && groupSections.length > 0 ) {
 		// Grouped sidebar: accordion sections per group, ungrouped sites under
@@ -957,15 +1035,9 @@ export function SiteList() {
 			</>
 		);
 	} else {
-		listContent = view === 'plugins' ? pluginRowsBlock : siteRowsBlock;
+		listContent =
+			view === 'plugins' ? pluginRowsBlock : view === 'sites' ? siteRowsBlock : allRowsBlock;
 	}
-
-	const viewLabel = ( label: string, count: number ) => (
-		<>
-			{ label }
-			{ ! isLoading && <span className={ styles.viewCount }>{ count }</span> }
-		</>
-	);
 
 	return (
 		<div className={ styles.root } ref={ listAnchorRef }>
@@ -975,8 +1047,21 @@ export function SiteList() {
 					value={ view }
 					onChange={ selectView }
 					options={ [
-						{ value: 'sites', label: viewLabel( __( 'Sites' ), siteRows.length ) },
-						{ value: 'plugins', label: viewLabel( __( 'Plugins' ), pluginSiteRows.length ) },
+						{
+							value: 'all',
+							label: <Icon icon={ category } size={ 16 } />,
+							tooltip: __( 'All' ),
+						},
+						{
+							value: 'sites',
+							label: <Icon icon={ wordpress } size={ 16 } />,
+							tooltip: __( 'Sites' ),
+						},
+						{
+							value: 'plugins',
+							label: <Icon icon={ pluginsIcon } size={ 16 } />,
+							tooltip: __( 'Plugins' ),
+						},
 					] }
 				/>
 				<div className={ styles.searchRow }>
@@ -985,8 +1070,8 @@ export function SiteList() {
 						<input
 							type="search"
 							className={ styles.searchInput }
-							placeholder={ view === 'plugins' ? __( 'Search plugins' ) : __( 'Search sites' ) }
-							aria-label={ view === 'plugins' ? __( 'Search plugins' ) : __( 'Search sites' ) }
+							placeholder={ searchLabel }
+							aria-label={ searchLabel }
 							value={ searchQuery }
 							onChange={ ( event ) => setSearchQuery( event.target.value ) }
 						/>

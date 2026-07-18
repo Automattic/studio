@@ -148,6 +148,38 @@
 	transform: scale(1);
 }
 
+/* Type glyph for the mixed "All" view: shares the activity slot's grid cell
+   so an active indicator crossfades in exactly on top of it — the label
+   never shifts. Small and recessive so rows still read name-first. */
+.siteTypeGlyph {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	display: inline-grid;
+	place-items: center;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	fill: currentColor;
+	transition: opacity 120ms ease, transform 160ms ease;
+}
+
+.siteTypeGlyphHidden {
+	opacity: 0;
+	transform: scale(0.75);
+}
+
+/* Wraps whichever indicator is active so it can fade against the glyph
+   independently of the slot's own show/hide transition. */
+.siteActivityStack {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	display: inline-grid;
+	place-items: center;
+	transition: opacity 120ms ease;
+}
+
+.siteActivityStackHidden {
+	opacity: 0;
+}
+
 .siteAgentActivity {
 	grid-row-start: 1;
 	grid-column-start: 1;
@@ -529,12 +561,6 @@
 	margin: 0 calc(-1 * var(--site-list-row-outer-inset));
 	padding: 0 var(--site-list-row-outer-inset) var(--wpds-dimension-padding-xs);
 	background-color: var(--app-chrome-bg, var(--wpds-color-bg-surface-neutral-weak));
-}
-
-.viewCount {
-	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: var(--wpds-typography-font-weight-regular);
-	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .searchRow {

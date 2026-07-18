@@ -90,7 +90,7 @@ const cliConfigSchema = z.looseObject( {
 	standaloneUpdateCheck: updateCheckSchema.optional(),
 	// Unix ms timestamp of when the one-time ToS/Privacy notice was displayed.
 	tosNoticeShownAt: z.number().optional(),
-	// Opt-in terminal notifications for `studio code` (see `lib/notify.ts`).
+	// Terminal notifications override for `studio code` (see `lib/notify.ts`).
 	notificationsEnabled: z.boolean().optional(),
 } );
 

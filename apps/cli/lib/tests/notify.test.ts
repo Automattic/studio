@@ -1,19 +1,95 @@
 import { type MockInstance, vi } from 'vitest';
 import { readCliConfig } from 'cli/lib/cli-config/core';
-import { areNotificationsEnabled, notifyTerminal } from 'cli/lib/notify';
+import {
+	areNotificationsEnabled,
+	isNotificationCapableTerminal,
+	notifyTerminal,
+} from 'cli/lib/notify';
 
 vi.mock( 'cli/lib/cli-config/core', () => ( {
 	readCliConfig: vi.fn(),
 	updateCliConfigWithPartial: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
+const originalTermProgram = process.env.TERM_PROGRAM;
+const originalTerm = process.env.TERM;
+
+function setTerminalEnv( termProgram: string | undefined, term: string | undefined ): void {
+	if ( termProgram === undefined ) {
+		delete process.env.TERM_PROGRAM;
+	} else {
+		process.env.TERM_PROGRAM = termProgram;
+	}
+	if ( term === undefined ) {
+		delete process.env.TERM;
+	} else {
+		process.env.TERM = term;
+	}
+}
+
+function restoreTerminalEnv(): void {
+	setTerminalEnv( originalTermProgram, originalTerm );
+}
+
+describe( 'isNotificationCapableTerminal', () => {
+	afterEach( restoreTerminalEnv );
+
+	it( 'is true for a known TERM_PROGRAM (e.g. Warp)', () => {
+		setTerminalEnv( 'WarpTerminal', undefined );
+		expect( isNotificationCapableTerminal() ).toBe( true );
+	} );
+
+	it( 'is true for Ghostty via its lowercase TERM_PROGRAM value or via TERM', () => {
+		setTerminalEnv( 'ghostty', undefined );
+		expect( isNotificationCapableTerminal() ).toBe( true );
+
+		setTerminalEnv( undefined, 'xterm-ghostty' );
+		expect( isNotificationCapableTerminal() ).toBe( true );
+	} );
+
+	it( 'is true for Kitty, which identifies via TERM instead of TERM_PROGRAM', () => {
+		setTerminalEnv( undefined, 'xterm-kitty' );
+		expect( isNotificationCapableTerminal() ).toBe( true );
+	} );
+
+	it( 'is false for an unrecognized or absent terminal', () => {
+		setTerminalEnv( undefined, 'xterm-256color' );
+		expect( isNotificationCapableTerminal() ).toBe( false );
+	} );
+} );
+
 describe( 'areNotificationsEnabled', () => {
 	beforeEach( () => {
 		vi.mocked( readCliConfig ).mockReset();
 	} );
+	afterEach( restoreTerminalEnv );
 
-	it( 'is false by default (flag absent from config)', async () => {
+	it( 'falls back to terminal detection when the flag is unset', async () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
+		setTerminalEnv( 'WarpTerminal', undefined );
+		expect( await areNotificationsEnabled() ).toBe( true );
+
+		setTerminalEnv( undefined, 'xterm-256color' );
+		expect( await areNotificationsEnabled() ).toBe( false );
+	} );
+
+	it( 'an explicit flag overrides terminal detection either way', async () => {
+		setTerminalEnv( undefined, 'xterm-256color' );
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			version: 1,
+			sites: [],
+			snapshots: [],
+			notificationsEnabled: true,
+		} );
+		expect( await areNotificationsEnabled() ).toBe( true );
+
+		setTerminalEnv( 'WarpTerminal', undefined );
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			version: 1,
+			sites: [],
+			snapshots: [],
+			notificationsEnabled: false,
+		} );
 		expect( await areNotificationsEnabled() ).toBe( false );
 	} );
 } );
@@ -48,16 +124,25 @@ describe( 'notifyTerminal', () => {
 	afterEach( () => {
 		process.send = originalSend;
 		restoreStderrIsTTY();
+		restoreTerminalEnv();
 		stderrWriteSpy.mockRestore();
 	} );
 
-	it( 'writes nothing when notifications are disabled (default)', async () => {
+	it( 'writes nothing when the flag is unset on an unrecognized terminal', async () => {
+		setTerminalEnv( undefined, 'xterm-256color' );
 		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 		await notifyTerminal( 'hello' );
 		expect( stderrWriteSpy ).not.toHaveBeenCalled();
 	} );
 
-	it( 'writes the OSC9 + BEL sequence when notifications are enabled', async () => {
+	it( 'writes the OSC9 sequence when the flag is unset but the terminal is capable', async () => {
+		setTerminalEnv( 'WarpTerminal', undefined );
+		vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
+		await notifyTerminal( 'hello' );
+		expect( stderrWriteSpy ).toHaveBeenCalledWith( '\x1b]9;hello\x07' );
+	} );
+
+	it( 'writes only the OSC9 sequence (no bare BEL) when enabled', async () => {
 		vi.mocked( readCliConfig ).mockResolvedValue( {
 			version: 1,
 			sites: [],
@@ -66,7 +151,7 @@ describe( 'notifyTerminal', () => {
 		} );
 		await notifyTerminal( 'Studio Code response is ready' );
 		expect( stderrWriteSpy ).toHaveBeenCalledWith( '\x1b]9;Studio Code response is ready\x07' );
-		expect( stderrWriteSpy ).toHaveBeenCalledWith( '\x07' );
+		expect( stderrWriteSpy ).toHaveBeenCalledTimes( 1 );
 	} );
 
 	it( 'stays silent when forked by the desktop app over IPC, even if enabled', async () => {

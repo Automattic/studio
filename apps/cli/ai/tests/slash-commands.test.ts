@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
-import { areNotificationsEnabled, setNotificationsEnabled } from 'cli/lib/notify';
+import {
+	areNotificationsEnabled,
+	getNotificationsPreference,
+	setNotificationsEnabled,
+} from 'cli/lib/notify';
 
 describe( '/remote-session slash command registration', () => {
 	const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'remote-session' );
@@ -41,6 +45,7 @@ vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
 vi.mock( '@studio/common/lib/shared-config', () => ( { readAuthToken: vi.fn() } ) );
 vi.mock( 'cli/lib/notify', () => ( {
 	areNotificationsEnabled: vi.fn(),
+	getNotificationsPreference: vi.fn(),
 	setNotificationsEnabled: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
@@ -429,16 +434,36 @@ describe( '/notifications slash command', () => {
 
 	afterEach( () => {
 		vi.mocked( areNotificationsEnabled ).mockReset();
+		vi.mocked( getNotificationsPreference ).mockReset();
 		vi.mocked( setNotificationsEnabled ).mockClear();
 	} );
 
-	it( 'enables notifications and reports the new state when currently disabled', async () => {
-		vi.mocked( areNotificationsEnabled ).mockResolvedValue( false );
+	it( 'from unset (auto-detect), forces notifications on', async () => {
+		vi.mocked( getNotificationsPreference ).mockResolvedValue( undefined );
 		const ui = makeUi();
 		const result = await cmd.handler!( '/notifications', makeCtx( ui ) );
 
 		expect( setNotificationsEnabled ).toHaveBeenCalledWith( true );
 		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'enabled' ) );
 		expect( result ).toBe( 'continue' );
+	} );
+
+	it( 'from always on, forces notifications off', async () => {
+		vi.mocked( getNotificationsPreference ).mockResolvedValue( true );
+		const ui = makeUi();
+		await cmd.handler!( '/notifications', makeCtx( ui ) );
+
+		expect( setNotificationsEnabled ).toHaveBeenCalledWith( false );
+		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'disabled' ) );
+	} );
+
+	it( 'from always off, resets to auto-detect and reports what that means for this terminal', async () => {
+		vi.mocked( getNotificationsPreference ).mockResolvedValue( false );
+		vi.mocked( areNotificationsEnabled ).mockResolvedValue( true );
+		const ui = makeUi();
+		await cmd.handler!( '/notifications', makeCtx( ui ) );
+
+		expect( setNotificationsEnabled ).toHaveBeenCalledWith( undefined );
+		expect( ui.showInfo ).toHaveBeenCalledWith( expect.stringContaining( 'auto-detect' ) );
 	} );
 } );

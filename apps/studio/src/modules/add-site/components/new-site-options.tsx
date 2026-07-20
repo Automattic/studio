@@ -8,6 +8,8 @@ import {
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useMemo, useState } from 'react';
 import { ArrowIcon } from 'src/components/arrow-icon';
+import offlineIcon from 'src/components/offline-icon';
+import { Tooltip } from 'src/components/tooltip';
 import { EMPTY_SITE_PLAYGROUND_URL } from 'src/constants';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
@@ -42,32 +44,34 @@ function PreviewLink( { url }: { url: string } ) {
 	const { __ } = useI18n();
 	const isOffline = useOffline();
 	return (
-		<a
-			href={ url }
-			aria-disabled={ isOffline }
-			title={
-				isOffline
-					? `${ __( 'You’re currently offline.' ) } ${ __( 'Some features will be unavailable.' ) }`
-					: undefined
-			}
-			onClick={ ( e: React.MouseEvent< HTMLAnchorElement > ) => {
-				e.preventDefault();
-				e.stopPropagation();
-				if ( isOffline ) {
-					return;
-				}
-				getIpcApi().openURL( url );
-			} }
-			className={ cx(
-				'!absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 !px-2 !py-1 !h-auto !min-h-0 text-[11px] !text-a8c-gray-900 !shadow-none whitespace-nowrap rounded-sm no-underline border border-a8c-gray-5',
-				isOffline
-					? '!bg-white/60 opacity-60 cursor-not-allowed'
-					: '!bg-white/90 hover:!bg-white hover:!text-a8c-gray-900'
-			) }
+		<Tooltip
+			disabled={ ! isOffline }
+			icon={ offlineIcon }
+			text={ __( 'Previewing a site requires an internet connection.' ) }
+			className="!absolute bottom-2 right-2 z-10 inline-flex"
 		>
-			{ __( 'Live Preview' ) }
-			<ArrowIcon />
-		</a>
+			<a
+				href={ url }
+				aria-disabled={ isOffline }
+				onClick={ ( e: React.MouseEvent< HTMLAnchorElement > ) => {
+					e.preventDefault();
+					e.stopPropagation();
+					if ( isOffline ) {
+						return;
+					}
+					getIpcApi().openURL( url );
+				} }
+				className={ cx(
+					'inline-flex items-center gap-1 !px-2 !py-1 !h-auto !min-h-0 text-[11px] !text-a8c-gray-900 !shadow-none whitespace-nowrap rounded-sm no-underline border border-a8c-gray-5',
+					isOffline
+						? '!bg-white/60 opacity-60 cursor-not-allowed'
+						: '!bg-white/90 hover:!bg-white hover:!text-a8c-gray-900'
+				) }
+			>
+				{ __( 'Live Preview' ) }
+				<ArrowIcon />
+			</a>
+		</Tooltip>
 	);
 }
 

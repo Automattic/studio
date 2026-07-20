@@ -3,16 +3,14 @@ Unreleased
 
 1.16.0
 =====
-* Introduced Agentic UI, a new beta interface for the app, available behind a feature flag #4163
+* Introduced Agentic UI, a new beta interface for the app, available behind a feature flag #4163, #4200
 * Made the Agentic UI sidebar site-centric, with drag-to-reorder sites and the Studio wordmark removed #4191, #4134, #4092
 * Added chat history and New chat controls below the composer in the Agentic UI #4133
 * Added toast notifications in the Agentic UI #4203
 * Added an app menu button in the Agentic UI, shown only on Windows and Linux #4172, #4207
 * Fixed the window controls on Linux and Windows in the Agentic UI #4166
-* Improved Agentic UI dark mode and contrast across icons, dropdowns, the site menu button, and the dark app frame around the content area #4168, #4199, #4227, #4233
 * Fixed the blueprints gallery in the Agentic UI: stuck scrolling, card proportions, and the hidden Preview button #4148, #4156, #4155
 * Fixed several Agentic UI screens: the delete site confirmation layout, the local path field, the admin email field icon, and the refresh browser tool icon #4157, #4145, #4174, #4159
-* Fixed an IPC sender validation error when toggling the Agentic UI feature flag #4200
 * Studio Code: Added a button to copy the full assistant message #4113
 * Studio Code: You can now paste an image anywhere in the view #4208
 * Studio Code: Added a recovery action to the Session not found state #4243
@@ -21,7 +19,6 @@ Unreleased
 * Studio Code: Now shows an error when the max token limit is reached #4077
 * Studio Code: Fixed AskUserQuestion to support multiline input #4119
 * Studio Code: Replaced GPT 5.5 with GPT 5.6 Sol and routed OpenAI models through the Responses API #4190
-* Studio Code: Moved AI chat sessions to ~/.studio/sessions and now match sessions to sites by site id instead of path #4128, #4131
 * Studio Code: Fixed headless runs not exiting after the turn completed #4175
 * Studio Code: Made data-liberation flows more reliable with consistent AI wording, bundled driver scripts so skills work as installed plugins, and fixed the data-liberation scripts #4122, #4126, #4201
 * Fixed sites showing offline after import #4106
@@ -32,9 +29,7 @@ Unreleased
 * Simplified the "What to do with running sites" dialog shown when quitting Studio #4140
 * Improved CLI sync error messages for sites that can't be synced #4202
 * Added Linux to the bug report Platform field and split out Architecture #4224
-* Removed per-tooltip delay overrides so all tooltips share one delay #4129
-* Fixed the Refresh icon being too large in the browser toolbar #4187
-* Updated transitive dependencies to resolve Dependabot security alerts #4235
+* Misc and maintenance improvements #4235, #4128, #4131, #4187, #4129, #4168, #4199, #4227, #4233
 
 1.15.0
 =====
@@ -53,7 +48,7 @@ Unreleased
 
 1.14.0
 =====
-* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082  
+* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082
 * Studio Code: Added a /liberate command to recreate sites from other platforms (e.g. Wix) as WordPress #3940
 * Studio Code: Added a /publish command to push local sites to WordPress.com #4043
 * Studio Code: Updated the assistant's available model to Sonnet 5 #4024

@@ -2,7 +2,7 @@ import { app, autoUpdater, clipboard, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
-import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { isDevRelease } from 'src/lib/version-utils';
 import { getMainWindow } from 'src/main-window';
@@ -449,21 +449,18 @@ async function showReadOnlyVolumeError( err: Error ) {
 	} );
 }
 
-function buildAppUpdateStatus() {
+function buildAppUpdateStatus(): AppUpdateStatus {
 	return {
 		readyToInstall: updaterState === 'waiting-for-restart',
 		version: downloadedVersion,
 	};
 }
 
-export function getAppUpdateStatus( _event: IpcMainInvokeEvent ): {
-	readyToInstall: boolean;
-	version: string | null;
-} {
+export async function getAppUpdateStatus( _event: IpcMainInvokeEvent ): Promise< AppUpdateStatus > {
 	return buildAppUpdateStatus();
 }
 
-export function installAppUpdate( _event: IpcMainInvokeEvent ): void {
+export async function installAppUpdate( _event: IpcMainInvokeEvent ): Promise< void > {
 	if ( updaterState === 'waiting-for-restart' ) {
 		autoUpdater.quitAndInstall();
 	}

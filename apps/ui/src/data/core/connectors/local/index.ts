@@ -65,6 +65,14 @@ type ServerEvent =
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
 
+function readDismissedMessages(): string[] {
+	try {
+		return JSON.parse( localStorage.getItem( 'studio-dismissed-messages' ) ?? '[]' );
+	} catch {
+		return [];
+	}
+}
+
 /**
  * The `studio ui` data source: the browser analog of the Electron IPC
  * connector, talking to the local server (`apps/local`, bundled into and
@@ -721,17 +729,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No-op in the browser.
 		},
 		async getDismissedMessages() {
-			try {
-				return JSON.parse( localStorage.getItem( 'studio-dismissed-messages' ) ?? '[]' );
-			} catch {
-				return [];
-			}
+			return readDismissedMessages();
 		},
 		async dismissMessage( id ) {
-			const ids = JSON.parse( localStorage.getItem( 'studio-dismissed-messages' ) ?? '[]' );
+			const ids = readDismissedMessages();
 			if ( ! ids.includes( id ) ) {
-				ids.push( id );
-				localStorage.setItem( 'studio-dismissed-messages', JSON.stringify( ids ) );
+				localStorage.setItem( 'studio-dismissed-messages', JSON.stringify( [ ...ids, id ] ) );
 			}
 		},
 		async getAppUpdateStatus() {

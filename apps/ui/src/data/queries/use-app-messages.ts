@@ -4,21 +4,16 @@ import { useMemo, useSyncExternalStore } from 'react';
 import { useConnector } from '@/data/core';
 import { useAppUpdateStatus, useInstallAppUpdate } from '@/data/queries/use-app-update';
 
-interface PersistentMessageBase {
+export interface PersistentMessage {
 	id: string;
 	// When false the dismissal lives only in this session (used by the update
 	// card when the version is unknown).
 	persistDismissal?: boolean;
-}
-
-export interface StandardMessage extends PersistentMessageBase {
 	intent: 'info' | 'success' | 'warning' | 'error';
 	title: string;
 	description?: string;
 	cta?: { label: string; onClick: () => void };
 }
-
-export type PersistentMessage = StandardMessage;
 
 export const DISMISSED_MESSAGES_QUERY_KEY = [ 'dismissed-messages' ] as const;
 
@@ -73,7 +68,7 @@ export function useDismissMessage() {
 	} );
 }
 
-export function deriveActiveMessages(
+function deriveActiveMessages(
 	sources: PersistentMessage[],
 	dismissedIds: readonly string[],
 	sessionDismissedIds: readonly string[]

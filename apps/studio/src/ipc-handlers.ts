@@ -1529,7 +1529,16 @@ export async function getDismissedMessages( _event: IpcMainInvokeEvent ): Promis
 }
 
 export async function dismissMessage( _event: IpcMainInvokeEvent, id: string ): Promise< void > {
-	await updateAppdata( { dismissedMessages: [ ...( await getDismissedMessages( _event ) ), id ] } );
+	try {
+		await lockAppdata();
+		const userData = await loadUserData();
+		const dismissedMessages = userData.dismissedMessages ?? [];
+		if ( ! dismissedMessages.includes( id ) ) {
+			await saveUserData( { ...userData, dismissedMessages: [ ...dismissedMessages, id ] } );
+		}
+	} finally {
+		await unlockAppdata();
+	}
 }
 
 export async function executeWPCLiInline(

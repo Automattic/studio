@@ -67,7 +67,12 @@ export interface IpcEvents {
 	'ai-agent-event': [ AgentRunEvent ];
 	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];
 	'remote-session-status': [ RemoteSessionStatus ];
-	'app-update-status': [ { readyToInstall: boolean; version: string | null } ];
+	'app-update-status': [ AppUpdateStatus ];
+}
+
+export interface AppUpdateStatus {
+	readyToInstall: boolean;
+	version: string | null;
 }
 
 let isAppQuitting = false;

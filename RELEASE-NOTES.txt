@@ -9,7 +9,7 @@ Unreleased
 * Studio Code: Added a recovery action to the Session not found state #4243
 * Studio Code: Refreshed the composer placeholder copy #4149
 * Studio Code: Added support for creating new blank or child themes #4209
-* Studio Code: Now shows an error when the max token limit is reached #4077
+* Studio Code: Fixed showing an error when the max token limit is reached #4077
 * Studio Code: Fixed AskUserQuestion to support multiline input #4119
 * Studio Code: Replaced GPT 5.5 with GPT 5.6 Sol and routed OpenAI models through the Responses API #4190
 * Studio Code: Fixed headless runs not exiting after the turn completed #4175

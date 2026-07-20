@@ -10,21 +10,17 @@
 // are inserted (mu-plugins always load under wp-cli). Mirrors the post-install
 // staging convention: payloads live under <sitePath>/.dla-scripts so Studio's
 // wp-cli (which rejects host paths) can read them from the mounted site dir.
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { mkdirSync, writeFileSync, copyFileSync, statSync } from 'node:fs';
 import { join, resolve, dirname, sep, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { studioExecFileAsync } from '../../studio-cli.js';
 import type { DataModel } from './types.js';
 import { buildCptMuPlugin, cptMuPluginFilename } from './cpt-plugin.js';
 import { buildDataCardPlugin, dataCardPluginFilename } from './card-render-php.js';
 import { installMediaFiles, type MediaFile, type MediaFilesResult } from '../../streaming/media-install.js';
 
-const execFileAsync = promisify(execFile);
-
-/** Injectable exec seam (tests stub it; production runs `studio wp`). */
+/** Injectable seam running `studio <args>` (tests stub it; production uses studio-cli). */
 export type ExecFn = (
-  file: string,
   args: string[],
   opts: { timeout?: number; maxBuffer?: number },
 ) => Promise<{ stdout: string; stderr: string }>;
@@ -192,7 +188,7 @@ export interface InstallDataResult {
  */
 export async function installLocalData(opts: InstallDataOpts): Promise<InstallDataResult> {
   const { model, studioSitePath, wpRoot } = opts;
-  const exec = opts.exec ?? (execFileAsync as unknown as ExecFn);
+  const exec: ExecFn = opts.exec ?? studioExecFileAsync;
 
   const muPlugins = writeDataMuPlugins(wpRoot, model);
   let mediaInstalled = 0;
@@ -232,7 +228,6 @@ export async function installLocalData(opts: InstallDataOpts): Promise<InstallDa
   const payloadVfs = `${SCRIPTS_VFS_PREFIX}/${SCRIPTS_SUBDIR}/${payloadName}`;
 
   const { stdout } = await exec(
-    'studio',
     ['wp', '--path', studioSitePath, 'eval-file', scriptVfs, payloadVfs],
     { timeout: 120_000, maxBuffer: 10 * 1024 * 1024 },
   );

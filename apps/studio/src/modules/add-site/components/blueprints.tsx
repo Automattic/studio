@@ -1,5 +1,4 @@
-import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprint-settings';
-import { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
+import { prepareBlueprint } from '@studio/common/lib/blueprint-selection';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
@@ -20,6 +19,7 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useI18nLocale } from 'src/stores';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
+import type { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 
 import './blueprints.css';
 
@@ -193,45 +193,28 @@ export function AddSiteBlueprintSelector( {
 		blueprint: Blueprint;
 		warnings: BlueprintValidationWarning[] | undefined;
 	} | null > => {
-		const meta = blueprintJson as {
-			version?: number;
-			meta?: { title?: string; description?: string };
-		};
-
-		if ( meta.version === 2 ) {
-			setValidationError(
-				__( 'Blueprint v2 format is not supported yet. Please use Blueprint v1 format.' )
-			);
+		const prepared = await prepareBlueprint( blueprintJson, {
+			fallbackTitle: fileName.replace( /\.(json|zip)$/i, '' ),
+			validate: ( candidate ) =>
+				getIpcApi().validateBlueprint( candidate as Blueprint[ 'blueprint' ] ),
+		} );
+		if ( ! prepared.valid ) {
+			setValidationError( prepared.error );
 			onCleanup?.();
 			return null;
 		}
 
-		const validation = await getIpcApi().validateBlueprint( blueprintJson );
-		if ( ! validation.valid ) {
-			setValidationError( validation.error || __( 'Invalid Blueprint format' ) );
-			onCleanup?.();
-			return null;
-		}
-
-		const warnings =
-			validation.warnings && validation.warnings.length > 0 ? validation.warnings : undefined;
-
-		const baseName = fileName.replace( /\.(json|zip)$/, '' );
 		const blueprint: Blueprint = {
 			slug: `file:${ fileName }`,
-			title: meta.meta?.title || baseName,
-			excerpt:
-				meta.meta?.description ||
-				generateDefaultBlueprintDescription(
-					blueprintJson as Parameters< typeof generateDefaultBlueprintDescription >[ 0 ]
-				),
+			title: prepared.title,
+			excerpt: prepared.excerpt,
 			image: '',
 			playground_url: '',
-			blueprint: blueprintJson,
+			blueprint: prepared.blueprint as Blueprint[ 'blueprint' ],
 			filePath,
 		};
 
-		return { blueprint, warnings };
+		return { blueprint, warnings: prepared.warnings };
 	};
 
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {

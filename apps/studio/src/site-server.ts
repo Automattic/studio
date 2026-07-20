@@ -60,6 +60,28 @@ export function getRunningSiteCount(): number {
 	return Array.from( servers.values() ).filter( ( server ) => server.details.running ).length;
 }
 
+// Re-query the CLI for the authoritative running state of every site and reconcile the in-memory
+// SiteServer details to match. This recovers from transitions the `_events` stream can miss entirely
+// (e.g. a daemon crash leaves a site's running flag stuck), which no push-based update can fix.
+export async function reconcileSitesRunningState(): Promise< void > {
+	let cliSites;
+	try {
+		cliSites = await listSites( executeCliCommand );
+	} catch ( error ) {
+		console.error( 'Failed to reconcile site running state:', error );
+		return;
+	}
+
+	const runningById = new Map( cliSites.map( ( site ) => [ site.id, site.running ] ) );
+	for ( const server of SiteServer.getAll() ) {
+		const actualRunning = runningById.get( server.details.id );
+		if ( actualRunning === undefined ) {
+			continue;
+		}
+		server.adoptRunningState( actualRunning );
+	}
+}
+
 // Persist autoStart for every currently-running site in a single locked write. Used on quit, where the
 // CLI events subscriber (which normally mirrors autoStart into app.json) has already been stopped.
 export async function persistAutoStartForRunningSites( autoStart: boolean ): Promise< void > {
@@ -233,6 +255,29 @@ export class SiteServer {
 
 		console.log( `Starting server for '${ this.details.name }'` );
 		await this.server.start();
+	}
+
+	// Force the in-memory running state to match an authoritative value (from the CLI),
+	// updating only running/url so Studio-owned detail fields survive. Returns whether it changed.
+	adoptRunningState( running: boolean ): boolean {
+		if ( this.details.running === running ) {
+			return false;
+		}
+
+		if ( running ) {
+			const url = getAbsoluteUrl( this.details );
+			this.details = { ...this.details, running: true, url };
+			this.server.url = url;
+		} else {
+			const { running: _wasRunning, ...rest } = this.details;
+			if ( 'url' in rest ) {
+				const { url: _url, ...stoppedRest } = rest;
+				this.details = { running: false, ...stoppedRest };
+			} else {
+				this.details = { running: false, ...rest };
+			}
+		}
+		return true;
 	}
 
 	updateSiteDetails( site: SiteDetails ) {

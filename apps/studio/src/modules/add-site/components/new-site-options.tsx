@@ -45,7 +45,11 @@ function PreviewLink( { url }: { url: string } ) {
 		<a
 			href={ url }
 			aria-disabled={ isOffline }
-			title={ isOffline ? __( 'Previewing a site requires an internet connection.' ) : undefined }
+			title={
+				isOffline
+					? `${ __( 'You’re currently offline.' ) } ${ __( 'Some features will be unavailable.' ) }`
+					: undefined
+			}
 			onClick={ ( e: React.MouseEvent< HTMLAnchorElement > ) => {
 				e.preventDefault();
 				e.stopPropagation();

@@ -7,8 +7,6 @@ import {
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState } from 'react';
-import offlineIcon from 'src/components/offline-icon';
-import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import {
@@ -30,6 +28,7 @@ function OptionCard( {
 	description,
 	onClick,
 	disabled = false,
+	disabledTitle,
 	testId,
 }: {
 	illustration: React.ReactNode;
@@ -37,6 +36,7 @@ function OptionCard( {
 	description: string;
 	onClick: () => void;
 	disabled?: boolean;
+	disabledTitle?: string;
 	testId?: string;
 } ) {
 	return (
@@ -49,6 +49,7 @@ function OptionCard( {
 			) }
 			onClick={ onClick }
 			disabled={ disabled }
+			title={ disabled ? disabledTitle : undefined }
 			data-testid={ testId }
 		>
 			<div>{ illustration }</div>
@@ -194,22 +195,18 @@ export default function AddSiteOptions( {
 					onClick={ () => onOptionSelect( 'new' ) }
 					testId="create-site-option-button"
 				/>
-				<Tooltip
-					disabled={ ! isOffline }
-					icon={ offlineIcon }
-					text={ __( 'Connecting a site requires an internet connection.' ) }
-					className="flex-1 flex"
-				>
-					<OptionCard
-						illustration={ <ConnectSiteIllustration /> }
-						title={ __( 'Connect a site' ) }
-						description={ __(
-							'Edit a WordPress.com or Pressable site locally, then push changes back'
-						) }
-						onClick={ () => onOptionSelect( 'connect' ) }
-						disabled={ isOffline }
-					/>
-				</Tooltip>
+				<OptionCard
+					illustration={ <ConnectSiteIllustration /> }
+					title={ __( 'Connect a site' ) }
+					description={ __(
+						'Edit a WordPress.com or Pressable site locally, then push changes back'
+					) }
+					onClick={ () => onOptionSelect( 'connect' ) }
+					disabled={ isOffline }
+					disabledTitle={ `${ __( 'You’re currently offline.' ) } ${ __(
+						'Some features will be unavailable.'
+					) }` }
+				/>
 				<ImportDropZone onValidated={ handleValidatedBackup } />
 			</div>
 		</VStack>

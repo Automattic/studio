@@ -72,19 +72,32 @@ describe( 'TopBar', () => {
 		);
 	} );
 
-	it( 'opens the support URL', async () => {
+	it( 'opens the docs URL from the help menu', async () => {
 		const user = userEvent.setup();
 		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: true } );
 
 		renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
 
-		const helpIconButton = screen.getByRole( 'button', { name: 'Get help' } );
-		await user.click( helpIconButton );
+		await user.click( screen.getByRole( 'button', { name: 'Help' } ) );
+		await user.click( await screen.findByRole( 'menuitem', { name: 'Docs' } ) );
+
 		await waitFor( () =>
 			expect( mockOpenURL ).toHaveBeenCalledWith(
 				`https://developer.wordpress.com/docs/developer-tools/studio/`
 			)
 		);
+	} );
+
+	it( 'opens the feedback modal from the help menu', async () => {
+		const user = userEvent.setup();
+		vi.mocked( useAuth, { partial: true } ).mockReturnValue( { isAuthenticated: true } );
+
+		renderWithProvider( <TopBar onToggleSidebar={ vi.fn() } /> );
+
+		await user.click( screen.getByRole( 'button', { name: 'Help' } ) );
+		await user.click( await screen.findByRole( 'menuitem', { name: 'Send feedback' } ) );
+
+		expect( await screen.findByText( 'Share feedback' ) ).toBeVisible();
 	} );
 
 	it( 'calls toggleMinWindowWidth when sidebar toggle button is clicked', async () => {

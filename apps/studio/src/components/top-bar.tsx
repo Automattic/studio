@@ -1,5 +1,7 @@
-import { Icon, help, drawerLeft, cog } from '@wordpress/icons';
+import { Dropdown, MenuGroup, MenuItem } from '@wordpress/components';
+import { Icon, help, drawerLeft, cog, external } from '@wordpress/icons';
 import { useI18n } from '@wordpress/react-i18n';
+import { useState } from 'react';
 import Button from 'src/components/button';
 import { Gravatar } from 'src/components/gravatar';
 import offlineIcon from 'src/components/offline-icon';
@@ -10,6 +12,7 @@ import { useAuth } from 'src/hooks/use-auth';
 import { useOffline } from 'src/hooks/use-offline';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { getLocalizedLink } from 'src/lib/get-localized-link';
+import { FeedbackModal } from 'src/modules/feedback';
 import { useI18nLocale } from 'src/stores';
 
 interface TopBarProps {
@@ -126,33 +129,76 @@ function SettingsButton() {
 export default function TopBar( { onToggleSidebar }: TopBarProps ) {
 	const { __ } = useI18n();
 	const locale = useI18nLocale();
+	const { isAuthenticated, user } = useAuth();
+	const [ isFeedbackOpen, setIsFeedbackOpen ] = useState( false );
 
 	const openDocs = () => {
 		getIpcApi().openURL( getLocalizedLink( locale, 'docsStudio' ) );
 	};
 
 	return (
-		<div className="flex justify-between items-center text-white pl-2 pr-0.5">
-			<div className="flex items-center space-x-1.5 rtl:space-x-reverse">
-				<ToggleSidebar onToggleSidebar={ onToggleSidebar } />
-				<OfflineIndicator />
-			</div>
+		<>
+			<div className="flex justify-between items-center text-white pl-2 pr-0.5">
+				<div className="flex items-center space-x-1.5 rtl:space-x-reverse">
+					<ToggleSidebar onToggleSidebar={ onToggleSidebar } />
+					<OfflineIndicator />
+				</div>
 
-			<div className="app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse">
-				<Authentication />
-				<SettingsButton />
-				<Tooltip text={ __( 'Get help' ) } placement="bottom-end">
-					<Button
-						onClick={ openDocs }
-						aria-label={ __( 'Get help' ) }
-						variant="icon"
-						className="!p-1.5 !rounded-lg"
-					>
-						<Icon className="text-white" size={ 24 } icon={ help } />
-					</Button>
-				</Tooltip>
-				<RemoteSessionIndicator />
+				<div className="app-no-drag-region flex items-center space-x-1.5 rtl:space-x-reverse">
+					<Authentication />
+					<SettingsButton />
+					<Dropdown
+						popoverProps={ { placement: 'bottom-end' } }
+						renderToggle={ ( { isOpen, onToggle } ) => (
+							<Tooltip text={ __( 'Help' ) } placement="bottom-end">
+								<Button
+									onClick={ onToggle }
+									aria-label={ __( 'Help' ) }
+									aria-expanded={ isOpen }
+									variant="icon"
+									className="!p-1.5 !rounded-lg"
+								>
+									<Icon className="text-white" size={ 24 } icon={ help } />
+								</Button>
+							</Tooltip>
+						) }
+						renderContent={ ( { onClose } ) => (
+							<MenuGroup className="w-48">
+								<MenuItem
+									icon={ external }
+									iconPosition="right"
+									onClick={ () => {
+										onClose();
+										openDocs();
+									} }
+								>
+									{ __( 'Docs' ) }
+								</MenuItem>
+								<MenuItem
+									onClick={ () => {
+										onClose();
+										setIsFeedbackOpen( true );
+									} }
+								>
+									{ __( 'Send feedback' ) }
+								</MenuItem>
+							</MenuGroup>
+						) }
+					/>
+					<RemoteSessionIndicator />
+				</div>
 			</div>
-		</div>
+			{ isFeedbackOpen && (
+				<FeedbackModal
+					identity={ {
+						isAuthenticated,
+						email: user?.email,
+						displayName: user?.displayName,
+					} }
+					source="menu"
+					onClose={ () => setIsFeedbackOpen( false ) }
+				/>
+			) }
+		</>
 	);
 }

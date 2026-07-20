@@ -60,6 +60,7 @@ export interface IpcEvents {
 	'thumbnail-loaded': [ { id: string; imageData: string | null } ];
 	'thumbnail-load-error': [ { id: string } ];
 	'user-settings': [ { tabName?: string } ];
+	'feedback-modal': [ { source?: 'menu' } ];
 	'window-fullscreen-change': [ boolean ];
 	'user-preference-changed': [ void ];
 	'refresh-app-globals': [ void ];

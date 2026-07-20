@@ -228,6 +228,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// (read from the shared auth token by the server). The app isn't gated on
 		// it, but the user menu should show the real account.
 		requiresAuth: false,
+		agenticRequiresAuth: false,
 		async isAuthenticated() {
 			return ( await api< AuthUser | null >( '/auth/user' ) ) !== null;
 		},
@@ -313,6 +314,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		onAuthStateChanged() {
 			return () => {};
+		},
+		async getOnboardingCompleted() {
+			return true;
+		},
+		async setOnboardingCompleted() {
+			// No-op.
 		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.

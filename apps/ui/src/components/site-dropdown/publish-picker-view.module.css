@@ -1,7 +1,6 @@
 .picker {
 	display: flex;
 	flex-direction: column;
-	min-height: 160px;
 }
 
 .header {

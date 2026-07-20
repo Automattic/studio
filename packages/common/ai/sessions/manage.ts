@@ -12,7 +12,7 @@ import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessio
 
 /**
  * Session listing + creation, hydrated with the metadata that lives outside the
- * session JSONL: star/archive flags (shared config) and site placement
+ * session JSONL: the archived flag (shared config) and site placement
  * (app.json).
  */
 
@@ -25,11 +25,11 @@ export interface SessionSite {
 
 export function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
-	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >,
+	metadata?: Pick< AiSessionSummary, 'archived' >,
 	placement?: AiSessionSitePlacement
 ): AiSessionSummary {
 	return hydrateAiSessionSummaryWithPlacement(
-		{ ...summary, starred: metadata?.starred, archived: metadata?.archived },
+		{ ...summary, archived: metadata?.archived },
 		placement
 	);
 }

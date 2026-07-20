@@ -1,6 +1,7 @@
 import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { createRoute, redirect } from '@tanstack/react-router';
+import { resolveAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { readLastVisited } from '@/lib/last-visited';
@@ -14,8 +15,18 @@ export const indexRoute = createRoute( {
 			queryKey: SITES_QUERY_KEY,
 			queryFn: () => context.connector.getSites(),
 		} );
-		if ( sites.length === 0 ) {
-			throw redirect( { to: '/onboarding' } );
+		const firstSite = sites[ 0 ];
+		if ( ! firstSite ) {
+			const onboardingCompleted = await context.connector.getOnboardingCompleted();
+			throw redirect( { to: onboardingCompleted ? '/onboarding' : '/welcome' } );
+		}
+
+		const { enabled: agenticEnabled } = await resolveAgenticFeatures( context );
+		if ( ! agenticEnabled ) {
+			throw redirect( {
+				to: '/sites/$siteId/settings',
+				params: { siteId: firstSite.id },
+			} );
 		}
 
 		const sessions = await context.queryClient.fetchQuery( {

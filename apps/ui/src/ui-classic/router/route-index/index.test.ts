@@ -38,6 +38,8 @@ async function runBeforeLoad( sites: SiteDetails[], sessions: AiSessionSummary[]
 		connector: {
 			getSites: async () => sites,
 			getSessions: async () => sessions,
+			getAuthUser: async () => null,
+			getOnboardingCompleted: async () => true,
 		},
 	};
 	try {

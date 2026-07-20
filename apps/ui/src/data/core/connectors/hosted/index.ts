@@ -1,4 +1,4 @@
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
 import type {
@@ -7,7 +7,6 @@ import type {
 	AiSessionSummary,
 	AuthUser,
 	Connector,
-	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
@@ -119,6 +118,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
 		// in the browser is a follow-up (explored in the PR linked above).
 		requiresAuth: false,
+		agenticRequiresAuth: false,
 		async isAuthenticated() {
 			return true;
 		},
@@ -133,6 +133,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		onAuthStateChanged() {
 			return () => {};
+		},
+		async getOnboardingCompleted() {
+			return true;
+		},
+		async setOnboardingCompleted() {
+			// No-op.
 		},
 
 		// Sites
@@ -183,18 +189,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			throw new UnsupportedError( 'comparePaths' );
 		},
 
-		// Featured blueprints — public endpoint, same source as the desktop app.
-		async getFeaturedBlueprints( locale ): Promise< FeaturedBlueprint[] > {
-			const blueprints = await fetchStudioBlueprints( locale );
-			return blueprints.map( ( blueprint ) => ( {
-				slug: blueprint.slug,
-				title: blueprint.title,
-				excerpt: blueprint.excerpt,
-				image: blueprint.image,
-				playgroundUrl: blueprint.playground_url,
-				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
-			} ) );
-		},
+		getWordPressVersions: fetchWordPressVersions,
 
 		async getFilePath() {
 			// Browsers can't resolve a real filesystem path for a File.
@@ -208,6 +203,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async cleanupBlueprintTempDir() {
 			// No-op.
+		},
+		async readBlueprintFile() {
+			throw new UnsupportedError( 'readBlueprintFile' );
 		},
 		async importSiteFromBackup(): Promise< SiteDetails > {
 			throw new UnsupportedError( 'importSiteFromBackup' );
@@ -373,6 +371,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		onAddSite() {
 			// No application menu in a browser tab.
+			return () => {};
+		},
+		onAddSiteWithBlueprint() {
 			return () => {};
 		},
 		onOpenSettings() {

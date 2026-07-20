@@ -8,11 +8,9 @@
 	--site-list-chat-status-start-offset: 4px;
 	--site-list-chat-status-gap: 3px;
 	--site-list-label-inline-offset: 4px;
-	--site-list-pending-indicator-bg: color-mix(
-		in srgb,
-		var(--wpds-color-bg-interactive-error-strong) 34%,
-		var(--wpds-color-bg-surface-caution)
-	);
+	/* The sidebar sits on the dark window chrome in both color schemes, so
+	   the pending indicator is always the vivid on-dark value. */
+	--site-list-pending-indicator-bg: var(--studio-color-status-attention);
 	--site-list-sync-indicator-bg: var(--studio-color-status-sync);
 
 	/* Pull the row shape slightly left, then add the inset back inside rows so
@@ -23,12 +21,6 @@
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-sm);
 	user-select: none;
-}
-
-@media (prefers-color-scheme: dark) {
-	.root {
-		--site-list-pending-indicator-bg: var(--studio-color-status-attention);
-	}
 }
 
 .sites {

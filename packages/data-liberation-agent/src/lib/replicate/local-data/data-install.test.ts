@@ -111,9 +111,9 @@ describe('installLocalData', () => {
   it('writes plugins, stages payload, runs eval-file, parses counts', async () => {
     const sitePath = join(root, 'site');
     mkdirSync(join(sitePath, 'wordpress'), { recursive: true });
-    const calls: { file: string; args: string[] }[] = [];
-    const exec: ExecFn = async (file, args) => {
-      calls.push({ file, args });
+    const calls: { args: string[] }[] = [];
+    const exec: ExecFn = async (args) => {
+      calls.push({ args });
       return { stdout: 'some log noise\n{"inserted":2,"updated":0,"skippedModified":1,"collisions":0,"terms":2}\n', stderr: '' };
     };
 

@@ -2269,8 +2269,12 @@ export async function readBlueprintFile(
 		throw new Error( 'Blueprint file path must be within the allowed directory' );
 	}
 
-	const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
-	return JSON.parse( fileContents );
+	try {
+		const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
+		return JSON.parse( fileContents );
+	} finally {
+		await fsPromises.rm( resolvedPath, { force: true } );
+	}
 }
 
 export async function extractBlueprintBundle(

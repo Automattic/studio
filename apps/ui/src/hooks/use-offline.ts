@@ -1,17 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
+
+function subscribe( callback: () => void ) {
+	window.addEventListener( 'online', callback );
+	window.addEventListener( 'offline', callback );
+	return () => {
+		window.removeEventListener( 'online', callback );
+		window.removeEventListener( 'offline', callback );
+	};
+}
 
 export function useOffline(): boolean {
-	const [ isOffline, setIsOffline ] = useState( ! navigator.onLine );
-
-	useEffect( () => {
-		const update = () => setIsOffline( ! navigator.onLine );
-		window.addEventListener( 'online', update );
-		window.addEventListener( 'offline', update );
-		return () => {
-			window.removeEventListener( 'online', update );
-			window.removeEventListener( 'offline', update );
-		};
-	}, [] );
-
-	return isOffline;
+	return useSyncExternalStore( subscribe, () => ! navigator.onLine );
 }

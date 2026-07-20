@@ -301,6 +301,45 @@
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
+.sectionIntro {
+	margin: 0 0 var(--wpds-dimension-padding-lg);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.codeBlockWrap {
+	position: relative;
+}
+
+.codeBlock {
+	margin: 0;
+	padding: var(--wpds-dimension-padding-md);
+	padding-inline-end: calc(var(--wpds-dimension-padding-xl) + 32px);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 6px;
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(
+		--wpds-typography-font-family-mono,
+		ui-monospace,
+		SFMono-Regular,
+		Menlo,
+		monospace
+	);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-md);
+	overflow-x: auto;
+	white-space: pre;
+}
+
+.codeBlockCopyButton {
+	position: absolute;
+	inset-block-start: var(--wpds-dimension-padding-sm);
+	inset-inline-end: var(--wpds-dimension-padding-sm);
+	z-index: 1;
+}
+
 @media (max-width: 640px) {
 	.preferenceRow {
 		align-items: stretch;

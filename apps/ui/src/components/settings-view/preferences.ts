@@ -1,5 +1,9 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
 import { DEFAULT_RESPONSE_LENGTH } from '@studio/common/ai/response-length';
+import {
+	resolveActivitySoundPreferences,
+	type ActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import type {
 	ColorScheme,
@@ -25,6 +29,7 @@ export interface PreferencesFormData {
 	studioCliInstalled: boolean;
 	agenticFeaturesEnabled: boolean;
 	chatNotificationsEnabled: boolean;
+	activitySoundPreferences: ActivitySoundPreferences;
 	quitSitesBehavior: QuitSitesBehaviorSetting;
 	agentResponseLength: AiResponseLength;
 	defaultAiModel: AiModelId;
@@ -50,6 +55,7 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		// Persisted query caches from before this field existed rehydrate it as
 		// undefined; enabled is the real default, so render the toggle on.
 		chatNotificationsEnabled: prefs.chatNotificationsEnabled ?? true,
+		activitySoundPreferences: resolveActivitySoundPreferences( prefs.activitySoundPreferences ),
 		quitSitesBehavior: prefs.quitSitesBehavior ?? 'ask',
 		agentResponseLength: prefs.agentResponseLength ?? DEFAULT_RESPONSE_LENGTH,
 		defaultAiModel: prefs.defaultAiModel ?? DEFAULT_MODEL,
@@ -85,6 +91,9 @@ export function toPreferencesPatch(
 	}
 	if ( update.chatNotificationsEnabled !== undefined ) {
 		patch.chatNotificationsEnabled = update.chatNotificationsEnabled;
+	}
+	if ( update.activitySoundPreferences !== undefined ) {
+		patch.activitySoundPreferences = update.activitySoundPreferences;
 	}
 	if ( update.quitSitesBehavior !== undefined ) {
 		patch.quitSitesBehavior = update.quitSitesBehavior;

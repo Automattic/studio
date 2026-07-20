@@ -1,4 +1,8 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
+import {
+	DEFAULT_ACTIVITY_SOUND_PREFERENCES,
+	resolveActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
@@ -41,6 +45,17 @@ const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
 const EDITOR_STORAGE_KEY = 'studio-local-editor';
 const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
 const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
+const ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY = 'studio-activity-sound-preferences';
+
+function readActivitySoundPreferences() {
+	try {
+		return resolveActivitySoundPreferences(
+			JSON.parse( window.localStorage.getItem( ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY ) ?? 'null' )
+		);
+	} catch {
+		return DEFAULT_ACTIVITY_SOUND_PREFERENCES;
+	}
+}
 
 function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
 	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'
@@ -681,6 +696,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				studioCliInstalled: true,
 				agenticFeaturesEnabled: true,
 				chatNotificationsEnabled: true,
+				activitySoundPreferences: readActivitySoundPreferences(),
 				quitSitesBehavior: quitSitesBehavior ?? 'ask',
 				agentResponseLength: 'normal',
 				defaultAiModel: DEFAULT_MODEL,
@@ -688,6 +704,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			};
 		},
 		async setUserPreferences( partial ) {
+			if ( partial.activitySoundPreferences ) {
+				window.localStorage.setItem(
+					ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY,
+					JSON.stringify( partial.activitySoundPreferences )
+				);
+			}
 			if ( partial.colorScheme ) {
 				window.localStorage.setItem( COLOR_SCHEME_STORAGE_KEY, partial.colorScheme );
 			}
@@ -829,7 +851,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				return;
 			}
 			// `tag` collapses successive notifications for the same session.
-			const notification = new Notification( title, { body, tag: sessionId } );
+			const notification = new Notification( title, { body, tag: sessionId, silent: true } );
 			notification.onclick = () => {
 				window.focus();
 				notificationClickListeners.forEach( ( listener ) => listener( { sessionId } ) );

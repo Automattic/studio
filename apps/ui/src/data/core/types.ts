@@ -8,6 +8,7 @@ import type {
 	PermissionDecision,
 	ToolPermissionOverrides,
 } from '@studio/common/ai/tool-permissions';
+import type { ActivitySoundPreferences } from '@studio/common/lib/activity-sounds';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteRuntime } from '@studio/common/lib/site-runtime';
@@ -711,6 +712,7 @@ export interface UserPreferences {
 	studioCliInstalled: boolean;
 	agenticFeaturesEnabled: boolean;
 	chatNotificationsEnabled: boolean;
+	activitySoundPreferences: ActivitySoundPreferences;
 	quitSitesBehavior: QuitSitesBehaviorSetting;
 	agentResponseLength: AiResponseLength;
 	defaultAiModel: AiModelId;

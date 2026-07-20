@@ -29,7 +29,7 @@ export function showChatNotification(
 	const { sessionId, title, body } = request;
 	activeNotifications.get( sessionId )?.close();
 
-	const notification = new Notification( { title, body } );
+	const notification = new Notification( { title, body, silent: true } );
 	notification.on( 'click', () => {
 		activeNotifications.delete( sessionId );
 		if ( window.isDestroyed() ) {

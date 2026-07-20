@@ -7,13 +7,19 @@ import {
 	type ToolPermissionLevel,
 	type ToolPermissionOverrides,
 } from '@studio/common/ai/tool-permissions';
+import {
+	ACTIVITY_SOUND_EVENTS,
+	type ActivitySoundEvent,
+	type ActivitySoundId,
+	type ActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { getMcpServerConfigJson } from '@studio/common/lib/mcp-config';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { FormToggle } from '@wordpress/components';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { check, close, copy, file, Icon, moreHorizontal } from '@wordpress/icons';
+import { audio, check, close, copy, file, Icon, moreHorizontal } from '@wordpress/icons';
 import {
 	Button,
 	IconButton,
@@ -48,6 +54,7 @@ import {
 import { useOffline } from '@/hooks/use-offline';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { useSettingsClose } from '@/hooks/use-settings-close';
+import { playActivitySound } from '@/lib/activity-sounds';
 import {
 	setComposerPlaceholderEffect,
 	useComposerPlaceholderEffect,
@@ -600,6 +607,97 @@ function ChatNotificationsSection( {
 	);
 }
 
+function activitySoundOptions(): Array< { value: ActivitySoundId | 'none'; label: string } > {
+	return [
+		{ value: 'none', label: __( 'None' ) },
+		{ value: 'soft-chime', label: __( 'Soft chime' ) },
+		{ value: 'bright-chime', label: __( 'Bright chime' ) },
+		{ value: 'pop', label: __( 'Pop' ) },
+		{ value: 'pulse', label: __( 'Pulse' ) },
+	];
+}
+
+function activitySoundEventLabel( event: ActivitySoundEvent ): string {
+	switch ( event ) {
+		case 'attention-required':
+			return __( 'Needs your input' );
+		case 'agent-complete':
+			return __( 'Agent finished' );
+		case 'sync-started':
+			return __( 'Sync started' );
+		case 'sync-complete':
+			return __( 'Sync finished' );
+		case 'sync-failed':
+			return __( 'Sync failed' );
+	}
+}
+
+function ActivitySoundsSection( {
+	value,
+	onChange,
+}: {
+	value: ActivitySoundPreferences;
+	onChange: ( value: ActivitySoundPreferences ) => void;
+} ) {
+	const options = activitySoundOptions();
+
+	return (
+		<section className={ styles.preferenceSectionGroup }>
+			<div className={ styles.cliHeader }>
+				<h2 className={ clsx( styles.preferenceSectionHeading, styles.cliHeading ) }>
+					{ __( 'Activity sounds' ) }
+				</h2>
+				<FormToggle
+					id="activity-sounds-toggle"
+					aria-label={ __( 'Activity sounds' ) }
+					checked={ value.enabled }
+					onChange={ ( event ) => onChange( { ...value, enabled: event.target.checked } ) }
+				/>
+			</div>
+			<p className={ styles.cliDescription }>
+				{ __( 'Choose the sounds Studio plays for agent and live-site activity.' ) }
+			</p>
+			{ ACTIVITY_SOUND_EVENTS.map( ( event ) => {
+				const selectedSound = value.events[ event ];
+				const label = activitySoundEventLabel( event );
+				return (
+					<PreferenceRow key={ event } title={ label }>
+						<div className={ styles.soundControl }>
+							<PreferenceSelect< ActivitySoundId | 'none' >
+								label={ label }
+								value={ selectedSound ?? 'none' }
+								options={ options }
+								onChange={ ( soundId ) =>
+									onChange( {
+										...value,
+										events: {
+											...value.events,
+											[ event ]: soundId === 'none' ? null : soundId,
+										},
+									} )
+								}
+							/>
+							<IconButton
+								variant="minimal"
+								tone="neutral"
+								size="small"
+								icon={ audio }
+								label={ sprintf( __( 'Preview sound for %s' ), label ) }
+								disabled={ ! selectedSound }
+								onClick={ () => {
+									if ( selectedSound ) {
+										void playActivitySound( selectedSound );
+									}
+								} }
+							/>
+						</div>
+					</PreferenceRow>
+				);
+			} ) }
+		</section>
+	);
+}
+
 function AccountInformationSection() {
 	const { data: user, isLoading } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
@@ -848,6 +946,10 @@ function AiSettingsPanel( {
 				/>
 			) : null }
 			<ComposerSection />
+			<ActivitySoundsSection
+				value={ data.activitySoundPreferences }
+				onChange={ ( activitySoundPreferences ) => onChange( { activitySoundPreferences } ) }
+			/>
 			{ showNativePreferences ? (
 				<AgentPermissionsSection
 					toolPermissions={ data.toolPermissions }

@@ -1,4 +1,8 @@
 import { DEFAULT_MODEL } from '@studio/common/ai/models';
+import {
+	DEFAULT_ACTIVITY_SOUND_PREFERENCES,
+	resolveActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
@@ -29,6 +33,17 @@ export interface HostedConnectorOptions {
 
 const DISMISSED_MESSAGES_STORAGE_KEY = 'studio-dismissed-messages';
 const ONBOARDING_HINTS_STORAGE_KEY = 'studio-onboarding-hints';
+const ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY = 'studio-activity-sound-preferences';
+
+function readActivitySoundPreferences() {
+	try {
+		return resolveActivitySoundPreferences(
+			JSON.parse( window.localStorage.getItem( ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY ) ?? 'null' )
+		);
+	} catch {
+		return DEFAULT_ACTIVITY_SOUND_PREFERENCES;
+	}
+}
 
 function readDismissedMessages(): string[] {
 	try {
@@ -477,7 +492,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				return;
 			}
 			// `tag` collapses successive notifications for the same session.
-			const notification = new Notification( title, { body, tag: sessionId } );
+			const notification = new Notification( title, { body, tag: sessionId, silent: true } );
 			notification.onclick = () => {
 				window.focus();
 				notificationClickListeners.forEach( ( listener ) => listener( { sessionId } ) );
@@ -499,14 +514,20 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				studioCliInstalled: false,
 				agenticFeaturesEnabled: true,
 				chatNotificationsEnabled: true,
+				activitySoundPreferences: readActivitySoundPreferences(),
 				quitSitesBehavior: 'ask',
 				agentResponseLength: 'normal',
 				defaultAiModel: DEFAULT_MODEL,
 				toolPermissions: {},
 			};
 		},
-		async setUserPreferences() {
-			// No-op: preferences aren't persisted in the browser yet.
+		async setUserPreferences( partial ) {
+			if ( partial.activitySoundPreferences ) {
+				window.localStorage.setItem(
+					ACTIVITY_SOUND_PREFERENCES_STORAGE_KEY,
+					JSON.stringify( partial.activitySoundPreferences )
+				);
+			}
 		},
 		async previewColorScheme() {
 			// No-op: the hosted UI follows the browser theme.

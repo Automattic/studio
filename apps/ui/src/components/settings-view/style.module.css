@@ -281,6 +281,16 @@
 	inline-size: 260px;
 }
 
+.soundControl {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-sm);
+}
+
+.soundControl .selectControl {
+	inline-size: 180px;
+}
+
 .selectControl > * {
 	inline-size: 100%;
 }

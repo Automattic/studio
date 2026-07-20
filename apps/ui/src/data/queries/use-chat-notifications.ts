@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
 import { useConnector } from '@/data/core';
+import { playConfiguredActivitySound } from '@/data/queries/use-activity-sounds';
 import { useAgentRunStore } from '@/data/queries/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -88,6 +89,10 @@ export function useChatNotifications(): void {
 						title: notificationTitle( sessionsRef.current, sessionId ),
 						body: __( 'Finished responding' ),
 					};
+					playConfiguredActivitySound(
+						preferencesRef.current?.activitySoundPreferences,
+						'agent-complete'
+					);
 				}
 
 				// Pending question: the unanswered count crossed zero. Each new
@@ -100,6 +105,10 @@ export function useChatNotifications(): void {
 						title: notificationTitle( sessionsRef.current, sessionId ),
 						body: __( 'Waiting for your input' ),
 					};
+					playConfiguredActivitySound(
+						preferencesRef.current?.activitySoundPreferences,
+						'attention-required'
+					);
 				}
 
 				// The user already sees this conversation — nothing to announce.

@@ -203,6 +203,9 @@ const api: IpcApi = {
 	saveAgentResponseLength: ( responseLength ) =>
 		ipcRendererInvoke( 'saveAgentResponseLength', responseLength ),
 	getAgentResponseLength: () => ipcRendererInvoke( 'getAgentResponseLength' ),
+	getActivitySoundPreferences: () => ipcRendererInvoke( 'getActivitySoundPreferences' ),
+	saveActivitySoundPreferences: ( preferences ) =>
+		ipcRendererInvoke( 'saveActivitySoundPreferences', preferences ),
 	getToolPermissions: () => ipcRendererInvoke( 'getToolPermissions' ),
 	saveToolPermission: ( toolName, level ) =>
 		ipcRendererInvoke( 'saveToolPermission', toolName, level ),

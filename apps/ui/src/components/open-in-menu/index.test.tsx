@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { DEFAULT_ACTIVITY_SOUND_PREFERENCES } from '@studio/common/lib/activity-sounds';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -148,6 +149,7 @@ describe( 'OpenInMenu', () => {
 				studioCliInstalled: false,
 				agenticFeaturesEnabled: true,
 				chatNotificationsEnabled: true,
+				activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,
 				quitSitesBehavior: 'ask',
 				agentResponseLength: 'normal',
 				toolPermissions: {},

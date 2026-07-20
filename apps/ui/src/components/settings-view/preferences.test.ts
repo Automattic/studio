@@ -1,3 +1,4 @@
+import { DEFAULT_ACTIVITY_SOUND_PREFERENCES } from '@studio/common/lib/activity-sounds';
 import { describe, expect, it } from 'vitest';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import type { UserPreferences } from '@/data/core';
@@ -11,6 +12,7 @@ const SAVED_PREFERENCES: UserPreferences = {
 	studioCliInstalled: false,
 	agenticFeaturesEnabled: true,
 	chatNotificationsEnabled: true,
+	activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,
 	quitSitesBehavior: 'ask',
 	agentResponseLength: 'normal',
 	defaultAiModel: 'claude-sonnet-5',
@@ -35,6 +37,7 @@ describe( 'settings preference helpers', () => {
 			studioCliInstalled: false,
 			agenticFeaturesEnabled: true,
 			chatNotificationsEnabled: true,
+			activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,
 			quitSitesBehavior: 'ask',
 			agentResponseLength: 'normal',
 			defaultAiModel: 'claude-sonnet-5',

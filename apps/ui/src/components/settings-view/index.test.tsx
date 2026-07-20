@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { DEFAULT_ACTIVITY_SOUND_PREFERENCES } from '@studio/common/lib/activity-sounds';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
@@ -17,6 +18,7 @@ import {
 	useWordPressSkills,
 } from '@/data/queries/use-wordpress-skills';
 import { useOffline } from '@/hooks/use-offline';
+import { playActivitySound } from '@/lib/activity-sounds';
 import { SettingsView, normalizeSettingsTab } from './index';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
 
@@ -141,6 +143,10 @@ vi.mock( '@wordpress/ui', () => ( {
 
 vi.mock( '@/components/wporg-login-dialog', () => ( {
 	WporgLoginDialog: () => null,
+} ) );
+
+vi.mock( '@/lib/activity-sounds', () => ( {
+	playActivitySound: vi.fn(),
 } ) );
 
 vi.mock( '@/components/gravatar', () => ( {
@@ -303,6 +309,7 @@ describe( 'SettingsView', () => {
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
 				agenticFeaturesEnabled: true,
+				activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,
 			},
 			isLoading: false,
 		} as never );
@@ -471,7 +478,43 @@ describe( 'SettingsView', () => {
 		expect( screen.getByRole( 'heading', { name: 'Default model' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'heading', { name: 'Response length' } ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Chat notifications' ) ).toBeInTheDocument();
+		expect( screen.getByLabelText( 'Activity sounds' ) ).toBeChecked();
+		expect( screen.getByRole( 'combobox', { name: 'Agent finished' } ) ).toHaveValue(
+			'soft-chime'
+		);
 		expect( normalizeSettingsTab( 'ai' ) ).toBe( 'ai' );
+	} );
+
+	it( 'saves and previews activity sound choices', () => {
+		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
+
+		fireEvent.change( screen.getByRole( 'combobox', { name: 'Agent finished' } ), {
+			target: { value: 'pulse' },
+		} );
+		expect( mutate ).toHaveBeenCalledWith(
+			{
+				activitySoundPreferences: {
+					...DEFAULT_ACTIVITY_SOUND_PREFERENCES,
+					events: { ...DEFAULT_ACTIVITY_SOUND_PREFERENCES.events, 'agent-complete': 'pulse' },
+				},
+			},
+			expect.any( Object )
+		);
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Preview sound for Agent finished' } ) );
+		expect( playActivitySound ).toHaveBeenCalledWith( 'pulse' );
+
+		fireEvent.click( screen.getByLabelText( 'Activity sounds' ) );
+		expect( mutate ).toHaveBeenCalledWith(
+			{
+				activitySoundPreferences: {
+					...DEFAULT_ACTIVITY_SOUND_PREFERENCES,
+					enabled: false,
+					events: { ...DEFAULT_ACTIVITY_SOUND_PREFERENCES.events, 'agent-complete': 'pulse' },
+				},
+			},
+			expect.any( Object )
+		);
 	} );
 
 	it( 'opens account help actions through buttons from preferences', () => {

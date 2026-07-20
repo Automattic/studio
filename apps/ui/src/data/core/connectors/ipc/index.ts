@@ -1,3 +1,4 @@
+import { resolveActivitySoundPreferences } from '@studio/common/lib/activity-sounds';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -959,6 +960,7 @@ export function createIpcConnector(): Connector {
 				studioCliInstalled,
 				agenticFeaturesEnabled,
 				chatNotificationsEnabled,
+				activitySoundPreferences,
 				quitSitesBehavior,
 				agentResponseLength,
 				defaultAiModel,
@@ -972,6 +974,7 @@ export function createIpcConnector(): Connector {
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.getAgenticFeaturesEnabled(),
 				ipcApi.getChatNotificationsEnabled(),
+				ipcApi.getActivitySoundPreferences(),
 				ipcApi.getQuitSitesBehavior(),
 				ipcApi.getAgentResponseLength(),
 				ipcApi.getDefaultAiModel(),
@@ -985,6 +988,7 @@ export function createIpcConnector(): Connector {
 				boolean,
 				boolean,
 				boolean,
+				unknown,
 				QuitSitesBehavior | undefined,
 				AiResponseLength,
 				AiModelId,
@@ -999,6 +1003,7 @@ export function createIpcConnector(): Connector {
 				studioCliInstalled,
 				agenticFeaturesEnabled,
 				chatNotificationsEnabled,
+				activitySoundPreferences: resolveActivitySoundPreferences( activitySoundPreferences ),
 				// The desktop stores "ask" as an absent key; surface it as the
 				// explicit 'ask' member the settings UI works with.
 				quitSitesBehavior: quitSitesBehavior ?? 'ask',
@@ -1041,6 +1046,9 @@ export function createIpcConnector(): Connector {
 				typeof partial.chatNotificationsEnabled === 'boolean'
 			) {
 				writes.push( ipcApi.saveChatNotificationsEnabled( partial.chatNotificationsEnabled ) );
+			}
+			if ( 'activitySoundPreferences' in partial && partial.activitySoundPreferences ) {
+				writes.push( ipcApi.saveActivitySoundPreferences( partial.activitySoundPreferences ) );
 			}
 			if ( 'quitSitesBehavior' in partial && partial.quitSitesBehavior ) {
 				writes.push(

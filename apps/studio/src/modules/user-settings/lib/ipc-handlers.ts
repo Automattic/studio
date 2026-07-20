@@ -11,6 +11,10 @@ import {
 	type ToolPermissionOverrides,
 } from '@studio/common/ai/tool-permissions';
 import {
+	resolveActivitySoundPreferences,
+	type ActivitySoundPreferences,
+} from '@studio/common/lib/activity-sounds';
+import {
 	lockSharedConfig,
 	readSharedConfig,
 	saveSharedConfig,
@@ -220,6 +224,20 @@ export async function saveChatNotificationsEnabled(
 	enabled: boolean
 ): Promise< void > {
 	await updateAppdata( { chatNotificationsEnabled: enabled } );
+}
+
+export async function getActivitySoundPreferences(): Promise< ActivitySoundPreferences > {
+	const userData = await loadUserData();
+	return resolveActivitySoundPreferences( userData.activitySoundPreferences );
+}
+
+export async function saveActivitySoundPreferences(
+	_event: IpcMainInvokeEvent,
+	preferences: ActivitySoundPreferences
+): Promise< void > {
+	await updateAppdata( {
+		activitySoundPreferences: resolveActivitySoundPreferences( preferences ),
+	} );
 }
 
 export async function getColorScheme(): Promise< 'system' | 'light' | 'dark' > {

@@ -1,8 +1,10 @@
+import { DEFAULT_ACTIVITY_SOUND_PREFERENCES } from '@studio/common/lib/activity-sounds';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { setVisibleSessionId } from '@/lib/visible-session';
+import { playConfiguredActivitySound } from './use-activity-sounds';
 import { AgentRunProvider, useAgentRun } from './use-agent-run';
 import { useChatNotifications } from './use-chat-notifications';
 import { useSessions } from './use-sessions';
@@ -18,6 +20,10 @@ vi.mock( '@/data/core', async ( importOriginal ) => {
 	};
 } );
 
+vi.mock( './use-activity-sounds', () => ( {
+	playConfiguredActivitySound: vi.fn(),
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 
 const PREFERENCES: UserPreferences = {
@@ -29,6 +35,7 @@ const PREFERENCES: UserPreferences = {
 	studioCliInstalled: false,
 	agenticFeaturesEnabled: true,
 	chatNotificationsEnabled: true,
+	activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,
 	quitSitesBehavior: 'ask',
 	agentResponseLength: 'normal',
 	toolPermissions: {},
@@ -160,6 +167,10 @@ describe( 'useChatNotifications', () => {
 				title: 'My Site',
 			} )
 		);
+		expect( playConfiguredActivitySound ).toHaveBeenCalledWith(
+			DEFAULT_ACTIVITY_SOUND_PREFERENCES,
+			'agent-complete'
+		);
 
 		act( () => {
 			exitRun();
@@ -188,6 +199,10 @@ describe( 'useChatNotifications', () => {
 		expect( connector.showChatNotification ).toHaveBeenCalledWith(
 			expect.objectContaining( { sessionId: 'session-1', kind: 'pending-question' } )
 		);
+		expect( playConfiguredActivitySound ).toHaveBeenCalledWith(
+			DEFAULT_ACTIVITY_SOUND_PREFERENCES,
+			'attention-required'
+		);
 	} );
 
 	it( 'stays silent when the user interrupts the run', async () => {
@@ -208,6 +223,7 @@ describe( 'useChatNotifications', () => {
 		} );
 
 		expect( connector.showChatNotification ).not.toHaveBeenCalled();
+		expect( playConfiguredActivitySound ).not.toHaveBeenCalled();
 	} );
 
 	it( 'suppresses the completion notification when a queued follow-up will auto-dispatch', async () => {
@@ -222,6 +238,7 @@ describe( 'useChatNotifications', () => {
 		} );
 
 		expect( connector.showChatNotification ).not.toHaveBeenCalled();
+		expect( playConfiguredActivitySound ).not.toHaveBeenCalled();
 	} );
 
 	it( 'stays silent when the user is already viewing the session in a focused window', async () => {

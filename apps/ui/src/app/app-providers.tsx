@@ -10,6 +10,7 @@ import { DevMessageLab } from '@/components/dev-message-lab';
 import { OnboardingGuideProvider } from '@/components/onboarding-guide/use-onboarding-guide';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { useOnboardingEvents } from '@/data/onboarding/use-onboarding-events';
+import { useSyncActivitySounds } from '@/data/queries/use-activity-sounds';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useChatNotifications } from '@/data/queries/use-chat-notifications';
@@ -35,6 +36,7 @@ function SiteEventsBridge() {
 	useLiveSyncActivityMonitor();
 	useSyncAppUpdateStatus();
 	useChatNotifications();
+	useSyncActivitySounds();
 	return null;
 }
 

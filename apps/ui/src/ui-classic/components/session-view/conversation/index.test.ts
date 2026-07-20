@@ -335,8 +335,6 @@ describe( 'Conversation chat artifacts', () => {
 
 		renderConversation( data );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Captured 1 artifact' } ) );
-
 		const screenshot = await screen.findByRole( 'img', {
 			name: 'Screenshot of http://localhost:8888/ (desktop)',
 		} );
@@ -351,8 +349,6 @@ describe( 'Conversation chat artifacts', () => {
 		const data = loadedSession( [ chatArtifactEntry( [ localScreenshotWidget() ] ) ] );
 
 		renderConversation( data );
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Captured 1 artifact' } ) );
 
 		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Image unavailable' );
 	} );
@@ -1050,7 +1046,7 @@ describe( 'Conversation work phases', () => {
 		] );
 	} );
 
-	it( 'includes chat artifacts inside the work phase', () => {
+	it( 'hoists media artifacts out of the work phase as standalone items', () => {
 		const items = entriesToRenderItems( [
 			assistantToolCallEntry( 'take_screenshot', { url: 'http://localhost:8888/' } ),
 			{
@@ -1075,14 +1071,37 @@ describe( 'Conversation work phases', () => {
 				},
 			} as unknown as SessionEntry,
 		] );
-		expect( items ).toHaveLength( 1 );
-		expect( items[ 0 ]?.kind ).toBe( 'work-phase' );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [ 'work-phase', 'chat-artifact' ] );
 		if ( items[ 0 ]?.kind === 'work-phase' ) {
-			expect( items[ 0 ].steps.map( ( step ) => step.kind ) ).toEqual( [
-				'tool-use',
-				'chat-artifact',
-			] );
+			expect( items[ 0 ].steps.map( ( step ) => step.kind ) ).toEqual( [ 'tool-use' ] );
 		}
+	} );
+
+	it( 'shows each media file only once per turn, resetting on a new prompt', () => {
+		// generate_image emits its own card, then the agent re-presents the same
+		// file via studio_present — the duplicate must not render twice.
+		const promptEntry = ( id: string, text: string ) =>
+			( {
+				type: 'custom',
+				id,
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				customType: 'studio.user_prompt',
+				data: { text, source: 'prompt' },
+			} ) as unknown as SessionEntry;
+		const items = entriesToRenderItems( [
+			promptEntry( 'prompt-1', 'make me an image' ),
+			chatArtifactEntry( [ localScreenshotWidget() ] ),
+			chatArtifactEntry( [ localScreenshotWidget() ] ),
+			promptEntry( 'prompt-2', 'show it again' ),
+			chatArtifactEntry( [ localScreenshotWidget() ] ),
+		] );
+		expect( items.map( ( item ) => item.kind ) ).toEqual( [
+			'user-text',
+			'chat-artifact',
+			'user-text',
+			'chat-artifact',
+		] );
 	} );
 
 	it( 'renders one expandable summary for the whole work phase', () => {

@@ -341,9 +341,15 @@ export function entriesToRenderItems(
 	};
 
 	const items: FlatRenderItem[] = [];
+	// Media files already rendered in the current turn, keyed by local path or
+	// URL. Two artifacts pointing at the same file (e.g. generate_image's own
+	// card plus a studio_present of the same path) load identical bytes, so
+	// only the first is worth showing.
+	let seenTurnMediaKeys = new Set< string >();
 	for ( let entryIndex = 0; entryIndex < entries.length; entryIndex += 1 ) {
 		const entry = entries[ entryIndex ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
+			seenTurnMediaKeys = new Set();
 			const data = ( entry as StudioCustomEntry< 'studio.user_prompt' > ).data;
 			if ( ! data || data.source !== 'prompt' ) continue;
 			items.push( {
@@ -472,14 +478,27 @@ export function entriesToRenderItems(
 			if ( ! isStudioChatArtifactData( data ) ) {
 				continue;
 			}
-			const widgets = data.widgets.filter(
-				( widget ) =>
-					isCheckpointArtifactWidget( widget ) ||
-					( isRenderableMediaWidget( widget ) &&
-						// Without local media access (browser builds), only widgets
-						// with a renderable remote URL are worth showing.
-						( options.canReadLocalMedia !== false || Boolean( getSafeMediaUrl( widget ) ) ) )
-			);
+			const widgets = data.widgets.filter( ( widget ) => {
+				if ( isCheckpointArtifactWidget( widget ) ) {
+					return true;
+				}
+				if (
+					! isRenderableMediaWidget( widget ) ||
+					// Without local media access (browser builds), only widgets
+					// with a renderable remote URL are worth showing.
+					( options.canReadLocalMedia === false && ! getSafeMediaUrl( widget ) )
+				) {
+					return false;
+				}
+				const mediaKey = getLocalMediaPath( widget ) ?? getSafeMediaUrl( widget );
+				if ( mediaKey ) {
+					if ( seenTurnMediaKeys.has( mediaKey ) ) {
+						return false;
+					}
+					seenTurnMediaKeys.add( mediaKey );
+				}
+				return true;
+			} );
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',
@@ -505,8 +524,19 @@ export function entriesToRenderItems(
 	return groupIntoWorkPhases( items );
 }
 
+// Media artifacts (screenshots, generated images) are deliberate, user-facing
+// milestones — they render as standalone cards in the transcript instead of
+// collapsing into the work-phase row like checkpoints and notes do.
+function isMediaArtifact( item: FlatRenderItem ): boolean {
+	return item.kind === 'chat-artifact' && item.widgets.some( isRenderableMediaWidget );
+}
+
 function isWorkPhaseStep( item: FlatRenderItem ): item is WorkPhaseStep {
-	return item.kind === 'thinking' || item.kind === 'tool-use' || item.kind === 'chat-artifact';
+	return (
+		item.kind === 'thinking' ||
+		item.kind === 'tool-use' ||
+		( item.kind === 'chat-artifact' && ! isMediaArtifact( item ) )
+	);
 }
 
 function buildWorkPhaseItem(
@@ -1868,6 +1898,11 @@ export function Conversation( {
 		if ( lastPhaseIndex < 0 || lastPhaseIndex < lastUserIndex ) {
 			return { committedItems: items, livePhaseSteps: [] as WorkPhaseStep[] };
 		}
+		// A standalone item (e.g. a media artifact) after the phase commits it:
+		// slicing at the phase would drop the trailing item from the transcript.
+		if ( lastPhaseIndex !== items.length - 1 ) {
+			return { committedItems: items, livePhaseSteps: [] as WorkPhaseStep[] };
+		}
 		const phase = items[ lastPhaseIndex ];
 		if ( phase.kind !== 'work-phase' ) {
 			return { committedItems: items, livePhaseSteps: null as WorkPhaseStep[] | null };
@@ -1937,6 +1972,8 @@ export function Conversation( {
 							return (
 								<WorkPhaseRow key={ item.key } steps={ item.steps } summary={ item.summary } />
 							);
+						case 'chat-artifact':
+							return <ChatArtifact key={ item.key } widgets={ item.widgets } />;
 						case 'agent-question-batch':
 							return (
 								<AgentQuestionBatch

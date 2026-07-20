@@ -102,7 +102,7 @@ function buildAnthropicCustomHeaders( headers: Record< string, string > ): strin
 		.join( '\n' );
 }
 
-function getWpcomAiGatewayBaseUrl(): string {
+export function getWpcomAiGatewayBaseUrl(): string {
 	const customBaseUrl = process.env.WPCOM_AI_PROXY_BASE_URL?.trim();
 	return customBaseUrl || DEFAULT_WPCOM_AI_GATEWAY_BASE_URL;
 }

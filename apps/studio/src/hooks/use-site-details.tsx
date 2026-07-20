@@ -17,9 +17,7 @@ import { simplifyErrorForDisplay, simplifyErrorToFirstSentence } from 'src/lib/e
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import type { Blueprint } from 'src/stores/wpcom-api';
 
-// How often to re-query the main process for authoritative running state while the app is
-// focused. The `site-event` stream is the primary signal; this poll is the safety net that
-// recovers from events that are never emitted (e.g. a daemon crash) or dropped in transit.
+// Safety-net poll interval; `site-event`s are the primary signal for running state.
 const RUNNING_STATE_POLL_INTERVAL_MS = 10_000;
 
 interface SiteDetailsContext {
@@ -217,6 +215,29 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 			const { [ siteId ]: _, ...rest } = prev;
 			return rest;
 		} );
+	}, [] );
+
+	// Re-query authoritative running state and adopt it for sites we already know about. Membership
+	// stays owned by `site-event`s, so this never adds/removes (e.g. drops a mid-creation site).
+	const reconcileRunningState = useCallback( async () => {
+		try {
+			const data = await getIpcApi().reconcileSites();
+			setSites( ( prev ) => {
+				const authoritativeById = new Map( data.map( ( site ) => [ site.id, site ] ) );
+				let changed = false;
+				const next = prev.map( ( site ) => {
+					const authoritative = authoritativeById.get( site.id );
+					if ( ! authoritative || authoritative.running === site.running ) {
+						return site;
+					}
+					changed = true;
+					return authoritative;
+				} );
+				return changed ? next : prev;
+			} );
+		} catch ( error ) {
+			console.error( 'Error reconciling site running state:', error );
+		}
 	}, [] );
 
 	const onDeleteSite = useCallback(
@@ -519,12 +540,14 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 					}
 					await getIpcApi().stopServer( id );
 				}
+				// Adopt the resulting state now rather than waiting on a `site-event` that may not arrive.
+				await reconcileRunningState();
 			} finally {
 				clearLoadingForSite( id );
 			}
 			return { capacityLimitReached };
 		},
-		[ startLoadingForSite, clearLoadingForSite ]
+		[ startLoadingForSite, clearLoadingForSite, reconcileRunningState ]
 	);
 
 	const startServers = useCallback(
@@ -661,65 +684,36 @@ export function SiteDetailsProvider( { children }: SiteDetailsProviderProps ) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
-	// Reconcile the UI against authoritative running state. The `site-event` stream can miss a
-	// transition entirely (e.g. a daemon crash never emits "stopped") or drop an event before the
-	// renderer sees it, leaving a Start/Stop button stuck; polling lets the UI self-correct.
+	// Safety net for missed/dropped `site-event`s: reconcile on an interval while visible, and
+	// immediately on regaining focus, so the UI self-corrects with no user action.
 	useEffect( () => {
-		let cancelled = false;
-
-		const reconcile = () => {
-			if ( document.visibilityState !== 'visible' ) {
-				return;
+		const reconcileIfVisible = () => {
+			if ( document.visibilityState === 'visible' ) {
+				void reconcileRunningState();
 			}
-			getIpcApi()
-				.reconcileSites()
-				.then( ( data ) => {
-					if ( cancelled ) {
-						return;
-					}
-					setSites( ( prev ) => {
-						const authoritativeById = new Map( data.map( ( site ) => [ site.id, site ] ) );
-						let changed = false;
-						// Only reconcile running state for sites we already know about. Membership
-						// (adds/removes) is owned by `site-event`s and the create/delete flows, so the
-						// poll must never drop a site it doesn't yet see (e.g. one mid-creation).
-						const next = prev.map( ( site ) => {
-							const authoritative = authoritativeById.get( site.id );
-							if ( ! authoritative || authoritative.running === site.running ) {
-								return site;
-							}
-							changed = true;
-							return authoritative;
-						} );
-						return changed ? next : prev;
-					} );
-				} )
-				.catch( ( error ) => {
-					console.error( 'Error reconciling site running state:', error );
-				} );
 		};
 
-		const interval = setInterval( reconcile, RUNNING_STATE_POLL_INTERVAL_MS );
-		// Reconcile immediately when the user returns to a backgrounded app.
-		document.addEventListener( 'visibilitychange', reconcile );
+		const interval = setInterval( reconcileIfVisible, RUNNING_STATE_POLL_INTERVAL_MS );
+		document.addEventListener( 'visibilitychange', reconcileIfVisible );
 
 		return () => {
-			cancelled = true;
 			clearInterval( interval );
-			document.removeEventListener( 'visibilitychange', reconcile );
+			document.removeEventListener( 'visibilitychange', reconcileIfVisible );
 		};
-	}, [] );
+	}, [ reconcileRunningState ] );
 
 	const stopServer = useCallback(
 		async ( id: string ) => {
 			startLoadingForSite( id );
 			try {
 				await getIpcApi().stopServer( id );
+				// Flip the button immediately instead of waiting on a `site-event` that may be missed.
+				await reconcileRunningState();
 			} finally {
 				clearLoadingForSite( id );
 			}
 		},
-		[ startLoadingForSite, clearLoadingForSite ]
+		[ startLoadingForSite, clearLoadingForSite, reconcileRunningState ]
 	);
 
 	const stopAllRunningSites = useCallback( async () => {

@@ -60,9 +60,8 @@ export function getRunningSiteCount(): number {
 	return Array.from( servers.values() ).filter( ( server ) => server.details.running ).length;
 }
 
-// Re-query the CLI for the authoritative running state of every site and reconcile the in-memory
-// SiteServer details to match. This recovers from transitions the `_events` stream can miss entirely
-// (e.g. a daemon crash leaves a site's running flag stuck), which no push-based update can fix.
+// Re-query the CLI for authoritative running state and reconcile in-memory details — recovers from
+// transitions the `_events` stream never emits (e.g. a daemon crash), which no push update can fix.
 export async function reconcileSitesRunningState(): Promise< void > {
 	let cliSites;
 	try {
@@ -257,8 +256,7 @@ export class SiteServer {
 		await this.server.start();
 	}
 
-	// Force the in-memory running state to match an authoritative value (from the CLI),
-	// updating only running/url so Studio-owned detail fields survive. Returns whether it changed.
+	// Adopt an authoritative running value, touching only running/url so Studio-owned fields survive.
 	adoptRunningState( running: boolean ): boolean {
 		if ( this.details.running === running ) {
 			return false;

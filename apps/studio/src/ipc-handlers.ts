@@ -718,8 +718,7 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return sites;
 }
 
-// Re-query the CLI for authoritative running state before returning details, so the renderer can
-// self-correct when a `site-event` was missed (e.g. a daemon crash left a site stuck "running").
+// Re-query running state before returning details, so the renderer can self-correct a missed event.
 export async function reconcileSites( event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	await reconcileSitesRunningState();
 	return getSiteDetails( event );

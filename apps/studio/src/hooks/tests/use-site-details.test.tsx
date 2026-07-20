@@ -66,6 +66,8 @@ describe( 'useSiteDetails', () => {
 		vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
 			getSiteDetails: vi.fn().mockResolvedValue( mockSites ),
 			startServer: vi.fn( () => Promise.resolve() ),
+			stopServer: vi.fn( () => Promise.resolve() ),
+			reconcileSites: vi.fn().mockResolvedValue( mockSites ),
 			deleteSite: vi.fn( () => Promise.resolve() ),
 			getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
 		} );
@@ -177,6 +179,7 @@ describe( 'useSiteDetails', () => {
 				startServer: vi.fn().mockRejectedValue( error ),
 				showErrorMessageBox,
 				stopServer,
+				reconcileSites: vi.fn().mockResolvedValue( mockSites ),
 				getConnectedWpcomSites: vi.fn( () => Promise.resolve( [] ) ),
 			} );
 			return { showErrorMessageBox, stopServer };
@@ -466,6 +469,42 @@ describe( 'useSiteDetails', () => {
 			await waitFor( () => {
 				expect( result.current.selectedSite?.id ).toBe( 'site-2' );
 			} );
+		} );
+	} );
+
+	describe( 'running-state reconciliation', () => {
+		it( 'adopts authoritative running state after stopping a server', async () => {
+			const sites: SiteDetails[] = [
+				{ ...mockSites[ 0 ], autoStart: false },
+				{ ...mockSites[ 1 ], autoStart: false, running: true, url: 'http://localhost:1235' },
+				{ ...mockSites[ 2 ], autoStart: false },
+			];
+			// No stop `site-event` is delivered here — the hook must adopt the reported state via reconcile.
+			const reconcileSites = vi
+				.fn()
+				.mockResolvedValue(
+					sites.map( ( site ) => ( site.id === 'site-2' ? { ...site, running: false } : site ) )
+				);
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( sites ),
+				stopServer: vi.fn( () => Promise.resolve() ),
+				reconcileSites,
+			} );
+
+			const { result } = renderHook( () => useSiteDetails(), { wrapper } );
+			await waitFor( () => {
+				expect( result.current.loadingSites ).toBe( false );
+			} );
+			expect( result.current.sites.find( ( site ) => site.id === 'site-2' )?.running ).toBe( true );
+
+			await act( async () => {
+				await result.current.stopServer( 'site-2' );
+			} );
+
+			expect( reconcileSites ).toHaveBeenCalledTimes( 1 );
+			expect( result.current.sites.find( ( site ) => site.id === 'site-2' )?.running ).toBe(
+				false
+			);
 		} );
 	} );
 } );

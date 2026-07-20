@@ -13,6 +13,7 @@ function WelcomePage() {
 	const navigate = useNavigate();
 	const { data: authUser } = useAuthUser();
 	const login = useLogin();
+	const signup = useLogin( { signup: true } );
 
 	const continueToOnboarding = useCallback( async () => {
 		await connector.setOnboardingCompleted( true );
@@ -56,7 +57,8 @@ function WelcomePage() {
 					type="button"
 					variant="outline"
 					tone="neutral"
-					onClick={ () => void connector.authenticate( true ) }
+					loading={ signup.isPending }
+					onClick={ () => signup.mutate() }
 				>
 					{ __( 'Sign up' ) }
 				</Button>

@@ -49,6 +49,11 @@ import { useOffline } from '@/hooks/use-offline';
 import { usePrefersColorScheme } from '@/hooks/use-prefers-color-scheme';
 import { useSettingsClose } from '@/hooks/use-settings-close';
 import {
+	setComposerPlaceholderEffect,
+	useComposerPlaceholderEffect,
+	type ComposerPlaceholderEffect,
+} from '@/lib/composer-placeholder-effect';
+import {
 	SIMULATED_WPORG_USERNAME,
 	setWporgConnected,
 	useWporgConnected,
@@ -536,6 +541,36 @@ function AgentSection( {
 	);
 }
 
+function ComposerSection() {
+	const placeholderEffect = useComposerPlaceholderEffect();
+	const options: Array< { value: ComposerPlaceholderEffect; label: string } > = [
+		{ value: 'type', label: __( 'Typewriter' ) },
+		{ value: 'wave', label: __( 'Decode' ) },
+		{ value: 'flap', label: __( 'Split-flap' ) },
+		{ value: 'fade', label: __( 'Fade' ) },
+		{ value: 'none', label: __( 'None' ) },
+	];
+
+	return (
+		<section className={ styles.preferenceSectionGroup }>
+			<h2 className={ styles.preferenceSectionHeading }>{ __( 'Chat' ) }</h2>
+			<PreferenceRow
+				title={ __( 'Placeholder animation' ) }
+				description={ __(
+					'How the hint text in the message box transitions between suggestions. None keeps it static.'
+				) }
+			>
+				<PreferenceSelect< ComposerPlaceholderEffect >
+					label={ __( 'Placeholder animation' ) }
+					value={ placeholderEffect }
+					options={ options }
+					onChange={ setComposerPlaceholderEffect }
+				/>
+			</PreferenceRow>
+		</section>
+	);
+}
+
 function ChatNotificationsSection( {
 	checked,
 	onChange,
@@ -812,6 +847,7 @@ function AiSettingsPanel( {
 					onModelChange={ ( defaultAiModel ) => onChange( { defaultAiModel } ) }
 				/>
 			) : null }
+			<ComposerSection />
 			{ showNativePreferences ? (
 				<AgentPermissionsSection
 					toolPermissions={ data.toolPermissions }

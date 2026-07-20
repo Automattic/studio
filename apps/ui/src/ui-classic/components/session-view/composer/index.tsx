@@ -51,7 +51,8 @@ import {
 	reconcilePrimedSessionQueryData,
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
-import { useScrambledText } from '@/hooks/use-scrambled-text';
+import { useComposerPlaceholderEffect } from '@/lib/composer-placeholder-effect';
+import { AnimatedPlaceholder } from './animated-placeholder';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
 import {
@@ -76,6 +77,7 @@ const COMPOSER_TEXTAREA_MAX_VIEWPORT_RATIO = 0.4;
 const COMPOSER_TEXTAREA_MANUAL_MAX_HEIGHT = 560;
 const COMPOSER_TEXTAREA_MANUAL_MAX_VIEWPORT_RATIO = 0.7;
 const COMPOSER_TEXTAREA_RESIZE_STEP = 16;
+const PLACEHOLDER_ROTATE_INTERVAL_MS = 12000;
 
 function AttachmentHoverTextPreview( { text }: { text: string } ) {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
@@ -401,15 +403,17 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		};
 	}, [ setComposerManualTextareaHeight ] );
 
+	const placeholderEffect = useComposerPlaceholderEffect();
+
 	useEffect( () => {
-		if ( value.length > 0 ) {
+		if ( value.length > 0 || placeholderEffect === 'none' ) {
 			return;
 		}
 		const interval = window.setInterval( () => {
 			setPlaceholderIndex( ( current ) => current + 1 );
-		}, 5000 );
+		}, PLACEHOLDER_ROTATE_INTERVAL_MS );
 		return () => window.clearInterval( interval );
-	}, [ value ] );
+	}, [ value, placeholderEffect ] );
 
 	useEffect( () => {
 		setPlaceholderIndex( 0 );
@@ -728,7 +732,6 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		  ];
 	const placeholder = placeholderOptions[ placeholderIndex % placeholderOptions.length ];
 	const showAnimatedPlaceholder = value.length === 0;
-	const animatedPlaceholder = useScrambledText( placeholder, showAnimatedPlaceholder );
 	const composerResizeMaxHeight = getComposerTextareaMaxHeight( true );
 	const sendAriaLabel = busy ? __( 'Queue' ) : __( 'Send' );
 	const sendShortcutLabel = __( 'Return to send' );
@@ -934,7 +937,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					>
 						{ showAnimatedPlaceholder ? (
 							<div className={ styles.placeholderText } aria-hidden="true">
-								{ animatedPlaceholder }
+								<AnimatedPlaceholder text={ placeholder } effect={ placeholderEffect } />
 							</div>
 						) : null }
 						<textarea

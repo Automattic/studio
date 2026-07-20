@@ -1,0 +1,38 @@
+.spin,
+.hoverSpinReverse {
+	transform-box: fill-box;
+	transform-origin: center;
+}
+
+.spin {
+	animation: spin 20s linear infinite;
+}
+
+.host:hover .hoverSpinReverse {
+	animation: spin 24s linear infinite reverse;
+}
+
+.themeStroke {
+	transition: stroke 0.15s ease;
+}
+
+.host:hover .themeStroke {
+	stroke: var(--wpds-color-stroke-interactive-brand);
+}
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.spin,
+	.host:hover .hoverSpinReverse {
+		animation: none;
+	}
+}

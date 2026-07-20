@@ -591,6 +591,42 @@ describe( 'AiChatUI.handleEvent', () => {
 		expect( showInfo ).not.toHaveBeenCalled();
 	} );
 
+	it( 'keeps the turn alive on agent_end when the session will auto-retry', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		ui.hideLoader = vi.fn();
+		ui.showError = vi.fn();
+
+		ui.handleEvent( { type: 'agent_end', willRetry: true, messages: [] } );
+
+		expect( ui.hideLoader ).not.toHaveBeenCalled();
+		expect( ui.showError ).not.toHaveBeenCalled();
+	} );
+
+	it( 'shows a retry loader message on auto_retry_start', () => {
+		const ui = Object.create( AiChatUI.prototype ) as {
+			handleEvent: ( e: unknown ) => unknown;
+			[ key: string ]: unknown;
+		};
+		ui.showLoader = vi.fn();
+		ui.showInfo = vi.fn();
+
+		ui.handleEvent( {
+			type: 'auto_retry_start',
+			attempt: 2,
+			maxAttempts: 3,
+			delayMs: 4000,
+			errorMessage: 'API Error: 529 overloaded\nsecond line',
+		} );
+
+		expect( ui.showInfo ).toHaveBeenCalledWith( 'API Error: 529 overloaded' );
+		expect( ui.showLoader ).toHaveBeenCalledWith(
+			'Temporary provider error — retrying in 4s (attempt 2 of 3)…'
+		);
+	} );
+
 	it( 'does not trip the cap branch when an assistant error has no 429 marker', () => {
 		const ui = Object.create( AiChatUI.prototype ) as {
 			handleEvent: ( e: unknown ) => unknown;

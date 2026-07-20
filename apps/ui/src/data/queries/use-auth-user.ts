@@ -20,11 +20,11 @@ export function useAuthUser() {
 	} );
 }
 
-export function useLogin() {
+export function useLogin( { signup = false }: { signup?: boolean } = {} ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: () => connector.authenticate(),
+		mutationFn: () => connector.authenticate( signup ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: AUTH_USER_QUERY_KEY } ),
 	} );
 }

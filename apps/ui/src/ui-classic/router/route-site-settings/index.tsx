@@ -8,7 +8,7 @@ import type { SiteDetails } from '@/data/core';
 
 interface SiteSettingsSearch {
 	// Tab selection is a `search` param so opening the route defaults to
-	// General and deep-links like `?tab=debugging` stay human-readable.
+	// Overview and deep-links like `?tab=debugging` stay human-readable.
 	tab?: SiteSettingsTabId;
 }
 
@@ -17,7 +17,7 @@ function SiteSettingsPage() {
 	const { tab } = siteSettingsRoute.useSearch();
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
-	const activeTab: SiteSettingsTabId = tab ?? 'general';
+	const activeTab: SiteSettingsTabId = tab ?? 'overview';
 
 	const siteExists = sites?.some( ( site ) => site.id === siteId ) ?? true;
 	useEffect( () => {

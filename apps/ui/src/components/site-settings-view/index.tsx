@@ -34,7 +34,7 @@ import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
-type TabId = 'general' | 'debugging';
+type TabId = 'overview' | 'general' | 'debugging';
 
 interface FormData {
 	name: string;
@@ -292,7 +292,6 @@ function SiteSettingsBody( {
 	return (
 		<div className={ styles.root }>
 			<SettingsHeader site={ site } />
-			<AgenticSigninBanner />
 			<Tabs.Root
 				selectedTabId={ activeTab }
 				onSelect={ ( tabId ) => {
@@ -310,6 +309,7 @@ function SiteSettingsBody( {
 				<div className={ styles.tabsBar }>
 					<div className={ styles.tabsBarInner }>
 						<Tabs.List>
+							<Tabs.Tab tabId="overview">{ __( 'Overview' ) }</Tabs.Tab>
 							<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
 							<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
 						</Tabs.List>
@@ -318,6 +318,9 @@ function SiteSettingsBody( {
 
 				<div className={ styles.scroll }>
 					<div className={ styles.contentBlock }>
+						<Tabs.Panel tabId="overview">
+							<AgenticSigninBanner />
+						</Tabs.Panel>
 						<form onSubmit={ handleSubmit } className={ styles.form }>
 							<Tabs.Panel tabId="general">
 								<DataForm< FormData >
@@ -340,18 +343,21 @@ function SiteSettingsBody( {
 
 							{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 
-							<div className={ styles.actions }>
-								<Button
-									type="submit"
-									variant="solid"
-									tone="brand"
-									disabled={ ! canSubmit }
-									loading={ updateSite.isPending }
-									loadingAnnouncement={ __( 'Saving settings' ) }
-								>
-									{ __( 'Save settings' ) }
-								</Button>
-							</div>
+							{ /* The save actions apply to the form tabs only, not Overview. */ }
+							{ activeTab !== 'overview' && (
+								<div className={ styles.actions }>
+									<Button
+										type="submit"
+										variant="solid"
+										tone="brand"
+										disabled={ ! canSubmit }
+										loading={ updateSite.isPending }
+										loadingAnnouncement={ __( 'Saving settings' ) }
+									>
+										{ __( 'Save settings' ) }
+									</Button>
+								</div>
+							) }
 						</form>
 					</div>
 				</div>
@@ -361,7 +367,7 @@ function SiteSettingsBody( {
 }
 
 export function isSiteSettingsTab( value: string ): value is TabId {
-	return value === 'general' || value === 'debugging';
+	return value === 'overview' || value === 'general' || value === 'debugging';
 }
 
 export type SiteSettingsTabId = TabId;

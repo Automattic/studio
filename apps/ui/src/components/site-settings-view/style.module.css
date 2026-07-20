@@ -7,8 +7,9 @@
 .submitError {
 	padding: 10px 12px;
 	border-radius: 4px;
-	background: #fce8e8;
-	color: #7a1a1a;
+	border: 1px solid var(--wpds-color-stroke-surface-error);
+	background: var(--wpds-color-bg-surface-error-weak);
+	color: var(--wpds-color-fg-content-error);
 	font-size: 13px;
 }
 

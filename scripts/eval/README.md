@@ -24,6 +24,7 @@ Run one named test with `npm run eval -- --filter-pattern "preview sites"` (rege
 - **differentiate-preview-vs-remote** — Regression for STU-1775. Seeds one connected WordPress.com remote site and one preview site for a local site, then asserts the `site_connected_remote_sites` and `preview_list` tools tag their output with a `type` discriminator (`wpcom-remote` / `preview`) and that the agent's prose keeps the two categories distinct (preview sites are never described as connected WordPress.com remote sites).
 - **child-theme-for-installed-theme** — Regression for STU-2017. Agent customizes a site running the installed Ollie theme. Asserts it scaffolds a child theme (`scaffold_theme` with `parentTheme: "ollie"`, successfully) and that no `Write`/`Edit`/mutating `Bash` call touches `themes/ollie/`.
 - **section-uses-theme-palette** — Agent adds sections to a site that keeps its default theme. Asserts the section block markup colors are drawn from the theme palette (color-slug attributes like `{"backgroundColor":"accent-1"}` or `var(--wp--preset--color--*)` in CSS) rather than hardcoded hex values. `theme.json` is excluded from the hex check since a palette is legitimately defined there.
+- **mid-turn-steering-honored** — Set a `steer` var (`{ text, afterToolResults }`) and the runner delivers that message to the running turn via the handle's `steer()`. Asserts the message was delivered to the live run and that the steered instruction shows up in the built content.
 
 ## Adding tests
 

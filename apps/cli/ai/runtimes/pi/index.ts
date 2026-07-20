@@ -92,6 +92,11 @@ interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
 export interface StudioAgentTurnHandle {
 	result: Promise< void >;
 	interrupt(): Promise< void >;
+	// Deliver a user message to the running turn (pi injects it before the next
+	// LLM call). Returns false when no turn is actively streaming — e.g. the
+	// session is still being created or the run just ended — so the caller can
+	// stage the message for the next turn instead.
+	steer( text: string ): Promise< boolean >;
 }
 
 export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgentTurnHandle {
@@ -119,6 +124,13 @@ export function runStudioAgentTurn( config: StudioAgentTurnConfig ): StudioAgent
 		async interrupt() {
 			controller.abort();
 			await activeSession?.abort();
+		},
+		async steer( text: string ) {
+			if ( ! activeSession?.isStreaming ) {
+				return false;
+			}
+			await activeSession.steer( text );
+			return true;
 		},
 	};
 }
@@ -292,7 +304,10 @@ async function createStudioAgentSession(
 	const model = buildModel( config.model, family, creds );
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
-	const chatArtifactsEnabled = typeof process.send === 'function';
+	// STUDIO_FORCE_CHAT_ARTIFACTS lets headless harnesses (the eval runner)
+	// register the desks widget tools without a Studio UI attached over IPC.
+	const chatArtifactsEnabled =
+		typeof process.send === 'function' || config.env.STUDIO_FORCE_CHAT_ARTIFACTS === '1';
 
 	const systemPrompt = buildSystemPrompt(
 		isRemoteSite

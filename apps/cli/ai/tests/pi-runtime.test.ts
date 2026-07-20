@@ -8,6 +8,9 @@ const mocks = vi.hoisted( () => ( {
 	createAgentSession: vi.fn(),
 	createdSessions: [] as FakeSession[],
 	nextEvents: null as AgentSessionEvent[] | null,
+	// When set, FakeSession.prompt() stays streaming until this resolves,
+	// letting tests exercise mid-turn behavior such as steering.
+	promptGate: null as Promise< void > | null,
 	studioRoot: '/tmp/studio-ai-pi-runtime',
 	configRoot: '/tmp/studio-ai-pi-runtime-config',
 } ) );
@@ -136,6 +139,8 @@ class FakeSession {
 	public state: { model: { id: string; provider: string }; messages: unknown[] };
 	public aborted = false;
 	public disposed = false;
+	public isStreaming = false;
+	public steered: string[] = [];
 
 	constructor( public options: CreateAgentSessionOptions ) {
 		this.state = {
@@ -153,11 +158,23 @@ class FakeSession {
 	}
 
 	async prompt( _text: string ): Promise< void > {
-		const events = mocks.nextEvents ?? DEFAULT_MOCK_EVENTS;
-		mocks.nextEvents = null;
-		for ( const event of events ) {
-			this.listener?.( event );
+		this.isStreaming = true;
+		try {
+			if ( mocks.promptGate ) {
+				await mocks.promptGate;
+			}
+			const events = mocks.nextEvents ?? DEFAULT_MOCK_EVENTS;
+			mocks.nextEvents = null;
+			for ( const event of events ) {
+				this.listener?.( event );
+			}
+		} finally {
+			this.isStreaming = false;
 		}
+	}
+
+	async steer( text: string ): Promise< void > {
+		this.steered.push( text );
 	}
 
 	async abort(): Promise< void > {
@@ -212,6 +229,7 @@ describe( 'pi runtime', () => {
 	beforeEach( () => {
 		mocks.createdSessions.length = 0;
 		mocks.nextEvents = null;
+		mocks.promptGate = null;
 		mocks.createAgentSession.mockReset();
 		mocks.createAgentSession.mockImplementation( async ( options: CreateAgentSessionOptions ) => {
 			const session = new FakeSession( options );
@@ -256,6 +274,37 @@ describe( 'pi runtime', () => {
 		expect( findAssistantText( events ) ).toBe( 'mocked openai response' );
 		const final = events[ events.length - 1 ];
 		expect( final.type ).toBe( 'agent_end' );
+	} );
+
+	it( 'steers a live turn and rejects steering once the turn is over', async () => {
+		let release!: () => void;
+		mocks.promptGate = new Promise< void >( ( resolve ) => {
+			release = resolve;
+		} );
+
+		const handle = runStudioAgentTurn( {
+			prompt: 'hello',
+			env: {
+				OPENAI_API_KEY: 'sk-test',
+				OPENAI_BASE_URL: 'https://proxy.example.com/v1',
+			},
+			model: 'gpt-5.6-sol',
+			session: newSession(),
+			onEvent: () => {},
+		} );
+
+		await vi.waitFor( () =>
+			expect( mocks.createdSessions[ 0 ]?.isStreaming ?? false ).toBe( true )
+		);
+
+		await expect( handle.steer( 'make the hero darker' ) ).resolves.toBe( true );
+		expect( mocks.createdSessions[ 0 ].steered ).toEqual( [ 'make the hero darker' ] );
+
+		release();
+		await handle.result;
+
+		await expect( handle.steer( 'too late' ) ).resolves.toBe( false );
+		expect( mocks.createdSessions[ 0 ].steered ).toEqual( [ 'make the hero darker' ] );
 	} );
 
 	it( 'advertises image input support so screenshot tool results can be analyzed', async () => {

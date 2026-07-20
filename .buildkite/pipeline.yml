@@ -128,20 +128,38 @@ steps:
           DEBUG: "pw:browser"
         if: (build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft) && !(build.pull_request.labels includes 'native-php')
 
-  # Manual-only and not a required GitHub check: it never runs until someone
-  # unblocks it in Buildkite, and it never gates PR merges.
-  - input: "🚦 Run CLI E2E Tests?"
-    prompt: "Run the CLI end-to-end test suite (creates real sites via the built CLI)?"
-    key: input-cli-e2e
-
-  - label: CLI E2E Tests
+  # No `if:` guard: a required status check must report on every build, or PRs
+  # that skip it hang waiting for it. Doc-only PRs exit early but still report.
+  - group: CLI E2E Tests
     key: cli-e2e-tests
-    depends_on: input-cli-e2e
-    agents:
-      queue: mac
-    command: bash .buildkite/commands/run-cli-e2e-tests.sh
-    timeout_in_minutes: 30
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: CLI E2E Tests
+    steps:
+      - label: CLI E2E Tests on {{matrix}}
+        key: cli_e2e_tests_mac_windows
+        command: bash .buildkite/commands/run-cli-e2e-tests.sh "{{matrix}}"
+        agents:
+          queue: "{{matrix}}"
+        timeout_in_minutes: 30
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        matrix:
+          - mac
+          - windows
+
+      # Separate from the matrix above: Mac and Windows share queue/plugin
+      # defaults that Linux doesn't. Same pattern as the unit-test group.
+      - label: CLI E2E Tests on linux
+        key: cli_e2e_tests_linux
+        command: bash .buildkite/commands/run-cli-e2e-tests.sh "linux"
+        agents:
+          queue: default
+        timeout_in_minutes: 30
+        plugins:
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics

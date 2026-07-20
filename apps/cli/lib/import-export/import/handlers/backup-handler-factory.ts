@@ -2,6 +2,7 @@ import { BackupArchiveInfo } from '../types';
 import { BackupHandlerSql } from './backup-handler-sql';
 import { BackupHandlerTarGz } from './backup-handler-tar-gz';
 import { BackupHandlerWpress } from './backup-handler-wpress';
+import { BackupHandlerXml } from './backup-handler-xml';
 import { BackupHandlerZip } from './backup-handler-zip';
 import type { ImportExportEventEmitter } from '../../events';
 
@@ -47,6 +48,9 @@ export class BackupHandlerFactory {
 	];
 	private static sqlExtensions = [ '.sql' ];
 
+	private static xmlTypes = [ 'application/xml', 'text/xml' ];
+	private static xmlExtensions = [ '.xml' ];
+
 	static create( file: BackupArchiveInfo ): BackupHandler | undefined {
 		if ( this.isZip( file ) ) {
 			return new BackupHandlerZip();
@@ -54,6 +58,8 @@ export class BackupHandlerFactory {
 			return new BackupHandlerTarGz();
 		} else if ( this.isSql( file ) ) {
 			return new BackupHandlerSql();
+		} else if ( this.isXml( file ) ) {
+			return new BackupHandlerXml();
 		} else if ( this.isWpress( file ) ) {
 			return new BackupHandlerWpress();
 		}
@@ -77,6 +83,13 @@ export class BackupHandlerFactory {
 		return (
 			( this.sqlTypes.includes( file.type ) || ! file.type ) &&
 			this.sqlExtensions.some( ( ext ) => file.path.endsWith( ext ) )
+		);
+	}
+
+	private static isXml( file: BackupArchiveInfo ): boolean {
+		return (
+			( this.xmlTypes.includes( file.type ) || ! file.type ) &&
+			this.xmlExtensions.some( ( ext ) => file.path.endsWith( ext ) )
 		);
 	}
 

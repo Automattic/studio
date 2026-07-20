@@ -14,6 +14,9 @@ export interface BackupContents {
 	wpContentFiles: string[];
 	wpContentDirectory: string;
 	metaFile?: string;
+	// WordPress export (WXR) files, i.e. the `.xml` produced by Tools → Export.
+	// Imported via the wordpress-importer plugin rather than a database import.
+	wxrFiles?: string[];
 }
 
 export interface BackupArchiveInfo {

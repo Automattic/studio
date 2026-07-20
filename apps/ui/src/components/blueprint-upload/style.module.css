@@ -1,0 +1,69 @@
+.root {
+	text-align: center;
+}
+
+.fileInput {
+	display: none;
+}
+
+.prompt,
+.error {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.prompt {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.action {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--wpds-color-fg-interactive-brand);
+	font: inherit;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.action:hover {
+	text-decoration: underline;
+}
+
+.action:focus-visible {
+	border-radius: 2px;
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand);
+	outline-offset: 2px;
+}
+
+.error {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 480px;
+	margin: 12px auto 0;
+	padding: 8px 12px;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-error);
+	border-radius: 4px;
+	background: var(--wpds-color-bg-surface-error-weak);
+	color: var(--wpds-color-fg-content-error);
+	text-align: center;
+}
+
+.fullScreenDrop {
+	position: fixed;
+	inset: 0;
+	z-index: 20;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 2px dashed var(--wpds-color-stroke-interactive-brand, #3858e9);
+	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
+	color: var(--wpds-color-fg-content-neutral, #1e1e1e);
+	font-size: 1.25rem;
+	font-weight: 600;
+	pointer-events: none;
+}

@@ -1,27 +1,14 @@
 .trigger {
-	--site-menu-border: color-mix(
-		in srgb,
-		var(--wpds-color-stroke-surface-neutral) 45%,
-		transparent
-	);
-	--site-menu-border-active: color-mix(
-		in srgb,
-		var(--wpds-color-stroke-surface-neutral) 70%,
-		transparent
-	);
-	--site-menu-resting-fill: color-mix(
-		in srgb,
-		var(--wpds-color-bg-surface-neutral) 96%,
-		transparent
-	);
+	--site-dropdown-radius: var(--wpds-border-radius-lg);
+	--site-menu-active-fill: var(--wpds-color-bg-interactive-neutral-strong);
+	--site-menu-resting-fill: var(--wpds-color-bg-interactive-neutral-strong-active);
+	--site-menu-foreground: var(--wpds-color-fg-interactive-neutral-strong);
 	--wp-ui-button-background-color: var(--site-menu-resting-fill);
-	--wp-ui-button-background-color-active: color-mix(
-		in srgb,
-		var(--wpds-color-bg-surface-neutral) 100%,
-		transparent
-	);
-	--wp-ui-button-border-color: var(--site-menu-border);
-	--wp-ui-button-border-color-active: var(--site-menu-border-active);
+	--wp-ui-button-background-color-active: var(--site-menu-active-fill);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-foreground-color: var(--site-menu-foreground);
+	--wp-ui-button-foreground-color-active: var(--site-menu-foreground);
 	--wp-ui-button-height: 44px;
 	--wp-ui-button-padding-block: 0;
 	--wp-ui-button-padding-inline: 0;
@@ -33,9 +20,19 @@
 	align-items: center;
 	backdrop-filter: blur(20px) saturate(115%);
 	-webkit-backdrop-filter: blur(20px) saturate(115%);
+	border-width: 0;
+	border-radius: var(--site-dropdown-radius);
+	box-shadow: 0 8px 18px rgb(0 0 0 / 18%);
+	color: var(--site-menu-foreground);
 	overflow: hidden;
 	padding-inline: 0 12px;
 	white-space: nowrap;
+}
+
+/* Non-floating placements (regular header rows) drop the floating-card
+   shadow. */
+.trigger.triggerFlat {
+	box-shadow: none;
 }
 
 .siteIconWrap {
@@ -71,6 +68,7 @@
 .site {
 	flex: 0 1 auto;
 	min-width: 0;
+	color: var(--site-menu-foreground);
 	overflow: hidden;
 	font-weight: 600;
 	line-height: var(--wpds-typography-line-height-sm);
@@ -84,10 +82,10 @@
 	gap: 5px;
 	max-width: 100%;
 	min-width: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	font-weight: 400;
-	line-height: 1.1;
+	color: color-mix(in srgb, var(--site-menu-foreground) 78%, transparent);
+	font-size: 11px;
+	font-weight: 350;
+	line-height: 1.05;
 }
 
 .secondaryLabel {
@@ -97,28 +95,28 @@
 	white-space: nowrap;
 }
 
-.secondaryMarker {
-	width: 6px;
-	height: 6px;
-	border-radius: 999px;
-	flex: 0 0 auto;
-	background: currentColor;
-}
-
 .secondary_pending {
-	color: var(--wpds-color-fg-interactive-brand);
-}
-
-.secondary_pending .secondaryMarker {
-	animation: siteDotBlink 1s ease-in-out infinite;
+	color: color-mix(
+		in srgb,
+		var(--site-menu-foreground) 70%,
+		var(--wpds-color-fg-interactive-brand)
+	);
 }
 
 .secondary_success {
-	color: var(--wpds-color-fg-content-success, var(--wpds-color-fg-content-neutral));
+	color: color-mix(
+		in srgb,
+		var(--site-menu-foreground) 72%,
+		var(--wpds-color-fg-content-success, var(--site-menu-foreground))
+	);
 }
 
 .secondary_error {
-	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
+	color: color-mix(
+		in srgb,
+		var(--site-menu-foreground) 72%,
+		var(--wpds-color-fg-content-error, var(--site-menu-foreground))
+	);
 }
 
 .statusBadge {
@@ -136,7 +134,7 @@
 	right: -4px;
 	bottom: 8px;
 	z-index: 1;
-	box-shadow: 0 0 0 2px var(--wpds-color-bg-surface-neutral-strong);
+	box-shadow: 0 0 0 2px var(--site-menu-resting-fill);
 }
 
 .statusBadge_live {
@@ -234,6 +232,6 @@
 
 .chevron {
 	flex: 0 0 auto;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: color-mix(in srgb, var(--site-menu-foreground) 72%, transparent);
 	fill: currentColor;
 }

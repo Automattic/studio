@@ -3,6 +3,11 @@ import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/c
 import { updateBlueprintWithFormValues } from '@studio/common/lib/blueprint-settings';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
+import {
+	validateProposedSitePath,
+	validateSelectedSitePath,
+	type PathValidationResult,
+} from '@studio/common/lib/site-path-validation';
 import { type SiteRuntime } from '@studio/common/lib/site-runtime';
 import { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { useI18n } from '@wordpress/react-i18n';
@@ -38,16 +43,7 @@ export interface CreateSiteFormValues {
 	adminEmail?: string;
 }
 
-/**
- * Result from path selection or site name change validation
- */
-export interface PathValidationResult {
-	path: string;
-	name?: string;
-	isEmpty: boolean;
-	isWordPress: boolean;
-	error?: string;
-}
+export type { PathValidationResult } from '@studio/common/lib/site-path-validation';
 
 export function useAddSite() {
 	const { __ } = useI18n();
@@ -147,38 +143,7 @@ export function useAddSite() {
 				return null;
 			}
 
-			const { path, name, isEmpty, isWordPress } = response;
-
-			if ( await checkPathExists( path ) ) {
-				return {
-					path,
-					name: name ?? undefined,
-					isEmpty,
-					isWordPress,
-					error: __(
-						'The directory is already associated with another Studio site. Please choose a different custom local path.'
-					),
-				};
-			}
-
-			if ( ! isEmpty && ! isWordPress ) {
-				return {
-					path,
-					name: name ?? undefined,
-					isEmpty,
-					isWordPress,
-					error: __(
-						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-					),
-				};
-			}
-
-			return {
-				path,
-				name: name ?? undefined,
-				isEmpty,
-				isWordPress,
-			};
+			return validateSelectedSitePath( response, await checkPathExists( response.path ) );
 		},
 		[ __, checkPathExists ]
 	);
@@ -188,43 +153,10 @@ export function useAddSite() {
 	 */
 	const generateProposedPath = useCallback(
 		async ( siteName: string ): Promise< PathValidationResult > => {
-			const { path, isEmpty, isWordPress, isNameTooLong } =
-				await getIpcApi().generateProposedSitePath( siteName );
-
-			if ( isNameTooLong ) {
-				return {
-					path,
-					isEmpty,
-					isWordPress,
-					error: __( 'The site name is too long. Please choose a shorter site name.' ),
-				};
-			}
-
-			if ( await checkPathExists( path ) ) {
-				return {
-					path,
-					isEmpty,
-					isWordPress,
-					error: __(
-						'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
-					),
-				};
-			}
-
-			if ( ! isEmpty && ! isWordPress ) {
-				return {
-					path,
-					isEmpty,
-					isWordPress,
-					error: __(
-						'This directory is not empty. Please select an empty directory or an existing WordPress folder.'
-					),
-				};
-			}
-
-			return { path, isEmpty, isWordPress };
+			const result = await getIpcApi().generateProposedSitePath( siteName );
+			return validateProposedSitePath( result, await checkPathExists( result.path ) );
 		},
-		[ __, checkPathExists ]
+		[ checkPathExists ]
 	);
 
 	/**
@@ -240,8 +172,13 @@ export function useAddSite() {
 				if ( formValues.useCustomDomain && ! formValues.customDomain ) {
 					usedCustomDomain = generateCustomDomainFromSiteName( formValues.siteName );
 				}
-				// For import/sync workflows, the respective handlers will start the server
-				const shouldSkipStart = !! fileForImport || !! selectedRemoteSite;
+				// For import/sync workflows, the respective handlers will start the server.
+				// Exception: a WordPress export (.xml / WXR) is merged into an existing
+				// install via the wordpress-importer plugin, so WordPress must already be
+				// installed and configured before the import runs. Start the server during
+				// creation in that case so `wp-config.php` and the database exist first.
+				const isWxrImport = !! fileForImport && fileForImport.name.toLowerCase().endsWith( '.xml' );
+				const shouldSkipStart = ( !! fileForImport && ! isWxrImport ) || !! selectedRemoteSite;
 
 				const enableHttps = formValues.useCustomDomain ? formValues.enableHttps : false;
 				let updatedBlueprint: Blueprint | undefined;

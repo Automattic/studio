@@ -133,4 +133,49 @@ describe( 'fetchSiteRest', () => {
 		expect( response.status ).toBe( 400 );
 		expect( response.body ).toContain( 'REST URL must target the selected site REST API.' );
 	} );
+
+	it( 'always targets the loopback origin regardless of the requested path', async () => {
+		mockRunningSite();
+		const fetchMock = mockRestFetch();
+
+		await fetchSiteRest( mockIpcMainInvokeEvent, 'site-id', {
+			path: '/wp/v2/pages',
+		} );
+
+		const restUrls = getRequestedUrls( fetchMock ).filter( ( url ) => url.includes( '/wp-json/' ) );
+		expect( restUrls ).toEqual( [ 'http://127.0.0.1:8903/wp-json/wp/v2/pages' ] );
+		for ( const url of restUrls ) {
+			expect( new URL( url ).origin ).toBe( 'http://127.0.0.1:8903' );
+		}
+	} );
+
+	it( 'does not follow redirects on the proxied REST request', async () => {
+		mockRunningSite();
+		const redirectingFetch = vi.fn( async ( input: Parameters< typeof fetch >[ 0 ] ) => {
+			const url = String( input );
+			if ( url.includes( '/studio-auto-login' ) ) {
+				return new Response( '', {
+					status: 302,
+					headers: { 'set-cookie': 'wordpress_logged_in_test=token; Path=/; HttpOnly' },
+				} );
+			}
+			if ( url.includes( '/wp-admin/admin-ajax.php' ) ) {
+				return new Response( 'test-nonce', { status: 200 } );
+			}
+			return new Response( '', {
+				status: 302,
+				headers: { location: 'https://attacker.example/secret' },
+			} );
+		} );
+		vi.stubGlobal( 'fetch', redirectingFetch );
+
+		const response = await fetchSiteRest( mockIpcMainInvokeEvent, 'site-id', {
+			path: '/wp/v2/pages',
+		} );
+
+		expect( response.status ).toBe( 302 );
+		expect( getRequestedUrls( redirectingFetch ) ).not.toContain(
+			'https://attacker.example/secret'
+		);
+	} );
 } );

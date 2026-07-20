@@ -72,11 +72,18 @@ async function fetchSiteRestWithAuth(
 	if ( request.data !== undefined && ! hasHeader( headers, 'content-type' ) ) {
 		headers[ 'Content-Type' ] = 'application/json';
 	}
-	const response = await fetch( url, {
+	// SSRF barrier: keep the host/protocol server-controlled, carrying over only
+	// the already-validated path, query and fragment.
+	const safeUrl = new URL( target.baseUrl );
+	safeUrl.pathname = url.pathname;
+	safeUrl.search = url.search;
+	safeUrl.hash = url.hash;
+	// Don't follow redirects: a 3xx could send the auth cookie + nonce to another host.
+	const response = await fetch( safeUrl, {
 		method: request.method ?? 'GET',
 		headers,
 		body: getRequestBody( request ),
-		redirect: 'follow',
+		redirect: 'manual',
 	} );
 
 	if ( allowAuthRefresh && ( response.status === 401 || response.status === 403 ) ) {

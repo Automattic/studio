@@ -11,16 +11,16 @@
 	justify-content: center;
 	gap: 8px;
 	padding: 32px 16px;
-	border: 1px dashed var(--wpds-color-stroke-surface-neutral, #ccc);
+	border: 1px dashed var(--wpds-color-stroke-surface-neutral);
 	border-radius: 8px;
-	background: var(--wpds-color-bg-surface-neutral-strong, #fff);
-	color: var(--wpds-color-fg-content-neutral-weak, #555);
+	background: var(--wpds-color-bg-interactive-neutral-weak);
+	color: var(--wpds-color-fg-content-neutral-weak);
 	text-align: center;
 }
 
 .dropzoneActive {
-	border-color: var(--wpds-color-stroke-interactive-neutral, #888);
-	background: var(--wpds-color-bg-interactive-neutral-weak-active, #f7f7f7);
+	border-color: var(--wpds-color-stroke-interactive-neutral);
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
 
 .prompt {
@@ -31,7 +31,7 @@
 	margin: 0;
 	font-size: 15px;
 	font-weight: 500;
-	color: var(--wpds-color-fg-content-neutral, #1e1e1e);
+	color: var(--wpds-color-fg-content-neutral);
 }
 
 .fileMeta {
@@ -39,7 +39,7 @@
 	align-items: center;
 	gap: 12px;
 	font-size: 13px;
-	color: var(--wpds-color-fg-content-neutral-weak, #666);
+	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .fileInput {
@@ -49,8 +49,8 @@
 .error {
 	padding: 8px 12px;
 	border-radius: 4px;
-	background: #fce8e8;
-	color: #7a1a1a;
+	background: var(--wpds-color-bg-surface-error-weak);
+	color: var(--wpds-color-fg-content-error);
 	font-size: 13px;
 	margin: 0;
 }

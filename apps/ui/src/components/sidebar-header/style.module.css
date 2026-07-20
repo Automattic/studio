@@ -18,7 +18,7 @@
 	position: sticky;
 	top: 0;
 	z-index: 1;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var(--app-chrome-bg);
 }
 
 /* When there are no traffic lights to clear — non-macOS, the browser
@@ -39,24 +39,12 @@
 	display: flex;
 	align-items: center;
 	margin-inline-start: auto;
+	/* Match the site-row action buttons (`.siteActions` in site-list), which
+	   sit flush with no gap. */
+	gap: 0;
 	/* The site rows have their action rail tucked into the row padding. Pull
-	   the header button over by the row's inner padding so it shares the same
-	   trailing column. */
+	   the header buttons over by the row's inner padding so the add/toggle
+	   controls share those same trailing columns. */
 	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
 	-webkit-app-region: no-drag;
-}
-
-.popup {
-	min-width: 200px;
-}
-
-/* The minimal button's hover fill is nearly the same grey as the sidebar
-   background, so it reads as having no hover state. Use a foreground-based
-   tint that stays visible on the sidebar in both color schemes. */
-.createButton {
-	--wp-ui-button-background-color-active: color-mix(
-		in srgb,
-		var(--wpds-color-fg-content-neutral) 8%,
-		transparent
-	);
 }

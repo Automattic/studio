@@ -1,4 +1,5 @@
 import { createRoute, redirect } from '@tanstack/react-router';
+import { resolveAgenticFeatures } from '@/data/queries/use-agentic-features';
 import {
 	primeSessionQueryData,
 	reconcilePrimedSessionQueryData,
@@ -16,7 +17,8 @@ export const newSessionRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/new',
 	beforeLoad: async ( { params, context } ) => {
-		if ( ! navigator.onLine ) {
+		const { enabled } = await resolveAgenticFeatures( context );
+		if ( ! enabled ) {
 			throw redirect( {
 				to: '/sites/$siteId/settings',
 				params: { siteId: params.siteId },

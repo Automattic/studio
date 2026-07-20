@@ -623,6 +623,42 @@ describe( 'SiteList', () => {
 
 		expect( screen.getByRole( 'status', { name: 'New message' } ) ).toBeInTheDocument();
 	} );
+
+	it( 'names the configured editor and terminal in the site actions', async () => {
+		const openSiteInEditor = vi.fn( () => Promise.resolve() );
+		useConnectorMock.mockReturnValue( {
+			openExternalUrl: vi.fn(),
+			openSiteFolder: vi.fn(),
+			openSiteInEditor,
+			openSiteInTerminal: vi.fn(),
+		} as unknown as ReturnType< typeof useConnector > );
+		useUserPreferencesMock.mockReturnValue( {
+			data: { editor: 'zed', terminal: 'terminal', colorScheme: 'system', locale: 'en' },
+		} );
+
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site actions' } )[ 0 ] );
+
+		const editorItem = await screen.findByText( 'Open in Zed' );
+		expect( screen.getByText( 'Open in Terminal' ) ).toBeInTheDocument();
+
+		fireEvent.click( editorItem );
+		expect( openSiteInEditor ).toHaveBeenCalledWith( 'stopped-site' );
+	} );
+
+	it( 'hides the editor and terminal actions when unset', async () => {
+		useUserPreferencesMock.mockReturnValue( {
+			data: { editor: null, terminal: null, colorScheme: 'system', locale: undefined },
+		} );
+
+		render( <SiteList /> );
+
+		fireEvent.click( screen.getAllByRole( 'button', { name: 'Site actions' } )[ 0 ] );
+
+		await screen.findByText( 'Open folder' );
+		expect( screen.queryByText( /Open in / ) ).not.toBeInTheDocument();
+	} );
 } );
 
 function createPointerEvent(

@@ -347,6 +347,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 				<SuggestedPrompts
 					siteName={ ownerSite.name }
 					onPick={ ( prompt ) => composerRef.current?.replaceDraft( prompt ) }
+					hasExistingDraft={ () => composerRef.current?.hasDraft() ?? false }
 				/>
 			) : null }
 			<div

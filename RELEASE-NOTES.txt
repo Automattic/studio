@@ -5,7 +5,7 @@ Unreleased
 =====
 * Introduced Agentic UI, a new beta interface for the app, available behind a feature flag #4163, #4200, #4191, #4134, #4092, #4133, #4203, #4166, #4148, #4156, #4155, #4157, #4145, #4174, #4159, #4172, #4207
 * Studio Code: Added a button to copy the full assistant message #4113
-* Studio Code: You can now paste an image anywhere in the view #4208
+* Studio Code: Added opportunity to paste an image anywhere in the view #4208
 * Studio Code: Added a recovery action to the Session not found state #4243
 * Studio Code: Refreshed the composer placeholder copy #4149
 * Studio Code: Added support for creating new blank or child themes #4209

@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { useMemo, useSyncExternalStore } from 'react';
+import { useMemo } from 'react';
 import { useConnector } from '@/data/core';
-import { useAppUpdateStatus, useInstallAppUpdate } from '@/data/queries/use-app-update';
+import { useAppUpdateStatus } from '@/data/queries/use-app-update';
 
 export interface PersistentMessage {
 	id: string;
@@ -15,26 +15,7 @@ export interface PersistentMessage {
 	cta?: { label: string; onClick: () => void };
 }
 
-export const DISMISSED_MESSAGES_QUERY_KEY = [ 'dismissed-messages' ] as const;
-
-const sessionDismissed = new Set< string >();
-const sessionListeners = new Set< () => void >();
-let sessionSnapshot: readonly string[] = [];
-
-function dismissForSession( id: string ) {
-	sessionDismissed.add( id );
-	sessionSnapshot = [ ...sessionDismissed ];
-	for ( const listener of sessionListeners ) {
-		listener();
-	}
-}
-
-function subscribeSessionDismissed( listener: () => void ): () => void {
-	sessionListeners.add( listener );
-	return () => {
-		sessionListeners.delete( listener );
-	};
-}
+const DISMISSED_MESSAGES_QUERY_KEY = [ 'dismissed-messages' ] as const;
 
 export function useDismissedMessages() {
 	const connector = useConnector();
@@ -50,17 +31,14 @@ export function useDismissMessage() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( message: PersistentMessage ) => {
-			if ( message.persistDismissal === false ) {
-				dismissForSession( message.id );
-				return Promise.resolve();
-			}
-			return connector.dismissMessage( message.id );
-		},
+		// A session-only dismissal (persistDismissal: false) relies on the cache
+		// alone: the query never refetches (staleTime: Infinity) and isn't
+		// persisted, so the setQueryData below is the session store.
+		mutationFn: ( message: PersistentMessage ) =>
+			message.persistDismissal === false
+				? Promise.resolve()
+				: connector.dismissMessage( message.id ),
 		onMutate: ( message ) => {
-			if ( message.persistDismissal === false ) {
-				return;
-			}
 			queryClient.setQueryData( DISMISSED_MESSAGES_QUERY_KEY, ( current: string[] | undefined ) =>
 				current?.includes( message.id ) ? current : [ ...( current ?? [] ), message.id ]
 			);
@@ -68,32 +46,14 @@ export function useDismissMessage() {
 	} );
 }
 
-function deriveActiveMessages(
-	sources: PersistentMessage[],
-	dismissedIds: readonly string[],
-	sessionDismissedIds: readonly string[]
-): PersistentMessage[] {
-	return sources.filter(
-		( message ) =>
-			! dismissedIds.includes( message.id ) && ! sessionDismissedIds.includes( message.id )
-	);
-}
-
 export function useActivePersistentMessages(): {
 	messages: PersistentMessage[];
 	dismiss: ( message: PersistentMessage ) => void;
 } {
+	const connector = useConnector();
 	const updateStatus = useAppUpdateStatus();
-	const installUpdate = useInstallAppUpdate();
 	const dismissed = useDismissedMessages();
 	const dismissMessage = useDismissMessage();
-	const sessionIds = useSyncExternalStore(
-		subscribeSessionDismissed,
-		() => sessionSnapshot,
-		() => sessionSnapshot
-	);
-
-	const install = installUpdate.mutate;
 
 	const sources = useMemo( () => {
 		const messages: PersistentMessage[] = [];
@@ -113,17 +73,17 @@ export function useActivePersistentMessages(): {
 					  )
 					: __( 'A Studio update is ready to install' ),
 				description: __( 'Restart to finish updating.' ),
-				cta: { label: __( 'Restart now' ), onClick: () => install() },
+				cta: { label: __( 'Restart now' ), onClick: () => void connector.installAppUpdate() },
 			} );
 		}
 
 		return messages;
-	}, [ updateStatus.data, install ] );
+	}, [ updateStatus.data, connector ] );
 
-	const messages = useMemo(
-		() => deriveActiveMessages( sources, dismissed.data ?? [], sessionIds ),
-		[ sources, dismissed.data, sessionIds ]
-	);
+	const messages = useMemo( () => {
+		const dismissedIds = dismissed.data ?? [];
+		return sources.filter( ( message ) => ! dismissedIds.includes( message.id ) );
+	}, [ sources, dismissed.data ] );
 
 	return {
 		messages,

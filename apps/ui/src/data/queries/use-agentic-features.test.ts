@@ -6,7 +6,7 @@ const user = { id: 1, displayName: 'Test', email: 'test@example.com' } as unknow
 
 describe( 'deriveAgenticFeatures', () => {
 	it( 'always enables features when the connector does not gate them on auth', () => {
-		const connector = { supportsAgenticOptOut: false };
+		const connector = { agenticRequiresAuth: false };
 		expect( deriveAgenticFeatures( connector, undefined ) ).toEqual( {
 			enabled: true,
 			reason: null,
@@ -16,21 +16,21 @@ describe( 'deriveAgenticFeatures', () => {
 	} );
 
 	it( 'disables features without a signed-out reason while auth is still loading', () => {
-		expect( deriveAgenticFeatures( { supportsAgenticOptOut: true }, undefined ) ).toEqual( {
+		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, undefined ) ).toEqual( {
 			enabled: false,
 			reason: null,
 		} );
 	} );
 
 	it( 'disables features with a signed-out reason for signed-out users', () => {
-		expect( deriveAgenticFeatures( { supportsAgenticOptOut: true }, null ) ).toEqual( {
+		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, null ) ).toEqual( {
 			enabled: false,
 			reason: 'signed-out',
 		} );
 	} );
 
 	it( 'enables features for signed-in users', () => {
-		expect( deriveAgenticFeatures( { supportsAgenticOptOut: true }, user ) ).toEqual( {
+		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, user ) ).toEqual( {
 			enabled: true,
 			reason: null,
 		} );

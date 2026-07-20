@@ -11,10 +11,10 @@ export interface AgenticFeatures {
 }
 
 export function deriveAgenticFeatures(
-	connector: Pick< Connector, 'supportsAgenticOptOut' >,
+	connector: Pick< Connector, 'agenticRequiresAuth' >,
 	user: AuthUser | null | undefined
 ): AgenticFeatures {
-	if ( ! connector.supportsAgenticOptOut ) {
+	if ( ! connector.agenticRequiresAuth ) {
 		return { enabled: true, reason: null };
 	}
 	// `undefined` means the auth query hasn't resolved yet — keep features

@@ -215,7 +215,7 @@ export function createIpcConnector(): Connector {
 
 		// Auth — optional in Electron, delegated to main process
 		requiresAuth: false,
-		supportsAgenticOptOut: true,
+		agenticRequiresAuth: true,
 
 		async isAuthenticated(): Promise< boolean > {
 			return ipcApi.isAuthenticated();

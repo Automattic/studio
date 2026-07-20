@@ -228,7 +228,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// (read from the shared auth token by the server). The app isn't gated on
 		// it, but the user menu should show the real account.
 		requiresAuth: false,
-		supportsAgenticOptOut: false,
+		agenticRequiresAuth: false,
 		async isAuthenticated() {
 			return ( await api< AuthUser | null >( '/auth/user' ) ) !== null;
 		},

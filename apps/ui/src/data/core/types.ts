@@ -130,7 +130,7 @@ export interface Connector {
 
 	// Auth
 	requiresAuth: boolean;
-	supportsAgenticOptOut: boolean;
+	agenticRequiresAuth: boolean;
 	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
 	authenticate( signup?: boolean ): Promise< void >;

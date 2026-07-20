@@ -21,6 +21,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
@@ -445,11 +446,13 @@ function SiteSection( {
 	isChatActive,
 	isContextActive,
 	hasUnreadUpdate,
+	agenticEnabled,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
 	hasUnreadUpdate: boolean;
+	agenticEnabled: boolean;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
@@ -469,6 +472,13 @@ function SiteSection( {
 		? 'new-message'
 		: 'idle';
 	const handleOpenSite = () => {
+		if ( ! agenticEnabled ) {
+			void navigate( {
+				to: '/sites/$siteId/settings',
+				params: { siteId: site.id },
+			} );
+			return;
+		}
 		if ( latestSession ) {
 			void navigate( {
 				to: '/sessions/$sessionId',
@@ -539,6 +549,7 @@ function findSessionSiteKey(
 export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
+	const { enabled: agenticEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -636,6 +647,7 @@ export function SiteList() {
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
+			agenticEnabled={ agenticEnabled }
 		/>
 	);
 

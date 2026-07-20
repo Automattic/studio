@@ -130,11 +130,17 @@ export interface Connector {
 
 	// Auth
 	requiresAuth: boolean;
+	agenticRequiresAuth: boolean;
 	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
-	authenticate(): Promise< void >;
+	authenticate( signup?: boolean ): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
+
+	// Onboarding — whether the user has been through (or skipped) the
+	// first-run welcome screen.
+	getOnboardingCompleted(): Promise< boolean >;
+	setOnboardingCompleted( completed: boolean ): Promise< void >;
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
@@ -255,7 +261,7 @@ export interface Connector {
 	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
-		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+		patch: Pick< AiSessionSummary, 'archived' >
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`

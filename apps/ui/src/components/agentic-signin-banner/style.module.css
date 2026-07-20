@@ -1,0 +1,32 @@
+.root {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--wpds-dimension-padding-lg);
+	padding: var(--wpds-dimension-padding-lg);
+	border-radius: var(--wpds-border-radius-sm);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.text {
+	flex: 1 1 auto;
+}
+
+.heading {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.benefits {
+	margin: 8px 0 0;
+	padding: 0 0 0 20px;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	line-height: 1.5;
+}
+
+.actions {
+	flex: 0 0 auto;
+	align-self: center;
+}

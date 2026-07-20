@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { ConnectorProvider, queryClient } from '@/data/core';
 import { AgentRunProvider } from '@/data/queries/use-agent-run';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
-import { useSyncSitesWithEvents } from '@/data/queries/use-sites';
+import { useAutoStartSites, useSyncSitesWithEvents } from '@/data/queries/use-sites';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSyncConnectSiteListener } from '@/hooks/use-sync-connect-site-listener';
 import { unlock } from '@/lock-unlock';
@@ -24,6 +24,7 @@ function SiteEventsBridge() {
 	useSyncSitesWithEvents();
 	useSyncSessionsWithEvents();
 	useSyncConnectSiteListener();
+	useAutoStartSites();
 	return null;
 }
 

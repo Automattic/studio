@@ -1,5 +1,5 @@
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
@@ -11,7 +11,6 @@ import type {
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
-	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
@@ -229,6 +228,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// (read from the shared auth token by the server). The app isn't gated on
 		// it, but the user menu should show the real account.
 		requiresAuth: false,
+		agenticRequiresAuth: false,
 		async isAuthenticated() {
 			return ( await api< AuthUser | null >( '/auth/user' ) ) !== null;
 		},
@@ -314,6 +314,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		onAuthStateChanged() {
 			return () => {};
+		},
+		async getOnboardingCompleted() {
+			return true;
+		},
+		async setOnboardingCompleted() {
+			// No-op.
 		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
@@ -406,18 +412,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=database` );
 		},
 
-		// Featured blueprints — public endpoint, same source as the desktop app.
-		async getFeaturedBlueprints( locale ): Promise< FeaturedBlueprint[] > {
-			const blueprints = await fetchStudioBlueprints( locale );
-			return blueprints.map( ( blueprint ) => ( {
-				slug: blueprint.slug,
-				title: blueprint.title,
-				excerpt: blueprint.excerpt,
-				image: blueprint.image,
-				playgroundUrl: blueprint.playground_url,
-				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
-			} ) );
-		},
+		getWordPressVersions: fetchWordPressVersions,
 
 		async getFilePath( file ) {
 			// No real filesystem path in a browser, so upload the bytes and hand
@@ -430,19 +425,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// with a server-side path-containment policy when a real consumer lands.
 			throw new UnsupportedError( 'readLocalMediaFile' );
 		},
-		// Upload-your-own Blueprint ZIP: the file is uploaded via getFilePath, then
-		// the server extracts it (shared extractor) and returns the parsed bundle.
-		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
-			return api< ExtractedBlueprintBundle >( '/blueprints/extract', {
+		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const response = await fetch( `${ base }/blueprints/extract`, {
 				method: 'POST',
-				body: JSON.stringify( { zipFilePath } ),
+				headers: { 'Content-Type': 'application/octet-stream' },
+				body: file,
 			} );
+			if ( ! response.ok ) {
+				const text = await response.text().catch( () => '' );
+				throw new Error( `POST /blueprints/extract failed (${ response.status }): ${ text }` );
+			}
+			return ( await response.json() ) as ExtractedBlueprintBundle;
 		},
 		async cleanupBlueprintTempDir( tempDir ) {
 			await api( '/blueprints/cleanup', {
 				method: 'POST',
 				body: JSON.stringify( { tempDir } ),
 			} );
+		},
+		async readBlueprintFile() {
+			throw new UnsupportedError( 'readBlueprintFile' );
 		},
 		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
 			return api< SiteDetails >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
@@ -706,6 +708,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		onAddSite() {
 			// No application menu in a browser tab.
+			return () => {};
+		},
+		onAddSiteWithBlueprint() {
 			return () => {};
 		},
 		onOpenSettings() {

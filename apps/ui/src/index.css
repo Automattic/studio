@@ -18,6 +18,7 @@
 	   above dialogs so help text on controls inside a modal still surfaces
 	   above the containing overlay. */
 	--wp-ui-dialog-z-index: 700;
+	--wp-ui-select-z-index: 750;
 	--wp-ui-tooltip-z-index: 800;
 
 	/* Vivid status colors the wpds palette lacks: --wpds-color-fg-content-success
@@ -165,6 +166,22 @@ a:focus:not( :focus-visible ),
 [data-wpds-density='compact'] [data-ui-mode='classic'] svg {
 	width: 16px;
 	height: 16px;
+}
+
+[data-wpds-density='compact'] [data-ui-mode='classic'] svg[data-keep-size] {
+	width: auto;
+	height: auto;
+}
+
+/* @wordpress/ui SelectControl and Autocomplete popup items use the brand
+   weak-active fill for highlighted rows. In Studio's dark chrome that reads
+   too saturated; the selected item is already indicated with a checkmark, so
+   use the neutral interactive highlight instead. */
+[data-wpds-theme-provider-id] [role='listbox'] [role='option'][data-highlighted]:not(
+		[aria-disabled='true']
+	) {
+	background-color: var( --wpds-color-bg-interactive-neutral-weak-active );
+	color: var( --wpds-color-fg-interactive-neutral );
 }
 
 /* @wordpress/components' ComboboxControl (used by DataForm's adaptive

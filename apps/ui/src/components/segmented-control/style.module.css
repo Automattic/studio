@@ -1,9 +1,13 @@
 .root {
+	/* Matches the sidebar rows' (and search field's) 6px shape; the inner
+	   segment shapes stay concentric via the 2px track padding. */
+	--segmented-control-radius: 6px;
+
 	position: relative;
 	display: flex;
 	gap: 2px;
 	padding: 2px;
-	border-radius: var(--wpds-border-radius-lg);
+	border-radius: var(--segmented-control-radius);
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 }
 
@@ -16,7 +20,7 @@
 	top: 2px;
 	bottom: 2px;
 	left: 0;
-	border-radius: calc(var(--wpds-border-radius-lg) - 2px);
+	border-radius: calc(var(--segmented-control-radius) - 2px);
 	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
 	transition:
 		transform 200ms ease,
@@ -34,9 +38,11 @@
 	appearance: none;
 	border: 0;
 	margin: 0;
-	min-block-size: 24px;
+	/* 30px segments + the 2px track padding = 34px, the sidebar row height,
+	   so the control matches the search field below it. */
+	min-block-size: 30px;
 	padding: 0 var(--wpds-dimension-padding-sm);
-	border-radius: calc(var(--wpds-border-radius-lg) - 2px);
+	border-radius: calc(var(--segmented-control-radius) - 2px);
 	background: transparent;
 	font-family: inherit;
 	font-size: var(--wpds-typography-font-size-md);

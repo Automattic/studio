@@ -158,6 +158,20 @@ type ViewportMode = 'fit' | ViewportPreset[ 'id' ] | 'split';
 // The split view reuses the mobile preset for its phone pane.
 const MOBILE_PRESET = VIEWPORT_PRESETS[ 0 ];
 
+// The phone frame's orientation, shared by the mobile preset and the split
+// view. Landscape rotates the frame a quarter turn (844×390).
+type MobileOrientation = 'portrait' | 'landscape';
+
+const MOBILE_PRESET_LANDSCAPE: ViewportPreset = {
+	...MOBILE_PRESET,
+	width: MOBILE_PRESET.height ?? MOBILE_PRESET.width,
+	height: MOBILE_PRESET.width,
+};
+
+function getMobilePreset( orientation: MobileOrientation ): ViewportPreset {
+	return orientation === 'landscape' ? MOBILE_PRESET_LANDSCAPE : MOBILE_PRESET;
+}
+
 // Best-effort UA sniff: webview is only meaningful inside Electron. Outside
 // (e.g. running apps/ui standalone in a regular browser) the tag is inert, so
 // we render a plain iframe instead and skip the inspector.
@@ -329,6 +343,8 @@ function PreviewOverflowMenu( {
 	canUseWebview,
 	viewportMode,
 	onViewportModeChange,
+	mobileOrientation,
+	onMobileOrientationChange,
 	colorScheme,
 	onColorSchemeChange,
 	fullscreen,
@@ -345,6 +361,8 @@ function PreviewOverflowMenu( {
 	canUseWebview: boolean;
 	viewportMode: ViewportMode;
 	onViewportModeChange: ( mode: ViewportMode ) => void;
+	mobileOrientation: MobileOrientation;
+	onMobileOrientationChange: ( orientation: MobileOrientation ) => void;
 	colorScheme: PreviewColorScheme;
 	onColorSchemeChange: ( scheme: PreviewColorScheme ) => void;
 	fullscreen: boolean;
@@ -419,12 +437,32 @@ function PreviewOverflowMenu( {
 								<Menu.RadioItem value="fit">{ __( 'Fit pane' ) }</Menu.RadioItem>
 								{ VIEWPORT_PRESETS.map( ( preset ) => (
 									<Menu.RadioItem key={ preset.id } value={ preset.id }>
-										{ getPresetLabel( preset ) }
+										{ getPresetLabel(
+											// Keep the advertised dimensions honest in landscape.
+											preset.id === 'mobile' ? getMobilePreset( mobileOrientation ) : preset
+										) }
 									</Menu.RadioItem>
 								) ) }
 								<Menu.RadioItem value="split">{ __( 'Fit pane + Mobile' ) }</Menu.RadioItem>
 							</Menu.RadioGroup>
 						</Menu.Group>
+						{ viewportMode === 'mobile' || viewportMode === 'split' ? (
+							<>
+								<Menu.Separator />
+								<Menu.Group>
+									<Menu.GroupLabel>{ __( 'Mobile orientation' ) }</Menu.GroupLabel>
+									<Menu.RadioGroup
+										value={ mobileOrientation }
+										onValueChange={ ( next ) =>
+											onMobileOrientationChange( next as MobileOrientation )
+										}
+									>
+										<Menu.RadioItem value="portrait">{ __( 'Portrait' ) }</Menu.RadioItem>
+										<Menu.RadioItem value="landscape">{ __( 'Landscape' ) }</Menu.RadioItem>
+									</Menu.RadioGroup>
+								</Menu.Group>
+							</>
+						) : null }
 						<Menu.Separator />
 						<Menu.Group>
 							<Menu.GroupLabel>{ __( 'Appearance' ) }</Menu.GroupLabel>
@@ -929,8 +967,15 @@ export function SitePreview( {
 	// 'fit' renders at the pane's natural size; a preset id simulates that
 	// viewport; 'split' shows the natural view and the mobile frame together.
 	const [ viewportMode, setViewportMode ] = useState< ViewportMode >( 'fit' );
-	// Presets are module constants, so this stays referentially stable per mode.
-	const activePreset = VIEWPORT_PRESETS.find( ( preset ) => preset.id === viewportMode ) ?? null;
+	// Orientation of the phone frame, wherever it shows (mobile preset and
+	// the split view's phone pane).
+	const [ mobileOrientation, setMobileOrientation ] = useState< MobileOrientation >( 'portrait' );
+	// Presets are module constants, so this stays referentially stable per
+	// mode + orientation.
+	const activePreset =
+		viewportMode === 'mobile'
+			? getMobilePreset( mobileOrientation )
+			: VIEWPORT_PRESETS.find( ( preset ) => preset.id === viewportMode ) ?? null;
 	const splitPreview = viewportMode === 'split';
 	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
 	const [ consoleEntries, setConsoleEntries ] = useState< PreviewConsoleEntry[] >( [] );
@@ -1279,6 +1324,7 @@ export function SitePreview( {
 		setConsoleOpen( false );
 		setConsoleHeight( DEFAULT_CONSOLE_HEIGHT );
 		setViewportMode( 'fit' );
+		setMobileOrientation( 'portrait' );
 		setPreviewLoggedIn( false );
 	}, [ site.id ] );
 
@@ -1312,18 +1358,19 @@ export function SitePreview( {
 	// Fixed-height presets present as a centered device frame instead of a
 	// pane-filling column.
 	const isDeviceViewport = Boolean( previewViewport && activePreset?.height );
-	// The split view's phone pane: the mobile preset scaled to fit the pane
-	// height (passing the preset's own width so only height can bind — the
-	// pane then sizes itself to the resulting frame).
+	// The split view's phone pane: the mobile preset (in its current
+	// orientation) scaled to fit the pane height, and capped at half the
+	// pane's width so a landscape frame can't crowd out the primary view.
 	const splitMobileViewport = useMemo( () => {
 		if ( ! splitPreview || ! paneSize ) {
 			return null;
 		}
-		return getSimulatedViewport( MOBILE_PRESET, {
-			width: MOBILE_PRESET.width,
+		const preset = getMobilePreset( mobileOrientation );
+		return getSimulatedViewport( preset, {
+			width: Math.max( 160, Math.min( preset.width, Math.round( paneSize.width / 2 ) ) ),
 			height: Math.max( 120, paneSize.height - SPLIT_MOBILE_PANE_PADDING * 2 ),
 		} );
-	}, [ paneSize, splitPreview ] );
+	}, [ mobileOrientation, paneSize, splitPreview ] );
 	// Sizing for the frame around the primary surface: device presets get
 	// their exact scaled box (the emulation paints it edge to edge);
 	// width-only presets narrower than the pane letterbox 1:1; wider ones
@@ -1549,6 +1596,8 @@ export function SitePreview( {
 						canUseWebview={ canUseWebview }
 						viewportMode={ viewportMode }
 						onViewportModeChange={ setViewportMode }
+						mobileOrientation={ mobileOrientation }
+						onMobileOrientationChange={ setMobileOrientation }
 						colorScheme={ previewColorScheme }
 						onColorSchemeChange={ setPreviewColorScheme }
 						fullscreen={ fullscreen }
@@ -1597,6 +1646,17 @@ export function SitePreview( {
 				>
 					{ canPreview ? (
 						<>
+							{ previewViewport ? (
+								<div className={ styles.viewportGrid } aria-hidden="true">
+									<DotGrid
+										spacing={ 32 }
+										crossSize={ 5 }
+										crossThickness={ 0.75 }
+										opacity={ 0.16 }
+										intro={ false }
+									/>
+								</div>
+							) : null }
 							<div
 								className={ clsx( styles.surfaceFrame, isDeviceViewport && styles.deviceFrame ) }
 								style={ frameStyle }
@@ -1656,6 +1716,15 @@ export function SitePreview( {
 								// follows the primary's navigation (shared `path`) but keeps
 								// clips, console, and history on the primary pane.
 								<div className={ styles.splitMobilePane }>
+									<div className={ styles.viewportGrid } aria-hidden="true">
+										<DotGrid
+											spacing={ 32 }
+											crossSize={ 5 }
+											crossThickness={ 0.75 }
+											opacity={ 0.16 }
+											intro={ false }
+										/>
+									</div>
 									<div
 										className={ clsx( styles.surfaceFrame, styles.deviceFrame ) }
 										style={ {
@@ -1704,7 +1773,13 @@ export function SitePreview( {
 					) : (
 						<div className={ styles.empty }>
 							<div className={ styles.emptyGrid } aria-hidden="true">
-								<DotGrid spacing={ 32 } crossSize={ 5 } crossThickness={ 0.75 } opacity={ 0.16 } />
+								<DotGrid
+									spacing={ 32 }
+									crossSize={ 5 }
+									crossThickness={ 0.75 }
+									opacity={ 0.16 }
+									intro={ false }
+								/>
 							</div>
 							<div className={ styles.emptyContent }>
 								{ siteThumbnail.data ? (

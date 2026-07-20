@@ -566,33 +566,30 @@
 .searchRow {
 	display: flex;
 	align-items: center;
-	gap: var(--wpds-dimension-gap-xs);
 	margin-block-start: var(--wpds-dimension-padding-xs);
 }
 
-/* Matches the segmented control's track treatment so the cluster reads as
-   one family of controls. */
+/* Sized like a site row (same height, radius, and label metrics) so the
+   field reads as part of the list rather than a foreign control. The inline
+   padding mirrors the rows: text starts at the rows' label column, and the
+   trailing inset puts the embedded filter button's 24px box exactly over
+   the rows' status buttons. */
 .searchField {
 	flex: 1;
 	min-width: 0;
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-gap-xs);
-	block-size: 24px;
-	padding-inline: var(--wpds-dimension-padding-xs);
-	border-radius: var(--wpds-border-radius-md);
+	block-size: var(--site-list-row-height);
+	padding-inline: calc(var(--site-list-row-leading-inset) + var(--site-list-label-inline-offset))
+		var(--wpds-dimension-padding-sm);
+	border-radius: 6px;
 	background-color: var(--wpds-color-bg-surface-neutral-weak);
 }
 
 .searchField:focus-within {
 	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
 	outline-offset: -1px;
-}
-
-.searchIcon {
-	flex-shrink: 0;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	fill: currentColor;
 }
 
 .searchInput {
@@ -605,6 +602,7 @@
 	background: transparent;
 	font-family: inherit;
 	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.2;
 	color: var(--wpds-color-fg-content-neutral);
 }
 

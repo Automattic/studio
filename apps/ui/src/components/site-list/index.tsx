@@ -9,7 +9,6 @@ import {
 	closeSmall,
 	funnel,
 	plugins as pluginsIcon,
-	search,
 	settings,
 	wordpress,
 } from '@wordpress/icons';
@@ -1066,7 +1065,6 @@ export function SiteList() {
 				/>
 				<div className={ styles.searchRow }>
 					<div className={ styles.searchField }>
-						<Icon icon={ search } size={ 16 } className={ styles.searchIcon } />
 						<input
 							type="search"
 							className={ styles.searchInput }
@@ -1075,44 +1073,44 @@ export function SiteList() {
 							value={ searchQuery }
 							onChange={ ( event ) => setSearchQuery( event.target.value ) }
 						/>
+						<Menu.Root modal={ false }>
+							<Menu.Trigger
+								render={
+									<IconButton
+										variant="minimal"
+										tone={ sort === 'custom' ? 'neutral' : 'brand' }
+										size="small"
+										icon={ funnel }
+										label={ __( 'Sort' ) }
+									/>
+								}
+							/>
+							<Menu.Popup side="bottom" align="end">
+								<Menu.Group>
+									<Menu.GroupLabel>{ __( 'Sort by' ) }</Menu.GroupLabel>
+									<Menu.RadioGroup
+										value={ sort }
+										onValueChange={ ( next ) => selectSort( next as SidebarSort ) }
+									>
+										<Menu.RadioItem value="custom">{ __( 'Custom order' ) }</Menu.RadioItem>
+										<Menu.RadioItem value="name-asc">{ __( 'Name, A to Z' ) }</Menu.RadioItem>
+										<Menu.RadioItem value="name-desc">{ __( 'Name, Z to A' ) }</Menu.RadioItem>
+										<Menu.RadioItem value="running-first">{ __( 'Running first' ) }</Menu.RadioItem>
+										<Menu.RadioItem value="created-desc">{ __( 'Newest first' ) }</Menu.RadioItem>
+										<Menu.RadioItem value="created-asc">{ __( 'Oldest first' ) }</Menu.RadioItem>
+									</Menu.RadioGroup>
+								</Menu.Group>
+								{ view === 'sites' ? (
+									<>
+										<Menu.Separator />
+										<Menu.Item onClick={ () => setSelectModeOn( true ) }>
+											{ __( 'Select sites to group' ) }
+										</Menu.Item>
+									</>
+								) : null }
+							</Menu.Popup>
+						</Menu.Root>
 					</div>
-					<Menu.Root modal={ false }>
-						<Menu.Trigger
-							render={
-								<IconButton
-									variant="minimal"
-									tone={ sort === 'custom' ? 'neutral' : 'brand' }
-									size="small"
-									icon={ funnel }
-									label={ __( 'Sort' ) }
-								/>
-							}
-						/>
-						<Menu.Popup side="bottom" align="end">
-							<Menu.Group>
-								<Menu.GroupLabel>{ __( 'Sort by' ) }</Menu.GroupLabel>
-								<Menu.RadioGroup
-									value={ sort }
-									onValueChange={ ( next ) => selectSort( next as SidebarSort ) }
-								>
-									<Menu.RadioItem value="custom">{ __( 'Custom order' ) }</Menu.RadioItem>
-									<Menu.RadioItem value="name-asc">{ __( 'Name, A to Z' ) }</Menu.RadioItem>
-									<Menu.RadioItem value="name-desc">{ __( 'Name, Z to A' ) }</Menu.RadioItem>
-									<Menu.RadioItem value="running-first">{ __( 'Running first' ) }</Menu.RadioItem>
-									<Menu.RadioItem value="created-desc">{ __( 'Newest first' ) }</Menu.RadioItem>
-									<Menu.RadioItem value="created-asc">{ __( 'Oldest first' ) }</Menu.RadioItem>
-								</Menu.RadioGroup>
-							</Menu.Group>
-							{ view === 'sites' ? (
-								<>
-									<Menu.Separator />
-									<Menu.Item onClick={ () => setSelectModeOn( true ) }>
-										{ __( 'Select sites to group' ) }
-									</Menu.Item>
-								</>
-							) : null }
-						</Menu.Popup>
-					</Menu.Root>
 				</div>
 				{ selecting ? (
 					<div className={ styles.selectionBar }>

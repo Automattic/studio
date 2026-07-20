@@ -166,6 +166,16 @@
 	padding: 16px;
 }
 
+/* The letterbox behind simulated viewports carries the same dot grid as the
+   stopped state, so it reads as the preview panel's own surface. No radial
+   mask here — the frame covers the center, so the grid lives at the edges. */
+.viewportGrid {
+	position: absolute;
+	inset: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	pointer-events: none;
+}
+
 /* Wraps each preview surface. Fills the pane by default; explicit sizes for
    letterboxed and device modes come in via inline style. Anchors the
    loading spinner overlay and clips the iframe fallback's scaled box. */

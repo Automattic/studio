@@ -65,7 +65,7 @@ if ( ! class_exists( 'WP_Import' ) ) {
 // Minimum boilerplate to drive wordpress-importer headlessly — mirrors what the
 // plugin's own CLI path does.
 kses_remove_filters();
-$admins = get_users( array( 'role' => 'Administrator' ) );
+$admins = get_users( array( 'role' => 'administrator' ) );
 if ( ! empty( $admins ) ) {
 	wp_set_current_user( $admins[0]->ID );
 }

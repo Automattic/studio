@@ -5,7 +5,7 @@ import { captureCommandOutput, resolveSite, textResult } from './utils';
 
 export const importSiteTool = defineTool(
 	'site_import',
-	'Imports a backup file into a local WordPress site. Supports .zip, .tar.gz, .sql, and .wpress formats. ' +
+	'Imports a backup file into a local WordPress site. Supports .zip, .tar.gz, .sql, .wpress, and WordPress export (WXR) .xml formats. ' +
 		'The site server will be stopped during import and restarted afterward if it was running.',
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),

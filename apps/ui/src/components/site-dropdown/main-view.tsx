@@ -6,6 +6,8 @@ import { clsx } from 'clsx';
 import { useMemo } from 'react';
 import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import {
@@ -72,6 +74,8 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 
 export function MainView( { site, activity, onSetupClick, onDisconnectClick }: Props ) {
 	const connector = useConnector();
+	const { enabled: agenticEnabled } = useAgenticFeatures();
+	const login = useLogin();
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 
@@ -240,7 +244,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								className={ styles.rowActionButton }
 								loading={ isPreviewPending }
 								loadingAnnouncement={ __( 'Updating preview' ) }
-								disabled={ isSyncing }
+								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePreviewClick }
 							/>
@@ -250,13 +254,17 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Preview' ) }
-					copy={ __( 'Share a review link for this version.' ) }
+					copy={
+						agenticEnabled
+							? __( 'Share a review link for this version.' )
+							: __( 'Sign in to share a review link.' )
+					}
 					buttonLabel={ __( 'Share' ) }
 					variant="outline"
 					tone="neutral"
 					loading={ isPreviewPending }
 					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ isSyncing }
+					disabled={ isSyncing || ! agenticEnabled }
 					onClick={ handlePreviewClick }
 				/>
 			) }
@@ -278,7 +286,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								icon={ arrowDown }
 								label={ isPullPending ? __( 'Pulling from live' ) : __( 'Pull from live' ) }
 								className={ styles.rowActionButton }
-								disabled={ isSyncing }
+								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePullClick }
 							/>
@@ -289,20 +297,23 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								icon={ arrowUp }
 								label={ isPushPending ? __( 'Pushing to live' ) : __( 'Push to live' ) }
 								className={ styles.rowActionButton }
-								disabled={ isSyncing }
+								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePushClick }
 							/>
 							<Menu.SubmenuRoot>
 								<Menu.SubmenuTrigger
 									className={ styles.moreMenuTrigger }
-									disabled={ isSyncing }
+									disabled={ isSyncing || ! agenticEnabled }
 									aria-label={ __( 'More live site actions' ) }
 								>
 									<Icon icon={ moreHorizontal } size={ 16 } aria-hidden="true" />
 								</Menu.SubmenuTrigger>
 								<Menu.Popup side="right" align="start" className={ styles.moreMenuPopup }>
-									<Menu.Item disabled={ isSyncing } onClick={ onDisconnectClick }>
+									<Menu.Item
+										disabled={ isSyncing || ! agenticEnabled }
+										onClick={ onDisconnectClick }
+									>
 										{ __( 'Disconnect' ) }
 									</Menu.Item>
 								</Menu.Popup>
@@ -313,12 +324,16 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Live' ) }
-					copy={ __( 'No connected site.' ) }
-					buttonLabel={ __( 'Publish' ) }
+					copy={
+						agenticEnabled ? __( 'No connected site.' ) : __( 'Sign in to publish your site.' )
+					}
+					buttonLabel={ agenticEnabled ? __( 'Publish' ) : __( 'Log in' ) }
 					variant="solid"
 					tone="brand"
+					loading={ ! agenticEnabled && login.isPending }
+					loadingAnnouncement={ __( 'Opening login page' ) }
 					disabled={ isSyncing }
-					onClick={ onSetupClick }
+					onClick={ agenticEnabled ? onSetupClick : () => login.mutate() }
 				/>
 			) }
 		</div>

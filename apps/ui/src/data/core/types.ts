@@ -264,7 +264,7 @@ export interface Connector {
 	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
-		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+		patch: Pick< AiSessionSummary, 'archived' >
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`

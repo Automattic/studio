@@ -330,6 +330,8 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 					buttonLabel={ agenticEnabled ? __( 'Publish' ) : __( 'Log in' ) }
 					variant="solid"
 					tone="brand"
+					loading={ ! agenticEnabled && login.isPending }
+					loadingAnnouncement={ __( 'Opening login page' ) }
 					disabled={ isSyncing }
 					onClick={ agenticEnabled ? onSetupClick : () => login.mutate() }
 				/>

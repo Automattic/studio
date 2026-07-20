@@ -118,6 +118,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
 		// in the browser is a follow-up (explored in the PR linked above).
 		requiresAuth: false,
+		agenticRequiresAuth: false,
 		async isAuthenticated() {
 			return true;
 		},
@@ -132,6 +133,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		onAuthStateChanged() {
 			return () => {};
+		},
+		async getOnboardingCompleted() {
+			return true;
+		},
+		async setOnboardingCompleted() {
+			// No-op.
 		},
 
 		// Sites

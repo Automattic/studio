@@ -507,4 +507,68 @@ describe( 'useSiteDetails', () => {
 			);
 		} );
 	} );
+
+	describe( 'running-state reconciliation poll', () => {
+		beforeEach( () => {
+			vi.useFakeTimers();
+		} );
+
+		afterEach( () => {
+			vi.useRealTimers();
+		} );
+
+		// No auto-start sites, so the only `reconcileSites` calls come from the safety-net poll.
+		function setupPoll() {
+			const sites = mockSites.map( ( site ) => ( { ...site, autoStart: false } ) );
+			const reconcileSites = vi.fn().mockResolvedValue( sites );
+			vi.mocked( getIpcApi, { partial: true } ).mockReturnValue( {
+				getSiteDetails: vi.fn().mockResolvedValue( sites ),
+				startServer: vi.fn( () => Promise.resolve() ),
+				reconcileSites,
+			} );
+			return reconcileSites;
+		}
+
+		it( 'reconciles on the interval while the document is visible', async () => {
+			const reconcileSites = setupPoll();
+			renderHook( () => useSiteDetails(), { wrapper } );
+			await act( async () => {
+				await vi.advanceTimersByTimeAsync( 0 );
+			} );
+			expect( reconcileSites ).not.toHaveBeenCalled();
+
+			await act( async () => {
+				await vi.advanceTimersByTimeAsync( 10_000 );
+			} );
+			expect( reconcileSites ).toHaveBeenCalledTimes( 1 );
+		} );
+
+		it( 'does not reconcile on the interval while the document is hidden', async () => {
+			const reconcileSites = setupPoll();
+			const visibility = vi.spyOn( document, 'visibilityState', 'get' ).mockReturnValue( 'hidden' );
+			renderHook( () => useSiteDetails(), { wrapper } );
+
+			await act( async () => {
+				await vi.advanceTimersByTimeAsync( 10_000 );
+			} );
+			expect( reconcileSites ).not.toHaveBeenCalled();
+
+			visibility.mockRestore();
+		} );
+
+		it( 'reconciles immediately when the app regains visibility', async () => {
+			const reconcileSites = setupPoll();
+			renderHook( () => useSiteDetails(), { wrapper } );
+			await act( async () => {
+				await vi.advanceTimersByTimeAsync( 0 );
+			} );
+			reconcileSites.mockClear();
+
+			await act( async () => {
+				document.dispatchEvent( new Event( 'visibilitychange' ) );
+				await vi.advanceTimersByTimeAsync( 0 );
+			} );
+			expect( reconcileSites ).toHaveBeenCalledTimes( 1 );
+		} );
+	} );
 } );

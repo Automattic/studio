@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment node
+ */
 import EventEmitter from 'node:events';
 import { listSites } from '@studio/common/sites/list';
 import { vi } from 'vitest';

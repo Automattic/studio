@@ -17,6 +17,12 @@ export function deriveAgenticFeatures(
 	if ( ! connector.supportsAgenticOptOut ) {
 		return { enabled: true, reason: null };
 	}
+	// `undefined` means the auth query hasn't resolved yet — keep features
+	// disabled but without a reason, so signed-out UI (e.g. the sign-in
+	// banner) doesn't flash for signed-in users while auth loads.
+	if ( user === undefined ) {
+		return { enabled: false, reason: null };
+	}
 	if ( ! user ) {
 		return { enabled: false, reason: 'signed-out' };
 	}

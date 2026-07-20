@@ -1,8 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { Button, Notice } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { useEffect } from 'react';
 import {
 	dismissToast,
+	notifyRendererMounted,
+	notifyRendererUnmounted,
 	pauseToastExpiry,
 	resumeToastExpiry,
 	useQueuedToastCount,
@@ -23,55 +26,65 @@ export function AppToasts( {
 	const toasts = useVisibleToasts();
 	const queuedCount = useQueuedToastCount();
 
-	if ( ! toasts.length ) {
-		return null;
-	}
+	useEffect( () => {
+		notifyRendererMounted();
+		return () => notifyRendererUnmounted();
+	}, [] );
 
 	return (
-		<div className={ clsx( fit === 'content' && styles.shelfHug, className ) }>
-			<div className={ styles.stack }>
-				{ toasts.map( ( item ) => (
-					<div
-						key={ item.id }
-						className={ styles.cell }
-						data-leaving={ item.leaving ? '' : undefined }
-					>
+		<div
+			className={ clsx( fit === 'content' && styles.shelfHug, className ) }
+			aria-live="polite"
+			aria-relevant="additions"
+		>
+			{ toasts.length > 0 ? (
+				<div className={ styles.stack }>
+					{ toasts.map( ( item ) => (
 						<div
-							className={ styles.toast }
-							onMouseEnter={ () => pauseToastExpiry( item.id ) }
-							onMouseLeave={ () => resumeToastExpiry( item.id ) }
+							key={ item.id }
+							className={ styles.cell }
+							data-leaving={ item.leaving ? '' : undefined }
 						>
-							<Notice.Root intent={ item.intent } className={ styles.notice }>
-								<Notice.Title>{ item.title }</Notice.Title>
-								{ item.description ? (
-									<Notice.Description>{ item.description }</Notice.Description>
-								) : null }
-								{ item.action ? (
-									<Notice.Actions>
-										<Button
-											size="small"
-											variant="solid"
-											tone="neutral"
-											className={ styles.actionButton }
-											onClick={ item.action.onClick }
-										>
-											{ item.action.label }
-										</Button>
-									</Notice.Actions>
-								) : null }
-								<Notice.CloseIcon
-									label={ __( 'Dismiss' ) }
-									onClick={ () => dismissToast( item.id ) }
-								/>
-							</Notice.Root>
+							<div
+								className={ styles.toast }
+								onMouseEnter={ () => pauseToastExpiry( item.id ) }
+								onMouseLeave={ () => resumeToastExpiry( item.id ) }
+							>
+								<Notice.Root intent={ item.intent } className={ styles.notice }>
+									<Notice.Title>{ item.title }</Notice.Title>
+									{ item.description ? (
+										<Notice.Description>{ item.description }</Notice.Description>
+									) : null }
+									{ item.action ? (
+										<Notice.Actions>
+											<Button
+												size="small"
+												variant="solid"
+												tone="neutral"
+												className={ styles.actionButton }
+												onClick={ item.action.onClick }
+											>
+												{ item.action.label }
+											</Button>
+										</Notice.Actions>
+									) : null }
+									<Notice.CloseIcon
+										label={ __( 'Dismiss' ) }
+										onClick={ () => dismissToast( item.id ) }
+									/>
+								</Notice.Root>
+							</div>
 						</div>
-					</div>
-				) ) }
-				{ queuedCount > 0 ? <div className={ styles.queuePeek } aria-hidden="true" /> : null }
-				{ queuedCount > 1 ? (
-					<div className={ clsx( styles.queuePeek, styles.queuePeekDeeper ) } aria-hidden="true" />
-				) : null }
-			</div>
+					) ) }
+					{ queuedCount > 0 ? <div className={ styles.queuePeek } aria-hidden="true" /> : null }
+					{ queuedCount > 1 ? (
+						<div
+							className={ clsx( styles.queuePeek, styles.queuePeekDeeper ) }
+							aria-hidden="true"
+						/>
+					) : null }
+				</div>
+			) : null }
 		</div>
 	);
 }

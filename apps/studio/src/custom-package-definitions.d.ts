@@ -15,6 +15,11 @@ declare module '*.jpeg' {
 	export default dataUri;
 }
 
+declare module '*.webp' {
+	const dataUri: string;
+	export default dataUri;
+}
+
 declare module '*.gif' {
 	const dataUri: string;
 	export default dataUri;

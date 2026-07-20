@@ -4,7 +4,13 @@ import { forwardRef } from 'react';
 import motionStyles from '@/components/floating-surface-motion/style.module.css';
 import { unlock } from '@/lock-unlock';
 import styles from './style.module.css';
-import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
+import type {
+	ComponentPropsWithoutRef,
+	ElementRef,
+	MouseEventHandler,
+	PointerEventHandler,
+	ReactNode,
+} from 'react';
 
 const { ThemeProvider } = unlock( privateApis );
 
@@ -21,6 +27,8 @@ type PopupProps = {
 	sideOffset?: number;
 	alignOffset?: number;
 	className?: string;
+	onClick?: MouseEventHandler< HTMLElement >;
+	onPointerDown?: PointerEventHandler< HTMLElement >;
 };
 
 /**
@@ -35,6 +43,8 @@ export function Popup( {
 	sideOffset = 4,
 	alignOffset,
 	className,
+	onClick,
+	onPointerDown,
 }: PopupProps ) {
 	return (
 		<BaseMenu.Portal>
@@ -53,6 +63,8 @@ export function Popup( {
 				<ThemeProvider density="compact">
 					<BaseMenu.Popup
 						className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
+						onClick={ onClick }
+						onPointerDown={ onPointerDown }
 					>
 						{ children }
 					</BaseMenu.Popup>

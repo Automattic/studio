@@ -43,6 +43,7 @@ export const TOAST_EXIT_MS = 200;
 let visible: ToastMessage[] = [];
 let queued: ToastMessage[] = [];
 let nextId = 1;
+let rendererMounted = false;
 
 const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
@@ -69,6 +70,9 @@ function clearExpiryTimer( id: string ) {
 // visible — queued failures keep their full linger time.
 function scheduleExpiry( toast: ToastMessage ) {
 	clearExpiryTimer( toast.id );
+	if ( ! rendererMounted ) {
+		return;
+	}
 	const timer = setTimeout( () => {
 		timers.delete( toast.id );
 		beginToastExit( toast.id );
@@ -172,6 +176,24 @@ export function resumeToastExpiry( id: string ): void {
 	}
 }
 
+export function notifyRendererMounted(): void {
+	rendererMounted = true;
+	for ( const toast of visible ) {
+		if ( ! toast.leaving && ! timers.has( toast.id ) ) {
+			scheduleExpiry( toast );
+		}
+	}
+}
+
+export function notifyRendererUnmounted(): void {
+	rendererMounted = false;
+	for ( const toast of visible ) {
+		if ( ! toast.leaving ) {
+			clearExpiryTimer( toast.id );
+		}
+	}
+}
+
 function subscribe( listener: () => void ): () => void {
 	listeners.add( listener );
 	return () => {
@@ -213,5 +235,6 @@ export function resetAppMessagesForTests(): void {
 	visible = [];
 	queued = [];
 	nextId = 1;
+	rendererMounted = false;
 	snapshot = visible;
 }

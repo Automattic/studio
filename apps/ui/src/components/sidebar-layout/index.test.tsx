@@ -31,6 +31,10 @@ vi.mock( '@/hooks/use-fullscreen', () => ( {
 	useFullscreen: () => false,
 } ) );
 
+vi.mock( '@/hooks/use-color-scheme', () => ( {
+	useColorScheme: () => 'light',
+} ) );
+
 vi.mock( '@wordpress/ui', async () => {
 	const actual = await vi.importActual< typeof import('@wordpress/ui') >( '@wordpress/ui' );
 	return {

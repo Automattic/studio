@@ -53,6 +53,7 @@ export interface UserData {
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
+	agenticUiBannerDismissed?: boolean;
 	dismissedMessages?: string[];
 }
 

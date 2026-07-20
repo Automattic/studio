@@ -27,13 +27,6 @@ export const indexRoute = createRoute( {
 			} );
 		}
 
-		if ( ! navigator.onLine ) {
-			throw redirect( {
-				to: '/sites/$siteId/settings',
-				params: { siteId: firstSite.id },
-			} );
-		}
-
 		const sessions = await context.queryClient.fetchQuery( {
 			queryKey: SESSIONS_QUERY_KEY,
 			queryFn: () => context.connector.getSessions(),

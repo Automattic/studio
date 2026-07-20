@@ -293,7 +293,6 @@ function SiteSettingsBody( {
 	return (
 		<div className={ styles.root }>
 			<SettingsHeader site={ site } />
-			<OfflineBanner />
 			<Tabs.Root
 				selectedTabId={ activeTab }
 				onSelect={ ( tabId ) => {
@@ -321,6 +320,7 @@ function SiteSettingsBody( {
 				<div className={ styles.scroll }>
 					<div className={ styles.contentBlock }>
 						<Tabs.Panel tabId="overview">
+							<OfflineBanner />
 							<AgenticSigninBanner />
 						</Tabs.Panel>
 						<form onSubmit={ handleSubmit } className={ styles.form }>

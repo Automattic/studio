@@ -74,7 +74,8 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 
 export function MainView( { site, activity, onSetupClick, onDisconnectClick }: Props ) {
 	const connector = useConnector();
-	const { enabled: agenticEnabled } = useAgenticFeatures();
+	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
+	const isOffline = agenticReason === 'offline';
 	const login = useLogin();
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
@@ -257,6 +258,8 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 					copy={
 						agenticEnabled
 							? __( 'Share a review link for this version.' )
+							: isOffline
+							? __( 'Go online to share a review link.' )
 							: __( 'Sign in to share a review link.' )
 					}
 					buttonLabel={ __( 'Share' ) }
@@ -325,14 +328,18 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 				<EnvironmentActionPanel
 					title={ __( 'Live' ) }
 					copy={
-						agenticEnabled ? __( 'No connected site.' ) : __( 'Sign in to publish your site.' )
+						agenticEnabled
+							? __( 'No connected site.' )
+							: isOffline
+							? __( 'Go online to publish your site.' )
+							: __( 'Sign in to publish your site.' )
 					}
-					buttonLabel={ agenticEnabled ? __( 'Publish' ) : __( 'Log in' ) }
+					buttonLabel={ agenticEnabled || isOffline ? __( 'Publish' ) : __( 'Log in' ) }
 					variant="solid"
 					tone="brand"
 					loading={ ! agenticEnabled && login.isPending }
 					loadingAnnouncement={ __( 'Opening login page' ) }
-					disabled={ isSyncing }
+					disabled={ isSyncing || isOffline }
 					onClick={ agenticEnabled ? onSetupClick : () => login.mutate() }
 				/>
 			) }

@@ -1,9 +1,10 @@
 import { useConnector } from '@/data/core';
 import { useAuthUser, AUTH_USER_QUERY_KEY } from '@/data/queries/use-auth-user';
+import { useOffline } from '@/hooks/use-offline';
 import type { AuthUser, Connector } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
-export type AgenticFeatureReason = 'signed-out' | null;
+export type AgenticFeatureReason = 'signed-out' | 'offline' | null;
 
 export interface AgenticFeatures {
 	enabled: boolean;
@@ -12,8 +13,14 @@ export interface AgenticFeatures {
 
 export function deriveAgenticFeatures(
 	connector: Pick< Connector, 'agenticRequiresAuth' >,
-	user: AuthUser | null | undefined
+	user: AuthUser | null | undefined,
+	isOffline = false
 ): AgenticFeatures {
+	// Agentic features need the network regardless of the connector's auth
+	// requirements, so offline wins over any auth state.
+	if ( isOffline ) {
+		return { enabled: false, reason: 'offline' };
+	}
 	if ( ! connector.agenticRequiresAuth ) {
 		return { enabled: true, reason: null };
 	}
@@ -31,8 +38,9 @@ export function deriveAgenticFeatures(
 
 export function useAgenticFeatures(): AgenticFeatures & { isReady: boolean } {
 	const connector = useConnector();
+	const isOffline = useOffline();
 	const { data: user, isLoading } = useAuthUser();
-	const features = deriveAgenticFeatures( connector, user );
+	const features = deriveAgenticFeatures( connector, user, isOffline );
 	return { ...features, isReady: ! isLoading };
 }
 
@@ -40,6 +48,10 @@ export async function resolveAgenticFeatures( context: {
 	queryClient: QueryClient;
 	connector: Connector;
 } ): Promise< AgenticFeatures > {
+	// Skip the auth fetch offline — it could hang without a network.
+	if ( ! navigator.onLine ) {
+		return deriveAgenticFeatures( context.connector, undefined, true );
+	}
 	const user = await context.queryClient.fetchQuery( {
 		queryKey: AUTH_USER_QUERY_KEY,
 		queryFn: () => context.connector.getAuthUser(),

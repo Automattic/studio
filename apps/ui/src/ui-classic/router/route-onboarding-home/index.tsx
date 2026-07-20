@@ -8,7 +8,6 @@ import {
 	illustrationHostClass,
 } from '@/components/onboarding-illustrations';
 import { useSites } from '@/data/queries/use-sites';
-import { useOffline } from '@/hooks/use-offline';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import styles from './style.module.css';
@@ -16,7 +15,6 @@ import styles from './style.module.css';
 export function OnboardingHomePage() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
-	const isOffline = useOffline();
 	const cardClass = `${ styles.card } ${ illustrationHostClass }`;
 
 	return (
@@ -44,17 +42,7 @@ export function OnboardingHomePage() {
 						type="button"
 						variant="minimal"
 						tone="neutral"
-						onClick={ () => {
-							const firstSiteId = sites?.[ 0 ]?.id;
-							if ( isOffline && firstSiteId ) {
-								void navigate( {
-									to: '/sites/$siteId/settings',
-									params: { siteId: firstSiteId },
-								} );
-							} else {
-								void navigate( { to: '/' } );
-							}
-						} }
+						onClick={ () => void navigate( { to: '/' } ) }
 					>
 						<Icon icon={ chevronLeft } size={ 16 } />
 						<span>{ __( 'Back' ) }</span>

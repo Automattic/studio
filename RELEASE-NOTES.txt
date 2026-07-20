@@ -3,14 +3,7 @@ Unreleased
 
 1.16.0
 =====
-* Introduced Agentic UI, a new beta interface for the app, available behind a feature flag #4163, #4200
-* Made the Agentic UI sidebar site-centric, with drag-to-reorder sites and the Studio wordmark removed #4191, #4134, #4092
-* Added chat history and New chat controls below the composer in the Agentic UI #4133
-* Added toast notifications in the Agentic UI #4203
-* Added an app menu button in the Agentic UI, shown only on Windows and Linux #4172, #4207
-* Fixed the window controls on Linux and Windows in the Agentic UI #4166
-* Fixed the blueprints gallery in the Agentic UI: stuck scrolling, card proportions, and the hidden Preview button #4148, #4156, #4155
-* Fixed several Agentic UI screens: the delete site confirmation layout, the local path field, the admin email field icon, and the refresh browser tool icon #4157, #4145, #4174, #4159
+* Introduced Agentic UI, a new beta interface for the app, available behind a feature flag #4163, #4200, #4191, #4134, #4092, #4133, #4203, #4166, #4148, #4156, #4155, #4157, #4145, #4174, #4159, #4172, #4207
 * Studio Code: Added a button to copy the full assistant message #4113
 * Studio Code: You can now paste an image anywhere in the view #4208
 * Studio Code: Added a recovery action to the Session not found state #4243

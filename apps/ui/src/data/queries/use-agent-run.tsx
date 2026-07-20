@@ -377,6 +377,45 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 	// its event, so disk is always at least as new as any event — flagged
 	// sessions just need one more refetch after the in-flight one settles.
 	const reconcileSessionIdsRef = useRef< Set< string > >( new Set() );
+	// When each session last had a live event actually processed, for the
+	// starvation watchdog below.
+	const lastEventAtBySessionRef = useRef< Map< string, number > >( new Map() );
+	// Reconcile refetches are rate-limited per session: with a large transcript
+	// and a streaming run, an unthrottled reconcile-per-settle loops (each
+	// refetch is long enough for another event to land and re-flag), and every
+	// cycle re-renders the session view and re-parses the JSONL in the main
+	// process. One trailing invalidate per interval converges just the same.
+	const lastReconcileAtBySessionRef = useRef< Map< string, number > >( new Map() );
+	const reconcileTimerBySessionRef = useRef< Map< string, number > >( new Map() );
+
+	const scheduleReconcile = useCallback(
+		( sessionId: string ) => {
+			if ( reconcileTimerBySessionRef.current.has( sessionId ) ) {
+				return;
+			}
+			const RECONCILE_MIN_INTERVAL_MS = 5_000;
+			const lastAt = lastReconcileAtBySessionRef.current.get( sessionId ) ?? 0;
+			const wait = Math.max( 0, RECONCILE_MIN_INTERVAL_MS - ( Date.now() - lastAt ) );
+			const timerId = window.setTimeout( () => {
+				reconcileTimerBySessionRef.current.delete( sessionId );
+				lastReconcileAtBySessionRef.current.set( sessionId, Date.now() );
+				void queryClient.invalidateQueries( {
+					queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
+					exact: true,
+				} );
+			}, wait );
+			reconcileTimerBySessionRef.current.set( sessionId, timerId );
+		},
+		[ queryClient ]
+	);
+
+	useEffect( () => {
+		const timers = reconcileTimerBySessionRef.current;
+		return () => {
+			timers.forEach( ( timerId ) => window.clearTimeout( timerId ) );
+			timers.clear();
+		};
+	}, [] );
 
 	const dispatchSession = useCallback(
 		( sessionId: string, action: Action ) => {
@@ -404,6 +443,102 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 		[ queryClient ]
 	);
 
+	// Starvation watchdog: if a session claims an active run but no live event
+	// has been processed for it in STARVATION_MS, stop trusting the event
+	// stream and re-sync from the main process + disk. `getActiveAgentRuns` is
+	// a tiny IPC call, so polling while a run is active is cheap; the transcript
+	// is only refetched when something is actually missing. This heals every
+	// class of dropped-event failure: a missed question/permission becomes
+	// visible and answerable, a stale run-id subscription is corrected so the
+	// stream resumes, and a missed run.exited unsticks the composer.
+	useEffect( () => {
+		const STARVATION_MS = 10_000;
+		const intervalId = window.setInterval( () => {
+			const states = stateStore.getState();
+			const now = Date.now();
+			const starvedSessionIds = Object.keys( states ).filter( ( sessionId ) => {
+				const state = states[ sessionId ];
+				if ( state.phase === 'idle' ) {
+					return false;
+				}
+				const lastEventAt =
+					lastEventAtBySessionRef.current.get( sessionId ) ?? state.startedAt ?? now;
+				return now - lastEventAt >= STARVATION_MS;
+			} );
+			if ( starvedSessionIds.length === 0 ) {
+				return;
+			}
+			void connector
+				.getActiveAgentRuns()
+				.then( ( runs ) => {
+					const runsBySessionId = new Map( runs.map( ( run ) => [ run.sessionId, run ] ) );
+					for ( const sessionId of starvedSessionIds ) {
+						const state = stateStore.getState()[ sessionId ];
+						if ( ! state || state.phase === 'idle' ) {
+							continue;
+						}
+						const run = runsBySessionId.get( sessionId );
+						if ( ! run ) {
+							// The run is gone but run.exited never reached us — close
+							// out the session and reconcile the transcript from disk.
+							lastEventAtBySessionRef.current.set( sessionId, Date.now() );
+							subscribedRunIdsBySessionRef.current.delete( sessionId );
+							dispatchSession( sessionId, { type: 'run_ended' } );
+							void queryClient.invalidateQueries( {
+								queryKey: SESSIONS_QUERY_KEY,
+								exact: true,
+							} );
+							scheduleReconcile( sessionId );
+							continue;
+						}
+						const pendingQuestions = run.pendingQuestions ?? [];
+						const pendingPermissions = run.pendingPermissions ?? [];
+						const missedQuestions = pendingQuestions.filter(
+							( question ) =>
+								! state.pendingQuestions.some( ( p ) => p.question === question.question )
+						);
+						const missedPermissions = pendingPermissions.filter(
+							( request ) => ! state.pendingPermissions.some( ( p ) => p.id === request.id )
+						);
+						if (
+							missedQuestions.length === 0 &&
+							missedPermissions.length === 0 &&
+							state.runId === run.runId
+						) {
+							// Healthy but quiet (e.g. a long tool call) — nothing to heal.
+							continue;
+						}
+						lastEventAtBySessionRef.current.set( sessionId, Date.now() );
+						// Re-point the event subscription at the run the main process
+						// actually has, in case a stale run id was filtering the stream.
+						subscribedRunIdsBySessionRef.current.set( sessionId, run.runId );
+						dispatchSession( sessionId, {
+							type: 'hydrate_active_run',
+							runId: run.runId,
+							startedAt: run.startedAt,
+							interrupting: run.phase === 'interrupting',
+						} );
+						if ( missedQuestions.length > 0 ) {
+							dispatchSession( sessionId, {
+								type: 'questions_added',
+								questions: pendingQuestions,
+							} );
+						}
+						for ( const request of missedPermissions ) {
+							dispatchSession( sessionId, { type: 'permission_requested', request } );
+						}
+						// Whatever produced the missed interaction also wrote transcript
+						// entries we never appended — reconcile from disk.
+						scheduleReconcile( sessionId );
+					}
+				} )
+				.catch( () => {
+					// A failed poll just means the next tick tries again.
+				} );
+		}, 5_000 );
+		return () => window.clearInterval( intervalId );
+	}, [ connector, dispatchSession, queryClient, scheduleReconcile, stateStore ] );
+
 	// Second half of the reconcile contract: once a flagged session's transcript
 	// fetch settles, refetch it. That fetch started after the flagged event, so
 	// its disk snapshot is guaranteed to contain the event's entry. If more
@@ -429,16 +564,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( typeof sessionId !== 'string' || ! reconcileSessionIdsRef.current.delete( sessionId ) ) {
 				return;
 			}
-			// Deferred so the refetch isn't started from inside the query cache's
-			// own notification cycle.
-			queueMicrotask( () => {
-				void queryClient.invalidateQueries( {
-					queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ],
-					exact: true,
-				} );
-			} );
+			scheduleReconcile( sessionId );
 		} );
-	}, [ queryClient ] );
+	}, [ queryClient, scheduleReconcile ] );
 
 	useEffect( () => {
 		let cancelled = false;
@@ -503,6 +631,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( subscribedRunId && payload.runId !== subscribedRunId ) {
 				return;
 			}
+
+			lastEventAtBySessionRef.current.set( payload.sessionId, Date.now() );
 
 			const event: AgentEvent = payload.event;
 

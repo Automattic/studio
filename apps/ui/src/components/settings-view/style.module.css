@@ -220,6 +220,13 @@
 	transform: translateX(calc(var(--appearance-active-index, 0) * 100%));
 }
 
+/* The indicator is positioned with a logical inset but animated with a
+   physical translateX, so RTL needs the sign flipped to slide toward the
+   selected option instead of away from it. */
+.appearancePicker:dir(rtl)::before {
+	transform: translateX(calc(var(--appearance-active-index, 0) * -100%));
+}
+
 .appearancePicker[data-active-index='0'] {
 	--appearance-active-index: 0;
 }

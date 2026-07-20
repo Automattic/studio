@@ -49,10 +49,14 @@ steps:
 
   - label: ":fastlane: fastlane Helper Tests"
     agents:
-      queue: mac
+      queue: default
     key: fastlane_tests
     command: bash .buildkite/commands/run-fastlane-tests.sh
-    plugins: [$CI_TOOLKIT_PLUGIN]
+    plugins:
+      - $DOCKER_PLUGIN:
+          image: "$RUBY_DOCKER_IMAGE"
+          propagate-environment: true
+          mount-buildkite-agent: true
     notify:
       - github_commit_status:
           context: fastlane Helper Tests

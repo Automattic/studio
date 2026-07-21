@@ -1,13 +1,14 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteAiSessionsForSite } from '@studio/common/ai/sessions/manage';
 import {
 	readAiSessionPlacements,
 	setAiSessionSitePlacement,
 } from '@studio/common/ai/sessions/placement';
 import { createAiSession, listAiSessions } from '@studio/common/ai/sessions/store';
+import * as sharedConfig from '@studio/common/lib/shared-config';
 import { readSharedSessions, updateSharedSession } from '@studio/common/lib/shared-config';
 
 // Runs against a real temp directory: DEV_CONFIG_DIR points app.json,
@@ -75,5 +76,33 @@ describe( 'deleteAiSessionsForSite', () => {
 		expect( deleted ).toEqual( [ 'ghost-session' ] );
 		await expect( readAiSessionPlacements() ).resolves.toEqual( {} );
 		await expect( readSharedSessions() ).resolves.toEqual( {} );
+	} );
+
+	it( 'continues cleaning sessions when one shared config update fails', async () => {
+		const first = await createPlacedSession( 'site-1', '/sites/one' );
+		const second = await createPlacedSession( 'site-1', '/sites/one' );
+		await updateSharedSession( first.id, { archived: true } );
+		await updateSharedSession( second.id, { archived: true } );
+
+		const deleteSharedSession = vi
+			.spyOn( sharedConfig, 'deleteSharedSession' )
+			.mockRejectedValueOnce( new Error( 'Failed to write shared config.' ) );
+
+		try {
+			await deleteAiSessionsForSite( sessionsRoot, {
+				id: 'site-1',
+				path: '/sites/one',
+			} );
+		} finally {
+			deleteSharedSession.mockRestore();
+		}
+
+		await expect( listAiSessions( sessionsRoot ) ).resolves.toEqual( [] );
+		await expect( readAiSessionPlacements() ).resolves.toEqual( {
+			[ first.id ]: expect.objectContaining( { siteId: 'site-1' } ),
+		} );
+		await expect( readSharedSessions() ).resolves.toEqual( {
+			[ first.id ]: { archived: true },
+		} );
 	} );
 } );

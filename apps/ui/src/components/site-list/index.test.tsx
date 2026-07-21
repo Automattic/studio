@@ -252,7 +252,7 @@ describe( 'SiteList', () => {
 		expect( runningSiteClassName ).not.toContain( 'siteNameStopped' );
 	} );
 
-	it( 'shows an Xdebug indicator only on the Xdebug-enabled site row', () => {
+	it( 'replaces the status dot with the Xdebug glyph on the Xdebug-enabled site', () => {
 		useSitesMock.mockReturnValue( {
 			data: [
 				createSite( {
@@ -274,18 +274,24 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const xdebugRow = screen.getByText( 'Xdebug Site' ).closest( 'section' )!;
-		const plainRow = screen.getByText( 'Plain Site' ).closest( 'section' )!;
-		const indicator = within( xdebugRow ).getByRole( 'img', { name: 'Xdebug enabled' } );
+		const xdebugButton = screen.getByRole( 'button', {
+			name: 'Site status: Running. Xdebug enabled. Stop site',
+		} );
+		const xdebugGlyph = xdebugButton.querySelector( 'svg:first-of-type' );
+		const plainButton = screen.getByRole( 'button', {
+			name: 'Site status: Running. Stop site',
+		} );
 
-		expect( indicator ).toBeInTheDocument();
-		expect( indicator.getAttribute( 'class' ) ?? '' ).not.toContain( 'siteXdebugStopped' );
-		expect(
-			within( plainRow ).queryByRole( 'img', { name: 'Xdebug enabled' } )
-		).not.toBeInTheDocument();
+		expect( xdebugGlyph ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+		expect( xdebugGlyph?.querySelector( 'rect' ) ).not.toBeInTheDocument();
+		expect( plainButton ).not.toHaveAttribute( 'data-xdebug' );
+		expect( plainButton.querySelector( 'svg:first-of-type rect' ) ).toBeInTheDocument();
+
+		fireEvent.click( xdebugButton );
+		expect( stopSite ).toHaveBeenCalledWith( 'xdebug-site' );
 	} );
 
-	it( 'dims the Xdebug indicator when the site is stopped', () => {
+	it( 'keeps the greyed Xdebug glyph visible while the site is stopped', () => {
 		useSitesMock.mockReturnValue( {
 			data: [
 				createSite( {
@@ -301,9 +307,15 @@ describe( 'SiteList', () => {
 
 		render( <SiteList /> );
 
-		const indicator = screen.getByRole( 'img', { name: 'Xdebug enabled' } );
+		const button = screen.getByRole( 'button', {
+			name: 'Site status: Stopped. Xdebug enabled. Start site',
+		} );
 
-		expect( indicator.getAttribute( 'class' ) ?? '' ).toContain( 'siteXdebugStopped' );
+		// The stopped-row CSS hides the status button unless `data-xdebug` is
+		// set alongside `data-state`; assert that DOM contract.
+		expect( button ).toHaveAttribute( 'data-state', 'stopped' );
+		expect( button ).toHaveAttribute( 'data-xdebug' );
+		expect( button.querySelector( 'svg:first-of-type' ) ).toHaveAttribute( 'viewBox', '0 0 24 24' );
 	} );
 
 	it( 'marks the site row as current for the active chat', () => {

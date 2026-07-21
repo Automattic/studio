@@ -206,29 +206,6 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 const XDEBUG_ICON_PATH =
 	'M14.5002 10.4214C14.9651 10.4215 15.3419 10.7983 15.342 11.2632V11.7075L16.6741 11.1333C16.9089 11.0319 17.1821 11.1397 17.2834 11.3745C17.3848 11.6094 17.2761 11.8825 17.0413 11.9839L15.342 12.7163V14.6313L16.97 15.5581C17.1923 15.6846 17.2703 15.9676 17.1438 16.1899C17.0173 16.4121 16.7342 16.4902 16.512 16.3638L15.2219 15.6294C14.8413 16.9968 13.5886 18.0005 12.0999 18.0005C10.6204 18.0004 9.37355 17.0092 8.98462 15.6548L7.7395 16.3638C7.51719 16.4902 7.23416 16.4122 7.10767 16.1899C6.9812 15.9676 7.05914 15.6846 7.28149 15.5581L8.85767 14.6616V12.6802L7.24243 11.9839C7.00757 11.8825 6.89985 11.6094 7.00122 11.3745C7.10268 11.1398 7.37485 11.032 7.60962 11.1333L8.85767 11.6714V11.2632C8.85782 10.7984 9.23464 10.4216 9.69946 10.4214H14.5002ZM13.7483 6.18896C13.8999 5.98302 14.1897 5.93884 14.3958 6.09033C14.6016 6.24192 14.6458 6.53181 14.4944 6.73779L13.7874 7.69873C14.1762 8.09284 14.4163 8.62971 14.4163 9.24268C14.4161 9.48774 14.1995 9.66352 13.9543 9.66357H10.2454C10.0003 9.66345 9.78462 9.48769 9.78442 9.24268C9.78442 8.65527 10.0041 8.13759 10.3645 7.74854L9.62134 6.73779C9.46987 6.53179 9.5141 6.24192 9.71997 6.09033C9.92601 5.93883 10.2159 5.98299 10.3674 6.18896L11.1213 7.21338C11.4188 7.08356 11.7499 7.01026 12.0999 7.01025C12.4248 7.01025 12.7342 7.07232 13.0149 7.18506L13.7483 6.18896Z';
 
-function SiteXdebugIndicator( { stopped }: { stopped: boolean } ) {
-	const label = __( 'Xdebug enabled' );
-
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<span
-						className={ clsx( styles.siteXdebug, stopped && styles.siteXdebugStopped ) }
-						role="img"
-						aria-label={ label }
-					/>
-				}
-			>
-				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-					<path d={ XDEBUG_ICON_PATH } fill="currentColor" />
-				</svg>
-			</Tooltip.Trigger>
-			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
-		</Tooltip.Root>
-	);
-}
-
 function SiteOverviewButton( { site }: { site: SiteDetails } ) {
 	const navigate = useNavigate();
 
@@ -272,7 +249,10 @@ function SiteStatusButton( {
 				? __( 'Stopping' )
 				: __( 'Starting' )
 			: __( 'Stopped' );
-	const tooltipLabel = sprintf( __( 'Site status: %s' ), statusName );
+	const xdebug = Boolean( site.enableXdebug );
+	const tooltipLabel = xdebug
+		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )
+		: sprintf( __( 'Site status: %s' ), statusName );
 	const actionLabel = site.running ? __( 'Stop site' ) : __( 'Start site' );
 	const label = busy ? tooltipLabel : sprintf( __( '%1$s. %2$s' ), tooltipLabel, actionLabel );
 	const handleClick = ( event: MouseEvent< HTMLButtonElement > ) => {
@@ -298,20 +278,32 @@ function SiteStatusButton( {
 						aria-busy={ busy || undefined }
 						aria-disabled={ busy || undefined }
 						data-state={ status }
+						data-xdebug={ xdebug || undefined }
 						onClick={ handleClick }
 					>
-						<svg
-							className={ styles.siteStatusGlyph }
-							viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
-							aria-hidden="true"
-							focusable="false"
-						>
-							{ status === 'stopped' ? (
-								<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
-							) : (
-								<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
-							) }
-						</svg>
+						{ xdebug ? (
+							<svg
+								className={ clsx( styles.siteStatusGlyph, styles.siteStatusXdebugGlyph ) }
+								viewBox="0 0 24 24"
+								aria-hidden="true"
+								focusable="false"
+							>
+								<path d={ XDEBUG_ICON_PATH } fill="currentColor" />
+							</svg>
+						) : (
+							<svg
+								className={ styles.siteStatusGlyph }
+								viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
+								aria-hidden="true"
+								focusable="false"
+							>
+								{ status === 'stopped' ? (
+									<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
+								) : (
+									<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+								) }
+							</svg>
+						) }
 						{ ! busy ? (
 							site.running ? (
 								<span className={ styles.siteStatusActionGlyph } aria-hidden="true">
@@ -591,9 +583,6 @@ function SiteSection( {
 								>
 									{ site.name }
 								</span>
-								{ site.enableXdebug ? (
-									<SiteXdebugIndicator stopped={ status === 'stopped' } />
-								) : null }
 							</SidebarButton>
 						</div>
 						<div className={ styles.siteActions } data-reorder-exclude>

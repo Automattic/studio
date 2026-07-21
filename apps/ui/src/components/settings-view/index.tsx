@@ -31,7 +31,7 @@ const SETTINGS_TABS = [ 'preferences', 'keyboard' ] as const;
 type TabId = ( typeof SETTINGS_TABS )[ number ];
 
 export function isSettingsTab( value: string ): value is TabId {
-	return ( SETTINGS_TABS as readonly string[] ).includes( value );
+	return SETTINGS_TABS.some( ( tab ) => tab === value );
 }
 
 export type SettingsTabId = TabId;

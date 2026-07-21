@@ -143,7 +143,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 						{ __( 'Import from a backup' ) }
 					</Heading>
 					<Text className="text-[13px] !text-frame-text-secondary" weight="400">
-						{ __( 'Drop a file or click to browse (.zip, .tar.gz, .sql, .wpress)' ) }
+						{ __( 'Drop a file or click to browse (.zip, .tar.gz, .wpress, .xml)' ) }
 					</Text>
 				</div>
 			</div>

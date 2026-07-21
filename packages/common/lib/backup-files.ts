@@ -1,5 +1,9 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 
+const IMPORT_FILE_TYPES_BY_LENGTH = [ ...ACCEPTED_IMPORT_FILE_TYPES ].sort(
+	( first, second ) => second.length - first.length
+);
+
 export function isSupportedBackupFilename( filename: string ): boolean {
 	const lower = filename.toLowerCase();
 	return ACCEPTED_IMPORT_FILE_TYPES.some( ( extension ) => lower.endsWith( extension ) );
@@ -8,7 +12,9 @@ export function isSupportedBackupFilename( filename: string ): boolean {
 export function getSuggestedSiteNameFromBackupFilename( filename: string ): string {
 	const basename = filename.replace( /^.*[\\/]/, '' );
 	const lower = basename.toLowerCase();
-	const extension = ACCEPTED_IMPORT_FILE_TYPES.find( ( candidate ) => lower.endsWith( candidate ) );
+	const extension = IMPORT_FILE_TYPES_BY_LENGTH.find( ( candidate ) =>
+		lower.endsWith( candidate )
+	);
 	const stem = extension ? basename.slice( 0, -extension.length ) : basename;
 
 	return stem

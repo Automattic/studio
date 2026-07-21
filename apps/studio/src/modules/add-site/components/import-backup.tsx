@@ -67,6 +67,20 @@ export default function ImportBackup( {
 		},
 		[ onFileSelect ]
 	);
+	const handleFile = useCallback(
+		( file: File ) => {
+			if ( isValidBackupFile( file ) ) {
+				handleFileSelection( file );
+				return;
+			}
+			setFileError(
+				__(
+					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .xml file.'
+				)
+			);
+		},
+		[ handleFileSelection, __ ]
+	);
 
 	const handleDragOver = useCallback( ( e: React.DragEvent ) => {
 		e.preventDefault();
@@ -92,28 +106,19 @@ export default function ImportBackup( {
 				return;
 			}
 
-			const file = files[ 0 ];
-			if ( isValidBackupFile( file ) ) {
-				handleFileSelection( file );
-			} else {
-				setFileError(
-					__(
-						'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .sql file.'
-					)
-				);
-			}
+			handleFile( files[ 0 ] );
 		},
-		[ handleFileSelection, __ ]
+		[ handleFile ]
 	);
 
 	const handleFileInputChange = useCallback(
 		( e: React.ChangeEvent< HTMLInputElement > ) => {
 			const file = e.target.files?.[ 0 ];
 			if ( file ) {
-				handleFileSelection( file );
+				handleFile( file );
 			}
 		},
-		[ handleFileSelection ]
+		[ handleFile ]
 	);
 
 	const handleClick = useCallback( () => {

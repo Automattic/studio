@@ -3,6 +3,7 @@ import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -194,7 +195,11 @@ export interface Connector {
 
 	// Imports a backup into an already-created site and starts the usable site.
 	// `backupPath` comes from `getFilePath` for the current submission.
-	importSiteFromBackup( siteId: string, backupPath: string ): Promise< void >;
+	importSiteFromBackup(
+		siteId: string,
+		backupPath: string,
+		onProgress?: ( event: ImportEventTuple ) => void
+	): Promise< void >;
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;

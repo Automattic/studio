@@ -12,13 +12,14 @@ describe( 'backup files', () => {
 		'backup.gzip',
 		'backup.tar',
 		'backup.wpress',
-		'backup.sql',
+		'backup.xml',
 	] )( 'supports %s', ( filename ) => {
 		expect( isSupportedBackupFilename( filename ) ).toBe( true );
 	} );
 
 	it( 'rejects unsupported filenames', () => {
 		expect( isSupportedBackupFilename( 'backup.txt' ) ).toBe( false );
+		expect( isSupportedBackupFilename( 'backup.sql' ) ).toBe( false );
 		expect( isSupportedBackupFilename( 'backup.sql.zip.exe' ) ).toBe( false );
 	} );
 
@@ -26,7 +27,7 @@ describe( 'backup files', () => {
 		[ 'studio-backup-My Store-2026-07-17_12_30_45.tar.gz', 'My Store' ],
 		[ '/Users/me/Sites/client-site-backup.zip', 'client site' ],
 		[ 'Agency_Export.wpress', 'Agency' ],
-		[ 'shop-2026-07-17.sql', 'shop' ],
+		[ 'shop-2026-07-17.zip', 'shop' ],
 		[ 'my-site.tar.gz', 'my site' ],
 	] )( 'suggests a site name from %s', ( filename, expected ) => {
 		expect( getSuggestedSiteNameFromBackupFilename( filename ) ).toBe( expected );

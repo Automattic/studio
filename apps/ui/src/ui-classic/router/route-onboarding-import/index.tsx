@@ -1,5 +1,6 @@
 import { getSuggestedSiteNameFromBackupFilename } from '@studio/common/lib/backup-files';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
+import { getImportStatusMessage } from '@studio/common/lib/import-progress';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef, useState } from 'react';
@@ -107,6 +108,10 @@ export function OnboardingImportPage() {
 			await importSite.mutateAsync( {
 				siteId: site.id,
 				backupPath,
+				onProgress: ( event ) => {
+					const message = getImportStatusMessage( event );
+					if ( message ) setProgress( message );
+				},
 			} );
 			importCompleted = true;
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );

@@ -34,6 +34,7 @@ import {
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
+import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
@@ -183,9 +184,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
 	const execute = cliRunner.executeCliCommand;
 
-	// --- Server-Sent Events: one stream carries every run's output ------------
-	// The web connector expects the same envelope on both channels: agent run
-	// events on `agent`, session-placement updates on `placement`.
+	// --- Server-Sent Events: one stream carries live UI updates ----------------
 	const sseClients = new Set< Response >();
 	function sseSend( message: { channel: string; payload: unknown } ): void {
 		if ( sseClients.size === 0 ) {
@@ -835,6 +834,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 						[ 'import', '--path', site.path, archivePath, '--start-server' ],
 						{ output: 'capture' }
 					);
+					emitter.on( 'data', ( { data } ) => {
+						const parsed = importIpcEventSchema.safeParse( data );
+						if ( parsed.success ) {
+							sseSend( {
+								channel: 'import',
+								payload: { siteId: site.id, event: parsed.data.event },
+							} );
+						}
+					} );
 					emitter.on( 'success', () => resolve() );
 					emitter.on( 'failure', ( { error } ) => reject( error ) );
 					emitter.on( 'error', ( { error } ) => reject( error ) );

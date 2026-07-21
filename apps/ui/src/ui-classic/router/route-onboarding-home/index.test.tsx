@@ -57,14 +57,15 @@ describe( 'OnboardingHomePage', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: /Import from a backup/ } ) );
 
 		expect( click ).toHaveBeenCalledOnce();
-		expect( input.accept ).toContain( '.sql' );
+		expect( input.accept ).not.toContain( '.sql' );
+		expect( input.accept ).toContain( '.xml' );
 	} );
 
 	it( 'hands a selected backup File to the import form', () => {
 		const { container } = render( <OnboardingHomePage /> );
 		const input = container.querySelector< HTMLInputElement >( 'input[type="file"]' );
 		if ( ! input ) throw new Error( 'Backup input not found' );
-		const file = new File( [ 'backup' ], 'client-site.sql' );
+		const file = new File( [ 'backup' ], 'client-site.zip' );
 
 		fireEvent.change( input, { target: { files: [ file ] } } );
 
@@ -108,7 +109,7 @@ describe( 'OnboardingHomePage', () => {
 		const importCard = screen.getByRole( 'button', { name: /Import from a backup/ } );
 
 		fireEvent.change( input, {
-			target: { files: [ new File( [ 'text' ], 'notes.txt' ) ] },
+			target: { files: [ new File( [ 'sql' ], 'database.sql' ) ] },
 		} );
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'This file type is not supported' );
 

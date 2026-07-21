@@ -1,8 +1,10 @@
+import { BackupExtractEvents, ImporterEvents } from '@studio/common/lib/import-export-events';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setPendingBackup, takePendingBackup } from '@/lib/pending-backup';
 import { OnboardingImportPage } from './index';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn( async () => undefined ),
@@ -78,7 +80,7 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useDeleteSite: () => ( { mutateAsync: mocks.deleteSite } ),
 } ) );
 
-const selectedBackup = new File( [ 'backup' ], 'studio-backup-My Store-2026-07-17.sql' );
+const selectedBackup = new File( [ 'backup' ], 'studio-backup-My Store-2026-07-17.zip' );
 const formValues: CreateSiteFormValues = {
 	name: 'My Store',
 	path: '/sites/my-store',
@@ -102,13 +104,13 @@ describe( 'OnboardingImportPage', () => {
 		vi.clearAllMocks();
 		mocks.formProps = null;
 		takePendingBackup();
-		mocks.getFilePath.mockResolvedValue( '/tmp/backup.sql' );
+		mocks.getFilePath.mockResolvedValue( '/tmp/backup.zip' );
 		mocks.createSite.mockResolvedValue( { id: 'site-1' } );
 		mocks.importSite.mockResolvedValue( undefined );
 		mocks.deleteSite.mockResolvedValue( undefined );
 	} );
 
-	it( 'adopts a selected SQL File without resolving it until submit', async () => {
+	it( 'adopts a selected File without resolving it until submit', async () => {
 		await renderConfiguredImport();
 
 		expect( mocks.getFilePath ).not.toHaveBeenCalled();
@@ -130,8 +132,8 @@ describe( 'OnboardingImportPage', () => {
 
 	it( 'rolls back a failed import and retries the same File with a fresh path', async () => {
 		mocks.getFilePath
-			.mockResolvedValueOnce( '/tmp/studio-upload-first/backup.sql' )
-			.mockResolvedValueOnce( '/tmp/studio-upload-second/backup.sql' );
+			.mockResolvedValueOnce( '/tmp/studio-upload-first/backup.zip' )
+			.mockResolvedValueOnce( '/tmp/studio-upload-second/backup.zip' );
 		mocks.createSite
 			.mockResolvedValueOnce( { id: 'site-1' } )
 			.mockResolvedValueOnce( { id: 'site-2' } );
@@ -142,10 +144,14 @@ describe( 'OnboardingImportPage', () => {
 		await screen.findByText( 'Studio could not import this backup.' );
 
 		expect( mocks.deleteSite ).toHaveBeenCalledWith( { id: 'site-1', deleteFiles: true } );
-		expect( mocks.importSite ).toHaveBeenNthCalledWith( 1, {
-			siteId: 'site-1',
-			backupPath: '/tmp/studio-upload-first/backup.sql',
-		} );
+		expect( mocks.importSite ).toHaveBeenNthCalledWith(
+			1,
+			expect.objectContaining( {
+				siteId: 'site-1',
+				backupPath: '/tmp/studio-upload-first/backup.zip',
+				onProgress: expect.any( Function ),
+			} )
+		);
 		expect( mocks.formProps?.isSubmitting ).toBe( false );
 		expect( mocks.setProgress ).toHaveBeenLastCalledWith( null );
 		expect( mocks.formProps?.submitLabel ).toBe( 'Retry import' );
@@ -158,15 +164,42 @@ describe( 'OnboardingImportPage', () => {
 
 		expect( mocks.getFilePath ).toHaveBeenCalledTimes( 2 );
 		expect( mocks.getFilePath ).toHaveBeenNthCalledWith( 2, selectedBackup );
-		expect( mocks.importSite ).toHaveBeenNthCalledWith( 2, {
-			siteId: 'site-2',
-			backupPath: '/tmp/studio-upload-second/backup.sql',
-		} );
+		expect( mocks.importSite ).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining( {
+				siteId: 'site-2',
+				backupPath: '/tmp/studio-upload-second/backup.zip',
+				onProgress: expect.any( Function ),
+			} )
+		);
 		expect( mocks.navigate ).toHaveBeenLastCalledWith( {
 			to: '/sites/$siteId/new',
 			params: { siteId: 'site-2' },
 		} );
 		await waitFor( () => expect( mocks.formProps?.isSubmitting ).toBe( false ) );
+	} );
+
+	it( 'shows detailed importer progress in the onboarding notification', async () => {
+		mocks.importSite.mockImplementationOnce(
+			async ( input: { onProgress?: ( event: ImportEventTuple ) => void } ) => {
+				input.onProgress?.( [
+					BackupExtractEvents.BACKUP_EXTRACT_PROGRESS,
+					{ processedFiles: 1, totalFiles: 4 },
+				] );
+				input.onProgress?.( [
+					ImporterEvents.IMPORT_DATABASE_PROGRESS,
+					{ processedFiles: 1, totalFiles: 2 },
+				] );
+			}
+		);
+		await renderConfiguredImport();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Import site' } ) );
+
+		await waitFor( () => {
+			expect( mocks.setProgress ).toHaveBeenCalledWith( 'Extracting backup… (25%)' );
+			expect( mocks.setProgress ).toHaveBeenCalledWith( 'Importing database… (50%)' );
+		} );
 	} );
 
 	it( 'restores interaction when resolving the selected File fails', async () => {
@@ -204,7 +237,7 @@ describe( 'OnboardingImportPage', () => {
 		expect( mocks.formProps?.submitLabel ).toBe( 'Retry import' );
 		expect( mocks.formProps?.cancelLabel ).toBe( 'Choose another backup' );
 
-		resolvePath( '/tmp/backup.sql' );
+		resolvePath( '/tmp/backup.zip' );
 		await waitFor( () => expect( mocks.formProps?.isSubmitting ).toBe( false ) );
 	} );
 
@@ -269,7 +302,7 @@ describe( 'OnboardingImportPage', () => {
 		} );
 		expect( mocks.getFilePath ).toHaveBeenCalledOnce();
 
-		resolvePath( '/tmp/backup.sql' );
+		resolvePath( '/tmp/backup.zip' );
 		await act( async () => firstSubmit );
 		expect( mocks.createSite ).toHaveBeenCalledOnce();
 	} );

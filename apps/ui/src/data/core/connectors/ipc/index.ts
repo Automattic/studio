@@ -23,6 +23,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
@@ -357,12 +358,24 @@ export function createIpcConnector(): Connector {
 			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
 		},
 
-		async importSiteFromBackup( siteId, backupPath ): Promise< void > {
-			await ipcApi.importSite( siteId, backupPath, {
-				alwaysStartServer: true,
-				showErrorModal: false,
-				showNotification: false,
-			} );
+		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'on-import',
+						( _event: unknown, importEvent: ImportEventTuple, importSiteId: string ) => {
+							if ( importSiteId === siteId ) onProgress( importEvent );
+						}
+				  )
+				: undefined;
+			try {
+				await ipcApi.importSite( siteId, backupPath, {
+					alwaysStartServer: true,
+					showErrorModal: false,
+					showNotification: false,
+				} );
+			} finally {
+				unsubscribe?.();
+			}
 		},
 
 		async startSite( id ) {

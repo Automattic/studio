@@ -78,6 +78,9 @@ export interface SiteDetails {
 		path: string;
 		slug: string;
 		isBlockTheme: boolean;
+		// Only supplied by the desktop (IPC) connector.
+		supportsWidgets?: boolean;
+		supportsMenus?: boolean;
 	};
 	siteIcon?: string | null;
 }

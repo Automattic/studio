@@ -1,0 +1,19 @@
+.root {
+	padding: var(--wpds-dimension-padding-lg);
+	border-radius: var(--wpds-border-radius-sm);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	background: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.heading {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-medium);
+}
+
+.description {
+	margin: 8px 0 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	line-height: 1.5;
+}

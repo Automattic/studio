@@ -74,6 +74,10 @@ vi.mock( './skills-panel', () => ( {
 	SkillsPanel: () => null,
 } ) );
 
+vi.mock( './mcp-panel', () => ( {
+	McpPanel: () => <div data-testid="mcp-panel" />,
+} ) );
+
 vi.mock( '@/data/core/query-client', () => ( {
 	persister: { removeClient: vi.fn( () => Promise.resolve() ) },
 } ) );

@@ -8,6 +8,9 @@ type TranslatedLink = Partial< Record< SupportedLocale, string > > & { en: strin
  * `apps/ui` actually links to are duplicated here.
  */
 const DOCS_LINKS = {
+	docsMcp: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/',
+	},
 	docsSites: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sites/',
 		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sitios/',

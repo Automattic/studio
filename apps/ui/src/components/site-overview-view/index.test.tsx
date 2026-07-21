@@ -15,7 +15,7 @@ import {
 	useUpdateSite,
 	useXdebugEnabledSite,
 } from '@/data/queries/use-sites';
-import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
+import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { SiteOverviewView } from './index';
 import type { SiteDetails } from '@/data/core';
 
@@ -80,6 +80,7 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWordPressVersions: vi.fn(),
+	useWpVersion: vi.fn(),
 } ) );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
@@ -99,6 +100,7 @@ const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
+const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
 const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
 
 describe( 'SiteOverviewView', () => {
@@ -146,6 +148,7 @@ describe( 'SiteOverviewView', () => {
 		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: exportDatabase } );
 		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useWordPressVersionsMock.mockReturnValue( { data: undefined } );
+		useWpVersionMock.mockReturnValue( { data: undefined } );
 		useXdebugEnabledSiteMock.mockReturnValue( null );
 	} );
 
@@ -219,6 +222,47 @@ describe( 'SiteOverviewView', () => {
 			expect.objectContaining( {
 				site: expect.objectContaining( { isWpAutoUpdating: false } ),
 				wpVersion: '6.7.2',
+			} ),
+			expect.anything()
+		);
+	} );
+
+	it( 'shows the installed version for pinned sites, adding it to the list when missing', () => {
+		useWpVersionMock.mockReturnValue( { data: '6.5.2' } );
+		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, isWpAutoUpdating: false } ) ],
+			isLoading: false,
+		} );
+
+		renderView( 'general' );
+
+		const select = screen.getByLabelText( 'WordPress version' );
+		expect( select ).toHaveValue( '6.5.2' );
+		expect( screen.getByRole( 'option', { name: '6.5.2' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'does not forward the version when saving unrelated changes on a pinned site', () => {
+		const updateSiteMutate = vi.fn();
+		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSiteMutate } );
+		useWpVersionMock.mockReturnValue( { data: '6.5.2' } );
+		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, isWpAutoUpdating: false } ) ],
+			isLoading: false,
+		} );
+
+		renderView( 'general' );
+
+		fireEvent.change( screen.getByDisplayValue( 'Demo Site' ), {
+			target: { value: 'Renamed Site' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
+
+		expect( updateSiteMutate ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				site: expect.objectContaining( { name: 'Renamed Site', isWpAutoUpdating: false } ),
+				wpVersion: undefined,
 			} ),
 			expect.anything()
 		);

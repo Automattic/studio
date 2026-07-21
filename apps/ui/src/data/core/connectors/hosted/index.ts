@@ -191,6 +191,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 		getWordPressVersions: fetchWordPressVersions,
 
+		async getWpVersion(): Promise< string > {
+			throw new UnsupportedError( 'getWpVersion' );
+		},
+
 		async getFilePath() {
 			// Browsers can't resolve a real filesystem path for a File.
 			return '';

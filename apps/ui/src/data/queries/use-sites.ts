@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
@@ -142,6 +143,7 @@ export function useUpdateSitesSortOrder() {
 
 export function useUpdateSite() {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: async ( { site, wpVersion }: UpdateSiteInput ) => {
 			await connector.updateSite( site, wpVersion );
@@ -155,7 +157,15 @@ export function useUpdateSite() {
 			// site-event lands, giving us a single refetch against fresh
 			// in-memory details.
 		},
-		onSuccess: () => toast.success( __( 'Settings saved' ) ),
+		onSuccess: ( _data, { wpVersion } ) => {
+			// Unlike the sites list above, the installed version is read
+			// straight from disk, which the CLI edit has already updated by
+			// the time the call resolves — safe to refetch immediately.
+			if ( wpVersion ) {
+				void queryClient.invalidateQueries( { queryKey: WP_VERSION_QUERY_KEY } );
+			}
+			toast.success( __( 'Settings saved' ) );
+		},
 	} );
 }
 

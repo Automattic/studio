@@ -12,6 +12,10 @@ import {
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
+import {
+	isWordPressBetaVersion,
+	isWordPressDevVersion,
+} from '@studio/common/lib/wordpress-version-utils';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
@@ -41,10 +45,39 @@ export function phpVersionField< T extends { phpVersion: SupportedPHPVersion } >
 	};
 }
 
+// Numeric compare on the leading `x.y.z` part, like Classic's semver.coerce
+// (`6.9-beta1` sorts with `6.9`; unparseable values sort last).
+function compareWpVersions( a: string, b: string ): number {
+	const parse = ( version: string ) =>
+		( version.match( /^\d+(\.\d+)*/ )?.[ 0 ] ?? '' ).split( '.' ).map( Number );
+	const [ aParts, bParts ] = [ parse( a ), parse( b ) ];
+	for ( let i = 0; i < Math.max( aParts.length, bParts.length ); i++ ) {
+		const diff = ( aParts[ i ] ?? 0 ) - ( bParts[ i ] ?? 0 );
+		if ( diff !== 0 ) {
+			return diff;
+		}
+	}
+	return 0;
+}
+
+// Insert `option` into the descending-ordered `options` list (ported from the
+// legacy wp-version-selector's addWpVersionToList).
+function addVersionOption( option: Option, options: Option[] ): Option[] {
+	const index = options.findIndex(
+		( existing ) => compareWpVersions( option.value, existing.value ) > 0
+	);
+	return index === -1
+		? [ ...options, option ]
+		: [ ...options.slice( 0, index ), option, ...options.slice( index ) ];
+}
+
 export function wpVersionField< T extends { wpVersion: string } >(
 	placeholder: string,
 	versions?: WordPressVersion[],
-	{ latestValue = DEFAULT_WORDPRESS_VERSION }: { latestValue?: string } = {}
+	{
+		latestValue = DEFAULT_WORDPRESS_VERSION,
+		currentVersion,
+	}: { latestValue?: string; currentVersion?: string } = {}
 ): Field< T > {
 	const field: Field< T > = {
 		id: 'wpVersion',
@@ -53,22 +86,38 @@ export function wpVersionField< T extends { wpVersion: string } >(
 		placeholder,
 	};
 	if ( versions?.length ) {
-		const prerelease = versions.filter( ( version ) => version.isBeta || version.isDevelopment );
-		const stable = versions.filter(
-			( version ) =>
-				version.value !== DEFAULT_WORDPRESS_VERSION && ! version.isBeta && ! version.isDevelopment
-		);
+		let prerelease = versions
+			.filter( ( version ) => version.isBeta || version.isDevelopment )
+			.map( ( version ) => ( { value: version.value, label: version.label } ) );
+		let stable = versions
+			.filter(
+				( version ) =>
+					version.value !== DEFAULT_WORDPRESS_VERSION && ! version.isBeta && ! version.isDevelopment
+			)
+			.map( ( version ) => ( { value: version.value, label: version.label } ) );
+		// The site's installed version may predate the fetched offers — keep it
+		// selectable, sorted into the right group, like the legacy selector's
+		// extraOptions.
+		if ( currentVersion && ! versions.some( ( version ) => version.value === currentVersion ) ) {
+			const option = { value: currentVersion, label: currentVersion };
+			if ( isWordPressBetaVersion( currentVersion ) || isWordPressDevVersion( currentVersion ) ) {
+				prerelease = addVersionOption( option, prerelease );
+			} else {
+				stable = addVersionOption( option, stable );
+			}
+		}
 		field.elements = [
 			...versions
 				.filter( ( version ) => version.value === DEFAULT_WORDPRESS_VERSION )
 				.map( () => ( { value: latestValue, label: __( 'latest' ) } ) ),
-			...prerelease.map( ( version ) => ( { value: version.value, label: version.label } ) ),
-			...stable.map( ( version ) => ( { value: version.value, label: version.label } ) ),
+			...prerelease,
+			...stable,
 		];
 		if ( latestValue !== DEFAULT_WORDPRESS_VERSION ) {
-			// The settings form maps "latest" to '' (auto-update) but still seeds
-			// pinned sites with DEFAULT_WORDPRESS_VERSION — their installed version
-			// isn't tracked. Keep that seed renderable without offering it.
+			// The settings form maps "latest" to '' (auto-update) but falls back
+			// to seeding pinned sites with DEFAULT_WORDPRESS_VERSION when their
+			// installed version can't be read. Keep that seed renderable without
+			// offering it.
 			field.elements.push( {
 				value: DEFAULT_WORDPRESS_VERSION,
 				label: __( 'latest' ),

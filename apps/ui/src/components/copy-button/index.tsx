@@ -31,14 +31,20 @@ export function CopyButton( {
 	// `navigator.clipboard` is denied in the Electron desktop, which left the
 	// copy silently failing and the button stuck on "Copy".
 	const handleCopy = useCallback( () => {
-		void connector.copyText( text );
-		setCopied( true );
-		// Re-arm the reset on every click so copying again mid-"Copied" doesn't
-		// let the earlier timer flip the state back too soon.
-		if ( resetTimer.current ) {
-			clearTimeout( resetTimer.current );
-		}
-		resetTimer.current = setTimeout( () => setCopied( false ), 2000 );
+		void connector
+			.copyText( text )
+			.then( () => {
+				setCopied( true );
+				// Re-arm the reset on every click so copying again mid-"Copied"
+				// doesn't let the earlier timer flip the state back too soon.
+				if ( resetTimer.current ) {
+					clearTimeout( resetTimer.current );
+				}
+				resetTimer.current = setTimeout( () => setCopied( false ), 2000 );
+			} )
+			.catch( ( error ) => {
+				console.error( 'Failed to copy text:', error );
+			} );
 	}, [ connector, text ] );
 
 	const copiedLabel = __( 'Copied' );

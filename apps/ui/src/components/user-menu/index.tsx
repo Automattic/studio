@@ -8,6 +8,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 
 const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
@@ -21,6 +22,7 @@ export function UserMenu() {
 	const logout = useLogout();
 	const navigate = useNavigate();
 
+	const isOffline = useOffline();
 	const themeIsDark = useColorScheme() === 'dark';
 
 	const openLink = ( url: string ) => {
@@ -47,13 +49,13 @@ export function UserMenu() {
 							<Menu.Item onClick={ () => void navigate( { to: '/settings' } ) }>
 								{ __( 'Settings' ) }
 							</Menu.Item>
-							<Menu.Item onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
+							<Menu.Item disabled={ isOffline } onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
 								{ __( 'Edit WordPress.com profile' ) }
 							</Menu.Item>
-							<Menu.Item onClick={ () => openLink( DOCS_URL ) }>
+							<Menu.Item disabled={ isOffline } onClick={ () => openLink( DOCS_URL ) }>
 								{ __( 'Documentation' ) }
 							</Menu.Item>
-							<Menu.Item onClick={ () => openLink( REPORT_ISSUE_URL ) }>
+							<Menu.Item disabled={ isOffline } onClick={ () => openLink( REPORT_ISSUE_URL ) }>
 								{ __( 'Report an issue' ) }
 							</Menu.Item>
 							<Menu.Separator />
@@ -61,7 +63,11 @@ export function UserMenu() {
 						</Menu.Popup>
 					</Menu.Root>
 				) : (
-					<SidebarButton className={ styles.loginButton } onClick={ () => login.mutate() }>
+					<SidebarButton
+						className={ styles.loginButton }
+						disabled={ isOffline }
+						onClick={ () => login.mutate() }
+					>
 						{ __( 'Log in with WordPress.com' ) }
 					</SidebarButton>
 				) }

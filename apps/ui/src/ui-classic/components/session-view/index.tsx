@@ -91,6 +91,7 @@ function SessionFrame( { header, composer, footer, scrollRef, children }: Sessio
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
+	const sidebarCollapsed = useSidebarCollapsed();
 
 	useLayoutEffect( () => {
 		const root = rootRef.current;
@@ -143,7 +144,16 @@ function SessionFrame( { header, composer, footer, scrollRef, children }: Sessio
 			>
 				{ composer }
 			</div>
-			{ footer ? <div className={ styles.panelFooterControls }>{ footer }</div> : null }
+			{ footer ? (
+				<div
+					className={ clsx(
+						styles.panelFooterControls,
+						sidebarCollapsed && styles.panelFooterControlsCollapsed
+					) }
+				>
+					{ footer }
+				</div>
+			) : null }
 		</div>
 	);
 }

@@ -58,9 +58,13 @@ export function buildLocalUiPlugin() {
 		name: 'build-local-ui',
 		apply: 'build' as const,
 		buildStart() {
-			execSync( 'npm run build:local --workspace=apps/ui', {
-				cwd: repoRoot,
+			// Equivalent to apps/ui's `build:local` script, but with the target set
+			// via the environment: the script's inline `STUDIO_TARGET=local` prefix
+			// is POSIX-only and fails under cmd.exe on Windows CI.
+			execSync( 'npx vite build', {
+				cwd: resolve( __dirname, '../ui' ),
 				stdio: 'inherit',
+				env: { ...process.env, STUDIO_TARGET: 'local' },
 			} );
 			if ( ! existsSync( localUiDistPath ) ) {
 				throw new Error(

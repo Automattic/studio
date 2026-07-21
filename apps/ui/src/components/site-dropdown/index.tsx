@@ -99,7 +99,6 @@ export function SiteDropdown( {
 							secondaryTone={ secondary.tone }
 							showSiteIcon={ showSiteIcon }
 							showStatus={ showStatus }
-							xdebug={ site.enableXdebug }
 							siteIconSeed={ `${ site.id }:${ site.name }:${ site.path }` }
 							siteIconImage={ site.siteIcon }
 						/>

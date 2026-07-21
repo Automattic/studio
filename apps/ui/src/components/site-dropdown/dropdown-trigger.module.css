@@ -184,30 +184,6 @@
 	background-color: #2563eb;
 }
 
-/* Experimental: Classic's Xdebug bug in place of the local status dot. The
-   badge grows to 12px on a card-colored disc so the glyph has a chance of
-   reading at all; color follows the dot's state palette. */
-.statusBadge_xdebug {
-	width: 12px;
-	height: 12px;
-	border-radius: 999px;
-	background: var(--site-menu-resting-fill);
-	color: var(--studio-color-status-running);
-}
-
-.statusBadge_xdebug.statusBadge_stopped {
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.statusBadge_xdebug.statusBadge_transitioning {
-	color: #2563eb;
-}
-
-.xdebugGlyph {
-	width: 100%;
-	height: 100%;
-}
-
 .pauseMark,
 .pauseMark::before,
 .pauseMark::after {

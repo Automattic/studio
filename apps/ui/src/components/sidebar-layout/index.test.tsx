@@ -58,6 +58,7 @@ describe( 'SidebarLayout', () => {
 				toggleSidebarListener = listener;
 				return vi.fn();
 			} ),
+			onSiteEvent: vi.fn( () => vi.fn() ),
 		} );
 	} );
 

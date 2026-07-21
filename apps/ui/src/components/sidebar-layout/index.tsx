@@ -1,8 +1,9 @@
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { __ } from '@wordpress/i18n';
 import { privateApis } from '@wordpress/theme';
 import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppToasts } from '@/components/app-toasts';
 import { ResizeHandle, ResizeOverlay } from '@/components/resize-handle';
 import { SidebarHeader } from '@/components/sidebar-header';
@@ -48,10 +49,24 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 
+	// Deleting a site redirects to the first site in the list, so bring the
+	// sidebar back to the top to keep the newly selected row in view.
+	const sidebarRef = useRef< HTMLElement >( null );
+	useEffect(
+		() =>
+			connector.onSiteEvent( ( event ) => {
+				if ( event.event === SITE_EVENTS.DELETED ) {
+					sidebarRef.current?.scrollTo( { top: 0 } );
+				}
+			} ),
+		[ connector ]
+	);
+
 	return (
 		<SidebarCollapsedContext.Provider value={ collapsed }>
 			<div className={ styles.root } style={ { '--app-chrome-bg': chromeBg } as CSSProperties }>
 				<aside
+					ref={ sidebarRef }
 					className={ clsx(
 						styles.sidebar,
 						collapsed && styles.sidebarCollapsed,

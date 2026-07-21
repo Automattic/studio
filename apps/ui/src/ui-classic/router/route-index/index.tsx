@@ -1,4 +1,5 @@
 import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
+import { sortSites } from '@studio/common/lib/sort-sites';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
@@ -12,7 +13,7 @@ export const indexRoute = createRoute( {
 			queryKey: SITES_QUERY_KEY,
 			queryFn: () => context.connector.getSites(),
 		} );
-		const firstSite = sites[ 0 ];
+		const firstSite = sortSites( [ ...sites ] )[ 0 ];
 		if ( ! firstSite ) {
 			throw redirect( { to: '/onboarding' } );
 		}

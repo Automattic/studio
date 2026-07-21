@@ -25,6 +25,7 @@ import * as Tabs from '@/components/tabs';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
+import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -115,6 +116,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	const updateSite = useUpdateSite();
 	const { data: wpVersions } = useWordPressVersions();
 	const { data: installedWpVersion } = useWpVersion( site.id );
+	const isOffline = useOffline();
 	const [ submitError, setSubmitError ] = useState< string | null >( null );
 
 	const [ data, setData ] = useState< FormData >( () =>
@@ -123,11 +125,14 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	// Re-seed the form when the underlying site changes — e.g. after a save,
 	// or after another window edits it — or when the installed WordPress
 	// version loads. React Query returns a new `site` reference on every
-	// refetch, so object identity is enough.
+	// refetch, so object identity is enough. While offline, "latest" is the
+	// only version we can apply without a download, so it's forced — same as
+	// the legacy version selector.
 	useEffect( () => {
-		setData( initialFormData( site, installedWpVersion ) );
+		const seeded = initialFormData( site, installedWpVersion );
+		setData( isOffline ? { ...seeded, wpVersion: '' } : seeded );
 		setSubmitError( null );
-	}, [ site, installedWpVersion ] );
+	}, [ site, installedWpVersion, isOffline ] );
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [
@@ -137,6 +142,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 				latestValue: '',
 				currentVersion:
 					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
+				offline: isOffline,
 			} ),
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
@@ -154,7 +160,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			enableDebugLogField< FormData >(),
 			enableDebugDisplayField< FormData >(),
 		],
-		[ existingDomainNames, installedWpVersion, wpVersions, xdebugConflictSiteName ]
+		[ existingDomainNames, installedWpVersion, isOffline, wpVersions, xdebugConflictSiteName ]
 	);
 
 	const generalForm = useMemo< Form >(

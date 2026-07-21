@@ -16,6 +16,7 @@ import {
 	useXdebugEnabledSite,
 } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
+import { useOffline } from '@/hooks/use-offline';
 import { SiteOverviewView } from './index';
 import type { SiteDetails } from '@/data/core';
 
@@ -83,6 +84,10 @@ vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWpVersion: vi.fn(),
 } ) );
 
+vi.mock( '@/hooks/use-offline', () => ( {
+	useOffline: vi.fn(),
+} ) );
+
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 	useSidebarCollapsed: () => false,
 } ) );
@@ -99,6 +104,7 @@ const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
+const useOfflineMock = vi.mocked( useOffline );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
 const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
@@ -147,6 +153,7 @@ describe( 'SiteOverviewView', () => {
 		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: exportFullSite } );
 		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: exportDatabase } );
 		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
+		useOfflineMock.mockReturnValue( false );
 		useWordPressVersionsMock.mockReturnValue( { data: undefined } );
 		useWpVersionMock.mockReturnValue( { data: undefined } );
 		useXdebugEnabledSiteMock.mockReturnValue( null );
@@ -266,6 +273,30 @@ describe( 'SiteOverviewView', () => {
 			} ),
 			expect.anything()
 		);
+	} );
+
+	it( 'keeps the version field a dropdown when the version list is unavailable', () => {
+		renderView( 'general' );
+
+		const select = screen.getByLabelText( 'WordPress version' );
+		expect( select.tagName ).toBe( 'SELECT' );
+		expect( select ).toHaveValue( '' );
+	} );
+
+	it( 'forces latest and disables the version dropdown while offline', () => {
+		useOfflineMock.mockReturnValue( true );
+		useWpVersionMock.mockReturnValue( { data: '6.5.2' } );
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, isWpAutoUpdating: false } ) ],
+			isLoading: false,
+		} );
+
+		renderView( 'general' );
+
+		const select = screen.getByLabelText( 'WordPress version' );
+		expect( select.tagName ).toBe( 'SELECT' );
+		expect( select ).toBeDisabled();
+		expect( select ).toHaveValue( '' );
 	} );
 
 	it( 'lets a pinned site switch back to auto-updating', () => {

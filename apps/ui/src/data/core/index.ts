@@ -17,6 +17,7 @@ export type {
 	SessionEntry,
 	SiteDetails,
 	Snapshot,
+	SnapshotUsage,
 	StudioAgentQuestionData,
 	StudioChatFileAttachment,
 	StudioChatImage,

@@ -1,0 +1,195 @@
+import '@testing-library/jest-dom/vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useConnector } from '@/data/core';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import {
+	useDeleteAllSnapshots,
+	useSnapshotUsage,
+	useSnapshots,
+} from '@/data/queries/use-snapshots';
+import { useOffline } from '@/hooks/use-offline';
+import { UsagePanel } from './usage-panel';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
+
+vi.mock( '@wordpress/ui', () => ( {
+	Button: ( {
+		children,
+		loading,
+		loadingAnnouncement,
+		tone,
+		variant,
+		size,
+		...props
+	}: ButtonHTMLAttributes< HTMLButtonElement > & {
+		children?: ReactNode;
+		loading?: boolean;
+		loadingAnnouncement?: string;
+		tone?: string;
+		variant?: string;
+		size?: string;
+	} ) => {
+		void tone;
+		void variant;
+		void size;
+		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
+	},
+	IconButton: ( { label, disabled }: { label: string; disabled?: boolean } ) => (
+		<button type="button" aria-label={ label } disabled={ disabled } />
+	),
+} ) );
+
+vi.mock( '@/components/menu', () => ( {
+	Root: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
+	Trigger: ( { render: trigger }: { render: ReactNode } ) => trigger,
+	Popup: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
+	Item: ( {
+		children,
+		disabled,
+		onClick,
+	}: {
+		children: ReactNode;
+		disabled?: boolean;
+		onClick?: () => void;
+	} ) => (
+		<button type="button" disabled={ disabled } onClick={ onClick }>
+			{ children }
+		</button>
+	),
+} ) );
+
+vi.mock( '@/data/core', () => ( {
+	useConnector: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-auth-user', () => ( {
+	useAuthUser: vi.fn(),
+	useLogin: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-snapshots', () => ( {
+	useDeleteAllSnapshots: vi.fn(),
+	useSnapshotUsage: vi.fn(),
+	useSnapshots: vi.fn(),
+} ) );
+
+vi.mock( '@/hooks/use-offline', () => ( {
+	useOffline: vi.fn(),
+} ) );
+
+const useConnectorMock = vi.mocked( useConnector );
+const useAuthUserMock = vi.mocked( useAuthUser );
+const useLoginMock = vi.mocked( useLogin );
+const useDeleteAllSnapshotsMock = vi.mocked( useDeleteAllSnapshots );
+const useSnapshotUsageMock = vi.mocked( useSnapshotUsage );
+const useSnapshotsMock = vi.mocked( useSnapshots );
+const useOfflineMock = vi.mocked( useOffline );
+
+describe( 'UsagePanel', () => {
+	const loginMutate = vi.fn();
+	const deleteSnapshotsMutate = vi.fn();
+	const confirmDeleteAllPreviewSites = vi.fn();
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+
+		confirmDeleteAllPreviewSites.mockResolvedValue( true );
+		useConnectorMock.mockReturnValue( { confirmDeleteAllPreviewSites } as never );
+		useOfflineMock.mockReturnValue( false );
+		useAuthUserMock.mockReturnValue( {
+			data: { id: 1, displayName: 'Ada Lovelace', email: 'ada@example.com' },
+			isLoading: false,
+		} as never );
+		useLoginMock.mockReturnValue( { mutate: loginMutate, isPending: false } as never );
+		useSnapshotsMock.mockReturnValue( { data: [], isLoading: false } as never );
+		useSnapshotUsageMock.mockReturnValue( {
+			data: { siteCount: 2, siteLimit: 10, siteCreationBlocked: false },
+			isLoading: false,
+		} as never );
+		useDeleteAllSnapshotsMock.mockReturnValue( {
+			mutate: deleteSnapshotsMutate,
+			isPending: false,
+			error: null,
+		} as never );
+	} );
+
+	it( 'renders AI credits and preview site usage for the signed-in user', () => {
+		render( <UsagePanel /> );
+
+		expect( screen.getByRole( 'heading', { name: 'Usage' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByText(
+				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
+			)
+		).toBeInTheDocument();
+		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeInTheDocument();
+		expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
+		expect( useSnapshotUsageMock ).toHaveBeenCalledWith( 1 );
+		expect( useDeleteAllSnapshotsMock ).toHaveBeenCalledWith( 1 );
+	} );
+
+	it( 'confirms through the connector before deleting all preview sites', async () => {
+		render( <UsagePanel /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Delete all preview sites' } ) );
+
+		await waitFor( () => expect( confirmDeleteAllPreviewSites ).toHaveBeenCalledTimes( 1 ) );
+		expect( deleteSnapshotsMutate ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'does not delete when the confirmation is declined', async () => {
+		confirmDeleteAllPreviewSites.mockResolvedValue( false );
+
+		render( <UsagePanel /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Delete all preview sites' } ) );
+
+		await waitFor( () => expect( confirmDeleteAllPreviewSites ).toHaveBeenCalledTimes( 1 ) );
+		expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'disables preview-site deletion while offline', () => {
+		useOfflineMock.mockReturnValue( true );
+
+		render( <UsagePanel /> );
+
+		const deleteAction = screen.getByRole( 'button', {
+			name: 'Deleting preview sites requires an internet connection.',
+		} );
+
+		expect( deleteAction ).toBeDisabled();
+		fireEvent.click( deleteAction );
+
+		expect( confirmDeleteAllPreviewSites ).not.toHaveBeenCalled();
+		expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'surfaces a deletion error inline', () => {
+		useDeleteAllSnapshotsMock.mockReturnValue( {
+			mutate: deleteSnapshotsMutate,
+			isPending: false,
+			error: new Error( 'delete failed' ),
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( 'An error occurred while deleting preview sites. Please try again.' )
+		).toBeInTheDocument();
+	} );
+
+	it( 'asks the user to log in when signed out', () => {
+		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( 'Log in to view preview site usage for your account.' )
+		).toBeInTheDocument();
+		expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
+
+		expect( loginMutate ).toHaveBeenCalled();
+	} );
+} );

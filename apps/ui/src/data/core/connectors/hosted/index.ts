@@ -1,4 +1,5 @@
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
+import { __ } from '@wordpress/i18n';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
 import type {
@@ -11,6 +12,7 @@ import type {
 	LoadedAiSession,
 	SiteDetails,
 	Snapshot,
+	SnapshotUsage,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
@@ -215,6 +217,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getSnapshots(): Promise< Snapshot[] > {
 			return [];
 		},
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			return { siteCount: 0, siteLimit: 10, siteCreationBlocked: false };
+		},
+		async deleteAllSnapshots() {
+			// No-op: hosted mode does not create WordPress.com preview sites.
+		},
 		async publishPreviewSite(): Promise< { url: string } > {
 			throw new UnsupportedError( 'publishPreviewSite' );
 		},
@@ -343,6 +351,13 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		showsAppMenuButton: false,
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
+		},
+		async confirmDeleteAllPreviewSites() {
+			return window.confirm(
+				__(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				)
+			);
 		},
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );

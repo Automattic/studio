@@ -212,6 +212,14 @@ export interface Connector {
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
+	// WordPress.com preview-site quota for the signed-in account. Resolves
+	// `null` when usage can't be determined (signed out, or the host has no
+	// usage source) so callers can fall back to counting snapshots.
+	getSnapshotUsage(): Promise< SnapshotUsage | null >;
+	deleteAllSnapshots(): Promise< void >;
+	// Asks the user to confirm deleting every preview site on their account.
+	// Resolves `true` only when they explicitly confirm.
+	confirmDeleteAllPreviewSites(): Promise< boolean >;
 	// Creates a new preview snapshot for the given site, or refreshes the
 	// existing one when `existingHostname` is supplied. Resolves with the
 	// final preview URL when the CLI command completes.
@@ -380,6 +388,12 @@ export interface Connector {
 
 	// Switches back to the legacy (classic) Studio UI.
 	disableAgenticUi(): Promise< void >;
+}
+
+export interface SnapshotUsage {
+	siteCount: number;
+	siteLimit: number;
+	siteCreationBlocked: boolean;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

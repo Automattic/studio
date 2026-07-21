@@ -172,8 +172,13 @@ export function useAddSite() {
 				if ( formValues.useCustomDomain && ! formValues.customDomain ) {
 					usedCustomDomain = generateCustomDomainFromSiteName( formValues.siteName );
 				}
-				// For import/sync workflows, the respective handlers will start the server
-				const shouldSkipStart = !! fileForImport || !! selectedRemoteSite;
+				// For import/sync workflows, the respective handlers will start the server.
+				// Exception: a WordPress export (.xml / WXR) is merged into an existing
+				// install via the wordpress-importer plugin, so WordPress must already be
+				// installed and configured before the import runs. Start the server during
+				// creation in that case so `wp-config.php` and the database exist first.
+				const isWxrImport = !! fileForImport && fileForImport.name.toLowerCase().endsWith( '.xml' );
+				const shouldSkipStart = ( !! fileForImport && ! isWxrImport ) || !! selectedRemoteSite;
 
 				const enableHttps = formValues.useCustomDomain ? formValues.enableHttps : false;
 				let updatedBlueprint: Blueprint | undefined;

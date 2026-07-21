@@ -194,9 +194,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onAuthStateChanged() {
 			return () => {};
 		},
-
-		// Onboarding — hosted mode has no first-run welcome; report it as
-		// already completed so routing never lands there.
 		async getOnboardingCompleted() {
 			return true;
 		},

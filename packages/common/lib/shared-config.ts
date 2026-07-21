@@ -29,7 +29,6 @@ const SHARED_CONFIG_VERSION = 1;
 
 export const sharedSessionMetadataSchema = z
 	.object( {
-		starred: z.boolean().optional(),
 		archived: z.boolean().optional(),
 	} )
 	.loose();
@@ -139,9 +138,6 @@ export async function updateSharedConfig( update: Partial< SharedConfig > ): Pro
 }
 
 function pruneSharedSessionMetadata( metadata: SharedSessionMetadata ): void {
-	if ( ! metadata.starred ) {
-		delete metadata.starred;
-	}
 	if ( ! metadata.archived ) {
 		delete metadata.archived;
 	}

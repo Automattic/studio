@@ -13,5 +13,9 @@ export function getBackupFileType( importFile: string ): string {
 		return 'application/sql';
 	}
 
+	if ( normalizedPath.endsWith( '.xml' ) ) {
+		return 'application/xml';
+	}
+
 	return '';
 }

@@ -28,10 +28,6 @@ export const newSessionRoute = createRoute( {
 
 		const summary = await context.connector.createSession( params.siteId );
 		primeSessionQueryData( context.queryClient, summary );
-		// Bypasses `useCreateSession`, so we need to invalidate the sessions
-		// list ourselves — otherwise the sidebar wouldn't reflect the new
-		// session on first render after the redirect. Fire-and-forget: the
-		// refetch can happen in the background while we redirect immediately.
 		void reconcilePrimedSessionQueryData( context.queryClient, summary.id );
 		throw redirect( { to: '/sessions/$sessionId', params: { sessionId: summary.id } } );
 	},

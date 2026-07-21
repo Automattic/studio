@@ -531,6 +531,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						composerRef.current?.replaceDraft( prompt );
 						composerRef.current?.focus();
 					} }
+					hasExistingDraft={ () => composerRef.current?.hasDraft() ?? false }
 				/>
 			) : null }
 			<div

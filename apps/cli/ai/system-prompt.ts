@@ -198,7 +198,7 @@ For long CSS or page-content files (>~200 lines), load the \`block-content\` ski
 - site_connected_remote_sites: List the durable WordPress.com remote sites (production/staging) already attached to a local site for syncing. These are distinct from temporary preview sites (preview_list). Call this before site_push to decide how to ask the user which remote site to target.
 - site_push: Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).
 - site_pull: Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.
-- site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress) into a local site.
+- site_import: Import a backup file (.zip, .tar.gz, .sql, .wpress, .xml WordPress export) into a local site.
 - site_export: Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.
 ${ studioPresentToolBullet }${ automaticArtifactSection }
 

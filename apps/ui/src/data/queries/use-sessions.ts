@@ -105,11 +105,10 @@ export function useCreateSession() {
 
 function mergeSessionMetadata(
 	summary: AiSessionSummary,
-	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	patch: Pick< AiSessionSummary, 'archived' >
 ): AiSessionSummary {
 	return {
 		...summary,
-		starred: patch.starred,
 		archived: patch.archived,
 	};
 }
@@ -122,7 +121,7 @@ export function useUpdateSessionMetadata() {
 		Error,
 		{
 			sessionId: string;
-			patch: Pick< AiSessionSummary, 'starred' | 'archived' >;
+			patch: Pick< AiSessionSummary, 'archived' >;
 		},
 		{
 			previousSessions: AiSessionSummary[] | undefined;
@@ -177,7 +176,6 @@ export function useUpdateSessionMetadata() {
 								...current,
 								summary: {
 									...current.summary,
-									starred: summary.starred,
 									archived: summary.archived,
 								},
 						  }

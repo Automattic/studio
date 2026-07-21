@@ -49,13 +49,6 @@ function generateBackupFilename( siteName: string ): string {
 	return sanitizeFolderName( `studio-backup-${ siteName }-${ timestamp }` );
 }
 
-type ExportRequest = {
-	site: SiteDetails;
-	backupFile: string;
-	includes: { database: boolean; wpContent: boolean };
-	phpVersion: string;
-};
-
 type WpCliResult = {
 	stdout: string;
 	stderr: string;
@@ -79,44 +72,6 @@ function parseSnapshotUsage( response: unknown ): SnapshotUsage {
 		siteLimit: record.site_limit,
 		siteCreationBlocked: record.site_creation_blocked,
 	};
-}
-
-// Runs an export IPC call and surfaces the outcome through the same
-// main-process notification channels the legacy renderer uses: a native
-// success notification on completion, or the error message box (with a
-// "Show logs" affordance) on any failure.
-async function runExport(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	ipcApi: any,
-	request: ExportRequest
-): Promise< string > {
-	const handleError = ( error?: unknown ) => {
-		ipcApi.showErrorMessageBox( {
-			title: __( 'Failed exporting site' ),
-			message: __(
-				'An error occurred while exporting the site. If this problem persists, please contact support.'
-			),
-			error,
-			showOpenLogs: true,
-		} );
-	};
-
-	let success = false;
-	try {
-		success = ( await ipcApi.exportSite( request ) ) as boolean;
-	} catch ( error ) {
-		handleError( error );
-		throw error;
-	}
-	if ( ! success ) {
-		handleError();
-		throw new Error( 'Export failed' );
-	}
-	ipcApi.showNotification( {
-		title: request.site.name,
-		body: __( 'Export completed' ),
-	} );
-	return request.backupFile;
 }
 
 const SITE_OVERVIEW_DETAILS_SCRIPT = [
@@ -686,12 +641,14 @@ export function createIpcConnector(): Connector {
 			if ( ! backupFile ) {
 				return null;
 			}
-			return runExport( ipcApi, {
-				site,
-				backupFile,
-				includes: { database: true, wpContent: true },
-				phpVersion: site.phpVersion,
+			// Success notification and error modal are shown by the main-process
+			// handler, mirroring the legacy renderer's export flow.
+			await ipcApi.exportSite( site.id, backupFile, {
+				mode: 'full',
+				showItemInFolder: true,
+				showNotification: true,
 			} );
+			return backupFile;
 		},
 
 		async exportDatabase( siteId ): Promise< string | null > {
@@ -714,12 +671,12 @@ export function createIpcConnector(): Connector {
 			if ( ! backupFile ) {
 				return null;
 			}
-			return runExport( ipcApi, {
-				site,
-				backupFile,
-				includes: { database: true, wpContent: false },
-				phpVersion: site.phpVersion,
+			await ipcApi.exportSite( site.id, backupFile, {
+				mode: 'db',
+				showItemInFolder: true,
+				showNotification: true,
 			} );
+			return backupFile;
 		},
 
 		// Preview snapshots

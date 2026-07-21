@@ -245,6 +245,7 @@ export interface ComposerHandle {
 	addClip( input: ComposerClipInput ): Promise< boolean >;
 	updateClipComment( id: string, comment: string ): void;
 	removeClip( id: string ): void;
+	hasDraft(): boolean;
 	// Move keyboard focus to the textarea (e.g. after answering a permission
 	// request, whose card takes focus while it's pending).
 	focus(): void;
@@ -478,6 +479,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			removeClip( id ) {
 				removeAttachment( id );
 			},
+			hasDraft() {
+				return value.trim().length > 0 || attachments.length > 0;
+			},
 		} ),
 		[
 			addClip,
@@ -486,6 +490,8 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 			removeAttachment,
 			restoreAttachments,
 			updateClipComment,
+			value,
+			attachments,
 		]
 	);
 

@@ -134,6 +134,9 @@ export interface SiteDetails {
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
+	// True for sites that were running when the app quit with the
+	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
+	autoStart?: boolean;
 	themeDetails?: {
 		name: string;
 		path: string;
@@ -475,7 +478,7 @@ export interface Connector {
 	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
-		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+		patch: Pick< AiSessionSummary, 'archived' >
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
@@ -536,6 +539,11 @@ export interface Connector {
 	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
 	getAppGlobals(): Promise< AppGlobals >;
 	onUserSettings( listener: ( tabName?: UserSettingsEventTab ) => void ): () => void;
+
+	// Opens a native folder picker for the default-site-directory preference.
+	// Resolves with the chosen path, or `null` when the user cancels (or the
+	// host has no native picker — see capabilities.nativeFolderPicker).
+	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

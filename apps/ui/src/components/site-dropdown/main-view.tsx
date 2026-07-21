@@ -5,6 +5,8 @@ import { Button, Field, IconButton, Select, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
+import { useLogin } from '@/data/queries/use-auth-user';
 import { useCheckpoints, useCreateCheckpoint } from '@/data/queries/use-checkpoints';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
@@ -66,6 +68,24 @@ const EMPTY_SYNC_ITEMS: LiveSyncItems = {
 	themes: [],
 	plugins: [],
 };
+
+function getPreviewPanelCopy( agenticEnabled: boolean, isOffline: boolean ): string {
+	if ( agenticEnabled ) {
+		return __( 'Share a review link for this version.' );
+	}
+	return isOffline
+		? __( 'Go online to share a review link.' )
+		: __( 'Sign in to share a review link.' );
+}
+
+function getLivePanelCopy( agenticEnabled: boolean, isOffline: boolean ): string {
+	if ( agenticEnabled ) {
+		return __( 'No connected site.' );
+	}
+	return isOffline
+		? __( 'Go online to publish your site.' )
+		: __( 'Sign in to publish your site.' );
+}
 
 const DEFAULT_CUSTOM_SYNC_OPTIONS: SyncCustomOptions = {
 	database: true,
@@ -527,6 +547,9 @@ export function MainView( {
 	onDisconnectClick,
 }: Props ) {
 	const connector = useConnector();
+	const { enabled: agenticEnabled, reason: agenticReason } = useAgenticFeatures();
+	const isOffline = agenticReason === 'offline';
+	const login = useLogin();
 	const { data: snapshots } = useSnapshots();
 	const { data: connectedSites } = useConnectedWpcomSites( site.id );
 	const [ syncFlyoutOpen, setSyncFlyoutOpen ] = useState( false );
@@ -842,7 +865,7 @@ export function MainView( {
 								className={ styles.rowActionButton }
 								loading={ isPreviewPending }
 								loadingAnnouncement={ __( 'Updating preview' ) }
-								disabled={ isSyncing }
+								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePreviewClick }
 							/>
@@ -852,13 +875,13 @@ export function MainView( {
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Preview' ) }
-					copy={ __( 'Share a review link for this version.' ) }
+					copy={ getPreviewPanelCopy( agenticEnabled, isOffline ) }
 					buttonLabel={ __( 'Share' ) }
 					variant="outline"
 					tone="neutral"
 					loading={ isPreviewPending }
 					loadingAnnouncement={ __( 'Creating preview' ) }
-					disabled={ isSyncing }
+					disabled={ isSyncing || ! agenticEnabled }
 					onClick={ handlePreviewClick }
 				/>
 			) }
@@ -936,12 +959,14 @@ export function MainView( {
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Live' ) }
-					copy={ __( 'No connected site.' ) }
-					buttonLabel={ __( 'Publish' ) }
+					copy={ getLivePanelCopy( agenticEnabled, isOffline ) }
+					buttonLabel={ agenticEnabled || isOffline ? __( 'Publish' ) : __( 'Log in' ) }
 					variant="solid"
 					tone="brand"
-					disabled={ isSyncing }
-					onClick={ onSetupClick }
+					loading={ ! agenticEnabled && login.isPending }
+					loadingAnnouncement={ __( 'Opening login page' ) }
+					disabled={ isSyncing || isOffline }
+					onClick={ agenticEnabled ? onSetupClick : () => login.mutate() }
 				/>
 			) }
 		</div>

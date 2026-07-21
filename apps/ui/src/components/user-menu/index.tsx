@@ -9,6 +9,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useOffline } from '@/hooks/use-offline';
 import { drawerIcon } from '@/lib/icons';
 import styles from './style.module.css';
 
@@ -27,6 +28,7 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 	const logout = useLogout();
 	const navigate = useNavigate();
 	const settingsAnchorRef = useTourAnchor( 'sidebar-user-menu' );
+	const isOffline = useOffline();
 
 	const themeIsDark = useColorScheme() === 'dark';
 
@@ -58,10 +60,10 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 							<Menu.Item onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
 								{ __( 'Edit WordPress.com profile' ) }
 							</Menu.Item>
-							<Menu.Item onClick={ () => openLink( DOCS_URL ) }>
+							<Menu.Item disabled={ isOffline } onClick={ () => openLink( DOCS_URL ) }>
 								{ __( 'Documentation' ) }
 							</Menu.Item>
-							<Menu.Item onClick={ () => openLink( REPORT_ISSUE_URL ) }>
+							<Menu.Item disabled={ isOffline } onClick={ () => openLink( REPORT_ISSUE_URL ) }>
 								{ __( 'Report an issue' ) }
 							</Menu.Item>
 							<Menu.Separator />
@@ -69,7 +71,11 @@ export function UserMenu( { onToggleSidebar }: Props ) {
 						</Menu.Popup>
 					</Menu.Root>
 				) : (
-					<SidebarButton className={ styles.loginButton } onClick={ () => login.mutate() }>
+					<SidebarButton
+						className={ styles.loginButton }
+						disabled={ isOffline }
+						onClick={ () => login.mutate() }
+					>
 						{ __( 'Log in with WordPress.com' ) }
 					</SidebarButton>
 				) }

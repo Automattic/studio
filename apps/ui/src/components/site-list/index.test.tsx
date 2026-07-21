@@ -198,7 +198,7 @@ describe( 'SiteList', () => {
 
 	it( 'marks the site overview action instead of the site row on site context routes', () => {
 		paramsMock = { siteId: 'stopped-site' };
-		pathnameMock = '/sites/stopped-site/settings';
+		pathnameMock = '/sites/stopped-site/overview';
 
 		render( <SiteList /> );
 

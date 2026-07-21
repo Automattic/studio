@@ -1,10 +1,12 @@
 import { useConnector } from '@/data/core';
+import { useOffline } from '@/hooks/use-offline';
 import { AUTH_USER_QUERY_KEY, useAuthUser } from './use-auth-user';
 import { USER_PREFERENCES_QUERY_KEY, useUserPreferences } from './use-user-preferences';
 import type { AuthUser, Connector, UserPreferences } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
-export type AgenticGateReason = 'signed-out' | 'preference' | null;
+export type AgenticGateReason = 'signed-out' | 'offline' | 'preference' | null;
+export type AgenticFeatureReason = AgenticGateReason;
 
 export interface AgenticFeatures {
 	enabled: boolean;
@@ -20,8 +22,12 @@ export interface AgenticFeatures {
 export function deriveAgenticFeatures(
 	connector: Pick< Connector, 'supportsAgenticOptOut' >,
 	user: AuthUser | null | undefined,
-	preferences: Pick< UserPreferences, 'agenticFeaturesEnabled' > | undefined
+	preferences: Pick< UserPreferences, 'agenticFeaturesEnabled' > | undefined,
+	isOffline = false
 ): AgenticFeatures {
+	if ( isOffline ) {
+		return { enabled: false, reason: 'offline' };
+	}
 	if ( ! connector.supportsAgenticOptOut ) {
 		return { enabled: true, reason: null };
 	}
@@ -42,17 +48,23 @@ export function deriveAgenticFeatures(
  */
 export function useAgenticFeatures(): AgenticFeatures & { isReady: boolean } {
 	const connector = useConnector();
+	const isOffline = useOffline();
 	const user = useAuthUser();
 	const preferences = useUserPreferences();
 
 	if ( ! connector.supportsAgenticOptOut ) {
-		return { enabled: true, reason: null, isReady: true };
+		return isOffline
+			? { enabled: false, reason: 'offline', isReady: true }
+			: { enabled: true, reason: null, isReady: true };
 	}
 	const isReady = ! user.isPending && ! preferences.isPending;
 	if ( ! isReady ) {
 		return { enabled: true, reason: null, isReady };
 	}
-	return { ...deriveAgenticFeatures( connector, user.data, preferences.data ), isReady };
+	return {
+		...deriveAgenticFeatures( connector, user.data, preferences.data, isOffline ),
+		isReady,
+	};
 }
 
 /**
@@ -67,6 +79,9 @@ export async function resolveAgenticFeatures( {
 	connector: Connector;
 	queryClient: QueryClient;
 } ): Promise< AgenticFeatures > {
+	if ( ! navigator.onLine ) {
+		return deriveAgenticFeatures( connector, undefined, undefined, true );
+	}
 	if ( ! connector.supportsAgenticOptOut ) {
 		return { enabled: true, reason: null };
 	}

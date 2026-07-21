@@ -1,5 +1,5 @@
-import { createRoute, useNavigate } from '@tanstack/react-router';
-import { isSiteSettingsTab, SiteSettingsView } from '@/components/site-settings-view';
+import { createRoute, redirect } from '@tanstack/react-router';
+import { isSiteSettingsTab } from '@/components/site-settings-view';
 import { settingsLayoutRoute } from '../layout-settings';
 import type { SiteSettingsTabId } from '@/components/site-settings-view';
 
@@ -7,27 +7,6 @@ interface SiteSettingsSearch {
 	// Tab selection is a `search` param so opening the route defaults to
 	// Settings and deep-links like `?tab=agent` stay human-readable.
 	tab?: SiteSettingsTabId;
-}
-
-function SiteSettingsPage() {
-	const { siteId } = siteSettingsRoute.useParams();
-	const { tab } = siteSettingsRoute.useSearch();
-	const navigate = useNavigate();
-	const activeTab: SiteSettingsTabId = tab ?? 'settings';
-	return (
-		<SiteSettingsView
-			siteId={ siteId }
-			activeTab={ activeTab }
-			onTabChange={ ( next ) =>
-				void navigate( {
-					to: '/sites/$siteId/settings',
-					params: { siteId },
-					search: { tab: next },
-					replace: true,
-				} )
-			}
-		/>
-	);
 }
 
 export const siteSettingsRoute = createRoute( {
@@ -40,5 +19,12 @@ export const siteSettingsRoute = createRoute( {
 		}
 		return {};
 	},
-	component: SiteSettingsPage,
+	beforeLoad: ( { params, search } ) => {
+		throw redirect( {
+			to: '/sites/$siteId/overview',
+			params,
+			search,
+			replace: true,
+		} );
+	},
 } );

@@ -375,6 +375,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onAuthStateChanged() {
 			return () => {};
 		},
+		async getOnboardingCompleted() {
+			return true;
+		},
+		async setOnboardingCompleted() {
+			// No-op.
+		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
@@ -426,6 +432,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
 			// No native folder picker in a browser; the create form falls back to
 			// an editable path field (see capabilities.nativeFolderPicker).
+			return null;
+		},
+		async selectDefaultSiteDirectory(): Promise< string | null > {
+			// No native folder picker in a browser.
 			return null;
 		},
 		async comparePaths( path1, path2 ) {
@@ -820,15 +830,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// opt-out; agentic features stay always-on.
 		supportsAgenticOptOut: false,
 
-		// Onboarding — no first-run tour in the browser; report it completed so
-		// routing never lands there.
-		async getOnboardingCompleted() {
-			return true;
-		},
-		async setOnboardingCompleted() {
-			// No-op.
-		},
-
 		// Gated-tool permissions ride the same run routes as answers; the shared
 		// run manager forwards the decision to the CLI child.
 		async answerAgentPermission( runId, requestId, decision ) {
@@ -1038,9 +1039,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async previewColorScheme() {
 			// No-op: the local UI applies the scheme itself via user preferences.
-		},
-		async selectDefaultSiteDirectory() {
-			return null;
 		},
 		// Report an inert update status (rather than throwing) because the
 		// messaging layer polls unconditionally.

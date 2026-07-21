@@ -105,23 +105,21 @@ const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
 const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
 function editorElements( installedApps: InstalledApps | undefined ) {
-	const options = SUPPORTED_EDITORS.filter(
-		( editor ) => ! installedApps || installedApps[ editor ]
-	).map( ( editor ) => ( {
-		value: editor,
-		label: supportedEditorConfig[ editor ].label,
-	} ) );
-	return [ { value: UNSET, label: __( 'Not set' ) }, ...options ];
+	return SUPPORTED_EDITORS.filter( ( editor ) => ! installedApps || installedApps[ editor ] ).map(
+		( editor ) => ( {
+			value: editor,
+			label: supportedEditorConfig[ editor ].label,
+		} )
+	);
 }
 
 function terminalElements( installedApps: InstalledApps | undefined ) {
-	const options = SUPPORTED_TERMINALS.filter(
+	return SUPPORTED_TERMINALS.filter(
 		( terminal ) => ! installedApps || installedApps[ terminal ]
 	).map( ( terminal ) => ( {
 		value: terminal,
 		label: terminalConfig[ terminal ].name,
 	} ) );
-	return [ { value: UNSET, label: __( 'Not set' ) }, ...options ];
 }
 
 function colorSchemeElements(): { value: ColorScheme; label: string }[] {

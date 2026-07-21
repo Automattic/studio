@@ -2,6 +2,7 @@ import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
@@ -518,18 +519,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 		getPublishCheckoutUrl( site ): string {
-			// The same WordPress.com hosted-site checkout the desktop opens — a pure
-			// URL builder, so it ports verbatim. (The post-checkout auto-connect still
-			// relies on the deep-link listener, which a browser tab can't receive, so
-			// the user finishes by connecting the new site from the picker.)
-			const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-			url.searchParams.set( 'ref', 'studio' );
-			url.searchParams.set( 'section', 'publish-site' );
-			url.searchParams.set( 'showDomainStep', 'true' );
-			url.searchParams.set( 'studioSiteId', site.id );
-			url.searchParams.set( 'new', site.customDomain ?? site.name );
-			url.searchParams.set( 'autoOpenPush', 'true' );
-			return url.toString();
+			// The post-checkout auto-connect relies on the deep-link listener, which
+			// a browser tab can't receive, so the user finishes by connecting the
+			// new site from the picker.
+			return buildPublishCheckoutUrl( site );
 		},
 
 		// AI sessions — the headline. HTTP routes on the local server, backed by

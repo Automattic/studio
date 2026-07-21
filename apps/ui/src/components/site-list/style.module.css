@@ -255,6 +255,22 @@
 	font-weight: var(--wpds-typography-font-weight-medium);
 }
 
+.siteXdebug {
+	display: inline-flex;
+	flex-shrink: 0;
+	margin-inline-start: var(--wpds-dimension-padding-xs);
+	color: var(--studio-color-status-running);
+}
+
+.siteXdebugStopped {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.siteXdebug svg {
+	inline-size: 16px;
+	block-size: 16px;
+}
+
 .siteActions {
 	display: flex;
 	align-items: center;

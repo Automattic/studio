@@ -252,6 +252,60 @@ describe( 'SiteList', () => {
 		expect( runningSiteClassName ).not.toContain( 'siteNameStopped' );
 	} );
 
+	it( 'shows an Xdebug indicator only on the Xdebug-enabled site row', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'xdebug-site',
+					name: 'Xdebug Site',
+					path: '/Users/example/Studio/xdebug-site',
+					running: true,
+					enableXdebug: true,
+				} ),
+				createSite( {
+					id: 'plain-site',
+					name: 'Plain Site',
+					path: '/Users/example/Studio/plain-site',
+					running: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const xdebugRow = screen.getByText( 'Xdebug Site' ).closest( 'section' )!;
+		const plainRow = screen.getByText( 'Plain Site' ).closest( 'section' )!;
+		const indicator = within( xdebugRow ).getByRole( 'img', { name: 'Xdebug enabled' } );
+
+		expect( indicator ).toBeInTheDocument();
+		expect( indicator.getAttribute( 'class' ) ?? '' ).not.toContain( 'siteXdebugStopped' );
+		expect(
+			within( plainRow ).queryByRole( 'img', { name: 'Xdebug enabled' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'dims the Xdebug indicator when the site is stopped', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'xdebug-site',
+					name: 'Xdebug Site',
+					path: '/Users/example/Studio/xdebug-site',
+					running: false,
+					enableXdebug: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const indicator = screen.getByRole( 'img', { name: 'Xdebug enabled' } );
+
+		expect( indicator.getAttribute( 'class' ) ?? '' ).toContain( 'siteXdebugStopped' );
+	} );
+
 	it( 'marks the site row as current for the active chat', () => {
 		paramsMock = { sessionId: 'stopped-chat' };
 		pathnameMock = '/sessions/stopped-chat';

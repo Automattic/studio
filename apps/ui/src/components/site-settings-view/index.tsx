@@ -24,6 +24,7 @@ import {
 import * as Tabs from '@/components/tabs';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
+import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -107,6 +108,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		xdebugEnabledSite && xdebugEnabledSite.id !== site.id ? xdebugEnabledSite.name : undefined;
 
 	const updateSite = useUpdateSite();
+	const { data: wpVersions } = useWordPressVersions();
 	const [ submitError, setSubmitError ] = useState< string | null >( null );
 
 	const [ data, setData ] = useState< FormData >( () => initialFormData( site ) );
@@ -122,7 +124,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		() => [
 			siteNameField< FormData >(),
 			phpVersionField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION ),
+			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, { latestValue: '' } ),
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
@@ -139,7 +141,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			enableDebugLogField< FormData >(),
 			enableDebugDisplayField< FormData >(),
 		],
-		[ existingDomainNames, xdebugConflictSiteName ]
+		[ existingDomainNames, wpVersions, xdebugConflictSiteName ]
 	);
 
 	const generalForm = useMemo< Form >(

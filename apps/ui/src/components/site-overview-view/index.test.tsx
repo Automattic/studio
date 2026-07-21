@@ -15,11 +15,18 @@ import {
 	useUpdateSite,
 	useXdebugEnabledSite,
 } from '@/data/queries/use-sites';
+import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import { SiteOverviewView } from './index';
 import type { SiteDetails } from '@/data/core';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
+
+const WP_VERSIONS = [
+	{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
+	{ label: '6.8', value: '6.8', isBeta: false, isDevelopment: false },
+	{ label: '6.7.2', value: '6.7.2', isBeta: false, isDevelopment: false },
+];
 
 class ResizeObserverMock {
 	observe = vi.fn();
@@ -71,6 +78,10 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useXdebugEnabledSite: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
+	useWordPressVersions: vi.fn(),
+} ) );
+
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 	useSidebarCollapsed: () => false,
 } ) );
@@ -87,6 +98,7 @@ const useIsSiteStoppingMock = vi.mocked( useIsSiteStopping );
 const useSitesMock = vi.mocked( useSites, { partial: true } );
 const useStartSiteMock = vi.mocked( useStartSite, { partial: true } );
 const useUpdateSiteMock = vi.mocked( useUpdateSite, { partial: true } );
+const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
 const useXdebugEnabledSiteMock = vi.mocked( useXdebugEnabledSite, { partial: true } );
 
 describe( 'SiteOverviewView', () => {
@@ -133,6 +145,7 @@ describe( 'SiteOverviewView', () => {
 		useExportFullSiteMock.mockReturnValue( { isPending: false, mutate: exportFullSite } );
 		useExportDatabaseMock.mockReturnValue( { isPending: false, mutate: exportDatabase } );
 		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
+		useWordPressVersionsMock.mockReturnValue( { data: undefined } );
 		useXdebugEnabledSiteMock.mockReturnValue( null );
 	} );
 
@@ -177,6 +190,64 @@ describe( 'SiteOverviewView', () => {
 
 		expect( screen.getByDisplayValue( 'Demo Site' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Save settings' } ) ).toBeVisible();
+	} );
+
+	it( 'renders the WordPress version dropdown with latest preselected for auto-updating sites', () => {
+		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+
+		renderView( 'general' );
+
+		const select = screen.getByLabelText( 'WordPress version' );
+		expect( select.tagName ).toBe( 'SELECT' );
+		expect( select ).toHaveValue( '' );
+		expect( screen.getByRole( 'option', { name: '6.7.2' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'saves a pinned WordPress version picked from the dropdown', () => {
+		const updateSiteMutate = vi.fn();
+		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSiteMutate } );
+		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+
+		renderView( 'general' );
+
+		fireEvent.change( screen.getByLabelText( 'WordPress version' ), {
+			target: { value: '6.7.2' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
+
+		expect( updateSiteMutate ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				site: expect.objectContaining( { isWpAutoUpdating: false } ),
+				wpVersion: '6.7.2',
+			} ),
+			expect.anything()
+		);
+	} );
+
+	it( 'lets a pinned site switch back to auto-updating', () => {
+		const updateSiteMutate = vi.fn();
+		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSiteMutate } );
+		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, isWpAutoUpdating: false } ) ],
+			isLoading: false,
+		} );
+
+		renderView( 'general' );
+
+		const select = screen.getByLabelText( 'WordPress version' );
+		expect( select ).toHaveValue( 'latest' );
+
+		fireEvent.change( select, { target: { value: '' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
+
+		expect( updateSiteMutate ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				site: expect.objectContaining( { isWpAutoUpdating: true } ),
+				wpVersion: undefined,
+			} ),
+			expect.anything()
+		);
 	} );
 
 	it( 'shows classic-theme shortcuts based on theme support', () => {

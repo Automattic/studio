@@ -16,7 +16,7 @@ import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
-import type { Field } from '@wordpress/dataviews';
+import type { Field, Option } from '@wordpress/dataviews';
 
 const PHP_VERSION_ELEMENTS = SupportedPHPVersions.map( ( version ) => ( {
 	value: version,
@@ -43,7 +43,8 @@ export function phpVersionField< T extends { phpVersion: SupportedPHPVersion } >
 
 export function wpVersionField< T extends { wpVersion: string } >(
 	placeholder: string,
-	versions?: WordPressVersion[]
+	versions?: WordPressVersion[],
+	{ latestValue = DEFAULT_WORDPRESS_VERSION }: { latestValue?: string } = {}
 ): Field< T > {
 	const field: Field< T > = {
 		id: 'wpVersion',
@@ -60,10 +61,20 @@ export function wpVersionField< T extends { wpVersion: string } >(
 		field.elements = [
 			...versions
 				.filter( ( version ) => version.value === DEFAULT_WORDPRESS_VERSION )
-				.map( ( version ) => ( { value: version.value, label: __( 'latest' ) } ) ),
+				.map( () => ( { value: latestValue, label: __( 'latest' ) } ) ),
 			...prerelease.map( ( version ) => ( { value: version.value, label: version.label } ) ),
 			...stable.map( ( version ) => ( { value: version.value, label: version.label } ) ),
 		];
+		if ( latestValue !== DEFAULT_WORDPRESS_VERSION ) {
+			// The settings form maps "latest" to '' (auto-update) but still seeds
+			// pinned sites with DEFAULT_WORDPRESS_VERSION — their installed version
+			// isn't tracked. Keep that seed renderable without offering it.
+			field.elements.push( {
+				value: DEFAULT_WORDPRESS_VERSION,
+				label: __( 'latest' ),
+				hidden: true,
+			} as Option );
+		}
 		field.Edit = 'select';
 	}
 	return field;

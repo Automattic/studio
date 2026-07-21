@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -161,7 +162,9 @@ describe( 'SiteOverviewView', () => {
 
 	function renderView( activeTab: 'overview' | 'general' | 'debugging' = 'overview' ) {
 		return render(
-			<SiteOverviewView siteId="site-1" activeTab={ activeTab } onTabChange={ onTabChange } />
+			<Tooltip.Provider>
+				<SiteOverviewView siteId="site-1" activeTab={ activeTab } onTabChange={ onTabChange } />
+			</Tooltip.Provider>
 		);
 	}
 
@@ -285,7 +288,7 @@ describe( 'SiteOverviewView', () => {
 		expect( select ).toHaveValue( '' );
 	} );
 
-	it( 'forces latest and disables the version dropdown while offline', () => {
+	it( 'forces latest and disables the version dropdown while offline', async () => {
 		useOfflineMock.mockReturnValue( true );
 		useWpVersionMock.mockReturnValue( { data: '6.5.2' } );
 		useSitesMock.mockReturnValue( {
@@ -299,6 +302,18 @@ describe( 'SiteOverviewView', () => {
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toBeDisabled();
 		expect( select ).toHaveValue( '' );
+
+		const trigger = select.closest( 'div[style*="pointer-events"]' )?.parentElement as HTMLElement;
+		fireEvent.mouseEnter( trigger );
+		fireEvent.mouseMove( trigger, { movementX: 1, movementY: 1 } );
+		// Tooltips use Base UI's default open delay, so wait long enough for the popup.
+		expect(
+			await screen.findByText(
+				'Changing WordPress version requires an internet connection.',
+				{},
+				{ timeout: 2000 }
+			)
+		).toBeVisible();
 	} );
 
 	it( 'lets a pinned site switch back to auto-updating', () => {

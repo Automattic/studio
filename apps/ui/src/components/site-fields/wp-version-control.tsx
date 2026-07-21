@@ -1,6 +1,7 @@
 import { SelectControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { Tooltip } from '@wordpress/ui';
+import { useState } from 'react';
 import type { DataFormControlProps, Option } from '@wordpress/dataviews';
 
 export type WpVersionOption = Option & {
@@ -20,6 +21,10 @@ export function WpVersionControl< Item >( {
 	onChange,
 	hideLabelFromVision,
 }: DataFormControlProps< Item > ) {
+	// The tooltip is controlled by our own hover handlers (like the legacy
+	// selector) because Base UI's hover detection doesn't fire over a
+	// disabled form control.
+	const [ showTooltip, setShowTooltip ] = useState( false );
 	const value = field.getValue( { item: data } ) ?? '';
 	const disabled = field.isDisabled( { item: data, field } );
 	const options = ( field.elements ?? [] ) as WpVersionOption[];
@@ -61,14 +66,22 @@ export function WpVersionControl< Item >( {
 	);
 
 	if ( disabled && field.description ) {
+		// wpds narrows Tooltip.Root's props to hover-only usage; the runtime
+		// forwards everything to Base UI, which supports controlled `open`.
+		const controlledOpen = { open: showTooltip } as unknown as Parameters<
+			typeof Tooltip.Root
+		>[ 0 ];
 		return (
-			<Tooltip.Root>
+			<Tooltip.Root { ...controlledOpen }>
 				<Tooltip.Trigger
 					render={
 						// Disabled form controls swallow pointer events, so exclude
-						// the select from hit-testing to guarantee the trigger
+						// the select from hit-testing to guarantee the wrapper
 						// receives the hover.
-						<div>
+						<div
+							onMouseEnter={ () => setShowTooltip( true ) }
+							onMouseLeave={ () => setShowTooltip( false ) }
+						>
 							<div style={ { pointerEvents: 'none' } }>{ select }</div>
 						</div>
 					}

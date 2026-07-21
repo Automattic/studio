@@ -21,20 +21,13 @@
 }
 
 .userName,
-.themeToggle,
 .settingsButton {
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-.themeToggle {
-	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
-}
-
 .row:hover .userName,
-.row:hover .themeToggle,
 .row:hover .settingsButton,
 .row:focus-within .userName,
-.row:focus-within .themeToggle,
 .row:focus-within .settingsButton {
 	color: var(--wpds-color-fg-content-neutral);
 }

@@ -278,12 +278,129 @@
 	max-inline-size: 100%;
 }
 
-.selectControl > * {
+/* Stretch the trigger to the control's width, but skip the visually-hidden
+   label `hideLabelFromVision` renders: it's absolutely positioned, so
+   stretching it makes it hang past the layout and create horizontal
+   overflow. */
+.selectControl > *:not([data-visually-hidden]) {
 	inline-size: 100%;
 }
 
 .selectControlWide {
 	inline-size: 240px;
+}
+
+.accountSectionHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-xl);
+	margin-block-end: var(--wpds-dimension-padding-xl);
+}
+
+.accountHeading {
+	margin-block-end: 0;
+}
+
+.accountActions {
+	display: flex;
+	gap: var(--wpds-dimension-padding-md);
+	flex-wrap: wrap;
+}
+
+.accountSummary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-xl);
+	min-width: 0;
+}
+
+.accountIdentity {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+.accountAvatar {
+	flex: 0 0 44px;
+	inline-size: 44px;
+	block-size: 44px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.accountDetails {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.accountDetails h2 {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.accountDetails p {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	overflow-wrap: anywhere;
+}
+
+.pathPickerButton {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-lg);
+	inline-size: 240px;
+	max-inline-size: 100%;
+	min-block-size: 36px;
+	padding: 0 var(--wpds-dimension-padding-lg);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-interactive-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(--wpds-typography-font-family-body);
+	/* Match SelectControl's trigger text so all controls in a card read the
+	   same size. */
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-align: start;
+	cursor: pointer;
+}
+
+.pathPickerButton:hover {
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+}
+
+.pathPickerButton:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+}
+
+.pathPickerValue,
+.pathPickerPlaceholder {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pathPickerPlaceholder {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.pathPickerIcon {
+	flex-shrink: 0;
+	fill: currentColor;
 }
 
 .errorMessage {
@@ -438,6 +555,12 @@
 		align-items: stretch;
 		grid-template-columns: 1fr;
 		row-gap: var(--wpds-dimension-padding-sm);
+	}
+
+	.accountSectionHeader,
+	.accountSummary {
+		align-items: flex-start;
+		flex-direction: column;
 	}
 
 	.preferenceText h2 {

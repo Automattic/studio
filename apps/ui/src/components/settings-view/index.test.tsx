@@ -66,12 +66,26 @@ vi.mock( '@/components/tabs', () => ( {
 	Panel: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
 } ) );
 
+vi.mock( '@/components/gravatar', () => ( {
+	Gravatar: () => <span data-testid="gravatar" />,
+} ) );
+
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
 vi.mock( './skills-panel', () => ( {
 	SkillsPanel: () => null,
+} ) );
+
+vi.mock( '@/data/queries/use-auth-user', () => ( {
+	useAuthUser: () => ( { data: null, isLoading: false } ),
+	useLogin: () => ( { mutate: vi.fn(), isPending: false } ),
+	useLogout: () => ( { mutate: vi.fn(), isPending: false } ),
+} ) );
+
+vi.mock( '@/hooks/use-color-scheme', () => ( {
+	useColorScheme: () => 'light',
 } ) );
 
 vi.mock( './mcp-panel', () => ( {
@@ -109,6 +123,7 @@ describe( 'SettingsView', () => {
 	const mutate = vi.fn();
 	const reload = vi.fn();
 	const disableAgenticUi = vi.fn( () => Promise.resolve() );
+	const selectDefaultSiteDirectory = vi.fn( () => Promise.resolve< string | null >( null ) );
 
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -119,7 +134,7 @@ describe( 'SettingsView', () => {
 			configurable: true,
 		} );
 
-		useConnectorMock.mockReturnValue( { disableAgenticUi } as never );
+		useConnectorMock.mockReturnValue( { disableAgenticUi, selectDefaultSiteDirectory } as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },
 		} as never );
@@ -135,6 +150,7 @@ describe( 'SettingsView', () => {
 				colorScheme: 'system',
 				quitSitesBehavior: undefined,
 				locale: 'en',
+				defaultSiteDirectory: '/Users/example/Studio',
 			},
 			isLoading: false,
 		} as never );
@@ -190,6 +206,33 @@ describe( 'SettingsView', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Switch to classic' } ) );
 
 		expect( disableAgenticUi ).toHaveBeenCalled();
+		expect( mutate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'saves the default site directory as soon as one is picked', async () => {
+		selectDefaultSiteDirectory.mockResolvedValue( '/Users/example/Sites' );
+
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: /Default site directory/ } ) );
+
+		await waitFor( () =>
+			expect( mutate ).toHaveBeenCalledWith(
+				{ defaultSiteDirectory: '/Users/example/Sites' },
+				expect.any( Object )
+			)
+		);
+		expect( selectDefaultSiteDirectory ).toHaveBeenCalledWith( '/Users/example/Studio' );
+	} );
+
+	it( 'does not save when the directory picker is cancelled', async () => {
+		selectDefaultSiteDirectory.mockResolvedValue( null );
+
+		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: /Default site directory/ } ) );
+
+		await waitFor( () => expect( selectDefaultSiteDirectory ).toHaveBeenCalled() );
 		expect( mutate ).not.toHaveBeenCalled();
 	} );
 

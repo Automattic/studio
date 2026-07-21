@@ -78,6 +78,9 @@ export interface SiteDetails {
 		path: string;
 		slug: string;
 		isBlockTheme: boolean;
+		// Only supplied by the desktop (IPC) connector.
+		supportsWidgets?: boolean;
+		supportsMenus?: boolean;
 	};
 	siteIcon?: string | null;
 }
@@ -308,6 +311,11 @@ export interface Connector {
 	getUserPreferences(): Promise< UserPreferences >;
 	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
 
+	// Opens a native folder picker for the default-site-directory preference.
+	// Resolves with the chosen path, or `null` when the user cancels (or the
+	// host has no native picker — see capabilities.nativeFolderPicker).
+	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
+
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
 	// installed.
@@ -403,6 +411,7 @@ export interface UserPreferences {
 	colorScheme: ColorScheme;
 	quitSitesBehavior?: QuitSitesBehavior;
 	locale: string | undefined;
+	defaultSiteDirectory: string;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

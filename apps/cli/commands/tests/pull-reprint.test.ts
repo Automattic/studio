@@ -391,10 +391,13 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		] );
 		// Local flatten: `-` URL placeholder; --force only on a first pull
 		// (this call passed force=true) to overwrite the blank install.
+		// --preserve-local-content goes on every pull so wp-content is merged
+		// rather than replaced and locally installed files survive.
 		expect( flattenArgs ).toEqual( [
 			'flat-docroot',
 			'-',
 			`--flatten-to=${ sitePath }`,
+			'--preserve-local-content',
 			'--force',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
@@ -464,6 +467,9 @@ describe( 'CLI: studio pull-reprint single pull phase', () => {
 		expect( commands ).toEqual( [ 'pull-files', 'flat-docroot', 'apply-runtime' ] );
 		const flattenArgs = reprint.mock.calls[ 1 ][ 2 ] as string[];
 		expect( flattenArgs ).not.toContain( '--force' );
+		// Once merged, wp-content is a real directory; a delta pull without
+		// the flag would fail trying to symlink over it.
+		expect( flattenArgs ).toContain( '--preserve-local-content' );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );

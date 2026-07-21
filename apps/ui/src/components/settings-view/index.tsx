@@ -13,6 +13,7 @@ import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-u
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { KeyboardPanel } from './keyboard-panel';
+import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import styles from './style.module.css';
 import type { PreferencesFormData } from './preferences';
@@ -26,7 +27,7 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-const SETTINGS_TABS = [ 'preferences', 'keyboard' ] as const;
+const SETTINGS_TABS = [ 'preferences', 'keyboard', 'mcp' ] as const;
 
 type TabId = ( typeof SETTINGS_TABS )[ number ];
 
@@ -100,6 +101,7 @@ function SettingsHeader() {
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
 		</div>
@@ -368,6 +370,9 @@ export function SettingsView( {
 						</Tabs.Panel>
 						<Tabs.Panel tabId="keyboard">
 							<KeyboardPanel />
+						</Tabs.Panel>
+						<Tabs.Panel tabId="mcp">
+							<McpPanel />
 						</Tabs.Panel>
 					</div>
 				</div>

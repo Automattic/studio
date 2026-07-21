@@ -597,20 +597,23 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, quitSitesBehavior, locale ] = ( await Promise.all( [
-				ipcApi.getUserEditor(),
-				ipcApi.getUserTerminal(),
-				ipcApi.getColorScheme(),
-				ipcApi.getQuitSitesBehavior(),
-				ipcApi.getUserLocale(),
-			] ) ) as [
-				SupportedEditor | null,
-				SupportedTerminal | null,
-				ColorScheme,
-				QuitSitesBehavior | undefined,
-				string | undefined,
-			];
-			return { editor, terminal, colorScheme, quitSitesBehavior, locale };
+			const [ editor, terminal, colorScheme, quitSitesBehavior, locale, defaultSiteDirectory ] =
+				( await Promise.all( [
+					ipcApi.getUserEditor(),
+					ipcApi.getUserTerminal(),
+					ipcApi.getColorScheme(),
+					ipcApi.getQuitSitesBehavior(),
+					ipcApi.getUserLocale(),
+					ipcApi.getDefaultSiteDirectory(),
+				] ) ) as [
+					SupportedEditor | null,
+					SupportedTerminal | null,
+					ColorScheme,
+					QuitSitesBehavior | undefined,
+					string | undefined,
+					string,
+				];
+			return { editor, terminal, colorScheme, quitSitesBehavior, locale, defaultSiteDirectory };
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -630,7 +633,21 @@ export function createIpcConnector(): Connector {
 			if ( 'locale' in partial && partial.locale ) {
 				writes.push( ipcApi.saveUserLocale( partial.locale ) );
 			}
+			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
+				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
+			}
 			await Promise.all( writes );
+		},
+
+		async selectDefaultSiteDirectory( defaultPath ): Promise< string | null > {
+			const response = ( await ipcApi.showOpenFolderDialog(
+				__( 'Select default site directory' ),
+				defaultPath
+			) ) as { path?: string } | string | null;
+			if ( typeof response === 'string' ) {
+				return response || null;
+			}
+			return response?.path ?? null;
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

@@ -124,6 +124,7 @@ describe( 'SiteList', () => {
 				terminal: null,
 				colorScheme: 'system',
 				locale: 'en',
+				defaultSiteDirectory: '',
 			},
 		} );
 		useSitesMock.mockReturnValue( {
@@ -633,7 +634,13 @@ describe( 'SiteList', () => {
 			openSiteInTerminal: vi.fn(),
 		} as unknown as ReturnType< typeof useConnector > );
 		useUserPreferencesMock.mockReturnValue( {
-			data: { editor: 'zed', terminal: 'terminal', colorScheme: 'system', locale: 'en' },
+			data: {
+				editor: 'zed',
+				terminal: 'terminal',
+				colorScheme: 'system',
+				locale: 'en',
+				defaultSiteDirectory: '',
+			},
 		} );
 
 		render( <SiteList /> );
@@ -649,7 +656,13 @@ describe( 'SiteList', () => {
 
 	it( 'hides the editor and terminal actions when unset', async () => {
 		useUserPreferencesMock.mockReturnValue( {
-			data: { editor: null, terminal: null, colorScheme: 'system', locale: undefined },
+			data: {
+				editor: null,
+				terminal: null,
+				colorScheme: 'system',
+				locale: undefined,
+				defaultSiteDirectory: '',
+			},
 		} );
 
 		render( <SiteList /> );

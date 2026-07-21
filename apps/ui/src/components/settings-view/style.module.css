@@ -278,7 +278,11 @@
 	max-inline-size: 100%;
 }
 
-.selectControl > * {
+/* Stretch the trigger to the control's width, but skip the visually-hidden
+   label `hideLabelFromVision` renders: it's absolutely positioned, so
+   stretching it makes it hang past the layout and create horizontal
+   overflow. */
+.selectControl > *:not([data-visually-hidden]) {
 	inline-size: 100%;
 }
 

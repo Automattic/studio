@@ -7,12 +7,9 @@ import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
-import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
-import { moonIcon, sunIcon } from '@/lib/icons';
 import styles from './style.module.css';
-import type { ColorScheme } from '@/data/core';
 
 const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
@@ -21,14 +18,11 @@ const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose
 export function UserMenu() {
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
-	const { data: preferences } = useUserPreferences();
-	const savePreferences = useSaveUserPreferences();
 	const login = useLogin();
 	const logout = useLogout();
 	const navigate = useNavigate();
 
 	const isOffline = useOffline();
-	const currentScheme: ColorScheme = preferences?.colorScheme ?? 'system';
 	const themeIsDark = useColorScheme() === 'dark';
 
 	const openLink = ( url: string ) => {
@@ -90,32 +84,6 @@ export function UserMenu() {
 						onClick={ () => void navigate( { to: '/settings' } ) }
 					/>
 				) : null }
-				<Menu.Root modal={ false }>
-					<Menu.Trigger
-						render={
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								className={ styles.themeToggle }
-								icon={ themeIsDark ? sunIcon : moonIcon }
-								label={ __( 'Appearance' ) }
-							/>
-						}
-					/>
-					<Menu.Popup side="top" align="end">
-						<Menu.RadioGroup
-							value={ currentScheme }
-							onValueChange={ ( value ) =>
-								savePreferences.mutate( { colorScheme: value as ColorScheme } )
-							}
-						>
-							<Menu.RadioItem value="system">{ __( 'System' ) }</Menu.RadioItem>
-							<Menu.RadioItem value="light">{ __( 'Light' ) }</Menu.RadioItem>
-							<Menu.RadioItem value="dark">{ __( 'Dark' ) }</Menu.RadioItem>
-						</Menu.RadioGroup>
-					</Menu.Popup>
-				</Menu.Root>
 			</div>
 		</div>
 	);

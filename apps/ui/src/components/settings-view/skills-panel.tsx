@@ -98,7 +98,7 @@ export function SkillsPanel() {
 					</p>
 				</div>
 				{ visibleError ? <div className={ styles.errorMessage }>{ visibleError }</div> : null }
-				{ isLoading ? <div className={ styles.state }>{ __( 'Loading skills...' ) }</div> : null }
+				{ isLoading ? <div className={ styles.state }>{ __( 'Loading skills…' ) }</div> : null }
 				{ ! isLoading && skillList.length === 0 ? (
 					<div className={ styles.state }>{ __( 'No skills are available.' ) }</div>
 				) : null }

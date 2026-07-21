@@ -51,7 +51,6 @@ import {
 	reconcilePrimedSessionQueryData,
 	SESSIONS_QUERY_KEY,
 } from '@/data/queries/use-sessions';
-import { useComposerPlaceholderEffect } from '@/lib/composer-placeholder-effect';
 import { AnimatedPlaceholder } from './animated-placeholder';
 import { FamilySwitchConfirmDialog } from './family-switch-confirm-dialog';
 import styles from './style.module.css';
@@ -404,17 +403,15 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		};
 	}, [ setComposerManualTextareaHeight ] );
 
-	const placeholderEffect = useComposerPlaceholderEffect();
-
 	useEffect( () => {
-		if ( value.length > 0 || placeholderEffect === 'none' ) {
+		if ( value.length > 0 ) {
 			return;
 		}
 		const interval = window.setInterval( () => {
 			setPlaceholderIndex( ( current ) => current + 1 );
 		}, PLACEHOLDER_ROTATE_INTERVAL_MS );
 		return () => window.clearInterval( interval );
-	}, [ value, placeholderEffect ] );
+	}, [ value ] );
 
 	useEffect( () => {
 		setPlaceholderIndex( 0 );
@@ -943,7 +940,7 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					>
 						{ showAnimatedPlaceholder ? (
 							<div className={ styles.placeholderText } aria-hidden="true">
-								<AnimatedPlaceholder text={ placeholder } effect={ placeholderEffect } />
+								<AnimatedPlaceholder text={ placeholder } />
 							</div>
 						) : null }
 						<textarea

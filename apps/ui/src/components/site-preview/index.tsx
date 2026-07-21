@@ -152,11 +152,12 @@ const VIEWPORT_PRESETS: readonly ViewportPreset[] = [
 ];
 
 // The preview's viewport mode: natural pane size, one simulated preset, or
-// the side-by-side comparison of the natural size and the mobile frame.
+// the side-by-side comparison of the desktop and mobile presets.
 type ViewportMode = 'fit' | ViewportPreset[ 'id' ] | 'split';
 
-// The split view reuses the mobile preset for its phone pane.
+// The split view reuses the desktop and mobile presets for its two panes.
 const MOBILE_PRESET = VIEWPORT_PRESETS[ 0 ];
+const DESKTOP_PRESET = VIEWPORT_PRESETS[ 2 ];
 
 // The phone frame's orientation, shared by the mobile preset and the split
 // view. Landscape rotates the frame a quarter turn (844×390).
@@ -443,7 +444,7 @@ function PreviewOverflowMenu( {
 										) }
 									</Menu.RadioItem>
 								) ) }
-								<Menu.RadioItem value="split">{ __( 'Fit pane + Mobile' ) }</Menu.RadioItem>
+								<Menu.RadioItem value="split">{ __( 'Desktop + Mobile' ) }</Menu.RadioItem>
 							</Menu.RadioGroup>
 						</Menu.Group>
 						{ viewportMode === 'mobile' || viewportMode === 'split' ? (
@@ -965,7 +966,7 @@ export function SitePreview( {
 	// `logged-in` body class), so "Sign in to this site" can disable itself.
 	const [ previewLoggedIn, setPreviewLoggedIn ] = useState( false );
 	// 'fit' renders at the pane's natural size; a preset id simulates that
-	// viewport; 'split' shows the natural view and the mobile frame together.
+	// viewport; 'split' shows the desktop and mobile presets together.
 	const [ viewportMode, setViewportMode ] = useState< ViewportMode >( 'fit' );
 	// Orientation of the phone frame, wherever it shows (mobile preset and
 	// the split view's phone pane).
@@ -975,6 +976,8 @@ export function SitePreview( {
 	const activePreset =
 		viewportMode === 'mobile'
 			? getMobilePreset( mobileOrientation )
+			: viewportMode === 'split'
+			? DESKTOP_PRESET
 			: VIEWPORT_PRESETS.find( ( preset ) => preset.id === viewportMode ) ?? null;
 	const splitPreview = viewportMode === 'split';
 	const [ paneSize, setPaneSize ] = useState< { width: number; height: number } | null >( null );
@@ -1351,13 +1354,6 @@ export function SitePreview( {
 		return () => observer.disconnect();
 	}, [] );
 
-	const previewViewport = useMemo(
-		() => getSimulatedViewport( activePreset, paneSize ),
-		[ activePreset, paneSize ]
-	);
-	// Fixed-height presets present as a centered device frame instead of a
-	// pane-filling column.
-	const isDeviceViewport = Boolean( previewViewport && activePreset?.height );
 	// The split view's phone pane: the mobile preset (in its current
 	// orientation) scaled to fit the pane height, and capped at half the
 	// pane's width so a landscape frame can't crowd out the primary view.
@@ -1371,6 +1367,27 @@ export function SitePreview( {
 			height: Math.max( 120, paneSize.height - SPLIT_MOBILE_PANE_PADDING * 2 ),
 		} );
 	}, [ mobileOrientation, paneSize, splitPreview ] );
+	// In split mode the desktop simulation fits the space left beside the
+	// rendered mobile frame, including its pane padding. This keeps the page
+	// at the desktop breakpoint even when the comparison itself is narrow.
+	const primaryPaneSize = useMemo( () => {
+		if ( ! splitPreview || ! paneSize || ! splitMobileViewport ) {
+			return paneSize;
+		}
+		const mobilePaneWidth =
+			splitMobileViewport.width * splitMobileViewport.scale + SPLIT_MOBILE_PANE_PADDING * 2;
+		return {
+			width: Math.max( 1, paneSize.width - mobilePaneWidth ),
+			height: paneSize.height,
+		};
+	}, [ paneSize, splitMobileViewport, splitPreview ] );
+	const previewViewport = useMemo(
+		() => getSimulatedViewport( activePreset, primaryPaneSize ),
+		[ activePreset, primaryPaneSize ]
+	);
+	// Fixed-height presets present as a centered device frame instead of a
+	// pane-filling column.
+	const isDeviceViewport = Boolean( previewViewport && activePreset?.height );
 	// Sizing for the frame around the primary surface: device presets get
 	// their exact scaled box (the emulation paints it edge to edge);
 	// width-only presets narrower than the pane letterbox 1:1; wider ones

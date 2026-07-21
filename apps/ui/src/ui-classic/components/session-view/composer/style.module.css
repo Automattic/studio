@@ -383,54 +383,12 @@
 	top: var(--wpds-dimension-padding-xs);
 }
 
-.placeholderCursor {
-	display: inline-block;
-	width: 7px;
-	height: 1em;
-	margin-left: 2px;
-	background: currentColor;
-	vertical-align: text-bottom;
-}
-
-.placeholderCursorBlink {
-	animation: placeholder-cursor-blink 1.06s step-end infinite;
-}
-
-@keyframes placeholder-cursor-blink {
-	50% {
-		opacity: 0;
-	}
-}
-
-.placeholderFlapRow {
-	display: inline-block;
-	perspective: 300px;
-}
-
-.placeholderFlapChar {
-	display: inline-block;
-	backface-visibility: hidden;
-}
-
-.placeholderFlapFlip {
-	animation: placeholder-flap 360ms var(--wpds-motion-easing-balanced) both;
-}
-
-@keyframes placeholder-flap {
-	50% {
-		transform: rotateX(-88deg);
-		opacity: 0.4;
-	}
-}
-
 .placeholderFadeOut {
-	animation: placeholder-fade-out var(--wpds-motion-duration-md) var(--wpds-motion-easing-subtle)
-		both;
+	animation: placeholder-fade-out 120ms var(--wpds-motion-easing-subtle) both;
 }
 
 .placeholderFadeIn {
-	animation: placeholder-fade-in var(--wpds-motion-duration-md) var(--wpds-motion-easing-subtle)
-		both;
+	animation: placeholder-fade-in 120ms var(--wpds-motion-easing-subtle) both;
 }
 
 @keyframes placeholder-fade-out {
@@ -647,4 +605,3 @@
 	background-color: currentColor;
 	pointer-events: none;
 }
-

@@ -637,10 +637,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
 
-		async fetchSiteRest( siteId, request ) {
-			return await ipcApi.fetchSiteRestApi( siteId, request );
-		},
-
 		async openSiteFolder( siteId ): Promise< void > {
 			const sitePath = await resolveSiteFolder( siteId );
 			ipcApi.openLocalPath( sitePath );

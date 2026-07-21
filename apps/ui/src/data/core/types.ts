@@ -10,7 +10,6 @@ import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -312,11 +311,6 @@ export interface Connector {
 	// form are filtered against this so users can't pick something that isn't
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
-
-	// Site WordPress REST API. The renderer uses this as the transport for
-	// @wordpress/api-fetch / @wordpress/core-data so WordPress entity semantics
-	// stay in the WordPress packages while Studio owns site resolution and auth.
-	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
 
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is

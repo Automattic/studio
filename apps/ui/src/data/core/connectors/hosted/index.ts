@@ -320,10 +320,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return {} as InstalledApps;
 		},
 
-		async fetchSiteRest() {
-			throw new UnsupportedError( 'fetchSiteRest' );
-		},
-
 		// Filesystem / native integrations — not available in a browser.
 		async openSiteFolder() {
 			throw new UnsupportedError( 'openSiteFolder' );

@@ -14,6 +14,7 @@ import {
 	useSessionPreviewAnnotationsHandler,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
+import { writeLastVisited } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
 
 // Session detail routes and the site overview host the preview; on every
@@ -90,6 +91,15 @@ function DashboardLayoutContent() {
 			setLastPreviewSiteId( routeSite.id );
 		}
 	}, [ routeSite ] );
+	// Remember the user's site so the `/` index route can return here
+	// instead of defaulting to the first site.
+	const sessionSiteId = sessionSite?.id;
+	useEffect( () => {
+		const siteId = sessionSiteId ?? newSessionSiteId;
+		if ( siteId ) {
+			writeLastVisited( { siteId } );
+		}
+	}, [ sessionSiteId, newSessionSiteId ] );
 	const lastPreviewSite = lastPreviewSiteId
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;

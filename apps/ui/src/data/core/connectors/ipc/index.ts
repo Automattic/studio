@@ -1,6 +1,7 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import type {
 	ActiveAgentRun,
 	AiSessionSummary,
@@ -16,6 +17,7 @@ import type {
 	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
 	SupportedEditor,
 	SupportedTerminal,
@@ -23,6 +25,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
@@ -471,14 +474,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		getPublishCheckoutUrl( site ): string {
-			const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-			url.searchParams.set( 'ref', 'studio' );
-			url.searchParams.set( 'section', 'publish-site' );
-			url.searchParams.set( 'showDomainStep', 'true' );
-			url.searchParams.set( 'studioSiteId', site.id );
-			url.searchParams.set( 'new', site.customDomain ?? site.name );
-			url.searchParams.set( 'autoOpenPush', 'true' );
-			return url.toString();
+			return buildPublishCheckoutUrl( site );
 		},
 
 		// AI sessions
@@ -659,6 +655,18 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
+		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {
+			return ( await ipcApi.getWordPressSkillsStatusAllSites() ) as SkillStatus[];
+		},
+
+		async installWordPressSkillToAllSites( skillId: string ): Promise< void > {
+			await ipcApi.installWordPressSkillsToAllSites( { skillId } );
+		},
+
+		async removeWordPressSkillFromAllSites( skillId: string ): Promise< void > {
+			await ipcApi.removeWordPressSkillFromAllSites( skillId );
+		},
+
 		// Window state
 		// macOS overlays the traffic lights on the content (so we reserve
 		// space for them); Windows and Linux don't.
@@ -680,7 +688,9 @@ export function createIpcConnector(): Connector {
 		onSiteEvent( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'site-event', () => listener() );
+			return ipcListener.subscribe( 'site-event', ( _event: unknown, siteEvent: SiteEvent ) =>
+				listener( siteEvent )
+			);
 		},
 
 		onToggleSitePreview( listener ) {

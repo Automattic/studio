@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
+import { useUserLocale } from '@/data/queries/use-user-locale';
 import { AccountSection } from './account-section';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
@@ -44,6 +45,10 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useLogout: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-user-locale', () => ( {
+	useUserLocale: vi.fn(),
+} ) );
+
 vi.mock( '@/hooks/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
@@ -52,6 +57,7 @@ const useConnectorMock = vi.mocked( useConnector );
 const useAuthUserMock = vi.mocked( useAuthUser );
 const useLoginMock = vi.mocked( useLogin );
 const useLogoutMock = vi.mocked( useLogout );
+const useUserLocaleMock = vi.mocked( useUserLocale );
 
 describe( 'AccountSection', () => {
 	const loginMutate = vi.fn();
@@ -62,6 +68,7 @@ describe( 'AccountSection', () => {
 		vi.clearAllMocks();
 
 		useConnectorMock.mockReturnValue( { openExternalUrl } as never );
+		useUserLocaleMock.mockReturnValue( undefined );
 		useAuthUserMock.mockReturnValue( {
 			data: { id: 1, displayName: 'Ada Lovelace', email: 'ada@example.com' },
 			isLoading: false,
@@ -113,6 +120,18 @@ describe( 'AccountSection', () => {
 
 		expect( openExternalUrl ).toHaveBeenCalledWith(
 			'https://github.com/Automattic/studio/issues/new/choose'
+		);
+	} );
+
+	it( 'opens localized docs when the locale has a translation', () => {
+		useUserLocaleMock.mockReturnValue( 'es' );
+
+		render( <AccountSection /> );
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Docs' } ) );
+
+		expect( openExternalUrl ).toHaveBeenCalledWith(
+			'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/'
 		);
 	} );
 } );

@@ -553,6 +553,9 @@ export async function runCommand(
 				verbose,
 				selection
 			);
+			// The tail landed in the raw directory after flat-docroot ran, so
+			// link the files that just arrived into the flattened site.
+			await relinkFlattenedSite( getSiteRuntime( site ), studioMetadata, verbose );
 		}
 
 		// The pull is done: drop the selection sidecar so the next pull asks
@@ -1138,6 +1141,15 @@ export async function runFullPull(
 		'flat-docroot',
 		'-',
 		`--flatten-to=${ metadata.sitePath }`,
+		// `--force` replaces the blank install `studio create` produced, but on
+		// its own it would also delete everything the user had added to
+		// wp-content. `--preserve-local-content` merges wp-content instead:
+		// the remote wins on conflicts, local-only plugins/themes/uploads stay.
+		//
+		// It is passed on *every* pull, not just the first: once the first pull
+		// merges, wp-content is a real directory, and a delta re-pull without
+		// the flag would fail trying to symlink over it.
+		'--preserve-local-content',
 		...( force ? [ '--force' ] : [] ),
 		`--state-dir=${ metadata.stateDirectory }`,
 		`--fs-root=${ metadata.rawDirectory }`,
@@ -1215,6 +1227,45 @@ export async function downloadSkippedFiles(
 		}
 	);
 	logger.reportSuccess( __( 'Remaining files downloaded' ) );
+}
+
+/**
+ * Re-link the flattened site after the deferred file tail.
+ *
+ * `downloadSkippedFiles` lands media in the raw directory *after*
+ * `flat-docroot` already ran. The flattened site links the remote's entries
+ * individually rather than aliasing the whole `wp-content`, so anything that
+ * arrives late has no link yet and would stay invisible until the next pull.
+ *
+ * Re-running the flatten is idempotent and cheap: it refreshes the links that
+ * are already correct, adds links for the newly-arrived files, and prunes the
+ * ones whose target the remote dropped. `--force` is deliberately omitted —
+ * the site is already assembled, so nothing should be replaced here.
+ */
+export async function relinkFlattenedSite(
+	runtime: SiteRuntime,
+	metadata: PullSession,
+	verbose: boolean
+): Promise< void > {
+	await runReprintCommandUntilComplete(
+		metadata.stateDirectory,
+		metadata.rawDirectory,
+		[
+			'flat-docroot',
+			'-',
+			`--flatten-to=${ metadata.sitePath }`,
+			'--preserve-local-content',
+			`--state-dir=${ metadata.stateDirectory }`,
+			`--fs-root=${ metadata.rawDirectory }`,
+		],
+		( progress ) => logger.reportProgress( progress ),
+		{
+			progressLabel: __( 'Linking new files' ),
+			mounts: [ { hostPath: metadata.sitePath, vfsPath: metadata.sitePath } ],
+			verboseCommands: verbose,
+			runtime,
+		}
+	);
 }
 
 export function normalizeSiteUrl( url: string ): string {

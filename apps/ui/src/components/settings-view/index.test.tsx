@@ -70,6 +70,10 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+vi.mock( './skills-panel', () => ( {
+	SkillsPanel: () => null,
+} ) );
+
 vi.mock( '@/data/core/query-client', () => ( {
 	persister: { removeClient: vi.fn( () => Promise.resolve() ) },
 } ) );

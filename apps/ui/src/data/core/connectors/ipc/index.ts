@@ -16,6 +16,7 @@ import type {
 	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
 	SupportedEditor,
 	SupportedTerminal,
@@ -679,6 +680,18 @@ export function createIpcConnector(): Connector {
 
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
+		},
+
+		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {
+			return ( await ipcApi.getWordPressSkillsStatusAllSites() ) as SkillStatus[];
+		},
+
+		async installWordPressSkillToAllSites( skillId: string ): Promise< void > {
+			await ipcApi.installWordPressSkillsToAllSites( { skillId } );
+		},
+
+		async removeWordPressSkillFromAllSites( skillId: string ): Promise< void > {
+			await ipcApi.removeWordPressSkillFromAllSites( skillId );
 		},
 
 		// Window state

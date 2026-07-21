@@ -683,6 +683,15 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
 			window.open( target, '_blank', 'noopener,noreferrer' );
 		},
+		async getWordPressSkillsStatusAllSites() {
+			return [];
+		},
+		async installWordPressSkillToAllSites() {
+			// No-op: the local server does not manage WordPress skills yet.
+		},
+		async removeWordPressSkillFromAllSites() {
+			// No-op: the local server does not manage WordPress skills yet.
+		},
 
 		// Window chrome — no traffic lights in a browser tab.
 		reservesTrafficLightSpace: false,

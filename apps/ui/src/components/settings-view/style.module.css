@@ -301,6 +301,99 @@
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
+.skillsPanel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xl);
+	width: 100%;
+	max-width: var(--settings-form-width);
+	margin: 0 auto;
+}
+
+.settingsPanelSection {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--wpds-dimension-padding-lg);
+	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl)
+		var(--wpds-dimension-padding-xl);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-weak) 56%, transparent);
+}
+
+.settingsPanelHeader {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.settingsPanelHeader h2 {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.settingsPanelHeader p {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.skillsHeaderRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-md);
+	/* Compact wpds Button height, reserved so the header doesn't jump when
+	   the Install all button appears or disappears. */
+	min-block-size: 32px;
+}
+
+.skillList {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.skillRow {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xl);
+	padding-block: var(--wpds-dimension-padding-lg);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.skillRow:last-child {
+	border-bottom: 0;
+}
+
+.skillDetails {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.skillName {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.skillDescription {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
 @media (max-width: 640px) {
 	.preferenceRow {
 		align-items: stretch;
@@ -310,6 +403,11 @@
 
 	.preferenceText h2 {
 		white-space: normal;
+	}
+
+	.skillRow {
+		align-items: stretch;
+		grid-template-columns: 1fr;
 	}
 }
 

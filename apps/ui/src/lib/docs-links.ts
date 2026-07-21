@@ -15,6 +15,9 @@ const DOCS_LINKS = {
 	docsSslInStudio: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/',
 	},
+	docsSkills: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/',
+	},
 } as const satisfies Record< string, TranslatedLink >;
 
 export type DocsLinkKey = keyof typeof DOCS_LINKS;

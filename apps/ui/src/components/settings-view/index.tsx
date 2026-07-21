@@ -13,6 +13,7 @@ import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-u
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
+import { SkillsPanel } from './skills-panel';
 import styles from './style.module.css';
 import type { PreferencesFormData } from './preferences';
 import type {
@@ -25,10 +26,10 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-type TabId = 'preferences';
+type TabId = 'preferences' | 'skills';
 
 export function isSettingsTab( value: string ): value is TabId {
-	return value === 'preferences';
+	return value === 'preferences' || value === 'skills';
 }
 
 export type SettingsTabId = TabId;
@@ -96,6 +97,7 @@ function SettingsHeader() {
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
 		</div>
@@ -361,6 +363,9 @@ export function SettingsView( {
 								onColorSchemeChange={ handleColorSchemeChange }
 								onChange={ handleChange }
 							/>
+						</Tabs.Panel>
+						<Tabs.Panel tabId="skills">
+							<SkillsPanel />
 						</Tabs.Panel>
 					</div>
 				</div>

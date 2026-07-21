@@ -84,3 +84,23 @@ export function getPhpMyAdminPath(): string {
 export function getBlueprintsPharPath(): string {
 	return path.join( getWpFilesPath(), 'blueprints', 'blueprints.phar' );
 }
+
+// Studio's own PHP helper scripts ship read-only with the CLI bundle under
+// `dist/cli/php` (copied from `apps/cli/php` at build time by the `write-dist-extras`
+// vite plugin). `import.meta.dirname` resolves to the bundle output dir.
+function getBundledPhpPath(): string {
+	return path.join( import.meta.dirname, 'php' );
+}
+
+// PHP driver that imports a WordPress export (WXR) file via the wordpress-importer plugin.
+export function getBundledWxrImportScriptPath(): string {
+	return path.join( getBundledPhpPath(), 'import-wxr.php' );
+}
+
+// The official wordpress-importer plugin, downloaded into `wp-files/` at install time via the
+// `FILES_TO_DOWNLOAD` registry in `scripts/download-wp-server-files.ts` and shipped in the CLI
+// bundle. Installed into the site's `wp-content/plugins` before running a WXR import so the
+// import works offline.
+export function getBundledWordPressImporterPath(): string {
+	return path.join( getWpFilesPath(), 'wordpress-importer' );
+}

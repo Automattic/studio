@@ -321,7 +321,7 @@ export async function createAiSession(
 export async function updateAiSessionMetadata(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string,
-	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	patch: Pick< AiSessionSummary, 'archived' >
 ): Promise< AiSessionSummary > {
 	const { summary } = await loadAiSessionFromStore( getSessionsDirectory(), sessionIdOrPrefix );
 	const [ metadata, placement ] = await Promise.all( [

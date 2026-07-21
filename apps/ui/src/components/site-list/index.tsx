@@ -1,5 +1,7 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
+import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
+import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { moreHorizontal } from '@wordpress/icons';
@@ -21,6 +23,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
@@ -320,11 +323,12 @@ function SiteActionsMenu( {
 		} );
 	};
 
+	const editor = userPreferences?.editor;
+	const editorLabel = editor ? supportedEditorConfig[ editor ].label : null;
+	const terminal = userPreferences?.terminal;
+	const terminalLabel = terminal ? terminalConfig[ terminal ].name : null;
+
 	const handleOpenInEditor = () => {
-		if ( ! userPreferences?.editor ) {
-			void navigate( { to: '/settings' } );
-			return;
-		}
 		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
 			console.error( 'Failed to open site in editor:', error );
 		} );
@@ -406,8 +410,24 @@ function SiteActionsMenu( {
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
-					<Menu.Item onClick={ handleOpenInEditor }>{ __( 'Open in editor' ) }</Menu.Item>
-					<Menu.Item onClick={ handleOpenInTerminal }>{ __( 'Open in terminal' ) }</Menu.Item>
+					{ editorLabel ? (
+						<Menu.Item onClick={ handleOpenInEditor }>
+							{ sprintf(
+								/* translators: %s is the name of the editor. E.g. "Open in Cursor" */
+								__( 'Open in %s' ),
+								editorLabel
+							) }
+						</Menu.Item>
+					) : null }
+					{ terminalLabel ? (
+						<Menu.Item onClick={ handleOpenInTerminal }>
+							{ sprintf(
+								/* translators: %s is the name of the terminal app. E.g. "Open in iTerm2" */
+								__( 'Open in %s' ),
+								terminalLabel
+							) }
+						</Menu.Item>
+					) : null }
 					<Menu.Item disabled={ ! site.running } onClick={ handleOpenPhpMyAdmin }>
 						{ __( 'Open phpMyAdmin' ) }
 					</Menu.Item>
@@ -445,11 +465,13 @@ function SiteSection( {
 	isChatActive,
 	isContextActive,
 	hasUnreadUpdate,
+	agenticEnabled,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
 	hasUnreadUpdate: boolean;
+	agenticEnabled: boolean;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
@@ -469,6 +491,13 @@ function SiteSection( {
 		? 'new-message'
 		: 'idle';
 	const handleOpenSite = () => {
+		if ( ! agenticEnabled ) {
+			void navigate( {
+				to: '/sites/$siteId/settings',
+				params: { siteId: site.id },
+			} );
+			return;
+		}
 		if ( latestSession ) {
 			void navigate( {
 				to: '/sessions/$sessionId',
@@ -539,6 +568,7 @@ function findSessionSiteKey(
 export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
+	const { enabled: agenticEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -636,6 +666,7 @@ export function SiteList() {
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
+			agenticEnabled={ agenticEnabled }
 		/>
 	);
 

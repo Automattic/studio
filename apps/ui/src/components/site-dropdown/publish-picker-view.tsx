@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { chevronLeft, plus } from '@wordpress/icons';
 import { Icon, IconButton } from '@wordpress/ui';
 import { useConnector } from '@/data/core';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { usePickableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import styles from './publish-picker-view.module.css';
@@ -20,8 +21,7 @@ type Props = {
 export function PublishPickerView( { site, onClose }: Props ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	// No `enabled` guard needed — this component only mounts when the picker
-	// view is active, which is the same gating condition.
+	const { data: authUser } = useAuthUser();
 	const pickableSites = usePickableWpcomSites();
 
 	const openExternal = ( url: string ) => {
@@ -70,30 +70,32 @@ export function PublishPickerView( { site, onClose }: Props ) {
 				/>
 				<span className={ styles.title }>{ __( 'Publish this site' ) }</span>
 			</div>
-			<div className={ styles.body }>
-				{ pickableSites.isLoading ? (
-					<div className={ styles.status }>{ __( 'Loading sites…' ) }</div>
-				) : pickableSites.data && pickableSites.data.length > 0 ? (
-					<ul className={ styles.list }>
-						{ pickableSites.data.map( ( candidate ) => (
-							<li key={ candidate.id }>
-								<button
-									type="button"
-									className={ styles.item }
-									onClick={ () => void handlePickSite( candidate ) }
-								>
-									<span className={ styles.itemName }>{ candidate.name || candidate.url }</span>
-									<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
-								</button>
-							</li>
-						) ) }
-					</ul>
-				) : (
-					<div className={ styles.status }>
-						{ __( 'No WordPress.com sites available to publish to.' ) }
-					</div>
-				) }
-			</div>
+			{ authUser ? (
+				<div className={ styles.body }>
+					{ pickableSites.isLoading ? (
+						<div className={ styles.status }>{ __( 'Loading sites…' ) }</div>
+					) : pickableSites.data && pickableSites.data.length > 0 ? (
+						<ul className={ styles.list }>
+							{ pickableSites.data.map( ( candidate ) => (
+								<li key={ candidate.id }>
+									<button
+										type="button"
+										className={ styles.item }
+										onClick={ () => void handlePickSite( candidate ) }
+									>
+										<span className={ styles.itemName }>{ candidate.name || candidate.url }</span>
+										<span className={ styles.itemUrl }>{ stripProtocol( candidate.url ) }</span>
+									</button>
+								</li>
+							) ) }
+						</ul>
+					) : (
+						<div className={ styles.status }>
+							{ __( 'No WordPress.com sites available to publish to.' ) }
+						</div>
+					) }
+				</div>
+			) : null }
 			<button type="button" className={ styles.create } onClick={ handleCreateNew }>
 				<Icon icon={ plus } size={ 16 } />
 				<span>{ __( 'Create a new WordPress.com site…' ) }</span>

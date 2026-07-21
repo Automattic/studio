@@ -278,12 +278,65 @@
 	max-inline-size: 100%;
 }
 
-.selectControl > * {
+/* Stretch the trigger to the control's width, but skip the visually-hidden
+   label `hideLabelFromVision` renders: it's absolutely positioned, so
+   stretching it makes it hang past the layout and create horizontal
+   overflow. */
+.selectControl > *:not([data-visually-hidden]) {
 	inline-size: 100%;
 }
 
 .selectControlWide {
 	inline-size: 240px;
+}
+
+.pathPickerButton {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-lg);
+	inline-size: 240px;
+	max-inline-size: 100%;
+	min-block-size: 36px;
+	padding: 0 var(--wpds-dimension-padding-lg);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-interactive-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(--wpds-typography-font-family-body);
+	/* Match SelectControl's trigger text so all controls in a card read the
+	   same size. */
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-align: start;
+	cursor: pointer;
+}
+
+.pathPickerButton:hover {
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+}
+
+.pathPickerButton:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+}
+
+.pathPickerValue,
+.pathPickerPlaceholder {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pathPickerPlaceholder {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.pathPickerIcon {
+	flex-shrink: 0;
+	fill: currentColor;
 }
 
 .shortcutList {

@@ -372,6 +372,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// an editable path field (see capabilities.nativeFolderPicker).
 			return null;
 		},
+		async selectDefaultSiteDirectory(): Promise< string | null > {
+			// No native folder picker in a browser.
+			return null;
+		},
 		async comparePaths( path1, path2 ) {
 			const { equal } = await api< { equal: boolean } >( '/paths/compare', {
 				method: 'POST',
@@ -605,6 +609,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				colorScheme,
 				quitSitesBehavior,
 				locale: undefined,
+				defaultSiteDirectory: '',
 			};
 		},
 		async setUserPreferences( partial ) {

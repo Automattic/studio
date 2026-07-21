@@ -1,7 +1,8 @@
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
+import { file, Icon } from '@wordpress/icons';
 import { Button, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
@@ -198,6 +199,28 @@ function PreferenceSelect< TValue extends string >( {
 	);
 }
 
+function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSelect: () => void } ) {
+	return (
+		<PreferenceRow title={ __( 'Default site directory' ) }>
+			<button
+				type="button"
+				className={ styles.pathPickerButton }
+				aria-label={
+					value
+						? sprintf( __( 'Default site directory: %s. Choose a different folder.' ), value )
+						: __( 'Choose a default site directory' )
+				}
+				onClick={ onSelect }
+			>
+				<span className={ value ? styles.pathPickerValue : styles.pathPickerPlaceholder }>
+					{ value || __( 'Choose a folder…' ) }
+				</span>
+				<Icon icon={ file } className={ styles.pathPickerIcon } />
+			</button>
+		</PreferenceRow>
+	);
+}
+
 function StudioExperienceSection() {
 	const connector = useConnector();
 	return (
@@ -224,12 +247,14 @@ function PreferencesPanel( {
 	installedApps,
 	saveError,
 	onColorSchemeChange,
+	onDefaultSiteDirectorySelect,
 	onChange,
 }: {
 	data: PreferencesFormData;
 	installedApps: InstalledApps | undefined;
 	saveError: boolean;
 	onColorSchemeChange: ( value: ColorScheme ) => void;
+	onDefaultSiteDirectorySelect: () => void;
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
 } ) {
 	return (
@@ -266,6 +291,10 @@ function PreferencesPanel( {
 						onChange={ ( terminal ) => onChange( { terminal } ) }
 					/>
 				</PreferenceRow>
+				<DefaultSiteDirectoryField
+					value={ data.defaultSiteDirectory }
+					onSelect={ onDefaultSiteDirectorySelect }
+				/>
 				<PreferenceRow title={ __( 'When quitting with running sites' ) }>
 					<PreferenceSelect< QuitSitesBehavior | typeof UNSET >
 						label={ __( 'When quitting with running sites' ) }
@@ -288,6 +317,7 @@ export function SettingsView( {
 	activeTab: TabId;
 	onTabChange: ( tab: TabId ) => void;
 } ) {
+	const connector = useConnector();
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
 	const savePreferences = useSaveUserPreferences();
@@ -345,6 +375,13 @@ export function SettingsView( {
 		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
 	}
 
+	const handleSelectDefaultDirectory = async () => {
+		const directory = await connector.selectDefaultSiteDirectory( data.defaultSiteDirectory );
+		if ( directory ) {
+			handleChange( { defaultSiteDirectory: directory } );
+		}
+	};
+
 	return (
 		<div className={ styles.root }>
 			<Tabs.Root
@@ -365,6 +402,7 @@ export function SettingsView( {
 								installedApps={ installedApps }
 								saveError={ savePreferences.isError }
 								onColorSchemeChange={ handleColorSchemeChange }
+								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
 								onChange={ handleChange }
 							/>
 						</Tabs.Panel>

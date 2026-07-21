@@ -271,12 +271,14 @@
 }
 
 /* Collapsed, only the trailing status button shows; hover/focus/active
-   reveals the site menu button next to it. */
+   reveals the overview button next to it. The header carries
+   `data-popup-open` while its right-click menu is open (Base UI sets it on
+   the context-menu trigger), keeping the row's controls visible. */
 .siteActive .siteActions,
 .siteContextActive .siteActions,
 .siteHeader:hover .siteActions,
 .siteHeader:focus-within .siteActions,
-.siteHeader:has(.siteAction[data-popup-open]) .siteActions {
+.siteHeader[data-popup-open] .siteActions {
 	max-width: 48px;
 }
 
@@ -306,7 +308,7 @@
 .siteContextActive .siteStatus[data-state='stopped'],
 .siteHeader:hover .siteStatus[data-state='stopped'],
 .siteHeader:focus-within .siteStatus[data-state='stopped'],
-.siteHeader:has(.siteAction[data-popup-open]) .siteStatus[data-state='stopped'] {
+.siteHeader[data-popup-open] .siteStatus[data-state='stopped'] {
 	opacity: 1;
 }
 

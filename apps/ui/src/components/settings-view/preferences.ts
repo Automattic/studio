@@ -20,6 +20,7 @@ export interface PreferencesFormData {
 	colorScheme: ColorScheme;
 	quitSitesBehavior: QuitSitesBehavior | typeof UNSET;
 	locale: SupportedLocale;
+	defaultSiteDirectory: string;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -36,6 +37,7 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		colorScheme: prefs.colorScheme,
 		quitSitesBehavior: prefs.quitSitesBehavior ?? UNSET,
 		locale: resolveFormLocale( prefs.locale ),
+		defaultSiteDirectory: prefs.defaultSiteDirectory,
 	};
 }
 
@@ -60,6 +62,9 @@ export function toPreferencesPatch(
 			update.quitSitesBehavior === UNSET ? undefined : update.quitSitesBehavior;
 	}
 	if ( update.locale !== undefined ) patch.locale = update.locale;
+	if ( update.defaultSiteDirectory !== undefined ) {
+		patch.defaultSiteDirectory = update.defaultSiteDirectory;
+	}
 
 	return patch;
 }

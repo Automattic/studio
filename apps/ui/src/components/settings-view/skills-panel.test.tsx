@@ -198,7 +198,7 @@ describe( 'SkillsPanel', () => {
 
 		render( <SkillsPanel /> );
 
-		expect( screen.getByText( 'Loading skills...' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Loading skills…' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows the empty state when no skills exist', () => {

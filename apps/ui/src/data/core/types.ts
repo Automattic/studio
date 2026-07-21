@@ -313,11 +313,6 @@ export interface Connector {
 	// host has no native picker — see capabilities.nativeFolderPicker).
 	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
 
-	// Static facts about the host (platform, app version, feature flags).
-	// Browser connectors report `platform: 'browser'` so the UI can hide
-	// native-only preferences.
-	getAppGlobals(): Promise< AppGlobals >;
-
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
 	// installed.
@@ -402,15 +397,6 @@ export interface UserPreferences {
 	quitSitesBehavior?: QuitSitesBehavior;
 	locale: string | undefined;
 	defaultSiteDirectory: string;
-}
-
-export interface AppGlobals {
-	platform: string;
-	appName: string;
-	appVersion: string;
-	arm64Translation: boolean;
-	isWindowsStore: boolean;
-	enableAgenticUi: boolean;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

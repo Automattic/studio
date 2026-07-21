@@ -5,7 +5,6 @@ import type {
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
-	AppGlobals,
 	AuthUser,
 	ColorScheme,
 	Connector,
@@ -649,10 +648,6 @@ export function createIpcConnector(): Connector {
 				return response || null;
 			}
 			return response?.path ?? null;
-		},
-
-		async getAppGlobals(): Promise< AppGlobals > {
-			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

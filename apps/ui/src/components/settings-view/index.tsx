@@ -9,7 +9,6 @@ import { useCallback, useEffect, useState } from 'react';
 import * as Tabs from '@/components/tabs';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
-import { useAppGlobals } from '@/data/queries/use-app-globals';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
@@ -241,7 +240,6 @@ function PreferencesPanel( {
 	data,
 	installedApps,
 	saveError,
-	showNativePreferences,
 	onColorSchemeChange,
 	onDefaultSiteDirectorySelect,
 	onChange,
@@ -249,7 +247,6 @@ function PreferencesPanel( {
 	data: PreferencesFormData;
 	installedApps: InstalledApps | undefined;
 	saveError: boolean;
-	showNativePreferences: boolean;
 	onColorSchemeChange: ( value: ColorScheme ) => void;
 	onDefaultSiteDirectorySelect: () => void;
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
@@ -272,30 +269,26 @@ function PreferencesPanel( {
 						onChange={ ( locale ) => onChange( { locale } ) }
 					/>
 				</PreferenceRow>
-				{ showNativePreferences ? (
-					<>
-						<PreferenceRow title={ __( 'Preferred editor' ) }>
-							<PreferenceSelect< SupportedEditor | typeof UNSET >
-								label={ __( 'Preferred editor' ) }
-								value={ data.editor }
-								options={ editorElements( installedApps ) }
-								onChange={ ( editor ) => onChange( { editor } ) }
-							/>
-						</PreferenceRow>
-						<PreferenceRow title={ __( 'Preferred terminal' ) }>
-							<PreferenceSelect< SupportedTerminal | typeof UNSET >
-								label={ __( 'Preferred terminal' ) }
-								value={ data.terminal }
-								options={ terminalElements( installedApps ) }
-								onChange={ ( terminal ) => onChange( { terminal } ) }
-							/>
-						</PreferenceRow>
-						<DefaultSiteDirectoryField
-							value={ data.defaultSiteDirectory }
-							onSelect={ onDefaultSiteDirectorySelect }
-						/>
-					</>
-				) : null }
+				<PreferenceRow title={ __( 'Preferred editor' ) }>
+					<PreferenceSelect< SupportedEditor | typeof UNSET >
+						label={ __( 'Preferred editor' ) }
+						value={ data.editor }
+						options={ editorElements( installedApps ) }
+						onChange={ ( editor ) => onChange( { editor } ) }
+					/>
+				</PreferenceRow>
+				<PreferenceRow title={ __( 'Preferred terminal' ) }>
+					<PreferenceSelect< SupportedTerminal | typeof UNSET >
+						label={ __( 'Preferred terminal' ) }
+						value={ data.terminal }
+						options={ terminalElements( installedApps ) }
+						onChange={ ( terminal ) => onChange( { terminal } ) }
+					/>
+				</PreferenceRow>
+				<DefaultSiteDirectoryField
+					value={ data.defaultSiteDirectory }
+					onSelect={ onDefaultSiteDirectorySelect }
+				/>
 				<PreferenceRow title={ __( 'When quitting with running sites' ) }>
 					<PreferenceSelect< QuitSitesBehavior | typeof UNSET >
 						label={ __( 'When quitting with running sites' ) }
@@ -321,7 +314,6 @@ export function SettingsView( {
 	const connector = useConnector();
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
-	const { data: appGlobals } = useAppGlobals();
 	const savePreferences = useSaveUserPreferences();
 
 	const [ data, setData ] = useState< PreferencesFormData | null >( null );
@@ -373,8 +365,7 @@ export function SettingsView( {
 		[ handleChange ]
 	);
 
-	// Also wait for appGlobals so native-only rows don't flash in the browser.
-	if ( isLoading || ! data || ! saved || ! appGlobals ) {
+	if ( isLoading || ! data || ! saved ) {
 		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
 	}
 
@@ -404,7 +395,6 @@ export function SettingsView( {
 								data={ data }
 								installedApps={ installedApps }
 								saveError={ savePreferences.isError }
-								showNativePreferences={ appGlobals.platform !== 'browser' }
 								onColorSchemeChange={ handleColorSchemeChange }
 								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
 								onChange={ handleChange }

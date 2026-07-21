@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
-import { useAppGlobals } from '@/data/queries/use-app-globals';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SettingsView } from './index';
@@ -75,10 +74,6 @@ vi.mock( '@/data/core/query-client', () => ( {
 	persister: { removeClient: vi.fn( () => Promise.resolve() ) },
 } ) );
 
-vi.mock( '@/data/queries/use-app-globals', () => ( {
-	useAppGlobals: vi.fn(),
-} ) );
-
 vi.mock( '@/data/queries/use-installed-apps', () => ( {
 	useInstalledApps: vi.fn(),
 } ) );
@@ -97,7 +92,6 @@ vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );
-const useAppGlobalsMock = vi.mocked( useAppGlobals );
 const useInstalledAppsMock = vi.mocked( useInstalledApps );
 const useSaveUserPreferencesMock = vi.mocked( useSaveUserPreferences );
 const useUserPreferencesMock = vi.mocked( useUserPreferences );
@@ -119,7 +113,6 @@ describe( 'SettingsView', () => {
 		} );
 
 		useConnectorMock.mockReturnValue( { disableAgenticUi, selectDefaultSiteDirectory } as never );
-		useAppGlobalsMock.mockReturnValue( { data: { platform: 'darwin' } } as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },
 		} as never );
@@ -219,28 +212,6 @@ describe( 'SettingsView', () => {
 
 		await waitFor( () => expect( selectDefaultSiteDirectory ).toHaveBeenCalled() );
 		expect( mutate ).not.toHaveBeenCalled();
-	} );
-
-	it( 'hides native-only preferences on browser platforms', () => {
-		useAppGlobalsMock.mockReturnValue( { data: { platform: 'browser' } } as never );
-
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
-
-		expect( screen.queryByLabelText( 'Preferred editor' ) ).not.toBeInTheDocument();
-		expect( screen.queryByLabelText( 'Preferred terminal' ) ).not.toBeInTheDocument();
-		expect(
-			screen.queryByRole( 'button', { name: /Default site directory/ } )
-		).not.toBeInTheDocument();
-		expect( screen.getByLabelText( 'Language' ) ).toBeInTheDocument();
-	} );
-
-	it( 'stays on the loading state until appGlobals resolves (no native-control flash)', () => {
-		useAppGlobalsMock.mockReturnValue( { data: undefined } as never );
-
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
-
-		expect( screen.getByText( 'Loading…' ) ).toBeInTheDocument();
-		expect( screen.queryByLabelText( 'Preferred editor' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'surfaces a save error inline in the section', () => {

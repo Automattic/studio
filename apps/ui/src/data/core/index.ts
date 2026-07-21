@@ -3,7 +3,6 @@ export { queryClient, persistPromise } from './query-client';
 export type {
 	AiModelId,
 	AiSessionSummary,
-	AppGlobals,
 	AuthUser,
 	ColorScheme,
 	Connector,

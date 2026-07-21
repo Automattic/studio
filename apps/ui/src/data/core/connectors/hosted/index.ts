@@ -5,7 +5,6 @@ import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
-	AppGlobals,
 	AuthUser,
 	Connector,
 	InstalledApps,
@@ -321,16 +320,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async selectDefaultSiteDirectory(): Promise< string | null > {
 			// No native folder picker in a browser.
 			return null;
-		},
-		async getAppGlobals(): Promise< AppGlobals > {
-			return {
-				platform: 'browser',
-				appName: 'WordPress Studio',
-				appVersion: '',
-				arm64Translation: false,
-				isWindowsStore: false,
-				enableAgenticUi: true,
-			};
 		},
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;

@@ -7,15 +7,21 @@
  */
 
 import { mkdirSync, writeFileSync, writeSync as fsWriteSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
+import {
+	readGlobalInstructionsFile,
+	writeGlobalInstructions,
+} from '@studio/common/ai/global-instructions';
 import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import { findLastAssistant } from '@studio/common/ai/session-events';
 import {
 	addConnectedWpcomSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
+import { getGlobalInstructionsPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { syncSiteSchema, type SyncSite } from '@studio/common/types/sync';
 import { z } from 'zod';
@@ -52,6 +58,7 @@ const evalSeedSchema = z.object( {
 		.optional(),
 	connectedWpcomSites: z.array( syncSiteSchema ).optional(),
 	snapshots: z.array( snapshotSchema ).optional(),
+	globalInstructions: z.string().optional(),
 } );
 type EvalSeed = z.infer< typeof evalSeedSchema >;
 
@@ -66,9 +73,21 @@ interface EvalRunnerInput {
  * Writes the requested fixtures into cli.json (local site + snapshots) and
  * shared.json (connected WordPress.com sites). Returns a cleanup function that
  * removes exactly what was added, so reruns start from a clean slate.
+ * `globalInstructions` is the exception: it overwrites the user's real
+ * instructions file, so cleanup restores the prior content instead.
  */
 async function seedFixtures( seed: EvalSeed ): Promise< () => Promise< void > > {
-	const { localSite, connectedWpcomSites = [], snapshots = [] } = seed;
+	const { localSite, connectedWpcomSites = [], snapshots = [], globalInstructions } = seed;
+
+	let restoreInstructions: ( () => Promise< void > ) | null = null;
+	if ( typeof globalInstructions === 'string' ) {
+		const prior = await readGlobalInstructionsFile();
+		restoreInstructions =
+			prior === null
+				? () => rm( getGlobalInstructionsPath(), { force: true } )
+				: () => writeGlobalInstructions( prior );
+		await writeGlobalInstructions( globalInstructions );
+	}
 
 	if ( localSite || snapshots.length > 0 ) {
 		try {
@@ -100,6 +119,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< () => Promise< void > > 
 	}
 
 	return async () => {
+		await restoreInstructions?.().catch( () => undefined );
 		for ( const site of seededConnections ) {
 			await removeConnectedWpcomSite( site.localSiteId, site.id ).catch( () => undefined );
 		}

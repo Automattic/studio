@@ -82,20 +82,30 @@ function DashboardLayoutContent() {
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;
 	const previewSite = routeSite ?? lastPreviewSite;
+	const previewSiteId = previewSite?.id;
+	const { setSite: setPreviewSite } = preview;
+	useEffect( () => {
+		if ( previewSiteId ) {
+			setPreviewSite( previewSiteId );
+		}
+	}, [ previewSiteId, setPreviewSite ] );
+	// Until the store catches up with the new site, fall back to the home path
+	// so the preview never loads the previous site's path on the new site.
+	const previewPath = previewSiteId && preview.siteId === previewSiteId ? preview.path : '/';
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>
 			previewSite ? (
 				<SitePreview
 					site={ previewSite }
-					path={ preview.path }
+					path={ previewPath }
 					reloadNonce={ preview.reloadNonce }
 					onAnnotationsDone={ onAnnotationsDone }
 					onPathChange={ preview.updatePath }
 					collapsed={ collapsed }
 				/>
 			) : null,
-		[ onAnnotationsDone, preview.path, preview.reloadNonce, preview.updatePath, previewSite ]
+		[ onAnnotationsDone, previewPath, preview.reloadNonce, preview.updatePath, previewSite ]
 	);
 
 	return (

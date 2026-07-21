@@ -29,6 +29,9 @@ interface PreviewUIState {
 	open: boolean;
 	path: string;
 	reloadNonce: number;
+	// Id of the site the current `path` belongs to, so switching to a preview
+	// of a different site resets the path instead of carrying it across.
+	siteId: string | null;
 }
 
 export interface SessionUIState {
@@ -40,10 +43,11 @@ export type SessionUIAction =
 	| { type: 'preview/toggle' }
 	| { type: 'preview/navigate'; path: string }
 	| { type: 'preview/reload' }
-	| { type: 'preview/update-path'; path: string };
+	| { type: 'preview/update-path'; path: string }
+	| { type: 'preview/set-site'; siteId: string };
 
 const INITIAL_STATE: SessionUIState = {
-	preview: { open: true, path: '/', reloadNonce: 0 },
+	preview: { open: true, path: '/', reloadNonce: 0, siteId: null },
 };
 
 function reducer( state: SessionUIState, action: SessionUIAction ): SessionUIState {
@@ -79,6 +83,12 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 			return state.preview.path === action.path
 				? state
 				: { ...state, preview: { ...state.preview, path: action.path } };
+		case 'preview/set-site':
+			// Switching the previewed site resets the path so the new site opens
+			// at its home page rather than inheriting the previous site's path.
+			return state.preview.siteId === action.siteId
+				? state
+				: { ...state, preview: { ...state.preview, siteId: action.siteId, path: '/' } };
 	}
 }
 
@@ -146,9 +156,11 @@ export interface SessionPreviewUI {
 	readonly open: boolean;
 	readonly path: string;
 	readonly reloadNonce: number;
+	readonly siteId: string | null;
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
 	updatePath: ( path: string ) => void;
+	setSite: ( siteId: string ) => void;
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {
@@ -163,22 +175,30 @@ export function useSessionPreviewUI(): SessionPreviewUI {
 		( path: string ) => dispatch( { type: 'preview/update-path', path } ),
 		[ dispatch ]
 	);
+	const setSite = useCallback(
+		( siteId: string ) => dispatch( { type: 'preview/set-site', siteId } ),
+		[ dispatch ]
+	);
 	return useMemo(
 		() => ( {
 			open: state.preview.open,
 			path: state.preview.path,
 			reloadNonce: state.preview.reloadNonce,
+			siteId: state.preview.siteId,
 			setOpen,
 			toggle,
 			updatePath,
+			setSite,
 		} ),
 		[
 			state.preview.open,
 			state.preview.path,
 			state.preview.reloadNonce,
+			state.preview.siteId,
 			setOpen,
 			toggle,
 			updatePath,
+			setSite,
 		]
 	);
 }

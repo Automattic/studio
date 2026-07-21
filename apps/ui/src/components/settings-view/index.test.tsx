@@ -66,8 +66,22 @@ vi.mock( '@/components/tabs', () => ( {
 	Panel: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
 } ) );
 
+vi.mock( '@/components/gravatar', () => ( {
+	Gravatar: () => <span data-testid="gravatar" />,
+} ) );
+
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-auth-user', () => ( {
+	useAuthUser: () => ( { data: null, isLoading: false } ),
+	useLogin: () => ( { mutate: vi.fn(), isPending: false } ),
+	useLogout: () => ( { mutate: vi.fn(), isPending: false } ),
+} ) );
+
+vi.mock( '@/hooks/use-color-scheme', () => ( {
+	useColorScheme: () => 'light',
 } ) );
 
 vi.mock( './mcp-panel', () => ( {

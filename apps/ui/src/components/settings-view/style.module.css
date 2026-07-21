@@ -290,6 +290,70 @@
 	inline-size: 240px;
 }
 
+.accountSectionHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-xl);
+	margin-block-end: var(--wpds-dimension-padding-xl);
+}
+
+.accountHeading {
+	margin-block-end: 0;
+}
+
+.accountActions {
+	display: flex;
+	gap: var(--wpds-dimension-padding-md);
+	flex-wrap: wrap;
+}
+
+.accountSummary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-xl);
+	min-width: 0;
+}
+
+.accountIdentity {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+.accountAvatar {
+	flex: 0 0 44px;
+	inline-size: 44px;
+	block-size: 44px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.accountDetails {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.accountDetails h2 {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.accountDetails p {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	overflow-wrap: anywhere;
+}
+
 .pathPickerButton {
 	box-sizing: border-box;
 	display: flex;
@@ -398,6 +462,12 @@
 		align-items: stretch;
 		grid-template-columns: 1fr;
 		row-gap: var(--wpds-dimension-padding-sm);
+	}
+
+	.accountSectionHeader,
+	.accountSummary {
+		align-items: flex-start;
+		flex-direction: column;
 	}
 
 	.preferenceText h2 {

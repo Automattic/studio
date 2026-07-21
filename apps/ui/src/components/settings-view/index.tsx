@@ -13,6 +13,7 @@ import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { AccountSection } from './account-section';
 import { KeyboardPanel } from './keyboard-panel';
 import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
@@ -305,6 +306,7 @@ function PreferencesPanel( {
 					/>
 				</PreferenceRow>
 			</section>
+			<AccountSection />
 			<StudioExperienceSection />
 		</div>
 	);

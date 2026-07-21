@@ -25,11 +25,14 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 **Main Process** (`apps/studio/src/`): IPC handlers, site servers, storage, OAuth, sync, migrations
 **Renderer** (`apps/studio/src/components`, `apps/studio/src/hooks`): React UI, Redux stores, TailwindCSS
 **CLI** (`apps/cli/`): WordPress Playground (PHP WASM), yargs commands, child process of desktop app
+**Browser UI** (second front end, alongside Electron): `studio ui` starts `@studio/local` (Express + SSE), which serves the `apps/ui` React app and forks the CLI for site and agent operations. `@studio/hosted` is the experimental remote backend for that same UI.
 
 ## Directory Structure
 
 **`/apps/studio/src`**: Main (index.ts, ipc-handlers.ts, site-server.ts, storage/, lib/) | Renderer (components/, hooks/, stores/) | modules/ (sync, cli, user-settings, preview-site)
 **`/apps/cli`**: index.ts, commands/ (auth, preview, site), lib/ (appdata, i18n, browser)
+**`/apps/ui`**: Agentic browser UI (`@studio/ui`). app/ (providers, router), components/, data/, hooks/, lib/. **Different stack from `apps/studio`** — React 19, TanStack Query + Router, `@wordpress/ui` + `ThemeProvider`; no Redux, no Tailwind. Built per target: `build:local` / `build:hosted`.
+**`/apps/local`**, **`/apps/hosted`**: HTTP/SSE backends for `apps/ui`. `local` is bundled into the CLI; `hosted` is experimental.
 **`/packages/common`**: Shared lib/ (fs-utils, port-finder, oauth), types/, translations/
 **`/tools/eslint-plugin-studio`**: eslint-plugin-studio
 

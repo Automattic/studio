@@ -1,9 +1,10 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { chevronDownSmall } from '@wordpress/icons';
 import { Button, Icon, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import { SiteIcon } from '@/components/site-icon';
+import { XdebugIcon } from '@/components/xdebug-icon';
 import styles from './dropdown-trigger.module.css';
 import type { TriggerSecondaryTone } from './trigger-secondary';
 import type { ComponentProps, ElementRef } from 'react';
@@ -20,6 +21,7 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	secondaryTone?: TriggerSecondaryTone;
 	showSiteIcon?: boolean;
 	showStatus?: boolean;
+	xdebug?: boolean;
 	siteIconSeed?: string;
 	siteIconImage?: string | null;
 	// The floating-card shadow suits placements where the trigger overlays
@@ -39,6 +41,7 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 			secondaryTone = 'neutral',
 			showSiteIcon = false,
 			showStatus = true,
+			xdebug = false,
 			siteIconSeed,
 			siteIconImage,
 			floating = true,
@@ -51,22 +54,30 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 		// to what the agent targets; use a dedicated dot color so the trigger
 		// still reflects the active target.
 		const isLive = environment === 'live';
+		const showXdebug = xdebug && ! isLive;
 		const dotClass = environment === 'live' ? styles.dot_live : styles[ `dot_${ status }` ];
 		const statusClass =
 			environment === 'live' ? styles.statusBadge_live : styles[ `statusBadge_${ status }` ];
-		const dotLabel = isLive ? __( 'Live site' ) : statusLabel;
+		const dotLabel = isLive
+			? __( 'Live site' )
+			: showXdebug
+			? sprintf( __( '%s. Xdebug enabled' ), statusLabel )
+			: statusLabel;
 		const statusBadge = showStatus ? (
 			<span
 				className={ clsx(
 					styles.statusBadge,
 					showSiteIcon && styles.statusBadge_overlay,
-					statusClass
+					statusClass,
+					showXdebug && styles.statusBadge_xdebug
 				) }
 				role="img"
 				aria-label={ dotLabel }
 				title={ dotLabel }
 			>
-				{ status === 'stopped' && ! isLive ? (
+				{ showXdebug ? (
+					<XdebugIcon className={ styles.xdebugGlyph } />
+				) : status === 'stopped' && ! isLive ? (
 					<span className={ styles.pauseMark } aria-hidden="true" />
 				) : (
 					<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />

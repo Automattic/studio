@@ -162,10 +162,6 @@ export function getNativePhpIniContents( phpVersion: NativePhpSupportedVersion )
 	);
 	const directives: string[] = [
 		'memory_limit=512M',
-		// The cli-server SAPI (php -S) defaults max_execution_time to 30s, unlike
-		// the plain cli SAPI's 0. Lift it so long-running local dev requests
-		// aren't killed, matching the sandbox (Playground) runtime, which imposes
-		// no request timeout.
 		'max_execution_time=0',
 		'post_max_size=2G',
 		'upload_max_filesize=2G',

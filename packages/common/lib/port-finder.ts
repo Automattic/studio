@@ -1,4 +1,3 @@
-import http from 'http';
 import net from 'net';
 
 const basePortOverride = Number( process.env.STUDIO_BASE_PORT );
@@ -9,30 +8,14 @@ let searchPort = DEFAULT_PORT;
 let openPort: number | null = null;
 const unavailablePorts: Array< number > = [];
 
+// Probe by binding the loopback host the site server uses (php-server-child.ts).
+// A single bind avoids the per-port connect/destroy socket churn that crashed
+// Node on Windows.
 function isPortFree( portToCheck: number ): Promise< boolean > {
 	return new Promise( ( resolve ) => {
-		// First try to connect to the port
-		const socket = new net.Socket();
-		socket.on( 'error', () => {
-			// If we can't connect, try to bind to the port
-			const server = http.createServer();
-			server
-				.listen( portToCheck, () => {
-					server.close();
-					setTimeout( () => {
-						resolve( true );
-					}, 50 ); // Add a small delay to ensure port is released
-				} )
-				.on( 'error', () => {
-					resolve( false );
-				} );
-		} );
-
-		// Try to connect to the port
-		socket.connect( portToCheck, 'localhost', () => {
-			socket.destroy();
-			resolve( false );
-		} );
+		const server = net.createServer();
+		server.once( 'error', () => resolve( false ) );
+		server.listen( portToCheck, '127.0.0.1', () => server.close( () => resolve( true ) ) );
 	} );
 }
 

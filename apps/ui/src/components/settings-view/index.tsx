@@ -13,6 +13,7 @@ import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-u
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AccountSection } from './account-section';
+import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import styles from './style.module.css';
 import type { PreferencesFormData } from './preferences';
@@ -26,10 +27,10 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-type TabId = 'preferences';
+type TabId = 'preferences' | 'mcp';
 
 export function isSettingsTab( value: string ): value is TabId {
-	return value === 'preferences';
+	return value === 'preferences' || value === 'mcp';
 }
 
 export type SettingsTabId = TabId;
@@ -97,6 +98,7 @@ function SettingsHeader() {
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
 		</div>
@@ -363,6 +365,9 @@ export function SettingsView( {
 								onColorSchemeChange={ handleColorSchemeChange }
 								onChange={ handleChange }
 							/>
+						</Tabs.Panel>
+						<Tabs.Panel tabId="mcp">
+							<McpPanel />
 						</Tabs.Panel>
 					</div>
 				</div>

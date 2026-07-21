@@ -84,6 +84,10 @@ vi.mock( '@/hooks/use-color-scheme', () => ( {
 	useColorScheme: () => 'light',
 } ) );
 
+vi.mock( './mcp-panel', () => ( {
+	McpPanel: () => <div data-testid="mcp-panel" />,
+} ) );
+
 vi.mock( '@/data/core/query-client', () => ( {
 	persister: { removeClient: vi.fn( () => Promise.resolve() ) },
 } ) );

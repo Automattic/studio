@@ -74,6 +74,10 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+vi.mock( './skills-panel', () => ( {
+	SkillsPanel: () => null,
+} ) );
+
 vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: () => ( { data: null, isLoading: false } ),
 	useLogin: () => ( { mutate: vi.fn(), isPending: false } ),

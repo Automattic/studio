@@ -196,40 +196,10 @@
 }
 
 .siteAgentActivitySync {
+	--sync-activity-indicator-color: var(--site-list-sync-indicator-bg);
+
 	display: inline-grid;
 	place-items: center;
-	color: var(--site-list-sync-indicator-bg);
-}
-
-.siteAgentActivitySyncDots {
-	display: inline-flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 1px;
-	inline-size: 8px;
-	block-size: 13px;
-	transform-origin: center;
-	animation: siteAgentSyncHalfTurn 5.2s ease-in-out infinite;
-}
-
-.siteAgentActivitySyncDot {
-	inline-size: 3px;
-	block-size: 3px;
-	border-radius: 999px;
-	background-color: currentColor;
-	animation-name: siteAgentSyncDotBounce;
-	animation-duration: 760ms;
-	animation-iteration-count: infinite;
-	animation-timing-function: ease-in-out;
-}
-
-.siteAgentActivitySyncDot:nth-child(2) {
-	animation-delay: 90ms;
-}
-
-.siteAgentActivitySyncDot:nth-child(3) {
-	animation-delay: 180ms;
 }
 
 .siteName {
@@ -438,36 +408,6 @@
 	}
 }
 
-@keyframes siteAgentSyncHalfTurn {
-	0%,
-	38% {
-		transform: rotate(0deg);
-	}
-
-	48%,
-	88% {
-		transform: rotate(180deg);
-	}
-
-	98%,
-	100% {
-		transform: rotate(360deg);
-	}
-}
-
-@keyframes siteAgentSyncDotBounce {
-	0%,
-	100% {
-		opacity: 0.42;
-		transform: translateY(1px) scale(0.72);
-	}
-
-	45% {
-		opacity: 1;
-		transform: translateY(-2px) scale(1);
-	}
-}
-
 @media (prefers-reduced-motion: reduce) {
 	.siteStatusShape {
 		transition: none;
@@ -484,14 +424,6 @@
 	}
 
 	.siteNameStarting {
-		animation: none;
-	}
-
-	.siteAgentActivitySyncDot {
-		animation: none;
-	}
-
-	.siteAgentActivitySyncDots {
 		animation: none;
 	}
 

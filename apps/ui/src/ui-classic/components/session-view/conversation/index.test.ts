@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createElement, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Conversation, entriesToRenderItems } from './index';
@@ -28,10 +28,6 @@ vi.mock( '@wordpress/ui', () => ( {
 		Popup: () => null,
 		Positioner: () => null,
 	},
-} ) );
-
-vi.mock( '../thinking-indicator', () => ( {
-	ThinkingIndicator: () => null,
 } ) );
 
 beforeEach( () => {
@@ -87,6 +83,99 @@ describe( 'Assistant message copy button', () => {
 } );
 
 describe( 'Conversation tool rows', () => {
+	it( 'collapses consecutive tool calls into an expandable activity summary', () => {
+		const data = loadedSession( [
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/studio/app.tsx' } ),
+			assistantToolCallEntry( 'Edit', { file_path: '/tmp/studio/app.tsx' } ),
+		] );
+
+		renderConversation( data );
+
+		const activity = screen.getByRole( 'button', {
+			name: 'Show activity: 2 tool calls',
+		} );
+		expect( activity ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect(
+			screen.queryByRole( 'button', { name: 'Read studio/app.tsx' } )
+		).not.toBeInTheDocument();
+
+		fireEvent.click( activity );
+
+		expect( activity ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( activity ).toHaveAccessibleName( 'Hide activity: 2 tool calls' );
+		expect( screen.getByRole( 'button', { name: 'Read studio/app.tsx' } ) ).toBeInTheDocument();
+	} );
+
+	it( 'uses the shared summary for a completed single tool and opens its details directly', () => {
+		const data = loadedSession( [
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/studio/app.tsx' } ),
+		] );
+
+		renderConversation( data );
+
+		const summary = screen.getByRole( 'button', {
+			name: 'Show activity: Read studio/app.tsx',
+		} );
+		fireEvent.click( summary );
+
+		expect( summary ).toHaveAccessibleName( 'Hide activity: Read studio/app.tsx' );
+		expect( summary ).toHaveTextContent( '0s' );
+		expect( screen.getByText( /\/tmp\/studio\/app\.tsx/ ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Read studio/app.tsx' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'uses a live whole-run timer for the current tool activity', async () => {
+		const now = new Date( '2026-06-05T12:01:23.000Z' ).getTime();
+		const dateNow = vi.spyOn( Date, 'now' ).mockReturnValue( now );
+		const data = loadedSession( [
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/studio/app.tsx' } ),
+		] );
+
+		renderConversation( data, { isRunning: true, startedAt: now - 83_000 } );
+
+		expect(
+			screen.getByRole( 'button', { name: 'Show activity: Read studio/app.tsx' } )
+		).toBeInTheDocument();
+		await waitFor( () =>
+			expect(
+				screen.getByRole( 'button', { name: 'Show activity: Read studio/app.tsx' } )
+			).toHaveTextContent( '1m 23s' )
+		);
+		dateNow.mockRestore();
+	} );
+
+	it( 'uses a playful shared activity summary without an ellipsis and with the run timer', async () => {
+		const now = new Date( '2026-06-05T12:01:23.000Z' ).getTime();
+		const dateNow = vi.spyOn( Date, 'now' ).mockReturnValue( now );
+		const data = loadedSession( [] );
+
+		renderConversation( data, { isRunning: true, startedAt: now - 83_000 } );
+
+		expect( screen.getByRole( 'status' ) ).not.toHaveTextContent( '…' );
+		await waitFor( () => expect( screen.getByRole( 'status' ) ).toHaveTextContent( '1m 23s' ) );
+		dateNow.mockRestore();
+	} );
+
+	it( 'uses real progress as the shared working summary when available', () => {
+		const data = loadedSession( [
+			{
+				type: 'custom',
+				id: 'progress-1',
+				parentId: null,
+				timestamp: '2026-06-05T12:00:00.000Z',
+				customType: 'studio.tool_progress',
+				data: { message: 'Preparing the site' },
+			} as unknown as SessionEntry,
+		] );
+
+		renderConversation( data, { isRunning: true } );
+
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Preparing the site' );
+		expect( screen.queryByText( 'Working' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'keeps tool inputs and results hidden until the label row is clicked', () => {
 		const data = loadedSession( [
 			assistantToolCallEntry( 'Bash', { command: 'npm test' } ),
@@ -95,10 +184,12 @@ describe( 'Conversation tool rows', () => {
 
 		renderConversation( data );
 
-		expect( screen.queryByText( 'npm test' ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'npm test' ) ).not.toBeVisible();
+		expect( screen.getByText( /first output line/ ) ).not.toBeVisible();
 
-		const toolRow = screen.getByRole( 'button', { name: 'Run terminal command' } );
+		const toolRow = screen.getByRole( 'button', {
+			name: 'Show activity: Run terminal command',
+		} );
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
 		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
 
@@ -113,10 +204,8 @@ describe( 'Conversation tool rows', () => {
 
 		expect( toolRow ).toHaveAttribute( 'aria-expanded', 'false' );
 		expect( toolRow ).toHaveAttribute( 'data-expanded', 'false' );
-		const hiddenDetails = screen.getByText( /first output line/ ).closest( '[aria-hidden="true"]' );
+		const hiddenDetails = screen.getByText( /first output line/ ).closest( '[hidden]' );
 		expect( hiddenDetails ).toBeInTheDocument();
-		fireEvent.transitionEnd( hiddenDetails! );
-		expect( screen.queryByText( /first output line/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows long tool results in the opened details without an extra toggle', () => {
@@ -133,7 +222,9 @@ describe( 'Conversation tool rows', () => {
 
 		expect( screen.queryByRole( 'button', { name: 'Show more' } ) ).not.toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Run terminal command' } ) );
+		fireEvent.click(
+			screen.getByRole( 'button', { name: 'Show activity: Run terminal command' } )
+		);
 
 		expect( screen.getByText( /output line 13/ ) ).toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Show more' } ) ).not.toBeInTheDocument();
@@ -150,9 +241,11 @@ describe( 'Conversation tool rows', () => {
 
 		renderConversation( data );
 
-		const toolRow = screen.getByRole( 'button', { name: 'List published posts' } );
+		const toolRow = screen.getByRole( 'button', {
+			name: 'Show activity: List published posts',
+		} );
 		expect( toolRow ).toBeInTheDocument();
-		expect( screen.queryByText( /--fields=ID/ ) ).not.toBeInTheDocument();
+		expect( screen.getByText( /--fields=ID/ ) ).not.toBeVisible();
 
 		fireEvent.click( toolRow );
 
@@ -168,10 +261,9 @@ describe( 'Conversation tool rows', () => {
 
 		renderConversation( data );
 
-		expect( screen.getByRole( 'button', { name: 'Read studio/app.tsx' } ) ).toHaveAttribute(
-			'aria-label',
-			'Read studio/app.tsx'
-		);
+		expect(
+			screen.getByRole( 'button', { name: 'Show activity: Read studio/app.tsx' } )
+		).toHaveAttribute( 'aria-label', 'Show activity: Read studio/app.tsx' );
 	} );
 
 	it( 'hides the raw Ask User tool row while showing the question UI', () => {
@@ -212,7 +304,7 @@ describe( 'Conversation tool rows', () => {
 		] );
 
 		renderConversation( data );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Take screenshot' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Show activity: Take screenshot' } ) );
 
 		expect( screen.getByText( /Screenshot captured/ ) ).toBeInTheDocument();
 		expect( screen.queryByText( /mediaWidgetPayload/ ) ).not.toBeInTheDocument();

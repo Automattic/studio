@@ -1,0 +1,69 @@
+.root {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	gap: 1px;
+	inline-size: 13px;
+	block-size: 8px;
+	color: var(--wpds-color-fg-interactive-brand);
+	transform-origin: center;
+	animation: workingActivityHalfTurn 5.2s ease-in-out infinite;
+}
+
+.dot {
+	inline-size: 3px;
+	block-size: 3px;
+	border-radius: 999px;
+	background-color: currentColor;
+	animation: workingActivityDotBounce 760ms ease-in-out infinite;
+}
+
+.dot:nth-child(2) {
+	animation-delay: 90ms;
+}
+
+.dot:nth-child(3) {
+	animation-delay: 180ms;
+}
+
+@keyframes workingActivityHalfTurn {
+	0%,
+	38% {
+		transform: rotate(0deg);
+	}
+
+	48%,
+	88% {
+		transform: rotate(180deg);
+	}
+
+	98%,
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes workingActivityDotBounce {
+	0%,
+	100% {
+		opacity: 0.42;
+		transform: translateY(1px) scale(0.72);
+	}
+
+	45% {
+		opacity: 1;
+		transform: translateY(-2px) scale(1);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.root,
+	.dot {
+		animation: none;
+	}
+
+	.dot {
+		opacity: 0.72;
+	}
+}

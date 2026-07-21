@@ -10,6 +10,7 @@ import { clsx } from 'clsx';
 import {
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 	type MouseEvent,
 	type PointerEvent as ReactPointerEvent,
@@ -491,6 +492,15 @@ function SiteSection( {
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
+	const sectionRef = useRef< HTMLElement >( null );
+	const isActive = isChatActive || isContextActive;
+	// Keep the active site visible — e.g. when launch restores a site that
+	// sits below the sidebar's fold. `nearest` no-ops when already visible.
+	useEffect( () => {
+		if ( isActive ) {
+			sectionRef.current?.scrollIntoView?.( { block: 'nearest' } );
+		}
+	}, [ isActive ] );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const { status } = deriveSiteStatus( site, isStarting, isStopping );
@@ -531,6 +541,7 @@ function SiteSection( {
 
 	return (
 		<section
+			ref={ sectionRef }
 			className={ clsx(
 				styles.site,
 				isChatActive && styles.siteActive,

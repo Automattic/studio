@@ -9,6 +9,7 @@ const SAVED_PREFERENCES: UserPreferences = {
 	quitSitesBehavior: 'stop',
 	locale: 'en',
 	analyticsEnabled: true,
+	defaultSiteDirectory: '/Users/example/Studio',
 };
 
 describe( 'settings preference helpers', () => {
@@ -28,6 +29,7 @@ describe( 'settings preference helpers', () => {
 			quitSitesBehavior: UNSET,
 			locale: 'en',
 			analyticsEnabled: true,
+			defaultSiteDirectory: '/Users/example/Studio',
 		} );
 	} );
 
@@ -40,6 +42,9 @@ describe( 'settings preference helpers', () => {
 		expect( toPreferencesPatch( { locale: 'es' } ) ).toEqual( { locale: 'es' } );
 		expect( toPreferencesPatch( { quitSitesBehavior: 'leave-running' } ) ).toEqual( {
 			quitSitesBehavior: 'leave-running',
+		} );
+		expect( toPreferencesPatch( { defaultSiteDirectory: '/Users/example/Sites' } ) ).toEqual( {
+			defaultSiteDirectory: '/Users/example/Sites',
 		} );
 	} );
 
@@ -62,6 +67,7 @@ describe( 'settings preference helpers', () => {
 				colorScheme: 'dark',
 				quitSitesBehavior: 'stop-and-auto-start',
 				locale: 'es',
+				defaultSiteDirectory: '/Users/example/Sites',
 			} )
 		).toEqual( {
 			editor: null,
@@ -69,6 +75,7 @@ describe( 'settings preference helpers', () => {
 			colorScheme: 'dark',
 			quitSitesBehavior: 'stop-and-auto-start',
 			locale: 'es',
+			defaultSiteDirectory: '/Users/example/Sites',
 		} );
 	} );
 } );

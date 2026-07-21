@@ -79,6 +79,9 @@ export interface SiteDetails {
 		path: string;
 		slug: string;
 		isBlockTheme: boolean;
+		// Only supplied by the desktop (IPC) connector.
+		supportsWidgets?: boolean;
+		supportsMenus?: boolean;
 	};
 	siteIcon?: string | null;
 }
@@ -309,6 +312,11 @@ export interface Connector {
 	getUserPreferences(): Promise< UserPreferences >;
 	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
 
+	// Opens a native folder picker for the default-site-directory preference.
+	// Resolves with the chosen path, or `null` when the user cancels (or the
+	// host has no native picker — see capabilities.nativeFolderPicker).
+	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
+
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
 	// installed.
@@ -334,6 +342,11 @@ export interface Connector {
 	openExternalUrl( url: string ): Promise< void >;
 
 	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
+
+	// WordPress agent skills applied to all existing and future sites.
+	getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] >;
+	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
+	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
 
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
@@ -387,6 +400,13 @@ export interface Connector {
 	disableAgenticUi(): Promise< void >;
 }
 
+export interface SkillStatus {
+	id: string;
+	displayName: string;
+	description: string;
+	installed: boolean;
+}
+
 export type ColorScheme = 'system' | 'light' | 'dark';
 export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
 
@@ -399,6 +419,7 @@ export interface UserPreferences {
 	// Whether the user shares anonymous usage statistics (Tracks). Default true.
 	// See `docs/design-docs/analytics-tracks.md`.
 	analyticsEnabled: boolean;
+	defaultSiteDirectory: string;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

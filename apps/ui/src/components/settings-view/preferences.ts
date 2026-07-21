@@ -21,6 +21,7 @@ export interface PreferencesFormData {
 	quitSitesBehavior: QuitSitesBehavior | typeof UNSET;
 	locale: SupportedLocale;
 	analyticsEnabled: boolean;
+	defaultSiteDirectory: string;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -40,6 +41,7 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		// Default to opted-in if absent (e.g. a persisted preferences cache from
 		// before this field existed) so the toggle never renders a false negative.
 		analyticsEnabled: prefs.analyticsEnabled ?? true,
+		defaultSiteDirectory: prefs.defaultSiteDirectory,
 	};
 }
 
@@ -65,6 +67,9 @@ export function toPreferencesPatch(
 	}
 	if ( update.locale !== undefined ) patch.locale = update.locale;
 	if ( update.analyticsEnabled !== undefined ) patch.analyticsEnabled = update.analyticsEnabled;
+	if ( update.defaultSiteDirectory !== undefined ) {
+		patch.defaultSiteDirectory = update.defaultSiteDirectory;
+	}
 
 	return patch;
 }

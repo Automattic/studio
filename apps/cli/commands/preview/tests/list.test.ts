@@ -376,6 +376,34 @@ describe( 'Preview List Command', () => {
 		} );
 	} );
 
+	describe( 'with --format json', () => {
+		let consoleLogSpy: ReturnType< typeof vi.spyOn >;
+
+		beforeEach( () => {
+			consoleLogSpy = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		} );
+
+		it( 'should output only the authenticated user’s snapshots', async () => {
+			await runCommand( mockFolder, 'json' );
+
+			expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id );
+			const json = JSON.stringify( mockSnapshots );
+			expect( consoleLogSpy ).toHaveBeenCalledWith( json );
+			expect( mockReportKeyValuePair ).toHaveBeenCalledWith( 'snapshots', json );
+		} );
+
+		it( 'should output an empty array without erroring when logged out', async () => {
+			vi.mocked( readAuthToken ).mockResolvedValue( null );
+
+			await runCommand( mockFolder, 'json' );
+
+			expect( getSnapshotsFromConfig ).not.toHaveBeenCalled();
+			expect( consoleLogSpy ).toHaveBeenCalledWith( '[]' );
+			expect( mockReportKeyValuePair ).toHaveBeenCalledWith( 'snapshots', '[]' );
+			expect( mockReportError ).not.toHaveBeenCalled();
+		} );
+	} );
+
 	it( 'should prune expired orphaned snapshots even when running without --all', async () => {
 		await runCommand( mockFolder, 'table' );
 

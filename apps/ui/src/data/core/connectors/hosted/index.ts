@@ -312,10 +312,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				quitSitesBehavior: undefined,
 				locale: undefined,
 				analyticsEnabled: true,
+				defaultSiteDirectory: '',
 			};
 		},
 		async setUserPreferences() {
 			// No-op: preferences aren't persisted in the browser yet.
+		},
+		async selectDefaultSiteDirectory(): Promise< string | null > {
+			// No native folder picker in a browser.
+			return null;
 		},
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;
@@ -355,6 +360,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
 			window.open( target, '_blank', 'noopener,noreferrer' );
+		},
+		async getWordPressSkillsStatusAllSites() {
+			return [];
+		},
+		async installWordPressSkillToAllSites() {
+			// No-op: hosted mode does not install local WordPress skills.
+		},
+		async removeWordPressSkillFromAllSites() {
+			// No-op: hosted mode does not install local WordPress skills.
 		},
 
 		// Window chrome — no traffic lights in a browser tab.

@@ -2,7 +2,8 @@ import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { CheckboxControl } from '@wordpress/components';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
+import { file, Icon } from '@wordpress/icons';
 import { Button, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
@@ -13,8 +14,10 @@ import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
+import { AccountSection } from './account-section';
 import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
+import { SkillsPanel } from './skills-panel';
 import styles from './style.module.css';
 import type { PreferencesFormData } from './preferences';
 import type {
@@ -27,10 +30,10 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-type TabId = 'preferences' | 'mcp';
+type TabId = 'preferences' | 'skills' | 'mcp';
 
 export function isSettingsTab( value: string ): value is TabId {
-	return value === 'preferences' || value === 'mcp';
+	return value === 'preferences' || value === 'skills' || value === 'mcp';
 }
 
 export type SettingsTabId = TabId;
@@ -98,6 +101,7 @@ function SettingsHeader() {
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
@@ -195,6 +199,28 @@ function PreferenceSelect< TValue extends string >( {
 	);
 }
 
+function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSelect: () => void } ) {
+	return (
+		<PreferenceRow title={ __( 'Default site directory' ) }>
+			<button
+				type="button"
+				className={ styles.pathPickerButton }
+				aria-label={
+					value
+						? sprintf( __( 'Default site directory: %s. Choose a different folder.' ), value )
+						: __( 'Choose a default site directory' )
+				}
+				onClick={ onSelect }
+			>
+				<span className={ value ? styles.pathPickerValue : styles.pathPickerPlaceholder }>
+					{ value || __( 'Choose a folder…' ) }
+				</span>
+				<Icon icon={ file } className={ styles.pathPickerIcon } />
+			</button>
+		</PreferenceRow>
+	);
+}
+
 function StudioExperienceSection() {
 	const connector = useConnector();
 	return (
@@ -221,12 +247,14 @@ function PreferencesPanel( {
 	installedApps,
 	saveError,
 	onColorSchemeChange,
+	onDefaultSiteDirectorySelect,
 	onChange,
 }: {
 	data: PreferencesFormData;
 	installedApps: InstalledApps | undefined;
 	saveError: boolean;
 	onColorSchemeChange: ( value: ColorScheme ) => void;
+	onDefaultSiteDirectorySelect: () => void;
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
 } ) {
 	return (
@@ -263,6 +291,10 @@ function PreferencesPanel( {
 						onChange={ ( terminal ) => onChange( { terminal } ) }
 					/>
 				</PreferenceRow>
+				<DefaultSiteDirectoryField
+					value={ data.defaultSiteDirectory }
+					onSelect={ onDefaultSiteDirectorySelect }
+				/>
 				<PreferenceRow title={ __( 'When quitting with running sites' ) }>
 					<PreferenceSelect< QuitSitesBehavior | typeof UNSET >
 						label={ __( 'When quitting with running sites' ) }
@@ -281,6 +313,7 @@ function PreferencesPanel( {
 					/>
 				</PreferenceRow>
 			</section>
+			<AccountSection />
 			<StudioExperienceSection />
 		</div>
 	);
@@ -293,6 +326,7 @@ export function SettingsView( {
 	activeTab: TabId;
 	onTabChange: ( tab: TabId ) => void;
 } ) {
+	const connector = useConnector();
 	const { data: saved, isLoading } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
 	const savePreferences = useSaveUserPreferences();
@@ -350,6 +384,13 @@ export function SettingsView( {
 		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
 	}
 
+	const handleSelectDefaultDirectory = async () => {
+		const directory = await connector.selectDefaultSiteDirectory( data.defaultSiteDirectory );
+		if ( directory ) {
+			handleChange( { defaultSiteDirectory: directory } );
+		}
+	};
+
 	return (
 		<div className={ styles.root }>
 			<Tabs.Root
@@ -370,8 +411,12 @@ export function SettingsView( {
 								installedApps={ installedApps }
 								saveError={ savePreferences.isError }
 								onColorSchemeChange={ handleColorSchemeChange }
+								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
 								onChange={ handleChange }
 							/>
+						</Tabs.Panel>
+						<Tabs.Panel tabId="skills">
+							<SkillsPanel />
 						</Tabs.Panel>
 						<Tabs.Panel tabId="mcp">
 							<McpPanel />

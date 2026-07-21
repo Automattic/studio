@@ -7,6 +7,7 @@ import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
+	AppGlobals,
 	AuthUser,
 	ColorScheme,
 	Connector,
@@ -372,6 +373,22 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// an editable path field (see capabilities.nativeFolderPicker).
 			return null;
 		},
+		async selectDefaultSiteDirectory(): Promise< string | null > {
+			// No native folder picker in a browser.
+			return null;
+		},
+		// The UI runs in a browser tab even though the server is local, so
+		// native-only preferences stay hidden.
+		async getAppGlobals(): Promise< AppGlobals > {
+			return {
+				platform: 'browser',
+				appName: 'WordPress Studio',
+				appVersion: '',
+				arm64Translation: false,
+				isWindowsStore: false,
+				enableAgenticUi: true,
+			};
+		},
 		async comparePaths( path1, path2 ) {
 			const { equal } = await api< { equal: boolean } >( '/paths/compare', {
 				method: 'POST',
@@ -605,6 +622,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				colorScheme,
 				quitSitesBehavior,
 				locale: undefined,
+				defaultSiteDirectory: '',
 			};
 		},
 		async setUserPreferences( partial ) {

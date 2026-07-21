@@ -1,4 +1,4 @@
-import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import {
 	__experimentalVStack as VStack,
@@ -74,7 +74,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 			if ( ! file ) {
 				return;
 			}
-			if ( ! isSupportedBackupFilename( file.name ) ) {
+			if ( ! isSupportedBackupFilename( file.name, ACCEPTED_ADD_SITE_FILE_TYPES ) ) {
 				setExtensionError( __( 'Unsupported file type.' ) );
 				return;
 			}
@@ -129,7 +129,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 			<input
 				ref={ fileRef }
 				type="file"
-				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
+				accept={ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }
 				onChange={ handleChange }
 				className="hidden"
 			/>

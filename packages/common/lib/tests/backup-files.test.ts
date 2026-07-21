@@ -13,13 +13,13 @@ describe( 'backup files', () => {
 		'backup.tar',
 		'backup.wpress',
 		'backup.xml',
+		'backup.sql',
 	] )( 'supports %s', ( filename ) => {
 		expect( isSupportedBackupFilename( filename ) ).toBe( true );
 	} );
 
 	it( 'rejects unsupported filenames', () => {
 		expect( isSupportedBackupFilename( 'backup.txt' ) ).toBe( false );
-		expect( isSupportedBackupFilename( 'backup.sql' ) ).toBe( false );
 		expect( isSupportedBackupFilename( 'backup.sql.zip.exe' ) ).toBe( false );
 	} );
 
@@ -29,6 +29,7 @@ describe( 'backup files', () => {
 		[ 'Agency_Export.wpress', 'Agency' ],
 		[ 'shop-2026-07-17.zip', 'shop' ],
 		[ 'my-site.tar.gz', 'my site' ],
+		[ 'database-export.sql', 'database' ],
 	] )( 'suggests a site name from %s', ( filename, expected ) => {
 		expect( getSuggestedSiteNameFromBackupFilename( filename ) ).toBe( expected );
 	} );

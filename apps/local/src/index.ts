@@ -1149,7 +1149,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { summary } = await loadAiSession( sessionsRoot, req.params.id );
-			const patch = req.body as { starred?: boolean; archived?: boolean };
+			const patch = req.body as { archived?: boolean };
 			const [ metadata, placement ] = await Promise.all( [
 				updateSharedSession( summary.id, patch ),
 				readAiSessionPlacement( summary.id ),

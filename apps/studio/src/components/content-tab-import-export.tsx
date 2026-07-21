@@ -162,7 +162,7 @@ const InitialImportButton = ( {
 };
 
 const isValidImportFile = ( file: File ): boolean => {
-	return isSupportedBackupFilename( file.name ) || file.name.toLowerCase().endsWith( '.sql' );
+	return isSupportedBackupFilename( file.name );
 };
 
 const ImportSite = ( {
@@ -326,7 +326,7 @@ const ImportSite = ( {
 				className="hidden"
 				type="file"
 				data-testid="backup-file"
-				accept={ `${ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) },.sql` }
+				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
 				onChange={ onFileSelected }
 			/>
 		</div>

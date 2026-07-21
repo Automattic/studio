@@ -42,6 +42,7 @@ const importerTypeSchema = z.union( [
 	z.literal( 'playground' ),
 	z.literal( 'sql' ),
 	z.literal( 'wpress' ),
+	z.literal( 'xml' ),
 ] );
 
 export const backupExtractProgressEventDataSchema = z.object( {

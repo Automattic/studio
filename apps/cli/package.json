@@ -1,7 +1,7 @@
 {
 	"name": "wp-studio",
 	"author": "Automattic Inc.",
-	"version": "1.15.0",
+	"version": "1.16.0",
 	"productName": "Studio CLI",
 	"description": "WordPress Studio CLI",
 	"license": "GPL-2.0-or-later",
@@ -54,7 +54,7 @@
 		"picospinner": "^3.0.0",
 		"playwright": "^1.52.0",
 		"semver": "^7.7.4",
-		"tar": "^7.5.16",
+		"tar": "^7.5.19",
 		"trash": "^10.0.1",
 		"yargs": "^18.0.0",
 		"yargs-parser": "^22.0.0",

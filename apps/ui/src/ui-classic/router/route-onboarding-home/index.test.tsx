@@ -57,7 +57,7 @@ describe( 'OnboardingHomePage', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: /Import from a backup/ } ) );
 
 		expect( click ).toHaveBeenCalledOnce();
-		expect( input.accept ).not.toContain( '.sql' );
+		expect( input.accept ).toContain( '.sql' );
 		expect( input.accept ).toContain( '.xml' );
 	} );
 
@@ -65,7 +65,7 @@ describe( 'OnboardingHomePage', () => {
 		const { container } = render( <OnboardingHomePage /> );
 		const input = container.querySelector< HTMLInputElement >( 'input[type="file"]' );
 		if ( ! input ) throw new Error( 'Backup input not found' );
-		const file = new File( [ 'backup' ], 'client-site.zip' );
+		const file = new File( [ 'backup' ], 'client-site.sql' );
 
 		fireEvent.change( input, { target: { files: [ file ] } } );
 
@@ -75,7 +75,7 @@ describe( 'OnboardingHomePage', () => {
 
 	it( 'hands a dropped backup File to the import form', () => {
 		render( <OnboardingHomePage /> );
-		const file = new File( [ 'backup' ], 'client-site.wpress' );
+		const file = new File( [ 'backup' ], 'client-site.sql' );
 
 		fireEvent.drop( screen.getByRole( 'button', { name: /Import from a backup/ } ), {
 			dataTransfer: { files: [ file ] },
@@ -109,7 +109,7 @@ describe( 'OnboardingHomePage', () => {
 		const importCard = screen.getByRole( 'button', { name: /Import from a backup/ } );
 
 		fireEvent.change( input, {
-			target: { files: [ new File( [ 'sql' ], 'database.sql' ) ] },
+			target: { files: [ new File( [ 'text' ], 'notes.txt' ) ] },
 		} );
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'This file type is not supported' );
 

@@ -49,10 +49,14 @@ steps:
 
   - label: ":fastlane: fastlane Helper Tests"
     agents:
-      queue: mac
+      queue: default
     key: fastlane_tests
     command: bash .buildkite/commands/run-fastlane-tests.sh
-    plugins: [$CI_TOOLKIT_PLUGIN]
+    plugins:
+      - $DOCKER_PLUGIN:
+          image: "$RUBY_DOCKER_IMAGE"
+          propagate-environment: true
+          mount-buildkite-agent: true
     notify:
       - github_commit_status:
           context: fastlane Helper Tests
@@ -130,16 +134,36 @@ steps:
 
   # No `if:` guard: a required status check must report on every build, or PRs
   # that skip it hang waiting for it. Doc-only PRs exit early but still report.
-  - label: CLI E2E Tests
+  - group: CLI E2E Tests
     key: cli-e2e-tests
-    agents:
-      queue: mac
-    command: bash .buildkite/commands/run-cli-e2e-tests.sh
-    timeout_in_minutes: 30
-    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
     notify:
       - github_commit_status:
           context: CLI E2E Tests
+    steps:
+      - label: CLI E2E Tests on {{matrix}}
+        key: cli_e2e_tests_mac_windows
+        command: bash .buildkite/commands/run-cli-e2e-tests.sh "{{matrix}}"
+        agents:
+          queue: "{{matrix}}"
+        timeout_in_minutes: 30
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        matrix:
+          - mac
+          - windows
+
+      # Separate from the matrix above: Mac and Windows share queue/plugin
+      # defaults that Linux doesn't. Same pattern as the unit-test group.
+      - label: CLI E2E Tests on linux
+        key: cli_e2e_tests_linux
+        command: bash .buildkite/commands/run-cli-e2e-tests.sh "linux"
+        agents:
+          queue: default
+        timeout_in_minutes: 30
+        plugins:
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics

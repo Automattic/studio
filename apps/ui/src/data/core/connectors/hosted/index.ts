@@ -118,6 +118,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
 		// in the browser is a follow-up (explored in the PR linked above).
 		requiresAuth: false,
+		agenticRequiresAuth: false,
 		async isAuthenticated() {
 			return true;
 		},
@@ -132,6 +133,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		onAuthStateChanged() {
 			return () => {};
+		},
+		async getOnboardingCompleted() {
+			return true;
+		},
+		async setOnboardingCompleted() {
+			// No-op.
 		},
 
 		// Sites
@@ -304,10 +311,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				colorScheme: 'system',
 				quitSitesBehavior: undefined,
 				locale: undefined,
+				defaultSiteDirectory: '',
 			};
 		},
 		async setUserPreferences() {
 			// No-op: preferences aren't persisted in the browser yet.
+		},
+		async selectDefaultSiteDirectory(): Promise< string | null > {
+			// No native folder picker in a browser.
+			return null;
 		},
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;

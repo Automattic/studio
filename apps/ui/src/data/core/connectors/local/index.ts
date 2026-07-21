@@ -234,6 +234,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// (read from the shared auth token by the server). The app isn't gated on
 		// it, but the user menu should show the real account.
 		requiresAuth: false,
+		agenticRequiresAuth: false,
 		async isAuthenticated() {
 			return ( await api< AuthUser | null >( '/auth/user' ) ) !== null;
 		},
@@ -320,6 +321,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onAuthStateChanged() {
 			return () => {};
 		},
+		async getOnboardingCompleted() {
+			return true;
+		},
+		async setOnboardingCompleted() {
+			// No-op.
+		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
@@ -369,6 +376,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
 			// No native folder picker in a browser; the create form falls back to
 			// an editable path field (see capabilities.nativeFolderPicker).
+			return null;
+		},
+		async selectDefaultSiteDirectory(): Promise< string | null > {
+			// No native folder picker in a browser.
 			return null;
 		},
 		async comparePaths( path1, path2 ) {
@@ -614,6 +625,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				colorScheme,
 				quitSitesBehavior,
 				locale: undefined,
+				defaultSiteDirectory: '',
 			};
 		},
 		async setUserPreferences( partial ) {

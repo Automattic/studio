@@ -45,8 +45,35 @@ const repoRoot = resolve( __dirname, '..', '..' );
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
 // from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
 // separately (`npm run build:local --workspace=apps/ui`); absent in API-only
-// or dev-server setups, which is fine.
+// or dev-server setups, which is fine — for dev builds. Release configs must
+// include `buildLocalUiPlugin` so the shipped CLI never lacks the UI.
 const localUiDistPath = resolve( __dirname, '../ui/dist-local' );
+
+// Builds the browser UI so the copy in `write-dist-extras` always has it.
+// Release configs (npm, prod, standalone) include this plugin; without it a
+// missing `dist-local` is silently skipped and `studio ui` ships broken
+// ("Cannot GET /", as happened with wp-studio@1.15.0 on npm).
+export function buildLocalUiPlugin() {
+	return {
+		name: 'build-local-ui',
+		apply: 'build' as const,
+		buildStart() {
+			// Equivalent to apps/ui's `build:local` script, but with the target set
+			// via the environment: the script's inline `STUDIO_TARGET=local` prefix
+			// is POSIX-only and fails under cmd.exe on Windows CI.
+			execSync( 'npx vite build', {
+				cwd: resolve( __dirname, '../ui' ),
+				stdio: 'inherit',
+				env: { ...process.env, STUDIO_TARGET: 'local' },
+			} );
+			if ( ! existsSync( localUiDistPath ) ) {
+				throw new Error(
+					`The browser UI build did not produce ${ localUiDistPath }; refusing to ship a CLI without the \`studio ui\` assets.`
+				);
+			}
+		},
+	};
+}
 
 // Ship only the self-contained engine bundle — its deps are inlined. Shipping
 // the tsc output + node_modules instead added ~10k files to the installer and

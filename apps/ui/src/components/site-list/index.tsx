@@ -1,8 +1,10 @@
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
+import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
+import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { moreHorizontal } from '@wordpress/icons';
+import { settings } from '@wordpress/icons';
 import { IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
@@ -11,6 +13,7 @@ import {
 	useState,
 	type MouseEvent,
 	type PointerEvent as ReactPointerEvent,
+	type ReactElement,
 	type ReactNode,
 } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
@@ -21,6 +24,7 @@ import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useSessions } from '@/data/queries/use-sessions';
 import {
 	useCopySite,
@@ -197,6 +201,28 @@ function sortSitesByManualOrder( sites: SiteDetails[], manualOrder: string[] ): 
 	);
 }
 
+function SiteOverviewButton( { site }: { site: SiteDetails } ) {
+	const navigate = useNavigate();
+
+	return (
+		<IconButton
+			variant="minimal"
+			tone="neutral"
+			size="small"
+			icon={ settings }
+			label={ __( 'Site overview' ) }
+			className={ styles.siteAction }
+			onClick={ ( event ) => {
+				event.stopPropagation();
+				void navigate( {
+					to: '/sites/$siteId/overview',
+					params: { siteId: site.id },
+				} );
+			} }
+		/>
+	);
+}
+
 function SiteStatusButton( {
 	site,
 	isStarting,
@@ -284,16 +310,22 @@ function SiteStatusButton( {
 	);
 }
 
+// Right-click quick actions for a sidebar site row. The row element itself is
+// passed as `trigger` and rendered via the context-menu trigger's render prop,
+// so no wrapper DOM is added around it (the sidebar's drag-reorder CSS and
+// animation code rely on the row's DOM position).
 function SiteActionsMenu( {
 	site,
 	sessionIds,
 	isStarting,
 	isStopping,
+	trigger,
 }: {
 	site: SiteDetails;
 	sessionIds: string[];
 	isStarting: boolean;
 	isStopping: boolean;
+	trigger: ReactElement;
 } ) {
 	const navigate = useNavigate();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
@@ -320,11 +352,12 @@ function SiteActionsMenu( {
 		} );
 	};
 
+	const editor = userPreferences?.editor;
+	const editorLabel = editor ? supportedEditorConfig[ editor ].label : null;
+	const terminal = userPreferences?.terminal;
+	const terminalLabel = terminal ? terminalConfig[ terminal ].name : null;
+
 	const handleOpenInEditor = () => {
-		if ( ! userPreferences?.editor ) {
-			void navigate( { to: '/settings' } );
-			return;
-		}
 		void connector.openSiteInEditor( site.id ).catch( ( error ) => {
 			console.error( 'Failed to open site in editor:', error );
 		} );
@@ -361,23 +394,9 @@ function SiteActionsMenu( {
 
 	return (
 		<>
-			<Menu.Root modal={ false }>
-				<Menu.Trigger
-					render={
-						<IconButton
-							variant="minimal"
-							tone="neutral"
-							size="small"
-							icon={ moreHorizontal }
-							label={ __( 'Site actions' ) }
-							className={ styles.siteAction }
-							onClick={ ( event ) => event.stopPropagation() }
-						/>
-					}
-				/>
-				<Menu.Popup
-					side="bottom"
-					align="end"
+			<Menu.ContextMenuRoot>
+				<Menu.ContextMenuTrigger render={ trigger } />
+				<Menu.ContextPopup
 					onClick={ stopMenuEventPropagation }
 					onPointerDown={ stopMenuEventPropagation }
 				>
@@ -394,8 +413,9 @@ function SiteActionsMenu( {
 					<Menu.Item
 						onClick={ () =>
 							void navigate( {
-								to: '/sites/$siteId/settings',
+								to: '/sites/$siteId/overview',
 								params: { siteId: site.id },
+								search: { tab: 'general' },
 							} )
 						}
 					>
@@ -406,8 +426,24 @@ function SiteActionsMenu( {
 					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item onClick={ handleOpenFolder }>{ __( 'Open folder' ) }</Menu.Item>
-					<Menu.Item onClick={ handleOpenInEditor }>{ __( 'Open in editor' ) }</Menu.Item>
-					<Menu.Item onClick={ handleOpenInTerminal }>{ __( 'Open in terminal' ) }</Menu.Item>
+					{ editorLabel ? (
+						<Menu.Item onClick={ handleOpenInEditor }>
+							{ sprintf(
+								/* translators: %s is the name of the editor. E.g. "Open in Cursor" */
+								__( 'Open in %s' ),
+								editorLabel
+							) }
+						</Menu.Item>
+					) : null }
+					{ terminalLabel ? (
+						<Menu.Item onClick={ handleOpenInTerminal }>
+							{ sprintf(
+								/* translators: %s is the name of the terminal app. E.g. "Open in iTerm2" */
+								__( 'Open in %s' ),
+								terminalLabel
+							) }
+						</Menu.Item>
+					) : null }
 					<Menu.Item disabled={ ! site.running } onClick={ handleOpenPhpMyAdmin }>
 						{ __( 'Open phpMyAdmin' ) }
 					</Menu.Item>
@@ -428,8 +464,8 @@ function SiteActionsMenu( {
 					>
 						{ __( 'Delete site' ) }
 					</Menu.Item>
-				</Menu.Popup>
-			</Menu.Root>
+				</Menu.ContextPopup>
+			</Menu.ContextMenuRoot>
 			<DeleteSiteDialog
 				site={ site }
 				open={ deleteOpen }
@@ -445,11 +481,13 @@ function SiteSection( {
 	isChatActive,
 	isContextActive,
 	hasUnreadUpdate,
+	agenticEnabled,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
 	hasUnreadUpdate: boolean;
+	agenticEnabled: boolean;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
@@ -469,6 +507,15 @@ function SiteSection( {
 		? 'new-message'
 		: 'idle';
 	const handleOpenSite = () => {
+		// Without agentic features (e.g. signed out) there's no chat to open;
+		// the site overview is the site's home instead.
+		if ( ! agenticEnabled ) {
+			void navigate( {
+				to: '/sites/$siteId/overview',
+				params: { siteId: site.id },
+			} );
+			return;
+		}
 		if ( latestSession ) {
 			void navigate( {
 				to: '/sessions/$sessionId',
@@ -490,38 +537,41 @@ function SiteSection( {
 				isContextActive && styles.siteContextActive
 			) }
 		>
-			<header className={ styles.siteHeader } onClick={ handleOpenSite }>
-				<div className={ styles.siteText }>
-					<SiteAgentActivityIndicator activity={ displayActivity } />
-					<SidebarButton
-						className={ styles.siteToggle }
-						onClick={ ( event ) => {
-							event.stopPropagation();
-							handleOpenSite();
-						} }
-						aria-current={ isChatActive ? 'page' : undefined }
-					>
-						<span
-							className={ clsx(
-								styles.siteName,
-								status === 'stopped' && styles.siteNameStopped,
-								isStarting && styles.siteNameStarting
-							) }
-						>
-							{ site.name }
-						</span>
-					</SidebarButton>
-				</div>
-				<div className={ styles.siteActions } data-reorder-exclude>
-					<SiteActionsMenu
-						site={ site }
-						sessionIds={ row.sessionIds }
-						isStarting={ isStarting }
-						isStopping={ isStopping }
-					/>
-					<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
-				</div>
-			</header>
+			<SiteActionsMenu
+				site={ site }
+				sessionIds={ row.sessionIds }
+				isStarting={ isStarting }
+				isStopping={ isStopping }
+				trigger={
+					<header className={ styles.siteHeader } onClick={ handleOpenSite }>
+						<div className={ styles.siteText }>
+							<SiteAgentActivityIndicator activity={ displayActivity } />
+							<SidebarButton
+								className={ styles.siteToggle }
+								onClick={ ( event ) => {
+									event.stopPropagation();
+									handleOpenSite();
+								} }
+								aria-current={ isChatActive ? 'page' : undefined }
+							>
+								<span
+									className={ clsx(
+										styles.siteName,
+										status === 'stopped' && styles.siteNameStopped,
+										isStarting && styles.siteNameStarting
+									) }
+								>
+									{ site.name }
+								</span>
+							</SidebarButton>
+						</div>
+						<div className={ styles.siteActions } data-reorder-exclude>
+							<SiteOverviewButton site={ site } />
+							<SiteStatusButton site={ site } isStarting={ isStarting } isStopping={ isStopping } />
+						</div>
+					</header>
+				}
+			/>
 		</section>
 	);
 }
@@ -539,6 +589,7 @@ function findSessionSiteKey(
 export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
+	const { enabled: agenticEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -565,7 +616,7 @@ export function SiteList() {
 	);
 	// Site ids are UUIDs, so no URL decoding is needed to compare the path.
 	const activeContextSiteKey =
-		activeSiteId && pathname === `/sites/${ activeSiteId }/settings` ? activeSiteId : undefined;
+		activeSiteId && pathname === `/sites/${ activeSiteId }/overview` ? activeSiteId : undefined;
 	useEffect( () => {
 		if ( sitesLoading || sessionsLoading || rows.length === 0 ) {
 			return;
@@ -636,6 +687,7 @@ export function SiteList() {
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
+			agenticEnabled={ agenticEnabled }
 		/>
 	);
 

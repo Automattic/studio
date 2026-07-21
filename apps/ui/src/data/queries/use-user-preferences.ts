@@ -4,12 +4,15 @@ import type { UserPreferences, WritableUserPreferences } from '@/data/core';
 
 export const USER_PREFERENCES_QUERY_KEY = [ 'user-preferences' ] as const;
 
+// No staleTime override: preferences can change outside this renderer (the
+// legacy UI writes the same config), so the persisted cache paints instantly
+// and a mount/focus refetch reconciles it. Settings save on change, so a
+// background refetch can't wipe in-progress edits.
 export function useUserPreferences() {
 	const connector = useConnector();
 	return useQuery( {
 		queryKey: USER_PREFERENCES_QUERY_KEY,
 		queryFn: () => connector.getUserPreferences(),
-		staleTime: Infinity,
 	} );
 }
 

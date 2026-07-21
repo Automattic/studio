@@ -4,9 +4,12 @@ const IMPORT_FILE_TYPES_BY_LENGTH = [ ...ACCEPTED_IMPORT_FILE_TYPES ].sort(
 	( first, second ) => second.length - first.length
 );
 
-export function isSupportedBackupFilename( filename: string ): boolean {
+export function isSupportedBackupFilename(
+	filename: string,
+	acceptedFileTypes: readonly string[] = ACCEPTED_IMPORT_FILE_TYPES
+): boolean {
 	const lower = filename.toLowerCase();
-	return ACCEPTED_IMPORT_FILE_TYPES.some( ( extension ) => lower.endsWith( extension ) );
+	return acceptedFileTypes.some( ( extension ) => lower.endsWith( extension ) );
 }
 
 export function getSuggestedSiteNameFromBackupFilename( filename: string ): string {

@@ -71,11 +71,17 @@ export interface SiteDetails {
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
+	// True for sites that were running when the app quit with the
+	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
+	autoStart?: boolean;
 	themeDetails?: {
 		name: string;
 		path: string;
 		slug: string;
 		isBlockTheme: boolean;
+		// Only supplied by the desktop (IPC) connector.
+		supportsWidgets?: boolean;
+		supportsMenus?: boolean;
 	};
 	siteIcon?: string | null;
 }
@@ -131,11 +137,17 @@ export interface Connector {
 
 	// Auth
 	requiresAuth: boolean;
+	agenticRequiresAuth: boolean;
 	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
-	authenticate(): Promise< void >;
+	authenticate( signup?: boolean ): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
+
+	// Onboarding — whether the user has been through (or skipped) the
+	// first-run welcome screen.
+	getOnboardingCompleted(): Promise< boolean >;
+	setOnboardingCompleted( completed: boolean ): Promise< void >;
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
@@ -255,7 +267,7 @@ export interface Connector {
 	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
-		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+		patch: Pick< AiSessionSummary, 'archived' >
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
@@ -298,6 +310,11 @@ export interface Connector {
 	// single query + mutation to work with.
 	getUserPreferences(): Promise< UserPreferences >;
 	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
+
+	// Opens a native folder picker for the default-site-directory preference.
+	// Resolves with the chosen path, or `null` when the user cancels (or the
+	// host has no native picker — see capabilities.nativeFolderPicker).
+	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -382,6 +399,7 @@ export interface UserPreferences {
 	colorScheme: ColorScheme;
 	quitSitesBehavior?: QuitSitesBehavior;
 	locale: string | undefined;
+	defaultSiteDirectory: string;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

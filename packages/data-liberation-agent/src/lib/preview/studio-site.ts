@@ -8,13 +8,10 @@
 // --skip-log-details and auto-generates an admin password when none is passed.
 // Studio assigns a random port per site; callers resolve the live URL AFTER
 // creation via `wp option get siteurl` (Studio ports are not stable).
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-
-const execFileAsync = promisify(execFile);
+import { studioExecFileAsync } from '../studio-cli.js';
 
 /** Expand a leading `~` / `~/` to the user's home dir.
  * `path.resolve` treats `~` as a literal path segment (so `~/Studio/x` becomes
@@ -41,9 +38,8 @@ export function studioWpRoot(studioSitePath: string): string | null {
   return null;
 }
 
-/** Injectable exec seam (tests pass a stub; production uses execFile). */
+/** Injectable seam running `studio <args>` (tests pass a stub; production uses studio-cli). */
 export type ExecFn = (
-  file: string,
   args: string[],
   opts: { timeout?: number; maxBuffer?: number },
 ) => Promise<{ stdout: string; stderr: string }>;
@@ -80,7 +76,7 @@ export async function ensureStudioSite(opts: EnsureStudioSiteOpts): Promise<Ensu
   const existing = studioWpRoot(opts.sitePath);
   if (existing) return { wpRoot: existing, created: false };
 
-  const exec = opts.exec ?? (execFileAsync as unknown as ExecFn);
+  const exec: ExecFn = opts.exec ?? studioExecFileAsync;
   const args = [
     'site',
     'create',
@@ -98,7 +94,7 @@ export async function ensureStudioSite(opts: EnsureStudioSiteOpts): Promise<Ensu
   if (opts.adminPassword) args.push('--admin-password', opts.adminPassword);
 
   // Creating a fresh WP install (download + DB init) can take a while.
-  await exec('studio', args, { timeout: 300_000, maxBuffer: 10 * 1024 * 1024 });
+  await exec(args, { timeout: 300_000, maxBuffer: 10 * 1024 * 1024 });
 
   const wpRoot = studioWpRoot(opts.sitePath);
   if (!wpRoot) {

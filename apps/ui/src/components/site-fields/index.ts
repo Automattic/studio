@@ -18,6 +18,8 @@ import {
 } from '@studio/common/lib/wordpress-version-utils';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
+import { WpVersionControl } from '@/components/site-fields/wp-version-control';
+import type { WpVersionOption } from '@/components/site-fields/wp-version-control';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Field, Option } from '@wordpress/dataviews';
@@ -62,7 +64,7 @@ function compareWpVersions( a: string, b: string ): number {
 
 // Insert `option` into the descending-ordered `options` list (ported from the
 // legacy wp-version-selector's addWpVersionToList).
-function addVersionOption( option: Option, options: Option[] ): Option[] {
+function addVersionOption< T extends Option >( option: T, options: T[] ): T[] {
 	const index = options.findIndex(
 		( existing ) => compareWpVersions( option.value, existing.value ) > 0
 	);
@@ -78,7 +80,13 @@ export function wpVersionField< T extends { wpVersion: string } >(
 		latestValue = DEFAULT_WORDPRESS_VERSION,
 		currentVersion,
 		offline = false,
-	}: { latestValue?: string; currentVersion?: string; offline?: boolean } = {}
+		offlineMessage = __( 'Changing WordPress version requires an internet connection.' ),
+	}: {
+		latestValue?: string;
+		currentVersion?: string;
+		offline?: boolean;
+		offlineMessage?: string;
+	} = {}
 ): Field< T > {
 	const field: Field< T > = {
 		id: 'wpVersion',
@@ -89,48 +97,67 @@ export function wpVersionField< T extends { wpVersion: string } >(
 	if ( offline ) {
 		// Like the legacy selector: only "latest" can be applied without a
 		// download, so the control locks while offline (the form forces the
-		// value to "latest").
+		// value to "latest") and the message shows as a hover tooltip.
 		field.isDisabled = true;
-		field.description = __( 'Changing WordPress version requires an internet connection.' );
+		field.description = offlineMessage;
 	}
 	const offers = versions ?? [];
-	// The settings form (custom `latestValue`) always renders a select even
-	// when the version list is unavailable — offering only versions we can
-	// actually install. The create form keeps its free-text fallback.
-	if ( offers.length || latestValue !== DEFAULT_WORDPRESS_VERSION ) {
-		let prerelease = offers
+	// The settings form (custom `latestValue`) and the offline state always
+	// render a select even when the version list is unavailable — offering
+	// only versions we can actually install. Otherwise the create form keeps
+	// its free-text fallback.
+	if ( offers.length || latestValue !== DEFAULT_WORDPRESS_VERSION || offline ) {
+		let prerelease: WpVersionOption[] = offers
 			.filter( ( version ) => version.isBeta || version.isDevelopment )
-			.map( ( version ) => ( { value: version.value, label: version.label } ) );
-		let stable = offers
+			.map( ( version ) => ( {
+				value: version.value,
+				label: version.label,
+				group: 'prerelease' as const,
+			} ) );
+		let stable: WpVersionOption[] = offers
 			.filter(
 				( version ) =>
 					version.value !== DEFAULT_WORDPRESS_VERSION && ! version.isBeta && ! version.isDevelopment
 			)
-			.map( ( version ) => ( { value: version.value, label: version.label } ) );
+			.map( ( version ) => ( {
+				value: version.value,
+				label: version.label,
+				group: 'stable' as const,
+			} ) );
 		// The site's installed version may predate the fetched offers — keep it
 		// selectable, sorted into the right group, like the legacy selector's
 		// extraOptions.
 		if ( currentVersion && ! offers.some( ( version ) => version.value === currentVersion ) ) {
-			const option = { value: currentVersion, label: currentVersion };
+			const option: WpVersionOption = {
+				value: currentVersion,
+				label: currentVersion,
+				group: 'stable',
+			};
 			if ( isWordPressBetaVersion( currentVersion ) || isWordPressDevVersion( currentVersion ) ) {
-				prerelease = addVersionOption( option, prerelease );
+				prerelease = addVersionOption( { ...option, group: 'prerelease' }, prerelease );
 			} else {
 				stable = addVersionOption( option, stable );
 			}
 		}
-		field.elements = [ { value: latestValue, label: __( 'latest' ) }, ...prerelease, ...stable ];
+		const options: WpVersionOption[] = [
+			{ value: latestValue, label: __( 'latest' ), group: 'latest' },
+			...prerelease,
+			...stable,
+		];
 		if ( latestValue !== DEFAULT_WORDPRESS_VERSION ) {
 			// The settings form maps "latest" to '' (auto-update) but falls back
 			// to seeding pinned sites with DEFAULT_WORDPRESS_VERSION when their
 			// installed version can't be read. Keep that seed renderable without
 			// offering it.
-			field.elements.push( {
+			options.push( {
 				value: DEFAULT_WORDPRESS_VERSION,
 				label: __( 'latest' ),
+				group: 'latest',
 				hidden: true,
-			} as Option );
+			} );
 		}
-		field.Edit = 'select';
+		field.elements = options;
+		field.Edit = WpVersionControl;
 	}
 	return field;
 }

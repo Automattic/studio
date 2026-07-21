@@ -211,6 +211,8 @@ describe( 'SiteOverviewView', () => {
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toHaveValue( '' );
 		expect( screen.getByRole( 'option', { name: '6.7.2' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'group', { name: 'Auto-updating' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'group', { name: 'Stable Versions' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'saves a pinned WordPress version picked from the dropdown', () => {

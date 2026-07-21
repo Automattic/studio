@@ -34,23 +34,33 @@ describe( 'portFinder STUDIO_BASE_PORT', () => {
 	} );
 } );
 
-function listenOnLoopback( port: number ): Promise< net.Server > {
+function listenOnLocalhost( port: number ): Promise< net.Server > {
 	return new Promise( ( resolve, reject ) => {
 		const server = net.createServer();
 		server.once( 'error', reject );
-		server.listen( port, '127.0.0.1', () => resolve( server ) );
+		server.listen( port, 'localhost', () => resolve( server ) );
 	} );
 }
 
 describe( 'portFinder availability detection', () => {
-	afterEach( () => {
+	const openServers: net.Server[] = [];
+
+	afterEach( async () => {
+		await Promise.all(
+			openServers
+				.splice( 0 )
+				.map( ( server ) => new Promise< void >( ( resolve ) => server.close( () => resolve() ) ) )
+		);
 		delete process.env.STUDIO_BASE_PORT;
 		vi.resetModules();
 	} );
 
 	it( 'skips an occupied port and returns one that is actually bindable', async () => {
-		const occupied = 9320;
-		const occupiedServer = await listenOnLoopback( occupied );
+		// Occupy an OS-assigned free port so the test never collides with a port
+		// already in use on the machine.
+		const occupiedServer = await listenOnLocalhost( 0 );
+		openServers.push( occupiedServer );
+		const occupied = ( occupiedServer.address() as net.AddressInfo ).port;
 
 		process.env.STUDIO_BASE_PORT = String( occupied );
 		vi.resetModules();
@@ -59,9 +69,6 @@ describe( 'portFinder availability detection', () => {
 		const port = await portFinder.getOpenPort();
 		expect( port ).toBeGreaterThan( occupied );
 		// Binding throws if getOpenPort handed back an occupied port.
-		const returnedServer = await listenOnLoopback( port );
-
-		occupiedServer.close();
-		returnedServer.close();
+		openServers.push( await listenOnLocalhost( port ) );
 	} );
 } );

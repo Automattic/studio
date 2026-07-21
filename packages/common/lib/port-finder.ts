@@ -8,14 +8,16 @@ let searchPort = DEFAULT_PORT;
 let openPort: number | null = null;
 const unavailablePorts: Array< number > = [];
 
-// Probe by binding the loopback host the site server uses (php-server-child.ts).
-// A single bind avoids the per-port connect/destroy socket churn that crashed
-// Node on Windows.
+// Bind the same host the site server uses (localhost, see php-server-child.ts)
+// so a successful probe means the server can bind the port too; probing a fixed
+// 127.0.0.1 could disagree with the server when localhost resolves to ::1. A
+// single bind also avoids the connect/destroy socket churn that crashed Node on
+// Windows.
 function isPortFree( portToCheck: number ): Promise< boolean > {
 	return new Promise( ( resolve ) => {
 		const server = net.createServer();
 		server.once( 'error', () => resolve( false ) );
-		server.listen( portToCheck, '127.0.0.1', () => server.close( () => resolve( true ) ) );
+		server.listen( portToCheck, 'localhost', () => server.close( () => resolve( true ) ) );
 	} );
 }
 

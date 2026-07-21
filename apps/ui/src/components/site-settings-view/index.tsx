@@ -9,6 +9,7 @@ import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
 import { LearnHowLink } from '@/components/learn-more';
+import { OfflineBanner } from '@/components/offline-banner';
 import { SiteDropdown } from '@/components/site-dropdown';
 import {
 	adminEmailField,
@@ -319,6 +320,7 @@ function SiteSettingsBody( {
 				<div className={ styles.scroll }>
 					<div className={ styles.contentBlock }>
 						<Tabs.Panel tabId="overview">
+							<OfflineBanner />
 							<AgenticSigninBanner />
 						</Tabs.Panel>
 						<form onSubmit={ handleSubmit } className={ styles.form }>

@@ -18,7 +18,16 @@ const DOCS_LINKS = {
 	docsSslInStudio: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/',
 	},
+	docsSkills: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/',
+	},
+	docsStudio: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/',
+	},
 } as const satisfies Record< string, TranslatedLink >;
+
+export const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
 export type DocsLinkKey = keyof typeof DOCS_LINKS;
 

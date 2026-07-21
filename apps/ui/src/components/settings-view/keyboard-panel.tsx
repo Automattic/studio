@@ -19,16 +19,18 @@ function getShortcutKeyAriaLabel( key: string ): string {
 			return __( 'Escape' );
 		case ',':
 			return __( 'Comma' );
-		case '[':
-			return __( 'Left bracket' );
-		case ']':
-			return __( 'Right bracket' );
+		case '←':
+			return __( 'Left arrow' );
+		case '→':
+			return __( 'Right arrow' );
 		default:
 			return key;
 	}
 }
 
-function getShortcutSections( modifierKey: string ): ShortcutSection[] {
+function getShortcutSections( isApple: boolean ): ShortcutSection[] {
+	const modifierKey = isApple ? '⌘' : 'Ctrl';
+	const navModifierKey = isApple ? '⌘' : 'Alt';
 	return [
 		{
 			title: __( 'General' ),
@@ -47,8 +49,8 @@ function getShortcutSections( modifierKey: string ): ShortcutSection[] {
 			shortcuts: [
 				{ label: __( 'Toggle site preview' ), keys: [ modifierKey, 'Shift', 'B' ] },
 				{ label: __( 'Reload preview' ), keys: [ modifierKey, 'R' ] },
-				{ label: __( 'Go back in preview' ), keys: [ modifierKey, '[' ] },
-				{ label: __( 'Go forward in preview' ), keys: [ modifierKey, ']' ] },
+				{ label: __( 'Go back in preview' ), keys: [ navModifierKey, '←' ] },
+				{ label: __( 'Go forward in preview' ), keys: [ navModifierKey, '→' ] },
 			],
 		},
 	];
@@ -70,11 +72,9 @@ function ShortcutKeys( { keys }: { keys: string[] } ) {
 }
 
 export function KeyboardPanel() {
-	const modifierKey = isAppleOS() ? '⌘' : 'Ctrl';
-
 	return (
 		<div className={ styles.preferencesPanel }>
-			{ getShortcutSections( modifierKey ).map( ( section ) => (
+			{ getShortcutSections( isAppleOS() ).map( ( section ) => (
 				<section key={ section.title } className={ styles.preferenceSectionGroup }>
 					<h2 className={ styles.preferenceSectionHeading }>{ section.title }</h2>
 					<ul className={ styles.shortcutList }>

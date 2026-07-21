@@ -198,6 +198,7 @@ describe( 'SettingsView', () => {
 		expect( screen.getByRole( 'heading', { name: 'Site preview' } ) ).toBeInTheDocument();
 		expect( screen.getByText( 'Send message' ) ).toBeInTheDocument();
 		expect( screen.getByLabelText( 'Control + Comma' ) ).toBeInTheDocument();
+		expect( screen.getByLabelText( 'Alt + Left arrow' ) ).toBeInTheDocument();
 	} );
 
 	it( 'surfaces a save error inline in the section', () => {

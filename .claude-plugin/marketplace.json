@@ -1,0 +1,13 @@
+{
+  "name": "studio",
+  "owner": {
+    "name": "Automattic"
+  },
+  "plugins": [
+    {
+      "name": "data-liberation",
+      "source": "./packages/data-liberation-agent",
+      "description": "Extract content from closed web platforms (GoDaddy Websites & Marketing, Hostinger, HubSpot, Shopify, Squarespace, Webflow, Weebly, Wix) into WordPress-compatible WXR files. Inspect, extract, QA, and import to WordPress."
+    }
+  ]
+}

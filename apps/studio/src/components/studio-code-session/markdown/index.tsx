@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { __ } from '@wordpress/i18n';
+import { isValidElement, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { CopyButton } from '../copy-button';
 import styles from './style.module.css';
-import type { MouseEvent } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import type { Components } from 'react-markdown';
 
 // Only hand http(s) links to the OS. Guards against the agent emitting links
@@ -19,6 +21,41 @@ function isSafeExternalUrl( href: string ): boolean {
 		// Relative or malformed — never hand to the OS.
 		return false;
 	}
+}
+
+/** Recursively collect the plain-text content of a React node tree. */
+function extractText( node: ReactNode ): string {
+	if ( typeof node === 'string' ) {
+		return node;
+	}
+	if ( typeof node === 'number' ) {
+		return String( node );
+	}
+	if ( Array.isArray( node ) ) {
+		return node.map( extractText ).join( '' );
+	}
+	if ( isValidElement< { children?: ReactNode } >( node ) ) {
+		return extractText( node.props.children );
+	}
+	return '';
+}
+
+function CodeBlock( { children }: { children?: ReactNode } ) {
+	// Strip the single trailing newline react-markdown appends to fenced code.
+	const text = useMemo( () => extractText( children ).replace( /\n$/, '' ), [ children ] );
+
+	return (
+		<div className={ styles.codeBlock }>
+			<pre className={ styles.pre }>{ children }</pre>
+			{ text ? (
+				<CopyButton
+					text={ text }
+					label={ __( 'Copy code' ) }
+					className={ styles.copyButtonContainer }
+				/>
+			) : null }
+		</div>
+	);
 }
 
 const baseComponents: Components = {
@@ -57,7 +94,7 @@ const baseComponents: Components = {
 			</code>
 		);
 	},
-	pre: ( { children } ) => <pre className={ styles.pre }>{ children }</pre>,
+	pre: ( { children } ) => <CodeBlock>{ children }</CodeBlock>,
 };
 
 export function Markdown( { children, className }: { children: string; className?: string } ) {

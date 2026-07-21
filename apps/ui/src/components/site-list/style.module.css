@@ -1,25 +1,20 @@
 .root {
 	--site-list-row-height: 34px;
-	--site-list-row-background-hover: rgb(0 0 0 / 4%);
-	--site-list-row-background-active: rgb(0 0 0 / 7%);
-	--site-list-row-leading-inset: var(--wpds-dimension-padding-xs);
+	--site-list-row-leading-inset: var(--wpds-dimension-padding-sm);
 	--site-list-row-outer-inset: calc(
 		var(--wpds-dimension-padding-lg) - var(--site-list-row-leading-inset)
 	);
-	--site-list-icon-size: 18px;
-	--site-list-icon-gap: calc(var(--wpds-dimension-gap-sm) + 2px);
 	--site-list-chat-status-size: 14px;
-	--site-list-chat-status-offset-adjust: 2px;
-	--site-list-chat-status-offset: var(--site-list-row-leading-inset);
-	--site-list-pending-indicator-bg: color-mix(
-		in srgb,
-		var(--wpds-color-bg-interactive-error-strong) 34%,
-		var(--wpds-color-bg-surface-caution)
-	);
-	--site-list-pending-indicator-dot: var(--wpds-color-fg-content-error);
+	--site-list-chat-status-start-offset: 4px;
+	--site-list-chat-status-gap: 3px;
+	--site-list-label-inline-offset: 4px;
+	/* The sidebar sits on the dark window chrome in both color schemes, so
+	   the pending indicator is always the vivid on-dark value. */
+	--site-list-pending-indicator-bg: var(--studio-color-status-attention);
+	--site-list-sync-indicator-bg: var(--studio-color-status-sync);
 
 	/* Pull the row shape slightly left, then add the inset back inside rows so
-	   icons and labels keep their column while selected rows have breathing room. */
+	   labels keep their column while selected rows have breathing room. */
 	padding: 0 var(--site-list-row-outer-inset) var(--wpds-dimension-padding-xl)
 		var(--site-list-row-outer-inset);
 	display: flex;
@@ -28,24 +23,44 @@
 	user-select: none;
 }
 
-@media (prefers-color-scheme: dark) {
-	.root {
-		--site-list-row-background-hover: rgb(255 255 255 / 8%);
-		--site-list-row-background-active: rgb(255 255 255 / 12%);
-		--site-list-pending-indicator-bg: #facc15;
-		--site-list-pending-indicator-dot: #422006;
-	}
-}
-
 .sites {
 	display: flex;
 	flex-direction: column;
-	gap: 0;
+	gap: 1px;
+}
+
+/* Structural drag styles (touch-action, fixed preview positioning,
+   will-change) live in the shared reorderable-list module; these classes
+   carry only the site rows' visual treatment. */
+
+.siteDragWrapper {
+	border-radius: 6px;
+}
+
+.siteDropPlaceholder {
+	block-size: var(--site-list-row-height);
+	border-radius: 6px;
+	background-color: var(--sidebar-row-background);
+	box-shadow: inset 0 0 0 1px
+		color-mix(in srgb, var(--wpds-color-stroke-interactive-brand) 45%, transparent);
+	transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.siteDragPreview {
+	opacity: 0.95;
+	filter: drop-shadow(0 6px 14px rgb(0 0 0 / 14%));
+}
+
+.siteDragPreview .siteHeader {
+	background-color: var(--sidebar-row-background);
 }
 
 .site {
 	display: flex;
 	flex-direction: column;
+	/* Keep scrollIntoView targets clear of the sidebar's sticky header and
+	   footer, which paint over the scrollport's edges. */
+	scroll-margin-block: 64px;
 }
 
 .siteHeader {
@@ -56,47 +71,168 @@
 	box-sizing: border-box;
 	height: var(--site-list-row-height);
 	/* The row shape extends left of the content column; this padding keeps the
-	   icon/title column aligned while giving selected rows breathing room. */
+	   title column aligned while giving selected rows breathing room. */
 	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
 		var(--wpds-dimension-padding-xs) var(--site-list-row-leading-inset);
 	border-radius: 6px;
+	cursor: var(--wpds-cursor-control);
+	transition: background-color 80ms ease;
+}
+
+.siteHeader:hover,
+.siteHeader:focus-within {
+	background-color: var(--sidebar-row-background);
+}
+
+.siteActive .siteHeader,
+.siteActive .siteHeader:hover,
+.siteActive .siteHeader:focus-within {
+	background-color: var(--sidebar-row-background);
+}
+
+.siteContextActive .siteHeader {
+	outline: 1px dashed color-mix(in srgb, var(--wpds-color-stroke-surface-neutral) 78%, transparent);
+	outline-offset: -2px;
+}
+
+.siteContextActive .siteHeader:hover,
+.siteContextActive .siteHeader:focus-within {
+	background-color: transparent;
 }
 
 .siteText {
 	flex: 1;
 	min-width: 0;
 	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
+	align-items: center;
 }
 
 .siteToggle {
+	flex: 1 1 auto;
+	min-width: 0;
 	max-width: 100%;
 	height: auto;
 	gap: 0;
-	/* Drop the Button primitive's inline-start padding so the icon/title start
-	   at the row's leading edge (see `.siteHeader`). Unlayered, so it beats the
-	   primitive's layered padding. */
-	padding-inline-start: 0;
+	/* Keep a little breathing room between the selected row shape and the label. */
+	padding-inline-start: var(--site-list-label-inline-offset);
 }
 
-.siteIconSlot {
+.siteToggle:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
+	outline-offset: -2px;
+}
+
+.siteAgentActivitySlot {
 	display: inline-grid;
 	place-items: center;
-	flex-shrink: 0;
-	inline-size: var(--site-list-icon-size);
-	/* The footer gravatar is 20px wide while site icons are 18px, so the extra
-	   2px lives after the icon to keep titles aligned with the display name. */
-	margin-inline-end: var(--site-list-icon-gap);
-	overflow: hidden;
+	flex: 0 0 0;
+	inline-size: 0;
+	block-size: var(--site-list-chat-status-size);
+	margin-inline-start: 0;
+	margin-inline-end: 0;
+	opacity: 0;
+	overflow: visible;
+	pointer-events: none;
+	transform: scale(0.75);
+	transition: inline-size 160ms ease, flex-basis 160ms ease, margin-inline-start 160ms ease,
+		margin-inline-end 160ms ease, opacity 120ms ease, transform 160ms ease;
 }
 
-.siteIcon {
-	--site-icon-size: var(--site-list-icon-size);
+.siteAgentActivitySlotVisible {
+	flex-basis: var(--site-list-chat-status-size);
+	inline-size: var(--site-list-chat-status-size);
+	margin-inline-start: var(--site-list-chat-status-start-offset);
+	margin-inline-end: var(--site-list-chat-status-gap);
+	opacity: 1;
+	pointer-events: auto;
+	transform: scale(1);
 }
 
-.siteIconStopped {
-	opacity: 0.5;
+.siteAgentActivity {
+	grid-row-start: 1;
+	grid-column-start: 1;
+	position: relative;
+	block-size: var(--site-list-chat-status-size);
+	inline-size: var(--site-list-chat-status-size);
+	box-sizing: border-box;
+}
+
+.siteAgentActivityTooltipTrigger {
+	display: inline-grid;
+	place-items: center;
+}
+
+.siteAgentActivityPixels {
+	/* Slightly tighter than the chat indicator so the 3×2 grid sits inside
+	   the 14px activity slot. */
+	--agent-pixel-size: 2.5px;
+	--agent-pixel-gap: 2px;
+}
+
+.siteAgentActivityQuestion {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	isolation: isolate;
+}
+
+.siteAgentActivityQuestion::before {
+	content: '';
+	position: absolute;
+	inset-block-start: calc((var(--site-list-chat-status-size) - 8.5px) / 2);
+	inset-inline-start: calc((var(--site-list-chat-status-size) - 10px) / 2);
+	inline-size: 10px;
+	block-size: 8.5px;
+	z-index: -1;
+	clip-path: path(
+		'M 5 8.4 C 5.45 8.4 5.85 8.15 6.05 7.75 L 9.45 1.35 C 9.75 0.75 9.35 0.35 8.7 0.35 L 1.3 0.35 C 0.65 0.35 0.25 0.75 0.55 1.35 L 3.95 7.75 C 4.15 8.15 4.55 8.4 5 8.4 Z'
+	);
+	background-color: var(--site-list-pending-indicator-bg);
+}
+
+.siteAgentActivityMessage {
+	display: block;
+	inline-size: 8px;
+	block-size: 6px;
+	border-radius: 3px 3px 3px 1px;
+	background-color: var(--wpds-color-fg-interactive-brand);
+}
+
+.siteAgentActivitySync {
+	display: inline-grid;
+	place-items: center;
+	color: var(--site-list-sync-indicator-bg);
+}
+
+.siteAgentActivitySyncDots {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1px;
+	inline-size: 8px;
+	block-size: 13px;
+	transform-origin: center;
+	animation: siteAgentSyncHalfTurn 5.2s ease-in-out infinite;
+}
+
+.siteAgentActivitySyncDot {
+	inline-size: 3px;
+	block-size: 3px;
+	border-radius: 999px;
+	background-color: currentColor;
+	animation-name: siteAgentSyncDotBounce;
+	animation-duration: 760ms;
+	animation-iteration-count: infinite;
+	animation-timing-function: ease-in-out;
+}
+
+.siteAgentActivitySyncDot:nth-child(2) {
+	animation-delay: 90ms;
+}
+
+.siteAgentActivitySyncDot:nth-child(3) {
+	animation-delay: 180ms;
 }
 
 .siteName {
@@ -110,25 +246,12 @@
 	max-width: 100%;
 }
 
-.siteChevron {
-	display: grid;
-	place-items: center;
-	flex-shrink: 0;
-	width: 16px;
-	height: 16px;
+.siteNameStopped {
 	color: var(--wpds-color-fg-content-neutral-weak);
-	opacity: 0;
-	transition: opacity 100ms ease, color 100ms ease;
 }
 
-.siteToggle:hover .siteChevron,
-.siteToggle:focus-visible .siteChevron {
-	color: var(--wpds-color-fg-content-neutral);
-}
-
-.siteHeader:hover .siteChevron,
-.siteHeader:focus-within .siteChevron {
-	opacity: 1;
+.siteNameStarting {
+	animation: siteNameStartingPulse 1s ease-in-out infinite;
 }
 
 .siteActive .siteName {
@@ -151,12 +274,15 @@
 }
 
 /* Collapsed, only the trailing status button shows; hover/focus/active
-   slides the menu and new-chat buttons in next to it. */
+   reveals the overview button next to it. The header carries
+   `data-popup-open` while its right-click menu is open (Base UI sets it on
+   the context-menu trigger), keeping the row's controls visible. */
 .siteActive .siteActions,
+.siteContextActive .siteActions,
 .siteHeader:hover .siteActions,
 .siteHeader:focus-within .siteActions,
-.siteHeader:has(.siteAction[data-popup-open]) .siteActions {
-	max-width: 80px;
+.siteHeader[data-popup-open] .siteActions {
+	max-width: 48px;
 }
 
 .siteStatus {
@@ -182,9 +308,10 @@
 }
 
 .siteActive .siteStatus[data-state='stopped'],
+.siteContextActive .siteStatus[data-state='stopped'],
 .siteHeader:hover .siteStatus[data-state='stopped'],
 .siteHeader:focus-within .siteStatus[data-state='stopped'],
-.siteHeader:has(.siteAction[data-popup-open]) .siteStatus[data-state='stopped'] {
+.siteHeader[data-popup-open] .siteStatus[data-state='stopped'] {
 	opacity: 1;
 }
 
@@ -219,6 +346,8 @@
 .siteStatus .siteStatusActionGlyph.siteStatusActionGlyph {
 	grid-row-start: 1;
 	grid-column-start: 1;
+	display: inline-grid;
+	place-items: center;
 	inline-size: 10px;
 	block-size: 10px;
 	width: 10px;
@@ -236,13 +365,44 @@
 	opacity: 1;
 }
 
+.siteStatusPauseMark,
+.siteStatusPauseMark::before,
+.siteStatusPauseMark::after {
+	display: block;
+	height: 8px;
+	border-radius: 1px;
+	background: currentColor;
+}
+
+.siteStatusPauseMark {
+	position: relative;
+	width: 8px;
+	background: transparent;
+}
+
+.siteStatusPauseMark::before,
+.siteStatusPauseMark::after {
+	position: absolute;
+	top: 0;
+	width: 2px;
+	content: '';
+}
+
+.siteStatusPauseMark::before {
+	left: 1px;
+}
+
+.siteStatusPauseMark::after {
+	right: 1px;
+}
+
 .siteStatusShape {
 	x: 0;
 	y: 0;
 	width: 8px;
 	height: 8px;
 	rx: 4px;
-	fill: #16a34a;
+	fill: var(--studio-color-status-running);
 	transition: fill 160ms ease, rx 160ms ease;
 }
 
@@ -251,12 +411,12 @@
 }
 
 .siteStatus[data-state='running'] .siteStatusShape {
-	fill: #16a34a;
+	fill: var(--studio-color-status-running);
 	rx: 4px;
 }
 
 .siteStatus[data-state='transitioning'] .siteStatusShape {
-	fill: #a16207;
+	fill: var(--studio-color-status-transitioning);
 	rx: 4px;
 	animation: siteStatusBlink 1s ease-in-out infinite;
 }
@@ -271,6 +431,46 @@
 	}
 }
 
+@keyframes siteNameStartingPulse {
+	0%,
+	100% {
+		color: var(--wpds-color-fg-content-neutral);
+	}
+	50% {
+		color: var(--wpds-color-fg-content-neutral-weak);
+	}
+}
+
+@keyframes siteAgentSyncHalfTurn {
+	0%,
+	38% {
+		transform: rotate(0deg);
+	}
+
+	48%,
+	88% {
+		transform: rotate(180deg);
+	}
+
+	98%,
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes siteAgentSyncDotBounce {
+	0%,
+	100% {
+		opacity: 0.42;
+		transform: translateY(1px) scale(0.72);
+	}
+
+	45% {
+		opacity: 1;
+		transform: translateY(-2px) scale(1);
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.siteStatusShape {
 		transition: none;
@@ -281,10 +481,26 @@
 	.siteStatusActionGlyph {
 		transition: none;
 	}
-}
 
-.unassigned {
-	margin-top: var(--wpds-dimension-padding-sm);
+	.siteAgentActivitySlot {
+		transition: none;
+	}
+
+	.siteNameStarting {
+		animation: none;
+	}
+
+	.siteAgentActivitySyncDot {
+		animation: none;
+	}
+
+	.siteAgentActivitySyncDots {
+		animation: none;
+	}
+
+	.siteDragPreview {
+		filter: none;
+	}
 }
 
 .empty {
@@ -292,284 +508,4 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
 	margin: 0;
-}
-
-.emptyChatState {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: var(--wpds-dimension-padding-xs);
-	/* Collapsible grid child of `.sessionListFrame`, mirroring `.sessionList` so
-	   the empty placeholder expands/collapses with the same animation. The frame
-	   supplies the open-state vertical spacing (its animated margins), and the
-	   vertical padding here gives the single line a comfortable resting height. */
-	min-height: 0;
-	overflow: hidden;
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-xs);
-	line-height: 1.2;
-	text-align: center;
-}
-
-.emptyChatText {
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.emptyChatSeparator {
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.emptyChatButton {
-	--wp-ui-button-font-size: var(--wpds-typography-font-size-xs);
-	--_gcd-button-font-size: var(--wpds-typography-font-size-xs);
-
-	display: inline-flex;
-	align-items: center;
-	min-height: 20px;
-	padding: 0;
-	border: 0;
-	background: transparent;
-	color: var(--wpds-color-fg-interactive-neutral);
-	font: inherit;
-	line-height: inherit;
-	text-decoration: none;
-	white-space: nowrap;
-}
-
-.emptyChatButton:not([data-disabled]) {
-	cursor: var(--wpds-cursor-control);
-}
-
-.emptyChatButton:not([data-disabled]):is(:hover, :focus-visible) {
-	color: var(--wpds-color-fg-interactive-brand-active, var(--wpds-color-fg-interactive-brand));
-}
-
-.sessionListFrame {
-	display: grid;
-	grid-template-rows: 0fr;
-	margin-top: 0;
-	margin-bottom: 0;
-	opacity: 0;
-	pointer-events: none;
-	transition: grid-template-rows 120ms ease, margin-top 120ms ease, margin-bottom 120ms ease,
-		opacity 80ms ease;
-}
-
-.sessionListFrameOpen {
-	grid-template-rows: 1fr;
-	margin-top: 2px;
-	margin-bottom: var(--wpds-dimension-padding-sm);
-	opacity: 1;
-	pointer-events: auto;
-}
-
-.sessionList {
-	overflow: hidden;
-	min-height: 0;
-	list-style: none;
-	padding: 0;
-	margin: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 0;
-}
-
-.sessionItem {
-	position: relative;
-	display: flex;
-	min-width: 0;
-}
-
-.sessionLink {
-	--session-link-background: transparent;
-	--wp-ui-button-background-color: var(--session-link-background);
-	--wp-ui-button-background-color-active: var(--session-link-background);
-	--wp-ui-button-border-color: transparent;
-	--wp-ui-button-border-color-active: transparent;
-	--wp-ui-button-height: var(--site-list-row-height);
-
-	position: relative;
-	width: 100%;
-	box-sizing: border-box;
-	height: var(--site-list-row-height);
-	/* Chat labels align under the parent site's title text and the footer
-	   display name while the row shape extends left for the status indicator. */
-	padding: var(--wpds-dimension-padding-xs) var(--wpds-dimension-padding-sm)
-		var(--wpds-dimension-padding-xs)
-		calc(
-			var(--site-list-row-leading-inset) + var(--site-list-icon-size) +
-				var(--site-list-icon-gap)
-		);
-	border-radius: 6px;
-	background-color: var(--session-link-background);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	font-weight: var(--wpds-typography-font-weight-regular);
-	/* The Button primitive transitions `all` over 150ms, which makes the hover
-	   text-color/background feel sluggish; override with a quick,
-	   property-scoped transition so the row reacts promptly to the pointer. */
-	transition: color 80ms ease, background-color 80ms ease;
-}
-
-.sessionLabel {
-	flex: 1;
-	min-width: 0;
-	font-weight: var(--wpds-typography-font-weight-regular);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	text-align: start;
-}
-
-.sessionLabelUntitled {
-	font-style: italic;
-}
-
-.sessionTime {
-	flex-shrink: 0;
-	margin-inline-end: var(--wpds-dimension-padding-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
-	font-size: var(--wpds-typography-font-size-sm);
-	opacity: 0.55;
-	transition: opacity 100ms ease;
-}
-
-/* The running spinner and question indicator sit inside the active row shape,
-   inset from its edge while the chat label keeps its shared title column. */
-.sessionInlineSpinner {
-	--spinner-size: var(--site-list-chat-status-size);
-
-	box-sizing: border-box;
-	position: absolute;
-	inset-block-start: 50%;
-	inset-inline-start: calc(
-		var(--site-list-chat-status-offset) + var(--site-list-chat-status-offset-adjust)
-	);
-	inline-size: var(--site-list-chat-status-size);
-	block-size: var(--site-list-chat-status-size);
-	margin-block-start: calc(var(--site-list-chat-status-size) / -2);
-}
-
-.sessionQuestionIndicator {
-	position: absolute;
-	inset-block-start: 50%;
-	inset-inline-start: calc(
-		var(--site-list-chat-status-offset) + var(--site-list-chat-status-offset-adjust)
-	);
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	inline-size: var(--site-list-chat-status-size);
-	block-size: var(--site-list-chat-status-size);
-	transform: translateY(-50%);
-	isolation: isolate;
-}
-
-.sessionQuestionIndicator::before {
-	content: '';
-	position: absolute;
-	inset: 0;
-	z-index: -1;
-	clip-path: path(
-		'M 7 1.7 C 7.55 1.7 8.05 2 8.3 2.5 L 12.8 11.8 C 13.2 12.65 12.6 13.2 11.75 13.2 L 2.25 13.2 C 1.4 13.2 0.8 12.65 1.2 11.8 L 5.7 2.5 C 5.95 2 6.45 1.7 7 1.7 Z'
-	);
-	background-color: var(--site-list-pending-indicator-bg);
-}
-
-.sessionQuestionIndicator::after {
-	content: '';
-	position: absolute;
-	inset-block-start: calc(58% - 1.5px);
-	inset-inline-start: calc(50% - 1.5px);
-	inline-size: 3px;
-	block-size: 3px;
-	border-radius: 50%;
-	background-color: var(--site-list-pending-indicator-dot);
-}
-
-.sessionLink:hover,
-.sessionLink:focus-visible,
-.sessionItem:hover .sessionLink,
-.sessionItem:focus-within .sessionLink,
-.sessionItem:has(.sessionAction[data-popup-open]) .sessionLink {
-	--session-link-background: var(--site-list-row-background-hover);
-
-	color: var(--wpds-color-fg-content-neutral);
-}
-
-.sessionLink:focus-visible {
-	outline: 2px solid var(--wpds-color-stroke-interactive-brand, #3858e9);
-	outline-offset: -2px;
-}
-
-.sessionLinkActive {
-	--session-link-background: var(--site-list-row-background-active);
-
-	color: var(--wpds-color-fg-content-neutral);
-}
-
-.sessionItem:hover .sessionLinkActive,
-.sessionItem:focus-within .sessionLinkActive,
-.sessionItem:has(.sessionAction[data-popup-open]) .sessionLinkActive {
-	--session-link-background: var(--site-list-row-background-active);
-}
-
-/* Chat actions overlay the timestamp's spot at the row end; the timestamp
-   fades out as the actions fade in. */
-.sessionActions {
-	position: absolute;
-	inset-block-start: 50%;
-	inset-inline-end: var(--wpds-dimension-padding-sm);
-	display: flex;
-	align-items: center;
-	opacity: 0;
-	pointer-events: auto;
-	transform: translateY(-50%);
-	transition: opacity 100ms ease;
-}
-
-.sessionAction {
-	flex-shrink: 0;
-}
-
-.sessionItem:hover .sessionLink:not(.sessionLinkActive) ~ .sessionActions,
-.sessionItem:focus-within .sessionLink:not(.sessionLinkActive) ~ .sessionActions,
-.sessionActions:hover,
-.sessionActions:focus-within,
-.sessionItem:has(.sessionAction[data-popup-open]) .sessionActions {
-	opacity: 1;
-}
-
-.sessionItem:hover .sessionLink:not(.sessionLinkActive) .sessionTime,
-.sessionItem:focus-within .sessionLink:not(.sessionLinkActive) .sessionTime,
-.sessionItem:has(.sessionActions:hover) .sessionTime,
-.sessionItem:has(.sessionActions:focus-within) .sessionTime,
-.sessionItem:has(.sessionAction[data-popup-open]) .sessionLink:not(.sessionLinkActive) .sessionTime {
-	opacity: 0;
-}
-
-.dialogText {
-	margin: 0;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.dialogCheckbox {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
-	margin-top: var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-neutral);
-	cursor: var(--wpds-cursor-control);
-}
-
-.dialogError {
-	margin-top: var(--wpds-dimension-padding-sm);
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	color: var(--wpds-color-fg-content-error, var(--wpds-color-fg-content-neutral));
 }

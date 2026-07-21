@@ -6,6 +6,7 @@
  * same record.
  */
 
+import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import {
 	generateCustomDomainFromSiteName,
 	getDomainNameValidationError,
@@ -13,6 +14,7 @@ import {
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
+import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Field } from '@wordpress/dataviews';
 
@@ -40,14 +42,31 @@ export function phpVersionField< T extends { phpVersion: SupportedPHPVersion } >
 }
 
 export function wpVersionField< T extends { wpVersion: string } >(
-	placeholder: string
+	placeholder: string,
+	versions?: WordPressVersion[]
 ): Field< T > {
-	return {
+	const field: Field< T > = {
 		id: 'wpVersion',
 		type: 'text',
 		label: __( 'WordPress version' ),
 		placeholder,
 	};
+	if ( versions?.length ) {
+		const prerelease = versions.filter( ( version ) => version.isBeta || version.isDevelopment );
+		const stable = versions.filter(
+			( version ) =>
+				version.value !== DEFAULT_WORDPRESS_VERSION && ! version.isBeta && ! version.isDevelopment
+		);
+		field.elements = [
+			...versions
+				.filter( ( version ) => version.value === DEFAULT_WORDPRESS_VERSION )
+				.map( ( version ) => ( { value: version.value, label: __( 'latest' ) } ) ),
+			...prerelease.map( ( version ) => ( { value: version.value, label: version.label } ) ),
+			...stable.map( ( version ) => ( { value: version.value, label: version.label } ) ),
+		];
+		field.Edit = 'select';
+	}
+	return field;
 }
 
 export function adminUsernameField< T extends { adminUsername: string } >(): Field< T > {
@@ -75,6 +94,9 @@ export function adminEmailField< T extends { adminEmail: string } >(): Field< T 
 	return {
 		id: 'adminEmail',
 		type: 'email',
+		// The default email control prefixes the input with an envelope icon;
+		// use the plain text control instead (email-type validation still applies).
+		Edit: 'text',
 		label: __( 'Admin email' ),
 		isValid: {
 			required: true,

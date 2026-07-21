@@ -1,9 +1,20 @@
+import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { __ } from '@wordpress/i18n';
+import { useEffect, useMemo, useRef } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
+
+// The index route's redirect `beforeLoad` fetches the site and session lists to
+// choose a destination. Refreshing those lists after a delete with the default
+// `cancelRefetch: true` cancels that in-flight fetch, surfacing a `CancelledError`
+// in the router's error boundary (a red error flashes and recovers). Keeping the
+// in-flight fetch alive lets it settle with the fresh post-delete data instead.
+const KEEP_INFLIGHT_FETCH = { cancelRefetch: false } as const;
 
 const START_SITE_MUTATION_KEY = [ 'startSite' ] as const;
 const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
@@ -38,7 +49,18 @@ export function useDeleteSite() {
 	return useMutation( {
 		mutationFn: ( { id, deleteFiles = true }: DeleteSiteInput ) =>
 			connector.deleteSite( id, deleteFiles ),
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+		// Deleting a site also deletes its chat sessions (CLI `site delete`), so
+		// refresh the session list alongside the site list. `exact` keeps this
+		// off the open session's own detail query, which would refetch into a
+		// 404 for the just-deleted session.
+		onSuccess: () =>
+			Promise.all( [
+				queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH ),
+				queryClient.invalidateQueries(
+					{ queryKey: SESSIONS_QUERY_KEY, exact: true },
+					KEEP_INFLIGHT_FETCH
+				),
+			] ),
 	} );
 }
 
@@ -48,6 +70,7 @@ export function useCopySite() {
 	return useMutation( {
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
 		onSuccess: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+		onError: () => toast.error( __( 'Failed to copy site' ) ),
 	} );
 }
 
@@ -76,6 +99,8 @@ export function useStartSite() {
 			await connector.startSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
+		onSuccess: () => toast.success( __( 'Site started' ) ),
+		onError: () => toast.error( __( 'Failed to start site' ) ),
 	} );
 }
 
@@ -88,6 +113,8 @@ export function useStopSite() {
 			await connector.stopSite( id );
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
+		onSuccess: () => toast.success( __( 'Site stopped' ) ),
+		onError: () => toast.error( __( 'Failed to stop site' ) ),
 	} );
 }
 
@@ -96,6 +123,41 @@ export interface UpdateSiteInput {
 	// Provided only when the user switched WP version; undefined means the
 	// site stays on its current auto-updating track.
 	wpVersion?: string;
+}
+
+// Spaced values (1000, 2000, …) match the legacy desktop sidebar's
+// convention for the same appdata field.
+const toSortOrderUpdates = ( orderedSiteIds: string[] ) =>
+	orderedSiteIds.map( ( siteId, index ) => ( { siteId, sortOrder: ( index + 1 ) * 1000 } ) );
+
+// Persists the sidebar's manual site order. The new order is patched into the
+// sites cache optimistically, so the UI — and the persisted query snapshot a
+// reload hydrates from — reorders immediately; on error a refetch restores
+// the stored truth.
+export function useUpdateSitesSortOrder() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( orderedSiteIds: string[] ) =>
+			connector.updateSitesSortOrder( toSortOrderUpdates( orderedSiteIds ) ),
+		onMutate: ( orderedSiteIds ) => {
+			const rank = new Map(
+				toSortOrderUpdates( orderedSiteIds ).map( ( { siteId, sortOrder } ) => [
+					siteId,
+					sortOrder,
+				] )
+			);
+			queryClient.setQueryData< SiteDetails[] >(
+				SITES_QUERY_KEY,
+				( sites ) =>
+					sites?.map( ( site ) => {
+						const sortOrder = rank.get( site.id );
+						return sortOrder === undefined ? site : { ...site, sortOrder };
+					} )
+			);
+		},
+		onError: () => queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } ),
+	} );
 }
 
 export function useUpdateSite() {
@@ -113,17 +175,18 @@ export function useUpdateSite() {
 			// site-event lands, giving us a single refetch against fresh
 			// in-memory details.
 		},
+		onSuccess: () => toast.success( __( 'Settings saved' ) ),
 	} );
 }
 
-const XDEBUG_ENABLED_SITE_QUERY_KEY = [ 'xdebugEnabledSite' ] as const;
-
-export function useXdebugEnabledSite() {
-	const connector = useConnector();
-	return useQuery( {
-		queryKey: XDEBUG_ENABLED_SITE_QUERY_KEY,
-		queryFn: () => connector.getXdebugEnabledSite(),
-	} );
+/**
+ * The site that currently has Xdebug enabled — exclusive across sites — derived
+ * from the loaded site list so the settings form can warn before enabling it
+ * elsewhere. `enableXdebug` is already on every SiteDetails, so no separate call.
+ */
+export function useXdebugEnabledSite(): SiteDetails | null {
+	const { data: sites } = useSites();
+	return useMemo( () => sites?.find( ( site ) => site.enableXdebug ) ?? null, [ sites ] );
 }
 
 function useIsSiteMutating( siteId: string | undefined, mutationKey: readonly string[] ): boolean {
@@ -150,8 +213,40 @@ export function useSyncSitesWithEvents(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	useEffect( () => {
-		return connector.onSiteEvent( () => {
-			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+		return connector.onSiteEvent( ( event ) => {
+			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH );
+			// Site deletion deletes the site's chat sessions (CLI `site delete`),
+			// so refresh the session list too. Scoped to deletes: start/stop
+			// events fire often and don't affect sessions. `exact` keeps this off
+			// the open session's own detail query.
+			if ( event.event === SITE_EVENTS.DELETED ) {
+				void queryClient.invalidateQueries(
+					{ queryKey: SESSIONS_QUERY_KEY, exact: true },
+					KEEP_INFLIGHT_FETCH
+				);
+			}
 		} );
 	}, [ connector, queryClient ] );
+}
+
+// Boot-time counterpart of the "Stop, restart on next launch" quit behavior:
+// those sites keep their autoStart flag when stopped on quit, and the renderer
+// starts them again on launch (mirrors the legacy UI's use-site-details
+// bootstrapping). Gated on isFetchedAfterMount so a rehydrated persisted cache
+// with stale flags can't trigger starts.
+export function useAutoStartSites(): void {
+	const { data: sites, isFetchedAfterMount } = useSites();
+	const { mutate: startSite } = useStartSite();
+	const startedRef = useRef( false );
+	useEffect( () => {
+		if ( ! isFetchedAfterMount || ! sites || startedRef.current ) {
+			return;
+		}
+		startedRef.current = true;
+		for ( const site of sites ) {
+			if ( site.autoStart && ! site.running ) {
+				startSite( site.id );
+			}
+		}
+	}, [ isFetchedAfterMount, sites, startSite ] );
 }

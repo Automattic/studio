@@ -1,4 +1,10 @@
 .root {
+	--settings-content-width: 760px;
+	--settings-form-width: 560px;
+	--settings-divider-border: 1px dotted
+		color-mix(in srgb, var(--wpds-color-stroke-surface-neutral) 72%, transparent);
+	--settings-row-padding-block: calc(var(--wpds-dimension-padding-md) + 2px);
+
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -8,52 +14,93 @@
 .state {
 	padding: var(--wpds-dimension-padding-xl);
 	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-md);
 }
 
 .header {
-	display: flex;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
-	min-height: 46px;
-	font-size: var(--wpds-typography-font-size-sm);
+	min-height: 54px;
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
 	-webkit-app-region: drag;
+}
+
+.headerStart,
+.headerTabs {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.headerStart {
+	grid-column: 1;
+	justify-self: start;
+	align-self: stretch;
+	pointer-events: none;
+}
+
+.headerTabs {
+	grid-column: 2;
+	align-self: stretch;
+	align-items: stretch;
+	justify-self: center;
+}
+
+.headerTabList {
+	height: 100%;
+	align-items: center !important;
+	gap: 0 !important;
+	margin-bottom: -1px;
+	overflow: visible !important;
+	-webkit-app-region: no-drag;
+}
+
+.headerTabList :global([role='tab']) {
+	box-sizing: border-box;
+	display: inline-flex !important;
+	align-items: center;
+	justify-content: center;
+	height: 40px !important;
+	padding-block: 0 !important;
+	padding-inline: var(--wpds-dimension-padding-lg) !important;
+	border-radius: var(--wpds-border-radius-sm);
+	font-weight: 500 !important;
+	outline: 0 solid transparent;
+	outline-offset: 2px;
+	-webkit-app-region: no-drag;
+}
+
+.headerTabList :global([role='tab'])::after {
+	content: none !important;
+}
+
+.headerTabList
+	:global([role='tab']:not([aria-disabled='true']):is(:focus-visible, [data-focus-visible])) {
+	box-shadow: none !important;
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand) !important;
+	outline-offset: 2px !important;
 }
 
 .toggleSpacer {
 	display: block;
 	flex-shrink: 0;
-	width: calc(118px - var(--wpds-dimension-padding-xs));
-	height: 100%;
+	width: 118px;
+	align-self: stretch;
 	-webkit-app-region: no-drag;
 }
 
-.toggleSpacerFullscreen {
+/* No traffic lights to clear (non-macOS, the browser, or macOS fullscreen): a
+   minimal spacer so the toggle still clears the header's drag region. */
+.toggleSpacerFlush {
 	display: block;
 	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-md) + 24px - var(--wpds-dimension-padding-xs));
-	height: 100%;
+	width: calc(var(--wpds-dimension-padding-xl) + 24px);
+	align-self: stretch;
 	-webkit-app-region: no-drag;
-}
-
-.titleBlock {
-	max-width: 760px;
-	margin: 0 auto;
-	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl) 0;
-	width: 100%;
-}
-
-.tabsBar {
-	width: 100%;
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-	margin-top: var(--wpds-dimension-padding-xl);
-}
-
-.tabsBarInner {
-	max-width: 760px;
-	margin: 0 auto;
-	padding: 0 var(--wpds-dimension-padding-xl);
 }
 
 .scroll {
@@ -63,20 +110,466 @@
 }
 
 .contentBlock {
-	max-width: 760px;
+	box-sizing: border-box;
+	width: 100%;
+	max-width: var(--settings-content-width);
 	margin: 0 auto;
-	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--wpds-dimension-padding-xl)
+	padding: var(--wpds-dimension-padding-2xl) var(--wpds-dimension-padding-xl)
 		var(--wpds-dimension-padding-2xl);
 }
 
-.form {
+.preferencesPanel {
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-xl);
+	width: 100%;
+	max-width: var(--settings-form-width);
+	margin: 0 auto;
 }
 
-.actions {
+.preferenceSectionGroup {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl)
+		var(--wpds-dimension-padding-xl);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-weak) 56%, transparent);
+}
+
+.preferenceSectionHeading {
+	margin: 0 0 var(--wpds-dimension-padding-md);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.preferenceRow {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) max-content;
+	align-items: center;
+	column-gap: var(--wpds-dimension-padding-xl);
+	padding-block: var(--settings-row-padding-block);
+	border-bottom: var(--settings-divider-border);
+}
+
+.preferenceRow:last-child {
+	padding-block-end: 0;
+	border-bottom: 0;
+}
+
+.preferenceText {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+	min-width: 0;
+}
+
+.preferenceText h2 {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 400;
+	line-height: var(--wpds-typography-line-height-sm);
+	white-space: nowrap;
+}
+
+.preferenceText p {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.preferenceControl {
 	display: flex;
 	justify-content: flex-end;
-	gap: var(--wpds-dimension-padding-sm);
+	min-width: 0;
+	inline-size: 100%;
 }
+
+.appearancePicker {
+	position: relative;
+	display: grid;
+	grid-template-columns: repeat(3, minmax(72px, 1fr));
+	align-items: center;
+	gap: 0;
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-interactive-neutral-weak);
+	color: var(--wpds-color-fg-interactive-neutral);
+	font-family: var(--wpds-typography-font-family-body);
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1;
+}
+
+.appearancePicker::before {
+	content: '';
+	position: absolute;
+	inset-block: calc(var(--wpds-border-width-xs) * -1);
+	inset-inline-start: 0;
+	box-sizing: border-box;
+	inline-size: calc(100% / 3);
+	border: 1px solid var(--wpds-color-stroke-interactive-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-interactive-neutral-weak);
+	pointer-events: none;
+	transform: translateX(calc(var(--appearance-active-index, 0) * 100%));
+}
+
+/* The indicator is positioned with a logical inset but animated with a
+   physical translateX, so RTL needs the sign flipped to slide toward the
+   selected option instead of away from it. */
+.appearancePicker:dir(rtl)::before {
+	transform: translateX(calc(var(--appearance-active-index, 0) * -100%));
+}
+
+.appearancePicker[data-active-index='0'] {
+	--appearance-active-index: 0;
+}
+
+.appearancePicker[data-active-index='1'] {
+	--appearance-active-index: 1;
+}
+
+.appearancePicker[data-active-index='2'] {
+	--appearance-active-index: 2;
+}
+
+@media not (prefers-reduced-motion) {
+	.appearancePicker::before {
+		transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+	}
+}
+
+.appearanceButton {
+	position: relative;
+	z-index: 1;
+	min-height: 32px;
+	padding: 0 var(--wpds-dimension-padding-lg);
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm);
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font: inherit;
+	/* Match SelectControl's trigger text so all controls in a card read the
+	   same size. */
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-sm);
+	cursor: pointer;
+}
+
+.appearanceButton:hover,
+.appearanceButtonActive {
+	color: var(--wpds-color-fg-content-neutral);
+}
+
+.appearanceButton:focus-visible,
+.selectControl:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+}
+
+.selectControl {
+	inline-size: 156px;
+	max-inline-size: 100%;
+}
+
+/* Stretch the trigger to the control's width, but skip the visually-hidden
+   label `hideLabelFromVision` renders: it's absolutely positioned, so
+   stretching it makes it hang past the layout and create horizontal
+   overflow. */
+.selectControl > *:not([data-visually-hidden]) {
+	inline-size: 100%;
+}
+
+.selectControlWide {
+	inline-size: 240px;
+}
+
+.accountSectionHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-xl);
+	margin-block-end: var(--wpds-dimension-padding-xl);
+}
+
+.accountHeading {
+	margin-block-end: 0;
+}
+
+.accountActions {
+	display: flex;
+	gap: var(--wpds-dimension-padding-md);
+	flex-wrap: wrap;
+}
+
+.accountSummary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-xl);
+	min-width: 0;
+}
+
+.accountIdentity {
+	display: flex;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+.accountAvatar {
+	flex: 0 0 44px;
+	inline-size: 44px;
+	block-size: 44px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.accountDetails {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.accountDetails h2 {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.accountDetails p {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+	overflow-wrap: anywhere;
+}
+
+.pathPickerButton {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-lg);
+	inline-size: 240px;
+	max-inline-size: 100%;
+	min-block-size: 36px;
+	padding: 0 var(--wpds-dimension-padding-lg);
+	border: var(--wpds-border-width-xs) solid var(--wpds-color-stroke-interactive-neutral);
+	border-radius: var(--wpds-border-radius-sm);
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(--wpds-typography-font-family-body);
+	/* Match SelectControl's trigger text so all controls in a card read the
+	   same size. */
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: var(--wpds-typography-line-height-sm);
+	text-align: start;
+	cursor: pointer;
+}
+
+.pathPickerButton:hover {
+	border-color: var(--wpds-color-stroke-interactive-neutral-active);
+}
+
+.pathPickerButton:focus-visible {
+	outline: var(--wpds-border-width-focus) solid var(--wpds-color-stroke-focus-brand);
+	outline-offset: 2px;
+}
+
+.pathPickerValue,
+.pathPickerPlaceholder {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pathPickerPlaceholder {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.pathPickerIcon {
+	flex-shrink: 0;
+	fill: currentColor;
+}
+
+.errorMessage {
+	margin-block-end: var(--wpds-dimension-padding-md);
+	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);
+	border: 1px solid color-mix(in srgb, var(--wpds-color-fg-content-error) 35%, transparent);
+	border-radius: 6px;
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-fg-content-error) 8%,
+		var(--wpds-color-bg-surface-neutral-strong)
+	);
+	color: var(--wpds-color-fg-content-error);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.skillsPanel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xl);
+	width: 100%;
+	max-width: var(--settings-form-width);
+	margin: 0 auto;
+}
+
+.settingsPanelSection {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--wpds-dimension-padding-lg);
+	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl)
+		var(--wpds-dimension-padding-xl);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--wpds-color-bg-surface-neutral-weak) 56%, transparent);
+}
+
+.settingsPanelHeader {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-xs);
+}
+
+.settingsPanelHeader h2 {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-lg);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.settingsPanelHeader p {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.skillsHeaderRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-md);
+	/* Compact wpds Button height, reserved so the header doesn't jump when
+	   the Install all button appears or disappears. */
+	min-block-size: 32px;
+}
+
+.skillList {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.skillRow {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: var(--wpds-dimension-padding-xl);
+	padding-block: var(--wpds-dimension-padding-lg);
+	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.skillRow:last-child {
+	border-bottom: 0;
+}
+
+.skillDetails {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.skillName {
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.skillDescription {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.sectionIntro {
+	margin: 0 0 var(--wpds-dimension-padding-lg);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.codeBlockWrap {
+	position: relative;
+}
+
+.codeBlock {
+	margin: 0;
+	padding: var(--wpds-dimension-padding-md);
+	padding-inline-end: calc(var(--wpds-dimension-padding-xl) + 32px);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: 6px;
+	background: var(--wpds-color-bg-surface-neutral);
+	color: var(--wpds-color-fg-content-neutral);
+	font-family: var(
+		--wpds-typography-font-family-mono,
+		ui-monospace,
+		SFMono-Regular,
+		Menlo,
+		monospace
+	);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-md);
+	overflow-x: auto;
+	white-space: pre;
+}
+
+.codeBlockCopyButton {
+	position: absolute;
+	inset-block-start: var(--wpds-dimension-padding-sm);
+	inset-inline-end: var(--wpds-dimension-padding-sm);
+	z-index: 1;
+}
+
+@media (max-width: 640px) {
+	.preferenceRow {
+		align-items: stretch;
+		grid-template-columns: 1fr;
+		row-gap: var(--wpds-dimension-padding-sm);
+	}
+
+	.accountSectionHeader,
+	.accountSummary {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.preferenceText h2 {
+		white-space: normal;
+	}
+
+	.skillRow {
+		align-items: stretch;
+		grid-template-columns: 1fr;
+	}
+}
+

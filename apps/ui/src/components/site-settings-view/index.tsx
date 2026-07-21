@@ -8,7 +8,6 @@ import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LearnHowLink } from '@/components/learn-more';
-import { SiteDropdown } from '@/components/site-dropdown';
 import {
 	adminEmailField,
 	adminPasswordField,
@@ -24,16 +23,14 @@ import {
 } from '@/components/site-fields';
 import * as Tabs from '@/components/tabs';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
-import { useSites, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
-import { useFullscreen } from '@/hooks/use-fullscreen';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { DataFormControlProps, Field, Form } from '@wordpress/dataviews';
 import type { FormEvent } from 'react';
 
-type TabId = 'general' | 'debugging';
+type TabId = 'overview' | 'general' | 'debugging';
 
 interface FormData {
 	name: string;
@@ -75,22 +72,6 @@ function initialFormData( site: SiteDetails ): FormData {
 	};
 }
 
-function SettingsHeader( { site }: { site: SiteDetails } ) {
-	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
-	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
-		: null;
-	return (
-		<div className={ styles.header }>
-			{ toggleSpacerClass ? <span className={ toggleSpacerClass } aria-hidden="true" /> : null }
-			<SiteDropdown site={ site } showSiteIcon={ sidebarCollapsed } />
-		</div>
-	);
-}
-
 function EnableHttpsControl( { data: item, field, onChange }: DataFormControlProps< FormData > ) {
 	return (
 		<CheckboxControl
@@ -110,49 +91,18 @@ function EnableHttpsControl( { data: item, field, onChange }: DataFormControlPro
 	);
 }
 
-export function SiteSettingsView( {
-	siteId,
-	activeTab,
-	onTabChange,
-}: {
-	siteId: string;
-	activeTab: TabId;
-	onTabChange: ( tab: TabId ) => void;
-} ) {
-	const { data: sites, isLoading: sitesLoading } = useSites();
-	const site = sites?.find( ( candidate ) => candidate.id === siteId );
-
-	if ( sitesLoading ) {
-		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
-	}
-
-	if ( ! site ) {
-		return (
-			<div className={ styles.state }>
-				<h1>{ __( 'Site not found' ) }</h1>
-				<p>{ siteId }</p>
-			</div>
-		);
-	}
-
-	return <SiteSettingsBody site={ site } activeTab={ activeTab } onTabChange={ onTabChange } />;
-}
-
-function SiteSettingsBody( {
-	site,
-	activeTab,
-	onTabChange,
-}: {
-	site: SiteDetails;
-	activeTab: TabId;
-	onTabChange: ( tab: TabId ) => void;
-} ) {
-	const { data: allDomains } = useExistingCustomDomains();
+/**
+ * The site settings form (General + Debugging), rendered as tab panels inside
+ * a `Tabs.Root` owned by the caller — the site overview view. One instance
+ * spans both panels so unsaved edits survive tab switches.
+ */
+export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; activeTab: TabId } ) {
+	const allDomains = useExistingCustomDomains();
 	const existingDomainNames = useMemo(
-		() => ( allDomains ?? [] ).filter( ( domain ) => domain !== site.customDomain ),
+		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),
 		[ allDomains, site.customDomain ]
 	);
-	const { data: xdebugEnabledSite } = useXdebugEnabledSite();
+	const xdebugEnabledSite = useXdebugEnabledSite();
 	const xdebugConflictSiteName =
 		xdebugEnabledSite && xdebugEnabledSite.id !== site.id ? xdebugEnabledSite.name : undefined;
 
@@ -199,12 +149,12 @@ function SiteSettingsBody( {
 				'name',
 				{
 					id: 'versions',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'phpVersion', 'wpVersion' ],
 				},
 				{
 					id: 'adminCredentials',
-					layout: { type: 'row' },
+					layout: { type: 'row', alignment: 'start' },
 					children: [ 'adminUsername', 'adminPassword' ],
 				},
 				'adminEmail',
@@ -289,77 +239,49 @@ function SiteSettingsBody( {
 	};
 
 	return (
-		<div className={ styles.root }>
-			<SettingsHeader site={ site } />
-			<Tabs.Root
-				selectedTabId={ activeTab }
-				onSelect={ ( tabId ) => {
-					if ( tabId && isSiteSettingsTab( tabId ) ) {
-						onTabChange( tabId );
-					}
-				} }
-			>
-				{ /* Title + tabs sit outside the scroll container so the tablist's
-					 border-bottom spans the full main-area width. Only the form
-					 content scrolls — tabs stay pinned. */ }
-				<div className={ styles.titleBlock }>
-					<h1>{ __( 'Site settings' ) }</h1>
-				</div>
-				<div className={ styles.tabsBar }>
-					<div className={ styles.tabsBarInner }>
-						<Tabs.List>
-							<Tabs.Tab tabId="general">{ __( 'General' ) }</Tabs.Tab>
-							<Tabs.Tab tabId="debugging">{ __( 'Debugging' ) }</Tabs.Tab>
-						</Tabs.List>
-					</div>
-				</div>
+		<form onSubmit={ handleSubmit } className={ styles.form }>
+			<Tabs.Panel tabId="general">
+				<DataForm< FormData >
+					data={ data }
+					fields={ fields }
+					form={ generalForm }
+					onChange={ handleChange }
+					validity={ validity }
+				/>
+			</Tabs.Panel>
+			<Tabs.Panel tabId="debugging">
+				<DataForm< FormData >
+					data={ data }
+					fields={ fields }
+					form={ debuggingForm }
+					onChange={ handleChange }
+					validity={ validity }
+				/>
+			</Tabs.Panel>
 
-				<div className={ styles.scroll }>
-					<div className={ styles.contentBlock }>
-						<form onSubmit={ handleSubmit } className={ styles.form }>
-							<Tabs.Panel tabId="general">
-								<DataForm< FormData >
-									data={ data }
-									fields={ fields }
-									form={ generalForm }
-									onChange={ handleChange }
-									validity={ validity }
-								/>
-							</Tabs.Panel>
-							<Tabs.Panel tabId="debugging">
-								<DataForm< FormData >
-									data={ data }
-									fields={ fields }
-									form={ debuggingForm }
-									onChange={ handleChange }
-									validity={ validity }
-								/>
-							</Tabs.Panel>
+			{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
 
-							{ submitError && <div className={ styles.submitError }>{ submitError }</div> }
-
-							<div className={ styles.actions }>
-								<Button
-									type="submit"
-									variant="solid"
-									tone="brand"
-									disabled={ ! canSubmit }
-									loading={ updateSite.isPending }
-									loadingAnnouncement={ __( 'Saving settings' ) }
-								>
-									{ __( 'Save settings' ) }
-								</Button>
-							</div>
-						</form>
-					</div>
+			{ /* The save actions apply to the form tabs only, not Overview. */ }
+			{ activeTab !== 'overview' && (
+				<div className={ styles.actions }>
+					<Button
+						type="submit"
+						variant="solid"
+						tone="brand"
+						disabled={ ! canSubmit }
+						loading={ updateSite.isPending }
+						loadingAnnouncement={ __( 'Saving settings' ) }
+					>
+						{ __( 'Save settings' ) }
+					</Button>
 				</div>
-			</Tabs.Root>
-		</div>
+			) }
+		</form>
 	);
 }
 
 export function isSiteSettingsTab( value: string ): value is TabId {
-	return value === 'general' || value === 'debugging';
+	return value === 'overview' || value === 'general' || value === 'debugging';
 }
 
 export type SiteSettingsTabId = TabId;

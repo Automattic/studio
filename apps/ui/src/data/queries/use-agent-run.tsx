@@ -20,6 +20,7 @@ import type {
 	SessionEntry,
 	StudioChatFileAttachment,
 	StudioChatImage,
+	StudioCustomEntry,
 } from '@/data/core';
 
 function nowIso(): string {
@@ -86,6 +87,7 @@ export interface LiveAgentEvents {
 // `winding_down` means the turn completed, but the subprocess is still draining.
 // `idle` means no active run.
 type RunPhase = 'idle' | 'starting' | 'running' | 'winding_down';
+export type SiteAgentActivity = 'idle' | 'working' | 'pending-question';
 
 interface State {
 	phase: RunPhase;
@@ -366,7 +368,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					dispatchSession( payload.sessionId, { type: 'interrupt_requested' } );
 					return;
 				case 'run.exited':
-				case 'run.interrupted':
+				case 'run.interrupted': {
+					const hasQueuedFollowUp =
+						( stateStore.getState()[ payload.sessionId ] ?? initialState ).queuedPrompts.length > 0;
 					if ( event.type === 'run.interrupted' ) {
 						// Synthetic studio.turn_closed for immediate "Interrupted
 						// by you" rendering; the CLI also writes a real one.
@@ -384,11 +388,18 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					}
 					dispatchSession( payload.sessionId, { type: 'run_ended' } );
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
-					// Refetch to replace optimistic entries with disk-backed ones.
-					void queryClient.invalidateQueries( {
-						queryKey: SESSIONS_QUERY_KEY,
-					} );
+					if ( ! hasQueuedFollowUp ) {
+						// Refetch to replace optimistic entries with disk-backed ones.
+						// `cancelRefetch: false` so a run ending as its site is deleted
+						// can't cancel the redirect route's in-flight fetch (which would
+						// throw a CancelledError into the router's error boundary).
+						void queryClient.invalidateQueries(
+							{ queryKey: SESSIONS_QUERY_KEY },
+							{ cancelRefetch: false }
+						);
+					}
 					return;
+				}
 				case 'message': {
 					// Only message-bearing pi event variants need optimistic entries.
 					const inner = event.message;
@@ -475,7 +486,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 			}
 		} );
-	}, [ connector, dispatchSession, queryClient, updateCache ] );
+	}, [ connector, dispatchSession, queryClient, stateStore, updateCache ] );
 
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
@@ -483,6 +494,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const images = options.images ?? [];
 			const files = options.files ?? [];
 			dispatchSession( sessionId, { type: 'error_set', message: null } );
+			await queryClient.cancelQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 
 			const optimisticEntry: SessionEntry = {
 				type: 'custom',
@@ -534,7 +546,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				throw err;
 			}
 		},
-		[ connector, dispatchSession, updateCache ]
+		[ connector, dispatchSession, queryClient, updateCache ]
 	);
 
 	const interrupt = useCallback(
@@ -585,6 +597,36 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			if ( ! state.runId ) {
 				return;
 			}
+			updateCache( sessionId, ( entries ) => {
+				let targetIndex = -1;
+				for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
+					const entry = entries[ index ];
+					if ( entry.type !== 'custom' || entry.customType !== 'studio.agent_question' ) {
+						continue;
+					}
+					const data = ( entry as StudioCustomEntry< 'studio.agent_question' > ).data;
+					if ( data?.question === question ) {
+						targetIndex = index;
+						break;
+					}
+				}
+				if ( targetIndex === -1 ) {
+					return entries;
+				}
+				return entries.map( ( entry, index ) => {
+					if ( index !== targetIndex ) {
+						return entry;
+					}
+					const questionEntry = entry as StudioCustomEntry< 'studio.agent_question' >;
+					return {
+						...questionEntry,
+						data: {
+							...questionEntry.data,
+							selectedLabel: answer,
+						},
+					} as SessionEntry;
+				} );
+			} );
 			const nextAnswers = { ...state.pendingAnswers, [ question ]: answer };
 			const complete = state.pendingQuestions.every(
 				( q ) => typeof nextAnswers[ q.question ] === 'string'
@@ -596,7 +638,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				dispatchSession( sessionId, { type: 'question_answered', question, answer } );
 			}
 		},
-		[ connector, dispatchSession, stateStore ]
+		[ connector, dispatchSession, stateStore, updateCache ]
 	);
 
 	const value = useMemo< AgentRunStore >(
@@ -659,6 +701,7 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 		}
 		const next = queuedPrompts[ 0 ];
 		dispatchingQueuedRef.current = true;
+		dispatchSession( sessionId, { type: 'queue_shift' } );
 		void ( async () => {
 			try {
 				await startRun( sessionId, next.prompt, {
@@ -666,7 +709,6 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					images: next.images,
 					files: next.files,
 				} );
-				dispatchSession( sessionId, { type: 'queue_shift' } );
 			} catch {
 				dispatchSession( sessionId, { type: 'queue_clear' } );
 			} finally {
@@ -745,35 +787,32 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 }
 
 /**
- * Read-only counterpart to `useAgentRun` that returns just whether the given
- * session's assistant is actively generating (`isRunning` semantics: the
- * `starting`/`running` phases). Unlike `useAgentRun`, it registers no effects
- * and exposes no actions, so it is safe to call many times — e.g. once per
- * sidebar row — without re-triggering the queue auto-dispatch effect.
+ * Aggregate read-only activity for a site row. Pending questions outrank
+ * active work because they need the user's attention; otherwise any
+ * starting/running session makes the site read as working.
  */
-export function useIsSessionRunning( sessionId: string | undefined ): boolean {
+export function useSiteAgentActivity( sessionIds: string[] ): SiteAgentActivity {
 	const store = useContext( AgentRunContext );
 	if ( ! store ) {
-		throw new Error( 'useIsSessionRunning must be used within AgentRunProvider' );
-	}
-	// Boolean snapshot: rows only re-render when their own flag flips.
-	return useSyncExternalStore( store.stateStore.subscribe, () => {
-		const phase = sessionId ? store.stateStore.getState()[ sessionId ]?.phase : undefined;
-		return phase === 'starting' || phase === 'running';
-	} );
-}
-
-export function useSessionHasPendingQuestion( sessionId: string | undefined ): boolean {
-	const store = useContext( AgentRunContext );
-	if ( ! store ) {
-		throw new Error( 'useSessionHasPendingQuestion must be used within AgentRunProvider' );
+		throw new Error( 'useSiteAgentActivity must be used within AgentRunProvider' );
 	}
 	return useSyncExternalStore( store.stateStore.subscribe, () => {
-		const state = sessionId ? store.stateStore.getState()[ sessionId ] : undefined;
-		return (
-			state?.pendingQuestions.some(
+		let hasWorkingSession = false;
+		for ( const sessionId of sessionIds ) {
+			const state = store.stateStore.getState()[ sessionId ];
+			if ( ! state ) {
+				continue;
+			}
+			const hasPendingQuestion = state.pendingQuestions.some(
 				( pendingQuestion ) => typeof state.pendingAnswers[ pendingQuestion.question ] !== 'string'
-			) ?? false
-		);
+			);
+			if ( hasPendingQuestion ) {
+				return 'pending-question';
+			}
+			if ( state.phase === 'starting' || state.phase === 'running' ) {
+				hasWorkingSession = true;
+			}
+		}
+		return hasWorkingSession ? 'working' : 'idle';
 	} );
 }

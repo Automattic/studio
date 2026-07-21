@@ -39,6 +39,7 @@ export type SessionUIAction =
 	| { type: 'preview/set-open'; value: boolean }
 	| { type: 'preview/toggle' }
 	| { type: 'preview/navigate'; path: string }
+	| { type: 'preview/reload' }
 	| { type: 'preview/update-path'; path: string };
 
 const INITIAL_STATE: SessionUIState = {
@@ -59,6 +60,17 @@ function reducer( state: SessionUIState, action: SessionUIAction ): SessionUISta
 				preview: {
 					...state.preview,
 					path: action.path,
+					reloadNonce: state.preview.reloadNonce + 1,
+					open: true,
+				},
+			};
+		case 'preview/reload':
+			// Reload the current path in place (bump the nonce). Reveal the
+			// panel so the agent-triggered refresh is actually visible.
+			return {
+				...state,
+				preview: {
+					...state.preview,
 					reloadNonce: state.preview.reloadNonce + 1,
 					open: true,
 				},
@@ -137,6 +149,36 @@ export interface SessionPreviewUI {
 	setOpen: ( value: boolean ) => void;
 	toggle: () => void;
 	updatePath: ( path: string ) => void;
+}
+
+// Like `useSessionPreviewUI`, but usable outside the dashboard layout —
+// returns null when no SessionUIProvider is mounted, so callers can fall
+// back to non-preview behavior (e.g. opening the external browser).
+export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
+	const state = useContext( SessionUIStateContext );
+	const dispatch = useContext( SessionUIDispatchContext );
+	const setOpen = useCallback(
+		( value: boolean ) => dispatch?.( { type: 'preview/set-open', value } ),
+		[ dispatch ]
+	);
+	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
+	const updatePath = useCallback(
+		( path: string ) => dispatch?.( { type: 'preview/update-path', path } ),
+		[ dispatch ]
+	);
+	return useMemo( () => {
+		if ( ! state || ! dispatch ) {
+			return null;
+		}
+		return {
+			open: state.preview.open,
+			path: state.preview.path,
+			reloadNonce: state.preview.reloadNonce,
+			setOpen,
+			toggle,
+			updatePath,
+		};
+	}, [ state, dispatch, setOpen, toggle, updatePath ] );
 }
 
 export function useSessionPreviewUI(): SessionPreviewUI {

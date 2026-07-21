@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { forwardRef } from 'react';
 import { SiteIcon } from '@/components/site-icon';
 import styles from './dropdown-trigger.module.css';
+import type { TriggerSecondaryTone } from './trigger-secondary';
 import type { ComponentProps, ElementRef } from 'react';
 
 export type SiteStatus = 'running' | 'stopped' | 'transitioning';
@@ -15,9 +16,15 @@ type Props = Omit< ComponentProps< typeof Button >, 'children' > & {
 	status: SiteStatus;
 	statusLabel: string;
 	environment: 'local' | 'live';
+	secondaryLabel: string;
+	secondaryTone?: TriggerSecondaryTone;
 	showSiteIcon?: boolean;
+	showStatus?: boolean;
 	siteIconSeed?: string;
 	siteIconImage?: string | null;
+	// The floating-card shadow suits placements where the trigger overlays
+	// panel content (the chat header); regular header rows pass false.
+	floating?: boolean;
 };
 
 export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
@@ -28,9 +35,13 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 			status,
 			statusLabel,
 			environment,
+			secondaryLabel,
+			secondaryTone = 'neutral',
 			showSiteIcon = false,
+			showStatus = true,
 			siteIconSeed,
 			siteIconImage,
+			floating = true,
 			className,
 			...props
 		},
@@ -41,38 +52,62 @@ export const DropdownTrigger = forwardRef< ElementRef< typeof Button >, Props >(
 		// still reflects the active target.
 		const isLive = environment === 'live';
 		const dotClass = environment === 'live' ? styles.dot_live : styles[ `dot_${ status }` ];
+		const statusClass =
+			environment === 'live' ? styles.statusBadge_live : styles[ `statusBadge_${ status }` ];
 		const dotLabel = isLive ? __( 'Live site' ) : statusLabel;
+		const statusBadge = showStatus ? (
+			<span
+				className={ clsx(
+					styles.statusBadge,
+					showSiteIcon && styles.statusBadge_overlay,
+					statusClass
+				) }
+				role="img"
+				aria-label={ dotLabel }
+				title={ dotLabel }
+			>
+				{ status === 'stopped' && ! isLive ? (
+					<span className={ styles.pauseMark } aria-hidden="true" />
+				) : (
+					<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />
+				) }
+				{ ! showSiteIcon && isLive ? (
+					<span className={ styles.statusLabel }>{ __( 'Live' ) }</span>
+				) : null }
+			</span>
+		) : null;
+
 		return (
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					ref={ ref }
-					render={ <Button variant="minimal" tone="neutral" size="small" { ...props } /> }
-					className={ clsx( styles.trigger, className ) }
+					render={ <Button variant="minimal" tone="neutral" { ...props } /> }
+					className={ clsx( styles.trigger, ! floating && styles.triggerFlat, className ) }
 				>
 					{ showSiteIcon ? (
-						<SiteIcon
-							className={ styles.siteIcon }
-							seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
-							imageSrc={ siteIconImage }
-						/>
+						<span className={ styles.siteIconWrap }>
+							<SiteIcon
+								className={ clsx(
+									styles.siteIcon,
+									status === 'stopped' && ! isLive && styles.siteIcon_stopped
+								) }
+								seed={ siteIconSeed ?? `${ siteName }:${ siteUrl }` }
+								imageSrc={ siteIconImage }
+							/>
+							{ statusBadge }
+						</span>
 					) : null }
-					<span
-						className={ clsx( styles.statusBadge, isLive && styles.statusBadge_live ) }
-						role="img"
-						aria-label={ dotLabel }
-						title={ dotLabel }
-					>
-						<span className={ clsx( styles.dot, dotClass ) } aria-hidden="true" />
-						{ isLive ? <span className={ styles.statusLabel }>{ __( 'Live' ) }</span> : null }
-					</span>
 					<span className={ styles.identity }>
 						<span className={ styles.site }>{ siteName }</span>
-						<span className={ styles.url }>{ siteUrl }</span>
+						<span className={ clsx( styles.secondary, styles[ `secondary_${ secondaryTone }` ] ) }>
+							<span className={ styles.secondaryLabel }>{ secondaryLabel }</span>
+						</span>
 					</span>
+					{ showSiteIcon ? null : statusBadge }
 					<Icon className={ styles.chevron } icon={ chevronDownSmall } />
 				</Tooltip.Trigger>
 				<Tooltip.Popup positioner={ <Tooltip.Positioner side="bottom" /> }>
-					{ __( 'Open site menu' ) }
+					{ __( 'Publish, preview, and more' ) }
 				</Tooltip.Popup>
 			</Tooltip.Root>
 		);

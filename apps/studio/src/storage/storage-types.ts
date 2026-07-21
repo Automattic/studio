@@ -1,5 +1,6 @@
 import { StatsMetric } from 'src/lib/bump-stats';
 import { SupportedEditor } from 'src/modules/user-settings/lib/editor';
+import type { AiSessionSitePlacement } from '@studio/common/ai/sessions/placement';
 import type { SupportedTerminal } from 'src/modules/user-settings/lib/terminal';
 
 export interface WindowBounds {
@@ -22,13 +23,6 @@ export interface AppdataSiteData {
 	// re-counting when the day rolls over or the runtime/file-access choice changes.
 	runtimeStatBumpedAt?: number;
 	runtimeStat?: string;
-}
-
-export interface AiSessionSitePlacement {
-	kind: 'site';
-	siteId: string;
-	sitePath: string;
-	siteName: string;
 }
 
 export interface NightlyPromptResult {
@@ -59,6 +53,7 @@ export interface UserData {
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
+	agenticUiBannerDismissed?: boolean;
 }
 
 export interface PromptWindowsSpeedUpResult {

@@ -46,11 +46,6 @@ export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS = 6;
 export const WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT =
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT_IN_HRS * 60 * 60 * 1000; // 6hr
 
-// SQLite
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.0.0-rc.4';
-
-export const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
-
 // IPC handlers that don't return anything (i.e. that are called with `ipcRenderer.send`)
 export const IPC_VOID_HANDLERS = [
 	'addSyncOperation',
@@ -75,4 +70,4 @@ export const IPC_VOID_HANDLERS = [
 // Flip to `true` when shipping new modal content so users who haven't seen the
 // current app version get the modal once. Keep at `false` otherwise — the modal
 // will only auto-show for first-time users of Studio.
-export const FORCE_SHOW_WHATS_NEW = true;
+export const FORCE_SHOW_WHATS_NEW = false;

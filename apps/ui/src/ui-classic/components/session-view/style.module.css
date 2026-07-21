@@ -1,22 +1,48 @@
 /* The chat column. The site preview panel lives in the dashboard layout's
    PreviewSplitFrame, which hosts this view in its content column. */
 .root {
-	display: flex;
-	flex-direction: column;
+	--classic-column-inline-gutter: calc(var(--wpds-dimension-padding-2xl) + 8px);
+	--classic-composer-shell-inline-padding: var(--wpds-dimension-padding-lg);
+	--classic-composer-column-max-width: calc(
+		760px + (var(--classic-composer-shell-inline-padding) * 2)
+	);
+	--classic-composer-outer-inline-padding: max(
+		0px,
+		calc(var(--classic-column-inline-gutter) - var(--classic-composer-shell-inline-padding))
+	);
+	--classic-panel-control-left: var(--wpds-dimension-padding-xl);
+	--classic-panel-control-gap: var(--wpds-dimension-gap-xs);
+	--classic-panel-footer-left: min(
+		var(--classic-panel-control-left),
+		max(
+			var(--classic-composer-outer-inline-padding),
+			calc((100% - var(--classic-composer-column-max-width)) / 2)
+		)
+	);
+	--classic-header-height: 46px;
+	--classic-composer-height: 0px;
+	--classic-panel-footer-height: 0px;
+	--classic-header-blur-overhang: 16px;
+	--classic-composer-blur-overhang: 40px;
+	--classic-scrollbar-blur-safe-area: 14px;
+
+	position: relative;
 	height: 100%;
 	min-height: 0;
+	overflow: hidden;
+	isolation: isolate;
 }
 
-.state {
-	padding: var(--wpds-dimension-padding-xl);
-	color: var(--wpds-color-fg-content-neutral-weak);
+.rootWithFooter {
+	--classic-panel-footer-height: 46px;
 }
 
 .header {
 	display: flex;
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
+	padding-block: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-sm);
+	padding-inline: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-2xl);
 	min-height: 46px;
 	font-size: var(--wpds-typography-font-size-sm);
 	color: var(--wpds-color-fg-content-neutral);
@@ -28,16 +54,18 @@
 .toggleSpacer {
 	display: block;
 	flex-shrink: 0;
-	width: calc(118px - var(--wpds-dimension-padding-xs));
-	height: 100%;
+	width: 118px;
+	align-self: stretch;
 	-webkit-app-region: no-drag;
 }
 
-.toggleSpacerFullscreen {
+/* No traffic lights to clear (non-macOS, the browser, or macOS fullscreen): a
+   minimal spacer so the toggle still clears the header's drag region. */
+.toggleSpacerFlush {
 	display: block;
 	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-md) + 24px - var(--wpds-dimension-padding-xs));
-	height: 100%;
+	width: calc(var(--wpds-dimension-padding-xl) + 24px);
+	align-self: stretch;
 	-webkit-app-region: no-drag;
 }
 
@@ -53,7 +81,7 @@
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background-color: var(--wpds-color-fg-content-success, #16a34a);
+	background-color: var(--studio-color-status-running);
 	flex-shrink: 0;
 	/* Extra horizontal margin around the dot only — keeps the toggle-to-title
 	   gap at the header's base 8px while giving the site/dot/local grouping
@@ -69,30 +97,60 @@
 	flex: 1;
 }
 
-.headerActions {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-xs);
-	-webkit-app-region: no-drag;
-}
-
 .scroll {
-	flex: 1;
+	position: absolute;
+	inset: 0;
+	height: 100%;
 	min-height: 0;
+	box-sizing: border-box;
 	overflow-y: auto;
-	position: relative;
+	padding-block: var(--classic-header-height)
+		calc(var(--classic-composer-height) + var(--classic-panel-footer-height));
+	z-index: 0;
 	/* Reserve scrollbar space symmetrically so the centered 760px column
 	   doesn't shift left when the scrollbar appears — keeping it aligned
 	   with the (non-scrolling) composer. */
 	scrollbar-gutter: stable both-edges;
 }
 
+.headerBlur,
+.composerBlur {
+	inset-inline-start: 0;
+	inset-inline-end: var(--classic-scrollbar-blur-safe-area);
+	z-index: 1;
+}
+
+.headerBlur {
+	top: 0;
+	height: calc(var(--classic-header-height) + var(--classic-header-blur-overhang));
+}
+
+.composerBlur {
+	bottom: 0;
+	height: calc(
+		var(--classic-composer-height) + var(--classic-panel-footer-height) +
+			var(--classic-composer-blur-overhang)
+	);
+}
+
+.headerLayer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 2;
+}
+
 .composerOuter {
-	flex: 0 0 auto;
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: var(--classic-panel-footer-height);
+	z-index: 2;
 }
 
 .classicScroll {
-	padding: 0 var(--wpds-dimension-padding-xl);
+	padding-inline: var(--classic-column-inline-gutter);
 }
 
 /* Classic session screen: keep the conversation + composer aligned to the
@@ -102,11 +160,210 @@
 	margin: 0 auto;
 }
 
+.classicComposerColumn {
+	max-width: var(--classic-composer-column-max-width);
+}
+
 .classicConversationSpacing {
 	padding-top: var(--wpds-dimension-padding-xl);
 	padding-bottom: var(--wpds-dimension-padding-2xl);
 }
 
+.classicConversationWithQuestions {
+	padding-bottom: calc(var(--wpds-dimension-padding-2xl) + 96px);
+}
+
 .classicComposerOuter {
-	padding: 0 calc(var(--wpds-dimension-padding-2xl) * 2) var(--wpds-dimension-padding-xl);
+	padding: 0 var(--classic-composer-outer-inline-padding) 0;
+}
+
+.panelFooterControls {
+	position: absolute;
+	left: var(--classic-panel-footer-left);
+	/* Keep the controls fully inside .root (overflow: hidden) so focus
+	   rings aren't clipped at the window edge. */
+	bottom: 0;
+	z-index: 3;
+	display: flex;
+	align-items: center;
+	min-height: var(--classic-panel-footer-height);
+	padding: var(--wpds-dimension-padding-sm) 0;
+	pointer-events: auto;
+	-webkit-app-region: no-drag;
+}
+
+.classicComposerFooter {
+	display: flex;
+	justify-content: flex-start;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-md);
+	box-sizing: border-box;
+}
+
+.classicComposerFooterSide {
+	display: flex;
+	align-items: center;
+	gap: var(--classic-panel-control-gap);
+	min-width: 0;
+}
+
+.classicComposerTextButton {
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+
+	white-space: nowrap;
+	-webkit-app-region: no-drag;
+}
+
+.classicComposerIconButton {
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--wp-ui-button-border-color-active: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--wp-ui-button-min-width: unset;
+	--wp-ui-button-padding-inline: 0;
+}
+
+.classicComposerIconButton:hover,
+.classicComposerIconButton:focus,
+.classicComposerIconButton:focus-visible,
+.classicComposerIconButton[data-highlighted] {
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.classicComposerIcon {
+	/* Match @wordpress/ui IconButton's compensation for the button border. */
+	margin: -2px;
+}
+
+.classicComposerHistoryMenu {
+	width: 280px;
+	max-width: calc(100vw - (var(--wpds-dimension-padding-lg) * 2));
+	max-height: min(360px, calc(100vh - 96px));
+	overflow-y: auto;
+}
+
+.classicComposerHistoryItem {
+	flex-direction: row;
+	align-items: center;
+	gap: var(--wpds-dimension-gap-md);
+	justify-content: space-between;
+	min-width: 0;
+}
+
+.classicComposerHistoryItem[aria-current='page'] {
+	background: var(--wpds-color-bg-surface-neutral);
+}
+
+.classicComposerHistoryTitle,
+.classicComposerHistoryMeta {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.classicComposerHistoryTitle {
+	flex: 1;
+	font-weight: var(--wpds-typography-font-weight-regular);
+	min-width: 0;
+}
+
+.classicComposerHistoryTrailing {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-end;
+	min-width: 24px;
+	min-height: 24px;
+	flex-shrink: 0;
+	overflow: visible;
+}
+
+.classicComposerHistoryMeta {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	flex-shrink: 0;
+	font-size: var(--wpds-typography-font-size-xs);
+	line-height: var(--wpds-typography-line-height-xs);
+}
+
+.classicComposerHistoryArchiveButton {
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--wp-ui-button-border-color-active: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--wp-ui-button-foreground-color: var(--wpds-color-fg-content-neutral-weak);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-neutral);
+	--wp-ui-button-min-width: unset;
+	--wp-ui-button-padding-inline: 0;
+
+	position: absolute;
+	right: 0;
+	opacity: 0;
+	pointer-events: none;
+	transform: translateX(4px);
+}
+
+.classicComposerHistoryArchiveButton:hover,
+.classicComposerHistoryArchiveButton:focus,
+.classicComposerHistoryArchiveButton:focus-visible {
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.classicComposerHistoryArchiveButton svg {
+	width: 18px;
+	height: 18px;
+}
+
+.classicComposerHistoryTrailing:hover .classicComposerHistoryMeta,
+.classicComposerHistoryTrailing:focus-within .classicComposerHistoryMeta {
+	opacity: 0;
+}
+
+.classicComposerHistoryTrailing:hover .classicComposerHistoryArchiveButton,
+.classicComposerHistoryTrailing:focus-within .classicComposerHistoryArchiveButton {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.classicComposerHistoryEmpty {
+	padding: var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.classicComposerHistorySeparator {
+	margin: var(--wpds-dimension-padding-sm) 0;
+	background: var(--wpds-color-stroke-surface-neutral);
+}
+
+.classicComposerArchiveList {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-gap-xs);
+	max-height: min(420px, calc(100vh - 220px));
+	overflow-y: auto;
+}
+
+.classicComposerArchiveItem {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-gap-md);
+	width: 100%;
+	min-width: 0;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--wpds-color-fg-content-neutral);
+	cursor: var(--wpds-cursor-control);
+	font: inherit;
+	padding: var(--wpds-dimension-padding-sm);
+	text-align: left;
+}
+
+.classicComposerArchiveItem:hover,
+.classicComposerArchiveItem:focus,
+.classicComposerArchiveItem:focus-visible {
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+	outline: none;
 }

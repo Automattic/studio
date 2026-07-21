@@ -7,6 +7,7 @@ env:
   IMAGE_ID: $IMAGE_ID
 
 e2e_config: &e2e_config
+  timeout_in_minutes: 100
   command: bash .buildkite/commands/run-e2e-tests.sh "{{matrix.platform}}" "{{matrix.arch}}"
   artifact_paths:
     - test-results/**/*.zip
@@ -24,9 +25,6 @@ e2e_config: &e2e_config
     adjustments:
       - with: { platform: mac, arch: arm64 }
       - with: { platform: windows, arch: x64 }
-  notify:
-    - github_commit_status:
-        context: E2E Tests
 
 steps:
   - label: Lint
@@ -39,12 +37,26 @@ steps:
       - github_commit_status:
           context: Lint
 
-  - label: ":fastlane: fastlane Helper Tests"
+  - label: Data Liberation
     agents:
       queue: mac
+    key: data-liberation
+    command: bash .buildkite/commands/run-data-liberation-checks.sh
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    notify:
+      - github_commit_status:
+          context: Data Liberation
+
+  - label: ":fastlane: fastlane Helper Tests"
+    agents:
+      queue: default
     key: fastlane_tests
     command: bash .buildkite/commands/run-fastlane-tests.sh
-    plugins: [$CI_TOOLKIT_PLUGIN]
+    plugins:
+      - $DOCKER_PLUGIN:
+          image: "$RUBY_DOCKER_IMAGE"
+          propagate-environment: true
+          mount-buildkite-agent: true
     notify:
       - github_commit_status:
           context: fastlane Helper Tests
@@ -85,6 +97,9 @@ steps:
 
   - group: E2E Tests
     key: e2e-tests
+    notify:
+      - github_commit_status:
+          context: E2E Tests
     steps:
       # E2E tests run on supported platform/architecture combinations.
       # - mac-arm64: Native on Apple Silicon agents
@@ -92,7 +107,7 @@ steps:
       - <<: *e2e_config
         label: E2E Tests on {{matrix.platform}}-{{matrix.arch}}
         key: e2e_tests
-        # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
+        if: (build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft) && !(build.pull_request.labels includes 'native-php')
 
       # Linux E2E tests run on the shared `default` queue inside a Debian Node
       # container — the same pattern the Linux build/unit-test steps use. Kept as
@@ -115,10 +130,40 @@ steps:
           - test-results/daemon-logs/**/*.log
         env:
           DEBUG: "pw:browser"
-        # TEMP(rsm-2593): if: removed to force E2E on every push while iterating on Linux E2E setup. Revert before merge.
-        notify:
-          - github_commit_status:
-              context: E2E Tests
+        if: (build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft) && !(build.pull_request.labels includes 'native-php')
+
+  # No `if:` guard: a required status check must report on every build, or PRs
+  # that skip it hang waiting for it. Doc-only PRs exit early but still report.
+  - group: CLI E2E Tests
+    key: cli-e2e-tests
+    notify:
+      - github_commit_status:
+          context: CLI E2E Tests
+    steps:
+      - label: CLI E2E Tests on {{matrix}}
+        key: cli_e2e_tests_mac_windows
+        command: bash .buildkite/commands/run-cli-e2e-tests.sh "{{matrix}}"
+        agents:
+          queue: "{{matrix}}"
+        timeout_in_minutes: 30
+        plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+        matrix:
+          - mac
+          - windows
+
+      # Separate from the matrix above: Mac and Windows share queue/plugin
+      # defaults that Linux doesn't. Same pattern as the unit-test group.
+      - label: CLI E2E Tests on linux
+        key: cli_e2e_tests_linux
+        command: bash .buildkite/commands/run-cli-e2e-tests.sh "linux"
+        agents:
+          queue: default
+        timeout_in_minutes: 30
+        plugins:
+          - $DOCKER_PLUGIN:
+              image: "$NODE_DOCKER_IMAGE"
+              propagate-environment: true
+              mount-buildkite-agent: true
 
   - label: ":chart_with_upwards_trend: Performance Metrics"
     key: metrics

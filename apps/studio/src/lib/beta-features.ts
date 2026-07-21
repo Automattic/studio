@@ -13,6 +13,7 @@ export interface BetaFeatureDefinition {
  */
 const BETA_FEATURE_DEFAULTS: Record< keyof BetaFeatures, boolean > = {
 	remoteSession: false,
+	enableAgenticUi: false,
 };
 
 /**
@@ -26,6 +27,12 @@ export function getBetaFeaturesDefinition(): Record< keyof BetaFeatures, BetaFea
 			key: 'remoteSession',
 			default: BETA_FEATURE_DEFAULTS.remoteSession,
 			description: __( 'Control Studio from Telegram via the remote-session daemon.' ),
+		},
+		enableAgenticUi: {
+			label: __( 'New Studio experience' ),
+			key: 'enableAgenticUi',
+			default: BETA_FEATURE_DEFAULTS.enableAgenticUi,
+			description: __( 'A redesigned interface with AI-powered site building.' ),
 		},
 	};
 }

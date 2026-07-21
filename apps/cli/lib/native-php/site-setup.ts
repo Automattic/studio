@@ -1,9 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_LOCALE } from '@studio/common/lib/locale';
+import { escapePhpSingleQuotedString } from '@studio/common/lib/mu-plugins';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { runPhpCommand } from './php-process';
+import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { NativePhpSupportedVersion } from '@studio/common/lib/php-binary-metadata';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
@@ -63,6 +65,46 @@ $transformer->to_file( $wp_config_path );
 			}`
 		);
 	}
+}
+
+export function getSiteUrlPrependContent(
+	siteUrl: string,
+	originalAutoPrependFile?: string
+): string {
+	const escapedSiteUrl = escapePhpSingleQuotedString( siteUrl );
+	const chained = originalAutoPrependFile
+		? `require '${ escapePhpSingleQuotedString( originalAutoPrependFile ) }';`
+		: '';
+
+	// Define WP_HOME/WP_SITEURL before WordPress boots so the site serves from
+	// the local URL even when the DB still holds a remote one. Running pre-boot
+	// means derived URLs (WP_CONTENT_URL, etc.) resolve locally too.
+	return `<?php
+if ( ! defined( 'WP_HOME' ) ) {
+	define( 'WP_HOME', '${ escapedSiteUrl }' );
+}
+if ( ! defined( 'WP_SITEURL' ) ) {
+	define( 'WP_SITEURL', '${ escapedSiteUrl }' );
+}
+${ chained }
+`;
+}
+
+/**
+ * Writes the auto_prepend_file that forces WordPress to serve from the local
+ * URL. Returns the path to use as auto_prepend_file. For imported sites it
+ * chains to reprint's own runtime.php so that prepend still runs.
+ */
+export function writeSiteUrlPrependFile(
+	siteUrl: string,
+	originalAutoPrependFile?: string
+): string {
+	const dir = fs.mkdtempSync(
+		path.join( getFullyResolvedTmpDirPath(), 'studio-siteurl-prepend-' )
+	);
+	const prependPath = path.join( dir, 'prepend.php' );
+	fs.writeFileSync( prependPath, getSiteUrlPrependContent( siteUrl, originalAutoPrependFile ) );
+	return prependPath;
 }
 
 export async function isWordPressInstalled(

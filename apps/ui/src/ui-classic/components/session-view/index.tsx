@@ -1,61 +1,62 @@
 import { resolveSessionModel } from '@studio/common/ai/models';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	type ReactNode,
+	type Ref,
+} from 'react';
+import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
 import { type Annotation } from '@/components/site-preview/types';
 import { useAgentRun } from '@/data/queries/use-agent-run';
-import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
-import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
-import { useFullscreen } from '@/hooks/use-fullscreen';
-import { useSessionCommands } from '@/hooks/use-session-commands';
 import {
-	SessionUIProvider,
-	useSessionPreviewAnnotations,
-	useSessionPreviewUI,
-} from '@/hooks/use-session-ui';
+	useCreateSession,
+	useSession,
+	useSessionEffectiveEnvironment,
+	useSessions,
+} from '@/data/queries/use-sessions';
+import { useSites } from '@/data/queries/use-sites';
+import { useSessionCommands } from '@/hooks/use-session-commands';
+import { SessionUIProvider, useSessionPreviewAnnotations } from '@/hooks/use-session-ui';
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
-import { drawerIcon } from '@/lib/icons';
+import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { formatAnnotationsAsPrompt, formatAnnotationsSubmittedMessage } from './annotations';
-import { Composer, ComposerSkeleton } from './composer';
-import { pickLiveSite } from './composer/environment-pill';
+import { Composer, ComposerSkeleton, type ComposerHandle } from './composer';
 import { Conversation } from './conversation';
 import { EmptyBackground } from './empty-background';
 import { QueuedPrompts } from './queued-prompts';
+import { getSiteSessionHistory, SessionChatActions } from './session-chat-actions';
 import styles from './style.module.css';
+import { SuggestedPrompts } from './suggested-prompts';
 import type { AiSessionSummary } from '@/data/core';
 
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
-	previewOpen: boolean;
-	onTogglePreview: () => void;
-	canTogglePreview: boolean;
 }
 
-function SessionHeader( {
-	summary,
-	previewOpen,
-	onTogglePreview,
-	canTogglePreview,
-}: SessionHeaderProps ) {
+function SessionHeader( { summary }: SessionHeaderProps ) {
 	const siteName = summary.ownerSiteName;
 	const sidebarCollapsed = useSidebarCollapsed();
-	const isFullscreen = useFullscreen();
+	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const { data: sites } = useSites();
-	const site = sites?.find( ( candidate ) => candidate.path === summary.ownerSitePath );
+	const site = findAiSessionOwnerSite( sites, summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( summary, site?.id );
 	if ( ! siteName ) {
 		return null;
 	}
 
 	const toggleSpacerClass = sidebarCollapsed
-		? isFullscreen
-			? styles.toggleSpacerFullscreen
-			: styles.toggleSpacer
+		? reserveTrafficLightSpace
+			? styles.toggleSpacer
+			: styles.toggleSpacerFlush
 		: null;
 
 	return (
@@ -65,13 +66,12 @@ function SessionHeader( {
 				<SiteDropdown
 					site={ site }
 					activeEnvironment={ effectiveEnvironment }
-					showSiteIcon={ sidebarCollapsed }
+					showSiteIcon
+					showStatus={ sidebarCollapsed }
 				/>
 			) : (
 				<>
-					{ sidebarCollapsed ? (
-						<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
-					) : null }
+					<SiteIcon className={ styles.headerSiteIcon } seed={ siteName } />
 					<span className={ styles.headerSite }>{ siteName }</span>
 					<span className={ styles.headerDot } aria-hidden="true" />
 					<span className={ styles.headerEnv }>
@@ -80,19 +80,6 @@ function SessionHeader( {
 				</>
 			) }
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ canTogglePreview ? (
-				<div className={ styles.headerActions }>
-					<IconButton
-						variant="minimal"
-						tone="neutral"
-						size="small"
-						icon={ drawerIcon }
-						label={ previewOpen ? __( 'Hide site preview' ) : __( 'Show site preview' ) }
-						aria-pressed={ previewOpen }
-						onClick={ onTogglePreview }
-					/>
-				</div>
-			) : null }
 		</div>
 	);
 }
@@ -100,23 +87,71 @@ function SessionHeader( {
 interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
+	footer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
 
-// Lays out the chat column: header on top, scrollable conversation in the
-// middle, composer pinned at the bottom. The site preview panel lives in the
-// dashboard layout's PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( { header, composer, scrollRef, children }: SessionFrameProps ) {
+// Lays out the chat column as fixed chrome over a full-height conversation
+// scroller. The site preview panel lives in the dashboard layout's
+// PreviewSplitFrame, which keeps it mounted across routes.
+function SessionFrame( { header, composer, footer, scrollRef, children }: SessionFrameProps ) {
+	const rootRef = useRef< HTMLDivElement >( null );
+	const headerRef = useRef< HTMLDivElement >( null );
+	const composerRef = useRef< HTMLDivElement >( null );
+
+	useLayoutEffect( () => {
+		const root = rootRef.current;
+		if ( ! root ) {
+			return;
+		}
+
+		const updateChromeSize = () => {
+			root.style.setProperty(
+				'--classic-header-height',
+				`${ headerRef.current?.offsetHeight ?? 0 }px`
+			);
+			root.style.setProperty(
+				'--classic-composer-height',
+				`${ composerRef.current?.offsetHeight ?? 0 }px`
+			);
+		};
+
+		updateChromeSize();
+
+		if ( typeof ResizeObserver === 'undefined' ) {
+			window.addEventListener( 'resize', updateChromeSize );
+			return () => window.removeEventListener( 'resize', updateChromeSize );
+		}
+
+		const resizeObserver = new ResizeObserver( updateChromeSize );
+		if ( headerRef.current ) {
+			resizeObserver.observe( headerRef.current );
+		}
+		if ( composerRef.current ) {
+			resizeObserver.observe( composerRef.current );
+		}
+
+		return () => resizeObserver.disconnect();
+	}, [] );
+
 	return (
-		<div className={ styles.root }>
-			{ header }
+		<div ref={ rootRef } className={ clsx( styles.root, footer && styles.rootWithFooter ) }>
+			<div ref={ headerRef } className={ styles.headerLayer }>
+				{ header }
+			</div>
 			<div ref={ scrollRef } className={ clsx( styles.scroll, styles.classicScroll ) }>
 				{ children }
 			</div>
-			<div className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }>
+			<ProgressiveBlur direction="down" className={ styles.headerBlur } fadeToSurface />
+			<ProgressiveBlur direction="up" className={ styles.composerBlur } />
+			<div
+				ref={ composerRef }
+				className={ clsx( styles.composerOuter, styles.classicComposerOuter ) }
+			>
 				{ composer }
 			</div>
+			{ footer ? <div className={ styles.panelFooterControls }>{ footer }</div> : null }
 		</div>
 	);
 }
@@ -133,12 +168,9 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	const navigate = useNavigate();
 	const { data, isLoading, error } = useSession( sessionId );
 	const { data: sites } = useSites();
-	const ownerSitePath = data?.summary.ownerSitePath;
-	const ownerSite = ownerSitePath
-		? sites?.find( ( candidate ) => candidate.path === ownerSitePath )
-		: undefined;
-	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
-	const liveSite = pickLiveSite( connectedSites );
+	const { data: sessions } = useSessions();
+	const { mutateAsync: createSession, isPending: isCreatingSession } = useCreateSession();
+	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
 	const effectiveEnvironment = useSessionEffectiveEnvironment( data?.summary, ownerSite?.id );
 	const {
 		isRunning,
@@ -171,10 +203,24 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		[ data?.entries ]
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
+	const composerRef = useRef< ComposerHandle >( null );
 	useSessionCommands( sessionId );
-	const preview = useSessionPreviewUI();
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
-	const showPreview = preview.open && canTogglePreview;
+	const siteSessionHistory = data
+		? getSiteSessionHistory( {
+				currentSession: data.summary,
+				ownerSite,
+				sessions,
+		  } )
+		: [];
+	const archivedSiteSessionHistory = data
+		? getSiteSessionHistory( {
+				currentSession: data.summary,
+				ownerSite,
+				sessions,
+				archived: true,
+		  } )
+		: [];
 
 	const handleAnnotationsDone = useCallback(
 		( annotations: Annotation[] ) => {
@@ -189,9 +235,42 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	// annotation submissions to this session while it is on screen.
 	useSessionPreviewAnnotations( handleAnnotationsDone, canTogglePreview );
 
+	const reopenQueuedPrompt = useCallback(
+		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {
+			removeQueuedPrompt( queuedPrompt.id );
+			composerRef.current?.replaceDraft( queuedPrompt.prompt, {
+				images: queuedPrompt.images,
+				files: queuedPrompt.files,
+			} );
+		},
+		[ removeQueuedPrompt ]
+	);
+	const switchSession = useCallback(
+		( nextSessionId: string ) =>
+			void navigate( {
+				to: '/sessions/$sessionId',
+				params: { sessionId: nextSessionId },
+			} ),
+		[ navigate ]
+	);
+	const startNewChat = useCallback( async () => {
+		// Already on a chat with no prompts yet — creating another empty
+		// session would just flash the view for an identical result.
+		if ( ! ownerSite || isEmpty ) {
+			return;
+		}
+		try {
+			const summary = await createSession( ownerSite.id );
+			switchSession( summary.id );
+		} catch {
+			// The mutation owns the error state; avoid an unhandled rejection
+			// from this command button if session creation fails.
+		}
+	}, [ createSession, isEmpty, ownerSite, switchSession ] );
+
 	useLayoutEffect( () => {
 		const node = scrollRef.current;
-		if ( ! node ) {
+		if ( ! node || pendingQuestions.length > 0 ) {
 			return;
 		}
 		node.scrollTop = node.scrollHeight;
@@ -199,9 +278,20 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			node.scrollTop = node.scrollHeight;
 		} );
 		return () => cancelAnimationFrame( id );
-	}, [ sessionId, data, isRunning, queuedPrompts.length ] );
+	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
 
-	if ( isLoading ) {
+	// The open session can vanish out from under this view — most commonly when
+	// its site is deleted, which removes the transcript from disk. Bounce to the
+	// root (the next available site) rather than flashing the dead-end "Session
+	// not found" screen; the skeleton below covers the brief redirect.
+	const notFound = ! isLoading && ( !! error || ! data );
+	useEffect( () => {
+		if ( notFound ) {
+			void navigate( { to: '/' } );
+		}
+	}, [ notFound, navigate ] );
+
+	if ( isLoading || notFound || ! data ) {
 		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
 		// as the loaded view — otherwise the EmptyBackground canvas jumps
@@ -210,40 +300,30 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			<SessionFrame
 				header={ <div className={ styles.header } /> }
 				composer={
-					<div className={ styles.classicColumn }>
+					<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
 						<ComposerSkeleton />
 					</div>
 				}
+				footer={ <div aria-hidden /> }
 			>
 				<EmptyBackground />
 			</SessionFrame>
 		);
 	}
 
-	if ( error || ! data ) {
-		return (
-			<div className={ styles.state }>
-				<h1>{ __( 'Session not found' ) }</h1>
-				<p>{ sessionId }</p>
-			</div>
-		);
-	}
-
 	return (
 		<SessionFrame
 			scrollRef={ scrollRef }
-			header={
-				<SessionHeader
-					summary={ data.summary }
-					previewOpen={ showPreview }
-					onTogglePreview={ preview.toggle }
-					canTogglePreview={ canTogglePreview }
-				/>
-			}
+			header={ <SessionHeader summary={ data.summary } /> }
 			composer={
-				<div className={ styles.classicColumn }>
-					<QueuedPrompts prompts={ queuedPrompts } onRemove={ removeQueuedPrompt } />
+				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
+					<QueuedPrompts
+						prompts={ queuedPrompts }
+						onRemove={ removeQueuedPrompt }
+						onEdit={ reopenQueuedPrompt }
+					/>
 					<Composer
+						ref={ composerRef }
 						busy={ composerBusy }
 						isInterrupting={ isInterrupting }
 						error={ runError }
@@ -251,22 +331,40 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 						onSend={ sendMessage }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
-						effectiveEnvironment={ effectiveEnvironment }
-						liveSite={ liveSite }
 						entries={ data.entries }
 						ownerSiteId={ ownerSite?.id }
-						onSwitchSession={ ( nextSessionId ) =>
-							void navigate( {
-								to: '/sessions/$sessionId',
-								params: { sessionId: nextSessionId },
-							} )
-						}
+						onSwitchSession={ switchSession }
 					/>
 				</div>
 			}
+			footer={
+				ownerSite ? (
+					<SessionChatActions
+						archivedSessions={ archivedSiteSessionHistory }
+						currentSessionId={ sessionId }
+						isCreatingSession={ isCreatingSession }
+						onNewChat={ startNewChat }
+						onSwitchSession={ switchSession }
+						sessions={ siteSessionHistory }
+					/>
+				) : null
+			}
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
-			<div className={ clsx( styles.classicColumn, styles.classicConversationSpacing ) }>
+			{ isEmpty && ownerSite ? (
+				<SuggestedPrompts
+					siteName={ ownerSite.name }
+					onPick={ ( prompt ) => composerRef.current?.replaceDraft( prompt ) }
+					hasExistingDraft={ () => composerRef.current?.hasDraft() ?? false }
+				/>
+			) : null }
+			<div
+				className={ clsx(
+					styles.classicColumn,
+					styles.classicConversationSpacing,
+					pendingQuestions.length > 0 && styles.classicConversationWithQuestions
+				) }
+			>
 				<Conversation
 					data={ data }
 					isRunning={ isRunning }

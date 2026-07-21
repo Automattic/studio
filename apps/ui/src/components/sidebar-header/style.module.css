@@ -18,13 +18,21 @@
 	position: sticky;
 	top: 0;
 	z-index: 1;
-	background-color: var(--wpds-color-bg-surface-neutral-weak);
+	background-color: var(--app-chrome-bg);
 }
 
-/* In macOS fullscreen the traffic lights are hidden, so reclaim the
-   padding that was reserved for them. */
-.fullscreen {
-	padding-left: var(--wpds-dimension-padding-lg);
+/* When there are no traffic lights to clear — non-macOS, the browser
+   (`studio ui` / hosted), or macOS fullscreen (which hides them) — reclaim the
+   reserved padding so the header content lines up with the site list entries
+   below. The site list outer padding is `2xl` and its rows start flush with
+   that edge, so text starts at `2xl` from the sidebar edge. */
+.flush {
+	padding-left: var(--wpds-dimension-padding-2xl);
+}
+
+.menuButton {
+	margin-inline-start: calc(-1 * var(--wpds-dimension-padding-sm));
+	cursor: var(--wpds-cursor-control);
 }
 
 .actions {
@@ -35,11 +43,8 @@
 	   sit flush with no gap. */
 	gap: 0;
 	/* The site rows have their action rail tucked into the row padding. Pull
-	   the header buttons over by the row's inner padding so the create/toggle
+	   the header buttons over by the row's inner padding so the add/toggle
 	   controls share those same trailing columns. */
 	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
-}
-
-.popup {
-	min-width: 200px;
+	-webkit-app-region: no-drag;
 }

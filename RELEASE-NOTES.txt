@@ -1,6 +1,92 @@
 Unreleased
 ==========
 
+1.16.0
+=====
+* Introduced Agentic UI, a new beta interface for the app, available behind a feature flag #4163, #4200, #4191, #4134, #4092, #4133, #4203, #4166, #4148, #4156, #4155, #4157, #4145, #4174, #4159, #4172, #4207
+* Studio Code: Added a button to copy the full assistant message #4113
+* Studio Code: Added opportunity to paste an image anywhere in the view #4208
+* Studio Code: Added a recovery action to the Session not found state #4243
+* Studio Code: Refreshed the composer placeholder copy #4149
+* Studio Code: Added support for creating new blank or child themes #4209
+* Studio Code: Fixed showing an error when the max token limit is reached #4077
+* Studio Code: Fixed AskUserQuestion to support multiline input #4119
+* Studio Code: Replaced GPT 5.5 with GPT 5.6 Sol and routed OpenAI models through the Responses API #4190
+* Studio Code: Fixed headless runs not exiting after the turn completed #4175
+* Studio Code: Made data-liberation flows more reliable with consistent AI wording, bundled driver scripts so skills work as installed plugins, and fixed the data-liberation scripts #4122, #4126, #4201
+* Fixed sites showing offline after import #4106
+* Fixed plugin reinstall failure after deletion in the Sandbox runtime #4044
+* Fixed the macOS Trust Certificate button being hidden for untrusted CAs #4223
+* Fixed native PHP sites not picking up updated Studio mu-plugins #4196
+* Disabled Jetpack Stats for local sites #4035
+* Simplified the "What to do with running sites" dialog shown when quitting Studio #4140
+* Improved CLI sync error messages for sites that can't be synced #4202
+* Added Linux to the bug report Platform field and split out Architecture #4224
+* Misc and maintenance improvements #4235, #4128, #4131, #4187, #4129, #4168, #4199, #4227, #4233
+
+1.15.0
+=====
+* Fixed Xdebug not starting on a normal page load on the native PHP runtime #4086
+* Added skipping dangling symlinks when archiving site content #4038
+* Studio Code: Screenshots taken by the assistant now appear inline in the conversation, and the agent can capture pages in light or dark mode #3982, #4097
+* Studio Code: Allowed editing your last message after interrupting the assistant #4094, #4123
+* Studio Code: Improved the /liberate command for recreating sites from other platforms, including surfacing it when searching for "migrate" #4095, #4110, #4111
+* Studio Code: Fixed the agent seeing running local sites as stopped when resuming a session, avoiding redundant site starts #4096
+* Update native PHP binaries to latest versions to fix SQLite issue #4118, #4141, #4142, #4143, #4144
+* Allowed more time for AI-powered plugins to receive a response before timing out #3120
+* Improved an error message when a site is in maintenance mode #3948
+* Improved CLI slash-command autocomplete with alphabetical sorting and match highlighting #4116, #4120
+* Stopped showing the What's New modal automatically on app updates #4117
+* Misc CLI and maintenance improvements #4089, #4108, #4109, #4011, #4000, #4032
+
+1.14.0
+=====
+* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082
+* Studio Code: Added a /liberate command to recreate sites from other platforms (e.g. Wix) as WordPress #3940
+* Studio Code: Added a /publish command to push local sites to WordPress.com #4043
+* Studio Code: Updated the assistant's available model to Sonnet 5 #4024
+* Studio Code: Agent file edits now show as proper line-by-line diffs in the CLI and desktop assistant #4076
+* Studio Code: Improved plugin recommendations for Automattic products, and tuned agent behavior for native PHP vs Playground sites #4023, #3995
+* Studio Code: Fixed an unwanted gap in block themes scaffolded by the assistant #4053
+* Fixed an issue where Pressable sites were marked unsupported on the Sync tab #4078
+* Fixed recreating missing db.php drop-ins and preserving custom SQLite drop-ins #3993
+* Fixed occasional failures when duplicating a site #4074
+* Fixed broken Central Kurdish (Sorani) text on macOS by bundling the Vazirmatn font #4062
+* Updated multiple dependencies, including WP Playground and PHP-WASM, the SQLite database integration, and the pi (agent) packages #4015, #4033, #4073
+
+1.13.0
+=====
+* Fixed PHP error (code: 3221225781) by updating native PHP packages to include necessary Windows DLLs #4042, #4045, #4050, #4055, #4049
+* Added sidebar toggle keyboard shortcut (Cmd+B on macOS and Ctrl+B on Windows/Linux) #3960
+* Differentiated preview sites from connected WordPress.com remote sites #3677
+* Improved attachment handling in the Studio Code composer #3925
+* Added copy button and selectable text to agent code blocks #3963
+* Tweaked system prompt to mention database #3957
+* Documented SQLite-to-MySQL migration path in STUDIO.md and publishing to supported hostings #3984
+* Handle 413 push failures gracefully in Studio sync #3973
+* Fixed transparent active state on attachment delete button in composer #3962
+* Skip persisted tool_progress entries during session replay #3909
+* Added hosting-plans-helper skill for plan and pricing answers #4010
+* Fixed Studio Code annotate closing message that always referenced the CLI #4020
+* Removed noop menu items from topbar context menu #4031
+
+1.12.0
+=====
+* Introduced PHP runtime and File Access options, and improved the native PHP runtime: fixed WP-CLI tool calls, asset loading for sites with a remote site URL, and blueprint creation from read-only directories, and made pull-reprint work with native PHP #3786, #3926, #3915, #3847, #3988, #3889, #3881
+* Improved Studio Code: content is checked before it is applied to your site, ecommerce sites are set up more reliably, and push/pull prompts are clearer. Tool calls are easier to follow with descriptions and a detail panel, remote sign-in shows a copyable login link, multiple-choice questions appear as clickable buttons, visual annotations install their browser automatically on first use, and available models were updated #3753, #3874, #3875, #3903, #3904, #3900, #3868, #3833, #3841, #3827, #3828
+* Added assistant usage limits in Settings with clearer limit messaging, and made it clearer which settings apply to a site vs the whole app #3843, #3831, #3886
+* Made the standalone Studio CLI easier to install and use: one-command install and updates from the web, a clean uninstall option, shorter commands for everyday site tasks, and new terminal commands to view and change site settings #3064, #3835, #3974, #3884
+* Improved pull-reprint: choose a site from a searchable list when you have several connected sites, and re-running the command now syncs remote changes to your local copy #3729, #3768
+* Added a Kurdish (Sorani) locale and improved locale handling #3873, #3214, #3776
+* Renamed "Copy site" to "Duplicate site" #3759
+* Improved performance and packaging: faster packaging builds, smaller installers, a higher PHP memory limit, and a cap on simultaneously running sites #3785, #3943, #3936, #3887
+* Fixed dark mode across Studio Code dialogs, the site preview panel, and theming, and allowed conversation text to be selected and copied #3844, #3779, #3871, #3836
+* Fixed a startup crash on Node.js 22, surfaced PHP errors when a site fails to start, resolved slow .local DNS on macOS, preserved in-progress messages in Studio Code, and restored the recorded model when resuming a session by id #3885, #3813, #3912, #3824, #3819
+* Fixed tooltip delay so tooltips do not pop up instantly when moving the cursor #3942
+* Clarified Sync and quit-sites messaging, and fixed What's New modal copy #3929, #3837, #3924, #3946
+* Misc maintenance #3849
+* Updated multiple dependencies, including WP Playground, PHP-WASM, bundled PHP binaries, the SQLite database integration, and Reprint
+
 1.11.0
 =====
 * Made Studio Code the default in the Studio app, replacing the previous Studio Assistant tab #3696, #3709, #3725, #3733, #3741

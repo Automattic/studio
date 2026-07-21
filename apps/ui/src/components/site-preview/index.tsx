@@ -5,6 +5,7 @@ import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useIsSiteStarting, useStartSite } from '@/data/queries/use-sites';
+import { useWindowControlsOverlay } from '@/hooks/use-window-controls-overlay';
 import { getSiteUrl } from '@/lib/get-site-url';
 import { playIcon, refreshIcon } from '@/lib/icons';
 import {
@@ -212,6 +213,7 @@ export function SitePreview( {
 	const isStarting = useIsSiteStarting( site.id );
 	const siteUrl = getSiteUrl( site );
 	const canPreview = site.running;
+	const windowControls = useWindowControlsOverlay();
 	const previewUrl = `${ siteUrl }${ getSafePath( path ) }`;
 	const [ browserState, setBrowserState ] =
 		useState< BrowserNavigationState >( EMPTY_BROWSER_STATE );
@@ -297,7 +299,17 @@ export function SitePreview( {
 
 	return (
 		<aside ref={ rootRef } className={ styles.root } aria-label={ __( 'Site preview' ) }>
-			<div className={ styles.header }>
+			<div
+				className={ styles.header }
+				style={
+					windowControls
+						? {
+								minHeight: windowControls.height,
+								paddingInlineEnd: windowControls.controlsWidth + 12,
+						  }
+						: undefined
+				}
+			>
 				{ canPreview ? (
 					<>
 						<div className={ styles.browserControls } aria-label={ __( 'Browser navigation' ) }>
@@ -336,30 +348,32 @@ export function SitePreview( {
 								<span className={ styles.browserTitle }>{ pageTitle }</span>
 							</ToolbarTooltip>
 						</div>
-						<div className={ styles.annotationControls }>
-							<IconButton
-								variant="minimal"
-								tone="neutral"
-								size="small"
-								icon={ pencil }
-								label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-								disabled={ ! canAnnotate }
-								aria-pressed={ inspectorState.isPicking }
-								onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
-							/>
-							{ inspectorState.annotationCount > 0 ? (
-								<Button
-									variant="solid"
-									tone="brand"
+						{ connector.capabilities.annotatePreview ? (
+							<div className={ styles.annotationControls }>
+								<IconButton
+									variant="minimal"
+									tone="neutral"
 									size="small"
+									icon={ pencil }
+									label={ inspectorState.isPicking ? __( 'Stop annotating' ) : __( 'Annotate' ) }
 									disabled={ ! canAnnotate }
-									aria-label={ __( 'Submit annotations' ) }
-									onClick={ () => sendInspectorCommand( 'submit' ) }
-								>
-									{ __( 'Submit' ) }
-								</Button>
-							) : null }
-						</div>
+									aria-pressed={ inspectorState.isPicking }
+									onClick={ () => sendInspectorCommand( 'toggle-picking' ) }
+								/>
+								{ inspectorState.annotationCount > 0 ? (
+									<Button
+										variant="solid"
+										tone="brand"
+										size="small"
+										disabled={ ! canAnnotate }
+										aria-label={ __( 'Submit annotations' ) }
+										onClick={ () => sendInspectorCommand( 'submit' ) }
+									>
+										{ __( 'Submit' ) }
+									</Button>
+								) : null }
+							</div>
+						) : null }
 					</>
 				) : (
 					<span className={ styles.headerSpacer } aria-hidden="true" />

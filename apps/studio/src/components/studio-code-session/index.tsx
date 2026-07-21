@@ -29,7 +29,7 @@ import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { clearSessionDraft, Composer, ComposerSkeleton } from './composer';
-import { Conversation } from './conversation';
+import { Conversation, wasLastTurnInterrupted } from './conversation';
 import { unlock } from './lock-unlock';
 import { queryClient } from './query-client';
 import { QueuedPrompts } from './queued-prompts';
@@ -251,6 +251,7 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		isInterrupting,
 		startedAt,
 		error: runError,
+		usageCapReached,
 		pendingQuestions,
 		pendingAnswers,
 		answeredQuestions,
@@ -270,6 +271,18 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		[ pendingQuestions ]
 	);
 	const composerBusy = hasActiveRun || pendingQuestions.length > 0;
+	const canEditLastUserMessage = useMemo(
+		() => ! composerBusy && ! isRunning && wasLastTurnInterrupted( data?.entries ?? [] ),
+		[ composerBusy, isRunning, data?.entries ]
+	);
+	const editAndResendMessage = useCallback(
+		async ( entryId: string, newText: string ) => {
+			if ( ! sessionId ) return;
+			await getIpcApi().markAiMessageEdited( sessionId, entryId );
+			await sendMessage( newText );
+		},
+		[ sessionId, sendMessage ]
+	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	// Whether new content should keep the view pinned to the bottom. Disabled
 	// when the user scrolls up to read history, re-enabled when they return.
@@ -358,9 +371,18 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		);
 	} else if ( ! data ) {
 		body = (
-			<div className={ styles.state }>
-				<h1>{ __( 'Session not found' ) }</h1>
-				<p>{ sessionId }</p>
+			<div className="p-8 flex flex-col max-w-3xl">
+				<div className="a8c-subtitle mb-1">{ __( 'Session not found' ) }</div>
+				<div className="w-[40ch] text-frame-text-secondary a8c-body">
+					{ __(
+						'This conversation is no longer available. Start a new one to keep building with Studio Code.'
+					) }
+				</div>
+				<div className="mt-6">
+					<Button variant="primary" onClick={ handleNewConversation }>
+						{ __( 'Start a new conversation' ) }
+					</Button>
+				</div>
 			</div>
 		);
 	} else {
@@ -391,7 +413,8 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 						<Composer
 							busy={ composerBusy }
 							isInterrupting={ isInterrupting }
-							error={ runError }
+							error={ usageCapReached ? null : runError }
+							usageCapMessage={ usageCapReached ? runError : null }
 							model={ currentModel }
 							onSend={ sendMessage }
 							onInterrupt={ interrupt }
@@ -421,6 +444,8 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 							pendingAnswers={ pendingAnswers }
 							answeredQuestions={ answeredQuestions }
 							onAnswerQuestion={ answerQuestion }
+							canEditLastUserMessage={ canEditLastUserMessage }
+							onEditUserMessage={ editAndResendMessage }
 						/>
 					) }
 				</div>

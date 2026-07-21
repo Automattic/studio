@@ -1,29 +1,74 @@
 .trigger {
-	gap: var(--wpds-dimension-padding-xs);
+	--site-dropdown-radius: var(--wpds-border-radius-lg);
+	--site-menu-active-fill: var(--wpds-color-bg-interactive-neutral-strong);
+	--site-menu-resting-fill: var(--wpds-color-bg-interactive-neutral-strong-active);
+	--site-menu-foreground: var(--wpds-color-fg-interactive-neutral-strong);
+	--wp-ui-button-background-color: var(--site-menu-resting-fill);
+	--wp-ui-button-background-color-active: var(--site-menu-active-fill);
+	--wp-ui-button-border-color: transparent;
+	--wp-ui-button-border-color-active: transparent;
+	--wp-ui-button-foreground-color: var(--site-menu-foreground);
+	--wp-ui-button-foreground-color-active: var(--site-menu-foreground);
+	--wp-ui-button-height: 44px;
+	--wp-ui-button-padding-block: 0;
+	--wp-ui-button-padding-inline: 0;
+
+	gap: 12px;
 	max-width: 100%;
+	min-height: 44px;
 	min-width: 0;
+	align-items: center;
+	backdrop-filter: blur(20px) saturate(115%);
+	-webkit-backdrop-filter: blur(20px) saturate(115%);
+	border-width: 0;
+	border-radius: var(--site-dropdown-radius);
+	box-shadow: 0 8px 18px rgb(0 0 0 / 18%);
+	color: var(--site-menu-foreground);
+	overflow: hidden;
+	padding-inline: 0 12px;
 	white-space: nowrap;
 }
 
+/* Non-floating placements (regular header rows) drop the floating-card
+   shadow. */
+.trigger.triggerFlat {
+	box-shadow: none;
+}
+
+.siteIconWrap {
+	position: relative;
+	display: inline-flex;
+	flex: 0 0 auto;
+	width: 44px;
+	height: 44px;
+}
+
 .siteIcon {
-	width: 20px;
-	height: 20px;
-	border-radius: 6px;
+	width: 100%;
+	height: 100%;
+	border-radius: 0;
+}
+
+.siteIcon_stopped {
+	opacity: 0.72;
 }
 
 .identity {
 	display: inline-flex;
-	align-items: baseline;
-	gap: var(--wpds-dimension-padding-sm);
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
+	gap: 0;
 	min-width: 0;
 	max-width: min(420px, 56vw);
-	padding-inline: 2px var(--wpds-dimension-padding-xs);
+	padding-inline: 0 var(--wpds-dimension-padding-xs);
 	text-align: left;
 }
 
 .site {
 	flex: 0 1 auto;
 	min-width: 0;
+	color: var(--site-menu-foreground);
 	overflow: hidden;
 	font-weight: 600;
 	line-height: var(--wpds-typography-line-height-sm);
@@ -31,35 +76,100 @@
 	white-space: nowrap;
 }
 
+.secondary {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	max-width: 100%;
+	min-width: 0;
+	color: color-mix(in srgb, var(--site-menu-foreground) 78%, transparent);
+	font-size: 11px;
+	font-weight: 350;
+	line-height: 1.05;
+}
+
+.secondaryLabel {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.secondary_pending {
+	color: color-mix(
+		in srgb,
+		var(--site-menu-foreground) 70%,
+		var(--wpds-color-fg-interactive-brand)
+	);
+}
+
+.secondary_success {
+	color: color-mix(
+		in srgb,
+		var(--site-menu-foreground) 72%,
+		var(--wpds-color-fg-content-success, var(--site-menu-foreground))
+	);
+}
+
+.secondary_error {
+	color: color-mix(
+		in srgb,
+		var(--site-menu-foreground) 72%,
+		var(--wpds-color-fg-content-error, var(--site-menu-foreground))
+	);
+}
+
 .statusBadge {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 18px;
-	height: 18px;
+	width: 8px;
+	height: 8px;
 	border-radius: 999px;
 	flex-shrink: 0;
 }
 
+.statusBadge_overlay {
+	position: absolute;
+	right: -4px;
+	bottom: 8px;
+	z-index: 1;
+	box-shadow: 0 0 0 2px var(--site-menu-resting-fill);
+}
+
 .statusBadge_live {
+	background: #2563eb;
+	color: var(--wpds-color-fg-content-inverted, #fff);
+}
+
+.statusBadge:not(.statusBadge_overlay).statusBadge_live {
 	width: auto;
+	height: 20px;
 	gap: 4px;
 	padding: 0 6px;
 	background: color-mix(in srgb, #2563eb 9%, transparent);
 	color: #2563eb;
 }
 
+.statusBadge_stopped {
+	border-radius: 2px;
+	background: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.statusBadge_transitioning {
+	background: #2563eb;
+	animation: siteDotBlink 1s ease-in-out infinite;
+}
+
 .dot {
-	width: 6px;
-	height: 6px;
+	width: 100%;
+	height: 100%;
 	border-radius: 50%;
 	flex-shrink: 0;
 }
 
-/* Hardcoded because `--wpds-color-fg-content-success` is #002900 (reads as
-   black at 6px) and the critical/accent equivalents don't exist. */
 .dot_running {
-	background-color: #16a34a;
+	background-color: var(--studio-color-status-running);
 }
 
 .dot_stopped {
@@ -68,11 +178,40 @@
 
 .dot_transitioning {
 	background-color: #2563eb;
-	animation: siteDotBlink 1s ease-in-out infinite;
 }
 
 .dot_live {
 	background-color: #2563eb;
+}
+
+.pauseMark,
+.pauseMark::before,
+.pauseMark::after {
+	display: block;
+	width: 1.5px;
+	height: 4px;
+	border-radius: 1px;
+	background: var(--wpds-color-bg-surface-neutral-strong);
+}
+
+.pauseMark {
+	position: relative;
+	background: transparent;
+}
+
+.pauseMark::before,
+.pauseMark::after {
+	position: absolute;
+	top: 0;
+	content: '';
+}
+
+.pauseMark::before {
+	left: -2px;
+}
+
+.pauseMark::after {
+	left: 1px;
 }
 
 .statusLabel {
@@ -91,20 +230,8 @@
 	}
 }
 
-.url {
-	flex: 0 1 auto;
-	color: var(--wpds-color-fg-content-neutral-weak);
-	opacity: 0.6;
-	font-size: var(--wpds-typography-font-size-sm);
-	line-height: var(--wpds-typography-line-height-sm);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	min-width: 0;
-}
-
 .chevron {
 	flex: 0 0 auto;
-	color: var(--wpds-color-fg-content-neutral-weak);
+	color: color-mix(in srgb, var(--site-menu-foreground) 72%, transparent);
 	fill: currentColor;
 }

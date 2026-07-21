@@ -1,5 +1,9 @@
 import { createRoute, redirect } from '@tanstack/react-router';
-import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { resolveAgenticFeatures } from '@/data/queries/use-agentic-features';
+import {
+	primeSessionQueryData,
+	reconcilePrimedSessionQueryData,
+} from '@/data/queries/use-sessions';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 
 /**
@@ -13,12 +17,17 @@ export const newSessionRoute = createRoute( {
 	getParentRoute: () => dashboardLayoutRoute,
 	path: '/sites/$siteId/new',
 	beforeLoad: async ( { params, context } ) => {
+		const { enabled } = await resolveAgenticFeatures( context );
+		if ( ! enabled ) {
+			throw redirect( {
+				to: '/sites/$siteId/settings',
+				params: { siteId: params.siteId },
+			} );
+		}
+
 		const summary = await context.connector.createSession( params.siteId );
-		// Bypasses `useCreateSession`, so we need to invalidate the sessions
-		// list ourselves — otherwise the sidebar wouldn't reflect the new
-		// session on first render after the redirect. Fire-and-forget: the
-		// refetch can happen in the background while we redirect immediately.
-		void context.queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } );
+		primeSessionQueryData( context.queryClient, summary );
+		void reconcilePrimedSessionQueryData( context.queryClient, summary.id );
 		throw redirect( { to: '/sessions/$sessionId', params: { sessionId: summary.id } } );
 	},
 } );

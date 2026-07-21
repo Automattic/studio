@@ -1,16 +1,16 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env -S node --experimental-strip-types
 /**
  * Download a Studio PHP CLI package for local development and packaging.
  *
- * Source metadata: tools/common/lib/php-binary-cdn-metadata.json
+ * Source metadata: packages/common/lib/php-binary-cdn-metadata.mjs
  *
  * Usage:
- *   npx tsx scripts/download-php-binary.ts [version] [platform] [arch] [--install-root <path>]
+ *   node --experimental-strip-types scripts/download-php-binary.ts [version] [platform] [arch] [--install-root <path>]
  *
  * Examples:
- *   npx tsx scripts/download-php-binary.ts            # defaults to RecommendedPHPVersion
- *   npx tsx scripts/download-php-binary.ts 8.4
- *   npx tsx scripts/download-php-binary.ts 8.4 darwin arm64
+ *   node --experimental-strip-types scripts/download-php-binary.ts # defaults to RecommendedPHPVersion
+ *   node --experimental-strip-types scripts/download-php-binary.ts 8.4
+ *   node --experimental-strip-types scripts/download-php-binary.ts 8.4 darwin arm64
  */
 
 import crypto from 'crypto';
@@ -18,18 +18,20 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { z } from 'zod';
-import { downloadFile } from '../tools/common/lib/download-file';
-import { extractZip } from '../tools/common/lib/extract-zip';
-import { isErrnoException } from '../tools/common/lib/is-errno-exception';
+import { downloadFile } from '../packages/common/lib/download-file.ts';
+import { extractZip } from '../packages/common/lib/extract-zip.ts';
+import { isErrnoException } from '../packages/common/lib/is-errno-exception.ts';
 import {
 	getEffectivePhpBinaryArch,
 	getPhpBinaryDownloadInfo,
+	type PhpBinaryDownloadInfo,
+} from '../packages/common/lib/php-binary-metadata.ts';
+import { getConfigDirectory } from '../packages/common/lib/well-known-paths.ts';
+import {
 	NativePhpSupportedVersions,
-	NativePhpSupportedVersion,
-	PhpBinaryDownloadInfo,
-} from '../tools/common/lib/php-binary-metadata';
-import { getConfigDirectory } from '../tools/common/lib/well-known-paths';
-import { RecommendedPHPVersion } from '../tools/common/types/php-versions';
+	type NativePhpSupportedVersion,
+	RecommendedPHPVersion,
+} from '../packages/common/types/php-versions.ts';
 
 const versionSchema = z.enum( NativePhpSupportedVersions );
 const platformSchema = z.enum( [ 'darwin', 'win32', 'linux' ] );
@@ -66,12 +68,12 @@ async function main(): Promise< void > {
 
 	try {
 		const downloadInfo = resolvePhpBinaryDownloadInfo();
-		const binDir = path.join( phpPackageRoot, downloadInfo.patchVersion );
+		const binDir = path.join( phpPackageRoot, downloadInfo.packageId );
 		const destPath = path.join( binDir, binaryName );
 
 		if ( fs.existsSync( destPath ) ) {
 			console.log(
-				`PHP ${ version } (${ downloadInfo.patchVersion }) package already exists at ${ binDir }. Delete it to re-download.`
+				`PHP ${ version } package ${ downloadInfo.packageId } already exists at ${ binDir }. Delete it to re-download.`
 			);
 			return;
 		}
@@ -92,7 +94,7 @@ async function main(): Promise< void > {
 
 		try {
 			console.log(
-				`Downloading PHP ${ version } (${ downloadInfo.patchVersion }) for ${ platformKey }…`
+				`Downloading PHP ${ downloadInfo.patchVersion } package ${ downloadInfo.packageId } for ${ platformKey }…`
 			);
 			console.log( `  URL: ${ downloadInfo.url }` );
 			await downloadFile( downloadInfo.url, downloadPath, ( downloaded, total ) => {
@@ -114,9 +116,7 @@ async function main(): Promise< void > {
 
 			console.log( 'Extracting PHP package…' );
 			const tmpDir = os.tmpdir();
-			const extractDir = fs.mkdtempSync(
-				path.join( tmpDir, `php-${ downloadInfo.patchVersion }-` )
-			);
+			const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ downloadInfo.packageId }-` ) );
 			try {
 				await extractZip( downloadPath, extractDir );
 				const extractedBinaryName = getRuntimeBinaryName( extractDir ) ?? binaryName;
@@ -132,7 +132,9 @@ async function main(): Promise< void > {
 				fs.rmSync( extractDir, { recursive: true, force: true } );
 			}
 
-			console.log( `\nPHP ${ version } package installed: ${ binDir }` );
+			console.log(
+				`\nPHP ${ version } package ${ downloadInfo.packageId } installed: ${ binDir }`
+			);
 		} catch ( err ) {
 			fs.rmSync( binDir, { recursive: true, force: true } );
 			throw err;

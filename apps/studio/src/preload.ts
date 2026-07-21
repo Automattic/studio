@@ -38,6 +38,8 @@ const api: IpcApi = {
 			optionsToSync,
 			specificSelectionPaths
 		),
+	pushSiteToLive: ( selectedSiteId, remoteSiteId ) =>
+		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	copySite: ( sourceSiteId, newSiteId, siteName ) =>
 		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),
@@ -85,6 +87,10 @@ const api: IpcApi = {
 	stopAllServers: () => ipcRendererInvoke( 'stopAllServers' ),
 	copyText: ( text ) => ipcRendererInvoke( 'copyText', text ),
 	getAppGlobals: () => ipcRendererInvoke( 'getAppGlobals' ),
+	enableAgenticUi: () => ipcRendererInvoke( 'enableAgenticUi' ),
+	disableAgenticUi: () => ipcRendererInvoke( 'disableAgenticUi' ),
+	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
+	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	generateProposedSitePath: ( siteName ) =>
@@ -156,6 +162,9 @@ const api: IpcApi = {
 	previewColorScheme: ( colorScheme ) => ipcRendererInvoke( 'previewColorScheme', colorScheme ),
 	saveColorScheme: ( colorScheme ) => ipcRendererInvoke( 'saveColorScheme', colorScheme ),
 	getColorScheme: () => ipcRendererInvoke( 'getColorScheme' ),
+	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
+		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
+	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),
@@ -207,6 +216,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'updateAiSessionMetadata', sessionIdOrPrefix, patch ),
 	continueAiSession: ( sessionId, prompt, options ) =>
 		ipcRendererInvoke( 'continueAiSession', sessionId, prompt, options ),
+	markAiMessageEdited: ( sessionId, originalEntryId ) =>
+		ipcRendererInvoke( 'markAiMessageEdited', sessionId, originalEntryId ),
 	listActiveAiAgentRuns: () => ipcRendererInvoke( 'listActiveAiAgentRuns' ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),

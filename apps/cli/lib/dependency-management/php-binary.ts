@@ -64,7 +64,7 @@ async function downloadAndInstall(
 	}
 
 	const downloadInfo = await resolvePhpBinaryDownloadInfo( version, platform, arch );
-	const destPath = getPhpBinaryPath( downloadInfo.patchVersion );
+	const destPath = getPhpBinaryPath( downloadInfo.packageId );
 	const destDir = path.dirname( destPath );
 	const phpBinRoot = path.dirname( destDir );
 
@@ -90,7 +90,7 @@ async function downloadAndInstall(
 	try {
 		await downloadFile( downloadInfo.url, downloadPath, onProgress );
 		await verifyHash( downloadPath, downloadInfo.sha, version, platform, arch );
-		await extractAndInstall( downloadPath, destPath, downloadInfo.patchVersion, platform );
+		await extractAndInstall( downloadPath, destPath, downloadInfo.packageId, platform );
 	} catch ( err ) {
 		fs.rmSync( destDir, { recursive: true, force: true } );
 		throw err;
@@ -143,14 +143,14 @@ async function verifyHash(
 async function extractAndInstall(
 	archivePath: string,
 	destPath: string,
-	patchVersion: string,
+	packageId: string,
 	platform: NodeJS.Platform
 ): Promise< void > {
 	const isWindows = platform === 'win32';
 	const tmpDir = os.tmpdir();
 	const fallbackBinaryName = isWindows ? 'php.exe' : 'php';
 
-	const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ patchVersion }-` ) );
+	const extractDir = fs.mkdtempSync( path.join( tmpDir, `php-${ packageId }-` ) );
 	try {
 		await extractZip( archivePath, extractDir );
 		const binaryName = getRuntimeBinaryName( extractDir ) ?? fallbackBinaryName;

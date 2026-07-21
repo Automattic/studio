@@ -2,7 +2,10 @@ import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import { type Model, type SimpleStreamOptions } from '@earendil-works/pi-ai';
-import { streamAnthropic, type AnthropicOptions } from '@earendil-works/pi-ai/anthropic';
+import {
+	stream as streamAnthropic,
+	type AnthropicOptions,
+} from '@earendil-works/pi-ai/api/anthropic-messages';
 import {
 	AuthStorage,
 	createAgentSession,
@@ -27,15 +30,21 @@ import {
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/common/ai/models';
+import {
+	getSiteRuntime,
+	SITE_RUNTIME_NATIVE_PHP,
+	type SiteRuntime,
+} from '@studio/common/lib/site-runtime';
 import { getAiPayloadsPath, getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { buildSystemPrompt } from 'cli/ai/system-prompt';
-import { resolveStudioToolDefinitions } from 'cli/ai/tools';
+import { resolveStudioToolDefinitions, withChatArtifactEmission } from 'cli/ai/tools';
 import { createAskUserQuestionTool } from 'cli/ai/tools/ask-user-question';
 import { createSiteTool } from 'cli/ai/tools/create-site';
 import { pullSiteTool } from 'cli/ai/tools/pull-site';
 import { createSkillTool } from 'cli/ai/tools/skill';
 import { takeScreenshotTool } from 'cli/ai/tools/take-screenshot';
 import { createWpcomRequestTool } from 'cli/ai/tools/wpcom-request';
+import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
@@ -50,7 +59,7 @@ import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioModel = Model< 'openai-completions' > | Model< 'anthropic-messages' >;
+type StudioModel = Model< 'openai-responses' > | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
@@ -255,6 +264,25 @@ async function runAgentSessionTurn(
 	}
 }
 
+// Resolve the runtime of the active local site so the system prompt can drop
+// Playground-specific WP-CLI guidance for native PHP sites. The active site
+// (a SiteInfo) doesn't carry the runtime, so look it up by path in the CLI
+// config. Falls back to native-php (the default runtime) for unknown, remote,
+// or unreadable sites.
+async function resolveActiveSiteRuntime(
+	activeSite: SiteInfo | null | undefined
+): Promise< SiteRuntime > {
+	if ( ! activeSite || activeSite.remote || ! activeSite.path ) {
+		return SITE_RUNTIME_NATIVE_PHP;
+	}
+	try {
+		const site = await getSiteByFolder( activeSite.path );
+		return getSiteRuntime( site );
+	} catch {
+		return SITE_RUNTIME_NATIVE_PHP;
+	}
+}
+
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
@@ -276,7 +304,11 @@ async function createStudioAgentSession(
 					},
 					remoteSession,
 			  }
-			: { chatArtifactsEnabled, remoteSession }
+			: {
+					chatArtifactsEnabled,
+					remoteSession,
+					runtime: await resolveActiveSiteRuntime( config.activeSite ),
+			  }
 	);
 
 	const tools = buildAgentTools( config, chatArtifactsEnabled, remoteSession );
@@ -293,6 +325,7 @@ async function createStudioAgentSession(
 		noThemes: true,
 		noContextFiles: true,
 		systemPrompt,
+		appendSystemPrompt: [],
 	} );
 	await resourceLoader.reload();
 
@@ -330,13 +363,22 @@ function buildModel(
 	};
 
 	if ( family === 'openai' ) {
+		// GPT-5.6 models reject function tools on /v1/chat/completions unless
+		// reasoning is disabled; the Responses API supports tools + reasoning.
+		// GPT-5.6 Sol's real context window is 1.05M tokens, but we declare
+		// 272K — the threshold where OpenAI's 2x long-context pricing kicks
+		// in — so compaction keeps sessions below it. Understating the window
+		// is also load-bearing for correctness: pi clamps max output tokens to
+		// the declared window minus its (post-compaction, sometimes stale)
+		// context estimate, and a too-small window can clamp all the way down
+		// to 1, which the API rejects with a 400.
 		return {
 			...common,
-			api: 'openai-completions',
+			api: 'openai-responses',
 			provider: 'openai',
-			reasoning: false,
-			contextWindow: 200_000,
-			maxTokens: 16_384,
+			reasoning: true,
+			contextWindow: 272_000,
+			maxTokens: 32_000,
 		};
 	}
 	return {
@@ -430,10 +472,13 @@ function createWpcomAnthropicProviderConfig(
 }
 
 function createSettingsManager( _env: Record< string, string > ): SettingsManager {
-	return SettingsManager.inMemory( {
-		defaultThinkingLevel: 'high',
-		compaction: STUDIO_COMPACTION_SETTINGS,
-	} );
+	return SettingsManager.inMemory(
+		{
+			defaultThinkingLevel: 'high',
+			compaction: STUDIO_COMPACTION_SETTINGS,
+		},
+		{ projectTrusted: false }
+	);
 }
 
 function toToolDefinition(
@@ -491,11 +536,12 @@ function buildAgentTools(
 	];
 
 	if ( isRemoteSite ) {
+		const remoteStudioTools = [ takeScreenshotTool, createSiteTool, pullSiteTool ].map( ( tool ) =>
+			withChatArtifactEmission( tool, chatArtifactsEnabled )
+		);
 		return [
 			createWpcomRequestTool( config.wpcomAccessToken!, config.activeSite!.wpcomSiteId! ),
-			takeScreenshotTool,
-			createSiteTool,
-			pullSiteTool,
+			...remoteStudioTools,
 			...remoteScratchTools,
 			...askUserTool,
 			...skillTool,

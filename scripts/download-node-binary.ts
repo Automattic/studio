@@ -1,22 +1,23 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env -S node --experimental-strip-types
 /**
  * Download Node.js binary for bundling with Studio.
  *
- * Usage: npx tsx scripts/download-node-binary.ts <platform> <arch> [destDir]
- * Example: npx tsx scripts/download-node-binary.ts darwin arm64 ./build
+ * Usage: node --experimental-strip-types scripts/download-node-binary.ts <platform> <arch> [destDir]
+ * Example: node --experimental-strip-types scripts/download-node-binary.ts darwin arm64 ./build
  *
  * When destDir is omitted, the binary is placed in apps/studio/bin/ for the
  * desktop packaging step. Callers can override it to land the binary anywhere
  * (e.g. `create-standalone-bundle.ts` points it at its staging dir).
  */
 
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { extract } from 'tar';
-import { extractZip } from '../tools/common/lib/extract-zip';
-import { fetch } from './lib/with-retry';
+import { extractZip } from '../packages/common/lib/extract-zip.ts';
+import { fetch } from './lib/with-retry.ts';
 
 const LTS_FALLBACK = 'v24.13.1';
 
@@ -71,12 +72,35 @@ export async function downloadNodeBinary(
 	}
 
 	const isWindows = nodePlatform === 'win';
+	const binaryName = isWindows ? 'node.exe' : 'node';
+	const binaryPath = path.join( binDir, binaryName );
 	// nodejs.org provides different archive formats depending on the target platform
 	const ext = isWindows ? 'zip' : 'tar.gz';
 	const filename = `node-${ nodeVersion }-${ nodePlatform }-${ nodeArch }.${ ext }`;
 	const url = `https://nodejs.org/dist/${ nodeVersion }/${ filename }`;
 	const downloadPath = path.join( tmpDir, filename );
 	const extractDir = path.join( tmpDir, `node-${ nodeVersion }-${ nodePlatform }-${ nodeArch }` );
+
+	function hasExpectedNodeBinary(): boolean {
+		if ( ! fs.existsSync( binaryPath ) ) {
+			return false;
+		}
+
+		try {
+			const version = execFileSync( binaryPath, [ '--version' ], { encoding: 'utf8' } ).trim();
+			if ( version === nodeVersion ) {
+				console.log( `Using existing Node.js ${ version } binary at ${ binaryPath }.` );
+				return true;
+			}
+			console.log( `Existing Node.js binary is ${ version }; expected ${ nodeVersion }.` );
+		} catch ( error ) {
+			console.log(
+				`Existing Node.js binary could not be checked: ${ ( error as Error ).message }`
+			);
+		}
+
+		return false;
+	}
 
 	async function download( downloadUrl: string, dest: string ): Promise< void > {
 		console.log( `Downloading Node.js ${ nodeVersion } for ${ nodePlatform }-${ nodeArch }...` );
@@ -140,9 +164,12 @@ export async function downloadNodeBinary(
 		fs.rmSync( extractDir, { recursive: true } );
 	}
 
+	if ( hasExpectedNodeBinary() ) {
+		return;
+	}
+
 	await download( url, downloadPath );
 
-	const binaryName = isWindows ? 'node.exe' : 'node';
 	if ( isWindows ) {
 		await extractNodeZip( downloadPath, binaryName );
 	} else {

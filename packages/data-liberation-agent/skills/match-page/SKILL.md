@@ -1,0 +1,83 @@
+---
+name: match-page
+description: Orchestrate whole-PAGE visual parity, with a replayable parity log so the work survives a reconstruct. PHASE 0 — if <outputDir>/parity-log.json exists, REPLAY its logged intents onto the current build first (apply + verify each by looking), so prior parity work is re-applied to whatever the latest reconstruction produced. PHASE 1 — one batch pass measuring EVERY band's built design vs the SOURCE screenshot across all axes, emitting a per-band verdict. PHASE 2 — iterate match-section on the divergent bands only, worst-first, LOGGING each fix as a semantic parity-log entry, until each matches. Never hand-roll per-section work without the batch assessment; never assert a match without cropping source+built and looking. Dispatched by replicate-with-blocks/design-qa; calls match-section per band; writes/reads parity-log.json.
+disable-model-invocation: true
+allowed-tools:
+  - Bash
+  - Read
+  - Edit
+  - Agent
+  - mcp__plugin_playwright_playwright__browser_navigate
+  - mcp__plugin_playwright_playwright__browser_resize
+  - mcp__plugin_playwright_playwright__browser_evaluate
+---
+
+## Why this exists
+
+Reaching design parity by improvising per-section edits is slow, inconsistent, and prone to runaways. The fix is a fixed two-phase shape: **measure the whole page once, THEN iterate only the sections that diverge.** Phase 1 is cheap (one render + one DOM measurement); it tells you exactly which sections need work and on which axes, so Phase 2 is targeted, not exploratory.
+
+## Inputs
+
+`outputDir` (e.g. `~/Studio/_liberations/example.com`), `studioSitePath`, `themeSlug`, page `slug` + `sourceUrl`, `previewUrl` (e.g. `http://localhost:8881`; front page renders at `/`). Captured specs: `outputDir/sections/<slug>.json` → `sections[]` (ordered by `top`; each carries `top`, `height`, `backgroundColor`, `layout.padTopPx/padBottomPx/gap`, `fullBleed`, `headingSizes`/`headingLineHeights`/`headingFamilies`, `bodyTextSizes`/`bodyLineHeights`/`bodyFamilies`, `cells`, `textAlign`, plus `styledHtml` — the computed-style oracle). Source screenshot: `outputDir/screenshots/desktop/<slug>.png` (read its real width with `identify`; compare at THAT width).
+- `replicaShotsDir` — the replica screenshots directory holding `comparison.json` (v2) and the `diff/` artifacts; used by the Phase-1 parity gate.
+
+**CRITICAL — compare against the SOURCE SCREENSHOT, not the captured numbers.** The captured `SectionSpec` values (`headingSizes`, `padTopPx`, `height`, …) are measured at the **1440px desktop capture**; the page renders and is compared at the source screenshot width (often **1008px**), and the deterministic emitter scales type/spacing by `vw`/`clamp`. So built `26px` is a captured `36px` scaled at 1008 — NOT a divergence. Diffing built-render against captured-@1440 numbers produces all false positives and causes thrash. The TRUTH for visual parity is **built render vs source render at the same width** (pixels vs pixels). Use the captured numbers only as the values to APPLY in Phase 2, never as the comparison target.
+
+## The parity log — `<outputDir>/parity-log.json`
+
+A replayable record of the SEMANTIC steps to reach parity. NOT literal markup diffs (those break when a reconstruction changes structure) — each entry is an *intent* an AI can re-apply by looking at the source. Format + helpers: `src/lib/replicate/parity-log.ts` (`parseParityLog`, `serializeParityLog`, `upsertEntry`, `replayableEntries`). One entry per band×axes:
+
+```json
+{ "version": 1, "page": "homepage", "sourceUrl": "https://…/",
+  "entries": [
+    { "band": "services", "bandIndex": 1,
+      "divergence": "card titles render stacked above the cards; cards show only the number",
+      "sourceTarget": "each card = number + title (large) + description + Read More",
+      "fix": "place each section heading into its card as the title at the captured size; drop the orphaned stacked headings",
+      "axes": ["structure", "type-size"], "status": "applied",
+      "promoteToEmitter": "extractor: capture the card title into the cell, not the number; merge a split 2-line title",
+      "evidence": { "source": "screenshots/parity/services-src.png", "built": "screenshots/parity/services-built.png" } }
+  ] }
+```
+
+`status`: `applied` (fix in place + verified), `residual` (couldn't fully close — note why), `pending` (identified, not yet applied). `promoteToEmitter` is the backlog: a recurring, rule-shaped divergence belongs in the extractor/emitter — once encoded there, DELETE the entry from the log (it no longer needs replay). Write the log with `upsertEntry` semantics: re-polishing the same band×axes UPDATES its entry; a new band/axis APPENDS.
+
+## PHASE 0 — Replay the parity log (if it exists)
+
+If `<outputDir>/parity-log.json` is present, run BEFORE the fresh assessment: for each `replayableEntries` entry (applied/residual, in band order), apply its `fix` to the CURRENT build (the band may have just been regenerated by a reconstruct), then VERIFY by cropping that band from the source screenshot + the built page and reading BOTH — never assume the replay worked. Update the entry's `status` from what you see. Replay re-grounds on the source each time, so it survives structural drift. Then continue to Phase 1, which catches anything the log didn't cover.
+
+## PHASE 1 — Batch assessment (ALWAYS do this first; one pass)
+
+**Parity gate (run FIRST, before any per-section work):** read `<replicaShotsDir>/comparison.json` (version 2). For each page: if every scored viewport has `status:"ok"`, `score >= 0.995` (PARITY_GATE_SCORE), AND `heightMismatchRatio <= 0.02` (HEIGHT_MISMATCH_THRESHOLD), the page is ALREADY AT PARITY — skip it entirely (no section assessment, no match-section dispatch) and log `gate-skip: <slug> score=<s> hmr=<r>`. A high score with `heightMismatchRatio > 0.02` does NOT pass — that combination is the short-capture artifact; treat the height mismatch itself as a high-severity finding and proceed with assessment. When the file is version 1 (no mismatch fields), the gate is score-only — never assume missing fields mean zero mismatch. If comparison.json is absent (compare never ran), there is no gate — assess every page. When `fullPageScore` is present AND the heights match (`originHeight === replicaHeight`), prefer it over the crop score for the gate decision (same 0.995 bar) — it sees below the fold. When the heights differ, gate on the crop score + `heightMismatchRatio` as above: `fullPageScore` counts the magenta padding as diff by construction, so even a benign sub-threshold height delta (the 32px admin-bar artifact ≈ 0.6% on a long page) caps it below 0.995 and would make the gate-skip permanently unreachable.
+
+1. Read the source screenshot width: `identify -format "%w" outputDir/screenshots/desktop/<slug>.png`. Render the built page ONCE at THAT width: `node scripts/run.mjs _shot "<previewUrl>/<slug>/?v=1" outputDir/screenshots/built-<slug>.png <srcWidth>` (it scrolls to settle lazy images; do not use the Playwright MCP screenshot — it times out on tall pages).
+2. Get the built band boundaries: `browser_navigate` at `<srcWidth>×900`, then `browser_evaluate` to list the band container's children (the `.entry-content`/`.wp-block-post-content` children — a MIX of `<div class="wp-block-cover">` heroes and `<section class="wp-block-group">` bands) with each one's `getBoundingClientRect()` top + height. That gives N built bands in document order.
+3. For EACH band, crop the SAME vertical range from BOTH the source screenshot and the built screenshot (`magick <img> -crop <W>x<H>+0+<top> +repage out.png`; source band tops scale from the built tops by the page-height ratio, or detect bg-color band boundaries) and READ the two crops side by side. Flag the band DIVERGENT on the axes you can SEE: background color, heading size/weight relative to the band, body text size, alignment (centered vs left), inter-element spacing, full-bleed vs boxed, dropped media/content, button style. This is a visual judgement per band, not a number diff.
+4. **Print the per-band verdict table** (band → divergent axes, or DONE). Bands that look identical are DONE — do not touch them.
+
+This whole phase is ONE render + N band crops. It replaces eyeballing the whole page and guessing, and it does NOT chase captured @1440 numbers.
+
+**Diff-image hygiene:** a `.diff.png` / `.padded.png` marks WHERE pixels differ — never read a color, font, or size from it. Red is the difference marker; magenta (in `.padded.png`) means one side has no content at that location (layout overrun — high severity). Read every actual value from the SOURCE screenshot.
+
+## PHASE 2 — Iterate divergent sections (worst-first)
+
+For each divergent section, ordered by composite descending:
+
+1. Run **`match-section`** for that section index (dispatch a subagent pointed at `skills/match-section/SKILL.md`, OR apply inline if you are already that executor): apply the captured values for the divergent axes (from the spec / `styledHtml`) as canonicalization-safe core block attributes, render, and eyes-on compare source-crop vs built-crop until visually identical.
+2. **Re-measure ONLY that section** (re-run the Phase-1 measurement for its index) to confirm its divergent cells cleared. Do not re-render/re-measure the whole page each time.
+3. **Log the fix.** Once the band verifies as matched (or residual), upsert a parity-log entry for it — `{band, bandIndex, divergence, sourceTarget, fix, axes, status, evidence}` — and, if the divergence is a recurring rule-shaped gap (e.g. a capture/render defect any site would hit), set `promoteToEmitter` with how to encode it. Save `<outputDir>/parity-log.json` after each band so a crash/interrupt never loses the record. Also save the source + built evidence crops under `<outputDir>/screenshots/parity/`.
+4. **Bounds (anti-runaway):** at most 3 fix cycles per band; if a band still diverges after 3, log it `residual` (with the remaining axes + why) and move on — do NOT keep grinding one band. Cap the whole page at a sane total (e.g. ≤ 2× the band count of cycles); if hit, stop and report.
+
+Mechanics for applying + rendering are in `skills/match-section/SKILL.md` (BACK UP post_content to a file first; post_content via `studio wp post update`; EXACT unique-string edits, never a greedy regex; mirror into both theme pattern copies; `cache flush`). Preserve ALL content; never touch the nav template, footer part, or a band already marked DONE.
+
+## Output
+
+- The Phase-1 verdict table (before): every band, divergent axes flagged.
+- Per divergent band: the axes fixed (before→after) and final MATCHED/RESIDUAL.
+- The verdict table re-run at the end (after), confirmed by looking at the crops.
+- Total cycles spent (so a runaway is visible).
+- **`<outputDir>/parity-log.json`** written with one entry per fix (the replayable record).
+- **Promote-to-emitter backlog:** the list of `promoteToEmitter` notes — the recurring, rule-shaped divergences that should graduate into the extractor/emitter (and then leave the log).
+- Before declaring done any page where at least one section was dispatched to match-section: `liberate_refine_report {outputDir, slug}` must pass for that page. A failed coverage check reopens the page — dispatch match-section to fix the accounting. Pages with zero match-section dispatches (gate-skipped, or all bands matched at assessment) have no refine/<slug>/ directory and are exempt — do NOT call the tool for them.
+
+Never report the page MATCHED without having cropped source+built per band and looked at both. The parity log is what makes this sustainable: a future reconstruct (done for its own reason) regenerates the deterministic baseline, Phase 0 replays the log onto it, and anything that has since been encoded into the emitter is simply dropped from the log.

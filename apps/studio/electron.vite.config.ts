@@ -21,7 +21,7 @@ export default defineConfig( {
 		resolve: {
 			alias: {
 				src: resolve( __dirname, 'src' ),
-				'@studio/common': resolve( __dirname, '../../tools/common' ),
+				'@studio/common': resolve( __dirname, '../../packages/common' ),
 				'@wp-playground/blueprints/blueprint-schema-validator': resolve(
 					__dirname,
 					'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'
@@ -68,7 +68,7 @@ export default defineConfig( {
 		resolve: {
 			alias: {
 				src: resolve( __dirname, 'src' ),
-				'@studio/common': resolve( __dirname, '../../tools/common' ),
+				'@studio/common': resolve( __dirname, '../../packages/common' ),
 				cli: resolve( __dirname, '../cli' ),
 				vendor: resolve( __dirname, '../../vendor' ),
 				'@wp-playground/blueprints/blueprint-schema-validator': resolve(
@@ -159,7 +159,7 @@ export default defineConfig( {
 			// Force CSS extraction instead of inlining
 			cssCodeSplit: true,
 			// Enable minification and compression
-			minify: 'esbuild',
+			minify: 'oxc',
 			// Target modern browsers for smaller output
 			target: 'chrome120',
 		},

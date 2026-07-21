@@ -229,6 +229,30 @@ tests:
         site only needs a single page — no extra pages, no blog posts, no
         navigation menu beyond what a one-page site requires.
     assert:
+      # The default new-site flow: no installed theme is mentioned, so the
+      # agent must start from a fresh blank scaffold — scaffold_theme called
+      # WITHOUT parentTheme (the parentTheme path is covered by the
+      # child-theme-for-installed-theme case below).
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const scaffolds = (d.toolCalls || []).filter(t => t.name === 'scaffold_theme');
+            if (scaffolds.length === 0) {
+              return { pass: false, score: 0, reason: `scaffold_theme was never called; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
+            }
+            const call = scaffolds[0];
+            if (call.input?.parentTheme) {
+              return { pass: false, score: 0, reason: `expected a blank scaffold but got a child theme: ${JSON.stringify(call.input)}` };
+            }
+            const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
+            if (!result || result.isError) {
+              return { pass: false, score: 0, reason: `scaffold_theme failed: ${JSON.stringify(result).slice(0, 300)}` };
+            }
+            return { pass: true, score: 1, reason: `blank theme scaffolded: ${JSON.stringify(call.input)}` };
+          });
       - type: javascript
         value: |
           return import('node:fs').then(({ readFileSync }) => {
@@ -305,6 +329,89 @@ tests:
             return { pass: true, score: 1, reason: `validation passed: ${text.split(/\r?\n/).filter(Boolean).slice(0, 2).join(' | ')}` };
           });
 
+  # Regression (STU-1775): the agent used to present a temporary preview site as
+  # a connected WordPress.com remote site when listing what a local site is
+  # connected to. We seed one connected remote site and one preview site for a
+  # local site, then assert (a) each tool tags its output with a `type`
+  # discriminator and (b) the agent's prose keeps the two categories distinct.
+  - description: agent distinguishes preview sites from connected WordPress.com remote sites
+    vars:
+      caseId: differentiate-preview-vs-remote
+      timeoutMs: 180000
+      askUserPolicy: allow_all
+      seed:
+        localSite:
+          id: eval-site-categories
+          name: Eval Site Categories
+          path: /tmp/eval-site-categories
+          port: 8881
+        connectedWpcomSites:
+          - id: 111
+            localSiteId: eval-site-categories
+            name: My Production Site
+            url: https://myprod.wordpress.com
+            isStaging: false
+            isPressable: false
+            environmentType: production
+            syncSupport: already-connected
+            lastPullTimestamp: null
+            lastPushTimestamp: null
+        snapshots:
+          - url: abc123-studio.wp.build
+            atomicSiteId: 111
+            localSiteId: eval-site-categories
+            date: 1900000000000
+            name: Eval Site Categories
+      prompt: |
+        For the local site named "Eval Site Categories", list everything it is
+        connected or related to. For each item, tell me clearly whether it is a
+        temporary PREVIEW site or a durable connected WordPress.com remote site.
+        Do not create, delete, or modify anything — only inspect and report.
+    assert:
+      # The connected-remote tool output carries the type discriminator.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const r = (d.toolResults || []).find(r => r.toolName === 'site_connected_remote_sites');
+            if (!r) return { pass: false, score: 0, reason: `site_connected_remote_sites was not called; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
+            const ok = /"type"\s*:\s*"wpcom-remote"/.test(r.text || '');
+            return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'connected-remote output tagged type=wpcom-remote' : `missing type discriminator: ${(r.text || '').slice(0, 300)}` };
+          });
+      # The preview tool output carries the type discriminator.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const r = (d.toolResults || []).find(r => r.toolName === 'preview_list');
+            if (!r) return { pass: false, score: 0, reason: `preview_list was not called; tools: ${JSON.stringify((d.toolCalls || []).map(t => t.name))}` };
+            const ok = /"type"\s*:\s*"preview"/.test(r.text || '');
+            return { pass: ok, score: ok ? 1 : 0, reason: ok ? 'preview output tagged type=preview' : `missing type discriminator: ${(r.text || '').slice(0, 300)}` };
+          });
+      # The behavioral guard: the agent must not merge the two categories.
+      # Grade the assistant's prose, not the EVAL_RUNNER_RESULT_FILE marker line.
+      - type: llm-rubric
+        transform: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = String(output).split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return String(output);
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            return (d.textSegments || []).join('\n');
+          });
+        value: |
+          The assistant lists what the local site "Eval Site Categories" is
+          connected or related to. PASS only if it classifies
+          "abc123-studio.wp.build" as a temporary/preview site (and NOT as a
+          connected WordPress.com remote/production site), AND classifies
+          "My Production Site" / "myprod.wordpress.com" as a connected
+          WordPress.com remote site (and NOT as a preview site). FAIL if it
+          labels the preview as a "WordPress.com" remote/production site, labels
+          the remote site as a preview, or merges the two into one undifferentiated list.
+
   - description: agent reaches for Jetpack on slideshow request (catch-all rule)
     vars:
       caseId: jetpack-catchall-slideshow
@@ -373,6 +480,68 @@ tests:
             const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
             const n = (d.toolCalls || []).filter(t => t.name === 'wp_cli' && /wc\s+product\s+create/.test(t.input?.command || '')).length;
             return { pass: n >= 1, score: n >= 1 ? 1 : 0, reason: n >= 1 ? `${n} product(s) created` : 'no `wc product create` calls' };
+          });
+
+  # Regression (STU-2017): customizing a site running an installed third-party
+  # theme used to edit that theme's files directly, so a theme update would
+  # silently wipe the customizations. The agent must scaffold a child theme
+  # (scaffold_theme with parentTheme) and keep every change inside it.
+  - description: customizing an installed third-party theme creates a child theme and never edits the parent
+    vars:
+      caseId: child-theme-for-installed-theme
+      timeoutMs: 600000
+      askUserPolicy: allow_all
+      prompt: |
+        First check if a site named "Eval Child Theme Site" exists using
+        site_list. If it does, delete it with site_delete so we start from a
+        clean slate. Do NOT touch any other site.
+
+        Then create a new site named "Eval Child Theme Site", install and
+        activate the Ollie theme from the WordPress.org directory, and
+        customize the design: make all headings a serif font and shift the
+        color palette warmer. Keep it quick — only typography and color
+        changes, no new pages or content.
+    assert:
+      # The agent must scaffold a child theme of ollie, successfully.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const call = (d.toolCalls || []).find(t => t.name === 'scaffold_theme' && t.input?.parentTheme === 'ollie');
+            if (!call) {
+              const scaffolds = (d.toolCalls || []).filter(t => t.name === 'scaffold_theme').map(t => t.input);
+              return { pass: false, score: 0, reason: `no scaffold_theme call with parentTheme="ollie"; scaffold_theme calls: ${JSON.stringify(scaffolds)}` };
+            }
+            const result = (d.toolResults || []).find(r => r.toolUseId === call.id);
+            if (!result || result.isError) {
+              return { pass: false, score: 0, reason: `scaffold_theme(parentTheme=ollie) failed: ${JSON.stringify(result).slice(0, 300)}` };
+            }
+            return { pass: true, score: 1, reason: `child theme scaffolded: ${JSON.stringify(call.input)}` };
+          });
+      # No Write/Edit/Bash may touch the installed parent theme's files.
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const offending = (d.toolCalls || []).filter(c => {
+              const i = c.input || {};
+              if (c.name === 'Write' || c.name === 'Edit') {
+                return String(i.file_path || i.path || i.filePath || '').includes('/themes/ollie/');
+              }
+              if (c.name === 'Bash') {
+                // Reads are fine; catch anything that could mutate the parent.
+                return /themes\/ollie\//.test(i.command || '') && /\b(>|>>|sed\s+-i|mv|cp|rm|tee|touch)\b/.test(i.command || '');
+              }
+              return false;
+            });
+            if (offending.length > 0) {
+              return { pass: false, score: 0, reason: `${offending.length} call(s) modified the installed parent theme (first: ${JSON.stringify({ name: offending[0].name, input: offending[0].input }).slice(0, 300)})` };
+            }
+            return { pass: true, score: 1, reason: 'no Write/Edit/Bash mutation under themes/ollie/' };
           });
 
   # When adding sections to a site that already has an active theme, the agent

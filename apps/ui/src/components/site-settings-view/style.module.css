@@ -1,83 +1,3 @@
-.root {
-	display: flex;
-	flex-direction: column;
-	height: 100%;
-	min-height: 0;
-}
-
-.state {
-	padding: var(--wpds-dimension-padding-xl);
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
-.header {
-	display: flex;
-	align-items: center;
-	gap: var(--wpds-dimension-padding-sm);
-	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-2xl);
-	min-height: 46px;
-	font-size: var(--wpds-typography-font-size-sm);
-	color: var(--wpds-color-fg-content-neutral);
-	-webkit-app-region: drag;
-}
-
-.toggleSpacer {
-	display: block;
-	flex-shrink: 0;
-	width: calc(118px - var(--wpds-dimension-padding-xs));
-	height: 100%;
-	-webkit-app-region: no-drag;
-}
-
-.toggleSpacerFullscreen {
-	display: block;
-	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-md) + 24px - var(--wpds-dimension-padding-xs));
-	height: 100%;
-	-webkit-app-region: no-drag;
-}
-
-.titleBlock {
-	max-width: 760px;
-	margin: 0 auto;
-	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl) 0;
-	width: 100%;
-}
-
-/* Full-width bar so the border-bottom spans the entire main area. The inner
-   wrapper centers the tablist over the same 760px column the form uses.
-   The shared `Tabs` component expects this 1px neutral baseline and lines its
-   active indicator up with it via `margin-bottom: -1px` on the tablist. */
-.tabsBar {
-	width: 100%;
-	/* Matches the sidebar's right border so the two feel like one continuous
-	   frame around the main area. */
-	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
-	margin-top: var(--wpds-dimension-padding-xl);
-}
-
-.tabsBarInner {
-	max-width: 760px;
-	margin: 0 auto;
-	padding: 0 var(--wpds-dimension-padding-xl);
-}
-
-/* Only the form content scrolls. The tabs and title sit above this container
-   so the tablist's border-bottom isn't clipped by scrollbar-gutter
-   reservations. */
-.scroll {
-	flex: 1;
-	min-height: 0;
-	overflow-y: auto;
-}
-
-.contentBlock {
-	max-width: 760px;
-	margin: 0 auto;
-	padding: calc(var(--wpds-dimension-padding-2xl) * 1.5) var(--wpds-dimension-padding-xl)
-		var(--wpds-dimension-padding-2xl);
-}
-
 .form {
 	display: flex;
 	flex-direction: column;
@@ -87,8 +7,9 @@
 .submitError {
 	padding: 10px 12px;
 	border-radius: 4px;
-	background: #fce8e8;
-	color: #7a1a1a;
+	border: 1px solid var(--wpds-color-stroke-surface-error);
+	background: var(--wpds-color-bg-surface-error-weak);
+	color: var(--wpds-color-fg-content-error);
 	font-size: 13px;
 }
 

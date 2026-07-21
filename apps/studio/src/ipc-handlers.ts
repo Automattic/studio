@@ -6,7 +6,6 @@ import {
 	app,
 	clipboard,
 	dialog,
-	nativeTheme,
 	shell,
 	type IpcMainInvokeEvent,
 	Notification,
@@ -23,11 +22,21 @@ import { validateStudioChatImages } from '@studio/common/ai/chat-images';
 import { isAiModelId } from '@studio/common/ai/models';
 import { deriveEffectiveEnvironment } from '@studio/common/ai/sessions/effective-site';
 import {
+	createOrReuseAiSession,
+	hydrateAiSessionSummary,
+	listHydratedAiSessions,
+	loadHydratedAiSession,
+} from '@studio/common/ai/sessions/manage';
+import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import {
+	deleteAiSessionPlacement,
+	readAiSessionPlacement,
+} from '@studio/common/ai/sessions/placement';
+import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
+import {
 	appendModelChangeEntry,
 	appendStudioEntry,
-	createAiSession as createAiSessionInStore,
 	deleteAiSession as deleteAiSessionFromStore,
-	listAiSessions as listAiSessionsFromStore,
 	loadAiSession as loadAiSessionFromStore,
 } from '@studio/common/ai/sessions/store';
 import { AI_SKILL_COMMANDS, buildSkillInvocationPrompt } from '@studio/common/ai/slash-commands';
@@ -44,7 +53,6 @@ import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
-import { extractZip } from '@studio/common/lib/extract-zip';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -58,6 +66,8 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
+import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
+import { getLocalMediaMimeType } from '@studio/common/lib/media-mime';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
 import {
@@ -72,8 +82,6 @@ import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	deleteSharedSession,
 	readSharedConfig,
-	readSharedSession,
-	readSharedSessions,
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
@@ -82,24 +90,20 @@ import { getSiteRuntime, siteModeFromRuntime } from '@studio/common/lib/site-run
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { shouldExcludeFromSync } from '@studio/common/lib/sync/exclude-from-sync';
 import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
-import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
 import {
-	MACOS_TRAFFIC_LIGHT_POSITION,
-	MAIN_MIN_WIDTH,
-	SIDEBAR_WIDTH,
-	WINDOWS_TITLEBAR_HEIGHT,
-} from 'src/constants';
+	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
+	extractBlueprintBundle as extractBlueprintBundleShared,
+	type ExtractedBlueprintBundle,
+} from '@studio/common/sites/blueprint-extract';
+import { __, sprintf, LocaleData, defaultI18n } from '@wordpress/i18n';
+import { MACOS_TRAFFIC_LIGHT_POSITION, MAIN_MIN_WIDTH, SIDEBAR_WIDTH } from 'src/constants';
 import { sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import {
-	deleteAiSessionPlacement,
-	hydrateAiSessionSummaryWithPlacement,
-	readAiSessionPlacement,
-	readAiSessionPlacements,
-	setAiSessionSitePlacement,
-} from 'src/lib/ai-session-placement';
-import { getAiSessionsRootDirectory } from 'src/lib/ai-sessions';
-import { getBetaFeatures as getBetaFeaturesFromLib } from 'src/lib/beta-features';
+	getBetaFeatures as getBetaFeaturesFromLib,
+	updateBetaFeature as updateBetaFeatureInLib,
+} from 'src/lib/beta-features';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -126,7 +130,13 @@ import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { updateSiteUrl } from 'src/lib/update-site-url';
 import * as windowsHelpers from 'src/lib/windows-helpers';
 import { getLogsFilePath, writeLogToFile, type LogLevel } from 'src/logging';
-import { getMainWindow } from 'src/main-window';
+import {
+	getFrameTitleBarOverlayOptions,
+	getMainWindow,
+	getTitleBarOverlayOptions,
+	loadMainWindowRenderer,
+	setAgenticUiEnabled,
+} from 'src/main-window';
 import { popupMenu, setupMenu } from 'src/menu';
 import { type InstructionFileType } from 'src/modules/agent-instructions/constants';
 import {
@@ -167,11 +177,11 @@ import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path
 import { SiteServer, stopAllServers as triggerStopAllServers } from 'src/site-server';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 import {
+	updateAppdata,
 	loadUserData,
 	lockAppdata,
 	saveUserData,
 	unlockAppdata,
-	updateAppdata,
 } from 'src/storage/user-data';
 import { Blueprint } from 'src/stores/wpcom-api';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
@@ -202,6 +212,7 @@ export {
 	pauseSyncUpload,
 	pullSiteFromLive,
 	pushArchive,
+	pushSiteToLive,
 	removeSyncBackup,
 	resumeSyncUpload,
 	updateConnectedWpcomSites,
@@ -219,12 +230,14 @@ export {
 export {
 	getColorScheme,
 	getInstalledAppsAndTerminals,
+	getQuitSitesBehavior,
 	getUserEditor,
 	getUserLocale,
 	getUserTerminal,
 	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
+	saveQuitSitesBehavior,
 	saveUserEditor,
 	saveUserLocale,
 	saveUserTerminal,
@@ -237,65 +250,22 @@ export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handle
 
 export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
-function hydrateAiSessionSummary(
-	summary: AiSessionSummary,
-	metadata?: Pick< AiSessionSummary, 'starred' | 'archived' >
-): AiSessionSummary {
-	return {
-		...summary,
-		starred: metadata?.starred,
-		archived: metadata?.archived,
-	};
-}
-
-async function listHydratedAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
-	const [ sessions, sessionMetadata, placements ] = await Promise.all( [
-		listAiSessionsFromStore( rootDirectory ),
-		readSharedSessions(),
-		readAiSessionPlacements(),
-	] );
-	return sessions.map( ( session ) =>
-		hydrateAiSessionSummary(
-			hydrateAiSessionSummaryWithPlacement( session, placements[ session.id ] ),
-			sessionMetadata[ session.id ]
-		)
-	);
-}
-
-async function loadHydratedAiSession(
-	rootDirectory: string,
-	sessionIdOrPrefix: string
-): Promise< LoadedAiSession > {
-	const session = await loadAiSessionFromStore( rootDirectory, sessionIdOrPrefix );
-	const [ metadata, placement ] = await Promise.all( [
-		readSharedSession( session.summary.id ),
-		readAiSessionPlacement( session.summary.id ),
-	] );
-	return {
-		...session,
-		summary: hydrateAiSessionSummary(
-			hydrateAiSessionSummaryWithPlacement( session.summary, placement ),
-			metadata
-		),
-	};
-}
-
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
-	return listHydratedAiSessions( getAiSessionsRootDirectory() );
+	return listHydratedAiSessions( getSessionsDirectory() );
 }
 
 export async function loadAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< LoadedAiSession > {
-	return loadHydratedAiSession( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	return loadHydratedAiSession( getSessionsDirectory(), sessionIdOrPrefix );
 }
 
 export async function deleteAiSession(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string
 ): Promise< AiSessionSummary > {
-	const deleted = await deleteAiSessionFromStore( getAiSessionsRootDirectory(), sessionIdOrPrefix );
+	const deleted = await deleteAiSessionFromStore( getSessionsDirectory(), sessionIdOrPrefix );
 	await deleteSharedSession( deleted.id );
 	await deleteAiSessionPlacement( deleted.id );
 	return deleted;
@@ -305,79 +275,39 @@ export async function createAiSession(
 	_event: IpcMainInvokeEvent,
 	siteId?: string
 ): Promise< AiSessionSummary > {
-	const sitesRoot = getAiSessionsRootDirectory();
+	const sessionsRoot = getSessionsDirectory();
 	if ( ! siteId ) {
-		const existing = await listHydratedAiSessions( sitesRoot );
-		const emptyUserSession = existing
-			.filter(
-				( session ) => ! session.ownerSitePath && ! session.firstPrompt && ! session.archived
-			)
-			.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
-
-		if ( emptyUserSession ) {
-			return emptyUserSession;
-		}
-
-		return hydrateAiSessionSummary( await createAiSessionInStore( sitesRoot ) );
+		return createOrReuseAiSession( sessionsRoot );
 	}
 
 	const server = SiteServer.get( siteId );
 	if ( ! server ) {
 		throw new Error( `Site not found: ${ siteId }` );
 	}
-	const sitePath = server.details.path;
 
-	// Reuse the newest existing empty session for this site (one that has
-	// never received a user prompt) instead of creating another one. This
-	// lets `/sites/$siteId/new` act as a stable "draft slot" per site — the
-	// UI can redirect to it eagerly without piling up orphan sessions.
-	const existing = await listHydratedAiSessions( sitesRoot );
-	const emptyForSite = existing
-		.filter(
-			( session ) =>
-				session.ownerSitePath === sitePath && ! session.firstPrompt && ! session.archived
-		)
-		.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) )[ 0 ];
-	if ( emptyForSite ) {
-		return emptyForSite;
-	}
-
-	const created = await createAiSessionInStore( sitesRoot, {
+	// Binds the session to the site and reuses an existing empty draft for it
+	// instead of piling up orphans — the shared logic the `studio ui` server
+	// uses too.
+	return createOrReuseAiSession( sessionsRoot, {
 		site: {
+			id: server.details.id,
 			name: server.details.name,
-			path: sitePath,
+			path: server.details.path,
 		},
-	} );
-	await setAiSessionSitePlacement( created.id, {
-		siteId: server.details.id,
-		siteName: server.details.name,
-		sitePath,
-	} );
-	return hydrateAiSessionSummaryWithPlacement( created, {
-		kind: 'site',
-		siteId: server.details.id,
-		siteName: server.details.name,
-		sitePath,
 	} );
 }
 
 export async function updateAiSessionMetadata(
 	_event: IpcMainInvokeEvent,
 	sessionIdOrPrefix: string,
-	patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+	patch: Pick< AiSessionSummary, 'archived' >
 ): Promise< AiSessionSummary > {
-	const { summary } = await loadAiSessionFromStore(
-		getAiSessionsRootDirectory(),
-		sessionIdOrPrefix
-	);
+	const { summary } = await loadAiSessionFromStore( getSessionsDirectory(), sessionIdOrPrefix );
 	const [ metadata, placement ] = await Promise.all( [
 		updateSharedSession( summary.id, patch ),
 		readAiSessionPlacement( summary.id ),
 	] );
-	return hydrateAiSessionSummary(
-		hydrateAiSessionSummaryWithPlacement( summary, placement ),
-		metadata
-	);
+	return hydrateAiSessionSummary( summary, metadata, placement );
 }
 
 /**
@@ -392,17 +322,14 @@ export async function updateAiSessionMetadata(
  * tool set reflect the same truth on the next turn.
  */
 async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promise< void > {
-	const root = getAiSessionsRootDirectory();
+	const root = getSessionsDirectory();
 	const { summary } = await loadHydratedAiSession( root, sessionId );
 
 	if ( summary.activeEnvironment !== 'live' ) {
 		return;
 	}
-	if ( ! summary.ownerSitePath ) {
-		return;
-	}
-
-	const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+	const ownerSite = findAiSessionOwnerSite( SiteServer.getAllDetails(), summary );
+	const ownerServer = ownerSite ? SiteServer.get( ownerSite.id ) : undefined;
 	if ( ! ownerServer ) {
 		return;
 	}
@@ -419,7 +346,8 @@ async function reconcileSessionEnvironmentBeforeRun( sessionId: string ): Promis
 	// CLI's replay sees Local on the next turn.
 	await appendStudioEntry( root, sessionId, 'studio.site_selected', {
 		siteName: ownerServer.details.name,
-		sitePath: summary.ownerSitePath,
+		sitePath: ownerServer.details.path,
+		siteId: ownerServer.details.id,
 	} );
 }
 
@@ -466,6 +394,16 @@ export async function continueAiSession(
 	} );
 }
 
+export async function markAiMessageEdited(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	originalEntryId: string
+): Promise< void > {
+	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.message_edited', {
+		originalEntryId,
+	} );
+}
+
 export async function listActiveAiAgentRuns(
 	_event: IpcMainInvokeEvent
 ): Promise< ActiveAgentRun[] > {
@@ -480,7 +418,7 @@ export async function setAiSessionModel(
 	if ( ! isAiModelId( model ) ) {
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
-	await appendModelChangeEntry( getAiSessionsRootDirectory(), sessionId, '', model );
+	await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
 }
 
 export interface SetSessionEnvironmentResult {
@@ -504,16 +442,19 @@ export async function setSessionEnvironment(
 	sessionId: string,
 	environment: 'local' | 'live'
 ): Promise< SetSessionEnvironmentResult > {
-	const { summary } = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
+	const { summary } = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
 
-	if ( ! summary.ownerSitePath || ! summary.ownerSiteName ) {
+	if ( ! summary.ownerSiteId && ! summary.ownerSitePath ) {
 		throw new Error( 'Cannot change environment: session has no owner site' );
 	}
 
-	const ownerServer = SiteServer.getByPath( summary.ownerSitePath );
+	const ownerSite = findAiSessionOwnerSite( SiteServer.getAllDetails(), summary );
+	const ownerServer = ownerSite ? SiteServer.get( ownerSite.id ) : undefined;
 	if ( ! ownerServer ) {
 		throw new Error(
-			`Cannot change environment: owner site is no longer available (${ summary.ownerSitePath })`
+			`Cannot change environment: owner site is no longer available (${
+				summary.ownerSiteId ?? summary.ownerSitePath
+			})`
 		);
 	}
 
@@ -527,17 +468,18 @@ export async function setSessionEnvironment(
 			throw new Error( 'Cannot switch to live: no linked WordPress.com site for this session' );
 		}
 
-		await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
+		await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
 			siteName: liveSite.name,
-			// Keep the desktop placement path on remote picks too, so live/local
+			// Keep the local owner's path and id on remote picks too, so live/local
 			// environment flips still resolve against the same local site.
-			sitePath: summary.ownerSitePath,
+			sitePath: ownerServer.details.path,
+			siteId: ownerServer.details.id,
 			remote: true,
 			url: liveSite.url,
 			wpcomSiteId: liveSite.id,
 		} );
 
-		const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
+		const refreshed = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
 		return {
 			environment: 'live',
 			url: liveSite.url,
@@ -547,13 +489,14 @@ export async function setSessionEnvironment(
 	}
 
 	const details = ownerServer.details;
-	await appendStudioEntry( getAiSessionsRootDirectory(), sessionId, 'studio.site_selected', {
+	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.site_selected', {
 		siteName: details.name,
 		sitePath: details.path,
+		siteId: details.id,
 		url: 'url' in details ? details.url : undefined,
 	} );
 
-	const refreshed = await loadHydratedAiSession( getAiSessionsRootDirectory(), sessionId );
+	const refreshed = await loadHydratedAiSession( getSessionsDirectory(), sessionId );
 	return {
 		environment: 'local',
 		summary: refreshed.summary,
@@ -633,7 +576,7 @@ export async function installWordPressSkills(
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 	const overwrite = options?.overwrite ?? false;
-	await installAllSkills( server.details.path, overwrite );
+	await installAllSkills( server.details, overwrite );
 }
 
 export async function installWordPressSkillById(
@@ -647,7 +590,7 @@ export async function installWordPressSkillById(
 		throw new Error( `Site not found: ${ siteId }` );
 	}
 	const overwrite = options?.overwrite ?? false;
-	await installSkillById( server.details.path, skillId, overwrite );
+	await installSkillById( server.details, skillId, overwrite );
 }
 
 export async function removeWordPressSkillById(
@@ -681,7 +624,7 @@ export async function installWordPressSkillsToAllSites(
 	const overwrite = options.overwrite ?? false;
 	const bundledPath = getAiInstructionsPath();
 	const tasks = sites.map( ( site ) =>
-		installSkillToSite( site.details.path, bundledPath, options.skillId, overwrite )
+		installSkillToSite( site.details, bundledPath, options.skillId, overwrite )
 	);
 	const results = await Promise.allSettled( tasks );
 	results.forEach( ( result ) => {
@@ -1011,6 +954,11 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		return;
 	}
 
+	const maintenanceCheck = checkMaintenanceFile( server.details.path );
+	if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {
+		throw new Error( 'MAINTENANCE_MODE' );
+	}
+
 	try {
 		await server.start();
 	} catch ( error ) {
@@ -1076,8 +1024,8 @@ export async function startServer( event: IpcMainInvokeEvent, id: string ): Prom
 		void loadSiteIcon( event, id );
 	}
 
-	// Keep managed instruction files (STUDIO.md, CLAUDE.md) up-to-date
-	void updateManagedInstructionFiles( server.details.path, getAiInstructionsPath() ).catch(
+	// Keep managed instruction files (STUDIO.md) up-to-date
+	void updateManagedInstructionFiles( server.details, getAiInstructionsPath() ).catch(
 		( error ) => {
 			console.error( '[ai-instructions] Failed to update managed instruction files:', error );
 		}
@@ -1440,7 +1388,20 @@ export async function readLocalMediaFile(
 	_event: IpcMainInvokeEvent,
 	path: string
 ): Promise< { name: string; mimeType: string; data: ArrayBuffer } > {
-	const stats = await fsPromises.stat( path );
+	let resolvedPath = path;
+	let stats: fs.Stats;
+	try {
+		stats = await fsPromises.stat( resolvedPath );
+	} catch ( error ) {
+		if ( ! isErrnoException( error ) || error.code !== 'ENOENT' ) {
+			throw error;
+		}
+		resolvedPath = resolveMigratedAiSessionsPath( path );
+		if ( resolvedPath === path ) {
+			throw error;
+		}
+		stats = await fsPromises.stat( resolvedPath );
+	}
 	if ( ! stats.isFile() ) {
 		throw new Error( 'Local media path must be a file.' );
 	}
@@ -1450,7 +1411,7 @@ export async function readLocalMediaFile(
 		throw new Error( 'Local media file type is not supported.' );
 	}
 
-	const buffer = await fsPromises.readFile( path );
+	const buffer = await fsPromises.readFile( resolvedPath );
 	return {
 		name: nodePath.basename( path ),
 		mimeType,
@@ -1459,36 +1420,6 @@ export async function readLocalMediaFile(
 			buffer.byteOffset + buffer.byteLength
 		) as ArrayBuffer,
 	};
-}
-
-function getLocalMediaMimeType( path: string ) {
-	const extension = nodePath.extname( path ).toLowerCase().slice( 1 );
-	const mimeTypes: Record< string, string > = {
-		avif: 'image/avif',
-		avi: 'video/x-msvideo',
-		bmp: 'image/bmp',
-		gif: 'image/gif',
-		heic: 'image/heic',
-		heif: 'image/heif',
-		ico: 'image/x-icon',
-		jpeg: 'image/jpeg',
-		jpg: 'image/jpeg',
-		m4v: 'video/x-m4v',
-		mkv: 'video/x-matroska',
-		mov: 'video/quicktime',
-		mp4: 'video/mp4',
-		mpeg: 'video/mpeg',
-		mpg: 'video/mpeg',
-		ogv: 'video/ogg',
-		png: 'image/png',
-		svg: 'image/svg+xml',
-		tif: 'image/tiff',
-		tiff: 'image/tiff',
-		webm: 'video/webm',
-		webp: 'image/webp',
-	};
-
-	return mimeTypes[ extension ] ?? '';
 }
 
 // Update a site's theme details and thumbnail. Emit the appropriate IPC events to the renderer
@@ -1561,6 +1492,33 @@ export async function saveOnboarding( event: IpcMainInvokeEvent, onboardingCompl
 
 export async function getBetaFeatures( _event: IpcMainInvokeEvent ): Promise< BetaFeatures > {
 	return await getBetaFeaturesFromLib();
+}
+
+export async function enableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', true );
+	setAgenticUiEnabled( true );
+	const mainWindow = await getMainWindow();
+	if ( mainWindow && ! mainWindow.isDestroyed() ) {
+		await loadMainWindowRenderer( mainWindow );
+	}
+}
+
+export async function disableAgenticUi( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateBetaFeatureInLib( 'enableAgenticUi', false );
+	setAgenticUiEnabled( false );
+	const mainWindow = await getMainWindow();
+	if ( mainWindow && ! mainWindow.isDestroyed() ) {
+		await loadMainWindowRenderer( mainWindow );
+	}
+}
+
+export async function dismissAgenticUiBanner( _event: IpcMainInvokeEvent ): Promise< void > {
+	await updateAppdata( { agenticUiBannerDismissed: true } );
+}
+
+export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.agenticUiBannerDismissed === true;
 }
 
 export async function executeWPCLiInline(
@@ -1920,7 +1878,15 @@ export function getFileSize( _event: IpcMainInvokeEvent, siteId: string, filePat
 	if ( ! site ) {
 		throw new Error( 'Site not found.' );
 	}
-	return fs.statSync( nodePath.join( site.details.path, ...filePath ) ).size;
+	const fullPath = nodePath.join( site.details.path, ...filePath );
+	try {
+		return fs.statSync( fullPath ).size;
+	} catch ( error ) {
+		// Dangling symlink or unreadable entry. It's skipped when archiving,
+		// so count it as zero rather than failing the size check.
+		console.warn( `Skipping ${ fullPath }: ${ error }` );
+		return 0;
+	}
 }
 
 export function openCertificate( _event: IpcMainInvokeEvent ) {
@@ -2303,52 +2269,26 @@ export async function readBlueprintFile(
 		throw new Error( 'Blueprint file path must be within the allowed directory' );
 	}
 
-	const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
-	return JSON.parse( fileContents );
+	try {
+		const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
+		return JSON.parse( fileContents );
+	} finally {
+		await fsPromises.rm( resolvedPath, { force: true } );
+	}
 }
 
 export async function extractBlueprintBundle(
 	_event: IpcMainInvokeEvent,
 	zipFilePath: string
-): Promise< {
-	blueprintJson: Blueprint[ 'blueprint' ];
-	blueprintJsonPath: string;
-	tempDir: string;
-} > {
-	const resolvedZipPath = nodePath.resolve( zipFilePath );
-	const tempDir = await fsPromises.mkdtemp(
-		nodePath.join( os.tmpdir(), 'studio-blueprint-bundle-' )
-	);
-
-	try {
-		await extractZip( resolvedZipPath, tempDir );
-
-		const blueprintJsonPath = nodePath.join( tempDir, 'blueprint.json' );
-		try {
-			await fsPromises.access( blueprintJsonPath );
-		} catch {
-			throw new Error(
-				__(
-					'No blueprint.json found in the ZIP file. Please ensure the ZIP contains a blueprint.json at its root.'
-				)
-			);
-		}
-
-		const fileContents = await fsPromises.readFile( blueprintJsonPath, 'utf-8' );
-		const blueprintJson = JSON.parse( fileContents );
-
-		return { blueprintJson, blueprintJsonPath, tempDir };
-	} catch ( error ) {
-		await fsPromises.rm( tempDir, { recursive: true, force: true } );
-		throw error;
-	}
+): Promise< ExtractedBlueprintBundle > {
+	return extractBlueprintBundleShared( zipFilePath );
 }
 
 export async function cleanupBlueprintTempDir(
 	_event: IpcMainInvokeEvent,
 	tempDir: string
 ): Promise< void > {
-	await removeBlueprintTempDir( tempDir );
+	await cleanupBlueprintTempDirShared( tempDir );
 }
 
 export async function setWindowControlVisibility( event: IpcMainInvokeEvent, visible: boolean ) {
@@ -2363,42 +2303,22 @@ export async function setWindowControlVisibility( event: IpcMainInvokeEvent, vis
 			parentWindow.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
 		}
 	} else if ( process.platform === 'win32' || process.platform === 'linux' ) {
-		const isDark = nativeTheme.shouldUseDarkColors;
-		if ( visible ) {
-			parentWindow.setTitleBarOverlay( {
-				color: 'rgba(30, 30, 30, 1)',
-				symbolColor: 'white',
-				height: WINDOWS_TITLEBAR_HEIGHT,
-			} );
-		} else {
-			parentWindow.setTitleBarOverlay( {
-				color: isDark ? '#2f2f2f' : '#fff',
-				symbolColor: isDark ? 'white' : '#1e1e1e',
-				height: WINDOWS_TITLEBAR_HEIGHT,
-			} );
-		}
+		// Hiding the controls means a fullscreen modal (e.g. Add site) now sits behind them,
+		// so the overlay must match its theme-aware `bg-frame` background instead of the chrome.
+		parentWindow.setTitleBarOverlay(
+			visible ? getTitleBarOverlayOptions() : getFrameTitleBarOverlayOptions()
+		);
 	}
 }
 
 export async function setTitleBarBackdropEffect( event: IpcMainInvokeEvent, enabled: boolean ) {
+	void enabled;
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow || ( process.platform !== 'win32' && process.platform !== 'linux' ) ) {
 		return;
 	}
 
-	if ( enabled ) {
-		parentWindow.setTitleBarOverlay( {
-			color: '#131313',
-			symbolColor: 'white',
-			height: WINDOWS_TITLEBAR_HEIGHT,
-		} );
-	} else {
-		parentWindow.setTitleBarOverlay( {
-			color: 'rgba(30, 30, 30, 1)',
-			symbolColor: 'white',
-			height: WINDOWS_TITLEBAR_HEIGHT,
-		} );
-	}
+	parentWindow.setTitleBarOverlay( getTitleBarOverlayOptions() );
 }
 
 export async function updateSitesSortOrder(
@@ -2455,7 +2375,7 @@ export async function startRemoteSessionDaemon(
 	//
 	// `STUDIO_ENABLE_REMOTE_SESSION=true` is required: the CLI gates the entire
 	// `code remote-session` subcommand tree behind that env var (see
-	// `tools/common/lib/remote-session.ts`). Without it, the spawned child fails with
+	// `packages/common/lib/remote-session.ts`). Without it, the spawned child fails with
 	// "Unknown arguments: remote-session, start". The `remoteSession` beta
 	// feature is the user-facing opt-in, so we lift the CLI gate in the spawned
 	// child rather than asking users to set the env var manually.

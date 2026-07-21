@@ -63,7 +63,7 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'apps/cli/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
 						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
-						path.join( import.meta.dirname, 'tools/common/tsconfig.json' ),
+						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
 					],
@@ -94,6 +94,8 @@ export default defineConfig(
 					ignore: [
 						'@wp-playground/blueprints/blueprint-schema-validator',
 						'@modelcontextprotocol/sdk/server/stdio\\.js$',
+						'@modelcontextprotocol/sdk/client/index\\.js$',
+						'@modelcontextprotocol/sdk/client/stdio\\.js$',
 					],
 				},
 			],

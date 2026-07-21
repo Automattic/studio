@@ -1,5 +1,5 @@
 import { useI18n } from '@wordpress/react-i18n';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StudioLogo } from 'src/components/studio-logo';
 import { useAuth } from 'src/hooks/use-auth';
 import { OnboardingConnectToWpcom } from 'src/modules/onboarding/components/connect-to-wpcom';
@@ -36,25 +36,23 @@ export function Onboarding() {
 	const [ saveLastSeenVersion ] = useSaveLastSeenVersionMutation();
 	const [ saveAnalyticsEnabled ] = useSaveAnalyticsEnabledMutation();
 
-	// Analytics is opt-out (default ON). Track the toggle here so the choice is persisted whether the
-	// user logs in (auto-skip) or clicks Skip. A ref keeps `handleSkip` stable for the auth effect.
+	// Analytics is opt-out (default ON). Persist the choice as soon as the user flips the toggle, so it
+	// sticks however onboarding ends — Skip, login (auto-skip), or just closing the window.
 	const [ analyticsEnabled, setAnalyticsEnabled ] = useState( true );
-	const analyticsEnabledRef = useRef( analyticsEnabled );
-	useEffect( () => {
-		analyticsEnabledRef.current = analyticsEnabled;
-	}, [ analyticsEnabled ] );
+	const handleAnalyticsEnabledChange = useCallback(
+		( enabled: boolean ) => {
+			setAnalyticsEnabled( enabled );
+			void saveAnalyticsEnabled( enabled );
+		},
+		[ saveAnalyticsEnabled ]
+	);
 
 	const handleSkip = useCallback( async () => {
 		// Save current app version to prevent What's New from showing for new users
 		await saveLastSeenVersion( window.appGlobals.appVersion );
 
-		// Persist the analytics choice only when the user turned it off (default is on).
-		if ( ! analyticsEnabledRef.current ) {
-			await saveAnalyticsEnabled( false );
-		}
-
 		await dispatch( saveOnboardingStatus( true ) );
-	}, [ dispatch, saveLastSeenVersion, saveAnalyticsEnabled ] );
+	}, [ dispatch, saveLastSeenVersion ] );
 
 	useEffect( () => {
 		if ( isAuthenticated ) {
@@ -76,7 +74,7 @@ export function Onboarding() {
 					<OnboardingConnectToWpcom
 						onSkip={ handleSkip }
 						analyticsEnabled={ analyticsEnabled }
-						onAnalyticsEnabledChange={ setAnalyticsEnabled }
+						onAnalyticsEnabledChange={ handleAnalyticsEnabledChange }
 					/>
 				</div>
 			</div>

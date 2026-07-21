@@ -16,6 +16,7 @@ import { Button } from '@wordpress/ui';
 import { useState } from 'react';
 import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
+import { OfflineBanner } from '@/components/offline-banner';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
@@ -165,6 +166,7 @@ function SiteOverviewBody( {
 					<div className={ styles.scroll }>
 						<main className={ styles.content }>
 							<Tabs.Panel tabId="overview" className={ styles.panel }>
+								<OfflineBanner />
 								<AgenticSigninBanner />
 								<div className={ styles.actionsColumn }>
 									<ButtonSection title={ __( 'Customize' ) }>

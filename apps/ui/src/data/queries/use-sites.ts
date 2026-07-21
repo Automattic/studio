@@ -1,6 +1,6 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
@@ -197,4 +197,26 @@ export function useSyncSitesWithEvents(): void {
 			void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		} );
 	}, [ connector, queryClient ] );
+}
+
+// Boot-time counterpart of the "Stop, restart on next launch" quit behavior:
+// those sites keep their autoStart flag when stopped on quit, and the renderer
+// starts them again on launch (mirrors the legacy UI's use-site-details
+// bootstrapping). Gated on isFetchedAfterMount so a rehydrated persisted cache
+// with stale flags can't trigger starts.
+export function useAutoStartSites(): void {
+	const { data: sites, isFetchedAfterMount } = useSites();
+	const { mutate: startSite } = useStartSite();
+	const startedRef = useRef( false );
+	useEffect( () => {
+		if ( ! isFetchedAfterMount || ! sites || startedRef.current ) {
+			return;
+		}
+		startedRef.current = true;
+		for ( const site of sites ) {
+			if ( site.autoStart && ! site.running ) {
+				startSite( site.id );
+			}
+		}
+	}, [ isFetchedAfterMount, sites, startSite ] );
 }

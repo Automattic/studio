@@ -3,7 +3,6 @@ import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type TurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted';
 
 export interface AiSessionMetadata {
-	starred?: boolean;
 	archived?: boolean;
 }
 

@@ -70,6 +70,9 @@ export interface SiteDetails {
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
+	// True for sites that were running when the app quit with the
+	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
+	autoStart?: boolean;
 	themeDetails?: {
 		name: string;
 		path: string;
@@ -264,7 +267,7 @@ export interface Connector {
 	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
-		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+		patch: Pick< AiSessionSummary, 'archived' >
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`

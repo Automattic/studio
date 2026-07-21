@@ -35,4 +35,19 @@ describe( 'deriveAgenticFeatures', () => {
 			reason: null,
 		} );
 	} );
+
+	it( 'disables features with an offline reason regardless of auth state', () => {
+		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, user, true ) ).toEqual( {
+			enabled: false,
+			reason: 'offline',
+		} );
+		expect( deriveAgenticFeatures( { agenticRequiresAuth: false }, undefined, true ) ).toEqual( {
+			enabled: false,
+			reason: 'offline',
+		} );
+		expect( deriveAgenticFeatures( { agenticRequiresAuth: true }, null, true ) ).toEqual( {
+			enabled: false,
+			reason: 'offline',
+		} );
+	} );
 } );

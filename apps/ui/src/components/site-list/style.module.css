@@ -261,10 +261,25 @@
 	justify-content: flex-end;
 	flex-shrink: 0;
 	gap: 0;
+	max-width: 24px;
+	overflow: hidden;
+	transition: max-width 100ms ease;
 }
 
 .siteAction {
 	flex-shrink: 0;
+}
+
+/* Collapsed, only the trailing status button shows; hover/focus/active
+   reveals the overview button next to it. The header carries
+   `data-popup-open` while its right-click menu is open (Base UI sets it on
+   the context-menu trigger), keeping the row's controls visible. */
+.siteActive .siteActions,
+.siteContextActive .siteActions,
+.siteHeader:hover .siteActions,
+.siteHeader:focus-within .siteActions,
+.siteHeader[data-popup-open] .siteActions {
+	max-width: 48px;
 }
 
 .siteStatus {

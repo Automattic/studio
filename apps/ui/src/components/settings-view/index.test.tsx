@@ -5,7 +5,7 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { SettingsView } from './index';
+import { SettingsView, isSettingsTab } from './index';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 vi.mock( '@wordpress/ui', () => ( {
@@ -208,6 +208,23 @@ describe( 'SettingsView', () => {
 
 		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
 		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
+	} );
+
+	it( 'recognizes the keyboard tab id', () => {
+		expect( isSettingsTab( 'keyboard' ) ).toBe( true );
+		expect( isSettingsTab( 'unknown' ) ).toBe( false );
+	} );
+
+	it( 'renders keyboard shortcut sections', () => {
+		render( <SettingsView activeTab="keyboard" onTabChange={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'button', { name: 'Keyboard' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Composer' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Site preview' } ) ).toBeInTheDocument();
+		expect( screen.getByText( 'New chat' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Send message' ) ).toBeInTheDocument();
+		expect( screen.getByLabelText( 'Control + Comma' ) ).toBeInTheDocument();
+		expect( screen.getByLabelText( 'Alt + Left arrow' ) ).toBeInTheDocument();
 	} );
 
 	it( 'saves the default site directory as soon as one is picked', async () => {

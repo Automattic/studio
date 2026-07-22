@@ -15,6 +15,7 @@ import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AccountSection } from './account-section';
 import { AiPanel } from './ai-panel';
+import { KeyboardPanel } from './keyboard-panel';
 import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SkillsPanel } from './skills-panel';
@@ -30,10 +31,12 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-type TabId = 'preferences' | 'ai' | 'skills' | 'mcp';
+const SETTINGS_TABS = [ 'preferences', 'ai', 'keyboard', 'skills', 'mcp' ] as const;
+
+type TabId = ( typeof SETTINGS_TABS )[ number ];
 
 export function isSettingsTab( value: string ): value is TabId {
-	return value === 'preferences' || value === 'ai' || value === 'skills' || value === 'mcp';
+	return SETTINGS_TABS.some( ( tab ) => tab === value );
 }
 
 export type SettingsTabId = TabId;
@@ -102,6 +105,7 @@ function SettingsHeader() {
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
 				</Tabs.List>
@@ -388,6 +392,9 @@ export function SettingsView( {
 						</Tabs.Panel>
 						<Tabs.Panel tabId="ai">
 							<AiPanel />
+						</Tabs.Panel>
+						<Tabs.Panel tabId="keyboard">
+							<KeyboardPanel />
 						</Tabs.Panel>
 						<Tabs.Panel tabId="skills">
 							<SkillsPanel />

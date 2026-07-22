@@ -1,3 +1,4 @@
+import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { privateApis } from '@wordpress/theme';
 import { forwardRef } from 'react';
@@ -18,6 +19,8 @@ export const Root = BaseMenu.Root;
 export const Trigger = BaseMenu.Trigger;
 export const RadioGroup = BaseMenu.RadioGroup;
 export const SubmenuRoot = BaseMenu.SubmenuRoot;
+export const ContextMenuRoot = BaseContextMenu.Root;
+export const ContextMenuTrigger = BaseContextMenu.Trigger;
 
 type PopupProps = {
 	children: ReactNode;
@@ -60,6 +63,41 @@ export function Popup( {
 					breaking the global SVG-shrink rule in `index.css`. Re-
 					establish the density context here so icons inside the
 					popup render at 16px like the rest of the app. */ }
+				<ThemeProvider density="compact">
+					<BaseMenu.Popup
+						className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }
+						onClick={ onClick }
+						onPointerDown={ onPointerDown }
+					>
+						{ children }
+					</BaseMenu.Popup>
+				</ThemeProvider>
+			</BaseMenu.Positioner>
+		</BaseMenu.Portal>
+	);
+}
+
+/**
+ * Popup for context menus. Same chrome as `Popup`, but passes no `side`/
+ * `align`/offsets: with those undefined, Base UI's positioner anchors a
+ * context menu at the pointer instead of a trigger edge.
+ */
+export function ContextPopup( {
+	children,
+	className,
+	onClick,
+	onPointerDown,
+}: {
+	children: ReactNode;
+	className?: string;
+	onClick?: MouseEventHandler< HTMLElement >;
+	onPointerDown?: PointerEventHandler< HTMLElement >;
+} ) {
+	return (
+		<BaseMenu.Portal>
+			<BaseMenu.Positioner className={ styles.positioner }>
+				{ /* Re-establish density context outside the app-root ThemeProvider,
+					 same as `Popup` above. */ }
 				<ThemeProvider density="compact">
 					<BaseMenu.Popup
 						className={ `${ styles.popup } ${ motionStyles.motion } ${ className ?? '' }` }

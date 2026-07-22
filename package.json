@@ -44,6 +44,7 @@
 		"make:dmg-arm64": "FILE_ARCHITECTURE=arm64 node ./scripts/make-dmg.mjs",
 		"publish": "npm -w studio-app run publish",
 		"cli:build": "npm -w wp-studio run build",
+		"cli:build:ui": "npm -w @studio/ui run build:local && npm -w wp-studio run build",
 		"cli:build:prod": "npm -w wp-studio run build:prod",
 		"cli:build:npm": "npm -w wp-studio run build:npm",
 		"cli:package": "npm -w wp-studio run package",

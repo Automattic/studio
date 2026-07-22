@@ -8,7 +8,7 @@ import type { StudioChatArtifactWidgetDraft } from '@studio/common/ai/chat-artif
 
 const connectorMocks = vi.hoisted( () => ( {
 	readLocalMediaFile: vi.fn(),
-	copyText: vi.fn(),
+	copyText: vi.fn( () => Promise.resolve() ),
 	capabilities: { readLocalMedia: true },
 } ) );
 

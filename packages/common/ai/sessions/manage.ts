@@ -94,8 +94,13 @@ export async function deleteAiSessionsForSite(
 		} catch {
 			// A placement can outlive its session file; still drop the metadata.
 		}
-		await deleteSharedSession( sessionId );
-		await deleteAiSessionPlacement( sessionId );
+		try {
+			await deleteSharedSession( sessionId );
+			await deleteAiSessionPlacement( sessionId );
+		} catch {
+			// Per-session best effort: one failed config write shouldn't
+			// abandon cleanup of the remaining sessions.
+		}
 	}
 	return sessionIds;
 }

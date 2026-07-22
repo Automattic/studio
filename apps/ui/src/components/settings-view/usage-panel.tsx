@@ -5,12 +5,15 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { moreHorizontal } from '@wordpress/icons';
-import { Button, IconButton } from '@wordpress/ui';
+import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
+import { SigninNotice } from '@/components/agentic-signin-banner';
 import * as Menu from '@/components/menu';
+import { OfflineNotice } from '@/components/offline-banner';
 import { useConnector } from '@/data/core';
+import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
-import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
 	useDeleteAllSnapshots,
 	useSnapshotUsage,
@@ -40,13 +43,17 @@ function UsageProgressBar( { fraction }: { fraction: number } ) {
 	);
 }
 
-function AiCreditsSummary() {
+function AiCreditsSummary( { signedOut }: { signedOut: boolean } ) {
 	const locale = useUserLocale();
 	const isOffline = useOffline();
 	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
 
 	let content;
-	if ( isLoading ) {
+	if ( signedOut ) {
+		// Studio Code needs an account, so the Alpha pricing copy would be
+		// telling signed-out users about credits they can't spend yet.
+		content = <UsageProgressBar fraction={ 0 } />;
+	} else if ( isLoading ) {
 		content = <div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>;
 	} else if ( isError || ( isOffline && ! quota ) ) {
 		// Offline without a cached quota reads the same as a failed fetch: we
@@ -183,33 +190,27 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 	);
 }
 
-function OfflineNotice() {
-	return (
-		<section className={ styles.offlineNotice } role="status">
-			<h2>{ __( "You're offline" ) }</h2>
-			<p>
-				{ __(
-					'Usage figures may be out of date, and preview site actions are unavailable until you reconnect.'
-				) }
-			</p>
-		</section>
-	);
-}
-
 export function UsagePanel() {
 	const { data: user, isLoading } = useAuthUser();
-	const login = useLogin();
-	const isOffline = useOffline();
+	// Same signed-out/offline split the rest of the app banners use; both mean
+	// the figures below can't be trusted, so they're dimmed either way.
+	const { reason } = useAgenticFeatures();
 
 	return (
 		<div className={ styles.usagePanel }>
-			<section className={ clsx( styles.settingsPanelSection, isOffline && styles.offlineDimmed ) }>
+			<section
+				className={ clsx( styles.settingsPanelSection, reason !== null && styles.usageDimmed ) }
+			>
 				<div className={ styles.settingsPanelHeader }>
 					<h2>{ __( 'Usage' ) }</h2>
 					<p>{ __( 'Track your preview site usage and Studio Code AI credits.' ) }</p>
 				</div>
-				{ isOffline ? <OfflineNotice /> : null }
-				<AiCreditsSummary />
+				{ reason !== null ? (
+					<div className={ styles.usageNotice }>
+						{ reason === 'offline' ? <OfflineNotice /> : <SigninNotice /> }
+					</div>
+				) : null }
+				<AiCreditsSummary signedOut={ reason === 'signed-out' } />
 				{ user ? (
 					<PreviewSitesSummary userId={ user.id } />
 				) : (
@@ -217,25 +218,11 @@ export function UsagePanel() {
 						<div className={ styles.usageSectionHeader }>
 							<h2>{ __( 'Preview sites' ) }</h2>
 						</div>
-						<p>
-							{ isLoading
-								? __( 'Loading...' )
-								: __( 'Log in to view preview site usage for your account.' ) }
-						</p>
-						{ ! isLoading ? (
-							<Button
-								type="button"
-								variant="outline"
-								tone="neutral"
-								size="small"
-								className={ styles.usageSectionAction }
-								loading={ login.isPending }
-								loadingAnnouncement={ __( 'Logging in' ) }
-								onClick={ () => login.mutate() }
-							>
-								{ __( 'Log in' ) }
-							</Button>
-						) : null }
+						{ isLoading ? (
+							<div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>
+						) : (
+							<UsageProgressBar fraction={ 0 } />
+						) }
 					</section>
 				) }
 			</section>

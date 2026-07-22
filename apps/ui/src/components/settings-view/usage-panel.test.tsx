@@ -106,7 +106,12 @@ describe( 'UsagePanel', () => {
 		vi.clearAllMocks();
 
 		confirmDeleteAllPreviewSites.mockResolvedValue( true );
-		useConnectorMock.mockReturnValue( { confirmDeleteAllPreviewSites } as never );
+		// `agenticRequiresAuth` lets the real useAgenticFeatures derive the
+		// signed-out/offline reason from the mocked auth + offline hooks.
+		useConnectorMock.mockReturnValue( {
+			confirmDeleteAllPreviewSites,
+			agenticRequiresAuth: true,
+		} as never );
 		useOfflineMock.mockReturnValue( false );
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: undefined,
@@ -247,6 +252,7 @@ describe( 'UsagePanel', () => {
 			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
 		).toBeVisible();
 		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeVisible();
+		expect( screen.queryByLabelText( 'Sign in to Studio' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'reports quota as unavailable when offline with nothing cached', () => {
@@ -273,17 +279,21 @@ describe( 'UsagePanel', () => {
 		).toBeInTheDocument();
 	} );
 
-	it( 'asks the user to log in when signed out', () => {
+	it( 'shows the sign-in banner and no credits copy when signed out', () => {
 		useAuthUserMock.mockReturnValue( { data: null, isLoading: false } as never );
 
 		render( <UsagePanel /> );
 
-		expect(
-			screen.getByText( 'Log in to view preview site usage for your account.' )
-		).toBeInTheDocument();
+		expect( screen.getByLabelText( 'Sign in to Studio' ) ).toBeInTheDocument();
 		expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
+		// Studio Code needs an account, so the Alpha pricing copy stays hidden.
+		expect(
+			screen.queryByText(
+				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
+			)
+		).not.toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
 
 		expect( loginMutate ).toHaveBeenCalled();
 	} );

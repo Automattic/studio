@@ -628,15 +628,20 @@
 }
 
 
-/* The shared banners space themselves for a page; inside this card the
-   section gap already handles it. */
-.usageNotice > section {
-	margin-bottom: 0;
+/* Signed out or offline: the figures can't be trusted, so the rows take the
+   design system's disabled colors rather than just reading as blank. */
+.usageDisabled .usageSectionHeader h2,
+.usageDisabled .previewUsageText,
+.usageDisabled .usageSection p {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
 }
 
-/* Dim the figures — not the notice explaining them — while they can't be trusted. */
-.usageDimmed .usageSection {
-	opacity: 0.5;
+.usageDisabled .progressTrack {
+	background: var(--wpds-color-bg-interactive-neutral-weak-disabled);
+}
+
+.usageDisabled .progressValue {
+	background: var(--wpds-color-fg-interactive-neutral-disabled);
 }
 
 .usageSection {

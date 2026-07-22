@@ -122,6 +122,10 @@ export interface ConnectorCapabilities {
 	// render local screenshot artifacts inline). Only the desktop IPC connector
 	// supports it; the browser connectors reject local file reads.
 	readLocalMedia: boolean;
+	// The host can read/write the user's global Studio Code instructions file
+	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
+	// hides the Studio Code settings tab.
+	agentInstructions: boolean;
 	// The host can switch this window back to the classic Studio UI
 	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
 	// in a browser there is nothing to switch to.
@@ -319,6 +323,11 @@ export interface Connector {
 	// Resolves with the chosen path, or `null` when the user cancels (or the
 	// host has no native picker — see capabilities.nativeFolderPicker).
 	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
+
+	// The user's global Studio Code instructions, a markdown file injected into
+	// every agent session. Gated by `capabilities.agentInstructions`.
+	getAgentInstructions(): Promise< string >;
+	saveAgentInstructions( content: string ): Promise< void >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

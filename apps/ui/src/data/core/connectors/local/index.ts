@@ -222,6 +222,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			openInOS: true,
 			annotatePreview: false,
 			readLocalMedia: false,
+			agentInstructions: true,
 			switchToClassicUi: false,
 		},
 
@@ -635,6 +636,17 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// detection, server-side) so the preferences picker offers only what's there.
 		async getInstalledApps(): Promise< InstalledApps > {
 			return api< InstalledApps >( '/installed-apps' );
+		},
+
+		async getAgentInstructions(): Promise< string > {
+			const { content } = await api< { content: string } >( '/agent-instructions' );
+			return content;
+		},
+		async saveAgentInstructions( content: string ): Promise< void > {
+			await api< void >( '/agent-instructions', {
+				method: 'POST',
+				body: JSON.stringify( { content } ),
+			} );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on

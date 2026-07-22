@@ -137,7 +137,10 @@ describe( 'SettingsView', () => {
 			configurable: true,
 		} );
 
-		useConnectorMock.mockReturnValue( { selectDefaultSiteDirectory } as never );
+		useConnectorMock.mockReturnValue( {
+			selectDefaultSiteDirectory,
+			capabilities: { agentInstructions: false },
+		} as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },
 		} as never );

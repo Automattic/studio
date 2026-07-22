@@ -26,7 +26,6 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { SiteRestResponse } from '@studio/common/types/wordpress-rest';
 
 // The in-app dark/light/system choice, persisted in the browser (there's no
 // Electron `nativeTheme` to mirror it) so it sticks across reloads.
@@ -637,15 +636,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// detection, server-side) so the preferences picker offers only what's there.
 		async getInstalledApps(): Promise< InstalledApps > {
 			return api< InstalledApps >( '/installed-apps' );
-		},
-
-		// Proxy WordPress REST calls through the server to the running site (it
-		// holds the auto-login cookie + nonce); the shared proxy backs both hosts.
-		async fetchSiteRest( siteId, request ): Promise< SiteRestResponse > {
-			return api< SiteRestResponse >( `/sites/${ encodeURIComponent( siteId ) }/rest`, {
-				method: 'POST',
-				body: JSON.stringify( request ),
-			} );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on

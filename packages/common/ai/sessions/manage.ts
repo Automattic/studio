@@ -1,13 +1,24 @@
 import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
 import {
+	deleteAiSessionPlacement,
 	hydrateAiSessionSummaryWithPlacement,
 	readAiSessionPlacement,
 	readAiSessionPlacements,
 	setAiSessionSitePlacement,
 	type AiSessionSitePlacement,
 } from '@studio/common/ai/sessions/placement';
-import { createAiSession, listAiSessions, loadAiSession } from '@studio/common/ai/sessions/store';
-import { readSharedSession, readSharedSessions } from '@studio/common/lib/shared-config';
+import {
+	createAiSession,
+	deleteAiSession,
+	listAiSessions,
+	loadAiSession,
+} from '@studio/common/ai/sessions/store';
+import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import {
+	deleteSharedSession,
+	readSharedSession,
+	readSharedSessions,
+} from '@studio/common/lib/shared-config';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 
 /**
@@ -60,6 +71,33 @@ export async function loadHydratedAiSession(
 		...session,
 		summary: hydrateAiSessionSummary( session.summary, metadata, placement ),
 	};
+}
+
+// Match by id OR path: placements may hold either a stale path (site moved) or
+// a stale id, and sidebar grouping is transitioning from path- to id-keyed —
+// matching both ensures no session is left orphaned by a site deletion.
+export async function deleteAiSessionsForSite(
+	rootDirectory: string,
+	site: Pick< SessionSite, 'id' | 'path' >
+): Promise< string[] > {
+	const placements = await readAiSessionPlacements();
+	const sessionIds = Object.entries( placements )
+		.filter(
+			( [ , placement ] ) =>
+				placement.siteId === site.id || arePathsEqual( placement.sitePath, site.path )
+		)
+		.map( ( [ sessionId ] ) => sessionId );
+
+	for ( const sessionId of sessionIds ) {
+		try {
+			await deleteAiSession( rootDirectory, sessionId );
+		} catch {
+			// A placement can outlive its session file; still drop the metadata.
+		}
+		await deleteSharedSession( sessionId );
+		await deleteAiSessionPlacement( sessionId );
+	}
+	return sessionIds;
 }
 
 function newestFirst( a: AiSessionSummary, b: AiSessionSummary ): number {

@@ -220,6 +220,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
 			return { siteCount: 0, siteLimit: 10, siteCreationBlocked: false };
 		},
+		async getStudioAssistantQuota() {
+			return null;
+		},
 		async deleteAllSnapshots() {
 			// No-op: hosted mode does not create WordPress.com preview sites.
 		},

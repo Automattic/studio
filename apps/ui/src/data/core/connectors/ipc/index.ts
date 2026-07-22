@@ -1,4 +1,8 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import {
+	STUDIO_ASSISTANT_QUOTA_URL,
+	studioAssistantQuotaSchema,
+} from '@studio/common/lib/studio-assistant-quota';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
@@ -20,6 +24,7 @@ import type {
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
+	StudioAssistantQuota,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
@@ -75,6 +80,22 @@ export function createIpcConnector(): Connector {
 	// The IPC connector only runs in Electron, so `navigator` reflects the
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
+
+	// Fetches an authenticated WordPress.com endpoint with the stored OAuth
+	// token. Resolves `null` when signed out so callers can degrade gracefully.
+	async function fetchWpcomJson( url: string, errorLabel: string ): Promise< unknown > {
+		const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+		if ( ! token ) {
+			return null;
+		}
+		const response = await fetch( url, {
+			headers: { Authorization: `Bearer ${ token.accessToken }` },
+		} );
+		if ( ! response.ok ) {
+			throw new Error( `Failed to fetch ${ errorLabel }: ${ response.status }` );
+		}
+		return response.json();
+	}
 
 	// Preview CLI commands are path-based, not id-based. Look up the matching
 	// site once per call so UI code can keep working with the stable site id.
@@ -434,18 +455,16 @@ export function createIpcConnector(): Connector {
 		},
 
 		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
-			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
-			if ( ! token ) {
-				return null;
-			}
-			const response = await fetch(
+			const data = await fetchWpcomJson(
 				'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage',
-				{ headers: { Authorization: `Bearer ${ token.accessToken }` } }
+				'snapshot usage'
 			);
-			if ( ! response.ok ) {
-				throw new Error( `Failed to fetch snapshot usage: ${ response.status }` );
-			}
-			return parseSnapshotUsage( await response.json() );
+			return data === null ? null : parseSnapshotUsage( data );
+		},
+
+		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {
+			const data = await fetchWpcomJson( STUDIO_ASSISTANT_QUOTA_URL, 'Studio assistant quota' );
+			return data === null ? null : studioAssistantQuotaSchema.parse( data );
 		},
 
 		async deleteAllSnapshots(): Promise< void > {

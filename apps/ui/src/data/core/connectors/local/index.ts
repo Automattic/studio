@@ -468,6 +468,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// counting snapshots.
 			return null;
 		},
+		async getStudioAssistantQuota() {
+			// No quota endpoint on the local server; callers fall back to
+			// static copy.
+			return null;
+		},
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.
 		},

@@ -2,12 +2,14 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import {
 	useDeleteAllSnapshots,
 	useSnapshotUsage,
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
+import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useOffline } from '@/hooks/use-offline';
 import { UsagePanel } from './usage-panel';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
@@ -77,6 +79,14 @@ vi.mock( '@/hooks/use-offline', () => ( {
 	useOffline: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-assistant-quota', () => ( {
+	useStudioAssistantQuota: vi.fn(),
+} ) );
+
+vi.mock( '@/data/queries/use-user-locale', () => ( {
+	useUserLocale: vi.fn(),
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 const useAuthUserMock = vi.mocked( useAuthUser );
 const useLoginMock = vi.mocked( useLogin );
@@ -84,6 +94,8 @@ const useDeleteAllSnapshotsMock = vi.mocked( useDeleteAllSnapshots );
 const useSnapshotUsageMock = vi.mocked( useSnapshotUsage );
 const useSnapshotsMock = vi.mocked( useSnapshots );
 const useOfflineMock = vi.mocked( useOffline );
+const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota );
+const useUserLocaleMock = vi.mocked( useUserLocale );
 
 describe( 'UsagePanel', () => {
 	const loginMutate = vi.fn();
@@ -96,6 +108,11 @@ describe( 'UsagePanel', () => {
 		confirmDeleteAllPreviewSites.mockResolvedValue( true );
 		useConnectorMock.mockReturnValue( { confirmDeleteAllPreviewSites } as never );
 		useOfflineMock.mockReturnValue( false );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: undefined,
+			isLoading: false,
+		} as never );
+		useUserLocaleMock.mockReturnValue( 'en' );
 		useAuthUserMock.mockReturnValue( {
 			data: { id: 1, displayName: 'Ada Lovelace', email: 'ada@example.com' },
 			isLoading: false,
@@ -126,6 +143,58 @@ describe( 'UsagePanel', () => {
 		expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
 		expect( useSnapshotUsageMock ).toHaveBeenCalledWith( 1 );
 		expect( useDeleteAllSnapshotsMock ).toHaveBeenCalledWith( 1 );
+	} );
+
+	it( 'renders AI usage when a quota with a cost cap is available', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
+		).toBeInTheDocument();
+		expect(
+			screen.queryByText(
+				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
+			)
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'shows an unavailable message when the quota fetch fails', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: undefined,
+			isLoading: false,
+			isError: true,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( 'Studio Code limits are temporarily unavailable.' )
+		).toBeInTheDocument();
+		expect(
+			screen.queryByText(
+				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
+			)
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'falls back to the Alpha copy when the quota has no cost cap', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: { costUsage: 0, costCap: 0 },
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText(
+				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
+			)
+		).toBeInTheDocument();
 	} );
 
 	it( 'confirms through the connector before deleting all preview sites', async () => {

@@ -25,6 +25,12 @@ export function OfflineBanner() {
 		return null;
 	}
 
+	return <OfflineNotice />;
+}
+
+// The banner without the route-aware behaviour, for surfaces that must stay
+// put when connectivity returns (e.g. Settings).
+export function OfflineNotice() {
 	return (
 		<section className={ styles.root } role="status">
 			<h2 className={ styles.heading }>{ __( "You're offline" ) }</h2>

@@ -1,5 +1,6 @@
 import { createApi, TypedUseQuery, TypedUseMutation } from '@reduxjs/toolkit/query/react';
 import * as Sentry from '@sentry/electron/renderer';
+import { studioAssistantQuotaSchema } from '@studio/common/lib/studio-assistant-quota';
 import { blueprintSchema, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -33,18 +34,6 @@ const snapshotStatusSchema = z
 		atomicSiteId: data.atomic_site_id,
 		status: data.status,
 		isDeleted: data.is_deleted === '1',
-	} ) );
-
-const studioAssistantQuotaSchema = z
-	.object( {
-		cost_usage: z.number(),
-		cost_cap: z.number(),
-		cost_reset_date: z.string(),
-	} )
-	.transform( ( data ) => ( {
-		costUsage: data.cost_usage,
-		costCap: data.cost_cap,
-		costResetDate: data.cost_reset_date,
 	} ) );
 
 export type { Blueprint };

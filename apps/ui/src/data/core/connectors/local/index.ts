@@ -8,6 +8,7 @@ import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
+	AppGlobals,
 	AuthUser,
 	ColorScheme,
 	Connector,
@@ -20,6 +21,7 @@ import type {
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
+	SnapshotUsage,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
@@ -222,6 +224,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			openInOS: true,
 			annotatePreview: false,
 			readLocalMedia: false,
+			agentInstructions: true,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -462,6 +465,19 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSnapshots(): Promise< Snapshot[] > {
 			return api< Snapshot[] >( '/snapshots' );
 		},
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			// No usage endpoint on the local server yet; callers fall back to
+			// counting snapshots.
+			return null;
+		},
+		async getStudioAssistantQuota() {
+			// No quota endpoint on the local server; callers fall back to
+			// static copy.
+			return null;
+		},
+		async deleteAllSnapshots() {
+			// No-op: the local server has no delete-all route yet.
+		},
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
 			// The server returns an operationId; progress + the final URL arrive on
@@ -602,6 +618,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				quitSitesBehavior,
 				locale: undefined,
 				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			};
 		},
 		async setUserPreferences( partial ) {
@@ -634,6 +652,21 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// detection, server-side) so the preferences picker offers only what's there.
 		async getInstalledApps(): Promise< InstalledApps > {
 			return api< InstalledApps >( '/installed-apps' );
+		},
+
+		async getAppGlobals(): Promise< AppGlobals > {
+			return { platform: 'browser', isWindowsStore: false };
+		},
+
+		async getAgentInstructions(): Promise< string > {
+			const { content } = await api< { content: string } >( '/agent-instructions' );
+			return content;
+		},
+		async saveAgentInstructions( content: string ): Promise< void > {
+			await api< void >( '/agent-instructions', {
+				method: 'POST',
+				body: JSON.stringify( { content } ),
+			} );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on
@@ -698,6 +731,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
+		},
+		async confirmDeleteAllPreviewSites() {
+			return window.confirm(
+				__(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				)
+			);
 		},
 		onToggleSidebar() {
 			// No application menu in a browser tab.

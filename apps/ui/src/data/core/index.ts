@@ -18,6 +18,7 @@ export type {
 	SiteDetails,
 	SkillStatus,
 	Snapshot,
+	SnapshotUsage,
 	StudioAgentQuestionData,
 	StudioChatFileAttachment,
 	StudioChatImage,

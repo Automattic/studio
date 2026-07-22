@@ -20,6 +20,7 @@ import type {
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
+	SnapshotUsage,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
@@ -464,6 +465,19 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSnapshots(): Promise< Snapshot[] > {
 			return api< Snapshot[] >( '/snapshots' );
 		},
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			// No usage endpoint on the local server yet; callers fall back to
+			// counting snapshots.
+			return null;
+		},
+		async getStudioAssistantQuota() {
+			// No quota endpoint on the local server; callers fall back to
+			// static copy.
+			return null;
+		},
+		async deleteAllSnapshots() {
+			// No-op: the local server has no delete-all route yet.
+		},
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
 			// The server returns an operationId; progress + the final URL arrive on
@@ -711,6 +725,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
+		},
+		async confirmDeleteAllPreviewSites() {
+			return window.confirm(
+				__(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				)
+			);
 		},
 		onToggleSidebar() {
 			// No application menu in a browser tab.

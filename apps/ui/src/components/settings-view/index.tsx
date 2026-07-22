@@ -20,6 +20,7 @@ import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SkillsPanel } from './skills-panel';
 import styles from './style.module.css';
+import { UsagePanel } from './usage-panel';
 import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
@@ -32,7 +33,7 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-const SETTINGS_TABS = [ 'preferences', 'ai', 'keyboard', 'skills', 'mcp' ] as const;
+const SETTINGS_TABS = [ 'preferences', 'ai', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
 
 type TabId = ( typeof SETTINGS_TABS )[ number ];
 
@@ -115,6 +116,7 @@ function SettingsHeader() {
 					{ hasAiSettings( connector.capabilities ) && (
 						<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
 					) }
+					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
@@ -405,6 +407,9 @@ export function SettingsView( {
 								<AiPanel />
 							</Tabs.Panel>
 						) }
+						<Tabs.Panel tabId="usage">
+							<UsagePanel />
+						</Tabs.Panel>
 						<Tabs.Panel tabId="keyboard">
 							<KeyboardPanel />
 						</Tabs.Panel>

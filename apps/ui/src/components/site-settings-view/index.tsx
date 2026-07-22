@@ -125,9 +125,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	// Re-seed the form when the underlying site changes — e.g. after a save,
 	// or after another window edits it — or when the installed WordPress
 	// version loads. React Query returns a new `site` reference on every
-	// refetch, so object identity is enough. While offline, "latest" is the
-	// only version we can apply without a download, so it's forced — same as
-	// the legacy version selector.
+	// refetch, so object identity is enough.
 	//
 	// Skipped while a save is in flight: editing a site restarts it, and those
 	// restart events refresh `site` before the edit has landed on disk, which
@@ -137,9 +135,8 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		if ( isSaving ) {
 			return;
 		}
-		const seeded = initialFormData( site, installedWpVersion );
-		setData( isOffline ? { ...seeded, wpVersion: '' } : seeded );
-	}, [ site, installedWpVersion, isOffline, isSaving ] );
+		setData( initialFormData( site, installedWpVersion ) );
+	}, [ site, installedWpVersion, isSaving ] );
 
 	// Kept out of the effect above so a failed save's error survives the
 	// save finishing; it clears once the site itself changes.

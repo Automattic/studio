@@ -312,6 +312,32 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.7.2' );
 	} );
 
+	it( 'keeps a pinned site pinned when saving other settings while offline', () => {
+		const updateSiteMutate = vi.fn();
+		useOfflineMock.mockReturnValue( true );
+		useUpdateSiteMock.mockReturnValue( { isPending: false, mutate: updateSiteMutate } );
+		useWpVersionMock.mockReturnValue( { data: '6.5.2' } );
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, isWpAutoUpdating: false } ) ],
+			isLoading: false,
+		} );
+
+		renderView( 'general' );
+
+		fireEvent.change( screen.getByDisplayValue( 'Demo Site' ), {
+			target: { value: 'Renamed Site' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
+
+		expect( updateSiteMutate ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				site: expect.objectContaining( { name: 'Renamed Site', isWpAutoUpdating: false } ),
+				wpVersion: undefined,
+			} ),
+			expect.anything()
+		);
+	} );
+
 	it( 'keeps the version field a dropdown when the version list is unavailable', () => {
 		renderView( 'general' );
 
@@ -320,7 +346,9 @@ describe( 'SiteOverviewView', () => {
 		expect( select ).toHaveValue( '' );
 	} );
 
-	it( 'forces latest and disables the version dropdown while offline', async () => {
+	// Offline only blocks *changing* the version, so the field stays on the
+	// site's real version rather than misreporting it as auto-updating.
+	it( 'disables the version dropdown while offline without changing its value', async () => {
 		useOfflineMock.mockReturnValue( true );
 		useWpVersionMock.mockReturnValue( { data: '6.5.2' } );
 		useSitesMock.mockReturnValue( {
@@ -333,7 +361,7 @@ describe( 'SiteOverviewView', () => {
 		const select = screen.getByLabelText( 'WordPress version' );
 		expect( select.tagName ).toBe( 'SELECT' );
 		expect( select ).toBeDisabled();
-		expect( select ).toHaveValue( '' );
+		expect( select ).toHaveValue( '6.5.2' );
 
 		const trigger = select.closest( 'div[style*="pointer-events"]' )?.parentElement as HTMLElement;
 		fireEvent.mouseEnter( trigger );

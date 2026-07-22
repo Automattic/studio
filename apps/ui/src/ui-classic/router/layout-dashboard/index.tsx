@@ -14,13 +14,19 @@ import {
 	useSessionPreviewAnnotationsHandler,
 	useSessionPreviewUI,
 } from '@/hooks/use-session-ui';
+import { writeLastVisited } from '@/lib/last-visited';
 import { rootRoute } from '../layout-root';
 
-// Only session detail routes host the preview; on every other route
-// (settings, site settings…) the last previewed site stays mounted but
-// hidden.
+// Session detail routes and the site overview host the preview; on every
+// other route (settings, site settings…) the last previewed site stays
+// mounted but hidden.
 function getRouteSessionId( pathname: string ): string | undefined {
 	const match = /^\/sessions\/([^/]+)\/?$/.exec( pathname );
+	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
+}
+
+function getRouteOverviewSiteId( pathname: string ): string | undefined {
+	const match = /^\/sites\/([^/]+)\/overview\/?$/.exec( pathname );
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
 }
 
@@ -45,10 +51,11 @@ function DashboardLayoutContent() {
 	const routePreviewContext = useRouterState( {
 		select: ( state ) => ( {
 			sessionId: getRouteSessionId( state.location.pathname ),
+			overviewSiteId: getRouteOverviewSiteId( state.location.pathname ),
 			newSessionSiteId: getNewSessionSiteId( state.location.pathname ),
 		} ),
 	} );
-	const { sessionId, newSessionSiteId } = routePreviewContext;
+	const { sessionId, overviewSiteId, newSessionSiteId } = routePreviewContext;
 	const { data: sites } = useSites();
 	const { data: sessionData } = useSession( sessionId );
 	const preview = useSessionPreviewUI();
@@ -58,15 +65,21 @@ function DashboardLayoutContent() {
 		sessionData?.summary,
 		sessionSite?.id
 	);
+	const overviewSite = overviewSiteId
+		? sites?.find( ( site ) => site.id === overviewSiteId )
+		: undefined;
 	const newSessionSite = newSessionSiteId
 		? sites?.find( ( site ) => site.id === newSessionSiteId )
 		: undefined;
 	const routeSite =
-		newSessionSite ?? ( effectiveEnvironment === 'local' ? sessionSite : undefined );
+		overviewSite ??
+		newSessionSite ??
+		( effectiveEnvironment === 'local' ? sessionSite : undefined );
 	// While session or site data is still loading, preview-capable routes stay
 	// preview-capable so navigation doesn't close and reopen the panel around
 	// the fetch.
 	const supportsPreview =
+		overviewSiteId !== undefined ||
 		newSessionSiteId !== undefined ||
 		( sessionId !== undefined && ( sessionData === undefined || !! routeSite ) );
 	// Remember the last previewed site by id (looked up fresh each render so
@@ -78,6 +91,15 @@ function DashboardLayoutContent() {
 			setLastPreviewSiteId( routeSite.id );
 		}
 	}, [ routeSite ] );
+	// Remember the user's site so the `/` index route can return here
+	// instead of defaulting to the first site.
+	const sessionSiteId = sessionSite?.id;
+	useEffect( () => {
+		const siteId = sessionSiteId ?? newSessionSiteId;
+		if ( siteId ) {
+			writeLastVisited( { siteId } );
+		}
+	}, [ sessionSiteId, newSessionSiteId ] );
 	const lastPreviewSite = lastPreviewSiteId
 		? sites?.find( ( site ) => site.id === lastPreviewSiteId )
 		: undefined;

@@ -3,6 +3,7 @@ export { queryClient, persistPromise } from './query-client';
 export type {
 	AiModelId,
 	AiSessionSummary,
+	AppGlobals,
 	AuthUser,
 	ColorScheme,
 	Connector,
@@ -16,7 +17,9 @@ export type {
 	SelectedSiteFolder,
 	SessionEntry,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
+	SnapshotUsage,
 	StudioAgentQuestionData,
 	StudioChatFileAttachment,
 	StudioChatImage,

@@ -1,4 +1,5 @@
-import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
+import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
@@ -45,7 +46,7 @@ interface ImportBackupProps {
 }
 
 const isValidBackupFile = ( file: File ): boolean => {
-	return ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) => file.name.toLowerCase().endsWith( ext ) );
+	return isSupportedBackupFilename( file.name, ACCEPTED_ADD_SITE_FILE_TYPES );
 };
 
 export default function ImportBackup( {
@@ -65,6 +66,20 @@ export default function ImportBackup( {
 			onFileSelect( file );
 		},
 		[ onFileSelect ]
+	);
+	const handleFile = useCallback(
+		( file: File ) => {
+			if ( isValidBackupFile( file ) ) {
+				handleFileSelection( file );
+				return;
+			}
+			setFileError(
+				__(
+					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .xml file.'
+				)
+			);
+		},
+		[ handleFileSelection, __ ]
 	);
 
 	const handleDragOver = useCallback( ( e: React.DragEvent ) => {
@@ -91,28 +106,19 @@ export default function ImportBackup( {
 				return;
 			}
 
-			const file = files[ 0 ];
-			if ( isValidBackupFile( file ) ) {
-				handleFileSelection( file );
-			} else {
-				setFileError(
-					__(
-						'This file type is not supported. Please use a .zip, .gz, .tar, .tar.gz, or .wpress file.'
-					)
-				);
-			}
+			handleFile( files[ 0 ] );
 		},
-		[ handleFileSelection, __ ]
+		[ handleFile ]
 	);
 
 	const handleFileInputChange = useCallback(
 		( e: React.ChangeEvent< HTMLInputElement > ) => {
 			const file = e.target.files?.[ 0 ];
 			if ( file ) {
-				handleFileSelection( file );
+				handleFile( file );
 			}
 		},
-		[ handleFileSelection ]
+		[ handleFile ]
 	);
 
 	const handleClick = useCallback( () => {
@@ -209,7 +215,7 @@ export default function ImportBackup( {
 			<input
 				ref={ fileInputRef }
 				type="file"
-				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
+				accept={ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }
 				onChange={ handleFileInputChange }
 				className="hidden"
 				aria-label={ __( 'Select backup file' ) }

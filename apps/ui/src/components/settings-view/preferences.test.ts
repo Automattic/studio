@@ -8,6 +8,9 @@ const SAVED_PREFERENCES: UserPreferences = {
 	colorScheme: 'system',
 	quitSitesBehavior: 'stop',
 	locale: 'en',
+	defaultSiteDirectory: '/Users/example/Studio',
+	studioCliInstalled: false,
+	studioCliExternallyManaged: false,
 };
 
 describe( 'settings preference helpers', () => {
@@ -26,6 +29,7 @@ describe( 'settings preference helpers', () => {
 			colorScheme: 'system',
 			quitSitesBehavior: UNSET,
 			locale: 'en',
+			defaultSiteDirectory: '/Users/example/Studio',
 		} );
 	} );
 
@@ -38,6 +42,9 @@ describe( 'settings preference helpers', () => {
 		expect( toPreferencesPatch( { locale: 'es' } ) ).toEqual( { locale: 'es' } );
 		expect( toPreferencesPatch( { quitSitesBehavior: 'leave-running' } ) ).toEqual( {
 			quitSitesBehavior: 'leave-running',
+		} );
+		expect( toPreferencesPatch( { defaultSiteDirectory: '/Users/example/Sites' } ) ).toEqual( {
+			defaultSiteDirectory: '/Users/example/Sites',
 		} );
 	} );
 
@@ -60,6 +67,7 @@ describe( 'settings preference helpers', () => {
 				colorScheme: 'dark',
 				quitSitesBehavior: 'stop-and-auto-start',
 				locale: 'es',
+				defaultSiteDirectory: '/Users/example/Sites',
 			} )
 		).toEqual( {
 			editor: null,
@@ -67,6 +75,7 @@ describe( 'settings preference helpers', () => {
 			colorScheme: 'dark',
 			quitSitesBehavior: 'stop-and-auto-start',
 			locale: 'es',
+			defaultSiteDirectory: '/Users/example/Sites',
 		} );
 	} );
 } );

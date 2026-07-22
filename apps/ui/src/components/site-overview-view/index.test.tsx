@@ -280,6 +280,38 @@ describe( 'SiteOverviewView', () => {
 		);
 	} );
 
+	// Editing a site restarts it, and the restart events refresh the site while
+	// the CLI is still applying the edit — the version on disk is still the old
+	// one at that point, so the form must not re-seed from it.
+	it( 'keeps the picked version while the save restarts the site', () => {
+		useUpdateSiteMock.mockReturnValue( { isPending: true, mutate: vi.fn() } );
+		useWpVersionMock.mockReturnValue( { data: '6.8' } );
+		useWordPressVersionsMock.mockReturnValue( { data: WP_VERSIONS } );
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: true, isWpAutoUpdating: false } ) ],
+			isLoading: false,
+		} );
+
+		const { rerender } = renderView( 'general' );
+
+		fireEvent.change( screen.getByLabelText( 'WordPress version' ), {
+			target: { value: '6.7.2' },
+		} );
+
+		// A restart event refreshes the site list mid-save.
+		useSitesMock.mockReturnValue( {
+			data: [ createSite( { running: false, isWpAutoUpdating: false } ) ],
+			isLoading: false,
+		} );
+		rerender(
+			<Tooltip.Provider>
+				<SiteOverviewView siteId="site-1" activeTab="general" onTabChange={ onTabChange } />
+			</Tooltip.Provider>
+		);
+
+		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.7.2' );
+	} );
+
 	it( 'keeps the version field a dropdown when the version list is unavailable', () => {
 		renderView( 'general' );
 

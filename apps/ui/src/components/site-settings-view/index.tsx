@@ -128,11 +128,24 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 	// refetch, so object identity is enough. While offline, "latest" is the
 	// only version we can apply without a download, so it's forced — same as
 	// the legacy version selector.
+	//
+	// Skipped while a save is in flight: editing a site restarts it, and those
+	// restart events refresh `site` before the edit has landed on disk, which
+	// would momentarily seed the form with pre-save values.
+	const isSaving = updateSite.isPending;
 	useEffect( () => {
+		if ( isSaving ) {
+			return;
+		}
 		const seeded = initialFormData( site, installedWpVersion );
 		setData( isOffline ? { ...seeded, wpVersion: '' } : seeded );
+	}, [ site, installedWpVersion, isOffline, isSaving ] );
+
+	// Kept out of the effect above so a failed save's error survives the
+	// save finishing; it clears once the site itself changes.
+	useEffect( () => {
 		setSubmitError( null );
-	}, [ site, installedWpVersion, isOffline ] );
+	}, [ site ] );
 
 	const fields = useMemo< Field< FormData >[] >(
 		() => [

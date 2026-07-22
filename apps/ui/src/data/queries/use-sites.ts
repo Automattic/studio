@@ -177,12 +177,13 @@ export function useUpdateSite() {
 			// site-event lands, giving us a single refetch against fresh
 			// in-memory details.
 		},
-		onSuccess: ( _data, { wpVersion } ) => {
-			// Unlike the sites list above, the installed version is read
-			// straight from disk, which the CLI edit has already updated by
-			// the time the call resolves — safe to refetch immediately.
+		onSuccess: ( _data, { site, wpVersion } ) => {
+			// Seed the applied version rather than refetching it: the CLI keeps
+			// restarting the site after this resolves, and a disk read landing
+			// mid-restart still reports the pre-edit version, which would flash
+			// the old value back into the settings form.
 			if ( wpVersion ) {
-				void queryClient.invalidateQueries( { queryKey: WP_VERSION_QUERY_KEY } );
+				queryClient.setQueryData( [ ...WP_VERSION_QUERY_KEY, site.id ], wpVersion );
 			}
 			toast.success( __( 'Settings saved' ) );
 		},

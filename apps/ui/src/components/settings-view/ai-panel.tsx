@@ -49,8 +49,8 @@ export function AiPanel() {
 	const connector = useConnector();
 	return (
 		<div className={ styles.preferencesPanel }>
-			<AgenticFeaturesSection />
 			{ connector.capabilities.agentInstructions && <StudioCodePanel /> }
+			<AgenticFeaturesSection />
 		</div>
 	);
 }

@@ -39,16 +39,16 @@ data-liberation-agent is built to be driven by an AI agent. The front door is th
 Install from the marketplace:
 
 ```bash
-claude plugin marketplace add Automattic/data-liberation-agent
-claude plugin install data-liberation@data-liberation
+claude plugin marketplace add Automattic/studio
+claude plugin install data-liberation@studio
 ```
 
 Or from a local checkout (for development on the plugin itself):
 
 ```bash
-cd data-liberation-agent
+cd studio
 claude plugin marketplace add .
-claude plugin install data-liberation@data-liberation
+claude plugin install data-liberation@studio
 ```
 
 Then, in Claude Code:
@@ -66,7 +66,7 @@ Note: the engine CLI / `siteToTheme` consumes static source directories; liberat
 ### Codex
 
 ```bash
-cd data-liberation-agent
+cd studio/packages/data-liberation-agent
 codex
 ```
 
@@ -81,7 +81,7 @@ $liberate https://your-site.com
 ### Gemini CLI
 
 ```bash
-cd data-liberation-agent
+cd studio/packages/data-liberation-agent
 gemini extension link .
 ```
 

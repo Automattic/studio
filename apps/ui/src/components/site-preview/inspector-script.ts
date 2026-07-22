@@ -62,9 +62,28 @@ export const INSPECTOR_PAGE_SCRIPT =
 		return /mac|iphone|ipad|ipod/i.test( navigator.platform || navigator.userAgent || '' );
 	}
 
+	function isTextEntryTarget( el ) {
+		if ( ! el || el.nodeType !== 1 ) return false;
+		if ( el.isContentEditable ) return true;
+		const tag = el.tagName.toLowerCase();
+		return tag === 'input' || tag === 'textarea' || tag === 'select';
+	}
+
 	function getBrowserShortcutCommand( event ) {
-		if ( event.defaultPrevented || event.repeat || event.shiftKey || event.altKey ) return null;
-		const hasPrimaryModifier = isApplePlatform() ? event.metaKey : event.ctrlKey;
+		if ( event.defaultPrevented || event.repeat ) return null;
+		const apple = isApplePlatform();
+		if ( event.key === 'ArrowLeft' || event.key === 'ArrowRight' ) {
+			/* Layout-independent back/forward aliases: the bracket chords need
+			 * Option/AltGr on many European layouts. Skipped while editing text
+			 * to keep native caret movement. */
+			const hasNavModifier = apple
+				? event.metaKey && ! event.ctrlKey && ! event.altKey
+				: event.altKey && ! event.ctrlKey && ! event.metaKey;
+			if ( ! hasNavModifier || event.shiftKey || isTextEntryTarget( event.target ) ) return null;
+			return event.key === 'ArrowLeft' ? 'back' : 'forward';
+		}
+		if ( event.shiftKey || event.altKey ) return null;
+		const hasPrimaryModifier = apple ? event.metaKey : event.ctrlKey;
 		if ( ! hasPrimaryModifier ) return null;
 		const key = event.key.toLowerCase();
 		if ( key === 'r' ) return 'reload';

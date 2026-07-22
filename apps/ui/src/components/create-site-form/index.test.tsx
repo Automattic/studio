@@ -107,6 +107,7 @@ describe( 'CreateSiteForm', () => {
 				openInOS: false,
 				annotatePreview: false,
 				readLocalMedia: false,
+				agentInstructions: false,
 			},
 		} );
 		useSitesMock.mockReturnValue( { data: [] } );
@@ -377,6 +378,7 @@ describe( 'CreateSiteForm', () => {
 				openInOS: false,
 				annotatePreview: false,
 				readLocalMedia: false,
+				agentInstructions: false,
 			},
 		} );
 		usePathValidatorMock.mockReturnValue( {
@@ -442,5 +444,35 @@ describe( 'CreateSiteForm', () => {
 				'true'
 			)
 		);
+	} );
+
+	it( 'shows an actionable submission error with optional technical details', () => {
+		const onCancel = vi.fn();
+		render(
+			<CreateSiteForm
+				initialValues={ { name: 'Imported site', path: '/sites/imported-site' } }
+				existingDomainNames={ [] }
+				onSubmit={ vi.fn() }
+				onCancel={ onCancel }
+				submitLabel="Retry import"
+				cancelLabel="Choose another backup"
+				submitError={ {
+					title: 'Studio could not import this backup.',
+					message: 'The incomplete site was removed.',
+					details: 'CLI command failed',
+				} }
+			/>
+		);
+
+		const alert = screen.getByRole( 'alert' );
+		expect( alert ).toHaveTextContent( 'Studio could not import this backup.' );
+		expect( alert ).toHaveTextContent( 'The incomplete site was removed.' );
+		expect( screen.getByRole( 'button', { name: 'Retry import' } ) ).toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Choose another backup' } ) );
+		expect( onCancel ).toHaveBeenCalledOnce();
+
+		fireEvent.click( screen.getByText( 'View technical details' ) );
+		expect( screen.getByText( 'CLI command failed' ) ).toBeVisible();
 	} );
 } );

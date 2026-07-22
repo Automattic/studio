@@ -1,4 +1,8 @@
 import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
+import {
+	readGlobalInstructionsFile,
+	writeGlobalInstructions,
+} from '@studio/common/ai/global-instructions';
 import { updateSharedConfig } from '@studio/common/lib/shared-config';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
@@ -140,6 +144,17 @@ export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number 
 export async function getWapuuScore(): Promise< number | undefined > {
 	const userData = await loadUserData();
 	return userData.wapuuScore;
+}
+
+export async function getGlobalAgentInstructions(): Promise< string > {
+	return ( await readGlobalInstructionsFile() ) ?? '';
+}
+
+export async function saveGlobalAgentInstructions(
+	_event: IpcMainInvokeEvent,
+	content: string
+): Promise< void > {
+	await writeGlobalInstructions( content );
 }
 
 export function showUserSettings( event: IpcMainInvokeEvent, tabName?: UserSettingsTabName ) {

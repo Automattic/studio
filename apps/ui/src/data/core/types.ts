@@ -321,6 +321,11 @@ export interface Connector {
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
 
+	// Host environment facts used to gate native-only UI (e.g. the Studio CLI
+	// toggle is hidden in Windows Store builds). Browser connectors report
+	// platform 'browser'.
+	getAppGlobals(): Promise< AppGlobals >;
+
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
 	// set these reject — callers are expected to route the user to Settings.
@@ -407,6 +412,12 @@ export interface UserPreferences {
 	quitSitesBehavior?: QuitSitesBehavior;
 	locale: string | undefined;
 	defaultSiteDirectory: string;
+	studioCliInstalled: boolean;
+}
+
+export interface AppGlobals {
+	platform: string;
+	isWindowsStore: boolean;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is

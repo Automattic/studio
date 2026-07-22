@@ -78,6 +78,10 @@ vi.mock( './skills-panel', () => ( {
 	SkillsPanel: () => null,
 } ) );
 
+vi.mock( './studio-cli-section', () => ( {
+	StudioCliSection: () => null,
+} ) );
+
 vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: () => ( { data: null, isLoading: false } ),
 	useLogin: () => ( { mutate: vi.fn(), isPending: false } ),
@@ -151,6 +155,7 @@ describe( 'SettingsView', () => {
 				quitSitesBehavior: undefined,
 				locale: 'en',
 				defaultSiteDirectory: '/Users/example/Studio',
+				studioCliInstalled: false,
 			},
 			isLoading: false,
 		} as never );

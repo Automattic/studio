@@ -6,6 +6,7 @@ import type {
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
+	AppGlobals,
 	AuthUser,
 	ColorScheme,
 	Connector,
@@ -550,23 +551,40 @@ export function createIpcConnector(): Connector {
 		// per field; we fan out in parallel here so the UI can work with a
 		// single query/mutation pair.
 		async getUserPreferences(): Promise< UserPreferences > {
-			const [ editor, terminal, colorScheme, quitSitesBehavior, locale, defaultSiteDirectory ] =
-				( await Promise.all( [
-					ipcApi.getUserEditor(),
-					ipcApi.getUserTerminal(),
-					ipcApi.getColorScheme(),
-					ipcApi.getQuitSitesBehavior(),
-					ipcApi.getUserLocale(),
-					ipcApi.getDefaultSiteDirectory(),
-				] ) ) as [
-					SupportedEditor | null,
-					SupportedTerminal | null,
-					ColorScheme,
-					QuitSitesBehavior | undefined,
-					string | undefined,
-					string,
-				];
-			return { editor, terminal, colorScheme, quitSitesBehavior, locale, defaultSiteDirectory };
+			const [
+				editor,
+				terminal,
+				colorScheme,
+				quitSitesBehavior,
+				locale,
+				defaultSiteDirectory,
+				studioCliInstalled,
+			] = ( await Promise.all( [
+				ipcApi.getUserEditor(),
+				ipcApi.getUserTerminal(),
+				ipcApi.getColorScheme(),
+				ipcApi.getQuitSitesBehavior(),
+				ipcApi.getUserLocale(),
+				ipcApi.getDefaultSiteDirectory(),
+				ipcApi.isStudioCliInstalled(),
+			] ) ) as [
+				SupportedEditor | null,
+				SupportedTerminal | null,
+				ColorScheme,
+				QuitSitesBehavior | undefined,
+				string | undefined,
+				string,
+				boolean,
+			];
+			return {
+				editor,
+				terminal,
+				colorScheme,
+				quitSitesBehavior,
+				locale,
+				defaultSiteDirectory,
+				studioCliInstalled,
+			};
 		},
 
 		async setUserPreferences( partial ): Promise< void > {
@@ -589,6 +607,11 @@ export function createIpcConnector(): Connector {
 			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
 				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
 			}
+			if ( 'studioCliInstalled' in partial && typeof partial.studioCliInstalled === 'boolean' ) {
+				writes.push(
+					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
+				);
+			}
 			await Promise.all( writes );
 		},
 
@@ -605,6 +628,10 @@ export function createIpcConnector(): Connector {
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
+		},
+
+		async getAppGlobals(): Promise< AppGlobals > {
+			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
 		},
 
 		async openSiteFolder( siteId ): Promise< void > {

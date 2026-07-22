@@ -17,6 +17,7 @@ import { AccountSection } from './account-section';
 import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SkillsPanel } from './skills-panel';
+import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
 import type { PreferencesFormData } from './preferences';
 import type {
@@ -305,6 +306,7 @@ function PreferencesPanel( {
 				</PreferenceRow>
 			</section>
 			<AccountSection />
+			<StudioCliSection />
 			<StudioExperienceSection />
 		</div>
 	);

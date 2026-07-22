@@ -403,6 +403,51 @@
 	fill: currentColor;
 }
 
+.cliHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-xl);
+}
+
+.cliHeading {
+	margin-block-end: 0;
+}
+
+.cliHeader :global(.components-form-toggle .components-form-toggle__track) {
+	background-color: var(--wpds-color-bg-track-neutral-weak);
+	border-color: var(--wpds-color-stroke-interactive-neutral);
+}
+
+.cliHeader :global(.components-form-toggle .components-form-toggle__thumb) {
+	background-color: var(--wpds-color-bg-thumb-neutral-weak);
+}
+
+.cliHeader :global(.components-form-toggle.is-checked .components-form-toggle__track) {
+	background-color: var(--wpds-color-bg-interactive-brand-strong);
+	border-color: var(--wpds-color-stroke-interactive-brand);
+}
+
+.cliHeader :global(.components-form-toggle.is-checked .components-form-toggle__thumb) {
+	background-color: var(--wpds-color-fg-interactive-brand-strong);
+}
+
+.cliHeader
+	:global(.components-form-toggle .components-form-toggle__input:focus
+		+ .components-form-toggle__track) {
+	box-shadow:
+		0 0 0 var(--wpds-border-width-focus) var(--wpds-color-bg-surface-neutral),
+		0 0 0 calc(2 * var(--wpds-border-width-focus)) var(--wpds-color-stroke-focus-brand);
+}
+
+.cliDescription {
+	max-inline-size: 460px;
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
 .errorMessage {
 	margin-block-end: var(--wpds-dimension-padding-md);
 	padding: var(--wpds-dimension-padding-sm) var(--wpds-dimension-padding-md);

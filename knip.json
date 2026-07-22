@@ -23,6 +23,7 @@
 				"proxy-daemon.ts",
 				"reprint-child.ts",
 				"logger.ts",
+				"ai/eval-runner.ts",
 				"commands/**/*.ts",
 				"vite.config.*.ts"
 			],

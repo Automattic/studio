@@ -2,6 +2,7 @@ import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
@@ -26,7 +27,6 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { SiteRestResponse } from '@studio/common/types/wordpress-rest';
 
 // The in-app dark/light/system choice, persisted in the browser (there's no
 // Electron `nativeTheme` to mirror it) so it sticks across reloads.
@@ -373,6 +373,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// an editable path field (see capabilities.nativeFolderPicker).
 			return null;
 		},
+		async selectDefaultSiteDirectory(): Promise< string | null > {
+			// No native folder picker in a browser.
+			return null;
+		},
 		async comparePaths( path1, path2 ) {
 			const { equal } = await api< { equal: boolean } >( '/paths/compare', {
 				method: 'POST',
@@ -523,18 +527,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 		getPublishCheckoutUrl( site ): string {
-			// The same WordPress.com hosted-site checkout the desktop opens — a pure
-			// URL builder, so it ports verbatim. (The post-checkout auto-connect still
-			// relies on the deep-link listener, which a browser tab can't receive, so
-			// the user finishes by connecting the new site from the picker.)
-			const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-			url.searchParams.set( 'ref', 'studio' );
-			url.searchParams.set( 'section', 'publish-site' );
-			url.searchParams.set( 'showDomainStep', 'true' );
-			url.searchParams.set( 'studioSiteId', site.id );
-			url.searchParams.set( 'new', site.customDomain ?? site.name );
-			url.searchParams.set( 'autoOpenPush', 'true' );
-			return url.toString();
+			// The post-checkout auto-connect relies on the deep-link listener, which
+			// a browser tab can't receive, so the user finishes by connecting the
+			// new site from the picker.
+			return buildPublishCheckoutUrl( site );
 		},
 
 		// AI sessions — the headline. HTTP routes on the local server, backed by
@@ -614,6 +610,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				colorScheme,
 				quitSitesBehavior,
 				locale: undefined,
+				defaultSiteDirectory: '',
 			};
 		},
 		async setUserPreferences( partial ) {
@@ -646,15 +643,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// detection, server-side) so the preferences picker offers only what's there.
 		async getInstalledApps(): Promise< InstalledApps > {
 			return api< InstalledApps >( '/installed-apps' );
-		},
-
-		// Proxy WordPress REST calls through the server to the running site (it
-		// holds the auto-login cookie + nonce); the shared proxy backs both hosts.
-		async fetchSiteRest( siteId, request ): Promise< SiteRestResponse > {
-			return api< SiteRestResponse >( `/sites/${ encodeURIComponent( siteId ) }/rest`, {
-				method: 'POST',
-				body: JSON.stringify( request ),
-			} );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on
@@ -691,6 +679,15 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
 			window.open( target, '_blank', 'noopener,noreferrer' );
+		},
+		async getWordPressSkillsStatusAllSites() {
+			return [];
+		},
+		async installWordPressSkillToAllSites() {
+			// No-op: the local server does not manage WordPress skills yet.
+		},
+		async removeWordPressSkillFromAllSites() {
+			// No-op: the local server does not manage WordPress skills yet.
 		},
 
 		// Window chrome — no traffic lights in a browser tab.

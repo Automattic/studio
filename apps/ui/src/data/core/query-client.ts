@@ -5,6 +5,10 @@ import { persistQueryClient } from '@tanstack/react-query-persist-client';
 export const queryClient = new QueryClient( {
 	defaultOptions: {
 		queries: {
+			// Data access goes through the connector (local IPC on desktop), so
+			// don't let React Query pause work while `navigator.onLine` is false —
+			// paused fetches hang route beforeLoads and freeze all navigation.
+			networkMode: 'always',
 			staleTime: 0,
 			refetchOnWindowFocus: true,
 			refetchOnMount: true,
@@ -16,6 +20,9 @@ export const queryClient = new QueryClient( {
 				}
 				return failureCount < 3;
 			},
+		},
+		mutations: {
+			networkMode: 'always',
 		},
 	},
 } );
@@ -29,7 +36,7 @@ const maxAge = 1000 * 60 * 60 * 24; // 24 hours
 const [ , persistPromise ] = persistQueryClient( {
 	queryClient,
 	persister,
-	buster: '3', // Bump when query data shape changes.
+	buster: '4', // Bump when query data shape changes.
 	maxAge,
 	dehydrateOptions: {
 		shouldRedactErrors: () => false,

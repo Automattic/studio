@@ -151,6 +151,36 @@ export interface SessionPreviewUI {
 	updatePath: ( path: string ) => void;
 }
 
+// Like `useSessionPreviewUI`, but usable outside the dashboard layout —
+// returns null when no SessionUIProvider is mounted, so callers can fall
+// back to non-preview behavior (e.g. opening the external browser).
+export function useOptionalSessionPreviewUI(): SessionPreviewUI | null {
+	const state = useContext( SessionUIStateContext );
+	const dispatch = useContext( SessionUIDispatchContext );
+	const setOpen = useCallback(
+		( value: boolean ) => dispatch?.( { type: 'preview/set-open', value } ),
+		[ dispatch ]
+	);
+	const toggle = useCallback( () => dispatch?.( { type: 'preview/toggle' } ), [ dispatch ] );
+	const updatePath = useCallback(
+		( path: string ) => dispatch?.( { type: 'preview/update-path', path } ),
+		[ dispatch ]
+	);
+	return useMemo( () => {
+		if ( ! state || ! dispatch ) {
+			return null;
+		}
+		return {
+			open: state.preview.open,
+			path: state.preview.path,
+			reloadNonce: state.preview.reloadNonce,
+			setOpen,
+			toggle,
+			updatePath,
+		};
+	}, [ state, dispatch, setOpen, toggle, updatePath ] );
+}
+
 export function useSessionPreviewUI(): SessionPreviewUI {
 	const state = useSessionUIState();
 	const dispatch = useSessionUIDispatch();

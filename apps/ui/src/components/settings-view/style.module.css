@@ -487,7 +487,8 @@
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
-.skillsPanel {
+.skillsPanel,
+.usagePanel {
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-xl);
@@ -642,3 +643,124 @@
 	}
 }
 
+
+/* Signed out or offline: grey the whole card, since none of it is live. */
+.usageDisabled .settingsPanelHeader h2,
+.usageDisabled .settingsPanelHeader p,
+.usageDisabled .usageSectionHeader h2,
+.usageDisabled .previewUsageText,
+.usageDisabled .usageSection p {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+.usageDisabled .progressTrack {
+	background: var(--wpds-color-bg-interactive-neutral-weak-disabled);
+}
+
+.usageDisabled .progressValue {
+	background: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+/* Hatched stand-in for a meter with no figure behind it — same 135deg stripe
+   idiom as the AI credits placeholder, in neutral disabled colors. */
+.unavailableBar {
+	inline-size: 100%;
+	block-size: 6px;
+	border-radius: 999px;
+	background:
+		repeating-linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--wpds-color-fg-interactive-neutral-disabled) 22%, transparent) 0 3px,
+			transparent 3px 8px
+		),
+		var(--wpds-color-bg-interactive-neutral-weak-disabled);
+}
+
+.usageSection {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--wpds-dimension-padding-md);
+	padding-block: var(--wpds-dimension-padding-lg);
+	border-top: 1px solid var(--wpds-color-stroke-surface-neutral);
+}
+
+.usageSection:last-child {
+	padding-block-end: 0;
+}
+
+.usageSectionHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--wpds-dimension-padding-md);
+	min-width: 0;
+}
+
+.usageSectionHeader h2 {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: 600;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.usageSection p {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.previewUsageText {
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.progressTrack {
+	overflow: hidden;
+	inline-size: 100%;
+	block-size: 6px;
+	border-radius: 999px;
+	background: var(--wpds-color-stroke-surface-neutral);
+}
+
+.progressValue {
+	block-size: 100%;
+	border-radius: inherit;
+	background: var(--wpds-color-fg-interactive-brand);
+}
+
+.previewActionsButton {
+	flex-shrink: 0;
+}
+
+.usageSectionAction {
+	align-self: flex-start;
+}
+
+.aiCreditsTrack {
+	position: relative;
+	background: color-mix(
+		in srgb,
+		var(--wpds-color-fg-interactive-brand) 14%,
+		var(--wpds-color-stroke-surface-neutral)
+	);
+}
+
+.aiCreditsMeterValue {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: linear-gradient(
+			90deg,
+			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 32%, transparent),
+			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 14%, transparent)
+		),
+		repeating-linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--wpds-color-fg-interactive-brand) 18%, transparent) 0 8px,
+			transparent 8px 16px
+		);
+}

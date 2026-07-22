@@ -11,9 +11,11 @@
 				"src/preload.ts",
 				"src/migrations/index.ts",
 				"src/additional-phrases.ts",
-				"forge.config.ts"
+				"forge.config.ts",
+				"e2e/global-setup.ts",
+				"e2e/**/*.test.ts"
 			],
-			"project": "src/**/*.{ts,tsx}"
+			"project": "{src,e2e}/**/*.{ts,tsx}"
 		},
 		"apps/cli": {
 			"entry": [
@@ -43,7 +45,7 @@
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"packages/common": {
-			"entry": ["translations/index.ts"],
+			"entry": ["translations/index.ts", "globals.ts"],
 			"project": "**/*.ts"
 		},
 		"packages/data-liberation-agent": {

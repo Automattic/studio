@@ -1,7 +1,8 @@
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
@@ -11,11 +12,11 @@ import type {
 	ColorScheme,
 	Connector,
 	ExtractedBlueprintBundle,
-	FeaturedBlueprint,
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
 	ProposedSitePath,
+	QuitSitesBehavior,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -25,7 +26,6 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { SiteRestResponse } from '@studio/common/types/wordpress-rest';
 
 // The in-app dark/light/system choice, persisted in the browser (there's no
 // Electron `nativeTheme` to mirror it) so it sticks across reloads.
@@ -34,6 +34,13 @@ const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
 // store); the server reads them back from each open request.
 const EDITOR_STORAGE_KEY = 'studio-local-editor';
 const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
+const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
+
+function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
+	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'
+		? value
+		: undefined;
+}
 
 export interface LocalConnectorOptions {
 	// Base URL of the local Studio server started by `studio ui`, e.g.
@@ -221,6 +228,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// (read from the shared auth token by the server). The app isn't gated on
 		// it, but the user menu should show the real account.
 		requiresAuth: false,
+		agenticRequiresAuth: false,
 		async isAuthenticated() {
 			return ( await api< AuthUser | null >( '/auth/user' ) ) !== null;
 		},
@@ -307,6 +315,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onAuthStateChanged() {
 			return () => {};
 		},
+		async getOnboardingCompleted() {
+			return true;
+		},
+		async setOnboardingCompleted() {
+			// No-op.
+		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
@@ -358,6 +372,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// an editable path field (see capabilities.nativeFolderPicker).
 			return null;
 		},
+		async selectDefaultSiteDirectory(): Promise< string | null > {
+			// No native folder picker in a browser.
+			return null;
+		},
 		async comparePaths( path1, path2 ) {
 			const { equal } = await api< { equal: boolean } >( '/paths/compare', {
 				method: 'POST',
@@ -398,18 +416,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=database` );
 		},
 
-		// Featured blueprints — public endpoint, same source as the desktop app.
-		async getFeaturedBlueprints( locale ): Promise< FeaturedBlueprint[] > {
-			const blueprints = await fetchStudioBlueprints( locale );
-			return blueprints.map( ( blueprint ) => ( {
-				slug: blueprint.slug,
-				title: blueprint.title,
-				excerpt: blueprint.excerpt,
-				image: blueprint.image,
-				playgroundUrl: blueprint.playground_url,
-				blueprint: blueprint.blueprint as FeaturedBlueprint[ 'blueprint' ],
-			} ) );
-		},
+		getWordPressVersions: fetchWordPressVersions,
 
 		async getFilePath( file ) {
 			// No real filesystem path in a browser, so upload the bytes and hand
@@ -422,19 +429,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// with a server-side path-containment policy when a real consumer lands.
 			throw new UnsupportedError( 'readLocalMediaFile' );
 		},
-		// Upload-your-own Blueprint ZIP: the file is uploaded via getFilePath, then
-		// the server extracts it (shared extractor) and returns the parsed bundle.
-		async extractBlueprintBundle( zipFilePath ): Promise< ExtractedBlueprintBundle > {
-			return api< ExtractedBlueprintBundle >( '/blueprints/extract', {
+		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const response = await fetch( `${ base }/blueprints/extract`, {
 				method: 'POST',
-				body: JSON.stringify( { zipFilePath } ),
+				headers: { 'Content-Type': 'application/octet-stream' },
+				body: file,
 			} );
+			if ( ! response.ok ) {
+				const text = await response.text().catch( () => '' );
+				throw new Error( `POST /blueprints/extract failed (${ response.status }): ${ text }` );
+			}
+			return ( await response.json() ) as ExtractedBlueprintBundle;
 		},
 		async cleanupBlueprintTempDir( tempDir ) {
 			await api( '/blueprints/cleanup', {
 				method: 'POST',
 				body: JSON.stringify( { tempDir } ),
 			} );
+		},
+		async readBlueprintFile() {
+			throw new UnsupportedError( 'readBlueprintFile' );
 		},
 		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
 			return api< SiteDetails >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
@@ -504,18 +518,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 		getPublishCheckoutUrl( site ): string {
-			// The same WordPress.com hosted-site checkout the desktop opens — a pure
-			// URL builder, so it ports verbatim. (The post-checkout auto-connect still
-			// relies on the deep-link listener, which a browser tab can't receive, so
-			// the user finishes by connecting the new site from the picker.)
-			const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-			url.searchParams.set( 'ref', 'studio' );
-			url.searchParams.set( 'section', 'publish-site' );
-			url.searchParams.set( 'showDomainStep', 'true' );
-			url.searchParams.set( 'studioSiteId', site.id );
-			url.searchParams.set( 'new', site.customDomain ?? site.name );
-			url.searchParams.set( 'autoOpenPush', 'true' );
-			return url.toString();
+			// The post-checkout auto-connect relies on the deep-link listener, which
+			// a browser tab can't receive, so the user finishes by connecting the
+			// new site from the picker.
+			return buildPublishCheckoutUrl( site );
 		},
 
 		// AI sessions — the headline. HTTP routes on the local server, backed by
@@ -583,6 +589,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const stored = window.localStorage.getItem( COLOR_SCHEME_STORAGE_KEY );
 			const colorScheme: ColorScheme =
 				stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+			const quitSitesBehavior = parseQuitSitesBehavior(
+				window.localStorage.getItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY )
+			);
 			return {
 				editor:
 					( window.localStorage.getItem( EDITOR_STORAGE_KEY ) as SupportedEditor | null ) || null,
@@ -590,7 +599,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					( window.localStorage.getItem( TERMINAL_STORAGE_KEY ) as SupportedTerminal | null ) ||
 					null,
 				colorScheme,
+				quitSitesBehavior,
 				locale: undefined,
+				defaultSiteDirectory: '',
 			};
 		},
 		async setUserPreferences( partial ) {
@@ -611,20 +622,18 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					window.localStorage.removeItem( TERMINAL_STORAGE_KEY );
 				}
 			}
+			if ( 'quitSitesBehavior' in partial ) {
+				if ( partial.quitSitesBehavior ) {
+					window.localStorage.setItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY, partial.quitSitesBehavior );
+				} else {
+					window.localStorage.removeItem( QUIT_SITES_BEHAVIOR_STORAGE_KEY );
+				}
+			}
 		},
 		// Detected on the machine the server runs on (the desktop's installed-app
 		// detection, server-side) so the preferences picker offers only what's there.
 		async getInstalledApps(): Promise< InstalledApps > {
 			return api< InstalledApps >( '/installed-apps' );
-		},
-
-		// Proxy WordPress REST calls through the server to the running site (it
-		// holds the auto-login cookie + nonce); the shared proxy backs both hosts.
-		async fetchSiteRest( siteId, request ): Promise< SiteRestResponse > {
-			return api< SiteRestResponse >( `/sites/${ encodeURIComponent( siteId ) }/rest`, {
-				method: 'POST',
-				body: JSON.stringify( request ),
-			} );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on
@@ -656,10 +665,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
 		async popupAppMenu() {},
+		showsAppMenuButton: false,
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
 			window.open( target, '_blank', 'noopener,noreferrer' );
+		},
+		async getWordPressSkillsStatusAllSites() {
+			return [];
+		},
+		async installWordPressSkillToAllSites() {
+			// No-op: the local server does not manage WordPress skills yet.
+		},
+		async removeWordPressSkillFromAllSites() {
+			// No-op: the local server does not manage WordPress skills yet.
 		},
 
 		// Window chrome — no traffic lights in a browser tab.
@@ -688,9 +707,15 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// No application menu in a browser tab.
 			return () => {};
 		},
+		onAddSiteWithBlueprint() {
+			return () => {};
+		},
 		onOpenSettings() {
 			// No application menu in a browser tab.
 			return () => {};
+		},
+		async disableAgenticUi() {
+			// No-op in the browser.
 		},
 	};
 }

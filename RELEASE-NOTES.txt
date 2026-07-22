@@ -1,6 +1,29 @@
 Unreleased
 ==========
 
+1.16.0
+=====
+* Introduced Agentic UI, a new beta interface for the app, available behind a feature flag #4163, #4200, #4191, #4134, #4092, #4133, #4203, #4166, #4148, #4156, #4155, #4157, #4145, #4174, #4159, #4172, #4207
+* Studio Code: Added a button to copy the full assistant message #4113
+* Studio Code: Added opportunity to paste an image anywhere in the view #4208
+* Studio Code: Added a recovery action to the Session not found state #4243
+* Studio Code: Refreshed the composer placeholder copy #4149
+* Studio Code: Added support for creating new blank or child themes #4209
+* Studio Code: Fixed showing an error when the max token limit is reached #4077
+* Studio Code: Fixed AskUserQuestion to support multiline input #4119
+* Studio Code: Replaced GPT 5.5 with GPT 5.6 Sol and routed OpenAI models through the Responses API #4190
+* Studio Code: Fixed headless runs not exiting after the turn completed #4175
+* Studio Code: Made data-liberation flows more reliable with consistent AI wording, bundled driver scripts so skills work as installed plugins, and fixed the data-liberation scripts #4122, #4126, #4201
+* Fixed sites showing offline after import #4106
+* Fixed plugin reinstall failure after deletion in the Sandbox runtime #4044
+* Fixed the macOS Trust Certificate button being hidden for untrusted CAs #4223
+* Fixed native PHP sites not picking up updated Studio mu-plugins #4196
+* Disabled Jetpack Stats for local sites #4035
+* Simplified the "What to do with running sites" dialog shown when quitting Studio #4140
+* Improved CLI sync error messages for sites that can't be synced #4202
+* Added Linux to the bug report Platform field and split out Architecture #4224
+* Misc and maintenance improvements #4235, #4128, #4131, #4187, #4129, #4168, #4199, #4227, #4233
+
 1.15.0
 =====
 * Fixed Xdebug not starting on a normal page load on the native PHP runtime #4086
@@ -18,7 +41,7 @@ Unreleased
 
 1.14.0
 =====
-* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082  
+* Fixed a fatal Windows issue where native PHP sites failed to run when the username was longer than 8 characters #4082
 * Studio Code: Added a /liberate command to recreate sites from other platforms (e.g. Wix) as WordPress #3940
 * Studio Code: Added a /publish command to push local sites to WordPress.com #4043
 * Studio Code: Updated the assistant's available model to Sonnet 5 #4024

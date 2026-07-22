@@ -46,11 +46,10 @@ import {
 } from '@studio/common/lib/shared-config';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
-import { createJsonResponse, fetchSiteRest } from '@studio/common/lib/wordpress-rest';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import {
 	cleanupBlueprintTempDir,
-	extractBlueprintBundle,
+	extractBlueprintUpload,
 } from '@studio/common/sites/blueprint-extract';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs } from '@studio/common/sites/edit';
@@ -64,7 +63,6 @@ import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteRestRequest } from '@studio/common/types/wordpress-rest';
 import type { Request, Response } from 'express';
 
 /**
@@ -535,22 +533,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const siteId = crypto.randomUUID();
 			// Build the create args with the same shared helper the desktop uses, so
 			// Blueprints (and --wp dev→nightly, etc.) are handled identically.
-			const { args, cleanup } = buildSiteCreateArgs( {
-				path: body.path,
-				name: body.name,
-				siteId,
-				wpVersion: body.wpVersion,
-				phpVersion: body.phpVersion,
-				customDomain: body.customDomain,
-				enableHttps: body.enableHttps,
-				adminUsername: body.adminUsername,
-				adminPassword: body.adminPassword,
-				adminEmail: body.adminEmail,
-				blueprint: body.blueprint?.blueprint,
-				originalBlueprintPath: body.blueprint?.filePath,
-			} );
-
+			let cleanupCreateArgs: () => void = () => undefined;
 			try {
+				const { args, cleanup } = buildSiteCreateArgs( {
+					path: body.path,
+					name: body.name,
+					siteId,
+					wpVersion: body.wpVersion,
+					phpVersion: body.phpVersion,
+					customDomain: body.customDomain,
+					enableHttps: body.enableHttps,
+					adminUsername: body.adminUsername,
+					adminPassword: body.adminPassword,
+					adminEmail: body.adminEmail,
+					blueprint: body.blueprint?.blueprint,
+					originalBlueprintPath: body.blueprint?.filePath,
+				} );
+				cleanupCreateArgs = cleanup;
 				await new Promise< void >( ( resolve, reject ) => {
 					const [ emitter ] = execute( args, { output: 'capture' } );
 					emitter.on( 'success', () => resolve() );
@@ -558,7 +557,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			} finally {
-				cleanup();
+				cleanupCreateArgs();
+				if ( body.blueprint?.filePath ) {
+					await cleanupBlueprintTempDir( path.dirname( body.blueprint.filePath ) ).catch(
+						() => undefined
+					);
+				}
 			}
 
 			const created = ( await listSites( execute ) ).find( ( s ) => s.id === siteId );
@@ -790,24 +794,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Extract an uploaded Blueprint ZIP (the path comes from /uploads) and return
-	// its parsed blueprint.json — the shared extractor the desktop uses.
 	api.post(
 		'/blueprints/extract',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const zipFilePath = req.body?.zipFilePath;
-			if ( typeof zipFilePath !== 'string' || ! zipFilePath ) {
-				res.status( 400 ).json( { error: 'Missing zipFilePath' } );
-				return;
-			}
-			// The zip is always an upload under the OS temp dir (via /uploads);
-			// reject anything else so this can't be used to read arbitrary files.
-			const resolvedZip = path.resolve( zipFilePath );
-			if ( ! ( resolvedZip + path.sep ).startsWith( path.resolve( os.tmpdir() ) + path.sep ) ) {
-				res.status( 400 ).json( { error: 'zipFilePath must be an uploaded file' } );
-				return;
-			}
-			res.json( await extractBlueprintBundle( resolvedZip ) );
+			res.json( await extractBlueprintUpload( req ) );
 		} )
 	);
 
@@ -867,28 +857,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// consumes it yet. The connector's `readLocalMediaFile` throws until a real
 	// consumer and a path-containment policy (e.g. restricted to the sites root)
 	// exist.
-
-	// Proxy a WordPress REST request to a running local site — the shared proxy
-	// the desktop uses, with the target resolved from the site list.
-	api.post(
-		'/sites/:id/rest',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			if ( ! site ) {
-				res.json(
-					createJsonResponse( 404, 'studio_site_not_found', `Site ${ req.params.id } not found.` )
-				);
-				return;
-			}
-			const publicUrl = site.url.replace( /\/+$/, '' );
-			const baseUrl = site.port > 0 ? `http://127.0.0.1:${ site.port }` : publicUrl;
-			const response = await fetchSiteRest(
-				{ siteId: site.id, running: site.running, baseUrl, publicUrl },
-				( req.body ?? {} ) as SiteRestRequest
-			);
-			res.json( response );
-		} )
-	);
 
 	// --- Open in OS: folder / editor / terminal + app detection ---------------
 	// The browser can't reach the filesystem, but the server runs on the user's
@@ -1147,7 +1115,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { summary } = await loadAiSession( sessionsRoot, req.params.id );
-			const patch = req.body as { starred?: boolean; archived?: boolean };
+			const patch = req.body as { archived?: boolean };
 			const [ metadata, placement ] = await Promise.all( [
 				updateSharedSession( summary.id, patch ),
 				readAiSessionPlacement( summary.id ),

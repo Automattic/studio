@@ -3,13 +3,14 @@ import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
+import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -69,11 +70,17 @@ export interface SiteDetails {
 	enableDebugLog?: boolean;
 	enableDebugDisplay?: boolean;
 	sortOrder?: number;
+	// True for sites that were running when the app quit with the
+	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
+	autoStart?: boolean;
 	themeDetails?: {
 		name: string;
 		path: string;
 		slug: string;
 		isBlockTheme: boolean;
+		// Only supplied by the desktop (IPC) connector.
+		supportsWidgets?: boolean;
+		supportsMenus?: boolean;
 	};
 	siteIcon?: string | null;
 }
@@ -129,11 +136,17 @@ export interface Connector {
 
 	// Auth
 	requiresAuth: boolean;
+	agenticRequiresAuth: boolean;
 	isAuthenticated(): Promise< boolean >;
 	getAuthUser(): Promise< AuthUser | null >;
-	authenticate(): Promise< void >;
+	authenticate( signup?: boolean ): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
+
+	// Onboarding — whether the user has been through (or skipped) the
+	// first-run welcome screen.
+	getOnboardingCompleted(): Promise< boolean >;
+	setOnboardingCompleted( completed: boolean ): Promise< void >;
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
@@ -174,10 +187,7 @@ export interface Connector {
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
-	// Featured blueprints gallery for the "Start from blueprint" onboarding
-	// flow. Sourced from the public wpcom/v2/studio-app/blueprints endpoint —
-	// no auth required, localized by the user's current UI locale.
-	getFeaturedBlueprints( locale?: string ): Promise< FeaturedBlueprint[] >;
+	getWordPressVersions(): Promise< WordPressVersion[] >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
 	// in the renderer. Returns an empty string when the underlying file lacks
@@ -185,13 +195,14 @@ export interface Connector {
 	getFilePath( file: File ): Promise< string >;
 	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
 
-	// Extracts a Blueprint ZIP bundle to a temp directory and returns the
+	// Uploads and extracts a Blueprint ZIP bundle to a temp directory and returns the
 	// parsed `blueprint.json`. The caller is responsible for calling
 	// `cleanupBlueprintTempDir` if the extraction succeeds but the upload
 	// flow never reaches `createSite` — otherwise `createSite` cleans the
 	// temp directory automatically when it uses the extracted blueprint.
-	extractBlueprintBundle( zipFilePath: string ): Promise< ExtractedBlueprintBundle >;
+	extractBlueprintBundle( file: File ): Promise< ExtractedBlueprintBundle >;
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
+	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 
 	// Imports a backup archive into an already-created site. Extracts the
 	// archive, installs the SQLite integration if missing, then imports the
@@ -256,7 +267,7 @@ export interface Connector {
 	deleteSession( sessionId: string ): Promise< void >;
 	updateSessionMetadata(
 		sessionId: string,
-		patch: Pick< AiSessionSummary, 'starred' | 'archived' >
+		patch: Pick< AiSessionSummary, 'archived' >
 	): Promise< AiSessionSummary >;
 
 	// Create an empty session file so it appears immediately. When `siteId`
@@ -300,15 +311,15 @@ export interface Connector {
 	getUserPreferences(): Promise< UserPreferences >;
 	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
 
+	// Opens a native folder picker for the default-site-directory preference.
+	// Resolves with the chosen path, or `null` when the user cancels (or the
+	// host has no native picker — see capabilities.nativeFolderPicker).
+	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
+
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
-
-	// Site WordPress REST API. The renderer uses this as the transport for
-	// @wordpress/api-fetch / @wordpress/core-data so WordPress entity semantics
-	// stay in the WordPress packages while Studio owns site resolution and auth.
-	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
 
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
@@ -321,6 +332,17 @@ export interface Connector {
 	openExternalUrl( url: string ): Promise< void >;
 
 	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
+
+	// WordPress agent skills applied to all existing and future sites.
+	getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] >;
+	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
+	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
+
+	// Whether the UI should render a button that opens the app menu via
+	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
+	// native menu bar; macOS has the native application menu and the browser
+	// (`studio ui` / hosted) has no app menu at all.
+	showsAppMenuButton: boolean;
 
 	// Clipboard — routed to the host so it works where the renderer's
 	// `navigator.clipboard` is unavailable (e.g. Electron permission denial).
@@ -346,7 +368,7 @@ export interface Connector {
 
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
-	onSiteEvent( listener: () => void ): () => void;
+	onSiteEvent( listener: ( event: SiteEvent ) => void ): () => void;
 
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.
@@ -358,19 +380,33 @@ export interface Connector {
 	// Fires when the user activates "File > Add Site…" (or its keyboard
 	// shortcut) in the application menu.
 	onAddSite( listener: () => void ): () => void;
+	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 
 	// Fires when the user activates "Settings…" (or its keyboard shortcut) in
 	// the application menu.
 	onOpenSettings( listener: () => void ): () => void;
+
+	// Switches back to the legacy (classic) Studio UI.
+	disableAgenticUi(): Promise< void >;
+}
+
+export interface SkillStatus {
+	id: string;
+	displayName: string;
+	description: string;
+	installed: boolean;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';
+export type QuitSitesBehavior = 'stop' | 'stop-and-auto-start' | 'leave-running';
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
+	quitSitesBehavior?: QuitSitesBehavior;
 	locale: string | undefined;
+	defaultSiteDirectory: string;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is
@@ -379,15 +415,6 @@ export interface UserPreferences {
 export type WritableUserPreferences = Omit< UserPreferences, 'locale' > & {
 	locale: SupportedLocale;
 };
-
-export interface FeaturedBlueprint {
-	slug: string;
-	title: string;
-	excerpt: string;
-	image: string;
-	playgroundUrl: string;
-	blueprint: BlueprintV1Declaration;
-}
 
 export interface CreateSiteParams {
 	name: string;
@@ -399,14 +426,10 @@ export interface CreateSiteParams {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
-	// Optional blueprint payload. When present, `blueprint` is the parsed
-	// blueprint JSON; `slug` is set for featured blueprints (used for stats);
-	// `filePath` points at the extracted `blueprint.json` inside a ZIP bundle
-	// so the CLI can resolve relative asset references. Main process cleans
-	// up the temp dir automatically once `createSite` completes.
+	// Optional blueprint payload. `filePath` points at the extracted
+	// `blueprint.json` inside a ZIP bundle so the CLI can resolve relative assets.
 	blueprint?: {
 		blueprint: BlueprintV1Declaration;
-		slug?: string;
 		filePath?: string;
 	};
 }

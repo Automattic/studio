@@ -9,6 +9,7 @@ import {
 	watchComposerAttachmentTextScroll,
 	type ComposerAttachmentHoverPreviewState,
 } from '@studio/common/ai/composer-attachment-preview';
+import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
 import { AI_MODELS, getAiModelFamily, getAiModelLabel } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
@@ -228,6 +229,8 @@ export interface ComposerHandle {
 		text: string,
 		attachments?: { images?: StudioChatImage[]; files?: StudioChatFileAttachment[] }
 	): void;
+	// True when the composer holds anything replaceDraft would discard.
+	hasDraft(): boolean;
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -422,6 +425,13 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ autoFocus, sessionId ] );
 
+	useEffect( () => {
+		return watchComposerFilePaste( ( files ) => {
+			void addFiles( files );
+			textareaRef.current?.focus();
+		} );
+	}, [ addFiles ] );
+
 	useLayoutEffect( () => {
 		const nextHeight = resizeComposerTextarea( textareaRef.current, manualTextareaHeight );
 		if ( nextHeight !== null ) {
@@ -488,8 +498,11 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					node.setSelectionRange( len, len );
 				} );
 			},
+			hasDraft() {
+				return value.trim().length > 0 || attachments.length > 0;
+			},
 		} ),
-		[ restoreAttachments ]
+		[ restoreAttachments, value, attachments ]
 	);
 
 	const send = useCallback( async () => {

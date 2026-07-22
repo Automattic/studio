@@ -20,25 +20,21 @@ import {
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 
 const DEFAULT_PREVIEW_SITE_LIMIT = 10;
 
-function getDeletePreviewSitesLabel( isOffline: boolean, isDeleting: boolean ): string {
-	if ( isOffline ) {
-		return __( 'Deleting preview sites requires an internet connection.' );
-	}
-	if ( isDeleting ) {
-		return __( 'Deleting preview sites...' );
-	}
-	return __( 'Delete all preview sites' );
-}
-
-// Stands in for a figure we can't read yet: a hatched bar fills the row the
-// real meter would occupy, so the section reads as disabled, not empty.
-function UnavailableBar() {
-	return <div className={ styles.unavailableBar } role="img" aria-label={ __( 'Unavailable' ) } />;
+// Stands in for a figure we can't read: a hatched bar fills the row the real
+// meter would occupy, so the section reads as disabled, not empty.
+function UnavailableSection( { title }: { title: string } ) {
+	return (
+		<section className={ styles.usageSection }>
+			<div className={ styles.usageSectionHeader }>
+				<h2>{ title }</h2>
+			</div>
+			<div className={ styles.unavailableBar } role="img" aria-label={ __( 'Unavailable' ) } />
+		</section>
+	);
 }
 
 function UsageProgressBar( { fraction }: { fraction: number } ) {
@@ -49,21 +45,14 @@ function UsageProgressBar( { fraction }: { fraction: number } ) {
 	);
 }
 
-function AiCreditsSummary( { signedOut }: { signedOut: boolean } ) {
+function AiCreditsSummary() {
 	const locale = useUserLocale();
-	const isOffline = useOffline();
 	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
 
 	let content;
-	if ( signedOut ) {
-		// Studio Code needs an account, so the Alpha pricing copy would be
-		// telling signed-out users about credits they can't spend yet.
-		content = <UnavailableBar />;
-	} else if ( isLoading ) {
+	if ( isLoading ) {
 		content = <div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>;
-	} else if ( isError || ( isOffline && ! quota ) ) {
-		// Offline without a cached quota reads the same as a failed fetch: we
-		// have nothing to show, and the banner explains why.
+	} else if ( isError ) {
 		content = (
 			<div className={ styles.previewUsageText }>
 				{ __( 'Studio Code limits are temporarily unavailable.' ) }
@@ -111,7 +100,6 @@ function AiCreditsSummary( { signedOut }: { signedOut: boolean } ) {
 
 function PreviewSitesSummary( { userId }: { userId: number } ) {
 	const connector = useConnector();
-	const isOffline = useOffline();
 	const { data: snapshots, isLoading } = useSnapshots( userId );
 	const { data: snapshotUsage, isLoading: isLoadingSnapshotUsage } = useSnapshotUsage( userId );
 	const deleteAllSnapshots = useDeleteAllSnapshots( userId );
@@ -119,13 +107,11 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 	const siteLimit = snapshotUsage?.siteLimit ?? DEFAULT_PREVIEW_SITE_LIMIT;
 	const snapshotCreationBlocked = snapshotUsage?.siteCreationBlocked ?? false;
 	const isLoadingPreviewUsage = isLoading || isLoadingSnapshotUsage || deleteAllSnapshots.isPending;
-	const isDisabled =
-		siteCount === 0 || snapshotCreationBlocked || isLoadingPreviewUsage || isOffline;
+	const isDisabled = siteCount === 0 || snapshotCreationBlocked || isLoadingPreviewUsage;
 	const fraction = clampQuotaFraction( siteCount, siteLimit );
-	const deletePreviewSitesLabel = getDeletePreviewSitesLabel(
-		isOffline,
-		deleteAllSnapshots.isPending
-	);
+	const deletePreviewSitesLabel = deleteAllSnapshots.isPending
+		? __( 'Deleting preview sites...' )
+		: __( 'Delete all preview sites' );
 
 	const handleDelete = async () => {
 		if ( isDisabled ) {
@@ -197,36 +183,38 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 }
 
 export function UsagePanel() {
-	const { data: user, isLoading } = useAuthUser();
-	// Same signed-out/offline split the rest of the app banners use; both mean
-	// the figures below can't be trusted, so they're dimmed either way.
+	const { data: user } = useAuthUser();
+	// Same signed-out/offline split the rest of the app banners use. Either way
+	// the figures can't be read or refreshed, so the card goes disabled rather
+	// than presenting a stale number as current.
 	const { reason } = useAgenticFeatures();
+	const unavailable = reason !== null;
 
 	return (
 		<div className={ styles.usagePanel }>
 			{ reason === 'offline' ? <OfflineNotice /> : null }
 			{ reason === 'signed-out' ? <SigninNotice /> : null }
 			<section
-				className={ clsx( styles.settingsPanelSection, reason !== null && styles.usageDisabled ) }
+				className={ clsx( styles.settingsPanelSection, unavailable && styles.usageDisabled ) }
 			>
 				<div className={ styles.settingsPanelHeader }>
 					<h2>{ __( 'Usage' ) }</h2>
 					<p>{ __( 'Track your preview site usage and Studio Code AI credits.' ) }</p>
 				</div>
-				<AiCreditsSummary signedOut={ reason === 'signed-out' } />
-				{ user ? (
-					<PreviewSitesSummary userId={ user.id } />
+				{ unavailable ? (
+					<>
+						<UnavailableSection title={ __( 'AI credits' ) } />
+						<UnavailableSection title={ __( 'Preview sites' ) } />
+					</>
 				) : (
-					<section className={ styles.usageSection }>
-						<div className={ styles.usageSectionHeader }>
-							<h2>{ __( 'Preview sites' ) }</h2>
-						</div>
-						{ isLoading ? (
-							<div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>
+					<>
+						<AiCreditsSummary />
+						{ user ? (
+							<PreviewSitesSummary userId={ user.id } />
 						) : (
-							<UnavailableBar />
+							<UnavailableSection title={ __( 'Preview sites' ) } />
 						) }
-					</section>
+					</>
 				) }
 			</section>
 		</div>

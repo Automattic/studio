@@ -222,23 +222,7 @@ describe( 'UsagePanel', () => {
 		expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'disables preview-site deletion while offline', () => {
-		useOfflineMock.mockReturnValue( true );
-
-		render( <UsagePanel /> );
-
-		const deleteAction = screen.getByRole( 'button', {
-			name: 'Deleting preview sites requires an internet connection.',
-		} );
-
-		expect( deleteAction ).toBeDisabled();
-		fireEvent.click( deleteAction );
-
-		expect( confirmDeleteAllPreviewSites ).not.toHaveBeenCalled();
-		expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
-	} );
-
-	it( 'warns once at the top and keeps showing cached figures while offline', () => {
+	it( 'replaces figures and actions with the offline notice while offline', () => {
 		useOfflineMock.mockReturnValue( true );
 		useStudioAssistantQuotaMock.mockReturnValue( {
 			data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
@@ -248,21 +232,14 @@ describe( 'UsagePanel', () => {
 		render( <UsagePanel /> );
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( "You're offline" );
+		// Cached figures are stale and can't be refreshed, so they stay hidden.
+		expect( screen.queryByText( /of monthly limit used/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
+		expect( screen.getAllByRole( 'img', { name: 'Unavailable' } ) ).toHaveLength( 2 );
 		expect(
-			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
-		).toBeVisible();
-		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeVisible();
+			screen.queryByRole( 'button', { name: 'Delete all preview sites' } )
+		).not.toBeInTheDocument();
 		expect( screen.queryByLabelText( 'Sign in to Studio' ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'reports quota as unavailable when offline with nothing cached', () => {
-		useOfflineMock.mockReturnValue( true );
-
-		render( <UsagePanel /> );
-
-		expect(
-			screen.getByText( 'Studio Code limits are temporarily unavailable.' )
-		).toBeInTheDocument();
 	} );
 
 	it( 'surfaces a deletion error inline', () => {
@@ -286,6 +263,7 @@ describe( 'UsagePanel', () => {
 
 		expect( screen.getByLabelText( 'Sign in to Studio' ) ).toBeInTheDocument();
 		expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
+		expect( screen.getAllByRole( 'img', { name: 'Unavailable' } ) ).toHaveLength( 2 );
 		// Studio Code needs an account, so the Alpha pricing copy stays hidden.
 		expect(
 			screen.queryByText(

@@ -70,12 +70,14 @@ const site: SiteDetails = {
 	phpVersion: '8.3',
 };
 
-function renderMainView( props: { onDisconnectClick?: () => void } = {} ) {
+function renderMainView(
+	props: { onDisconnectClick?: () => void; siteOverrides?: Partial< SiteDetails > } = {}
+) {
 	const queryClient = new QueryClient();
 	return render(
 		<QueryClientProvider client={ queryClient }>
 			<MainView
-				site={ site }
+				site={ { ...site, ...props.siteOverrides } }
 				activity={ null }
 				lastSyncLog={ null }
 				onSetupClick={ vi.fn() }
@@ -100,6 +102,17 @@ describe( 'MainView', () => {
 			date: 1,
 		} );
 		connectedSites.splice( 0, connectedSites.length );
+	} );
+
+	it( 'shows an Xdebug badge on the Studio row only when Xdebug is enabled', () => {
+		const { unmount } = renderMainView( { siteOverrides: { enableXdebug: true } } );
+
+		expect( screen.getByRole( 'img', { name: 'Xdebug enabled' } ) ).toBeInTheDocument();
+
+		unmount();
+		renderMainView();
+
+		expect( screen.queryByRole( 'img', { name: 'Xdebug enabled' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'handles preview URL copy failures', async () => {

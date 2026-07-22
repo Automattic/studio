@@ -1,5 +1,9 @@
 import { resolveActivitySoundPreferences } from '@studio/common/lib/activity-sounds';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import {
+	STUDIO_ASSISTANT_QUOTA_URL,
+	studioAssistantQuotaSchema,
+} from '@studio/common/lib/studio-assistant-quota';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
@@ -27,6 +31,7 @@ import type {
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
+	StudioAssistantQuota,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncableWpcomSitesPage,
@@ -40,6 +45,7 @@ import type { AiModelId } from '@studio/common/ai/models';
 import type { AiResponseLength } from '@studio/common/ai/response-length';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
@@ -170,6 +176,20 @@ export function createIpcConnector(): Connector {
 	// The IPC connector only runs in Electron, so `navigator` reflects the
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
+
+	async function fetchWpcomJson( url: string, errorLabel: string ): Promise< unknown > {
+		const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+		if ( ! token ) {
+			return null;
+		}
+		const response = await fetch( url, {
+			headers: { Authorization: `Bearer ${ token.accessToken }` },
+		} );
+		if ( ! response.ok ) {
+			throw new Error( `Failed to fetch ${ errorLabel }: ${ response.status }` );
+		}
+		return response.json();
+	}
 
 	// Preview CLI commands are path-based, not id-based. Look up the matching
 	// site once per call so UI code can keep working with the stable site id.
@@ -497,11 +517,26 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
-			return ( await ipcApi.importSite( {
-				id: siteId,
-				backupFile: backup,
-			} ) ) as SiteDetails;
+		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'on-import',
+						( _event: unknown, importEvent: ImportEventTuple, importSiteId: string ) => {
+							if ( importSiteId === siteId ) {
+								onProgress( importEvent );
+							}
+						}
+				  )
+				: undefined;
+			try {
+				await ipcApi.importSite( siteId, backupPath, {
+					alwaysStartServer: true,
+					showErrorModal: false,
+					showNotification: false,
+				} );
+			} finally {
+				unsubscribe?.();
+			}
 		},
 
 		// Site checkpoints — the main process forks the same `studio checkpoint`
@@ -688,22 +723,16 @@ export function createIpcConnector(): Connector {
 		},
 
 		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
-			const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
-			if ( ! token ) {
-				return null;
-			}
-			const response = await fetch(
+			const data = await fetchWpcomJson(
 				'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage',
-				{
-					headers: {
-						Authorization: `Bearer ${ token.accessToken }`,
-					},
-				}
+				'snapshot usage'
 			);
-			if ( ! response.ok ) {
-				throw new Error( `Failed to fetch snapshot usage: ${ response.status }` );
-			}
-			return parseSnapshotUsage( await response.json() );
+			return data === null ? null : parseSnapshotUsage( data );
+		},
+
+		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {
+			const data = await fetchWpcomJson( STUDIO_ASSISTANT_QUOTA_URL, 'Studio assistant quota' );
+			return data === null ? null : studioAssistantQuotaSchema.parse( data );
 		},
 
 		async deleteAllSnapshots(): Promise< void > {
@@ -911,6 +940,7 @@ export function createIpcConnector(): Connector {
 				locale,
 				defaultSiteDirectory,
 				studioCliInstalled,
+				studioCliExternallyManaged,
 				agenticFeaturesEnabled,
 				chatNotificationsEnabled,
 				activitySoundPreferences,
@@ -925,6 +955,7 @@ export function createIpcConnector(): Connector {
 				ipcApi.getUserLocale(),
 				ipcApi.getDefaultSiteDirectory(),
 				ipcApi.isStudioCliInstalled(),
+				ipcApi.isStudioCliExternallyManaged(),
 				ipcApi.getAgenticFeaturesEnabled(),
 				ipcApi.getChatNotificationsEnabled(),
 				ipcApi.getActivitySoundPreferences(),
@@ -941,6 +972,7 @@ export function createIpcConnector(): Connector {
 				boolean,
 				boolean,
 				boolean,
+				boolean,
 				unknown,
 				QuitSitesBehavior | undefined,
 				AiResponseLength,
@@ -954,6 +986,7 @@ export function createIpcConnector(): Connector {
 				locale,
 				defaultSiteDirectory,
 				studioCliInstalled,
+				studioCliExternallyManaged,
 				agenticFeaturesEnabled,
 				chatNotificationsEnabled,
 				activitySoundPreferences: resolveActivitySoundPreferences( activitySoundPreferences ),

@@ -1,8 +1,11 @@
+import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { Button } from '@wordpress/ui';
+import { useEffect, useRef } from 'react';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
 import styles from './style.module.css';
+import type { AgenticFeatureReason } from '@/data/queries/use-agentic-features';
 
 /**
  * Sign-in call to action shown on the site overview when the user is signed
@@ -11,12 +14,27 @@ import styles from './style.module.css';
  * shouldn't advertise against.
  */
 export function AgenticSigninBanner() {
-	const { reason } = useAgenticFeatures();
-	const login = useLogin();
+	const { enabled, reason } = useAgenticFeatures();
+	const navigate = useNavigate();
+	const previousReasonRef = useRef< AgenticFeatureReason >( null );
+
+	useEffect( () => {
+		const previous = previousReasonRef.current;
+		previousReasonRef.current = reason;
+		if ( enabled && previous === 'signed-out' ) {
+			void navigate( { to: '/' } );
+		}
+	}, [ enabled, navigate, reason ] );
 
 	if ( reason !== 'signed-out' ) {
 		return null;
 	}
+
+	return <SigninNotice />;
+}
+
+export function SigninNotice() {
+	const login = useLogin();
 
 	return (
 		<section className={ styles.root } aria-label={ __( 'Sign in to Studio' ) }>

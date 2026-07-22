@@ -159,6 +159,70 @@ describe( 'SiteList', () => {
 		expect( runningSiteClassName ).not.toContain( 'siteNameStopped' );
 	} );
 
+	it( 'replaces the status dot with the Xdebug glyph on the Xdebug-enabled site', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'xdebug-site',
+					name: 'Xdebug Site',
+					path: '/Users/example/Studio/xdebug-site',
+					running: true,
+					enableXdebug: true,
+				} ),
+				createSite( {
+					id: 'plain-site',
+					name: 'Plain Site',
+					path: '/Users/example/Studio/plain-site',
+					running: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const xdebugButton = screen.getByRole( 'button', {
+			name: 'Site status: Running. Xdebug enabled. Stop site',
+		} );
+		const xdebugGlyph = xdebugButton.querySelector( 'svg:first-of-type' );
+		const plainButton = screen.getByRole( 'button', {
+			name: 'Site status: Running. Stop site',
+		} );
+
+		expect( xdebugGlyph ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+		expect( xdebugGlyph?.querySelector( 'rect' ) ).not.toBeInTheDocument();
+		expect( plainButton ).not.toHaveAttribute( 'data-xdebug' );
+		expect( plainButton.querySelector( 'svg:first-of-type rect' ) ).toBeInTheDocument();
+
+		fireEvent.click( xdebugButton );
+		expect( stopSite ).toHaveBeenCalledWith( 'xdebug-site' );
+	} );
+
+	it( 'keeps the greyed Xdebug glyph visible while the site is stopped', () => {
+		useSitesMock.mockReturnValue( {
+			data: [
+				createSite( {
+					id: 'xdebug-site',
+					name: 'Xdebug Site',
+					path: '/Users/example/Studio/xdebug-site',
+					running: false,
+					enableXdebug: true,
+				} ),
+			],
+			isLoading: false,
+		} );
+
+		render( <SiteList /> );
+
+		const button = screen.getByRole( 'button', {
+			name: 'Site status: Stopped. Xdebug enabled. Start site',
+		} );
+
+		expect( button ).toHaveAttribute( 'data-state', 'stopped' );
+		expect( button ).toHaveAttribute( 'data-xdebug' );
+		expect( button.querySelector( 'svg:first-of-type' ) ).toHaveAttribute( 'viewBox', '0 0 24 24' );
+	} );
+
 	it( 'opens the site overview from the site action button', () => {
 		render( <SiteList /> );
 

@@ -8,6 +8,10 @@ type TranslatedLink = Partial< Record< SupportedLocale, string > > & { en: strin
  * `apps/ui` actually links to are duplicated here.
  */
 const DOCS_LINKS = {
+	docsCli: {
+		en: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
+		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/cli/',
+	},
 	docsMcp: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/',
 	},
@@ -17,10 +21,6 @@ const DOCS_LINKS = {
 	},
 	docsSslInStudio: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/',
-	},
-	docsCli: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
-		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/cli/',
 	},
 	docsSkills: {
 		en: 'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/',

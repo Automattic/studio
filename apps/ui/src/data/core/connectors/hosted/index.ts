@@ -328,7 +328,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		onAddSiteWithBlueprint() {
 			return () => {};
 		},
-		async importSiteFromBackup(): Promise< SiteDetails > {
+		async importSiteFromBackup(): Promise< void > {
 			throw new UnsupportedError( 'importSiteFromBackup' );
 		},
 
@@ -357,6 +357,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				siteLimit: 10,
 				siteCreationBlocked: false,
 			};
+		},
+		async getStudioAssistantQuota() {
+			return null;
 		},
 		async deleteAllSnapshots() {
 			// No-op: hosted mode does not create WordPress.com preview sites.
@@ -510,6 +513,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				locale: undefined,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 				agenticFeaturesEnabled: true,
 				chatNotificationsEnabled: true,
 				activitySoundPreferences: readActivitySoundPreferences(),

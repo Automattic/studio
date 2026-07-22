@@ -1,4 +1,5 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { createRoute, Link, useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { chevronLeft, Icon } from '@wordpress/icons';
@@ -11,11 +12,9 @@ import {
 	DropBackupIllustration,
 	illustrationHostClass,
 } from '@/components/onboarding-illustrations';
-import { useConnector } from '@/data/core';
 import { useSites } from '@/data/queries/use-sites';
 import { useGridArrowNavigation } from '@/hooks/use-grid-arrow-navigation';
 import { useOffline } from '@/hooks/use-offline';
-import { isValidBackupFile } from '@/lib/backup-files';
 import { setPendingBackup } from '@/lib/pending-backup';
 import { onboardingLayoutRoute } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
@@ -58,30 +57,28 @@ function ConnectSiteCard() {
  */
 function ImportDropCard() {
 	const navigate = useNavigate();
-	const connector = useConnector();
 	const fileRef = useRef< HTMLInputElement >( null );
 	const [ isDragging, setIsDragging ] = useState( false );
 	const [ error, setError ] = useState< string | null >( null );
 
 	const handleFile = useCallback(
-		async ( file: File | undefined ) => {
+		( file: File | undefined ) => {
 			if ( ! file ) {
 				return;
 			}
-			if ( ! isValidBackupFile( file ) ) {
-				setError( __( 'Unsupported file type.' ) );
-				return;
-			}
-			const path = await connector.getFilePath( file );
-			if ( ! path ) {
-				setError( __( 'Unable to read the file. Try clicking the card to browse instead.' ) );
+			if ( ! isSupportedBackupFilename( file.name ) ) {
+				setError(
+					__(
+						'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, .sql, or .xml file.'
+					)
+				);
 				return;
 			}
 			setError( null );
-			setPendingBackup( { file, path } );
+			setPendingBackup( file );
 			void navigate( { to: '/onboarding/import' } );
 		},
-		[ connector, navigate ]
+		[ navigate ]
 	);
 
 	return (
@@ -92,7 +89,7 @@ function ImportDropCard() {
 				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
 				className={ styles.hiddenInput }
 				onChange={ ( event ) => {
-					void handleFile( event.target.files?.[ 0 ] );
+					handleFile( event.target.files?.[ 0 ] );
 					event.target.value = '';
 				} }
 			/>
@@ -108,20 +105,21 @@ function ImportDropCard() {
 				} }
 				onDragLeave={ ( event ) => {
 					event.preventDefault();
+					if ( event.currentTarget.contains( event.relatedTarget as Node | null ) ) {
+						return;
+					}
 					setIsDragging( false );
 				} }
 				onDrop={ ( event ) => {
 					event.preventDefault();
 					setIsDragging( false );
-					void handleFile( event.dataTransfer.files[ 0 ] );
+					handleFile( event.dataTransfer.files[ 0 ] );
 				} }
 			>
 				<DropBackupIllustration />
 				<div className={ styles.cardText }>
 					<h3 className={ styles.cardTitle }>{ __( 'Import from a backup' ) }</h3>
-					<p className={ styles.cardBody }>
-						{ __( 'Drop a file or click to browse (.zip, .tar.gz, .sql, .wpress).' ) }
-					</p>
+					<p className={ styles.cardBody }>{ __( 'Drop a file or click to browse.' ) }</p>
 					{ error && (
 						<span role="alert" className={ styles.cardError }>
 							{ error }

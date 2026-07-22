@@ -10,9 +10,11 @@ import type {
 } from '@studio/common/ai/tool-permissions';
 import type { ActivitySoundPreferences } from '@studio/common/lib/activity-sounds';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteRuntime } from '@studio/common/lib/site-runtime';
+import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
@@ -50,6 +52,7 @@ export type { SyncOption, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
+export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -380,14 +383,13 @@ export interface Connector {
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
 	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 
-	// Imports a backup archive into an already-created site. Extracts the
-	// archive, installs the SQLite integration if missing, then imports the
-	// archive's database + wp-content on top of the site's folder.
-	// `backup.path` comes from `getFilePath`.
+	// Imports a backup into an already-created site and starts the usable site.
+	// `backupPath` comes from `getFilePath` for the current submission.
 	importSiteFromBackup(
 		siteId: string,
-		backup: { path: string; type: string }
-	): Promise< SiteDetails >;
+		backupPath: string,
+		onProgress?: ( event: ImportEventTuple ) => void
+	): Promise< void >;
 
 	// Site checkpoints — content-addressed save points of a site's files +
 	// database, captured and restored by the CLI checkpoint engine. Restore
@@ -400,6 +402,7 @@ export interface Connector {
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
 	getSnapshotUsage(): Promise< SnapshotUsage | null >;
+	getStudioAssistantQuota(): Promise< StudioAssistantQuota | null >;
 	deleteAllSnapshots(): Promise< void >;
 	// Creates a new preview snapshot for the given site, or refreshes the
 	// existing one when `existingHostname` is supplied. Resolves with the
@@ -732,6 +735,7 @@ export interface UserPreferences {
 	locale: string | undefined;
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;
+	studioCliExternallyManaged: boolean;
 	agenticFeaturesEnabled: boolean;
 	chatNotificationsEnabled: boolean;
 	activitySoundPreferences: ActivitySoundPreferences;
@@ -754,7 +758,10 @@ export interface ChatNotification {
 // Subset of UserPreferences that callers can actually mutate. `locale` is
 // typed as `SupportedLocale` on the write side because only locales we ship
 // translations for can be persisted.
-export type WritableUserPreferences = Omit< UserPreferences, 'locale' > & {
+export type WritableUserPreferences = Omit<
+	UserPreferences,
+	'locale' | 'studioCliExternallyManaged'
+> & {
 	locale: SupportedLocale;
 };
 

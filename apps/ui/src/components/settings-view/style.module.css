@@ -1262,6 +1262,66 @@
 	z-index: 1;
 }
 
+.actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.instructionsCounter {
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.instructionsError {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-error);
+}
+
+.cliToggleTrigger {
+	display: inline-flex;
+}
+
+.cliToggleTrigger :global(input:disabled) {
+	pointer-events: none;
+}
+
+.cliTooltip {
+	max-inline-size: 280px;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+.usageDisabled .settingsPanelHeader h2,
+.usageDisabled .settingsPanelHeader p,
+.usageDisabled .usageSectionHeader h2,
+.usageDisabled .previewUsageText,
+.usageDisabled .usageSection p {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+.usageDisabled .progressTrack {
+	background: var(--wpds-color-bg-interactive-neutral-weak-disabled);
+}
+
+.usageDisabled .progressValue {
+	background: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+.unavailableBar {
+	inline-size: 100%;
+	block-size: 6px;
+	border-radius: 999px;
+	background:
+		repeating-linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--wpds-color-fg-interactive-neutral-disabled) 22%, transparent) 0 3px,
+			transparent 3px 8px
+		),
+		var(--wpds-color-bg-interactive-neutral-weak-disabled);
+}
+
 @media (max-width: 640px) {
 	.preferenceRow {
 		align-items: stretch;

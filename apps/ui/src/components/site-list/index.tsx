@@ -23,6 +23,7 @@ import { SegmentedControl } from '@/components/segmented-control';
 import { SidebarButton } from '@/components/sidebar-button';
 import { SiteContextMenu } from '@/components/site-context-menu';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
+import { XdebugIcon } from '@/components/xdebug-icon';
 import { useSiteActivityOverride } from '@/data/dev-lab-site-activity';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -375,7 +376,10 @@ function SiteStatusButton( {
 				? __( 'Stopping' )
 				: __( 'Starting' )
 			: __( 'Stopped' );
-	const tooltipLabel = sprintf( __( 'Site status: %s' ), statusName );
+	const xdebug = Boolean( site.enableXdebug );
+	const tooltipLabel = xdebug
+		? sprintf( __( 'Site status: %s. Xdebug enabled' ), statusName )
+		: sprintf( __( 'Site status: %s' ), statusName );
 	const actionLabel = site.running ? __( 'Stop site' ) : __( 'Start site' );
 	const label = busy ? tooltipLabel : sprintf( __( '%1$s. %2$s' ), tooltipLabel, actionLabel );
 	const handleClick = ( event: MouseEvent< HTMLButtonElement > ) => {
@@ -401,20 +405,27 @@ function SiteStatusButton( {
 						aria-busy={ busy || undefined }
 						aria-disabled={ busy || undefined }
 						data-state={ status }
+						data-xdebug={ xdebug || undefined }
 						onClick={ handleClick }
 					>
-						<svg
-							className={ styles.siteStatusGlyph }
-							viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
-							aria-hidden="true"
-							focusable="false"
-						>
-							{ status === 'stopped' ? (
-								<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
-							) : (
-								<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
-							) }
-						</svg>
+						{ xdebug ? (
+							<XdebugIcon
+								className={ clsx( styles.siteStatusGlyph, styles.siteStatusXdebugGlyph ) }
+							/>
+						) : (
+							<svg
+								className={ styles.siteStatusGlyph }
+								viewBox={ status === 'stopped' ? '0 0 10 10' : '0 0 8 8' }
+								aria-hidden="true"
+								focusable="false"
+							>
+								{ status === 'stopped' ? (
+									<path className={ styles.siteStatusPlayShape } d="M2.5 1 L9 5 L2.5 9 Z" />
+								) : (
+									<rect className={ styles.siteStatusShape } x="0" y="0" width="8" height="8" />
+								) }
+							</svg>
+						) }
 						{ ! busy ? (
 							site.running ? (
 								<span className={ styles.siteStatusActionGlyph } aria-hidden="true">

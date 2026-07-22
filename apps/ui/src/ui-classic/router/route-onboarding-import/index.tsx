@@ -1,64 +1,119 @@
+import { getSuggestedSiteNameFromBackupFilename } from '@studio/common/lib/backup-files';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
+import { getImportStatusMessage } from '@studio/common/lib/import-progress';
 import { createRoute, useNavigate } from '@tanstack/react-router';
 import { speak } from '@wordpress/a11y';
 import { __, sprintf } from '@wordpress/i18n';
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { CreateSiteForm } from '@/components/create-site-form';
+import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
-import { useCreateSite } from '@/data/queries/use-sites';
+import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
 import { useSeededSiteName } from '@/hooks/use-seeded-site-name';
-import { nameFromFilename } from '@/lib/backup-files';
 import { pendingBackupSlot } from '@/lib/pending-backup';
-import { onboardingLayoutRoute } from '../layout-onboarding';
+import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
-import type { CreateSiteFormValues } from '@/components/create-site-form';
+import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
 
-interface PickedBackup {
-	file: File;
-	// Resolved from the connector once at pick-time so the submit handler
-	// can pass an absolute path to the main process import handler.
-	path: string;
+type ImportPhase = 'preparing' | 'creating' | 'importing';
+
+function getImportRecoveryMessage( details: string ): string {
+	if ( /absolute path:/i.test( details ) ) {
+		return __(
+			'This backup contains a file path Studio cannot safely restore. Export the site again with a supported backup tool, then choose the new backup.'
+		);
+	}
+	return __(
+		'The backup may be damaged or use an unsupported format. Studio removed the incomplete site, so you can retry or choose another backup.'
+	);
+}
+
+function createFailure( phase: ImportPhase, details: string ): CreateSiteFormError {
+	if ( phase === 'preparing' ) {
+		return {
+			title: __( 'Studio could not access this backup.' ),
+			message: __(
+				'Check that the file is still available and readable, then try again or choose another backup.'
+			),
+			details,
+		};
+	}
+	if ( phase === 'creating' ) {
+		return {
+			title: __( 'Studio could not create the site.' ),
+			message: __( 'Review the site name and local folder, then try again.' ),
+			details,
+		};
+	}
+	return {
+		title: __( 'Studio could not import this backup.' ),
+		message: getImportRecoveryMessage( details ),
+		details,
+	};
 }
 
 export function OnboardingImportPage() {
 	const navigate = useNavigate();
+	const connector = useConnector();
+	const { setProgress } = useOnboardingProgress();
 	const existingDomainNames = useExistingCustomDomains();
 	const createSite = useCreateSite();
 	const importSite = useImportSite();
+	const deleteSite = useDeleteSite();
 
-	const [ picked, setPicked ] = useState< PickedBackup | null >( null );
-	const [ submitError, setSubmitError ] = useState( '' );
+	const [ selectedFile, setSelectedFile ] = useState< File | null >( null );
+	const [ submitError, setSubmitError ] = useState< CreateSiteFormError | null >( null );
+	const [ hasFailed, setHasFailed ] = useState( false );
+	const [ isWorking, setIsWorking ] = useState( false );
+	const isWorkingRef = useRef( false );
 	const pending = useSyncExternalStore( pendingBackupSlot.subscribe, pendingBackupSlot.peek );
 
-	// Adopt a backup selected from the onboarding home card. A later pick
-	// replaces the current one so repeated drops/clicks always win.
 	useEffect( () => {
 		if ( ! pending ) {
 			return;
 		}
-		setPicked( pending );
+		setSelectedFile( pending );
 		pendingBackupSlot.clear();
 	}, [ pending ] );
 
-	// Direct visits and refreshes have no File object to import, so send the
-	// user back to the picker card on the home screen.
 	useEffect( () => {
-		if ( picked || pending ) {
+		if ( selectedFile || pending ) {
 			return;
 		}
 		void navigate( { to: '/onboarding', replace: true } );
-	}, [ picked, pending, navigate ] );
+	}, [ navigate, pending, selectedFile ] );
 
-	const seededName = useSeededSiteName( picked ? nameFromFilename( picked.file.name ) : null );
+	useEffect( () => () => setProgress( null ), [ setProgress ] );
+
+	const seededName = useSeededSiteName(
+		selectedFile ? getSuggestedSiteNameFromBackupFilename( selectedFile.name ) : null
+	);
 
 	const handleBack = useCallback( () => {
 		void navigate( { to: '/onboarding' } );
 	}, [ navigate ] );
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
-		if ( ! picked ) return;
-		setSubmitError( '' );
+		if ( ! selectedFile || isWorkingRef.current ) {
+			return;
+		}
+		isWorkingRef.current = true;
+		setIsWorking( true );
+		setSubmitError( null );
+		setProgress( __( 'Preparing backup…' ) );
+		let phase: ImportPhase = 'preparing';
+		let createdSiteId: string | null = null;
+		let importCompleted = false;
+
 		try {
+			const backupPath = await connector.getFilePath( selectedFile );
+			if ( ! backupPath ) {
+				throw new Error( __( 'Unable to access the selected backup. Please try again.' ) );
+			}
+
+			phase = 'creating';
+			setProgress( __( 'Creating site…' ) );
 			const site = await createSite.mutateAsync( {
 				name: values.name,
 				path: values.path,
@@ -72,10 +127,21 @@ export function OnboardingImportPage() {
 				adminPassword: values.adminPassword || undefined,
 				adminEmail: values.adminEmail || undefined,
 			} );
+			createdSiteId = site.id;
+
+			phase = 'importing';
+			setProgress( __( 'Importing backup…' ) );
 			await importSite.mutateAsync( {
 				siteId: site.id,
-				backup: { path: picked.path, type: picked.file.type },
+				backupPath,
+				onProgress: ( event ) => {
+					const message = getImportStatusMessage( event );
+					if ( message ) {
+						setProgress( message );
+					}
+				},
 			} );
+			importCompleted = true;
 			speak(
 				sprintf(
 					// translators: %s is the site name.
@@ -85,15 +151,43 @@ export function OnboardingImportPage() {
 			);
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
-			setSubmitError(
-				error instanceof Error ? error.message : __( 'Failed to import site. Please try again.' )
-			);
+			setHasFailed( true );
+			const failureDetails =
+				getErrorMessage( error ) ?? __( 'Failed to import site. Please try again.' );
+			if ( createdSiteId && ! importCompleted ) {
+				setProgress( __( 'Removing incomplete site…' ) );
+				try {
+					await deleteSite.mutateAsync( { id: createdSiteId, deleteFiles: true } );
+				} catch ( rollbackError ) {
+					setSubmitError( {
+						title: __( 'Studio could not finish cleaning up.' ),
+						message: sprintf(
+							__(
+								'The import failed, and Studio could not remove “%s”. Remove the incomplete site before trying this location again.'
+							),
+							values.name
+						),
+						details: sprintf(
+							__( 'Import error: %1$s\n\nCleanup error: %2$s' ),
+							failureDetails,
+							getErrorMessage( rollbackError ) ?? __( 'Unknown deletion error.' )
+						),
+					} );
+					return;
+				}
+			}
+			setSubmitError( createFailure( phase, failureDetails ) );
+		} finally {
+			isWorkingRef.current = false;
+			setIsWorking( false );
+			setProgress( null );
 		}
 	};
 
-	if ( ! picked ) return null;
+	if ( ! selectedFile ) {
+		return null;
+	}
 
-	const isSubmitting = createSite.isPending || importSite.isPending;
 	const initialValues: Partial< CreateSiteFormValues > | undefined = seededName
 		? { name: seededName }
 		: undefined;
@@ -109,9 +203,11 @@ export function OnboardingImportPage() {
 				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
 				onCancel={ handleBack }
-				isSubmitting={ isSubmitting }
-				submitError={ submitError }
-				submitLabel={ __( 'Import site' ) }
+				isSubmitting={ isWorking }
+				submitError={ submitError ?? undefined }
+				submitLabel={ hasFailed ? __( 'Retry import' ) : __( 'Import site' ) }
+				cancelLabel={ hasFailed ? __( 'Choose another backup' ) : undefined }
+				loadingAnnouncement={ __( 'Importing site' ) }
 			/>
 		</div>
 	);

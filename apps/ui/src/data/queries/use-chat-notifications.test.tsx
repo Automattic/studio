@@ -33,6 +33,7 @@ const PREFERENCES: UserPreferences = {
 	locale: undefined,
 	defaultSiteDirectory: '',
 	studioCliInstalled: false,
+	studioCliExternallyManaged: false,
 	agenticFeaturesEnabled: true,
 	chatNotificationsEnabled: true,
 	activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,

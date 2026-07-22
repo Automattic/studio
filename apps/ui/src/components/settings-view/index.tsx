@@ -15,6 +15,11 @@ import {
 } from '@studio/common/lib/activity-sounds';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { getMcpServerConfigJson } from '@studio/common/lib/mcp-config';
+import {
+	clampQuotaFraction,
+	formatQuotaPercentage,
+	formatQuotaResetDate,
+} from '@studio/common/lib/studio-assistant-quota';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { FormToggle } from '@wordpress/components';
@@ -38,6 +43,7 @@ import { WporgLoginDialog } from '@/components/wporg-login-dialog';
 import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useAppGlobals } from '@/data/queries/use-app-globals';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import {
@@ -45,6 +51,7 @@ import {
 	useSnapshotUsage,
 	useSnapshots,
 } from '@/data/queries/use-snapshots';
+import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import {
 	useInstallWordPressSkill,
@@ -66,6 +73,8 @@ import {
 	toPreferencesPatch,
 	type PreferencesFormData,
 } from './preferences';
+import { StudioCliSection } from './studio-cli-section';
+import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
 import type {
 	ColorScheme,
@@ -307,34 +316,6 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 				}
 			/>
 		</PreferenceRow>
-	);
-}
-
-function StudioCliSection( {
-	checked,
-	onChange,
-}: {
-	checked: boolean;
-	onChange: ( checked: boolean ) => void;
-} ) {
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<div className={ styles.cliHeader }>
-				<h2 className={ clsx( styles.preferenceSectionHeading, styles.cliHeading ) }>
-					{ __( 'Studio CLI' ) }
-				</h2>
-				<FormToggle
-					id="studio-cli-toggle"
-					aria-label={ __( 'Studio CLI for terminal' ) }
-					checked={ checked }
-					onChange={ ( event ) => onChange( event.target.checked ) }
-				/>
-			</div>
-			<p className={ styles.cliDescription }>
-				{ __( 'Use the studio command in any terminal to manage sites and run WP-CLI.' ) }{ ' ' }
-				<LearnMoreLink docsLinksKey="docsCli" />
-			</p>
-		</section>
 	);
 }
 
@@ -874,12 +855,7 @@ function PreferencesPanel( {
 			</section>
 			<AccountInformationSection />
 			<WordPressOrgAccountSection />
-			{ showStudioCliToggle ? (
-				<StudioCliSection
-					checked={ data.studioCliInstalled }
-					onChange={ ( studioCliInstalled ) => onChange( { studioCliInstalled } ) }
-				/>
-			) : null }
+			{ showStudioCliToggle ? <StudioCliSection /> : null }
 			<SwitchExperienceSection />
 		</div>
 	);
@@ -894,8 +870,10 @@ function AiSettingsPanel( {
 	showNativePreferences: boolean;
 	onChange: ( update: Partial< PreferencesFormData > ) => void;
 } ) {
+	const connector = useConnector();
 	return (
 		<div className={ styles.preferencesPanel }>
+			{ connector.capabilities.agentInstructions ? <StudioCodePanel /> : null }
 			<AgenticFeaturesSection
 				checked={ data.agenticFeaturesEnabled }
 				onChange={ ( agenticFeaturesEnabled ) => onChange( { agenticFeaturesEnabled } ) }
@@ -927,6 +905,64 @@ function AiSettingsPanel( {
 				/>
 			) : null }
 		</div>
+	);
+}
+
+function AiCreditsSummary() {
+	const locale = useUserLocale();
+	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
+
+	let content;
+	if ( isLoading ) {
+		content = <div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>;
+	} else if ( isError ) {
+		content = (
+			<div className={ styles.previewUsageText }>
+				{ __( 'Studio Code limits are temporarily unavailable.' ) }
+			</div>
+		);
+	} else if ( quota && quota.costCap > 0 ) {
+		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
+		content = (
+			<>
+				<div className={ styles.previewUsageText }>
+					{ sprintf(
+						/* translators: %1$s: percentage of monthly limit used. %2$s: reset date. */
+						__( '%1$s of monthly limit used (resets on %2$s)' ),
+						formatQuotaPercentage( fraction, locale ),
+						formatQuotaResetDate( quota.costResetDate, locale )
+					) }
+				</div>
+				<div className={ styles.progressTrack } aria-hidden="true">
+					<div
+						className={ styles.progressValue }
+						style={ { inlineSize: `${ fraction * 100 }%` } }
+					/>
+				</div>
+			</>
+		);
+	} else {
+		content = (
+			<>
+				<p>
+					{ __(
+						'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
+					) }
+				</p>
+				<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
+					<div className={ styles.aiCreditsMeterValue } />
+				</div>
+			</>
+		);
+	}
+
+	return (
+		<section className={ styles.usageSection }>
+			<div className={ styles.usageSectionHeader }>
+				<h2>{ __( 'AI credits' ) }</h2>
+			</div>
+			{ content }
+		</section>
 	);
 }
 
@@ -1032,20 +1068,7 @@ function UsageSettingsPanel() {
 					<h2>{ __( 'Usage' ) }</h2>
 					<p>{ __( 'Track your preview site usage and Studio Code beta credits.' ) }</p>
 				</div>
-				<section className={ styles.usageSection }>
-					<div className={ styles.usageSectionHeader }>
-						<h2>{ __( 'AI credits' ) }</h2>
-						<span className={ styles.usageBadge }>{ __( 'Unlimited in beta' ) }</span>
-					</div>
-					<p>
-						{ __(
-							'AI credits are free and unlimited while Studio Code is in beta. Build, iterate, and experiment without watching a meter.'
-						) }
-					</p>
-					<div className={ clsx( styles.progressTrack, styles.aiCreditsTrack ) } aria-hidden="true">
-						<div className={ styles.aiCreditsMeterValue } />
-					</div>
-				</section>
+				<AiCreditsSummary />
 				{ user ? (
 					<PreviewSitesSummary userId={ user.id } />
 				) : (

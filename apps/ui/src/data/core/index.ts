@@ -3,6 +3,7 @@ export { queryClient, persistPromise } from './query-client';
 export type {
 	AiModelId,
 	AiSessionSummary,
+	AppGlobals,
 	AppUpdateStatus,
 	AuthUser,
 	AvailableSitePath,
@@ -39,6 +40,7 @@ export type {
 	SkillStatus,
 	Snapshot,
 	SnapshotUsage,
+	StudioAssistantQuota,
 	StudioAgentQuestionData,
 	StudioChatFileAttachment,
 	StudioChatImage,

@@ -226,6 +226,7 @@ describe( 'SiteOverviewView', () => {
 				locale: undefined,
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 				agenticFeaturesEnabled: true,
 				chatNotificationsEnabled: true,
 				activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,

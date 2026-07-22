@@ -37,6 +37,21 @@
 	word-break: break-word;
 }
 
+.xdebugBadge {
+	display: inline-flex;
+	align-items: center;
+	color: var(--studio-color-status-running);
+}
+
+.xdebugBadge_stopped {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.xdebugGlyph {
+	width: 16px;
+	height: 16px;
+}
+
 .rowActions {
 	display: flex;
 	align-items: center;
@@ -281,15 +296,20 @@
 }
 
 .rowActionButton,
+.rowViewButton,
 .environmentActionButton_outline {
 	border-radius: var(--wpds-border-radius-md);
 }
 
+.rowActionButton,
+.rowViewButton {
+	height: 28px;
+	color: var(--wpds-color-fg-interactive-neutral);
+}
+
 .rowActionButton {
 	width: 28px;
-	height: 28px;
 	padding: 0;
-	color: var(--wpds-color-fg-interactive-neutral);
 }
 
 .rowActionButton svg {

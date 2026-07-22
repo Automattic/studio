@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAppGlobals } from '@/data/queries/use-app-globals';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import {
@@ -134,6 +135,7 @@ vi.mock( '@wordpress/ui', () => ( {
 		</label>
 	),
 	Tooltip: {
+		Provider: ( { children }: { children: ReactNode } ) => <>{ children }</>,
 		Root: ( { children }: { children: ReactNode } ) => <>{ children }</>,
 		Trigger: ( { render }: { render: ReactNode } ) => <>{ render }</>,
 		Popup: ( { children }: { children: ReactNode } ) => <div role="tooltip">{ children }</div>,
@@ -197,6 +199,10 @@ vi.mock( '@/data/queries/use-app-globals', () => ( {
 	useAppGlobals: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-assistant-quota', () => ( {
+	useStudioAssistantQuota: vi.fn(),
+} ) );
+
 vi.mock( '@/data/queries/use-auth-user', () => ( {
 	useAuthUser: vi.fn(),
 	useLogin: vi.fn(),
@@ -242,6 +248,7 @@ vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 
 const useConnectorMock = vi.mocked( useConnector );
 const useAppGlobalsMock = vi.mocked( useAppGlobals );
+const useStudioAssistantQuotaMock = vi.mocked( useStudioAssistantQuota );
 const useAuthUserMock = vi.mocked( useAuthUser );
 const useInstalledAppsMock = vi.mocked( useInstalledApps );
 const useLoginMock = vi.mocked( useLogin );
@@ -278,6 +285,7 @@ describe( 'SettingsView', () => {
 		installSkillMutateAsync.mockResolvedValue( undefined );
 
 		useConnectorMock.mockReturnValue( {
+			capabilities: { agentInstructions: false },
 			previewColorScheme: vi.fn(),
 			selectDefaultSiteDirectory,
 			confirmDeleteAllPreviewSites,
@@ -287,6 +295,11 @@ describe( 'SettingsView', () => {
 		} as never );
 		useAppGlobalsMock.mockReturnValue( {
 			data: { isWindowsStore: false, platform: 'darwin' },
+		} as never );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: null,
+			isLoading: false,
+			isError: false,
 		} as never );
 		useOfflineMock.mockReturnValue( false );
 		useAuthUserMock.mockReturnValue( {
@@ -312,6 +325,7 @@ describe( 'SettingsView', () => {
 				locale: 'en',
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 				agenticFeaturesEnabled: true,
 				activitySoundPreferences: DEFAULT_ACTIVITY_SOUND_PREFERENCES,
 			},
@@ -407,10 +421,9 @@ describe( 'SettingsView', () => {
 		expect( screen.getByText( 'AI credits' ) ).toBeInTheDocument();
 		expect(
 			screen.getByText(
-				'AI credits are free and unlimited while Studio Code is in beta. Build, iterate, and experiment without watching a meter.'
+				'AI credits are currently free while Studio Code is in Alpha. Build, iterate, and experiment, but know that credits will eventually have a cost.'
 			)
 		).toBeInTheDocument();
-		expect( screen.getByText( 'Unlimited in beta' ) ).toBeInTheDocument();
 		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeInTheDocument();
 		expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
 		expect( useSnapshotUsageMock ).toHaveBeenCalledWith( 1 );

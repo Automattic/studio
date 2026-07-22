@@ -3,11 +3,12 @@ import { __ } from '@wordpress/i18n';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SITES_QUERY_KEY } from './use-sites';
-import type { SiteDetails } from '@/data/core';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 export interface ImportSiteInput {
 	siteId: string;
-	backup: { path: string; type: string };
+	backupPath: string;
+	onProgress?: ( event: ImportEventTuple ) => void;
 }
 
 /**
@@ -20,10 +21,9 @@ export interface ImportSiteInput {
 export function useImportSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	return useMutation< SiteDetails, Error, ImportSiteInput >( {
-		mutationFn: ( { siteId, backup } ) => connector.importSiteFromBackup( siteId, backup ),
-		// Errors stay inline in the import flow's form, which is still on
-		// screen while the mutation runs.
+	return useMutation< void, Error, ImportSiteInput >( {
+		mutationFn: ( { siteId, backupPath, onProgress } ) =>
+			connector.importSiteFromBackup( siteId, backupPath, onProgress ),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 			toast.success( __( 'Import finished' ) );

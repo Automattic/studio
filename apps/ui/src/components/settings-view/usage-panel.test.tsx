@@ -222,14 +222,24 @@ describe( 'UsagePanel', () => {
 		expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'shows a loading row with a progress bar in both sections', () => {
+	it( 'shows a loading row with an empty progress bar in both sections', () => {
 		useStudioAssistantQuotaMock.mockReturnValue( { data: undefined, isLoading: true } as never );
-		useSnapshotUsageMock.mockReturnValue( { data: undefined, isLoading: true } as never );
+		// Preview usage is still cached from before the delete, so the bar would
+		// otherwise keep its old fill next to a "Loading..." row.
+		useDeleteAllSnapshotsMock.mockReturnValue( {
+			mutate: deleteSnapshotsMutate,
+			isPending: true,
+			error: null,
+		} as never );
 
 		render( <UsagePanel /> );
 
 		expect( screen.getAllByText( 'Loading...' ) ).toHaveLength( 2 );
-		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 2 );
+		const bars = screen.getAllByTestId( 'usage-progress-bar' );
+		expect( bars ).toHaveLength( 2 );
+		for ( const bar of bars ) {
+			expect( bar.firstElementChild ).toHaveStyle( { inlineSize: '0%' } );
+		}
 	} );
 
 	it( 'replaces figures and actions with the offline notice while offline', () => {

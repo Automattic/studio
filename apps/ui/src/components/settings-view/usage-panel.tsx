@@ -113,7 +113,9 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 	const snapshotCreationBlocked = snapshotUsage?.siteCreationBlocked ?? false;
 	const isLoadingPreviewUsage = isLoading || isLoadingSnapshotUsage || deleteAllSnapshots.isPending;
 	const isDisabled = siteCount === 0 || snapshotCreationBlocked || isLoadingPreviewUsage;
-	const fraction = clampQuotaFraction( siteCount, siteLimit );
+	// Empty while loading: a bar still filled from the previous figure would
+	// contradict the "Loading..." row next to it.
+	const fraction = isLoadingPreviewUsage ? 0 : clampQuotaFraction( siteCount, siteLimit );
 	const deletePreviewSitesLabel = deleteAllSnapshots.isPending
 		? __( 'Deleting preview sites...' )
 		: __( 'Delete all preview sites' );

@@ -93,7 +93,7 @@ describe( 'getSiteDropdownSecondary', () => {
 describe( 'getSyncActivityLabel', () => {
 	it( 'formats error labels by direction', () => {
 		expect( getSyncActivityLabel( { kind: 'error', direction: 'push', message: 'Nope' } ) ).toBe(
-			'Publishing to live failed'
+			'Pushing to live failed'
 		);
 		expect( getSyncActivityLabel( { kind: 'error', direction: 'pull', message: 'Nope' } ) ).toBe(
 			'Pulling from live failed'

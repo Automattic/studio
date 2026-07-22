@@ -19,7 +19,6 @@ import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
 import { useI18nLocale } from 'src/stores';
 import { useGetBlueprints } from 'src/stores/wpcom-api';
-import type { BlueprintValidationWarning } from '@studio/common/lib/blueprint-validation';
 
 import './blueprints.css';
 
@@ -50,7 +49,7 @@ interface AddSiteBlueprintProps {
 	isLoading: boolean;
 	selectedBlueprint: string | null;
 	onBlueprintChange: ( blueprintId: string ) => void;
-	onFileBlueprintSelect?: ( blueprint: Blueprint, warnings?: BlueprintValidationWarning[] ) => void;
+	onFileBlueprintSelect?: ( blueprint: Blueprint ) => void;
 }
 
 export function AddSiteBlueprintSelector( {
@@ -189,10 +188,7 @@ export function AddSiteBlueprintSelector( {
 		fileName: string,
 		filePath: string,
 		onCleanup?: () => void
-	): Promise< {
-		blueprint: Blueprint;
-		warnings: BlueprintValidationWarning[] | undefined;
-	} | null > => {
+	): Promise< Blueprint | null > => {
 		const prepared = await prepareBlueprint( blueprintJson, {
 			fallbackTitle: fileName.replace( /\.(json|zip)$/i, '' ),
 			validate: ( candidate ) =>
@@ -204,7 +200,7 @@ export function AddSiteBlueprintSelector( {
 			return null;
 		}
 
-		const blueprint: Blueprint = {
+		return {
 			slug: `file:${ fileName }`,
 			title: prepared.title,
 			excerpt: prepared.excerpt,
@@ -213,8 +209,6 @@ export function AddSiteBlueprintSelector( {
 			blueprint: prepared.blueprint as Blueprint[ 'blueprint' ],
 			filePath,
 		};
-
-		return { blueprint, warnings: prepared.warnings };
 	};
 
 	const handleFileSelect = async ( event: React.ChangeEvent< HTMLInputElement > ) => {
@@ -237,7 +231,7 @@ export function AddSiteBlueprintSelector( {
 					getIpcApi().getPathForFile( file )
 				);
 				if ( result ) {
-					onFileBlueprintSelect( result.blueprint, result.warnings );
+					onFileBlueprintSelect( result );
 				}
 				setUploadedFileName( null );
 			} catch ( error ) {
@@ -269,7 +263,7 @@ export function AddSiteBlueprintSelector( {
 					() => void getIpcApi().cleanupBlueprintTempDir( extracted.tempDir )
 				);
 				if ( result ) {
-					onFileBlueprintSelect( result.blueprint, result.warnings );
+					onFileBlueprintSelect( result );
 				}
 				setUploadedFileName( null );
 			} catch ( error ) {

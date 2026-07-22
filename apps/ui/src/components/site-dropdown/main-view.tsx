@@ -5,6 +5,7 @@ import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
 import * as Menu from '@/components/menu';
+import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
@@ -206,7 +207,16 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			) : null }
 
 			<PopoverRow
-				label={ __( 'Studio' ) }
+				label={
+					site.enableXdebug ? (
+						<>
+							{ __( 'Studio' ) }
+							<XdebugBadge running={ site.running } />
+						</>
+					) : (
+						__( 'Studio' )
+					)
+				}
 				sublabel={
 					canOpenLocalSite
 						? renderUrlLink( {
@@ -245,7 +255,8 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tooltip: __( 'Open preview site in your browser' ),
 								variant: 'minimal',
 								tone: 'neutral',
-								size: 'compact',
+								size: 'small',
+								className: styles.rowViewButton,
 								onClick: () => openExternal( ensureProtocol( previewSnapshot.url ) ),
 								children: __( 'View' ),
 							} ) }
@@ -354,6 +365,27 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 				/>
 			) }
 		</div>
+	);
+}
+
+function XdebugBadge( { running }: { running: boolean } ) {
+	const label = __( 'Xdebug enabled' );
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<span
+						className={ clsx( styles.xdebugBadge, ! running && styles.xdebugBadge_stopped ) }
+						role="img"
+						aria-label={ label }
+					/>
+				}
+			>
+				<XdebugIcon className={ styles.xdebugGlyph } />
+			</Tooltip.Trigger>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
+		</Tooltip.Root>
 	);
 }
 

@@ -68,10 +68,16 @@ const site: SiteDetails = {
 	phpVersion: '8.3',
 };
 
-function renderMainView( activity: SyncActivity | null = null ) {
+function renderMainView( {
+	siteOverrides = {},
+	activity = null,
+}: {
+	siteOverrides?: Partial< SiteDetails >;
+	activity?: SyncActivity | null;
+} = {} ) {
 	return render(
 		<MainView
-			site={ site }
+			site={ { ...site, ...siteOverrides } }
 			activity={ activity }
 			onSetupClick={ vi.fn() }
 			onDisconnectClick={ vi.fn() }
@@ -90,6 +96,17 @@ describe( 'MainView', () => {
 			date: 1,
 		} );
 		connectedSites.splice( 0, connectedSites.length );
+	} );
+
+	it( 'shows an Xdebug badge on the Studio row only when Xdebug is enabled', () => {
+		const { unmount } = renderMainView( { siteOverrides: { enableXdebug: true } } );
+
+		expect( screen.getByRole( 'img', { name: 'Xdebug enabled' } ) ).toBeInTheDocument();
+
+		unmount();
+		renderMainView();
+
+		expect( screen.queryByRole( 'img', { name: 'Xdebug enabled' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'handles preview URL copy failures', async () => {
@@ -111,10 +128,12 @@ describe( 'MainView', () => {
 
 	it( 'shows detailed pull progress in the open site status', () => {
 		renderMainView( {
-			kind: 'pending',
-			direction: 'pull',
-			message: 'Creating remote backup… (24%)',
-			progress: 24,
+			activity: {
+				kind: 'pending',
+				direction: 'pull',
+				message: 'Creating remote backup… (24%)',
+				progress: 24,
+			},
 		} );
 
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Pulling from live…' );

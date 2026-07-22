@@ -15,6 +15,16 @@ import styles from './style.module.css';
 
 const DEFAULT_PREVIEW_SITE_LIMIT = 10;
 
+function getDeletePreviewSitesLabel( isOffline: boolean, isDeleting: boolean ): string {
+	if ( isOffline ) {
+		return __( 'Deleting preview sites requires an internet connection.' );
+	}
+	if ( isDeleting ) {
+		return __( 'Deleting preview sites...' );
+	}
+	return __( 'Delete all preview sites' );
+}
+
 function PreviewSitesSummary( { userId }: { userId: number } ) {
 	const connector = useConnector();
 	const isOffline = useOffline();
@@ -28,11 +38,10 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 	const isDisabled =
 		siteCount === 0 || snapshotCreationBlocked || isLoadingPreviewUsage || isOffline;
 	const progress = Math.min( siteCount / Math.max( siteLimit, 1 ), 1 ) * 100;
-	const deletePreviewSitesLabel = isOffline
-		? __( 'Deleting preview sites requires an internet connection.' )
-		: deleteAllSnapshots.isPending
-		? __( 'Deleting preview sites...' )
-		: __( 'Delete all preview sites' );
+	const deletePreviewSitesLabel = getDeletePreviewSitesLabel(
+		isOffline,
+		deleteAllSnapshots.isPending
+	);
 
 	const handleDelete = async () => {
 		if ( isDisabled ) {

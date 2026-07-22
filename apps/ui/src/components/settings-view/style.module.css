@@ -651,11 +651,13 @@
 	inline-size: 100%;
 	block-size: 6px;
 	border-radius: 999px;
-	background: repeating-linear-gradient(
-		135deg,
-		var(--wpds-color-fg-interactive-neutral-disabled) 0 5px,
-		var(--wpds-color-bg-interactive-neutral-weak-disabled) 5px 10px
-	);
+	background:
+		repeating-linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--wpds-color-fg-interactive-neutral-disabled) 22%, transparent) 0 3px,
+			transparent 3px 8px
+		),
+		var(--wpds-color-bg-interactive-neutral-weak-disabled);
 }
 
 .usageSection {

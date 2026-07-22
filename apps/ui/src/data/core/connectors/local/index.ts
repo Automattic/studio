@@ -28,6 +28,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 // The in-app dark/light/system choice, persisted in the browser (there's no
 // Electron `nativeTheme` to mirror it) so it sticks across reloads.
@@ -59,12 +60,15 @@ type SnapshotSseOutput =
 	| { kind: 'success'; operationId: string }
 	| { kind: 'output' | 'error'; operationId: string };
 
+type ImportSseOutput = { siteId: string; event: ImportEventTuple };
+
 // Envelope used by the backend's `/events` SSE stream so a single connection
-// can carry agent-run events, session-placement updates, and snapshot progress.
+// can carry every live update consumed by the browser UI.
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
+	| { channel: 'import'; payload: ImportSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
 
 /**
@@ -87,6 +91,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
+	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
@@ -192,8 +197,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 	return {
 		async init() {
-			// One SSE connection carries both agent and placement events; the
-			// browser's EventSource reconnects automatically.
+			// The browser's EventSource reconnects automatically.
 			eventSource?.close();
 			eventSource = new EventSource( `${ base }/events` );
 			eventSource.onmessage = ( message ) => {
@@ -209,6 +213,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'snapshot' ) {
 					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'import' ) {
+					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
 					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				}
@@ -454,11 +460,21 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
-			return api< SiteDetails >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
-				method: 'POST',
-				body: JSON.stringify( { path: backup.path, type: backup.type } ),
-			} );
+		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
+			const listener = onProgress
+				? ( output: ImportSseOutput ) => {
+						if ( output.siteId === siteId ) onProgress( output.event );
+				  }
+				: undefined;
+			if ( listener ) importListeners.add( listener );
+			try {
+				await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
+					method: 'POST',
+					body: JSON.stringify( { path: backupPath } ),
+				} );
+			} finally {
+				if ( listener ) importListeners.delete( listener );
+			}
 		},
 
 		// Preview snapshots + WordPress.com sync — backed by the server's snapshot

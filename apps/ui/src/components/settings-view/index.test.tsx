@@ -5,6 +5,7 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
+import { SettingsCloseContext } from '@/hooks/use-settings-close';
 import { SettingsView, isSettingsTab } from './index';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
@@ -30,6 +31,9 @@ vi.mock( '@wordpress/ui', () => ( {
 		void size;
 		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
 	},
+	IconButton: ( { label, onClick }: { label: string; onClick?: () => void } ) => (
+		<button type="button" aria-label={ label } onClick={ onClick } />
+	),
 	SelectControl: ( {
 		items = [],
 		label,
@@ -111,10 +115,6 @@ vi.mock( '@/data/queries/use-installed-apps', () => ( {
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useSaveUserPreferences: vi.fn(),
 	useUserPreferences: vi.fn(),
-} ) );
-
-vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
-	useSidebarCollapsed: () => false,
 } ) );
 
 // The mocked Tabs render every panel unconditionally; the usage panel has its
@@ -294,5 +294,21 @@ describe( 'SettingsView', () => {
 		expect(
 			screen.getByText( 'An error occurred while saving settings. Please try again.' )
 		).toBeInTheDocument();
+	} );
+
+	it( 'shows a close button only inside the settings overlay', () => {
+		const onClose = vi.fn();
+		const { rerender } = render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Close settings' } ) ).not.toBeInTheDocument();
+
+		rerender(
+			<SettingsCloseContext.Provider value={ onClose }>
+				<SettingsView activeTab="preferences" onTabChange={ vi.fn() } />
+			</SettingsCloseContext.Provider>
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
+
+		expect( onClose ).toHaveBeenCalled();
 	} );
 } );

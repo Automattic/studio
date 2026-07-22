@@ -2,8 +2,8 @@ import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
-import { file, Icon } from '@wordpress/icons';
-import { SelectControl } from '@wordpress/ui';
+import { close, file, Icon } from '@wordpress/icons';
+import { IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import * as Tabs from '@/components/tabs';
@@ -11,7 +11,7 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useSettingsClose } from '@/hooks/use-settings-close';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AccountSection } from './account-section';
 import { AiPanel } from './ai-panel';
@@ -96,19 +96,16 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
+	// Settings renders fullscreen, so the sidebar (and its floating toggle) is
+	// covered — only the macOS traffic lights still need clearing.
 	const connector = useConnector();
-	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace();
-	const toggleSpacerClass = sidebarCollapsed
-		? reserveTrafficLightSpace
-			? styles.toggleSpacer
-			: styles.toggleSpacerFlush
-		: null;
+	const onClose = useSettingsClose();
 	return (
 		<div className={ styles.header }>
-			{ toggleSpacerClass ? (
+			{ reserveTrafficLightSpace ? (
 				<div className={ styles.headerStart }>
-					<span className={ toggleSpacerClass } aria-hidden="true" />
+					<span className={ styles.toggleSpacer } aria-hidden="true" />
 				</div>
 			) : null }
 			<div className={ styles.headerTabs }>
@@ -123,6 +120,18 @@ function SettingsHeader() {
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
+			{ onClose ? (
+				<div className={ styles.headerEnd }>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ close }
+						label={ __( 'Close settings' ) }
+						onClick={ onClose }
+					/>
+				</div>
+			) : null }
 		</div>
 	);
 }

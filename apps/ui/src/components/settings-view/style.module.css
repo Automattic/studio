@@ -93,14 +93,12 @@
 	-webkit-app-region: no-drag;
 }
 
-/* No traffic lights to clear (non-macOS, the browser, or macOS fullscreen): a
-   minimal spacer so the toggle still clears the header's drag region. */
-.toggleSpacerFlush {
-	display: block;
-	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-xl) + 24px);
-	align-self: stretch;
-	-webkit-app-region: no-drag;
+.headerEnd {
+	grid-column: 3;
+	display: flex;
+	align-items: center;
+	justify-self: end;
+	padding-inline-end: var(--wpds-dimension-padding-lg);
 }
 
 .scroll {

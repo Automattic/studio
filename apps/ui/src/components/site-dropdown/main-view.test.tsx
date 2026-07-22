@@ -67,10 +67,10 @@ const site: SiteDetails = {
 	phpVersion: '8.3',
 };
 
-function renderMainView() {
+function renderMainView( siteOverrides: Partial< SiteDetails > = {} ) {
 	return render(
 		<MainView
-			site={ site }
+			site={ { ...site, ...siteOverrides } }
 			activity={ null }
 			onSetupClick={ vi.fn() }
 			onDisconnectClick={ vi.fn() }
@@ -89,6 +89,17 @@ describe( 'MainView', () => {
 			date: 1,
 		} );
 		connectedSites.splice( 0, connectedSites.length );
+	} );
+
+	it( 'shows an Xdebug badge on the Studio row only when Xdebug is enabled', () => {
+		const { unmount } = renderMainView( { enableXdebug: true } );
+
+		expect( screen.getByRole( 'img', { name: 'Xdebug enabled' } ) ).toBeInTheDocument();
+
+		unmount();
+		renderMainView();
+
+		expect( screen.queryByRole( 'img', { name: 'Xdebug enabled' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'handles preview URL copy failures', async () => {

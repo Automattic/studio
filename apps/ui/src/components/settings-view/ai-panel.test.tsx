@@ -25,14 +25,18 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+vi.mock( './studio-code-panel', () => ( {
+	StudioCodePanel: () => <div data-testid="studio-code-panel" />,
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 
 describe( 'AiPanel', () => {
 	const disableAgenticUi = vi.fn( () => Promise.resolve() );
 
-	function mockConnector( switchToClassicUi: boolean ) {
+	function mockConnector( switchToClassicUi: boolean, agentInstructions = true ) {
 		useConnectorMock.mockReturnValue( {
-			capabilities: { switchToClassicUi },
+			capabilities: { switchToClassicUi, agentInstructions },
 			disableAgenticUi,
 		} as never );
 	}
@@ -61,5 +65,20 @@ describe( 'AiPanel', () => {
 
 		expect( screen.queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
 		expect( disableAgenticUi ).not.toHaveBeenCalled();
+	} );
+
+	it( 'shows the global instructions editor alongside the agentic features toggle', () => {
+		mockConnector( true );
+		render( <AiPanel /> );
+
+		expect( screen.getByRole( 'checkbox', { name: 'Agentic features' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'studio-code-panel' ) ).toBeInTheDocument();
+	} );
+
+	it( 'hides the global instructions editor when the host cannot reach the instructions file', () => {
+		mockConnector( true, false );
+		render( <AiPanel /> );
+
+		expect( screen.queryByTestId( 'studio-code-panel' ) ).not.toBeInTheDocument();
 	} );
 } );

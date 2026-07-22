@@ -19,11 +19,11 @@ import { KeyboardPanel } from './keyboard-panel';
 import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SkillsPanel } from './skills-panel';
-import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
 import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
+	Connector,
 	InstalledApps,
 	QuitSitesBehavior,
 	SupportedEditor,
@@ -32,7 +32,7 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-const SETTINGS_TABS = [ 'preferences', 'ai', 'keyboard', 'skills', 'mcp', 'studio-code' ] as const;
+const SETTINGS_TABS = [ 'preferences', 'ai', 'keyboard', 'skills', 'mcp' ] as const;
 
 type TabId = ( typeof SETTINGS_TABS )[ number ];
 
@@ -41,6 +41,12 @@ export function isSettingsTab( value: string ): value is TabId {
 }
 
 export type SettingsTabId = TabId;
+
+// The AI tab holds the agentic-features toggle and the agent's global
+// instructions; hosts that offer neither (the hosted browser) don't get the tab.
+function hasAiSettings( capabilities: Connector[ 'capabilities' ] ): boolean {
+	return capabilities.switchToClassicUi || capabilities.agentInstructions;
+}
 
 // No "unset" option: the main process resolves a fallback for never-chosen
 // editor/terminal prefs (matching the legacy UI), so an explicit clear can't
@@ -106,13 +112,12 @@ function SettingsHeader() {
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
-					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
+					{ hasAiSettings( connector.capabilities ) && (
+						<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
+					) }
 					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
-					{ connector.capabilities.agentInstructions && (
-						<Tabs.Tab tabId="studio-code">{ __( 'Studio Code' ) }</Tabs.Tab>
-					) }
 				</Tabs.List>
 			</div>
 		</div>
@@ -395,9 +400,11 @@ export function SettingsView( {
 								onChange={ handleChange }
 							/>
 						</Tabs.Panel>
-						<Tabs.Panel tabId="ai">
-							<AiPanel />
-						</Tabs.Panel>
+						{ hasAiSettings( connector.capabilities ) && (
+							<Tabs.Panel tabId="ai">
+								<AiPanel />
+							</Tabs.Panel>
+						) }
 						<Tabs.Panel tabId="keyboard">
 							<KeyboardPanel />
 						</Tabs.Panel>
@@ -407,11 +414,6 @@ export function SettingsView( {
 						<Tabs.Panel tabId="mcp">
 							<McpPanel />
 						</Tabs.Panel>
-						{ connector.capabilities.agentInstructions && (
-							<Tabs.Panel tabId="studio-code">
-								<StudioCodePanel />
-							</Tabs.Panel>
-						) }
 					</div>
 				</div>
 			</Tabs.Root>

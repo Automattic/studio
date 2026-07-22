@@ -8,6 +8,7 @@ import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
+	AppGlobals,
 	AuthUser,
 	ColorScheme,
 	Connector,
@@ -618,6 +619,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				quitSitesBehavior,
 				locale: undefined,
 				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			};
 		},
 		async setUserPreferences( partial ) {
@@ -650,6 +653,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// detection, server-side) so the preferences picker offers only what's there.
 		async getInstalledApps(): Promise< InstalledApps > {
 			return api< InstalledApps >( '/installed-apps' );
+		},
+
+		async getAppGlobals(): Promise< AppGlobals > {
+			return { platform: 'browser', isWindowsStore: false };
 		},
 
 		async getAgentInstructions(): Promise< string > {

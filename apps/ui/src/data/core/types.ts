@@ -122,6 +122,10 @@ export interface ConnectorCapabilities {
 	// render local screenshot artifacts inline). Only the desktop IPC connector
 	// supports it; the browser connectors reject local file reads.
 	readLocalMedia: boolean;
+	// The host can switch this window back to the classic Studio UI
+	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
+	// in a browser there is nothing to switch to.
+	switchToClassicUi: boolean;
 }
 
 export interface Connector {

@@ -3,7 +3,7 @@ import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/use
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
 import { file, Icon } from '@wordpress/icons';
-import { Button, SelectControl } from '@wordpress/ui';
+import { SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import * as Tabs from '@/components/tabs';
@@ -14,6 +14,7 @@ import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-u
 import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AccountSection } from './account-section';
+import { AiPanel } from './ai-panel';
 import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SkillsPanel } from './skills-panel';
@@ -29,10 +30,10 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-type TabId = 'preferences' | 'skills' | 'mcp';
+type TabId = 'preferences' | 'ai' | 'skills' | 'mcp';
 
 export function isSettingsTab( value: string ): value is TabId {
-	return value === 'preferences' || value === 'skills' || value === 'mcp';
+	return value === 'preferences' || value === 'ai' || value === 'skills' || value === 'mcp';
 }
 
 export type SettingsTabId = TabId;
@@ -100,6 +101,7 @@ function SettingsHeader() {
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
 				</Tabs.List>
@@ -220,27 +222,6 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 	);
 }
 
-function StudioExperienceSection() {
-	const connector = useConnector();
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<PreferenceRow
-				title={ __( 'Studio experience' ) }
-				description={ __( 'You are using the new Studio experience.' ) }
-			>
-				<Button
-					type="button"
-					variant="outline"
-					tone="neutral"
-					onClick={ () => void connector.disableAgenticUi() }
-				>
-					{ __( 'Switch to classic' ) }
-				</Button>
-			</PreferenceRow>
-		</section>
-	);
-}
-
 function PreferencesPanel( {
 	data,
 	installedApps,
@@ -305,7 +286,6 @@ function PreferencesPanel( {
 				</PreferenceRow>
 			</section>
 			<AccountSection />
-			<StudioExperienceSection />
 		</div>
 	);
 }
@@ -405,6 +385,9 @@ export function SettingsView( {
 								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
 								onChange={ handleChange }
 							/>
+						</Tabs.Panel>
+						<Tabs.Panel tabId="ai">
+							<AiPanel />
 						</Tabs.Panel>
 						<Tabs.Panel tabId="skills">
 							<SkillsPanel />

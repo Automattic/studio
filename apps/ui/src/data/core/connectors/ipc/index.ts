@@ -169,6 +169,7 @@ export function createIpcConnector(): Connector {
 			openInOS: true,
 			annotatePreview: true,
 			readLocalMedia: true,
+			switchToClassicUi: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process

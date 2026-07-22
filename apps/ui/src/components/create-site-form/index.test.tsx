@@ -107,6 +107,7 @@ describe( 'CreateSiteForm', () => {
 				openInOS: false,
 				annotatePreview: false,
 				readLocalMedia: false,
+				switchToClassicUi: false,
 			},
 		} );
 		useSitesMock.mockReturnValue( { data: [] } );
@@ -377,6 +378,7 @@ describe( 'CreateSiteForm', () => {
 				openInOS: false,
 				annotatePreview: false,
 				readLocalMedia: false,
+				switchToClassicUi: false,
 			},
 		} );
 		usePathValidatorMock.mockReturnValue( {

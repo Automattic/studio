@@ -74,6 +74,10 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+vi.mock( './ai-panel', () => ( {
+	AiPanel: () => <div data-testid="ai-panel" />,
+} ) );
+
 vi.mock( './skills-panel', () => ( {
 	SkillsPanel: () => null,
 } ) );
@@ -122,7 +126,6 @@ const removeClientMock = vi.mocked( persister.removeClient );
 describe( 'SettingsView', () => {
 	const mutate = vi.fn();
 	const reload = vi.fn();
-	const disableAgenticUi = vi.fn( () => Promise.resolve() );
 	const selectDefaultSiteDirectory = vi.fn( () => Promise.resolve< string | null >( null ) );
 
 	beforeEach( () => {
@@ -134,7 +137,7 @@ describe( 'SettingsView', () => {
 			configurable: true,
 		} );
 
-		useConnectorMock.mockReturnValue( { disableAgenticUi, selectDefaultSiteDirectory } as never );
+		useConnectorMock.mockReturnValue( { selectDefaultSiteDirectory } as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },
 		} as never );
@@ -200,13 +203,11 @@ describe( 'SettingsView', () => {
 		expect( mutate ).toHaveBeenCalledWith( { quitSitesBehavior: 'stop' }, expect.any( Object ) );
 	} );
 
-	it( 'switches back to the classic UI through the connector', () => {
-		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+	it( 'renders the AI tab with its panel', () => {
+		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Switch to classic' } ) );
-
-		expect( disableAgenticUi ).toHaveBeenCalled();
-		expect( mutate ).not.toHaveBeenCalled();
+		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
 	} );
 
 	it( 'saves the default site directory as soon as one is picked', async () => {

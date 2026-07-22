@@ -17,6 +17,7 @@ Run one named test with `npm run eval -- --filter-pattern "preview sites"` (rege
 ## Tests
 
 - **identity** — Agent identifies itself correctly (verified by an LLM judge).
+- **global-instructions** — Agent follows the user's global instructions (`~/.studio/knowledge/instructions.md`). Seeds the file with a sentinel-token rule and asserts the reply carries the token; the file's prior content is restored after the turn.
 - **site-creation** — Agent calls `site_create` and it succeeds.
 - **screenshot-all-timing** — Agent creates a minimal site and visually verifies the homepage on desktop and mobile. Asserts the agent uses one `take_screenshot` call with `viewport: "all"`, returns valid desktop/mobile PNG payloads, and keeps the screenshot tool under 15s.
 - **single-page-build-turn-cadence** — Agent builds a simple one-page site. Asserts (a) the default flow scaffolds a fresh blank theme (`scaffold_theme` without `parentTheme`, successfully), (b) every individual turn stays under 60s (wall-clock between successive assistant messages) and (c) no `wp_cli` call uses `--post_content-file=` (which silently fails inside PHP-WASM).
@@ -31,6 +32,6 @@ Tests live in `promptfoo.config.yaml`. The runner returns raw JSON (`toolCalls`,
 
 ### Seeding fixtures
 
-Set a `seed` var on a test to pre-populate config files before the agent turn — useful for flows that depend on connected remote sites or preview sites without making a real WordPress.com connection or preview. The seed accepts `localSite` (written to `cli.json`), `connectedWpcomSites` (written to `shared.json`, requires `studio auth login`), and `snapshots` (written to `cli.json`). Everything seeded is removed automatically after the turn so reruns start clean.
+Set a `seed` var on a test to pre-populate config files before the agent turn — useful for flows that depend on connected remote sites or preview sites without making a real WordPress.com connection or preview. The seed accepts `localSite` (written to `cli.json`), `connectedWpcomSites` (written to `shared.json`, requires `studio auth login`), `snapshots` (written to `cli.json`), and `globalInstructions` (written to `~/.studio/knowledge/instructions.md`; the file's prior content — or absence — is restored after the turn). Everything seeded is removed automatically after the turn so reruns start clean.
 
 The grader (`grader-provider.mjs`) handles `llm-rubric` assertions via the WP.com AI proxy. No extra API key needed if you're logged into Studio.

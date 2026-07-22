@@ -223,6 +223,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			openInOS: true,
 			annotatePreview: false,
 			readLocalMedia: false,
+			agentInstructions: true,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -641,6 +642,17 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		async getAppGlobals(): Promise< AppGlobals > {
 			return { platform: 'browser', isWindowsStore: false };
+		},
+
+		async getAgentInstructions(): Promise< string > {
+			const { content } = await api< { content: string } >( '/agent-instructions' );
+			return content;
+		},
+		async saveAgentInstructions( content: string ): Promise< void > {
+			await api< void >( '/agent-instructions', {
+				method: 'POST',
+				body: JSON.stringify( { content } ),
+			} );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on

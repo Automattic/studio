@@ -127,6 +127,24 @@
 	margin: 0 auto;
 }
 
+.actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.instructionsCounter {
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.instructionsError {
+	margin: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-error);
+}
+
 .preferenceSectionGroup {
 	box-sizing: border-box;
 	display: flex;

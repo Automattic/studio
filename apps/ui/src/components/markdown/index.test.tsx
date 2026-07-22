@@ -3,7 +3,9 @@ import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Markdown } from '.';
 
-const { copyText } = vi.hoisted( () => ( { copyText: vi.fn() } ) );
+const { copyText } = vi.hoisted( () => ( {
+	copyText: vi.fn( () => Promise.resolve() ),
+} ) );
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: () => ( {

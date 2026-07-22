@@ -22,6 +22,7 @@ import {
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
+import { resetSqliteJournalModeToRollback } from 'cli/lib/import-export/import/reset-sqlite-journal-mode';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { untildify } from 'cli/lib/utils';
@@ -305,6 +306,12 @@ export async function runCommand(
 			handleImportEvents( importer );
 		}
 		const importResult = await importer.import( site );
+
+		// The import leaves the SQLite database in WAL journal mode, which
+		// Playground cannot reopen through PHP-WASM on Windows. Convert it back
+		// to rollback mode before the server (re)starts.
+		await resetSqliteJournalModeToRollback( site.path );
+
 		const importedPhpVersion = importResult.meta?.phpVersion;
 		if ( importedPhpVersion && importedPhpVersion !== site.phpVersion ) {
 			await updateSitePhpVersion( site.id, importedPhpVersion );

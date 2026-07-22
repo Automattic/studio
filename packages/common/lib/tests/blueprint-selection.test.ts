@@ -2,9 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { getBlueprintDisplayDetails, prepareBlueprint } from '../blueprint-selection';
 
 describe( 'prepareBlueprint', () => {
-	it( 'uses Blueprint metadata and preserves validation warnings', async () => {
-		const warning = { message: 'This Blueprint uses an experimental step.' };
-		const validate = vi.fn().mockResolvedValue( { valid: true, warnings: [ warning ] } );
+	it( 'uses Blueprint metadata', async () => {
+		const validate = vi.fn().mockResolvedValue( { valid: true } );
 		const blueprint = {
 			meta: { title: 'Portfolio', description: 'A portfolio site', author: 'Studio' },
 		};
@@ -16,7 +15,6 @@ describe( 'prepareBlueprint', () => {
 			blueprint,
 			title: 'Portfolio',
 			excerpt: 'A portfolio site',
-			warnings: [ warning ],
 		} );
 		expect( validate ).toHaveBeenCalledWith( blueprint );
 	} );

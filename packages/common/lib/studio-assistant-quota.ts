@@ -16,3 +16,22 @@ export const studioAssistantQuotaSchema = z
 	} ) );
 
 export type StudioAssistantQuota = z.infer< typeof studioAssistantQuotaSchema >;
+
+export function clampQuotaFraction( value: number, maxValue: number ): number {
+	return maxValue > 0 ? Math.max( 0, Math.min( 1, value / maxValue ) ) : 0;
+}
+
+export function formatQuotaPercentage( fraction: number, locale?: string ): string {
+	return new Intl.NumberFormat( locale, {
+		style: 'percent',
+		maximumFractionDigits: 2,
+	} ).format( fraction );
+}
+
+export function formatQuotaResetDate( date: string, locale?: string ): string {
+	return new Intl.DateTimeFormat( locale, {
+		day: 'numeric',
+		month: 'long',
+		year: 'numeric',
+	} ).format( new Date( date ) );
+}

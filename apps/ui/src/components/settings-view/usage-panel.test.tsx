@@ -233,6 +233,32 @@ describe( 'UsagePanel', () => {
 		expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
 	} );
 
+	it( 'warns once at the top and keeps showing cached figures while offline', () => {
+		useOfflineMock.mockReturnValue( true );
+		useStudioAssistantQuotaMock.mockReturnValue( {
+			data: { costUsage: 25, costCap: 100, costResetDate: '2026-08-01T12:00:00' },
+			isLoading: false,
+		} as never );
+
+		render( <UsagePanel /> );
+
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( "You're offline" );
+		expect(
+			screen.getByText( '25% of monthly limit used (resets on August 1, 2026)' )
+		).toBeVisible();
+		expect( screen.getByText( '2 of 10 active preview sites' ) ).toBeVisible();
+	} );
+
+	it( 'reports quota as unavailable when offline with nothing cached', () => {
+		useOfflineMock.mockReturnValue( true );
+
+		render( <UsagePanel /> );
+
+		expect(
+			screen.getByText( 'Studio Code limits are temporarily unavailable.' )
+		).toBeInTheDocument();
+	} );
+
 	it( 'surfaces a deletion error inline', () => {
 		useDeleteAllSnapshotsMock.mockReturnValue( {
 			mutate: deleteSnapshotsMutate,

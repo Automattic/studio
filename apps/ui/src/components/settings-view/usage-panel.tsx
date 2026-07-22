@@ -1,3 +1,8 @@
+import {
+	clampQuotaFraction,
+	formatQuotaPercentage,
+	formatQuotaResetDate,
+} from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { moreHorizontal } from '@wordpress/icons';
 import { Button, IconButton } from '@wordpress/ui';
@@ -16,25 +21,6 @@ import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 
 const DEFAULT_PREVIEW_SITE_LIMIT = 10;
-
-function clampFraction( value: number, maxValue: number ) {
-	return maxValue > 0 ? Math.max( 0, Math.min( 1, value / maxValue ) ) : 0;
-}
-
-function formatPercentage( fraction: number, locale?: string ) {
-	return new Intl.NumberFormat( locale, {
-		style: 'percent',
-		maximumFractionDigits: 2,
-	} ).format( fraction );
-}
-
-function formatResetDate( date: string, locale?: string ) {
-	return new Intl.DateTimeFormat( locale, {
-		day: 'numeric',
-		month: 'long',
-		year: 'numeric',
-	} ).format( new Date( date ) );
-}
 
 function getDeletePreviewSitesLabel( isOffline: boolean, isDeleting: boolean ): string {
 	if ( isOffline ) {
@@ -60,26 +46,26 @@ function AiCreditsSummary() {
 	const { data: quota, isLoading, isError } = useStudioAssistantQuota();
 
 	let content;
-	if ( isOffline ) {
-		content = <div className={ styles.previewUsageText }>{ __( "You're currently offline" ) }</div>;
-	} else if ( isLoading ) {
+	if ( isLoading ) {
 		content = <div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>;
-	} else if ( isError ) {
+	} else if ( isError || ( isOffline && ! quota ) ) {
+		// Offline without a cached quota reads the same as a failed fetch: we
+		// have nothing to show, and the banner explains why.
 		content = (
 			<div className={ styles.previewUsageText }>
 				{ __( 'Studio Code limits are temporarily unavailable.' ) }
 			</div>
 		);
 	} else if ( quota && quota.costCap > 0 ) {
-		const fraction = clampFraction( quota.costUsage, quota.costCap );
+		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
 		content = (
 			<>
 				<div className={ styles.previewUsageText }>
 					{ sprintf(
 						/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
 						__( '%1$s of monthly limit used (resets on %2$s)' ),
-						formatPercentage( fraction, locale ),
-						formatResetDate( quota.costResetDate, locale )
+						formatQuotaPercentage( fraction, locale ),
+						formatQuotaResetDate( quota.costResetDate, locale )
 					) }
 				</div>
 				<UsageProgressBar fraction={ fraction } />
@@ -122,7 +108,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 	const isLoadingPreviewUsage = isLoading || isLoadingSnapshotUsage || deleteAllSnapshots.isPending;
 	const isDisabled =
 		siteCount === 0 || snapshotCreationBlocked || isLoadingPreviewUsage || isOffline;
-	const fraction = clampFraction( siteCount, siteLimit );
+	const fraction = clampQuotaFraction( siteCount, siteLimit );
 	const deletePreviewSitesLabel = getDeletePreviewSitesLabel(
 		isOffline,
 		deleteAllSnapshots.isPending
@@ -197,17 +183,32 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 	);
 }
 
+function OfflineNotice() {
+	return (
+		<section className={ styles.offlineNotice } role="status">
+			<h2>{ __( "You're offline" ) }</h2>
+			<p>
+				{ __(
+					'Usage figures may be out of date, and preview site actions are unavailable until you reconnect.'
+				) }
+			</p>
+		</section>
+	);
+}
+
 export function UsagePanel() {
 	const { data: user, isLoading } = useAuthUser();
 	const login = useLogin();
+	const isOffline = useOffline();
 
 	return (
 		<div className={ styles.usagePanel }>
-			<section className={ styles.settingsPanelSection }>
+			<section className={ clsx( styles.settingsPanelSection, isOffline && styles.offlineDimmed ) }>
 				<div className={ styles.settingsPanelHeader }>
 					<h2>{ __( 'Usage' ) }</h2>
 					<p>{ __( 'Track your preview site usage and Studio Code AI credits.' ) }</p>
 				</div>
+				{ isOffline ? <OfflineNotice /> : null }
 				<AiCreditsSummary />
 				{ user ? (
 					<PreviewSitesSummary userId={ user.id } />

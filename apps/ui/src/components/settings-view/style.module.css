@@ -628,6 +628,35 @@
 }
 
 
+/* Matches offline-banner/style.module.css so the two read as one component;
+   that one can't be reused here because it navigates away on reconnect. */
+.offlineNotice {
+	padding: var(--wpds-dimension-padding-lg) var(--wpds-dimension-padding-xl);
+	border: 1px solid var(--wpds-color-stroke-surface-neutral);
+	border-radius: var(--wpds-border-radius-lg);
+	background: var(--wpds-color-bg-surface-neutral-weak);
+}
+
+.offlineNotice h2 {
+	margin: 0 0 var(--wpds-dimension-padding-sm);
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-md);
+	font-weight: var(--wpds-typography-font-weight-medium);
+	line-height: var(--wpds-typography-line-height-md);
+}
+
+.offlineNotice p {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-size: var(--wpds-typography-font-size-sm);
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+/* Dim the figures — not the notice explaining them — while the data is stale. */
+.offlineDimmed .usageSection {
+	opacity: 0.5;
+}
+
 .usageSection {
 	display: flex;
 	flex-direction: column;

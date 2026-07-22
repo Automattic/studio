@@ -4,14 +4,14 @@ import { clsx } from 'clsx';
 import { Gravatar } from '@/components/gravatar';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
+import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
 import styles from './style.module.css';
-
-const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
-const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
 function AccountHelpActions() {
 	const connector = useConnector();
+	const locale = useUserLocale();
 
 	const openLink = ( url: string ) => {
 		void connector.openExternalUrl( url );
@@ -24,7 +24,7 @@ function AccountHelpActions() {
 				variant="minimal"
 				tone="neutral"
 				size="small"
-				onClick={ () => openLink( DOCS_URL ) }
+				onClick={ () => openLink( getLocalizedLink( locale, 'docsStudio' ) ) }
 			>
 				{ __( 'Docs' ) }
 			</Button>

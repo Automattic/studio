@@ -3,6 +3,7 @@ import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
@@ -11,7 +12,6 @@ import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -321,11 +321,6 @@ export interface Connector {
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
 
-	// Site WordPress REST API. The renderer uses this as the transport for
-	// @wordpress/api-fetch / @wordpress/core-data so WordPress entity semantics
-	// stay in the WordPress packages while Studio owns site resolution and auth.
-	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
-
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
 	// set these reject — callers are expected to route the user to Settings.
@@ -337,6 +332,11 @@ export interface Connector {
 	openExternalUrl( url: string ): Promise< void >;
 
 	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
+
+	// WordPress agent skills applied to all existing and future sites.
+	getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] >;
+	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
+	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
 
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
@@ -368,7 +368,7 @@ export interface Connector {
 
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
-	onSiteEvent( listener: () => void ): () => void;
+	onSiteEvent( listener: ( event: SiteEvent ) => void ): () => void;
 
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.
@@ -388,6 +388,13 @@ export interface Connector {
 
 	// Switches back to the legacy (classic) Studio UI.
 	disableAgenticUi(): Promise< void >;
+}
+
+export interface SkillStatus {
+	id: string;
+	displayName: string;
+	description: string;
+	installed: boolean;
 }
 
 export type ColorScheme = 'system' | 'light' | 'dark';

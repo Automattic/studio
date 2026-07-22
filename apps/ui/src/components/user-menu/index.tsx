@@ -7,13 +7,13 @@ import * as Menu from '@/components/menu';
 import { SidebarButton } from '@/components/sidebar-button';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
+import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
+import { getLocalizedLink, REPORT_ISSUE_URL } from '@/lib/docs-links';
 import styles from './style.module.css';
 
 const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
-const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
-const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
 export function UserMenu() {
 	const connector = useConnector();
@@ -23,6 +23,7 @@ export function UserMenu() {
 	const navigate = useNavigate();
 
 	const isOffline = useOffline();
+	const locale = useUserLocale();
 	const themeIsDark = useColorScheme() === 'dark';
 
 	const openLink = ( url: string ) => {
@@ -52,7 +53,10 @@ export function UserMenu() {
 							<Menu.Item disabled={ isOffline } onClick={ () => openLink( WPCOM_PROFILE_URL ) }>
 								{ __( 'Edit WordPress.com profile' ) }
 							</Menu.Item>
-							<Menu.Item disabled={ isOffline } onClick={ () => openLink( DOCS_URL ) }>
+							<Menu.Item
+								disabled={ isOffline }
+								onClick={ () => openLink( getLocalizedLink( locale, 'docsStudio' ) ) }
+							>
 								{ __( 'Documentation' ) }
 							</Menu.Item>
 							<Menu.Item disabled={ isOffline } onClick={ () => openLink( REPORT_ISSUE_URL ) }>

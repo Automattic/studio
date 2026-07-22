@@ -16,6 +16,7 @@ import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AccountSection } from './account-section';
 import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
+import { SkillsPanel } from './skills-panel';
 import styles from './style.module.css';
 import type { PreferencesFormData } from './preferences';
 import type {
@@ -28,10 +29,10 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-type TabId = 'preferences' | 'mcp';
+type TabId = 'preferences' | 'skills' | 'mcp';
 
 export function isSettingsTab( value: string ): value is TabId {
-	return value === 'preferences' || value === 'mcp';
+	return value === 'preferences' || value === 'skills' || value === 'mcp';
 }
 
 export type SettingsTabId = TabId;
@@ -99,6 +100,7 @@ function SettingsHeader() {
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
@@ -403,6 +405,9 @@ export function SettingsView( {
 								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
 								onChange={ handleChange }
 							/>
+						</Tabs.Panel>
+						<Tabs.Panel tabId="skills">
+							<SkillsPanel />
 						</Tabs.Panel>
 						<Tabs.Panel tabId="mcp">
 							<McpPanel />

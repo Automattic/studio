@@ -47,7 +47,6 @@ import {
 } from '@studio/common/lib/shared-config';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
-import { createJsonResponse, fetchSiteRest } from '@studio/common/lib/wordpress-rest';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import {
 	cleanupBlueprintTempDir,
@@ -65,7 +64,6 @@ import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { EditSiteOptions } from '@studio/common/sites/edit';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteRestRequest } from '@studio/common/types/wordpress-rest';
 import type { Request, Response } from 'express';
 
 /**
@@ -869,28 +867,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// consumes it yet. The connector's `readLocalMediaFile` throws until a real
 	// consumer and a path-containment policy (e.g. restricted to the sites root)
 	// exist.
-
-	// Proxy a WordPress REST request to a running local site — the shared proxy
-	// the desktop uses, with the target resolved from the site list.
-	api.post(
-		'/sites/:id/rest',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			if ( ! site ) {
-				res.json(
-					createJsonResponse( 404, 'studio_site_not_found', `Site ${ req.params.id } not found.` )
-				);
-				return;
-			}
-			const publicUrl = site.url.replace( /\/+$/, '' );
-			const baseUrl = site.port > 0 ? `http://127.0.0.1:${ site.port }` : publicUrl;
-			const response = await fetchSiteRest(
-				{ siteId: site.id, running: site.running, baseUrl, publicUrl },
-				( req.body ?? {} ) as SiteRestRequest
-			);
-			res.json( response );
-		} )
-	);
 
 	// --- Open in OS: folder / editor / terminal + app detection ---------------
 	// The browser can't reach the filesystem, but the server runs on the user's

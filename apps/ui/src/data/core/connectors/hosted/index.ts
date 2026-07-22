@@ -325,10 +325,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			return {} as InstalledApps;
 		},
 
-		async fetchSiteRest() {
-			throw new UnsupportedError( 'fetchSiteRest' );
-		},
-
 		// Filesystem / native integrations — not available in a browser.
 		async openSiteFolder() {
 			throw new UnsupportedError( 'openSiteFolder' );
@@ -353,6 +349,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
 			window.open( target, '_blank', 'noopener,noreferrer' );
+		},
+		async getWordPressSkillsStatusAllSites() {
+			return [];
+		},
+		async installWordPressSkillToAllSites() {
+			// No-op: hosted mode does not install local WordPress skills.
+		},
+		async removeWordPressSkillFromAllSites() {
+			// No-op: hosted mode does not install local WordPress skills.
 		},
 
 		// Window chrome — no traffic lights in a browser tab.

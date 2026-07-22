@@ -131,6 +131,8 @@ describe( 'SiteList', () => {
 				colorScheme: 'system',
 				locale: 'en',
 				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			},
 		} );
 		useSitesMock.mockReturnValue( {
@@ -743,6 +745,8 @@ describe( 'SiteList', () => {
 				colorScheme: 'system',
 				locale: 'en',
 				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			},
 		} );
 
@@ -765,6 +769,8 @@ describe( 'SiteList', () => {
 				colorScheme: 'system',
 				locale: undefined,
 				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			},
 		} );
 

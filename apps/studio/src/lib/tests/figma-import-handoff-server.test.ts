@@ -143,6 +143,22 @@ describe( 'buildStaticSiteImporterPhp', () => {
 		expect( php ).toContain( 'Static_Site_Importer_Figma_Import::import( $figma_input )' );
 		expect( php ).toContain( "'source'          => $source" );
 		expect( php ).toContain( '\'source_path\' => "figma-import-123.studio-import.json"' );
+		expect( php ).not.toContain( 'studio_create_from_import_result' );
+	} );
+
+	it( 'stores the import result only when requested', () => {
+		const php = buildStaticSiteImporterPhp(
+			{
+				type: 'website-artifact',
+				path: 'figma-import-123.studio-import.json',
+				artifact: { files: [] },
+				payload: { type: 'website-artifact', artifact: { files: [] } },
+			},
+			'Imported Artifact Site',
+			true
+		);
+
+		expect( php ).toContain( 'studio_create_from_import_result' );
 	} );
 
 	it( 'keeps website artifact imports on the artifact ability path', () => {

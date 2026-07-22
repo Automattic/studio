@@ -21,6 +21,7 @@ type FigmaImportRequest = {
 	artifact?: Record< string, unknown >;
 	source?: FigmaScenegraphSource | FigmaPluginSource | WebsiteArtifactSource;
 	siteName?: string;
+	storeImportResult?: boolean;
 };
 
 type ImportSummary = {
@@ -111,7 +112,8 @@ function phpString( value: string ): string {
 
 export function buildStaticSiteImporterPhp(
 	source: StaticSiteImporterSource,
-	siteName: string
+	siteName: string,
+	storeImportResult = false
 ): string {
 	const sourceBase64 = Buffer.from( JSON.stringify( source.payload ) ).toString( 'base64' );
 
@@ -184,7 +186,7 @@ if ( ! isset( $result ) ) {
 	$input['artifact'] = $artifact;
 	$result = static_site_importer_ability_import_website_artifact( $input );
 }
-update_option( 'studio_create_from_import_result', $result, false );
+${ storeImportResult ? "update_option( 'studio_create_from_import_result', $result, false );" : '' }
 
 if ( ! is_array( $result ) || empty( $result['success'] ) ) {
 	throw new RuntimeException( 'Static Site Importer import failed: ' . wp_json_encode( $result ) );
@@ -463,7 +465,7 @@ async function handleImportRequest( body: FigmaImportRequest, requestId: string 
 			},
 			{
 				step: 'runPHP',
-				code: buildStaticSiteImporterPhp( source, siteName ),
+				code: buildStaticSiteImporterPhp( source, siteName, body.storeImportResult === true ),
 			},
 		],
 	};

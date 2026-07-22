@@ -5,6 +5,7 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import type { SyncSite } from '@/data/core';
 
 const SYNCABLE_WPCOM_SITES_QUERY_KEY = [ 'syncable-wpcom-sites' ] as const;
+const ALL_WPCOM_SITES_QUERY_KEY = [ 'all-wpcom-sites' ] as const;
 const ALL_CONNECTED_WPCOM_SITES_QUERY_KEY = [ 'all-connected-wpcom-sites' ] as const;
 
 export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
@@ -21,6 +22,17 @@ export function useSyncableWpcomSites( options: { enabled?: boolean } = {} ) {
 	} );
 }
 
+export function useAllWpcomSites( options: { enabled?: boolean } = {} ) {
+	const connector = useConnector();
+	const { data: authUser } = useAuthUser();
+	return useQuery( {
+		queryKey: ALL_WPCOM_SITES_QUERY_KEY,
+		queryFn: () => connector.fetchAllWpcomSites(),
+		enabled: ( options.enabled ?? true ) && !! authUser,
+		staleTime: 5 * 60 * 1000,
+	} );
+}
+
 // Mirrors `useConnectedWpcomSites` but returns connections for every local
 // site — used to filter out WordPress.com sites that are already attached to
 // another Studio site when picking a publish target.
@@ -29,7 +41,7 @@ export function useAllConnectedWpcomSites( options: { enabled?: boolean } = {} )
 	const { data: authUser } = useAuthUser();
 	return useQuery( {
 		queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY,
-		queryFn: () => connector.getConnectedWpcomSites( '' ),
+		queryFn: () => connector.getAllConnectedWpcomSites(),
 		enabled: ( options.enabled ?? true ) && !! authUser,
 	} );
 }

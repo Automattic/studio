@@ -221,7 +221,13 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getConnectedWpcomSites(): Promise< SyncSite[] > {
 			return [];
 		},
+		async getAllConnectedWpcomSites(): Promise< SyncSite[] > {
+			return [];
+		},
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
+			return [];
+		},
+		async fetchAllWpcomSites(): Promise< SyncSite[] > {
 			return [];
 		},
 		async connectWpcomSite() {

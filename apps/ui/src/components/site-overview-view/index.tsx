@@ -34,6 +34,7 @@ import type { ReactNode } from 'react';
 interface SiteOverviewViewProps {
 	siteId: string;
 	activeTab: SiteSettingsTabId;
+	openSiteDropdown?: boolean;
 	onTabChange: ( tab: SiteSettingsTabId ) => void;
 }
 
@@ -47,7 +48,13 @@ interface OverviewButtonProps {
 	className?: string;
 }
 
-function OverviewHeader( { site }: { site: SiteDetails } ) {
+function OverviewHeader( {
+	site,
+	openSiteDropdown,
+}: {
+	site: SiteDetails;
+	openSiteDropdown: boolean;
+} ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 
 	return (
@@ -56,7 +63,13 @@ function OverviewHeader( { site }: { site: SiteDetails } ) {
 				sidebarCollapsed ? `${ styles.header } ${ styles.headerSidebarCollapsed }` : styles.header
 			}
 		>
-			<SiteDropdown site={ site } showSiteIcon showStatus={ sidebarCollapsed } floating={ false } />
+			<SiteDropdown
+				site={ site }
+				showSiteIcon
+				showStatus={ sidebarCollapsed }
+				floating={ false }
+				defaultOpen={ openSiteDropdown }
+			/>
 		</div>
 	);
 }
@@ -97,7 +110,12 @@ function ButtonSection( { title, children }: { title: string; children: ReactNod
 	);
 }
 
-export function SiteOverviewView( { siteId, activeTab, onTabChange }: SiteOverviewViewProps ) {
+export function SiteOverviewView( {
+	siteId,
+	activeTab,
+	openSiteDropdown = false,
+	onTabChange,
+}: SiteOverviewViewProps ) {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const site = sites?.find( ( candidate ) => candidate.id === siteId );
 
@@ -114,16 +132,25 @@ export function SiteOverviewView( { siteId, activeTab, onTabChange }: SiteOvervi
 		);
 	}
 
-	return <SiteOverviewBody site={ site } activeTab={ activeTab } onTabChange={ onTabChange } />;
+	return (
+		<SiteOverviewBody
+			site={ site }
+			activeTab={ activeTab }
+			openSiteDropdown={ openSiteDropdown }
+			onTabChange={ onTabChange }
+		/>
+	);
 }
 
 function SiteOverviewBody( {
 	site,
 	activeTab,
+	openSiteDropdown,
 	onTabChange,
 }: {
 	site: SiteDetails;
 	activeTab: SiteSettingsTabId;
+	openSiteDropdown: boolean;
 	onTabChange: ( tab: SiteSettingsTabId ) => void;
 } ) {
 	const navigate = useNavigate();
@@ -144,7 +171,7 @@ function SiteOverviewBody( {
 
 	return (
 		<div className={ styles.root }>
-			<OverviewHeader site={ site } />
+			<OverviewHeader site={ site } openSiteDropdown={ openSiteDropdown } />
 			<div className={ styles.tabsFrame }>
 				<Tabs.Root
 					selectedTabId={ activeTab }

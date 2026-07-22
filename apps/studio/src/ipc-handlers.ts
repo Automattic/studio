@@ -51,7 +51,10 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import {
+	getConnectedWpcomSitesForLocalSite,
+	removeAllConnectedWpcomSitesForLocalSite,
+} from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import {
 	calculateDirectorySizeForArchive,
@@ -207,7 +210,9 @@ export {
 	disconnectWpcomSites,
 	downloadSyncBackup,
 	exportSiteForPush,
+	fetchAllWpcomSites,
 	fetchSyncableWpcomSites,
+	getAllConnectedWpcomSites,
 	getConnectedWpcomSites,
 	pauseSyncUpload,
 	pullSiteFromLive,
@@ -1130,13 +1135,18 @@ export async function getSentryUserId( _event: IpcMainInvokeEvent ) {
 	return userData.sentryUserId;
 }
 
-export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteFiles = false ) {
+export async function deleteSite(
+	_event: IpcMainInvokeEvent,
+	id: string,
+	deleteFiles = false
+): Promise< void > {
 	const server = SiteServer.get( id );
 	console.log( 'Deleting site', id );
 	if ( ! server ) {
 		throw new Error( 'Site not found.' );
 	}
 	await server.delete( deleteFiles );
+	await removeAllConnectedWpcomSitesForLocalSite( id );
 }
 
 export async function copySite(

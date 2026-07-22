@@ -83,6 +83,14 @@ function removeConnection(
 	}
 }
 
+function removeConnectionsForLocalSite( connections: SyncSite[], localSiteId: string ): void {
+	for ( let index = connections.length - 1; index >= 0; index-- ) {
+		if ( connections[ index ].localSiteId === localSiteId ) {
+			connections.splice( index, 1 );
+		}
+	}
+}
+
 function applyConnectionUpdates(
 	connections: SyncSite[],
 	localSiteId: string,
@@ -193,6 +201,23 @@ export async function removeConnectedWpcomSite(
 		pruneEmptyConnectionsForUser( config, userKey );
 		await saveSharedConfig( config );
 		return connections;
+	} finally {
+		await unlockSharedConfig();
+	}
+}
+
+export async function removeAllConnectedWpcomSitesForLocalSite(
+	localSiteId: string
+): Promise< void > {
+	try {
+		await lockSharedConfig();
+		const config = await readSharedConfig();
+		for ( const userKey of Object.keys( config.connectedWpcomSites ?? {} ) ) {
+			const connections = getConnectionsForUser( config, userKey );
+			removeConnectionsForLocalSite( connections, localSiteId );
+			pruneEmptyConnectionsForUser( config, userKey );
+		}
+		await saveSharedConfig( config );
 	} finally {
 		await unlockSharedConfig();
 	}

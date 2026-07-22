@@ -1,4 +1,4 @@
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
@@ -17,6 +17,7 @@ import type {
 	LocalMediaFile,
 	ProposedSitePath,
 	QuitSitesBehavior,
+	PullSiteProgress,
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
@@ -57,12 +58,19 @@ type SnapshotSseOutput =
 	| { kind: 'success'; operationId: string }
 	| { kind: 'output' | 'error'; operationId: string };
 
+type PullProgressSseOutput = PullSiteProgress & {
+	operationId: string;
+	siteId: string;
+	remoteSiteId: number;
+};
+
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry agent-run events, session-placement updates, and snapshot progress.
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
+	| { channel: 'sync-pull'; payload: PullProgressSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
 
 /**
@@ -85,6 +93,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
+	const pullProgressListeners = new Set< ( output: PullProgressSseOutput ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
@@ -207,6 +216,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'snapshot' ) {
 					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'sync-pull' ) {
+					pullProgressListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
 					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				}
@@ -239,7 +250,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// configured: a popup goes through WordPress.com to /auth/callback, which
 		// stores the token and posts back here. Falls back to the paste flow
 		// (`studio auth login`-style) when no client is configured.
-		async authenticate() {
+		async authenticate( signup = false ) {
 			// Open the popup synchronously (inside the click gesture) so it isn't
 			// blocked, then navigate it once the authorize URL is resolved.
 			const popup = window.open( 'about:blank', 'studio-auth', 'width=600,height=720' );
@@ -249,7 +260,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				( { url: loginUrl } = await api< { url: string | null } >(
 					`/auth/login-url?redirect_uri=${ encodeURIComponent(
 						`${ window.location.origin }/auth/callback`
-					) }`
+					) }${ signup ? '&signup=1' : '' }`
 				) );
 			} catch {
 				loginUrl = null;
@@ -258,8 +269,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			if ( ! loginUrl ) {
 				// No OAuth client configured → paste-the-token fallback.
 				popup?.close();
+				const redirectUri = 'https://developer.wordpress.com/copy-oauth-token';
 				window.open(
-					getAuthenticationUrl( 'en', 'https://developer.wordpress.com/copy-oauth-token' ),
+					signup ? getSignUpUrl( 'en', redirectUri ) : getAuthenticationUrl( 'en', redirectUri ),
 					'_blank',
 					'noopener,noreferrer'
 				);
@@ -351,6 +363,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminUsername: params.adminUsername,
 					adminPassword: params.adminPassword,
 					adminEmail: params.adminEmail,
+					skipStart: params.skipStart,
 					// The server writes this to a temp file and passes --blueprint to
 					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
 					blueprint: params.blueprint,
@@ -475,8 +488,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
 			return api< SyncSite[] >( `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites` );
 		},
+		async getAllConnectedWpcomSites(): Promise< SyncSite[] > {
+			return api< SyncSite[] >( '/wpcom/connected-sites' );
+		},
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
 			return api< SyncSite[] >( '/wpcom/syncable-sites' );
+		},
+		async fetchAllWpcomSites(): Promise< SyncSite[] > {
+			return api< SyncSite[] >( '/wpcom/sites' );
 		},
 		async connectWpcomSite( localSiteId, site ) {
 			await api( `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`, {
@@ -511,11 +530,27 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId ) {
-			await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
-				method: 'POST',
-				body: JSON.stringify( { remoteSiteId } ),
-			} );
+		async pullSiteFromLive( siteId, remoteSiteId, onProgress ) {
+			const operationId = globalThis.crypto.randomUUID();
+			const listener = ( output: PullProgressSseOutput ) => {
+				if ( output.operationId === operationId ) {
+					onProgress?.( {
+						message: output.message,
+						...( output.progress === undefined ? {} : { progress: output.progress } ),
+					} );
+				}
+			};
+			if ( onProgress ) {
+				pullProgressListeners.add( listener );
+			}
+			try {
+				await api( `/sites/${ encodeURIComponent( siteId ) }/pull`, {
+					method: 'POST',
+					body: JSON.stringify( { remoteSiteId, operationId } ),
+				} );
+			} finally {
+				pullProgressListeners.delete( listener );
+			}
 		},
 		getPublishCheckoutUrl( site ): string {
 			// The post-checkout auto-connect relies on the deep-link listener, which

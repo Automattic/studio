@@ -5,11 +5,13 @@ import { IpcMainInvokeEvent } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
 import { resolveMigratedAiSessionsPath } from '@studio/common/ai/sessions/root-migration';
+import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import {
 	createSite,
+	deleteSite,
 	getFileSize,
 	getXdebugEnabledSite,
 	isFullscreen,
@@ -28,6 +30,10 @@ vi.mock( 'fs/promises', async () => {
 } );
 vi.mock( 'fs-extra' );
 vi.mock( '@studio/common/lib/fs-utils' );
+vi.mock( '@studio/common/lib/connected-sites', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/connected-sites') >() ),
+	removeAllConnectedWpcomSitesForLocalSite: vi.fn(),
+} ) );
 vi.mock( '@studio/common/ai/sessions/root-migration', () => ( {
 	resolveMigratedAiSessionsPath: vi.fn( ( path: string ) => path ),
 } ) );
@@ -121,6 +127,7 @@ describe( 'createSite', () => {
 		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
 			siteName: 'Test',
 			wpVersion: '6.4',
+			noStart: true,
 		} );
 
 		expect( userData ).toEqual( {
@@ -141,9 +148,40 @@ describe( 'createSite', () => {
 				path: '/test',
 				name: 'Test',
 				wpVersion: '6.4',
+				noStart: true,
 			} ),
 			expect.any( Object )
 		);
+	} );
+} );
+
+describe( 'deleteSite', () => {
+	beforeEach( () => {
+		vi.mocked( removeAllConnectedWpcomSitesForLocalSite ).mockClear();
+	} );
+
+	it( 'removes every persisted WordPress.com connection after deleting the site', async () => {
+		const deleteServer = vi.fn().mockResolvedValue( undefined );
+		vi.mocked( SiteServer.get ).mockReturnValue( { delete: deleteServer } as never );
+
+		await deleteSite( mockIpcMainInvokeEvent, 'site-1', true );
+
+		expect( deleteServer ).toHaveBeenCalledWith( true );
+		expect( removeAllConnectedWpcomSitesForLocalSite ).toHaveBeenCalledWith( 'site-1' );
+		expect( deleteServer.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+			vi.mocked( removeAllConnectedWpcomSitesForLocalSite ).mock.invocationCallOrder[ 0 ]
+		);
+	} );
+
+	it( 'keeps connections when site deletion fails', async () => {
+		vi.mocked( SiteServer.get ).mockReturnValue( {
+			delete: vi.fn().mockRejectedValue( new Error( 'delete failed' ) ),
+		} as never );
+
+		await expect( deleteSite( mockIpcMainInvokeEvent, 'site-1', true ) ).rejects.toThrow(
+			'delete failed'
+		);
+		expect( removeAllConnectedWpcomSitesForLocalSite ).not.toHaveBeenCalled();
 	} );
 } );
 

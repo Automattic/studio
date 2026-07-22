@@ -1,18 +1,21 @@
-import { app, IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import {
 	addConnectedWpcomSite,
-	getAllConnectedWpcomSitesForCurrentUser,
+	getAllConnectedWpcomSitesForCurrentUser as getAllConnectedWpcomSitesForCurrentUserShared,
 	getConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 	updateConnectedWpcomSites as updateConnectedWpcomSitesShared,
 } from '@studio/common/lib/connected-sites';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import {
+	fetchAllWpcomSites as fetchAllWpcomSitesShared,
+	fetchSyncableSites,
+} from '@studio/common/lib/sync/sync-api';
 import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -25,7 +28,7 @@ import {
 	PullStateProgressInfo,
 	PushStateProgressInfo,
 } from 'src/hooks/use-sync-states-progress-info';
-import { sendIpcEventToRenderer } from 'src/ipc-utils';
+import { sendIpcEventToRenderer, sendIpcEventToRendererWithWindow } from 'src/ipc-utils';
 import { ACTIVE_SYNC_OPERATIONS } from 'src/lib/active-sync-operations';
 import { download } from 'src/lib/download';
 import { getSyncBackupTempPath } from 'src/lib/get-sync-backup-temp-path';
@@ -527,11 +530,18 @@ export async function updateConnectedWpcomSites(
 // the CLI instead keeps apps/ui free of wpcom-client setup and mirrors the
 // simpler flow used by `push`. Exchanges everything (`--options all`).
 export async function pullSiteFromLive(
-	_event: IpcMainInvokeEvent,
+	event: IpcMainInvokeEvent,
 	siteFolder: string,
-	remoteSiteId: number
+	remoteSiteId: number,
+	operationId: string
 ): Promise< void > {
-	return pullSite( executeCliCommand, siteFolder, remoteSiteId );
+	const window = BrowserWindow.fromWebContents( event.sender );
+	return pullSite( executeCliCommand, siteFolder, remoteSiteId, ( progress ) => {
+		sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
+			operationId,
+			...progress,
+		} );
+	} );
 }
 
 // Push for the agentic UI (apps/ui): the same shared `pushSite` the `studio ui`
@@ -593,6 +603,20 @@ export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Pro
 	return fetchSyncableSites( token.accessToken );
 }
 
+export async function fetchAllWpcomSites( _event: IpcMainInvokeEvent ): Promise< SyncSite[] > {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
+	}
+	return fetchAllWpcomSitesShared( token.accessToken );
+}
+
+export async function getAllConnectedWpcomSites(
+	_event: IpcMainInvokeEvent
+): Promise< SyncSite[] > {
+	return getAllConnectedWpcomSitesForCurrentUserShared();
+}
+
 export async function getConnectedWpcomSites(
 	event: IpcMainInvokeEvent,
 	localSiteId?: string
@@ -600,5 +624,5 @@ export async function getConnectedWpcomSites(
 	if ( localSiteId ) {
 		return getConnectedWpcomSitesForLocalSite( localSiteId );
 	}
-	return getAllConnectedWpcomSitesForCurrentUser();
+	return getAllConnectedWpcomSitesForCurrentUserShared();
 }

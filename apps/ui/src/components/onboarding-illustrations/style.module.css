@@ -16,8 +16,20 @@
 	transition: stroke 0.15s ease;
 }
 
+.themeFill {
+	transition: fill 0.15s ease;
+}
+
 .host:hover .themeStroke {
 	stroke: var(--wpds-color-stroke-interactive-brand);
+}
+
+.host:hover .themeFill {
+	fill: var(--wpds-color-fg-interactive-brand);
+}
+
+.host:hover .arrowNudge {
+	animation: arrow-nudge 1.2s ease-in-out infinite;
 }
 
 @keyframes spin {
@@ -30,9 +42,21 @@
 	}
 }
 
+@keyframes arrow-nudge {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+
+	50% {
+		transform: translateY(2px);
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.spin,
-	.host:hover .hoverSpinReverse {
+	.host:hover .hoverSpinReverse,
+	.host:hover .arrowNudge {
 		animation: none;
 	}
 }

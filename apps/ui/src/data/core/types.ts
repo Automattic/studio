@@ -10,7 +10,7 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { PullSiteProgress, SyncSite } from '@studio/common/types/sync';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -31,7 +31,7 @@ export type {
 } from '@studio/common/ai/sessions/entry-types';
 export type { AiModelId } from '@studio/common/ai/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
-export type { SyncSite } from '@studio/common/types/sync';
+export type { PullSiteProgress, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
@@ -222,10 +222,15 @@ export interface Connector {
 
 	// Connected WordPress.com live sites for a given local site
 	getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] >;
+	// Every persisted connection for the current user, across all local sites.
+	getAllConnectedWpcomSites(): Promise< SyncSite[] >;
 	// All WordPress.com sites the authenticated user can sync with, regardless
 	// of which (if any) local site they're already connected to. The publish
 	// picker filters this list to sites that aren't connected anywhere yet.
 	fetchSyncableWpcomSites(): Promise< SyncSite[] >;
+	// The complete paginated set of relevant WordPress.com and Pressable sites.
+	// Connect onboarding uses this instead of changing the publish picker's fetch.
+	fetchAllWpcomSites(): Promise< SyncSite[] >;
 	// Persists a new local↔live connection so the dropdown picks it up via
 	// `getConnectedWpcomSites`. Safe to call with the minimal `SyncSite` we
 	// receive from a sync-connect-site deep link — later fetches backfill the
@@ -241,7 +246,11 @@ export interface Connector {
 	// Pulls the connected WordPress.com site's database + wp-content back
 	// into the local Studio site. Stops the local server while the backup
 	// imports and restarts it on completion.
-	pullSiteFromLive( siteId: string, remoteSiteId: number ): Promise< void >;
+	pullSiteFromLive(
+		siteId: string,
+		remoteSiteId: number,
+		onProgress?: ( progress: PullSiteProgress ) => void
+	): Promise< void >;
 	// URL to open in the browser when the user wants to publish a site that
 	// isn't connected to WordPress.com yet (checkout + deep-link back to the
 	// desktop app). Returns `undefined` when the connector can't provide one.
@@ -426,6 +435,9 @@ export interface CreateSiteParams {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
+	// Creates the local shell without starting its server. Connect onboarding
+	// uses this so remote content lands before the first local start.
+	skipStart?: boolean;
 	// Optional blueprint payload. `filePath` points at the extracted
 	// `blueprint.json` inside a ZIP bundle so the CLI can resolve relative assets.
 	blueprint?: {

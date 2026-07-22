@@ -201,7 +201,9 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 
 	return (
 		<div className={ styles.rows }>
-			{ activity?.kind === 'error' ? <SyncActivityError activity={ activity } /> : null }
+			{ activity?.kind === 'pending' || activity?.kind === 'error' ? (
+				<SyncActivityDetails activity={ activity } />
+			) : null }
 
 			<PopoverRow
 				label={ __( 'Studio' ) }
@@ -355,15 +357,24 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 	);
 }
 
-function SyncActivityError( {
+function SyncActivityDetails( {
 	activity,
 }: {
-	activity: Extract< SyncActivity, { kind: 'error' } >;
+	activity: Extract< SyncActivity, { kind: 'pending' | 'error' } >;
 } ) {
 	return (
-		<div className={ styles.activityError } role="status">
-			<div className={ styles.activityErrorTitle }>{ getSyncActivityLabel( activity ) }</div>
-			<div className={ styles.activityErrorMessage }>{ activity.message }</div>
+		<div
+			className={ clsx(
+				styles.activityStatus,
+				activity.kind === 'error' ? styles.activityStatusError : styles.activityStatusPending
+			) }
+			role="status"
+			aria-live="polite"
+		>
+			<div className={ styles.activityStatusTitle }>{ getSyncActivityLabel( activity ) }</div>
+			<div className={ styles.activityStatusMessage }>
+				{ activity.message ?? __( 'Preparing the live site…' ) }
+			</div>
 		</div>
 	);
 }

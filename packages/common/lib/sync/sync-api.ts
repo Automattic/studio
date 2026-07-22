@@ -30,6 +30,15 @@ const SITE_FIELDS = [
 	'environment_type',
 ].join( ',' );
 
+const ALL_SITES_PAGE_SIZE = 100;
+
+const SYNCABLE_SITES_QUERY = {
+	fields: SITE_FIELDS,
+	filter: 'atomic,wpcom',
+	options: 'created_at,wpcom_staging_blog_ids',
+	site_activity: 'active',
+} as const;
+
 export async function fetchSyncableSites( token: string ): Promise< SyncSite[] > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
@@ -39,15 +48,52 @@ export async function fetchSyncableSites( token: string ): Promise< SyncSite[] >
 			path: '/me/sites',
 		},
 		{
-			fields: SITE_FIELDS,
-			filter: 'atomic,wpcom',
-			options: 'created_at,wpcom_staging_blog_ids',
-			site_activity: 'active',
+			...SYNCABLE_SITES_QUERY,
 		}
 	);
 
 	const parsed = sitesEndpointResponseSchema.parse( rawResponse );
 	return transformSitesResponse( parsed.sites );
+}
+
+export async function fetchAllWpcomSites( token: string ): Promise< SyncSite[] > {
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	const sites: unknown[] = [];
+	const pageSignatures = new Set< string >();
+	let page = 1;
+
+	while ( true ) {
+		const rawResponse = await wpcom.req.get(
+			{
+				apiNamespace: 'rest/v1.3',
+				path: '/me/sites',
+			},
+			{
+				...SYNCABLE_SITES_QUERY,
+				page,
+				per_page: ALL_SITES_PAGE_SIZE,
+			}
+		);
+		const parsed = sitesEndpointResponseSchema.parse( rawResponse );
+		const signature = JSON.stringify( parsed.sites );
+
+		if ( pageSignatures.has( signature ) ) {
+			break;
+		}
+		pageSignatures.add( signature );
+		sites.push( ...parsed.sites );
+
+		if (
+			parsed.sites.length === 0 ||
+			( parsed.total !== undefined && sites.length >= parsed.total ) ||
+			( parsed.total === undefined && parsed.sites.length < ALL_SITES_PAGE_SIZE )
+		) {
+			break;
+		}
+		page = ( parsed.page ?? page ) + 1;
+	}
+
+	return transformSitesResponse( sites );
 }
 
 export async function initiateBackup(

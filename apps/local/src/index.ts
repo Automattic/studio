@@ -24,7 +24,9 @@ import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import {
 	addConnectedWpcomSite,
+	getAllConnectedWpcomSitesForCurrentUser,
 	getConnectedWpcomSitesForLocalSite,
+	removeAllConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
 import {
@@ -35,7 +37,7 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
+import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
@@ -44,7 +46,7 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import { fetchAllWpcomSites, fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import {
@@ -361,7 +363,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			res.json( { url: null } );
 			return;
 		}
-		res.json( { url: getAuthenticationUrl( 'en', redirectUri ) } );
+		res.json( {
+			url:
+				req.query.signup === '1'
+					? getSignUpUrl( 'en', redirectUri )
+					: getAuthenticationUrl( 'en', redirectUri ),
+		} );
 	} );
 
 	// Log in by storing a token from the redirect callback (or pasted from
@@ -517,6 +524,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminUsername?: string;
 				adminPassword?: string;
 				adminEmail?: string;
+				skipStart?: boolean;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
 				// CLI resolve relative assets.
@@ -546,6 +554,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					adminUsername: body.adminUsername,
 					adminPassword: body.adminPassword,
 					adminEmail: body.adminEmail,
+					noStart: body.skipStart,
 					blueprint: body.blueprint?.blueprint,
 					originalBlueprintPath: body.blueprint?.filePath,
 				} );
@@ -594,6 +603,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				emitter.on( 'failure', ( { error } ) => reject( error ) );
 				emitter.on( 'error', ( { error } ) => reject( error ) );
 			} );
+			await removeAllConnectedWpcomSitesForLocalSite( req.params.id );
 			res.status( 204 ).end();
 		} )
 	);
@@ -935,6 +945,25 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.get(
+		'/wpcom/sites',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			res.json( await fetchAllWpcomSites( token.accessToken ) );
+		} )
+	);
+
+	api.get(
+		'/wpcom/connected-sites',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await getAllConnectedWpcomSitesForCurrentUser() );
+		} )
+	);
+
+	api.get(
 		'/sites/:id/connected-sites',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			res.json( await getConnectedWpcomSitesForLocalSite( req.params.id ) );
@@ -993,7 +1022,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/pull',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { remoteSiteId } = req.body as { remoteSiteId?: number };
+			const { remoteSiteId, operationId } = req.body as {
+				remoteSiteId?: number;
+				operationId?: string;
+			};
 			if ( ! remoteSiteId ) {
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
@@ -1003,7 +1035,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await pullSite( execute, site.path, remoteSiteId );
+			await pullSite( execute, site.path, remoteSiteId, ( progress ) => {
+				sseSend( {
+					channel: 'sync-pull',
+					payload: { ...progress, operationId, siteId: req.params.id, remoteSiteId },
+				} );
+			} );
 			res.sendStatus( 204 );
 		} )
 	);
@@ -1201,11 +1238,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		const listening = app.listen( port, host, () => resolve( listening ) );
 	} );
 
-	const url = `http://localhost:${ port }`;
+	const address = server.address();
+	const listeningPort = typeof address === 'object' && address ? address.port : port;
+	const url = `http://localhost:${ listeningPort }`;
 
 	return {
 		url,
-		port,
+		port: listeningPort,
 		async close() {
 			cliRunner.killAll();
 			for ( const watch of publishWatches.values() ) {

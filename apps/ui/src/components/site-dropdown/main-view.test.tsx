@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainView } from './main-view';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
+import type { SyncActivity } from '@/data/sync-activity';
 
 const { connector, snapshots, connectedSites } = vi.hoisted( () => ( {
 	connector: {
@@ -67,11 +68,11 @@ const site: SiteDetails = {
 	phpVersion: '8.3',
 };
 
-function renderMainView() {
+function renderMainView( activity: SyncActivity | null = null ) {
 	return render(
 		<MainView
 			site={ site }
-			activity={ null }
+			activity={ activity }
 			onSetupClick={ vi.fn() }
 			onDisconnectClick={ vi.fn() }
 		/>
@@ -106,5 +107,17 @@ describe( 'MainView', () => {
 		} );
 
 		consoleError.mockRestore();
+	} );
+
+	it( 'shows detailed pull progress in the open site status', () => {
+		renderMainView( {
+			kind: 'pending',
+			direction: 'pull',
+			message: 'Creating remote backup… (24%)',
+			progress: 24,
+		} );
+
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Pulling from live…' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( 'Creating remote backup… (24%)' );
 	} );
 } );

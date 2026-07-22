@@ -17,3 +17,8 @@ export function getAuthenticationUrl(
 
 	return url.toString();
 }
+
+export function getSignUpUrl( locale: SupportedLocale, redirectUri?: string ): string {
+	const oauth2Redirect = encodeURIComponent( getAuthenticationUrl( locale, redirectUri ) );
+	return `https://wordpress.com/start/wpcc/oauth2-user?oauth2_client_id=${ CLIENT_ID }&oauth2_redirect=${ oauth2Redirect }&locale=${ locale }`;
+}

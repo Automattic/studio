@@ -140,9 +140,11 @@ const api: IpcApi = {
 	removeSyncBackup: ( remoteSiteId ) => ipcRendererInvoke( 'removeSyncBackup', remoteSiteId ),
 	getConnectedWpcomSites: ( localSiteId ) =>
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
+	getAllConnectedWpcomSites: () => ipcRendererInvoke( 'getAllConnectedWpcomSites' ),
 	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
-	pullSiteFromLive: ( siteFolder, remoteSiteId ) =>
-		ipcRendererInvoke( 'pullSiteFromLive', siteFolder, remoteSiteId ),
+	fetchAllWpcomSites: () => ipcRendererInvoke( 'fetchAllWpcomSites' ),
+	pullSiteFromLive: ( siteFolder, remoteSiteId, operationId ) =>
+		ipcRendererInvoke( 'pullSiteFromLive', siteFolder, remoteSiteId, operationId ),
 	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),

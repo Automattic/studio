@@ -6,6 +6,7 @@ import type { ComponentProps } from 'react';
 const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn(),
 	hasSites: false,
+	isOffline: false,
 } ) );
 
 vi.mock( '@tanstack/react-router', async ( importOriginal ) => {
@@ -25,25 +26,44 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => ( { data: mocks.hasSites ? [ { id: 'site-1' } ] : [] } ),
 } ) );
 
+vi.mock( '@/hooks/use-offline', () => ( {
+	useOffline: () => mocks.isOffline,
+} ) );
+
 describe( 'OnboardingHomePage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mocks.hasSites = false;
+		mocks.isOffline = false;
 	} );
 
-	it( 'shows only the Create job in the updated card design', () => {
+	it( 'offers Create and Connect as distinct Add Site choices', () => {
 		render( <OnboardingHomePage /> );
 
 		expect( screen.getByRole( 'heading', { name: 'Add a site' } ) ).toBeInTheDocument();
 		expect(
-			screen.getByText( 'Start fresh with a blank site or use a Blueprint.' )
+			screen.getByText( 'Start fresh or bring an existing WordPress.com site into Studio.' )
 		).toBeInTheDocument();
 		expect( screen.getByRole( 'link', { name: /Create a new site/ } ) ).toHaveAttribute(
 			'href',
 			'/onboarding/create'
 		);
 		expect( screen.queryByText( 'Import from a backup' ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( 'Connect a site' ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'link', { name: /Connect a site/ } ) ).toHaveAttribute(
+			'href',
+			'/onboarding/connect'
+		);
+	} );
+
+	it( 'marks Connect unavailable while offline', () => {
+		mocks.isOffline = true;
+		render( <OnboardingHomePage /> );
+
+		expect( screen.getByRole( 'link', { name: /Connect a site/ } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getByText( 'Available online' ) ).toBeInTheDocument();
 	} );
 
 	it( 'shows Back when onboarding was opened from an existing site', () => {

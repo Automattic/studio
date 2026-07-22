@@ -4,7 +4,13 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { reportSyncError, reportSyncPending, reportSyncSuccess } from '@/data/sync-activity';
+import {
+	reportSyncError,
+	reportSyncPending,
+	reportSyncProgress,
+	reportSyncSuccess,
+} from '@/data/sync-activity';
+import type { PullSiteProgress } from '@/data/core';
 
 // Mutation keys are exported so downstream consumers (e.g. a cross-page
 // activity indicator or future bulk-sync UI) can filter the react-query
@@ -64,6 +70,7 @@ export function useDisconnectWpcomSite() {
 type PullFromLiveVariables = {
 	siteId: string;
 	remoteSiteId: number;
+	onProgress?: ( progress: PullSiteProgress ) => void;
 };
 
 export function usePullSiteFromLive() {
@@ -71,8 +78,11 @@ export function usePullSiteFromLive() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId }: PullFromLiveVariables ) =>
-			connector.pullSiteFromLive( siteId, remoteSiteId ),
+		mutationFn: ( { siteId, remoteSiteId, onProgress }: PullFromLiveVariables ) =>
+			connector.pullSiteFromLive( siteId, remoteSiteId, ( progress ) => {
+				reportSyncProgress( siteId, 'pull', progress );
+				onProgress?.( progress );
+			} ),
 		onMutate: ( { siteId } ) => {
 			reportSyncPending( siteId, 'pull' );
 		},

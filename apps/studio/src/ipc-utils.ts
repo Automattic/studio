@@ -8,6 +8,7 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
 import type { RemoteSessionStatus } from '@studio/common/lib/remote-session';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
+import type { PullSiteProgress } from '@studio/common/types/sync';
 
 type SnapshotEventData = {
 	action: PreviewCommandLoggerAction;
@@ -38,6 +39,7 @@ export interface IpcEvents {
 	'sync-upload-resumed': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];
 	'sync-upload-manually-paused': [ { selectedSiteId: string; remoteSiteId: number } ];
+	'sync-pull-progress': [ PullSiteProgress & { operationId: string } ];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];

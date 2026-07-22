@@ -389,10 +389,6 @@ export interface Connector {
 	// Switches back to the legacy (classic) Studio UI.
 	disableAgenticUi(): Promise< void >;
 
-	// Persistent message dismissals.
-	getDismissedMessages(): Promise< string[] >;
-	dismissMessage( id: string ): Promise< void >;
-
 	// Auto-updater status.
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
 	installAppUpdate(): Promise< void >;

@@ -27,14 +27,6 @@ type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent };
 
-function readDismissedMessages(): string[] {
-	try {
-		return JSON.parse( localStorage.getItem( 'studio-dismissed-messages' ) ?? '[]' );
-	} catch {
-		return [];
-	}
-}
-
 /**
  * The Studio Web data source: the web analog of the Electron IPC connector.
  * Same React app, same `AgentRunEvent` stream, different transport — it speaks
@@ -400,15 +392,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
-		},
-		async getDismissedMessages() {
-			return readDismissedMessages();
-		},
-		async dismissMessage( id ) {
-			const ids = readDismissedMessages();
-			if ( ! ids.includes( id ) ) {
-				localStorage.setItem( 'studio-dismissed-messages', JSON.stringify( [ ...ids, id ] ) );
-			}
 		},
 		async getAppUpdateStatus() {
 			return { readyToInstall: false, version: null };

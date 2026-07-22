@@ -721,14 +721,6 @@ export function createIpcConnector(): Connector {
 			await ipcApi.disableAgenticUi();
 		},
 
-		async getDismissedMessages(): Promise< string[] > {
-			return ipcApi.getDismissedMessages();
-		},
-
-		async dismissMessage( id: string ): Promise< void > {
-			await ipcApi.dismissMessage( id );
-		},
-
 		async getAppUpdateStatus() {
 			return ipcApi.getAppUpdateStatus();
 		},

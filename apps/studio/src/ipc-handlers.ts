@@ -1521,24 +1521,6 @@ export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): 
 
 export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
 
-export async function getDismissedMessages( _event: IpcMainInvokeEvent ): Promise< string[] > {
-	const userData = await loadUserData();
-	return userData.dismissedMessages ?? [];
-}
-
-export async function dismissMessage( _event: IpcMainInvokeEvent, id: string ): Promise< void > {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		const dismissedMessages = userData.dismissedMessages ?? [];
-		if ( ! dismissedMessages.includes( id ) ) {
-			await saveUserData( { ...userData, dismissedMessages: [ ...dismissedMessages, id ] } );
-		}
-	} finally {
-		await unlockAppdata();
-	}
-}
-
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
 	{

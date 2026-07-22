@@ -54,7 +54,6 @@ export interface UserData {
 	lastNightlyUpdateCheck?: number;
 	nightlyPromptResult?: NightlyPromptResult;
 	agenticUiBannerDismissed?: boolean;
-	dismissedMessages?: string[];
 }
 
 export interface PromptWindowsSpeedUpResult {

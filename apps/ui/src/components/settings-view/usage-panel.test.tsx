@@ -222,6 +222,16 @@ describe( 'UsagePanel', () => {
 		expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
 	} );
 
+	it( 'shows a loading row with a progress bar in both sections', () => {
+		useStudioAssistantQuotaMock.mockReturnValue( { data: undefined, isLoading: true } as never );
+		useSnapshotUsageMock.mockReturnValue( { data: undefined, isLoading: true } as never );
+
+		render( <UsagePanel /> );
+
+		expect( screen.getAllByText( 'Loading...' ) ).toHaveLength( 2 );
+		expect( screen.getAllByTestId( 'usage-progress-bar' ) ).toHaveLength( 2 );
+	} );
+
 	it( 'replaces figures and actions with the offline notice while offline', () => {
 		useOfflineMock.mockReturnValue( true );
 		useStudioAssistantQuotaMock.mockReturnValue( {

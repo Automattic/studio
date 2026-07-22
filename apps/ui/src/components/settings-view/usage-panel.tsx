@@ -39,7 +39,7 @@ function UnavailableSection( { title }: { title: string } ) {
 
 function UsageProgressBar( { fraction }: { fraction: number } ) {
 	return (
-		<div className={ styles.progressTrack } aria-hidden="true">
+		<div className={ styles.progressTrack } data-testid="usage-progress-bar" aria-hidden="true">
 			<div className={ styles.progressValue } style={ { inlineSize: `${ fraction * 100 }%` } } />
 		</div>
 	);
@@ -51,7 +51,12 @@ function AiCreditsSummary() {
 
 	let content;
 	if ( isLoading ) {
-		content = <div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>;
+		content = (
+			<>
+				<div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>
+				<UsageProgressBar fraction={ 0 } />
+			</>
+		);
 	} else if ( isError ) {
 		content = (
 			<div className={ styles.previewUsageText }>

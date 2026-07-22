@@ -4,8 +4,10 @@ export function setPendingBackup( file: File ) {
 	pendingBackup = file;
 }
 
-export function takePendingBackup() {
-	const file = pendingBackup;
+export function peekPendingBackup() {
+	return pendingBackup;
+}
+
+export function clearPendingBackup() {
 	pendingBackup = null;
-	return file;
 }

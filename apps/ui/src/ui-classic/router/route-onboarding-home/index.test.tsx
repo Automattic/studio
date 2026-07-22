@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { takePendingBackup } from '@/lib/pending-backup';
+import { clearPendingBackup, peekPendingBackup } from '@/lib/pending-backup';
 import { OnboardingHomePage } from './index';
 import type { ComponentProps } from 'react';
 
@@ -30,7 +30,7 @@ describe( 'OnboardingHomePage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mocks.hasSites = false;
-		takePendingBackup();
+		clearPendingBackup();
 	} );
 
 	it( 'shows the Create and Import jobs', () => {
@@ -69,7 +69,7 @@ describe( 'OnboardingHomePage', () => {
 
 		fireEvent.change( input, { target: { files: [ file ] } } );
 
-		expect( takePendingBackup() ).toBe( file );
+		expect( peekPendingBackup() ).toBe( file );
 		expect( mocks.navigate ).toHaveBeenCalledWith( { to: '/onboarding/import' } );
 	} );
 
@@ -81,7 +81,7 @@ describe( 'OnboardingHomePage', () => {
 			dataTransfer: { files: [ file ] },
 		} );
 
-		expect( takePendingBackup() ).toBe( file );
+		expect( peekPendingBackup() ).toBe( file );
 		expect( mocks.navigate ).toHaveBeenCalledWith( { to: '/onboarding/import' } );
 	} );
 
@@ -117,7 +117,7 @@ describe( 'OnboardingHomePage', () => {
 			dataTransfer: { files: [ new File( [ 'image' ], 'screenshot.png' ) ] },
 		} );
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'This file type is not supported' );
-		expect( takePendingBackup() ).toBeNull();
+		expect( peekPendingBackup() ).toBeNull();
 		expect( mocks.navigate ).not.toHaveBeenCalled();
 	} );
 

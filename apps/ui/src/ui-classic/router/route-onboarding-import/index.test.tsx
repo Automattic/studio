@@ -1,7 +1,7 @@
 import { BackupExtractEvents, ImporterEvents } from '@studio/common/lib/import-export-events';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setPendingBackup, takePendingBackup } from '@/lib/pending-backup';
+import { clearPendingBackup, peekPendingBackup, setPendingBackup } from '@/lib/pending-backup';
 import { OnboardingImportPage } from './index';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
 import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
@@ -103,7 +103,7 @@ describe( 'OnboardingImportPage', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		mocks.formProps = null;
-		takePendingBackup();
+		clearPendingBackup();
 		mocks.getFilePath.mockResolvedValue( '/tmp/backup.zip' );
 		mocks.createSite.mockResolvedValue( { id: 'site-1' } );
 		mocks.importSite.mockResolvedValue( undefined );
@@ -116,7 +116,7 @@ describe( 'OnboardingImportPage', () => {
 		expect( mocks.getFilePath ).not.toHaveBeenCalled();
 		expect( mocks.formProps?.initialValues ).toEqual( { name: 'My Store' } );
 		expect( mocks.formProps?.isSubmitting ).toBe( false );
-		expect( takePendingBackup() ).toBeNull();
+		expect( peekPendingBackup() ).toBeNull();
 	} );
 
 	it( 'redirects direct visits without a selected File to Add a site', async () => {

@@ -9,7 +9,7 @@ import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
-import { takePendingBackup } from '@/lib/pending-backup';
+import { clearPendingBackup, peekPendingBackup } from '@/lib/pending-backup';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/components/create-site-form';
@@ -61,11 +61,15 @@ export function OnboardingImportPage() {
 	const importSite = useImportSite();
 	const deleteSite = useDeleteSite();
 
-	const [ selectedFile ] = useState< File | null >( takePendingBackup );
+	const [ selectedFile ] = useState< File | null >( peekPendingBackup );
 	const [ submitError, setSubmitError ] = useState< CreateSiteFormError | null >( null );
 	const [ hasFailed, setHasFailed ] = useState( false );
 	const [ isWorking, setIsWorking ] = useState( false );
 	const isWorkingRef = useRef( false );
+
+	useEffect( () => {
+		clearPendingBackup();
+	}, [] );
 
 	useEffect( () => {
 		if ( selectedFile ) return;

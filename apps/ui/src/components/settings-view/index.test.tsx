@@ -109,6 +109,12 @@ vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 	useSidebarCollapsed: () => false,
 } ) );
 
+// The mocked Tabs render every panel unconditionally; the usage panel has its
+// own test file.
+vi.mock( './usage-panel', () => ( {
+	UsagePanel: () => null,
+} ) );
+
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: () => false,
 } ) );

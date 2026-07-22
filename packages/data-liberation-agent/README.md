@@ -136,11 +136,11 @@ The join back to `output.wxr` and `products.jsonl` happens on the filesystem via
 
 ## Additional documentation
 
-* [How it works](/docs/how-it-works.md)
-* [AI agent commands](/docs/commands.md)
-* [AI skills](/docs/skills.md)
-* [MCP server tools](/docs/mcp.md)
-* [Wix authenticated content endpoints](/docs/wix-content-endpoints.md) — reference of the ten load-bearing content endpoints behind Wix's editor / dashboard auth
+* [How it works](/packages/data-liberation-agent/docs/how-it-works/README.md)
+* [AI agent commands](/packages/data-liberation-agent/docs/commands.md)
+* [AI skills](/packages/data-liberation-agent/docs/skills.md)
+* [MCP server tools](/packages/data-liberation-agent/docs/mcp.md)
+* [Wix authenticated content endpoints](/packages/data-liberation-agent/docs/wix-content-endpoints.md) — reference of the ten load-bearing content endpoints behind Wix's editor / dashboard auth
 
 ## Related
 

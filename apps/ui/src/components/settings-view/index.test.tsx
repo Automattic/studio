@@ -156,6 +156,7 @@ describe( 'SettingsView', () => {
 				locale: 'en',
 				defaultSiteDirectory: '/Users/example/Studio',
 				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			},
 			isLoading: false,
 		} as never );

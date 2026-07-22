@@ -559,6 +559,7 @@ export function createIpcConnector(): Connector {
 				locale,
 				defaultSiteDirectory,
 				studioCliInstalled,
+				studioCliExternallyManaged,
 			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
@@ -567,6 +568,7 @@ export function createIpcConnector(): Connector {
 				ipcApi.getUserLocale(),
 				ipcApi.getDefaultSiteDirectory(),
 				ipcApi.isStudioCliInstalled(),
+				ipcApi.isStudioCliExternallyManaged(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
@@ -574,6 +576,7 @@ export function createIpcConnector(): Connector {
 				QuitSitesBehavior | undefined,
 				string | undefined,
 				string,
+				boolean,
 				boolean,
 			];
 			return {
@@ -584,6 +587,7 @@ export function createIpcConnector(): Connector {
 				locale,
 				defaultSiteDirectory,
 				studioCliInstalled,
+				studioCliExternallyManaged,
 			};
 		},
 

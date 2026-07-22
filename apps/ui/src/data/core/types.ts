@@ -413,6 +413,10 @@ export interface UserPreferences {
 	locale: string | undefined;
 	defaultSiteDirectory: string;
 	studioCliInstalled: boolean;
+	// True when the `studio` command on PATH is a standalone (curl) install the
+	// app never installs over or uninstalls — the settings toggle disables
+	// itself in that case.
+	studioCliExternallyManaged: boolean;
 }
 
 export interface AppGlobals {
@@ -423,7 +427,10 @@ export interface AppGlobals {
 // Subset of UserPreferences that callers can actually mutate. `locale` is
 // typed as `SupportedLocale` on the write side because only locales we ship
 // translations for can be persisted.
-export type WritableUserPreferences = Omit< UserPreferences, 'locale' > & {
+export type WritableUserPreferences = Omit<
+	UserPreferences,
+	'locale' | 'studioCliExternallyManaged'
+> & {
 	locale: SupportedLocale;
 };
 

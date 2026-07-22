@@ -440,6 +440,16 @@
 		0 0 0 calc(2 * var(--wpds-border-width-focus)) var(--wpds-color-stroke-focus-brand);
 }
 
+.cliToggleTrigger {
+	display: inline-flex;
+}
+
+/* Disabled form controls swallow hover events, which would keep the wrapper's
+   tooltip from ever opening. */
+.cliToggleTrigger :global(input:disabled) {
+	pointer-events: none;
+}
+
 .cliDescription {
 	max-inline-size: 460px;
 	margin: 0;

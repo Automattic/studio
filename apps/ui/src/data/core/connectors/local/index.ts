@@ -604,6 +604,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				locale: undefined,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			};
 		},
 		async setUserPreferences( partial ) {

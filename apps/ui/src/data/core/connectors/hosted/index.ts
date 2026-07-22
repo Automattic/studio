@@ -314,6 +314,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				locale: undefined,
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			};
 		},
 		async setUserPreferences() {

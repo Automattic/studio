@@ -24,6 +24,7 @@ const PREFERENCES: UserPreferences = {
 	locale: 'en',
 	defaultSiteDirectory: '',
 	studioCliInstalled: true,
+	studioCliExternallyManaged: false,
 };
 
 describe( 'useSaveUserPreferences', () => {

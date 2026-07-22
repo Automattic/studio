@@ -1,5 +1,6 @@
 import { FormToggle } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
+import { Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { LearnMoreLink } from '@/components/learn-more';
@@ -22,12 +23,28 @@ export function StudioCliSection() {
 		return null;
 	}
 
+	// A standalone (curl) install is never touched by the app, so the toggle
+	// is read-only with a tooltip pointing at `studio uninstall`.
+	const externallyManaged = saved.studioCliExternallyManaged;
 	const checked = pending ?? saved.studioCliInstalled;
 
 	const handleChange = ( studioCliInstalled: boolean ) => {
+		if ( externallyManaged ) {
+			return;
+		}
 		setPending( studioCliInstalled );
 		savePreferences.mutate( { studioCliInstalled }, { onSettled: () => setPending( null ) } );
 	};
+
+	const toggle = (
+		<FormToggle
+			id="studio-cli-toggle"
+			aria-label={ __( 'Studio CLI for terminal' ) }
+			checked={ checked }
+			disabled={ savePreferences.isPending || externallyManaged }
+			onChange={ ( event ) => handleChange( event.target.checked ) }
+		/>
+	);
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
@@ -35,13 +52,20 @@ export function StudioCliSection() {
 				<h2 className={ clsx( styles.preferenceSectionHeading, styles.cliHeading ) }>
 					{ __( 'Studio CLI' ) }
 				</h2>
-				<FormToggle
-					id="studio-cli-toggle"
-					aria-label={ __( 'Studio CLI for terminal' ) }
-					checked={ checked }
-					disabled={ savePreferences.isPending }
-					onChange={ ( event ) => handleChange( event.target.checked ) }
-				/>
+				{ externallyManaged ? (
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={ <span className={ styles.cliToggleTrigger }>{ toggle }</span> }
+						/>
+						<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+							{ __(
+								'This studio command was installed with the standalone CLI installer, so Studio can’t manage it. Run studio uninstall in a terminal to remove it.'
+							) }
+						</Tooltip.Popup>
+					</Tooltip.Root>
+				) : (
+					toggle
+				) }
 			</div>
 			{ savePreferences.isError ? (
 				<div className={ styles.errorMessage }>

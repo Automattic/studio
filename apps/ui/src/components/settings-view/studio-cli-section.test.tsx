@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAppGlobals } from '@/data/queries/use-app-globals';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -37,7 +38,7 @@ describe( 'StudioCliSection', () => {
 			isError: false,
 		} as never );
 		useUserPreferencesMock.mockReturnValue( {
-			data: { studioCliInstalled: false },
+			data: { studioCliInstalled: false, studioCliExternallyManaged: false },
 		} as never );
 	} );
 
@@ -76,6 +77,26 @@ describe( 'StudioCliSection', () => {
 		expect(
 			screen.getByText( 'An error occurred while updating the Studio CLI. Please try again.' )
 		).toBeInTheDocument();
+	} );
+
+	it( 'disables the toggle for a standalone (externally managed) CLI', () => {
+		useUserPreferencesMock.mockReturnValue( {
+			data: { studioCliInstalled: true, studioCliExternallyManaged: true },
+		} as never );
+
+		render(
+			<Tooltip.Provider>
+				<StudioCliSection />
+			</Tooltip.Provider>
+		);
+
+		const toggle = screen.getByRole( 'checkbox', { name: 'Studio CLI for terminal' } );
+		expect( toggle ).toBeChecked();
+		expect( toggle ).toBeDisabled();
+
+		fireEvent.click( toggle );
+
+		expect( mutate ).not.toHaveBeenCalled();
 	} );
 
 	it( 'is hidden in the browser', () => {

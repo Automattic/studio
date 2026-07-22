@@ -10,6 +10,7 @@
 				"src/index.ts",
 				"src/preload.ts",
 				"src/migrations/index.ts",
+				"src/additional-phrases.ts",
 				"forge.config.ts"
 			],
 			"project": "src/**/*.{ts,tsx}"

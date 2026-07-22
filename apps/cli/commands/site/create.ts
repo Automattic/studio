@@ -126,6 +126,10 @@ export type CreateCommandOptions = {
 	blueprint?: {
 		contents: unknown;
 		uri: string;
+		stagedSource?: {
+			sourcePath: string;
+			targetPath: string;
+		};
 	};
 	adminUsername?: string;
 	adminPassword?: string;
@@ -202,7 +206,10 @@ function collectSourceFiles( sourceDir: string ): Record< string, string >[] {
 	return files;
 }
 
-function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImporterSource {
+function resolveStaticSiteImporterSource(
+	sourcePath: string,
+	stagedFigmaPath?: string
+): StaticSiteImporterSource {
 	if ( isUrl( sourcePath ) ) {
 		return {
 			type: 'url',
@@ -260,13 +267,16 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 	}
 
 	if ( extension === '.fig' ) {
+		if ( ! stagedFigmaPath ) {
+			throw new LoggerError( __( 'A site path is required to stage Figma imports.' ) );
+		}
 		return {
 			type: 'source',
 			path: sourcePath,
 			payload: {
 				figma_file: {
 					name: path.basename( sourcePath ),
-					content_base64: fs.readFileSync( sourcePath ).toString( 'base64' ),
+					staged_path: stagedFigmaPath,
 				},
 			},
 		};
@@ -281,7 +291,11 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 	};
 }
 
-function buildStaticSiteImporterPhp( source: StaticSiteImporterSource, siteName: string ): string {
+function buildStaticSiteImporterPhp(
+	source: StaticSiteImporterSource,
+	siteName: string,
+	storeImportResult: boolean
+): string {
 	const sourceBase64 = Buffer.from( JSON.stringify( source.payload ) ).toString( 'base64' );
 	return `<?php
 if ( ! defined( 'ABSPATH' ) ) {
@@ -332,7 +346,7 @@ if ( isset( $source['url'] ) && function_exists( 'static_site_importer_ability_i
 	$result = static_site_importer_ability_import_website_artifact( $input );
 }
 
-update_option( 'studio_create_from_import_result', $result, false );
+${ storeImportResult ? "update_option( 'studio_create_from_import_result', $result, false );" : '' }
 
 if ( ! is_array( $result ) || empty( $result['success'] ) ) {
 	throw new RuntimeException( 'Static Site Importer import failed: ' . wp_json_encode( $result ) );
@@ -376,9 +390,19 @@ function phpString( value: string ): string {
 export function buildCreateFromSourceBlueprint(
 	sourcePath: string,
 	siteName: string,
-	staticSiteImporterPluginUrl = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL
-): { contents: BlueprintV1Declaration; uri: string } {
-	const source = resolveStaticSiteImporterSource( sourcePath );
+	staticSiteImporterPluginUrl = DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
+	sitePath?: string,
+	storeImportResult = false
+): {
+	contents: BlueprintV1Declaration;
+	uri: string;
+	stagedSource?: { sourcePath: string; targetPath: string };
+} {
+	const stagedFigmaPath =
+		path.extname( sourcePath ).toLowerCase() === '.fig' && sitePath
+			? path.join( sitePath, '.studio-import', 'source.fig' )
+			: undefined;
+	const source = resolveStaticSiteImporterSource( sourcePath, stagedFigmaPath );
 	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-from-' ) );
 	const blueprintPath = path.join( tempDir, 'blueprint.json' );
 	const blueprint: BlueprintV1Declaration = {
@@ -400,7 +424,7 @@ export function buildCreateFromSourceBlueprint(
 			},
 			{
 				step: 'runPHP',
-				code: buildStaticSiteImporterPhp( source, siteName ),
+				code: buildStaticSiteImporterPhp( source, siteName, storeImportResult ),
 			},
 		],
 	};
@@ -409,6 +433,7 @@ export function buildCreateFromSourceBlueprint(
 	return {
 		contents: blueprint,
 		uri: blueprintPath,
+		...( stagedFigmaPath ? { stagedSource: { sourcePath, targetPath: stagedFigmaPath } } : {} ),
 	};
 }
 
@@ -426,6 +451,7 @@ export async function runCommand(
 	}
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
 	const isOnlineStatus = await isOnline();
+	const stagedSource = options.blueprint?.stagedSource;
 
 	try {
 		if ( isOnlineStatus ) {
@@ -525,6 +551,11 @@ export async function runCommand(
 			logger.reportStart( LoggerAction.CREATE_DIRECTORY, __( 'Creating site directory…' ) );
 			fs.mkdirSync( sitePath, { recursive: true } );
 			logger.reportSuccess( __( 'Site directory created' ) );
+		}
+
+		if ( stagedSource ) {
+			fs.mkdirSync( path.dirname( stagedSource.targetPath ), { recursive: true } );
+			fs.copyFileSync( stagedSource.sourcePath, stagedSource.targetPath );
 		}
 
 		if ( options.wpVersion === 'latest' ) {
@@ -754,6 +785,9 @@ export async function runCommand(
 
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
 	} finally {
+		if ( stagedSource ) {
+			fs.rmSync( path.dirname( stagedSource.targetPath ), { recursive: true, force: true } );
+		}
 		await disconnectFromDaemon();
 	}
 }
@@ -904,6 +938,11 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					describe: __( 'Static Site Importer plugin zip URL for --from imports' ),
 					default: DEFAULT_STATIC_SITE_IMPORTER_PLUGIN_URL,
 				} )
+				.option( 'store-import-result', {
+					type: 'boolean',
+					describe: __( 'Store the import result in the created site database' ),
+					default: false,
+				} )
 				.option( 'original-blueprint-path', {
 					type: 'string',
 					hidden: true,
@@ -945,8 +984,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			const source = argv.from ? resolveStaticSiteImporterSource( argv.from ) : undefined;
-			const artifact = source?.type === 'website-artifact' ? source.artifact : undefined;
+			const artifact =
+				argv.from && ! isUrl( argv.from ) && path.extname( argv.from ).toLowerCase() === '.json'
+					? readSiteArtifact( argv.from )
+					: undefined;
 			let siteName = argv.name ?? ( artifact ? artifactTitle( artifact ) : undefined );
 			let sitePath = argv.path;
 			let wpVersion = argv.wp;
@@ -1150,7 +1191,9 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				config.blueprint = buildCreateFromSourceBlueprint(
 					argv.from,
 					siteName || __( 'Imported Site' ),
-					argv.staticSiteImporterUrl
+					argv.staticSiteImporterUrl,
+					sitePath,
+					argv.storeImportResult
 				);
 			} else if ( argv.blueprint ) {
 				if ( argv.blueprint.startsWith( 'http://' ) || argv.blueprint.startsWith( 'https://' ) ) {

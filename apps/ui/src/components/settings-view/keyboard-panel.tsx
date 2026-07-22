@@ -39,6 +39,7 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 		{
 			title: __( 'Composer' ),
 			shortcuts: [
+				{ label: __( 'New chat' ), keys: [ modifierKey, 'N' ] },
 				{ label: __( 'Send message' ), keys: [ '↩' ] },
 				{ label: __( 'Insert newline' ), keys: [ 'Shift', '↩' ] },
 				{ label: __( 'Stop response' ), keys: [ 'Esc' ] },

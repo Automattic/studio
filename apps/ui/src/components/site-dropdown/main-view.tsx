@@ -138,8 +138,6 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		void connector.openExternalUrl( url );
 	};
 
-	// The sync icon buttons stay focusable when disabled, so their tooltip
-	// (fed by `label`) doubles as the explanation of why they're unavailable.
 	const getSyncActionLabel = ( idle: string, pending: string, isPending: boolean ): string => {
 		if ( isPending ) {
 			return pending;

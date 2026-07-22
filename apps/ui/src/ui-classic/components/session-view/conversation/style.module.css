@@ -88,7 +88,6 @@
 		transparent
 	);
 	--tool-text-color: var(--tool-trigger-color);
-	--tool-icon-color: var(--tool-trigger-color);
 
 	display: flex;
 	align-items: baseline;
@@ -131,7 +130,6 @@
 
 .toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) {
 	--tool-text-color: var(--wpds-color-fg-interactive-neutral-active);
-	--tool-icon-color: var(--wpds-color-fg-interactive-neutral-active);
 
 	background-color: var(--tool-row-active-background);
 }
@@ -141,8 +139,7 @@
 	background-color: transparent;
 }
 
-.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolLabel,
-.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolDetail {
+.toolRowButton:is(:hover, :focus-visible, [data-expanded='true']) .toolSummary {
 	color: var(--tool-text-color);
 }
 
@@ -235,37 +232,163 @@
 	background-color: var(--wpds-color-bg-surface-error-weak);
 }
 
-.toolLabel {
+.toolSummary {
 	color: var(--tool-text-color);
 	font-weight: 400;
 	min-width: 0;
-	flex: 0 1 auto;
+	flex: 1 1 auto;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.toolDetail {
-	color: var(--tool-text-color);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+.activity {
+	--activity-color: var(--wpds-color-fg-content-neutral-weak);
+
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.activity[data-active='true'] {
+	--activity-color: var(--wpds-color-fg-content-neutral);
+}
+
+.activitySummary {
+	display: flex;
+	align-items: baseline;
+	gap: var(--wpds-dimension-padding-xs);
+	box-sizing: border-box;
+	width: fit-content;
+	max-width: 100%;
+	margin: -4px -8px;
+	padding: 4px 8px;
+	color: var(--activity-color);
+	font-family: inherit;
+	font-size: var(--wpds-typography-font-size-md);
+	line-height: 1.55;
+	text-align: left;
+}
+
+button.activitySummary {
+	appearance: none;
+	border: 0;
+	border-radius: var(--wpds-border-radius-sm, 4px);
+	background: transparent;
+	cursor: pointer;
+	transition:
+		background-color 120ms ease,
+		color 120ms ease;
+}
+
+button.activitySummary:is(:hover, :focus-visible, [data-expanded='true']) {
+	--activity-color: var(--wpds-color-fg-interactive-neutral-active);
+
+	background-color: var(--wpds-color-bg-interactive-neutral-weak-active, #ededed);
+}
+
+button.activitySummary:focus:not(:focus-visible):not([data-expanded='true']) {
+	outline: none;
+	background-color: transparent;
+}
+
+button.activitySummary:focus-visible {
+	outline: 2px solid var(--wpds-color-stroke-interactive-focus, #2563eb);
+	outline-offset: 2px;
+}
+
+.activityIndicator {
+	align-self: center;
+	margin-inline-end: var(--wpds-dimension-padding-xs);
+}
+
+.activitySummaryText {
 	min-width: 0;
 	flex: 1 1 auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.toolIcon {
+.activityElapsed {
+	display: inline-flex;
+	align-items: baseline;
 	flex: 0 0 auto;
-	width: 18px;
-	height: 18px;
-	color: var(--tool-icon-color);
-	stroke: var(--tool-icon-color);
-	transform: translateY(3px);
+	color: var(--wpds-color-fg-content-neutral-weak);
+	font-variant-numeric: tabular-nums;
 }
 
-.toolIcon,
-.toolIcon :where(path:not([fill='none']), rect:not([fill='none']), circle:not([fill='none']), polygon:not([fill='none'])) {
-	fill: var(--tool-icon-color);
+.activityElapsedCharacters {
+	display: inline-flex;
+	align-items: baseline;
+}
+
+.activityElapsedCharacter {
+	display: inline-grid;
+	place-items: center;
+	inline-size: max-content;
+	min-inline-size: 0.62em;
+	min-block-size: 1.55em;
+	overflow: hidden;
+}
+
+.activityElapsedCharacter[data-compact-space='true'] {
+	min-inline-size: 0.32em;
+}
+
+.activityElapsedCharacterPrevious,
+.activityElapsedCharacterCurrent {
+	grid-area: 1 / 1;
+}
+
+.activityElapsedCharacterPrevious {
+	animation: activityElapsedExit 180ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.activityElapsedCharacterCurrentEntering {
+	animation: activityElapsedEnter 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes activityElapsedExit {
+	to {
+		opacity: 0;
+		transform: translateY(45%);
+	}
+}
+
+@keyframes activityElapsedEnter {
+	from {
+		opacity: 0;
+		transform: translateY(-45%);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.activityChevron {
+	flex: 0 0 auto;
+	align-self: center;
+	color: var(--activity-color);
+	fill: currentColor;
+}
+
+.activityCalls {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-top: var(--wpds-dimension-padding-sm);
+}
+
+.activity[data-active='true'] .activityCalls {
+	padding-inline-start: calc(13px + var(--wpds-dimension-padding-xs) * 2);
+}
+
+.activityCalls[hidden],
+.activitySingleDetails[hidden] {
+	display: none;
 }
 
 .mediaArtifactGrid {
@@ -345,6 +468,9 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.toolRowButton,
+	.activitySummary,
+	.activityElapsedCharacterPrevious,
+	.activityElapsedCharacterCurrentEntering,
 	.toolDetailsShell,
 	.toolDetailsShell[data-expanded='true'],
 	.mediaArtifactLoading {

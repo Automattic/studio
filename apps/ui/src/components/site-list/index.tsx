@@ -23,6 +23,7 @@ import * as Menu from '@/components/menu';
 import { ReorderableList } from '@/components/reorderable-list';
 import { SidebarButton } from '@/components/sidebar-button';
 import { deriveSiteStatus } from '@/components/site-dropdown/utils';
+import { SyncActivityIndicator } from '@/components/sync-activity-indicator';
 import { useConnector } from '@/data/core';
 import { useSiteAgentActivity, type SiteAgentActivity } from '@/data/queries/use-agent-run';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -143,12 +144,12 @@ function SiteAgentActivityIndicator( { activity }: { activity: SiteRowActivity }
 				/>
 			) : null }
 			{ renderedActivity === 'sync' ? (
-				<SiteAgentActivityTooltip label={ syncLabel } className={ styles.siteAgentActivitySync }>
-					<span className={ styles.siteAgentActivitySyncDots } aria-hidden="true">
-						<span className={ styles.siteAgentActivitySyncDot } />
-						<span className={ styles.siteAgentActivitySyncDot } />
-						<span className={ styles.siteAgentActivitySyncDot } />
-					</span>
+				<SiteAgentActivityTooltip
+					label={ syncLabel }
+					className={ styles.siteAgentActivitySync }
+					childProvidesLabel
+				>
+					<SyncActivityIndicator label={ syncLabel } />
 				</SiteAgentActivityTooltip>
 			) : null }
 		</span>

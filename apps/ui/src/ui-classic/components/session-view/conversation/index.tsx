@@ -12,65 +12,24 @@ import {
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
 } from '@studio/common/ai/sessions/entry-types';
+import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
 import {
 	getInputString,
 	getToolDetail,
 	getToolDisplayName,
 	getToolResultDiff,
-	splitCommandArgs,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
-import { __, sprintf } from '@wordpress/i18n';
-import {
-	blockDefault,
-	brush,
-	capturePhoto,
-	category,
-	chartBar,
-	check,
-	cloud,
-	cloudDownload,
-	cloudUpload,
-	code,
-	create,
-	download,
-	file,
-	globe,
-	image,
-	info,
-	link,
-	list,
-	media,
-	navigation,
-	offline,
-	page,
-	pencil,
-	pending,
-	people,
-	plugins,
-	plusCircle,
-	post,
-	search,
-	seen,
-	settings,
-	share,
-	styles as stylesIcon,
-	tag,
-	tool,
-	trash,
-	trendingUp,
-	update,
-	upload,
-} from '@wordpress/icons';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { check, chevronDown, chevronRight, image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CopyButton } from '@/components/copy-button';
 import { Markdown } from '@/components/markdown';
+import { WorkingActivityIndicator } from '@/components/working-activity-indicator';
 import { useConnector, type LoadedAiSession } from '@/data/core';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
-import { refreshIcon } from '@/lib/icons';
-import { ThinkingIndicator } from '../thinking-indicator';
 import styles from './style.module.css';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
@@ -95,6 +54,8 @@ type RenderItem =
 			name: string;
 			input?: Record< string, unknown >;
 			result?: NormalizedToolResult;
+			startedAt?: number;
+			completedAt?: number;
 	  }
 	| {
 			kind: 'agent-question-batch';
@@ -210,7 +171,10 @@ export function entriesToRenderItems(
 ): RenderItem[] {
 	// First pass: collect tool_call_id → tool_result pairings so each
 	// `toolCall` row can render its output inline.
-	const resultsByToolCallId = new Map< string, NormalizedToolResult >();
+	const resultsByToolCallId = new Map<
+		string,
+		{ result: NormalizedToolResult; completedAt?: number }
+	>();
 	for ( const entry of entries ) {
 		if ( entry.type !== 'message' ) continue;
 		const message = ( entry as { message?: unknown } ).message as PiToolResultLike | undefined;
@@ -219,12 +183,16 @@ export function entriesToRenderItems(
 			.filter( ( b ) => b.type === 'text' && typeof b.text === 'string' )
 			.map( ( b ) => b.text as string )
 			.join( '\n' );
+		const timestamp = Date.parse( entry.timestamp );
 		resultsByToolCallId.set( message.toolCallId, {
-			// Old transcripts embed media widget payload markers in screenshot
-			// results; strip them from every tool's display text.
-			text: stripMediaWidgetPayloadLines( text ),
-			isError: message.isError === true,
-			diff: message.isError === true ? undefined : getToolResultDiff( message.details ),
+			result: {
+				// Old transcripts embed media widget payload markers in screenshot
+				// results; strip them from every tool's display text.
+				text: stripMediaWidgetPayloadLines( text ),
+				isError: message.isError === true,
+				diff: message.isError === true ? undefined : getToolResultDiff( message.details ),
+			},
+			completedAt: Number.isNaN( timestamp ) ? undefined : timestamp,
 		} );
 	}
 
@@ -260,7 +228,7 @@ export function entriesToRenderItems(
 				.map( ( block ) => ( block.text as string ).trim() )
 				.join( '\n\n' );
 			const lastTextBlock = textBlocks[ textBlocks.length - 1 ];
-
+			const timestamp = Date.parse( entry.timestamp );
 			message.content.forEach( ( block, blockIndex ) => {
 				if ( block.type === 'text' && typeof block.text === 'string' ) {
 					const text = block.text.trim();
@@ -278,12 +246,15 @@ export function entriesToRenderItems(
 					typeof block.name === 'string' &&
 					! HIDDEN_TOOL_ROWS.has( block.name )
 				) {
+					const result = resultsByToolCallId.get( block.id );
 					items.push( {
 						kind: 'tool-use',
 						key: `${ entryIndex }:${ blockIndex }:tool`,
 						name: block.name,
 						input: ( block.arguments as Record< string, unknown > ) ?? {},
-						result: resultsByToolCallId.get( block.id ),
+						result: result?.result,
+						startedAt: Number.isNaN( timestamp ) ? undefined : timestamp,
+						completedAt: result?.completedAt,
 					} );
 				}
 			} );
@@ -437,19 +408,10 @@ function AssistantText( { text, copyText }: { text: string; copyText?: string } 
 	);
 }
 
-const TOOL_DETAIL_MAX_LENGTH = 96;
-
 interface ClassicToolDisplay {
 	label: string;
 	detail: string;
 	inputText: string;
-}
-
-function truncateToolDetail( value: string, maxLength = TOOL_DETAIL_MAX_LENGTH ): string {
-	if ( value.length <= maxLength ) {
-		return value;
-	}
-	return value.slice( 0, maxLength - 1 ).trimEnd() + '…';
 }
 
 function stringifyToolInput( input: Record< string, unknown > ): string {
@@ -507,124 +469,11 @@ function getClassicToolDisplay(
 			break;
 	}
 
-	display.detail = truncateToolDetail( display.detail );
 	return display;
 }
 
-function getWpCliToolIcon( command: string ) {
-	const [ entity ] = splitCommandArgs( command );
-
-	switch ( entity ) {
-		case 'theme':
-			return stylesIcon;
-		case 'plugin':
-			return plugins;
-		case 'post':
-			return post;
-		case 'option':
-			return settings;
-		case 'user':
-			return people;
-		case 'media':
-			return media;
-		case 'menu':
-			return navigation;
-		case 'term':
-			return tag;
-		case 'cache':
-			return update;
-		case 'rewrite':
-			return link;
-		case 'eval':
-		case 'eval-file':
-			return code;
-		default:
-			return code;
-	}
-}
-
-function getToolIcon( name: string, input: Record< string, unknown > | undefined ) {
-	switch ( name ) {
-		case 'site_create':
-			return plusCircle;
-		case 'site_list':
-			return list;
-		case 'site_info':
-			return info;
-		case 'site_start':
-			return globe;
-		case 'site_stop':
-			return offline;
-		case 'site_delete':
-			return trash;
-		case 'site_push':
-			return cloudUpload;
-		case 'site_pull':
-			return cloudDownload;
-		case 'site_import':
-			return upload;
-		case 'site_export':
-			return download;
-		case 'site_connected_remote_sites':
-			return link;
-		case 'preview_create':
-			return seen;
-		case 'preview_list':
-			return list;
-		case 'preview_update':
-			return update;
-		case 'preview_delete':
-			return trash;
-		case 'wp_cli': {
-			const command = getInputString( input, 'command' );
-			return command ? getWpCliToolIcon( command ) : code;
-		}
-		case 'open_annotation_browser':
-			return pencil;
-		case 'wait_for_annotations':
-			return pending;
-		case 'take_screenshot':
-			return capturePhoto;
-		case 'inspect_design':
-			return search;
-		case 'refresh_browser':
-			return refreshIcon;
-		case 'share_screenshot':
-			return share;
-		case 'validate_blocks':
-			return check;
-		case 'scaffold_theme':
-			return brush;
-		case 'install_taxonomy_scripts':
-			return category;
-		case 'need_for_speed':
-			return chartBar;
-		case 'rank_me_up':
-			return trendingUp;
-		case 'wpcom_request':
-			return cloud;
-		case 'Read':
-			return file;
-		case 'Write':
-			return create;
-		case 'Edit':
-			return pencil;
-		case 'Bash':
-			return code;
-		case 'Grep':
-		case 'Glob':
-			return search;
-		case 'Ls':
-			return list;
-		case 'Skill':
-			return blockDefault;
-		case 'Task':
-			return tool;
-		case 'TodoWrite':
-			return check;
-		default:
-			return tool;
-	}
+function getToolSummary( display: ClassicToolDisplay ): string {
+	return display.detail ? `${ display.label } ${ display.detail }` : display.label;
 }
 
 function DiffBlock( { diff }: { diff: string } ) {
@@ -647,14 +496,28 @@ function DiffBlock( { diff }: { diff: string } ) {
 	);
 }
 
-function ToolIcon( { name, input }: { name: string; input?: Record< string, unknown > } ) {
+function ToolDetailsContent( {
+	display,
+	result,
+}: {
+	display: ClassicToolDisplay;
+	result?: NormalizedToolResult;
+} ) {
+	const resultText = result?.text?.trim() ?? '';
+	const hasOutput = resultText.length > 0;
+	const hasInput = display.inputText.length > 0;
+	const hasDiff = Boolean( result?.diff );
+
 	return (
-		<Icon
-			icon={ getToolIcon( name, input ) }
-			size={ 18 }
-			className={ styles.toolIcon }
-			aria-hidden="true"
-		/>
+		<div className={ styles.toolOutputWrap }>
+			{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
+			{ hasOutput ? (
+				<pre className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }>
+					{ resultText }
+				</pre>
+			) : null }
+			{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
+		</div>
 	);
 }
 
@@ -668,6 +531,7 @@ function ToolUseRow( {
 	result?: NormalizedToolResult;
 } ) {
 	const display = getClassicToolDisplay( name, input );
+	const summary = getToolSummary( display );
 	const detailsId = useId();
 	const resultText = result?.text?.trim() ?? '';
 	const hasOutput = resultText.length > 0;
@@ -684,11 +548,9 @@ function ToolUseRow( {
 		return () => window.clearTimeout( timeoutId );
 	}, [ detailsMounted, expanded ] );
 	const rowContent = (
-		<>
-			<ToolIcon name={ name } input={ input } />
-			<span className={ styles.toolLabel }>{ display.label }</span>
-			{ display.detail ? <span className={ styles.toolDetail }>{ display.detail }</span> : null }
-		</>
+		<span className={ styles.toolSummary } title={ summary }>
+			{ summary }
+		</span>
 	);
 
 	return (
@@ -697,7 +559,7 @@ function ToolUseRow( {
 				<button
 					type="button"
 					className={ clsx( styles.toolRow, styles.toolRowButton ) }
-					aria-label={ display.detail ? `${ display.label } ${ display.detail }` : display.label }
+					aria-label={ summary }
 					aria-expanded={ expanded }
 					aria-controls={ detailsId }
 					data-expanded={ expanded }
@@ -729,20 +591,340 @@ function ToolUseRow( {
 					} }
 				>
 					<div className={ styles.toolDetailsClip }>
-						<div className={ styles.toolOutputWrap }>
-							{ hasInput ? <pre className={ styles.toolInput }>{ display.inputText }</pre> : null }
-							{ hasOutput ? (
-								<pre
-									className={ clsx( styles.toolOutput, result?.isError && styles.toolOutputError ) }
-								>
-									{ resultText }
-								</pre>
-							) : null }
-							{ hasDiff ? <DiffBlock diff={ result!.diff! } /> : null }
-						</div>
+						<ToolDetailsContent display={ display } result={ result } />
 					</div>
 				</div>
 			) : null }
+		</div>
+	);
+}
+
+type ToolUseItem = Extract< RenderItem, { kind: 'tool-use' } >;
+type ConversationItem =
+	| Exclude< RenderItem, { kind: 'tool-use' } >
+	| ToolUseItem
+	| {
+			kind: 'tool-activity';
+			key: string;
+			tools: ToolUseItem[];
+			active: boolean;
+	  };
+
+function groupToolActivityRuns( items: RenderItem[], isRunning: boolean ): ConversationItem[] {
+	const groupedItems: ConversationItem[] = [];
+
+	for ( let index = 0; index < items.length; index += 1 ) {
+		const item = items[ index ];
+		if ( item.kind !== 'tool-use' ) {
+			groupedItems.push( item );
+			continue;
+		}
+
+		const tools: ToolUseItem[] = [ item ];
+		while ( items[ index + 1 ]?.kind === 'tool-use' ) {
+			tools.push( items[ index + 1 ] as ToolUseItem );
+			index += 1;
+		}
+		const active = isRunning && index === items.length - 1;
+		groupedItems.push( {
+			kind: 'tool-activity',
+			key: `${ tools[ 0 ].key }:activity`,
+			tools,
+			active,
+		} );
+	}
+
+	return groupedItems;
+}
+
+function formatElapsedTime( elapsedSeconds: number ): string {
+	if ( elapsedSeconds < 60 ) {
+		return `${ elapsedSeconds }s`;
+	}
+	const minutes = Math.floor( elapsedSeconds / 60 );
+	const seconds = elapsedSeconds % 60;
+	return seconds > 0 ? `${ minutes }m ${ seconds }s` : `${ minutes }m`;
+}
+
+function useElapsedSeconds( active: boolean, startedAt: number | null ): number | null {
+	const [ elapsedSeconds, setElapsedSeconds ] = useState< number | null >( null );
+
+	useEffect( () => {
+		if ( ! active || startedAt === null ) {
+			setElapsedSeconds( null );
+			return;
+		}
+		const updateElapsed = () => {
+			setElapsedSeconds( Math.max( 0, Math.floor( ( Date.now() - startedAt ) / 1000 ) ) );
+		};
+		updateElapsed();
+		const intervalId = window.setInterval( updateElapsed, 1000 );
+		return () => window.clearInterval( intervalId );
+	}, [ active, startedAt ] );
+
+	return elapsedSeconds;
+}
+
+function AnimatedElapsed( { label }: { label: string } ) {
+	const prefersReducedMotion = usePrefersReducedMotion();
+	const [ currentLabel, setCurrentLabel ] = useState( label );
+	const [ previousLabel, setPreviousLabel ] = useState< string | null >( null );
+	const [ animationVersion, setAnimationVersion ] = useState( 0 );
+
+	useEffect( () => {
+		if ( label === currentLabel ) {
+			return;
+		}
+		if ( prefersReducedMotion ) {
+			setCurrentLabel( label );
+			setPreviousLabel( null );
+			return;
+		}
+		setPreviousLabel( currentLabel );
+		setCurrentLabel( label );
+		setAnimationVersion( ( version ) => version + 1 );
+	}, [ currentLabel, label, prefersReducedMotion ] );
+
+	useEffect( () => {
+		if ( previousLabel === null ) {
+			return;
+		}
+		const timeoutId = window.setTimeout( () => setPreviousLabel( null ), 200 );
+		return () => window.clearTimeout( timeoutId );
+	}, [ animationVersion, previousLabel ] );
+
+	const characterCount = Math.max( currentLabel.length, previousLabel?.length ?? 0 );
+	const currentCharacters = currentLabel.padStart( characterCount ).split( '' );
+	const previousCharacters = previousLabel?.padStart( characterCount ).split( '' ) ?? [];
+
+	return (
+		<span className={ styles.activityElapsed } aria-hidden="true">
+			<span className={ styles.activityElapsedCharacters }>
+				{ currentCharacters.map( ( character, index ) => {
+					const previousCharacter = previousCharacters[ index ];
+					const changed = previousLabel !== null && previousCharacter !== character;
+					const compactSpace =
+						character === ' ' && ( ! previousCharacter || previousCharacter === ' ' );
+					return (
+						<span
+							key={ index }
+							className={ styles.activityElapsedCharacter }
+							data-compact-space={ compactSpace || undefined }
+						>
+							{ changed ? (
+								<span
+									key={ `previous-${ animationVersion }-${ index }` }
+									className={ styles.activityElapsedCharacterPrevious }
+								>
+									{ previousCharacter && previousCharacter !== ' ' ? previousCharacter : '\u00a0' }
+								</span>
+							) : null }
+							<span
+								key={ `current-${ animationVersion }-${ index }` }
+								className={ clsx(
+									styles.activityElapsedCharacterCurrent,
+									changed && styles.activityElapsedCharacterCurrentEntering
+								) }
+							>
+								{ character === ' ' ? '\u00a0' : character }
+							</span>
+						</span>
+					);
+				} ) }
+			</span>
+		</span>
+	);
+}
+
+function ActivitySummary( {
+	label,
+	elapsedLabel,
+	expanded,
+	controlsId,
+	onToggle,
+	working = false,
+	accessibleLabel,
+}: {
+	label: string;
+	elapsedLabel?: string | null;
+	expanded?: boolean;
+	controlsId?: string;
+	onToggle?: () => void;
+	working?: boolean;
+	accessibleLabel?: string;
+} ) {
+	const content = (
+		<>
+			{ working ? (
+				<WorkingActivityIndicator className={ styles.activityIndicator } decorative />
+			) : null }
+			<span
+				className={ styles.activitySummaryText }
+				aria-hidden={ accessibleLabel ? 'true' : undefined }
+				title={ label }
+			>
+				{ label }
+			</span>
+			{ elapsedLabel ? <AnimatedElapsed label={ elapsedLabel } /> : null }
+			{ onToggle ? (
+				<Icon
+					icon={ expanded ? chevronDown : chevronRight }
+					size={ 16 }
+					className={ styles.activityChevron }
+					aria-hidden="true"
+				/>
+			) : null }
+		</>
+	);
+
+	if ( ! onToggle ) {
+		return (
+			<div
+				className={ styles.activitySummary }
+				role="status"
+				aria-label={ accessibleLabel }
+				aria-live="polite"
+			>
+				{ content }
+			</div>
+		);
+	}
+
+	const buttonLabel = expanded
+		? sprintf( __( 'Hide activity: %s' ), label )
+		: sprintf( __( 'Show activity: %s' ), label );
+	return (
+		<button
+			type="button"
+			className={ styles.activitySummary }
+			aria-label={ buttonLabel }
+			aria-expanded={ expanded }
+			aria-controls={ controlsId }
+			data-expanded={ expanded }
+			onClick={ onToggle }
+		>
+			{ content }
+		</button>
+	);
+}
+
+function ToolActivity( {
+	tools,
+	active,
+	startedAt,
+}: {
+	tools: ToolUseItem[];
+	active: boolean;
+	startedAt: number | null;
+} ) {
+	const [ expanded, setExpanded ] = useState( false );
+	const detailsId = useId();
+	const latestTool = tools[ tools.length - 1 ];
+	const latestDisplay = getClassicToolDisplay( latestTool.name, latestTool.input );
+	const isSingleTool = tools.length === 1;
+	const summary =
+		active || isSingleTool
+			? getToolSummary( latestDisplay )
+			: sprintf( _n( '%d tool call', '%d tool calls', tools.length ), tools.length );
+	const liveElapsedSeconds = useElapsedSeconds( active, startedAt );
+	const completedElapsedSeconds =
+		tools[ 0 ].startedAt !== undefined && latestTool.completedAt !== undefined
+			? Math.max( 0, Math.floor( ( latestTool.completedAt - tools[ 0 ].startedAt ) / 1000 ) )
+			: 0;
+	const elapsedLabel = formatElapsedTime(
+		active ? liveElapsedSeconds ?? 0 : completedElapsedSeconds
+	);
+
+	return (
+		<div className={ styles.activity } data-active={ active ? 'true' : undefined }>
+			<ActivitySummary
+				label={ summary }
+				elapsedLabel={ elapsedLabel }
+				expanded={ expanded }
+				controlsId={ detailsId }
+				onToggle={ () => setExpanded( ( value ) => ! value ) }
+				working={ active }
+			/>
+			{ isSingleTool ? (
+				<div id={ detailsId } className={ styles.activitySingleDetails } hidden={ ! expanded }>
+					<ToolDetailsContent display={ latestDisplay } result={ latestTool.result } />
+				</div>
+			) : (
+				<div id={ detailsId } className={ styles.activityCalls } hidden={ ! expanded }>
+					{ tools.map( ( tool ) => (
+						<ToolUseRow
+							key={ tool.key }
+							name={ tool.name }
+							input={ tool.input }
+							result={ tool.result }
+						/>
+					) ) }
+				</div>
+			) }
+		</div>
+	);
+}
+
+function WorkingActivity( {
+	progressMessage,
+	startedAt,
+}: {
+	progressMessage: string | null;
+	startedAt: number | null;
+} ) {
+	const prefersReducedMotion = usePrefersReducedMotion();
+	const [ targetMessage, setTargetMessage ] = useState( () =>
+		randomThinkingMessage().replace( /…$/, '' )
+	);
+	const [ typedMessage, setTypedMessage ] = useState( '' );
+	const [ typingPhase, setTypingPhase ] = useState< 'typing' | 'deleting' >( 'typing' );
+	const elapsedSeconds = useElapsedSeconds( true, startedAt );
+	const elapsedLabel = formatElapsedTime( elapsedSeconds ?? 0 );
+
+	useEffect( () => {
+		if ( progressMessage || prefersReducedMotion ) {
+			return;
+		}
+
+		let delay = 55;
+		let nextStep: () => void;
+		if ( typingPhase === 'typing' && typedMessage.length < targetMessage.length ) {
+			nextStep = () => setTypedMessage( targetMessage.slice( 0, typedMessage.length + 1 ) );
+		} else if ( typingPhase === 'typing' ) {
+			delay = 2200;
+			nextStep = () => setTypingPhase( 'deleting' );
+		} else if ( typingPhase === 'deleting' && typedMessage.length > 0 ) {
+			delay = 35;
+			nextStep = () => setTypedMessage( typedMessage.slice( 0, -1 ) );
+		} else {
+			delay = 180;
+			nextStep = () => {
+				const candidate = randomThinkingMessage().replace( /…$/, '' );
+				setTargetMessage(
+					candidate === targetMessage
+						? targetMessage === 'Thinking'
+							? 'Tinkering'
+							: 'Thinking'
+						: candidate
+				);
+				setTypingPhase( 'typing' );
+			};
+		}
+
+		const timeoutId = window.setTimeout( nextStep, delay );
+		return () => window.clearTimeout( timeoutId );
+	}, [ prefersReducedMotion, progressMessage, targetMessage, typedMessage, typingPhase ] );
+
+	const visibleMessage = progressMessage ?? ( prefersReducedMotion ? targetMessage : typedMessage );
+
+	return (
+		<div className={ styles.activity } data-active="true">
+			<ActivitySummary
+				label={ visibleMessage }
+				elapsedLabel={ elapsedLabel }
+				working
+				accessibleLabel={ progressMessage ?? targetMessage }
+			/>
 		</div>
 	);
 }
@@ -1153,14 +1335,20 @@ export function Conversation( {
 		() => entriesToRenderItems( entries, { canReadLocalMedia } ),
 		[ entries, canReadLocalMedia ]
 	);
+	const conversationItems = useMemo(
+		() => groupToolActivityRuns( items, isRunning ),
+		[ items, isRunning ]
+	);
+	const hasLiveActivity = conversationItems.some(
+		( item ) => item.kind === 'tool-activity' && item.active
+	);
 	const progressMessage = useMemo(
 		() => ( isRunning ? findLatestProgressMessage( entries ) : null ),
 		[ entries, isRunning ]
 	);
-
 	return (
 		<div className={ styles.root }>
-			{ items.map( ( item ) => {
+			{ conversationItems.map( ( item ) => {
 				switch ( item.kind ) {
 					case 'user-text':
 						return (
@@ -1175,6 +1363,15 @@ export function Conversation( {
 								name={ item.name }
 								input={ item.input }
 								result={ item.result }
+							/>
+						);
+					case 'tool-activity':
+						return (
+							<ToolActivity
+								key={ item.key }
+								tools={ item.tools }
+								active={ item.active }
+								startedAt={ startedAt }
 							/>
 						);
 					case 'agent-question-batch':
@@ -1199,11 +1396,9 @@ export function Conversation( {
 						return null;
 				}
 			} ) }
-			<ThinkingIndicator
-				active={ isRunning && pendingQuestions.size === 0 }
-				startedAt={ startedAt }
-				progressMessage={ progressMessage }
-			/>
+			{ isRunning && pendingQuestions.size === 0 && ! hasLiveActivity ? (
+				<WorkingActivity progressMessage={ progressMessage } startedAt={ startedAt } />
+			) : null }
 		</div>
 	);
 }

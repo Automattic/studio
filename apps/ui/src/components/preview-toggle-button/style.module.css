@@ -1,0 +1,29 @@
+/* Mirrors the chat footer's icon-button treatment (see session-view's
+   classicComposerTextButton/classicComposerIconButton) so the toggle looks
+   the same wherever it appears. */
+.button {
+	--wp-ui-button-font-weight: var(--wpds-typography-font-weight-regular);
+	--wp-ui-button-font-size: var(--wpds-typography-font-size-sm);
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-background-color-active: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--wp-ui-button-border-color-active: var(--wpds-color-bg-interactive-neutral-weak-active);
+	--wp-ui-button-min-width: unset;
+	--wp-ui-button-padding-inline: 0;
+
+	white-space: nowrap;
+	-webkit-app-region: no-drag;
+}
+
+.button:hover,
+.button:focus,
+.button:focus-visible {
+	background: var(--wpds-color-bg-interactive-neutral-weak-active);
+}
+
+.icon {
+	/* Match @wordpress/ui IconButton's compensation for the button border. */
+	margin: -2px;
+	/* The sidebar drawer icon, mirrored so the drawer edge points at the
+	   preview panel on the right. */
+	transform: rotate(180deg);
+}

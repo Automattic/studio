@@ -17,6 +17,7 @@ export type {
 	SelectedSiteFolder,
 	SessionEntry,
 	SiteDetails,
+	SkillStatus,
 	Snapshot,
 	StudioAgentQuestionData,
 	StudioChatFileAttachment,

@@ -92,6 +92,8 @@ FASTLANE_PATTERNS=(
   "Gemfile.lock"
   ".ruby-version"
   ".bundle/**"
+  ".buildkite/pipeline.yml"
+  ".buildkite/shared-pipeline-vars"
   ".buildkite/commands/run-fastlane-tests.sh"
   ".buildkite/commands/should-skip-job.sh"
 )

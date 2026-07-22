@@ -185,6 +185,10 @@ vi.mock( '@/components/tabs', () => ( {
 	Panel: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
 } ) );
 
+vi.mock( '@/components/gravatar', () => ( {
+	Gravatar: () => <span data-testid="gravatar" />,
+} ) );
+
 vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );

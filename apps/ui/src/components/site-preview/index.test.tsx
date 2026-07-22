@@ -266,6 +266,17 @@ describe( 'SitePreview', () => {
 		expect( refreshButton ).toBeEnabled();
 		expect( refreshButton ).toHaveAttribute( 'aria-keyshortcuts', expect.stringMatching( /\+R$/ ) );
 
+		// jsdom reports a non-Apple platform: the navigation alias is Alt+arrow,
+		// with the bracket chord kept as a secondary shortcut.
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
+			'aria-keyshortcuts',
+			'Alt+ArrowLeft Control+['
+		);
+		expect( screen.getByRole( 'button', { name: 'Forward' } ) ).toHaveAttribute(
+			'aria-keyshortcuts',
+			'Alt+ArrowRight Control+]'
+		);
+
 		const initialIframe = container.querySelector( 'iframe' );
 		expect( initialIframe ).toBeInTheDocument();
 

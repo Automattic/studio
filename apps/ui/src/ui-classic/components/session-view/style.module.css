@@ -48,11 +48,6 @@
 	--classic-panel-footer-height: 46px;
 }
 
-.state {
-	padding: var(--wpds-dimension-padding-xl);
-	color: var(--wpds-color-fg-content-neutral-weak);
-}
-
 .header {
 	/* Anchor for the absolutely-pinned open-in trigger. */
 	position: relative;

@@ -1,4 +1,8 @@
 import { BrowserWindow, IpcMainInvokeEvent, nativeTheme } from 'electron';
+import {
+	readGlobalInstructionsFile,
+	writeGlobalInstructions,
+} from '@studio/common/ai/global-instructions';
 import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/common/ai/models';
 import {
 	DEFAULT_RESPONSE_LENGTH,
@@ -279,6 +283,17 @@ export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number 
 export async function getWapuuScore(): Promise< number | undefined > {
 	const userData = await loadUserData();
 	return userData.wapuuScore;
+}
+
+export async function getGlobalAgentInstructions( _event: IpcMainInvokeEvent ): Promise< string > {
+	return ( await readGlobalInstructionsFile() ) ?? '';
+}
+
+export async function saveGlobalAgentInstructions(
+	_event: IpcMainInvokeEvent,
+	content: string
+): Promise< void > {
+	await writeGlobalInstructions( content );
 }
 
 // Persistent-message dismissals (agentic UI update cards, announcements).

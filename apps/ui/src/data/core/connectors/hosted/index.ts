@@ -171,6 +171,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			annotatePreview: false,
 			siteCheckpoints: false,
 			readLocalMedia: false,
+			agentInstructions: false,
 		},
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
@@ -544,6 +545,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		onUserSettings() {
 			return () => {};
+		},
+		async getAgentInstructions(): Promise< string > {
+			throw new UnsupportedError( 'getAgentInstructions' );
+		},
+		async saveAgentInstructions(): Promise< void > {
+			throw new UnsupportedError( 'saveAgentInstructions' );
 		},
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;

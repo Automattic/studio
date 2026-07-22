@@ -1,4 +1,5 @@
 import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
+import { sortSites } from '@studio/common/lib/sort-sites';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { resolveAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -52,7 +53,7 @@ export const indexRoute = createRoute( {
 		}
 		const targetSite =
 			( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
-			sites[ 0 ];
+			sortSites( [ ...sites ] )[ 0 ];
 
 		// Sessions arrive sorted newest-first, so the first session owned by
 		// the site is its most recently updated active one.

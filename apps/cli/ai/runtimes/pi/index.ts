@@ -25,6 +25,7 @@ import {
 	type SessionManager,
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
+import { readGlobalInstructions } from '@studio/common/ai/global-instructions';
 import {
 	DEFAULT_MODEL,
 	getAiModelFamily,
@@ -305,6 +306,10 @@ async function createStudioAgentSession(
 	const isRemoteSite = Boolean( config.activeSite?.remote && config.activeSite?.wpcomSiteId );
 	const remoteSession = config.env.STUDIO_REMOTE_SESSION === '1';
 	const chatArtifactsEnabled = typeof process.send === 'function';
+	const [ userInstructions, runtime ] = await Promise.all( [
+		readGlobalInstructions(),
+		isRemoteSite ? undefined : resolveActiveSiteRuntime( config.activeSite ),
+	] );
 
 	const systemPrompt = buildSystemPrompt(
 		isRemoteSite
@@ -315,11 +320,13 @@ async function createStudioAgentSession(
 						id: config.activeSite!.wpcomSiteId!,
 					},
 					remoteSession,
+					userInstructions,
 			  }
 			: {
 					chatArtifactsEnabled,
 					remoteSession,
-					runtime: await resolveActiveSiteRuntime( config.activeSite ),
+					runtime,
+					userInstructions,
 			  }
 	);
 

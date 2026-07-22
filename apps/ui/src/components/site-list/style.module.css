@@ -61,6 +61,9 @@
 .site {
 	display: flex;
 	flex-direction: column;
+	/* Keep scrollIntoView targets clear of the sidebar's sticky header and
+	   footer, which paint over the scrollport's edges. */
+	scroll-margin-block: 64px;
 }
 
 .siteHeader {

@@ -15,7 +15,7 @@ import {
 	search,
 	trash,
 } from '@wordpress/icons';
-import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
+import { ariaKeyShortcut, displayShortcut, isAppleOS, isKeyboardEvent } from '@wordpress/keycodes';
 import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -267,7 +267,30 @@ function getBrowserShortcutDescriptor( key: string ) {
 	};
 }
 
-function getBrowserShortcutCommand(
+function getNavigationShortcutDescriptor( direction: 'back' | 'forward' ) {
+	const isApple = isAppleOS();
+	const arrow = direction === 'back' ? '←' : '→';
+	const arrowKey = direction === 'back' ? 'ArrowLeft' : 'ArrowRight';
+	const bracket = direction === 'back' ? '[' : ']';
+	return {
+		displayShortcut: isApple ? `⌘${ arrow }` : `Alt+${ arrow }`,
+		ariaKeyShortcut: `${ isApple ? 'Meta' : 'Alt' }+${ arrowKey } ${ ariaKeyShortcut.primary(
+			bracket
+		) }`,
+	};
+}
+
+function isTextEntryTarget( target: EventTarget | null ) {
+	return (
+		target instanceof HTMLElement &&
+		( target.isContentEditable ||
+			target instanceof HTMLInputElement ||
+			target instanceof HTMLTextAreaElement ||
+			target instanceof HTMLSelectElement )
+	);
+}
+
+export function getBrowserShortcutCommand(
 	event: globalThis.KeyboardEvent
 ): BrowserShortcutCommandType | null {
 	if ( event.defaultPrevented || event.repeat ) {
@@ -280,6 +303,19 @@ function getBrowserShortcutCommand(
 		return 'back';
 	}
 	if ( isKeyboardEvent.primary( event, ']' ) ) {
+		return 'forward';
+	}
+	// Layout-independent back/forward aliases (⌘←/⌘→ on macOS, Alt+←/→
+	// elsewhere): the bracket chords need Option/AltGr on many European
+	// layouts. Skipped while editing text to keep native caret movement.
+	if ( isTextEntryTarget( event.target ) ) {
+		return null;
+	}
+	const isNavigationChord = isAppleOS() ? isKeyboardEvent.primary : isKeyboardEvent.alt;
+	if ( isNavigationChord( event, 'ArrowLeft' ) ) {
+		return 'back';
+	}
+	if ( isNavigationChord( event, 'ArrowRight' ) ) {
 		return 'forward';
 	}
 	return null;
@@ -1312,8 +1348,8 @@ export function SitePreview( {
 
 	const browserShortcuts = useMemo(
 		() => ( {
-			back: getBrowserShortcutDescriptor( '[' ),
-			forward: getBrowserShortcutDescriptor( ']' ),
+			back: getNavigationShortcutDescriptor( 'back' ),
+			forward: getNavigationShortcutDescriptor( 'forward' ),
 			reload: getBrowserShortcutDescriptor( 'r' ),
 		} ),
 		[]

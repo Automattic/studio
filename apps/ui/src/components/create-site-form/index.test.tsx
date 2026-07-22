@@ -108,6 +108,7 @@ describe( 'CreateSiteForm', () => {
 				openInOS: false,
 				annotatePreview: false,
 				readLocalMedia: false,
+				agentInstructions: false,
 			},
 		} );
 		useSitesMock.mockReturnValue( { data: [] } );
@@ -379,6 +380,7 @@ describe( 'CreateSiteForm', () => {
 				openInOS: false,
 				annotatePreview: false,
 				readLocalMedia: false,
+				agentInstructions: false,
 			},
 		} );
 		usePathValidatorMock.mockReturnValue( {

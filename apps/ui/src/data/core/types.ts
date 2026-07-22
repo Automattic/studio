@@ -9,6 +9,7 @@ import type {
 	ToolPermissionOverrides,
 } from '@studio/common/ai/tool-permissions';
 import type { ActivitySoundPreferences } from '@studio/common/lib/activity-sounds';
+import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteRuntime } from '@studio/common/lib/site-runtime';
@@ -223,6 +224,10 @@ export interface ConnectorCapabilities {
 	// render local screenshot artifacts inline). Only the desktop IPC connector
 	// supports it; the browser connectors reject local file reads.
 	readLocalMedia: boolean;
+	// The host can read/write the user's global Studio Code instructions file
+	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
+	// hides the Studio Code settings tab.
+	agentInstructions: boolean;
 }
 
 export interface Connector {
@@ -536,7 +541,6 @@ export interface Connector {
 	getUserPreferences(): Promise< UserPreferences >;
 	setUserPreferences( partial: Partial< WritableUserPreferences > ): Promise< void >;
 	previewColorScheme( colorScheme: ColorScheme ): Promise< void >;
-	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
 	getAppGlobals(): Promise< AppGlobals >;
 	onUserSettings( listener: ( tabName?: UserSettingsEventTab ) => void ): () => void;
 
@@ -544,6 +548,11 @@ export interface Connector {
 	// Resolves with the chosen path, or `null` when the user cancels (or the
 	// host has no native picker — see capabilities.nativeFolderPicker).
 	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
+
+	// The user's global Studio Code instructions, a markdown file injected into
+	// every agent session. Gated by `capabilities.agentInstructions`.
+	getAgentInstructions(): Promise< string >;
+	saveAgentInstructions( content: string ): Promise< void >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -566,6 +575,11 @@ export interface Connector {
 	openExternalUrl( url: string ): Promise< void >;
 
 	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
+
+	// WordPress agent skills applied to all existing and future sites.
+	getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] >;
+	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
+	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
 
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
@@ -613,7 +627,7 @@ export interface Connector {
 
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
-	onSiteEvent( listener: () => void ): () => void;
+	onSiteEvent( listener: ( event: SiteEvent ) => void ): () => void;
 
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.

@@ -96,6 +96,7 @@ describe( 'SiteSettingsForm', () => {
 				annotatePreview: true,
 				readLocalMedia: true,
 				siteCheckpoints: false,
+				agentInstructions: true,
 			},
 			openSiteDebugLog: vi.fn(),
 		} );

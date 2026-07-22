@@ -14,7 +14,7 @@ import {
 } from '@wordpress/icons';
 import { Button, Icon, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { AgentWorkingIndicator } from '@/components/agent-working-indicator';
 import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import * as Menu from '@/components/menu';
@@ -476,6 +476,15 @@ function SiteSection( {
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
+	const sectionRef = useRef< HTMLElement >( null );
+	const isActive = isChatActive || isContextActive;
+	// Keep the active site visible — e.g. when launch restores a site that
+	// sits below the sidebar's fold. `nearest` no-ops when already visible.
+	useEffect( () => {
+		if ( isActive ) {
+			sectionRef.current?.scrollIntoView?.( { block: 'nearest' } );
+		}
+	}, [ isActive ] );
 	const isStarting = useIsSiteStarting( site.id );
 	const isStopping = useIsSiteStopping( site.id );
 	const { status } = deriveSiteStatus( site, isStarting, isStopping );

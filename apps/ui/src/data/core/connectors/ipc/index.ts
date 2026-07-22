@@ -2,6 +2,7 @@ import { resolveActivitySoundPreferences } from '@studio/common/lib/activity-sou
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __, sprintf } from '@wordpress/i18n';
+import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import type {
 	ActiveAgentRun,
 	AiSessionSummary,
@@ -38,6 +39,7 @@ import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiResponseLength } from '@studio/common/ai/response-length';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
+import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
@@ -294,6 +296,7 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			siteCheckpoints: true,
 			readLocalMedia: true,
+			agentInstructions: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process
@@ -803,14 +806,7 @@ export function createIpcConnector(): Connector {
 		},
 
 		getPublishCheckoutUrl( site ): string {
-			const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-			url.searchParams.set( 'ref', 'studio' );
-			url.searchParams.set( 'section', 'publish-site' );
-			url.searchParams.set( 'showDomainStep', 'true' );
-			url.searchParams.set( 'studioSiteId', site.id );
-			url.searchParams.set( 'new', site.customDomain ?? site.name );
-			url.searchParams.set( 'autoOpenPush', 'true' );
-			return url.toString();
+			return buildPublishCheckoutUrl( site );
 		},
 
 		// AI sessions
@@ -1054,6 +1050,13 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
+		async getAgentInstructions(): Promise< string > {
+			return ( await ipcApi.getGlobalAgentInstructions() ) as string;
+		},
+		async saveAgentInstructions( content: string ): Promise< void > {
+			await ipcApi.saveGlobalAgentInstructions( content );
+		},
+
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
@@ -1158,7 +1161,9 @@ export function createIpcConnector(): Connector {
 		onSiteEvent( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'site-event', () => listener() );
+			return ipcListener.subscribe( 'site-event', ( _event: unknown, siteEvent: SiteEvent ) =>
+				listener( siteEvent )
+			);
 		},
 
 		onToggleSitePreview( listener ) {

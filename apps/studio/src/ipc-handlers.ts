@@ -229,6 +229,7 @@ export {
 
 export {
 	getColorScheme,
+	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
 	getQuitSitesBehavior,
 	getUserEditor,
@@ -237,6 +238,7 @@ export {
 	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
+	saveGlobalAgentInstructions,
 	saveQuitSitesBehavior,
 	saveUserEditor,
 	saveUserLocale,

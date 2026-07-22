@@ -5,7 +5,8 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { SettingsView } from './index';
+import { SettingsCloseContext } from '@/hooks/use-settings-close';
+import { SettingsView, isSettingsTab } from './index';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 vi.mock( '@wordpress/ui', () => ( {
@@ -30,6 +31,9 @@ vi.mock( '@wordpress/ui', () => ( {
 		void size;
 		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
 	},
+	IconButton: ( { label, onClick }: { label: string; onClick?: () => void } ) => (
+		<button type="button" aria-label={ label } onClick={ onClick } />
+	),
 	SelectControl: ( {
 		items = [],
 		label,
@@ -105,10 +109,6 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
-vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
-	useSidebarCollapsed: () => false,
-} ) );
-
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: () => false,
 } ) );
@@ -134,7 +134,11 @@ describe( 'SettingsView', () => {
 			configurable: true,
 		} );
 
-		useConnectorMock.mockReturnValue( { disableAgenticUi, selectDefaultSiteDirectory } as never );
+		useConnectorMock.mockReturnValue( {
+			disableAgenticUi,
+			selectDefaultSiteDirectory,
+			capabilities: { agentInstructions: false },
+		} as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },
 		} as never );
@@ -209,6 +213,23 @@ describe( 'SettingsView', () => {
 		expect( mutate ).not.toHaveBeenCalled();
 	} );
 
+	it( 'recognizes the keyboard tab id', () => {
+		expect( isSettingsTab( 'keyboard' ) ).toBe( true );
+		expect( isSettingsTab( 'unknown' ) ).toBe( false );
+	} );
+
+	it( 'renders keyboard shortcut sections', () => {
+		render( <SettingsView activeTab="keyboard" onTabChange={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'button', { name: 'Keyboard' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Composer' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Site preview' } ) ).toBeInTheDocument();
+		expect( screen.getByText( 'New chat' ) ).toBeInTheDocument();
+		expect( screen.getByText( 'Send message' ) ).toBeInTheDocument();
+		expect( screen.getByLabelText( 'Control + Comma' ) ).toBeInTheDocument();
+		expect( screen.getByLabelText( 'Alt + Left arrow' ) ).toBeInTheDocument();
+	} );
+
 	it( 'saves the default site directory as soon as one is picked', async () => {
 		selectDefaultSiteDirectory.mockResolvedValue( '/Users/example/Sites' );
 
@@ -249,5 +270,21 @@ describe( 'SettingsView', () => {
 		expect(
 			screen.getByText( 'An error occurred while saving settings. Please try again.' )
 		).toBeInTheDocument();
+	} );
+
+	it( 'shows a close button only inside the settings overlay', () => {
+		const onClose = vi.fn();
+		const { rerender } = render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Close settings' } ) ).not.toBeInTheDocument();
+
+		rerender(
+			<SettingsCloseContext.Provider value={ onClose }>
+				<SettingsView activeTab="preferences" onTabChange={ vi.fn() } />
+			</SettingsCloseContext.Provider>
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
+
+		expect( onClose ).toHaveBeenCalled();
 	} );
 } );

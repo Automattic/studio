@@ -35,14 +35,10 @@ function getDeletePreviewSitesLabel( isOffline: boolean, isDeleting: boolean ): 
 	return __( 'Delete all preview sites' );
 }
 
-// Stands in for a figure we can't read yet, so a disabled row still reads as a
-// row rather than a blank gap.
-function UnavailableFigure() {
-	return (
-		<div className={ styles.previewUsageText } aria-label={ __( 'Usage unavailable' ) }>
-			&mdash;
-		</div>
-	);
+// Stands in for a figure we can't read yet: a hatched bar fills the row the
+// real meter would occupy, so the section reads as disabled, not empty.
+function UnavailableBar() {
+	return <div className={ styles.unavailableBar } role="img" aria-label={ __( 'Unavailable' ) } />;
 }
 
 function UsageProgressBar( { fraction }: { fraction: number } ) {
@@ -62,12 +58,7 @@ function AiCreditsSummary( { signedOut }: { signedOut: boolean } ) {
 	if ( signedOut ) {
 		// Studio Code needs an account, so the Alpha pricing copy would be
 		// telling signed-out users about credits they can't spend yet.
-		content = (
-			<>
-				<UnavailableFigure />
-				<UsageProgressBar fraction={ 0 } />
-			</>
-		);
+		content = <UnavailableBar />;
 	} else if ( isLoading ) {
 		content = <div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>;
 	} else if ( isError || ( isOffline && ! quota ) ) {
@@ -233,10 +224,7 @@ export function UsagePanel() {
 						{ isLoading ? (
 							<div className={ styles.previewUsageText }>{ __( 'Loading...' ) }</div>
 						) : (
-							<>
-								<UnavailableFigure />
-								<UsageProgressBar fraction={ 0 } />
-							</>
+							<UnavailableBar />
 						) }
 					</section>
 				) }

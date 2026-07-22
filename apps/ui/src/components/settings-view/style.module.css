@@ -628,8 +628,9 @@
 }
 
 
-/* Signed out or offline: the figures can't be trusted, so the rows take the
-   design system's disabled colors rather than just reading as blank. */
+/* Signed out or offline: grey the whole card, since none of it is live. */
+.usageDisabled .settingsPanelHeader h2,
+.usageDisabled .settingsPanelHeader p,
 .usageDisabled .usageSectionHeader h2,
 .usageDisabled .previewUsageText,
 .usageDisabled .usageSection p {
@@ -642,6 +643,19 @@
 
 .usageDisabled .progressValue {
 	background: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+/* Hatched stand-in for a meter with no figure behind it — same 135deg stripe
+   idiom as the AI credits placeholder, in neutral disabled colors. */
+.unavailableBar {
+	inline-size: 100%;
+	block-size: 6px;
+	border-radius: 999px;
+	background: repeating-linear-gradient(
+		135deg,
+		var(--wpds-color-fg-interactive-neutral-disabled) 0 5px,
+		var(--wpds-color-bg-interactive-neutral-weak-disabled) 5px 10px
+	);
 }
 
 .usageSection {

@@ -1,3 +1,4 @@
+import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
 import {
 	getStudioPresentationRulesPrompt,
 	getStudioWidgetPromptManifest,
@@ -27,10 +28,6 @@ export interface BuildSystemPromptOptions {
 	userInstructions?: string;
 }
 
-// Keep the always-injected instructions small enough that they can't crowd out
-// the rest of the system prompt.
-const USER_INSTRUCTIONS_MAX_LENGTH = 16_000;
-
 export function buildSystemPrompt( options?: BuildSystemPromptOptions ): string {
 	const remoteSessionAddendum = options?.remoteSession ? `\n\n${ REMOTE_SESSION_GUIDANCE }` : '';
 	const userInstructionsSection = buildUserInstructionsSection( options?.userInstructions );
@@ -59,10 +56,10 @@ function buildUserInstructionsSection( userInstructions?: string ): string {
 		return '';
 	}
 	const instructions =
-		userInstructions.length > USER_INSTRUCTIONS_MAX_LENGTH
+		userInstructions.length > GLOBAL_INSTRUCTIONS_MAX_LENGTH
 			? `${ userInstructions.slice(
 					0,
-					USER_INSTRUCTIONS_MAX_LENGTH
+					GLOBAL_INSTRUCTIONS_MAX_LENGTH
 			  ) }\n\n[Note: the global instructions file exceeds the size limit and was truncated here. Let the user know they should shorten it in Studio settings.]`
 			: userInstructions;
 	return `

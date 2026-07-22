@@ -129,8 +129,14 @@
 
 .actions {
 	display: flex;
+	align-items: center;
 	justify-content: flex-end;
-	gap: var(--wpds-dimension-padding-sm);
+	gap: var(--wpds-dimension-padding-md);
+}
+
+.instructionsCounter {
+	font-size: var(--wpds-typography-font-size-sm);
+	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 .instructionsError {

@@ -1,3 +1,4 @@
+import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { TextareaControl } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
@@ -10,6 +11,7 @@ export function StudioCodeTab() {
 	const [ content, setContent ] = useState< string | null >( null );
 	const [ savedContent, setSavedContent ] = useState( '' );
 	const [ isSaving, setIsSaving ] = useState( false );
+	const [ justSaved, setJustSaved ] = useState( false );
 	const [ error, setError ] = useState< string | null >( null );
 
 	useEffect( () => {
@@ -32,6 +34,14 @@ export function StudioCodeTab() {
 		};
 	}, [] );
 
+	useEffect( () => {
+		if ( ! justSaved ) {
+			return;
+		}
+		const timer = setTimeout( () => setJustSaved( false ), 2500 );
+		return () => clearTimeout( timer );
+	}, [ justSaved ] );
+
 	const handleSave = async () => {
 		if ( content === null ) {
 			return;
@@ -41,12 +51,21 @@ export function StudioCodeTab() {
 		try {
 			await getIpcApi().saveGlobalAgentInstructions( content );
 			setSavedContent( content );
+			setJustSaved( true );
 		} catch ( err ) {
 			setError( getErrorMessage( err ) ?? String( err ) );
 		} finally {
 			setIsSaving( false );
 		}
 	};
+
+	const isDirty = content !== null && content !== savedContent;
+	const showCounter = content !== null && content.length >= GLOBAL_INSTRUCTIONS_MAX_LENGTH * 0.8;
+	const buttonLabel = isSaving
+		? __( 'Saving…' )
+		: justSaved && ! isDirty
+		? __( 'Saved' )
+		: __( 'Save instructions' );
 
 	return (
 		<div className="flex flex-col gap-4 pb-2">
@@ -59,19 +78,25 @@ export function StudioCodeTab() {
 					'Global instructions for the Studio Code agent. They are included in every new conversation, across all sites.'
 				) }
 				rows={ 12 }
+				maxLength={ GLOBAL_INSTRUCTIONS_MAX_LENGTH }
 				value={ content ?? '' }
 				onChange={ setContent }
 				disabled={ content === null }
 				placeholder={ __( 'e.g. Always answer in French. My sites are for restaurants.' ) }
 			/>
 
-			<div className="flex justify-end">
+			<div className="flex items-center justify-end gap-3">
+				{ showCounter && (
+					<span className="text-xs text-frame-text-secondary">
+						{ `${ content.length.toLocaleString() } / ${ GLOBAL_INSTRUCTIONS_MAX_LENGTH.toLocaleString() }` }
+					</span>
+				) }
 				<Button
 					variant="primary"
 					onClick={ handleSave }
-					disabled={ content === null || isSaving || content === savedContent }
+					disabled={ content === null || isSaving || ! isDirty }
 				>
-					{ isSaving ? __( 'Saving…' ) : __( 'Save instructions' ) }
+					{ buttonLabel }
 				</Button>
 			</div>
 		</div>

@@ -53,16 +53,23 @@ export function StudioCliSection() {
 					{ __( 'Studio CLI' ) }
 				</h2>
 				{ externallyManaged ? (
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={ <span className={ styles.cliToggleTrigger }>{ toggle }</span> }
-						/>
-						<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
-							{ __(
-								'This studio command was installed with the standalone CLI installer, so Studio can’t manage it. Run studio uninstall in a terminal to remove it.'
-							) }
-						</Tooltip.Popup>
-					</Tooltip.Root>
+					// The default open delay reads as unresponsive on a disabled
+					// control, so this tooltip gets its own faster provider.
+					<Tooltip.Provider delay={ 200 }>
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								render={ <span className={ styles.cliToggleTrigger }>{ toggle }</span> }
+							/>
+							<Tooltip.Popup
+								className={ styles.cliTooltip }
+								positioner={ <Tooltip.Positioner side="top" /> }
+							>
+								{ __(
+									'This studio command was installed with the standalone CLI installer, so Studio can’t manage it. Run studio uninstall in a terminal to remove it.'
+								) }
+							</Tooltip.Popup>
+						</Tooltip.Root>
+					</Tooltip.Provider>
 				) : (
 					toggle
 				) }

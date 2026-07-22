@@ -450,6 +450,11 @@
 	pointer-events: none;
 }
 
+.cliTooltip {
+	max-inline-size: 280px;
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
 .cliDescription {
 	max-inline-size: 460px;
 	margin: 0;

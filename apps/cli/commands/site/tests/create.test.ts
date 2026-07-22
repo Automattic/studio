@@ -336,6 +336,33 @@ describe( 'CLI: studio site create', () => {
 					code: expect.stringContaining( 'delete_plugins( array( $temporary_plugin ) )' ),
 				} )
 			);
+			expect( importStep ).toEqual(
+				expect.objectContaining( {
+					code: expect.not.stringContaining( 'studio_create_from_import_result' ),
+				} )
+			);
+		} );
+
+		it( 'should store the import result only when requested', () => {
+			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-source-test-' ) );
+			fs.writeFileSync( path.join( sourceDir, 'index.html' ), '<main></main>' );
+
+			const blueprint = buildCreateFromSourceBlueprint(
+				sourceDir,
+				'Imported Directory',
+				'https://example.com/static-site-importer.zip',
+				undefined,
+				true
+			);
+			const importStep = blueprint.contents.steps?.find(
+				( step ) => !! step && typeof step === 'object' && 'step' in step && step.step === 'runPHP'
+			);
+
+			expect( importStep ).toEqual(
+				expect.objectContaining( {
+					code: expect.stringContaining( 'studio_create_from_import_result' ),
+				} )
+			);
 		} );
 
 		it( 'should build a Blueprint that imports a static site directory through Static Site Importer', () => {
@@ -362,6 +389,52 @@ describe( 'CLI: studio site create', () => {
 					code: expect.stringContaining( sourceDir ),
 				} )
 			);
+		} );
+
+		it( 'should stage Figma files without embedding their bytes in Blueprint PHP', async () => {
+			const sourceDir = fs.mkdtempSync( path.join( '/tmp', 'studio-figma-source-test-' ) );
+			const sourcePath = path.join( sourceDir, 'design.fig' );
+			fs.writeFileSync( sourcePath, 'figma-source-bytes' );
+			const blueprint = buildCreateFromSourceBlueprint(
+				sourcePath,
+				'Imported Figma',
+				'https://example.com/static-site-importer.zip',
+				mockSitePath
+			);
+			const importStep = blueprint.contents.steps?.find(
+				( step ) => !! step && typeof step === 'object' && 'step' in step && step.step === 'runPHP'
+			);
+			const code =
+				importStep && 'code' in importStep && typeof importStep.code === 'string'
+					? importStep.code
+					: '';
+
+			expect( blueprint.stagedSource ).toEqual( {
+				sourcePath,
+				targetPath: path.join( mockSitePath, '.studio-import', 'source.fig' ),
+			} );
+			const encodedSource = code.match( /base64_decode\( "([^"]+)" \)/ )?.[ 1 ];
+			expect( encodedSource ).toBeDefined();
+			expect( JSON.parse( Buffer.from( encodedSource!, 'base64' ).toString( 'utf8' ) ) ).toEqual( {
+				figma_file: {
+					name: 'design.fig',
+					staged_path: path.join( mockSitePath, '.studio-import', 'source.fig' ),
+				},
+			} );
+			expect( code ).not.toContain( Buffer.from( 'figma-source-bytes' ).toString( 'base64' ) );
+
+			const copySpy = vi.spyOn( fs, 'copyFileSync' ).mockImplementation( () => {} );
+			const removeSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint } );
+
+			expect( copySpy ).toHaveBeenCalledWith(
+				sourcePath,
+				path.join( mockSitePath, '.studio-import', 'source.fig' )
+			);
+			expect( removeSpy ).toHaveBeenCalledWith( path.join( mockSitePath, '.studio-import' ), {
+				recursive: true,
+				force: true,
+			} );
 		} );
 
 		it( 'should create a basic site successfully', async () => {

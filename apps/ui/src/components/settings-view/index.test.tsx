@@ -105,6 +105,10 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-wapuu-score', () => ( {
+	useWapuuScore: () => ( { data: null } ),
+} ) );
+
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
 	useSidebarCollapsed: () => false,
 } ) );

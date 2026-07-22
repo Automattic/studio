@@ -18,6 +18,7 @@ import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SkillsPanel } from './skills-panel';
 import styles from './style.module.css';
+import { WapuuScore } from './wapuu-score';
 import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
@@ -305,6 +306,7 @@ function PreferencesPanel( {
 				</PreferenceRow>
 			</section>
 			<AccountSection />
+			<WapuuScore />
 			<StudioExperienceSection />
 		</div>
 	);

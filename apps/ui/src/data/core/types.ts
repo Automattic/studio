@@ -331,6 +331,11 @@ export interface Connector {
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
 
+	// Wapuu World easter-egg high score. Returns undefined when no score has
+	// been recorded yet; saving keeps only the highest score seen.
+	getWapuuScore(): Promise< number | undefined >;
+	saveWapuuScore( score: number ): Promise< void >;
+
 	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
 
 	// WordPress agent skills applied to all existing and future sites.

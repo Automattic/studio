@@ -113,6 +113,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			openInOS: false,
 			annotatePreview: false,
 			readLocalMedia: false,
+			agentInstructions: false,
 		},
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
@@ -321,12 +322,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			// No native folder picker in a browser.
 			return null;
 		},
-		async getInstalledApps(): Promise< InstalledApps > {
-			return {} as InstalledApps;
+		async getAgentInstructions(): Promise< string > {
+			throw new UnsupportedError( 'getAgentInstructions' );
+		},
+		async saveAgentInstructions(): Promise< void > {
+			throw new UnsupportedError( 'saveAgentInstructions' );
 		},
 
-		async fetchSiteRest() {
-			throw new UnsupportedError( 'fetchSiteRest' );
+		async getInstalledApps(): Promise< InstalledApps > {
+			return {} as InstalledApps;
 		},
 
 		// Filesystem / native integrations — not available in a browser.

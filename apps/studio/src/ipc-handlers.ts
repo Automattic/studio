@@ -229,6 +229,7 @@ export {
 
 export {
 	getColorScheme,
+	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
 	getQuitSitesBehavior,
 	getUserEditor,
@@ -237,6 +238,7 @@ export {
 	getWapuuScore,
 	previewColorScheme,
 	saveColorScheme,
+	saveGlobalAgentInstructions,
 	saveQuitSitesBehavior,
 	saveUserEditor,
 	saveUserLocale,
@@ -247,8 +249,6 @@ export {
 export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
-
-export { fetchSiteRest as fetchSiteRestApi } from 'src/lib/wordpress-rest-api';
 
 export async function listAiSessions( _event: IpcMainInvokeEvent ): Promise< AiSessionSummary[] > {
 	return listHydratedAiSessions( getSessionsDirectory() );

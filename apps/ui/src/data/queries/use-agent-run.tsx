@@ -390,9 +390,13 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					subscribedRunIdsBySessionRef.current.delete( payload.sessionId );
 					if ( ! hasQueuedFollowUp ) {
 						// Refetch to replace optimistic entries with disk-backed ones.
-						void queryClient.invalidateQueries( {
-							queryKey: SESSIONS_QUERY_KEY,
-						} );
+						// `cancelRefetch: false` so a run ending as its site is deleted
+						// can't cancel the redirect route's in-flight fetch (which would
+						// throw a CancelledError into the router's error boundary).
+						void queryClient.invalidateQueries(
+							{ queryKey: SESSIONS_QUERY_KEY },
+							{ cancelRefetch: false }
+						);
 					}
 					return;
 				}

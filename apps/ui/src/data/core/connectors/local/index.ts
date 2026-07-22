@@ -26,7 +26,6 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { SiteRestResponse } from '@studio/common/types/wordpress-rest';
 
 // The in-app dark/light/system choice, persisted in the browser (there's no
 // Electron `nativeTheme` to mirror it) so it sticks across reloads.
@@ -223,6 +222,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			openInOS: true,
 			annotatePreview: false,
 			readLocalMedia: false,
+			agentInstructions: true,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -637,12 +637,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< InstalledApps >( '/installed-apps' );
 		},
 
-		// Proxy WordPress REST calls through the server to the running site (it
-		// holds the auto-login cookie + nonce); the shared proxy backs both hosts.
-		async fetchSiteRest( siteId, request ): Promise< SiteRestResponse > {
-			return api< SiteRestResponse >( `/sites/${ encodeURIComponent( siteId ) }/rest`, {
+		async getAgentInstructions(): Promise< string > {
+			const { content } = await api< { content: string } >( '/agent-instructions' );
+			return content;
+		},
+		async saveAgentInstructions( content: string ): Promise< void > {
+			await api< void >( '/agent-instructions', {
 				method: 'POST',
-				body: JSON.stringify( request ),
+				body: JSON.stringify( { content } ),
 			} );
 		},
 

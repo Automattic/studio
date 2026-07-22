@@ -3,6 +3,7 @@ import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
 import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
+import type { SiteEvent } from '@studio/common/lib/cli-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -10,7 +11,6 @@ import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteRestRequest, SiteRestResponse } from '@studio/common/types/wordpress-rest';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun, AgentRunEvent } from '@studio/common/ai/agent-events';
@@ -122,6 +122,10 @@ export interface ConnectorCapabilities {
 	// render local screenshot artifacts inline). Only the desktop IPC connector
 	// supports it; the browser connectors reject local file reads.
 	readLocalMedia: boolean;
+	// The host can read/write the user's global Studio Code instructions file
+	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
+	// hides the Studio Code settings tab.
+	agentInstructions: boolean;
 }
 
 export interface Connector {
@@ -316,15 +320,15 @@ export interface Connector {
 	// host has no native picker — see capabilities.nativeFolderPicker).
 	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
 
+	// The user's global Studio Code instructions, a markdown file injected into
+	// every agent session. Gated by `capabilities.agentInstructions`.
+	getAgentInstructions(): Promise< string >;
+	saveAgentInstructions( content: string ): Promise< void >;
+
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
-
-	// Site WordPress REST API. The renderer uses this as the transport for
-	// @wordpress/api-fetch / @wordpress/core-data so WordPress entity semantics
-	// stay in the WordPress packages while Studio owns site resolution and auth.
-	fetchSiteRest( siteId: string, request: SiteRestRequest ): Promise< SiteRestResponse >;
 
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
@@ -373,7 +377,7 @@ export interface Connector {
 
 	// Fires whenever a site is created, updated, started, stopped, or deleted.
 	// Consumers typically invalidate cached site data in response.
-	onSiteEvent( listener: () => void ): () => void;
+	onSiteEvent( listener: ( event: SiteEvent ) => void ): () => void;
 
 	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
 	// application menu.

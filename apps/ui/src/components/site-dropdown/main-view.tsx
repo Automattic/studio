@@ -243,7 +243,8 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tooltip: __( 'Open preview site in your browser' ),
 								variant: 'minimal',
 								tone: 'neutral',
-								size: 'compact',
+								size: 'small',
+								className: styles.rowViewButton,
 								onClick: () => openExternal( ensureProtocol( previewSnapshot.url ) ),
 								children: __( 'View' ),
 							} ) }

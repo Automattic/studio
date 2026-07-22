@@ -270,15 +270,20 @@
 }
 
 .rowActionButton,
+.rowViewButton,
 .environmentActionButton_outline {
 	border-radius: var(--wpds-border-radius-md);
 }
 
+.rowActionButton,
+.rowViewButton {
+	height: 28px;
+	color: var(--wpds-color-fg-interactive-neutral);
+}
+
 .rowActionButton {
 	width: 28px;
-	height: 28px;
 	padding: 0;
-	color: var(--wpds-color-fg-interactive-neutral);
 }
 
 .rowActionButton svg {

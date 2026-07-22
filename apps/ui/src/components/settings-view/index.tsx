@@ -18,6 +18,7 @@ import { KeyboardPanel } from './keyboard-panel';
 import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SkillsPanel } from './skills-panel';
+import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
 import { UsagePanel } from './usage-panel';
 import type { PreferencesFormData } from './preferences';
@@ -31,7 +32,14 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-const SETTINGS_TABS = [ 'preferences', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
+const SETTINGS_TABS = [
+	'preferences',
+	'usage',
+	'keyboard',
+	'skills',
+	'mcp',
+	'studio-code',
+] as const;
 
 type TabId = ( typeof SETTINGS_TABS )[ number ];
 
@@ -87,6 +95,7 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
+	const connector = useConnector();
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace();
 	const toggleSpacerClass = sidebarCollapsed
@@ -108,6 +117,9 @@ function SettingsHeader() {
 					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
+					{ connector.capabilities.agentInstructions && (
+						<Tabs.Tab tabId="studio-code">{ __( 'Studio Code' ) }</Tabs.Tab>
+					) }
 				</Tabs.List>
 			</div>
 		</div>
@@ -424,6 +436,11 @@ export function SettingsView( {
 						<Tabs.Panel tabId="mcp">
 							<McpPanel />
 						</Tabs.Panel>
+						{ connector.capabilities.agentInstructions && (
+							<Tabs.Panel tabId="studio-code">
+								<StudioCodePanel />
+							</Tabs.Panel>
+						) }
 					</div>
 				</div>
 			</Tabs.Root>

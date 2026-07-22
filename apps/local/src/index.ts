@@ -3,6 +3,10 @@ import { createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import {
+	readGlobalInstructionsFile,
+	writeGlobalInstructions,
+} from '@studio/common/ai/global-instructions';
 import { isAiModelId } from '@studio/common/ai/models';
 import { createAgentRunManager } from '@studio/common/ai/run-manager';
 import {
@@ -419,6 +423,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				} ).catch( () => undefined );
 			}
 			await updateSharedConfig( { authToken: undefined } );
+			res.status( 204 ).end();
+		} )
+	);
+
+	// --- Agent instructions — the shared ~/.studio/knowledge/instructions.md --
+	api.get(
+		'/agent-instructions',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( { content: ( await readGlobalInstructionsFile() ) ?? '' } );
+		} )
+	);
+
+	api.post(
+		'/agent-instructions',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const content = req.body?.content;
+			if ( typeof content !== 'string' ) {
+				res.status( 400 ).json( { error: 'content required' } );
+				return;
+			}
+			await writeGlobalInstructions( content );
 			res.status( 204 ).end();
 		} )
 	);

@@ -209,6 +209,7 @@ export function createIpcConnector(): Connector {
 			openInOS: true,
 			annotatePreview: true,
 			readLocalMedia: true,
+			agentInstructions: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process
@@ -658,6 +659,13 @@ export function createIpcConnector(): Connector {
 				return response || null;
 			}
 			return response?.path ?? null;
+		},
+
+		async getAgentInstructions(): Promise< string > {
+			return ( await ipcApi.getGlobalAgentInstructions() ) as string;
+		},
+		async saveAgentInstructions( content: string ): Promise< void > {
+			await ipcApi.saveGlobalAgentInstructions( content );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

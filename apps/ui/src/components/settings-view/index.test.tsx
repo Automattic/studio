@@ -140,7 +140,11 @@ describe( 'SettingsView', () => {
 			configurable: true,
 		} );
 
-		useConnectorMock.mockReturnValue( { disableAgenticUi, selectDefaultSiteDirectory } as never );
+		useConnectorMock.mockReturnValue( {
+			disableAgenticUi,
+			selectDefaultSiteDirectory,
+			capabilities: { agentInstructions: false },
+		} as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },
 		} as never );

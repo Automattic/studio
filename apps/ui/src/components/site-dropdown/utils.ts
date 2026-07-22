@@ -1,7 +1,25 @@
+import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { __ } from '@wordpress/i18n';
 import { getSiteDisplayUrl } from '@/lib/get-site-url';
 import type { SiteStatus } from './dropdown-trigger';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
+
+const UNIX_SECONDS_CUTOFF = 10_000_000_000;
+
+// Older CLI versions stored snapshot dates as unix seconds; newer ones use
+// milliseconds. Values below the cutoff can only be seconds.
+export function normalizeSnapshotTimestamp( timestamp: number ): number {
+	return timestamp < UNIX_SECONDS_CUTOFF ? timestamp * 1000 : timestamp;
+}
+
+// Mirrors the CLI's isSnapshotExpired (apps/cli/lib/snapshots.ts). The CLI
+// refuses to update an expired preview site, so the UI must offer creating a
+// new one instead of an update.
+export function isSnapshotExpired( snapshot: Snapshot ): boolean {
+	return (
+		normalizeSnapshotTimestamp( snapshot.date ) + DEMO_SITE_EXPIRATION_DAYS * DAY_MS < Date.now()
+	);
+}
 
 export function stripProtocol( url: string ): string {
 	return url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );

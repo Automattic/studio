@@ -1,10 +1,10 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { formatRelativeTime } from '@/lib/format-relative-time';
+import { isSnapshotExpired, normalizeSnapshotTimestamp } from './utils';
 import type { Snapshot, SyncSite } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
 
 const MINUTE_MS = 60_000;
-const UNIX_SECONDS_CUTOFF = 10_000_000_000;
 
 export type TriggerSecondaryTone = 'neutral' | 'pending' | 'success' | 'error';
 
@@ -50,10 +50,6 @@ function getSyncActivityTone( activity: SyncActivity ): TriggerSecondaryTone {
 	return activity.kind === 'success' ? 'success' : 'error';
 }
 
-function normalizeSnapshotTimestamp( timestamp: number ): number {
-	return timestamp < UNIX_SECONDS_CUTOFF ? timestamp * 1000 : timestamp;
-}
-
 function formatTimestampPhrase(
 	timestampMs: number,
 	nowLabel: string,
@@ -90,6 +86,10 @@ function formatIsoTimestampPhrase(
 function getPreviewLabel( previewSnapshot: Snapshot | undefined ): string | null {
 	if ( ! previewSnapshot ) {
 		return null;
+	}
+
+	if ( isSnapshotExpired( previewSnapshot ) ) {
+		return __( 'Preview expired' );
 	}
 
 	return formatTimestampPhrase(

@@ -31,6 +31,7 @@ import {
 	deriveSiteStatus,
 	ensureProtocol,
 	getSnapshotHostname,
+	isSnapshotExpired,
 	pickLatestSnapshot,
 	pickLiveSite,
 	stripProtocol,
@@ -72,9 +73,15 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 	return { push, pull };
 }
 
-function getPreviewPanelCopy( agenticEnabled: boolean, isOffline: boolean ): string {
+function getPreviewPanelCopy(
+	agenticEnabled: boolean,
+	isOffline: boolean,
+	isPreviewExpired: boolean
+): string {
 	if ( agenticEnabled ) {
-		return __( 'Share a review link for this version.' );
+		return isPreviewExpired
+			? __( 'The previous preview has expired.' )
+			: __( 'Share a review link for this version.' );
 	}
 	if ( isOffline ) {
 		return __( 'Go online to share a review link.' );
@@ -104,6 +111,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		() => pickLatestSnapshot( snapshots, site.id ),
 		[ snapshots, site.id ]
 	);
+	const isPreviewExpired = previewSnapshot !== undefined && isSnapshotExpired( previewSnapshot );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
 
 	const startSite = useStartSite();
@@ -134,7 +142,11 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		publishPreviewSite.mutate(
 			{
 				siteId: site.id,
-				existingHostname: previewSnapshot ? getSnapshotHostname( previewSnapshot ) : undefined,
+				// The CLI cannot update an expired preview site — create a new one.
+				existingHostname:
+					previewSnapshot && ! isPreviewExpired
+						? getSnapshotHostname( previewSnapshot )
+						: undefined,
 			},
 			{ onSuccess: ( { url } ) => openExternal( ensureProtocol( url ) ) }
 		);
@@ -233,7 +245,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 				}
 			/>
 
-			{ previewSnapshot ? (
+			{ previewSnapshot && ! isPreviewExpired ? (
 				<PopoverRow
 					label={ __( 'Preview' ) }
 					sublabel={ __( 'Ready to share for feedback.' ) }
@@ -275,8 +287,8 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Preview' ) }
-					copy={ getPreviewPanelCopy( agenticEnabled, isOffline ) }
-					buttonLabel={ __( 'Share' ) }
+					copy={ getPreviewPanelCopy( agenticEnabled, isOffline, isPreviewExpired ) }
+					buttonLabel={ isPreviewExpired ? __( 'Share a new one' ) : __( 'Share' ) }
 					variant="outline"
 					tone="neutral"
 					loading={ isPreviewPending }

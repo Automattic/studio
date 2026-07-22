@@ -56,6 +56,19 @@ describe( 'getSiteDropdownSecondary', () => {
 		} );
 	} );
 
+	it( 'reports expiry instead of recency once the snapshot is too old', () => {
+		expect(
+			getSiteDropdownSecondary( {
+				activity: null,
+				activeEnvironment: 'local',
+				previewSnapshot: createSnapshot( { date: Date.parse( '2026-04-25T12:00:00.000Z' ) } ),
+			} )
+		).toEqual( {
+			label: 'Preview expired',
+			tone: 'neutral',
+		} );
+	} );
+
 	it( 'uses live push recency while the session targets live', () => {
 		expect(
 			getSiteDropdownSecondary( {

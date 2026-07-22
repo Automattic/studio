@@ -46,9 +46,10 @@ export function useDeleteAllSnapshots( userId?: number ) {
 		mutationFn: () => connector.deleteAllSnapshots(),
 		onSuccess: () => {
 			void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
-			void queryClient.invalidateQueries( { queryKey: SNAPSHOT_USAGE_QUERY_KEY } );
-			// Zero the count right away so the meter doesn't sit on the stale
-			// value while the invalidated usage query refetches.
+			// Zero the count directly instead of refetching: the wpcom usage
+			// counter is eventually consistent, so an immediate refetch can
+			// overwrite the correct zero with the stale pre-delete count. The
+			// next mount/focus refetch (staleTime 0) reconciles with the server.
 			queryClient.setQueryData< SnapshotUsage | null >(
 				getSnapshotUsageQueryKey( userId ),
 				( current ) => ( current ? { ...current, siteCount: 0 } : current )

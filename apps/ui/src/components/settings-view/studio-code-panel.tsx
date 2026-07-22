@@ -1,15 +1,13 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/common/ai/global-instructions';
 import { DataForm } from '@wordpress/dataviews';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@wordpress/ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
 import styles from './style.module.css';
 import type { Field, Form } from '@wordpress/dataviews';
-import type { FormEvent } from 'react';
 
 interface FormData {
 	content: string;
@@ -33,44 +31,50 @@ const FORM: Form = {
 	fields: [ 'content' ],
 };
 
+// Long enough that a normal typing burst lands as one write, short enough that
+// the save still feels immediate when the user pauses.
+const SAVE_DEBOUNCE_MS = 800;
+
 export function StudioCodePanel() {
 	const { data: saved } = useAgentInstructions();
-	const saveInstructions = useSaveAgentInstructions();
+	const { mutate: save, isError } = useSaveAgentInstructions();
 	const [ edits, setEdits ] = useState< string | null >( null );
-	const [ justSaved, setJustSaved ] = useState( false );
+
+	const content = edits ?? saved ?? '';
+	const isDirty = saved !== undefined && content !== saved;
+
+	const pending = useRef< string | null >( null );
 
 	useEffect( () => {
-		if ( ! justSaved ) {
+		pending.current = isDirty ? content : null;
+		if ( ! isDirty ) {
 			return;
 		}
-		const timer = setTimeout( () => setJustSaved( false ), 2500 );
+		const timer = setTimeout( () => {
+			pending.current = null;
+			save( content );
+		}, SAVE_DEBOUNCE_MS );
 		return () => clearTimeout( timer );
-	}, [ justSaved ] );
+	}, [ content, isDirty, save ] );
+
+	// Leaving the tab mid-debounce would otherwise drop the last keystrokes.
+	useEffect(
+		() => () => {
+			if ( pending.current !== null ) {
+				save( pending.current );
+			}
+		},
+		[ save ]
+	);
 
 	if ( saved === undefined ) {
 		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
 	}
 
-	const content = edits ?? saved;
-	const isDirty = content !== saved;
-	const canSubmit = isDirty && ! saveInstructions.isPending;
 	const showCounter = content.length >= GLOBAL_INSTRUCTIONS_MAX_LENGTH * 0.8;
 
-	const handleSubmit = ( event: FormEvent ) => {
-		event.preventDefault();
-		if ( ! canSubmit ) {
-			return;
-		}
-		saveInstructions.mutate( content, {
-			onSuccess: () => {
-				setEdits( null );
-				setJustSaved( true );
-			},
-		} );
-	};
-
 	return (
-		<form onSubmit={ handleSubmit } className={ styles.preferencesPanel }>
+		<div className={ styles.preferencesPanel }>
 			<DataForm< FormData >
 				data={ { content } }
 				fields={ FIELDS }
@@ -81,28 +85,18 @@ export function StudioCodePanel() {
 					)
 				}
 			/>
-			{ saveInstructions.isError && (
+			{ isError && (
 				<p className={ styles.instructionsError }>
 					{ __( 'Saving the instructions failed. Please try again.' ) }
 				</p>
 			) }
-			<div className={ styles.actions }>
-				{ showCounter && (
+			{ showCounter && (
+				<div className={ styles.actions }>
 					<span className={ styles.instructionsCounter }>
 						{ `${ content.length.toLocaleString() } / ${ GLOBAL_INSTRUCTIONS_MAX_LENGTH.toLocaleString() }` }
 					</span>
-				) }
-				<Button
-					type="submit"
-					variant="solid"
-					tone="brand"
-					disabled={ ! canSubmit }
-					loading={ saveInstructions.isPending }
-					loadingAnnouncement={ __( 'Saving instructions' ) }
-				>
-					{ justSaved && ! isDirty ? __( 'Saved' ) : __( 'Save instructions' ) }
-				</Button>
-			</div>
-		</form>
+				</div>
+			) }
+		</div>
 	);
 }

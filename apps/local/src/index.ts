@@ -853,7 +853,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sites/:id/import',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const requestedPath = req.body?.path;
-			if ( typeof requestedPath !== 'string' || ! requestedPath ) {
+			if ( typeof requestedPath !== 'string' ) {
 				res.status( 400 ).json( { error: 'Missing backup path' } );
 				return;
 			}

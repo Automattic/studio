@@ -2,6 +2,8 @@ import { resolveSessionModel } from '@studio/common/ai/models';
 import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { arrowDown } from '@wordpress/icons';
+import { IconButton } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import {
 	useCallback,
@@ -9,6 +11,7 @@ import {
 	useLayoutEffect,
 	useMemo,
 	useRef,
+	useState,
 	type ReactNode,
 	type Ref,
 } from 'react';
@@ -38,6 +41,20 @@ import { getSiteSessionHistory, SessionChatActions } from './session-chat-action
 import styles from './style.module.css';
 import { SuggestedPrompts } from './suggested-prompts';
 import type { AiSessionSummary } from '@/data/core';
+
+// Slack below the bottom edge that still counts as "at the latest message",
+// so sub-pixel rounding or a barely-started scroll doesn't flash the button.
+const SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX = 48;
+
+export function isScrolledAwayFromLatest( node: {
+	scrollTop: number;
+	scrollHeight: number;
+	clientHeight: number;
+} ): boolean {
+	return (
+		node.scrollHeight - node.scrollTop - node.clientHeight > SCROLL_AWAY_FROM_LATEST_THRESHOLD_PX
+	);
+}
 
 interface SessionHeaderProps {
 	summary: AiSessionSummary;
@@ -225,6 +242,43 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 	);
 	const scrollRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	const [ isScrolledAway, setIsScrolledAway ] = useState( false );
+	const hasSession = !! data;
+
+	const updateIsScrolledAway = useCallback( () => {
+		const node = scrollRef.current;
+		if ( node ) {
+			setIsScrolledAway( isScrolledAwayFromLatest( node ) );
+		}
+	}, [] );
+
+	useEffect( () => {
+		const node = scrollRef.current;
+		if ( ! hasSession || ! node ) {
+			return;
+		}
+		updateIsScrolledAway();
+		node.addEventListener( 'scroll', updateIsScrolledAway, { passive: true } );
+		return () => node.removeEventListener( 'scroll', updateIsScrolledAway );
+	}, [ hasSession, updateIsScrolledAway ] );
+
+	// Content can grow without emitting scroll events (e.g. while the
+	// auto-scroll below is suspended by pending questions), so re-check
+	// whenever the transcript changes.
+	useEffect( () => {
+		updateIsScrolledAway();
+	}, [ data, pendingQuestions.length, queuedPrompts.length, updateIsScrolledAway ] );
+
+	const scrollToLatest = useCallback( () => {
+		const node = scrollRef.current;
+		if ( ! node ) {
+			return;
+		}
+		const prefersReducedMotion =
+			typeof window.matchMedia === 'function' &&
+			window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
+		node.scrollTo( { top: node.scrollHeight, behavior: prefersReducedMotion ? 'auto' : 'smooth' } );
+	}, [] );
 	useSessionCommands( sessionId );
 	const canTogglePreview = !! ownerSite && effectiveEnvironment === 'local';
 	const siteSessionHistory = data
@@ -338,6 +392,19 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			header={ <SessionHeader summary={ data.summary } /> }
 			composer={
 				<div className={ clsx( styles.classicColumn, styles.classicComposerColumn ) }>
+					{ isScrolledAway ? (
+						<div className={ styles.scrollToLatestWrap }>
+							<IconButton
+								className={ styles.scrollToLatestButton }
+								icon={ arrowDown }
+								label={ __( 'Scroll to latest message' ) }
+								size="small"
+								variant="minimal"
+								tone="neutral"
+								onClick={ scrollToLatest }
+							/>
+						</div>
+					) : null }
 					<QueuedPrompts
 						prompts={ queuedPrompts }
 						onRemove={ removeQueuedPrompt }

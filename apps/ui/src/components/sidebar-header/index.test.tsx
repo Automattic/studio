@@ -84,6 +84,12 @@ describe( 'SidebarHeader', () => {
 		expect( navigate ).toHaveBeenCalledWith( { to: '/onboarding/plugin' } );
 	} );
 
+	it( 'has no sidebar toggle — it lives in the sidebar footer', () => {
+		render( <SidebarHeader /> );
+
+		expect( screen.queryByRole( 'button', { name: 'Hide sidebar' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'opens the app menu when the host has no native menu bar', () => {
 		useConnectorMock.mockReturnValue( { showsAppMenuButton: true, popupAppMenu } );
 

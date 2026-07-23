@@ -24,6 +24,19 @@
 .userName,
 .sidebarToggle,
 .settingsButton {
+	color: var(--wpds-color-fg-content-neutral-weak);
+}
+
+.sidebarToggle {
+	margin-inline-end: calc(-1 * var(--wpds-dimension-padding-sm));
+}
+
+.row:hover .userName,
+.row:hover .sidebarToggle,
+.row:hover .settingsButton,
+.row:focus-within .userName,
+.row:focus-within .sidebarToggle,
+.row:focus-within .settingsButton {
 	color: var(--wpds-color-fg-content-neutral);
 }
 

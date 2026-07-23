@@ -1,16 +1,19 @@
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
+import { __ } from '@wordpress/i18n';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
+	AppGlobals,
 	AuthUser,
 	Connector,
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
 	Snapshot,
+	SnapshotUsage,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
@@ -114,6 +117,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: false,
+			switchToClassicUi: false,
 		},
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
@@ -208,13 +212,22 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		async importSiteFromBackup(): Promise< SiteDetails > {
+		async importSiteFromBackup(): Promise< void > {
 			throw new UnsupportedError( 'importSiteFromBackup' );
 		},
 
 		// Preview snapshots / sync — out of scope for this increment.
 		async getSnapshots(): Promise< Snapshot[] > {
 			return [];
+		},
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			return { siteCount: 0, siteLimit: 10, siteCreationBlocked: false };
+		},
+		async getStudioAssistantQuota() {
+			return null;
+		},
+		async deleteAllSnapshots() {
+			// No-op: hosted mode does not create WordPress.com preview sites.
 		},
 		async publishPreviewSite(): Promise< { url: string } > {
 			throw new UnsupportedError( 'publishPreviewSite' );
@@ -313,10 +326,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				quitSitesBehavior: undefined,
 				locale: undefined,
 				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			};
 		},
 		async setUserPreferences() {
 			// No-op: preferences aren't persisted in the browser yet.
+		},
+		async getAppGlobals(): Promise< AppGlobals > {
+			return { platform: 'browser', isWindowsStore: false };
 		},
 		async selectDefaultSiteDirectory(): Promise< string | null > {
 			// No native folder picker in a browser.
@@ -352,6 +370,13 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		showsAppMenuButton: false,
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
+		},
+		async confirmDeleteAllPreviewSites() {
+			return window.confirm(
+				__(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				)
+			);
 		},
 		async openSiteUrl( siteId, relativeUrl = '' ) {
 			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );

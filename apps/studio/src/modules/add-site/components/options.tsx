@@ -1,4 +1,5 @@
-import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
+import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHeading as Heading,
@@ -73,10 +74,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 			if ( ! file ) {
 				return;
 			}
-			const hasValidExtension = ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) =>
-				file.name.toLowerCase().endsWith( ext )
-			);
-			if ( ! hasValidExtension ) {
+			if ( ! isSupportedBackupFilename( file.name, ACCEPTED_ADD_SITE_FILE_TYPES ) ) {
 				setExtensionError( __( 'Unsupported file type.' ) );
 				return;
 			}
@@ -131,7 +129,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 			<input
 				ref={ fileRef }
 				type="file"
-				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
+				accept={ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }
 				onChange={ handleChange }
 				className="hidden"
 			/>
@@ -145,7 +143,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 						{ __( 'Import from a backup' ) }
 					</Heading>
 					<Text className="text-[13px] !text-frame-text-secondary" weight="400">
-						{ __( 'Drop a file or click to browse (.zip, .tar.gz, .sql, .wpress, .xml)' ) }
+						{ __( 'Drop a file or click to browse (.zip, .tar.gz, .wpress, .xml)' ) }
 					</Text>
 				</div>
 			</div>

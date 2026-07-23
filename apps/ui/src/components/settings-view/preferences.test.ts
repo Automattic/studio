@@ -9,6 +9,8 @@ const SAVED_PREFERENCES: UserPreferences = {
 	quitSitesBehavior: 'stop',
 	locale: 'en',
 	defaultSiteDirectory: '/Users/example/Studio',
+	studioCliInstalled: false,
+	studioCliExternallyManaged: false,
 };
 
 describe( 'settings preference helpers', () => {

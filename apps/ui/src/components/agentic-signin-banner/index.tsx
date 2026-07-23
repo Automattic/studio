@@ -9,7 +9,6 @@ import type { AgenticFeatureReason } from '@/data/queries/use-agentic-features';
 
 export function AgenticSigninBanner() {
 	const { enabled, reason } = useAgenticFeatures();
-	const login = useLogin();
 	const navigate = useNavigate();
 
 	// `authenticate()` resolves when the browser opens, not when OAuth
@@ -27,6 +26,14 @@ export function AgenticSigninBanner() {
 	if ( reason !== 'signed-out' ) {
 		return null;
 	}
+
+	return <SigninNotice />;
+}
+
+// The banner without the route-aware behaviour, for surfaces that must stay
+// put once the user signs in (e.g. Settings).
+export function SigninNotice() {
+	const login = useLogin();
 
 	return (
 		<section className={ styles.root } aria-label={ __( 'Sign in to Studio' ) }>

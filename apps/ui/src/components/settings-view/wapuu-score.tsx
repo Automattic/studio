@@ -38,7 +38,7 @@ export function WapuuScore() {
 						{ sprintf( __( '%1$d of %2$d points' ), score, MAX_SCORE ) }
 					</span>
 					<div
-						className={ styles.wapuuScoreTrack }
+						className={ styles.progressTrack }
 						role="progressbar"
 						aria-valuemin={ 0 }
 						aria-valuemax={ MAX_SCORE }
@@ -46,7 +46,7 @@ export function WapuuScore() {
 						aria-label={ __( 'Wapuu score' ) }
 					>
 						<div
-							className={ styles.wapuuScoreFill }
+							className={ styles.progressValue }
 							style={ { inlineSize: `${ ( clamped / MAX_SCORE ) * 100 }%` } }
 						/>
 					</div>

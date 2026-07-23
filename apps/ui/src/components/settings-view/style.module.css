@@ -760,20 +760,6 @@
 	font-size: var( --wpds-typography-font-size-sm );
 }
 
-.wapuuScoreTrack {
-	block-size: 8px;
-	inline-size: 100%;
-	border-radius: 4px;
-	background: var( --wpds-color-bg-surface-neutral-weak );
-	overflow: hidden;
-}
-
-.wapuuScoreFill {
-	block-size: 100%;
-	border-radius: 4px;
-	background: var( --wpds-color-bg-surface-brand );
-}
-
 /* Signed out or offline: grey the whole card, since none of it is live. */
 .usageDisabled .settingsPanelHeader h2,
 .usageDisabled .settingsPanelHeader p,

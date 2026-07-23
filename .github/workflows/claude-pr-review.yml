@@ -101,7 +101,7 @@ jobs:
 
             4. **Naming & Clarity**
                - Names should be specific and self-documenting
-               - Prefer `removeSiteFromConfig` over `remove`, `filterUnsupportedBlueprintFeatures` over `filterFeatures`
+               - Prefer `removeSiteFromConfig` over `remove`, `extractFormValuesFromBlueprint` over `extractValues`
                - Constants should include context: `DEFAULT_SKILLS_REPO_BRANCH` not `DEFAULT_BRANCH`
 
             5. **Type Safety & Schemas**

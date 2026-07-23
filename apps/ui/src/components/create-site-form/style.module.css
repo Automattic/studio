@@ -151,9 +151,44 @@
 }
 
 .submitError {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
 	padding: 10px 12px;
 	border-radius: 4px;
 	background: var(--wpds-color-bg-surface-error-weak);
 	color: var(--wpds-color-fg-content-error);
 	font-size: 13px;
+	line-height: 1.5;
+}
+
+.submitErrorTitle {
+	font-weight: 600;
+}
+
+.submitErrorMessage {
+	margin: 0;
+}
+
+.submitErrorDetails summary {
+	width: fit-content;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.submitErrorDetails pre {
+	max-height: 160px;
+	padding-top: 6px;
+	margin: 0;
+	overflow: auto;
+	font-family: var(
+		--wpds-typography-font-family-mono,
+		ui-monospace,
+		SFMono-Regular,
+		Menlo,
+		monospace
+	);
+	font-size: var(--wpds-typography-font-size-xs);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
 }

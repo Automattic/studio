@@ -95,7 +95,7 @@ async function getExistingNativePhpMuPluginsDir(
 		return null;
 	}
 
-	const match = loaderContent.match( /\$studio_mu_plugins_dir = '((?:\\\\|\\'|[^'])*)';/ );
+	const match = loaderContent.match( /\$studio_mu_plugins_dir = '((?:\\\\|\\'|[^\\'])*)';/ );
 	if ( ! match ) {
 		return null;
 	}

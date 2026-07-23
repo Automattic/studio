@@ -188,6 +188,13 @@
 	);
 }
 
+/* Applied on top of .panelFooterControls to anchor the strip to the right
+   edge instead (hosts the preview panel toggle). */
+.panelFooterControlsEnd {
+	left: auto;
+	right: var(--classic-panel-control-left);
+}
+
 .classicComposerFooter {
 	display: flex;
 	justify-content: flex-start;

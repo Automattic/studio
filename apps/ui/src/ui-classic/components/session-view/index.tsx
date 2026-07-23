@@ -12,6 +12,7 @@ import {
 	type ReactNode,
 	type Ref,
 } from 'react';
+import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
@@ -85,6 +86,7 @@ interface SessionFrameProps {
 	header?: ReactNode;
 	composer?: ReactNode;
 	footer?: ReactNode;
+	footerEnd?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	children?: ReactNode;
 }
@@ -92,7 +94,14 @@ interface SessionFrameProps {
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
 // PreviewSplitFrame, which keeps it mounted across routes.
-function SessionFrame( { header, composer, footer, scrollRef, children }: SessionFrameProps ) {
+function SessionFrame( {
+	header,
+	composer,
+	footer,
+	footerEnd,
+	scrollRef,
+	children,
+}: SessionFrameProps ) {
 	const rootRef = useRef< HTMLDivElement >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
@@ -157,6 +166,11 @@ function SessionFrame( { header, composer, footer, scrollRef, children }: Sessio
 					) }
 				>
 					{ footer }
+				</div>
+			) : null }
+			{ footerEnd ? (
+				<div className={ clsx( styles.panelFooterControls, styles.panelFooterControlsEnd ) }>
+					{ footerEnd }
 				</div>
 			) : null }
 		</div>
@@ -356,6 +370,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 					/>
 				) : null
 			}
+			footerEnd={ canTogglePreview ? <PreviewToggleButton /> : null }
 		>
 			{ isEmpty ? <EmptyBackground /> : null }
 			{ isEmpty && ownerSite ? (

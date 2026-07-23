@@ -53,9 +53,8 @@ export function WapuuScore() {
 				</div>
 				<Button
 					type="button"
-					variant="minimal"
+					variant="outline"
 					tone="neutral"
-					size="small"
 					onClick={ () => void connector.openExternalUrl( WAPUU_STUDIO_URL ) }
 				>
 					{ __( 'Visit wapuu.studio' ) }

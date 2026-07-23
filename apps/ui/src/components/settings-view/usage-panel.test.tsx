@@ -259,7 +259,7 @@ describe( 'UsagePanel', () => {
 		expect(
 			screen.queryByRole( 'button', { name: 'Delete all preview sites' } )
 		).not.toBeInTheDocument();
-		expect( screen.queryByLabelText( 'Sign in to Studio' ) ).not.toBeInTheDocument();
+		expect( screen.queryByLabelText( 'Log in to Studio' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'surfaces a deletion error inline', () => {
@@ -281,7 +281,7 @@ describe( 'UsagePanel', () => {
 
 		render( <UsagePanel /> );
 
-		expect( screen.getByLabelText( 'Sign in to Studio' ) ).toBeInTheDocument();
+		expect( screen.getByLabelText( 'Log in to Studio' ) ).toBeInTheDocument();
 		expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
 		expect( screen.getAllByRole( 'img', { name: 'Unavailable' } ) ).toHaveLength( 2 );
 		// Studio Code needs an account, so the Alpha pricing copy stays hidden.

@@ -165,9 +165,8 @@ function SiteOverviewBody( {
 					</div>
 					<div className={ styles.scroll }>
 						<main className={ styles.content }>
-							<Tabs.Panel tabId="overview" className={ styles.panel }>
+							<Tabs.Panel tabId="overview" className={ styles.overviewPanel }>
 								<OfflineBanner />
-								<AgenticSigninBanner />
 								<div className={ styles.actionsColumn }>
 									<ButtonSection title={ __( 'Customize' ) }>
 										{ isBlockTheme ? (
@@ -274,6 +273,7 @@ function SiteOverviewBody( {
 					</div>
 				</Tabs.Root>
 			</div>
+			{ activeTab === 'overview' ? <AgenticSigninBanner /> : null }
 			<ProgressiveBlur direction="up" className={ styles.footerBlur } />
 			<div className={ styles.footerBar }>
 				<PreviewToggleButton />

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -34,6 +35,16 @@ vi.mock( '@tanstack/react-router', () => ( {
 vi.mock( '@/components/delete-site-dialog', () => ( {
 	DeleteSiteDialog: ( { open }: { open: boolean } ) =>
 		open ? <div role="dialog">Delete dialog</div> : null,
+} ) );
+
+// Canvas-backed W background; jsdom has no 2D context, so stub it out.
+vi.mock( '@/ui-classic/components/session-view/empty-background', () => ( {
+	EmptyBackground: () => null,
+} ) );
+
+// Canvas-backed dot-grid backdrop; jsdom has no 2D context, so stub it out.
+vi.mock( '@/components/dot-grid', () => ( {
+	DotGrid: () => null,
 } ) );
 
 vi.mock( '@/components/site-dropdown', () => ( {
@@ -138,7 +149,9 @@ describe( 'SiteOverviewView', () => {
 
 	function renderView( activeTab: 'overview' | 'general' | 'debugging' = 'overview' ) {
 		return render(
-			<SiteOverviewView siteId="site-1" activeTab={ activeTab } onTabChange={ onTabChange } />
+			<Tooltip.Provider>
+				<SiteOverviewView siteId="site-1" activeTab={ activeTab } onTabChange={ onTabChange } />
+			</Tooltip.Provider>
 		);
 	}
 
@@ -241,9 +254,7 @@ describe( 'SiteOverviewView', () => {
 
 		renderView();
 
-		expect(
-			screen.getByRole( 'heading', { name: 'Sign in to do more with Studio' } )
-		).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Let Studio code it for you' } ) ).toBeVisible();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
 
@@ -254,7 +265,7 @@ describe( 'SiteOverviewView', () => {
 		renderView();
 
 		expect(
-			screen.queryByRole( 'heading', { name: 'Sign in to do more with Studio' } )
+			screen.queryByRole( 'heading', { name: 'Let Studio code it for you' } )
 		).not.toBeInTheDocument();
 	} );
 

@@ -232,6 +232,25 @@ describe( 'SiteList', () => {
 		} );
 	} );
 
+	it( 'shows the selected site solid without the overview shortcut when signed out', () => {
+		vi.mocked( useAgenticFeatures ).mockReturnValue( {
+			enabled: false,
+			reason: 'signed-out',
+			isReady: true,
+		} );
+		paramsMock = { siteId: 'stopped-site' };
+		pathnameMock = '/sites/stopped-site/overview';
+
+		render( <SiteList /> );
+
+		const stoppedRow = screen.getByText( 'Stopped Site' ).closest( 'section' )!;
+		const className = stoppedRow.getAttribute( 'class' ) ?? '';
+
+		expect( className ).toContain( 'siteActive' );
+		expect( className ).not.toContain( 'siteContextActive' );
+		expect( screen.queryByRole( 'button', { name: 'Site overview' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'opens the site overview from the row gear without opening the latest chat', () => {
 		render( <SiteList /> );
 

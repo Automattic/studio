@@ -28,7 +28,7 @@ function SiteSyncDescription( { children }: PropsWithChildren ) {
 	return (
 		<div className="p-8 flex justify-center gap-12">
 			<div className="flex flex-col max-w-sm">
-				<div className="a8c-subtitle text-pretty">{ __( 'Sign in to get started' ) }</div>
+				<div className="a8c-subtitle text-pretty">{ __( 'Log in to get started' ) }</div>
 				<div className="max-w-[40ch] text-frame-text-secondary a8c-body mt-2">
 					{ __( 'Connect your WordPress.com account to access your sites.' ) }
 				</div>

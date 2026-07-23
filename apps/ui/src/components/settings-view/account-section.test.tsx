@@ -29,6 +29,12 @@ vi.mock( '@wordpress/ui', () => ( {
 		void size;
 		return <button { ...props }>{ loading ? loadingAnnouncement : children }</button>;
 	},
+	Tooltip: {
+		Root: ( { children }: { children?: ReactNode } ) => <>{ children }</>,
+		Trigger: ( { render }: { render?: ReactNode } ) => <>{ render }</>,
+		Popup: () => null,
+		Positioner: () => null,
+	},
 } ) );
 
 vi.mock( '@/components/gravatar', () => ( {

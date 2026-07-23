@@ -841,8 +841,6 @@ export function createIpcConnector(): Connector {
 		},
 
 		onAppUpdateStatusChanged( listener ) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
 				listener( status as AppUpdateStatus )
 			);

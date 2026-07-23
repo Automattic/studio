@@ -1,16 +1,15 @@
-/* Cells own their spacing (no gap) so it collapses along with a leaving
-   card; the container's negative margin cancels the first cell's share.
-   Mirrors the toast stack (see app-toasts/style.module.css). */
+/* Cells own their spacing (no gap); the container's negative margin cancels
+   the first cell's share. Mirrors the toast stack (see
+   app-toasts/style.module.css). */
 .stack {
 	display: flex;
 	flex-direction: column;
 	margin-top: calc(-1 * var(--wpds-dimension-gap-sm));
 }
 
-/* Collapsible row, same treatment as the toasts: 0fr↔1fr animates the space
-   the card occupies so neighbors slide instead of jumping. Enter starts
-   collapsed via @starting-style; exit collapses while useLeavingMessages
-   keeps the departed card rendered with data-leaving. */
+/* Collapsible row, same treatment as the toasts: @starting-style animates
+   0fr→1fr on mount so an arriving card pushes its neighbors instead of
+   making them jump. */
 .cell {
 	display: grid;
 	grid-template-rows: 1fr;
@@ -27,11 +26,6 @@
 	}
 }
 
-.cell[data-leaving] {
-	grid-template-rows: 0fr;
-	margin-top: 0;
-}
-
 /* The grid item must be shrinkable for 0fr to collapse it; `clip` with a
    margin keeps ring/elevation shadows visible in steady state. */
 .cell > * {
@@ -40,22 +34,14 @@
 	overflow-clip-margin: 12px;
 }
 
-.cell[data-leaving] .card {
-	opacity: 0;
-	transform: translateY(4px);
-	pointer-events: none;
-}
-
 /* Layered on top of the toasts' `notice` class (applied together in the
    component); a touch more block padding since cards carry a title +
    description + action. */
 .card {
 	padding-block: var(--wpds-dimension-padding-sm);
 	/* Same entrance the ephemeral toasts use (toast-enter in app-toasts) so
-	   cards and toasts read as one system as the stack fills and drains.
-	   Promoted queue toasts mount fresh and re-run theirs; cards do the same. */
+	   cards and toasts read as one system. */
 	animation: card-enter 160ms ease-out;
-	transition: opacity 160ms ease, transform 160ms ease;
 }
 
 @keyframes card-enter {

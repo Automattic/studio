@@ -137,7 +137,7 @@ export function setupUpdates() {
 
 	autoUpdater.on( 'update-downloaded', async ( _event, releaseNotes, releaseName ) => {
 		updaterState = 'waiting-for-restart';
-		downloadedVersion = typeof releaseName === 'string' && releaseName ? releaseName : null;
+		downloadedVersion = typeof releaseName === 'string' ? releaseName : null;
 		console.log( 'Update has been downloaded', { version: downloadedVersion } );
 		void sendIpcEventToRenderer( 'app-update-status', buildAppUpdateStatus() );
 		await showUpdateReadyToInstallNotice();

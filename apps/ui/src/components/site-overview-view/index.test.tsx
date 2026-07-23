@@ -393,10 +393,12 @@ describe( 'SiteOverviewView', () => {
 		fireEvent.change( select, { target: { value: '' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save settings' } ) );
 
+		// 'latest' has to reach the CLI so it actually installs the newest
+		// release — forwarding nothing would leave the site on its pinned files.
 		expect( updateSiteMutate ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				site: expect.objectContaining( { isWpAutoUpdating: true } ),
-				wpVersion: undefined,
+				wpVersion: 'latest',
 			} ),
 			expect.anything()
 		);

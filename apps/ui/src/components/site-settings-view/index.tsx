@@ -264,11 +264,14 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		};
 		// Only forward the version when the user actually changed it — same as
 		// the legacy settings modal — so unrelated saves of a pinned site don't
-		// trigger a WordPress reinstall.
+		// trigger a WordPress reinstall. Switching back to auto-updating still
+		// has to install the latest release, so the empty "auto-update" value
+		// maps to DEFAULT_WORDPRESS_VERSION rather than forwarding nothing.
+		const wpVersionChanged = data.wpVersion !== initial.wpVersion;
 		updateSite.mutate(
 			{
 				site: updated,
-				wpVersion: wpPinned && data.wpVersion !== initial.wpVersion ? wpPinned : undefined,
+				wpVersion: wpVersionChanged ? wpPinned || DEFAULT_WORDPRESS_VERSION : undefined,
 			},
 			{
 				onError: ( error ) => {

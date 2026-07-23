@@ -134,6 +134,10 @@
 	justify-content: flex-start;
 }
 
+.sidebarCards {
+	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
 /* Sidebar-specific indicator treatment: match the content card's vertical
    extent instead of running through the frame gaps above/below it (keep the
    12px in sync with --panel-frame-gap in preview-split-frame). The handle is

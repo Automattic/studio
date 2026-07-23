@@ -29,6 +29,7 @@ import type {
 	SiteDetails,
 	Snapshot,
 	SnapshotUsage,
+	StudioAssistantQuota,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
@@ -936,7 +937,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async disableAgenticUi() {
 			// No-op in the browser.
 		},
-
 		// Sites — desktop-only affordances not yet exposed by the local server.
 		async getSiteOverviewDetails() {
 			throw new UnsupportedError( 'getSiteOverviewDetails' );
@@ -1018,7 +1018,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return null;
 		},
 		async getStudioAssistantQuota() {
-			return null;
+			// The server proxies the WordPress.com quota endpoint and returns
+			// the already-parsed shape (or null when signed out).
+			return api< StudioAssistantQuota | null >( '/quota' );
 		},
 		async deleteAllSnapshots() {
 			throw new UnsupportedError( 'deleteAllSnapshots' );

@@ -1,5 +1,6 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
-import { isUsageCapError } from '@studio/common/ai/json-events';
+import { getAgentEndFailure, isUsageCapError } from '@studio/common/ai/json-events';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import {
@@ -191,12 +192,17 @@ function reducer( state: State, action: Action ): State {
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
 			// survive the transition, and the answered maps so picked options
-			// and resolved permissions stay highlighted in history.
+			// and resolved permissions stay highlighted in history. Preserve
+			// any turn error too —
+			// `run.exited` lags the error event and must not wipe the banner
+			// before the user can read it. Everything else resets.
 			return {
 				...initialState,
 				queuedPrompts: state.queuedPrompts,
 				answeredQuestions: state.answeredQuestions,
 				answeredPermissions: state.answeredPermissions,
+				error: state.error,
+				usageCapReached: state.usageCapReached,
 			};
 		case 'interrupt_requested':
 			return {
@@ -411,9 +417,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 				case 'error': {
 					const isUsageCap = isUsageCapError( event.message );
-					const message = isUsageCap
-						? __( 'You\u2019ve reached your AI usage limit. Try again later.' )
-						: event.message;
+					const message = isUsageCap ? formatUsageCapNotice() : event.message;
 					dispatchSession( payload.sessionId, {
 						type: 'error_set',
 						message,
@@ -452,8 +456,29 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					} );
 					return;
 				case 'message': {
-					// Only message-bearing pi event variants need optimistic entries.
 					const inner = event.message;
+					// A failed turn only surfaces through its final `agent_end` —
+					// the errored assistant message usually has no text content and
+					// no `error` transport event is emitted. Synthesize the
+					// `studio.turn_closed` error entry for immediate in-flow
+					// rendering; the CLI also writes a real one that replaces this
+					// on the post-run refetch.
+					const failure = getAgentEndFailure( inner );
+					if ( failure ) {
+						updateCache( payload.sessionId, ( entries ) => [
+							...entries,
+							{
+								type: 'custom',
+								id: shortEntryId(),
+								parentId: null,
+								timestamp: event.timestamp,
+								customType: 'studio.turn_closed',
+								data: { status: 'error', errorMessage: failure.message },
+							} as SessionEntry,
+						] );
+						return;
+					}
+					// Only message-bearing pi event variants need optimistic entries.
 					if (
 						inner.type === 'message_end' &&
 						( inner.message as { role?: string } ).role === 'assistant'
@@ -602,11 +627,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				} );
 				const rawMessage = err instanceof Error ? err.message : String( err );
 				const isUsageCap = isUsageCapError( rawMessage );
-				const message = isUsageCap
-					? __(
-							'You\u2019ve reached your AI usage limit. Try again later or use your own Anthropic API key via the CLI (/provider).'
-					  )
-					: rawMessage;
+				const message = isUsageCap ? formatUsageCapNotice() : rawMessage;
 				dispatchSession( sessionId, { type: 'error_set', message, usageCapReached: isUsageCap } );
 				throw err;
 			}

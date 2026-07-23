@@ -22,7 +22,6 @@ type SnapshotKeyValueEventData = {
 
 export interface IpcEvents {
 	'add-site': [ void ];
-	'app-update-status': [ { readyToInstall: boolean; version: string | null } ];
 	'add-site-with-blueprint': [
 		{
 			blueprintPath: string;
@@ -70,6 +69,12 @@ export interface IpcEvents {
 	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];
 	'chat-notification-clicked': [ { sessionId: string } ];
 	'remote-session-status': [ RemoteSessionStatus ];
+	'app-update-status': [ AppUpdateStatus ];
+}
+
+export interface AppUpdateStatus {
+	readyToInstall: boolean;
+	version: string | null;
 }
 
 let isAppQuitting = false;

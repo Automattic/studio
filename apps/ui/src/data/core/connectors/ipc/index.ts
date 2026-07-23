@@ -1243,24 +1243,22 @@ export function createIpcConnector(): Connector {
 			return ipcListener.subscribe( 'show-getting-started', () => listener() );
 		},
 
+		async disableAgenticUi(): Promise< void > {
+			await ipcApi.disableAgenticUi();
+		},
+
 		async getAppUpdateStatus() {
 			return ipcApi.getAppUpdateStatus();
 		},
 
-		onAppUpdateStatusChanged( listener ) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
-				listener( status as AppUpdateStatus )
-			);
-		},
-
-		async installAppUpdate() {
+		async installAppUpdate(): Promise< void > {
 			await ipcApi.installAppUpdate();
 		},
 
-		async disableAgenticUi(): Promise< void > {
-			await ipcApi.disableAgenticUi();
+		onAppUpdateStatusChanged( listener ) {
+			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
+				listener( status as AppUpdateStatus )
+			);
 		},
 	};
 }

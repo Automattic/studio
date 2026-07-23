@@ -10,6 +10,7 @@ import {
 	type CheckpointArtifactProps,
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
+import { isUsageCapError } from '@studio/common/ai/json-events';
 import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
@@ -28,6 +29,7 @@ import {
 	type NormalizedToolResult,
 	type ToolGroupSummary,
 } from '@studio/common/ai/tools';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	backup,
@@ -98,6 +100,7 @@ import {
 	type PermissionDecision,
 	type PermissionRequestData,
 } from '@/data/core';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import { formatRelativeTime } from '@/lib/format-relative-time';
 import { refreshIcon } from '@/lib/icons';
@@ -160,7 +163,8 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
-	| { kind: 'interrupted-marker'; key: string };
+	| { kind: 'interrupted-marker'; key: string }
+	| { kind: 'error-marker'; key: string; message: string };
 
 /** Intermediate items before work-phase grouping. */
 type FlatRenderItem =
@@ -169,7 +173,8 @@ type FlatRenderItem =
 	| WorkPhaseStep
 	| Extract< RenderItem, { kind: 'agent-question-batch' } >
 	| Extract< RenderItem, { kind: 'permission-request' } >
-	| Extract< RenderItem, { kind: 'interrupted-marker' } >;
+	| Extract< RenderItem, { kind: 'interrupted-marker' } >
+	| Extract< RenderItem, { kind: 'error-marker' } >;
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -515,6 +520,12 @@ export function entriesToRenderItems(
 				items.push( {
 					kind: 'interrupted-marker',
 					key: `${ entryIndex }:interrupted`,
+				} );
+			} else if ( data?.status === 'error' ) {
+				items.push( {
+					kind: 'error-marker',
+					key: `${ entryIndex }:error`,
+					message: data.errorMessage ?? '',
 				} );
 			}
 			continue;
@@ -1836,6 +1847,25 @@ function PermissionRequest( {
 	);
 }
 
+// In-flow marker for a turn that ended in an error. The monthly usage cap
+// gets dedicated copy — with the reset date once the quota query resolves —
+// instead of the raw provider message.
+function TurnErrorMarker( { message }: { message: string } ) {
+	const isUsageCap = isUsageCapError( message );
+	const { data: quota } = useStudioAssistantQuota( { enabled: isUsageCap } );
+	let text: string;
+	if ( isUsageCap ) {
+		text = formatUsageCapNotice( quota?.costResetDate );
+	} else {
+		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );
+	}
+	return (
+		<div className={ styles.errorMarker } role="alert">
+			{ text }
+		</div>
+	);
+}
+
 export function Conversation( {
 	data,
 	isRunning,
@@ -2000,6 +2030,8 @@ export function Conversation( {
 									{ __( 'Interrupted by you' ) }
 								</div>
 							);
+						case 'error-marker':
+							return <TurnErrorMarker key={ item.key } message={ item.message } />;
 						default:
 							return null;
 					}

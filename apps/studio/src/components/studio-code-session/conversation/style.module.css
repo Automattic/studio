@@ -498,6 +498,19 @@
 	background-color: var(--color-frame-surface-alt);
 }
 
+.errorMarker {
+	align-self: center;
+	max-width: 100%;
+	margin: var(--wpds-dimension-padding-sm) 0;
+	padding: 4px 12px;
+	border-radius: var(--wpds-dimension-radius-md, 8px);
+	background-color: color-mix(in srgb, var(--color-frame-error) 8%, transparent);
+	color: var(--color-frame-error);
+	font-size: var(--wpds-typography-font-size-xs);
+	text-align: center;
+	overflow-wrap: anywhere;
+}
+
 .mediaArtifactGrid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));

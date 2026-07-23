@@ -282,7 +282,6 @@ export { getDefaultSiteDirectory, saveDefaultSiteDirectory };
 
 export { importSite, exportSite } from 'src/modules/import-export/lib/ipc-handlers';
 
-export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
 export {
 	listSiteCheckpoints,
 	createSiteCheckpoint,
@@ -1809,6 +1808,8 @@ export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): 
 	const userData = await loadUserData();
 	return userData.agenticUiBannerDismissed === true;
 }
+
+export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,

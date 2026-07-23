@@ -693,6 +693,33 @@ describe( 'Conversation Ask User questions', () => {
 	} );
 } );
 
+describe( 'Conversation turn-closed markers', () => {
+	it( 'renders an error marker with the persisted message for errored turns', () => {
+		const items = entriesToRenderItems( [
+			turnClosedEntry( 'error', 'Monthly usage limit reached: 429 {"type":"error"}' ),
+		] );
+
+		expect( items ).toMatchObject( [
+			{ kind: 'error-marker', message: 'Monthly usage limit reached: 429 {"type":"error"}' },
+		] );
+	} );
+
+	it( 'renders no marker for successful turns', () => {
+		expect( entriesToRenderItems( [ turnClosedEntry( 'success' ) ] ) ).toEqual( [] );
+	} );
+} );
+
+function turnClosedEntry( status: string, errorMessage?: string ): SessionEntry {
+	return {
+		type: 'custom',
+		id: `turn-closed-${ status }`,
+		parentId: null,
+		timestamp: '2026-06-05T12:00:03.000Z',
+		customType: 'studio.turn_closed',
+		data: { status, ...( errorMessage !== undefined ? { errorMessage } : {} ) },
+	} as SessionEntry;
+}
+
 interface RenderConversationOptions {
 	isRunning?: boolean;
 	startedAt?: number | null;

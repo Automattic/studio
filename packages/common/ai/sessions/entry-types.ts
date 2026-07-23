@@ -44,6 +44,9 @@ export type StudioTurnStatus = 'success' | 'error' | 'max_turns' | 'interrupted'
 
 export interface StudioTurnClosedData {
 	status: StudioTurnStatus;
+	// Raw error text for `status: 'error'` turns, so the transcript can
+	// render an in-flow failure marker after reload. Absent on older entries.
+	errorMessage?: string;
 }
 
 export interface StudioSessionContextData {

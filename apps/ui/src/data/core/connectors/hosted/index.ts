@@ -667,7 +667,6 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async disableAgenticUi() {
 			// No-op in the browser.
 		},
-
 		// Browser tabs have no auto-updater; report an inert status (rather
 		// than throwing) because the messaging layer polls unconditionally.
 		async getAppUpdateStatus() {

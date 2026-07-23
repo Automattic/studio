@@ -1,4 +1,5 @@
 import { buildChatAttachmentSummaries } from '@studio/common/ai/chat-attachments';
+import { getAgentEndFailure } from '@studio/common/ai/json-events';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import {
@@ -208,11 +209,14 @@ function reducer( state: State, action: Action ): State {
 		case 'run_ended':
 			// Preserve the queue across run boundaries so staged follow-ups
 			// survive the transition, and the answered-permissions map so
-			// resolved cards stay labeled. Everything else resets.
+			// resolved cards stay labeled. Preserve any transport error too —
+			// `run.exited` lags the `error` event and must not wipe the banner
+			// before the user can read it. Everything else resets.
 			return {
 				...initialState,
 				queuedPrompts: state.queuedPrompts,
 				answeredPermissions: state.answeredPermissions,
+				error: state.error,
 			};
 		case 'interrupt_requested':
 			return {
@@ -705,8 +709,28 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					return;
 				}
 				case 'message': {
-					// Only message-bearing pi event variants need optimistic entries.
 					const inner = event.message;
+					// A failed turn only surfaces through its final `agent_end` —
+					// the errored assistant message usually has no text content and
+					// no `error` transport event is emitted. Synthesize the
+					// `studio.turn_closed` error entry for immediate in-flow
+					// rendering; the CLI also writes a real one that replaces this
+					// on the post-run refetch.
+					const failure = getAgentEndFailure( inner );
+					if ( failure ) {
+						updateCache( payload.sessionId, ( entries ) => [
+							...entries,
+							{
+								type: 'custom',
+								id: shortEntryId(),
+								parentId: null,
+								timestamp: event.timestamp,
+								customType: 'studio.turn_closed',
+								data: { status: 'error', errorMessage: failure.message },
+							} as SessionEntry,
+						] );
+						return;
+					}
 					if ( inner.type === 'tool_execution_start' ) {
 						const name = typeof inner.toolName === 'string' ? inner.toolName : 'tool';
 						const input =
@@ -725,6 +749,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						dispatchSession( payload.sessionId, { type: 'tool_execution_ended' } );
 						return;
 					}
+					// Only message-bearing pi event variants need optimistic entries.
 					if (
 						inner.type === 'message_end' &&
 						( inner.message as { role?: string } ).role === 'assistant'

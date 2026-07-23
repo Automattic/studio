@@ -64,11 +64,11 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					     scope. */ }
 					<ThemeProvider color={ { bg: chromeBg } }>
 						<div className={ styles.sidebarThemeScope }>
-							<SidebarHeader onToggleSidebar={ toggleSidebar } />
+							<SidebarHeader />
 							<SiteList />
 							<div className={ styles.sidebarFooter }>
 								{ ! collapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
-								<UserMenu />
+								<UserMenu onToggleSidebar={ toggleSidebar } />
 							</div>
 						</div>
 					</ThemeProvider>

@@ -1,26 +1,14 @@
+import {
+	clampQuotaFraction,
+	formatQuotaPercentage,
+	formatQuotaResetDate,
+} from '@studio/common/lib/studio-assistant-quota';
 import { sprintf } from '@wordpress/i18n';
 import { useI18n } from '@wordpress/react-i18n';
 import ProgressBar from 'src/components/progress-bar';
 import { useOffline } from 'src/hooks/use-offline';
 import { useI18nLocale } from 'src/stores';
 import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
-
-function formatPercentage( value: number, maxValue: number, locale: string ) {
-	const percentage = Math.max( 0, Math.min( 1, value / maxValue ) );
-
-	return new Intl.NumberFormat( locale, {
-		style: 'percent',
-		maximumFractionDigits: 2,
-	} ).format( percentage );
-}
-
-function formatResetDate( date: string, locale: string ) {
-	return new Intl.DateTimeFormat( locale, {
-		day: 'numeric',
-		month: 'long',
-		year: 'numeric',
-	} ).format( new Date( date ) );
-}
 
 export function PromptInfo() {
 	const { __ } = useI18n();
@@ -52,12 +40,14 @@ export function PromptInfo() {
 									sprintf(
 										/* translators: %1$s: percentage of monthly limit used (e.g. 7.5%). %2$s: date the limit resets (e.g. July 1, 2026). */
 										__( '%1$s of monthly limit used (resets on %2$s)' ),
-										formatPercentage(
-											assistantQuotaWithCostCap.costUsage,
-											assistantQuotaWithCostCap.costCap,
+										formatQuotaPercentage(
+											clampQuotaFraction(
+												assistantQuotaWithCostCap.costUsage,
+												assistantQuotaWithCostCap.costCap
+											),
 											locale
 										),
-										formatResetDate( assistantQuotaWithCostCap.costResetDate, locale )
+										formatQuotaResetDate( assistantQuotaWithCostCap.costResetDate, locale )
 									) }
 								{ ! isLoading &&
 									! isOffline &&

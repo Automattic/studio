@@ -1,3 +1,4 @@
+import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { arrowDown, arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
@@ -5,6 +6,7 @@ import { Button, IconButton, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
 import * as Menu from '@/components/menu';
+import { XdebugIcon } from '@/components/xdebug-icon';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useLogin } from '@/data/queries/use-auth-user';
@@ -72,9 +74,15 @@ function useIsSiteSyncing( siteId: string ): { push: boolean; pull: boolean } {
 	return { push, pull };
 }
 
-function getPreviewPanelCopy( agenticEnabled: boolean, isOffline: boolean ): string {
+function getPreviewPanelCopy(
+	agenticEnabled: boolean,
+	isOffline: boolean,
+	isPreviewExpired: boolean
+): string {
 	if ( agenticEnabled ) {
-		return __( 'Share a review link for this version.' );
+		return isPreviewExpired
+			? __( 'The previous preview has expired.' )
+			: __( 'Share a review link for this version.' );
 	}
 	if ( isOffline ) {
 		return __( 'Go online to share a review link.' );
@@ -104,6 +112,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		() => pickLatestSnapshot( snapshots, site.id ),
 		[ snapshots, site.id ]
 	);
+	const isPreviewExpired = previewSnapshot !== undefined && isSnapshotExpired( previewSnapshot );
 	const liveSite = useMemo( () => pickLiveSite( connectedSites ), [ connectedSites ] );
 
 	const startSite = useStartSite();
@@ -134,7 +143,11 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 		publishPreviewSite.mutate(
 			{
 				siteId: site.id,
-				existingHostname: previewSnapshot ? getSnapshotHostname( previewSnapshot ) : undefined,
+				// The CLI cannot update an expired preview site — create a new one.
+				existingHostname:
+					previewSnapshot && ! isPreviewExpired
+						? getSnapshotHostname( previewSnapshot )
+						: undefined,
 			},
 			{ onSuccess: ( { url } ) => openExternal( ensureProtocol( url ) ) }
 		);
@@ -204,7 +217,16 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			{ activity?.kind === 'error' ? <SyncActivityError activity={ activity } /> : null }
 
 			<PopoverRow
-				label={ __( 'Studio' ) }
+				label={
+					site.enableXdebug ? (
+						<>
+							{ __( 'Studio' ) }
+							<XdebugBadge running={ site.running } />
+						</>
+					) : (
+						__( 'Studio' )
+					)
+				}
 				sublabel={
 					canOpenLocalSite
 						? renderUrlLink( {
@@ -233,7 +255,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 				}
 			/>
 
-			{ previewSnapshot ? (
+			{ previewSnapshot && ! isPreviewExpired ? (
 				<PopoverRow
 					label={ __( 'Preview' ) }
 					sublabel={ __( 'Ready to share for feedback.' ) }
@@ -243,7 +265,8 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								tooltip: __( 'Open preview site in your browser' ),
 								variant: 'minimal',
 								tone: 'neutral',
-								size: 'compact',
+								size: 'small',
+								className: styles.rowViewButton,
 								onClick: () => openExternal( ensureProtocol( previewSnapshot.url ) ),
 								children: __( 'View' ),
 							} ) }
@@ -275,8 +298,8 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 			) : (
 				<EnvironmentActionPanel
 					title={ __( 'Preview' ) }
-					copy={ getPreviewPanelCopy( agenticEnabled, isOffline ) }
-					buttonLabel={ __( 'Share' ) }
+					copy={ getPreviewPanelCopy( agenticEnabled, isOffline, isPreviewExpired ) }
+					buttonLabel={ isPreviewExpired ? __( 'Share a new one' ) : __( 'Share' ) }
 					variant="outline"
 					tone="neutral"
 					loading={ isPreviewPending }
@@ -352,6 +375,27 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 				/>
 			) }
 		</div>
+	);
+}
+
+function XdebugBadge( { running }: { running: boolean } ) {
+	const label = __( 'Xdebug enabled' );
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<span
+						className={ clsx( styles.xdebugBadge, ! running && styles.xdebugBadge_stopped ) }
+						role="img"
+						aria-label={ label }
+					/>
+				}
+			>
+				<XdebugIcon className={ styles.xdebugGlyph } />
+			</Tooltip.Trigger>
+			<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>{ label }</Tooltip.Popup>
+		</Tooltip.Root>
 	);
 }
 

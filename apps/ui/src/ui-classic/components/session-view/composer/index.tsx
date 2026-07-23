@@ -229,9 +229,8 @@ export interface ComposerHandle {
 		text: string,
 		attachments?: { images?: StudioChatImage[]; files?: StudioChatFileAttachment[] }
 	): void;
-	// Snapshot of what replaceDraft would discard, so callers can decide
-	// whether a confirmation is warranted (e.g. skip it when the draft still
-	// matches a previously inserted suggestion).
+	// What replaceDraft would discard — lets callers decide whether the
+	// replacement warrants a confirmation.
 	getDraft(): { text: string; hasAttachments: boolean };
 }
 

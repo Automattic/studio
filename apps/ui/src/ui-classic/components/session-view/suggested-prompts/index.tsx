@@ -32,14 +32,14 @@ export function SuggestedPrompts( { siteName, onPick, getDraft }: SuggestedPromp
 
 	const pick = ( prompt: string ) => {
 		const draft = getDraft();
-		const isEmpty = draft.text.trim().length === 0 && ! draft.hasAttachments;
-		const matchesBaseline =
-			baselineRef.current !== null && draft.text === baselineRef.current && ! draft.hasAttachments;
-		if ( isEmpty || matchesBaseline ) {
+		const isUntouched =
+			! draft.hasAttachments &&
+			( draft.text.trim().length === 0 || draft.text === baselineRef.current );
+		if ( isUntouched ) {
 			apply( prompt );
-			return;
+		} else {
+			setPendingPrompt( prompt );
 		}
-		setPendingPrompt( prompt );
 	};
 
 	return (

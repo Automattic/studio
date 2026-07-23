@@ -256,6 +256,7 @@ describe( 'AiChatUI.handleEvent', () => {
 		ui.hideLoader = hideLoader;
 		ui.showError = showError;
 		ui.showInfo = showInfo;
+		ui.showUsageCapResetDate = vi.fn( async () => undefined );
 		ui.currentProvider = 'wpcom';
 		ui.currentMarkdown = { setText: vi.fn() };
 		ui.currentResponseText = 'previous content';
@@ -264,13 +265,16 @@ describe( 'AiChatUI.handleEvent', () => {
 		ui.handleEvent(
 			buildAssistantMessageEnd( {
 				stopReason: 'error',
-				errorMessage: 'API Error: 429 {"error":{"message":"You have exceeded your AI usage cap."}}',
+				errorMessage: 'Monthly usage limit reached: 429 {"error":{"type":"rate_limit_error"}}',
 			} )
 		);
 
 		expect( hideLoader ).toHaveBeenCalled();
-		expect( showError ).toHaveBeenCalledWith( expect.stringContaining( 'AI usage cap reached' ) );
-		expect( showInfo ).toHaveBeenCalledWith( expect.stringContaining( '/provider' ) );
+		expect( showError ).toHaveBeenCalledWith(
+			expect.stringContaining( 'You’ve reached your monthly AI usage limit' )
+		);
+		expect( showInfo ).not.toHaveBeenCalled();
+		expect( ui.showUsageCapResetDate ).toHaveBeenCalled();
 		expect( ui.usageCapReached ).toBe( true );
 		expect( ui.currentMarkdown ).toBeNull();
 		expect( ui.currentResponseText ).toBe( '' );

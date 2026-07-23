@@ -22,6 +22,7 @@ import type {
 	SiteDetails,
 	Snapshot,
 	SnapshotUsage,
+	StudioAssistantQuota,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
@@ -495,9 +496,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return null;
 		},
 		async getStudioAssistantQuota() {
-			// No quota endpoint on the local server; callers fall back to
-			// static copy.
-			return null;
+			// The server proxies the WordPress.com quota endpoint and returns
+			// the already-parsed shape (or null when signed out).
+			return api< StudioAssistantQuota | null >( '/quota' );
 		},
 		async deleteAllSnapshots() {
 			// No-op: the local server has no delete-all route yet.

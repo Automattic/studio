@@ -8,6 +8,7 @@ import {
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/common/ai/chat-artifacts';
 import { readBlobAsDataUrl } from '@studio/common/ai/composer-attachments';
+import { isUsageCapError } from '@studio/common/ai/json-events';
 import {
 	isStudioCustomEntryOfType,
 	type StudioChatAttachmentSummary,
@@ -19,12 +20,14 @@ import {
 	getToolResultDiff,
 	type NormalizedToolResult,
 } from '@studio/common/ai/tools';
+import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
 import { image, page } from '@wordpress/icons';
 import { Icon } from '@wordpress/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cx } from 'src/lib/cx';
 import { getIpcApi } from 'src/lib/get-ipc-api';
+import { useGetStudioAssistantQuota } from 'src/stores/wpcom-api';
 import { CopyButton } from '../copy-button';
 import { Markdown } from '../markdown';
 import { ThinkingIndicator } from '../thinking-indicator';
@@ -60,7 +63,8 @@ type RenderItem =
 			key: string;
 			widgets: StudioChatArtifactWidgetDraft[];
 	  }
-	| { kind: 'interrupted-marker'; key: string };
+	| { kind: 'interrupted-marker'; key: string }
+	| { kind: 'error-marker'; key: string; message: string };
 
 interface PiAssistantContentBlock {
 	type: 'text' | 'toolCall' | 'thinking';
@@ -254,6 +258,12 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				items.push( {
 					kind: 'interrupted-marker',
 					key: `${ entryIndex }:interrupted`,
+				} );
+			} else if ( data?.status === 'error' ) {
+				items.push( {
+					kind: 'error-marker',
+					key: `${ entryIndex }:error`,
+					message: data.errorMessage ?? '',
 				} );
 			}
 			return;
@@ -636,6 +646,25 @@ function AgentQuestion( {
 	);
 }
 
+// In-flow marker for a turn that ended in an error. The monthly usage cap
+// gets dedicated copy — with the reset date once the quota query resolves —
+// instead of the raw provider message.
+function TurnErrorMarker( { message }: { message: string } ) {
+	const isUsageCap = isUsageCapError( message );
+	const { data: quota } = useGetStudioAssistantQuota( undefined, { skip: ! isUsageCap } );
+	let text: string;
+	if ( isUsageCap ) {
+		text = formatUsageCapNotice( quota?.costResetDate );
+	} else {
+		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );
+	}
+	return (
+		<div className={ styles.errorMarker } role="alert">
+			{ text }
+		</div>
+	);
+}
+
 export function Conversation( {
 	data,
 	isRunning,
@@ -756,6 +785,8 @@ export function Conversation( {
 								{ __( 'Interrupted by you' ) }
 							</div>
 						);
+					case 'error-marker':
+						return <TurnErrorMarker key={ item.key } message={ item.message } />;
 					default:
 						return null;
 				}

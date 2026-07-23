@@ -87,6 +87,13 @@ describe( 'CLI: studio config set', () => {
 		enableHttps: false,
 	} );
 
+	// Defaults to a provisioned site: WordPress has been installed, so both exist.
+	const mockSiteFiles = ( { wpConfig = true, database = true } = {} ) => {
+		vi.mocked( pathExists ).mockImplementation( async ( filePath: string ) =>
+			filePath.endsWith( 'wp-config.php' ) ? wpConfig : database
+		);
+	};
+
 	const testProcessDescription: ProcessDescription = {
 		name: 'test-site',
 		pmId: 0,
@@ -102,7 +109,7 @@ describe( 'CLI: studio config set', () => {
 		const testCliConfig = { version: 1 as const, sites: [ testSite ], snapshots: [] };
 
 		vi.mocked( arePathsEqual ).mockReturnValue( true );
-		vi.mocked( pathExists ).mockResolvedValue( true );
+		mockSiteFiles();
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
 		vi.mocked( downloadWordPress ).mockResolvedValue( undefined );
 		vi.mocked( getWordPressVersionPath ).mockImplementation(
@@ -357,7 +364,7 @@ describe( 'CLI: studio config set', () => {
 		} );
 
 		it( 'should copy the WordPress files instead of running WP-CLI on a never-started site', async () => {
-			vi.mocked( pathExists ).mockResolvedValue( false );
+			mockSiteFiles( { wpConfig: false, database: false } );
 
 			await runCommand( testSitePath, { wp: '6.7' } );
 
@@ -371,6 +378,38 @@ describe( 'CLI: studio config set', () => {
 					] ),
 				} )
 			);
+		} );
+
+		// A site can lose its wp-config.php and still have all of its content, so the database
+		// is what decides whether copying core files over it would be destructive.
+		it( 'should still run WP-CLI when wp-config.php is missing but a database exists', async () => {
+			mockSiteFiles( { wpConfig: false, database: true } );
+
+			await runCommand( testSitePath, { wp: '6.7' } );
+
+			expect( runWpCliCommand ).toHaveBeenCalled();
+			expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
+		} );
+
+		// An imported site keeps its config outside the site directory, so a missing
+		// wp-config.php there says nothing about whether WordPress is installed.
+		it( 'should still run WP-CLI for an imported site with no wp-config.php', async () => {
+			const importedSite = {
+				...getTestSite(),
+				runtimeBlueprintPath: '/pulls/site-1/blueprint.json',
+			};
+			vi.mocked( getSiteByFolder ).mockResolvedValue( importedSite );
+			vi.mocked( readCliConfig ).mockResolvedValue( {
+				sites: [ importedSite ],
+				version: 1,
+				snapshots: [],
+			} );
+			mockSiteFiles( { wpConfig: false, database: false } );
+
+			await runCommand( testSitePath, { wp: '6.7' } );
+
+			expect( runWpCliCommand ).toHaveBeenCalled();
+			expect( recursiveCopyDirectory ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should update isWpAutoUpdating to false when using specific version', async () => {

@@ -76,12 +76,31 @@ export interface SetCommandOptions {
 	debugDisplay?: boolean;
 }
 
-// A site that has never been started has no wp-config.php and no database, so WP-CLI can't
-// boot it ("The site you have requested is not installed") and `core update` always fails.
-// Nothing but the core files on disk decides such a site's version, so swap those in the way
-// `site create --wp` does; the WordPress installer runs against them on the first start.
+// `site create` puts the WordPress files in place but doesn't install WordPress — that happens
+// on the first start, which is what writes wp-config.php and creates the database. Both being
+// absent is what makes WP-CLI unable to boot the site at all.
+//
+// A missing wp-config.php alone isn't enough to conclude that: an imported site's config can
+// live outside the site directory (its constants come from the runtime prepend instead, which
+// is why the server start skips wp-config handling for it), and a site can simply have lost
+// its config. Those have real content, so they must keep taking the WP-CLI path rather than
+// having core files copied over them.
+async function isUnprovisionedSite( site: SiteData ): Promise< boolean > {
+	if ( site.runtimeBlueprintPath ) {
+		return false;
+	}
+
+	const [ hasConfig, hasDatabase ] = await Promise.all( [
+		pathExists( path.join( site.path, 'wp-config.php' ) ),
+		pathExists( path.join( site.path, 'wp-content', 'database', '.ht.sqlite' ) ),
+	] );
+	return ! hasConfig && ! hasDatabase;
+}
+
+// Nothing but the core files on disk decides an unprovisioned site's version, so swap those in
+// the way `site create --wp` does; the WordPress installer runs against them on the first start.
 async function setWordPressVersion( site: SiteData, wp: string ): Promise< void > {
-	if ( ! ( await pathExists( path.join( site.path, 'wp-config.php' ) ) ) ) {
+	if ( await isUnprovisionedSite( site ) ) {
 		await downloadWordPress( wp );
 		await recursiveCopyDirectory( getWordPressVersionPath( wp ), site.path );
 		return;

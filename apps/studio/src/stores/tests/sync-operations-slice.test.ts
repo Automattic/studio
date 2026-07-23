@@ -72,6 +72,40 @@ describe( 'syncOperations pull thunks', () => {
 			expect( pullState?.backupId ).toBe( 12345 );
 		} );
 
+		it( 'rejects with a "backup already in progress" error when the server responds 409 backup_already_in_progress', async () => {
+			const client = createMockClient();
+			( client.req.post as ReturnType< typeof vi.fn > ).mockRejectedValue( {
+				error: 'backup_already_in_progress',
+				message: 'A backup is already in progress for this site.',
+				statusCode: 409,
+			} );
+
+			const result = await store.dispatch(
+				syncOperationsThunks.pullSite( {
+					client,
+					connectedSite,
+					selectedSite,
+					options: { optionsToSync: [ 'all' ] },
+				} )
+			);
+
+			expect( result.type ).toBe( 'syncOperations/pullSite/rejected' );
+			expect( ( result.payload as { message: string } ).message ).toMatch(
+				/backup is already in progress/i
+			);
+
+			const pullState = syncOperationsSelectors.selectPullState(
+				selectedSite.id,
+				connectedSite.id
+			)( store.getState() );
+			expect( pullState?.status.key ).toBe( 'failed' );
+			expect( mockShowErrorMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					message: expect.stringMatching( /backup is already in progress/i ),
+				} )
+			);
+		} );
+
 		it( 'rejects with a "backup already in progress" error when the server dedupes the request with backup_id 0', async () => {
 			const client = createMockClient( { success: true, backup_id: 0 } );
 

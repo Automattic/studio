@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainView } from './main-view';
 import type { SiteDetails, Snapshot, SyncSite } from '@/data/core';
 
-const { connector, snapshots, connectedSites } = vi.hoisted( () => ( {
+const { connector, snapshots, connectedSites, publishPreviewMutate } = vi.hoisted( () => ( {
 	connector: {
 		copyText: vi.fn(),
 		openExternalUrl: vi.fn(),
 	},
 	snapshots: [] as Snapshot[],
 	connectedSites: [] as SyncSite[],
+	publishPreviewMutate: vi.fn(),
 } ) );
 
 vi.mock( '@tanstack/react-query', async ( importOriginal ) => {
@@ -37,7 +38,7 @@ vi.mock( '@/data/queries/use-auth-user', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-preview-site', () => ( {
-	usePublishPreviewSite: () => ( { isPending: false, mutate: vi.fn() } ),
+	usePublishPreviewSite: () => ( { isPending: false, mutate: publishPreviewMutate } ),
 } ) );
 
 vi.mock( '@/data/queries/use-sites', () => ( {
@@ -82,11 +83,12 @@ describe( 'MainView', () => {
 	beforeEach( () => {
 		connector.copyText.mockReset();
 		connector.openExternalUrl.mockReset();
+		publishPreviewMutate.mockReset();
 		snapshots.splice( 0, snapshots.length, {
 			url: 'preview.example.com',
 			atomicSiteId: 123,
 			localSiteId: site.id,
-			date: 1,
+			date: Date.now(),
 		} );
 		connectedSites.splice( 0, connectedSites.length );
 	} );
@@ -117,5 +119,38 @@ describe( 'MainView', () => {
 		} );
 
 		consoleError.mockRestore();
+	} );
+
+	it( 'updates the existing preview site while the snapshot is fresh', () => {
+		renderMainView();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Update preview site' } ) );
+
+		expect( publishPreviewMutate ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				siteId: site.id,
+				existingHostname: 'preview.example.com',
+			} ),
+			expect.anything()
+		);
+	} );
+
+	it( 'offers to share a new preview once the snapshot expired', () => {
+		snapshots[ 0 ].date = Date.now() - 8 * 24 * 60 * 60 * 1000;
+
+		renderMainView();
+
+		expect( screen.getByText( 'The previous preview has expired.' ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Copy preview URL' } ) ).not.toBeInTheDocument();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Share a new one' } ) );
+
+		expect( publishPreviewMutate ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				siteId: site.id,
+				existingHostname: undefined,
+			} ),
+			expect.anything()
+		);
 	} );
 } );

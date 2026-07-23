@@ -666,6 +666,20 @@ export const pullSiteThunk = createTypedAsyncThunk< PullSiteResult, PullSitePayl
 			} );
 			const response = pullSiteResponseSchema.parse( rawResponse );
 
+			// The backup service dedupes requests: `success: true` with `backup_id: 0`
+			// means a backup is already queued or running for the remote site (STU-2098).
+			if ( response.success && ! response.backup_id ) {
+				console.error(
+					`Pull rejected: a backup is already in progress for remote site ${ remoteSiteId }`
+				);
+				return rejectWithValue( {
+					title: sprintf( __( 'Error pulling from %s' ), connectedSite.name ),
+					message: __(
+						'A backup is already in progress for this site. Please wait a few minutes and try again.'
+					),
+				} );
+			}
+
 			if ( response.success ) {
 				// Creating the remote backup can take a while. If the user logged out (slice
 				// reset) or cancelled the pull while this request was in flight, don't resurrect
@@ -871,7 +885,10 @@ const pollPullBackupThunk = createTypedAsyncThunk(
 		const backupId = currentPullState.backupId;
 		if ( ! backupId ) {
 			console.error( 'No backup ID found' );
-			return;
+			return rejectWithValue( {
+				title: sprintf( __( 'Error pulling from %s' ), currentPullState.selectedSite.name ),
+				message: __( 'An error occurred while checking the backup status. Please try again.' ),
+			} );
 		}
 
 		try {

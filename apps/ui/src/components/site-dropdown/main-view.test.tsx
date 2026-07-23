@@ -173,6 +173,7 @@ describe( 'MainView', () => {
 			} ),
 			expect.anything()
 		);
+	} );
 
 	it( 'labels the live sync controls with plain actions while idle', () => {
 		connectedSites.splice( 0, connectedSites.length, liveSite );

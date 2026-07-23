@@ -53,11 +53,8 @@ function SessionHeader( { summary }: SessionHeaderProps ) {
 		return null;
 	}
 
-	const toggleSpacerClass = sidebarCollapsed
-		? reserveTrafficLightSpace
-			? styles.toggleSpacer
-			: styles.toggleSpacerFlush
-		: null;
+	const toggleSpacerClass =
+		sidebarCollapsed && reserveTrafficLightSpace ? styles.toggleSpacer : null;
 
 	return (
 		<div className={ styles.header }>

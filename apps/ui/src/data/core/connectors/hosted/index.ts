@@ -117,6 +117,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: false,
+			switchToClassicUi: false,
 		},
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login

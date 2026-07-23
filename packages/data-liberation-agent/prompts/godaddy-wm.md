@@ -8,7 +8,7 @@ I want to migrate my website from GoDaddy's legacy **Websites & Marketing** (W+M
 
 > **Note:** W+M is the older GoDaddy website builder (also called "Go Daddy Website Builder" in page sources), *not* the newer Airo AI Builder. GoDaddy offers no data export from W+M, so this adapter rescues your content by crawling the public site.
 
-I have (or will create) a WordPress site. Please help me migrate using the playbook at https://github.com/Automattic/data-liberation-agent — read AGENTS.md first for full instructions.
+I have (or will create) a WordPress site. Please help me migrate using the playbook at https://github.com/Automattic/studio/tree/trunk/packages/data-liberation-agent — read AGENTS.md first for full instructions.
 
 Here's what I need you to do:
 

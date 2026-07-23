@@ -49,24 +49,14 @@
 	-webkit-app-region: drag;
 }
 
-/* Reserve a no-drag area at the left so the floating sidebar-toggle button
-   (collapsed state) doesn't sit on top of the header's drag region. */
+/* Clears the macOS traffic lights when the collapsed sidebar puts this
+   header at the window's left edge, matching the sidebar header's
+   reservation. */
 .toggleSpacer {
 	display: block;
 	flex-shrink: 0;
-	width: 118px;
+	width: calc(94px - var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm));
 	align-self: stretch;
-	-webkit-app-region: no-drag;
-}
-
-/* No traffic lights to clear (non-macOS, the browser, or macOS fullscreen): a
-   minimal spacer so the toggle still clears the header's drag region. */
-.toggleSpacerFlush {
-	display: block;
-	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-xl) + 24px);
-	align-self: stretch;
-	-webkit-app-region: no-drag;
 }
 
 .headerSite {
@@ -190,6 +180,19 @@
 	padding: var(--wpds-dimension-padding-sm) 0;
 	pointer-events: auto;
 	-webkit-app-region: no-drag;
+}
+
+.panelFooterControlsCollapsed {
+	left: calc(
+		var(--wpds-dimension-padding-xl) + 24px + var(--classic-panel-control-gap)
+	);
+}
+
+/* Applied on top of .panelFooterControls to anchor the strip to the right
+   edge instead (hosts the preview panel toggle). */
+.panelFooterControlsEnd {
+	left: auto;
+	right: var(--classic-panel-control-left);
 }
 
 .classicComposerFooter {

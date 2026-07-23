@@ -78,6 +78,10 @@ vi.mock( '@/data/core', () => ( {
 	useConnector: vi.fn(),
 } ) );
 
+vi.mock( './ai-panel', () => ( {
+	AiPanel: () => <div data-testid="ai-panel" />,
+} ) );
+
 vi.mock( './skills-panel', () => ( {
 	SkillsPanel: () => null,
 } ) );
@@ -132,7 +136,6 @@ const removeClientMock = vi.mocked( persister.removeClient );
 describe( 'SettingsView', () => {
 	const mutate = vi.fn();
 	const reload = vi.fn();
-	const disableAgenticUi = vi.fn( () => Promise.resolve() );
 	const selectDefaultSiteDirectory = vi.fn( () => Promise.resolve< string | null >( null ) );
 
 	beforeEach( () => {
@@ -145,9 +148,8 @@ describe( 'SettingsView', () => {
 		} );
 
 		useConnectorMock.mockReturnValue( {
-			disableAgenticUi,
 			selectDefaultSiteDirectory,
-			capabilities: { agentInstructions: false },
+			capabilities: { agentInstructions: false, switchToClassicUi: true },
 		} as never );
 		useInstalledAppsMock.mockReturnValue( {
 			data: { vscode: true, terminal: true, iterm: true },
@@ -216,13 +218,23 @@ describe( 'SettingsView', () => {
 		expect( mutate ).toHaveBeenCalledWith( { quitSitesBehavior: 'stop' }, expect.any( Object ) );
 	} );
 
-	it( 'switches back to the classic UI through the connector', () => {
+	it( 'renders the AI tab with its panel', () => {
+		render( <SettingsView activeTab="ai" onTabChange={ vi.fn() } /> );
+
+		expect( screen.getByRole( 'button', { name: 'AI' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'ai-panel' ) ).toBeInTheDocument();
+	} );
+
+	it( 'hides the AI tab when the host has no AI settings to offer', () => {
+		useConnectorMock.mockReturnValue( {
+			selectDefaultSiteDirectory,
+			capabilities: { agentInstructions: false, switchToClassicUi: false },
+		} as never );
+
 		render( <SettingsView activeTab="preferences" onTabChange={ vi.fn() } /> );
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Switch to classic' } ) );
-
-		expect( disableAgenticUi ).toHaveBeenCalled();
-		expect( mutate ).not.toHaveBeenCalled();
+		expect( screen.queryByRole( 'button', { name: 'AI' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByTestId( 'ai-panel' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'recognizes the keyboard tab id', () => {

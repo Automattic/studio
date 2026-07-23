@@ -785,7 +785,9 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 						onPointerCancel={ finishComposerResize }
 						onLostPointerCapture={ finishComposerResize }
 						onKeyDown={ handleComposerResizeKeyDown }
-					/>
+					>
+						<span className={ styles.resizeHandleIndicator } aria-hidden="true" />
+					</div>
 					{ isDraggingOver ? (
 						<div className={ styles.dropOverlay } aria-hidden="true">
 							{ __( 'Drop files to attach' ) }

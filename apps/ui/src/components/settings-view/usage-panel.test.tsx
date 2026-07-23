@@ -87,6 +87,13 @@ vi.mock( '@/data/queries/use-user-locale', () => ( {
 	useUserLocale: vi.fn(),
 } ) );
 
+// Reached through `useAgenticFeatures`, which reads the agentic-features
+// preference; this panel has no QueryClientProvider.
+vi.mock( '@/data/queries/use-user-preferences', () => ( {
+	USER_PREFERENCES_QUERY_KEY: [ 'user-preferences' ],
+	useUserPreferences: () => ( { data: { agenticFeaturesEnabled: true }, isLoading: false } ),
+} ) );
+
 const useConnectorMock = vi.mocked( useConnector );
 const useAuthUserMock = vi.mocked( useAuthUser );
 const useLoginMock = vi.mocked( useLogin );

@@ -450,6 +450,9 @@ export interface UserPreferences {
 	// app never installs over or uninstalls — the settings toggle disables
 	// itself in that case.
 	studioCliExternallyManaged: boolean;
+	// Whether chat/agent features are offered at all. Unrelated to which
+	// renderer is running — switching to the classic UI is `disableAgenticUi`.
+	agenticFeaturesEnabled: boolean;
 }
 
 export interface AppGlobals {

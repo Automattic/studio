@@ -115,7 +115,12 @@ describe( 'SiteOverviewView', () => {
 		} );
 
 		useConnectorMock.mockReturnValue( { openSiteUrl } );
-		useAgenticFeaturesMock.mockReturnValue( { enabled: true, reason: null, isReady: true } );
+		useAgenticFeaturesMock.mockReturnValue( {
+			enabled: true,
+			chatEnabled: true,
+			reason: null,
+			isReady: true,
+		} );
 		useLoginMock.mockReturnValue( { isPending: false, mutate: vi.fn() } );
 		useExistingCustomDomainsMock.mockReturnValue( [] );
 		useSitesMock.mockReturnValue( {
@@ -234,6 +239,7 @@ describe( 'SiteOverviewView', () => {
 		const loginMutate = vi.fn();
 		useAgenticFeaturesMock.mockReturnValue( {
 			enabled: false,
+			chatEnabled: false,
 			reason: 'signed-out',
 			isReady: true,
 		} );

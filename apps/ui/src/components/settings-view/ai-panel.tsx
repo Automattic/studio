@@ -1,25 +1,15 @@
 import { FormToggle } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
 
 function AgenticFeaturesSection() {
-	const connector = useConnector();
-	const [ disabling, setDisabling ] = useState( false );
-
-	if ( ! connector.capabilities.switchToClassicUi ) {
-		return null;
-	}
-
-	// Turning agentic features off reloads the window into the classic UI, so
-	// there is no enable path here — once disabled, this panel no longer exists.
-	const handleDisable = () => {
-		setDisabling( true );
-		connector.disableAgenticUi().catch( () => setDisabling( false ) );
-	};
+	const { data: preferences, isLoading } = useUserPreferences();
+	const savePreferences = useSaveUserPreferences();
+	const enabled = preferences?.agenticFeaturesEnabled ?? true;
 
 	return (
 		<section className={ styles.preferenceSectionGroup }>
@@ -28,16 +18,16 @@ function AgenticFeaturesSection() {
 					<h2>{ __( 'Agentic features' ) }</h2>
 					<p>
 						{ __(
-							'Studio Code brings agentic, AI-powered site building to Studio. Turning it off reloads the app into the classic interface.'
+							'Chat with Studio Code to build and edit your sites. Turning it off hides chat and opens sites on their overview instead.'
 						) }
 					</p>
 				</div>
 				<div className={ clsx( styles.preferenceControl, styles.toggleControl ) }>
 					<FormToggle
-						checked={ ! disabling }
-						disabled={ disabling }
+						checked={ enabled }
+						disabled={ isLoading }
 						aria-label={ __( 'Agentic features' ) }
-						onChange={ handleDisable }
+						onChange={ () => savePreferences.mutate( { agenticFeaturesEnabled: ! enabled } ) }
 					/>
 				</div>
 			</section>
@@ -49,8 +39,8 @@ export function AiPanel() {
 	const connector = useConnector();
 	return (
 		<div className={ styles.preferencesPanel }>
-			{ connector.capabilities.agentInstructions && <StudioCodePanel /> }
 			<AgenticFeaturesSection />
+			{ connector.capabilities.agentInstructions && <StudioCodePanel /> }
 		</div>
 	);
 }

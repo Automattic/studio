@@ -663,7 +663,7 @@ ${e.map(([r,n])=>`${r}: ${n}`).join(`
 <!-- /wp:group -->
 
 <!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->
-`}function R0t(e){let t=vj(e.capturedFonts??[]);return rwe([["Theme Name",e.themeName],["Theme URI","https://github.com/Automattic/data-liberation-agent"],["Author","data-liberation"],["Description",e.themeDescription],["Version","0.1.0"],["Requires at least","6.5"],["Tested up to","6.5"],["Requires PHP","8.0"],["License","GPL-2.0-or-later"],["License URI","https://www.gnu.org/licenses/gpl-2.0.html"],["Text Domain",e.themeSlug],["Tags","block-theme, full-site-editing"]])+`
+`}function R0t(e){let t=vj(e.capturedFonts??[]);return rwe([["Theme Name",e.themeName],["Theme URI","https://github.com/Automattic/studio/tree/trunk/packages/data-liberation-agent"],["Author","data-liberation"],["Description",e.themeDescription],["Version","0.1.0"],["Requires at least","6.5"],["Tested up to","6.5"],["Requires PHP","8.0"],["License","GPL-2.0-or-later"],["License URI","https://www.gnu.org/licenses/gpl-2.0.html"],["Text Domain",e.themeSlug],["Tags","block-theme, full-site-editing"]])+`
 /*
  * Responsive-content guard. Imported page/post content (carried from the
  * source platform \u2014 Shopify/Replo, Wix, Squarespace, etc.) frequently ships its

@@ -192,8 +192,6 @@
 	-webkit-app-region: no-drag;
 }
 
-/* Shift right of the floating sidebar toggle (24px button at padding-xl)
-   so the chat-history icon doesn't overlap it. */
 .panelFooterControlsCollapsed {
 	left: calc(
 		var(--wpds-dimension-padding-xl) + 24px + var(--classic-panel-control-gap)

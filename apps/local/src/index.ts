@@ -50,6 +50,7 @@ import {
 	updateSharedConfig,
 	updateSharedSession,
 } from '@studio/common/lib/shared-config';
+import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
@@ -960,6 +961,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await openInTerminal( terminal, site.path );
 			res.status( 204 ).end();
+		} )
+	);
+
+	// Studio Code AI quota for the signed-in account, proxied through the
+	// server so the browser UI can show usage-cap messaging (e.g. the reset
+	// date) without holding the wpcom token. `null` when signed out or the
+	// quota can't be fetched — callers fall back to static copy.
+	api.get(
+		'/quota',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			res.json( token?.accessToken ? await fetchStudioAssistantQuota( token.accessToken ) : null );
 		} )
 	);
 

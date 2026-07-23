@@ -125,6 +125,18 @@ export async function getQuitSitesBehavior(): Promise< QuitSitesBehavior | undef
 	return userData.quitSitesBehavior;
 }
 
+export async function saveAgenticFeaturesEnabled(
+	_event: IpcMainInvokeEvent,
+	enabled: boolean
+): Promise< void > {
+	await updateAppdata( { agenticFeaturesEnabled: enabled } );
+}
+
+export async function getAgenticFeaturesEnabled(): Promise< boolean > {
+	const userData = await loadUserData();
+	return userData.agenticFeaturesEnabled ?? true;
+}
+
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {
 	if ( ! Number.isFinite( score ) || score < 0 || score > 100_000 ) {
 		return;

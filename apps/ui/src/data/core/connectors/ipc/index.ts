@@ -638,6 +638,7 @@ export function createIpcConnector(): Connector {
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
+				agenticFeaturesEnabled,
 			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
@@ -647,6 +648,7 @@ export function createIpcConnector(): Connector {
 				ipcApi.getDefaultSiteDirectory(),
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.isStudioCliExternallyManaged(),
+				ipcApi.getAgenticFeaturesEnabled(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
@@ -654,6 +656,7 @@ export function createIpcConnector(): Connector {
 				QuitSitesBehavior | undefined,
 				string | undefined,
 				string,
+				boolean,
 				boolean,
 				boolean,
 			];
@@ -666,6 +669,7 @@ export function createIpcConnector(): Connector {
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
+				agenticFeaturesEnabled,
 			};
 		},
 
@@ -693,6 +697,9 @@ export function createIpcConnector(): Connector {
 				writes.push(
 					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
 				);
+			}
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
 			}
 			await Promise.all( writes );
 		},

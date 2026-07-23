@@ -90,15 +90,15 @@
 	background-color: var(--wpds-color-fg-interactive-brand);
 }
 
-/* Pinned to the bottom-left of the main area, mirroring the sidebar footer.
-   The button carries its own `padding-sm` top/bottom for its hit area; the
-   matching negative `bottom` cancels that lower padding so the glyph sits flush
-   with the main area's bottom edge instead of floating a padding's-worth above
-   it. */
+/* Pinned to the top-left of the main area, mirroring the sidebar header row
+   where the "Hide sidebar" toggle lives when the sidebar is open. Matches the
+   header's vertical metrics (padding-sm + 46px min-height, flex-centered) so
+   the glyph lines up with the traffic lights, and clears them horizontally
+   with the same 94px the header reserves. */
 .floatingToggle {
 	position: absolute;
-	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
-	left: var(--wpds-dimension-padding-xl);
+	top: 0;
+	left: 94px;
 	display: flex;
 	align-items: center;
 	padding: var(--wpds-dimension-padding-sm) 0;

@@ -197,6 +197,7 @@ import type { WpCliResult } from 'src/site-server';
 
 export {
 	isStudioCliInstalled,
+	isStudioCliExternallyManaged,
 	installStudioCli,
 	uninstallStudioCli,
 } from 'src/modules/cli/lib/ipc-handlers';
@@ -232,6 +233,7 @@ export {
 export {
 	getAnalyticsEnabled,
 	getColorScheme,
+	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
 	getQuitSitesBehavior,
 	getUserEditor,
@@ -241,6 +243,7 @@ export {
 	previewColorScheme,
 	saveAnalyticsEnabled,
 	saveColorScheme,
+	saveGlobalAgentInstructions,
 	saveQuitSitesBehavior,
 	saveUserEditor,
 	saveUserLocale,

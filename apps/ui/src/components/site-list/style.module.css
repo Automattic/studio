@@ -315,6 +315,12 @@
 	opacity: 1;
 }
 
+/* Xdebug is a persistent single-site setting worth spotting at a glance, so
+   its (greyed) glyph stays visible even while the site is stopped. */
+.siteStatus[data-xdebug][data-state='stopped'] {
+	opacity: 1;
+}
+
 .siteStatus:not([aria-disabled='true']):is(:hover, :focus-visible) {
 	background-color: var(--wpds-color-bg-interactive-neutral-weak-active);
 }
@@ -338,6 +344,28 @@
 	flex-shrink: 0;
 	overflow: visible;
 	transition: opacity 100ms ease;
+}
+
+/* Classic's Xdebug bug replaces the status dot; its color tracks the same
+   state palette the dot uses. */
+.siteStatus .siteStatusXdebugGlyph.siteStatusXdebugGlyph {
+	inline-size: 20px;
+	block-size: 20px;
+	width: 20px;
+	height: 20px;
+}
+
+.siteStatus[data-state='running'] .siteStatusXdebugGlyph {
+	color: var(--studio-color-status-running);
+}
+
+.siteStatus[data-state='transitioning'] .siteStatusXdebugGlyph {
+	color: var(--studio-color-status-transitioning);
+	animation: siteStatusBlink 1s ease-in-out infinite;
+}
+
+.siteStatus[data-state='stopped'] .siteStatusXdebugGlyph {
+	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
 /* Hovering the status button itself (not the row) crossfades the status dot
@@ -480,6 +508,10 @@
 	.siteStatusGlyph,
 	.siteStatusActionGlyph {
 		transition: none;
+	}
+
+	.siteStatusXdebugGlyph {
+		animation: none;
 	}
 
 	.siteAgentActivitySlot {

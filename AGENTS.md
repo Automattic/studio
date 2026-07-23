@@ -141,7 +141,7 @@ For in-depth information, see these docs:
 
 ## Quick Reference
 
-**WP Playground**: CLI runs WordPress via PHP WASM, Blueprints for config, `filterUnsupportedBlueprintFeatures()` for compatibility
+**WP Playground**: CLI runs WordPress via PHP WASM, Blueprints for config, `validateBlueprintData()` for schema validation
 **Sync**: OAuth via `packages/common/lib/oauth.ts`, Redux `sync` slice, pull/push WordPress.com sites
 **Security**: Renderer sandboxed, IPC validation, strict CSP, no Node integration, self-signed HTTPS certs
 

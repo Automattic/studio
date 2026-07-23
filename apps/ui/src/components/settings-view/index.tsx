@@ -3,8 +3,8 @@ import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/use
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { CheckboxControl } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
-import { file, Icon } from '@wordpress/icons';
-import { Button, SelectControl } from '@wordpress/ui';
+import { close, file, Icon } from '@wordpress/icons';
+import { IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import * as Tabs from '@/components/tabs';
@@ -12,16 +12,21 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useSettingsClose } from '@/hooks/use-settings-close';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AccountSection } from './account-section';
+import { AiPanel } from './ai-panel';
+import { KeyboardPanel } from './keyboard-panel';
 import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SkillsPanel } from './skills-panel';
+import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
+import { UsagePanel } from './usage-panel';
 import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
+	Connector,
 	InstalledApps,
 	QuitSitesBehavior,
 	SupportedEditor,
@@ -30,13 +35,21 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-type TabId = 'preferences' | 'skills' | 'mcp';
+const SETTINGS_TABS = [ 'preferences', 'ai', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
+
+type TabId = ( typeof SETTINGS_TABS )[ number ];
 
 export function isSettingsTab( value: string ): value is TabId {
-	return value === 'preferences' || value === 'skills' || value === 'mcp';
+	return SETTINGS_TABS.some( ( tab ) => tab === value );
 }
 
 export type SettingsTabId = TabId;
+
+// The AI tab holds the agentic-features toggle and the agent's global
+// instructions; hosts that offer neither (the hosted browser) don't get the tab.
+function hasAiSettings( capabilities: Connector[ 'capabilities' ] ): boolean {
+	return capabilities.switchToClassicUi || capabilities.agentInstructions;
+}
 
 // No "unset" option: the main process resolves a fallback for never-chosen
 // editor/terminal prefs (matching the legacy UI), so an explicit clear can't
@@ -84,27 +97,42 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
-	const sidebarCollapsed = useSidebarCollapsed();
+	// Settings renders fullscreen, so the sidebar (and its floating toggle) is
+	// covered — only the macOS traffic lights still need clearing.
+	const connector = useConnector();
 	const reserveTrafficLightSpace = useTrafficLightSpace();
-	const toggleSpacerClass = sidebarCollapsed
-		? reserveTrafficLightSpace
-			? styles.toggleSpacer
-			: styles.toggleSpacerFlush
-		: null;
+	const onClose = useSettingsClose();
 	return (
 		<div className={ styles.header }>
-			{ toggleSpacerClass ? (
+			{ reserveTrafficLightSpace ? (
 				<div className={ styles.headerStart }>
-					<span className={ toggleSpacerClass } aria-hidden="true" />
+					<span className={ styles.toggleSpacer } aria-hidden="true" />
 				</div>
 			) : null }
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
+					{ hasAiSettings( connector.capabilities ) && (
+						<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
+					) }
+					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
 				</Tabs.List>
 			</div>
+			{ onClose ? (
+				<div className={ styles.headerEnd }>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ close }
+						label={ __( 'Close settings' ) }
+						onClick={ onClose }
+					/>
+				</div>
+			) : null }
 		</div>
 	);
 }
@@ -221,27 +249,6 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 	);
 }
 
-function StudioExperienceSection() {
-	const connector = useConnector();
-	return (
-		<section className={ styles.preferenceSectionGroup }>
-			<PreferenceRow
-				title={ __( 'Studio experience' ) }
-				description={ __( 'You are using the new Studio experience.' ) }
-			>
-				<Button
-					type="button"
-					variant="outline"
-					tone="neutral"
-					onClick={ () => void connector.disableAgenticUi() }
-				>
-					{ __( 'Switch to classic' ) }
-				</Button>
-			</PreferenceRow>
-		</section>
-	);
-}
-
 function PreferencesPanel( {
 	data,
 	installedApps,
@@ -314,7 +321,7 @@ function PreferencesPanel( {
 				</PreferenceRow>
 			</section>
 			<AccountSection />
-			<StudioExperienceSection />
+			<StudioCliSection />
 		</div>
 	);
 }
@@ -414,6 +421,17 @@ export function SettingsView( {
 								onDefaultSiteDirectorySelect={ () => void handleSelectDefaultDirectory() }
 								onChange={ handleChange }
 							/>
+						</Tabs.Panel>
+						{ hasAiSettings( connector.capabilities ) && (
+							<Tabs.Panel tabId="ai">
+								<AiPanel />
+							</Tabs.Panel>
+						) }
+						<Tabs.Panel tabId="usage">
+							<UsagePanel />
+						</Tabs.Panel>
+						<Tabs.Panel tabId="keyboard">
+							<KeyboardPanel />
 						</Tabs.Panel>
 						<Tabs.Panel tabId="skills">
 							<SkillsPanel />

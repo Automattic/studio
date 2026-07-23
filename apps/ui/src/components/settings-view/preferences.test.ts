@@ -10,6 +10,8 @@ const SAVED_PREFERENCES: UserPreferences = {
 	locale: 'en',
 	analyticsEnabled: true,
 	defaultSiteDirectory: '/Users/example/Studio',
+	studioCliInstalled: false,
+	studioCliExternallyManaged: false,
 };
 
 describe( 'settings preference helpers', () => {

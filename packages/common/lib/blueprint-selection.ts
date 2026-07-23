@@ -3,7 +3,6 @@ import { generateDefaultBlueprintDescription } from '@studio/common/lib/blueprin
 import {
 	validateBlueprintData,
 	type BlueprintValidationResult,
-	type BlueprintValidationWarning,
 } from '@studio/common/lib/blueprint-validation';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -11,7 +10,6 @@ export interface PreparedBlueprint {
 	blueprint: BlueprintV1Declaration;
 	title: string;
 	excerpt: string;
-	warnings?: BlueprintValidationWarning[];
 }
 
 export type PrepareBlueprintResult =
@@ -56,6 +54,5 @@ export async function prepareBlueprint(
 		valid: true,
 		blueprint,
 		...details,
-		warnings: validation.warnings?.length ? validation.warnings : undefined,
 	};
 }

@@ -4,8 +4,10 @@ import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
+import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
@@ -36,6 +38,7 @@ export type { SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 export type { SupportedLocale } from '@studio/common/lib/locale';
+export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
 
@@ -123,6 +126,14 @@ export interface ConnectorCapabilities {
 	// render local screenshot artifacts inline). Only the desktop IPC connector
 	// supports it; the browser connectors reject local file reads.
 	readLocalMedia: boolean;
+	// The host can read/write the user's global Studio Code instructions file
+	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
+	// hides the Studio Code settings tab.
+	agentInstructions: boolean;
+	// The host can switch this window back to the classic Studio UI
+	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
+	// in a browser there is nothing to switch to.
+	switchToClassicUi: boolean;
 }
 
 export interface Connector {
@@ -205,17 +216,28 @@ export interface Connector {
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
 	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 
-	// Imports a backup archive into an already-created site. Extracts the
-	// archive, installs the SQLite integration if missing, then imports the
-	// archive's database + wp-content on top of the site's folder.
-	// `backup.path` comes from `getFilePath`.
+	// Imports a backup into an already-created site and starts the usable site.
+	// `backupPath` comes from `getFilePath` for the current submission.
 	importSiteFromBackup(
 		siteId: string,
-		backup: { path: string; type: string }
-	): Promise< SiteDetails >;
+		backupPath: string,
+		onProgress?: ( event: ImportEventTuple ) => void
+	): Promise< void >;
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
+	// WordPress.com preview-site quota for the signed-in account. Resolves
+	// `null` when usage can't be determined (signed out, or the host has no
+	// usage source) so callers can fall back to counting snapshots.
+	getSnapshotUsage(): Promise< SnapshotUsage | null >;
+	// Studio Code AI usage quota for the signed-in account. Resolves `null`
+	// when the quota can't be determined (signed out, or the host has no
+	// quota source) so callers can fall back to static copy.
+	getStudioAssistantQuota(): Promise< StudioAssistantQuota | null >;
+	deleteAllSnapshots(): Promise< void >;
+	// Asks the user to confirm deleting every preview site on their account.
+	// Resolves `true` only when they explicitly confirm.
+	confirmDeleteAllPreviewSites(): Promise< boolean >;
 	// Creates a new preview snapshot for the given site, or refreshes the
 	// existing one when `existingHostname` is supplied. Resolves with the
 	// final preview URL when the CLI command completes.
@@ -317,10 +339,20 @@ export interface Connector {
 	// host has no native picker — see capabilities.nativeFolderPicker).
 	selectDefaultSiteDirectory( defaultPath: string ): Promise< string | null >;
 
+	// The user's global Studio Code instructions, a markdown file injected into
+	// every agent session. Gated by `capabilities.agentInstructions`.
+	getAgentInstructions(): Promise< string >;
+	saveAgentInstructions( content: string ): Promise< void >;
+
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
+
+	// Host environment facts used to gate native-only UI (e.g. the Studio CLI
+	// toggle is hidden in Windows Store builds). Browser connectors report
+	// platform 'browser'.
+	getAppGlobals(): Promise< AppGlobals >;
 
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
@@ -395,6 +427,12 @@ export interface Connector {
 	disableAgenticUi(): Promise< void >;
 }
 
+export interface SnapshotUsage {
+	siteCount: number;
+	siteLimit: number;
+	siteCreationBlocked: boolean;
+}
+
 export interface SkillStatus {
 	id: string;
 	displayName: string;
@@ -415,12 +453,25 @@ export interface UserPreferences {
 	// See `docs/design-docs/analytics-tracks.md`.
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
+	studioCliInstalled: boolean;
+	// True when the `studio` command on PATH is a standalone (curl) install the
+	// app never installs over or uninstalls — the settings toggle disables
+	// itself in that case.
+	studioCliExternallyManaged: boolean;
+}
+
+export interface AppGlobals {
+	platform: string;
+	isWindowsStore: boolean;
 }
 
 // Subset of UserPreferences that callers can actually mutate. `locale` is
 // typed as `SupportedLocale` on the write side because only locales we ship
 // translations for can be persisted.
-export type WritableUserPreferences = Omit< UserPreferences, 'locale' > & {
+export type WritableUserPreferences = Omit<
+	UserPreferences,
+	'locale' | 'studioCliExternallyManaged'
+> & {
 	locale: SupportedLocale;
 };
 

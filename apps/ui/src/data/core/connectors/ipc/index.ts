@@ -1,4 +1,8 @@
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
+import {
+	STUDIO_ASSISTANT_QUOTA_URL,
+	studioAssistantQuotaSchema,
+} from '@studio/common/lib/studio-assistant-quota';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
@@ -6,6 +10,7 @@ import type {
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
+	AppGlobals,
 	AuthUser,
 	ColorScheme,
 	Connector,
@@ -19,13 +24,17 @@ import type {
 	SiteDetails,
 	SkillStatus,
 	Snapshot,
+	SnapshotUsage,
+	StudioAssistantQuota,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
+import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
@@ -35,6 +44,23 @@ function generateBackupFilename( siteName: string ): string {
 		`${ now.getFullYear() }-${ pad( now.getMonth() + 1 ) }-${ pad( now.getDate() ) }` +
 		`-${ pad( now.getHours() ) }-${ pad( now.getMinutes() ) }-${ pad( now.getSeconds() ) }`;
 	return sanitizeFolderName( `studio-backup-${ siteName }-${ timestamp }` );
+}
+
+function parseSnapshotUsage( response: unknown ): SnapshotUsage {
+	const record = response as Record< string, unknown > | null;
+	if (
+		! record ||
+		typeof record.site_count !== 'number' ||
+		typeof record.site_limit !== 'number' ||
+		typeof record.site_creation_blocked !== 'boolean'
+	) {
+		throw new Error( 'Invalid snapshot usage response.' );
+	}
+	return {
+		siteCount: record.site_count,
+		siteLimit: record.site_limit,
+		siteCreationBlocked: record.site_creation_blocked,
+	};
 }
 
 /**
@@ -56,6 +82,22 @@ export function createIpcConnector(): Connector {
 	// The IPC connector only runs in Electron, so `navigator` reflects the
 	// desktop OS.
 	const isMacOS = /mac/i.test( navigator.platform || navigator.userAgent );
+
+	// Fetches an authenticated WordPress.com endpoint with the stored OAuth
+	// token. Resolves `null` when signed out so callers can degrade gracefully.
+	async function fetchWpcomJson( url: string, errorLabel: string ): Promise< unknown > {
+		const token = ( await ipcApi.getAuthenticationToken() ) as StoredAuthToken | null;
+		if ( ! token ) {
+			return null;
+		}
+		const response = await fetch( url, {
+			headers: { Authorization: `Bearer ${ token.accessToken }` },
+		} );
+		if ( ! response.ok ) {
+			throw new Error( `Failed to fetch ${ errorLabel }: ${ response.status }` );
+		}
+		return response.json();
+	}
 
 	// Preview CLI commands are path-based, not id-based. Look up the matching
 	// site once per call so UI code can keep working with the stable site id.
@@ -169,6 +211,8 @@ export function createIpcConnector(): Connector {
 			openInOS: true,
 			annotatePreview: true,
 			readLocalMedia: true,
+			agentInstructions: true,
+			switchToClassicUi: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process
@@ -324,11 +368,24 @@ export function createIpcConnector(): Connector {
 			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
 		},
 
-		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
-			return ( await ipcApi.importSite( {
-				id: siteId,
-				backupFile: backup,
-			} ) ) as SiteDetails;
+		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'on-import',
+						( _event: unknown, importEvent: ImportEventTuple, importSiteId: string ) => {
+							if ( importSiteId === siteId ) onProgress( importEvent );
+						}
+				  )
+				: undefined;
+			try {
+				await ipcApi.importSite( siteId, backupPath, {
+					alwaysStartServer: true,
+					showErrorModal: false,
+					showNotification: false,
+				} );
+			} finally {
+				unsubscribe?.();
+			}
 		},
 
 		async startSite( id ) {
@@ -412,6 +469,23 @@ export function createIpcConnector(): Connector {
 		// Preview snapshots
 		async getSnapshots(): Promise< Snapshot[] > {
 			return ( await ipcApi.fetchSnapshots() ) as Snapshot[];
+		},
+
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			const data = await fetchWpcomJson(
+				'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage',
+				'snapshot usage'
+			);
+			return data === null ? null : parseSnapshotUsage( data );
+		},
+
+		async getStudioAssistantQuota(): Promise< StudioAssistantQuota | null > {
+			const data = await fetchWpcomJson( STUDIO_ASSISTANT_QUOTA_URL, 'Studio assistant quota' );
+			return data === null ? null : studioAssistantQuotaSchema.parse( data );
+		},
+
+		async deleteAllSnapshots(): Promise< void > {
+			await ipcApi.deleteAllSnapshots();
 		},
 
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
@@ -558,6 +632,8 @@ export function createIpcConnector(): Connector {
 				locale,
 				analyticsEnabled,
 				defaultSiteDirectory,
+				studioCliInstalled,
+				studioCliExternallyManaged,
 			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
@@ -566,6 +642,8 @@ export function createIpcConnector(): Connector {
 				ipcApi.getUserLocale(),
 				ipcApi.getAnalyticsEnabled(),
 				ipcApi.getDefaultSiteDirectory(),
+				ipcApi.isStudioCliInstalled(),
+				ipcApi.isStudioCliExternallyManaged(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
@@ -574,6 +652,8 @@ export function createIpcConnector(): Connector {
 				string | undefined,
 				boolean,
 				string,
+				boolean,
+				boolean,
 			];
 			return {
 				editor,
@@ -583,6 +663,8 @@ export function createIpcConnector(): Connector {
 				locale,
 				analyticsEnabled,
 				defaultSiteDirectory,
+				studioCliInstalled,
+				studioCliExternallyManaged,
 			};
 		},
 
@@ -609,6 +691,11 @@ export function createIpcConnector(): Connector {
 			if ( 'defaultSiteDirectory' in partial && partial.defaultSiteDirectory ) {
 				writes.push( ipcApi.saveDefaultSiteDirectory( partial.defaultSiteDirectory ) );
 			}
+			if ( 'studioCliInstalled' in partial && typeof partial.studioCliInstalled === 'boolean' ) {
+				writes.push(
+					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
+				);
+			}
 			await Promise.all( writes );
 		},
 
@@ -623,8 +710,19 @@ export function createIpcConnector(): Connector {
 			return response?.path ?? null;
 		},
 
+		async getAgentInstructions(): Promise< string > {
+			return ( await ipcApi.getGlobalAgentInstructions() ) as string;
+		},
+		async saveAgentInstructions( content: string ): Promise< void > {
+			await ipcApi.saveGlobalAgentInstructions( content );
+		},
+
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
+		},
+
+		async getAppGlobals(): Promise< AppGlobals > {
+			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
 		},
 
 		async openSiteFolder( siteId ): Promise< void > {
@@ -670,6 +768,21 @@ export function createIpcConnector(): Connector {
 
 		async copyText( text: string ): Promise< void > {
 			await ipcApi.copyText( text );
+		},
+
+		async confirmDeleteAllPreviewSites(): Promise< boolean > {
+			const CANCEL_BUTTON_INDEX = 0;
+			const DELETE_BUTTON_INDEX = 1;
+			const { response } = ( await ipcApi.showMessageBox( {
+				type: 'warning',
+				message: __( 'Delete all preview sites' ),
+				detail: __(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				),
+				buttons: [ __( 'Cancel' ), __( 'Delete all' ) ],
+				cancelId: CANCEL_BUTTON_INDEX,
+			} ) ) as { response: number };
+			return response === DELETE_BUTTON_INDEX;
 		},
 
 		async openSiteUrl( siteId, relativeUrl = '', options ): Promise< void > {

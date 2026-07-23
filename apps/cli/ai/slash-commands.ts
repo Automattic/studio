@@ -1,9 +1,10 @@
-import { getAiModelFamily } from '@studio/common/ai/models';
-import { getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
+import { input, password, select } from '@inquirer/prompts';
+import { getAiModelFamily, getAiModelLabel, type SelectedModelId } from '@studio/common/ai/models';
 import { AI_SKILL_COMMANDS } from '@studio/common/ai/slash-commands';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
 import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
+import { discoverOpenAiCompatibleModels } from 'cli/ai/openai-compatible';
 import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { captureCommandOutput } from 'cli/ai/tools';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
@@ -12,6 +13,10 @@ import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/crea
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { openBrowser } from 'cli/lib/browser';
+import {
+	getActiveOpenAiCompatibleEndpoint,
+	saveActiveOpenAiCompatibleEndpoint,
+} from 'cli/lib/cli-config/core';
 import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
@@ -22,7 +27,7 @@ import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
 	ui: AiChatUI;
-	currentModel: AiModelId;
+	currentModel: SelectedModelId;
 	currentProvider: AiProviderId;
 	showCapabilitiesOnConnect: boolean;
 	switchProvider( provider: AiProviderId, announce?: boolean ): Promise< void >;
@@ -281,6 +286,86 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		},
 	},
 	{
+		name: 'openai-config',
+		description: __( 'Configure a local OpenAI-compatible endpoint (base URL, key, model)' ),
+		handler: async ( _prompt, ctx ) => {
+			const existing = await getActiveOpenAiCompatibleEndpoint();
+			// Interactive prompts need the raw terminal, so pause the chat UI —
+			// same pattern as /login.
+			ctx.ui.stop();
+			try {
+				const baseUrl = (
+					await input( {
+						message: __( 'OpenAI-compatible base URL (e.g. http://localhost:11435/v1):' ),
+						default: existing?.baseUrl,
+						validate: ( value ) => ( value.trim() ? true : __( 'Base URL is required' ) ),
+					} )
+				).trim();
+				const apiKeyInput = (
+					await password( {
+						message: __( 'API key, if required (leave blank if none):' ),
+						mask: '*',
+					} )
+				).trim();
+				const apiKey = apiKeyInput || undefined;
+
+				// Discover the endpoint's models so the user picks a real one.
+				const models = await discoverOpenAiCompatibleModels( baseUrl, apiKey );
+				let selectedModel: string;
+				if ( models.length > 0 ) {
+					selectedModel = await select( {
+						message: __( 'Select a model:' ),
+						choices: models.map( ( model ) => ( {
+							name: model.contextWindow
+								? sprintf(
+										/* translators: 1: model id, 2: context window in tokens */
+										__( '%1$s (%2$s-token context)' ),
+										model.id,
+										model.contextWindow.toLocaleString()
+								  )
+								: model.id,
+							value: model.id,
+						} ) ),
+					} );
+				} else {
+					ctx.ui.showInfo(
+						__( "Couldn't list models from the endpoint; enter a model id manually." )
+					);
+					selectedModel = (
+						await input( {
+							message: __( 'Model id:' ),
+							default: existing?.selectedModel,
+							validate: ( value ) => ( value.trim() ? true : __( 'Model id is required' ) ),
+						} )
+					).trim();
+				}
+
+				await saveActiveOpenAiCompatibleEndpoint( {
+					baseUrl,
+					apiKey,
+					selectedModel,
+					contextWindow: models.find( ( model ) => model.id === selectedModel )?.contextWindow,
+				} );
+				ctx.currentModel = selectedModel;
+			} catch ( error ) {
+				ctx.ui.start();
+				if ( isPromptAbortError( error ) ) {
+					ctx.ui.showInfo( __( 'OpenAI-compatible setup canceled.' ) );
+					return 'continue';
+				}
+				throw error;
+			}
+			ctx.ui.start();
+			ctx.ui.showInfo( __( 'OpenAI-compatible endpoint updated.' ) );
+			await ctx.switchProvider( 'openai-compatible' );
+			if ( ctx.showCapabilitiesOnConnect ) {
+				ctx.showCapabilitiesOnConnect = false;
+				ctx.ui.showCapabilities();
+			}
+			return 'continue';
+		},
+	},
+	{
 		name: 'login',
 		description: __( 'Log in to WordPress.com' ),
 		handler: async ( _prompt, ctx ) => {
@@ -333,15 +418,31 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
+			const definition = getAiProviderDefinition( ctx.currentProvider );
+			// Providers with dynamic models (e.g. openai-compatible) list the
+			// endpoint's live models; others use the built-in catalog.
+			const dynamicModels = definition.listDynamicModels
+				? await definition.listDynamicModels()
+				: undefined;
+			const modelIds: SelectedModelId[] = dynamicModels
+				? dynamicModels.map( ( model ) => model.id )
+				: [ ...definition.availableModels ];
+			if ( modelIds.length === 0 ) {
+				ctx.ui.showInfo(
+					__(
+						'No models available for this provider. For OpenAI-compatible, check the endpoint with /openai-config.'
+					)
+				);
+				return 'continue';
+			}
 			// Build options and a reverse lookup at the same time so we never
 			// have to recover the model id from the label. A startsWith-based
 			// match is buggy when one model's label is a prefix of another's
 			// (e.g. "GPT 5.6" prefixes "GPT 5.6 Sol" — picking Sol silently
 			// returns the other id), so we keep the label → id mapping
 			// explicit here and look up by exact match below.
-			const labelToId = new Map< string, AiModelId >();
-			const modelOptions = availableModels.map( ( id ) => {
+			const labelToId = new Map< string, SelectedModelId >();
+			const modelOptions = modelIds.map( ( id ) => {
 				const label =
 					id === ctx.currentModel
 						? sprintf(
@@ -358,6 +459,18 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			] );
 			const selectedLabel = Object.values( answer )[ 0 ] as string;
 			const newModel = labelToId.get( selectedLabel );
+			// For a dynamic provider, persist the selection to its endpoint so it
+			// survives restarts and drives resolveEnv's context-window discovery.
+			if ( newModel && dynamicModels && ctx.currentProvider === 'openai-compatible' ) {
+				const endpoint = await getActiveOpenAiCompatibleEndpoint();
+				if ( endpoint ) {
+					await saveActiveOpenAiCompatibleEndpoint( {
+						...endpoint,
+						selectedModel: newModel,
+						contextWindow: dynamicModels.find( ( model ) => model.id === newModel )?.contextWindow,
+					} );
+				}
+			}
 			if ( newModel && newModel !== ctx.currentModel ) {
 				// Switching to a model in a different family (Anthropic ↔ OpenAI)
 				// hands the next turn off to a different runtime. Each runtime keeps

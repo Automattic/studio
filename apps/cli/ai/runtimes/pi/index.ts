@@ -29,7 +29,7 @@ import {
 	DEFAULT_MODEL,
 	getAiModelFamily,
 	type AiModelFamily,
-	type AiModelId,
+	type SelectedModelId,
 } from '@studio/common/ai/models';
 import {
 	getSiteRuntime,
@@ -60,7 +60,10 @@ import type { AskUserHandler, SiteInfo } from 'cli/ai/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioModel = Model< 'openai-responses' > | Model< 'anthropic-messages' >;
+type StudioModel =
+	| Model< 'openai-responses' >
+	| Model< 'openai-completions' >
+	| Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRegistry[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_ANTHROPIC_PROVIDER = 'studio-wpcom-anthropic';
@@ -78,7 +81,7 @@ export interface StudioAgentTurnConfig {
 	images?: StudioChatImage[];
 	session: SessionManager;
 	env?: Record< string, string >;
-	model?: AiModelId;
+	model?: SelectedModelId;
 	activeSite?: SiteInfo | null;
 	wpcomAccessToken?: string;
 	onAskUser?: AskUserHandler;
@@ -87,7 +90,7 @@ export interface StudioAgentTurnConfig {
 
 interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
 	env: Record< string, string >;
-	model: AiModelId;
+	model: SelectedModelId;
 }
 
 export interface StudioAgentTurnHandle {
@@ -129,7 +132,19 @@ interface ResolvedCredentials {
 	baseURL: string;
 	extraHeaders?: Record< string, string >;
 	useBearerAuth: boolean;
+	// OpenAI wire flavor. The built-in GPT path uses the Responses API; a
+	// local `openai-compatible` endpoint uses chat/completions. Only set for
+	// the `openai` family.
+	openaiApi?: 'responses' | 'completions';
+	// Real context window of a local `openai-compatible` model, discovered
+	// from its `/v1/models` endpoint. Drives pi's native compaction so long
+	// conversations stay within the local model's limit.
+	contextWindow?: number;
 }
+
+// Fallback context window for a local `openai-compatible` model when its real
+// window couldn't be discovered.
+const DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW = 8192;
 
 function resolveCredentials(
 	family: AiModelFamily,
@@ -148,6 +163,11 @@ function resolveCredentials(
 		if ( ! baseURL ) {
 			return { ok: false, reason: 'OPENAI_BASE_URL not set — cannot route to wpcom proxy.' };
 		}
+		// A local `openai-compatible` endpoint sets this marker; it speaks
+		// chat/completions and carries its own context window. Absent the
+		// marker this is the wpcom/OpenAI Responses path.
+		const isLocalCompletions = env.STUDIO_OPENAI_COMPLETIONS?.trim() === '1';
+		const contextWindow = Number.parseInt( env.STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW ?? '', 10 );
 		return {
 			ok: true,
 			creds: {
@@ -155,6 +175,9 @@ function resolveCredentials(
 				baseURL,
 				extraHeaders: parseJsonHeaderEnv( env.STUDIO_OPENAI_DEFAULT_HEADERS ),
 				useBearerAuth: false,
+				openaiApi: isLocalCompletions ? 'completions' : 'responses',
+				contextWindow:
+					Number.isFinite( contextWindow ) && contextWindow > 0 ? contextWindow : undefined,
 			},
 		};
 	}
@@ -355,7 +378,7 @@ async function createStudioAgentSession(
 }
 
 function buildModel(
-	modelId: AiModelId,
+	modelId: SelectedModelId,
 	family: AiModelFamily,
 	creds: ResolvedCredentials
 ): StudioModel {
@@ -370,6 +393,27 @@ function buildModel(
 	};
 
 	if ( family === 'openai' ) {
+		// A local `openai-compatible` endpoint speaks chat/completions and
+		// declares its own (usually much smaller) context window, discovered
+		// from `/v1/models`. pi's native compaction keeps sessions within it.
+		if ( creds.openaiApi === 'completions' ) {
+			const contextWindow = creds.contextWindow ?? DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW;
+			// Keep max output well under the window. pi clamps output tokens to
+			// the window minus its context estimate; on a small local window an
+			// over-large value can clamp down to 1 (a 400 from the server), so
+			// scale with the window and cap it.
+			const maxTokens = Math.max( 512, Math.min( 8_192, Math.floor( contextWindow / 4 ) ) );
+			return {
+				...common,
+				api: 'openai-completions',
+				provider: 'openai',
+				// Reasoning is an OpenAI-hosted feature; local models generally
+				// don't support it and can reject the parameter.
+				reasoning: false,
+				contextWindow,
+				maxTokens,
+			};
+		}
 		// GPT-5.6 models reject function tools on /v1/chat/completions unless
 		// reasoning is disabled; the Responses API supports tools + reasoning.
 		// GPT-5.6 Sol's real context window is 1.05M tokens, but we declare

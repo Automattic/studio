@@ -1,4 +1,4 @@
-import { resolveSessionModel } from '@studio/common/ai/models';
+import { DEFAULT_MODEL, isAiModelId, resolveSessionModel } from '@studio/common/ai/models';
 import {
 	isStudioCustomEntryOfType,
 	type StudioCustomEntry,
@@ -262,10 +262,13 @@ function SessionContent( { selectedSite }: { selectedSite: SiteDetails } ) {
 		removeQueuedPrompt,
 	} = useAgentRun( sessionId );
 
-	const currentModel = useMemo(
-		() => resolveSessionModel( data?.entries ?? [] ),
-		[ data?.entries ]
-	);
+	// The desktop model picker only offers built-in models; narrow a session's
+	// recorded model (which may be an arbitrary local id from a CLI-created
+	// `openai-compatible` session) back to a known id for the picker.
+	const currentModel = useMemo( () => {
+		const recorded = resolveSessionModel( data?.entries ?? [] );
+		return isAiModelId( recorded ) ? recorded : DEFAULT_MODEL;
+	}, [ data?.entries ] );
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
 		[ pendingQuestions ]

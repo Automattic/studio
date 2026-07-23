@@ -1,4 +1,4 @@
-import { resolveSessionModel, type AiModelId } from '@studio/common/ai/models';
+import { resolveSessionModel, type SelectedModelId } from '@studio/common/ai/models';
 import { isStudioCustomEntryOfType } from '@studio/common/ai/sessions/entry-types';
 import { AI_PROVIDERS, type AiProviderId } from 'cli/ai/providers';
 import type { LoadedAiSession } from '@studio/common/ai/sessions/types';
@@ -10,7 +10,7 @@ function isAiProviderId( value: string ): value is AiProviderId {
 export interface ResumeSessionContext {
 	sessionId?: string;
 	provider?: AiProviderId;
-	model?: AiModelId;
+	model?: SelectedModelId;
 }
 
 // Resolve provider/model for resume from the most recent `model_change` /

@@ -1,4 +1,4 @@
-import { DEFAULT_MODEL, type AiModelId } from '@studio/common/ai/models';
+import { DEFAULT_MODEL, type SelectedModelId } from '@studio/common/ai/models';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
@@ -7,7 +7,7 @@ import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
 
 export interface AiOutputAdapter {
 	currentProvider: AiProviderId;
-	currentModel: AiModelId;
+	currentModel: SelectedModelId;
 	activeSite: SiteInfo | null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null;
 	onInterrupt: ( () => void ) | null;
@@ -40,7 +40,7 @@ export interface AiOutputAdapter {
 
 export class JsonAdapter implements AiOutputAdapter {
 	currentProvider: AiProviderId = 'wpcom';
-	currentModel: AiModelId = DEFAULT_MODEL;
+	currentModel: SelectedModelId = DEFAULT_MODEL;
 	activeSite: SiteInfo | null = null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;

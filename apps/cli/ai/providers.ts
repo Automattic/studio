@@ -4,21 +4,38 @@ import {
 	DEFAULT_MODEL,
 	type AiModelFamily,
 	type AiModelId,
+	type SelectedModelId,
 } from '@studio/common/ai/models';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
-import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
+import {
+	discoverOpenAiCompatibleModels,
+	resolveOpenAiCompatibleContextWindow,
+} from 'cli/ai/openai-compatible';
+import {
+	getActiveOpenAiCompatibleEndpoint,
+	readCliConfig,
+	updateCliConfigWithPartial,
+} from 'cli/lib/cli-config/core';
 import { LoggerError } from 'cli/logger';
 
 export const AI_PROVIDERS = {
 	wpcom: 'WordPress.com',
 	'anthropic-api-key': 'Anthropic · API key',
+	'openai-compatible': 'OpenAI-compatible',
 } as const;
 
 export type AiProviderId = keyof typeof AI_PROVIDERS;
 
+// Fallback context window for a local model whose window can't be discovered.
+const DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW = 8192;
+
 export const DEFAULT_AI_PROVIDER: AiProviderId = 'wpcom';
-export const AI_PROVIDER_PRIORITY: AiProviderId[] = [ 'wpcom', 'anthropic-api-key' ];
+export const AI_PROVIDER_PRIORITY: AiProviderId[] = [
+	'wpcom',
+	'anthropic-api-key',
+	'openai-compatible',
+];
 
 const DEFAULT_WPCOM_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
 // The wpcom AI proxy maps feature slugs to upstream providers. Historically
@@ -44,12 +61,24 @@ export interface AiProviderDefinition {
 	 */
 	readonly supportedModelFamilies: readonly AiModelFamily[];
 	readonly availableModels: readonly AiModelId[];
-	readonly defaultModel: AiModelId;
-	supportsModel( model: AiModelId ): boolean;
+	readonly defaultModel: SelectedModelId;
+	supportsModel( model: SelectedModelId ): boolean;
 	isVisible: () => Promise< boolean >;
 	isReady: () => Promise< boolean >;
 	prepare: ( options?: { force?: boolean } ) => Promise< void >;
 	resolveEnv: ( options?: ResolveAiEnvironmentOptions ) => Promise< Record< string, string > >;
+	/**
+	 * Providers whose models are discovered at runtime (e.g. `openai-compatible`,
+	 * which lists a local endpoint's `/v1/models`) implement this so the `/model`
+	 * picker can offer real models instead of the fixed `AI_MODELS` list. Absent
+	 * on providers backed by the built-in catalog.
+	 */
+	listDynamicModels?: () => Promise< { id: string; contextWindow?: number }[] >;
+	/**
+	 * The model to select when switching to this provider, for providers with
+	 * dynamic models (the saved selection, or the first discovered model).
+	 */
+	resolveDefaultModel?: () => Promise< SelectedModelId | undefined >;
 }
 
 /**
@@ -68,7 +97,7 @@ function defineProvider(
 		availableModels,
 		defaultModel: availableModels[ 0 ] ?? DEFAULT_MODEL,
 		supportsModel( model ) {
-			return availableModels.includes( model );
+			return availableModels.includes( model as AiModelId );
 		},
 	};
 }
@@ -130,8 +159,22 @@ function createBaseEnvironment(): Record< string, string > {
 	delete env.OPENAI_API_KEY;
 	delete env.OPENAI_BASE_URL;
 	delete env.STUDIO_OPENAI_DEFAULT_HEADERS;
+	delete env.STUDIO_OPENAI_COMPLETIONS;
+	delete env.STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW;
 
 	return env;
+}
+
+const OPENAI_COMPATIBLE_NOT_CONFIGURED = __(
+	'OpenAI-compatible endpoint not configured. Use /openai-config to set one up.'
+);
+
+async function resolveOpenAiCompatibleEndpointOrThrow() {
+	const endpoint = await getActiveOpenAiCompatibleEndpoint();
+	if ( ! endpoint?.baseUrl ) {
+		throw new LoggerError( OPENAI_COMPATIBLE_NOT_CONFIGURED );
+	}
+	return endpoint;
 }
 
 const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
@@ -213,6 +256,73 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			return env;
 		},
 	} ),
+	'openai-compatible': {
+		id: 'openai-compatible',
+		autoFallbackWhenUnavailable: false,
+		// Routes through the pi `openai` family (OPENAI_* credentials); the
+		// runtime switches to the chat/completions wire flavor via the env
+		// markers set in resolveEnv below.
+		supportedModelFamilies: [ 'openai' ],
+		// Models are discovered from the endpoint, not the built-in catalog.
+		availableModels: [],
+		defaultModel: DEFAULT_MODEL,
+		// Owns any id that isn't a built-in model (i.e. a local endpoint model).
+		supportsModel: ( model ) =>
+			! ( AI_MODELS as readonly { id: string }[] ).some( ( m ) => m.id === model ),
+		isVisible: async () => true,
+		isReady: async () => {
+			const endpoint = await getActiveOpenAiCompatibleEndpoint();
+			return Boolean( endpoint?.baseUrl && endpoint?.selectedModel );
+		},
+		prepare: async () => {
+			// Configuration is interactive via the /openai-config slash command;
+			// nothing to prepare non-interactively here.
+			await resolveOpenAiCompatibleEndpointOrThrow();
+		},
+		resolveEnv: async () => {
+			const endpoint = await resolveOpenAiCompatibleEndpointOrThrow();
+			if ( ! endpoint.selectedModel ) {
+				throw new LoggerError(
+					__( 'No OpenAI-compatible model selected. Use /model to choose one.' )
+				);
+			}
+
+			const contextWindow =
+				( await resolveOpenAiCompatibleContextWindow(
+					endpoint.baseUrl,
+					endpoint.apiKey,
+					endpoint.selectedModel,
+					endpoint.contextWindow
+				) ) ?? DEFAULT_OPENAI_COMPATIBLE_CONTEXT_WINDOW;
+
+			const env = createBaseEnvironment();
+			env.OPENAI_BASE_URL = endpoint.baseUrl;
+			// pi's openai family requires a non-empty key; local servers usually
+			// ignore it, so default to a placeholder when none is configured.
+			env.OPENAI_API_KEY = endpoint.apiKey || 'local';
+			env.STUDIO_OPENAI_COMPLETIONS = '1';
+			env.STUDIO_OPENAI_COMPLETIONS_CONTEXT_WINDOW = String( contextWindow );
+			return env;
+		},
+		listDynamicModels: async () => {
+			const endpoint = await getActiveOpenAiCompatibleEndpoint();
+			if ( ! endpoint?.baseUrl ) {
+				return [];
+			}
+			return discoverOpenAiCompatibleModels( endpoint.baseUrl, endpoint.apiKey );
+		},
+		resolveDefaultModel: async () => {
+			const endpoint = await getActiveOpenAiCompatibleEndpoint();
+			if ( endpoint?.selectedModel ) {
+				return endpoint.selectedModel;
+			}
+			if ( ! endpoint?.baseUrl ) {
+				return undefined;
+			}
+			const models = await discoverOpenAiCompatibleModels( endpoint.baseUrl, endpoint.apiKey );
+			return models[ 0 ]?.id;
+		},
+	},
 };
 
 export function getAiProviderDefinition( provider: AiProviderId ): AiProviderDefinition {

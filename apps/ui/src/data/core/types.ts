@@ -423,6 +423,16 @@ export interface Connector {
 
 	// Switches back to the legacy (classic) Studio UI.
 	disableAgenticUi(): Promise< void >;
+
+	// Auto-updater status.
+	getAppUpdateStatus(): Promise< AppUpdateStatus >;
+	installAppUpdate(): Promise< void >;
+	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
+}
+
+export interface AppUpdateStatus {
+	readyToInstall: boolean;
+	version: string | null;
 }
 
 export interface SnapshotUsage {

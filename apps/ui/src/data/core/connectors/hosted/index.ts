@@ -430,5 +430,14 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async disableAgenticUi() {
 			// No-op in the browser.
 		},
+		async getAppUpdateStatus() {
+			return { readyToInstall: false, version: null };
+		},
+		async installAppUpdate() {
+			// No-op.
+		},
+		onAppUpdateStatusChanged() {
+			return () => {};
+		},
 	};
 }

@@ -18,6 +18,7 @@ import type {
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
+	AppUpdateStatus,
 	ProposedSitePath,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
@@ -848,6 +849,20 @@ export function createIpcConnector(): Connector {
 
 		async disableAgenticUi(): Promise< void > {
 			await ipcApi.disableAgenticUi();
+		},
+
+		async getAppUpdateStatus() {
+			return ipcApi.getAppUpdateStatus();
+		},
+
+		async installAppUpdate(): Promise< void > {
+			await ipcApi.installAppUpdate();
+		},
+
+		onAppUpdateStatusChanged( listener ) {
+			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
+				listener( status as AppUpdateStatus )
+			);
 		},
 	};
 }

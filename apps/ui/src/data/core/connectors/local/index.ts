@@ -782,5 +782,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async disableAgenticUi() {
 			// No-op in the browser.
 		},
+		async getAppUpdateStatus() {
+			return { readyToInstall: false, version: null };
+		},
+		async installAppUpdate() {
+			// No-op.
+		},
+		onAppUpdateStatusChanged() {
+			return () => {};
+		},
 	};
 }

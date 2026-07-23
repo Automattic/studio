@@ -1522,6 +1522,8 @@ export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): 
 	return userData.agenticUiBannerDismissed === true;
 }
 
+export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
+
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,
 	{

@@ -374,7 +374,9 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		const stdout = await command.response.stdoutText;
 
 		if ( exitCode !== 0 ) {
-			throw new Error( sprintf( __( 'Failed to get site plugins: %s' ), stderr ) );
+			throw new Error(
+				sprintf( __( 'Failed to get site plugins: %s' ), await command.response.outputText() )
+			);
 		}
 
 		try {
@@ -413,7 +415,9 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		const stdout = await command.response.stdoutText;
 
 		if ( exitCode !== 0 ) {
-			throw new Error( sprintf( __( 'Failed to get site themes: %s' ), stderr ) );
+			throw new Error(
+				sprintf( __( 'Failed to get site themes: %s' ), await command.response.outputText() )
+			);
 		}
 
 		try {

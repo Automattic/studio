@@ -116,7 +116,9 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 				}
 
 				if ( exitCode !== 0 ) {
-					throw new Error( sprintf( __( 'Database import failed: %s' ), stderr ) );
+					throw new Error(
+						sprintf( __( 'Database import failed: %s' ), await command.response.outputText() )
+					);
 				}
 			} finally {
 				await this.safelyDeletePath( tmpPath );

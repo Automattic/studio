@@ -26,7 +26,9 @@ export async function exportDatabaseToFile(
 
 	const exitCode = await command.response.exitCode;
 	if ( exitCode !== 0 ) {
-		throw new Error( __( 'Database export failed' ) );
+		throw new Error(
+			sprintf( __( 'Database export failed: %s' ), await command.response.outputText() )
+		);
 	}
 
 	// Move the file to its final destination
@@ -57,7 +59,9 @@ export async function exportDatabaseToMultipleFiles(
 	const tablesStdout = await command.response.stdoutText;
 	const exitCode = await command.response.exitCode;
 	if ( exitCode !== 0 ) {
-		throw new Error( __( 'Database export failed' ) );
+		throw new Error(
+			sprintf( __( 'Database export failed: %s' ), await command.response.outputText() )
+		);
 	}
 
 	let tables;
@@ -101,7 +105,14 @@ export async function exportDatabaseToMultipleFiles(
 
 		const exitCode = await command.response.exitCode;
 		if ( exitCode !== 0 ) {
-			throw new Error( sprintf( __( 'Database export failed for table %s' ), table ) );
+			throw new Error(
+				sprintf(
+					/* translators: 1: database table name, 2: WP-CLI output */
+					__( 'Database export failed for table %1$s: %2$s' ),
+					table,
+					await command.response.outputText()
+				)
+			);
 		}
 
 		// Move the file to its final destination

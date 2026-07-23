@@ -85,6 +85,15 @@ export class WpCliResponse {
 		this.#stderrText ??= text( this.stderr );
 		return this.#stderrText;
 	}
+
+	// What WP-CLI actually said, for error messages. Both streams, because which one carries
+	// a given message depends on the runtime — WP-CLI writes errors to stderr natively, but
+	// under Playground they can land on stdout, and a message on the wrong stream is a message
+	// the user never sees.
+	async outputText(): Promise< string > {
+		const [ stdout, stderr ] = await Promise.all( [ this.stdoutText, this.stderrText ] );
+		return [ stderr.trim(), stdout.trim() ].filter( Boolean ).join( '\n' );
+	}
 }
 
 /**

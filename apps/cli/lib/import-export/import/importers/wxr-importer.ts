@@ -82,7 +82,9 @@ export class WxrImporter extends ImportExportEventEmitter implements Importer {
 				console.error( __( 'Error during WordPress export import:' ), stderr );
 			}
 			if ( exitCode !== 0 ) {
-				throw new Error( sprintf( __( 'WordPress export import failed: %s' ), stderr ) );
+				throw new Error(
+					sprintf( __( 'WordPress export import failed: %s' ), await command.response.outputText() )
+				);
 			}
 
 			this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );

@@ -100,15 +100,10 @@ async function setWordPressVersion( site: SiteData, wp: string ): Promise< void 
 		return;
 	}
 
-	const [ stdout, stderr ] = await Promise.all( [
-		command.response.stdoutText,
-		command.response.stderrText,
-	] );
 	throw new LoggerError(
 		[
 			sprintf( __( 'Failed to update WordPress version to %s' ), wp ),
-			stderr.trim(),
-			stdout.trim(),
+			await command.response.outputText(),
 		]
 			.filter( Boolean )
 			.join( '\n' )

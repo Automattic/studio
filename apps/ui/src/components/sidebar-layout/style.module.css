@@ -90,10 +90,9 @@
 	background-color: var(--wpds-color-fg-interactive-brand);
 }
 
-/* Pinned to the bottom-left of the main area, mirroring the sidebar footer.
-   The 46px band matches the session view's `panelFooterControls` (also
-   bottom-anchored and center-aligned) so the toggle sits vertically centered
-   with the chat-history/new-chat buttons next to it. */
+/* Bottom-left of the main area. The 46px min-height matches the session
+   view's `panelFooterControls` so the toggle lines up vertically with the
+   chat-history/new-chat buttons. */
 .floatingToggle {
 	position: absolute;
 	bottom: 0;

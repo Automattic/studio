@@ -428,6 +428,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		getWordPressVersions: fetchWordPressVersions,
 
+		async getWpVersion( siteId ) {
+			const { wpVersion } = await api< { wpVersion: string } >(
+				`/sites/${ encodeURIComponent( siteId ) }/wp-version`
+			);
+			return wpVersion;
+		},
+
 		async getFilePath( file ) {
 			// No real filesystem path in a browser, so upload the bytes and hand
 			// back the server-side temp path the path-based operations expect.

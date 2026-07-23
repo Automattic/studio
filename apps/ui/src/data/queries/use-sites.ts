@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
@@ -162,6 +163,7 @@ export function useUpdateSitesSortOrder() {
 
 export function useUpdateSite() {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: async ( { site, wpVersion }: UpdateSiteInput ) => {
 			await connector.updateSite( site, wpVersion );
@@ -175,7 +177,16 @@ export function useUpdateSite() {
 			// site-event lands, giving us a single refetch against fresh
 			// in-memory details.
 		},
-		onSuccess: () => toast.success( __( 'Settings saved' ) ),
+		onSuccess: ( _data, { site, wpVersion } ) => {
+			// Seed the applied version rather than refetching it: the CLI keeps
+			// restarting the site after this resolves, and a disk read landing
+			// mid-restart still reports the pre-edit version, which would flash
+			// the old value back into the settings form.
+			if ( wpVersion ) {
+				queryClient.setQueryData( [ ...WP_VERSION_QUERY_KEY, site.id ], wpVersion );
+			}
+			toast.success( __( 'Settings saved' ) );
+		},
 	} );
 }
 

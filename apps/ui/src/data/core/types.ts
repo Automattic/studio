@@ -199,6 +199,9 @@ export interface Connector {
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
 	getWordPressVersions(): Promise< WordPressVersion[] >;
+	// Reads the WordPress version installed at the site's path. Resolves to
+	// '-' when it can't be determined (missing files, site not found).
+	getWpVersion( siteId: string ): Promise< string >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
 	// in the renderer. Returns an empty string when the underlying file lacks

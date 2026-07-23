@@ -39,6 +39,7 @@ import {
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
+import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
@@ -482,6 +483,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await stopSite( execute, site.path );
 			res.sendStatus( 204 );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/wp-version',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( { wpVersion: getWordPressVersion( site.path ) } );
 		} )
 	);
 

@@ -4,6 +4,7 @@ import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
@@ -128,6 +129,10 @@ export interface ConnectorCapabilities {
 	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
 	// hides the Studio Code settings tab.
 	agentInstructions: boolean;
+	// The host can switch this window back to the classic Studio UI
+	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
+	// in a browser there is nothing to switch to.
+	switchToClassicUi: boolean;
 }
 
 export interface Connector {
@@ -210,14 +215,13 @@ export interface Connector {
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
 	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 
-	// Imports a backup archive into an already-created site. Extracts the
-	// archive, installs the SQLite integration if missing, then imports the
-	// archive's database + wp-content on top of the site's folder.
-	// `backup.path` comes from `getFilePath`.
+	// Imports a backup into an already-created site and starts the usable site.
+	// `backupPath` comes from `getFilePath` for the current submission.
 	importSiteFromBackup(
 		siteId: string,
-		backup: { path: string; type: string }
-	): Promise< SiteDetails >;
+		backupPath: string,
+		onProgress?: ( event: ImportEventTuple ) => void
+	): Promise< void >;
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;

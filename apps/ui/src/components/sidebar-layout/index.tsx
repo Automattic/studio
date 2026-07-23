@@ -65,7 +65,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 					     scope. */ }
 					<ThemeProvider color={ { bg: chromeBg } }>
 						<div className={ styles.sidebarThemeScope }>
-							<SidebarHeader onToggleSidebar={ toggleSidebar } />
+							<SidebarHeader />
 							<SiteList />
 							<div className={ styles.sidebarFooter }>
 								{ /* Toasts sit above the persistent cards: the footer is
@@ -73,7 +73,7 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 								     would shove it up and drop it back on expiry. */ }
 								{ ! collapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
 								{ ! collapsed ? <AppMessageCards className={ styles.sidebarCards } /> : null }
-								<UserMenu />
+								<UserMenu onToggleSidebar={ toggleSidebar } />
 							</div>
 						</div>
 					</ThemeProvider>

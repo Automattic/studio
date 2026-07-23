@@ -93,14 +93,12 @@
 	-webkit-app-region: no-drag;
 }
 
-/* No traffic lights to clear (non-macOS, the browser, or macOS fullscreen): a
-   minimal spacer so the toggle still clears the header's drag region. */
-.toggleSpacerFlush {
-	display: block;
-	flex-shrink: 0;
-	width: calc(var(--wpds-dimension-padding-xl) + 24px);
-	align-self: stretch;
-	-webkit-app-region: no-drag;
+.headerEnd {
+	grid-column: 3;
+	display: flex;
+	align-items: center;
+	justify-self: end;
+	padding-inline-end: var(--wpds-dimension-padding-lg);
 }
 
 .scroll {
@@ -680,6 +678,31 @@
 	inset-block-start: var(--wpds-dimension-padding-sm);
 	inset-inline-end: var(--wpds-dimension-padding-sm);
 	z-index: 1;
+}
+
+.toggleControl :global(.components-form-toggle .components-form-toggle__track) {
+	background-color: var(--wpds-color-bg-track-neutral-weak);
+	border-color: var(--wpds-color-stroke-interactive-neutral);
+}
+
+.toggleControl :global(.components-form-toggle .components-form-toggle__thumb) {
+	background-color: var(--wpds-color-bg-thumb-neutral-weak);
+}
+
+.toggleControl :global(.components-form-toggle.is-checked .components-form-toggle__track) {
+	background-color: var(--wpds-color-bg-interactive-brand-strong);
+	border-color: var(--wpds-color-stroke-interactive-brand);
+}
+
+.toggleControl :global(.components-form-toggle.is-checked .components-form-toggle__thumb) {
+	background-color: var(--wpds-color-fg-interactive-brand-strong);
+}
+
+.toggleControl
+	:global(.components-form-toggle .components-form-toggle__input:focus + .components-form-toggle__track) {
+	box-shadow:
+		0 0 0 var(--wpds-border-width-focus) var(--wpds-color-bg-surface-neutral),
+		0 0 0 calc(2 * var(--wpds-border-width-focus)) var(--wpds-color-stroke-focus-brand);
 }
 
 @media (max-width: 640px) {

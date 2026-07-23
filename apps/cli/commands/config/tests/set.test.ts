@@ -1,5 +1,6 @@
+import { Readable } from 'node:stream';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
-import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { arePathsEqual, pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import { encodePassword } from '@studio/common/lib/passwords';
 import {
 	SITE_MODE_NATIVE,
@@ -11,6 +12,8 @@ import { vi } from 'vitest';
 import { readCliConfig, saveCliConfig, unlockCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getWordPressVersionPath } from 'cli/lib/dependency-management/paths';
+import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { setupCustomDomain } from 'cli/lib/site-utils';
@@ -28,6 +31,8 @@ vi.mock( '@studio/common/lib/fs-utils', async () => {
 	return {
 		...actual,
 		arePathsEqual: vi.fn(),
+		pathExists: vi.fn(),
+		recursiveCopyDirectory: vi.fn(),
 	};
 } );
 vi.mock( 'cli/lib/cli-config/core', async () => {
@@ -49,9 +54,17 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 	};
 } );
 vi.mock( 'cli/lib/certificate-manager' );
+vi.mock( 'cli/lib/dependency-management/paths' );
+vi.mock( 'cli/lib/dependency-management/wordpress' );
 vi.mock( 'cli/lib/hosts-file' );
 vi.mock( 'cli/lib/daemon-client' );
-vi.mock( 'cli/lib/run-wp-cli-command' );
+vi.mock( 'cli/lib/run-wp-cli-command', async () => {
+	const actual = await vi.importActual( 'cli/lib/run-wp-cli-command' );
+	return {
+		...actual,
+		runWpCliCommand: vi.fn(),
+	};
+} );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
@@ -89,6 +102,12 @@ describe( 'CLI: studio config set', () => {
 		const testCliConfig = { version: 1 as const, sites: [ testSite ], snapshots: [] };
 
 		vi.mocked( arePathsEqual ).mockReturnValue( true );
+		vi.mocked( pathExists ).mockResolvedValue( true );
+		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
+		vi.mocked( downloadWordPress ).mockResolvedValue( undefined );
+		vi.mocked( getWordPressVersionPath ).mockImplementation(
+			( version ) => `/wp-versions/${ version }`
+		);
 		vi.mocked( getSiteByFolder ).mockResolvedValue( getTestSite() );
 		vi.mocked( readCliConfig ).mockResolvedValue( testCliConfig );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
@@ -287,14 +306,19 @@ describe( 'CLI: studio config set', () => {
 	} );
 
 	describe( 'WordPress version changes', () => {
-		beforeEach( () => {
-			const mockResponse: Partial< WpCliResponse > = {
-				exitCode: Promise.resolve( 0 ),
-			};
+		const mockWpCliResult = ( exitCode: number, stdout = '', stderr = '' ) => {
 			vi.mocked( runWpCliCommand ).mockResolvedValue( {
-				response: mockResponse as WpCliResponse,
-				[ Symbol.dispose ]: vi.fn().mockResolvedValue( undefined ),
+				response: new WpCliResponse(
+					Readable.from( [ stdout ] ),
+					Readable.from( [ stderr ] ),
+					Promise.resolve( exitCode )
+				),
+				[ Symbol.dispose ]: vi.fn(),
 			} );
+		};
+
+		beforeEach( () => {
+			mockWpCliResult( 0 );
 		} );
 
 		it( 'should run WP-CLI to update WordPress version', async () => {
@@ -317,16 +341,35 @@ describe( 'CLI: studio config set', () => {
 		} );
 
 		it( 'should throw when WP-CLI fails', async () => {
-			const mockResponse: Partial< WpCliResponse > = {
-				exitCode: Promise.resolve( 1 ),
-			};
-			vi.mocked( runWpCliCommand ).mockResolvedValue( {
-				response: mockResponse as WpCliResponse,
-				[ Symbol.dispose ]: vi.fn().mockResolvedValue( undefined ),
-			} );
+			mockWpCliResult( 1 );
 
 			await expect( runCommand( testSitePath, { wp: '6.7' } ) ).rejects.toThrow(
 				'Failed to update WordPress version to 6.7'
+			);
+		} );
+
+		it( 'should surface the WP-CLI output when it fails', async () => {
+			mockWpCliResult( 1, 'some stdout noise', "Error: 'wp-config.php' not found." );
+
+			await expect( runCommand( testSitePath, { wp: '6.7' } ) ).rejects.toThrow(
+				/Failed to update WordPress version to 6\.7\nError: 'wp-config\.php' not found\.\nsome stdout noise/
+			);
+		} );
+
+		it( 'should copy the WordPress files instead of running WP-CLI on a never-started site', async () => {
+			vi.mocked( pathExists ).mockResolvedValue( false );
+
+			await runCommand( testSitePath, { wp: '6.7' } );
+
+			expect( runWpCliCommand ).not.toHaveBeenCalled();
+			expect( downloadWordPress ).toHaveBeenCalledWith( '6.7' );
+			expect( recursiveCopyDirectory ).toHaveBeenCalledWith( '/wp-versions/6.7', testSitePath );
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [
+						expect.objectContaining( { isWpAutoUpdating: false } ),
+					] ),
+				} )
 			);
 		} );
 

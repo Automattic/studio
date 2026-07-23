@@ -1,7 +1,8 @@
+import path from 'node:path';
 import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
-import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { arePathsEqual, pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import {
 	encodePassword,
 	validateAdminEmail,
@@ -38,9 +39,12 @@ import {
 	readCliConfig,
 	saveCliConfig,
 	unlockCliConfig,
+	type SiteData,
 } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { getWordPressVersionPath } from 'cli/lib/dependency-management/paths';
+import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -70,6 +74,45 @@ export interface SetCommandOptions {
 	adminEmail?: string;
 	debugLog?: boolean;
 	debugDisplay?: boolean;
+}
+
+// A site that has never been started has no wp-config.php and no database, so WP-CLI can't
+// boot it ("The site you have requested is not installed") and `core update` always fails.
+// Nothing but the core files on disk decides such a site's version, so swap those in the way
+// `site create --wp` does; the WordPress installer runs against them on the first start.
+async function setWordPressVersion( site: SiteData, wp: string ): Promise< void > {
+	if ( ! ( await pathExists( path.join( site.path, 'wp-config.php' ) ) ) ) {
+		await downloadWordPress( wp );
+		await recursiveCopyDirectory( getWordPressVersionPath( wp ), site.path );
+		return;
+	}
+
+	await using command = await runWpCliCommand( site, [
+		'core',
+		'update',
+		getWordPressVersionUrl( wp ),
+		'--force',
+		'--skip-plugins',
+		'--skip-themes',
+	] );
+
+	if ( ( await command.response.exitCode ) === 0 ) {
+		return;
+	}
+
+	const [ stdout, stderr ] = await Promise.all( [
+		command.response.stdoutText,
+		command.response.stderrText,
+	] );
+	throw new LoggerError(
+		[
+			sprintf( __( 'Failed to update WordPress version to %s' ), wp ),
+			stderr.trim(),
+			stdout.trim(),
+		]
+			.filter( Boolean )
+			.join( '\n' )
+	);
 }
 
 export async function runCommand( sitePath: string, options: SetCommandOptions ): Promise< void > {
@@ -314,21 +357,7 @@ export async function runCommand( sitePath: string, options: SetCommandOptions )
 
 		if ( wpChanged ) {
 			logger.reportStart( LoggerAction.SET_WP_VERSION, __( 'Updating WordPress version…' ) );
-			const zipUrl = getWordPressVersionUrl( wp );
-
-			await using command = await runWpCliCommand( site, [
-				'core',
-				'update',
-				zipUrl,
-				'--force',
-				'--skip-plugins',
-				'--skip-themes',
-			] );
-
-			const exitCode = await command.response.exitCode;
-			if ( exitCode !== 0 ) {
-				throw new LoggerError( sprintf( __( 'Failed to update WordPress version to %s' ), wp ) );
-			}
+			await setWordPressVersion( site, wp );
 			logger.reportSuccess( __( 'WordPress version updated' ) );
 
 			try {

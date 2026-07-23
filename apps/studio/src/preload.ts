@@ -91,6 +91,8 @@ const api: IpcApi = {
 	disableAgenticUi: () => ipcRendererInvoke( 'disableAgenticUi' ),
 	dismissAgenticUiBanner: () => ipcRendererInvoke( 'dismissAgenticUiBanner' ),
 	isAgenticUiBannerDismissed: () => ipcRendererInvoke( 'isAgenticUiBannerDismissed' ),
+	getAppUpdateStatus: () => ipcRendererInvoke( 'getAppUpdateStatus' ),
+	installAppUpdate: () => ipcRendererInvoke( 'installAppUpdate' ),
 	getWpVersion: ( id ) => ipcRendererInvoke( 'getWpVersion', id ),
 	getIsMultisite: ( id ) => ipcRendererInvoke( 'getIsMultisite', id ),
 	generateProposedSitePath: ( siteName ) =>
@@ -140,11 +142,10 @@ const api: IpcApi = {
 	removeSyncBackup: ( remoteSiteId ) => ipcRendererInvoke( 'removeSyncBackup', remoteSiteId ),
 	getConnectedWpcomSites: ( localSiteId ) =>
 		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
-	getAllConnectedWpcomSites: () => ipcRendererInvoke( 'getAllConnectedWpcomSites' ),
-	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
-	fetchAllWpcomSites: () => ipcRendererInvoke( 'fetchAllWpcomSites' ),
-	pullSiteFromLive: ( siteFolder, remoteSiteId, operationId ) =>
-		ipcRendererInvoke( 'pullSiteFromLive', siteFolder, remoteSiteId, operationId ),
+	fetchSyncableWpcomSites: ( allPages? ) =>
+		ipcRendererInvoke( 'fetchSyncableWpcomSites', allPages ),
+	pullSiteFromLive: ( siteId, remoteSiteId ) =>
+		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId ),
 	addSyncOperation: ( id, status ) => ipcRendererSend( 'addSyncOperation', id, status ),
 	clearSyncOperation: ( id ) => ipcRendererSend( 'clearSyncOperation', id ),
 	cancelSyncOperation: ( id ) => ipcRendererSend( 'cancelSyncOperation', id ),
@@ -170,6 +171,9 @@ const api: IpcApi = {
 	saveQuitSitesBehavior: ( quitSitesBehavior ) =>
 		ipcRendererInvoke( 'saveQuitSitesBehavior', quitSitesBehavior ),
 	getQuitSitesBehavior: () => ipcRendererInvoke( 'getQuitSitesBehavior' ),
+	saveAgenticFeaturesEnabled: ( enabled ) =>
+		ipcRendererInvoke( 'saveAgenticFeaturesEnabled', enabled ),
+	getAgenticFeaturesEnabled: () => ipcRendererInvoke( 'getAgenticFeaturesEnabled' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getUserEditor: () => ipcRendererInvoke( 'getUserEditor' ),

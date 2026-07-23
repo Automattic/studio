@@ -6,7 +6,7 @@
 
 .cards {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 300px));
+	grid-template-columns: repeat(auto-fit, minmax(240px, 300px));
 	gap: 20px;
 	justify-content: center;
 }
@@ -25,12 +25,17 @@
 		transparent
 	);
 	backdrop-filter: blur(12px);
+	appearance: none;
+	font: inherit;
+	text-align: center;
 	color: inherit;
 	text-decoration: none;
+	cursor: pointer;
 	transition: border-color 0.15s ease;
 }
 
-.card:hover {
+.card:hover,
+.cardDragging {
 	border-color: var(--wpds-color-stroke-interactive-brand);
 	box-shadow: 0 0 0 1px var(--wpds-color-stroke-interactive-brand);
 }
@@ -76,6 +81,16 @@
 .cardHint {
 	color: var(--wpds-color-fg-content-neutral-weak);
 	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.cardError {
+	margin-top: 4px;
+	color: var(--wpds-color-fg-content-error);
+	font-size: var(--wpds-typography-font-size-sm);
+}
+
+.hiddenInput {
+	display: none;
 }
 
 @media (max-width: 720px) {

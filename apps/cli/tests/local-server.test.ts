@@ -4,7 +4,6 @@
 import crypto from 'node:crypto';
 import EventEmitter from 'node:events';
 import { createCliRunner } from '@studio/common/lib/cli-process';
-import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { listSites } from '@studio/common/sites/list';
 import nock from 'nock';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,10 +22,6 @@ vi.mock( '@studio/common/lib/cli-process', () => ( {
 	} ) ),
 } ) );
 vi.mock( '@studio/common/sites/list', () => ( { listSites: vi.fn() } ) );
-vi.mock( '@studio/common/lib/connected-sites', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/common/lib/connected-sites') >() ),
-	removeAllConnectedWpcomSitesForLocalSite: vi.fn(),
-} ) );
 vi.mock( '@studio/common/ai/run-manager', () => ( {
 	createAgentRunManager: vi.fn( () => ( {
 		startAgentRun: vi.fn(),
@@ -84,7 +79,7 @@ describe( 'local web server Connect contracts', () => {
 		nock.disableNetConnect();
 	} );
 
-	it( 'removes every connection after the CLI deletes a local site', async () => {
+	it( 'delegates deletion to the CLI cascade', async () => {
 		const response = await fetch(
 			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/local-a`,
 			{ method: 'DELETE' }
@@ -95,13 +90,9 @@ describe( 'local web server Connect contracts', () => {
 			[ 'site', 'delete', '--path', '/sites/local-a', '--files' ],
 			{ output: 'capture' }
 		);
-		expect( removeAllConnectedWpcomSitesForLocalSite ).toHaveBeenCalledWith( 'local-a' );
-		expect( mocks.execute.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
-			vi.mocked( removeAllConnectedWpcomSitesForLocalSite ).mock.invocationCallOrder[ 0 ]
-		);
 	} );
 
-	it( 'keeps connections when the CLI cannot delete the local site', async () => {
+	it( 'reports when the CLI cannot delete the local site', async () => {
 		mocks.execute.mockImplementationOnce( () => {
 			const emitter = new EventEmitter();
 			queueMicrotask( () => emitter.emit( 'failure', { error: new Error( 'delete failed' ) } ) );
@@ -114,7 +105,6 @@ describe( 'local web server Connect contracts', () => {
 		);
 
 		expect( response.status ).toBe( 500 );
-		expect( removeAllConnectedWpcomSitesForLocalSite ).not.toHaveBeenCalled();
 	} );
 
 	it( 'creates the Connect shell with --no-start', async () => {
@@ -175,14 +165,14 @@ describe( 'local web server Connect contracts', () => {
 		const response = await fetch( `${ baseUrl }/api/sites/local-a/pull`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify( { remoteSiteId: 42, operationId: 'pull-operation' } ),
+			body: JSON.stringify( { remoteSiteId: 42 } ),
 		} );
 		const eventChunk = new TextDecoder().decode( ( await reader.read() ).value );
 		await reader.cancel();
 
 		expect( response.status ).toBe( 204 );
 		expect( eventChunk ).toContain( '"channel":"sync-pull"' );
-		expect( eventChunk ).toContain( '"operationId":"pull-operation"' );
+		expect( eventChunk ).toContain( '"siteId":"local-a"' );
 		expect( eventChunk ).toContain( 'Creating remote backup… (18%)' );
 	} );
 

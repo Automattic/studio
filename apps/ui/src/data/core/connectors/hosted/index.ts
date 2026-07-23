@@ -19,6 +19,8 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 
+const AGENTIC_FEATURES_STORAGE_KEY = 'studio-hosted-agentic-features-enabled';
+
 export interface HostedConnectorOptions {
 	// Base URL of the Studio hosted backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
@@ -117,6 +119,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 			annotatePreview: false,
 			readLocalMedia: false,
 			agentInstructions: false,
+			switchToClassicUi: false,
 		},
 
 		// Auth — runs unauthenticated, like the desktop app. WordPress.com login
@@ -183,6 +186,9 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async generateProposedSiteName(): Promise< string > {
 			throw new UnsupportedError( 'generateProposedSiteName' );
 		},
+		async generateNumberedSiteName() {
+			throw new UnsupportedError( 'generateNumberedSiteName' );
+		},
 		async generateProposedSitePath() {
 			throw new UnsupportedError( 'generateProposedSitePath' );
 		},
@@ -194,6 +200,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 
 		getWordPressVersions: fetchWordPressVersions,
+
+		async getWpVersion(): Promise< string > {
+			throw new UnsupportedError( 'getWpVersion' );
+		},
 
 		async getFilePath() {
 			// Browsers can't resolve a real filesystem path for a File.
@@ -211,7 +221,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		async importSiteFromBackup(): Promise< SiteDetails > {
+		async importSiteFromBackup(): Promise< void > {
 			throw new UnsupportedError( 'importSiteFromBackup' );
 		},
 
@@ -234,13 +244,7 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		async getConnectedWpcomSites(): Promise< SyncSite[] > {
 			return [];
 		},
-		async getAllConnectedWpcomSites(): Promise< SyncSite[] > {
-			return [];
-		},
 		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
-			return [];
-		},
-		async fetchAllWpcomSites(): Promise< SyncSite[] > {
 			return [];
 		},
 		async connectWpcomSite() {
@@ -333,10 +337,19 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled:
+					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
 			};
 		},
-		async setUserPreferences() {
-			// No-op: preferences aren't persisted in the browser yet.
+		async setUserPreferences( partial ) {
+			// The rest aren't persisted in the browser yet; this one has to
+			// stick or the AI settings toggle would silently snap back.
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				window.localStorage.setItem(
+					AGENTIC_FEATURES_STORAGE_KEY,
+					String( partial.agenticFeaturesEnabled )
+				);
+			}
 		},
 		async getAppGlobals(): Promise< AppGlobals > {
 			return { platform: 'browser', isWindowsStore: false };
@@ -430,6 +443,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getAppUpdateStatus() {
+			return { readyToInstall: false, version: null };
+		},
+		async installAppUpdate() {
+			// No-op.
+		},
+		onAppUpdateStatusChanged() {
+			return () => {};
 		},
 	};
 }

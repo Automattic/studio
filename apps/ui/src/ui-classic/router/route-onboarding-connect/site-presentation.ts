@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
 export type ConnectSiteGroup =
@@ -23,7 +24,7 @@ export function presentRemoteSites(
 
 	for ( const connection of connections ) {
 		const names = connectedNames.get( connection.id ) ?? new Set< string >();
-		names.add( localNames.get( connection.localSiteId ) ?? 'another local Studio site' );
+		names.add( localNames.get( connection.localSiteId ) ?? __( 'another local Studio site' ) );
 		connectedNames.set( connection.id, names );
 	}
 

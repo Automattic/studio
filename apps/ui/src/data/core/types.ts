@@ -4,6 +4,7 @@ import type { StudioChatImage } from '@studio/common/ai/chat-images';
 import type { AiModelId } from '@studio/common/ai/models';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/common/ai/sessions/types';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
@@ -128,6 +129,10 @@ export interface ConnectorCapabilities {
 	// (~/.studio/knowledge/instructions.md). False when hosted remotely, which
 	// hides the Studio Code settings tab.
 	agentInstructions: boolean;
+	// The host can switch this window back to the classic Studio UI
+	// (`disableAgenticUi`). Only the desktop app ships the classic renderer;
+	// in a browser there is nothing to switch to.
+	switchToClassicUi: boolean;
 }
 
 export interface Connector {
@@ -190,10 +195,14 @@ export interface Connector {
 	// desktop app's add-site flow relies on (folder pickers and path validation).
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
+	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
 	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
 	getWordPressVersions(): Promise< WordPressVersion[] >;
+	// Reads the WordPress version installed at the site's path. Resolves to
+	// '-' when it can't be determined (missing files, site not found).
+	getWpVersion( siteId: string ): Promise< string >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
 	// in the renderer. Returns an empty string when the underlying file lacks
@@ -210,14 +219,13 @@ export interface Connector {
 	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
 	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
 
-	// Imports a backup archive into an already-created site. Extracts the
-	// archive, installs the SQLite integration if missing, then imports the
-	// archive's database + wp-content on top of the site's folder.
-	// `backup.path` comes from `getFilePath`.
+	// Imports a backup into an already-created site and starts the usable site.
+	// `backupPath` comes from `getFilePath` for the current submission.
 	importSiteFromBackup(
 		siteId: string,
-		backup: { path: string; type: string }
-	): Promise< SiteDetails >;
+		backupPath: string,
+		onProgress?: ( event: ImportEventTuple ) => void
+	): Promise< void >;
 
 	// Preview snapshots (WordPress.com hosted previews of local sites)
 	getSnapshots(): Promise< Snapshot[] >;
@@ -238,17 +246,13 @@ export interface Connector {
 	// final preview URL when the CLI command completes.
 	publishPreviewSite( siteId: string, existingHostname?: string ): Promise< { url: string } >;
 
-	// Connected WordPress.com live sites for a given local site
-	getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] >;
-	// Every persisted connection for the current user, across all local sites.
-	getAllConnectedWpcomSites(): Promise< SyncSite[] >;
+	// Connected WordPress.com live sites for a local site, or every persisted
+	// connection for the current user when no local site is supplied.
+	getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] >;
 	// All WordPress.com sites the authenticated user can sync with, regardless
 	// of which (if any) local site they're already connected to. The publish
 	// picker filters this list to sites that aren't connected anywhere yet.
-	fetchSyncableWpcomSites(): Promise< SyncSite[] >;
-	// The complete paginated set of relevant WordPress.com and Pressable sites.
-	// Connect onboarding uses this instead of changing the publish picker's fetch.
-	fetchAllWpcomSites(): Promise< SyncSite[] >;
+	fetchSyncableWpcomSites( allPages?: boolean ): Promise< SyncSite[] >;
 	// Persists a new local↔live connection so the dropdown picks it up via
 	// `getConnectedWpcomSites`. Safe to call with the minimal `SyncSite` we
 	// receive from a sync-connect-site deep link — later fetches backfill the
@@ -425,6 +429,16 @@ export interface Connector {
 
 	// Switches back to the legacy (classic) Studio UI.
 	disableAgenticUi(): Promise< void >;
+
+	// Auto-updater status.
+	getAppUpdateStatus(): Promise< AppUpdateStatus >;
+	installAppUpdate(): Promise< void >;
+	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
+}
+
+export interface AppUpdateStatus {
+	readyToInstall: boolean;
+	version: string | null;
 }
 
 export interface SnapshotUsage {
@@ -455,6 +469,9 @@ export interface UserPreferences {
 	// app never installs over or uninstalls — the settings toggle disables
 	// itself in that case.
 	studioCliExternallyManaged: boolean;
+	// Whether chat/agent features are offered at all. Unrelated to which
+	// renderer is running — switching to the classic UI is `disableAgenticUi`.
+	agenticFeaturesEnabled: boolean;
 }
 
 export interface AppGlobals {

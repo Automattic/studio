@@ -18,6 +18,7 @@ import type {
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
+	AppUpdateStatus,
 	ProposedSitePath,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
@@ -34,6 +35,7 @@ import type {
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { SiteEvent } from '@studio/common/lib/cli-events';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
@@ -211,6 +213,7 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			readLocalMedia: true,
 			agentInstructions: true,
+			switchToClassicUi: true,
 		},
 
 		// Auth — optional in Electron, delegated to main process
@@ -309,6 +312,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.generateSiteNameFromList( usedSites ) ) as string;
 		},
 
+		async generateNumberedSiteName( baseName, usedSites ): Promise< string > {
+			return ( await ipcApi.generateNumberedNameFromList( baseName, usedSites ) ) as string;
+		},
+
 		async generateProposedSitePath( siteName ): Promise< ProposedSitePath > {
 			const response = ( await ipcApi.generateProposedSitePath( siteName ) ) as {
 				path: string;
@@ -337,6 +344,10 @@ export function createIpcConnector(): Connector {
 		},
 
 		getWordPressVersions: fetchWordPressVersions,
+
+		async getWpVersion( siteId ) {
+			return ( await ipcApi.getWpVersion( siteId ) ) as string;
+		},
 
 		async getFilePath( file ) {
 			// `webUtils.getPathForFile` is a synchronous preload-only API; the
@@ -368,11 +379,24 @@ export function createIpcConnector(): Connector {
 			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
 		},
 
-		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
-			return ( await ipcApi.importSite( {
-				id: siteId,
-				backupFile: backup,
-			} ) ) as SiteDetails;
+		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
+			const unsubscribe = onProgress
+				? ipcListener.subscribe(
+						'on-import',
+						( _event: unknown, importEvent: ImportEventTuple, importSiteId: string ) => {
+							if ( importSiteId === siteId ) onProgress( importEvent );
+						}
+				  )
+				: undefined;
+			try {
+				await ipcApi.importSite( siteId, backupPath, {
+					alwaysStartServer: true,
+					showErrorModal: false,
+					showNotification: false,
+				} );
+			} finally {
+				unsubscribe?.();
+			}
 		},
 
 		async startSite( id ) {
@@ -489,20 +513,12 @@ export function createIpcConnector(): Connector {
 		},
 
 		// Connected WPCom sites
-		async getConnectedWpcomSites( localSiteId: string ): Promise< SyncSite[] > {
+		async getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] > {
 			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
 		},
 
-		async getAllConnectedWpcomSites(): Promise< SyncSite[] > {
-			return ( await ipcApi.getAllConnectedWpcomSites() ) as SyncSite[];
-		},
-
-		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
-			return ( await ipcApi.fetchSyncableWpcomSites() ) as SyncSite[];
-		},
-
-		async fetchAllWpcomSites(): Promise< SyncSite[] > {
-			return ( await ipcApi.fetchAllWpcomSites() ) as SyncSite[];
+		async fetchSyncableWpcomSites( allPages ): Promise< SyncSite[] > {
+			return ( await ipcApi.fetchSyncableWpcomSites( allPages ) ) as SyncSite[];
 		},
 
 		async connectWpcomSite( localSiteId, site ): Promise< void > {
@@ -533,16 +549,14 @@ export function createIpcConnector(): Connector {
 		},
 
 		async pullSiteFromLive( siteId, remoteSiteId, onProgress ): Promise< void > {
-			const siteFolder = await resolveSiteFolder( siteId );
-			const operationId = globalThis.crypto.randomUUID();
 			const unsubscribe = onProgress
 				? ipcListener.subscribe(
 						'sync-pull-progress',
 						(
 							_event: unknown,
-							payload: { operationId: string; message: string; progress?: number }
+							payload: { siteId: string; message: string; progress?: number }
 						) => {
-							if ( payload.operationId === operationId ) {
+							if ( payload.siteId === siteId ) {
 								onProgress( {
 									message: payload.message,
 									...( payload.progress === undefined ? {} : { progress: payload.progress } ),
@@ -552,7 +566,7 @@ export function createIpcConnector(): Connector {
 				  )
 				: undefined;
 			try {
-				await ipcApi.pullSiteFromLive( siteFolder, remoteSiteId, operationId );
+				await ipcApi.pullSiteFromLive( siteId, remoteSiteId );
 			} finally {
 				unsubscribe?.();
 			}
@@ -649,6 +663,7 @@ export function createIpcConnector(): Connector {
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
+				agenticFeaturesEnabled,
 			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
@@ -658,6 +673,7 @@ export function createIpcConnector(): Connector {
 				ipcApi.getDefaultSiteDirectory(),
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.isStudioCliExternallyManaged(),
+				ipcApi.getAgenticFeaturesEnabled(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
@@ -665,6 +681,7 @@ export function createIpcConnector(): Connector {
 				QuitSitesBehavior | undefined,
 				string | undefined,
 				string,
+				boolean,
 				boolean,
 				boolean,
 			];
@@ -677,6 +694,7 @@ export function createIpcConnector(): Connector {
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
+				agenticFeaturesEnabled,
 			};
 		},
 
@@ -704,6 +722,9 @@ export function createIpcConnector(): Connector {
 				writes.push(
 					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
 				);
+			}
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
 			}
 			await Promise.all( writes );
 		},
@@ -860,6 +881,20 @@ export function createIpcConnector(): Connector {
 
 		async disableAgenticUi(): Promise< void > {
 			await ipcApi.disableAgenticUi();
+		},
+
+		async getAppUpdateStatus() {
+			return ipcApi.getAppUpdateStatus();
+		},
+
+		async installAppUpdate(): Promise< void > {
+			await ipcApi.installAppUpdate();
+		},
+
+		onAppUpdateStatusChanged( listener ) {
+			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
+				listener( status as AppUpdateStatus )
+			);
 		},
 	};
 }

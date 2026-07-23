@@ -12,10 +12,7 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
-import {
-	fetchAllWpcomSites as fetchAllWpcomSitesShared,
-	fetchSyncableSites,
-} from '@studio/common/lib/sync/sync-api';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { shouldRetryTusStatus } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -531,14 +528,17 @@ export async function updateConnectedWpcomSites(
 // simpler flow used by `push`. Exchanges everything (`--options all`).
 export async function pullSiteFromLive(
 	event: IpcMainInvokeEvent,
-	siteFolder: string,
-	remoteSiteId: number,
-	operationId: string
+	siteId: string,
+	remoteSiteId: number
 ): Promise< void > {
+	const site = SiteServer.get( siteId );
+	if ( ! site ) {
+		throw new Error( 'Site not found.' );
+	}
 	const window = BrowserWindow.fromWebContents( event.sender );
-	return pullSite( executeCliCommand, siteFolder, remoteSiteId, ( progress ) => {
+	return pullSite( executeCliCommand, site.details.path, remoteSiteId, ( progress ) => {
 		sendIpcEventToRendererWithWindow( window, 'sync-pull-progress', {
-			operationId,
+			siteId,
 			...progress,
 		} );
 	} );
@@ -595,30 +595,19 @@ export async function pushSiteToLive(
 // The desktop renderer builds this list itself via its own WPCOM client
 // (see wpcomSitesApi.getWpComSites); apps/ui doesn't own a wpcom client
 // yet, so we expose a thin IPC wrapper that reuses the stored auth token.
-export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Promise< SyncSite[] > {
-	const token = await getAuthenticationToken();
-	if ( ! token?.accessToken ) {
-		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
-	}
-	return fetchSyncableSites( token.accessToken );
-}
-
-export async function fetchAllWpcomSites( _event: IpcMainInvokeEvent ): Promise< SyncSite[] > {
-	const token = await getAuthenticationToken();
-	if ( ! token?.accessToken ) {
-		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
-	}
-	return fetchAllWpcomSitesShared( token.accessToken );
-}
-
-export async function getAllConnectedWpcomSites(
-	_event: IpcMainInvokeEvent
+export async function fetchSyncableWpcomSites(
+	_event: IpcMainInvokeEvent,
+	allPages = false
 ): Promise< SyncSite[] > {
-	return getAllConnectedWpcomSitesForCurrentUserShared();
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
+	}
+	return fetchSyncableSites( token.accessToken, { allPages } );
 }
 
 export async function getConnectedWpcomSites(
-	event: IpcMainInvokeEvent,
+	_event: IpcMainInvokeEvent,
 	localSiteId?: string
 ): Promise< SyncSite[] > {
 	if ( localSiteId ) {

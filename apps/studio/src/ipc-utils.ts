@@ -39,7 +39,7 @@ export interface IpcEvents {
 	'sync-upload-resumed': [ { selectedSiteId: string; remoteSiteId: number } ];
 	'sync-upload-progress': [ { selectedSiteId: string; remoteSiteId: number; progress: number } ];
 	'sync-upload-manually-paused': [ { selectedSiteId: string; remoteSiteId: number } ];
-	'sync-pull-progress': [ PullSiteProgress & { operationId: string } ];
+	'sync-pull-progress': [ PullSiteProgress & { siteId: string } ];
 	'snapshot-error': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
 	'snapshot-fatal-error': [ { operationId: crypto.UUID; data: { message: string } } ];
 	'snapshot-output': [ { operationId: crypto.UUID; data: SnapshotEventData } ];
@@ -69,6 +69,12 @@ export interface IpcEvents {
 	'ai-agent-event': [ AgentRunEvent ];
 	'ai-session-placement-updated': [ AiSessionPlacementUpdatedEvent ];
 	'remote-session-status': [ RemoteSessionStatus ];
+	'app-update-status': [ AppUpdateStatus ];
+}
+
+export interface AppUpdateStatus {
+	readyToInstall: boolean;
+	version: string | null;
 }
 
 let isAppQuitting = false;

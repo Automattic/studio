@@ -91,20 +91,14 @@ export function pullSite(
 			{ output: 'capture' }
 		);
 		emitter.on( 'data', ( { data } ) => {
-			if (
-				! data ||
-				typeof data !== 'object' ||
-				! ( 'status' in data ) ||
-				data.status !== 'inprogress' ||
-				! ( 'message' in data ) ||
-				typeof data.message !== 'string'
-			) {
+			const progress = data as { status?: unknown; message?: unknown } | null;
+			if ( progress?.status !== 'inprogress' || typeof progress.message !== 'string' ) {
 				return;
 			}
 
-			const percent = /\((\d+)%\)/.exec( data.message )?.[ 1 ];
+			const percent = /\((\d+)%\)/.exec( progress.message )?.[ 1 ];
 			emit?.( {
-				message: data.message,
+				message: progress.message,
 				...( percent ? { progress: Math.min( 100, Number( percent ) ) } : {} ),
 			} );
 		} );

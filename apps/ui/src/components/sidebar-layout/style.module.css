@@ -77,6 +77,10 @@
 	justify-content: flex-start;
 }
 
+.sidebarCards {
+	padding: var(--wpds-dimension-padding-sm) calc(var(--wpds-dimension-padding-lg) - var(--wpds-dimension-padding-sm)) 0;
+}
+
 /* Sidebar-specific indicator treatment: match the content card's vertical
    extent instead of running through the frame gaps above/below it (keep the
    12px in sync with --panel-frame-gap in preview-split-frame). The handle is
@@ -90,14 +94,12 @@
 	background-color: var(--wpds-color-fg-interactive-brand);
 }
 
-/* Pinned to the bottom-left of the main area, mirroring the sidebar footer.
-   The button carries its own `padding-sm` top/bottom for its hit area; the
-   matching negative `bottom` cancels that lower padding so the glyph sits flush
-   with the main area's bottom edge instead of floating a padding's-worth above
-   it. */
+/* Bottom-left of the main area. The 46px min-height matches the session
+   view's `panelFooterControls` so the toggle lines up vertically with the
+   chat-history/new-chat buttons. */
 .floatingToggle {
 	position: absolute;
-	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
+	bottom: 0;
 	left: var(--wpds-dimension-padding-xl);
 	display: flex;
 	align-items: center;
@@ -117,6 +119,11 @@
    edge instead of leaving an empty gap. */
 .floatingToggleFlush {
 	left: var(--wpds-dimension-padding-xl);
+}
+
+.floatingToggleButton {
+	position: relative;
+	display: inline-flex;
 }
 
 .sidebarToasts {

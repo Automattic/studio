@@ -1,4 +1,5 @@
-import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
+import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import {
 	__experimentalVStack as VStack,
 	__experimentalHeading as Heading,
@@ -7,6 +8,8 @@ import {
 } from '@wordpress/components';
 import { useI18n } from '@wordpress/react-i18n';
 import { useCallback, useRef, useState } from 'react';
+import offlineIcon from 'src/components/offline-icon';
+import { Tooltip } from 'src/components/tooltip';
 import { useOffline } from 'src/hooks/use-offline';
 import { cx } from 'src/lib/cx';
 import {
@@ -73,10 +76,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 			if ( ! file ) {
 				return;
 			}
-			const hasValidExtension = ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) =>
-				file.name.toLowerCase().endsWith( ext )
-			);
-			if ( ! hasValidExtension ) {
+			if ( ! isSupportedBackupFilename( file.name, ACCEPTED_ADD_SITE_FILE_TYPES ) ) {
 				setExtensionError( __( 'Unsupported file type.' ) );
 				return;
 			}
@@ -131,7 +131,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 			<input
 				ref={ fileRef }
 				type="file"
-				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
+				accept={ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }
 				onChange={ handleChange }
 				className="hidden"
 			/>
@@ -145,7 +145,7 @@ function ImportDropZone( { onValidated }: { onValidated: ( file: File ) => void 
 						{ __( 'Import from a backup' ) }
 					</Heading>
 					<Text className="text-[13px] !text-frame-text-secondary" weight="400">
-						{ __( 'Drop a file or click to browse (.zip, .tar.gz, .sql, .wpress, .xml)' ) }
+						{ __( 'Drop a file or click to browse (.zip, .tar.gz, .wpress, .xml)' ) }
 					</Text>
 				</div>
 			</div>
@@ -192,15 +192,22 @@ export default function AddSiteOptions( {
 					onClick={ () => onOptionSelect( 'new' ) }
 					testId="create-site-option-button"
 				/>
-				<OptionCard
-					illustration={ <ConnectSiteIllustration /> }
-					title={ __( 'Connect a site' ) }
-					description={ __(
-						'Edit a WordPress.com or Pressable site locally, then push changes back'
-					) }
-					onClick={ () => onOptionSelect( 'connect' ) }
-					disabled={ isOffline }
-				/>
+				<Tooltip
+					disabled={ ! isOffline }
+					icon={ offlineIcon }
+					text={ __( 'Connecting a site requires an internet connection.' ) }
+					className="flex-1 flex"
+				>
+					<OptionCard
+						illustration={ <ConnectSiteIllustration /> }
+						title={ __( 'Connect a site' ) }
+						description={ __(
+							'Edit a WordPress.com or Pressable site locally, then push changes back'
+						) }
+						onClick={ () => onOptionSelect( 'connect' ) }
+						disabled={ isOffline }
+					/>
+				</Tooltip>
 				<ImportDropZone onValidated={ handleValidatedBackup } />
 			</div>
 		</VStack>

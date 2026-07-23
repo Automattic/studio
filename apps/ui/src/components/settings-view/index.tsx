@@ -2,8 +2,8 @@ import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
-import { file, Icon } from '@wordpress/icons';
-import { Button, SelectControl } from '@wordpress/ui';
+import { close, file, Icon } from '@wordpress/icons';
+import { Button, IconButton, SelectControl } from '@wordpress/ui';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import * as Tabs from '@/components/tabs';
@@ -11,15 +11,15 @@ import { useConnector } from '@/data/core';
 import { persister } from '@/data/core/query-client';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useSidebarCollapsed } from '@/hooks/use-sidebar-collapsed';
+import { useSettingsClose } from '@/hooks/use-settings-close';
 import { useTrafficLightSpace } from '@/hooks/use-traffic-light-space';
 import { AccountSection } from './account-section';
+import { AiPanel } from './ai-panel';
 import { KeyboardPanel } from './keyboard-panel';
 import { McpPanel } from './mcp-panel';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import { SkillsPanel } from './skills-panel';
 import { StudioCliSection } from './studio-cli-section';
-import { StudioCodePanel } from './studio-code-panel';
 import styles from './style.module.css';
 import { UsagePanel } from './usage-panel';
 import type { PreferencesFormData } from './preferences';
@@ -33,14 +33,7 @@ import type {
 } from '@/data/core';
 import type { ReactNode } from 'react';
 
-const SETTINGS_TABS = [
-	'preferences',
-	'usage',
-	'keyboard',
-	'skills',
-	'mcp',
-	'studio-code',
-] as const;
+const SETTINGS_TABS = [ 'preferences', 'ai', 'usage', 'keyboard', 'skills', 'mcp' ] as const;
 
 type TabId = ( typeof SETTINGS_TABS )[ number ];
 
@@ -96,33 +89,39 @@ const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entr
 ).map( ( [ value, label ] ) => ( { value: value as SupportedLocale, label } ) );
 
 function SettingsHeader() {
-	const connector = useConnector();
-	const sidebarCollapsed = useSidebarCollapsed();
+	// Settings renders fullscreen, so the sidebar (and its floating toggle) is
+	// covered — only the macOS traffic lights still need clearing.
 	const reserveTrafficLightSpace = useTrafficLightSpace();
-	const toggleSpacerClass = sidebarCollapsed
-		? reserveTrafficLightSpace
-			? styles.toggleSpacer
-			: styles.toggleSpacerFlush
-		: null;
+	const onClose = useSettingsClose();
 	return (
 		<div className={ styles.header }>
-			{ toggleSpacerClass ? (
+			{ reserveTrafficLightSpace ? (
 				<div className={ styles.headerStart }>
-					<span className={ toggleSpacerClass } aria-hidden="true" />
+					<span className={ styles.toggleSpacer } aria-hidden="true" />
 				</div>
 			) : null }
 			<div className={ styles.headerTabs }>
 				<Tabs.List className={ styles.headerTabList }>
 					<Tabs.Tab tabId="preferences">{ __( 'Settings' ) }</Tabs.Tab>
+					<Tabs.Tab tabId="ai">{ __( 'AI' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="usage">{ __( 'Usage' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="keyboard">{ __( 'Keyboard' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="skills">{ __( 'Skills' ) }</Tabs.Tab>
 					<Tabs.Tab tabId="mcp">{ __( 'MCP' ) }</Tabs.Tab>
-					{ connector.capabilities.agentInstructions && (
-						<Tabs.Tab tabId="studio-code">{ __( 'Studio Code' ) }</Tabs.Tab>
-					) }
 				</Tabs.List>
 			</div>
+			{ onClose ? (
+				<div className={ styles.headerEnd }>
+					<IconButton
+						variant="minimal"
+						tone="neutral"
+						size="small"
+						icon={ close }
+						label={ __( 'Close settings' ) }
+						onClick={ onClose }
+					/>
+				</div>
+			) : null }
 		</div>
 	);
 }
@@ -241,6 +240,9 @@ function DefaultSiteDirectoryField( { value, onSelect }: { value: string; onSele
 
 function StudioExperienceSection() {
 	const connector = useConnector();
+	if ( ! connector.capabilities.switchToClassicUi ) {
+		return null;
+	}
 	return (
 		<section className={ styles.preferenceSectionGroup }>
 			<PreferenceRow
@@ -426,6 +428,9 @@ export function SettingsView( {
 								onChange={ handleChange }
 							/>
 						</Tabs.Panel>
+						<Tabs.Panel tabId="ai">
+							<AiPanel />
+						</Tabs.Panel>
 						<Tabs.Panel tabId="usage">
 							<UsagePanel />
 						</Tabs.Panel>
@@ -438,11 +443,6 @@ export function SettingsView( {
 						<Tabs.Panel tabId="mcp">
 							<McpPanel />
 						</Tabs.Panel>
-						{ connector.capabilities.agentInstructions && (
-							<Tabs.Panel tabId="studio-code">
-								<StudioCodePanel />
-							</Tabs.Panel>
-						) }
 					</div>
 				</div>
 			</Tabs.Root>

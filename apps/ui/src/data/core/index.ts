@@ -4,6 +4,7 @@ export type {
 	AiModelId,
 	AiSessionSummary,
 	AppGlobals,
+	AppUpdateStatus,
 	AuthUser,
 	ColorScheme,
 	Connector,

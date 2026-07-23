@@ -83,14 +83,6 @@ function removeConnection(
 	}
 }
 
-function removeConnectionsForLocalSite( connections: SyncSite[], localSiteId: string ): void {
-	for ( let index = connections.length - 1; index >= 0; index-- ) {
-		if ( connections[ index ].localSiteId === localSiteId ) {
-			connections.splice( index, 1 );
-		}
-	}
-}
-
 function applyConnectionUpdates(
 	connections: SyncSite[],
 	localSiteId: string,
@@ -212,9 +204,12 @@ export async function removeAllConnectedWpcomSitesForLocalSite(
 	try {
 		await lockSharedConfig();
 		const config = await readSharedConfig();
+		// A deleted local site cannot be recovered by signing into a different account.
 		for ( const userKey of Object.keys( config.connectedWpcomSites ?? {} ) ) {
 			const connections = getConnectionsForUser( config, userKey );
-			removeConnectionsForLocalSite( connections, localSiteId );
+			config.connectedWpcomSites![ userKey ] = connections.filter(
+				( connection ) => connection.localSiteId !== localSiteId
+			);
 			pruneEmptyConnectionsForUser( config, userKey );
 		}
 		await saveSharedConfig( config );

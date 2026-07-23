@@ -1,6 +1,6 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { OnboardingConnectPage, RemoteSiteThumbnail } from './index';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OnboardingConnectPage } from './index';
 import type { SiteDetails, SyncSite } from '@/data/core';
 
 const mocks = vi.hoisted( () => ( {
@@ -20,6 +20,7 @@ const mocks = vi.hoisted( () => ( {
 	connectionsLoading: false,
 	remoteError: null as Error | null,
 	connectionsError: null as Error | null,
+	generateNumberedSiteName: vi.fn(),
 	generateProposedSitePath: vi.fn(),
 	connectWpcomSite: vi.fn(),
 	createSite: vi.fn(),
@@ -27,7 +28,6 @@ const mocks = vi.hoisted( () => ( {
 	pullSite: vi.fn(),
 	startSite: vi.fn(),
 	toastError: vi.fn(),
-	reportSyncError: vi.fn(),
 } ) );
 
 vi.mock( '@tanstack/react-router', () => ( {
@@ -42,6 +42,7 @@ vi.mock( '../layout-onboarding', () => ( {
 
 vi.mock( '@/data/core', () => ( {
 	useConnector: () => ( {
+		generateNumberedSiteName: mocks.generateNumberedSiteName,
 		generateProposedSitePath: mocks.generateProposedSitePath,
 		connectWpcomSite: mocks.connectWpcomSite,
 		openExternalUrl: vi.fn(),
@@ -69,7 +70,7 @@ vi.mock( '@/data/queries/use-sync-site', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-wpcom-sites', () => ( {
-	useAllWpcomSites: () => ( {
+	useSyncableWpcomSites: () => ( {
 		data: mocks.remoteSites,
 		isLoading: mocks.remoteLoading,
 		isFetching: false,
@@ -91,10 +92,6 @@ vi.mock( '@/hooks/use-offline', () => ( {
 
 vi.mock( '@/data/app-messages', () => ( {
 	toast: { error: mocks.toastError },
-} ) );
-
-vi.mock( '@/data/sync-activity', () => ( {
-	reportSyncError: mocks.reportSyncError,
 } ) );
 
 function site( id: number, overrides: Partial< SyncSite > = {} ): SyncSite {
@@ -125,6 +122,7 @@ describe( 'OnboardingConnectPage', () => {
 		mocks.connectionsLoading = false;
 		mocks.remoteError = null;
 		mocks.connectionsError = null;
+		mocks.generateNumberedSiteName.mockResolvedValue( 'Remote site' );
 		mocks.generateProposedSitePath.mockResolvedValue( {
 			path: '/sites/remote-site',
 			isEmpty: true,
@@ -249,6 +247,7 @@ describe( 'OnboardingConnectPage', () => {
 				search: { sync: 'pull' },
 			} )
 		);
+		expect( mocks.generateNumberedSiteName ).toHaveBeenCalledOnce();
 		expect( mocks.startSite ).not.toHaveBeenCalled();
 
 		finishPull();
@@ -274,49 +273,5 @@ describe( 'OnboardingConnectPage', () => {
 		);
 		expect( mocks.deleteSite ).not.toHaveBeenCalled();
 		expect( mocks.startSite ).not.toHaveBeenCalled();
-		await waitFor( () =>
-			expect( mocks.reportSyncError ).toHaveBeenCalledWith(
-				'local-1',
-				'pull',
-				'Remote backup failed'
-			)
-		);
-	} );
-} );
-
-describe( 'RemoteSiteThumbnail', () => {
-	afterEach( () => {
-		vi.useRealTimers();
-	} );
-
-	it( 'refreshes a loaded MShots preview while the first screenshot is generated', () => {
-		vi.useFakeTimers();
-		const { container } = render( <RemoteSiteThumbnail siteUrl="https://example.com" /> );
-		const image = container.querySelector( 'img' );
-		expect( image ).toHaveAttribute( 'src', expect.stringContaining( 'studio_refresh=0' ) );
-
-		fireEvent.load( image! );
-		act( () => {
-			vi.advanceTimersByTime( 5_000 );
-		} );
-
-		expect( image ).toHaveAttribute( 'src', expect.stringContaining( 'studio_refresh=1' ) );
-
-		for ( let refresh = 2; refresh <= 5; refresh++ ) {
-			fireEvent.load( image! );
-			act( () => {
-				vi.advanceTimersByTime( 5_000 );
-			} );
-			expect( image ).toHaveAttribute(
-				'src',
-				expect.stringContaining( `studio_refresh=${ refresh }` )
-			);
-		}
-
-		fireEvent.load( image! );
-		act( () => {
-			vi.advanceTimersByTime( 5_000 );
-		} );
-		expect( image ).toHaveAttribute( 'src', expect.stringContaining( 'studio_refresh=5' ) );
 	} );
 } );

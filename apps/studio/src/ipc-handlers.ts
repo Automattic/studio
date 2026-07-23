@@ -51,10 +51,7 @@ import {
 } from '@studio/common/lib/blueprint-bundle';
 import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { parseCliError, errorMessageContains } from '@studio/common/lib/cli-error';
-import {
-	getConnectedWpcomSitesForLocalSite,
-	removeAllConnectedWpcomSitesForLocalSite,
-} from '@studio/common/lib/connected-sites';
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import {
 	calculateDirectorySizeForArchive,
@@ -211,9 +208,7 @@ export {
 	disconnectWpcomSites,
 	downloadSyncBackup,
 	exportSiteForPush,
-	fetchAllWpcomSites,
 	fetchSyncableWpcomSites,
-	getAllConnectedWpcomSites,
 	getConnectedWpcomSites,
 	pauseSyncUpload,
 	pullSiteFromLive,
@@ -234,6 +229,7 @@ export {
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	getAgenticFeaturesEnabled,
 	getColorScheme,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
@@ -243,6 +239,7 @@ export {
 	getUserTerminal,
 	getWapuuScore,
 	previewColorScheme,
+	saveAgenticFeaturesEnabled,
 	saveColorScheme,
 	saveGlobalAgentInstructions,
 	saveQuitSitesBehavior,
@@ -1149,7 +1146,6 @@ export async function deleteSite(
 		throw new Error( 'Site not found.' );
 	}
 	await server.delete( deleteFiles );
-	await removeAllConnectedWpcomSitesForLocalSite( id );
 }
 
 export async function copySite(
@@ -1531,6 +1527,8 @@ export async function isAgenticUiBannerDismissed( _event: IpcMainInvokeEvent ): 
 	const userData = await loadUserData();
 	return userData.agenticUiBannerDismissed === true;
 }
+
+export { getAppUpdateStatus, installAppUpdate } from 'src/updates';
 
 export async function executeWPCLiInline(
 	_event: IpcMainInvokeEvent,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
-import { fetchAllWpcomSites, fetchSyncableSites } from '../sync-api';
+import { fetchSyncableSites } from '../sync-api';
 
 vi.mock( '@studio/common/lib/wpcom-factory', () => ( { default: vi.fn() } ) );
 vi.mock( '@studio/common/lib/wpcom-xhr-request-factory', () => ( { default: vi.fn() } ) );
@@ -45,37 +45,54 @@ describe( 'WordPress.com site fetching', () => {
 	} );
 
 	it( 'fetches every page for the Connect flow and preserves Pressable sites', async () => {
+		const firstPage = Array.from( { length: 100 }, ( _, index ) => remoteSite( index + 1 ) );
 		get
 			.mockResolvedValueOnce( {
-				sites: [ remoteSite( 1 ), remoteSite( 2 ) ],
-				total: 3,
+				sites: firstPage,
+				total: 101,
 				page: 1,
-				per_page: 2,
+				per_page: 100,
 			} )
 			.mockResolvedValueOnce( {
 				sites: [
-					remoteSite( 3, {
+					remoteSite( 101, {
 						hosting_provider_guess: 'pressable',
 						plan: undefined,
 					} ),
 				],
-				total: 3,
+				total: 101,
 				page: 2,
 				per_page: 100,
 			} );
 
-		const sites = await fetchAllWpcomSites( 'token' );
+		const sites = await fetchSyncableSites( 'token', { allPages: true } );
 
-		expect( sites ).toHaveLength( 3 );
-		expect( sites.at( -1 ) ).toMatchObject( { id: 3, isPressable: true } );
+		expect( sites ).toHaveLength( 101 );
+		expect( sites.at( -1 ) ).toMatchObject( { id: 101, isPressable: true } );
 		expect( get ).toHaveBeenNthCalledWith(
 			2,
-			{ apiNamespace: 'rest/v1.3', path: '/me/sites' },
+			{ apiNamespace: 'rest/v1.2', path: '/me/sites' },
 			expect.objectContaining( {
 				filter: 'atomic,wpcom',
 				page: 2,
 				per_page: 100,
 			} )
 		);
+	} );
+
+	it( 'fails instead of silently returning a truncated list when pagination repeats', async () => {
+		const repeatedPage = Array.from( { length: 100 }, ( _, index ) => remoteSite( index + 1 ) );
+		get.mockResolvedValue( {
+			sites: repeatedPage,
+			total: 200,
+			page: 1,
+			per_page: 100,
+		} );
+		const warn = vi.spyOn( console, 'warn' ).mockImplementation( () => undefined );
+
+		await expect( fetchSyncableSites( 'token', { allPages: true } ) ).rejects.toThrow(
+			'incomplete site list'
+		);
+		expect( warn ).toHaveBeenCalledOnce();
 	} );
 } );

@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-	ConnectSiteLifecycleError,
-	findAvailableSitePath,
-	runConnectSiteLifecycle,
-} from './connect-site';
+import { ConnectSiteLifecycleError, runConnectSiteLifecycle } from './connect-site';
 import type { SiteDetails } from '@/data/core';
 
 const localSite = { id: 'local-1', name: 'Example', path: '/sites/example' } as SiteDetails;
@@ -31,13 +27,6 @@ function createLifecycle( failingStage?: string ) {
 }
 
 describe( 'runConnectSiteLifecycle', () => {
-	it( 'creates, connects, pulls, starts, and opens in order', async () => {
-		const { calls, lifecycle } = createLifecycle();
-
-		await expect( runConnectSiteLifecycle( lifecycle ) ).resolves.toBe( localSite );
-		expect( calls ).toEqual( [ 'create', 'connect', 'pull', 'start', 'open' ] );
-	} );
-
 	it.each( [ 'connect' ] )( 'removes the local shell when %s fails', async ( stage ) => {
 		const { calls, lifecycle } = createLifecycle( stage );
 
@@ -62,19 +51,16 @@ describe( 'runConnectSiteLifecycle', () => {
 		expect( calls ).toEqual( [ 'create' ] );
 	} );
 
-	it.each( [ 'pull', 'start', 'open' ] )(
-		'retains the shell and persisted connection when %s fails',
-		async ( stage ) => {
-			const { calls, lifecycle } = createLifecycle( stage );
+	it( 'retains the shell and persisted connection when opening fails', async () => {
+		const { calls, lifecycle } = createLifecycle( 'open' );
 
-			await expect( runConnectSiteLifecycle( lifecycle ) ).rejects.toMatchObject( {
-				message: `${ stage } failed`,
-				connectionPersisted: true,
-				localSiteId: localSite.id,
-			} );
-			expect( calls ).not.toContain( 'delete' );
-		}
-	);
+		await expect( runConnectSiteLifecycle( lifecycle ) ).rejects.toMatchObject( {
+			message: 'open failed',
+			connectionPersisted: true,
+			localSiteId: localSite.id,
+		} );
+		expect( calls ).not.toContain( 'delete' );
+	} );
 
 	it( 'keeps the original error when cleanup also fails', async () => {
 		const { lifecycle } = createLifecycle( 'connect' );
@@ -94,9 +80,7 @@ describe( 'runConnectSiteLifecycle', () => {
 			await pullPending;
 		} );
 
-		await expect(
-			runConnectSiteLifecycle( { ...lifecycle, backgroundAfterConnection: true } )
-		).resolves.toBe( localSite );
+		await expect( runConnectSiteLifecycle( lifecycle ) ).resolves.toBe( localSite );
 		expect( calls ).toEqual( [ 'create', 'connect', 'pull', 'open' ] );
 
 		finishPull();
@@ -105,44 +89,22 @@ describe( 'runConnectSiteLifecycle', () => {
 		);
 	} );
 
-	it( 'reports background failures without deleting the persisted shell', async () => {
+	it( 'does not start or delete the persisted shell when pulling fails', async () => {
 		const { calls, lifecycle } = createLifecycle( 'pull' );
-		const onBackgroundError = vi.fn();
 
-		await runConnectSiteLifecycle( {
-			...lifecycle,
-			backgroundAfterConnection: true,
-			onBackgroundError,
-		} );
+		await runConnectSiteLifecycle( lifecycle );
 
-		await vi.waitFor( () => expect( onBackgroundError ).toHaveBeenCalledOnce() );
-		expect( onBackgroundError ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				message: 'pull failed',
-				connectionPersisted: true,
-				localSiteId: localSite.id,
-			} )
-		);
+		await vi.waitFor( () => expect( calls ).toContain( 'pull' ) );
+		expect( calls ).not.toContain( 'start' );
 		expect( calls ).not.toContain( 'delete' );
 	} );
-} );
 
-describe( 'findAvailableSitePath', () => {
-	it( 'returns the first empty generated path and increments the name', async () => {
-		const generatePath = vi
-			.fn()
-			.mockResolvedValueOnce( { path: '/sites/example', isEmpty: false, isWordPress: true } )
-			.mockResolvedValueOnce( {
-				path: '/sites/example-2',
-				isEmpty: true,
-				isWordPress: false,
-			} );
+	it( 'does not delete the persisted shell when starting fails', async () => {
+		const { calls, lifecycle } = createLifecycle( 'start' );
 
-		await expect( findAvailableSitePath( 'Example', generatePath ) ).resolves.toEqual( {
-			name: 'Example 2',
-			path: '/sites/example-2',
-		} );
-		expect( generatePath ).toHaveBeenNthCalledWith( 1, 'Example' );
-		expect( generatePath ).toHaveBeenNthCalledWith( 2, 'Example 2' );
+		await runConnectSiteLifecycle( lifecycle );
+
+		await vi.waitFor( () => expect( calls ).toContain( 'start' ) );
+		expect( calls ).not.toContain( 'delete' );
 	} );
 } );

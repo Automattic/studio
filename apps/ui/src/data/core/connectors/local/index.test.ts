@@ -14,11 +14,14 @@ describe( 'createLocalConnector Connect contracts', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'forwards skipStart and uses explicit all-sites endpoints', async () => {
+	it( 'forwards skipStart and requests complete site and connection sets', async () => {
 		fetchMock.mockImplementation( async ( input: string | URL | Request ) => {
 			const url = String( input );
 			if ( url.endsWith( '/api/sites' ) ) {
 				return new Response( JSON.stringify( { id: 'site-1' } ) );
+			}
+			if ( url.includes( '/api/site-defaults/name?base=' ) ) {
+				return new Response( JSON.stringify( { name: 'Remote site 2' } ) );
 			}
 			return new Response( JSON.stringify( [] ) );
 		} );
@@ -29,17 +32,24 @@ describe( 'createLocalConnector Connect contracts', () => {
 			path: '/sites/remote-site',
 			skipStart: true,
 		} );
-		await connector.fetchAllWpcomSites();
-		await connector.getAllConnectedWpcomSites();
+		await connector.fetchSyncableWpcomSites( true );
+		await connector.getConnectedWpcomSites();
+		await expect( connector.generateNumberedSiteName( 'Remote site', [] ) ).resolves.toBe(
+			'Remote site 2'
+		);
 
 		const createCall = fetchMock.mock.calls[ 0 ];
 		expect( JSON.parse( String( createCall[ 1 ]?.body ) ) ).toMatchObject( { skipStart: true } );
 		expect( fetchMock ).toHaveBeenCalledWith(
-			'http://localhost:8081/api/wpcom/sites',
+			'http://localhost:8081/api/wpcom/syncable-sites?all=1',
 			expect.any( Object )
 		);
 		expect( fetchMock ).toHaveBeenCalledWith(
 			'http://localhost:8081/api/wpcom/connected-sites',
+			expect.any( Object )
+		);
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/site-defaults/name?base=Remote%20site',
 			expect.any( Object )
 		);
 	} );
@@ -80,15 +90,12 @@ describe( 'createLocalConnector Connect contracts', () => {
 			close() {}
 		}
 		vi.stubGlobal( 'EventSource', MockEventSource );
-		vi.stubGlobal( 'crypto', { randomUUID: () => 'pull-operation' } );
-		fetchMock.mockImplementation( async ( _input: string | URL | Request, init?: RequestInit ) => {
-			const { operationId } = JSON.parse( String( init?.body ) ) as { operationId: string };
+		fetchMock.mockImplementation( async () => {
 			onMessage?.(
 				new MessageEvent( 'message', {
 					data: JSON.stringify( {
 						channel: 'sync-pull',
 						payload: {
-							operationId,
 							siteId: 'site-1',
 							remoteSiteId: 42,
 							message: 'Creating remote backup… (20%)',

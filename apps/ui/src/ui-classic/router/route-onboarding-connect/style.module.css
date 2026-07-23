@@ -8,14 +8,14 @@
 	gap: 24px;
 	max-width: 520px;
 	margin-inline: auto;
-	text-align: left;
+	text-align: start;
 }
 
 .benefits {
 	display: grid;
 	gap: 10px;
 	margin: 0;
-	padding-left: 20px;
+	padding-inline-start: 20px;
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
@@ -80,23 +80,11 @@
 	color: var(--wpds-color-fg-content-neutral-weak);
 }
 
-.visuallyHidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	padding: 0;
-	margin: -1px;
-	overflow: hidden;
-	clip: rect(0, 0, 0, 0);
-	white-space: nowrap;
-	border: 0;
-}
-
 .sections {
 	display: flex;
 	flex-direction: column;
 	gap: 40px;
-	text-align: left;
+	text-align: start;
 }
 
 .section {
@@ -153,7 +141,7 @@
 	background: var(--wpds-color-bg-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
 	cursor: pointer;
-	text-align: left;
+	text-align: start;
 	transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 

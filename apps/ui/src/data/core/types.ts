@@ -347,6 +347,9 @@ export interface Connector {
 	// API: a "latest" auto-updating option first, then nightly/beta and
 	// stable releases down to Playground's minimum supported version.
 	getWordPressVersions(): Promise< WordPressVersion[] >;
+	// Reads the WordPress version installed at the site's path. Resolves to
+	// '-' when it can't be determined (missing files, site not found).
+	getWpVersion( siteId: string ): Promise< string >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
 	// in the renderer. Returns an empty string when the underlying file lacks

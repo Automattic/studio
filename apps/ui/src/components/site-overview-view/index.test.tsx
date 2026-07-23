@@ -20,7 +20,8 @@ import {
 	useXdebugEnabledSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
+import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
+import { useOffline } from '@/hooks/use-offline';
 import { SiteOverviewView } from './index';
 import type { SiteDetails } from '@/data/core';
 
@@ -98,6 +99,11 @@ vi.mock( '@/data/queries/use-certificate-trust', () => ( {
 
 vi.mock( '@/data/queries/use-wordpress-versions', () => ( {
 	useWordPressVersions: vi.fn(),
+	useWpVersion: vi.fn(),
+} ) );
+
+vi.mock( '@/hooks/use-offline', () => ( {
+	useOffline: vi.fn(),
 } ) );
 
 vi.mock( '@/hooks/use-fullscreen', () => ( {
@@ -127,6 +133,8 @@ const useUserPreferencesMock = vi.mocked( useUserPreferences, { partial: true } 
 const useCertificateTrustMock = vi.mocked( useCertificateTrust, { partial: true } );
 const useTrustCertificateMock = vi.mocked( useTrustCertificate, { partial: true } );
 const useWordPressVersionsMock = vi.mocked( useWordPressVersions, { partial: true } );
+const useWpVersionMock = vi.mocked( useWpVersion, { partial: true } );
+const useOfflineMock = vi.mocked( useOffline );
 
 describe( 'SiteOverviewView', () => {
 	const openSiteUrl = vi.fn().mockResolvedValue( undefined );
@@ -239,6 +247,8 @@ describe( 'SiteOverviewView', () => {
 		useCertificateTrustMock.mockReturnValue( { data: true } );
 		useTrustCertificateMock.mockReturnValue( { mutate: vi.fn() } );
 		useWordPressVersionsMock.mockReturnValue( { data: [] } );
+		useWpVersionMock.mockReturnValue( { data: undefined } );
+		useOfflineMock.mockReturnValue( false );
 	} );
 
 	it( 'renders the shortcut sections', async () => {

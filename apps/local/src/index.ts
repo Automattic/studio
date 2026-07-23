@@ -40,6 +40,7 @@ import {
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
+import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { importIpcEventSchema } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
@@ -192,6 +193,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
 	const execute = cliRunner.executeCliCommand;
+	const uploads = new Map< string, { path: string; directory: string } >();
 
 	// --- Server-Sent Events: one stream carries live UI updates ----------------
 	const sseClients = new Set< Response >();
@@ -488,6 +490,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await stopSite( execute, site.path );
 			res.sendStatus( 204 );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/wp-version',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sites = await listSites( execute );
+			const site = sites.find( ( candidate ) => candidate.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( { wpVersion: getWordPressVersion( site.path ) } );
 		} )
 	);
 
@@ -841,6 +856,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				rm( dir, { recursive: true, force: true }, () => undefined );
 				throw error;
 			}
+			uploads.set( dest, { path: dest, directory: dir } );
 			res.json( { path: dest } );
 		} )
 	);
@@ -868,8 +884,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/import',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const archivePath = req.body?.path;
-			if ( typeof archivePath !== 'string' || ! archivePath ) {
+			const requestedPath = req.body?.path;
+			if ( typeof requestedPath !== 'string' ) {
 				res.status( 400 ).json( { error: 'Missing backup path' } );
 				return;
 			}
@@ -878,10 +894,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
+			const upload = uploads.get( requestedPath );
+			if ( ! upload ) {
+				res.status( 400 ).json( { error: 'Unknown backup path' } );
+				return;
+			}
+			uploads.delete( requestedPath );
 			try {
 				await new Promise< void >( ( resolve, reject ) => {
 					const [ emitter ] = execute(
-						[ 'import', '--path', site.path, archivePath, '--start-server' ],
+						[ 'import', '--path', site.path, upload.path, '--start-server' ],
 						{ output: 'capture' }
 					);
 					emitter.on( 'data', ( { data } ) => {
@@ -898,16 +920,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			} finally {
-				// Drop the uploaded temp copy — but only a temp dir we created: a
-				// direct child of the OS temp dir. Resolve first so `..` in the
-				// supplied path can't escape the temp root and delete elsewhere.
-				const uploadDir = path.dirname( path.resolve( archivePath ) );
-				if (
-					path.dirname( uploadDir ) === path.resolve( os.tmpdir() ) &&
-					path.basename( uploadDir ).startsWith( 'studio-upload-' )
-				) {
-					rm( uploadDir, { recursive: true, force: true }, () => undefined );
-				}
+				rm( upload.directory, { recursive: true, force: true }, () => undefined );
 			}
 			res.status( 204 ).end();
 		} )

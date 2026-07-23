@@ -464,6 +464,10 @@ export function createIpcConnector(): Connector {
 			return fetchWordPressVersions();
 		},
 
+		async getWpVersion( siteId ) {
+			return ( await ipcApi.getWpVersion( siteId ) ) as string;
+		},
+
 		async getFilePath( file ) {
 			// `webUtils.getPathForFile` is a synchronous preload-only API; the
 			// connector wraps it in a Promise to keep the surface uniform and

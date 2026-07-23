@@ -1,3 +1,4 @@
+import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { useIsMutating } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { arrowDown, arrowUp, copy, external, Icon, moreHorizontal } from '@wordpress/icons';
@@ -31,7 +32,6 @@ import {
 	deriveSiteStatus,
 	ensureProtocol,
 	getSnapshotHostname,
-	isSnapshotExpired,
 	pickLatestSnapshot,
 	pickLiveSite,
 	stripProtocol,

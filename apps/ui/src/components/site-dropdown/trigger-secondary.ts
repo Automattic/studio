@@ -1,6 +1,6 @@
+import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { formatRelativeTime } from '@/lib/format-relative-time';
-import { isSnapshotExpired, normalizeSnapshotTimestamp } from './utils';
 import type { Snapshot, SyncSite } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
 
@@ -93,7 +93,7 @@ function getPreviewLabel( previewSnapshot: Snapshot | undefined ): string | null
 	}
 
 	return formatTimestampPhrase(
-		normalizeSnapshotTimestamp( previewSnapshot.date ),
+		previewSnapshot.date,
 		__( 'Preview updated now' ),
 		( relativeTime ) =>
 			sprintf(

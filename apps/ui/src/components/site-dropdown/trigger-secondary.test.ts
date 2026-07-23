@@ -41,21 +41,6 @@ describe( 'getSiteDropdownSecondary', () => {
 		} );
 	} );
 
-	it( 'normalizes preview timestamps stored as unix seconds', () => {
-		expect(
-			getSiteDropdownSecondary( {
-				activity: null,
-				activeEnvironment: 'local',
-				previewSnapshot: createSnapshot( {
-					date: Date.parse( '2026-05-03T11:55:00.000Z' ) / 1000,
-				} ),
-			} )
-		).toEqual( {
-			label: 'Preview updated 5m ago',
-			tone: 'neutral',
-		} );
-	} );
-
 	it( 'reports expiry instead of recency once the snapshot is too old', () => {
 		expect(
 			getSiteDropdownSecondary( {

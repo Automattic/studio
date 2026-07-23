@@ -18,7 +18,7 @@ function AgenticFeaturesSection() {
 					<h2>{ __( 'Agentic features' ) }</h2>
 					<p>
 						{ __(
-							'Chat with Studio Code to build and edit your sites. Turning it off hides chat and opens sites on their overview instead.'
+							'Chat with an agent that builds and edits your sites. Turning this off hides chat — your existing conversations are kept.'
 						) }
 					</p>
 				</div>

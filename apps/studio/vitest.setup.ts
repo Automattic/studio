@@ -114,15 +114,6 @@ vi.mock( 'src/hooks/use-offline', () => ( {
 	useOffline: vi.fn().mockReturnValue( false ),
 } ) );
 
-vi.mock( 'src/hooks/use-ai-icon', () => ( {
-	__esModule: true,
-	default: () => ( {
-		rive: null,
-		RiveComponent: () => null,
-		setInputState: vi.fn(),
-	} ),
-} ) );
-
 global.ResizeObserver = require( 'resize-observer-polyfill' );
 
 vi.mock( '@sentry/electron/main', () => ( {

@@ -274,9 +274,7 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		if ( ! node ) {
 			return;
 		}
-		const prefersReducedMotion =
-			typeof window.matchMedia === 'function' &&
-			window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
+		const prefersReducedMotion = window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches;
 		node.scrollTo( { top: node.scrollHeight, behavior: prefersReducedMotion ? 'auto' : 'smooth' } );
 	}, [] );
 	useSessionCommands( sessionId );

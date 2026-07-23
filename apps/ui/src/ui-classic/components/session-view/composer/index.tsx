@@ -229,8 +229,10 @@ export interface ComposerHandle {
 		text: string,
 		attachments?: { images?: StudioChatImage[]; files?: StudioChatFileAttachment[] }
 	): void;
-	// True when the composer holds anything replaceDraft would discard.
-	hasDraft(): boolean;
+	// Snapshot of what replaceDraft would discard, so callers can decide
+	// whether a confirmation is warranted (e.g. skip it when the draft still
+	// matches a previously inserted suggestion).
+	getDraft(): { text: string; hasAttachments: boolean };
 }
 
 function shouldShellFocusTextarea( target: EventTarget ) {
@@ -498,8 +500,8 @@ export const Composer = forwardRef< ComposerHandle, ComposerProps >( function Co
 					node.setSelectionRange( len, len );
 				} );
 			},
-			hasDraft() {
-				return value.trim().length > 0 || attachments.length > 0;
+			getDraft() {
+				return { text: value, hasAttachments: attachments.length > 0 };
 			},
 		} ),
 		[ restoreAttachments, value, attachments ]

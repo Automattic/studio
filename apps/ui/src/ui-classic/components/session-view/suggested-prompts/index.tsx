@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { Button, Dialog } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { getSuggestedPrompts } from './prompts';
 import styles from './style.module.css';
 
@@ -9,24 +9,37 @@ interface SuggestedPromptsProps {
 	siteName: string;
 	// Drops the prompt into the composer (focused) — the user sends it.
 	onPick: ( prompt: string ) => void;
-	// Checked at click time; a truthy draft asks for confirmation before
-	// onPick overwrites it.
-	hasExistingDraft: () => boolean;
+	// Checked at click time; confirmation is only asked when the draft
+	// diverged from the last suggestion we inserted (user edits count,
+	// switching between untouched suggestions does not).
+	getDraft: () => { text: string; hasAttachments: boolean };
 }
 
 // Plain-text starter prompts floating under the empty-state logo. One action:
 // click to load the prompt into the composer, ready to tweak or send. A fresh
 // sample rotates in per mount (memo keeps it stable across re-renders).
-export function SuggestedPrompts( { siteName, onPick, hasExistingDraft }: SuggestedPromptsProps ) {
+export function SuggestedPrompts( { siteName, onPick, getDraft }: SuggestedPromptsProps ) {
 	const prompts = useMemo( () => getSuggestedPrompts( siteName ), [ siteName ] );
 	const [ pendingPrompt, setPendingPrompt ] = useState< string | null >( null );
+	// Text of the last suggestion we inserted. While the draft still equals it
+	// (and no attachments were added), another suggestion may replace it freely.
+	const baselineRef = useRef< string | null >( null );
+
+	const apply = ( prompt: string ) => {
+		baselineRef.current = prompt;
+		onPick( prompt );
+	};
 
 	const pick = ( prompt: string ) => {
-		if ( hasExistingDraft() ) {
-			setPendingPrompt( prompt );
+		const draft = getDraft();
+		const isEmpty = draft.text.trim().length === 0 && ! draft.hasAttachments;
+		const matchesBaseline =
+			baselineRef.current !== null && draft.text === baselineRef.current && ! draft.hasAttachments;
+		if ( isEmpty || matchesBaseline ) {
+			apply( prompt );
 			return;
 		}
-		onPick( prompt );
+		setPendingPrompt( prompt );
 	};
 
 	return (
@@ -67,9 +80,7 @@ export function SuggestedPrompts( { siteName, onPick, hasExistingDraft }: Sugges
 					</Dialog.Header>
 					<Dialog.Content>
 						<Dialog.Description>
-							{ __(
-								'Using this suggestion will replace the message and attachments you’ve already added.'
-							) }
+							{ __( 'Your current draft and attachments will be discarded.' ) }
 						</Dialog.Description>
 					</Dialog.Content>
 					<Dialog.Footer>
@@ -78,15 +89,15 @@ export function SuggestedPrompts( { siteName, onPick, hasExistingDraft }: Sugges
 						</Dialog.Action>
 						<Button
 							variant="solid"
-							tone="brand"
+							className={ styles.replaceAction }
 							onClick={ () => {
 								if ( pendingPrompt ) {
-									onPick( pendingPrompt );
+									apply( pendingPrompt );
 								}
 								setPendingPrompt( null );
 							} }
 						>
-							{ __( 'Use suggestion' ) }
+							{ __( 'Replace draft' ) }
 						</Button>
 					</Dialog.Footer>
 				</Dialog.Popup>

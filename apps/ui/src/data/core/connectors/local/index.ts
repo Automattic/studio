@@ -2,11 +2,13 @@ import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
+import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
+	AppGlobals,
 	AuthUser,
 	ColorScheme,
 	Connector,
@@ -19,13 +21,14 @@ import type {
 	SelectedSiteFolder,
 	SiteDetails,
 	Snapshot,
+	SnapshotUsage,
 	SupportedEditor,
 	SupportedTerminal,
 	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { SiteRestResponse } from '@studio/common/types/wordpress-rest';
+import type { ImportEventTuple } from '@studio/common/lib/import-export-events';
 
 // The in-app dark/light/system choice, persisted in the browser (there's no
 // Electron `nativeTheme` to mirror it) so it sticks across reloads.
@@ -57,12 +60,15 @@ type SnapshotSseOutput =
 	| { kind: 'success'; operationId: string }
 	| { kind: 'output' | 'error'; operationId: string };
 
+type ImportSseOutput = { siteId: string; event: ImportEventTuple };
+
 // Envelope used by the backend's `/events` SSE stream so a single connection
-// can carry agent-run events, session-placement updates, and snapshot progress.
+// can carry every live update consumed by the browser UI.
 type ServerEvent =
 	| { channel: 'agent'; payload: AgentRunEvent }
 	| { channel: 'placement'; payload: AiSessionPlacementUpdatedEvent }
 	| { channel: 'snapshot'; payload: SnapshotSseOutput }
+	| { channel: 'import'; payload: ImportSseOutput }
 	| { channel: 'sync-connect'; payload: { remoteSiteId: number; studioSiteId: string } };
 
 /**
@@ -85,6 +91,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
 	const snapshotListeners = new Set< ( output: SnapshotSseOutput ) => void >();
+	const importListeners = new Set< ( output: ImportSseOutput ) => void >();
 	const syncConnectListeners = new Set<
 		( event: { remoteSiteId: number; studioSiteId: string } ) => void
 	>();
@@ -190,8 +197,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 	return {
 		async init() {
-			// One SSE connection carries both agent and placement events; the
-			// browser's EventSource reconnects automatically.
+			// The browser's EventSource reconnects automatically.
 			eventSource?.close();
 			eventSource = new EventSource( `${ base }/events` );
 			eventSource.onmessage = ( message ) => {
@@ -207,6 +213,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'snapshot' ) {
 					snapshotListeners.forEach( ( listener ) => listener( parsed.payload ) );
+				} else if ( parsed.channel === 'import' ) {
+					importListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				} else if ( parsed.channel === 'sync-connect' ) {
 					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
 				}
@@ -222,6 +230,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			openInOS: true,
 			annotatePreview: false,
 			readLocalMedia: false,
+			agentInstructions: true,
+			switchToClassicUi: false,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -372,6 +382,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// an editable path field (see capabilities.nativeFolderPicker).
 			return null;
 		},
+		async selectDefaultSiteDirectory(): Promise< string | null > {
+			// No native folder picker in a browser.
+			return null;
+		},
 		async comparePaths( path1, path2 ) {
 			const { equal } = await api< { equal: boolean } >( '/paths/compare', {
 				method: 'POST',
@@ -446,17 +460,40 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async readBlueprintFile() {
 			throw new UnsupportedError( 'readBlueprintFile' );
 		},
-		async importSiteFromBackup( siteId, backup ): Promise< SiteDetails > {
-			return api< SiteDetails >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
-				method: 'POST',
-				body: JSON.stringify( { path: backup.path, type: backup.type } ),
-			} );
+		async importSiteFromBackup( siteId, backupPath, onProgress ): Promise< void > {
+			const listener = onProgress
+				? ( output: ImportSseOutput ) => {
+						if ( output.siteId === siteId ) onProgress( output.event );
+				  }
+				: undefined;
+			if ( listener ) importListeners.add( listener );
+			try {
+				await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
+					method: 'POST',
+					body: JSON.stringify( { path: backupPath } ),
+				} );
+			} finally {
+				if ( listener ) importListeners.delete( listener );
+			}
 		},
 
 		// Preview snapshots + WordPress.com sync — backed by the server's snapshot
 		// manager and sync routes (the same shared code the desktop uses).
 		async getSnapshots(): Promise< Snapshot[] > {
 			return api< Snapshot[] >( '/snapshots' );
+		},
+		async getSnapshotUsage(): Promise< SnapshotUsage | null > {
+			// No usage endpoint on the local server yet; callers fall back to
+			// counting snapshots.
+			return null;
+		},
+		async getStudioAssistantQuota() {
+			// No quota endpoint on the local server; callers fall back to
+			// static copy.
+			return null;
+		},
+		async deleteAllSnapshots() {
+			// No-op: the local server has no delete-all route yet.
 		},
 		async publishPreviewSite( siteId, existingHostname ): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
@@ -514,18 +551,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 		getPublishCheckoutUrl( site ): string {
-			// The same WordPress.com hosted-site checkout the desktop opens — a pure
-			// URL builder, so it ports verbatim. (The post-checkout auto-connect still
-			// relies on the deep-link listener, which a browser tab can't receive, so
-			// the user finishes by connecting the new site from the picker.)
-			const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-			url.searchParams.set( 'ref', 'studio' );
-			url.searchParams.set( 'section', 'publish-site' );
-			url.searchParams.set( 'showDomainStep', 'true' );
-			url.searchParams.set( 'studioSiteId', site.id );
-			url.searchParams.set( 'new', site.customDomain ?? site.name );
-			url.searchParams.set( 'autoOpenPush', 'true' );
-			return url.toString();
+			// The post-checkout auto-connect relies on the deep-link listener, which
+			// a browser tab can't receive, so the user finishes by connecting the
+			// new site from the picker.
+			return buildPublishCheckoutUrl( site );
 		},
 
 		// AI sessions — the headline. HTTP routes on the local server, backed by
@@ -605,6 +634,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				colorScheme,
 				quitSitesBehavior,
 				locale: undefined,
+				defaultSiteDirectory: '',
+				studioCliInstalled: false,
+				studioCliExternallyManaged: false,
 			};
 		},
 		async setUserPreferences( partial ) {
@@ -639,12 +671,18 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< InstalledApps >( '/installed-apps' );
 		},
 
-		// Proxy WordPress REST calls through the server to the running site (it
-		// holds the auto-login cookie + nonce); the shared proxy backs both hosts.
-		async fetchSiteRest( siteId, request ): Promise< SiteRestResponse > {
-			return api< SiteRestResponse >( `/sites/${ encodeURIComponent( siteId ) }/rest`, {
+		async getAppGlobals(): Promise< AppGlobals > {
+			return { platform: 'browser', isWindowsStore: false };
+		},
+
+		async getAgentInstructions(): Promise< string > {
+			const { content } = await api< { content: string } >( '/agent-instructions' );
+			return content;
+		},
+		async saveAgentInstructions( content: string ): Promise< void > {
+			await api< void >( '/agent-instructions', {
 				method: 'POST',
-				body: JSON.stringify( request ),
+				body: JSON.stringify( { content } ),
 			} );
 		},
 
@@ -683,6 +721,15 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			const target = new URL( relativeUrl || '/', findSiteUrl( sites, siteId ) ).toString();
 			window.open( target, '_blank', 'noopener,noreferrer' );
 		},
+		async getWordPressSkillsStatusAllSites() {
+			return [];
+		},
+		async installWordPressSkillToAllSites() {
+			// No-op: the local server does not manage WordPress skills yet.
+		},
+		async removeWordPressSkillFromAllSites() {
+			// No-op: the local server does not manage WordPress skills yet.
+		},
 
 		// Window chrome — no traffic lights in a browser tab.
 		reservesTrafficLightSpace: false,
@@ -701,6 +748,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
+		},
+		async confirmDeleteAllPreviewSites() {
+			return window.confirm(
+				__(
+					'All preview sites that exist for your WordPress.com account, along with all posts, pages, comments, and media, will be lost.'
+				)
+			);
 		},
 		onToggleSidebar() {
 			// No application menu in a browser tab.

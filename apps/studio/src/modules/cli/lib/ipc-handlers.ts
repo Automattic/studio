@@ -10,6 +10,7 @@ import { WindowsCliInstallationManager } from 'src/modules/cli/lib/windows-insta
  */
 export interface StudioCliInstallationManager {
 	isCliInstalled(): Promise< boolean >;
+	isCliExternallyManaged(): Promise< boolean >;
 	installCliWithConfirmation(): Promise< void >;
 	uninstallCliWithConfirmation(): Promise< void >;
 }
@@ -30,6 +31,11 @@ function getCliInstallationManager(): StudioCliInstallationManager {
 export async function isStudioCliInstalled(): Promise< boolean > {
 	const manager = getCliInstallationManager();
 	return await manager.isCliInstalled();
+}
+
+export async function isStudioCliExternallyManaged(): Promise< boolean > {
+	const manager = getCliInstallationManager();
+	return await manager.isCliExternallyManaged();
 }
 
 export async function installStudioCli(): Promise< void > {

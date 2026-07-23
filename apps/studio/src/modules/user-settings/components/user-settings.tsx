@@ -11,6 +11,7 @@ import { McpSettings } from 'src/modules/mcp/components/mcp-settings';
 import { AccountTab } from 'src/modules/user-settings/components/account-tab';
 import { PreferencesTab } from 'src/modules/user-settings/components/preferences-tab';
 import { SkillsTab } from 'src/modules/user-settings/components/skills-tab';
+import { StudioCodeTab } from 'src/modules/user-settings/components/studio-code-tab';
 import { UserSettingsTab } from 'src/modules/user-settings/user-settings-types';
 import { useRootSelector } from 'src/stores';
 import { snapshotSelectors } from 'src/stores/snapshot-slice';
@@ -85,6 +86,11 @@ export default function UserSettings() {
 		} );
 
 		result.push( {
+			name: 'studio-code',
+			title: __( 'Studio Code' ),
+		} );
+
+		result.push( {
 			name: 'skills',
 			title: __( 'Skills' ),
 		} );
@@ -119,6 +125,7 @@ export default function UserSettings() {
 						{ ( { name } ) => (
 							<div className="mt-6 px-8 pb-8 flex gap-4 flex-col">
 								{ name === 'general' && <PreferencesTab onClose={ resetLocalState } /> }
+								{ name === 'studio-code' && <StudioCodeTab /> }
 								{ name === 'skills' && <SkillsTab /> }
 								{ name === 'mcp' && <McpSettings /> }
 								{ name === 'account' && (

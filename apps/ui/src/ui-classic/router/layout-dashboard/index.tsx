@@ -10,6 +10,7 @@ import { SitePreview } from '@/components/site-preview';
 import { useSession, useSessionEffectiveEnvironment } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import {
+	pathForSite,
 	SessionUIProvider,
 	useSessionPreviewAnnotationsHandler,
 	useSessionPreviewUI,
@@ -111,9 +112,9 @@ function DashboardLayoutContent() {
 			setPreviewSite( previewSiteId );
 		}
 	}, [ previewSiteId, setPreviewSite ] );
-	// Until the store catches up with the new site, fall back to the home path
-	// so the preview never loads the previous site's path on the new site.
-	const previewPath = previewSiteId && preview.siteId === previewSiteId ? preview.path : '/';
+	// Look up by the route's site so the path is right even before the
+	// `setPreviewSite` effect lands.
+	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
 	const showPreview = preview.open && supportsPreview && !! previewSite;
 	const renderPreview = useCallback(
 		( { collapsed }: PreviewSplitFramePreviewProps ) =>

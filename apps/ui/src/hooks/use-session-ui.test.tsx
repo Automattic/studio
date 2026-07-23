@@ -22,7 +22,7 @@ function wrapper( { children }: { children: ReactNode } ) {
 }
 
 describe( 'useSessionPreviewUI site switching', () => {
-	it( 'resets the path to home when the previewed site changes', () => {
+	it( 'opens a never-previewed site at home instead of the previous site path', () => {
 		const { result } = renderHook( () => useSessionPreviewUI(), { wrapper } );
 
 		act( () => result.current.setSite( 'site-a' ) );
@@ -32,6 +32,21 @@ describe( 'useSessionPreviewUI site switching', () => {
 		act( () => result.current.setSite( 'site-b' ) );
 		expect( result.current.path ).toBe( '/' );
 		expect( result.current.siteId ).toBe( 'site-b' );
+	} );
+
+	it( 'restores each site last visited path when switching back', () => {
+		const { result } = renderHook( () => useSessionPreviewUI(), { wrapper } );
+
+		act( () => result.current.setSite( 'site-a' ) );
+		act( () => result.current.updatePath( '/about' ) );
+		act( () => result.current.setSite( 'site-b' ) );
+		act( () => result.current.updatePath( '/blog' ) );
+
+		act( () => result.current.setSite( 'site-a' ) );
+		expect( result.current.path ).toBe( '/about' );
+
+		act( () => result.current.setSite( 'site-b' ) );
+		expect( result.current.path ).toBe( '/blog' );
 	} );
 
 	it( 'keeps the path when the previewed site is unchanged', () => {

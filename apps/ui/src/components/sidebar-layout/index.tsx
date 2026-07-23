@@ -68,8 +68,11 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 							<SidebarHeader onToggleSidebar={ toggleSidebar } />
 							<SiteList />
 							<div className={ styles.sidebarFooter }>
-								{ ! collapsed ? <AppMessageCards className={ styles.sidebarCards } /> : null }
+								{ /* Toasts sit above the persistent cards: the footer is
+								     bottom-anchored, so a transient toast arriving below a card
+								     would shove it up and drop it back on expiry. */ }
 								{ ! collapsed ? <AppToasts className={ styles.sidebarToasts } /> : null }
+								{ ! collapsed ? <AppMessageCards className={ styles.sidebarCards } /> : null }
 								<UserMenu />
 							</div>
 						</div>

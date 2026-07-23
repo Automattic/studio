@@ -1,4 +1,5 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
+import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { speak } from '@wordpress/a11y';
 import { Notice } from '@wordpress/components';
 import { createInterpolateElement } from '@wordpress/element';
@@ -161,11 +162,7 @@ const InitialImportButton = ( {
 };
 
 const isValidImportFile = ( file: File ): boolean => {
-	const fileName = file.name.toLowerCase();
-	return (
-		ACCEPTED_IMPORT_FILE_TYPES.some( ( ext ) => fileName.endsWith( ext ) ) ||
-		fileName.endsWith( '.sql' )
-	);
+	return isSupportedBackupFilename( file.name );
 };
 
 const ImportSite = ( {
@@ -329,7 +326,7 @@ const ImportSite = ( {
 				className="hidden"
 				type="file"
 				data-testid="backup-file"
-				accept={ `${ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) },.sql` }
+				accept={ ACCEPTED_IMPORT_FILE_TYPES.join( ',' ) }
 				onChange={ onFileSelected }
 			/>
 		</div>

@@ -49,6 +49,35 @@ tests:
             };
           });
 
+  # The global instructions file (~/.studio/knowledge/instructions.md) is
+  # seeded with a sentinel-token rule for the turn and restored afterwards.
+  # A compliant agent ends its reply with the token; an agent that never saw
+  # the instructions can't produce it.
+  - description: agent follows the user's global instructions
+    vars:
+      caseId: global-instructions
+      timeoutMs: 60000
+      prompt: In one short sentence, say hello. Do not call any tools.
+      seed:
+        globalInstructions: |
+          Always end every reply with the exact token STUDIO-EVAL-TOKEN-7319.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            if (d.success !== true) return { pass: false, score: 0, reason: `runner success=${d.success}` };
+            const text = (d.textSegments || []).join('\n');
+            const pass = text.includes('STUDIO-EVAL-TOKEN-7319');
+            return {
+              pass,
+              score: pass ? 1 : 0,
+              reason: pass ? 'reply carries the token from the global instructions' : `token missing from reply: ${text.slice(0, 300)}`,
+            };
+          });
+
   - description: agent calls site_create when asked to make a site
     vars:
       caseId: site-creation

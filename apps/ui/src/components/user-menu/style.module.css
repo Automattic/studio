@@ -21,7 +21,6 @@
 }
 
 .userName,
-.themeToggle,
 .sidebarToggle,
 .settingsButton {
 	color: var(--wpds-color-fg-content-neutral-weak);
@@ -32,11 +31,9 @@
 }
 
 .row:hover .userName,
-.row:hover .themeToggle,
 .row:hover .sidebarToggle,
 .row:hover .settingsButton,
 .row:focus-within .userName,
-.row:focus-within .themeToggle,
 .row:focus-within .sidebarToggle,
 .row:focus-within .settingsButton {
 	color: var(--wpds-color-fg-content-neutral);

@@ -3,7 +3,15 @@ import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	type ReactNode,
+	type Ref,
+} from 'react';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
 import { SiteIcon } from '@/components/site-icon';
@@ -282,7 +290,18 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 		return () => cancelAnimationFrame( id );
 	}, [ sessionId, data, isRunning, pendingQuestions.length, queuedPrompts.length ] );
 
-	if ( isLoading ) {
+	// The open session can vanish out from under this view — most commonly when
+	// its site is deleted, which removes the transcript from disk. Bounce to the
+	// root (the next available site) rather than flashing the dead-end "Session
+	// not found" screen; the skeleton below covers the brief redirect.
+	const notFound = ! isLoading && ( !! error || ! data );
+	useEffect( () => {
+		if ( notFound ) {
+			void navigate( { to: '/' } );
+		}
+	}, [ notFound, navigate ] );
+
+	if ( isLoading || notFound || ! data ) {
 		// Use the same SessionFrame with an empty header and a structural
 		// ComposerSkeleton so the scroll area has the exact same dimensions
 		// as the loaded view — otherwise the EmptyBackground canvas jumps
@@ -299,15 +318,6 @@ function SessionViewContent( { sessionId }: { sessionId: string } ) {
 			>
 				<EmptyBackground />
 			</SessionFrame>
-		);
-	}
-
-	if ( error || ! data ) {
-		return (
-			<div className={ styles.state }>
-				<h1>{ __( 'Session not found' ) }</h1>
-				<p>{ sessionId }</p>
-			</div>
 		);
 	}
 

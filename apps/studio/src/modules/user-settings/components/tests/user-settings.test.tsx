@@ -1,5 +1,5 @@
 // To run tests, execute `npm run test -- src/modules/user-settings/components/tests/user-settings.test.tsx` from the root directory
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { vi } from 'vitest';
@@ -48,6 +48,8 @@ const mockIpcApi = {
 	saveColorScheme: vi.fn().mockResolvedValue( undefined ),
 	getQuitSitesBehavior: vi.fn().mockResolvedValue( undefined ),
 	saveQuitSitesBehavior: vi.fn().mockResolvedValue( undefined ),
+	getGlobalAgentInstructions: vi.fn().mockResolvedValue( '' ),
+	saveGlobalAgentInstructions: vi.fn().mockResolvedValue( undefined ),
 };
 
 vi.mock( 'src/lib/get-ipc-api', () => ( {
@@ -161,11 +163,24 @@ describe( 'UserSettings', () => {
 				expect( screen.getByText( 'Account' ) ).toHaveAttribute( 'aria-selected', 'true' );
 				expect( screen.getByText( 'Log out' ) ).toBeInTheDocument();
 				expect( screen.getByText( 'Preview sites' ) ).toBeInTheDocument();
-				expect( screen.getByText( 'Studio Code' ) ).toBeInTheDocument();
+				// Scoped to the panel: "Studio Code" also names a settings tab.
+				expect(
+					within( screen.getByRole( 'tabpanel' ) ).getByText( 'Studio Code' )
+				).toBeInTheDocument();
 				expect(
 					screen.getByText( 'Studio Code limits are temporarily unavailable.' )
 				).toBeInTheDocument();
 				expect( screen.queryByText( /monthly prompts used/ ) ).not.toBeInTheDocument();
+			} );
+
+			await user.click( screen.getByRole( 'tab', { name: 'Studio Code' } ) );
+
+			await waitFor( () => {
+				expect( screen.getByRole( 'tab', { name: 'Studio Code' } ) ).toHaveAttribute(
+					'aria-selected',
+					'true'
+				);
+				expect( screen.getByLabelText( 'Instructions' ) ).toBeInTheDocument();
 			} );
 		} );
 	} );

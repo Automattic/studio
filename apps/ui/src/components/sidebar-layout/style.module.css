@@ -91,13 +91,12 @@
 }
 
 /* Pinned to the bottom-left of the main area, mirroring the sidebar footer.
-   The button carries its own `padding-sm` top/bottom for its hit area; the
-   matching negative `bottom` cancels that lower padding so the glyph sits flush
-   with the main area's bottom edge instead of floating a padding's-worth above
-   it. */
+   The 46px band matches the session view's `panelFooterControls` (also
+   bottom-anchored and center-aligned) so the toggle sits vertically centered
+   with the chat-history/new-chat buttons next to it. */
 .floatingToggle {
 	position: absolute;
-	bottom: calc(-1 * var(--wpds-dimension-padding-sm));
+	bottom: 0;
 	left: var(--wpds-dimension-padding-xl);
 	display: flex;
 	align-items: center;

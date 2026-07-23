@@ -10,7 +10,7 @@ import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useOffline } from '@/hooks/use-offline';
-import { moonIcon, sunIcon } from '@/lib/icons';
+import { drawerIcon, moonIcon, sunIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { ColorScheme } from '@/data/core';
 
@@ -18,7 +18,11 @@ const WPCOM_PROFILE_URL = 'https://wordpress.com/me';
 const DOCS_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/';
 const REPORT_ISSUE_URL = 'https://github.com/Automattic/studio/issues/new/choose';
 
-export function UserMenu() {
+type Props = {
+	onToggleSidebar: () => void;
+};
+
+export function UserMenu( { onToggleSidebar }: Props ) {
 	const connector = useConnector();
 	const { data: user } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
@@ -116,6 +120,15 @@ export function UserMenu() {
 						</Menu.RadioGroup>
 					</Menu.Popup>
 				</Menu.Root>
+				<IconButton
+					variant="minimal"
+					tone="neutral"
+					size="small"
+					className={ styles.sidebarToggle }
+					icon={ drawerIcon }
+					label={ __( 'Hide sidebar' ) }
+					onClick={ onToggleSidebar }
+				/>
 			</div>
 		</div>
 	);

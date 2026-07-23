@@ -32,7 +32,7 @@
 	transition: outline-color 80ms ease, outline-width 80ms ease;
 }
 
-.shell:focus-within {
+.shell:focus-within:not(:has(.resizeHandle:focus-visible)) {
 	background-color: var(--wpds-color-bg-surface-neutral-strong);
 	background-image: none;
 	backdrop-filter: none;

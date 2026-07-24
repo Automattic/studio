@@ -164,17 +164,7 @@ export async function saveOnboardingHints(
 	await lockAppdata();
 	try {
 		const userData = await loadUserData();
-		const current = userData.onboardingHints ?? {};
-		// Shallow-merge, but merge completedItems by key so concurrent item
-		// completions never clobber one another.
-		const merged: OnboardingHintsState = {
-			...current,
-			...partial,
-			completedItems: {
-				...( current.completedItems ?? {} ),
-				...( partial.completedItems ?? {} ),
-			},
-		};
+		const merged: OnboardingHintsState = { ...( userData.onboardingHints ?? {} ), ...partial };
 		await saveUserData( { ...userData, onboardingHints: merged } );
 	} finally {
 		await unlockAppdata();

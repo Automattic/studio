@@ -1,6 +1,7 @@
 import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
+import { readOnboardingHints, writeOnboardingHints } from '../browser-onboarding-hints';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
@@ -16,7 +17,6 @@ import type {
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
-	OnboardingHintsState,
 	ProposedSitePath,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
@@ -40,28 +40,6 @@ const COLOR_SCHEME_STORAGE_KEY = 'studio-local-color-scheme';
 const EDITOR_STORAGE_KEY = 'studio-local-editor';
 const TERMINAL_STORAGE_KEY = 'studio-local-terminal';
 const QUIT_SITES_BEHAVIOR_STORAGE_KEY = 'studio-local-quit-sites-behavior';
-// Workbench onboarding state persists per origin in the browser surface.
-const ONBOARDING_HINTS_STORAGE_KEY = 'studio-onboarding-hints';
-
-function readOnboardingHints(): OnboardingHintsState {
-	try {
-		const raw = window.localStorage.getItem( ONBOARDING_HINTS_STORAGE_KEY );
-		const parsed: unknown = raw ? JSON.parse( raw ) : {};
-		return parsed && typeof parsed === 'object' ? ( parsed as OnboardingHintsState ) : {};
-	} catch {
-		return {};
-	}
-}
-
-function writeOnboardingHints( partial: Partial< OnboardingHintsState > ): void {
-	const current = readOnboardingHints();
-	const merged: OnboardingHintsState = {
-		...current,
-		...partial,
-		completedItems: { ...( current.completedItems ?? {} ), ...( partial.completedItems ?? {} ) },
-	};
-	window.localStorage.setItem( ONBOARDING_HINTS_STORAGE_KEY, JSON.stringify( merged ) );
-}
 
 function parseQuitSitesBehavior( value: string | null ): QuitSitesBehavior | undefined {
 	return value === 'leave-running' || value === 'stop-and-auto-start' || value === 'stop'

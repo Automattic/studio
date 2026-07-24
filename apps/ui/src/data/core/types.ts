@@ -424,10 +424,9 @@ export interface Connector {
 	// Switches back to the legacy (classic) Studio UI.
 	disableAgenticUi(): Promise< void >;
 
-	// Agentic UI onboarding state (orientation tour + getting-started
-	// checklist). Distinct from getOnboardingCompleted (the pre-workbench
-	// first-run welcome flag). setOnboardingHints shallow-merges its partial;
-	// completedItems is merged by key. Hosted/web persist to localStorage.
+	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
+	// pre-workbench first-run welcome flag). setOnboardingHints shallow-merges
+	// its partial. Desktop persists to app.json; hosted/web to localStorage.
 	getOnboardingHints(): Promise< OnboardingHintsState >;
 	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
 
@@ -446,33 +445,13 @@ export interface AppUpdateStatus {
 	version: string | null;
 }
 
-// Getting-started checklist item ids. Kept as a closed union so the checklist
-// definitions, completion watchers, and persistence all agree on the set.
-export type ChecklistItemId =
-	| 'create-site'
-	| 'first-agent-edit'
-	| 'visit-overview'
-	| 'publish-site'
-	| 'visit-app-settings'
-	| 'visit-site-settings';
-
 // Persisted first-run onboarding state for the workbench. Separate from the
-// pre-workbench welcome flag (getOnboardingCompleted) and from dismissed
-// messages (which are append-only and so can't model replay/un-dismiss).
+// pre-workbench welcome flag (getOnboardingCompleted).
 export interface OnboardingHintsState {
-	// Version of the orientation tour the user finished or explicitly skipped.
+	// Version of the orientation guide the user finished or explicitly skipped.
 	tourCompletedVersion?: number;
-	// Version of the orientation tour the user closed early (Esc / X).
+	// Version of the orientation guide the user closed early (Esc / Skip).
 	tourDismissedVersion?: number;
-	// True once the getting-started checklist has been dismissed. Replay clears
-	// this — hence it can't ride the append-only dismissedMessages store.
-	checklistDismissed?: boolean;
-	// True while the checklist is collapsed to its compact (toast-like) bar.
-	checklistMinimized?: boolean;
-	// Completed checklist items → ISO timestamp of completion.
-	completedItems?: Partial< Record< ChecklistItemId, string > >;
-	// True once the one-shot publish coachmark has been shown (never re-fires).
-	publishCoachmarkShown?: boolean;
 }
 
 export interface SnapshotUsage {

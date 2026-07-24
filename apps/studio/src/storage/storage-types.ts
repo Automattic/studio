@@ -70,10 +70,6 @@ export interface PromptWindowsSpeedUpResult {
 export interface OnboardingHintsState {
 	tourCompletedVersion?: number;
 	tourDismissedVersion?: number;
-	checklistDismissed?: boolean;
-	checklistMinimized?: boolean;
-	completedItems?: Record< string, string >;
-	publishCoachmarkShown?: boolean;
 }
 
 export const EMPTY_USER_DATA: UserData = {

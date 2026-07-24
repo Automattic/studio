@@ -6,7 +6,6 @@ export type {
 	AppGlobals,
 	AppUpdateStatus,
 	AuthUser,
-	ChecklistItemId,
 	ColorScheme,
 	Connector,
 	CreateSiteParams,

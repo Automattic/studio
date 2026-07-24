@@ -31,22 +31,6 @@ export function useOnboardingCompleted() {
 	} );
 }
 
-// Shallow-merge a partial into the cached hints, merging completedItems by key
-// so a checklist completion never clobbers a concurrent one.
-function mergeHints(
-	current: OnboardingHintsState | undefined,
-	partial: Partial< OnboardingHintsState >
-): OnboardingHintsState {
-	return {
-		...( current ?? {} ),
-		...partial,
-		completedItems: {
-			...( current?.completedItems ?? {} ),
-			...( partial.completedItems ?? {} ),
-		},
-	};
-}
-
 export function useSetOnboardingHints() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -58,7 +42,7 @@ export function useSetOnboardingHints() {
 		onMutate: ( partial ) => {
 			queryClient.setQueryData(
 				ONBOARDING_HINTS_QUERY_KEY,
-				( current: OnboardingHintsState | undefined ) => mergeHints( current, partial )
+				( current: OnboardingHintsState | undefined ) => ( { ...( current ?? {} ), ...partial } )
 			);
 		},
 	} );

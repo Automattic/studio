@@ -83,16 +83,14 @@ function getPreviewPanelCopy(
 	}
 	return isOffline
 		? __( 'Go online to share a review link.' )
-		: __( 'Sign in to share a review link.' );
+		: __( 'Log in to share a review link.' );
 }
 
 function getLivePanelCopy( agenticEnabled: boolean, isOffline: boolean ): string {
 	if ( agenticEnabled ) {
 		return __( 'No connected site.' );
 	}
-	return isOffline
-		? __( 'Go online to publish your site.' )
-		: __( 'Sign in to publish your site.' );
+	return isOffline ? __( 'Go online to publish your site.' ) : __( 'Log in to publish your site.' );
 }
 
 const DEFAULT_CUSTOM_SYNC_OPTIONS: SyncCustomOptions = {

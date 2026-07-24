@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { AgenticSigninBanner } from '@/components/agentic-signin-banner';
 import { useTourAnchor } from '@/components/coachmarks/anchor-registry';
 import { DeleteSiteDialog } from '@/components/delete-site-dialog';
+import { OfflineBanner } from '@/components/offline-banner';
 import { PreviewToggleButton } from '@/components/preview-toggle-button';
 import { ProgressiveBlur } from '@/components/progressive-blur';
 import { SiteDropdown } from '@/components/site-dropdown';
@@ -337,8 +338,8 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 					</div>
 					<div className={ styles.scroll }>
 						<main className={ styles.content }>
-							<Tabs.Panel tabId="overview" className={ styles.panel }>
-								<AgenticSigninBanner />
+							<Tabs.Panel tabId="overview" className={ styles.overviewPanel }>
+								<OfflineBanner />
 								<div className={ styles.actionsColumn } ref={ overviewAnchorRef }>
 									<ButtonSection title={ __( 'Customize' ) }>
 										{ isBlockTheme ? (
@@ -467,6 +468,7 @@ function SiteOverviewBody( { site }: { site: SiteDetails } ) {
 					</div>
 				</Tabs.Root>
 			</div>
+			{ activeTab === 'overview' ? <AgenticSigninBanner /> : null }
 			<ProgressiveBlur direction="up" className={ styles.footerBlur } />
 			<div className={ styles.footerBar }>
 				<PreviewToggleButton />

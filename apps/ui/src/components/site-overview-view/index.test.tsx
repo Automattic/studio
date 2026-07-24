@@ -1,5 +1,6 @@
 import { DEFAULT_ACTIVITY_SOUND_PREFERENCES } from '@studio/common/lib/activity-sounds';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Tooltip } from '@wordpress/ui';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -42,6 +43,16 @@ vi.mock( '@tanstack/react-router', () => ( {
 vi.mock( '@/components/delete-site-dialog', () => ( {
 	DeleteSiteDialog: ( { open }: { open: boolean } ) =>
 		open ? <div role="dialog">Delete dialog</div> : null,
+} ) );
+
+// Canvas-backed W background; jsdom has no 2D context, so stub it out.
+vi.mock( '@/ui-classic/components/session-view/empty-background', () => ( {
+	EmptyBackground: () => null,
+} ) );
+
+// Canvas-backed dot-grid backdrop; jsdom has no 2D context, so stub it out.
+vi.mock( '@/components/dot-grid', () => ( {
+	DotGrid: () => null,
 } ) );
 
 vi.mock( '@/components/site-header-actions', () => ( {
@@ -305,7 +316,7 @@ describe( 'SiteOverviewView', () => {
 		render( <SiteOverviewView siteId="site-1" /> );
 
 		expect(
-			screen.queryByRole( 'heading', { name: 'Sign in to do more with Studio' } )
+			screen.queryByRole( 'heading', { name: 'Let Studio code it for you' } )
 		).not.toBeInTheDocument();
 	} );
 
@@ -319,11 +330,13 @@ describe( 'SiteOverviewView', () => {
 		} );
 		useLoginMock.mockReturnValue( { isPending: false, mutate: loginMutate } );
 
-		render( <SiteOverviewView siteId="site-1" /> );
+		render(
+			<Tooltip.Provider>
+				<SiteOverviewView siteId="site-1" />
+			</Tooltip.Provider>
+		);
 
-		expect(
-			screen.getByRole( 'heading', { name: 'Sign in to do more with Studio' } )
-		).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Let Studio code it for you' } ) ).toBeVisible();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
 
@@ -341,7 +354,7 @@ describe( 'SiteOverviewView', () => {
 		render( <SiteOverviewView siteId="site-1" /> );
 
 		expect(
-			screen.queryByRole( 'heading', { name: 'Sign in to do more with Studio' } )
+			screen.queryByRole( 'heading', { name: 'Let Studio code it for you' } )
 		).not.toBeInTheDocument();
 	} );
 

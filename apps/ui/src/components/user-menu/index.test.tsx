@@ -146,19 +146,20 @@ describe( 'UserMenu', () => {
 		} as ReturnType< typeof useUserPreferences > );
 	} );
 
-	it( 'shows account actions and logs out signed-in users', () => {
+	it( 'opens settings for signed-in users', () => {
 		useAuthUserMock.mockReturnValue( {
 			data: { displayName: 'Ada Lovelace', email: 'ada@example.com' },
 		} as ReturnType< typeof useAuthUser > );
 
 		render( <UserMenu /> );
 
-		expect( screen.getByText( 'ada@example.com' ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Settings' } ) ).toBeInTheDocument();
+		expect( screen.getByTestId( 'gravatar' ) ).toBeInTheDocument();
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log out' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
 
-		expect( logoutMutate ).toHaveBeenCalledTimes( 1 );
+		expect( navigate ).toHaveBeenCalledWith( {
+			to: '/settings',
+		} );
 	} );
 
 	it( 'leaves appearance controls to the settings screen', () => {

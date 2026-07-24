@@ -68,6 +68,19 @@
 	max-width: 760px;
 }
 
+/* Fills the scroll viewport so the sign-in banner (margin-top: auto) can sit
+   at the very bottom of the panel when the content above is short. */
+.overviewPanel {
+	outline: none;
+	flex: 1 0 auto;
+	display: flex;
+	flex-direction: column;
+}
+
+.overviewPanel[hidden] {
+	display: none;
+}
+
 .scroll {
 	flex: 1;
 	min-height: 0;
@@ -111,10 +124,14 @@
 	box-sizing: border-box;
 	width: 100%;
 	max-width: 760px;
-	/* Extra bottom padding keeps the last content clear of the overlaid
-	   footer toolbar. */
-	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl)
-		calc(var(--wpds-dimension-padding-2xl) + 46px);
+	/* Fill the scroll viewport so a short overview still lets the sign-in
+	   banner settle against the bottom. */
+	min-height: 100%;
+	display: flex;
+	flex-direction: column;
+	/* Bottom padding == the overlaid footer toolbar height, so the composer
+	   rests right above the footer controls like the chat composer does. */
+	padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-xl) 46px;
 }
 
 .panel {
@@ -322,8 +339,7 @@
 	}
 
 	.content {
-		padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-md)
-			calc(var(--wpds-dimension-padding-2xl) + 46px);
+		padding: var(--wpds-dimension-padding-xl) var(--wpds-dimension-padding-md) 46px;
 	}
 
 	.extensionItem {

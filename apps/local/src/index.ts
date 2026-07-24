@@ -33,8 +33,8 @@ import {
 } from '@studio/common/lib/connected-sites';
 import {
 	arePathsEqual,
+	confineToRoot,
 	isEmptyDir,
-	isPathWithin,
 	isWordPressDirectory,
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
@@ -542,14 +542,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	api.post( '/paths/compare', ( req: Request, res: Response ) => {
 		const { path1, path2 } = req.body as { path1?: string; path2?: string };
-		// Confine both operands to `sitesRoot`: nothing outside it can be a site, and
-		// this keeps untrusted input from reaching statSync (in arePathsEqual).
-		const equal =
-			!! path1 &&
-			!! path2 &&
-			isPathWithin( sitesRoot, path1 ) &&
-			isPathWithin( sitesRoot, path2 ) &&
-			arePathsEqual( path1, path2 );
+		// Confine both operands to `sitesRoot` before any filesystem access: nothing
+		// outside it can be a site, so a non-match is the correct answer. Only the
+		// confined, resolved paths reach arePathsEqual (and thus statSync); the raw
+		// request values never do.
+		const confined1 = path1 ? confineToRoot( sitesRoot, path1 ) : null;
+		const confined2 = path2 ? confineToRoot( sitesRoot, path2 ) : null;
+		const equal = !! confined1 && !! confined2 && arePathsEqual( confined1, confined2 );
 		res.json( { equal } );
 	} );
 

@@ -2,7 +2,11 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
-import { calculateDirectorySizeForArchive, isPathWithin } from '@studio/common/lib/fs-utils';
+import {
+	calculateDirectorySizeForArchive,
+	confineToRoot,
+	isPathWithin,
+} from '@studio/common/lib/fs-utils';
 
 describe( 'calculateDirectorySizeForArchive', () => {
 	let tempDir: string;
@@ -57,5 +61,32 @@ describe( 'isPathWithin', () => {
 
 	it( 'rejects a sibling directory sharing the root as a name prefix', () => {
 		expect( isPathWithin( root, `${ root }-other` ) ).toBe( false );
+	} );
+} );
+
+describe( 'confineToRoot', () => {
+	const root = path.join( os.tmpdir(), 'studio-sites' );
+
+	it( 'returns the resolved path for the root itself and its descendants', () => {
+		expect( confineToRoot( root, root ) ).toBe( path.resolve( root ) );
+		expect( confineToRoot( root, path.join( root, 'my-site' ) ) ).toBe(
+			path.resolve( root, 'my-site' )
+		);
+	} );
+
+	it( 'normalizes traversal segments that stay inside the root', () => {
+		expect( confineToRoot( root, path.join( root, 'a', '..', 'b' ) ) ).toBe(
+			path.resolve( root, 'b' )
+		);
+	} );
+
+	it( 'returns null for traversal escapes and unrelated paths', () => {
+		expect( confineToRoot( root, path.join( root, '..', 'secret' ) ) ).toBeNull();
+		expect( confineToRoot( root, '/etc/passwd' ) ).toBeNull();
+		expect( confineToRoot( root, `${ root }-other` ) ).toBeNull();
+	} );
+
+	it( 'resolves relative candidates against the root, not the cwd', () => {
+		expect( confineToRoot( root, 'my-site' ) ).toBe( path.resolve( root, 'my-site' ) );
 	} );
 } );

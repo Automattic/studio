@@ -72,14 +72,29 @@ export function isWordPressDirectory( projectPath: string ): boolean {
 	);
 }
 
+// Resolve `candidate` and confine it to `root`, returning the normalized absolute
+// path when it is `root` or a descendant, or `null` when it escapes (e.g. via `../`).
+//
+// Callers that receive untrusted paths MUST use the returned value for any
+// subsequent filesystem access rather than re-resolving the original input.
+// Passing the raw input onward would reopen the traversal hole and defeats the
+// static taint-tracking barrier this function establishes.
+export function confineToRoot( root: string, candidate: string ): string | null {
+	const resolvedRoot = path.resolve( root );
+	const resolvedCandidate = path.resolve( resolvedRoot, candidate );
+	if (
+		resolvedCandidate === resolvedRoot ||
+		resolvedCandidate.startsWith( resolvedRoot + path.sep )
+	) {
+		return resolvedCandidate;
+	}
+	return null;
+}
+
 // True when `candidate` resolves to `root` or a descendant. Used to confine
 // untrusted paths to a safe root, guarding against `../` traversal escapes.
 export function isPathWithin( root: string, candidate: string ): boolean {
-	const resolvedRoot = path.resolve( root );
-	const resolvedCandidate = path.resolve( candidate );
-	return (
-		resolvedCandidate === resolvedRoot || resolvedCandidate.startsWith( resolvedRoot + path.sep )
-	);
+	return confineToRoot( root, candidate ) !== null;
 }
 
 // Compare paths, preferring inode comparison when both paths exist on disk.

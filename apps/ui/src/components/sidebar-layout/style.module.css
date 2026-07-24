@@ -67,13 +67,14 @@
 
 /* The negative margin cancels the handle's width so it adds no space to the
    flex row — the main content butts straight against the sidebar's border and
-   the hit area overlays main's left edge. position/z-index lift it above main
-   (a later flex sibling) so the full-height indicator sits on the border. */
+   the hit area overlays main's sidebar-side edge. position/z-index lift it
+   above main (a later flex sibling) so the full-height indicator sits on the
+   border. */
 .resizeHandle {
 	position: relative;
 	z-index: 20;
 	flex-shrink: 0;
-	margin-right: -8px;
+	margin-inline-end: -8px;
 	justify-content: flex-start;
 }
 
@@ -100,7 +101,7 @@
 .floatingToggle {
 	position: absolute;
 	bottom: 0;
-	left: var(--wpds-dimension-padding-xl);
+	inset-inline-start: var(--wpds-dimension-padding-xl);
 	display: flex;
 	align-items: center;
 	padding: var(--wpds-dimension-padding-sm) 0;
@@ -118,7 +119,7 @@
    fullscreen (which hides them) — the toggle sits near the main area's left
    edge instead of leaving an empty gap. */
 .floatingToggleFlush {
-	left: var(--wpds-dimension-padding-xl);
+	inset-inline-start: var(--wpds-dimension-padding-xl);
 }
 
 .floatingToggleButton {
@@ -133,7 +134,7 @@
 .floatingToasts {
 	position: absolute;
 	bottom: calc(52px + var(--app-main-composer-height, 0px));
-	left: var(--wpds-dimension-padding-xl);
+	inset-inline-start: var(--wpds-dimension-padding-xl);
 	width: min(320px, calc(100% - 2 * var(--wpds-dimension-padding-xl)));
 	z-index: 110;
 	pointer-events: auto;

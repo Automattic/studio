@@ -129,6 +129,7 @@ vi.mock( './usage-panel', () => ( {
 
 vi.mock( '@/hooks/use-traffic-light-space', () => ( {
 	useTrafficLightSpace: () => false,
+	useTrafficLightsVisible: () => false,
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector );

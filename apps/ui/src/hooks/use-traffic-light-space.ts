@@ -3,20 +3,28 @@ import { useConnector } from '@/data/core';
 import { useFullscreen } from '@/hooks/use-fullscreen';
 
 /**
- * Whether the UI should reserve the top-left gap for macOS window controls
- * ("traffic lights").
- *
- * True only when the host overlays them (the macOS desktop app — never the
- * browser) AND the window isn't fullscreen (macOS hides the traffic lights in
- * fullscreen) AND the UI is LTR. The traffic lights are anchored to the
- * window's left edge (fixed `trafficLightPosition`), while an RTL locale
- * flips the sidebar to the right — so in RTL nothing sits under the lights
- * and no gap is needed. On Windows/Linux and in `studio ui` / hosted, this is
- * always false, so the sidebar header and the collapsed-sidebar toggle sit
- * flush against the edge instead of leaving an empty gap.
+ * Whether the macOS window controls ("traffic lights") overlay the UI at all:
+ * the host overlays them (the macOS desktop app — never the browser) AND the
+ * window isn't fullscreen (macOS hides them in fullscreen). They are anchored
+ * to the window's physical LEFT edge (fixed `trafficLightPosition`) regardless
+ * of text direction — use this directly for elements that end up at the
+ * physical left in RTL (e.g. the settings close button).
  */
-export function useTrafficLightSpace(): boolean {
+export function useTrafficLightsVisible(): boolean {
 	const connector = useConnector();
 	const isFullscreen = useFullscreen();
-	return connector.reservesTrafficLightSpace && ! isFullscreen && ! isRTL();
+	return connector.reservesTrafficLightSpace && ! isFullscreen;
+}
+
+/**
+ * Whether the UI should reserve the inline-start gap for the traffic lights.
+ *
+ * True only when they're visible AND the UI is LTR: an RTL locale flips the
+ * sidebar (and other inline-start consumers) to the right, away from the
+ * lights, so no gap is needed. On Windows/Linux and in `studio ui` / hosted,
+ * this is always false, so the sidebar header and the collapsed-sidebar
+ * toggle sit flush against the edge instead of leaving an empty gap.
+ */
+export function useTrafficLightSpace(): boolean {
+	return useTrafficLightsVisible() && ! isRTL();
 }

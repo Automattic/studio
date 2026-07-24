@@ -131,6 +131,15 @@ none fits, and flag it for registration.
 | `app_version` | Product version | e.g. `1.15.0` |
 | `ui_version` | **Custom (Studio-only):** which desktop renderer | `v1` (legacy), `v2` (agentic). No standard slot — must be registered as a Studio-custom property. |
 
+**Common props are attached by the wrappers — don't pass them per event.** `platform`, `arch`,
+`app_version`, and `is_a11n` come from each wrapper's `commonProps()`. The CLI wrapper also resolves
+`channel` and `ui_version` centrally from `STUDIO_TRACKS_ORIGIN` (`studio-cli`, or `studio-ui` + `ui_version`
+when app-spawned). The convention for `channel`/`ui_version` on the desktop side — desktop wrapper attaches
+`channel: studio-ui`, each renderer attaches its own `ui_version` (`v1` for `apps/studio`, `v2` for
+`apps/ui`) — is being centralized in STU-2122; until that lands, `studio_app_launch` still sets them at the
+call site. New event code should rely on the wrapper/renderer to attach them and pass only
+**event-specific** props.
+
 Reserved for later phases (documented so future events conform): `surface` (in-app area, e.g.
 `onboarding`/`settings`), `outcome` (`success`/`error`).
 

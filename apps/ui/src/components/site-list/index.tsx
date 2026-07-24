@@ -493,13 +493,13 @@ function SiteSection( {
 	isChatActive,
 	isContextActive,
 	hasUnreadUpdate,
-	agenticEnabled,
+	chatEnabled,
 }: {
 	row: SiteRow;
 	isChatActive: boolean;
 	isContextActive: boolean;
 	hasUnreadUpdate: boolean;
-	agenticEnabled: boolean;
+	chatEnabled: boolean;
 } ) {
 	const { site, latestSession } = row;
 	const navigate = useNavigate();
@@ -528,9 +528,9 @@ function SiteSection( {
 		? 'new-message'
 		: 'idle';
 	const handleOpenSite = () => {
-		// Without agentic features (e.g. signed out) there's no chat to open;
-		// the site overview is the site's home instead.
-		if ( ! agenticEnabled ) {
+		// Without chat (signed out, offline, or switched off in Settings →
+		// AI) there's no session to open; the overview is the site's home.
+		if ( ! chatEnabled ) {
 			void navigate( {
 				to: '/sites/$siteId/overview',
 				params: { siteId: site.id },
@@ -611,7 +611,7 @@ function findSessionSiteKey(
 export function SiteList() {
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: sessions, isLoading: sessionsLoading } = useSessions();
-	const { enabled: agenticEnabled } = useAgenticFeatures();
+	const { chatEnabled } = useAgenticFeatures();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
 	const activeSessionId = params.sessionId;
@@ -709,7 +709,7 @@ export function SiteList() {
 			isChatActive={ row.site.id === activeChatSiteKey }
 			isContextActive={ row.site.id === activeContextSiteKey }
 			hasUnreadUpdate={ unreadSiteIds.has( row.site.id ) }
-			agenticEnabled={ agenticEnabled }
+			chatEnabled={ chatEnabled }
 		/>
 	);
 

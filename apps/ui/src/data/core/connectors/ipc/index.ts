@@ -18,6 +18,7 @@ import type {
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
+	AppUpdateStatus,
 	ProposedSitePath,
 	QuitSitesBehavior,
 	SelectedSiteFolder,
@@ -338,6 +339,10 @@ export function createIpcConnector(): Connector {
 
 		getWordPressVersions: fetchWordPressVersions,
 
+		async getWpVersion( siteId ) {
+			return ( await ipcApi.getWpVersion( siteId ) ) as string;
+		},
+
 		async getFilePath( file ) {
 			// `webUtils.getPathForFile` is a synchronous preload-only API; the
 			// connector wraps it in a Promise to keep the surface uniform and
@@ -634,6 +639,7 @@ export function createIpcConnector(): Connector {
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
+				agenticFeaturesEnabled,
 			] = ( await Promise.all( [
 				ipcApi.getUserEditor(),
 				ipcApi.getUserTerminal(),
@@ -644,6 +650,7 @@ export function createIpcConnector(): Connector {
 				ipcApi.getDefaultSiteDirectory(),
 				ipcApi.isStudioCliInstalled(),
 				ipcApi.isStudioCliExternallyManaged(),
+				ipcApi.getAgenticFeaturesEnabled(),
 			] ) ) as [
 				SupportedEditor | null,
 				SupportedTerminal | null,
@@ -652,6 +659,7 @@ export function createIpcConnector(): Connector {
 				string | undefined,
 				boolean,
 				string,
+				boolean,
 				boolean,
 				boolean,
 			];
@@ -665,6 +673,7 @@ export function createIpcConnector(): Connector {
 				defaultSiteDirectory,
 				studioCliInstalled,
 				studioCliExternallyManaged,
+				agenticFeaturesEnabled,
 			};
 		},
 
@@ -695,6 +704,9 @@ export function createIpcConnector(): Connector {
 				writes.push(
 					partial.studioCliInstalled ? ipcApi.installStudioCli() : ipcApi.uninstallStudioCli()
 				);
+			}
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				writes.push( ipcApi.saveAgenticFeaturesEnabled( partial.agenticFeaturesEnabled ) );
 			}
 			await Promise.all( writes );
 		},
@@ -756,6 +768,13 @@ export function createIpcConnector(): Connector {
 		// External links
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );
+		},
+
+		async getWapuuScore(): Promise< number | undefined > {
+			return ( await ipcApi.getWapuuScore() ) as number | undefined;
+		},
+		async saveWapuuScore( score: number ): Promise< void > {
+			await ipcApi.saveWapuuScore( score );
 		},
 
 		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
@@ -860,6 +879,20 @@ export function createIpcConnector(): Connector {
 
 		async disableAgenticUi(): Promise< void > {
 			await ipcApi.disableAgenticUi();
+		},
+
+		async getAppUpdateStatus() {
+			return ipcApi.getAppUpdateStatus();
+		},
+
+		async installAppUpdate(): Promise< void > {
+			await ipcApi.installAppUpdate();
+		},
+
+		onAppUpdateStatusChanged( listener ) {
+			return ipcListener.subscribe( 'app-update-status', ( _event: unknown, status: unknown ) =>
+				listener( status as AppUpdateStatus )
+			);
 		},
 	};
 }

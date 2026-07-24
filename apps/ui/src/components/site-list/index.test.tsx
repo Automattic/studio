@@ -62,7 +62,12 @@ vi.mock( '@/data/queries/use-sites', () => ( {
 } ) );
 
 vi.mock( '@/data/queries/use-agentic-features', () => ( {
-	useAgenticFeatures: vi.fn( () => ( { enabled: true, reason: null, isReady: true } ) ),
+	useAgenticFeatures: vi.fn( () => ( {
+		enabled: true,
+		chatEnabled: true,
+		reason: null,
+		isReady: true,
+	} ) ),
 } ) );
 
 vi.mock( '@/data/queries/use-user-preferences', () => ( {
@@ -100,6 +105,7 @@ describe( 'SiteList', () => {
 
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: true,
+			chatEnabled: true,
 			reason: null,
 			isReady: true,
 		} );
@@ -134,6 +140,7 @@ describe( 'SiteList', () => {
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 		useSitesMock.mockReturnValue( {
@@ -218,6 +225,7 @@ describe( 'SiteList', () => {
 	it( 'opens the site overview when clicking a site while agentic features are unavailable', () => {
 		vi.mocked( useAgenticFeatures ).mockReturnValue( {
 			enabled: false,
+			chatEnabled: false,
 			reason: 'signed-out',
 			isReady: true,
 		} );
@@ -749,6 +757,7 @@ describe( 'SiteList', () => {
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 
@@ -774,6 +783,7 @@ describe( 'SiteList', () => {
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled: true,
 			},
 		} );
 

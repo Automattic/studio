@@ -200,6 +200,9 @@ export interface Connector {
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
 	getWordPressVersions(): Promise< WordPressVersion[] >;
+	// Reads the WordPress version installed at the site's path. Resolves to
+	// '-' when it can't be determined (missing files, site not found).
+	getWpVersion( siteId: string ): Promise< string >;
 
 	// Resolves the absolute filesystem path of a File handle picked or dropped
 	// in the renderer. Returns an empty string when the underlying file lacks
@@ -368,6 +371,11 @@ export interface Connector {
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
 
+	// Wapuu World easter-egg high score. Returns undefined when no score has
+	// been recorded yet; saving keeps only the highest score seen.
+	getWapuuScore(): Promise< number | undefined >;
+	saveWapuuScore( score: number ): Promise< void >;
+
 	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
 
 	// WordPress agent skills applied to all existing and future sites.
@@ -425,6 +433,16 @@ export interface Connector {
 
 	// Switches back to the legacy (classic) Studio UI.
 	disableAgenticUi(): Promise< void >;
+
+	// Auto-updater status.
+	getAppUpdateStatus(): Promise< AppUpdateStatus >;
+	installAppUpdate(): Promise< void >;
+	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
+}
+
+export interface AppUpdateStatus {
+	readyToInstall: boolean;
+	version: string | null;
 }
 
 export interface SnapshotUsage {
@@ -458,6 +476,9 @@ export interface UserPreferences {
 	// app never installs over or uninstalls — the settings toggle disables
 	// itself in that case.
 	studioCliExternallyManaged: boolean;
+	// Whether chat/agent features are offered at all. Unrelated to which
+	// renderer is running — switching to the classic UI is `disableAgenticUi`.
+	agenticFeaturesEnabled: boolean;
 }
 
 export interface AppGlobals {

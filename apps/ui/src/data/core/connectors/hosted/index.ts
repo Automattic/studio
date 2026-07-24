@@ -2,6 +2,7 @@ import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { applyStoredSiteOrder, storeSiteOrder } from '../browser-site-order';
 import { UnsupportedError } from '../unsupported-error';
+import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
@@ -19,10 +20,14 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/common/ai/agent-events';
 
+const AGENTIC_FEATURES_STORAGE_KEY = 'studio-hosted-agentic-features-enabled';
+
 export interface HostedConnectorOptions {
 	// Base URL of the Studio hosted backend (`apps/hosted`), e.g. http://localhost:8088.
 	apiBaseUrl: string;
 }
+
+const WAPUU_SCORE_STORAGE_KEY = 'studio-hosted-wapuu-score';
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
 // can carry both agent-run events and session-placement updates.
@@ -196,6 +201,10 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 
 		getWordPressVersions: fetchWordPressVersions,
 
+		async getWpVersion(): Promise< string > {
+			throw new UnsupportedError( 'getWpVersion' );
+		},
+
 		async getFilePath() {
 			// Browsers can't resolve a real filesystem path for a File.
 			return '';
@@ -329,10 +338,19 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 				defaultSiteDirectory: '',
 				studioCliInstalled: false,
 				studioCliExternallyManaged: false,
+				agenticFeaturesEnabled:
+					window.localStorage.getItem( AGENTIC_FEATURES_STORAGE_KEY ) !== 'false',
 			};
 		},
-		async setUserPreferences() {
-			// No-op: preferences aren't persisted in the browser yet.
+		async setUserPreferences( partial ) {
+			// The rest aren't persisted in the browser yet; this one has to
+			// stick or the AI settings toggle would silently snap back.
+			if ( typeof partial.agenticFeaturesEnabled === 'boolean' ) {
+				window.localStorage.setItem(
+					AGENTIC_FEATURES_STORAGE_KEY,
+					String( partial.agenticFeaturesEnabled )
+				);
+			}
 		},
 		async getAppGlobals(): Promise< AppGlobals > {
 			return { platform: 'browser', isWindowsStore: false };
@@ -372,6 +390,12 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
+		},
+		async getWapuuScore() {
+			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
+		},
+		async saveWapuuScore( score ) {
+			writeWapuuScore( WAPUU_SCORE_STORAGE_KEY, score );
 		},
 		async popupAppMenu() {},
 		showsAppMenuButton: false,
@@ -432,6 +456,15 @@ export function createHostedConnector( { apiBaseUrl }: HostedConnectorOptions ):
 		},
 		async disableAgenticUi() {
 			// No-op in the browser.
+		},
+		async getAppUpdateStatus() {
+			return { readyToInstall: false, version: null };
+		},
+		async installAppUpdate() {
+			// No-op.
+		},
+		onAppUpdateStatusChanged() {
+			return () => {};
 		},
 	};
 }

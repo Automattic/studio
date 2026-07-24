@@ -25,6 +25,7 @@ const PREFERENCES: UserPreferences = {
 	analyticsEnabled: true,
 	defaultSiteDirectory: '',
 	studioCliInstalled: true,
+	agenticFeaturesEnabled: true,
 	studioCliExternallyManaged: false,
 };
 

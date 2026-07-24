@@ -12,11 +12,17 @@ import {
 	getDomainNameValidationError,
 } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
+import {
+	isWordPressBetaVersion,
+	isWordPressDevVersion,
+} from '@studio/common/lib/wordpress-version-utils';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
+import { WpVersionControl } from '@/components/site-fields/wp-version-control';
+import type { WpVersionOption } from '@/components/site-fields/wp-version-control';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
-import type { Field } from '@wordpress/dataviews';
+import type { Field, Option } from '@wordpress/dataviews';
 
 const PHP_VERSION_ELEMENTS = SupportedPHPVersions.map( ( version ) => ( {
 	value: version,
@@ -41,9 +47,46 @@ export function phpVersionField< T extends { phpVersion: SupportedPHPVersion } >
 	};
 }
 
+// Numeric compare on the leading `x.y.z` part, like Classic's semver.coerce
+// (`6.9-beta1` sorts with `6.9`; unparseable values sort last).
+function compareWpVersions( a: string, b: string ): number {
+	const parse = ( version: string ) =>
+		( version.match( /^\d+(\.\d+)*/ )?.[ 0 ] ?? '' ).split( '.' ).map( Number );
+	const [ aParts, bParts ] = [ parse( a ), parse( b ) ];
+	for ( let i = 0; i < Math.max( aParts.length, bParts.length ); i++ ) {
+		const diff = ( aParts[ i ] ?? 0 ) - ( bParts[ i ] ?? 0 );
+		if ( diff !== 0 ) {
+			return diff;
+		}
+	}
+	return 0;
+}
+
+// Insert `option` into the descending-ordered `options` list (ported from the
+// legacy wp-version-selector's addWpVersionToList).
+function addVersionOption< T extends Option >( option: T, options: T[] ): T[] {
+	const index = options.findIndex(
+		( existing ) => compareWpVersions( option.value, existing.value ) > 0
+	);
+	return index === -1
+		? [ ...options, option ]
+		: [ ...options.slice( 0, index ), option, ...options.slice( index ) ];
+}
+
 export function wpVersionField< T extends { wpVersion: string } >(
 	placeholder: string,
-	versions?: WordPressVersion[]
+	versions?: WordPressVersion[],
+	{
+		latestValue = DEFAULT_WORDPRESS_VERSION,
+		currentVersion,
+		offline = false,
+		offlineMessage = __( 'Changing WordPress version requires an internet connection.' ),
+	}: {
+		latestValue?: string;
+		currentVersion?: string;
+		offline?: boolean;
+		offlineMessage?: string;
+	} = {}
 ): Field< T > {
 	const field: Field< T > = {
 		id: 'wpVersion',
@@ -51,20 +94,70 @@ export function wpVersionField< T extends { wpVersion: string } >(
 		label: __( 'WordPress version' ),
 		placeholder,
 	};
-	if ( versions?.length ) {
-		const prerelease = versions.filter( ( version ) => version.isBeta || version.isDevelopment );
-		const stable = versions.filter(
-			( version ) =>
-				version.value !== DEFAULT_WORDPRESS_VERSION && ! version.isBeta && ! version.isDevelopment
-		);
-		field.elements = [
-			...versions
-				.filter( ( version ) => version.value === DEFAULT_WORDPRESS_VERSION )
-				.map( ( version ) => ( { value: version.value, label: __( 'latest' ) } ) ),
-			...prerelease.map( ( version ) => ( { value: version.value, label: version.label } ) ),
-			...stable.map( ( version ) => ( { value: version.value, label: version.label } ) ),
+	if ( offline ) {
+		// Like the legacy selector: only "latest" can be applied without a
+		// download, so the control locks while offline (the form forces the
+		// value to "latest") and the message shows as a hover tooltip.
+		field.isDisabled = true;
+		field.description = offlineMessage;
+	}
+	const offers = versions ?? [];
+	// The settings form (custom `latestValue`) and the offline state always
+	// render a select even when the version list is unavailable — offering
+	// only versions we can actually install. Otherwise the create form keeps
+	// its free-text fallback.
+	if ( offers.length || latestValue !== DEFAULT_WORDPRESS_VERSION || offline ) {
+		let prerelease: WpVersionOption[] = offers
+			.filter( ( version ) => version.isBeta || version.isDevelopment )
+			.map( ( version ) => ( {
+				value: version.value,
+				label: version.label,
+				group: 'prerelease' as const,
+			} ) );
+		let stable: WpVersionOption[] = offers
+			.filter(
+				( version ) =>
+					version.value !== DEFAULT_WORDPRESS_VERSION && ! version.isBeta && ! version.isDevelopment
+			)
+			.map( ( version ) => ( {
+				value: version.value,
+				label: version.label,
+				group: 'stable' as const,
+			} ) );
+		// The site's installed version may predate the fetched offers — keep it
+		// selectable, sorted into the right group, like the legacy selector's
+		// extraOptions.
+		if ( currentVersion && ! offers.some( ( version ) => version.value === currentVersion ) ) {
+			const option: WpVersionOption = {
+				value: currentVersion,
+				label: currentVersion,
+				group: 'stable',
+			};
+			if ( isWordPressBetaVersion( currentVersion ) || isWordPressDevVersion( currentVersion ) ) {
+				prerelease = addVersionOption( { ...option, group: 'prerelease' }, prerelease );
+			} else {
+				stable = addVersionOption( option, stable );
+			}
+		}
+		const options: WpVersionOption[] = [
+			{ value: latestValue, label: __( 'latest' ), group: 'latest' },
+			...prerelease,
+			...stable,
 		];
-		field.Edit = 'select';
+		if ( latestValue !== DEFAULT_WORDPRESS_VERSION ) {
+			// The settings form maps "latest" to '' (auto-update) but falls back
+			// to seeding pinned sites with DEFAULT_WORDPRESS_VERSION when their
+			// installed version can't be read. Keep that seed renderable without
+			// offering it.
+			options.push( {
+				value: DEFAULT_WORDPRESS_VERSION,
+				label: __( 'latest' ),
+				group: 'latest',
+				hidden: true,
+			} );
+		}
+		field.elements = options;
+		field.Edit = WpVersionControl;
 	}
 	return field;
 }

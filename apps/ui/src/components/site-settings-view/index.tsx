@@ -24,6 +24,8 @@ import {
 import * as Tabs from '@/components/tabs';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
+import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
+import { useOffline } from '@/hooks/use-offline';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -35,8 +37,8 @@ type TabId = 'overview' | 'general' | 'debugging';
 interface FormData {
 	name: string;
 	phpVersion: SupportedPHPVersion;
-	// Empty string means "auto-update" — we map that back to
-	// DEFAULT_WORDPRESS_VERSION when building the updated site payload.
+	// Empty string means "auto-update"; anything else pins the site to that
+	// version. Only forwarded on save when the user actually changed it.
 	wpVersion: string;
 	useCustomDomain: boolean;
 	customDomain: string;
@@ -49,17 +51,22 @@ interface FormData {
 	enableDebugDisplay: boolean;
 }
 
-function getEffectiveWpVersion( site: SiteDetails | undefined ): string {
+function getEffectiveWpVersion( site: SiteDetails, installedVersion?: string ): string {
 	// Mirrors the legacy apps/studio behavior: sites created before the auto-
-	// updating flag existed fall through to the default too.
-	return site?.isWpAutoUpdating !== false ? '' : DEFAULT_WORDPRESS_VERSION;
+	// updating flag existed count as auto-updating too.
+	if ( site.isWpAutoUpdating !== false ) {
+		return '';
+	}
+	return installedVersion && installedVersion !== '-'
+		? installedVersion
+		: DEFAULT_WORDPRESS_VERSION;
 }
 
-function initialFormData( site: SiteDetails ): FormData {
+function initialFormData( site: SiteDetails, installedWpVersion?: string ): FormData {
 	return {
 		name: site.name,
 		phpVersion: ( site.phpVersion as SupportedPHPVersion ) ?? RecommendedPHPVersion,
-		wpVersion: getEffectiveWpVersion( site ),
+		wpVersion: getEffectiveWpVersion( site, installedWpVersion ),
 		useCustomDomain: Boolean( site.customDomain ),
 		customDomain: site.customDomain ?? '',
 		enableHttps: site.enableHttps ?? false,
@@ -107,14 +114,33 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		xdebugEnabledSite && xdebugEnabledSite.id !== site.id ? xdebugEnabledSite.name : undefined;
 
 	const updateSite = useUpdateSite();
+	const { data: wpVersions } = useWordPressVersions();
+	const { data: installedWpVersion } = useWpVersion( site.id );
+	const isOffline = useOffline();
 	const [ submitError, setSubmitError ] = useState< string | null >( null );
 
-	const [ data, setData ] = useState< FormData >( () => initialFormData( site ) );
+	const [ data, setData ] = useState< FormData >( () =>
+		initialFormData( site, installedWpVersion )
+	);
 	// Re-seed the form when the underlying site changes — e.g. after a save,
-	// or after another window edits it. React Query returns a new `site`
-	// reference on every refetch, so object identity is enough.
+	// or after another window edits it — or when the installed WordPress
+	// version loads. React Query returns a new `site` reference on every
+	// refetch, so object identity is enough.
+	//
+	// Skipped while a save is in flight: editing a site restarts it, and those
+	// restart events refresh `site` before the edit has landed on disk, which
+	// would momentarily seed the form with pre-save values.
+	const isSaving = updateSite.isPending;
 	useEffect( () => {
-		setData( initialFormData( site ) );
+		if ( isSaving ) {
+			return;
+		}
+		setData( initialFormData( site, installedWpVersion ) );
+	}, [ site, installedWpVersion, isSaving ] );
+
+	// Kept out of the effect above so a failed save's error survives the
+	// save finishing; it clears once the site itself changes.
+	useEffect( () => {
 		setSubmitError( null );
 	}, [ site ] );
 
@@ -122,7 +148,12 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		() => [
 			siteNameField< FormData >(),
 			phpVersionField< FormData >(),
-			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION ),
+			wpVersionField< FormData >( DEFAULT_WORDPRESS_VERSION, wpVersions, {
+				latestValue: '',
+				currentVersion:
+					installedWpVersion && installedWpVersion !== '-' ? installedWpVersion : undefined,
+				offline: isOffline,
+			} ),
 			adminUsernameField< FormData >(),
 			adminPasswordField< FormData >(),
 			adminEmailField< FormData >(),
@@ -139,7 +170,7 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			enableDebugLogField< FormData >(),
 			enableDebugDisplayField< FormData >(),
 		],
-		[ existingDomainNames, xdebugConflictSiteName ]
+		[ existingDomainNames, installedWpVersion, isOffline, wpVersions, xdebugConflictSiteName ]
 	);
 
 	const generalForm = useMemo< Form >(
@@ -194,7 +225,10 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 		} );
 	}, [] );
 
-	const initial = useMemo( () => initialFormData( site ), [ site ] );
+	const initial = useMemo(
+		() => initialFormData( site, installedWpVersion ),
+		[ site, installedWpVersion ]
+	);
 	const isUnchanged = useMemo(
 		() =>
 			( Object.keys( initial ) as Array< keyof FormData > ).every(
@@ -228,8 +262,17 @@ export function SiteSettingsForm( { site, activeTab }: { site: SiteDetails; acti
 			enableDebugLog: data.enableDebugLog,
 			enableDebugDisplay: data.enableDebugDisplay,
 		};
+		// Only forward the version when the user actually changed it — same as
+		// the legacy settings modal — so unrelated saves of a pinned site don't
+		// trigger a WordPress reinstall. Switching back to auto-updating still
+		// has to install the latest release, so the empty "auto-update" value
+		// maps to DEFAULT_WORDPRESS_VERSION rather than forwarding nothing.
+		const wpVersionChanged = data.wpVersion !== initial.wpVersion;
 		updateSite.mutate(
-			{ site: updated, wpVersion: wpPinned || undefined },
+			{
+				site: updated,
+				wpVersion: wpVersionChanged ? wpPinned || DEFAULT_WORDPRESS_VERSION : undefined,
+			},
 			{
 				onError: ( error ) => {
 					setSubmitError( ( error as Error ).message ?? __( 'Unable to save changes.' ) );

@@ -354,7 +354,7 @@ export function MainView( { site, activity, onSetupClick, onDisconnectClick }: P
 								className={ styles.rowActionButton }
 								loading={ isPullPending }
 								loadingAnnouncement={ __( 'Pulling from live' ) }
-								disabled={ true }
+								disabled={ isSyncing || ! agenticEnabled }
 								focusableWhenDisabled
 								onClick={ handlePullClick }
 							/>

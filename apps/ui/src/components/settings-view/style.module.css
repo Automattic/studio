@@ -244,18 +244,26 @@
 	border-radius: var( --wpds-border-radius-sm );
 	background: var( --wpds-color-bg-interactive-neutral-weak );
 	pointer-events: none;
-	transform: translateX( calc( var( --appearance-active-index, 0 ) * 100% ) );
+	transform: translateX(
+		calc( var( --appearance-active-index, 0 ) * 100% + var( --appearance-edge-shift, 0px ) )
+	);
 }
 
 /* The indicator is positioned with a logical inset but animated with a
    physical translateX, so RTL needs the sign flipped to slide toward the
    selected option instead of away from it. */
 .appearancePicker:dir( rtl )::before {
-	transform: translateX( calc( var( --appearance-active-index, 0 ) * -100% ) );
+	transform: translateX(
+		calc( var( --appearance-active-index, 0 ) * -100% - var( --appearance-edge-shift, 0px ) )
+	);
 }
 
+/* At the first/last segment, slide the indicator one border-width outward so
+   its border overlays the container's, leaving a single continuous edge
+   instead of a double border. */
 .appearancePicker[data-active-index='0'] {
 	--appearance-active-index: 0;
+	--appearance-edge-shift: calc( var( --wpds-border-width-xs ) * -1 );
 }
 
 .appearancePicker[data-active-index='1'] {
@@ -264,6 +272,7 @@
 
 .appearancePicker[data-active-index='2'] {
 	--appearance-active-index: 2;
+	--appearance-edge-shift: var( --wpds-border-width-xs );
 }
 
 @media not ( prefers-reduced-motion ) {

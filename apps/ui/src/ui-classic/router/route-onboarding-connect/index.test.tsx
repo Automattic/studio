@@ -226,6 +226,22 @@ describe( 'OnboardingConnectPage', () => {
 		);
 	} );
 
+	it( 'labels a single unavailable site and explains why it cannot connect', () => {
+		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
+		mocks.remoteSites = [ site( 1, { syncSupport: 'needs-upgrade' } ) ];
+
+		render( <OnboardingConnectPage /> );
+
+		expect( screen.getByRole( 'heading', { name: 'Unavailable' } ) ).toBeInTheDocument();
+		expect(
+			screen.getByText( 'Upgrade this site to a supported plan before connecting it.' )
+		).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Connect site' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+	} );
+
 	it( 'refreshes the remote site list after an error', () => {
 		mocks.user = { id: 1, email: 'user@example.com', displayName: 'User' };
 		mocks.remoteError = new Error( 'network failed' );

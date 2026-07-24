@@ -232,6 +232,7 @@ export function OnboardingConnectPage() {
 		[ presentedSites, searchQuery ]
 	);
 	const isSingleSite = presentedSites.length === 1 && searchQuery.trim() === '';
+	const isSingleAvailableSite = isSingleSite && presentedSites[ 0 ].group === 'available';
 	const selectedSite = filteredSites.find(
 		( entry ) => entry.site.id === selectedId && entry.group === 'available'
 	)?.site;
@@ -253,10 +254,10 @@ export function OnboardingConnectPage() {
 	];
 
 	useEffect( () => {
-		if ( isSingleSite && presentedSites[ 0 ]?.group === 'available' ) {
+		if ( isSingleAvailableSite ) {
 			setSelectedId( presentedSites[ 0 ].site.id );
 		}
-	}, [ isSingleSite, presentedSites ] );
+	}, [ isSingleAvailableSite, presentedSites ] );
 
 	useEffect( () => () => setProgress( null ), [ setProgress ] );
 
@@ -352,7 +353,7 @@ export function OnboardingConnectPage() {
 	return (
 		<div className={ `${ sharedStyles.page } ${ styles.page }` }>
 			<h1 className={ sharedStyles.title }>
-				{ user && isSingleSite ? __( 'Connect your site' ) : __( 'Connect a site' ) }
+				{ user && isSingleAvailableSite ? __( 'Connect your site' ) : __( 'Connect a site' ) }
 			</h1>
 			<p className={ sharedStyles.subtitle }>
 				{ user
@@ -468,7 +469,7 @@ export function OnboardingConnectPage() {
 								) }
 							</p>
 						</div>
-					) : isSingleSite ? (
+					) : isSingleAvailableSite ? (
 						<ul className={ `${ styles.siteGrid } ${ styles.singleSiteGrid }` }>
 							<RemoteSiteCard
 								{ ...filteredSites[ 0 ] }

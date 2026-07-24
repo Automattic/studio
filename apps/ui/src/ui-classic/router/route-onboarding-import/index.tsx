@@ -8,7 +8,7 @@ import { CreateSiteForm } from '@/components/create-site-form';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
-import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
+import { useCreateSite, useDeleteSite, useStartSite } from '@/data/queries/use-sites';
 import { clearPendingBackup, peekPendingBackup } from '@/lib/pending-backup';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import sharedStyles from '../layout-onboarding/style.module.css';
@@ -60,6 +60,7 @@ export function OnboardingImportPage() {
 	const createSite = useCreateSite();
 	const importSite = useImportSite();
 	const deleteSite = useDeleteSite();
+	const startSite = useStartSite();
 
 	const [ selectedFile ] = useState< File | null >( peekPendingBackup );
 	const [ submitError, setSubmitError ] = useState< CreateSiteFormError | null >( null );
@@ -118,6 +119,8 @@ export function OnboardingImportPage() {
 				},
 			} );
 			importCompleted = true;
+			// Fire-and-forget after the import lands so the start can't race the restore.
+			startSite.mutate( site.id );
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setHasFailed( true );

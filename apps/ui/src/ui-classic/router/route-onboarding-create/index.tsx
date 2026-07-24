@@ -12,7 +12,7 @@ import {
 	useExistingCustomDomains,
 	useProposedSiteName,
 } from '@/data/queries/use-create-site-helpers';
-import { useCreateSite, useSites } from '@/data/queries/use-sites';
+import { useCreateSite, useSites, useStartSite } from '@/data/queries/use-sites';
 import { pendingBlueprintSlot } from '@/lib/pending-blueprint';
 import { onboardingLayoutRoute, useOnboardingProgress } from '../layout-onboarding';
 import styles from '../layout-onboarding/style.module.css';
@@ -42,6 +42,7 @@ export function CreateSitePage() {
 	const existingDomainNames = useExistingCustomDomains();
 	const { data: proposedName } = useProposedSiteName( sites );
 	const createSite = useCreateSite();
+	const startSite = useStartSite();
 	const [ selectedBlueprint, setSelectedBlueprint ] = useState< SelectedBlueprint | null >( null );
 	const [ isBlueprintValid, setIsBlueprintValid ] = useState( true );
 	const [ submittedInitialValues, setSubmittedInitialValues ] =
@@ -133,6 +134,8 @@ export function CreateSitePage() {
 					  }
 					: {} ),
 			} );
+			// Fire-and-forget so navigation isn't blocked while the site boots.
+			startSite.mutate( site.id );
 			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		} catch ( error ) {
 			setSubmittedInitialValues( null );

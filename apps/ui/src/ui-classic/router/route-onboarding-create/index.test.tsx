@@ -8,6 +8,7 @@ const mocks = vi.hoisted( () => ( {
 	navigate: vi.fn( async () => undefined ),
 	setProgress: vi.fn(),
 	mutateAsync: vi.fn(),
+	startSite: vi.fn(),
 	cleanup: vi.fn( async () => undefined ),
 	proposedName: 'My Studio Site',
 	formProps: null as Record< string, unknown > | null,
@@ -66,6 +67,7 @@ vi.mock( '@/data/queries/use-create-site-helpers', () => ( {
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useSites: () => ( { data: [] } ),
 	useCreateSite: () => ( { mutateAsync: mocks.mutateAsync, isPending: false } ),
+	useStartSite: () => ( { mutate: mocks.startSite } ),
 } ) );
 
 const formValues: CreateSiteFormValues = {
@@ -105,6 +107,7 @@ describe( 'CreateSitePage', () => {
 
 		await waitFor( () => expect( mocks.mutateAsync ).toHaveBeenCalledOnce() );
 		expect( mocks.mutateAsync.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'blueprint' );
+		expect( mocks.startSite ).toHaveBeenCalledWith( 'site-1' );
 		expect( mocks.navigate ).toHaveBeenCalledWith( {
 			to: '/sites/$siteId/new',
 			params: { siteId: 'site-1' },
@@ -176,5 +179,6 @@ describe( 'CreateSitePage', () => {
 		);
 		expect( mocks.cleanup ).toHaveBeenCalledWith( '/tmp/selected' );
 		expect( mocks.formProps?.submitLabel ).toBeUndefined();
+		expect( mocks.startSite ).not.toHaveBeenCalled();
 	} );
 } );

@@ -13,6 +13,7 @@ const mocks = vi.hoisted( () => ( {
 	createSite: vi.fn(),
 	importSite: vi.fn(),
 	deleteSite: vi.fn(),
+	startSite: vi.fn(),
 	formProps: null as Record< string, unknown > | null,
 } ) );
 
@@ -78,6 +79,7 @@ vi.mock( '@/data/queries/use-import-site', () => ( {
 vi.mock( '@/data/queries/use-sites', () => ( {
 	useCreateSite: () => ( { mutateAsync: mocks.createSite } ),
 	useDeleteSite: () => ( { mutateAsync: mocks.deleteSite } ),
+	useStartSite: () => ( { mutate: mocks.startSite } ),
 } ) );
 
 const selectedBackup = new File( [ 'backup' ], 'studio-backup-My Store-2026-07-17.zip' );
@@ -158,6 +160,7 @@ describe( 'OnboardingImportPage', () => {
 		expect( mocks.formProps?.cancelLabel ).toBe( 'Choose another backup' );
 		expect( screen.getByText( /removed the incomplete site/i ) ).toBeVisible();
 		expect( screen.getByText( 'Import exploded' ) ).toBeInTheDocument();
+		expect( mocks.startSite ).not.toHaveBeenCalled();
 
 		fireEvent.click( screen.getByRole( 'button', { name: 'Retry import' } ) );
 		await waitFor( () => expect( mocks.importSite ).toHaveBeenCalledTimes( 2 ) );
@@ -172,6 +175,8 @@ describe( 'OnboardingImportPage', () => {
 				onProgress: expect.any( Function ),
 			} )
 		);
+		expect( mocks.startSite ).toHaveBeenCalledOnce();
+		expect( mocks.startSite ).toHaveBeenCalledWith( 'site-2' );
 		expect( mocks.navigate ).toHaveBeenLastCalledWith( {
 			to: '/sites/$siteId/new',
 			params: { siteId: 'site-2' },
@@ -251,6 +256,7 @@ describe( 'OnboardingImportPage', () => {
 		expect( screen.getByText( /Review the site name and local folder/ ) ).toBeVisible();
 		expect( screen.getByText( 'EACCES: cannot create directory' ) ).toBeInTheDocument();
 		expect( mocks.deleteSite ).not.toHaveBeenCalled();
+		expect( mocks.startSite ).not.toHaveBeenCalled();
 	} );
 
 	it( 'explains unsafe backup paths with a recovery step', async () => {

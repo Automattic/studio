@@ -55,6 +55,7 @@ import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-q
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
+import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import {
 	cleanupBlueprintTempDir,
 	extractBlueprintUpload,
@@ -158,6 +159,8 @@ function toSiteDetails( site: SiteListItem ) {
 		enableXdebug: site.enableXdebug,
 		enableDebugLog: site.enableDebugLog,
 		enableDebugDisplay: site.enableDebugDisplay,
+		enableScriptDebug: site.enableScriptDebug,
+		environmentType: site.environmentType,
 		siteIcon: null,
 	};
 }
@@ -701,6 +704,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			if ( ( updated.enableDebugDisplay ?? false ) !== ( current.enableDebugDisplay ?? false ) ) {
 				options.debugDisplay = updated.enableDebugDisplay ?? false;
+			}
+			if ( ( updated.enableScriptDebug ?? false ) !== ( current.enableScriptDebug ?? false ) ) {
+				options.scriptDebug = updated.enableScriptDebug ?? false;
+			}
+			if ( getWpEnvironmentType( updated ) !== getWpEnvironmentType( current ) ) {
+				options.environmentType = getWpEnvironmentType( updated );
 			}
 
 			// More than path + siteId means a real change to apply.

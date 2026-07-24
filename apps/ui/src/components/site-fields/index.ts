@@ -16,11 +16,18 @@ import {
 	isWordPressBetaVersion,
 	isWordPressDevVersion,
 } from '@studio/common/lib/wordpress-version-utils';
+import {
+	WP_ENVIRONMENT_TYPE_DEVELOPMENT,
+	WP_ENVIRONMENT_TYPE_LOCAL,
+	WP_ENVIRONMENT_TYPE_PRODUCTION,
+	WP_ENVIRONMENT_TYPE_STAGING,
+} from '@studio/common/lib/wp-environment-type';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { WpVersionControl } from '@/components/site-fields/wp-version-control';
 import type { WpVersionOption } from '@/components/site-fields/wp-version-control';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
+import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Field, Option } from '@wordpress/dataviews';
 
@@ -28,6 +35,13 @@ const PHP_VERSION_ELEMENTS = SupportedPHPVersions.map( ( version ) => ( {
 	value: version,
 	label: version,
 } ) );
+
+const ENVIRONMENT_TYPE_ELEMENTS = [
+	{ value: WP_ENVIRONMENT_TYPE_LOCAL, label: __( 'Local' ) },
+	{ value: WP_ENVIRONMENT_TYPE_DEVELOPMENT, label: __( 'Development' ) },
+	{ value: WP_ENVIRONMENT_TYPE_STAGING, label: __( 'Staging' ) },
+	{ value: WP_ENVIRONMENT_TYPE_PRODUCTION, label: __( 'Production' ) },
+];
 
 export function siteNameField< T extends { name: string } >(): Field< T > {
 	return {
@@ -266,5 +280,30 @@ export function enableDebugDisplayField< T extends { enableDebugDisplay: boolean
 		type: 'boolean',
 		label: __( 'Show errors in browser' ),
 		description: __( 'Display PHP errors and warnings directly in the browser.' ),
+	};
+}
+
+export function enableScriptDebugField< T extends { enableScriptDebug: boolean } >(): Field< T > {
+	return {
+		id: 'enableScriptDebug',
+		type: 'boolean',
+		label: __( 'Enable script debug' ),
+		description: __(
+			'Load the development versions of core CSS and JavaScript instead of the minified files. Useful for reading React errors in the block editor.'
+		),
+	};
+}
+
+export function environmentTypeField<
+	T extends { environmentType: WpEnvironmentType },
+>(): Field< T > {
+	return {
+		id: 'environmentType',
+		type: 'text',
+		label: __( 'Environment type' ),
+		elements: ENVIRONMENT_TYPE_ELEMENTS,
+		description: __(
+			'Sets the value returned by wp_get_environment_type(). Plugins and themes use it to vary their behavior between local, staging, and production sites.'
+		),
 	};
 }

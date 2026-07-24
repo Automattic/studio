@@ -23,6 +23,14 @@ import {
 	type SiteRuntime,
 } from '@studio/common/lib/site-runtime';
 import {
+	getWpEnvironmentType,
+	WP_ENVIRONMENT_TYPE_DEVELOPMENT,
+	WP_ENVIRONMENT_TYPE_LOCAL,
+	WP_ENVIRONMENT_TYPE_PRODUCTION,
+	WP_ENVIRONMENT_TYPE_STAGING,
+	type WpEnvironmentType,
+} from '@studio/common/lib/wp-environment-type';
+import {
 	getClosestSupportedPhpVersion,
 	RecommendedPHPVersion,
 	SupportedPHPVersion,
@@ -78,6 +86,12 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 	const [ enableDebugLog, setEnableDebugLog ] = useState( selectedSite?.enableDebugLog ?? false );
 	const [ enableDebugDisplay, setEnableDebugDisplay ] = useState(
 		selectedSite?.enableDebugDisplay ?? false
+	);
+	const [ enableScriptDebug, setEnableScriptDebug ] = useState(
+		selectedSite?.enableScriptDebug ?? false
+	);
+	const [ environmentType, setEnvironmentType ] = useState< WpEnvironmentType >(
+		getWpEnvironmentType( selectedSite ?? {} )
 	);
 	const [ xdebugEnabledSite, setXdebugEnabledSite ] = useState< SiteDetails | null >( null );
 	const [ adminUsername, setAdminUsername ] = useState( selectedSite?.adminUsername ?? 'admin' );
@@ -162,6 +176,15 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		() => activeTab === 'general' || activeTab === 'debugging',
 		[ activeTab ]
 	);
+	const environmentTypeOptions = useMemo< { label: string; value: WpEnvironmentType }[] >(
+		() => [
+			{ label: __( 'Local' ), value: WP_ENVIRONMENT_TYPE_LOCAL },
+			{ label: __( 'Development' ), value: WP_ENVIRONMENT_TYPE_DEVELOPMENT },
+			{ label: __( 'Staging' ), value: WP_ENVIRONMENT_TYPE_STAGING },
+			{ label: __( 'Production' ), value: WP_ENVIRONMENT_TYPE_PRODUCTION },
+		],
+		[ __ ]
+	);
 
 	useEffect( () => {
 		getIpcApi()
@@ -208,7 +231,9 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		( decodePassword( selectedSite.adminPassword ?? '' ) || 'password' ) === adminPassword &&
 		( selectedSite.adminEmail || 'admin@localhost.com' ) === adminEmail &&
 		!! selectedSite.enableDebugLog === enableDebugLog &&
-		!! selectedSite.enableDebugDisplay === enableDebugDisplay;
+		!! selectedSite.enableDebugDisplay === enableDebugDisplay &&
+		!! selectedSite.enableScriptDebug === enableScriptDebug &&
+		getWpEnvironmentType( selectedSite ) === environmentType;
 	const hasValidationErrors =
 		! selectedSite ||
 		! siteName.trim() ||
@@ -237,6 +262,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setAdminEmail( selectedSite.adminEmail || 'admin@localhost.com' );
 		setEnableDebugLog( selectedSite.enableDebugLog ?? false );
 		setEnableDebugDisplay( selectedSite.enableDebugDisplay ?? false );
+		setEnableScriptDebug( selectedSite.enableScriptDebug ?? false );
+		setEnvironmentType( getWpEnvironmentType( selectedSite ) );
 	}, [
 		selectedSite,
 		getEffectiveWpVersion,
@@ -247,6 +274,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		setCustomDomainError,
 		setEnableDebugDisplay,
 		setEnableDebugLog,
+		setEnableScriptDebug,
+		setEnvironmentType,
 		setEnableHttps,
 		setEnableXdebug,
 		setErrorUpdatingWpVersion,
@@ -272,6 +301,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 		const hasDebugLogChanged = enableDebugLog !== ( selectedSite.enableDebugLog ?? false );
 		const hasDebugDisplayChanged =
 			enableDebugDisplay !== ( selectedSite.enableDebugDisplay ?? false );
+		const hasScriptDebugChanged = enableScriptDebug !== ( selectedSite.enableScriptDebug ?? false );
+		const hasEnvironmentTypeChanged = environmentType !== getWpEnvironmentType( selectedSite );
 		const hasDomainChanged =
 			Boolean( selectedSite.customDomain ) !== useCustomDomain ||
 			( useCustomDomain && customDomain !== selectedSite.customDomain );
@@ -295,6 +326,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 				credentialsChanged: hasCredentialsChanged,
 				debugLogChanged: hasDebugLogChanged,
 				debugDisplayChanged: hasDebugDisplayChanged,
+				scriptDebugChanged: hasScriptDebugChanged,
+				environmentTypeChanged: hasEnvironmentTypeChanged,
 			} );
 		setNeedsRestart( needsRestart );
 
@@ -322,6 +355,8 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 					adminEmail,
 					enableDebugLog,
 					enableDebugDisplay,
+					enableScriptDebug,
+					environmentType,
 				},
 				hasWpVersionChanged ? selectedWpVersion : undefined
 			);
@@ -754,6 +789,57 @@ const EditSiteDetails = ( { currentWpVersion, onSave }: EditSiteDetailsProps ) =
 												<div className="text-frame-text-secondary text-xs mt-1">
 													{ __(
 														'Display PHP errors and warnings directly in the browser by setting the WP_DEBUG_DISPLAY constant.'
+													) }
+												</div>
+											</div>
+
+											<div
+												className={ cx(
+													'flex flex-col gap-2 mt-4',
+													isEditingSite ? 'opacity-50 cursor-not-allowed' : ''
+												) }
+											>
+												<div className="flex items-center gap-2">
+													<input
+														type="checkbox"
+														id="enable-script-debug"
+														checked={ enableScriptDebug }
+														onChange={ ( e ) => setEnableScriptDebug( e.target.checked ) }
+														disabled={ isEditingSite }
+													/>
+													<label
+														htmlFor="enable-script-debug"
+														className={ cx( isEditingSite ? 'cursor-not-allowed' : '' ) }
+													>
+														{ __( 'Enable script debug' ) }
+													</label>
+												</div>
+												<div className="text-frame-text-secondary text-xs mt-1">
+													{ __(
+														'Load the development versions of core CSS and JavaScript instead of the minified files by setting the SCRIPT_DEBUG constant. Useful for reading React errors in the block editor.'
+													) }
+												</div>
+											</div>
+
+											<div className="flex flex-col gap-2 mt-4">
+												<label
+													htmlFor="environment-type-select"
+													className="flex flex-col gap-1.5 leading-4"
+												>
+													<span className="font-semibold">{ __( 'Environment type' ) }</span>
+													<SelectControl< WpEnvironmentType >
+														id="environment-type-select"
+														disabled={ isEditingSite }
+														value={ environmentType }
+														options={ environmentTypeOptions }
+														onChange={ ( value ) => setEnvironmentType( value ) }
+														__next40pxDefaultSize
+														__nextHasNoMarginBottom
+													/>
+												</label>
+												<div className="text-frame-text-secondary text-xs">
+													{ __(
+														'Sets the WP_ENVIRONMENT_TYPE constant, which determines the value returned by wp_get_environment_type(). Plugins and themes use it to vary their behavior between local, staging, and production sites.'
 													) }
 												</div>
 											</div>

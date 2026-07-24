@@ -13,13 +13,17 @@ import styles from './style.module.css';
 // Toggles whether chat is on offer. It's a stored preference, not a UI switch —
 // turning it off keeps you in the agentic UI and preserves existing
 // conversations. Switching all the way back to the classic UI lives in Settings.
+// Agentic features need a WordPress.com account, so the toggle is locked (and
+// reads off) until the user signs in.
 function AgenticFeaturesSection() {
+	const { reason } = usePreviewAgenticFeatures();
 	const { data: preferences, isLoading } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
 	const enabled = preferences?.agenticFeaturesEnabled ?? true;
+	const signedOut = reason === 'signed-out';
 
 	return (
-		<section className={ styles.card }>
+		<section className={ clsx( styles.card, signedOut && styles.cardDisabled ) }>
 			<div className={ styles.cardHeader }>
 				<div className={ styles.cardHeaderText }>
 					<h2 className={ styles.cardTitle }>{ __( 'Agentic features' ) }</h2>
@@ -31,13 +35,16 @@ function AgenticFeaturesSection() {
 				</div>
 				<div className={ clsx( styles.cardHeaderActions, styles.toggleControl ) }>
 					<FormToggle
-						checked={ enabled }
-						disabled={ isLoading }
+						checked={ enabled && ! signedOut }
+						disabled={ isLoading || signedOut }
 						aria-label={ __( 'Agentic features' ) }
 						onChange={ () => savePreferences.mutate( { agenticFeaturesEnabled: ! enabled } ) }
 					/>
 				</div>
 			</div>
+			{ signedOut ? (
+				<p className={ styles.signInNotice }>{ __( 'You must log in for agentic features.' ) }</p>
+			) : null }
 		</section>
 	);
 }

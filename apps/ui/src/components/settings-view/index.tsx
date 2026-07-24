@@ -343,8 +343,8 @@ function PreferencesPanel( {
 				</section>
 				<StudioExperienceSection />
 				<StudioCliSection />
-				<KeyboardPanel />
 				<McpSection />
+				<KeyboardPanel />
 			</div>
 		</div>
 	);

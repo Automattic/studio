@@ -4,10 +4,8 @@ import {
 	formatQuotaResetDateShort,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
-import { moreHorizontal } from '@wordpress/icons';
-import { IconButton } from '@wordpress/ui';
+import { Button, Tooltip } from '@wordpress/ui';
 import { clsx } from 'clsx';
-import * as Menu from '@/components/menu';
 import { useConnector } from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import {
@@ -109,16 +107,23 @@ export function AiCreditsSection() {
 
 	if ( quota && quota.costCap > 0 ) {
 		const fraction = clampQuotaFraction( quota.costUsage, quota.costCap );
+		// Round the shown figure up to the next whole percent (toFixed guards
+		// float noise like 0.07 * 100 = 7.0000001); the bar still fills to the
+		// exact value.
+		const wholePercent = Math.ceil( Number( ( fraction * 100 ).toFixed( 4 ) ) );
 		return (
 			<Meter
 				title={ __( 'AI credits' ) }
 				meta={ sprintf(
 					/* translators: %s: date the limit resets (e.g. Jul 31). */
-					__( 'Reset %s' ),
+					__( 'Resets %s' ),
 					formatQuotaResetDateShort( quota.costResetDate, locale )
 				) }
 			>
-				<Gauge fraction={ fraction } value={ formatQuotaPercentage( fraction, locale ) } />
+				<Gauge
+					fraction={ fraction }
+					value={ formatQuotaPercentage( wholePercent / 100, locale ) }
+				/>
 			</Meter>
 		);
 	}
@@ -147,9 +152,6 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 	// Empty while loading: a bar still filled from the previous figure would
 	// contradict the "Loading..." row next to it.
 	const fraction = isLoadingPreviewUsage ? 0 : clampQuotaFraction( siteCount, siteLimit );
-	const deletePreviewSitesLabel = deleteAllSnapshots.isPending
-		? __( 'Deleting preview sites...' )
-		: __( 'Delete all preview sites' );
 
 	const handleDelete = async () => {
 		if ( isDisabled ) {
@@ -175,7 +177,7 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 		? __( 'Loading...' )
 		: sprintf(
 				/* translators: 1: number of active preview sites, 2: maximum allowed. */
-				__( '%1$d of %2$d' ),
+				__( '%1$d/%2$d' ),
 				siteCount,
 				siteLimit
 		  );
@@ -184,26 +186,28 @@ function PreviewSitesSummary( { userId }: { userId: number } ) {
 		<Meter
 			title={ __( 'Preview sites' ) }
 			trailing={
-				<Menu.Root modal={ false }>
-					<Menu.Trigger
+				<Tooltip.Root>
+					<Tooltip.Trigger
 						render={
-							<IconButton
+							<Button
+								type="button"
 								variant="minimal"
 								tone="neutral"
 								size="small"
-								icon={ moreHorizontal }
-								label={ __( 'Preview site actions' ) }
 								className={ styles.meterActionsButton }
 								disabled={ isDisabled }
-							/>
+								loading={ deleteAllSnapshots.isPending }
+								loadingAnnouncement={ __( 'Deleting preview sites…' ) }
+								onClick={ () => void handleDelete() }
+							>
+								{ __( 'Reset' ) }
+							</Button>
 						}
 					/>
-					<Menu.Popup side="bottom" align="end">
-						<Menu.Item disabled={ isDisabled } onClick={ () => void handleDelete() }>
-							{ deletePreviewSitesLabel }
-						</Menu.Item>
-					</Menu.Popup>
-				</Menu.Root>
+					<Tooltip.Popup positioner={ <Tooltip.Positioner side="top" /> }>
+						{ __( 'Delete all preview sites' ) }
+					</Tooltip.Popup>
+				</Tooltip.Root>
 			}
 		>
 			<Gauge fraction={ fraction } value={ value } />

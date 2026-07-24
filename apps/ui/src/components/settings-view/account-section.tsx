@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { caution, Icon, page } from '@wordpress/icons';
 import { Button } from '@wordpress/ui';
+import { clsx } from 'clsx';
 import { Gravatar } from '@/components/gravatar';
 import { useConnector } from '@/data/core';
 import { useLogin, useLogout } from '@/data/queries/use-auth-user';
@@ -66,8 +67,10 @@ export function AccountSection() {
 						</div>
 					</section>
 
-					<AiCreditsSection />
-					<PreviewUsageSection userId={ user.id } />
+					<div className={ styles.usageGroup }>
+						<AiCreditsSection />
+						<PreviewUsageSection userId={ user.id } />
+					</div>
 				</>
 			) : (
 				<section className={ styles.asideSection }>
@@ -93,11 +96,6 @@ export function AccountSection() {
 				</section>
 			) }
 
-			<section className={ styles.asideSection }>
-				<h2 className={ styles.asideHeading }>{ __( 'Help' ) }</h2>
-				<AccountHelpLinks />
-			</section>
-
 			{ user ? (
 				<Button
 					type="button"
@@ -111,6 +109,11 @@ export function AccountSection() {
 					{ __( 'Log out' ) }
 				</Button>
 			) : null }
+
+			<section className={ clsx( styles.asideSection, styles.accountHelp ) }>
+				<h2 className={ styles.asideHeading }>{ __( 'Help' ) }</h2>
+				<AccountHelpLinks />
+			</section>
 		</div>
 	);
 }

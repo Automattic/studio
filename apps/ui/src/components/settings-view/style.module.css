@@ -3,7 +3,8 @@
    --------------------------------------------------------------------------
    Every settings tab is built from the same primitives:
 
-     .panel   — a tab's centered column of cards
+     .settingsLayout — a tab's column, one column that becomes two (Account
+                aside + main) when there's room
      .card    — a bordered section: a header followed by body content
                 (.cardHeader, .cardHeaderText, .cardTitle, .cardDescription,
                  .cardHeaderActions for a trailing control)
@@ -22,7 +23,8 @@
 .root {
 	--settings-form-width: 560px;
 	--settings-wide-width: 880px;
-	--settings-aside-width: 260px;
+	--settings-aside-width: 232px;
+	--settings-header-height: 54px;
 	--settings-divider-border: 1px dotted
 		color-mix(in srgb, var(--wpds-color-stroke-surface-neutral) 72%, transparent);
 	--settings-row-padding-block: calc(var(--wpds-dimension-padding-md) + 2px);
@@ -47,7 +49,7 @@
 	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 	align-items: center;
 	gap: var(--wpds-dimension-padding-sm);
-	min-height: 54px;
+	min-height: var(--settings-header-height);
 	border-bottom: 1px solid var(--wpds-color-stroke-surface-neutral);
 	color: var(--wpds-color-fg-content-neutral);
 	-webkit-app-region: drag;
@@ -162,7 +164,23 @@
 	.settingsLayout {
 		grid-template-columns: var(--settings-aside-width) minmax(0, 1fr);
 		align-items: start;
+		column-gap: var(--wpds-dimension-padding-2xl);
 		max-width: var(--settings-wide-width);
+	}
+
+	/* Keep the account column in view while the main column scrolls, filling the
+	   viewport so its Help links pin to the bottom (min-height, so it still grows
+	   if its own content is taller than the window). */
+	.accountAside {
+		position: sticky;
+		top: var(--wpds-dimension-padding-2xl);
+		min-height: calc(
+			100dvh - var(--settings-header-height) - 2 * var(--wpds-dimension-padding-2xl)
+		);
+	}
+
+	.accountHelp {
+		margin-block-start: auto;
 	}
 }
 
@@ -212,6 +230,21 @@
 	font-size: var(--wpds-typography-font-size-sm);
 	/* Pair sm text with the sm line-height (20px). line-height-md (24px) is the
 	   md pairing and double-spaces 12px text. */
+	line-height: var(--wpds-typography-line-height-sm);
+}
+
+/* A card whose setting is unavailable (e.g. agentic features while signed out):
+   mute the heading text to match its disabled control. The sign-in notice below
+   stays at full contrast, since it's the actionable call to sign in. */
+.cardDisabled .cardTitle,
+.cardDisabled .cardDescription {
+	color: var(--wpds-color-fg-interactive-neutral-disabled);
+}
+
+.signInNotice {
+	margin: 0;
+	color: var(--wpds-color-fg-content-neutral);
+	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
@@ -332,16 +365,19 @@
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
-	gap: var(--wpds-dimension-padding-md);
+	gap: var(--wpds-dimension-padding-sm);
 }
 
-/* Title (+ inline meta) on the left, figure (+ optional menu) on the right. */
+/* Title (+ inline meta) on the left, figure (+ optional menu) on the right. A
+   fixed height keeps the header (and so the gap to the bar) identical whether
+   the row holds plain meta text or the taller ⋯ menu button. */
 .meterHeader {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--wpds-dimension-padding-md);
 	min-width: 0;
+	block-size: var(--wpds-typography-line-height-md);
 }
 
 .meterHeaderEnd {
@@ -374,8 +410,20 @@
 	line-height: var(--wpds-typography-line-height-sm);
 }
 
+/* The preview "Reset" button reads like the AI-credits meta text (weak, sm,
+   regular weight) with its label flush to the right edge — no button padding,
+   fill or min-width — so it lines up with "Resets Jul 31" above it. */
 .meterActionsButton {
 	flex-shrink: 0;
+	font-size: var(--wpds-typography-font-size-sm);
+	font-weight: 400;
+	--wp-ui-button-padding-inline: 0;
+	--wp-ui-button-min-width: 0;
+	--wp-ui-button-background-color: transparent;
+	--wp-ui-button-background-color-active: transparent;
+	--wp-ui-button-background-color-disabled: transparent;
+	--wp-ui-button-foreground-color: var(--wpds-color-fg-content-neutral-weak);
+	--wp-ui-button-foreground-color-active: var(--wpds-color-fg-content-neutral);
 }
 
 /* Thin pill bar: bright brand fill on a neutral track. */
@@ -409,7 +457,7 @@
 .gaugeValue {
 	flex-shrink: 0;
 	color: var(--wpds-color-fg-content-neutral);
-	font-size: var(--wpds-typography-font-size-md);
+	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-sm);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
@@ -507,7 +555,9 @@
 	font-family: var(--wpds-typography-font-family-body);
 	font-size: var(--wpds-typography-font-size-sm);
 	line-height: var(--wpds-typography-line-height-md);
-	resize: vertical;
+	/* Height is driven by content (auto-grow in the panel); no manual handle. */
+	resize: none;
+	overflow: hidden;
 }
 
 .instructionsTextarea::placeholder {
@@ -547,6 +597,14 @@
 }
 
 .asideSection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--wpds-dimension-padding-md);
+}
+
+/* Keeps the AI credits + preview usage meters grouped a little tighter than the
+   aside's default rhythm. */
+.usageGroup {
 	display: flex;
 	flex-direction: column;
 	gap: var(--wpds-dimension-padding-md);
@@ -616,11 +674,9 @@
 
 /* Log out reads as a destructive action. wpds Button has no error tone, so
    recolor its internal vars: a subtle translucent red fill with a vivid red
-   label (the error-strong red, deepening its fill on hover/active). A small
-   button, set apart with extra space above. */
+   label (the error-strong red, deepening its fill on hover/active). */
 .logoutButton {
 	align-self: flex-start;
-	margin-block-start: var(--wpds-dimension-padding-xl);
 	--wp-ui-button-background-color: color-mix(
 		in srgb,
 		var(--wpds-color-bg-interactive-error-strong) 14%,

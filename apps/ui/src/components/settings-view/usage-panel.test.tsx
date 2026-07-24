@@ -15,28 +15,29 @@ import { AiCreditsSection, PreviewUsageSection } from './usage-panel';
 import type { ReactNode } from 'react';
 
 vi.mock( '@wordpress/ui', () => ( {
-	IconButton: ( { label, disabled }: { label: string; disabled?: boolean } ) => (
-		<button type="button" aria-label={ label } disabled={ disabled } />
-	),
-} ) );
-
-vi.mock( '@/components/menu', () => ( {
-	Root: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	Trigger: ( { render: trigger }: { render: ReactNode } ) => trigger,
-	Popup: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
-	Item: ( {
+	Button: ( {
 		children,
 		disabled,
 		onClick,
+		loading,
+		loadingAnnouncement,
 	}: {
-		children: ReactNode;
+		children?: ReactNode;
 		disabled?: boolean;
 		onClick?: () => void;
+		loading?: boolean;
+		loadingAnnouncement?: string;
 	} ) => (
 		<button type="button" disabled={ disabled } onClick={ onClick }>
-			{ children }
+			{ loading ? loadingAnnouncement : children }
 		</button>
 	),
+	Tooltip: {
+		Root: ( { children }: { children: ReactNode } ) => <>{ children }</>,
+		Trigger: ( { render: trigger }: { render: ReactNode } ) => trigger,
+		Popup: ( { children }: { children: ReactNode } ) => <div>{ children }</div>,
+		Positioner: () => null,
+	},
 } ) );
 
 vi.mock( '@/data/core', () => ( {
@@ -136,7 +137,7 @@ describe( 'usage sections', () => {
 			render( <AiCreditsSection /> );
 
 			expect( screen.getByText( '25%' ) ).toBeInTheDocument();
-			expect( screen.getByText( 'Reset Aug 1' ) ).toBeInTheDocument();
+			expect( screen.getByText( 'Resets Aug 1' ) ).toBeInTheDocument();
 			expect( screen.queryByText( ALPHA_META ) ).not.toBeInTheDocument();
 		} );
 
@@ -184,7 +185,7 @@ describe( 'usage sections', () => {
 			render( <PreviewUsageSection userId={ 1 } /> );
 
 			expect( screen.getByRole( 'heading', { name: 'Preview sites' } ) ).toBeInTheDocument();
-			expect( screen.getByText( '2 of 10' ) ).toBeInTheDocument();
+			expect( screen.getByText( '2/10' ) ).toBeInTheDocument();
 			expect( useSnapshotsMock ).toHaveBeenCalledWith( 1 );
 			expect( useSnapshotUsageMock ).toHaveBeenCalledWith( 1 );
 			expect( useDeleteAllSnapshotsMock ).toHaveBeenCalledWith( 1 );
@@ -193,7 +194,7 @@ describe( 'usage sections', () => {
 		it( 'confirms through the connector before deleting all preview sites', async () => {
 			render( <PreviewUsageSection userId={ 1 } /> );
 
-			fireEvent.click( screen.getByRole( 'button', { name: 'Delete all preview sites' } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Reset' } ) );
 
 			await waitFor( () => expect( confirmDeleteAllPreviewSites ).toHaveBeenCalledTimes( 1 ) );
 			expect( deleteSnapshotsMutate ).toHaveBeenCalledTimes( 1 );
@@ -204,7 +205,7 @@ describe( 'usage sections', () => {
 
 			render( <PreviewUsageSection userId={ 1 } /> );
 
-			fireEvent.click( screen.getByRole( 'button', { name: 'Delete all preview sites' } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Reset' } ) );
 
 			await waitFor( () => expect( confirmDeleteAllPreviewSites ).toHaveBeenCalledTimes( 1 ) );
 			expect( deleteSnapshotsMutate ).not.toHaveBeenCalled();
@@ -247,9 +248,7 @@ describe( 'usage sections', () => {
 
 			expect( screen.getByRole( 'img', { name: 'Unavailable' } ) ).toBeInTheDocument();
 			expect( screen.queryByText( /active preview site/ ) ).not.toBeInTheDocument();
-			expect(
-				screen.queryByRole( 'button', { name: 'Delete all preview sites' } )
-			).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'button', { name: 'Reset' } ) ).not.toBeInTheDocument();
 		} );
 	} );
 } );

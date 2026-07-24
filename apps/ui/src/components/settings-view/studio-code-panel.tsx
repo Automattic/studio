@@ -7,6 +7,7 @@ import {
 	useAgentInstructions,
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
+import { usePreviewAgenticFeatures } from './settings-preview';
 import styles from './style.module.css';
 
 // Long enough that a normal typing burst lands as one write, short enough that
@@ -14,6 +15,7 @@ import styles from './style.module.css';
 const SAVE_DEBOUNCE_MS = 800;
 
 export function StudioCodePanel() {
+	const { reason } = usePreviewAgenticFeatures();
 	const { data: saved } = useAgentInstructions();
 	const { mutate: save, isError } = useSaveAgentInstructions();
 	const [ edits, setEdits ] = useState< string | null >( null );
@@ -26,6 +28,17 @@ export function StudioCodePanel() {
 	const enabled = userEnabled ?? ( saved?.length ?? 0 ) > 0;
 
 	const pending = useRef< string | null >( null );
+	const textareaRef = useRef< HTMLTextAreaElement >( null );
+
+	// Grow the editor to fit its content, from a compact starting height.
+	useEffect( () => {
+		const el = textareaRef.current;
+		if ( ! el ) {
+			return;
+		}
+		el.style.height = 'auto';
+		el.style.height = `${ el.scrollHeight }px`;
+	}, [ content, enabled, reason ] );
 
 	useEffect( () => {
 		pending.current = isDirty ? content : null;
@@ -53,6 +66,7 @@ export function StudioCodePanel() {
 		return <div className={ styles.state }>{ __( 'Loading…' ) }</div>;
 	}
 
+	const signedOut = reason === 'signed-out';
 	const showCounter = enabled && content.length >= GLOBAL_INSTRUCTIONS_MAX_LENGTH * 0.8;
 
 	// Turning the switch off both hides the editor and clears the stored
@@ -67,7 +81,7 @@ export function StudioCodePanel() {
 	};
 
 	return (
-		<section className={ styles.card }>
+		<section className={ clsx( styles.card, signedOut && styles.cardDisabled ) }>
 			<div className={ styles.cardHeader }>
 				<div className={ styles.cardHeaderText }>
 					<h2 className={ styles.cardTitle }>{ __( 'Instructions' ) }</h2>
@@ -79,18 +93,23 @@ export function StudioCodePanel() {
 				</div>
 				<div className={ clsx( styles.cardHeaderActions, styles.toggleControl ) }>
 					<FormToggle
-						checked={ enabled }
+						checked={ enabled && ! signedOut }
+						disabled={ signedOut }
 						aria-label={ __( 'Enable instructions' ) }
 						onChange={ handleToggle }
 					/>
 				</div>
 			</div>
-			{ enabled && (
+			{ signedOut && (
+				<p className={ styles.signInNotice }>{ __( 'You must log in for agent instructions.' ) }</p>
+			) }
+			{ ! signedOut && enabled && (
 				<>
 					<textarea
+						ref={ textareaRef }
 						className={ styles.instructionsTextarea }
 						aria-label={ __( 'Instructions' ) }
-						rows={ 12 }
+						rows={ 3 }
 						placeholder={ __( 'e.g. Always answer in French. My sites are for restaurants.' ) }
 						value={ content }
 						onChange={ ( event ) =>

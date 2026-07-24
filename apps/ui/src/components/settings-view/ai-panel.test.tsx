@@ -112,6 +112,17 @@ describe( 'AiPanel', () => {
 		expect( mutate ).toHaveBeenCalledWith( { agenticFeaturesEnabled: true } );
 	} );
 
+	it( 'locks the agentic features toggle and prompts sign-in when signed out', () => {
+		mockConnector();
+		useAgenticFeaturesMock.mockReturnValue( { reason: 'signed-out' } as never );
+		render( <AiPanel /> );
+
+		const toggle = screen.getByRole( 'checkbox', { name: 'Agentic features' } );
+		expect( toggle ).toBeDisabled();
+		expect( toggle ).not.toBeChecked();
+		expect( screen.getByText( 'You must log in for agentic features.' ) ).toBeInTheDocument();
+	} );
+
 	it( 'shows the global instructions editor alongside the agentic features toggle', () => {
 		mockConnector();
 		render( <AiPanel /> );

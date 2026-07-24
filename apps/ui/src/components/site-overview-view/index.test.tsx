@@ -18,11 +18,14 @@ import {
 } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { useOffline } from '@/hooks/use-offline';
+import styles from './style.module.css';
 import { SiteOverviewView } from './index';
 import type { SiteDetails } from '@/data/core';
 
 const navigateMock = vi.fn();
 const siteDropdownMock = vi.hoisted( () => vi.fn() );
+const useSidebarCollapsedMock = vi.hoisted( () => vi.fn() );
+const useTrafficLightSpaceMock = vi.hoisted( () => vi.fn() );
 
 const WP_VERSIONS = [
 	{ label: '6.8', value: 'latest', isBeta: false, isDevelopment: false },
@@ -95,7 +98,11 @@ vi.mock( '@/hooks/use-offline', () => ( {
 } ) );
 
 vi.mock( '@/hooks/use-sidebar-collapsed', () => ( {
-	useSidebarCollapsed: () => false,
+	useSidebarCollapsed: useSidebarCollapsedMock,
+} ) );
+
+vi.mock( '@/hooks/use-traffic-light-space', () => ( {
+	useTrafficLightSpace: useTrafficLightSpaceMock,
 } ) );
 
 const useConnectorMock = vi.mocked( useConnector, { partial: true } );
@@ -125,6 +132,8 @@ describe( 'SiteOverviewView', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		useSidebarCollapsedMock.mockReturnValue( false );
+		useTrafficLightSpaceMock.mockReturnValue( false );
 		vi.stubGlobal( 'ResizeObserver', ResizeObserverMock );
 		Object.defineProperty( window, 'matchMedia', {
 			writable: true,
@@ -206,6 +215,17 @@ describe( 'SiteOverviewView', () => {
 		expect( screen.getByText( 'Export DB' ) ).toBeVisible();
 		expect( screen.getByText( 'Delete' ) ).toBeVisible();
 		expect( screen.queryByDisplayValue( 'Demo Site' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offsets the site menu below macOS traffic lights when the sidebar is collapsed', () => {
+		useSidebarCollapsedMock.mockReturnValue( true );
+		useTrafficLightSpaceMock.mockReturnValue( true );
+
+		renderView();
+
+		expect( screen.getByText( 'Demo Site' ).parentElement ).toHaveClass(
+			styles.headerSidebarCollapsed
+		);
 	} );
 
 	it( 'reports tab selection to the route', () => {

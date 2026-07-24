@@ -159,10 +159,11 @@ Every event also carries the common props `channel`, `is_a11n`, `platform`, `arc
    `apps/cli/lib/tracks.ts`, or the `recordAnalyticsEvent` IPC handler / `Connector.trackEvent` from a
    renderer). Prefer a standardized property name from the vocabulary above; only add a custom prop when
    none fits, and flag it.
-3. **Register the event and its custom eventprops** via the Tracks Registration tool. Registration adds
+3. **Register the event and all its eventprops** via the Tracks Registration tool. Registration adds
    documentation and CI integrity checks — it does not gate collection or queryability (a validly-named
-   event is already queryable in Superset without it). Common/default props come for free; register only
-   the event's own custom props.
+   event is already queryable in Superset without it). Register every prop the event carries, including the
+   wrapper-attached common props (`channel`, `is_a11n`, `platform`, `arch`, `app_version`, `ui_version`);
+   only the reserved Tracks defaults (timestamp, etc.) come for free.
 4. Add a row to the event catalog above.
 
 ## Testing

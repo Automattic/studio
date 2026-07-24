@@ -117,6 +117,10 @@ vi.mock( '@/data/queries/use-user-preferences', () => ( {
 	useUserPreferences: vi.fn(),
 } ) );
 
+vi.mock( '@/data/queries/use-wapuu-score', () => ( {
+	useWapuuScore: () => ( { data: null } ),
+} ) );
+
 // The mocked Tabs render every panel unconditionally; the usage panel has its
 // own test file.
 vi.mock( './usage-panel', () => ( {

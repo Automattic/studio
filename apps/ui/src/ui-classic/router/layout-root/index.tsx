@@ -7,6 +7,7 @@ import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { useAppMenuNavigation } from '@/hooks/use-app-menu-navigation';
+import { WapuuWorldMount } from '@/ui-classic/components/wapuu-world';
 import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -83,6 +84,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 		<>
 			<AppMenuNavigation />
 			<DeletedSiteRedirect />
+			<WapuuWorldMount />
 			<Outlet />
 		</>
 	),

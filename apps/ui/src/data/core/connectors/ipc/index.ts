@@ -754,6 +754,13 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
+		async getWapuuScore(): Promise< number | undefined > {
+			return ( await ipcApi.getWapuuScore() ) as number | undefined;
+		},
+		async saveWapuuScore( score: number ): Promise< void > {
+			await ipcApi.saveWapuuScore( score );
+		},
+
 		async popupAppMenu( position: { x: number; y: number } ): Promise< void > {
 			ipcApi.popupAppMenu( position );
 		},

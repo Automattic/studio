@@ -22,6 +22,7 @@ import { SkillsPanel } from './skills-panel';
 import { StudioCliSection } from './studio-cli-section';
 import styles from './style.module.css';
 import { UsagePanel } from './usage-panel';
+import { WapuuScore } from './wapuu-score';
 import type { PreferencesFormData } from './preferences';
 import type {
 	ColorScheme,
@@ -326,6 +327,7 @@ function PreferencesPanel( {
 				</PreferenceRow>
 			</section>
 			<AccountSection />
+			<WapuuScore />
 			<StudioCliSection />
 			<StudioExperienceSection />
 		</div>

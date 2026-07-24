@@ -7,7 +7,7 @@ import {
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import { CheckboxControl, FormToggle } from '@wordpress/components';
+import { FormToggle } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { audio, close } from '@wordpress/icons';
 import { Button, IconButton, SelectControl } from '@wordpress/ui';
@@ -98,6 +98,13 @@ const QUIT_SITES_BEHAVIOR_ELEMENTS: {
 	{ value: 'leave-running', label: __( 'Keep sites running' ) },
 	{ value: 'stop-and-auto-start', label: __( 'Stop, restart on next launch' ) },
 	{ value: 'stop', label: __( 'Stop sites' ) },
+];
+
+type AnalyticsChoice = 'share' | 'off';
+
+const ANALYTICS_ELEMENTS: { value: AnalyticsChoice; label: string }[] = [
+	{ value: 'share', label: __( 'Share anonymous data' ) },
+	{ value: 'off', label: __( 'Don’t share' ) },
 ];
 
 const LOCALE_ELEMENTS: { value: SupportedLocale; label: string }[] = Object.entries(
@@ -451,12 +458,13 @@ function PreferencesPanel( {
 								onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
 							/>
 						</PreferenceRow>
-						<PreferenceRow title={ __( 'Usage statistics' ) }>
-							<CheckboxControl
-								__nextHasNoMarginBottom
-								label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
-								checked={ data.analyticsEnabled }
-								onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
+						<PreferenceRow title={ __( 'Help improve Studio by sharing anonymous usage data' ) }>
+							<PreferenceSelect< AnalyticsChoice >
+								label={ __( 'Help improve Studio by sharing anonymous usage data' ) }
+								className={ styles.selectControlAuto }
+								value={ data.analyticsEnabled ? 'share' : 'off' }
+								options={ ANALYTICS_ELEMENTS }
+								onChange={ ( choice ) => onChange( { analyticsEnabled: choice === 'share' } ) }
 							/>
 						</PreferenceRow>
 					</div>

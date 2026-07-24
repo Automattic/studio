@@ -202,9 +202,11 @@
 	position: absolute;
 	bottom: calc(100% + var(--wpds-dimension-padding-md));
 	inset-inline-start: 0;
-	/* Inset by the composer shell's inline padding so the button lines up
-	   with the send button inside the shell. */
-	inset-inline-end: var(--classic-composer-shell-inline-padding);
+	/* Match the send button's inset: the composer toolbar's inline padding is
+	   the shell inline padding minus padding-xs (see composer .toolbar). */
+	inset-inline-end: calc(
+		var(--classic-composer-shell-inline-padding) - var(--wpds-dimension-padding-xs)
+	);
 	display: flex;
 	justify-content: flex-end;
 	pointer-events: none;

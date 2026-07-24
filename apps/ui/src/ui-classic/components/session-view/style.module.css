@@ -149,6 +149,7 @@
 }
 
 .classicComposerColumn {
+	position: relative;
 	max-width: var(--classic-composer-column-max-width);
 }
 
@@ -191,6 +192,56 @@
 .panelFooterControlsEnd {
 	left: auto;
 	right: var(--classic-panel-control-left);
+}
+
+/* Anchors the scroll-to-latest button to the composer column, floating it
+   above the composer without contributing to the measured composer height. */
+.scrollToLatestWrap {
+	position: absolute;
+	bottom: calc(100% + var(--wpds-dimension-padding-md));
+	inset-inline-start: 0;
+	/* Match the send button's inset: the composer toolbar's inline padding is
+	   the shell inline padding minus padding-xs (see composer .toolbar). */
+	inset-inline-end: calc(
+		var(--classic-composer-shell-inline-padding) - var(--wpds-dimension-padding-xs)
+	);
+	display: flex;
+	justify-content: flex-end;
+	pointer-events: none;
+	-webkit-app-region: no-drag;
+}
+
+.scrollToLatestButton {
+	/* Match the 28px composer send button. */
+	--wp-ui-button-height: 28px;
+	--wp-ui-button-aspect-ratio: 1;
+	--wp-ui-button-min-width: unset;
+	--wp-ui-button-padding-inline: 0;
+	--wp-ui-button-background-color: var(--wpds-color-bg-surface-neutral-strong);
+	--wp-ui-button-border-color: var(--wpds-color-stroke-surface-neutral-weak);
+
+	pointer-events: auto;
+	border-radius: 50%;
+	box-shadow: var(--wpds-elevation-md);
+	animation: scroll-to-latest-appear 120ms ease-out;
+}
+
+@keyframes scroll-to-latest-appear {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.scrollToLatestButton {
+		animation: none;
+	}
 }
 
 .classicComposerFooter {

@@ -293,6 +293,9 @@
 .rowActionButton,
 .rowViewButton {
 	height: 28px;
+}
+
+.rowViewButton {
 	color: var(--wpds-color-fg-interactive-neutral);
 }
 

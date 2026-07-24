@@ -1,6 +1,7 @@
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
+import { CheckboxControl } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 import { close, file, Icon } from '@wordpress/icons';
 import { Button, IconButton, SelectControl } from '@wordpress/ui';
@@ -337,6 +338,14 @@ function PreferencesPanel( {
 								value={ data.quitSitesBehavior }
 								options={ QUIT_SITES_BEHAVIOR_ELEMENTS }
 								onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
+							/>
+						</PreferenceRow>
+						<PreferenceRow title={ __( 'Usage statistics' ) }>
+							<CheckboxControl
+								__nextHasNoMarginBottom
+								label={ __( 'Help improve Studio by sharing anonymous usage statistics' ) }
+								checked={ data.analyticsEnabled }
+								onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
 							/>
 						</PreferenceRow>
 					</div>

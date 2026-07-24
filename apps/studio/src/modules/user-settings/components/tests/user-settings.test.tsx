@@ -43,6 +43,8 @@ const mockIpcApi = {
 	isStudioCliInstalled: vi.fn().mockResolvedValue( true ),
 	copyText: vi.fn().mockResolvedValue( undefined ),
 	getDefaultSiteDirectory: vi.fn().mockResolvedValue( '/mock/default/site/path' ),
+	getAnalyticsEnabled: vi.fn().mockResolvedValue( true ),
+	saveAnalyticsEnabled: vi.fn().mockResolvedValue( undefined ),
 	getWapuuScore: vi.fn().mockResolvedValue( undefined ),
 	getColorScheme: vi.fn().mockResolvedValue( 'light' ),
 	saveColorScheme: vi.fn().mockResolvedValue( undefined ),

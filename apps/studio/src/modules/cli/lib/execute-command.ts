@@ -2,8 +2,15 @@ import { app } from 'electron';
 import { fork, spawnSync, type ChildProcess, type StdioOptions } from 'node:child_process';
 import * as Sentry from '@sentry/electron/main';
 import { z } from 'zod';
+import { getFeatureFlagFromEnv } from 'src/lib/feature-flags';
 import { TypedEventEmitter } from 'src/modules/cli/lib/typed-event-emitter';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
+
+// Origin tag passed to every app-spawned CLI process so its Tracks events are attributed to the
+// active desktop renderer (v1 = legacy, v2 = agentic). Read by the CLI in `apps/cli/lib/tracks.ts`.
+function getTracksOriginEnv(): string {
+	return getFeatureFlagFromEnv( 'enableAgenticUi' ) ? 'studio-ui:v2' : 'studio-ui:v1';
+}
 
 export type CliCommandResult = {
 	stdout: string;
@@ -131,7 +138,7 @@ export function executeCliCommand(
 		stdio,
 		execPath: getBundledNodeBinaryPath(),
 		execArgv: [ '--experimental-wasm-jspi' ],
-		env: { ...process.env, ...options.env },
+		env: { ...process.env, STUDIO_TRACKS_ORIGIN: getTracksOriginEnv(), ...options.env },
 	} );
 	const eventEmitter = new TypedEventEmitter< CliCommandEventMap< boolean > >();
 
